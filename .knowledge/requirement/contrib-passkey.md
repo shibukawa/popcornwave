@@ -23,6 +23,7 @@ credential_record:
   - transports when supplied
 required:
   - registration and authentication ceremonies
+  - ES256 registration and authentication succeed against two independent authenticator fixtures or implementations
   - discoverable credentials and username-less authentication
   - exact challenge, origin, RP ID hash, client data type, UP, and configured UV verification
   - authenticator data parsing and assertion signature verification
@@ -32,7 +33,7 @@ required:
   - single-use expiring ceremony state supplied to caller for storage
   - counter risk is surfaced when the authenticator counter does not increase
   - applications persist the accepted counter and backup state atomically with credential state
-  - RP/user display strings, origins, and credential descriptor lists are bounded before options are generated
+  - RP/user display strings, origins, credential descriptor lists, and transport hints are bounded before options are generated
   - policy:passkey-security
 deferred:
   - packed, TPM, Android, Apple, and FIDO U2F attestation trust validation

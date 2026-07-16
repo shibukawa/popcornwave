@@ -19,12 +19,17 @@ required:
   - S256 PKCE only
   - store expiring correlation data and atomically consume it before code exchange
   - exact redirect URI supplied by application
+  - protocol-managed authorization parameters cannot be overridden by extension parameters
+  - scope values follow the RFC scope-token grammar and cannot contain whitespace or control bytes
+  - endpoint validator mutations cannot rewrite the configured request endpoints
   - client_secret_basic and client_secret_post token authentication
   - bounded token endpoint request and response
+  - bounded standard token string fields
   - typed token response with bounded raw extension values
   - policy:oauth-security
 deferred:
   - authorization server implementation
+  - public clients without a configured client secret
   - implicit and resource-owner password grants
   - device authorization and token exchange
   - private_key_jwt and DPoP

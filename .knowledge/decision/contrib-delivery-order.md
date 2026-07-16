@@ -23,7 +23,7 @@ phases:
       - requirement:contrib-oidc
       - requirement:contrib-html-template
       - requirement:contrib-zstd
-  - phase: 3
+  - phase: deferred-non-primary
     packages:
       - requirement:contrib-postgresql
       - requirement:contrib-mysql
@@ -37,5 +37,6 @@ rationale:
   - requirement:contrib-oidc extends requirement:contrib-oauth and depends on JWT
   - requirement:contrib-html-template remains phase 2 because frontend JSON writers require generated encoding work
   - database wire protocols require larger interoperability matrices
+  - decision:server-sql-support-tier excludes server SQL drivers from first-class delivery
   - SQLite depends on target-specific C integration or a separately proven alternative
 ```

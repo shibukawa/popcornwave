@@ -9,6 +9,8 @@ A contrib package is releasable only when its declared subset is interoperable, 
 common:
   - policy:contrib-compatibility checks pass
   - host Go and TinyGo produce equivalent fixture results
+  - OAuth/OIDC compatibility is demonstrated with at least two independent protocol-shaped fixtures
+  - live provider interoperability is tracked separately and is not claimed without provider credentials
   - public API has examples and unsupported-feature documentation
   - malformed and oversized input tests prove bounded failure
   - fuzz corpus runs under host Go and regression cases run under TinyGo
@@ -24,7 +26,7 @@ package_gates:
     - RFC 8949 valid, malformed, duplicate-key, limit, and deterministic-encoding vectors pass
     - COSE_Key fixtures preserve signed labels and byte strings
   requirement:contrib-passkey:
-    - ES256 registration and authentication succeed against two independent authenticator implementations
+    - ES256 registration and authentication succeed against two independent authenticator fixtures or implementations
     - negative vectors cover challenge, origin, RP ID hash, flags, user handle, algorithm, signature, counter, and backup state
   requirement:contrib-otel:
     - W3C propagation vectors pass
@@ -40,7 +42,11 @@ package_gates:
   requirement:contrib-oidc:
     - Authorization Code plus PKCE succeeds against two independent providers or conformance fixtures
   requirement:contrib-database:
-    - database/sql integration passes against each supported server version
+    - database/sql integration passes against each supported embedded backend version
+    - decision:server-sql-support-tier keeps unsupported server drivers outside release claims and gates
+  requirement:contrib-sqlite:
+    - decision:sqlite-backend-selection selects the expected backend in every build mode
+    - shared fixtures pass with mattn, modernc, forced requirement:contrib-cgosqlite, and TinyGo requirement:contrib-cgosqlite
   requirement:contrib-html-template:
     - invalid field paths, loop types, map keys, helpers, and JSON type graphs fail during generation with source positions
     - generated struct, slice, array, map, pointer, and JSON fixtures match golden output under host Go and TinyGo

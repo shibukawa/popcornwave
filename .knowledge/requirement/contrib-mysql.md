@@ -3,11 +3,15 @@ id: requirement:contrib-mysql
 type: requirement
 title: TinyGo MySQL Driver
 ---
-contrib/database/mysql implements MySQL protocol clients for common database/sql operations with secure defaults.
+contrib/database/mysql is a deferred non-first-class investigation and is unsupported by Petitweb releases under decision:server-sql-support-tier.
 
 ```yaml
 package: contrib/database/mysql
-required:
+support_tier: non_first_class
+compatibility_label: unsupported
+status: deferred
+blocker: decision:server-sql-support-tier
+promotion_requirements:
   - protocol 4.1 capability negotiation
   - TCP connection and TLS upgrade
   - caching_sha2_password over TLS
@@ -18,6 +22,10 @@ required:
   - null and core scalar decoding
   - server error code and SQL state extraction
   - connection liveness detection
+product_boundaries:
+  - no scaffold or default dependency
+  - no compatibility guarantee
+  - no release acceptance gate
 defaults:
   - TLS required for password authentication outside loopback
   - multi-statements disabled

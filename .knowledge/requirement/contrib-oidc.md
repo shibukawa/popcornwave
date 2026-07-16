@@ -19,16 +19,23 @@ flow: flow:oidc-auth-code
 required:
   - discovery metadata validation
   - caller-configurable endpoint host/IP trust policy
+  - endpoint trust policy applies to authorization, token, JWKS, and UserInfo metadata endpoints
+  - endpoint validator errors are normalized without exposing caller error strings
+  - endpoint validators receive a copy and cannot rewrite the URL used for requests
   - JWKS retrieval, cache expiry, and one refresh on unknown kid
   - concurrent refresh attempts are serialized to bound network amplification
   - requirement:contrib-oauth Authorization Code and S256 PKCE behavior
   - nonce transaction binding is validated before OAuth token exchange and again against the ID Token
   - issuer, audience, azp, exp, iat, nonce, and signature validation
   - a present `azp` claim must be a non-empty string matching the client ID
+  - ID Token parser size options have hard upper bounds at client construction
   - UserInfo responses require a non-empty sub claim and support subject binding
+  - bearer access tokens reject control and whitespace bytes before header use
+  - token exchange accepts only the Bearer token type used by the OIDC UserInfo flow
   - exact redirect URI supplied by application
 deferred:
   - OpenID Provider implementation
+  - public clients without a configured client secret
   - dynamic client registration
   - implicit and hybrid flows
   - JWE ID Tokens

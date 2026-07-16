@@ -3,11 +3,15 @@ id: requirement:contrib-postgresql
 type: requirement
 title: TinyGo PostgreSQL Driver
 ---
-contrib/database/postgres implements PostgreSQL protocol 3 clients for common database/sql operations.
+contrib/database/postgres is a deferred non-first-class investigation and is unsupported by Petitweb releases under decision:server-sql-support-tier.
 
 ```yaml
 package: contrib/database/postgres
-required:
+support_tier: non_first_class
+compatibility_label: unsupported
+status: deferred
+blocker: decision:server-sql-support-tier
+promotion_requirements:
   - TCP connection and TLS negotiation
   - startup parameters
   - cleartext password only when TLS and explicitly enabled
@@ -20,6 +24,10 @@ required:
   - null and core scalar decoding
   - ErrorResponse code extraction
   - cancellation request on context cancellation
+product_boundaries:
+  - no scaffold or default dependency
+  - no compatibility guarantee
+  - no release acceptance gate
 deferred:
   - COPY
   - replication

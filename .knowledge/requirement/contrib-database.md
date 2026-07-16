@@ -3,20 +3,23 @@ id: requirement:contrib-database
 type: requirement
 title: TinyGo Database Drivers
 ---
-contrib/database provides configuration helpers and database/sql drivers for PostgreSQL, MySQL, and feasibility-gated SQLite without adding an ORM.
+contrib/database provides portable SQLite and shared database/sql helpers; decision:server-sql-support-tier keeps PostgreSQL and MySQL outside first-class support.
 
 ```yaml
 packages:
   core: contrib/database
-  drivers:
+  first_class_drivers:
+    - requirement:contrib-sqlite
+  non_first_class_research:
     - requirement:contrib-postgresql
     - requirement:contrib-mysql
-    - requirement:contrib-sqlite
 contract: data:database-driver-contract
 strategy:
   - implement database/sql/driver interfaces supported by TinyGo
   - use database/sql pooling and transactions when target smoke tests pass
   - keep wire protocol and C adapter packages independently importable
+  - select SQLite through decision:sqlite-backend-selection
+  - enforce decision:server-sql-support-tier in documentation, generation, and acceptance
 core_helpers:
   - parse explicit driver configuration without reflection
   - open and ping with context deadline

@@ -1,34 +1,34 @@
 ---
 id: requirement:contrib-sqlite
 type: requirement
-title: TinyGo SQLite Driver
+title: Portable SQLite Facade
 ---
-contrib/database/sqlite is conditional on a successful TinyGo C integration spike and exposes a restricted database/sql driver over SQLite 3.
+contrib/database/sqlite exposes one database/sql SQLite contract while decision:sqlite-backend-selection chooses the build-specific implementation.
 
 ```yaml
 package: contrib/database/sqlite
-gate:
-  required_before_commitment:
-    - compile pinned SQLite amalgamation with TinyGo on linux amd64 and arm64
-    - prove callbacks and pointer ownership under repeated queries
-    - prove file I/O, locking, and context interruption
-    - measure binary size impact
-implementation_if_gate_passes:
-  - pinned SQLite amalgamation built from source
-  - CGo isolated inside driver package
+driver_name: sqlite
+selection: decision:sqlite-backend-selection
+tinygo_backend: requirement:contrib-cgosqlite
+public:
+  - DriverName constant
+  - import registers exactly one sqlite driver
+supported:
   - file and in-memory databases
   - prepared statements and transactions
-  - sqlite3_interrupt for context cancellation
-  - serialized access per connection
-security:
-  - extension loading omitted
-  - shared cache disabled
-  - URI parameters allowlisted
-  - SQL length and busy timeout configurable and bounded
-deferred:
-  - pure-Go SQLite reimplementation
-  - loadable extensions
-  - user-defined Go callbacks
-fallback_if_gate_fails: mark unsupported without blocking requirement:contrib-postgresql or requirement:contrib-mysql
+  - context-aware exec, query, prepare, and begin
+  - null and data:database-driver-contract scalar values
+portable_dsn:
+  - plain file path
+  - :memory:
+  - allowlisted file URI subset
+rules:
+  - application code imports only this facade when backend portability matters
+  - backend-specific connection types, pragmas, and DSN parameters are not portable API
+  - shared behavior tests run unchanged against every selected backend
+non_goals:
+  - ORM
+  - migrations
+  - cross-backend byte-identical error messages
 api: https://sqlite.org/capi3ref.html
 ```
