@@ -15,9 +15,11 @@ common:
   - race or reentrancy behavior is documented for shared objects
   - api:cli-check discovers and compiles imported contrib packages
 package_gates:
-  requirement:contrib-httpmux:
-    - Go standard-library routing fixtures produce equivalent handler, pattern, status, Allow, redirect, and PathValue results
-    - registration panic fixtures cover invalid, duplicate, and conflicting patterns
+  requirement:contrib-auth-state:
+    - concurrent Take returns a stored value exactly once
+    - expiry and cancellation tests use an injected clock without sleeping
+  requirement:contrib-auth-common:
+    - malformed, non-canonical, duplicate, expired, and oversized vectors fail within configured limits
   requirement:contrib-cbor:
     - RFC 8949 valid, malformed, duplicate-key, limit, and deterministic-encoding vectors pass
     - COSE_Key fixtures preserve signed labels and byte strings
@@ -32,12 +34,21 @@ package_gates:
     - header, path, cancellation, streaming, and backend failure fixtures pass
   requirement:contrib-jwt:
     - RFC and adversarial algorithm-confusion vectors pass
+  requirement:contrib-oauth:
+    - Authorization Code plus S256 PKCE succeeds against two independent servers or conformance fixtures
+    - negative vectors cover state, expiry, replay, callback errors, redirect URI, PKCE, and oversized token responses
   requirement:contrib-oidc:
     - Authorization Code plus PKCE succeeds against two independent providers or conformance fixtures
   requirement:contrib-database:
     - database/sql integration passes against each supported server version
   requirement:contrib-html-template:
-    - supported syntax matches host html/template output and XSS vectors remain escaped
+    - invalid field paths, loop types, map keys, helpers, and JSON type graphs fail during generation with source positions
+    - generated struct, slice, array, map, pointer, and JSON fixtures match golden output under host Go and TinyGo
+    - HTML, attribute, URL, JavaScript, CSS, and JSON script XSS vectors remain escaped
   requirement:contrib-zstd:
-    - decode and encode streams interoperate with the reference zstd CLI
+    - default host Go build uses github.com/klauspost/compress/zstd and round-trips upstream output
+    - decision:force-tinygo-logic host build and TinyGo build select the bounded encoder
+    - raw, RLE, and single-match compressed streams decode with the reference zstd CLI
+    - reported SHA-256 and strong ETag identify the emitted encoded representation
+    - WithETag(false) emits the same representation without allocating or updating SHA-256
 ```

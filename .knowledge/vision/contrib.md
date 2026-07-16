@@ -8,12 +8,14 @@ Petitweb contrib provides focused TinyGo-compatible server packages where standa
 ```yaml
 root: contrib/
 packages:
-  - requirement:contrib-httpmux
+  - requirement:contrib-auth-common
+  - requirement:contrib-auth-state
   - requirement:contrib-cbor
   - requirement:contrib-passkey
   - requirement:contrib-otel
   - requirement:contrib-reverse-proxy
   - requirement:contrib-jwt
+  - requirement:contrib-oauth
   - requirement:contrib-oidc
   - requirement:contrib-database
   - requirement:contrib-html-template

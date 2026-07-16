@@ -7,16 +7,16 @@ The OIDC client correlates browser authorization with state, nonce, and PKCE bef
 
 ```yaml
 flow:
-  trigger: application starts login through requirement:contrib-oidc
+  trigger: application starts login through requirement:contrib-oidc over requirement:contrib-oauth
   steps:
     - id: prepare
       action: generate state, nonce, code verifier, and S256 challenge
     - id: store
-      action: persist expiring single-use correlation data
+      action: persist expiring single-use correlation data through requirement:contrib-auth-state
     - id: authorize
       action: redirect to discovered authorization endpoint
     - id: callback
-      action: require matching state and consume correlation data
+      action: require matching state and atomically consume correlation data before exchange
     - id: exchange
       action: exchange code and verifier at token endpoint
     - id: verify

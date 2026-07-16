@@ -15,9 +15,9 @@ http:
   - response size and request duration bounded
   - caller may restrict resolved IP ranges to prevent SSRF
 browser:
-  - state and nonce generated from crypto/rand
-  - state and nonce stored server-side or integrity-protected
-  - values expire and are consumed once
+  - policy:oauth-security state and PKCE rules apply
+  - nonce generated from crypto/rand and stored with OAuth correlation data
+  - state, nonce, and verifier expire and are atomically consumed once
 tokens:
   - requirement:contrib-jwt policy applied
   - never log authorization code, tokens, verifier, nonce, or client secret

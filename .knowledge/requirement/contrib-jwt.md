@@ -3,7 +3,7 @@ id: requirement:contrib-jwt
 type: requirement
 title: TinyGo JWT
 ---
-contrib/jwt strictly parses and verifies signed JWTs, validates registered claims, and offers signing only for algorithms proven by the TinyGo matrix.
+contrib/jwt strictly parses and verifies bounded signed JWTs, validates registered claims, rejects empty or excessively numerous audience values, and offers signing only for algorithms proven by the TinyGo matrix.
 
 ```yaml
 package: contrib/jwt
@@ -36,6 +36,9 @@ algorithms:
     - EdDSA
     - JWE
 security: policy:jwt-security
+limits:
+  - parser options have hard upper bounds for token, segment, depth, and member counts
+  - HMAC signing keys and serialized signed output are bounded
 standards:
   jwt: https://www.rfc-editor.org/rfc/rfc7519
   jws: https://www.rfc-editor.org/rfc/rfc7515

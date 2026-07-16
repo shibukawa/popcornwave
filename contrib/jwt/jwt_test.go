@@ -1,0 +1,215 @@
+package jwt
+
+import (
+	"bytes"
+	"encoding/base64"
+	"encoding/json"
+	"errors"
+	"strings"
+	"testing"
+	"time"
+)
+
+func int64Pointer(value int64) *int64 { return &value }
+
+func TestNilSigningBoundariesAreSafe(t *testing.T) {
+	var signer *HMACSigner
+	if _, err := signer.Sign([]byte("input")); !errors.Is(err, ErrInvalidOptions) {
+		t.Fatalf("nil signer = %v", err)
+	}
+	var resolver KeyResolverFunc
+	if _, err := resolver.ResolveKey(Header{}); !errors.Is(err, ErrInvalidOptions) {
+		t.Fatalf("nil resolver = %v", err)
+	}
+}
+
+func TestParseRejectsUnboundedOptions(t *testing.T) {
+	for _, options := range []ParseOptions{
+		{MaxTokenBytes: maxMaxTokenBytes + 1},
+		{MaxSegmentBytes: maxMaxSegmentBytes + 1},
+		{MaxJSONDepth: maxMaxJSONDepth + 1},
+		{MaxJSONMembers: maxMaxJSONMembers + 1},
+	} {
+		if _, err := Parse("x", options); !errors.Is(err, ErrInvalidOptions) {
+			t.Fatalf("options %#v error = %v", options, err)
+		}
+	}
+}
+
+func TestSigningRejectsUnboundedInputs(t *testing.T) {
+	if _, err := NewHMACSigner(make([]byte, maxSignerKeyBytes+1)); !errors.Is(err, ErrInvalidOptions) {
+		t.Fatalf("oversized signer key error = %v", err)
+	}
+	signer, err := NewHMACSigner(bytes.Repeat([]byte{'k'}, 32))
+	if err != nil {
+		t.Fatal(err)
+	}
+	claims := Claims{Raw: map[string]json.RawMessage{
+		"large": json.RawMessage(`"` + strings.Repeat("x", maxMaxSegmentBytes) + `"`),
+	}}
+	if _, err := Sign(Header{}, claims, signer); !errors.Is(err, ErrLimitExceeded) {
+		t.Fatalf("oversized claims error = %v", err)
+	}
+}
+
+func TestHS256SignParseAndVerify(t *testing.T) {
+	key := []byte("0123456789abcdef0123456789abcdef")
+	signer, err := NewHMACSigner(key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	now := time.Unix(1_700_000_000, 0)
+	compact, err := Sign(Header{Type: "JWT", KeyID: "main"}, Claims{
+		Issuer: "issuer", Subject: "subject", Audience: []string{"client"},
+		ExpiresAt: int64Pointer(now.Add(time.Minute).Unix()), IssuedAt: int64Pointer(now.Unix()),
+		Raw: map[string]json.RawMessage{"role": json.RawMessage(`"admin"`)},
+	}, signer)
+	if err != nil {
+		t.Fatal(err)
+	}
+	claims, err := ParseAndVerify(compact, KeyResolverFunc(func(header Header) (VerificationKey, error) {
+		if header.KeyID != "main" {
+			return VerificationKey{}, ErrKeyNotFound
+		}
+		return VerificationKey{Algorithm: "HS256", HMAC: key}, nil
+	}), ParseOptions{}, VerifyOptions{
+		AllowedAlgorithms: []string{"HS256"}, Issuer: "issuer", Audience: "client",
+		TokenType: "JWT", Clock: func() time.Time { return now },
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if claims.Subject != "subject" {
+		t.Fatalf("subject = %q", claims.Subject)
+	}
+	if role, ok := claims.String("role"); !ok || role != "admin" {
+		t.Fatalf("role = %q, %v", role, ok)
+	}
+}
+
+func TestParseRejectsDuplicateAndNonCanonicalSegments(t *testing.T) {
+	encode := base64.RawURLEncoding.EncodeToString
+	duplicate := encode([]byte(`{"alg":"HS256","alg":"RS256"}`)) + "." + encode([]byte(`{"exp":1}`)) + ".AA"
+	if _, err := Parse(duplicate, ParseOptions{}); !errors.Is(err, ErrMalformed) {
+		t.Fatalf("duplicate error = %v", err)
+	}
+	padded := encode([]byte(`{"alg":"HS256"}`)) + "=." + encode([]byte(`{"exp":1}`)) + ".AA"
+	if _, err := Parse(padded, ParseOptions{}); !errors.Is(err, ErrMalformed) {
+		t.Fatalf("padding error = %v", err)
+	}
+}
+
+func TestParseRejectsInvalidAudienceValues(t *testing.T) {
+	encode := base64.RawURLEncoding.EncodeToString
+	for _, audience := range []string{`{"aud":""}`, `{"aud":[]}`, `{"aud":["client",""]}`} {
+		compact := encode([]byte(`{"alg":"HS256"}`)) + "." + encode([]byte(audience)) + ".AA"
+		if _, err := Parse(compact, ParseOptions{}); !errors.Is(err, ErrMalformed) {
+			t.Fatalf("audience %s error = %v", audience, err)
+		}
+	}
+	tooMany := make([]string, 65)
+	for i := range tooMany {
+		tooMany[i] = "client"
+	}
+	claims, _ := json.Marshal(map[string]any{"aud": tooMany})
+	compact := encode([]byte(`{"alg":"HS256"}`)) + "." + encode(claims) + ".AA"
+	if _, err := Parse(compact, ParseOptions{}); !errors.Is(err, ErrMalformed) {
+		t.Fatalf("too many audiences error = %v", err)
+	}
+}
+
+func TestVerifyRejectsNoneAndAlgorithmConfusion(t *testing.T) {
+	encode := base64.RawURLEncoding.EncodeToString
+	none := encode([]byte(`{"alg":"none"}`)) + "." + encode([]byte(`{"exp":4102444800}`)) + ".AA"
+	token, err := Parse(none, ParseOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = Verify(token, KeyResolverFunc(func(Header) (VerificationKey, error) {
+		return VerificationKey{Algorithm: "none"}, nil
+	}), VerifyOptions{AllowedAlgorithms: []string{"none"}})
+	if !errors.Is(err, ErrUnsupportedAlgorithm) {
+		t.Fatalf("none error = %v", err)
+	}
+
+	key := []byte("0123456789abcdef0123456789abcdef")
+	signer, _ := NewHMACSigner(key)
+	compact, err := Sign(Header{KeyID: "key"}, Claims{ExpiresAt: int64Pointer(4102444800)}, signer)
+	if err != nil {
+		t.Fatal(err)
+	}
+	token, err = Parse(compact, ParseOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = Verify(token, KeyResolverFunc(func(Header) (VerificationKey, error) {
+		return VerificationKey{Algorithm: "RS256", HMAC: key}, nil
+	}), VerifyOptions{AllowedAlgorithms: []string{"HS256"}})
+	if !errors.Is(err, ErrUnsupportedAlgorithm) {
+		t.Fatalf("confusion error = %v", err)
+	}
+}
+
+func TestVerifyClaimsPolicy(t *testing.T) {
+	key := []byte("0123456789abcdef0123456789abcdef")
+	signer, _ := NewHMACSigner(key)
+	now := time.Unix(1_700_000_000, 0)
+	compact, err := Sign(Header{}, Claims{ExpiresAt: int64Pointer(now.Unix())}, signer)
+	if err != nil {
+		t.Fatal(err)
+	}
+	token, _ := Parse(compact, ParseOptions{})
+	_, err = Verify(token, KeyResolverFunc(func(Header) (VerificationKey, error) {
+		return VerificationKey{Algorithm: "HS256", HMAC: key}, nil
+	}), VerifyOptions{AllowedAlgorithms: []string{"HS256"}, Clock: func() time.Time { return now }})
+	if !errors.Is(err, ErrInvalidClaims) || !strings.Contains(err.Error(), "expired") {
+		t.Fatalf("expiration error = %v", err)
+	}
+}
+
+func TestJWKSSelectionAndAmbiguity(t *testing.T) {
+	key := []byte("0123456789abcdef0123456789abcdef")
+	encodedKey := base64.RawURLEncoding.EncodeToString(key)
+	document := []byte(`{"keys":[{"kty":"oct","kid":"one","use":"sig","alg":"HS256","k":"` + encodedKey + `"}]}`)
+	set, err := ParseJWKS(document, JWKSOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	resolved, err := set.ResolveKey(Header{Algorithm: "HS256", KeyID: "one"})
+	if err != nil || string(resolved.HMAC) != string(key) {
+		t.Fatalf("ResolveKey = %#v, %v", resolved, err)
+	}
+	ambiguous := []byte(`{"keys":[` +
+		`{"kty":"oct","kid":"one","alg":"HS256","k":"` + encodedKey + `"},` +
+		`{"kty":"oct","kid":"one","alg":"HS256","k":"` + encodedKey + `"}]}`)
+	set, err = ParseJWKS(ambiguous, JWKSOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := set.ResolveKey(Header{Algorithm: "HS256", KeyID: "one"}); !errors.Is(err, ErrAmbiguousKey) {
+		t.Fatalf("ambiguous error = %v", err)
+	}
+}
+
+func TestRFC7515AppendixA1HS256(t *testing.T) {
+	const compact = "eyJ0eXAiOiJKV1QiLA0KICJhbGciOiJIUzI1NiJ9." +
+		"eyJpc3MiOiJqb2UiLA0KICJleHAiOjEzMDA4MTkzODAsDQogImh0dHA6Ly9leGFtcGxlLmNvbS9pc19yb290Ijp0cnVlfQ." +
+		"dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk"
+	const encodedKey = "AyM1SysPpbyDfgZld3umj1qzKObwVMkoqQ-EstJQLr_T-1qS0gZH75aKtMN3Yj0iPS4hcgUuTwjAzZr1Z9CAow"
+	key, err := base64.RawURLEncoding.DecodeString(encodedKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	claims, err := ParseAndVerify(compact, KeyResolverFunc(func(Header) (VerificationKey, error) {
+		return VerificationKey{Algorithm: "HS256", HMAC: key}, nil
+	}), ParseOptions{}, VerifyOptions{
+		AllowedAlgorithms: []string{"HS256"}, TokenType: "JWT",
+		Clock: func() time.Time { return time.Unix(1_300_000_000, 0) },
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if claims.Issuer != "joe" {
+		t.Fatalf("issuer = %q", claims.Issuer)
+	}
+}

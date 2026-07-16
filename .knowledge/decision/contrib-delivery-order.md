@@ -10,7 +10,8 @@ status: proposed
 phases:
   - phase: 1
     packages:
-      - requirement:contrib-httpmux
+      - requirement:contrib-auth-common
+      - requirement:contrib-auth-state
       - requirement:contrib-cbor
       - requirement:contrib-jwt
       - requirement:contrib-reverse-proxy
@@ -18,6 +19,7 @@ phases:
   - phase: 2
     packages:
       - requirement:contrib-passkey
+      - requirement:contrib-oauth
       - requirement:contrib-oidc
       - requirement:contrib-html-template
       - requirement:contrib-zstd
@@ -29,9 +31,11 @@ phases:
     packages:
       - requirement:contrib-sqlite
 rationale:
-  - HTTP routing parity is required by decision:stdlib-servemux and unblocks generated method-and-path routes on TinyGo
+  - decision:stdlib-servemux uses the standard router provided by decision:tinygo-042-baseline
   - requirement:contrib-passkey follows requirement:contrib-cbor and decision:passkey-first-authentication
-  - OIDC depends on JWT and HTTP
+  - requirement:contrib-oauth depends on shared authentication state and security primitives
+  - requirement:contrib-oidc extends requirement:contrib-oauth and depends on JWT
+  - requirement:contrib-html-template remains phase 2 because frontend JSON writers require generated encoding work
   - database wire protocols require larger interoperability matrices
   - SQLite depends on target-specific C integration or a separately proven alternative
 ```

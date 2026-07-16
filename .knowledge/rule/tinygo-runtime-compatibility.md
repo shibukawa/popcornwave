@@ -7,6 +7,7 @@ Release builds must prove that application runtime code and generated mapping co
 
 ```yaml
 requirements:
+  - installed TinyGo satisfies decision:tinygo-042-baseline
   - tinygo executable is available
   - host Go version is supported by the installed TinyGo version
   - generated artifacts are current

@@ -9,7 +9,7 @@ petitweb check verifies configuration, generated artifacts, host tests, and Tiny
 usage: "petitweb check [--skip-tinygo]"
 checks:
   - parse and validate data:project-config
-  - confirm required tools and compatible versions
+  - confirm required tools and decision:tinygo-042-baseline
   - run api:cli-generate --check
   - run "go test ./..."
   - compile configured package to a temporary output with TinyGo

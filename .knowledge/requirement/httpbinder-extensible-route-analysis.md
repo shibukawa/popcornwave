@@ -32,7 +32,6 @@ resolution:
 configuration:
   library_api: parser and generator options accept adapters programmatically
   cli: generator accepts a versioned analysis configuration file
-  petitweb: api:cli-generate supplies a built-in requirement:contrib-httpmux adapter
 diagnostics:
   - report unsupported registration calls with source position and suggested adapter fields
   - reject invalid argument indexes, unknown grammars, and duplicate adapter identities
@@ -52,6 +51,5 @@ candidate_followups:
 acceptance:
   - aliased net/http imports resolve correctly
   - unrelated methods named Handle or HandleFunc are ignored
-  - contrib/httpmux method-and-path routes generate the same OpenAPI operations as net/http.ServeMux
   - malformed adapters fail before artifact generation
 ```

@@ -1,37 +1,47 @@
 ---
 id: requirement:contrib-zstd
 type: requirement
-title: TinyGo Zstandard Codec
+title: Zstandard Response Encoder
 ---
-contrib/zstd provides bounded pure-Go Zstandard streaming decode and basic encode APIs interoperable with RFC 8878 implementations.
+contrib/zstd selects an optimized host encoder or bounded TinyGo encoder while preserving one response and cache-identity API.
 
 ```yaml
 package: contrib/zstd
 public_api:
-  - NewReader(io.Reader, options) returns io.ReadCloser
-  - DecodeAll(dst, src) returns bytes
-  - NewWriter(io.Writer, options) returns WriteCloser
-  - EncodeAll(dst, src) returns bytes
-decoder_required:
-  - standard frames
-  - raw, RLE, and compressed blocks
-  - concatenated frames
-  - skippable frames
-  - optional content checksum verification
-  - explicit unsupported-window and dictionary errors
+  - NewWriter(io.Writer, options) returns Writer
+  - Writer.Result returns encoded size and SHA-256 after successful Close
+  - EncodeAll(src, options) returns encoded bytes and Result
+  - WithETag(bool) controls cache hash generation; default true
+  - Result.ETag returns a quoted strong HTTP entity-tag or empty when disabled
+etag_disabled:
+  - do not allocate or update SHA-256
+  - Result.ETagEnabled is false
+  - Result.SHA256 is zero and Result.ETag is empty
+  - use for Cache-Control no-store responses
+implementation_selection:
+  host_go:
+    condition: "!tinygo && !force_tinygo_logic"
+    backend: github.com/klauspost/compress/zstd
+    settings: default level, concurrency 1, 128 KiB window, lower memory, frame checksum disabled
+  petitweb:
+    condition: "tinygo || force_tinygo_logic"
+    backend: bounded internal encoder
+  force_policy: decision:force-tinygo-logic
+invariants:
+  - public API and lifecycle errors match across backends
+  - enabled SHA-256 and ETag cover the backend's emitted encoded representation
 encoder_required:
   - standard frames
-  - raw and RLE blocks
-  - one low-memory compressed level after interoperability vectors pass
+  - bounded raw and RLE blocks
+  - low-memory single-match compressed blocks with RLE sequence tables
+  - enabled SHA-256 updated only for bytes successfully emitted
 limits:
-  - maximum window size
-  - maximum output size for DecodeAll
-  - maximum block and table allocation
-  - no allocation proportional to declared content size before data arrives
+  petitweb: 128 KiB window and retained input block plus 16 KiB match table
 deferred:
+  - Huffman literals, general FSE tables, multi-match blocks, and additional compression levels
   - trained dictionaries
   - seekable format
   - assembly optimizations
-  - parity with all upstream compression levels
+  - decoding
 standard: https://www.rfc-editor.org/rfc/rfc8878
 ```

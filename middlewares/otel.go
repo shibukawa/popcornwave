@@ -1,0 +1,142 @@
+// Package middlewares contains net/http middleware shared by Petitweb applications.
+package middlewares
+
+import (
+	"context"
+	"net"
+	"net/http"
+	"strconv"
+	"strings"
+
+	"github.com/shibukawa/petitweb-go/contrib/otel"
+	"github.com/shibukawa/petitweb-go/contrib/otel/propagation"
+	"github.com/shibukawa/petitweb-go/contrib/otel/trace"
+)
+
+type otelConfig struct {
+	provider *trace.Provider
+	spanName func(*http.Request) string
+}
+type OtelOption func(*otelConfig)
+
+func WithTracerProvider(provider *trace.Provider) OtelOption {
+	return func(c *otelConfig) { c.provider = provider }
+}
+func WithSpanName(format func(*http.Request) string) OtelOption {
+	return func(c *otelConfig) {
+		if format != nil {
+			c.spanName = format
+		}
+	}
+}
+
+// Otel extracts W3C Trace Context, creates a server span, and installs it in
+// the request context. With no options it uses trace.DefaultProvider.
+func Otel(options ...OtelOption) func(http.Handler) http.Handler {
+	cfg := otelConfig{provider: trace.DefaultProvider(), spanName: func(r *http.Request) string { return r.Method }}
+	for _, option := range options {
+		option(&cfg)
+	}
+	if cfg.provider == nil {
+		cfg.provider = trace.DefaultProvider()
+	}
+	tracer := cfg.provider.Tracer("github.com/shibukawa/petitweb-go/middlewares")
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			parent := (propagation.TraceContext{}).Extract(r.Context(), r.Header)
+			ctx, span := tracer.Start(parent, cfg.spanName(r), trace.WithSpanKind(trace.SpanKindServer), trace.WithAttributes(requestAttributes(r)...))
+			rw := &statusWriter{ResponseWriter: w, status: http.StatusOK}
+			defer func() {
+				panicked := recover()
+				if panicked != nil {
+					rw.status = http.StatusInternalServerError
+					span.SetStatus(trace.StatusError, "panic")
+					if err, ok := panicked.(error); ok {
+						span.RecordError(err)
+					}
+				}
+				span.SetAttributes(otel.Int64("http.response.status_code", int64(rw.status)))
+				if rw.status >= 500 {
+					span.SetStatus(trace.StatusError, http.StatusText(rw.status))
+				}
+				span.End()
+				if panicked != nil {
+					panic(panicked)
+				}
+			}()
+			next.ServeHTTP(rw, r.WithContext(ctx))
+		})
+	}
+}
+
+// TraceID returns the current trace ID, or an empty string outside a trace.
+func TraceID(ctx context.Context) string { return trace.SpanContextFromContext(ctx).TraceID() }
+
+// SpanID returns the current span ID, or an empty string outside a trace.
+func SpanID(ctx context.Context) string { return trace.SpanContextFromContext(ctx).SpanID() }
+
+// StartSpan creates a child span using the tracer selected by Otel.
+func StartSpan(ctx context.Context, name string, attributes ...otel.Attribute) (context.Context, *trace.Span) {
+	return trace.Start(ctx, name, trace.WithAttributes(attributes...))
+}
+
+type statusWriter struct {
+	http.ResponseWriter
+	status      int
+	wroteHeader bool
+}
+
+func (w *statusWriter) WriteHeader(status int) {
+	if w.wroteHeader {
+		return
+	}
+	if status >= 100 && status < 200 && status != http.StatusSwitchingProtocols {
+		w.ResponseWriter.WriteHeader(status)
+		return
+	}
+	w.status, w.wroteHeader = status, true
+	w.ResponseWriter.WriteHeader(status)
+}
+func (w *statusWriter) Write(body []byte) (int, error) {
+	if !w.wroteHeader {
+		w.WriteHeader(http.StatusOK)
+	}
+	return w.ResponseWriter.Write(body)
+}
+func (w *statusWriter) Unwrap() http.ResponseWriter { return w.ResponseWriter }
+func (w *statusWriter) Flush() {
+	if !w.wroteHeader {
+		w.WriteHeader(http.StatusOK)
+	}
+	if flusher, ok := w.ResponseWriter.(http.Flusher); ok {
+		flusher.Flush()
+	}
+}
+
+func requestAttributes(r *http.Request) []otel.Attribute {
+	attributes := []otel.Attribute{otel.String("http.request.method", r.Method), otel.String("url.path", r.URL.Path)}
+	scheme := r.URL.Scheme
+	if scheme == "" {
+		if r.TLS == nil {
+			scheme = "http"
+		} else {
+			scheme = "https"
+		}
+	}
+	attributes = append(attributes, otel.String("url.scheme", scheme))
+	if r.URL.RawQuery != "" {
+		attributes = append(attributes, otel.String("url.query", r.URL.RawQuery))
+	}
+	host, port, err := net.SplitHostPort(r.Host)
+	if err != nil {
+		host = r.Host
+		port = ""
+	}
+	if host != "" {
+		attributes = append(attributes, otel.String("server.address", strings.Trim(host, "[]")))
+	}
+	if number, err := strconv.ParseInt(port, 10, 64); err == nil {
+		attributes = append(attributes, otel.Int64("server.port", number))
+	}
+	return attributes
+}

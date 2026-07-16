@@ -17,7 +17,7 @@ check_mode:
   writes: temporary files only
   failure: committed generated content differs or is missing
 behavior:
-  - supply the pinned contrib/httpmux analysis adapter to system:httpbinder
+  - use system:httpbinder built-in net/http route analysis
   - process packages in stable lexical order
   - stop on parse or generation error
   - format generated Go source

@@ -11,6 +11,7 @@ contexts:
   html_attribute: quote and escape attribute value
   url: validate scheme and percent-encode components
   javascript: emit JSON-compatible literal only
+  json_script_data: emit valid JSON that cannot terminate its application/json script element
   css: allow restricted literal values only
 trusted_types:
   - HTML
@@ -22,7 +23,11 @@ rules:
   - dynamic tag names, attribute names, and script source are rejected
   - raw output helper is absent
   - helper return values retain declared trust type
+  - JSON strings escape HTML-significant less-than, greater-than, ampersand, U+2028, and U+2029 characters
+  - JSON script output cannot contain a literal case-insensitive closing script sequence
+  - generated JSON rejects unsupported runtime-dynamic values instead of using reflection
 tests:
-  - compare accepted subset output with host html/template fixtures
+  - generated HTML and JSON match deterministic golden fixtures
+  - generated JSON matches encoding/json field and scalar semantics for the declared supported subset
   - include cross-context XSS vectors
 ```

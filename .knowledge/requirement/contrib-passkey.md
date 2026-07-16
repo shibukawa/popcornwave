@@ -30,6 +30,9 @@ required:
   - excludeCredentials and allowCredentials
   - none attestation with explicit policy result
   - single-use expiring ceremony state supplied to caller for storage
+  - counter risk is surfaced when the authenticator counter does not increase
+  - applications persist the accepted counter and backup state atomically with credential state
+  - RP/user display strings, origins, and credential descriptor lists are bounded before options are generated
   - policy:passkey-security
 deferred:
   - packed, TPM, Android, Apple, and FIDO U2F attestation trust validation

@@ -11,6 +11,7 @@ ceremony:
   - registration requires clientData type webauthn.create
   - authentication requires clientData type webauthn.get
   - origins match an explicit HTTPS allowlist except configured loopback development
+  - configured RP ID is a bounded domain-style label set before scope matching
   - RP ID and rpIdHash match configured scope exactly under WebAuthn rules
 credential:
   - require type public-key and consistent id and rawId
