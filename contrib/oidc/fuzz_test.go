@@ -17,6 +17,18 @@ func FuzzIDTokenParsing(f *testing.F) {
 	})
 }
 
+func FuzzBearerTokenValidation(f *testing.F) {
+	f.Add("access-token")
+	f.Add("access\r\nX-Injected: yes")
+	f.Add("日本語")
+	f.Fuzz(func(t *testing.T, value string) {
+		valid := validBearerToken(value)
+		if valid && value == "" {
+			t.Fatal("empty bearer token accepted")
+		}
+	})
+}
+
 func parseBoundedToken(raw string) (*jwt.Token, error) {
 	return jwt.Parse(raw, jwt.ParseOptions{MaxTokenBytes: 16 << 10, MaxSegmentBytes: 8 << 10})
 }

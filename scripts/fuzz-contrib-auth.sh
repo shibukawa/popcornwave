@@ -25,7 +25,9 @@ done <<'EOF'
 ./contrib/jwt FuzzParse
 ./contrib/jwt FuzzParseJWKS
 ./contrib/oauth FuzzTokenResponse
+./contrib/oauth FuzzScopeGrammar
 ./contrib/oidc FuzzIDTokenParsing
+./contrib/oidc FuzzBearerTokenValidation
 ./contrib/passkey FuzzDecodeAuthenticationCredential
 ./contrib/passkey FuzzRPIDConfiguration
 EOF

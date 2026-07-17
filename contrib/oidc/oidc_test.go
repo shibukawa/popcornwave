@@ -167,6 +167,11 @@ func TestDiscoveryAuthorizationAndNonceBoundIDToken(t *testing.T) {
 	if err != nil || string(info["sub"]) != `"user"` {
 		t.Fatalf("userinfo = %#v err=%v", info, err)
 	}
+	for _, invalidToken := range []string{"access token", "access\ttoken", "access\r\ntoken", "access\nX-Injected: yes"} {
+		if _, err := client.UserInfo(context.Background(), invalidToken); !errors.Is(err, ErrUserInfo) {
+			t.Fatalf("invalid bearer token %q error = %v", invalidToken, err)
+		}
+	}
 	if _, err := client.UserInfoWithSubject(context.Background(), set.AccessToken, "user"); err != nil {
 		t.Fatalf("subject-bound userinfo = %v", err)
 	}
@@ -204,6 +209,152 @@ func TestDiscoveryAuthorizationAndNonceBoundIDToken(t *testing.T) {
 	}
 	if tokenRequests != 1 {
 		t.Fatalf("malformed nonce reached token endpoint: requests=%d", tokenRequests)
+	}
+}
+
+func TestOIDCClientRejectsUnboundedTokenOptions(t *testing.T) {
+	provider := &Provider{authorizationEndpoint: "https://issuer.example/a", tokenEndpoint: "https://issuer.example/t", options: providerOptions{}}
+	for _, options := range []Options{{MaxTokenBytes: maxMaxTokenBytes + 1}, {MaxSegmentBytes: maxMaxSegmentBytes + 1}} {
+		if _, err := NewClient(provider, Config{ClientID: "client", ClientSecret: "secret", RedirectURI: "https://app.example/callback"}, options); !errors.Is(err, ErrInvalidOptions) {
+			t.Fatalf("options %#v error = %v", options, err)
+		}
+	}
+}
+
+func TestOIDCPublicClientWithoutSecretIsUnsupported(t *testing.T) {
+	provider := &Provider{
+		authorizationEndpoint: "https://issuer.example/a",
+		tokenEndpoint:         "https://issuer.example/t",
+		options:               providerOptions{},
+	}
+	_, err := NewClient(provider, Config{ClientID: "public", RedirectURI: "https://app.example/callback"}, Options{})
+	if !errors.Is(err, ErrInvalidConfig) {
+		t.Fatalf("public client error = %v", err)
+	}
+}
+
+func TestDiscoveryEndpointValidatorCoversAllProviderEndpoints(t *testing.T) {
+	transport := oidcTransport{handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.URL.Path == "/.well-known/openid-configuration" {
+			_, _ = io.WriteString(w, `{"issuer":"https://issuer.example","authorization_endpoint":"https://issuer.example/a","token_endpoint":"https://issuer.example/t","jwks_uri":"https://issuer.example/k","userinfo_endpoint":"https://issuer.example/u"}`)
+			return
+		}
+		_, _ = io.WriteString(w, `{"keys":[]}`)
+	})}
+	var paths []string
+	provider, err := Discover(context.Background(), "https://issuer.example", DiscoverOptions{
+		HTTPClient: &http.Client{Transport: transport},
+		EndpointValidator: func(endpoint *url.URL) error {
+			paths = append(paths, endpoint.Path)
+			return nil
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if provider == nil || len(paths) != 5 {
+		t.Fatalf("validated endpoint paths = %v, want issuer plus four endpoints", paths)
+	}
+	for _, path := range []string{"", "/a", "/t", "/k", "/u"} {
+		found := false
+		for _, got := range paths {
+			if got == path {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Fatalf("endpoint %q was not validated: %v", path, paths)
+		}
+	}
+}
+
+func TestDiscoveryEndpointValidatorErrorIsSanitized(t *testing.T) {
+	transport := oidcTransport{handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = io.WriteString(w, `{"issuer":"https://issuer.example","authorization_endpoint":"https://issuer.example/a","token_endpoint":"https://issuer.example/t","jwks_uri":"https://issuer.example/k"}`)
+	})}
+	_, err := Discover(context.Background(), "https://issuer.example", DiscoverOptions{
+		HTTPClient: &http.Client{Transport: transport},
+		EndpointValidator: func(endpoint *url.URL) error {
+			if endpoint.Path == "/k" {
+				return errors.New("trust secret=must-not-escape")
+			}
+			return nil
+		},
+	})
+	if !errors.Is(err, ErrDiscovery) || strings.Contains(err.Error(), "must-not-escape") {
+		t.Fatalf("validator error = %v", err)
+	}
+}
+
+func TestDiscoveryEndpointValidatorCannotRewriteEndpoints(t *testing.T) {
+	transport := oidcTransport{handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.URL.Path == "/.well-known/openid-configuration" {
+			_, _ = io.WriteString(w, `{"issuer":"https://issuer.example","authorization_endpoint":"https://issuer.example/a","token_endpoint":"https://issuer.example/t","jwks_uri":"https://issuer.example/k","userinfo_endpoint":"https://issuer.example/u"}`)
+			return
+		}
+		_, _ = io.WriteString(w, `{"keys":[]}`)
+	})}
+	provider, err := Discover(context.Background(), "https://issuer.example", DiscoverOptions{
+		HTTPClient: &http.Client{Transport: transport},
+		EndpointValidator: func(endpoint *url.URL) error {
+			endpoint.Scheme = "http"
+			endpoint.Host = "attacker.example"
+			return nil
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if provider.authorizationEndpoint != "https://issuer.example/a" || provider.tokenEndpoint != "https://issuer.example/t" || provider.jwksURI != "https://issuer.example/k" || provider.userInfoEndpoint != "https://issuer.example/u" {
+		t.Fatalf("validator rewrote provider endpoints: auth=%q token=%q jwks=%q userinfo=%q", provider.authorizationEndpoint, provider.tokenEndpoint, provider.jwksURI, provider.userInfoEndpoint)
+	}
+}
+
+func TestOIDCRejectsNonBearerTokenType(t *testing.T) {
+	now := time.Unix(1_700_000_000, 0)
+	key, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var expectedNonce string
+	transport := oidcTransport{handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case "/.well-known/openid-configuration":
+			_, _ = io.WriteString(w, `{"issuer":"https://issuer.example","authorization_endpoint":"https://issuer.example/a","token_endpoint":"https://issuer.example/t","jwks_uri":"https://issuer.example/k"}`)
+		case "/k":
+			_, _ = io.WriteString(w, jwksJSON(key))
+		case "/t":
+			_, _ = io.WriteString(w, `{"access_token":"access","token_type":"MAC","id_token":"`+signedIDToken(t, key, "https://issuer.example", expectedNonce, now)+`"}`)
+		}
+	})}
+	provider, err := Discover(context.Background(), "https://issuer.example", DiscoverOptions{HTTPClient: &http.Client{Transport: transport}, Clock: func() time.Time { return now }})
+	if err != nil {
+		t.Fatal(err)
+	}
+	store, err := authstate.NewMemoryStore[oauth.Transaction](authstate.Options{Now: func() time.Time { return now }})
+	if err != nil {
+		t.Fatal(err)
+	}
+	client, err := NewClient(provider, Config{ClientID: "client", ClientSecret: "secret", RedirectURI: "https://app.example/callback"}, Options{OAuth: oauth.Options{StateStore: store, HTTPClient: &http.Client{Transport: transport}}, Clock: func() time.Time { return now }})
+	if err != nil {
+		t.Fatal(err)
+	}
+	urlValue, keyValue, err := client.BeginAuthorization(context.Background(), BeginOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	parsed, err := url.Parse(urlValue)
+	if err != nil {
+		t.Fatal(err)
+	}
+	expectedNonce = parsed.Query().Get("nonce")
+	if _, err := client.HandleCallback(context.Background(), keyValue, Callback{State: parsed.Query().Get("state"), Code: "code"}); !errors.Is(err, ErrIDToken) {
+		t.Fatalf("non-Bearer token type error = %v", err)
 	}
 }
 
@@ -493,6 +644,14 @@ func TestAuthorizedPartyRejectsMalformedPresentClaim(t *testing.T) {
 	claims.Raw["azp"] = json.RawMessage(`"other"`)
 	if err := validateAuthorizedParty(claims, "client"); !errors.Is(err, ErrIDToken) {
 		t.Fatalf("mismatched azp error = %v", err)
+	}
+	claims = jwt.Claims{Audience: []string{"client", "other"}, Raw: map[string]json.RawMessage{}}
+	if err := validateAuthorizedParty(claims, "client"); !errors.Is(err, ErrIDToken) {
+		t.Fatalf("missing azp for multiple audiences error = %v", err)
+	}
+	claims.Raw["azp"] = json.RawMessage(`"client"`)
+	if err := validateAuthorizedParty(claims, "client"); err != nil {
+		t.Fatalf("valid azp for multiple audiences error = %v", err)
 	}
 }
 

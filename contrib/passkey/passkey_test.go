@@ -13,6 +13,8 @@ import (
 	"encoding/json"
 	"errors"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -83,6 +85,14 @@ func TestRejectsUnboundedGenerationInputs(t *testing.T) {
 	}
 	if _, _, err := rp.BeginAuthentication(nil, AuthenticationOptions{AllowCredentials: descriptors}); !errors.Is(err, ErrLimitExceeded) {
 		t.Fatalf("oversized descriptor list error = %v", err)
+	}
+	transports := make([]string, maxTransports+1)
+	for i := range transports {
+		transports[i] = "internal"
+	}
+	descriptor := CredentialDescriptor{Type: "public-key", ID: base64.RawURLEncoding.EncodeToString([]byte("id")), Transports: transports}
+	if _, _, err := rp.BeginAuthentication(nil, AuthenticationOptions{AllowCredentials: []CredentialDescriptor{descriptor}}); !errors.Is(err, ErrLimitExceeded) {
+		t.Fatalf("oversized transport list error = %v", err)
 	}
 }
 
@@ -188,6 +198,32 @@ func TestRegistrationAndAuthenticationES256(t *testing.T) {
 	}
 	if result.SignCount != 1 || result.CounterRisk || result.BackupState {
 		t.Fatalf("authentication = %#v", result)
+	}
+}
+
+// TestTwoIndependentAuthenticatorFixtures exercises the same RP with two
+// independently generated authenticator key/credential fixtures. Keeping the
+// ceremonies separate catches accidental reliance on one credential's state.
+func TestTwoIndependentAuthenticatorFixtures(t *testing.T) {
+	first := newFixture(t)
+	second := newFixture(t)
+	second.credentialID = bytes.Repeat([]byte{0x24}, 32)
+
+	for _, fixture := range []*passkeyFixture{first, second} {
+		registration := fixture.register(t, flagUP|flagUV|flagAT|flagBE, ES256)
+		descriptor := CredentialDescriptor{
+			Type: "public-key", ID: base64.RawURLEncoding.EncodeToString(registration.Credential.ID),
+		}
+		_, state, err := fixture.rp.BeginAuthentication(fixture.user.ID, AuthenticationOptions{
+			AllowCredentials: []CredentialDescriptor{descriptor}, RequireUserVerification: true,
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		response := fixture.authenticationResponse(t, state, flagUP|flagUV|flagBE, 1, fixture.user.ID)
+		if _, err := fixture.rp.FinishAuthentication(state, response, registration.Credential); err != nil {
+			t.Fatal(err)
+		}
 	}
 }
 
@@ -332,6 +368,15 @@ func TestAuthenticationNegativeVectors(t *testing.T) {
 
 func TestStrictResponseJSONAndOriginScope(t *testing.T) {
 	fixture := newFixture(t)
+	if _, err := fixture.rp.DecodeRegistrationCredential([]byte(`{"id":"credential","rawId":"credential","type":"public-key","response":{}}`)); err != nil {
+		t.Fatalf("valid registration response error = %v", err)
+	}
+	if _, err := fixture.rp.DecodeAuthenticationCredential([]byte(`{"id":"credential","rawId":"credential","type":"public-key","response":{}}`)); err != nil {
+		t.Fatalf("valid authentication response error = %v", err)
+	}
+	if _, err := fixture.rp.DecodeAuthenticationCredential([]byte(strings.Repeat("x", fixture.rp.maxJSONBytes+1))); !errors.Is(err, ErrLimitExceeded) {
+		t.Fatalf("oversized response error = %v", err)
+	}
 	if _, err := fixture.rp.DecodeAuthenticationCredential([]byte(
 		`{"id":"one","id":"two","rawId":"one","type":"public-key","response":{}}`,
 	)); !errors.Is(err, ErrMalformed) {
@@ -416,11 +461,77 @@ func TestSessionFlowConsumesStateOnce(t *testing.T) {
 			AttestationObject: base64.RawURLEncoding.EncodeToString(encodeAttestationObject(t, authData)),
 		},
 	}
-	if _, err := flow.FinishRegistration(context.Background(), key, response); err != nil {
+	registration, err := flow.FinishRegistration(context.Background(), key, response)
+	if err != nil {
 		t.Fatal(err)
 	}
 	if _, err := flow.FinishRegistration(context.Background(), key, response); !errors.Is(err, ErrInvalidState) {
 		t.Fatalf("replay error = %v", err)
+	}
+	authenticationRequest, authenticationKey, err := flow.BeginAuthentication(context.Background(), fixture.user.ID, AuthenticationOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	authenticationState := CeremonyState{challenge: authenticationRequest.Challenge}
+	authenticationResponse := fixture.authenticationResponse(t, authenticationState, flagUP, 1, fixture.user.ID)
+	if _, err := flow.FinishAuthentication(context.Background(), authenticationKey, authenticationResponse, registration.Credential); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := flow.FinishAuthentication(context.Background(), authenticationKey, authenticationResponse, registration.Credential); !errors.Is(err, ErrInvalidState) {
+		t.Fatalf("authentication replay error = %v", err)
+	}
+
+	creation, concurrentKey, err := flow.BeginRegistration(context.Background(), fixture.user, RegistrationOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	clientData = fixture.clientData(t, "webauthn.create", creation.Challenge, "https://example.com")
+	concurrentResponse := response
+	concurrentResponse.Response.ClientDataJSON = base64.RawURLEncoding.EncodeToString(clientData)
+	var successes atomic.Int32
+	var wait sync.WaitGroup
+	for range 8 {
+		wait.Add(1)
+		go func() {
+			defer wait.Done()
+			if _, err := flow.FinishRegistration(context.Background(), concurrentKey, concurrentResponse); err == nil {
+				successes.Add(1)
+			} else if !errors.Is(err, ErrInvalidState) {
+				t.Errorf("concurrent finish error = %v", err)
+			}
+		}()
+	}
+	wait.Wait()
+	if got := successes.Load(); got != 1 {
+		t.Fatalf("concurrent finish successes = %d, want 1", got)
+	}
+}
+
+func TestSessionFlowRejectsNilInputs(t *testing.T) {
+	fixture := newFixture(t)
+	store, err := authstate.NewMemoryStore[CeremonyState](authstate.Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	flow, err := NewSessionFlow(fixture.rp, store)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := flow.BeginRegistration(nil, fixture.user, RegistrationOptions{}); !errors.Is(err, ErrInvalidState) {
+		t.Fatalf("nil BeginRegistration error = %v", err)
+	}
+	if _, err := flow.FinishRegistration(nil, "key", RegistrationCredential{}); !errors.Is(err, ErrInvalidState) {
+		t.Fatalf("nil FinishRegistration error = %v", err)
+	}
+	if _, _, err := flow.BeginAuthentication(nil, nil, AuthenticationOptions{}); !errors.Is(err, ErrInvalidState) {
+		t.Fatalf("nil BeginAuthentication error = %v", err)
+	}
+	if _, err := flow.FinishAuthentication(nil, "key", AuthenticationCredential{}, CredentialRecord{}); !errors.Is(err, ErrInvalidState) {
+		t.Fatalf("nil FinishAuthentication error = %v", err)
+	}
+	var nilFlow *SessionFlow
+	if _, _, err := nilFlow.BeginRegistration(context.Background(), fixture.user, RegistrationOptions{}); !errors.Is(err, ErrInvalidState) {
+		t.Fatalf("nil flow BeginRegistration error = %v", err)
 	}
 }
 

@@ -7,6 +7,6 @@ duplicate JSON members, non-canonical Base64url, ambiguous JWKS matches, and
 oversized input are rejected.
 
 Required verification algorithms are HS256 and RS256. Signing is provided for
-HS256 through `HMACSigner`; callers can supply another `Signer` only when its
-algorithm exactly matches the protected header. ES256, EdDSA, and JWE are not
+HS256 through `HMACSigner`; callers may provide a custom `Signer` only for the
+same HS256 algorithm. ES256, EdDSA, and JWE signing or verification are not
 supported.

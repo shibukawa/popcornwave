@@ -33,6 +33,7 @@ const (
 	defaultRequestTimeout   = 30 * time.Second
 	maxRequestTimeout       = 10 * time.Minute
 	maxClientValueBytes     = 4096
+	maxTokenValueBytes      = 16 << 10
 )
 
 // Config describes a registered OAuth client. Endpoint URLs are validated at
@@ -46,7 +47,8 @@ type Config struct {
 	AuthMethod            string
 	AllowLoopbackHTTP     bool
 	// EndpointValidator may apply caller-specific host/IP trust policy to
-	// both configured endpoints. Its errors are normalized to ErrInvalidConfig.
+	// both configured endpoints. It receives a copy for inspection; mutations
+	// are ignored. Its errors are normalized to ErrInvalidConfig.
 	EndpointValidator func(*url.URL) error
 }
 
@@ -60,8 +62,9 @@ type Options struct {
 	RequestTimeout time.Duration
 	HTTPClient     *http.Client
 	StateStore     authstate.Store[Transaction]
-	// TransactionValidator is called after state/PKCE/expiry validation and
-	// before a token exchange. It must not log or retain transaction secrets.
+	// TransactionValidator is called after callback state correlation and
+	// state/PKCE/expiry validation, before a token exchange. It must not log or
+	// retain transaction secrets.
 	TransactionValidator func(Transaction) error
 }
 

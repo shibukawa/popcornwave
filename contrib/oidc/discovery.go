@@ -30,7 +30,8 @@ func Discover(ctx context.Context, issuer string, options DiscoverOptions) (*Pro
 		return nil, ErrDiscovery
 	}
 	if options.EndpointValidator != nil {
-		if err := options.EndpointValidator(issuerURL); err != nil {
+		candidate := *issuerURL
+		if err := options.EndpointValidator(&candidate); err != nil {
 			return nil, ErrDiscovery
 		}
 	}
@@ -115,7 +116,8 @@ func (p *Provider) endpoint(raw string) (string, error) {
 		return "", ErrDiscovery
 	}
 	if p.options.endpointValidator != nil {
-		if err := p.options.endpointValidator(parsed); err != nil {
+		candidate := *parsed
+		if err := p.options.endpointValidator(&candidate); err != nil {
 			return "", err
 		}
 	}

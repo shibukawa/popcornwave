@@ -28,6 +28,8 @@ const (
 	maxUserNameBytes             = 256
 	maxOriginBytes               = 2048
 	maxCredentialDescriptors     = 64
+	maxTransports                = 8
+	maxTransportBytes            = 32
 )
 
 func New(config Config) (*RelyingParty, error) {
@@ -182,6 +184,14 @@ func (rp *RelyingParty) validateDescriptors(descriptors []CredentialDescriptor) 
 	for _, descriptor := range descriptors {
 		if descriptor.Type != "public-key" {
 			return nil, ErrCredential
+		}
+		if len(descriptor.Transports) > maxTransports {
+			return nil, ErrLimitExceeded
+		}
+		for _, transport := range descriptor.Transports {
+			if transport == "" || len(transport) > maxTransportBytes {
+				return nil, ErrCredential
+			}
 		}
 		id, err := authn.DecodeBase64URL(descriptor.ID, encodedLimit(rp.maxCredentialIDBytes), rp.maxCredentialIDBytes)
 		if err != nil || len(id) == 0 {

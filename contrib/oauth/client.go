@@ -31,10 +31,12 @@ func NewClient(config Config, options Options) (*Client, error) {
 		return nil, ErrInvalidConfig
 	}
 	if config.EndpointValidator != nil {
-		if err := config.EndpointValidator(authorizationEndpoint); err != nil {
+		authorizationCandidate := *authorizationEndpoint
+		if err := config.EndpointValidator(&authorizationCandidate); err != nil {
 			return nil, ErrInvalidConfig
 		}
-		if err := config.EndpointValidator(tokenEndpoint); err != nil {
+		tokenCandidate := *tokenEndpoint
+		if err := config.EndpointValidator(&tokenCandidate); err != nil {
 			return nil, ErrInvalidConfig
 		}
 	}
@@ -126,7 +128,7 @@ func (c *Client) BeginAuthorization(ctx context.Context, options BeginOptions) (
 		return "", "", ErrInvalidOptions
 	}
 	for _, scope := range options.Scopes {
-		if len(scope) == 0 || len(scope) > 256 {
+		if !validScope(scope) {
 			return "", "", ErrInvalidOptions
 		}
 	}
@@ -163,6 +165,22 @@ func (c *Client) BeginAuthorization(ctx context.Context, options BeginOptions) (
 	return "", "", authstate.ErrAlreadyExists
 }
 
+// validScope accepts the RFC 6749 scope-token grammar. In particular, a
+// scope item cannot contain whitespace, quotes, backslash, or control bytes;
+// otherwise one caller-provided item could silently become multiple scopes.
+func validScope(scope string) bool {
+	if len(scope) == 0 || len(scope) > 256 {
+		return false
+	}
+	for _, char := range []byte(scope) {
+		if char == 0x21 || (char >= 0x23 && char <= 0x5b) || (char >= 0x5d && char <= 0x7e) {
+			continue
+		}
+		return false
+	}
+	return true
+}
+
 func (c *Client) authorizationURL(options BeginOptions, state, challenge string) string {
 	endpoint, _ := url.Parse(c.config.AuthorizationEndpoint)
 	query := endpoint.Query()
@@ -179,7 +197,7 @@ func (c *Client) authorizationURL(options BeginOptions, state, challenge string)
 		query.Set("scope", strings.Join(options.Scopes, " "))
 	}
 	for key, value := range options.Params {
-		if key != "response_type" && key != "client_id" && key != "redirect_uri" && key != "state" && key != "code_challenge" && key != "code_challenge_method" && key != "nonce" {
+		if key != "response_type" && key != "client_id" && key != "redirect_uri" && key != "state" && key != "code_challenge" && key != "code_challenge_method" && key != "nonce" && key != "scope" {
 			query.Set(key, value)
 		}
 	}
@@ -352,7 +370,10 @@ func parseTokenSet(data []byte, maxBytes int) (TokenSet, error) {
 }
 
 func decodeRequiredString(raw map[string]json.RawMessage, key string, target *string) error {
-	if err := decodeOptionalString(raw, key, target); err != nil || *target == "" {
+	if err := decodeOptionalString(raw, key, target); err != nil {
+		return err
+	}
+	if *target == "" {
 		return ErrMalformed
 	}
 	return nil
@@ -361,6 +382,9 @@ func decodeOptionalString(raw map[string]json.RawMessage, key string, target *st
 	if value, ok := raw[key]; ok {
 		if err := json.Unmarshal(value, target); err != nil {
 			return ErrMalformed
+		}
+		if len(*target) > maxTokenValueBytes {
+			return ErrLimitExceeded
 		}
 	}
 	return nil

@@ -11,6 +11,7 @@ issuer:
   - discovered issuer must exactly equal configured issuer
   - authorization, token, JWKS, and UserInfo URLs must use HTTPS
 http:
+  - outbound transport follows policy:outbound-transport-security
   - redirects disabled by default for discovery and JWKS
   - response size and request duration bounded
   - caller may restrict resolved IP ranges to prevent SSRF

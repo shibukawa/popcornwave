@@ -14,6 +14,7 @@ browser:
   - authorization error callbacks require the same state validation as successful callbacks
 endpoints:
   - HTTPS required except explicit loopback development mode
+  - outbound transport follows policy:outbound-transport-security
   - authorization and token endpoints come from caller configuration or validated discovery
   - caller-specific endpoint trust validation may restrict configured hosts or resolved IP ranges
   - redirects disabled by default for token requests

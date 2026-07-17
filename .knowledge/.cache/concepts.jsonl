@@ -10,10 +10,14 @@
 {"category": "constraint", "id": "decision:contrib-delivery-order", "path": ".knowledge/decision/contrib-delivery-order.md", "role": "supporting", "title": "Contrib Delivery Order", "type": "decision"}
 {"category": "constraint", "id": "decision:force-tinygo-logic", "path": ".knowledge/decision/force-tinygo-logic.md", "role": "supporting", "title": "Forced TinyGo Logic Build Tag", "type": "decision"}
 {"category": "constraint", "id": "decision:host-tools-target-runtime", "path": ".knowledge/decision/host-tools-target-runtime.md", "role": "supporting", "title": "Host Tools and Target Runtime Split", "type": "decision"}
+{"category": "constraint", "id": "decision:local-tls-proxy-boundary", "path": ".knowledge/decision/local-tls-proxy-boundary.md", "role": "supporting", "title": "Local TLS Proxy Boundary", "type": "decision"}
 {"category": "constraint", "id": "decision:passkey-first-authentication", "path": ".knowledge/decision/passkey-first-authentication.md", "role": "supporting", "title": "Passkey-First Authentication Priority", "type": "decision"}
+{"category": "constraint", "id": "decision:server-sql-support-tier", "path": ".knowledge/decision/server-sql-support-tier.md", "role": "supporting", "title": "Server SQL Support Tier", "type": "decision"}
+{"category": "constraint", "id": "decision:sqlite-backend-selection", "path": ".knowledge/decision/sqlite-backend-selection.md", "role": "supporting", "title": "SQLite Backend Selection", "type": "decision"}
 {"category": "constraint", "id": "decision:stdlib-servemux", "path": ".knowledge/decision/stdlib-servemux.md", "role": "supporting", "title": "Standard ServeMux Routing", "type": "decision"}
 {"category": "constraint", "id": "decision:thin-httpbinder-integration", "path": ".knowledge/decision/thin-httpbinder-integration.md", "role": "supporting", "title": "Thin httpbind-go Integration", "type": "decision"}
 {"category": "constraint", "id": "decision:tinygo-042-baseline", "path": ".knowledge/decision/tinygo-042-baseline.md", "role": "supporting", "title": "TinyGo 0.42 Baseline", "type": "decision"}
+{"category": "constraint", "id": "decision:tinygo-storage-direction", "path": ".knowledge/decision/tinygo-storage-direction.md", "role": "supporting", "title": "TinyGo Storage Direction", "type": "decision"}
 {"category": "constraint", "id": "decision:wasi-http-deferred", "path": ".knowledge/decision/wasi-http-deferred.md", "role": "supporting", "title": "Defer WASI HTTP Adapter", "type": "decision"}
 {"category": "behavior", "id": "flow:generation-pipeline", "path": ".knowledge/flow/generation-pipeline.md", "role": "primary", "title": "Binding Generation Pipeline", "type": "flow"}
 {"category": "behavior", "id": "flow:oidc-auth-code", "path": ".knowledge/flow/oidc-auth-code.md", "role": "primary", "title": "OIDC Authorization Code Flow", "type": "flow"}
@@ -26,6 +30,7 @@
 {"category": "constraint", "id": "policy:jwt-security", "path": ".knowledge/policy/jwt-security.md", "role": "supporting", "title": "JWT Security Policy", "type": "policy"}
 {"category": "constraint", "id": "policy:oauth-security", "path": ".knowledge/policy/oauth-security.md", "role": "supporting", "title": "OAuth Client Security Policy", "type": "policy"}
 {"category": "constraint", "id": "policy:oidc-security", "path": ".knowledge/policy/oidc-security.md", "role": "supporting", "title": "OIDC Security Policy", "type": "policy"}
+{"category": "constraint", "id": "policy:outbound-transport-security", "path": ".knowledge/policy/outbound-transport-security.md", "role": "supporting", "title": "Outbound Transport Security Policy", "type": "policy"}
 {"category": "constraint", "id": "policy:passkey-security", "path": ".knowledge/policy/passkey-security.md", "role": "supporting", "title": "Passkey Security Policy", "type": "policy"}
 {"category": "constraint", "id": "policy:template-escaping", "path": ".knowledge/policy/template-escaping.md", "role": "supporting", "title": "Template Escaping Policy", "type": "policy"}
 {"category": "constraint", "id": "policy:validation-errors", "path": ".knowledge/policy/validation-errors.md", "role": "supporting", "title": "Validation and Error Policy", "type": "policy"}
@@ -33,6 +38,7 @@
 {"category": "objective", "id": "requirement:contrib-auth-common", "path": ".knowledge/requirement/contrib-auth-common.md", "role": "primary", "title": "Authentication Security Primitives", "type": "requirement"}
 {"category": "objective", "id": "requirement:contrib-auth-state", "path": ".knowledge/requirement/contrib-auth-state.md", "role": "primary", "title": "Authentication State Store", "type": "requirement"}
 {"category": "objective", "id": "requirement:contrib-cbor", "path": ".knowledge/requirement/contrib-cbor.md", "role": "primary", "title": "TinyGo CBOR and COSE Foundation", "type": "requirement"}
+{"category": "objective", "id": "requirement:contrib-cgosqlite", "path": ".knowledge/requirement/contrib-cgosqlite.md", "role": "primary", "title": "Native TinyGo SQLite Driver", "type": "requirement"}
 {"category": "objective", "id": "requirement:contrib-database", "path": ".knowledge/requirement/contrib-database.md", "role": "primary", "title": "TinyGo Database Drivers", "type": "requirement"}
 {"category": "objective", "id": "requirement:contrib-html-template", "path": ".knowledge/requirement/contrib-html-template.md", "role": "primary", "title": "Generated HTML Templates", "type": "requirement"}
 {"category": "objective", "id": "requirement:contrib-jwt", "path": ".knowledge/requirement/contrib-jwt.md", "role": "primary", "title": "TinyGo JWT", "type": "requirement"}
@@ -42,8 +48,9 @@
 {"category": "objective", "id": "requirement:contrib-otel", "path": ".knowledge/requirement/contrib-otel.md", "role": "primary", "title": "Minimal OpenTelemetry Trace and Log", "type": "requirement"}
 {"category": "objective", "id": "requirement:contrib-passkey", "path": ".knowledge/requirement/contrib-passkey.md", "role": "primary", "title": "TinyGo Passkey Relying Party", "type": "requirement"}
 {"category": "objective", "id": "requirement:contrib-postgresql", "path": ".knowledge/requirement/contrib-postgresql.md", "role": "primary", "title": "TinyGo PostgreSQL Driver", "type": "requirement"}
+{"category": "objective", "id": "requirement:contrib-redis-valkey", "path": ".knowledge/requirement/contrib-redis-valkey.md", "role": "primary", "title": "TinyGo Redis and Valkey Client", "type": "requirement"}
 {"category": "objective", "id": "requirement:contrib-reverse-proxy", "path": ".knowledge/requirement/contrib-reverse-proxy.md", "role": "primary", "title": "TinyGo Reverse Proxy", "type": "requirement"}
-{"category": "objective", "id": "requirement:contrib-sqlite", "path": ".knowledge/requirement/contrib-sqlite.md", "role": "primary", "title": "TinyGo SQLite Driver", "type": "requirement"}
+{"category": "objective", "id": "requirement:contrib-sqlite", "path": ".knowledge/requirement/contrib-sqlite.md", "role": "primary", "title": "Portable SQLite Facade", "type": "requirement"}
 {"category": "objective", "id": "requirement:contrib-zstd", "path": ".knowledge/requirement/contrib-zstd.md", "role": "primary", "title": "Zstandard Response Encoder", "type": "requirement"}
 {"category": "objective", "id": "requirement:httpbinder-extensible-route-analysis", "path": ".knowledge/requirement/httpbinder-extensible-route-analysis.md", "role": "primary", "title": "Extensible httpbind-go Route Analysis", "type": "requirement"}
 {"category": "objective", "id": "requirement:mvp-acceptance", "path": ".knowledge/requirement/mvp-acceptance.md", "role": "primary", "title": "MVP Acceptance Criteria", "type": "requirement"}

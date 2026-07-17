@@ -20,6 +20,7 @@ required:
   - PKCE verifier validation and S256 challenge derivation
   - bounded duplicate-aware JSON parsing
   - bounded HTTP response reading and redirect policy hooks
+  - policy:outbound-transport-security integration hooks for external endpoints
 boundaries:
   - challenge, state, nonce, and verifier remain distinct protocol types
   - JWT algorithm and key selection remain in requirement:contrib-jwt

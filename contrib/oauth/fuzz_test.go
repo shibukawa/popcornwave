@@ -11,3 +11,15 @@ func FuzzTokenResponse(f *testing.F) {
 		_, _ = parseTokenSet(data, 64<<10)
 	})
 }
+
+func FuzzScopeGrammar(f *testing.F) {
+	f.Add("openid")
+	f.Add("openid profile")
+	f.Add("open\x00id")
+	f.Fuzz(func(t *testing.T, scope string) {
+		valid := validScope(scope)
+		if valid && len(scope) == 0 {
+			t.Fatal("empty scope accepted")
+		}
+	})
+}

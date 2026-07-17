@@ -8,6 +8,10 @@ import (
 	"time"
 )
 
+type failingRandom struct{}
+
+func (failingRandom) Read([]byte) (int, error) { return 0, errors.New("random failure") }
+
 func TestGenerateSecretAndDecode(t *testing.T) {
 	secret, err := GenerateSecret(bytes.NewReader(make([]byte, 16)), 16)
 	if err != nil {
@@ -22,6 +26,17 @@ func TestGenerateSecretAndDecode(t *testing.T) {
 	}
 	if !EqualSecret(secret, secret) || EqualSecret(secret, secret+"a") {
 		t.Fatal("EqualSecret returned an invalid result")
+	}
+}
+
+func TestGenerateSecretBoundsAndRandomFailure(t *testing.T) {
+	for _, byteCount := range []int{0, MaxSecretBytes + 1} {
+		if _, err := GenerateSecret(bytes.NewReader(nil), byteCount); !errors.Is(err, ErrInvalidSize) {
+			t.Fatalf("byteCount %d error = %v", byteCount, err)
+		}
+	}
+	if _, err := GenerateSecret(failingRandom{}, 16); err == nil || err.Error() != "random failure" {
+		t.Fatalf("random failure = %v", err)
 	}
 }
 
@@ -52,6 +67,14 @@ func TestPKCERFCVector(t *testing.T) {
 	}
 }
 
+func TestPKCERejectsInvalidVerifier(t *testing.T) {
+	for _, verifier := range []string{"", strings.Repeat("a", 42), strings.Repeat("a", 129), strings.Repeat("a", 42) + "/"} {
+		if _, err := PKCEChallengeS256(verifier); !errors.Is(err, ErrInvalidVerifier) {
+			t.Errorf("verifier length=%d error = %v", len(verifier), err)
+		}
+	}
+}
+
 func TestRequireUnexpired(t *testing.T) {
 	now := time.Unix(100, 0)
 	if err := RequireUnexpired(now, now.Add(time.Second)); err != nil {
@@ -69,6 +92,9 @@ func TestValidateJSON(t *testing.T) {
 	}
 	if err := ValidateJSON([]byte(`{"a":1,"a":2}`), options); !errors.Is(err, ErrDuplicateJSON) {
 		t.Fatalf("duplicate error = %v", err)
+	}
+	if err := ValidateJSON([]byte(`{"outer":{"inner":1,"inner":2}}`), options); !errors.Is(err, ErrDuplicateJSON) {
+		t.Fatalf("nested duplicate error = %v", err)
 	}
 	if err := ValidateJSON([]byte(`{} {}`), options); !errors.Is(err, ErrMalformedJSON) {
 		t.Fatalf("trailing error = %v", err)

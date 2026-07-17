@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/shibukawa/petitweb-go/contrib/internal/authn"
@@ -16,6 +17,8 @@ import (
 const (
 	defaultMaxTokenBytes   = 16 << 10
 	defaultMaxSegmentBytes = 8 << 10
+	maxMaxTokenBytes       = 4 << 20
+	maxMaxSegmentBytes     = 2 << 20
 )
 
 // NewClient creates an OIDC client over a validated provider.
@@ -23,7 +26,9 @@ func NewClient(provider *Provider, config Config, options Options) (*Client, err
 	if provider == nil || config.ClientID == "" || config.ClientSecret == "" || config.RedirectURI == "" {
 		return nil, ErrInvalidConfig
 	}
-	if options.Leeway < 0 || options.Leeway > 10*time.Minute || options.MaxTokenBytes < 0 || options.MaxSegmentBytes < 0 {
+	if options.Leeway < 0 || options.Leeway > 10*time.Minute ||
+		options.MaxTokenBytes < 0 || options.MaxTokenBytes > maxMaxTokenBytes ||
+		options.MaxSegmentBytes < 0 || options.MaxSegmentBytes > maxMaxSegmentBytes {
 		return nil, ErrInvalidOptions
 	}
 	random := options.Random
@@ -120,6 +125,9 @@ func (c *Client) HandleCallback(ctx context.Context, key string, callback Callba
 	if err != nil {
 		return TokenSet{}, err
 	}
+	if !strings.EqualFold(set.TokenType, "Bearer") {
+		return TokenSet{}, ErrIDToken
+	}
 	nonce, nonceErr := authn.DecodeBase64URL(transaction.Nonce, 256, 64)
 	if nonceErr != nil || len(nonce) < 16 {
 		return TokenSet{}, ErrNonce
@@ -207,7 +215,7 @@ func (c *Client) UserInfoWithSubject(ctx context.Context, accessToken, expectedS
 }
 
 func (c *Client) userInfo(ctx context.Context, accessToken, expectedSubject string) (map[string]json.RawMessage, error) {
-	if c == nil || ctx == nil || accessToken == "" || len(accessToken) > 16384 || c.provider.userInfoEndpoint == "" {
+	if c == nil || ctx == nil || !validBearerToken(accessToken) || len(accessToken) > 16384 || c.provider.userInfoEndpoint == "" {
 		return nil, ErrUserInfo
 	}
 	requestCtx := ctx
@@ -252,4 +260,19 @@ func (c *Client) userInfo(ctx context.Context, accessToken, expectedSubject stri
 		return nil, ErrUserInfo
 	}
 	return result, nil
+}
+
+// validBearerToken rejects control and whitespace bytes before an access token
+// is copied into an Authorization header. OAuth bearer tokens are opaque, but
+// HTTP header values cannot safely carry these bytes.
+func validBearerToken(value string) bool {
+	if value == "" {
+		return false
+	}
+	for index := 0; index < len(value); index++ {
+		if value[index] < 0x21 || value[index] > 0x7e {
+			return false
+		}
+	}
+	return true
 }

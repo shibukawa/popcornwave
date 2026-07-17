@@ -28,11 +28,14 @@ The example uses `urlpkg` as an alias for Go's `net/url` package.
 Discovery, JWKS, and UserInfo responses are bounded, requests default to a
 30-second timeout, redirects are rejected, and endpoint URLs must be HTTPS
 unless loopback development is explicitly enabled. `DiscoverOptions.EndpointValidator`
-can add host/IP trust policy, including resolved-IP restrictions. The cache
+can add host/IP trust policy, including resolved-IP restrictions. It receives
+inspection copies of the issuer and every discovered endpoint; URL mutations
+are ignored. The cache
 permits one refresh for an unknown key ID, serializes concurrent refreshes, and
 retains a last-valid set only through its configured stale limit. Provider
-implementation, dynamic registration, implicit/hybrid flow, JWE, and
-`private_key_jwt` are intentionally excluded.
+implementation, public clients without a configured client secret, dynamic
+registration, implicit/hybrid flow, JWE, and `private_key_jwt` are intentionally
+excluded.
 
 JWKS freshness is bounded by the configured cache and stale TTLs. Response
 `Cache-Control: max-age` can shorten freshness; `no-cache` forces immediate
@@ -42,9 +45,21 @@ UserInfo responses must be bounded JSON objects containing a non-empty `sub`
 claim; duplicate members and missing or non-string subjects are rejected.
 Use `UserInfoWithSubject` when binding UserInfo to the subject from a verified
 ID Token; it rejects a mismatched `sub` claim.
+Access tokens containing control or whitespace bytes are rejected before they
+are copied into the `Authorization` header.
+
+The OIDC callback accepts only the `Bearer` token type (case-insensitive),
+because UserInfo requests use the Bearer authorization scheme.
 
 `HandleCallback` validates the nonce transaction binding before token exchange,
 then binds the ID Token nonce to the atomically consumed OAuth transaction.
 Code that verifies a token outside that flow must retain its own
 correlation value and call `VerifyIDTokenWithNonce`; `VerifyIDToken` alone only
 checks that a nonce claim is present.
+
+The repository runs protocol-shaped fixtures for independent providers,
+including JWKS rotation and UserInfo subject binding. This does not claim a
+live provider or OpenID Foundation Conformance Suite result; the current scope
+and external-test checklist are documented in
+[`docs/contrib-auth-compatibility.md`](../../docs/contrib-auth-compatibility.md)
+and [`docs/contrib-auth-external-conformance.md`](../../docs/contrib-auth-external-conformance.md).

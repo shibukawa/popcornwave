@@ -47,6 +47,8 @@ type DiscoverOptions struct {
 	JWKSCacheTTL      time.Duration
 	JWKSStaleTTL      time.Duration
 	AllowLoopbackHTTP bool
+	// EndpointValidator receives a copy of each issuer/discovered endpoint URL
+	// for caller-specific host/IP trust checks. Mutations are ignored.
 	EndpointValidator func(*url.URL) error
 }
 

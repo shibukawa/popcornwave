@@ -80,6 +80,10 @@ func TestBeginAndHandleCallbackConsumesState(t *testing.T) {
 		if err := r.ParseForm(); err != nil {
 			t.Errorf("ParseForm: %v", err)
 		}
+		basicID, basicSecret, basicOK := r.BasicAuth()
+		if !basicOK || basicID != "client" || basicSecret != "secret" || r.Form.Get("client_secret") != "" {
+			t.Errorf("client_secret_basic request leaked or was missing: auth=%q/%q/%t form=%v", basicID, basicSecret, basicOK, r.Form)
+		}
 		receivedVerifier = r.Form.Get("code_verifier")
 		if r.Form.Get("code") != "code" || r.Form.Get("redirect_uri") != "https://app.example/callback" {
 			t.Errorf("form = %v", r.Form)
@@ -114,6 +118,65 @@ func TestBeginAndHandleCallbackConsumesState(t *testing.T) {
 	}
 	if err := authn.ValidatePKCEVerifier(receivedVerifier); err != nil {
 		t.Fatal(err)
+	}
+	wantChallenge, err := authn.PKCEChallengeS256(receivedVerifier)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if query.Get("code_challenge") != wantChallenge {
+		t.Fatalf("code_challenge = %q, want S256(verifier) %q", query.Get("code_challenge"), wantChallenge)
+	}
+}
+
+func TestAuthorizationParamsCannotOverrideManagedParameters(t *testing.T) {
+	client, _ := newOAuthFixture(t, http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}))
+	value, _, err := client.BeginAuthorization(context.Background(), BeginOptions{
+		Scopes: []string{"openid"}, Nonce: "nonce",
+		Params: map[string]string{
+			"response_type":         "token",
+			"client_id":             "attacker-client",
+			"redirect_uri":          "https://attacker.example/callback",
+			"state":                 "attacker-state",
+			"code_challenge":        "attacker-challenge",
+			"code_challenge_method": "plain",
+			"nonce":                 "attacker-nonce",
+			"scope":                 "admin",
+			"prompt":                "login",
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	parsed, err := url.Parse(value)
+	if err != nil {
+		t.Fatal(err)
+	}
+	managed := map[string]string{
+		"response_type":         "code",
+		"client_id":             "client",
+		"redirect_uri":          "https://app.example/callback",
+		"state":                 parsed.Query().Get("state"),
+		"code_challenge":        parsed.Query().Get("code_challenge"),
+		"code_challenge_method": "S256",
+		"nonce":                 "nonce",
+		"scope":                 "openid",
+	}
+	for key, want := range managed {
+		if got := parsed.Query().Get(key); got != want {
+			t.Fatalf("managed %s = %q, want %q", key, got, want)
+		}
+	}
+	if got := parsed.Query().Get("prompt"); got != "login" {
+		t.Fatalf("custom prompt = %q, want login", got)
+	}
+}
+
+func TestBeginAuthorizationRejectsInvalidScopeTokens(t *testing.T) {
+	client, _ := newOAuthFixture(t, http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}))
+	for _, scope := range []string{"openid email", "open\tيد", "open\"id", "open" + string([]byte{0x7f}) + "id", strings.Repeat("x", 257)} {
+		if _, _, err := client.BeginAuthorization(context.Background(), BeginOptions{Scopes: []string{scope}}); !errors.Is(err, ErrInvalidOptions) {
+			t.Fatalf("scope %q error = %v", scope, err)
+		}
 	}
 }
 
@@ -283,6 +346,20 @@ func TestClientSecretPostAndTokenErrorAreBounded(t *testing.T) {
 	}
 }
 
+func TestTokenStringFieldsHaveHardBounds(t *testing.T) {
+	client, _ := newOAuthFixture(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = io.WriteString(w, `{"access_token":"`+strings.Repeat("x", maxTokenValueBytes+1)+`","token_type":"Bearer"}`)
+	}))
+	urlValue, key, err := client.BeginAuthorization(context.Background(), BeginOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := client.HandleCallback(context.Background(), key, Callback{State: mustQuery(t, urlValue, "state"), Code: "code"}); !errors.Is(err, ErrLimitExceeded) {
+		t.Fatalf("oversized token field error = %v", err)
+	}
+}
+
 func TestRequestTimeoutCancelsTokenExchange(t *testing.T) {
 	store, err := authstate.NewMemoryStore[Transaction](authstate.Options{})
 	if err != nil {
@@ -332,9 +409,37 @@ func TestTransportErrorDoesNotExposeDetails(t *testing.T) {
 	}
 }
 
+func TestOversizedCallbackDoesNotConsumeState(t *testing.T) {
+	client, _ := newOAuthFixture(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = io.WriteString(w, `{"access_token":"access","token_type":"Bearer"}`)
+	}))
+	urlValue, key, err := client.BeginAuthorization(context.Background(), BeginOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	state := mustQuery(t, urlValue, "state")
+	if _, err := client.HandleCallback(context.Background(), key, Callback{State: state, ErrorDescription: strings.Repeat("x", 2049)}); !errors.Is(err, ErrInvalidCallback) {
+		t.Fatalf("oversized callback error = %v", err)
+	}
+	if _, err := client.HandleCallback(context.Background(), key, Callback{State: state, Code: "code"}); err != nil {
+		t.Fatalf("state was consumed by oversized callback: %v", err)
+	}
+}
+
 func TestTokenResponseRejectsDuplicateMembers(t *testing.T) {
 	if _, err := parseTokenSet([]byte(`{"access_token":"a","access_token":"b","token_type":"Bearer"}`), 4096); !errors.Is(err, ErrMalformed) {
 		t.Fatalf("error = %v", err)
+	}
+}
+
+func TestTokenResponseRejectsInvalidExpiry(t *testing.T) {
+	for _, response := range []string{
+		`{"access_token":"a","token_type":"Bearer","expires_in":-1}`,
+		`{"access_token":"a","token_type":"Bearer","expires_in":"3600"}`,
+	} {
+		if _, err := parseTokenSet([]byte(response), 4096); !errors.Is(err, ErrMalformed) {
+			t.Fatalf("response %s error = %v", response, err)
+		}
 	}
 }
 
@@ -351,14 +456,20 @@ func TestBeginAuthorizationBoundsCorrelationInputs(t *testing.T) {
 func TestRejectsRedirectAndInvalidEndpoint(t *testing.T) {
 	store, _ := authstate.NewMemoryStore[Transaction](authstate.Options{})
 	validated := 0
-	if _, err := NewClient(Config{AuthorizationEndpoint: "https://example.com/a", TokenEndpoint: "https://example.com/t", ClientID: "c", ClientSecret: "s", RedirectURI: "https://app.example/cb", EndpointValidator: func(endpoint *url.URL) error {
+	client, err := NewClient(Config{AuthorizationEndpoint: "https://example.com/a", TokenEndpoint: "https://example.com/t", ClientID: "c", ClientSecret: "s", RedirectURI: "https://app.example/cb", EndpointValidator: func(endpoint *url.URL) error {
 		validated++
 		if endpoint.Hostname() != "example.com" {
 			return errors.New("unexpected endpoint secret")
 		}
+		endpoint.Host = "attacker.example"
+		endpoint.Path = "/rewritten"
 		return nil
-	}}, Options{StateStore: store}); err != nil || validated != 2 {
+	}}, Options{StateStore: store})
+	if err != nil || validated != 2 {
 		t.Fatalf("endpoint validator err=%v calls=%d", err, validated)
+	}
+	if client.config.AuthorizationEndpoint != "https://example.com/a" || client.config.TokenEndpoint != "https://example.com/t" {
+		t.Fatalf("validator rewrote configured endpoints: auth=%q token=%q", client.config.AuthorizationEndpoint, client.config.TokenEndpoint)
 	}
 	if _, err := NewClient(Config{AuthorizationEndpoint: "https://example.com/a", TokenEndpoint: "https://example.com/t", ClientID: "c", ClientSecret: "s", RedirectURI: "https://app.example/cb", EndpointValidator: func(*url.URL) error {
 		return errors.New("endpoint trust secret=hidden")
@@ -382,6 +493,20 @@ func TestRejectsRedirectAndInvalidEndpoint(t *testing.T) {
 	}
 	if _, err := NewClient(Config{AuthorizationEndpoint: "https://example.com/a", TokenEndpoint: "https://example.com/t", ClientID: "c", ClientSecret: string(make([]byte, maxClientValueBytes+1)), RedirectURI: "https://app.example/cb"}, Options{StateStore: store}); !errors.Is(err, ErrInvalidConfig) {
 		t.Fatalf("client secret bound = %v", err)
+	}
+}
+
+func TestPublicClientWithoutSecretIsUnsupported(t *testing.T) {
+	store, err := authstate.NewMemoryStore[Transaction](authstate.Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = NewClient(Config{
+		AuthorizationEndpoint: "https://example.com/a", TokenEndpoint: "https://example.com/t",
+		ClientID: "public", RedirectURI: "https://app.example/callback",
+	}, Options{StateStore: store})
+	if !errors.Is(err, ErrInvalidConfig) {
+		t.Fatalf("public client error = %v", err)
 	}
 }
 

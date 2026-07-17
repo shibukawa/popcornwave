@@ -12,6 +12,13 @@ import (
 
 func int64Pointer(value int64) *int64 { return &value }
 
+type unsupportedSigningAlgorithm struct{}
+
+func (unsupportedSigningAlgorithm) Algorithm() string { return "RS256" }
+func (unsupportedSigningAlgorithm) Sign([]byte) ([]byte, error) {
+	return []byte("signature"), nil
+}
+
 func TestNilSigningBoundariesAreSafe(t *testing.T) {
 	var signer *HMACSigner
 	if _, err := signer.Sign([]byte("input")); !errors.Is(err, ErrInvalidOptions) {
@@ -52,6 +59,12 @@ func TestSigningRejectsUnboundedInputs(t *testing.T) {
 	}
 }
 
+func TestSigningRejectsUnsupportedCustomAlgorithm(t *testing.T) {
+	if _, err := Sign(Header{Algorithm: "RS256"}, Claims{}, unsupportedSigningAlgorithm{}); !errors.Is(err, ErrUnsupportedAlgorithm) {
+		t.Fatalf("custom algorithm error = %v", err)
+	}
+}
+
 func TestHS256SignParseAndVerify(t *testing.T) {
 	key := []byte("0123456789abcdef0123456789abcdef")
 	signer, err := NewHMACSigner(key)
@@ -84,6 +97,45 @@ func TestHS256SignParseAndVerify(t *testing.T) {
 	}
 	if role, ok := claims.String("role"); !ok || role != "admin" {
 		t.Fatalf("role = %q, %v", role, ok)
+	}
+	if raw, ok := claims.Value("role"); !ok || string(raw) != `"admin"` {
+		t.Fatalf("raw role = %s, %v", raw, ok)
+	}
+	if _, ok := claims.Value("missing"); ok {
+		t.Fatal("missing claim unexpectedly present")
+	}
+}
+
+func TestVerifyRejectsTamperedSignature(t *testing.T) {
+	key := []byte("0123456789abcdef0123456789abcdef")
+	signer, err := NewHMACSigner(key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	compact, err := Sign(Header{}, Claims{Issuer: "issuer"}, signer)
+	if err != nil {
+		t.Fatal(err)
+	}
+	segments := strings.Split(compact, ".")
+	if len(segments) != 3 {
+		t.Fatalf("compact segments = %d", len(segments))
+	}
+	last := segments[2][len(segments[2])-1]
+	if last == 'A' {
+		last = 'B'
+	} else {
+		last = 'A'
+	}
+	segments[2] = segments[2][:len(segments[2])-1] + string(last)
+	token, err := Parse(strings.Join(segments, "."), ParseOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = Verify(token, KeyResolverFunc(func(Header) (VerificationKey, error) {
+		return VerificationKey{Algorithm: "HS256", HMAC: key}, nil
+	}), VerifyOptions{AllowedAlgorithms: []string{"HS256"}})
+	if !errors.Is(err, ErrInvalidSignature) {
+		t.Fatalf("tampered signature error = %v", err)
 	}
 }
 
@@ -178,6 +230,27 @@ func TestJWKSSelectionAndAmbiguity(t *testing.T) {
 	resolved, err := set.ResolveKey(Header{Algorithm: "HS256", KeyID: "one"})
 	if err != nil || string(resolved.HMAC) != string(key) {
 		t.Fatalf("ResolveKey = %#v, %v", resolved, err)
+	}
+	if _, err := set.ResolveKey(Header{Algorithm: "HS256", KeyID: "missing"}); !errors.Is(err, ErrKeyNotFound) {
+		t.Fatalf("missing key error = %v", err)
+	}
+	if _, err := set.ResolveKey(Header{Algorithm: "RS256", KeyID: "one"}); !errors.Is(err, ErrKeyNotFound) {
+		t.Fatalf("algorithm mismatch error = %v", err)
+	}
+	invalidSecret, err := ParseJWKS([]byte(`{"keys":[{"kty":"oct","kid":"bad","alg":"HS256","k":"not-base64!"}]}`), JWKSOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := invalidSecret.ResolveKey(Header{Algorithm: "HS256", KeyID: "bad"}); !errors.Is(err, ErrKeyNotFound) {
+		t.Fatalf("malformed secret error = %v", err)
+	}
+	shortSecret := base64.RawURLEncoding.EncodeToString(bytes.Repeat([]byte{'s'}, 31))
+	shortSet, err := ParseJWKS([]byte(`{"keys":[{"kty":"oct","kid":"short","alg":"HS256","k":"`+shortSecret+`"}]}`), JWKSOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := shortSet.ResolveKey(Header{Algorithm: "HS256", KeyID: "short"}); !errors.Is(err, ErrKeyNotFound) {
+		t.Fatalf("short secret error = %v", err)
 	}
 	ambiguous := []byte(`{"keys":[` +
 		`{"kty":"oct","kid":"one","alg":"HS256","k":"` + encodedKey + `"},` +

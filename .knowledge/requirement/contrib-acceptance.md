@@ -34,6 +34,9 @@ package_gates:
     - retry exhaustion reports drops without writing telemetry to stdout
   requirement:contrib-reverse-proxy:
     - header, path, cancellation, streaming, and backend failure fixtures pass
+  requirement:contrib-redis-valkey:
+    - Redis and Valkey pass expiry, NX, atomic consume, counter, reconnect, malformed reply, and bounded response fixtures
+    - decision:local-tls-proxy-boundary passes certificate, hostname, unavailable upstream, and credential-redaction fixtures
   requirement:contrib-jwt:
     - RFC and adversarial algorithm-confusion vectors pass
   requirement:contrib-oauth:
