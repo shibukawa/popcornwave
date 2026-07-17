@@ -32,6 +32,7 @@ required_behavior:
 defaults:
   forwarded_headers: opt-in through SetXForwarded
   transport: http.DefaultTransport
+  outbound_security: policy:outbound-transport-security
 deferred:
   - protocol upgrades and WebSocket tunneling
   - 1xx forwarding

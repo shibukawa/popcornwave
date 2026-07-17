@@ -3,7 +3,7 @@ id: decision:server-sql-support-tier
 type: decision
 title: Server SQL Support Tier
 ---
-Petitweb excludes PostgreSQL and MySQL from first-class support until TinyGo can provide secure direct connections and compatible maintained drivers.
+Petitweb excludes PostgreSQL and MySQL from first-class support until compatible maintained drivers pass through the selected local TLS proxy boundary; direct TinyGo TLS is not a promotion gate.
 
 ```yaml
 status: accepted
@@ -16,7 +16,7 @@ compatibility_label: unsupported
 evidence:
   shared_sql:
     - database/sql and database/sql/driver work in the tested TinyGo 0.41.1 official container
-    - the blocker is secure server connectivity and driver compatibility rather than database/sql
+    - the remaining blocker is driver and protocol compatibility rather than database/sql or direct TLS
   tinygo_tls:
     - required tls.Config.Clone, tls.Conn, certificate, resolver, and connection-state APIs are incomplete or absent
     - tls.Client for in-place protocol TLS upgrade is unimplemented in TinyGo 0.41.1
@@ -30,11 +30,12 @@ product_effect:
   - project generators and examples do not scaffold PostgreSQL or MySQL
   - api:cli-check does not claim PostgreSQL or MySQL runtime interoperability
   - release acceptance does not depend on either server database
-  - documentation must not present either database as secure or supported
-  - applications may experiment with external proxies or private drivers without Petitweb compatibility guarantees
+  - documentation may describe decision:local-tls-proxy-boundary as the required secure transport path without claiming driver support
+  - applications may experiment with pgBouncer, ProxySQL, HAProxy, or stunnel without Petitweb driver compatibility guarantees
 promotion_gates:
   - maintained driver compiles without unsafe compatibility patches on supported TinyGo targets
-  - direct TLS negotiation and in-place upgrade pass security tests
+  - plaintext protocol interoperability passes against an approved same-workload proxy endpoint
+  - policy:outbound-transport-security passes verified-TLS upstream tests
   - authentication, prepared statement, transaction, cancellation, and reconnect fixtures pass
   - live interoperability passes against declared server versions
   - binary size and memory remain within contrib policy

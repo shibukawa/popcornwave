@@ -26,7 +26,7 @@ flow:
     - flush within context deadline
     - return final exporter error
 security:
-  - HTTPS by default
+  - policy:outbound-transport-security applies; verified HTTPS is required outside the local proxy boundary
   - configurable headers are copied and secrets are not logged
   - response bodies and diagnostic text are size bounded
 ```

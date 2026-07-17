@@ -12,9 +12,9 @@ compatibility_label: unsupported
 status: deferred
 blocker: decision:server-sql-support-tier
 promotion_requirements:
-  - TCP connection and TLS negotiation
+  - TCP connection through decision:local-tls-proxy-boundary
   - startup parameters
-  - cleartext password only when TLS and explicitly enabled
+  - cleartext password only across the protected local hop with verified upstream TLS and explicit enablement
   - MD5 authentication for legacy interoperability
   - SCRAM-SHA-256 authentication
   - simple query
@@ -34,5 +34,7 @@ deferred:
   - pipeline mode
   - GSSAPI and OAUTHBEARER
   - binary codecs beyond core scalar types
+defaults:
+  - policy:outbound-transport-security required outside loopback
 protocol: https://www.postgresql.org/docs/current/protocol.html
 ```

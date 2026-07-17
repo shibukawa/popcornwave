@@ -18,10 +18,12 @@ packages:
   - requirement:contrib-oauth
   - requirement:contrib-oidc
   - requirement:contrib-database
+  - requirement:contrib-redis-valkey
   - requirement:contrib-html-template
   - requirement:contrib-zstd
 principles:
   - policy:contrib-compatibility
+  - policy:outbound-transport-security
   - decision:contrib-delivery-order
   - decision:passkey-first-authentication
 acceptance: requirement:contrib-acceptance

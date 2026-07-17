@@ -13,8 +13,8 @@ status: deferred
 blocker: decision:server-sql-support-tier
 promotion_requirements:
   - protocol 4.1 capability negotiation
-  - TCP connection and TLS upgrade
-  - caching_sha2_password over TLS
+  - TCP connection through decision:local-tls-proxy-boundary
+  - caching_sha2_password through a verified TLS upstream proxy
   - mysql_native_password for legacy interoperability
   - text query protocol
   - binary prepared statement protocol
@@ -27,7 +27,7 @@ product_boundaries:
   - no compatibility guarantee
   - no release acceptance gate
 defaults:
-  - TLS required for password authentication outside loopback
+  - policy:outbound-transport-security required outside loopback
   - multi-statements disabled
   - local infile disabled
 deferred:

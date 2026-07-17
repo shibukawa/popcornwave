@@ -43,13 +43,17 @@ func (d *Device) Socket(domain int, stype int, protocol int) (int, error) {
 		proto, isStream = IPPROTO_UDP, false
 	case protocol == 0 && stype == SOCK_DGRAM:
 		proto, isStream = IPPROTO_UDP, false
-	case protocol == IPPROTO_TLS:
-		return -1, ErrProtocolNotSupported
+	case protocol == IPPROTO_TLS && stype == SOCK_STREAM:
+		proto, isStream = IPPROTO_TLS, true
 	default:
 		return -1, ErrProtocolNotSupported
 	}
 
-	fd, err := sysSocket(AF_INET, stype, proto)
+	socketProto := proto
+	if proto == IPPROTO_TLS {
+		socketProto = IPPROTO_TCP
+	}
+	fd, err := sysSocket(AF_INET, stype, socketProto)
 	if err != nil {
 		return -1, err
 	}
@@ -89,6 +93,13 @@ func (d *Device) Connect(sockfd int, host string, ip netip.AddrPort) error {
 	}
 	if err := sysConnect(s.fd, addr); err != nil {
 		return err
+	}
+	if s.protocol == IPPROTO_TLS {
+		tls, err := sysTLSConnect(s.fd, host)
+		if err != nil {
+			return err
+		}
+		s.tls = tls
 	}
 	s.raddr = addr
 	return nil
@@ -144,6 +155,11 @@ func (d *Device) Send(sockfd int, buf []byte, flags int, deadline time.Time) (in
 	if err := waitWrite(s.fd, deadline); err != nil {
 		return -1, err
 	}
+	if s.protocol == IPPROTO_TLS {
+		s.mu.Lock()
+		defer s.mu.Unlock()
+		return sysTLSSend(s.tls, buf)
+	}
 	n, err := sysSend(s.fd, buf, flags)
 	if n < 0 {
 		return -1, err
@@ -161,6 +177,15 @@ func (d *Device) Recv(sockfd int, buf []byte, flags int, deadline time.Time) (in
 	}
 	if err := waitRead(s.fd, deadline); err != nil {
 		return -1, err
+	}
+	if s.protocol == IPPROTO_TLS {
+		s.mu.Lock()
+		defer s.mu.Unlock()
+		n, err := sysTLSRecv(s.tls, buf)
+		if n == 0 && err == nil {
+			return 0, io.EOF
+		}
+		return n, err
 	}
 	n, err := sysRecv(s.fd, buf, flags)
 	if n == 0 && err == nil && s.isStream {
@@ -182,6 +207,12 @@ func (d *Device) Close(sockfd int) error {
 	if !ok {
 		return ErrInvalidSocketFd
 	}
+	s.mu.Lock()
+	if s.tls != 0 {
+		sysTLSClose(s.tls)
+		s.tls = 0
+	}
+	s.mu.Unlock()
 	if err := sysClose(s.fd); err != nil {
 		return ErrClosingSocket
 	}

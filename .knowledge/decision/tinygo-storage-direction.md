@@ -3,7 +3,7 @@ id: decision:tinygo-storage-direction
 type: decision
 title: TinyGo Storage Direction
 ---
-Petitweb selects native embedded SQLite as its first relational store while retaining key-value stores as separate future integrations.
+Petitweb selects native embedded SQLite as its first relational store and Redis-compatible servers as first-class shared state through a local TLS proxy.
 
 ```yaml
 status: accepted
@@ -11,6 +11,8 @@ verified: 2026-07-17
 selected:
   relational: requirement:contrib-sqlite
   tinygo_native: requirement:contrib-cgosqlite
+  network_kv: requirement:contrib-redis-valkey
+  transport_boundary: decision:local-tls-proxy-boundary
   server_sql_tier: decision:server-sql-support-tier
 findings:
   database_sql:
@@ -24,9 +26,10 @@ findings:
     - BuntDB v1.3.2 persisted transaction writes and reads under TinyGo Linux arm64 and compiled for amd64
     - bbolt v1.5.0 persisted transaction writes and reads under TinyGo Linux arm64 and compiled for amd64
   network_kv:
-    - Valkey remains suitable for shared TTL, counter, and session state
-    - valkey-go v1.0.76 and go-redis v9.21.0 do not compile unchanged with TinyGo 0.41.1
-    - a bounded RESP2 client remains a feasible future package
+    - Redis and Valkey are suitable for shared TTL, counter, session, and small key-value state
+    - bounded RESP2 and go-redis v9.17.3 passed Redis 8.4.4 and Valkey 9.1.0 session operations with TinyGo 0.41.1
+    - go-redis v9.21.0 and valkey-go v1.0.76 do not compile unchanged with TinyGo 0.41.1
+    - first-class transport uses policy:outbound-transport-security instead of requiring direct TinyGo TLS
 sqlite_rejections:
   purego_dynamic:
     - ebitengine/purego v0.10.1 loaded libsqlite3 with host Go

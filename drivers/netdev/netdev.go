@@ -36,7 +36,7 @@ const (
 	TCP_KEEPINTVL = 0x5
 	IPPROTO_TCP   = 0x6
 	IPPROTO_UDP   = 0x11
-	// Made up; hardware TLS offload. Not supported on host.
+	// Made up; TLS is implemented by the host netdev on desktop targets.
 	IPPROTO_TLS = 0xFE
 	F_SETFL     = 0x4
 )
@@ -82,11 +82,13 @@ type Device struct {
 }
 
 type socket struct {
+	mu       sync.Mutex
 	fd       int
 	protocol int
 	isStream bool
 	laddr    netip.AddrPort
 	raddr    netip.AddrPort
+	tls      uintptr
 }
 
 // New returns a host netdev driver. Prefer Use or the blank import.

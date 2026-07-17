@@ -6,28 +6,78 @@ package netdev
 #include <stdint.h>
 #include <string.h>
 
-// Prefer libc symbols from musl/glibc. TinyGo's Linux builds link a full libc.
+// TinyGo's Linux linker does not expose libc socket stubs. Invoke the stable
+// Linux syscall ABI directly on the two supported server architectures.
+static int petitweb_errno;
 
-int socket(int domain, int type, int protocol);
-int bind(int fd, void *addr, unsigned addrlen);
-int listen(int fd, int backlog);
-int accept(int fd, void *addr, unsigned *addrlen);
-int connect(int fd, void *addr, unsigned addrlen);
-int setsockopt(int fd, int level, int optname, void *optval, unsigned optlen);
-int getsockname(int fd, void *addr, unsigned *addrlen);
-int getpeername(int fd, void *addr, unsigned *addrlen);
-long read(int fd, void *buf, unsigned long n);
-long write(int fd, void *buf, unsigned long n);
-int close(int fd);
-int fcntl(int fd, int cmd, int arg);
-int select(int nfds, void *rfds, void *wfds, void *efds, void *timeout);
+#if defined(__aarch64__)
+static long raw_syscall6(long n, long a, long b, long c, long d, long e, long f) {
+	register long x8 __asm__("x8") = n;
+	register long x0 __asm__("x0") = a;
+	register long x1 __asm__("x1") = b;
+	register long x2 __asm__("x2") = c;
+	register long x3 __asm__("x3") = d;
+	register long x4 __asm__("x4") = e;
+	register long x5 __asm__("x5") = f;
+	__asm__ volatile("svc 0" : "+r"(x0) : "r"(x8), "r"(x1), "r"(x2), "r"(x3), "r"(x4), "r"(x5) : "memory", "cc");
+	return x0;
+}
+enum {
+	SYS_close = 57, SYS_read = 63, SYS_write = 64, SYS_pselect6 = 72,
+	SYS_socket = 198, SYS_bind = 200, SYS_listen = 201, SYS_accept = 202,
+	SYS_connect = 203, SYS_getsockname = 204, SYS_setsockopt = 208
+};
+#elif defined(__x86_64__)
+static long raw_syscall6(long n, long a, long b, long c, long d, long e, long f) {
+	register long r10 __asm__("r10") = d;
+	register long r8 __asm__("r8") = e;
+	register long r9 __asm__("r9") = f;
+	long result;
+	__asm__ volatile("syscall" : "=a"(result) : "a"(n), "D"(a), "S"(b), "d"(c), "r"(r10), "r"(r8), "r"(r9) : "rcx", "r11", "memory", "cc");
+	return result;
+}
+enum {
+	SYS_read = 0, SYS_write = 1, SYS_close = 3, SYS_select = 23,
+	SYS_socket = 41, SYS_connect = 42, SYS_accept = 43, SYS_bind = 49,
+	SYS_listen = 50, SYS_getsockname = 51, SYS_setsockopt = 54
+};
+#else
+#error unsupported Linux architecture
+#endif
 
-// errno location (glibc / musl)
-extern int *__errno_location(void);
-static int h_errno(void) { return *__errno_location(); }
+static long syscall_result(long result) {
+	if (result < 0 && result >= -4095) {
+		petitweb_errno = (int)-result;
+		return -1;
+	}
+	petitweb_errno = 0;
+	return result;
+}
 
+static int h_errno(void) { return petitweb_errno; }
+static int h_socket(int d, int t, int p) { return (int)syscall_result(raw_syscall6(SYS_socket, d, t, p, 0, 0, 0)); }
+static int h_bind(int fd, void *a, unsigned n) { return (int)syscall_result(raw_syscall6(SYS_bind, fd, (long)a, n, 0, 0, 0)); }
+static int h_listen(int fd, int b) { return (int)syscall_result(raw_syscall6(SYS_listen, fd, b, 0, 0, 0, 0)); }
+static int h_accept(int fd, void *a, unsigned *n) { return (int)syscall_result(raw_syscall6(SYS_accept, fd, (long)a, (long)n, 0, 0, 0)); }
+static int h_connect(int fd, void *a, unsigned n) { return (int)syscall_result(raw_syscall6(SYS_connect, fd, (long)a, n, 0, 0, 0)); }
+static int h_setsockopt(int fd, int l, int o, void *v, unsigned n) { return (int)syscall_result(raw_syscall6(SYS_setsockopt, fd, l, o, (long)v, n, 0)); }
+static int h_getsockname(int fd, void *a, unsigned *n) { return (int)syscall_result(raw_syscall6(SYS_getsockname, fd, (long)a, (long)n, 0, 0, 0)); }
+static long h_read(int fd, void *b, unsigned long n) { return syscall_result(raw_syscall6(SYS_read, fd, (long)b, n, 0, 0, 0)); }
+static long h_write(int fd, void *b, unsigned long n) { return syscall_result(raw_syscall6(SYS_write, fd, (long)b, n, 0, 0, 0)); }
+static int h_close(int fd) { return (int)syscall_result(raw_syscall6(SYS_close, fd, 0, 0, 0, 0, 0)); }
+
+struct petitweb_timeval { long sec; long usec; };
+struct petitweb_timespec { long sec; long nsec; };
 static int h_select(int nfds, void *rfds, void *wfds, void *efds, void *timeout) {
-	return select(nfds, rfds, wfds, efds, timeout);
+#if defined(__aarch64__)
+	struct petitweb_timeval *tv = (struct petitweb_timeval *)timeout;
+	struct petitweb_timespec ts;
+	struct petitweb_timespec *tsp = 0;
+	if (tv != 0) { ts.sec = tv->sec; ts.nsec = tv->usec * 1000; tsp = &ts; }
+	return (int)syscall_result(raw_syscall6(SYS_pselect6, nfds, (long)rfds, (long)wfds, (long)efds, (long)tsp, 0));
+#else
+	return (int)syscall_result(raw_syscall6(SYS_select, nfds, (long)rfds, (long)wfds, (long)efds, (long)timeout, 0));
+#endif
 }
 */
 import "C"
@@ -39,16 +89,16 @@ import (
 )
 
 const (
-	osAF_INET      = 2
-	osSOCK_STREAM  = 1
-	osSOCK_DGRAM   = 2
-	osIPPROTO_TCP  = 6
-	osIPPROTO_UDP  = 17
-	osSOL_SOCKET   = 1
-	osSO_REUSEADDR = 2
-	osSO_KEEPALIVE = 9
-	osSO_LINGER    = 13
-	osSOL_TCP      = 6
+	osAF_INET       = 2
+	osSOCK_STREAM   = 1
+	osSOCK_DGRAM    = 2
+	osIPPROTO_TCP   = 6
+	osIPPROTO_UDP   = 17
+	osSOL_SOCKET    = 1
+	osSO_REUSEADDR  = 2
+	osSO_KEEPALIVE  = 9
+	osSO_LINGER     = 13
+	osSOL_TCP       = 6
 	osTCP_KEEPINTVL = 5
 )
 
@@ -133,7 +183,7 @@ func sysSocket(domain, stype, proto int) (int, error) {
 	default:
 		return -1, ErrProtocolNotSupported
 	}
-	fd := int(C.socket(C.int(osAF_INET), C.int(ostype), C.int(oproto)))
+	fd := int(C.h_socket(C.int(osAF_INET), C.int(ostype), C.int(oproto)))
 	if fd < 0 {
 		return -1, lastErrno()
 	}
@@ -145,14 +195,14 @@ func sysBind(fd int, ip netip.AddrPort) error {
 	if err != nil {
 		return err
 	}
-	if C.bind(C.int(fd), unsafe.Pointer(&sa), 16) != 0 {
+	if C.h_bind(C.int(fd), unsafe.Pointer(&sa), 16) != 0 {
 		return lastErrno()
 	}
 	return nil
 }
 
 func sysListen(fd, backlog int) error {
-	if C.listen(C.int(fd), C.int(backlog)) != 0 {
+	if C.h_listen(C.int(fd), C.int(backlog)) != 0 {
 		return lastErrno()
 	}
 	return nil
@@ -161,7 +211,7 @@ func sysListen(fd, backlog int) error {
 func sysAccept(fd int) (int, netip.AddrPort, error) {
 	var sa sockaddrInet4
 	n := C.uint(16)
-	nfd := int(C.accept(C.int(fd), unsafe.Pointer(&sa), &n))
+	nfd := int(C.h_accept(C.int(fd), unsafe.Pointer(&sa), &n))
 	if nfd < 0 {
 		return -1, netip.AddrPort{}, lastErrno()
 	}
@@ -173,21 +223,21 @@ func sysConnect(fd int, ip netip.AddrPort) error {
 	if err != nil {
 		return err
 	}
-	if C.connect(C.int(fd), unsafe.Pointer(&sa), 16) != 0 {
+	if C.h_connect(C.int(fd), unsafe.Pointer(&sa), 16) != 0 {
 		return lastErrno()
 	}
 	return nil
 }
 
 func sysClose(fd int) error {
-	if C.close(C.int(fd)) != 0 {
+	if C.h_close(C.int(fd)) != 0 {
 		return lastErrno()
 	}
 	return nil
 }
 
 func sysSend(fd int, buf []byte, flags int) (int, error) {
-	n := int(C.write(C.int(fd), unsafe.Pointer(&buf[0]), C.ulong(len(buf))))
+	n := int(C.h_write(C.int(fd), unsafe.Pointer(&buf[0]), C.ulong(len(buf))))
 	if n < 0 {
 		return -1, lastErrno()
 	}
@@ -195,7 +245,7 @@ func sysSend(fd int, buf []byte, flags int) (int, error) {
 }
 
 func sysRecv(fd int, buf []byte, flags int) (int, error) {
-	n := int(C.read(C.int(fd), unsafe.Pointer(&buf[0]), C.ulong(len(buf))))
+	n := int(C.h_read(C.int(fd), unsafe.Pointer(&buf[0]), C.ulong(len(buf))))
 	if n < 0 {
 		return -1, lastErrno()
 	}
@@ -204,7 +254,7 @@ func sysRecv(fd int, buf []byte, flags int) (int, error) {
 
 func sysSetReuseAddr(fd int) error {
 	one := C.int(1)
-	if C.setsockopt(C.int(fd), osSOL_SOCKET, osSO_REUSEADDR, unsafe.Pointer(&one), 4) != 0 {
+	if C.h_setsockopt(C.int(fd), osSOL_SOCKET, osSO_REUSEADDR, unsafe.Pointer(&one), 4) != 0 {
 		return lastErrno()
 	}
 	return nil
@@ -221,19 +271,19 @@ func sysSetSockOpt(fd int, level, opt int, value interface{}) error {
 		if v {
 			iv = 1
 		}
-		if C.setsockopt(C.int(fd), C.int(osLevel), C.int(osOpt), unsafe.Pointer(&iv), 4) != 0 {
+		if C.h_setsockopt(C.int(fd), C.int(osLevel), C.int(osOpt), unsafe.Pointer(&iv), 4) != 0 {
 			return lastErrno()
 		}
 		return nil
 	case int:
 		iv := C.int(v)
-		if C.setsockopt(C.int(fd), C.int(osLevel), C.int(osOpt), unsafe.Pointer(&iv), 4) != 0 {
+		if C.h_setsockopt(C.int(fd), C.int(osLevel), C.int(osOpt), unsafe.Pointer(&iv), 4) != 0 {
 			return lastErrno()
 		}
 		return nil
 	case float64:
 		iv := C.int(v)
-		if C.setsockopt(C.int(fd), C.int(osLevel), C.int(osOpt), unsafe.Pointer(&iv), 4) != 0 {
+		if C.h_setsockopt(C.int(fd), C.int(osLevel), C.int(osOpt), unsafe.Pointer(&iv), 4) != 0 {
 			return lastErrno()
 		}
 		return nil
@@ -332,7 +382,7 @@ func localIPv4() (netip.Addr, error) {
 	_ = sysConnect(fd, netip.AddrPortFrom(netip.AddrFrom4([4]byte{8, 8, 8, 8}), 53))
 	var sa sockaddrInet4
 	n := C.uint(16)
-	if C.getsockname(C.int(fd), unsafe.Pointer(&sa), &n) != 0 {
+	if C.h_getsockname(C.int(fd), unsafe.Pointer(&sa), &n) != 0 {
 		return netip.AddrFrom4([4]byte{127, 0, 0, 1}), nil
 	}
 	return fromSockaddr(sa).Addr(), nil
