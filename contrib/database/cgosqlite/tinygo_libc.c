@@ -1,4 +1,4 @@
-//go:build tinygo
+//go:build tinygo && linux
 
 // TinyGo's Linux musl archive intentionally omits a few POSIX wrappers that
 // SQLite's unix VFS references. Keep these wrappers local to TinyGo builds.

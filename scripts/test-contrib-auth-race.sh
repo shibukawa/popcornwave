@@ -15,6 +15,7 @@ fi
 
 "$go_bin" test -race \
 	./contrib/authstate \
+	./contrib/authstate/memory \
 	./contrib/internal/authn \
 	./contrib/jwt \
 	./contrib/oauth \

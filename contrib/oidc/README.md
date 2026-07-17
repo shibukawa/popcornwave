@@ -11,7 +11,7 @@ concurrency and atomic single-use guarantees.
 
 ```go
 provider, err := oidc.Discover(ctx, "https://issuer.example", oidc.DiscoverOptions{})
-store, _ := authstate.NewMemoryStore[oauth.Transaction](authstate.Options{})
+store, _ := memory.NewStore[oauth.Transaction](memory.Options{})
 client, err := oidc.NewClient(provider, oidc.Config{
 	ClientID: "client", ClientSecret: "secret",
 	RedirectURI: "https://app.example/callback",

@@ -1,5 +1,15 @@
 //go:build cgo
 
+#if defined(__APPLE__) && defined(__has_include)
+#if !__has_include(<mach/mach_types.h>)
+#define PETITWEB_TINYGO_MACOS_MINIMAL_SDK 1
+#endif
+#endif
+
+#if defined(PETITWEB_TINYGO_MACOS_MINIMAL_SDK) && !defined(_FORTIFY_SOURCE)
+#define _FORTIFY_SOURCE 0
+#endif
+
 #define SQLITE_THREADSAFE 1
 #define SQLITE_OMIT_LOAD_EXTENSION 1
 #define SQLITE_DQS 0
@@ -8,6 +18,21 @@
 #define SQLITE_DEFAULT_FOREIGN_KEYS 1
 #define SQLITE_MAX_SQL_LENGTH 1048576
 #define SQLITE_MAX_LENGTH 16777216
+
+/*
+ * TinyGo's macOS minimal SDK provides the standard allocator but intentionally
+ * omits the Mach types required by malloc/malloc.h. Let the unmodified SQLite
+ * amalgamation select its portable allocation-size bookkeeping in that case.
+ */
+#if defined(PETITWEB_TINYGO_MACOS_MINIMAL_SDK)
+#define SQLITE_WITHOUT_ZONEMALLOC 1
+#define SQLITE_ENABLE_LOCKING_STYLE 0
+#endif
+
+/* TinyGo's minimal stdint.h intentionally omits the C99 constant macros. */
+#ifndef UINT64_C
+#define UINT64_C(value) value##ULL
+#endif
 
 #include "amalgamation/sqlite3.c"
 #include "bridge.h"

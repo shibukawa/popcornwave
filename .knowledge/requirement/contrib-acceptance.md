@@ -19,7 +19,17 @@ common:
 package_gates:
   requirement:contrib-auth-state:
     - concurrent Take returns a stored value exactly once
-    - expiry and cancellation tests use an injected clock without sleeping
+    - every adapter preserves single-use, expiry, cancellation, and stable error semantics
+  requirement:contrib-auth-state-memory:
+    - expiry and capacity tests use an injected clock without sleeping
+    - concurrent Put and Take pass under the race detector
+    - hard entry and key limits reject oversized configuration
+  requirement:contrib-auth-state-redis:
+    - Redis and Valkey each pass duplicate Put, expiry, concurrent Take, malformed record, codec failure, cancellation, and reconnect fixtures
+    - every external network fixture follows policy:outbound-transport-security
+  requirement:contrib-auth-state-sqlite:
+    - every requirement:contrib-sqlite backend passes duplicate Put, expired replacement, concurrent Take, malformed row, codec failure, cancellation, reopen, and bounded Prune fixtures
+    - schema initialization is idempotent and rejects incompatible existing tables
   requirement:contrib-auth-common:
     - malformed, non-canonical, duplicate, expired, and oversized vectors fail within configured limits
   requirement:contrib-cbor:
@@ -35,7 +45,7 @@ package_gates:
   requirement:contrib-reverse-proxy:
     - header, path, cancellation, streaming, and backend failure fixtures pass
   requirement:contrib-redis-valkey:
-    - Redis and Valkey pass expiry, NX, atomic consume, counter, reconnect, malformed reply, and bounded response fixtures
+    - the pinned go-redis client compiles with the supported TinyGo version and passes required commands against Redis and Valkey
     - decision:local-tls-proxy-boundary passes certificate, hostname, unavailable upstream, and credential-redaction fixtures
   requirement:contrib-jwt:
     - RFC and adversarial algorithm-confusion vectors pass

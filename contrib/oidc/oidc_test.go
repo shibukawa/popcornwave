@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/shibukawa/petitweb-go/contrib/authstate"
+	"github.com/shibukawa/petitweb-go/contrib/authstate/memory"
 	"github.com/shibukawa/petitweb-go/contrib/jwt"
 	"github.com/shibukawa/petitweb-go/contrib/oauth"
 )
@@ -126,7 +127,7 @@ func TestDiscoveryAuthorizationAndNonceBoundIDToken(t *testing.T) {
 	if provider.options.requestTimeout != defaultRequestTimeout {
 		t.Fatalf("default discovery timeout = %s, want %s", provider.options.requestTimeout, defaultRequestTimeout)
 	}
-	store, err := authstate.NewMemoryStore[oauth.Transaction](authstate.Options{Now: func() time.Time { return now }})
+	store, err := memory.NewStore[oauth.Transaction](memory.Options{Now: func() time.Time { return now }})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -189,7 +190,7 @@ func TestDiscoveryAuthorizationAndNonceBoundIDToken(t *testing.T) {
 	if _, err := client.UserInfo(context.Background(), set.AccessToken); !errors.Is(err, ErrUserInfo) {
 		t.Fatalf("missing UserInfo sub = %v", err)
 	}
-	badInner, err := authstate.NewMemoryStore[oauth.Transaction](authstate.Options{Now: func() time.Time { return now }})
+	badInner, err := memory.NewStore[oauth.Transaction](memory.Options{Now: func() time.Time { return now }})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -336,7 +337,7 @@ func TestOIDCRejectsNonBearerTokenType(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	store, err := authstate.NewMemoryStore[oauth.Transaction](authstate.Options{Now: func() time.Time { return now }})
+	store, err := memory.NewStore[oauth.Transaction](memory.Options{Now: func() time.Time { return now }})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -513,7 +514,7 @@ func TestSecondIndependentProviderFixture(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	store, err := authstate.NewMemoryStore[oauth.Transaction](authstate.Options{Now: func() time.Time { return now }})
+	store, err := memory.NewStore[oauth.Transaction](memory.Options{Now: func() time.Time { return now }})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -568,7 +569,7 @@ func TestUnknownKeyRefreshesOnce(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	store, err := authstate.NewMemoryStore[oauth.Transaction](authstate.Options{Now: func() time.Time { return now }})
+	store, err := memory.NewStore[oauth.Transaction](memory.Options{Now: func() time.Time { return now }})
 	if err != nil {
 		t.Fatal(err)
 	}

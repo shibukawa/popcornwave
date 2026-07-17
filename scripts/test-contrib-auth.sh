@@ -9,6 +9,8 @@ cd "$ROOT"
 
 packages='
 ./contrib/authstate
+./contrib/authstate/memory
+./contrib/authstate/redis
 ./contrib/internal/authn
 ./contrib/cbor
 ./contrib/jwt

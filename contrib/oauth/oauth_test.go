@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/shibukawa/petitweb-go/contrib/authstate"
+	"github.com/shibukawa/petitweb-go/contrib/authstate/memory"
 	"github.com/shibukawa/petitweb-go/contrib/internal/authn"
 )
 
@@ -52,7 +52,7 @@ func (secretErrorTransport) RoundTrip(*http.Request) (*http.Response, error) {
 
 func newOAuthFixture(t *testing.T, handler http.Handler) (*Client, *http.Client) {
 	t.Helper()
-	store, err := authstate.NewMemoryStore[Transaction](authstate.Options{})
+	store, err := memory.NewStore[Transaction](memory.Options{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -361,7 +361,7 @@ func TestTokenStringFieldsHaveHardBounds(t *testing.T) {
 }
 
 func TestRequestTimeoutCancelsTokenExchange(t *testing.T) {
-	store, err := authstate.NewMemoryStore[Transaction](authstate.Options{})
+	store, err := memory.NewStore[Transaction](memory.Options{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -387,7 +387,7 @@ func TestRequestTimeoutCancelsTokenExchange(t *testing.T) {
 }
 
 func TestTransportErrorDoesNotExposeDetails(t *testing.T) {
-	store, err := authstate.NewMemoryStore[Transaction](authstate.Options{})
+	store, err := memory.NewStore[Transaction](memory.Options{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -454,7 +454,7 @@ func TestBeginAuthorizationBoundsCorrelationInputs(t *testing.T) {
 }
 
 func TestRejectsRedirectAndInvalidEndpoint(t *testing.T) {
-	store, _ := authstate.NewMemoryStore[Transaction](authstate.Options{})
+	store, _ := memory.NewStore[Transaction](memory.Options{})
 	validated := 0
 	client, err := NewClient(Config{AuthorizationEndpoint: "https://example.com/a", TokenEndpoint: "https://example.com/t", ClientID: "c", ClientSecret: "s", RedirectURI: "https://app.example/cb", EndpointValidator: func(endpoint *url.URL) error {
 		validated++
@@ -497,7 +497,7 @@ func TestRejectsRedirectAndInvalidEndpoint(t *testing.T) {
 }
 
 func TestPublicClientWithoutSecretIsUnsupported(t *testing.T) {
-	store, err := authstate.NewMemoryStore[Transaction](authstate.Options{})
+	store, err := memory.NewStore[Transaction](memory.Options{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -512,7 +512,7 @@ func TestPublicClientWithoutSecretIsUnsupported(t *testing.T) {
 
 func TestExpiryWithInjectedClock(t *testing.T) {
 	now := time.Unix(100, 0)
-	store, err := authstate.NewMemoryStore[Transaction](authstate.Options{Now: func() time.Time { return now }})
+	store, err := memory.NewStore[Transaction](memory.Options{Now: func() time.Time { return now }})
 	if err != nil {
 		t.Fatal(err)
 	}

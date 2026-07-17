@@ -5,7 +5,7 @@ stores state and the verifier in an application-supplied atomic
 `authstate.Store` and consumes the transaction before exchanging a code.
 
 ```go
-store, _ := authstate.NewMemoryStore[oauth.Transaction](authstate.Options{})
+store, _ := memory.NewStore[oauth.Transaction](memory.Options{})
 client, err := oauth.NewClient(oauth.Config{
 	AuthorizationEndpoint: "https://issuer.example/authorize",
 	TokenEndpoint:         "https://issuer.example/token",

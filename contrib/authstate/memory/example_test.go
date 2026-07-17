@@ -1,15 +1,15 @@
-package authstate_test
+package memory_test
 
 import (
 	"context"
 	"fmt"
 	"time"
 
-	"github.com/shibukawa/petitweb-go/contrib/authstate"
+	"github.com/shibukawa/petitweb-go/contrib/authstate/memory"
 )
 
-func ExampleNewMemoryStore() {
-	store, err := authstate.NewMemoryStore[string](authstate.Options{})
+func ExampleNewStore() {
+	store, err := memory.NewStore[string](memory.Options{})
 	if err != nil {
 		panic(err)
 	}

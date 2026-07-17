@@ -14,6 +14,7 @@ public_api:
   - BeginAuthentication(user or discoverable mode, options) returns request options and ceremony state
   - FinishAuthentication(ceremony state, assertion response, credential record) returns assertion result
   - JSON request and response records compatible with browser PublicKeyCredential data
+  - CeremonyStateCodec implements api:auth-state-codec without exporting ceremony secrets
 credential_record:
   - credential ID
   - user handle

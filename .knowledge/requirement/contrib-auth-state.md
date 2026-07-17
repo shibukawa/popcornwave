@@ -9,19 +9,23 @@ contrib/authstate provides expiring single-use state storage shared by requireme
 package: contrib/authstate
 public_api:
   - Store[T] with Put(context, key, value, expiresAt) and atomic Take(context, key)
-  - NewMemoryStore[T](options)
+  - api:auth-state-codec for durable adapters
+errors:
+  - ErrCodec identifies bounded encode, malformed record, and decode failures
+  - ErrUnavailable identifies sanitized Redis, Valkey, or SQLite availability failures
+  - context cancellation remains detectable through context errors
+adapters:
+  - requirement:contrib-auth-state-memory
+  - requirement:contrib-auth-state-redis
+  - requirement:contrib-auth-state-sqlite
 required:
   - Take removes a value atomically before returning it
   - expired values are removed and never returned
   - caller cancellation is honored
   - nil context is rejected with a stable error rather than panicking
-  - injectable clock supports deterministic expiry tests
-  - concurrent Put and Take are race safe
   - stable errors reveal no stored value
-  - configured entry and key limits have hard upper bounds
 constraints:
   - stored values are treated as immutable
-  - memory storage is process-local and intended for development, tests, and single-process deployments
-  - production applications may replace Store without changing authentication flows
-  - `MemoryStore` hard limits are 65536 entries and 4096 bytes per key
+  - implementations live in adapter subpackages; the contract package has no backend
+  - applications select an adapter without changing authentication flows
 ```

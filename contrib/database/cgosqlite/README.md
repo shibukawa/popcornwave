@@ -11,3 +11,8 @@ only `mode`, `cache`, `immutable`, and `busy_timeout` (0–60000 ms).
 
 Import the higher-level `contrib/database/sqlite` package unless a direct test
 of this backend is required.
+
+TinyGo 0.41.1 is tested natively on Linux and macOS arm64. The macOS minimal
+SDK build uses standard malloc bookkeeping and POSIX locking because the SDK
+omits the Mach zone-allocator and filesystem-specific locking headers used by
+full Darwin SDKs.

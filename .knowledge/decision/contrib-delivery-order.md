@@ -12,11 +12,11 @@ phases:
     packages:
       - requirement:contrib-auth-common
       - requirement:contrib-auth-state
+      - requirement:contrib-auth-state-memory
       - requirement:contrib-cbor
       - requirement:contrib-jwt
       - requirement:contrib-reverse-proxy
       - requirement:contrib-otel
-      - requirement:contrib-redis-valkey
   - phase: 2
     packages:
       - requirement:contrib-passkey
@@ -24,6 +24,7 @@ phases:
       - requirement:contrib-oidc
       - requirement:contrib-html-template
       - requirement:contrib-zstd
+      - requirement:contrib-auth-state-redis
   - phase: deferred-non-primary
     packages:
       - requirement:contrib-postgresql
@@ -31,14 +32,17 @@ phases:
   - phase: feasibility-gated
     packages:
       - requirement:contrib-sqlite
+      - requirement:contrib-auth-state-sqlite
 rationale:
   - decision:stdlib-servemux uses the standard router provided by decision:tinygo-042-baseline
   - requirement:contrib-passkey follows requirement:contrib-cbor and decision:passkey-first-authentication
   - requirement:contrib-oauth depends on shared authentication state and security primitives
+  - requirement:contrib-auth-state-memory is the process-local reference adapter for the base store contract
   - requirement:contrib-oidc extends requirement:contrib-oauth and depends on JWT
   - requirement:contrib-html-template remains phase 2 because frontend JSON writers require generated encoding work
   - database wire protocols require larger interoperability matrices
-  - requirement:contrib-redis-valkey is bounded to session and lightweight shared-state commands through a local proxy
+  - requirement:contrib-auth-state-redis follows the base store and tested requirement:contrib-redis-valkey dependency
+  - requirement:contrib-auth-state-sqlite follows the portable SQLite facade
   - decision:server-sql-support-tier excludes server SQL drivers from first-class delivery
   - SQLite depends on target-specific C integration or a separately proven alternative
 ```

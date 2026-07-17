@@ -7,12 +7,12 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/shibukawa/petitweb-go/contrib/authstate"
+	"github.com/shibukawa/petitweb-go/contrib/authstate/memory"
 	"github.com/shibukawa/petitweb-go/contrib/oauth"
 )
 
 func ExampleNewClient() {
-	store, err := authstate.NewMemoryStore[oauth.Transaction](authstate.Options{})
+	store, err := memory.NewStore[oauth.Transaction](memory.Options{})
 	if err != nil {
 		panic(err)
 	}

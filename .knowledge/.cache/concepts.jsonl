@@ -1,10 +1,12 @@
 {"category": "behavior", "id": "actor:application-developer", "path": ".knowledge/actor/application-developer.md", "role": "supporting", "title": "Application Developer", "type": "actor"}
+{"category": "interface", "id": "api:auth-state-codec", "path": ".knowledge/api/auth-state-codec.md", "role": "primary", "title": "Authentication State Codec", "type": "api"}
 {"category": "interface", "id": "api:cli-build", "path": ".knowledge/api/cli-build.md", "role": "primary", "title": "petitweb build", "type": "api"}
 {"category": "interface", "id": "api:cli-check", "path": ".knowledge/api/cli-check.md", "role": "primary", "title": "petitweb check", "type": "api"}
 {"category": "interface", "id": "api:cli-dev", "path": ".knowledge/api/cli-dev.md", "role": "primary", "title": "petitweb dev", "type": "api"}
 {"category": "interface", "id": "api:cli-generate", "path": ".knowledge/api/cli-generate.md", "role": "primary", "title": "petitweb generate", "type": "api"}
 {"category": "interface", "id": "api:cli-init", "path": ".knowledge/api/cli-init.md", "role": "primary", "title": "petitweb init", "type": "api"}
 {"category": "concept", "id": "concept:project-layout", "path": ".knowledge/concept/project-layout.md", "role": "supporting", "title": "Generated Project Layout", "type": "concept"}
+{"category": "structure", "id": "data:auth-state-record", "path": ".knowledge/data/auth-state-record.md", "role": "supporting", "title": "Authentication State Record", "type": "data"}
 {"category": "structure", "id": "data:database-driver-contract", "path": ".knowledge/data/database-driver-contract.md", "role": "supporting", "title": "Database Driver Contract", "type": "data"}
 {"category": "structure", "id": "data:project-config", "path": ".knowledge/data/project-config.md", "role": "supporting", "title": "Project Configuration", "type": "data"}
 {"category": "constraint", "id": "decision:contrib-delivery-order", "path": ".knowledge/decision/contrib-delivery-order.md", "role": "supporting", "title": "Contrib Delivery Order", "type": "decision"}
@@ -36,6 +38,9 @@
 {"category": "constraint", "id": "policy:validation-errors", "path": ".knowledge/policy/validation-errors.md", "role": "supporting", "title": "Validation and Error Policy", "type": "policy"}
 {"category": "objective", "id": "requirement:contrib-acceptance", "path": ".knowledge/requirement/contrib-acceptance.md", "role": "primary", "title": "Contrib Acceptance Criteria", "type": "requirement"}
 {"category": "objective", "id": "requirement:contrib-auth-common", "path": ".knowledge/requirement/contrib-auth-common.md", "role": "primary", "title": "Authentication Security Primitives", "type": "requirement"}
+{"category": "objective", "id": "requirement:contrib-auth-state-memory", "path": ".knowledge/requirement/contrib-auth-state-memory.md", "role": "primary", "title": "In-Memory Authentication State Adapter", "type": "requirement"}
+{"category": "objective", "id": "requirement:contrib-auth-state-redis", "path": ".knowledge/requirement/contrib-auth-state-redis.md", "role": "primary", "title": "Redis Authentication State Store", "type": "requirement"}
+{"category": "objective", "id": "requirement:contrib-auth-state-sqlite", "path": ".knowledge/requirement/contrib-auth-state-sqlite.md", "role": "primary", "title": "SQLite Authentication State Store", "type": "requirement"}
 {"category": "objective", "id": "requirement:contrib-auth-state", "path": ".knowledge/requirement/contrib-auth-state.md", "role": "primary", "title": "Authentication State Store", "type": "requirement"}
 {"category": "objective", "id": "requirement:contrib-cbor", "path": ".knowledge/requirement/contrib-cbor.md", "role": "primary", "title": "TinyGo CBOR and COSE Foundation", "type": "requirement"}
 {"category": "objective", "id": "requirement:contrib-cgosqlite", "path": ".knowledge/requirement/contrib-cgosqlite.md", "role": "primary", "title": "Native TinyGo SQLite Driver", "type": "requirement"}
@@ -48,7 +53,7 @@
 {"category": "objective", "id": "requirement:contrib-otel", "path": ".knowledge/requirement/contrib-otel.md", "role": "primary", "title": "Minimal OpenTelemetry Trace and Log", "type": "requirement"}
 {"category": "objective", "id": "requirement:contrib-passkey", "path": ".knowledge/requirement/contrib-passkey.md", "role": "primary", "title": "TinyGo Passkey Relying Party", "type": "requirement"}
 {"category": "objective", "id": "requirement:contrib-postgresql", "path": ".knowledge/requirement/contrib-postgresql.md", "role": "primary", "title": "TinyGo PostgreSQL Driver", "type": "requirement"}
-{"category": "objective", "id": "requirement:contrib-redis-valkey", "path": ".knowledge/requirement/contrib-redis-valkey.md", "role": "primary", "title": "TinyGo Redis and Valkey Client", "type": "requirement"}
+{"category": "objective", "id": "requirement:contrib-redis-valkey", "path": ".knowledge/requirement/contrib-redis-valkey.md", "role": "primary", "title": "TinyGo Redis and Valkey Compatibility", "type": "requirement"}
 {"category": "objective", "id": "requirement:contrib-reverse-proxy", "path": ".knowledge/requirement/contrib-reverse-proxy.md", "role": "primary", "title": "TinyGo Reverse Proxy", "type": "requirement"}
 {"category": "objective", "id": "requirement:contrib-sqlite", "path": ".knowledge/requirement/contrib-sqlite.md", "role": "primary", "title": "Portable SQLite Facade", "type": "requirement"}
 {"category": "objective", "id": "requirement:contrib-zstd", "path": ".knowledge/requirement/contrib-zstd.md", "role": "primary", "title": "Zstandard Response Encoder", "type": "requirement"}

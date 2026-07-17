@@ -1,15 +1,17 @@
 ---
 id: requirement:contrib-redis-valkey
 type: requirement
-title: TinyGo Redis and Valkey Client
+title: TinyGo Redis and Valkey Compatibility
 ---
-Petitweb supports a bounded Redis-compatible subset for shared sessions and lightweight key-value state against Redis and Valkey.
+Petitweb supports Redis and Valkey through a tested external Go client and does not maintain a general Redis protocol package.
 
 ```yaml
-package: contrib/redis
+integration: external dependency
+client: github.com/redis/go-redis/v9 v9.17.3
 support_tier: first_class_through_local_proxy
 transport: policy:outbound-transport-security
 protocol: RESP2
+consumer: requirement:contrib-auth-state-redis
 servers:
   - Redis
   - Valkey
@@ -43,6 +45,7 @@ client_evidence:
     - go-redis v9.21.0 requires unavailable net.DefaultResolver behavior
     - valkey-go v1.0.76 requires unavailable TLS and TCP APIs
 boundaries:
+  - no contrib/redis protocol client or general key-value facade
   - no Pub/Sub, Streams, modules, administration, or arbitrary unbounded replies in the initial subset
   - direct TinyGo TLS remains experimental under decision:local-tls-proxy-boundary
   - credentials and session values never enter logs or stable error text

@@ -1,4 +1,4 @@
-package authstate
+package memory
 
 import (
 	"context"
@@ -8,11 +8,13 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/shibukawa/petitweb-go/contrib/authstate"
 )
 
-func TestMemoryStoreTakeIsSingleUse(t *testing.T) {
+func TestStoreTakeIsSingleUse(t *testing.T) {
 	now := time.Unix(100, 0)
-	store, err := NewMemoryStore[string](Options{Now: func() time.Time { return now }})
+	store, err := NewStore[string](Options{Now: func() time.Time { return now }})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -34,7 +36,7 @@ func TestMemoryStoreTakeIsSingleUse(t *testing.T) {
 				successes.Add(1)
 				return
 			}
-			if !errors.Is(err, ErrNotFound) {
+			if !errors.Is(err, authstate.ErrNotFound) {
 				t.Errorf("Take error = %v", err)
 			}
 		}()
@@ -45,8 +47,8 @@ func TestMemoryStoreTakeIsSingleUse(t *testing.T) {
 	}
 }
 
-func TestMemoryStoreConcurrentPutAndTake(t *testing.T) {
-	store, err := NewMemoryStore[int](Options{})
+func TestStoreConcurrentPutAndTake(t *testing.T) {
+	store, err := NewStore[int](Options{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -80,9 +82,9 @@ func TestMemoryStoreConcurrentPutAndTake(t *testing.T) {
 	}
 }
 
-func TestMemoryStoreExpiryConsumesValue(t *testing.T) {
+func TestStoreExpiryConsumesValue(t *testing.T) {
 	now := time.Unix(100, 0)
-	store, err := NewMemoryStore[int](Options{Now: func() time.Time { return now }})
+	store, err := NewStore[int](Options{Now: func() time.Time { return now }})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -90,16 +92,16 @@ func TestMemoryStoreExpiryConsumesValue(t *testing.T) {
 		t.Fatal(err)
 	}
 	now = now.Add(time.Second)
-	if _, err := store.Take(context.Background(), "state"); !errors.Is(err, ErrExpired) {
+	if _, err := store.Take(context.Background(), "state"); !errors.Is(err, authstate.ErrExpired) {
 		t.Fatalf("first Take error = %v, want ErrExpired", err)
 	}
-	if _, err := store.Take(context.Background(), "state"); !errors.Is(err, ErrNotFound) {
+	if _, err := store.Take(context.Background(), "state"); !errors.Is(err, authstate.ErrNotFound) {
 		t.Fatalf("second Take error = %v, want ErrNotFound", err)
 	}
 }
 
-func TestMemoryStoreHonorsCancellation(t *testing.T) {
-	store, err := NewMemoryStore[int](Options{})
+func TestStoreHonorsCancellation(t *testing.T) {
+	store, err := NewStore[int](Options{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -113,42 +115,42 @@ func TestMemoryStoreHonorsCancellation(t *testing.T) {
 	}
 }
 
-func TestMemoryStoreRejectsNilContext(t *testing.T) {
-	store, err := NewMemoryStore[int](Options{})
+func TestStoreRejectsNilContext(t *testing.T) {
+	store, err := NewStore[int](Options{})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := store.Put(nil, "state", 1, time.Now().Add(time.Minute)); !errors.Is(err, ErrInvalidOptions) {
+	if err := store.Put(nil, "state", 1, time.Now().Add(time.Minute)); !errors.Is(err, authstate.ErrInvalidOptions) {
 		t.Fatalf("Put(nil) = %v", err)
 	}
-	if _, err := store.Take(nil, "state"); !errors.Is(err, ErrInvalidOptions) {
+	if _, err := store.Take(nil, "state"); !errors.Is(err, authstate.ErrInvalidOptions) {
 		t.Fatalf("Take(nil) = %v", err)
 	}
 }
 
-func TestNilMemoryStoreIsSafe(t *testing.T) {
-	var store *MemoryStore[int]
-	if err := store.Put(context.Background(), "state", 1, time.Now().Add(time.Minute)); !errors.Is(err, ErrInvalidOptions) {
+func TestNilStoreIsSafe(t *testing.T) {
+	var store *Store[int]
+	if err := store.Put(context.Background(), "state", 1, time.Now().Add(time.Minute)); !errors.Is(err, authstate.ErrInvalidOptions) {
 		t.Fatalf("nil Put = %v", err)
 	}
-	if _, err := store.Take(context.Background(), "state"); !errors.Is(err, ErrInvalidOptions) {
+	if _, err := store.Take(context.Background(), "state"); !errors.Is(err, authstate.ErrInvalidOptions) {
 		t.Fatalf("nil Take = %v", err)
 	}
 }
 
-func TestZeroMemoryStoreIsSafe(t *testing.T) {
-	var store MemoryStore[int]
-	if err := store.Put(context.Background(), "state", 1, time.Now().Add(time.Minute)); !errors.Is(err, ErrInvalidOptions) {
+func TestZeroStoreIsSafe(t *testing.T) {
+	var store Store[int]
+	if err := store.Put(context.Background(), "state", 1, time.Now().Add(time.Minute)); !errors.Is(err, authstate.ErrInvalidOptions) {
 		t.Fatalf("zero Put = %v", err)
 	}
-	if _, err := store.Take(context.Background(), "state"); !errors.Is(err, ErrInvalidOptions) {
+	if _, err := store.Take(context.Background(), "state"); !errors.Is(err, authstate.ErrInvalidOptions) {
 		t.Fatalf("zero Take = %v", err)
 	}
 }
 
-func TestMemoryStoreLimitsAndDuplicates(t *testing.T) {
+func TestStoreLimitsAndDuplicates(t *testing.T) {
 	now := time.Unix(100, 0)
-	store, err := NewMemoryStore[int](Options{
+	store, err := NewStore[int](Options{
 		Now: func() time.Time { return now }, MaxEntries: 1, MaxKeyBytes: 5,
 	})
 	if err != nil {
@@ -157,20 +159,20 @@ func TestMemoryStoreLimitsAndDuplicates(t *testing.T) {
 	if err := store.Put(context.Background(), "first", 1, now.Add(time.Minute)); err != nil {
 		t.Fatal(err)
 	}
-	if err := store.Put(context.Background(), "first", 2, now.Add(time.Minute)); !errors.Is(err, ErrAlreadyExists) {
+	if err := store.Put(context.Background(), "first", 2, now.Add(time.Minute)); !errors.Is(err, authstate.ErrAlreadyExists) {
 		t.Fatalf("duplicate Put error = %v", err)
 	}
-	if err := store.Put(context.Background(), "other", 2, now.Add(time.Minute)); !errors.Is(err, ErrLimitExceeded) {
+	if err := store.Put(context.Background(), "other", 2, now.Add(time.Minute)); !errors.Is(err, authstate.ErrLimitExceeded) {
 		t.Fatalf("limited Put error = %v", err)
 	}
-	if err := store.Put(context.Background(), "longer", 2, now.Add(time.Minute)); !errors.Is(err, ErrInvalidKey) {
+	if err := store.Put(context.Background(), "longer", 2, now.Add(time.Minute)); !errors.Is(err, authstate.ErrInvalidKey) {
 		t.Fatalf("long-key Put error = %v", err)
 	}
 }
 
-func TestMemoryStoreReclaimsExpiredCapacity(t *testing.T) {
+func TestStoreReclaimsExpiredCapacity(t *testing.T) {
 	now := time.Unix(100, 0)
-	store, err := NewMemoryStore[int](Options{Now: func() time.Time { return now }, MaxEntries: 1})
+	store, err := NewStore[int](Options{Now: func() time.Time { return now }, MaxEntries: 1})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -186,11 +188,11 @@ func TestMemoryStoreReclaimsExpiredCapacity(t *testing.T) {
 	}
 }
 
-func TestMemoryStoreRejectsUnboundedConfiguration(t *testing.T) {
-	if _, err := NewMemoryStore[int](Options{MaxEntries: hardMaxEntries + 1}); !errors.Is(err, ErrInvalidOptions) {
+func TestStoreRejectsUnboundedConfiguration(t *testing.T) {
+	if _, err := NewStore[int](Options{MaxEntries: hardMaxEntries + 1}); !errors.Is(err, authstate.ErrInvalidOptions) {
 		t.Fatalf("oversized MaxEntries error = %v", err)
 	}
-	if _, err := NewMemoryStore[int](Options{MaxKeyBytes: hardMaxKeyBytes + 1}); !errors.Is(err, ErrInvalidOptions) {
+	if _, err := NewStore[int](Options{MaxKeyBytes: hardMaxKeyBytes + 1}); !errors.Is(err, authstate.ErrInvalidOptions) {
 		t.Fatalf("oversized MaxKeyBytes error = %v", err)
 	}
 }

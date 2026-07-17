@@ -4,9 +4,15 @@
 authentication correlation. `Store.Take` removes a value atomically before a
 successful return, so replaying a state key cannot re-enter a ceremony.
 
-`MemoryStore` is bounded, expiry-aware, race-safe, and process-local. Multi-
-process deployments must provide a `Store` backed by an atomic database or
-cache operation. Nil contexts and nil store receivers return a stable
-configuration error instead of panicking. Values are immutable by convention
-and must never be logged when they contain challenge, state, nonce, or verifier
-material.
+The package contains only the shared `Store[T]` and `Codec[T]` contracts and
+stable errors. Implementations live in subpackages:
+
+- `contrib/authstate/memory` for bounded process-local storage
+- `contrib/authstate/redis` for Redis and Valkey
+- `contrib/authstate/sqlite` for single-node SQLite storage
+
+Multi-process deployments must use a store whose `Take` operation is atomic
+across processes. Durable adapters use explicit `Codec[T]` implementations;
+`oauth.TransactionCodec` and `passkey.CeremonyStateCodec` preserve the private
+correlation records used by those packages. Values containing challenge,
+state, nonce, or verifier material must never be logged.

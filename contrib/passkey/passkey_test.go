@@ -18,7 +18,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/shibukawa/petitweb-go/contrib/authstate"
+	"github.com/shibukawa/petitweb-go/contrib/authstate/memory"
 	"github.com/shibukawa/petitweb-go/contrib/cbor"
 )
 
@@ -439,7 +439,7 @@ func TestRegistrationRejectsUnsupportedAlgorithm(t *testing.T) {
 
 func TestSessionFlowConsumesStateOnce(t *testing.T) {
 	fixture := newFixture(t)
-	store, err := authstate.NewMemoryStore[CeremonyState](authstate.Options{Now: func() time.Time { return fixture.now }})
+	store, err := memory.NewStore[CeremonyState](memory.Options{Now: func() time.Time { return fixture.now }})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -509,7 +509,7 @@ func TestSessionFlowConsumesStateOnce(t *testing.T) {
 
 func TestSessionFlowRejectsNilInputs(t *testing.T) {
 	fixture := newFixture(t)
-	store, err := authstate.NewMemoryStore[CeremonyState](authstate.Options{})
+	store, err := memory.NewStore[CeremonyState](memory.Options{})
 	if err != nil {
 		t.Fatal(err)
 	}

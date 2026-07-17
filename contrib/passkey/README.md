@@ -15,7 +15,7 @@ if err != nil {
 	return err
 }
 
-store, err := authstate.NewMemoryStore[passkey.CeremonyState](authstate.Options{})
+store, err := memory.NewStore[passkey.CeremonyState](memory.Options{})
 if err != nil {
 	return err
 }
@@ -34,7 +34,7 @@ JSON with `DecodeRegistrationCredential`, then call `FinishRegistration` with
 the transaction key. `SessionFlow` atomically consumes the state before it
 validates the response, so retries and replay fail closed.
 
-`MemoryStore` is process-local. Applications with multiple processes should
+`memory.Store` is process-local. Applications with multiple processes should
 replace it with an `authstate.Store` implementation whose `Take` operation is
 atomic across those processes.
 

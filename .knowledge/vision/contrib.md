@@ -10,6 +10,9 @@ root: contrib/
 packages:
   - requirement:contrib-auth-common
   - requirement:contrib-auth-state
+  - requirement:contrib-auth-state-memory
+  - requirement:contrib-auth-state-redis
+  - requirement:contrib-auth-state-sqlite
   - requirement:contrib-cbor
   - requirement:contrib-passkey
   - requirement:contrib-otel
@@ -18,7 +21,6 @@ packages:
   - requirement:contrib-oauth
   - requirement:contrib-oidc
   - requirement:contrib-database
-  - requirement:contrib-redis-valkey
   - requirement:contrib-html-template
   - requirement:contrib-zstd
 principles:
@@ -27,5 +29,7 @@ principles:
   - decision:contrib-delivery-order
   - decision:passkey-first-authentication
 acceptance: requirement:contrib-acceptance
+compatibility:
+  - requirement:contrib-redis-valkey
 scope_rule: implement explicit useful subsets; never claim full upstream compatibility without conformance evidence
 ```

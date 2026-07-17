@@ -14,6 +14,7 @@ public_api:
   - Client.BeginAuthorization(context, options) returns URL and transaction key
   - Client.HandleCallback(context, transaction key, callback values) returns TokenSet
   - Options.TransactionValidator runs after callback state correlation and before token exchange
+  - TransactionCodec implements api:auth-state-codec
 required:
   - generate state and PKCE verifier from crypto/rand
   - S256 PKCE only

@@ -39,4 +39,4 @@ echo "== TinyGo Passkey stress ($count runs) =="
 echo "== TinyGo OIDC stress ($count runs) =="
 "$tinygo_bin" test -count="$count" ./contrib/oidc
 echo "== Host race state/Passkey stress ($race_count runs) =="
-"$go_bin" test -race -count="$race_count" ./contrib/authstate ./contrib/passkey
+"$go_bin" test -race -count="$race_count" ./contrib/authstate/memory ./contrib/passkey

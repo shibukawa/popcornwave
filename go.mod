@@ -5,11 +5,14 @@ go 1.26
 require (
 	github.com/klauspost/compress v1.19.0
 	github.com/mattn/go-sqlite3 v1.14.48
+	github.com/redis/go-redis/v9 v9.17.3
 	github.com/shibukawa/httpbind-go v0.0.0
 	modernc.org/sqlite v1.54.0
 )
 
 require (
+	github.com/cespare/xxhash/v2 v2.3.0 // indirect
+	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
