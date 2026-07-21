@@ -16,7 +16,6 @@ packages:
   - requirement:contrib-cbor
   - requirement:contrib-passkey
   - requirement:contrib-otel
-  - requirement:contrib-reverse-proxy
   - requirement:contrib-jwt
   - requirement:contrib-oauth
   - requirement:contrib-oidc
@@ -31,5 +30,6 @@ principles:
 acceptance: requirement:contrib-acceptance
 compatibility:
   - requirement:contrib-redis-valkey
+external_networking: requirement:tinygodriver-adoption
 scope_rule: implement explicit useful subsets; never claim full upstream compatibility without conformance evidence
 ```

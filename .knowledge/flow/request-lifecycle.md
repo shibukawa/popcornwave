@@ -7,7 +7,7 @@ A Petitweb request remains a standard net/http exchange whose mapping and error 
 
 ```yaml
 flow:
-  trigger: net/http ServeMux dispatches a route from decision:stdlib-servemux
+  trigger: ServeMux-compatible router dispatches a route from decision:stdlib-servemux
   steps:
     - id: bind
       actor: system:httpbinder

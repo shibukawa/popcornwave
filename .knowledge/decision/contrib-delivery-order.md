@@ -7,6 +7,7 @@ Contrib packages ship in dependency and feasibility order rather than as one rel
 
 ```yaml
 status: proposed
+prerequisite: requirement:tinygodriver-adoption
 phases:
   - phase: 1
     packages:
@@ -15,7 +16,6 @@ phases:
       - requirement:contrib-auth-state-memory
       - requirement:contrib-cbor
       - requirement:contrib-jwt
-      - requirement:contrib-reverse-proxy
       - requirement:contrib-otel
   - phase: 2
     packages:
@@ -34,7 +34,7 @@ phases:
       - requirement:contrib-sqlite
       - requirement:contrib-auth-state-sqlite
 rationale:
-  - decision:stdlib-servemux uses the standard router provided by decision:tinygo-042-baseline
+  - decision:stdlib-servemux uses system:tinygodriver rather than a contrib router
   - requirement:contrib-passkey follows requirement:contrib-cbor and decision:passkey-first-authentication
   - requirement:contrib-oauth depends on shared authentication state and security primitives
   - requirement:contrib-auth-state-memory is the process-local reference adapter for the base store contract

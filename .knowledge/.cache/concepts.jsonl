@@ -54,14 +54,15 @@
 {"category": "objective", "id": "requirement:contrib-passkey", "path": ".knowledge/requirement/contrib-passkey.md", "role": "primary", "title": "TinyGo Passkey Relying Party", "type": "requirement"}
 {"category": "objective", "id": "requirement:contrib-postgresql", "path": ".knowledge/requirement/contrib-postgresql.md", "role": "primary", "title": "TinyGo PostgreSQL Driver", "type": "requirement"}
 {"category": "objective", "id": "requirement:contrib-redis-valkey", "path": ".knowledge/requirement/contrib-redis-valkey.md", "role": "primary", "title": "TinyGo Redis and Valkey Compatibility", "type": "requirement"}
-{"category": "objective", "id": "requirement:contrib-reverse-proxy", "path": ".knowledge/requirement/contrib-reverse-proxy.md", "role": "primary", "title": "TinyGo Reverse Proxy", "type": "requirement"}
 {"category": "objective", "id": "requirement:contrib-sqlite", "path": ".knowledge/requirement/contrib-sqlite.md", "role": "primary", "title": "Portable SQLite Facade", "type": "requirement"}
 {"category": "objective", "id": "requirement:contrib-zstd", "path": ".knowledge/requirement/contrib-zstd.md", "role": "primary", "title": "Zstandard Response Encoder", "type": "requirement"}
 {"category": "objective", "id": "requirement:httpbinder-extensible-route-analysis", "path": ".knowledge/requirement/httpbinder-extensible-route-analysis.md", "role": "primary", "title": "Extensible httpbind-go Route Analysis", "type": "requirement"}
 {"category": "objective", "id": "requirement:mvp-acceptance", "path": ".knowledge/requirement/mvp-acceptance.md", "role": "primary", "title": "MVP Acceptance Criteria", "type": "requirement"}
+{"category": "objective", "id": "requirement:tinygodriver-adoption", "path": ".knowledge/requirement/tinygodriver-adoption.md", "role": "primary", "title": "tinygodriver Adoption", "type": "requirement"}
 {"category": "constraint", "id": "rule:static-route-discovery", "path": ".knowledge/rule/static-route-discovery.md", "role": "supporting", "title": "Static Route Discovery", "type": "rule"}
 {"category": "constraint", "id": "rule:tinygo-runtime-compatibility", "path": ".knowledge/rule/tinygo-runtime-compatibility.md", "role": "supporting", "title": "TinyGo Runtime Compatibility", "type": "rule"}
 {"category": "external", "id": "system:httpbinder", "path": ".knowledge/system/httpbinder.md", "role": "supporting", "title": "httpbind-go", "type": "system"}
 {"category": "external", "id": "system:petitweb-cli", "path": ".knowledge/system/petitweb-cli.md", "role": "supporting", "title": "Petitweb CLI", "type": "system"}
+{"category": "external", "id": "system:tinygodriver", "path": ".knowledge/system/tinygodriver.md", "role": "supporting", "title": "tinygodriver", "type": "system"}
 {"category": "objective", "id": "vision:contrib", "path": ".knowledge/vision/contrib.md", "role": "primary", "title": "TinyGo Contrib Vision", "type": "vision"}
 {"category": "objective", "id": "vision:petitweb", "path": ".knowledge/vision/petitweb.md", "role": "primary", "title": "Petitweb Vision", "type": "vision"}

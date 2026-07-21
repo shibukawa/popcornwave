@@ -42,8 +42,6 @@ package_gates:
     - W3C propagation vectors pass
     - OTLP/HTTP JSON trace and log requests are accepted on standard endpoints by an OpenTelemetry Collector
     - retry exhaustion reports drops without writing telemetry to stdout
-  requirement:contrib-reverse-proxy:
-    - header, path, cancellation, streaming, and backend failure fixtures pass
   requirement:contrib-redis-valkey:
     - the pinned go-redis client compiles with the supported TinyGo version and passes required commands against Redis and Valkey
     - decision:local-tls-proxy-boundary passes certificate, hostname, unavailable upstream, and credential-redaction fixtures

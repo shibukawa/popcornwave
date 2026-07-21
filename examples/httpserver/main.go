@@ -5,9 +5,9 @@ import (
 	"net/http"
 	"os"
 
-	// Registers the host Netdever for TinyGo's net package.
-	_ "github.com/shibukawa/petitweb-go/drivers/netdev"
-	"github.com/shibukawa/httpbind-go"
+	httpbinder "github.com/shibukawa/httpbind-go"
+	"github.com/shibukawa/tinygodriver/httpmux"
+	_ "github.com/shibukawa/tinygodriver/netdev" // Registers the host Netdever for TinyGo's net package.
 )
 
 type EchoRequest struct {
@@ -50,21 +50,19 @@ func openAPIHandler(w http.ResponseWriter, r *http.Request) {
 	httpbinder.OpenAPIJSON(w, r)
 }
 
-// describeRoutes gives httpbinder-gen method-aware route metadata. It is not
-// called because TinyGo's ServeMux currently accepts path-only patterns.
+// describeRoutes gives httpbinder-gen method-aware route metadata.
 func describeRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /echo", echoHandler)
 	mux.HandleFunc("GET /openapi.json", httpbinder.OpenAPIJSON)
 }
 
 func main() {
-	mux := http.NewServeMux()
+	mux := httpmux.NewServeMux()
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, "hello from petitweb netdev method=%s path=%q\n", r.Method, r.URL.Path)
 	})
-	// TinyGo's ServeMux does not support Go 1.22's "METHOD /path" patterns yet.
-	mux.HandleFunc("/echo", echoHandler)
-	mux.HandleFunc("/openapi.json", openAPIHandler)
+	mux.HandleFunc("POST /echo", echoHandler)
+	mux.HandleFunc("GET /openapi.json", openAPIHandler)
 	addr := os.Getenv("ADDR")
 	if addr == "" {
 		addr = ":8080"

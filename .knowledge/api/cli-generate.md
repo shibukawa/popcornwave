@@ -18,6 +18,7 @@ check_mode:
   failure: committed generated content differs or is missing
 behavior:
   - use system:httpbinder built-in net/http route analysis
+  - supply the versioned system:tinygodriver httpmux route adapter
   - process packages in stable lexical order
   - stop on parse or generation error
   - format generated Go source

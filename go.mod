@@ -1,12 +1,13 @@
 module github.com/shibukawa/petitweb-go
 
-go 1.26
+go 1.26.0
 
 require (
 	github.com/klauspost/compress v1.19.0
 	github.com/mattn/go-sqlite3 v1.14.48
 	github.com/redis/go-redis/v9 v9.17.3
 	github.com/shibukawa/httpbind-go v0.0.0
+	github.com/shibukawa/tinygodriver v1.0.1
 	modernc.org/sqlite v1.54.0
 )
 
@@ -18,6 +19,7 @@ require (
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/ncruces/go-strftime v1.0.0 // indirect
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
+	github.com/shibukawa/tinybind-go v0.1.5 // indirect
 	golang.org/x/sys v0.46.0 // indirect
 	modernc.org/libc v1.74.1 // indirect
 	modernc.org/mathutil v1.7.1 // indirect

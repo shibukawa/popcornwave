@@ -9,11 +9,13 @@
 {"context": "body", "path": ".knowledge/api/cli-check.md", "source": "api:cli-check", "target": "data:project-config", "target_category": "structure", "target_type": "data"}
 {"context": "body", "path": ".knowledge/api/cli-check.md", "source": "api:cli-check", "target": "decision:tinygo-042-baseline", "target_category": "constraint", "target_type": "decision"}
 {"context": "body", "path": ".knowledge/api/cli-check.md", "source": "api:cli-check", "target": "api:cli-generate", "target_category": "interface", "target_type": "api"}
+{"context": "body", "path": ".knowledge/api/cli-check.md", "source": "api:cli-check", "target": "requirement:tinygodriver-adoption", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/api/cli-dev.md", "source": "api:cli-dev", "target": "api:cli-generate", "target_category": "interface", "target_type": "api"}
 {"context": "body", "path": ".knowledge/api/cli-dev.md", "source": "api:cli-dev", "target": "data:project-config", "target_category": "structure", "target_type": "data"}
 {"context": "body", "path": ".knowledge/api/cli-generate.md", "source": "api:cli-generate", "target": "data:project-config", "target_category": "structure", "target_type": "data"}
 {"context": "body", "path": ".knowledge/api/cli-generate.md", "source": "api:cli-generate", "target": "flow:generation-pipeline", "target_category": "behavior", "target_type": "flow"}
 {"context": "body", "path": ".knowledge/api/cli-generate.md", "source": "api:cli-generate", "target": "system:httpbinder", "target_category": "external", "target_type": "system"}
+{"context": "body", "path": ".knowledge/api/cli-generate.md", "source": "api:cli-generate", "target": "system:tinygodriver", "target_category": "external", "target_type": "system"}
 {"context": "body", "path": ".knowledge/api/cli-init.md", "source": "api:cli-init", "target": "data:project-config", "target_category": "structure", "target_type": "data"}
 {"context": "body", "path": ".knowledge/api/cli-init.md", "source": "api:cli-init", "target": "concept:project-layout", "target_category": "concept", "target_type": "concept"}
 {"context": "body", "path": ".knowledge/api/cli-init.md", "source": "api:cli-init", "target": "api:cli-generate", "target_category": "interface", "target_type": "api"}
@@ -24,12 +26,12 @@
 {"context": "body", "path": ".knowledge/data/auth-state-record.md", "source": "data:auth-state-record", "target": "api:auth-state-codec", "target_category": "interface", "target_type": "api"}
 {"context": "body", "path": ".knowledge/data/auth-state-record.md", "source": "data:auth-state-record", "target": "requirement:contrib-auth-state", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/data/project-config.md", "source": "data:project-config", "target": "api:cli-init", "target_category": "interface", "target_type": "api"}
+{"context": "body", "path": ".knowledge/decision/contrib-delivery-order.md", "source": "decision:contrib-delivery-order", "target": "requirement:tinygodriver-adoption", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/decision/contrib-delivery-order.md", "source": "decision:contrib-delivery-order", "target": "requirement:contrib-auth-common", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/decision/contrib-delivery-order.md", "source": "decision:contrib-delivery-order", "target": "requirement:contrib-auth-state", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/decision/contrib-delivery-order.md", "source": "decision:contrib-delivery-order", "target": "requirement:contrib-auth-state-memory", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/decision/contrib-delivery-order.md", "source": "decision:contrib-delivery-order", "target": "requirement:contrib-cbor", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/decision/contrib-delivery-order.md", "source": "decision:contrib-delivery-order", "target": "requirement:contrib-jwt", "target_category": "objective", "target_type": "requirement"}
-{"context": "body", "path": ".knowledge/decision/contrib-delivery-order.md", "source": "decision:contrib-delivery-order", "target": "requirement:contrib-reverse-proxy", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/decision/contrib-delivery-order.md", "source": "decision:contrib-delivery-order", "target": "requirement:contrib-otel", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/decision/contrib-delivery-order.md", "source": "decision:contrib-delivery-order", "target": "requirement:contrib-passkey", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/decision/contrib-delivery-order.md", "source": "decision:contrib-delivery-order", "target": "requirement:contrib-oauth", "target_category": "objective", "target_type": "requirement"}
@@ -42,7 +44,7 @@
 {"context": "body", "path": ".knowledge/decision/contrib-delivery-order.md", "source": "decision:contrib-delivery-order", "target": "requirement:contrib-sqlite", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/decision/contrib-delivery-order.md", "source": "decision:contrib-delivery-order", "target": "requirement:contrib-auth-state-sqlite", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/decision/contrib-delivery-order.md", "source": "decision:contrib-delivery-order", "target": "decision:stdlib-servemux", "target_category": "constraint", "target_type": "decision"}
-{"context": "body", "path": ".knowledge/decision/contrib-delivery-order.md", "source": "decision:contrib-delivery-order", "target": "decision:tinygo-042-baseline", "target_category": "constraint", "target_type": "decision"}
+{"context": "body", "path": ".knowledge/decision/contrib-delivery-order.md", "source": "decision:contrib-delivery-order", "target": "system:tinygodriver", "target_category": "external", "target_type": "system"}
 {"context": "body", "path": ".knowledge/decision/contrib-delivery-order.md", "source": "decision:contrib-delivery-order", "target": "decision:passkey-first-authentication", "target_category": "constraint", "target_type": "decision"}
 {"context": "body", "path": ".knowledge/decision/contrib-delivery-order.md", "source": "decision:contrib-delivery-order", "target": "requirement:contrib-redis-valkey", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/decision/contrib-delivery-order.md", "source": "decision:contrib-delivery-order", "target": "decision:server-sql-support-tier", "target_category": "constraint", "target_type": "decision"}
@@ -59,10 +61,13 @@
 {"context": "body", "path": ".knowledge/decision/server-sql-support-tier.md", "source": "decision:server-sql-support-tier", "target": "policy:outbound-transport-security", "target_category": "constraint", "target_type": "policy"}
 {"context": "body", "path": ".knowledge/decision/sqlite-backend-selection.md", "source": "decision:sqlite-backend-selection", "target": "requirement:contrib-cgosqlite", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/decision/sqlite-backend-selection.md", "source": "decision:sqlite-backend-selection", "target": "decision:force-tinygo-logic", "target_category": "constraint", "target_type": "decision"}
+{"context": "body", "path": ".knowledge/decision/stdlib-servemux.md", "source": "decision:stdlib-servemux", "target": "system:tinygodriver", "target_category": "external", "target_type": "system"}
 {"context": "body", "path": ".knowledge/decision/stdlib-servemux.md", "source": "decision:stdlib-servemux", "target": "decision:tinygo-042-baseline", "target_category": "constraint", "target_type": "decision"}
 {"context": "body", "path": ".knowledge/decision/stdlib-servemux.md", "source": "decision:stdlib-servemux", "target": "rule:static-route-discovery", "target_category": "constraint", "target_type": "rule"}
 {"context": "body", "path": ".knowledge/decision/stdlib-servemux.md", "source": "decision:stdlib-servemux", "target": "system:httpbinder", "target_category": "external", "target_type": "system"}
+{"context": "body", "path": ".knowledge/decision/stdlib-servemux.md", "source": "decision:stdlib-servemux", "target": "requirement:tinygodriver-adoption", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/decision/thin-httpbinder-integration.md", "source": "decision:thin-httpbinder-integration", "target": "system:httpbinder", "target_category": "external", "target_type": "system"}
+{"context": "body", "path": ".knowledge/decision/tinygo-042-baseline.md", "source": "decision:tinygo-042-baseline", "target": "system:tinygodriver", "target_category": "external", "target_type": "system"}
 {"context": "body", "path": ".knowledge/decision/tinygo-042-baseline.md", "source": "decision:tinygo-042-baseline", "target": "api:cli-check", "target_category": "interface", "target_type": "api"}
 {"context": "body", "path": ".knowledge/decision/tinygo-storage-direction.md", "source": "decision:tinygo-storage-direction", "target": "requirement:contrib-sqlite", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/decision/tinygo-storage-direction.md", "source": "decision:tinygo-storage-direction", "target": "requirement:contrib-cgosqlite", "target_category": "objective", "target_type": "requirement"}
@@ -120,7 +125,6 @@
 {"context": "body", "path": ".knowledge/requirement/contrib-acceptance.md", "source": "requirement:contrib-acceptance", "target": "requirement:contrib-cbor", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/requirement/contrib-acceptance.md", "source": "requirement:contrib-acceptance", "target": "requirement:contrib-passkey", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/requirement/contrib-acceptance.md", "source": "requirement:contrib-acceptance", "target": "requirement:contrib-otel", "target_category": "objective", "target_type": "requirement"}
-{"context": "body", "path": ".knowledge/requirement/contrib-acceptance.md", "source": "requirement:contrib-acceptance", "target": "requirement:contrib-reverse-proxy", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/requirement/contrib-acceptance.md", "source": "requirement:contrib-acceptance", "target": "requirement:contrib-redis-valkey", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/requirement/contrib-acceptance.md", "source": "requirement:contrib-acceptance", "target": "decision:local-tls-proxy-boundary", "target_category": "constraint", "target_type": "decision"}
 {"context": "body", "path": ".knowledge/requirement/contrib-acceptance.md", "source": "requirement:contrib-acceptance", "target": "requirement:contrib-jwt", "target_category": "objective", "target_type": "requirement"}
@@ -191,12 +195,13 @@
 {"context": "body", "path": ".knowledge/requirement/contrib-redis-valkey.md", "source": "requirement:contrib-redis-valkey", "target": "policy:outbound-transport-security", "target_category": "constraint", "target_type": "policy"}
 {"context": "body", "path": ".knowledge/requirement/contrib-redis-valkey.md", "source": "requirement:contrib-redis-valkey", "target": "requirement:contrib-auth-state-redis", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/requirement/contrib-redis-valkey.md", "source": "requirement:contrib-redis-valkey", "target": "decision:local-tls-proxy-boundary", "target_category": "constraint", "target_type": "decision"}
-{"context": "body", "path": ".knowledge/requirement/contrib-reverse-proxy.md", "source": "requirement:contrib-reverse-proxy", "target": "policy:outbound-transport-security", "target_category": "constraint", "target_type": "policy"}
 {"context": "body", "path": ".knowledge/requirement/contrib-sqlite.md", "source": "requirement:contrib-sqlite", "target": "decision:sqlite-backend-selection", "target_category": "constraint", "target_type": "decision"}
 {"context": "body", "path": ".knowledge/requirement/contrib-sqlite.md", "source": "requirement:contrib-sqlite", "target": "requirement:contrib-cgosqlite", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/requirement/contrib-sqlite.md", "source": "requirement:contrib-sqlite", "target": "data:database-driver-contract", "target_category": "structure", "target_type": "data"}
 {"context": "body", "path": ".knowledge/requirement/contrib-zstd.md", "source": "requirement:contrib-zstd", "target": "decision:force-tinygo-logic", "target_category": "constraint", "target_type": "decision"}
 {"context": "body", "path": ".knowledge/requirement/httpbinder-extensible-route-analysis.md", "source": "requirement:httpbinder-extensible-route-analysis", "target": "system:httpbinder", "target_category": "external", "target_type": "system"}
+{"context": "body", "path": ".knowledge/requirement/httpbinder-extensible-route-analysis.md", "source": "requirement:httpbinder-extensible-route-analysis", "target": "api:cli-generate", "target_category": "interface", "target_type": "api"}
+{"context": "body", "path": ".knowledge/requirement/httpbinder-extensible-route-analysis.md", "source": "requirement:httpbinder-extensible-route-analysis", "target": "system:tinygodriver", "target_category": "external", "target_type": "system"}
 {"context": "body", "path": ".knowledge/requirement/mvp-acceptance.md", "source": "requirement:mvp-acceptance", "target": "api:cli-init", "target_category": "interface", "target_type": "api"}
 {"context": "body", "path": ".knowledge/requirement/mvp-acceptance.md", "source": "requirement:mvp-acceptance", "target": "concept:project-layout", "target_category": "concept", "target_type": "concept"}
 {"context": "body", "path": ".knowledge/requirement/mvp-acceptance.md", "source": "requirement:mvp-acceptance", "target": "api:cli-generate", "target_category": "interface", "target_type": "api"}
@@ -205,6 +210,7 @@
 {"context": "body", "path": ".knowledge/requirement/mvp-acceptance.md", "source": "requirement:mvp-acceptance", "target": "api:cli-dev", "target_category": "interface", "target_type": "api"}
 {"context": "body", "path": ".knowledge/requirement/mvp-acceptance.md", "source": "requirement:mvp-acceptance", "target": "api:cli-build", "target_category": "interface", "target_type": "api"}
 {"context": "body", "path": ".knowledge/requirement/mvp-acceptance.md", "source": "requirement:mvp-acceptance", "target": "api:cli-check", "target_category": "interface", "target_type": "api"}
+{"context": "body", "path": ".knowledge/requirement/tinygodriver-adoption.md", "source": "requirement:tinygodriver-adoption", "target": "system:tinygodriver", "target_category": "external", "target_type": "system"}
 {"context": "body", "path": ".knowledge/rule/static-route-discovery.md", "source": "rule:static-route-discovery", "target": "requirement:httpbinder-extensible-route-analysis", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/rule/static-route-discovery.md", "source": "rule:static-route-discovery", "target": "system:httpbinder", "target_category": "external", "target_type": "system"}
 {"context": "body", "path": ".knowledge/rule/static-route-discovery.md", "source": "rule:static-route-discovery", "target": "api:cli-check", "target_category": "interface", "target_type": "api"}
@@ -228,7 +234,6 @@
 {"context": "body", "path": ".knowledge/vision/contrib.md", "source": "vision:contrib", "target": "requirement:contrib-cbor", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/vision/contrib.md", "source": "vision:contrib", "target": "requirement:contrib-passkey", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/vision/contrib.md", "source": "vision:contrib", "target": "requirement:contrib-otel", "target_category": "objective", "target_type": "requirement"}
-{"context": "body", "path": ".knowledge/vision/contrib.md", "source": "vision:contrib", "target": "requirement:contrib-reverse-proxy", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/vision/contrib.md", "source": "vision:contrib", "target": "requirement:contrib-jwt", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/vision/contrib.md", "source": "vision:contrib", "target": "requirement:contrib-oauth", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/vision/contrib.md", "source": "vision:contrib", "target": "requirement:contrib-oidc", "target_category": "objective", "target_type": "requirement"}
@@ -241,6 +246,7 @@
 {"context": "body", "path": ".knowledge/vision/contrib.md", "source": "vision:contrib", "target": "decision:passkey-first-authentication", "target_category": "constraint", "target_type": "decision"}
 {"context": "body", "path": ".knowledge/vision/contrib.md", "source": "vision:contrib", "target": "requirement:contrib-acceptance", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/vision/contrib.md", "source": "vision:contrib", "target": "requirement:contrib-redis-valkey", "target_category": "objective", "target_type": "requirement"}
+{"context": "body", "path": ".knowledge/vision/contrib.md", "source": "vision:contrib", "target": "requirement:tinygodriver-adoption", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/vision/petitweb.md", "source": "vision:petitweb", "target": "system:httpbinder", "target_category": "external", "target_type": "system"}
 {"context": "body", "path": ".knowledge/vision/petitweb.md", "source": "vision:petitweb", "target": "decision:thin-httpbinder-integration", "target_category": "constraint", "target_type": "decision"}
 {"context": "body", "path": ".knowledge/vision/petitweb.md", "source": "vision:petitweb", "target": "decision:host-tools-target-runtime", "target_category": "constraint", "target_type": "decision"}

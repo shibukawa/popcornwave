@@ -14,6 +14,7 @@ checks:
   - run "go test ./..."
   - compile configured package to a temporary output with TinyGo
   - compile imported contrib packages and run their target matrix smoke tests
+  - verify requirement:tinygodriver-adoption host Go and TinyGo fixtures
 reporting:
   - ordered phase labels
   - exact failing command

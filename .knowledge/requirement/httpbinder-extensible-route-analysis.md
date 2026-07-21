@@ -32,6 +32,7 @@ resolution:
 configuration:
   library_api: parser and generator options accept adapters programmatically
   cli: generator accepts a versioned analysis configuration file
+  petitweb: api:cli-generate supplies the system:tinygodriver httpmux adapter
 diagnostics:
   - report unsupported registration calls with source position and suggested adapter fields
   - reject invalid argument indexes, unknown grammars, and duplicate adapter identities
@@ -50,6 +51,7 @@ candidate_followups:
   - exported analysis result IR for framework tooling and diagnostics
 acceptance:
   - aliased net/http imports resolve correctly
+  - system:tinygodriver httpmux routes generate the same operations as net/http.ServeMux routes
   - unrelated methods named Handle or HandleFunc are ignored
   - malformed adapters fail before artifact generation
 ```
