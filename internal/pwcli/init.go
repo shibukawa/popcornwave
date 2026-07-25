@@ -2,6 +2,7 @@ package pwcli
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -9,45 +10,93 @@ import (
 	"path/filepath"
 	"runtime"
 	"runtime/debug"
+	"strconv"
 	"strings"
 
+	"github.com/charmbracelet/x/term"
 	"github.com/shibukawa/popcornwave/internal/pwenv"
 )
 
-func runInit(args []string, stdout io.Writer) error {
-	tailwind := false
+const initUsage = "usage: pw init [<project-name>] [--interactive] [--tailwind] [--no-tinygo]"
+
+// initOptions holds every project bootstrap choice. Shortcut flags and the
+// wizard produce the same value, and scaffoldFiles is its only consumer.
+type initOptions struct {
+	Name        string
+	TinyGo      bool
+	Tailwind    bool
+	Interactive bool
+}
+
+// defaultInitOptions keeps TinyGo compatible routing as the scaffold default so
+// the shortcut form matches decision:stdlib-servemux.
+func defaultInitOptions() initOptions {
+	return initOptions{TinyGo: true}
+}
+
+func parseInitArgs(args []string) (initOptions, error) {
+	options := defaultInitOptions()
 	var positional []string
 	for _, arg := range args {
 		switch arg {
 		case "--tailwind":
-			tailwind = true
+			options.Tailwind = true
+		case "--no-tailwind":
+			options.Tailwind = false
+		case "--tinygo":
+			options.TinyGo = true
+		case "--no-tinygo":
+			options.TinyGo = false
+		case "-i", "--interactive":
+			options.Interactive = true
 		default:
 			if strings.HasPrefix(arg, "-") {
-				return fmt.Errorf("init: unknown option %q", arg)
+				return initOptions{}, fmt.Errorf("init: unknown option %q", arg)
 			}
 			positional = append(positional, arg)
 		}
 	}
-	if len(positional) != 1 {
-		return fmt.Errorf("usage: pw init <project-name> [--tailwind]")
+	if len(positional) > 1 {
+		return initOptions{}, errors.New(initUsage)
 	}
-	name := strings.TrimSpace(positional[0])
-	if !validProjectName(name) {
-		return fmt.Errorf("invalid project name %q", name)
+	if len(positional) == 1 {
+		options.Name = strings.TrimSpace(positional[0])
 	}
-	destination, err := filepath.Abs(name)
+	return options, nil
+}
+
+// interactiveTerminal reports whether the wizard can drive the current session.
+func interactiveTerminal() bool {
+	return term.IsTerminal(os.Stdin.Fd()) && term.IsTerminal(os.Stdout.Fd())
+}
+
+func runInit(args []string, stdout io.Writer) error {
+	options, err := parseInitArgs(args)
 	if err != nil {
 		return err
 	}
-	if entries, readErr := os.ReadDir(destination); readErr == nil && len(entries) > 0 {
-		return fmt.Errorf("destination %s is not empty", destination)
-	} else if readErr != nil && !os.IsNotExist(readErr) {
-		return readErr
+	if options.Name == "" || options.Interactive {
+		if !interactiveTerminal() {
+			return fmt.Errorf("init: the wizard needs a terminal; %s", initUsage)
+		}
+		options, err = runInitWizard(options)
+		if errors.Is(err, errInitCanceled) {
+			fmt.Fprintln(stdout, "init canceled")
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+	}
+	name := options.Name
+	destination, err := initDestination(name)
+	if err != nil {
+		return err
 	}
 	if err := os.MkdirAll(destination, 0o755); err != nil {
 		return err
 	}
-	files := scaffoldFilesWithTailwind(name, tailwind)
+	files := scaffoldFiles(options)
 	for path, content := range files {
 		target := filepath.Join(destination, filepath.FromSlash(path))
 		if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
@@ -117,17 +166,45 @@ func validProjectName(name string) bool {
 	return true
 }
 
-func scaffoldFiles(name string) map[string]string {
-	return scaffoldFilesWithTailwind(name, false)
+// initDestination resolves the project directory and refuses collisions.
+func initDestination(name string) (string, error) {
+	if !validProjectName(name) {
+		return "", fmt.Errorf("invalid project name %q", name)
+	}
+	destination, err := filepath.Abs(name)
+	if err != nil {
+		return "", err
+	}
+	entries, readErr := os.ReadDir(destination)
+	switch {
+	case readErr == nil && len(entries) > 0:
+		return "", fmt.Errorf("destination %s is not empty", destination)
+	case readErr != nil && !os.IsNotExist(readErr):
+		return "", readErr
+	}
+	return destination, nil
 }
 
-func scaffoldFilesWithTailwind(name string, tailwind bool) map[string]string {
+// validateProjectName reports the wizard-facing reason a name is unusable.
+func validateProjectName(name string) error {
+	if name == "" {
+		return errors.New("a project name is required")
+	}
+	_, err := initDestination(name)
+	return err
+}
+
+func scaffoldFiles(options initOptions) map[string]string {
+	name := options.Name
 	moduleExtra := frameworkModuleDirective()
+	devboxPackages := []string{"go@latest", "valkey@latest"}
+	if options.TinyGo {
+		devboxPackages = append(devboxPackages, "tinygo@latest")
+	}
 	configTailwind := ""
-	devboxTailwind := ""
 	homeStylesheet := ""
 	homeClasses := ""
-	if tailwind {
+	if options.Tailwind {
 		configTailwind = `
 [assets.tailwind]
 enabled = true
@@ -135,7 +212,7 @@ input = "` + defaultTailwindInput + `"
 output = "` + defaultTailwindOutput + `"
 minify = true
 `
-		devboxTailwind = `, "tailwindcss_4@4.1.18"`
+		devboxPackages = append(devboxPackages, "tailwindcss_4@4.1.18")
 		homeStylesheet = `<link rel="stylesheet" href="/public/generated/app.css">`
 		homeClasses = ` class="mx-auto max-w-3xl p-8 text-slate-900"`
 	}
@@ -144,6 +221,7 @@ minify = true
 		"popcornwave.toml": `[project]
 name = "` + name + `"
 main = "./cmd/` + name + `"
+toolchain = "` + projectToolchain(options) + `"
 
 [dev]
 extra_watch = []
@@ -159,7 +237,7 @@ service_name = "` + name + `"
 `,
 		"devbox.json": `{
   "$schema": "https://raw.githubusercontent.com/jetify-com/devbox/0.14.2/.schema/devbox.schema.json",
-  "packages": ["go@latest", "valkey@latest"` + devboxTailwind + `],
+  "packages": [` + quotedJSONList(devboxPackages) + `],
   "shell": {"init_hook": ["echo 'Popcorn Wave development environment'"]}
 }
 `,
@@ -180,14 +258,7 @@ func main() {
 	}
 }
 `,
-		"handlers/index.go": `package handlers
-
-import "github.com/shibukawa/popcornwave/pw"
-
-var mux = pw.NewServeMux()
-
-func Handlers() *pw.ServeMux { return mux }
-`,
+		"handlers/index.go": muxScaffold(options),
 		"handlers/home_handler.go": `package handlers
 
 import (
@@ -283,7 +354,7 @@ func PublicFS() fs.FS {
 		// The binary pattern is anchored: a bare name would also ignore cmd/<name>/.
 		".gitignore": ".devbox/\n/" + name + "\n*_pw_gen.go\npublic/**/*.zstd\n*.db\n",
 	}
-	if tailwind {
+	if options.Tailwind {
 		files["assets/app.css"] = `@import "tailwindcss";
 @source "../handlers";
 @source "../templates";
@@ -291,6 +362,46 @@ func PublicFS() fs.FS {
 		files["public/generated/app.css"] = "/* Generated by Tailwind CSS. */\n"
 	}
 	return files
+}
+
+// projectToolchain names the compiler the project is scaffolded for.
+func projectToolchain(options initOptions) string {
+	if options.TinyGo {
+		return toolchainTinyGo
+	}
+	return toolchainGo
+}
+
+// muxScaffold emits the route registry. TinyGo projects go through pw.ServeMux
+// so one import works on both toolchains; host-only projects keep the standard
+// library type, which api:cli-generate discovers just the same.
+func muxScaffold(options initOptions) string {
+	if options.TinyGo {
+		return `package handlers
+
+import "github.com/shibukawa/popcornwave/pw"
+
+var mux = pw.NewServeMux()
+
+func Handlers() *pw.ServeMux { return mux }
+`
+	}
+	return `package handlers
+
+import "net/http"
+
+var mux = http.NewServeMux()
+
+func Handlers() *http.ServeMux { return mux }
+`
+}
+
+func quotedJSONList(values []string) string {
+	quoted := make([]string, len(values))
+	for index, value := range values {
+		quoted[index] = strconv.Quote(value)
+	}
+	return strings.Join(quoted, ", ")
 }
 
 func errorTemplate(pkg, component, title string) string {

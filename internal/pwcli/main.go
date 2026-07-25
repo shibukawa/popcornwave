@@ -46,6 +46,8 @@ func Main(args []string, stdout, stderr io.Writer) int {
 func printUsage(w io.Writer) {
 	fmt.Fprintln(w, "Usage: pw <command>")
 	fmt.Fprintln(w, "Commands: init, generate, migrate, seed, build, dev")
+	fmt.Fprintln(w, "Init usage: pw init [<project-name>] [--interactive] [--tailwind] [--no-tinygo]")
+	fmt.Fprintln(w, "  Omit the project name to answer the same questions in the wizard.")
 	fmt.Fprintln(w, "Migrate actions: status, version, up, up-by-one, up-to, down, down-to, create, validate, snapshot")
 	fmt.Fprintln(w, "Seed usage: pw seed [--dir=testdata/seed] [name...]")
 }

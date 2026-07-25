@@ -15,6 +15,13 @@ const (
 	defaultMigrationDir   = "migrations"
 )
 
+// Target compilers recorded by project.toolchain. Projects scaffolded before the
+// key existed used TinyGo compatible routing, so that stays the default.
+const (
+	toolchainTinyGo = "tinygo"
+	toolchainGo     = "go"
+)
+
 type tailwindConfig struct {
 	Enabled bool
 	Input   string
@@ -30,6 +37,7 @@ type migrationConfig struct {
 type projectConfig struct {
 	Name       string
 	Main       string
+	Toolchain  string
 	ExtraWatch []string
 	Migration  migrationConfig
 	Tailwind   tailwindConfig
@@ -46,7 +54,7 @@ func loadProjectConfig(root string) (projectConfig, error) {
 		return projectConfig{}, fmt.Errorf("parse %s: %w", path, err)
 	}
 	known := []string{
-		"project.name", "project.main",
+		"project.name", "project.main", "project.toolchain",
 		"dev.extra_watch",
 		"migration.dir", "migration.auto",
 		"assets.tailwind.enabled", "assets.tailwind.input",
@@ -65,6 +73,16 @@ func loadProjectConfig(root string) (projectConfig, error) {
 	config.Main, err = scalar(document, "project.main")
 	if err != nil {
 		return projectConfig{}, err
+	}
+	config.Toolchain, err = optionalScalar(document, "project.toolchain")
+	if err != nil {
+		return projectConfig{}, err
+	}
+	if config.Toolchain == "" {
+		config.Toolchain = toolchainTinyGo
+	}
+	if config.Toolchain != toolchainTinyGo && config.Toolchain != toolchainGo {
+		return projectConfig{}, fmt.Errorf("popcornwave.toml: project.toolchain must be %q or %q", toolchainTinyGo, toolchainGo)
 	}
 	config.ExtraWatch, err = array(document, "dev.extra_watch")
 	if err != nil {

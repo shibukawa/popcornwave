@@ -45,7 +45,7 @@ func TestPreparePublicAssets(t *testing.T) {
 }
 
 func TestScaffoldIncludesPublicEmbed(t *testing.T) {
-	files := scaffoldFiles("fixture")
+	files := scaffoldFiles(initOptions{Name: "fixture", TinyGo: true})
 	for _, name := range []string{"public.go", "public/.keep"} {
 		if _, ok := files[name]; !ok {
 			t.Errorf("missing %s", name)

@@ -7,8 +7,14 @@ A handler package owns one mux and lets each handler source register its own lit
 
 ```yaml
 package_surface:
-  mux: var mux = pw.NewServeMux()
-  accessor: Handlers() *pw.ServeMux
+  tinygo_toolchain:
+    mux: var mux = pw.NewServeMux()
+    accessor: Handlers() *pw.ServeMux
+  host_go_toolchain:
+    mux: var mux = http.NewServeMux()
+    accessor: Handlers() *http.ServeMux
+  selection: project.toolchain in data:project-config, chosen by api:cli-init
+  equivalence: api:application-lifecycle accepts any http.Handler, so only the mux type differs
 handler_file:
   - define request input types privately beside the handler by default
   - register a literal method-and-path pattern in init()

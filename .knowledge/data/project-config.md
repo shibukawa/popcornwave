@@ -11,6 +11,7 @@ schema:
   project:
     name: myapp
     main: ./cmd/myapp
+    toolchain: tinygo or go, defaulting to tinygo
   dev:
     extra_watch: []
   migration:
@@ -30,6 +31,8 @@ optional_extensions:
 rules:
   - api:cli-generate always discovers all Go, .pw.html, and .pw.sql sources
   - api:cli-dev always watches Go, .pw.html, .pw.sql, popcornwave.toml, and policy:config-file-resolution project-local files
+  - project.toolchain records the compiler api:cli-init scaffolded for and rejects any other value
+  - a missing project.toolchain means tinygo, because every project scaffolded before the key used api:serve-mux
   - dev.extra_watch adds relative files or glob patterns
   - migration.dir locates data:migration-source and is a tooling path, not a runtime database value
   - migration.auto only enables the api:cli-dev apply step and never enables application startup apply
