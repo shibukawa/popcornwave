@@ -13,8 +13,9 @@ steps:
   - start flow:tailwind-css-build watch mode when enabled
   - enable decision:development-public-assets
   - build and run data:project-config project.main
-  - watch configured Go, HTML, SQL, non-public generated inputs, and tooling configuration
-  - exclude public/**, public.go, and public/**/*.zstd from Go rebuild inputs
+  - watch every Go, .pw.html, .pw.sql, popcornwave.toml, and config.toml source
+  - add data:project-config dev.extra_watch paths and globs
+  - exclude public/** and public/**/*.zstd from Go rebuild inputs
   - regenerate when generated inputs change
   - rebuild and restart after successful changes
 services:

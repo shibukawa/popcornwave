@@ -93,6 +93,19 @@ type MiddlewareConfig struct {
 	AccessLog      bool
 	Compression    bool
 	RequestTimeout time.Duration
+	RDB            RDBConfig
+}
+
+// RDBConfig controls the framework-owned database pool.
+type RDBConfig struct {
+	Enabled         bool
+	DSN             string
+	AutoTransaction bool
+	ConnectTimeout  time.Duration
+	MaxOpenConns    int
+	MaxIdleConns    int
+	ConnMaxLifetime time.Duration
+	ConnMaxIdleTime time.Duration
 }
 
 type configEntry struct {
@@ -123,7 +136,11 @@ var configState = struct {
 	cleanups []*runtimeCleanup
 }{
 	entries: make(map[reflect.Type]configEntry),
-	options: configbind.LoadOptions{Vendor: "popcornwave", FileName: "config.toml"},
+	options: configbind.LoadOptions{
+		Vendor:               "popcornwave",
+		FileName:             "config.toml",
+		ExtraConfigReadPaths: []string{"config.toml"},
+	},
 }
 
 // RegisterConfig registers one generated configbind target without parsing it.
@@ -156,31 +173,6 @@ func SetConfigLoadOptions(options configbind.LoadOptions) {
 	configState.options = options
 }
 
-// SetDatabase installs an application-created database pool into request
-// contexts and transaction helpers.
-func SetDatabase(db *sql.DB) {
-	configState.Lock()
-	defer configState.Unlock()
-	if configState.parsed {
-		panic("popcornwave: database changed after ParseConfig")
-	}
-	if configState.db != nil && configState.db != db {
-		panic("popcornwave: database is already configured")
-	}
-	if configState.db == db {
-		return
-	}
-	configState.db = db
-	if db != nil {
-		configState.cleanups = append(configState.cleanups, &runtimeCleanup{
-			name: "database",
-			fn: func(context.Context) error {
-				return db.Close()
-			},
-		})
-	}
-}
-
 func ParseConfig() error {
 	configState.Lock()
 	defer configState.Unlock()
@@ -192,7 +184,12 @@ func ParseConfig() error {
 	if options.Tool == "" {
 		options.Tool = executableName()
 	}
-	options.Args = commandArgs(options.Args)
+	var actionErr error
+	options.Args, actionErr = parseFrameworkAction(commandArgs(options.Args))
+	if actionErr != nil {
+		configState.parseErr = actionErr
+		return actionErr
+	}
 	result, err := configbind.Load(options)
 	configState.result, configState.parseErr = result, err
 	if err != nil {
@@ -541,11 +538,20 @@ func registerMiddlewareConfig() {
 		KnownKeys: []string{
 			"middleware.recovery", "middleware.request_id", "middleware.access_log",
 			"middleware.compression", "middleware.request_timeout",
+			"middleware.rdb.enabled", "middleware.rdb.dsn",
+			"middleware.rdb.auto_transaction", "middleware.rdb.connect_timeout",
+			"middleware.rdb.max_open_conns", "middleware.rdb.max_idle_conns",
+			"middleware.rdb.conn_max_lifetime", "middleware.rdb.conn_max_idle_time",
 		},
 		Defaults: map[string]string{
 			"middleware.recovery": "true", "middleware.request_id": "true",
 			"middleware.access_log": "true", "middleware.compression": "false",
 			"middleware.request_timeout": "0s",
+			"middleware.rdb.enabled":     "false", "middleware.rdb.dsn": "",
+			"middleware.rdb.auto_transaction": "true",
+			"middleware.rdb.connect_timeout":  "5s",
+			"middleware.rdb.max_open_conns":   "0", "middleware.rdb.max_idle_conns": "0",
+			"middleware.rdb.conn_max_lifetime": "0s", "middleware.rdb.conn_max_idle_time": "0s",
 		},
 		FlagMetas: []cliparser.FieldMeta{
 			{Prefix: "middleware", Key: "recovery", Kind: cliparser.KindBool},
@@ -553,6 +559,14 @@ func registerMiddlewareConfig() {
 			{Prefix: "middleware", Key: "access_log", Kind: cliparser.KindBool},
 			{Prefix: "middleware", Key: "compression", Kind: cliparser.KindBool},
 			{Prefix: "middleware", Key: "request_timeout"},
+			{Prefix: "middleware.rdb", Key: "enabled", Kind: cliparser.KindBool},
+			{Prefix: "middleware.rdb", Key: "dsn"},
+			{Prefix: "middleware.rdb", Key: "auto_transaction", Kind: cliparser.KindBool},
+			{Prefix: "middleware.rdb", Key: "connect_timeout"},
+			{Prefix: "middleware.rdb", Key: "max_open_conns"},
+			{Prefix: "middleware.rdb", Key: "max_idle_conns"},
+			{Prefix: "middleware.rdb", Key: "conn_max_lifetime"},
+			{Prefix: "middleware.rdb", Key: "conn_max_idle_time"},
 		},
 		Apply: func(dst any, overlay *configbind.Overlay) error {
 			p, ok := dst.(*MiddlewareConfig)
@@ -565,6 +579,29 @@ func registerMiddlewareConfig() {
 			p.Compression = configBool(overlay, "middleware.compression")
 			var err error
 			p.RequestTimeout, err = parseConfigDuration(overlay, "middleware.request_timeout")
+			if err != nil {
+				return err
+			}
+			p.RDB.Enabled = configBool(overlay, "middleware.rdb.enabled")
+			p.RDB.DSN = valueOf(overlay, "middleware.rdb.dsn")
+			p.RDB.AutoTransaction = configBool(overlay, "middleware.rdb.auto_transaction")
+			p.RDB.ConnectTimeout, err = parseConfigDuration(overlay, "middleware.rdb.connect_timeout")
+			if err != nil {
+				return err
+			}
+			p.RDB.MaxOpenConns, err = parseConfigInt(overlay, "middleware.rdb.max_open_conns")
+			if err != nil {
+				return err
+			}
+			p.RDB.MaxIdleConns, err = parseConfigInt(overlay, "middleware.rdb.max_idle_conns")
+			if err != nil {
+				return err
+			}
+			p.RDB.ConnMaxLifetime, err = parseConfigDuration(overlay, "middleware.rdb.conn_max_lifetime")
+			if err != nil {
+				return err
+			}
+			p.RDB.ConnMaxIdleTime, err = parseConfigDuration(overlay, "middleware.rdb.conn_max_idle_time")
 			return err
 		},
 		Scaffold: []configbind.ScaffoldField{
@@ -573,6 +610,14 @@ func registerMiddlewareConfig() {
 			{Key: "access_log", Kind: configbind.ScaffoldBool, Default: "true"},
 			{Key: "compression", Kind: configbind.ScaffoldBool, Default: "false"},
 			{Key: "request_timeout", Kind: configbind.ScaffoldString, Default: "0s"},
+			{Key: "rdb.enabled", Kind: configbind.ScaffoldBool, Default: "false"},
+			{Key: "rdb.dsn", Kind: configbind.ScaffoldString, Default: ""},
+			{Key: "rdb.auto_transaction", Kind: configbind.ScaffoldBool, Default: "true"},
+			{Key: "rdb.connect_timeout", Kind: configbind.ScaffoldString, Default: "5s"},
+			{Key: "rdb.max_open_conns", Kind: configbind.ScaffoldInt, Default: "0"},
+			{Key: "rdb.max_idle_conns", Kind: configbind.ScaffoldInt, Default: "0"},
+			{Key: "rdb.conn_max_lifetime", Kind: configbind.ScaffoldString, Default: "0s"},
+			{Key: "rdb.conn_max_idle_time", Kind: configbind.ScaffoldString, Default: "0s"},
 		},
 	})
 }

@@ -11,17 +11,8 @@ schema:
   project:
     name: myapp
     main: ./cmd/myapp
-  generate:
-    html:
-      - "**/*.pw.html"
-    sql:
-      - "**/*.pw.sql"
   dev:
-    watch:
-      - "**/*.go"
-      - "**/*.pw.html"
-      - "**/*.pw.sql"
-      - popcornwave.toml
+    extra_watch: []
   assets:
     tailwind:
       enabled: false
@@ -34,6 +25,9 @@ optional_extensions:
   - build tags and targets
   - build output location
 rules:
+  - api:cli-generate always discovers all Go, .pw.html, and .pw.sql sources
+  - api:cli-dev always watches Go, .pw.html, .pw.sql, popcornwave.toml, and config.toml
+  - dev.extra_watch adds relative files or glob patterns
   - relative paths resolve from the config file directory
   - unknown keys are errors
   - command flags override config values

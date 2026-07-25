@@ -58,6 +58,14 @@ func Logger(ctx context.Context) *slog.Logger {
 	return logger
 }
 
+// WithLogger replaces only the request logger while preserving other runtime
+// resources already installed on ctx.
+func WithLogger(ctx context.Context, logger *slog.Logger) context.Context {
+	current := *resources(ctx)
+	current.Logger = logger
+	return WithResources(ctx, current)
+}
+
 func DB(ctx context.Context) (*sql.DB, bool) {
 	db := resources(ctx).DB
 	return db, db != nil

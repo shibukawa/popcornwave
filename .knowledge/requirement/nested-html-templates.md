@@ -21,8 +21,7 @@ page:
   role: innermost leaf
 classic_render:
   api: api:render-html-chain
-  wrappers:
-    - generated BindDocument value
+  document: decision:implicit-document-shell
   leaf: generated page Fragment
   extension: insert generated layout wrappers between document and page without changing either template
 compatibility:
@@ -32,7 +31,8 @@ compatibility:
     - update classic handler rendering call sites to Fragment, Wrapper, and api:render-html-chain
 acceptance:
   - api:cli-init creates templates/document.pw.html
-  - generated classic handlers render document and page through one chain
+  - handlers call only api:html-response WriteHTML with the page fragment
+  - the framework renders the registered document and page through one chain
   - page templates contain page content without duplicating the document shell
   - another wrapper can be inserted between document and page
 ```

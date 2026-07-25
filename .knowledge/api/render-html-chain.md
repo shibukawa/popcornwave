@@ -20,4 +20,5 @@ behavior:
   - fill each wrapper unnamed slot with the next wrapper or leaf
   - render an empty wrapper list like htmlbind.Render
 compatibility: v0.1.15 generated Fragment and Wrapper APIs replace earlier direct-writer template APIs and require regenerated call sites
+visibility: internal implementation behind api:html-response and decision:implicit-document-shell
 ```

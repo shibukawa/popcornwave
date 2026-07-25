@@ -22,6 +22,8 @@ func Main(args []string, stdout, stderr io.Writer) int {
 		err = runInit(args[1:], stdout)
 	case "generate":
 		err = runGenerate(ctx, args[1:], stdout)
+	case "schema-init":
+		err = runSchemaInit(ctx, args[1:], stdout, stderr)
 	case "build":
 		err = runBuild(ctx, args[1:], stdout, stderr)
 	case "dev":
@@ -41,5 +43,5 @@ func Main(args []string, stdout, stderr io.Writer) int {
 
 func printUsage(w io.Writer) {
 	fmt.Fprintln(w, "Usage: pw <command>")
-	fmt.Fprintln(w, "Commands: init, generate, build, dev")
+	fmt.Fprintln(w, "Commands: init, generate, schema-init, build, dev")
 }

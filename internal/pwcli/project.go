@@ -22,12 +22,10 @@ type tailwindConfig struct {
 }
 
 type projectConfig struct {
-	Name     string
-	Main     string
-	HTML     []string
-	SQL      []string
-	Watch    []string
-	Tailwind tailwindConfig
+	Name       string
+	Main       string
+	ExtraWatch []string
+	Tailwind   tailwindConfig
 }
 
 func loadProjectConfig(root string) (projectConfig, error) {
@@ -42,8 +40,7 @@ func loadProjectConfig(root string) (projectConfig, error) {
 	}
 	known := []string{
 		"project.name", "project.main",
-		"generate.html", "generate.sql",
-		"dev.watch",
+		"dev.extra_watch",
 		"assets.tailwind.enabled", "assets.tailwind.input",
 		"assets.tailwind.output", "assets.tailwind.minify",
 	}
@@ -61,17 +58,17 @@ func loadProjectConfig(root string) (projectConfig, error) {
 	if err != nil {
 		return projectConfig{}, err
 	}
-	config.HTML, err = array(document, "generate.html")
+	config.ExtraWatch, err = array(document, "dev.extra_watch")
 	if err != nil {
-		return projectConfig{}, fmt.Errorf("popcornwave.toml: generate.html: %w", err)
+		return projectConfig{}, fmt.Errorf("popcornwave.toml: dev.extra_watch: %w", err)
 	}
-	config.SQL, err = array(document, "generate.sql")
-	if err != nil {
-		return projectConfig{}, fmt.Errorf("popcornwave.toml: generate.sql: %w", err)
-	}
-	config.Watch, err = array(document, "dev.watch")
-	if err != nil {
-		return projectConfig{}, fmt.Errorf("popcornwave.toml: dev.watch: %w", err)
+	for _, pattern := range config.ExtraWatch {
+		if filepath.IsAbs(pattern) {
+			return projectConfig{}, fmt.Errorf("popcornwave.toml: dev.extra_watch paths must be relative")
+		}
+		if _, err := filepath.Glob(filepath.Join(root, filepath.FromSlash(pattern))); err != nil {
+			return projectConfig{}, fmt.Errorf("popcornwave.toml: dev.extra_watch %q: %w", pattern, err)
+		}
 	}
 	if config.Main == "" {
 		return projectConfig{}, fmt.Errorf("popcornwave.toml: project.main is required")

@@ -11,11 +11,12 @@ handwritten_shape:
     - context
     - application handlers package
     - github.com/shibukawa/popcornwave/pw
-    - blank imports for selected database and service drivers
   run: pw.Run(context.Background(), handlers.Handlers())
 rules:
   - data:project-config project.main selects this package for api:cli-build
-  - data:project-config does not select runtime drivers
+  - database startup follows decision:config-driven-database
+  - requirement:built-in-config-generation needs no application command type or dispatch
+  - application subcommands use api:subcommands RegisterSubCommand
   - api:application-lifecycle returns startup, serving, or shutdown errors to main
   - applications needing a custom http.Server use pw.Middlewares instead
 ```

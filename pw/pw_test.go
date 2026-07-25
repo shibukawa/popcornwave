@@ -115,6 +115,40 @@ func TestWriteHTMLChainNestsWrappers(t *testing.T) {
 	}
 }
 
+func TestWriteHTMLUsesRegisteredDocument(t *testing.T) {
+	type documentParams struct {
+		Children htmlbind.Fragment
+	}
+	documentBuilder := htmlbind.Builder[documentParams]{}
+	documentPlan := &htmlbind.Plan[documentParams]{Ops: []htmlbind.Op[documentParams]{
+		documentBuilder.Static("<!doctype html><body>"),
+		documentBuilder.Slot(func(params documentParams) htmlbind.Fragment { return params.Children }, nil),
+		documentBuilder.Static("</body>"),
+	}}
+	document := htmlbind.BindWrapper(documentPlan, documentParams{}, func(params *documentParams, children htmlbind.Fragment) {
+		params.Children = children
+	})
+	documentState.Lock()
+	previous := documentState.wrapper
+	documentState.wrapper = &document
+	documentState.Unlock()
+	t.Cleanup(func() {
+		documentState.Lock()
+		documentState.wrapper = previous
+		documentState.Unlock()
+	})
+
+	pageBuilder := htmlbind.Builder[struct{}]{}
+	page := htmlbind.Bind(&htmlbind.Plan[struct{}]{Ops: []htmlbind.Op[struct{}]{
+		pageBuilder.Static("<main>page</main>"),
+	}}, struct{}{})
+	recorder := httptest.NewRecorder()
+	WriteHTML(recorder, httptest.NewRequest(http.MethodGet, "/", nil), page)
+	if recorder.Body.String() != "<!doctype html><body><main>page</main></body>" {
+		t.Fatalf("body = %q", recorder.Body.String())
+	}
+}
+
 func TestWriteHTMLPreservesConfiguredZstdCompression(t *testing.T) {
 	builder := htmlbind.Builder[struct{}]{}
 	leaf := htmlbind.Bind(&htmlbind.Plan[struct{}]{Ops: []htmlbind.Op[struct{}]{

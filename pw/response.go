@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"sync"
 
 	tinybind "github.com/shibukawa/tinybind-go"
 	"github.com/shibukawa/tinybind-go/htmlbind"
@@ -30,6 +31,31 @@ type HTMLFragment = htmlbind.Fragment
 
 // HTMLWrapper is a generated template wrapper accepted by WriteHTMLChain.
 type HTMLWrapper = htmlbind.Wrapper
+
+var documentState = struct {
+	sync.RWMutex
+	wrapper *HTMLWrapper
+}{}
+
+// RegisterHTMLDocument installs the generated application document shell.
+// It is intended for generated templates/document_pw_gen.go code.
+func RegisterHTMLDocument(wrapper HTMLWrapper) {
+	documentState.Lock()
+	defer documentState.Unlock()
+	if documentState.wrapper != nil {
+		panic("popcornwave: HTML document is already registered")
+	}
+	documentState.wrapper = &wrapper
+}
+
+func registeredHTMLDocument() []HTMLWrapper {
+	documentState.RLock()
+	defer documentState.RUnlock()
+	if documentState.wrapper == nil {
+		return nil
+	}
+	return []HTMLWrapper{*documentState.wrapper}
+}
 
 func (p Problem) Error() string {
 	if p.Message != "" {
@@ -157,7 +183,7 @@ func WriteAPI[T any](w http.ResponseWriter, r *http.Request, value T) {
 
 // WriteHTML renders one generated HTML fragment.
 func WriteHTML(w http.ResponseWriter, r *http.Request, leaf HTMLFragment) {
-	WriteHTMLChain(w, r, nil, leaf)
+	WriteHTMLChain(w, r, registeredHTMLDocument(), leaf)
 }
 
 // WriteHTMLChain renders generated wrappers around one leaf without committing

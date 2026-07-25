@@ -1,0 +1,4 @@
+CREATE TABLE IF NOT EXISTS access_counter (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    count INTEGER NOT NULL
+);

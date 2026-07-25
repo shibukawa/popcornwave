@@ -41,7 +41,7 @@ func TestSubCommandParsesAndExposesSelectedCommand(t *testing.T) {
 	os.Args = []string{originalArgs[0], name, "toml"}
 	t.Cleanup(func() { os.Args = originalArgs })
 
-	SubCommand[scaffoldCommandTest](name, help)
+	RegisterSubCommand[scaffoldCommandTest](name, help)
 	if _, err := configbind.Load(configbind.LoadOptions{
 		Vendor:   "popcornwave-test",
 		Tool:     "pw-subcommand-test",

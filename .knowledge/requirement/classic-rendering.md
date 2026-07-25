@@ -14,5 +14,5 @@ features:
   - HTML, redirect, download, JSON, XML, CSV, and declared output modes
 constraint: presentational components do not fetch data
 implementation: requirement:contrib-html-template
-response_composition: api:render-html-chain renders the shared document wrapper and page leaf
+response_composition: api:html-response uses decision:implicit-document-shell and api:render-html-chain
 ```

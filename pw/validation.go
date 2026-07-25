@@ -20,10 +20,38 @@ func validateRuntimeConfig(server ServerConfig, security SecurityConfig, middlew
 	if middleware.RequestTimeout < 0 {
 		return fmt.Errorf("middleware.request_timeout must not be negative")
 	}
+	if err := validateRDBConfig(middleware.RDB); err != nil {
+		return err
+	}
 	switch strings.ToLower(observability.MinimumLevel) {
 	case "trace", "debug", "info", "warn", "error", "off":
 	default:
 		return fmt.Errorf("observability.minimum_level must be trace, debug, info, warn, error, or off")
+	}
+	return nil
+}
+
+func validateRDBConfig(config RDBConfig) error {
+	if !config.Enabled {
+		return nil
+	}
+	if _, _, err := databaseTarget(config.DSN); err != nil {
+		return err
+	}
+	if config.ConnectTimeout <= 0 {
+		return fmt.Errorf("middleware.rdb.connect_timeout must be positive")
+	}
+	if config.MaxOpenConns < 0 || config.MaxIdleConns < 0 {
+		return fmt.Errorf("middleware.rdb pool sizes must not be negative")
+	}
+	if config.MaxOpenConns > 0 && config.MaxIdleConns > config.MaxOpenConns {
+		return fmt.Errorf("middleware.rdb.max_idle_conns must not exceed max_open_conns")
+	}
+	if config.ConnMaxLifetime < 0 || config.ConnMaxIdleTime < 0 {
+		return fmt.Errorf("middleware.rdb connection durations must not be negative")
+	}
+	if config.DSN == "sqlite://:memory:" && config.MaxOpenConns != 1 {
+		return fmt.Errorf("middleware.rdb.max_open_conns must be 1 for sqlite://:memory:")
 	}
 	return nil
 }

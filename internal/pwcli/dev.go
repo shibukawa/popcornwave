@@ -46,7 +46,8 @@ func runDev(ctx context.Context, args []string, stdout, stderr io.Writer) error 
 		}
 		defer func() { stopCommand(tailwind) }()
 	}
-	state, err := snapshotWatchFiles(root, tailwindWatchPaths(root, config.Tailwind, tailwind == nil)...)
+	state, err := snapshotWatchFiles(root, configuredWatchPaths(root, config.ExtraWatch,
+		tailwindWatchPaths(root, config.Tailwind, tailwind == nil))...)
 	if err != nil {
 		return err
 	}
@@ -75,7 +76,8 @@ func runDev(ctx context.Context, args []string, stdout, stderr io.Writer) error 
 			tailwindExited = nil
 			addWatchFile(state, filepath.Join(root, filepath.FromSlash(config.Tailwind.Input)))
 		case <-ticker.C:
-			next, err := snapshotWatchFiles(root, tailwindWatchPaths(root, config.Tailwind, tailwind == nil)...)
+			next, err := snapshotWatchFiles(root, configuredWatchPaths(root, config.ExtraWatch,
+				tailwindWatchPaths(root, config.Tailwind, tailwind == nil))...)
 			if err != nil {
 				fmt.Fprintln(stderr, "pw dev:", err)
 				continue
@@ -102,7 +104,8 @@ func runDev(ctx context.Context, args []string, stdout, stderr io.Writer) error 
 				state = next
 				continue
 			}
-			state, _ = snapshotWatchFiles(root, tailwindWatchPaths(root, config.Tailwind, tailwind == nil)...)
+			state, _ = snapshotWatchFiles(root, configuredWatchPaths(root, config.ExtraWatch,
+				tailwindWatchPaths(root, config.Tailwind, tailwind == nil))...)
 			app, exited, err = startApplication(ctx, root, config.Main, stdout, stderr)
 			if err != nil {
 				fmt.Fprintln(stderr, "pw dev:", err)
@@ -178,10 +181,8 @@ func snapshotWatchFiles(root string, extra ...string) (watchState, error) {
 			return nil
 		}
 		name := entry.Name()
-		if path == filepath.Join(root, "public.go") {
-			return nil
-		}
-		if !included[filepath.Clean(path)] && name != "popcornwave.toml" && !strings.HasSuffix(name, ".go") &&
+		if !included[filepath.Clean(path)] && name != "popcornwave.toml" && name != "config.toml" &&
+			!strings.HasSuffix(name, ".go") &&
 			!strings.HasSuffix(name, ".pw.html") && !strings.HasSuffix(name, ".pw.sql") {
 			return nil
 		}
@@ -193,6 +194,22 @@ func snapshotWatchFiles(root string, extra ...string) (watchState, error) {
 		return nil
 	})
 	return state, err
+}
+
+func configuredWatchPaths(root string, patterns, additional []string) []string {
+	paths := append([]string(nil), additional...)
+	for _, pattern := range patterns {
+		if !filepath.IsAbs(pattern) {
+			pattern = filepath.Join(root, filepath.FromSlash(pattern))
+		}
+		matches, err := filepath.Glob(pattern)
+		if err == nil && len(matches) > 0 {
+			paths = append(paths, matches...)
+			continue
+		}
+		paths = append(paths, filepath.Clean(pattern))
+	}
+	return paths
 }
 
 func tailwindWatchPaths(root string, config tailwindConfig, includeInput bool) []string {

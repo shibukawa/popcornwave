@@ -27,6 +27,10 @@ generator:
     - .pw.html components generate immutable htmlbind.Fragment values
     - components with an unnamed slot also generate htmlbind.Wrapper binders
     - api:render-html-chain composes wrappers around a leaf
+  sql:
+    - decision:tinybind-sql-runtime owns statement plans and shared execution
+    - declared sql.exec, sql.one, sql.optional, or sql.many selects Exec or Query
+    - incompatible SQL result contracts fail generation
 constraints:
   - generator executes with host Go
   - generated mapping path avoids runtime field reflection

@@ -26,7 +26,7 @@ var mux = pw.NewServeMux()
 
 func init() {
 	pw.RegisterConfig[AppConfig]("app")
-	pw.SubCommand[ImportCommand]("import", "import data")
+	pw.RegisterSubCommand[ImportCommand]("import", "import data")
 	mux.HandleFunc("GET /items/{id}", item)
 }
 

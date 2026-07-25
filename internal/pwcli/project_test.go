@@ -32,6 +32,24 @@ minify = true
 	}
 }
 
+func TestLoadProjectConfigExtraWatch(t *testing.T) {
+	root := t.TempDir()
+	writeTestFile(t, filepath.Join(root, "popcornwave.toml"), `[project]
+name = "fixture"
+main = "."
+
+[dev]
+extra_watch = ["locales/*.json", "schema.graphql"]
+`)
+	config, err := loadProjectConfig(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Join(config.ExtraWatch, ",") != "locales/*.json,schema.graphql" {
+		t.Fatalf("extra watch = %#v", config.ExtraWatch)
+	}
+}
+
 func TestLoadProjectConfigRejectsUnknownKeys(t *testing.T) {
 	root := t.TempDir()
 	writeTestFile(t, filepath.Join(root, "popcornwave.toml"), `[project]
@@ -69,13 +87,25 @@ func TestScaffoldFilesWithTailwind(t *testing.T) {
 		"assets/app.css",
 		"public/generated/app.css",
 		"templates/document.pw.html",
+		"dbschema/001_init.sql",
+		".vscode/settings.json",
 	} {
 		if _, ok := files[name]; !ok {
 			t.Errorf("missing Tailwind scaffold file %s", name)
 		}
 	}
+	if !strings.Contains(files[".vscode/settings.json"], `"**/*_pw_gen.go": true`) {
+		t.Fatal("VS Code settings do not hide generated Go files")
+	}
+	if strings.Contains(files["popcornwave.toml"], "[generate]") ||
+		strings.Contains(files["popcornwave.toml"], "dev.watch") {
+		t.Fatal("project scaffold contains obsolete generate or watch include lists")
+	}
+	if !strings.Contains(files[".gitignore"], "\n*_pw_gen.go\n") {
+		t.Fatal(".gitignore does not exclude generated Go files")
+	}
 	for name, want := range map[string]string{
-		"popcornwave.toml":           `output = "public/generated/app.css"`,
+		"popcornwave.toml":           `extra_watch = []`,
 		"devbox.json":                "tailwindcss_4@4.1.18",
 		"templates/document.pw.html": `href="/public/generated/app.css"`,
 	} {
@@ -93,8 +123,9 @@ func TestScaffoldFilesWithTailwind(t *testing.T) {
 		t.Fatal("page scaffold duplicates the document shell")
 	}
 	if strings.Contains(files["handlers/home_handler.go"], "tinybind-go") ||
-		!strings.Contains(files["handlers/home_handler.go"], "[]pw.HTMLWrapper") {
-		t.Fatal("classic handler must use the pw render-chain boundary")
+		strings.Contains(files["handlers/home_handler.go"], "HTMLWrapper") ||
+		!strings.Contains(files["handlers/home_handler.go"], "pw.WriteHTML(w, r,") {
+		t.Fatal("classic handler must use implicit document rendering")
 	}
 	plain := scaffoldFiles("fixture")
 	if strings.Contains(plain["devbox.json"], "tailwindcss") {
@@ -148,10 +179,12 @@ func TestTailwindWatchPathsSkipPublicOutput(t *testing.T) {
 	}
 }
 
-func TestSnapshotWatchFilesIgnoresPublicTreeAndPublicGo(t *testing.T) {
+func TestSnapshotWatchFilesUsesDefaultSourcesAndIgnoresPublicTree(t *testing.T) {
 	root := t.TempDir()
 	writeTestFile(t, filepath.Join(root, "app.go"), "package fixture\n")
 	writeTestFile(t, filepath.Join(root, "public.go"), "package fixture\n")
+	writeTestFile(t, filepath.Join(root, "popcornwave.toml"), "[project]\n")
+	writeTestFile(t, filepath.Join(root, "config.toml"), "[server]\n")
 	if err := os.MkdirAll(filepath.Join(root, "public", "generated"), 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -164,12 +197,36 @@ func TestSnapshotWatchFilesIgnoresPublicTreeAndPublicGo(t *testing.T) {
 	if _, ok := state[filepath.Join(root, "app.go")]; !ok {
 		t.Fatal("ordinary Go source is missing from watch state")
 	}
-	for _, ignored := range []string{
+	for _, included := range []string{
 		filepath.Join(root, "public.go"),
+		filepath.Join(root, "popcornwave.toml"),
+		filepath.Join(root, "config.toml"),
+	} {
+		if _, ok := state[included]; !ok {
+			t.Errorf("default watch path is missing: %s", included)
+		}
+	}
+	for _, ignored := range []string{
 		filepath.Join(root, "public", "generated", "asset.go"),
 	} {
 		if _, ok := state[ignored]; ok {
 			t.Errorf("public asset path unexpectedly triggers an application rebuild: %s", ignored)
 		}
+	}
+}
+
+func TestConfiguredWatchPathsExpandsExtraGlobs(t *testing.T) {
+	root := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(root, "locales"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	writeTestFile(t, filepath.Join(root, "locales", "en.json"), "{}")
+	paths := configuredWatchPaths(root, []string{"locales/*.json", "schema.graphql"}, nil)
+	want := []string{
+		filepath.Join(root, "locales", "en.json"),
+		filepath.Join(root, "schema.graphql"),
+	}
+	if strings.Join(paths, "\n") != strings.Join(want, "\n") {
+		t.Fatalf("paths = %#v, want %#v", paths, want)
 	}
 }

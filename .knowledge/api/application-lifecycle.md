@@ -9,9 +9,12 @@ The pw package can own the complete server lifecycle or return the same initiali
 surface:
   - Run(context.Context, http.Handler, ...Option) error
   - Middlewares(http.Handler, ...Option) (http.Handler, error)
+  - RegisterPublicFS(fs.FS)
   - WithPublicFS(fs.FS) Option
 run:
   - call api:runtime-configuration if configuration is not parsed
+  - execute requirement:built-in-config-generation and return when its framework option is selected
+  - initialize decision:config-driven-database from runtime configuration
   - initialize services and log safe values with provenance
   - initialize the framework middleware stack
   - construct api:public-asset-middleware for the selected build mode

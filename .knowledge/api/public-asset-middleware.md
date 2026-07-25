@@ -7,7 +7,9 @@ Application lifecycle construction selects one static-file middleware implementa
 
 ```yaml
 registration:
-  option: WithPublicFS(fs.FS)
+  generated_project: public.go init calls RegisterPublicFS(PublicFS())
+  compatibility_override: WithPublicFS(fs.FS)
+  linker: generated main bootstrap blank-imports the public package
   lifecycle: api:application-lifecycle
   mount: data:server-runtime-config server.public.mount
 selection:
@@ -28,6 +30,6 @@ middleware_order:
   - security response headers, access logging, tracing, and request recovery still apply
   - dynamic response compression skips this middleware response
 startup:
-  - server.public.enabled requires WithPublicFS in production
+  - server.public.enabled requires a registered or explicitly supplied fs.FS in production
   - reject an invalid mount before accepting requests
 ```

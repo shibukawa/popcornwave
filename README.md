@@ -40,10 +40,29 @@ The runtime provides:
 Modern component graphs, patch protocols, hydration, and browser JavaScript are
 not dependencies of this package.
 
-The HTTP server example can print combined configuration scaffolds registered
+The Hello World example can print combined configuration scaffolds registered
 by every imported package. Redirect stdout when a file is wanted:
 
 ```sh
-go run ./examples/httpserver generate-config toml > config.toml
-go run ./examples/httpserver generate-config env > .env
+cd examples/helloworld
+go run ./cmd/helloworld --generate-config toml > config.toml
+go run ./cmd/helloworld --generate-config env > .env
+```
+
+Tests can run an application from an isolated copy of every registered
+framework and application configuration. The customizer initially sees port
+`-1`; `TestRun` reserves an available loopback port before startup.
+
+```go
+server := testutil.TestRun(t, handlers.Handlers(), func(config *testutil.Config) {
+    testutil.Update[AppConfig](config, func(app *AppConfig) {
+        app.Mode = "test"
+    })
+    testutil.Update[pw.MiddlewareConfig](config, func(middleware *pw.MiddlewareConfig) {
+        middleware.RDB.Enabled = true
+        middleware.RDB.DSN = "sqlite://:memory:"
+        middleware.RDB.MaxOpenConns = 1
+        middleware.RDB.MaxIdleConns = 1
+    })
+}, testutil.WithSchemaDir("dbschema"))
 ```

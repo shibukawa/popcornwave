@@ -128,6 +128,70 @@ func second() { _ = strings.Builder{} }
 	}
 }
 
+func TestPlanDirectoryRegistersDocumentShell(t *testing.T) {
+	directory := t.TempDir()
+	writeTestFile(t, filepath.Join(directory, "go.mod"), "module fixture\n\ngo 1.26.0\n")
+	writeTestFile(t, filepath.Join(directory, "document.pw.html"), `package fixture
+
+export component Document(children: html?): html {
+<!doctype html><html><body><slot /></body></html>
+}
+`)
+	options, err := pwgen.Options()
+	if err != nil {
+		t.Fatal(err)
+	}
+	changes, err := planDirectory(context.Background(), generator.New(options), directory)
+	if err != nil {
+		t.Fatal(err)
+	}
+	document := string(changesByBase(changes)["document_pw_gen.go"].source)
+	for _, fragment := range []string{
+		`"github.com/shibukawa/popcornwave/pw"`,
+		"func init()",
+		"pw.RegisterHTMLDocument(BindDocument(DocumentParams{}))",
+	} {
+		if !strings.Contains(document, fragment) {
+			t.Fatalf("document artifact is missing %q:\n%s", fragment, document)
+		}
+	}
+}
+
+func TestPlanBootstrapLinkGeneratesRuntimeRegistrationImports(t *testing.T) {
+	root := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(root, "cmd", "fixture"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(root, "templates"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	writeTestFile(t, filepath.Join(root, "go.mod"), "module example.test/fixture\n\ngo 1.26.0\n")
+	writeTestFile(t, filepath.Join(root, "public.go"), "package publicassets\n")
+	writeTestFile(t, filepath.Join(root, "cmd", "fixture", "main.go"), "package main\n\nfunc main() {}\n")
+	writeTestFile(t, filepath.Join(root, "templates", "document.pw.html"), `package templates
+
+export component Document(children: html?): html {
+<html><body><slot /></body></html>
+}
+`)
+	changes, err := planBootstrapLink(root, "./cmd/fixture", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(changes) != 1 {
+		t.Fatalf("changes = %#v", changes)
+	}
+	source := string(changes[0].source)
+	for _, expected := range []string{
+		`_ "example.test/fixture"`,
+		`_ "example.test/fixture/templates"`,
+	} {
+		if !strings.Contains(source, expected) {
+			t.Fatalf("link source is missing %q:\n%s", expected, source)
+		}
+	}
+}
+
 func writeTestFile(t *testing.T, path, source string) {
 	t.Helper()
 	if err := os.WriteFile(path, []byte(source), 0o644); err != nil {

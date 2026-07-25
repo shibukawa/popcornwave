@@ -143,12 +143,8 @@ minify = true
 name = "` + name + `"
 main = "./cmd/` + name + `"
 
-[generate]
-html = ["handlers/**/*.pw.html", "templates/**/*.pw.html"]
-sql = ["queries/**/*.pw.sql"]
-
 [dev]
-watch = ["**/*.go", "**/*.pw.html", "**/*.pw.sql", "popcornwave.toml"]
+extra_watch = []
 ` + configTailwind,
 		"devbox.json": `{
   "$schema": "https://raw.githubusercontent.com/jetify-com/devbox/0.14.2/.schema/devbox.schema.json",
@@ -161,43 +157,15 @@ watch = ["**/*.go", "**/*.pw.html", "**/*.pw.sql", "popcornwave.toml"]
 
 import (
 	"context"
-	"fmt"
 	"log"
-	"os"
 
 	"` + name + `/handlers"
-	publicassets "` + name + `"
 	"github.com/shibukawa/popcornwave/pw"
 )
 
-type GenerateConfigCommand struct {
-	Format string ` + "`arg:\"required\" help:\"output format: toml or env\"`" + `
-}
-
 func main() {
-	pw.SubCommand[GenerateConfigCommand]("generate-config", "write merged configuration scaffolds")
-	if err := pw.ParseConfig(); err != nil {
+	if err := pw.Run(context.Background(), handlers.Handlers()); err != nil {
 		log.Fatal(err)
-	}
-	if command, ok := pw.Command[GenerateConfigCommand](); ok {
-		if err := generateConfig(command.Format); err != nil {
-			log.Fatal(err)
-		}
-		return
-	}
-	if err := pw.Run(context.Background(), handlers.Handlers(), pw.WithPublicFS(publicassets.PublicFS())); err != nil {
-		log.Fatal(err)
-	}
-}
-
-func generateConfig(format string) error {
-	switch format {
-	case "toml":
-		return pw.WriteScaffoldTOML(os.Stdout)
-	case "env":
-		return pw.WriteScaffoldEnv(os.Stdout)
-	default:
-		return fmt.Errorf("unknown config format %q (want toml or env)", format)
 	}
 }
 `,
@@ -214,7 +182,6 @@ func Handlers() *pw.ServeMux { return mux }
 import (
 	"net/http"
 
-	"` + name + `/templates"
 	"github.com/shibukawa/popcornwave/pw"
 )
 
@@ -230,10 +197,7 @@ func home(w http.ResponseWriter, r *http.Request) {
 		pw.WriteProblem(w, r, pw.BadRequest(err))
 		return
 	}
-	pw.WriteHTMLChain(w, r,
-		[]pw.HTMLWrapper{templates.BindDocument(templates.DocumentParams{})},
-		Home(HomeParams{Name: input.Name}),
-	)
+	pw.WriteHTML(w, r, Home(HomeParams{Name: input.Name}))
 }
 `,
 		"handlers/home.pw.html": `package handlers
@@ -262,6 +226,11 @@ export statement FindUser(id: int): sql.one<User> {
 SELECT id, name FROM users WHERE id = {id}
 }
 `,
+		"dbschema/001_init.sql": `CREATE TABLE IF NOT EXISTS users (
+    id INTEGER PRIMARY KEY,
+    name TEXT NOT NULL
+);
+`,
 		"templates/400.pw.html": errorTemplate("templates", "Error400", "Bad Request"),
 		"templates/404.pw.html": errorTemplate("templates", "Error404", "Not Found"),
 		"templates/500.pw.html": errorTemplate("templates", "Error500", "Internal Server Error"),
@@ -270,10 +239,16 @@ SELECT id, name FROM users WHERE id = {id}
 import (
 	"embed"
 	"io/fs"
+
+	"github.com/shibukawa/popcornwave/pw"
 )
 
 //go:embed all:public
 var embeddedPublic embed.FS
+
+func init() {
+	pw.RegisterPublicFS(PublicFS())
+}
 
 func PublicFS() fs.FS {
 	result, err := fs.Sub(embeddedPublic, "public")
@@ -284,7 +259,13 @@ func PublicFS() fs.FS {
 }
 `,
 		"public/.keep": "",
-		".gitignore":   ".devbox/\n" + name + "\npublic/**/*.zstd\n",
+		".vscode/settings.json": `{
+    "files.exclude": {
+        "**/*_pw_gen.go": true
+    }
+}
+`,
+		".gitignore": ".devbox/\n" + name + "\n*_pw_gen.go\npublic/**/*.zstd\n*.db\n",
 	}
 	if tailwind {
 		files["assets/app.css"] = `@import "tailwindcss";

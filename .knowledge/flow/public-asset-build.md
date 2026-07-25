@@ -25,7 +25,8 @@ public_go:
   - is scaffolded once by api:cli-init and never regenerated
   - uses //go:embed all:public with embed.FS
   - exposes PublicFS() fs.FS rooted at public
-  - is imported by cmd/myapp/main.go and passed through api:application-lifecycle
+  - init registers PublicFS through api:application-lifecycle
+  - generated main bootstrap blank-imports the public package
 reproducibility:
   encoder: requirement:contrib-zstd host implementation
   settings: fixed level, concurrency, window, and frame-checksum policy

@@ -25,6 +25,7 @@ check_mode:
   writes: none
   failure: generated content differs or is missing
 behavior:
+  - discover all eligible sources without project include lists
   - use system:tinybind route and call analysis behind the pw API
   - process sources and packages in stable lexical order
   - stop on parse or generation error

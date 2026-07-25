@@ -29,6 +29,12 @@ func Options() (generator.Options, error) {
 			generator.Argument("prefix", 0),
 		),
 		generator.ConfigSubCommandCall(
+			generator.Function(pwPackage, "RegisterSubCommand"),
+			generator.GenericType("config", 0),
+			generator.Argument("name", 0),
+			generator.Argument("help", 1),
+		),
+		generator.ConfigSubCommandCall(
 			generator.Function(pwPackage, "SubCommand"),
 			generator.GenericType("config", 0),
 			generator.Argument("name", 0),

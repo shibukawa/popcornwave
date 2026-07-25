@@ -1,0 +1,12 @@
+[project]
+name = "helloworld"
+main = "./cmd/helloworld"
+
+[dev]
+extra_watch = []
+
+[assets.tailwind]
+enabled = true
+input = "assets/app.css"
+output = "public/generated/app.css"
+minify = true

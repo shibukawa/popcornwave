@@ -12,6 +12,7 @@ startup:
   - open *sql.DB and apply standard pool settings
   - ping within rdb.connect_timeout before accepting requests
   - construct standard http.Handler middleware
+  - require no application pw.SetDatabase call under decision:config-driven-database
 request:
   common:
     - install *sql.DB before downstream dispatch

@@ -17,7 +17,10 @@ outputs:
   - templates/document.pw.html shared document shell
   - .pw.html page and 400, 404, and 500 templates
   - .pw.sql query example
+  - dbschema/001_init.sql application schema example
   - public directory with non-served .keep sentinel and stable public.go embedding scaffold
+  - .gitignore excluding **/*_pw_gen.go generated application build inputs
+  - .vscode/settings.json hiding **/*_pw_gen.go
   - Devbox configuration with Valkey enabled by default
 optional_css:
   tailwind:
@@ -30,6 +33,7 @@ behavior:
   - create files atomically
   - run api:cli-generate
   - scaffold classic rendering according to requirement:nested-html-templates
+  - scaffold runtime database configuration for decision:config-driven-database when the database example is enabled
 next_steps:
   - cd myapp
   - devbox shell

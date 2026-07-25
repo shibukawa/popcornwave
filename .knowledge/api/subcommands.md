@@ -7,7 +7,7 @@ Applications may register typed subcommand inputs but retain explicit dispatch c
 
 ```yaml
 surface:
-  - SubCommand[T](name, help string)
+  - RegisterSubCommand[T](name, help string)
   - Command[T]() returns parsed command state
 flow:
   - register every command input type during initialization
@@ -17,7 +17,8 @@ flow:
 rules:
   - name is the stable CLI token and help is its human-readable description
   - name and help are compile-time strings consumed by system:tinybind generation
-  - Run does not dispatch application subcommands
+  - api:application-lifecycle may handle framework-owned options such as requirement:built-in-config-generation before application command dispatch
+  - Run does not dispatch application-defined subcommand bodies
   - subcommand fields participate in the same generated config and CLI parsing system
   - exact Command lookup return shape may be refined without changing explicit application dispatch
 ```

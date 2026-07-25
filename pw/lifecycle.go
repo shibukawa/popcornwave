@@ -55,18 +55,23 @@ func Middlewares(handler http.Handler, option ...Option) (http.Handler, error) {
 			return nil, err
 		}
 	}
+	if options.publicFS == nil {
+		options.publicFS = registeredPublicFS()
+	}
 	server := Config[ServerConfig](nil)
 	security := Config[SecurityConfig](nil)
 	middleware := Config[MiddlewareConfig](nil)
-	observability := Config[ObservabilityConfig](nil)
-	if err := validateRuntimeConfig(server, security, middleware, observability); err != nil {
+	if err := validateConfiguredRuntime(); err != nil {
+		return nil, err
+	}
+	if err := initializeRuntimeDatabase(); err != nil {
 		return nil, err
 	}
 	if err := validateOperationalEndpointCollisions(handler, server); err != nil {
 		return nil, err
 	}
 	if server.Public.Enabled && !publicDevelopment && options.publicFS == nil {
-		return nil, errors.New("popcornwave: server.public.enabled requires pw.WithPublicFS")
+		return nil, errors.New("popcornwave: server.public.enabled requires a registered public filesystem")
 	}
 	resources := runtimeResources(slog.Default())
 	return buildRuntimeHandler(handler, server, security, middleware, resources, options.publicFS)
@@ -77,6 +82,12 @@ func Middlewares(handler http.Handler, option ...Option) (http.Handler, error) {
 func Run(ctx context.Context, handler http.Handler, option ...Option) error {
 	if ctx == nil {
 		return errors.New("popcornwave: nil context")
+	}
+	if err := ParseConfig(); err != nil {
+		return err
+	}
+	if handled, err := runFrameworkAction(); handled {
+		return err
 	}
 	wrapped, err := Middlewares(handler, option...)
 	if err != nil {
@@ -161,8 +172,7 @@ func requestIDMiddleware(next http.Handler) http.Handler {
 			id = fmt.Sprintf("%x-%x", time.Now().UnixNano(), requestSequence.Add(1))
 		}
 		w.Header().Set("X-Request-ID", id)
-		resources := runtimeResources(slog.Default().With("request_id", id))
-		ctx := pwruntime.WithResources(r.Context(), resources)
+		ctx := pwruntime.WithLogger(r.Context(), Logger(r.Context()).With("request_id", id))
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }

@@ -32,4 +32,5 @@ observability:
   - log each effective field and its source
   - mask secret values
 source_engine: system:tinybind configbind generation and registry
+scaffold: requirement:built-in-config-generation is invoked through api:application-lifecycle
 ```

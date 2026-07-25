@@ -22,6 +22,7 @@ rules:
   - authorization checks consume authenticated state, never unverified request credentials
   - CSRF token access never exposes the session secret and token values must not be logged
   - generated SQL context functions select the active executor
+  - decision:tinybind-sql-runtime consumes the configured generated-code executor resolver
   - api:transaction-runner is the only user-facing way to create a transaction-bearing child capsule
   - callers cannot enumerate or mutate capsule fields
 ```
