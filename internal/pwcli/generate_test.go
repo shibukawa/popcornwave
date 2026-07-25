@@ -13,7 +13,7 @@ import (
 	"github.com/shibukawa/tinybind-go/generator"
 )
 
-func TestPlanDirectoryGeneratesV013Artifacts(t *testing.T) {
+func TestPlanDirectoryGeneratesV015Artifacts(t *testing.T) {
 	directory := t.TempDir()
 	writeTestFile(t, filepath.Join(directory, "go.mod"), "module fixture\n\ngo 1.26.0\n")
 	writeTestFile(t, filepath.Join(directory, "home.pw.html"), `package fixture
@@ -50,8 +50,8 @@ SELECT id, name FROM users WHERE id = {id}
 		}
 	}
 	home := string(byName["home_pw_gen.go"].source)
-	if !strings.Contains(home, "func Home(w io.Writer, _tinybindParams HomeParams) error") {
-		t.Errorf("HTML artifact does not use writer API:\n%s", home)
+	if !strings.Contains(home, "func Home(params HomeParams) htmlbind.Fragment") {
+		t.Errorf("HTML artifact does not use Fragment API:\n%s", home)
 	}
 	sql := string(byName["users_pw_gen.go"].source)
 	if !strings.Contains(sql, "func FindUser(ctx context.Context, id int) (User, error)") {

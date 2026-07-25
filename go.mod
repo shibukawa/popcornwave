@@ -3,9 +3,9 @@ module github.com/shibukawa/popcornwave
 go 1.26.0
 
 require (
-	github.com/redis/go-redis/v9 v9.17.3
 	github.com/klauspost/compress v1.19.1
-	github.com/shibukawa/tinybind-go v0.1.13
+	github.com/redis/go-redis/v9 v9.17.3
+	github.com/shibukawa/tinybind-go v0.1.15
 	github.com/shibukawa/tinygodriver v1.0.3
 )
 

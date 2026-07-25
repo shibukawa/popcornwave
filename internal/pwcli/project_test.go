@@ -68,15 +68,16 @@ func TestScaffoldFilesWithTailwind(t *testing.T) {
 	for _, name := range []string{
 		"assets/app.css",
 		"public/generated/app.css",
+		"templates/document.pw.html",
 	} {
 		if _, ok := files[name]; !ok {
 			t.Errorf("missing Tailwind scaffold file %s", name)
 		}
 	}
 	for name, want := range map[string]string{
-		"popcornwave.toml":      `output = "public/generated/app.css"`,
-		"devbox.json":           "tailwindcss_4@4.1.18",
-		"handlers/home.pw.html": `href="/public/generated/app.css"`,
+		"popcornwave.toml":           `output = "public/generated/app.css"`,
+		"devbox.json":                "tailwindcss_4@4.1.18",
+		"templates/document.pw.html": `href="/public/generated/app.css"`,
 	} {
 		if !strings.Contains(files[name], want) {
 			t.Errorf("%s does not contain %q:\n%s", name, want, files[name])
@@ -84,6 +85,16 @@ func TestScaffoldFilesWithTailwind(t *testing.T) {
 	}
 	if _, err := parser.ParseFile(token.NewFileSet(), "handlers/index.go", files["handlers/index.go"], parser.AllErrors); err != nil {
 		t.Fatalf("Tailwind handler scaffold is invalid Go: %v\n%s", err, files["handlers/index.go"])
+	}
+	if !strings.Contains(files["templates/document.pw.html"], "<slot />") {
+		t.Fatal("document scaffold is missing its body slot")
+	}
+	if strings.Contains(files["handlers/home.pw.html"], "<!doctype") {
+		t.Fatal("page scaffold duplicates the document shell")
+	}
+	if strings.Contains(files["handlers/home_handler.go"], "tinybind-go") ||
+		!strings.Contains(files["handlers/home_handler.go"], "[]pw.HTMLWrapper") {
+		t.Fatal("classic handler must use the pw render-chain boundary")
 	}
 	plain := scaffoldFiles("fixture")
 	if strings.Contains(plain["devbox.json"], "tailwindcss") {

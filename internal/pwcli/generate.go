@@ -113,7 +113,6 @@ func planDirectory(ctx context.Context, runner *generator.Generator, directory s
 	artifacts, err := runner.GenerateArtifacts(ctx, generator.GenerateRequest{
 		Dir:               directory,
 		OpenAPI:           openAPI,
-		HTMLWriterAPI:     true,
 		SQLContextOnlyAPI: true,
 	})
 	if err != nil {

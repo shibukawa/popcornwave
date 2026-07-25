@@ -7,11 +7,12 @@ Generated typed templates produce complete responses and reusable presentational
 
 ```yaml
 features:
-  - layouts and nested presentational components
+  - requirement:nested-html-templates layouts and nested presentational components
   - contextual automatic escaping via policy:template-escaping
   - explicit narrow raw-output escape hatch
   - status and headers selected before body write
   - HTML, redirect, download, JSON, XML, CSV, and declared output modes
 constraint: presentational components do not fetch data
 implementation: requirement:contrib-html-template
+response_composition: api:render-html-chain renders the shared document wrapper and page leaf
 ```

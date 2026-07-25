@@ -20,10 +20,13 @@
 {"context": "body", "path": ".knowledge/api/cli-init.md", "source": "api:cli-init", "target": "requirement:tailwind-css-integration", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/api/cli-init.md", "source": "api:cli-init", "target": "decision:tailwind-host-toolchain", "target_category": "constraint", "target_type": "decision"}
 {"context": "body", "path": ".knowledge/api/cli-init.md", "source": "api:cli-init", "target": "api:cli-generate", "target_category": "interface", "target_type": "api"}
+{"context": "body", "path": ".knowledge/api/cli-init.md", "source": "api:cli-init", "target": "requirement:nested-html-templates", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/api/cli-session-schema.md", "source": "api:cli-session-schema", "target": "api:session-backend-plugin", "target_category": "interface", "target_type": "api"}
 {"context": "body", "path": ".knowledge/api/error-renderer.md", "source": "api:error-renderer", "target": "api:problem-response", "target_category": "interface", "target_type": "api"}
 {"context": "body", "path": ".knowledge/api/error-renderer.md", "source": "api:error-renderer", "target": "policy:validation-errors", "target_category": "constraint", "target_type": "policy"}
+{"context": "body", "path": ".knowledge/api/html-response.md", "source": "api:html-response", "target": "api:render-html-chain", "target_category": "interface", "target_type": "api"}
 {"context": "body", "path": ".knowledge/api/html-response.md", "source": "api:html-response", "target": "api:problem-response", "target_category": "interface", "target_type": "api"}
+{"context": "body", "path": ".knowledge/api/html-response.md", "source": "api:html-response", "target": "system:tinybind", "target_category": "external", "target_type": "system"}
 {"context": "body", "path": ".knowledge/api/logger.md", "source": "api:logger", "target": "api:request-context-accessors", "target_category": "interface", "target_type": "api"}
 {"context": "body", "path": ".knowledge/api/logger.md", "source": "api:logger", "target": "data:log-attribute", "target_category": "structure", "target_type": "data"}
 {"context": "body", "path": ".knowledge/api/logger.md", "source": "api:logger", "target": "requirement:contrib-otel", "target_category": "objective", "target_type": "requirement"}
@@ -41,6 +44,7 @@
 {"context": "body", "path": ".knowledge/api/rdb-middleware.md", "source": "api:rdb-middleware", "target": "requirement:contrib-database", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/api/rdb-middleware.md", "source": "api:rdb-middleware", "target": "api:request-context-accessors", "target_category": "interface", "target_type": "api"}
 {"context": "body", "path": ".knowledge/api/rdb-middleware.md", "source": "api:rdb-middleware", "target": "api:application-lifecycle", "target_category": "interface", "target_type": "api"}
+{"context": "body", "path": ".knowledge/api/render-html-chain.md", "source": "api:render-html-chain", "target": "system:tinybind", "target_category": "external", "target_type": "system"}
 {"context": "body", "path": ".knowledge/api/request-binding.md", "source": "api:request-binding", "target": "api:cli-generate", "target_category": "interface", "target_type": "api"}
 {"context": "body", "path": ".knowledge/api/request-binding.md", "source": "api:request-binding", "target": "system:tinybind", "target_category": "external", "target_type": "system"}
 {"context": "body", "path": ".knowledge/api/request-context-accessors.md", "source": "api:request-context-accessors", "target": "data:request-context-capsule", "target_category": "structure", "target_type": "data"}
@@ -89,6 +93,7 @@
 {"context": "body", "path": ".knowledge/concept/project-layout.md", "source": "concept:project-layout", "target": "flow:public-asset-build", "target_category": "behavior", "target_type": "flow"}
 {"context": "body", "path": ".knowledge/concept/project-layout.md", "source": "concept:project-layout", "target": "api:cli-init", "target_category": "interface", "target_type": "api"}
 {"context": "body", "path": ".knowledge/concept/project-layout.md", "source": "concept:project-layout", "target": "concept:application-entry-point", "target_category": "concept", "target_type": "concept"}
+{"context": "body", "path": ".knowledge/concept/project-layout.md", "source": "concept:project-layout", "target": "requirement:nested-html-templates", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/concept/project-layout.md", "source": "concept:project-layout", "target": "policy:generated-artifacts", "target_category": "constraint", "target_type": "policy"}
 {"context": "body", "path": ".knowledge/concept/project-layout.md", "source": "concept:project-layout", "target": "flow:tailwind-css-build", "target_category": "behavior", "target_type": "flow"}
 {"context": "body", "path": ".knowledge/concept/project-layout.md", "source": "concept:project-layout", "target": "api:public-asset-middleware", "target_category": "interface", "target_type": "api"}
@@ -301,6 +306,7 @@
 {"context": "body", "path": ".knowledge/flow/project-bootstrap.md", "source": "flow:project-bootstrap", "target": "api:cli-init", "target_category": "interface", "target_type": "api"}
 {"context": "body", "path": ".knowledge/flow/project-bootstrap.md", "source": "flow:project-bootstrap", "target": "system:pw-cli", "target_category": "external", "target_type": "system"}
 {"context": "body", "path": ".knowledge/flow/project-bootstrap.md", "source": "flow:project-bootstrap", "target": "concept:project-layout", "target_category": "concept", "target_type": "concept"}
+{"context": "body", "path": ".knowledge/flow/project-bootstrap.md", "source": "flow:project-bootstrap", "target": "requirement:nested-html-templates", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/flow/project-bootstrap.md", "source": "flow:project-bootstrap", "target": "api:cli-generate", "target_category": "interface", "target_type": "api"}
 {"context": "body", "path": ".knowledge/flow/project-bootstrap.md", "source": "flow:project-bootstrap", "target": "decision:tailwind-host-toolchain", "target_category": "constraint", "target_type": "decision"}
 {"context": "body", "path": ".knowledge/flow/project-bootstrap.md", "source": "flow:project-bootstrap", "target": "api:cli-dev", "target_category": "interface", "target_type": "api"}
@@ -333,6 +339,8 @@
 {"context": "body", "path": ".knowledge/flow/template-generation.md", "source": "flow:template-generation", "target": "api:cli-generate", "target_category": "interface", "target_type": "api"}
 {"context": "body", "path": ".knowledge/flow/template-generation.md", "source": "flow:template-generation", "target": "policy:generated-artifacts", "target_category": "constraint", "target_type": "policy"}
 {"context": "body", "path": ".knowledge/flow/template-generation.md", "source": "flow:template-generation", "target": "flow:error-template-generation", "target_category": "behavior", "target_type": "flow"}
+{"context": "body", "path": ".knowledge/flow/template-generation.md", "source": "flow:template-generation", "target": "requirement:nested-html-templates", "target_category": "objective", "target_type": "requirement"}
+{"context": "body", "path": ".knowledge/flow/template-generation.md", "source": "flow:template-generation", "target": "api:render-html-chain", "target_category": "interface", "target_type": "api"}
 {"context": "body", "path": ".knowledge/policy/account-recovery.md", "source": "policy:account-recovery", "target": "data:account-bootstrap-credential", "target_category": "structure", "target_type": "data"}
 {"context": "body", "path": ".knowledge/policy/account-recovery.md", "source": "policy:account-recovery", "target": "policy:bootstrap-credential-security", "target_category": "constraint", "target_type": "policy"}
 {"context": "body", "path": ".knowledge/policy/authenticated-path-protection.md", "source": "policy:authenticated-path-protection", "target": "data:request-authentication", "target_category": "structure", "target_type": "data"}
@@ -416,8 +424,10 @@
 {"context": "body", "path": ".knowledge/requirement/application-user-experience.md", "source": "requirement:application-user-experience", "target": "api:request-context-accessors", "target_category": "interface", "target_type": "api"}
 {"context": "body", "path": ".knowledge/requirement/application-user-experience.md", "source": "requirement:application-user-experience", "target": "system:tinybind", "target_category": "external", "target_type": "system"}
 {"context": "body", "path": ".knowledge/requirement/application-user-experience.md", "source": "requirement:application-user-experience", "target": "system:tinygodriver", "target_category": "external", "target_type": "system"}
+{"context": "body", "path": ".knowledge/requirement/classic-rendering.md", "source": "requirement:classic-rendering", "target": "requirement:nested-html-templates", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/requirement/classic-rendering.md", "source": "requirement:classic-rendering", "target": "policy:template-escaping", "target_category": "constraint", "target_type": "policy"}
 {"context": "body", "path": ".knowledge/requirement/classic-rendering.md", "source": "requirement:classic-rendering", "target": "requirement:contrib-html-template", "target_category": "objective", "target_type": "requirement"}
+{"context": "body", "path": ".knowledge/requirement/classic-rendering.md", "source": "requirement:classic-rendering", "target": "api:render-html-chain", "target_category": "interface", "target_type": "api"}
 {"context": "body", "path": ".knowledge/requirement/classic-web-acceptance.md", "source": "requirement:classic-web-acceptance", "target": "requirement:tailwind-css-integration", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/requirement/classic-web-acceptance.md", "source": "requirement:classic-web-acceptance", "target": "requirement:shared-web-runtime", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/requirement/classic-web-acceptance.md", "source": "requirement:classic-web-acceptance", "target": "concept:classic-web-style", "target_category": "concept", "target_type": "concept"}
@@ -474,7 +484,9 @@
 {"context": "body", "path": ".knowledge/requirement/contrib-html-template.md", "source": "requirement:contrib-html-template", "target": "flow:template-generation", "target_category": "behavior", "target_type": "flow"}
 {"context": "body", "path": ".knowledge/requirement/contrib-html-template.md", "source": "requirement:contrib-html-template", "target": "api:cli-generate", "target_category": "interface", "target_type": "api"}
 {"context": "body", "path": ".knowledge/requirement/contrib-html-template.md", "source": "requirement:contrib-html-template", "target": "data:project-config", "target_category": "structure", "target_type": "data"}
+{"context": "body", "path": ".knowledge/requirement/contrib-html-template.md", "source": "requirement:contrib-html-template", "target": "api:render-html-chain", "target_category": "interface", "target_type": "api"}
 {"context": "body", "path": ".knowledge/requirement/contrib-html-template.md", "source": "requirement:contrib-html-template", "target": "api:error-renderer", "target_category": "interface", "target_type": "api"}
+{"context": "body", "path": ".knowledge/requirement/contrib-html-template.md", "source": "requirement:contrib-html-template", "target": "requirement:nested-html-templates", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/requirement/contrib-html-template.md", "source": "requirement:contrib-html-template", "target": "system:tinybind", "target_category": "external", "target_type": "system"}
 {"context": "body", "path": ".knowledge/requirement/contrib-html-template.md", "source": "requirement:contrib-html-template", "target": "policy:template-escaping", "target_category": "constraint", "target_type": "policy"}
 {"context": "body", "path": ".knowledge/requirement/contrib-jwt.md", "source": "requirement:contrib-jwt", "target": "policy:jwt-security", "target_category": "constraint", "target_type": "policy"}
@@ -529,6 +541,9 @@
 {"context": "body", "path": ".knowledge/requirement/mvp-acceptance.md", "source": "requirement:mvp-acceptance", "target": "flow:public-asset-build", "target_category": "behavior", "target_type": "flow"}
 {"context": "body", "path": ".knowledge/requirement/mvp-acceptance.md", "source": "requirement:mvp-acceptance", "target": "requirement:daisyui-integration", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/requirement/mvp-acceptance.md", "source": "requirement:mvp-acceptance", "target": "api:public-asset-middleware", "target_category": "interface", "target_type": "api"}
+{"context": "body", "path": ".knowledge/requirement/nested-html-templates.md", "source": "requirement:nested-html-templates", "target": "system:tinybind", "target_category": "external", "target_type": "system"}
+{"context": "body", "path": ".knowledge/requirement/nested-html-templates.md", "source": "requirement:nested-html-templates", "target": "api:render-html-chain", "target_category": "interface", "target_type": "api"}
+{"context": "body", "path": ".knowledge/requirement/nested-html-templates.md", "source": "requirement:nested-html-templates", "target": "api:cli-init", "target_category": "interface", "target_type": "api"}
 {"context": "body", "path": ".knowledge/requirement/public-asset-delivery.md", "source": "requirement:public-asset-delivery", "target": "flow:public-asset-build", "target_category": "behavior", "target_type": "flow"}
 {"context": "body", "path": ".knowledge/requirement/public-asset-delivery.md", "source": "requirement:public-asset-delivery", "target": "api:public-asset-middleware", "target_category": "interface", "target_type": "api"}
 {"context": "body", "path": ".knowledge/requirement/public-asset-delivery.md", "source": "requirement:public-asset-delivery", "target": "data:server-runtime-config", "target_category": "structure", "target_type": "data"}
@@ -575,6 +590,7 @@
 {"context": "body", "path": ".knowledge/system/tinybind.md", "source": "system:tinybind", "target": "api:problem-response", "target_category": "interface", "target_type": "api"}
 {"context": "body", "path": ".knowledge/system/tinybind.md", "source": "system:tinybind", "target": "api:runtime-configuration", "target_category": "interface", "target_type": "api"}
 {"context": "body", "path": ".knowledge/system/tinybind.md", "source": "system:tinybind", "target": "requirement:httpbinder-extensible-route-analysis", "target_category": "objective", "target_type": "requirement"}
+{"context": "body", "path": ".knowledge/system/tinybind.md", "source": "system:tinybind", "target": "api:render-html-chain", "target_category": "interface", "target_type": "api"}
 {"context": "body", "path": ".knowledge/vision/contrib.md", "source": "vision:contrib", "target": "requirement:contrib-auth-common", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/vision/contrib.md", "source": "vision:contrib", "target": "requirement:contrib-auth-state", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/vision/contrib.md", "source": "vision:contrib", "target": "requirement:contrib-auth-state-memory", "target_category": "objective", "target_type": "requirement"}

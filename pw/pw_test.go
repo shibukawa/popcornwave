@@ -2,14 +2,17 @@ package pw
 
 import (
 	"bytes"
-	"io"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"strings"
 	"testing"
 	"testing/fstest"
 
+	kzstd "github.com/klauspost/compress/zstd"
+	"github.com/shibukawa/popcornwave/pwruntime"
 	"github.com/shibukawa/tinybind-go/configbind"
+	"github.com/shibukawa/tinybind-go/htmlbind"
 )
 
 func TestScaffoldsIncludeBuiltInDefinitions(t *testing.T) {
@@ -74,12 +77,74 @@ func TestMiddlewaresParseAndInjectConfiguration(t *testing.T) {
 func TestWriteHTMLBuffersAndWrites(t *testing.T) {
 	recorder := httptest.NewRecorder()
 	request := httptest.NewRequest(http.MethodGet, "/", nil)
-	WriteHTML(recorder, request, func(w io.Writer, value string) error {
-		_, err := io.WriteString(w, "<h1>"+value+"</h1>")
-		return err
-	}, "Hello")
+	builder := htmlbind.Builder[string]{}
+	leaf := htmlbind.Bind(&htmlbind.Plan[string]{Ops: []htmlbind.Op[string]{
+		builder.Static("<h1>"),
+		builder.Text(func(value string) string { return value }),
+		builder.Static("</h1>"),
+	}}, "Hello")
+	WriteHTML(recorder, request, leaf)
 	if recorder.Code != http.StatusOK || recorder.Body.String() != "<h1>Hello</h1>" {
 		t.Fatalf("response = %d %q", recorder.Code, recorder.Body.String())
+	}
+}
+
+func TestWriteHTMLChainNestsWrappers(t *testing.T) {
+	type documentParams struct {
+		Children htmlbind.Fragment
+	}
+	documentBuilder := htmlbind.Builder[documentParams]{}
+	documentPlan := &htmlbind.Plan[documentParams]{Ops: []htmlbind.Op[documentParams]{
+		documentBuilder.Static("<!doctype html><html><body>"),
+		documentBuilder.Slot(func(params documentParams) htmlbind.Fragment { return params.Children }, nil),
+		documentBuilder.Static("</body></html>"),
+	}}
+	document := htmlbind.BindWrapper(documentPlan, documentParams{}, func(params *documentParams, children htmlbind.Fragment) {
+		params.Children = children
+	})
+	pageBuilder := htmlbind.Builder[struct{}]{}
+	page := htmlbind.Bind(&htmlbind.Plan[struct{}]{Ops: []htmlbind.Op[struct{}]{
+		pageBuilder.Static("<main>page</main>"),
+	}}, struct{}{})
+
+	recorder := httptest.NewRecorder()
+	WriteHTMLChain(recorder, httptest.NewRequest(http.MethodGet, "/", nil), []htmlbind.Wrapper{document}, page)
+	if recorder.Code != http.StatusOK ||
+		recorder.Body.String() != "<!doctype html><html><body><main>page</main></body></html>" {
+		t.Fatalf("response = %d %q", recorder.Code, recorder.Body.String())
+	}
+}
+
+func TestWriteHTMLPreservesConfiguredZstdCompression(t *testing.T) {
+	builder := htmlbind.Builder[struct{}]{}
+	leaf := htmlbind.Bind(&htmlbind.Plan[struct{}]{Ops: []htmlbind.Op[struct{}]{
+		builder.Static("<main>compressed</main>"),
+	}}, struct{}{})
+	request := httptest.NewRequest(http.MethodGet, "/", nil)
+	request.Header.Set("Accept-Encoding", "zstd")
+	request = request.WithContext(pwruntime.WithResources(request.Context(), pwruntime.Resources{
+		Configs: map[reflect.Type]any{
+			reflect.TypeFor[MiddlewareConfig](): MiddlewareConfig{Compression: true},
+		},
+	}))
+	recorder := httptest.NewRecorder()
+
+	WriteHTML(recorder, request, leaf)
+
+	if recorder.Header().Get("Content-Encoding") != "zstd" {
+		t.Fatalf("Content-Encoding = %q", recorder.Header().Get("Content-Encoding"))
+	}
+	decoder, err := kzstd.NewReader(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer decoder.Close()
+	body, err := decoder.DecodeAll(recorder.Body.Bytes(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(body) != "<main>compressed</main>" {
+		t.Fatalf("decoded body = %q", body)
 	}
 }
 

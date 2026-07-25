@@ -214,6 +214,7 @@ func Handlers() *pw.ServeMux { return mux }
 import (
 	"net/http"
 
+	"` + name + `/templates"
 	"github.com/shibukawa/popcornwave/pw"
 )
 
@@ -229,17 +230,27 @@ func home(w http.ResponseWriter, r *http.Request) {
 		pw.WriteProblem(w, r, pw.BadRequest(err))
 		return
 	}
-	pw.WriteHTML(w, r, Home, HomeParams{Name: input.Name})
+	pw.WriteHTMLChain(w, r,
+		[]pw.HTMLWrapper{templates.BindDocument(templates.DocumentParams{})},
+		Home(HomeParams{Name: input.Name}),
+	)
 }
 `,
 		"handlers/home.pw.html": `package handlers
 
 export component Home(name: string): html {
-<!doctype html>
-<html lang="en"><head><meta charset="utf-8"><title>Popcorn Wave</title>` + homeStylesheet + `</head>
-<body` + homeClasses + `><h1 class="text-3xl font-bold">Hello, {name}</h1></body></html>
+<h1 class="text-3xl font-bold">Hello, {name}</h1>
 }
 `,
+		"templates/document.pw.html": `package templates
+
+export component Document(children: html?): html {
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Popcorn Wave</title>` + homeStylesheet + `</head>
+<body` + homeClasses + `><slot /></body></html>
+}
+`,
+		"templates/templates.go": "package templates\n",
 		"queries/users.pw.sql": `package queries
 
 type User {
@@ -287,7 +298,7 @@ func PublicFS() fs.FS {
 
 func errorTemplate(pkg, component, title string) string {
 	return "package " + pkg + "\n\nexport component " + component + "(): html {\n" +
-		"<!doctype html><html lang=\"en\"><body><h1>" + title + "</h1></body></html>\n}\n"
+		"<h1>" + title + "</h1>\n}\n"
 }
 
 func frameworkModuleDirective() string {

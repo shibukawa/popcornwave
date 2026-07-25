@@ -17,9 +17,9 @@ input:
   binding: template name plus same-package Go data type in data:project-config
   error_template: optional fixed-model source from data:project-config
 generated_api:
-  - "Render<Name>(io.Writer, DataType) error"
-  - "Write<Name>(http.ResponseWriter, status, DataType) error"
-  - "Write<Name>JSON(io.Writer, DataType) error"
+  - "<Name>(<Name>Params) htmlbind.Fragment"
+  - "Bind<Name>(<Name>Params) htmlbind.Wrapper when the component declares an unnamed slot"
+  - api:render-html-chain for document, layout, and page composition
   - configured api:error-renderer function for an error template
 syntax_required:
   - statically typed nested struct field interpolation
@@ -28,6 +28,7 @@ syntax_required:
   - loops over arrays and slices with typed index and element variables
   - loops over maps with typed key and value variables and deterministic key ordering
   - named template inclusion with statically known names
+  - unnamed <slot /> insertion for requirement:nested-html-templates
   - typed comparisons and boolean operators
   - generator-registered typed helper functions
   - JSON expression for frontend state embedded in a safe application/json script context
@@ -44,6 +45,7 @@ json_codegen:
   - share generated primitive escaping helpers with system:tinybind when a stable API exists
 security: policy:template-escaping
 priority: deferred until generated JSON encoding scope is implemented and verified
+compatibility: system:tinybind v0.1.15 Fragment and Wrapper output replaces the earlier direct-writer generated API
 non_goals:
   - runtime parsing
   - runtime reflection

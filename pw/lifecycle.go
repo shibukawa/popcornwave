@@ -15,7 +15,6 @@ import (
 	"time"
 
 	"github.com/shibukawa/popcornwave/pwruntime"
-	"github.com/shibukawa/tinybind-go/htmlbind"
 )
 
 var requestSequence atomic.Uint64
@@ -69,7 +68,6 @@ func Middlewares(handler http.Handler, option ...Option) (http.Handler, error) {
 	if server.Public.Enabled && !publicDevelopment && options.publicFS == nil {
 		return nil, errors.New("popcornwave: server.public.enabled requires pw.WithPublicFS")
 	}
-	htmlbind.ZstdCompression = middleware.Compression
 	resources := runtimeResources(slog.Default())
 	return buildRuntimeHandler(handler, server, security, middleware, resources, options.publicFS)
 }

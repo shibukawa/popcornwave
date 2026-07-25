@@ -3,7 +3,7 @@ id: api:cli-init
 type: api
 title: pw init
 ---
-pw init creates a runnable Popcorn Wave project with a representative handler, typed template, SQL query, error pages, Devbox environment, and generated-artifact conventions.
+pw init creates a runnable Popcorn Wave project with a shared document shell, representative handler, typed page template, SQL query, error pages, Devbox environment, and generated-artifact conventions.
 
 ```yaml
 usage: pw init myapp [--tailwind]
@@ -14,6 +14,7 @@ outputs:
   - concept:project-layout
   - Go module and cmd/myapp/main.go
   - handler registration and pw.Parse example
+  - templates/document.pw.html shared document shell
   - .pw.html page and 400, 404, and 500 templates
   - .pw.sql query example
   - public directory with non-served .keep sentinel and stable public.go embedding scaffold
@@ -28,6 +29,7 @@ behavior:
   - refuse to overwrite nonempty destinations by default
   - create files atomically
   - run api:cli-generate
+  - scaffold classic rendering according to requirement:nested-html-templates
 next_steps:
   - cd myapp
   - devbox shell

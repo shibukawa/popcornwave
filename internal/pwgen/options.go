@@ -64,7 +64,6 @@ func Options() (generator.Options, error) {
 	}
 	options.HTMLTemplatePattern = "*.pw.html"
 	options.SQLTemplatePattern = "*.pw.sql"
-	options.HTMLWriterAPI = true
 	options.SQLContextOnlyAPI = true
 	options.SQLExecutorResolver = &generator.SymbolPattern{
 		PackagePath: pwRuntimePackage,

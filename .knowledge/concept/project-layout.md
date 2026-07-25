@@ -27,6 +27,9 @@ layout:
   handlers/home_pw_gen.go: generated HTML and request mapping
   queries/users.pw.sql: named SQL source
   queries/users_pw_gen.go: generated context-based query functions
+  templates/document.pw.html: requirement:nested-html-templates document shell
+  templates/document_pw_gen.go: generated document Fragment and Wrapper
+  templates/templates.go: handwritten package marker available before first generation
   templates/400.pw.html: client error page
   templates/404.pw.html: not-found page
   templates/500.pw.html: internal error page
@@ -54,6 +57,8 @@ rules:
   - generated Go is emitted beside its source
   - generated filenames use {source-base}_pw_gen.go
   - generated filenames never start with an underscore
+  - templates/document.pw.html owns doctype, html, head, and body; its body contains an unnamed <slot />
+  - classic page templates provide leaf content and do not duplicate the document shell
   - public/.keep preserves an otherwise empty public directory and is never externally reachable
   - generated public/**/*.zstd sidecars are ignored by version control
   - Popcorn Wave never rewrites scaffolded public.go after initialization

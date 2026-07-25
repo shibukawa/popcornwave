@@ -13,6 +13,7 @@
 {"category": "interface", "id": "api:problem-response", "path": ".knowledge/api/problem-response.md", "role": "primary", "title": "Problem Response API", "type": "api"}
 {"category": "interface", "id": "api:public-asset-middleware", "path": ".knowledge/api/public-asset-middleware.md", "role": "primary", "title": "Public Asset Middleware", "type": "api"}
 {"category": "interface", "id": "api:rdb-middleware", "path": ".knowledge/api/rdb-middleware.md", "role": "primary", "title": "RDB Middleware", "type": "api"}
+{"category": "interface", "id": "api:render-html-chain", "path": ".knowledge/api/render-html-chain.md", "role": "primary", "title": "TinyBind HTML Render Chain", "type": "api"}
 {"category": "interface", "id": "api:request-binding", "path": ".knowledge/api/request-binding.md", "role": "primary", "title": "Request Binding API", "type": "api"}
 {"category": "interface", "id": "api:request-context-accessors", "path": ".knowledge/api/request-context-accessors.md", "role": "primary", "title": "Request Context Accessors", "type": "api"}
 {"category": "interface", "id": "api:runtime-configuration", "path": ".knowledge/api/runtime-configuration.md", "role": "primary", "title": "Runtime Configuration API", "type": "api"}
@@ -145,6 +146,7 @@
 {"category": "objective", "id": "requirement:modern-observability", "path": ".knowledge/requirement/modern-observability.md", "role": "primary", "title": "Modern UI Observability", "type": "requirement"}
 {"category": "objective", "id": "requirement:modern-web-acceptance", "path": ".knowledge/requirement/modern-web-acceptance.md", "role": "primary", "title": "Modern Web Acceptance", "type": "requirement"}
 {"category": "objective", "id": "requirement:mvp-acceptance", "path": ".knowledge/requirement/mvp-acceptance.md", "role": "primary", "title": "MVP Acceptance Criteria", "type": "requirement"}
+{"category": "objective", "id": "requirement:nested-html-templates", "path": ".knowledge/requirement/nested-html-templates.md", "role": "primary", "title": "Nested HTML Templates", "type": "requirement"}
 {"category": "objective", "id": "requirement:public-asset-delivery", "path": ".knowledge/requirement/public-asset-delivery.md", "role": "primary", "title": "Public Asset Delivery", "type": "requirement"}
 {"category": "objective", "id": "requirement:shared-web-runtime", "path": ".knowledge/requirement/shared-web-runtime.md", "role": "primary", "title": "Shared Web Runtime", "type": "requirement"}
 {"category": "objective", "id": "requirement:tailwind-css-integration", "path": ".knowledge/requirement/tailwind-css-integration.md", "role": "primary", "title": "Tailwind CSS Integration", "type": "requirement"}

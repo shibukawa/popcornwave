@@ -13,6 +13,7 @@ import (
 
 	tinybind "github.com/shibukawa/tinybind-go"
 	"github.com/shibukawa/tinybind-go/htmlbind"
+	"github.com/shibukawa/tinygodriver/compress/zstd"
 )
 
 // Problem is the application-facing RFC problem value.
@@ -23,6 +24,12 @@ type Problem struct {
 	Message string
 	Cause   error
 }
+
+// HTMLFragment is a generated template with its parameters already bound.
+type HTMLFragment = htmlbind.Fragment
+
+// HTMLWrapper is a generated template wrapper accepted by WriteHTMLChain.
+type HTMLWrapper = htmlbind.Wrapper
 
 func (p Problem) Error() string {
 	if p.Message != "" {
@@ -148,19 +155,21 @@ func WriteAPI[T any](w http.ResponseWriter, r *http.Request, value T) {
 	}
 }
 
-// WriteHTML buffers generated template output before committing the response.
-func WriteHTML[P any](w http.ResponseWriter, r *http.Request, template func(io.Writer, P) error, params P) {
-	if template == nil {
-		WriteProblem(w, r, InternalServerError("nil HTML template"))
-		return
-	}
+// WriteHTML renders one generated HTML fragment.
+func WriteHTML(w http.ResponseWriter, r *http.Request, leaf HTMLFragment) {
+	WriteHTMLChain(w, r, nil, leaf)
+}
+
+// WriteHTMLChain renders generated wrappers around one leaf without committing
+// the response until TinyBind has validated and rendered the complete chain.
+func WriteHTMLChain(w http.ResponseWriter, r *http.Request, wrappers []HTMLWrapper, leaf HTMLFragment) {
 	var body bytes.Buffer
-	if err := template(&body, params); err != nil {
+	if err := htmlbind.RenderChain(&body, wrappers, leaf); err != nil {
 		WriteProblem(w, r, InternalServerError(err))
 		return
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	writer, closeWriter, err := htmlbind.PrepareResponse(w, r)
+	writer, closeWriter, err := prepareHTMLResponse(w, r)
 	if err != nil {
 		WriteProblem(w, r, InternalServerError(err))
 		return
@@ -174,6 +183,63 @@ func WriteHTML[P any](w http.ResponseWriter, r *http.Request, template func(io.W
 	if err := closeWriter(); err != nil {
 		Logger(requestContext(r)).ErrorContext(requestContext(r), "HTML response close failed", "error", err)
 	}
+}
+
+func prepareHTMLResponse(w http.ResponseWriter, r *http.Request) (io.Writer, func() error, error) {
+	if !Config[MiddlewareConfig](requestContext(r)).Compression {
+		return w, func() error { return nil }, nil
+	}
+	addVaryHeader(w.Header(), "Accept-Encoding")
+	if r == nil || !acceptsZstdEncoding(r.Header.Values("Accept-Encoding")) || w.Header().Get("Content-Encoding") != "" {
+		return w, func() error { return nil }, nil
+	}
+	w.Header().Set("Content-Encoding", zstd.ContentEncoding)
+	w.Header().Del("Content-Length")
+	encoder, err := zstd.NewWriter(w, zstd.WithETag(false))
+	if err != nil {
+		return w, func() error { return nil }, err
+	}
+	return encoder, encoder.Close, nil
+}
+
+func acceptsZstdEncoding(values []string) bool {
+	for _, value := range values {
+		for _, entry := range strings.Split(value, ",") {
+			parts := strings.Split(entry, ";")
+			if !strings.EqualFold(strings.TrimSpace(parts[0]), zstd.ContentEncoding) {
+				continue
+			}
+			quality := 1.0
+			for _, parameter := range parts[1:] {
+				name, raw, ok := strings.Cut(parameter, "=")
+				if !ok || !strings.EqualFold(strings.TrimSpace(name), "q") {
+					continue
+				}
+				parsed, parseErr := strconv.ParseFloat(strings.TrimSpace(raw), 64)
+				if parseErr != nil || parsed < 0 || parsed > 1 {
+					quality = 0
+				} else {
+					quality = parsed
+				}
+			}
+			if quality > 0 {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func addVaryHeader(header http.Header, value string) {
+	for _, line := range header.Values("Vary") {
+		for _, existing := range strings.Split(line, ",") {
+			existing = strings.TrimSpace(existing)
+			if existing == "*" || strings.EqualFold(existing, value) {
+				return
+			}
+		}
+	}
+	header.Add("Vary", value)
 }
 
 func requestContext(r *http.Request) context.Context {
