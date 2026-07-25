@@ -13,7 +13,7 @@ model:
   code: stable machine code
   request_id: optional diagnostic identifier
 selection:
-  html: generated 400, 404, or 500 .pw.html renderer
+  html: generated 400, 401, 403, 404, 409, 413, or 500 .pw.html renderer
   api: api:problem-response RFC problem details
 fallback:
   - use a minimal safe built-in response when no HTML renderer is registered
