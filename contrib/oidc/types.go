@@ -9,8 +9,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/shibukawa/petitweb-go/contrib/jwt"
-	"github.com/shibukawa/petitweb-go/contrib/oauth"
+	"github.com/shibukawa/popcornwave/contrib/jwt"
+	"github.com/shibukawa/popcornwave/contrib/oauth"
 )
 
 var (

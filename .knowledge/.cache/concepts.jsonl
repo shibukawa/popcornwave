@@ -11,6 +11,7 @@
 {"category": "interface", "id": "api:html-response", "path": ".knowledge/api/html-response.md", "role": "primary", "title": "HTML Response API", "type": "api"}
 {"category": "interface", "id": "api:logger", "path": ".knowledge/api/logger.md", "role": "primary", "title": "Context-Bound Logger API", "type": "api"}
 {"category": "interface", "id": "api:problem-response", "path": ".knowledge/api/problem-response.md", "role": "primary", "title": "Problem Response API", "type": "api"}
+{"category": "interface", "id": "api:public-asset-middleware", "path": ".knowledge/api/public-asset-middleware.md", "role": "primary", "title": "Public Asset Middleware", "type": "api"}
 {"category": "interface", "id": "api:rdb-middleware", "path": ".knowledge/api/rdb-middleware.md", "role": "primary", "title": "RDB Middleware", "type": "api"}
 {"category": "interface", "id": "api:request-binding", "path": ".knowledge/api/request-binding.md", "role": "primary", "title": "Request Binding API", "type": "api"}
 {"category": "interface", "id": "api:request-context-accessors", "path": ".knowledge/api/request-context-accessors.md", "role": "primary", "title": "Request Context Accessors", "type": "api"}
@@ -54,6 +55,7 @@
 {"category": "structure", "id": "data:user-account", "path": ".knowledge/data/user-account.md", "role": "supporting", "title": "Local User Account", "type": "data"}
 {"category": "constraint", "id": "decision:authentication-bootstrap-strategy", "path": ".knowledge/decision/authentication-bootstrap-strategy.md", "role": "supporting", "title": "Authentication Bootstrap Strategy", "type": "decision"}
 {"category": "constraint", "id": "decision:contrib-delivery-order", "path": ".knowledge/decision/contrib-delivery-order.md", "role": "supporting", "title": "Contrib Delivery Order", "type": "decision"}
+{"category": "constraint", "id": "decision:development-public-assets", "path": ".knowledge/decision/development-public-assets.md", "role": "supporting", "title": "Development Public Assets", "type": "decision"}
 {"category": "constraint", "id": "decision:force-tinygo-logic", "path": ".knowledge/decision/force-tinygo-logic.md", "role": "supporting", "title": "Forced TinyGo Logic Build Tag", "type": "decision"}
 {"category": "constraint", "id": "decision:host-tools-target-runtime", "path": ".knowledge/decision/host-tools-target-runtime.md", "role": "supporting", "title": "Host Tools and Target Runtime Split", "type": "decision"}
 {"category": "constraint", "id": "decision:import-registered-session-plugins", "path": ".knowledge/decision/import-registered-session-plugins.md", "role": "supporting", "title": "Import-Registered Session Plugins", "type": "decision"}
@@ -81,6 +83,7 @@
 {"category": "behavior", "id": "flow:passkey-login", "path": ".knowledge/flow/passkey-login.md", "role": "primary", "title": "Passkey Login", "type": "flow"}
 {"category": "behavior", "id": "flow:passkey-only-registration", "path": ".knowledge/flow/passkey-only-registration.md", "role": "primary", "title": "Passkey-Only Registration", "type": "flow"}
 {"category": "behavior", "id": "flow:project-bootstrap", "path": ".knowledge/flow/project-bootstrap.md", "role": "primary", "title": "Project Bootstrap Flow", "type": "flow"}
+{"category": "behavior", "id": "flow:public-asset-build", "path": ".knowledge/flow/public-asset-build.md", "role": "primary", "title": "Public Asset Build Flow", "type": "flow"}
 {"category": "behavior", "id": "flow:request-lifecycle", "path": ".knowledge/flow/request-lifecycle.md", "role": "primary", "title": "Typed Request Lifecycle", "type": "flow"}
 {"category": "behavior", "id": "flow:session-lifecycle", "path": ".knowledge/flow/session-lifecycle.md", "role": "primary", "title": "Session Lifecycle", "type": "flow"}
 {"category": "behavior", "id": "flow:sql-generation", "path": ".knowledge/flow/sql-generation.md", "role": "primary", "title": "SQL Generation and Execution", "type": "flow"}
@@ -104,6 +107,9 @@
 {"category": "constraint", "id": "policy:operational-endpoints", "path": ".knowledge/policy/operational-endpoints.md", "role": "supporting", "title": "Operational Endpoints", "type": "policy"}
 {"category": "constraint", "id": "policy:outbound-transport-security", "path": ".knowledge/policy/outbound-transport-security.md", "role": "supporting", "title": "Outbound Transport Security Policy", "type": "policy"}
 {"category": "constraint", "id": "policy:passkey-security", "path": ".knowledge/policy/passkey-security.md", "role": "supporting", "title": "Passkey Security Policy", "type": "policy"}
+{"category": "constraint", "id": "policy:public-asset-negotiation", "path": ".knowledge/policy/public-asset-negotiation.md", "role": "supporting", "title": "Public Asset Negotiation", "type": "policy"}
+{"category": "constraint", "id": "policy:public-asset-precompression", "path": ".knowledge/policy/public-asset-precompression.md", "role": "supporting", "title": "Public Asset Precompression", "type": "policy"}
+{"category": "constraint", "id": "policy:public-asset-resolution", "path": ".knowledge/policy/public-asset-resolution.md", "role": "supporting", "title": "Public Asset Resolution", "type": "policy"}
 {"category": "constraint", "id": "policy:security-response-headers", "path": ".knowledge/policy/security-response-headers.md", "role": "supporting", "title": "Security Response Headers", "type": "policy"}
 {"category": "constraint", "id": "policy:server-ui-security", "path": ".knowledge/policy/server-ui-security.md", "role": "supporting", "title": "Server UI Security and Correctness", "type": "policy"}
 {"category": "constraint", "id": "policy:session-security", "path": ".knowledge/policy/session-security.md", "role": "supporting", "title": "Session Security Policy", "type": "policy"}
@@ -139,6 +145,7 @@
 {"category": "objective", "id": "requirement:modern-observability", "path": ".knowledge/requirement/modern-observability.md", "role": "primary", "title": "Modern UI Observability", "type": "requirement"}
 {"category": "objective", "id": "requirement:modern-web-acceptance", "path": ".knowledge/requirement/modern-web-acceptance.md", "role": "primary", "title": "Modern Web Acceptance", "type": "requirement"}
 {"category": "objective", "id": "requirement:mvp-acceptance", "path": ".knowledge/requirement/mvp-acceptance.md", "role": "primary", "title": "MVP Acceptance Criteria", "type": "requirement"}
+{"category": "objective", "id": "requirement:public-asset-delivery", "path": ".knowledge/requirement/public-asset-delivery.md", "role": "primary", "title": "Public Asset Delivery", "type": "requirement"}
 {"category": "objective", "id": "requirement:shared-web-runtime", "path": ".knowledge/requirement/shared-web-runtime.md", "role": "primary", "title": "Shared Web Runtime", "type": "requirement"}
 {"category": "objective", "id": "requirement:tailwind-css-integration", "path": ".knowledge/requirement/tailwind-css-integration.md", "role": "primary", "title": "Tailwind CSS Integration", "type": "requirement"}
 {"category": "objective", "id": "requirement:tailwind-plugin-integration", "path": ".knowledge/requirement/tailwind-plugin-integration.md", "role": "primary", "title": "Tailwind Plugin Integration", "type": "requirement"}

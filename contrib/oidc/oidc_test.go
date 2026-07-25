@@ -21,10 +21,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/shibukawa/petitweb-go/contrib/authstate"
-	"github.com/shibukawa/petitweb-go/contrib/authstate/memory"
-	"github.com/shibukawa/petitweb-go/contrib/jwt"
-	"github.com/shibukawa/petitweb-go/contrib/oauth"
+	"github.com/shibukawa/popcornwave/contrib/authstate"
+	"github.com/shibukawa/popcornwave/contrib/authstate/memory"
+	"github.com/shibukawa/popcornwave/contrib/jwt"
+	"github.com/shibukawa/popcornwave/contrib/oauth"
 )
 
 type oidcTransport struct{ handler http.Handler }

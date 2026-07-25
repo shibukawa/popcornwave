@@ -18,8 +18,8 @@ discovery:
   - reject or warn on template expressions that construct class-name fragments
   - use @source inline for intentional safelists
 runtime:
-  - application serves or embeds output through embed, fs.FS, or standard net/http
-  - Popcorn Wave provides no static-file runtime abstraction
+  - default output enters requirement:public-asset-delivery
+  - a custom output remains application-owned
 rules:
   - flow:tailwind-css-build runs only when configured
   - CSS failure prevents a production build from using stale output

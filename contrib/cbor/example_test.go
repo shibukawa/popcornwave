@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"fmt"
 
-	"github.com/shibukawa/petitweb-go/contrib/cbor"
+	"github.com/shibukawa/popcornwave/contrib/cbor"
 )
 
 func ExampleNewEncoder() {

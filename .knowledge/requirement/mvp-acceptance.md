@@ -16,6 +16,7 @@ criteria:
   - generated OpenAPI assembles every imported package fragment deterministically
   - api:cli-dev watches, regenerates, rebuilds, and restarts the starter
   - api:cli-build generates and compiles data:project-config project.main
+  - api:cli-init creates stable public.go and flow:public-asset-build embeds originals with eligible .zstd sidecars
 quality:
   - CLI command tests cover success, collision, and failure paths
   - generated project smoke test runs outside the Popcorn Wave repository
@@ -27,4 +28,10 @@ optional_css_profile:
   - api:cli-dev supervises CSS watch and Go rebuild without leaking a child process
   - api:cli-build produces minified CSS before embedding and Go compilation
   - target binary has no Node.js, Tailwind, or daisyUI runtime dependency
+public_assets:
+  - api:public-asset-middleware serves embedded assets at the configured mount
+  - api:cli-dev serves project public files directly without compression, embedding fallback, or Go rebuild
+  - server.public.read_local tests local override, embedded fallback, and layer-consistent sidecars
+  - production Accept-Encoding tests zstd, wildcard, q=0, identity fallback, Vary, HEAD, and 406
+  - traversal, symbolic link, dot-path, directory-listing, and direct .zstd requests fail closed
 ```

@@ -63,6 +63,12 @@ func TestValidateRuntimeConfig(t *testing.T) {
 		{name: "timeout", mutate: func(_ *ServerConfig, _ *SecurityConfig, m *MiddlewareConfig, _ *ObservabilityConfig) {
 			m.RequestTimeout = -time.Second
 		}, want: "request_timeout"},
+		{name: "public mount", mutate: func(s *ServerConfig, _ *SecurityConfig, _ *MiddlewareConfig, _ *ObservabilityConfig) {
+			s.Public = PublicConfig{Enabled: true, Mount: "/"}
+		}, want: "public.mount"},
+		{name: "public endpoint overlap", mutate: func(s *ServerConfig, _ *SecurityConfig, _ *MiddlewareConfig, _ *ObservabilityConfig) {
+			s.Public = PublicConfig{Enabled: true, Mount: "/healthz/assets"}
+		}, want: "overlaps"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -101,6 +107,17 @@ func TestOperationalEndpointCollisionDetection(t *testing.T) {
 	fallback.HandleFunc("/", func(http.ResponseWriter, *http.Request) {})
 	if err := validateOperationalEndpointCollisions(fallback, server); err != nil {
 		t.Fatalf("catch-all route should not mask an operational endpoint: %v", err)
+	}
+}
+
+func TestPublicMountCollisionDetection(t *testing.T) {
+	server, _, _, _ := validRuntimeConfigs()
+	server.Public = PublicConfig{Enabled: true, Mount: "/public"}
+	mux := NewServeMux()
+	mux.HandleFunc("GET /public/", func(http.ResponseWriter, *http.Request) {})
+	err := validateOperationalEndpointCollisions(mux, server)
+	if err == nil || !strings.Contains(err.Error(), "public.mount collides") {
+		t.Fatalf("error = %v", err)
 	}
 }
 

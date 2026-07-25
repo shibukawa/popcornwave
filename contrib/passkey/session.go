@@ -4,8 +4,8 @@ import (
 	"context"
 	"errors"
 
-	"github.com/shibukawa/petitweb-go/contrib/authstate"
-	"github.com/shibukawa/petitweb-go/contrib/internal/authn"
+	"github.com/shibukawa/popcornwave/contrib/authstate"
+	"github.com/shibukawa/popcornwave/contrib/internal/authn"
 )
 
 // SessionFlow adds atomic single-use state consumption to RelyingParty.

@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/shibukawa/petitweb-go/contrib/authstate"
-	dbsqlite "github.com/shibukawa/petitweb-go/contrib/database/sqlite"
+	"github.com/shibukawa/popcornwave/contrib/authstate"
+	dbsqlite "github.com/shibukawa/tinygodriver/database/sqlite"
 )
 
 type stringCodec struct{}

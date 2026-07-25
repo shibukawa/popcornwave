@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/shibukawa/petitweb-go/contrib/otel/trace"
+	"github.com/shibukawa/popcornwave/contrib/otel/trace"
 )
 
 // TraceContext extracts and injects traceparent and tracestate HTTP fields.

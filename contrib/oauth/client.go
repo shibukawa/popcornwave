@@ -11,8 +11,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/shibukawa/petitweb-go/contrib/authstate"
-	"github.com/shibukawa/petitweb-go/contrib/internal/authn"
+	"github.com/shibukawa/popcornwave/contrib/authstate"
+	"github.com/shibukawa/popcornwave/contrib/internal/authn"
 )
 
 func NewClient(config Config, options Options) (*Client, error) {

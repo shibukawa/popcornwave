@@ -9,9 +9,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/shibukawa/petitweb-go/contrib/internal/authn"
-	"github.com/shibukawa/petitweb-go/contrib/jwt"
-	"github.com/shibukawa/petitweb-go/contrib/oauth"
+	"github.com/shibukawa/popcornwave/contrib/internal/authn"
+	"github.com/shibukawa/popcornwave/contrib/jwt"
+	"github.com/shibukawa/popcornwave/contrib/oauth"
 )
 
 const (

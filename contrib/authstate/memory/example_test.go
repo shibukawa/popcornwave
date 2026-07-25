@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/shibukawa/petitweb-go/contrib/authstate/memory"
+	"github.com/shibukawa/popcornwave/contrib/authstate/memory"
 )
 
 func ExampleNewStore() {

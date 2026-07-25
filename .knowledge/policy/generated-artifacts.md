@@ -3,10 +3,11 @@ id: policy:generated-artifacts
 type: policy
 title: Generated Artifact Ownership
 ---
-Generated Go files are reproducible build inputs owned exclusively by api:cli-generate.
+Generated Go files are reproducible build inputs owned by api:cli-generate.
 
 ```yaml
-pattern: "{source-base}_pw_gen.go"
+pattern:
+  ordinary: "{source-base}_pw_gen.go"
 location: beside the owning Go, .pw.html, or .pw.sql source
 contents:
   - request binders and OpenAPI fragments

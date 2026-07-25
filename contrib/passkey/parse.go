@@ -11,8 +11,8 @@ import (
 	"io"
 	"math/big"
 
-	"github.com/shibukawa/petitweb-go/contrib/cbor"
-	"github.com/shibukawa/petitweb-go/contrib/internal/authn"
+	"github.com/shibukawa/popcornwave/contrib/cbor"
+	"github.com/shibukawa/popcornwave/contrib/internal/authn"
 )
 
 const (

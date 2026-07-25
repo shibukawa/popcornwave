@@ -8,9 +8,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/shibukawa/petitweb-go/contrib/otel"
-	"github.com/shibukawa/petitweb-go/contrib/otel/propagation"
-	"github.com/shibukawa/petitweb-go/contrib/otel/trace"
+	"github.com/shibukawa/popcornwave/contrib/otel"
+	"github.com/shibukawa/popcornwave/contrib/otel/propagation"
+	"github.com/shibukawa/popcornwave/contrib/otel/trace"
 )
 
 type otelConfig struct {
@@ -40,7 +40,7 @@ func Otel(options ...OtelOption) func(http.Handler) http.Handler {
 	if cfg.provider == nil {
 		cfg.provider = trace.DefaultProvider()
 	}
-	tracer := cfg.provider.Tracer("github.com/shibukawa/petitweb-go/middlewares")
+	tracer := cfg.provider.Tracer("github.com/shibukawa/popcornwave/middlewares")
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			parent := (propagation.TraceContext{}).Extract(r.Context(), r.Header)

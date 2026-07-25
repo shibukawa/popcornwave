@@ -10,6 +10,7 @@ usage: pw build
 steps:
   - run api:cli-generate
   - run flow:tailwind-css-build production mode when enabled
+  - run flow:public-asset-build
   - resolve project.main and optional build settings from data:project-config
   - run go build with the resolved settings
 defaults:

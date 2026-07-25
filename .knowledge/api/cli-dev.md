@@ -11,8 +11,10 @@ steps:
   - start configured Devbox services
   - run api:cli-generate
   - start flow:tailwind-css-build watch mode when enabled
+  - enable decision:development-public-assets
   - build and run data:project-config project.main
-  - watch configured Go, HTML, SQL, generated CSS output, and tooling configuration
+  - watch configured Go, HTML, SQL, non-public generated inputs, and tooling configuration
+  - exclude public/**, public.go, and public/**/*.zstd from Go rebuild inputs
   - regenerate when generated inputs change
   - rebuild and restart after successful changes
 services:

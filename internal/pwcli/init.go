@@ -13,10 +13,23 @@ import (
 )
 
 func runInit(args []string, stdout io.Writer) error {
-	if len(args) != 1 {
-		return fmt.Errorf("usage: pw init <project-name>")
+	tailwind := false
+	var positional []string
+	for _, arg := range args {
+		switch arg {
+		case "--tailwind":
+			tailwind = true
+		default:
+			if strings.HasPrefix(arg, "-") {
+				return fmt.Errorf("init: unknown option %q", arg)
+			}
+			positional = append(positional, arg)
+		}
 	}
-	name := strings.TrimSpace(args[0])
+	if len(positional) != 1 {
+		return fmt.Errorf("usage: pw init <project-name> [--tailwind]")
+	}
+	name := strings.TrimSpace(positional[0])
 	if !validProjectName(name) {
 		return fmt.Errorf("invalid project name %q", name)
 	}
@@ -32,13 +45,13 @@ func runInit(args []string, stdout io.Writer) error {
 	if err := os.MkdirAll(destination, 0o755); err != nil {
 		return err
 	}
-	files := scaffoldFiles(name)
+	files := scaffoldFilesWithTailwind(name, tailwind)
 	for path, content := range files {
 		target := filepath.Join(destination, filepath.FromSlash(path))
 		if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
 			return err
 		}
-		if err := os.WriteFile(target, []byte(content), 0o644); err != nil {
+		if err := writeScaffoldFile(target, []byte(content)); err != nil {
 			return err
 		}
 	}
@@ -69,6 +82,27 @@ func runInit(args []string, stdout io.Writer) error {
 	return nil
 }
 
+func writeScaffoldFile(target string, content []byte) error {
+	temp, err := os.CreateTemp(filepath.Dir(target), "."+filepath.Base(target)+".tmp-*")
+	if err != nil {
+		return err
+	}
+	tempPath := temp.Name()
+	defer os.Remove(tempPath)
+	if err := temp.Chmod(0o644); err != nil {
+		_ = temp.Close()
+		return err
+	}
+	if _, err := temp.Write(content); err != nil {
+		_ = temp.Close()
+		return err
+	}
+	if err := temp.Close(); err != nil {
+		return err
+	}
+	return os.Rename(tempPath, target)
+}
+
 func validProjectName(name string) bool {
 	if name == "" || name == "." || name == ".." {
 		return false
@@ -82,8 +116,28 @@ func validProjectName(name string) bool {
 }
 
 func scaffoldFiles(name string) map[string]string {
+	return scaffoldFilesWithTailwind(name, false)
+}
+
+func scaffoldFilesWithTailwind(name string, tailwind bool) map[string]string {
 	moduleExtra := frameworkModuleDirective()
-	return map[string]string{
+	configTailwind := ""
+	devboxTailwind := ""
+	homeStylesheet := ""
+	homeClasses := ""
+	if tailwind {
+		configTailwind = `
+[assets.tailwind]
+enabled = true
+input = "` + defaultTailwindInput + `"
+output = "` + defaultTailwindOutput + `"
+minify = true
+`
+		devboxTailwind = `, "tailwindcss_4@4.1.18"`
+		homeStylesheet = `<link rel="stylesheet" href="/public/generated/app.css">`
+		homeClasses = ` class="mx-auto max-w-3xl p-8 text-slate-900"`
+	}
+	files := map[string]string{
 		"go.mod": "module " + name + "\n\ngo 1.26.0\n\n" + moduleExtra,
 		"popcornwave.toml": `[project]
 name = "` + name + `"
@@ -95,10 +149,10 @@ sql = ["queries/**/*.pw.sql"]
 
 [dev]
 watch = ["**/*.go", "**/*.pw.html", "**/*.pw.sql", "popcornwave.toml"]
-`,
+` + configTailwind,
 		"devbox.json": `{
   "$schema": "https://raw.githubusercontent.com/jetify-com/devbox/0.14.2/.schema/devbox.schema.json",
-  "packages": ["go@latest", "valkey@latest"],
+  "packages": ["go@latest", "valkey@latest"` + devboxTailwind + `],
   "shell": {"init_hook": ["echo 'Popcorn Wave development environment'"]}
 }
 `,
@@ -112,6 +166,7 @@ import (
 	"os"
 
 	"` + name + `/handlers"
+	publicassets "` + name + `"
 	"github.com/shibukawa/popcornwave/pw"
 )
 
@@ -130,7 +185,7 @@ func main() {
 		}
 		return
 	}
-	if err := pw.Run(context.Background(), handlers.Handlers()); err != nil {
+	if err := pw.Run(context.Background(), handlers.Handlers(), pw.WithPublicFS(publicassets.PublicFS())); err != nil {
 		log.Fatal(err)
 	}
 }
@@ -181,8 +236,8 @@ func home(w http.ResponseWriter, r *http.Request) {
 
 export component Home(name: string): html {
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><title>Popcorn Wave</title></head>
-<body><h1>Hello, {name}</h1></body></html>
+<html lang="en"><head><meta charset="utf-8"><title>Popcorn Wave</title>` + homeStylesheet + `</head>
+<body` + homeClasses + `><h1 class="text-3xl font-bold">Hello, {name}</h1></body></html>
 }
 `,
 		"queries/users.pw.sql": `package queries
@@ -199,8 +254,35 @@ SELECT id, name FROM users WHERE id = {id}
 		"templates/400.pw.html": errorTemplate("templates", "Error400", "Bad Request"),
 		"templates/404.pw.html": errorTemplate("templates", "Error404", "Not Found"),
 		"templates/500.pw.html": errorTemplate("templates", "Error500", "Internal Server Error"),
-		".gitignore":            ".devbox/\n" + name + "\n",
+		"public.go": `package publicassets
+
+import (
+	"embed"
+	"io/fs"
+)
+
+//go:embed all:public
+var embeddedPublic embed.FS
+
+func PublicFS() fs.FS {
+	result, err := fs.Sub(embeddedPublic, "public")
+	if err != nil {
+		panic(err)
 	}
+	return result
+}
+`,
+		"public/.keep": "",
+		".gitignore":   ".devbox/\n" + name + "\npublic/**/*.zstd\n",
+	}
+	if tailwind {
+		files["assets/app.css"] = `@import "tailwindcss";
+@source "../handlers";
+@source "../templates";
+`
+		files["public/generated/app.css"] = "/* Generated by Tailwind CSS. */\n"
+	}
+	return files
 }
 
 func errorTemplate(pkg, component, title string) string {

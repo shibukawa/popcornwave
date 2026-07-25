@@ -7,7 +7,7 @@ import (
 	"math"
 	"math/big"
 
-	"github.com/shibukawa/petitweb-go/contrib/internal/authn"
+	"github.com/shibukawa/popcornwave/contrib/internal/authn"
 )
 
 const (

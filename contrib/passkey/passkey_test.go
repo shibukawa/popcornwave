@@ -18,8 +18,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/shibukawa/petitweb-go/contrib/authstate/memory"
-	"github.com/shibukawa/petitweb-go/contrib/cbor"
+	"github.com/shibukawa/popcornwave/contrib/authstate/memory"
+	"github.com/shibukawa/popcornwave/contrib/cbor"
 )
 
 type passkeyFixture struct {

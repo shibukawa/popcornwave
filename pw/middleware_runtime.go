@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"io/fs"
 	"net"
 	"net/http"
 	"strconv"
@@ -90,12 +91,19 @@ func trackResponse(next http.Handler) http.Handler {
 	})
 }
 
-func buildRuntimeHandler(handler http.Handler, server ServerConfig, security SecurityConfig, middleware MiddlewareConfig, resources pwruntime.Resources) (http.Handler, error) {
+func buildRuntimeHandler(handler http.Handler, server ServerConfig, security SecurityConfig, middleware MiddlewareConfig, resources pwruntime.Resources, publicFS ...fs.FS) (http.Handler, error) {
 	trusted, err := compileTrustedProxies(server.TrustedProxies)
 	if err != nil {
 		return nil, err
 	}
 	result := operationalEndpoints(handler, server, resources)
+	if server.Public.Enabled {
+		var embedded fs.FS
+		if len(publicFS) > 0 {
+			embedded = publicFS[0]
+		}
+		result = publicAssetHandler(result, server.Public, embedded)
+	}
 	if server.MaxRequestBody > 0 {
 		result = requestBodyLimit(result, server.MaxRequestBody)
 	}

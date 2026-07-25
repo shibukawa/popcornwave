@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/shibukawa/petitweb-go/contrib/otel"
+	"github.com/shibukawa/popcornwave/contrib/otel"
 )
 
 type spanCollector struct{ spans []SpanData }

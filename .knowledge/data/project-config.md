@@ -26,7 +26,7 @@ schema:
     tailwind:
       enabled: false
       input: assets/app.css
-      output: internal/static/app.css
+      output: public/generated/app.css
       minify: true for api:cli-build
 optional_extensions:
   - generated output rules

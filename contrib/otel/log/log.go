@@ -6,8 +6,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/shibukawa/petitweb-go/contrib/otel"
-	"github.com/shibukawa/petitweb-go/contrib/otel/trace"
+	"github.com/shibukawa/popcornwave/contrib/otel"
+	"github.com/shibukawa/popcornwave/contrib/otel/trace"
 )
 
 // SeverityNumber follows the OpenTelemetry log data model numeric ranges.

@@ -66,6 +66,17 @@ func validateServerConfig(config ServerConfig) error {
 		}
 		seen[endpoint.Path] = name
 	}
+	if config.Public.Enabled {
+		mount, err := normalizePublicMount(config.Public.Mount)
+		if err != nil {
+			return err
+		}
+		for endpoint, name := range seen {
+			if strings.HasPrefix(endpoint+"/", mount) || strings.HasPrefix(mount, endpoint+"/") {
+				return fmt.Errorf("server.public.mount overlaps server.%s.path: %s", name, endpoint)
+			}
+		}
+	}
 	return nil
 }
 
@@ -108,7 +119,32 @@ func validateOperationalEndpointCollisions(handler http.Handler, config ServerCo
 			return fmt.Errorf("server.%s.path collides with application route %q", name, pattern)
 		}
 	}
+	if config.Public.Enabled {
+		mount, err := normalizePublicMount(config.Public.Mount)
+		if err != nil {
+			return err
+		}
+		for _, requestPath := range []string{strings.TrimSuffix(mount, "/"), mount, mount + "collision"} {
+			request, err := http.NewRequest(http.MethodGet, "http://popcornwave.invalid"+requestPath, nil)
+			if err != nil {
+				return fmt.Errorf("server.public.mount: %w", err)
+			}
+			_, pattern := resolver.Handler(request)
+			route := exactRoutePath(pattern)
+			if route != "" && route != "/" && publicPathsOverlap(route, mount) {
+				return fmt.Errorf("server.public.mount collides with application route %q", pattern)
+			}
+		}
+	}
 	return nil
+}
+
+func publicPathsOverlap(route, mount string) bool {
+	route = strings.TrimSuffix(route, "{$}")
+	route = strings.TrimSuffix(route, "...")
+	route = strings.TrimSuffix(route, "/")
+	mount = strings.TrimSuffix(mount, "/")
+	return route == mount || strings.HasPrefix(route+"/", mount+"/") || strings.HasPrefix(mount+"/", route+"/")
 }
 
 func exactRoutePath(pattern string) string {

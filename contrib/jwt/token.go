@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/shibukawa/petitweb-go/contrib/internal/authn"
+	"github.com/shibukawa/popcornwave/contrib/internal/authn"
 )
 
 var (

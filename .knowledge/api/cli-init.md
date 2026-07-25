@@ -16,6 +16,7 @@ outputs:
   - handler registration and pw.Parse example
   - .pw.html page and 400, 404, and 500 templates
   - .pw.sql query example
+  - public directory with non-served .keep sentinel and stable public.go embedding scaffold
   - Devbox configuration with Valkey enabled by default
 optional_css:
   tailwind:

@@ -7,12 +7,14 @@ The pw package can own the complete server lifecycle or return the same initiali
 
 ```yaml
 surface:
-  - Run(context.Context, http.Handler) error
-  - Middlewares(http.Handler) (http.Handler, error)
+  - Run(context.Context, http.Handler, ...Option) error
+  - Middlewares(http.Handler, ...Option) (http.Handler, error)
+  - WithPublicFS(fs.FS) Option
 run:
   - call api:runtime-configuration if configuration is not parsed
   - initialize services and log safe values with provenance
   - initialize the framework middleware stack
+  - construct api:public-asset-middleware for the selected build mode
   - attach framework resources to request contexts
   - start the configured HTTP server
   - gracefully stop acceptance and drain requests where supported

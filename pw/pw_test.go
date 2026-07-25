@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"testing/fstest"
 
 	"github.com/shibukawa/tinybind-go/configbind"
 )
@@ -19,6 +20,7 @@ func TestScaffoldsIncludeBuiltInDefinitions(t *testing.T) {
 	for _, fragment := range []string{
 		"[server]", "port = 8080", `read_header_timeout = "5s"`,
 		`health.path = "/healthz"`, `readiness.path = "/readyz"`,
+		`public.enabled = true`, `public.mount = "/public"`,
 		`headers.frame_options = "deny"`, "[observability]", "[middleware]",
 		"access_log = true",
 	} {
@@ -55,7 +57,7 @@ func TestMiddlewaresParseAndInjectConfiguration(t *testing.T) {
 			t.Error("nil logger")
 		}
 		w.WriteHeader(http.StatusNoContent)
-	}))
+	}), WithPublicFS(fstest.MapFS{".keep": {Data: nil}}))
 	if err != nil {
 		t.Fatal(err)
 	}

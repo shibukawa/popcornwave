@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io/fs"
 	"log/slog"
 	"net/http"
 	"os"
@@ -19,14 +20,41 @@ import (
 
 var requestSequence atomic.Uint64
 
+// Option configures framework lifecycle construction.
+type Option func(*lifecycleOptions) error
+
+type lifecycleOptions struct {
+	publicFS fs.FS
+}
+
+// WithPublicFS supplies the embedded public tree, rooted at its public directory.
+func WithPublicFS(publicFS fs.FS) Option {
+	return func(options *lifecycleOptions) error {
+		if publicFS == nil {
+			return errors.New("popcornwave: nil public filesystem")
+		}
+		options.publicFS = publicFS
+		return nil
+	}
+}
+
 // Middlewares performs framework initialization and returns the same wrapped
 // handler stack used by Run.
-func Middlewares(handler http.Handler) (http.Handler, error) {
+func Middlewares(handler http.Handler, option ...Option) (http.Handler, error) {
 	if handler == nil {
 		return nil, errors.New("popcornwave: nil handler")
 	}
 	if err := ParseConfig(); err != nil {
 		return nil, err
+	}
+	options := lifecycleOptions{}
+	for _, apply := range option {
+		if apply == nil {
+			continue
+		}
+		if err := apply(&options); err != nil {
+			return nil, err
+		}
 	}
 	server := Config[ServerConfig](nil)
 	security := Config[SecurityConfig](nil)
@@ -38,18 +66,21 @@ func Middlewares(handler http.Handler) (http.Handler, error) {
 	if err := validateOperationalEndpointCollisions(handler, server); err != nil {
 		return nil, err
 	}
+	if server.Public.Enabled && !publicDevelopment && options.publicFS == nil {
+		return nil, errors.New("popcornwave: server.public.enabled requires pw.WithPublicFS")
+	}
 	htmlbind.ZstdCompression = middleware.Compression
 	resources := runtimeResources(slog.Default())
-	return buildRuntimeHandler(handler, server, security, middleware, resources)
+	return buildRuntimeHandler(handler, server, security, middleware, resources, options.publicFS)
 }
 
 // Run owns parsing, framework initialization, serving, graceful shutdown, and
 // resource cleanup.
-func Run(ctx context.Context, handler http.Handler) error {
+func Run(ctx context.Context, handler http.Handler, option ...Option) error {
 	if ctx == nil {
 		return errors.New("popcornwave: nil context")
 	}
-	wrapped, err := Middlewares(handler)
+	wrapped, err := Middlewares(handler, option...)
 	if err != nil {
 		return err
 	}

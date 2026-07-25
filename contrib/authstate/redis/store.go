@@ -9,7 +9,7 @@ import (
 	"time"
 
 	goredis "github.com/redis/go-redis/v9"
-	"github.com/shibukawa/petitweb-go/contrib/authstate"
+	"github.com/shibukawa/popcornwave/contrib/authstate"
 )
 
 const (

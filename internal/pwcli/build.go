@@ -23,6 +23,15 @@ func runBuild(ctx context.Context, args []string, stdout, stderr io.Writer) erro
 	if err != nil {
 		return err
 	}
+	if config.Tailwind.Enabled {
+		config.Tailwind.Minify = true
+		if err := buildTailwind(ctx, root, config.Tailwind, stdout, stderr); err != nil {
+			return err
+		}
+	}
+	if err := preparePublicAssets(root); err != nil {
+		return err
+	}
 	command := exec.CommandContext(ctx, "go", "build", config.Main)
 	command.Dir, command.Stdout, command.Stderr, command.Env = root, stdout, stderr, os.Environ()
 	if err := command.Run(); err != nil {

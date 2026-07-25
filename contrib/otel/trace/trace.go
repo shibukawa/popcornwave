@@ -12,7 +12,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/shibukawa/petitweb-go/contrib/otel"
+	"github.com/shibukawa/popcornwave/contrib/otel"
 )
 
 // SpanKind follows the OTLP SpanKind numeric values.
@@ -250,7 +250,7 @@ func Start(ctx context.Context, name string, options ...StartOption) (context.Co
 			return v.tracer.Start(ctx, name, options...)
 		}
 	}
-	return DefaultProvider().Tracer("github.com/shibukawa/petitweb-go/contrib/otel/trace").Start(ctx, name, options...)
+	return DefaultProvider().Tracer("github.com/shibukawa/popcornwave/contrib/otel/trace").Start(ctx, name, options...)
 }
 
 // Span is safe for concurrent attribute/event updates and idempotent End calls.

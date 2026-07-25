@@ -32,12 +32,20 @@ type ServerConfig struct {
 	Health            EndpointConfig
 	Readiness         EndpointConfig
 	OpenAPI           EndpointConfig
+	Public            PublicConfig
 }
 
 // EndpointConfig enables one framework-owned HTTP endpoint.
 type EndpointConfig struct {
 	Enabled bool
 	Path    string
+}
+
+// PublicConfig controls the framework-owned static asset endpoint.
+type PublicConfig struct {
+	Enabled   bool
+	Mount     string
+	ReadLocal bool
 }
 
 // SecurityConfig controls framework request and response security policy.
@@ -292,6 +300,9 @@ func registerServerConfig() {
 		"server.readiness.path":      "/readyz",
 		"server.openapi.enabled":     "true",
 		"server.openapi.path":        "/openapi.json",
+		"server.public.enabled":      "true",
+		"server.public.mount":        "/public",
+		"server.public.read_local":   "false",
 	}
 	keys := []string{
 		"server.port", "server.read_header_timeout", "server.read_timeout",
@@ -300,6 +311,7 @@ func registerServerConfig() {
 		"server.health.enabled", "server.health.path",
 		"server.readiness.enabled", "server.readiness.path",
 		"server.openapi.enabled", "server.openapi.path",
+		"server.public.enabled", "server.public.mount", "server.public.read_local",
 	}
 	configbind.Register[ServerConfig](configbind.Definition{
 		TypeName:  typeName,
@@ -321,6 +333,9 @@ func registerServerConfig() {
 			{Prefix: "server", Key: "readiness.path"},
 			{Prefix: "server", Key: "openapi.enabled", Kind: cliparser.KindBool},
 			{Prefix: "server", Key: "openapi.path"},
+			{Prefix: "server", Key: "public.enabled", Kind: cliparser.KindBool},
+			{Prefix: "server", Key: "public.mount"},
+			{Prefix: "server", Key: "public.read_local", Kind: cliparser.KindBool},
 		},
 		Apply: func(dst any, overlay *configbind.Overlay) error {
 			p, ok := dst.(*ServerConfig)
@@ -355,7 +370,13 @@ func registerServerConfig() {
 			if err := applyEndpointConfig(overlay, "server.readiness", &p.Readiness); err != nil {
 				return err
 			}
-			return applyEndpointConfig(overlay, "server.openapi", &p.OpenAPI)
+			if err := applyEndpointConfig(overlay, "server.openapi", &p.OpenAPI); err != nil {
+				return err
+			}
+			p.Public.Enabled = configBool(overlay, "server.public.enabled")
+			p.Public.Mount = valueOf(overlay, "server.public.mount")
+			p.Public.ReadLocal = configBool(overlay, "server.public.read_local")
+			return nil
 		},
 		Scaffold: []configbind.ScaffoldField{
 			{Key: "port", Kind: configbind.ScaffoldInt, Default: "8080", Opt: "port", Env: "PORT", Help: "HTTP listen port"},
@@ -372,6 +393,9 @@ func registerServerConfig() {
 			{Key: "readiness.path", Kind: configbind.ScaffoldString, Default: "/readyz"},
 			{Key: "openapi.enabled", Kind: configbind.ScaffoldBool, Default: "true"},
 			{Key: "openapi.path", Kind: configbind.ScaffoldString, Default: "/openapi.json"},
+			{Key: "public.enabled", Kind: configbind.ScaffoldBool, Default: "true"},
+			{Key: "public.mount", Kind: configbind.ScaffoldString, Default: "/public"},
+			{Key: "public.read_local", Kind: configbind.ScaffoldBool, Default: "false"},
 		},
 	})
 }

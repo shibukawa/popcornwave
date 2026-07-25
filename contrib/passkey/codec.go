@@ -7,7 +7,7 @@ import (
 	"io"
 	"time"
 
-	"github.com/shibukawa/petitweb-go/contrib/authstate"
+	"github.com/shibukawa/popcornwave/contrib/authstate"
 )
 
 const (

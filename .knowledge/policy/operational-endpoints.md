@@ -29,7 +29,6 @@ rules:
   - return no DSN, backend name, stack, configuration, or dependency detail
   - disabled endpoints register no route
 non_goals:
-  - static file serving; applications compose embed, fs.FS, and net/http handlers
   - metrics endpoint in the first release
   - hosted API documentation UI
 ```

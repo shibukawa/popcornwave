@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/shibukawa/petitweb-go/contrib/authstate"
+	"github.com/shibukawa/popcornwave/contrib/authstate"
 )
 
 func TestCeremonyStateCodecRoundTrip(t *testing.T) {

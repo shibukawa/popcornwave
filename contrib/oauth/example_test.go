@@ -7,8 +7,8 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/shibukawa/petitweb-go/contrib/authstate/memory"
-	"github.com/shibukawa/petitweb-go/contrib/oauth"
+	"github.com/shibukawa/popcornwave/contrib/authstate/memory"
+	"github.com/shibukawa/popcornwave/contrib/oauth"
 )
 
 func ExampleNewClient() {

@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/shibukawa/petitweb-go/contrib/otel/trace"
+	"github.com/shibukawa/popcornwave/contrib/otel/trace"
 )
 
 type recordCollector struct{ records []RecordData }
