@@ -8,6 +8,8 @@ import (
 	"path"
 	"strings"
 	"time"
+
+	"github.com/shibukawa/popcornwave/middlewares"
 )
 
 func validateRuntimeConfig(server ServerConfig, security SecurityConfig, middleware MiddlewareConfig, observability ObservabilityConfig) error {
@@ -95,7 +97,7 @@ func validateServerConfig(config ServerConfig) error {
 		seen[endpoint.Path] = name
 	}
 	if config.Public.Enabled {
-		mount, err := normalizePublicMount(config.Public.Mount)
+		mount, err := middlewares.NormalizePublicMount(config.Public.Mount)
 		if err != nil {
 			return err
 		}
@@ -148,7 +150,7 @@ func validateOperationalEndpointCollisions(handler http.Handler, config ServerCo
 		}
 	}
 	if config.Public.Enabled {
-		mount, err := normalizePublicMount(config.Public.Mount)
+		mount, err := middlewares.NormalizePublicMount(config.Public.Mount)
 		if err != nil {
 			return err
 		}

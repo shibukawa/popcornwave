@@ -14,6 +14,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/shibukawa/popcornwave/middlewares"
 	"github.com/shibukawa/popcornwave/pwruntime"
 	"github.com/shibukawa/tinybind-go/cliparser"
 	"github.com/shibukawa/tinybind-go/configbind"
@@ -42,11 +43,7 @@ type EndpointConfig struct {
 }
 
 // PublicConfig controls the framework-owned static asset endpoint.
-type PublicConfig struct {
-	Enabled   bool
-	Mount     string
-	ReadLocal bool
-}
+type PublicConfig = middlewares.PublicAssetConfig
 
 // SecurityConfig controls framework request and response security policy.
 type SecurityConfig struct {
@@ -54,24 +51,10 @@ type SecurityConfig struct {
 }
 
 // SecurityHeadersConfig controls browser-facing response headers.
-type SecurityHeadersConfig struct {
-	Enabled                         bool
-	ContentTypeOptions              bool
-	FrameOptions                    string
-	ReferrerPolicy                  string
-	ContentSecurityPolicy           string
-	ContentSecurityPolicyReportOnly string
-	PermissionsPolicy               string
-	HSTS                            HSTSConfig
-}
+type SecurityHeadersConfig = middlewares.SecurityHeadersConfig
 
 // HSTSConfig controls Strict-Transport-Security on verified HTTPS requests.
-type HSTSConfig struct {
-	Enabled           bool
-	MaxAge            time.Duration
-	IncludeSubdomains bool
-	Preload           bool
-}
+type HSTSConfig = middlewares.HSTSConfig
 
 // SessionConfig contains the currently available session runtime settings.
 type SessionConfig struct {

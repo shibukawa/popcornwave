@@ -48,10 +48,6 @@ func prepareTestRuntime(handler http.Handler, configs pwtestbridge.Configs, opti
 	if err := validateOperationalEndpointCollisions(handler, server); err != nil {
 		return pwtestbridge.Prepared{}, err
 	}
-	publicFS := registeredPublicFS()
-	if server.Public.Enabled && !publicDevelopment && publicFS == nil {
-		return pwtestbridge.Prepared{}, fmt.Errorf("popcornwave: server.public.enabled requires a registered public filesystem")
-	}
 	// Savepoint support decides whether a test transaction can host the
 	// application's own transactions, so it is checked before opening a pool.
 	if options.Transaction {
@@ -88,7 +84,7 @@ func prepareTestRuntime(handler http.Handler, configs pwtestbridge.Configs, opti
 		DBDriver: driver,
 		TxScope:  scope,
 	}
-	wrapped, err := buildRuntimeHandler(handler, server, security, middleware, resources, publicFS)
+	wrapped, err := buildRuntimeHandler(handler, server, security, middleware, resources)
 	if err != nil {
 		if dbClose != nil {
 			_ = dbClose()
