@@ -19,7 +19,15 @@ run_option_order:
   - open the copied pool through api:test-run
   - apply WithSchemaDir
   - apply WithSeed files in declared order
+  - begin the api:test-run WithTransaction test transaction
   - start the HTTP server
+transaction_interaction:
+  with_seed: commits before the test transaction opens, so datasets are the shared baseline and only per-test writes roll back
+  server_methods: Seed and AssertDB reject a WithTransaction server through Fatalf
+  reason:
+    - both work on the pool, which cannot observe writes inside the test transaction
+    - a pool sized for one connection is already held by that transaction
+  future: an executor-based system:dbtestify connector would let both run inside the test transaction
 connector:
   pool: the api:test-run owned *sql.DB; no second pool is opened
   construction: decision:dbtestify-integration NewDBConnectorFromDB

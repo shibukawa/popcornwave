@@ -1,0 +1,18 @@
+# Development configuration, selected by APP_ENV=dev (the default).
+
+[app]
+env_label = "development"
+env_label_color = "#059669"
+
+[observability]
+minimum_level = "debug"
+service_name = "helloworld"
+
+[middleware.rdb]
+enabled = true
+dsn = "sqlite://helloworld.db"
+connect_timeout = "5s"
+max_open_conns = 1
+max_idle_conns = 1
+conn_max_lifetime = "0s"
+conn_max_idle_time = "0s"

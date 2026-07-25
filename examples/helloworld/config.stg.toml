@@ -1,0 +1,29 @@
+# Staging configuration, selected by APP_ENV=stg.
+
+[app]
+env_label = "staging"
+env_label_color = "#d97706"
+
+[server]
+port = 8081
+
+[observability]
+minimum_level = "info"
+service_name = "helloworld-stg"
+
+[middleware]
+compression = true
+
+[middleware.rdb]
+enabled = true
+dsn = "sqlite://helloworld.db"
+auto_transaction = false
+connect_timeout = "5s"
+max_open_conns = 1
+max_idle_conns = 1
+conn_max_lifetime = "0s"
+conn_max_idle_time = "0s"
+
+[security.headers]
+hsts.enabled = true
+hsts.max_age = "1h"

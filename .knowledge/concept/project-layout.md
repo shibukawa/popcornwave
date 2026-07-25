@@ -8,6 +8,8 @@ The starter project keeps handlers, templates, SQL, and their generated Go files
 ```yaml
 layout:
   popcornwave.toml: data:project-config
+  config.dev.toml: policy:config-file-resolution project-local runtime configuration
+  config/: optional policy:config-file-resolution project-local runtime configuration directory
   go.mod: Go module definition
   go.sum: Go dependency checksums
   .gitignore: excludes **/*_pw_gen.go, public/**/*.zstd, and other build-only output
@@ -46,6 +48,7 @@ ownership:
     - public.go
   handwritten:
     - popcornwave.toml
+    - config.{env}.toml or config/config.{env}.toml
     - go.mod
     - .gitignore
     - devbox.json

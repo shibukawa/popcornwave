@@ -1,7 +1,6 @@
 package testutil
 
 import (
-	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -11,29 +10,6 @@ import (
 
 	"github.com/shibukawa/popcornwave/pw"
 )
-
-// recordingT captures reports so a deliberate mismatch can be inspected without
-// failing the surrounding test. It also proves TestingT is implementable
-// outside the testing package.
-type recordingT struct {
-	testing.TB
-	errors []string
-	fatals []string
-}
-
-func (t *recordingT) Helper() {}
-
-func (t *recordingT) Cleanup(func()) {}
-
-func (t *recordingT) Errorf(format string, args ...any) {
-	t.errors = append(t.errors, fmt.Sprintf(format, args...))
-}
-
-func (t *recordingT) Fatalf(format string, args ...any) {
-	t.fatals = append(t.fatals, fmt.Sprintf(format, args...))
-}
-
-var _ TestingT = (*recordingT)(nil)
 
 func memberSchemaDir(t *testing.T) string {
 	t.Helper()
@@ -106,7 +82,7 @@ func TestAssertDBMatchesAndReportsDiff(t *testing.T) {
 	server.AssertDB(t, "after_insert")
 
 	// The stale dataset must now be reported, not silently accepted.
-	recorder := &recordingT{}
+	recorder := &recordingT{TestingT: t}
 	server.AssertDB(recorder, "initial")
 	if len(recorder.errors) != 1 {
 		t.Fatalf("errors = %v, want exactly one mismatch report", recorder.errors)
@@ -152,12 +128,12 @@ func TestWithSeedDirOverridesLocation(t *testing.T) {
 }
 
 func TestSeedFailsWhenDatabaseDisabled(t *testing.T) {
-	recorder := &recordingT{}
+	recorder := &recordingT{TestingT: t}
 	server := &Server{Config: &Config{values: nil}, seedDir: "testdata/seed"}
 	server.Seed(recorder, "initial")
 
-	if len(recorder.fatals) != 1 || !strings.Contains(recorder.fatals[0], "RDB is disabled") {
-		t.Fatalf("fatals = %v, want a disabled-RDB report", recorder.fatals)
+	if !strings.Contains(recorder.failure, "RDB is disabled") {
+		t.Fatalf("failure = %q, want a disabled-RDB report", recorder.failure)
 	}
 }
 
@@ -165,9 +141,27 @@ func TestSeedRejectsUnknownDataset(t *testing.T) {
 	server := TestRun(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}),
 		withMemberDatabase, WithSchemaDir(memberSchemaDir(t)))
 
-	recorder := &recordingT{}
+	recorder := &recordingT{TestingT: t}
 	server.Seed(recorder, "missing")
-	if len(recorder.fatals) != 1 || !strings.Contains(recorder.fatals[0], "missing.yaml") {
-		t.Fatalf("fatals = %v, want a missing-dataset report", recorder.fatals)
+	if !strings.Contains(recorder.failure, "missing.yaml") {
+		t.Fatalf("failure = %q, want a missing-dataset report", recorder.failure)
+	}
+}
+
+// TestSeedAndAssertRejectTransactionServer pins the documented limitation: both
+// work on the pool, which cannot see writes inside the test transaction.
+func TestSeedAndAssertRejectTransactionServer(t *testing.T) {
+	server := &Server{Config: &Config{values: nil}, seedDir: "testdata/seed", transaction: true}
+
+	seedRecorder := &recordingT{TestingT: t}
+	server.Seed(seedRecorder, "initial")
+	if !strings.Contains(seedRecorder.failure, "WithTransaction") {
+		t.Fatalf("Seed failure = %q, want a WithTransaction report", seedRecorder.failure)
+	}
+
+	assertRecorder := &recordingT{TestingT: t}
+	server.AssertDB(assertRecorder, "initial")
+	if !strings.Contains(assertRecorder.failure, "WithTransaction") {
+		t.Fatalf("AssertDB failure = %q, want a WithTransaction report", assertRecorder.failure)
 	}
 }

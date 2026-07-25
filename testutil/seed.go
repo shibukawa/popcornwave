@@ -45,10 +45,18 @@ func WithSeedDir(directory string) RunOption {
 // Seed loads dataset files into the running server's database.
 //
 // Use it to reset state between phases of one test. A failure stops the test.
+//
+// It is unavailable under WithTransaction because it works on the pool, not on
+// the test transaction. Pass the datasets to WithSeed instead, which loads them
+// before the transaction opens.
 func (server *Server) Seed(t TestingT, files ...string) {
 	t.Helper()
 	if len(files) == 0 {
 		t.Fatalf("testutil: Seed requires at least one dataset")
+		return
+	}
+	if server.transaction {
+		t.Fatalf("testutil: Seed is unavailable under WithTransaction; use WithSeed to load datasets before the transaction opens")
 		return
 	}
 	if err := applySeed(server.Config, server.DB, server.seedDir, files); err != nil {
@@ -61,10 +69,17 @@ func (server *Server) Seed(t TestingT, files ...string) {
 // A mismatch is reported through Errorf with a plain-text per-table diff and
 // the test continues. Only committed state is visible, so a request whose
 // transaction is still open has not been compared yet.
+//
+// It is unavailable under WithTransaction because it reads through the pool and
+// would never observe writes made inside the test transaction.
 func (server *Server) AssertDB(t TestingT, files ...string) {
 	t.Helper()
 	if len(files) == 0 {
 		t.Fatalf("testutil: AssertDB requires at least one dataset")
+		return
+	}
+	if server.transaction {
+		t.Fatalf("testutil: AssertDB is unavailable under WithTransaction; the pool cannot observe writes inside the test transaction")
 		return
 	}
 	dialect, paths, err := resolveSeed(server.Config, server.seedDir, files)

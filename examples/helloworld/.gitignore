@@ -1,5 +1,5 @@
 .devbox/
-helloworld
+/helloworld
 *_pw_gen.go
 public/**/*.zstd
 helloworld.db*

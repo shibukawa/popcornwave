@@ -32,7 +32,7 @@ func initializeRuntimeDatabase() error {
 	if alreadyOpen {
 		return nil
 	}
-	db, err := openRuntimeDatabase(config)
+	db, driver, err := openRuntimeDatabase(config)
 	if err != nil {
 		return err
 	}
@@ -44,6 +44,7 @@ func initializeRuntimeDatabase() error {
 		return nil
 	}
 	configState.db = db
+	configState.dbDriver = driver
 	configState.cleanups = append(configState.cleanups, &runtimeCleanup{
 		name: "database",
 		fn: func(context.Context) error {
@@ -53,14 +54,14 @@ func initializeRuntimeDatabase() error {
 	return nil
 }
 
-func openRuntimeDatabase(config RDBConfig) (*sql.DB, error) {
+func openRuntimeDatabase(config RDBConfig) (*sql.DB, string, error) {
 	driver, dsn, err := databaseTarget(config.DSN)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 	db, err := sql.Open(driver, dsn)
 	if err != nil {
-		return nil, fmt.Errorf("popcornwave: open database: %w", err)
+		return nil, "", fmt.Errorf("popcornwave: open database: %w", err)
 	}
 	db.SetMaxOpenConns(config.MaxOpenConns)
 	db.SetMaxIdleConns(config.MaxIdleConns)
@@ -70,9 +71,9 @@ func openRuntimeDatabase(config RDBConfig) (*sql.DB, error) {
 	defer cancel()
 	if err := db.PingContext(ctx); err != nil {
 		_ = db.Close()
-		return nil, fmt.Errorf("popcornwave: connect database: %w", err)
+		return nil, "", fmt.Errorf("popcornwave: connect database: %w", err)
 	}
-	return db, nil
+	return db, driver, nil
 }
 
 func databaseTarget(configured string) (driver, dsn string, err error) {

@@ -10,14 +10,9 @@ import (
 	"os"
 	"os/signal"
 	"strconv"
-	"sync/atomic"
 	"syscall"
 	"time"
-
-	"github.com/shibukawa/popcornwave/pwruntime"
 )
-
-var requestSequence atomic.Uint64
 
 // Option configures framework lifecycle construction.
 type Option func(*lifecycleOptions) error
@@ -55,9 +50,6 @@ func Middlewares(handler http.Handler, option ...Option) (http.Handler, error) {
 			return nil, err
 		}
 	}
-	if options.publicFS == nil {
-		options.publicFS = registeredPublicFS()
-	}
 	server := Config[ServerConfig](nil)
 	security := Config[SecurityConfig](nil)
 	middleware := Config[MiddlewareConfig](nil)
@@ -69,9 +61,6 @@ func Middlewares(handler http.Handler, option ...Option) (http.Handler, error) {
 	}
 	if err := validateOperationalEndpointCollisions(handler, server); err != nil {
 		return nil, err
-	}
-	if server.Public.Enabled && !publicDevelopment && options.publicFS == nil {
-		return nil, errors.New("popcornwave: server.public.enabled requires a registered public filesystem")
 	}
 	resources := runtimeResources(slog.Default())
 	return buildRuntimeHandler(handler, server, security, middleware, resources, options.publicFS)
@@ -154,53 +143,4 @@ func runRuntimeCleanups(ctx context.Context, cleanups []*runtimeCleanup) error {
 		result = errors.Join(result, cleanupErr)
 	}
 	return result
-}
-
-func injectResources(resources pwruntime.Resources) func(http.Handler) http.Handler {
-	return func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			ctx := pwruntime.WithResources(r.Context(), resources)
-			next.ServeHTTP(w, r.WithContext(ctx))
-		})
-	}
-}
-
-func requestIDMiddleware(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		id := r.Header.Get("X-Request-ID")
-		if !validRequestID(id) {
-			id = fmt.Sprintf("%x-%x", time.Now().UnixNano(), requestSequence.Add(1))
-		}
-		w.Header().Set("X-Request-ID", id)
-		ctx := pwruntime.WithLogger(r.Context(), Logger(r.Context()).With("request_id", id))
-		next.ServeHTTP(w, r.WithContext(ctx))
-	})
-}
-
-func validRequestID(value string) bool {
-	if value == "" || len(value) > 128 {
-		return false
-	}
-	for _, r := range value {
-		if r < 0x21 || r > 0x7e {
-			return false
-		}
-	}
-	return true
-}
-
-func recoveryMiddleware(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		defer func() {
-			if recovered := recover(); recovered != nil {
-				err := fmt.Errorf("panic: %v", recovered)
-				if responseCommitted(w) {
-					Logger(r.Context()).ErrorContext(r.Context(), "panic after response commit", "error", err)
-					return
-				}
-				WriteProblem(w, r, InternalServerError(err))
-			}
-		}()
-		next.ServeHTTP(w, r)
-	})
 }

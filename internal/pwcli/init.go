@@ -10,6 +10,8 @@ import (
 	"runtime"
 	"runtime/debug"
 	"strings"
+
+	"github.com/shibukawa/popcornwave/internal/pwenv"
 )
 
 func runInit(args []string, stdout io.Writer) error {
@@ -146,6 +148,15 @@ main = "./cmd/` + name + `"
 [dev]
 extra_watch = []
 ` + configTailwind,
+		pwenv.FileName(pwenv.Development): `# Development runtime configuration.
+# APP_ENV selects this file; add config.stg.toml and config.prod.toml as needed.
+[server]
+port = 8080
+
+[observability]
+minimum_level = "debug"
+service_name = "` + name + `"
+`,
 		"devbox.json": `{
   "$schema": "https://raw.githubusercontent.com/jetify-com/devbox/0.14.2/.schema/devbox.schema.json",
   "packages": ["go@latest", "valkey@latest"` + devboxTailwind + `],
@@ -240,14 +251,14 @@ import (
 	"embed"
 	"io/fs"
 
-	"github.com/shibukawa/popcornwave/pw"
+	"github.com/shibukawa/popcornwave/middlewares"
 )
 
 //go:embed all:public
 var embeddedPublic embed.FS
 
 func init() {
-	pw.RegisterPublicFS(PublicFS())
+	middlewares.RegisterPublicFS(PublicFS())
 }
 
 func PublicFS() fs.FS {
@@ -265,7 +276,8 @@ func PublicFS() fs.FS {
     }
 }
 `,
-		".gitignore": ".devbox/\n" + name + "\n*_pw_gen.go\npublic/**/*.zstd\n*.db\n",
+		// The binary pattern is anchored: a bare name would also ignore cmd/<name>/.
+		".gitignore": ".devbox/\n/" + name + "\n*_pw_gen.go\npublic/**/*.zstd\n*.db\n",
 	}
 	if tailwind {
 		files["assets/app.css"] = `@import "tailwindcss";

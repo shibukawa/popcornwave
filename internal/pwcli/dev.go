@@ -10,6 +10,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/shibukawa/popcornwave/internal/pwenv"
 )
 
 func runDev(ctx context.Context, args []string, stdout, stderr io.Writer) error {
@@ -116,13 +118,23 @@ func runDev(ctx context.Context, args []string, stdout, stderr io.Writer) error 
 
 func startApplication(ctx context.Context, root, mainPackage string, stdout, stderr io.Writer) (*exec.Cmd, <-chan error, error) {
 	command := exec.CommandContext(ctx, "go", "run", "-tags=pwdev", mainPackage)
-	command.Dir, command.Stdout, command.Stderr, command.Stdin, command.Env = root, stdout, stderr, os.Stdin, os.Environ()
+	command.Dir, command.Stdout, command.Stderr, command.Stdin, command.Env = root, stdout, stderr, os.Stdin, developmentEnviron()
 	if err := command.Start(); err != nil {
 		return nil, nil, err
 	}
 	result := make(chan error, 1)
 	go func() { result <- command.Wait() }()
 	return command, result, nil
+}
+
+// developmentEnviron runs the application under APP_ENV=dev unless the
+// developer already selected another environment.
+func developmentEnviron() []string {
+	environ := os.Environ()
+	if value, ok := os.LookupEnv(pwenv.Var); ok && strings.TrimSpace(value) != "" {
+		return environ
+	}
+	return append(environ, pwenv.Var+"="+pwenv.Development)
 }
 
 func stopCommand(command *exec.Cmd) {
@@ -181,7 +193,7 @@ func snapshotWatchFiles(root string, extra ...string) (watchState, error) {
 			return nil
 		}
 		name := entry.Name()
-		if !included[filepath.Clean(path)] && name != "popcornwave.toml" && name != "config.toml" &&
+		if !included[filepath.Clean(path)] && name != "popcornwave.toml" && !pwenv.IsFileName(name) &&
 			!strings.HasSuffix(name, ".go") &&
 			!strings.HasSuffix(name, ".pw.html") && !strings.HasSuffix(name, ".pw.sql") {
 			return nil
