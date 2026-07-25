@@ -57,9 +57,9 @@ func TestScaffoldIncludesPublicEmbed(t *testing.T) {
 		}
 	}
 	for _, fragment := range []string{
-		`"github.com/shibukawa/popcornwave/pw"`,
+		`"github.com/shibukawa/popcornwave/middlewares"`,
 		"func init()",
-		"pw.RegisterPublicFS(PublicFS())",
+		"middlewares.RegisterPublicFS(PublicFS())",
 	} {
 		if !strings.Contains(files["public.go"], fragment) {
 			t.Errorf("public.go missing %q", fragment)

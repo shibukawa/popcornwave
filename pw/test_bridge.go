@@ -48,10 +48,6 @@ func prepareTestRuntime(handler http.Handler, configs pwtestbridge.Configs) (pwt
 	if err := validateOperationalEndpointCollisions(handler, server); err != nil {
 		return pwtestbridge.Prepared{}, err
 	}
-	publicFS := registeredPublicFS()
-	if server.Public.Enabled && !publicDevelopment && publicFS == nil {
-		return pwtestbridge.Prepared{}, fmt.Errorf("popcornwave: server.public.enabled requires a registered public filesystem")
-	}
 	var dbClose func() error
 	var db = (*sql.DB)(nil)
 	if middleware.RDB.Enabled {
@@ -67,7 +63,7 @@ func prepareTestRuntime(handler http.Handler, configs pwtestbridge.Configs) (pwt
 		Logger:  slog.Default(),
 		DB:      db,
 	}
-	wrapped, err := buildRuntimeHandler(handler, server, security, middleware, resources, publicFS)
+	wrapped, err := buildRuntimeHandler(handler, server, security, middleware, resources)
 	if err != nil {
 		if dbClose != nil {
 			_ = dbClose()

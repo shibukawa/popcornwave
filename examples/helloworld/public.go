@@ -4,14 +4,14 @@ import (
 	"embed"
 	"io/fs"
 
-	"github.com/shibukawa/popcornwave/pw"
+	"github.com/shibukawa/popcornwave/middlewares"
 )
 
 //go:embed all:public
 var embeddedPublic embed.FS
 
 func init() {
-	pw.RegisterPublicFS(PublicFS())
+	middlewares.RegisterPublicFS(PublicFS())
 }
 
 func PublicFS() fs.FS {
