@@ -11,7 +11,7 @@ visibility:
   context_key: private
 fields:
   database: optional *sql.DB
-  transaction: optional *sql.Tx
+  transaction_scope: optional data:transaction-scope
   configuration_registry: data:runtime-config-registry
   root_span: optional contrib/otel/trace *Span
   logger: private api:logger backend and stable request attributes
@@ -19,14 +19,15 @@ fields:
   authentication: data:request-authentication
   csrf_token: optional masked request token
 derived:
-  sql_executor: transaction when present, otherwise database
+  sql_executor: transaction scope tx when present, otherwise database
 lifecycle:
   - create once per request
   - framework middleware assembles fields before application handler dispatch
   - authentication middleware finalizes authenticated or unauthenticated state before application handler dispatch
   - policy:csrf-protection derives a safe masked token without exposing the stored secret
   - fields are stable after handler dispatch
-  - api:transaction-runner creates a scoped child context when middleware.rdb.auto_transaction is false
+  - api:transaction-runner creates a scoped child context when no data:transaction-scope exists yet
+  - api:transaction-runner nests through savepoints when a scope already exists
   - never share a capsule across requests
 constraints:
   - no general-purpose user value map
