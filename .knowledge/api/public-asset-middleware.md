@@ -7,7 +7,8 @@ Application lifecycle construction selects one static-file middleware implementa
 
 ```yaml
 registration:
-  generated_project: public.go init calls RegisterPublicFS(PublicFS())
+  implementation: github.com/shibukawa/popcornwave/middlewares
+  generated_project: public.go init calls middlewares.RegisterPublicFS(PublicFS())
   compatibility_override: WithPublicFS(fs.FS)
   linker: generated main bootstrap blank-imports the public package
   lifecycle: api:application-lifecycle
