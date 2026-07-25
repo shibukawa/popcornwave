@@ -14,25 +14,13 @@ startup:
   - construct standard http.Handler middleware
   - require no application pw.SetDatabase call under decision:config-driven-database
 request:
-  common:
-    - install *sql.DB before downstream dispatch
-    - make api:request-context-accessors available
-  auto_transaction:
-    - begin *sql.Tx before downstream dispatch
-    - install the transaction as the active SQL executor
-    - buffer non-streaming response until transaction outcome is known
-    - commit on a completed response with status below 400
-    - publish the buffered response only after commit succeeds
-    - rollback on status 400 or greater, panic, cancellation, write failure, or commit failure
-  manual_transaction:
-    - do not begin, commit, or rollback a request transaction
-    - active SQL executor defaults to *sql.DB
+  - install *sql.DB before downstream dispatch
+  - make api:request-context-accessors available
+  - do not begin, commit, or rollback a request transaction, per decision:explicit-transaction-boundary
+  - active SQL executor defaults to *sql.DB, or to an existing data:transaction-scope transaction under api:test-run
 constraints:
-  - rdb.auto_transaction selects auto_transaction when true and manual_transaction when false
-  - automatic transactions cover every HTTP method, including GET and HEAD
-  - streaming, connection hijacking, and early flush require auto_transaction false
-  - rollback errors are observed and logged without replacing the primary failure
-  - commit failure becomes a safe HTTP 500 because no response was published
+  - transaction boundaries come only from api:transaction-runner
+  - streaming, connection hijacking, and early flush need no special transaction configuration
 shutdown:
   - stop accepting requests and drain active handlers
   - close the owned *sql.DB through api:application-lifecycle

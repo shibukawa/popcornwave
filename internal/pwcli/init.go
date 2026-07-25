@@ -251,14 +251,14 @@ import (
 	"embed"
 	"io/fs"
 
-	"github.com/shibukawa/popcornwave/pw"
+	"github.com/shibukawa/popcornwave/middlewares"
 )
 
 //go:embed all:public
 var embeddedPublic embed.FS
 
 func init() {
-	pw.RegisterPublicFS(PublicFS())
+	middlewares.RegisterPublicFS(PublicFS())
 }
 
 func PublicFS() fs.FS {
@@ -276,7 +276,8 @@ func PublicFS() fs.FS {
     }
 }
 `,
-		".gitignore": ".devbox/\n" + name + "\n*_pw_gen.go\npublic/**/*.zstd\n*.db\n",
+		// The binary pattern is anchored: a bare name would also ignore cmd/<name>/.
+		".gitignore": ".devbox/\n/" + name + "\n*_pw_gen.go\npublic/**/*.zstd\n*.db\n",
 	}
 	if tailwind {
 		files["assets/app.css"] = `@import "tailwindcss";

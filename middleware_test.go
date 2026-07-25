@@ -36,7 +36,7 @@ func TestRequestIDAndContextAccessors(t *testing.T) {
 
 func TestSecurityHeaders(t *testing.T) {
 	config := petitweb.DefaultSecurityHeaders()
-	config.HSTS = petitweb.HSTSConfig{Enabled: true, MaxAge: 365 * 24 * time.Hour, IncludeSubDomains: true, Preload: true}
+	config.HSTS = petitweb.HSTSConfig{Enabled: true, MaxAge: 365 * 24 * time.Hour, IncludeSubdomains: true, Preload: true}
 	middleware, err := petitweb.SecurityHeaders(config)
 	if err != nil {
 		t.Fatal(err)

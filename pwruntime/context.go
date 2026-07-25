@@ -19,6 +19,10 @@ type Resources struct {
 	Configs map[reflect.Type]any
 	Logger  *slog.Logger
 	DB      *sql.DB
+	// DBDriver is the driver scheme of DSN, used to decide savepoint support.
+	DBDriver string
+	// TxScope is the active transaction scope, installed by the framework only.
+	TxScope *TransactionScope
 }
 
 func WithResources(ctx context.Context, resources Resources) context.Context {
@@ -73,6 +77,9 @@ func DB(ctx context.Context) (*sql.DB, bool) {
 
 // SQLExecutor is used by generated .pw.sql context wrappers.
 func SQLExecutor(ctx context.Context) (sqlbind.SQLExecutor, error) {
+	if executor := resources(ctx).TxScope.executor(); executor != nil {
+		return executor, nil
+	}
 	if executor, err := sqlbind.SQLExecutorFromContext(ctx); err == nil {
 		return executor, nil
 	}
@@ -80,4 +87,25 @@ func SQLExecutor(ctx context.Context) (sqlbind.SQLExecutor, error) {
 		return db, nil
 	}
 	return nil, errors.New("popcornwave: database is not available in context")
+}
+
+// activeScope returns the transaction scope holding an open transaction.
+func activeScope(ctx context.Context) *TransactionScope {
+	scope := resources(ctx).TxScope
+	if scope.Active() {
+		return scope
+	}
+	return nil
+}
+
+// withScope installs scope as the request transaction state and as the
+// executor resolved by generated SQL code.
+func withScope(ctx context.Context, scope *TransactionScope) context.Context {
+	current := *resources(ctx)
+	current.TxScope = scope
+	ctx = WithResources(ctx, current)
+	if executor := scope.executor(); executor != nil {
+		ctx = sqlbind.WithSQLExecutor(ctx, executor)
+	}
+	return ctx
 }

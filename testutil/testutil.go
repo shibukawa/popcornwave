@@ -16,6 +16,7 @@ import (
 	"github.com/shibukawa/popcornwave/internal/dbschema"
 	"github.com/shibukawa/popcornwave/internal/pwtestbridge"
 	"github.com/shibukawa/popcornwave/pw"
+	"github.com/shibukawa/popcornwave/pwruntime"
 )
 
 // TestingT is the subset of testing.T used by TestRun.
@@ -61,7 +62,8 @@ func Update[T any](config *Config, edit func(*T)) {
 }
 
 type runSettings struct {
-	schemaDir string
+	schemaDir   string
+	transaction bool
 }
 
 // RunOption configures TestRun resources.
@@ -79,6 +81,18 @@ func WithSchemaDir(directory string) RunOption {
 	}
 }
 
+// WithTransaction runs every request of this test server inside one
+// transaction that is rolled back when the test finishes, so tests sharing one
+// database stay independent and may run in parallel. Framework transactions
+// started by the application nest into it as savepoints, which requires a
+// driver with savepoint support.
+func WithTransaction(enabled bool) RunOption {
+	return func(settings *runSettings) error {
+		settings.transaction = enabled
+		return nil
+	}
+}
+
 // Server is a running application created by TestRun.
 type Server struct {
 	URL    string
@@ -86,8 +100,19 @@ type Server struct {
 	Config *Config
 	DB     *sql.DB
 	server *http.Server
-	once   sync.Once
-	close  func() error
+	scope  *pwruntime.TransactionScope
+	ctx    context.Context
+
+	once        sync.Once
+	close       func() error
+	rollbackErr error
+}
+
+// Context returns a context carrying the same runtime resources the server
+// installs on requests, including the WithTransaction transaction. Use it to
+// prepare or assert data inside the test transaction.
+func (server *Server) Context() context.Context {
+	return server.ctx
 }
 
 // Client returns an HTTP client configured for the test server.
@@ -95,10 +120,12 @@ func (server *Server) Client() *http.Client {
 	return &http.Client{}
 }
 
-// Close stops the server and releases its copied runtime resources.
+// Close stops the server, rolls back a WithTransaction transaction, and
+// releases its copied runtime resources.
 func (server *Server) Close() {
 	server.once.Do(func() {
 		_ = server.server.Close()
+		server.rollbackErr = server.scope.Rollback()
 		if server.close != nil {
 			_ = server.close()
 		}
@@ -151,7 +178,7 @@ func TestRun(t TestingT, handler http.Handler, customize func(*Config), options 
 	serverConfig.Port = actualPort
 	Set(config, serverConfig)
 
-	prepared, err := pwtestbridge.Prepare(handler, config.values)
+	prepared, err := pwtestbridge.Prepare(handler, config.values, pwtestbridge.Options{Transaction: settings.transaction})
 	if err != nil {
 		_ = listener.Close()
 		t.Fatalf("initialize Popcorn Wave TestRun: %v", err)
@@ -171,6 +198,16 @@ func TestRun(t TestingT, handler http.Handler, customize func(*Config), options 
 			return nil
 		}
 	}
+	// The test transaction opens after schema setup so DDL never runs inside
+	// it and never competes with it for the single held connection.
+	if settings.transaction {
+		if err := prepared.TxScope.Begin(context.Background(), nil); err != nil {
+			_ = listener.Close()
+			_ = prepared.Close()
+			t.Fatalf("begin Popcorn Wave TestRun transaction: %v", err)
+			return nil
+		}
+	}
 	instance := &http.Server{
 		Addr:              listener.Addr().String(),
 		Handler:           prepared.Handler,
@@ -185,9 +222,20 @@ func TestRun(t TestingT, handler http.Handler, customize func(*Config), options 
 		Config: config,
 		DB:     prepared.DB,
 		server: instance,
+		scope:  prepared.TxScope,
+		ctx:    pwruntime.WithResources(context.Background(), prepared.Resources),
 		close:  prepared.Close,
 	}
 	t.Cleanup(result.Close)
+	if settings.transaction {
+		// Registered last so it runs first and can report the rollback result.
+		t.Cleanup(func() {
+			result.Close()
+			if result.rollbackErr != nil {
+				t.Fatalf("roll back Popcorn Wave TestRun transaction: %v", result.rollbackErr)
+			}
+		})
+	}
 	go func() {
 		_ = instance.Serve(listener)
 	}()

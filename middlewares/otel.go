@@ -1,4 +1,3 @@
-// Package middlewares contains net/http middleware shared by Petitweb applications.
 package middlewares
 
 import (
@@ -32,7 +31,7 @@ func WithSpanName(format func(*http.Request) string) OtelOption {
 
 // Otel extracts W3C Trace Context, creates a server span, and installs it in
 // the request context. With no options it uses trace.DefaultProvider.
-func Otel(options ...OtelOption) func(http.Handler) http.Handler {
+func Otel(options ...OtelOption) Middleware {
 	cfg := otelConfig{provider: trace.DefaultProvider(), spanName: func(r *http.Request) string { return r.Method }}
 	for _, option := range options {
 		option(&cfg)
@@ -45,7 +44,7 @@ func Otel(options ...OtelOption) func(http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			parent := (propagation.TraceContext{}).Extract(r.Context(), r.Header)
 			ctx, span := tracer.Start(parent, cfg.spanName(r), trace.WithSpanKind(trace.SpanKindServer), trace.WithAttributes(requestAttributes(r)...))
-			rw := &statusWriter{ResponseWriter: w, status: http.StatusOK}
+			rw := &ResponseTracker{ResponseWriter: w}
 			defer func() {
 				panicked := recover()
 				if panicked != nil {
@@ -55,9 +54,9 @@ func Otel(options ...OtelOption) func(http.Handler) http.Handler {
 						span.RecordError(err)
 					}
 				}
-				span.SetAttributes(otel.Int64("http.response.status_code", int64(rw.status)))
-				if rw.status >= 500 {
-					span.SetStatus(trace.StatusError, http.StatusText(rw.status))
+				span.SetAttributes(otel.Int64("http.response.status_code", int64(rw.Status())))
+				if rw.Status() >= 500 {
+					span.SetStatus(trace.StatusError, http.StatusText(rw.Status()))
 				}
 				span.End()
 				if panicked != nil {
@@ -78,39 +77,6 @@ func SpanID(ctx context.Context) string { return trace.SpanContextFromContext(ct
 // StartSpan creates a child span using the tracer selected by Otel.
 func StartSpan(ctx context.Context, name string, attributes ...otel.Attribute) (context.Context, *trace.Span) {
 	return trace.Start(ctx, name, trace.WithAttributes(attributes...))
-}
-
-type statusWriter struct {
-	http.ResponseWriter
-	status      int
-	wroteHeader bool
-}
-
-func (w *statusWriter) WriteHeader(status int) {
-	if w.wroteHeader {
-		return
-	}
-	if status >= 100 && status < 200 && status != http.StatusSwitchingProtocols {
-		w.ResponseWriter.WriteHeader(status)
-		return
-	}
-	w.status, w.wroteHeader = status, true
-	w.ResponseWriter.WriteHeader(status)
-}
-func (w *statusWriter) Write(body []byte) (int, error) {
-	if !w.wroteHeader {
-		w.WriteHeader(http.StatusOK)
-	}
-	return w.ResponseWriter.Write(body)
-}
-func (w *statusWriter) Unwrap() http.ResponseWriter { return w.ResponseWriter }
-func (w *statusWriter) Flush() {
-	if !w.wroteHeader {
-		w.WriteHeader(http.StatusOK)
-	}
-	if flusher, ok := w.ResponseWriter.(http.Flusher); ok {
-		flusher.Flush()
-	}
 }
 
 func requestAttributes(r *http.Request) []otel.Attribute {

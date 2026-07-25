@@ -12,6 +12,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/shibukawa/popcornwave/middlewares"
 	tinybind "github.com/shibukawa/tinybind-go"
 	"github.com/shibukawa/tinybind-go/htmlbind"
 	"github.com/shibukawa/tinygodriver/compress/zstd"
@@ -133,23 +134,7 @@ func WriteProblem(w http.ResponseWriter, r *http.Request, err error) {
 	})
 }
 
-func responseCommitted(w http.ResponseWriter) bool {
-	for w != nil {
-		if committed, ok := w.(interface{ Committed() bool }); ok && committed.Committed() {
-			return true
-		}
-		unwrapper, ok := w.(interface{ Unwrap() http.ResponseWriter })
-		if !ok {
-			return false
-		}
-		next := unwrapper.Unwrap()
-		if next == w {
-			return false
-		}
-		w = next
-	}
-	return false
-}
+func responseCommitted(w http.ResponseWriter) bool { return middlewares.Committed(w) }
 
 func mapProblem(err error) Problem {
 	if err == nil {

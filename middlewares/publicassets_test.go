@@ -1,4 +1,4 @@
-package pw
+package middlewares
 
 import (
 	"io/fs"
@@ -20,7 +20,11 @@ func TestPublicAssetHandlerEmbeddedAndNegotiation(t *testing.T) {
 		"app.css.zstd":    {Data: []byte("encoded")},
 		"docs/index.html": {Data: []byte("<h1>docs</h1>")},
 	}
-	handler := publicAssetHandler(http.NotFoundHandler(), PublicConfig{Enabled: true, Mount: "/public"}, embedded)
+	middleware, err := PublicAssets(PublicAssetConfig{Enabled: true, Mount: "/public"}, embedded)
+	if err != nil {
+		t.Fatal(err)
+	}
+	handler := middleware(http.NotFoundHandler())
 
 	tests := []struct {
 		name, method, target, encoding string
@@ -64,9 +68,13 @@ func TestPublicAssetHandlerEmbeddedAndNegotiation(t *testing.T) {
 }
 
 func TestPublicAssetHandlerRedirectAndRejectsUnsafePaths(t *testing.T) {
-	handler := publicAssetHandler(http.NotFoundHandler(), PublicConfig{Enabled: true, Mount: "/assets/"}, fstest.MapFS{
+	middleware, err := PublicAssets(PublicAssetConfig{Enabled: true, Mount: "/assets/"}, fstest.MapFS{
 		"ok.txt": {Data: []byte("ok")},
 	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	handler := middleware(http.NotFoundHandler())
 	redirect := httptest.NewRecorder()
 	handler.ServeHTTP(redirect, httptest.NewRequest(http.MethodGet, "/assets?version=1", nil))
 	if redirect.Code != http.StatusPermanentRedirect || redirect.Header().Get("Location") != "/assets/?version=1" {
@@ -129,11 +137,11 @@ func TestPublicAssetLocalOverlayIsLayerConsistent(t *testing.T) {
 		"app.css.zstd": {Data: []byte("embedded-zstd")},
 		"fallback.txt": {Data: []byte("fallback")},
 	}
-	asset, ok := resolvePublicAsset("app.css", PublicConfig{ReadLocal: true}, embedded)
+	asset, ok := resolvePublicAsset("app.css", PublicAssetConfig{ReadLocal: true}, embedded)
 	if !ok || string(asset.identity) != "local" || asset.zstd != nil {
 		t.Fatalf("local asset = %#v, %v", asset, ok)
 	}
-	asset, ok = resolvePublicAsset("fallback.txt", PublicConfig{ReadLocal: true}, embedded)
+	asset, ok = resolvePublicAsset("fallback.txt", PublicAssetConfig{ReadLocal: true}, embedded)
 	if !ok || string(asset.identity) != "fallback" {
 		t.Fatalf("fallback asset = %#v, %v", asset, ok)
 	}
@@ -141,12 +149,12 @@ func TestPublicAssetLocalOverlayIsLayerConsistent(t *testing.T) {
 
 func TestNormalizePublicMount(t *testing.T) {
 	for _, input := range []string{"/public", "/public/"} {
-		if got, err := normalizePublicMount(input); err != nil || got != "/public/" {
+		if got, err := NormalizePublicMount(input); err != nil || got != "/public/" {
 			t.Fatalf("%q => %q, %v", input, got, err)
 		}
 	}
 	for _, input := range []string{"", "/", "public", "/a/../b", "/a//b", "/a*", "/a?b"} {
-		if _, err := normalizePublicMount(input); err == nil {
+		if _, err := NormalizePublicMount(input); err == nil {
 			t.Errorf("%q unexpectedly valid", input)
 		}
 	}

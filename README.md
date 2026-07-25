@@ -1,5 +1,7 @@
 # Petitweb for Go
 
+<img src="docs/logo.png" alt="Petitweb" width="480">
+
 Petitweb is a small, TinyGo-oriented web application framework built directly
 on `net/http`. Classic mode handles ordinary document requests, form posts,
 redirects, downloads, and APIs without shipping a browser runtime.
