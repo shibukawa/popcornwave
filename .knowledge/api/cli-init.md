@@ -28,7 +28,7 @@ outputs:
   - flow:handler-registration mux for the selected toolchain
   - handler registration and pw.Parse example
   - templates/document.pw.html shared document shell
-  - .pw.html page and 400, 404, and 500 templates
+  - .pw.html page and 400, 401, 403, 404, 409, 413, and 500 templates
   - .pw.sql query example
   - migrations/00001_init.sql application schema as migration version 1
   - public directory with non-served .keep sentinel and stable public.go embedding scaffold
