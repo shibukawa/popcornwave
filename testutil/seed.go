@@ -2,7 +2,6 @@ package testutil
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"strings"
 
@@ -46,20 +45,17 @@ func WithSeedDir(directory string) RunOption {
 //
 // Use it to reset state between phases of one test. A failure stops the test.
 //
-// It is unavailable under WithTransaction because it works on the pool, not on
-// the test transaction. Pass the datasets to WithSeed instead, which loads them
-// before the transaction opens.
+// Under WithTransaction it seeds inside the test transaction, so the rows are
+// visible to requests and disappear with the rollback. Otherwise it seeds
+// through the pool and the rows are committed.
 func (server *Server) Seed(t TestingT, files ...string) {
 	t.Helper()
 	if len(files) == 0 {
 		t.Fatalf("testutil: Seed requires at least one dataset")
 		return
 	}
-	if server.transaction {
-		t.Fatalf("testutil: Seed is unavailable under WithTransaction; use WithSeed to load datasets before the transaction opens")
-		return
-	}
-	if err := applySeed(server.Config, server.DB, server.seedDir, files); err != nil {
+	exec, inTransaction := server.executor()
+	if err := applySeed(server.Config, exec, inTransaction, server.seedDir, files); err != nil {
 		t.Fatalf("seed Popcorn Wave database: %v", err)
 	}
 }
@@ -67,19 +63,16 @@ func (server *Server) Seed(t TestingT, files ...string) {
 // AssertDB compares the running server's database against expected datasets.
 //
 // A mismatch is reported through Errorf with a plain-text per-table diff and
-// the test continues. Only committed state is visible, so a request whose
-// transaction is still open has not been compared yet.
+// the test continues.
 //
-// It is unavailable under WithTransaction because it reads through the pool and
-// would never observe writes made inside the test transaction.
+// Under WithTransaction it reads inside the test transaction, so writes made by
+// requests are visible before any commit. Otherwise only committed state is
+// visible, and a request whose transaction is still open has not been compared
+// yet.
 func (server *Server) AssertDB(t TestingT, files ...string) {
 	t.Helper()
 	if len(files) == 0 {
 		t.Fatalf("testutil: AssertDB requires at least one dataset")
-		return
-	}
-	if server.transaction {
-		t.Fatalf("testutil: AssertDB is unavailable under WithTransaction; the pool cannot observe writes inside the test transaction")
 		return
 	}
 	dialect, paths, err := resolveSeed(server.Config, server.seedDir, files)
@@ -87,7 +80,8 @@ func (server *Server) AssertDB(t TestingT, files ...string) {
 		t.Fatalf("assert Popcorn Wave database: %v", err)
 		return
 	}
-	matched, report, err := dbseed.Assert(context.Background(), server.DB, dialect, paths)
+	exec, inTransaction := server.executor()
+	matched, report, err := dbseed.Assert(context.Background(), exec, dialect, inTransaction, paths)
 	if err != nil {
 		t.Fatalf("assert Popcorn Wave database: %v", err)
 		return
@@ -97,15 +91,30 @@ func (server *Server) AssertDB(t TestingT, files ...string) {
 	}
 }
 
-func applySeed(config *Config, db *sql.DB, directory string, files []string) error {
+// executor selects the statement target for mid-test seeding and assertion.
+// Under WithTransaction that is the test transaction, so uncommitted request
+// writes are visible and seeded rows roll back with it.
+func (server *Server) executor() (dbseed.Executor, bool) {
+	if server.transaction {
+		if tx := server.scope.Tx(); tx != nil {
+			return tx, true
+		}
+	}
+	if server.DB == nil {
+		return nil, false
+	}
+	return server.DB, false
+}
+
+func applySeed(config *Config, exec dbseed.Executor, inTransaction bool, directory string, files []string) error {
 	dialect, paths, err := resolveSeed(config, directory, files)
 	if err != nil {
 		return err
 	}
-	if db == nil {
+	if exec == nil {
 		return fmt.Errorf("configured RDB is disabled")
 	}
-	return dbseed.Apply(context.Background(), db, dialect, paths)
+	return dbseed.Apply(context.Background(), exec, dialect, inTransaction, paths)
 }
 
 func resolveSeed(config *Config, directory string, files []string) (dbseed.Dialect, []string, error) {

@@ -232,7 +232,7 @@ func TestRun(t TestingT, handler http.Handler, customize func(*Config), options 
 	// shared baseline and only per-test writes are rolled back. It also keeps
 	// seeding off the connection the test transaction holds.
 	if len(settings.seedFiles) > 0 {
-		if err := applySeed(config, prepared.DB, seedDir, settings.seedFiles); err != nil {
+		if err := applySeed(config, prepared.DB, false, seedDir, settings.seedFiles); err != nil {
 			_ = listener.Close()
 			_ = prepared.Close()
 			t.Fatalf("initialize Popcorn Wave TestRun seed: %v", err)
