@@ -3,23 +3,24 @@ id: flow:request-lifecycle
 type: flow
 title: Typed Request Lifecycle
 ---
-A Petitweb request remains a standard net/http exchange whose mapping and error payloads are handled by httpbind-go.
+A Popcorn Wave request remains a standard net/http exchange enriched with initialized framework resources and compact pw binding and response calls.
 
 ```yaml
 flow:
   trigger: ServeMux-compatible router dispatches a route from decision:stdlib-servemux
   steps:
+    - id: context
+      action: framework middleware attaches config, logger, database, session, tracing, and security resources
     - id: bind
-      actor: system:httpbinder
-      action: map request sources into the typed request
-      failure: write policy:validation-errors and stop
+      actor: api:request-binding
+      action: pw.Parse maps request sources into the typed input
+      failure: write policy:validation-errors through api:problem-response and stop
     - id: validate
       action: application evaluates business constraints using policy:validation-errors
-      failure: write problem details and stop
+      failure: negotiate api:problem-response output and stop
     - id: execute
       action: application runs business logic
     - id: write
-      actor: system:httpbinder
-      action: serialize typed response using Accept negotiation
+      action: api:html-response, api:api-response, or api:typed-stream writes the response
       failure: write a safe internal problem when headers are not committed
 ```

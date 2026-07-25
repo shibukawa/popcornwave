@@ -1,28 +1,36 @@
 ---
 id: api:cli-init
 type: api
-title: petitweb init
+title: pw init
 ---
-petitweb init creates a compilable starter project with typed health and validated echo endpoints plus generated-artifact conventions.
+pw init creates a runnable Popcorn Wave project with a representative handler, typed template, SQL query, error pages, Devbox environment, and generated-artifact conventions.
 
 ```yaml
-usage: "petitweb init [directory] --module <module-path> [--force]"
+usage: pw init myapp [--tailwind]
 inputs:
-  directory: default current directory
-  module: required unless derived from an existing go.mod
+  directory: required project directory
 outputs:
   - data:project-config
   - concept:project-layout
-  - starter GET /health endpoint
-  - starter POST /echo endpoint demonstrating Bind, Validation, Field, Write, and WriteError
-  - .gitignore entries for dist and temporary files
+  - Go module and cmd/myapp/main.go
+  - handler registration and pw.Parse example
+  - .pw.html page and 400, 404, and 500 templates
+  - .pw.sql query example
+  - Devbox configuration with Valkey enabled by default
+optional_css:
+  tailwind:
+    - configure requirement:tailwind-css-integration in data:project-config
+    - add pinned decision:tailwind-host-toolchain package to Devbox
+    - create assets/app.css and application-owned CSS output wiring
 behavior:
-  - validate module path and destination
+  - validate the project name and destination
   - refuse to overwrite nonempty destinations by default
   - create files atomically
   - run api:cli-generate
-  - run host go test
-force_rule: overwrite only files whose current content matches a known Petitweb template
+next_steps:
+  - cd myapp
+  - devbox shell
+  - pw dev
 exit:
   success: 0
   invalid_input_or_collision: nonzero with actionable path

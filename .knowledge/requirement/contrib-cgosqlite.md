@@ -3,10 +3,10 @@ id: requirement:contrib-cgosqlite
 type: requirement
 title: Native TinyGo SQLite Driver
 ---
-contrib/database/cgosqlite provides a native database/sql driver over a pinned SQLite amalgamation for TinyGo and forced compatibility builds.
+system:tinygodriver provides a native database/sql driver over a pinned SQLite amalgamation for TinyGo and forced compatibility builds.
 
 ```yaml
-package: contrib/database/cgosqlite
+package: github.com/shibukawa/tinygodriver/database/cgosqlite
 contract: data:database-driver-contract
 driver_name: sqlite
 source:

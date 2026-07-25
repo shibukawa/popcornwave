@@ -1,0 +1,310 @@
+package pwcli
+
+import (
+	"bytes"
+	"context"
+	"fmt"
+	"go/ast"
+	"go/format"
+	"go/parser"
+	"go/token"
+	"io"
+	"io/fs"
+	"os"
+	"path/filepath"
+	"sort"
+	"strings"
+
+	"github.com/shibukawa/popcornwave/internal/pwgen"
+	"github.com/shibukawa/tinybind-go/generator"
+)
+
+func runGenerate(ctx context.Context, args []string, stdout io.Writer) error {
+	check := false
+	for _, arg := range args {
+		switch arg {
+		case "--check":
+			check = true
+		default:
+			return fmt.Errorf("generate: unknown argument %q", arg)
+		}
+	}
+	root, err := projectRoot(".")
+	if err != nil {
+		return err
+	}
+	_, err = loadProjectConfig(root)
+	if err != nil {
+		return err
+	}
+	directories, err := packageDirectories(root)
+	if err != nil {
+		return err
+	}
+	options, err := pwgen.Options()
+	if err != nil {
+		return err
+	}
+	runner := generator.New(options)
+	var changes []fileChange
+	for _, directory := range directories {
+		planned, err := planDirectory(ctx, runner, directory)
+		if err != nil {
+			return err
+		}
+		changes = append(changes, planned...)
+	}
+	sort.Slice(changes, func(i, j int) bool { return changes[i].path < changes[j].path })
+	if check && len(changes) > 0 {
+		drift := changePaths(changes)
+		return fmt.Errorf("generated files are stale:\n  %s", strings.Join(drift, "\n  "))
+	}
+	if err := applyFileChanges(changes); err != nil {
+		return err
+	}
+	for _, path := range changePaths(changes) {
+		fmt.Fprintln(stdout, path)
+	}
+	return nil
+}
+
+func packageDirectories(root string) ([]string, error) {
+	found := map[string]bool{}
+	err := filepath.WalkDir(root, func(path string, entry fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if entry.IsDir() {
+			switch entry.Name() {
+			case ".git", "vendor", "node_modules", ".devbox":
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		name := entry.Name()
+		if (strings.HasSuffix(name, ".go") && !strings.HasSuffix(name, "_test.go")) ||
+			strings.HasSuffix(name, ".pw.html") || strings.HasSuffix(name, ".pw.sql") {
+			found[filepath.Dir(path)] = true
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	out := make([]string, 0, len(found))
+	for directory := range found {
+		out = append(out, directory)
+	}
+	sort.Strings(out)
+	return out, nil
+}
+
+type fileChange struct {
+	path   string
+	source []byte
+	remove bool
+}
+
+func planDirectory(ctx context.Context, runner *generator.Generator, directory string) ([]fileChange, error) {
+	openAPI, err := hasGoSources(directory)
+	if err != nil {
+		return nil, err
+	}
+	artifacts, err := runner.GenerateArtifacts(ctx, generator.GenerateRequest{
+		Dir:               directory,
+		OpenAPI:           openAPI,
+		HTMLWriterAPI:     true,
+		SQLContextOnlyAPI: true,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", directory, err)
+	}
+
+	grouped := make(map[string][]generator.Artifact)
+	for _, artifact := range artifacts {
+		target := filepath.Join(directory, artifact.OutputBase+"_pw_gen.go")
+		grouped[target] = append(grouped[target], artifact)
+	}
+	expected := make(map[string]bool, len(grouped))
+	var changes []fileChange
+	for target, group := range grouped {
+		expected[target] = true
+		source, err := mergeArtifacts(group)
+		if err != nil {
+			return nil, err
+		}
+		current, readErr := os.ReadFile(target)
+		if readErr == nil && bytes.Equal(current, source) {
+			continue
+		}
+		if readErr != nil && !os.IsNotExist(readErr) {
+			return nil, readErr
+		}
+		changes = append(changes, fileChange{path: target, source: source})
+	}
+	entries, err := os.ReadDir(directory)
+	if err != nil {
+		return nil, err
+	}
+	for _, entry := range entries {
+		if entry.IsDir() || !strings.HasSuffix(entry.Name(), "_pw_gen.go") {
+			continue
+		}
+		path := filepath.Join(directory, entry.Name())
+		if !expected[path] {
+			changes = append(changes, fileChange{path: path, remove: true})
+		}
+	}
+	return changes, nil
+}
+
+func hasGoSources(directory string) (bool, error) {
+	entries, err := os.ReadDir(directory)
+	if err != nil {
+		return false, err
+	}
+	for _, entry := range entries {
+		name := entry.Name()
+		if !entry.IsDir() && strings.HasSuffix(name, ".go") && !strings.HasSuffix(name, "_test.go") &&
+			!strings.HasSuffix(name, "_pw_gen.go") {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+func mergeArtifacts(artifacts []generator.Artifact) ([]byte, error) {
+	if len(artifacts) == 0 {
+		return nil, fmt.Errorf("popcornwave: no artifacts to merge")
+	}
+	if len(artifacts) == 1 {
+		return artifacts[0].GoSource, nil
+	}
+	packageName := artifacts[0].PackageName
+	fset := token.NewFileSet()
+	imports := make(map[string]*ast.ImportSpec)
+	var declarations []ast.Decl
+	for index, artifact := range artifacts {
+		if artifact.PackageName != packageName {
+			return nil, fmt.Errorf("popcornwave: artifact package mismatch %q and %q", packageName, artifact.PackageName)
+		}
+		file, err := parser.ParseFile(fset, fmt.Sprintf("artifact-%d.go", index), artifact.GoSource, parser.ParseComments)
+		if err != nil {
+			return nil, fmt.Errorf("parse %s artifact: %w", artifact.Kind, err)
+		}
+		for _, item := range file.Imports {
+			alias := ""
+			if item.Name != nil {
+				alias = item.Name.Name
+			}
+			spec := &ast.ImportSpec{
+				Path: &ast.BasicLit{Kind: token.STRING, Value: item.Path.Value},
+			}
+			if alias != "" {
+				spec.Name = ast.NewIdent(alias)
+			}
+			imports[alias+"\x00"+item.Path.Value] = spec
+		}
+		for _, declaration := range file.Decls {
+			if generated, ok := declaration.(*ast.GenDecl); ok && generated.Tok == token.IMPORT {
+				continue
+			}
+			declarations = append(declarations, declaration)
+		}
+	}
+	keys := make([]string, 0, len(imports))
+	for key := range imports {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	if len(keys) > 0 {
+		specs := make([]ast.Spec, 0, len(keys))
+		for _, key := range keys {
+			specs = append(specs, imports[key])
+		}
+		declarations = append([]ast.Decl{&ast.GenDecl{Tok: token.IMPORT, Specs: specs}}, declarations...)
+	}
+	file := &ast.File{Name: ast.NewIdent(packageName), Decls: declarations}
+	var output bytes.Buffer
+	output.WriteString("// Code generated by Popcorn Wave via TinyBind; DO NOT EDIT.\n\n")
+	if err := format.Node(&output, fset, file); err != nil {
+		return nil, err
+	}
+	output.WriteByte('\n')
+	source, err := format.Source(output.Bytes())
+	if err != nil {
+		return nil, err
+	}
+	return source, nil
+}
+
+func changePaths(changes []fileChange) []string {
+	paths := make([]string, 0, len(changes))
+	for _, change := range changes {
+		relative, err := filepath.Rel(".", change.path)
+		if err != nil || relative == "" {
+			relative = change.path
+		}
+		paths = append(paths, relative)
+	}
+	sort.Strings(paths)
+	return paths
+}
+
+func applyFileChanges(changes []fileChange) error {
+	type stagedFile struct {
+		target string
+		temp   string
+	}
+	var staged []stagedFile
+	cleanup := func() {
+		for _, file := range staged {
+			_ = os.Remove(file.temp)
+		}
+	}
+	for _, change := range changes {
+		if change.remove {
+			continue
+		}
+		file, err := os.CreateTemp(filepath.Dir(change.path), "."+filepath.Base(change.path)+".*")
+		if err != nil {
+			cleanup()
+			return err
+		}
+		temp := file.Name()
+		staged = append(staged, stagedFile{target: change.path, temp: temp})
+		if err := file.Chmod(0o644); err != nil {
+			_ = file.Close()
+			cleanup()
+			return err
+		}
+		if _, err := file.Write(change.source); err != nil {
+			_ = file.Close()
+			cleanup()
+			return err
+		}
+		if err := file.Sync(); err != nil {
+			_ = file.Close()
+			cleanup()
+			return err
+		}
+		if err := file.Close(); err != nil {
+			cleanup()
+			return err
+		}
+	}
+	for _, file := range staged {
+		if err := os.Rename(file.temp, file.target); err != nil {
+			cleanup()
+			return err
+		}
+	}
+	for _, change := range changes {
+		if change.remove {
+			if err := os.Remove(change.path); err != nil && !os.IsNotExist(err) {
+				return err
+			}
+		}
+	}
+	return nil
+}

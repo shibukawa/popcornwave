@@ -18,5 +18,5 @@ baseline_evidence:
   httpbind_go_verified_tinygo: 0.40.1
   compatible_go_range_for_that_baseline: 1.19-1.25
   source: https://github.com/shibukawa/httpbind-go#tinygo
-verification: api:cli-check
+verification: api:cli-build and package target tests
 ```

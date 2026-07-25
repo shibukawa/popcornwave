@@ -3,7 +3,7 @@ id: decision:tinygo-storage-direction
 type: decision
 title: TinyGo Storage Direction
 ---
-Petitweb selects native embedded SQLite as its first relational store and Redis-compatible servers as first-class shared state through a local TLS proxy.
+Popcorn Wave selects native embedded SQLite as its first relational store and Redis-compatible servers as first-class shared state through a local TLS proxy.
 
 ```yaml
 status: accepted

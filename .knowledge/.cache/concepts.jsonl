@@ -1,41 +1,119 @@
 {"category": "behavior", "id": "actor:application-developer", "path": ".knowledge/actor/application-developer.md", "role": "supporting", "title": "Application Developer", "type": "actor"}
+{"category": "interface", "id": "api:api-response", "path": ".knowledge/api/api-response.md", "role": "primary", "title": "API Response API", "type": "api"}
+{"category": "interface", "id": "api:application-lifecycle", "path": ".knowledge/api/application-lifecycle.md", "role": "primary", "title": "Application Lifecycle API", "type": "api"}
 {"category": "interface", "id": "api:auth-state-codec", "path": ".knowledge/api/auth-state-codec.md", "role": "primary", "title": "Authentication State Codec", "type": "api"}
-{"category": "interface", "id": "api:cli-build", "path": ".knowledge/api/cli-build.md", "role": "primary", "title": "petitweb build", "type": "api"}
-{"category": "interface", "id": "api:cli-check", "path": ".knowledge/api/cli-check.md", "role": "primary", "title": "petitweb check", "type": "api"}
-{"category": "interface", "id": "api:cli-dev", "path": ".knowledge/api/cli-dev.md", "role": "primary", "title": "petitweb dev", "type": "api"}
-{"category": "interface", "id": "api:cli-generate", "path": ".knowledge/api/cli-generate.md", "role": "primary", "title": "petitweb generate", "type": "api"}
-{"category": "interface", "id": "api:cli-init", "path": ".knowledge/api/cli-init.md", "role": "primary", "title": "petitweb init", "type": "api"}
+{"category": "interface", "id": "api:cli-build", "path": ".knowledge/api/cli-build.md", "role": "primary", "title": "pw build", "type": "api"}
+{"category": "interface", "id": "api:cli-dev", "path": ".knowledge/api/cli-dev.md", "role": "primary", "title": "pw dev", "type": "api"}
+{"category": "interface", "id": "api:cli-generate", "path": ".knowledge/api/cli-generate.md", "role": "primary", "title": "pw generate", "type": "api"}
+{"category": "interface", "id": "api:cli-init", "path": ".knowledge/api/cli-init.md", "role": "primary", "title": "pw init", "type": "api"}
+{"category": "interface", "id": "api:cli-session-schema", "path": ".knowledge/api/cli-session-schema.md", "role": "primary", "title": "pw session schema", "type": "api"}
+{"category": "interface", "id": "api:error-renderer", "path": ".knowledge/api/error-renderer.md", "role": "primary", "title": "Error Rendering Contract", "type": "api"}
+{"category": "interface", "id": "api:html-response", "path": ".knowledge/api/html-response.md", "role": "primary", "title": "HTML Response API", "type": "api"}
+{"category": "interface", "id": "api:logger", "path": ".knowledge/api/logger.md", "role": "primary", "title": "Context-Bound Logger API", "type": "api"}
+{"category": "interface", "id": "api:problem-response", "path": ".knowledge/api/problem-response.md", "role": "primary", "title": "Problem Response API", "type": "api"}
+{"category": "interface", "id": "api:rdb-middleware", "path": ".knowledge/api/rdb-middleware.md", "role": "primary", "title": "RDB Middleware", "type": "api"}
+{"category": "interface", "id": "api:request-binding", "path": ".knowledge/api/request-binding.md", "role": "primary", "title": "Request Binding API", "type": "api"}
+{"category": "interface", "id": "api:request-context-accessors", "path": ".knowledge/api/request-context-accessors.md", "role": "primary", "title": "Request Context Accessors", "type": "api"}
+{"category": "interface", "id": "api:runtime-configuration", "path": ".knowledge/api/runtime-configuration.md", "role": "primary", "title": "Runtime Configuration API", "type": "api"}
+{"category": "interface", "id": "api:serve-mux", "path": ".knowledge/api/serve-mux.md", "role": "primary", "title": "ServeMux API", "type": "api"}
+{"category": "interface", "id": "api:server-action", "path": ".knowledge/api/server-action.md", "role": "primary", "title": "Server Action", "type": "api"}
+{"category": "interface", "id": "api:session-backend-plugin", "path": ".knowledge/api/session-backend-plugin.md", "role": "primary", "title": "Session Backend Plugin Contract", "type": "api"}
+{"category": "interface", "id": "api:session-manager", "path": ".knowledge/api/session-manager.md", "role": "primary", "title": "Session Manager API", "type": "api"}
+{"category": "interface", "id": "api:session-store", "path": ".knowledge/api/session-store.md", "role": "primary", "title": "Session Store Contract", "type": "api"}
+{"category": "interface", "id": "api:subcommands", "path": ".knowledge/api/subcommands.md", "role": "primary", "title": "Application Subcommands", "type": "api"}
+{"category": "interface", "id": "api:transaction-runner", "path": ".knowledge/api/transaction-runner.md", "role": "primary", "title": "Transaction API", "type": "api"}
+{"category": "interface", "id": "api:typed-external-function", "path": ".knowledge/api/typed-external-function.md", "role": "primary", "title": "Typed External Function", "type": "api"}
+{"category": "interface", "id": "api:typed-stream", "path": ".knowledge/api/typed-stream.md", "role": "primary", "title": "Typed Stream API", "type": "api"}
+{"category": "concept", "id": "concept:application-entry-point", "path": ".knowledge/concept/application-entry-point.md", "role": "supporting", "title": "Application Entry Point", "type": "concept"}
+{"category": "concept", "id": "concept:classic-web-style", "path": ".knowledge/concept/classic-web-style.md", "role": "supporting", "title": "Classic Web Style", "type": "concept"}
+{"category": "concept", "id": "concept:client-component", "path": ".knowledge/concept/client-component.md", "role": "supporting", "title": "Client Component", "type": "concept"}
+{"category": "concept", "id": "concept:modern-server-ui", "path": ".knowledge/concept/modern-server-ui.md", "role": "supporting", "title": "Modern Server UI", "type": "concept"}
 {"category": "concept", "id": "concept:project-layout", "path": ".knowledge/concept/project-layout.md", "role": "supporting", "title": "Generated Project Layout", "type": "concept"}
+{"category": "concept", "id": "concept:public-package-boundaries", "path": ".knowledge/concept/public-package-boundaries.md", "role": "supporting", "title": "Public Package Boundaries", "type": "concept"}
+{"category": "structure", "id": "data:account-bootstrap-credential", "path": ".knowledge/data/account-bootstrap-credential.md", "role": "supporting", "title": "Account Bootstrap Credential", "type": "data"}
 {"category": "structure", "id": "data:auth-state-record", "path": ".knowledge/data/auth-state-record.md", "role": "supporting", "title": "Authentication State Record", "type": "data"}
+{"category": "structure", "id": "data:authentication-runtime-config", "path": ".knowledge/data/authentication-runtime-config.md", "role": "supporting", "title": "Authentication Runtime Config", "type": "data"}
+{"category": "structure", "id": "data:component-boundary", "path": ".knowledge/data/component-boundary.md", "role": "supporting", "title": "Component Boundary Metadata", "type": "data"}
+{"category": "structure", "id": "data:compression-runtime-config", "path": ".knowledge/data/compression-runtime-config.md", "role": "supporting", "title": "Compression Runtime Config", "type": "data"}
 {"category": "structure", "id": "data:database-driver-contract", "path": ".knowledge/data/database-driver-contract.md", "role": "supporting", "title": "Database Driver Contract", "type": "data"}
+{"category": "structure", "id": "data:external-identity", "path": ".knowledge/data/external-identity.md", "role": "supporting", "title": "External OIDC Identity", "type": "data"}
+{"category": "structure", "id": "data:loaded-configuration", "path": ".knowledge/data/loaded-configuration.md", "role": "supporting", "title": "Loaded Configuration", "type": "data"}
+{"category": "structure", "id": "data:log-attribute", "path": ".knowledge/data/log-attribute.md", "role": "supporting", "title": "Log Attribute", "type": "data"}
+{"category": "structure", "id": "data:middleware-runtime-config", "path": ".knowledge/data/middleware-runtime-config.md", "role": "supporting", "title": "Middleware Runtime Config", "type": "data"}
+{"category": "structure", "id": "data:observability-runtime-config", "path": ".knowledge/data/observability-runtime-config.md", "role": "supporting", "title": "Observability Runtime Config", "type": "data"}
+{"category": "structure", "id": "data:passkey-credential", "path": ".knowledge/data/passkey-credential.md", "role": "supporting", "title": "Passkey Credential", "type": "data"}
 {"category": "structure", "id": "data:project-config", "path": ".knowledge/data/project-config.md", "role": "supporting", "title": "Project Configuration", "type": "data"}
+{"category": "structure", "id": "data:request-authentication", "path": ".knowledge/data/request-authentication.md", "role": "supporting", "title": "Request Authentication", "type": "data"}
+{"category": "structure", "id": "data:request-context-capsule", "path": ".knowledge/data/request-context-capsule.md", "role": "supporting", "title": "Request Context Capsule", "type": "data"}
+{"category": "structure", "id": "data:runtime-config-registry", "path": ".knowledge/data/runtime-config-registry.md", "role": "supporting", "title": "Runtime Config Registry", "type": "data"}
+{"category": "structure", "id": "data:security-runtime-config", "path": ".knowledge/data/security-runtime-config.md", "role": "supporting", "title": "Security Runtime Config", "type": "data"}
+{"category": "structure", "id": "data:server-runtime-config", "path": ".knowledge/data/server-runtime-config.md", "role": "supporting", "title": "Server Runtime Config", "type": "data"}
+{"category": "structure", "id": "data:session-record", "path": ".knowledge/data/session-record.md", "role": "supporting", "title": "Session Record", "type": "data"}
+{"category": "structure", "id": "data:session-runtime-config", "path": ".knowledge/data/session-runtime-config.md", "role": "supporting", "title": "Session Runtime Config", "type": "data"}
+{"category": "structure", "id": "data:ui-dependency-graph", "path": ".knowledge/data/ui-dependency-graph.md", "role": "supporting", "title": "UI Dependency Graph", "type": "data"}
+{"category": "structure", "id": "data:user-account", "path": ".knowledge/data/user-account.md", "role": "supporting", "title": "Local User Account", "type": "data"}
+{"category": "constraint", "id": "decision:authentication-bootstrap-strategy", "path": ".knowledge/decision/authentication-bootstrap-strategy.md", "role": "supporting", "title": "Authentication Bootstrap Strategy", "type": "decision"}
 {"category": "constraint", "id": "decision:contrib-delivery-order", "path": ".knowledge/decision/contrib-delivery-order.md", "role": "supporting", "title": "Contrib Delivery Order", "type": "decision"}
 {"category": "constraint", "id": "decision:force-tinygo-logic", "path": ".knowledge/decision/force-tinygo-logic.md", "role": "supporting", "title": "Forced TinyGo Logic Build Tag", "type": "decision"}
 {"category": "constraint", "id": "decision:host-tools-target-runtime", "path": ".knowledge/decision/host-tools-target-runtime.md", "role": "supporting", "title": "Host Tools and Target Runtime Split", "type": "decision"}
+{"category": "constraint", "id": "decision:import-registered-session-plugins", "path": ".knowledge/decision/import-registered-session-plugins.md", "role": "supporting", "title": "Import-Registered Session Plugins", "type": "decision"}
+{"category": "constraint", "id": "decision:independent-runtime-config-bindings", "path": ".knowledge/decision/independent-runtime-config-bindings.md", "role": "supporting", "title": "Independent Runtime Config Bindings", "type": "decision"}
+{"category": "constraint", "id": "decision:layered-web-runtime", "path": ".knowledge/decision/layered-web-runtime.md", "role": "supporting", "title": "Layered Web Runtime", "type": "decision"}
 {"category": "constraint", "id": "decision:local-tls-proxy-boundary", "path": ".knowledge/decision/local-tls-proxy-boundary.md", "role": "supporting", "title": "Local TLS Proxy Boundary", "type": "decision"}
 {"category": "constraint", "id": "decision:passkey-first-authentication", "path": ".knowledge/decision/passkey-first-authentication.md", "role": "supporting", "title": "Passkey-First Authentication Priority", "type": "decision"}
+{"category": "constraint", "id": "decision:root-pw-api", "path": ".knowledge/decision/root-pw-api.md", "role": "supporting", "title": "Root pw API", "type": "decision"}
 {"category": "constraint", "id": "decision:server-sql-support-tier", "path": ".knowledge/decision/server-sql-support-tier.md", "role": "supporting", "title": "Server SQL Support Tier", "type": "decision"}
 {"category": "constraint", "id": "decision:sqlite-backend-selection", "path": ".knowledge/decision/sqlite-backend-selection.md", "role": "supporting", "title": "SQLite Backend Selection", "type": "decision"}
 {"category": "constraint", "id": "decision:stdlib-servemux", "path": ".knowledge/decision/stdlib-servemux.md", "role": "supporting", "title": "Standard ServeMux Routing", "type": "decision"}
-{"category": "constraint", "id": "decision:thin-httpbinder-integration", "path": ".knowledge/decision/thin-httpbinder-integration.md", "role": "supporting", "title": "Thin httpbind-go Integration", "type": "decision"}
+{"category": "constraint", "id": "decision:tailwind-host-toolchain", "path": ".knowledge/decision/tailwind-host-toolchain.md", "role": "supporting", "title": "Tailwind Host Toolchain", "type": "decision"}
 {"category": "constraint", "id": "decision:tinygo-042-baseline", "path": ".knowledge/decision/tinygo-042-baseline.md", "role": "supporting", "title": "TinyGo 0.42 Baseline", "type": "decision"}
 {"category": "constraint", "id": "decision:tinygo-storage-direction", "path": ".knowledge/decision/tinygo-storage-direction.md", "role": "supporting", "title": "TinyGo Storage Direction", "type": "decision"}
 {"category": "constraint", "id": "decision:wasi-http-deferred", "path": ".knowledge/decision/wasi-http-deferred.md", "role": "supporting", "title": "Defer WASI HTTP Adapter", "type": "decision"}
-{"category": "behavior", "id": "flow:generation-pipeline", "path": ".knowledge/flow/generation-pipeline.md", "role": "primary", "title": "Binding Generation Pipeline", "type": "flow"}
+{"category": "constraint", "id": "decision:web-runtime-delivery-order", "path": ".knowledge/decision/web-runtime-delivery-order.md", "role": "supporting", "title": "Web Runtime Delivery Order", "type": "decision"}
+{"category": "behavior", "id": "flow:error-template-generation", "path": ".knowledge/flow/error-template-generation.md", "role": "primary", "title": "Error Template Generation", "type": "flow"}
+{"category": "behavior", "id": "flow:generation-pipeline", "path": ".knowledge/flow/generation-pipeline.md", "role": "primary", "title": "Application Generation Pipeline", "type": "flow"}
+{"category": "behavior", "id": "flow:handler-registration", "path": ".knowledge/flow/handler-registration.md", "role": "primary", "title": "Handler Registration", "type": "flow"}
+{"category": "behavior", "id": "flow:initial-streaming-render", "path": ".knowledge/flow/initial-streaming-render.md", "role": "primary", "title": "Initial Streaming Render", "type": "flow"}
+{"category": "behavior", "id": "flow:oidc-account-login", "path": ".knowledge/flow/oidc-account-login.md", "role": "primary", "title": "OIDC Account Login", "type": "flow"}
 {"category": "behavior", "id": "flow:oidc-auth-code", "path": ".knowledge/flow/oidc-auth-code.md", "role": "primary", "title": "OIDC Authorization Code Flow", "type": "flow"}
+{"category": "behavior", "id": "flow:partial-refresh", "path": ".knowledge/flow/partial-refresh.md", "role": "primary", "title": "Boundary Partial Refresh", "type": "flow"}
+{"category": "behavior", "id": "flow:passkey-enrollment", "path": ".knowledge/flow/passkey-enrollment.md", "role": "primary", "title": "Passkey Enrollment", "type": "flow"}
+{"category": "behavior", "id": "flow:passkey-login", "path": ".knowledge/flow/passkey-login.md", "role": "primary", "title": "Passkey Login", "type": "flow"}
+{"category": "behavior", "id": "flow:passkey-only-registration", "path": ".knowledge/flow/passkey-only-registration.md", "role": "primary", "title": "Passkey-Only Registration", "type": "flow"}
 {"category": "behavior", "id": "flow:project-bootstrap", "path": ".knowledge/flow/project-bootstrap.md", "role": "primary", "title": "Project Bootstrap Flow", "type": "flow"}
 {"category": "behavior", "id": "flow:request-lifecycle", "path": ".knowledge/flow/request-lifecycle.md", "role": "primary", "title": "Typed Request Lifecycle", "type": "flow"}
+{"category": "behavior", "id": "flow:session-lifecycle", "path": ".knowledge/flow/session-lifecycle.md", "role": "primary", "title": "Session Lifecycle", "type": "flow"}
+{"category": "behavior", "id": "flow:sql-generation", "path": ".knowledge/flow/sql-generation.md", "role": "primary", "title": "SQL Generation and Execution", "type": "flow"}
+{"category": "behavior", "id": "flow:tailwind-css-build", "path": ".knowledge/flow/tailwind-css-build.md", "role": "primary", "title": "Tailwind CSS Build Flow", "type": "flow"}
 {"category": "behavior", "id": "flow:telemetry-export", "path": ".knowledge/flow/telemetry-export.md", "role": "primary", "title": "Telemetry Export Flow", "type": "flow"}
 {"category": "behavior", "id": "flow:template-generation", "path": ".knowledge/flow/template-generation.md", "role": "primary", "title": "HTML Template Generation Flow", "type": "flow"}
+{"category": "constraint", "id": "policy:account-linking", "path": ".knowledge/policy/account-linking.md", "role": "supporting", "title": "Account Linking Policy", "type": "policy"}
+{"category": "constraint", "id": "policy:account-recovery", "path": ".knowledge/policy/account-recovery.md", "role": "supporting", "title": "Account Recovery Policy", "type": "policy"}
+{"category": "constraint", "id": "policy:authenticated-path-protection", "path": ".knowledge/policy/authenticated-path-protection.md", "role": "supporting", "title": "Authenticated Path Protection", "type": "policy"}
+{"category": "constraint", "id": "policy:bootstrap-credential-security", "path": ".knowledge/policy/bootstrap-credential-security.md", "role": "supporting", "title": "Bootstrap Credential Security", "type": "policy"}
+{"category": "constraint", "id": "policy:context-value-storage", "path": ".knowledge/policy/context-value-storage.md", "role": "supporting", "title": "Context Value Storage Policy", "type": "policy"}
 {"category": "constraint", "id": "policy:contrib-compatibility", "path": ".knowledge/policy/contrib-compatibility.md", "role": "supporting", "title": "Contrib Compatibility Policy", "type": "policy"}
+{"category": "constraint", "id": "policy:csrf-protection", "path": ".knowledge/policy/csrf-protection.md", "role": "supporting", "title": "CSRF Protection", "type": "policy"}
 {"category": "constraint", "id": "policy:generated-artifacts", "path": ".knowledge/policy/generated-artifacts.md", "role": "supporting", "title": "Generated Artifact Ownership", "type": "policy"}
 {"category": "constraint", "id": "policy:jwt-security", "path": ".knowledge/policy/jwt-security.md", "role": "supporting", "title": "JWT Security Policy", "type": "policy"}
+{"category": "constraint", "id": "policy:layered-cache", "path": ".knowledge/policy/layered-cache.md", "role": "supporting", "title": "Layered Web Cache", "type": "policy"}
+{"category": "constraint", "id": "policy:log-emission", "path": ".knowledge/policy/log-emission.md", "role": "supporting", "title": "Log Emission Policy", "type": "policy"}
 {"category": "constraint", "id": "policy:oauth-security", "path": ".knowledge/policy/oauth-security.md", "role": "supporting", "title": "OAuth Client Security Policy", "type": "policy"}
+{"category": "constraint", "id": "policy:oidc-admission", "path": ".knowledge/policy/oidc-admission.md", "role": "supporting", "title": "OIDC Admission Policy", "type": "policy"}
 {"category": "constraint", "id": "policy:oidc-security", "path": ".knowledge/policy/oidc-security.md", "role": "supporting", "title": "OIDC Security Policy", "type": "policy"}
+{"category": "constraint", "id": "policy:operational-endpoints", "path": ".knowledge/policy/operational-endpoints.md", "role": "supporting", "title": "Operational Endpoints", "type": "policy"}
 {"category": "constraint", "id": "policy:outbound-transport-security", "path": ".knowledge/policy/outbound-transport-security.md", "role": "supporting", "title": "Outbound Transport Security Policy", "type": "policy"}
 {"category": "constraint", "id": "policy:passkey-security", "path": ".knowledge/policy/passkey-security.md", "role": "supporting", "title": "Passkey Security Policy", "type": "policy"}
+{"category": "constraint", "id": "policy:security-response-headers", "path": ".knowledge/policy/security-response-headers.md", "role": "supporting", "title": "Security Response Headers", "type": "policy"}
+{"category": "constraint", "id": "policy:server-ui-security", "path": ".knowledge/policy/server-ui-security.md", "role": "supporting", "title": "Server UI Security and Correctness", "type": "policy"}
+{"category": "constraint", "id": "policy:session-security", "path": ".knowledge/policy/session-security.md", "role": "supporting", "title": "Session Security Policy", "type": "policy"}
 {"category": "constraint", "id": "policy:template-escaping", "path": ".knowledge/policy/template-escaping.md", "role": "supporting", "title": "Template Escaping Policy", "type": "policy"}
+{"category": "constraint", "id": "policy:ui-state-placement", "path": ".knowledge/policy/ui-state-placement.md", "role": "supporting", "title": "UI State Placement", "type": "policy"}
 {"category": "constraint", "id": "policy:validation-errors", "path": ".knowledge/policy/validation-errors.md", "role": "supporting", "title": "Validation and Error Policy", "type": "policy"}
+{"category": "constraint", "id": "policy:web-middleware", "path": ".knowledge/policy/web-middleware.md", "role": "supporting", "title": "Web Middleware Integration", "type": "policy"}
+{"category": "objective", "id": "requirement:application-user-experience", "path": ".knowledge/requirement/application-user-experience.md", "role": "primary", "title": "Popcorn Wave Application User Experience", "type": "requirement"}
+{"category": "objective", "id": "requirement:classic-rendering", "path": ".knowledge/requirement/classic-rendering.md", "role": "primary", "title": "Classic Rendering", "type": "requirement"}
+{"category": "objective", "id": "requirement:classic-web-acceptance", "path": ".knowledge/requirement/classic-web-acceptance.md", "role": "primary", "title": "Classic Web Acceptance", "type": "requirement"}
 {"category": "objective", "id": "requirement:contrib-acceptance", "path": ".knowledge/requirement/contrib-acceptance.md", "role": "primary", "title": "Contrib Acceptance Criteria", "type": "requirement"}
 {"category": "objective", "id": "requirement:contrib-auth-common", "path": ".knowledge/requirement/contrib-auth-common.md", "role": "primary", "title": "Authentication Security Primitives", "type": "requirement"}
 {"category": "objective", "id": "requirement:contrib-auth-state-memory", "path": ".knowledge/requirement/contrib-auth-state-memory.md", "role": "primary", "title": "In-Memory Authentication State Adapter", "type": "requirement"}
@@ -56,13 +134,21 @@
 {"category": "objective", "id": "requirement:contrib-redis-valkey", "path": ".knowledge/requirement/contrib-redis-valkey.md", "role": "primary", "title": "TinyGo Redis and Valkey Compatibility", "type": "requirement"}
 {"category": "objective", "id": "requirement:contrib-sqlite", "path": ".knowledge/requirement/contrib-sqlite.md", "role": "primary", "title": "Portable SQLite Facade", "type": "requirement"}
 {"category": "objective", "id": "requirement:contrib-zstd", "path": ".knowledge/requirement/contrib-zstd.md", "role": "primary", "title": "Zstandard Response Encoder", "type": "requirement"}
+{"category": "objective", "id": "requirement:daisyui-integration", "path": ".knowledge/requirement/daisyui-integration.md", "role": "primary", "title": "daisyUI Integration", "type": "requirement"}
 {"category": "objective", "id": "requirement:httpbinder-extensible-route-analysis", "path": ".knowledge/requirement/httpbinder-extensible-route-analysis.md", "role": "primary", "title": "Extensible httpbind-go Route Analysis", "type": "requirement"}
+{"category": "objective", "id": "requirement:modern-observability", "path": ".knowledge/requirement/modern-observability.md", "role": "primary", "title": "Modern UI Observability", "type": "requirement"}
+{"category": "objective", "id": "requirement:modern-web-acceptance", "path": ".knowledge/requirement/modern-web-acceptance.md", "role": "primary", "title": "Modern Web Acceptance", "type": "requirement"}
 {"category": "objective", "id": "requirement:mvp-acceptance", "path": ".knowledge/requirement/mvp-acceptance.md", "role": "primary", "title": "MVP Acceptance Criteria", "type": "requirement"}
+{"category": "objective", "id": "requirement:shared-web-runtime", "path": ".knowledge/requirement/shared-web-runtime.md", "role": "primary", "title": "Shared Web Runtime", "type": "requirement"}
+{"category": "objective", "id": "requirement:tailwind-css-integration", "path": ".knowledge/requirement/tailwind-css-integration.md", "role": "primary", "title": "Tailwind CSS Integration", "type": "requirement"}
+{"category": "objective", "id": "requirement:tailwind-plugin-integration", "path": ".knowledge/requirement/tailwind-plugin-integration.md", "role": "primary", "title": "Tailwind Plugin Integration", "type": "requirement"}
 {"category": "objective", "id": "requirement:tinygodriver-adoption", "path": ".knowledge/requirement/tinygodriver-adoption.md", "role": "primary", "title": "tinygodriver Adoption", "type": "requirement"}
+{"category": "objective", "id": "requirement:typed-http-contract", "path": ".knowledge/requirement/typed-http-contract.md", "role": "primary", "title": "Typed HTTP Contract", "type": "requirement"}
 {"category": "constraint", "id": "rule:static-route-discovery", "path": ".knowledge/rule/static-route-discovery.md", "role": "supporting", "title": "Static Route Discovery", "type": "rule"}
 {"category": "constraint", "id": "rule:tinygo-runtime-compatibility", "path": ".knowledge/rule/tinygo-runtime-compatibility.md", "role": "supporting", "title": "TinyGo Runtime Compatibility", "type": "rule"}
-{"category": "external", "id": "system:httpbinder", "path": ".knowledge/system/httpbinder.md", "role": "supporting", "title": "httpbind-go", "type": "system"}
-{"category": "external", "id": "system:petitweb-cli", "path": ".knowledge/system/petitweb-cli.md", "role": "supporting", "title": "Petitweb CLI", "type": "system"}
+{"category": "external", "id": "system:pw-cli", "path": ".knowledge/system/pw-cli.md", "role": "supporting", "title": "pw CLI", "type": "system"}
+{"category": "external", "id": "system:tinybind", "path": ".knowledge/system/tinybind.md", "role": "supporting", "title": "TinyBind", "type": "system"}
 {"category": "external", "id": "system:tinygodriver", "path": ".knowledge/system/tinygodriver.md", "role": "supporting", "title": "tinygodriver", "type": "system"}
 {"category": "objective", "id": "vision:contrib", "path": ".knowledge/vision/contrib.md", "role": "primary", "title": "TinyGo Contrib Vision", "type": "vision"}
-{"category": "objective", "id": "vision:petitweb", "path": ".knowledge/vision/petitweb.md", "role": "primary", "title": "Petitweb Vision", "type": "vision"}
+{"category": "objective", "id": "vision:popcorn-wave", "path": ".knowledge/vision/popcorn-wave.md", "role": "primary", "title": "Popcorn Wave Vision", "type": "vision"}
+{"category": "objective", "id": "vision:web-application-styles", "path": ".knowledge/vision/web-application-styles.md", "role": "primary", "title": "Classic and Modern Web Styles", "type": "vision"}

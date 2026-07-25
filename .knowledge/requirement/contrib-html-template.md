@@ -3,22 +3,24 @@ id: requirement:contrib-html-template
 type: requirement
 title: Generated HTML Templates
 ---
-contrib/htmltemplate compiles a Petitweb-specific typed template language and Go data models into reflection-free HTML and JSON writer functions.
+contrib/htmltemplate compiles a Popcorn Wave-specific typed template language and Go data models into reflection-free HTML and JSON writer functions.
 
 ```yaml
 runtime_package: contrib/htmltemplate
-generator: system:petitweb-cli
+generator: system:pw-cli
 flow: flow:template-generation
 generation_entrypoints:
   - api:cli-generate
-  - package-local go:generate directive invoking Petitweb CLI
+  - package-local go:generate directive invoking Popcorn Wave CLI
 input:
   templates: configured HTML template source files
   binding: template name plus same-package Go data type in data:project-config
+  error_template: optional fixed-model source from data:project-config
 generated_api:
   - "Render<Name>(io.Writer, DataType) error"
   - "Write<Name>(http.ResponseWriter, status, DataType) error"
   - "Write<Name>JSON(io.Writer, DataType) error"
+  - configured api:error-renderer function for an error template
 syntax_required:
   - statically typed nested struct field interpolation
   - if and else
@@ -39,7 +41,7 @@ json_codegen:
   - honor json field names, omission, ignored fields, and supported scalar types
   - encode map keys deterministically
   - reject any, interfaces, functions, channels, complex values, and recursive object graphs in the first release
-  - share generated primitive escaping helpers with system:httpbinder when a stable API exists
+  - share generated primitive escaping helpers with system:tinybind when a stable API exists
 security: policy:template-escaping
 priority: deferred until generated JSON encoding scope is implemented and verified
 non_goals:

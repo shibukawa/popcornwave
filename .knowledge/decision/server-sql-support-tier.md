@@ -3,7 +3,7 @@ id: decision:server-sql-support-tier
 type: decision
 title: Server SQL Support Tier
 ---
-Petitweb excludes PostgreSQL and MySQL from first-class support until compatible maintained drivers pass through the selected local TLS proxy boundary; direct TinyGo TLS is not a promotion gate.
+Popcorn Wave excludes PostgreSQL and MySQL from first-class support until compatible maintained drivers pass through the selected local TLS proxy boundary; direct TinyGo TLS is not a promotion gate.
 
 ```yaml
 status: accepted
@@ -28,10 +28,10 @@ evidence:
     - lib/pq v1.12.3 fails on TLS clone, certificate, renegotiation, and connection-state APIs
 product_effect:
   - project generators and examples do not scaffold PostgreSQL or MySQL
-  - api:cli-check does not claim PostgreSQL or MySQL runtime interoperability
+  - framework documentation and build checks do not claim PostgreSQL or MySQL runtime interoperability
   - release acceptance does not depend on either server database
   - documentation may describe decision:local-tls-proxy-boundary as the required secure transport path without claiming driver support
-  - applications may experiment with pgBouncer, ProxySQL, HAProxy, or stunnel without Petitweb driver compatibility guarantees
+  - applications may experiment with pgBouncer, ProxySQL, HAProxy, or stunnel without Popcorn Wave driver compatibility guarantees
 promotion_gates:
   - maintained driver compiles without unsafe compatibility patches on supported TinyGo targets
   - plaintext protocol interoperability passes against an approved same-workload proxy endpoint

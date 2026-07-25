@@ -3,11 +3,11 @@ id: decision:sqlite-backend-selection
 type: decision
 title: SQLite Backend Selection
 ---
-contrib/database/sqlite preserves one API and driver name while build constraints select the runtime backend.
+system:tinygodriver preserves one SQLite API and driver name while build constraints select the runtime backend.
 
 ```yaml
 status: accepted
-facade: contrib/database/sqlite
+facade: github.com/shibukawa/tinygodriver/database/sqlite
 driver_name: sqlite
 selection:
   - constraint: "tinygo || force_tinygo_logic"

@@ -3,7 +3,7 @@ id: actor:application-developer
 type: actor
 title: Application Developer
 ---
-The application developer creates and operates a typed HTTP service with the Petitweb CLI and standard Go source.
+The application developer creates and operates a typed HTTP service with the Popcorn Wave CLI and standard Go source.
 
 ```yaml
 responsibilities:
@@ -11,5 +11,5 @@ responsibilities:
   - register literal net/http routes
   - implement business validation and handlers
   - run api:cli-generate before committing generated artifacts
-  - verify host and TinyGo builds with api:cli-check
+  - verify generated drift with api:cli-generate --check and run go test ./...
 ```

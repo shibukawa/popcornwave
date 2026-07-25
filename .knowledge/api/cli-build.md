@@ -1,21 +1,19 @@
 ---
 id: api:cli-build
 type: api
-title: petitweb build
+title: pw build
 ---
-petitweb build produces a TinyGo application executable after deterministic generation and compatibility checks.
+pw build generates current source artifacts and builds the configured application entry point.
 
 ```yaml
-usage: "petitweb build [--target <tinygo-target>] [--output <path>]"
+usage: pw build
 steps:
-  - run api:cli-generate in check-equivalent mode after updating artifacts
-  - run rule:tinygo-runtime-compatibility preflight
-  - create output parent directory
-  - execute "tinygo build -o <output> [-target <target>] <package>"
+  - run api:cli-generate
+  - run flow:tailwind-css-build production mode when enabled
+  - resolve project.main and optional build settings from data:project-config
+  - run go build with the resolved settings
 defaults:
-  package: data:project-config dev package
-  target: data:project-config build target; empty means TinyGo host default
-  output: data:project-config build output
+  package: data:project-config project.main
 failure:
   - preserve previous successful output
   - return compiler diagnostics and nonzero status

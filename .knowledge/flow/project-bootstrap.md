@@ -3,23 +3,23 @@ id: flow:project-bootstrap
 type: flow
 title: Project Bootstrap Flow
 ---
-Project bootstrap turns an empty directory into a tested Petitweb service.
+Project bootstrap turns a project name into a runnable Popcorn Wave application and a reproducible Devbox development environment.
 
 ```yaml
 flow:
   trigger: actor:application-developer invokes api:cli-init
   steps:
     - id: validate
-      actor: system:petitweb-cli
-      action: validate destination and module input
+      actor: system:pw-cli
+      action: validate project name and destination
     - id: scaffold
       action: write concept:project-layout handwritten files
     - id: generate
       action: invoke api:cli-generate
-    - id: verify
-      action: run host Go tests
+    - id: optional-css
+      action: pin decision:tailwind-host-toolchain in Devbox and scaffold the CSS entry when requested
     - id: summarize
-      output: commands for api:cli-dev and api:cli-build
+      output: cd, devbox shell, and api:cli-dev commands
   failure:
     default: report failing phase and leave no partial replacement of existing files
 ```

@@ -3,7 +3,7 @@ id: decision:local-tls-proxy-boundary
 type: decision
 title: Local TLS Proxy Boundary
 ---
-Petitweb selects a local sidecar or egress proxy as the default TLS boundary for TinyGo services that connect to external systems.
+Popcorn Wave selects a local sidecar or egress proxy as the default TLS boundary for TinyGo services that connect to external systems.
 
 ```yaml
 status: accepted

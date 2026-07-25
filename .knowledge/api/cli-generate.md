@@ -1,26 +1,34 @@
 ---
 id: api:cli-generate
 type: api
-title: petitweb generate
+title: pw generate
 ---
-petitweb generate invokes the httpbind-go generator for every configured application package.
+pw generate scans Go, .pw.html, and .pw.sql sources and emits all required application mapping and codec code beside its source.
 
 ```yaml
-usage: "petitweb generate [--check] [package ...]"
-default_packages: data:project-config packages
+usage: pw generate [--check]
+inputs:
+  - pw.Parse[T] call sites
+  - route registrations
+  - .pw.html files
+  - .pw.sql files
+  - reachable JSON types
 flow: flow:generation-pipeline
 artifacts:
-  - httpbinder_gen.go
-  - httpbinder_openapi_gen.go when enabled
-  - petitweb_template_gen.go for each configured template package
+  - request binding
+  - OpenAPI fragments
+  - typed HTML renderers
+  - context-based SQL functions
+  - optimized JSON codecs
+  - optional generated tests
 check_mode:
-  writes: temporary files only
-  failure: committed generated content differs or is missing
+  writes: none
+  failure: generated content differs or is missing
 behavior:
-  - use system:httpbinder built-in net/http route analysis
-  - supply the versioned system:tinygodriver httpmux route adapter
-  - process packages in stable lexical order
+  - use system:tinybind route and call analysis behind the pw API
+  - process sources and packages in stable lexical order
   - stop on parse or generation error
   - format generated Go source
   - replace destination files atomically after all generation succeeds
+  - emit {source-base}_pw_gen.go beside each source
 ```

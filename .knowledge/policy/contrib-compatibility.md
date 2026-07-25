@@ -14,7 +14,7 @@ requirements:
   - accept context.Context for blocking network or database operations
   - expose deterministic shutdown and resource release
   - host Go unit tests use upstream vectors when available
-  - api:cli-check compiles each imported package with TinyGo
+  - package target matrices compile supported imports with TinyGo
 matrix:
   required:
     - host Go linux amd64

@@ -3,10 +3,10 @@ id: requirement:contrib-postgresql
 type: requirement
 title: TinyGo PostgreSQL Driver
 ---
-contrib/database/postgres is a deferred non-first-class investigation and is unsupported by Petitweb releases under decision:server-sql-support-tier.
+PostgreSQL driver work is a deferred non-first-class investigation and is unsupported by Popcorn Wave releases under decision:server-sql-support-tier.
 
 ```yaml
-package: contrib/database/postgres
+package: none
 support_tier: non_first_class
 compatibility_label: unsupported
 status: deferred

@@ -3,10 +3,10 @@ id: requirement:contrib-zstd
 type: requirement
 title: Zstandard Response Encoder
 ---
-contrib/zstd selects an optimized host encoder or bounded TinyGo encoder while preserving one response and cache-identity API.
+system:tinygodriver selects an optimized host encoder or bounded TinyGo encoder while preserving one response and cache-identity API.
 
 ```yaml
-package: contrib/zstd
+package: github.com/shibukawa/tinygodriver/compress/zstd
 public_api:
   - NewWriter(io.Writer, options) returns Writer
   - Writer.Result returns encoded size and SHA-256 after successful Close
@@ -23,7 +23,7 @@ implementation_selection:
     condition: "!tinygo && !force_tinygo_logic"
     backend: github.com/klauspost/compress/zstd
     settings: default level, concurrency 1, 128 KiB window, lower memory, frame checksum disabled
-  petitweb:
+  tinygodriver:
     condition: "tinygo || force_tinygo_logic"
     backend: bounded internal encoder
   force_policy: decision:force-tinygo-logic
@@ -36,7 +36,7 @@ encoder_required:
   - low-memory single-match compressed blocks with RLE sequence tables
   - enabled SHA-256 updated only for bytes successfully emitted
 limits:
-  petitweb: 128 KiB window and retained input block plus 16 KiB match table
+  tinygodriver: 128 KiB window and retained input block plus 16 KiB match table
 deferred:
   - Huffman literals, general FSE tables, multi-match blocks, and additional compression levels
   - trained dictionaries

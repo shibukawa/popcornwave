@@ -23,7 +23,6 @@ phases:
       - requirement:contrib-oauth
       - requirement:contrib-oidc
       - requirement:contrib-html-template
-      - requirement:contrib-zstd
       - requirement:contrib-auth-state-redis
   - phase: deferred-non-primary
     packages:
@@ -31,7 +30,6 @@ phases:
       - requirement:contrib-mysql
   - phase: feasibility-gated
     packages:
-      - requirement:contrib-sqlite
       - requirement:contrib-auth-state-sqlite
 rationale:
   - decision:stdlib-servemux uses system:tinygodriver rather than a contrib router
@@ -43,6 +41,7 @@ rationale:
   - database wire protocols require larger interoperability matrices
   - requirement:contrib-auth-state-redis follows the base store and tested requirement:contrib-redis-valkey dependency
   - requirement:contrib-auth-state-sqlite follows the portable SQLite facade
+  - SQLite and Zstandard implementations are supplied by system:tinygodriver
   - decision:server-sql-support-tier excludes server SQL drivers from first-class delivery
   - SQLite depends on target-specific C integration or a separately proven alternative
 ```

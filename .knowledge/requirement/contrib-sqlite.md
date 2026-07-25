@@ -3,10 +3,10 @@ id: requirement:contrib-sqlite
 type: requirement
 title: Portable SQLite Facade
 ---
-contrib/database/sqlite exposes one database/sql SQLite contract while decision:sqlite-backend-selection chooses the build-specific implementation.
+system:tinygodriver exposes one database/sql SQLite contract while decision:sqlite-backend-selection chooses the build-specific implementation.
 
 ```yaml
-package: contrib/database/sqlite
+package: github.com/shibukawa/tinygodriver/database/sqlite
 driver_name: sqlite
 selection: decision:sqlite-backend-selection
 tinygo_backend: requirement:contrib-cgosqlite

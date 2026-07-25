@@ -3,10 +3,10 @@ id: requirement:contrib-mysql
 type: requirement
 title: TinyGo MySQL Driver
 ---
-contrib/database/mysql is a deferred non-first-class investigation and is unsupported by Petitweb releases under decision:server-sql-support-tier.
+MySQL driver work is a deferred non-first-class investigation and is unsupported by Popcorn Wave releases under decision:server-sql-support-tier.
 
 ```yaml
-package: contrib/database/mysql
+package: none
 support_tier: non_first_class
 compatibility_label: unsupported
 status: deferred

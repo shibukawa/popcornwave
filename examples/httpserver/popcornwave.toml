@@ -1,0 +1,10 @@
+[project]
+name = "httpserver"
+main = "."
+
+[generate]
+html = []
+sql = []
+
+[dev]
+watch = ["*.go"]

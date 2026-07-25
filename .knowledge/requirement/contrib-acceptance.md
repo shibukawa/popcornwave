@@ -15,7 +15,7 @@ common:
   - malformed and oversized input tests prove bounded failure
   - fuzz corpus runs under host Go and regression cases run under TinyGo
   - race or reentrancy behavior is documented for shared objects
-  - api:cli-check discovers and compiles imported contrib packages
+  - package target matrices compile supported imported packages
 package_gates:
   requirement:contrib-auth-state:
     - concurrent Take returns a stored value exactly once
@@ -52,20 +52,8 @@ package_gates:
     - negative vectors cover state, expiry, replay, callback errors, redirect URI, PKCE, and oversized token responses
   requirement:contrib-oidc:
     - Authorization Code plus PKCE succeeds against two independent providers or conformance fixtures
-  requirement:contrib-database:
-    - database/sql integration passes against each supported embedded backend version
-    - decision:server-sql-support-tier keeps unsupported server drivers outside release claims and gates
-  requirement:contrib-sqlite:
-    - decision:sqlite-backend-selection selects the expected backend in every build mode
-    - shared fixtures pass with mattn, modernc, forced requirement:contrib-cgosqlite, and TinyGo requirement:contrib-cgosqlite
   requirement:contrib-html-template:
     - invalid field paths, loop types, map keys, helpers, and JSON type graphs fail during generation with source positions
     - generated struct, slice, array, map, pointer, and JSON fixtures match golden output under host Go and TinyGo
     - HTML, attribute, URL, JavaScript, CSS, and JSON script XSS vectors remain escaped
-  requirement:contrib-zstd:
-    - default host Go build uses github.com/klauspost/compress/zstd and round-trips upstream output
-    - decision:force-tinygo-logic host build and TinyGo build select the bounded encoder
-    - raw, RLE, and single-match compressed streams decode with the reference zstd CLI
-    - reported SHA-256 and strong ETag identify the emitted encoded representation
-    - WithETag(false) emits the same representation without allocating or updating SHA-256
 ```

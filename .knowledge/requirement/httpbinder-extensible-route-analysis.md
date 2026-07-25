@@ -6,7 +6,7 @@ title: Extensible httpbind-go Route Analysis
 httpbind-go route analysis must recognize compatible routers and middleware through versioned declarative adapters instead of hard-coded package identifiers or selector-name guesses.
 
 ```yaml
-owner: system:httpbinder
+owner: system:tinybind
 defaults:
   - net/http package-level Handle and HandleFunc
   - net/http.ServeMux Handle and HandleFunc
@@ -32,7 +32,7 @@ resolution:
 configuration:
   library_api: parser and generator options accept adapters programmatically
   cli: generator accepts a versioned analysis configuration file
-  petitweb: api:cli-generate supplies the system:tinygodriver httpmux adapter
+  popcorn_wave: api:cli-generate supplies the system:tinygodriver httpmux adapter
 diagnostics:
   - report unsupported registration calls with source position and suggested adapter fields
   - reject invalid argument indexes, unknown grammars, and duplicate adapter identities

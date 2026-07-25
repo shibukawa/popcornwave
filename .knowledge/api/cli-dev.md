@@ -1,20 +1,23 @@
 ---
 id: api:cli-dev
 type: api
-title: petitweb dev
+title: pw dev
 ---
-petitweb dev regenerates the configured server package and runs it with host Go for rapid local development.
+pw dev runs the local service set and continuously regenerates, rebuilds, and restarts the configured application.
 
 ```yaml
-usage: "petitweb dev [--addr :8080]"
+usage: pw dev
 steps:
+  - start configured Devbox services
   - run api:cli-generate
-  - execute "go run" for data:project-config dev package
-environment:
-  ADDR: flag or configured address
-process:
-  - inherit stdin, stdout, and stderr
-  - forward interrupt and termination signals
-  - return child exit code
-mvp_exclusion: automatic file watching
+  - start flow:tailwind-css-build watch mode when enabled
+  - build and run data:project-config project.main
+  - watch configured Go, HTML, SQL, generated CSS output, and tooling configuration
+  - regenerate when generated inputs change
+  - rebuild and restart after successful changes
+services:
+  default: Valkey
+  rule: default services may be disabled or changed in Devbox configuration
+failure:
+  generation_css_or_build: keep the developer loop alive and report diagnostics
 ```

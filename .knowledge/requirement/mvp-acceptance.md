@@ -3,23 +3,28 @@ id: requirement:mvp-acceptance
 type: requirement
 title: MVP Acceptance Criteria
 ---
-The Petitweb MVP is complete when a new typed service can be scaffolded, generated, tested, run, and compiled with TinyGo through documented commands.
+The Popcorn Wave MVP is complete when the documented three-command startup yields a generated, testable, running Go application that preserves its TinyGo-compatible runtime design.
 
 ```yaml
 criteria:
   - api:cli-init creates concept:project-layout in an empty temporary directory
+  - devbox shell provides the declared development tools and default Valkey service
   - generated starter passes "go test ./..."
   - api:cli-generate is deterministic and its check mode detects drift
-  - starter GET /health returns a typed JSON response through system:httpbinder
-  - starter POST /echo binds a typed request and writes a typed response through system:httpbinder
-  - malformed POST /echo input produces policy:validation-errors problem details
-  - POST /echo application validation can report multiple field errors
-  - generated OpenAPI contains each discoverable starter route and response schema
-  - api:cli-dev serves the starter with host Go
-  - api:cli-build produces a TinyGo executable for a supported native target
-  - api:cli-check explains missing tools, incompatible versions, and stale generation
+  - starter demonstrates api:request-binding, api:html-response, and flow:sql-generation
+  - malformed input produces policy:validation-errors problem details
+  - generated OpenAPI assembles every imported package fragment deterministically
+  - api:cli-dev watches, regenerates, rebuilds, and restarts the starter
+  - api:cli-build generates and compiles data:project-config project.main
 quality:
   - CLI command tests cover success, collision, and failure paths
-  - generated project smoke test runs outside the Petitweb repository
+  - generated project smoke test runs outside the Popcorn Wave repository
   - no reflection-based field mapping is introduced
+optional_css_profile:
+  - api:cli-init --tailwind creates a Devbox-pinned standalone Tailwind toolchain without Node project files
+  - a local ES module plugin fixture builds through the standard @plugin declaration
+  - requirement:daisyui-integration passes the same plugin path without CLI-specific handling
+  - api:cli-dev supervises CSS watch and Go rebuild without leaking a child process
+  - api:cli-build produces minified CSS before embedding and Go compilation
+  - target binary has no Node.js, Tailwind, or daisyUI runtime dependency
 ```

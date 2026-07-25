@@ -3,7 +3,7 @@ id: vision:contrib
 type: vision
 title: TinyGo Contrib Vision
 ---
-Petitweb contrib provides focused TinyGo-compatible server packages where standard or common Go implementations are unavailable, incomplete, or too reflection-heavy.
+Popcorn Wave contrib provides focused TinyGo-compatible server packages where standard or common Go implementations are unavailable, incomplete, or too reflection-heavy.
 
 ```yaml
 root: contrib/
@@ -19,9 +19,7 @@ packages:
   - requirement:contrib-jwt
   - requirement:contrib-oauth
   - requirement:contrib-oidc
-  - requirement:contrib-database
   - requirement:contrib-html-template
-  - requirement:contrib-zstd
 principles:
   - policy:contrib-compatibility
   - policy:outbound-transport-security
@@ -31,5 +29,6 @@ acceptance: requirement:contrib-acceptance
 compatibility:
   - requirement:contrib-redis-valkey
 external_networking: requirement:tinygodriver-adoption
+external_runtime_compatibility: requirement:tinygodriver-adoption
 scope_rule: implement explicit useful subsets; never claim full upstream compatibility without conformance evidence
 ```

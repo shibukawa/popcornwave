@@ -1,0 +1,95 @@
+package pw
+
+import (
+	"bytes"
+	"io"
+	"net/http"
+	"net/http/httptest"
+	"strings"
+	"testing"
+
+	"github.com/shibukawa/tinybind-go/configbind"
+)
+
+func TestScaffoldsIncludeBuiltInDefinitions(t *testing.T) {
+	toml, err := ScaffoldTOML()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, fragment := range []string{
+		"[server]", "port = 8080", `read_header_timeout = "5s"`,
+		`health.path = "/healthz"`, `readiness.path = "/readyz"`,
+		`headers.frame_options = "deny"`, "[observability]", "[middleware]",
+		"access_log = true",
+	} {
+		if !strings.Contains(toml, fragment) {
+			t.Fatalf("TOML scaffold missing %q:\n%s", fragment, toml)
+		}
+	}
+	env, err := ScaffoldEnv()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, fragment := range []string{
+		"PORT=8080", "SERVER_MAX_REQUEST_BODY=10485760",
+		"SERVER_HEALTH_ENABLED=true", "SECURITY_HEADERS_ENABLED=true",
+		"OTEL_SERVICE_NAME=\"\"", "SESSION_SECRET=\"\"",
+	} {
+		if !strings.Contains(env, fragment) {
+			t.Fatalf("env scaffold missing %q:\n%s", fragment, env)
+		}
+	}
+}
+
+func TestMiddlewaresParseAndInjectConfiguration(t *testing.T) {
+	SetConfigLoadOptions(configbind.LoadOptions{
+		Vendor: "popcornwave-test", Tool: "pw-test", FileName: "missing.toml",
+		Args: []string{"--port", "9090"}, Environ: []string{"PORT=7070"},
+	})
+	handler, err := Middlewares(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		config := Config[ServerConfig](r.Context())
+		if config.Port != 9090 {
+			t.Errorf("Port = %d", config.Port)
+		}
+		if Logger(r.Context()) == nil {
+			t.Error("nil logger")
+		}
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/", nil))
+	if recorder.Code != http.StatusNoContent {
+		t.Fatalf("status = %d", recorder.Code)
+	}
+	if recorder.Header().Get("X-Request-ID") == "" {
+		t.Fatal("request ID was not added")
+	}
+}
+
+func TestWriteHTMLBuffersAndWrites(t *testing.T) {
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "/", nil)
+	WriteHTML(recorder, request, func(w io.Writer, value string) error {
+		_, err := io.WriteString(w, "<h1>"+value+"</h1>")
+		return err
+	}, "Hello")
+	if recorder.Code != http.StatusOK || recorder.Body.String() != "<h1>Hello</h1>" {
+		t.Fatalf("response = %d %q", recorder.Code, recorder.Body.String())
+	}
+}
+
+func TestUnsupportedStreamAcceptWrites406(t *testing.T) {
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "/", nil)
+	request.Header.Set("Accept", "application/xml")
+	stream := NewStream[map[string]string](recorder, request)
+	if err := stream.Send(map[string]string{"value": "ignored"}); err == nil {
+		t.Fatal("Send returned nil after negotiation failure")
+	}
+	if recorder.Code != http.StatusNotAcceptable || !bytes.Contains(recorder.Body.Bytes(), []byte(`"code":"not_acceptable"`)) {
+		t.Fatalf("response = %d %q", recorder.Code, recorder.Body.String())
+	}
+}

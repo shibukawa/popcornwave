@@ -1,28 +1,27 @@
 ---
 id: flow:generation-pipeline
 type: flow
-title: Binding Generation Pipeline
+title: Application Generation Pipeline
 ---
-The generation pipeline converts application Go sources into TinyGo-safe binding and OpenAPI source artifacts.
+The generation pipeline converts application Go, HTML, and SQL sources into deterministic Go artifacts that run without target-side reflection.
 
 ```yaml
 flow:
   trigger: api:cli-generate reads data:project-config
   steps:
     - id: resolve
-      action: resolve and sort configured package directories
+      action: resolve configured globs and sort matching source paths
     - id: analyze
-      actor: system:httpbinder
-      action: load requirement:httpbinder-extensible-route-analysis adapters, then parse structs, explicit Bind and Write calls, and rule:static-route-discovery
-    - id: emit-binding
-      output: httpbinder_gen.go
-    - id: emit-openapi
-      condition: OpenAPI enabled
-      output: httpbinder_openapi_gen.go
-    - id: emit-templates
-      condition: templates configured
-      action: run flow:template-generation
-      output: petitweb_template_gen.go
+      actor: system:tinybind
+      action: parse route registrations, pw.Parse calls, response calls, reachable types, .pw.html, and .pw.sql sources
+    - id: emit-go
+      outputs:
+        - request binders and OpenAPI fragments
+        - flow:template-generation renderers
+        - flow:sql-generation query functions
+        - optimized JSON codecs
+        - optional generated tests
+      naming: "{source-base}_pw_gen.go beside the source"
     - id: compare-or-commit
       action: compare in check mode or atomically replace policy:generated-artifacts
   failure:

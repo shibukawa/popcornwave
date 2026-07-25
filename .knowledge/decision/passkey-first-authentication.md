@@ -3,7 +3,7 @@ id: decision:passkey-first-authentication
 type: decision
 title: Passkey-First Authentication Priority
 ---
-Petitweb prioritizes phishing-resistant passkey support before password hashing convenience packages.
+Popcorn Wave prioritizes phishing-resistant passkey support before password hashing convenience packages.
 
 ```yaml
 status: accepted
@@ -17,7 +17,7 @@ deprioritized:
   - PBKDF2 password hashing helpers
 constraints:
   - applications may use external password libraries independently
-  - Petitweb never implements new password hashing primitives
+  - Popcorn Wave never implements new password hashing primitives
   - future password packages must wrap reviewed implementations and pass the TinyGo matrix
 rationale:
   - passkeys provide origin-bound public-key challenge-response authentication

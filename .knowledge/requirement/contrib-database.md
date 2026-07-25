@@ -3,11 +3,11 @@ id: requirement:contrib-database
 type: requirement
 title: TinyGo Database Drivers
 ---
-contrib/database provides portable SQLite and shared database/sql helpers; decision:server-sql-support-tier keeps PostgreSQL and MySQL outside first-class support.
+system:tinygodriver provides portable SQLite drivers; Popcorn Wave consumes database/sql without retaining driver implementations.
 
 ```yaml
 packages:
-  core: contrib/database
+  core: github.com/shibukawa/tinygodriver/database
   first_class_drivers:
     - requirement:contrib-sqlite
   non_first_class_research:
@@ -22,6 +22,7 @@ strategy:
   - enforce decision:server-sql-support-tier in documentation, generation, and acceptance
 core_helpers:
   - parse explicit driver configuration without reflection
+  - derive a secret-safe canonical connection identity for duplicate-pool detection
   - open and ping with context deadline
   - apply bounded pool settings
   - redact credentials from errors and logs

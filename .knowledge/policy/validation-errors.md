@@ -3,26 +3,22 @@ id: policy:validation-errors
 type: policy
 title: Validation and Error Policy
 ---
-All request conversion and application validation failures use httpbind-go HTTP errors and RFC 9457 problem responses.
+All request conversion and application validation failures use api:problem-response values and safe RFC problem responses.
 
 ```yaml
 conversion_errors:
-  producer: generated system:httpbinder binder
-  constructor: httpbinder.BindError
+  producer: generated api:request-binding binder
 business_validation:
-  constructor: httpbinder.Validation
-  field_constructor: httpbinder.Field
+  representation: problem details with field failures
   collect: all independently detectable field failures before returning
 application_errors:
   constructors:
-    - httpbinder.BadRequest
-    - httpbinder.Unauthorized
-    - httpbinder.Forbidden
-    - httpbinder.NotFound
-    - httpbinder.Conflict
-    - httpbinder.Internal
+    - pw.BadRequest
+    - pw.NotFound
+    - pw.Forbidden
+    - pw.InternalServerError
 response:
-  writer: httpbinder.WriteError
+  writer: api:problem-response WriteProblem
   media_type: application/problem+json
   field_shape:
     - field
@@ -31,4 +27,5 @@ response:
 security:
   - hide internal causes for 5xx responses
   - use stable machine-readable problem codes
+  - HTML negotiation uses generated 400, 404, and 500 templates when possible
 ```
