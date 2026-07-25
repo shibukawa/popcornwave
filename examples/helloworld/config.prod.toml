@@ -1,0 +1,30 @@
+# Production configuration, selected by APP_ENV=prod.
+
+[app]
+env_label = "production"
+env_label_color = "#dc2626"
+
+[server]
+port = 8080
+
+[observability]
+minimum_level = "warn"
+service_name = "helloworld"
+
+[middleware]
+compression = true
+
+[middleware.rdb]
+enabled = true
+dsn = "sqlite://helloworld.db"
+auto_transaction = false
+connect_timeout = "5s"
+max_open_conns = 1
+max_idle_conns = 1
+conn_max_lifetime = "0s"
+conn_max_idle_time = "0s"
+
+[security.headers]
+hsts.enabled = true
+hsts.max_age = "8760h"
+hsts.include_subdomains = true

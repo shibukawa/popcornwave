@@ -50,6 +50,7 @@
 {"category": "structure", "id": "data:request-authentication", "path": ".knowledge/data/request-authentication.md", "role": "supporting", "title": "Request Authentication", "type": "data"}
 {"category": "structure", "id": "data:request-context-capsule", "path": ".knowledge/data/request-context-capsule.md", "role": "supporting", "title": "Request Context Capsule", "type": "data"}
 {"category": "structure", "id": "data:runtime-config-registry", "path": ".knowledge/data/runtime-config-registry.md", "role": "supporting", "title": "Runtime Config Registry", "type": "data"}
+{"category": "structure", "id": "data:runtime-environment", "path": ".knowledge/data/runtime-environment.md", "role": "supporting", "title": "Runtime Environment", "type": "data"}
 {"category": "structure", "id": "data:security-runtime-config", "path": ".knowledge/data/security-runtime-config.md", "role": "supporting", "title": "Security Runtime Config", "type": "data"}
 {"category": "structure", "id": "data:server-runtime-config", "path": ".knowledge/data/server-runtime-config.md", "role": "supporting", "title": "Server Runtime Config", "type": "data"}
 {"category": "structure", "id": "data:session-record", "path": ".knowledge/data/session-record.md", "role": "supporting", "title": "Session Record", "type": "data"}
@@ -100,6 +101,7 @@
 {"category": "constraint", "id": "policy:account-recovery", "path": ".knowledge/policy/account-recovery.md", "role": "supporting", "title": "Account Recovery Policy", "type": "policy"}
 {"category": "constraint", "id": "policy:authenticated-path-protection", "path": ".knowledge/policy/authenticated-path-protection.md", "role": "supporting", "title": "Authenticated Path Protection", "type": "policy"}
 {"category": "constraint", "id": "policy:bootstrap-credential-security", "path": ".knowledge/policy/bootstrap-credential-security.md", "role": "supporting", "title": "Bootstrap Credential Security", "type": "policy"}
+{"category": "constraint", "id": "policy:config-file-resolution", "path": ".knowledge/policy/config-file-resolution.md", "role": "supporting", "title": "Config File Resolution", "type": "policy"}
 {"category": "constraint", "id": "policy:context-value-storage", "path": ".knowledge/policy/context-value-storage.md", "role": "supporting", "title": "Context Value Storage Policy", "type": "policy"}
 {"category": "constraint", "id": "policy:contrib-compatibility", "path": ".knowledge/policy/contrib-compatibility.md", "role": "supporting", "title": "Contrib Compatibility Policy", "type": "policy"}
 {"category": "constraint", "id": "policy:csrf-protection", "path": ".knowledge/policy/csrf-protection.md", "role": "supporting", "title": "CSRF Protection", "type": "policy"}
@@ -148,6 +150,7 @@
 {"category": "objective", "id": "requirement:contrib-sqlite", "path": ".knowledge/requirement/contrib-sqlite.md", "role": "primary", "title": "Portable SQLite Facade", "type": "requirement"}
 {"category": "objective", "id": "requirement:contrib-zstd", "path": ".knowledge/requirement/contrib-zstd.md", "role": "primary", "title": "Zstandard Response Encoder", "type": "requirement"}
 {"category": "objective", "id": "requirement:daisyui-integration", "path": ".knowledge/requirement/daisyui-integration.md", "role": "primary", "title": "daisyUI Integration", "type": "requirement"}
+{"category": "objective", "id": "requirement:environment-switching", "path": ".knowledge/requirement/environment-switching.md", "role": "primary", "title": "Environment Switching", "type": "requirement"}
 {"category": "objective", "id": "requirement:httpbinder-extensible-route-analysis", "path": ".knowledge/requirement/httpbinder-extensible-route-analysis.md", "role": "primary", "title": "Extensible httpbind-go Route Analysis", "type": "requirement"}
 {"category": "objective", "id": "requirement:modern-observability", "path": ".knowledge/requirement/modern-observability.md", "role": "primary", "title": "Modern UI Observability", "type": "requirement"}
 {"category": "objective", "id": "requirement:modern-web-acceptance", "path": ".knowledge/requirement/modern-web-acceptance.md", "role": "primary", "title": "Modern Web Acceptance", "type": "requirement"}

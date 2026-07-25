@@ -10,6 +10,8 @@ import (
 	"runtime"
 	"runtime/debug"
 	"strings"
+
+	"github.com/shibukawa/popcornwave/internal/pwenv"
 )
 
 func runInit(args []string, stdout io.Writer) error {
@@ -146,6 +148,15 @@ main = "./cmd/` + name + `"
 [dev]
 extra_watch = []
 ` + configTailwind,
+		pwenv.FileName(pwenv.Development): `# Development runtime configuration.
+# APP_ENV selects this file; add config.stg.toml and config.prod.toml as needed.
+[server]
+port = 8080
+
+[observability]
+minimum_level = "debug"
+service_name = "` + name + `"
+`,
 		"devbox.json": `{
   "$schema": "https://raw.githubusercontent.com/jetify-com/devbox/0.14.2/.schema/devbox.schema.json",
   "packages": ["go@latest", "valkey@latest"` + devboxTailwind + `],

@@ -14,6 +14,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/shibukawa/popcornwave/internal/pwenv"
 	"github.com/shibukawa/popcornwave/pwruntime"
 	"github.com/shibukawa/tinybind-go/cliparser"
 	"github.com/shibukawa/tinybind-go/configbind"
@@ -137,9 +138,8 @@ var configState = struct {
 }{
 	entries: make(map[reflect.Type]configEntry),
 	options: configbind.LoadOptions{
-		Vendor:               "popcornwave",
-		FileName:             "config.toml",
-		ExtraConfigReadPaths: []string{"config.toml"},
+		Vendor:   "popcornwave",
+		FileName: "config.toml",
 	},
 }
 
@@ -180,10 +180,12 @@ func ParseConfig() error {
 		return configState.parseErr
 	}
 	configState.parsed = true
-	options := configState.options
-	if options.Tool == "" {
-		options.Tool = executableName()
+	options, env, envErr := resolveLoadOptions(configState.options)
+	if envErr != nil {
+		configState.parseErr = envErr
+		return envErr
 	}
+	setEnv(env)
 	var actionErr error
 	options.Args, actionErr = parseFrameworkAction(commandArgs(options.Args))
 	if actionErr != nil {
@@ -197,6 +199,27 @@ func ParseConfig() error {
 	}
 	logConfigSources(result)
 	return nil
+}
+
+// resolveLoadOptions completes options for the active runtime environment.
+// Project-local candidates are environment-specific and searched in the working
+// directory before its config/ directory; the user and system configuration
+// directories keep the environment-neutral file name.
+func resolveLoadOptions(options configbind.LoadOptions) (configbind.LoadOptions, string, error) {
+	if options.Tool == "" {
+		options.Tool = executableName()
+	}
+	env, err := pwenv.Resolve(options.Environ)
+	if err != nil {
+		return options, "", err
+	}
+	if options.FileName == "" {
+		options.FileName = pwenv.NeutralFileName
+	}
+	if options.ExtraConfigReadPaths == nil {
+		options.ExtraConfigReadPaths = pwenv.ReadPaths(env)
+	}
+	return options, env, nil
 }
 
 func executableName() string {
@@ -238,6 +261,11 @@ func runtimeResources(logger *slog.Logger) pwruntime.Resources {
 func logConfigSources(result *configbind.LoadResult) {
 	if result == nil || result.Overlay == nil {
 		return
+	}
+	if result.FoundFile {
+		slog.Info("config file resolved", "environment", Env(), "path", result.ConfigPath)
+	} else {
+		slog.Info("config file not found", "environment", Env())
 	}
 	keys := result.Overlay.Keys()
 	sort.Strings(keys)

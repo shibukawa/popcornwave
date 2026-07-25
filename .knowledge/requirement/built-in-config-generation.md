@@ -11,7 +11,7 @@ activation: framework-owned config-generation CLI option
 behavior:
   - api:application-lifecycle Run detects the option after registrations are available
   - merge every framework and application config definition through system:tinybind
-  - write the selected TOML or environment scaffold
+  - write the selected TOML or environment scaffold named for the active data:runtime-environment
   - return successfully without database startup, middleware construction, or HTTP listening
 errors:
   - invalid format or destination returns before service startup

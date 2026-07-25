@@ -15,6 +15,7 @@ precedence:
   - TOML
   - environment variables
   - CLI arguments
+toml_selection: policy:config-file-resolution using data:runtime-environment
 mapping:
   reflection: forbidden
   mechanism: reuse generated JSON-to-struct mapping
