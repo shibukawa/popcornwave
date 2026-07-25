@@ -20,13 +20,13 @@ constraints:
   - decision:config-driven-database keeps pool ownership with the framework
   - decision:sqlite-backend-selection keeps the sqlite driver in system:tinygodriver
   - decision:server-sql-support-tier bounds which databases are supported
-  - api:cli-schema-init stays the only owner of schema creation
+  - requirement:database-migration stays the only owner of schema creation
   - concept:public-package-boundaries keeps seeding out of the request path
 acceptance:
   - pw seed applies a named dataset to the configured database and exits nonzero on failure
   - pw seed with no argument applies every dataset in lexical order
   - pw seed fails clearly when middleware.rdb.enabled is false
-  - TestRun with WithSchemaDir and WithSeed starts with schema applied then rows loaded
+  - TestRun with WithMigrations and WithSeed starts with schema installed then rows loaded
   - Server.Seed reloads a dataset mid-test
   - Server.AssertDB passes on matching state and reports a per-table diff through Errorf on mismatch
   - decision:testutil-testing-interface TestingT gains Errorf and existing *testing.T callers still compile

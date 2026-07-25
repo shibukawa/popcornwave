@@ -79,11 +79,11 @@ func countNotes(t *testing.T, ctx context.Context) int {
 	return count
 }
 
-func sharedSchemaDir(t *testing.T) string {
+func sharedMigrationDir(t *testing.T) string {
 	t.Helper()
 	directory := t.TempDir()
-	schema := "CREATE TABLE IF NOT EXISTS notes (name TEXT NOT NULL);"
-	if err := os.WriteFile(filepath.Join(directory, "001_notes.sql"), []byte(schema), 0o644); err != nil {
+	migration := "-- +goose Up\nCREATE TABLE notes (name TEXT NOT NULL);\n\n-- +goose Down\nDROP TABLE notes;\n"
+	if err := os.WriteFile(filepath.Join(directory, "00001_notes.sql"), []byte(migration), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	return directory
@@ -139,12 +139,12 @@ func post(t *testing.T, server *Server, name string) {
 // neither observes the other's rows and nothing is committed.
 func TestRunTransactionIsolatesTests(t *testing.T) {
 	dsn, committed := sharedDatabase(t)
-	schemaDir := sharedSchemaDir(t)
+	migrationDir := sharedMigrationDir(t)
 
 	for _, name := range []string{"first", "second"} {
 		t.Run(name, func(t *testing.T) {
 			server := TestRun(t, notesHandler(t), sharedDatabaseConfig(dsn),
-				WithSchemaDir(schemaDir), WithTransaction(true))
+				WithMigrations(migrationDir), WithTransaction(true))
 			if count := countNotes(t, server.Context()); count != 0 {
 				t.Fatalf("rows before request = %d, want 0", count)
 			}
@@ -167,10 +167,10 @@ func TestRunTransactionIsolatesTests(t *testing.T) {
 // Without the option the application keeps committing to the shared database.
 func TestRunWithoutTransactionCommits(t *testing.T) {
 	dsn, committed := sharedDatabase(t)
-	schemaDir := sharedSchemaDir(t)
+	migrationDir := sharedMigrationDir(t)
 
 	func() {
-		server := TestRun(t, notesHandler(t), sharedDatabaseConfig(dsn), WithSchemaDir(schemaDir))
+		server := TestRun(t, notesHandler(t), sharedDatabaseConfig(dsn), WithMigrations(migrationDir))
 		post(t, server, "kept")
 		server.Close()
 	}()

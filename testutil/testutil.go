@@ -6,6 +6,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"io/fs"
 	"net"
 	"net/http"
 	"reflect"
@@ -13,9 +14,9 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/shibukawa/popcornwave/internal/dbschema"
 	"github.com/shibukawa/popcornwave/internal/dbseed"
 	"github.com/shibukawa/popcornwave/internal/pwtestbridge"
+	"github.com/shibukawa/popcornwave/migrate"
 	"github.com/shibukawa/popcornwave/pw"
 	"github.com/shibukawa/popcornwave/pwruntime"
 )
@@ -68,7 +69,7 @@ func Update[T any](config *Config, edit func(*T)) {
 }
 
 type runSettings struct {
-	schemaDir   string
+	migration   []migrate.Option
 	transaction bool
 	seedDir     string
 	seedFiles   []string
@@ -77,14 +78,28 @@ type runSettings struct {
 // RunOption configures TestRun resources.
 type RunOption func(*runSettings) error
 
-// WithSchemaDir applies lexical-order .sql files from a dbschema directory
-// after the copied database configuration has been opened.
-func WithSchemaDir(directory string) RunOption {
+// WithMigrations installs the migrated schema from a migration directory.
+//
+// The schema is installed by replaying a snapshot rather than by running every
+// migration, so the cost is paid once per test binary and an in-memory database
+// works on both the host and the TinyGo execution path.
+func WithMigrations(directory string) RunOption {
 	return func(settings *runSettings) error {
 		if strings.TrimSpace(directory) == "" {
-			return fmt.Errorf("testutil: empty schema directory")
+			return fmt.Errorf("testutil: empty migration directory")
 		}
-		settings.schemaDir = directory
+		settings.migration = append(settings.migration, migrate.WithDir(directory))
+		return nil
+	}
+}
+
+// WithMigrationsFS installs the migrated schema from an embedded migration tree.
+func WithMigrationsFS(sources fs.FS) RunOption {
+	return func(settings *runSettings) error {
+		if sources == nil {
+			return fmt.Errorf("testutil: nil migration filesystem")
+		}
+		settings.migration = append(settings.migration, migrate.WithFS(sources))
 		return nil
 	}
 }
@@ -195,14 +210,14 @@ func TestRun(t TestingT, handler http.Handler, customize func(*Config), options 
 		t.Fatalf("initialize Popcorn Wave TestRun: %v", err)
 		return nil
 	}
-	if settings.schemaDir != "" {
+	if len(settings.migration) > 0 {
 		if prepared.DB == nil {
 			_ = listener.Close()
 			_ = prepared.Close()
 			t.Fatalf("initialize Popcorn Wave TestRun schema: configured RDB is disabled")
 			return nil
 		}
-		if err := dbschema.Apply(context.Background(), prepared.DB, settings.schemaDir); err != nil {
+		if err := installMigrations(context.Background(), prepared.DB, settings.migration); err != nil {
 			_ = listener.Close()
 			_ = prepared.Close()
 			t.Fatalf("initialize Popcorn Wave TestRun schema: %v", err)

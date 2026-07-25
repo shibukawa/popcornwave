@@ -24,7 +24,7 @@ func TestHomeRendersNestedDocumentAndIncrementsCounter(t *testing.T) {
 				MaxIdleConns:   1,
 			}
 		})
-	}, testutil.WithSchemaDir("../dbschema"))
+	}, testutil.WithMigrations("../migrations"))
 
 	for visit, expected := range []string{">1</strong>", ">2</strong>"} {
 		response, err := server.Client().Get(server.URL + "/")

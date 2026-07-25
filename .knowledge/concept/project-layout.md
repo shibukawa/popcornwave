@@ -31,8 +31,8 @@ layout:
   handlers/home_pw_gen.go: generated HTML and request mapping
   queries/users.pw.sql: named SQL source
   queries/users_pw_gen.go: generated context-based query functions
-  dbschema/: api:cli-schema-init handwritten initialization SQL
-  dbschema/001_init.sql: initial application schema
+  migrations/: data:migration-source handwritten versioned SQL
+  migrations/00001_init.sql: initial application schema as migration version 1
   testdata/seed/: data:seed-dataset files shared by api:cli-seed and api:test-seed
   templates/document.pw.html: requirement:nested-html-templates document shell
   templates/document_pw_gen.go: generated document Fragment and Wrapper
@@ -59,7 +59,7 @@ ownership:
     - handlers/*_handler.go
     - "**/*.pw.html"
     - "**/*.pw.sql"
-    - dbschema/*.sql
+    - migrations/*.sql
     - testdata/seed/*.yaml
   generated: policy:generated-artifacts
   asset_output: optional public/generated/app.css from flow:tailwind-css-build

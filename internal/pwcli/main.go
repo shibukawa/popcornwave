@@ -22,8 +22,8 @@ func Main(args []string, stdout, stderr io.Writer) int {
 		err = runInit(args[1:], stdout)
 	case "generate":
 		err = runGenerate(ctx, args[1:], stdout)
-	case "schema-init":
-		err = runSchemaInit(ctx, args[1:], stdout, stderr)
+	case "migrate":
+		err = runMigrate(ctx, args[1:], stdout, stderr)
 	case "seed":
 		err = runSeed(ctx, args[1:], stdout, stderr)
 	case "build":
@@ -45,6 +45,7 @@ func Main(args []string, stdout, stderr io.Writer) int {
 
 func printUsage(w io.Writer) {
 	fmt.Fprintln(w, "Usage: pw <command>")
-	fmt.Fprintln(w, "Commands: init, generate, schema-init, seed, build, dev")
-	fmt.Fprintln(w, "  seed [--dir=testdata/seed] [name...]  load datasets into the configured database")
+	fmt.Fprintln(w, "Commands: init, generate, migrate, seed, build, dev")
+	fmt.Fprintln(w, "Migrate actions: status, version, up, up-by-one, up-to, down, down-to, create, validate, snapshot")
+	fmt.Fprintln(w, "Seed usage: pw seed [--dir=testdata/seed] [name...]")
 }

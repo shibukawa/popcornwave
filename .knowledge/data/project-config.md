@@ -13,6 +13,9 @@ schema:
     main: ./cmd/myapp
   dev:
     extra_watch: []
+  migration:
+    dir: migrations
+    auto: true for api:cli-dev only
   assets:
     tailwind:
       enabled: false
@@ -28,6 +31,8 @@ rules:
   - api:cli-generate always discovers all Go, .pw.html, and .pw.sql sources
   - api:cli-dev always watches Go, .pw.html, .pw.sql, popcornwave.toml, and policy:config-file-resolution project-local files
   - dev.extra_watch adds relative files or glob patterns
+  - migration.dir locates data:migration-source and is a tooling path, not a runtime database value
+  - migration.auto only enables the api:cli-dev apply step and never enables application startup apply
   - relative paths resolve from the config file directory
   - unknown keys are errors
   - command flags override config values

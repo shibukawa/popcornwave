@@ -7,8 +7,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/shibukawa/popcornwave/internal/dbschema"
-	"github.com/shibukawa/popcornwave/internal/dbseed"
 	_ "github.com/shibukawa/tinygodriver/database/sqlite"
 )
 
@@ -88,32 +86,15 @@ func databaseTarget(configured string) (driver, dsn string, err error) {
 	return driver, configured, nil
 }
 
-func seedDatabase(paths []string) error {
-	configState.RLock()
-	db := configState.db
-	configState.RUnlock()
-	if db == nil {
-		return errors.New("popcornwave: seed requires middleware.rdb.enabled")
+// configuredDatabaseDSN reports the effective middleware.rdb DSN so system:pw-cli
+// can migrate and seed without reimplementing configuration precedence.
+func configuredDatabaseDSN() (string, error) {
+	config := Config[MiddlewareConfig](nil).RDB
+	if !config.Enabled {
+		return "", errors.New("popcornwave: middleware.rdb.enabled is false")
 	}
-	dialect, err := dbseed.ResolveDialect(Config[MiddlewareConfig](nil).RDB.DSN)
-	if err != nil {
-		return fmt.Errorf("popcornwave: seed: %w", err)
+	if _, _, err := databaseTarget(config.DSN); err != nil {
+		return "", fmt.Errorf("popcornwave: %w", err)
 	}
-	if err := dbseed.Apply(context.Background(), db, dialect, paths); err != nil {
-		return fmt.Errorf("popcornwave: seed: %w", err)
-	}
-	return nil
-}
-
-func initializeSchema(directory string) error {
-	configState.RLock()
-	db := configState.db
-	configState.RUnlock()
-	if db == nil {
-		return errors.New("popcornwave: schema-init requires middleware.rdb.enabled")
-	}
-	if err := dbschema.Apply(context.Background(), db, directory); err != nil {
-		return fmt.Errorf("popcornwave: initialize schema: %w", err)
-	}
-	return nil
+	return config.DSN, nil
 }

@@ -237,10 +237,14 @@ export statement FindUser(id: int): sql.one<User> {
 SELECT id, name FROM users WHERE id = {id}
 }
 `,
-		"dbschema/001_init.sql": `CREATE TABLE IF NOT EXISTS users (
+		"migrations/00001_init.sql": `-- +goose Up
+CREATE TABLE users (
     id INTEGER PRIMARY KEY,
     name TEXT NOT NULL
 );
+
+-- +goose Down
+DROP TABLE users;
 `,
 		"templates/400.pw.html": errorTemplate("templates", "Error400", "Bad Request"),
 		"templates/404.pw.html": errorTemplate("templates", "Error404", "Not Found"),

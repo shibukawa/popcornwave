@@ -11,12 +11,11 @@ import (
 	"github.com/shibukawa/popcornwave/pw"
 )
 
-func memberSchemaDir(t *testing.T) string {
+func memberMigrationDir(t *testing.T) string {
 	t.Helper()
 	directory := t.TempDir()
-	if err := os.WriteFile(filepath.Join(directory, "001_member.sql"), []byte(
-		"CREATE TABLE member (id INTEGER PRIMARY KEY, name TEXT NOT NULL);",
-	), 0o644); err != nil {
+	migration := "-- +goose Up\nCREATE TABLE member (id INTEGER PRIMARY KEY, name TEXT NOT NULL);\n\n-- +goose Down\nDROP TABLE member;\n"
+	if err := os.WriteFile(filepath.Join(directory, "00001_member.sql"), []byte(migration), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	return directory
@@ -60,7 +59,7 @@ func memberNames(t *testing.T, server *Server) []string {
 
 func TestWithSeedLoadsDatasetBeforeRequests(t *testing.T) {
 	server := TestRun(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}),
-		withMemberDatabase, WithSchemaDir(memberSchemaDir(t)), WithSeed("initial"))
+		withMemberDatabase, WithMigrations(memberMigrationDir(t)), WithSeed("initial"))
 
 	got := memberNames(t, server)
 	want := []string{"Frank", "Grace"}
@@ -71,7 +70,7 @@ func TestWithSeedLoadsDatasetBeforeRequests(t *testing.T) {
 
 func TestAssertDBMatchesAndReportsDiff(t *testing.T) {
 	server := TestRun(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}),
-		withMemberDatabase, WithSchemaDir(memberSchemaDir(t)), WithSeed("initial.yaml"))
+		withMemberDatabase, WithMigrations(memberMigrationDir(t)), WithSeed("initial.yaml"))
 
 	// The seeded state matches its own dataset.
 	server.AssertDB(t, "initial")
@@ -97,7 +96,7 @@ func TestAssertDBMatchesAndReportsDiff(t *testing.T) {
 
 func TestSeedResetsStateMidTest(t *testing.T) {
 	server := TestRun(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}),
-		withMemberDatabase, WithSchemaDir(memberSchemaDir(t)), WithSeed("after_insert"))
+		withMemberDatabase, WithMigrations(memberMigrationDir(t)), WithSeed("after_insert"))
 
 	if got := len(memberNames(t, server)); got != 3 {
 		t.Fatalf("seeded rows = %d, want 3", got)
@@ -119,7 +118,7 @@ func TestWithSeedDirOverridesLocation(t *testing.T) {
 	}
 
 	server := TestRun(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}),
-		withMemberDatabase, WithSchemaDir(memberSchemaDir(t)),
+		withMemberDatabase, WithMigrations(memberMigrationDir(t)),
 		WithSeedDir(directory), WithSeed("custom"))
 
 	if got := memberNames(t, server); strings.Join(got, ",") != "Ivan" {
@@ -139,7 +138,7 @@ func TestSeedFailsWhenDatabaseDisabled(t *testing.T) {
 
 func TestSeedRejectsUnknownDataset(t *testing.T) {
 	server := TestRun(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}),
-		withMemberDatabase, WithSchemaDir(memberSchemaDir(t)))
+		withMemberDatabase, WithMigrations(memberMigrationDir(t)))
 
 	recorder := &recordingT{TestingT: t}
 	server.Seed(recorder, "missing")

@@ -15,7 +15,7 @@ startup:
     - open and validate the pool
     - install it in data:request-context-capsule
 shutdown: api:application-lifecycle closes the pool
-schema: api:cli-schema-init uses the same effective configuration
+schema: requirement:database-migration uses the same effective configuration
 application_code:
   forbidden:
     - pw.SetDatabase

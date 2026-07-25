@@ -14,21 +14,18 @@ arguments:
   - no argument applies every .yaml file in the seed directory in lexical order
 execution:
   model: decision:host-tools-target-runtime
-  mechanism: go run <data:project-config main> --pw-seed=<resolved paths>
-  path_encoding: os.PathListSeparator joined absolute paths
-  framework_action: same dispatch position as api:cli-schema-init
+  mechanism: resolve the DSN from the application, then open and seed inside the CLI process
+  dsn: resolved from the application through the api:cli-migrate --pw-print-dsn pipe
   engine: decision:dbtestify-integration local_boundary
 behavior:
   - load the effective runtime TOML configuration
-  - validate the configured runtime like api:cli-schema-init does
   - require middleware.rdb.enabled and fail otherwise
-  - open the framework-owned pool through decision:config-driven-database
+  - open a short-lived pool from the reported DSN and close it before returning
   - resolve the system:dbtestify dialect from the rdb DSN scheme
   - apply datasets in argument order, each in its own transaction
   - stop on the first error and return nonzero
-  - close runtime resources through api:application-lifecycle
 rules:
-  - schema must already exist; api:cli-schema-init is a separate command and is not run implicitly
+  - schema must already exist; api:cli-migrate is a separate command and is not run implicitly
   - seeding is destructive by default because clear-insert truncates targeted tables
   - the command targets development and test databases, never a shared production database
   - redact credentials from output and errors

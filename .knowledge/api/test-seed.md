@@ -17,7 +17,7 @@ shape:
   assert: explicit Server method so comparison timing is caller controlled
 run_option_order:
   - open the copied pool through api:test-run
-  - apply WithSchemaDir
+  - install the api:test-run migration schema
   - apply WithSeed files in declared order
   - begin the api:test-run WithTransaction test transaction
   - start the HTTP server

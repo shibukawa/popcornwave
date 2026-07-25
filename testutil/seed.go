@@ -10,8 +10,8 @@ import (
 	"github.com/shibukawa/popcornwave/pw"
 )
 
-// WithSeed loads dataset files into the copied database after WithSchemaDir has
-// applied the schema and before the HTTP server starts.
+// WithSeed loads dataset files into the copied database after the migration
+// schema is installed and before the HTTP server starts.
 //
 // Each name is a path relative to the seed directory; the .yaml extension may
 // be omitted. Datasets are applied in the given order.

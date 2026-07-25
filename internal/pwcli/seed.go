@@ -4,12 +4,11 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 
 	"github.com/shibukawa/popcornwave/internal/dbseed"
+	"github.com/shibukawa/popcornwave/internal/pwmigrate"
 )
 
 func runSeed(ctx context.Context, args []string, stdout, stderr io.Writer) error {
@@ -47,16 +46,26 @@ func runSeed(ctx context.Context, args []string, stdout, stderr io.Writer) error
 	if err != nil {
 		return fmt.Errorf("seed: %w", err)
 	}
+	// The application owns configuration precedence, so it reports the DSN
+	// instead of the CLI reimplementing TOML, environment, and flag order.
+	dsn, err := resolveApplicationDSN(ctx, root, config.Main, stderr)
+	if err != nil {
+		return fmt.Errorf("seed: %w", err)
+	}
+	dialect, err := dbseed.ResolveDialect(dsn)
+	if err != nil {
+		return redactDSN(fmt.Errorf("seed: %w", err), dsn)
+	}
+	target, err := pwmigrate.Open(dsn)
+	if err != nil {
+		return redactDSN(fmt.Errorf("seed: %w", err), dsn)
+	}
+	defer target.Close()
 	for _, path := range paths {
 		fmt.Fprintln(stdout, "seeding", relativeTo(root, path))
-	}
-	command := exec.CommandContext(ctx, "go", "run", config.Main, "--pw-seed="+strings.Join(paths, string(filepath.ListSeparator)))
-	command.Dir = root
-	command.Stdout = stdout
-	command.Stderr = stderr
-	command.Env = os.Environ()
-	if err := command.Run(); err != nil {
-		return fmt.Errorf("seed: %w", err)
+		if err := dbseed.Apply(ctx, target.DB, dialect, []string{path}); err != nil {
+			return redactDSN(fmt.Errorf("seed: %w", err), dsn)
+		}
 	}
 	return nil
 }

@@ -47,7 +47,7 @@ semantics:
 rules:
   - dataset files are handwritten and committed
   - the same file may serve as a seed input and as an expected result
-  - datasets never contain DDL; api:cli-schema-init owns schema creation
+  - datasets never contain DDL; requirement:database-migration owns schema creation
   - primary keys must exist in the database or the row is reported as wrongDataSet
   - datasets carry no credentials or environment-specific connection data
 non_goals:

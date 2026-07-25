@@ -36,14 +36,14 @@ func init() {
 }
 
 func TestRunCopiesAndCustomizesArbitraryConfig(t *testing.T) {
-	schemaDir := t.TempDir()
-	if err := os.WriteFile(filepath.Join(schemaDir, "001_counter.sql"), []byte(
-		"CREATE TABLE counter (value INTEGER NOT NULL);",
+	migrationDir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(migrationDir, "00001_counter.sql"), []byte(
+		"-- +goose Up\nCREATE TABLE counter (value INTEGER NOT NULL);\n\n-- +goose Down\nDROP TABLE counter;\n",
 	), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(schemaDir, "002_seed.sql"), []byte(
-		"INSERT INTO counter VALUES (7);",
+	if err := os.WriteFile(filepath.Join(migrationDir, "00002_seed.sql"), []byte(
+		"-- +goose Up\nINSERT INTO counter VALUES (7);\n\n-- +goose Down\nDELETE FROM counter;\n",
 	), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -80,7 +80,7 @@ func TestRunCopiesAndCustomizesArbitraryConfig(t *testing.T) {
 				MaxIdleConns:   1,
 			}
 		})
-	}, WithSchemaDir(schemaDir))
+	}, WithMigrations(migrationDir))
 	if !sawDefaultPort {
 		t.Fatal("customizer did not observe default port -1")
 	}
