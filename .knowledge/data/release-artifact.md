@@ -15,9 +15,14 @@ ext:
   windows: zip
 contents:
   - pw executable, pw.exe on windows
-  - LICENSE
   - README.md
+  - LICENSE when the repository has one
   rule: no directory prefix; extraction yields the files directly
+  open_issue: the repository declares no license, so no LICENSE file ships and neither channel states one
+reproducibility:
+  - archive member timestamps and ownership are fixed, not taken from the runner
+  - gzip is invoked without a name or timestamp header
+  - the same tag and toolchain rebuild to byte-identical archives
 checksum_file:
   name: checksums.txt
   format: sha256sum lines over every archive of the same tag

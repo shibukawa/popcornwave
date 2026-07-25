@@ -1,0 +1,261 @@
+name: Release pw
+
+# decision:cli-release-pipeline. A pushed v* tag is the only trigger that
+# publishes; workflow_dispatch builds and smoke-tests without publishing.
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  MODULE: github.com/shibukawa/popcornwave
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Run tests
+        run: go test ./...
+
+  build:
+    needs: test
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - goos: darwin
+            goarch: arm64
+          - goos: darwin
+            goarch: amd64
+          - goos: linux
+            goarch: amd64
+          - goos: linux
+            goarch: arm64
+          - goos: windows
+            goarch: amd64
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Resolve version
+        id: version
+        run: |
+          set -euo pipefail
+          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+            version="${GITHUB_REF_NAME#v}"
+          else
+            version="0.0.0-dev+${GITHUB_SHA::12}"
+          fi
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+
+      # CGO_ENABLED=0 selects the pure Go SQLite backend of
+      # decision:sqlite-backend-selection, so every target cross-compiles here.
+      - name: Build
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: '0'
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          binary=pw
+          if [ "$GOOS" = "windows" ]; then
+            binary=pw.exe
+          fi
+          mkdir -p "dist/${GOOS}_${GOARCH}"
+          go build -trimpath \
+            -ldflags "-s -w -X ${MODULE}/internal/pwcli.version=${VERSION}" \
+            -o "dist/${GOOS}_${GOARCH}/${binary}" ./cmd/pw
+
+      - name: Archive
+        id: archive
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          staging="dist/${GOOS}_${GOARCH}"
+          binary=pw
+          if [ "$GOOS" = "windows" ]; then
+            binary=pw.exe
+          fi
+          files=("$binary" README.md)
+          cp README.md "$staging/"
+          if [ -f LICENSE ]; then
+            cp LICENSE "$staging/"
+            files+=(LICENSE)
+          fi
+          # Fixed timestamps keep a rebuilt tag byte-identical.
+          touch -t 202001010000 "${files[@]/#/$staging/}"
+          mkdir -p archives
+          if [ "$GOOS" = "windows" ]; then
+            name="pw_${VERSION}_${GOOS}_${GOARCH}.zip"
+            (cd "$staging" && zip -q -X "${GITHUB_WORKSPACE}/archives/${name}" "${files[@]}")
+          else
+            name="pw_${VERSION}_${GOOS}_${GOARCH}.tar.gz"
+            tar --sort=name --owner=0 --group=0 --numeric-owner --mtime='@0' \
+              -cf - -C "$staging" "${files[@]}" | gzip -9 -n > "archives/${name}"
+          fi
+          echo "name=${name}" >> "$GITHUB_OUTPUT"
+
+      # The native archive is the only one this runner can execute, so it is the
+      # one flow:cli-release smoke-tests before anything is published.
+      - name: Smoke test
+        if: matrix.goos == 'linux' && matrix.goarch == 'amd64'
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          ARCHIVE: ${{ steps.archive.outputs.name }}
+        run: |
+          set -euo pipefail
+          mkdir -p smoke
+          tar -xzf "archives/${ARCHIVE}" -C smoke
+          ./smoke/pw help
+          ./smoke/pw version
+          ./smoke/pw version | grep -F "pw ${VERSION} "
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: archive-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: archives/*
+          if-no-files-found: error
+          retention-days: 7
+
+  publish:
+    needs: build
+    if: github.ref_type == 'tag'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      prerelease: ${{ steps.version.outputs.prerelease }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Resolve version
+        id: version
+        run: |
+          set -euo pipefail
+          version="${GITHUB_REF_NAME#v}"
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+          case "$version" in
+            *-*) echo "prerelease=true" >> "$GITHUB_OUTPUT" ;;
+            *)   echo "prerelease=false" >> "$GITHUB_OUTPUT" ;;
+          esac
+
+      # policy:release-integrity keeps a published artifact immutable; a
+      # correction ships as a new patch tag.
+      - name: Reject an already published tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          state="$(gh release view "${GITHUB_REF_NAME}" --json isDraft --jq .isDraft 2>/dev/null || echo absent)"
+          if [ "$state" = "false" ]; then
+            echo "release ${GITHUB_REF_NAME} is already published; ship a new patch tag instead" >&2
+            exit 1
+          fi
+
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: archive-*
+          merge-multiple: true
+          path: archives
+
+      - name: Write checksums
+        working-directory: archives
+        run: |
+          set -euo pipefail
+          sha256sum pw_* > checksums.txt
+          cat checksums.txt
+
+      # Assets upload with the draft so a failed upload leaves a draft to repair
+      # instead of a partially published release.
+      - name: Create draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+          PRERELEASE: ${{ steps.version.outputs.prerelease }}
+        run: |
+          set -euo pipefail
+          notes="Built with $(go env GOVERSION) from ${GITHUB_SHA}."
+          args=(--draft --title "pw ${VERSION}" --notes "${notes}" --generate-notes)
+          if [ "${PRERELEASE}" = "true" ]; then
+            args+=(--prerelease)
+          fi
+          gh release create "${GITHUB_REF_NAME}" "${args[@]}" archives/*
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release edit "${GITHUB_REF_NAME}" --draft=false
+
+  tap:
+    needs: publish
+    # decision:homebrew-tap-channel: a prerelease never reaches brew users.
+    if: needs.publish.outputs.prerelease == 'false'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Check out the tap
+        uses: actions/checkout@v5
+        with:
+          repository: shibukawa/homebrew-tap
+          token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          path: tap
+
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: archive-*
+          merge-multiple: true
+          path: archives
+
+      - name: Render the formula
+        env:
+          VERSION: ${{ needs.publish.outputs.version }}
+        run: |
+          set -euo pipefail
+          mkdir -p tap/Formula
+          .github/homebrew/render-formula.sh \
+            "${VERSION}" archives .github/homebrew/pw.rb.tmpl tap/Formula/pw.rb
+
+      - name: Commit the bump
+        working-directory: tap
+        env:
+          VERSION: ${{ needs.publish.outputs.version }}
+        run: |
+          set -euo pipefail
+          if git diff --quiet -- Formula/pw.rb; then
+            echo "formula already at ${VERSION}"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Formula/pw.rb
+          git commit -m "pw ${VERSION}"
+          git push

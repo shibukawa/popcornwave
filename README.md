@@ -11,8 +11,23 @@ Documentation: <https://shibukawa.github.io/popcornwave/> (sources in
 
 ## Getting started
 
+Install the `pw` command:
+
+```sh
+brew install shibukawa/tap/pw
+```
+
+```sh
+nix profile install github:shibukawa/popcornwave
+```
+
 ```sh
 go install github.com/shibukawa/popcornwave/cmd/pw@latest
+```
+
+Then scaffold and run a project:
+
+```sh
 pw init myapp
 cd myapp && pw dev
 ```
@@ -107,6 +122,7 @@ dependencies of this package.
 | `pw build` | produce a release binary |
 | `pw migrate` | inspect, apply, and roll back migrations |
 | `pw seed` | load seed datasets |
+| `pw version` | report the installed build |
 
 ## Configuration
 

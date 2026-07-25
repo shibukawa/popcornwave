@@ -303,7 +303,6 @@
 {"context": "body", "path": ".knowledge/decision/authentication-bootstrap-strategy.md", "source": "decision:authentication-bootstrap-strategy", "target": "policy:oidc-admission", "target_category": "constraint", "target_type": "policy"}
 {"context": "body", "path": ".knowledge/decision/cli-release-pipeline.md", "source": "decision:cli-release-pipeline", "target": "data:release-artifact", "target_category": "structure", "target_type": "data"}
 {"context": "body", "path": ".knowledge/decision/cli-release-pipeline.md", "source": "decision:cli-release-pipeline", "target": "requirement:cli-distribution", "target_category": "objective", "target_type": "requirement"}
-{"context": "body", "path": ".knowledge/decision/cli-release-pipeline.md", "source": "decision:cli-release-pipeline", "target": "api:cli-version", "target_category": "interface", "target_type": "api"}
 {"context": "body", "path": ".knowledge/decision/cli-release-pipeline.md", "source": "decision:cli-release-pipeline", "target": "policy:release-integrity", "target_category": "constraint", "target_type": "policy"}
 {"context": "body", "path": ".knowledge/decision/cli-release-pipeline.md", "source": "decision:cli-release-pipeline", "target": "decision:homebrew-tap-channel", "target_category": "constraint", "target_type": "decision"}
 {"context": "body", "path": ".knowledge/decision/config-driven-database.md", "source": "decision:config-driven-database", "target": "data:middleware-runtime-config", "target_category": "structure", "target_type": "data"}
