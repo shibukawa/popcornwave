@@ -14,6 +14,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/shibukawa/popcornwave/internal/pwenv"
+	"github.com/shibukawa/popcornwave/middlewares"
 	"github.com/shibukawa/popcornwave/pwruntime"
 	"github.com/shibukawa/tinybind-go/cliparser"
 	"github.com/shibukawa/tinybind-go/configbind"
@@ -42,11 +44,7 @@ type EndpointConfig struct {
 }
 
 // PublicConfig controls the framework-owned static asset endpoint.
-type PublicConfig struct {
-	Enabled   bool
-	Mount     string
-	ReadLocal bool
-}
+type PublicConfig = middlewares.PublicAssetConfig
 
 // SecurityConfig controls framework request and response security policy.
 type SecurityConfig struct {
@@ -54,24 +52,10 @@ type SecurityConfig struct {
 }
 
 // SecurityHeadersConfig controls browser-facing response headers.
-type SecurityHeadersConfig struct {
-	Enabled                         bool
-	ContentTypeOptions              bool
-	FrameOptions                    string
-	ReferrerPolicy                  string
-	ContentSecurityPolicy           string
-	ContentSecurityPolicyReportOnly string
-	PermissionsPolicy               string
-	HSTS                            HSTSConfig
-}
+type SecurityHeadersConfig = middlewares.SecurityHeadersConfig
 
 // HSTSConfig controls Strict-Transport-Security on verified HTTPS requests.
-type HSTSConfig struct {
-	Enabled           bool
-	MaxAge            time.Duration
-	IncludeSubdomains bool
-	Preload           bool
-}
+type HSTSConfig = middlewares.HSTSConfig
 
 // SessionConfig contains the currently available session runtime settings.
 type SessionConfig struct {
@@ -100,7 +84,6 @@ type MiddlewareConfig struct {
 type RDBConfig struct {
 	Enabled         bool
 	DSN             string
-	AutoTransaction bool
 	ConnectTimeout  time.Duration
 	MaxOpenConns    int
 	MaxIdleConns    int
@@ -133,13 +116,13 @@ var configState = struct {
 	result   *configbind.LoadResult
 	options  configbind.LoadOptions
 	db       *sql.DB
+	dbDriver string
 	cleanups []*runtimeCleanup
 }{
 	entries: make(map[reflect.Type]configEntry),
 	options: configbind.LoadOptions{
-		Vendor:               "popcornwave",
-		FileName:             "config.toml",
-		ExtraConfigReadPaths: []string{"config.toml"},
+		Vendor:   "popcornwave",
+		FileName: "config.toml",
 	},
 }
 
@@ -180,10 +163,12 @@ func ParseConfig() error {
 		return configState.parseErr
 	}
 	configState.parsed = true
-	options := configState.options
-	if options.Tool == "" {
-		options.Tool = executableName()
+	options, env, envErr := resolveLoadOptions(configState.options)
+	if envErr != nil {
+		configState.parseErr = envErr
+		return envErr
 	}
+	setEnv(env)
 	var actionErr error
 	options.Args, actionErr = parseFrameworkAction(commandArgs(options.Args))
 	if actionErr != nil {
@@ -197,6 +182,27 @@ func ParseConfig() error {
 	}
 	logConfigSources(result)
 	return nil
+}
+
+// resolveLoadOptions completes options for the active runtime environment.
+// Project-local candidates are environment-specific and searched in the working
+// directory before its config/ directory; the user and system configuration
+// directories keep the environment-neutral file name.
+func resolveLoadOptions(options configbind.LoadOptions) (configbind.LoadOptions, string, error) {
+	if options.Tool == "" {
+		options.Tool = executableName()
+	}
+	env, err := pwenv.Resolve(options.Environ)
+	if err != nil {
+		return options, "", err
+	}
+	if options.FileName == "" {
+		options.FileName = pwenv.NeutralFileName
+	}
+	if options.ExtraConfigReadPaths == nil {
+		options.ExtraConfigReadPaths = pwenv.ReadPaths(env)
+	}
+	return options, env, nil
 }
 
 func executableName() string {
@@ -232,12 +238,17 @@ func runtimeResources(logger *slog.Logger) pwruntime.Resources {
 			configs[typ] = value.Elem().Interface()
 		}
 	}
-	return pwruntime.Resources{Configs: configs, Logger: logger, DB: configState.db}
+	return pwruntime.Resources{Configs: configs, Logger: logger, DB: configState.db, DBDriver: configState.dbDriver}
 }
 
 func logConfigSources(result *configbind.LoadResult) {
 	if result == nil || result.Overlay == nil {
 		return
+	}
+	if result.FoundFile {
+		slog.Info("config file resolved", "environment", Env(), "path", result.ConfigPath)
+	} else {
+		slog.Info("config file not found", "environment", Env())
 	}
 	keys := result.Overlay.Keys()
 	sort.Strings(keys)
@@ -539,7 +550,7 @@ func registerMiddlewareConfig() {
 			"middleware.recovery", "middleware.request_id", "middleware.access_log",
 			"middleware.compression", "middleware.request_timeout",
 			"middleware.rdb.enabled", "middleware.rdb.dsn",
-			"middleware.rdb.auto_transaction", "middleware.rdb.connect_timeout",
+			"middleware.rdb.connect_timeout",
 			"middleware.rdb.max_open_conns", "middleware.rdb.max_idle_conns",
 			"middleware.rdb.conn_max_lifetime", "middleware.rdb.conn_max_idle_time",
 		},
@@ -548,9 +559,8 @@ func registerMiddlewareConfig() {
 			"middleware.access_log": "true", "middleware.compression": "false",
 			"middleware.request_timeout": "0s",
 			"middleware.rdb.enabled":     "false", "middleware.rdb.dsn": "",
-			"middleware.rdb.auto_transaction": "true",
-			"middleware.rdb.connect_timeout":  "5s",
-			"middleware.rdb.max_open_conns":   "0", "middleware.rdb.max_idle_conns": "0",
+			"middleware.rdb.connect_timeout": "5s",
+			"middleware.rdb.max_open_conns":  "0", "middleware.rdb.max_idle_conns": "0",
 			"middleware.rdb.conn_max_lifetime": "0s", "middleware.rdb.conn_max_idle_time": "0s",
 		},
 		FlagMetas: []cliparser.FieldMeta{
@@ -561,7 +571,6 @@ func registerMiddlewareConfig() {
 			{Prefix: "middleware", Key: "request_timeout"},
 			{Prefix: "middleware.rdb", Key: "enabled", Kind: cliparser.KindBool},
 			{Prefix: "middleware.rdb", Key: "dsn"},
-			{Prefix: "middleware.rdb", Key: "auto_transaction", Kind: cliparser.KindBool},
 			{Prefix: "middleware.rdb", Key: "connect_timeout"},
 			{Prefix: "middleware.rdb", Key: "max_open_conns"},
 			{Prefix: "middleware.rdb", Key: "max_idle_conns"},
@@ -584,7 +593,6 @@ func registerMiddlewareConfig() {
 			}
 			p.RDB.Enabled = configBool(overlay, "middleware.rdb.enabled")
 			p.RDB.DSN = valueOf(overlay, "middleware.rdb.dsn")
-			p.RDB.AutoTransaction = configBool(overlay, "middleware.rdb.auto_transaction")
 			p.RDB.ConnectTimeout, err = parseConfigDuration(overlay, "middleware.rdb.connect_timeout")
 			if err != nil {
 				return err
@@ -612,7 +620,6 @@ func registerMiddlewareConfig() {
 			{Key: "request_timeout", Kind: configbind.ScaffoldString, Default: "0s"},
 			{Key: "rdb.enabled", Kind: configbind.ScaffoldBool, Default: "false"},
 			{Key: "rdb.dsn", Kind: configbind.ScaffoldString, Default: ""},
-			{Key: "rdb.auto_transaction", Kind: configbind.ScaffoldBool, Default: "true"},
 			{Key: "rdb.connect_timeout", Kind: configbind.ScaffoldString, Default: "5s"},
 			{Key: "rdb.max_open_conns", Kind: configbind.ScaffoldInt, Default: "0"},
 			{Key: "rdb.max_idle_conns", Kind: configbind.ScaffoldInt, Default: "0"},

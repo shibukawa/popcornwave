@@ -15,5 +15,10 @@ func home(w http.ResponseWriter, r *http.Request) {
 		pw.WriteProblem(w, r, pw.InternalServerError(err))
 		return
 	}
-	pw.WriteHTML(w, r, Home(HomeParams{Count: counter.Count}))
+	app := pw.Config[AppConfig](r.Context())
+	pw.WriteHTML(w, r, Home(HomeParams{
+		Count:         counter.Count,
+		EnvLabel:      app.EnvLabel,
+		EnvLabelColor: app.EnvLabelColor,
+	}))
 }

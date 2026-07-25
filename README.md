@@ -1,5 +1,7 @@
 # Petitweb for Go
 
+<img src="docs/logo.png" alt="Petitweb" width="480">
+
 Petitweb is a small, TinyGo-oriented web application framework built directly
 on `net/http`. Classic mode handles ordinary document requests, form posts,
 redirects, downloads, and APIs without shipping a browser runtime.
@@ -45,9 +47,15 @@ by every imported package. Redirect stdout when a file is wanted:
 
 ```sh
 cd examples/helloworld
-go run ./cmd/helloworld --generate-config toml > config.toml
+go run ./cmd/helloworld --generate-config toml > config.dev.toml
 go run ./cmd/helloworld --generate-config env > .env
 ```
+
+`APP_ENV` selects the runtime environment (`dev`, `stg`, `prod`, or any other
+lowercase token) and defaults to `dev`. Project-local configuration is read
+from `./config.{APP_ENV}.toml` and then `./config/config.{APP_ENV}.toml`; the
+user and system configuration directories keep the environment-neutral
+`config.toml`. `--config-path` overrides the search entirely.
 
 Tests can run an application from an isolated copy of every registered
 framework and application configuration. The customizer initially sees port

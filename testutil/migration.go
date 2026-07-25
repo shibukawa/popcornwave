@@ -3,6 +3,7 @@ package testutil
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"sync"
 
 	"github.com/shibukawa/popcornwave/migrate"
@@ -18,11 +19,39 @@ var snapshotCache = struct {
 }{scripts: make(map[string]string)}
 
 func installMigrations(ctx context.Context, db *sql.DB, options []migrate.Option) error {
+	installed, err := alreadyInstalled(ctx, db)
+	if err != nil {
+		return err
+	}
+	if installed {
+		// Tests may deliberately share one database file, so the first TestRun
+		// installs the schema and later ones reuse it.
+		return nil
+	}
 	script, err := cachedSnapshot(ctx, options)
 	if err != nil {
 		return err
 	}
 	return migrate.Replay(ctx, db, script)
+}
+
+// alreadyInstalled reports whether this database carries applied migration
+// versions from an earlier TestRun.
+func alreadyInstalled(ctx context.Context, db *sql.DB) (bool, error) {
+	var present int
+	err := db.QueryRowContext(ctx,
+		"SELECT count(*) FROM sqlite_master WHERE type='table' AND name='goose_db_version'").Scan(&present)
+	if err != nil {
+		return false, fmt.Errorf("testutil: inspect migration state: %w", err)
+	}
+	if present == 0 {
+		return false, nil
+	}
+	var applied int
+	if err := db.QueryRowContext(ctx, "SELECT count(*) FROM goose_db_version").Scan(&applied); err != nil {
+		return false, fmt.Errorf("testutil: read migration state: %w", err)
+	}
+	return applied > 0, nil
 }
 
 func cachedSnapshot(ctx context.Context, options []migrate.Option) (string, error) {

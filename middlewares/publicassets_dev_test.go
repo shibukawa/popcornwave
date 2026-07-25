@@ -1,6 +1,6 @@
 //go:build pwdev
 
-package pw
+package middlewares
 
 import (
 	"net/http"
@@ -30,8 +30,12 @@ func TestDevelopmentPublicAssetsUseOnlyLocalIdentity(t *testing.T) {
 	if err := os.WriteFile(filepath.Join("public", "app.css.zstd"), []byte("stale"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	handler := publicAssetHandler(http.NotFoundHandler(), PublicConfig{Mount: "/public"},
+	middleware, err := PublicAssets(PublicAssetConfig{Mount: "/public"},
 		fstest.MapFS{"embedded.txt": {Data: []byte("embedded")}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	handler := middleware(http.NotFoundHandler())
 
 	request := httptest.NewRequest(http.MethodGet, "/public/app.css", nil)
 	request.Header.Set("Accept-Encoding", "zstd")

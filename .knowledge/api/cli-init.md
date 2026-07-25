@@ -12,6 +12,7 @@ inputs:
 outputs:
   - data:project-config
   - concept:project-layout
+  - config.dev.toml for requirement:environment-switching
   - Go module and cmd/myapp/main.go
   - handler registration and pw.Parse example
   - templates/document.pw.html shared document shell

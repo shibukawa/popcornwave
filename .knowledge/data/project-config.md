@@ -29,7 +29,7 @@ optional_extensions:
   - build output location
 rules:
   - api:cli-generate always discovers all Go, .pw.html, and .pw.sql sources
-  - api:cli-dev always watches Go, .pw.html, .pw.sql, popcornwave.toml, and config.toml
+  - api:cli-dev always watches Go, .pw.html, .pw.sql, popcornwave.toml, and policy:config-file-resolution project-local files
   - dev.extra_watch adds relative files or glob patterns
   - migration.dir locates data:migration-source and is a tooling path, not a runtime database value
   - migration.auto only enables the api:cli-dev apply step and never enables application startup apply
@@ -43,6 +43,7 @@ rules:
   - the CLI must already be available from the entered Devbox environment
 runtime_configuration:
   owner: api:runtime-configuration
+  file_selection: policy:config-file-resolution
   inputs:
     - TOML selected by configbind
     - environment

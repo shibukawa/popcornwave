@@ -14,6 +14,7 @@ surface:
   - Update[T](*Config, func(*T))
   - WithMigrations(path)
   - WithMigrationsFS(fs.FS)
+  - WithTransaction(enabled bool)
 isolation:
   source: api:runtime-configuration registered effective values
   copy: deep copy keyed by exact Go type
@@ -28,13 +29,29 @@ database:
   ownership: TestRun opens and closes its own pool
   migration:
     source: WithMigrations reads data:migration-source from disk and WithMigrationsFS reads an embedded tree
-    timing: flow:database-migration completes before the server starts
+    timing: flow:database-migration completes before the server starts and before any test transaction begins
     install: decision:test-migration-snapshot replays a cached data:migration-snapshot into the isolated database
     backend: decision:migration-execution-split selects in-process goose or pw migrate snapshot to produce that artifact
     memory_database: supported on both paths because SQL is transferred instead of a DSN
     fallback: direct apply for a non-sqlite dialect or when the test opts out of snapshots
     default: no schema work when no migration option is supplied
     rollback: never; test databases are created and discarded
+transaction:
+  requirement: requirement:parallel-database-tests
+  flow: flow:test-transaction-isolation
+  option: WithTransaction(enabled) toggles per-test transaction isolation
+  default: off, because a pool sized for one connection or an in-memory database cannot serve both the test transaction and the pool
+  on:
+    - reject the run when the driver fails rule:savepoint-dialect-support, before opening a pool
+    - begin one *sql.Tx and install data:transaction-scope at depth 0
+    - the scope belongs to the server resources, so every request context carries it
+    - roll back in Server.Close before the pool closes, and fail the test on rollback error
+    - a shared database supports t.Parallel across tests
+  off:
+    - requests use the pooled *sql.DB
+    - required for drivers unsupported by rule:savepoint-dialect-support, with test parallelism 1
+  scope_note: migration install runs before and outside the test transaction
+  Server.Context: context carrying the same resources as a request, including the test transaction, for setup and assertions
 runtime:
   - validate copied configuration
   - construct production middleware behavior without mutating global config

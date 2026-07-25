@@ -17,12 +17,11 @@ func TestHomeRendersNestedDocumentAndIncrementsCounter(t *testing.T) {
 	server := testutil.TestRun(t, Handlers(), func(config *testutil.Config) {
 		testutil.Update[pw.MiddlewareConfig](config, func(middleware *pw.MiddlewareConfig) {
 			middleware.RDB = pw.RDBConfig{
-				Enabled:         true,
-				DSN:             "sqlite://:memory:",
-				AutoTransaction: false,
-				ConnectTimeout:  time.Second,
-				MaxOpenConns:    1,
-				MaxIdleConns:    1,
+				Enabled:        true,
+				DSN:            "sqlite://:memory:",
+				ConnectTimeout: time.Second,
+				MaxOpenConns:   1,
+				MaxIdleConns:   1,
 			}
 		})
 	}, testutil.WithMigrations("../migrations"))

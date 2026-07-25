@@ -1,4 +1,4 @@
-package pw
+package middlewares
 
 import (
 	"crypto/sha256"
@@ -13,7 +13,16 @@ import (
 	"strings"
 )
 
-func normalizePublicMount(value string) (string, error) {
+// PublicAssetConfig controls the framework-owned static asset endpoint.
+type PublicAssetConfig struct {
+	Enabled   bool
+	Mount     string
+	ReadLocal bool
+}
+
+// NormalizePublicMount validates a mount point and returns it with a trailing
+// slash. Its errors name the runtime configuration key they come from.
+func NormalizePublicMount(value string) (string, error) {
 	if value == "" || value[0] != '/' || value == "/" {
 		return "", fmt.Errorf("server.public.mount must be an absolute non-root path")
 	}
@@ -27,64 +36,92 @@ func normalizePublicMount(value string) (string, error) {
 	return trimmed + "/", nil
 }
 
-func publicAssetHandler(next http.Handler, config PublicConfig, embedded fs.FS) http.Handler {
-	mount, _ := normalizePublicMount(config.Mount)
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == strings.TrimSuffix(mount, "/") {
-			location := mount
-			if r.URL.RawQuery != "" {
-				location += "?" + r.URL.RawQuery
+// PublicAssets serves the application's static assets under config.Mount and
+// forwards every other request downstream. Assets come from the embedded
+// filesystem, optionally overlaid by a local public directory, and are
+// negotiated against precompressed zstd sidecars.
+//
+// A nil embedded filesystem falls back to the one a generated public.go
+// registered with RegisterPublicFS. Outside the pwdev build mode, serving
+// without either is a startup error.
+func PublicAssets(config PublicAssetConfig, embedded fs.FS) (Middleware, error) {
+	mount, err := NormalizePublicMount(config.Mount)
+	if err != nil {
+		return nil, err
+	}
+	if embedded == nil {
+		embedded = registeredPublicFS()
+	}
+	if embedded == nil && !publicDevelopment {
+		return nil, fmt.Errorf("popcornwave: server.public.enabled requires a registered public filesystem")
+	}
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.URL.Path == strings.TrimSuffix(mount, "/") {
+				location := mount
+				if r.URL.RawQuery != "" {
+					location += "?" + r.URL.RawQuery
+				}
+				http.Redirect(w, r, location, http.StatusPermanentRedirect)
+				return
 			}
-			http.Redirect(w, r, location, http.StatusPermanentRedirect)
-			return
+			if !strings.HasPrefix(r.URL.Path, mount) {
+				next.ServeHTTP(w, r)
+				return
+			}
+			if r.Method != http.MethodGet && r.Method != http.MethodHead {
+				w.Header().Set("Allow", "GET, HEAD")
+				http.Error(w, http.StatusText(http.StatusMethodNotAllowed), http.StatusMethodNotAllowed)
+				return
+			}
+			name, ok := publicAssetName(strings.TrimPrefix(r.URL.Path, mount))
+			if !ok {
+				http.NotFound(w, r)
+				return
+			}
+			asset, ok := resolvePublicAsset(name, config, embedded)
+			if !ok {
+				http.NotFound(w, r)
+				return
+			}
+			if !publicDevelopment {
+				w.Header().Set("Vary", "Accept-Encoding")
+			}
+			representation, encoding, acceptable := selectPublicRepresentation(r, asset)
+			if !acceptable {
+				http.Error(w, http.StatusText(http.StatusNotAcceptable), http.StatusNotAcceptable)
+				return
+			}
+			contentType := mime.TypeByExtension(path.Ext(asset.name))
+			if contentType == "" {
+				contentType = http.DetectContentType(asset.identity)
+			}
+			w.Header().Set("Content-Type", contentType)
+			w.Header().Set("Content-Length", strconv.Itoa(len(representation)))
+			if encoding != "" {
+				w.Header().Set("Content-Encoding", encoding)
+			}
+			sum := sha256.Sum256(representation)
+			w.Header().Set("ETag", fmt.Sprintf(`"%x"`, sum[:16]))
+			if r.Header.Get("If-None-Match") == w.Header().Get("ETag") {
+				w.WriteHeader(http.StatusNotModified)
+				return
+			}
+			w.WriteHeader(http.StatusOK)
+			if r.Method == http.MethodGet {
+				_, _ = w.Write(representation)
+			}
+		})
+	}, nil
+}
+
+func hasControl(value string) bool {
+	for _, r := range value {
+		if r < 0x20 || r == 0x7f {
+			return true
 		}
-		if !strings.HasPrefix(r.URL.Path, mount) {
-			next.ServeHTTP(w, r)
-			return
-		}
-		if r.Method != http.MethodGet && r.Method != http.MethodHead {
-			w.Header().Set("Allow", "GET, HEAD")
-			http.Error(w, http.StatusText(http.StatusMethodNotAllowed), http.StatusMethodNotAllowed)
-			return
-		}
-		name, ok := publicAssetName(strings.TrimPrefix(r.URL.Path, mount))
-		if !ok {
-			http.NotFound(w, r)
-			return
-		}
-		asset, ok := resolvePublicAsset(name, config, embedded)
-		if !ok {
-			http.NotFound(w, r)
-			return
-		}
-		if !publicDevelopment {
-			w.Header().Set("Vary", "Accept-Encoding")
-		}
-		representation, encoding, acceptable := selectPublicRepresentation(r, asset)
-		if !acceptable {
-			http.Error(w, http.StatusText(http.StatusNotAcceptable), http.StatusNotAcceptable)
-			return
-		}
-		contentType := mime.TypeByExtension(path.Ext(asset.name))
-		if contentType == "" {
-			contentType = http.DetectContentType(asset.identity)
-		}
-		w.Header().Set("Content-Type", contentType)
-		w.Header().Set("Content-Length", strconv.Itoa(len(representation)))
-		if encoding != "" {
-			w.Header().Set("Content-Encoding", encoding)
-		}
-		sum := sha256.Sum256(representation)
-		w.Header().Set("ETag", fmt.Sprintf(`"%x"`, sum[:16]))
-		if r.Header.Get("If-None-Match") == w.Header().Get("ETag") {
-			w.WriteHeader(http.StatusNotModified)
-			return
-		}
-		w.WriteHeader(http.StatusOK)
-		if r.Method == http.MethodGet {
-			_, _ = w.Write(representation)
-		}
-	})
+	}
+	return false
 }
 
 func publicAssetName(name string) (string, bool) {
@@ -108,7 +145,7 @@ type publicAsset struct {
 	zstd     []byte
 }
 
-func resolvePublicAsset(name string, config PublicConfig, embedded fs.FS) (publicAsset, bool) {
+func resolvePublicAsset(name string, config PublicAssetConfig, embedded fs.FS) (publicAsset, bool) {
 	if publicDevelopment || config.ReadLocal {
 		asset, found, rejected := readLocalPublicAsset(name)
 		if found {

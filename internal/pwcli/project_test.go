@@ -184,6 +184,11 @@ func TestSnapshotWatchFilesUsesDefaultSourcesAndIgnoresPublicTree(t *testing.T) 
 	writeTestFile(t, filepath.Join(root, "app.go"), "package fixture\n")
 	writeTestFile(t, filepath.Join(root, "public.go"), "package fixture\n")
 	writeTestFile(t, filepath.Join(root, "popcornwave.toml"), "[project]\n")
+	writeTestFile(t, filepath.Join(root, "config.dev.toml"), "[server]\n")
+	if err := os.MkdirAll(filepath.Join(root, "config"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	writeTestFile(t, filepath.Join(root, "config", "config.stg.toml"), "[server]\n")
 	writeTestFile(t, filepath.Join(root, "config.toml"), "[server]\n")
 	if err := os.MkdirAll(filepath.Join(root, "public", "generated"), 0o755); err != nil {
 		t.Fatal(err)
@@ -200,7 +205,8 @@ func TestSnapshotWatchFilesUsesDefaultSourcesAndIgnoresPublicTree(t *testing.T) 
 	for _, included := range []string{
 		filepath.Join(root, "public.go"),
 		filepath.Join(root, "popcornwave.toml"),
-		filepath.Join(root, "config.toml"),
+		filepath.Join(root, "config.dev.toml"),
+		filepath.Join(root, "config", "config.stg.toml"),
 	} {
 		if _, ok := state[included]; !ok {
 			t.Errorf("default watch path is missing: %s", included)
@@ -208,6 +214,7 @@ func TestSnapshotWatchFilesUsesDefaultSourcesAndIgnoresPublicTree(t *testing.T) 
 	}
 	for _, ignored := range []string{
 		filepath.Join(root, "public", "generated", "asset.go"),
+		filepath.Join(root, "config.toml"),
 	} {
 		if _, ok := state[ignored]; ok {
 			t.Errorf("public asset path unexpectedly triggers an application rebuild: %s", ignored)

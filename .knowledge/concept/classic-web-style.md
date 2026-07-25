@@ -16,7 +16,7 @@ navigation:
 mutation:
   location: handler or application service
   browser_default: Post/Redirect/Get
-  transaction_boundary: automatic request transaction by default or explicit api:transaction-runner when middleware.rdb.auto_transaction is false
+  transaction_boundary: explicit api:transaction-runner per decision:explicit-transaction-boundary
 caching:
   - HTTP validators and response cache
   - safe generated read-query cache

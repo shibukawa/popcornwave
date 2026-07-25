@@ -19,14 +19,11 @@ switches:
 rdb_fields:
   rdb.enabled: bool
   rdb.dsn: URL such as sqlite://app.db or sqlite://:memory:
-  rdb.auto_transaction: bool
   rdb.connect_timeout: duration
   rdb.max_open_conns: non-negative integer
   rdb.max_idle_conns: non-negative integer
   rdb.conn_max_lifetime: non-negative duration
   rdb.conn_max_idle_time: non-negative duration
-defaults:
-  rdb.auto_transaction: true
 recommended_order:
   - recovery
   - trusted proxy
@@ -34,7 +31,7 @@ recommended_order:
   - root span
   - access log
   - limits and timeout
-  - database and selected transaction policy
+  - database pool
   - session and authentication
   - security.csrf and CORS
   - compression

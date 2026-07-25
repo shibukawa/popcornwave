@@ -9,7 +9,7 @@ Minimize context.WithValue chain depth while preserving values whose nesting and
 bundled_in: data:request-context-capsule
 bundled:
   - database pool
-  - active database transaction
+  - active data:transaction-scope
   - data:runtime-config-registry with all configbind values and provenance
   - request root span
   - api:logger backend and stable request logging attributes
