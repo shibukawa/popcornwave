@@ -3,6 +3,7 @@ package pw
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 )
@@ -13,6 +14,7 @@ const (
 	frameworkActionNone frameworkActionKind = iota
 	frameworkActionGenerateConfig
 	frameworkActionSchemaInit
+	frameworkActionSeed
 )
 
 type frameworkAction struct {
@@ -48,6 +50,14 @@ func parseFrameworkAction(args []string) ([]string, error) {
 			action = frameworkAction{kind: frameworkActionSchemaInit, value: args[index]}
 		case strings.HasPrefix(arg, "--pw-schema-init="):
 			action = frameworkAction{kind: frameworkActionSchemaInit, value: strings.TrimPrefix(arg, "--pw-schema-init=")}
+		case arg == "--pw-seed":
+			if index+1 >= len(args) {
+				return nil, fmt.Errorf("popcornwave: --pw-seed requires at least one dataset path")
+			}
+			index++
+			action = frameworkAction{kind: frameworkActionSeed, value: args[index]}
+		case strings.HasPrefix(arg, "--pw-seed="):
+			action = frameworkAction{kind: frameworkActionSeed, value: strings.TrimPrefix(arg, "--pw-seed=")}
 		default:
 			filtered = append(filtered, arg)
 			continue
@@ -94,6 +104,20 @@ func runFrameworkAction() (bool, error) {
 			return true, err
 		}
 		err := initializeSchema(action.value)
+		server := Config[ServerConfig](nil)
+		return true, closeRuntimeResources(server.ShutdownTimeout, err)
+	case frameworkActionSeed:
+		if err := validateConfiguredRuntime(); err != nil {
+			return true, err
+		}
+		if err := initializeRuntimeDatabase(); err != nil {
+			return true, err
+		}
+		paths := filepath.SplitList(action.value)
+		if len(paths) == 0 {
+			return true, fmt.Errorf("popcornwave: --pw-seed requires at least one dataset path")
+		}
+		err := seedDatabase(paths)
 		server := Config[ServerConfig](nil)
 		return true, closeRuntimeResources(server.ShutdownTimeout, err)
 	default:

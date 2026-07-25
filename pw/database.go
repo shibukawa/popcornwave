@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/shibukawa/popcornwave/internal/dbschema"
+	"github.com/shibukawa/popcornwave/internal/dbseed"
 	_ "github.com/shibukawa/tinygodriver/database/sqlite"
 )
 
@@ -84,6 +85,23 @@ func databaseTarget(configured string) (driver, dsn string, err error) {
 		return driver, remainder, nil
 	}
 	return driver, configured, nil
+}
+
+func seedDatabase(paths []string) error {
+	configState.RLock()
+	db := configState.db
+	configState.RUnlock()
+	if db == nil {
+		return errors.New("popcornwave: seed requires middleware.rdb.enabled")
+	}
+	dialect, err := dbseed.ResolveDialect(Config[MiddlewareConfig](nil).RDB.DSN)
+	if err != nil {
+		return fmt.Errorf("popcornwave: seed: %w", err)
+	}
+	if err := dbseed.Apply(context.Background(), db, dialect, paths); err != nil {
+		return fmt.Errorf("popcornwave: seed: %w", err)
+	}
+	return nil
 }
 
 func initializeSchema(directory string) error {

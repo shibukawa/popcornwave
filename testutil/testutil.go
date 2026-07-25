@@ -14,15 +14,21 @@ import (
 	"sync"
 
 	"github.com/shibukawa/popcornwave/internal/dbschema"
+	"github.com/shibukawa/popcornwave/internal/dbseed"
 	"github.com/shibukawa/popcornwave/internal/pwtestbridge"
 	"github.com/shibukawa/popcornwave/pw"
 )
 
 // TestingT is the subset of testing.T used by TestRun.
+//
+// It stays an interface so this shipped package never imports testing.
+// Fatalf reports setup failure that invalidates the test; Errorf reports an
+// assertion failure that lets the test continue.
 type TestingT interface {
 	Helper()
 	Cleanup(func())
 	Fatalf(string, ...any)
+	Errorf(string, ...any)
 }
 
 // Config is an isolated copy of all registered framework and application
@@ -62,6 +68,8 @@ func Update[T any](config *Config, edit func(*T)) {
 
 type runSettings struct {
 	schemaDir string
+	seedDir   string
+	seedFiles []string
 }
 
 // RunOption configures TestRun resources.
@@ -81,13 +89,14 @@ func WithSchemaDir(directory string) RunOption {
 
 // Server is a running application created by TestRun.
 type Server struct {
-	URL    string
-	Port   int
-	Config *Config
-	DB     *sql.DB
-	server *http.Server
-	once   sync.Once
-	close  func() error
+	URL     string
+	Port    int
+	Config  *Config
+	DB      *sql.DB
+	server  *http.Server
+	once    sync.Once
+	close   func() error
+	seedDir string
 }
 
 // Client returns an HTTP client configured for the test server.
@@ -171,6 +180,18 @@ func TestRun(t TestingT, handler http.Handler, customize func(*Config), options 
 			return nil
 		}
 	}
+	seedDir := settings.seedDir
+	if seedDir == "" {
+		seedDir = dbseed.DefaultDir
+	}
+	if len(settings.seedFiles) > 0 {
+		if err := applySeed(config, prepared.DB, seedDir, settings.seedFiles); err != nil {
+			_ = listener.Close()
+			_ = prepared.Close()
+			t.Fatalf("initialize Popcorn Wave TestRun seed: %v", err)
+			return nil
+		}
+	}
 	instance := &http.Server{
 		Addr:              listener.Addr().String(),
 		Handler:           prepared.Handler,
@@ -180,12 +201,13 @@ func TestRun(t TestingT, handler http.Handler, customize func(*Config), options 
 		IdleTimeout:       serverConfig.IdleTimeout,
 	}
 	result := &Server{
-		URL:    "http://" + listener.Addr().String(),
-		Port:   actualPort,
-		Config: config,
-		DB:     prepared.DB,
-		server: instance,
-		close:  prepared.Close,
+		URL:     "http://" + listener.Addr().String(),
+		Port:    actualPort,
+		Config:  config,
+		DB:      prepared.DB,
+		server:  instance,
+		close:   prepared.Close,
+		seedDir: seedDir,
 	}
 	t.Cleanup(result.Close)
 	go func() {

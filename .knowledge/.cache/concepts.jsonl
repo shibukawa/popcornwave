@@ -7,6 +7,7 @@
 {"category": "interface", "id": "api:cli-generate", "path": ".knowledge/api/cli-generate.md", "role": "primary", "title": "pw generate", "type": "api"}
 {"category": "interface", "id": "api:cli-init", "path": ".knowledge/api/cli-init.md", "role": "primary", "title": "pw init", "type": "api"}
 {"category": "interface", "id": "api:cli-schema-init", "path": ".knowledge/api/cli-schema-init.md", "role": "primary", "title": "pw schema-init", "type": "api"}
+{"category": "interface", "id": "api:cli-seed", "path": ".knowledge/api/cli-seed.md", "role": "primary", "title": "pw seed", "type": "api"}
 {"category": "interface", "id": "api:cli-session-schema", "path": ".knowledge/api/cli-session-schema.md", "role": "primary", "title": "pw session schema", "type": "api"}
 {"category": "interface", "id": "api:error-renderer", "path": ".knowledge/api/error-renderer.md", "role": "primary", "title": "Error Rendering Contract", "type": "api"}
 {"category": "interface", "id": "api:html-response", "path": ".knowledge/api/html-response.md", "role": "primary", "title": "HTML Response API", "type": "api"}
@@ -25,6 +26,7 @@
 {"category": "interface", "id": "api:session-store", "path": ".knowledge/api/session-store.md", "role": "primary", "title": "Session Store Contract", "type": "api"}
 {"category": "interface", "id": "api:subcommands", "path": ".knowledge/api/subcommands.md", "role": "primary", "title": "Application Subcommands", "type": "api"}
 {"category": "interface", "id": "api:test-run", "path": ".knowledge/api/test-run.md", "role": "primary", "title": "Isolated TestRun", "type": "api"}
+{"category": "interface", "id": "api:test-seed", "path": ".knowledge/api/test-seed.md", "role": "primary", "title": "Test Seeding and Assertion", "type": "api"}
 {"category": "interface", "id": "api:transaction-runner", "path": ".knowledge/api/transaction-runner.md", "role": "primary", "title": "Transaction API", "type": "api"}
 {"category": "interface", "id": "api:typed-external-function", "path": ".knowledge/api/typed-external-function.md", "role": "primary", "title": "Typed External Function", "type": "api"}
 {"category": "interface", "id": "api:typed-stream", "path": ".knowledge/api/typed-stream.md", "role": "primary", "title": "Typed Stream API", "type": "api"}
@@ -51,6 +53,7 @@
 {"category": "structure", "id": "data:request-context-capsule", "path": ".knowledge/data/request-context-capsule.md", "role": "supporting", "title": "Request Context Capsule", "type": "data"}
 {"category": "structure", "id": "data:runtime-config-registry", "path": ".knowledge/data/runtime-config-registry.md", "role": "supporting", "title": "Runtime Config Registry", "type": "data"}
 {"category": "structure", "id": "data:security-runtime-config", "path": ".knowledge/data/security-runtime-config.md", "role": "supporting", "title": "Security Runtime Config", "type": "data"}
+{"category": "structure", "id": "data:seed-dataset", "path": ".knowledge/data/seed-dataset.md", "role": "supporting", "title": "Seed Dataset File", "type": "data"}
 {"category": "structure", "id": "data:server-runtime-config", "path": ".knowledge/data/server-runtime-config.md", "role": "supporting", "title": "Server Runtime Config", "type": "data"}
 {"category": "structure", "id": "data:session-record", "path": ".knowledge/data/session-record.md", "role": "supporting", "title": "Session Record", "type": "data"}
 {"category": "structure", "id": "data:session-runtime-config", "path": ".knowledge/data/session-runtime-config.md", "role": "supporting", "title": "Session Runtime Config", "type": "data"}
@@ -59,6 +62,7 @@
 {"category": "constraint", "id": "decision:authentication-bootstrap-strategy", "path": ".knowledge/decision/authentication-bootstrap-strategy.md", "role": "supporting", "title": "Authentication Bootstrap Strategy", "type": "decision"}
 {"category": "constraint", "id": "decision:config-driven-database", "path": ".knowledge/decision/config-driven-database.md", "role": "supporting", "title": "Config-driven Database Lifecycle", "type": "decision"}
 {"category": "constraint", "id": "decision:contrib-delivery-order", "path": ".knowledge/decision/contrib-delivery-order.md", "role": "supporting", "title": "Contrib Delivery Order", "type": "decision"}
+{"category": "constraint", "id": "decision:dbtestify-integration", "path": ".knowledge/decision/dbtestify-integration.md", "role": "supporting", "title": "dbtestify Integration Boundary", "type": "decision"}
 {"category": "constraint", "id": "decision:development-public-assets", "path": ".knowledge/decision/development-public-assets.md", "role": "supporting", "title": "Development Public Assets", "type": "decision"}
 {"category": "constraint", "id": "decision:force-tinygo-logic", "path": ".knowledge/decision/force-tinygo-logic.md", "role": "supporting", "title": "Forced TinyGo Logic Build Tag", "type": "decision"}
 {"category": "constraint", "id": "decision:host-tools-target-runtime", "path": ".knowledge/decision/host-tools-target-runtime.md", "role": "supporting", "title": "Host Tools and Target Runtime Split", "type": "decision"}
@@ -73,6 +77,7 @@
 {"category": "constraint", "id": "decision:sqlite-backend-selection", "path": ".knowledge/decision/sqlite-backend-selection.md", "role": "supporting", "title": "SQLite Backend Selection", "type": "decision"}
 {"category": "constraint", "id": "decision:stdlib-servemux", "path": ".knowledge/decision/stdlib-servemux.md", "role": "supporting", "title": "Standard ServeMux Routing", "type": "decision"}
 {"category": "constraint", "id": "decision:tailwind-host-toolchain", "path": ".knowledge/decision/tailwind-host-toolchain.md", "role": "supporting", "title": "Tailwind Host Toolchain", "type": "decision"}
+{"category": "constraint", "id": "decision:testutil-testing-interface", "path": ".knowledge/decision/testutil-testing-interface.md", "role": "supporting", "title": "testutil TestingT Interface", "type": "decision"}
 {"category": "constraint", "id": "decision:tinybind-sql-runtime", "path": ".knowledge/decision/tinybind-sql-runtime.md", "role": "supporting", "title": "TinyBind SQL Plan Runtime", "type": "decision"}
 {"category": "constraint", "id": "decision:tinygo-042-baseline", "path": ".knowledge/decision/tinygo-042-baseline.md", "role": "supporting", "title": "TinyGo 0.42 Baseline", "type": "decision"}
 {"category": "constraint", "id": "decision:tinygo-storage-direction", "path": ".knowledge/decision/tinygo-storage-direction.md", "role": "supporting", "title": "TinyGo Storage Direction", "type": "decision"}
@@ -157,10 +162,12 @@
 {"category": "objective", "id": "requirement:shared-web-runtime", "path": ".knowledge/requirement/shared-web-runtime.md", "role": "primary", "title": "Shared Web Runtime", "type": "requirement"}
 {"category": "objective", "id": "requirement:tailwind-css-integration", "path": ".knowledge/requirement/tailwind-css-integration.md", "role": "primary", "title": "Tailwind CSS Integration", "type": "requirement"}
 {"category": "objective", "id": "requirement:tailwind-plugin-integration", "path": ".knowledge/requirement/tailwind-plugin-integration.md", "role": "primary", "title": "Tailwind Plugin Integration", "type": "requirement"}
+{"category": "objective", "id": "requirement:test-data-seeding", "path": ".knowledge/requirement/test-data-seeding.md", "role": "primary", "title": "Test Data Seeding and Comparison", "type": "requirement"}
 {"category": "objective", "id": "requirement:tinygodriver-adoption", "path": ".knowledge/requirement/tinygodriver-adoption.md", "role": "primary", "title": "tinygodriver Adoption", "type": "requirement"}
 {"category": "objective", "id": "requirement:typed-http-contract", "path": ".knowledge/requirement/typed-http-contract.md", "role": "primary", "title": "Typed HTTP Contract", "type": "requirement"}
 {"category": "constraint", "id": "rule:static-route-discovery", "path": ".knowledge/rule/static-route-discovery.md", "role": "supporting", "title": "Static Route Discovery", "type": "rule"}
 {"category": "constraint", "id": "rule:tinygo-runtime-compatibility", "path": ".knowledge/rule/tinygo-runtime-compatibility.md", "role": "supporting", "title": "TinyGo Runtime Compatibility", "type": "rule"}
+{"category": "external", "id": "system:dbtestify", "path": ".knowledge/system/dbtestify.md", "role": "supporting", "title": "dbtestify", "type": "system"}
 {"category": "external", "id": "system:pw-cli", "path": ".knowledge/system/pw-cli.md", "role": "supporting", "title": "pw CLI", "type": "system"}
 {"category": "external", "id": "system:tinybind", "path": ".knowledge/system/tinybind.md", "role": "supporting", "title": "TinyBind", "type": "system"}
 {"category": "external", "id": "system:tinygodriver", "path": ".knowledge/system/tinygodriver.md", "role": "supporting", "title": "tinygodriver", "type": "system"}

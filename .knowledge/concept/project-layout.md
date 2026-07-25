@@ -31,6 +31,7 @@ layout:
   queries/users_pw_gen.go: generated context-based query functions
   dbschema/: api:cli-schema-init handwritten initialization SQL
   dbschema/001_init.sql: initial application schema
+  testdata/seed/: data:seed-dataset files shared by api:cli-seed and api:test-seed
   templates/document.pw.html: requirement:nested-html-templates document shell
   templates/document_pw_gen.go: generated document Fragment and Wrapper
   templates/templates.go: handwritten package marker available before first generation
@@ -56,6 +57,7 @@ ownership:
     - "**/*.pw.html"
     - "**/*.pw.sql"
     - dbschema/*.sql
+    - testdata/seed/*.yaml
   generated: policy:generated-artifacts
   asset_output: optional public/generated/app.css from flow:tailwind-css-build
 rules:

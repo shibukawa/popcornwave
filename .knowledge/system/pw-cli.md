@@ -12,6 +12,8 @@ commands:
   - api:cli-generate
   - api:cli-dev
   - api:cli-build
+  - api:cli-schema-init
+  - api:cli-seed
 configuration: data:project-config
 runtime_dependency_policy: concept:public-package-boundaries
 execution_split: decision:host-tools-target-runtime

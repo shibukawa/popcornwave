@@ -27,5 +27,6 @@ non_goals:
   - schema version history
   - upgrade or downgrade planning
   - destructive migration
+  - initial row loading; api:cli-seed owns data:seed-dataset
 future: replace or extend with a versioned migration system
 ```
