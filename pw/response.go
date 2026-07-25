@@ -24,7 +24,16 @@ type Problem struct {
 	Title   string
 	Code    string
 	Message string
+	Fields  []FieldError
 	Cause   error
+}
+
+// FieldError describes a single field-level validation failure.
+type FieldError = tinybind.FieldError
+
+// Field builds a field-level validation error for Validation.
+func Field(field, location, message string) FieldError {
+	return tinybind.Field(field, location, message)
 }
 
 // HTMLFragment is a generated template with its parameters already bound.
@@ -103,15 +112,31 @@ func firstValue(values []any) any {
 func BadRequest(values ...any) Problem {
 	return problem(http.StatusBadRequest, "Bad Request", firstValue(values))
 }
-func NotFound(values ...any) Problem {
-	return problem(http.StatusNotFound, "Not Found", firstValue(values))
+func Unauthorized(values ...any) Problem {
+	return problem(http.StatusUnauthorized, "Unauthorized", firstValue(values))
 }
 func Forbidden(values ...any) Problem {
 	return problem(http.StatusForbidden, "Forbidden", firstValue(values))
 }
+func NotFound(values ...any) Problem {
+	return problem(http.StatusNotFound, "Not Found", firstValue(values))
+}
+func Conflict(values ...any) Problem {
+	return problem(http.StatusConflict, "Conflict", firstValue(values))
+}
+func PayloadTooLarge(values ...any) Problem {
+	return problem(http.StatusRequestEntityTooLarge, "Payload Too Large", firstValue(values))
+}
 func InternalServerError(values ...any) Problem {
 	p := problem(http.StatusInternalServerError, "Internal Server Error", firstValue(values))
 	p.Code = "internal"
+	return p
+}
+
+// Validation reports a 400 response carrying every detected field failure.
+func Validation(fields ...FieldError) Problem {
+	p := problem(http.StatusBadRequest, "Validation failed", nil)
+	p.Fields = append([]FieldError(nil), fields...)
 	return p
 }
 
@@ -125,13 +150,24 @@ func WriteProblem(w http.ResponseWriter, r *http.Request, err error) {
 		Logger(requestContext(r)).ErrorContext(requestContext(r), "request failed", "error", err)
 		p.Message = "internal error"
 		p.Code = "internal"
+		p.Fields = nil
 	}
 	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(p.Status)
-	_ = json.NewEncoder(w).Encode(map[string]any{
+	payload := map[string]any{
 		"type": "about:blank", "title": p.Title, "status": p.Status,
 		"detail": p.Message, "code": p.Code,
-	})
+	}
+	if len(p.Fields) > 0 {
+		fields := make([]map[string]string, 0, len(p.Fields))
+		for _, field := range p.Fields {
+			fields = append(fields, map[string]string{
+				"field": field.Field, "location": field.Location, "message": field.Message,
+			})
+		}
+		payload["errors"] = fields
+	}
+	_ = json.NewEncoder(w).Encode(payload)
 }
 
 func responseCommitted(w http.ResponseWriter) bool { return middlewares.Committed(w) }
@@ -155,7 +191,10 @@ func mapProblem(err error) Problem {
 		if message == "" {
 			message = mapped.Title
 		}
-		return Problem{Status: mapped.Status, Title: mapped.Title, Code: mapped.Problem.Code, Message: message, Cause: err}
+		return Problem{
+			Status: mapped.Status, Title: mapped.Title, Code: mapped.Problem.Code,
+			Message: message, Fields: append([]FieldError(nil), mapped.Fields...), Cause: err,
+		}
 	}
 	return InternalServerError(err)
 }

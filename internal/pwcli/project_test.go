@@ -87,6 +87,13 @@ func TestScaffoldFilesWithTailwind(t *testing.T) {
 		"assets/app.css",
 		"public/generated/app.css",
 		"templates/document.pw.html",
+		"templates/400.pw.html",
+		"templates/401.pw.html",
+		"templates/403.pw.html",
+		"templates/404.pw.html",
+		"templates/409.pw.html",
+		"templates/413.pw.html",
+		"templates/500.pw.html",
 		"migrations/00001_init.sql",
 		".vscode/settings.json",
 	} {

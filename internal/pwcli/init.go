@@ -247,7 +247,11 @@ CREATE TABLE users (
 DROP TABLE users;
 `,
 		"templates/400.pw.html": errorTemplate("templates", "Error400", "Bad Request"),
+		"templates/401.pw.html": errorTemplate("templates", "Error401", "Unauthorized"),
+		"templates/403.pw.html": errorTemplate("templates", "Error403", "Forbidden"),
 		"templates/404.pw.html": errorTemplate("templates", "Error404", "Not Found"),
+		"templates/409.pw.html": errorTemplate("templates", "Error409", "Conflict"),
+		"templates/413.pw.html": errorTemplate("templates", "Error413", "Payload Too Large"),
 		"templates/500.pw.html": errorTemplate("templates", "Error500", "Internal Server Error"),
 		"public.go": `package publicassets
 
