@@ -12,10 +12,12 @@ commands:
   - api:cli-generate
   - api:cli-dev
   - api:cli-build
+  - api:cli-migrate
 configuration: data:project-config
 runtime_dependency_policy: concept:public-package-boundaries
 execution_split: decision:host-tools-target-runtime
 initial_exclusions:
+  - no pw schema-init command; requirement:database-migration replaced it
   - no pw test command; use go test ./...
   - no standalone pw check command; use pw generate --check for generated drift
 ```

@@ -17,7 +17,7 @@ outputs:
   - templates/document.pw.html shared document shell
   - .pw.html page and 400, 404, and 500 templates
   - .pw.sql query example
-  - dbschema/001_init.sql application schema example
+  - migrations/00001_init.sql application schema as migration version 1
   - public directory with non-served .keep sentinel and stable public.go embedding scaffold
   - .gitignore excluding **/*_pw_gen.go generated application build inputs
   - .vscode/settings.json hiding **/*_pw_gen.go

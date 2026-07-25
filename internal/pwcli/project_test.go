@@ -87,7 +87,7 @@ func TestScaffoldFilesWithTailwind(t *testing.T) {
 		"assets/app.css",
 		"public/generated/app.css",
 		"templates/document.pw.html",
-		"dbschema/001_init.sql",
+		"migrations/00001_init.sql",
 		".vscode/settings.json",
 	} {
 		if _, ok := files[name]; !ok {

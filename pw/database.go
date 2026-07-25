@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/shibukawa/popcornwave/internal/dbschema"
 	_ "github.com/shibukawa/tinygodriver/database/sqlite"
 )
 
@@ -86,15 +85,15 @@ func databaseTarget(configured string) (driver, dsn string, err error) {
 	return driver, configured, nil
 }
 
-func initializeSchema(directory string) error {
-	configState.RLock()
-	db := configState.db
-	configState.RUnlock()
-	if db == nil {
-		return errors.New("popcornwave: schema-init requires middleware.rdb.enabled")
+// configuredDatabaseDSN reports the effective middleware.rdb DSN so system:pw-cli
+// can migrate without reimplementing configuration precedence.
+func configuredDatabaseDSN() (string, error) {
+	config := Config[MiddlewareConfig](nil).RDB
+	if !config.Enabled {
+		return "", errors.New("popcornwave: middleware.rdb.enabled is false")
 	}
-	if err := dbschema.Apply(context.Background(), db, directory); err != nil {
-		return fmt.Errorf("popcornwave: initialize schema: %w", err)
+	if _, _, err := databaseTarget(config.DSN); err != nil {
+		return "", fmt.Errorf("popcornwave: %w", err)
 	}
-	return nil
+	return config.DSN, nil
 }

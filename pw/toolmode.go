@@ -12,7 +12,7 @@ type frameworkActionKind uint8
 const (
 	frameworkActionNone frameworkActionKind = iota
 	frameworkActionGenerateConfig
-	frameworkActionSchemaInit
+	frameworkActionPrintDSN
 )
 
 type frameworkAction struct {
@@ -40,14 +40,8 @@ func parseFrameworkAction(args []string) ([]string, error) {
 			action = frameworkAction{kind: frameworkActionGenerateConfig, value: args[index]}
 		case strings.HasPrefix(arg, "--generate-config="):
 			action = frameworkAction{kind: frameworkActionGenerateConfig, value: strings.TrimPrefix(arg, "--generate-config=")}
-		case arg == "--pw-schema-init":
-			if index+1 >= len(args) {
-				return nil, fmt.Errorf("popcornwave: --pw-schema-init requires a schema directory")
-			}
-			index++
-			action = frameworkAction{kind: frameworkActionSchemaInit, value: args[index]}
-		case strings.HasPrefix(arg, "--pw-schema-init="):
-			action = frameworkAction{kind: frameworkActionSchemaInit, value: strings.TrimPrefix(arg, "--pw-schema-init=")}
+		case arg == "--pw-print-dsn":
+			action = frameworkAction{kind: frameworkActionPrintDSN}
 		default:
 			filtered = append(filtered, arg)
 			continue
@@ -86,16 +80,15 @@ func runFrameworkAction() (bool, error) {
 			return true, WriteScaffoldTOML(os.Stdout)
 		}
 		return true, WriteScaffoldEnv(os.Stdout)
-	case frameworkActionSchemaInit:
-		if err := validateConfiguredRuntime(); err != nil {
+	case frameworkActionPrintDSN:
+		// The DSN travels over the pipe to the parent process only; it is never
+		// placed in a process argument or a log line.
+		dsn, err := configuredDatabaseDSN()
+		if err != nil {
 			return true, err
 		}
-		if err := initializeRuntimeDatabase(); err != nil {
-			return true, err
-		}
-		err := initializeSchema(action.value)
-		server := Config[ServerConfig](nil)
-		return true, closeRuntimeResources(server.ShutdownTimeout, err)
+		fmt.Fprintln(os.Stdout, dsn)
+		return true, nil
 	default:
 		return true, fmt.Errorf("popcornwave: unsupported framework action")
 	}

@@ -64,5 +64,5 @@ server := testutil.TestRun(t, handlers.Handlers(), func(config *testutil.Config)
         middleware.RDB.MaxOpenConns = 1
         middleware.RDB.MaxIdleConns = 1
     })
-}, testutil.WithSchemaDir("dbschema"))
+}, testutil.WithMigrations("migrations"))
 ```

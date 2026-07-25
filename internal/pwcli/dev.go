@@ -32,6 +32,9 @@ func runDev(ctx context.Context, args []string, stdout, stderr io.Writer) error 
 	if err := runGenerate(ctx, nil, stdout); err != nil {
 		return err
 	}
+	if err := runDevMigrations(ctx, root, config, stdout, stderr); err != nil {
+		return err
+	}
 	var tailwind *exec.Cmd
 	var tailwindExited <-chan error
 	if config.Tailwind.Enabled {
@@ -47,7 +50,8 @@ func runDev(ctx context.Context, args []string, stdout, stderr io.Writer) error 
 		defer func() { stopCommand(tailwind) }()
 	}
 	state, err := snapshotWatchFiles(root, configuredWatchPaths(root, config.ExtraWatch,
-		tailwindWatchPaths(root, config.Tailwind, tailwind == nil))...)
+		append(tailwindWatchPaths(root, config.Tailwind, tailwind == nil),
+			migrationWatchPaths(root, config.Migration)...))...)
 	if err != nil {
 		return err
 	}
@@ -77,7 +81,8 @@ func runDev(ctx context.Context, args []string, stdout, stderr io.Writer) error 
 			addWatchFile(state, filepath.Join(root, filepath.FromSlash(config.Tailwind.Input)))
 		case <-ticker.C:
 			next, err := snapshotWatchFiles(root, configuredWatchPaths(root, config.ExtraWatch,
-				tailwindWatchPaths(root, config.Tailwind, tailwind == nil))...)
+				append(tailwindWatchPaths(root, config.Tailwind, tailwind == nil),
+					migrationWatchPaths(root, config.Migration)...))...)
 			if err != nil {
 				fmt.Fprintln(stderr, "pw dev:", err)
 				continue
@@ -104,8 +109,14 @@ func runDev(ctx context.Context, args []string, stdout, stderr io.Writer) error 
 				state = next
 				continue
 			}
+			if err := runDevMigrations(ctx, root, config, stdout, stderr); err != nil {
+				fmt.Fprintln(stderr, "pw dev:", err)
+				state = next
+				continue
+			}
 			state, _ = snapshotWatchFiles(root, configuredWatchPaths(root, config.ExtraWatch,
-				tailwindWatchPaths(root, config.Tailwind, tailwind == nil))...)
+				append(tailwindWatchPaths(root, config.Tailwind, tailwind == nil),
+					migrationWatchPaths(root, config.Migration)...))...)
 			app, exited, err = startApplication(ctx, root, config.Main, stdout, stderr)
 			if err != nil {
 				fmt.Fprintln(stderr, "pw dev:", err)
@@ -194,6 +205,36 @@ func snapshotWatchFiles(root string, extra ...string) (watchState, error) {
 		return nil
 	})
 	return state, err
+}
+
+// migrationWatchPaths adds migration sources to the watch set. They are plain
+// .sql files, which the default walk ignores.
+func migrationWatchPaths(root string, config migrationConfig) []string {
+	directory := config.Dir
+	if !filepath.IsAbs(directory) {
+		directory = filepath.Join(root, filepath.FromSlash(directory))
+	}
+	matches, err := filepath.Glob(filepath.Join(directory, "*.sql"))
+	if err != nil {
+		return nil
+	}
+	return matches
+}
+
+// runDevMigrations applies pending migrations before the application starts. A
+// project without a migration directory is not an error.
+func runDevMigrations(ctx context.Context, root string, config projectConfig, stdout, stderr io.Writer) error {
+	if !config.Migration.Auto {
+		return nil
+	}
+	directory := config.Migration.Dir
+	if !filepath.IsAbs(directory) {
+		directory = filepath.Join(root, filepath.FromSlash(directory))
+	}
+	if info, err := os.Stat(directory); err != nil || !info.IsDir() {
+		return nil
+	}
+	return executeMigrate(ctx, project{root: root, config: config}, migrateOptions{action: "up"}, stdout, stderr)
 }
 
 func configuredWatchPaths(root string, patterns, additional []string) []string {

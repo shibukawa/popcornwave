@@ -13,7 +13,7 @@ flow:
       actor: system:pw-cli
       action: validate project name and destination
     - id: scaffold
-      action: write concept:project-layout handwritten files, including requirement:nested-html-templates document shell and api:cli-schema-init sources
+      action: write concept:project-layout handwritten files, including requirement:nested-html-templates document shell and data:migration-source version 1
     - id: generate
       action: invoke api:cli-generate
     - id: optional-css

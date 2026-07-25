@@ -12,6 +12,7 @@ import (
 const (
 	defaultTailwindInput  = "assets/app.css"
 	defaultTailwindOutput = "public/generated/app.css"
+	defaultMigrationDir   = "migrations"
 )
 
 type tailwindConfig struct {
@@ -21,10 +22,16 @@ type tailwindConfig struct {
 	Minify  bool
 }
 
+type migrationConfig struct {
+	Dir  string
+	Auto bool
+}
+
 type projectConfig struct {
 	Name       string
 	Main       string
 	ExtraWatch []string
+	Migration  migrationConfig
 	Tailwind   tailwindConfig
 }
 
@@ -41,6 +48,7 @@ func loadProjectConfig(root string) (projectConfig, error) {
 	known := []string{
 		"project.name", "project.main",
 		"dev.extra_watch",
+		"migration.dir", "migration.auto",
 		"assets.tailwind.enabled", "assets.tailwind.input",
 		"assets.tailwind.output", "assets.tailwind.minify",
 	}
@@ -72,6 +80,23 @@ func loadProjectConfig(root string) (projectConfig, error) {
 	}
 	if config.Main == "" {
 		return projectConfig{}, fmt.Errorf("popcornwave.toml: project.main is required")
+	}
+	config.Migration.Dir, err = optionalScalar(document, "migration.dir")
+	if err != nil {
+		return projectConfig{}, err
+	}
+	if config.Migration.Dir == "" {
+		config.Migration.Dir = defaultMigrationDir
+	}
+	if filepath.IsAbs(config.Migration.Dir) {
+		return projectConfig{}, fmt.Errorf("popcornwave.toml: migration.dir must be relative to the project")
+	}
+	config.Migration.Auto = true
+	if value, ok := document.Get("migration.auto"); ok {
+		config.Migration.Auto, err = value.AsBool()
+		if err != nil {
+			return projectConfig{}, fmt.Errorf("popcornwave.toml: migration.auto: %w", err)
+		}
 	}
 	if value, ok := document.Get("assets.tailwind.enabled"); ok {
 		config.Tailwind.Enabled, err = value.AsBool()
