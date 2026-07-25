@@ -1,6 +1,7 @@
 package testutil
 
 import (
+	"database/sql"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -9,6 +10,7 @@ import (
 	"time"
 
 	"github.com/shibukawa/popcornwave/pw"
+	"github.com/shibukawa/popcornwave/pwruntime"
 )
 
 func memberMigrationDir(t *testing.T) string {
@@ -147,20 +149,101 @@ func TestSeedRejectsUnknownDataset(t *testing.T) {
 	}
 }
 
-// TestSeedAndAssertRejectTransactionServer pins the documented limitation: both
-// work on the pool, which cannot see writes inside the test transaction.
-func TestSeedAndAssertRejectTransactionServer(t *testing.T) {
-	server := &Server{Config: &Config{values: nil}, seedDir: "testdata/seed", transaction: true}
-
-	seedRecorder := &recordingT{TestingT: t}
-	server.Seed(seedRecorder, "initial")
-	if !strings.Contains(seedRecorder.failure, "WithTransaction") {
-		t.Fatalf("Seed failure = %q, want a WithTransaction report", seedRecorder.failure)
+// TestSeedAndAssertInsideTestTransaction covers the WithTransaction path: both
+// run on the test transaction, so uncommitted request writes are visible and
+// seeded rows disappear with the rollback.
+func TestSeedAndAssertInsideTestTransaction(t *testing.T) {
+	dsn := "sqlite://" + filepath.Join(t.TempDir(), "shared.db")
+	migrationDir := memberMigrationDir(t)
+	sharedDatabase := func(config *Config) {
+		Update[pw.ServerConfig](config, func(value *pw.ServerConfig) {
+			value.Public.Enabled = false
+		})
+		Update[pw.MiddlewareConfig](config, func(value *pw.MiddlewareConfig) {
+			value.RDB = pw.RDBConfig{
+				Enabled:        true,
+				DSN:            dsn,
+				ConnectTimeout: time.Second,
+				MaxOpenConns:   2,
+				MaxIdleConns:   2,
+			}
+		})
 	}
 
-	assertRecorder := &recordingT{TestingT: t}
-	server.AssertDB(assertRecorder, "initial")
-	if !strings.Contains(assertRecorder.failure, "WithTransaction") {
-		t.Fatalf("AssertDB failure = %q, want a WithTransaction report", assertRecorder.failure)
+	// The handler writes through the request executor, which under
+	// WithTransaction is the test transaction rather than the pool.
+	insert := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		executor, err := pwruntime.SQLExecutor(r.Context())
+		if err != nil {
+			t.Error(err)
+			return
+		}
+		if _, err := executor.ExecContext(r.Context(), "INSERT INTO member VALUES (3, 'Heidi')"); err != nil {
+			t.Error(err)
+		}
+	})
+
+	server := TestRun(t, insert, sharedDatabase,
+		WithMigrations(migrationDir), WithTransaction(true))
+
+	// Seeding lands in the test transaction, so it is visible to requests.
+	server.Seed(t, "initial")
+	server.AssertDB(t, "initial")
+
+	response, err := server.Client().Get(server.URL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	response.Body.Close()
+
+	// The request never committed, yet the assertion sees its row.
+	server.AssertDB(t, "after_insert")
+
+	recorder := &recordingT{TestingT: t}
+	server.AssertDB(recorder, "initial")
+	if len(recorder.errors) != 1 {
+		t.Fatalf("errors = %v, want one mismatch against the stale dataset", recorder.errors)
+	}
+}
+
+// TestTestTransactionRollbackDiscardsSeededRows proves the seeded rows were
+// never committed.
+func TestTestTransactionRollbackDiscardsSeededRows(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "shared.db")
+	dsn := "sqlite://" + path
+	migrationDir := memberMigrationDir(t)
+	sharedDatabase := func(config *Config) {
+		Update[pw.ServerConfig](config, func(value *pw.ServerConfig) {
+			value.Public.Enabled = false
+		})
+		Update[pw.MiddlewareConfig](config, func(value *pw.MiddlewareConfig) {
+			value.RDB = pw.RDBConfig{
+				Enabled:        true,
+				DSN:            dsn,
+				ConnectTimeout: time.Second,
+				MaxOpenConns:   2,
+				MaxIdleConns:   2,
+			}
+		})
+	}
+
+	func() {
+		server := TestRun(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}),
+			sharedDatabase, WithMigrations(migrationDir), WithTransaction(true))
+		server.Seed(t, "initial")
+		server.Close()
+	}()
+
+	db, err := sql.Open("sqlite", path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	var count int
+	if err := db.QueryRowContext(t.Context(), "SELECT count(*) FROM member").Scan(&count); err != nil {
+		t.Fatal(err)
+	}
+	if count != 0 {
+		t.Fatalf("committed rows = %d, want 0 after the test transaction rolled back", count)
 	}
 }

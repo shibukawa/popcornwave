@@ -106,6 +106,20 @@ func (scope *TransactionScope) Rollback() error {
 	return nil
 }
 
+// Tx returns the depth 0 transaction, or nil when the scope is inactive.
+//
+// It exists for test tooling that must run statements inside the same
+// transaction as the requests under test, such as dataset seeding and database
+// assertions. Application code uses Transaction instead.
+func (scope *TransactionScope) Tx() *sql.Tx {
+	if scope == nil {
+		return nil
+	}
+	scope.mu.Lock()
+	defer scope.mu.Unlock()
+	return scope.tx
+}
+
 func (scope *TransactionScope) executor() sqlbind.SQLExecutor {
 	if scope == nil {
 		return nil

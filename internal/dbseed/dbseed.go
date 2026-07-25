@@ -69,6 +69,10 @@ func Resolve(directory string, names []string) ([]string, error) {
 // Dialect is the SQL flavor a dataset is applied with.
 type Dialect = dbtestify.Dialect
 
+// Executor is the statement target datasets are applied through. Both *sql.DB
+// and *sql.Tx satisfy it, so a test can seed inside its own transaction.
+type Executor = dbtestify.Executor
+
 // ResolveDialect derives the dialect from a driver://dsn configuration value.
 func ResolveDialect(dsn string) (Dialect, error) {
 	dialect, _, err := dbtestify.SplitSource(dsn)
@@ -78,12 +82,14 @@ func ResolveDialect(dsn string) (Dialect, error) {
 	return dialect, nil
 }
 
-// Apply loads each dataset into db in the given order.
+// Apply loads each dataset through exec in the given order.
 //
-// db stays owned by the caller. Each dataset is applied in its own transaction
-// by dbtestify, and the first failure stops the run.
-func Apply(ctx context.Context, db *sql.DB, dialect Dialect, paths []string) error {
-	connector, err := dbtestify.NewDBConnectorFromDB(db, dialect)
+// exec stays owned by the caller. Pass inTransaction when exec is already
+// inside a transaction, in which case dbtestify neither commits nor rolls back
+// and the caller's rollback undoes the seeding. Otherwise each dataset is
+// applied in its own transaction. The first failure stops the run.
+func Apply(ctx context.Context, exec Executor, dialect Dialect, inTransaction bool, paths []string) error {
+	connector, err := connector(exec, dialect, inTransaction)
 	if err != nil {
 		return err
 	}
@@ -102,10 +108,13 @@ func Apply(ctx context.Context, db *sql.DB, dialect Dialect, paths []string) err
 // Assert compares the database against each dataset and returns a plain-text
 // diff for every mismatching table.
 //
+// An exec already inside a transaction observes that transaction's uncommitted
+// writes; a pool does not.
+//
 // The boolean reports whether every dataset matched. A non-nil error means the
 // comparison could not run at all.
-func Assert(ctx context.Context, db *sql.DB, dialect Dialect, paths []string) (bool, string, error) {
-	connector, err := dbtestify.NewDBConnectorFromDB(db, dialect)
+func Assert(ctx context.Context, exec Executor, dialect Dialect, inTransaction bool, paths []string) (bool, string, error) {
+	connector, err := connector(exec, dialect, inTransaction)
 	if err != nil {
 		return false, "", err
 	}
@@ -133,6 +142,17 @@ func Assert(ctx context.Context, db *sql.DB, dialect Dialect, paths []string) (b
 		}
 	}
 	return matched, report.String(), nil
+}
+
+// connector selects the dbtestify connector shape for exec.
+func connector(exec Executor, dialect Dialect, inTransaction bool) (dbtestify.DBConnector, error) {
+	if exec == nil {
+		return nil, fmt.Errorf("no database to seed")
+	}
+	if tx, ok := exec.(*sql.Tx); ok {
+		return dbtestify.NewDBConnectorFromTx(tx, dialect)
+	}
+	return dbtestify.NewDBConnectorFromExecutor(exec, dialect, inTransaction)
 }
 
 func parse(path string) (*dbtestify.DataSet, error) {

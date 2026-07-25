@@ -13,7 +13,7 @@ rationale:
   - a second implementation would fork dataset semantics between api:cli-seed and api:test-seed
   - both owners are the same maintainer, so upstream changes are cheaper than a local fork
 upstream_changes:
-  status: released as system:dbtestify v0.2.0
+  status: released as system:dbtestify v0.3.0
   connector_from_pool:
     add: NewDBConnectorFromDB(db *sql.DB, dialect Dialect) (DBConnector, error)
     contract: dbtestify never closes or reconfigures a pool it did not open
@@ -36,6 +36,11 @@ upstream_changes:
   exported_dialect:
     add: Dialect string enum for postgres, mysql, sqlite plus ParseDialect
     reason: api:test-seed resolves the dialect from the configured rdb DSN scheme, not from a connection string
+  executor_connector:
+    add: Executor plus NewDBConnectorFromTx and NewDBConnectorFromExecutor
+    behavior: Seed opens and commits nothing inside a caller transaction, and Assert observes its uncommitted writes
+    reason: api:test-run WithTransaction rolls every request back, so pool-based seeding and assertion could not see or share that transaction
+    breaking: DBConnector operations take an Executor instead of a *sql.Tx, and DB returns nil for a transaction-backed connector
   writer_diff_formatter:
     add: DiffFormat, FormatTableDiff, and DumpDiffCallback(io.Writer, DiffFormat)
     preserved: DumpDiffCLICallback keeps its colored os.Stdout behavior
@@ -55,9 +60,10 @@ rejected:
 local_boundary:
   package: github.com/shibukawa/popcornwave/internal/dbseed
   role: the only place popcornwave imports dbtestify, shared by api:cli-seed and api:test-seed
-  surface: DefaultDir, Extension, Resolve, Dialect, ResolveDialect, Apply, Assert
+  surface: DefaultDir, Extension, Resolve, Dialect, Executor, ResolveDialect, Apply, Assert
+  executor_selection: a *sql.Tx becomes a transaction connector; anything else stays pool shaped
 added_dependencies:
-  direct: github.com/shibukawa/dbtestify v0.2.0
+  direct: github.com/shibukawa/dbtestify v0.3.0
   indirect: fatih/color, goccy/go-yaml, mattn/go-colorable
   absent: pgx, go-sql-driver/mysql, and any new CGo requirement
 ```

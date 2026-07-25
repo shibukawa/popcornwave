@@ -23,14 +23,15 @@ run_option_order:
   - start the HTTP server
 transaction_interaction:
   with_seed: commits before the test transaction opens, so datasets are the shared baseline and only per-test writes roll back
-  server_methods: Seed and AssertDB reject a WithTransaction server through Fatalf
-  reason:
-    - both work on the pool, which cannot observe writes inside the test transaction
-    - a pool sized for one connection is already held by that transaction
-  future: an executor-based system:dbtestify connector would let both run inside the test transaction
+  server_methods: Seed and AssertDB run on the test transaction when one is active, and on the pool otherwise
+  mechanism: pwruntime TransactionScope Tx feeds the system:dbtestify executor connector
+  under_transaction:
+    - seeded rows are visible to requests and disappear with the rollback
+    - assertions observe request writes before any commit
+    - no second connection is taken from a pool the transaction already holds
 connector:
   pool: the api:test-run owned *sql.DB; no second pool is opened
-  construction: decision:dbtestify-integration NewDBConnectorFromDB
+  construction: decision:dbtestify-integration NewDBConnectorFromDB, or NewDBConnectorFromTx inside a test transaction
   dialect: resolved from the copied data:middleware-runtime-config rdb DSN scheme
 failure_reporting:
   interface: decision:testutil-testing-interface
