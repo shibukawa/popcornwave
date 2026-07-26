@@ -73,6 +73,14 @@ func prepareTestRuntime(handler http.Handler, configs pwtestbridge.Configs, opti
 		}
 		dbClose = db.Close
 	}
+	if options.PrepareDatabase != nil {
+		if err := options.PrepareDatabase(db); err != nil {
+			if dbClose != nil {
+				_ = dbClose()
+			}
+			return pwtestbridge.Prepared{}, err
+		}
+	}
 	var scope *pwruntime.TransactionScope
 	if options.Transaction {
 		scope = pwruntime.NewTransactionScope(db, driver)

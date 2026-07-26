@@ -12,6 +12,7 @@
 {"category": "interface", "id": "api:cli-session-schema", "path": ".knowledge/api/cli-session-schema.md", "role": "primary", "title": "pw session schema", "type": "api"}
 {"category": "interface", "id": "api:cli-version", "path": ".knowledge/api/cli-version.md", "role": "primary", "title": "pw version", "type": "api"}
 {"category": "interface", "id": "api:error-renderer", "path": ".knowledge/api/error-renderer.md", "role": "primary", "title": "Error Rendering Contract", "type": "api"}
+{"category": "interface", "id": "api:framework-extension", "path": ".knowledge/api/framework-extension.md", "role": "primary", "title": "Framework Extension Registry", "type": "api"}
 {"category": "interface", "id": "api:html-response", "path": ".knowledge/api/html-response.md", "role": "primary", "title": "HTML Response API", "type": "api"}
 {"category": "interface", "id": "api:logger", "path": ".knowledge/api/logger.md", "role": "primary", "title": "Context-Bound Logger API", "type": "api"}
 {"category": "interface", "id": "api:migration-runner", "path": ".knowledge/api/migration-runner.md", "role": "primary", "title": "Migration Runner", "type": "api"}
@@ -198,6 +199,7 @@
 {"category": "objective", "id": "requirement:test-data-seeding", "path": ".knowledge/requirement/test-data-seeding.md", "role": "primary", "title": "Test Data Seeding and Comparison", "type": "requirement"}
 {"category": "objective", "id": "requirement:tinygodriver-adoption", "path": ".knowledge/requirement/tinygodriver-adoption.md", "role": "primary", "title": "tinygodriver Adoption", "type": "requirement"}
 {"category": "objective", "id": "requirement:typed-http-contract", "path": ".knowledge/requirement/typed-http-contract.md", "role": "primary", "title": "Typed HTTP Contract", "type": "requirement"}
+{"category": "constraint", "id": "rule:framework-owned-tables", "path": ".knowledge/rule/framework-owned-tables.md", "role": "supporting", "title": "Framework Owned Tables", "type": "rule"}
 {"category": "constraint", "id": "rule:multi-statement-sql-execution", "path": ".knowledge/rule/multi-statement-sql-execution.md", "role": "supporting", "title": "Multi-statement SQL Execution", "type": "rule"}
 {"category": "constraint", "id": "rule:savepoint-dialect-support", "path": ".knowledge/rule/savepoint-dialect-support.md", "role": "supporting", "title": "Savepoint Dialect Support", "type": "rule"}
 {"category": "constraint", "id": "rule:static-route-discovery", "path": ".knowledge/rule/static-route-discovery.md", "role": "supporting", "title": "Static Route Discovery", "type": "rule"}

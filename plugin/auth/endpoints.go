@@ -157,6 +157,15 @@ func (rt *runtime) handleLogout(w http.ResponseWriter, r *http.Request) {
 		pw.WriteProblem(w, r, pw.ServiceUnavailable())
 		return
 	}
+	// Ending only the local session leaves the provider signed in, so the next
+	// login returns the same user without asking and the sign-out looks like it
+	// did nothing.
+	if rt.config.OIDC.ProviderLogout {
+		if target := rt.endSessionURL(r); target != "" {
+			rt.redirect(w, r, target)
+			return
+		}
+	}
 	rt.redirect(w, r, "/")
 }
 
@@ -176,6 +185,43 @@ func verifiedIdentity(ctx context.Context, client *oidc.Client, tokens oidc.Toke
 		return Identity{}, err
 	}
 	return identityFrom(idToken.Claims, identityClaim), nil
+}
+
+// endSessionURL builds the RP-initiated logout request, or returns an empty
+// string when the provider advertises no end session endpoint, discovery is
+// unavailable, or the request cannot be built. Each of those falls back to the
+// local logout rather than stranding the browser.
+//
+// No id_token_hint is sent: SessionData deliberately holds no token body, and
+// client_id with a post_logout_redirect_uri identifies the relying party well
+// enough for a provider that accepts either.
+func (rt *runtime) endSessionURL(r *http.Request) string {
+	client, err := rt.oidcClient(r.Context())
+	if err != nil {
+		pw.Logger(r.Context()).WarnContext(r.Context(), "provider logout unavailable", "error", err)
+		return ""
+	}
+	target, err := client.EndSessionURL(oidc.EndSessionOptions{
+		PostLogoutRedirectURI: rt.postLogoutRedirectURI(r),
+	})
+	if err != nil {
+		pw.Logger(r.Context()).WarnContext(r.Context(), "provider logout request rejected", "error", err)
+		return ""
+	}
+	return target
+}
+
+// postLogoutRedirectURI is the absolute form of the local landing path, because
+// a provider needs a full URL to return the browser to.
+func (rt *runtime) postLogoutRedirectURI(r *http.Request) string {
+	if r.Host == "" {
+		return ""
+	}
+	scheme := "http"
+	if r.TLS != nil || strings.EqualFold(r.Header.Get("X-Forwarded-Proto"), "https") {
+		scheme = "https"
+	}
+	return (&url.URL{Scheme: scheme, Host: r.Host, Path: "/"}).String()
 }
 
 // oidcClient discovers the provider on first use and caches the client.

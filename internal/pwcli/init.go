@@ -2,8 +2,6 @@ package pwcli
 
 import (
 	"context"
-	"crypto/rand"
-	"encoding/base64"
 	"errors"
 	"fmt"
 	"io"
@@ -17,21 +15,22 @@ import (
 
 	"github.com/charmbracelet/x/term"
 	"github.com/shibukawa/popcornwave/internal/pwenv"
+	"github.com/shibukawa/popcornwave/plugin/auth"
+	"github.com/shibukawa/popcornwave/plugin/session/rdb"
 )
 
-const initUsage = "usage: pw init [<project-name>] [--interactive] [--tailwind] [--no-tinygo] [--auth=none|oidc|oidc-passkey|passkey] [--devidp]"
+const initUsage = "usage: pw init [<project-name>] [--interactive] [--tailwind] [--no-tinygo] [--auth=none|oidc|passkey] [--devidp]"
 
 // Authentication modes the wizard and the --auth flag select between. They map
-// onto the pw.AuthConfig modes, with none meaning no [auth] configuration.
+// onto the plugin/auth modes, with none meaning no [auth] configuration.
 const (
-	authNone        = "none"
-	authOIDC        = "oidc"
-	authOIDCPasskey = "oidc-passkey"
-	authPasskey     = "passkey"
+	authNone    = "none"
+	authOIDC    = "oidc"
+	authPasskey = "passkey"
 )
 
 // usesOIDC reports whether a mode needs an OpenID Provider.
-func usesOIDC(mode string) bool { return mode == authOIDC || mode == authOIDCPasskey }
+func usesOIDC(mode string) bool { return mode == authOIDC }
 
 // initOptions holds every project bootstrap choice. Shortcut flags and the
 // wizard produce the same value, and scaffoldFiles is its only consumer.
@@ -74,11 +73,11 @@ func parseInitArgs(args []string) (initOptions, error) {
 		default:
 			if mode, ok := strings.CutPrefix(arg, "--auth="); ok {
 				switch mode {
-				case authNone, authOIDC, authOIDCPasskey, authPasskey:
+				case authNone, authOIDC, authPasskey:
 					options.Auth = mode
 				default:
-					return initOptions{}, fmt.Errorf("init: --auth must be %s, %s, %s, or %s",
-						authNone, authOIDC, authOIDCPasskey, authPasskey)
+					return initOptions{}, fmt.Errorf("init: --auth must be %s, %s, or %s",
+						authNone, authOIDC, authPasskey)
 				}
 				continue
 			}
@@ -293,10 +292,10 @@ import (
 	"log"
 
 	"` + name + `/handlers"
-	"github.com/shibukawa/popcornwave/pw"` + authImport(options) + `
+	"github.com/shibukawa/popcornwave/pw"
 )
 
-func main() {
+func main() {` + authBootstrap(options) + `
 	if err := pw.Run(context.Background(), handlers.Handlers()); err != nil {
 		log.Fatal(err)
 	}
@@ -385,6 +384,13 @@ func PublicFS() fs.FS {
 	if options.AuthEmulator {
 		files[defaultIdPConfig] = devIdPRoster()
 	}
+	if servesLogin(options) {
+		files["handlers/accounts.go"] = accountResolverScaffold()
+		// The framework tables come from the packages that own them, ahead of
+		// the application migrations. Versions below 00010 are reserved.
+		files["migrations/00001_init_popcornwave_session.sql"] = rdb.MigrationSQL("popcornwave_session")
+		files["migrations/00002_init_popcornwave_auth.sql"] = auth.MigrationSQL()
+	}
 	return files
 }
 
@@ -392,13 +398,52 @@ func PublicFS() fs.FS {
 // endpoints for this project. Only the OIDC modes have an implementation.
 func servesLogin(options initOptions) bool { return usesOIDC(options.Auth) }
 
-// authImport adds the package whose import registers the authentication
-// endpoints. It is the only application-side wiring a login needs.
-func authImport(options initOptions) string {
+// authBootstrap installs the account resolver. That call is the whole
+// application-side wiring of a login: it also imports plugin/auth, whose
+// extensions serve the endpoints and resolve the session.
+func authBootstrap(options initOptions) string {
 	if !servesLogin(options) {
 		return ""
 	}
-	return "\n\n\t// Serves auth.login_path, auth.callback_path, and auth.logout_path.\n\t_ \"github.com/shibukawa/popcornwave/auth\""
+	return "\n\t// Installed before Run: the framework calls it during the OIDC callback.\n\thandlers.RegisterAccountResolver()"
+}
+
+// accountResolverScaffold links a verified identity to an application account.
+// The starter derives the account from the identity itself, so a new project
+// logs in before it has an account table; the comment names the seam.
+func accountResolverScaffold() string {
+	return `package handlers
+
+import (
+	"context"
+
+	"github.com/shibukawa/popcornwave/plugin/auth"
+)
+
+// RegisterAccountResolver installs the account resolver. Call it from main
+// before pw.Run: the framework verifies the OIDC identity and then asks this
+// function which local account it belongs to.
+func RegisterAccountResolver() { auth.SetAccountResolver(resolveAccount) }
+
+// resolveAccount answers with the account behind a verified identity.
+//
+// This starter derives one instead of storing it, which is enough to log in
+// and read the user. Replace it with a lookup against your own table as soon
+// as the application owns accounts: the link is the issuer plus the verified
+// claim auth.oidc.identity_claim selected, never the email address.
+func resolveAccount(ctx context.Context, identity auth.Identity, provision bool) (auth.Account, error) {
+	displayName, _ := identity.Claims.String("name")
+	if displayName == "" {
+		displayName = identity.Key
+	}
+	email, _ := identity.Claims.String("email")
+	return auth.Account{
+		ID:          identity.Issuer + "|" + identity.Key,
+		DisplayName: displayName,
+		Email:       email,
+	}, nil
+}
+`
 }
 
 // homeHandlerScaffold renders the starter page. With authentication it reads
@@ -435,6 +480,7 @@ import (
 	"net/http"
 	"net/url"
 
+	"github.com/shibukawa/popcornwave/plugin/auth"
 	"github.com/shibukawa/popcornwave/pw"
 )
 
@@ -442,20 +488,20 @@ func init() { mux.HandleFunc("GET /", home) }
 
 func home(w http.ResponseWriter, r *http.Request) {
 	// The framework resolved the session before this handler ran.
-	identity, signedIn := pw.CurrentUser(r.Context())
+	user, signedIn := auth.User(r.Context())
 	name := "World"
 	if signedIn {
-		name = identity.Name
+		name = user.DisplayName
 		if name == "" {
-			name = identity.Subject
+			name = user.Subject
 		}
 	}
 	pw.WriteHTML(w, r, Home(HomeParams{
 		Name:       name,
 		SignedIn:   signedIn,
-		Email:      identity.Email,
-		LoginPath:  url.URL{Path: pw.DefaultLoginPath},
-		LogoutPath: url.URL{Path: pw.DefaultLogoutPath},
+		Email:      user.Email,
+		LoginPath:  url.URL{Path: "/auth/login"},
+		LogoutPath: url.URL{Path: "/auth/logout"},
 	}))
 }
 `
@@ -526,82 +572,70 @@ role = "member"
 // the application refuses to start if neither the file nor the environment
 // supplies them.
 func authRuntimeConfig(options initOptions) string {
-	switch options.Auth {
-	case authOIDC, authOIDCPasskey:
-		mode := "oidc"
-		if options.Auth == authOIDCPasskey {
-			mode = "oidc_passkey"
+	if !servesLogin(options) {
+		if options.Auth == authPasskey {
+			// Recorded, not enabled: no implementation exists yet, and an
+			// enabled mode without one fails at startup.
+			return `
+# Passkey-only login has no implementation yet. Enable it once one is
+# registered; plugin/auth rejects the mode today.
+# [auth]
+# enabled = true
+# mode = "passkey_only"
+`
 		}
-		provider := `
+		return ""
+	}
+	provider := `
 # Supply these from the environment in every deployed environment:
 # AUTH_OIDC_ISSUER, AUTH_OIDC_CLIENT_ID, AUTH_OIDC_CLIENT_SECRET.
 issuer = ""
 client_id = ""
 client_secret = ""`
-		if options.AuthEmulator {
-			provider = `
+	loopback := "false"
+	if options.AuthEmulator {
+		provider = `
 # pw dev runs the development identity provider and injects AUTH_OIDC_ISSUER,
 # AUTH_OIDC_CLIENT_ID, and AUTH_OIDC_CLIENT_SECRET, so these stay empty here.
 # Running the application without pw dev requires setting them yourself.`
-		}
-		return `
+		// The development issuer is loopback http, which an https-only client
+		// would refuse.
+		loopback = "true"
+	}
+	return `
+# Login sessions are opaque and server-side; the rdb backend stores them in the
+# database configured above.
+[session]
+enabled = true
+backend = "rdb"
+ttl = "12h"
+idle_timeout = "1h"
+cookie.name = "pw_session"
+# Loopback development only. Keep secure = true everywhere else.
+cookie.secure = false
+rdb.source = "middleware"
+
 # The framework serves login_path, callback_path, and logout_path itself, so
-# the application registers no authentication routes. logout_path is POST only.
+# the application registers no authentication route. Logout is POST only.
 [auth]
 enabled = true
-mode = "` + mode + `"
-login_path = "/auth/login"
-callback_path = "/auth/callback"
-logout_path = "/auth/logout"
-post_login_redirect = "/"
-post_logout_redirect = "/"
+mode = "oidc_only"
+post_login_path = "/"
+# Opt in per path; everything else stays public.
+protection.include = []
+protection.unauthenticated = "redirect"
 
 [auth.oidc]` + provider + `
-# redirect_url follows the request origin when it is empty, which keeps the
-# callback working on whatever port the server starts on.
-redirect_url = ""
-scopes = ["openid", "profile", "email"]
-# Sign out of the provider as well. With this off, the provider stays signed in
-# and the next login returns the same user without asking.
+redirect_url = "http://127.0.0.1:8080/auth/callback"
+scopes = ["profile", "email"]
+identity_claim = "sub"
+admission = "authenticated"
+auto_provision = true
+# Sign out of the provider as well. Without it the provider stays signed in and
+# the next login returns the same user without asking.
 provider_logout = true
-
-[session]
-enabled = true
-ttl = "24h"
-# Development value. Set SESSION_SECRET in every deployed environment.
-secret = "` + generatedSessionSecret() + `"
+allow_loopback_http = ` + loopback + `
 `
-	case authPasskey:
-		return `
-# Passkey-only login has no framework implementation yet, so this section
-# records the choice with authentication switched off. Set enabled = true once
-# an implementation is registered.
-[auth]
-enabled = false
-mode = "passkey_only"
-
-[session]
-enabled = true
-ttl = "24h"
-# Development value. Set SESSION_SECRET in every deployed environment.
-secret = "` + generatedSessionSecret() + `"
-`
-	default:
-		return ""
-	}
-}
-
-// generatedSessionSecret produces the development cookie signing key. It is a
-// per-project value so two scaffolded projects never share one, and it is a
-// development fixture: deployments supply SESSION_SECRET.
-func generatedSessionSecret() string {
-	buffer := make([]byte, 32)
-	if _, err := rand.Read(buffer); err != nil {
-		// crypto/rand does not fail in practice; refusing to scaffold a
-		// predictable secret is the only safe alternative.
-		panic("pw init: generate session secret: " + err.Error())
-	}
-	return base64.RawURLEncoding.EncodeToString(buffer)
 }
 
 // projectToolchain names the compiler the project is scaffolded for.

@@ -95,6 +95,11 @@ type OIDCConfig struct {
 	// allowlist table under AdmissionRegistered. It defaults to IdentityClaim
 	// alone, because that is the value a deployment registers in advance.
 	RegisteredClaims []string
+	// ProviderLogout ends the provider session as well, through the
+	// discovered end session endpoint. Without it the provider stays signed
+	// in, so the next login returns the same user without asking and the
+	// sign-out looks like it did nothing.
+	ProviderLogout bool
 	// AllowLoopbackHTTP permits an http issuer on localhost. It exists for
 	// local development against a loopback identity provider and must stay
 	// false everywhere else.
@@ -135,6 +140,7 @@ func registerConfig() {
 		"auth.oidc.claim.path":            "",
 		"auth.oidc.claim.match":           MatchAny,
 		"auth.oidc.allow_loopback_http":   "false",
+		"auth.oidc.provider_logout":       "true",
 	}
 	keys := []string{
 		"auth.enabled", "auth.mode", "auth.login_path", "auth.callback_path",
@@ -145,7 +151,7 @@ func registerConfig() {
 		"auth.oidc.admission",
 		"auth.oidc.auto_provision", "auth.oidc.claim.path", "auth.oidc.claim.values",
 		"auth.oidc.claim.match", "auth.oidc.allow_loopback_http",
-		"auth.oidc.registered_claims",
+		"auth.oidc.provider_logout", "auth.oidc.registered_claims",
 	}
 	sort.Strings(keys)
 	configbind.Register[Config](configbind.Definition{
@@ -174,6 +180,7 @@ func registerConfig() {
 			{Prefix: "auth", Key: "oidc.claim.path", Help: "JSON Pointer into verified claims"},
 			{Prefix: "auth", Key: "oidc.claim.values", Kind: cliparser.KindArray},
 			{Prefix: "auth", Key: "oidc.claim.match", Help: "any or all"},
+			{Prefix: "auth", Key: "oidc.provider_logout", Kind: cliparser.KindBool, Help: "also end the provider session on logout"},
 			{Prefix: "auth", Key: "oidc.allow_loopback_http", Kind: cliparser.KindBool, Help: "permit an http loopback issuer during development"},
 			{Prefix: "auth", Key: "oidc.registered_claims", Kind: cliparser.KindArray, Help: "claims compared against the allowlist; defaults to identity_claim"},
 		},
@@ -208,6 +215,7 @@ func registerConfig() {
 				Admission:         stringValue(overlay, "auth.oidc.admission"),
 				AutoProvision:     boolValue(overlay, "auth.oidc.auto_provision"),
 				AllowLoopbackHTTP: boolValue(overlay, "auth.oidc.allow_loopback_http"),
+				ProviderLogout:    boolValue(overlay, "auth.oidc.provider_logout"),
 				RegisteredClaims:  registered,
 				Claim: ClaimConfig{
 					Path:   stringValue(overlay, "auth.oidc.claim.path"),
@@ -238,6 +246,7 @@ func registerConfig() {
 			{Key: "oidc.claim.path", Kind: configbind.ScaffoldString, Default: "", Help: "JSON Pointer into verified claims"},
 			{Key: "oidc.claim.values", Kind: configbind.ScaffoldStringSlice},
 			{Key: "oidc.claim.match", Kind: configbind.ScaffoldString, Default: MatchAny, Help: "any or all"},
+			{Key: "oidc.provider_logout", Kind: configbind.ScaffoldBool, Default: "true", Help: "also end the provider session on logout"},
 			{Key: "oidc.allow_loopback_http", Kind: configbind.ScaffoldBool, Default: "false", Help: "permit an http loopback issuer during development"},
 			{Key: "oidc.registered_claims", Kind: configbind.ScaffoldStringSlice, Help: "claims compared against the allowlist under registered admission; defaults to identity_claim"},
 		},

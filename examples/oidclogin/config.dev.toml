@@ -36,9 +36,9 @@ protection.include = ["/mypage"]
 protection.unauthenticated = "redirect"
 
 [auth.oidc]
-issuer = "http://localhost:18080"
-client_id = "oidclogin"
-client_secret = "oidclogin-secret"
+# pw dev injects AUTH_OIDC_ISSUER, AUTH_OIDC_CLIENT_ID, and
+# AUTH_OIDC_CLIENT_SECRET from the provider it starts, so no issuer or
+# credential is committed here. Running without pw dev requires setting them.
 redirect_url = "http://localhost:8080/auth/callback"
 scopes = ["profile", "email"]
 # The verified claim that identifies a local account. "sub" is the OpenID
@@ -50,5 +50,9 @@ auto_provision = true
 # Set admission = "registered" to admit only identities that were inserted into
 # popcornwave_auth_allowlist beforehand.
 # registered_claims = ["sub", "email"]
-# oidcld serves plain HTTP on loopback; a real issuer must be HTTPS.
+# The development provider serves plain HTTP on loopback; a real issuer must be
+# HTTPS.
 allow_loopback_http = true
+# Sign out of the provider as well. Without it the provider stays signed in and
+# the next login returns the same user without asking.
+provider_logout = true

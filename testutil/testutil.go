@@ -221,25 +221,24 @@ func TestRun(t TestingT, handler http.Handler, customize func(*Config), options 
 	serverConfig.Port = actualPort
 	Set(config, serverConfig)
 
-	prepared, err := pwtestbridge.Prepare(handler, config.values, pwtestbridge.Options{Transaction: settings.transaction})
+	// The schema is installed inside Prepare, because extensions verify their
+	// own tables while the runtime handler is built.
+	prepareDatabase := func(db *sql.DB) error {
+		if len(settings.migration) == 0 {
+			return nil
+		}
+		if db == nil {
+			return fmt.Errorf("configured RDB is disabled")
+		}
+		return installMigrations(context.Background(), db, settings.migration)
+	}
+	prepared, err := pwtestbridge.Prepare(handler, config.values, pwtestbridge.Options{
+		Transaction: settings.transaction, PrepareDatabase: prepareDatabase,
+	})
 	if err != nil {
 		_ = listener.Close()
 		t.Fatalf("initialize Popcorn Wave TestRun: %v", err)
 		return nil
-	}
-	if len(settings.migration) > 0 {
-		if prepared.DB == nil {
-			_ = listener.Close()
-			_ = prepared.Close()
-			t.Fatalf("initialize Popcorn Wave TestRun schema: configured RDB is disabled")
-			return nil
-		}
-		if err := installMigrations(context.Background(), prepared.DB, settings.migration); err != nil {
-			_ = listener.Close()
-			_ = prepared.Close()
-			t.Fatalf("initialize Popcorn Wave TestRun schema: %v", err)
-			return nil
-		}
 	}
 	seedDir := settings.seedDir
 	if seedDir == "" {

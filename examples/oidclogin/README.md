@@ -2,7 +2,8 @@
 
 `auth.mode = "oidc_only"`: browser login through OpenID Connect, with the
 session stored in SQLite. The identity provider is
-[oidcld](https://github.com/shibukawa/oidcld) running on your machine.
+[contrib/devidp](../../contrib/devidp/README.md), which `pw dev` starts for you
+— nothing external to install and no credential to copy.
 
 The framework owns the flow. This application only registers an account
 resolver and reads the authenticated user in its handlers.
@@ -48,29 +49,31 @@ depend on the migration and seeding tools:
 go build -o examples/oidclogin/pw ./cmd/pw
 ```
 
-Start the local identity provider on port 18080 in one terminal:
+Then one command runs the provider, the migrations, the generator, and the
+application:
 
 ```bash
-go run github.com/shibukawa/oidcld@v0.2.0 serve --config oidcld.yaml --port 18080
+./pw dev
 ```
 
-Create the framework and application tables, then start the application in
-another:
+It starts the provider declared by `[dev.idp]`, registers a client for the run,
+and injects `AUTH_OIDC_ISSUER`, `AUTH_OIDC_CLIENT_ID`, and
+`AUTH_OIDC_CLIENT_SECRET`, so no provider value is committed here.
+
+Open <http://localhost:8080>, follow **Log in with OpenID Connect**, and pick
+`Hanako Yamada` or `Taro Suzuki` from [devidp.toml](devidp.toml). Opening
+<http://localhost:8080/mypage> while signed out sends you through login first
+and returns you to `/mypage` afterwards. **Log out** posts to `/auth/logout`,
+which ends the provider session too, so the next login asks again instead of
+silently returning the same user.
+
+To run the steps separately, apply the migrations and supply the three
+`AUTH_OIDC_*` values yourself:
 
 ```bash
 ./pw migrate up
-go run ./cmd/oidclogin
-```
-
-Open <http://localhost:8080>, follow **Log in with OpenID Connect**, and pick
-`Administrator` or `Regular User` on the oidcld page. Opening
-<http://localhost:8080/mypage> while signed out sends you through login first
-and returns you to `/mypage` afterwards.
-
-Regenerate templates and SQL after editing a `.pw.html` or `.pw.sql` file:
-
-```bash
 ./pw generate
+go run ./cmd/oidclogin
 ```
 
 ## Configuration
@@ -93,11 +96,12 @@ protection.include = ["/mypage"]        # opt-in; everything else stays public
 protection.unauthenticated = "redirect" # or "unauthorized" for a 401
 
 [auth.oidc]
-issuer = "http://localhost:18080"
+# issuer, client_id, and client_secret arrive from pw dev
 identity_claim = "employee_number" # verified claim that identifies an account
 admission = "authenticated"   # every identity this issuer verifies may enter
 auto_provision = true         # ... and may create a local account
-allow_loopback_http = true    # oidcld speaks plain HTTP on loopback
+provider_logout = true        # sign out of the provider as well
+allow_loopback_http = true    # the development provider speaks plain HTTP
 ```
 
 `allow_loopback_http` and `cookie.secure = false` exist for local development
@@ -112,7 +116,7 @@ a deployment that provisions people in advance rarely knows one, while a
 directory-issued employee number is exactly what an operator can register and
 hand out.
 
-[oidcld.yaml](oidcld.yaml) gives both sample users such a claim, and the
+[devidp.toml](devidp.toml) gives both sample users such a claim, and the
 protected page shows which claim identified the session. Set it back to `"sub"`
 to see the default behavior.
 
