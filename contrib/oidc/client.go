@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	urlpkg "net/url"
 	"strings"
 	"time"
 
@@ -90,7 +91,7 @@ func NewClient(provider *Provider, config Config, options Options) (*Client, err
 	if err != nil {
 		return nil, err
 	}
-	return &Client{provider: provider, clientID: config.ClientID, oauth: client, random: random, clock: clock, allowedAlgorithms: algorithms, leeway: options.Leeway, maxTokenBytes: maxTokenBytes, maxSegmentBytes: maxSegmentBytes}, nil
+	return &Client{provider: provider, clientID: config.ClientID, allowLoopbackHTTP: config.AllowLoopbackHTTP, oauth: client, random: random, clock: clock, allowedAlgorithms: algorithms, leeway: options.Leeway, maxTokenBytes: maxTokenBytes, maxSegmentBytes: maxSegmentBytes}, nil
 }
 
 // BeginAuthorization generates and stores the OIDC nonce in the OAuth
@@ -198,6 +199,76 @@ func validateAuthorizedParty(claims jwt.Claims, clientID string) error {
 		return ErrIDToken
 	}
 	return nil
+}
+
+// EndSessionURL builds an RP-initiated logout request for the discovered end
+// session endpoint. It returns an empty string when the provider advertises
+// none, which lets a caller fall back to ending its own session only.
+//
+// The specification recommends id_token_hint and some providers require it;
+// client_id is always sent so a provider that accepts either still identifies
+// the relying party.
+func (c *Client) EndSessionURL(options EndSessionOptions) (string, error) {
+	if c == nil {
+		return "", ErrInvalidOptions
+	}
+	endpoint := c.provider.EndSessionEndpoint()
+	if endpoint == "" {
+		return "", nil
+	}
+	parsed, err := urlpkg.Parse(endpoint)
+	if err != nil {
+		return "", ErrDiscovery
+	}
+	query := parsed.Query()
+	query.Set("client_id", c.clientID)
+	if options.IDToken != "" {
+		if len(options.IDToken) > c.maxTokenBytes || !validCompactToken(options.IDToken) {
+			return "", ErrIDToken
+		}
+		query.Set("id_token_hint", options.IDToken)
+	}
+	if options.PostLogoutRedirectURI != "" {
+		redirect, err := authn.ParseEndpoint(options.PostLogoutRedirectURI, c.allowLoopbackHTTP)
+		if err != nil || redirect.Fragment != "" {
+			return "", ErrInvalidOptions
+		}
+		query.Set("post_logout_redirect_uri", redirect.String())
+	}
+	if options.State != "" {
+		if len(options.State) > maxEndSessionStateBytes || !validStateValue(options.State) {
+			return "", ErrInvalidOptions
+		}
+		query.Set("state", options.State)
+	}
+	parsed.RawQuery = query.Encode()
+	return parsed.String(), nil
+}
+
+// validCompactToken rejects anything that cannot be a compact JWS, so a caller
+// cannot smuggle whitespace or control bytes into a query parameter.
+func validCompactToken(value string) bool {
+	for index := 0; index < len(value); index++ {
+		character := value[index]
+		switch {
+		case character >= 'A' && character <= 'Z':
+		case character >= 'a' && character <= 'z':
+		case character >= '0' && character <= '9':
+		case character == '-' || character == '_' || character == '.':
+		default:
+			return false
+		}
+	}
+	return strings.Count(value, ".") == 2
+}
+
+func validStateValue(value string) bool {
+	for index := 0; index < len(value); index++ {
+		if value[index] <= 0x20 || value[index] >= 0x7f {
+			return false
+		}
+	}
+	return true
 }
 
 // UserInfo fetches the optional UserInfo endpoint with a bearer token.

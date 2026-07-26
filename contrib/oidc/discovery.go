@@ -104,10 +104,25 @@ func Discover(ctx context.Context, issuer string, options DiscoverOptions) (*Pro
 			return nil, ErrDiscovery
 		}
 	}
+	if document.EndSessionEndpoint != "" {
+		provider.endSessionEndpoint, err = provider.endpoint(document.EndSessionEndpoint)
+		if err != nil {
+			return nil, ErrDiscovery
+		}
+	}
 	if err := provider.refresh(ctx); err != nil {
 		return nil, err
 	}
 	return provider, nil
+}
+
+// EndSessionEndpoint returns the discovered RP-initiated logout endpoint, or
+// an empty string when the provider advertises none.
+func (p *Provider) EndSessionEndpoint() string {
+	if p == nil {
+		return ""
+	}
+	return p.endSessionEndpoint
 }
 
 func (p *Provider) endpoint(raw string) (string, error) {

@@ -59,6 +59,7 @@ type Provider struct {
 	tokenEndpoint         string
 	jwksURI               string
 	userInfoEndpoint      string
+	endSessionEndpoint    string
 	options               providerOptions
 	mu                    sync.RWMutex
 	refreshMu             sync.Mutex
@@ -99,9 +100,14 @@ type Options struct {
 	MaxSegmentBytes   int
 }
 
+// maxEndSessionStateBytes bounds the opaque value returned to the post-logout
+// redirect URI.
+const maxEndSessionStateBytes = 512
+
 type Client struct {
 	provider          *Provider
 	clientID          string
+	allowLoopbackHTTP bool
 	oauth             *oauth.Client
 	random            io.Reader
 	clock             func() time.Time
@@ -130,6 +136,18 @@ type discoveryDocument struct {
 	TokenEndpoint         string `json:"token_endpoint"`
 	JWKSURI               string `json:"jwks_uri"`
 	UserInfoEndpoint      string `json:"userinfo_endpoint"`
+	EndSessionEndpoint    string `json:"end_session_endpoint"`
+}
+
+// EndSessionOptions builds an RP-initiated logout request.
+type EndSessionOptions struct {
+	// IDToken is the raw ID Token of the session being ended. It is
+	// RECOMMENDED by the specification and required by some providers.
+	IDToken string
+	// PostLogoutRedirectURI must be registered with the provider.
+	PostLogoutRedirectURI string
+	// State is returned unchanged to the post-logout URI.
+	State string
 }
 
 type userInfoResult map[string]json.RawMessage

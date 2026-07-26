@@ -15,6 +15,8 @@ public_api:
   - Client.VerifyIDToken(context, raw) returns IDToken
   - Client.UserInfo(context, accessToken) optional
   - Client.UserInfoWithSubject(context, accessToken, expectedSubject) optional
+  - Provider.EndSessionEndpoint() reports the discovered RP-initiated logout endpoint
+  - Client.EndSessionURL(options) builds a logout request, or an empty string when the provider advertises none
 flow: flow:oidc-auth-code
 required:
   - discovery metadata validation
@@ -33,13 +35,17 @@ required:
   - bearer access tokens reject control and whitespace bytes before header use
   - token exchange accepts only the Bearer token type used by the OIDC UserInfo flow
   - exact redirect URI supplied by application
+  - end_session_endpoint is validated like every other discovered endpoint
+  - id_token_hint, post_logout_redirect_uri, and state are bounded and rejected when malformed
 deferred:
-  - OpenID Provider implementation
+  - OpenID Provider implementation beyond the development-only requirement:contrib-devidp
   - public clients without a configured client secret
   - dynamic client registration
   - implicit and hybrid flows
   - JWE ID Tokens
   - private_key_jwt
 security: policy:oidc-security
-standard: https://openid.net/specs/openid-connect-core-1_0-18.html
+standards:
+  core: https://openid.net/specs/openid-connect-core-1_0-18.html
+  rp_initiated_logout: https://openid.net/specs/openid-connect-rpinitiated-1_0.html
 ```
