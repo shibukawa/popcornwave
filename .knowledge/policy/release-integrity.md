@@ -27,7 +27,8 @@ secrets:
   - a pull request from a fork never reaches a job that holds a secret
   - a released binary embeds no token, path, or environment value
 supply_chain:
-  - actions are pinned and upgraded deliberately
+  - actions are pinned by commit sha with the readable version in a trailing comment, and upgraded deliberately
+  - a mutable major tag is not a pin; the release workflow handles secrets and publishes artifacts
   - the release build resolves modules from the module cache of the pinned toolchain and adds no new dependency
   - CGO_ENABLED=0 keeps the artifact free of host C libraries per decision:sqlite-backend-selection
 deprecation:
