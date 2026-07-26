@@ -63,7 +63,8 @@ func Middlewares(handler http.Handler, option ...Option) (http.Handler, error) {
 		return nil, err
 	}
 	resources := runtimeResources(slog.Default())
-	return buildRuntimeHandler(handler, server, security, middleware, resources, options.publicFS)
+	auth := authRuntime{auth: Config[AuthConfig](nil), session: Config[SessionConfig](nil)}
+	return buildRuntimeHandler(handler, server, security, middleware, auth, resources, options.publicFS)
 }
 
 // Run owns parsing, framework initialization, serving, graceful shutdown, and

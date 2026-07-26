@@ -42,7 +42,8 @@ func prepareTestRuntime(handler http.Handler, configs pwtestbridge.Configs, opti
 	security := testConfigValue[SecurityConfig](configs)
 	middleware := testConfigValue[MiddlewareConfig](configs)
 	observability := testConfigValue[ObservabilityConfig](configs)
-	if err := validateRuntimeConfig(server, security, middleware, observability); err != nil {
+	auth := testConfigValue[AuthConfig](configs)
+	if err := validateRuntimeConfig(server, security, middleware, observability, auth); err != nil {
 		return pwtestbridge.Prepared{}, err
 	}
 	if err := validateOperationalEndpointCollisions(handler, server); err != nil {
@@ -84,7 +85,8 @@ func prepareTestRuntime(handler http.Handler, configs pwtestbridge.Configs, opti
 		DBDriver: driver,
 		TxScope:  scope,
 	}
-	wrapped, err := buildRuntimeHandler(handler, server, security, middleware, resources)
+	wrapped, err := buildRuntimeHandler(handler, server, security, middleware,
+		authRuntime{auth: auth, session: testConfigValue[SessionConfig](configs)}, resources)
 	if err != nil {
 		if dbClose != nil {
 			_ = dbClose()

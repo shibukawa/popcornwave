@@ -17,6 +17,7 @@ surface:
   - WithMigrationsFS(fs.FS)
   - WithTransaction(enabled bool)
   - api:test-seed WithSeed and WithSeedDir
+  - api:testutil-idp WithIdentityProvider
 isolation:
   source: api:runtime-configuration registered effective values
   copy: deep copy keyed by exact Go type
@@ -39,7 +40,6 @@ database:
     fallback: direct apply for a non-sqlite dialect or when the test opts out of snapshots
     default: no schema work when no migration option is supplied
     rollback: never; test databases are created and discarded
->>>>>>> main
 transaction:
   requirement: requirement:parallel-database-tests
   flow: flow:test-transaction-isolation

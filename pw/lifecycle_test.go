@@ -39,7 +39,7 @@ func validRuntimeConfigs() (ServerConfig, SecurityConfig, MiddlewareConfig, Obse
 
 func TestValidateRuntimeConfig(t *testing.T) {
 	server, security, middleware, observability := validRuntimeConfigs()
-	if err := validateRuntimeConfig(server, security, middleware, observability); err != nil {
+	if err := validateRuntimeConfig(server, security, middleware, observability, AuthConfig{}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -74,7 +74,7 @@ func TestValidateRuntimeConfig(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			server, security, middleware, observability := validRuntimeConfigs()
 			test.mutate(&server, &security, &middleware, &observability)
-			err := validateRuntimeConfig(server, security, middleware, observability)
+			err := validateRuntimeConfig(server, security, middleware, observability, AuthConfig{})
 			if err == nil || !strings.Contains(err.Error(), test.want) {
 				t.Fatalf("error = %v, want %q", err, test.want)
 			}
@@ -132,7 +132,7 @@ func TestRuntimeHandlerOperationalEndpointsAndMiddleware(t *testing.T) {
 			t.Error("request deadline was not installed")
 		}
 		_, _ = io.WriteString(w, "application")
-	}), server, security, middleware, pwruntime.Resources{Logger: slog.New(slog.NewTextHandler(io.Discard, nil))})
+	}), server, security, middleware, authRuntime{}, pwruntime.Resources{Logger: slog.New(slog.NewTextHandler(io.Discard, nil))})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -176,7 +176,7 @@ func TestRuntimeHandlerLimitsBody(t *testing.T) {
 			return
 		}
 		w.WriteHeader(http.StatusNoContent)
-	}), server, security, middleware, pwruntime.Resources{})
+	}), server, security, middleware, authRuntime{}, pwruntime.Resources{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -192,7 +192,7 @@ func TestRecoveryDoesNotRewriteCommittedResponse(t *testing.T) {
 	handler, err := buildRuntimeHandler(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNoContent)
 		panic("after commit")
-	}), server, security, middleware, pwruntime.Resources{Logger: slog.New(slog.NewTextHandler(io.Discard, nil))})
+	}), server, security, middleware, authRuntime{}, pwruntime.Resources{Logger: slog.New(slog.NewTextHandler(io.Discard, nil))})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -207,7 +207,7 @@ func TestRecoveryWritesProblemBeforeCommit(t *testing.T) {
 	server, security, middleware, _ := validRuntimeConfigs()
 	handler, err := buildRuntimeHandler(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
 		panic("before commit")
-	}), server, security, middleware, pwruntime.Resources{Logger: slog.New(slog.NewTextHandler(io.Discard, nil))})
+	}), server, security, middleware, authRuntime{}, pwruntime.Resources{Logger: slog.New(slog.NewTextHandler(io.Discard, nil))})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -228,7 +228,7 @@ func TestRequestContextCancellationIsPropagated(t *testing.T) {
 			t.Errorf("context error = %v", r.Context().Err())
 		}
 		w.WriteHeader(http.StatusNoContent)
-	}), server, security, middleware, pwruntime.Resources{})
+	}), server, security, middleware, authRuntime{}, pwruntime.Resources{})
 	if err != nil {
 		t.Fatal(err)
 	}

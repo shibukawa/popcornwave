@@ -16,6 +16,7 @@ func validateConfiguredRuntime() error {
 		Config[SecurityConfig](nil),
 		Config[MiddlewareConfig](nil),
 		Config[ObservabilityConfig](nil),
+		Config[AuthConfig](nil),
 	)
 }
 

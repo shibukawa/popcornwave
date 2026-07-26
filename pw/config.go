@@ -64,6 +64,62 @@ type SessionConfig struct {
 	Secret  string
 }
 
+// Default authentication endpoint paths. The runtime mounts them, so these are
+// the URLs an application links to without registering a route.
+const (
+	DefaultLoginPath    = "/auth/login"
+	DefaultCallbackPath = "/auth/callback"
+	DefaultLogoutPath   = "/auth/logout"
+)
+
+// Authentication modes accepted by AuthConfig.Mode.
+const (
+	// AuthModeOIDC authenticates every login against an OpenID Provider.
+	AuthModeOIDC = "oidc"
+	// AuthModeOIDCPasskey bootstraps accounts through OIDC and offers passkey
+	// login afterwards.
+	AuthModeOIDCPasskey = "oidc_passkey"
+	// AuthModePasskey uses passkeys alone, with no external provider.
+	AuthModePasskey = "passkey_only"
+)
+
+// AuthConfig selects the authentication mode and carries the OIDC provider
+// settings the application needs to start a login.
+type AuthConfig struct {
+	Enabled bool
+	Mode    string
+	// LoginPath, CallbackPath, and LogoutPath are mounted by the runtime, so an
+	// application registers no authentication routes of its own.
+	LoginPath    string
+	CallbackPath string
+	LogoutPath   string
+	// PostLoginRedirect and PostLogoutRedirect are local paths the browser
+	// lands on afterwards.
+	PostLoginRedirect  string
+	PostLogoutRedirect string
+	OIDC               OIDCConfig
+}
+
+// OIDCConfig describes the OpenID Provider an application logs in against.
+// Issuer is the discovery base URL, not the discovery document itself.
+type OIDCConfig struct {
+	Issuer       string
+	ClientID     string
+	ClientSecret string
+	RedirectURL  string
+	Scopes       []string
+	// ProviderLogout also ends the provider session on logout, through the
+	// discovered end session endpoint. Without it the provider stays signed in
+	// and the next login returns the same user without asking, which makes a
+	// sign-out look like it did nothing.
+	ProviderLogout bool
+}
+
+// UsesOIDC reports whether the selected mode needs a provider.
+func (config AuthConfig) UsesOIDC() bool {
+	return config.Enabled && (config.Mode == AuthModeOIDC || config.Mode == AuthModeOIDCPasskey)
+}
+
 // ObservabilityConfig controls runtime logging and service identity.
 type ObservabilityConfig struct {
 	MinimumLevel string
@@ -282,6 +338,7 @@ func init() {
 	RegisterConfig[SessionConfig]("session")
 	RegisterConfig[ObservabilityConfig]("observability")
 	RegisterConfig[MiddlewareConfig]("middleware")
+	RegisterConfig[AuthConfig]("auth")
 }
 
 func registerBuiltinConfigs() {
@@ -290,6 +347,88 @@ func registerBuiltinConfigs() {
 	registerSessionConfig()
 	registerObservabilityConfig()
 	registerMiddlewareConfig()
+	registerAuthConfig()
+}
+
+func registerAuthConfig() {
+	const typeName = "github.com/shibukawa/popcornwave/pw.AuthConfig"
+	configbind.Register[AuthConfig](configbind.Definition{
+		TypeName: typeName,
+		Prefix:   "auth",
+		KnownKeys: []string{
+			"auth.enabled", "auth.mode",
+			"auth.login_path", "auth.callback_path", "auth.logout_path",
+			"auth.post_login_redirect", "auth.post_logout_redirect",
+			"auth.oidc.issuer", "auth.oidc.client_id", "auth.oidc.client_secret",
+			"auth.oidc.redirect_url", "auth.oidc.scopes", "auth.oidc.provider_logout",
+		},
+		Defaults: map[string]string{
+			"auth.enabled":              "false",
+			"auth.mode":                 AuthModeOIDC,
+			"auth.login_path":           DefaultLoginPath,
+			"auth.callback_path":        DefaultCallbackPath,
+			"auth.logout_path":          DefaultLogoutPath,
+			"auth.post_login_redirect":  "/",
+			"auth.post_logout_redirect": "/",
+			"auth.oidc.issuer":          "",
+			"auth.oidc.client_id":       "",
+			"auth.oidc.client_secret":   "",
+			"auth.oidc.redirect_url":    "",
+			"auth.oidc.provider_logout": "true",
+		},
+		FlagMetas: []cliparser.FieldMeta{
+			{Prefix: "auth", Key: "enabled", Kind: cliparser.KindBool},
+			{Prefix: "auth", Key: "mode", Help: "oidc, oidc_passkey, or passkey_only"},
+			{Prefix: "auth", Key: "login_path"},
+			{Prefix: "auth", Key: "callback_path"},
+			{Prefix: "auth", Key: "logout_path"},
+			{Prefix: "auth", Key: "post_login_redirect"},
+			{Prefix: "auth", Key: "post_logout_redirect"},
+			// The environment names are the contract pw dev injects into the
+			// application process, so a development run needs no config file.
+			{Prefix: "auth", Key: "oidc.issuer", Env: "AUTH_OIDC_ISSUER"},
+			{Prefix: "auth", Key: "oidc.client_id", Env: "AUTH_OIDC_CLIENT_ID"},
+			{Prefix: "auth", Key: "oidc.client_secret", Env: "AUTH_OIDC_CLIENT_SECRET"},
+			{Prefix: "auth", Key: "oidc.redirect_url", Env: "AUTH_OIDC_REDIRECT_URL"},
+			{Prefix: "auth", Key: "oidc.scopes", Kind: cliparser.KindArray, Help: "requested OIDC scopes"},
+			{Prefix: "auth", Key: "oidc.provider_logout", Kind: cliparser.KindBool, Help: "also end the provider session on logout"},
+		},
+		Apply: func(dst any, overlay *configbind.Overlay) error {
+			p, ok := dst.(*AuthConfig)
+			if !ok || p == nil {
+				return fmt.Errorf("configbind: bad AuthConfig destination")
+			}
+			p.Enabled = configBool(overlay, "auth.enabled")
+			p.Mode = valueOf(overlay, "auth.mode")
+			p.LoginPath = valueOf(overlay, "auth.login_path")
+			p.CallbackPath = valueOf(overlay, "auth.callback_path")
+			p.LogoutPath = valueOf(overlay, "auth.logout_path")
+			p.PostLoginRedirect = valueOf(overlay, "auth.post_login_redirect")
+			p.PostLogoutRedirect = valueOf(overlay, "auth.post_logout_redirect")
+			p.OIDC.Issuer = valueOf(overlay, "auth.oidc.issuer")
+			p.OIDC.ClientID = valueOf(overlay, "auth.oidc.client_id")
+			p.OIDC.ClientSecret = valueOf(overlay, "auth.oidc.client_secret")
+			p.OIDC.RedirectURL = valueOf(overlay, "auth.oidc.redirect_url")
+			p.OIDC.Scopes, _ = overlay.GetMulti("auth.oidc.scopes")
+			p.OIDC.ProviderLogout = configBool(overlay, "auth.oidc.provider_logout")
+			return nil
+		},
+		Scaffold: []configbind.ScaffoldField{
+			{Key: "enabled", Kind: configbind.ScaffoldBool, Default: "false"},
+			{Key: "mode", Kind: configbind.ScaffoldString, Default: AuthModeOIDC, Help: "oidc, oidc_passkey, or passkey_only"},
+			{Key: "login_path", Kind: configbind.ScaffoldString, Default: DefaultLoginPath},
+			{Key: "callback_path", Kind: configbind.ScaffoldString, Default: DefaultCallbackPath},
+			{Key: "logout_path", Kind: configbind.ScaffoldString, Default: DefaultLogoutPath, Help: "POST only"},
+			{Key: "post_login_redirect", Kind: configbind.ScaffoldString, Default: "/"},
+			{Key: "post_logout_redirect", Kind: configbind.ScaffoldString, Default: "/"},
+			{Key: "oidc.issuer", Kind: configbind.ScaffoldString, Default: "", Env: "AUTH_OIDC_ISSUER"},
+			{Key: "oidc.client_id", Kind: configbind.ScaffoldString, Default: "", Env: "AUTH_OIDC_CLIENT_ID"},
+			{Key: "oidc.client_secret", Kind: configbind.ScaffoldString, Default: "", Env: "AUTH_OIDC_CLIENT_SECRET"},
+			{Key: "oidc.redirect_url", Kind: configbind.ScaffoldString, Default: "", Env: "AUTH_OIDC_REDIRECT_URL"},
+			{Key: "oidc.scopes", Kind: configbind.ScaffoldStringSlice, Help: "requested OIDC scopes"},
+			{Key: "oidc.provider_logout", Kind: configbind.ScaffoldBool, Default: "true", Help: "also end the provider session on logout"},
+		},
+	})
 }
 
 func registerServerConfig() {

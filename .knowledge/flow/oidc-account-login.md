@@ -6,6 +6,9 @@ title: OIDC Account Login
 OIDC login verifies an external IdP identity, resolves or provisions a local account, and creates a Popcorn Wave session.
 
 ```yaml
+implemented_subset:
+  endpoints: api:authentication-endpoints performs the verification and session steps
+  deferred: account provisioning, policy:account-linking, and policy:oidc-admission remain application-owned
 flow:
   - begin requirement:contrib-oidc authorization code flow with PKCE, state, and nonce
   - consume callback state through requirement:contrib-auth-state

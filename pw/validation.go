@@ -12,8 +12,11 @@ import (
 	"github.com/shibukawa/popcornwave/middlewares"
 )
 
-func validateRuntimeConfig(server ServerConfig, security SecurityConfig, middleware MiddlewareConfig, observability ObservabilityConfig) error {
+func validateRuntimeConfig(server ServerConfig, security SecurityConfig, middleware MiddlewareConfig, observability ObservabilityConfig, auth AuthConfig) error {
 	if err := validateServerConfig(server); err != nil {
+		return err
+	}
+	if err := validateAuthConfig(auth); err != nil {
 		return err
 	}
 	if err := validateSecurityConfig(security); err != nil {
@@ -29,6 +32,92 @@ func validateRuntimeConfig(server ServerConfig, security SecurityConfig, middlew
 	case "trace", "debug", "info", "warn", "error", "off":
 	default:
 		return fmt.Errorf("observability.minimum_level must be trace, debug, info, warn, error, or off")
+	}
+	return nil
+}
+
+// validateAuthConfig fails startup when a login could never succeed. An empty
+// issuer or client credential is the common case: the project was scaffolded
+// for OIDC but the provider values were never supplied, and the application
+// would otherwise fail later at the first login attempt.
+func validateAuthConfig(config AuthConfig) error {
+	if !config.Enabled {
+		return nil
+	}
+	switch config.Mode {
+	case AuthModeOIDC, AuthModeOIDCPasskey, AuthModePasskey:
+	default:
+		return fmt.Errorf("auth.mode must be %q, %q, or %q", AuthModeOIDC, AuthModeOIDCPasskey, AuthModePasskey)
+	}
+	endpoints := map[string]string{
+		"auth.login_path":    config.LoginPath,
+		"auth.callback_path": config.CallbackPath,
+		"auth.logout_path":   config.LogoutPath,
+	}
+	seen := map[string]string{}
+	for key, value := range endpoints {
+		if err := validateLocalPath(key, value); err != nil {
+			return err
+		}
+		if previous, duplicate := seen[value]; duplicate {
+			return fmt.Errorf("%s and %s must not share the path %q", previous, key, value)
+		}
+		seen[value] = key
+	}
+	for key, value := range map[string]string{
+		"auth.post_login_redirect":  config.PostLoginRedirect,
+		"auth.post_logout_redirect": config.PostLogoutRedirect,
+	} {
+		if err := validateLocalPath(key, value); err != nil {
+			return err
+		}
+	}
+	if !config.UsesOIDC() {
+		return nil
+	}
+	var missing []string
+	for _, field := range []struct {
+		key         string
+		environment string
+		value       string
+	}{
+		{"auth.oidc.issuer", "AUTH_OIDC_ISSUER", config.OIDC.Issuer},
+		{"auth.oidc.client_id", "AUTH_OIDC_CLIENT_ID", config.OIDC.ClientID},
+		{"auth.oidc.client_secret", "AUTH_OIDC_CLIENT_SECRET", config.OIDC.ClientSecret},
+	} {
+		if strings.TrimSpace(field.value) == "" {
+			missing = append(missing, fmt.Sprintf("%s (%s)", field.key, field.environment))
+		}
+	}
+	if len(missing) > 0 {
+		return fmt.Errorf(
+			"auth.mode %q needs %s; run pw dev to use the development identity provider, or supply the values in config.%s.toml or the environment",
+			config.Mode, strings.Join(missing, ", "), Env())
+	}
+	issuer, err := url.Parse(config.OIDC.Issuer)
+	if err != nil || !issuer.IsAbs() || issuer.Host == "" || (issuer.Scheme != "http" && issuer.Scheme != "https") {
+		return fmt.Errorf("auth.oidc.issuer must be an absolute http or https URL")
+	}
+	if config.OIDC.RedirectURL != "" {
+		redirect, err := url.Parse(config.OIDC.RedirectURL)
+		if err != nil || !redirect.IsAbs() || redirect.Host == "" {
+			return fmt.Errorf("auth.oidc.redirect_url must be an absolute URL")
+		}
+	}
+	return nil
+}
+
+// validateLocalPath keeps a configured redirect target on this origin, so a
+// configuration mistake cannot turn an endpoint into an open redirect.
+func validateLocalPath(key, value string) error {
+	if value == "" {
+		return fmt.Errorf("%s is required", key)
+	}
+	if !strings.HasPrefix(value, "/") || strings.HasPrefix(value, "//") {
+		return fmt.Errorf("%s must be an absolute path on this origin", key)
+	}
+	if strings.ContainsAny(value, " \t\r\n") || strings.Contains(value, "://") {
+		return fmt.Errorf("%s must be an absolute path on this origin", key)
 	}
 	return nil
 }

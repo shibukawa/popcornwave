@@ -11,12 +11,18 @@ import (
 	"github.com/shibukawa/popcornwave/pwruntime"
 )
 
-func buildRuntimeHandler(handler http.Handler, server ServerConfig, security SecurityConfig, middleware MiddlewareConfig, resources pwruntime.Resources, publicFS ...fs.FS) (http.Handler, error) {
+func buildRuntimeHandler(handler http.Handler, server ServerConfig, security SecurityConfig, middleware MiddlewareConfig, auth authRuntime, resources pwruntime.Resources, publicFS ...fs.FS) (http.Handler, error) {
 	trusted, err := compileTrustedProxies(server.TrustedProxies)
 	if err != nil {
 		return nil, err
 	}
 	result := operationalEndpoints(handler, server, resources)
+	// Authentication sits inside every middleware, so its endpoints get the
+	// same recovery, logging, and response headers as an application route.
+	result, err = installAuthEndpoints(result, auth)
+	if err != nil {
+		return nil, err
+	}
 	if server.Public.Enabled {
 		var embedded fs.FS
 		if len(publicFS) > 0 {
