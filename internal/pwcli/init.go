@@ -358,6 +358,18 @@ func PublicFS() fs.FS {
 		// The binary pattern is anchored: a bare name would also ignore cmd/<name>/.
 		".gitignore": ".devbox/\n/" + name + "\n*_pw_gen.go\npublic/**/*.zstd\n*.db\n",
 	}
+	if options.TinyGo {
+		files["tinygohelper.go"] = `//go:build tinygo
+
+package publicassets
+
+// TinyGo's net package routes every socket through a Netdever that the program
+// has to register itself; without one the server dies at startup with
+// "Netdev not set". The blank import registers the host OS driver during init.
+// Standard Go builds skip this file and use the real net package.
+import _ "github.com/shibukawa/tinygodriver/netdev"
+`
+	}
 	if options.Tailwind {
 		files["assets/app.css"] = `@import "tailwindcss";
 @source "../handlers";

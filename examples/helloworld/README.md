@@ -53,6 +53,20 @@ APP_ENV=stg APP_ENV_LABEL=canary APP_ENV_LABEL_COLOR="#7c3aed" go run ./cmd/hell
 go run ./cmd/helloworld --app-env_label=hotfix --app-env_label_color="#0891b2"
 ```
 
+## TinyGo
+
+The example is a TinyGo project, so it also builds with that compiler:
+
+```bash
+go run ../../cmd/pw generate
+tinygo build -o helloworld ./cmd/helloworld
+```
+
+[tinygohelper.go](tinygohelper.go) registers the host networking driver that
+TinyGo's `net` package requires. Without it the binary builds and then exits
+with `Netdev not set`. Host Go builds skip the file through its `//go:build
+tinygo` constraint.
+
 For the full regeneration and Tailwind watch loop:
 
 ```bash

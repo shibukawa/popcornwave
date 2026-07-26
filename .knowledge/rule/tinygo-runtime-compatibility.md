@@ -14,6 +14,13 @@ requirements:
   - application runtime does not import generator packages
   - no runtime reflection-based request mapping
   - configured target supports the application's net/http listener model
+  - the project registers a Netdever, via the tinygohelper.go blank import of system:tinygodriver netdev
+netdev_registration:
+  file: tinygohelper.go in the project root, package publicassets
+  constraint: //go:build tinygo
+  import: _ "github.com/shibukawa/tinygodriver/netdev"
+  linkage: concept:project-layout bootstrap generator blank-imports the root package
+  symptom_when_missing: the binary builds and then exits at startup with "Netdev not set"
 baseline_evidence:
   httpbind_go_verified_tinygo: 0.40.1
   compatible_go_range_for_that_baseline: 1.19-1.25

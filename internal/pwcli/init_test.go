@@ -99,6 +99,28 @@ func TestScaffoldFilesWithTinyGoUsesPwServeMux(t *testing.T) {
 	if !strings.Contains(files["devbox.json"], `"tinygo@latest"`) {
 		t.Errorf("devbox.json is missing the TinyGo toolchain:\n%s", files["devbox.json"])
 	}
+	helper := files["tinygohelper.go"]
+	for _, want := range []string{
+		"//go:build tinygo\n",
+		"package publicassets",
+		`import _ "github.com/shibukawa/tinygodriver/netdev"`,
+	} {
+		if !strings.Contains(helper, want) {
+			t.Errorf("tinygohelper.go does not contain %q:\n%s", want, helper)
+		}
+	}
+	if _, err := parser.ParseFile(token.NewFileSet(), "tinygohelper.go", helper, parser.AllErrors); err != nil {
+		t.Fatalf("tinygohelper.go is invalid Go: %v\n%s", err, helper)
+	}
+}
+
+// The netdev registration only matters under TinyGo, and the host-only scaffold
+// should not carry a build-tagged file that never compiles.
+func TestScaffoldFilesWithoutTinyGoOmitsNetdevHelper(t *testing.T) {
+	files := scaffoldFiles(initOptions{Name: "fixture"})
+	if _, ok := files["tinygohelper.go"]; ok {
+		t.Errorf("host-only scaffold includes tinygohelper.go:\n%s", files["tinygohelper.go"])
+	}
 }
 
 func TestScaffoldConfigLoadsBackForBothToolchains(t *testing.T) {

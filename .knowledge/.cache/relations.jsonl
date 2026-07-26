@@ -27,6 +27,7 @@
 {"context": "body", "path": ".knowledge/api/cli-init.md", "source": "api:cli-init", "target": "concept:project-layout", "target_category": "concept", "target_type": "concept"}
 {"context": "body", "path": ".knowledge/api/cli-init.md", "source": "api:cli-init", "target": "requirement:environment-switching", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/api/cli-init.md", "source": "api:cli-init", "target": "flow:handler-registration", "target_category": "behavior", "target_type": "flow"}
+{"context": "body", "path": ".knowledge/api/cli-init.md", "source": "api:cli-init", "target": "rule:tinygo-runtime-compatibility", "target_category": "constraint", "target_type": "rule"}
 {"context": "body", "path": ".knowledge/api/cli-init.md", "source": "api:cli-init", "target": "requirement:tailwind-css-integration", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/api/cli-init.md", "source": "api:cli-init", "target": "decision:tailwind-host-toolchain", "target_category": "constraint", "target_type": "decision"}
 {"context": "body", "path": ".knowledge/api/cli-init.md", "source": "api:cli-init", "target": "api:cli-generate", "target_category": "interface", "target_type": "api"}
@@ -181,6 +182,7 @@
 {"context": "body", "path": ".knowledge/concept/project-layout.md", "source": "concept:project-layout", "target": "policy:generated-artifacts", "target_category": "constraint", "target_type": "policy"}
 {"context": "body", "path": ".knowledge/concept/project-layout.md", "source": "concept:project-layout", "target": "flow:tailwind-css-build", "target_category": "behavior", "target_type": "flow"}
 {"context": "body", "path": ".knowledge/concept/project-layout.md", "source": "concept:project-layout", "target": "api:cli-generate", "target_category": "interface", "target_type": "api"}
+{"context": "body", "path": ".knowledge/concept/project-layout.md", "source": "concept:project-layout", "target": "system:tinygodriver", "target_category": "external", "target_type": "system"}
 {"context": "body", "path": ".knowledge/concept/project-layout.md", "source": "concept:project-layout", "target": "api:public-asset-middleware", "target_category": "interface", "target_type": "api"}
 {"context": "body", "path": ".knowledge/concept/project-layout.md", "source": "concept:project-layout", "target": "decision:tinybind-sql-runtime", "target_category": "constraint", "target_type": "decision"}
 {"context": "body", "path": ".knowledge/concept/public-package-boundaries.md", "source": "concept:public-package-boundaries", "target": "data:project-config", "target_category": "structure", "target_type": "data"}
@@ -890,6 +892,8 @@
 {"context": "body", "path": ".knowledge/rule/static-route-discovery.md", "source": "rule:static-route-discovery", "target": "system:tinybind", "target_category": "external", "target_type": "system"}
 {"context": "body", "path": ".knowledge/rule/static-route-discovery.md", "source": "rule:static-route-discovery", "target": "api:cli-generate", "target_category": "interface", "target_type": "api"}
 {"context": "body", "path": ".knowledge/rule/tinygo-runtime-compatibility.md", "source": "rule:tinygo-runtime-compatibility", "target": "decision:tinygo-042-baseline", "target_category": "constraint", "target_type": "decision"}
+{"context": "body", "path": ".knowledge/rule/tinygo-runtime-compatibility.md", "source": "rule:tinygo-runtime-compatibility", "target": "system:tinygodriver", "target_category": "external", "target_type": "system"}
+{"context": "body", "path": ".knowledge/rule/tinygo-runtime-compatibility.md", "source": "rule:tinygo-runtime-compatibility", "target": "concept:project-layout", "target_category": "concept", "target_type": "concept"}
 {"context": "body", "path": ".knowledge/rule/tinygo-runtime-compatibility.md", "source": "rule:tinygo-runtime-compatibility", "target": "api:cli-build", "target_category": "interface", "target_type": "api"}
 {"context": "body", "path": ".knowledge/system/dbtestify.md", "source": "system:dbtestify", "target": "requirement:test-data-seeding", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/system/dbtestify.md", "source": "system:dbtestify", "target": "decision:testutil-testing-interface", "target_category": "constraint", "target_type": "decision"}

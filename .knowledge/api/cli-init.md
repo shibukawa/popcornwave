@@ -32,6 +32,7 @@ outputs:
   - .pw.sql query example
   - migrations/00001_init.sql application schema as migration version 1
   - public directory with non-served .keep sentinel and stable public.go embedding scaffold
+  - tinygohelper.go netdev registration for rule:tinygo-runtime-compatibility, only when TinyGo is selected
   - .gitignore excluding **/*_pw_gen.go generated application build inputs
   - .vscode/settings.json hiding **/*_pw_gen.go
   - Devbox configuration with Valkey enabled by default and TinyGo when selected
