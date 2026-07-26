@@ -14,10 +14,12 @@
 
       version = if self ? rev then baseVersion else "${baseVersion}-${self.dirtyShortRev or "dirty"}";
 
+      # x86_64-darwin is absent because nixpkgs 26.11 dropped it. Intel macOS is
+      # still served by the Homebrew formula and the release archive of
+      # data:release-artifact.
       systems = [
         "x86_64-linux"
         "aarch64-linux"
-        "x86_64-darwin"
         "aarch64-darwin"
       ];
 
@@ -50,6 +52,7 @@
         pw = {
           type = "app";
           program = "${self.packages.${system}.pw}/bin/pw";
+          meta = { inherit (self.packages.${system}.pw.meta) description; };
         };
         default = pw;
       });
@@ -73,6 +76,6 @@
         }
       );
 
-      formatter = forEachSystem (system: (pkgsFor system).nixfmt-rfc-style);
+      formatter = forEachSystem (system: (pkgsFor system).nixfmt);
     };
 }

@@ -24,6 +24,9 @@ supported_targets:
   - linux/amd64
   - linux/arm64
   - windows/amd64
+channel_coverage:
+  note: the Nix channel omits intel macOS per decision:nix-flake-packaging; every other target is served by both channels or by the archive
+license: Apache-2.0
 build_mode:
   cgo: disabled
   sqlite_backend: modernc.org/sqlite selected by decision:sqlite-backend-selection non-cgo constraint

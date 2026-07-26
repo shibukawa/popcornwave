@@ -10,15 +10,21 @@ status: accepted
 flake:
   files: flake.nix and flake.lock, committed at the repository root
   inputs:
-    nixpkgs: a pinned release channel providing the go toolchain required by go.mod
-    flake-utils: optional; eachDefaultSystem may be written directly
+    nixpkgs: nixos-unstable, pinned by flake.lock, because it is the channel shipping the go toolchain required by go.mod
+    flake-utils: rejected; genAttrs over an explicit system list needs no extra input
   outputs:
     packages.<system>.pw: the buildGoModule derivation
     packages.<system>.default: pw
     apps.<system>.default: the pw executable, so nix run works with no attribute path
     overlays.default: exposes pw to dependent flakes
     devShells.<system>.default: go, gopls, and the tools of decision:host-tools-target-runtime
-  systems: x86_64-linux, aarch64-linux, x86_64-darwin, aarch64-darwin
+    formatter.<system>: nixfmt
+  systems: x86_64-linux, aarch64-linux, aarch64-darwin
+  excluded_system:
+    system: x86_64-darwin
+    reason: nixpkgs 26.11 dropped it
+    coverage: intel macOS is served by decision:homebrew-tap-channel and the data:release-artifact archive
+    revisit: pinning the 26.05 darwin branch would restore it at the cost of an older toolchain channel
 derivation:
   pname: pw
   version:
@@ -32,7 +38,7 @@ derivation:
   ldflags: the api:cli-version injection flags
   doCheck: go test of the pw command packages only; the full suite needs fixtures outside the sandbox
   installCheck: run pw version and match the derivation version
-  meta: description, homepage, license, and mainProgram pw
+  meta: description, homepage, mainProgram pw, and license asl20
 toolchain_risk:
   problem: go.mod requires a Go version that a given nixpkgs channel may not ship yet
   rule: the pinned nixpkgs input must provide it; otherwise override the go attribute of buildGoModule explicitly
@@ -51,7 +57,8 @@ constraints:
   - flake.lock is updated deliberately, never by an automated bump in this iteration
   - the flake exposes no application scaffolding; it packages the CLI only
 verification:
-  - nix build .#pw succeeds on linux and darwin
-  - nix run github:shibukawa/popcornwave#pw prints usage
-  - nix flake check passes
+  - nix build .#pw succeeds and its installCheck matches api:cli-version against the derivation version
+  - nix run .#pw prints the same version line
+  - nix flake check --all-systems passes with no warning
+  - nix run github:shibukawa/popcornwave#pw stays unverified until the flake is pushed
 ```

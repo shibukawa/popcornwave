@@ -16,9 +16,9 @@ ext:
 contents:
   - pw executable, pw.exe on windows
   - README.md
-  - LICENSE when the repository has one
+  - LICENSE
   rule: no directory prefix; extraction yields the files directly
-  open_issue: the repository declares no license, so no LICENSE file ships and neither channel states one
+license: Apache-2.0, declared by the Homebrew formula and the Nix derivation meta
 reproducibility:
   - archive member timestamps and ownership are fixed, not taken from the runner
   - gzip is invoked without a name or timestamp header

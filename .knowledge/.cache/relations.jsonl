@@ -406,9 +406,10 @@
 {"context": "body", "path": ".knowledge/decision/migration-execution-split.md", "source": "decision:migration-execution-split", "target": "data:project-config", "target_category": "structure", "target_type": "data"}
 {"context": "body", "path": ".knowledge/decision/migration-execution-split.md", "source": "decision:migration-execution-split", "target": "decision:test-migration-snapshot", "target_category": "constraint", "target_type": "decision"}
 {"context": "body", "path": ".knowledge/decision/nix-flake-packaging.md", "source": "decision:nix-flake-packaging", "target": "decision:host-tools-target-runtime", "target_category": "constraint", "target_type": "decision"}
+{"context": "body", "path": ".knowledge/decision/nix-flake-packaging.md", "source": "decision:nix-flake-packaging", "target": "decision:homebrew-tap-channel", "target_category": "constraint", "target_type": "decision"}
+{"context": "body", "path": ".knowledge/decision/nix-flake-packaging.md", "source": "decision:nix-flake-packaging", "target": "data:release-artifact", "target_category": "structure", "target_type": "data"}
 {"context": "body", "path": ".knowledge/decision/nix-flake-packaging.md", "source": "decision:nix-flake-packaging", "target": "flow:cli-release", "target_category": "behavior", "target_type": "flow"}
 {"context": "body", "path": ".knowledge/decision/nix-flake-packaging.md", "source": "decision:nix-flake-packaging", "target": "api:cli-version", "target_category": "interface", "target_type": "api"}
-{"context": "body", "path": ".knowledge/decision/nix-flake-packaging.md", "source": "decision:nix-flake-packaging", "target": "data:release-artifact", "target_category": "structure", "target_type": "data"}
 {"context": "body", "path": ".knowledge/decision/passkey-first-authentication.md", "source": "decision:passkey-first-authentication", "target": "requirement:contrib-cbor", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/decision/passkey-first-authentication.md", "source": "decision:passkey-first-authentication", "target": "requirement:contrib-passkey", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/decision/root-pw-api.md", "source": "decision:root-pw-api", "target": "system:tinybind", "target_category": "external", "target_type": "system"}

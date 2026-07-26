@@ -23,8 +23,9 @@ buildGoModule {
   pname = "pw";
   inherit version src;
 
-  # Update with: nix build .#pw 2>&1 | grep 'got:' — see decision:nix-flake-packaging.
-  vendorHash = lib.fakeHash;
+  # Regenerate whenever go.mod or go.sum changes: set this to lib.fakeHash, run
+  # nix build .#pw, and copy the hash the mismatch reports.
+  vendorHash = "sha256-Ksp/4VHZGR63bnsQ1As8bxeXqHWFBrGTaoeDu+EJWkA=";
 
   subPackages = [ "cmd/pw" ];
 
@@ -56,6 +57,6 @@ buildGoModule {
     description = "CLI for the Popcorn Wave web application framework";
     homepage = "https://github.com/shibukawa/popcornwave";
     mainProgram = "pw";
-    # TODO: add a LICENSE file to the repository, then set meta.license here.
+    license = lib.licenses.asl20;
   };
 }
