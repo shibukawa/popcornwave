@@ -156,6 +156,7 @@ The framework also mounts, by default:
 | `/healthz` | liveness |
 | `/readyz` | readiness |
 | `/openapi.json` | generated OpenAPI document |
+| `/docs` | Scalar API documentation (development config only) |
 | `/public/` | embedded static assets |
 
 ## 4. Make a change

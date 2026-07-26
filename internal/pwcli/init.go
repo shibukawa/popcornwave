@@ -264,6 +264,9 @@ extra_watch = []
 # APP_ENV selects this file; add config.stg.toml and config.prod.toml as needed.
 [server]
 port = 8080
+# Scalar API reference for /openapi.json, served at server.api_doc_path (/docs).
+# Leave this key out of staging and production configs to keep the UI private.
+api_doc = "scalar"
 
 [observability]
 minimum_level = "debug"
@@ -375,6 +378,18 @@ func PublicFS() fs.FS {
 		// devbox.d holds the service configuration devbox writes on first run,
 		// so pw dev leaves no change behind in a fresh checkout.
 		".gitignore": ".devbox/\ndevbox.d/\n/" + name + "\n*_pw_gen.go\npublic/**/*.zstd\n*.db\n",
+	}
+	if options.TinyGo {
+		files["tinygohelper.go"] = `//go:build tinygo
+
+package publicassets
+
+// TinyGo's net package routes every socket through a Netdever that the program
+// has to register itself; without one the server dies at startup with
+// "Netdev not set". The blank import registers the host OS driver during init.
+// Standard Go builds skip this file and use the real net package.
+import _ "github.com/shibukawa/tinygodriver/netdev"
+`
 	}
 	if options.Tailwind {
 		files["assets/app.css"] = `@import "tailwindcss";

@@ -81,33 +81,54 @@ func validateServerConfig(config ServerConfig) error {
 	if _, err := compileTrustedProxies(config.TrustedProxies); err != nil {
 		return err
 	}
+	switch config.APIDoc {
+	case "", APIDocScalar, APIDocSwagger:
+	default:
+		return fmt.Errorf("server.api_doc must be %q, %q, or empty", APIDocScalar, APIDocSwagger)
+	}
+	if config.APIDoc != "" && !config.OpenAPI.Enabled {
+		return fmt.Errorf("server.api_doc requires server.openapi.enabled")
+	}
 	seen := map[string]string{}
-	for name, endpoint := range map[string]EndpointConfig{
-		"health": config.Health, "readiness": config.Readiness, "openapi": config.OpenAPI,
-	} {
-		if !endpoint.Enabled {
-			continue
-		}
-		if err := validateEndpointPath("server."+name+".path", endpoint.Path); err != nil {
+	for key, endpoint := range operationalEndpointPaths(config) {
+		if err := validateEndpointPath(key, endpoint); err != nil {
 			return err
 		}
-		if previous, exists := seen[endpoint.Path]; exists {
-			return fmt.Errorf("server.%s.path duplicates server.%s.path: %s", name, previous, endpoint.Path)
+		if previous, exists := seen[endpoint]; exists {
+			return fmt.Errorf("%s duplicates %s: %s", key, previous, endpoint)
 		}
-		seen[endpoint.Path] = name
+		seen[endpoint] = key
 	}
 	if config.Public.Enabled {
 		mount, err := middlewares.NormalizePublicMount(config.Public.Mount)
 		if err != nil {
 			return err
 		}
-		for endpoint, name := range seen {
+		for endpoint, key := range seen {
 			if strings.HasPrefix(endpoint+"/", mount) || strings.HasPrefix(mount, endpoint+"/") {
-				return fmt.Errorf("server.public.mount overlaps server.%s.path: %s", name, endpoint)
+				return fmt.Errorf("server.public.mount overlaps %s: %s", key, endpoint)
 			}
 		}
 	}
 	return nil
+}
+
+// operationalEndpointPaths maps the configuration key of every enabled
+// framework-owned endpoint to the path it serves.
+func operationalEndpointPaths(config ServerConfig) map[string]string {
+	paths := map[string]string{}
+	for key, endpoint := range map[string]EndpointConfig{
+		"server.health.path": config.Health, "server.readiness.path": config.Readiness,
+		"server.openapi.path": config.OpenAPI,
+	} {
+		if endpoint.Enabled {
+			paths[key] = endpoint.Path
+		}
+	}
+	if config.APIDoc != "" {
+		paths["server.api_doc_path"] = config.APIDocPath
+	}
+	return paths
 }
 
 func validateEndpointPath(key, value string) error {
@@ -134,19 +155,14 @@ func validateOperationalEndpointCollisions(handler http.Handler, config ServerCo
 	if !ok {
 		return nil
 	}
-	for name, endpoint := range map[string]EndpointConfig{
-		"health": config.Health, "readiness": config.Readiness, "openapi": config.OpenAPI,
-	} {
-		if !endpoint.Enabled {
-			continue
-		}
-		request, err := http.NewRequest(http.MethodGet, "http://popcornwave.invalid"+endpoint.Path, nil)
+	for key, endpoint := range operationalEndpointPaths(config) {
+		request, err := http.NewRequest(http.MethodGet, "http://popcornwave.invalid"+endpoint, nil)
 		if err != nil {
-			return fmt.Errorf("server.%s.path: %w", name, err)
+			return fmt.Errorf("%s: %w", key, err)
 		}
 		_, pattern := resolver.Handler(request)
-		if exactRoutePath(pattern) == endpoint.Path {
-			return fmt.Errorf("server.%s.path collides with application route %q", name, pattern)
+		if exactRoutePath(pattern) == endpoint {
+			return fmt.Errorf("%s collides with application route %q", key, pattern)
 		}
 	}
 	if config.Public.Enabled {

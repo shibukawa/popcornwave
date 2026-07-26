@@ -23,6 +23,7 @@ layout:
   public/generated/app.css: optional generated Tailwind output
   public/*.zstd: generated flow:public-asset-build sidecars
   public.go: api:cli-init scaffolded embedded PublicFS accessor
+  tinygohelper.go: TinyGo-only netdev registration scaffolded for TinyGo projects
   cmd/myapp/main.go: concept:application-entry-point
   cmd/myapp/popcornwave_bootstrap_pw_gen.go: generated registration-package linker
   handlers/index.go: package mux and Handlers accessor
@@ -47,6 +48,7 @@ layout:
 ownership:
   scaffolded_once:
     - public.go
+    - tinygohelper.go
   handwritten:
     - popcornwave.toml
     - config.{env}.toml or config/config.{env}.toml
@@ -75,6 +77,8 @@ rules:
   - generated public/**/*.zstd sidecars are ignored by version control
   - Popcorn Wave never rewrites scaffolded public.go after initialization
   - public.go init registers its embedded fs.FS without main.go wiring
+  - tinygohelper.go carries the //go:build tinygo constraint so host Go builds skip it
+  - tinygohelper.go blank-imports system:tinygodriver netdev; without it TinyGo binaries abort with "Netdev not set"
   - api:public-asset-middleware owns public asset delivery
   - default Tailwind scaffolding creates no package.json or Node package lockfile
   - generated SQL packages contain no package-local shared runtime artifact after decision:tinybind-sql-runtime

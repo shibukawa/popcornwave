@@ -55,6 +55,28 @@ pw generate
 tinygo build -o myapp ./cmd/myapp
 ```
 
+TinyGo の `net` パッケージ自体はネットワーク機能を持たず、すべてのソケットは
+プログラム側が登録した Netdever を経由します。TinyGo サポートを有効にして作成した
+プロジェクトには、その登録を行う `tinygohelper.go` がルートに置かれます。
+
+```go
+//go:build tinygo
+
+package publicassets
+
+import _ "github.com/shibukawa/tinygodriver/netdev"
+```
+
+`//go:build tinygo` により、ホストの Go ビルドではこのファイルは無視されます。
+これがないと TinyGo のビルド自体は成功しますが、起動直後に終了します。
+
+```
+2026/01/01 00:00:00 Netdev not set
+```
+
+`--no-tinygo` で作成したプロジェクトにはこのファイルはありません。TinyGo に
+切り替えるときは手動で追加してください。
+
 ## CI での使い方
 
 ビルド前に、生成コードが最新であることを検証します。

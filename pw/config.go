@@ -34,6 +34,8 @@ type ServerConfig struct {
 	Health            EndpointConfig
 	Readiness         EndpointConfig
 	OpenAPI           EndpointConfig
+	APIDoc            string
+	APIDocPath        string
 	Public            PublicConfig
 }
 
@@ -333,6 +335,8 @@ func registerServerConfig() {
 		"server.readiness.path":      "/readyz",
 		"server.openapi.enabled":     "true",
 		"server.openapi.path":        "/openapi.json",
+		"server.api_doc":             "",
+		"server.api_doc_path":        "/docs",
 		"server.public.enabled":      "true",
 		"server.public.mount":        "/public",
 		"server.public.read_local":   "false",
@@ -344,6 +348,7 @@ func registerServerConfig() {
 		"server.health.enabled", "server.health.path",
 		"server.readiness.enabled", "server.readiness.path",
 		"server.openapi.enabled", "server.openapi.path",
+		"server.api_doc", "server.api_doc_path",
 		"server.public.enabled", "server.public.mount", "server.public.read_local",
 	}
 	configbind.Register[ServerConfig](configbind.Definition{
@@ -366,6 +371,8 @@ func registerServerConfig() {
 			{Prefix: "server", Key: "readiness.path"},
 			{Prefix: "server", Key: "openapi.enabled", Kind: cliparser.KindBool},
 			{Prefix: "server", Key: "openapi.path"},
+			{Prefix: "server", Key: "api_doc", Help: "API documentation UI: scalar, swagger, or empty to disable"},
+			{Prefix: "server", Key: "api_doc_path", Help: "API documentation UI path"},
 			{Prefix: "server", Key: "public.enabled", Kind: cliparser.KindBool},
 			{Prefix: "server", Key: "public.mount"},
 			{Prefix: "server", Key: "public.read_local", Kind: cliparser.KindBool},
@@ -406,6 +413,8 @@ func registerServerConfig() {
 			if err := applyEndpointConfig(overlay, "server.openapi", &p.OpenAPI); err != nil {
 				return err
 			}
+			p.APIDoc = valueOf(overlay, "server.api_doc")
+			p.APIDocPath = valueOf(overlay, "server.api_doc_path")
 			p.Public.Enabled = configBool(overlay, "server.public.enabled")
 			p.Public.Mount = valueOf(overlay, "server.public.mount")
 			p.Public.ReadLocal = configBool(overlay, "server.public.read_local")
@@ -426,6 +435,8 @@ func registerServerConfig() {
 			{Key: "readiness.path", Kind: configbind.ScaffoldString, Default: "/readyz"},
 			{Key: "openapi.enabled", Kind: configbind.ScaffoldBool, Default: "true"},
 			{Key: "openapi.path", Kind: configbind.ScaffoldString, Default: "/openapi.json"},
+			{Key: "api_doc", Kind: configbind.ScaffoldString, Help: "API documentation UI: scalar, swagger, or empty to disable"},
+			{Key: "api_doc_path", Kind: configbind.ScaffoldString, Default: "/docs", Help: "API documentation UI path"},
 			{Key: "public.enabled", Kind: configbind.ScaffoldBool, Default: "true"},
 			{Key: "public.mount", Kind: configbind.ScaffoldString, Default: "/public"},
 			{Key: "public.read_local", Kind: configbind.ScaffoldBool, Default: "false"},

@@ -54,10 +54,21 @@ APP_ENV=prod ./myapp
 | `health.enabled` / `health.path` | `true` / `/healthz` |
 | `readiness.enabled` / `readiness.path` | `true` / `/readyz` |
 | `openapi.enabled` / `openapi.path` | `true` / `/openapi.json` |
+| `api_doc` / `api_doc_path` | *(空)* / `/docs` |
 | `public.enabled` / `public.mount` | `true` / `/public` |
 | `public.read_local` | `false` |
 
 有効な運用エンドポイントと自分のルートが衝突すると、起動時に報告されます。
+
+`api_doc` は API ドキュメント UI を選びます。`"scalar"`、`"swagger"`、または空文字
+（無効）です。空でない場合は `openapi.enabled` が必須で、UI は `api_doc_path` で配信
+されます。ページ自体は数百バイトの HTML で、UI 本体は CDN から読み込むためバイナリ
+は大きくなりません。ブラウザから外部 CDN に到達できる必要があり、`api_doc` を有効に
+したまま CSP を設定する場合は `script-src` に CDN ホストを追加し、`style-src` に
+`'unsafe-inline'` が必要です（UI がインラインの style 属性を出力するため）。
+
+`pw init` は `config.dev.toml` にのみ `api_doc = "scalar"` を書き出します。既定値は
+空なので、ステージングや本番の設定に書かなければ API ドキュメントは公開されません。
 
 ### `[middleware]`
 

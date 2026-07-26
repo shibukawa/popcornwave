@@ -55,6 +55,28 @@ pw generate
 tinygo build -o myapp ./cmd/myapp
 ```
 
+TinyGo's `net` package has no networking of its own: every socket goes through a
+Netdever the program registers itself. Projects scaffolded with TinyGo support
+get a root `tinygohelper.go` that does it:
+
+```go
+//go:build tinygo
+
+package publicassets
+
+import _ "github.com/shibukawa/tinygodriver/netdev"
+```
+
+The `//go:build tinygo` constraint keeps the file out of host Go builds. Without
+it a TinyGo binary compiles fine and then exits at startup:
+
+```
+2026/01/01 00:00:00 Netdev not set
+```
+
+Projects created with `--no-tinygo` do not get the file; add it by hand before
+switching a project to TinyGo.
+
 ## In CI
 
 Verify that generated code is current before building:

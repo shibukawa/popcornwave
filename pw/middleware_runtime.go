@@ -70,6 +70,7 @@ func writePanicProblem(w http.ResponseWriter, r *http.Request, err error) {
 }
 
 func operationalEndpoints(next http.Handler, config ServerConfig, resources pwruntime.Resources) http.Handler {
+	apiDoc := apiDocUI(config.APIDoc, config.OpenAPI.Path)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case config.Health.Enabled && r.URL.Path == config.Health.Path:
@@ -93,6 +94,12 @@ func operationalEndpoints(next http.Handler, config ServerConfig, resources pwru
 			} else {
 				OpenAPIJSON(w, r)
 			}
+			return
+		case apiDoc != nil && r.URL.Path == config.APIDocPath:
+			if !operationalMethod(w, r) {
+				return
+			}
+			apiDoc.ServeHTTP(w, r)
 			return
 		default:
 			next.ServeHTTP(w, r)

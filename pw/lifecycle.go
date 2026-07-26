@@ -7,10 +7,7 @@ import (
 	"io/fs"
 	"log/slog"
 	"net/http"
-	"os"
-	"os/signal"
 	"strconv"
-	"syscall"
 	"time"
 )
 
@@ -84,7 +81,7 @@ func Run(ctx context.Context, handler http.Handler, option ...Option) error {
 	}
 	serverConfig := Config[ServerConfig](nil)
 
-	signalContext, cancelSignals := signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)
+	signalContext, cancelSignals := notifyShutdownSignals(ctx)
 	defer cancelSignals()
 	server := newHTTPServer(serverConfig, wrapped)
 	serveErr := serveUntilContext(signalContext, server, server.ListenAndServe, serverConfig.ShutdownTimeout)
