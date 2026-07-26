@@ -26,7 +26,9 @@ middlewares:
   - performs the same configuration, service, and middleware initialization
   - returns the final standard http.Handler without starting a listener
 platform:
-  standard_go: signal.NotifyContext may drive graceful shutdown
-  tinygo: signal-driven shutdown may be omitted when unsupported
+  standard_go: signal.NotifyContext on os.Interrupt and SIGTERM drives graceful shutdown
+  tinygo: no signal handler is installed; the caller's context is the only shutdown trigger
+  rationale: TinyGo os/signal replaces the default disposition but delivers nothing, so registering would make the process unkillable by Ctrl+C or SIGTERM
+  seam: notifyShutdownSignals, split by the tinygo build tag
 rule: all startup validation failures occur before request acceptance
 ```
