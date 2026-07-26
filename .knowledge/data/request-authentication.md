@@ -25,8 +25,11 @@ security:
     - passkey ceremony secret or private key material
     - provider client secret
 implemented:
-  surface: pw.CurrentUser returns the identity api:authentication-endpoints resolved
-  fields: subject, issuer, name, email, and selected string claims
+  surface:
+    - pw.RequestAuthentication(context) returns this verified result
+    - pw.Authenticated(context) reports whether the request carries a verified identity
+    - auth.User(context) returns the account summary api:authentication-endpoints resolved
+  fields: account id, issuer, identity claim and value, subject, and copied display claims
   boundary: the identity proves authentication only; authorization stays with the application
 rules:
   - verify credentials before constructing authenticated state

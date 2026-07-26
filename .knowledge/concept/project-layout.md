@@ -32,7 +32,8 @@ layout:
   queries/users.pw.sql: named SQL source
   queries/users_pw_gen.go: generated context-based query functions
   migrations/: data:migration-source handwritten versioned SQL
-  migrations/00001_init.sql: initial application schema as migration version 1
+  migrations/00010_init.sql: initial application schema; rule:framework-owned-tables reserves versions below 00010
+  migrations/{version}_init_popcornwave_{capability}.sql: framework tables, written by api:cli-init for the selected authentication mode
   testdata/seed/: data:seed-dataset files shared by api:cli-seed and api:test-seed
   templates/document.pw.html: requirement:nested-html-templates document shell
   templates/document_pw_gen.go: generated document Fragment and Wrapper

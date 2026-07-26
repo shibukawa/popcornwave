@@ -41,7 +41,7 @@ outputs:
   - templates/document.pw.html shared document shell
   - .pw.html page and 400, 401, 403, 404, 409, 413, and 500 templates
   - .pw.sql query example
-  - migrations/00001_init.sql application schema as migration version 1
+  - migrations/00010_init.sql application schema, above the versions rule:framework-owned-tables reserves
   - public directory with non-served .keep sentinel and stable public.go embedding scaffold
   - .gitignore excluding **/*_pw_gen.go generated application build inputs
   - .vscode/settings.json hiding **/*_pw_gen.go
@@ -49,7 +49,7 @@ outputs:
   - data:authentication-runtime-config section for the selected authentication mode
   - data:devidp-config roster and data:project-config dev.idp when the local emulator is selected
   - api:authentication-endpoints blank import in main and a sign-in and sign-out control on the starter page
-  - development session secret generated per project, with SESSION_SECRET named for deployments
+  - framework migrations from the packages that own their tables, when the mode serves a login
   - data:middleware-runtime-config rdb settings, because the scaffolded migrations and queries need a database
 optional_css:
   tailwind:

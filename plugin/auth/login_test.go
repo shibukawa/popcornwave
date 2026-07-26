@@ -28,8 +28,8 @@ import (
 )
 
 // identityProvider is a minimal OpenID Provider fixture. Its authorization
-// endpoint logs the caller in immediately, which is also how oidcld behaves
-// once a developer picks a user.
+// endpoint logs the caller in immediately, which is also how contrib/devidp
+// behaves once a developer picks a user.
 type identityProvider struct {
 	server   *httptest.Server
 	key      *rsa.PrivateKey

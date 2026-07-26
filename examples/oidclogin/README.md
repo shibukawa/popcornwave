@@ -33,8 +33,8 @@ files, ahead of the application's:
 Versions below `00010` are reserved for the framework, so a new framework table
 never renumbers application migrations. The files are copies of the SQL their
 owning packages publish (`rdb.MigrationSQL`, `auth.MigrationSQL`); a test in the
-repository fails if they drift. Once the authentication modes settle, `pw init`
-will write them from the selected mode.
+repository fails if they drift, and `pw init --auth=oidc` writes the same files
+into a new project.
 
 Startup verifies these tables and refuses to serve when one is missing, naming
 the migration to apply. Rows that expire without being consumed are swept
@@ -139,12 +139,14 @@ second account for the same person.
 ## Pre-registered users only
 
 `admission = "registered"` closes the deployment to a list an operator
-maintains. A row names one verified claim and its expected value, because you
-usually know someone's address long before their subject exists:
+maintains. A row names one verified claim and its expected value, which is what
+an operator knows before that person has ever logged in:
 
 ```sql
+-- The issuer of a pw dev provider changes per run; a deployment registers its
+-- own stable issuer here.
 INSERT INTO popcornwave_auth_allowlist (issuer, claim, value, note)
-VALUES ('http://localhost:18080', 'employee_number', 'E-00001', 'first operator');
+VALUES ('https://issuer.example', 'employee_number', 'EMP-0001', 'first operator');
 ```
 
 `auth.oidc.registered_claims` selects which claims are compared and defaults to
@@ -187,6 +189,5 @@ The handler never sees the cookie token, the store key, or any token body.
 
 ## Not covered here
 
-CSRF middleware, passkey login (`auth.mode = "oidc_passkey"`), the Redis
-session backend, and RP-initiated logout at the provider are not implemented
-yet. Logout revokes the local session only.
+CSRF middleware, passkey login (`auth.mode = "oidc_passkey"`), and the Redis
+session backend are not implemented yet.

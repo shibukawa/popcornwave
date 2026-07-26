@@ -1,11 +1,14 @@
 package pwcli
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/shibukawa/popcornwave/internal/pwenv"
+	"github.com/shibukawa/popcornwave/internal/pwmigrate"
 	"github.com/shibukawa/popcornwave/plugin/auth"
 	"github.com/shibukawa/popcornwave/plugin/session/rdb"
 )
@@ -221,5 +224,41 @@ func TestInitWizardGoesBackPastASkippedStep(t *testing.T) {
 	)
 	if label := model.steps[model.index].label(); label != "Authentication" {
 		t.Fatalf("esc landed on %q, want the last asked question", label)
+	}
+}
+
+// TestScaffoldedMigrationsApply guards the version ranges of the scaffold. The
+// framework packages own everything below 00010, so an application migration
+// that reused one of those versions made a fresh project fail its very first
+// pw migrate up with a duplicate version.
+func TestScaffoldedMigrationsApply(t *testing.T) {
+	for _, mode := range []string{authNone, authOIDC} {
+		files := scaffoldFiles(initOptions{Name: "demo", TinyGo: true, Auth: mode, AuthEmulator: usesOIDC(mode)})
+		directory := t.TempDir()
+		for path, content := range files {
+			name, ok := strings.CutPrefix(path, "migrations/")
+			if !ok {
+				continue
+			}
+			if err := os.WriteFile(filepath.Join(directory, name), []byte(content), 0o600); err != nil {
+				t.Fatal(err)
+			}
+		}
+		sources, err := pwmigrate.Sources(directory)
+		if err != nil {
+			t.Fatalf("auth=%s: %v", mode, err)
+		}
+		target, err := pwmigrate.Open("sqlite://" + filepath.Join(t.TempDir(), "scaffold.db"))
+		if err != nil {
+			t.Fatalf("auth=%s: %v", mode, err)
+		}
+		result, err := pwmigrate.Apply(t.Context(), target, sources, pwmigrate.ActionUp, 0)
+		_ = target.Close()
+		if err != nil {
+			t.Fatalf("auth=%s: %v", mode, err)
+		}
+		if result.Current == 0 {
+			t.Fatalf("auth=%s applied no migration", mode)
+		}
 	}
 }

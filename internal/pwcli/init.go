@@ -324,7 +324,10 @@ export statement FindUser(id: int): sql.one<User> {
 SELECT id, name FROM users WHERE id = {id}
 }
 `,
-		"migrations/00001_init.sql": `-- +goose Up
+		// Application migrations start at 00010. Versions below it belong to
+		// the framework packages that own their own tables, so adding a login
+		// later never renumbers anything the project already applied.
+		"migrations/00010_init.sql": `-- +goose Up
 CREATE TABLE users (
     id INTEGER PRIMARY KEY,
     name TEXT NOT NULL
@@ -372,7 +375,9 @@ func PublicFS() fs.FS {
 }
 `,
 		// The binary pattern is anchored: a bare name would also ignore cmd/<name>/.
-		".gitignore": ".devbox/\n/" + name + "\n*_pw_gen.go\npublic/**/*.zstd\n*.db\n",
+		// devbox.d holds the service configuration devbox writes on first run,
+		// so pw dev leaves no change behind in a fresh checkout.
+		".gitignore": ".devbox/\ndevbox.d/\n/" + name + "\n*_pw_gen.go\npublic/**/*.zstd\n*.db\n",
 	}
 	if options.Tailwind {
 		files["assets/app.css"] = `@import "tailwindcss";

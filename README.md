@@ -54,8 +54,9 @@ import costs one configuration binding.
 The implemented mode is `auth.mode = "oidc_only"`: OpenID Connect
 Authorization Code with PKCE over [`contrib/oidc`](contrib/oidc/README.md).
 [`examples/oidclogin`](examples/oidclogin/README.md) is a complete application
-that logs in against a local [oidcld](https://github.com/shibukawa/oidcld)
-provider and keeps its sessions in SQLite.
+that keeps its sessions in SQLite and logs in against
+[`contrib/devidp`](contrib/devidp/README.md), the development-only provider
+`pw dev` starts and configures for it.
 
 The Hello World example can print combined configuration scaffolds registered
 by every imported package. Redirect stdout when a file is wanted:

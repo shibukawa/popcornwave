@@ -53,9 +53,12 @@ the ID Token, applies admission, resolves the account, and rotates the session.
 Every admission failure produces one response shape, so the endpoint does not
 report whether an account exists.
 
-`POST /auth/logout` revokes the stored session and expires the cookie. It
-requires a same-origin submission. Logout is local: the provider session is not
-ended.
+`POST /auth/logout` revokes the stored session, expires the cookie, and then
+ends the provider session through RP-initiated logout. It requires a
+same-origin submission. Clearing only the local cookie would leave the provider
+signed in, so the next login returns the same user without asking and the sign
+out appears to have done nothing. `auth.oidc.provider_logout = false` keeps the
+logout local, for a provider shared with applications that must stay signed in.
 
 Discovery runs on the first login rather than at startup, so the application
 starts even when the provider is not up yet, and a failed discovery is not
@@ -124,14 +127,16 @@ from the issuer and the lookup claim and value.
 ## Development-only settings
 
 `auth.oidc.allow_loopback_http` permits an `http` issuer on loopback, which is
-what a local provider such as [oidcld](https://github.com/shibukawa/oidcld)
-serves. Together with `session.cookie.secure = false` it belongs to development
-configuration only.
+what [`contrib/devidp`](../../contrib/devidp/README.md) serves. Together with
+`session.cookie.secure = false` it belongs to development configuration only.
+
+`pw dev` starts that provider and injects `AUTH_OIDC_ISSUER`,
+`AUTH_OIDC_CLIENT_ID`, and `AUTH_OIDC_CLIENT_SECRET`, so a project commits no
+issuer or credential.
 
 ## Not implemented
 
 CSRF middleware, passkey enrollment and login, the Redis session backend, a
-dedicated session database, RP-initiated logout, and non-SQLite correlation
-storage.
+dedicated session database, and non-SQLite correlation storage.
 
 See [examples/oidclogin](../../examples/oidclogin) for a working application.
