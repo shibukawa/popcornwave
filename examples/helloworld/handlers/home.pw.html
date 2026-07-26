@@ -1,6 +1,6 @@
 package handlers
 
-export component Home(count: int, envLabel: string, envLabelColor: string): html {
+export component Home(count: int, envLabel: string, envLabelColor: string, authEnabled: bool, signedIn: bool, userName: string, loginPath: url, logoutPath: url): html {
 <main class="mx-auto flex min-h-screen w-full max-w-5xl items-center px-6 py-16 sm:px-10">
   <section class="relative w-full overflow-hidden rounded-[2rem] border border-white/70 bg-white/80 p-8 shadow-2xl shadow-indigo-200/60 backdrop-blur-xl sm:p-14">
     <div class="absolute -right-20 -top-24 h-64 w-64 rounded-full bg-violet-300/30 blur-3xl"></div>
@@ -12,6 +12,18 @@ export component Home(count: int, envLabel: string, envLabelColor: string): html
           Popcorn Wave + SQLite
         </span>
         <span class="inline-flex items-center rounded-full px-4 py-2 text-sm font-bold uppercase tracking-[0.15em] text-white shadow-sm" style="background-color: {envLabelColor}">{envLabel}</span>
+{if authEnabled}
+        <span class="ml-auto inline-flex items-center gap-3 text-sm text-slate-600">
+{if signedIn}
+          <span class="font-semibold text-slate-900">{userName}</span>
+          <form method="post" action={logoutPath}>
+            <button type="submit" class="rounded-full border border-slate-300 px-4 py-2 font-semibold text-slate-700 transition hover:bg-slate-100">Sign out</button>
+          </form>
+{else}
+          <a class="rounded-full bg-indigo-600 px-4 py-2 font-semibold text-white transition hover:bg-indigo-500" href={loginPath}>Sign in</a>
+{/if}
+        </span>
+{/if}
       </div>
       <h1 class="mt-8 text-5xl font-black tracking-tight text-slate-950 sm:text-7xl">
         Hello, <span class="bg-gradient-to-r from-indigo-600 via-violet-600 to-sky-500 bg-clip-text text-transparent">World!</span>

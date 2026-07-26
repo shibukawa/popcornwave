@@ -16,3 +16,30 @@ max_open_conns = 1
 max_idle_conns = 1
 conn_max_lifetime = "0s"
 conn_max_idle_time = "0s"
+
+# The framework serves these paths itself; the application registers no
+# authentication route. logout_path accepts POST only.
+[auth]
+enabled = true
+mode = "oidc"
+login_path = "/auth/login"
+callback_path = "/auth/callback"
+logout_path = "/auth/logout"
+post_login_redirect = "/"
+post_logout_redirect = "/"
+
+[auth.oidc]
+# pw dev runs the development identity provider and injects AUTH_OIDC_ISSUER,
+# AUTH_OIDC_CLIENT_ID, and AUTH_OIDC_CLIENT_SECRET.
+# An empty redirect_url follows the request origin.
+redirect_url = ""
+scopes = ["openid", "profile", "email"]
+# Sign out of the provider as well, so signing out is not undone by the next
+# login returning the same user without asking.
+provider_logout = true
+
+[session]
+enabled = true
+ttl = "24h"
+# Development value. Deployments set SESSION_SECRET.
+secret = "helloworld-development-session-secret"

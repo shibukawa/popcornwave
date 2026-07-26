@@ -19,10 +19,16 @@ pw build
    ない
 3. 公開アセットツリーを準備し、対応するクライアントに配信する圧縮済み `*.zstd`
    サイドカーを書き出す
-4. `popcornwave.toml` の `project.main` に対して `go build` を実行する
+4. `project.main` が開発専用パッケージに依存していればビルドを拒否する
+5. `popcornwave.toml` の `project.main` に対して `go build` を実行する
 
 バイナリは main パッケージ名でプロジェクトルートに置かれます。スキャフォールドされた
 `.gitignore` は `public/**/*.zstd` とともにこれを除外済みです。
+
+現時点で開発専用パッケージは、[`pw dev`](/ja/pw/project/dev/) が起動する認証
+プロバイダ `contrib/devidp` だけです。パスワードを検証せずに誰でもログインさせる
+ため、配布するバイナリにリンクされることは設定ミスではなく欠陥です。ビルドは
+import しているパッケージ名を示して停止します。
 
 ## 実行する
 

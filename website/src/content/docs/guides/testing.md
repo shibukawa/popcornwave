@@ -123,6 +123,36 @@ when the test finishes. Tests sharing one database stay independent and can run
 in parallel. Transactions the application itself starts nest into it as
 savepoints, which requires a driver with savepoint support.
 
+### `WithIdentityProvider`
+
+```go
+server := testutil.TestRun(t, handlers.Handlers(), nil, testutil.WithIdentityProvider(
+	testutil.WithIdPConfig("../devidp.toml"),
+	testutil.WithLoginUser("admin"),
+	testutil.WithIdPBinding(func(config *testutil.Config, idp testutil.IdPInfo) {
+		testutil.Update[handlers.AuthConfig](config, func(auth *handlers.AuthConfig) {
+			auth.Issuer, auth.ClientID, auth.ClientSecret = idp.Issuer, idp.ClientID, idp.ClientSecret
+		})
+	}),
+))
+```
+
+Starts the same development identity provider [`pw dev`](/pw/project/dev/) uses,
+on its own loopback port, before the application server. `WithLoginUser`
+pre-selects the subject, so the authorization endpoint redirects straight back
+with a code and the whole login completes without driving a browser:
+
+```go
+response, err := server.Client().Get(server.URL + "/login")
+```
+
+The roster comes from exactly one of `WithIdPConfig` (a `devidp.toml` file),
+`WithIdPRoster` (the same TOML held in the test), or `WithIdPUsers` (Go values).
+`WithIdPBinding` writes the issuer and the generated client credentials into the
+copied configuration; it runs after `customize`, so it wins over a placeholder.
+`server.LoginAs(t, "guest")` switches user mid-test, and `server.IdPInfo()`
+returns the same values for a test that wires its client by hand.
+
 ## Asserting against the database
 
 `server.Context()` returns a context carrying the same runtime resources the

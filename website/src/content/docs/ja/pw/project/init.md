@@ -6,17 +6,45 @@ sidebar:
 ---
 
 ```sh
-pw init <project-name> [--tailwind]
+pw init <project-name> [--tailwind] [--auth=<mode>] [--devidp]
 ```
 
 プロジェクト名のディレクトリを新規に作り、その中に動作する完全なプロジェクトを作成
-します。
+します。名前を省略するか `-i` を付けると、同じ項目をウィザードで対話的に答えられます。
 
 ## オプション
 
 | オプション | 効果 |
 | --- | --- |
 | `--tailwind` | Tailwind CSS のツールチェインも一緒にスキャフォールドする |
+| `--no-tinygo` | TinyGo ではなくホストの Go を対象にする |
+| `--auth=<mode>` | `none`（既定）、`oidc`、`oidc-passkey`、`passkey` |
+| `--devidp` | OIDC を選んだ場合に、ローカルの認証プロバイダを組み込む |
+| `-i`, `--interactive` | 名前を与えた場合でも全項目を質問する |
+
+## 認証
+
+認証の質問は `config.dev.toml` の `[auth]` セクションの内容を決めます。
+
+| 回答 | `auth.mode` | 意味 |
+| --- | --- | --- |
+| None | — | `[auth]` セクションを書かない |
+| OIDC | `oidc` | ログインは常に OpenID Provider を経由する |
+| OIDC + passkey | `oidc_passkey` | OIDC でアカウントを作り、以降はパスキーでログイン |
+| Passkey only | `passkey_only` | 外部プロバイダなし。リカバリ方針は自分で決める |
+
+OIDC 系を選ぶと、**ローカルエミュレータ**か**外部プロバイダ**かを1つだけ追加で質問
+します。
+
+ローカルエミュレータは [`pw dev`](/ja/pw/project/dev/) が起動する開発用認証プロバイダ
+です。`pw init` は `popcornwave.toml` に `dev.idp.enabled` を設定し、初期ユーザー2人分の
+`devidp.toml` を書き出します。issuer とクライアント資格情報は `pw dev` が注入するので、
+コミットする設定ファイルにプロバイダの情報は一切書かれません。
+
+外部プロバイダの場合、`config.dev.toml` の `issuer`、`client_id`、`client_secret` は
+空文字列で書き出されます。**これらは省略可能ではありません**。いずれかが空のままだと
+アプリケーションは起動を拒否し、足りないキーと対応する `AUTH_OIDC_*` 環境変数を示し
+ます。値を書くか、環境変数を設定するか、エミュレータに切り替えてください。
 
 ## 検証
 
@@ -48,6 +76,9 @@ myapp/
 ├── .vscode/settings.json      **/*_pw_gen.go を隠す
 └── .gitignore                 *_pw_gen.go などのビルド生成物を除外
 ```
+
+OIDC 系のモードで `--devidp` を付けると、選択できる開発用ユーザーの一覧である
+`devidp.toml` も書き出し、`popcornwave.toml` に `[dev.idp]` を追加します。
 
 `--tailwind` を付けると、さらに `assets/app.css` と `public/generated/app.css` を書き、
 `popcornwave.toml` に `[assets.tailwind]` ブロックを追加し、`devbox.json` に

@@ -7,7 +7,8 @@ pw init helloworld --tailwind
 ```
 
 It demonstrates nested HTML templates, Tailwind CSS, an atomic SQLite page-view
-counter, and an application-owned configuration binding rendered into the page.
+counter, an application-owned configuration binding rendered into the page, and
+an OIDC login served entirely by the framework.
 
 The module always uses the repository checkout through:
 
@@ -61,3 +62,29 @@ pw dev
 ```
 
 Open <http://localhost:8080>. The local `helloworld.db` file is ignored by Git.
+
+## Sign in
+
+`pw dev` also starts the development identity provider declared by `[dev.idp]`
+and injects `AUTH_OIDC_ISSUER`, `AUTH_OIDC_CLIENT_ID`, and
+`AUTH_OIDC_CLIENT_SECRET` into the application, so no credential lives in this
+repository. Click **Sign in**, pick `Administrator` or `Member` from
+[devidp.toml](devidp.toml), and the page greets you by name. **Sign out** posts
+to `/auth/logout`, which accepts POST only.
+
+The application contains no authentication code. [`cmd/helloworld/main.go`](cmd/helloworld/main.go)
+imports the package that registers the endpoints:
+
+```go
+import _ "github.com/shibukawa/popcornwave/auth"
+```
+
+`[auth]` in [config.dev.toml](config.dev.toml) supplies the rest, and the home
+handler reads the result with `pw.CurrentUser(r.Context())`.
+[handlers/login_test.go](handlers/login_test.go) drives the whole flow without a
+browser.
+
+`config.stg.toml` and `config.prod.toml` keep `auth.enabled = false`, because
+this sample has no deployed provider. Enabling it there requires
+`AUTH_OIDC_ISSUER`, `AUTH_OIDC_CLIENT_ID`, `AUTH_OIDC_CLIENT_SECRET`, and
+`SESSION_SECRET`; the application refuses to start while any of them is empty.

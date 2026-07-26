@@ -51,13 +51,22 @@ func runDev(ctx context.Context, args []string, stdout, stderr io.Writer) error 
 		}
 		defer func() { stopCommand(tailwind) }()
 	}
+	var idp *devIdentityProvider
+	if config.IdP.Enabled {
+		idp, err = startDevIdentityProvider(ctx, root, config, stdout)
+		if err != nil {
+			return fmt.Errorf("pw dev: development identity provider: %w", err)
+		}
+		defer idp.close()
+	}
+	rosterState := idp.watchState()
 	state, err := snapshotWatchFiles(root, configuredWatchPaths(root, config.ExtraWatch,
 		append(tailwindWatchPaths(root, config.Tailwind, tailwind == nil),
 			migrationWatchPaths(root, config.Migration)...))...)
 	if err != nil {
 		return err
 	}
-	app, exited, err := startApplication(ctx, root, config.Main, stdout, stderr)
+	app, exited, err := startApplication(ctx, root, config.Main, idp, stdout, stderr)
 	if err != nil {
 		return err
 	}
@@ -82,6 +91,13 @@ func runDev(ctx context.Context, args []string, stdout, stderr io.Writer) error 
 			tailwindExited = nil
 			addWatchFile(state, filepath.Join(root, filepath.FromSlash(config.Tailwind.Input)))
 		case <-ticker.C:
+			// A roster edit reloads in place: restarting the provider would
+			// invalidate the issuer and credentials the application holds.
+			if current := idp.watchState(); current != rosterState {
+				rosterState = current
+				idp.reload(stdout, stderr)
+				continue
+			}
 			next, err := snapshotWatchFiles(root, configuredWatchPaths(root, config.ExtraWatch,
 				append(tailwindWatchPaths(root, config.Tailwind, tailwind == nil),
 					migrationWatchPaths(root, config.Migration)...))...)
@@ -119,7 +135,7 @@ func runDev(ctx context.Context, args []string, stdout, stderr io.Writer) error 
 			state, _ = snapshotWatchFiles(root, configuredWatchPaths(root, config.ExtraWatch,
 				append(tailwindWatchPaths(root, config.Tailwind, tailwind == nil),
 					migrationWatchPaths(root, config.Migration)...))...)
-			app, exited, err = startApplication(ctx, root, config.Main, stdout, stderr)
+			app, exited, err = startApplication(ctx, root, config.Main, idp, stdout, stderr)
 			if err != nil {
 				fmt.Fprintln(stderr, "pw dev:", err)
 			}
@@ -127,9 +143,10 @@ func runDev(ctx context.Context, args []string, stdout, stderr io.Writer) error 
 	}
 }
 
-func startApplication(ctx context.Context, root, mainPackage string, stdout, stderr io.Writer) (*exec.Cmd, <-chan error, error) {
+func startApplication(ctx context.Context, root, mainPackage string, idp *devIdentityProvider, stdout, stderr io.Writer) (*exec.Cmd, <-chan error, error) {
 	command := exec.CommandContext(ctx, "go", "run", "-tags=pwdev", mainPackage)
-	command.Dir, command.Stdout, command.Stderr, command.Stdin, command.Env = root, stdout, stderr, os.Stdin, developmentEnviron()
+	command.Dir, command.Stdout, command.Stderr, command.Stdin = root, stdout, stderr, os.Stdin
+	command.Env = idp.environ(developmentEnviron())
 	if err := command.Start(); err != nil {
 		return nil, nil, err
 	}

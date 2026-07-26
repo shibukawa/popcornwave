@@ -17,7 +17,8 @@ pw dev
 2. [`pw generate`](/ja/pw/project/generate/) を実行する
 3. `migration.auto` が `false` でなければ、未適用のマイグレーションを適用する
 4. Tailwind が有効なら、スタイルシートをビルドしてウォッチャを起動する
-5. `project.main` をビルドして実行する
+5. `dev.idp.enabled` が `true` なら、開発用の認証プロバイダを起動する
+6. `project.main` をビルドして実行する
 
 そのあとは 0.5 秒ごとに監視対象を確認し、変更があれば該当するステップを繰り返します。
 
@@ -55,6 +56,59 @@ minify がループの中で最も遅い部分だからです。ウォッチャ�
 [migration]
 auto = false
 ```
+
+## 開発用の認証プロバイダ
+
+`pw dev` はローカルの OpenID Provider を起動できます。本物の IdP を用意する前から
+OIDC ログインを試せます。ログインは一覧からユーザーを選ぶだけで、パスワードは
+検証しません。だからこそ開発以外では決して動きません。
+
+```toml
+[dev.idp]
+enabled = true
+# config = "devidp.toml"   # ユーザー定義ファイル。プロジェクトからの相対パス
+# port = 0                 # 0 なら空いているループバックポートを確保する
+```
+
+ユーザー定義ファイルには、選択できるユーザーと付与する claim を書きます。
+
+```toml
+[users.admin]
+display_name = "Administrator"
+extra_scopes = ["admin"]
+[users.admin.claims]
+email = "admin@example.com"
+role = "admin"
+
+[users.guest]
+display_name = "Guest User"
+[users.guest.claims]
+email = "guest@example.com"
+```
+
+クライアント登録も issuer URL のコピーも不要です。`pw dev` が実行ごとに使い捨ての
+クライアントを登録し、アプリケーションには
+
+- `AUTH_OIDC_ISSUER`
+- `AUTH_OIDC_CLIENT_ID`
+- `AUTH_OIDC_CLIENT_SECRET`
+
+を環境変数として渡します。環境変数は TOML より優先されるため、プロバイダに関する値を
+コミットする設定ファイルに書く必要はありません。自分で export した値はそのまま尊重
+されます。クライアントシークレットは実行ごとに生成され、出力には現れません。
+
+ユーザー定義ファイルを編集すると、その場でリロードされます。issuer と、動作中の
+アプリケーションが既に持っている資格情報はそのまま有効なので、再起動は不要です。
+
+このプロバイダが実装するのは、S256 PKCE 必須の認可コードフロー、discovery、JWKS、
+RS256 の ID Token、UserInfo です。リフレッシュトークン、ログアウト、デバイス
+フロー、client credentials、同意画面は意図的にありません。詳細は
+[`contrib/devidp`](https://github.com/shibukawa/popcornwave/tree/main/contrib/devidp)
+を参照してください。これを import したアプリケーションは `pw build` が拒否します。
+
+テストでは `testutil.WithIdentityProvider` が同じプロバイダを起動し、
+`WithLoginUser` でログインするユーザーを事前に指定できます。ブラウザ操作なしで
+ログインが完結します。[テスト](/ja/guides/testing/)を参照してください。
 
 ## 停止
 

@@ -52,6 +52,20 @@ package_gates:
     - negative vectors cover state, expiry, replay, callback errors, redirect URI, PKCE, and oversized token responses
   requirement:contrib-oidc:
     - Authorization Code plus PKCE succeeds against two independent providers or conformance fixtures
+    - requirement:contrib-devidp counts as at most one of those two, because it is developed in this repository
+  requirement:contrib-devidp:
+    - an independent OIDC client library validates discovery, JWKS, ID Token, and UserInfo output
+    - requirement:contrib-oidc completes Authorization Code plus S256 PKCE against it under host Go
+    - negative vectors cover unknown client, unregistered redirect URI, missing or mismatched PKCE verifier, replayed code, expired code, wrong client secret, unknown subject, and unconfigured scope
+    - roster loading rejects unknown keys, reserved claim overrides, empty client secrets, and duplicate subjects
+    - policy:devidp-safety refusals are proven for prod environment, non-loopback bind without opt-in, and application build import
+    - automatic login and ui:devidp-login selection issue identical token claims
+    - RP-initiated logout revokes the subject access tokens and rejects a forged id_token_hint or an unregistered post_logout_redirect_uri
+    - an api:cli-dev run with no client, issuer, or secret in any project file completes flow:oidc-account-login from injected environment values alone
+    - a reserved-port run and a pinned-port run both produce discovery URLs that the relying party accepts
+    - ephemeral client redirect handling accepts loopback callbacks on any port and rejects every non-loopback host
+    - injected secrets never appear in api:cli-dev output or configuration provenance logs
+    - the TinyGo matrix is not required, per decision:devidp-scope-reduction
   requirement:contrib-html-template:
     - invalid field paths, loop types, map keys, helpers, and JSON type graphs fail during generation with source positions
     - generated struct, slice, array, map, pointer, and JSON fixtures match golden output under host Go and TinyGo

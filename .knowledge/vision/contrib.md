@@ -20,6 +20,10 @@ packages:
   - requirement:contrib-oauth
   - requirement:contrib-oidc
   - requirement:contrib-html-template
+host_only_packages:
+  - package: requirement:contrib-devidp
+    reason: development identity provider that never links into an application binary
+    exemption: decision:devidp-scope-reduction waives the policy:contrib-compatibility TinyGo matrix
 principles:
   - policy:contrib-compatibility
   - policy:outbound-transport-security

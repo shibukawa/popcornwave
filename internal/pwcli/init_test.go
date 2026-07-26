@@ -20,11 +20,13 @@ func TestParseInitArgs(t *testing.T) {
 		args []string
 		want initOptions
 	}{
-		{name: "name only keeps the TinyGo default", args: []string{"demo"}, want: initOptions{Name: "demo", TinyGo: true}},
-		{name: "shortcut flags", args: []string{"demo", "--tailwind", "--no-tinygo"}, want: initOptions{Name: "demo", Tailwind: true}},
-		{name: "explicit tinygo", args: []string{"--tinygo", "demo"}, want: initOptions{Name: "demo", TinyGo: true}},
-		{name: "no name requests the wizard", args: nil, want: initOptions{TinyGo: true}},
-		{name: "interactive with a seeded name", args: []string{"-i", "demo"}, want: initOptions{Name: "demo", TinyGo: true, Interactive: true}},
+		{name: "name only keeps the TinyGo default", args: []string{"demo"}, want: initOptions{Name: "demo", TinyGo: true, Auth: authNone}},
+		{name: "shortcut flags", args: []string{"demo", "--tailwind", "--no-tinygo"}, want: initOptions{Name: "demo", Tailwind: true, Auth: authNone}},
+		{name: "explicit tinygo", args: []string{"--tinygo", "demo"}, want: initOptions{Name: "demo", TinyGo: true, Auth: authNone}},
+		{name: "no name requests the wizard", args: nil, want: initOptions{TinyGo: true, Auth: authNone}},
+		{name: "interactive with a seeded name", args: []string{"-i", "demo"}, want: initOptions{Name: "demo", TinyGo: true, Interactive: true, Auth: authNone}},
+		{name: "oidc with the local emulator", args: []string{"demo", "--auth=oidc", "--devidp"}, want: initOptions{Name: "demo", TinyGo: true, Auth: authOIDC, AuthEmulator: true}},
+		{name: "passkey drops a stray emulator flag", args: []string{"demo", "--auth=passkey", "--devidp"}, want: initOptions{Name: "demo", TinyGo: true, Auth: authPasskey}},
 	} {
 		t.Run(testcase.name, func(t *testing.T) {
 			options, err := parseInitArgs(testcase.args)
@@ -151,13 +153,14 @@ func TestInitWizardCollectsAnswers(t *testing.T) {
 		typeText("demo"), pressKey(tea.KeyEnter), // project name
 		pressKey(tea.KeyDown), pressKey(tea.KeyEnter), // TinyGo: No
 		pressKey(tea.KeyEnter), // Tailwind: keep No
+		pressKey(tea.KeyEnter), // Authentication: keep None
 		pressKey(tea.KeyEnter), // review
 	)
 	if !model.confirmed {
 		t.Fatalf("wizard did not confirm: index = %d", model.index)
 	}
 	options := wizardResult(model, defaultInitOptions())
-	if options != (initOptions{Name: "demo"}) {
+	if options != (initOptions{Name: "demo", Auth: authNone}) {
 		t.Fatalf("options = %#v", options)
 	}
 }
@@ -169,20 +172,21 @@ func TestInitWizardDigitShortcutSelectsTailwind(t *testing.T) {
 		typeText("demo"), pressKey(tea.KeyEnter),
 		typeText("1"),          // TinyGo: Yes
 		typeText("1"),          // Tailwind: Yes
+		typeText("1"),          // Authentication: None
 		pressKey(tea.KeyEnter), // review
 	)
 	if !model.confirmed {
 		t.Fatalf("wizard did not confirm: index = %d", model.index)
 	}
 	options := wizardResult(model, defaultInitOptions())
-	if options != (initOptions{Name: "demo", TinyGo: true, Tailwind: true}) {
+	if options != (initOptions{Name: "demo", TinyGo: true, Tailwind: true, Auth: authNone}) {
 		t.Fatalf("options = %#v", options)
 	}
 }
 
 func TestInitWizardSeedsAnswersFromShortcutFlags(t *testing.T) {
-	steps := initWizardSteps(initOptions{Name: "seeded", TinyGo: true, Tailwind: true})
-	want := []string{"seeded", "Yes", "Yes"}
+	steps := initWizardSteps(initOptions{Name: "seeded", TinyGo: true, Tailwind: true, Auth: authOIDC, AuthEmulator: true})
+	want := []string{"seeded", "Yes", "Yes", "OIDC", "Local emulator"}
 	for index, step := range steps {
 		if step.value() != want[index] {
 			t.Errorf("step %d (%s) value = %q, want %q", index, step.label(), step.value(), want[index])
@@ -233,15 +237,19 @@ func TestInitWizardReviewListsEveryStep(t *testing.T) {
 		typeText("demo"), pressKey(tea.KeyEnter),
 		pressKey(tea.KeyEnter),
 		pressKey(tea.KeyEnter),
+		pressKey(tea.KeyEnter),
 	)
 	view := model.View()
 	if !strings.Contains(view, "Review") {
 		t.Fatalf("review screen missing:\n%s", view)
 	}
-	for _, step := range model.steps {
-		if !strings.Contains(view, step.label()) {
-			t.Errorf("review screen omits %q:\n%s", step.label(), view)
+	for _, index := range model.activeSteps() {
+		if !strings.Contains(view, model.steps[index].label()) {
+			t.Errorf("review screen omits %q:\n%s", model.steps[index].label(), view)
 		}
+	}
+	if strings.Contains(view, "OIDC provider") {
+		t.Errorf("review screen lists a skipped step:\n%s", view)
 	}
 }
 
@@ -249,8 +257,8 @@ func TestInitWizardReviewListsEveryStep(t *testing.T) {
 // wired-up input handling and result extraction stay covered.
 func TestRunInitWizardOverKeystrokes(t *testing.T) {
 	t.Chdir(t.TempDir())
-	// demo, enter, down, enter, enter, enter
-	keystrokes := "demo\r\x1b[B\r\r\r"
+	// demo, enter, down, enter (TinyGo: No), enter (Tailwind), enter (auth), enter (review)
+	keystrokes := "demo\r\x1b[B\r\r\r\r"
 	options, err := runInitWizard(defaultInitOptions(),
 		tea.WithInput(strings.NewReader(keystrokes)),
 		tea.WithOutput(io.Discard),
@@ -260,7 +268,7 @@ func TestRunInitWizardOverKeystrokes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if options != (initOptions{Name: "demo"}) {
+	if options != (initOptions{Name: "demo", Auth: authNone}) {
 		t.Fatalf("options = %#v", options)
 	}
 }
@@ -279,17 +287,14 @@ func TestRunInitWizardReportsCancellation(t *testing.T) {
 }
 
 func newTestWizard(defaults initOptions) wizardModel {
-	model := wizardModel{steps: initWizardSteps(defaults), theme: newWizardTheme()}
+	model := wizardModel{steps: initWizardSteps(defaults), defaults: defaults, theme: newWizardTheme()}
 	model.Init() // Focus the first step the way the Bubble Tea runtime does.
 	return model
 }
 
 func wizardResult(model wizardModel, defaults initOptions) initOptions {
-	options := defaults
-	for _, step := range model.steps {
-		step.apply(&options)
-	}
-	return options
+	model.defaults = defaults
+	return model.answers()
 }
 
 func feedWizard(t *testing.T, model wizardModel, messages ...tea.Msg) wizardModel {

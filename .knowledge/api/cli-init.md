@@ -6,7 +6,7 @@ title: pw init
 pw init creates a runnable Popcorn Wave project with a shared document shell, representative handler, typed page template, SQL query, error pages, Devbox environment, and generated-artifact conventions.
 
 ```yaml
-usage: pw init [myapp] [--interactive] [--tailwind|--no-tailwind] [--tinygo|--no-tinygo]
+usage: pw init [myapp] [--interactive] [--tailwind|--no-tailwind] [--tinygo|--no-tinygo] [--auth=none|oidc|oidc-passkey|passkey] [--devidp|--no-devidp]
 mode: decision:interactive-project-bootstrap
 inputs:
   directory: project directory; omitting it starts the wizard
@@ -19,6 +19,17 @@ questions:
     no: net/http.ServeMux routing and the host Go toolchain only
     rationale: TinyGo produces much smaller binaries and has the more complete wasm target
   tailwind: optional_css below
+  authentication:
+    default: none
+    none: no data:authentication-runtime-config section is written
+    oidc: auth.mode oidc
+    oidc_passkey: auth.mode oidc_passkey per decision:authentication-bootstrap-strategy
+    passkey_only: auth.mode passkey_only recorded with auth.enabled false, because no implementation exists yet
+  oidc_provider:
+    asked_when: the selected mode uses OIDC
+    local_emulator: requirement:contrib-devidp enabled through data:project-config dev.idp, with a data:devidp-config starter roster
+    external: empty issuer, client id, and client secret that the operator or the environment must supply
+    rationale: a skipped question never applies its answer, so a provider choice cannot leak into a project without OIDC
 outputs:
   - data:project-config
   - concept:project-layout
@@ -35,6 +46,11 @@ outputs:
   - .gitignore excluding **/*_pw_gen.go generated application build inputs
   - .vscode/settings.json hiding **/*_pw_gen.go
   - Devbox configuration with Valkey enabled by default and TinyGo when selected
+  - data:authentication-runtime-config section for the selected authentication mode
+  - data:devidp-config roster and data:project-config dev.idp when the local emulator is selected
+  - api:authentication-endpoints blank import in main and a sign-in and sign-out control on the starter page
+  - development session secret generated per project, with SESSION_SECRET named for deployments
+  - data:middleware-runtime-config rdb settings, because the scaffolded migrations and queries need a database
 optional_css:
   tailwind:
     - configure requirement:tailwind-css-integration in data:project-config

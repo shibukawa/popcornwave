@@ -93,6 +93,30 @@ APP_ENV=prod ./myapp
 
 `enabled`（`false`）、`ttl`（`24h`）、`secret`。後者は `SESSION_SECRET` も読みます。
 
+### `[auth]`
+
+`enabled`（`false`）と `mode`（`oidc`、`oidc_passkey`、`passkey_only`）、および
+`login_path`、`callback_path`、`logout_path`、`post_login_redirect`、
+`post_logout_redirect`、および `[auth.oidc]` のプロバイダ設定 `issuer`、`client_id`、
+`client_secret`、`redirect_url`、`scopes`、`provider_logout`（既定 `true`。ログアウト
+時にプロバイダ側のセッションも終了する）。プロバイダ設定はそれぞれ環境変数も読みます
+（`AUTH_OIDC_ISSUER`、`AUTH_OIDC_CLIENT_ID`、`AUTH_OIDC_CLIENT_SECRET`、
+`AUTH_OIDC_REDIRECT_URL`）。
+
+OIDC 系のモードで `issuer`、`client_id`、`client_secret` のいずれかが空の場合、最初の
+ログイン時ではなく起動時に失敗します。エラーには足りないキーと対応する環境変数が
+並びます。
+
+```
+auth.mode "oidc" needs auth.oidc.issuer (AUTH_OIDC_ISSUER), auth.oidc.client_id
+(AUTH_OIDC_CLIENT_ID); run pw dev to use the development identity provider, or
+supply the values in config.dev.toml or the environment
+```
+
+ローカルエミュレータ向けにスキャフォールドしたプロジェクトにプロバイダの値が一切
+書かれていないのはこのためです。[`pw dev`](/ja/pw/project/dev/) が注入し、それなしで
+起動すれば何が足りないかがそのまま表示されます。
+
 ## 独自の設定を追加する
 
 アプリケーションの設定はフレームワークのものと同じ仕組みです。構造体を宣言し、prefix

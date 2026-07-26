@@ -5,6 +5,10 @@ main = "./cmd/helloworld"
 [dev]
 extra_watch = []
 
+[dev.idp]
+enabled = true
+config = "devidp.toml"
+
 [assets.tailwind]
 enabled = true
 input = "assets/app.css"

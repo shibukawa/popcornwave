@@ -13,6 +13,7 @@ const (
 	defaultTailwindInput  = "assets/app.css"
 	defaultTailwindOutput = "public/generated/app.css"
 	defaultMigrationDir   = "migrations"
+	defaultIdPConfig      = "devidp.toml"
 )
 
 // Target compilers recorded by project.toolchain. Projects scaffolded before the
@@ -34,11 +35,21 @@ type migrationConfig struct {
 	Auto bool
 }
 
+// idpConfig selects the development identity provider `pw dev` runs beside the
+// application. The port defaults to 0 because pw dev injects the resolved
+// issuer, so a fixed port only matters to an externally registered client.
+type idpConfig struct {
+	Enabled bool
+	Config  string
+	Port    int
+}
+
 type projectConfig struct {
 	Name       string
 	Main       string
 	Toolchain  string
 	ExtraWatch []string
+	IdP        idpConfig
 	Migration  migrationConfig
 	Tailwind   tailwindConfig
 }
@@ -56,6 +67,7 @@ func loadProjectConfig(root string) (projectConfig, error) {
 	known := []string{
 		"project.name", "project.main", "project.toolchain",
 		"dev.extra_watch",
+		"dev.idp.enabled", "dev.idp.config", "dev.idp.port",
 		"migration.dir", "migration.auto",
 		"assets.tailwind.enabled", "assets.tailwind.input",
 		"assets.tailwind.output", "assets.tailwind.minify",
@@ -98,6 +110,32 @@ func loadProjectConfig(root string) (projectConfig, error) {
 	}
 	if config.Main == "" {
 		return projectConfig{}, fmt.Errorf("popcornwave.toml: project.main is required")
+	}
+	if value, ok := document.Get("dev.idp.enabled"); ok {
+		config.IdP.Enabled, err = value.AsBool()
+		if err != nil {
+			return projectConfig{}, fmt.Errorf("popcornwave.toml: dev.idp.enabled: %w", err)
+		}
+	}
+	config.IdP.Config, err = optionalScalar(document, "dev.idp.config")
+	if err != nil {
+		return projectConfig{}, err
+	}
+	if config.IdP.Config == "" {
+		config.IdP.Config = defaultIdPConfig
+	}
+	if filepath.IsAbs(config.IdP.Config) {
+		return projectConfig{}, fmt.Errorf("popcornwave.toml: dev.idp.config must be relative to the project")
+	}
+	if value, ok := document.Get("dev.idp.port"); ok {
+		port, err := value.AsInt()
+		if err != nil {
+			return projectConfig{}, fmt.Errorf("popcornwave.toml: dev.idp.port: %w", err)
+		}
+		if port < 0 || port > 65535 {
+			return projectConfig{}, fmt.Errorf("popcornwave.toml: dev.idp.port must be between 0 and 65535")
+		}
+		config.IdP.Port = int(port)
 	}
 	config.Migration.Dir, err = optionalScalar(document, "migration.dir")
 	if err != nil {

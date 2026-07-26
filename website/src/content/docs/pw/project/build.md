@@ -19,10 +19,16 @@ Builds the release binary. It takes no arguments.
    unminified;
 3. prepares the public asset tree, writing the compressed `*.zstd` sidecars
    that the asset middleware serves to clients accepting them;
-4. runs `go build` on `project.main` from `popcornwave.toml`.
+4. rejects the build if `project.main` depends on a development-only package;
+5. runs `go build` on `project.main` from `popcornwave.toml`.
 
 The binary lands in the project root, named after the main package. The
 scaffolded `.gitignore` already excludes it, along with `public/**/*.zstd`.
+
+The only development-only package today is `contrib/devidp`, the identity
+provider [`pw dev`](/pw/project/dev/) runs. It signs anyone in without checking
+a password, so linking it into a deployable binary is a defect rather than a
+configuration mistake, and the build stops with the importing package named.
 
 ## Running the result
 

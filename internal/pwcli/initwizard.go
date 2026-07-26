@@ -34,6 +34,26 @@ type wizardStep interface {
 	apply(target *initOptions)
 }
 
+// conditionalStep is a step that only applies to some answer combinations. A
+// step that reports false is skipped, left off the review screen, and never
+// applied, so a follow-up question cannot leak an answer into a project that
+// did not ask it.
+type conditionalStep interface {
+	applies(options initOptions) bool
+}
+
+// whenStep attaches a condition to any step.
+type whenStep struct {
+	wizardStep
+	condition func(initOptions) bool
+}
+
+func when(condition func(initOptions) bool, step wizardStep) wizardStep {
+	return &whenStep{wizardStep: step, condition: condition}
+}
+
+func (s *whenStep) applies(options initOptions) bool { return s.condition(options) }
+
 // initWizardSteps builds the question list, seeding every answer from the
 // shortcut flags that were already supplied on the command line.
 func initWizardSteps(defaults initOptions) []wizardStep {
@@ -76,6 +96,73 @@ func initWizardSteps(defaults initOptions) []wizardStep {
 				apply:       func(target *initOptions) { target.Tailwind = false },
 			},
 		),
+		newChoiceStep(
+			"Authentication",
+			"Selects the login model. The framework writes the [auth] configuration; handlers stay yours.",
+			authCursor(defaults.Auth),
+			wizardChoice{
+				name:        "None",
+				description: "no authentication configuration",
+				apply:       setAuth(authNone),
+			},
+			wizardChoice{
+				name:        "OIDC",
+				description: "log in against an OpenID Provider",
+				apply:       setAuth(authOIDC),
+			},
+			wizardChoice{
+				name:        "OIDC + passkey",
+				description: "OIDC bootstraps the account, passkeys handle repeat logins",
+				apply:       setAuth(authOIDCPasskey),
+			},
+			wizardChoice{
+				name:        "Passkey only",
+				description: "no external provider; recovery policy is yours to define",
+				apply:       setAuth(authPasskey),
+			},
+		),
+		when(func(options initOptions) bool { return usesOIDC(options.Auth) },
+			newChoiceStep(
+				"OIDC provider",
+				"The local emulator signs you in by picking a user from a list, so login works before a real IdP exists.",
+				yesNoCursor(defaults.AuthEmulator),
+				wizardChoice{
+					name:        "Local emulator",
+					description: "pw dev runs it and injects the issuer and client credentials",
+					apply:       func(target *initOptions) { target.AuthEmulator = true },
+				},
+				wizardChoice{
+					name:        "External provider",
+					description: "fill in auth.oidc yourself, or supply it through the environment",
+					apply:       func(target *initOptions) { target.AuthEmulator = false },
+				},
+			),
+		),
+	}
+}
+
+// setAuth records the mode and clears the emulator answer for a mode that has
+// no provider, so a stray --devidp flag cannot survive the choice.
+func setAuth(mode string) func(*initOptions) {
+	return func(target *initOptions) {
+		target.Auth = mode
+		if !usesOIDC(mode) {
+			target.AuthEmulator = false
+		}
+	}
+}
+
+// authCursor maps an authentication mode onto its position in the choice list.
+func authCursor(mode string) int {
+	switch mode {
+	case authOIDC:
+		return 1
+	case authOIDCPasskey:
+		return 2
+	case authPasskey:
+		return 3
+	default:
+		return 0
 	}
 }
 
@@ -90,7 +177,7 @@ func yesNoCursor(enabled bool) int {
 // runInitWizard asks every question and returns the confirmed options. The
 // program options exist so tests can drive the wizard without a terminal.
 func runInitWizard(defaults initOptions, programOptions ...tea.ProgramOption) (initOptions, error) {
-	model := wizardModel{steps: initWizardSteps(defaults), theme: newWizardTheme()}
+	model := wizardModel{steps: initWizardSteps(defaults), defaults: defaults, theme: newWizardTheme()}
 	program := tea.NewProgram(model, programOptions...)
 	final, err := program.Run()
 	if err != nil {
@@ -100,19 +187,65 @@ func runInitWizard(defaults initOptions, programOptions ...tea.ProgramOption) (i
 	if !ok || !completed.confirmed {
 		return initOptions{}, errInitCanceled
 	}
-	options := defaults
-	for _, step := range completed.steps {
-		step.apply(&options)
-	}
-	return options, nil
+	return completed.answers(), nil
 }
 
 type wizardModel struct {
 	steps     []wizardStep
+	defaults  initOptions
 	index     int
 	confirmed bool
 	canceled  bool
 	theme     wizardTheme
+}
+
+// answers folds every applicable step into the collected options. A
+// conditional step is evaluated against the answers that precede it, which is
+// why the fold runs in step order.
+func (m wizardModel) answers() initOptions {
+	options := m.defaults
+	for _, step := range m.steps {
+		if conditional, ok := step.(conditionalStep); ok && !conditional.applies(options) {
+			continue
+		}
+		step.apply(&options)
+	}
+	return options
+}
+
+// activeSteps lists the indexes of the steps the current answers ask for.
+func (m wizardModel) activeSteps() []int {
+	options := m.defaults
+	var active []int
+	for index, step := range m.steps {
+		if conditional, ok := step.(conditionalStep); ok && !conditional.applies(options) {
+			continue
+		}
+		step.apply(&options)
+		active = append(active, index)
+	}
+	return active
+}
+
+// step moves from the current index to the next or previous active step, or
+// past the end when the wizard is done.
+func (m wizardModel) step(delta int) int {
+	active := m.activeSteps()
+	if delta > 0 {
+		for _, index := range active {
+			if index > m.index {
+				return index
+			}
+		}
+		return len(m.steps)
+	}
+	previous := -1
+	for _, index := range active {
+		if index < m.index {
+			previous = index
+		}
+	}
+	return previous
 }
 
 func (m wizardModel) Init() tea.Cmd {
@@ -140,8 +273,8 @@ func (m wizardModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, tea.Quit
 	case tea.KeyEsc, tea.KeyShiftTab:
 		// The footer only offers ctrl+c for cancelling, so esc never discards work.
-		if m.index > 0 {
-			m.index--
+		if previous := m.step(-1); previous >= 0 {
+			m.index = previous
 			return m, m.steps[m.index].focus()
 		}
 		return m, nil
@@ -157,7 +290,7 @@ func (m wizardModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if !accepted {
 		return m, cmd
 	}
-	m.index++
+	m.index = m.step(1)
 	if m.reviewing() {
 		return m, cmd
 	}
@@ -178,7 +311,14 @@ func (m wizardModel) View() string {
 		return out.String()
 	}
 	current := m.steps[m.index]
-	out.WriteString("  " + m.theme.step.Render(fmt.Sprintf("Step %d/%d", m.index+1, len(m.steps))) + "\n")
+	active := m.activeSteps()
+	position := 1
+	for order, index := range active {
+		if index == m.index {
+			position = order + 1
+		}
+	}
+	out.WriteString("  " + m.theme.step.Render(fmt.Sprintf("Step %d/%d", position, len(active))) + "\n")
 	out.WriteString("  " + m.theme.label.Render(current.label()) + "\n")
 	out.WriteString("  " + m.theme.explain.Render(current.explain()) + "\n\n")
 	out.WriteString(current.view(m.theme))
@@ -188,22 +328,33 @@ func (m wizardModel) View() string {
 
 func (m wizardModel) footerHint() string {
 	hint := "enter next"
-	if _, ok := m.steps[m.index].(*choiceStep); ok {
+	if _, ok := unwrapStep(m.steps[m.index]).(*choiceStep); ok {
 		hint = "↑/↓ move  ·  " + hint
 	}
-	if m.index > 0 {
+	if m.step(-1) >= 0 {
 		hint += "  ·  esc back"
 	}
 	return hint + "  ·  ctrl+c cancel"
 }
 
+// unwrapStep returns the step a condition wraps, so the footer can still tell
+// which keys the current question accepts.
+func unwrapStep(step wizardStep) wizardStep {
+	if wrapped, ok := step.(*whenStep); ok {
+		return unwrapStep(wrapped.wizardStep)
+	}
+	return step
+}
+
 func (m wizardModel) reviewRows() string {
+	active := m.activeSteps()
 	width := 0
-	for _, step := range m.steps {
-		width = max(width, lipgloss.Width(step.label()))
+	for _, index := range active {
+		width = max(width, lipgloss.Width(m.steps[index].label()))
 	}
 	var out strings.Builder
-	for _, step := range m.steps {
+	for _, index := range active {
+		step := m.steps[index]
 		out.WriteString("    " + m.theme.explain.Render(fmt.Sprintf("%-*s", width, step.label())))
 		out.WriteString("  " + m.theme.selected.Render(step.value()) + "\n")
 	}

@@ -98,6 +98,31 @@ requests.
 `enabled` (`false`), `ttl` (`24h`), and `secret`, which also reads
 `SESSION_SECRET`.
 
+### `[auth]`
+
+`enabled` (`false`) and `mode` — `oidc`, `oidc_passkey`, or `passkey_only` —
+plus `login_path`, `callback_path`, `logout_path`, `post_login_redirect`, and
+`post_logout_redirect`; and the `[auth.oidc]` provider settings: `issuer`,
+`client_id`, `client_secret`, `redirect_url`, `scopes`, and `provider_logout`
+(default `true`, which also ends the provider session on logout).
+
+Each provider value also reads an environment variable: `AUTH_OIDC_ISSUER`, `AUTH_OIDC_CLIENT_ID`,
+`AUTH_OIDC_CLIENT_SECRET`, and `AUTH_OIDC_REDIRECT_URL`.
+
+An OIDC mode with an empty `issuer`, `client_id`, or `client_secret` fails at
+startup rather than at the first login. The error names the missing keys and
+their environment variables:
+
+```
+auth.mode "oidc" needs auth.oidc.issuer (AUTH_OIDC_ISSUER), auth.oidc.client_id
+(AUTH_OIDC_CLIENT_ID); run pw dev to use the development identity provider, or
+supply the values in config.dev.toml or the environment
+```
+
+That is why a project scaffolded for the local emulator carries no provider
+values at all — [`pw dev`](/pw/project/dev/) injects them, and a run without it
+tells you exactly what is missing.
+
 ## Adding your own settings
 
 Application configuration works exactly like the framework's: declare a struct,

@@ -1,0 +1,17 @@
+# Development identity provider users, selected on the login screen.
+# pw dev serves these; no password is checked, so this file never ships.
+
+[users.admin]
+display_name = "Administrator"
+extra_scopes = ["admin"]
+[users.admin.claims]
+email = "admin@example.com"
+name = "Ada Administrator"
+role = "admin"
+
+[users.member]
+display_name = "Member"
+[users.member.claims]
+email = "member@example.com"
+name = "Milo Member"
+role = "member"

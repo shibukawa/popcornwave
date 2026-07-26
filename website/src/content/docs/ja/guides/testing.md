@@ -120,6 +120,36 @@ testutil.WithTransaction(true)
 できます。アプリケーション自身が開始するトランザクションはセーブポイントとしてその中に
 ネストするため、セーブポイント対応のドライバが必要です。
 
+### `WithIdentityProvider`
+
+```go
+server := testutil.TestRun(t, handlers.Handlers(), nil, testutil.WithIdentityProvider(
+	testutil.WithIdPConfig("../devidp.toml"),
+	testutil.WithLoginUser("admin"),
+	testutil.WithIdPBinding(func(config *testutil.Config, idp testutil.IdPInfo) {
+		testutil.Update[handlers.AuthConfig](config, func(auth *handlers.AuthConfig) {
+			auth.Issuer, auth.ClientID, auth.ClientSecret = idp.Issuer, idp.ClientID, idp.ClientSecret
+		})
+	}),
+))
+```
+
+[`pw dev`](/ja/pw/project/dev/) と同じ開発用認証プロバイダを、専用のループバック
+ポートでアプリケーションサーバーより先に起動します。`WithLoginUser` でログインする
+ユーザーを事前に指定すると、認可エンドポイントは即座に認可コードを付けてリダイレクト
+するので、ブラウザを操作せずにログインが完結します。
+
+```go
+response, err := server.Client().Get(server.URL + "/login")
+```
+
+ユーザー定義は `WithIdPConfig`（`devidp.toml` ファイル）、`WithIdPRoster`（同じ
+TOML をテスト内に持つ）、`WithIdPUsers`（Go の値）のいずれか 1 つだけを指定します。
+`WithIdPBinding` は issuer と生成されたクライアント資格情報をコピー済みの設定へ
+書き込みます。`customize` の後に走るので、置いておいたプレースホルダより優先されます。
+テストの途中でユーザーを切り替えるには `server.LoginAs(t, "guest")`、クライアントを
+自前で組み立てる場合は `server.IdPInfo()` から同じ値を取得できます。
+
 ## データベースに対するアサーション
 
 `server.Context()` は、サーバーがリクエストに設定するのと同じランタイムリソースを持つ

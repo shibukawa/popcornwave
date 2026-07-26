@@ -2,6 +2,7 @@
 {"category": "interface", "id": "api:api-response", "path": ".knowledge/api/api-response.md", "role": "primary", "title": "API Response API", "type": "api"}
 {"category": "interface", "id": "api:application-lifecycle", "path": ".knowledge/api/application-lifecycle.md", "role": "primary", "title": "Application Lifecycle API", "type": "api"}
 {"category": "interface", "id": "api:auth-state-codec", "path": ".knowledge/api/auth-state-codec.md", "role": "primary", "title": "Authentication State Codec", "type": "api"}
+{"category": "interface", "id": "api:authentication-endpoints", "path": ".knowledge/api/authentication-endpoints.md", "role": "primary", "title": "Authentication Endpoints", "type": "api"}
 {"category": "interface", "id": "api:cli-build", "path": ".knowledge/api/cli-build.md", "role": "primary", "title": "pw build", "type": "api"}
 {"category": "interface", "id": "api:cli-dev", "path": ".knowledge/api/cli-dev.md", "role": "primary", "title": "pw dev", "type": "api"}
 {"category": "interface", "id": "api:cli-generate", "path": ".knowledge/api/cli-generate.md", "role": "primary", "title": "pw generate", "type": "api"}
@@ -29,6 +30,7 @@
 {"category": "interface", "id": "api:subcommands", "path": ".knowledge/api/subcommands.md", "role": "primary", "title": "Application Subcommands", "type": "api"}
 {"category": "interface", "id": "api:test-run", "path": ".knowledge/api/test-run.md", "role": "primary", "title": "Isolated TestRun", "type": "api"}
 {"category": "interface", "id": "api:test-seed", "path": ".knowledge/api/test-seed.md", "role": "primary", "title": "Test Seeding and Assertion", "type": "api"}
+{"category": "interface", "id": "api:testutil-idp", "path": ".knowledge/api/testutil-idp.md", "role": "primary", "title": "Test Identity Provider", "type": "api"}
 {"category": "interface", "id": "api:transaction-runner", "path": ".knowledge/api/transaction-runner.md", "role": "primary", "title": "Transaction API", "type": "api"}
 {"category": "interface", "id": "api:typed-external-function", "path": ".knowledge/api/typed-external-function.md", "role": "primary", "title": "Typed External Function", "type": "api"}
 {"category": "interface", "id": "api:typed-stream", "path": ".knowledge/api/typed-stream.md", "role": "primary", "title": "Typed Stream API", "type": "api"}
@@ -44,6 +46,7 @@
 {"category": "structure", "id": "data:component-boundary", "path": ".knowledge/data/component-boundary.md", "role": "supporting", "title": "Component Boundary Metadata", "type": "data"}
 {"category": "structure", "id": "data:compression-runtime-config", "path": ".knowledge/data/compression-runtime-config.md", "role": "supporting", "title": "Compression Runtime Config", "type": "data"}
 {"category": "structure", "id": "data:database-driver-contract", "path": ".knowledge/data/database-driver-contract.md", "role": "supporting", "title": "Database Driver Contract", "type": "data"}
+{"category": "structure", "id": "data:devidp-config", "path": ".knowledge/data/devidp-config.md", "role": "supporting", "title": "Development IdP Configuration", "type": "data"}
 {"category": "structure", "id": "data:external-identity", "path": ".knowledge/data/external-identity.md", "role": "supporting", "title": "External OIDC Identity", "type": "data"}
 {"category": "structure", "id": "data:loaded-configuration", "path": ".knowledge/data/loaded-configuration.md", "role": "supporting", "title": "Loaded Configuration", "type": "data"}
 {"category": "structure", "id": "data:log-attribute", "path": ".knowledge/data/log-attribute.md", "role": "supporting", "title": "Log Attribute", "type": "data"}
@@ -72,6 +75,7 @@
 {"category": "constraint", "id": "decision:contrib-delivery-order", "path": ".knowledge/decision/contrib-delivery-order.md", "role": "supporting", "title": "Contrib Delivery Order", "type": "decision"}
 {"category": "constraint", "id": "decision:dbtestify-integration", "path": ".knowledge/decision/dbtestify-integration.md", "role": "supporting", "title": "dbtestify Integration Boundary", "type": "decision"}
 {"category": "constraint", "id": "decision:development-public-assets", "path": ".knowledge/decision/development-public-assets.md", "role": "supporting", "title": "Development Public Assets", "type": "decision"}
+{"category": "constraint", "id": "decision:devidp-scope-reduction", "path": ".knowledge/decision/devidp-scope-reduction.md", "role": "supporting", "title": "Development IdP Scope Reduction", "type": "decision"}
 {"category": "constraint", "id": "decision:explicit-transaction-boundary", "path": ".knowledge/decision/explicit-transaction-boundary.md", "role": "supporting", "title": "Explicit Transaction Boundary", "type": "decision"}
 {"category": "constraint", "id": "decision:force-tinygo-logic", "path": ".knowledge/decision/force-tinygo-logic.md", "role": "supporting", "title": "Forced TinyGo Logic Build Tag", "type": "decision"}
 {"category": "constraint", "id": "decision:goose-migration-engine", "path": ".knowledge/decision/goose-migration-engine.md", "role": "supporting", "title": "Statically Linked goose Engine", "type": "decision"}
@@ -101,6 +105,7 @@
 {"category": "constraint", "id": "decision:web-runtime-delivery-order", "path": ".knowledge/decision/web-runtime-delivery-order.md", "role": "supporting", "title": "Web Runtime Delivery Order", "type": "decision"}
 {"category": "behavior", "id": "flow:cli-release", "path": ".knowledge/flow/cli-release.md", "role": "primary", "title": "CLI Release Flow", "type": "flow"}
 {"category": "behavior", "id": "flow:database-migration", "path": ".knowledge/flow/database-migration.md", "role": "primary", "title": "Database Migration Flow", "type": "flow"}
+{"category": "behavior", "id": "flow:devidp-user-selection", "path": ".knowledge/flow/devidp-user-selection.md", "role": "primary", "title": "Development IdP User Selection", "type": "flow"}
 {"category": "behavior", "id": "flow:error-template-generation", "path": ".knowledge/flow/error-template-generation.md", "role": "primary", "title": "Error Template Generation", "type": "flow"}
 {"category": "behavior", "id": "flow:generation-pipeline", "path": ".knowledge/flow/generation-pipeline.md", "role": "primary", "title": "Application Generation Pipeline", "type": "flow"}
 {"category": "behavior", "id": "flow:handler-registration", "path": ".knowledge/flow/handler-registration.md", "role": "primary", "title": "Handler Registration", "type": "flow"}
@@ -128,6 +133,7 @@
 {"category": "constraint", "id": "policy:context-value-storage", "path": ".knowledge/policy/context-value-storage.md", "role": "supporting", "title": "Context Value Storage Policy", "type": "policy"}
 {"category": "constraint", "id": "policy:contrib-compatibility", "path": ".knowledge/policy/contrib-compatibility.md", "role": "supporting", "title": "Contrib Compatibility Policy", "type": "policy"}
 {"category": "constraint", "id": "policy:csrf-protection", "path": ".knowledge/policy/csrf-protection.md", "role": "supporting", "title": "CSRF Protection", "type": "policy"}
+{"category": "constraint", "id": "policy:devidp-safety", "path": ".knowledge/policy/devidp-safety.md", "role": "supporting", "title": "Development IdP Safety Policy", "type": "policy"}
 {"category": "constraint", "id": "policy:generated-artifacts", "path": ".knowledge/policy/generated-artifacts.md", "role": "supporting", "title": "Generated Artifact Ownership", "type": "policy"}
 {"category": "constraint", "id": "policy:jwt-security", "path": ".knowledge/policy/jwt-security.md", "role": "supporting", "title": "JWT Security Policy", "type": "policy"}
 {"category": "constraint", "id": "policy:layered-cache", "path": ".knowledge/policy/layered-cache.md", "role": "supporting", "title": "Layered Web Cache", "type": "policy"}
@@ -164,6 +170,7 @@
 {"category": "objective", "id": "requirement:contrib-cbor", "path": ".knowledge/requirement/contrib-cbor.md", "role": "primary", "title": "TinyGo CBOR and COSE Foundation", "type": "requirement"}
 {"category": "objective", "id": "requirement:contrib-cgosqlite", "path": ".knowledge/requirement/contrib-cgosqlite.md", "role": "primary", "title": "Native TinyGo SQLite Driver", "type": "requirement"}
 {"category": "objective", "id": "requirement:contrib-database", "path": ".knowledge/requirement/contrib-database.md", "role": "primary", "title": "TinyGo Database Drivers", "type": "requirement"}
+{"category": "objective", "id": "requirement:contrib-devidp", "path": ".knowledge/requirement/contrib-devidp.md", "role": "primary", "title": "Development OpenID Provider", "type": "requirement"}
 {"category": "objective", "id": "requirement:contrib-html-template", "path": ".knowledge/requirement/contrib-html-template.md", "role": "primary", "title": "Generated HTML Templates", "type": "requirement"}
 {"category": "objective", "id": "requirement:contrib-jwt", "path": ".knowledge/requirement/contrib-jwt.md", "role": "primary", "title": "TinyGo JWT", "type": "requirement"}
 {"category": "objective", "id": "requirement:contrib-mysql", "path": ".knowledge/requirement/contrib-mysql.md", "role": "primary", "title": "TinyGo MySQL Driver", "type": "requirement"}
@@ -197,9 +204,11 @@
 {"category": "constraint", "id": "rule:tinygo-runtime-compatibility", "path": ".knowledge/rule/tinygo-runtime-compatibility.md", "role": "supporting", "title": "TinyGo Runtime Compatibility", "type": "rule"}
 {"category": "external", "id": "system:dbtestify", "path": ".knowledge/system/dbtestify.md", "role": "supporting", "title": "dbtestify", "type": "system"}
 {"category": "external", "id": "system:goose", "path": ".knowledge/system/goose.md", "role": "supporting", "title": "goose Migration Engine", "type": "system"}
+{"category": "external", "id": "system:oidcld", "path": ".knowledge/system/oidcld.md", "role": "supporting", "title": "OIDCLD", "type": "system"}
 {"category": "external", "id": "system:pw-cli", "path": ".knowledge/system/pw-cli.md", "role": "supporting", "title": "pw CLI", "type": "system"}
 {"category": "external", "id": "system:tinybind", "path": ".knowledge/system/tinybind.md", "role": "supporting", "title": "TinyBind", "type": "system"}
 {"category": "external", "id": "system:tinygodriver", "path": ".knowledge/system/tinygodriver.md", "role": "supporting", "title": "tinygodriver", "type": "system"}
+{"category": "interface", "id": "ui:devidp-login", "path": ".knowledge/ui/devidp-login.md", "role": "primary", "title": "Development IdP Login Screen", "type": "ui"}
 {"category": "objective", "id": "vision:contrib", "path": ".knowledge/vision/contrib.md", "role": "primary", "title": "TinyGo Contrib Vision", "type": "vision"}
 {"category": "objective", "id": "vision:popcorn-wave", "path": ".knowledge/vision/popcorn-wave.md", "role": "primary", "title": "Popcorn Wave Vision", "type": "vision"}
 {"category": "objective", "id": "vision:web-application-styles", "path": ".knowledge/vision/web-application-styles.md", "role": "primary", "title": "Classic and Modern Web Styles", "type": "vision"}
