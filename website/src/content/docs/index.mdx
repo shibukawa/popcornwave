@@ -1,0 +1,53 @@
+---
+title: Popcorn Wave
+description: A small, TinyGo-oriented web application framework for Go, built directly on net/http.
+template: splash
+# Without this the browser tab reads "Popcorn Wave | Popcorn Wave".
+head:
+  - tag: title
+    content: Popcorn Wave — a small web application framework for Go
+hero:
+  tagline: Server-rendered web applications on plain net/http, with typed templates and typed SQL generated ahead of time.
+  image:
+    file: ../../assets/logo.png
+  actions:
+    # Hero links come from frontmatter, so the base-links plugin cannot reach
+    # them. Relative hrefs resolve correctly under any `base`.
+    - text: Get started
+      link: ./start/getting-started/
+      icon: right-arrow
+    - text: View on GitHub
+      link: https://github.com/shibukawa/popcornwave
+      icon: external
+      variant: minimal
+---
+
+import { Card, CardGrid } from '@astrojs/starlight/components';
+
+An `http.Handler` binds one request, runs application logic, and writes one
+complete response using ordinary navigation and form semantics. A minimal build
+stays a small, practical TinyGo target: no component graph, no patch protocol,
+no hydration, no browser runtime.
+
+<CardGrid>
+  <Card title="Standard library first" icon="seti:go">
+    Routing is `net/http`'s own `ServeMux` — same patterns, same wildcards, same
+    precedence — and handlers are plain `http.HandlerFunc`.
+  </Card>
+  <Card title="Generated, not reflected" icon="setting">
+    Templates, SQL, request binding, and OpenAPI are compiled into Go ahead of
+    time by `pw generate`. No runtime reflection, so it runs on **TinyGo** too.
+  </Card>
+  <Card title="One command to a running app" icon="rocket">
+    `pw init` scaffolds a complete project — handler, typed page, document
+    shell, SQL, migration, error pages, Devbox — and `pw dev` watches it.
+  </Card>
+  <Card title="Operations included" icon="approve-check">
+    Startup validation, `/healthz`, `/readyz`, `/openapi.json`, graceful
+    shutdown, request IDs, access logs, and validated security headers.
+  </Card>
+</CardGrid>
+
+An opt-in server-driven UI layer sits on the same `net/http` foundation. It
+extends this foundation rather than replacing it, and an application never pays
+for what it does not import.

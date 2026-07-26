@@ -6,6 +6,9 @@ Petitweb is a small, TinyGo-oriented web application framework built directly
 on `net/http`. Classic mode handles ordinary document requests, form posts,
 redirects, downloads, and APIs without shipping a browser runtime.
 
+Documentation: <https://shibukawa.github.io/popcornwave/> (sources in
+[`website/`](website/README.md))
+
 ```go
 app := petitweb.New(
     petitweb.WithMiddleware(
