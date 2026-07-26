@@ -250,7 +250,9 @@ jobs:
           VERSION: ${{ needs.publish.outputs.version }}
         run: |
           set -euo pipefail
-          if git diff --quiet -- Formula/pw.rb; then
+          # --porcelain also reports the untracked first render, which git diff
+          # alone would report as no change.
+          if [ -z "$(git status --porcelain -- Formula/pw.rb)" ]; then
             echo "formula already at ${VERSION}"
             exit 0
           fi
