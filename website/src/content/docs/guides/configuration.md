@@ -55,8 +55,21 @@ Five prefixes are registered by the framework itself.
 | `health.enabled` / `health.path` | `true` / `/healthz` |
 | `readiness.enabled` / `readiness.path` | `true` / `/readyz` |
 | `openapi.enabled` / `openapi.path` | `true` / `/openapi.json` |
+| `api_doc` / `api_doc_path` | *(empty)* / `/docs` |
 | `public.enabled` / `public.mount` | `true` / `/public` |
 | `public.read_local` | `false` |
+
+`api_doc` selects the API documentation UI: `"scalar"`, `"swagger"`, or empty to
+disable it. A non-empty value requires `openapi.enabled`, and the UI is served at
+`api_doc_path`. The page itself is a few hundred bytes of HTML that loads the UI
+from a CDN, so the binary stays small — but the browser needs to reach that CDN.
+If you enable `api_doc` alongside a Content-Security-Policy, add the CDN host to
+`script-src` and keep `'unsafe-inline'` in `style-src`, because the UI renders
+inline style attributes.
+
+`pw init` writes `api_doc = "scalar"` into `config.dev.toml` only. The default is
+empty, so the documentation stays private until a staging or production config
+opts in.
 
 A route of yours that collides with an enabled operational endpoint is reported
 at startup.

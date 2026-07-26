@@ -156,6 +156,7 @@ pw dev
 | `/healthz` | 死活監視 |
 | `/readyz` | 準備状態 |
 | `/openapi.json` | 生成された OpenAPI ドキュメント |
+| `/docs` | Scalar による API ドキュメント（`config.dev.toml` のみ有効） |
 | `/public/` | 埋め込み静的アセット |
 
 ## 4. 変更してみる

@@ -230,6 +230,9 @@ extra_watch = []
 # APP_ENV selects this file; add config.stg.toml and config.prod.toml as needed.
 [server]
 port = 8080
+# Scalar API reference for /openapi.json, served at server.api_doc_path (/docs).
+# Leave this key out of staging and production configs to keep the UI private.
+api_doc = "scalar"
 
 [observability]
 minimum_level = "debug"
