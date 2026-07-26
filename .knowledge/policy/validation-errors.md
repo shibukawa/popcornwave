@@ -14,9 +14,13 @@ business_validation:
 application_errors:
   constructors:
     - pw.BadRequest
-    - pw.NotFound
+    - pw.Unauthorized
     - pw.Forbidden
+    - pw.NotFound
+    - pw.Conflict
+    - pw.PayloadTooLarge
     - pw.InternalServerError
+    - pw.Validation
 response:
   writer: api:problem-response WriteProblem
   media_type: application/problem+json
@@ -27,5 +31,5 @@ response:
 security:
   - hide internal causes for 5xx responses
   - use stable machine-readable problem codes
-  - HTML negotiation uses generated 400, 404, and 500 templates when possible
+  - HTML negotiation uses the generated 400, 401, 403, 404, 409, 413, and 500 templates when possible
 ```

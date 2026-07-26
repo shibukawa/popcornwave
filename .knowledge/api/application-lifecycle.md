@@ -17,6 +17,7 @@ run:
   - initialize decision:config-driven-database from runtime configuration
   - initialize services and log safe values with provenance
   - initialize the framework middleware stack
+  - mount api:authentication-endpoints when data:authentication-runtime-config is enabled
   - construct api:public-asset-middleware for the selected build mode
   - attach framework resources to request contexts
   - start the configured HTTP server

@@ -46,6 +46,16 @@ func Options() (generator.Options, error) {
 			generator.Constant("error_name", "BadRequest"),
 		),
 		generator.ErrorResponseCall(
+			generator.Function(pwPackage, "Validation"),
+			generator.Constant("status", 400),
+			generator.Constant("error_name", "Validation"),
+		),
+		generator.ErrorResponseCall(
+			generator.Function(pwPackage, "Unauthorized"),
+			generator.Constant("status", 401),
+			generator.Constant("error_name", "Unauthorized"),
+		),
+		generator.ErrorResponseCall(
 			generator.Function(pwPackage, "Forbidden"),
 			generator.Constant("status", 403),
 			generator.Constant("error_name", "Forbidden"),
@@ -54,6 +64,16 @@ func Options() (generator.Options, error) {
 			generator.Function(pwPackage, "NotFound"),
 			generator.Constant("status", 404),
 			generator.Constant("error_name", "NotFound"),
+		),
+		generator.ErrorResponseCall(
+			generator.Function(pwPackage, "Conflict"),
+			generator.Constant("status", 409),
+			generator.Constant("error_name", "Conflict"),
+		),
+		generator.ErrorResponseCall(
+			generator.Function(pwPackage, "PayloadTooLarge"),
+			generator.Constant("status", 413),
+			generator.Constant("error_name", "PayloadTooLarge"),
 		),
 		generator.ErrorResponseCall(
 			generator.Function(pwPackage, "InternalServerError"),

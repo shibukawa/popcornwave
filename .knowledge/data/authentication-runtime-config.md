@@ -6,7 +6,7 @@ title: Authentication Runtime Config
 The `[auth]` binding selects OIDC and passkey bootstrap, login, linking, registration, and recovery policy through shared dotted prefixes.
 
 ```yaml
-registration: optional authentication package registers this binding when imported
+registration: popcornwave/plugin/auth registers this binding when imported
 fields:
   enabled: bool
   mode: oidc_passkey, oidc_only, or passkey_only
@@ -44,7 +44,8 @@ fields:
 implemented:
   package: popcornwave/plugin/auth registered through api:framework-extension
   mode: oidc_only
-  endpoints: login_path begins authorization, callback_path completes it, logout_path revokes the local session
+  endpoints: login_path begins authorization, callback_path completes it, logout_path revokes the local session and ends the provider session
+  logout_method: POST only, same-origin checked, because a logout reachable by link or prefetch is a denial-of-service surface
   correlation: the opaque transaction key rides a short-lived cookie scoped to callback_path
   discovery: deferred to the first login and not cached on failure
   storage: requires session backend rdb over sqlite, because correlation records use requirement:contrib-auth-state-sqlite
@@ -53,11 +54,19 @@ deferred:
   - oidc_passkey and passkey_only modes, rejected during startup validation
   - registration, recovery, recent_auth_max_age, and bootstrap settings
   - policy:csrf-protection
-  - RP-initiated logout at the provider
 loopback_development:
   field: oidc.allow_loopback_http
   effect: permits an http issuer whose host is loopback
   restriction: development only, and paired with session cookie secure false
+development_injection:
+  source: api:cli-dev starting requirement:contrib-devidp
+  binding: the injected names are the ones plugin/auth already reads, so no development TOML edit is required
+  variables:
+    - AUTH_OIDC_ISSUER
+    - AUTH_OIDC_CLIENT_ID
+    - AUTH_OIDC_CLIENT_SECRET
+  precedence: data:loaded-configuration ranks environment above TOML
+  issuer_scheme: oidc.allow_loopback_http is required, because the development issuer is loopback http
 rules:
   - decision:authentication-bootstrap-strategy defines mode behavior
   - policy:authenticated-path-protection defines pattern matching and middleware behavior
@@ -69,6 +78,7 @@ rules:
   - authenticated admission with auto_provision permits every verified issuer subject to create an account
   - require data:session-runtime-config when provider flow needs login continuity
   - redact provider secrets
+  - derive oidc.redirect_url from the request only under the development_injection conditions, never from a forwarded or non-loopback host
   - verified request results become data:request-authentication
   - passkey-only mode requires explicit registration and policy:account-recovery settings
   - administrator registration and recovery require bounded bootstrap settings

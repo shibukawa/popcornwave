@@ -15,6 +15,11 @@ router:
 minimum_go_syntax: "Go 1.22 route patterns"
 example: 'mux.HandleFunc("POST /users/{id}", updateUser)'
 discovery: rule:static-route-discovery
+scaffold_choice:
+  owner: decision:interactive-project-bootstrap
+  tinygo: api:cli-init scaffolds api:serve-mux, which is the default
+  host_only: api:cli-init scaffolds net/http.ServeMux directly and records project.toolchain as go
+  invariant: api:cli-generate discovers both mux types, so generated artifacts are identical
 non_goals:
   - local ServeMux compatibility package
   - custom router DSL

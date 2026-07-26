@@ -22,6 +22,7 @@ phases:
       - requirement:contrib-passkey
       - requirement:contrib-oauth
       - requirement:contrib-oidc
+      - requirement:contrib-devidp
       - requirement:contrib-html-template
       - requirement:contrib-auth-state-redis
   - phase: deferred-non-primary
@@ -37,6 +38,7 @@ rationale:
   - requirement:contrib-oauth depends on shared authentication state and security primitives
   - requirement:contrib-auth-state-memory is the process-local reference adapter for the base store contract
   - requirement:contrib-oidc extends requirement:contrib-oauth and depends on JWT
+  - requirement:contrib-devidp follows requirement:contrib-oidc because it exists to exercise the relying party, and it ships with api:testutil-idp
   - requirement:contrib-html-template remains phase 2 because frontend JSON writers require generated encoding work
   - database wire protocols require larger interoperability matrices
   - requirement:contrib-auth-state-redis follows the base store and tested requirement:contrib-redis-valkey dependency

@@ -1,0 +1,53 @@
+---
+title: Popcorn Wave
+description: net/http の上に直接構築された、TinyGo 志向の小さな Go ウェブアプリケーションフレームワーク。
+template: splash
+# これがないとタブが「Popcorn Wave | Popcorn Wave」になる。
+head:
+  - tag: title
+    content: Popcorn Wave — Go 向けの小さなウェブアプリケーションフレームワーク
+hero:
+  tagline: net/http の上で動くサーバーレンダリングのウェブアプリケーション。型付きテンプレートと型付き SQL を事前生成します。
+  image:
+    file: ../../../assets/logo.png
+  actions:
+    # ヒーローのリンクは frontmatter 由来のため base プラグインが届かない。
+    # 相対 href なら任意の `base` で正しく解決される。
+    - text: はじめる
+      link: ./start/getting-started/
+      icon: right-arrow
+    - text: GitHub で見る
+      link: https://github.com/shibukawa/popcornwave
+      icon: external
+      variant: minimal
+---
+
+import { Card, CardGrid } from '@astrojs/starlight/components';
+
+`http.Handler` が 1 つのリクエストをバインドし、アプリケーションロジックを実行し、
+通常のナビゲーションとフォームのセマンティクスで 1 つの完全なレスポンスを書き出します。
+最小構成のビルドは小さく実用的な TinyGo ターゲットのままです。コンポーネントグラフ、
+パッチプロトコル、ハイドレーション、ブラウザランタイムはいずれも含まれません。
+
+<CardGrid>
+  <Card title="標準ライブラリ優先" icon="seti:go">
+    ルーティングは `net/http` の `ServeMux` そのものです。パターンもワイルドカードも
+    優先順位も同じで、ハンドラは素の `http.HandlerFunc` です。
+  </Card>
+  <Card title="リフレクションではなく生成" icon="setting">
+    テンプレート、SQL、リクエストバインディング、OpenAPI は `pw generate` が事前に Go へ
+    コンパイルします。実行時リフレクションがないので **TinyGo** でも動きます。
+  </Card>
+  <Card title="1 コマンドで動くアプリ" icon="rocket">
+    `pw init` がハンドラ、型付きページ、ドキュメントシェル、SQL、マイグレーション、
+    エラーページ、Devbox まで含む完全なプロジェクトを作り、`pw dev` が監視します。
+  </Card>
+  <Card title="運用機能を同梱" icon="approve-check">
+    起動時バリデーション、`/healthz`、`/readyz`、`/openapi.json`、グレースフルシャット
+    ダウン、リクエスト ID、アクセスログ、検証済みセキュリティヘッダ。
+  </Card>
+</CardGrid>
+
+オプトインのサーバー駆動 UI レイヤーが同じ `net/http` の土台の上に載ります。この土台を
+置き換えるのではなく拡張するもので、アプリケーションはインポートしていないものの
+コストを払いません。

@@ -14,6 +14,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/shibukawa/popcornwave/contrib/devidp"
 	"github.com/shibukawa/popcornwave/internal/dbseed"
 	"github.com/shibukawa/popcornwave/internal/pwtestbridge"
 	"github.com/shibukawa/popcornwave/migrate"
@@ -73,6 +74,7 @@ type runSettings struct {
 	transaction bool
 	seedDir     string
 	seedFiles   []string
+	idp         *idpSettings
 }
 
 // RunOption configures TestRun resources.
@@ -132,6 +134,8 @@ type Server struct {
 
 	seedDir     string
 	transaction bool
+	idp         *devidp.Server
+	idpInfo     IdPInfo
 }
 
 // Context returns a context carrying the same runtime resources the server
@@ -186,6 +190,19 @@ func TestRun(t TestingT, handler http.Handler, customize func(*Config), options 
 		}
 	}
 
+	// The identity provider starts before the application so its issuer and
+	// generated client credentials can reach the copied configuration.
+	var idpServer *devidp.Server
+	var idpInfo IdPInfo
+	if settings.idp != nil {
+		idpServer, idpInfo, err = startIdentityProvider(settings.idp, config)
+		if err != nil {
+			t.Fatalf("start Popcorn Wave TestRun identity provider: %v", err)
+			return nil
+		}
+		t.Cleanup(func() { _ = idpServer.Close() })
+	}
+
 	serverConfig := Get[pw.ServerConfig](config)
 	if serverConfig.Port < -1 || serverConfig.Port > 65535 {
 		t.Fatalf("listen for Popcorn Wave TestRun: port must be -1 or between 0 and 65535")
@@ -232,7 +249,7 @@ func TestRun(t TestingT, handler http.Handler, customize func(*Config), options 
 	// shared baseline and only per-test writes are rolled back. It also keeps
 	// seeding off the connection the test transaction holds.
 	if len(settings.seedFiles) > 0 {
-		if err := applySeed(config, prepared.DB, seedDir, settings.seedFiles); err != nil {
+		if err := applySeed(config, prepared.DB, false, seedDir, settings.seedFiles); err != nil {
 			_ = listener.Close()
 			_ = prepared.Close()
 			t.Fatalf("initialize Popcorn Wave TestRun seed: %v", err)
@@ -268,6 +285,8 @@ func TestRun(t TestingT, handler http.Handler, customize func(*Config), options 
 		close:       prepared.Close,
 		seedDir:     seedDir,
 		transaction: settings.transaction,
+		idp:         idpServer,
+		idpInfo:     idpInfo,
 	}
 	t.Cleanup(result.Close)
 	if settings.transaction {

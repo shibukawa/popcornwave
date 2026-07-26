@@ -34,6 +34,7 @@ acceptance:
   - a dataset file works unchanged as both seed input and expected result
   - the framework module builds with CGO_ENABLED=0
   - no test opens a second pool against the api:test-run database
+  - Seed and AssertDB under WithTransaction see the test transaction and leave nothing committed
 non_goals:
   - schema migration or version history
   - production data loading

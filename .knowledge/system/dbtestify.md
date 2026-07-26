@@ -29,14 +29,17 @@ not_consumed:
   httpapi: out of scope for requirement:test-data-seeding
   cli: replaced by api:cli-seed so one runtime configuration source stays authoritative
 added_for_popcornwave:
-  released: v0.2.0
+  released: v0.2.0 and v0.3.0
   rationale: decision:dbtestify-integration
   surface:
     - NewDBConnectorFromDB(db *sql.DB, dialect Dialect) (DBConnector, error)
     - Dialect, ParseDialect(name), SplitSource(source)
     - DiffFormat, FormatTableDiff, DumpDiffCallback(io.Writer, DiffFormat)
     - github.com/shibukawa/dbtestify/connect owns NewDBConnector and the driver imports
-    - assertdb SeedDataSetDB and AssertDBWithDB
+    - Executor, NewDBConnectorFromTx, NewDBConnectorFromExecutor
+    - assertdb SeedDataSetDB, AssertDBWithDB, SeedDataSetTx, AssertDBTx
   core_dependencies_after: fatih/color and goccy/go-yaml only
-  breaking: dbtestify.NewDBConnector moved to connect.NewDBConnector
+  breaking:
+    - v0.2.0 moved dbtestify.NewDBConnector to connect.NewDBConnector
+    - v0.3.0 DBConnector operations take an Executor instead of a *sql.Tx
 ```

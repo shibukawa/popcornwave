@@ -24,6 +24,10 @@ security:
     - raw session cookie or session secret
     - passkey ceremony secret or private key material
     - provider client secret
+implemented:
+  surface: pw.CurrentUser returns the identity api:authentication-endpoints resolved
+  fields: subject, issuer, name, email, and selected string claims
+  boundary: the identity proves authentication only; authorization stays with the application
 rules:
   - verify credentials before constructing authenticated state
   - copy or freeze mutable claims before handler dispatch

@@ -50,6 +50,43 @@ extra_watch = ["locales/*.json", "schema.graphql"]
 	}
 }
 
+func TestLoadProjectConfigToolchain(t *testing.T) {
+	for _, testcase := range []struct {
+		name  string
+		value string
+		want  string
+	}{
+		{name: "absent defaults to TinyGo", want: toolchainTinyGo},
+		{name: "explicit host Go", value: "\ntoolchain = \"go\"", want: toolchainGo},
+		{name: "explicit TinyGo", value: "\ntoolchain = \"tinygo\"", want: toolchainTinyGo},
+	} {
+		t.Run(testcase.name, func(t *testing.T) {
+			root := t.TempDir()
+			writeTestFile(t, filepath.Join(root, "popcornwave.toml"), "[project]\nname = \"fixture\"\nmain = \".\""+testcase.value+"\n")
+			config, err := loadProjectConfig(root)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if config.Toolchain != testcase.want {
+				t.Fatalf("toolchain = %q, want %q", config.Toolchain, testcase.want)
+			}
+		})
+	}
+}
+
+func TestLoadProjectConfigRejectsUnknownToolchain(t *testing.T) {
+	root := t.TempDir()
+	writeTestFile(t, filepath.Join(root, "popcornwave.toml"), `[project]
+name = "fixture"
+main = "."
+toolchain = "rust"
+`)
+	_, err := loadProjectConfig(root)
+	if err == nil || !strings.Contains(err.Error(), "project.toolchain must be") {
+		t.Fatalf("expected toolchain error, got %v", err)
+	}
+}
+
 func TestLoadProjectConfigRejectsUnknownKeys(t *testing.T) {
 	root := t.TempDir()
 	writeTestFile(t, filepath.Join(root, "popcornwave.toml"), `[project]
@@ -82,11 +119,18 @@ enabled = true
 }
 
 func TestScaffoldFilesWithTailwind(t *testing.T) {
-	files := scaffoldFilesWithTailwind("fixture", true)
+	files := scaffoldFiles(initOptions{Name: "fixture", TinyGo: true, Tailwind: true})
 	for _, name := range []string{
 		"assets/app.css",
 		"public/generated/app.css",
 		"templates/document.pw.html",
+		"templates/400.pw.html",
+		"templates/401.pw.html",
+		"templates/403.pw.html",
+		"templates/404.pw.html",
+		"templates/409.pw.html",
+		"templates/413.pw.html",
+		"templates/500.pw.html",
 		"migrations/00001_init.sql",
 		".vscode/settings.json",
 	} {
@@ -127,7 +171,7 @@ func TestScaffoldFilesWithTailwind(t *testing.T) {
 		!strings.Contains(files["handlers/home_handler.go"], "pw.WriteHTML(w, r,") {
 		t.Fatal("classic handler must use implicit document rendering")
 	}
-	plain := scaffoldFiles("fixture")
+	plain := scaffoldFiles(initOptions{Name: "fixture", TinyGo: true})
 	if strings.Contains(plain["devbox.json"], "tailwindcss") {
 		t.Fatal("plain scaffold unexpectedly installs Tailwind")
 	}
@@ -148,7 +192,7 @@ func TestMainInitUsageMentionsTailwind(t *testing.T) {
 }
 
 func TestScaffoldTailwindUsesGeneratedPublicDirectory(t *testing.T) {
-	files := scaffoldFilesWithTailwind("fixture", true)
+	files := scaffoldFiles(initOptions{Name: "fixture", TinyGo: true, Tailwind: true})
 	if _, ok := files["internal/static/static.go"]; ok {
 		t.Fatal("Tailwind scaffold unexpectedly creates its former private static package")
 	}

@@ -2,6 +2,9 @@ package pwcli
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/base64"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -9,45 +12,126 @@ import (
 	"path/filepath"
 	"runtime"
 	"runtime/debug"
+	"strconv"
 	"strings"
 
+	"github.com/charmbracelet/x/term"
 	"github.com/shibukawa/popcornwave/internal/pwenv"
 )
 
-func runInit(args []string, stdout io.Writer) error {
-	tailwind := false
+const initUsage = "usage: pw init [<project-name>] [--interactive] [--tailwind] [--no-tinygo] [--auth=none|oidc|oidc-passkey|passkey] [--devidp]"
+
+// Authentication modes the wizard and the --auth flag select between. They map
+// onto the pw.AuthConfig modes, with none meaning no [auth] configuration.
+const (
+	authNone        = "none"
+	authOIDC        = "oidc"
+	authOIDCPasskey = "oidc-passkey"
+	authPasskey     = "passkey"
+)
+
+// usesOIDC reports whether a mode needs an OpenID Provider.
+func usesOIDC(mode string) bool { return mode == authOIDC || mode == authOIDCPasskey }
+
+// initOptions holds every project bootstrap choice. Shortcut flags and the
+// wizard produce the same value, and scaffoldFiles is its only consumer.
+type initOptions struct {
+	Name     string
+	TinyGo   bool
+	Tailwind bool
+	Auth     string
+	// AuthEmulator scaffolds the development identity provider instead of
+	// pointing the project at an external one. It only applies to an OIDC mode.
+	AuthEmulator bool
+	Interactive  bool
+}
+
+// defaultInitOptions keeps TinyGo compatible routing as the scaffold default so
+// the shortcut form matches decision:stdlib-servemux.
+func defaultInitOptions() initOptions {
+	return initOptions{TinyGo: true, Auth: authNone}
+}
+
+func parseInitArgs(args []string) (initOptions, error) {
+	options := defaultInitOptions()
 	var positional []string
 	for _, arg := range args {
 		switch arg {
 		case "--tailwind":
-			tailwind = true
+			options.Tailwind = true
+		case "--no-tailwind":
+			options.Tailwind = false
+		case "--tinygo":
+			options.TinyGo = true
+		case "--no-tinygo":
+			options.TinyGo = false
+		case "-i", "--interactive":
+			options.Interactive = true
+		case "--devidp":
+			options.AuthEmulator = true
+		case "--no-devidp":
+			options.AuthEmulator = false
 		default:
+			if mode, ok := strings.CutPrefix(arg, "--auth="); ok {
+				switch mode {
+				case authNone, authOIDC, authOIDCPasskey, authPasskey:
+					options.Auth = mode
+				default:
+					return initOptions{}, fmt.Errorf("init: --auth must be %s, %s, %s, or %s",
+						authNone, authOIDC, authOIDCPasskey, authPasskey)
+				}
+				continue
+			}
 			if strings.HasPrefix(arg, "-") {
-				return fmt.Errorf("init: unknown option %q", arg)
+				return initOptions{}, fmt.Errorf("init: unknown option %q", arg)
 			}
 			positional = append(positional, arg)
 		}
 	}
-	if len(positional) != 1 {
-		return fmt.Errorf("usage: pw init <project-name> [--tailwind]")
+	if len(positional) > 1 {
+		return initOptions{}, errors.New(initUsage)
 	}
-	name := strings.TrimSpace(positional[0])
-	if !validProjectName(name) {
-		return fmt.Errorf("invalid project name %q", name)
+	if len(positional) == 1 {
+		options.Name = strings.TrimSpace(positional[0])
 	}
-	destination, err := filepath.Abs(name)
+	if !usesOIDC(options.Auth) {
+		options.AuthEmulator = false
+	}
+	return options, nil
+}
+
+// interactiveTerminal reports whether the wizard can drive the current session.
+func interactiveTerminal() bool {
+	return term.IsTerminal(os.Stdin.Fd()) && term.IsTerminal(os.Stdout.Fd())
+}
+
+func runInit(args []string, stdout io.Writer) error {
+	options, err := parseInitArgs(args)
 	if err != nil {
 		return err
 	}
-	if entries, readErr := os.ReadDir(destination); readErr == nil && len(entries) > 0 {
-		return fmt.Errorf("destination %s is not empty", destination)
-	} else if readErr != nil && !os.IsNotExist(readErr) {
-		return readErr
+	if options.Name == "" || options.Interactive {
+		if !interactiveTerminal() {
+			return fmt.Errorf("init: the wizard needs a terminal; %s", initUsage)
+		}
+		options, err = runInitWizard(options)
+		if errors.Is(err, errInitCanceled) {
+			fmt.Fprintln(stdout, "init canceled")
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+	}
+	name := options.Name
+	destination, err := initDestination(name)
+	if err != nil {
+		return err
 	}
 	if err := os.MkdirAll(destination, 0o755); err != nil {
 		return err
 	}
-	files := scaffoldFilesWithTailwind(name, tailwind)
+	files := scaffoldFiles(options)
 	for path, content := range files {
 		target := filepath.Join(destination, filepath.FromSlash(path))
 		if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
@@ -117,17 +201,45 @@ func validProjectName(name string) bool {
 	return true
 }
 
-func scaffoldFiles(name string) map[string]string {
-	return scaffoldFilesWithTailwind(name, false)
+// initDestination resolves the project directory and refuses collisions.
+func initDestination(name string) (string, error) {
+	if !validProjectName(name) {
+		return "", fmt.Errorf("invalid project name %q", name)
+	}
+	destination, err := filepath.Abs(name)
+	if err != nil {
+		return "", err
+	}
+	entries, readErr := os.ReadDir(destination)
+	switch {
+	case readErr == nil && len(entries) > 0:
+		return "", fmt.Errorf("destination %s is not empty", destination)
+	case readErr != nil && !os.IsNotExist(readErr):
+		return "", readErr
+	}
+	return destination, nil
 }
 
-func scaffoldFilesWithTailwind(name string, tailwind bool) map[string]string {
+// validateProjectName reports the wizard-facing reason a name is unusable.
+func validateProjectName(name string) error {
+	if name == "" {
+		return errors.New("a project name is required")
+	}
+	_, err := initDestination(name)
+	return err
+}
+
+func scaffoldFiles(options initOptions) map[string]string {
+	name := options.Name
 	moduleExtra := frameworkModuleDirective()
+	devboxPackages := []string{"go@latest", "valkey@latest"}
+	if options.TinyGo {
+		devboxPackages = append(devboxPackages, "tinygo@latest")
+	}
 	configTailwind := ""
-	devboxTailwind := ""
 	homeStylesheet := ""
 	homeClasses := ""
-	if tailwind {
+	if options.Tailwind {
 		configTailwind = `
 [assets.tailwind]
 enabled = true
@@ -135,7 +247,7 @@ input = "` + defaultTailwindInput + `"
 output = "` + defaultTailwindOutput + `"
 minify = true
 `
-		devboxTailwind = `, "tailwindcss_4@4.1.18"`
+		devboxPackages = append(devboxPackages, "tailwindcss_4@4.1.18")
 		homeStylesheet = `<link rel="stylesheet" href="/public/generated/app.css">`
 		homeClasses = ` class="mx-auto max-w-3xl p-8 text-slate-900"`
 	}
@@ -144,10 +256,11 @@ minify = true
 		"popcornwave.toml": `[project]
 name = "` + name + `"
 main = "./cmd/` + name + `"
+toolchain = "` + projectToolchain(options) + `"
 
 [dev]
 extra_watch = []
-` + configTailwind,
+` + devIdPProjectConfig(options) + configTailwind,
 		pwenv.FileName(pwenv.Development): `# Development runtime configuration.
 # APP_ENV selects this file; add config.stg.toml and config.prod.toml as needed.
 [server]
@@ -156,10 +269,19 @@ port = 8080
 [observability]
 minimum_level = "debug"
 service_name = "` + name + `"
-`,
+
+# The scaffolded migrations and queries need a database; pw dev and pw migrate
+# read this DSN.
+[middleware.rdb]
+enabled = true
+dsn = "sqlite://` + name + `.db"
+connect_timeout = "5s"
+max_open_conns = 1
+max_idle_conns = 1
+` + authRuntimeConfig(options),
 		"devbox.json": `{
   "$schema": "https://raw.githubusercontent.com/jetify-com/devbox/0.14.2/.schema/devbox.schema.json",
-  "packages": ["go@latest", "valkey@latest"` + devboxTailwind + `],
+  "packages": [` + quotedJSONList(devboxPackages) + `],
   "shell": {"init_hook": ["echo 'Popcorn Wave development environment'"]}
 }
 `,
@@ -171,7 +293,7 @@ import (
 	"log"
 
 	"` + name + `/handlers"
-	"github.com/shibukawa/popcornwave/pw"
+	"github.com/shibukawa/popcornwave/pw"` + authImport(options) + `
 )
 
 func main() {
@@ -180,43 +302,9 @@ func main() {
 	}
 }
 `,
-		"handlers/index.go": `package handlers
-
-import "github.com/shibukawa/popcornwave/pw"
-
-var mux = pw.NewServeMux()
-
-func Handlers() *pw.ServeMux { return mux }
-`,
-		"handlers/home_handler.go": `package handlers
-
-import (
-	"net/http"
-
-	"github.com/shibukawa/popcornwave/pw"
-)
-
-type homeInput struct {
-	Name string ` + "`query:\"name\" default:\"World\"`" + `
-}
-
-func init() { mux.HandleFunc("GET /", home) }
-
-func home(w http.ResponseWriter, r *http.Request) {
-	input, err := pw.Parse[homeInput](r)
-	if err != nil {
-		pw.WriteProblem(w, r, pw.BadRequest(err))
-		return
-	}
-	pw.WriteHTML(w, r, Home(HomeParams{Name: input.Name}))
-}
-`,
-		"handlers/home.pw.html": `package handlers
-
-export component Home(name: string): html {
-<h1 class="text-3xl font-bold">Hello, {name}</h1>
-}
-`,
+		"handlers/index.go":        muxScaffold(options),
+		"handlers/home_handler.go": homeHandlerScaffold(options),
+		"handlers/home.pw.html":    homeTemplateScaffold(options),
 		"templates/document.pw.html": `package templates
 
 export component Document(children: html?): html {
@@ -247,7 +335,11 @@ CREATE TABLE users (
 DROP TABLE users;
 `,
 		"templates/400.pw.html": errorTemplate("templates", "Error400", "Bad Request"),
+		"templates/401.pw.html": errorTemplate("templates", "Error401", "Unauthorized"),
+		"templates/403.pw.html": errorTemplate("templates", "Error403", "Forbidden"),
 		"templates/404.pw.html": errorTemplate("templates", "Error404", "Not Found"),
+		"templates/409.pw.html": errorTemplate("templates", "Error409", "Conflict"),
+		"templates/413.pw.html": errorTemplate("templates", "Error413", "Payload Too Large"),
 		"templates/500.pw.html": errorTemplate("templates", "Error500", "Internal Server Error"),
 		"public.go": `package publicassets
 
@@ -283,14 +375,273 @@ func PublicFS() fs.FS {
 		// The binary pattern is anchored: a bare name would also ignore cmd/<name>/.
 		".gitignore": ".devbox/\n/" + name + "\n*_pw_gen.go\npublic/**/*.zstd\n*.db\n",
 	}
-	if tailwind {
+	if options.Tailwind {
 		files["assets/app.css"] = `@import "tailwindcss";
 @source "../handlers";
 @source "../templates";
 `
 		files["public/generated/app.css"] = "/* Generated by Tailwind CSS. */\n"
 	}
+	if options.AuthEmulator {
+		files[defaultIdPConfig] = devIdPRoster()
+	}
 	return files
+}
+
+// servesLogin reports whether the framework mounts the authentication
+// endpoints for this project. Only the OIDC modes have an implementation.
+func servesLogin(options initOptions) bool { return usesOIDC(options.Auth) }
+
+// authImport adds the package whose import registers the authentication
+// endpoints. It is the only application-side wiring a login needs.
+func authImport(options initOptions) string {
+	if !servesLogin(options) {
+		return ""
+	}
+	return "\n\n\t// Serves auth.login_path, auth.callback_path, and auth.logout_path.\n\t_ \"github.com/shibukawa/popcornwave/auth\""
+}
+
+// homeHandlerScaffold renders the starter page. With authentication it reads
+// the signed-in user; the login itself belongs to the framework.
+func homeHandlerScaffold(options initOptions) string {
+	if !servesLogin(options) {
+		return `package handlers
+
+import (
+	"net/http"
+
+	"github.com/shibukawa/popcornwave/pw"
+)
+
+type homeInput struct {
+	Name string ` + "`query:\"name\" default:\"World\"`" + `
+}
+
+func init() { mux.HandleFunc("GET /", home) }
+
+func home(w http.ResponseWriter, r *http.Request) {
+	input, err := pw.Parse[homeInput](r)
+	if err != nil {
+		pw.WriteProblem(w, r, pw.BadRequest(err))
+		return
+	}
+	pw.WriteHTML(w, r, Home(HomeParams{Name: input.Name}))
+}
+`
+	}
+	return `package handlers
+
+import (
+	"net/http"
+	"net/url"
+
+	"github.com/shibukawa/popcornwave/pw"
+)
+
+func init() { mux.HandleFunc("GET /", home) }
+
+func home(w http.ResponseWriter, r *http.Request) {
+	// The framework resolved the session before this handler ran.
+	identity, signedIn := pw.CurrentUser(r.Context())
+	name := "World"
+	if signedIn {
+		name = identity.Name
+		if name == "" {
+			name = identity.Subject
+		}
+	}
+	pw.WriteHTML(w, r, Home(HomeParams{
+		Name:       name,
+		SignedIn:   signedIn,
+		Email:      identity.Email,
+		LoginPath:  url.URL{Path: pw.DefaultLoginPath},
+		LogoutPath: url.URL{Path: pw.DefaultLogoutPath},
+	}))
+}
+`
+}
+
+// homeTemplateScaffold renders the starter page. The logout control is a form
+// because the endpoint accepts POST only.
+func homeTemplateScaffold(options initOptions) string {
+	if !servesLogin(options) {
+		return `package handlers
+
+export component Home(name: string): html {
+<h1 class="text-3xl font-bold">Hello, {name}</h1>
+}
+`
+	}
+	return `package handlers
+
+export component Home(name: string, signedIn: bool, email: string, loginPath: url, logoutPath: url): html {
+<h1 class="text-3xl font-bold">Hello, {name}</h1>
+{if signedIn}
+  <p>Signed in as {email}</p>
+  <form method="post" action={logoutPath}>
+    <button type="submit">Sign out</button>
+  </form>
+{else}
+  <p><a href={loginPath}>Sign in</a></p>
+{/if}
+}
+`
+}
+
+// devIdPProjectConfig enables the development identity provider for pw dev.
+func devIdPProjectConfig(options initOptions) string {
+	if !options.AuthEmulator {
+		return ""
+	}
+	return `
+[dev.idp]
+enabled = true
+config = "` + defaultIdPConfig + `"
+`
+}
+
+// devIdPRoster is the starter user list. Every value here is a development
+// fixture: the provider checks no credential, so nothing in it is a secret.
+func devIdPRoster() string {
+	return `# Development identity provider users, selected on the login screen.
+# pw dev serves these; no password is checked, so this file never ships.
+
+[users.admin]
+display_name = "Administrator"
+extra_scopes = ["admin"]
+[users.admin.claims]
+email = "admin@example.com"
+role = "admin"
+
+[users.member]
+display_name = "Member"
+[users.member.claims]
+email = "member@example.com"
+role = "member"
+`
+}
+
+// authRuntimeConfig writes the [auth] section for the selected mode. The OIDC
+// provider values stay empty for the emulator because pw dev injects them, and
+// the application refuses to start if neither the file nor the environment
+// supplies them.
+func authRuntimeConfig(options initOptions) string {
+	switch options.Auth {
+	case authOIDC, authOIDCPasskey:
+		mode := "oidc"
+		if options.Auth == authOIDCPasskey {
+			mode = "oidc_passkey"
+		}
+		provider := `
+# Supply these from the environment in every deployed environment:
+# AUTH_OIDC_ISSUER, AUTH_OIDC_CLIENT_ID, AUTH_OIDC_CLIENT_SECRET.
+issuer = ""
+client_id = ""
+client_secret = ""`
+		if options.AuthEmulator {
+			provider = `
+# pw dev runs the development identity provider and injects AUTH_OIDC_ISSUER,
+# AUTH_OIDC_CLIENT_ID, and AUTH_OIDC_CLIENT_SECRET, so these stay empty here.
+# Running the application without pw dev requires setting them yourself.`
+		}
+		return `
+# The framework serves login_path, callback_path, and logout_path itself, so
+# the application registers no authentication routes. logout_path is POST only.
+[auth]
+enabled = true
+mode = "` + mode + `"
+login_path = "/auth/login"
+callback_path = "/auth/callback"
+logout_path = "/auth/logout"
+post_login_redirect = "/"
+post_logout_redirect = "/"
+
+[auth.oidc]` + provider + `
+# redirect_url follows the request origin when it is empty, which keeps the
+# callback working on whatever port the server starts on.
+redirect_url = ""
+scopes = ["openid", "profile", "email"]
+# Sign out of the provider as well. With this off, the provider stays signed in
+# and the next login returns the same user without asking.
+provider_logout = true
+
+[session]
+enabled = true
+ttl = "24h"
+# Development value. Set SESSION_SECRET in every deployed environment.
+secret = "` + generatedSessionSecret() + `"
+`
+	case authPasskey:
+		return `
+# Passkey-only login has no framework implementation yet, so this section
+# records the choice with authentication switched off. Set enabled = true once
+# an implementation is registered.
+[auth]
+enabled = false
+mode = "passkey_only"
+
+[session]
+enabled = true
+ttl = "24h"
+# Development value. Set SESSION_SECRET in every deployed environment.
+secret = "` + generatedSessionSecret() + `"
+`
+	default:
+		return ""
+	}
+}
+
+// generatedSessionSecret produces the development cookie signing key. It is a
+// per-project value so two scaffolded projects never share one, and it is a
+// development fixture: deployments supply SESSION_SECRET.
+func generatedSessionSecret() string {
+	buffer := make([]byte, 32)
+	if _, err := rand.Read(buffer); err != nil {
+		// crypto/rand does not fail in practice; refusing to scaffold a
+		// predictable secret is the only safe alternative.
+		panic("pw init: generate session secret: " + err.Error())
+	}
+	return base64.RawURLEncoding.EncodeToString(buffer)
+}
+
+// projectToolchain names the compiler the project is scaffolded for.
+func projectToolchain(options initOptions) string {
+	if options.TinyGo {
+		return toolchainTinyGo
+	}
+	return toolchainGo
+}
+
+// muxScaffold emits the route registry. TinyGo projects go through pw.ServeMux
+// so one import works on both toolchains; host-only projects keep the standard
+// library type, which api:cli-generate discovers just the same.
+func muxScaffold(options initOptions) string {
+	if options.TinyGo {
+		return `package handlers
+
+import "github.com/shibukawa/popcornwave/pw"
+
+var mux = pw.NewServeMux()
+
+func Handlers() *pw.ServeMux { return mux }
+`
+	}
+	return `package handlers
+
+import "net/http"
+
+var mux = http.NewServeMux()
+
+func Handlers() *http.ServeMux { return mux }
+`
+}
+
+func quotedJSONList(values []string) string {
+	quoted := make([]string, len(values))
+	for index, value := range values {
+		quoted[index] = strconv.Quote(value)
+	}
+	return strings.Join(quoted, ", ")
 }
 
 func errorTemplate(pkg, component, title string) string {

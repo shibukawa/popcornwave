@@ -14,9 +14,11 @@ commands:
   - api:cli-build
   - api:cli-migrate
   - api:cli-seed
+  - api:cli-version
 configuration: data:project-config
 runtime_dependency_policy: concept:public-package-boundaries
 execution_split: decision:host-tools-target-runtime
+distribution: requirement:cli-distribution
 initial_exclusions:
   - no pw schema-init command; requirement:database-migration replaced it
   - no pw test command; use go test ./...

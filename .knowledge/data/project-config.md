@@ -11,8 +11,13 @@ schema:
   project:
     name: myapp
     main: ./cmd/myapp
+    toolchain: tinygo or go, defaulting to tinygo
   dev:
     extra_watch: []
+    idp:
+      enabled: false
+      config: devidp.toml
+      port: 0 for an automatically reserved loopback port
   migration:
     dir: migrations
     auto: true for api:cli-dev only
@@ -30,9 +35,14 @@ optional_extensions:
 rules:
   - api:cli-generate always discovers all Go, .pw.html, and .pw.sql sources
   - api:cli-dev always watches Go, .pw.html, .pw.sql, popcornwave.toml, and policy:config-file-resolution project-local files
+  - project.toolchain records the compiler api:cli-init scaffolded for and rejects any other value
+  - a missing project.toolchain means tinygo, because every project scaffolded before the key used api:serve-mux
   - dev.extra_watch adds relative files or glob patterns
   - migration.dir locates data:migration-source and is a tooling path, not a runtime database value
   - migration.auto only enables the api:cli-dev apply step and never enables application startup apply
+  - dev.idp only affects api:cli-dev and locates data:devidp-config
+  - dev.idp.port defaults to an automatically reserved port because api:cli-dev injects the resolved issuer into the application
+  - dev.idp.enabled true requires the data:devidp-config file to exist
   - relative paths resolve from the config file directory
   - unknown keys are errors
   - command flags override config values

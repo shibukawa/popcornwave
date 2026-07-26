@@ -1,0 +1,45 @@
+# Rendered by .github/homebrew/render-formula.sh into shibukawa/homebrew-tap.
+# Edit this template, not the copy in the tap.
+class Pw < Formula
+  desc "CLI for the Popcorn Wave web application framework"
+  homepage "https://github.com/shibukawa/popcornwave"
+  version "@VERSION@"
+  license "Apache-2.0"
+
+  on_macos do
+    on_arm do
+      url "https://github.com/shibukawa/popcornwave/releases/download/v@VERSION@/pw_@VERSION@_darwin_arm64.tar.gz"
+      sha256 "@SHA256_DARWIN_ARM64@"
+    end
+    on_intel do
+      url "https://github.com/shibukawa/popcornwave/releases/download/v@VERSION@/pw_@VERSION@_darwin_amd64.tar.gz"
+      sha256 "@SHA256_DARWIN_AMD64@"
+    end
+  end
+
+  on_linux do
+    on_arm do
+      url "https://github.com/shibukawa/popcornwave/releases/download/v@VERSION@/pw_@VERSION@_linux_arm64.tar.gz"
+      sha256 "@SHA256_LINUX_ARM64@"
+    end
+    on_intel do
+      url "https://github.com/shibukawa/popcornwave/releases/download/v@VERSION@/pw_@VERSION@_linux_amd64.tar.gz"
+      sha256 "@SHA256_LINUX_AMD64@"
+    end
+  end
+
+  livecheck do
+    url "https://github.com/shibukawa/popcornwave.git"
+    strategy :git
+    regex(/^v(\d+(?:\.\d+)+)$/i)
+  end
+
+  def install
+    bin.install "pw"
+  end
+
+  test do
+    assert_match "pw #{version} ", shell_output("#{bin}/pw version")
+    assert_match "Commands:", shell_output("#{bin}/pw help")
+  end
+end
