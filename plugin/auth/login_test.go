@@ -1,0 +1,430 @@
+package auth
+
+import (
+	"crypto"
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/sha256"
+	"encoding/base64"
+	"encoding/json"
+	"fmt"
+	"io"
+	"math/big"
+	"net/http"
+	"net/http/cookiejar"
+	"net/http/httptest"
+	"net/url"
+	"os"
+	"path/filepath"
+	"strings"
+	"sync"
+	"testing"
+	"time"
+
+	"github.com/shibukawa/popcornwave/internal/pwmigrate"
+	"github.com/shibukawa/popcornwave/plugin/session/rdb"
+	"github.com/shibukawa/popcornwave/pw"
+	"github.com/shibukawa/tinybind-go/configbind"
+)
+
+// identityProvider is a minimal OpenID Provider fixture. Its authorization
+// endpoint logs the caller in immediately, which is also how oidcld behaves
+// once a developer picks a user.
+type identityProvider struct {
+	server   *httptest.Server
+	key      *rsa.PrivateKey
+	clientID string
+
+	mu     sync.Mutex
+	nonce  string
+	claims map[string]any
+}
+
+func newIdentityProvider(t *testing.T, clientID string) *identityProvider {
+	t.Helper()
+	key, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatal(err)
+	}
+	provider := &identityProvider{
+		key:      key,
+		clientID: clientID,
+		claims: map[string]any{
+			"sub":             "user",
+			"name":            "Example User",
+			"email":           "user@example.com",
+			"roles":           []string{"staff"},
+			"employee_number": "E-10231",
+		},
+	}
+	mux := http.NewServeMux()
+	mux.HandleFunc("/.well-known/openid-configuration", func(w http.ResponseWriter, _ *http.Request) {
+		issuer := provider.issuer()
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = io.WriteString(w, fmt.Sprintf(
+			`{"issuer":%q,"authorization_endpoint":%q,"token_endpoint":%q,"jwks_uri":%q,"userinfo_endpoint":%q}`,
+			issuer, issuer+"/authorize", issuer+"/token", issuer+"/keys", issuer+"/userinfo"))
+	})
+	mux.HandleFunc("/keys", func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = io.WriteString(w, jwksJSON(provider.key))
+	})
+	mux.HandleFunc("/authorize", func(w http.ResponseWriter, r *http.Request) {
+		query := r.URL.Query()
+		if query.Get("code_challenge_method") != "S256" || query.Get("code_challenge") == "" {
+			http.Error(w, "pkce required", http.StatusBadRequest)
+			return
+		}
+		provider.mu.Lock()
+		provider.nonce = query.Get("nonce")
+		provider.mu.Unlock()
+		redirect, err := url.Parse(query.Get("redirect_uri"))
+		if err != nil {
+			http.Error(w, "bad redirect_uri", http.StatusBadRequest)
+			return
+		}
+		values := redirect.Query()
+		values.Set("code", "authorization-code")
+		values.Set("state", query.Get("state"))
+		redirect.RawQuery = values.Encode()
+		http.Redirect(w, r, redirect.String(), http.StatusSeeOther)
+	})
+	mux.HandleFunc("/token", func(w http.ResponseWriter, _ *http.Request) {
+		provider.mu.Lock()
+		nonce, claims := provider.nonce, provider.claims
+		provider.mu.Unlock()
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = io.WriteString(w, fmt.Sprintf(
+			`{"access_token":"access","token_type":"Bearer","id_token":%q}`,
+			provider.signIDToken(t, claims, nonce)))
+	})
+	provider.server = httptest.NewServer(mux)
+	t.Cleanup(provider.server.Close)
+	return provider
+}
+
+func (p *identityProvider) issuer() string { return p.server.URL }
+
+func (p *identityProvider) setClaims(claims map[string]any) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.claims = claims
+}
+
+func (p *identityProvider) signIDToken(t *testing.T, extra map[string]any, nonce string) string {
+	t.Helper()
+	now := time.Now()
+	claims := map[string]any{
+		"iss":   p.issuer(),
+		"aud":   p.clientID,
+		"exp":   now.Add(time.Hour).Unix(),
+		"iat":   now.Unix(),
+		"nonce": nonce,
+	}
+	for key, value := range extra {
+		claims[key] = value
+	}
+	encode := base64.RawURLEncoding.EncodeToString
+	header, _ := json.Marshal(map[string]string{"alg": "RS256", "typ": "JWT", "kid": "key-1"})
+	body, err := json.Marshal(claims)
+	if err != nil {
+		t.Fatal(err)
+	}
+	input := encode(header) + "." + encode(body)
+	digest := sha256.Sum256([]byte(input))
+	signature, err := rsa.SignPKCS1v15(rand.Reader, p.key, crypto.SHA256, digest[:])
+	if err != nil {
+		t.Fatal(err)
+	}
+	return input + "." + encode(signature)
+}
+
+func jwksJSON(key *rsa.PrivateKey) string {
+	encode := base64.RawURLEncoding.EncodeToString
+	return `{"keys":[{"kty":"RSA","kid":"key-1","use":"sig","alg":"RS256","n":"` +
+		encode(key.N.Bytes()) + `","e":"` + encode(big.NewInt(int64(key.PublicKey.E)).Bytes()) + `"}]}`
+}
+
+// application is the sample-shaped handler used by the end-to-end test.
+func application() http.Handler {
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /", func(w http.ResponseWriter, r *http.Request) {
+		user, ok := User(r.Context())
+		if !ok {
+			_, _ = io.WriteString(w, "anonymous")
+			return
+		}
+		_, _ = io.WriteString(w, "home:"+user.DisplayName)
+	})
+	mux.HandleFunc("GET /mypage", func(w http.ResponseWriter, r *http.Request) {
+		user, _ := User(r.Context())
+		authentication := pw.RequestAuthentication(r.Context())
+		_, _ = io.WriteString(w, fmt.Sprintf("mypage:%s:%s:%s:%s",
+			user.Subject, user.Email, authentication.Method, authentication.Subject))
+	})
+	return mux
+}
+
+// TestOIDCLoginEndToEnd drives one browser-shaped login against a fixture
+// provider. Configuration is parsed once per process, so this package keeps a
+// single framework-level test.
+func TestOIDCLoginEndToEnd(t *testing.T) {
+	provider := newIdentityProvider(t, "example-client")
+
+	// The application URL is needed before its handler exists, because the
+	// redirect URL is configuration.
+	var handler http.Handler
+	var handlerMu sync.RWMutex
+	app := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		handlerMu.RLock()
+		current := handler
+		handlerMu.RUnlock()
+		if current == nil {
+			http.Error(w, "not ready", http.StatusServiceUnavailable)
+			return
+		}
+		current.ServeHTTP(w, r)
+	}))
+	defer app.Close()
+
+	database := filepath.ToSlash(filepath.Join(t.TempDir(), "auth-test.db"))
+	applyFrameworkMigrations(t, database)
+	configPath := writeConfig(t, provider.issuer(), app.URL, database)
+	pw.SetConfigLoadOptions(configbind.LoadOptions{
+		Vendor:             "popcornwave-auth-test",
+		Tool:               "auth-test",
+		ExplicitConfigPath: configPath,
+		Args:               []string{},
+		Environ:            []string{},
+	})
+	built, err := pw.Middlewares(application())
+	if err != nil {
+		t.Fatalf("framework initialization: %v", err)
+	}
+	handlerMu.Lock()
+	handler = built
+	handlerMu.Unlock()
+
+	jar, err := cookiejar.New(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	client := &http.Client{Jar: jar}
+
+	// An anonymous request to a protected path is redirected into the login
+	// flow, which completes at the originally requested page.
+	response, err := client.Get(app.URL + "/mypage")
+	if err != nil {
+		t.Fatal(err)
+	}
+	body := readBody(t, response)
+	if response.StatusCode != http.StatusOK {
+		t.Fatalf("status = %d body = %q", response.StatusCode, body)
+	}
+	if response.Request.URL.Path != "/mypage" {
+		t.Fatalf("landed on %q, want /mypage", response.Request.URL.Path)
+	}
+	if !strings.HasPrefix(body, "mypage:user:user@example.com:oidc:") {
+		t.Fatalf("authenticated page = %q", body)
+	}
+
+	sessionCookie := findCookie(t, jar, app.URL, "pw_session")
+	if sessionCookie == nil {
+		t.Fatal("no session cookie was issued")
+	}
+	// The jar keeps only name and value, which is exactly what the browser
+	// sends back: an opaque token, never account data.
+	if len(sessionCookie.Value) != 43 || strings.Contains(sessionCookie.Value, "user") {
+		t.Fatalf("session cookie value = %q", sessionCookie.Value)
+	}
+	// The correlation cookie is single use and must not survive the callback.
+	if txn := findCookie(t, jar, app.URL+"/auth/callback", "pw_session_txn"); txn != nil {
+		t.Fatalf("transaction cookie survived the callback: %#v", txn)
+	}
+
+	// The session is now readable on a public page too.
+	response, err = client.Get(app.URL + "/")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if body := readBody(t, response); body != "home:Example User" {
+		t.Fatalf("home page = %q", body)
+	}
+
+	// A callback replayed with the consumed correlation cookie is rejected.
+	replay, err := client.Get(app.URL + "/auth/callback?code=authorization-code&state=stale")
+	if err != nil {
+		t.Fatal(err)
+	}
+	readBody(t, replay)
+	if replay.StatusCode != http.StatusBadRequest {
+		t.Fatalf("replayed callback status = %d", replay.StatusCode)
+	}
+
+	// Logout requires POST and a same-origin submission.
+	getLogout, err := client.Get(app.URL + "/auth/logout")
+	if err != nil {
+		t.Fatal(err)
+	}
+	readBody(t, getLogout)
+	if getLogout.StatusCode != http.StatusMethodNotAllowed {
+		t.Fatalf("GET logout status = %d", getLogout.StatusCode)
+	}
+	crossOrigin, err := postLogout(client, app.URL, "https://evil.example")
+	if err != nil {
+		t.Fatal(err)
+	}
+	readBody(t, crossOrigin)
+	if crossOrigin.StatusCode != http.StatusForbidden {
+		t.Fatalf("cross-origin logout status = %d", crossOrigin.StatusCode)
+	}
+	loggedOut, err := postLogout(client, app.URL, app.URL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	readBody(t, loggedOut)
+	if loggedOut.StatusCode != http.StatusOK {
+		t.Fatalf("logout status = %d", loggedOut.StatusCode)
+	}
+	if cookie := findCookie(t, jar, app.URL, "pw_session"); cookie != nil {
+		t.Fatalf("session cookie survived logout: %#v", cookie)
+	}
+
+	// After logout the protected page is anonymous again, and a login that
+	// the admission rule rejects does not create a session.
+	provider.setClaims(map[string]any{"sub": "other", "name": "Outsider", "roles": []string{"guest"},
+		"employee_number": "E-99999"})
+	denied, err := client.Get(app.URL + "/mypage")
+	if err != nil {
+		t.Fatal(err)
+	}
+	readBody(t, denied)
+	if denied.StatusCode != http.StatusForbidden {
+		t.Fatalf("denied login status = %d", denied.StatusCode)
+	}
+	if cookie := findCookie(t, jar, app.URL, "pw_session"); cookie != nil {
+		t.Fatal("a denied login created a session")
+	}
+
+	// A token that no longer carries the configured identity claim cannot
+	// identify an account, so the login is refused instead of falling back to
+	// the subject and creating a second account for the same person.
+	provider.setClaims(map[string]any{"sub": "user", "name": "Example User", "roles": []string{"staff"}})
+	withoutKey, err := client.Get(app.URL + "/mypage")
+	if err != nil {
+		t.Fatal(err)
+	}
+	readBody(t, withoutKey)
+	if withoutKey.StatusCode != http.StatusForbidden {
+		t.Fatalf("login without the identity claim = %d", withoutKey.StatusCode)
+	}
+}
+
+func postLogout(client *http.Client, appURL, origin string) (*http.Response, error) {
+	request, err := http.NewRequest(http.MethodPost, appURL+"/auth/logout", nil)
+	if err != nil {
+		return nil, err
+	}
+	request.Header.Set("Origin", origin)
+	return client.Do(request)
+}
+
+func readBody(t *testing.T, response *http.Response) string {
+	t.Helper()
+	defer response.Body.Close()
+	body, err := io.ReadAll(io.LimitReader(response.Body, 1<<20))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(body)
+}
+
+func findCookie(t *testing.T, jar *cookiejar.Jar, rawURL, name string) *http.Cookie {
+	t.Helper()
+	parsed, err := url.Parse(rawURL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, cookie := range jar.Cookies(parsed) {
+		if cookie.Name == name {
+			return cookie
+		}
+	}
+	return nil
+}
+
+// applyFrameworkMigrations runs the migration files the framework publishes,
+// through the same goose runner a project uses, because startup now verifies
+// those tables instead of creating them.
+func applyFrameworkMigrations(t *testing.T, database string) {
+	t.Helper()
+	directory := t.TempDir()
+	for name, content := range map[string]string{
+		rdb.MigrationFileName: rdb.MigrationSQL(""),
+		MigrationFileName:     MigrationSQL(),
+	} {
+		if err := os.WriteFile(filepath.Join(directory, name), []byte(content), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	sources, err := pwmigrate.Sources(directory)
+	if err != nil {
+		t.Fatal(err)
+	}
+	target, err := pwmigrate.Open("sqlite://" + database)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer target.Close()
+	if _, err := pwmigrate.Apply(t.Context(), target, sources, pwmigrate.ActionUp, 0); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func writeConfig(t *testing.T, issuer, appURL, database string) string {
+	t.Helper()
+	directory := t.TempDir()
+	content := fmt.Sprintf(`
+[server]
+public.enabled = false
+
+[middleware.rdb]
+enabled = true
+dsn = "sqlite://%s"
+connect_timeout = "5s"
+max_open_conns = 1
+max_idle_conns = 1
+
+[session]
+enabled = true
+backend = "rdb"
+ttl = "1h"
+idle_timeout = "30m"
+cookie.name = "pw_session"
+cookie.secure = false
+
+[auth]
+enabled = true
+mode = "oidc_only"
+post_login_path = "/"
+protection.include = ["/mypage"]
+
+[auth.oidc]
+issuer = "%s"
+client_id = "example-client"
+client_secret = "example-secret"
+redirect_url = "%s/auth/callback"
+scopes = ["profile", "email"]
+identity_claim = "employee_number"
+admission = "claim"
+claim.path = "/roles"
+claim.values = ["staff"]
+claim.match = "any"
+allow_loopback_http = true
+`, database, issuer, appURL)
+	path := filepath.Join(directory, "config.toml")
+	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	return path
+}

@@ -57,11 +57,36 @@ type SecurityHeadersConfig = middlewares.SecurityHeadersConfig
 // HSTSConfig controls Strict-Transport-Security on verified HTTPS requests.
 type HSTSConfig = middlewares.HSTSConfig
 
-// SessionConfig contains the currently available session runtime settings.
+// SessionConfig selects login-session behavior, cookie policy, and storage.
+// Sessions are opaque and server-side, so no signing secret is configured.
 type SessionConfig struct {
 	Enabled bool
-	TTL     time.Duration
-	Secret  string
+	// Backend selects the storage plugin. Only rdb is implemented.
+	Backend         string
+	TTL             time.Duration
+	IdleTimeout     time.Duration
+	RenewalInterval time.Duration
+	Cookie          SessionCookieConfig
+	RDB             SessionRDBConfig
+}
+
+// SessionCookieConfig is the browser cookie policy of the session middleware.
+type SessionCookieConfig struct {
+	Name     string
+	Path     string
+	Domain   string
+	Secure   bool
+	HTTPOnly bool
+	SameSite string
+}
+
+// SessionRDBConfig configures the database-backed session store. The middleware
+// source reuses the pool owned by middleware.rdb; the dedicated source opens
+// its own pool from DSN.
+type SessionRDBConfig struct {
+	Source string
+	DSN    string
+	Table  string
 }
 
 // ObservabilityConfig controls runtime logging and service identity.
@@ -486,33 +511,96 @@ func registerSecurityConfig() {
 
 func registerSessionConfig() {
 	const typeName = "github.com/shibukawa/popcornwave/pw.SessionConfig"
+	defaults := map[string]string{
+		"session.enabled":          "false",
+		"session.backend":          "rdb",
+		"session.ttl":              "24h",
+		"session.idle_timeout":     "0s",
+		"session.renewal_interval": "0s",
+		"session.cookie.name":      "pw_session",
+		"session.cookie.path":      "/",
+		"session.cookie.domain":    "",
+		"session.cookie.secure":    "true",
+		"session.cookie.http_only": "true",
+		"session.cookie.same_site": "lax",
+		"session.rdb.source":       "middleware",
+		"session.rdb.dsn":          "",
+		"session.rdb.table":        "popcornwave_session",
+	}
+	keys := make([]string, 0, len(defaults))
+	for key := range defaults {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
 	configbind.Register[SessionConfig](configbind.Definition{
 		TypeName:  typeName,
 		Prefix:    "session",
-		KnownKeys: []string{"session.enabled", "session.ttl", "session.secret"},
-		Defaults:  map[string]string{"session.enabled": "false", "session.ttl": "24h", "session.secret": ""},
+		KnownKeys: keys,
+		Defaults:  defaults,
 		FlagMetas: []cliparser.FieldMeta{
 			{Prefix: "session", Key: "enabled", Kind: cliparser.KindBool},
-			{Prefix: "session", Key: "ttl"},
-			{Prefix: "session", Key: "secret", Env: "SESSION_SECRET"},
+			{Prefix: "session", Key: "backend", Help: "session storage backend"},
+			{Prefix: "session", Key: "ttl", Help: "absolute session lifetime"},
+			{Prefix: "session", Key: "idle_timeout", Help: "inactivity expiry; zero disables it"},
+			{Prefix: "session", Key: "renewal_interval", Help: "minimum interval between idle expiry renewals"},
+			{Prefix: "session", Key: "cookie.name"},
+			{Prefix: "session", Key: "cookie.path"},
+			{Prefix: "session", Key: "cookie.domain"},
+			{Prefix: "session", Key: "cookie.secure", Kind: cliparser.KindBool},
+			{Prefix: "session", Key: "cookie.http_only", Kind: cliparser.KindBool},
+			{Prefix: "session", Key: "cookie.same_site"},
+			{Prefix: "session", Key: "rdb.source", Help: "middleware reuses middleware.rdb; dedicated opens rdb.dsn"},
+			{Prefix: "session", Key: "rdb.dsn", Help: "dedicated session database DSN"},
+			{Prefix: "session", Key: "rdb.table"},
 		},
 		Apply: func(dst any, overlay *configbind.Overlay) error {
-			p := dst.(*SessionConfig)
-			raw, _ := overlay.GetString("session.enabled")
-			p.Enabled, _ = strconv.ParseBool(raw)
-			raw, _ = overlay.GetString("session.ttl")
-			ttl, err := time.ParseDuration(raw)
-			if err != nil {
-				return err
+			p, ok := dst.(*SessionConfig)
+			if !ok || p == nil {
+				return fmt.Errorf("configbind: bad SessionConfig destination")
 			}
-			p.TTL = ttl
-			p.Secret, _ = overlay.GetString("session.secret")
+			p.Enabled = configBool(overlay, "session.enabled")
+			p.Backend = valueOf(overlay, "session.backend")
+			var err error
+			for key, target := range map[string]*time.Duration{
+				"ttl":              &p.TTL,
+				"idle_timeout":     &p.IdleTimeout,
+				"renewal_interval": &p.RenewalInterval,
+			} {
+				*target, err = parseConfigDuration(overlay, "session."+key)
+				if err != nil {
+					return err
+				}
+			}
+			p.Cookie = SessionCookieConfig{
+				Name:     valueOf(overlay, "session.cookie.name"),
+				Path:     valueOf(overlay, "session.cookie.path"),
+				Domain:   valueOf(overlay, "session.cookie.domain"),
+				Secure:   configBool(overlay, "session.cookie.secure"),
+				HTTPOnly: configBool(overlay, "session.cookie.http_only"),
+				SameSite: valueOf(overlay, "session.cookie.same_site"),
+			}
+			p.RDB = SessionRDBConfig{
+				Source: valueOf(overlay, "session.rdb.source"),
+				DSN:    valueOf(overlay, "session.rdb.dsn"),
+				Table:  valueOf(overlay, "session.rdb.table"),
+			}
 			return nil
 		},
 		Scaffold: []configbind.ScaffoldField{
 			{Key: "enabled", Kind: configbind.ScaffoldBool, Default: "false"},
-			{Key: "ttl", Kind: configbind.ScaffoldString, Default: "24h"},
-			{Key: "secret", Kind: configbind.ScaffoldString, Default: "", Env: "SESSION_SECRET"},
+			{Key: "backend", Kind: configbind.ScaffoldString, Default: "rdb", Help: "session storage backend"},
+			{Key: "ttl", Kind: configbind.ScaffoldString, Default: "24h", Help: "absolute session lifetime"},
+			{Key: "idle_timeout", Kind: configbind.ScaffoldString, Default: "0s", Help: "inactivity expiry; zero disables it"},
+			{Key: "renewal_interval", Kind: configbind.ScaffoldString, Default: "0s", Help: "minimum interval between idle expiry renewals"},
+			{Key: "cookie.name", Kind: configbind.ScaffoldString, Default: "pw_session"},
+			{Key: "cookie.path", Kind: configbind.ScaffoldString, Default: "/"},
+			{Key: "cookie.domain", Kind: configbind.ScaffoldString, Default: ""},
+			{Key: "cookie.secure", Kind: configbind.ScaffoldBool, Default: "true", Help: "disable only for loopback development"},
+			{Key: "cookie.http_only", Kind: configbind.ScaffoldBool, Default: "true"},
+			{Key: "cookie.same_site", Kind: configbind.ScaffoldString, Default: "lax"},
+			{Key: "rdb.source", Kind: configbind.ScaffoldString, Default: "middleware", Help: "middleware reuses middleware.rdb; dedicated opens rdb.dsn"},
+			{Key: "rdb.dsn", Kind: configbind.ScaffoldString, Default: "", Help: "dedicated session database DSN"},
+			{Key: "rdb.table", Kind: configbind.ScaffoldString, Default: "popcornwave_session"},
 		},
 	})
 }

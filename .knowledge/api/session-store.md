@@ -9,8 +9,12 @@ Session backends persist typed data:session-record values behind one context-awa
 surface:
   - Store[T].Put(context.Context, keyHash, Record[T]) error
   - Store[T].Get(context.Context, keyHash) returns Record[T]
-  - Store[T].Touch(context.Context, keyHash, lastSeenAt, expiresAt) error
+  - Store[T].Touch(context.Context, keyHash, lastSeenAt, idleExpiresAt) error
   - Store[T].Delete(context.Context, keyHash) error
+codec:
+  scope: typed payload only
+  reason: record timestamps stay in backend fields so renewal never rewrites the payload
+  default: session.JSONCodec[T]
 errors:
   - not found or expired
   - unavailable with sanitized backend detail
@@ -20,23 +24,33 @@ rules:
   - never accept or return the raw cookie token
   - Put replaces one key atomically
   - Touch never revives an expired or missing record
+  - Touch refuses a renewal past the absolute expiry
   - Delete is idempotent
   - returned typed data is treated as immutable
+  - expiry stored by the backend is authoritative over anything the browser presents
 adapters:
-  - imported Redis-compatible plugin through requirement:contrib-redis-valkey
   - imported RDB plugin over database/sql
+  - imported Redis-compatible plugin through requirement:contrib-redis-valkey
 redis:
   backend_name: redis
   servers: Redis or Valkey
   compatibility: requirement:contrib-redis-valkey
+  status: not implemented
 rdb:
   backend_name: rdb
   session_plugin: popcornwave/plugin/session/rdb
+  status: implemented
+  constructor: rdb.NewStore[T](*sql.DB, session.Codec[T], Options)
+  owned_table: popcornwave_session
+  schema: MigrationSQL publishes the migration file; VerifySchema is the startup check
+  schema_ownership: rule:framework-owned-tables
+  dialect: SQLite DDL; other dialects are deferred
+  expiry_sweep: Prune removes records that expire without being revoked
   driver_registration: separate database/sql driver import
   guaranteed_driver: requirement:contrib-sqlite
   in_memory: sqlite://:memory:
   future_schemes: require implemented and verified drivers before configuration acceptance
-  shared_executor: session.rdb.source middleware uses the request database or active transaction
+  shared_executor: session.rdb.source middleware uses the pool owned by api:rdb-middleware
 plugins: decision:import-registered-session-plugins
 extension: applications may supply another Store[T] without changing session middleware
 ```

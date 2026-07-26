@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	tableName            = "petitweb_authstate"
+	tableName            = "popcornwave_authstate"
 	defaultMaxKeyBytes   = 256
 	defaultMaxValueBytes = 64 << 10
 	defaultMaxPruneBatch = 256
@@ -23,13 +23,20 @@ const (
 	maxNamespaceBytes    = 128
 )
 
-const createSchemaSQL = `CREATE TABLE IF NOT EXISTS petitweb_authstate (
+const createSchemaSQL = `CREATE TABLE IF NOT EXISTS popcornwave_authstate (
 	namespace TEXT NOT NULL,
 	"key" TEXT NOT NULL,
 	expires_at_ms INTEGER NOT NULL,
 	payload BLOB NOT NULL,
 	PRIMARY KEY (namespace, "key")
 ) WITHOUT ROWID`
+
+// TableName is the table this package owns.
+const TableName = tableName
+
+// SchemaSQL returns the deterministic DDL of the owned table, so a project can
+// carry it in a migration instead of creating it at startup.
+func SchemaSQL() string { return createSchemaSQL }
 
 // Options controls record isolation, resource bounds, and expiry behavior.
 type Options struct {
@@ -94,7 +101,7 @@ func (s *Store[T]) EnsureSchema(ctx context.Context) error {
 	if _, err := s.db.ExecContext(ctx, createSchemaSQL); err != nil {
 		return unavailable(ctx)
 	}
-	rows, err := s.db.QueryContext(ctx, `PRAGMA table_info(petitweb_authstate)`)
+	rows, err := s.db.QueryContext(ctx, `PRAGMA table_info(popcornwave_authstate)`)
 	if err != nil {
 		return unavailable(ctx)
 	}
@@ -161,12 +168,12 @@ func (s *Store[T]) Put(ctx context.Context, key string, value T, expiresAt time.
 		return authstate.ErrLimitExceeded
 	}
 	result, err := s.db.ExecContext(ctx, `
-		INSERT INTO petitweb_authstate(namespace, "key", expires_at_ms, payload)
+		INSERT INTO popcornwave_authstate(namespace, "key", expires_at_ms, payload)
 		VALUES(?, ?, ?, ?)
 		ON CONFLICT(namespace, "key") DO UPDATE SET
 			expires_at_ms = excluded.expires_at_ms,
 			payload = excluded.payload
-		WHERE petitweb_authstate.expires_at_ms <= ?`,
+		WHERE popcornwave_authstate.expires_at_ms <= ?`,
 		s.namespace, key, expiresAt.UnixMilli(), payload, now.UnixMilli())
 	if err != nil {
 		return unavailable(ctx)
@@ -195,7 +202,7 @@ func (s *Store[T]) Take(ctx context.Context, key string) (T, error) {
 	var expiresAtMS int64
 	var payload []byte
 	err := s.db.QueryRowContext(ctx, `
-		DELETE FROM petitweb_authstate
+		DELETE FROM popcornwave_authstate
 		WHERE namespace = ? AND "key" = ?
 		RETURNING expires_at_ms, payload`, s.namespace, key).Scan(&expiresAtMS, &payload)
 	if errors.Is(err, sql.ErrNoRows) {
@@ -226,9 +233,9 @@ func (s *Store[T]) Prune(ctx context.Context, before time.Time, limit int) (int6
 		return 0, err
 	}
 	result, err := s.db.ExecContext(ctx, `
-		DELETE FROM petitweb_authstate
+		DELETE FROM popcornwave_authstate
 		WHERE namespace = ? AND "key" IN (
-			SELECT "key" FROM petitweb_authstate
+			SELECT "key" FROM popcornwave_authstate
 			WHERE namespace = ? AND expires_at_ms <= ?
 			ORDER BY expires_at_ms, "key" LIMIT ?
 		) AND expires_at_ms <= ?`,

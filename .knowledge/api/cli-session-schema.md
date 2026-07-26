@@ -6,6 +6,7 @@ title: pw session schema
 The CLI prints, checks, or applies only the selected RDB session plugin schema; application migrations remain outside Popcorn Wave.
 
 ```yaml
+status: not implemented; rule:framework-owned-tables carries plugin schema as migration files instead
 usage: "pw session schema --config <runtime.toml> [--check | --apply] [--output <file>]"
 default:
   action: print deterministic SQL to stdout or output file

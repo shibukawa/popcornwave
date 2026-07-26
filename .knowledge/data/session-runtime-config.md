@@ -29,6 +29,15 @@ plugin_fields:
     rdb.dsn: dedicated-only URL such as sqlite://app.db or sqlite://:memory:
     rdb.table: string
     rdb.busy_timeout: duration
+implemented:
+  binding: enabled, backend, ttl, idle_timeout, renewal_interval, and every cookie key
+  rdb_keys: rdb.source, rdb.dsn, and rdb.table are declared by pw rather than by the plugin
+  backend: rdb only
+  source: middleware only
+deferred:
+  - redis backend and its plugin keys
+  - dedicated rdb source and rdb.busy_timeout
+  - plugin-owned registration of backend-specific keys
 rules:
   - all keys are declared under one session binding
   - related fields share cookie, redis, or rdb prefixes

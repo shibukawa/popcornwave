@@ -38,7 +38,7 @@ func TestScaffoldsIncludeBuiltInDefinitions(t *testing.T) {
 	for _, fragment := range []string{
 		"PORT=8080", "SERVER_MAX_REQUEST_BODY=10485760",
 		"SERVER_HEALTH_ENABLED=true", "SECURITY_HEADERS_ENABLED=true",
-		"OTEL_SERVICE_NAME=\"\"", "SESSION_SECRET=\"\"",
+		"OTEL_SERVICE_NAME=\"\"", "SESSION_ENABLED=false", "SESSION_COOKIE_SECURE=true",
 	} {
 		if !strings.Contains(env, fragment) {
 			t.Fatalf("env scaffold missing %q:\n%s", fragment, env)

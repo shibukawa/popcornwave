@@ -16,7 +16,14 @@ func buildRuntimeHandler(handler http.Handler, server ServerConfig, security Sec
 	if err != nil {
 		return nil, err
 	}
-	result := operationalEndpoints(handler, server, resources)
+	// Extensions see the same resources the request handler will, so a
+	// disabled or misconfigured capability fails during startup rather than on
+	// the first request.
+	extended, err := applyExtensions(pwruntime.WithResources(context.Background(), resources), handler)
+	if err != nil {
+		return nil, err
+	}
+	result := operationalEndpoints(extended, server, resources)
 	if server.Public.Enabled {
 		var embedded fs.FS
 		if len(publicFS) > 0 {

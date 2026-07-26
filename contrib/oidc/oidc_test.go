@@ -15,6 +15,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -388,6 +389,47 @@ func TestDiscoveryRejectsJWKSBounds(t *testing.T) {
 		if _, err := Discover(ctx, "https://issuer.example", options); !errors.Is(err, ErrInvalidOptions) {
 			t.Fatalf("options %+v error = %v", options, err)
 		}
+	}
+}
+
+// TestDiscoveryAcceptsPublishedCapabilityArrays covers a document shaped like
+// a real provider's: few top-level members, but long capability arrays whose
+// elements also count toward the JSON member bound.
+func TestDiscoveryAcceptsPublishedCapabilityArrays(t *testing.T) {
+	issuer := "https://issuer.example"
+	key, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatal(err)
+	}
+	claims := make([]string, 0, 24)
+	for index := range 24 {
+		claims = append(claims, `"claim-`+strconv.Itoa(index)+`"`)
+	}
+	document := `{"issuer":"` + issuer + `","authorization_endpoint":"` + issuer + `/authorize",` +
+		`"token_endpoint":"` + issuer + `/token","jwks_uri":"` + issuer + `/keys",` +
+		`"userinfo_endpoint":"` + issuer + `/userinfo",` +
+		`"claims_supported":[` + strings.Join(claims, ",") + `],` +
+		`"scopes_supported":["openid","profile","email","offline_access"],` +
+		`"response_types_supported":["code","id_token","code id_token"],` +
+		`"grant_types_supported":["authorization_code","refresh_token","client_credentials"],` +
+		`"token_endpoint_auth_methods_supported":["client_secret_basic","client_secret_post","none"],` +
+		`"id_token_signing_alg_values_supported":["RS256"],` +
+		`"subject_types_supported":["public"]}`
+	transport := oidcTransport{handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case "/.well-known/openid-configuration":
+			_, _ = io.WriteString(w, document)
+		case "/keys":
+			_, _ = io.WriteString(w, jwksJSON(key))
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	})}
+	if _, err := Discover(context.Background(), issuer, DiscoverOptions{
+		HTTPClient: &http.Client{Transport: transport},
+	}); err != nil {
+		t.Fatalf("discovery of a capability-rich document = %v", err)
 	}
 }
 

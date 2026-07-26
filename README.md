@@ -42,6 +42,21 @@ The runtime provides:
 Modern component graphs, patch protocols, hydration, and browser JavaScript are
 not dependencies of this package.
 
+## Authentication
+
+Opaque server-side login sessions live in [`session`](session/README.md), and
+[`plugin/session/rdb`](plugin/session/rdb/README.md) stores them in a
+`database/sql` database. Importing
+[`plugin/auth`](plugin/auth/README.md) adds the `[auth]` binding and the login
+flow itself; nothing is installed until `auth.enabled` is true, so an unused
+import costs one configuration binding.
+
+The implemented mode is `auth.mode = "oidc_only"`: OpenID Connect
+Authorization Code with PKCE over [`contrib/oidc`](contrib/oidc/README.md).
+[`examples/oidclogin`](examples/oidclogin/README.md) is a complete application
+that logs in against a local [oidcld](https://github.com/shibukawa/oidcld)
+provider and keeps its sessions in SQLite.
+
 The Hello World example can print combined configuration scaffolds registered
 by every imported package. Redirect stdout when a file is wanted:
 

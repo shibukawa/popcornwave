@@ -1,0 +1,54 @@
+# Development runtime configuration, selected by APP_ENV=dev (the default).
+
+[server]
+port = 8080
+
+[observability]
+minimum_level = "debug"
+service_name = "oidclogin"
+
+# The framework tables and the application tables share this database. The
+# framework tables come from the migrations named after their owning package.
+[middleware.rdb]
+enabled = true
+dsn = "sqlite://oidclogin.db"
+connect_timeout = "5s"
+max_open_conns = 1
+max_idle_conns = 1
+
+[session]
+enabled = true
+backend = "rdb"
+ttl = "12h"
+idle_timeout = "1h"
+renewal_interval = "5m"
+cookie.name = "pw_session"
+# Loopback development only. Keep secure = true everywhere else.
+cookie.secure = false
+cookie.same_site = "lax"
+rdb.source = "middleware"
+
+[auth]
+enabled = true
+mode = "oidc_only"
+post_login_path = "/"
+protection.include = ["/mypage"]
+protection.unauthenticated = "redirect"
+
+[auth.oidc]
+issuer = "http://localhost:18080"
+client_id = "oidclogin"
+client_secret = "oidclogin-secret"
+redirect_url = "http://localhost:8080/auth/callback"
+scopes = ["profile", "email"]
+# The verified claim that identifies a local account. "sub" is the OpenID
+# Connect default; a directory that issues its own stable identifier, such as an
+# employee number, names that claim here instead.
+identity_claim = "employee_number"
+admission = "authenticated"
+auto_provision = true
+# Set admission = "registered" to admit only identities that were inserted into
+# popcornwave_auth_allowlist beforehand.
+# registered_claims = ["sub", "email"]
+# oidcld serves plain HTTP on loopback; a real issuer must be HTTPS.
+allow_loopback_http = true

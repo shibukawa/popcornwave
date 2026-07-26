@@ -1,0 +1,6 @@
+[project]
+name = "oidclogin"
+main = "./cmd/oidclogin"
+
+[dev]
+extra_watch = []

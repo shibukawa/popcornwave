@@ -23,6 +23,11 @@ type Resources struct {
 	DBDriver string
 	// TxScope is the active transaction scope, installed by the framework only.
 	TxScope *TransactionScope
+	// Session is the validated session view, installed by session middleware.
+	Session *SessionView
+	// Authentication is the verified request authentication result, finalized
+	// by authentication middleware before handler dispatch.
+	Authentication Authentication
 }
 
 func WithResources(ctx context.Context, resources Resources) context.Context {
@@ -73,6 +78,13 @@ func WithLogger(ctx context.Context, logger *slog.Logger) context.Context {
 func DB(ctx context.Context) (*sql.DB, bool) {
 	db := resources(ctx).DB
 	return db, db != nil
+}
+
+// DBDriver reports the driver scheme of the framework database pool, which
+// dialect-specific storage needs before it issues SQL.
+func DBDriver(ctx context.Context) (string, bool) {
+	driver := resources(ctx).DBDriver
+	return driver, driver != ""
 }
 
 // SQLExecutor is used by generated .pw.sql context wrappers.

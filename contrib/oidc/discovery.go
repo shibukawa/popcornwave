@@ -77,7 +77,7 @@ func Discover(ctx context.Context, issuer string, options DiscoverOptions) (*Pro
 		return nil, err
 	}
 	var document discoveryDocument
-	if err := authn.ValidateJSON(body, authn.JSONOptions{MaxBytes: maxResponse, MaxDepth: 8, MaxMembers: 64}); err != nil {
+	if err := authn.ValidateJSON(body, authn.JSONOptions{MaxBytes: maxResponse, MaxDepth: 8, MaxMembers: maxDiscoveryMembers}); err != nil {
 		return nil, classifyJSON(err)
 	}
 	if err := json.Unmarshal(body, &document); err != nil || document.Issuer == "" || document.AuthorizationEndpoint == "" || document.TokenEndpoint == "" || document.JWKSURI == "" {

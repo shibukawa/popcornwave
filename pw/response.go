@@ -106,8 +106,14 @@ func BadRequest(values ...any) Problem {
 func NotFound(values ...any) Problem {
 	return problem(http.StatusNotFound, "Not Found", firstValue(values))
 }
+func Unauthorized(values ...any) Problem {
+	return problem(http.StatusUnauthorized, "Unauthorized", firstValue(values))
+}
 func Forbidden(values ...any) Problem {
 	return problem(http.StatusForbidden, "Forbidden", firstValue(values))
+}
+func ServiceUnavailable(values ...any) Problem {
+	return problem(http.StatusServiceUnavailable, "Service Unavailable", firstValue(values))
 }
 func InternalServerError(values ...any) Problem {
 	p := problem(http.StatusInternalServerError, "Internal Server Error", firstValue(values))

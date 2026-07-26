@@ -27,13 +27,18 @@ var (
 const (
 	defaultMaxResponseBytes = 64 << 10
 	maxMaxResponseBytes     = 4 << 20
-	maxJWKSBytes            = 16 << 20
-	maxJWKSKeys             = 4096
-	defaultRequestTimeout   = 30 * time.Second
-	defaultJWKSCacheTTL     = 5 * time.Minute
-	defaultJWKSStaleTTL     = 15 * time.Minute
-	maxJWKSCacheTTL         = time.Hour
-	maxJWKSStaleTTL         = 24 * time.Hour
+	// maxDiscoveryMembers bounds every object member and array element of a
+	// discovery document. Published providers advertise long capability
+	// arrays, so this counts far more than the document's top-level members
+	// while the response byte limit still bounds the whole payload.
+	maxDiscoveryMembers   = 512
+	maxJWKSBytes          = 16 << 20
+	maxJWKSKeys           = 4096
+	defaultRequestTimeout = 30 * time.Second
+	defaultJWKSCacheTTL   = 5 * time.Minute
+	defaultJWKSStaleTTL   = 15 * time.Minute
+	maxJWKSCacheTTL       = time.Hour
+	maxJWKSStaleTTL       = 24 * time.Hour
 )
 
 type DiscoverOptions struct {

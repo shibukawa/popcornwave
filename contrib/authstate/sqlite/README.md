@@ -1,10 +1,11 @@
 # contrib/authstate/sqlite
 
 This package adapts Petitweb's portable SQLite facade to `authstate.Store[T]`.
-It owns the `petitweb_authstate` table, consumes records with one
-`DELETE ... RETURNING` statement, and exposes bounded expiry pruning. Call
-`EnsureSchema` during startup and protect the database file and backups as
-secret application state.
+It owns the `popcornwave_authstate` table, consumes records with one
+`DELETE ... RETURNING` statement, and exposes bounded expiry pruning. `SchemaSQL`
+publishes the DDL so a project can carry it in a migration; `EnsureSchema`
+creates the table when it is missing and otherwise validates its layout. Protect
+the database file and backups as secret application state.
 
 ```go
 db, err := dbsqlite.Open("app.db")

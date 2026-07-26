@@ -1,0 +1,6 @@
+.devbox/
+/oidclogin
+/pw
+*_pw_gen.go
+public/**/*.zstd
+*.db
