@@ -12,9 +12,11 @@ The caller owns `db`, because a session store commonly shares the pool of the
 RDB middleware.
 
 The table is migration-owned. `MigrationSQL` returns the goose migration a
-project carries as `00001_init_popcornwave_session.sql`, and `VerifySchema`
-checks it at startup without changing the schema. `EnsureSchema` still creates
-the table for a test or a tool that has no migration directory.
+project carries, `MigrationName` is the name it carries it under, and
+`VerifySchema` checks the result at startup without changing the schema. The
+version prefix belongs to the project: the file takes the next free number when
+it is written, so installing this later renumbers nothing. `EnsureSchema` still
+creates the table for a test or a tool that has no migration directory.
 
 Record timestamps are columns, not payload fields, so renewal updates one row
 without rewriting or re-encoding the payload. `Get` treats stored expiry as

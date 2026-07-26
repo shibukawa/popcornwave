@@ -10,10 +10,10 @@ import (
 	"github.com/shibukawa/popcornwave/plugin/session/rdb"
 )
 
-// MigrationFileName is the migration a project carries for the tables this
-// package owns. The leading version keeps framework tables ahead of application
-// migrations.
-const MigrationFileName = "00002_init_popcornwave_auth.sql"
+// MigrationName is the stable name of the migration a project carries for the
+// tables this package owns, without a version. See rdb.MigrationName for why
+// the version belongs to the project rather than to the package.
+const MigrationName = "init_popcornwave_auth"
 
 // AllowlistTable holds the identities a deployment registered in advance. It is
 // consulted by AdmissionRegistered.
@@ -56,15 +56,18 @@ DROP TABLE ` + authsqlite.TableName + `;
 // each one, in the order a project applies them.
 func requiredTables(sessionTable string) [][2]string {
 	return [][2]string{
-		{sessionTable, rdb.MigrationFileName},
-		{authsqlite.TableName, MigrationFileName},
-		{AllowlistTable, MigrationFileName},
+		{sessionTable, rdb.MigrationName},
+		{authsqlite.TableName, MigrationName},
+		{AllowlistTable, MigrationName},
 	}
 }
 
 // verifyTables reports a missing framework table together with the migration
 // that creates it, so a deployment that skipped the migration fails at startup
 // instead of during the first login.
+//
+// The migration is named without a version, because the version is whatever was
+// free in that project when the file was written.
 func verifyTables(ctx context.Context, db *sql.DB, sessionTable string) error {
 	for _, required := range requiredTables(sessionTable) {
 		exists, err := tableExists(ctx, db, required[0])
@@ -72,7 +75,8 @@ func verifyTables(ctx context.Context, db *sql.DB, sessionTable string) error {
 			return err
 		}
 		if !exists {
-			return fmt.Errorf("table %q is missing: apply migrations/%s with pw migrate up", required[0], required[1])
+			return fmt.Errorf("table %q is missing: apply the migration named %s with pw migrate up",
+				required[0], required[1])
 		}
 	}
 	return nil

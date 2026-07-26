@@ -86,9 +86,12 @@ func NewStore[T any](db *sql.DB, codec session.Codec[T], options Options) (*Stor
 	}, nil
 }
 
-// MigrationFileName is the migration a project carries for this table. The
-// leading version keeps framework tables ahead of application migrations.
-const MigrationFileName = "00001_init_popcornwave_session.sql"
+// MigrationName is the stable name of the migration a project carries for this
+// table, without a version. The version belongs to the project: the file takes
+// the next free one when it is written, so adding this capability to a project
+// that already applied migrations renumbers nothing. The name is what makes the
+// file recognizable at whatever version it ended up with.
+const MigrationName = "init_popcornwave_session"
 
 // ErrSchemaMissing reports that the owned table does not exist yet. A project
 // creates it from MigrationSQL rather than at startup.

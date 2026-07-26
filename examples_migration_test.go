@@ -3,6 +3,7 @@ package petitweb_test
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/shibukawa/popcornwave/plugin/auth"
@@ -10,19 +11,35 @@ import (
 )
 
 // TestExampleFrameworkMigrationsMatchOwners keeps the migration files carried by
-// the examples identical to the SQL their owning packages publish. The files are
-// written by hand today and scaffolded by api:cli-init once the authentication
-// modes settle; either way they must not drift from the tables the runtime
-// verifies at startup.
+// the examples identical to the SQL their owning packages publish, so a sample
+// cannot drift from the tables the runtime verifies at startup.
+//
+// A file is located by its name rather than by its version, because
+// rule:framework-owned-tables reserves no version range: the version is whatever
+// was free in that project when api:cli-init or api:cli-add wrote the file.
 func TestExampleFrameworkMigrationsMatchOwners(t *testing.T) {
 	owned := map[string]string{
-		rdb.MigrationFileName:  rdb.MigrationSQL(""),
-		auth.MigrationFileName: auth.MigrationSQL(),
+		rdb.MigrationName:  rdb.MigrationSQL(""),
+		auth.MigrationName: auth.MigrationSQL(),
 	}
 	for _, example := range []string{"oidclogin"} {
 		directory := filepath.Join("examples", example, "migrations")
-		for name, want := range owned {
-			path := filepath.Join(directory, name)
+		entries, err := os.ReadDir(directory)
+		if err != nil {
+			t.Fatal(err)
+		}
+		found := make(map[string]bool, len(owned))
+		for _, entry := range entries {
+			name, ok := migrationName(entry.Name())
+			if !ok {
+				continue
+			}
+			want, owns := owned[name]
+			if !owns {
+				continue
+			}
+			found[name] = true
+			path := filepath.Join(directory, entry.Name())
 			got, err := os.ReadFile(path)
 			if err != nil {
 				t.Errorf("%s: %v", path, err)
@@ -32,5 +49,20 @@ func TestExampleFrameworkMigrationsMatchOwners(t *testing.T) {
 				t.Errorf("%s does not match the SQL published by its owning package", path)
 			}
 		}
+		for name := range owned {
+			if !found[name] {
+				t.Errorf("%s carries no migration named %s", directory, name)
+			}
+		}
 	}
+}
+
+// migrationName strips the version prefix and the extension of a migration file.
+func migrationName(fileName string) (string, bool) {
+	base, ok := strings.CutSuffix(fileName, ".sql")
+	if !ok {
+		return "", false
+	}
+	_, name, ok := strings.Cut(base, "_")
+	return name, ok
 }

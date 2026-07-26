@@ -131,7 +131,7 @@ func TestScaffoldFilesWithTailwind(t *testing.T) {
 		"templates/409.pw.html",
 		"templates/413.pw.html",
 		"templates/500.pw.html",
-		"migrations/00010_init.sql",
+		"migrations/00001_init.sql",
 		".vscode/settings.json",
 	} {
 		if _, ok := files[name]; !ok {

@@ -15,22 +15,28 @@ current_tables:
   popcornwave_auth_allowlist: plugin/auth pre-registration for policy:oidc-admission registered mode
 migrations:
   location: the application migration directory, beside application migrations
-  naming: "{version}_init_popcornwave_{capability}.sql"
-  reserved_versions: below 00010, so a new framework table never renumbers application migrations
+  file_name: "{version}_init_popcornwave_{capability}.sql"
+  identity: the name stem after the version, which the owning package publishes and never changes
+  version: the next free version at the moment the file is written, exactly like an application migration
+  no_reserved_range: a capability added later takes the next number, so nothing already applied is renumbered
+  detection: a project already carries a capability when a file with that name stem exists, at any version
   source: the owning package publishes the exact file content, and a repository test fails when a copy drifts
-  scaffolding: api:cli-init writes them from the selected authentication mode once decision:authentication-bootstrap-strategy modes are implemented
+  scaffolding: api:cli-init writes the files of the selected authentication mode; api:cli-add writes them into an existing project
 startup:
   action: verify only
-  missing_table: refuse to serve and name the migration file and the command that applies it
+  missing_table: refuse to serve and name the missing table, the migration that creates it, and the command that applies it
   shape_check: validate the column layout of an existing table
   forbidden: creating, altering, or dropping a table while serving
 rules:
   - one migration file per owning package
+  - the file name, not the version, identifies a framework migration
+  - never renumber a migration a project may already have applied
   - a package never writes to a table another package owns
   - application migrations never modify a popcornwave_ table
   - records that expire without being consumed are swept, because expiry is logical
 related:
   - api:session-store
+  - api:cli-add
   - api:cli-session-schema
   - policy:migration-safety
 ```

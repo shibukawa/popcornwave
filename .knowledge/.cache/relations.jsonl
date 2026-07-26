@@ -18,6 +18,14 @@
 {"context": "body", "path": ".knowledge/api/authentication-endpoints.md", "source": "api:authentication-endpoints", "target": "rule:framework-owned-tables", "target_category": "constraint", "target_type": "rule"}
 {"context": "body", "path": ".knowledge/api/authentication-endpoints.md", "source": "api:authentication-endpoints", "target": "policy:oauth-security", "target_category": "constraint", "target_type": "policy"}
 {"context": "body", "path": ".knowledge/api/authentication-endpoints.md", "source": "api:authentication-endpoints", "target": "policy:oidc-security", "target_category": "constraint", "target_type": "policy"}
+{"context": "body", "path": ".knowledge/api/cli-add.md", "source": "api:cli-add", "target": "api:cli-init", "target_category": "interface", "target_type": "api"}
+{"context": "body", "path": ".knowledge/api/cli-add.md", "source": "api:cli-add", "target": "rule:framework-owned-tables", "target_category": "constraint", "target_type": "rule"}
+{"context": "body", "path": ".knowledge/api/cli-add.md", "source": "api:cli-add", "target": "data:authentication-runtime-config", "target_category": "structure", "target_type": "data"}
+{"context": "body", "path": ".knowledge/api/cli-add.md", "source": "api:cli-add", "target": "api:authentication-endpoints", "target_category": "interface", "target_type": "api"}
+{"context": "body", "path": ".knowledge/api/cli-add.md", "source": "api:cli-add", "target": "data:devidp-config", "target_category": "structure", "target_type": "data"}
+{"context": "body", "path": ".knowledge/api/cli-add.md", "source": "api:cli-add", "target": "data:project-config", "target_category": "structure", "target_type": "data"}
+{"context": "body", "path": ".knowledge/api/cli-add.md", "source": "api:cli-add", "target": "api:migration-runner", "target_category": "interface", "target_type": "api"}
+{"context": "body", "path": ".knowledge/api/cli-add.md", "source": "api:cli-add", "target": "concept:project-layout", "target_category": "concept", "target_type": "concept"}
 {"context": "body", "path": ".knowledge/api/cli-build.md", "source": "api:cli-build", "target": "api:cli-generate", "target_category": "interface", "target_type": "api"}
 {"context": "body", "path": ".knowledge/api/cli-build.md", "source": "api:cli-build", "target": "flow:tailwind-css-build", "target_category": "behavior", "target_type": "flow"}
 {"context": "body", "path": ".knowledge/api/cli-build.md", "source": "api:cli-build", "target": "flow:public-asset-build", "target_category": "behavior", "target_type": "flow"}
@@ -48,8 +56,8 @@
 {"context": "body", "path": ".knowledge/api/cli-init.md", "source": "api:cli-init", "target": "concept:project-layout", "target_category": "concept", "target_type": "concept"}
 {"context": "body", "path": ".knowledge/api/cli-init.md", "source": "api:cli-init", "target": "requirement:environment-switching", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/api/cli-init.md", "source": "api:cli-init", "target": "flow:handler-registration", "target_category": "behavior", "target_type": "flow"}
-{"context": "body", "path": ".knowledge/api/cli-init.md", "source": "api:cli-init", "target": "rule:framework-owned-tables", "target_category": "constraint", "target_type": "rule"}
 {"context": "body", "path": ".knowledge/api/cli-init.md", "source": "api:cli-init", "target": "api:authentication-endpoints", "target_category": "interface", "target_type": "api"}
+{"context": "body", "path": ".knowledge/api/cli-init.md", "source": "api:cli-init", "target": "rule:framework-owned-tables", "target_category": "constraint", "target_type": "rule"}
 {"context": "body", "path": ".knowledge/api/cli-init.md", "source": "api:cli-init", "target": "data:middleware-runtime-config", "target_category": "structure", "target_type": "data"}
 {"context": "body", "path": ".knowledge/api/cli-init.md", "source": "api:cli-init", "target": "requirement:tailwind-css-integration", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/api/cli-init.md", "source": "api:cli-init", "target": "decision:tailwind-host-toolchain", "target_category": "constraint", "target_type": "decision"}
@@ -216,6 +224,7 @@
 {"context": "body", "path": ".knowledge/concept/project-layout.md", "source": "concept:project-layout", "target": "concept:application-entry-point", "target_category": "concept", "target_type": "concept"}
 {"context": "body", "path": ".knowledge/concept/project-layout.md", "source": "concept:project-layout", "target": "data:migration-source", "target_category": "structure", "target_type": "data"}
 {"context": "body", "path": ".knowledge/concept/project-layout.md", "source": "concept:project-layout", "target": "rule:framework-owned-tables", "target_category": "constraint", "target_type": "rule"}
+{"context": "body", "path": ".knowledge/concept/project-layout.md", "source": "concept:project-layout", "target": "api:cli-add", "target_category": "interface", "target_type": "api"}
 {"context": "body", "path": ".knowledge/concept/project-layout.md", "source": "concept:project-layout", "target": "data:seed-dataset", "target_category": "structure", "target_type": "data"}
 {"context": "body", "path": ".knowledge/concept/project-layout.md", "source": "concept:project-layout", "target": "api:cli-seed", "target_category": "interface", "target_type": "api"}
 {"context": "body", "path": ".knowledge/concept/project-layout.md", "source": "concept:project-layout", "target": "api:test-seed", "target_category": "interface", "target_type": "api"}
@@ -994,7 +1003,7 @@
 {"context": "body", "path": ".knowledge/requirement/typed-http-contract.md", "source": "requirement:typed-http-contract", "target": "policy:validation-errors", "target_category": "constraint", "target_type": "policy"}
 {"context": "body", "path": ".knowledge/rule/framework-owned-tables.md", "source": "rule:framework-owned-tables", "target": "policy:oidc-admission", "target_category": "constraint", "target_type": "policy"}
 {"context": "body", "path": ".knowledge/rule/framework-owned-tables.md", "source": "rule:framework-owned-tables", "target": "api:cli-init", "target_category": "interface", "target_type": "api"}
-{"context": "body", "path": ".knowledge/rule/framework-owned-tables.md", "source": "rule:framework-owned-tables", "target": "decision:authentication-bootstrap-strategy", "target_category": "constraint", "target_type": "decision"}
+{"context": "body", "path": ".knowledge/rule/framework-owned-tables.md", "source": "rule:framework-owned-tables", "target": "api:cli-add", "target_category": "interface", "target_type": "api"}
 {"context": "body", "path": ".knowledge/rule/framework-owned-tables.md", "source": "rule:framework-owned-tables", "target": "api:session-store", "target_category": "interface", "target_type": "api"}
 {"context": "body", "path": ".knowledge/rule/framework-owned-tables.md", "source": "rule:framework-owned-tables", "target": "api:cli-session-schema", "target_category": "interface", "target_type": "api"}
 {"context": "body", "path": ".knowledge/rule/framework-owned-tables.md", "source": "rule:framework-owned-tables", "target": "policy:migration-safety", "target_category": "constraint", "target_type": "policy"}

@@ -359,11 +359,14 @@ func findCookie(t *testing.T, jar *cookiejar.Jar, rawURL, name string) *http.Coo
 func applyFrameworkMigrations(t *testing.T, database string) {
 	t.Helper()
 	directory := t.TempDir()
-	for name, content := range map[string]string{
-		rdb.MigrationFileName: rdb.MigrationSQL(""),
-		MigrationFileName:     MigrationSQL(),
+	// The versions here are this fixture's, not the packages': a project picks
+	// whatever is free when the file is written.
+	for version, migration := range map[int]struct{ name, content string }{
+		1: {rdb.MigrationName, rdb.MigrationSQL("")},
+		2: {MigrationName, MigrationSQL()},
 	} {
-		if err := os.WriteFile(filepath.Join(directory, name), []byte(content), 0o600); err != nil {
+		name := fmt.Sprintf("%05d_%s.sql", version, migration.name)
+		if err := os.WriteFile(filepath.Join(directory, name), []byte(migration.content), 0o600); err != nil {
 			t.Fatal(err)
 		}
 	}

@@ -22,19 +22,21 @@ extensions:
 ## Tables
 
 Framework tables are prefixed `popcornwave_` and come from their own migration
-files, ahead of the application's:
+files, beside the application's:
 
 | Migration | Tables | Owner |
 | --- | --- | --- |
-| [00001_init_popcornwave_session.sql](migrations/00001_init_popcornwave_session.sql) | `popcornwave_session` | `plugin/session/rdb` |
-| [00002_init_popcornwave_auth.sql](migrations/00002_init_popcornwave_auth.sql) | `popcornwave_authstate`, `popcornwave_auth_allowlist` | `plugin/auth` |
-| [00010_init.sql](migrations/00010_init.sql) | `accounts`, `external_identities` | this application |
+| [00001_init.sql](migrations/00001_init.sql) | `accounts`, `external_identities` | this application |
+| [00002_init_popcornwave_session.sql](migrations/00002_init_popcornwave_session.sql) | `popcornwave_session` | `plugin/session/rdb` |
+| [00003_init_popcornwave_auth.sql](migrations/00003_init_popcornwave_auth.sql) | `popcornwave_authstate`, `popcornwave_auth_allowlist` | `plugin/auth` |
 
-Versions below `00010` are reserved for the framework, so a new framework table
-never renumbers application migrations. The files are copies of the SQL their
-owning packages publish (`rdb.MigrationSQL`, `auth.MigrationSQL`); a test in the
-repository fails if they drift, and `pw init --auth=oidc` writes the same files
-into a new project.
+No version range is reserved for the framework. A framework migration takes the
+next free version when it is written, so adding a login to a project that has
+already applied migrations renumbers nothing; what identifies the file is its
+name, not its number. The contents are copies of the SQL their owning packages
+publish (`rdb.MigrationSQL`, `auth.MigrationSQL`); a test in the repository
+fails if they drift, and `pw init --auth=oidc` writes the same files into a new
+project.
 
 Startup verifies these tables and refuses to serve when one is missing, naming
 the migration to apply. Rows that expire without being consumed are swept

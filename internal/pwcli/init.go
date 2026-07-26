@@ -324,10 +324,7 @@ export statement FindUser(id: int): sql.one<User> {
 SELECT id, name FROM users WHERE id = {id}
 }
 `,
-		// Application migrations start at 00010. Versions below it belong to
-		// the framework packages that own their own tables, so adding a login
-		// later never renumbers anything the project already applied.
-		"migrations/00010_init.sql": `-- +goose Up
+		"migrations/00001_init.sql": `-- +goose Up
 CREATE TABLE users (
     id INTEGER PRIMARY KEY,
     name TEXT NOT NULL
@@ -391,10 +388,11 @@ func PublicFS() fs.FS {
 	}
 	if servesLogin(options) {
 		files["handlers/accounts.go"] = accountResolverScaffold()
-		// The framework tables come from the packages that own them, ahead of
-		// the application migrations. Versions below 00010 are reserved.
-		files["migrations/00001_init_popcornwave_session.sql"] = rdb.MigrationSQL("popcornwave_session")
-		files["migrations/00002_init_popcornwave_auth.sql"] = auth.MigrationSQL()
+		// The framework tables come from the packages that own them. A fresh
+		// project has only the application schema, so these take the versions
+		// after it; pw add would take whatever is free at that point instead.
+		files["migrations/00002_"+rdb.MigrationName+".sql"] = rdb.MigrationSQL("popcornwave_session")
+		files["migrations/00003_"+auth.MigrationName+".sql"] = auth.MigrationSQL()
 	}
 	return files
 }

@@ -85,10 +85,10 @@ func TestScaffoldWiresTheFrameworkOwnedEndpoints(t *testing.T) {
 		t.Fatalf("accounts.go = %q", resolver)
 	}
 	// The framework tables come from the packages that own them.
-	if files["migrations/00001_init_popcornwave_session.sql"] != rdb.MigrationSQL("popcornwave_session") {
+	if files["migrations/00002_"+rdb.MigrationName+".sql"] != rdb.MigrationSQL("popcornwave_session") {
 		t.Fatal("the scaffolded session migration is not the one plugin/session/rdb publishes")
 	}
-	if files["migrations/00002_init_popcornwave_auth.sql"] != auth.MigrationSQL() {
+	if files["migrations/00003_"+auth.MigrationName+".sql"] != auth.MigrationSQL() {
 		t.Fatal("the scaffolded auth migration is not the one plugin/auth publishes")
 	}
 

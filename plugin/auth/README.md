@@ -29,8 +29,8 @@ currently be SQLite. `session.rdb.source` must be `middleware`.
 ## Tables
 
 The tables this package owns are prefixed `popcornwave_` and are created by the
-migration `MigrationSQL` publishes, which a project carries as
-`00002_init_popcornwave_auth.sql`:
+migration `MigrationSQL` publishes, which a project carries under
+`MigrationName` at whatever version was free when the file was written:
 
 - `popcornwave_authstate` — single-use state, nonce, and PKCE verifier of a
   pending login, consumed by the callback

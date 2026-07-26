@@ -3,6 +3,7 @@
 {"category": "interface", "id": "api:application-lifecycle", "path": ".knowledge/api/application-lifecycle.md", "role": "primary", "title": "Application Lifecycle API", "type": "api"}
 {"category": "interface", "id": "api:auth-state-codec", "path": ".knowledge/api/auth-state-codec.md", "role": "primary", "title": "Authentication State Codec", "type": "api"}
 {"category": "interface", "id": "api:authentication-endpoints", "path": ".knowledge/api/authentication-endpoints.md", "role": "primary", "title": "Authentication Endpoints", "type": "api"}
+{"category": "interface", "id": "api:cli-add", "path": ".knowledge/api/cli-add.md", "role": "primary", "title": "pw add", "type": "api"}
 {"category": "interface", "id": "api:cli-build", "path": ".knowledge/api/cli-build.md", "role": "primary", "title": "pw build", "type": "api"}
 {"category": "interface", "id": "api:cli-dev", "path": ".knowledge/api/cli-dev.md", "role": "primary", "title": "pw dev", "type": "api"}
 {"category": "interface", "id": "api:cli-generate", "path": ".knowledge/api/cli-generate.md", "role": "primary", "title": "pw generate", "type": "api"}
