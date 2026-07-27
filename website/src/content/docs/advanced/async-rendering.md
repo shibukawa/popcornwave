@@ -65,6 +65,15 @@ The important property is not the total. It is that **the status code, the
 document head, and every settled value leave the server before the slow work
 finishes**.
 
+This is the streaming shape the Next.js App Router made familiar: a shell with
+placeholders goes out first, and each suspended region is filled in as its data
+resolves, over one response. Popcorn Wave reaches the same result without a
+component framework in the browser — the page a reader receives is
+server-rendered HTML from first byte to last, and the only client code involved
+is one small module that moves finished markup into place.
+[How it works](#how-it-works) at the end of this page describes the difference
+concretely.
+
 ## What a handler changes
 
 Almost nothing. Adopting this means passing pending values where you used to
@@ -315,3 +324,84 @@ than at request time.
 `examples/async_render` in the repository links one page per behaviour —
 success, contained failure, and unhandled failure — so each path is reachable on
 purpose rather than by luck.
+
+## How it works
+
+Nothing above requires knowing this. It is here because the mechanism is small
+enough to describe completely, and because one detail in it is easy to get wrong
+in a way that only fails in production.
+
+### The wire format
+
+During the first pass every unresolved boundary is written as a placeholder
+holding its fallback, and the whole document is flushed:
+
+```html
+<tb-boundary id="tb-1" style="display:contents">
+  <p class="pending">Loading orders…</p>
+</tb-boundary>
+```
+
+`display:contents` keeps the placeholder out of layout, so a boundary cannot
+change how its fallback or its replacement is positioned.
+
+Each completion is then appended **to the same response**, in settle order, as an
+inert template followed by a marker element:
+
+```html
+<template data-tb-boundary="tb-1">…resolved…</template><tb-apply for="tb-1"></tb-apply>
+```
+
+`<tb-apply>` is a custom element. Its `connectedCallback` runs while the document
+is still parsing, so the swap is as prompt as an inline script would be: it reads
+the boundary id from `for`, replaces the element with that id, and removes both
+the template and itself. An applied boundary therefore leaves **no placeholder,
+no template, and no marker** in the DOM — nothing accumulates, and nothing can
+be applied twice.
+
+### Why the marker, and not the template
+
+This is the detail worth carrying away.
+
+An HTML parser inserts an element when it reads its **start** tag. Code that
+reacted to the `<template>` appearing could therefore read a template whose
+content had not arrived yet, replace the placeholder with nothing, and remove the
+template — destroying the fallback along with the result.
+
+Because `<tb-apply>` comes after `</template>` in the byte stream, the template
+is guaranteed complete by the time the marker exists, however the bytes were
+chunked.
+
+This is not hypothetical, and it is invisible in development: a small completion
+arrives in one chunk and parses in one task. It appears only once a proxy, a TLS
+record boundary, or a compressing encoder splits the bytes. Any conforming
+runtime must trigger on the marker — a `MutationObserver` watching for the marker
+is fine, one watching for the template is not.
+
+The same discipline covers the whole-page replacement an unhandled failure
+produces, which uses its own envelope and is terminal:
+
+```html
+<template data-tb-document>…error page…</template><tb-apply-document></tb-apply-document>
+```
+
+### Compared with the Next.js App Router
+
+The user-visible behaviour is the same. What differs is how much of the browser's
+work is JavaScript's.
+
+React's streaming SSR drives its swaps with **inline `<script>` elements embedded
+in the stream**, and the server component payload is delivered the same way. That
+is what makes a CSP nonce part of the setup, and it arrives alongside a client
+runtime that also hydrates the tree so components can re-render in the browser.
+
+Popcorn Wave carries no script in the stream at all. A completion is markup, the
+trigger is an element definition, and the runtime is a single cached module
+loaded by `src` — so `script-src 'self'` is sufficient, with no nonce and no
+`unsafe-inline`. There is no hydration, no virtual DOM, and no component code in
+the browser.
+
+The trade is deliberate and worth stating plainly: this mechanism can **place
+server-rendered HTML, and nothing else**. It will not re-render a section from
+client state, and it gives you no interactivity by itself. Interactivity remains
+something you add where you want it, rather than the price of streaming.
