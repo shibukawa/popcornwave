@@ -92,6 +92,30 @@ func TestRenderBootTreeMarksNonDefaultSourcesOnly(t *testing.T) {
 	}
 }
 
+func TestRenderBootTreeAlignsSourceMarksWithinAGroup(t *testing.T) {
+	report := sampleBootReport()
+	report.entries = []bootEntry{
+		{key: "app.endpoint", value: "https://example.test", source: "default"},
+		{key: "app.mode", value: "on", source: "cli"},
+	}
+	rendered := renderBootTree(report, "", bootStyle{})
+	var marked, longest string
+	for _, line := range strings.Split(rendered, "\n") {
+		switch {
+		case strings.Contains(line, "mode"):
+			marked = line
+		case strings.Contains(line, "endpoint"):
+			longest = line
+		}
+	}
+	// The mark starts past the widest value of the group, so a short value does
+	// not drag its mark leftward out of the column.
+	markColumn := utf8.RuneCountInString(marked[:strings.Index(marked, "←")])
+	if got, want := markColumn, utf8.RuneCountInString(longest)+2; got != want {
+		t.Fatalf("mark column = %d, want %d\n%s", got, want, rendered)
+	}
+}
+
 func TestRenderBootTreeRedactsSecrets(t *testing.T) {
 	rendered := renderBootTree(sampleBootReport(), "", bootStyle{})
 	if !strings.Contains(rendered, redactedValue) {

@@ -169,14 +169,18 @@ type bootLine struct {
 	// column is where the value starts, so that keys sharing a parent line up
 	// with each other instead of with the deepest key in the whole tree.
 	column int
-	entry  *bootEntry
+	// valueWidth is the widest value among those siblings, so their source
+	// marks form a column of their own.
+	valueWidth int
+	entry      *bootEntry
 }
 
 func bootLines(node *bootNode, prefix string, lines []bootLine) []bootLine {
-	column := 0
+	column, valueWidth := 0, 0
 	for _, child := range node.children {
 		if child.entry != nil {
 			column = max(column, utf8.RuneCountInString(prefix+"├─ "+child.name)+2)
+			valueWidth = max(valueWidth, utf8.RuneCountInString(bootDisplayValue(child.entry.value)))
 		}
 	}
 	for index, child := range node.children {
@@ -184,7 +188,9 @@ func bootLines(node *bootNode, prefix string, lines []bootLine) []bootLine {
 		if index == len(node.children)-1 {
 			branch, indent = "└─ ", prefix+"   "
 		}
-		lines = append(lines, bootLine{label: prefix + branch + child.name, column: column, entry: child.entry})
+		lines = append(lines, bootLine{
+			label: prefix + branch + child.name, column: column, valueWidth: valueWidth, entry: child.entry,
+		})
 		lines = bootLines(child, indent, lines)
 	}
 	return lines
@@ -205,9 +211,11 @@ func renderBootTree(report bootReport, listening string, style bootStyle) string
 	for _, line := range lines {
 		out.WriteString(line.label)
 		if line.entry != nil {
+			value := bootDisplayValue(line.entry.value)
 			out.WriteString(strings.Repeat(" ", line.column-utf8.RuneCountInString(line.label)))
-			out.WriteString(bootDisplayValue(line.entry.value))
+			out.WriteString(value)
 			if source := bootSourceTag(line.entry.source); source != "" {
+				out.WriteString(strings.Repeat(" ", line.valueWidth-utf8.RuneCountInString(value)))
 				out.WriteString(style.dim("  ← " + source))
 			}
 		}

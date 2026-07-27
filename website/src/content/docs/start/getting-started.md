@@ -149,6 +149,44 @@ pw dev
 migrations, starts the Tailwind watcher when it is enabled, and then builds and
 runs the application — restarting it whenever a watched file changes.
 
+The application reports its startup once, as a tree, and ends with the address
+it accepted:
+
+```
+handlers/home_pw_gen.go
+queries/users_pw_gen.go
+version 0 -> 1
+
+   .-.   .-.
+ .(   ) (   ).    Popcorn Wave v0.1.0
+(   o     o   )   started at 2026-07-28 09:12:31 JST
+(    \___/    )   env dev · config.dev.toml
+ '-.__.___.__-'
+
+configuration
+├─ middleware
+│  ├─ rdb
+│  │  ├─ dsn             [REDACTED]  ← file
+│  │  ├─ enabled         true        ← file
+│  │  └─ max_open_conns  1           ← file
+│  └─ request_timeout  0s
+├─ observability
+│  ├─ minimum_level  debug  ← file
+│  └─ service_name   myapp  ← file
+└─ server
+   ├─ api_doc  scalar  ← file
+   └─ port     8080    ← file
+
+listening on http://localhost:8080
+```
+
+Abbreviated here: the real tree lists every resolved key, framework and
+application alike. Only values that came from somewhere other than the built-in
+defaults are marked — `← file` above, and `← env` or `← flag` elsewhere — and
+keys such as `rdb.dsn` are redacted. Away from a terminal the same facts become
+a single structured log record instead; see
+[Startup summary](/guides/configuration/#startup-summary).
+
 Open <http://localhost:8080/>. The scaffolded page also responds to a query
 parameter, so <http://localhost:8080/?name=Popcorn> greets you by name.
 

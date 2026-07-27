@@ -146,6 +146,42 @@ pw dev
 を適用し、Tailwind が有効ならウォッチャを起動し、そのうえでアプリケーションをビルドして
 実行します。監視対象のファイルが変わるたびに再起動します。
 
+アプリケーションは起動内容を木構造で1回だけ報告し、最後に受け付けたアドレスを出します。
+
+```
+handlers/home_pw_gen.go
+queries/users_pw_gen.go
+version 0 -> 1
+
+   .-.   .-.
+ .(   ) (   ).    Popcorn Wave v0.1.0
+(   o     o   )   started at 2026-07-28 09:12:31 JST
+(    \___/    )   env dev · config.dev.toml
+ '-.__.___.__-'
+
+configuration
+├─ middleware
+│  ├─ rdb
+│  │  ├─ dsn             [REDACTED]  ← file
+│  │  ├─ enabled         true        ← file
+│  │  └─ max_open_conns  1           ← file
+│  └─ request_timeout  0s
+├─ observability
+│  ├─ minimum_level  debug  ← file
+│  └─ service_name   myapp  ← file
+└─ server
+   ├─ api_doc  scalar  ← file
+   └─ port     8080    ← file
+
+listening on http://localhost:8080
+```
+
+ここでは一部だけを載せています。実際の木にはフレームワークとアプリケーション双方の
+解決済みキーがすべて並びます。既定値以外から来た値だけが印されます（上の `← file` の
+ほか、`← env` と `← flag` があります）。`rdb.dsn` のようなキーは伏せられます。端末以外
+では同じ内容が構造化ログ1レコードになります。詳しくは
+[起動サマリ](/ja/guides/configuration/#起動サマリ)を参照してください。
+
 <http://localhost:8080/> を開いてください。生成されたページはクエリパラメータにも
 反応するので、<http://localhost:8080/?name=Popcorn> で名前入りの挨拶になります。
 

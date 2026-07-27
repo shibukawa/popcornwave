@@ -274,10 +274,10 @@ configuration
 │  ├─ compression      true  ← file
 │  └─ request_timeout  0s
 ├─ server
-│  ├─ port             8080
-│  └─ read_timeout     30s
+│  ├─ port          8080
+│  └─ read_timeout  30s
 └─ session
-   └─ enabled          false
+   └─ enabled  false
 
 listening on http://localhost:8080
 ```
