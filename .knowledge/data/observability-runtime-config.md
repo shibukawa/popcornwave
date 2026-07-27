@@ -13,6 +13,7 @@ fields:
   minimum_level: trace, debug, info, warn, error, or off
   stdout_format: json or plaintext
   service_name: string
+  boot_log: auto, tree, record, or off; selects policy:startup-summary output
   resource_attributes: data:log-attribute list
   otel:
     enabled: bool

@@ -30,6 +30,11 @@ func validateRuntimeConfig(server ServerConfig, security SecurityConfig, middlew
 	default:
 		return fmt.Errorf("observability.minimum_level must be trace, debug, info, warn, error, or off")
 	}
+	switch strings.ToLower(strings.TrimSpace(observability.BootLog)) {
+	case "", BootLogAuto, BootLogTree, BootLogRecord, BootLogOff:
+	default:
+		return fmt.Errorf("observability.boot_log must be %s, %s, %s, or %s", BootLogAuto, BootLogTree, BootLogRecord, BootLogOff)
+	}
 	return nil
 }
 

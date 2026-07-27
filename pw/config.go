@@ -95,6 +95,8 @@ type SessionRDBConfig struct {
 type ObservabilityConfig struct {
 	MinimumLevel string
 	ServiceName  string
+	// BootLog selects the startup summary format: auto, tree, record, or off.
+	BootLog string
 }
 
 // MiddlewareConfig selects the framework's basic HTTP middleware.
@@ -207,7 +209,7 @@ func ParseConfig() error {
 	if err != nil {
 		return err
 	}
-	logConfigSources(result)
+	captureBootReport(result)
 	return nil
 }
 
@@ -266,30 +268,6 @@ func runtimeResources(logger *slog.Logger) pwruntime.Resources {
 		}
 	}
 	return pwruntime.Resources{Configs: configs, Logger: logger, DB: configState.db, DBDriver: configState.dbDriver}
-}
-
-func logConfigSources(result *configbind.LoadResult) {
-	if result == nil || result.Overlay == nil {
-		return
-	}
-	if result.FoundFile {
-		slog.Info("config file resolved", "environment", Env(), "path", result.ConfigPath)
-	} else {
-		slog.Info("config file not found", "environment", Env())
-	}
-	keys := result.Overlay.Keys()
-	sort.Strings(keys)
-	for _, key := range keys {
-		entry, ok := result.Overlay.Get(key)
-		if !ok {
-			continue
-		}
-		value := entry.Raw
-		if isSecretKey(key) {
-			value = "[REDACTED]"
-		}
-		slog.Info("config loaded", "key", key, "value", value, "source", entry.Place)
-	}
 }
 
 func isSecretKey(key string) bool {
@@ -621,21 +599,27 @@ func registerObservabilityConfig() {
 	configbind.Register[ObservabilityConfig](configbind.Definition{
 		TypeName:  typeName,
 		Prefix:    "observability",
-		KnownKeys: []string{"observability.minimum_level", "observability.service_name"},
-		Defaults:  map[string]string{"observability.minimum_level": "info", "observability.service_name": ""},
+		KnownKeys: []string{"observability.minimum_level", "observability.service_name", "observability.boot_log"},
+		Defaults: map[string]string{
+			"observability.minimum_level": "info", "observability.service_name": "",
+			"observability.boot_log": BootLogAuto,
+		},
 		FlagMetas: []cliparser.FieldMeta{
 			{Prefix: "observability", Key: "minimum_level"},
 			{Prefix: "observability", Key: "service_name", Env: "OTEL_SERVICE_NAME"},
+			{Prefix: "observability", Key: "boot_log"},
 		},
 		Apply: func(dst any, overlay *configbind.Overlay) error {
 			p := dst.(*ObservabilityConfig)
 			p.MinimumLevel, _ = overlay.GetString("observability.minimum_level")
 			p.ServiceName, _ = overlay.GetString("observability.service_name")
+			p.BootLog, _ = overlay.GetString("observability.boot_log")
 			return nil
 		},
 		Scaffold: []configbind.ScaffoldField{
 			{Key: "minimum_level", Kind: configbind.ScaffoldString, Default: "info"},
 			{Key: "service_name", Kind: configbind.ScaffoldString, Default: "", Env: "OTEL_SERVICE_NAME"},
+			{Key: "boot_log", Kind: configbind.ScaffoldString, Default: BootLogAuto, Help: "startup summary: auto, tree, record, or off"},
 		},
 	})
 }
