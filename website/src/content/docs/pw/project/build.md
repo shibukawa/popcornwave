@@ -9,7 +9,8 @@ sidebar:
 pw build
 ```
 
-Builds the release binary. It takes no arguments.
+The build command turns the current project state into a release binary. It
+takes no arguments; its inputs come from `popcornwave.toml` and the environment.
 
 ## What it does
 
@@ -25,10 +26,11 @@ Builds the release binary. It takes no arguments.
 The binary lands in the project root, named after the main package. The
 scaffolded `.gitignore` already excludes it, along with `public/**/*.zstd`.
 
-The only development-only package today is `contrib/devidp`, the identity
-provider [`pw dev`](/pw/project/dev/) runs. It signs anyone in without checking
-a password, so linking it into a deployable binary is a defect rather than a
-configuration mistake, and the build stops with the importing package named.
+Today, `contrib/devidp` is the only development-only package. It is the identity
+provider used by [`pw dev`](/pw/project/dev/), and it signs users in without
+checking a password. Linking that behavior into a deployable binary is a build
+defect, not a production setting, so `pw build` stops and names the importing
+package.
 
 ## Running the result
 
@@ -47,17 +49,17 @@ APP_ENV=prod ./myapp
 GOOS=linux GOARCH=amd64 pw build
 ```
 
-Because nothing in the generated code path uses runtime reflection, the same
-sources also target TinyGo. Drive that compiler directly after generating:
+The generated path uses no runtime reflection, so the same sources can target
+TinyGo. After generation, invoke that compiler directly:
 
 ```sh
 pw generate
 tinygo build -o myapp ./cmd/myapp
 ```
 
-TinyGo's `net` package has no networking of its own: every socket goes through a
-Netdever the program registers itself. Projects scaffolded with TinyGo support
-get a root `tinygohelper.go` that does it:
+TinyGo's `net` package has no networking implementation of its own; every socket
+passes through a Netdever registered by the program. Projects scaffolded with
+TinyGo support include a root `tinygohelper.go` for that registration:
 
 ```go
 //go:build tinygo

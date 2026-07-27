@@ -60,23 +60,23 @@ writes the next numbered file and prints its path relative to the project root.
 
 ## Where the DSN comes from
 
-Without `--dsn`, `pw` asks **the application** for its DSN rather than
-reimplementing configuration precedence. So a migration always runs against the
-same database the server would open — the TOML file selected by `APP_ENV`,
-overridden by environment variables and flags, in that order.
+Without `--dsn`, `pw` does not recreate the application's configuration rules.
+It asks **the application** for the resolved DSN. The migration therefore
+targets the same database the server would open: the TOML file selected by
+`APP_ENV`, followed by environment and flag overrides.
 
-The DSN travels back over a pipe. It is never placed in a process argument,
-where it would be visible in a process list, and it is redacted from any error
-message `pw` prints.
+The resolved DSN returns over a pipe, never as a process argument visible in a
+process list. Any error printed by `pw` redacts it as well.
 
 This is also why most migrate actions need a project: without `--dir` and
 `--dsn` there is nothing to ask.
 
 ## During development
 
-[`pw dev`](/pw/project/dev/) applies pending migrations on startup and whenever
-the migration directory changes, so these commands are mostly for inspection,
-rollback, and deployment. Turn the automatic behaviour off with:
+[`pw dev`](/pw/project/dev/) applies pending migrations at startup and whenever
+the migration directory changes. Direct migration commands are therefore most
+useful for inspection, rollback, and deployment. To take full control, disable
+the automatic behavior:
 
 ```toml
 [migration]

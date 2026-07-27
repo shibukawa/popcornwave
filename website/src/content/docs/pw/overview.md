@@ -3,8 +3,9 @@ title: Overview
 description: What the pw development tool does, and where each command fits.
 ---
 
-`pw` is the development tool: it scaffolds projects, compiles templates and SQL
-into Go, runs the development loop, manages the database, and builds releases.
+One command connects the project lifecycle. `pw` scaffolds the first files,
+compiles templates and SQL into Go, runs the development loop, manages the
+database, and produces release builds.
 
 ```sh
 pw help
@@ -43,10 +44,11 @@ go install github.com/shibukawa/popcornwave/cmd/pw@latest
 
 ## Finding the project
 
-Every command except `pw init` runs from inside a project. `pw` locates the
-root by walking up from the working directory until it finds
-`popcornwave.toml`, so subcommands work from any subdirectory. If there is no
-such file, the command fails with `popcornwave.toml not found`.
+Every command except `pw init` needs a project, but it does not need to run at
+the project root. `pw` walks upward from the working directory until it finds
+`popcornwave.toml`, allowing subcommands to work from any nested directory. If
+the search reaches the top without that file, the command fails with
+`popcornwave.toml not found`.
 
 ## Exit status
 
@@ -55,6 +57,6 @@ are written to standard error prefixed with `pw:`.
 
 ## Not to be confused with
 
-The binary you build has its own command line — configuration flags, scaffold
-output, and any subcommands you define. That is covered in
-[Application CLI](/guides/application-cli/).
+The deployed binary has a different command line: configuration flags,
+configuration scaffold output, and application-defined subcommands. See
+[Application CLI](/guides/application-cli/) for that boundary.

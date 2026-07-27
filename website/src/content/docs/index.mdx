@@ -25,19 +25,21 @@ hero:
 
 import { Card, CardGrid } from '@astrojs/starlight/components';
 
-An `http.Handler` binds one request, runs application logic, and writes one
-complete response using ordinary navigation and form semantics. A minimal build
-stays a small, practical TinyGo target: no component graph, no patch protocol,
-no hydration, no browser runtime.
+Start with the unit Go already gives you: one `http.Handler`. It binds a
+request, runs application logic, and writes a complete response through ordinary
+navigation and form semantics. The result remains a small, practical TinyGo
+target—without a component graph, patch protocol, hydration step, or browser
+runtime.
 
 <CardGrid>
   <Card title="Standard library first" icon="seti:go">
-    Routing is `net/http`'s own `ServeMux` — same patterns, same wildcards, same
-    precedence — and handlers are plain `http.HandlerFunc`.
+    Routing uses `net/http`'s own `ServeMux`: the same patterns, wildcards, and
+    precedence. Handlers remain plain `http.HandlerFunc`.
   </Card>
   <Card title="Generated, not reflected" icon="setting">
-    Templates, SQL, request binding, and OpenAPI are compiled into Go ahead of
-    time by `pw generate`. No runtime reflection, so it runs on **TinyGo** too.
+    `pw generate` compiles templates, SQL, request binding, and OpenAPI into Go
+    ahead of time. With no runtime reflection, the same code runs on
+    **TinyGo**.
   </Card>
   <Card title="One command to a running app" icon="rocket">
     `pw init` scaffolds a complete project — handler, typed page, document
@@ -49,6 +51,6 @@ no hydration, no browser runtime.
   </Card>
 </CardGrid>
 
-An opt-in server-driven UI layer sits on the same `net/http` foundation. It
-extends this foundation rather than replacing it, and an application never pays
-for what it does not import.
+Need richer interactions later? An opt-in server-driven UI layer extends the
+same `net/http` foundation rather than replacing it. If an application does not
+import that layer, it does not pay for it.

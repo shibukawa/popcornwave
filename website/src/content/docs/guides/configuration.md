@@ -5,9 +5,10 @@ sidebar:
   order: 7
 ---
 
-Configuration comes from TOML files, environment variables, and command-line
-flags, bound to typed structs. `pw.Run` parses it before the first request is
-served, and an invalid value is a startup failure rather than a runtime one.
+Configuration comes from several places, but it resolves to one typed view.
+Popcorn Wave binds TOML files, environment variables, and command-line flags to
+structs before the first request; an invalid value stops startup instead of
+surfacing midway through runtime.
 
 ## Environments
 
@@ -24,14 +25,15 @@ APP_ENV=prod ./myapp
 
 ## File resolution
 
-Project-local files are environment-specific and searched in the working
-directory first, then its `config/` directory:
+Selecting an environment determines the project-local filename. Popcorn Wave
+searches the working directory first, then its `config/` directory:
 
 1. `./config.{APP_ENV}.toml`
 2. `./config/config.{APP_ENV}.toml`
 
-The user and system configuration directories keep the environment-neutral
-`config.toml`; a bare `config.toml` is never read from a project tree.
+User and system configuration directories use the environment-neutral
+`config.toml`. A project tree does not: a bare `config.toml` there is never
+read.
 
 Values later in the chain — environment variables, then flags — override earlier
 ones.
@@ -71,8 +73,8 @@ inline style attributes.
 empty, so the documentation stays private until a staging or production config
 opts in.
 
-A route of yours that collides with an enabled operational endpoint is reported
-at startup.
+If an application route collides with an enabled operational endpoint, startup
+fails before either route can shadow the other.
 
 ### `[middleware]`
 
@@ -138,10 +140,10 @@ tells you exactly what is missing.
 
 ## Adding your own settings
 
-Application configuration works exactly like the framework's: declare a struct,
-register it under a prefix, read it from the request context. `pw generate`
-reads the registration call and writes the binding, so there is no parsing code
-to maintain.
+Application settings follow the same path as framework settings: declare a
+struct, register it under a prefix, and read the result from the request
+context. `pw generate` turns the registration call into binding code, so adding
+a setting does not add a parallel parser.
 
 ### 1. Declare the struct
 
@@ -206,10 +208,11 @@ func main() {
 }
 ```
 
-The timing is not incidental. Generated definitions register during package
-`init`, so the binding itself has to be created **after** every `init` has run
-and **before** configuration is parsed. Registering after `ParseConfig` panics,
-and the prefix must be a string literal so the generator can see it.
+Timing defines whether the generator can assemble the complete configuration.
+Generated definitions register during package `init`, so the binding must be
+created **after** every `init` has run but **before** parsing begins.
+Registration after `ParseConfig` panics, and the prefix must be a string literal
+that the generator can read.
 
 Each area of a larger application can register its own struct — see
 [Project structure](/guides/project-structure/) — but prefixes share one
@@ -247,9 +250,9 @@ with `default` values filled in and `help` text as comments:
 ./myapp --generate-config env > .env
 ```
 
-Because the binary reports what its own imports registered, the scaffold always
-matches the packages actually linked in. Add a struct, run this, and the new
-keys are there. See [Application CLI](/guides/application-cli/).
+Because the binary reports registrations from its actual imports, the scaffold
+matches the packages linked into that build. Add a struct and rerun the command;
+the new keys appear. See [Application CLI](/guides/application-cli/).
 
 ## Secrets in logs
 

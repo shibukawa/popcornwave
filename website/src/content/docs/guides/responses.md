@@ -5,8 +5,10 @@ sidebar:
   order: 2
 ---
 
-A handler ends by writing exactly one response. There are four ways to do it,
-and all four choose status and headers before the body is written.
+A handler may produce HTML, JSON, a stream, or an error, but the same constraint
+applies to all four: status and headers must be settled before the body begins.
+The response helpers enforce that boundary while preserving the wire format each
+case needs.
 
 ## HTML
 
@@ -20,9 +22,9 @@ registered document shell, so the handler never names, imports, or constructs
 the document.
 
 The whole chain is rendered into a buffer and validated **before** anything is
-committed, so a template failure becomes a clean 500 rather than a half-written
-page. When compression is enabled and the client accepts it, the buffered body
-is zstd-encoded on the way out.
+committed. A template failure can therefore become a clean 500 instead of
+leaving a half-written page. If compression is enabled and the client accepts
+it, the same buffered body is zstd-encoded on the way out.
 
 For explicit control over the wrapper chain — one page inside a different shell
 — use `pw.WriteHTMLChain`:
@@ -43,10 +45,10 @@ Template syntax, slots, escaping, and scoped styles are covered in
 pw.WriteAPI(w, r, user)
 ```
 
-The encoder for the response type is generated from the call site, so there is
-no reflection at run time. It uses the name portion of `json` tags but does not
-interpret `omitempty` or exclusion directives — declare the shape you want to
-send.
+The call site generates an encoder for the response type, removing runtime
+reflection. The encoder uses the name portion of `json` tags, but it does not
+interpret `omitempty` or exclusion directives. The declared type must therefore
+match the shape you intend to send.
 
 The status is 200. `pw.WriteAPI` call sites also feed the generated OpenAPI
 document, so a JSON endpoint is described without a separate annotation pass.
@@ -76,10 +78,11 @@ matters for the JSON-array format, whose closing bracket is written there.
 | NDJSON | `application/x-ndjson`, `application/ndjson`, `application/jsonl` |
 | JSON array | `application/json` |
 
-Selection order is the `?stream=` query parameter, then `Accept`, then
-User-Agent heuristics, then NDJSON as the fallback. An `Accept` header that
-asks for none of the supported types gets a `406 Not Acceptable` problem
-response, and every subsequent `Send` returns that error rather than writing.
+Format selection begins with the `?stream=` query parameter, then considers
+`Accept`, then User-Agent heuristics, and finally falls back to NDJSON. If an
+`Accept` header rules out every supported type, the stream starts with a `406
+Not Acceptable` problem response. Every later `Send` returns that same error
+instead of writing a contradictory body.
 
 Note that `server.write_timeout` defaults to `0s` precisely so long-lived
 streams are not cut off; see [Configuration](/guides/configuration/).
@@ -135,7 +138,8 @@ pw.WriteProblem(w, r, pw.Problem{
 - a binding or validation error keeps its own status and field detail;
 - anything else becomes a 500.
 
-So a handler can forward what a service returned without translating it:
+That mapping lets a handler forward a service error without adding a second
+translation layer:
 
 ```go
 if err := service.Register(r.Context(), input); err != nil {
@@ -159,8 +163,7 @@ payload.
 Scaffolded projects carry `templates/400.pw.html`, `404.pw.html`, and
 `500.pw.html`. They are ordinary components, generated like any other page.
 
-Be aware of the current boundary: `pw.WriteProblem` is the framework's error
-path and always answers with `application/problem+json`, and `pw.WriteHTML`
-takes no status code, so it always answers 200. Rendering one of these
-templates under a 4xx or 5xx status is something the application wires up
-itself today.
+The current boundary matters here. `pw.WriteProblem` always answers with
+`application/problem+json`, while `pw.WriteHTML` accepts no status code and
+therefore answers 200. Applications that want one of these templates under a
+4xx or 5xx status must wire that path themselves.

@@ -5,12 +5,13 @@ sidebar:
   order: 1
 ---
 
-Popcorn Wave は **Go 1.26 以降**が必要です。
+Popcorn Wave は **Go 1.26 以降**が必要です。その先で必須となる準備は、`pw` コマンドと、
+それが扱うライブラリ依存だけです。
 
 ## `pw` コマンド
 
-スキャフォールド、コード生成、マイグレーション、開発サーバまで、ほとんどの操作は
-`pw` コマンドを経由します。
+スキャフォールド、コード生成、マイグレーション、開発サーバは、いずれも `pw`
+コマンドを経由します。
 
 ```sh
 go install github.com/shibukawa/popcornwave/cmd/pw@latest
@@ -29,9 +30,8 @@ Seed usage: pw seed [--dir=testdata/seed] [name...]
 
 ## ライブラリ
 
-`pw init` はフレームワークを require 済みの `go.mod` を書き出すので、スキャフォールド
-したプロジェクトに手動の `go get` は不要です。既存モジュールに追加する場合は次のように
-します。
+新しいプロジェクトでは、`pw init` がフレームワークを require 済みの `go.mod` を
+書き出すため、手動の `go get` は不要です。既存モジュールには 1 つだけ手順を追加します。
 
 ```sh
 go get github.com/shibukawa/popcornwave
@@ -46,10 +46,10 @@ import "github.com/shibukawa/popcornwave/pw"
 
 ## Devbox（任意）
 
-生成されるプロジェクトには Go と Valkey サービスをピン留めした `devbox.json` が付属し、
-`pw init --tailwind` を使うと標準の Tailwind CSS バイナリも追加されます。Devbox は便利
-ですが必須ではありません。Go が `PATH` にあれば `devbox shell` を飛ばして `pw dev` を
-直接実行できます。
+生成されるプロジェクトには、Go と Valkey サービスをピン留めした `devbox.json` が
+付属します。`pw init --tailwind` を使った場合は、スタンドアロンの Tailwind CSS
+バイナリもピン留めされます。Devbox はツールの再現性を保ちますが必須ではありません。
+Go が `PATH` にあれば、`devbox shell` を飛ばして `pw dev` を直接実行できます。
 
 Devbox は [jetify.com/devbox](https://www.jetify.com/devbox/) から導入できます。
 

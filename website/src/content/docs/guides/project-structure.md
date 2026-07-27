@@ -5,9 +5,10 @@ sidebar:
   order: 5
 ---
 
-`pw init` scaffolds one `handlers` package and one `queries` package, which is
-the right size for a first project. This page covers what changes when it stops
-being the right size.
+`pw init` begins with one `handlers` package and one `queries` package. That
+layout is easy to understand, but an application eventually develops separate
+areas with separate owners. The question is how to split them without creating
+a second framework-level registry.
 
 ## What generation discovers
 
@@ -15,13 +16,13 @@ being the right size.
 that contains** a `.go`, `.pw.html`, or `.pw.sql` file — skipping `.git`,
 `vendor`, `node_modules`, and `.devbox`.
 
-That single fact does most of the work here: adding a package is creating a
-directory. There is no list of packages to register, and `popcornwave.toml`
-does not enumerate them.
+That discovery rule does most of the work. Adding a package means creating a
+directory; there is no package registry to update, and `popcornwave.toml` does
+not enumerate the tree.
 
 ## A larger layout
 
-A common shape once an application has distinct audiences:
+Once an application serves distinct audiences, a common layout looks like this:
 
 ```
 myapp/
@@ -113,10 +114,10 @@ func main() {
 }
 ```
 
-The dependency direction is what makes this work: the parent imports its
-children, so Go runs the children's `init` functions — and therefore their route
-registrations — before the parent's. A child never imports the parent, so there
-is no cycle.
+The dependency direction makes the composition work. The parent imports its
+children, so Go runs each child's `init` function—and registers its routes—
+before the parent's. Because a child never imports the parent, the packages do
+not form a cycle.
 
 Subtree patterns (`"/admin/"`) and `http.StripPrefix` are plain `net/http`;
 nothing framework-specific is involved.
@@ -177,7 +178,7 @@ minify = true
 | `migration.auto` | `true` | apply pending migrations when `pw dev` starts |
 | `assets.tailwind.*` | disabled | see [Styling](/guides/styling/) |
 
-Growing the layout above needs **no change here**. The keys you will actually
-touch as an application grows are `dev.extra_watch`, when you generate or edit
-files that `pw dev` would not otherwise watch, and `migration.auto`, when you
-would rather run migrations yourself.
+The larger layout requires **no change to this file**. As the application grows,
+the keys most likely to change are `dev.extra_watch`, for generated or edited
+files that `pw dev` would otherwise miss, and `migration.auto`, when migrations
+should run under your own control.

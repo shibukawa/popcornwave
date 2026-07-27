@@ -9,7 +9,8 @@ sidebar:
 pw dev
 ```
 
-The everyday command. It takes no arguments.
+This is the everyday command. It takes no arguments because the project file
+defines the loop.
 
 ## What it does on startup
 
@@ -20,8 +21,8 @@ The everyday command. It takes no arguments.
 5. starts the development identity provider, if `dev.idp.enabled` is `true`;
 6. builds and runs `project.main`.
 
-Then it polls the watched files twice a second and repeats the relevant steps
-when something changes.
+After startup, it polls watched files twice a second. A change repeats only the
+steps affected by that file rather than rebuilding the entire environment.
 
 ## What it watches
 
@@ -39,10 +40,10 @@ extra_watch = ["config.dev.toml", "assets/**/*.svg"]
 
 ## Tailwind
 
-The watcher runs **unminified** during development regardless of
-`assets.tailwind.minify`, because minification is the slow part of the loop. If
-the watcher exits, `pw dev` keeps going and falls back to watching the input
-file directly, so a crashed CSS process does not take the server down with it.
+During development the watcher always produces **unminified** CSS, regardless of
+`assets.tailwind.minify`, because minification is the slow part of the loop. A
+failed CSS watcher does not take down the server. `pw dev` keeps running and
+falls back to watching the input file directly.
 
 `tailwindcss` must be on `PATH`, which is what `devbox shell` is for. See
 [Styling](/guides/styling/).
@@ -87,16 +88,17 @@ display_name = "Guest User"
 email = "guest@example.com"
 ```
 
-You do not register a client or copy an issuer URL. `pw dev` registers an
-ephemeral client for the run and hands the application
+No client registration or issuer copying is needed. `pw dev` creates an
+ephemeral client for the run and passes the application
 
 - `AUTH_OIDC_ISSUER`
 - `AUTH_OIDC_CLIENT_ID`
 - `AUTH_OIDC_CLIENT_SECRET`
 
-as environment variables. Environment values outrank TOML, so nothing about the
-provider belongs in a config file you commit. A value you exported yourself is
-left alone. The client secret is generated per run and never printed.
+as environment variables. Because environment values outrank TOML, no provider
+credential needs to enter a committed config file. Values you exported yourself
+are preserved, while the generated client secret changes per run and is never
+printed.
 
 Editing the roster reloads it in place: the issuer and the credentials the
 running application already holds stay valid, so no restart is needed.
@@ -113,7 +115,7 @@ See [Testing](/guides/testing/).
 
 ## Stopping
 
-`Ctrl-C` cancels the run: the application, the Tailwind watcher, and the Devbox
-services are stopped. If the application exits on its own with an error,
-`pw dev` reports `application exited: …` and stops, rather than looping on a
-process that cannot start.
+`Ctrl-C` cancels the whole loop, stopping the application, Tailwind watcher, and
+Devbox services. If the application instead exits with an error, `pw dev`
+reports `application exited: …` and stops. It does not keep restarting a
+process that cannot stay up.

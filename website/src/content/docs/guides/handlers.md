@@ -5,8 +5,10 @@ sidebar:
   order: 1
 ---
 
-`github.com/shibukawa/popcornwave/pw` is the stable application-facing API.
-Everything on this page comes from it.
+Handlers stay ordinary `net/http` handlers, but they do not have to parse every
+input by hand. The stable application-facing API,
+`github.com/shibukaway/popcornwave/pw`, adds routing-compatible generation and
+typed request binding without changing the handler signature.
 
 ## Routing
 
@@ -20,10 +22,10 @@ var mux = pw.NewServeMux()
 func Handlers() *pw.ServeMux { return mux }
 ```
 
-On ordinary Go builds `pw.ServeMux` **is** `net/http`'s `ServeMux` — a type
-alias, not a wrapper — so patterns, wildcards, and precedence are exactly the
-standard library's. TinyGo gets a separate implementation with the same
-semantics, because it has no standard mux.
+On ordinary Go builds, `pw.ServeMux` **is** `net/http`'s `ServeMux`: a type
+alias, not a wrapper. Its patterns, wildcards, and precedence are therefore the
+standard library's. TinyGo lacks the standard mux, so it receives a separate
+implementation with the same semantics.
 
 Each handler file registers itself in `init`, so adding a route means adding a
 file rather than editing a central table:
@@ -41,9 +43,10 @@ For splitting routes across packages as an application grows, see
 
 ## Binding a request
 
-`pw.Parse[T]` fills a struct from the request. Generation reads the call site,
-so the binding code for `T` is written ahead of time rather than reflected at
-run time.
+Routing remains familiar; request parsing is where generation takes over.
+`pw.Parse[T]` fills a struct from the request, and the generator reads that call
+site to write the binding code for `T` ahead of time. No runtime reflection is
+needed.
 
 ```go
 type showUserInput struct {
@@ -76,13 +79,15 @@ func showUser(w http.ResponseWriter, r *http.Request) {
 Without an explicit wire name, the field name is lowerCamelCased —
 `DisplayName` becomes `displayName`.
 
-`input` is the forgiving default: a query parameter wins, and the body is only
-read when the query does not supply the value. Use `query` or `payload` when
-you want exactly one source.
+`input` is deliberately forgiving: a query parameter wins, and the body is read
+only when the query does not provide the value. When accepting both sources
+would make the endpoint ambiguous, use `query` or `payload` to require exactly
+one.
 
 ### Request bodies
 
-One request struct accepts all three body formats, so the client chooses:
+The same request struct accepts three body formats, leaving the wire format to
+the client:
 
 - `application/json`
 - `application/x-www-form-urlencoded`
@@ -191,8 +196,9 @@ func createUser(w http.ResponseWriter, r *http.Request) {
 }
 ```
 
-Generated query functions inside the callback pick the transaction up from the
-context. See [Queries](/guides/queries/).
+The callback does not pass a transaction handle to either query. Generated query
+functions recover it from the context, as described in
+[Queries](/guides/queries/).
 
 ## The lifecycle
 
@@ -204,7 +210,8 @@ func main() {
 }
 ```
 
-`pw.Run` parses configuration, handles application flags such as
+The plain handler is only one part of a running service. `pw.Run` parses
+configuration, handles application flags such as
 `--generate-config`, validates the configured runtime, initialises the database
 pool, checks for collisions between your routes and the operational endpoints,
 builds the middleware stack, serves, shuts down gracefully on `SIGINT` or

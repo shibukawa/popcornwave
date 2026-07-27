@@ -9,9 +9,9 @@ sidebar:
 pw generate [--check]
 ```
 
-Compiles every `.pw.html` and `.pw.sql` file into a `_pw_gen.go` file **beside
-its source**, and links the document registration package into your main
-package. Changed paths are printed.
+Generation turns every `.pw.html` and `.pw.sql` source into a `_pw_gen.go` file
+**beside it**, then links the document registration package into the main
+package. It prints only the paths that changed.
 
 ## Options
 
@@ -37,8 +37,9 @@ Besides the template files, it reads your Go source for call sites:
 | `pw.RegisterSubCommand[T]` | subcommand parsing for `T` |
 | `pw.BadRequest` and the other error constructors | the documented error responses |
 
-All of it also feeds one OpenAPI 3.1 fragment per package, merged
-deterministically at build time.
+The same evidence feeds one OpenAPI 3.1 fragment per package. Those fragments
+are merged deterministically at build time, so the API description follows the
+code rather than a separate annotation set.
 
 ## What it writes
 
@@ -49,7 +50,7 @@ Generated Go is build output, not source:
 - `.vscode/settings.json` hides them from the editor;
 - they are recreated on every application build.
 
-So do not edit them, and do not commit them.
+They can always be reproduced. Do not edit or commit them.
 
 `cmd/<name>/popcornwave_bootstrap_pw_gen.go` is the exception in kind rather
 than in rule: it is a generated file of blank imports that links the document
@@ -75,13 +76,14 @@ selected per handler with `pw.WriteHTMLChain`. See
 pw generate --check
 ```
 
-Because generated Go is git-ignored, CI cannot detect drift by diffing. This
-form regenerates in memory and fails if anything would have changed:
+Because Git ignores generated Go, a repository diff cannot reveal stale output
+in CI. `--check` regenerates in memory and fails if any file would change:
 
 ```
 pw: generated files are stale:
   handlers/home_pw_gen.go
 ```
 
-[`pw dev`](/pw/project/dev/) and [`pw build`](/pw/project/build/) both run
-generation first, so you rarely invoke this directly during development.
+Both [`pw dev`](/pw/project/dev/) and [`pw build`](/pw/project/build/) generate
+first. Direct invocation is therefore mostly useful for CI and for diagnosing
+generation errors.

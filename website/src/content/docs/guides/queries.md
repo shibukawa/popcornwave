@@ -5,8 +5,9 @@ sidebar:
   order: 4
 ---
 
-SQL is written in its own source file and compiled into Go by `pw generate`.
-The generated functions take a `context.Context` and return typed results.
+SQL remains visible as SQL, but its boundary with Go becomes typed. You write
+statements in `.pw.sql` files; `pw generate` compiles them into functions that
+take a `context.Context` and return declared result types.
 
 ## A statement
 
@@ -34,9 +35,9 @@ RETURNING count
 counter, err := queries.IncrementAccess(r.Context())
 ```
 
-The context is not decoration: it carries the pool, and inside
-`pw.Transaction` it carries the transaction. That is why the same generated
-function works in both places.
+The context carries more than cancellation. It contains the pool in an ordinary
+request and the active transaction inside `pw.Transaction`, which is why the
+same generated function works in both places.
 
 ## Types
 
@@ -77,9 +78,9 @@ for user, err := range queries.ListUsers(ctx) {
 
 ## Parameters
 
-Every `{name}` becomes a placeholder in the prepared statement. Template
-expressions are never concatenated into SQL text, and handwritten placeholders
-are rejected — so a query cannot be injection-prone by construction.
+Every `{name}` becomes a prepared-statement placeholder. Template expressions
+are never concatenated into SQL text, and handwritten placeholders are
+rejected. Value binding therefore cannot create an injection-prone query.
 
 ```sql
 export statement FindUser(id: int): sql.one<User> {
@@ -87,8 +88,9 @@ SELECT id, name FROM users WHERE id = {id}
 }
 ```
 
-Parameters bind **values**, not structure. Table names, column names,
-operators, and sort directions cannot be substituted.
+That guarantee depends on a strict boundary: parameters bind **values**, not SQL
+structure. They cannot substitute table names, column names, operators, or sort
+directions.
 
 ### Slice expansion
 
@@ -123,9 +125,9 @@ ORDER BY id
 `{else}` is available too. Conditions must be `bool`. Only the branches that are
 included consume placeholders, so numbering stays aligned.
 
-The one hard restriction: **the result shape cannot vary.** Conditional SELECT
-or RETURNING columns are rejected, because the generated type would no longer
-describe every branch.
+One restriction follows from typed results: **the result shape cannot vary.**
+Conditional SELECT or RETURNING columns are rejected because no single generated
+type could describe every branch.
 
 ## Predicates and relations
 
@@ -187,11 +189,11 @@ err := pw.Transaction(r.Context(), func(ctx context.Context) error {
 })
 ```
 
-The boundary is always explicit — the framework never wraps a request in one for
-you. Nesting is supported: an inner `pw.Transaction` opens a savepoint, so its
-failure rolls back only its own work and the outer transaction stays usable. A
-driver with no known savepoint support fails with `ErrSavepointUnsupported`
-rather than silently flattening the nesting.
+The transaction boundary remains explicit; the framework never wraps a request
+in one automatically. Nesting still works. An inner `pw.Transaction` opens a
+savepoint, so its failure rolls back only the inner work while the outer
+transaction remains usable. A driver without known savepoint support returns
+`ErrSavepointUnsupported` instead of silently flattening the nesting.
 
 Raw access is there when a query does not fit the generated layer:
 
@@ -220,8 +222,9 @@ pw migrate status
 pw migrate up
 ```
 
-`pw dev` applies pending migrations on startup, so the everyday loop rarely
-needs these directly. The full action list is in [pw migrate](/pw/database/migrate/).
+`pw dev` applies pending migrations at startup, so the development loop rarely
+needs these commands directly. Deployment and rollback still do; the full
+action list is in [pw migrate](/pw/database/migrate/).
 
 ## Database configuration
 

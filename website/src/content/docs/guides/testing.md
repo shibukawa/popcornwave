@@ -5,10 +5,11 @@ sidebar:
   order: 9
 ---
 
-`github.com/shibukawa/popcornwave/testutil` starts your actual application —
-same middleware stack, same configuration binding, same routes — against a copy
-of every registered configuration. Tests exercise the real thing over HTTP
-rather than a hand-assembled subset of it.
+A fast test is useful only if it still exercises the application you deploy.
+`github.com/shibukawa/popcornwave/testutil` starts the actual routes,
+middleware stack, and configuration binding against an isolated copy of every
+registered setting. Tests reach that application over HTTP instead of calling a
+hand-assembled approximation.
 
 ## A first test
 
@@ -38,19 +39,20 @@ func TestHome(t *testing.T) {
 }
 ```
 
-`TestRun` copies every registered configuration, sets the copied port to `-1`,
-applies your customiser, reserves an available loopback port, initialises the
-copied runtime resources, and starts the server. Cleanup is registered with
-`t`, so there is nothing to defer.
+`TestRun` first copies every registered configuration and sets the copied port
+to `-1`. It then applies your customiser, reserves an available loopback port,
+initialises the copied runtime resources, and starts the server. Cleanup is
+registered with `t`, leaving nothing for the test to defer.
 
-The port detail matters when you write a customiser that reads the port: it sees
-`-1` at that moment, because the real port is chosen afterwards. Read
-`server.URL` or `server.Port` instead.
+That order creates one important constraint: a customiser that reads the port
+sees `-1`, because the real port is chosen later. Use `server.URL` or
+`server.Port` after startup instead.
 
 ## Registering generated packages
 
-Generated registrations — the document shell, config definitions — happen in
-package `init`, so the test binary has to link them:
+The server is real, which means its generated registrations must be real too.
+Document shells and configuration definitions register during package `init`,
+so the test binary has to link their packages:
 
 ```go
 import (
@@ -109,8 +111,8 @@ member:
 - { id: 2, name: Grace }
 ```
 
-These are the same files `pw seed` applies, so a fixture cannot drift between
-the CLI and the test suite.
+The same files also drive `pw seed`. One fixture format therefore serves both
+the CLI and the test suite instead of drifting into two versions.
 
 ### `WithTransaction`
 
@@ -155,10 +157,11 @@ returns the same values for a test that wires its client by hand.
 
 ## Asserting against the database
 
-`server.Context()` returns a context carrying the same runtime resources the
-server installs on requests — including the `WithTransaction` transaction — so
-generated queries can prepare or assert data inside the same transaction the
-handlers used:
+HTTP assertions show what the client observed; database assertions often need
+the same runtime state that produced it. `server.Context()` carries the
+resources installed on requests, including the `WithTransaction` transaction,
+so generated queries can prepare or inspect data within the transaction used by
+the handlers:
 
 ```go
 counter, err := queries.CurrentAccess(server.Context())

@@ -9,8 +9,9 @@ sidebar:
 pw generate [--check]
 ```
 
-すべての `.pw.html` と `.pw.sql` を、**ソースの隣**にある `_pw_gen.go` にコンパイルし、
-ドキュメント登録パッケージを main パッケージにリンクします。変更されたパスが出力されます。
+すべての `.pw.html` と `.pw.sql` ソースを**その隣**の `_pw_gen.go` に変換し、
+ドキュメント登録パッケージを main パッケージにリンクします。出力するのは変更された
+パスだけです。
 
 ## オプション
 
@@ -35,8 +36,9 @@ pw generate [--check]
 | `pw.RegisterSubCommand[T]` | `T` のサブコマンドのパース |
 | `pw.BadRequest` などのエラーコンストラクタ | ドキュメント化されるエラーレスポンス |
 
-これらはすべて、パッケージごとに 1 つの OpenAPI 3.1 フラグメントにも反映され、ビルド時に
-決定的にマージされます。
+同じ根拠から、パッケージごとに 1 つの OpenAPI 3.1 フラグメントも生成されます。
+ビルド時に決定的にマージされるため、API 記述は別のアノテーション群ではなくコードに
+追従します。
 
 ## 書き出すもの
 
@@ -47,7 +49,7 @@ pw generate [--check]
 - `.vscode/settings.json` によりエディタから隠される
 - アプリケーションのビルドのたびに作り直される
 
-したがって編集もコミットもしないでください。
+いつでも再生成できます。編集もコミットもしないでください。
 
 `cmd/<name>/popcornwave_bootstrap_pw_gen.go` は種類として例外です。ドキュメントシェルと
 埋め込み公開アセットをバイナリにリンクするためのブランクインポートだけを含む生成
@@ -73,13 +75,13 @@ pw: multiple default documents: templates/document.pw.html, admin/document.pw.ht
 pw generate --check
 ```
 
-生成された Go は Git 管理外なので、CI は差分でずれを検出できません。この形式なら
-メモリ上で再生成し、変わるものがあれば失敗します。
+生成された Go は Git 管理外なので、リポジトリの差分では CI で古さを検出できません。
+`--check` はメモリ上で再生成し、変わるファイルがあれば失敗します。
 
 ```
 pw: generated files are stale:
   handlers/home_pw_gen.go
 ```
 
-[`pw dev`](/ja/pw/project/dev/) と [`pw build`](/ja/pw/project/build/) はどちらも先に
-生成を実行するので、開発中にこれを直接呼ぶ場面はあまりありません。
+[`pw dev`](/ja/pw/project/dev/) と [`pw build`](/ja/pw/project/build/) はどちらも
+最初に生成します。直接呼び出すのは、主に CI や生成エラーの診断時です。

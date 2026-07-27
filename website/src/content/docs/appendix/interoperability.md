@@ -5,33 +5,34 @@ sidebar:
   order: 1
 ---
 
-What Popcorn Wave insists on is small: a middleware stack over `net/http` and
-the tooling that keeps generation, development, and builds honest. Request
-parsing, database queries, HTML, and response writing are **helpers**. Each one
-can be dropped in favour of something you prefer, and each one can be taken to
-another framework without bringing Popcorn Wave along.
+Popcorn Wave generates request parsing, database queries, HTML, and response
+writing, so it can look as though the runtime depends on all four. It does not.
+The framework's required surface is smaller: a middleware stack over `net/http`
+and tooling that keeps generation, development, and builds consistent. The
+generated layers are **helpers** that you may replace—or use from another
+framework without bringing Popcorn Wave with them.
 
 ## Why these layers exist at all
 
-Most Go libraries reach for `reflect`, and for good reason: it is what lets a
-request bind into any struct, rows map onto any model, and a template walk any
-data. The cost is that reflection-heavy code is exactly what **TinyGo** handles
-worst — support is partial, and what does compile pays for it in binary size.
-For a framework that treats TinyGo as a real target, the usual libraries were
-not an option.
+Most Go libraries reach for `reflect` for good reasons. Reflection lets a
+request bind into an arbitrary struct, rows map onto a model, and a template walk
+unknown data. But that flexibility meets a hard constraint in **TinyGo**:
+support is partial, and successful builds still pay in binary size. A framework
+that treats TinyGo as a real target needs the same capabilities by another
+route.
 
-So each layer was written as a **code generator** instead. The work reflection
-would otherwise do on every request is done once, ahead of time, by
+Each helper is therefore a **code generator**. The work that reflection would
+repeat on every request happens once, ahead of time, through
 [`pw generate`](/pw/project/generate/): binders for the types you actually
 bind, encoders for the types you actually write, scanners for the columns your
 SQL actually selects. Nothing in the hot path inspects a type at run time.
 
-That decision has a corollary that matters more than the performance: a
-generator only knows what it can read in your sources, so the framework never
-took ownership of the handler signature to compensate. A handler stays an
-`http.HandlerFunc`, `w` and `r` stay the standard types. Anything the generated
-layer does not cover, you can still do by hand — or with a reflect-based
-library, if you accept giving up the TinyGo target for that build.
+The more consequential result is not performance but ownership. A generator
+knows only what it can read in source, yet the framework does not compensate by
+taking over the handler signature. A handler remains an `http.HandlerFunc`, and
+`w` and `r` remain standard types. When generation does not fit an endpoint, you
+can write it by hand—or use a reflection-based library and knowingly give up
+the TinyGo target for that build.
 
 ## What is actually the framework
 
@@ -46,9 +47,9 @@ library, if you accept giving up the TinyGo target for that build.
 | `.pw.html` components | replaceable helper |
 | `pw.WriteAPI` / `WriteHTML` / `NewStream` / `WriteProblem` | replaceable helper |
 
-The helpers are how four common jobs get done in very little code, and they are
-what feeds the generated OpenAPI document. They are not a contract the runtime
-depends on.
+The helpers reduce four common jobs to a small amount of code and feed the
+generated OpenAPI document. Those benefits do not turn them into runtime
+contracts.
 
 ## Owning the server
 
@@ -64,9 +65,9 @@ if err != nil {
 log.Fatal(http.ListenAndServe(":8080", handler))
 ```
 
-That is the whole escape hatch — put the handler behind your own
-`http.Server`, another listener, `httptest`, a Lambda adapter, or a host process
-that also serves something else.
+The returned value is the escape hatch. Put it behind your own `http.Server`,
+another listener, `httptest`, a Lambda adapter, or a host process that serves
+other workloads too.
 
 What `pw.Run` adds on top, and what you then own yourself:
 
@@ -95,10 +96,10 @@ func createUser(w http.ResponseWriter, r *http.Request) {
 }
 ```
 
-Nothing objects. What you give up is what generation was doing for you: the
-`check` rules, the field-level problem response, and the endpoint's request
-schema in the OpenAPI output. That is a fair trade for one odd endpoint and a
-poor one for forty.
+The handler still works. What disappears is the work generation performed:
+`check` rules, field-level problem details, and the endpoint's request schema in
+OpenAPI. That trade can be reasonable for one unusual endpoint and expensive
+across forty.
 
 ### Queries with sqlx, GORM, or plain `database/sql`
 
@@ -134,8 +135,8 @@ err := pw.Transaction(r.Context(), func(ctx context.Context) error {
 })
 ```
 
-Opening a second transaction on the pool instead is the mistake to avoid: two
-transactions in one request do not roll back together.
+Do not replace this with a second transaction on the pool. Two transactions in
+one request have independent commit and rollback boundaries.
 
 ### Another template engine
 
@@ -257,10 +258,9 @@ e.Use(echo.WrapMiddleware(middlewares.MaxRequestBody(10 << 20)))
 
 ## The TinyGo line
 
-Everything described in the second half of this page keeps a build TinyGo-ready,
-because none of it reflects at run time. Everything in the first half — a
-reflect-based query builder, an ORM, `html/template`, a hand-rolled
-`encoding/json` decode — is a deliberate step off that target for the build that
-imports it. Ordinary Go builds do not care either way, which is why these
-escape hatches exist at all: the framework's opinion is about what it generates,
-not about what you are allowed to import.
+The boundary is now concrete. Using the standalone generated helpers keeps a
+build TinyGo-ready because they do not reflect at runtime. A reflection-based
+query builder, an ORM, `html/template`, or a handwritten `encoding/json` decode
+steps off that target for the build that imports it. Ordinary Go builds permit
+either choice. Popcorn Wave constrains what it generates, not what an
+application is allowed to import.

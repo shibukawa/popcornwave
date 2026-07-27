@@ -5,10 +5,11 @@ sidebar:
   order: 10
 ---
 
-Popcorn Wave serves the authentication endpoints itself. You configure a
-provider; the framework mounts login, callback, and logout, resolves the session
-on every request, and hands your handlers an identity. There is no route to
-register and no OIDC code to write.
+OIDC usually adds three routes, session resolution, and a trail of protocol
+code. Popcorn Wave owns that machinery: configure a provider, and the framework
+mounts login, callback, and logout, resolves each request's session, and gives
+handlers an identity. The application registers neither routes nor OIDC
+callbacks.
 
 ## Turning it on
 
@@ -61,9 +62,9 @@ else stays public. An unauthenticated request is redirected through the login
 and returned afterwards, or answered with `401` when
 `auth.protection.unauthenticated = "unauthorized"`.
 
-**Logout is POST only.** A logout a link or a browser prefetch can trigger is a
-denial-of-service surface, not a convenience, so a `GET` gets `405` and the sign
-out control is a form:
+**Logout is POST only.** If a link or browser prefetch could end a session,
+sign-out would become a denial-of-service surface. A `GET` therefore receives
+`405`, and the control is a form:
 
 ```html
 <form method="post" action={logoutPath}>
@@ -74,11 +75,11 @@ out control is a form:
 Cross-origin logout is refused: the session cookie is `SameSite=Lax`, and the
 endpoint additionally rejects a mismatched `Origin`.
 
-Logout also ends the **provider** session. Dropping only the local cookie leaves
-the user signed in at the provider, so the next login returns the same account
-without asking and the sign-out looks like it did nothing. The endpoint
-therefore redirects through the provider's RP-initiated logout with
-`client_id` and a `post_logout_redirect_uri` pointing back at this origin:
+By default, logout also ends the **provider** session. Removing only the local
+cookie leaves the user signed in upstream; the next login can return the same
+account immediately, making sign-out appear ineffective. The endpoint therefore
+redirects through the provider's RP-initiated logout with `client_id` and a
+`post_logout_redirect_uri` pointing back to this origin:
 
 ```
 POST /auth/logout
@@ -109,15 +110,16 @@ func home(w http.ResponseWriter, r *http.Request) {
 }
 ```
 
-The account behind a verified identity is yours to decide: the framework calls
-the resolver you registered with `auth.SetAccountResolver`, which looks the
-identity up and may provision one when `auth.oidc.auto_provision` permits it.
-The link is the issuer plus the claim `auth.oidc.identity_claim` names — never
-the email address.
+A verified identity does not dictate the application's account model. The
+framework calls the resolver registered with `auth.SetAccountResolver`; that
+resolver looks up an account and may provision one when
+`auth.oidc.auto_provision` permits it. The stable link combines the issuer with
+the claim named by `auth.oidc.identity_claim`—never the email address.
 
-An expired or unknown session cookie is dropped silently; an anonymous request
-is a normal state, so `auth.User` reports `false`. It tells you *who*, never
-*whether they may*: authorization stays yours.
+An expired or unknown session cookie is discarded silently. Anonymous requests
+are a normal state, so `auth.User` simply reports `false`. When it reports a
+user, it answers *who*, not *whether that user may perform an action*;
+authorization remains in the application.
 
 ## Modes
 
@@ -139,7 +141,8 @@ access or ID token never sits in the session.
 
 ## Development
 
-You do not need a real provider to build a login. `pw dev` can run one:
+A real provider should not be required to exercise a login flow during local
+development. `pw dev` can run a development provider instead:
 
 ```toml
 # popcornwave.toml
@@ -160,10 +163,10 @@ completes the entire flow. See [Testing](/guides/testing/#withidentityprovider).
 
 ## Deploying
 
-`issuer`, `client_id`, and `client_secret` must be non-empty or the application
-refuses to start, naming the missing keys and their `AUTH_OIDC_*` environment
-variables. Supply them from the environment rather than a committed file, along
-with `SESSION_SECRET`.
+Deployment removes that convenience. `issuer`, `client_id`, and `client_secret`
+must be non-empty or the application refuses to start, naming both the missing
+keys and their `AUTH_OIDC_*` environment variables. Supply them—and
+`SESSION_SECRET`—through the environment rather than a committed file.
 
 `auth.oidc.redirect_url` may stay empty, in which case the callback URL follows
 the request origin. Set it explicitly when the browser-facing origin differs

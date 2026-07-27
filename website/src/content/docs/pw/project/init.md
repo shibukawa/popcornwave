@@ -9,9 +9,9 @@ sidebar:
 pw init <project-name> [--tailwind] [--auth=<mode>] [--devidp]
 ```
 
-Creates a complete, runnable project in a new directory named after the
-project. Run it without a name — or with `-i` — to answer the same questions in
-a wizard instead of passing flags.
+The command creates a complete, runnable project in a new directory. A name and
+flags make the operation non-interactive; omitting the name, or passing `-i`,
+presents the same choices as a wizard.
 
 ## Options
 
@@ -25,8 +25,8 @@ a wizard instead of passing flags.
 
 ## Authentication
 
-The authentication question decides what goes into the `[auth]` section of
-`config.dev.toml`:
+Authentication changes more than one flag, so the selected mode determines the
+`[auth]` section written to `config.dev.toml`:
 
 | Answer | `auth.mode` | What it means |
 | --- | --- | --- |
@@ -44,11 +44,11 @@ The local emulator is the development identity provider that
 `pw dev` injects the issuer and generated client credentials — so nothing about
 the provider is written into a committed config file.
 
-For an external provider, `config.dev.toml` gets `issuer`, `client_id`, and
-`client_secret` as empty strings. **They are not optional**: the application
-refuses to start while any of them is empty, naming the missing keys and their
-`AUTH_OIDC_*` environment variables. Fill them in, export the variables, or
-switch to the emulator.
+For an external provider, `config.dev.toml` contains empty `issuer`,
+`client_id`, and `client_secret` values. Those values are placeholders, **not
+optional settings**. The application refuses to start until they are supplied
+in the file or through `AUTH_OIDC_*` environment variables; the remaining
+alternative is to use the emulator.
 
 ## Validation
 
@@ -90,14 +90,14 @@ With `--tailwind` it also writes `assets/app.css` and
 stylesheet from the document shell. No `package.json` and no Node lockfile are
 created. See [Styling](/guides/styling/) for enabling this later.
 
-Files are written atomically — each to a temporary file, then renamed — so an
-interrupted run cannot leave a half-written source file.
+Each file is written to a temporary path and renamed into place. If the command
+is interrupted, it cannot leave a half-written source file behind.
 
 ## What it runs
 
-After writing the files, `pw init` runs `go mod tidy` and then
-[`pw generate`](/pw/project/generate/), so the project compiles immediately. It
-finishes by printing:
+Writing files is not enough to prove the scaffold is usable. `pw init` therefore
+runs `go mod tidy` and [`pw generate`](/pw/project/generate/) before reporting
+success, leaving a project that compiles immediately:
 
 ```
 Created myapp

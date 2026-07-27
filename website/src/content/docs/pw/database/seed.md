@@ -9,7 +9,9 @@ sidebar:
 pw seed [--dir=testdata/seed] [name...]
 ```
 
-Applies seed datasets to the database the application is configured to use.
+Seed data is useful only when it lands in the intended database. `pw seed`
+applies datasets to the database resolved from the application's own
+configuration.
 
 ## Options and arguments
 
@@ -40,13 +42,13 @@ member:
 - { id: 3, name: Heidi }
 ```
 
-Several tables can appear in one file. Order matters when rows reference each
-other, both within a file and across the names you pass.
+One file may contain several tables. When rows reference one another, order
+matters both inside the file and across the dataset names passed to the command.
 
 ## Shared with tests
 
-These are the same files the test helpers load through `testutil.WithSeed`, so
-a fixture cannot drift between the CLI and the test suite:
+The test helpers load these exact files through `testutil.WithSeed`. The CLI and
+test suite therefore share one fixture instead of maintaining two versions:
 
 ```go
 server := testutil.TestRun(t, Handlers(), nil,
@@ -60,8 +62,9 @@ See [Testing](/guides/testing/).
 ## Where the DSN comes from
 
 As with [`pw migrate`](/pw/database/migrate/), `pw` asks the application for its
-DSN instead of reimplementing configuration precedence, and redacts it from any
-error it reports. The SQL dialect is derived from that DSN.
+resolved DSN instead of duplicating configuration precedence. Errors redact the
+value, while the DSN still determines the SQL dialect.
 
-Seeding runs against whatever `APP_ENV` selects, so check which environment you
-are in before running it against something that is not a development database.
+That consistency also raises the risk: seeding follows whatever `APP_ENV`
+selects. Confirm the environment before targeting any database that is not for
+development.

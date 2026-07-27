@@ -5,9 +5,9 @@ sidebar:
   order: 8
 ---
 
-`pw` is the development tool. The binary `pw build` produces has a command line
-of its own, and it is generated from the same declarations that drive
-configuration.
+`pw` controls development, but it is not the command your users deploy. The
+binary produced by `pw build` has its own CLI, generated from the same typed
+declarations that drive configuration.
 
 For the development tool itself, see [pw command](/pw/overview/).
 
@@ -70,18 +70,19 @@ See [Configuration](/guides/configuration/) for the full resolution order.
 ./myapp --generate-config env > .env
 ```
 
-Both formats cover **every registered prefix** — the framework's and your
-application's — with `default` values and `help` text as comments. Because the
-binary reports what its own imports registered, the scaffold always matches the
-packages actually linked in. Add a dependency that registers configuration and
-it appears on the next run.
+Both formats include **every registered prefix**, whether it belongs to the
+framework or the application, and preserve `default` values and `help` text as
+comments. The binary reports what its linked packages actually registered. Add
+a dependency with configuration, and that configuration appears the next time
+you generate a scaffold.
 
 Either form exits after writing; the server does not start.
 
 ## Your own subcommands
 
-A subcommand is a struct plus one registration call. `pw generate` reads the
-call site and writes the parsing code, so there is no flag wiring to maintain.
+A subcommand needs only a struct and one registration call. `pw generate` reads
+that call site and writes the parser, leaving no parallel flag wiring to
+maintain.
 
 ```go
 package main
@@ -138,9 +139,9 @@ generated definitions register during package `init`, so `RegisterSubCommand`
 must run after every `init` and before `ParseConfig`. Registering after parsing
 panics.
 
-Because the subcommand shares the parsed configuration, `pw.Config[T]` already
-returns the same values the server would use — including the DSN — so there is
-no second copy of the settings to keep in sync.
+The subcommand shares the server's parsed configuration. `pw.Config[T]`
+therefore returns the same values the server would use, including the DSN,
+without a second settings path to keep in sync.
 
 The database pool is a separate matter: it is opened by `pw.Run` and
 `pw.Middlewares`, not by `ParseConfig`. A subcommand that needs a connection

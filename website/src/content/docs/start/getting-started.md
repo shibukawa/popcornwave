@@ -5,8 +5,9 @@ sidebar:
   order: 2
 ---
 
-This walkthrough goes from an empty directory to a running application, then
-changes a page and watches it reload.
+An empty directory is only a few commands away from a running application. This
+walkthrough creates that application, examines what was generated, and then
+changes a page to test the development loop.
 
 ## 1. Create the project
 
@@ -14,9 +15,10 @@ changes a page and watches it reload.
 pw init myapp
 ```
 
-The project name accepts letters, digits, `-`, and `_`. `pw init` refuses to
-write into a directory that already has files in it, so an accidental
-`pw init .` in a populated tree fails instead of scattering files.
+The project name may contain letters, digits, `-`, and `_`. More importantly,
+`pw init` refuses to write into a directory that already contains files. An
+accidental `pw init .` in a populated tree therefore fails before it can scatter
+new files.
 
 Adding `--tailwind` scaffolds Tailwind CSS as well — an `assets/app.css` entry
 point, the `[assets.tailwind]` block in `popcornwave.toml`, a pinned
@@ -27,8 +29,8 @@ No `package.json` and no Node lockfile are created.
 pw init myapp --tailwind
 ```
 
-After writing the files, `pw init` runs `go mod tidy` and then `pw generate`, so
-the project compiles immediately. It finishes by printing:
+Once the files are in place, `pw init` runs `go mod tidy` and `pw generate`.
+The generated project therefore compiles before the command reports success:
 
 ```
 Created myapp
@@ -63,9 +65,10 @@ myapp/
 └── .gitignore                 excludes *_pw_gen.go and other build output
 ```
 
-Every `.pw.html` and `.pw.sql` file is compiled into a `_pw_gen.go` file **next
-to its source**. Those files are build output: they are git-ignored, hidden in
-VS Code, and recreated by `pw generate`. You never edit them.
+Every `.pw.html` and `.pw.sql` file becomes a `_pw_gen.go` file **next to its
+source**. These generated files are build output: Git ignores them, VS Code
+hides them, and `pw generate` recreates them. Edit the source, never the
+generated Go.
 
 ### The entry point
 
@@ -118,8 +121,8 @@ func home(w http.ResponseWriter, r *http.Request) {
 }
 ```
 
-`Home` and `HomeParams` do not exist in any file you can see — they are
-generated from `handlers/home.pw.html`:
+The handler calls `Home` and `HomeParams`, yet neither appears in handwritten
+Go. Both come from `handlers/home.pw.html`:
 
 ```html
 package handlers
@@ -129,10 +132,10 @@ export component Home(name: string): html {
 }
 ```
 
-Note what the handler does *not* do: it never mentions the document shell.
-`pw.WriteHTML` renders the page fragment inside the document registered from
-`templates/document.pw.html`. See
-[Templates](/guides/templates/).
+The handler never mentions the document shell. `pw.WriteHTML` takes the page
+fragment and renders it inside the document registered from
+`templates/document.pw.html`; [Templates](/guides/templates/) explains that
+composition in detail.
 
 ## 3. Run it
 
@@ -172,13 +175,13 @@ export component Home(name: string): html {
 }
 ```
 
-Save it. `pw dev` regenerates `home_pw_gen.go`, rebuilds, and restarts. Reload
-the browser.
+Save the file. `pw dev` regenerates `home_pw_gen.go`, rebuilds the application,
+and restarts it. Reload the browser to see the new paragraph.
 
-If you instead change the component's *signature* — say `Home(name: string,
-count: int)` — the generated `HomeParams` struct changes with it and the handler
-stops compiling until you pass the new field. That is the point: template and
-handler are checked against each other by the Go compiler.
+Changing the component's *signature* has a different effect. If it becomes
+`Home(name: string, count: int)`, the generated `HomeParams` changes too, and
+the handler stops compiling until it supplies `Count`. The reload loop has
+exposed a contract mismatch at build time rather than at runtime.
 
 ## 5. Build for production
 

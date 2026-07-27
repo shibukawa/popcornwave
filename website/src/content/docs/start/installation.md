@@ -5,12 +5,13 @@ sidebar:
   order: 1
 ---
 
-Popcorn Wave requires **Go 1.26 or later**.
+Popcorn Wave requires **Go 1.26 or later**. From there, the only required setup
+is the `pw` command and the library dependency it manages.
 
 ## The `pw` command
 
-Almost everything — scaffolding, code generation, migrations, the development
-server — goes through the `pw` command.
+Scaffolding, code generation, migrations, and the development server all go
+through the `pw` command:
 
 ```sh
 go install github.com/shibukawa/popcornwave/cmd/pw@latest
@@ -29,8 +30,9 @@ Seed usage: pw seed [--dir=testdata/seed] [name...]
 
 ## The library
 
-`pw init` writes a `go.mod` that already requires the framework, so a scaffolded
-project needs no manual `go get`. To add Popcorn Wave to an existing module:
+For a new project, `pw init` writes a `go.mod` that already requires the
+framework; no manual `go get` is needed. An existing module needs one additional
+step:
 
 ```sh
 go get github.com/shibukawa/popcornwave
@@ -45,10 +47,10 @@ import "github.com/shibukawa/popcornwave/pw"
 
 ## Devbox (optional)
 
-Generated projects ship a `devbox.json` pinning Go and a Valkey service, and
-`pw init --tailwind` adds the standalone Tailwind CSS binary to it. Devbox is
-convenient but not required — if you already have Go on `PATH`, skip
-`devbox shell` and run `pw dev` directly.
+Generated projects include a `devbox.json` that pins Go and a Valkey service.
+When you use `pw init --tailwind`, it pins the standalone Tailwind CSS binary as
+well. Devbox keeps those tools reproducible, but it is optional: if Go is
+already on `PATH`, skip `devbox shell` and run `pw dev` directly.
 
 Install Devbox from [jetify.com/devbox](https://www.jetify.com/devbox/).
 

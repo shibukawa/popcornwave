@@ -5,8 +5,9 @@ sidebar:
   order: 6
 ---
 
-Two styling approaches coexist. Component styles come with the template system
-and need no setup; Tailwind CSS is opt-in.
+Popcorn Wave does not force one CSS workflow. Component-scoped styles require no
+setup, while Tailwind CSS remains an opt-in build tool. The two approaches can
+also share a component without competing for its class names.
 
 ## Component styles
 
@@ -34,7 +35,7 @@ attribute. See [Templates](/guides/templates/).
 Popcorn Wave drives the **standalone** Tailwind binary. There is no
 `package.json`, no `node_modules`, and no Node lockfile.
 
-The easy path is at creation time:
+The shortest path is to enable it when creating the project:
 
 ```sh
 pw init myapp --tailwind
@@ -42,8 +43,9 @@ pw init myapp --tailwind
 
 ### Enabling it later
 
-If you created the project without `--tailwind`, four things have to be in
-place. None of them is generated, so add them by hand.
+Adding Tailwind later requires the same four pieces that the scaffold would have
+created. Because the existing project may already contain custom files, add
+them explicitly.
 
 **1. Make the `tailwindcss` binary available.**
 
@@ -64,9 +66,9 @@ Then re-enter the shell so the new package is on `PATH`:
 devbox shell
 ```
 
-Pinning the version is deliberate — an unpinned CSS toolchain turns a
-reproducible build into a moving target. If you manage tools some other way,
-any `tailwindcss` on `PATH` works.
+The version pin keeps the CSS build reproducible; without it, the same source can
+produce different output as the tool moves. If another tool manager provides
+`tailwindcss` on `PATH`, Devbox is not required.
 
 **2. Create the stylesheet entry point.**
 
@@ -77,10 +79,11 @@ any `tailwindcss` on `PATH` works.
 @source "../templates";
 ```
 
-The `@source` lines are what let Tailwind see class names inside your `.pw.html`
-files — without them the output is nearly empty. Add one line per directory
-that contains templates; for the layout in
-[Project structure](/guides/project-structure/) that means `@source "../webroot";`.
+The import starts Tailwind, but it does not tell Tailwind where templates live.
+The `@source` lines expose class names inside `.pw.html` files; without them, the
+generated stylesheet is nearly empty. Add one source per template directory.
+For the layout in [Project structure](/guides/project-structure/), that means
+`@source "../webroot";`.
 
 The `@import "tailwindcss"` line is checked before the build runs, so a
 malformed entry point is reported rather than silently producing empty CSS.
@@ -131,10 +134,10 @@ pw dev
 | `pw dev` | one unminified build, then a watcher; the input is re-watched if the watcher exits |
 | `pw build` | one minified build, regardless of `minify` in the file |
 
-Output is written to a temporary file and renamed into place, so a half-written
-stylesheet is never served. `public/generated/app.css` is build output — the
-scaffolded `.gitignore` already excludes the compressed `public/**/*.zstd`
-sidecars, and you will usually want to ignore the generated CSS too.
+Output is first written to a temporary file and then renamed into place, so the
+server never observes a half-written stylesheet. `public/generated/app.css` is
+build output. The scaffolded `.gitignore` already excludes compressed
+`public/**/*.zstd` sidecars, and generated CSS will usually belong there too.
 
 ### Plugins
 

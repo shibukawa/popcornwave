@@ -5,9 +5,10 @@ sidebar:
   order: 3
 ---
 
-A `.pw.html` file declares typed components. `pw generate` compiles each one
-into a `_pw_gen.go` file beside it. Templates are never parsed at run time:
-value types and HTML insertion contexts are checked during generation.
+A template normally fails only after data reaches it. A `.pw.html` component
+moves that failure earlier: `pw generate` compiles it into a `_pw_gen.go` file
+beside the source, checking value types and HTML insertion contexts before the
+application runs.
 
 ## A component
 
@@ -31,14 +32,15 @@ type HomeParams struct {
 func Home(params HomeParams) pw.HTMLFragment
 ```
 
-so the handler call is type-checked:
+The generated API makes the handler call type-checked:
 
 ```go
 pw.WriteHTML(w, r, Home(HomeParams{Name: input.Name}))
 ```
 
-Change the parameter list and the handler stops compiling until it is updated.
-A component without `export` is private and callable only from other templates.
+If the parameter list changes, the handler stops compiling until it catches up.
+A component without `export` remains private and can be called only from other
+templates.
 
 ## Types
 
@@ -150,13 +152,13 @@ export component Page(caption: string): html {
 }
 ```
 
-Three constraints are worth internalising: a slot parameter is not a value and
-cannot be read in an expression, it cannot be tested for presence or forwarded,
-and slots cannot appear inside a `for` loop.
+Slots compose markup, but they are not ordinary values. A slot parameter cannot
+be read in an expression, tested for presence, or forwarded, and a slot cannot
+appear inside a `for` loop.
 
-The rule that keeps composition honest: **presentational components do not
-fetch data.** A component renders what its parameters carry; loading happens in
-the handler.
+That restriction reinforces a broader boundary: **presentational components do
+not fetch data.** A component renders what its parameters carry; the handler
+loads those values.
 
 ## The document shell
 
@@ -179,9 +181,9 @@ generated document artifact registers itself during package initialisation, and
 any handler referencing it. `pw.WriteHTML` then resolves the registered
 document and renders the chain with the document outermost.
 
-So handler code never selects or constructs a document, and a missing or
-duplicate registration is a **startup** error rather than a per-request
-surprise.
+The consequence is concrete: handler code neither selects nor constructs a
+document. A missing or duplicate registration fails at **startup**, before a
+request can discover it.
 
 :::caution
 A project has **exactly one** `document.pw.html`. `pw generate` fails with
@@ -204,7 +206,8 @@ Wrappers compose outermost-first, each filling the next into its unnamed slot.
 
 ## Escaping
 
-Strings are escaped automatically, and correctly for the context they land in:
+Type checking prevents one class of template error; contextual escaping handles
+another. Strings are escaped automatically for the position where they land:
 
 ```html
 <p title={message}>{message}</p>
@@ -243,11 +246,11 @@ export component Card(label: string): html {
 }
 ```
 
-Declared class names are renamed and the matching `class` attributes rewritten,
-so styles are scoped to the component. Classes not declared in the block pass
-through unchanged, which is what lets Tailwind utilities coexist with scoped
-rules. `:global(...)` opts a selector out of scoping. A bare element selector is
-a generation error — qualify it with a class.
+Declared class names are renamed, and matching `class` attributes are rewritten,
+so the styles remain scoped to the component. Undeclared classes pass through
+unchanged; that distinction lets Tailwind utilities coexist with scoped rules.
+Use `:global(...)` to opt a selector out. A bare element selector fails
+generation and must be qualified with a class.
 
 ## External functions
 
@@ -279,7 +282,7 @@ Generation failures carry the template position:
 profile.pw.html:12:8: html:url requires url, got string
 ```
 
-The usual causes: a `string` where a `url` is required, a `string` inserted into
-`<script>`, an optional value in a mixed attribute, a non-boolean condition, an
-undeclared reference, an intrinsic used in the wrong context, slot markers that
-disagree, and bare element selectors in scoped styles.
+Common causes include a `string` where a `url` is required, a `string` inserted
+into `<script>`, an optional value mixed with static attribute text, a
+non-boolean condition, an undeclared reference, an intrinsic in the wrong
+context, incompatible slot markers, or a bare element selector in scoped CSS.

@@ -5,15 +5,15 @@ sidebar:
   order: 3
 ---
 
-Popcorn Wave is a server-rendered web framework built directly on `net/http`.
-An optional server-driven UI layer sits on the same foundation and extends it;
-everything described here works without that layer, and an application never
-pays for a runtime it does not import.
+Popcorn Wave starts with a familiar constraint: a server-rendered application
+should still look like a `net/http` application. Its optional server-driven UI
+layer extends that foundation, but nothing described here depends on it. If an
+application does not import the extra runtime, it does not pay for it.
 
 ## The request model
 
-An HTTP handler binds one request, runs application logic, and writes one
-complete response, using standard navigation and form semantics.
+An HTTP handler binds one request, runs the application logic, and writes one
+complete response. Navigation and forms keep their standard browser semantics.
 
 | Concern | How it works |
 | --- | --- |
@@ -25,13 +25,13 @@ complete response, using standard navigation and form semantics.
 | Transaction boundary | explicit, via `pw.Transaction` |
 | Client-side enhancement | optional |
 
-Nothing here is novel — that is the point. A handler a Go developer can already
-read stays a handler you can already read.
+The model is deliberately unsurprising. A handler that a Go developer already
+knows how to read remains that same handler after the framework is added.
 
 ## Generation instead of reflection
 
-The framework leans on ahead-of-time generation. `pw generate` reads your
-sources and writes Go beside them:
+That familiar request model does not rule out stronger checks. `pw generate`
+reads your sources ahead of time and writes Go beside them:
 
 | Source | Generated |
 | --- | --- |
@@ -42,10 +42,10 @@ sources and writes Go beside them:
 | `pw.RegisterConfig[T]` call sites | configuration binding for `T` |
 | all of the above | an OpenAPI 3.1 fragment |
 
-Two consequences follow. First, mistakes surface at build time: a template that
-inserts a `string` into a URL attribute, a query whose SELECT columns do not
-match its result type, a handler that forgot a new template parameter. Second,
-there is no runtime reflection in the hot path — which is what makes the
+This changes when mistakes appear. A template that inserts a `string` into a URL
+attribute, a query whose SELECT columns do not match its result type, or a
+handler that omits a new template parameter fails at build time. The same
+generation step removes runtime reflection from the hot path, making the
 framework a practical **TinyGo** target.
 
 Escaping is contextual and automatic, with a deliberately narrow raw-output
@@ -98,8 +98,8 @@ small, practical TinyGo target:
 - it optionally supports Tailwind CSS, still without a browser runtime;
 - it excludes component graph, patch protocol, and hydration dependencies.
 
-That last line is the load-bearing one. The server-driven UI layer extends this
-foundation; it is never a prerequisite for it.
+The final exclusion defines the boundary. The server-driven UI layer may extend
+this foundation, but it never becomes a prerequisite for it.
 
 ## Next steps
 
