@@ -27,6 +27,10 @@ steps:
 services:
   default: Valkey
   rule: default services may be disabled or changed in Devbox configuration
+  none_declared:
+    behavior: skip startup silently when devbox reports that the project defines no service
+    rationale: a project with no database and no cache is an ordinary shape, and starting anyway prints an error that reads like a misconfiguration
+    probe: devbox exits zero either way, so the wording of its listing is the only signal; an unreadable answer falls through to starting services rather than skipping them
   output: service logs join the developer loop stream, because the process manager terminal UI would paint over generation, migration, and application output
   lifetime: services stop with the developer loop, because interrupting devbox leaves the process manager it spawned running
 identity_provider:

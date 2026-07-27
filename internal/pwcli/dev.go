@@ -1,6 +1,7 @@
 package pwcli
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -181,6 +182,12 @@ func startDevboxServices(ctx context.Context, root string, stdout, stderr io.Wri
 		fmt.Fprintln(stderr, "pw dev: devbox is not installed; skipping configured services")
 		return func() {}
 	}
+	if devboxReportsNoServices(ctx, root) {
+		// A project with no database and no cache defines no service, which is
+		// an ordinary shape rather than a misconfiguration. Starting them anyway
+		// makes devbox print an error that reads like one.
+		return func() {}
+	}
 	// process-compose opens a full-screen terminal UI by default, which paints
 	// over the generate, migrate, identity provider, and application output the
 	// developer loop prints. Disabling it keeps every service on the same log
@@ -334,4 +341,22 @@ func equalWatchState(left, right watchState) bool {
 		}
 	}
 	return true
+}
+
+// devboxReportsNoServices reports whether devbox said, in as many words, that
+// this project defines no service.
+//
+// devbox exits zero whether or not it found one, so its own wording is the only
+// signal on offer. The question is phrased negatively on purpose: an unreadable
+// answer falls through to starting services as before, because skipping them
+// for a project that does have a database would surface later as a connection
+// failure that says nothing about why.
+func devboxReportsNoServices(ctx context.Context, root string) bool {
+	command := exec.CommandContext(ctx, "devbox", "services", "ls")
+	command.Dir, command.Env = root, os.Environ()
+	output, err := command.CombinedOutput()
+	if err != nil {
+		return false
+	}
+	return bytes.Contains(output, []byte("No services found"))
 }
