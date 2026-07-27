@@ -7,7 +7,7 @@ system:tinygodriver preserves one SQLite API and driver name while build constra
 
 ```yaml
 status: accepted
-facade: github.com/shibukawa/tinygodriver/database/sqlite
+facade: github.com/shibukawa/tinygodriver/database/sql/sqlite
 driver_name: sqlite
 selection:
   - constraint: "tinygo || force_tinygo_logic"

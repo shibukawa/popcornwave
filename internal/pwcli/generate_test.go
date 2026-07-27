@@ -44,7 +44,9 @@ SELECT id, name FROM users WHERE id = {id}
 		t.Fatal(err)
 	}
 	byName := changesByBase(changes)
-	for _, name := range []string{"home_pw_gen.go", "users_pw_gen.go", "tinybind_shared_pw_gen.go"} {
+	// The template runtime lives in the htmlbind module, so generation emits one
+	// artifact per source and no shared per-package runtime file.
+	for _, name := range []string{"home_pw_gen.go", "users_pw_gen.go"} {
 		if _, ok := byName[name]; !ok {
 			t.Errorf("missing generated artifact %s; got %v", name, mapKeys(byName))
 		}

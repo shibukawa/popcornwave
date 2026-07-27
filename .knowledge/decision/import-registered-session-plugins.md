@@ -8,7 +8,7 @@ Session core does not import storage implementations; blank imports opt implemen
 ```yaml
 examples:
   rdb_session_plugin: import _ "popcornwave/plugin/session/rdb"
-  sqlite_database_driver: import _ "github.com/shibukawa/tinygodriver/database/sqlite"
+  sqlite_database_driver: import _ "github.com/shibukawa/tinygodriver/database/sql/sqlite"
   redis_session_plugin: import _ "popcornwave/plugin/session/redis"
 boundaries:
   - plugin/session/rdb registers the RDB session backend but no database/sql driver

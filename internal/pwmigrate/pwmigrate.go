@@ -18,7 +18,7 @@ import (
 	"time"
 
 	"github.com/pressly/goose/v3"
-	_ "github.com/shibukawa/tinygodriver/database/sqlite"
+	_ "github.com/shibukawa/tinygodriver/database/sql/sqlite"
 )
 
 // DefaultDir is the project-relative migration directory.

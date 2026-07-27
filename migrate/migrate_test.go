@@ -10,7 +10,7 @@ import (
 	"testing"
 
 	"github.com/shibukawa/popcornwave/migrate"
-	_ "github.com/shibukawa/tinygodriver/database/sqlite"
+	_ "github.com/shibukawa/tinygodriver/database/sql/sqlite"
 )
 
 const counterMigration = `-- +goose Up

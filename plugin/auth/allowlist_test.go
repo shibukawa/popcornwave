@@ -10,7 +10,7 @@ import (
 
 	"github.com/shibukawa/popcornwave/contrib/jwt"
 
-	_ "github.com/shibukawa/tinygodriver/database/sqlite"
+	_ "github.com/shibukawa/tinygodriver/database/sql/sqlite"
 )
 
 func allowlistDB(t *testing.T) *sql.DB {

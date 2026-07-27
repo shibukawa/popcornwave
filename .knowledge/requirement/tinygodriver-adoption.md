@@ -14,7 +14,7 @@ imports:
   reverse_proxy: github.com/shibukawa/tinygodriver/httprevproxy
   host_network_driver: github.com/shibukawa/tinygodriver/netdev
   zstd: github.com/shibukawa/tinygodriver/compress/zstd
-  sqlite: github.com/shibukawa/tinygodriver/database/sqlite
+  sqlite: github.com/shibukawa/tinygodriver/database/sql/sqlite
 repository_boundary:
   - no local httpmux, httprevproxy, netdev, zstd, or database driver implementation
   - application examples import system:tinygodriver directly

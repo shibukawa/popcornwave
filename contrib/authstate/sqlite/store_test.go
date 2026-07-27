@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/shibukawa/popcornwave/contrib/authstate"
-	dbsqlite "github.com/shibukawa/tinygodriver/database/sqlite"
+	dbsqlite "github.com/shibukawa/tinygodriver/database/sql/sqlite"
 )
 
 type stringCodec struct{}

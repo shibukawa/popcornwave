@@ -13,15 +13,13 @@ packages:
   httpmux: github.com/shibukawa/tinygodriver/httpmux
   httprevproxy: github.com/shibukawa/tinygodriver/httprevproxy
   zstd: github.com/shibukawa/tinygodriver/compress/zstd
-  sqlite: github.com/shibukawa/tinygodriver/database/sqlite
-  cgosqlite: github.com/shibukawa/tinygodriver/database/cgosqlite
+  sqlite: github.com/shibukawa/tinygodriver/database/sql/sqlite
 roles:
   netdev: host TCP/IP Netdever registration for TinyGo
   httpmux: Go 1.22+ ServeMux-compatible routing for TinyGo
   httprevproxy: TinyGo-compatible net/http/httputil.ReverseProxy subset
-  zstd: bounded TinyGo encoder with optimized host fallback
-  sqlite: portable database/sql SQLite facade
-  cgosqlite: native SQLite driver used by TinyGo
+  zstd: bounded TinyGo encoder with optimized host fallback, streaming-capable from v1.0.4
+  sqlite: portable database/sql SQLite facade selecting a host or TinyGo backend
 standard_go:
   netdev: no-op registration
   httpmux: alias of net/http.ServeMux

@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"strings"
 
-	_ "github.com/shibukawa/tinygodriver/database/sqlite"
+	_ "github.com/shibukawa/tinygodriver/database/sql/sqlite"
 )
 
 func validateConfiguredRuntime() error {
