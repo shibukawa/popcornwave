@@ -38,6 +38,20 @@ pw dev
 extra_watch = ["config.dev.toml", "assets/**/*.svg"]
 ```
 
+## サービス
+
+`devbox.json` に宣言されたサービス（既定では Valkey）は、Devbox のプロセスマネージャの
+全画面 TUI を無効にした状態で動きます。ログは画面を覆い隠すのではなく、コード生成・
+マイグレーション・アプリケーションの出力と同じストリームに、サービス名つきの 1 行ずつ
+流れます。
+
+```
+[valkey	] 1:M 27 Jul 2026 23:02:32.103 * Ready to accept connections tcp
+```
+
+サービスが不要なプロジェクトは `devbox.json` からパッケージを外してください。`pw dev` が
+起動するのは Devbox が宣言したものだけです。
+
 ## Tailwind
 
 開発中のウォッチャは `assets.tailwind.minify` の設定に関わらず、常に**非 minify** の

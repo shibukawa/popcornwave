@@ -27,6 +27,8 @@ steps:
 services:
   default: Valkey
   rule: default services may be disabled or changed in Devbox configuration
+  output: service logs join the developer loop stream, because the process manager terminal UI would paint over generation, migration, and application output
+  lifetime: services stop with the developer loop, because interrupting devbox leaves the process manager it spawned running
 identity_provider:
   package: requirement:contrib-devidp
   lifetime: starts before the application process and stops with the developer loop

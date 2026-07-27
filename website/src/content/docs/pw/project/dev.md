@@ -38,6 +38,20 @@ steps affected by that file rather than rebuilding the entire environment.
 extra_watch = ["config.dev.toml", "assets/**/*.svg"]
 ```
 
+## Services
+
+The services declared in `devbox.json` — Valkey by default — run under the
+Devbox process manager with its full-screen terminal UI disabled. Their logs
+join the same stream as generation, migration, and application output, one
+prefixed line per event, instead of painting over it:
+
+```
+[valkey	] 1:M 27 Jul 2026 23:02:32.103 * Ready to accept connections tcp
+```
+
+A project that needs no service can drop the package from `devbox.json`;
+`pw dev` starts whatever Devbox declares and nothing else.
+
 ## Tailwind
 
 During development the watcher always produces **unminified** CSS, regardless of

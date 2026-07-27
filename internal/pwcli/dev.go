@@ -181,14 +181,27 @@ func startDevboxServices(ctx context.Context, root string, stdout, stderr io.Wri
 		fmt.Fprintln(stderr, "pw dev: devbox is not installed; skipping configured services")
 		return func() {}
 	}
-	command := exec.CommandContext(ctx, "devbox", "services", "up")
+	// process-compose opens a full-screen terminal UI by default, which paints
+	// over the generate, migrate, identity provider, and application output the
+	// developer loop prints. Disabling it keeps every service on the same log
+	// stream as the rest of pw dev, one prefixed line per event.
+	command := exec.CommandContext(ctx, "devbox", "services", "up", "--pcflags=-t=false")
 	command.Dir, command.Stdout, command.Stderr, command.Env = root, stdout, stderr, os.Environ()
 	if err := command.Start(); err != nil {
 		fmt.Fprintln(stderr, "pw dev: start Devbox services:", err)
 		return func() {}
 	}
 	go func() { _ = command.Wait() }()
-	return func() { stopCommand(command) }
+	return func() {
+		stopCommand(command)
+		// Interrupting devbox does not reach the process-compose it spawned, so
+		// the services would outlive the developer loop that started them.
+		stop := exec.Command("devbox", "services", "stop")
+		stop.Dir, stop.Stdout, stop.Stderr, stop.Env = root, stdout, stderr, os.Environ()
+		if err := stop.Run(); err != nil {
+			fmt.Fprintln(stderr, "pw dev: stop Devbox services:", err)
+		}
+	}
 }
 
 type watchState map[string]fileState
