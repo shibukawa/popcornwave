@@ -215,9 +215,28 @@ func WriteHTML(w http.ResponseWriter, r *http.Request, leaf HTMLFragment) {
 
 // WriteHTMLChain renders generated wrappers around one leaf without committing
 // the response until TinyBind has validated and rendered the complete chain.
+//
+// A chain that can open an await boundary streams instead: the shell and every
+// fallback commit first, and each boundary is written as it settles. Nothing
+// about the handler changes, because whether a response streams is a property
+// of the templates it composed rather than a decision the handler makes.
 func WriteHTMLChain(w http.ResponseWriter, r *http.Request, wrappers []HTMLWrapper, leaf HTMLFragment) {
+	config := Config[HTMLConfig](requestContext(r))
+	if config.Streaming && htmlbind.HasAwaitBlock(wrappers, leaf) {
+		streamHTMLChain(w, r, wrappers, leaf, config)
+		return
+	}
 	var body bytes.Buffer
-	if err := htmlbind.RenderChain(&body, wrappers, leaf); err != nil {
+	if err := htmlbind.RenderChain(&body, wrappers, leaf, renderOptions(r, config)...); err != nil {
+		// Nothing is committed on this branch, so the same failure the streaming
+		// branch can only patch into a 200 still carries its real status here.
+		var unrecovered *htmlbind.UnrecoveredError
+		if errors.As(err, &unrecovered) {
+			Logger(requestContext(r)).ErrorContext(requestContext(r),
+				"await boundary failed with no recover clause", "error", unrecovered.Err)
+			writeHTMLProblem(w, r, wrappers, mapProblem(unrecovered.Err))
+			return
+		}
 		WriteProblem(w, r, InternalServerError(err))
 		return
 	}
@@ -238,6 +257,96 @@ func WriteHTMLChain(w http.ResponseWriter, r *http.Request, wrappers []HTMLWrapp
 	}
 }
 
+// streamHTMLChain writes the document as htmlbind produces it. The first error
+// arrives before anything is written, because chain assembly and the check for
+// unset async values both run before the initial pass, so that failure can
+// still become a problem response.
+func streamHTMLChain(w http.ResponseWriter, r *http.Request, wrappers []HTMLWrapper, leaf HTMLFragment, config HTMLConfig) {
+	ctx := requestContext(r)
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	writer, closeWriter, err := prepareHTMLResponse(w, r)
+	if err != nil {
+		WriteProblem(w, r, InternalServerError(err))
+		return
+	}
+	logger := Logger(ctx)
+	for content, err := range htmlbind.RenderChainAsync(ctx, writer, wrappers, leaf, renderOptions(r, config)...) {
+		if err != nil {
+			// A boundary that failed with no recover clause is reported after the
+			// initial pass by construction, so the document is already committed
+			// and the page can only be repaired from the inside.
+			var unrecovered *htmlbind.UnrecoveredError
+			if errors.As(err, &unrecovered) {
+				logger.ErrorContext(ctx, "await boundary failed with no recover clause",
+					"boundary", unrecovered.BoundaryID, "error", unrecovered.Err)
+				if err := writeDocumentEscalation(writer, mapProblem(unrecovered.Err)); err != nil {
+					logger.ErrorContext(ctx, "HTML error page write failed", "error", err)
+				}
+				htmlbind.Flush(writer)
+				break
+			}
+			if !responseCommitted(w) {
+				// Nothing reached the client yet, so this response can still be
+				// replaced. The encoding was chosen for a document that will not
+				// be written now, and the problem body is not encoded, so the
+				// header has to go with it. Any partial document still sitting in
+				// the encoder is dropped rather than closed, which is the whole
+				// reason it is safe to answer at all.
+				w.Header().Del("Content-Encoding")
+				WriteProblem(w, r, InternalServerError(err))
+				return
+			}
+			// The status is already on the wire, so this is for the operator
+			// rather than for the client: every committed fallback stays.
+			logger.ErrorContext(ctx, "HTML stream failed after commit", "error", err)
+			break
+		}
+		if err := writeBoundaryCompletion(writer, content); err != nil {
+			logger.ErrorContext(ctx, "HTML boundary write failed", "error", err)
+			break
+		}
+		htmlbind.Flush(writer)
+	}
+	if err := closeWriter(); err != nil {
+		logger.ErrorContext(ctx, "HTML response close failed", "error", err)
+	}
+}
+
+// writeBoundaryCompletion frames one settled boundary for the browser runtime
+// in pw.RuntimeScriptURL. htmlbind yields the bare fragment and the id of the
+// placeholder it belongs to; the framing and the script that acts on it are one
+// design and both live here.
+//
+// The trailing marker is what makes the swap safe, and boundaryRuntimeScript
+// explains why it cannot be replaced by reacting to the template itself.
+func writeBoundaryCompletion(w io.Writer, content htmlbind.Content) error {
+	if _, err := io.WriteString(w, `<template data-tb-boundary="`+content.BoundaryID+`">`); err != nil {
+		return err
+	}
+	if _, err := w.Write(content.HTML); err != nil {
+		return err
+	}
+	_, err := io.WriteString(w, `</template><tb-apply for="`+content.BoundaryID+`"></tb-apply>`)
+	return err
+}
+
+func renderOptions(r *http.Request, config HTMLConfig) []htmlbind.Option {
+	ctx := requestContext(r)
+	options := []htmlbind.Option{
+		htmlbind.WithContext(ctx),
+		htmlbind.WithErrorReporter(func(err error) {
+			Logger(ctx).ErrorContext(ctx, "await boundary failed", "error", err)
+		}),
+	}
+	if config.AsyncTimeout > 0 {
+		options = append(options, htmlbind.WithAsyncTimeout(config.AsyncTimeout))
+	}
+	if config.AsyncConcurrency > 0 {
+		options = append(options, htmlbind.WithConcurrencyLimit(config.AsyncConcurrency))
+	}
+	return options
+}
+
 func prepareHTMLResponse(w http.ResponseWriter, r *http.Request) (io.Writer, func() error, error) {
 	if !Config[MiddlewareConfig](requestContext(r)).Compression {
 		return w, func() error { return nil }, nil
@@ -252,7 +361,29 @@ func prepareHTMLResponse(w http.ResponseWriter, r *http.Request) (io.Writer, fun
 	if err != nil {
 		return w, func() error { return nil }, err
 	}
-	return encoder, encoder.Close, nil
+	return flushingEncoder{encoder: encoder, downstream: w}, encoder.Close, nil
+}
+
+// flushingEncoder chains one flush through both layers. zstd deliberately does
+// not flush its destination, and a completion sitting in either the encoder or
+// the server's buffer defeats the point of having sent it early.
+//
+// Flushing per boundary rather than per write is what keeps the ratio
+// reasonable: each flush ends a block, and a block ended early compresses worse.
+type flushingEncoder struct {
+	encoder    *zstd.Writer
+	downstream http.ResponseWriter
+}
+
+func (f flushingEncoder) Write(p []byte) (int, error) { return f.encoder.Write(p) }
+
+func (f flushingEncoder) Flush() {
+	if err := f.encoder.Flush(); err != nil {
+		return
+	}
+	if flusher, ok := f.downstream.(http.Flusher); ok {
+		flusher.Flush()
+	}
 }
 
 func acceptsZstdEncoding(values []string) bool {

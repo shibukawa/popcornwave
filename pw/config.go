@@ -45,6 +45,26 @@ type EndpointConfig struct {
 	Path    string
 }
 
+// HTMLConfig bounds and gates progressive HTML rendering. A template that opens
+// an await boundary renders correctly under either setting; this only decides
+// whether the fallbacks reach the browser before the work behind them settles.
+type HTMLConfig struct {
+	// Streaming false forces the buffered branch even when a chain can open a
+	// boundary, which is the escape hatch for a proxy that buffers responses.
+	Streaming bool
+	// AsyncTimeout bounds one await boundary. Zero leaves the request context as
+	// the only deadline.
+	AsyncTimeout time.Duration
+	// AsyncConcurrency bounds simultaneously running boundary work across one
+	// render. Zero or less is unbounded.
+	AsyncConcurrency int
+}
+
+// defaultHTMLConfig is the effective configuration until a file, environment,
+// or flag says otherwise. The registration below reads its string defaults from
+// here, so the two cannot drift.
+var defaultHTMLConfig = HTMLConfig{Streaming: true, AsyncTimeout: 3 * time.Second}
+
 // PublicConfig controls the framework-owned static asset endpoint.
 type PublicConfig = middlewares.PublicAssetConfig
 
@@ -287,6 +307,28 @@ func init() {
 	RegisterConfig[SessionConfig]("session")
 	RegisterConfig[ObservabilityConfig]("observability")
 	RegisterConfig[MiddlewareConfig]("middleware")
+	RegisterConfig[HTMLConfig]("html")
+	seedConfigDefaults(defaultHTMLConfig)
+}
+
+// seedConfigDefaults gives a registered binding its documented values before
+// anything parses a configuration source.
+//
+// Config reports a registered target even while it is unparsed, so a zero value
+// there reads as an explicit setting rather than as "not configured yet". For
+// HTMLConfig that distinction matters: a zero Streaming would turn progressive
+// rendering off in every test and in every embedding that never calls
+// ParseConfig, which is the opposite of the documented default.
+func seedConfigDefaults[T any](value T) {
+	configState.Lock()
+	defer configState.Unlock()
+	entry, ok := configState.entries[reflect.TypeFor[T]()]
+	if !ok {
+		return
+	}
+	if ptr, ok := entry.ptr.(*T); ok && ptr != nil {
+		*ptr = value
+	}
 }
 
 func registerBuiltinConfigs() {
@@ -295,6 +337,47 @@ func registerBuiltinConfigs() {
 	registerSessionConfig()
 	registerObservabilityConfig()
 	registerMiddlewareConfig()
+	registerHTMLConfig()
+}
+
+func registerHTMLConfig() {
+	const typeName = "github.com/shibukawa/popcornwave/pw.HTMLConfig"
+	configbind.Register[HTMLConfig](configbind.Definition{
+		TypeName:  typeName,
+		Prefix:    "html",
+		KnownKeys: []string{"html.streaming", "html.async_timeout", "html.async_concurrency"},
+		Defaults: map[string]string{
+			"html.streaming":         strconv.FormatBool(defaultHTMLConfig.Streaming),
+			"html.async_timeout":     defaultHTMLConfig.AsyncTimeout.String(),
+			"html.async_concurrency": strconv.Itoa(defaultHTMLConfig.AsyncConcurrency),
+		},
+		FlagMetas: []cliparser.FieldMeta{
+			{Prefix: "html", Key: "streaming", Kind: cliparser.KindBool},
+			{Prefix: "html", Key: "async_timeout"},
+			{Prefix: "html", Key: "async_concurrency"},
+		},
+		Apply: func(dst any, overlay *configbind.Overlay) error {
+			p, ok := dst.(*HTMLConfig)
+			if !ok || p == nil {
+				return fmt.Errorf("configbind: bad HTMLConfig destination")
+			}
+			p.Streaming = configBool(overlay, "html.streaming")
+			var err error
+			if p.AsyncTimeout, err = parseConfigDuration(overlay, "html.async_timeout"); err != nil {
+				return err
+			}
+			if p.AsyncTimeout < 0 {
+				return fmt.Errorf("html.async_timeout must not be negative")
+			}
+			p.AsyncConcurrency, err = parseConfigInt(overlay, "html.async_concurrency")
+			return err
+		},
+		Scaffold: []configbind.ScaffoldField{
+			{Key: "streaming", Kind: configbind.ScaffoldBool, Default: strconv.FormatBool(defaultHTMLConfig.Streaming)},
+			{Key: "async_timeout", Kind: configbind.ScaffoldString, Default: defaultHTMLConfig.AsyncTimeout.String()},
+			{Key: "async_concurrency", Kind: configbind.ScaffoldInt, Default: strconv.Itoa(defaultHTMLConfig.AsyncConcurrency)},
+		},
+	})
 }
 
 func registerServerConfig() {

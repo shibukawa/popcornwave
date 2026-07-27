@@ -10,7 +10,7 @@ order:
   - requirement:shared-web-runtime and requirement:classic-rendering
   - api:typed-external-function and concept:modern-server-ui
   - memory-backed policy:layered-cache with TTL, private scope, and tags
-  - flow:initial-streaming-render
+  - flow:initial-streaming-render, unblocked by system:tinybind html_async_baseline and scoped by requirement:async-html-rendering
   - flow:partial-refresh
   - api:server-action with automatic invalidation
   - concept:client-component with selective module loading

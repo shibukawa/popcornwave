@@ -28,6 +28,7 @@ rules:
   - coalesce concurrent misses
   - never cache writes or transaction-local reads
   - automatic query caching is limited to analyzable generated reads
+  - a cached component cannot declare an api:async-html-value parameter or reach an async record field
   - deployment versions partition keys
   - each layer's policy is independent
 ```

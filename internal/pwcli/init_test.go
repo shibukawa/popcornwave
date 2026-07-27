@@ -335,3 +335,27 @@ func feedWizard(t *testing.T, model wizardModel, messages ...tea.Msg) wizardMode
 func typeText(text string) tea.Msg { return tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(text)} }
 
 func pressKey(key tea.KeyType) tea.Msg { return tea.KeyMsg{Type: key} }
+
+// TestScaffoldDocumentLoadsTheBoundaryRuntime keeps a new project able to apply
+// streamed await boundaries. Without the reference a page whose template
+// declares an async parameter still renders, but every fallback stays put and
+// nothing reports why, so this is worth asserting rather than reviewing.
+func TestScaffoldDocumentLoadsTheBoundaryRuntime(t *testing.T) {
+	files := scaffoldFiles(initOptions{Name: "fixture"})
+
+	document := files["templates/document.pw.html"]
+	if !strings.Contains(document, "external RuntimeScriptURL(): url") {
+		t.Errorf("document does not declare the runtime helper:\n%s", document)
+	}
+	if !strings.Contains(document, `<script type="module" src={RuntimeScriptURL()}></script>`) {
+		t.Errorf("document does not reference the runtime module:\n%s", document)
+	}
+
+	helper := files["templates/templates.go"]
+	if !strings.Contains(helper, "func RuntimeScriptURL() *url.URL") {
+		t.Errorf("templates.go does not implement the declared external:\n%s", helper)
+	}
+	if _, err := parser.ParseFile(token.NewFileSet(), "templates/templates.go", helper, parser.AllErrors); err != nil {
+		t.Fatalf("scaffold is invalid Go: %v\n%s", err, helper)
+	}
+}

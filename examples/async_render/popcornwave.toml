@@ -1,0 +1,6 @@
+[project]
+name = "async_render"
+main = "./cmd/async_render"
+
+[dev]
+extra_watch = []

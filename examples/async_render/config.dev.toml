@@ -1,0 +1,18 @@
+# Development configuration, selected by APP_ENV=dev (the default).
+
+[observability]
+minimum_level = "debug"
+service_name = "async_render"
+
+# Progressive rendering is on by default. Set streaming = false to see the same
+# templates render as one buffered response instead; the markup is identical
+# apart from the boundary framing, which is the point of the design.
+[html]
+streaming = true
+async_timeout = "3s"
+async_concurrency = 0
+
+# Compression and streaming coexist: the encoder flushes a block per settled
+# boundary, so a completion reaches the browser instead of waiting for Close.
+[middleware]
+compression = true

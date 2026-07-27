@@ -1,0 +1,413 @@
+package pw
+
+import (
+	"context"
+	"errors"
+	"net/http"
+	"net/http/httptest"
+	"strings"
+	"testing"
+	"time"
+
+	"reflect"
+
+	kzstd "github.com/klauspost/compress/zstd"
+	"github.com/shibukawa/popcornwave/pwruntime"
+	"github.com/shibukawa/tinybind-go/htmlbind"
+)
+
+// withTestHTMLConfig installs one html binding the way request middleware does,
+// so a test can exercise a setting without parsing a configuration file.
+func withTestHTMLConfig(ctx context.Context, config HTMLConfig) context.Context {
+	return pwruntime.WithResources(ctx, pwruntime.Resources{
+		Configs: map[reflect.Type]any{reflect.TypeFor[HTMLConfig](): config},
+	})
+}
+
+type asyncPageParams struct {
+	Body Pending[string]
+}
+
+// asyncPage builds the shape generation emits for a component whose parameter is
+// declared `async string` and read inside an await clause.
+func asyncPage(params asyncPageParams) htmlbind.Fragment {
+	outer := htmlbind.Builder[asyncPageParams]{}
+	primary := htmlbind.Builder[string]{}
+	recover := htmlbind.Builder[AsyncError]{}
+	plan := &htmlbind.Plan[asyncPageParams]{
+		HasAwaitBlock: true,
+		Check: func(p asyncPageParams) error {
+			if !p.Body.IsSet() {
+				return htmlbind.ErrUnsetPending("body")
+			}
+			return nil
+		},
+		Ops: []htmlbind.Op[asyncPageParams]{
+			outer.Static("<main>"),
+			htmlbind.Await(
+				func(ctx context.Context, p asyncPageParams) (string, error) { return p.Body.Wait(ctx) },
+				func(_ asyncPageParams, err AsyncError) AsyncError { return err },
+				[]htmlbind.Op[string]{
+					primary.Static("<p>"),
+					primary.Text(func(value string) string { return value }),
+					primary.Static("</p>"),
+				},
+				[]htmlbind.Op[asyncPageParams]{outer.Static("<p>loading</p>")},
+				[]htmlbind.Op[AsyncError]{
+					recover.Static("<p class=failed>"),
+					recover.Text(func(err AsyncError) string { return err.Code }),
+					recover.Static("</p>"),
+				},
+			),
+			outer.Static("</main>"),
+		},
+	}
+	return htmlbind.Bind(plan, params)
+}
+
+func TestWriteHTMLStreamsAwaitBoundaries(t *testing.T) {
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "/", nil)
+	WriteHTML(recorder, request, asyncPage(asyncPageParams{Body: Resolved("ready")}))
+
+	body := recorder.Body.String()
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("status = %d", recorder.Code)
+	}
+	if recorder.Header().Get("Content-Length") != "" {
+		t.Error("a streamed response must not declare a Content-Length")
+	}
+	// The fallback commits first and the completion follows it, so a client that
+	// stops reading early still has something to show.
+	fallback := strings.Index(body, "<p>loading</p>")
+	completion := strings.Index(body, `<template data-tb-boundary="tb-1"><p>ready</p></template><tb-apply for="tb-1"></tb-apply>`)
+	if fallback < 0 || completion < 0 || completion < fallback {
+		t.Fatalf("fallback then completion not found in order: %q", body)
+	}
+	if !strings.Contains(body, `<tb-boundary id="tb-1"`) {
+		t.Errorf("placeholder missing: %q", body)
+	}
+}
+
+func TestWriteHTMLBuffersWithoutAwaitBlock(t *testing.T) {
+	recorder := httptest.NewRecorder()
+	builder := htmlbind.Builder[struct{}]{}
+	page := htmlbind.Bind(&htmlbind.Plan[struct{}]{Ops: []htmlbind.Op[struct{}]{
+		builder.Static("<main>static</main>"),
+	}}, struct{}{})
+
+	WriteHTML(recorder, httptest.NewRequest(http.MethodGet, "/", nil), page)
+	if recorder.Body.String() != "<main>static</main>" {
+		t.Fatalf("body = %q", recorder.Body.String())
+	}
+	if recorder.Header().Get("Content-Length") == "" {
+		t.Error("a buffered response should still declare a Content-Length")
+	}
+}
+
+// TestWriteHTMLRecoversFailedBoundary keeps a boundary failure inside the page:
+// the status is already committed, so the recover subtree is the only place a
+// failure can still be reported.
+func TestWriteHTMLRecoversFailedBoundary(t *testing.T) {
+	recorder := httptest.NewRecorder()
+	WriteHTML(recorder, httptest.NewRequest(http.MethodGet, "/", nil),
+		asyncPage(asyncPageParams{Body: Failed[string](errors.New("upstream is down"))}))
+
+	body := recorder.Body.String()
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("status = %d, want the already committed 200", recorder.Code)
+	}
+	if !strings.Contains(body, `<p class=failed>internal</p>`) {
+		t.Fatalf("recover subtree missing: %q", body)
+	}
+	if strings.Contains(body, "upstream is down") {
+		t.Fatal("the raw Go error reached the page")
+	}
+}
+
+// TestWriteHTMLRejectsUnsetPendingBeforeCommit covers the one async failure that
+// can still change the status, because it is detected before the initial pass.
+func TestWriteHTMLRejectsUnsetPendingBeforeCommit(t *testing.T) {
+	recorder := httptest.NewRecorder()
+	WriteHTML(recorder, httptest.NewRequest(http.MethodGet, "/", nil), asyncPage(asyncPageParams{}))
+
+	if recorder.Code != http.StatusInternalServerError {
+		t.Fatalf("status = %d", recorder.Code)
+	}
+	if got := recorder.Header().Get("Content-Type"); got != "application/problem+json" {
+		t.Fatalf("content type = %q", got)
+	}
+}
+
+func TestWriteHTMLBufferedBranchStillResolvesBoundaries(t *testing.T) {
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "/", nil)
+	request = request.WithContext(withTestHTMLConfig(request.Context(), HTMLConfig{Streaming: false}))
+
+	WriteHTML(recorder, request, asyncPage(asyncPageParams{Body: Resolved("ready")}))
+	if body := recorder.Body.String(); body != "<main><p>ready</p></main>" {
+		t.Fatalf("body = %q", body)
+	}
+}
+
+func TestAsyncTimeoutBoundsOneBoundary(t *testing.T) {
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "/", nil)
+	request = request.WithContext(withTestHTMLConfig(request.Context(),
+		HTMLConfig{Streaming: true, AsyncTimeout: 20 * time.Millisecond}))
+
+	slow := Go(request.Context(), func(ctx context.Context) (string, error) {
+		select {
+		case <-ctx.Done():
+			return "", ctx.Err()
+		case <-time.After(5 * time.Second):
+			return "late", nil
+		}
+	})
+	WriteHTML(recorder, request, asyncPage(asyncPageParams{Body: slow}))
+
+	if !strings.Contains(recorder.Body.String(), `<p class=failed>timeout</p>`) {
+		t.Fatalf("timeout was not reported: %q", recorder.Body.String())
+	}
+}
+
+func TestFrameworkScriptIsImmutableAndRevisioned(t *testing.T) {
+	recorder := httptest.NewRecorder()
+	url := RuntimeScriptURL()
+	if !strings.HasPrefix(url, "/_pw/") || !strings.HasSuffix(url, "/boundary.js") {
+		t.Fatalf("url = %q", url)
+	}
+	if !serveFrameworkScript(recorder, httptest.NewRequest(http.MethodGet, url, nil)) {
+		t.Fatal("the runtime request was not handled")
+	}
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("status = %d", recorder.Code)
+	}
+	if got := recorder.Header().Get("Cache-Control"); !strings.Contains(got, "immutable") {
+		t.Errorf("Cache-Control = %q", got)
+	}
+	if !strings.Contains(recorder.Body.String(), `customElements.define("tb-apply"`) {
+		t.Error("the served script does not define the marker element")
+	}
+
+	stale := httptest.NewRecorder()
+	if !serveFrameworkScript(stale, httptest.NewRequest(http.MethodGet, "/_pw/deadbeef/boundary.js", nil)) {
+		t.Fatal("a reserved path must not fall through to the application")
+	}
+	if stale.Code != http.StatusNotFound {
+		t.Errorf("stale revision status = %d", stale.Code)
+	}
+}
+
+// TestStreamedResponseCompressesAndFlushes covers the interaction the encoder
+// used to make impossible: the streaming branch negotiates zstd like any other
+// HTML response, and one flush has to reach the encoder and the response
+// writer, because zstd deliberately does not flush its destination.
+func TestStreamedResponseCompressesAndFlushes(t *testing.T) {
+	request := httptest.NewRequest(http.MethodGet, "/", nil)
+	request.Header.Set("Accept-Encoding", "zstd")
+	request = request.WithContext(pwruntime.WithResources(request.Context(), pwruntime.Resources{
+		Configs: map[reflect.Type]any{
+			reflect.TypeFor[MiddlewareConfig](): MiddlewareConfig{Compression: true},
+			reflect.TypeFor[HTMLConfig]():       HTMLConfig{Streaming: true},
+		},
+	}))
+	recorder := &flushCountingRecorder{ResponseRecorder: httptest.NewRecorder()}
+
+	WriteHTML(recorder, request, asyncPage(asyncPageParams{Body: Resolved("ready")}))
+
+	if got := recorder.Header().Get("Content-Encoding"); got != "zstd" {
+		t.Fatalf("Content-Encoding = %q", got)
+	}
+	if recorder.Header().Get("Content-Length") != "" {
+		t.Error("a streamed response must not declare a Content-Length")
+	}
+	// The initial pass flushes once and every completion flushes again, so a
+	// single-boundary render reaching the client means at least two flushes made
+	// it all the way through the encoder.
+	if recorder.flushes < 2 {
+		t.Errorf("flushes = %d, want the initial pass and the completion", recorder.flushes)
+	}
+	decoder, err := kzstd.NewReader(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer decoder.Close()
+	decoded, err := decoder.DecodeAll(recorder.Body.Bytes(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(decoded), `<tb-apply for="tb-1"></tb-apply>`) {
+		t.Fatalf("decoded body lost its framing: %q", decoded)
+	}
+}
+
+// flushCountingRecorder stands in for the tracked ResponseWriter the middleware
+// stack installs, which forwards Flush to the underlying http.Flusher.
+type flushCountingRecorder struct {
+	*httptest.ResponseRecorder
+	flushes int
+}
+
+func (r *flushCountingRecorder) Flush() {
+	r.flushes++
+	r.ResponseRecorder.Flush()
+}
+
+// TestCompressedStreamRejectsUnsetPendingCleanly covers the seam between the two
+// branches: the streaming branch has to choose an encoding before it knows the
+// render succeeds, and a pre-commit failure answers with an unencoded problem
+// body that the negotiated header would otherwise misdescribe.
+func TestCompressedStreamRejectsUnsetPendingCleanly(t *testing.T) {
+	request := httptest.NewRequest(http.MethodGet, "/", nil)
+	request.Header.Set("Accept-Encoding", "zstd")
+	request = request.WithContext(pwruntime.WithResources(request.Context(), pwruntime.Resources{
+		Configs: map[reflect.Type]any{
+			reflect.TypeFor[MiddlewareConfig](): MiddlewareConfig{Compression: true},
+			reflect.TypeFor[HTMLConfig]():       HTMLConfig{Streaming: true},
+		},
+	}))
+	recorder := httptest.NewRecorder()
+
+	WriteHTML(recorder, request, asyncPage(asyncPageParams{}))
+
+	if recorder.Code != http.StatusInternalServerError {
+		t.Fatalf("status = %d", recorder.Code)
+	}
+	if got := recorder.Header().Get("Content-Encoding"); got != "" {
+		t.Errorf("Content-Encoding = %q, but the problem body is not encoded", got)
+	}
+	if got := recorder.Header().Get("Content-Type"); got != "application/problem+json" {
+		t.Errorf("content type = %q", got)
+	}
+	if !strings.HasPrefix(strings.TrimSpace(recorder.Body.String()), "{") {
+		t.Errorf("body is not the plain problem document: %q", recorder.Body.String())
+	}
+}
+
+// noRecoverPage is the same shape as asyncPage with the recover clause omitted,
+// which is what an author writes when they say nothing about failure.
+func noRecoverPage(params asyncPageParams) htmlbind.Fragment {
+	outer := htmlbind.Builder[asyncPageParams]{}
+	primary := htmlbind.Builder[string]{}
+	plan := &htmlbind.Plan[asyncPageParams]{
+		HasAwaitBlock: true,
+		Ops: []htmlbind.Op[asyncPageParams]{
+			outer.Static("<main>"),
+			htmlbind.Await(
+				func(ctx context.Context, p asyncPageParams) (string, error) { return p.Body.Wait(ctx) },
+				func(_ asyncPageParams, err AsyncError) AsyncError { return err },
+				[]htmlbind.Op[string]{primary.Text(func(value string) string { return value })},
+				[]htmlbind.Op[asyncPageParams]{outer.Static("<p>loading</p>")},
+				nil,
+			),
+			outer.Static("</main>"),
+		},
+	}
+	return htmlbind.Bind(plan, params)
+}
+
+// TestStreamedUnrecoveredBoundaryReplacesDocument is the point of the whole
+// escalation: an author who wrote no recover clause never asked for a page that
+// claims to be loading forever.
+func TestStreamedUnrecoveredBoundaryReplacesDocument(t *testing.T) {
+	recorder := httptest.NewRecorder()
+	WriteHTML(recorder, httptest.NewRequest(http.MethodGet, "/", nil),
+		noRecoverPage(asyncPageParams{Body: Failed[string](errors.New("upstream is down"))}))
+
+	body := recorder.Body.String()
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("status = %d, want the already committed 200", recorder.Code)
+	}
+	if !strings.Contains(body, `<template data-tb-document>`) ||
+		!strings.Contains(body, `</template><tb-apply-document></tb-apply-document>`) {
+		t.Fatalf("document envelope missing: %q", body)
+	}
+	if !strings.Contains(body, "500 Internal Server Error") {
+		t.Errorf("error page missing: %q", body)
+	}
+	if strings.Contains(body, "upstream is down") {
+		t.Fatal("the raw Go error reached the page")
+	}
+	// The fallback is still on the wire, because it was committed before the
+	// failure was known. The runtime is what removes it.
+	if !strings.Contains(body, "<p>loading</p>") {
+		t.Error("the committed fallback should still be present in the byte stream")
+	}
+}
+
+// TestBufferedUnrecoveredBoundaryKeepsItsStatus is the asymmetry worth having:
+// nothing is committed on this branch, so the response can still say 500.
+func TestBufferedUnrecoveredBoundaryKeepsItsStatus(t *testing.T) {
+	request := httptest.NewRequest(http.MethodGet, "/", nil)
+	request = request.WithContext(withTestHTMLConfig(request.Context(), HTMLConfig{Streaming: false}))
+	recorder := httptest.NewRecorder()
+
+	WriteHTML(recorder, request, noRecoverPage(asyncPageParams{Body: Failed[string](errors.New("upstream is down"))}))
+
+	if recorder.Code != http.StatusInternalServerError {
+		t.Fatalf("status = %d, want a real error status", recorder.Code)
+	}
+	if got := recorder.Header().Get("Content-Type"); got != "application/problem+json" {
+		t.Errorf("content type = %q", got)
+	}
+	if strings.Contains(recorder.Body.String(), "upstream is down") {
+		t.Fatal("the raw Go error reached the client")
+	}
+	if strings.Contains(recorder.Body.String(), "loading") {
+		t.Error("a failed buffered render must not ship its fallback")
+	}
+}
+
+// TestBufferedUnrecoveredBoundaryRendersTheErrorPage keeps the two branches
+// telling one story: this one shows the same page the streaming branch patches
+// in, and can still say 500 while doing it.
+func TestBufferedUnrecoveredBoundaryRendersTheErrorPage(t *testing.T) {
+	builder := htmlbind.Builder[Problem]{}
+	RegisterHTMLErrorPage(func(p Problem) HTMLFragment {
+		return htmlbind.Bind(&htmlbind.Plan[Problem]{Ops: []htmlbind.Op[Problem]{
+			builder.Static("<section id=app-error>"),
+			builder.Text(func(p Problem) string { return p.Title }),
+			builder.Static("</section>"),
+		}}, p)
+	})
+	t.Cleanup(func() { RegisterHTMLErrorPage(nil) })
+
+	request := httptest.NewRequest(http.MethodGet, "/", nil)
+	request = request.WithContext(withTestHTMLConfig(request.Context(), HTMLConfig{Streaming: false}))
+	recorder := httptest.NewRecorder()
+
+	WriteHTML(recorder, request, noRecoverPage(asyncPageParams{Body: Failed[string](errors.New("upstream is down"))}))
+
+	if recorder.Code != http.StatusInternalServerError {
+		t.Fatalf("status = %d, want a real error status", recorder.Code)
+	}
+	if got := recorder.Header().Get("Content-Type"); got != "text/html; charset=utf-8" {
+		t.Errorf("content type = %q", got)
+	}
+	if !strings.Contains(recorder.Body.String(), `<section id=app-error>Internal Server Error</section>`) {
+		t.Fatalf("error page missing: %q", recorder.Body.String())
+	}
+}
+
+// TestRegisteredErrorPageReplacesTheBuiltin checks the hook an application uses
+// to supply its own generated error template.
+func TestRegisteredErrorPageReplacesTheBuiltin(t *testing.T) {
+	builder := htmlbind.Builder[Problem]{}
+	RegisterHTMLErrorPage(func(p Problem) HTMLFragment {
+		return htmlbind.Bind(&htmlbind.Plan[Problem]{Ops: []htmlbind.Op[Problem]{
+			builder.Static("<section id=app-error>"),
+			builder.Text(func(p Problem) string { return p.Title }),
+			builder.Static("</section>"),
+		}}, p)
+	})
+	t.Cleanup(func() { RegisterHTMLErrorPage(nil) })
+
+	recorder := httptest.NewRecorder()
+	WriteHTML(recorder, httptest.NewRequest(http.MethodGet, "/", nil),
+		noRecoverPage(asyncPageParams{Body: Failed[string](errors.New("upstream is down"))}))
+
+	if !strings.Contains(recorder.Body.String(), `<section id=app-error>Internal Server Error</section>`) {
+		t.Fatalf("registered page not used: %q", recorder.Body.String())
+	}
+}

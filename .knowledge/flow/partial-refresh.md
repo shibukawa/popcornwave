@@ -15,8 +15,11 @@ server:
   - verify data:component-boundary
   - derive affected boundaries from data:ui-dependency-graph
   - return changed HTML patches only
+  - frame each patch as boundary id plus HTML through the api:html-boundary-protocol fetch envelope, never as marker markup
 client:
-  - ignore or cancel superseded requests
+  - rewrite inserted placeholder ids into a per-response namespace, per api:html-boundary-protocol
+  - apply by namespaced boundary id through the same runtime core the parser path uses
+  - ignore or cancel superseded requests, whose completions then find no placeholder and no-op
   - reject stale rollback by sequence
   - drop child patches replaced by an enclosing parent
   - preserve focus, selection, and scroll where possible

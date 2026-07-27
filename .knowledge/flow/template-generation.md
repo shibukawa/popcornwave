@@ -19,8 +19,12 @@ flow:
       action: assign each interpolation an HTML, attribute, URL, JavaScript, CSS, JSON script data, or text context
     - id: validate
       action: reject missing fields, invalid loops, unsupported JSON types, recursive inclusion or data graphs, ambiguous contexts, and invalid slot placement
+    - id: validate-async
+      action: reject an async call or async parameter read outside an await binding, an await block without a fallback clause, a slot inside an await block, and a cached component that reaches an async value
     - id: emit
       action: generate immutable htmlbind.Fragment plans, htmlbind.Wrapper binders for unnamed-slot components, direct typed field access, native Go loops, context escaping, and typed JSON writer calls
+    - id: emit-async
+      action: emit htmlbind.Pending fields for async parameters, await boundary plans with fallback and recover subtrees, unset-value checks, and the constant HasAwaitBlock flag
     - id: format
       action: format and atomically update policy:generated-artifacts
   failure:

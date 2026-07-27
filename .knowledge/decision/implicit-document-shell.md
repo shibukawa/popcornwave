@@ -12,6 +12,7 @@ hidden:
   - templates/document.pw.html import and generated binder
   - pw.HTMLWrapper values
   - api:render-html-chain invocation
+shell_content: the scaffolded shell declares the requirement:external-boundary-runtime module reference, so no framework code injects into the head
 registration:
   source: templates/document.pw.html generated artifact
   lifecycle: package initialization registers one application document wrapper

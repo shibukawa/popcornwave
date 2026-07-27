@@ -73,6 +73,8 @@ func operationalEndpoints(next http.Handler, config ServerConfig, resources pwru
 	apiDoc := apiDocUI(config.APIDoc, config.OpenAPI.Path)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
+		case serveFrameworkScript(w, r):
+			return
 		case config.Health.Enabled && r.URL.Path == config.Health.Path:
 			writeOperationalStatus(w, r, true)
 			return

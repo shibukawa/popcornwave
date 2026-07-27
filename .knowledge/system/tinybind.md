@@ -8,6 +8,7 @@ TinyBind is the generated binding, configuration, response, validation, streamin
 ```yaml
 module: github.com/shibukawa/tinybind-go
 html_template_baseline: v0.1.15
+html_async_baseline: v0.1.20
 public_wrappers:
   - api:request-binding
   - api:html-response
@@ -19,7 +20,7 @@ generator:
   extensible_analysis: requirement:httpbinder-extensible-route-analysis
   openapi:
     - package fragments register during import
-    - AssembleOpenAPI returns deterministic merged JSON and YAML
+    - AssembleOpenAPI returns one deterministic merged JSON document; YAML output was dropped
   configuration:
     - generated definitions register during import
     - ScaffoldTOML and ScaffoldEnv merge every package definition
@@ -27,6 +28,11 @@ generator:
     - .pw.html components generate immutable htmlbind.Fragment values
     - components with an unnamed slot also generate htmlbind.Wrapper binders
     - api:render-html-chain composes wrappers around a leaf
+    - "`external async` declarations bind Go functions returning a value and an error"
+    - "`async T` parameters and record fields become htmlbind.Pending[T], surfaced by api:async-html-value"
+    - await, fallback, and recover clauses compile to boundaries described by api:html-boundary-protocol
+    - the generated plan carries a constant HasAwaitBlock flag used by decision:automatic-async-render-selection
+    - the async render path emits placeholders and bare fragments; completion framing and the client runtime belong to the framework
   sql:
     - decision:tinybind-sql-runtime owns statement plans and shared execution
     - declared sql.exec, sql.one, sql.optional, or sql.many selects Exec or Query
@@ -38,4 +44,6 @@ constraints:
   - normal handwritten application code does not import TinyBind
 compatibility:
   html_v0_1_15: generated HTML APIs are not source-compatible with earlier direct-writer output
+  html_v0_1_19: async parameters and async render entry points are additive, so existing templates and call sites keep compiling after regeneration
+  html_v0_1_20: Content.WriteTo narrows to the bare fragment and the module injects no client runtime, so an async caller must supply framing and a runtime it previously inherited
 ```

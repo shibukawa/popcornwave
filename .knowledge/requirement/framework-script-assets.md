@@ -1,0 +1,52 @@
+---
+id: requirement:framework-script-assets
+type: requirement
+title: Framework Script Assets
+---
+Framework-owned browser JavaScript is fixed per framework version and served from one revision-stamped reserved path, so every file is immutably cacheable and no per-project build step computes anything.
+
+```yaml
+motivation: the boundary runtime is the first such script; flow:partial-refresh, api:server-action, and concept:client-component add more
+nature: the script set is framework source, identical for every project on one dependency set, and never derived from application code
+location:
+  path: "/_pw/<revision>/<name>.js"
+  reserved: a fixed absolute path, ahead of application routing, rather than a subtree of the configurable public mount
+  rationale:
+    - these are framework assets rather than application assets, so the application mount has no say over them
+    - a stable prefix keeps the URL derivable without reading configuration, which matters because the document shell references it
+    - it stays available when requirement:public-asset-delivery is disabled, so no configuration combination can silently break rendering
+  collision: an unknown path under the reserved prefix answers 404 rather than falling through to the application
+delivery:
+  source: a constant in the framework, served directly rather than written into the project tree
+  rationale: nothing to generate, embed, precompress, or keep in sync with a dependency, and no way for a project to hold a stale copy
+revision:
+  value: one digest over the script source, not one hash per file
+  computed: from the actual bytes at process start
+  rationale: deriving it from content means a dependency upgrade that changes the runtime changes the URL automatically, with no constant to forget to bump
+  determinism: identical dependency versions produce an identical URL
+naming_tradeoff:
+  chosen: one revision segment shared by the set, so cross-module imports stay ordinary relative specifiers and nothing rewrites them
+  rejected: a per-file content hash, which invalidates only what changed but forces import specifier rewriting
+  cost: a revision change refetches every framework script, which is acceptable because the set is small and only a dependency upgrade moves it
+  rejected_alternative: an inline import map, which would reintroduce the inline-script exposure this design removes
+caching:
+  headers: public, max-age one year, immutable
+  soundness: a revision segment never serves different bytes, so the response is genuinely immutable
+core_module:
+  exports: the boundary apply function both api:html-boundary-protocol envelopes use, so the parser path and the fetch path share one implementation
+  adapter: the custom element registration is a thin wrapper the core installs, not a separate module
+loading:
+  tags: exactly one, the core module declared in the document shell by requirement:external-boundary-runtime
+  capabilities: the core dynamically imports a capability module when it finds that capability's markup in the document
+  rationale: one tag per capability would make the shell accumulate tags and would load every capability on every page, and it would need a head-injection hook the framework does not have
+  cost: a capability module costs one extra round trip after the core loads, which suits progressive enhancement and not the streaming path, where the core is itself the boundary logic
+  csp: a dynamic import needs no allowance beyond script-src 'self'
+module_form:
+  type: ES module referenced with type=module
+  parse: module scripts defer by default, so a reference never blocks parsing
+  imports: ordinary relative specifiers inside the revision directory
+security:
+  - every script is framework-owned and carries no request data, so a page needs no inline script and no nonce
+  - policy:security-response-headers can enforce script-src 'self'
+first_consumer: requirement:external-boundary-runtime
+```

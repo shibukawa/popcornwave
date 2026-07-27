@@ -14,6 +14,7 @@ requirements:
   - application runtime does not import generator packages
   - no runtime reflection-based request mapping
   - configured target supports the application's net/http listener model
+  - the target runs the goroutines and range-over-func sequence that requirement:async-html-rendering depends on, or data:html-render-config disables streaming for that build
   - the project registers a Netdever, via the tinygohelper.go blank import of system:tinygodriver netdev
 unsupported_runtime_packages:
   os/signal:

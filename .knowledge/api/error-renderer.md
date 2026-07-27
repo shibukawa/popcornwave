@@ -19,6 +19,12 @@ fallback:
   - use a minimal safe built-in response when no HTML renderer is registered
   - do not recursively invoke an error renderer when it fails
   - log the renderer failure and return a safe internal response if headers remain uncommitted
+async_escalation:
+  trigger: decision:unhandled-boundary-escalation
+  registration: pw.RegisterHTMLErrorPage, resolving a fragment from the mapped problem
+  streaming: the document is written into an already committed 200 response, so the status cannot carry the failure
+  buffered: nothing is committed, so the same page is answered with its real status through the wrapper chain
+  independent_of: the root package ErrorRenderer, which writes a whole response rather than a fragment
 rules:
   - generated renderer fragments register during package import
   - renderers receive only sanitized policy:validation-errors output

@@ -9,6 +9,7 @@ A modern build delivers meaningful server HTML, incremental patches, safe defaul
 criteria:
   - meaningful HTML precedes client JavaScript
   - flow:initial-streaming-render resolves independent async boundaries
+  - requirement:async-html-rendering keeps the handler surface unchanged when a page starts streaming
   - flow:partial-refresh updates only affected boundaries
   - unchanged output hashes avoid fragment transfer
   - policy:layered-cache caches safe queries and deterministic components by default
