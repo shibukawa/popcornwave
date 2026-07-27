@@ -11,10 +11,10 @@ hero:
   image:
     file: ../../../assets/logo.png
   actions:
-    # ヒーローのリンクは frontmatter 由来のため base プラグインが届かない。
-    # 相対 href なら任意の `base` で正しく解決される。
+    # 他の内部リンクと同じサイトルート相対パス。frontmatter 由来で Markdown の
+    # base-links プラグインが届かないため、src/components/Hero.astro が base を付ける。
     - text: はじめる
-      link: ./start/getting-started/
+      link: /ja/start/getting-started/
       icon: right-arrow
     - text: GitHub で見る
       link: https://github.com/shibukawa/popcornwave

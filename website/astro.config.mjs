@@ -41,6 +41,11 @@ export default defineConfig({
       editLink: {
         baseUrl: 'https://github.com/shibukawa/popcornwave/edit/main/website/',
       },
+      components: {
+        // Applies `base` to hero action links, which come from frontmatter and
+        // are therefore out of reach of the base-links Markdown plugin.
+        Hero: './src/components/Hero.astro',
+      },
       // Groups are declared once; pages appear by dropping a Markdown file into
       // the matching directory (and its ja/ counterpart). No config change needed.
       sidebar: [
@@ -70,6 +75,11 @@ export default defineConfig({
               items: [{ autogenerate: { directory: 'pw/database' } }],
             },
           ],
+        },
+        {
+          label: 'Appendix',
+          translations: { ja: '付録' },
+          items: [{ autogenerate: { directory: 'appendix' } }],
         },
       ],
       // Publishes /llms.txt, /llms-full.txt and /llms-small.txt for LLM consumers.

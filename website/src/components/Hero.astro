@@ -1,0 +1,43 @@
+---
+/**
+ * Starlight `Hero` override that applies the configured Astro `base` to hero
+ * action links.
+ *
+ * Hero actions come from page frontmatter, which the Sätteri base-links plugin
+ * cannot reach — it only rewrites links in rendered content. Relative hrefs
+ * (`./start/getting-started/`) are not a fix either: they drop the base
+ * entirely when the page is served without a trailing slash, which is exactly
+ * what `astro dev` does for `/popcornwave`.
+ *
+ * So hero actions are written like every other internal link — a site-root path
+ * including the locale, without the base — and this component prefixes it.
+ */
+import Default from '@astrojs/starlight/components/Hero.astro';
+
+const prefix = import.meta.env.BASE_URL.replace(/\/+$/, '');
+
+const route = Astro.locals.starlightRoute;
+const hero = route.entry.data.hero;
+
+if (prefix && hero?.actions?.length) {
+	route.entry = {
+		...route.entry,
+		data: {
+			...route.entry.data,
+			hero: {
+				...hero,
+				actions: hero.actions.map((action) => {
+					const { link } = action;
+					// Leave external (`//host`), protocol, anchor and relative links alone.
+					if (!link.startsWith('/') || link.startsWith('//')) return action;
+					// Already based — do not double-prefix.
+					if (link === prefix || link.startsWith(`${prefix}/`)) return action;
+					return { ...action, link: prefix + link };
+				}),
+			},
+		},
+	};
+}
+---
+
+<Default><slot /></Default>

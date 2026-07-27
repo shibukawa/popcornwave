@@ -11,10 +11,11 @@ hero:
   image:
     file: ../../assets/logo.png
   actions:
-    # Hero links come from frontmatter, so the base-links plugin cannot reach
-    # them. Relative hrefs resolve correctly under any `base`.
+    # Site-root paths, like every other internal link. src/components/Hero.astro
+    # applies `base`, which the Markdown base-links plugin cannot do here
+    # because hero actions come from frontmatter.
     - text: Get started
-      link: ./start/getting-started/
+      link: /start/getting-started/
       icon: right-arrow
     - text: View on GitHub
       link: https://github.com/shibukawa/popcornwave
