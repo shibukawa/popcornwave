@@ -331,6 +331,46 @@ Nothing above requires knowing this. It is here because the mechanism is small
 enough to describe completely, and because one detail in it is easy to get wrong
 in a way that only fails in production.
 
+### The whole picture
+
+It is one HTTP response, sent with `Transfer-Encoding: chunked`. There is no
+`Content-Length`, because how much HTML the boundaries will produce is not known
+when the headers go out.
+
+**The first chunk is the entire document, in its placeholder state.** Doctype,
+head, body, every settled value, and every unresolved boundary rendered as a
+placeholder holding its fallback — down to the closing `</html>`. It is complete
+markup, so the browser lays the page out and the reader can start reading it.
+
+**Then one chunk per boundary, each written as its `pw.Go` finishes.** They
+arrive in settle order rather than document order: whichever query answers first
+is sent first. Each chunk carries the `<template data-tb-boundary="…">` block and
+its marker, and the runtime moves it into the placeholder waiting for it.
+
+**The response ends when the last boundary has settled.** Nothing more can be
+appended, and the connection closes.
+
+Watching the same page arrive makes the shape obvious:
+
+```text
+200  Transfer-Encoding: chunked  Content-Length: (none)
+
+  0.02s  +963 B   <!doctype html> … <tb-boundary id="tb-1">…</tb-boundary> … </html>
+  0.90s  +171 B   <template data-tb-boundary="tb-1">…</template><tb-apply for="tb-1">
+  1.50s  +160 B   <template data-tb-boundary="tb-2">…</template><tb-apply for="tb-2">
+  1.50s  +  0 B   end of response
+```
+
+Two things about that trace are worth noticing.
+
+The completions arrive **after `</html>`**, which looks wrong and is not. A
+parser that has seen the end of a document still appends what follows into the
+body, which is exactly what makes this work without a second request.
+
+And the connection is held open for the whole 1.5 s. That is the real cost of
+this technique: a streamed request occupies a connection until its slowest
+boundary settles, so `async_timeout` is a resource bound and not only a UX one.
+
 ### The wire format
 
 During the first pass every unresolved boundary is written as a placeholder
