@@ -60,6 +60,11 @@ export default defineConfig({
           items: [{ autogenerate: { directory: 'guides' } }],
         },
         {
+          label: 'Advanced Features',
+          translations: { ja: '応用機能' },
+          items: [{ autogenerate: { directory: 'advanced' } }],
+        },
+        {
           label: 'pw command',
           translations: { ja: 'pw コマンド' },
           items: [
