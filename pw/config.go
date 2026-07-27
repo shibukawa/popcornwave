@@ -58,12 +58,35 @@ type HTMLConfig struct {
 	// AsyncConcurrency bounds simultaneously running boundary work across one
 	// render. Zero or less is unbounded.
 	AsyncConcurrency int
+	// BotDetection forces the buffered branch for a client that will not run
+	// the boundary runtime, so a crawler indexes the page instead of the
+	// fallbacks. False skips classification entirely.
+	BotDetection bool
+	// BotAsyncTimeout bounds one await boundary on a classified bot request,
+	// which waits for every boundary before any byte leaves. Zero falls back to
+	// AsyncTimeout rather than meaning unbounded, so a misread key cannot hold a
+	// crawler connection open for the whole request deadline.
+	BotAsyncTimeout time.Duration
+	// BotUserAgents extends the built-in catalog. Entries are appended and
+	// matched case-insensitively; they never replace a built-in token.
+	BotUserAgents []string
 }
 
 // defaultHTMLConfig is the effective configuration until a file, environment,
 // or flag says otherwise. The registration below reads its string defaults from
 // here, so the two cannot drift.
-var defaultHTMLConfig = HTMLConfig{Streaming: true, AsyncTimeout: 3 * time.Second}
+//
+// BotAsyncTimeout sits above AsyncTimeout because an indexer waits far longer
+// than a browser, and a timeout fallback baked into a buffered document is the
+// outcome bot detection exists to prevent. It stays well short of the request
+// deadline because a link preview spider abandons a slow response within a few
+// seconds, and the buffered branch has no head start to offer it.
+var defaultHTMLConfig = HTMLConfig{
+	Streaming:       true,
+	AsyncTimeout:    3 * time.Second,
+	BotDetection:    true,
+	BotAsyncTimeout: 5 * time.Second,
+}
 
 // PublicConfig controls the framework-owned static asset endpoint.
 type PublicConfig = middlewares.PublicAssetConfig
@@ -343,18 +366,26 @@ func registerBuiltinConfigs() {
 func registerHTMLConfig() {
 	const typeName = "github.com/shibukawa/popcornwave/pw.HTMLConfig"
 	configbind.Register[HTMLConfig](configbind.Definition{
-		TypeName:  typeName,
-		Prefix:    "html",
-		KnownKeys: []string{"html.streaming", "html.async_timeout", "html.async_concurrency"},
+		TypeName: typeName,
+		Prefix:   "html",
+		KnownKeys: []string{
+			"html.streaming", "html.async_timeout", "html.async_concurrency",
+			"html.bot_detection", "html.bot_async_timeout", "html.bot_user_agents",
+		},
 		Defaults: map[string]string{
 			"html.streaming":         strconv.FormatBool(defaultHTMLConfig.Streaming),
 			"html.async_timeout":     defaultHTMLConfig.AsyncTimeout.String(),
 			"html.async_concurrency": strconv.Itoa(defaultHTMLConfig.AsyncConcurrency),
+			"html.bot_detection":     strconv.FormatBool(defaultHTMLConfig.BotDetection),
+			"html.bot_async_timeout": defaultHTMLConfig.BotAsyncTimeout.String(),
 		},
 		FlagMetas: []cliparser.FieldMeta{
 			{Prefix: "html", Key: "streaming", Kind: cliparser.KindBool},
 			{Prefix: "html", Key: "async_timeout"},
 			{Prefix: "html", Key: "async_concurrency"},
+			{Prefix: "html", Key: "bot_detection", Kind: cliparser.KindBool, Help: "render the settled document for crawlers and CLI clients"},
+			{Prefix: "html", Key: "bot_async_timeout", Help: "await boundary bound for a classified bot request"},
+			{Prefix: "html", Key: "bot_user_agents", Kind: cliparser.KindArray, Help: "additional bot User-Agent substrings"},
 		},
 		Apply: func(dst any, overlay *configbind.Overlay) error {
 			p, ok := dst.(*HTMLConfig)
@@ -369,13 +400,27 @@ func registerHTMLConfig() {
 			if p.AsyncTimeout < 0 {
 				return fmt.Errorf("html.async_timeout must not be negative")
 			}
-			p.AsyncConcurrency, err = parseConfigInt(overlay, "html.async_concurrency")
-			return err
+			if p.AsyncConcurrency, err = parseConfigInt(overlay, "html.async_concurrency"); err != nil {
+				return err
+			}
+			p.BotDetection = configBool(overlay, "html.bot_detection")
+			if p.BotAsyncTimeout, err = parseConfigDuration(overlay, "html.bot_async_timeout"); err != nil {
+				return err
+			}
+			if p.BotAsyncTimeout < 0 {
+				return fmt.Errorf("html.bot_async_timeout must not be negative")
+			}
+			extra, _ := overlay.GetMulti("html.bot_user_agents")
+			p.BotUserAgents = normalizeBotUserAgents(extra)
+			return nil
 		},
 		Scaffold: []configbind.ScaffoldField{
 			{Key: "streaming", Kind: configbind.ScaffoldBool, Default: strconv.FormatBool(defaultHTMLConfig.Streaming)},
 			{Key: "async_timeout", Kind: configbind.ScaffoldString, Default: defaultHTMLConfig.AsyncTimeout.String()},
 			{Key: "async_concurrency", Kind: configbind.ScaffoldInt, Default: strconv.Itoa(defaultHTMLConfig.AsyncConcurrency)},
+			{Key: "bot_detection", Kind: configbind.ScaffoldBool, Default: strconv.FormatBool(defaultHTMLConfig.BotDetection), Help: "render the settled document for crawlers and CLI clients"},
+			{Key: "bot_async_timeout", Kind: configbind.ScaffoldString, Default: defaultHTMLConfig.BotAsyncTimeout.String(), Help: "await boundary bound for a classified bot request"},
+			{Key: "bot_user_agents", Kind: configbind.ScaffoldStringSlice, Help: "additional bot User-Agent substrings"},
 		},
 	})
 }

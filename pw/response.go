@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/shibukawa/popcornwave/middlewares"
 	tinybind "github.com/shibukawa/tinybind-go"
@@ -220,14 +221,34 @@ func WriteHTML(w http.ResponseWriter, r *http.Request, leaf HTMLFragment) {
 // fallback commit first, and each boundary is written as it settles. Nothing
 // about the handler changes, because whether a response streams is a property
 // of the templates it composed rather than a decision the handler makes.
+//
+// A client that will not run the boundary runtime is the exception, and it
+// needs no separate path: the buffered branch already blocks until every
+// boundary settles, so classifying the client is enough to hand a crawler the
+// finished document instead of the fallbacks it can never replace.
 func WriteHTMLChain(w http.ResponseWriter, r *http.Request, wrappers []HTMLWrapper, leaf HTMLFragment) {
 	config := Config[HTMLConfig](requestContext(r))
-	if config.Streaming && htmlbind.HasAwaitBlock(wrappers, leaf) {
+	// The probe runs first because it is the cheapest of the three gates and the
+	// only one that can rule streaming out entirely, so a page that could never
+	// stream never classifies its client.
+	async := htmlbind.HasAwaitBlock(wrappers, leaf)
+	bot := false
+	if async {
+		bot = isBotRequest(r, config)
+		// Two branches now produce two byte representations of one URL, so a
+		// shared cache must not hand a streamed body to a crawler. Only an
+		// await-capable chain pays for this: a page with one representation
+		// keeps a response that varies on nothing.
+		w.Header().Add("Vary", "User-Agent")
+	}
+	if async && config.Streaming && !bot {
 		streamHTMLChain(w, r, wrappers, leaf, config)
 		return
 	}
+	ctx, cancel := boundedRenderContext(requestContext(r), config, async, bot)
+	defer cancel()
 	var body bytes.Buffer
-	if err := htmlbind.RenderChain(&body, wrappers, leaf, renderOptions(r, config)...); err != nil {
+	if err := htmlbind.RenderChain(&body, wrappers, leaf, renderOptions(ctx, config, false)...); err != nil {
 		// Nothing is committed on this branch, so the same failure the streaming
 		// branch can only patch into a 200 still carries its real status here.
 		var unrecovered *htmlbind.UnrecoveredError
@@ -270,7 +291,7 @@ func streamHTMLChain(w http.ResponseWriter, r *http.Request, wrappers []HTMLWrap
 		return
 	}
 	logger := Logger(ctx)
-	for content, err := range htmlbind.RenderChainAsync(ctx, writer, wrappers, leaf, renderOptions(r, config)...) {
+	for content, err := range htmlbind.RenderChainAsync(ctx, writer, wrappers, leaf, renderOptions(ctx, config, false)...) {
 		if err != nil {
 			// A boundary that failed with no recover clause is reported after the
 			// initial pass by construction, so the document is already committed
@@ -330,16 +351,52 @@ func writeBoundaryCompletion(w io.Writer, content htmlbind.Content) error {
 	return err
 }
 
-func renderOptions(r *http.Request, config HTMLConfig) []htmlbind.Option {
-	ctx := requestContext(r)
+// boundaryTimeout is the bound one render applies to the work behind its await
+// boundaries. A bot request gets its own value because it waits for every
+// boundary before a single byte leaves; the browser bound answers a different
+// question, namely how long a fallback may sit on screen.
+//
+// Zero BotAsyncTimeout falls back to the browser bound rather than meaning
+// unbounded, so a misread key cannot hold a crawler connection open for the
+// whole request deadline.
+func boundaryTimeout(config HTMLConfig, bot bool) time.Duration {
+	if bot && config.BotAsyncTimeout > 0 {
+		return config.BotAsyncTimeout
+	}
+	return config.AsyncTimeout
+}
+
+// boundedRenderContext applies that bound on the buffered branch, where
+// htmlbind.WithAsyncTimeout does not reach: the option is read by the async
+// coordinator, and the blocking path never builds one. Without this, a chain
+// forced onto this branch — by configuration or by a classified bot — would
+// wait on its boundaries until the request context ended, which is precisely
+// the stall the timeout exists to prevent.
+//
+// The bound is per render here rather than per boundary. That is the more
+// useful shape for this branch anyway: nothing is on the wire yet, so what
+// matters is how long the client waits in total, and the work itself already
+// runs concurrently because Go started it before the render began.
+func boundedRenderContext(ctx context.Context, config HTMLConfig, async, bot bool) (context.Context, context.CancelFunc) {
+	timeout := boundaryTimeout(config, bot)
+	if !async || timeout <= 0 {
+		return ctx, func() {}
+	}
+	return context.WithTimeout(ctx, timeout)
+}
+
+// renderOptions builds the htmlbind options for one render. The bound reaches
+// the streaming branch as an option and the buffered branch as a context
+// deadline, because only one of the two paths reads the option.
+func renderOptions(ctx context.Context, config HTMLConfig, bot bool) []htmlbind.Option {
 	options := []htmlbind.Option{
 		htmlbind.WithContext(ctx),
 		htmlbind.WithErrorReporter(func(err error) {
 			Logger(ctx).ErrorContext(ctx, "await boundary failed", "error", err)
 		}),
 	}
-	if config.AsyncTimeout > 0 {
-		options = append(options, htmlbind.WithAsyncTimeout(config.AsyncTimeout))
+	if timeout := boundaryTimeout(config, bot); timeout > 0 {
+		options = append(options, htmlbind.WithAsyncTimeout(timeout))
 	}
 	if config.AsyncConcurrency > 0 {
 		options = append(options, htmlbind.WithConcurrencyLimit(config.AsyncConcurrency))

@@ -256,6 +256,9 @@ one of the two paths can tell the truth in its status line, and it does.
 streaming = true
 async_timeout = "3s"
 async_concurrency = 0
+bot_detection = true
+bot_async_timeout = "5s"
+bot_user_agents = []
 ```
 
 | Key | Meaning |
@@ -263,6 +266,9 @@ async_concurrency = 0
 | `streaming` | `false` forces the buffered path even when a page could stream |
 | `async_timeout` | bounds one await boundary; `0` leaves the request context as the only deadline |
 | `async_concurrency` | bounds simultaneous boundary work per render; `0` is unbounded |
+| `bot_detection` | `false` streams to crawlers and CLI clients too — see [below](#crawlers-spiders-and-command-line-clients) |
+| `bot_async_timeout` | the boundary bound for a classified bot; `0` falls back to `async_timeout` |
+| `bot_user_agents` | extra `User-Agent` substrings to treat as bots, appended to the built-in list |
 
 An expired boundary renders `recover` with `code: "timeout"`, or escalates if it
 has none. Whether the work itself stops is up to the function: one that takes a
@@ -306,6 +312,90 @@ nonce, no `unsafe-inline`.
 A client with JavaScript disabled receives the shell and every fallback, and
 nothing replaces them. Treat streamed sections as an enhancement over content
 that is already meaningful, not as the only way to reach it.
+
+## Crawlers, spiders, and command-line clients
+
+The runtime is what turns a fallback into content, so a client that never runs
+it keeps every fallback. For a browser with JavaScript disabled that is a rare
+and knowingly degraded case. For Googlebot, an OGP spider, or `curl` it is the
+only mode they have — which makes the fallback the indexed text, the share card
+description, and whatever lands in your terminal.
+
+Popcorn Wave recognises those clients by their `User-Agent` and hands them the
+buffered response instead. They wait for every boundary and receive the finished
+document:
+
+```text
+$ curl -s https://example.com/orders | head -2
+<!doctype html>
+<html><head>…</head><body><ul><li>A-1001 — $128.00</li>…
+```
+
+This needs no second rendering path. `streaming = false` has always produced a
+complete, correct page by blocking until every boundary settles; detection just
+makes that choice per client instead of per deployment.
+
+### What counts as one
+
+Two rules, applied in order:
+
+**A known bot name.** A curated list of agents that present a browser-shaped
+`User-Agent` anyway — Googlebot, bingbot, GPTBot, ClaudeBot, PerplexityBot,
+facebookexternalhit, Twitterbot, Slackbot, Discordbot, AhrefsBot, and the rest.
+
+**Anything not claiming to be Mozilla.** Every mainstream browser still prefixes
+`Mozilla/5.0`, for reasons that stopped being technical decades ago, and
+effectively no CLI or client library copies the habit. `curl/8.7.1`,
+`Wget/1.21`, `python-requests/2.32`, `Go-http-client/1.1`, `okhttp/4.12` and
+`PostmanRuntime/7.42` are therefore all covered without appearing in any list —
+including tools released after this one was written.
+
+A missing `User-Agent` counts as a bot, because a browser always sends one.
+
+The list matches specific names rather than the substring `bot`, since device
+names contain it: an Android phone reporting `CUBOT NOTE 20` is not a crawler.
+Extend it when you need to:
+
+```toml
+[html]
+bot_user_agents = ["headlesschrome"]
+```
+
+Headless browsers are deliberately absent by default — they run the runtime, so
+streaming already serves them correctly. Add one when a screenshot or PDF tool
+photographs the page before its boundaries settle.
+
+### It changes delivery, never content
+
+Both branches render one chain with one set of data, so what a crawler indexes
+is what a reader sees. The only difference is whether the fallbacks reach the
+wire first.
+
+Keep it that way. Serving different *content* by `User-Agent` is cloaking, which
+search engines penalise; serving the same content by a different mechanism is
+the documented pattern. `pw.IsBot(r)` is available in a handler for things like
+choosing a cheaper query or skipping an analytics beacon — not for changing what
+a page says. Nothing verifies a `User-Agent` either, so it must never reach an
+access decision.
+
+### Two consequences worth knowing
+
+**A crawler gets the truthful status.** Nothing is committed on this branch, so
+a boundary that fails with no `recover` clause answers a real **500** instead of
+the 200 [a streamed document swap has to keep](#why-an-unhandled-failure-is-still-200).
+A monitor or an indexer can act on that.
+
+**They wait longer for the first byte, so they get their own bound.**
+`bot_async_timeout` defaults to 5s — above the browser bound, because an indexer
+waits far longer than a reader and a timeout fallback baked into a finished
+document is exactly what this feature exists to prevent. It stays short because
+a link preview spider abandons a slow response within a few seconds, and this
+branch has no head start to offer it.
+
+One header changes on any page that could stream: `Vary: User-Agent`. That URL
+now has two byte representations, and a shared cache must not hand a streamed
+body to a crawler. Pages with no `await` block are untouched and keep a cache
+entry that varies on nothing.
 
 ## Restrictions
 

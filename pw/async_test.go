@@ -24,6 +24,19 @@ func withTestHTMLConfig(ctx context.Context, config HTMLConfig) context.Context 
 	})
 }
 
+// browserRequest is a request from a client that will run the boundary runtime.
+// A streaming assertion needs one, because httptest.NewRequest sends no
+// User-Agent and an absent header classifies as a bot, which is exactly the
+// buffered branch these tests are not looking at.
+func browserRequest(target string) *http.Request {
+	request := httptest.NewRequest(http.MethodGet, target, nil)
+	request.Header.Set("User-Agent", chromeUserAgent)
+	return request
+}
+
+const chromeUserAgent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 " +
+	"(KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"
+
 type asyncPageParams struct {
 	Body Pending[string]
 }
@@ -67,8 +80,7 @@ func asyncPage(params asyncPageParams) htmlbind.Fragment {
 
 func TestWriteHTMLStreamsAwaitBoundaries(t *testing.T) {
 	recorder := httptest.NewRecorder()
-	request := httptest.NewRequest(http.MethodGet, "/", nil)
-	WriteHTML(recorder, request, asyncPage(asyncPageParams{Body: Resolved("ready")}))
+	WriteHTML(recorder, browserRequest("/"), asyncPage(asyncPageParams{Body: Resolved("ready")}))
 
 	body := recorder.Body.String()
 	if recorder.Code != http.StatusOK {
@@ -166,6 +178,36 @@ func TestAsyncTimeoutBoundsOneBoundary(t *testing.T) {
 	})
 	WriteHTML(recorder, request, asyncPage(asyncPageParams{Body: slow}))
 
+	if !strings.Contains(recorder.Body.String(), `<p class=failed>timeout</p>`) {
+		t.Fatalf("timeout was not reported: %q", recorder.Body.String())
+	}
+}
+
+// TestAsyncTimeoutBoundsTheBufferedBranch covers the half of the bound that
+// htmlbind.WithAsyncTimeout does not reach: the option is read by the async
+// coordinator, so the blocking path needs the deadline on its context instead.
+// Without it, a chain forced onto this branch waits until the request context
+// ends, which is the stall the setting exists to prevent.
+func TestAsyncTimeoutBoundsTheBufferedBranch(t *testing.T) {
+	recorder := httptest.NewRecorder()
+	request := browserRequest("/")
+	request = request.WithContext(withTestHTMLConfig(request.Context(),
+		HTMLConfig{Streaming: false, AsyncTimeout: 20 * time.Millisecond}))
+
+	slow := Go(request.Context(), func(ctx context.Context) (string, error) {
+		select {
+		case <-ctx.Done():
+			return "", ctx.Err()
+		case <-time.After(5 * time.Second):
+			return "late", nil
+		}
+	})
+	start := time.Now()
+	WriteHTML(recorder, request, asyncPage(asyncPageParams{Body: slow}))
+
+	if elapsed := time.Since(start); elapsed > time.Second {
+		t.Fatalf("the render waited %s, so the bound did not apply", elapsed)
+	}
 	if !strings.Contains(recorder.Body.String(), `<p class=failed>timeout</p>`) {
 		t.Fatalf("timeout was not reported: %q", recorder.Body.String())
 	}
@@ -312,7 +354,7 @@ func noRecoverPage(params asyncPageParams) htmlbind.Fragment {
 // claims to be loading forever.
 func TestStreamedUnrecoveredBoundaryReplacesDocument(t *testing.T) {
 	recorder := httptest.NewRecorder()
-	WriteHTML(recorder, httptest.NewRequest(http.MethodGet, "/", nil),
+	WriteHTML(recorder, browserRequest("/"),
 		noRecoverPage(asyncPageParams{Body: Failed[string](errors.New("upstream is down"))}))
 
 	body := recorder.Body.String()

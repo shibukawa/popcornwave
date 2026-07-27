@@ -11,7 +11,8 @@ surface:
 behavior:
   - select and set the HTML content type
   - resolve decision:implicit-document-shell and execute it with the page through api:render-html-chain
-  - pick the buffered or streaming branch through decision:automatic-async-render-selection
+  - pick the buffered or streaming branch through decision:automatic-async-render-selection, which consults api:client-classification
+  - add Vary User-Agent when the chain reports an await block, since requirement:bot-synchronous-render gives that URL two representations
   - apply configured compression on the buffered branch only, per decision:streaming-response-compression
   - apply data:html-render-config bounds through policy:async-render-bounds
   - record rendering failures in logs and traces
