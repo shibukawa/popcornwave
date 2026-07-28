@@ -2,7 +2,7 @@
 title: pw build
 description: 生成コード、minify 済み CSS、準備済みアセットを含むリリースバイナリを作る。
 sidebar:
-  order: 4
+  order: 6
 ---
 
 ```sh

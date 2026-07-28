@@ -17,12 +17,24 @@ var (
 	localTailwindPlugin = regexp.MustCompile(`(?m)@plugin\s+["'](\.{1,2}/[^"']+)["']`)
 )
 
+// tailwindToolchainHint names the way this project installs its tools. A
+// project without the Devbox environment manages the toolchain itself, so
+// telling it to enter a shell that does not exist would send the operator
+// looking for a file the scaffold never wrote.
+func tailwindToolchainHint(root string) string {
+	if _, err := os.Stat(filepath.Join(root, "devbox.json")); err == nil {
+		return "enter the configured Devbox shell"
+	}
+	return "install " + tailwindToolchainRequirement + ", or run pw add devbox"
+}
+
 func validateTailwind(root string, config tailwindConfig) (string, string, error) {
 	if !config.Enabled {
 		return "", "", nil
 	}
 	if _, err := exec.LookPath("tailwindcss"); err != nil {
-		return "", "", fmt.Errorf("Tailwind CSS is enabled but tailwindcss is not available in PATH (enter the configured Devbox shell)")
+		return "", "", fmt.Errorf("Tailwind CSS is enabled but tailwindcss is not available in PATH (%s)",
+			tailwindToolchainHint(root))
 	}
 	input := filepath.Clean(filepath.Join(root, filepath.FromSlash(config.Input)))
 	output := filepath.Clean(filepath.Join(root, filepath.FromSlash(config.Output)))

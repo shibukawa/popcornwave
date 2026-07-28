@@ -2,7 +2,7 @@
 title: pw dev
 description: The development loop — services, generation, migrations, CSS, and restart on change.
 sidebar:
-  order: 3
+  order: 5
 ---
 
 ```sh

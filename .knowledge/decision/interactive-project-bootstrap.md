@@ -26,9 +26,14 @@ questions:
   - TinyGo support, defaulting to yes for decision:stdlib-servemux parity
   - Tailwind CSS
   - database, defaulting to yes because the SQL and migration examples depend on it
-  - Redis or Valkey in the development environment, defaulting to yes
-  - authentication mode, defaulting to none and requiring the database
+  - authentication mode, defaulting to none, and skipped entirely without the database it stores sessions in
   - OIDC provider, asked only for an OIDC mode, choosing requirement:contrib-devidp or an external provider
+  - Devbox environment, defaulting to yes
+  - Redis or Valkey in the development environment, defaulting to yes and skipped without the Devbox environment it installs into
+ordering:
+  project_then_machine: the questions that shape the project come first, and the two about how this machine gets its tools close the wizard
+  reason: declining Devbox changes nothing about the code, so it does not belong among the answers that do
+  dependants_follow: a question whose answer only applies inside another one is asked right after it, which is why Valkey follows Devbox and the provider follows the mode
 implementation:
   library: github.com/charmbracelet/bubbletea with bubbles and lipgloss
   scope: host-only per decision:host-tools-target-runtime, so it never reaches application binaries

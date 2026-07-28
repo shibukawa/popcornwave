@@ -175,6 +175,7 @@ func main() {
 [project]
 name = "myapp"
 main = "./cmd/myapp"
+toolchain = "tinygo"
 
 [generate]
 handlers = ["handlers"]
@@ -201,6 +202,7 @@ minify = true
 | --- | --- | --- |
 | `project.name` | — | 必須 |
 | `project.main` | — | 必須。`pw build` と `pw dev` がビルドする main パッケージ |
+| `project.toolchain` | `tinygo` | スキャフォールド時に選んだコンパイラ。[pw init](/ja/pw/project/init/#ツールチェインを変更する) を参照 |
 | `generate.handlers` | — | 必須。ルートとバインディングのために読むディレクトリ |
 | `generate.templates` | — | 必須。`.pw.html` のために読むディレクトリ |
 | `generate.queries` | — | 必須。`.pw.sql` のために読むディレクトリ |

@@ -6,7 +6,6 @@ title: pw add
 pw add installs a framework capability into an existing project, so a choice declined at api:cli-init is not a decision the project is stuck with.
 
 ```yaml
-status: not implemented
 usage: "pw add [capability]"
 requirement: requirement:incremental-project-capabilities
 mode: decision:post-init-scaffold-wizard
@@ -16,22 +15,28 @@ inputs:
 questions:
   capability: single-select over the capabilities the project does not already carry
   database_dsn:
-    asked_when: database is selected
+    asked_when: the answers reach the database, directly or through a dependency
     default: sqlite://{project}.db per requirement:contrib-sqlite
-  auth_mode:
-    asked_when: auth is selected
-    choices: oidc, or passkey_only recorded disabled because no implementation exists yet
   oidc_provider:
-    asked_when: the selected mode uses OIDC
+    asked_when: auth is selected
     choices: requirement:contrib-devidp local emulator, or an external provider left for the operator to fill in
+    mode: oidc, the only authentication mode with an implementation
   review: lists every file to create, every configuration section to append, and every follow-up command
 capabilities:
+  devbox:
+    writes:
+      - devbox.json carrying the toolchain project.toolchain records, plus the Tailwind pin when it is enabled
+      - devbox.lock
+    consumer: api:cli-dev starts the services it declares, and skips the step entirely for a project without the file
   database:
     writes:
       - data:middleware-runtime-config rdb section in every environment configuration file present
-      - migrations directory when absent
+      - the migration directory, holding the same starter schema api:cli-init writes when the project has none
+      - the same starter .pw.sql api:cli-init writes, and the generate.queries entry that opens the purpose for it
     enables: data:migration-source, api:migration-runner, and .pw.sql generation
+    leaves_alone: an existing migration set, which is the application's own schema
   redis-valkey:
+    requires: devbox, because the answer writes nothing but a package in that environment
     writes:
       - Valkey package in devbox.json, which api:cli-dev exposes as the development server
       - the endpoint an application passes to requirement:contrib-auth-state-redis
@@ -50,6 +55,7 @@ capabilities:
       - pinned decision:tailwind-host-toolchain package in devbox.json
       - assets/app.css entry point
     manual: the stylesheet link belongs in the application-owned document shell, so it is printed rather than injected
+    without_devbox: the requirement is printed instead of pinned, naming the standalone CLI and its minimum version rather than the Devbox package identifier, because there is no package list to write to
 detection: the requirement:incremental-project-capabilities probes; no capability list is recorded anywhere
 versioning:
   migration_version: the next free version in the project migration directory

@@ -2,7 +2,7 @@
 title: pw generate
 description: テンプレート、SQL、バインディングの呼び出し箇所を Go にコンパイルする。
 sidebar:
-  order: 2
+  order: 4
 ---
 
 ```sh

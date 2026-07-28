@@ -26,10 +26,10 @@
 {"context": "body", "path": ".knowledge/api/cli-add.md", "source": "api:cli-add", "target": "decision:post-init-scaffold-wizard", "target_category": "constraint", "target_type": "decision"}
 {"context": "body", "path": ".knowledge/api/cli-add.md", "source": "api:cli-add", "target": "requirement:contrib-sqlite", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/api/cli-add.md", "source": "api:cli-add", "target": "requirement:contrib-devidp", "target_category": "objective", "target_type": "requirement"}
+{"context": "body", "path": ".knowledge/api/cli-add.md", "source": "api:cli-add", "target": "api:cli-dev", "target_category": "interface", "target_type": "api"}
 {"context": "body", "path": ".knowledge/api/cli-add.md", "source": "api:cli-add", "target": "data:middleware-runtime-config", "target_category": "structure", "target_type": "data"}
 {"context": "body", "path": ".knowledge/api/cli-add.md", "source": "api:cli-add", "target": "data:migration-source", "target_category": "structure", "target_type": "data"}
 {"context": "body", "path": ".knowledge/api/cli-add.md", "source": "api:cli-add", "target": "api:migration-runner", "target_category": "interface", "target_type": "api"}
-{"context": "body", "path": ".knowledge/api/cli-add.md", "source": "api:cli-add", "target": "api:cli-dev", "target_category": "interface", "target_type": "api"}
 {"context": "body", "path": ".knowledge/api/cli-add.md", "source": "api:cli-add", "target": "requirement:contrib-auth-state-redis", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/api/cli-add.md", "source": "api:cli-add", "target": "data:session-runtime-config", "target_category": "structure", "target_type": "data"}
 {"context": "body", "path": ".knowledge/api/cli-add.md", "source": "api:cli-add", "target": "rule:framework-owned-tables", "target_category": "constraint", "target_type": "rule"}
@@ -72,6 +72,8 @@
 {"context": "body", "path": ".knowledge/api/cli-init.md", "source": "api:cli-init", "target": "requirement:incremental-project-capabilities", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/api/cli-init.md", "source": "api:cli-init", "target": "api:cli-add", "target_category": "interface", "target_type": "api"}
 {"context": "body", "path": ".knowledge/api/cli-init.md", "source": "api:cli-init", "target": "api:serve-mux", "target_category": "interface", "target_type": "api"}
+{"context": "body", "path": ".knowledge/api/cli-init.md", "source": "api:cli-init", "target": "decision:tailwind-host-toolchain", "target_category": "constraint", "target_type": "decision"}
+{"context": "body", "path": ".knowledge/api/cli-init.md", "source": "api:cli-init", "target": "api:cli-build", "target_category": "interface", "target_type": "api"}
 {"context": "body", "path": ".knowledge/api/cli-init.md", "source": "api:cli-init", "target": "data:middleware-runtime-config", "target_category": "structure", "target_type": "data"}
 {"context": "body", "path": ".knowledge/api/cli-init.md", "source": "api:cli-init", "target": "rule:framework-owned-tables", "target_category": "constraint", "target_type": "rule"}
 {"context": "body", "path": ".knowledge/api/cli-init.md", "source": "api:cli-init", "target": "requirement:contrib-redis-valkey", "target_category": "objective", "target_type": "requirement"}
@@ -87,7 +89,6 @@
 {"context": "body", "path": ".knowledge/api/cli-init.md", "source": "api:cli-init", "target": "rule:tinygo-runtime-compatibility", "target_category": "constraint", "target_type": "rule"}
 {"context": "body", "path": ".knowledge/api/cli-init.md", "source": "api:cli-init", "target": "api:authentication-endpoints", "target_category": "interface", "target_type": "api"}
 {"context": "body", "path": ".knowledge/api/cli-init.md", "source": "api:cli-init", "target": "requirement:tailwind-css-integration", "target_category": "objective", "target_type": "requirement"}
-{"context": "body", "path": ".knowledge/api/cli-init.md", "source": "api:cli-init", "target": "decision:tailwind-host-toolchain", "target_category": "constraint", "target_type": "decision"}
 {"context": "body", "path": ".knowledge/api/cli-init.md", "source": "api:cli-init", "target": "api:cli-generate", "target_category": "interface", "target_type": "api"}
 {"context": "body", "path": ".knowledge/api/cli-init.md", "source": "api:cli-init", "target": "requirement:nested-html-templates", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/api/cli-init.md", "source": "api:cli-init", "target": "decision:config-driven-database", "target_category": "constraint", "target_type": "decision"}

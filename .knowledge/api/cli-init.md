@@ -6,7 +6,7 @@ title: pw init
 pw init creates a runnable Popcorn Wave project with a shared document shell, representative handler, typed page template, SQL query, error pages, Devbox environment, and generated-artifact conventions.
 
 ```yaml
-usage: pw init [myapp] [--interactive] [--tailwind|--no-tailwind] [--tinygo|--no-tinygo] [--database|--no-database] [--redis|--no-redis] [--auth=none|oidc|oidc-passkey|passkey] [--devidp|--no-devidp]
+usage: pw init [myapp] [--interactive] [--tailwind|--no-tailwind] [--tinygo|--no-tinygo] [--devbox|--no-devbox] [--database|--no-database] [--redis|--no-redis] [--auth=none|oidc|oidc-passkey|passkey] [--devidp|--no-devidp]
 mode: decision:interactive-project-bootstrap
 catalog: the capability questions are the requirement:incremental-project-capabilities catalog api:cli-add installs into an existing project
 inputs:
@@ -20,6 +20,12 @@ questions:
     no: net/http.ServeMux routing and the host Go toolchain only
     rationale: TinyGo produces much smaller binaries and has the more complete wasm target
   tailwind: optional_css below
+  devbox:
+    default: yes
+    asked_last: it decides how this machine gets its tools rather than what the project contains
+    yes: devbox.json and devbox.lock pinning the toolchain and the services
+    no: the operator keeps their own setup, such as mise, Docker Compose, Nix, Homebrew, or Scoop; the Valkey question is skipped with it
+    consequence: without it nothing pins the decision:tailwind-host-toolchain version, so api:cli-init and api:cli-build name the requirement, the standalone CLI at version 4 or later, rather than the Devbox package identifier that only nixpkgs understands
   database:
     default: yes
     yes: data:middleware-runtime-config rdb section, the migrations directory, and the .pw.sql and migration examples
@@ -27,6 +33,7 @@ questions:
     rationale: the SQL example, the initial migration, and rule:framework-owned-tables migrations all need a database, so declining it removes them together
   redis_valkey:
     default: yes
+    requires: the Devbox environment, which is the only thing this answer writes to
     yes: Valkey in the Devbox environment for requirement:contrib-redis-valkey consumers
     no: no Valkey package, keeping the development environment minimal
   authentication:
@@ -58,7 +65,7 @@ outputs:
   - tinygohelper.go netdev registration for rule:tinygo-runtime-compatibility, only when TinyGo is selected
   - .gitignore excluding **/*_pw_gen.go generated application build inputs
   - .vscode/settings.json hiding **/*_pw_gen.go
-  - Devbox configuration with Valkey when selected and TinyGo when selected
+  - Devbox configuration with Valkey when selected and TinyGo when selected, only when the Devbox environment is selected
   - data:authentication-runtime-config section for the selected authentication mode
   - data:devidp-config roster and data:project-config dev.idp when the local emulator is selected
   - api:authentication-endpoints blank import in main and a sign-in and sign-out control on the starter page
@@ -82,8 +89,9 @@ behavior:
   - leave every declined capability to api:cli-add, which reaches the same file state later
 next_steps:
   - cd myapp
-  - devbox shell
+  - devbox shell, only for a project with the Devbox environment
   - pw dev
+  - a notice naming every declined capability, because a scripted run never sees the wizard say it
 exit:
   success: 0
   wizard_canceled: 0 with a canceled notice and no files written

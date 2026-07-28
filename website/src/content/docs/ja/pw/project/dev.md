@@ -2,7 +2,7 @@
 title: pw dev
 description: 開発ループ。サービス起動、生成、マイグレーション、CSS、変更時の再起動。
 sidebar:
-  order: 3
+  order: 5
 ---
 
 ```sh

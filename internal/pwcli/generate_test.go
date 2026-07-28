@@ -7,6 +7,7 @@ import (
 	"go/token"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -377,5 +378,42 @@ export component Note(): html {
 	}
 	if !strings.Contains(output.String(), "queries/note.pw.html is outside generate.templates") {
 		t.Fatalf("the unlisted template was not reported:\n%s", output.String())
+	}
+}
+
+// An absolute path buries the interesting part of a generation log, so the
+// prefix the operator is already standing in comes off.
+func TestChangePathsShortenAgainstTheWorkingDirectory(t *testing.T) {
+	root := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(root, "handlers"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	changes := []fileChange{
+		{path: filepath.Join(root, "handlers", "home_pw_gen.go")},
+		{path: filepath.Join(root, "templates", "document_pw_gen.go")},
+		{path: filepath.Join(t.TempDir(), "elsewhere_pw_gen.go")},
+	}
+
+	t.Chdir(root)
+	paths := changePaths(root, changes)
+	for _, want := range []string{"handlers/home_pw_gen.go", "templates/document_pw_gen.go"} {
+		if !slices.Contains(paths, want) {
+			t.Fatalf("paths = %#v, want %q relative to the project root", paths, want)
+		}
+	}
+	// A file the operator could not find from here keeps its absolute form.
+	if !slices.ContainsFunc(paths, filepath.IsAbs) {
+		t.Fatalf("paths = %#v, want the outside file left absolute", paths)
+	}
+
+	// From a subdirectory, its own files shorten to bare names and the rest
+	// still shortens against the root.
+	t.Chdir(filepath.Join(root, "handlers"))
+	paths = changePaths(root, changes)
+	if !slices.Contains(paths, "home_pw_gen.go") {
+		t.Fatalf("paths = %#v, want a bare name for the working directory", paths)
+	}
+	if !slices.Contains(paths, "templates/document_pw_gen.go") {
+		t.Fatalf("paths = %#v, want the root-relative form for a sibling", paths)
 	}
 }
