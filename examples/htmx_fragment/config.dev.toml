@@ -1,0 +1,16 @@
+# Development configuration, selected by APP_ENV=dev (the default).
+
+[observability]
+minimum_level = "debug"
+service_name = "htmx_fragment"
+
+# streaming applies to page responses only. A fragment is always buffered, so
+# the summary partial below blocks on its await boundary and arrives settled;
+# what the operator sees while waiting comes from htmx, not from a fallback.
+[html]
+streaming = true
+async_timeout = "3s"
+async_concurrency = 0
+
+[middleware]
+compression = true

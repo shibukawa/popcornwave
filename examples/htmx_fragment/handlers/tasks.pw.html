@@ -1,0 +1,147 @@
+package handlers
+
+type Task {
+  id: string
+  title: string
+  owner: string
+  priority: string
+}
+
+type FormState {
+  title: string
+  owner: string
+  priority: string
+  titleError: string
+  ownerError: string
+  formError: string
+}
+
+type Summary {
+  total: int
+  high: int
+  took: string
+}
+
+export component TaskPanel(form: FormState, tasks: Task[], emptyLabel: string, note: string): html {
+<section id="task-panel" class="card">
+  <h2>Add a task</h2>
+  <form class="task-form" hx-post="/tasks" hx-target="#task-panel" hx-swap="outerHTML" hx-include="#filter">
+    {if form.formError != ''}<p class="error">{form.formError}</p>{/if}
+    <div class="field">
+      <label for="title">Title</label>
+      <input id="title" name="title" value={form.title} autocomplete="off">
+      {if form.titleError != ''}<p class="error">{form.titleError}</p>{/if}
+    </div>
+    <div class="field">
+      <label for="owner">Owner</label>
+      <input id="owner" name="owner" value={form.owner} autocomplete="off">
+      {if form.ownerError != ''}<p class="error">{form.ownerError}</p>{/if}
+    </div>
+    <div class="field">
+      <label for="priority">Priority</label>
+      <select id="priority" name="priority">
+        <option value="low" selected={form.priority == 'low'}>low</option>
+        <option value="normal" selected={form.priority == 'normal'}>normal</option>
+        <option value="high" selected={form.priority == 'high'}>high</option>
+      </select>
+    </div>
+    <div class="actions">
+      <button type="submit">Add</button>
+      <span class="indicator">saving…</span>
+    </div>
+  </form>
+  {if note != ''}<p class="note">{note}</p>{/if}
+  <TaskList tasks={tasks} emptyLabel={emptyLabel} />
+</section>
+}
+
+export component TaskList(tasks: Task[], emptyLabel: string): html {
+<ul id="task-list" class="task-list">
+{for task in tasks}
+  <li class="task">
+    <span class="badge {task.priority}">{task.priority}</span>
+    <span class="title">{task.title}</span>
+    <span class="owner">{task.owner}</span>
+    <button class="remove" hx-delete="/tasks/{task.id}" hx-target="#task-list" hx-swap="outerHTML" hx-include="#filter">remove</button>
+  </li>
+{/for}
+{if emptyLabel != ''}
+  <li class="empty">{emptyLabel}</li>
+{/if}
+</ul>
+}
+
+export component TaskSummary(summary: async Summary): html {
+<div class="summary">
+{await counted = summary}
+  <p>{counted.total} tasks · {counted.high} of them high priority · counted in {counted.took}</p>
+{fallback}
+  <p class="pending">Counting…</p>
+{recover err}
+  <p class="error">The summary is unavailable right now ({err.code}).</p>
+{/await}
+</div>
+}
+
+export component StyledBadge(label: string): html {
+<head>
+<style>
+.demo-badge { color: crimson; font-weight: 700 }
+</style>
+</head>
+<p class="demo-badge">{label}</p>
+}
+
+export component Home(form: FormState, tasks: Task[], emptyLabel: string, query: string): html {
+<main>
+  <h1>htmx fragments</h1>
+  <p>
+    Every region below is rendered by the same components the initial page used.
+    An interaction re-renders one of them and answers with that markup alone —
+    no document, no head, no boundary framing — and htmx puts it where its
+    <code>hx-target</code> says.
+  </p>
+
+  <section class="card">
+    <h2>Filter</h2>
+    <input id="filter" type="search" name="q" value={query} placeholder="title or owner"
+      hx-get="/tasks" hx-target="#task-list" hx-swap="outerHTML"
+      hx-trigger="input changed delay:300ms, search">
+    <p class="muted">
+      Typing replaces the list and nothing else. The submit and remove controls
+      send this box along through <code>hx-include</code>, so a filtered view
+      stays filtered after a write.
+    </p>
+  </section>
+
+  <TaskPanel form={form} tasks={tasks} emptyLabel={emptyLabel} note="" />
+
+  <section class="card">
+    <h2>Summary</h2>
+    <div id="summary" hx-get="/tasks/summary" hx-trigger="load, click from:#refresh" hx-swap="innerHTML">
+      <p class="pending">Counting…</p>
+    </div>
+    <button id="refresh" class="secondary">Refresh</button>
+    <p class="muted">
+      The summary template declares an <code>async</code> parameter and an
+      <code>await</code> block. A fragment response never streams, so that
+      boundary settles on the server and the markup arrives finished: the
+      <code>fallback</code> above came from the page, and htmx owns the waiting
+      state from here on.
+    </p>
+  </section>
+
+  <section class="card">
+    <h2>What a fragment cannot deliver</h2>
+    <p>
+      <code>/tasks/broken</code> renders a component with a scoped
+      <code>style</code> block. There is no head in a fragment response to
+      receive it, so the framework answers 500 with a problem document rather
+      than swapping in an unstyled region. htmx swaps only 2xx, so the target
+      keeps what it already had.
+    </p>
+    <button hx-get="/tasks/broken" hx-target="#broken" hx-swap="innerHTML">Request it anyway</button>
+    <div id="broken"><p class="muted">Nothing has replaced this region.</p></div>
+  </section>
+</main>
+}
