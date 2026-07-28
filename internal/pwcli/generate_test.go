@@ -2,6 +2,7 @@ package pwcli
 
 import (
 	"context"
+	"fmt"
 	"go/parser"
 	"go/token"
 	"os"
@@ -12,6 +13,10 @@ import (
 	"github.com/shibukawa/popcornwave/internal/pwgen"
 	"github.com/shibukawa/tinybind-go/generator"
 )
+
+// allPurposes is the scope of a directory every purpose lists, which is what
+// most planDirectory tests are about.
+var allPurposes = generationPurposes{handlers: true, templates: true, queries: true, config: true}
 
 func TestPlanDirectoryGeneratesV015Artifacts(t *testing.T) {
 	directory := t.TempDir()
@@ -39,7 +44,7 @@ SELECT id, name FROM users WHERE id = {id}
 		t.Fatal(err)
 	}
 	runner := generator.New(options)
-	changes, err := planDirectory(context.Background(), runner, directory)
+	changes, err := planDirectory(context.Background(), runner, directory, allPurposes)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -67,7 +72,7 @@ SELECT id, name FROM users WHERE id = {id}
 	if err := applyFileChanges(changes); err != nil {
 		t.Fatal(err)
 	}
-	changes, err = planDirectory(context.Background(), runner, directory)
+	changes, err = planDirectory(context.Background(), runner, directory, allPurposes)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -77,7 +82,7 @@ SELECT id, name FROM users WHERE id = {id}
 
 	stale := filepath.Join(directory, "obsolete_pw_gen.go")
 	writeTestFile(t, stale, "package fixture\n")
-	changes, err = planDirectory(context.Background(), runner, directory)
+	changes, err = planDirectory(context.Background(), runner, directory, allPurposes)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -143,7 +148,7 @@ export component Document(children: html?): html {
 	if err != nil {
 		t.Fatal(err)
 	}
-	changes, err := planDirectory(context.Background(), generator.New(options), directory)
+	changes, err := planDirectory(context.Background(), generator.New(options), directory, allPurposes)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -176,7 +181,8 @@ export component Document(children: html?): html {
 <html><body><slot /></body></html>
 }
 `)
-	changes, err := planBootstrapLink(root, "./cmd/fixture", nil)
+	config := projectConfig{Main: "./cmd/fixture", Generate: generationScope{Templates: []string{"templates"}}}
+	changes, err := planBootstrapLink(root, config, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -215,4 +221,161 @@ func mapKeys(values map[string]fileChange) []string {
 		keys = append(keys, key)
 	}
 	return keys
+}
+
+// Generation reads the configured directories and nothing else, so a template
+// kept outside them produces no artifact and is reported instead.
+func TestRunGenerateStopsAtConfiguredSources(t *testing.T) {
+	root := t.TempDir()
+	for _, directory := range []string{"handlers", filepath.Join("cmd", "fixture"), "samples"} {
+		if err := os.MkdirAll(filepath.Join(root, directory), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	writeTestFile(t, filepath.Join(root, "go.mod"), "module example.test/fixture\n\ngo 1.26.0\n")
+	writeTestFile(t, filepath.Join(root, "popcornwave.toml"),
+		"[project]\nname = \"fixture\"\nmain = \"./cmd/fixture\"\n\n[generate]\n"+
+			"handlers = [\"handlers\"]\ntemplates = [\"handlers\"]\nqueries = []\nconfig = []\n")
+	writeTestFile(t, filepath.Join(root, "cmd", "fixture", "main.go"), "package main\n\nfunc main() {}\n")
+	page := `package %s
+
+export component Home(name: string): html {
+<h1>Hello, {name}</h1>
+}
+`
+	writeTestFile(t, filepath.Join(root, "handlers", "home.pw.html"), fmt.Sprintf(page, "handlers"))
+	writeTestFile(t, filepath.Join(root, "samples", "home.pw.html"), fmt.Sprintf(page, "samples"))
+
+	previous, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chdir(root); err != nil {
+		t.Fatal(err)
+	}
+	defer os.Chdir(previous)
+
+	var output strings.Builder
+	if err := runGenerate(context.Background(), nil, &output); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(root, "handlers", "home_pw_gen.go")); err != nil {
+		t.Fatalf("listed source was not generated from: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(root, "samples", "home_pw_gen.go")); !os.IsNotExist(err) {
+		t.Fatalf("unlisted source was generated from: %v", err)
+	}
+	if !strings.Contains(output.String(), "samples/home.pw.html is outside generate.templates") {
+		t.Fatalf("unlisted source was not reported:\n%s", output.String())
+	}
+}
+
+// A project migrating from whole-project discovery keeps generated files in
+// directories the list no longer covers, and they are named rather than left to
+// register stale content at runtime.
+func TestRunGenerateReportsStaleArtifactsOutsideSources(t *testing.T) {
+	root := t.TempDir()
+	for _, directory := range []string{"handlers", filepath.Join("cmd", "fixture")} {
+		if err := os.MkdirAll(filepath.Join(root, directory), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	writeTestFile(t, filepath.Join(root, "go.mod"), "module example.test/fixture\n\ngo 1.26.0\n")
+	writeTestFile(t, filepath.Join(root, "popcornwave.toml"),
+		"[project]\nname = \"fixture\"\nmain = \"./cmd/fixture\"\n\n[generate]\n"+
+			"handlers = [\"handlers\"]\ntemplates = [\"handlers\"]\nqueries = []\nconfig = []\n")
+	writeTestFile(t, filepath.Join(root, "cmd", "fixture", "main.go"), "package main\n\nfunc main() {}\n")
+	writeTestFile(t, filepath.Join(root, "tinybind_openapi_pw_gen.go"), "package fixture\n")
+	writeTestFile(t, filepath.Join(root, "cmd", "fixture", "popcornwave_bootstrap_pw_gen.go"), "package main\n")
+
+	previous, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chdir(root); err != nil {
+		t.Fatal(err)
+	}
+	defer os.Chdir(previous)
+
+	var output strings.Builder
+	if err := runGenerate(context.Background(), nil, &output); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(output.String(), "tinybind_openapi_pw_gen.go was generated outside every generate purpose") {
+		t.Fatalf("stale artifact was not reported:\n%s", output.String())
+	}
+	if strings.Contains(output.String(), "popcornwave_bootstrap_pw_gen.go was generated outside") {
+		t.Fatalf("the bootstrap linker is written on purpose and must not be reported:\n%s", output.String())
+	}
+}
+
+// A directory listed for one purpose contributes only that purpose's artifacts,
+// which is what keeps a query package from being analyzed for routes and a
+// handler package from generating renderers for a template it only stores.
+func TestRunGeneratePurposesSelectArtifactsPerDirectory(t *testing.T) {
+	root := t.TempDir()
+	for _, directory := range []string{"handlers", "queries", filepath.Join("cmd", "fixture")} {
+		if err := os.MkdirAll(filepath.Join(root, directory), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	writeTestFile(t, filepath.Join(root, "go.mod"), "module example.test/fixture\n\ngo 1.26.0\n")
+	// handlers holds a page template, but only the query purpose lists queries,
+	// so the template beside the handler is generated and the one in queries is
+	// not.
+	writeTestFile(t, filepath.Join(root, "popcornwave.toml"),
+		"[project]\nname = \"fixture\"\nmain = \"./cmd/fixture\"\n\n[generate]\n"+
+			"handlers = [\"handlers\"]\ntemplates = [\"handlers\"]\nqueries = [\"queries\"]\nconfig = []\n")
+	writeTestFile(t, filepath.Join(root, "cmd", "fixture", "main.go"), "package main\n\nfunc main() {}\n")
+	writeTestFile(t, filepath.Join(root, "handlers", "home.pw.html"), `package handlers
+
+export component Home(name: string): html {
+<h1>Hello, {name}</h1>
+}
+`)
+	writeTestFile(t, filepath.Join(root, "queries", "users.pw.sql"), `package queries
+
+type User {
+  id: int
+  name: string
+}
+
+export statement FindUser(id: int): sql.one<User> {
+SELECT id, name FROM users WHERE id = {id}
+}
+`)
+	writeTestFile(t, filepath.Join(root, "queries", "note.pw.html"), `package queries
+
+export component Note(): html {
+<p>stored beside the queries, generated by nobody</p>
+}
+`)
+
+	previous, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chdir(root); err != nil {
+		t.Fatal(err)
+	}
+	defer os.Chdir(previous)
+
+	var output strings.Builder
+	if err := runGenerate(context.Background(), nil, &output); err != nil {
+		t.Fatal(err)
+	}
+	for _, generated := range []string{
+		filepath.Join("handlers", "home_pw_gen.go"),
+		filepath.Join("queries", "users_pw_gen.go"),
+	} {
+		if _, err := os.Stat(filepath.Join(root, generated)); err != nil {
+			t.Fatalf("%s was not generated: %v", generated, err)
+		}
+	}
+	if _, err := os.Stat(filepath.Join(root, "queries", "note_pw_gen.go")); !os.IsNotExist(err) {
+		t.Fatalf("a template outside generate.templates was generated: %v", err)
+	}
+	if !strings.Contains(output.String(), "queries/note.pw.html is outside generate.templates") {
+		t.Fatalf("the unlisted template was not reported:\n%s", output.String())
+	}
 }

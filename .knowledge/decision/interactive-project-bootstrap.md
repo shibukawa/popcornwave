@@ -25,17 +25,19 @@ questions:
   - project name
   - TinyGo support, defaulting to yes for decision:stdlib-servemux parity
   - Tailwind CSS
-  - authentication mode, defaulting to none
+  - database, defaulting to yes because the SQL and migration examples depend on it
+  - Redis or Valkey in the development environment, defaulting to yes
+  - authentication mode, defaulting to none and requiring the database
   - OIDC provider, asked only for an OIDC mode, choosing requirement:contrib-devidp or an external provider
 implementation:
   library: github.com/charmbracelet/bubbletea with bubbles and lipgloss
   scope: host-only per decision:host-tools-target-runtime, so it never reaches application binaries
+reused_by: decision:post-init-scaffold-wizard, which drives api:cli-add and api:cli-new from the same step machinery without shortcut-flag parity
 rationale:
   - a wizard explains each trade-off where the operator decides it
   - shortcut parity keeps api:cli-init scriptable and CI friendly
   - a declarative step list keeps future options additive
 non_goals:
-  - a wizard for other pw subcommands
   - remembering answers between runs
   - prompting for values that belong to data:project-config edits later
 ```

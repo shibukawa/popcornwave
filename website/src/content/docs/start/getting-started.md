@@ -44,7 +44,7 @@ Created myapp
 
 ```
 myapp/
-├── popcornwave.toml           project name, main package, dev watch list
+├── popcornwave.toml           project name, main package, generation sources
 ├── config.dev.toml            runtime configuration for APP_ENV=dev
 ├── go.mod
 ├── devbox.json                Go + Valkey (+ tailwindcss with --tailwind)

@@ -257,8 +257,19 @@ name = "` + name + `"
 main = "./cmd/` + name + `"
 toolchain = "` + projectToolchain(options) + `"
 
-[dev]
-extra_watch = []
+# Each purpose reads only the directories it lists, and nothing else. A source
+# directory is invisible to that purpose until it appears here.
+[generate]
+handlers = [` + quotedList(scaffoldGenerationScope(options).Handlers) + `]
+templates = [` + quotedList(scaffoldGenerationScope(options).Templates) + `]
+queries = [` + quotedList(scaffoldGenerationScope(options).Queries) + `]
+config = [` + quotedList(scaffoldGenerationScope(options).Config) + `]
+
+# pw dev walks the module for rebuild inputs. Add what the walk misses, and
+# exclude a subtree that only makes the walk slower.
+[dev.watch]
+includes = []
+excludes = []
 ` + devIdPProjectConfig(options) + configTailwind,
 		pwenv.FileName(pwenv.Development): `# Development runtime configuration.
 # APP_ENV selects this file; add config.stg.toml and config.prod.toml as needed.
@@ -283,7 +294,7 @@ max_idle_conns = 1
 ` + authRuntimeConfig(options),
 		"devbox.json": `{
   "$schema": "https://raw.githubusercontent.com/jetify-com/devbox/0.14.2/.schema/devbox.schema.json",
-  "packages": [` + quotedJSONList(devboxPackages) + `],
+  "packages": [` + quotedList(devboxPackages) + `],
   "shell": {"init_hook": ["echo 'Popcorn Wave development environment'"]}
 }
 `,
@@ -710,7 +721,22 @@ func Handlers() *http.ServeMux { return mux }
 `
 }
 
-func quotedJSONList(values []string) string {
+// scaffoldGenerationScope maps the starter directories onto the purposes that
+// read them. The scaffold writes every purpose explicitly because none has a
+// default, so what each purpose reads is readable from the first run. handlers
+// appears twice because the starter page template sits beside its handler, and
+// the main package carries the configuration the application registers.
+func scaffoldGenerationScope(options initOptions) generationScope {
+	return generationScope{
+		Handlers:  []string{"handlers"},
+		Templates: []string{"handlers", "templates"},
+		Queries:   []string{"queries"},
+		Config:    []string{"cmd/" + options.Name},
+	}
+}
+
+// quotedList renders a string slice as the body of a TOML or JSON array.
+func quotedList(values []string) string {
 	quoted := make([]string, len(values))
 	for index, value := range values {
 		quoted[index] = strconv.Quote(value)

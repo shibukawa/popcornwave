@@ -29,13 +29,20 @@ pw dev
 - プロジェクト自身の Go、`.pw.html`、`.pw.sql` のソース
 - マイグレーションディレクトリ
 - Tailwind が有効な場合はその入力ファイル
-- `popcornwave.toml` の `dev.extra_watch` に一致するもの
+- `popcornwave.toml` の `dev.watch.includes` に一致するもの
 
-`dev.extra_watch` は相対の glob パターンを取ります。絶対パスは拒否されます。
+走査の範囲は `[generate]` の用途ではなくモジュール全体です。どの用途も生成に使わない
+ファイルを含め、Go のソースはすべて再ビルドの入力だからです。`.git`、`vendor`、
+`node_modules`、`.devbox`、`public` ツリーは常にスキップされます。
+
+`dev.watch.includes` は、走査が届かない入力を加えるための相対 glob パターンです。
+`dev.watch.excludes` はサブツリーをスキップします。大きな依存ツリーが走査をループ中で
+最も遅いステップにしてしまうときに使います。どちらも絶対パスは拒否されます。
 
 ```toml
-[dev]
-extra_watch = ["config.dev.toml", "assets/**/*.svg"]
+[dev.watch]
+includes = ["config.dev.toml", "assets/**/*.svg"]
+excludes = ["web/node_modules"]
 ```
 
 ## サービス

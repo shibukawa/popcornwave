@@ -43,7 +43,7 @@ Created myapp
 
 ```
 myapp/
-├── popcornwave.toml           プロジェクト名、main パッケージ、dev の監視対象
+├── popcornwave.toml           プロジェクト名、main パッケージ、生成対象ディレクトリ
 ├── config.dev.toml            APP_ENV=dev のランタイム設定
 ├── go.mod
 ├── devbox.json                Go + Valkey（--tailwind なら tailwindcss も）

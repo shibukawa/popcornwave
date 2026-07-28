@@ -60,7 +60,7 @@ in a populated tree fails rather than scattering files.
 
 ```
 myapp/
-├── popcornwave.toml           project name, main package, dev watch list
+├── popcornwave.toml           project name, main package, generation sources
 ├── config.dev.toml            runtime configuration for APP_ENV=dev
 ├── go.mod
 ├── devbox.json / devbox.lock  Go + Valkey (+ tailwindcss with --tailwind)
@@ -80,6 +80,13 @@ myapp/
 ├── .vscode/settings.json      hides **/*_pw_gen.go
 └── .gitignore                 excludes *_pw_gen.go and other build output
 ```
+
+`popcornwave.toml` names the directories it just created under each `[generate]`
+purpose, because [`pw generate`](/pw/project/generate/) reads those lists and
+has no default to fall back on. `handlers` appears under both `handlers` and
+`templates`, since the starter page template sits beside its handler, and
+`cmd/myapp` appears under `config`, where the application registers its
+configuration.
 
 With an OIDC mode plus `--devidp` it also writes `devidp.toml`, the roster of
 selectable development users, and adds `[dev.idp]` to `popcornwave.toml`.

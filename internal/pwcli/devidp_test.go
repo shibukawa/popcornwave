@@ -12,6 +12,9 @@ import (
 func writeProject(t *testing.T, files map[string]string) string {
 	t.Helper()
 	root := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(root, "handlers"), 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
 	for name, content := range files {
 		path := filepath.Join(root, filepath.FromSlash(name))
 		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
@@ -28,6 +31,12 @@ const idpProject = `
 [project]
 name = "app"
 main = "./cmd/app"
+
+[generate]
+handlers = ["handlers"]
+templates = ["handlers"]
+queries = []
+config = []
 
 [dev.idp]
 enabled = true

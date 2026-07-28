@@ -26,13 +26,14 @@ layout:
   tinygohelper.go: TinyGo-only netdev registration scaffolded for TinyGo projects
   cmd/myapp/main.go: concept:application-entry-point
   cmd/myapp/popcornwave_bootstrap_pw_gen.go: generated registration-package linker
-  handlers/index.go: package mux and Handlers accessor
+  handlers/index.go: package mux and Handlers accessor, written by api:cli-init or by api:cli-new for a new handler package
   handlers/home_handler.go: route registration, request types, and net/http handler
   handlers/home.pw.html: typed HTML source
   handlers/home_pw_gen.go: generated HTML and request mapping
-  queries/users.pw.sql: named SQL source
+  handlers/{name}_handler.go: further routes added by api:cli-new
+  queries/users.pw.sql: named SQL source, only in a project with the database capability
   queries/users_pw_gen.go: generated context-based query functions
-  migrations/: data:migration-source handwritten versioned SQL
+  migrations/: data:migration-source handwritten versioned SQL, only in a project with the database capability
   migrations/00001_init.sql: initial application schema as migration version 1
   migrations/{version}_init_popcornwave_{capability}.sql: rule:framework-owned-tables tables, written by api:cli-init or api:cli-add at the next free version
   testdata/seed/: data:seed-dataset files shared by api:cli-seed and api:test-seed
@@ -67,6 +68,9 @@ ownership:
   generated: policy:generated-artifacts
   asset_output: optional public/generated/app.css from flow:tailwind-css-build
 rules:
+  - a capability declined at api:cli-init leaves its files out and api:cli-add writes the same set later, per requirement:incremental-project-capabilities
+  - each decision:explicit-generation-sources purpose lists the directories it may read, so handlers appears under both the handler and template purposes and cmd/myapp appears under the config purpose
+  - a source outside the purpose that owns its kind is only warned about
   - generated Go is emitted beside its source
   - generated filenames use {source-base}_pw_gen.go
   - generated filenames never start with an underscore

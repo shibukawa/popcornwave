@@ -61,9 +61,7 @@ func runDev(ctx context.Context, args []string, stdout, stderr io.Writer) error 
 		defer idp.close()
 	}
 	rosterState := idp.watchState()
-	state, err := snapshotWatchFiles(root, configuredWatchPaths(root, config.ExtraWatch,
-		append(tailwindWatchPaths(root, config.Tailwind, tailwind == nil),
-			migrationWatchPaths(root, config.Migration)...))...)
+	state, err := watchSnapshot(root, config, tailwind == nil)
 	if err != nil {
 		return err
 	}
@@ -99,9 +97,7 @@ func runDev(ctx context.Context, args []string, stdout, stderr io.Writer) error 
 				idp.reload(stdout, stderr)
 				continue
 			}
-			next, err := snapshotWatchFiles(root, configuredWatchPaths(root, config.ExtraWatch,
-				append(tailwindWatchPaths(root, config.Tailwind, tailwind == nil),
-					migrationWatchPaths(root, config.Migration)...))...)
+			next, err := watchSnapshot(root, config, tailwind == nil)
 			if err != nil {
 				fmt.Fprintln(stderr, "pw dev:", err)
 				continue
@@ -133,9 +129,7 @@ func runDev(ctx context.Context, args []string, stdout, stderr io.Writer) error 
 				state = next
 				continue
 			}
-			state, _ = snapshotWatchFiles(root, configuredWatchPaths(root, config.ExtraWatch,
-				append(tailwindWatchPaths(root, config.Tailwind, tailwind == nil),
-					migrationWatchPaths(root, config.Migration)...))...)
+			state, _ = watchSnapshot(root, config, tailwind == nil)
 			app, exited, err = startApplication(ctx, root, config.Main, idp, stdout, stderr)
 			if err != nil {
 				fmt.Fprintln(stderr, "pw dev:", err)
@@ -218,13 +212,27 @@ type fileState struct {
 	modTime time.Time
 }
 
-func snapshotWatchFiles(root string, extra ...string) (watchState, error) {
+// watchSnapshot records the current state of everything pw dev reacts to. The
+// walk covers the module rather than the generation sources, because any Go
+// source is a rebuild input; dev.watch.excludes is what keeps it cheap.
+func watchSnapshot(root string, config projectConfig, tailwindStopped bool) (watchState, error) {
+	extra := configuredWatchPaths(root, config.Watch.Includes,
+		append(tailwindWatchPaths(root, config.Tailwind, tailwindStopped),
+			migrationWatchPaths(root, config.Migration)...))
+	return snapshotWatchFiles(root, config.Watch.Excludes, extra...)
+}
+
+func snapshotWatchFiles(root string, excludes []string, extra ...string) (watchState, error) {
 	state := watchState{}
 	included := make(map[string]bool, len(extra))
 	for _, path := range extra {
 		if path != "" {
 			included[filepath.Clean(path)] = true
 		}
+	}
+	skipped := make(map[string]bool, len(excludes))
+	for _, entry := range excludes {
+		skipped[filepath.Clean(filepath.Join(root, filepath.FromSlash(entry)))] = true
 	}
 	err := filepath.WalkDir(root, func(path string, entry os.DirEntry, err error) error {
 		if err != nil {
@@ -235,7 +243,7 @@ func snapshotWatchFiles(root string, extra ...string) (watchState, error) {
 			case ".git", ".devbox", "vendor", "node_modules":
 				return filepath.SkipDir
 			}
-			if path == filepath.Join(root, "public") {
+			if path == filepath.Join(root, "public") || skipped[filepath.Clean(path)] {
 				return filepath.SkipDir
 			}
 			return nil

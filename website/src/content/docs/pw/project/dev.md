@@ -29,13 +29,21 @@ steps affected by that file rather than rebuilding the entire environment.
 - the project's own Go, `.pw.html`, and `.pw.sql` sources;
 - the migration directory;
 - the Tailwind input, when Tailwind is enabled;
-- anything matched by `dev.extra_watch` in `popcornwave.toml`.
+- anything matched by `dev.watch.includes` in `popcornwave.toml`.
 
-`dev.extra_watch` takes relative glob patterns. Absolute paths are rejected:
+The walk covers the module, not the `[generate]` purposes: any Go source is a
+rebuild input, including files no purpose generates from. `.git`, `vendor`,
+`node_modules`, `.devbox`, and the `public` tree are always skipped.
+
+`dev.watch.includes` takes relative glob patterns for inputs the walk does not
+reach. `dev.watch.excludes` skips a subtree, which is what to reach for when a
+large dependency tree makes the walk the slowest step of the loop. Absolute
+paths are rejected in both:
 
 ```toml
-[dev]
-extra_watch = ["config.dev.toml", "assets/**/*.svg"]
+[dev.watch]
+includes = ["config.dev.toml", "assets/**/*.svg"]
+excludes = ["web/node_modules"]
 ```
 
 ## Services

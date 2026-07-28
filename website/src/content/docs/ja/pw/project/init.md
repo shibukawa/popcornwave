@@ -58,7 +58,7 @@ OIDC 系を選ぶと、**ローカルエミュレータ**か**外部プロバイ
 
 ```
 myapp/
-├── popcornwave.toml           プロジェクト名、main パッケージ、dev の監視対象
+├── popcornwave.toml           プロジェクト名、main パッケージ、生成対象ディレクトリ
 ├── config.dev.toml            APP_ENV=dev のランタイム設定
 ├── go.mod
 ├── devbox.json / devbox.lock  Go + Valkey（--tailwind なら tailwindcss も）
@@ -78,6 +78,12 @@ myapp/
 ├── .vscode/settings.json      **/*_pw_gen.go を隠す
 └── .gitignore                 *_pw_gen.go などのビルド生成物を除外
 ```
+
+`popcornwave.toml` には、いま作ったディレクトリが `[generate]` の各用途に振り分けて
+書かれます。[`pw generate`](/ja/pw/project/generate/) はこれらのリストだけを読み、
+既定値を持たないためです。スターターのページテンプレートはハンドラの隣にあるので
+`handlers` は `handlers` と `templates` の両方に現れ、アプリケーションが設定を登録する
+`cmd/myapp` は `config` に現れます。
 
 OIDC 系のモードで `--devidp` を付けると、選択できる開発用ユーザーの一覧である
 `devidp.toml` も書き出し、`popcornwave.toml` に `[dev.idp]` を追加します。

@@ -5,6 +5,7 @@ import (
 	"go/parser"
 	"go/token"
 	"io"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -129,6 +130,14 @@ func TestScaffoldConfigLoadsBackForBothToolchains(t *testing.T) {
 	for _, tinygo := range []bool{true, false} {
 		root := t.TempDir()
 		options := initOptions{Name: "fixture", TinyGo: tinygo, Tailwind: true}
+		scope := scaffoldGenerationScope(options)
+		for _, sources := range [][]string{scope.Handlers, scope.Templates, scope.Queries, scope.Config} {
+			for _, source := range sources {
+				if err := os.MkdirAll(filepath.Join(root, filepath.FromSlash(source)), 0o755); err != nil {
+					t.Fatal(err)
+				}
+			}
+		}
 		writeTestFile(t, filepath.Join(root, "popcornwave.toml"), scaffoldFiles(options)["popcornwave.toml"])
 		config, err := loadProjectConfig(root)
 		if err != nil {

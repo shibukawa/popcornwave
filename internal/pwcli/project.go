@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 
 	"github.com/shibukawa/tinybind-go/minitoml"
 )
@@ -44,14 +45,46 @@ type idpConfig struct {
 	Port    int
 }
 
+// generationScope records, per generation purpose, the directories pw generate
+// may read for it. Paths are project-relative and in slash form. No purpose has
+// a default: a project states where each kind of generated code comes from
+// instead of letting one walk of the tree feed all of them.
+type generationScope struct {
+	Handlers  []string
+	Templates []string
+	Queries   []string
+	Config    []string
+}
+
+// generatePurposes are the configuration keys of generationScope, in the order
+// their errors and listings are reported.
+var generatePurposes = []struct {
+	key    string
+	target func(*generationScope) *[]string
+}{
+	{"generate.handlers", func(s *generationScope) *[]string { return &s.Handlers }},
+	{"generate.templates", func(s *generationScope) *[]string { return &s.Templates }},
+	{"generate.queries", func(s *generationScope) *[]string { return &s.Queries }},
+	{"generate.config", func(s *generationScope) *[]string { return &s.Config }},
+}
+
+// watchConfig widens or trims the pw dev walk. Unlike generation, the walk has a
+// working default, because a rebuild is triggered by any compiled input; only
+// the trimming is worth leaving to the project.
+type watchConfig struct {
+	Includes []string
+	Excludes []string
+}
+
 type projectConfig struct {
-	Name       string
-	Main       string
-	Toolchain  string
-	ExtraWatch []string
-	IdP        idpConfig
-	Migration  migrationConfig
-	Tailwind   tailwindConfig
+	Name      string
+	Main      string
+	Toolchain string
+	Generate  generationScope
+	Watch     watchConfig
+	IdP       idpConfig
+	Migration migrationConfig
+	Tailwind  tailwindConfig
 }
 
 func loadProjectConfig(root string) (projectConfig, error) {
@@ -66,7 +99,8 @@ func loadProjectConfig(root string) (projectConfig, error) {
 	}
 	known := []string{
 		"project.name", "project.main", "project.toolchain",
-		"dev.extra_watch",
+		"generate.handlers", "generate.templates", "generate.queries", "generate.config",
+		"dev.watch.includes", "dev.watch.excludes",
 		"dev.idp.enabled", "dev.idp.config", "dev.idp.port",
 		"migration.dir", "migration.auto",
 		"assets.tailwind.enabled", "assets.tailwind.input",
@@ -96,17 +130,13 @@ func loadProjectConfig(root string) (projectConfig, error) {
 	if config.Toolchain != toolchainTinyGo && config.Toolchain != toolchainGo {
 		return projectConfig{}, fmt.Errorf("popcornwave.toml: project.toolchain must be %q or %q", toolchainTinyGo, toolchainGo)
 	}
-	config.ExtraWatch, err = array(document, "dev.extra_watch")
+	config.Generate, err = generationSources(document, root)
 	if err != nil {
-		return projectConfig{}, fmt.Errorf("popcornwave.toml: dev.extra_watch: %w", err)
+		return projectConfig{}, err
 	}
-	for _, pattern := range config.ExtraWatch {
-		if filepath.IsAbs(pattern) {
-			return projectConfig{}, fmt.Errorf("popcornwave.toml: dev.extra_watch paths must be relative")
-		}
-		if _, err := filepath.Glob(filepath.Join(root, filepath.FromSlash(pattern))); err != nil {
-			return projectConfig{}, fmt.Errorf("popcornwave.toml: dev.extra_watch %q: %w", pattern, err)
-		}
+	config.Watch, err = watchPaths(document, root)
+	if err != nil {
+		return projectConfig{}, err
 	}
 	if config.Main == "" {
 		return projectConfig{}, fmt.Errorf("popcornwave.toml: project.main is required")
@@ -189,6 +219,105 @@ func loadProjectConfig(root string) (projectConfig, error) {
 		if input == output {
 			return projectConfig{}, fmt.Errorf("popcornwave.toml: Tailwind input and output must be different files")
 		}
+	}
+	return config, nil
+}
+
+// sourcesExample shows an operator what a purpose entry looks like, for the
+// error raised when one of the required keys is missing.
+const sourcesExample = `generate.handlers = ["handlers"]`
+
+// generationSources reads the directories each generation purpose is allowed to
+// read. Every purpose key is required, and an empty list is how a project says
+// that a purpose generates nothing — which a missing key cannot express.
+func generationSources(document minitoml.Document, root string) (generationScope, error) {
+	scope := generationScope{}
+	for _, purpose := range generatePurposes {
+		directories, err := purposeDirectories(document, root, purpose.key)
+		if err != nil {
+			return generationScope{}, err
+		}
+		*purpose.target(&scope) = directories
+	}
+	return scope, nil
+}
+
+// purposeDirectories validates one purpose list.
+func purposeDirectories(document minitoml.Document, root, key string) ([]string, error) {
+	value, ok := document.Get(key)
+	if !ok {
+		return nil, fmt.Errorf("popcornwave.toml: %s is required; list the directories it reads, such as %s, or [] when it generates nothing", key, sourcesExample)
+	}
+	entries, err := value.AsStringSlice()
+	if err != nil {
+		return nil, fmt.Errorf("popcornwave.toml: %s: %w", key, err)
+	}
+	seen := make(map[string]bool, len(entries))
+	directories := make([]string, 0, len(entries))
+	for _, entry := range entries {
+		if filepath.IsAbs(entry) {
+			return nil, fmt.Errorf("popcornwave.toml: %s %q must be relative to the project", key, entry)
+		}
+		clean := filepath.ToSlash(filepath.Clean(filepath.FromSlash(entry)))
+		if clean == "." || clean == ".." || strings.HasPrefix(clean, "../") {
+			return nil, fmt.Errorf("popcornwave.toml: %s %q must name a directory inside the project", key, entry)
+		}
+		if seen[clean] {
+			return nil, fmt.Errorf("popcornwave.toml: %s lists %q twice", key, entry)
+		}
+		seen[clean] = true
+		info, err := os.Stat(filepath.Join(root, filepath.FromSlash(clean)))
+		if err != nil {
+			return nil, fmt.Errorf("popcornwave.toml: %s %q: %w", key, entry, err)
+		}
+		if !info.IsDir() {
+			return nil, fmt.Errorf("popcornwave.toml: %s %q is not a directory", key, entry)
+		}
+		directories = append(directories, clean)
+	}
+	// A nested entry would have its sources planned twice within one purpose,
+	// and the second plan would delete what the first one wrote.
+	for _, outer := range directories {
+		for _, inner := range directories {
+			if outer != inner && strings.HasPrefix(inner, outer+"/") {
+				return nil, fmt.Errorf("popcornwave.toml: %s %q is already covered by %q", key, inner, outer)
+			}
+		}
+	}
+	slices.Sort(directories)
+	return directories, nil
+}
+
+// watchPaths reads the pw dev walk adjustments. Both lists are optional,
+// because the walk of the module is already the right default.
+func watchPaths(document minitoml.Document, root string) (watchConfig, error) {
+	config := watchConfig{}
+	var err error
+	config.Includes, err = array(document, "dev.watch.includes")
+	if err != nil {
+		return watchConfig{}, fmt.Errorf("popcornwave.toml: dev.watch.includes: %w", err)
+	}
+	for _, pattern := range config.Includes {
+		if filepath.IsAbs(pattern) {
+			return watchConfig{}, fmt.Errorf("popcornwave.toml: dev.watch.includes paths must be relative")
+		}
+		if _, err := filepath.Glob(filepath.Join(root, filepath.FromSlash(pattern))); err != nil {
+			return watchConfig{}, fmt.Errorf("popcornwave.toml: dev.watch.includes %q: %w", pattern, err)
+		}
+	}
+	config.Excludes, err = array(document, "dev.watch.excludes")
+	if err != nil {
+		return watchConfig{}, fmt.Errorf("popcornwave.toml: dev.watch.excludes: %w", err)
+	}
+	for index, entry := range config.Excludes {
+		if filepath.IsAbs(entry) {
+			return watchConfig{}, fmt.Errorf("popcornwave.toml: dev.watch.excludes paths must be relative")
+		}
+		clean := filepath.ToSlash(filepath.Clean(filepath.FromSlash(entry)))
+		if clean == "." || clean == ".." || strings.HasPrefix(clean, "../") {
+			return watchConfig{}, fmt.Errorf("popcornwave.toml: dev.watch.excludes %q must name a directory inside the project", entry)
+		}
+		config.Excludes[index] = clean
 	}
 	return config, nil
 }
