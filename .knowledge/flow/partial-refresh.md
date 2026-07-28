@@ -23,4 +23,5 @@ client:
   - reject stale rollback by sequence
   - drop child patches replaced by an enclosing parent
   - preserve focus, selection, and scroll where possible
+unmanaged_alternative: requirement:html-fragment-rendering, where the application owns the route and an external swap library owns application, with no envelope and no boundary identity
 ```

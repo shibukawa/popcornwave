@@ -24,4 +24,5 @@ validation:
   - missing or duplicate default document registration is a startup error
   - handler code never selects or constructs the default document
 layouts: future explicit layout selection may extend the registered chain without exposing the document shell
+bypass: api:html-fragment-response resolves no document, because requirement:html-fragment-rendering answers a request whose document already exists
 ```

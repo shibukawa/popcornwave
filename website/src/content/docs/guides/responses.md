@@ -36,6 +36,33 @@ pw.WriteHTMLChain(w, r,
 )
 ```
 
+### Fragments
+
+An htmx-style interaction replaces one region of a page that already exists, so
+it needs that region rather than a document. `pw.WriteHTMLFragment` renders one
+template and nothing else:
+
+```go
+pw.WriteHTMLFragment(w, r, Row(RowParams{Item: item}))
+```
+
+No document shell, no wrapper chain, no merged head, no framing. The body is
+exactly what the template wrote, ready for the swap library to insert.
+
+Two consequences follow from having no document around the markup. A fragment
+never streams: an await boundary settles in place, so the response carries no
+placeholder for a client runtime to replace and no boundary id that could
+collide with one still pending in the page it lands in. And a template that
+contributes to the document head is rejected with a 500 instead of losing those
+contributions silently — a scoped style block belongs in the head of the page
+that is already loaded, so declare it in a component that page renders, or in a
+shared stylesheet.
+
+Failures answer with `application/problem+json` and their real status rather
+than with an HTML error page, because an error document swapped into one region
+would replace that region with a whole page. htmx and similar libraries do not
+swap a non-2xx response, so the status is the signal they already act on.
+
 Template syntax, slots, escaping, and scoped styles are covered in
 [Templates](/guides/templates/).
 

@@ -21,4 +21,5 @@ commit_rule: after response commitment, record the error without attempting a re
 async: an await-capable chain streams without changing this surface, per requirement:async-html-rendering
 return: no normal error return
 boundary: handwritten handlers see neither pw.HTMLWrapper nor templates/document.pw.html
+partial: api:html-fragment-response answers a swap request with one template and none of this composition
 ```

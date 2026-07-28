@@ -261,6 +261,65 @@ func WriteHTMLChain(w http.ResponseWriter, r *http.Request, wrappers []HTMLWrapp
 		WriteProblem(w, r, InternalServerError(err))
 		return
 	}
+	commitHTMLBody(w, r, &body)
+}
+
+// WriteHTMLFragment renders one generated template as the whole response, with
+// no document shell, no merged head, and no wrapper chain. It answers a partial
+// request from an htmx-style swap library, whose target document already exists:
+// composing the registered shell around the region would swap a second html,
+// head, and body into the live page.
+//
+// The response is always buffered. The streaming framing is only meaningful
+// where the browser parser consumes the response as it arrives, and here the
+// swap library holds the body and inserts it, so no marker the framework wrote
+// could connect a completion to its placeholder. Blocking on await boundaries
+// instead settles them in place and emits no placeholder at all, so a fragment
+// carries no boundary id that could duplicate one still pending in the document
+// it lands in, and needs no client runtime to be complete.
+//
+// A fragment carrying head contributions is a programming error rather than a
+// silent drop. A component's style block is scoped into the document head, so
+// dropping it would swap in an unstyled region with nothing in any log; there is
+// no head here to receive it, and inlining the tags would re-emit them on every
+// swap with nothing owning or deduplicating them.
+func WriteHTMLFragment(w http.ResponseWriter, r *http.Request, fragment HTMLFragment) {
+	ctx := requestContext(r)
+	config := Config[HTMLConfig](ctx)
+	// Contributions fold upward at generation time, so this covers the leaf's own
+	// head element and every component it calls statically.
+	if head := fragment.Head(); len(head) > 0 {
+		WriteProblem(w, r, InternalServerError(fmt.Errorf(
+			"popcornwave: HTML fragment declares head contributions a fragment response cannot deliver: %v", head)))
+		return
+	}
+	// Nothing classifies the client here: one branch means one representation, so
+	// this response varies on nothing and stays cacheable.
+	renderCtx, cancel := boundedRenderContext(ctx, config, fragment.HasAwaitBlock(), false)
+	defer cancel()
+	var body bytes.Buffer
+	if err := htmlbind.Render(&body, fragment, renderOptions(renderCtx, config, false)...); err != nil {
+		// Nothing is committed yet, so every failure still carries its real
+		// status. It goes out as a problem response rather than as the HTML error
+		// page: an error document swapped into a region would replace that region
+		// with a whole page, and a swap library already reads the status instead.
+		var unrecovered *htmlbind.UnrecoveredError
+		if errors.As(err, &unrecovered) {
+			Logger(ctx).ErrorContext(ctx, "await boundary failed with no recover clause", "error", unrecovered.Err)
+			WriteProblem(w, r, InternalServerError(unrecovered.Err))
+			return
+		}
+		WriteProblem(w, r, InternalServerError(err))
+		return
+	}
+	commitHTMLBody(w, r, &body)
+}
+
+// commitHTMLBody sends a fully rendered body. Content-Length is declared only
+// when the bytes reach the client unencoded, because a compressing writer knows
+// the length only after it has closed.
+func commitHTMLBody(w http.ResponseWriter, r *http.Request, body *bytes.Buffer) {
+	ctx := requestContext(r)
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	writer, closeWriter, err := prepareHTMLResponse(w, r)
 	if err != nil {
@@ -271,10 +330,10 @@ func WriteHTMLChain(w http.ResponseWriter, r *http.Request, wrappers []HTMLWrapp
 		w.Header().Set("Content-Length", strconv.Itoa(body.Len()))
 	}
 	if _, err := body.WriteTo(writer); err != nil {
-		Logger(requestContext(r)).ErrorContext(requestContext(r), "HTML response write failed", "error", err)
+		Logger(ctx).ErrorContext(ctx, "HTML response write failed", "error", err)
 	}
 	if err := closeWriter(); err != nil {
-		Logger(requestContext(r)).ErrorContext(requestContext(r), "HTML response close failed", "error", err)
+		Logger(ctx).ErrorContext(ctx, "HTML response close failed", "error", err)
 	}
 }
 

@@ -38,6 +38,7 @@ rules:
   - streaming false makes bot_detection irrelevant, because every response is already buffered
   - zero bot_async_timeout falls back to async_timeout rather than meaning unbounded, so a misread key cannot hold a crawler connection open for the whole request deadline
   - bot_user_agents entries are lowercased and appended; a duplicate of a built-in token is accepted and has no effect
+  - api:html-fragment-response reads async_timeout and async_concurrency only, per decision:buffered-fragment-delivery
 bot_timeout_tension:
   longer_side: an indexer waits far longer than a browser, and a timeout fallback baked into a buffered document is exactly the outcome requirement:bot-synchronous-render exists to prevent
   shorter_side: a preview spider abandons a slow response within a few seconds, and the buffered branch has no head start to offer it

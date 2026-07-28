@@ -8,6 +8,7 @@ Generated typed templates produce complete responses and reusable presentational
 ```yaml
 features:
   - requirement:nested-html-templates layouts and nested presentational components
+  - requirement:html-fragment-rendering partial responses for a swap library
   - contextual automatic escaping via policy:template-escaping
   - explicit narrow raw-output escape hatch
   - status and headers selected before body write
