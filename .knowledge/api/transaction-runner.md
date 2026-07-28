@@ -36,4 +36,5 @@ rules:
   - recoverable application error mapping occurs outside this runner
   - callers cannot install an arbitrary executor, name a savepoint, or mutate capsule fields
   - a scope created by api:rdb-middleware or api:test-run makes the application's first call nested
+  - scope adoption unwraps api:instrumented-sql-executor before asserting a concrete transaction type
 ```

@@ -23,6 +23,9 @@ type Resources struct {
 	DBDriver string
 	// TxScope is the active transaction scope, installed by the framework only.
 	TxScope *TransactionScope
+	// Query enables development query diagnostics. A nil value leaves the
+	// resolved executor undecorated.
+	Query *QueryDiagnostics
 	// Session is the validated session view, installed by session middleware.
 	Session *SessionView
 	// Authentication is the verified request authentication result, finalized
@@ -87,15 +90,26 @@ func DBDriver(ctx context.Context) (string, bool) {
 	return driver, driver != ""
 }
 
-// SQLExecutor is used by generated .pw.sql context wrappers.
+// SQLExecutor is used by generated .pw.sql context wrappers. It is the one
+// seam every generated statement passes through, so query diagnostics attach
+// here instead of in generated code or in a wrapping driver.
 func SQLExecutor(ctx context.Context) (sqlbind.SQLExecutor, error) {
-	if executor := resources(ctx).TxScope.executor(); executor != nil {
+	current := resources(ctx)
+	executor, err := baseSQLExecutor(ctx, current)
+	if err != nil {
+		return nil, err
+	}
+	return instrument(current, executor, Logger(ctx)), nil
+}
+
+func baseSQLExecutor(ctx context.Context, current *Resources) (sqlbind.SQLExecutor, error) {
+	if executor := current.TxScope.executor(); executor != nil {
 		return executor, nil
 	}
 	if executor, err := sqlbind.SQLExecutorFromContext(ctx); err == nil {
-		return executor, nil
+		return unwrapExecutor(executor), nil
 	}
-	if db, ok := DB(ctx); ok {
+	if db := current.DB; db != nil {
 		return db, nil
 	}
 	return nil, errors.New("popcornwave: database is not available in context")

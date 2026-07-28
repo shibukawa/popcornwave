@@ -238,6 +238,55 @@ max_idle_conns = 1
 `dsn` は秘密情報として扱われ、設定ログでもエラーメッセージでもマスクされます。
 [設定](/ja/guides/configuration/)を参照。
 
+## 実行されたクエリーを見る
+
+生成された関数はすべて 1 か所で executor を解決します。そのためクエリーログは、
+アプリケーションのコードにも生成ファイルにも変更を必要としません。`dev` では
+既定で有効です。
+
+```
+level=INFO msg="sql executed" sql="INSERT INTO items (name) VALUES ($1)"
+  duration=412µs operation=exec driver=sqlite rows_affected=1 outcome=ok args=[alpha]
+```
+
+`slow_threshold` を超えたステートメントは `warn` で記録され、その実行計画と、
+データベースのシェルに貼り付けられるスニペットが付きます。
+
+```
+level=WARN msg="sql executed" sql="SELECT name FROM items WHERE name = $1"
+  duration=240ms operation=query driver=sqlite outcome=ok args=[alpha] slow=true
+  explain="id=2 parent=0 detail=SCAN items"
+  reproduction=".parameter set $1 'alpha'\nSELECT name FROM items WHERE name = $1;"
+```
+
+スニペットは値をステートメントに埋め込まず、パラメータとしてバインドします。
+それがこの機能の要点です。リテラルは定数畳み込みやインデックス選択に影響するため、
+書き換えたクエリーが、遅かったクエリーと同じとは限りません。
+
+設定は `[observability.query]` にあります。
+
+```toml
+[observability.query]
+enabled = "auto"          # auto は dev のみ on、他の環境では off
+level = "info"
+slow_threshold = "200ms"  # 0 にすると explain と reproduction も止まる
+slow_level = "warn"
+bind_values = "auto"      # 行の値がログに入る唯一の経路
+explain = true
+reproduction = true
+```
+
+`EXPLAIN` は `ANALYZE` を使いません。実行計画を取るだけで、ステートメントを
+2 回実行することはありません。プランのみの `EXPLAIN` 形式が分からないドライバーは、
+起動時に 1 度だけその旨を報告し、クエリーログ自体は動き続けます。
+
+制限が 2 つあります。観測されるのは生成された `.pw.sql` の呼び出しだけで、
+セッション・認証・マイグレーションのステートメントはプールへ直接向かいます。
+また query は行数を報告しません。行の反復はアプリケーション側が所有するためです。
+
+`dev` 以外では `enabled` と `bind_values` の両方に明示的な `"on"` が必要で、
+`dev` 以外で有効にした場合は起動時にその旨が記録されます。
+
 ## シードデータ
 
 シードファイルは `testdata/seed/` に置き、CLI とテストヘルパーの両方が使います。

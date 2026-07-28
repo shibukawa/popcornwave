@@ -71,6 +71,7 @@ func buildMiddlewares(handler http.Handler, option ...Option) (http.Handler, err
 		return nil, err
 	}
 	resources := runtimeResources(slog.Default())
+	reportQueryDiagnostics(resources.Query, Env(), resources.DBDriver)
 	return buildRuntimeHandler(handler, server, security, middleware, resources, options.publicFS)
 }
 

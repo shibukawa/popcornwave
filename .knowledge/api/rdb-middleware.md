@@ -18,6 +18,7 @@ request:
   - make api:request-context-accessors available
   - do not begin, commit, or rollback a request transaction, per decision:explicit-transaction-boundary
   - active SQL executor defaults to *sql.DB, or to an existing data:transaction-scope transaction under api:test-run
+  - executor resolution decorates that executor per api:instrumented-sql-executor when query diagnostics are enabled
 constraints:
   - transaction boundaries come only from api:transaction-runner
   - streaming, connection hijacking, and early flush need no special transaction configuration

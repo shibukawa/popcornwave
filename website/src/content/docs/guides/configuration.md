@@ -109,6 +109,13 @@ requests.
 and `boot_log` (`auto`), which selects the [startup summary](#startup-summary)
 format.
 
+`[observability.query]` logs each generated SQL statement, explains the slow
+ones, and prints a rerun snippet: `enabled` and `bind_values` (`auto` — on in
+`dev`, off elsewhere), `level` (`info`), `slow_threshold` (`200ms`),
+`slow_level` (`warn`), `explain` and `reproduction` (`true`), and the
+`max_sql_length` (`4096`) and `max_value_length` (`256`) bounds. See
+[Queries](/guides/queries/).
+
 ### `[session]`
 
 `enabled` (`false`), `ttl` (`24h`), and `secret`, which also reads

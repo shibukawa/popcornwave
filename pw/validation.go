@@ -35,6 +35,37 @@ func validateRuntimeConfig(server ServerConfig, security SecurityConfig, middlew
 	default:
 		return fmt.Errorf("observability.boot_log must be %s, %s, %s, or %s", BootLogAuto, BootLogTree, BootLogRecord, BootLogOff)
 	}
+	return validateQueryLogConfig(observability.Query)
+}
+
+func validateQueryLogConfig(config QueryLogConfig) error {
+	for key, value := range map[string]string{
+		"observability.query.enabled":     config.Enabled,
+		"observability.query.bind_values": config.BindValues,
+	} {
+		if _, err := resolveQueryToggle(value, false); err != nil {
+			return fmt.Errorf("%s %w", key, err)
+		}
+	}
+	for key, value := range map[string]string{
+		"observability.query.level":      config.Level,
+		"observability.query.slow_level": config.SlowLevel,
+	} {
+		if _, err := parseQueryLevel(value); err != nil {
+			return fmt.Errorf("%s %w", key, err)
+		}
+	}
+	if config.SlowThreshold < 0 {
+		return fmt.Errorf("observability.query.slow_threshold must not be negative")
+	}
+	// Zero means unset, so a hand-written configuration may omit a bound and
+	// take the default. Only a negative bound is meaningless.
+	if config.MaxSQLLength < 0 {
+		return fmt.Errorf("observability.query.max_sql_length must not be negative")
+	}
+	if config.MaxValueLength < 0 {
+		return fmt.Errorf("observability.query.max_value_length must not be negative")
+	}
 	return nil
 }
 

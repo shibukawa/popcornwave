@@ -102,6 +102,12 @@ APP_ENV=prod ./myapp
 `minimum_level`（`info`）、`service_name`（`OTEL_SERVICE_NAME` も読みます）、
 `boot_log`（`auto`。[起動サマリ](#起動サマリ)の形式を選びます）。
 
+`[observability.query]` は生成された SQL を 1 文ずつ記録し、遅いものには実行計画と
+再現用スニペットを付けます。`enabled` と `bind_values`（`auto`。`dev` のみ on）、
+`level`（`info`）、`slow_threshold`（`200ms`）、`slow_level`（`warn`）、
+`explain` と `reproduction`（`true`）、上限値の `max_sql_length`（`4096`）と
+`max_value_length`（`256`）。[クエリー](/ja/guides/queries/)を参照。
+
 ### `[session]`
 
 `enabled`（`false`）、`ttl`（`24h`）、`secret`。後者は `SESSION_SECRET` も読みます。

@@ -242,6 +242,55 @@ max_idle_conns = 1
 `dsn` is treated as a secret: redacted in configuration logs and in error
 messages. See [Configuration](/guides/configuration/).
 
+## Seeing what ran
+
+Every generated function resolves its executor through one place, so query
+logging costs no change to your code or to the generated file. In `dev` it is
+already on:
+
+```
+level=INFO msg="sql executed" sql="INSERT INTO items (name) VALUES ($1)"
+  duration=412µs operation=exec driver=sqlite rows_affected=1 outcome=ok args=[alpha]
+```
+
+A statement that takes longer than `slow_threshold` is logged at `warn` with
+the plan behind it and a snippet you can paste into the database shell:
+
+```
+level=WARN msg="sql executed" sql="SELECT name FROM items WHERE name = $1"
+  duration=240ms operation=query driver=sqlite outcome=ok args=[alpha] slow=true
+  explain="id=2 parent=0 detail=SCAN items"
+  reproduction=".parameter set $1 'alpha'\nSELECT name FROM items WHERE name = $1;"
+```
+
+The snippet binds the arguments instead of writing them into the statement.
+That is the point of it: a literal can fold into a constant or steer the index
+choice, so a rewritten query is not always the query that was slow.
+
+The settings live under `[observability.query]`:
+
+```toml
+[observability.query]
+enabled = "auto"          # auto is on in dev, off everywhere else
+level = "info"
+slow_threshold = "200ms"  # zero turns off explain and reproduction
+slow_level = "warn"
+bind_values = "auto"      # the only path by which row values reach a log
+explain = true
+reproduction = true
+```
+
+`EXPLAIN` never runs `ANALYZE`, so it costs one plan lookup and never executes
+your statement twice. A driver with no known plan-only `EXPLAIN` form says so
+once at startup and keeps the rest of the query log.
+
+Two limits are worth knowing. Only generated `.pw.sql` calls are observed —
+session, auth, and migration statements go straight to the pool. And a query
+reports no row count, because your code owns the rows it iterates.
+
+Outside `dev`, both `enabled` and `bind_values` need an explicit `"on"`, and a
+non-development run that turns them on says so at startup.
+
 ## Seed data
 
 Seed files live in `testdata/seed/` and are shared by the CLI and the test

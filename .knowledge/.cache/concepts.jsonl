@@ -18,6 +18,7 @@
 {"category": "interface", "id": "api:framework-extension", "path": ".knowledge/api/framework-extension.md", "role": "primary", "title": "Framework Extension Registry", "type": "api"}
 {"category": "interface", "id": "api:html-boundary-protocol", "path": ".knowledge/api/html-boundary-protocol.md", "role": "primary", "title": "HTML Boundary Wire Protocol", "type": "api"}
 {"category": "interface", "id": "api:html-response", "path": ".knowledge/api/html-response.md", "role": "primary", "title": "HTML Response API", "type": "api"}
+{"category": "interface", "id": "api:instrumented-sql-executor", "path": ".knowledge/api/instrumented-sql-executor.md", "role": "primary", "title": "Instrumented SQL Executor", "type": "api"}
 {"category": "interface", "id": "api:logger", "path": ".knowledge/api/logger.md", "role": "primary", "title": "Context-Bound Logger API", "type": "api"}
 {"category": "interface", "id": "api:migration-runner", "path": ".knowledge/api/migration-runner.md", "role": "primary", "title": "Migration Runner", "type": "api"}
 {"category": "interface", "id": "api:problem-response", "path": ".knowledge/api/problem-response.md", "role": "primary", "title": "Problem Response API", "type": "api"}
@@ -63,6 +64,8 @@
 {"category": "structure", "id": "data:observability-runtime-config", "path": ".knowledge/data/observability-runtime-config.md", "role": "supporting", "title": "Observability Runtime Config", "type": "data"}
 {"category": "structure", "id": "data:passkey-credential", "path": ".knowledge/data/passkey-credential.md", "role": "supporting", "title": "Passkey Credential", "type": "data"}
 {"category": "structure", "id": "data:project-config", "path": ".knowledge/data/project-config.md", "role": "supporting", "title": "Project Configuration", "type": "data"}
+{"category": "structure", "id": "data:query-diagnostics-config", "path": ".knowledge/data/query-diagnostics-config.md", "role": "supporting", "title": "Query Diagnostics Config", "type": "data"}
+{"category": "structure", "id": "data:query-record", "path": ".knowledge/data/query-record.md", "role": "supporting", "title": "Query Record", "type": "data"}
 {"category": "structure", "id": "data:release-artifact", "path": ".knowledge/data/release-artifact.md", "role": "supporting", "title": "Release Artifact Set", "type": "data"}
 {"category": "structure", "id": "data:request-authentication", "path": ".knowledge/data/request-authentication.md", "role": "supporting", "title": "Request Authentication", "type": "data"}
 {"category": "structure", "id": "data:request-context-capsule", "path": ".knowledge/data/request-context-capsule.md", "role": "supporting", "title": "Request Context Capsule", "type": "data"}
@@ -85,6 +88,7 @@
 {"category": "constraint", "id": "decision:dbtestify-integration", "path": ".knowledge/decision/dbtestify-integration.md", "role": "supporting", "title": "dbtestify Integration Boundary", "type": "decision"}
 {"category": "constraint", "id": "decision:development-public-assets", "path": ".knowledge/decision/development-public-assets.md", "role": "supporting", "title": "Development Public Assets", "type": "decision"}
 {"category": "constraint", "id": "decision:devidp-scope-reduction", "path": ".knowledge/decision/devidp-scope-reduction.md", "role": "supporting", "title": "Development IdP Scope Reduction", "type": "decision"}
+{"category": "constraint", "id": "decision:executor-seam-instrumentation", "path": ".knowledge/decision/executor-seam-instrumentation.md", "role": "supporting", "title": "Executor Seam Instrumentation", "type": "decision"}
 {"category": "constraint", "id": "decision:explicit-transaction-boundary", "path": ".knowledge/decision/explicit-transaction-boundary.md", "role": "supporting", "title": "Explicit Transaction Boundary", "type": "decision"}
 {"category": "constraint", "id": "decision:force-tinygo-logic", "path": ".knowledge/decision/force-tinygo-logic.md", "role": "supporting", "title": "Forced TinyGo Logic Build Tag", "type": "decision"}
 {"category": "constraint", "id": "decision:goose-migration-engine", "path": ".knowledge/decision/goose-migration-engine.md", "role": "supporting", "title": "Statically Linked goose Engine", "type": "decision"}
@@ -129,6 +133,7 @@
 {"category": "behavior", "id": "flow:passkey-only-registration", "path": ".knowledge/flow/passkey-only-registration.md", "role": "primary", "title": "Passkey-Only Registration", "type": "flow"}
 {"category": "behavior", "id": "flow:project-bootstrap", "path": ".knowledge/flow/project-bootstrap.md", "role": "primary", "title": "Project Bootstrap Flow", "type": "flow"}
 {"category": "behavior", "id": "flow:public-asset-build", "path": ".knowledge/flow/public-asset-build.md", "role": "primary", "title": "Public Asset Build Flow", "type": "flow"}
+{"category": "behavior", "id": "flow:query-diagnostics", "path": ".knowledge/flow/query-diagnostics.md", "role": "primary", "title": "Query Diagnostics Emission", "type": "flow"}
 {"category": "behavior", "id": "flow:request-lifecycle", "path": ".knowledge/flow/request-lifecycle.md", "role": "primary", "title": "Typed Request Lifecycle", "type": "flow"}
 {"category": "behavior", "id": "flow:session-lifecycle", "path": ".knowledge/flow/session-lifecycle.md", "role": "primary", "title": "Session Lifecycle", "type": "flow"}
 {"category": "behavior", "id": "flow:sql-generation", "path": ".knowledge/flow/sql-generation.md", "role": "primary", "title": "SQL Generation and Execution", "type": "flow"}
@@ -160,6 +165,7 @@
 {"category": "constraint", "id": "policy:public-asset-negotiation", "path": ".knowledge/policy/public-asset-negotiation.md", "role": "supporting", "title": "Public Asset Negotiation", "type": "policy"}
 {"category": "constraint", "id": "policy:public-asset-precompression", "path": ".knowledge/policy/public-asset-precompression.md", "role": "supporting", "title": "Public Asset Precompression", "type": "policy"}
 {"category": "constraint", "id": "policy:public-asset-resolution", "path": ".knowledge/policy/public-asset-resolution.md", "role": "supporting", "title": "Public Asset Resolution", "type": "policy"}
+{"category": "constraint", "id": "policy:query-log-safety", "path": ".knowledge/policy/query-log-safety.md", "role": "supporting", "title": "Query Log Safety", "type": "policy"}
 {"category": "constraint", "id": "policy:release-integrity", "path": ".knowledge/policy/release-integrity.md", "role": "supporting", "title": "Release Integrity", "type": "policy"}
 {"category": "constraint", "id": "policy:security-response-headers", "path": ".knowledge/policy/security-response-headers.md", "role": "supporting", "title": "Security Response Headers", "type": "policy"}
 {"category": "constraint", "id": "policy:server-ui-security", "path": ".knowledge/policy/server-ui-security.md", "role": "supporting", "title": "Server UI Security and Correctness", "type": "policy"}
@@ -209,6 +215,7 @@
 {"category": "objective", "id": "requirement:nested-html-templates", "path": ".knowledge/requirement/nested-html-templates.md", "role": "primary", "title": "Nested HTML Templates", "type": "requirement"}
 {"category": "objective", "id": "requirement:parallel-database-tests", "path": ".knowledge/requirement/parallel-database-tests.md", "role": "primary", "title": "Parallel Database Tests", "type": "requirement"}
 {"category": "objective", "id": "requirement:public-asset-delivery", "path": ".knowledge/requirement/public-asset-delivery.md", "role": "primary", "title": "Public Asset Delivery", "type": "requirement"}
+{"category": "objective", "id": "requirement:query-diagnostics", "path": ".knowledge/requirement/query-diagnostics.md", "role": "primary", "title": "Database Query Diagnostics", "type": "requirement"}
 {"category": "objective", "id": "requirement:shared-web-runtime", "path": ".knowledge/requirement/shared-web-runtime.md", "role": "primary", "title": "Shared Web Runtime", "type": "requirement"}
 {"category": "objective", "id": "requirement:tailwind-css-integration", "path": ".knowledge/requirement/tailwind-css-integration.md", "role": "primary", "title": "Tailwind CSS Integration", "type": "requirement"}
 {"category": "objective", "id": "requirement:tailwind-plugin-integration", "path": ".knowledge/requirement/tailwind-plugin-integration.md", "role": "primary", "title": "Tailwind Plugin Integration", "type": "requirement"}
@@ -216,8 +223,10 @@
 {"category": "objective", "id": "requirement:tinygodriver-adoption", "path": ".knowledge/requirement/tinygodriver-adoption.md", "role": "primary", "title": "tinygodriver Adoption", "type": "requirement"}
 {"category": "objective", "id": "requirement:typed-http-contract", "path": ".knowledge/requirement/typed-http-contract.md", "role": "primary", "title": "Typed HTTP Contract", "type": "requirement"}
 {"category": "objective", "id": "requirement:unhandled-boundary-signal", "path": ".knowledge/requirement/unhandled-boundary-signal.md", "role": "primary", "title": "Unhandled Boundary Signal", "type": "requirement"}
+{"category": "constraint", "id": "rule:explain-dialect-support", "path": ".knowledge/rule/explain-dialect-support.md", "role": "supporting", "title": "EXPLAIN Dialect Support", "type": "rule"}
 {"category": "constraint", "id": "rule:framework-owned-tables", "path": ".knowledge/rule/framework-owned-tables.md", "role": "supporting", "title": "Framework Owned Tables", "type": "rule"}
 {"category": "constraint", "id": "rule:multi-statement-sql-execution", "path": ".knowledge/rule/multi-statement-sql-execution.md", "role": "supporting", "title": "Multi-statement SQL Execution", "type": "rule"}
+{"category": "constraint", "id": "rule:query-reproduction-format", "path": ".knowledge/rule/query-reproduction-format.md", "role": "supporting", "title": "Query Reproduction Format", "type": "rule"}
 {"category": "constraint", "id": "rule:savepoint-dialect-support", "path": ".knowledge/rule/savepoint-dialect-support.md", "role": "supporting", "title": "Savepoint Dialect Support", "type": "rule"}
 {"category": "constraint", "id": "rule:static-route-discovery", "path": ".knowledge/rule/static-route-discovery.md", "role": "supporting", "title": "Static Route Discovery", "type": "rule"}
 {"category": "constraint", "id": "rule:tinygo-runtime-compatibility", "path": ".knowledge/rule/tinygo-runtime-compatibility.md", "role": "supporting", "title": "TinyGo Runtime Compatibility", "type": "rule"}

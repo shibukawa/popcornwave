@@ -91,6 +91,7 @@ func prepareTestRuntime(handler http.Handler, configs pwtestbridge.Configs, opti
 		DB:       db,
 		DBDriver: driver,
 		TxScope:  scope,
+		Query:    resolveQueryDiagnostics(testConfigValue[ObservabilityConfig](configs), Env()),
 	}
 	wrapped, err := buildRuntimeHandler(handler, server, security, middleware, resources)
 	if err != nil {

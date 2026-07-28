@@ -15,6 +15,7 @@ fields:
   service_name: string
   boot_log: auto, tree, record, or off; selects policy:startup-summary output
   resource_attributes: data:log-attribute list
+  query: data:query-diagnostics-config sub-binding for requirement:query-diagnostics
   otel:
     enabled: bool
     endpoint: URL

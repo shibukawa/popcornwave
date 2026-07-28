@@ -120,6 +120,17 @@ func (scope *TransactionScope) Tx() *sql.Tx {
 	return scope.tx
 }
 
+// state reports whether a transaction is open and how deep its savepoint stack
+// is, which is what a query record needs to place a statement.
+func (scope *TransactionScope) state() (bool, int) {
+	if scope == nil {
+		return false, 0
+	}
+	scope.mu.Lock()
+	defer scope.mu.Unlock()
+	return scope.tx != nil, scope.depth
+}
+
 func (scope *TransactionScope) executor() sqlbind.SQLExecutor {
 	if scope == nil {
 		return nil
@@ -191,7 +202,7 @@ func adoptExecutorTx(ctx context.Context) *TransactionScope {
 	if err != nil {
 		return nil
 	}
-	tx, ok := executor.(*sql.Tx)
+	tx, ok := unwrapExecutor(executor).(*sql.Tx)
 	if !ok {
 		return nil
 	}

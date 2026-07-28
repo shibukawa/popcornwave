@@ -140,6 +140,35 @@ type ObservabilityConfig struct {
 	ServiceName  string
 	// BootLog selects the startup summary format: auto, tree, record, or off.
 	BootLog string
+	// Query configures the development query diagnostics.
+	Query QueryLogConfig
+}
+
+// QueryLogConfig controls per-statement query logging, the slow-statement
+// EXPLAIN, and the rerun snippet. It lives under observability because it
+// produces log records; middleware.rdb stays pool configuration.
+type QueryLogConfig struct {
+	// Enabled is auto, on, or off. Auto resolves to on in the development
+	// environment and off everywhere else.
+	Enabled string
+	// Level is the severity of an ordinary statement record.
+	Level string
+	// SlowThreshold is the duration above which a statement is slow. Zero
+	// disables slow detection, and with it EXPLAIN and reproduction.
+	SlowThreshold time.Duration
+	// SlowLevel is the severity of a slow statement record.
+	SlowLevel string
+	// BindValues is auto, on, or off, and follows the same environment rule as
+	// Enabled. It is the only path by which row values reach a query record.
+	BindValues string
+	// Explain captures a plan-only EXPLAIN for a slow statement.
+	Explain bool
+	// Reproduction renders a paste-able rerun snippet for a slow statement.
+	Reproduction bool
+	// MaxSQLLength bounds the logged statement text.
+	MaxSQLLength int
+	// MaxValueLength bounds each logged argument value.
+	MaxValueLength int
 }
 
 // MiddlewareConfig selects the framework's basic HTTP middleware.
@@ -301,6 +330,9 @@ func registeredConfig[T any]() (T, bool) {
 }
 
 func runtimeResources(logger *slog.Logger) pwruntime.Resources {
+	// Resolved before the lock because reading a registered binding takes the
+	// same read lock, and a waiting writer would deadlock the reacquisition.
+	query := resolveQueryDiagnostics(Config[ObservabilityConfig](nil), Env())
 	configState.RLock()
 	defer configState.RUnlock()
 	configs := make(map[reflect.Type]any, len(configState.entries))
@@ -310,7 +342,13 @@ func runtimeResources(logger *slog.Logger) pwruntime.Resources {
 			configs[typ] = value.Elem().Interface()
 		}
 	}
-	return pwruntime.Resources{Configs: configs, Logger: logger, DB: configState.db, DBDriver: configState.dbDriver}
+	return pwruntime.Resources{
+		Configs:  configs,
+		Logger:   logger,
+		DB:       configState.db,
+		DBDriver: configState.dbDriver,
+		Query:    query,
+	}
 }
 
 func isSecretKey(key string) bool {
@@ -725,29 +763,79 @@ func registerSessionConfig() {
 func registerObservabilityConfig() {
 	const typeName = "github.com/shibukawa/popcornwave/pw.ObservabilityConfig"
 	configbind.Register[ObservabilityConfig](configbind.Definition{
-		TypeName:  typeName,
-		Prefix:    "observability",
-		KnownKeys: []string{"observability.minimum_level", "observability.service_name", "observability.boot_log"},
+		TypeName: typeName,
+		Prefix:   "observability",
+		KnownKeys: []string{
+			"observability.minimum_level", "observability.service_name", "observability.boot_log",
+			"observability.query.enabled", "observability.query.level",
+			"observability.query.slow_threshold", "observability.query.slow_level",
+			"observability.query.bind_values", "observability.query.explain",
+			"observability.query.reproduction",
+			"observability.query.max_sql_length", "observability.query.max_value_length",
+		},
 		Defaults: map[string]string{
 			"observability.minimum_level": "info", "observability.service_name": "",
-			"observability.boot_log": BootLogAuto,
+			"observability.boot_log":               BootLogAuto,
+			"observability.query.enabled":          QueryToggleAuto,
+			"observability.query.level":            "info",
+			"observability.query.slow_threshold":   defaultQuerySlowThreshold.String(),
+			"observability.query.slow_level":       "warn",
+			"observability.query.bind_values":      QueryToggleAuto,
+			"observability.query.explain":          "true",
+			"observability.query.reproduction":     "true",
+			"observability.query.max_sql_length":   strconv.Itoa(defaultQueryMaxSQLLength),
+			"observability.query.max_value_length": strconv.Itoa(defaultQueryMaxValueLength),
 		},
 		FlagMetas: []cliparser.FieldMeta{
 			{Prefix: "observability", Key: "minimum_level"},
 			{Prefix: "observability", Key: "service_name", Env: "OTEL_SERVICE_NAME"},
 			{Prefix: "observability", Key: "boot_log"},
+			{Prefix: "observability.query", Key: "enabled"},
+			{Prefix: "observability.query", Key: "level"},
+			{Prefix: "observability.query", Key: "slow_threshold"},
+			{Prefix: "observability.query", Key: "slow_level"},
+			{Prefix: "observability.query", Key: "bind_values"},
+			{Prefix: "observability.query", Key: "explain", Kind: cliparser.KindBool},
+			{Prefix: "observability.query", Key: "reproduction", Kind: cliparser.KindBool},
+			{Prefix: "observability.query", Key: "max_sql_length"},
+			{Prefix: "observability.query", Key: "max_value_length"},
 		},
 		Apply: func(dst any, overlay *configbind.Overlay) error {
 			p := dst.(*ObservabilityConfig)
 			p.MinimumLevel, _ = overlay.GetString("observability.minimum_level")
 			p.ServiceName, _ = overlay.GetString("observability.service_name")
 			p.BootLog, _ = overlay.GetString("observability.boot_log")
-			return nil
+			p.Query.Enabled = valueOf(overlay, "observability.query.enabled")
+			p.Query.Level = valueOf(overlay, "observability.query.level")
+			p.Query.SlowLevel = valueOf(overlay, "observability.query.slow_level")
+			p.Query.BindValues = valueOf(overlay, "observability.query.bind_values")
+			p.Query.Explain = configBool(overlay, "observability.query.explain")
+			p.Query.Reproduction = configBool(overlay, "observability.query.reproduction")
+			var err error
+			p.Query.SlowThreshold, err = parseConfigDuration(overlay, "observability.query.slow_threshold")
+			if err != nil {
+				return err
+			}
+			p.Query.MaxSQLLength, err = parseConfigInt(overlay, "observability.query.max_sql_length")
+			if err != nil {
+				return err
+			}
+			p.Query.MaxValueLength, err = parseConfigInt(overlay, "observability.query.max_value_length")
+			return err
 		},
 		Scaffold: []configbind.ScaffoldField{
 			{Key: "minimum_level", Kind: configbind.ScaffoldString, Default: "info"},
 			{Key: "service_name", Kind: configbind.ScaffoldString, Default: "", Env: "OTEL_SERVICE_NAME"},
 			{Key: "boot_log", Kind: configbind.ScaffoldString, Default: BootLogAuto, Help: "startup summary: auto, tree, record, or off"},
+			{Key: "query.enabled", Kind: configbind.ScaffoldString, Default: QueryToggleAuto, Help: "log every generated SQL statement: auto, on, or off; auto is on in dev"},
+			{Key: "query.level", Kind: configbind.ScaffoldString, Default: "info"},
+			{Key: "query.slow_threshold", Kind: configbind.ScaffoldString, Default: defaultQuerySlowThreshold.String(), Help: "duration above which a statement is explained; zero disables it"},
+			{Key: "query.slow_level", Kind: configbind.ScaffoldString, Default: "warn"},
+			{Key: "query.bind_values", Kind: configbind.ScaffoldString, Default: QueryToggleAuto, Help: "log argument values: auto, on, or off; auto is on in dev"},
+			{Key: "query.explain", Kind: configbind.ScaffoldBool, Default: "true", Help: "capture a plan-only EXPLAIN for a slow statement"},
+			{Key: "query.reproduction", Kind: configbind.ScaffoldBool, Default: "true", Help: "emit a paste-able rerun snippet for a slow statement"},
+			{Key: "query.max_sql_length", Kind: configbind.ScaffoldInt, Default: strconv.Itoa(defaultQueryMaxSQLLength)},
+			{Key: "query.max_value_length", Kind: configbind.ScaffoldInt, Default: strconv.Itoa(defaultQueryMaxValueLength)},
 		},
 	})
 }
