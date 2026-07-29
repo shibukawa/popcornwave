@@ -1,7 +1,6 @@
 package pw
 
 import (
-	"log/slog"
 	"strings"
 	"testing"
 	"time"
@@ -74,10 +73,10 @@ func TestResolveQueryDiagnosticsMapsLevelsAndBounds(t *testing.T) {
 	if diagnostics == nil {
 		t.Fatal("want diagnostics")
 	}
-	if diagnostics.Level != slog.LevelDebug-4 {
+	if diagnostics.Level != LevelDebug-4 {
 		t.Errorf("trace level = %v", diagnostics.Level)
 	}
-	if diagnostics.SlowLevel != slog.LevelError {
+	if diagnostics.SlowLevel != LevelError {
 		t.Errorf("slow level = %v", diagnostics.SlowLevel)
 	}
 	if diagnostics.SlowThreshold != 3*time.Second {

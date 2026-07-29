@@ -146,12 +146,12 @@ func Validation(fields ...FieldError) Problem {
 
 func WriteProblem(w http.ResponseWriter, r *http.Request, err error) {
 	if responseCommitted(w) {
-		Logger(requestContext(r)).ErrorContext(requestContext(r), "problem after response commit", "error", err)
+		Logger(requestContext(r)).Log(requestContext(r), LevelError, "problem after response commit", Err(err))
 		return
 	}
 	p := mapProblem(err)
 	if p.Status >= 500 {
-		Logger(requestContext(r)).ErrorContext(requestContext(r), "request failed", "error", err)
+		Logger(requestContext(r)).Log(requestContext(r), LevelError, "request failed", Err(err))
 		p.Message = "internal error"
 		p.Code = "internal"
 		p.Fields = nil
@@ -253,8 +253,8 @@ func WriteHTMLChain(w http.ResponseWriter, r *http.Request, wrappers []HTMLWrapp
 		// branch can only patch into a 200 still carries its real status here.
 		var unrecovered *htmlbind.UnrecoveredError
 		if errors.As(err, &unrecovered) {
-			Logger(requestContext(r)).ErrorContext(requestContext(r),
-				"await boundary failed with no recover clause", "error", unrecovered.Err)
+			Logger(requestContext(r)).Log(requestContext(r), LevelError,
+				"await boundary failed with no recover clause", Err(unrecovered.Err))
 			writeHTMLProblem(w, r, wrappers, mapProblem(unrecovered.Err))
 			return
 		}
@@ -305,7 +305,7 @@ func WriteHTMLFragment(w http.ResponseWriter, r *http.Request, fragment HTMLFrag
 		// with a whole page, and a swap library already reads the status instead.
 		var unrecovered *htmlbind.UnrecoveredError
 		if errors.As(err, &unrecovered) {
-			Logger(ctx).ErrorContext(ctx, "await boundary failed with no recover clause", "error", unrecovered.Err)
+			Logger(ctx).Log(ctx, LevelError, "await boundary failed with no recover clause", Err(unrecovered.Err))
 			WriteProblem(w, r, InternalServerError(unrecovered.Err))
 			return
 		}
@@ -330,10 +330,10 @@ func commitHTMLBody(w http.ResponseWriter, r *http.Request, body *bytes.Buffer) 
 		w.Header().Set("Content-Length", strconv.Itoa(body.Len()))
 	}
 	if _, err := body.WriteTo(writer); err != nil {
-		Logger(ctx).ErrorContext(ctx, "HTML response write failed", "error", err)
+		Logger(ctx).Log(ctx, LevelError, "HTML response write failed", Err(err))
 	}
 	if err := closeWriter(); err != nil {
-		Logger(ctx).ErrorContext(ctx, "HTML response close failed", "error", err)
+		Logger(ctx).Log(ctx, LevelError, "HTML response close failed", Err(err))
 	}
 }
 
@@ -357,10 +357,10 @@ func streamHTMLChain(w http.ResponseWriter, r *http.Request, wrappers []HTMLWrap
 			// and the page can only be repaired from the inside.
 			var unrecovered *htmlbind.UnrecoveredError
 			if errors.As(err, &unrecovered) {
-				logger.ErrorContext(ctx, "await boundary failed with no recover clause",
-					"boundary", unrecovered.BoundaryID, "error", unrecovered.Err)
+				logger.Log(ctx, LevelError, "await boundary failed with no recover clause",
+					String("boundary", unrecovered.BoundaryID), Err(unrecovered.Err))
 				if err := writeDocumentEscalation(writer, mapProblem(unrecovered.Err)); err != nil {
-					logger.ErrorContext(ctx, "HTML error page write failed", "error", err)
+					logger.Log(ctx, LevelError, "HTML error page write failed", Err(err))
 				}
 				htmlbind.Flush(writer)
 				break
@@ -378,17 +378,17 @@ func streamHTMLChain(w http.ResponseWriter, r *http.Request, wrappers []HTMLWrap
 			}
 			// The status is already on the wire, so this is for the operator
 			// rather than for the client: every committed fallback stays.
-			logger.ErrorContext(ctx, "HTML stream failed after commit", "error", err)
+			logger.Log(ctx, LevelError, "HTML stream failed after commit", Err(err))
 			break
 		}
 		if err := writeBoundaryCompletion(writer, content); err != nil {
-			logger.ErrorContext(ctx, "HTML boundary write failed", "error", err)
+			logger.Log(ctx, LevelError, "HTML boundary write failed", Err(err))
 			break
 		}
 		htmlbind.Flush(writer)
 	}
 	if err := closeWriter(); err != nil {
-		logger.ErrorContext(ctx, "HTML response close failed", "error", err)
+		logger.Log(ctx, LevelError, "HTML response close failed", Err(err))
 	}
 }
 
@@ -451,7 +451,7 @@ func renderOptions(ctx context.Context, config HTMLConfig, bot bool) []htmlbind.
 	options := []htmlbind.Option{
 		htmlbind.WithContext(ctx),
 		htmlbind.WithErrorReporter(func(err error) {
-			Logger(ctx).ErrorContext(ctx, "await boundary failed", "error", err)
+			Logger(ctx).Log(ctx, LevelError, "await boundary failed", Err(err))
 		}),
 	}
 	if timeout := boundaryTimeout(config, bot); timeout > 0 {

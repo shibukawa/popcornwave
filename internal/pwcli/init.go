@@ -387,8 +387,14 @@ excludes = []
 # APP_ENV selects this file; add config.stg.toml and config.prod.toml as needed.
 [server]
 port = 8080
-# Scalar API reference for /openapi.json, served at server.api_doc_path (/docs).
-# Leave this key out of staging and production configs to keep the UI private.
+# Operational endpoints answer only at the paths named here; an unset key
+# serves nothing, so this file lists every address the server responds on.
+health = "/healthz"
+readiness = "/readyz"
+openapi = "/openapi.json"
+# Scalar API reference for the document above, served at server.api_doc_path
+# (/docs). Leave this key out of staging and production configs to keep the UI
+# private.
 api_doc = "scalar"
 
 [observability]

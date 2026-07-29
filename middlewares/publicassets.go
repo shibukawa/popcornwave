@@ -15,9 +15,9 @@ import (
 
 // PublicAssetConfig controls the framework-owned static asset endpoint.
 type PublicAssetConfig struct {
-	Enabled   bool
-	Mount     string
-	ReadLocal bool
+	Enabled   bool   `default:"true"`
+	Mount     string `default:"/public" dependon:".enabled"`
+	ReadLocal bool   `default:"false" dependon:".enabled"`
 }
 
 // NormalizePublicMount validates a mount point and returns it with a trailing

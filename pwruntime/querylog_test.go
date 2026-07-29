@@ -2,47 +2,53 @@ package pwruntime
 
 import (
 	"context"
-	"log/slog"
 	"strings"
-	"sync"
 	"testing"
 	"time"
 
 	"github.com/shibukawa/tinybind-go/sqlbind"
 )
 
-// captureHandler collects emitted records so a test can assert on attributes
-// instead of on formatted output.
-type captureHandler struct {
-	mu      sync.Mutex
-	level   slog.Level
-	records []map[string]any
+// captureHandler flattens captured records into maps so a test asserts on the
+// attributes that were recorded rather than on an encoder's output.
+type captureHandler struct{ sink *CaptureSink }
+
+func newCaptureHandler() *captureHandler { return &captureHandler{sink: NewCaptureSink()} }
+
+func (handler *captureHandler) backend() *LogBackend {
+	return NewLogBackend(LevelTrace, handler.sink)
 }
 
-func (handler *captureHandler) Enabled(_ context.Context, level slog.Level) bool {
-	return level >= handler.level
+func (handler *captureHandler) flatten() []map[string]any {
+	records := handler.sink.Records()
+	flattened := make([]map[string]any, 0, len(records))
+	for _, record := range records {
+		attrs := map[string]any{"@message": record.Message, "@level": record.Level}
+		for _, attribute := range record.Attributes {
+			attrs[attribute.Key] = attributeValue(attribute)
+		}
+		flattened = append(flattened, attrs)
+	}
+	return flattened
 }
 
-func (handler *captureHandler) Handle(_ context.Context, record slog.Record) error {
-	attrs := map[string]any{"@message": record.Message, "@level": record.Level}
-	record.Attrs(func(attr slog.Attr) bool {
-		attrs[attr.Key] = attr.Value.Any()
-		return true
-	})
-	handler.mu.Lock()
-	handler.records = append(handler.records, attrs)
-	handler.mu.Unlock()
-	return nil
+func attributeValue(attribute Attribute) any {
+	if value, ok := attribute.Value.AsString(); ok {
+		return value
+	}
+	if value, ok := attribute.Value.AsBool(); ok {
+		return value
+	}
+	if value, ok := attribute.Value.AsInt64(); ok {
+		return value
+	}
+	value, _ := attribute.Value.AsFloat64()
+	return value
 }
-
-func (handler *captureHandler) WithAttrs([]slog.Attr) slog.Handler { return handler }
-func (handler *captureHandler) WithGroup(string) slog.Handler      { return handler }
 
 func (handler *captureHandler) queries() []map[string]any {
-	handler.mu.Lock()
-	defer handler.mu.Unlock()
 	var found []map[string]any
-	for _, record := range handler.records {
+	for _, record := range handler.flatten() {
 		if record["@message"] == queryMessage {
 			found = append(found, record)
 		}
@@ -63,15 +69,15 @@ func (handler *captureHandler) only(t *testing.T) map[string]any {
 func diagnosticContext(t *testing.T, driver string, config *QueryDiagnostics) (context.Context, *captureHandler) {
 	t.Helper()
 	db, _ := newTestDB(t, driver)
-	handler := &captureHandler{level: LevelTrace}
-	base := Resources{DB: db, DBDriver: driver, Query: config, Logger: slog.New(handler)}
+	handler := newCaptureHandler()
+	base := Resources{DB: db, DBDriver: driver, Query: config, Log: handler.backend()}
 	return WithResources(context.Background(), base), handler
 }
 
 func defaultDiagnostics() *QueryDiagnostics {
 	return &QueryDiagnostics{
-		Level:          slog.LevelInfo,
-		SlowLevel:      slog.LevelWarn,
+		Level:          LevelInfo,
+		SlowLevel:      LevelWarn,
 		SlowThreshold:  time.Hour,
 		BindValues:     true,
 		Explain:        true,
@@ -103,7 +109,7 @@ func TestQueryLogRecordsStatement(t *testing.T) {
 	}
 
 	record := handler.only(t)
-	if record["@level"] != slog.LevelInfo {
+	if record["@level"] != LevelInfo {
 		t.Errorf("level = %v, want info", record["@level"])
 	}
 	if got := record["sql"]; got != "INSERT INTO items (name) VALUES ($1)" {
@@ -121,9 +127,10 @@ func TestQueryLogRecordsStatement(t *testing.T) {
 	if got := record["driver"]; got != "sqlite" {
 		t.Errorf("driver = %v, want sqlite", got)
 	}
-	args, ok := record["args"].([]string)
-	if !ok || len(args) != 1 || args[0] != "alpha" {
-		t.Errorf("args = %v", record["args"])
+	// Bind values are one joined scalar now, because a record attribute cannot
+	// hold a list and still survive OTLP export.
+	if got := record["args"]; got != "alpha" {
+		t.Errorf("args = %v, want alpha", got)
 	}
 	if _, present := record["slow"]; present {
 		t.Errorf("statement under the threshold was marked slow")
@@ -186,7 +193,7 @@ func TestSlowQueryExplainsAndReproduces(t *testing.T) {
 	_ = rows.Close()
 
 	record := handler.only(t)
-	if record["@level"] != slog.LevelWarn {
+	if record["@level"] != LevelWarn {
 		t.Errorf("level = %v, want warn", record["@level"])
 	}
 	if record["slow"] != true {
@@ -281,10 +288,10 @@ func TestQueryLogReportsTransactionDepth(t *testing.T) {
 // or an adopted transaction would silently become a second one on the pool.
 func TestTransactionAdoptsInstrumentedExecutor(t *testing.T) {
 	db, _ := newTestDB(t, "sqlite")
-	handler := &captureHandler{level: LevelTrace}
+	handler := newCaptureHandler()
 	config := defaultDiagnostics()
 	ctx := WithResources(context.Background(), Resources{
-		DB: db, DBDriver: "sqlite", Query: config, Logger: slog.New(handler),
+		DB: db, DBDriver: "sqlite", Query: config, Log: handler.backend(),
 	})
 
 	tx, err := db.BeginTx(ctx, nil)
@@ -293,7 +300,7 @@ func TestTransactionAdoptsInstrumentedExecutor(t *testing.T) {
 	}
 	defer func() { _ = tx.Rollback() }()
 
-	wrapped := &instrumentedExecutor{inner: tx, config: config, logger: slog.New(handler), driver: "sqlite"}
+	wrapped := &instrumentedExecutor{inner: tx, config: config, logger: NewLogger(context.Background(), handler.backend()), driver: "sqlite"}
 	ctx = sqlbind.WithSQLExecutor(ctx, wrapped)
 
 	if err := Transaction(ctx, func(ctx context.Context) error {

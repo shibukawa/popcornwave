@@ -14,22 +14,24 @@ import (
 // Enabled records whether a runtime selects this middleware at all; SecurityHeaders
 // itself always applies the configured headers.
 type SecurityHeadersConfig struct {
-	Enabled                         bool
-	ContentTypeOptions              bool
-	FrameOptions                    string
-	ReferrerPolicy                  string
-	ContentSecurityPolicy           string
-	ContentSecurityPolicyReportOnly string
-	PermissionsPolicy               string
-	HSTS                            HSTSConfig
+	Enabled                         bool       `default:"true"`
+	ContentTypeOptions              bool       `default:"true" dependon:".enabled"`
+	FrameOptions                    string     `default:"deny" dependon:".enabled"`
+	ReferrerPolicy                  string     `default:"strict-origin-when-cross-origin" dependon:".enabled"`
+	ContentSecurityPolicy           string     `env:"-" dependon:".enabled"`
+	ContentSecurityPolicyReportOnly string     `env:"-" dependon:".enabled"`
+	PermissionsPolicy               string     `env:"-" dependon:".enabled"`
+	HSTS                            HSTSConfig `dependon:".enabled"`
 }
 
 // HSTSConfig controls Strict-Transport-Security on verified HTTPS requests.
+// The dependon on the HSTS field itself carries the headers switch down over
+// this whole block, so nothing here names an absolute key.
 type HSTSConfig struct {
-	Enabled           bool
-	MaxAge            time.Duration
-	IncludeSubdomains bool
-	Preload           bool
+	Enabled           bool          `default:"false"`
+	MaxAge            time.Duration `default:"0s" dependon:".enabled"`
+	IncludeSubdomains bool          `default:"false" dependon:".enabled"`
+	Preload           bool          `default:"false" dependon:".enabled"`
 }
 
 // DefaultSecurityHeaders returns the classic mode defaults.

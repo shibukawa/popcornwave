@@ -122,7 +122,13 @@ func resolveSeed(config *Config, directory string, files []string) (dbseed.Diale
 	if !middleware.RDB.Enabled {
 		return "", nil, fmt.Errorf("configured RDB is disabled")
 	}
-	dialect, err := dbseed.ResolveDialect(middleware.RDB.DSN)
+	// Seed data lands where the schema does, which is the migration group
+	// rather than the default one.
+	dsn, err := middleware.RDB.MigrationDSN()
+	if err != nil {
+		return "", nil, err
+	}
+	dialect, err := dbseed.ResolveDialect(dsn)
 	if err != nil {
 		return "", nil, err
 	}

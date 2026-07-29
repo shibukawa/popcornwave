@@ -6,9 +6,9 @@ package petitweb
 
 import (
 	"context"
-	"log/slog"
 
 	"github.com/shibukawa/popcornwave/middlewares"
+	"github.com/shibukawa/popcornwave/pwruntime"
 )
 
 // SecurityHeadersConfig contains browser security response headers.
@@ -21,15 +21,17 @@ type HSTSConfig = middlewares.HSTSConfig
 func DefaultSecurityHeaders() SecurityHeadersConfig { return middlewares.DefaultSecurityHeaders() }
 
 // RequestID validates or creates a request ID and exposes it through context.
-func RequestID(header string, logger *slog.Logger) Middleware {
-	if logger == nil {
-		logger = slog.Default()
-	}
+// The zero Logger is accepted and resolves to the one installed on the request.
+func RequestID(header string, logger Logger) Middleware {
 	return Middleware(middlewares.RequestID(
 		middlewares.WithRequestIDHeader(header),
 		middlewares.WithRequestIDGenerator(middlewares.RandomRequestID),
 		middlewares.WithRequestIDContext(func(ctx context.Context, id string) context.Context {
-			return withRequestValues(ctx, requestValues{requestID: id, logger: logger.With("request_id", id)})
+			bound := logger
+			if !bound.Enabled(pwruntime.LevelError) {
+				bound = pwruntime.ReadLogger(ctx)
+			}
+			return withRequestValues(ctx, requestValues{requestID: id, logger: bound.With(pwruntime.String("request_id", id))})
 		}),
 	))
 }

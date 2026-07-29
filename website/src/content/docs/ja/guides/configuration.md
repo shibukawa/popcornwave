@@ -51,9 +51,9 @@ APP_ENV=prod ./myapp
 | `shutdown_timeout` | `10s` |
 | `max_request_body` | `10485760` |
 | `trusted_proxies` | *(空)* |
-| `health.enabled` / `health.path` | `true` / `/healthz` |
-| `readiness.enabled` / `readiness.path` | `true` / `/readyz` |
-| `openapi.enabled` / `openapi.path` | `true` / `/openapi.json` |
+| `health` | *(空。`/healthz` などのパスを設定すると配信する)* |
+| `readiness` | *(空。`/readyz` などのパスを設定すると配信する)* |
+| `openapi` | *(空。`/openapi.json` などのパスを設定すると配信する)* |
 | `api_doc` / `api_doc_path` | *(空)* / `/docs` |
 | `public.enabled` / `public.mount` | `true` / `/public` |
 | `public.read_local` | `false` |

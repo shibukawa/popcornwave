@@ -261,6 +261,72 @@ names the import to add rather than failing somewhere inside `database/sql`.
 Keep the scheme in agreement with `project.database`: one decides which driver
 runs the query, the other which syntax it was compiled to.
 
+## Readers and writers
+
+A reader-writer cluster is described by connections instead of a single `dsn`.
+Each element names the group it belongs to, and several elements may share one
+group — reads are spread across them round robin. Because TOML reads every key
+after a `[[…]]` header as part of that element, the plain `rdb` keys have to
+come first:
+
+```toml
+[middleware.rdb]
+enabled = true
+default_group = "replica"
+write_group = "writer"
+
+[[middleware.rdb.connections]]
+group = "writer"
+dsn = "postgres://app:${DB_PASSWORD}@writer.example/app"
+max_open_conns = 20
+
+[[middleware.rdb.connections]]
+group = "replica"
+dsn = "postgres://app:${DB_PASSWORD}@replica-1.example/app"
+readonly = true
+
+[[middleware.rdb.connections]]
+group = "replica"
+dsn = "postgres://app:${DB_PASSWORD}@replica-2.example/app"
+readonly = true
+```
+
+A connection element takes no CLI option and no environment variable of its own
+— its identity is its position in the file — so `${NAME}` is how a per-connection
+password stays out of the committed TOML. It is expanded while the file is read,
+in string values only, and an undefined name fails the load rather than
+expanding to nothing. Write `$$` for a literal `$`. Expanded or not, `dsn` stays
+redacted in the startup summary and in errors.
+
+Statements that say nothing about a group run on `default_group`. A write picks
+its group explicitly:
+
+```go
+// One statement.
+user, err := queries.CreateUser(pw.SelectDB(ctx, "writer"), name)
+
+// A whole transaction — unpinned statements inside it stay on the writer.
+err := pw.Transaction(ctx, func(ctx context.Context) error {
+	return queries.RecordAudit(ctx, "user.created")
+}, pw.OnGroup("writer"))
+```
+
+One transaction never spans two groups: a nested `pw.Transaction` naming a
+different group returns `ErrCrossGroupTransaction` and leaves the outer one
+usable. Inside a transaction you may still `SelectDB` a `readonly` group — that
+read simply happens outside the transaction — but not a writable one, because
+that write would look atomic without being it.
+
+Migrations, seed data, and the session table go to `write_group`, or to the
+narrower `migration_group` and `session.rdb.group` when they are set. A
+`readonly` connection is never chosen for them, and configuring one there fails
+at startup.
+
+A configuration with a single connection — including the plain `dsn` form above
+and every `testutil` run — answers *every* group name with that one database. So
+code written for a cluster runs unchanged against one development SQLite file,
+with no test-only branch.
+
 ## Seeing what ran
 
 In `dev`, every generated statement is logged with its duration, and anything

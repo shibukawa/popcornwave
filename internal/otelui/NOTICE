@@ -1,0 +1,13 @@
+The Web UI sources under webui/ and the committed build output under web/ are
+taken from localotelviewer.
+
+    localotelviewer
+    Copyright (C) 2026 Yoshiki Shibukawa
+    https://github.com/shibukawa/localotelviewer
+
+    SPDX-License-Identifier: AGPL-3.0-only OR Apache-2.0
+
+Popcorn Wave uses them under the Apache License 2.0 option, which matches the
+license of this repository. The Go receiver, store, and snapshot API are not
+copied: they are linked from github.com/shibukawa/localotelviewer/viewer, whose
+public package deliberately ships no UI assets.

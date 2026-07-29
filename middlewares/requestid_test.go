@@ -56,13 +56,21 @@ func TestRequestIDAppliesOptions(t *testing.T) {
 }
 
 func TestRequestIDBindsRuntimeLoggerByDefault(t *testing.T) {
-	var same bool
-	handler := RequestID()(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
-		same = pwruntime.Logger(r.Context()) == pwruntime.Logger(context.Background())
-	}))
+	sink := pwruntime.NewCaptureSink()
+	backend := pwruntime.NewLogBackend(pwruntime.LevelInfo, sink)
+	handler := InjectResources(pwruntime.Resources{Log: backend})(RequestID()(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
+		pwruntime.ReadLogger(r.Context()).Info("handled")
+	})))
 	handler.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/", nil))
-	if same {
-		t.Fatal("request logger was not bound to the request ID")
+
+	records := sink.Records()
+	if len(records) != 1 {
+		t.Fatalf("want 1 record, got %d", len(records))
+	}
+	// The correlation ID rides on the context as a stable attribute, so a
+	// handler that logs nothing about it still produces a correlated record.
+	if id := records[0].Text("request_id"); !ValidRequestID(id) {
+		t.Fatalf("request_id = %q, want the generated correlation ID", id)
 	}
 }
 
