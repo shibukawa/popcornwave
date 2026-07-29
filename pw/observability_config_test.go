@@ -43,7 +43,8 @@ func loadObservability(t *testing.T, toml string, environ ...string) Observabili
 }
 
 // loadResult is loadObservability when the caller wants the provenance rather
-// than the bound value.
+// than the bound value. It repeats what ParseConfig does after loading, which
+// is where the derived export switch is written.
 func loadResult(t *testing.T, toml string, environ ...string) *configbind.LoadResult {
 	t.Helper()
 	path := filepath.Join(t.TempDir(), "config.toml")
@@ -57,6 +58,8 @@ func loadResult(t *testing.T, toml string, environ ...string) *configbind.LoadRe
 	if err != nil {
 		t.Fatalf("load: %v", err)
 	}
+	observability := ObservabilityConfig{}
+	deriveExportEnabled(result, &observability)
 	return result
 }
 
@@ -121,6 +124,25 @@ flush_interval = "1s"
 	}
 }
 
+// An endpoint from the environment turns the switch on too, and the summary
+// records the environment as the source rather than claiming a default did it.
+func TestAnEnvironmentEndpointTurnsExportOn(t *testing.T) {
+	result := loadResult(t, "", "OTEL_EXPORTER_OTLP_ENDPOINT=http://127.0.0.1:19999")
+	for _, entry := range bootEntries(result) {
+		if entry.key != "observability.otel.enabled" {
+			continue
+		}
+		if entry.value != "true" {
+			t.Fatalf("enabled = %q, want true", entry.value)
+		}
+		if entry.source != "env" {
+			t.Errorf("source = %q, want the place the endpoint came from", entry.source)
+		}
+		return
+	}
+	t.Fatal("the enable flag was not reported at all")
+}
+
 // The standard OTLP variables bind to the same fields, which is what makes the
 // `pw dev` injection work with no configuration file at all.
 func TestObservabilityReadsTheStandardOtlpEnvironment(t *testing.T) {
@@ -170,7 +192,12 @@ func TestExportSettingsAreOmittedWhileExportIsOff(t *testing.T) {
 		}
 	}
 
-	on := bootKeys(t, "[observability.otel]\nenabled = true\nendpoint = \"https://collector.example:4318\"\n")
+	// An endpoint alone is enough: pw derives the switch from it, so the summary
+	// never hides an address someone just configured.
+	on := bootKeys(t, "[observability.otel]\nendpoint = \"https://collector.example:4318\"\n")
+	if on["observability.otel.enabled"] != "true" {
+		t.Errorf("enabled = %q, want an endpoint to turn export on", on["observability.otel.enabled"])
+	}
 	if on["observability.otel.endpoint"] != "https://collector.example:4318" {
 		t.Errorf("endpoint = %q, want the configured value once export is on", on["observability.otel.endpoint"])
 	}

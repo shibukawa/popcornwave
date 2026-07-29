@@ -170,18 +170,18 @@ type OtelExportConfig struct {
 	// injected address visible in the startup summary.
 	Enabled bool `default:"false" help:"export traces and logs"`
 	// Endpoint is the OTLP/HTTP base URL. /v1/traces and /v1/logs are appended.
-	Endpoint string `env:"OTEL_EXPORTER_OTLP_ENDPOINT" dependon:"observability.otel.enabled" help:"OTLP/HTTP base URL; /v1/traces and /v1/logs are appended"`
+	Endpoint string `env:"OTEL_EXPORTER_OTLP_ENDPOINT" dependon:".enabled" help:"OTLP/HTTP base URL; /v1/traces and /v1/logs are appended"`
 	// Headers is a comma-separated key=value list. Values are never logged.
-	Headers string `env:"OTEL_EXPORTER_OTLP_HEADERS" dependon:"observability.otel.enabled" help:"comma-separated key=value list; values are never logged"`
+	Headers string `env:"OTEL_EXPORTER_OTLP_HEADERS" dependon:".enabled" help:"comma-separated key=value list; values are never logged"`
 	// RequestTimeout bounds one export request.
-	RequestTimeout time.Duration `default:"10s" dependon:"observability.otel.enabled" help:"bounds one export request"`
+	RequestTimeout time.Duration `default:"10s" dependon:".enabled" help:"bounds one export request"`
 	// QueueSize bounds records held in memory; a full queue drops rather than
 	// blocking the request goroutine.
-	QueueSize int `default:"2048" dependon:"observability.otel.enabled" help:"records held in memory; a full queue drops rather than blocking"`
+	QueueSize int `default:"2048" dependon:".enabled" help:"records held in memory; a full queue drops rather than blocking"`
 	// MaxExportSize bounds one exported batch.
-	MaxExportSize int `default:"512" dependon:"observability.otel.enabled" help:"bounds one exported batch"`
+	MaxExportSize int `default:"512" dependon:".enabled" help:"bounds one exported batch"`
 	// FlushInterval is how often a partial batch is sent.
-	FlushInterval time.Duration `default:"5s" dependon:"observability.otel.enabled" help:"how often a partial batch is sent"`
+	FlushInterval time.Duration `default:"5s" dependon:".enabled" help:"how often a partial batch is sent"`
 }
 
 // QueryLogConfig controls per-statement query logging, the slow-statement
@@ -303,6 +303,47 @@ var configState = struct {
 	},
 }
 
+// deriveExportEnabled turns observability.otel.enabled on whenever an endpoint
+// arrived from any source.
+//
+// Naming an endpoint is the OTLP convention for asking for export, and it is how
+// api:cli-dev points an application at its viewer. But every other otel key
+// declares enabled as its dependon parent, so leaving the switch off would hide
+// the very address that was just configured, and the summary would describe a
+// process that does not exist.
+//
+// The value is written into the overlay as well as the bound struct, because the
+// startup summary reads provenance rather than the struct. It is recorded at the
+// place the endpoint came from, so the summary says who asked for export instead
+// of claiming a default did.
+//
+// bound is passed in rather than looked up so that the function carries no
+// locking contract and a test can drive it against its own value.
+func deriveExportEnabled(result *configbind.LoadResult, bound *ObservabilityConfig) {
+	if result == nil || result.Overlay == nil {
+		return
+	}
+	endpoint, ok := result.Overlay.Get("observability.otel.endpoint")
+	if !ok || strings.TrimSpace(endpoint.Raw) == "" {
+		return
+	}
+	result.Overlay.Set("observability.otel.enabled", "true", endpoint.Place)
+	if bound != nil {
+		bound.Otel.Enabled = true
+	}
+}
+
+// boundConfig returns the registered binding for T, or nil when none is
+// registered. Callers hold configState.
+func boundConfig[T any]() *T {
+	entry, ok := configState.entries[reflect.TypeFor[T]()]
+	if !ok {
+		return nil
+	}
+	bound, _ := entry.ptr.(*T)
+	return bound
+}
+
 // RegisterConfig registers one generated configbind target without parsing it.
 func RegisterConfig[T any](prefix string) {
 	if strings.TrimSpace(prefix) == "" {
@@ -357,6 +398,7 @@ func ParseConfig() error {
 	if err != nil {
 		return err
 	}
+	deriveExportEnabled(result, boundConfig[ObservabilityConfig]())
 	captureBootReport(result)
 	return nil
 }

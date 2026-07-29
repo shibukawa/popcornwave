@@ -90,9 +90,6 @@ func TestDevTelemetryViewerInjectsTheResolvedEndpoint(t *testing.T) {
 
 	environ := telemetry.environ(nil)
 	want := map[string]string{
-		// The enable flag rides along because every other export setting depends
-		// on it, and a key whose parent is off is left out of the startup summary.
-		envOtelEnabled:  "true",
 		envOTLPEndpoint: telemetry.url(),
 		envOTLPProtocol: otlpProtocol,
 		envOTLPService:  "app",
