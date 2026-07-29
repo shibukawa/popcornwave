@@ -252,7 +252,7 @@ e.Use(echo.WrapMiddleware(middlewares.MaxRequestBody(10 << 20)))
 | --- | --- |
 | the implicit document shell | `pw.WriteHTML` resolves a registered wrapper chain; `htmlbind.RenderChain` needs the chain passed in |
 | layered configuration and `--generate-config` | `configbind` binds a struct; the file search order, environment selection, and merged scaffolds are the framework's |
-| `/healthz`, `/readyz`, the served OpenAPI document | mounted by `pw.Middlewares` |
+| the operational endpoints (`server.health`, `server.readiness`, `server.openapi`) | mounted by `pw.Middlewares` at the paths a deployment configures |
 | project-wide OpenAPI merge | `tinybind-gen` emits one fragment per package; merging them deterministically is `pw generate` |
 | `pw dev`, migrations, seeds, Tailwind, the dev identity provider | tooling, not runtime |
 

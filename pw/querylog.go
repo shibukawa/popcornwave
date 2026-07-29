@@ -2,7 +2,6 @@ package pw
 
 import (
 	"fmt"
-	"log/slog"
 	"strings"
 	"time"
 
@@ -80,16 +79,16 @@ func reportQueryDiagnostics(diagnostics *pwruntime.QueryDiagnostics, env, driver
 		return
 	}
 	if env != EnvDevelopment {
-		slog.Warn("popcornwave query diagnostics enabled",
-			"environment", env,
-			"bind_values", diagnostics.BindValues,
-			"slow_threshold", diagnostics.SlowThreshold,
+		processLogger().Warn("popcornwave query diagnostics enabled",
+			String("environment", env),
+			Bool("bind_values", diagnostics.BindValues),
+			Duration("slow_threshold", diagnostics.SlowThreshold),
 		)
 	}
 	if diagnostics.Explain && diagnostics.SlowThreshold > 0 && driver != "" && !pwruntime.SupportsExplain(driver) {
-		slog.Warn("popcornwave slow query explain is unavailable",
-			"driver", driver,
-			"reason", "no known plan-only EXPLAIN form for this driver",
+		processLogger().Warn("popcornwave slow query explain is unavailable",
+			String("driver", driver),
+			String("reason", "no known plan-only EXPLAIN form for this driver"),
 		)
 	}
 }
@@ -107,19 +106,13 @@ func resolveQueryToggle(value string, development bool) (bool, error) {
 	}
 }
 
-func parseQueryLevel(value string) (slog.Level, error) {
-	switch strings.ToLower(strings.TrimSpace(value)) {
-	case "trace":
-		return pwruntime.LevelTrace, nil
-	case "", "debug":
-		return slog.LevelDebug, nil
-	case "info":
-		return slog.LevelInfo, nil
-	case "warn":
-		return slog.LevelWarn, nil
-	case "error":
-		return slog.LevelError, nil
-	default:
+func parseQueryLevel(value string) (Level, error) {
+	if strings.TrimSpace(value) == "" {
+		return LevelDebug, nil
+	}
+	level, err := parseLevel(value, LevelDebug)
+	if err != nil || level == LevelOff {
 		return 0, fmt.Errorf("must be trace, debug, info, warn, or error")
 	}
+	return level, nil
 }

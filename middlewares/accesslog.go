@@ -19,12 +19,12 @@ func AccessLog() Middleware {
 			if tracker, ok := w.(*ResponseTracker); ok {
 				status, bytes = tracker.Status(), tracker.BytesWritten()
 			}
-			pwruntime.Logger(r.Context()).InfoContext(r.Context(), "request completed",
-				"method", r.Method,
-				"path", r.URL.Path,
-				"status", status,
-				"bytes", bytes,
-				"duration", time.Since(start),
+			pwruntime.ReadLogger(r.Context()).Log(r.Context(), pwruntime.LevelInfo, "request completed",
+				pwruntime.String("method", r.Method),
+				pwruntime.String("path", r.URL.Path),
+				pwruntime.Int("status", status),
+				pwruntime.Int64("bytes", bytes),
+				pwruntime.Duration("duration", time.Since(start)),
 			)
 		})
 	}

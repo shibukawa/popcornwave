@@ -183,7 +183,7 @@ func (a *App) validateLocked() error {
 	if err := a.config.Validate(); err != nil {
 		return err
 	}
-	if a.config.OpenAPI.Enabled && len(a.openAPI) == 0 {
+	if a.config.OpenAPI != "" && len(a.openAPI) == 0 {
 		return errors.New("petitweb: openapi endpoint enabled without generated document")
 	}
 	return nil
@@ -327,15 +327,15 @@ func (a *App) registerOperationalEndpointsLocked() {
 			w.WriteHeader(http.StatusOK)
 		})
 	}
-	if a.config.Health.Enabled {
-		registerStatus(a.config.Health.Path, false)
+	if a.config.Health != "" {
+		registerStatus(a.config.Health, false)
 	}
-	if a.config.Readiness.Enabled {
-		registerStatus(a.config.Readiness.Path, true)
+	if a.config.Readiness != "" {
+		registerStatus(a.config.Readiness, true)
 	}
-	if a.config.OpenAPI.Enabled {
+	if a.config.OpenAPI != "" {
 		document := append([]byte(nil), a.openAPI...)
-		a.mux.HandleFunc("GET "+a.config.OpenAPI.Path, func(w http.ResponseWriter, r *http.Request) {
+		a.mux.HandleFunc("GET "+a.config.OpenAPI, func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusOK)
 			if r.Method != http.MethodHead {

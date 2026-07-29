@@ -12,6 +12,7 @@ steps:
   - run api:cli-generate
   - run api:cli-migrate up when data:project-config migration.auto is enabled
   - start requirement:contrib-devidp when data:project-config dev.idp.enabled is true
+  - start requirement:dev-telemetry-viewer unless data:project-config dev.otel disables it
   - start flow:tailwind-css-build watch mode when enabled
   - enable decision:development-public-assets
   - build and run data:project-config project.main
@@ -54,6 +55,13 @@ identity_provider:
   reload: roster changes reload in place without restarting the application
   guardrails: policy:devidp-safety
   default: disabled
+telemetry_viewer:
+  requirement: requirement:dev-telemetry-viewer
+  flow: flow:dev-telemetry-capture
+  lifetime: starts before the application process, survives every rebuild and restart, and stops with the developer loop
+  injection: data:observability-runtime-config otel enabled and endpoint, on the application process only
+  output: records reach both the viewer and the developer loop stream, because a viewer must not empty the terminal
+  default: enabled
 migration:
   default: enabled and forward-only under policy:migration-safety
   ordering: migrations complete before the application process starts
@@ -61,4 +69,5 @@ failure:
   generation_css_or_build: keep the developer loop alive and report diagnostics
   migration: report diagnostics, skip the restart, and keep the developer loop alive
   identity_provider: report diagnostics and stop the loop, because the application cannot log in without its configured issuer
+  telemetry_viewer: report diagnostics and keep the loop alive, because an unobservable run is still a working one
 ```

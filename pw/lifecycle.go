@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
-	"log/slog"
 	"net"
 	"net/http"
 	"strconv"
@@ -70,9 +69,13 @@ func buildMiddlewares(handler http.Handler, option ...Option) (http.Handler, err
 	if err := validateOperationalEndpointCollisions(handler, server); err != nil {
 		return nil, err
 	}
-	resources := runtimeResources(slog.Default())
+	telemetry, err := buildObservability(Config[ObservabilityConfig](nil), Env())
+	if err != nil {
+		return nil, err
+	}
+	resources := runtimeResources(telemetry.backend)
 	reportQueryDiagnostics(resources.Query, Env(), resources.DBDriver)
-	return buildRuntimeHandler(handler, server, security, middleware, resources, options.publicFS)
+	return buildRuntimeHandler(handler, server, security, middleware, resources, telemetry.tracing, options.publicFS)
 }
 
 // Run owns parsing, framework initialization, serving, graceful shutdown, and

@@ -2,6 +2,7 @@ package pw
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"log/slog"
 	"net"
@@ -10,6 +11,8 @@ import (
 	"testing"
 	"time"
 	"unicode/utf8"
+
+	"github.com/shibukawa/popcornwave/pwruntime"
 )
 
 func sampleBootReport() bootReport {
@@ -133,48 +136,35 @@ func TestRenderBootTreeReportsMissingConfigFile(t *testing.T) {
 
 func TestBootRecordIsOneStructuredEvent(t *testing.T) {
 	var buffer bytes.Buffer
-	logger := slog.New(slog.NewJSONHandler(&buffer, nil))
-	logger.Info(bootMessage, bootRecordAttrs(sampleBootReport(), "http://localhost:8080")...)
+	backend := pwruntime.NewLogBackend(LevelInfo, pwruntime.NewSlogSink(slog.NewJSONHandler(&buffer, nil)))
+	pwruntime.NewLogger(context.Background(), backend).Info(bootMessage, bootRecordAttrs(sampleBootReport(), "http://localhost:8080")...)
 
 	if lines := strings.Count(strings.TrimSpace(buffer.String()), "\n"); lines != 0 {
 		t.Fatalf("startup emitted %d records, want 1:\n%s", lines+1, buffer.String())
 	}
-	var record struct {
-		Message string `json:"msg"`
-		Env     string `json:"environment"`
-		Listen  string `json:"listening"`
-		Config  struct {
-			Server struct {
-				Port string `json:"port"`
-			} `json:"server"`
-			Middleware struct {
-				RDB struct {
-					DSN string `json:"dsn"`
-				} `json:"rdb"`
-			} `json:"middleware"`
-		} `json:"config"`
-		Sources map[string]string `json:"config_source"`
-	}
+	// Nesting is dotted keys rather than JSON objects, because the same record
+	// has to survive OTLP export, where a record attribute is a scalar.
+	var record map[string]any
 	if err := json.Unmarshal(buffer.Bytes(), &record); err != nil {
 		t.Fatalf("record is not valid JSON: %v\n%s", err, buffer.String())
 	}
-	if record.Message != bootMessage || record.Env != "dev" || record.Listen != "http://localhost:8080" {
-		t.Fatalf("record = %+v", record)
+	for key, want := range map[string]string{
+		"msg":                          bootMessage,
+		"environment":                  "dev",
+		"listening":                    "http://localhost:8080",
+		"config.server.port":           "8080",
+		"config.middleware.rdb.dsn":    redactedValue,
+		"config_source.server.port":    "flag",
+		"config_source.html.streaming": "file",
+	} {
+		if got, _ := record[key].(string); got != want {
+			t.Errorf("%s = %q, want %q", key, got, want)
+		}
 	}
-	if record.Config.Server.Port != "8080" {
-		t.Fatalf("config was not nested by section: %s", buffer.String())
-	}
-	if record.Config.Middleware.RDB.DSN != redactedValue {
-		t.Fatalf("secret value not redacted: %s", buffer.String())
-	}
-	if record.Sources["server.port"] != "flag" || record.Sources["html.streaming"] != "file" {
-		t.Fatalf("config_source = %v", record.Sources)
-	}
-	if _, marked := record.Sources["middleware.rdb.enabled"]; marked {
-		t.Fatalf("default source was reported as an override: %v", record.Sources)
+	if _, marked := record["config_source.middleware.rdb.enabled"]; marked {
+		t.Fatalf("default source was reported as an override: %s", buffer.String())
 	}
 }
-
 func TestResolveBootLogFormat(t *testing.T) {
 	tests := map[string]string{
 		BootLogTree:   BootLogTree,

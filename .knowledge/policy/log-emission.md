@@ -12,6 +12,10 @@ pipeline:
   - add timestamp, severity, message, and available request and trace correlation
   - route to OTLP when OpenTelemetry is enabled
   - otherwise encode one stdout JSON object or one plaintext record
+routing_exception:
+  scope: requirement:dev-telemetry-viewer under api:cli-dev only
+  rule: emit to both OTLP and stdout, because the developer loop stream is the primary surface and the viewer is the correlated one
+  unchanged: every other environment routes exclusively
 json:
   - one record per line
   - stable top-level reserved field names

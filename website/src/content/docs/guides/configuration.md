@@ -54,9 +54,9 @@ Five prefixes are registered by the framework itself.
 | `shutdown_timeout` | `10s` |
 | `max_request_body` | `10485760` |
 | `trusted_proxies` | *(empty)* |
-| `health.enabled` / `health.path` | `true` / `/healthz` |
-| `readiness.enabled` / `readiness.path` | `true` / `/readyz` |
-| `openapi.enabled` / `openapi.path` | `true` / `/openapi.json` |
+| `health` | *(empty; set a path such as `/healthz` to serve it)* |
+| `readiness` | *(empty; set a path such as `/readyz` to serve it)* |
+| `openapi` | *(empty; set a path such as `/openapi.json` to serve it)* |
 | `api_doc` / `api_doc_path` | *(empty)* / `/docs` |
 | `public.enabled` / `public.mount` | `true` / `/public` |
 | `public.read_local` | `false` |
