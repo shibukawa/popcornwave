@@ -33,6 +33,7 @@ acceptance:
   - a TinyGo application or test applies migrations through the pw child process path
   - pw dev applies pending migrations before the application accepts requests
   - api:test-run installs the migrated schema into its isolated copied database, including sqlite://:memory:
+  - api:test-run installs the same schema into a configured server database by applying it there, and a second run reuses it
   - repeated apply on a current database performs no schema change
   - down and down-to reverse the newest applied migrations under confirmation
   - a failed migration returns nonzero and leaves recorded version state consistent
