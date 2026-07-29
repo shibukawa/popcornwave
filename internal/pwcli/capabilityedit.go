@@ -49,6 +49,41 @@ func setGeneratePurpose(state projectState, purpose string, values []string) (st
 	return out.String(), nil
 }
 
+// setProjectDatabase records the engine .pw.sql sources are generated for,
+// replacing an existing key or writing one under [project]. It takes the
+// document rather than reading the file, so it composes with the other edits a
+// plan makes to popcornwave.toml instead of overwriting them.
+func setProjectDatabase(document, engine string) (string, error) {
+	assignment := "database = " + strconv.Quote(engine) + "\n"
+	table := ""
+	var out strings.Builder
+	written := false
+	// The key belongs at the end of [project], which is wherever the next
+	// table header starts or the document ends.
+	for line := range strings.Lines(document) {
+		trimmed := strings.TrimSpace(line)
+		header := strings.HasPrefix(trimmed, "[") && strings.HasSuffix(trimmed, "]")
+		if !written && table == "project" && (header || isKeyLine(trimmed, "database")) {
+			out.WriteString(assignment)
+			written = true
+			if isKeyLine(trimmed, "database") {
+				continue
+			}
+		}
+		if header {
+			table = strings.Trim(trimmed, "[]")
+		}
+		out.WriteString(line)
+	}
+	if !written {
+		if table != "project" {
+			return "", fmt.Errorf("popcornwave.toml: [project] not found")
+		}
+		out.WriteString(assignment)
+	}
+	return out.String(), nil
+}
+
 // isKeyLine reports whether a trimmed line assigns the named key.
 func isKeyLine(trimmed, key string) bool {
 	rest, ok := strings.CutPrefix(trimmed, key)

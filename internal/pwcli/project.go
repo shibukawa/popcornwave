@@ -80,6 +80,12 @@ type projectConfig struct {
 	Name      string
 	Main      string
 	Toolchain string
+	// Database is the engine .pw.sql sources generate for. It sits beside the
+	// toolchain because both are build-time properties of the source tree: one
+	// decides which compiler reads it, the other which dialect it is written
+	// in. The runtime engine still comes from the rdb DSN scheme, which must
+	// agree with this.
+	Database  string
 	Generate  generationScope
 	Watch     watchConfig
 	IdP       idpConfig
@@ -98,7 +104,7 @@ func loadProjectConfig(root string) (projectConfig, error) {
 		return projectConfig{}, fmt.Errorf("parse %s: %w", path, err)
 	}
 	known := []string{
-		"project.name", "project.main", "project.toolchain",
+		"project.name", "project.main", "project.toolchain", "project.database",
 		"generate.handlers", "generate.templates", "generate.queries", "generate.config",
 		"dev.watch.includes", "dev.watch.excludes",
 		"dev.idp.enabled", "dev.idp.config", "dev.idp.port",
@@ -129,6 +135,18 @@ func loadProjectConfig(root string) (projectConfig, error) {
 	}
 	if config.Toolchain != toolchainTinyGo && config.Toolchain != toolchainGo {
 		return projectConfig{}, fmt.Errorf("popcornwave.toml: project.toolchain must be %q or %q", toolchainTinyGo, toolchainGo)
+	}
+	config.Database, err = optionalScalar(document, "project.database")
+	if err != nil {
+		return projectConfig{}, err
+	}
+	if config.Database == "" {
+		// Projects scaffolded before the key existed could only be SQLite, and
+		// it generates what they already have.
+		config.Database = engineSQLite
+	}
+	if !validEngine(config.Database) {
+		return projectConfig{}, fmt.Errorf("popcornwave.toml: project.database must be %s", engineNames())
 	}
 	config.Generate, err = generationSources(document, root)
 	if err != nil {

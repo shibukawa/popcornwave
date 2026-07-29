@@ -19,6 +19,10 @@ discovery_scope:
   effect: a directory contributes only the artifact kinds whose purpose lists it, so a query directory is never analyzed for routes
   fixed: the project.main directory and the project-root public.go
   required: the keys have no default, so a project without them fails to load
+sql_dialect:
+  source: data:project-config project.database
+  effect: .pw.sql sources compile to the placeholder syntax of that engine, per flow:sql-generation
+  no_default: the value is passed through rather than assumed, because a wrong dialect fails at the first query rather than at generation
   outside: warn and ignore a .pw.html, .pw.sql, or stale generated file found outside its purpose; Go sources are not reported
   consumers: api:cli-new derives its default destination from this scope, and api:cli-dev regenerates from it
 artifacts:

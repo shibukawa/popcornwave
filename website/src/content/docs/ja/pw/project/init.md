@@ -6,7 +6,7 @@ sidebar:
 ---
 
 ```sh
-pw init <project-name> [--tailwind] [--no-devbox] [--no-database] [--no-redis] [--auth=<mode>] [--devidp]
+pw init <project-name> [--tailwind] [--no-devbox] [--no-database] [--db=<engine>] [--no-redis] [--auth=<mode>] [--devidp]
 ```
 
 新しいディレクトリに、動作する完全なプロジェクトを作ります。名前とオプションを
@@ -21,6 +21,7 @@ pw init <project-name> [--tailwind] [--no-devbox] [--no-database] [--no-redis] [
 | `--no-tinygo` | TinyGo ではなくホストの Go を対象にする |
 | `--no-devbox` | `devbox.json` を作らない。mise、Docker Compose、Nix、Homebrew、Scoop など自分の環境を使う |
 | `--no-database` | rdb 設定・マイグレーション・SQL の例を作らない |
+| `--db=<engine>` | `sqlite`（既定）、`postgres`、`mysql` |
 | `--no-redis` | `devbox.json` に Valkey 開発サーバーを入れない |
 | `--auth=<mode>` | `none`（既定）、`oidc`、`oidc-passkey`、`passkey` |
 | `--devidp` | OIDC を選んだ場合に、ローカルの認証プロバイダを組み込む |
@@ -35,6 +36,58 @@ pw init <project-name> [--tailwind] [--no-devbox] [--no-database] [--no-redis] [
 
 `--no-tinygo` だけは `pw add` で後から変えられません。
 [ツールチェインを変更する](#ツールチェインを変更する)を参照してください。
+
+## データベースを選ぶ
+
+`--db` は 5 つのことを一度に決めます。`config.dev.toml` の DSN、最初の
+マイグレーションを書く方言、`devbox.json` に入る開発サーバー、バイナリが
+リンクするドライバ、そして `popcornwave.toml` の `project.database` です。
+最後の 1 つは `pw generate` が読み、`.pw.sql` をどのプレースホルダ構文に
+コンパイルするかを決めます。既定が SQLite なのは、アプリケーションのほかに
+起動するものが何もないからです。
+
+| エンジン | DSN | 開発サーバー |
+| --- | --- | --- |
+| `sqlite` | `sqlite://<name>.db` | なし |
+| `postgres` | `postgres://<name>:<name>@127.0.0.1:5432/<name>?sslmode=disable` | `devbox.json` の `postgresql` |
+| `mysql` | `mysql://<name>:<name>@tcp(127.0.0.1:3306)/<name>` | `devbox.json` の `mysql80` |
+
+サーバーエンジンを選ぶと `main.go` にブランクインポートが 1 行入ります。これが
+エンジンを登録します。
+
+```go
+import _ "github.com/shibukawa/popcornwave/database/postgres"
+```
+
+スキャフォールドが書く資格情報は `config.dev.toml` の開発用の値です。そこに書かれた
+ロールとデータベースを一度だけ作ってから `pw migrate up` を実行してください。
+
+あとからエンジンを変えることは `pw add` では行いません。DSN もマイグレーションも
+`.pw.sql` もすべて書き直しになるからです。デプロイ先のエンジンを選んでください。
+
+### 生成される SQL はエンジンに従う
+
+`project.database` は、生成のためにプロジェクトがエンジンを表明する唯一の場所です。
+ジェネレータ側に暗黙の既定はありません。黙って仮定した方言は、エンジンが最初の
+クエリで拒否するプレースホルダを出力してしまうからです。`pw generate` は
+`popcornwave.toml` に書かれたものだけを渡します。
+
+```toml
+[project]
+database = "postgres"   # sqlite、postgres、mysql
+```
+
+| エンジン | プレースホルダ |
+| --- | --- |
+| `postgres` | `$1`、`$2`、… |
+| `mysql` | `?` |
+| `sqlite` | `?` |
+
+このキーを変えると生成済みのクエリがすべて変わります。編集したら `pw generate` を
+実行し、DSN の変更と一緒にコミットしてください。
+
+このキーができる前に作られたプロジェクトには `[project] database` がありませんが、
+`sqlite` として読まれます。当時存在したエンジンがそれだけだからです。
 
 ## ツールチェインを変更する
 

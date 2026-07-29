@@ -14,9 +14,13 @@ inputs:
   answers: the capability-specific questions, asked in the wizard only
 questions:
   capability: single-select over the capabilities the project does not already carry
-  database_dsn:
+  database_engine:
     asked_when: the answers reach the database, directly or through a dependency
-    default: sqlite://{project}.db per requirement:contrib-sqlite
+    choices: sqlite, postgres, and mysql per requirement:database-engine-selection
+    default: sqlite
+  database_dsn:
+    asked_when: an engine has been chosen
+    default: the requirement:database-engine-selection DSN for that engine
   oidc_provider:
     asked_when: auth is selected
     choices: requirement:contrib-devidp local emulator, or an external provider left for the operator to fill in
@@ -33,6 +37,10 @@ capabilities:
       - data:middleware-runtime-config rdb section in every environment configuration file present
       - the migration directory, holding the same starter schema api:cli-init writes when the project has none
       - the same starter .pw.sql api:cli-init writes, and the generate.queries entry that opens the purpose for it
+      - data:project-config project.database naming the selected engine, which api:cli-generate reads as its SQL dialect
+      - the development server package in devbox.json for a server engine, when the project has that environment
+    dialect: the starter migration and .pw.sql are written for the selected engine, per requirement:database-engine-selection
+    manual: the engine blank import, because the entry point is application-owned
     enables: data:migration-source, api:migration-runner, and .pw.sql generation
     leaves_alone: an existing migration set, which is the application's own schema
   redis-valkey:

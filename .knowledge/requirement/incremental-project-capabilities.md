@@ -25,6 +25,8 @@ capability_catalog:
   dependencies:
     auth: database, because its session store is the rdb backend of data:session-runtime-config
     redis-valkey: devbox, because the answer writes nothing but a package in that environment
+  parameterized:
+    database: carries the requirement:database-engine-selection engine, so the capability is one entry with an answer rather than three entries
 detection:
   source: the project files that carry the capability
   reason: a separate manifest in data:project-config would disagree with a hand-edited project
@@ -48,6 +50,7 @@ acceptance:
   - a failed write leaves no partially installed capability and no orphan handler source
 non_goals:
   - removing a capability from a project
+  - changing the database engine of a project that already has one
   - upgrading a capability already installed at an older shape
   - remembering answers between runs
   - full flag parity with api:cli-init, per decision:post-init-scaffold-wizard

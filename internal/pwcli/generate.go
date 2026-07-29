@@ -45,7 +45,7 @@ func runGenerate(ctx context.Context, args []string, stdout io.Writer) error {
 	if err := reportSourcesOutsideScope(root, config, stdout); err != nil {
 		return err
 	}
-	options, err := pwgen.Options()
+	options, err := pwgen.Options(engineFor(config.Database).SQLDialect)
 	if err != nil {
 		return err
 	}

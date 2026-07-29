@@ -179,6 +179,7 @@ an error rather than a warning.
 name = "myapp"
 main = "./cmd/myapp"
 toolchain = "tinygo"
+database = "sqlite"
 
 [generate]
 handlers = ["handlers"]
@@ -206,6 +207,7 @@ minify = true
 | `project.name` | — | required |
 | `project.main` | — | required; the main package `pw build` and `pw dev` build |
 | `project.toolchain` | `tinygo` | the compiler the project was scaffolded for; see [pw init](/pw/project/init/#changing-the-toolchain) |
+| `project.database` | `sqlite` | the engine `.pw.sql` sources are generated for: `sqlite`, `postgres`, or `mysql`; see [Choosing the database](/pw/project/init/#choosing-the-database) |
 | `generate.handlers` | — | required; directories read for routes and binding |
 | `generate.templates` | — | required; directories read for `.pw.html` |
 | `generate.queries` | — | required; directories read for `.pw.sql` |

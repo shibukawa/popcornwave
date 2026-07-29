@@ -19,7 +19,7 @@ import (
 	"github.com/shibukawa/popcornwave/plugin/session/rdb"
 )
 
-const initUsage = "usage: pw init [<project-name>] [--interactive] [--tailwind] [--no-tinygo] [--no-devbox] [--no-database] [--no-redis] [--auth=none|oidc|passkey] [--devidp]"
+const initUsage = "usage: pw init [<project-name>] [--interactive] [--tailwind] [--no-tinygo] [--no-devbox] [--no-database] [--db=sqlite|postgres|mysql] [--no-redis] [--auth=none|oidc|passkey] [--devidp]"
 
 // Authentication modes the wizard and the --auth flag select between. They map
 // onto the plugin/auth modes, with none meaning no [auth] configuration.
@@ -42,6 +42,10 @@ type initOptions struct {
 	// the SQL example. Declining it removes all three together, because none
 	// of them is useful without the others.
 	Database bool
+	// Engine names the database. It decides the DSN, the dialect of the
+	// starter schema, the development server, and the driver the binary links,
+	// and applies only to a project that took the database.
+	Engine string
 	// Redis adds the Valkey development server to the Devbox environment.
 	Redis bool
 	// Devbox scaffolds the reproducible development environment. Declining it
@@ -58,12 +62,22 @@ type initOptions struct {
 // defaultInitOptions keeps TinyGo compatible routing as the scaffold default so
 // the shortcut form matches decision:stdlib-servemux.
 func defaultInitOptions() initOptions {
-	return initOptions{TinyGo: true, Devbox: true, Database: true, Redis: true, Auth: authNone}
+	return initOptions{
+		TinyGo:   true,
+		Devbox:   true,
+		Database: true,
+		Engine:   engineSQLite,
+		Redis:    true,
+		Auth:     authNone,
+	}
 }
 
 func parseInitArgs(args []string) (initOptions, error) {
 	options := defaultInitOptions()
 	var positional []string
+	// Tracked so --db can contradict --no-database. Without it the engine
+	// would silently apply to a project that has no database to apply it to.
+	engineSelected := false
 	for _, arg := range args {
 		switch arg {
 		case "--tailwind":
@@ -93,6 +107,14 @@ func parseInitArgs(args []string) (initOptions, error) {
 		case "--no-devidp":
 			options.AuthEmulator = false
 		default:
+			if engine, ok := strings.CutPrefix(arg, "--db="); ok {
+				if !validEngine(engine) {
+					return initOptions{}, fmt.Errorf("init: --db must be %s", engineNames())
+				}
+				options.Engine = engine
+				engineSelected = true
+				continue
+			}
 			if mode, ok := strings.CutPrefix(arg, "--auth="); ok {
 				switch mode {
 				case authNone, authOIDC, authPasskey:
@@ -125,6 +147,9 @@ func parseInitArgs(args []string) (initOptions, error) {
 	}
 	if !options.Database && servesLogin(options) {
 		return initOptions{}, fmt.Errorf("init: --auth=%s stores its login sessions in the database; drop --no-database", options.Auth)
+	}
+	if !options.Database && engineSelected {
+		return initOptions{}, errors.New("init: --db selects the database engine; drop --no-database")
 	}
 	return options, nil
 }
@@ -200,6 +225,9 @@ func runInit(args []string, stdout io.Writer) error {
 	if declined := declinedCapabilities(options); len(declined) > 0 {
 		fmt.Fprintf(stdout, "\nNot included: %s\n  pw add <capability> enables one later\n",
 			strings.Join(declined, ", "))
+	}
+	if notice := databaseEngineNotice(options); notice != "" {
+		fmt.Fprint(stdout, notice)
 	}
 	// Without the Devbox environment nothing pins the CSS toolchain, and the
 	// first pw dev would fail on a binary the scaffold never installed.
@@ -314,6 +342,11 @@ func scaffoldFiles(options initOptions) map[string]string {
 	name := options.Name
 	moduleExtra := frameworkModuleDirective()
 	devboxPackages := []string{"go@latest"}
+	if options.Database {
+		if server := engineFor(options.Engine).DevboxPackage; server != "" {
+			devboxPackages = append(devboxPackages, server)
+		}
+	}
 	if options.Redis {
 		devboxPackages = append(devboxPackages, "valkey@latest")
 	}
@@ -335,7 +368,7 @@ func scaffoldFiles(options initOptions) map[string]string {
 name = "` + name + `"
 main = "./cmd/` + name + `"
 toolchain = "` + projectToolchain(options) + `"
-
+` + projectDatabaseConfig(options) + `
 # Each purpose reads only the directories it lists, and nothing else. A source
 # directory is invisible to that purpose until it appears here.
 [generate]
@@ -369,7 +402,7 @@ import (
 	"log"
 
 	"` + name + `/handlers"
-	"github.com/shibukawa/popcornwave/pw"
+	"github.com/shibukawa/popcornwave/pw"` + databaseDriverImport(options) + `
 )
 
 func main() {` + authBootstrap(options) + `
@@ -460,26 +493,8 @@ func PublicFS() fs.FS {
 		files["devbox.lock"] = "{}\n"
 	}
 	if options.Database {
-		files["queries/users.pw.sql"] = `package queries
-
-type User {
-  id: int
-  name: string
-}
-
-export statement FindUser(id: int): sql.one<User> {
-SELECT id, name FROM users WHERE id = {id}
-}
-`
-		files["migrations/00001_init.sql"] = `-- +goose Up
-CREATE TABLE users (
-    id INTEGER PRIMARY KEY,
-    name TEXT NOT NULL
-);
-
--- +goose Down
-DROP TABLE users;
-`
+		files["queries/users.pw.sql"] = starterQuery()
+		files["migrations/00001_init.sql"] = engineFor(options.Engine).Schema
 	}
 	if options.TinyGo {
 		files["tinygohelper.go"] = `//go:build tinygo
@@ -522,12 +537,15 @@ func databaseRuntimeConfig(options initOptions) string {
 	if !options.Database {
 		return ""
 	}
-	return databaseRuntimeSection("sqlite://" + options.Name + ".db")
+	engine := engineFor(options.Engine)
+	return databaseRuntimeSection(engine.DSN(options.Name), engine)
 }
 
 // databaseRuntimeSection is the rdb configuration api:cli-init scaffolds and
-// api:cli-add appends, so both reach the same file state.
-func databaseRuntimeSection(dsn string) string {
+// api:cli-add appends, so both reach the same file state. The pool bounds come
+// from the engine: one connection is right for a file SQLite writes serially
+// and wrong for a server that expects a pool.
+func databaseRuntimeSection(dsn string, engine databaseEngine) string {
 	return `
 # The scaffolded migrations and queries need a database; pw dev and pw migrate
 # read this DSN.
@@ -535,9 +553,33 @@ func databaseRuntimeSection(dsn string) string {
 enabled = true
 dsn = "` + dsn + `"
 connect_timeout = "5s"
-max_open_conns = 1
-max_idle_conns = 1
+max_open_conns = ` + strconv.Itoa(engine.MaxOpenConns) + `
+max_idle_conns = ` + strconv.Itoa(engine.MaxIdleConns) + `
 `
+}
+
+// projectDatabaseConfig records the engine .pw.sql sources are generated for.
+// A project without a database writes no key, because there is nothing to
+// generate and the default would be an answer to a question it never asked.
+func projectDatabaseConfig(options initOptions) string {
+	if !options.Database {
+		return ""
+	}
+	return "database = \"" + options.Engine + "\"\n"
+}
+
+// databaseDriverImport links the selected engine into the application binary.
+// pw links SQLite itself, so only a server engine adds an import; without it
+// the pool refuses to open and names the import to add.
+func databaseDriverImport(options initOptions) string {
+	if !options.Database {
+		return ""
+	}
+	path := engineFor(options.Engine).DriverImport
+	if path == "" {
+		return ""
+	}
+	return "\n\t// Registers the engine middleware.rdb.dsn names.\n\t_ " + strconv.Quote(path)
 }
 
 // authBootstrap installs the account resolver. That call is the whole

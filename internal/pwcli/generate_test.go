@@ -13,6 +13,7 @@ import (
 
 	"github.com/shibukawa/popcornwave/internal/pwgen"
 	"github.com/shibukawa/tinybind-go/generator"
+	"github.com/shibukawa/tinybind-go/templates/sqlbind"
 )
 
 // allPurposes is the scope of a directory every purpose lists, which is what
@@ -40,7 +41,7 @@ SELECT id, name FROM users WHERE id = {id}
 }
 `)
 
-	options, err := pwgen.Options()
+	options, err := pwgen.Options(sqlbind.DialectPostgreSQL)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -145,7 +146,7 @@ export component Document(children: html?): html {
 <!doctype html><html><body><slot /></body></html>
 }
 `)
-	options, err := pwgen.Options()
+	options, err := pwgen.Options(sqlbind.DialectPostgreSQL)
 	if err != nil {
 		t.Fatal(err)
 	}

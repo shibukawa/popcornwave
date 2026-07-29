@@ -176,6 +176,7 @@ func main() {
 name = "myapp"
 main = "./cmd/myapp"
 toolchain = "tinygo"
+database = "sqlite"
 
 [generate]
 handlers = ["handlers"]
@@ -203,6 +204,7 @@ minify = true
 | `project.name` | — | 必須 |
 | `project.main` | — | 必須。`pw build` と `pw dev` がビルドする main パッケージ |
 | `project.toolchain` | `tinygo` | スキャフォールド時に選んだコンパイラ。[pw init](/ja/pw/project/init/#ツールチェインを変更する) を参照 |
+| `project.database` | `sqlite` | `.pw.sql` を生成する対象エンジン。`sqlite`、`postgres`、`mysql`。[データベースを選ぶ](/ja/pw/project/init/#データベースを選ぶ) を参照 |
 | `generate.handlers` | — | 必須。ルートとバインディングのために読むディレクトリ |
 | `generate.templates` | — | 必須。`.pw.html` のために読むディレクトリ |
 | `generate.queries` | — | 必須。`.pw.sql` のために読むディレクトリ |

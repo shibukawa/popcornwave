@@ -90,6 +90,11 @@ SELECT id, name FROM users WHERE id = {id}
 この保証は厳密な境界に支えられています。パラメータがバインドするのは**値**であり、
 SQL の構造ではありません。テーブル名、カラム名、演算子、ソート方向は差し替えられません。
 
+ジェネレータが出力するプレースホルダの構文 — PostgreSQL なら `$1`、MySQL と SQLite
+なら `?` — は `popcornwave.toml` の `project.database` で決まります。書くのはどちらでも
+`{name}` で、変わるのはコンパイル結果だけです。
+[データベースを選ぶ](/ja/pw/project/init/#データベースを選ぶ)を参照。
+
 ### スライスの展開
 
 スライスのパラメータは `IN` のリストに展開されます。
@@ -237,6 +242,20 @@ max_idle_conns = 1
 
 `dsn` は秘密情報として扱われ、設定ログでもエラーメッセージでもマスクされます。
 [設定](/ja/guides/configuration/)を参照。
+
+スキームがエンジンを選びます。サーバーエンジンは登録のためにブランクインポートが
+必要です。
+
+| スキーム | エンジン | インポート |
+| --- | --- | --- |
+| `sqlite://` | SQLite | すでにリンク済み |
+| `postgres://` | PostgreSQL | `_ "github.com/shibukawa/popcornwave/database/postgres"` |
+| `mysql://` | MySQL、MariaDB | `_ "github.com/shibukawa/popcornwave/database/mysql"` |
+
+このインポートは `pw init` が書きます。無い場合、プールは開くのを拒否し、
+`database/sql` の奥で失敗する代わりに追加すべきインポートを名指しします。スキームは
+`project.database` と一致させてください。一方はどのドライバがクエリを実行するかを、
+もう一方はどの構文にコンパイルされたかを決めています。
 
 ## 実行されたクエリーを見る
 

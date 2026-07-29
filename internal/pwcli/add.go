@@ -18,10 +18,22 @@ const addUsage = "usage: pw add [" + capabilityDatabase + "|" + capabilityRedis 
 // review screen is where that edit is approved.
 type addOptions struct {
 	Capability string
-	// DSN configures the database pool.
+	// Engine names the database. It seeds the DSN, and decides the dialect of
+	// the starter schema and the development server package.
+	Engine string
+	// DSN overrides the engine default. Empty takes the engine's own, so the
+	// answer follows the engine step rather than a value seeded before it.
 	DSN string
 	// AuthEmulator selects requirement:contrib-devidp over an external provider.
 	AuthEmulator bool
+}
+
+// databaseDSN resolves the DSN a plan writes for this project.
+func (o addOptions) databaseDSN(project string) string {
+	if o.DSN != "" {
+		return o.DSN
+	}
+	return engineFor(o.Engine).DSN(project)
 }
 
 func runAdd(ctx context.Context, args []string, stdout io.Writer) error {
@@ -37,7 +49,7 @@ func runAdd(ctx context.Context, args []string, stdout io.Writer) error {
 	if err != nil {
 		return err
 	}
-	options := addOptions{DSN: "sqlite://" + state.config.Name + ".db"}
+	options := addOptions{Engine: engineSQLite}
 	for _, arg := range args {
 		if strings.HasPrefix(arg, "-") {
 			return fmt.Errorf("add: %s takes no options; %s", arg, addUsage)
@@ -188,11 +200,20 @@ func addWizardSteps(state projectState, missing []string, defaults addOptions) [
 			choices...,
 		),
 		when(func(options addOptions) bool { return needsDatabase(state, options) },
+			newChoiceStep(
+				"Database engine",
+				"Decides the DSN, the dialect of the starter schema, and the development server. "+
+					"An engine the project already uses is the one to pick.",
+				engineCursor(defaults.Engine),
+				addEngineChoices()...,
+			),
+		),
+		when(func(options addOptions) bool { return needsDatabase(state, options) },
 			newTextStep(
 				"Database DSN",
-				"pw dev and pw migrate open this connection; SQLite needs no server.",
+				"pw dev and pw migrate open this connection. Leave it empty to take the engine default.",
 				defaults.DSN,
-				"sqlite://app.db",
+				"empty for the engine default",
 				validateDSN,
 				func(target *addOptions, value string) { target.DSN = value },
 			),
@@ -228,10 +249,25 @@ func setCapability(name string) func(*addOptions) {
 	return func(target *addOptions) { target.Capability = name }
 }
 
-// validateDSN rejects what api:rdb-middleware could not open anyway.
+// addEngineChoices renders the engine table as wizard choices, in catalog order.
+func addEngineChoices() []wizardChoice[addOptions] {
+	choices := make([]wizardChoice[addOptions], 0, len(engineOrder))
+	for _, name := range engineOrder {
+		engine := databaseEngines[name]
+		choices = append(choices, wizardChoice[addOptions]{
+			name:        engine.Label,
+			description: engine.Summary,
+			apply:       func(target *addOptions) { target.Engine = name },
+		})
+	}
+	return choices
+}
+
+// validateDSN rejects what api:rdb-middleware could not open anyway. An empty
+// value is the engine default, not a missing answer.
 func validateDSN(value string) error {
 	if value == "" {
-		return errors.New("a DSN is required")
+		return nil
 	}
 	if !strings.Contains(value, "://") {
 		return errors.New("a DSN looks like sqlite://app.db")

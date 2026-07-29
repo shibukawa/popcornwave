@@ -148,26 +148,49 @@ func planCapability(state projectState, options addOptions) (*capabilityPlan, er
 // planDatabase configures the pool and, for a project that has neither yet,
 // scaffolds the same starter schema and query api:cli-init writes.
 func planDatabase(state projectState, options addOptions, plan *capabilityPlan) error {
+	engine := engineFor(options.Engine)
 	for _, name := range state.configFiles {
-		plan.appends[name] = databaseRuntimeSection(options.DSN)
+		plan.appends[name] = databaseRuntimeSection(options.databaseDSN(state.config.Name), engine)
 	}
 	migrations := state.config.Migration.Dir
 	if len(state.migrations) == 0 {
-		plan.creates[migrations+"/00001_init.sql"] = starterMigration()
+		plan.creates[migrations+"/00001_init.sql"] = engine.Schema
 	} else {
 		plan.directories = append(plan.directories, migrations)
 	}
 	// The SQL example needs a purpose to read it, and generate.queries has no
 	// default, so the directory and its entry are written together or not at
 	// all.
+	document, err := os.ReadFile(filepath.Join(state.root, "popcornwave.toml"))
+	if err != nil {
+		return err
+	}
+	edited := string(document)
 	if len(state.config.Generate.Queries) == 0 {
 		plan.creates["queries/users.pw.sql"] = starterQuery()
-		edited, err := setGeneratePurpose(state, capabilityQueriesPurpose, []string{"queries"})
+		if edited, err = setGeneratePurpose(state, capabilityQueriesPurpose, []string{"queries"}); err != nil {
+			return err
+		}
+		plan.generate = true
+	}
+	// Generation needs the dialect its .pw.sql sources are written in, and the
+	// engine question is the only place a project states it.
+	if edited, err = setProjectDatabase(edited, options.Engine); err != nil {
+		return err
+	}
+	plan.edits["popcornwave.toml"] = edited
+	// The entry point is application-owned, so the blank import that links the
+	// engine is printed rather than injected.
+	if engine.DriverImport != "" {
+		plan.manual = append(plan.manual,
+			"blank-import "+engine.DriverImport+" from the application entry point")
+	}
+	if engine.DevboxPackage != "" && state.devbox != "" {
+		edited, err := addDevboxPackage(state.devbox, engine.DevboxPackage)
 		if err != nil {
 			return err
 		}
-		plan.edits["popcornwave.toml"] = edited
-		plan.generate = true
+		plan.edits["devbox.json"] = edited
 	}
 	plan.next = append(plan.next, "pw migrate up")
 	return nil

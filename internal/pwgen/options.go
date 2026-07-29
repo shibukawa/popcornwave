@@ -8,7 +8,10 @@ const (
 )
 
 // Options returns TinyBind generator options extended with the stable pw API.
-func Options() (generator.Options, error) {
+// Options builds the generator configuration. sqlDialect names the target
+// database for .pw.sql sources; it is required whenever the run discovers one,
+// because a silently assumed dialect emits placeholders the engine rejects.
+func Options(sqlDialect string) (generator.Options, error) {
 	registry := generator.NewCallRegistry()
 	patterns := []generator.CallPattern{
 		generator.RequestBindCall(
@@ -90,6 +93,7 @@ func Options() (generator.Options, error) {
 	}
 	options.HTMLTemplatePattern = "*.pw.html"
 	options.SQLTemplatePattern = "*.pw.sql"
+	options.SQLDialect = sqlDialect
 	options.SQLContextOnlyAPI = true
 	options.SQLExecutorResolver = &generator.SymbolPattern{
 		PackagePath: pwRuntimePackage,

@@ -12,6 +12,7 @@ schema:
     name: myapp
     main: ./cmd/myapp
     toolchain: tinygo or go, defaulting to tinygo
+    database: sqlite, postgres, or mysql, defaulting to sqlite
   dev:
     watch:
       includes: []
@@ -48,6 +49,9 @@ rules:
   - dev.watch.includes adds relative files or glob patterns, and dev.watch.excludes skips directory subtrees
   - project.toolchain records the compiler api:cli-init scaffolded for and rejects any other value
   - a missing project.toolchain means tinygo, because every project scaffolded before the key used api:serve-mux
+  - project.database records the requirement:database-engine-selection engine and rejects any other value
+  - a missing project.database means sqlite, because it was the only engine that existed before the key
+  - project.database is a generation input, not a runtime one; the effective engine still comes from the rule:rdb-dsn-resolution scheme, and the two must agree
   - migration.dir locates data:migration-source and is a tooling path, not a runtime database value
   - migration.auto only enables the api:cli-dev apply step and never enables application startup apply
   - dev.idp only affects api:cli-dev and locates data:devidp-config
@@ -57,7 +61,7 @@ rules:
   - unknown keys are errors
   - command flags override config values
   - missing config is an error except for api:cli-init
-  - server, database, session, security, middleware, and observability runtime values are forbidden
+  - server, session, security, middleware, and observability runtime values are forbidden, and so is a database connection value; project.database names an engine, never a DSN or a credential
   - enabled Tailwind validates requirement:tailwind-css-integration and decision:tailwind-host-toolchain
   - Tailwind plugins and their options belong to the CSS entry through requirement:tailwind-plugin-integration
   - the CLI must already be available from the entered Devbox environment

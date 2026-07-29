@@ -92,6 +92,11 @@ That guarantee depends on a strict boundary: parameters bind **values**, not SQL
 structure. They cannot substitute table names, column names, operators, or sort
 directions.
 
+The placeholder syntax the generator emits — `$1` for PostgreSQL, `?` for MySQL
+and SQLite — comes from `project.database` in `popcornwave.toml`. You write
+`{name}` either way; only the compiled output differs. See
+[Choosing the database](/pw/project/init/#choosing-the-database).
+
 ### Slice expansion
 
 A slice parameter expands into an `IN` list:
@@ -241,6 +246,20 @@ max_idle_conns = 1
 
 `dsn` is treated as a secret: redacted in configuration logs and in error
 messages. See [Configuration](/guides/configuration/).
+
+The scheme selects the engine, and a server engine needs a blank import to
+register it:
+
+| Scheme | Engine | Import |
+| --- | --- | --- |
+| `sqlite://` | SQLite | already linked |
+| `postgres://` | PostgreSQL | `_ "github.com/shibukawa/popcornwave/database/postgres"` |
+| `mysql://` | MySQL, MariaDB | `_ "github.com/shibukawa/popcornwave/database/mysql"` |
+
+`pw init` writes that import for you. Without it the pool refuses to open and
+names the import to add rather than failing somewhere inside `database/sql`.
+Keep the scheme in agreement with `project.database`: one decides which driver
+runs the query, the other which syntax it was compiled to.
 
 ## Seeing what ran
 

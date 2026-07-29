@@ -53,7 +53,7 @@ func initWizardSteps(defaults initOptions) []wizardStep[initOptions] {
 			yesNoCursor(defaults.Database),
 			wizardChoice[initOptions]{
 				name:        "Yes",
-				description: "SQLite through [middleware.rdb], migrations/00001_init.sql, and queries/users.pw.sql",
+				description: "[middleware.rdb], migrations/00001_init.sql, and a typed SQL example",
 				apply:       setDatabase(true),
 			},
 			wizardChoice[initOptions]{
@@ -61,6 +61,15 @@ func initWizardSteps(defaults initOptions) []wizardStep[initOptions] {
 				description: "no database, no SQL example, and no migrations; pw add database enables it later",
 				apply:       setDatabase(false),
 			},
+		),
+		when(func(options initOptions) bool { return options.Database },
+			newChoiceStep(
+				"Database engine",
+				"Decides the DSN, the dialect of the starter schema and migrations, and the development server. "+
+					"Changing it later means rewriting both, so pw add cannot do it for you.",
+				engineCursor(defaults.Engine),
+				engineChoices()...,
+			),
 		),
 		when(func(options initOptions) bool { return options.Database },
 			newChoiceStep(
@@ -136,6 +145,26 @@ func initWizardSteps(defaults initOptions) []wizardStep[initOptions] {
 	}
 }
 
+// engineChoices renders the engine table as wizard choices, in catalog order,
+// so adding an engine costs one table entry rather than a step edit as well.
+func engineChoices() []wizardChoice[initOptions] {
+	choices := make([]wizardChoice[initOptions], 0, len(engineOrder))
+	for _, name := range engineOrder {
+		engine := databaseEngines[name]
+		choices = append(choices, wizardChoice[initOptions]{
+			name:        engine.Label,
+			description: engine.Summary,
+			apply:       setEngine(name),
+		})
+	}
+	return choices
+}
+
+// setEngine records the engine answer.
+func setEngine(name string) func(*initOptions) {
+	return func(target *initOptions) { target.Engine = name }
+}
+
 // setDevbox records the answer and clears what depends on it. The Valkey
 // question only ever writes a Devbox package, so a declined environment takes
 // that step out of the wizard rather than leaving an answer nothing applies.
@@ -155,6 +184,10 @@ func setDatabase(enabled bool) func(*initOptions) {
 	return func(target *initOptions) {
 		target.Database = enabled
 		if !enabled {
+			// The engine step goes with it. Its answer applies only inside a
+			// project that has a database, so leaving one behind would be an
+			// answer to a question this project never reached.
+			target.Engine = engineSQLite
 			target.Auth = authNone
 			target.AuthEmulator = false
 		}
