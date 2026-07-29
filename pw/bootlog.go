@@ -3,6 +3,7 @@ package pw
 import (
 	"log/slog"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -72,13 +73,40 @@ func captureBootReport(result *configbind.LoadResult) {
 // tag or a recognized key name, so it is decided where the field is declared
 // rather than guessed again here.
 func bootEntries(result *configbind.LoadResult) []bootEntry {
-	if result == nil {
+	if result == nil || result.Overlay == nil {
 		return nil
 	}
 	reported := result.Provenance()
 	entries := make([]bootEntry, 0, len(reported))
-	for _, entry := range reported {
-		entries = append(entries, bootEntry{key: entry.Key, value: entry.Value, source: string(entry.Place)})
+	for _, key := range reported {
+		// An array of tables has no scalar form, so each element is reported
+		// under its own indexed key. Otherwise a connection set would show up as
+		// one empty line. Provenance has no per-element view, so the masking it
+		// applies to scalars is repeated for the elements.
+		if entry, ok := result.Overlay.Get(key.Key); ok && entry.IsTables {
+			entries = append(entries, tableArrayEntries(key.Key, entry)...)
+			continue
+		}
+		entries = append(entries, bootEntry{key: key.Key, value: key.Value, source: string(key.Place)})
+	}
+	return entries
+}
+
+func tableArrayEntries(key string, entry configbind.Entry) []bootEntry {
+	var entries []bootEntry
+	for index, table := range entry.Tables {
+		prefix := key + "[" + strconv.Itoa(index) + "]."
+		for _, elementKey := range table.Keys() {
+			value, ok := table.GetString(elementKey)
+			if !ok {
+				continue
+			}
+			full := prefix + elementKey
+			if isSecretKey(full) {
+				value = redactedValue
+			}
+			entries = append(entries, bootEntry{key: full, value: value, source: string(entry.Place)})
+		}
 	}
 	return entries
 }

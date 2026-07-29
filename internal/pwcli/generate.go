@@ -64,13 +64,13 @@ func runGenerate(ctx context.Context, args []string, stdout io.Writer) error {
 	}
 	sort.Slice(changes, func(i, j int) bool { return changes[i].path < changes[j].path })
 	if check && len(changes) > 0 {
-		drift := changePaths(changes)
+		drift := changePaths(root, changes)
 		return fmt.Errorf("generated files are stale:\n  %s", strings.Join(drift, "\n  "))
 	}
 	if err := applyFileChanges(changes); err != nil {
 		return err
 	}
-	for _, path := range changePaths(changes) {
+	for _, path := range changePaths(root, changes) {
 		fmt.Fprintln(stdout, path)
 	}
 	return nil
@@ -548,17 +548,36 @@ func mergeArtifacts(artifacts []generator.Artifact) ([]byte, error) {
 	return source, nil
 }
 
-func changePaths(changes []fileChange) []string {
+// changePaths renders the touched files for the operator. A generated path is
+// absolute because the walk started from the project root, and printing it that
+// way buries the interesting part of the line; the operator is standing in the
+// project, so the prefix they are already in comes off.
+func changePaths(root string, changes []fileChange) []string {
+	prefixes := []string{}
+	if working, err := os.Getwd(); err == nil {
+		prefixes = append(prefixes, working+string(filepath.Separator))
+	}
+	// The working directory may be below the root, in which case a file
+	// elsewhere in the project still shortens against the root.
+	prefixes = append(prefixes, root+string(filepath.Separator))
 	paths := make([]string, 0, len(changes))
 	for _, change := range changes {
-		relative, err := filepath.Rel(".", change.path)
-		if err != nil || relative == "" {
-			relative = change.path
-		}
-		paths = append(paths, relative)
+		paths = append(paths, shortenPath(change.path, prefixes))
 	}
 	sort.Strings(paths)
 	return paths
+}
+
+// shortenPath cuts the first matching prefix. A path under none of them is left
+// absolute, because a shortened form would name a file the operator cannot find
+// from where they are.
+func shortenPath(path string, prefixes []string) string {
+	for _, prefix := range prefixes {
+		if shortened, ok := strings.CutPrefix(path, prefix); ok {
+			return shortened
+		}
+	}
+	return path
 }
 
 func applyFileChanges(changes []fileChange) error {

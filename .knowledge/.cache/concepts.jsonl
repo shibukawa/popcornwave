@@ -15,6 +15,7 @@
 {"category": "interface", "id": "api:cli-session-schema", "path": ".knowledge/api/cli-session-schema.md", "role": "primary", "title": "pw session schema", "type": "api"}
 {"category": "interface", "id": "api:cli-version", "path": ".knowledge/api/cli-version.md", "role": "primary", "title": "pw version", "type": "api"}
 {"category": "interface", "id": "api:client-classification", "path": ".knowledge/api/client-classification.md", "role": "primary", "title": "Client Classification API", "type": "api"}
+{"category": "interface", "id": "api:database-selection", "path": ".knowledge/api/database-selection.md", "role": "primary", "title": "Database Group Selection", "type": "api"}
 {"category": "interface", "id": "api:error-renderer", "path": ".knowledge/api/error-renderer.md", "role": "primary", "title": "Error Rendering Contract", "type": "api"}
 {"category": "interface", "id": "api:framework-extension", "path": ".knowledge/api/framework-extension.md", "role": "primary", "title": "Framework Extension Registry", "type": "api"}
 {"category": "interface", "id": "api:html-boundary-protocol", "path": ".knowledge/api/html-boundary-protocol.md", "role": "primary", "title": "HTML Boundary Wire Protocol", "type": "api"}
@@ -54,6 +55,7 @@
 {"category": "structure", "id": "data:bot-user-agent-catalog", "path": ".knowledge/data/bot-user-agent-catalog.md", "role": "supporting", "title": "Bot User Agent Catalog", "type": "data"}
 {"category": "structure", "id": "data:component-boundary", "path": ".knowledge/data/component-boundary.md", "role": "supporting", "title": "Component Boundary Metadata", "type": "data"}
 {"category": "structure", "id": "data:compression-runtime-config", "path": ".knowledge/data/compression-runtime-config.md", "role": "supporting", "title": "Compression Runtime Config", "type": "data"}
+{"category": "structure", "id": "data:database-connection-set", "path": ".knowledge/data/database-connection-set.md", "role": "supporting", "title": "Database Connection Set", "type": "data"}
 {"category": "structure", "id": "data:database-driver-contract", "path": ".knowledge/data/database-driver-contract.md", "role": "supporting", "title": "Database Driver Contract", "type": "data"}
 {"category": "structure", "id": "data:devidp-config", "path": ".knowledge/data/devidp-config.md", "role": "supporting", "title": "Development IdP Configuration", "type": "data"}
 {"category": "structure", "id": "data:external-identity", "path": ".knowledge/data/external-identity.md", "role": "supporting", "title": "External OIDC Identity", "type": "data"}
@@ -98,6 +100,7 @@
 {"category": "constraint", "id": "decision:force-tinygo-logic", "path": ".knowledge/decision/force-tinygo-logic.md", "role": "supporting", "title": "Forced TinyGo Logic Build Tag", "type": "decision"}
 {"category": "constraint", "id": "decision:fragment-head-rejection", "path": ".knowledge/decision/fragment-head-rejection.md", "role": "supporting", "title": "Fragment Head Rejection", "type": "decision"}
 {"category": "constraint", "id": "decision:goose-migration-engine", "path": ".knowledge/decision/goose-migration-engine.md", "role": "supporting", "title": "Statically Linked goose Engine", "type": "decision"}
+{"category": "constraint", "id": "decision:grouped-database-connections", "path": ".knowledge/decision/grouped-database-connections.md", "role": "supporting", "title": "Grouped Database Connections", "type": "decision"}
 {"category": "constraint", "id": "decision:homebrew-tap-channel", "path": ".knowledge/decision/homebrew-tap-channel.md", "role": "supporting", "title": "Homebrew Own-Tap Channel", "type": "decision"}
 {"category": "constraint", "id": "decision:host-tools-target-runtime", "path": ".knowledge/decision/host-tools-target-runtime.md", "role": "supporting", "title": "Host Tools and Target Runtime Split", "type": "decision"}
 {"category": "constraint", "id": "decision:implicit-document-shell", "path": ".knowledge/decision/implicit-document-shell.md", "role": "supporting", "title": "Implicit Document Shell", "type": "decision"}
@@ -156,6 +159,7 @@
 {"category": "constraint", "id": "policy:authenticated-path-protection", "path": ".knowledge/policy/authenticated-path-protection.md", "role": "supporting", "title": "Authenticated Path Protection", "type": "policy"}
 {"category": "constraint", "id": "policy:bootstrap-credential-security", "path": ".knowledge/policy/bootstrap-credential-security.md", "role": "supporting", "title": "Bootstrap Credential Security", "type": "policy"}
 {"category": "constraint", "id": "policy:config-file-resolution", "path": ".knowledge/policy/config-file-resolution.md", "role": "supporting", "title": "Config File Resolution", "type": "policy"}
+{"category": "constraint", "id": "policy:connection-group-selection", "path": ".knowledge/policy/connection-group-selection.md", "role": "supporting", "title": "Connection Group Selection", "type": "policy"}
 {"category": "constraint", "id": "policy:context-value-storage", "path": ".knowledge/policy/context-value-storage.md", "role": "supporting", "title": "Context Value Storage Policy", "type": "policy"}
 {"category": "constraint", "id": "policy:contrib-compatibility", "path": ".knowledge/policy/contrib-compatibility.md", "role": "supporting", "title": "Contrib Compatibility Policy", "type": "policy"}
 {"category": "constraint", "id": "policy:csrf-protection", "path": ".knowledge/policy/csrf-protection.md", "role": "supporting", "title": "CSRF Protection", "type": "policy"}
@@ -227,6 +231,7 @@
 {"category": "objective", "id": "requirement:parallel-database-tests", "path": ".knowledge/requirement/parallel-database-tests.md", "role": "primary", "title": "Parallel Database Tests", "type": "requirement"}
 {"category": "objective", "id": "requirement:public-asset-delivery", "path": ".knowledge/requirement/public-asset-delivery.md", "role": "primary", "title": "Public Asset Delivery", "type": "requirement"}
 {"category": "objective", "id": "requirement:query-diagnostics", "path": ".knowledge/requirement/query-diagnostics.md", "role": "primary", "title": "Database Query Diagnostics", "type": "requirement"}
+{"category": "objective", "id": "requirement:read-write-splitting", "path": ".knowledge/requirement/read-write-splitting.md", "role": "primary", "title": "Read-Write Split Connections", "type": "requirement"}
 {"category": "objective", "id": "requirement:shared-web-runtime", "path": ".knowledge/requirement/shared-web-runtime.md", "role": "primary", "title": "Shared Web Runtime", "type": "requirement"}
 {"category": "objective", "id": "requirement:tailwind-css-integration", "path": ".knowledge/requirement/tailwind-css-integration.md", "role": "primary", "title": "Tailwind CSS Integration", "type": "requirement"}
 {"category": "objective", "id": "requirement:tailwind-plugin-integration", "path": ".knowledge/requirement/tailwind-plugin-integration.md", "role": "primary", "title": "Tailwind Plugin Integration", "type": "requirement"}

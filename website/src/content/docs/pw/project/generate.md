@@ -2,7 +2,7 @@
 title: pw generate
 description: Compile templates, SQL, and binding call sites into Go.
 sidebar:
-  order: 2
+  order: 4
 ---
 
 ```sh

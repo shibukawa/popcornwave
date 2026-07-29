@@ -58,7 +58,7 @@ func listTasks(w http.ResponseWriter, r *http.Request) {
 type createInput struct {
 	Title    string `payload:"title" check:"required,maxlen=60"`
 	Owner    string `payload:"owner" check:"required,maxlen=24"`
-	Priority string `payload:"priority" check:"enum=low|normal|high" default:"normal"`
+	Priority string `payload:"priority" enum:"low,normal,high" default:"normal"`
 	Query    string `input:"q" check:"maxlen=40"`
 }
 

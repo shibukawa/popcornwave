@@ -17,15 +17,19 @@ scope:
 capability_catalog:
   shared: api:cli-init questions and api:cli-add capabilities are one list, so an option costs one entry rather than one per command
   members:
+    - devbox
     - database
     - redis-valkey
     - auth
     - tailwind
-  dependency: auth requires database, because its session store is the rdb backend of data:session-runtime-config
+  dependencies:
+    auth: database, because its session store is the rdb backend of data:session-runtime-config
+    redis-valkey: devbox, because the answer writes nothing but a package in that environment
 detection:
   source: the project files that carry the capability
   reason: a separate manifest in data:project-config would disagree with a hand-edited project
   probes:
+    devbox: the devbox.json file
     database: middleware.rdb in the data:middleware-runtime-config section of the environment configuration
     redis-valkey: the Valkey package in devbox.json
     auth: the rule:framework-owned-tables migration name stem, at any version

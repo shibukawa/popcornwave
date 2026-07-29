@@ -127,8 +127,11 @@ type SessionCookieConfig struct {
 // its own pool from DSN.
 type SessionRDBConfig struct {
 	Source string `default:"middleware" help:"middleware reuses middleware.rdb; dedicated opens rdb.dsn"`
-	DSN    string `secret:"mask" help:"dedicated session database DSN"`
-	Table  string `default:"popcornwave_session"`
+	// Group names the middleware-source connection group holding the session
+	// table. Empty resolves to middleware.rdb.write_group.
+	Group string `help:"connection group holding the session table"`
+	DSN   string `secret:"mask" help:"dedicated session database DSN"`
+	Table string `default:"popcornwave_session"`
 }
 
 // ObservabilityConfig controls runtime logging and service identity.
@@ -179,7 +182,11 @@ type MiddlewareConfig struct {
 	RDB            RDBConfig
 }
 
-// RDBConfig controls the framework-owned database pool.
+// RDBConfig controls the framework-owned database pools.
+//
+// A single database is configured with DSN and the pool fields below. A
+// reader-writer topology is configured with Connections instead, one element
+// per pool. Declaring both is a configuration error rather than a merge.
 type RDBConfig struct {
 	Enabled         bool          `default:"false"`
 	DSN             string        `secret:"mask"`
@@ -188,6 +195,35 @@ type RDBConfig struct {
 	MaxIdleConns    int           `default:"0" dependon:".enabled"`
 	ConnMaxLifetime time.Duration `default:"0s" dependon:".enabled"`
 	ConnMaxIdleTime time.Duration `default:"0s" dependon:".enabled"`
+	// DefaultGroup serves statements that pin no group. It is normally the
+	// replica group. Required once more than one group is configured.
+	DefaultGroup string `dependon:".enabled" help:"connection group for statements that pin none"`
+	// WriteGroup serves framework-owned writes. Empty resolves to the only
+	// group holding a writable connection.
+	WriteGroup string `dependon:".enabled" help:"connection group for framework-owned writes"`
+	// MigrationGroup receives migrations and seed data. Empty resolves to
+	// WriteGroup.
+	MigrationGroup string `dependon:".enabled" help:"connection group for migrations and seeds"`
+	// Connections is the array-of-tables form. An element has no CLI option, no
+	// environment variable, and no dependon, because its identity is its
+	// position in the file rather than a stable key.
+	Connections []RDBConnectionConfig `help:"connection set, one element per pool"`
+}
+
+// RDBConnectionConfig is one pool of the connection set.
+type RDBConnectionConfig struct {
+	// Group is the name this connection is addressed by. Several connections
+	// may share one group, which is what makes round robin expressible.
+	Group string `help:"name this connection is addressed by"`
+	DSN   string `secret:"mask"`
+	// ReadOnly marks a replica: it opens read-only transactions and never
+	// serves a framework-owned write.
+	ReadOnly        bool          `key:"readonly" default:"false" help:"open read-only transactions and serve no framework write"`
+	ConnectTimeout  time.Duration `default:"5s"`
+	MaxOpenConns    int           `default:"0"`
+	MaxIdleConns    int           `default:"0"`
+	ConnMaxLifetime time.Duration `default:"0s"`
+	ConnMaxIdleTime time.Duration `default:"0s"`
 }
 
 type configEntry struct {
@@ -213,9 +249,12 @@ var configState = struct {
 	parsed   bool
 	parseErr error
 	options  configbind.LoadOptions
-	db       *sql.DB
-	dbDriver string
-	cleanups []*runtimeCleanup
+	// db and dbDriver mirror the default group's connection for callers that
+	// predate the connection set.
+	db          *sql.DB
+	dbDriver    string
+	connections *pwruntime.ConnectionSet
+	cleanups    []*runtimeCleanup
 }{
 	entries: make(map[reflect.Type]configEntry),
 	options: configbind.LoadOptions{
@@ -340,11 +379,12 @@ func runtimeResources(logger *slog.Logger) pwruntime.Resources {
 		}
 	}
 	return pwruntime.Resources{
-		Configs:  configs,
-		Logger:   logger,
-		DB:       configState.db,
-		DBDriver: configState.dbDriver,
-		Query:    query,
+		Configs:     configs,
+		Logger:      logger,
+		DB:          configState.db,
+		DBDriver:    configState.dbDriver,
+		Connections: configState.connections,
+		Query:       query,
 	}
 }
 
@@ -356,6 +396,19 @@ func runtimeResources(logger *slog.Logger) pwruntime.Resources {
 // HTMLConfig that distinction matters: a zero Streaming would turn progressive
 // rendering off in every test and in every embedding that never calls
 // ParseConfig, which is the opposite of the documented default.
+// isSecretKey masks a value inside an array of tables. Provenance applies a
+// secret tag and its own name check to every stable key, but an array element
+// has no stable key, so this covers what the startup summary expands by hand.
+func isSecretKey(key string) bool {
+	key = strings.ToLower(key)
+	for _, fragment := range []string{"secret", "password", "token", "credential", "dsn", "private_key"} {
+		if strings.Contains(key, fragment) {
+			return true
+		}
+	}
+	return false
+}
+
 func seedConfigDefaults[T any](value T) {
 	configState.Lock()
 	defer configState.Unlock()

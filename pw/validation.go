@@ -88,23 +88,87 @@ func validateRDBConfig(config RDBConfig) error {
 	if !config.Enabled {
 		return nil
 	}
-	if _, _, err := databaseTarget(config.DSN); err != nil {
+	connections, err := resolveRDBConnections(config)
+	if err != nil {
 		return err
 	}
-	if config.ConnectTimeout <= 0 {
-		return fmt.Errorf("middleware.rdb.connect_timeout must be positive")
+	members := make(map[string]int, len(connections))
+	drivers := make(map[string]string, len(connections))
+	for index, connection := range connections {
+		key := connectionKey(config, index)
+		if err := validateGroupName(connection.Group, key); err != nil {
+			return err
+		}
+		driver, _, err := databaseTarget(connection.DSN)
+		if err != nil {
+			return fmt.Errorf("%s.dsn: %w", key, err)
+		}
+		// One group is one logical database, so a mixed-driver group would make
+		// dialect and savepoint support depend on which replica answered.
+		if previous, seen := drivers[connection.Group]; seen && previous != driver {
+			return fmt.Errorf("connection group %q mixes the %s and %s drivers", connection.Group, previous, driver)
+		}
+		drivers[connection.Group] = driver
+		if err := validateConnectionPool(connection, key); err != nil {
+			return err
+		}
+		members[connection.Group]++
 	}
-	if config.MaxOpenConns < 0 || config.MaxIdleConns < 0 {
-		return fmt.Errorf("middleware.rdb pool sizes must not be negative")
+	for index, connection := range connections {
+		if connection.DSN == "sqlite://:memory:" && members[connection.Group] > 1 {
+			return fmt.Errorf("%s: sqlite://:memory: cannot share a group, because each such DSN is a separate database", connectionKey(config, index))
+		}
 	}
-	if config.MaxOpenConns > 0 && config.MaxIdleConns > config.MaxOpenConns {
-		return fmt.Errorf("middleware.rdb.max_idle_conns must not exceed max_open_conns")
+	if _, err := resolveDefaultGroup(config, connections); err != nil {
+		return err
 	}
-	if config.ConnMaxLifetime < 0 || config.ConnMaxIdleTime < 0 {
-		return fmt.Errorf("middleware.rdb connection durations must not be negative")
+	if _, err := resolveWriteGroup(config, connections); err != nil {
+		return err
 	}
-	if config.DSN == "sqlite://:memory:" && config.MaxOpenConns != 1 {
-		return fmt.Errorf("middleware.rdb.max_open_conns must be 1 for sqlite://:memory:")
+	if _, err := resolveMigrationGroup(config, connections); err != nil {
+		return err
+	}
+	return nil
+}
+
+// connectionKey names one connection the way it appears in the file, so an
+// error points at the element the operator has to edit.
+func connectionKey(config RDBConfig, index int) string {
+	if len(config.Connections) == 0 {
+		return "middleware.rdb"
+	}
+	return fmt.Sprintf("middleware.rdb.connections[%d]", index)
+}
+
+func validateGroupName(group, key string) error {
+	if group == "" {
+		return fmt.Errorf("%s.group must not be empty", key)
+	}
+	for _, r := range group {
+		switch {
+		case r >= 'a' && r <= 'z', r >= '0' && r <= '9', r == '_', r == '-':
+		default:
+			return fmt.Errorf("%s.group %q must use lower-case letters, digits, underscore, or hyphen", key, group)
+		}
+	}
+	return nil
+}
+
+func validateConnectionPool(connection RDBConnectionConfig, key string) error {
+	if connection.ConnectTimeout <= 0 {
+		return fmt.Errorf("%s.connect_timeout must be positive", key)
+	}
+	if connection.MaxOpenConns < 0 || connection.MaxIdleConns < 0 {
+		return fmt.Errorf("%s pool sizes must not be negative", key)
+	}
+	if connection.MaxOpenConns > 0 && connection.MaxIdleConns > connection.MaxOpenConns {
+		return fmt.Errorf("%s.max_idle_conns must not exceed max_open_conns", key)
+	}
+	if connection.ConnMaxLifetime < 0 || connection.ConnMaxIdleTime < 0 {
+		return fmt.Errorf("%s connection durations must not be negative", key)
+	}
+	if connection.DSN == "sqlite://:memory:" && connection.MaxOpenConns != 1 {
+		return fmt.Errorf("%s.max_open_conns must be 1 for sqlite://:memory:", key)
 	}
 	return nil
 }

@@ -21,6 +21,8 @@ rules:
   - decision:server-sql-support-tier keeps SQLite the only tier-one dialect, so other mappings activate only with their driver
   - a driver that rejects EXPLAIN for a statement records explain_error and continues
   - a dialect that returns no plan rows for a statement kind records neither a plan nor an error
+  - sqlite returns no plan for an INSERT with a VALUES list, including one carrying ON CONFLICT or RETURNING, because the plan describes how rows are found and such a statement finds none
+  - sqlite does plan UPDATE, DELETE, and INSERT ... SELECT, so the gap is narrower than write versus read
   - the captured plan is stored as text in data:query-record without framework interpretation
   - a multi-column plan is labeled with its own column names, and a column the dialect names notused is dropped
 ```

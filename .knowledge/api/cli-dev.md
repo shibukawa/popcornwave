@@ -26,6 +26,7 @@ steps:
   - reapply pending migrations before restart when migration sources changed
   - rebuild and restart after successful changes
 services:
+  absent_environment: a project without devbox.json declares no service here, so the step is skipped in silence
   default: Valkey
   rule: default services may be disabled or changed in Devbox configuration
   none_declared:

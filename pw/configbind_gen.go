@@ -384,6 +384,7 @@ func registerSessionConfigDefinition2() {
 			"session.cookie.http_only",
 			"session.cookie.same_site",
 			"session.rdb.source",
+			"session.rdb.group",
 			"session.rdb.dsn",
 			"session.rdb.table",
 		},
@@ -413,6 +414,7 @@ func registerSessionConfigDefinition2() {
 			"session.cookie.http_only": {"session.enabled"},
 			"session.cookie.same_site": {"session.enabled"},
 			"session.rdb.source":       {"session.enabled"},
+			"session.rdb.group":        {"session.enabled"},
 			"session.rdb.dsn":          {"session.enabled"},
 			"session.rdb.table":        {"session.enabled"},
 		},
@@ -432,6 +434,7 @@ func registerSessionConfigDefinition2() {
 			{Prefix: "session", Key: "cookie.http_only", Kind: cliparser.KindBool},
 			{Prefix: "session", Key: "cookie.same_site"},
 			{Prefix: "session", Key: "rdb.source", Help: "middleware reuses middleware.rdb; dedicated opens rdb.dsn"},
+			{Prefix: "session", Key: "rdb.group", Help: "connection group holding the session table"},
 			{Prefix: "session", Key: "rdb.dsn", Help: "dedicated session database DSN"},
 			{Prefix: "session", Key: "rdb.table"},
 		},
@@ -449,6 +452,7 @@ func registerSessionConfigDefinition2() {
 			{Key: "cookie.http_only", Kind: configbind.ScaffoldBool, Default: "true"},
 			{Key: "cookie.same_site", Kind: configbind.ScaffoldString, Default: "lax"},
 			{Key: "rdb.source", Kind: configbind.ScaffoldString, Default: "middleware", Help: "middleware reuses middleware.rdb; dedicated opens rdb.dsn"},
+			{Key: "rdb.group", Kind: configbind.ScaffoldString, Help: "connection group holding the session table"},
 			{Key: "rdb.dsn", Kind: configbind.ScaffoldString, Help: "dedicated session database DSN"},
 			{Key: "rdb.table", Kind: configbind.ScaffoldString, Default: "popcornwave_session"},
 		},
@@ -541,6 +545,9 @@ func applySessionConfigDefinition2(dst any, o *configbind.Overlay) error {
 		p.RDB.Source = v
 	} else {
 		p.RDB.Source = "middleware"
+	}
+	if v, ok := o.GetString("session.rdb.group"); ok {
+		p.RDB.Group = v
 	}
 	if v, ok := o.GetString("session.rdb.dsn"); ok {
 		p.RDB.DSN = v
@@ -736,6 +743,10 @@ func registerMiddlewareConfigDefinition4() {
 			"middleware.rdb.max_idle_conns",
 			"middleware.rdb.conn_max_lifetime",
 			"middleware.rdb.conn_max_idle_time",
+			"middleware.rdb.default_group",
+			"middleware.rdb.write_group",
+			"middleware.rdb.migration_group",
+			"middleware.rdb.connections",
 		},
 		Defaults: map[string]string{
 			"middleware.recovery":               "true",
@@ -756,6 +767,9 @@ func registerMiddlewareConfigDefinition4() {
 			"middleware.rdb.max_idle_conns":     {"middleware.rdb.enabled"},
 			"middleware.rdb.conn_max_lifetime":  {"middleware.rdb.enabled"},
 			"middleware.rdb.conn_max_idle_time": {"middleware.rdb.enabled"},
+			"middleware.rdb.default_group":      {"middleware.rdb.enabled"},
+			"middleware.rdb.write_group":        {"middleware.rdb.enabled"},
+			"middleware.rdb.migration_group":    {"middleware.rdb.enabled"},
 		},
 		Secrets: map[string]string{
 			"middleware.rdb.dsn": "mask",
@@ -773,6 +787,9 @@ func registerMiddlewareConfigDefinition4() {
 			{Prefix: "middleware", Key: "rdb.max_idle_conns"},
 			{Prefix: "middleware", Key: "rdb.conn_max_lifetime"},
 			{Prefix: "middleware", Key: "rdb.conn_max_idle_time"},
+			{Prefix: "middleware", Key: "rdb.default_group", Help: "connection group for statements that pin none"},
+			{Prefix: "middleware", Key: "rdb.write_group", Help: "connection group for framework-owned writes"},
+			{Prefix: "middleware", Key: "rdb.migration_group", Help: "connection group for migrations and seeds"},
 		},
 		Apply: applyMiddlewareConfigDefinition4,
 		Scaffold: []configbind.ScaffoldField{
@@ -788,6 +805,19 @@ func registerMiddlewareConfigDefinition4() {
 			{Key: "rdb.max_idle_conns", Kind: configbind.ScaffoldInt, Default: "0"},
 			{Key: "rdb.conn_max_lifetime", Kind: configbind.ScaffoldDuration, Default: "0s"},
 			{Key: "rdb.conn_max_idle_time", Kind: configbind.ScaffoldDuration, Default: "0s"},
+			{Key: "rdb.default_group", Kind: configbind.ScaffoldString, Help: "connection group for statements that pin none"},
+			{Key: "rdb.write_group", Kind: configbind.ScaffoldString, Help: "connection group for framework-owned writes"},
+			{Key: "rdb.migration_group", Kind: configbind.ScaffoldString, Help: "connection group for migrations and seeds"},
+			{Key: "rdb.connections", Kind: configbind.ScaffoldTableArray, Help: "connection set, one element per pool", Nested: []configbind.ScaffoldField{
+				{Key: "group", Kind: configbind.ScaffoldString, Help: "name this connection is addressed by"},
+				{Key: "dsn", Kind: configbind.ScaffoldString},
+				{Key: "readonly", Kind: configbind.ScaffoldBool, Default: "false", Help: "open read-only transactions and serve no framework write"},
+				{Key: "connect_timeout", Kind: configbind.ScaffoldDuration, Default: "5s"},
+				{Key: "max_open_conns", Kind: configbind.ScaffoldInt, Default: "0"},
+				{Key: "max_idle_conns", Kind: configbind.ScaffoldInt, Default: "0"},
+				{Key: "conn_max_lifetime", Kind: configbind.ScaffoldDuration, Default: "0s"},
+				{Key: "conn_max_idle_time", Kind: configbind.ScaffoldDuration, Default: "0s"},
+			}},
 		},
 	})
 }
@@ -898,6 +928,83 @@ func applyMiddlewareConfigDefinition4(dst any, o *configbind.Overlay) error {
 		p.RDB.ConnMaxIdleTime = d
 	} else {
 		p.RDB.ConnMaxIdleTime = 0 // 0s
+	}
+	if v, ok := o.GetString("middleware.rdb.default_group"); ok {
+		p.RDB.DefaultGroup = v
+	}
+	if v, ok := o.GetString("middleware.rdb.write_group"); ok {
+		p.RDB.WriteGroup = v
+	}
+	if v, ok := o.GetString("middleware.rdb.migration_group"); ok {
+		p.RDB.MigrationGroup = v
+	}
+	if ta1, ok := o.Get("middleware.rdb.connections"); ok {
+		if !ta1.IsTables {
+			return fmt.Errorf("configbind: middleware.rdb.connections: expected an array of tables ([[middleware.rdb.connections]])")
+		}
+		p.RDB.Connections = make([]RDBConnectionConfig, len(ta1.Tables))
+		for i1 := range ta1.Tables {
+			if v, ok := ta1.Tables[i1].GetString("group"); ok {
+				p.RDB.Connections[i1].Group = v
+			}
+			if v, ok := ta1.Tables[i1].GetString("dsn"); ok {
+				p.RDB.Connections[i1].DSN = v
+			}
+			if v, ok := ta1.Tables[i1].GetString("readonly"); ok {
+				bb, err := strconv.ParseBool(v)
+				if err != nil {
+					return fmt.Errorf("configbind: middleware.rdb.connections.readonly: %w", err)
+				}
+				p.RDB.Connections[i1].ReadOnly = bb
+			} else {
+				p.RDB.Connections[i1].ReadOnly = false
+			}
+			if v, ok := ta1.Tables[i1].GetString("connect_timeout"); ok {
+				d, err := time.ParseDuration(v)
+				if err != nil {
+					return fmt.Errorf("configbind: middleware.rdb.connections.connect_timeout: %w", err)
+				}
+				p.RDB.Connections[i1].ConnectTimeout = d
+			} else {
+				p.RDB.Connections[i1].ConnectTimeout = 5000000000 // 5s
+			}
+			if v, ok := ta1.Tables[i1].GetString("max_open_conns"); ok {
+				n, err := strconv.ParseInt(v, 10, 0)
+				if err != nil {
+					return fmt.Errorf("configbind: middleware.rdb.connections.max_open_conns: %w", err)
+				}
+				p.RDB.Connections[i1].MaxOpenConns = int(n)
+			} else {
+				p.RDB.Connections[i1].MaxOpenConns = 0
+			}
+			if v, ok := ta1.Tables[i1].GetString("max_idle_conns"); ok {
+				n, err := strconv.ParseInt(v, 10, 0)
+				if err != nil {
+					return fmt.Errorf("configbind: middleware.rdb.connections.max_idle_conns: %w", err)
+				}
+				p.RDB.Connections[i1].MaxIdleConns = int(n)
+			} else {
+				p.RDB.Connections[i1].MaxIdleConns = 0
+			}
+			if v, ok := ta1.Tables[i1].GetString("conn_max_lifetime"); ok {
+				d, err := time.ParseDuration(v)
+				if err != nil {
+					return fmt.Errorf("configbind: middleware.rdb.connections.conn_max_lifetime: %w", err)
+				}
+				p.RDB.Connections[i1].ConnMaxLifetime = d
+			} else {
+				p.RDB.Connections[i1].ConnMaxLifetime = 0 // 0s
+			}
+			if v, ok := ta1.Tables[i1].GetString("conn_max_idle_time"); ok {
+				d, err := time.ParseDuration(v)
+				if err != nil {
+					return fmt.Errorf("configbind: middleware.rdb.connections.conn_max_idle_time: %w", err)
+				}
+				p.RDB.Connections[i1].ConnMaxIdleTime = d
+			} else {
+				p.RDB.Connections[i1].ConnMaxIdleTime = 0 // 0s
+			}
+		}
 	}
 	return nil
 }

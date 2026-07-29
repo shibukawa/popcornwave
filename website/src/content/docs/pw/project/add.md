@@ -1,0 +1,101 @@
+---
+title: pw add
+description: Install a framework capability into an existing project.
+sidebar:
+  order: 2
+---
+
+```sh
+pw add [devbox|database|redis-valkey|auth|tailwind]
+```
+
+`pw init` asks which capabilities a project starts with, before the project is
+understood well enough to answer. `pw add` installs one afterwards, so a
+declined answer is not a decision the project is stuck with.
+
+The command runs inside an existing project and asks its questions in a wizard.
+There is no flag form: unlike `pw init`, which creates a fresh directory, this
+edits configuration, migrations, and sources the project already depends on —
+and the review screen is where that edit is approved.
+
+## The catalog
+
+| Capability | What it installs |
+| --- | --- |
+| `devbox` | `devbox.json` and `devbox.lock`, carrying the toolchain this project already uses |
+| `database` | the `[middleware.rdb]` section, the migration directory, and a typed SQL example |
+| `redis-valkey` | the Valkey development server in `devbox.json` |
+| `auth` | login sessions, the framework tables, and the account resolver |
+| `tailwind` | the pinned Tailwind toolchain, its CSS entry, and the `[assets.tailwind]` block |
+
+The argument preselects the first step; omitting it lists only what this project
+does not already carry. Two capabilities depend on another one: `auth` needs
+`database` for its login sessions, and `redis-valkey` needs `devbox`, because
+the Valkey answer writes nothing but a Devbox package. Choosing one in a project
+that lacks its dependency installs the dependency first and says so on the
+review screen.
+
+## Detection
+
+A capability is detected from the files that carry it, never from a list in
+`popcornwave.toml` — a manifest could disagree with a hand-edited project:
+
+| Capability | Evidence |
+| --- | --- |
+| `devbox` | `devbox.json` |
+| `database` | `[middleware.rdb]` in an environment configuration file |
+| `redis-valkey` | the Valkey package in `devbox.json` |
+| `auth` | the `init_popcornwave_auth` migration, at any version |
+| `tailwind` | `assets.tailwind.enabled` in `popcornwave.toml` |
+
+Adding a capability the project already has fails and names the file that proves
+it:
+
+```
+pw: add: this project already has auth, per migrations/00003_init_popcornwave_auth.sql
+```
+
+## What it writes
+
+The review screen lists every change before anything is written:
+
+```
+  Review
+    Capability     auth
+    OIDC provider  External provider
+
+    create  handlers/accounts.go
+    create  migrations/00002_init_popcornwave_session.sql
+    create  migrations/00003_init_popcornwave_auth.sql
+    append  config.dev.toml
+    by hand call handlers.RegisterAccountResolver() in ./cmd/lean before pw.Run
+    then    pw migrate up
+
+  enter add  ·  esc back  ·  ctrl+c cancel
+```
+
+Four rules govern that list:
+
+**Migrations take the next free version.** A project that already applied
+`00001` through `00007` gets `00008`; nothing is renumbered, because a migration
+the project may have applied can never move.
+
+**Configuration is appended, not rewritten.** Your comments and tuned values
+survive. A section of the same name already present stops the command.
+
+**Application-owned files are never overwritten.** A conflict is reported and
+nothing is written. What the framework will not do for you — the call in
+`main.go`, the stylesheet link in the document shell — is printed as a manual
+step instead.
+
+**Nothing is partial.** Every file is computed first and written together, so a
+step that cannot succeed leaves the project as it was.
+
+## Exit status
+
+| Situation | Exit |
+| --- | --- |
+| capability installed | 0 |
+| wizard canceled | 0, nothing written |
+| no terminal | non-zero with usage |
+| already present, or a conflict | non-zero with the path and the reason |

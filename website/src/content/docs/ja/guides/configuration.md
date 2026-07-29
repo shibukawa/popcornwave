@@ -61,15 +61,9 @@ APP_ENV=prod ./myapp
 アプリケーションのルートが有効な運用エンドポイントと衝突した場合、どちらかが
 もう一方を隠す前に起動が失敗します。
 
-`api_doc` は API ドキュメント UI を選びます。`"scalar"`、`"swagger"`、または空文字
-（無効）です。空でない場合は `openapi.enabled` が必須で、UI は `api_doc_path` で配信
-されます。ページ自体は数百バイトの HTML で、UI 本体は CDN から読み込むためバイナリ
-は大きくなりません。ブラウザから外部 CDN に到達できる必要があり、`api_doc` を有効に
-したまま CSP を設定する場合は `script-src` に CDN ホストを追加し、`style-src` に
-`'unsafe-inline'` が必要です（UI がインラインの style 属性を出力するため）。
-
-`pw init` は `config.dev.toml` にのみ `api_doc = "scalar"` を書き出します。既定値は
-空なので、ステージングや本番の設定に書かなければ API ドキュメントは公開されません。
+`openapi.*` が生成された OpenAPI ドキュメントを配信し、`api_doc` がその上に閲覧 UI を
+追加します（`openapi.enabled` が必須）。
+[API ドキュメント](/ja/productivity/api-documentation/)を参照してください。
 
 ### `[middleware]`
 
@@ -100,13 +94,13 @@ APP_ENV=prod ./myapp
 ### `[observability]`
 
 `minimum_level`（`info`）、`service_name`（`OTEL_SERVICE_NAME` も読みます）、
-`boot_log`（`auto`。[起動サマリ](#起動サマリ)の形式を選びます）。
+`boot_log`（`auto`。[起動サマリ](/ja/productivity/startup-summary/)の形式を選びます）。
 
 `[observability.query]` は生成された SQL を 1 文ずつ記録し、遅いものには実行計画と
 再現用スニペットを付けます。`enabled` と `bind_values`（`auto`。`dev` のみ on）、
 `level`（`info`）、`slow_threshold`（`200ms`）、`slow_level`（`warn`）、
 `explain` と `reproduction`（`true`）、上限値の `max_sql_length`（`4096`）と
-`max_value_length`（`256`）。[クエリー](/ja/guides/queries/)を参照。
+`max_value_length`（`256`）。[クエリー診断](/ja/productivity/query-diagnostics/)を参照。
 
 ### `[session]`
 
@@ -252,58 +246,7 @@ APP_ENV_LABEL=development ./myapp
 
 ## 起動サマリ
 
-解決された設定は、キーごとに 1 行ではなく**まとめて 1 回**だけ報告されます。形式は
-読み手によって変わります。対話的な端末では木構造で表示され、最後にリッスンを開始した
-アドレスが続きます。
-
-```
-   .-.   .-.
- .(   ) (   ).    Popcorn Wave v0.1.0
-(   o     o   )   started at 2026-07-27 23:31:04 JST
-(    \___/    )   env dev · config.dev.toml
- '-.__.___.__-'
-
-configuration
-├─ middleware
-│  ├─ access_log       true
-│  ├─ compression      true  ← file
-│  └─ request_timeout  0s
-├─ server
-│  ├─ port          8080
-│  └─ read_timeout  30s
-└─ session
-   └─ enabled  false
-
-listening on http://localhost:8080
-```
-
-既定値以外から来た値だけが `← file`、`← env`、`← flag` と印されます。
-
-それ以外の場所 —— パイプ、コンテナ、ログコレクタ —— では同じ情報が 1 レコードの構造化
-ログになります。JSON ハンドラや OpenTelemetry ブリッジには 60 件ではなく 1 件のイベント
-だけが流れます。
-
-```json
-{"time":"2026-07-27T23:31:04+09:00","level":"INFO","msg":"popcornwave started",
- "environment":"dev","config_file":"config.dev.toml",
- "listening":"http://localhost:8080",
- "config":{"server":{"port":"8080"},"session":{"enabled":"false"}},
- "config_source":{"middleware.compression":"file"}}
-```
-
-`observability.boot_log` で選択を上書きできます。
-
-| 値 | 動作 |
-| --- | --- |
-| `auto`（既定） | 端末なら木構造、それ以外は 1 レコード |
-| `tree` | 常に木構造を stderr に出力 |
-| `record` | 常に既定の `slog` ロガーへ 1 レコード |
-| `off` | 起動サマリを出力しない |
-
-アプリケーションがリスナーを持つ場合 —— `pw.Run` ではなく `pw.Middlewares` を使う場合
-—— サマリは初期化後に出力され、`listening` の行は付きません。
-
-### ログ中の秘密情報
-
-キー名に `secret`、`password`、`token`、`credential`、`dsn`、`private_key` を含むものは、
-どちらの形式でも `[REDACTED]` として記録されます。
+解決後の設定は起動時に 1 度だけ報告されます。端末なら木構造、それ以外なら 1 つの
+構造化レコードです。どの値が実際に効いたのか、それがどこから来たのかが分かります。
+形式は `observability.boot_log` で選びます。
+[起動サマリ](/ja/productivity/startup-summary/)を参照してください。

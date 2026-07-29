@@ -13,7 +13,7 @@ pw help
 
 ```
 Usage: pw <command>
-Commands: init, generate, migrate, seed, build, dev
+Commands: init, add, new, generate, migrate, seed, build, dev
 Migrate actions: status, version, up, up-by-one, up-to, down, down-to, create, validate, snapshot
 Seed usage: pw seed [--dir=testdata/seed] [name...]
 ```
@@ -31,6 +31,8 @@ go install github.com/shibukawa/popcornwave/cmd/pw@latest
 | Command | Purpose |
 | --- | --- |
 | [`pw init`](/pw/project/init/) | create a runnable project |
+| [`pw add`](/pw/project/add/) | install a capability the project declined at init |
+| [`pw new`](/pw/project/new/) | scaffold one more handler, route, and template |
 | [`pw generate`](/pw/project/generate/) | compile `.pw.html` and `.pw.sql` into Go |
 | [`pw dev`](/pw/project/dev/) | watch, regenerate, migrate, and restart |
 | [`pw build`](/pw/project/build/) | produce a release binary |

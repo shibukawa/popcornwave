@@ -2,7 +2,7 @@
 title: pw build
 description: Produce a release binary with generated code, minified CSS, and prepared assets.
 sidebar:
-  order: 4
+  order: 6
 ---
 
 ```sh

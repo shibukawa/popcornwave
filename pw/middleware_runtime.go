@@ -2,6 +2,7 @@ package pw
 
 import (
 	"context"
+	"database/sql"
 	"io"
 	"io/fs"
 	"net/http"
@@ -79,13 +80,7 @@ func operationalEndpoints(next http.Handler, config ServerConfig, resources pwru
 			writeOperationalStatus(w, r, true)
 			return
 		case config.Readiness != "" && r.URL.Path == config.Readiness:
-			ready := true
-			if resources.DB != nil {
-				ctx, cancel := context.WithTimeout(r.Context(), time.Second)
-				ready = resources.DB.PingContext(ctx) == nil
-				cancel()
-			}
-			writeOperationalStatus(w, r, ready)
+			writeOperationalStatus(w, r, databasesReady(r.Context(), resources))
 			return
 		case config.OpenAPI != "" && r.URL.Path == config.OpenAPI:
 			if !operationalMethod(w, r) {
@@ -138,3 +133,25 @@ func operationalMethod(w http.ResponseWriter, r *http.Request) bool {
 type headResponseWriter struct{ http.ResponseWriter }
 
 func (headResponseWriter) Write(body []byte) (int, error) { return len(body), nil }
+
+// databasesReady pings every configured connection. A replica that cannot
+// answer makes the instance unready, because the default group is the one the
+// application reads from.
+func databasesReady(parent context.Context, resources pwruntime.Resources) bool {
+	pools := []*sql.DB{}
+	if connections := resources.Connections.Connections(); len(connections) > 0 {
+		for _, connection := range connections {
+			pools = append(pools, connection.DB)
+		}
+	} else if resources.DB != nil {
+		pools = append(pools, resources.DB)
+	}
+	ctx, cancel := context.WithTimeout(parent, time.Second)
+	defer cancel()
+	for _, pool := range pools {
+		if pool.PingContext(ctx) != nil {
+			return false
+		}
+	}
+	return true
+}

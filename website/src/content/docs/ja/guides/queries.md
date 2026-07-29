@@ -238,19 +238,73 @@ max_idle_conns = 1
 `dsn` は秘密情報として扱われ、設定ログでもエラーメッセージでもマスクされます。
 [設定](/ja/guides/configuration/)を参照。
 
+## リーダーとライター
+
+リードレプリカを持つ構成では、単一の `dsn` の代わりに接続の配列を書きます。要素ごとに
+所属グループを指定し、同じグループに複数の要素を置けます。読み取りはその中でラウンド
+ロビンに振り分けられます。TOML では `[[…]]` ヘッダー以降のキーがその要素のものになる
+ため、`rdb` 直下のキーは先に書く必要があります。
+
+```toml
+[middleware.rdb]
+enabled = true
+default_group = "replica"
+write_group = "writer"
+
+[[middleware.rdb.connections]]
+group = "writer"
+dsn = "postgres://app:${DB_PASSWORD}@writer.example/app"
+max_open_conns = 20
+
+[[middleware.rdb.connections]]
+group = "replica"
+dsn = "postgres://app:${DB_PASSWORD}@replica-1.example/app"
+readonly = true
+
+[[middleware.rdb.connections]]
+group = "replica"
+dsn = "postgres://app:${DB_PASSWORD}@replica-2.example/app"
+readonly = true
+```
+
+接続の要素は固有の CLI オプションも環境変数も持ちません（要素の同一性はファイル内での
+位置だからです）。そのため接続ごとのパスワードをコミットする TOML の外に出す手段が
+`${NAME}` です。展開はファイル読み込み時に、文字列の値に対してのみ行われます。未定義の名前は
+空文字に展開されるのではなく読み込みエラーになります。リテラルの `$` は `$$` と書きます。
+展開の有無にかかわらず、`dsn` は起動サマリーでもエラーメッセージでもマスクされたままです。
+
+グループを指定しないステートメントは `default_group` で実行されます。書き込みは明示的に
+グループを選びます。
+
+```go
+// 単一のステートメント
+user, err := queries.CreateUser(pw.SelectDB(ctx, "writer"), name)
+
+// トランザクション全体。中でグループを指定しないステートメントも writer に残ります
+err := pw.Transaction(ctx, func(ctx context.Context) error {
+	return queries.RecordAudit(ctx, "user.created")
+}, pw.OnGroup("writer"))
+```
+
+1 つのトランザクションが 2 つのグループにまたがることはありません。別のグループを指定した
+ネストした `pw.Transaction` は `ErrCrossGroupTransaction` を返し、外側はそのまま使えます。
+トランザクションの中から `readonly` グループを `SelectDB` することはできます（その読み取りは
+トランザクションの外で実行されます）が、書き込み可能なグループは選べません。原子的に見えて
+実際はそうではない書き込みになるためです。
+
+マイグレーション、シードデータ、セッションテーブルは `write_group`（さらに絞る場合は
+`migration_group` と `session.rdb.group`）に書き込まれます。`readonly` の接続がそれらに
+選ばれることはなく、そう設定すると起動時にエラーになります。
+
+接続が 1 つだけの構成 — 上記の単純な `dsn` 形式と、`testutil` によるテスト実行を含みます —
+では、*どのグループ名*もその 1 つのデータベースを指します。クラスタ向けに書いたコードが、
+テスト用の分岐なしで開発用の SQLite ファイル 1 つに対してもそのまま動きます。
+
 ## 実行されたクエリーを見る
 
-生成された関数はすべて 1 か所で executor を解決します。そのためクエリーログは、
-アプリケーションのコードにも生成ファイルにも変更を必要としません。`dev` では
-既定で有効です。
-
-```
-level=INFO msg="sql executed" sql="INSERT INTO items (name) VALUES ($1)"
-  duration=412µs operation=exec driver=sqlite rows_affected=1 outcome=ok args=[alpha]
-```
-
-`slow_threshold` を超えたステートメントは `warn` で記録され、その実行計画と、
-データベースのシェルに貼り付けられるスニペットが付きます。
+`dev` では、生成されたステートメントがすべて所要時間とともに記録されます。しきい値を
+超えたものには実行計画と、貼り付けて再実行できるスニペットが付きます。コードは 1 行も
+変える必要がありません。
 
 ```
 level=WARN msg="sql executed" sql="SELECT name FROM items WHERE name = $1"
@@ -259,33 +313,7 @@ level=WARN msg="sql executed" sql="SELECT name FROM items WHERE name = $1"
   reproduction=".parameter set $1 'alpha'\nSELECT name FROM items WHERE name = $1;"
 ```
 
-スニペットは値をステートメントに埋め込まず、パラメータとしてバインドします。
-それがこの機能の要点です。リテラルは定数畳み込みやインデックス選択に影響するため、
-書き換えたクエリーが、遅かったクエリーと同じとは限りません。
-
-設定は `[observability.query]` にあります。
-
-```toml
-[observability.query]
-enabled = "auto"          # auto は dev のみ on、他の環境では off
-level = "info"
-slow_threshold = "200ms"  # 0 にすると explain と reproduction も止まる
-slow_level = "warn"
-bind_values = "auto"      # 行の値がログに入る唯一の経路
-explain = true
-reproduction = true
-```
-
-`EXPLAIN` は `ANALYZE` を使いません。実行計画を取るだけで、ステートメントを
-2 回実行することはありません。プランのみの `EXPLAIN` 形式が分からないドライバーは、
-起動時に 1 度だけその旨を報告し、クエリーログ自体は動き続けます。
-
-制限が 2 つあります。観測されるのは生成された `.pw.sql` の呼び出しだけで、
-セッション・認証・マイグレーションのステートメントはプールへ直接向かいます。
-また query は行数を報告しません。行の反復はアプリケーション側が所有するためです。
-
-`dev` 以外では `enabled` と `bind_values` の両方に明示的な `"on"` が必要で、
-`dev` 以外で有効にした場合は起動時にその旨が記録されます。
+[クエリー診断](/ja/productivity/query-diagnostics/)を参照してください。
 
 ## シードデータ
 
@@ -302,4 +330,4 @@ member:
 pw seed
 ```
 
-[pw seed](/ja/pw/database/seed/) と[テスト](/ja/guides/testing/)を参照してください。
+[pw seed](/ja/pw/database/seed/) と[テスト](/ja/productivity/testing/)を参照してください。

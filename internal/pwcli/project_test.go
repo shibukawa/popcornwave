@@ -143,7 +143,7 @@ enabled = true
 }
 
 func TestScaffoldFilesWithTailwind(t *testing.T) {
-	files := scaffoldFiles(initOptions{Name: "fixture", TinyGo: true, Tailwind: true})
+	files := scaffoldFiles(initOptions{Name: "fixture", TinyGo: true, Tailwind: true, Devbox: true, Database: true, Redis: true})
 	for _, name := range []string{
 		"assets/app.css",
 		"public/generated/app.css",
@@ -204,7 +204,7 @@ func TestScaffoldFilesWithTailwind(t *testing.T) {
 		!strings.Contains(files["handlers/home_handler.go"], "pw.WriteHTML(w, r,") {
 		t.Fatal("classic handler must use implicit document rendering")
 	}
-	plain := scaffoldFiles(initOptions{Name: "fixture", TinyGo: true})
+	plain := scaffoldFiles(initOptions{Name: "fixture", TinyGo: true, Devbox: true, Database: true, Redis: true})
 	if strings.Contains(plain["devbox.json"], "tailwindcss") {
 		t.Fatal("plain scaffold unexpectedly installs Tailwind")
 	}
@@ -225,7 +225,7 @@ func TestMainInitUsageMentionsTailwind(t *testing.T) {
 }
 
 func TestScaffoldTailwindUsesGeneratedPublicDirectory(t *testing.T) {
-	files := scaffoldFiles(initOptions{Name: "fixture", TinyGo: true, Tailwind: true})
+	files := scaffoldFiles(initOptions{Name: "fixture", TinyGo: true, Tailwind: true, Devbox: true, Database: true, Redis: true})
 	if _, ok := files["internal/static/static.go"]; ok {
 		t.Fatal("Tailwind scaffold unexpectedly creates its former private static package")
 	}

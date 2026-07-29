@@ -178,6 +178,7 @@ an error rather than a warning.
 [project]
 name = "myapp"
 main = "./cmd/myapp"
+toolchain = "tinygo"
 
 [generate]
 handlers = ["handlers"]
@@ -204,6 +205,7 @@ minify = true
 | --- | --- | --- |
 | `project.name` | — | required |
 | `project.main` | — | required; the main package `pw build` and `pw dev` build |
+| `project.toolchain` | `tinygo` | the compiler the project was scaffolded for; see [pw init](/pw/project/init/#changing-the-toolchain) |
 | `generate.handlers` | — | required; directories read for routes and binding |
 | `generate.templates` | — | required; directories read for `.pw.html` |
 | `generate.queries` | — | required; directories read for `.pw.sql` |

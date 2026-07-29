@@ -172,6 +172,11 @@ func stopCommand(command *exec.Cmd) {
 }
 
 func startDevboxServices(ctx context.Context, root string, stdout, stderr io.Writer) func() {
+	// A project that declined the Devbox environment manages its services
+	// itself, so there is nothing here to start and nothing to report.
+	if _, err := os.Stat(filepath.Join(root, "devbox.json")); os.IsNotExist(err) {
+		return func() {}
+	}
 	if _, err := exec.LookPath("devbox"); err != nil {
 		fmt.Fprintln(stderr, "pw dev: devbox is not installed; skipping configured services")
 		return func() {}

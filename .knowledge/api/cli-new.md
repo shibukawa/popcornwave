@@ -6,7 +6,6 @@ title: pw new
 pw new scaffolds one more source of a kind the project already contains, so a second handler costs a wizard rather than a copied file whose route, template, and mux registration have to be fixed by hand.
 
 ```yaml
-status: not implemented
 usage: "pw new [kind]"
 requirement: requirement:incremental-project-capabilities
 mode: decision:post-init-scaffold-wizard
@@ -38,7 +37,6 @@ handler_questions:
     html: .pw.html template beside the handler, rendered through WriteHTML
     api: JSON response through WriteAPI
   request_input:
-    asked_when: the method or path can carry input
     yes: a private request type and a pw.Parse call site
   review: lists every file to create and every follow-up command
 outputs:
