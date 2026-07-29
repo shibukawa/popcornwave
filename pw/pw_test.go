@@ -22,7 +22,7 @@ func TestScaffoldsIncludeBuiltInDefinitions(t *testing.T) {
 	}
 	for _, fragment := range []string{
 		"[server]", "port = 8080", `read_header_timeout = "5s"`,
-		`health.path = "/healthz"`, `readiness.path = "/readyz"`,
+		`health = ""`, `readiness = ""`, `openapi = ""`,
 		`public.enabled = true`, `public.mount = "/public"`,
 		`headers.frame_options = "deny"`, "[observability]", "[middleware]",
 		"access_log = true",
@@ -37,7 +37,7 @@ func TestScaffoldsIncludeBuiltInDefinitions(t *testing.T) {
 	}
 	for _, fragment := range []string{
 		"PORT=8080", "SERVER_MAX_REQUEST_BODY=10485760",
-		"SERVER_HEALTH_ENABLED=true", "SECURITY_HEADERS_ENABLED=true",
+		"SERVER_HEALTH=\"\"", "SECURITY_HEADERS_ENABLED=true",
 		"OTEL_SERVICE_NAME=\"\"", "SESSION_ENABLED=false", "SESSION_COOKIE_SECURE=true",
 	} {
 		if !strings.Contains(env, fragment) {

@@ -38,6 +38,21 @@ func validateRuntimeConfig(server ServerConfig, security SecurityConfig, middlew
 	return validateQueryLogConfig(observability.Query)
 }
 
+// validateHTMLConfig rejects a negative await bound. Generated apply functions
+// only assign, so a rule like this one belongs with the other runtime checks
+// rather than in the binding.
+func validateHTMLConfig(config HTMLConfig) error {
+	for key, value := range map[string]time.Duration{
+		"html.async_timeout":     config.AsyncTimeout,
+		"html.bot_async_timeout": config.BotAsyncTimeout,
+	} {
+		if value < 0 {
+			return fmt.Errorf("%s must not be negative", key)
+		}
+	}
+	return nil
+}
+
 func validateQueryLogConfig(config QueryLogConfig) error {
 	for key, value := range map[string]string{
 		"observability.query.enabled":     config.Enabled,
@@ -122,8 +137,8 @@ func validateServerConfig(config ServerConfig) error {
 	default:
 		return fmt.Errorf("server.api_doc must be %q, %q, or empty", APIDocScalar, APIDocSwagger)
 	}
-	if config.APIDoc != "" && !config.OpenAPI.Enabled {
-		return fmt.Errorf("server.api_doc requires server.openapi.enabled")
+	if config.APIDoc != "" && config.OpenAPI == "" {
+		return fmt.Errorf("server.api_doc requires server.openapi")
 	}
 	seen := map[string]string{}
 	for key, endpoint := range operationalEndpointPaths(config) {
@@ -150,15 +165,17 @@ func validateServerConfig(config ServerConfig) error {
 }
 
 // operationalEndpointPaths maps the configuration key of every enabled
-// framework-owned endpoint to the path it serves.
+// framework-owned endpoint to the path it serves. An empty path is what
+// disables an endpoint, so it contributes no entry rather than an invalid one.
 func operationalEndpointPaths(config ServerConfig) map[string]string {
 	paths := map[string]string{}
-	for key, endpoint := range map[string]EndpointConfig{
-		"server.health.path": config.Health, "server.readiness.path": config.Readiness,
-		"server.openapi.path": config.OpenAPI,
+	for key, endpoint := range map[string]string{
+		"server.health":    config.Health,
+		"server.readiness": config.Readiness,
+		"server.openapi":   config.OpenAPI,
 	} {
-		if endpoint.Enabled {
-			paths[key] = endpoint.Path
+		if endpoint != "" {
+			paths[key] = endpoint
 		}
 	}
 	if config.APIDoc != "" {

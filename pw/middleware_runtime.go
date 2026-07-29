@@ -70,15 +70,15 @@ func writePanicProblem(w http.ResponseWriter, r *http.Request, err error) {
 }
 
 func operationalEndpoints(next http.Handler, config ServerConfig, resources pwruntime.Resources) http.Handler {
-	apiDoc := apiDocUI(config.APIDoc, config.OpenAPI.Path)
+	apiDoc := apiDocUI(config.APIDoc, config.OpenAPI)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case serveFrameworkScript(w, r):
 			return
-		case config.Health.Enabled && r.URL.Path == config.Health.Path:
+		case config.Health != "" && r.URL.Path == config.Health:
 			writeOperationalStatus(w, r, true)
 			return
-		case config.Readiness.Enabled && r.URL.Path == config.Readiness.Path:
+		case config.Readiness != "" && r.URL.Path == config.Readiness:
 			ready := true
 			if resources.DB != nil {
 				ctx, cancel := context.WithTimeout(r.Context(), time.Second)
@@ -87,7 +87,7 @@ func operationalEndpoints(next http.Handler, config ServerConfig, resources pwru
 			}
 			writeOperationalStatus(w, r, ready)
 			return
-		case config.OpenAPI.Enabled && r.URL.Path == config.OpenAPI.Path:
+		case config.OpenAPI != "" && r.URL.Path == config.OpenAPI:
 			if !operationalMethod(w, r) {
 				return
 			}

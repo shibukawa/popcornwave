@@ -11,7 +11,7 @@ import (
 
 func apiDocConfigs(ui string) (ServerConfig, SecurityConfig, MiddlewareConfig) {
 	server, security, middleware, _ := validRuntimeConfigs()
-	server.OpenAPI = EndpointConfig{Enabled: true, Path: "/openapi.json"}
+	server.OpenAPI = "/openapi.json"
 	server.APIDoc, server.APIDocPath = ui, "/docs"
 	return server, security, middleware
 }
@@ -80,9 +80,9 @@ func TestValidateAPIDocConfig(t *testing.T) {
 		want   string
 	}{
 		{name: "unknown ui", mutate: func(s *ServerConfig) { s.APIDoc = "redoc" }, want: "server.api_doc must be"},
-		{name: "needs openapi", mutate: func(s *ServerConfig) { s.OpenAPI.Enabled = false }, want: "requires server.openapi.enabled"},
+		{name: "needs openapi", mutate: func(s *ServerConfig) { s.OpenAPI = "" }, want: "requires server.openapi"},
 		{name: "relative path", mutate: func(s *ServerConfig) { s.APIDocPath = "docs" }, want: "server.api_doc_path"},
-		{name: "duplicate path", mutate: func(s *ServerConfig) { s.APIDocPath = s.Health.Path }, want: "duplicates"},
+		{name: "duplicate path", mutate: func(s *ServerConfig) { s.APIDocPath = s.Health }, want: "duplicates"},
 		{name: "public overlap", mutate: func(s *ServerConfig) {
 			s.Public = PublicConfig{Enabled: true, Mount: "/docs/assets"}
 		}, want: "server.api_doc_path"},

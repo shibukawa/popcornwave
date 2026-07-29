@@ -3,7 +3,6 @@ package pw
 import (
 	"log/slog"
 	"os"
-	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -29,7 +28,9 @@ const (
 // bootMessage is the stable message of the structured startup record.
 const bootMessage = "popcornwave started"
 
-const redactedValue = "[REDACTED]"
+// redactedValue matches the mask configbind applies to the keys it recognizes
+// as sensitive, so a summary never shows two different marks for one idea.
+const redactedValue = "*****"
 
 type bootEntry struct {
 	key    string
@@ -58,30 +59,26 @@ func captureBootReport(result *configbind.LoadResult) {
 	report := bootReport{startedAt: time.Now(), environment: Env()}
 	if result != nil {
 		report.configPath, report.configFound = result.ConfigPath, result.FoundFile
-		report.entries = bootEntries(result.Overlay)
+		report.entries = bootEntries(result)
 	}
 	bootState.Lock()
 	bootState.report, bootState.emitted = report, false
 	bootState.Unlock()
 }
 
-func bootEntries(overlay *configbind.Overlay) []bootEntry {
-	if overlay == nil {
+// bootEntries takes the keys configbind considers worth reporting: already in
+// registration then declaration order, already stripped of the settings a
+// disabled parent made irrelevant, and already masked. Redaction is a secret
+// tag or a recognized key name, so it is decided where the field is declared
+// rather than guessed again here.
+func bootEntries(result *configbind.LoadResult) []bootEntry {
+	if result == nil {
 		return nil
 	}
-	keys := overlay.Keys()
-	sort.Strings(keys)
-	entries := make([]bootEntry, 0, len(keys))
-	for _, key := range keys {
-		entry, ok := overlay.Get(key)
-		if !ok {
-			continue
-		}
-		value := entry.Raw
-		if isSecretKey(key) {
-			value = redactedValue
-		}
-		entries = append(entries, bootEntry{key: key, value: value, source: string(entry.Place)})
+	reported := result.Provenance()
+	entries := make([]bootEntry, 0, len(reported))
+	for _, entry := range reported {
+		entries = append(entries, bootEntry{key: entry.Key, value: entry.Value, source: string(entry.Place)})
 	}
 	return entries
 }

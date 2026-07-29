@@ -11,12 +11,15 @@ import (
 )
 
 func validateConfiguredRuntime() error {
-	return validateRuntimeConfig(
+	if err := validateRuntimeConfig(
 		Config[ServerConfig](nil),
 		Config[SecurityConfig](nil),
 		Config[MiddlewareConfig](nil),
 		Config[ObservabilityConfig](nil),
-	)
+	); err != nil {
+		return err
+	}
+	return validateHTMLConfig(Config[HTMLConfig](nil))
 }
 
 func initializeRuntimeDatabase() error {

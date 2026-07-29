@@ -23,9 +23,9 @@ func validRuntimeConfigs() (ServerConfig, SecurityConfig, MiddlewareConfig, Obse
 			IdleTimeout:       2 * time.Minute,
 			ShutdownTimeout:   10 * time.Second,
 			MaxRequestBody:    1024,
-			Health:            EndpointConfig{Enabled: true, Path: "/healthz"},
-			Readiness:         EndpointConfig{Enabled: true, Path: "/readyz"},
-			OpenAPI:           EndpointConfig{Enabled: false, Path: "/openapi.json"},
+			Health:            "/healthz",
+			Readiness:         "/readyz",
+			OpenAPI:           "",
 		},
 		SecurityConfig{Headers: SecurityHeadersConfig{
 			Enabled:            true,
@@ -52,7 +52,7 @@ func TestValidateRuntimeConfig(t *testing.T) {
 			s.Port = 65536
 		}, want: "server.port"},
 		{name: "duplicate endpoint", mutate: func(s *ServerConfig, _ *SecurityConfig, _ *MiddlewareConfig, _ *ObservabilityConfig) {
-			s.Readiness.Path = s.Health.Path
+			s.Readiness = s.Health
 		}, want: "duplicates"},
 		{name: "proxy", mutate: func(s *ServerConfig, _ *SecurityConfig, _ *MiddlewareConfig, _ *ObservabilityConfig) {
 			s.TrustedProxies = []string{"not-a-network"}
