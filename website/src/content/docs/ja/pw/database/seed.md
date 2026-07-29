@@ -56,7 +56,7 @@ server := testutil.TestRun(t, Handlers(), nil,
 )
 ```
 
-[テスト](/ja/guides/testing/)を参照。
+[テスト](/ja/productivity/testing/)を参照。
 
 ## DSN の取得元
 

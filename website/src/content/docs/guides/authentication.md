@@ -2,7 +2,7 @@
 title: Authentication
 description: Configure OIDC login and let the framework serve the login, callback, and logout endpoints.
 sidebar:
-  order: 10
+  order: 9
 ---
 
 OIDC usually adds three routes, session resolution, and a trail of protocol
@@ -150,7 +150,7 @@ development. `pw dev` can run a development provider instead:
 enabled = true
 ```
 
-It starts the [development identity provider](/pw/project/dev/#development-identity-provider),
+It starts the [development identity provider](/productivity/dev-identity-provider/),
 registers a client for the run, and injects `AUTH_OIDC_ISSUER`,
 `AUTH_OIDC_CLIENT_ID`, and `AUTH_OIDC_CLIENT_SECRET` — so a project scaffolded
 this way has no provider values in any committed file. Signing in means picking
@@ -159,7 +159,7 @@ development.
 
 In tests, `testutil.WithIdentityProvider` starts the same provider and
 `WithLoginUser` pre-selects the subject, so one request to `auth.login_path`
-completes the entire flow. See [Testing](/guides/testing/#withidentityprovider).
+completes the entire flow. See [Testing](/productivity/testing/#withidentityprovider).
 
 ## Deploying
 

@@ -57,7 +57,7 @@ server := testutil.TestRun(t, Handlers(), nil,
 )
 ```
 
-See [Testing](/guides/testing/).
+See [Testing](/productivity/testing/).
 
 ## Where the DSN comes from
 
