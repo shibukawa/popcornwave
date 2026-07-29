@@ -42,6 +42,24 @@ func loadObservability(t *testing.T, toml string, environ ...string) Observabili
 	return *bound
 }
 
+// loadResult is loadObservability when the caller wants the provenance rather
+// than the bound value.
+func loadResult(t *testing.T, toml string, environ ...string) *configbind.LoadResult {
+	t.Helper()
+	path := filepath.Join(t.TempDir(), "config.toml")
+	if err := os.WriteFile(path, []byte(toml), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	result, err := configbind.Load(configbind.LoadOptions{
+		Vendor: "popcornwave-test", Tool: "pw-test", FileName: "config.toml",
+		ExplicitConfigPath: path, Args: []string{}, Environ: environ,
+	})
+	if err != nil {
+		t.Fatalf("load: %v", err)
+	}
+	return result
+}
+
 func TestObservabilityDefaultsComeFromTheRegistration(t *testing.T) {
 	config := loadObservability(t, "")
 	if config.MinimumLevel != "info" || config.StdoutFormat != StdoutFormatJSON {
@@ -132,6 +150,50 @@ endpoint = "https://collector.internal:4318"
 	if config.Otel.Endpoint != "http://127.0.0.1:19999" {
 		t.Errorf("endpoint = %q, want the environment value", config.Otel.Endpoint)
 	}
+}
+
+// Every export setting answers to otel.enabled, so a run that exports nothing
+// reports one line in the startup summary instead of seven. The suppression is
+// what makes the flag pw dev injects worth injecting.
+func TestExportSettingsAreOmittedWhileExportIsOff(t *testing.T) {
+	off := bootKeys(t, "")
+	if _, present := off["observability.otel.enabled"]; !present {
+		t.Fatal("the switch itself must always be reported")
+	}
+	for _, key := range []string{
+		"observability.otel.endpoint", "observability.otel.headers",
+		"observability.otel.request_timeout", "observability.otel.queue_size",
+		"observability.otel.max_export_size", "observability.otel.flush_interval",
+	} {
+		if value, present := off[key]; present {
+			t.Errorf("%s = %q was reported with export off", key, value)
+		}
+	}
+
+	on := bootKeys(t, "[observability.otel]\nenabled = true\nendpoint = \"https://collector.example:4318\"\n")
+	if on["observability.otel.endpoint"] != "https://collector.example:4318" {
+		t.Errorf("endpoint = %q, want the configured value once export is on", on["observability.otel.endpoint"])
+	}
+	for _, key := range []string{
+		"observability.otel.request_timeout", "observability.otel.queue_size",
+		"observability.otel.max_export_size", "observability.otel.flush_interval",
+	} {
+		if _, present := on[key]; !present {
+			t.Errorf("%s was omitted with export on", key)
+		}
+	}
+}
+
+// bootKeys returns the values policy:startup-summary would report, which is the
+// surface dependon acts on.
+func bootKeys(t *testing.T, toml string) map[string]string {
+	t.Helper()
+	result := loadResult(t, toml)
+	reported := map[string]string{}
+	for _, entry := range bootEntries(result) {
+		reported[entry.key] = entry.value
+	}
+	return reported
 }
 
 // A scaffolded project has to show the export settings, or the only way to

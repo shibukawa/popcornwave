@@ -17,7 +17,7 @@ fields:
   resource_attributes: data:log-attribute list
   query: data:query-diagnostics-config sub-binding for requirement:query-diagnostics
   otel:
-    enabled: bool, default false; an endpoint from any source also enables export on its own
+    enabled: bool, default false; the parent every other otel key depends on, and an endpoint from any source also enables export on its own
     endpoint: URL, default empty
     headers: secret-bearing key=value list, default empty
     request_timeout: duration, default 10s
@@ -46,5 +46,7 @@ rules:
   - service_name falls back to the executable name when nothing sets it
   - defaults restate the bounds the exporter and batch processors apply to a zero value, so a scaffolded file states what the process will do
   - policy:startup-summary reports every resolved value with its provenance, so an injected endpoint is visible as env
+  - every otel key below enabled declares it as its dependon parent, so a run that exports nothing reports one line instead of seven
+  - requirement:dev-telemetry-viewer injects the enable flag with the endpoint, because a key whose parent is off is left out of that summary
   - plaintext and JSON preserve the same message, severity, attributes, and available trace correlation
 ```

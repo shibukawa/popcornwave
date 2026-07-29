@@ -601,6 +601,7 @@ func registerObservabilityConfigDefinition3() {
 			"observability.query.reproduction":     "true",
 			"observability.query.max_sql_length":   "4096",
 			"observability.query.max_value_length": "256",
+			"observability.otel.enabled":           "false",
 			"observability.otel.request_timeout":   "10s",
 			"observability.otel.queue_size":        "2048",
 			"observability.otel.max_export_size":   "512",
@@ -615,6 +616,12 @@ func registerObservabilityConfigDefinition3() {
 			"observability.query.reproduction":     {"observability.query.slow_threshold"},
 			"observability.query.max_sql_length":   {"observability.query.enabled"},
 			"observability.query.max_value_length": {"observability.query.enabled"},
+			"observability.otel.endpoint":          {"observability.otel.enabled"},
+			"observability.otel.headers":           {"observability.otel.enabled"},
+			"observability.otel.request_timeout":   {"observability.otel.enabled"},
+			"observability.otel.queue_size":        {"observability.otel.enabled"},
+			"observability.otel.max_export_size":   {"observability.otel.enabled"},
+			"observability.otel.flush_interval":    {"observability.otel.enabled"},
 		},
 		Falsy: map[string]string{
 			"observability.query.enabled":        "off",
@@ -636,7 +643,7 @@ func registerObservabilityConfigDefinition3() {
 			{Prefix: "observability", Key: "query.reproduction", Help: "emit a paste-able rerun snippet for a slow statement", Kind: cliparser.KindBool},
 			{Prefix: "observability", Key: "query.max_sql_length", Help: "MaxSQLLength bounds the logged statement text"},
 			{Prefix: "observability", Key: "query.max_value_length", Help: "MaxValueLength bounds each logged argument value"},
-			{Prefix: "observability", Key: "otel.enabled", Help: "export traces and logs; an endpoint from any source also enables it", Kind: cliparser.KindBool},
+			{Prefix: "observability", Key: "otel.enabled", Help: "export traces and logs", Kind: cliparser.KindBool},
 			{Prefix: "observability", Key: "otel.endpoint", Env: "OTEL_EXPORTER_OTLP_ENDPOINT", Help: "OTLP/HTTP base URL; /v1/traces and /v1/logs are appended"},
 			{Prefix: "observability", Key: "otel.headers", Env: "OTEL_EXPORTER_OTLP_HEADERS", Help: "comma-separated key=value list; values are never logged"},
 			{Prefix: "observability", Key: "otel.request_timeout", Help: "bounds one export request"},
@@ -660,7 +667,7 @@ func registerObservabilityConfigDefinition3() {
 			{Key: "query.reproduction", Kind: configbind.ScaffoldBool, Default: "true", Help: "emit a paste-able rerun snippet for a slow statement"},
 			{Key: "query.max_sql_length", Kind: configbind.ScaffoldInt, Default: "4096", Help: "MaxSQLLength bounds the logged statement text"},
 			{Key: "query.max_value_length", Kind: configbind.ScaffoldInt, Default: "256", Help: "MaxValueLength bounds each logged argument value"},
-			{Key: "otel.enabled", Kind: configbind.ScaffoldBool, Help: "export traces and logs; an endpoint from any source also enables it"},
+			{Key: "otel.enabled", Kind: configbind.ScaffoldBool, Default: "false", Help: "export traces and logs"},
 			{Key: "otel.endpoint", Kind: configbind.ScaffoldString, Env: "OTEL_EXPORTER_OTLP_ENDPOINT", Help: "OTLP/HTTP base URL; /v1/traces and /v1/logs are appended"},
 			{Key: "otel.headers", Kind: configbind.ScaffoldString, Env: "OTEL_EXPORTER_OTLP_HEADERS", Help: "comma-separated key=value list; values are never logged"},
 			{Key: "otel.request_timeout", Kind: configbind.ScaffoldDuration, Default: "10s", Help: "bounds one export request"},
@@ -768,6 +775,8 @@ func applyObservabilityConfigDefinition3(dst any, o *configbind.Overlay) error {
 			return fmt.Errorf("configbind: observability.otel.enabled: %w", err)
 		}
 		p.Otel.Enabled = bb
+	} else {
+		p.Otel.Enabled = false
 	}
 	if v, ok := o.GetString("observability.otel.endpoint"); ok {
 		p.Otel.Endpoint = v

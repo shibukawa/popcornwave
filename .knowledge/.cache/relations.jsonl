@@ -1307,6 +1307,8 @@
 {"context": "body", "path": ".knowledge/requirement/dev-telemetry-viewer.md", "source": "requirement:dev-telemetry-viewer", "target": "flow:telemetry-export", "target_category": "behavior", "target_type": "flow"}
 {"context": "body", "path": ".knowledge/requirement/dev-telemetry-viewer.md", "source": "requirement:dev-telemetry-viewer", "target": "policy:log-emission", "target_category": "constraint", "target_type": "policy"}
 {"context": "body", "path": ".knowledge/requirement/dev-telemetry-viewer.md", "source": "requirement:dev-telemetry-viewer", "target": "data:loaded-configuration", "target_category": "structure", "target_type": "data"}
+{"context": "body", "path": ".knowledge/requirement/dev-telemetry-viewer.md", "source": "requirement:dev-telemetry-viewer", "target": "data:observability-runtime-config", "target_category": "structure", "target_type": "data"}
+{"context": "body", "path": ".knowledge/requirement/dev-telemetry-viewer.md", "source": "requirement:dev-telemetry-viewer", "target": "policy:startup-summary", "target_category": "constraint", "target_type": "policy"}
 {"context": "body", "path": ".knowledge/requirement/dev-telemetry-viewer.md", "source": "requirement:dev-telemetry-viewer", "target": "requirement:contrib-devidp", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/requirement/dev-telemetry-viewer.md", "source": "requirement:dev-telemetry-viewer", "target": "data:release-artifact", "target_category": "structure", "target_type": "data"}
 {"context": "body", "path": ".knowledge/requirement/dev-telemetry-viewer.md", "source": "requirement:dev-telemetry-viewer", "target": "decision:host-tools-target-runtime", "target_category": "constraint", "target_type": "decision"}

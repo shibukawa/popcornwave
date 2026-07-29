@@ -163,23 +163,25 @@ type ObservabilityConfig struct {
 // a zero value, so a scaffolded file says what the process will do rather than
 // showing a zero that means "ask someone else".
 type OtelExportConfig struct {
-	// Enabled turns export on without naming an endpoint, for the case where
-	// the endpoint arrives from the environment. An endpoint from any source
-	// also enables it.
-	Enabled bool `help:"export traces and logs; an endpoint from any source also enables it"`
+	// Enabled is the switch every other key here answers to, so a process that
+	// exports nothing reports one line instead of seven.
+	//
+	// api:cli-dev injects it along with the endpoint, which is what keeps the
+	// injected address visible in the startup summary.
+	Enabled bool `default:"false" help:"export traces and logs"`
 	// Endpoint is the OTLP/HTTP base URL. /v1/traces and /v1/logs are appended.
-	Endpoint string `env:"OTEL_EXPORTER_OTLP_ENDPOINT" help:"OTLP/HTTP base URL; /v1/traces and /v1/logs are appended"`
+	Endpoint string `env:"OTEL_EXPORTER_OTLP_ENDPOINT" dependon:"observability.otel.enabled" help:"OTLP/HTTP base URL; /v1/traces and /v1/logs are appended"`
 	// Headers is a comma-separated key=value list. Values are never logged.
-	Headers string `env:"OTEL_EXPORTER_OTLP_HEADERS" help:"comma-separated key=value list; values are never logged"`
+	Headers string `env:"OTEL_EXPORTER_OTLP_HEADERS" dependon:"observability.otel.enabled" help:"comma-separated key=value list; values are never logged"`
 	// RequestTimeout bounds one export request.
-	RequestTimeout time.Duration `default:"10s" help:"bounds one export request"`
+	RequestTimeout time.Duration `default:"10s" dependon:"observability.otel.enabled" help:"bounds one export request"`
 	// QueueSize bounds records held in memory; a full queue drops rather than
 	// blocking the request goroutine.
-	QueueSize int `default:"2048" help:"records held in memory; a full queue drops rather than blocking"`
+	QueueSize int `default:"2048" dependon:"observability.otel.enabled" help:"records held in memory; a full queue drops rather than blocking"`
 	// MaxExportSize bounds one exported batch.
-	MaxExportSize int `default:"512" help:"bounds one exported batch"`
+	MaxExportSize int `default:"512" dependon:"observability.otel.enabled" help:"bounds one exported batch"`
 	// FlushInterval is how often a partial batch is sent.
-	FlushInterval time.Duration `default:"5s" help:"how often a partial batch is sent"`
+	FlushInterval time.Duration `default:"5s" dependon:"observability.otel.enabled" help:"how often a partial batch is sent"`
 }
 
 // QueryLogConfig controls per-statement query logging, the slow-statement

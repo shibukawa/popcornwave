@@ -15,12 +15,18 @@ import (
 )
 
 // Environment variables the telemetry viewer injects into the application
-// process. They are the OTLP conventions rather than a pw-specific name, so any
-// exporter finds them and no project commits a development endpoint.
+// process. The first three are the OTLP conventions rather than pw-specific
+// names, so any exporter finds them and no project commits a development
+// endpoint.
 const (
 	envOTLPEndpoint = "OTEL_EXPORTER_OTLP_ENDPOINT"
 	envOTLPProtocol = "OTEL_EXPORTER_OTLP_PROTOCOL"
 	envOTLPService  = "OTEL_SERVICE_NAME"
+	// envOtelEnabled is the framework's own switch, and every other export
+	// setting depends on it. An endpoint alone already turns export on, but the
+	// startup summary hides a key whose parent is off, so injecting this is what
+	// keeps the address the developer needs to see in that summary.
+	envOtelEnabled = "OBSERVABILITY_OTEL_ENABLED"
 )
 
 // otlpProtocol selects the encoding both sides already speak. The receiver also
@@ -58,6 +64,7 @@ func startDevTelemetryViewer(config projectConfig, stdout io.Writer) (*devTeleme
 	telemetry := &devTelemetryViewer{
 		server: server,
 		env: []string{
+			envOtelEnabled + "=true",
 			envOTLPEndpoint + "=" + server.URL(),
 			envOTLPProtocol + "=" + otlpProtocol,
 			envOTLPService + "=" + config.Name,

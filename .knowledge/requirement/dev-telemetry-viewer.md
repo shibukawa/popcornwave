@@ -27,6 +27,7 @@ listener:
 injection:
   mechanism: environment variables on the application process, which outrank TOML in data:loaded-configuration precedence
   variables:
+    - the data:observability-runtime-config otel enable flag, whose dependon children are otherwise left out of policy:startup-summary
     - OTEL_EXPORTER_OTLP_ENDPOINT set to the resolved viewer URL
     - OTEL_EXPORTER_OTLP_PROTOCOL set to http/protobuf
     - OTEL_SERVICE_NAME set to data:project-config project.name
