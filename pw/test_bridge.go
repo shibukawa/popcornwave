@@ -54,12 +54,12 @@ func prepareTestRuntime(handler http.Handler, configs pwtestbridge.Configs, opti
 		if !middleware.RDB.Enabled {
 			return pwtestbridge.Prepared{}, fmt.Errorf("popcornwave: test transaction requires middleware.rdb.enabled")
 		}
-		configured, _, err := databaseTarget(middleware.RDB.DSN)
+		target, err := databaseTarget(middleware.RDB.DSN)
 		if err != nil {
 			return pwtestbridge.Prepared{}, err
 		}
-		if !pwruntime.SupportsSavepoint(configured) {
-			return pwtestbridge.Prepared{}, fmt.Errorf("popcornwave: test transaction requires a driver with savepoint support, got %q", configured)
+		if !pwruntime.SupportsSavepoint(target.Dialect) {
+			return pwtestbridge.Prepared{}, fmt.Errorf("popcornwave: test transaction requires a driver with savepoint support, got %q", target.Dialect)
 		}
 	}
 	var dbClose func() error

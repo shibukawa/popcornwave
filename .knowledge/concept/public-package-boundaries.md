@@ -24,6 +24,7 @@ tinybind:
   normal_usage: hidden
   escape_hatch: applications may intentionally import low-level packages such as jsonbind
 drivers:
-  selection: explicit application imports
-  rule: data:project-config never selects runtime drivers
+  registry: github.com/shibukawa/popcornwave/database, with one subpackage per engine
+  selection: explicit application imports, resolved by rule:rdb-dsn-resolution
+  rule: data:project-config never selects runtime drivers; the rdb DSN scheme does
 ```

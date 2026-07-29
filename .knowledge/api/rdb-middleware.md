@@ -8,8 +8,9 @@ RDB middleware initializes and owns one shared *sql.DB and installs request SQL 
 ```yaml
 startup:
   - read rdb fields from data:middleware-runtime-config
-  - resolve the DSN scheme to a separately registered requirement:contrib-database driver
-  - open *sql.DB and apply standard pool settings
+  - resolve the DSN scheme to a requirement:contrib-database opener and dialect through rule:rdb-dsn-resolution
+  - open *sql.DB through that opener and apply standard pool settings
+  - publish the resolved dialect, which rule:savepoint-dialect-support, rule:explain-dialect-support, and the system:goose provider read
   - ping within rdb.connect_timeout before accepting requests
   - construct standard http.Handler middleware
   - require no application pw.SetDatabase call under decision:config-driven-database

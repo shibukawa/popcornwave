@@ -5,9 +5,12 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"strings"
 
-	_ "github.com/shibukawa/tinygodriver/database/sql/sqlite"
+	"github.com/shibukawa/popcornwave/database"
+	// SQLite is the scaffold default and the only engine that needs no server,
+	// so it stays linked for every project. A project on another engine adds
+	// its own blank import, which is what api:cli-init scaffolds.
+	_ "github.com/shibukawa/popcornwave/database/sqlite"
 )
 
 func validateConfiguredRuntime() error {
@@ -30,7 +33,7 @@ func initializeRuntimeDatabase() error {
 	if alreadyOpen {
 		return nil
 	}
-	db, driver, err := openRuntimeDatabase(config)
+	db, dialect, err := openRuntimeDatabase(config)
 	if err != nil {
 		return err
 	}
@@ -42,7 +45,7 @@ func initializeRuntimeDatabase() error {
 		return nil
 	}
 	configState.db = db
-	configState.dbDriver = driver
+	configState.dbDriver = dialect
 	configState.cleanups = append(configState.cleanups, &runtimeCleanup{
 		name: "database",
 		fn: func(context.Context) error {
@@ -53,11 +56,11 @@ func initializeRuntimeDatabase() error {
 }
 
 func openRuntimeDatabase(config RDBConfig) (*sql.DB, string, error) {
-	driver, dsn, err := databaseTarget(config.DSN)
+	target, err := databaseTarget(config.DSN)
 	if err != nil {
 		return nil, "", err
 	}
-	db, err := sql.Open(driver, dsn)
+	db, err := target.Open()
 	if err != nil {
 		return nil, "", fmt.Errorf("popcornwave: open database: %w", err)
 	}
@@ -71,19 +74,18 @@ func openRuntimeDatabase(config RDBConfig) (*sql.DB, string, error) {
 		_ = db.Close()
 		return nil, "", fmt.Errorf("popcornwave: connect database: %w", err)
 	}
-	return db, driver, nil
+	return db, target.Dialect, nil
 }
 
-func databaseTarget(configured string) (driver, dsn string, err error) {
-	configured = strings.TrimSpace(configured)
-	driver, remainder, ok := strings.Cut(configured, "://")
-	if !ok || driver == "" || remainder == "" {
-		return "", "", fmt.Errorf("middleware.rdb.dsn must use driver://dsn syntax")
+// databaseTarget resolves the configured DSN onto the engine that opens it.
+// The scheme selects an opener rather than a database/sql driver name, because
+// the PostgreSQL engine registers no name to open by.
+func databaseTarget(configured string) (database.Target, error) {
+	target, err := database.Resolve(configured)
+	if err != nil {
+		return database.Target{}, fmt.Errorf("popcornwave: %w", err)
 	}
-	if driver == "sqlite" {
-		return driver, remainder, nil
-	}
-	return driver, configured, nil
+	return target, nil
 }
 
 // configuredDatabaseDSN reports the effective middleware.rdb DSN so system:pw-cli
@@ -93,8 +95,8 @@ func configuredDatabaseDSN() (string, error) {
 	if !config.Enabled {
 		return "", errors.New("popcornwave: middleware.rdb.enabled is false")
 	}
-	if _, _, err := databaseTarget(config.DSN); err != nil {
-		return "", fmt.Errorf("popcornwave: %w", err)
+	if _, err := databaseTarget(config.DSN); err != nil {
+		return "", err
 	}
 	return config.DSN, nil
 }

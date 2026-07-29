@@ -11,12 +11,13 @@ require (
 	github.com/pressly/goose/v3 v3.27.3
 	github.com/redis/go-redis/v9 v9.17.3
 	github.com/shibukawa/dbtestify v0.3.0
-	github.com/shibukawa/tinybind-go v0.2.0
-	github.com/shibukawa/tinygodriver v1.0.4
+	github.com/shibukawa/tinybind-go v0.2.3
+	github.com/shibukawa/tinygodriver v1.1.0
 	golang.org/x/mod v0.38.0
 )
 
 require (
+	filippo.io/edwards25519 v1.2.0 // indirect
 	github.com/atotto/clipboard v0.1.4 // indirect
 	github.com/aymanbagabas/go-osc52/v2 v2.0.1 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
@@ -30,8 +31,13 @@ require (
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/erikgeiser/coninput v0.0.0-20211004153227-1c3628e74d0f // indirect
 	github.com/fatih/color v1.18.0 // indirect
+	github.com/go-sql-driver/mysql v1.10.0 // indirect
 	github.com/goccy/go-yaml v1.18.0 // indirect
 	github.com/google/uuid v1.6.0 // indirect
+	github.com/jackc/pgpassfile v1.0.0 // indirect
+	github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761 // indirect
+	github.com/jackc/pgx/v5 v5.10.0 // indirect
+	github.com/jackc/puddle/v2 v2.2.2 // indirect
 	github.com/lucasb-eyer/go-colorful v1.3.0 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.23 // indirect

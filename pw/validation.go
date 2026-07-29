@@ -73,7 +73,7 @@ func validateRDBConfig(config RDBConfig) error {
 	if !config.Enabled {
 		return nil
 	}
-	if _, _, err := databaseTarget(config.DSN); err != nil {
+	if _, err := databaseTarget(config.DSN); err != nil {
 		return err
 	}
 	if config.ConnectTimeout <= 0 {

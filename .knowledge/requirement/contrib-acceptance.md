@@ -17,6 +17,33 @@ common:
   - race or reentrancy behavior is documented for shared objects
   - package target matrices compile supported imported packages
 package_gates:
+  sql_engines_shared:
+    applies_to:
+      - requirement:contrib-sqlite
+      - requirement:contrib-postgresql
+      - requirement:contrib-mysql
+    gates:
+      - one contract suite covering open, ping, parameters, null and core scalar scanning, ErrNoRows, prepared statements, transactions, rollback, and column metadata passes on every engine
+      - context cancellation interrupts an in-flight query and reports it as an error rather than completing
+      - savepoint open, release, and rollback pass per rule:savepoint-dialect-support
+      - the rule:explain-dialect-support plan capture returns a plan or records an explicit explain_error
+      - requirement:database-migration applies, re-applies, and reverses the same migration set
+      - requirement:test-data-seeding seeds and asserts through the matching system:dbtestify dialect
+      - requirement:parallel-database-tests passes with t.Parallel against one prepared database
+      - a DSN carrying a password produces no output, log, or error containing it
+  server_sql_engines:
+    applies_to:
+      - requirement:contrib-postgresql
+      - requirement:contrib-mysql
+    gates:
+      - live interoperability passes against the declared server versions, on host Go and under TinyGo
+      - each supported TLS mode is asserted against the server's own view of the session, and an unknown CA and a wrong host name are both rejected
+      - a platform with no TLS backend refuses the connection instead of connecting in plaintext
+      - cancellation is measured under TLS, not only in plaintext
+      - the pool opens no more server connections than a standard Go build does for the same workload
+      - a -scheduler=tasks build is proven to be a rejected configuration rather than a silent regression
+      - binary size and memory stay within policy:contrib-compatibility bounds
+      - a platform listed as unverified in decision:server-sql-support-tier is reported as unverified rather than skipped silently
   requirement:contrib-auth-state:
     - concurrent Take returns a stored value exactly once
     - every adapter preserves single-use, expiry, cancellation, and stable error semantics
