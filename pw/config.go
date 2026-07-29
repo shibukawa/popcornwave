@@ -130,8 +130,11 @@ type SessionCookieConfig struct {
 // its own pool from DSN.
 type SessionRDBConfig struct {
 	Source string
-	DSN    string
-	Table  string
+	// Group names the middleware-source connection group holding the session
+	// table. Empty resolves to middleware.rdb.write_group.
+	Group string
+	DSN   string
+	Table string
 }
 
 // ObservabilityConfig controls runtime logging and service identity.
@@ -181,10 +184,42 @@ type MiddlewareConfig struct {
 	RDB            RDBConfig
 }
 
-// RDBConfig controls the framework-owned database pool.
+// RDBConfig controls the framework-owned database pools.
+//
+// A single database is configured with DSN and the pool fields below. A
+// reader-writer topology is configured with Connections instead, one element
+// per pool. Declaring both is a configuration error rather than a merge.
 type RDBConfig struct {
 	Enabled         bool
 	DSN             string
+	ConnectTimeout  time.Duration
+	MaxOpenConns    int
+	MaxIdleConns    int
+	ConnMaxLifetime time.Duration
+	ConnMaxIdleTime time.Duration
+	// DefaultGroup serves statements that pin no group. It is normally the
+	// replica group. Required once more than one group is configured.
+	DefaultGroup string
+	// WriteGroup serves framework-owned writes. Empty resolves to the only
+	// group holding a writable connection.
+	WriteGroup string
+	// MigrationGroup receives migrations and seed data. Empty resolves to
+	// WriteGroup.
+	MigrationGroup string
+	// Connections is the array-of-tables form. An element has no CLI option and
+	// no environment variable, because its identity is its position in the file.
+	Connections []RDBConnectionConfig
+}
+
+// RDBConnectionConfig is one pool of the connection set.
+type RDBConnectionConfig struct {
+	// Group is the name this connection is addressed by. Several connections
+	// may share one group, which is what makes round robin expressible.
+	Group string
+	DSN   string
+	// ReadOnly marks a replica: it opens read-only transactions and never
+	// serves a framework-owned write.
+	ReadOnly        bool
 	ConnectTimeout  time.Duration
 	MaxOpenConns    int
 	MaxIdleConns    int
@@ -216,9 +251,12 @@ var configState = struct {
 	parseErr error
 	result   *configbind.LoadResult
 	options  configbind.LoadOptions
-	db       *sql.DB
-	dbDriver string
-	cleanups []*runtimeCleanup
+	// db and dbDriver mirror the default group's connection for callers that
+	// predate the connection set.
+	db          *sql.DB
+	dbDriver    string
+	connections *pwruntime.ConnectionSet
+	cleanups    []*runtimeCleanup
 }{
 	entries: make(map[reflect.Type]configEntry),
 	options: configbind.LoadOptions{
@@ -343,11 +381,12 @@ func runtimeResources(logger *slog.Logger) pwruntime.Resources {
 		}
 	}
 	return pwruntime.Resources{
-		Configs:  configs,
-		Logger:   logger,
-		DB:       configState.db,
-		DBDriver: configState.dbDriver,
-		Query:    query,
+		Configs:     configs,
+		Logger:      logger,
+		DB:          configState.db,
+		DBDriver:    configState.dbDriver,
+		Connections: configState.connections,
+		Query:       query,
 	}
 }
 
@@ -679,6 +718,7 @@ func registerSessionConfig() {
 		"session.cookie.http_only": "true",
 		"session.cookie.same_site": "lax",
 		"session.rdb.source":       "middleware",
+		"session.rdb.group":        "",
 		"session.rdb.dsn":          "",
 		"session.rdb.table":        "popcornwave_session",
 	}
@@ -705,6 +745,7 @@ func registerSessionConfig() {
 			{Prefix: "session", Key: "cookie.http_only", Kind: cliparser.KindBool},
 			{Prefix: "session", Key: "cookie.same_site"},
 			{Prefix: "session", Key: "rdb.source", Help: "middleware reuses middleware.rdb; dedicated opens rdb.dsn"},
+			{Prefix: "session", Key: "rdb.group", Help: "middleware connection group holding the session table"},
 			{Prefix: "session", Key: "rdb.dsn", Help: "dedicated session database DSN"},
 			{Prefix: "session", Key: "rdb.table"},
 		},
@@ -736,6 +777,7 @@ func registerSessionConfig() {
 			}
 			p.RDB = SessionRDBConfig{
 				Source: valueOf(overlay, "session.rdb.source"),
+				Group:  valueOf(overlay, "session.rdb.group"),
 				DSN:    valueOf(overlay, "session.rdb.dsn"),
 				Table:  valueOf(overlay, "session.rdb.table"),
 			}
@@ -754,6 +796,7 @@ func registerSessionConfig() {
 			{Key: "cookie.http_only", Kind: configbind.ScaffoldBool, Default: "true"},
 			{Key: "cookie.same_site", Kind: configbind.ScaffoldString, Default: "lax"},
 			{Key: "rdb.source", Kind: configbind.ScaffoldString, Default: "middleware", Help: "middleware reuses middleware.rdb; dedicated opens rdb.dsn"},
+			{Key: "rdb.group", Kind: configbind.ScaffoldString, Default: "", Help: "middleware connection group holding the session table"},
 			{Key: "rdb.dsn", Kind: configbind.ScaffoldString, Default: "", Help: "dedicated session database DSN"},
 			{Key: "rdb.table", Kind: configbind.ScaffoldString, Default: "popcornwave_session"},
 		},
@@ -852,6 +895,8 @@ func registerMiddlewareConfig() {
 			"middleware.rdb.connect_timeout",
 			"middleware.rdb.max_open_conns", "middleware.rdb.max_idle_conns",
 			"middleware.rdb.conn_max_lifetime", "middleware.rdb.conn_max_idle_time",
+			"middleware.rdb.default_group", "middleware.rdb.write_group",
+			"middleware.rdb.migration_group",
 		},
 		Defaults: map[string]string{
 			"middleware.recovery": "true", "middleware.request_id": "true",
@@ -861,6 +906,8 @@ func registerMiddlewareConfig() {
 			"middleware.rdb.connect_timeout": "5s",
 			"middleware.rdb.max_open_conns":  "0", "middleware.rdb.max_idle_conns": "0",
 			"middleware.rdb.conn_max_lifetime": "0s", "middleware.rdb.conn_max_idle_time": "0s",
+			"middleware.rdb.default_group": "", "middleware.rdb.write_group": "",
+			"middleware.rdb.migration_group": "",
 		},
 		FlagMetas: []cliparser.FieldMeta{
 			{Prefix: "middleware", Key: "recovery", Kind: cliparser.KindBool},
@@ -875,6 +922,9 @@ func registerMiddlewareConfig() {
 			{Prefix: "middleware.rdb", Key: "max_idle_conns"},
 			{Prefix: "middleware.rdb", Key: "conn_max_lifetime"},
 			{Prefix: "middleware.rdb", Key: "conn_max_idle_time"},
+			{Prefix: "middleware.rdb", Key: "default_group"},
+			{Prefix: "middleware.rdb", Key: "write_group"},
+			{Prefix: "middleware.rdb", Key: "migration_group"},
 		},
 		Apply: func(dst any, overlay *configbind.Overlay) error {
 			p, ok := dst.(*MiddlewareConfig)
@@ -909,6 +959,13 @@ func registerMiddlewareConfig() {
 				return err
 			}
 			p.RDB.ConnMaxIdleTime, err = parseConfigDuration(overlay, "middleware.rdb.conn_max_idle_time")
+			if err != nil {
+				return err
+			}
+			p.RDB.DefaultGroup = valueOf(overlay, "middleware.rdb.default_group")
+			p.RDB.WriteGroup = valueOf(overlay, "middleware.rdb.write_group")
+			p.RDB.MigrationGroup = valueOf(overlay, "middleware.rdb.migration_group")
+			p.RDB.Connections, err = applyRDBConnections(overlay)
 			return err
 		},
 		Scaffold: []configbind.ScaffoldField{
@@ -924,8 +981,92 @@ func registerMiddlewareConfig() {
 			{Key: "rdb.max_idle_conns", Kind: configbind.ScaffoldInt, Default: "0"},
 			{Key: "rdb.conn_max_lifetime", Kind: configbind.ScaffoldString, Default: "0s"},
 			{Key: "rdb.conn_max_idle_time", Kind: configbind.ScaffoldString, Default: "0s"},
+			{Key: "rdb.default_group", Kind: configbind.ScaffoldString, Default: "", Help: "connection group serving statements that pin no group"},
+			{Key: "rdb.write_group", Kind: configbind.ScaffoldString, Default: "", Help: "connection group serving framework-owned writes"},
+			{Key: "rdb.migration_group", Kind: configbind.ScaffoldString, Default: "", Help: "connection group receiving migrations and seeds; defaults to write_group"},
+			{
+				Key:  "rdb.connections",
+				Kind: configbind.ScaffoldTableArray,
+				Help: "one element per pool; use instead of rdb.dsn for a reader-writer topology",
+				Nested: []configbind.ScaffoldField{
+					{Key: "group", Kind: configbind.ScaffoldString, Default: "", Help: "group name, such as writer or replica"},
+					{Key: "dsn", Kind: configbind.ScaffoldString, Default: ""},
+					{Key: "readonly", Kind: configbind.ScaffoldBool, Default: "false", Help: "a replica: read-only transactions, never a framework write"},
+					{Key: "connect_timeout", Kind: configbind.ScaffoldString, Default: defaultRDBConnectTimeout},
+					{Key: "max_open_conns", Kind: configbind.ScaffoldInt, Default: "0"},
+					{Key: "max_idle_conns", Kind: configbind.ScaffoldInt, Default: "0"},
+					{Key: "conn_max_lifetime", Kind: configbind.ScaffoldString, Default: "0s"},
+					{Key: "conn_max_idle_time", Kind: configbind.ScaffoldString, Default: "0s"},
+				},
+			},
 		},
 	})
+}
+
+// defaultRDBConnectTimeout is the per-connection default. An array element
+// takes no value from the enclosing table, so the default is applied here.
+const defaultRDBConnectTimeout = "5s"
+
+// applyRDBConnections reads the [[middleware.rdb.connections]] elements.
+//
+// configbind supplies no defaults inside an array of tables, so each element
+// starts from the documented zero values and overrides only what the file set.
+func applyRDBConnections(overlay *configbind.Overlay) ([]RDBConnectionConfig, error) {
+	tables, ok := overlay.GetTables("middleware.rdb.connections")
+	if !ok || len(tables) == 0 {
+		return nil, nil
+	}
+	connections := make([]RDBConnectionConfig, 0, len(tables))
+	for index, table := range tables {
+		connection := RDBConnectionConfig{
+			Group:    strings.TrimSpace(valueOf(table, "group")),
+			DSN:      strings.TrimSpace(valueOf(table, "dsn")),
+			ReadOnly: configBool(table, "readonly"),
+		}
+		element := fmt.Sprintf("middleware.rdb.connections[%d]", index)
+		var err error
+		if connection.ConnectTimeout, err = elementDuration(table, element, "connect_timeout", defaultRDBConnectTimeout); err != nil {
+			return nil, err
+		}
+		if connection.MaxOpenConns, err = elementInt(table, element, "max_open_conns"); err != nil {
+			return nil, err
+		}
+		if connection.MaxIdleConns, err = elementInt(table, element, "max_idle_conns"); err != nil {
+			return nil, err
+		}
+		if connection.ConnMaxLifetime, err = elementDuration(table, element, "conn_max_lifetime", "0s"); err != nil {
+			return nil, err
+		}
+		if connection.ConnMaxIdleTime, err = elementDuration(table, element, "conn_max_idle_time", "0s"); err != nil {
+			return nil, err
+		}
+		connections = append(connections, connection)
+	}
+	return connections, nil
+}
+
+func elementDuration(table *configbind.Overlay, element, key, fallback string) (time.Duration, error) {
+	raw, ok := table.GetString(key)
+	if !ok || strings.TrimSpace(raw) == "" {
+		raw = fallback
+	}
+	duration, err := time.ParseDuration(raw)
+	if err != nil {
+		return 0, fmt.Errorf("%s.%s: %w", element, key, err)
+	}
+	return duration, nil
+}
+
+func elementInt(table *configbind.Overlay, element, key string) (int, error) {
+	raw, ok := table.GetString(key)
+	if !ok || strings.TrimSpace(raw) == "" {
+		return 0, nil
+	}
+	value, err := strconv.Atoi(raw)
+	if err != nil {
+		return 0, fmt.Errorf("%s.%s: %w", element, key, err)
+	}
+	return value, nil
 }
 
 func applyEndpointConfig(overlay *configbind.Overlay, prefix string, target *EndpointConfig) error {

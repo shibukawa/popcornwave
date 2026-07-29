@@ -238,6 +238,68 @@ max_idle_conns = 1
 `dsn` は秘密情報として扱われ、設定ログでもエラーメッセージでもマスクされます。
 [設定](/ja/guides/configuration/)を参照。
 
+## リーダーとライター
+
+リードレプリカを持つ構成では、単一の `dsn` の代わりに接続の配列を書きます。要素ごとに
+所属グループを指定し、同じグループに複数の要素を置けます。読み取りはその中でラウンド
+ロビンに振り分けられます。TOML では `[[…]]` ヘッダー以降のキーがその要素のものになる
+ため、`rdb` 直下のキーは先に書く必要があります。
+
+```toml
+[middleware.rdb]
+enabled = true
+default_group = "replica"
+write_group = "writer"
+
+[[middleware.rdb.connections]]
+group = "writer"
+dsn = "postgres://app:${DB_PASSWORD}@writer.example/app"
+max_open_conns = 20
+
+[[middleware.rdb.connections]]
+group = "replica"
+dsn = "postgres://app:${DB_PASSWORD}@replica-1.example/app"
+readonly = true
+
+[[middleware.rdb.connections]]
+group = "replica"
+dsn = "postgres://app:${DB_PASSWORD}@replica-2.example/app"
+readonly = true
+```
+
+接続の要素は固有の CLI オプションも環境変数も持ちません（要素の同一性はファイル内での
+位置だからです）。そのため接続ごとのパスワードをコミットする TOML の外に出す手段が
+`${NAME}` です。展開はファイル読み込み時に、文字列の値に対してのみ行われます。未定義の名前は
+空文字に展開されるのではなく読み込みエラーになります。リテラルの `$` は `$$` と書きます。
+展開の有無にかかわらず、`dsn` は起動サマリーでもエラーメッセージでもマスクされたままです。
+
+グループを指定しないステートメントは `default_group` で実行されます。書き込みは明示的に
+グループを選びます。
+
+```go
+// 単一のステートメント
+user, err := queries.CreateUser(pw.SelectDB(ctx, "writer"), name)
+
+// トランザクション全体。中でグループを指定しないステートメントも writer に残ります
+err := pw.Transaction(ctx, func(ctx context.Context) error {
+	return queries.RecordAudit(ctx, "user.created")
+}, pw.OnGroup("writer"))
+```
+
+1 つのトランザクションが 2 つのグループにまたがることはありません。別のグループを指定した
+ネストした `pw.Transaction` は `ErrCrossGroupTransaction` を返し、外側はそのまま使えます。
+トランザクションの中から `readonly` グループを `SelectDB` することはできます（その読み取りは
+トランザクションの外で実行されます）が、書き込み可能なグループは選べません。原子的に見えて
+実際はそうではない書き込みになるためです。
+
+マイグレーション、シードデータ、セッションテーブルは `write_group`（さらに絞る場合は
+`migration_group` と `session.rdb.group`）に書き込まれます。`readonly` の接続がそれらに
+選ばれることはなく、そう設定すると起動時にエラーになります。
+
+接続が 1 つだけの構成 — 上記の単純な `dsn` 形式と、`testutil` によるテスト実行を含みます —
+では、*どのグループ名*もその 1 つのデータベースを指します。クラスタ向けに書いたコードが、
+テスト用の分岐なしで開発用の SQLite ファイル 1 つに対してもそのまま動きます。
+
 ## 実行されたクエリーを見る
 
 `dev` では、生成されたステートメントがすべて所要時間とともに記録されます。しきい値を

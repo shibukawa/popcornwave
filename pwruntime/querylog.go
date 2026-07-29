@@ -74,13 +74,23 @@ func instrument(current *Resources, executor sqlbind.SQLExecutor, logger *slog.L
 		return executor
 	}
 	inTx, depth := current.TxScope.state()
+	driver, label := current.DBDriver, ""
+	if connection, err := current.connection(); err == nil {
+		driver = connection.Driver
+		// One connection needs no label: it would repeat on every record and
+		// name the only database there is.
+		if len(current.Connections.Connections()) > 1 {
+			label = connection.Label
+		}
+	}
 	return &instrumentedExecutor{
-		inner:  executor,
-		config: config,
-		logger: logger,
-		driver: current.DBDriver,
-		inTx:   inTx,
-		depth:  depth,
+		inner:      executor,
+		config:     config,
+		logger:     logger,
+		driver:     driver,
+		connection: label,
+		inTx:       inTx,
+		depth:      depth,
 	}
 }
 
@@ -91,8 +101,11 @@ type instrumentedExecutor struct {
 	config *QueryDiagnostics
 	logger *slog.Logger
 	driver string
-	inTx   bool
-	depth  int
+	// connection labels which pool ran the statement. Empty when only one is
+	// configured.
+	connection string
+	inTx       bool
+	depth      int
 }
 
 // Unwrap returns the observed executor.
@@ -145,6 +158,9 @@ func (executor *instrumentedExecutor) record(ctx context.Context, operation, que
 	}
 	if executor.driver != "" {
 		attrs = append(attrs, "driver", executor.driver)
+	}
+	if executor.connection != "" {
+		attrs = append(attrs, "connection", executor.connection)
 	}
 	if executor.inTx {
 		attrs = append(attrs, "tx_depth", executor.depth)

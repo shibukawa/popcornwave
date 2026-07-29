@@ -4,6 +4,7 @@ import (
 	"log/slog"
 	"os"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -77,11 +78,37 @@ func bootEntries(overlay *configbind.Overlay) []bootEntry {
 		if !ok {
 			continue
 		}
+		// An array of tables has no scalar form, so each element is reported
+		// under its own indexed key. Otherwise a connection set would show up as
+		// one empty line.
+		if entry.IsTables {
+			entries = append(entries, tableArrayEntries(key, entry)...)
+			continue
+		}
 		value := entry.Raw
 		if isSecretKey(key) {
 			value = redactedValue
 		}
 		entries = append(entries, bootEntry{key: key, value: value, source: string(entry.Place)})
+	}
+	return entries
+}
+
+func tableArrayEntries(key string, entry configbind.Entry) []bootEntry {
+	var entries []bootEntry
+	for index, table := range entry.Tables {
+		prefix := key + "[" + strconv.Itoa(index) + "]."
+		for _, elementKey := range table.Keys() {
+			value, ok := table.GetString(elementKey)
+			if !ok {
+				continue
+			}
+			full := prefix + elementKey
+			if isSecretKey(full) {
+				value = redactedValue
+			}
+			entries = append(entries, bootEntry{key: full, value: value, source: string(entry.Place)})
+		}
 	}
 	return entries
 }

@@ -19,12 +19,22 @@ var ErrSavepointUnsupported = errors.New("popcornwave: driver does not support s
 // in an unknown state, so no further work may be committed on it.
 var ErrTransactionFailed = errors.New("popcornwave: transaction is no longer usable")
 
+// ErrCrossGroupTransaction reports a nested transaction naming a different
+// connection group than the one already open.
+var ErrCrossGroupTransaction = errors.New("popcornwave: transaction cannot span two connection groups")
+
 // TransactionScope owns one *sql.Tx and the savepoint stack nested inside it.
 // The framework creates a scope; applications only observe it indirectly
 // through Transaction.
 type TransactionScope struct {
 	db     *sql.DB
 	driver string
+	// group is the connection group this scope belongs to for its whole life.
+	// A nested call cannot move it to another group.
+	group string
+	// readOnly comes from the selected connection and opens a read-only
+	// transaction at depth 0.
+	readOnly bool
 
 	mu     sync.Mutex
 	tx     *sql.Tx
@@ -40,10 +50,46 @@ func NewTransactionScope(db *sql.DB, driver string) *TransactionScope {
 	return &TransactionScope{db: db, driver: driver}
 }
 
+// newConnectionScope prepares an inactive scope over one connection of the set,
+// carrying the group and read-only marking that connection was configured with.
+func newConnectionScope(connection *Connection) *TransactionScope {
+	if connection == nil || connection.DB == nil {
+		return nil
+	}
+	return &TransactionScope{
+		db:       connection.DB,
+		driver:   connection.Driver,
+		group:    connection.Group,
+		readOnly: connection.ReadOnly,
+	}
+}
+
+// Group is the connection group the scope is bound to.
+func (scope *TransactionScope) Group() string {
+	if scope == nil {
+		return ""
+	}
+	return scope.group
+}
+
+// ReadOnly reports whether the scope runs on a read-only connection.
+func (scope *TransactionScope) ReadOnly() bool {
+	if scope == nil {
+		return false
+	}
+	return scope.readOnly
+}
+
 // Begin opens the depth 0 transaction of an inactive scope.
+//
+// A nil options on a read-only connection begins a read-only transaction, which
+// is the one enforcement the database itself can apply today.
 func (scope *TransactionScope) Begin(ctx context.Context, options *sql.TxOptions) error {
 	if scope == nil {
 		return errors.New("popcornwave: nil transaction scope")
+	}
+	if options == nil && scope.readOnly {
+		options = &sql.TxOptions{ReadOnly: true}
 	}
 	scope.mu.Lock()
 	defer scope.mu.Unlock()
@@ -159,25 +205,61 @@ func SupportsSavepoint(driver string) bool {
 	return savepointDrivers[driver]
 }
 
+// TxOption customizes one Transaction call. It is variadic so an existing
+// two-argument call keeps compiling and keeps its meaning.
+type TxOption func(*txSettings)
+
+type txSettings struct {
+	group string
+}
+
+// OnGroup runs the transaction against a named connection group instead of the
+// effective group of the caller context.
+func OnGroup(group string) TxOption {
+	return func(settings *txSettings) { settings.group = group }
+}
+
 // Transaction executes fn with the active transaction stored in its context.
 // The outermost call begins a real transaction; a nested call opens a
 // savepoint, so an inner failure rolls back only the inner work and leaves the
 // outer transaction usable.
-func Transaction(ctx context.Context, fn func(context.Context) error) error {
+func Transaction(ctx context.Context, fn func(context.Context) error, options ...TxOption) error {
 	if fn == nil {
 		return errors.New("popcornwave: nil transaction callback")
 	}
+	var settings txSettings
+	for _, option := range options {
+		if option != nil {
+			option(&settings)
+		}
+	}
+	if settings.group != "" {
+		ctx = SelectDB(ctx, settings.group)
+	}
+	current := resources(ctx)
+	group := current.effectiveGroup()
 	if scope := activeScope(ctx); scope != nil {
+		// One transaction never spans two groups: two pools are two
+		// connections, and the framework adds no two-phase commit. A collapsed
+		// set has one database, so every name names the open transaction.
+		if !current.Connections.Collapsed() && scope.Group() != group {
+			return fmt.Errorf(
+				"%w: cannot open a transaction on group %q inside a transaction on group %q",
+				ErrCrossGroupTransaction, group, scope.Group())
+		}
 		return scope.nested(ctx, fn)
 	}
 	if scope := adoptExecutorTx(ctx); scope != nil {
 		return scope.nested(withScope(ctx, scope), fn)
 	}
-	db, ok := DB(ctx)
-	if !ok {
+	connection, err := current.connection()
+	if err != nil {
+		return err
+	}
+	scope := newConnectionScope(connection)
+	if scope == nil {
 		return errors.New("popcornwave: database is not available in context")
 	}
-	scope := NewTransactionScope(db, resources(ctx).DBDriver)
 	if err := scope.Begin(ctx, nil); err != nil {
 		return err
 	}
@@ -206,7 +288,13 @@ func adoptExecutorTx(ctx context.Context) *TransactionScope {
 	if !ok {
 		return nil
 	}
-	return &TransactionScope{tx: tx, driver: resources(ctx).DBDriver}
+	current := resources(ctx)
+	group := current.effectiveGroup()
+	driver := current.DBDriver
+	if connection, err := current.connection(); err == nil {
+		driver = connection.Driver
+	}
+	return &TransactionScope{tx: tx, driver: driver, group: group}
 }
 
 // nested wraps fn in a savepoint of an already active scope.
