@@ -30,6 +30,16 @@ client_contract:
   framework_gives: markup and status
   distinction: flow:partial-refresh is the framework-managed patch endpoint with its own envelope, versions, and data:ui-dependency-graph; this surface carries no envelope, no boundary id, and no version
   consequence: the framework cannot tell a stale swap from a current one here, so ordering and cancellation belong to the swap library
+example:
+  project: examples/htmx_fragment
+  library: htmx loaded from a pinned CDN URL, named only by the document shell, so no route knows which swap library called it
+  reuse: the page composes the same TaskPanel and TaskList components the partial routes render alone
+  routes:
+    filter: GET /tasks answers the list region for the filter box
+    create: POST /tasks answers the panel region, with field errors rendered into the form at 200 because a swap library ignores a non-2xx
+    remove: DELETE /tasks/{id} answers the list region, and a row already gone stays a 404 rather than a pretended success
+    summary: GET /tasks/summary settles an await boundary in place, so the declared fallback never reaches the browser and htmx owns the waiting state
+    head_rejection: GET /tasks/broken renders a component with a scoped style block and is refused per decision:fragment-head-rejection
 non_goals:
   - a wrapper chain on this path; a caller wanting nesting composes it inside the template
   - a status other than 200; a failing partial goes out as api:problem-response

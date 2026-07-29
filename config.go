@@ -8,12 +8,6 @@ import (
 	"time"
 )
 
-// EndpointConfig enables an operational endpoint at an absolute path.
-type EndpointConfig struct {
-	Enabled bool
-	Path    string
-}
-
 // ServerConfig controls the classic HTTP server and operational endpoints.
 type ServerConfig struct {
 	Address           string
@@ -24,9 +18,13 @@ type ServerConfig struct {
 	ShutdownTimeout   time.Duration
 	MaxRequestBody    int64
 	TrustedProxies    []string
-	Health            EndpointConfig
-	Readiness         EndpointConfig
-	OpenAPI           EndpointConfig
+	// Health, Readiness, and OpenAPI are the absolute paths their endpoints
+	// serve, and an unset path serves nothing. There is no default path: an
+	// application that answers on /healthz should say so where a reader of its
+	// setup can see it, rather than inherit it from here.
+	Health    string
+	Readiness string
+	OpenAPI   string
 }
 
 // DefaultServerConfig returns conservative production-oriented defaults.
@@ -39,9 +37,6 @@ func DefaultServerConfig() ServerConfig {
 		IdleTimeout:       2 * time.Minute,
 		ShutdownTimeout:   10 * time.Second,
 		MaxRequestBody:    8 << 20,
-		Health:            EndpointConfig{Enabled: true, Path: "/healthz"},
-		Readiness:         EndpointConfig{Enabled: true, Path: "/readyz"},
-		OpenAPI:           EndpointConfig{Path: "/openapi.json"},
 	}
 }
 
@@ -66,17 +61,17 @@ func (c ServerConfig) Validate() error {
 		result = errors.Join(result, errors.New("petitweb: max_request_body must be positive"))
 	}
 	paths := make(map[string]string)
-	for name, endpoint := range map[string]EndpointConfig{"health": c.Health, "readiness": c.Readiness, "openapi": c.OpenAPI} {
-		if !endpoint.Enabled {
+	for name, endpoint := range map[string]string{"health": c.Health, "readiness": c.Readiness, "openapi": c.OpenAPI} {
+		if endpoint == "" {
 			continue
 		}
-		if !validAbsolutePath(endpoint.Path) {
-			result = errors.Join(result, fmt.Errorf("petitweb: invalid %s path %q", name, endpoint.Path))
+		if !validAbsolutePath(endpoint) {
+			result = errors.Join(result, fmt.Errorf("petitweb: invalid %s path %q", name, endpoint))
 		}
-		if previous, exists := paths[endpoint.Path]; exists {
-			result = errors.Join(result, fmt.Errorf("petitweb: %s and %s endpoints use the same path %q", previous, name, endpoint.Path))
+		if previous, exists := paths[endpoint]; exists {
+			result = errors.Join(result, fmt.Errorf("petitweb: %s and %s endpoints use the same path %q", previous, name, endpoint))
 		}
-		paths[endpoint.Path] = name
+		paths[endpoint] = name
 	}
 	for _, proxy := range c.TrustedProxies {
 		if net.ParseIP(proxy) == nil {

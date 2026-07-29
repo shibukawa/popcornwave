@@ -54,24 +54,16 @@ Five prefixes are registered by the framework itself.
 | `shutdown_timeout` | `10s` |
 | `max_request_body` | `10485760` |
 | `trusted_proxies` | *(empty)* |
-| `health.enabled` / `health.path` | `true` / `/healthz` |
-| `readiness.enabled` / `readiness.path` | `true` / `/readyz` |
-| `openapi.enabled` / `openapi.path` | `true` / `/openapi.json` |
+| `health` | *(empty; set a path such as `/healthz` to serve it)* |
+| `readiness` | *(empty; set a path such as `/readyz` to serve it)* |
+| `openapi` | *(empty; set a path such as `/openapi.json` to serve it)* |
 | `api_doc` / `api_doc_path` | *(empty)* / `/docs` |
 | `public.enabled` / `public.mount` | `true` / `/public` |
 | `public.read_local` | `false` |
 
-`api_doc` selects the API documentation UI: `"scalar"`, `"swagger"`, or empty to
-disable it. A non-empty value requires `openapi.enabled`, and the UI is served at
-`api_doc_path`. The page itself is a few hundred bytes of HTML that loads the UI
-from a CDN, so the binary stays small — but the browser needs to reach that CDN.
-If you enable `api_doc` alongside a Content-Security-Policy, add the CDN host to
-`script-src` and keep `'unsafe-inline'` in `style-src`, because the UI renders
-inline style attributes.
-
-`pw init` writes `api_doc = "scalar"` into `config.dev.toml` only. The default is
-empty, so the documentation stays private until a staging or production config
-opts in.
+`openapi.*` serves the generated OpenAPI document and `api_doc` adds a browsable
+UI over it, which requires `openapi.enabled`. See
+[API Documentation](/productivity/api-documentation/).
 
 If an application route collides with an enabled operational endpoint, startup
 fails before either route can shadow the other.
@@ -106,7 +98,7 @@ requests.
 ### `[observability]`
 
 `minimum_level` (`info`), `service_name`, which also reads `OTEL_SERVICE_NAME`,
-and `boot_log` (`auto`), which selects the [startup summary](#startup-summary)
+and `boot_log` (`auto`), which selects the [startup summary](/productivity/startup-summary/)
 format.
 
 `[observability.query]` logs each generated SQL statement, explains the slow
@@ -114,7 +106,7 @@ ones, and prints a rerun snippet: `enabled` and `bind_values` (`auto` — on in
 `dev`, off elsewhere), `level` (`info`), `slow_threshold` (`200ms`),
 `slow_level` (`warn`), `explain` and `reproduction` (`true`), and the
 `max_sql_length` (`4096`) and `max_value_length` (`256`) bounds. See
-[Queries](/guides/queries/).
+[Query Diagnostics](/productivity/query-diagnostics/).
 
 ### `[session]`
 
@@ -264,59 +256,7 @@ the new keys appear. See [Application CLI](/guides/application-cli/).
 
 ## Startup summary
 
-Resolved configuration is reported **once**, not one record per key. What that
-looks like depends on who is reading. On an interactive terminal the summary is
-a tree, ending with the address the listener accepted:
-
-```
-   .-.   .-.
- .(   ) (   ).    Popcorn Wave v0.1.0
-(   o     o   )   started at 2026-07-27 23:31:04 JST
-(    \___/    )   env dev · config.dev.toml
- '-.__.___.__-'
-
-configuration
-├─ middleware
-│  ├─ access_log       true
-│  ├─ compression      true  ← file
-│  └─ request_timeout  0s
-├─ server
-│  ├─ port          8080
-│  └─ read_timeout  30s
-└─ session
-   └─ enabled  false
-
-listening on http://localhost:8080
-```
-
-Only values that came from somewhere other than the built-in defaults are
-marked: `← file`, `← env`, or `← flag`.
-
-Everywhere else — a pipe, a container, a log collector — the same facts become
-one structured record instead, so a JSON handler or an OpenTelemetry bridge
-ships a single event rather than sixty:
-
-```json
-{"time":"2026-07-27T23:31:04+09:00","level":"INFO","msg":"popcornwave started",
- "environment":"dev","config_file":"config.dev.toml",
- "listening":"http://localhost:8080",
- "config":{"server":{"port":"8080"},"session":{"enabled":"false"}},
- "config_source":{"middleware.compression":"file"}}
-```
-
-`observability.boot_log` overrides the choice:
-
-| Value | Behavior |
-| --- | --- |
-| `auto` (default) | tree on a terminal, one record otherwise |
-| `tree` | always the tree, written to stderr |
-| `record` | always one record through the default `slog` logger |
-| `off` | no startup summary |
-
-When the application owns the listener — `pw.Middlewares` instead of `pw.Run` —
-the summary is emitted after initialization, without the `listening` line.
-
-### Secrets in logs
-
-Keys containing `secret`, `password`, `token`, `credential`, `dsn`, or
-`private_key` appear as `[REDACTED]` in both formats.
+Resolved configuration is reported once at startup — as a tree on a terminal, as
+one structured record everywhere else — so you can see which values actually
+took effect and where each came from. `observability.boot_log` selects the
+format. See [Startup Summary](/productivity/startup-summary/).

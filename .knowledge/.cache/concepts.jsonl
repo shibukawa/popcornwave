@@ -10,10 +10,12 @@
 {"category": "interface", "id": "api:cli-generate", "path": ".knowledge/api/cli-generate.md", "role": "primary", "title": "pw generate", "type": "api"}
 {"category": "interface", "id": "api:cli-init", "path": ".knowledge/api/cli-init.md", "role": "primary", "title": "pw init", "type": "api"}
 {"category": "interface", "id": "api:cli-migrate", "path": ".knowledge/api/cli-migrate.md", "role": "primary", "title": "pw migrate", "type": "api"}
+{"category": "interface", "id": "api:cli-new", "path": ".knowledge/api/cli-new.md", "role": "primary", "title": "pw new", "type": "api"}
 {"category": "interface", "id": "api:cli-seed", "path": ".knowledge/api/cli-seed.md", "role": "primary", "title": "pw seed", "type": "api"}
 {"category": "interface", "id": "api:cli-session-schema", "path": ".knowledge/api/cli-session-schema.md", "role": "primary", "title": "pw session schema", "type": "api"}
 {"category": "interface", "id": "api:cli-version", "path": ".knowledge/api/cli-version.md", "role": "primary", "title": "pw version", "type": "api"}
 {"category": "interface", "id": "api:client-classification", "path": ".knowledge/api/client-classification.md", "role": "primary", "title": "Client Classification API", "type": "api"}
+{"category": "interface", "id": "api:database-selection", "path": ".knowledge/api/database-selection.md", "role": "primary", "title": "Database Group Selection", "type": "api"}
 {"category": "interface", "id": "api:error-renderer", "path": ".knowledge/api/error-renderer.md", "role": "primary", "title": "Error Rendering Contract", "type": "api"}
 {"category": "interface", "id": "api:framework-extension", "path": ".knowledge/api/framework-extension.md", "role": "primary", "title": "Framework Extension Registry", "type": "api"}
 {"category": "interface", "id": "api:html-boundary-protocol", "path": ".knowledge/api/html-boundary-protocol.md", "role": "primary", "title": "HTML Boundary Wire Protocol", "type": "api"}
@@ -53,6 +55,7 @@
 {"category": "structure", "id": "data:bot-user-agent-catalog", "path": ".knowledge/data/bot-user-agent-catalog.md", "role": "supporting", "title": "Bot User Agent Catalog", "type": "data"}
 {"category": "structure", "id": "data:component-boundary", "path": ".knowledge/data/component-boundary.md", "role": "supporting", "title": "Component Boundary Metadata", "type": "data"}
 {"category": "structure", "id": "data:compression-runtime-config", "path": ".knowledge/data/compression-runtime-config.md", "role": "supporting", "title": "Compression Runtime Config", "type": "data"}
+{"category": "structure", "id": "data:database-connection-set", "path": ".knowledge/data/database-connection-set.md", "role": "supporting", "title": "Database Connection Set", "type": "data"}
 {"category": "structure", "id": "data:database-driver-contract", "path": ".knowledge/data/database-driver-contract.md", "role": "supporting", "title": "Database Driver Contract", "type": "data"}
 {"category": "structure", "id": "data:devidp-config", "path": ".knowledge/data/devidp-config.md", "role": "supporting", "title": "Development IdP Configuration", "type": "data"}
 {"category": "structure", "id": "data:external-identity", "path": ".knowledge/data/external-identity.md", "role": "supporting", "title": "External OIDC Identity", "type": "data"}
@@ -89,13 +92,16 @@
 {"category": "constraint", "id": "decision:contrib-delivery-order", "path": ".knowledge/decision/contrib-delivery-order.md", "role": "supporting", "title": "Contrib Delivery Order", "type": "decision"}
 {"category": "constraint", "id": "decision:dbtestify-integration", "path": ".knowledge/decision/dbtestify-integration.md", "role": "supporting", "title": "dbtestify Integration Boundary", "type": "decision"}
 {"category": "constraint", "id": "decision:dev-telemetry-viewer-adoption", "path": ".knowledge/decision/dev-telemetry-viewer-adoption.md", "role": "supporting", "title": "Development Telemetry Viewer Adoption", "type": "decision"}
+{"category": "constraint", "id": "decision:developer-loop-watch-scope", "path": ".knowledge/decision/developer-loop-watch-scope.md", "role": "supporting", "title": "Developer Loop Watch Scope", "type": "decision"}
 {"category": "constraint", "id": "decision:development-public-assets", "path": ".knowledge/decision/development-public-assets.md", "role": "supporting", "title": "Development Public Assets", "type": "decision"}
 {"category": "constraint", "id": "decision:devidp-scope-reduction", "path": ".knowledge/decision/devidp-scope-reduction.md", "role": "supporting", "title": "Development IdP Scope Reduction", "type": "decision"}
 {"category": "constraint", "id": "decision:executor-seam-instrumentation", "path": ".knowledge/decision/executor-seam-instrumentation.md", "role": "supporting", "title": "Executor Seam Instrumentation", "type": "decision"}
+{"category": "constraint", "id": "decision:explicit-generation-sources", "path": ".knowledge/decision/explicit-generation-sources.md", "role": "supporting", "title": "Explicit Generation Sources", "type": "decision"}
 {"category": "constraint", "id": "decision:explicit-transaction-boundary", "path": ".knowledge/decision/explicit-transaction-boundary.md", "role": "supporting", "title": "Explicit Transaction Boundary", "type": "decision"}
 {"category": "constraint", "id": "decision:force-tinygo-logic", "path": ".knowledge/decision/force-tinygo-logic.md", "role": "supporting", "title": "Forced TinyGo Logic Build Tag", "type": "decision"}
 {"category": "constraint", "id": "decision:fragment-head-rejection", "path": ".knowledge/decision/fragment-head-rejection.md", "role": "supporting", "title": "Fragment Head Rejection", "type": "decision"}
 {"category": "constraint", "id": "decision:goose-migration-engine", "path": ".knowledge/decision/goose-migration-engine.md", "role": "supporting", "title": "Statically Linked goose Engine", "type": "decision"}
+{"category": "constraint", "id": "decision:grouped-database-connections", "path": ".knowledge/decision/grouped-database-connections.md", "role": "supporting", "title": "Grouped Database Connections", "type": "decision"}
 {"category": "constraint", "id": "decision:homebrew-tap-channel", "path": ".knowledge/decision/homebrew-tap-channel.md", "role": "supporting", "title": "Homebrew Own-Tap Channel", "type": "decision"}
 {"category": "constraint", "id": "decision:host-tools-target-runtime", "path": ".knowledge/decision/host-tools-target-runtime.md", "role": "supporting", "title": "Host Tools and Target Runtime Split", "type": "decision"}
 {"category": "constraint", "id": "decision:implicit-document-shell", "path": ".knowledge/decision/implicit-document-shell.md", "role": "supporting", "title": "Implicit Document Shell", "type": "decision"}
@@ -107,6 +113,7 @@
 {"category": "constraint", "id": "decision:migration-execution-split", "path": ".knowledge/decision/migration-execution-split.md", "role": "supporting", "title": "Migration Execution Split", "type": "decision"}
 {"category": "constraint", "id": "decision:nix-flake-packaging", "path": ".knowledge/decision/nix-flake-packaging.md", "role": "supporting", "title": "In-repository Nix Flake Packaging", "type": "decision"}
 {"category": "constraint", "id": "decision:passkey-first-authentication", "path": ".knowledge/decision/passkey-first-authentication.md", "role": "supporting", "title": "Passkey-First Authentication Priority", "type": "decision"}
+{"category": "constraint", "id": "decision:post-init-scaffold-wizard", "path": ".knowledge/decision/post-init-scaffold-wizard.md", "role": "supporting", "title": "Post-init Scaffold Wizard", "type": "decision"}
 {"category": "constraint", "id": "decision:root-pw-api", "path": ".knowledge/decision/root-pw-api.md", "role": "supporting", "title": "Root pw API", "type": "decision"}
 {"category": "constraint", "id": "decision:savepoint-nested-transaction", "path": ".knowledge/decision/savepoint-nested-transaction.md", "role": "supporting", "title": "Savepoint-Backed Nested Transaction", "type": "decision"}
 {"category": "constraint", "id": "decision:server-sql-support-tier", "path": ".knowledge/decision/server-sql-support-tier.md", "role": "supporting", "title": "Server SQL Support Tier", "type": "decision"}
@@ -123,6 +130,7 @@
 {"category": "constraint", "id": "decision:unhandled-boundary-escalation", "path": ".knowledge/decision/unhandled-boundary-escalation.md", "role": "supporting", "title": "Unhandled Boundary Escalation", "type": "decision"}
 {"category": "constraint", "id": "decision:wasi-http-deferred", "path": ".knowledge/decision/wasi-http-deferred.md", "role": "supporting", "title": "Defer WASI HTTP Adapter", "type": "decision"}
 {"category": "constraint", "id": "decision:web-runtime-delivery-order", "path": ".knowledge/decision/web-runtime-delivery-order.md", "role": "supporting", "title": "Web Runtime Delivery Order", "type": "decision"}
+{"category": "behavior", "id": "flow:capability-addition", "path": ".knowledge/flow/capability-addition.md", "role": "primary", "title": "Capability Addition Flow", "type": "flow"}
 {"category": "behavior", "id": "flow:cli-release", "path": ".knowledge/flow/cli-release.md", "role": "primary", "title": "CLI Release Flow", "type": "flow"}
 {"category": "behavior", "id": "flow:database-migration", "path": ".knowledge/flow/database-migration.md", "role": "primary", "title": "Database Migration Flow", "type": "flow"}
 {"category": "behavior", "id": "flow:dev-telemetry-capture", "path": ".knowledge/flow/dev-telemetry-capture.md", "role": "primary", "title": "Development Telemetry Capture Flow", "type": "flow"}
@@ -130,6 +138,7 @@
 {"category": "behavior", "id": "flow:error-template-generation", "path": ".knowledge/flow/error-template-generation.md", "role": "primary", "title": "Error Template Generation", "type": "flow"}
 {"category": "behavior", "id": "flow:generation-pipeline", "path": ".knowledge/flow/generation-pipeline.md", "role": "primary", "title": "Application Generation Pipeline", "type": "flow"}
 {"category": "behavior", "id": "flow:handler-registration", "path": ".knowledge/flow/handler-registration.md", "role": "primary", "title": "Handler Registration", "type": "flow"}
+{"category": "behavior", "id": "flow:handler-scaffolding", "path": ".knowledge/flow/handler-scaffolding.md", "role": "primary", "title": "Handler Scaffolding Flow", "type": "flow"}
 {"category": "behavior", "id": "flow:initial-streaming-render", "path": ".knowledge/flow/initial-streaming-render.md", "role": "primary", "title": "Initial Streaming Render", "type": "flow"}
 {"category": "behavior", "id": "flow:oidc-account-login", "path": ".knowledge/flow/oidc-account-login.md", "role": "primary", "title": "OIDC Account Login", "type": "flow"}
 {"category": "behavior", "id": "flow:oidc-auth-code", "path": ".knowledge/flow/oidc-auth-code.md", "role": "primary", "title": "OIDC Authorization Code Flow", "type": "flow"}
@@ -153,6 +162,7 @@
 {"category": "constraint", "id": "policy:authenticated-path-protection", "path": ".knowledge/policy/authenticated-path-protection.md", "role": "supporting", "title": "Authenticated Path Protection", "type": "policy"}
 {"category": "constraint", "id": "policy:bootstrap-credential-security", "path": ".knowledge/policy/bootstrap-credential-security.md", "role": "supporting", "title": "Bootstrap Credential Security", "type": "policy"}
 {"category": "constraint", "id": "policy:config-file-resolution", "path": ".knowledge/policy/config-file-resolution.md", "role": "supporting", "title": "Config File Resolution", "type": "policy"}
+{"category": "constraint", "id": "policy:connection-group-selection", "path": ".knowledge/policy/connection-group-selection.md", "role": "supporting", "title": "Connection Group Selection", "type": "policy"}
 {"category": "constraint", "id": "policy:context-value-storage", "path": ".knowledge/policy/context-value-storage.md", "role": "supporting", "title": "Context Value Storage Policy", "type": "policy"}
 {"category": "constraint", "id": "policy:contrib-compatibility", "path": ".knowledge/policy/contrib-compatibility.md", "role": "supporting", "title": "Contrib Compatibility Policy", "type": "policy"}
 {"category": "constraint", "id": "policy:csrf-protection", "path": ".knowledge/policy/csrf-protection.md", "role": "supporting", "title": "CSRF Protection", "type": "policy"}
@@ -217,6 +227,7 @@
 {"category": "objective", "id": "requirement:framework-script-assets", "path": ".knowledge/requirement/framework-script-assets.md", "role": "primary", "title": "Framework Script Assets", "type": "requirement"}
 {"category": "objective", "id": "requirement:html-fragment-rendering", "path": ".knowledge/requirement/html-fragment-rendering.md", "role": "primary", "title": "HTML Fragment Rendering", "type": "requirement"}
 {"category": "objective", "id": "requirement:httpbinder-extensible-route-analysis", "path": ".knowledge/requirement/httpbinder-extensible-route-analysis.md", "role": "primary", "title": "Extensible httpbind-go Route Analysis", "type": "requirement"}
+{"category": "objective", "id": "requirement:incremental-project-capabilities", "path": ".knowledge/requirement/incremental-project-capabilities.md", "role": "primary", "title": "Incremental Project Capabilities", "type": "requirement"}
 {"category": "objective", "id": "requirement:modern-observability", "path": ".knowledge/requirement/modern-observability.md", "role": "primary", "title": "Modern UI Observability", "type": "requirement"}
 {"category": "objective", "id": "requirement:modern-web-acceptance", "path": ".knowledge/requirement/modern-web-acceptance.md", "role": "primary", "title": "Modern Web Acceptance", "type": "requirement"}
 {"category": "objective", "id": "requirement:mvp-acceptance", "path": ".knowledge/requirement/mvp-acceptance.md", "role": "primary", "title": "MVP Acceptance Criteria", "type": "requirement"}
@@ -224,6 +235,7 @@
 {"category": "objective", "id": "requirement:parallel-database-tests", "path": ".knowledge/requirement/parallel-database-tests.md", "role": "primary", "title": "Parallel Database Tests", "type": "requirement"}
 {"category": "objective", "id": "requirement:public-asset-delivery", "path": ".knowledge/requirement/public-asset-delivery.md", "role": "primary", "title": "Public Asset Delivery", "type": "requirement"}
 {"category": "objective", "id": "requirement:query-diagnostics", "path": ".knowledge/requirement/query-diagnostics.md", "role": "primary", "title": "Database Query Diagnostics", "type": "requirement"}
+{"category": "objective", "id": "requirement:read-write-splitting", "path": ".knowledge/requirement/read-write-splitting.md", "role": "primary", "title": "Read-Write Split Connections", "type": "requirement"}
 {"category": "objective", "id": "requirement:shared-web-runtime", "path": ".knowledge/requirement/shared-web-runtime.md", "role": "primary", "title": "Shared Web Runtime", "type": "requirement"}
 {"category": "objective", "id": "requirement:tailwind-css-integration", "path": ".knowledge/requirement/tailwind-css-integration.md", "role": "primary", "title": "Tailwind CSS Integration", "type": "requirement"}
 {"category": "objective", "id": "requirement:tailwind-plugin-integration", "path": ".knowledge/requirement/tailwind-plugin-integration.md", "role": "primary", "title": "Tailwind Plugin Integration", "type": "requirement"}

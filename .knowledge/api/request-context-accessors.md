@@ -9,7 +9,8 @@ Users retrieve individual framework resources without observing data:request-con
 surface:
   - pw.Config[T](context.Context) returns one immutable typed binding
   - pw.Logger(context.Context) returns api:logger bound to the current trace and request
-  - pw.DB(context.Context) returns *sql.DB and presence
+  - pw.DB(context.Context) returns the *sql.DB of the effective group and presence
+  - pw.SelectDB pins a group, per api:database-selection
   - generated SQL retrieves the active database or transaction executor
   - session accessors return validated typed session state
   - pw.StartSpan and pw.StartSpanKind open a child of the active span
@@ -25,6 +26,7 @@ rules:
   - authorization checks consume authenticated state, never unverified request credentials
   - CSRF token access never exposes the session secret and token values must not be logged
   - generated SQL context functions select the active executor
+  - executor and pool lookup resolve the effective group before the executor, per api:database-selection
   - decision:tinybind-sql-runtime consumes the configured generated-code executor resolver
   - api:transaction-runner is the only user-facing way to create a transaction-bearing child capsule
   - callers cannot enumerate or mutate capsule fields

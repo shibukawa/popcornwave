@@ -50,10 +50,13 @@ func TestObservabilityDefaultsComeFromTheRegistration(t *testing.T) {
 	if config.Otel.Enabled || config.Otel.Endpoint != "" {
 		t.Errorf("export defaults to on: %+v", config.Otel)
 	}
-	if config.Otel.RequestTimeout != defaultOtelRequestTimeout || config.Otel.FlushInterval != defaultOtelFlushInterval {
+	// The literals are the OtelExportConfig tags, which are the only place these
+	// defaults are declared. They restate the bounds the exporter and the batch
+	// processors apply to a zero value.
+	if config.Otel.RequestTimeout != 10*time.Second || config.Otel.FlushInterval != 5*time.Second {
 		t.Errorf("timeout = %v, flush = %v", config.Otel.RequestTimeout, config.Otel.FlushInterval)
 	}
-	if config.Otel.QueueSize != defaultOtelQueueSize || config.Otel.MaxExportSize != defaultOtelMaxExportSize {
+	if config.Otel.QueueSize != 2048 || config.Otel.MaxExportSize != 512 {
 		t.Errorf("queue = %d, batch = %d", config.Otel.QueueSize, config.Otel.MaxExportSize)
 	}
 }

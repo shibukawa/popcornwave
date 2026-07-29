@@ -43,7 +43,7 @@ Created myapp
 
 ```
 myapp/
-├── popcornwave.toml           プロジェクト名、main パッケージ、dev の監視対象
+├── popcornwave.toml           プロジェクト名、main パッケージ、生成対象ディレクトリ
 ├── config.dev.toml            APP_ENV=dev のランタイム設定
 ├── go.mod
 ├── devbox.json                Go + Valkey（--tailwind なら tailwindcss も）
@@ -185,7 +185,7 @@ listening on http://localhost:8080
 <http://localhost:8080/> を開いてください。生成されたページはクエリパラメータにも
 反応するので、<http://localhost:8080/?name=Popcorn> で名前入りの挨拶になります。
 
-フレームワークは既定で次のパスもマウントします。
+雛形の `config.dev.toml` が運用エンドポイントを明示しているので、新規プロジェクトは次のパスにも応答します。
 
 | パス | 用途 |
 | --- | --- |

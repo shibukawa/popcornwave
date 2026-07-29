@@ -9,7 +9,6 @@ import (
 	"os"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/shibukawa/popcornwave/contrib/otel"
 	"github.com/shibukawa/popcornwave/contrib/otel/exporter/otlphttp"
@@ -22,18 +21,6 @@ import (
 const (
 	StdoutFormatJSON      = "json"
 	StdoutFormatPlaintext = "plaintext"
-)
-
-// OTLP export defaults.
-//
-// They repeat the bounds the exporter and the batch processors apply to a zero
-// value, so a scaffolded configuration states what the process will actually do
-// instead of showing a zero that means "ask someone else".
-const (
-	defaultOtelRequestTimeout = 10 * time.Second
-	defaultOtelQueueSize      = 2048
-	defaultOtelMaxExportSize  = 512
-	defaultOtelFlushInterval  = 5 * time.Second
 )
 
 // observability is the resolved emission and tracing state of one process.

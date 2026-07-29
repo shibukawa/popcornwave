@@ -2,7 +2,7 @@
 title: 認証
 description: OIDC を設定すると、ログイン・コールバック・ログアウトはフレームワークが提供する。
 sidebar:
-  order: 10
+  order: 9
 ---
 
 OIDC には通常、3 つのルート、セッション解決、そして一連のプロトコルコードが伴います。
@@ -148,7 +148,7 @@ func home(w http.ResponseWriter, r *http.Request) {
 enabled = true
 ```
 
-[開発用の認証プロバイダ](/ja/pw/project/dev/#開発用の認証プロバイダ)を起動し、その実行
+[開発用の認証プロバイダ](/ja/productivity/dev-identity-provider/)を起動し、その実行
 専用のクライアントを登録し、`AUTH_OIDC_ISSUER`、`AUTH_OIDC_CLIENT_ID`、
 `AUTH_OIDC_CLIENT_SECRET` を注入します。この方式でスキャフォールドしたプロジェクトの
 コミット対象ファイルには、プロバイダの値が一切現れません。ログインは一覧から
@@ -156,7 +156,7 @@ enabled = true
 
 テストでは `testutil.WithIdentityProvider` が同じプロバイダを起動し、`WithLoginUser`
 でユーザーを事前指定できます。`auth.login_path` への1リクエストでフロー全体が完了
-します。[テスト](/ja/guides/testing/#withidentityprovider)を参照してください。
+します。[テスト](/ja/productivity/testing/#withidentityprovider)を参照してください。
 
 ## デプロイ
 

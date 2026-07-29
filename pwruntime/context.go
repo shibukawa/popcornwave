@@ -6,6 +6,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"log/slog"
 	"os"
 	"reflect"
@@ -25,9 +26,18 @@ type Resources struct {
 	// LogAttributes are the stable request attributes every record carries,
 	// such as the request correlation ID.
 	LogAttributes []Attribute
-	DB            *sql.DB
+	// DB is the pool of the default group. It stays the whole database for a
+	// configuration that declares no connection set.
+	DB *sql.DB
 	// DBDriver is the driver scheme of DSN, used to decide savepoint support.
 	DBDriver string
+	// Connections is the configured connection set. A nil value means the
+	// single DB above is the only database.
+	Connections *ConnectionSet
+	// Group is the group pinned by SelectDB. Empty selects the default.
+	Group string
+	// picked memoizes the round-robin choice per group for one request.
+	picked *connectionMemo
 	// TxScope is the active transaction scope, installed by the framework only.
 	TxScope *TransactionScope
 	// Query enables development query diagnostics. A nil value leaves the
@@ -47,7 +57,50 @@ func WithResources(ctx context.Context, resources Resources) context.Context {
 	if resources.Log == nil {
 		resources.Log = fallbackBackend()
 	}
+	// The memo is per request, not per process. InjectResources hands every
+	// request the same Resources value, whose memo is nil, so each request
+	// builds its own here and every child context inherits that one pointer.
+	if resources.picked == nil {
+		resources.picked = newConnectionMemo()
+	}
 	return context.WithValue(ctx, contextKey{}, &resources)
+}
+
+// SelectDB pins group onto ctx so generated SQL and Transaction use it instead
+// of the default group.
+//
+// An unknown name is not rejected here. The returned context fails at its first
+// executor resolution, DB call, or Transaction with ErrUnknownConnectionGroup.
+func SelectDB(ctx context.Context, group string) context.Context {
+	current := *resources(ctx)
+	current.Group = group
+	return WithResources(ctx, current)
+}
+
+// effectiveGroup is the group a statement on ctx runs against.
+//
+// The active transaction outranks the default group, so unpinned SQL inside a
+// writer transaction stays on the writer instead of leaking to a replica.
+func (r *Resources) effectiveGroup() string {
+	if r.Group != "" {
+		return r.Group
+	}
+	if r.TxScope.Active() {
+		return r.TxScope.Group()
+	}
+	return r.Connections.DefaultGroup()
+}
+
+// connection resolves the pool backing the effective group.
+func (r *Resources) connection() (*Connection, error) {
+	group := r.effectiveGroup()
+	if r.Connections == nil {
+		if r.DB == nil {
+			return nil, errors.New("popcornwave: database is not available in context")
+		}
+		return &Connection{DB: r.DB, Driver: r.DBDriver, Group: group, Label: group}, nil
+	}
+	return r.picked.resolve(r.Connections, group)
 }
 
 func resources(ctx context.Context) *Resources {
@@ -107,16 +160,25 @@ func WithLogBackend(ctx context.Context, backend *LogBackend) context.Context {
 	return WithResources(ctx, current)
 }
 
+// DB returns the pool of the effective group, which is the group pinned by
+// SelectDB, otherwise the group of an active transaction, otherwise the default
+// group.
 func DB(ctx context.Context) (*sql.DB, bool) {
-	db := resources(ctx).DB
-	return db, db != nil
+	connection, err := resources(ctx).connection()
+	if err != nil {
+		return nil, false
+	}
+	return connection.DB, connection.DB != nil
 }
 
-// DBDriver reports the driver scheme of the framework database pool, which
+// DBDriver reports the driver scheme of the effective connection, which
 // dialect-specific storage needs before it issues SQL.
 func DBDriver(ctx context.Context) (string, bool) {
-	driver := resources(ctx).DBDriver
-	return driver, driver != ""
+	connection, err := resources(ctx).connection()
+	if err != nil {
+		return "", false
+	}
+	return connection.Driver, connection.Driver != ""
 }
 
 // SQLExecutor is used by generated .pw.sql context wrappers. It is the one
@@ -132,16 +194,33 @@ func SQLExecutor(ctx context.Context) (sqlbind.SQLExecutor, error) {
 }
 
 func baseSQLExecutor(ctx context.Context, current *Resources) (sqlbind.SQLExecutor, error) {
-	if executor := current.TxScope.executor(); executor != nil {
-		return executor, nil
+	group := current.effectiveGroup()
+	if current.TxScope.Active() {
+		if current.Connections.Collapsed() || current.TxScope.Group() == group {
+			return readOnlyExecutor(current.TxScope.executor(), current.TxScope.ReadOnly()), nil
+		}
+		// SelectDB named another group inside a transaction. The context
+		// executor installed by withScope belongs to that transaction, so it is
+		// deliberately skipped: these statements run outside it.
+		connection, err := current.connection()
+		if err != nil {
+			return nil, err
+		}
+		if !connection.ReadOnly {
+			return nil, fmt.Errorf(
+				"popcornwave: group %q is writable and cannot be selected inside a transaction on group %q",
+				group, current.TxScope.Group())
+		}
+		return readOnlyExecutor(connection.DB, true), nil
 	}
 	if executor, err := sqlbind.SQLExecutorFromContext(ctx); err == nil {
 		return unwrapExecutor(executor), nil
 	}
-	if db := current.DB; db != nil {
-		return db, nil
+	connection, err := current.connection()
+	if err != nil {
+		return nil, err
 	}
-	return nil, errors.New("popcornwave: database is not available in context")
+	return readOnlyExecutor(connection.DB, connection.ReadOnly), nil
 }
 
 // activeScope returns the transaction scope holding an open transaction.

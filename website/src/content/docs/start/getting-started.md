@@ -44,7 +44,7 @@ Created myapp
 
 ```
 myapp/
-├── popcornwave.toml           project name, main package, dev watch list
+├── popcornwave.toml           project name, main package, generation sources
 ├── config.dev.toml            runtime configuration for APP_ENV=dev
 ├── go.mod
 ├── devbox.json                Go + Valkey (+ tailwindcss with --tailwind)
@@ -190,7 +190,7 @@ a single structured log record instead; see
 Open <http://localhost:8080/>. The scaffolded page also responds to a query
 parameter, so <http://localhost:8080/?name=Popcorn> greets you by name.
 
-The framework also mounts, by default:
+The scaffolded `config.dev.toml` names the operational endpoints, so a new project also answers on:
 
 | Path | Purpose |
 | --- | --- |

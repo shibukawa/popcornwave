@@ -19,7 +19,7 @@ import (
 	"github.com/shibukawa/popcornwave/plugin/session/rdb"
 )
 
-const initUsage = "usage: pw init [<project-name>] [--interactive] [--tailwind] [--no-tinygo] [--auth=none|oidc|passkey] [--devidp]"
+const initUsage = "usage: pw init [<project-name>] [--interactive] [--tailwind] [--no-tinygo] [--no-devbox] [--no-database] [--no-redis] [--auth=none|oidc|passkey] [--devidp]"
 
 // Authentication modes the wizard and the --auth flag select between. They map
 // onto the plugin/auth modes, with none meaning no [auth] configuration.
@@ -38,7 +38,17 @@ type initOptions struct {
 	Name     string
 	TinyGo   bool
 	Tailwind bool
-	Auth     string
+	// Database scaffolds the rdb configuration, the migration directory, and
+	// the SQL example. Declining it removes all three together, because none
+	// of them is useful without the others.
+	Database bool
+	// Redis adds the Valkey development server to the Devbox environment.
+	Redis bool
+	// Devbox scaffolds the reproducible development environment. Declining it
+	// leaves the toolchain and the services to the operator, which is what a
+	// project already standardized on Nix, Docker, or asdf wants.
+	Devbox bool
+	Auth   string
 	// AuthEmulator scaffolds the development identity provider instead of
 	// pointing the project at an external one. It only applies to an OIDC mode.
 	AuthEmulator bool
@@ -48,7 +58,7 @@ type initOptions struct {
 // defaultInitOptions keeps TinyGo compatible routing as the scaffold default so
 // the shortcut form matches decision:stdlib-servemux.
 func defaultInitOptions() initOptions {
-	return initOptions{TinyGo: true, Auth: authNone}
+	return initOptions{TinyGo: true, Devbox: true, Database: true, Redis: true, Auth: authNone}
 }
 
 func parseInitArgs(args []string) (initOptions, error) {
@@ -66,6 +76,18 @@ func parseInitArgs(args []string) (initOptions, error) {
 			options.TinyGo = false
 		case "-i", "--interactive":
 			options.Interactive = true
+		case "--devbox":
+			options.Devbox = true
+		case "--no-devbox":
+			options.Devbox = false
+		case "--database":
+			options.Database = true
+		case "--no-database":
+			options.Database = false
+		case "--redis":
+			options.Redis = true
+		case "--no-redis":
+			options.Redis = false
 		case "--devidp":
 			options.AuthEmulator = true
 		case "--no-devidp":
@@ -96,6 +118,14 @@ func parseInitArgs(args []string) (initOptions, error) {
 	if !usesOIDC(options.Auth) {
 		options.AuthEmulator = false
 	}
+	if !options.Devbox && options.Redis {
+		// The Valkey answer only ever writes a Devbox package, so without the
+		// environment there is nothing for it to do.
+		options.Redis = false
+	}
+	if !options.Database && servesLogin(options) {
+		return initOptions{}, fmt.Errorf("init: --auth=%s stores its login sessions in the database; drop --no-database", options.Auth)
+	}
 	return options, nil
 }
 
@@ -114,7 +144,7 @@ func runInit(args []string, stdout io.Writer) error {
 			return fmt.Errorf("init: the wizard needs a terminal; %s", initUsage)
 		}
 		options, err = runInitWizard(options)
-		if errors.Is(err, errInitCanceled) {
+		if errors.Is(err, errWizardCanceled) {
 			fmt.Fprintln(stdout, "init canceled")
 			return nil
 		}
@@ -163,8 +193,60 @@ func runInit(args []string, stdout io.Writer) error {
 	if restoreErr != nil {
 		return restoreErr
 	}
-	fmt.Fprintf(stdout, "\nCreated %s\n\n  cd %s\n  devbox shell\n  pw dev\n", name, name)
+	fmt.Fprintf(stdout, "\nCreated %s\n", name)
+	// The wizard says this beside each answer, but a scripted run never sees
+	// it, and a declined capability is the one thing about the new project an
+	// operator may not know is reversible.
+	if declined := declinedCapabilities(options); len(declined) > 0 {
+		fmt.Fprintf(stdout, "\nNot included: %s\n  pw add <capability> enables one later\n",
+			strings.Join(declined, ", "))
+	}
+	// Without the Devbox environment nothing pins the CSS toolchain, and the
+	// first pw dev would fail on a binary the scaffold never installed.
+	if options.Tailwind && !options.Devbox {
+		fmt.Fprintf(stdout, "\nTailwind CSS needs its own toolchain here:\n  install %s\n",
+			tailwindToolchainRequirement)
+	}
+	fmt.Fprintf(stdout, "\n  cd %s\n%s  pw dev\n", name, devboxNextStep(options))
 	return nil
+}
+
+// devboxNextStep names the shell to enter first, for a project that has one.
+func devboxNextStep(options initOptions) string {
+	if !options.Devbox {
+		return ""
+	}
+	return "  devbox shell\n"
+}
+
+// declinedCapabilities names what this project did not take, in catalog order.
+func declinedCapabilities(options initOptions) []string {
+	var declined []string
+	for _, capability := range capabilityOrder {
+		switch capability {
+		case capabilityDevbox:
+			if !options.Devbox {
+				declined = append(declined, capability)
+			}
+		case capabilityDatabase:
+			if !options.Database {
+				declined = append(declined, capability)
+			}
+		case capabilityRedis:
+			if !options.Redis {
+				declined = append(declined, capability)
+			}
+		case capabilityAuth:
+			if !servesLogin(options) {
+				declined = append(declined, capability)
+			}
+		case capabilityTailwind:
+			if !options.Tailwind {
+				declined = append(declined, capability)
+			}
+		}
+	}
+	return declined
 }
 
 func writeScaffoldFile(target string, content []byte) error {
@@ -231,7 +313,10 @@ func validateProjectName(name string) error {
 func scaffoldFiles(options initOptions) map[string]string {
 	name := options.Name
 	moduleExtra := frameworkModuleDirective()
-	devboxPackages := []string{"go@latest", "valkey@latest"}
+	devboxPackages := []string{"go@latest"}
+	if options.Redis {
+		devboxPackages = append(devboxPackages, "valkey@latest")
+	}
 	if options.TinyGo {
 		devboxPackages = append(devboxPackages, "tinygo@latest")
 	}
@@ -239,14 +324,8 @@ func scaffoldFiles(options initOptions) map[string]string {
 	homeStylesheet := ""
 	homeClasses := ""
 	if options.Tailwind {
-		configTailwind = `
-[assets.tailwind]
-enabled = true
-input = "` + defaultTailwindInput + `"
-output = "` + defaultTailwindOutput + `"
-minify = true
-`
-		devboxPackages = append(devboxPackages, "tailwindcss_4@4.1.18")
+		configTailwind = tailwindProjectConfig()
+		devboxPackages = append(devboxPackages, tailwindDevboxPackage)
 		homeStylesheet = `<link rel="stylesheet" href="/public/generated/app.css">`
 		homeClasses = ` class="mx-auto max-w-3xl p-8 text-slate-900"`
 	}
@@ -257,37 +336,38 @@ name = "` + name + `"
 main = "./cmd/` + name + `"
 toolchain = "` + projectToolchain(options) + `"
 
-[dev]
-extra_watch = []
+# Each purpose reads only the directories it lists, and nothing else. A source
+# directory is invisible to that purpose until it appears here.
+[generate]
+handlers = [` + quotedList(scaffoldGenerationScope(options).Handlers) + `]
+templates = [` + quotedList(scaffoldGenerationScope(options).Templates) + `]
+queries = [` + quotedList(scaffoldGenerationScope(options).Queries) + `]
+config = [` + quotedList(scaffoldGenerationScope(options).Config) + `]
+
+# pw dev walks the module for rebuild inputs. Add what the walk misses, and
+# exclude a subtree that only makes the walk slower.
+[dev.watch]
+includes = []
+excludes = []
 ` + devIdPProjectConfig(options) + configTailwind,
 		pwenv.FileName(pwenv.Development): `# Development runtime configuration.
 # APP_ENV selects this file; add config.stg.toml and config.prod.toml as needed.
 [server]
 port = 8080
-# Scalar API reference for /openapi.json, served at server.api_doc_path (/docs).
-# Leave this key out of staging and production configs to keep the UI private.
+# Operational endpoints answer only at the paths named here; an unset key
+# serves nothing, so this file lists every address the server responds on.
+health = "/healthz"
+readiness = "/readyz"
+openapi = "/openapi.json"
+# Scalar API reference for the document above, served at server.api_doc_path
+# (/docs). Leave this key out of staging and production configs to keep the UI
+# private.
 api_doc = "scalar"
 
 [observability]
 minimum_level = "debug"
 service_name = "` + name + `"
-
-# The scaffolded migrations and queries need a database; pw dev and pw migrate
-# read this DSN.
-[middleware.rdb]
-enabled = true
-dsn = "sqlite://` + name + `.db"
-connect_timeout = "5s"
-max_open_conns = 1
-max_idle_conns = 1
-` + authRuntimeConfig(options),
-		"devbox.json": `{
-  "$schema": "https://raw.githubusercontent.com/jetify-com/devbox/0.14.2/.schema/devbox.schema.json",
-  "packages": [` + quotedJSONList(devboxPackages) + `],
-  "shell": {"init_hook": ["echo 'Popcorn Wave development environment'"]}
-}
-`,
-		"devbox.lock": "{}\n",
+` + databaseRuntimeConfig(options) + authRuntimeConfig(options),
 		"cmd/" + name + "/main.go": `package main
 
 import (
@@ -338,26 +418,6 @@ import (
 // bytes the server no longer serves.
 func RuntimeScriptURL() *url.URL { return &url.URL{Path: pw.RuntimeScriptURL()} }
 `,
-		"queries/users.pw.sql": `package queries
-
-type User {
-  id: int
-  name: string
-}
-
-export statement FindUser(id: int): sql.one<User> {
-SELECT id, name FROM users WHERE id = {id}
-}
-`,
-		"migrations/00001_init.sql": `-- +goose Up
-CREATE TABLE users (
-    id INTEGER PRIMARY KEY,
-    name TEXT NOT NULL
-);
-
--- +goose Down
-DROP TABLE users;
-`,
 		"templates/400.pw.html": errorTemplate("templates", "Error400", "Bad Request"),
 		"templates/401.pw.html": errorTemplate("templates", "Error401", "Unauthorized"),
 		"templates/403.pw.html": errorTemplate("templates", "Error403", "Forbidden"),
@@ -401,6 +461,32 @@ func PublicFS() fs.FS {
 		// so pw dev leaves no change behind in a fresh checkout.
 		".gitignore": ".devbox/\ndevbox.d/\n/" + name + "\n*_pw_gen.go\npublic/**/*.zstd\n*.db\n",
 	}
+	if options.Devbox {
+		files["devbox.json"] = devboxScaffold(devboxPackages)
+		files["devbox.lock"] = "{}\n"
+	}
+	if options.Database {
+		files["queries/users.pw.sql"] = `package queries
+
+type User {
+  id: int
+  name: string
+}
+
+export statement FindUser(id: int): sql.one<User> {
+SELECT id, name FROM users WHERE id = {id}
+}
+`
+		files["migrations/00001_init.sql"] = `-- +goose Up
+CREATE TABLE users (
+    id INTEGER PRIMARY KEY,
+    name TEXT NOT NULL
+);
+
+-- +goose Down
+DROP TABLE users;
+`
+	}
 	if options.TinyGo {
 		files["tinygohelper.go"] = `//go:build tinygo
 
@@ -414,11 +500,8 @@ import _ "github.com/shibukawa/tinygodriver/netdev"
 `
 	}
 	if options.Tailwind {
-		files["assets/app.css"] = `@import "tailwindcss";
-@source "../handlers";
-@source "../templates";
-`
-		files["public/generated/app.css"] = "/* Generated by Tailwind CSS. */\n"
+		files[defaultTailwindInput] = tailwindEntryScaffold(scaffoldGenerationScope(options))
+		files[defaultTailwindOutput] = "/* Generated by Tailwind CSS. */\n"
 	}
 	if options.AuthEmulator {
 		files[defaultIdPConfig] = devIdPRoster()
@@ -437,6 +520,31 @@ import _ "github.com/shibukawa/tinygodriver/netdev"
 // servesLogin reports whether the framework mounts the authentication
 // endpoints for this project. Only the OIDC modes have an implementation.
 func servesLogin(options initOptions) bool { return usesOIDC(options.Auth) }
+
+// databaseRuntimeConfig writes the rdb section the scaffolded migrations and
+// queries need. A project that declined the database has neither, so the
+// section would configure a pool nothing opens.
+func databaseRuntimeConfig(options initOptions) string {
+	if !options.Database {
+		return ""
+	}
+	return databaseRuntimeSection("sqlite://" + options.Name + ".db")
+}
+
+// databaseRuntimeSection is the rdb configuration api:cli-init scaffolds and
+// api:cli-add appends, so both reach the same file state.
+func databaseRuntimeSection(dsn string) string {
+	return `
+# The scaffolded migrations and queries need a database; pw dev and pw migrate
+# read this DSN.
+[middleware.rdb]
+enabled = true
+dsn = "` + dsn + `"
+connect_timeout = "5s"
+max_open_conns = 1
+max_idle_conns = 1
+`
+}
 
 // authBootstrap installs the account resolver. That call is the whole
 // application-side wiring of a login: it also imports plugin/auth, whose
@@ -710,7 +818,27 @@ func Handlers() *http.ServeMux { return mux }
 `
 }
 
-func quotedJSONList(values []string) string {
+// scaffoldGenerationScope maps the starter directories onto the purposes that
+// read them. The scaffold writes every purpose explicitly because none has a
+// default, so what each purpose reads is readable from the first run. handlers
+// appears twice because the starter page template sits beside its handler, and
+// the main package carries the configuration the application registers.
+func scaffoldGenerationScope(options initOptions) generationScope {
+	scope := generationScope{
+		Handlers:  []string{"handlers"},
+		Templates: []string{"handlers", "templates"},
+		Config:    []string{"cmd/" + options.Name},
+	}
+	if options.Database {
+		// A purpose may only name directories that exist, so a project without
+		// the database says so with an empty list rather than a stale entry.
+		scope.Queries = []string{"queries"}
+	}
+	return scope
+}
+
+// quotedList renders a string slice as the body of a TOML or JSON array.
+func quotedList(values []string) string {
 	quoted := make([]string, len(values))
 	for index, value := range values {
 		quoted[index] = strconv.Quote(value)

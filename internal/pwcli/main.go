@@ -20,6 +20,10 @@ func Main(args []string, stdout, stderr io.Writer) int {
 	switch args[0] {
 	case "init":
 		err = runInit(args[1:], stdout)
+	case "add":
+		err = runAdd(ctx, args[1:], stdout)
+	case "new":
+		err = runNew(ctx, args[1:], stdout)
 	case "generate":
 		err = runGenerate(ctx, args[1:], stdout)
 	case "migrate":
@@ -47,9 +51,13 @@ func Main(args []string, stdout, stderr io.Writer) int {
 
 func printUsage(w io.Writer) {
 	fmt.Fprintln(w, "Usage: pw <command>")
-	fmt.Fprintln(w, "Commands: init, generate, migrate, seed, build, dev, version")
+	fmt.Fprintln(w, "Commands: init, add, new, generate, migrate, seed, build, dev, version")
 	fmt.Fprintln(w, "Init usage: pw init [<project-name>] [--interactive] [--tailwind] [--no-tinygo]")
 	fmt.Fprintln(w, "  Omit the project name to answer the same questions in the wizard.")
+	fmt.Fprintln(w, "  A capability declined here can be enabled later with pw add.")
+	fmt.Fprintln(w, addUsage)
+	fmt.Fprintln(w, "  Omit the capability to pick from what this project does not already have.")
+	fmt.Fprintln(w, newUsage)
 	fmt.Fprintln(w, "Migrate actions: status, version, up, up-by-one, up-to, down, down-to, create, validate, snapshot")
 	fmt.Fprintln(w, "Seed usage: pw seed [--dir=testdata/seed] [name...]")
 }

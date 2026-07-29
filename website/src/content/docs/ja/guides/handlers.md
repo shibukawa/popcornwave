@@ -140,10 +140,8 @@ type eventInput struct {
 | ルール | 対象 | 例 |
 | --- | --- | --- |
 | `required` | すべて | 空文字列、欠損値、空ファイルを拒否 |
-| `default=value` | スカラー | 値がないときに適用 |
 | `min` / `max` | 数値 | `check:"min=1,max=100"` |
 | `minlen` / `maxlen` / `len` | 文字列 | `check:"maxlen=40"` |
-| `enum=a\|b\|c` | スカラー | `check:"enum=asc\|desc"` |
 | `pattern=...` | 文字列 | 正規表現 |
 | `email` | 文字列 | RFC 形式 |
 | `uuid` | 文字列 | UUID 形式 |
@@ -154,12 +152,34 @@ type eventInput struct {
 複数のルールはカンマで区切ります。`pattern` にカンマが含まれる場合は最後に置いて
 ください。
 
+### デフォルト値と列挙
+
+次の 2 つの制約は `check` のルールではなく、独立したタグです。
+
+| タグ | 対象 | 例 |
+| --- | --- | --- |
+| `default:"value"` | スカラー | 値がないときに適用 |
+| `enum:"a,b,c"` | スカラー | `enum:"asc,desc"` |
+
+`default` は設定用の構造体がすでに使っているタグなので、フレームワークの両側で同じ
+意味になります。`enum` の区切りはカンマです。`check` の中ではカンマがルールの区切りに
+なるため使えませんでした。各値の前後の空白はトリムされます。
+
 ```go
 type listInput struct {
 	Page int    `query:"page" check:"min=1" default:"1"`
-	Sort string `query:"sort" check:"enum=asc|desc" default:"asc"`
+	Sort string `query:"sort" enum:"asc,desc" default:"asc"`
 }
 ```
+
+どちらかを `check` の中に書くとエラーになり、代わりに使うタグがメッセージに出ます。
+
+```
+check: enum is not a check rule; use the struct tag enum:"asc,desc" instead
+```
+
+カンマを区切りにした代償として、enum の値にカンマは含められません。そのような値が必要な
+集合には、タグではなく検証を持つ型が向いています。
 
 チェックに失敗すると `pw.Parse` は該当フィールドの情報を持つエラーを返します。それを
 `pw.WriteProblem` に渡すと、フィールド単位の詳細を含む 400 になります。

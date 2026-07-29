@@ -14,6 +14,7 @@ always:
   operation: exec or query
 conditional:
   driver: resolved runtime driver name, when known
+  connection: data:database-connection-set connection label, present once more than one connection is configured
   tx_depth: data:transaction-scope savepoint depth, present only inside a transaction
   args: positional bind values, present only while bind_values is on
   rows_affected: affected count of an exec, absent when the driver cannot report it

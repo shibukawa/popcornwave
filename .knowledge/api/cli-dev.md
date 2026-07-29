@@ -17,15 +17,17 @@ steps:
   - enable decision:development-public-assets
   - build and run data:project-config project.main
   - default data:runtime-environment to dev when APP_ENV is unset
-  - watch every Go, .pw.html, .pw.sql, popcornwave.toml, config.*.toml, and config/config.*.toml source
+  - watch every Go source for rebuild, plus .pw.html, .pw.sql, popcornwave.toml, config.*.toml, and config/config.*.toml, per decision:developer-loop-watch-scope
+  - regenerate only from the data:project-config generate purposes, because api:cli-generate reads nothing else
   - watch the data:devidp-config file when the development identity provider is enabled
   - watch the data:migration-source directory
-  - add data:project-config dev.extra_watch paths and globs
+  - add data:project-config dev.watch.includes paths and globs, and skip every dev.watch.excludes subtree
   - exclude public/** and public/**/*.zstd from Go rebuild inputs
   - regenerate when generated inputs change
   - reapply pending migrations before restart when migration sources changed
   - rebuild and restart after successful changes
 services:
+  absent_environment: a project without devbox.json declares no service here, so the step is skipped in silence
   default: Valkey
   rule: default services may be disabled or changed in Devbox configuration
   none_declared:

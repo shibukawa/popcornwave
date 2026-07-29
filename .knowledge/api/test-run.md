@@ -30,6 +30,10 @@ port:
 database:
   configuration: customize copied data:middleware-runtime-config
   ownership: TestRun opens and closes its own pool
+  connection_set:
+    collapse: open only the resolved write group and map every configured group name onto that one pool
+    effect: an api:database-selection call for a replica group needs no test-only branch
+    reason: schema, seed data, and the single test transaction must all live in one database
   data: api:test-seed loads data:seed-dataset rows after the migration install and before the test transaction
   migration:
     source: WithMigrations reads data:migration-source from disk and WithMigrationsFS reads an embedded tree

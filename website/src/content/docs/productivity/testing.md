@@ -2,7 +2,7 @@
 title: Testing
 description: Run a real application from an isolated configuration copy with testutil.
 sidebar:
-  order: 9
+  order: 1
 ---
 
 A fast test is useful only if it still exercises the application you deploy.

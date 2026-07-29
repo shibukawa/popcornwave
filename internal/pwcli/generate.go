@@ -38,8 +38,11 @@ func runGenerate(ctx context.Context, args []string, stdout io.Writer) error {
 	if err != nil {
 		return err
 	}
-	directories, err := packageDirectories(root)
+	directories, err := packageDirectories(root, config.Generate)
 	if err != nil {
+		return err
+	}
+	if err := reportSourcesOutsideScope(root, config, stdout); err != nil {
 		return err
 	}
 	options, err := pwgen.Options()
@@ -49,43 +52,33 @@ func runGenerate(ctx context.Context, args []string, stdout io.Writer) error {
 	runner := generator.New(options)
 	var changes []fileChange
 	for _, directory := range directories {
-		planned, err := planDirectory(ctx, runner, directory)
+		planned, err := planDirectory(ctx, runner, directory, directoryPurposes(root, config.Generate, directory))
 		if err != nil {
 			return err
 		}
 		changes = append(changes, planned...)
 	}
-	changes, err = planBootstrapLink(root, config.Main, changes)
+	changes, err = planBootstrapLink(root, config, changes)
 	if err != nil {
 		return err
 	}
 	sort.Slice(changes, func(i, j int) bool { return changes[i].path < changes[j].path })
 	if check && len(changes) > 0 {
-		drift := changePaths(changes)
+		drift := changePaths(root, changes)
 		return fmt.Errorf("generated files are stale:\n  %s", strings.Join(drift, "\n  "))
 	}
 	if err := applyFileChanges(changes); err != nil {
 		return err
 	}
-	for _, path := range changePaths(changes) {
+	for _, path := range changePaths(root, changes) {
 		fmt.Fprintln(stdout, path)
 	}
 	return nil
 }
 
-func planBootstrapLink(root, mainPath string, changes []fileChange) ([]fileChange, error) {
+func planBootstrapLink(root string, config projectConfig, changes []fileChange) ([]fileChange, error) {
 	var documents []string
-	err := filepath.WalkDir(root, func(path string, entry fs.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		if entry.IsDir() {
-			switch entry.Name() {
-			case ".git", "vendor", "node_modules", ".devbox":
-				return filepath.SkipDir
-			}
-			return nil
-		}
+	err := walkSources(root, config.Generate.Templates, func(path string, entry fs.DirEntry) error {
 		if entry.Name() == "document.pw.html" {
 			documents = append(documents, path)
 		}
@@ -97,7 +90,7 @@ func planBootstrapLink(root, mainPath string, changes []fileChange) ([]fileChang
 	if len(documents) > 1 {
 		return nil, fmt.Errorf("multiple default documents: %s", strings.Join(documents, ", "))
 	}
-	mainDirectory := filepath.Clean(filepath.Join(root, filepath.FromSlash(mainPath)))
+	mainDirectory := filepath.Clean(filepath.Join(root, filepath.FromSlash(config.Main)))
 	target := filepath.Join(mainDirectory, "popcornwave_bootstrap_pw_gen.go")
 	filtered := changes[:0]
 	for _, change := range changes {
@@ -215,8 +208,127 @@ func goPackageName(directory string) (string, error) {
 	return "", fmt.Errorf("no handwritten Go source in main package %s", directory)
 }
 
-func packageDirectories(root string) ([]string, error) {
+// walkSources visits every file under the configured source directories. The
+// generator reads nothing else in the project, so where generated code comes
+// from is the popcornwave.toml list and not the shape of the directory tree.
+func walkSources(root string, sources []string, visit func(path string, entry fs.DirEntry) error) error {
+	for _, source := range sources {
+		directory := filepath.Join(root, filepath.FromSlash(source))
+		err := filepath.WalkDir(directory, func(path string, entry fs.DirEntry, err error) error {
+			if err != nil {
+				return err
+			}
+			if entry.IsDir() {
+				switch entry.Name() {
+				case ".git", "vendor", "node_modules", ".devbox":
+					return filepath.SkipDir
+				}
+				return nil
+			}
+			return visit(path, entry)
+		})
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// generationInput reports whether a file name is something the generator reads.
+func generationInput(name string) bool {
+	return (strings.HasSuffix(name, ".go") && !strings.HasSuffix(name, "_test.go")) ||
+		strings.HasSuffix(name, ".pw.html") || strings.HasSuffix(name, ".pw.sql")
+}
+
+// directoryPurposes reports which generation purposes list a directory. A
+// directory usually serves more than one, because a page template lives beside
+// the handler that renders it.
+func directoryPurposes(root string, scope generationScope, directory string) generationPurposes {
+	within := func(sources []string) bool {
+		for _, source := range sources {
+			if pathWithin(filepath.Join(root, filepath.FromSlash(source)), directory) {
+				return true
+			}
+		}
+		return false
+	}
+	return generationPurposes{
+		handlers:  within(scope.Handlers),
+		templates: within(scope.Templates),
+		queries:   within(scope.Queries),
+		config:    within(scope.Config),
+	}
+}
+
+// generationPurposes is the set of purposes one directory belongs to.
+type generationPurposes struct {
+	handlers  bool
+	templates bool
+	queries   bool
+	config    bool
+}
+
+// any reports whether the directory serves any purpose at all.
+func (p generationPurposes) any() bool {
+	return p.handlers || p.templates || p.queries || p.config
+}
+
+// keeps maps an artifact back to the purpose that may produce it. Go analysis
+// runs for the whole directory, so binding and configuration artifacts are
+// selected here rather than at discovery.
+func (p generationPurposes) keeps(kind generator.ArtifactKind) bool {
+	switch kind {
+	case generator.ArtifactBinding, generator.ArtifactOpenAPI:
+		return p.handlers
+	case generator.ArtifactHTMLTemplate:
+		return p.templates
+	case generator.ArtifactSQLTemplate:
+		return p.queries
+	case generator.ArtifactConfigBind:
+		return p.config
+	default:
+		return false
+	}
+}
+
+func packageDirectories(root string, scope generationScope) ([]string, error) {
 	found := map[string]bool{}
+	for _, sources := range [][]string{scope.Handlers, scope.Templates, scope.Queries, scope.Config} {
+		err := walkSources(root, sources, func(path string, entry fs.DirEntry) error {
+			if generationInput(entry.Name()) {
+				found[filepath.Dir(path)] = true
+			}
+			return nil
+		})
+		if err != nil {
+			return nil, err
+		}
+	}
+	out := make([]string, 0, len(found))
+	for directory := range found {
+		out = append(out, directory)
+	}
+	sort.Strings(out)
+	return out, nil
+}
+
+// strayReport is one source the purpose that owns its kind does not list.
+type strayReport struct {
+	path    string
+	message string
+}
+
+// reportSourcesOutsideScope warns about framework sources their own purpose
+// leaves out. They are reported rather than generated from, because a project
+// may keep samples or fixtures beside its code on purpose; a Go file is never
+// reported, since ordinary Go code lives throughout a project and a call site
+// outside its purpose simply has no generated binding.
+func reportSourcesOutsideScope(root string, config projectConfig, stdout io.Writer) error {
+	bootstrap := filepath.Join(
+		filepath.Clean(filepath.Join(root, filepath.FromSlash(config.Main))),
+		"popcornwave_bootstrap_pw_gen.go",
+	)
+	var stray []strayReport
 	err := filepath.WalkDir(root, func(path string, entry fs.DirEntry, err error) error {
 		if err != nil {
 			return err
@@ -228,22 +340,37 @@ func packageDirectories(root string) ([]string, error) {
 			}
 			return nil
 		}
+		if path == bootstrap {
+			return nil
+		}
 		name := entry.Name()
-		if (strings.HasSuffix(name, ".go") && !strings.HasSuffix(name, "_test.go")) ||
-			strings.HasSuffix(name, ".pw.html") || strings.HasSuffix(name, ".pw.sql") {
-			found[filepath.Dir(path)] = true
+		purposes := directoryPurposes(root, config.Generate, filepath.Dir(path))
+		relative, relErr := filepath.Rel(root, path)
+		if relErr != nil {
+			relative = path
+		}
+		relative = filepath.ToSlash(relative)
+		switch {
+		case strings.HasSuffix(name, ".pw.html") && !purposes.templates:
+			stray = append(stray, strayReport{relative, fmt.Sprintf(
+				"pw: %s is outside generate.templates and is not generated from; list its directory to include it", relative)})
+		case strings.HasSuffix(name, ".pw.sql") && !purposes.queries:
+			stray = append(stray, strayReport{relative, fmt.Sprintf(
+				"pw: %s is outside generate.queries and is not generated from; list its directory to include it", relative)})
+		case strings.HasSuffix(name, "_pw_gen.go") && !purposes.any():
+			stray = append(stray, strayReport{relative, fmt.Sprintf(
+				"pw: %s was generated outside every generate purpose and is now stale; delete it or list its directory", relative)})
 		}
 		return nil
 	})
 	if err != nil {
-		return nil, err
+		return err
 	}
-	out := make([]string, 0, len(found))
-	for directory := range found {
-		out = append(out, directory)
+	sort.Slice(stray, func(i, j int) bool { return stray[i].path < stray[j].path })
+	for _, report := range stray {
+		fmt.Fprintln(stdout, report.message)
 	}
-	sort.Strings(out)
-	return out, nil
+	return nil
 }
 
 type fileChange struct {
@@ -252,22 +379,39 @@ type fileChange struct {
 	remove bool
 }
 
-func planDirectory(ctx context.Context, runner *generator.Generator, directory string) ([]fileChange, error) {
-	openAPI, err := hasGoSources(directory)
+// disabledTemplatePattern matches no file, and switches off one template kind
+// for a directory the purpose that owns it does not list. Discovery is skipped
+// rather than filtered afterwards, so an unlisted template is never parsed.
+const disabledTemplatePattern = "*.not-a-generation-source"
+
+func planDirectory(ctx context.Context, runner *generator.Generator, directory string, purposes generationPurposes) ([]fileChange, error) {
+	goSources, err := hasGoSources(directory)
 	if err != nil {
 		return nil, err
 	}
-	artifacts, err := runner.GenerateArtifacts(ctx, generator.GenerateRequest{
-		Dir:               directory,
-		OpenAPI:           openAPI,
-		SQLContextOnlyAPI: true,
-	})
+	request := generator.GenerateRequest{
+		Dir:                 directory,
+		OpenAPI:             goSources && purposes.handlers,
+		SQLContextOnlyAPI:   true,
+		HTMLTemplatePattern: disabledTemplatePattern,
+		SQLTemplatePattern:  disabledTemplatePattern,
+	}
+	if purposes.templates {
+		request.HTMLTemplatePattern = ""
+	}
+	if purposes.queries {
+		request.SQLTemplatePattern = ""
+	}
+	artifacts, err := runner.GenerateArtifacts(ctx, request)
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", directory, err)
 	}
 
 	grouped := make(map[string][]generator.Artifact)
 	for _, artifact := range artifacts {
+		if !purposes.keeps(artifact.Kind) {
+			continue
+		}
 		target := filepath.Join(directory, artifact.OutputBase+"_pw_gen.go")
 		grouped[target] = append(grouped[target], artifact)
 		if artifact.Kind == generator.ArtifactHTMLTemplate &&
@@ -404,17 +548,36 @@ func mergeArtifacts(artifacts []generator.Artifact) ([]byte, error) {
 	return source, nil
 }
 
-func changePaths(changes []fileChange) []string {
+// changePaths renders the touched files for the operator. A generated path is
+// absolute because the walk started from the project root, and printing it that
+// way buries the interesting part of the line; the operator is standing in the
+// project, so the prefix they are already in comes off.
+func changePaths(root string, changes []fileChange) []string {
+	prefixes := []string{}
+	if working, err := os.Getwd(); err == nil {
+		prefixes = append(prefixes, working+string(filepath.Separator))
+	}
+	// The working directory may be below the root, in which case a file
+	// elsewhere in the project still shortens against the root.
+	prefixes = append(prefixes, root+string(filepath.Separator))
 	paths := make([]string, 0, len(changes))
 	for _, change := range changes {
-		relative, err := filepath.Rel(".", change.path)
-		if err != nil || relative == "" {
-			relative = change.path
-		}
-		paths = append(paths, relative)
+		paths = append(paths, shortenPath(change.path, prefixes))
 	}
 	sort.Strings(paths)
 	return paths
+}
+
+// shortenPath cuts the first matching prefix. A path under none of them is left
+// absolute, because a shortened form would name a file the operator cannot find
+// from where they are.
+func shortenPath(path string, prefixes []string) string {
+	for _, prefix := range prefixes {
+		if shortened, ok := strings.CutPrefix(path, prefix); ok {
+			return shortened
+		}
+	}
+	return path
 }
 
 func applyFileChanges(changes []fileChange) error {

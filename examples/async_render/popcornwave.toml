@@ -2,5 +2,16 @@
 name = "async_render"
 main = "./cmd/async_render"
 
-[dev]
-extra_watch = []
+# Each purpose reads only the directories it lists, and nothing else. A source
+# directory is invisible to that purpose until it appears here.
+[generate]
+handlers = ["handlers"]
+templates = ["handlers", "templates"]
+queries = []
+config = ["cmd/async_render"]
+
+# pw dev walks the module for rebuild inputs. Add what the walk misses, and
+# exclude a subtree that only makes the walk slower.
+[dev.watch]
+includes = []
+excludes = []

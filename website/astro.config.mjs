@@ -65,6 +65,11 @@ export default defineConfig({
           items: [{ autogenerate: { directory: 'advanced' } }],
         },
         {
+          label: 'Productivity Support',
+          translations: { ja: '開発支援' },
+          items: [{ autogenerate: { directory: 'productivity' } }],
+        },
+        {
           label: 'pw command',
           translations: { ja: 'pw コマンド' },
           items: [

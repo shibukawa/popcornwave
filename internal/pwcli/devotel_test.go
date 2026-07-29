@@ -14,6 +14,12 @@ const otelProject = `
 [project]
 name = "app"
 main = "./cmd/app"
+
+[generate]
+handlers = []
+templates = []
+queries = []
+config = []
 `
 
 // One OTLP/HTTP JSON trace export, which the receiver accepts alongside

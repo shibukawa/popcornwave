@@ -63,6 +63,12 @@ than with an HTML error page, because an error document swapped into one region
 would replace that region with a whole page. htmx and similar libraries do not
 swap a non-2xx response, so the status is the signal they already act on.
 
+`examples/htmx_fragment` is a complete application on this surface: one route
+answers with a document, and the filter, the create form, and the delete button
+each answer with the region they re-render. It also shows what to do with a
+rejected form, since a swap library ignores the problem response a failed check
+would produce.
+
 Template syntax, slots, escaping, and scoped styles are covered in
 [Templates](/guides/templates/).
 

@@ -48,13 +48,25 @@ func prepareTestRuntime(handler http.Handler, configs pwtestbridge.Configs, opti
 	if err := validateOperationalEndpointCollisions(handler, server); err != nil {
 		return pwtestbridge.Prepared{}, err
 	}
+	// A test opens only the migration group: schema, seed data, and the test
+	// transaction have to live in one database. Resources leaves the connection
+	// set nil, which collapses every group name onto that one pool, so a
+	// handler calling SelectDB with a replica group needs no test-only branch.
+	var testConnection RDBConnectionConfig
+	if middleware.RDB.Enabled {
+		resolved, err := testDatabaseConnection(middleware.RDB)
+		if err != nil {
+			return pwtestbridge.Prepared{}, err
+		}
+		testConnection = resolved
+	}
 	// Savepoint support decides whether a test transaction can host the
 	// application's own transactions, so it is checked before opening a pool.
 	if options.Transaction {
 		if !middleware.RDB.Enabled {
 			return pwtestbridge.Prepared{}, fmt.Errorf("popcornwave: test transaction requires middleware.rdb.enabled")
 		}
-		configured, _, err := databaseTarget(middleware.RDB.DSN)
+		configured, _, err := databaseTarget(testConnection.DSN)
 		if err != nil {
 			return pwtestbridge.Prepared{}, err
 		}
@@ -67,7 +79,7 @@ func prepareTestRuntime(handler http.Handler, configs pwtestbridge.Configs, opti
 	var driver string
 	if middleware.RDB.Enabled {
 		var err error
-		db, driver, err = openRuntimeDatabase(middleware.RDB)
+		db, driver, err = openRuntimeDatabase(testConnection, testConnection.Group)
 		if err != nil {
 			return pwtestbridge.Prepared{}, err
 		}
@@ -111,6 +123,25 @@ func prepareTestRuntime(handler http.Handler, configs pwtestbridge.Configs, opti
 		Resources: resources,
 		Close:     dbClose,
 	}, nil
+}
+
+// testDatabaseConnection picks the one connection a test runs against: the
+// migration group, where the schema and the seed data are.
+func testDatabaseConnection(config RDBConfig) (RDBConnectionConfig, error) {
+	connections, err := resolveRDBConnections(config)
+	if err != nil {
+		return RDBConnectionConfig{}, err
+	}
+	group, err := resolveMigrationGroup(config, connections)
+	if err != nil {
+		return RDBConnectionConfig{}, err
+	}
+	for _, connection := range connections {
+		if connection.Group == group {
+			return connection, nil
+		}
+	}
+	return RDBConnectionConfig{}, fmt.Errorf("popcornwave: migration group %q has no connection", group)
 }
 
 func testConfigValue[T any](configs pwtestbridge.Configs) T {

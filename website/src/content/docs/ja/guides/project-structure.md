@@ -10,15 +10,38 @@ sidebar:
 領域が生まれます。そこで問題になるのは、フレームワーク側に別のレジストリを増やさずに
 どう分割するかです。
 
-## 生成が見つけるもの
+## 生成が読むもの
 
-`pw generate` はプロジェクトツリー全体を走査し、`.go`、`.pw.html`、`.pw.sql` の
-**いずれかを含むすべてのディレクトリ**に対して生成を行います。`.git`、`vendor`、
-`node_modules`、`.devbox` は除外されます。
+`pw generate` の範囲は用途ごとです。生成されるコードの種類ごとに、読んでよい
+ディレクトリを明示し、それ以外は読みません。
 
-この探索規則がほとんどの作業を引き受けます。パッケージの追加とはディレクトリを
-作ることであり、更新すべきパッケージレジストリはなく、`popcornwave.toml` にも
-ツリーを列挙しません。
+```toml
+[generate]
+handlers = ["handlers"]
+templates = ["handlers", "templates"]
+queries = ["queries"]
+config = ["cmd/myapp"]
+```
+
+`handlers` が 2 回現れるのは意図的です。ページテンプレートはそれを描画するハンドラの
+隣に置くので、このディレクトリは両方の用途を担います。こう分けることで、config の
+用途だけが `cmd/myapp` に届き、handler の用途はそこを走査しません。各用途が何を読み
+何を生成するかは [`pw generate`](/ja/pw/project/generate/) を参照してください。
+
+どの用途にも既定値はありません。キーの書き忘れはエラーで、その用途が何も生成しない
+ことは `[]` で表します。生成が何を読むのかは、走査規則から推測するものではなく
+1 行読めば分かるものです。
+
+列挙したディレクトリの中で入れ子にするのは自由です。`webroot/admin/queries` は
+`webroot` のエントリに含まれます。編集が必要になるのは、**トップレベル**のソース
+ディレクトリを増やしたときです。
+
+自分の用途の外にあるソースはビルドを失敗させず、報告してスキップします。意図して
+置いたサンプルやフィクスチャがコードの隣にあっても構わないためです。
+
+```
+pw: samples/home.pw.html is outside generate.templates and is not generated from; list its directory to include it
+```
 
 ## 大きめのレイアウト
 
@@ -152,9 +175,17 @@ func main() {
 [project]
 name = "myapp"
 main = "./cmd/myapp"
+toolchain = "tinygo"
 
-[dev]
-extra_watch = []
+[generate]
+handlers = ["handlers"]
+templates = ["handlers", "templates"]
+queries = ["queries"]
+config = ["cmd/myapp"]
+
+[dev.watch]
+includes = []
+excludes = []
 
 [migration]
 dir = "migrations"
@@ -171,11 +202,24 @@ minify = true
 | --- | --- | --- |
 | `project.name` | — | 必須 |
 | `project.main` | — | 必須。`pw build` と `pw dev` がビルドする main パッケージ |
-| `dev.extra_watch` | `[]` | `pw dev` が追加で監視する相対 glob パターン |
+| `project.toolchain` | `tinygo` | スキャフォールド時に選んだコンパイラ。[pw init](/ja/pw/project/init/#ツールチェインを変更する) を参照 |
+| `generate.handlers` | — | 必須。ルートとバインディングのために読むディレクトリ |
+| `generate.templates` | — | 必須。`.pw.html` のために読むディレクトリ |
+| `generate.queries` | — | 必須。`.pw.sql` のために読むディレクトリ |
+| `generate.config` | — | 必須。設定登録のために読むディレクトリ |
+| `dev.watch.includes` | `[]` | `pw dev` が追加で監視する相対 glob パターン |
+| `dev.watch.excludes` | `[]` | `pw dev` が走査時にスキップするサブツリー |
 | `migration.dir` | `migrations` | プロジェクトからの相対パス |
 | `migration.auto` | `true` | `pw dev` 起動時に未適用のマイグレーションを適用する |
 | `assets.tailwind.*` | 無効 | [スタイリング](/ja/guides/styling/)を参照 |
 
-上のレイアウトへ拡張しても、**このファイルを変更する必要はありません**。成長に伴って
-変更する可能性が高いのは、`pw dev` が既定では見つけない生成・編集対象を加える
-`dev.extra_watch` と、マイグレーションを自分で管理する場合の `migration.auto` です。
+上のレイアウトへ拡張するときに必要な編集は 1 か所です。`handlers` と `templates` の
+用途で `handlers` を `webroot` に置き換えます。その下に入れ子になったエリアは自動的に
+含まれます。それ以外で成長に伴って変更する可能性が高いのは、走査が見つけられない
+編集対象を加える `dev.watch.includes`、大きな依存ツリーが走査をループ中で最も遅い
+ステップにしてしまうときの `dev.watch.excludes`、そしてマイグレーションを自分で
+管理する場合の `migration.auto` です。
+
+`pw dev` は生成よりも意図的に広く監視します。どの用途も生成に使わないファイルを
+含め、Go のソースはすべて再ビルドの入力だからです。だからこそ範囲は includes で
+宣言するのではなく excludes で削ります。

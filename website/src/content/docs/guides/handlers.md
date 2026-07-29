@@ -142,10 +142,8 @@ interpreted per request.
 | Rule | Applies to | Example |
 | --- | --- | --- |
 | `required` | any | rejects empty strings, missing values, empty files |
-| `default=value` | scalars | applied when the value is absent |
 | `min` / `max` | numbers | `check:"min=1,max=100"` |
 | `minlen` / `maxlen` / `len` | strings | `check:"maxlen=40"` |
-| `enum=a\|b\|c` | scalars | `check:"enum=asc\|desc"` |
 | `pattern=...` | strings | regular expression |
 | `email` | strings | RFC format |
 | `uuid` | strings | UUID format |
@@ -155,12 +153,36 @@ interpreted per request.
 
 Separate rules with commas. If a `pattern` contains a comma, put it last.
 
+### Defaults and enumerations
+
+Two constraints are tags of their own rather than `check` rules:
+
+| Tag | Applies to | Example |
+| --- | --- | --- |
+| `default:"value"` | scalars | applied when the value is absent |
+| `enum:"a,b,c"` | scalars | `enum:"asc,desc"` |
+
+`default` is the tag configuration structs already use, so it means the same
+thing on both sides of the framework. `enum` separates with a comma, which it
+could not do inside `check` where the comma already separates rules, and it
+trims the space around each value.
+
 ```go
 type listInput struct {
 	Page int    `query:"page" check:"min=1" default:"1"`
-	Sort string `query:"sort" check:"enum=asc|desc" default:"asc"`
+	Sort string `query:"sort" enum:"asc,desc" default:"asc"`
 }
 ```
+
+Writing either one inside `check` is an error, and the message names the tag to
+use instead:
+
+```
+check: enum is not a check rule; use the struct tag enum:"asc,desc" instead
+```
+
+The cost of the comma is that an enum value cannot contain one. A set that needs
+such a member wants a validating type rather than a tag.
 
 A failed check makes `pw.Parse` return an error carrying the offending field.
 Passing it to `pw.WriteProblem` produces a 400 with field-level detail — see

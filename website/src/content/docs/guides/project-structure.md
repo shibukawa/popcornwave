@@ -10,15 +10,39 @@ layout is easy to understand, but an application eventually develops separate
 areas with separate owners. The question is how to split them without creating
 a second framework-level registry.
 
-## What generation discovers
+## What generation reads
 
-`pw generate` walks the whole project tree and generates into **every directory
-that contains** a `.go`, `.pw.html`, or `.pw.sql` file — skipping `.git`,
-`vendor`, `node_modules`, and `.devbox`.
+`pw generate` is scoped per purpose: each kind of generated code names the
+directories it may come from, and reads nothing else.
 
-That discovery rule does most of the work. Adding a package means creating a
-directory; there is no package registry to update, and `popcornwave.toml` does
-not enumerate the tree.
+```toml
+[generate]
+handlers = ["handlers"]
+templates = ["handlers", "templates"]
+queries = ["queries"]
+config = ["cmd/myapp"]
+```
+
+`handlers` appears twice on purpose — a page template lives beside the handler
+that renders it, so that directory serves both. Splitting the scope this way is
+what lets the config purpose reach `cmd/myapp` without the handler purpose
+scanning it too. See [`pw generate`](/pw/project/generate/) for what each
+purpose reads and emits.
+
+No purpose has a default: a missing key is an error, and `[]` is how a project
+says the purpose generates nothing. What generation reads is a line you can
+read rather than a walk you have to reason about.
+
+Nesting inside a listed directory costs nothing — `webroot/admin/queries` is
+already covered by a `webroot` entry. Adding a new **top-level** source
+directory is the case that needs an edit here.
+
+A source outside the purpose that owns it is reported and skipped rather than
+failing the build, so deliberate samples and fixtures can live beside your code:
+
+```
+pw: samples/home.pw.html is outside generate.templates and is not generated from; list its directory to include it
+```
 
 ## A larger layout
 
@@ -154,9 +178,17 @@ an error rather than a warning.
 [project]
 name = "myapp"
 main = "./cmd/myapp"
+toolchain = "tinygo"
 
-[dev]
-extra_watch = []
+[generate]
+handlers = ["handlers"]
+templates = ["handlers", "templates"]
+queries = ["queries"]
+config = ["cmd/myapp"]
+
+[dev.watch]
+includes = []
+excludes = []
 
 [migration]
 dir = "migrations"
@@ -173,12 +205,25 @@ minify = true
 | --- | --- | --- |
 | `project.name` | — | required |
 | `project.main` | — | required; the main package `pw build` and `pw dev` build |
-| `dev.extra_watch` | `[]` | extra relative glob patterns for `pw dev` |
+| `project.toolchain` | `tinygo` | the compiler the project was scaffolded for; see [pw init](/pw/project/init/#changing-the-toolchain) |
+| `generate.handlers` | — | required; directories read for routes and binding |
+| `generate.templates` | — | required; directories read for `.pw.html` |
+| `generate.queries` | — | required; directories read for `.pw.sql` |
+| `generate.config` | — | required; directories read for config registration |
+| `dev.watch.includes` | `[]` | extra relative glob patterns for `pw dev` |
+| `dev.watch.excludes` | `[]` | subtrees `pw dev` skips while walking |
 | `migration.dir` | `migrations` | migration directory, relative to the project |
 | `migration.auto` | `true` | apply pending migrations when `pw dev` starts |
 | `assets.tailwind.*` | disabled | see [Styling](/guides/styling/) |
 
-The larger layout requires **no change to this file**. As the application grows,
-the keys most likely to change are `dev.extra_watch`, for generated or edited
-files that `pw dev` would otherwise miss, and `migration.auto`, when migrations
-should run under your own control.
+The larger layout above needs one edit: `webroot` replaces `handlers` in the
+`handlers` and `templates` purposes, since the areas nested inside it come along
+for free. Otherwise the keys most likely to change as the application grows are
+`dev.watch.includes`, for edited files the walk would otherwise miss,
+`dev.watch.excludes`, when a large dependency tree makes the walk the slowest
+step of the loop, and `migration.auto`, when migrations should run under your
+own control.
+
+`pw dev` deliberately watches wider than generation: any Go source is a rebuild
+input, including files no purpose generates from. That is why its scope is
+trimmed with excludes rather than declared with includes.

@@ -13,7 +13,9 @@ schema:
     main: ./cmd/myapp
     toolchain: tinygo or go, defaulting to tinygo
   dev:
-    extra_watch: []
+    watch:
+      includes: []
+      excludes: []
     idp:
       enabled: false
       config: devidp.toml
@@ -22,6 +24,11 @@ schema:
       enabled: true
       port: 0 for an automatically reserved loopback port
       max: 0 for the system:localotelviewer retention default
+  generate:
+    handlers: [handlers] as scaffolded, per decision:explicit-generation-sources
+    templates: [handlers, templates] as scaffolded, because a page template sits beside its handler
+    queries: [queries] as scaffolded
+    config: [cmd/myapp] as scaffolded
   migration:
     dir: migrations
     auto: true for api:cli-dev only
@@ -37,11 +44,14 @@ optional_extensions:
   - build tags and targets
   - build output location
 rules:
-  - api:cli-generate always discovers all Go, .pw.html, and .pw.sql sources
-  - api:cli-dev always watches Go, .pw.html, .pw.sql, popcornwave.toml, and policy:config-file-resolution project-local files
+  - api:cli-generate reads each source kind only under the generate purpose that owns it, and warns about a .pw.html or .pw.sql outside its purpose
+  - every generate purpose key is required; an empty list states that the purpose generates nothing
+  - a generate entry is relative, names an existing directory, and is neither duplicated nor nested inside another entry of the same purpose
+  - one generate.templates entry holds the requirement:nested-html-templates document shell, and a second one is an error
+  - api:cli-dev regenerates from the generate purposes but watches per decision:developer-loop-watch-scope
+  - dev.watch.includes adds relative files or glob patterns, and dev.watch.excludes skips directory subtrees
   - project.toolchain records the compiler api:cli-init scaffolded for and rejects any other value
   - a missing project.toolchain means tinygo, because every project scaffolded before the key used api:serve-mux
-  - dev.extra_watch adds relative files or glob patterns
   - migration.dir locates data:migration-source and is a tooling path, not a runtime database value
   - migration.auto only enables the api:cli-dev apply step and never enables application startup apply
   - dev.idp only affects api:cli-dev and locates data:devidp-config
