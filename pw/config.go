@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"log/slog"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -134,14 +133,46 @@ type SessionRDBConfig struct {
 	Table  string
 }
 
-// ObservabilityConfig controls runtime logging and service identity.
+// ObservabilityConfig controls runtime logging, tracing, and service identity.
 type ObservabilityConfig struct {
+	// MinimumLevel is the severity floor: trace, debug, info, warn, error, or
+	// off. Records below it cost one comparison and nothing else.
 	MinimumLevel string
+	// StdoutFormat selects the terminal encoding: json or plaintext.
+	StdoutFormat string
 	ServiceName  string
+	// ResourceAttributes are extra key=value identifiers reported to the
+	// collector alongside the service name.
+	ResourceAttributes []string
 	// BootLog selects the startup summary format: auto, tree, record, or off.
 	BootLog string
 	// Query configures the development query diagnostics.
 	Query QueryLogConfig
+	// Otel configures OpenTelemetry export. It is also enabled by the standard
+	// OTEL_EXPORTER_OTLP_ENDPOINT environment variable, which is how `pw dev`
+	// points an application at its local viewer without any configuration.
+	Otel OtelExportConfig
+}
+
+// OtelExportConfig configures OTLP/HTTP export of traces and logs.
+type OtelExportConfig struct {
+	// Enabled turns export on without naming an endpoint, for the case where
+	// the endpoint comes from the environment.
+	Enabled bool
+	// Endpoint is the OTLP/HTTP base URL. /v1/traces and /v1/logs are appended.
+	Endpoint string
+	// Headers is a comma-separated key=value list, the same form the standard
+	// OTEL_EXPORTER_OTLP_HEADERS variable uses. Values are never logged.
+	Headers string
+	// RequestTimeout bounds one export request.
+	RequestTimeout time.Duration
+	// QueueSize bounds records held in memory; a full queue drops rather than
+	// blocking the request goroutine.
+	QueueSize int
+	// MaxExportSize bounds one exported batch.
+	MaxExportSize int
+	// FlushInterval is how often a partial batch is sent.
+	FlushInterval time.Duration
 }
 
 // QueryLogConfig controls per-statement query logging, the slow-statement
@@ -329,7 +360,7 @@ func registeredConfig[T any]() (T, bool) {
 	return *ptr, true
 }
 
-func runtimeResources(logger *slog.Logger) pwruntime.Resources {
+func runtimeResources(backend *pwruntime.LogBackend) pwruntime.Resources {
 	// Resolved before the lock because reading a registered binding takes the
 	// same read lock, and a waiting writer would deadlock the reacquisition.
 	query := resolveQueryDiagnostics(Config[ObservabilityConfig](nil), Env())
@@ -344,7 +375,7 @@ func runtimeResources(logger *slog.Logger) pwruntime.Resources {
 	}
 	return pwruntime.Resources{
 		Configs:  configs,
-		Logger:   logger,
+		Log:      backend,
 		DB:       configState.db,
 		DBDriver: configState.dbDriver,
 		Query:    query,
@@ -766,7 +797,13 @@ func registerObservabilityConfig() {
 		TypeName: typeName,
 		Prefix:   "observability",
 		KnownKeys: []string{
-			"observability.minimum_level", "observability.service_name", "observability.boot_log",
+			"observability.minimum_level", "observability.stdout_format",
+			"observability.service_name", "observability.resource_attributes",
+			"observability.boot_log",
+			"observability.otel.enabled", "observability.otel.endpoint",
+			"observability.otel.headers", "observability.otel.request_timeout",
+			"observability.otel.queue_size", "observability.otel.max_export_size",
+			"observability.otel.flush_interval",
 			"observability.query.enabled", "observability.query.level",
 			"observability.query.slow_threshold", "observability.query.slow_level",
 			"observability.query.bind_values", "observability.query.explain",
@@ -775,7 +812,15 @@ func registerObservabilityConfig() {
 		},
 		Defaults: map[string]string{
 			"observability.minimum_level": "info", "observability.service_name": "",
+			"observability.stdout_format":          StdoutFormatJSON,
 			"observability.boot_log":               BootLogAuto,
+			"observability.otel.enabled":           "false",
+			"observability.otel.endpoint":          "",
+			"observability.otel.headers":           "",
+			"observability.otel.request_timeout":   defaultOtelRequestTimeout.String(),
+			"observability.otel.queue_size":        strconv.Itoa(defaultOtelQueueSize),
+			"observability.otel.max_export_size":   strconv.Itoa(defaultOtelMaxExportSize),
+			"observability.otel.flush_interval":    defaultOtelFlushInterval.String(),
 			"observability.query.enabled":          QueryToggleAuto,
 			"observability.query.level":            "info",
 			"observability.query.slow_threshold":   defaultQuerySlowThreshold.String(),
@@ -788,8 +833,17 @@ func registerObservabilityConfig() {
 		},
 		FlagMetas: []cliparser.FieldMeta{
 			{Prefix: "observability", Key: "minimum_level"},
+			{Prefix: "observability", Key: "stdout_format"},
 			{Prefix: "observability", Key: "service_name", Env: "OTEL_SERVICE_NAME"},
+			{Prefix: "observability", Key: "resource_attributes", Kind: cliparser.KindArray, Help: "extra key=value resource identifiers"},
 			{Prefix: "observability", Key: "boot_log"},
+			{Prefix: "observability.otel", Key: "enabled", Kind: cliparser.KindBool},
+			{Prefix: "observability.otel", Key: "endpoint", Env: "OTEL_EXPORTER_OTLP_ENDPOINT"},
+			{Prefix: "observability.otel", Key: "headers", Env: "OTEL_EXPORTER_OTLP_HEADERS"},
+			{Prefix: "observability.otel", Key: "request_timeout"},
+			{Prefix: "observability.otel", Key: "queue_size"},
+			{Prefix: "observability.otel", Key: "max_export_size"},
+			{Prefix: "observability.otel", Key: "flush_interval"},
 			{Prefix: "observability.query", Key: "enabled"},
 			{Prefix: "observability.query", Key: "level"},
 			{Prefix: "observability.query", Key: "slow_threshold"},
@@ -803,8 +857,13 @@ func registerObservabilityConfig() {
 		Apply: func(dst any, overlay *configbind.Overlay) error {
 			p := dst.(*ObservabilityConfig)
 			p.MinimumLevel, _ = overlay.GetString("observability.minimum_level")
+			p.StdoutFormat, _ = overlay.GetString("observability.stdout_format")
 			p.ServiceName, _ = overlay.GetString("observability.service_name")
+			p.ResourceAttributes, _ = overlay.GetMulti("observability.resource_attributes")
 			p.BootLog, _ = overlay.GetString("observability.boot_log")
+			p.Otel.Enabled = configBool(overlay, "observability.otel.enabled")
+			p.Otel.Endpoint, _ = overlay.GetString("observability.otel.endpoint")
+			p.Otel.Headers, _ = overlay.GetString("observability.otel.headers")
 			p.Query.Enabled = valueOf(overlay, "observability.query.enabled")
 			p.Query.Level = valueOf(overlay, "observability.query.level")
 			p.Query.SlowLevel = valueOf(overlay, "observability.query.slow_level")
@@ -821,12 +880,37 @@ func registerObservabilityConfig() {
 				return err
 			}
 			p.Query.MaxValueLength, err = parseConfigInt(overlay, "observability.query.max_value_length")
+			if err != nil {
+				return err
+			}
+			p.Otel.RequestTimeout, err = parseConfigDuration(overlay, "observability.otel.request_timeout")
+			if err != nil {
+				return err
+			}
+			p.Otel.FlushInterval, err = parseConfigDuration(overlay, "observability.otel.flush_interval")
+			if err != nil {
+				return err
+			}
+			p.Otel.QueueSize, err = parseConfigInt(overlay, "observability.otel.queue_size")
+			if err != nil {
+				return err
+			}
+			p.Otel.MaxExportSize, err = parseConfigInt(overlay, "observability.otel.max_export_size")
 			return err
 		},
 		Scaffold: []configbind.ScaffoldField{
-			{Key: "minimum_level", Kind: configbind.ScaffoldString, Default: "info"},
+			{Key: "minimum_level", Kind: configbind.ScaffoldString, Default: "info", Help: "severity floor: trace, debug, info, warn, error, or off"},
+			{Key: "stdout_format", Kind: configbind.ScaffoldString, Default: StdoutFormatJSON, Help: "terminal record encoding: json or plaintext"},
 			{Key: "service_name", Kind: configbind.ScaffoldString, Default: "", Env: "OTEL_SERVICE_NAME"},
+			{Key: "resource_attributes", Kind: configbind.ScaffoldStringSlice, Help: "extra key=value identifiers reported with the service name"},
 			{Key: "boot_log", Kind: configbind.ScaffoldString, Default: BootLogAuto, Help: "startup summary: auto, tree, record, or off"},
+			{Key: "otel.enabled", Kind: configbind.ScaffoldBool, Default: "false", Help: "export traces and logs; an endpoint in the environment also enables it"},
+			{Key: "otel.endpoint", Kind: configbind.ScaffoldString, Default: "", Env: "OTEL_EXPORTER_OTLP_ENDPOINT", Help: "OTLP/HTTP base URL; /v1/traces and /v1/logs are appended"},
+			{Key: "otel.headers", Kind: configbind.ScaffoldString, Default: "", Env: "OTEL_EXPORTER_OTLP_HEADERS", Help: "comma-separated key=value list; values are never logged"},
+			{Key: "otel.request_timeout", Kind: configbind.ScaffoldString, Default: defaultOtelRequestTimeout.String(), Help: "bounds one export request"},
+			{Key: "otel.queue_size", Kind: configbind.ScaffoldInt, Default: strconv.Itoa(defaultOtelQueueSize), Help: "records held in memory; a full queue drops rather than blocking"},
+			{Key: "otel.max_export_size", Kind: configbind.ScaffoldInt, Default: strconv.Itoa(defaultOtelMaxExportSize), Help: "bounds one exported batch"},
+			{Key: "otel.flush_interval", Kind: configbind.ScaffoldString, Default: defaultOtelFlushInterval.String(), Help: "how often a partial batch is sent"},
 			{Key: "query.enabled", Kind: configbind.ScaffoldString, Default: QueryToggleAuto, Help: "log every generated SQL statement: auto, on, or off; auto is on in dev"},
 			{Key: "query.level", Kind: configbind.ScaffoldString, Default: "info"},
 			{Key: "query.slow_threshold", Kind: configbind.ScaffoldString, Default: defaultQuerySlowThreshold.String(), Help: "duration above which a statement is explained; zero disables it"},

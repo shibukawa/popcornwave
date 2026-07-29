@@ -27,7 +27,7 @@ func TestAPIDocEndpointServesConfiguredUI(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.ui, func(t *testing.T) {
 			server, security, middleware := apiDocConfigs(test.ui)
-			handler, err := buildRuntimeHandler(http.NotFoundHandler(), server, security, middleware, pwruntime.Resources{})
+			handler, err := buildRuntimeHandler(http.NotFoundHandler(), server, security, middleware, pwruntime.Resources{}, false)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -62,7 +62,7 @@ func TestAPIDocEndpointServesConfiguredUI(t *testing.T) {
 
 func TestAPIDocEndpointDisabledByDefault(t *testing.T) {
 	server, security, middleware := apiDocConfigs("")
-	handler, err := buildRuntimeHandler(http.NotFoundHandler(), server, security, middleware, pwruntime.Resources{})
+	handler, err := buildRuntimeHandler(http.NotFoundHandler(), server, security, middleware, pwruntime.Resources{}, false)
 	if err != nil {
 		t.Fatal(err)
 	}

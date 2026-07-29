@@ -12,13 +12,16 @@ surface:
   - pw.DB(context.Context) returns *sql.DB and presence
   - generated SQL retrieves the active database or transaction executor
   - session accessors return validated typed session state
-  - tracing accessors return the current request span
+  - pw.StartSpan and pw.StartSpanKind open a child of the active span
+  - pw.TraceID, pw.SpanID, and pw.Traced report the current correlation
   - security accessors expose validated request security state
 rules:
   - accessors accept nil or missing values without unchecked type assertion panic
   - optional resources report absence explicitly
   - config lookup uses the registered generated Go type identity
-  - logger lookup never returns nil
+  - logger lookup never returns nil, and the zero logger discards rather than panicking
+  - the request root span is opened by the framework, so a handler starts only spans describing its own work
+  - span creation is skipped entirely when nothing exports, because an unexported span is pure cost
   - authorization checks consume authenticated state, never unverified request credentials
   - CSRF token access never exposes the session secret and token values must not be logged
   - generated SQL context functions select the active executor

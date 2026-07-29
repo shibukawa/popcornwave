@@ -2,11 +2,11 @@ package petitweb
 
 import (
 	"fmt"
-	"log/slog"
 	"net/http"
 	"strconv"
 	"strings"
 
+	"github.com/shibukawa/popcornwave/pwruntime"
 	httpbind "github.com/shibukawa/tinybind-go"
 )
 
@@ -26,7 +26,8 @@ type ErrorRenderer func(http.ResponseWriter, *http.Request, ErrorPage) error
 // ErrorHandler negotiates safe HTML and RFC 9457 error responses.
 type ErrorHandler struct {
 	Renderer ErrorRenderer
-	Logger   *slog.Logger
+	// Logger is optional; the zero value falls back to the request logger.
+	Logger Logger
 }
 
 // WriteError writes err exactly once. Internal error causes are never exposed.
@@ -41,10 +42,10 @@ func (h ErrorHandler) WriteError(w http.ResponseWriter, r *http.Request, err err
 			return
 		} else {
 			logger := h.Logger
-			if logger == nil {
-				logger = slog.Default()
+			if !logger.Enabled(pwruntime.LevelError) {
+				logger = ReadLogger(r.Context())
 			}
-			logger.ErrorContext(r.Context(), "petitweb error renderer failed", "error", renderErr)
+			logger.Log(r.Context(), pwruntime.LevelError, "petitweb error renderer failed", pwruntime.Err(renderErr))
 			if guard.committed {
 				return
 			}

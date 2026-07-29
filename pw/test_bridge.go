@@ -87,13 +87,13 @@ func prepareTestRuntime(handler http.Handler, configs pwtestbridge.Configs, opti
 	}
 	resources := pwruntime.Resources{
 		Configs:  map[reflect.Type]any(configs),
-		Logger:   slog.Default(),
+		Log:      pwruntime.NewLogBackend(pwruntime.LevelInfo, pwruntime.NewSlogSink(slog.Default().Handler())),
 		DB:       db,
 		DBDriver: driver,
 		TxScope:  scope,
 		Query:    resolveQueryDiagnostics(testConfigValue[ObservabilityConfig](configs), Env()),
 	}
-	wrapped, err := buildRuntimeHandler(handler, server, security, middleware, resources)
+	wrapped, err := buildRuntimeHandler(handler, server, security, middleware, resources, false)
 	if err != nil {
 		if dbClose != nil {
 			_ = dbClose()

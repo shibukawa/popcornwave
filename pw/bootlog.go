@@ -1,7 +1,6 @@
 package pw
 
 import (
-	"log/slog"
 	"os"
 	"sort"
 	"strings"
@@ -101,7 +100,7 @@ func emitBootReport(listening string) {
 	case BootLogTree:
 		_, _ = os.Stderr.WriteString(renderBootTree(report, listening, bootStyleFor(os.Stderr)))
 	default:
-		slog.Info(bootMessage, bootRecordAttrs(report, listening)...)
+		processLogger().Info(bootMessage, bootRecordAttrs(report, listening)...)
 	}
 }
 
@@ -292,43 +291,44 @@ func bootSourceTag(source string) string {
 	}
 }
 
-// bootRecordAttrs renders the same facts as one structured record: nested
-// groups for values, a flat group naming every non-default source.
-func bootRecordAttrs(report bootReport, listening string) []any {
-	attrs := []any{
-		slog.String("environment", report.environment),
-		slog.Time("started_at", report.startedAt),
+// bootRecordAttrs renders the same facts as one structured record.
+//
+// Nesting is expressed with dotted keys rather than groups, because a record
+// attribute is a scalar: the same record has to survive OTLP export, where a
+// nested group has no representation, and "config.server.port" reads the same
+// in a terminal as a group would.
+func bootRecordAttrs(report bootReport, listening string) []Attribute {
+	attrs := []Attribute{
+		String("environment", report.environment),
+		String("started_at", report.startedAt.Format(time.RFC3339Nano)),
 	}
 	if version := frameworkVersion(); version != "" {
-		attrs = append(attrs, slog.String("version", version))
+		attrs = append(attrs, String("version", version))
 	}
 	if report.configFound && report.configPath != "" {
-		attrs = append(attrs, slog.String("config_file", report.configPath))
+		attrs = append(attrs, String("config_file", report.configPath))
 	}
 	if listening != "" {
-		attrs = append(attrs, slog.String("listening", listening))
+		attrs = append(attrs, String("listening", listening))
 	}
-	attrs = append(attrs, slog.Group("config", bootConfigAttrs(buildBootTree(report.entries))...))
-	sources := make([]any, 0, len(report.entries))
+	attrs = append(attrs, bootConfigAttrs("config", buildBootTree(report.entries))...)
 	for _, entry := range report.entries {
 		if tag := bootSourceTag(entry.source); tag != "" {
-			sources = append(sources, slog.String(entry.key, tag))
+			attrs = append(attrs, String("config_source."+entry.key, tag))
 		}
-	}
-	if len(sources) > 0 {
-		attrs = append(attrs, slog.Group("config_source", sources...))
 	}
 	return attrs
 }
 
-func bootConfigAttrs(node *bootNode) []any {
-	attrs := make([]any, 0, len(node.children))
+func bootConfigAttrs(prefix string, node *bootNode) []Attribute {
+	attrs := make([]Attribute, 0, len(node.children))
 	for _, child := range node.children {
+		key := prefix + "." + child.name
 		if child.entry != nil {
-			attrs = append(attrs, slog.String(child.name, child.entry.value))
+			attrs = append(attrs, String(key, child.entry.value))
 			continue
 		}
-		attrs = append(attrs, slog.Group(child.name, bootConfigAttrs(child)...))
+		attrs = append(attrs, bootConfigAttrs(key, child)...)
 	}
 	return attrs
 }

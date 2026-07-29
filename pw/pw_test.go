@@ -56,7 +56,7 @@ func TestMiddlewaresParseAndInjectConfiguration(t *testing.T) {
 		if config.Port != 9090 {
 			t.Errorf("Port = %d", config.Port)
 		}
-		if Logger(r.Context()) == nil {
+		if !Logger(r.Context()).Enabled(LevelError) {
 			t.Error("nil logger")
 		}
 		w.WriteHeader(http.StatusNoContent)

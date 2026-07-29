@@ -1,6 +1,7 @@
 package petitweb_test
 
 import (
+	"context"
 	"crypto/tls"
 	"io"
 	"net/http"
@@ -9,17 +10,18 @@ import (
 	"time"
 
 	petitweb "github.com/shibukawa/popcornwave"
+	"github.com/shibukawa/popcornwave/pwruntime"
 )
 
 func TestRequestIDAndContextAccessors(t *testing.T) {
-	handler := petitweb.RequestID("", nil)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	sink := pwruntime.NewCaptureSink()
+	base := pwruntime.NewLogger(context.Background(), pwruntime.NewLogBackend(pwruntime.LevelInfo, sink))
+	handler := petitweb.RequestID("", base)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		id, ok := petitweb.ReadRequestID(r.Context())
 		if !ok || id != "client-id" {
 			t.Fatalf("request id = %q, %v", id, ok)
 		}
-		if petitweb.ReadLogger(r.Context()) == nil {
-			t.Fatal("nil logger")
-		}
+		petitweb.ReadLogger(r.Context()).Info("handled")
 		w.WriteHeader(http.StatusNoContent)
 	}))
 	recorder := httptest.NewRecorder()
@@ -29,8 +31,13 @@ func TestRequestIDAndContextAccessors(t *testing.T) {
 	if recorder.Header().Get("X-Request-ID") != "client-id" {
 		t.Fatalf("response request ID = %q", recorder.Header().Get("X-Request-ID"))
 	}
-	if logger := petitweb.ReadLogger(nil); logger == nil {
-		t.Fatal("nil fallback logger")
+	records := sink.Records()
+	if len(records) != 1 || records[0].Text("request_id") != "client-id" {
+		t.Fatalf("the request logger did not carry the correlation ID: %#v", records)
+	}
+	// A context that never reached the middleware still yields a usable logger.
+	if logger := petitweb.ReadLogger(nil); !logger.Enabled(petitweb.LevelError) {
+		t.Fatal("fallback logger cannot be called")
 	}
 }
 

@@ -281,12 +281,12 @@ func (scope *TransactionScope) rollbackTo(ctx context.Context, tx *sql.Tx, name 
 	}
 	if _, err := tx.ExecContext(rollbackCtx, "ROLLBACK TO SAVEPOINT "+name); err != nil {
 		scope.markFailed()
-		Logger(ctx).ErrorContext(ctx, "rollback to savepoint failed", "savepoint", name, "error", err)
+		ReadLogger(ctx).Log(ctx, LevelError, "rollback to savepoint failed", String("savepoint", name), String("error", err.Error()))
 		return
 	}
 	if _, err := tx.ExecContext(rollbackCtx, "RELEASE SAVEPOINT "+name); err != nil {
 		scope.markFailed()
-		Logger(ctx).ErrorContext(ctx, "release savepoint failed", "savepoint", name, "error", err)
+		ReadLogger(ctx).Log(ctx, LevelError, "release savepoint failed", String("savepoint", name), String("error", err.Error()))
 	}
 }
 
