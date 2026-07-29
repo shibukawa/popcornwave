@@ -189,7 +189,7 @@ type MiddlewareConfig struct {
 // per pool. Declaring both is a configuration error rather than a merge.
 type RDBConfig struct {
 	Enabled         bool          `default:"false"`
-	DSN             string        `secret:"mask"`
+	DSN             string        `secret:"mask" dependon:".enabled"`
 	ConnectTimeout  time.Duration `default:"5s" dependon:".enabled"`
 	MaxOpenConns    int           `default:"0" dependon:".enabled"`
 	MaxIdleConns    int           `default:"0" dependon:".enabled"`

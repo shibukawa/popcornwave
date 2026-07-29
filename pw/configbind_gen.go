@@ -762,6 +762,7 @@ func registerMiddlewareConfigDefinition4() {
 			"middleware.rdb.conn_max_idle_time": "0s",
 		},
 		DependsOn: map[string][]string{
+			"middleware.rdb.dsn":                {"middleware.rdb.enabled"},
 			"middleware.rdb.connect_timeout":    {"middleware.rdb.enabled"},
 			"middleware.rdb.max_open_conns":     {"middleware.rdb.enabled"},
 			"middleware.rdb.max_idle_conns":     {"middleware.rdb.enabled"},
