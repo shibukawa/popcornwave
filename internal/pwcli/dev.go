@@ -60,6 +60,18 @@ func runDev(ctx context.Context, args []string, stdout, stderr io.Writer) error 
 		}
 		defer idp.close()
 	}
+	// The viewer starts before the application and outlives every rebuild, so
+	// telemetry captured before a restart stays readable afterwards. A viewer
+	// that fails to listen is not worth ending the loop over: the application
+	// still runs, it is only unobserved.
+	var telemetry *devTelemetryViewer
+	if config.Otel.Enabled {
+		telemetry, err = startDevTelemetryViewer(config, stdout)
+		if err != nil {
+			fmt.Fprintln(stderr, "pw dev: telemetry viewer:", err)
+		}
+		defer telemetry.close()
+	}
 	rosterState := idp.watchState()
 	state, err := snapshotWatchFiles(root, configuredWatchPaths(root, config.ExtraWatch,
 		append(tailwindWatchPaths(root, config.Tailwind, tailwind == nil),
@@ -67,11 +79,12 @@ func runDev(ctx context.Context, args []string, stdout, stderr io.Writer) error 
 	if err != nil {
 		return err
 	}
-	app, exited, err := startApplication(ctx, root, config.Main, idp, stdout, stderr)
+	app, exited, err := startApplication(ctx, root, config.Main, idp, telemetry, stdout, stderr)
 	if err != nil {
 		return err
 	}
 	defer stopCommand(app)
+	telemetry.monitor(app)
 
 	ticker := time.NewTicker(500 * time.Millisecond)
 	defer ticker.Stop()
@@ -136,18 +149,19 @@ func runDev(ctx context.Context, args []string, stdout, stderr io.Writer) error 
 			state, _ = snapshotWatchFiles(root, configuredWatchPaths(root, config.ExtraWatch,
 				append(tailwindWatchPaths(root, config.Tailwind, tailwind == nil),
 					migrationWatchPaths(root, config.Migration)...))...)
-			app, exited, err = startApplication(ctx, root, config.Main, idp, stdout, stderr)
+			app, exited, err = startApplication(ctx, root, config.Main, idp, telemetry, stdout, stderr)
 			if err != nil {
 				fmt.Fprintln(stderr, "pw dev:", err)
 			}
+			telemetry.monitor(app)
 		}
 	}
 }
 
-func startApplication(ctx context.Context, root, mainPackage string, idp *devIdentityProvider, stdout, stderr io.Writer) (*exec.Cmd, <-chan error, error) {
+func startApplication(ctx context.Context, root, mainPackage string, idp *devIdentityProvider, telemetry *devTelemetryViewer, stdout, stderr io.Writer) (*exec.Cmd, <-chan error, error) {
 	command := exec.CommandContext(ctx, "go", "run", "-tags=pwdev", mainPackage)
 	command.Dir, command.Stdout, command.Stderr, command.Stdin = root, stdout, stderr, os.Stdin
-	command.Env = idp.environ(developmentEnviron())
+	command.Env = telemetry.environ(idp.environ(developmentEnviron()))
 	if err := command.Start(); err != nil {
 		return nil, nil, err
 	}

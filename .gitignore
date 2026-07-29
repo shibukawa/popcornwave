@@ -1,6 +1,11 @@
 # nix build output symlinks
 result
 result-*
+
+# telemetry viewer UI dependencies and incremental state; the build output under
+# web/ is committed
+internal/otelui/webui/node_modules
+internal/otelui/webui/*.tsbuildinfo
 cmd/pw/pw
 cmd/pw/pw.exe
 examples/helloworld/cmd/helloworld/helloworld

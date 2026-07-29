@@ -18,6 +18,10 @@ schema:
       enabled: false
       config: devidp.toml
       port: 0 for an automatically reserved loopback port
+    otel:
+      enabled: true
+      port: 0 for an automatically reserved loopback port
+      max: 0 for the system:localotelviewer retention default
   migration:
     dir: migrations
     auto: true for api:cli-dev only
@@ -43,6 +47,9 @@ rules:
   - dev.idp only affects api:cli-dev and locates data:devidp-config
   - dev.idp.port defaults to an automatically reserved port because api:cli-dev injects the resolved issuer into the application
   - dev.idp.enabled true requires the data:devidp-config file to exist
+  - dev.otel only affects api:cli-dev and configures requirement:dev-telemetry-viewer
+  - dev.otel.port defaults to an automatically reserved port because api:cli-dev injects the resolved endpoint, as it does for dev.idp
+  - dev.otel.max bounds retained records per signal and zero keeps the viewer default
   - relative paths resolve from the config file directory
   - unknown keys are errors
   - command flags override config values

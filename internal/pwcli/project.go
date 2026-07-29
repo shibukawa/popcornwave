@@ -44,12 +44,23 @@ type idpConfig struct {
 	Port    int
 }
 
+// otelConfig selects the telemetry viewer `pw dev` runs beside the application.
+// It is on by default because an observable developer loop is the point of it,
+// and the port defaults to 0 because pw dev injects the resolved endpoint. Max
+// bounds the retained records per signal; zero keeps the viewer default.
+type otelConfig struct {
+	Enabled bool
+	Port    int
+	Max     int
+}
+
 type projectConfig struct {
 	Name       string
 	Main       string
 	Toolchain  string
 	ExtraWatch []string
 	IdP        idpConfig
+	Otel       otelConfig
 	Migration  migrationConfig
 	Tailwind   tailwindConfig
 }
@@ -68,6 +79,7 @@ func loadProjectConfig(root string) (projectConfig, error) {
 		"project.name", "project.main", "project.toolchain",
 		"dev.extra_watch",
 		"dev.idp.enabled", "dev.idp.config", "dev.idp.port",
+		"dev.otel.enabled", "dev.otel.port", "dev.otel.max",
 		"migration.dir", "migration.auto",
 		"assets.tailwind.enabled", "assets.tailwind.input",
 		"assets.tailwind.output", "assets.tailwind.minify",
@@ -136,6 +148,33 @@ func loadProjectConfig(root string) (projectConfig, error) {
 			return projectConfig{}, fmt.Errorf("popcornwave.toml: dev.idp.port must be between 0 and 65535")
 		}
 		config.IdP.Port = int(port)
+	}
+	config.Otel.Enabled = true
+	if value, ok := document.Get("dev.otel.enabled"); ok {
+		config.Otel.Enabled, err = value.AsBool()
+		if err != nil {
+			return projectConfig{}, fmt.Errorf("popcornwave.toml: dev.otel.enabled: %w", err)
+		}
+	}
+	if value, ok := document.Get("dev.otel.port"); ok {
+		port, err := value.AsInt()
+		if err != nil {
+			return projectConfig{}, fmt.Errorf("popcornwave.toml: dev.otel.port: %w", err)
+		}
+		if port < 0 || port > 65535 {
+			return projectConfig{}, fmt.Errorf("popcornwave.toml: dev.otel.port must be between 0 and 65535")
+		}
+		config.Otel.Port = int(port)
+	}
+	if value, ok := document.Get("dev.otel.max"); ok {
+		max, err := value.AsInt()
+		if err != nil {
+			return projectConfig{}, fmt.Errorf("popcornwave.toml: dev.otel.max: %w", err)
+		}
+		if max < 0 {
+			return projectConfig{}, fmt.Errorf("popcornwave.toml: dev.otel.max must not be negative")
+		}
+		config.Otel.Max = int(max)
 	}
 	config.Migration.Dir, err = optionalScalar(document, "migration.dir")
 	if err != nil {
