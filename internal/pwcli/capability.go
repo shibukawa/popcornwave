@@ -21,19 +21,31 @@ const (
 	capabilityRedis    = "redis-valkey"
 	capabilityAuth     = "auth"
 	capabilityTailwind = "tailwind"
+	// capabilityRegistered and capabilityDiscovered are the two routers the one
+	// question of decision:page-router-scaffold-choice selects between, so
+	// either can be installed into a project that started with the other. They
+	// are named after the router rather than after the directory it reads,
+	// because the directory is a data:project-config value.
+	capabilityRegistered = routerRegistered
+	capabilityDiscovered = routerDiscovered
 )
 
 // capabilityOrder lists the catalog in the order the wizard offers it, which
 // puts a capability before the ones that depend on it.
-var capabilityOrder = []string{capabilityDevbox, capabilityDatabase, capabilityRedis, capabilityAuth, capabilityTailwind}
+var capabilityOrder = []string{
+	capabilityRegistered, capabilityDiscovered,
+	capabilityDevbox, capabilityDatabase, capabilityRedis, capabilityAuth, capabilityTailwind,
+}
 
 // capabilitySummary is the one-line description shown beside each choice.
 var capabilitySummary = map[string]string{
-	capabilityDevbox:   "the reproducible development environment and its toolchain",
-	capabilityDatabase: "rdb configuration, the migration directory, and a typed SQL example",
-	capabilityRedis:    "the Valkey development server in devbox.json",
-	capabilityAuth:     "login sessions, the framework tables, and the account resolver",
-	capabilityTailwind: "the pinned Tailwind toolchain and its CSS entry point",
+	capabilityDevbox:     "the reproducible development environment and its toolchain",
+	capabilityDatabase:   "rdb configuration, the migration directory, and a typed SQL example",
+	capabilityRedis:      "the Valkey development server in devbox.json",
+	capabilityAuth:       "login sessions, the framework tables, and the account resolver",
+	capabilityTailwind:   "the pinned Tailwind toolchain and its CSS entry point",
+	capabilityRegistered: "the registered router: a route is a registration written in Go",
+	capabilityDiscovered: "the discovered router: a directory holding a page template is a route",
 }
 
 // capabilityRequires records the capabilities that cannot stand alone.
@@ -196,6 +208,18 @@ func (p projectState) carries(name string) (string, bool, error) {
 		return p.configSectionEvidence("[auth]")
 	case capabilityTailwind:
 		if p.config.Tailwind.Enabled {
+			return "popcornwave.toml", true, nil
+		}
+		return "", false, nil
+	case capabilityDiscovered:
+		// The purpose is the capability: a tree nothing generates from is not
+		// installed, whatever the directory holds.
+		if len(p.config.Generate.Pages) > 0 {
+			return "popcornwave.toml", true, nil
+		}
+		return "", false, nil
+	case capabilityRegistered:
+		if len(p.config.Generate.Handlers) > 0 {
 			return "popcornwave.toml", true, nil
 		}
 		return "", false, nil

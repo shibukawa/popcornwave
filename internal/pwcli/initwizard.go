@@ -33,6 +33,27 @@ func initWizardSteps(defaults initOptions) []wizardStep[initOptions] {
 			},
 		),
 		newChoiceStep(
+			"Router",
+			"Which routers this project starts with. They coexist on one mux, pw add installs "+
+				"the other one later, and the directory each reads is a popcornwave.toml value.",
+			routerCursor(defaults.Router),
+			wizardChoice[initOptions]{
+				name:        "Registered",
+				description: defaultRegisteredDir + "/: routes written in Go, any method, generated OpenAPI",
+				apply:       func(target *initOptions) { target.Router = routerRegistered },
+			},
+			wizardChoice[initOptions]{
+				name:        "Discovered",
+				description: defaultDiscoveredDir + "/: a directory with a page template is a route; for an HTML website",
+				apply:       func(target *initOptions) { target.Router = routerDiscovered },
+			},
+			wizardChoice[initOptions]{
+				name:        "Both",
+				description: "an API in " + defaultRegisteredDir + "/ and a website in " + defaultDiscoveredDir + "/, on one mux",
+				apply:       func(target *initOptions) { target.Router = routerBoth },
+			},
+		),
+		newChoiceStep(
 			"Tailwind CSS",
 			"Wires the pinned Tailwind toolchain into the project and generates public/generated/app.css.",
 			yesNoCursor(defaults.Tailwind),
@@ -218,6 +239,18 @@ func authCursor(mode string) int {
 }
 
 // yesNoCursor maps a boolean default onto a leading yes, trailing no choice list.
+// routerCursor preselects the router answer a shortcut flag already supplied.
+func routerCursor(router string) int {
+	switch effectiveRouter(router) {
+	case routerDiscovered:
+		return 1
+	case routerBoth:
+		return 2
+	default:
+		return 0
+	}
+}
+
 func yesNoCursor(enabled bool) int {
 	if enabled {
 		return 0

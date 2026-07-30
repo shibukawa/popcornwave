@@ -297,6 +297,7 @@ func TestInitWizardCollectsAnswers(t *testing.T) {
 	model = feedWizard(t, model,
 		typeText("demo"), pressKey(tea.KeyEnter), // project name
 		pressKey(tea.KeyDown), pressKey(tea.KeyEnter), // TinyGo: No
+		pressKey(tea.KeyEnter), // Router: keep Registered
 		pressKey(tea.KeyEnter), // Tailwind: keep No
 		pressKey(tea.KeyEnter), // Database: keep Yes
 		pressKey(tea.KeyEnter), // Database engine: keep SQLite
@@ -309,7 +310,7 @@ func TestInitWizardCollectsAnswers(t *testing.T) {
 		t.Fatalf("wizard did not confirm: index = %d", model.index)
 	}
 	options := wizardResult(model, defaultInitOptions())
-	if options != (initOptions{Name: "demo", Devbox: true, Database: true, Engine: engineSQLite, Redis: true, Auth: authNone}) {
+	if options != (initOptions{Name: "demo", Router: routerRegistered, Devbox: true, Database: true, Engine: engineSQLite, Redis: true, Auth: authNone}) {
 		t.Fatalf("options = %#v", options)
 	}
 }
@@ -320,6 +321,7 @@ func TestInitWizardDigitShortcutSelectsTailwind(t *testing.T) {
 	model = feedWizard(t, model,
 		typeText("demo"), pressKey(tea.KeyEnter),
 		typeText("1"),          // TinyGo: Yes
+		typeText("2"),          // Router: discovered pages
 		typeText("1"),          // Tailwind: Yes
 		typeText("1"),          // Database: Yes
 		typeText("1"),          // Database engine: SQLite
@@ -332,17 +334,17 @@ func TestInitWizardDigitShortcutSelectsTailwind(t *testing.T) {
 		t.Fatalf("wizard did not confirm: index = %d", model.index)
 	}
 	options := wizardResult(model, defaultInitOptions())
-	if options != (initOptions{Name: "demo", TinyGo: true, Tailwind: true, Devbox: true, Database: true, Engine: engineSQLite, Redis: true, Auth: authNone}) {
+	if options != (initOptions{Name: "demo", Router: routerDiscovered, TinyGo: true, Tailwind: true, Devbox: true, Database: true, Engine: engineSQLite, Redis: true, Auth: authNone}) {
 		t.Fatalf("options = %#v", options)
 	}
 }
 
 func TestInitWizardSeedsAnswersFromShortcutFlags(t *testing.T) {
 	steps := initWizardSteps(initOptions{
-		Name: "seeded", TinyGo: true, Tailwind: true, Devbox: true,
+		Name: "seeded", Router: routerBoth, TinyGo: true, Tailwind: true, Devbox: true,
 		Database: true, Engine: engineSQLite, Redis: true, Auth: authOIDC, AuthEmulator: true,
 	})
-	want := []string{"seeded", "Yes", "Yes", "Yes", "SQLite", "OIDC", "Local emulator", "Yes", "Yes"}
+	want := []string{"seeded", "Yes", "Both", "Yes", "Yes", "SQLite", "OIDC", "Local emulator", "Yes", "Yes"}
 	if len(steps) != len(want) {
 		t.Fatalf("wizard has %d steps, want %d", len(steps), len(want))
 	}
@@ -401,6 +403,7 @@ func TestInitWizardReviewListsEveryStep(t *testing.T) {
 		pressKey(tea.KeyEnter),
 		pressKey(tea.KeyEnter),
 		pressKey(tea.KeyEnter),
+		pressKey(tea.KeyEnter),
 	)
 	view := model.View()
 	if !strings.Contains(view, "Review") {
@@ -420,9 +423,10 @@ func TestInitWizardReviewListsEveryStep(t *testing.T) {
 // wired-up input handling and result extraction stay covered.
 func TestRunInitWizardOverKeystrokes(t *testing.T) {
 	t.Chdir(t.TempDir())
-	// demo, enter, down, enter (TinyGo: No), enter (Tailwind), enter (database),
-	// enter (engine), enter (auth), enter (devbox), enter (redis), enter (review)
-	keystrokes := "demo\r\x1b[B\r\r\r\r\r\r\r\r"
+	// demo, enter, down, enter (TinyGo: No), enter (router), enter (Tailwind),
+	// enter (database), enter (engine), enter (auth), enter (devbox),
+	// enter (redis), enter (review)
+	keystrokes := "demo\r\x1b[B\r\r\r\r\r\r\r\r\r"
 	options, err := runInitWizard(defaultInitOptions(),
 		tea.WithInput(strings.NewReader(keystrokes)),
 		tea.WithOutput(io.Discard),
@@ -432,7 +436,7 @@ func TestRunInitWizardOverKeystrokes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if options != (initOptions{Name: "demo", Devbox: true, Database: true, Engine: engineSQLite, Redis: true, Auth: authNone}) {
+	if options != (initOptions{Name: "demo", Router: routerRegistered, Devbox: true, Database: true, Engine: engineSQLite, Redis: true, Auth: authNone}) {
 		t.Fatalf("options = %#v", options)
 	}
 }

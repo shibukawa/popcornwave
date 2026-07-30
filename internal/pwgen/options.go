@@ -91,6 +91,12 @@ func Options(sqlDialect string) (generator.Options, error) {
 	if err != nil {
 		return generator.Options{}, err
 	}
+	// Nothing this project generates is an input to what it reads. TinyBind
+	// recognizes its own header and no other, so the Popcorn Wave prefix is
+	// registered here: without it a generated page registry is analyzed as if a
+	// developer had written it, and its page registrations become documented API
+	// routes.
+	options.GeneratedHeaders = []string{GeneratedHeaderPrefix}
 	options.HTMLTemplatePattern = "*.pw.html"
 	options.SQLTemplatePattern = "*.pw.sql"
 	options.SQLDialect = sqlDialect

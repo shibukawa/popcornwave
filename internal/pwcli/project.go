@@ -64,6 +64,10 @@ type generationScope struct {
 	Templates []string
 	Queries   []string
 	Config    []string
+	// Pages lists page tree roots. An entry is a whole tree rather than a
+	// directory of independent sources: one entry is one generation run and one
+	// generated registry.
+	Pages []string
 }
 
 // generatePurposes are the configuration keys of generationScope, in the order
@@ -71,11 +75,16 @@ type generationScope struct {
 var generatePurposes = []struct {
 	key    string
 	target func(*generationScope) *[]string
+	// optional marks a purpose whose absent key means the empty list. Only
+	// generate.pages is one: every project written before page trees existed
+	// has no such key, and none of them has a page tree either.
+	optional bool
 }{
-	{"generate.handlers", func(s *generationScope) *[]string { return &s.Handlers }},
-	{"generate.templates", func(s *generationScope) *[]string { return &s.Templates }},
-	{"generate.queries", func(s *generationScope) *[]string { return &s.Queries }},
-	{"generate.config", func(s *generationScope) *[]string { return &s.Config }},
+	{key: "generate.handlers", target: func(s *generationScope) *[]string { return &s.Handlers }},
+	{key: "generate.templates", target: func(s *generationScope) *[]string { return &s.Templates }},
+	{key: "generate.queries", target: func(s *generationScope) *[]string { return &s.Queries }},
+	{key: "generate.config", target: func(s *generationScope) *[]string { return &s.Config }},
+	{key: "generate.pages", target: func(s *generationScope) *[]string { return &s.Pages }, optional: true},
 }
 
 // watchConfig widens or trims the pw dev walk. Unlike generation, the walk has a
@@ -116,7 +125,7 @@ func loadProjectConfig(root string) (projectConfig, error) {
 	}
 	known := []string{
 		"project.name", "project.main", "project.toolchain", "project.database",
-		"generate.handlers", "generate.templates", "generate.queries", "generate.config",
+		"generate.handlers", "generate.templates", "generate.queries", "generate.config", "generate.pages",
 		"dev.watch.includes", "dev.watch.excludes",
 		"dev.idp.enabled", "dev.idp.config", "dev.idp.port",
 		"dev.otel.enabled", "dev.otel.port", "dev.otel.max",
@@ -290,19 +299,49 @@ const sourcesExample = `generate.handlers = ["handlers"]`
 func generationSources(document minitoml.Document, root string) (generationScope, error) {
 	scope := generationScope{}
 	for _, purpose := range generatePurposes {
-		directories, err := purposeDirectories(document, root, purpose.key)
+		directories, err := purposeDirectories(document, root, purpose.key, purpose.optional)
 		if err != nil {
 			return generationScope{}, err
 		}
 		*purpose.target(&scope) = directories
 	}
+	if err := checkPageRoots(scope); err != nil {
+		return generationScope{}, err
+	}
 	return scope, nil
 }
 
+// checkPageRoots keeps a page tree from being read twice. The tree run already
+// compiles the page and layout templates it holds, so a directory inside a root
+// that another purpose also lists would have one output written twice, by two
+// runs, with different content.
+func checkPageRoots(scope generationScope) error {
+	overlaps := func(key string, entries []string) error {
+		for _, root := range scope.Pages {
+			for _, entry := range entries {
+				if entry == root || strings.HasPrefix(entry, root+"/") {
+					return fmt.Errorf("popcornwave.toml: %s %q is inside the page tree root %q, which generates it already", key, entry, root)
+				}
+				if strings.HasPrefix(root, entry+"/") {
+					return fmt.Errorf("popcornwave.toml: page tree root %q is inside %s %q, which would read its templates a second time", root, key, entry)
+				}
+			}
+		}
+		return nil
+	}
+	if err := overlaps("generate.templates", scope.Templates); err != nil {
+		return err
+	}
+	return overlaps("generate.handlers", scope.Handlers)
+}
+
 // purposeDirectories validates one purpose list.
-func purposeDirectories(document minitoml.Document, root, key string) ([]string, error) {
+func purposeDirectories(document minitoml.Document, root, key string, optional bool) ([]string, error) {
 	value, ok := document.Get(key)
 	if !ok {
+		if optional {
+			return nil, nil
+		}
 		return nil, fmt.Errorf("popcornwave.toml: %s is required; list the directories it reads, such as %s, or [] when it generates nothing", key, sourcesExample)
 	}
 	entries, err := value.AsStringSlice()

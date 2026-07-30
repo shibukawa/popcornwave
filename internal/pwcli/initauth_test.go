@@ -179,6 +179,7 @@ func TestInitWizardAsksForTheProviderOnlyForOIDC(t *testing.T) {
 	model := feedWizard(t, newTestWizard(defaultInitOptions()),
 		typeText("demo"), pressKey(tea.KeyEnter),
 		pressKey(tea.KeyEnter), // TinyGo
+		pressKey(tea.KeyEnter), // Router
 		pressKey(tea.KeyEnter), // Tailwind
 		pressKey(tea.KeyEnter), // Database
 		pressKey(tea.KeyEnter), // Database engine
@@ -203,6 +204,7 @@ func TestInitWizardSkipsTheProviderStepWithoutOIDC(t *testing.T) {
 	model := feedWizard(t, newTestWizard(seeded),
 		typeText("demo"), pressKey(tea.KeyEnter),
 		pressKey(tea.KeyEnter), // TinyGo
+		pressKey(tea.KeyEnter), // Router
 		pressKey(tea.KeyEnter), // Tailwind
 		pressKey(tea.KeyEnter), // Database
 		pressKey(tea.KeyEnter), // Database engine
@@ -224,6 +226,7 @@ func TestInitWizardGoesBackPastASkippedStep(t *testing.T) {
 	model := feedWizard(t, newTestWizard(defaultInitOptions()),
 		typeText("demo"), pressKey(tea.KeyEnter),
 		pressKey(tea.KeyEnter), // TinyGo
+		pressKey(tea.KeyEnter), // Router
 		pressKey(tea.KeyEnter), // Tailwind
 		pressKey(tea.KeyEnter), // Database
 		pressKey(tea.KeyEnter), // Database engine

@@ -20,6 +20,51 @@ const tailwindToolchainRequirement = "the standalone tailwindcss CLI, version 4 
 // to open before its SQL example is read by anything.
 const capabilityQueriesPurpose = "queries"
 
+// capabilityPageTreePurpose is the generate purpose the page tree capability
+// opens. Unlike the others it may be absent, because a project written before
+// page trees existed never named it.
+const capabilityPageTreePurpose = "pages"
+
+// setPagesPurpose writes the page tree purpose, adding the key when the project
+// predates it. Every other purpose is required and can be edited in place; this
+// one is the exception, so it is the only edit that may have to insert a line.
+func setPagesPurpose(state projectState, values []string) (string, error) {
+	if len(state.config.Generate.Pages) > 0 {
+		return setGeneratePurpose(state, capabilityPageTreePurpose, values)
+	}
+	source, err := os.ReadFile(filepath.Join(state.root, "popcornwave.toml"))
+	if err != nil {
+		return "", err
+	}
+	entry := capabilityPageTreePurpose + " = [" + quotedList(values) + "]\n"
+	table := ""
+	inserted := false
+	var out strings.Builder
+	for line := range strings.Lines(string(source)) {
+		trimmed := strings.TrimSpace(line)
+		// The key belongs to [generate], so it goes in just before whatever
+		// table follows it rather than at the end of the file.
+		if !inserted && table == "generate" && strings.HasPrefix(trimmed, "[") && strings.HasSuffix(trimmed, "]") {
+			out.WriteString(entry)
+			inserted = true
+		}
+		if strings.HasPrefix(trimmed, "[") && strings.HasSuffix(trimmed, "]") {
+			table = strings.Trim(trimmed, "[]")
+		}
+		out.WriteString(line)
+	}
+	if !inserted {
+		if table != "generate" {
+			return "", fmt.Errorf("popcornwave.toml: no [generate] table to add %s to", capabilityPageTreePurpose)
+		}
+		if !strings.HasSuffix(out.String(), "\n") {
+			out.WriteString("\n")
+		}
+		out.WriteString(entry)
+	}
+	return out.String(), nil
+}
+
 // setGeneratePurpose rewrites one generate purpose in popcornwave.toml. The
 // key is edited in place rather than appended, because every purpose is
 // required and therefore already present.
@@ -28,10 +73,17 @@ func setGeneratePurpose(state projectState, purpose string, values []string) (st
 	if err != nil {
 		return "", err
 	}
+	return setGeneratePurposeIn(string(source), purpose, values)
+}
+
+// setGeneratePurposeIn is the same edit over a document already in hand, so two
+// purposes can be rewritten in one plan without the second read undoing the
+// first write.
+func setGeneratePurposeIn(source, purpose string, values []string) (string, error) {
 	table := ""
 	var out strings.Builder
 	replaced := false
-	for line := range strings.Lines(string(source)) {
+	for line := range strings.Lines(source) {
 		trimmed := strings.TrimSpace(line)
 		if strings.HasPrefix(trimmed, "[") && strings.HasSuffix(trimmed, "]") {
 			table = strings.Trim(trimmed, "[]")

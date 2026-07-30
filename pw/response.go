@@ -43,6 +43,11 @@ type HTMLFragment = htmlbind.Fragment
 // HTMLWrapper is a generated template wrapper accepted by WriteHTMLChain.
 type HTMLWrapper = htmlbind.Wrapper
 
+// HTMLOption tunes one render. The framework supplies the options every
+// response needs from HTMLConfig, so a caller passing one is extending that set
+// rather than replacing it.
+type HTMLOption = htmlbind.Option
+
 var documentState = struct {
 	sync.RWMutex
 	wrapper *HTMLWrapper
@@ -214,6 +219,17 @@ func WriteHTML(w http.ResponseWriter, r *http.Request, leaf HTMLFragment) {
 	WriteHTMLChain(w, r, registeredHTMLDocument(), leaf)
 }
 
+// WriteHTMLPage renders a page inside its own wrapper chain and the registered
+// document shell, with the document outermost. It is intended for generated
+// page tree code, which knows the ancestor layouts of a route but must not name
+// the document: that one stays the framework's, exactly as it is for a handler
+// calling WriteHTML.
+func WriteHTMLPage(w http.ResponseWriter, r *http.Request, wrappers []HTMLWrapper, leaf HTMLFragment, options ...HTMLOption) {
+	// registeredHTMLDocument allocates per call, so appending to it cannot reach
+	// a slice another request is rendering through.
+	WriteHTMLChain(w, r, append(registeredHTMLDocument(), wrappers...), leaf, options...)
+}
+
 // WriteHTMLChain renders generated wrappers around one leaf without committing
 // the response until TinyBind has validated and rendered the complete chain.
 //
@@ -226,7 +242,7 @@ func WriteHTML(w http.ResponseWriter, r *http.Request, leaf HTMLFragment) {
 // needs no separate path: the buffered branch already blocks until every
 // boundary settles, so classifying the client is enough to hand a crawler the
 // finished document instead of the fallbacks it can never replace.
-func WriteHTMLChain(w http.ResponseWriter, r *http.Request, wrappers []HTMLWrapper, leaf HTMLFragment) {
+func WriteHTMLChain(w http.ResponseWriter, r *http.Request, wrappers []HTMLWrapper, leaf HTMLFragment, options ...HTMLOption) {
 	config := Config[HTMLConfig](requestContext(r))
 	// The probe runs first because it is the cheapest of the three gates and the
 	// only one that can rule streaming out entirely, so a page that could never
@@ -242,13 +258,13 @@ func WriteHTMLChain(w http.ResponseWriter, r *http.Request, wrappers []HTMLWrapp
 		w.Header().Add("Vary", "User-Agent")
 	}
 	if async && config.Streaming && !bot {
-		streamHTMLChain(w, r, wrappers, leaf, config)
+		streamHTMLChain(w, r, wrappers, leaf, config, options...)
 		return
 	}
 	ctx, cancel := boundedRenderContext(requestContext(r), config, async, bot)
 	defer cancel()
 	var body bytes.Buffer
-	if err := htmlbind.RenderChain(&body, wrappers, leaf, renderOptions(ctx, config, false)...); err != nil {
+	if err := htmlbind.RenderChain(&body, wrappers, leaf, renderOptions(ctx, config, false, options)...); err != nil {
 		// Nothing is committed on this branch, so the same failure the streaming
 		// branch can only patch into a 200 still carries its real status here.
 		var unrecovered *htmlbind.UnrecoveredError
@@ -298,7 +314,7 @@ func WriteHTMLFragment(w http.ResponseWriter, r *http.Request, fragment HTMLFrag
 	renderCtx, cancel := boundedRenderContext(ctx, config, fragment.HasAwaitBlock(), false)
 	defer cancel()
 	var body bytes.Buffer
-	if err := htmlbind.Render(&body, fragment, renderOptions(renderCtx, config, false)...); err != nil {
+	if err := htmlbind.Render(&body, fragment, renderOptions(renderCtx, config, false, nil)...); err != nil {
 		// Nothing is committed yet, so every failure still carries its real
 		// status. It goes out as a problem response rather than as the HTML error
 		// page: an error document swapped into a region would replace that region
@@ -341,7 +357,7 @@ func commitHTMLBody(w http.ResponseWriter, r *http.Request, body *bytes.Buffer) 
 // arrives before anything is written, because chain assembly and the check for
 // unset async values both run before the initial pass, so that failure can
 // still become a problem response.
-func streamHTMLChain(w http.ResponseWriter, r *http.Request, wrappers []HTMLWrapper, leaf HTMLFragment, config HTMLConfig) {
+func streamHTMLChain(w http.ResponseWriter, r *http.Request, wrappers []HTMLWrapper, leaf HTMLFragment, config HTMLConfig, options ...HTMLOption) {
 	ctx := requestContext(r)
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	writer, closeWriter, err := prepareHTMLResponse(w, r)
@@ -350,7 +366,7 @@ func streamHTMLChain(w http.ResponseWriter, r *http.Request, wrappers []HTMLWrap
 		return
 	}
 	logger := Logger(ctx)
-	for content, err := range htmlbind.RenderChainAsync(ctx, writer, wrappers, leaf, renderOptions(ctx, config, false)...) {
+	for content, err := range htmlbind.RenderChainAsync(ctx, writer, wrappers, leaf, renderOptions(ctx, config, false, options)...) {
 		if err != nil {
 			// A boundary that failed with no recover clause is reported after the
 			// initial pass by construction, so the document is already committed
@@ -447,7 +463,7 @@ func boundedRenderContext(ctx context.Context, config HTMLConfig, async, bot boo
 // renderOptions builds the htmlbind options for one render. The bound reaches
 // the streaming branch as an option and the buffered branch as a context
 // deadline, because only one of the two paths reads the option.
-func renderOptions(ctx context.Context, config HTMLConfig, bot bool) []htmlbind.Option {
+func renderOptions(ctx context.Context, config HTMLConfig, bot bool, extra []HTMLOption) []htmlbind.Option {
 	options := []htmlbind.Option{
 		htmlbind.WithContext(ctx),
 		htmlbind.WithErrorReporter(func(err error) {
@@ -460,7 +476,9 @@ func renderOptions(ctx context.Context, config HTMLConfig, bot bool) []htmlbind.
 	if config.AsyncConcurrency > 0 {
 		options = append(options, htmlbind.WithConcurrencyLimit(config.AsyncConcurrency))
 	}
-	return options
+	// Caller options come last so a later one wins, which is what makes them an
+	// extension of the configured set rather than a competing source of truth.
+	return append(options, extra...)
 }
 
 func prepareHTMLResponse(w http.ResponseWriter, r *http.Request) (io.Writer, func() error, error) {

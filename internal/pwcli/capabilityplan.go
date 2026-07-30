@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 
@@ -141,6 +142,10 @@ func planCapability(state projectState, options addOptions) (*capabilityPlan, er
 		return plan, planAuth(state, options, plan)
 	case capabilityTailwind:
 		return plan, planTailwind(state, plan)
+	case capabilityDiscovered:
+		return plan, planPages(state, plan)
+	case capabilityRegistered:
+		return plan, planHandlers(state, plan)
 	}
 	return nil, fmt.Errorf("unknown capability %q", options.Capability)
 }
@@ -271,6 +276,64 @@ func planTailwind(state projectState, plan *capabilityPlan) error {
 	plan.manual = append(plan.manual,
 		`add <link rel="stylesheet" href="/`+defaultTailwindOutput+`"> to the document shell`)
 	plan.next = append(plan.next, "devbox shell")
+	return nil
+}
+
+// planPages installs a page tree: the same starter tree api:cli-init writes,
+// and the purpose that makes it generate. The two go together, because a tree
+// no purpose lists is a directory nothing reads.
+//
+// The Register call is printed rather than injected, since the entry point is
+// application-owned like every other main.go edit this command would rather not
+// make.
+func planPages(state projectState, plan *capabilityPlan) error {
+	root := defaultDiscoveredDir
+	for path, source := range pageTreeScaffold(initOptions{Name: state.config.Name}, root) {
+		plan.creates[path] = source
+	}
+	edited, err := setPagesPurpose(state, []string{root})
+	if err != nil {
+		return err
+	}
+	plan.edits["popcornwave.toml"] = edited
+	plan.manual = append(plan.manual,
+		"import "+state.config.Name+"/"+root+" from "+state.config.Main+
+			" and call "+goPackageIdentifier(root)+".Register on its mux")
+	plan.generate = true
+	return nil
+}
+
+// planHandlers installs the registered router into a project that started with
+// the page tree alone: the package, its mux, and one route example.
+//
+// The template purpose gains the same directory, because a page template sits
+// beside the handler that renders it, and the mounting is printed for the same
+// reason a page tree's Register call is.
+func planHandlers(state projectState, plan *capabilityPlan) error {
+	directory := defaultRegisteredDir
+	options := initOptions{
+		Name:   state.config.Name,
+		TinyGo: state.config.Toolchain == toolchainTinyGo,
+		Auth:   authNone,
+	}
+	for path, source := range registeredRouterScaffold(options, directory) {
+		plan.creates[path] = source
+	}
+
+	edited, err := setGeneratePurpose(state, "handlers", []string{directory})
+	if err != nil {
+		return err
+	}
+	templates := append([]string{directory}, state.config.Generate.Templates...)
+	sort.Strings(templates)
+	templates = slices.Compact(templates)
+	if edited, err = setGeneratePurposeIn(edited, "templates", templates); err != nil {
+		return err
+	}
+	plan.edits["popcornwave.toml"] = edited
+	plan.manual = append(plan.manual,
+		"import "+state.config.Name+"/"+directory+" from "+state.config.Main+" and serve its Handlers()")
+	plan.generate = true
 	return nil
 }
 

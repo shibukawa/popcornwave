@@ -37,8 +37,9 @@ func writeScaffoldedProject(t *testing.T, options initOptions) string {
 	return root
 }
 
-// declinedProject is a project that took neither the database, Redis, Tailwind,
-// nor authentication, which is what pw add exists to repair.
+// declinedProject is a project that took the registered router alone and
+// neither the database, Redis, Tailwind, nor authentication, which is what pw
+// add exists to repair.
 func declinedProject(t *testing.T) string {
 	t.Helper()
 	return writeScaffoldedProject(t, initOptions{Name: "fixture", TinyGo: true, Auth: authNone})
@@ -46,8 +47,8 @@ func declinedProject(t *testing.T) string {
 
 func TestCapabilityDetectionReadsTheProjectFiles(t *testing.T) {
 	full := writeScaffoldedProject(t, initOptions{
-		Name: "fixture", TinyGo: true, Devbox: true, Database: true, Redis: true, Tailwind: true,
-		Auth: authOIDC, AuthEmulator: true,
+		Name: "fixture", Router: routerBoth, TinyGo: true, Devbox: true, Database: true, Redis: true,
+		Tailwind: true, Auth: authOIDC, AuthEmulator: true,
 	})
 	state, err := loadProjectState(full)
 	if err != nil {
@@ -69,7 +70,7 @@ func TestCapabilityDetectionReadsTheProjectFiles(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := []string{capabilityDevbox, capabilityDatabase, capabilityRedis, capabilityAuth, capabilityTailwind}
+	want := []string{capabilityDiscovered, capabilityDevbox, capabilityDatabase, capabilityRedis, capabilityAuth, capabilityTailwind}
 	if strings.Join(missing, ",") != strings.Join(want, ",") {
 		t.Fatalf("missing = %v, want %v", missing, want)
 	}
@@ -615,6 +616,7 @@ func TestInitWizardSkipsValkeyWithoutDevbox(t *testing.T) {
 	model := feedWizard(t, newTestWizard(defaultInitOptions()),
 		typeText("demo"), pressKey(tea.KeyEnter),
 		pressKey(tea.KeyEnter), // TinyGo
+		pressKey(tea.KeyEnter), // Router
 		pressKey(tea.KeyEnter), // Tailwind
 		pressKey(tea.KeyEnter), // Database
 		pressKey(tea.KeyEnter), // Database engine
