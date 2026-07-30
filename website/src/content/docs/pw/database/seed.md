@@ -9,6 +9,9 @@ sidebar:
 pw seed [--dir=testdata/seed] [name...]
 ```
 
+For what seed data is, and where it stops being a
+[migration](/productivity/migrations/), see [Seed Data](/productivity/seed-data/).
+
 Seed data is useful only when it lands in the intended database. `pw seed`
 applies datasets to the database resolved from the application's own
 configuration.

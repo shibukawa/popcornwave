@@ -182,7 +182,7 @@ With `--tailwind` it also writes `assets/app.css` and
 `public/generated/app.css`, adds the `[assets.tailwind]` block to
 `popcornwave.toml`, pins `tailwindcss` in `devbox.json`, and links the
 stylesheet from the document shell. No `package.json` and no Node lockfile are
-created. See [Styling](/guides/styling/) for enabling this later.
+created. See [Styling](/guides/frontend/styling/) for enabling this later.
 
 Each file is written to a temporary path and renamed into place. If the command
 is interrupted, it cannot leave a half-written source file behind.
@@ -230,4 +230,4 @@ it writes a `replace` directive pointing at that checkout instead.
 - [Getting started](/start/getting-started/) — a walkthrough of the output.
 - [pw add](/pw/project/add/) — installing a capability you declined here.
 - [pw new](/pw/project/new/) — adding the second handler.
-- [Project structure](/guides/project-structure/) — growing past one package.
+- [Project structure](/guides/architecture/project-structure/) — growing past one package.

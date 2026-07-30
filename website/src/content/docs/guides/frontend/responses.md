@@ -72,7 +72,7 @@ rejected form, since a swap library ignores the problem response a failed check
 would produce.
 
 Template syntax, slots, escaping, and scoped styles are covered in
-[Templates](/guides/templates/).
+[Templates](/guides/frontend/templates/).
 
 ## JSON
 
@@ -120,7 +120,7 @@ Not Acceptable` problem response. Every later `Send` returns that same error
 instead of writing a contradictory body.
 
 `server.write_timeout` defaults to `0s` precisely so that long-lived streams are
-not cut off; see [Configuration](/guides/configuration/).
+not cut off; see [Configuration](/guides/architecture/configuration/).
 
 ## Errors
 

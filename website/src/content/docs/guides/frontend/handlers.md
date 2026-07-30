@@ -39,7 +39,7 @@ func init() {
 ```
 
 For splitting routes across packages as an application grows, see
-[Project structure](/guides/project-structure/).
+[Project structure](/guides/architecture/project-structure/).
 
 ## Binding a request
 
@@ -120,7 +120,7 @@ body limit defaults to 1 MiB and is changed with
 `httpbind.SetMaxMultipartBodyBytes`. The framework's own
 `server.max_request_body` applies first, so a multipart limit raised past its
 10 MiB default does nothing until that one moves too — see
-[Configuration](/guides/configuration/).
+[Configuration](/guides/architecture/configuration/).
 
 ### Undeclared fields
 
@@ -187,7 +187,7 @@ such a member wants a validating type rather than a tag.
 
 A failed check makes `pw.Parse` return an error carrying the offending field.
 Passing it to `pw.WriteProblem` produces a 400 with field-level detail — see
-[Responses](/guides/responses/).
+[Responses](/guides/frontend/responses/).
 
 ## Request-scoped accessors
 
@@ -221,7 +221,7 @@ func createUser(w http.ResponseWriter, r *http.Request) {
 
 The callback does not pass a transaction handle to either query. Generated query
 functions recover it from the context, as described in
-[Queries](/guides/queries/).
+[Queries](/guides/backend/queries/).
 
 ## The lifecycle
 

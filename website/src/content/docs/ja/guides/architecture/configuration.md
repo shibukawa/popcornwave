@@ -1,0 +1,201 @@
+---
+title: 設定
+description: TOML、環境変数、オプションがひとつの型付き構造体に解決されるまでの仕組みと、独自設定の追加方法。
+sidebar:
+  order: 3
+---
+
+設定の取得元は複数ありますが、解決後の見え方はひとつの型付き構造体です。Popcorn Wave
+は最初のリクエストより前に TOML ファイル、環境変数、コマンドラインオプションを構造体へ
+バインドするため、不正な値は実行途中ではなく起動時に処理を止めます。
+
+ここには実行時のリフレクションがありません。`pw generate` が登録の呼び出しを読み、
+バインディングコードを事前に書き出します。仕組み全体が TinyGo でも使えるのはそのため
+であり、以下の規則がリフレクション方式より少し厳しいのも同じ理由です。
+
+フレームワーク自身のキーと既定値は[設定キー](/ja/reference/configuration/)にあります。
+このページが扱うのは、その下で動いている仕組みのほうです。
+
+## 実行環境
+
+`APP_ENV` が実行環境を選択します。`dev`、`stg`、`prod`、またはその他の小文字・数字・
+`-`・`_` からなるトークンを受け付けます。不正なトークンは `ParseConfig` を失敗させます。
+未設定または空の場合は **`dev`** が既定です。
+
+```sh
+APP_ENV=prod ./myapp
+```
+
+`pw.Env()` が解決済みのトークンを返し、`pw.EnvDevelopment`、`pw.EnvStaging`、
+`pw.EnvProduction` がよく使う値を表します。
+
+## ファイルの解決
+
+環境を選ぶと、プロジェクトローカルのファイル名が決まります。Popcorn Wave は作業
+ディレクトリ、次にその `config/` ディレクトリの順で探索します。
+
+1. `./config.{APP_ENV}.toml`
+2. `./config/config.{APP_ENV}.toml`
+
+ユーザおよびシステムの設定ディレクトリでは、環境非依存の `config.toml` を使います。
+プロジェクトツリーでは事情が異なり、素の `config.toml` は読まれません。この非対称は
+意図的です。すべての環境に効くファイルは、運用者の手元のマシンでは妥当でも、
+「これはどの環境向けなのか」に答えられないリポジトリの中では誤解のもとになります。
+
+`--config-path` は探索そのものを置き換えます。
+
+```sh
+./myapp --config-path ./deploy/staging.toml
+```
+
+## ひとつの値が決まるまで
+
+各キーには4つの経路があり、後のものが前を上書きします。
+
+```
+既定値  <  TOML ファイル  <  環境変数  <  コマンドラインオプション
+```
+
+3 つの名前はひとつの構造体フィールドから導かれます。フィールド名は snake_case に
+なり、登録した prefix の下にネストします。prefix が `app` で
+
+```go
+type AppConfig struct {
+	Mailer MailerConfig
+}
+
+type MailerConfig struct {
+	FromAddress string `default:"noreply@example.com"`
+}
+```
+
+の場合、キーは `app.mailer.from_address`、TOML は `[app.mailer]` の
+`from_address = …`、オプションは `--app-mailer-from_address`、環境変数は
+`APP_MAILER_FROM_ADDRESS` になります。階層を区切るドットはオプションでは
+ダッシュ、環境変数ではアンダースコアになりますが、キーの中のアンダースコアは
+そのまま残ります。
+
+5 つのタグで結果を調整できます。
+
+| タグ | 効果 |
+| --- | --- |
+| `default:"value"` | 他のどこからも値が来なかったときの値 |
+| `key:"name"` | TOML や設定のキーを上書きする |
+| `opt:"long"` / `opt:"long,s"` | CLI オプションを上書きする。短縮形も指定可 |
+| `env:"NAME"` / `env:"-"` | 環境変数名を明示する、または環境変数入力を無効にする |
+| `help:"text"` | usage やスキャフォールドに表示される説明 |
+
+`opt` を上書きすると環境変数名も動きます。環境変数名はキーではなくロングオプション
+から導かれるためです。`server.port` が `--port` と `PORT` に応答するのはこの規則に
+よります。
+
+さらに 3 つのタグは、名前ではなくキーの性質を記述します。
+
+| タグ | 効果 |
+| --- | --- |
+| `secret:"mask"` / `"hide"` / `"show"` | 起動サマリでの値の見せ方 |
+| `falsy:"value"` | このキーに依存する側から見て「未設定」とみなされる値 |
+| `dependon:".sibling"` | 従う親キー。先頭のドットは、書かれている構造体からの相対を意味する |
+
+`dependon` はバインドを変えません。従属するキーも読まれ、適用されます。親が空の間、
+起動サマリから省かれるだけです。無効な機能が7行ではなく1行で済むのはこのためです。
+つまり、設定したのにサマリに見つからないキーは、綴りではなく親についての問いです。
+
+:::caution
+バインド可能なフィールド型は `string`、`bool`、`int`、`[]string`、およびそれらを
+含むネストした構造体です。float、map、ポインタ、その他のスライス型、`time.Duration`
+は**バインドできません**。`string` か `int` として宣言し、解析後に変換してください。
+（フレームワーク自身の `[server]` の duration が動くのは、その部分のバインディングが
+生成ではなく手書きだからです。）
+:::
+
+## 独自の設定を追加する
+
+アプリケーションの設定もフレームワークと同じ経路を通ります。構造体を宣言し、prefix
+を付けて登録し、リクエストの context から読みます。`pw generate` が登録呼び出しを
+バインディングコードに変換するため、設定を増やしても別のパーサーは増えません。
+
+### 1. 構造体を宣言する
+
+```go
+package handlers
+
+import "github.com/shibukawa/popcornwave/pw"
+
+type AppConfig struct {
+	EnvLabel      string `default:"local" help:"environment name shown in the page badge"`
+	EnvLabelColor string `default:"#64748b" help:"CSS color of the environment badge"`
+}
+```
+
+### 2. 登録する
+
+```go
+func RegisterConfig() { pw.RegisterConfig[AppConfig]("app") }
+```
+
+```go
+func main() {
+	handlers.RegisterConfig()
+	if err := pw.Run(context.Background(), handlers.Handlers()); err != nil {
+		log.Fatal(err)
+	}
+}
+```
+
+この呼び出しをどこに置くかは重要です。生成された定義はパッケージの `init` で登録
+されるため、バインディングの作成はすべての `init` の**あと**、解析の**前**でなければ
+なりません。`ParseConfig` のあとに登録すると panic します。また prefix は、
+ジェネレータが読める文字列リテラルである必要があります。
+
+規模の大きなアプリケーションでは領域ごとに自分の構造体を登録できます
+（[プロジェクト構成](/ja/guides/architecture/project-structure/)を参照）。ただし
+prefix はひとつの名前空間を共有するので、`app`、`billing`、`search` のように別々の
+名前を付けてください。
+
+### 3. 読む
+
+```go
+app := pw.Config[AppConfig](r.Context())
+```
+
+`pw.Config` はリクエスト context があるところならどこでも使え、リクエスト外では
+`nil` を渡せます。エラーは返しません。未解析の prefix は宣言された既定値を、未登録の
+型はゼロ値を返します。設定を読むハンドラはすでにレスポンスの経路上にいて、そこで
+nil チェックを書いても、同じ「値がない」を数行あとへ先送りするだけだからです。
+
+### 4. 設定する
+
+```toml
+[app]
+env_label = "development"
+env_label_color = "#059669"
+```
+
+```sh
+APP_ENV_LABEL=development ./myapp
+./myapp --app-env_label=development
+```
+
+## スキャフォールドの生成
+
+登録済みの prefix は —— フレームワークのものもアプリケーションのものも —— 自分自身を
+出力できます。`default` の値が埋まり、`help` はコメントになります。
+
+```sh
+./myapp --generate-config toml > config.dev.toml
+./myapp --generate-config env > .env
+```
+
+バイナリは実際の import から登録内容を報告するため、スキャフォールドはそのビルドに
+リンクされたパッケージと一致します。構造体を足してコマンドを再実行すれば、新しい
+キーが現れます。どちらの形式も書き出したあと終了し、サーバは起動しません。
+[カスタムコマンド](/ja/guides/architecture/custom-commands/)を参照してください。
+
+## 何が効いたのかを見る
+
+解決済みの設定は起動時に一度だけ報告されます。端末ではツリー、それ以外では構造化
+レコード1件です。おかげで「あの値は本当に効いたのか」に、ログを1行足さずに答えが
+出ます。各エントリはその値がどこから来たのかを示し、`secret` タグが表示・マスク・
+非表示のどれになるかを決めます。形式は `observability.boot_log` が選びます。
+[起動サマリ](/ja/productivity/startup-summary/)を参照してください。

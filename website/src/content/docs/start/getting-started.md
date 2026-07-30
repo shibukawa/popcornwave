@@ -134,7 +134,7 @@ export component Home(name: string): html {
 
 The handler never mentions the document shell. `pw.WriteHTML` takes the page
 fragment and renders it inside the document registered from
-`templates/document.pw.html`; [Templates](/guides/templates/) explains that
+`templates/document.pw.html`; [Templates](/guides/frontend/templates/) explains that
 composition in detail.
 
 ## 3. Run it
@@ -185,7 +185,7 @@ application alike. Only values that came from somewhere other than the built-in
 defaults are marked — `← file` above, and `← env` or `← flag` elsewhere — and
 keys such as `rdb.dsn` are redacted. Away from a terminal the same facts become
 a single structured log record instead; see
-[Startup summary](/guides/configuration/#startup-summary).
+[Startup summary](/guides/architecture/configuration/#seeing-what-took-effect).
 
 Open <http://localhost:8080/>. The scaffolded page also responds to a query
 parameter, so <http://localhost:8080/?name=Popcorn> greets you by name.
@@ -240,5 +240,5 @@ APP_ENV=prod ./myapp
 ## Next steps
 
 - [Architecture](/start/architecture/) — the model the framework is built around.
-- [Handlers](/guides/handlers/) and [Responses](/guides/responses/) — the `pw` API in full.
+- [Handlers](/guides/frontend/handlers/) and [Responses](/guides/frontend/responses/) — the `pw` API in full.
 - [pw command](/pw/overview/) — every `pw` subcommand.

@@ -68,7 +68,7 @@ failed CSS watcher does not take down the server. `pw dev` keeps running and
 falls back to watching the input file directly.
 
 `tailwindcss` must be on `PATH`, which is what `devbox shell` is for. See
-[Styling](/guides/styling/).
+[Styling](/guides/frontend/styling/).
 
 ## Migrations
 

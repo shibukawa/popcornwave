@@ -2,7 +2,7 @@
 title: Project structure
 description: Growing past a single handlers package — nested handler and query packages, and what popcornwave.toml controls.
 sidebar:
-  order: 5
+  order: 1
 ---
 
 `pw init` begins with one `handlers` package and one `queries` package. That
@@ -151,7 +151,7 @@ Avoid mounting an area at `/public/`. The framework serves embedded static
 assets at `server.public.mount`, which defaults to `/public`, and a collision
 between your routes and an enabled operational endpoint is reported at startup.
 Either mount the area elsewhere or move the asset mount in
-[Configuration](/guides/configuration/).
+[Configuration](/guides/architecture/configuration/).
 :::
 
 ## What stays global
@@ -161,13 +161,13 @@ Three things do not shard, no matter how many packages you add:
 **The document shell.** A project has exactly one `document.pw.html`; more than
 one anywhere in the tree is a generation error. To give an area a different
 shell, write an ordinary exported component with an unnamed slot and select it
-per handler with `pw.WriteHTMLChain` — see [Templates](/guides/templates/).
+per handler with `pw.WriteHTMLChain` — see [Templates](/guides/frontend/templates/).
 
 **Migrations.** One ordered set for the whole application, in `migration.dir`.
 
 **Configuration prefixes.** Each area can register its own configuration struct,
 but the prefixes share one namespace — see
-[Configuration](/guides/configuration/).
+[Configuration](/guides/architecture/configuration/).
 
 ## `popcornwave.toml`
 
@@ -216,7 +216,7 @@ minify = true
 | `dev.watch.excludes` | `[]` | subtrees `pw dev` skips while walking |
 | `migration.dir` | `migrations` | migration directory, relative to the project |
 | `migration.auto` | `true` | apply pending migrations when `pw dev` starts |
-| `assets.tailwind.*` | disabled | see [Styling](/guides/styling/) |
+| `assets.tailwind.*` | disabled | see [Styling](/guides/frontend/styling/) |
 
 The larger layout above needs one edit: `webroot` replaces `handlers` in the
 `handlers` and `templates` purposes, since the areas nested inside it come along

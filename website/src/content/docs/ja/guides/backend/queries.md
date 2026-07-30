@@ -1,8 +1,8 @@
 ---
-title: クエリとマイグレーション
-description: 型付き .pw.sql ステートメント、条件付き SQL、トランザクション、goose マイグレーション、シードデータ。
+title: クエリ
+description: 型付き .pw.sql ステートメント、条件付き SQL、トランザクション、リーダー・ライターの接続グループ。
 sidebar:
-  order: 4
+  order: 2
 ---
 
 SQL は SQL のまま見えますが、Go との境界には型が付きます。ステートメントを
@@ -202,31 +202,6 @@ err := pw.Transaction(r.Context(), func(ctx context.Context) error {
 db, ok := pw.DB(r.Context())
 ```
 
-## マイグレーション
-
-マイグレーションは `migrations/` に置き、goose の形式を使います。
-
-```sql
--- +goose Up
-CREATE TABLE users (
-    id INTEGER PRIMARY KEY,
-    name TEXT NOT NULL
-);
-
--- +goose Down
-DROP TABLE users;
-```
-
-```sh
-pw migrate create add_email
-pw migrate status
-pw migrate up
-```
-
-`pw dev` は起動時に未適用のマイグレーションを適用するため、開発ループでこれらを直接
-使う場面はあまりありません。一方、デプロイとロールバックでは必要になります。
-アクションの一覧は [pw migrate](/ja/pw/database/migrate/) にあります。
-
 ## データベースの設定
 
 プールは `[middleware.rdb]` にあり、既定では**無効**です。
@@ -241,7 +216,7 @@ max_idle_conns = 1
 ```
 
 `dsn` は秘密情報として扱われ、設定ログでもエラーメッセージでもマスクされます。
-[設定](/ja/guides/configuration/)を参照。
+[設定](/ja/guides/architecture/configuration/)を参照。
 
 スキームがエンジンを選びます。サーバーエンジンは登録のためにブランクインポートが
 必要です。
@@ -311,7 +286,8 @@ err := pw.Transaction(ctx, func(ctx context.Context) error {
 トランザクションの外で実行されます）が、書き込み可能なグループは選べません。原子的に見えて
 実際はそうではない書き込みになるためです。
 
-マイグレーション、シードデータ、セッションテーブルは `write_group`（さらに絞る場合は
+[マイグレーション](/ja/productivity/migrations/)、[シードデータ](/ja/productivity/seed-data/)、
+セッションテーブルは `write_group`（さらに絞る場合は
 `migration_group` と `session.rdb.group`）に書き込まれます。`readonly` の接続がそれらに
 選ばれることはなく、そう設定すると起動時にエラーになります。
 
@@ -334,19 +310,7 @@ level=WARN msg="sql executed" sql="SELECT name FROM items WHERE name = $1"
 
 [クエリー診断](/ja/productivity/query-diagnostics/)を参照してください。
 
-## シードデータ
 
-シードファイルは `testdata/seed/` に置き、CLI とテストヘルパーの両方が使います。
-そのためフィクスチャが両者の間でずれることはありません。
-
-```yaml
-member:
-- { id: 1, name: Frank }
-- { id: 2, name: Grace }
-```
-
-```sh
-pw seed
-```
-
-[pw seed](/ja/pw/database/seed/) と[テスト](/ja/productivity/testing/)を参照してください。
+スキーマと初期データは、ここまでのステートメントとは別の関心事です。開発支援の側に
+[データベースマイグレーション](/ja/productivity/migrations/)と
+[シードデータ](/ja/productivity/seed-data/)としてまとまっています。

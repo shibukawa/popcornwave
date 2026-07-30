@@ -38,7 +38,7 @@ step:
 go get github.com/shibukawa/popcornwave
 ```
 
-Application code imports the [`pw`](/guides/handlers/) package, which is the
+Application code imports the [`pw`](/guides/frontend/handlers/) package, which is the
 stable application-facing API:
 
 ```go

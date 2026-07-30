@@ -2,7 +2,7 @@
 title: Authentication
 description: Configure OIDC login and let the framework serve the login, callback, and logout endpoints.
 sidebar:
-  order: 9
+  order: 1
 ---
 
 OIDC usually adds three routes, session resolution, and a trail of protocol

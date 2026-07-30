@@ -170,7 +170,7 @@ type item struct {
 | `default:"…"` | `default` |
 
 最後の 2 つは `check` の規則ではなく独立したタグです。`check` の中に書くとエラーに
-なります。[ハンドラ](/ja/guides/handlers/#デフォルト値と列挙)を参照してください。
+なります。[ハンドラ](/ja/guides/frontend/handlers/#デフォルト値と列挙)を参照してください。
 
 ## API に名前を付ける
 
@@ -221,6 +221,6 @@ doc, err := pw.AssembleOpenAPI()
 エンドポイントも説明されません。このドキュメントが対象とするのは JSON と
 ストリーミングの面、つまりクライアント生成器が使える範囲です。
 
-バインディングとバリデーションのタグは[ハンドラ](/ja/guides/handlers/)を、書き出しの
-呼び出しは[レスポンス](/ja/guides/responses/)を、フラグメントが作られるタイミングは
+バインディングとバリデーションのタグは[ハンドラ](/ja/guides/frontend/handlers/)を、書き出しの
+呼び出しは[レスポンス](/ja/guides/frontend/responses/)を、フラグメントが作られるタイミングは
 [`pw generate`](/ja/pw/project/generate/)を参照してください。

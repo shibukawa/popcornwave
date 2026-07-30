@@ -176,7 +176,7 @@ anyway becomes the machine-readable part of the contract:
 | `default:"…"` | `default` |
 
 The last two are tags of their own rather than `check` rules; writing them
-inside `check` is an error. See [Handlers](/guides/handlers/#defaults-and-enumerations).
+inside `check` is an error. See [Handlers](/guides/frontend/handlers/#defaults-and-enumerations).
 
 ## Naming the API
 
@@ -229,6 +229,6 @@ through a variable the generator cannot follow will not appear. Server-rendered
 HTML endpoints are not described either; the document covers the JSON and
 streaming surface, which is what a client generator can use.
 
-See [Handlers](/guides/handlers/) for the binding and validation tags,
-[Responses](/guides/responses/) for the write calls, and
+See [Handlers](/guides/frontend/handlers/) for the binding and validation tags,
+[Responses](/guides/frontend/responses/) for the write calls, and
 [`pw generate`](/pw/project/generate/) for when the fragments are produced.

@@ -2,7 +2,7 @@
 title: Object storage
 description: Storing uploads in S3-compatible object storage with tinygodriver's TinyGo-capable S3 client.
 sidebar:
-  order: 10
+  order: 3
 ---
 
 Uploads belong neither in the database nor on the container's disk, and the S3
@@ -29,7 +29,7 @@ two targets.
 
 Endpoint, region, and bucket are deployment settings, so they belong in a
 registered configuration struct like any other — see
-[Configuration](/guides/configuration/):
+[Configuration](/guides/architecture/configuration/):
 
 ```go
 package storage
@@ -127,7 +127,7 @@ path style everywhere else, which is what S3-compatible servers expect.
 ## Storing an upload
 
 A multipart field binds to `httpbind.File` like any other input — see
-[Handlers](/guides/handlers/) — and its `Content` is already in memory, so
+[Handlers](/guides/frontend/handlers/) — and its `Content` is already in memory, so
 `bytes.NewReader` hands `Put` a body it can rewind:
 
 ```go
@@ -278,7 +278,7 @@ func storageProblem(err error) error {
 The default branch is deliberate. `ErrAccessDenied`, `ErrBadCredentials`, and a
 refused connection are operator problems, not client mistakes, and
 `pw.WriteProblem` turns any unrecognised error into a 500 that is logged in
-full and reported as `internal error` — see [Responses](/guides/responses/).
+full and reported as `internal error` — see [Responses](/guides/frontend/responses/).
 
 | Sentinel | Raised by |
 | --- | --- |

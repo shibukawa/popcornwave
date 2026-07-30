@@ -70,7 +70,7 @@ head です。そのページが描画するコンポーネントか、共有の
 `check` の失敗をそのまま problem レスポンスにすると swap ライブラリが無視するためです。
 
 テンプレートの構文、スロット、エスケープ、スコープ付きスタイルは
-[テンプレート](/ja/guides/templates/)で扱います。
+[テンプレート](/ja/guides/frontend/templates/)で扱います。
 
 ## JSON
 
@@ -116,7 +116,7 @@ func events(w http.ResponseWriter, r *http.Request) {
 以降の `Send` は矛盾するボディを書かず、同じエラーを返します。
 
 `server.write_timeout` の既定が `0s` なのは、まさに長時間のストリームを切断しないため
-です。[設定](/ja/guides/configuration/)を参照。
+です。[設定](/ja/guides/architecture/configuration/)を参照。
 
 ## エラー
 

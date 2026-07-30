@@ -108,7 +108,7 @@ pw: multiple default documents: templates/document.pw.html, admin/document.pw.ht
 
 Alternative shells are ordinary exported components with an unnamed slot,
 selected per handler with `pw.WriteHTMLChain`. See
-[Templates](/guides/templates/).
+[Templates](/guides/frontend/templates/).
 
 ## In CI
 

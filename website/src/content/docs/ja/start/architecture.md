@@ -103,5 +103,5 @@ Popcorn Wave はこれらを `pw` パッケージの背後にまとめるので�
 
 ## 次のステップ
 
-- [ハンドラ](/ja/guides/handlers/)
-- [レスポンス](/ja/guides/responses/)
+- [ハンドラ](/ja/guides/frontend/handlers/)
+- [レスポンス](/ja/guides/frontend/responses/)

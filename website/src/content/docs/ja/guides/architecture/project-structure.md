@@ -2,7 +2,7 @@
 title: プロジェクト構成
 description: 単一の handlers パッケージを超えて成長させる。ハンドラとクエリの階層化、popcornwave.toml が制御するもの。
 sidebar:
-  order: 5
+  order: 1
 ---
 
 `pw init` は `handlers` パッケージと `queries` パッケージを 1 つずつ作ります。この
@@ -148,7 +148,7 @@ func main() {
 エリアを `/public/` にマウントするのは避けてください。フレームワークは埋め込み静的
 アセットを `server.public.mount`（既定 `/public`）で配信しており、自分のルートと有効な
 運用エンドポイントの衝突は起動時に報告されます。別の場所にマウントするか、
-[設定](/ja/guides/configuration/)でアセットのマウント位置を移動してください。
+[設定](/ja/guides/architecture/configuration/)でアセットのマウント位置を移動してください。
 :::
 
 ## 分割されないもの
@@ -158,13 +158,13 @@ func main() {
 **ドキュメントシェル。** プロジェクトに `document.pw.html` はちょうど 1 つで、ツリーの
 どこかに 2 つ以上あると生成エラーになります。エリアごとに別のシェルを使いたい場合は、
 名前なしスロットを持つ通常のエクスポート済みコンポーネントを書き、ハンドラごとに
-`pw.WriteHTMLChain` で選択してください。[テンプレート](/ja/guides/templates/)を参照。
+`pw.WriteHTMLChain` で選択してください。[テンプレート](/ja/guides/frontend/templates/)を参照。
 
 **マイグレーション。** アプリケーション全体で 1 つの順序付き集合が `migration.dir` に
 あります。
 
 **設定の prefix。** 各エリアが自分の設定構造体を登録できますが、prefix は 1 つの名前空間
-を共有します。[設定](/ja/guides/configuration/)を参照。
+を共有します。[設定](/ja/guides/architecture/configuration/)を参照。
 
 ## `popcornwave.toml`
 
@@ -213,7 +213,7 @@ minify = true
 | `dev.watch.excludes` | `[]` | `pw dev` が走査時にスキップするサブツリー |
 | `migration.dir` | `migrations` | プロジェクトからの相対パス |
 | `migration.auto` | `true` | `pw dev` 起動時に未適用のマイグレーションを適用する |
-| `assets.tailwind.*` | 無効 | [スタイリング](/ja/guides/styling/)を参照 |
+| `assets.tailwind.*` | 無効 | [スタイリング](/ja/guides/frontend/styling/)を参照 |
 
 上のレイアウトへ拡張するときに必要な編集は 1 か所です。`handlers` と `templates` の
 用途で `handlers` を `webroot` に置き換えます。その下に入れ子になったエリアは自動的に

@@ -2,7 +2,7 @@
 title: Styling
 description: Component-scoped styles, and enabling Tailwind CSS — including after the fact.
 sidebar:
-  order: 6
+  order: 4
 ---
 
 Popcorn Wave does not force one CSS workflow. Component-scoped styles require no
@@ -28,7 +28,7 @@ export component Card(label: string): html {
 Classes declared in the block are renamed and the matching `class` attributes
 rewritten. Classes **not** declared there pass through untouched, which is
 exactly what lets Tailwind utilities sit next to scoped rules in the same
-attribute. See [Templates](/guides/templates/).
+attribute. See [Templates](/guides/frontend/templates/).
 
 ## Tailwind CSS
 
@@ -82,7 +82,7 @@ produce different output as the tool moves. If another tool manager provides
 The import starts Tailwind, but it does not tell Tailwind where templates live.
 The `@source` lines expose class names inside `.pw.html` files; without them, the
 generated stylesheet is nearly empty. Add one source per template directory.
-For the layout in [Project structure](/guides/project-structure/), that means
+For the layout in [Project structure](/guides/architecture/project-structure/), that means
 `@source "../webroot";`.
 
 The `@import "tailwindcss"` line is checked before the build runs, so a

@@ -2,7 +2,7 @@
 title: オブジェクトストレージ
 description: TinyGo でも動く tinygodriver の S3 クライアントで、アップロードを S3 互換ストレージに保存する。
 sidebar:
-  order: 10
+  order: 3
 ---
 
 アップロードされたファイルの置き場所は、データベースでもコンテナのディスクでも
@@ -29,7 +29,7 @@ go get github.com/shibukawa/tinygodriver/storage/s3@latest
 ## 設定
 
 エンドポイント、リージョン、バケットはデプロイ時の設定なので、ほかの設定と同じく
-登録した構造体に置きます。[設定](/ja/guides/configuration/)を参照してください。
+登録した構造体に置きます。[設定](/ja/guides/architecture/configuration/)を参照してください。
 
 ```go
 package storage
@@ -127,7 +127,7 @@ func Bucket(ctx context.Context) string { return pw.Config[Config](ctx).Bucket }
 ## アップロードを保存する
 
 multipart のフィールドは、ほかの入力と同じように `httpbind.File` にバインドされます
-（[ハンドラ](/ja/guides/handlers/)を参照）。`Content` はすでにメモリ上にあるので、
+（[ハンドラ](/ja/guides/frontend/handlers/)を参照）。`Content` はすでにメモリ上にあるので、
 `bytes.NewReader` は `Put` に巻き戻せるボディを渡せます。
 
 ```go
@@ -278,7 +278,7 @@ func storageProblem(err error) error {
 default 節は意図的です。`ErrAccessDenied`、`ErrBadCredentials`、接続拒否はクライアント
 の間違いではなく運用側の問題であり、`pw.WriteProblem` は認識できないエラーを
 500 に変換して、内容は全文をログに残し、クライアントには `internal error` として
-返します。[レスポンス](/ja/guides/responses/)を参照してください。
+返します。[レスポンス](/ja/guides/frontend/responses/)を参照してください。
 
 | センチネル | 発生元 |
 | --- | --- |

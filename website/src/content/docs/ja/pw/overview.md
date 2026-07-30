@@ -61,4 +61,4 @@ go install github.com/shibukawa/popcornwave/cmd/pw@latest
 
 デプロイするバイナリには別のコマンドラインがあります。設定オプション、設定
 スキャフォールドの出力、アプリケーション定義のサブコマンドです。この境界は
-[アプリケーション CLI](/ja/guides/application-cli/)で扱います。
+[カスタムコマンド](/ja/guides/architecture/custom-commands/)で扱います。

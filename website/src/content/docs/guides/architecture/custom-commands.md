@@ -1,8 +1,8 @@
 ---
-title: Application CLI
-description: The command line of the binary you build — config flags, scaffold output, and your own subcommands.
+title: Custom Commands
+description: The command line of the binary you build — config flags, scaffold output, and subcommands of your own.
 sidebar:
-  order: 8
+  order: 2
 ---
 
 `pw` controls development, but it is not the command your users deploy. The
@@ -61,7 +61,7 @@ APP_ENV=stg ./myapp
 ./myapp --config-path ./deploy/staging.toml
 ```
 
-See [Configuration](/guides/configuration/) for the full resolution order.
+See [Configuration](/guides/architecture/configuration/) for the full resolution order.
 
 ## Printing a scaffold
 

@@ -103,5 +103,5 @@ this foundation, but it never becomes a prerequisite for it.
 
 ## Next steps
 
-- [Handlers](/guides/handlers/)
-- [Responses](/guides/responses/)
+- [Handlers](/guides/frontend/handlers/)
+- [Responses](/guides/frontend/responses/)

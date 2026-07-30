@@ -2,7 +2,7 @@
 title: スタイリング
 description: コンポーネントスコープのスタイルと、Tailwind CSS の有効化。あとから有効にする手順も。
 sidebar:
-  order: 6
+  order: 4
 ---
 
 Popcorn Wave は CSS の手法を 1 つに強制しません。コンポーネントスコープのスタイルは
@@ -27,7 +27,7 @@ export component Card(label: string): html {
 ブロック内で宣言されたクラスはリネームされ、対応する `class` 属性も書き換えられます。
 そこで宣言されて**いない**クラスは手を加えられずに通過するので、同じ属性の中で Tailwind
 のユーティリティとスコープ付きルールを並べられます。
-[テンプレート](/ja/guides/templates/)を参照。
+[テンプレート](/ja/guides/frontend/templates/)を参照。
 
 ## Tailwind CSS
 
@@ -80,7 +80,7 @@ devbox shell
 import は Tailwind を開始しますが、テンプレートの場所までは伝えません。`@source` の
 行が `.pw.html` 内のクラス名を Tailwind に見せます。これがないと生成されるスタイル
 シートはほぼ空です。テンプレートを含むディレクトリごとに 1 つ追加してください。
-[プロジェクト構成](/ja/guides/project-structure/)のレイアウトなら
+[プロジェクト構成](/ja/guides/architecture/project-structure/)のレイアウトなら
 `@source "../webroot";` になります。
 
 `@import "tailwindcss"` の行はビルド前に検証されるので、壊れたエントリポイントは

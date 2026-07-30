@@ -132,7 +132,7 @@ export component Home(name: string): html {
 
 ハンドラはドキュメントシェルに一切触れません。`pw.WriteHTML` がページフラグメントを
 受け取り、`templates/document.pw.html` から登録されたドキュメントの中に描画します。
-この合成については[テンプレート](/ja/guides/templates/)で詳しく説明します。
+この合成については[テンプレート](/ja/guides/frontend/templates/)で詳しく説明します。
 
 ## 3. 動かす
 
@@ -180,7 +180,7 @@ listening on http://localhost:8080
 解決済みキーがすべて並びます。既定値以外から来た値だけが印されます（上の `← file` の
 ほか、`← env` と `← flag` があります）。`rdb.dsn` のようなキーは伏せられます。端末以外
 では同じ内容が構造化ログ1レコードになります。詳しくは
-[起動サマリ](/ja/guides/configuration/#起動サマリ)を参照してください。
+[起動サマリ](/ja/guides/architecture/configuration/#何が効いたのかを見る)を参照してください。
 
 <http://localhost:8080/> を開いてください。生成されたページはクエリパラメータにも
 反応するので、<http://localhost:8080/?name=Popcorn> で名前入りの挨拶になります。
@@ -235,5 +235,5 @@ APP_ENV=prod ./myapp
 ## 次のステップ
 
 - [アーキテクチャ](/ja/start/architecture/) — フレームワークが前提とするモデル。
-- [ハンドラ](/ja/guides/handlers/)と[レスポンス](/ja/guides/responses/) — `pw` API の全体。
+- [ハンドラ](/ja/guides/frontend/handlers/)と[レスポンス](/ja/guides/frontend/responses/) — `pw` API の全体。
 - [pw コマンド](/ja/pw/overview/) — すべてのサブコマンド。

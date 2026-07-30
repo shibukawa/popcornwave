@@ -1,8 +1,8 @@
 ---
-title: アプリケーション CLI
+title: カスタムコマンド
 description: ビルドしたバイナリのコマンドライン。設定オプション、スキャフォールド出力、独自のサブコマンド。
 sidebar:
-  order: 8
+  order: 2
 ---
 
 `pw` は開発を制御しますが、利用者がデプロイするコマンドではありません。`pw build`
@@ -59,7 +59,7 @@ APP_ENV=stg ./myapp
 ./myapp --config-path ./deploy/staging.toml
 ```
 
-解決順序の全体は[設定](/ja/guides/configuration/)を参照してください。
+解決順序の全体は[設定](/ja/guides/architecture/configuration/)を参照してください。
 
 ## スキャフォールドの出力
 

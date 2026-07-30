@@ -61,6 +61,6 @@ listening on http://localhost:8080
 キー名に `secret`、`password`、`token`、`credential`、`dsn`、`private_key` を含むものは、
 どちらの形式でも `[REDACTED]` として記録されます。
 
-値の取得元については[設定](/ja/guides/configuration/)を、同じ考え方を SQL に
+値の取得元については[設定](/ja/guides/architecture/configuration/)を、同じ考え方を SQL に
 適用したものについては[クエリー診断](/ja/productivity/query-diagnostics/)を
 参照してください。

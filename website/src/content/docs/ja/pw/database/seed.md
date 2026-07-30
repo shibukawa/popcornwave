@@ -9,6 +9,9 @@ sidebar:
 pw seed [--dir=testdata/seed] [name...]
 ```
 
+シードデータとは何か、どこからが[マイグレーション](/ja/productivity/migrations/)では
+なくなるのかは[シードデータ](/ja/productivity/seed-data/)にあります。
+
 シードデータは意図したデータベースに入って初めて役立ちます。`pw seed` は、
 アプリケーション自身の設定から解決したデータベースにデータセットを適用します。
 

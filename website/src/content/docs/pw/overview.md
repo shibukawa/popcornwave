@@ -62,4 +62,4 @@ are written to standard error prefixed with `pw:`.
 
 The deployed binary has a different command line: configuration flags,
 configuration scaffold output, and application-defined subcommands. See
-[Application CLI](/guides/application-cli/) for that boundary.
+[Custom Commands](/guides/architecture/custom-commands/) for that boundary.

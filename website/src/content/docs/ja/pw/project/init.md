@@ -178,7 +178,7 @@ OIDC 系のモードで `--devidp` を付けると、選択できる開発用ユ
 `popcornwave.toml` に `[assets.tailwind]` ブロックを追加し、`devbox.json` に
 `tailwindcss` をピン留めし、ドキュメントシェルからスタイルシートをリンクします。
 `package.json` も Node のロックファイルも作られません。あとから有効にする方法は
-[スタイリング](/ja/guides/styling/)を参照してください。
+[スタイリング](/ja/guides/frontend/styling/)を参照してください。
 
 各ファイルは一時パスに書いてから所定の場所へリネームされます。コマンドが中断しても、
 書きかけのソースファイルは残りません。
@@ -225,4 +225,4 @@ require します。`pw` がリリース版ではなく作業コピーからビ�
 - [はじめる](/ja/start/getting-started/) — 生成物の詳しい解説。
 - [pw add](/ja/pw/project/add/) — ここで断った機能をあとから追加する。
 - [pw new](/ja/pw/project/new/) — 2 つめのハンドラを追加する。
-- [プロジェクト構成](/ja/guides/project-structure/) — 1 パッケージを超えて成長させる。
+- [プロジェクト構成](/ja/guides/architecture/project-structure/) — 1 パッケージを超えて成長させる。

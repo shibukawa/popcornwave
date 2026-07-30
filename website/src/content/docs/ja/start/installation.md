@@ -38,7 +38,7 @@ go get github.com/shibukawa/popcornwave
 ```
 
 アプリケーションコードは、安定したアプリケーション向け API である
-[`pw`](/ja/guides/handlers/) パッケージをインポートします。
+[`pw`](/ja/guides/frontend/handlers/) パッケージをインポートします。
 
 ```go
 import "github.com/shibukawa/popcornwave/pw"

@@ -1,8 +1,8 @@
 ---
-title: Queries and migrations
-description: Typed .pw.sql statements, conditional SQL, transactions, goose migrations, and seed data.
+title: Queries
+description: Typed .pw.sql statements, conditional SQL, transactions, and reader-writer connection groups.
 sidebar:
-  order: 4
+  order: 2
 ---
 
 SQL remains visible as SQL, but its boundary with Go becomes typed. You write
@@ -206,31 +206,6 @@ Raw access is there when a query does not fit the generated layer:
 db, ok := pw.DB(r.Context())
 ```
 
-## Migrations
-
-Migrations live in `migrations/` and use goose's format:
-
-```sql
--- +goose Up
-CREATE TABLE users (
-    id INTEGER PRIMARY KEY,
-    name TEXT NOT NULL
-);
-
--- +goose Down
-DROP TABLE users;
-```
-
-```sh
-pw migrate create add_email
-pw migrate status
-pw migrate up
-```
-
-`pw dev` applies pending migrations at startup, so the development loop rarely
-needs these commands directly. Deployment and rollback still do; the full
-action list is in [pw migrate](/pw/database/migrate/).
-
 ## Database configuration
 
 The pool lives under `[middleware.rdb]` and is **off by default**:
@@ -245,7 +220,7 @@ max_idle_conns = 1
 ```
 
 `dsn` is treated as a secret: redacted in configuration logs and in error
-messages. See [Configuration](/guides/configuration/).
+messages. See [Configuration](/guides/architecture/configuration/).
 
 The scheme selects the engine, and a server engine needs a blank import to
 register it:
@@ -317,7 +292,8 @@ usable. Inside a transaction you may still `SelectDB` a `readonly` group — tha
 read simply happens outside the transaction — but not a writable one: such a
 write would look atomic without being atomic.
 
-Migrations, seed data, and the session table go to `write_group`, or to the
+[Migrations](/productivity/migrations/), [seed data](/productivity/seed-data/),
+and the session table go to `write_group`, or to the
 narrower `migration_group` and `session.rdb.group` when they are set. A
 `readonly` connection is never chosen for them, and configuring one there fails
 at startup.
@@ -342,19 +318,8 @@ level=WARN msg="sql executed" sql="SELECT name FROM items WHERE name = $1"
 
 See [Query Diagnostics](/productivity/query-diagnostics/).
 
-## Seed data
+Schema and starting rows are a separate concern from the statements above, and
+they live with the rest of the development tooling: [Database
+Migrations](/productivity/migrations/) and [Seed
+Data](/productivity/seed-data/).
 
-Seed files live in `testdata/seed/` and are shared by the CLI and the test
-helpers, so a fixture cannot drift between them:
-
-```yaml
-member:
-- { id: 1, name: Frank }
-- { id: 2, name: Grace }
-```
-
-```sh
-pw seed
-```
-
-See [pw seed](/pw/database/seed/) and [Testing](/productivity/testing/).

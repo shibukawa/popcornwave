@@ -39,7 +39,7 @@ func init() {
 ```
 
 アプリケーションの成長に合わせてルートを複数パッケージに分割する方法は
-[プロジェクト構成](/ja/guides/project-structure/)を参照してください。
+[プロジェクト構成](/ja/guides/architecture/project-structure/)を参照してください。
 
 ## リクエストのバインディング
 
@@ -117,7 +117,7 @@ type uploadInput struct {
 上限は既定で 1 MiB で、`httpbind.SetMaxMultipartBodyBytes` で変更します。ただし
 フレームワーク側の `server.max_request_body` が先に適用されるため、その既定値
 10 MiB を超える multipart 上限は、そちらを動かすまで効きません。
-[設定](/ja/guides/configuration/)を参照。
+[設定](/ja/guides/architecture/configuration/)を参照。
 
 ### 宣言していないフィールド
 
@@ -185,7 +185,7 @@ check: enum is not a check rule; use the struct tag enum:"asc,desc" instead
 
 チェックに失敗すると `pw.Parse` は該当フィールドの情報を持つエラーを返します。それを
 `pw.WriteProblem` に渡すと、フィールド単位の詳細を含む 400 になります。
-[レスポンス](/ja/guides/responses/)を参照。
+[レスポンス](/ja/guides/frontend/responses/)を参照。
 
 ## リクエストスコープのアクセサ
 
@@ -219,7 +219,7 @@ func createUser(w http.ResponseWriter, r *http.Request) {
 
 コールバックは、どちらのクエリにもトランザクションハンドルを渡していません。
 生成済みクエリ関数が context からトランザクションを取得します。詳しくは
-[クエリ](/ja/guides/queries/)を参照してください。
+[クエリ](/ja/guides/backend/queries/)を参照してください。
 
 ## ライフサイクル
 
