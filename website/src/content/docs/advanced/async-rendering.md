@@ -491,8 +491,6 @@ be applied twice.
 
 ### Why the marker, and not the template
 
-This is the detail worth carrying away.
-
 An HTML parser inserts an element when it reads its **start** tag. Code that
 reacted to the `<template>` appearing could therefore read a template whose
 content had not arrived yet, replace the placeholder with nothing, and remove the
@@ -531,7 +529,7 @@ loaded by `src` — so `script-src 'self'` is sufficient, with no nonce and no
 `unsafe-inline`. There is no hydration, no virtual DOM, and no component code in
 the browser.
 
-The trade is deliberate and worth stating plainly: this mechanism can **place
-server-rendered HTML, and nothing else**. It will not re-render a section from
+The trade is deliberate: this mechanism can **place server-rendered HTML, and
+nothing else**. It will not re-render a section from
 client state, and it gives you no interactivity by itself. Interactivity remains
 something you add where you want it, rather than the price of streaming.

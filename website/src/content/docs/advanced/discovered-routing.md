@@ -53,7 +53,7 @@ So the two share one mux without negotiating:
 
 ```go
 mux := handlers.Handlers()  // registered: your API
-pages.Register(mux)          // discovered: the website
+pages.Register(mux)         // discovered: the website
 ```
 
 Registration order does not matter. A generated `GET /{$}` does not shadow a
@@ -81,10 +81,10 @@ pages/files/rest__/page.pw.html   → GET /files/{rest...}
 
 One trailing underscore is a dynamic segment, two are a catch-all.
 
-If you have used a file-based router before you expected `users/[id]/`, and the
-reason it is not that is not taste. The Go toolchain rejects an illegal import
-path element while it is still matching package patterns, before it evaluates
-any build constraint. So one `pages/users/[id]/page.go` does not break its own
+If you have used a file-based router before, you expected `users/[id]/`. Taste
+is not the reason it is spelled otherwise. The Go toolchain rejects an illegal
+import path element while it is still matching package patterns, before it
+evaluates any build constraint. So one `pages/users/[id]/page.go` does not break its own
 package — it breaks `go build ./...` for the whole module. `{id}`, `$id`, `@id`,
 `:id`, `(group)`, and `-id` fail the same way, and discovery rejects them first
 with the reason.
@@ -215,9 +215,9 @@ ancestor layouts, so the root importing the leaf is a cycle. Composition
 therefore lives in the registry, every generated import points down the tree, and
 no upward edge exists.
 
-That reaches the handler rung. A handwritten `Load` cannot call a composer above
-itself, so a handler-rung page composes its own chain through the `Render`
-generated beside it:
+That constraint reaches the handler rung. A handwritten `Load` cannot call a
+composer above itself, so a handler-rung page composes its own chain through the
+`Render` generated beside it:
 
 ```go
 func Load(w http.ResponseWriter, r *http.Request) {

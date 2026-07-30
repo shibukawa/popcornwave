@@ -49,14 +49,16 @@ pw.WriteHTMLFragment(w, r, Row(RowParams{Item: item}))
 No document shell, no wrapper chain, no merged head, no framing. The body is
 exactly what the template wrote, ready for the swap library to insert.
 
-Two consequences follow from having no document around the markup. A fragment
-never streams: an await boundary settles in place, so the response carries no
-placeholder for a client runtime to replace and no boundary id that could
-collide with one still pending in the page it lands in. And a template that
-contributes to the document head is rejected with a 500 instead of losing those
-contributions silently — a scoped style block belongs in the head of the page
-that is already loaded, so declare it in a component that page renders, or in a
-shared stylesheet.
+Two consequences follow from having no document around the markup.
+
+A fragment never streams. An await boundary settles in place, so the response
+carries no placeholder for a client runtime to replace, and no boundary id that
+could collide with one still pending in the page it lands in.
+
+A template that contributes to the document head is rejected with a 500 rather
+than losing those contributions silently. A scoped style block belongs in the
+head of the page that is already loaded, so declare it in a component that page
+renders, or in a shared stylesheet.
 
 Failures answer with `application/problem+json` and their real status rather
 than with an HTML error page, because an error document swapped into one region
@@ -117,8 +119,8 @@ Format selection begins with the `?stream=` query parameter, then considers
 Not Acceptable` problem response. Every later `Send` returns that same error
 instead of writing a contradictory body.
 
-Note that `server.write_timeout` defaults to `0s` precisely so long-lived
-streams are not cut off; see [Configuration](/guides/configuration/).
+`server.write_timeout` defaults to `0s` precisely so that long-lived streams are
+not cut off; see [Configuration](/guides/configuration/).
 
 ## Errors
 
@@ -196,7 +198,7 @@ payload.
 Scaffolded projects carry `templates/400.pw.html`, `404.pw.html`, and
 `500.pw.html`. They are ordinary components, generated like any other page.
 
-The current boundary matters here. `pw.WriteProblem` always answers with
-`application/problem+json`, while `pw.WriteHTML` accepts no status code and
-therefore answers 200. Applications that want one of these templates under a
-4xx or 5xx status must wire that path themselves.
+Connecting them to a status is still manual work. `pw.WriteProblem` always
+answers with `application/problem+json`, while `pw.WriteHTML` accepts no status
+code and therefore answers 200. An application that wants one of these templates
+under a 4xx or 5xx status has to build that path itself.

@@ -6,7 +6,7 @@ sidebar:
 ---
 
 ```sh
-pw init <project-name> [--tailwind] [--no-devbox] [--no-database] [--db=<engine>] [--no-redis] [--auth=<mode>] [--devidp]
+pw init <project-name> [--tailwind] [--no-tinygo] [--no-devbox] [--no-database] [--db=<engine>] [--no-redis] [--router=<kind>] [--auth=<mode>] [--devidp] [-i]
 ```
 
 The command creates a complete, runnable project in a new directory. A name and
@@ -23,6 +23,7 @@ presents the same choices as a wizard.
 | `--no-database` | no rdb configuration, no migrations, and no SQL example |
 | `--db=<engine>` | `sqlite` (default), `postgres`, or `mysql` |
 | `--no-redis` | leave the Valkey development server out of `devbox.json` |
+| `--router=<kind>` | `registered` (default), `discovered`, or `both`; see [Discovered routing](/advanced/discovered-routing/#commands) |
 | `--auth=<mode>` | `none` (default), `oidc`, `oidc-passkey`, or `passkey` |
 | `--devidp` | with an OIDC mode, wire up the local identity provider |
 | `-i`, `--interactive` | ask every question even when a name was given |
@@ -42,9 +43,9 @@ entirely when the database is declined.
 `--db` decides five things at once: the DSN in `config.dev.toml`, the dialect
 the starter migration is written in, the development server added to
 `devbox.json`, the driver the binary links, and `project.database` in
-`popcornwave.toml`, which is what `pw generate` reads to know the placeholder
-syntax `.pw.sql` sources compile to. SQLite is the default because it runs with
-nothing to start beside the application.
+`popcornwave.toml`. That last key is what `pw generate` reads to know the
+placeholder syntax `.pw.sql` sources compile to. SQLite is the default because
+it runs with nothing to start beside the application.
 
 | Engine | DSN | Development server |
 | --- | --- | --- |

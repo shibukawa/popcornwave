@@ -9,7 +9,7 @@ Popcorn Wave generates request parsing, database queries, HTML, and response
 writing, so it can look as though the runtime depends on all four. It does not.
 The framework's required surface is smaller: a middleware stack over `net/http`
 and tooling that keeps generation, development, and builds consistent. The
-generated layers are **helpers** that you may replace—or use from another
+generated layers are **helpers** that you may replace — or use from another
 framework without bringing Popcorn Wave with them.
 
 ## Why these layers exist at all
@@ -31,7 +31,7 @@ The more consequential result is not performance but ownership. A generator
 knows only what it can read in source, yet the framework does not compensate by
 taking over the handler signature. A handler remains an `http.HandlerFunc`, and
 `w` and `r` remain standard types. When generation does not fit an endpoint, you
-can write it by hand—or use a reflection-based library and knowingly give up
+can write it by hand — or use a reflection-based library and knowingly give up
 the TinyGo target for that build.
 
 ## What is actually the framework

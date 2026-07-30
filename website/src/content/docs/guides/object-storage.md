@@ -180,8 +180,8 @@ Two limits apply before the object ever reaches the client:
 accepts real files.
 
 `WithContentType` matters at download time rather than upload time — S3 stores
-what you send and returns it as the object's `Content-Type` later. Note that it
-comes from the client here; an application that serves those objects back to a
+what you send and returns it as the object's `Content-Type` later. Here that
+value came from the client, so an application serving those objects back to a
 browser should decide the type itself rather than trust the part header.
 
 ## Serving one back
@@ -303,8 +303,7 @@ if errors.As(err, &storageErr) {
 }
 ```
 
-Note that `Delete` succeeds on a key that does not exist, which is how S3 itself
-behaves.
+`Delete` succeeds on a key that does not exist, which is how S3 itself behaves.
 
 ## Local development
 

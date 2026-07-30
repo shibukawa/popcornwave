@@ -314,8 +314,8 @@ err := pw.Transaction(ctx, func(ctx context.Context) error {
 One transaction never spans two groups: a nested `pw.Transaction` naming a
 different group returns `ErrCrossGroupTransaction` and leaves the outer one
 usable. Inside a transaction you may still `SelectDB` a `readonly` group — that
-read simply happens outside the transaction — but not a writable one, because
-that write would look atomic without being it.
+read simply happens outside the transaction — but not a writable one: such a
+write would look atomic without being atomic.
 
 Migrations, seed data, and the session table go to `write_group`, or to the
 narrower `migration_group` and `session.rdb.group` when they are set. A

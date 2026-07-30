@@ -11,7 +11,7 @@ is the `pw` command and the library dependency it manages.
 ## The `pw` command
 
 Scaffolding, code generation, migrations, and the development server all go
-through the `pw` command:
+through `pw`, so install it first:
 
 ```sh
 go install github.com/shibukawa/popcornwave/cmd/pw@latest

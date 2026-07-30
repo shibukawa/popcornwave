@@ -7,7 +7,7 @@ sidebar:
 
 Handlers stay ordinary `net/http` handlers, but they do not have to parse every
 input by hand. The stable application-facing API,
-`github.com/shibukaway/popcornwave/pw`, adds routing-compatible generation and
+`github.com/shibukawa/popcornwave/pw`, adds routing-compatible generation and
 typed request binding without changing the handler signature.
 
 ## Routing
@@ -117,8 +117,9 @@ type uploadInput struct {
 
 `File` exposes `Filename`, `ContentType`, `Size`, and `Content`. The multipart
 body limit defaults to 1 MiB and is changed with
-`httpbind.SetMaxMultipartBodyBytes`. Note that the framework's own
-`server.max_request_body` (10 MiB by default) applies first — see
+`httpbind.SetMaxMultipartBodyBytes`. The framework's own
+`server.max_request_body` applies first, so a multipart limit raised past its
+10 MiB default does nothing until that one moves too — see
 [Configuration](/guides/configuration/).
 
 ### Undeclared fields
@@ -163,9 +164,9 @@ Two constraints are tags of their own rather than `check` rules:
 | `enum:"a,b,c"` | scalars | `enum:"asc,desc"` |
 
 `default` is the tag configuration structs already use, so it means the same
-thing on both sides of the framework. `enum` separates with a comma, which it
-could not do inside `check` where the comma already separates rules, and it
-trims the space around each value.
+thing on both sides of the framework. `enum` needs a tag of its own for a
+different reason: inside `check` the comma already separates rules, so it could
+not also separate values. Space around each value is trimmed.
 
 ```go
 type listInput struct {
@@ -232,12 +233,13 @@ func main() {
 }
 ```
 
-The plain handler is only one part of a running service. `pw.Run` parses
-configuration, handles application flags such as
-`--generate-config`, validates the configured runtime, initialises the database
-pool, checks for collisions between your routes and the operational endpoints,
-builds the middleware stack, serves, shuts down gracefully on `SIGINT` or
-`SIGTERM`, and closes registered resources in reverse order.
+The plain handler is only one part of a running service. Before the first
+request arrives, `pw.Run` parses configuration, handles application flags such
+as `--generate-config`, validates the configured runtime, initialises the
+database pool, checks for collisions between your routes and the operational
+endpoints, and builds the middleware stack. Then it serves. On `SIGINT` or
+`SIGTERM` it shuts down gracefully and closes registered resources in reverse
+order.
 
 When you need the wrapped handler without owning the server — behind another
 listener, or in a test — `pw.Middlewares(handler, options...)` performs the same

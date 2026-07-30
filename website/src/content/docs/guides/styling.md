@@ -137,7 +137,7 @@ pw dev
 Output is first written to a temporary file and then renamed into place, so the
 server never observes a half-written stylesheet. `public/generated/app.css` is
 build output. The scaffolded `.gitignore` already excludes compressed
-`public/**/*.zstd` sidecars, and generated CSS will usually belong there too.
+`public/**/*.zstd` sidecars, and generated CSS usually belongs in it too.
 
 ### Plugins
 

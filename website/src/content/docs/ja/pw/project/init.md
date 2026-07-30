@@ -6,7 +6,7 @@ sidebar:
 ---
 
 ```sh
-pw init <project-name> [--tailwind] [--no-devbox] [--no-database] [--db=<engine>] [--no-redis] [--auth=<mode>] [--devidp]
+pw init <project-name> [--tailwind] [--no-tinygo] [--no-devbox] [--no-database] [--db=<engine>] [--no-redis] [--router=<kind>] [--auth=<mode>] [--devidp] [-i]
 ```
 
 新しいディレクトリに、動作する完全なプロジェクトを作ります。名前とオプションを
@@ -23,6 +23,7 @@ pw init <project-name> [--tailwind] [--no-devbox] [--no-database] [--db=<engine>
 | `--no-database` | rdb 設定・マイグレーション・SQL の例を作らない |
 | `--db=<engine>` | `sqlite`（既定）、`postgres`、`mysql` |
 | `--no-redis` | `devbox.json` に Valkey 開発サーバーを入れない |
+| `--router=<kind>` | `registered`（既定）、`discovered`、`both`。[探索型ルーティング](/ja/advanced/discovered-routing/#コマンド)を参照 |
 | `--auth=<mode>` | `none`（既定）、`oidc`、`oidc-passkey`、`passkey` |
 | `--devidp` | OIDC を選んだ場合に、ローカルの認証プロバイダを組み込む |
 | `-i`, `--interactive` | 名前を与えた場合でも全項目を質問する |

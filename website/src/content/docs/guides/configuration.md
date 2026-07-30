@@ -92,7 +92,7 @@ accept it, and `Vary: Accept-Encoding` is set either way.
 `headers.frame_options` (`deny`), `headers.referrer_policy`
 (`strict-origin-when-cross-origin`), `headers.content_security_policy`,
 `headers.content_security_policy_report_only`, `headers.permissions_policy`, and
-an `headers.hsts` block (disabled by default) applied only on verified HTTPS
+a `headers.hsts` block (disabled by default) applied only on verified HTTPS
 requests.
 
 ### `[observability]`
@@ -208,9 +208,9 @@ func main() {
 }
 ```
 
-Timing defines whether the generator can assemble the complete configuration.
-Generated definitions register during package `init`, so the binding must be
-created **after** every `init` has run but **before** parsing begins.
+Where you place that call matters. Generated definitions register during package
+`init`, so the binding must be created **after** every `init` has run but
+**before** parsing begins.
 Registration after `ParseConfig` panics, and the prefix must be a string literal
 that the generator can read.
 

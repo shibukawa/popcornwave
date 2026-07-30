@@ -181,9 +181,8 @@ generated document artifact registers itself during package initialisation, and
 any handler referencing it. `pw.WriteHTML` then resolves the registered
 document and renders the chain with the document outermost.
 
-The consequence is concrete: handler code neither selects nor constructs a
-document. A missing or duplicate registration fails at **startup**, before a
-request can discover it.
+Handler code therefore neither selects nor constructs a document. A missing or
+duplicate registration fails at **startup**, before a request can discover it.
 
 :::caution
 A project has **exactly one** `document.pw.html`. `pw generate` fails with

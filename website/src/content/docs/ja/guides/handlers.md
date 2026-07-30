@@ -114,9 +114,10 @@ type uploadInput struct {
 ```
 
 `File` は `Filename`、`ContentType`、`Size`、`Content` を持ちます。multipart ボディの
-上限は既定で 1 MiB で、`httpbind.SetMaxMultipartBodyBytes` で変更します。なお
-フレームワーク側の `server.max_request_body`（既定 10 MiB）が先に適用される点に
-注意してください。[設定](/ja/guides/configuration/)を参照。
+上限は既定で 1 MiB で、`httpbind.SetMaxMultipartBodyBytes` で変更します。ただし
+フレームワーク側の `server.max_request_body` が先に適用されるため、その既定値
+10 MiB を超える multipart 上限は、そちらを動かすまで効きません。
+[設定](/ja/guides/configuration/)を参照。
 
 ### 宣言していないフィールド
 
@@ -162,8 +163,9 @@ type eventInput struct {
 | `enum:"a,b,c"` | スカラー | `enum:"asc,desc"` |
 
 `default` は設定用の構造体がすでに使っているタグなので、フレームワークの両側で同じ
-意味になります。`enum` の区切りはカンマです。`check` の中ではカンマがルールの区切りに
-なるため使えませんでした。各値の前後の空白はトリムされます。
+意味になります。`enum` が独立したタグになったのは別の理由です。`check` の中では
+カンマがすでにルールの区切りなので、値の区切りには使えませんでした。各値の前後の
+空白はトリムされます。
 
 ```go
 type listInput struct {
@@ -229,11 +231,12 @@ func main() {
 }
 ```
 
-素のハンドラは、動作するサービスの一部にすぎません。`pw.Run` は設定をパースし、
-`--generate-config` などのアプリケーションフラグを処理し、
+素のハンドラは、動作するサービスの一部にすぎません。最初のリクエストが届く前に、
+`pw.Run` は設定をパースし、`--generate-config` などのアプリケーションフラグを処理し、
 設定されたランタイムを検証し、データベースプールを初期化し、自分のルートと運用
-エンドポイントの衝突を確認し、ミドルウェアスタックを構築し、配信し、`SIGINT` または
-`SIGTERM` でグレースフルにシャットダウンし、登録済みリソースを逆順にクローズします。
+エンドポイントの衝突を確認し、ミドルウェアスタックを構築します。そのうえで配信を
+始めます。`SIGINT` または `SIGTERM` を受けるとグレースフルにシャットダウンし、
+登録済みリソースを逆順にクローズします。
 
 サーバー自体は自分で持ちたい場合 —— 別のリスナーの背後や、テストの中など ——
 `pw.Middlewares(handler, options...)` が同じ初期化を行い、同じスタックを素の

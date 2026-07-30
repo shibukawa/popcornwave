@@ -11,7 +11,7 @@ Popcorn Wave は **Go 1.26 以降**が必要です。その先で必須となる
 ## `pw` コマンド
 
 スキャフォールド、コード生成、マイグレーション、開発サーバは、いずれも `pw`
-コマンドを経由します。
+コマンドを経由します。まずはこれを入れます。
 
 ```sh
 go install github.com/shibukawa/popcornwave/cmd/pw@latest

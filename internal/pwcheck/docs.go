@@ -19,7 +19,7 @@ var groupTitles = []struct {
 	{GroupStorage, "Storage (PW03xx)",
 		"Whether the migration sources are well-formed, and, under `--online`, whether the database still matches them."},
 	{GroupConfig, "Configuration, secrets, and the identity provider (PW04xx)",
-		"Wiring the binary does not carry, values that are inadvisable for the diagnosed environment, and secrets that are in the wrong place."},
+		"Three things go wrong here: wiring the binary does not actually carry, values that are inadvisable for the diagnosed environment, and secrets kept in the wrong place."},
 	{GroupReadiness, "Production readiness (PW05xx)",
 		"The pre-launch checklist as something that runs. Silent while the diagnosed environment is `dev`."},
 }

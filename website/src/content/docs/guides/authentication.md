@@ -114,7 +114,7 @@ A verified identity does not dictate the application's account model. The
 framework calls the resolver registered with `auth.SetAccountResolver`; that
 resolver looks up an account and may provision one when
 `auth.oidc.auto_provision` permits it. The stable link combines the issuer with
-the claim named by `auth.oidc.identity_claim`—never the email address.
+the claim named by `auth.oidc.identity_claim` — never the email address.
 
 An expired or unknown session cookie is discarded silently. Anonymous requests
 are a normal state, so `auth.User` simply reports `false`. When it reports a
@@ -165,8 +165,8 @@ completes the entire flow. See [Testing](/productivity/testing/#withidentityprov
 
 Deployment removes that convenience. `issuer`, `client_id`, and `client_secret`
 must be non-empty or the application refuses to start, naming both the missing
-keys and their `AUTH_OIDC_*` environment variables. Supply them—and
-`SESSION_SECRET`—through the environment rather than a committed file.
+keys and their `AUTH_OIDC_*` environment variables. Supply them — and
+`SESSION_SECRET` — through the environment rather than a committed file.
 
 `auth.oidc.redirect_url` may stay empty, in which case the callback URL follows
 the request origin. Set it explicitly when the browser-facing origin differs

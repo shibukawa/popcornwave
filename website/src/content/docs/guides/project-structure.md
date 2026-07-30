@@ -139,7 +139,7 @@ func main() {
 ```
 
 The dependency direction makes the composition work. The parent imports its
-children, so Go runs each child's `init` function—and registers its routes—
+children, so Go runs each child's `init` function — and registers its routes —
 before the parent's. Because a child never imports the parent, the packages do
 not form a cycle.
 
@@ -220,11 +220,12 @@ minify = true
 
 The larger layout above needs one edit: `webroot` replaces `handlers` in the
 `handlers` and `templates` purposes, since the areas nested inside it come along
-for free. Otherwise the keys most likely to change as the application grows are
-`dev.watch.includes`, for edited files the walk would otherwise miss,
-`dev.watch.excludes`, when a large dependency tree makes the walk the slowest
-step of the loop, and `migration.auto`, when migrations should run under your
-own control.
+for free.
+
+Three other keys tend to move as an application grows. `dev.watch.includes`
+picks up edited files the walk would otherwise miss. `dev.watch.excludes` trims
+it when a large dependency tree makes the walk the slowest step of the loop.
+`migration.auto` goes off when migrations should run under your own control.
 
 `pw dev` deliberately watches wider than generation: any Go source is a rebuild
 input, including files no purpose generates from. That is why its scope is

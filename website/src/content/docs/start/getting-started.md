@@ -5,9 +5,9 @@ sidebar:
   order: 2
 ---
 
-An empty directory is only a few commands away from a running application. This
-walkthrough creates that application, examines what was generated, and then
-changes a page to test the development loop.
+An empty directory is only a few commands away from a running application. The
+tree those commands leave behind repays a careful first look: part of it is
+source you will edit, and part of it is build output you should never touch.
 
 ## 1. Create the project
 
@@ -227,9 +227,9 @@ exposed a contract mismatch at build time rather than at runtime.
 pw build
 ```
 
-This regenerates code, builds minified CSS when Tailwind is enabled, prepares
-the compressed sidecars for public assets, and runs `go build` on the main
-package from `popcornwave.toml`.
+`pw build` regenerates code, builds minified CSS when Tailwind is enabled,
+prepares the compressed sidecars for public assets, and runs `go build` on the
+main package named in `popcornwave.toml`.
 
 Select the runtime environment with `APP_ENV`:
 
