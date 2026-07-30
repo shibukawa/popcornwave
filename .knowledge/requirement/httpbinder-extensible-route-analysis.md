@@ -48,7 +48,7 @@ compatibility:
 candidate_followups:
   - explicit route annotation as a checked fallback when a registration API cannot be modeled
   - configurable aliases for Bind, Write, NewStream, and error constructor APIs
-  - exported analysis result IR for framework tooling and diagnostics
+  - exported analysis result IR for framework tooling and diagnostics, promoted as data:route-table for rule:route-and-template-checks
 acceptance:
   - aliased net/http imports resolve correctly
   - system:tinygodriver httpmux routes generate the same operations as net/http.ServeMux routes

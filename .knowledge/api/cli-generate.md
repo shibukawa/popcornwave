@@ -42,6 +42,7 @@ artifacts:
     - api:page-action-endpoint registrations
     - request binders for the route packages, so an action can call pw.Parse
     - no OpenAPI, per decision:dual-router-coexistence
+  from_every_purpose: data:route-table, the exported view of the same route analysis
   optional: generated tests
 check_mode:
   writes: none

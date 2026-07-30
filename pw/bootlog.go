@@ -6,8 +6,8 @@ import (
 	"strings"
 	"sync"
 	"time"
-	"unicode/utf8"
 
+	"github.com/shibukawa/popcornwave/internal/pwtree"
 	"github.com/shibukawa/tinybind-go/configbind"
 )
 
@@ -158,66 +158,15 @@ func isTerminal(file *os.File) bool {
 	return info.Mode()&os.ModeCharDevice != 0
 }
 
-// bootNode is one level of the dotted configuration key space.
-type bootNode struct {
-	name     string
-	entry    *bootEntry
-	children []*bootNode
-	index    map[string]*bootNode
-}
-
-func (node *bootNode) child(name string) *bootNode {
-	if existing, ok := node.index[name]; ok {
-		return existing
+// bootTreeEntries hands the reported keys to the shared layout. api:cli-doctor
+// renders the same shape from the same package, so the two summaries a reader
+// sees cannot drift apart.
+func bootTreeEntries(entries []bootEntry) []pwtree.Entry {
+	converted := make([]pwtree.Entry, 0, len(entries))
+	for _, entry := range entries {
+		converted = append(converted, pwtree.Entry{Key: entry.key, Value: entry.value, Source: entry.source})
 	}
-	created := &bootNode{name: name, index: map[string]*bootNode{}}
-	node.index[name] = created
-	node.children = append(node.children, created)
-	return created
-}
-
-func buildBootTree(entries []bootEntry) *bootNode {
-	root := &bootNode{index: map[string]*bootNode{}}
-	for index := range entries {
-		node := root
-		for _, part := range strings.Split(entries[index].key, ".") {
-			node = node.child(part)
-		}
-		node.entry = &entries[index]
-	}
-	return root
-}
-
-type bootLine struct {
-	label string
-	// column is where the value starts, so that keys sharing a parent line up
-	// with each other instead of with the deepest key in the whole tree.
-	column int
-	// valueWidth is the widest value among those siblings, so their source
-	// marks form a column of their own.
-	valueWidth int
-	entry      *bootEntry
-}
-
-func bootLines(node *bootNode, prefix string, lines []bootLine) []bootLine {
-	column, valueWidth := 0, 0
-	for _, child := range node.children {
-		if child.entry != nil {
-			column = max(column, utf8.RuneCountInString(prefix+"├─ "+child.name)+2)
-			valueWidth = max(valueWidth, utf8.RuneCountInString(bootDisplayValue(child.entry.value)))
-		}
-	}
-	for index, child := range node.children {
-		branch, indent := "├─ ", prefix+"│  "
-		if index == len(node.children)-1 {
-			branch, indent = "└─ ", prefix+"   "
-		}
-		lines = append(lines, bootLine{
-			label: prefix + branch + child.name, column: column, valueWidth: valueWidth, entry: child.entry,
-		})
-		lines = bootLines(child, indent, lines)
-	}
-	return lines
+	return converted
 }
 
 // renderBootTree formats the whole startup summary: banner, configuration
@@ -228,23 +177,11 @@ func renderBootTree(report bootReport, listening string, style bootStyle) string
 		out.WriteString(line)
 		out.WriteByte('\n')
 	}
-	lines := bootLines(buildBootTree(report.entries), "", nil)
+	lines := pwtree.Lines(bootTreeEntries(report.entries))
 	if len(lines) > 0 {
 		out.WriteString(style.dim("configuration") + "\n")
 	}
-	for _, line := range lines {
-		out.WriteString(line.label)
-		if line.entry != nil {
-			value := bootDisplayValue(line.entry.value)
-			out.WriteString(strings.Repeat(" ", line.column-utf8.RuneCountInString(line.label)))
-			out.WriteString(value)
-			if source := bootSourceTag(line.entry.source); source != "" {
-				out.WriteString(strings.Repeat(" ", line.valueWidth-utf8.RuneCountInString(value)))
-				out.WriteString(style.dim("  ← " + source))
-			}
-		}
-		out.WriteByte('\n')
-	}
+	pwtree.Render(&out, lines, bootSourceTag, style.dim)
 	if listening != "" {
 		out.WriteString("\nlistening on " + style.bold(listening) + "\n")
 	}
@@ -336,24 +273,13 @@ func bootRecordAttrs(report bootReport, listening string) []Attribute {
 	if listening != "" {
 		attrs = append(attrs, String("listening", listening))
 	}
-	attrs = append(attrs, bootConfigAttrs("config", buildBootTree(report.entries))...)
+	for _, entry := range report.entries {
+		attrs = append(attrs, String("config."+entry.key, entry.value))
+	}
 	for _, entry := range report.entries {
 		if tag := bootSourceTag(entry.source); tag != "" {
 			attrs = append(attrs, String("config_source."+entry.key, tag))
 		}
-	}
-	return attrs
-}
-
-func bootConfigAttrs(prefix string, node *bootNode) []Attribute {
-	attrs := make([]Attribute, 0, len(node.children))
-	for _, child := range node.children {
-		key := prefix + "." + child.name
-		if child.entry != nil {
-			attrs = append(attrs, String(key, child.entry.value))
-			continue
-		}
-		attrs = append(attrs, bootConfigAttrs(key, child)...)
 	}
 	return attrs
 }

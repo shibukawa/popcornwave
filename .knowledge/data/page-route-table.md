@@ -7,6 +7,8 @@ The generated registry publishes what the filesystem knows about every page rout
 
 ```yaml
 location: api:page-registry
+not_to_be_confused_with:
+  data:route-table: the build-time analysis result covering every route in the application, which tooling reads; this one is a runtime value a page tree publishes about itself
 routes:
   entry: Pattern, Path, Dir, and Params
   example: 'Pattern "GET /users/{id}", Path "/users/{id}", Dir "users/id_", Params ["id"]'

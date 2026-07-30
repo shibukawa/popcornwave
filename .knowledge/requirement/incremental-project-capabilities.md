@@ -33,6 +33,7 @@ capability_catalog:
 detection:
   source: the project files that carry the capability
   reason: a separate manifest in data:project-config would disagree with a hand-edited project
+  consumers: api:cli-add offers what the project lacks, and api:cli-doctor reports it
   probes:
     devbox: the devbox.json file
     database: middleware.rdb in the data:middleware-runtime-config section of the environment configuration
