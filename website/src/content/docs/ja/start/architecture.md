@@ -2,7 +2,7 @@
 title: アーキテクチャ
 description: フレームワークが前提とするリクエストモデル、事前生成されるもの、最小構成が除外するもの。
 sidebar:
-  order: 3
+  order: 2
 ---
 
 Popcorn Wave の出発点は、サーバーレンダリングのアプリケーションも `net/http` の

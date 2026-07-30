@@ -38,7 +38,10 @@ The generated API makes the handler call type-checked:
 pw.WriteHTML(w, r, Home(HomeParams{Name: input.Name}))
 ```
 
-If the parameter list changes, the handler stops compiling until it catches up.
+Renaming a parameter renames the field, and changing its type changes the
+field's type, so the handler stops compiling until it catches up. Adding a
+parameter is the quiet case: the struct literal still compiles, and the new
+field arrives at its zero value until a caller fills it in.
 A component without `export` remains private and can be called only from other
 templates.
 

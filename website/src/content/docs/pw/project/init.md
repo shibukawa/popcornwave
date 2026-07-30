@@ -159,7 +159,7 @@ myapp/
 ├── templates/
 │   ├── document.pw.html       shared document shell
 │   ├── templates.go           package marker, present before first generation
-│   └── 400|404|500.pw.html    error pages
+│   └── 400|401|403|404|409|413|500.pw.html   error pages
 ├── queries/users.pw.sql       named SQL with a typed result (with the database)
 ├── migrations/00001_init.sql  initial schema, in goose format (with the database)
 ├── public/.keep               empty-tree sentinel; never served
@@ -227,7 +227,7 @@ it writes a `replace` directive pointing at that checkout instead.
 
 ## Next steps
 
-- [Getting started](/start/getting-started/) — a walkthrough of the output.
+- [1. Getting started](/tutorial/getting-started/) — a walkthrough of the output.
 - [pw add](/pw/project/add/) — installing a capability you declined here.
 - [pw new](/pw/project/new/) — adding the second handler.
 - [Project structure](/guides/architecture/project-structure/) — growing past one package.

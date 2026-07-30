@@ -55,4 +55,4 @@ Devbox は [jetify.com/devbox](https://www.jetify.com/devbox/) から導入で�
 
 ## 次のステップ
 
-- [はじめる](/ja/start/getting-started/) — 最初のプロジェクトを作って動かす。
+- [1. はじめる](/ja/tutorial/getting-started/) — 最初のプロジェクトを作って動かす。

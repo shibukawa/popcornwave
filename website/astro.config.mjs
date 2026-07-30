@@ -55,6 +55,11 @@ export default defineConfig({
           items: [{ autogenerate: { directory: 'start' } }],
         },
         {
+          label: 'Tutorial',
+          translations: { ja: 'チュートリアル' },
+          items: [{ autogenerate: { directory: 'tutorial' } }],
+        },
+        {
           label: 'Guides',
           translations: { ja: 'ガイド' },
           items: [

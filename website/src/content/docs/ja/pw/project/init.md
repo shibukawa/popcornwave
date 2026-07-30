@@ -156,7 +156,7 @@ myapp/
 ├── templates/
 │   ├── document.pw.html       共有ドキュメントシェル
 │   ├── templates.go           初回生成前から存在するパッケージマーカー
-│   └── 400|404|500.pw.html    エラーページ
+│   └── 400|401|403|404|409|413|500.pw.html   エラーページ
 ├── queries/users.pw.sql       型付き結果を持つ名前付き SQL（データベース選択時）
 ├── migrations/00001_init.sql  初期スキーマ、goose 形式（データベース選択時）
 ├── public/.keep               空ツリーの番兵。配信されない
@@ -222,7 +222,7 @@ require します。`pw` がリリース版ではなく作業コピーからビ�
 
 ## 次のステップ
 
-- [はじめる](/ja/start/getting-started/) — 生成物の詳しい解説。
+- [1. はじめる](/ja/tutorial/getting-started/) — 生成物の詳しい解説。
 - [pw add](/ja/pw/project/add/) — ここで断った機能をあとから追加する。
 - [pw new](/ja/pw/project/new/) — 2 つめのハンドラを追加する。
 - [プロジェクト構成](/ja/guides/architecture/project-structure/) — 1 パッケージを超えて成長させる。

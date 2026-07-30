@@ -56,4 +56,4 @@ Install Devbox from [jetify.com/devbox](https://www.jetify.com/devbox/).
 
 ## Next steps
 
-- [Getting started](/start/getting-started/) — create and run your first project.
+- [1. Getting started](/tutorial/getting-started/) — create and run your first project.
