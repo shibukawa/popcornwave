@@ -12,12 +12,25 @@ schema:
     name: myapp
     main: ./cmd/myapp
     toolchain: tinygo or go, defaulting to tinygo
+    database: sqlite, postgres, or mysql, defaulting to sqlite
   dev:
-    extra_watch: []
+    watch:
+      includes: []
+      excludes: []
     idp:
       enabled: false
       config: devidp.toml
       port: 0 for an automatically reserved loopback port
+    otel:
+      enabled: true
+      port: 0 for an automatically reserved loopback port
+      max: 0 for the system:localotelviewer retention default
+  generate:
+    handlers: [handlers] as scaffolded, per decision:explicit-generation-sources
+    templates: [handlers, templates] as scaffolded, because a page template sits beside its handler
+    queries: [queries] as scaffolded
+    config: [cmd/myapp] as scaffolded
+    pages: [pages] as scaffolded for a project with a concept:page-tree, and empty otherwise
   migration:
     dir: migrations
     auto: true for api:cli-dev only
@@ -33,21 +46,34 @@ optional_extensions:
   - build tags and targets
   - build output location
 rules:
-  - api:cli-generate always discovers all Go, .pw.html, and .pw.sql sources
-  - api:cli-dev always watches Go, .pw.html, .pw.sql, popcornwave.toml, and policy:config-file-resolution project-local files
+  - api:cli-generate reads each source kind only under the generate purpose that owns it, and warns about a .pw.html or .pw.sql outside its purpose
+  - every generate purpose key is required except generate.pages; an empty list states that the purpose generates nothing
+  - a missing generate.pages means the empty list, because a project scaffolded before requirement:discovered-page-routing has no concept:page-tree and no way to acquire one silently
+  - a generate.pages entry is a tree root, so it is neither nested in another root nor listed under generate.templates or generate.handlers
+  - the scaffolded directory names are defaults, not identity: handlers and pages are what api:cli-init writes, and every consumer reads the purpose list instead of the name, so renaming a tree is moving the directory and editing its entry
+  - a generated package name follows the directory it is in, so a renamed tree compiles without an edit to its sources
+  - a generate entry is relative, names an existing directory, and is neither duplicated nor nested inside another entry of the same purpose
+  - one generate.templates entry holds the requirement:nested-html-templates document shell, and a second one is an error
+  - api:cli-dev regenerates from the generate purposes but watches per decision:developer-loop-watch-scope
+  - dev.watch.includes adds relative files or glob patterns, and dev.watch.excludes skips directory subtrees
   - project.toolchain records the compiler api:cli-init scaffolded for and rejects any other value
   - a missing project.toolchain means tinygo, because every project scaffolded before the key used api:serve-mux
-  - dev.extra_watch adds relative files or glob patterns
+  - project.database records the requirement:database-engine-selection engine and rejects any other value
+  - a missing project.database means sqlite, because it was the only engine that existed before the key
+  - project.database is a generation input, not a runtime one; the effective engine still comes from the rule:rdb-dsn-resolution scheme, and the two must agree
   - migration.dir locates data:migration-source and is a tooling path, not a runtime database value
   - migration.auto only enables the api:cli-dev apply step and never enables application startup apply
   - dev.idp only affects api:cli-dev and locates data:devidp-config
   - dev.idp.port defaults to an automatically reserved port because api:cli-dev injects the resolved issuer into the application
   - dev.idp.enabled true requires the data:devidp-config file to exist
+  - dev.otel only affects api:cli-dev and configures requirement:dev-telemetry-viewer
+  - dev.otel.port defaults to an automatically reserved port because api:cli-dev injects the resolved endpoint, as it does for dev.idp
+  - dev.otel.max bounds retained records per signal and zero keeps the viewer default
   - relative paths resolve from the config file directory
   - unknown keys are errors
   - command flags override config values
   - missing config is an error except for api:cli-init
-  - server, database, session, security, middleware, and observability runtime values are forbidden
+  - server, session, security, middleware, and observability runtime values are forbidden, and so is a database connection value; project.database names an engine, never a DSN or a credential
   - enabled Tailwind validates requirement:tailwind-css-integration and decision:tailwind-host-toolchain
   - Tailwind plugins and their options belong to the CSS entry through requirement:tailwind-plugin-integration
   - the CLI must already be available from the entered Devbox environment

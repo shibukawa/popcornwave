@@ -64,7 +64,7 @@ func (rt *runtime) handleLogin(w http.ResponseWriter, r *http.Request) {
 	}
 	client, err := rt.oidcClient(r.Context())
 	if err != nil {
-		pw.Logger(r.Context()).ErrorContext(r.Context(), "oidc discovery failed", "error", err)
+		pw.Logger(r.Context()).Log(r.Context(), pw.LevelError, "oidc discovery failed", pw.Err(err))
 		pw.WriteProblem(w, r, pw.ServiceUnavailable())
 		return
 	}
@@ -72,7 +72,7 @@ func (rt *runtime) handleLogin(w http.ResponseWriter, r *http.Request) {
 		Scopes: rt.config.OIDC.Scopes,
 	})
 	if err != nil {
-		pw.Logger(r.Context()).ErrorContext(r.Context(), "oidc authorization request failed", "error", err)
+		pw.Logger(r.Context()).Log(r.Context(), pw.LevelError, "oidc authorization request failed", pw.Err(err))
 		pw.WriteProblem(w, r, pw.ServiceUnavailable())
 		return
 	}
@@ -93,7 +93,7 @@ func (rt *runtime) handleCallback(w http.ResponseWriter, r *http.Request) {
 	if providerError := query.Get("error"); providerError != "" {
 		// The provider rejected the request; its description is not echoed
 		// back to the browser.
-		pw.Logger(r.Context()).WarnContext(r.Context(), "oidc provider returned an error", "error", providerError)
+		pw.Logger(r.Context()).Log(r.Context(), pw.LevelWarn, "oidc provider returned an error", pw.String("error", providerError))
 		pw.WriteProblem(w, r, pw.Forbidden())
 		return
 	}
@@ -107,20 +107,20 @@ func (rt *runtime) handleCallback(w http.ResponseWriter, r *http.Request) {
 		Code:  query.Get("code"),
 	})
 	if err != nil {
-		pw.Logger(r.Context()).WarnContext(r.Context(), "oidc callback rejected", "error", err)
+		pw.Logger(r.Context()).Log(r.Context(), pw.LevelWarn, "oidc callback rejected", pw.Err(err))
 		pw.WriteProblem(w, r, pw.Forbidden())
 		return
 	}
 	identity, err := verifiedIdentity(r.Context(), client, tokens, rt.config.OIDC.IdentityClaim)
 	if err != nil {
-		pw.Logger(r.Context()).WarnContext(r.Context(), "id token verification failed", "error", err)
+		pw.Logger(r.Context()).Log(r.Context(), pw.LevelWarn, "id token verification failed", pw.Err(err))
 		pw.WriteProblem(w, r, pw.Forbidden())
 		return
 	}
 	account, err := admit(r.Context(), rt.config.OIDC, rt.allowlist, identity)
 	if err != nil {
 		if !errors.Is(err, ErrAccessDenied) {
-			pw.Logger(r.Context()).ErrorContext(r.Context(), "account resolution failed", "error", err)
+			pw.Logger(r.Context()).Log(r.Context(), pw.LevelError, "account resolution failed", pw.Err(err))
 			pw.WriteProblem(w, r, pw.InternalServerError(err))
 			return
 		}
@@ -141,7 +141,7 @@ func (rt *runtime) handleCallback(w http.ResponseWriter, r *http.Request) {
 		Email:       account.Email,
 	}, MethodOIDC)
 	if err != nil {
-		pw.Logger(r.Context()).ErrorContext(r.Context(), "session creation failed", "error", err)
+		pw.Logger(r.Context()).Log(r.Context(), pw.LevelError, "session creation failed", pw.Err(err))
 		pw.WriteProblem(w, r, pw.ServiceUnavailable())
 		return
 	}
@@ -159,7 +159,7 @@ func (rt *runtime) handleLogout(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := rt.manager.Delete(w, r); err != nil {
-		pw.Logger(r.Context()).ErrorContext(r.Context(), "session deletion failed", "error", err)
+		pw.Logger(r.Context()).Log(r.Context(), pw.LevelError, "session deletion failed", pw.Err(err))
 		pw.WriteProblem(w, r, pw.ServiceUnavailable())
 		return
 	}
@@ -204,14 +204,14 @@ func verifiedIdentity(ctx context.Context, client *oidc.Client, tokens oidc.Toke
 func (rt *runtime) endSessionURL(r *http.Request) string {
 	client, err := rt.oidcClient(r.Context())
 	if err != nil {
-		pw.Logger(r.Context()).WarnContext(r.Context(), "provider logout unavailable", "error", err)
+		pw.Logger(r.Context()).Log(r.Context(), pw.LevelWarn, "provider logout unavailable", pw.Err(err))
 		return ""
 	}
 	target, err := client.EndSessionURL(oidc.EndSessionOptions{
 		PostLogoutRedirectURI: rt.postLogoutRedirectURI(r),
 	})
 	if err != nil {
-		pw.Logger(r.Context()).WarnContext(r.Context(), "provider logout request rejected", "error", err)
+		pw.Logger(r.Context()).Log(r.Context(), pw.LevelWarn, "provider logout request rejected", pw.Err(err))
 		return ""
 	}
 	return target

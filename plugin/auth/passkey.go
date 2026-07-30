@@ -156,7 +156,7 @@ func (rt *runtime) handlePasskeyLoginBegin(w http.ResponseWriter, r *http.Reques
 		RequireUserVerification: rt.config.Passkey.UserVerification == UserVerificationRequired,
 	})
 	if err != nil {
-		pw.Logger(r.Context()).ErrorContext(r.Context(), "passkey authentication could not start", "error", err)
+		pw.Logger(r.Context()).Log(r.Context(), pw.LevelError, "passkey authentication could not start", pw.Err(err))
 		pw.WriteProblem(w, r, pw.ServiceUnavailable())
 		return
 	}
@@ -196,14 +196,13 @@ func (rt *runtime) handlePasskeyLoginFinish(w http.ResponseWriter, r *http.Reque
 		// The counter did not advance, which is what a cloned authenticator
 		// looks like. An authenticator that keeps no counter reports zero on
 		// both sides and never reaches here.
-		pw.Logger(r.Context()).WarnContext(r.Context(), "passkey signature counter did not advance",
-			"account", stored.AccountID)
+		pw.Logger(r.Context()).Log(r.Context(), pw.LevelWarn, "passkey signature counter did not advance", pw.String("account", stored.AccountID))
 		pw.WriteProblem(w, r, pw.Forbidden())
 		return
 	}
 	now := time.Now()
 	if err := rt.credentials.UpdateOnAssertion(r.Context(), credentialID, result.SignCount, result.BackupState, now); err != nil {
-		pw.Logger(r.Context()).ErrorContext(r.Context(), "passkey counter could not be persisted", "error", err)
+		pw.Logger(r.Context()).Log(r.Context(), pw.LevelError, "passkey counter could not be persisted", pw.Err(err))
 		pw.WriteProblem(w, r, pw.ServiceUnavailable())
 		return
 	}
@@ -223,7 +222,7 @@ func (rt *runtime) handlePasskeyLoginFinish(w http.ResponseWriter, r *http.Reque
 		DisplayName: account.DisplayName,
 		Email:       account.Email,
 	}, MethodPasskey); err != nil {
-		pw.Logger(r.Context()).ErrorContext(r.Context(), "session creation failed", "error", err)
+		pw.Logger(r.Context()).Log(r.Context(), pw.LevelError, "session creation failed", pw.Err(err))
 		pw.WriteProblem(w, r, pw.ServiceUnavailable())
 		return
 	}
@@ -273,7 +272,7 @@ func (rt *runtime) handlePasskeyRegisterBegin(w http.ResponseWriter, r *http.Req
 	}
 	existing, err := rt.credentials.ListByAccount(r.Context(), who.accountID)
 	if err != nil {
-		pw.Logger(r.Context()).ErrorContext(r.Context(), "passkey credential listing failed", "error", err)
+		pw.Logger(r.Context()).Log(r.Context(), pw.LevelError, "passkey credential listing failed", pw.Err(err))
 		pw.WriteProblem(w, r, pw.ServiceUnavailable())
 		return
 	}
@@ -292,7 +291,7 @@ func (rt *runtime) handlePasskeyRegisterBegin(w http.ResponseWriter, r *http.Req
 		ExcludeCredentials:      descriptorsOf(existing),
 	})
 	if err != nil {
-		pw.Logger(r.Context()).ErrorContext(r.Context(), "passkey registration could not start", "error", err)
+		pw.Logger(r.Context()).Log(r.Context(), pw.LevelError, "passkey registration could not start", pw.Err(err))
 		pw.WriteProblem(w, r, pw.ServiceUnavailable())
 		return
 	}
@@ -329,7 +328,7 @@ func (rt *runtime) handlePasskeyRegisterFinish(w http.ResponseWriter, r *http.Re
 		}
 	} else {
 		if err := rt.credentials.Save(r.Context(), credential, nil); err != nil {
-			pw.Logger(r.Context()).ErrorContext(r.Context(), "passkey credential could not be persisted", "error", err)
+			pw.Logger(r.Context()).Log(r.Context(), pw.LevelError, "passkey credential could not be persisted", pw.Err(err))
 			pw.WriteProblem(w, r, pw.ServiceUnavailable())
 			return
 		}
@@ -337,7 +336,7 @@ func (rt *runtime) handlePasskeyRegisterFinish(w http.ResponseWriter, r *http.Re
 		// that from is replaced rather than carried forward.
 		view, _ := Session(r.Context())
 		if err := rt.manager.RotateWithMethod(w, r, view.Data, view.Method); err != nil {
-			pw.Logger(r.Context()).ErrorContext(r.Context(), "session rotation failed", "error", err)
+			pw.Logger(r.Context()).Log(r.Context(), pw.LevelError, "session rotation failed", pw.Err(err))
 			pw.WriteProblem(w, r, pw.ServiceUnavailable())
 			return
 		}
@@ -352,11 +351,11 @@ func (rt *runtime) handlePasskeyRegisterFinish(w http.ResponseWriter, r *http.Re
 func (rt *runtime) refuseCeremony(w http.ResponseWriter, r *http.Request, message string, err, expected error) {
 	logger := pw.Logger(r.Context())
 	if expected != nil && errors.Is(err, expected) {
-		logger.WarnContext(r.Context(), message)
+		logger.Log(r.Context(), pw.LevelWarn, message)
 	} else {
 		// The error itself carries no challenge, credential ID, or handle;
 		// contrib/passkey returns sentinel values only.
-		logger.WarnContext(r.Context(), message, "error", err)
+		logger.Log(r.Context(), pw.LevelWarn, message, pw.Err(err))
 	}
 	pw.WriteProblem(w, r, pw.Forbidden())
 }

@@ -2,21 +2,36 @@ package pw
 
 import (
 	"reflect"
+	"strings"
 	"testing"
-
-	_ "github.com/shibukawa/tinygodriver/database/sqlite"
 )
 
 func TestDatabaseTarget(t *testing.T) {
-	driver, dsn, err := databaseTarget("sqlite://app.db")
+	target, err := databaseTarget("sqlite://app.db")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if driver != "sqlite" || dsn != "app.db" {
-		t.Fatalf("target = %q, %q", driver, dsn)
+	if target.Dialect != "sqlite" || target.DataSource != "app.db" {
+		t.Fatalf("target = %q, %q", target.Dialect, target.DataSource)
 	}
-	if _, _, err := databaseTarget("app.db"); err == nil {
+	if _, err := databaseTarget("app.db"); err == nil {
 		t.Fatal("DSN without scheme was accepted")
+	}
+}
+
+// TestDatabaseTargetUnlinkedEngine asserts that an engine the framework ships
+// but this binary did not link reports the import to add, rather than looking
+// like an unknown database. pw links only SQLite by default.
+func TestDatabaseTargetUnlinkedEngine(t *testing.T) {
+	_, err := databaseTarget("postgres://user:secret@127.0.0.1:5432/app")
+	if err == nil {
+		t.Fatal("an unlinked engine was accepted")
+	}
+	if !strings.Contains(err.Error(), "database/postgres") {
+		t.Fatalf("error does not name the import to add: %v", err)
+	}
+	if strings.Contains(err.Error(), "secret") {
+		t.Fatalf("error leaked the DSN password: %v", err)
 	}
 }
 

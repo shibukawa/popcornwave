@@ -11,7 +11,7 @@ import (
 
 	"github.com/shibukawa/popcornwave/session"
 
-	_ "github.com/shibukawa/tinygodriver/database/sqlite"
+	_ "github.com/shibukawa/tinygodriver/database/sql/sqlite"
 )
 
 type payload struct {

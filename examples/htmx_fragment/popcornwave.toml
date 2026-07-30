@@ -1,0 +1,17 @@
+[project]
+name = "htmx_fragment"
+main = "./cmd/htmx_fragment"
+
+# Each purpose reads only the directories it lists, and nothing else. A source
+# directory is invisible to that purpose until it appears here.
+[generate]
+handlers = ["handlers"]
+templates = ["handlers", "templates"]
+queries = []
+config = ["cmd/htmx_fragment"]
+
+# pw dev walks the module for rebuild inputs. Add what the walk misses, and
+# exclude a subtree that only makes the walk slower.
+[dev.watch]
+includes = []
+excludes = []

@@ -11,7 +11,7 @@ import (
 
 func apiDocConfigs(ui string) (ServerConfig, SecurityConfig, MiddlewareConfig) {
 	server, security, middleware, _ := validRuntimeConfigs()
-	server.OpenAPI = EndpointConfig{Enabled: true, Path: "/openapi.json"}
+	server.OpenAPI = "/openapi.json"
 	server.APIDoc, server.APIDocPath = ui, "/docs"
 	return server, security, middleware
 }
@@ -27,7 +27,7 @@ func TestAPIDocEndpointServesConfiguredUI(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.ui, func(t *testing.T) {
 			server, security, middleware := apiDocConfigs(test.ui)
-			handler, err := buildRuntimeHandler(http.NotFoundHandler(), server, security, middleware, pwruntime.Resources{})
+			handler, err := buildRuntimeHandler(http.NotFoundHandler(), server, security, middleware, pwruntime.Resources{}, false)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -62,7 +62,7 @@ func TestAPIDocEndpointServesConfiguredUI(t *testing.T) {
 
 func TestAPIDocEndpointDisabledByDefault(t *testing.T) {
 	server, security, middleware := apiDocConfigs("")
-	handler, err := buildRuntimeHandler(http.NotFoundHandler(), server, security, middleware, pwruntime.Resources{})
+	handler, err := buildRuntimeHandler(http.NotFoundHandler(), server, security, middleware, pwruntime.Resources{}, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -80,9 +80,9 @@ func TestValidateAPIDocConfig(t *testing.T) {
 		want   string
 	}{
 		{name: "unknown ui", mutate: func(s *ServerConfig) { s.APIDoc = "redoc" }, want: "server.api_doc must be"},
-		{name: "needs openapi", mutate: func(s *ServerConfig) { s.OpenAPI.Enabled = false }, want: "requires server.openapi.enabled"},
+		{name: "needs openapi", mutate: func(s *ServerConfig) { s.OpenAPI = "" }, want: "requires server.openapi"},
 		{name: "relative path", mutate: func(s *ServerConfig) { s.APIDocPath = "docs" }, want: "server.api_doc_path"},
-		{name: "duplicate path", mutate: func(s *ServerConfig) { s.APIDocPath = s.Health.Path }, want: "duplicates"},
+		{name: "duplicate path", mutate: func(s *ServerConfig) { s.APIDocPath = s.Health }, want: "duplicates"},
 		{name: "public overlap", mutate: func(s *ServerConfig) {
 			s.Public = PublicConfig{Enabled: true, Mount: "/docs/assets"}
 		}, want: "server.api_doc_path"},
@@ -108,6 +108,77 @@ func TestValidateAPIDocConfig(t *testing.T) {
 	err := validateOperationalEndpointCollisions(mux, server)
 	if err == nil || !strings.Contains(err.Error(), "server.api_doc_path collides") {
 		t.Fatalf("error = %v", err)
+	}
+}
+
+// The page loads its bundle from a CDN and initialises the UI from an inline
+// script, so an application policy written for its own pages blanks it. The
+// endpoint answers with the policy it needs instead, and only for itself.
+func TestAPIDocReplacesTheApplicationCSPOnItsOwnResponse(t *testing.T) {
+	const applicationPolicy = "default-src 'self'"
+	for _, ui := range []string{APIDocScalar, APIDocSwagger} {
+		t.Run(ui, func(t *testing.T) {
+			server, security, middleware := apiDocConfigs(ui)
+			security.Headers.ContentSecurityPolicy = applicationPolicy
+			handler, err := buildRuntimeHandler(http.NotFoundHandler(), server, security, middleware, pwruntime.Resources{}, false)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			docs := httptest.NewRecorder()
+			handler.ServeHTTP(docs, httptest.NewRequest(http.MethodGet, "/docs", nil))
+			policy := docs.Header().Get("Content-Security-Policy")
+			for _, want := range []string{
+				"script-src 'self' https://cdn.jsdelivr.net 'unsafe-inline'",
+				"style-src 'self' https://cdn.jsdelivr.net 'unsafe-inline'",
+			} {
+				if !strings.Contains(policy, want) {
+					t.Fatalf("policy = %q, want it to contain %q", policy, want)
+				}
+			}
+
+			// Every other route keeps the application's own policy; relaxing the
+			// documentation page must not relax the application.
+			other := httptest.NewRecorder()
+			handler.ServeHTTP(other, httptest.NewRequest(http.MethodGet, "/", nil))
+			if got := other.Header().Get("Content-Security-Policy"); got != applicationPolicy {
+				t.Fatalf("policy on / = %q, want the application's %q", got, applicationPolicy)
+			}
+		})
+	}
+}
+
+func TestAPIDocReplacesAReportOnlyPolicyToo(t *testing.T) {
+	server, security, middleware := apiDocConfigs(APIDocScalar)
+	security.Headers.ContentSecurityPolicyReportOnly = "default-src 'self'"
+	handler, err := buildRuntimeHandler(http.NotFoundHandler(), server, security, middleware, pwruntime.Resources{}, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/docs", nil))
+	if policy := response.Header().Get("Content-Security-Policy-Report-Only"); !strings.Contains(policy, "cdn.jsdelivr.net") {
+		t.Fatalf("report-only policy = %q", policy)
+	}
+	if policy := response.Header().Get("Content-Security-Policy"); policy != "" {
+		t.Fatalf("enforcing policy = %q, want none where the application set none", policy)
+	}
+}
+
+// An application that configures no policy has chosen not to send one, and the
+// documentation page is not the place to start.
+func TestAPIDocSendsNoCSPWhenTheApplicationConfiguresNone(t *testing.T) {
+	server, security, middleware := apiDocConfigs(APIDocScalar)
+	handler, err := buildRuntimeHandler(http.NotFoundHandler(), server, security, middleware, pwruntime.Resources{}, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/docs", nil))
+	for _, name := range []string{"Content-Security-Policy", "Content-Security-Policy-Report-Only"} {
+		if policy := response.Header().Get(name); policy != "" {
+			t.Fatalf("%s = %q, want none", name, policy)
+		}
 	}
 }
 

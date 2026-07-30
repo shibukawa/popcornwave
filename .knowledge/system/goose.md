@@ -21,9 +21,10 @@ capabilities_excluded:
   - goose CLI binary distribution
   - goose managed .env loading
 dialects:
-  first_class: sqlite3 through decision:sqlite-backend-selection
-  present_but_unsupported: postgres, mysql, mssql, clickhouse, vertica, ydb, turso
+  first_class: sqlite3, postgres, and mysql, selected by rule:rdb-dsn-resolution
+  present_but_unsupported: mssql, clickhouse, vertica, ydb, turso
   gate: decision:server-sql-support-tier
+  pooling_note: the dialect is chosen from the resolved engine and the pool comes from decision:config-driven-database, so goose never opens its own connection
 module_footprint:
   declared: the goose root go.mod requires driver, testing, and container-tooling modules including pgx, mysql, mssql, clickhouse, ydb, testify, and moby client
   linked_packages_measured:

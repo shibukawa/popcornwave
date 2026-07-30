@@ -22,7 +22,7 @@ import (
 	"github.com/shibukawa/popcornwave/pw"
 	"github.com/shibukawa/tinybind-go/configbind"
 
-	_ "github.com/shibukawa/tinygodriver/database/sqlite"
+	_ "github.com/shibukawa/tinygodriver/database/sql/sqlite"
 )
 
 // deployment is the one oidc_passkey application this test binary may build.

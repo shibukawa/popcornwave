@@ -1,0 +1,135 @@
+---
+title: クエリー診断
+description: 生成された SQL を 1 文ずつ記録し、遅いものには実行計画を付け、手で再実行できるスニペットを出す。
+sidebar:
+  order: 5
+---
+
+ページが遅いとき、その中には遅い 1 文がいます。面倒なのはたいてい、それを見つける
+までの手順です。print を足し、もう一度動かし、生成ファイルから SQL をコピーし、
+引数を推測し、実際に走ったものに近いけれど同じではない何かをシェルに貼り付ける。
+
+クエリー診断はその手順を肩代わりします。`.pw.sql` から生成された関数は、すべて
+フレームワーク内の 1 か所でデータベースハンドルを解決します。そのため、その 1 か所を
+計装すれば全部が対象になります。アプリケーションのコードも生成ファイルも変わりません。
+
+`dev` では既定で有効です。
+
+## 何が実行されたか
+
+1 文につき 1 レコードが出ます。
+
+```
+level=INFO msg="sql executed" sql="INSERT INTO items (name) VALUES ($1)"
+  duration=412µs operation=exec driver=sqlite rows_affected=1 outcome=ok args=[alpha]
+```
+
+`duration` は executor の呼び出しを測ります。`sql.many` の場合、それはクエリー自体で
+あって、行をスキャンするループではありません。行の反復はアプリケーション側が所有する
+ので、そのコストはハンドラを測る場所で測られます。
+
+失敗した文にもレコードが出ます。`outcome=error` とメッセージが、それを起こした SQL の
+隣に並びます。この組み合わせだけで原因が分かることも少なくありません。
+
+トランザクションの中ではレコードに `tx_depth` が付きます。2 段下の savepoint で走った
+文は、そう名乗ります。
+
+## なぜ遅かったか
+
+`slow_threshold` を超えると、レコードは `warn` に上がり、フィールドが 2 つ増えます。
+
+```
+level=WARN msg="sql executed" sql="SELECT name FROM items WHERE name = $1"
+  duration=240ms operation=query driver=sqlite outcome=ok args=[alpha] slow=true
+  explain="id=2 parent=0 detail=SCAN items"
+  reproduction=".parameter set $1 'alpha'\nSELECT name FROM items WHERE name = $1;"
+```
+
+`explain` はデータベース自身の実行計画です。対象の文と同じ接続・同じトランザクション
+の中で取得するので、新しいセッションが選んだであろう計画ではなく、実際に適用された
+計画が得られます。
+
+取得するのは計画だけです。`EXPLAIN ANALYZE` は文をもう一度実行してしまい、書き込みなら
+書き込みが 2 回走ります。そのためフレームワークはこれを使いません。コストは、すでに
+遅かった 1 文に対する計画の取得 1 回だけです。
+
+方言ごとに形式が違います。SQLite は `EXPLAIN QUERY PLAN`、PostgreSQL は
+`EXPLAIN (FORMAT JSON)`、MySQL は `EXPLAIN FORMAT=JSON`。プランのみの形式が分からない
+ドライバーは起動時に 1 度だけその旨を報告し、クエリーログ自体は動き続けます。
+
+プランがまったく出ないケースが 1 つあります。原因を探す前に知っておく価値があります。
+SQLite では `VALUES` を並べる `INSERT` がプラン行を返しません。`ON CONFLICT` や
+`RETURNING` が付いていても同じです。`EXPLAIN QUERY PLAN` が説明するのは「行をどう
+*探す*か」であり、この種の文は何も探さないからです。レコード自体は所要時間と SQL を
+伴って出ます。`explain` フィールドが現れないだけです。`UPDATE`、`DELETE`、
+`INSERT ... SELECT` は行を探すので、通常どおり説明されます。
+
+## 手で再実行する
+
+`reproduction` は、データベースのシェルに貼り付けられる形にした同じ文です。値を SQL に
+書き込まず、パラメータとしてバインドします。
+
+```
+.parameter set $1 'alpha'
+SELECT name FROM items WHERE name = $1;
+```
+
+この違いこそがこのフィールドの要点です。`'alpha'` を本文に埋め込むと、見た目は同じで
+計画は変わりうる文ができあがります。値が定数に畳み込まれ、インデックスが実際より安く
+（あるいは高く）見え、結局は「遅かったクエリー」ではない何かを調べることになります。
+バインドしておけば prepared の形が保たれ、再現した計画が見た計画と一致します。
+
+スニペットは方言ごとに異なります。`sqlite3` シェルにはパラメータ指定、`psql` には
+`PREPARE`/`EXECUTE`、`mysql` クライアントにはユーザー変数と prepared statement。
+
+正確に再現できない場合は、スニペット自体を出しません。バインド値が無効なとき、値が
+`max_value_length` で切り詰められたとき、スニペットを壊す文字が値に含まれるとき、
+プレースホルダの様式が方言と合わないときです。別のクエリーになるスニペットは無い方が
+マシなので、フィールドは黙って現れません。
+
+## 設定
+
+すべて `[observability.query]` にあります。
+
+```toml
+[observability.query]
+enabled = "auto"          # auto は dev のみ on、他の環境では off
+level = "info"
+slow_threshold = "200ms"  # 0 にすると explain と reproduction も止まる
+slow_level = "warn"
+bind_values = "auto"      # 行の値がログに入る唯一の経路
+explain = true
+reproduction = true
+max_sql_length = 4096
+max_value_length = 256
+```
+
+`auto` があることで、これは「切り忘れると困るスイッチ」ではなく開発支援機能になります。
+`APP_ENV` が `dev` なら on、それ以外では off に解決されます。
+
+`dev` 以外では `enabled` と `bind_values` の両方に明示的な `"on"` が必要です。キーを
+分けているのは意図的で、ステージングで 1 文の時間を測るためにクエリーログを入れても、
+利用者のデータまでログに書き始めることはありません。`dev` 以外でどちらかを有効にした
+実行は起動時にその旨を記録します。ログを読む人と設定を変えた人は、いつも同じとは
+限らないからです。
+
+`slow_threshold` を 0 にすると slow の判定が止まり、実行計画とスニペットも、それぞれの
+スイッチに触れずに止まります。
+
+## 対象外のもの
+
+計装された経路を通るのは、生成された `.pw.sql` の呼び出しだけです。セッション・認証・
+マイグレーションの文はプールへ直接向かい、レコードを出しません。これらはアプリケーション
+自身の SQL ではなくフレームワークの配管であり、外してあるのは意図的です。
+
+レコードにステートメント名も入りません。この層が受け取るのは executor に渡される SQL
+テキストと引数だけで、元の `.pw.sql` ブロックの名前はそこまで届きません。
+
+## テストでの挙動
+
+テスト実行は既定で `dev` です。そのため、生成されたクエリーを通るアプリケーションの
+テストではログも出ます。失敗したテストを追うときはたいていそれが望ましい挙動です。
+静かにしたい場合は、テストが読む設定で `enabled = "off"` にしてください。
+
+ステートメント自体については[クエリ](/ja/guides/backend/queries/)を、
+これらのキーの解決順序については[設定](/ja/guides/architecture/configuration/)を参照してください。

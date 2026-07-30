@@ -6,7 +6,7 @@ title: Native TinyGo SQLite Driver
 system:tinygodriver provides a native database/sql driver over a pinned SQLite amalgamation for TinyGo and forced compatibility builds.
 
 ```yaml
-package: github.com/shibukawa/tinygodriver/database/cgosqlite
+package: github.com/shibukawa/tinygodriver/database/sql/sqlite tinygosqlite backend
 contract: data:database-driver-contract
 driver_name: sqlite
 source:

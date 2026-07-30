@@ -1,9 +1,21 @@
 [project]
 name = "oidclogin"
 main = "./cmd/oidclogin"
+database = "sqlite"
 
-[dev]
-extra_watch = []
+# Each purpose reads only the directories it lists, and nothing else. A source
+# directory is invisible to that purpose until it appears here.
+[generate]
+handlers = ["handlers"]
+templates = ["handlers", "templates"]
+queries = ["queries"]
+config = ["cmd/oidclogin"]
+
+# pw dev walks the module for rebuild inputs. Add what the walk misses, and
+# exclude a subtree that only makes the walk slower.
+[dev.watch]
+includes = []
+excludes = []
 
 # pw dev runs the development identity provider and injects its issuer and
 # generated client credentials, so this sample needs no external provider.

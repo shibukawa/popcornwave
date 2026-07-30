@@ -244,7 +244,10 @@ func TestInitWizardAsksForTheProviderOnlyForOIDC(t *testing.T) {
 	model := feedWizard(t, newTestWizard(defaultInitOptions()),
 		typeText("demo"), pressKey(tea.KeyEnter),
 		pressKey(tea.KeyEnter), // TinyGo
+		pressKey(tea.KeyEnter), // Router
 		pressKey(tea.KeyEnter), // Tailwind
+		pressKey(tea.KeyEnter), // Database
+		pressKey(tea.KeyEnter), // Database engine
 		typeText("2"),          // Authentication: OIDC
 	)
 	if model.reviewing() {
@@ -266,7 +269,10 @@ func TestInitWizardAsksForTheProviderForOIDCPasskey(t *testing.T) {
 	model := feedWizard(t, newTestWizard(defaultInitOptions()),
 		typeText("demo"), pressKey(tea.KeyEnter),
 		pressKey(tea.KeyEnter), // TinyGo
+		pressKey(tea.KeyEnter), // Router
 		pressKey(tea.KeyEnter), // Tailwind
+		pressKey(tea.KeyEnter), // Database
+		pressKey(tea.KeyEnter), // Database engine
 		typeText("3"),          // Authentication: OIDC and passkey
 	)
 	if model.reviewing() {
@@ -279,17 +285,22 @@ func TestInitWizardAsksForTheProviderForOIDCPasskey(t *testing.T) {
 
 func TestInitWizardSkipsTheProviderStepWithoutOIDC(t *testing.T) {
 	t.Chdir(t.TempDir())
-	model := feedWizard(t, newTestWizard(initOptions{TinyGo: true, Auth: authOIDC, AuthEmulator: true}),
+	seeded := initOptions{TinyGo: true, Devbox: true, Database: true, Engine: engineSQLite, Redis: true, Auth: authOIDC, AuthEmulator: true}
+	model := feedWizard(t, newTestWizard(seeded),
 		typeText("demo"), pressKey(tea.KeyEnter),
 		pressKey(tea.KeyEnter), // TinyGo
+		pressKey(tea.KeyEnter), // Router
 		pressKey(tea.KeyEnter), // Tailwind
+		pressKey(tea.KeyEnter), // Database
+		pressKey(tea.KeyEnter), // Database engine
 		typeText("4"),          // Authentication: Passkey only
 	)
-	if !model.reviewing() {
-		t.Fatalf("expected the review screen, got step %q", model.steps[model.index].label())
+	// The provider question is skipped; the environment questions still follow.
+	if label := model.steps[model.index].label(); label != "Devbox environment" {
+		t.Fatalf("step = %q, want the provider question skipped", label)
 	}
 	// The seeded emulator answer must not survive a mode that has no provider.
-	options := wizardResult(model, initOptions{TinyGo: true, Auth: authOIDC, AuthEmulator: true})
+	options := wizardResult(model, seeded)
 	if options.Auth != authPasskey || options.AuthEmulator {
 		t.Fatalf("options = %#v", options)
 	}
@@ -300,11 +311,16 @@ func TestInitWizardGoesBackPastASkippedStep(t *testing.T) {
 	model := feedWizard(t, newTestWizard(defaultInitOptions()),
 		typeText("demo"), pressKey(tea.KeyEnter),
 		pressKey(tea.KeyEnter), // TinyGo
+		pressKey(tea.KeyEnter), // Router
 		pressKey(tea.KeyEnter), // Tailwind
+		pressKey(tea.KeyEnter), // Database
+		pressKey(tea.KeyEnter), // Database engine
 		pressKey(tea.KeyEnter), // Authentication: None
+		pressKey(tea.KeyEnter), // Devbox
+		pressKey(tea.KeyEnter), // Redis or Valkey
 		pressKey(tea.KeyEsc),   // back from the review screen
 	)
-	if label := model.steps[model.index].label(); label != "Authentication" {
+	if label := model.steps[model.index].label(); label != "Redis or Valkey" {
 		t.Fatalf("esc landed on %q, want the last asked question", label)
 	}
 }
@@ -315,7 +331,7 @@ func TestInitWizardGoesBackPastASkippedStep(t *testing.T) {
 // pw migrate up with a duplicate version.
 func TestScaffoldedMigrationsApply(t *testing.T) {
 	for _, mode := range []string{authNone, authOIDC} {
-		files := scaffoldFiles(initOptions{Name: "demo", TinyGo: true, Auth: mode, AuthEmulator: usesOIDC(mode)})
+		files := scaffoldFiles(initOptions{Name: "demo", TinyGo: true, Database: true, Auth: mode, AuthEmulator: usesOIDC(mode)})
 		directory := t.TempDir()
 		for path, content := range files {
 			name, ok := strings.CutPrefix(path, "migrations/")

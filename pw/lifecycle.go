@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
-	"log/slog"
+	"net"
 	"net/http"
 	"strconv"
 	"time"
@@ -30,8 +30,18 @@ func WithPublicFS(publicFS fs.FS) Option {
 }
 
 // Middlewares performs framework initialization and returns the same wrapped
-// handler stack used by Run.
+// handler stack used by Run. The startup summary is emitted here because the
+// application owns the listener and the framework never learns its address.
 func Middlewares(handler http.Handler, option ...Option) (http.Handler, error) {
+	wrapped, err := buildMiddlewares(handler, option...)
+	if err != nil {
+		return nil, err
+	}
+	emitBootReport("")
+	return wrapped, nil
+}
+
+func buildMiddlewares(handler http.Handler, option ...Option) (http.Handler, error) {
 	if handler == nil {
 		return nil, errors.New("popcornwave: nil handler")
 	}
@@ -59,8 +69,13 @@ func Middlewares(handler http.Handler, option ...Option) (http.Handler, error) {
 	if err := validateOperationalEndpointCollisions(handler, server); err != nil {
 		return nil, err
 	}
-	resources := runtimeResources(slog.Default())
-	return buildRuntimeHandler(handler, server, security, middleware, resources, options.publicFS)
+	telemetry, err := buildObservability(Config[ObservabilityConfig](nil), Env())
+	if err != nil {
+		return nil, err
+	}
+	resources := runtimeResources(telemetry.backend)
+	reportQueryDiagnostics(resources.Query, Env(), resources.DBDriver)
+	return buildRuntimeHandler(handler, server, security, middleware, resources, telemetry.tracing, options.publicFS)
 }
 
 // Run owns parsing, framework initialization, serving, graceful shutdown, and
@@ -75,7 +90,7 @@ func Run(ctx context.Context, handler http.Handler, option ...Option) error {
 	if handled, err := runFrameworkAction(); handled {
 		return err
 	}
-	wrapped, err := Middlewares(handler, option...)
+	wrapped, err := buildMiddlewares(handler, option...)
 	if err != nil {
 		return err
 	}
@@ -84,8 +99,35 @@ func Run(ctx context.Context, handler http.Handler, option ...Option) error {
 	signalContext, cancelSignals := notifyShutdownSignals(ctx)
 	defer cancelSignals()
 	server := newHTTPServer(serverConfig, wrapped)
-	serveErr := serveUntilContext(signalContext, server, server.ListenAndServe, serverConfig.ShutdownTimeout)
+	// Binding here, instead of inside ListenAndServe, keeps the startup summary
+	// honest: it is written once the port is actually accepted, and it reports
+	// the resolved port even when the configuration asked for port 0.
+	listener, err := net.Listen("tcp", server.Addr)
+	if err != nil {
+		return closeRuntimeResources(serverConfig.ShutdownTimeout, err)
+	}
+	emitBootReport(listenURL(listener))
+	serve := func() error { return server.Serve(listener) }
+	serveErr := serveUntilContext(signalContext, server, serve, serverConfig.ShutdownTimeout)
 	return closeRuntimeResources(serverConfig.ShutdownTimeout, serveErr)
+}
+
+// listenURL renders the address an operator can open. A wildcard or loopback
+// bind is reported as localhost, because that is the host that resolves.
+func listenURL(listener net.Listener) string {
+	address := listener.Addr()
+	tcp, ok := address.(*net.TCPAddr)
+	if !ok {
+		return "http://" + address.String()
+	}
+	host := tcp.IP.String()
+	switch {
+	case tcp.IP == nil || tcp.IP.IsUnspecified() || tcp.IP.IsLoopback():
+		host = "localhost"
+	case tcp.IP.To4() == nil:
+		host = "[" + host + "]"
+	}
+	return "http://" + host + ":" + strconv.Itoa(tcp.Port)
 }
 
 func serveUntilContext(ctx context.Context, server *http.Server, serve func() error, shutdownTimeout time.Duration) error {

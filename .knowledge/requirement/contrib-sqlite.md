@@ -6,7 +6,7 @@ title: Portable SQLite Facade
 system:tinygodriver exposes one database/sql SQLite contract while decision:sqlite-backend-selection chooses the build-specific implementation.
 
 ```yaml
-package: github.com/shibukawa/tinygodriver/database/sqlite
+package: github.com/shibukawa/tinygodriver/database/sql/sqlite
 driver_name: sqlite
 selection: decision:sqlite-backend-selection
 tinygo_backend: requirement:contrib-cgosqlite

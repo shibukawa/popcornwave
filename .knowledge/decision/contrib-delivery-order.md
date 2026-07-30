@@ -26,10 +26,12 @@ phases:
       - requirement:contrib-devidp
       - requirement:contrib-html-template
       - requirement:contrib-auth-state-redis
-  - phase: deferred-non-primary
+  - phase: supplied-by-tinygodriver
     packages:
+      - requirement:contrib-sqlite
       - requirement:contrib-postgresql
       - requirement:contrib-mysql
+    note: these ship with system:tinygodriver, so the work here is consumption and acceptance rather than implementation
   - phase: feasibility-gated
     packages:
       - requirement:contrib-auth-state-sqlite
@@ -42,10 +44,10 @@ rationale:
   - requirement:contrib-devidp follows requirement:contrib-oidc because it exists to exercise the relying party, and it ships with api:testutil-idp
   - requirement:contrib-passkey-test follows requirement:contrib-passkey for the same reason and ships with api:testutil-passkey, because decision:passkey-test-authenticator makes it the only way to exercise a ceremony in CI
   - requirement:contrib-html-template remains phase 2 because frontend JSON writers require generated encoding work
-  - database wire protocols require larger interoperability matrices
+  - database wire protocols require larger interoperability matrices, which is why they are consumed rather than written here
   - requirement:contrib-auth-state-redis follows the base store and tested requirement:contrib-redis-valkey dependency
   - requirement:contrib-auth-state-sqlite follows the portable SQLite facade
   - SQLite and Zstandard implementations are supplied by system:tinygodriver
-  - decision:server-sql-support-tier excludes server SQL drivers from first-class delivery
+  - decision:server-sql-support-tier makes the three SQL engines first-class together, so none of them gates the others
   - SQLite depends on target-specific C integration or a separately proven alternative
 ```

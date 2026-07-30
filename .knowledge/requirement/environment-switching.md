@@ -21,6 +21,7 @@ behavior:
   - expose the resolved token to application code
 tooling:
   - api:cli-dev defaults the environment to dev and watches config.*.toml
+  - api:cli-doctor names the environment to inspect with an option, which selects files to read and never reaches an application process
   - api:cli-init scaffolds config.dev.toml in the project root
   - requirement:built-in-config-generation writes the scaffold for the active environment
 acceptance:
@@ -34,7 +35,7 @@ acceptance:
 non_goals:
   - merging multiple configuration files into one layered result
   - per-environment code paths or build tags
-  - a CLI flag that overrides APP_ENV
+  - a CLI flag that overrides APP_ENV for the application process
 migration:
   - existing projects rename config.toml to config.dev.toml or move it under config/
   - user and system configuration files require no change

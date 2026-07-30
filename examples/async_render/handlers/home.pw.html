@@ -1,0 +1,47 @@
+package handlers
+
+type Profile {
+  name: string
+  joined: string
+}
+
+type Order {
+  id: string
+  total: string
+}
+
+export component Home(profile: Profile, orders: async Order[], recommendation: async string): html {
+<main>
+  <h1>Async rendering</h1>
+  <p>
+    The shell, the profile, and every fallback below reached the browser before
+    the slow work behind them finished. Each section replaced itself as its own
+    data settled, over the same HTTP response.
+  </p>
+
+  <section class="card">
+    <h2>Profile</h2>
+    <p>{profile.name} · joined {profile.joined}</p>
+  </section>
+
+  <section class="card">
+    <h2>Orders</h2>
+{await list = orders}
+    <ul>{for order in list}<li>{order.id} — {order.total}</li>{/for}</ul>
+{fallback}
+    <p class="pending">Loading orders…</p>
+{/await}
+  </section>
+
+  <section class="card">
+    <h2>Recommendation</h2>
+{await text = recommendation}
+    <p>{text}</p>
+{fallback}
+    <p class="pending">Thinking…</p>
+{recover err}
+    <p class="failed">This section is unavailable right now ({err.code}).</p>
+{/await}
+  </section>
+</main>
+}

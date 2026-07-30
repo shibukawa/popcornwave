@@ -18,7 +18,12 @@ import (
 	"time"
 
 	"github.com/pressly/goose/v3"
-	_ "github.com/shibukawa/tinygodriver/database/sqlite"
+	"github.com/shibukawa/popcornwave/database"
+	// pw serves any project, so unlike an application binary it links every
+	// engine rather than the one a single project selected.
+	_ "github.com/shibukawa/popcornwave/database/mysql"
+	_ "github.com/shibukawa/popcornwave/database/postgres"
+	_ "github.com/shibukawa/popcornwave/database/sqlite"
 )
 
 // DefaultDir is the project-relative migration directory.
@@ -62,31 +67,35 @@ func (target *Target) Close() error {
 	return target.DB.Close()
 }
 
-// ParseDSN splits the framework driver://dsn syntax and selects a goose dialect.
-func ParseDSN(configured string) (driver, dataSource string, dialect goose.Dialect, err error) {
-	configured = strings.TrimSpace(configured)
-	driver, remainder, ok := strings.Cut(configured, "://")
-	if !ok || driver == "" || remainder == "" {
-		return "", "", "", errors.New("dsn must use driver://dsn syntax")
+// ParseDSN resolves the framework scheme://dsn syntax and maps the engine
+// dialect onto goose's. Resolution goes through the shared registry so a DSN
+// that opens at runtime is the same one that migrates.
+func ParseDSN(configured string) (target database.Target, dialect goose.Dialect, err error) {
+	target, err = database.Resolve(configured)
+	if err != nil {
+		return database.Target{}, "", err
 	}
-	switch driver {
-	case "sqlite", "sqlite3":
-		return driver, remainder, goose.DialectSQLite3, nil
-	case "postgres", "postgresql":
-		return driver, configured, goose.DialectPostgres, nil
-	case "mysql":
-		return driver, configured, goose.DialectMySQL, nil
+	dialect, mapped := gooseDialects[target.Dialect]
+	if !mapped {
+		return database.Target{}, "", fmt.Errorf("no goose dialect for %q", target.Dialect)
 	}
-	return "", "", "", fmt.Errorf("unsupported migration driver %q", driver)
+	return target, dialect, nil
+}
+
+// gooseDialects maps a canonical engine dialect onto the goose spelling of it.
+var gooseDialects = map[string]goose.Dialect{
+	"sqlite":   goose.DialectSQLite3,
+	"postgres": goose.DialectPostgres,
+	"mysql":    goose.DialectMySQL,
 }
 
 // Open connects to the configured database for a migration action.
 func Open(dsn string) (*Target, error) {
-	driver, dataSource, dialect, err := ParseDSN(dsn)
+	resolved, dialect, err := ParseDSN(dsn)
 	if err != nil {
 		return nil, err
 	}
-	db, err := sql.Open(driver, dataSource)
+	db, err := resolved.Open()
 	if err != nil {
 		return nil, fmt.Errorf("open database: %w", err)
 	}

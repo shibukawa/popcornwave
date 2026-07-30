@@ -26,6 +26,7 @@ plugin_fields:
     redis.connect_timeout: duration
   plugin/session/rdb:
     rdb.source: middleware or dedicated
+    rdb.group: middleware-only data:database-connection-set group holding the session tables
     rdb.dsn: dedicated-only URL such as sqlite://app.db or sqlite://:memory:
     rdb.table: string
     rdb.busy_timeout: duration
@@ -44,7 +45,8 @@ rules:
   - backend-specific keys exist only when decision:import-registered-session-plugins imports their plugin
   - validate only fields used by the selected imported backend
   - redis accepts Redis or Valkey endpoints through requirement:contrib-redis-valkey
-  - middleware source reuses the *sql.DB owned by api:rdb-middleware and forbids session.rdb.dsn
+  - middleware source reuses a *sql.DB owned by api:rdb-middleware and forbids session.rdb.dsn
+  - middleware source resolves its group through policy:connection-group-selection and rejects a readonly one
   - dedicated source opens a separately owned pool and requires session.rdb.dsn
   - dedicated source delegates DSN handling to separately imported database/sql drivers
   - reject dedicated source when its canonical connection identity equals middleware.rdb.dsn; select middleware source instead

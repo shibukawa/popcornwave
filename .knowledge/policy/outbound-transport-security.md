@@ -29,8 +29,12 @@ http:
   preferred: forward or egress proxy preserves the logical HTTPS URL and validates the upstream origin
   local_override: allowed only for an explicit same-workload listener with a separately pinned upstream identity
 direct_tinygo_tls:
-  status: experimental
+  status: supported for the SQL engines of decision:server-sql-support-tier, experimental elsewhere
   rule: direct TLS is not a prerequisite for first-class support when the proxy path passes acceptance tests
+  sql_engines:
+    mechanism: the driver upgrades the connected socket through the system:tinygodriver OS TLS backend
+    bounds: decision:server-sql-support-tier platform_bounds, which a deployment must check before relying on it
+    never: a platform without a backend refuses the connection instead of falling back to plaintext
 forbidden:
   - plaintext across host, Pod, node, or workload trust boundaries
   - disabled certificate or hostname verification outside explicit loopback test fixtures

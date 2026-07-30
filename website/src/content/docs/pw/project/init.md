@@ -6,7 +6,7 @@ sidebar:
 ---
 
 ```sh
-pw init <project-name> [--tailwind] [--auth=<mode>] [--devidp]
+pw init <project-name> [--tailwind] [--no-tinygo] [--no-devbox] [--no-database] [--db=<engine>] [--no-redis] [--router=<kind>] [--auth=<mode>] [--devidp] [-i]
 ```
 
 The command creates a complete, runnable project in a new directory. A name and
@@ -19,9 +19,96 @@ presents the same choices as a wizard.
 | --- | --- |
 | `--tailwind` | also scaffold the Tailwind CSS toolchain |
 | `--no-tinygo` | target host Go instead of TinyGo |
+| `--no-devbox` | no `devbox.json`; keep your own setup — mise, Docker Compose, Nix, Homebrew, Scoop |
+| `--no-database` | no rdb configuration, no migrations, and no SQL example |
+| `--db=<engine>` | `sqlite` (default), `postgres`, or `mysql` |
+| `--no-redis` | leave the Valkey development server out of `devbox.json` |
+| `--router=<kind>` | `registered` (default), `discovered`, or `both`; see [Discovered routing](/advanced/discovered-routing/#commands) |
 | `--auth=<mode>` | `none` (default), `oidc`, `oidc-passkey`, or `passkey` |
 | `--devidp` | with an OIDC mode, wire up the local identity provider |
 | `-i`, `--interactive` | ask every question even when a name was given |
+
+`--tailwind`, `--no-database`, `--no-redis`, and `--auth` all select
+capabilities [`pw add`](/pw/project/add/) can install later, so declining one
+costs nothing permanent. The database is the exception in one direction only:
+authentication stores its login sessions in it, so `--no-database` with an
+`--auth` mode is rejected, and the wizard skips the authentication question
+entirely when the database is declined.
+
+`--no-tinygo` is the answer `pw add` cannot revisit — see
+[Changing the toolchain](#changing-the-toolchain).
+
+## Choosing the database
+
+`--db` decides five things at once: the DSN in `config.dev.toml`, the dialect
+the starter migration is written in, the development server added to
+`devbox.json`, the driver the binary links, and `project.database` in
+`popcornwave.toml`. That last key is what `pw generate` reads to know the
+placeholder syntax `.pw.sql` sources compile to. SQLite is the default because
+it runs with nothing to start beside the application.
+
+| Engine | DSN | Development server |
+| --- | --- | --- |
+| `sqlite` | `sqlite://<name>.db` | none |
+| `postgres` | `postgres://<name>:<name>@127.0.0.1:5432/<name>?sslmode=disable` | `postgresql` in `devbox.json` |
+| `mysql` | `mysql://<name>:<name>@tcp(127.0.0.1:3306)/<name>` | `mysql80` in `devbox.json` |
+
+A server engine adds one blank import to `main.go`, which is what registers it:
+
+```go
+import _ "github.com/shibukawa/popcornwave/database/postgres"
+```
+
+The scaffolded credentials are development values in `config.dev.toml`. Create
+the role and database they name once, then `pw migrate up`.
+
+Changing engines afterwards is not something `pw add` will do for you: the DSN,
+every migration, and every `.pw.sql` source would have to be rewritten together.
+Pick the engine the project is going to deploy against.
+
+### Generated SQL follows the engine
+
+`project.database` is the one place a project states its engine for generation.
+There is no implicit default at the generator: a silently assumed dialect emits
+placeholders the engine rejects at the first query, so `pw generate` passes what
+`popcornwave.toml` says and nothing else.
+
+```toml
+[project]
+database = "postgres"   # sqlite, postgres, or mysql
+```
+
+| Engine | Placeholders |
+| --- | --- |
+| `postgres` | `$1`, `$2`, … |
+| `mysql` | `?` |
+| `sqlite` | `?` |
+
+Changing this key changes every generated query, so run `pw generate` after
+editing it and commit the result together with the DSN change.
+
+A project written before this key existed has no `[project] database`, and is
+read as `sqlite`, which is the only engine that existed then.
+
+## Changing the toolchain
+
+The selected compiler is recorded as `project.toolchain` in `popcornwave.toml`,
+and it decides which mux type the handler packages use: TinyGo projects route
+through `pw.ServeMux` so one import works on both toolchains, host-only projects
+keep `http.ServeMux`. Generation discovers either, so the difference is confined
+to the scaffold.
+
+There is no command for switching afterwards, because the change reaches source
+you own. Doing it by hand is four edits:
+
+1. set `project.toolchain` in `popcornwave.toml` to `tinygo` or `go`;
+2. swap the mux type and accessor in each handler package's `index.go`;
+3. add or remove `tinygo@latest` in `devbox.json`;
+4. add or remove `tinygohelper.go`, the TinyGo-only netdev registration —
+   without it a TinyGo binary aborts at startup with `Netdev not set`.
+
+Then run [`pw generate`](/pw/project/generate/). A `project.toolchain` value
+other than `tinygo` or `go` is rejected when the project loads.
 
 ## Authentication
 
@@ -60,7 +147,7 @@ in a populated tree fails rather than scattering files.
 
 ```
 myapp/
-├── popcornwave.toml           project name, main package, dev watch list
+├── popcornwave.toml           project name, main package, generation sources
 ├── config.dev.toml            runtime configuration for APP_ENV=dev
 ├── go.mod
 ├── devbox.json / devbox.lock  Go + Valkey (+ tailwindcss with --tailwind)
@@ -72,14 +159,21 @@ myapp/
 ├── templates/
 │   ├── document.pw.html       shared document shell
 │   ├── templates.go           package marker, present before first generation
-│   └── 400|404|500.pw.html    error pages
-├── queries/users.pw.sql       named SQL with a typed result
-├── migrations/00001_init.sql  initial schema, in goose format
+│   └── 400|401|403|404|409|413|500.pw.html   error pages
+├── queries/users.pw.sql       named SQL with a typed result (with the database)
+├── migrations/00001_init.sql  initial schema, in goose format (with the database)
 ├── public/.keep               empty-tree sentinel; never served
 ├── public.go                  embeds public/ and registers it
 ├── .vscode/settings.json      hides **/*_pw_gen.go
 └── .gitignore                 excludes *_pw_gen.go and other build output
 ```
+
+`popcornwave.toml` names the directories it just created under each `[generate]`
+purpose, because [`pw generate`](/pw/project/generate/) reads those lists and
+has no default to fall back on. `handlers` appears under both `handlers` and
+`templates`, since the starter page template sits beside its handler, and
+`cmd/myapp` appears under `config`, where the application registers its
+configuration.
 
 With an OIDC mode plus `--devidp` it also writes `devidp.toml`, the roster of
 selectable development users, and adds `[dev.idp]` to `popcornwave.toml`.
@@ -88,7 +182,7 @@ With `--tailwind` it also writes `assets/app.css` and
 `public/generated/app.css`, adds the `[assets.tailwind]` block to
 `popcornwave.toml`, pins `tailwindcss` in `devbox.json`, and links the
 stylesheet from the document shell. No `package.json` and no Node lockfile are
-created. See [Styling](/guides/styling/) for enabling this later.
+created. See [Styling](/guides/frontend/styling/) for enabling this later.
 
 Each file is written to a temporary path and renamed into place. If the command
 is interrupted, it cannot leave a half-written source file behind.
@@ -102,10 +196,30 @@ success, leaving a project that compiles immediately:
 ```
 Created myapp
 
+Not included: redis-valkey, auth, tailwind
+  pw add <capability> enables one later
+
   cd myapp
   devbox shell
   pw dev
 ```
+
+The notice lists only what this run declined, so a scripted `pw init` learns the
+same thing the wizard says beside each answer.
+
+Declining Devbox drops the `devbox shell` line, since there is no shell to
+enter. Tailwind then has no pinned toolchain either, so the scaffold states what
+to install:
+
+```
+Tailwind CSS needs its own toolchain here:
+  install the standalone tailwindcss CLI, version 4 or later
+```
+
+It names the requirement rather than the Devbox package, because
+`tailwindcss_4@4.1.18` is a nixpkgs identifier that means nothing to mise,
+Homebrew, or Scoop. [`pw build`](/pw/project/build/) reports the same when the
+binary is missing.
 
 The generated `go.mod` requires the framework at the version of the `pw` binary
 that created it. When `pw` was built from a working copy rather than a release,
@@ -113,5 +227,7 @@ it writes a `replace` directive pointing at that checkout instead.
 
 ## Next steps
 
-- [Getting started](/start/getting-started/) — a walkthrough of the output.
-- [Project structure](/guides/project-structure/) — growing past one package.
+- [1. Getting started](/tutorial/getting-started/) — a walkthrough of the output.
+- [pw add](/pw/project/add/) — installing a capability you declined here.
+- [pw new](/pw/project/new/) — adding the second handler.
+- [Project structure](/guides/architecture/project-structure/) — growing past one package.

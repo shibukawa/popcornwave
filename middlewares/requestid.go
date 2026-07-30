@@ -102,6 +102,9 @@ func RandomRequestID() string {
 	return hex.EncodeToString(bytes[:])
 }
 
+// bindRequestIDLogger records the correlation ID as a stable request
+// attribute, so every record taken from the request afterwards carries it
+// without a handler passing it along.
 func bindRequestIDLogger(ctx context.Context, id string) context.Context {
-	return pwruntime.WithLogger(ctx, pwruntime.Logger(ctx).With("request_id", id))
+	return pwruntime.WithLogAttributes(ctx, pwruntime.String("request_id", id))
 }

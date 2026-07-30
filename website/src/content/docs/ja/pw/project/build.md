@@ -2,7 +2,7 @@
 title: pw build
 description: 生成コード、minify 済み CSS、準備済みアセットを含むリリースバイナリを作る。
 sidebar:
-  order: 4
+  order: 6
 ---
 
 ```sh
@@ -38,7 +38,7 @@ APP_ENV=prod ./myapp
 ```
 
 `APP_ENV` がどのプロジェクトローカル設定ファイルを読むかを選びます。
-[設定](/ja/guides/configuration/)を参照。
+[設定](/ja/guides/architecture/configuration/)を参照。
 
 ## クロスコンパイルと TinyGo
 

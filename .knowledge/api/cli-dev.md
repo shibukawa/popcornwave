@@ -12,21 +12,29 @@ steps:
   - run api:cli-generate
   - run api:cli-migrate up when data:project-config migration.auto is enabled
   - start requirement:contrib-devidp when data:project-config dev.idp.enabled is true
+  - start requirement:dev-telemetry-viewer unless data:project-config dev.otel disables it
   - start flow:tailwind-css-build watch mode when enabled
   - enable decision:development-public-assets
   - build and run data:project-config project.main
   - default data:runtime-environment to dev when APP_ENV is unset
-  - watch every Go, .pw.html, .pw.sql, popcornwave.toml, config.*.toml, and config/config.*.toml source
+  - watch every Go source for rebuild, plus .pw.html, .pw.sql, popcornwave.toml, config.*.toml, and config/config.*.toml, per decision:developer-loop-watch-scope
+  - regenerate only from the data:project-config generate purposes, because api:cli-generate reads nothing else
+  - regenerate when a concept:page-tree route appears or disappears, which the file walk already reports because a route always carries a page template
   - watch the data:devidp-config file when the development identity provider is enabled
   - watch the data:migration-source directory
-  - add data:project-config dev.extra_watch paths and globs
+  - add data:project-config dev.watch.includes paths and globs, and skip every dev.watch.excludes subtree
   - exclude public/** and public/**/*.zstd from Go rebuild inputs
   - regenerate when generated inputs change
   - reapply pending migrations before restart when migration sources changed
   - rebuild and restart after successful changes
 services:
+  absent_environment: a project without devbox.json declares no service here, so the step is skipped in silence
   default: Valkey
   rule: default services may be disabled or changed in Devbox configuration
+  none_declared:
+    behavior: skip startup silently when devbox reports that the project defines no service
+    rationale: a project with no database and no cache is an ordinary shape, and starting anyway prints an error that reads like a misconfiguration
+    probe: devbox exits zero either way, so the wording of its listing is the only signal; an unreadable answer falls through to starting services rather than skipping them
   output: service logs join the developer loop stream, because the process manager terminal UI would paint over generation, migration, and application output
   lifetime: services stop with the developer loop, because interrupting devbox leaves the process manager it spawned running
 identity_provider:
@@ -48,6 +56,13 @@ identity_provider:
   reload: roster changes reload in place without restarting the application
   guardrails: policy:devidp-safety
   default: disabled
+telemetry_viewer:
+  requirement: requirement:dev-telemetry-viewer
+  flow: flow:dev-telemetry-capture
+  lifetime: starts before the application process, survives every rebuild and restart, and stops with the developer loop
+  injection: data:observability-runtime-config otel enabled and endpoint, on the application process only
+  output: records reach both the viewer and the developer loop stream, because a viewer must not empty the terminal
+  default: enabled
 migration:
   default: enabled and forward-only under policy:migration-safety
   ordering: migrations complete before the application process starts
@@ -55,4 +70,5 @@ failure:
   generation_css_or_build: keep the developer loop alive and report diagnostics
   migration: report diagnostics, skip the restart, and keep the developer loop alive
   identity_provider: report diagnostics and stop the loop, because the application cannot log in without its configured issuer
+  telemetry_viewer: report diagnostics and keep the loop alive, because an unobservable run is still a working one
 ```

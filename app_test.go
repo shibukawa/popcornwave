@@ -52,7 +52,7 @@ func TestAppComposesStandardHandlersAndMiddleware(t *testing.T) {
 func TestOperationalEndpoints(t *testing.T) {
 	ready := false
 	config := petitweb.DefaultServerConfig()
-	config.OpenAPI.Enabled = true
+	config.Health, config.Readiness, config.OpenAPI = "/healthz", "/readyz", "/openapi.json"
 	app := petitweb.New(
 		petitweb.WithServerConfig(config),
 		petitweb.WithOpenAPI([]byte(`{"openapi":"3.1.0"}`)),
@@ -85,7 +85,7 @@ func TestOperationalEndpoints(t *testing.T) {
 
 func TestAppRejectsInvalidStartupConfiguration(t *testing.T) {
 	config := petitweb.DefaultServerConfig()
-	config.Health.Path = "relative"
+	config.Health = "relative"
 	app := petitweb.New(petitweb.WithServerConfig(config))
 	if err := app.Validate(); err == nil || !strings.Contains(err.Error(), "health path") {
 		t.Fatalf("Validate() = %v", err)

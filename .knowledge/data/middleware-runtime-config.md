@@ -18,12 +18,23 @@ switches:
   - response compression
 rdb_fields:
   rdb.enabled: bool
-  rdb.dsn: URL such as sqlite://app.db or sqlite://:memory:
-  rdb.connect_timeout: duration
-  rdb.max_open_conns: non-negative integer
-  rdb.max_idle_conns: non-negative integer
-  rdb.conn_max_lifetime: non-negative duration
-  rdb.conn_max_idle_time: non-negative duration
+  rdb.default_group: group serving unpinned reads
+  rdb.write_group: group serving framework-owned writes
+  rdb.migration_group: group receiving migrations and seeds, defaulting to write_group
+  rdb.connections: array of tables, one element per pool, modeled by data:database-connection-set
+  rdb.connections[].group: string
+  rdb.connections[].dsn: scheme://rest resolved by rule:rdb-dsn-resolution, such as sqlite://app.db, sqlite://:memory:, postgres://user:pass@host:5432/db?sslmode=verify-full, or mysql://user:pass@tcp(host:3306)/db
+  rdb.connections[].readonly: bool
+  rdb.connections[].connect_timeout: duration
+  rdb.connections[].max_open_conns: non-negative integer
+  rdb.connections[].max_idle_conns: non-negative integer
+  rdb.connections[].conn_max_lifetime: non-negative duration
+  rdb.connections[].conn_max_idle_time: non-negative duration
+rdb_legacy_fields:
+  form: rdb.dsn plus rdb.connect_timeout and the four pool keys, with no connections element
+  meaning: one writable connection in group default
+  retained: it is the only form with environment and CLI overrides, since an array element has neither
+  toml_layout: every scalar rdb key must precede the first [[middleware.rdb.connections]] header
 recommended_order:
   - recovery
   - trusted proxy
@@ -45,12 +56,16 @@ rules:
   - session middleware uses data:session-runtime-config and flow:session-lifecycle
   - CSRF and response-header middleware use data:security-runtime-config
   - enabled rdb middleware uses api:rdb-middleware
-  - rdb DSN scheme resolves a separately imported database/sql driver
+  - each rdb DSN scheme resolves an opener and a dialect through rule:rdb-dsn-resolution, not a database/sql driver name
   - apply pool fields through database/sql without driver-specific assumptions
   - zero pool counts and durations retain database/sql zero-value semantics
-  - max_idle_conns cannot exceed a positive max_open_conns
+  - per connection, max_idle_conns cannot exceed a positive max_open_conns
   - sqlite://:memory: requires max_open_conns 1 unless an explicitly supported shared-memory DSN is used
-  - reject an unregistered DSN driver, malformed DSN, invalid pool bounds, or failed startup ping
+  - a server engine needs pool bounds sized against its own connection limit, which sqlite guidance does not imply
+  - reject an unknown or unlinked DSN scheme, malformed DSN, invalid pool bounds, or failed startup ping on any connection
+  - declaring both the legacy and the connections form is a startup error, not a merge
+  - group pointers and per-connection validation follow data:database-connection-set
+  - group assignment for framework-owned work follows policy:connection-group-selection
   - redact DSN credentials and sensitive query values from config views, logs, and errors
   - disabling a dependency of another enabled feature is a startup error
 ```

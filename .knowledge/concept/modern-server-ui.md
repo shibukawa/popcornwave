@@ -19,6 +19,8 @@ server_component_input:
     - dependency analysis
 capabilities:
   - api:typed-external-function
+  - api:async-html-value
+  - requirement:async-html-rendering
   - flow:initial-streaming-render
   - flow:partial-refresh
   - api:server-action

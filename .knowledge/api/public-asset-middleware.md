@@ -23,6 +23,7 @@ selection:
     encoding: policy:public-asset-negotiation
 response:
   found: 200 with inferred Content-Type and selected representation
+  revision_stamped: long max-age with immutable under a requirement:framework-script-assets revision segment
   mount_without_trailing_slash: 308 to the canonical mount root
   missing_or_hidden: 404
   unsupported_method: 405 with Allow
@@ -33,4 +34,5 @@ middleware_order:
 startup:
   - server.public.enabled requires a registered or explicitly supplied fs.FS in production
   - reject an invalid mount before accepting requests
+  - reject application content under the reserved requirement:framework-script-assets subtree
 ```

@@ -126,11 +126,20 @@ func setupSession(ctx context.Context) (pw.Middleware, error) {
 	if sessionConfig.RDB.Source != "middleware" {
 		return nil, fmt.Errorf("session.rdb.source %q is not implemented; use \"middleware\"", sessionConfig.RDB.Source)
 	}
-	db, ok := pw.DB(ctx)
+	if _, ok := pw.DB(ctx); !ok {
+		return nil, errors.New("session.rdb.source = \"middleware\" requires middleware.rdb.enabled = true")
+	}
+	// The session table is written on every login, so it lives in the session
+	// group rather than in the default group, which is normally a replica.
+	sessionCtx, err := pw.SelectSessionDB(ctx)
+	if err != nil {
+		return nil, err
+	}
+	db, ok := pw.DB(sessionCtx)
 	if !ok {
 		return nil, errors.New("session.rdb.source = \"middleware\" requires middleware.rdb.enabled = true")
 	}
-	if driver, _ := pw.DBDriver(ctx); driver != "sqlite" {
+	if driver, _ := pw.DBDriver(sessionCtx); driver != "sqlite" {
 		// The OAuth correlation store is the SQLite implementation of
 		// contrib/authstate; another dialect needs its own adapter.
 		return nil, fmt.Errorf("auth currently requires a sqlite middleware.rdb.dsn, got driver %q", driver)
@@ -300,6 +309,6 @@ func parseSameSite(value string) (http.SameSite, error) {
 }
 
 func writeUnavailable(w http.ResponseWriter, r *http.Request, err error) {
-	pw.Logger(r.Context()).ErrorContext(r.Context(), "session backend unavailable", "error", err)
+	pw.Logger(r.Context()).Log(r.Context(), pw.LevelError, "session backend unavailable", pw.Err(err))
 	pw.WriteProblem(w, r, pw.ServiceUnavailable())
 }

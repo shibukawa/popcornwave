@@ -1,0 +1,223 @@
+---
+title: 3. メモを保存する
+description: マイグレーションを書き、SQL を型付き関数にコンパイルし、メモリ上のリストをテーブルに置き換える。
+sidebar:
+  order: 3
+---
+
+`pw dev` を再起動すると、2章で書いたメモは全部消えています。一覧はスライスの中にあり、
+スライスはプロセスの中にあるからです。
+
+これをデータベースに移すには3つの部品が要ります。テーブルを作るマイグレーション、
+型付きの Go 関数にコンパイルされる `.pw.sql`、そしてそれを呼ぶハンドラ。動かすための準備は
+すでに整っています。`pw init` がプロジェクト作成時にデータベースも用意したので、
+`config.dev.toml` には DSN が書かれています。所要時間は20分ほど。
+
+:::note[ここから始めるには]
+2章の続きです。`Memo` を宣言した `handlers/home.pw.html`、メモリ上のリストを持つ
+`handlers/memos.go`、`GET /{$}` と `POST /memos` を持つ `handlers/home_handler.go`。
+:::
+
+## 1. テーブルのマイグレーション
+
+マイグレーションは [goose](https://github.com/pressly/goose) 形式のただの SQL ファイルで、
+適用される順に番号が振られます。`migrations/00002_create_memos.sql` を作ります。
+
+```sql
+-- +goose Up
+CREATE TABLE memos (
+    id INTEGER PRIMARY KEY,
+    body TEXT NOT NULL
+);
+
+-- +goose Down
+DROP TABLE memos;
+```
+
+2つの注釈がファイルを分けます。`Up` はこのバージョンがすることで、`Down` はそれを
+取り消すものです。いま `Down` を書くのは安上がりですが、3バージョン先のスキーマから
+これを復元するのはそうではありません。
+
+`00001_init.sql` は最初からありました。雛形の例で、このチュートリアルが一度も読まない
+`users` テーブルを作ります。放っておいてください。適用済みで、何のコストもなく、
+そして適用済みのマイグレーションに番号を振り直すことだけは、絶対にしてはいけないことです。
+
+`pw dev` は起動時と、マイグレーションディレクトリのファイルが変わるたびに未適用のものを
+適用します。つまりこのファイルは保存するだけです。
+
+```
+up	2	00002_create_memos.sql	1ms
+version 1 -> 2
+```
+
+ループの外では `pw migrate up` が同じことをし、`pw migrate status` が適用状況を答えます。
+[マイグレーション](/ja/productivity/migrations/)を参照してください。
+
+## 2. コンパイルされる SQL
+
+`queries/memos.pw.sql` を作ります。
+
+```sql
+package queries
+
+type Memo {
+  id: int
+  body: string
+}
+
+export statement ListMemos(): sql.many<Memo> {
+SELECT id, body FROM memos ORDER BY id DESC
+}
+
+export statement CreateMemo(body: string): sql.exec {
+INSERT INTO memos (body) VALUES ({body})
+}
+```
+
+形は `.pw.html` と同じです。パッケージ行、結果型の宣言、型付きパラメータを持つ
+エクスポート宣言。`pw generate` は `export statement` ごとに Go の関数をソースの隣に
+書き出します。
+
+シグネチャを決めるのは結果の種別です。`sql.many<Memo>` は
+`iter.Seq2[Memo, error]` を返します。行はスライスに溜めずに流れるので、大きなテーブルが
+そのまま大きなアロケーションになりません。`sql.exec` は `sql.Result` を返します。
+INSERT が差し出せるのはそれです。
+
+`{body}` はパラメータで、プリペアドステートメントのプレースホルダになります。ここでは `?`、
+PostgreSQL なら `$1`。決めるのは `popcornwave.toml` の `project.database` です。
+生成器はテンプレート式を SQL テキストに連結しませんし、手書きのプレースホルダは拒否します。
+この書き方をしたステートメントがインジェクションになる余地はありません。境界はまさにそこで、
+パラメータが束縛するのは**値**であって、テーブル名でも列名でも並び順でもありません。
+
+あとで生成を止める規則が2つあり、出会う前に知っておく価値があります。WHERE のない
+UPDATE と DELETE はその場で拒否されます。そして SELECT の列は、順序も名前も、宣言した
+結果型と一致していなければなりません。`Memo` がそのステートメントの返しうる行の正確な
+説明でいられるのは、この規則のおかげです。条件付き SQL、スライスの展開、再利用可能な
+predicate は[クエリー](/ja/guides/backend/queries/)にあります。
+
+## 3. ハンドラをテーブルにつなぐ
+
+```go
+// handlers/home_handler.go
+package handlers
+
+import (
+	"context"
+	"net/http"
+
+	"memoapp/queries"
+
+	"github.com/shibukawa/popcornwave/pw"
+	httpbind "github.com/shibukawa/tinybind-go"
+)
+
+func init() {
+	mux.HandleFunc("GET /{$}", home)
+	mux.HandleFunc("POST /memos", createMemo)
+}
+
+func home(w http.ResponseWriter, r *http.Request) {
+	list, err := listMemos(r.Context())
+	if err != nil {
+		pw.WriteProblem(w, r, err)
+		return
+	}
+	pw.WriteHTML(w, r, Home(HomeParams{Memos: list}))
+}
+
+type createMemoInput struct {
+	Body string `payload:"body" check:"required,maxlen=200"`
+}
+
+func createMemo(w http.ResponseWriter, r *http.Request) {
+	input, err := pw.Parse[createMemoInput](r)
+	if err != nil {
+		mapped, fieldError := httpbind.AsHTTPError(err)
+		if !fieldError || len(mapped.Fields) == 0 {
+			pw.WriteProblem(w, r, pw.BadRequest(err))
+			return
+		}
+		list, listErr := listMemos(r.Context())
+		if listErr != nil {
+			pw.WriteProblem(w, r, listErr)
+			return
+		}
+		pw.WriteHTML(w, r, Home(HomeParams{
+			Memos: list,
+			Draft: r.PostFormValue("body"),
+			Error: mapped.Fields[0].Message,
+		}))
+		return
+	}
+	if _, err := queries.CreateMemo(r.Context(), input.Body); err != nil {
+		pw.WriteProblem(w, r, err)
+		return
+	}
+	http.Redirect(w, r, "/", http.StatusSeeOther)
+}
+
+// listMemos は流れてくる行を、テンプレートが描画するスライスにする。
+func listMemos(ctx context.Context) ([]Memo, error) {
+	var list []Memo
+	for row, err := range queries.ListMemos(ctx) {
+		if err != nil {
+			return nil, err
+		}
+		list = append(list, Memo{Id: row.Id, Body: row.Body})
+	}
+	return list, nil
+}
+```
+
+そして `handlers/memos.go` を削除します。スライスは消えました。
+
+このファイルで立ち止まる価値のある点が2つあります。
+
+**接続はコンテキストが運びます。** `queries.CreateMemo` にハンドルは渡していません。
+`context.Context` を受け取り、その中からプールを見つけます。同じ呼び出しが
+`pw.Transaction` の中では実行中のトランザクションを見つけます。生成された1つの関数が
+両方の場所で動き、`*sql.Tx` を取る変種が要らないのはそのためです。
+
+**`Memo` 型が2つになりました。** 変換しているのが `listMemos` です。`queries.Memo` は
+行の説明で、`handlers.Memo` はページが描画するものの説明です。統合すれば今日のコードは
+短くなりますが、境界としては明日そのぶん悪くなります。ページが表示をやめる最初の列、
+あるいはどの列も供給しない最初のフィールドが出てきたとき、両方の役目を背負った型の中で
+決着をつけることになるからです。
+
+## 4. 動かす
+
+保存してください。`pw dev` が `queries/memos_pw_gen.go` を再生成し、リビルドし、
+再起動します。メモを追加し、`Ctrl-C` で `pw dev` を止めて、もう一度起動してください。
+メモはそこにあります。
+
+`dev` では、生成されたステートメントは実行のたびに記録されます。
+
+```json
+{
+  "level": "INFO", "msg": "sql executed",
+  "sql": "\nINSERT INTO memos (body) VALUES (?)\n",
+  "duration": 0.601708, "operation": "exec",
+  "driver": "sqlite", "rows_affected": 1, "outcome": "ok", "args": "eggs"
+}
+```
+
+設定した閾値より遅いステートメントは、実行計画と貼り付け可能な再現用スニペットを
+連れてきます。コードは1行も変えずに、です
+（[クエリー診断](/ja/productivity/query-diagnostics/)）。
+
+データベースそのものは `memoapp.db` というファイルで、名前は `config.dev.toml` の
+DSN が決めています。スキーマがまだ動いている間は、これを消して `pw dev` に
+マイグレーションを再適用させるのが手軽なリセット方法です。
+
+## ここまでで手元にあるもの
+
+- バージョン管理されたスキーマ。適用するのはコードをビルドするのと同じループ。
+- SQL のまま書かれ、パラメータと行に型の付いた関数へコンパイルされるクエリー。
+- 再起動しても中身の残るページ。
+
+訪問者は全員、全員のメモを見ています。4章で、誰が尋ねているのかという概念を
+アプリケーションに与えます。
+
+- [4. ログインする](/ja/tutorial/login/) — 次の章。
+- [クエリー](/ja/guides/backend/queries/) — 条件付き SQL、トランザクション、リードレプリカ。
+- [マイグレーション](/ja/productivity/migrations/)と[シードデータ](/ja/productivity/seed-data/) — スキーマ運用の残り。

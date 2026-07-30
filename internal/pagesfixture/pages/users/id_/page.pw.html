@@ -1,0 +1,7 @@
+package id_
+
+export component Page(name: string, page: int): html {
+<h1>{name}</h1>
+<p>page {page}</p>
+<button server-action="Rename" data-target="#name">rename</button>
+}

@@ -9,7 +9,7 @@ import (
 
 func TestLoadProjectConfigMigrationDefaults(t *testing.T) {
 	root := t.TempDir()
-	writeTestFile(t, filepath.Join(root, "popcornwave.toml"), `[project]
+	writeProjectFixture(t, root, `[project]
 name = "fixture"
 main = "./cmd/fixture"
 `)
@@ -27,7 +27,7 @@ main = "./cmd/fixture"
 
 func TestLoadProjectConfigMigrationOverrides(t *testing.T) {
 	root := t.TempDir()
-	writeTestFile(t, filepath.Join(root, "popcornwave.toml"), `[project]
+	writeProjectFixture(t, root, `[project]
 name = "fixture"
 main = "./cmd/fixture"
 
@@ -46,7 +46,7 @@ auto = false
 
 func TestLoadProjectConfigRejectsAbsoluteMigrationDir(t *testing.T) {
 	root := t.TempDir()
-	writeTestFile(t, filepath.Join(root, "popcornwave.toml"), `[project]
+	writeProjectFixture(t, root, `[project]
 name = "fixture"
 main = "./cmd/fixture"
 
@@ -74,7 +74,7 @@ func TestMigrationWatchPathsIncludesPlainSQL(t *testing.T) {
 		t.Fatalf("watch paths = %v, want the migration only", paths)
 	}
 
-	state, err := snapshotWatchFiles(root, configuredWatchPaths(root, nil, paths)...)
+	state, err := snapshotWatchFiles(root, nil, configuredWatchPaths(root, nil, paths)...)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -106,5 +106,29 @@ func TestRunDevMigrationsSkips(t *testing.T) {
 	}
 	if stdout.Len() != 0 || stderr.Len() != 0 {
 		t.Fatalf("skipped migration wrote output: %q %q", stdout.String(), stderr.String())
+	}
+}
+
+// The developer loop walks the module, so a heavy dependency tree is trimmed
+// with dev.watch.excludes rather than by narrowing what triggers a rebuild.
+func TestSnapshotWatchFilesSkipsExcludedSubtrees(t *testing.T) {
+	root := t.TempDir()
+	for _, directory := range []string{"handlers", filepath.Join("web", "node_modules", "pkg")} {
+		if err := os.MkdirAll(filepath.Join(root, directory), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	writeTestFile(t, filepath.Join(root, "handlers", "home_handler.go"), "package handlers\n")
+	writeTestFile(t, filepath.Join(root, "web", "node_modules", "pkg", "index.go"), "package pkg\n")
+
+	state, err := snapshotWatchFiles(root, []string{"web/node_modules"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := state[filepath.Join(root, "handlers", "home_handler.go")]; !ok {
+		t.Fatal("an ordinary Go source must stay in the watch set")
+	}
+	if _, ok := state[filepath.Join(root, "web", "node_modules", "pkg", "index.go")]; ok {
+		t.Fatal("an excluded subtree must not be watched")
 	}
 }

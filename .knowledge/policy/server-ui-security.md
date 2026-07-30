@@ -12,9 +12,10 @@ rules:
   - validate every action and refresh request on the server
   - bind data:component-boundary to route, scope, and build version
   - protect api:server-action with CSRF defenses
-  - use CSP nonce or hash for streamed inline instructions
+  - streamed completions carry no inline script; the head runtime moves to a src reference under requirement:external-boundary-runtime so script-src 'self' suffices
   - hide server props, configuration, SQL, cache keys, and credentials
   - limit body size, component depth, execution time, and async concurrency
   - propagate cancellation to queries, external calls, and async components
+  - bound and redact async boundary work through policy:async-render-bounds
   - order patches deterministically and reject stale build versions
 ```

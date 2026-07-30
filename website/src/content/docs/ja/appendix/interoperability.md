@@ -243,7 +243,7 @@ e.Use(echo.WrapMiddleware(middlewares.MaxRequestBody(10 << 20)))
 | --- | --- |
 | 暗黙のドキュメントシェル | `pw.WriteHTML` は登録済みのラッパーチェーンを解決する。`htmlbind.RenderChain` はチェーンを渡す必要がある |
 | 階層化された設定と `--generate-config` | `configbind` がやるのは構造体へのバインドまで。ファイルの探索順、環境の選択、スキャフォールドのマージはフレームワーク側 |
-| `/healthz`、`/readyz`、配信される OpenAPI ドキュメント | `pw.Middlewares` がマウントする |
+| 運用エンドポイント（`server.health`、`server.readiness`、`server.openapi`） | 設定されたパスに `pw.Middlewares` がマウントする |
 | プロジェクト全体の OpenAPI マージ | `tinybind-gen` はパッケージごとにフラグメントを出す。決定的にマージするのは `pw generate` |
 | `pw dev`、マイグレーション、シード、Tailwind、開発用 IdP | ランタイムではなくツール |
 

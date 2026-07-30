@@ -2,15 +2,15 @@
 title: pw build
 description: Produce a release binary with generated code, minified CSS, and prepared assets.
 sidebar:
-  order: 4
+  order: 6
 ---
 
 ```sh
 pw build
 ```
 
-The build command turns the current project state into a release binary. It
-takes no arguments; its inputs come from `popcornwave.toml` and the environment.
+`pw build` turns the current project state into a release binary. It takes no
+arguments; its inputs come from `popcornwave.toml` and the environment.
 
 ## What it does
 
@@ -39,7 +39,7 @@ APP_ENV=prod ./myapp
 ```
 
 `APP_ENV` selects which project-local configuration file is read; see
-[Configuration](/guides/configuration/).
+[Configuration](/guides/architecture/configuration/).
 
 ## Cross-compiling and TinyGo
 

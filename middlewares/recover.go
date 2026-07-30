@@ -29,7 +29,7 @@ func Recover(handler PanicHandler) Middleware {
 }
 
 func writePanicStatus(w http.ResponseWriter, r *http.Request, err error) {
-	pwruntime.Logger(r.Context()).ErrorContext(r.Context(), "recovered panic", "error", err)
+	pwruntime.ReadLogger(r.Context()).Log(r.Context(), pwruntime.LevelError, "recovered panic", pwruntime.String("error", err.Error()))
 	if Committed(w) {
 		return
 	}

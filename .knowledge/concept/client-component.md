@@ -9,7 +9,7 @@ An explicitly declared optional island owns browser-only state and events withou
 requirements:
   - serializable typed props
   - local state and DOM events
-  - modules loaded only for client boundaries used by the page
+  - modules loaded only for client boundaries used by the page, delivered through requirement:framework-script-assets
   - calls to api:server-action and flow:partial-refresh
   - separation from server-only functions and credentials
   - independent failure boundary where practical

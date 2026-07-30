@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	_ "github.com/shibukawa/tinygodriver/database/sqlite"
+	_ "github.com/shibukawa/tinygodriver/database/sql/sqlite"
 )
 
 var errBoom = errors.New("boom")

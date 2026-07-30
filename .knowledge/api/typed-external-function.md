@@ -13,7 +13,9 @@ generation_validation:
   - error behavior
 runtime:
   context: explicit request context and cancellation
-  results: synchronous or asynchronous
+  results: synchronous, or `external async` returning a value and an error
+  async_placement: an async call is legal only inside an await binding, and its work starts when the boundary reaches it
+  caller_started_alternative: api:async-html-value starts the work earlier
   cache: declarative policy and invalidation tags
 forbidden:
   - reflection-based dispatch

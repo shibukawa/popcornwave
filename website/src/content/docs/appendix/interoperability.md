@@ -9,7 +9,7 @@ Popcorn Wave generates request parsing, database queries, HTML, and response
 writing, so it can look as though the runtime depends on all four. It does not.
 The framework's required surface is smaller: a middleware stack over `net/http`
 and tooling that keeps generation, development, and builds consistent. The
-generated layers are **helpers** that you may replace—or use from another
+generated layers are **helpers** that you may replace — or use from another
 framework without bringing Popcorn Wave with them.
 
 ## Why these layers exist at all
@@ -31,7 +31,7 @@ The more consequential result is not performance but ownership. A generator
 knows only what it can read in source, yet the framework does not compensate by
 taking over the handler signature. A handler remains an `http.HandlerFunc`, and
 `w` and `r` remain standard types. When generation does not fit an endpoint, you
-can write it by hand—or use a reflection-based library and knowingly give up
+can write it by hand — or use a reflection-based library and knowingly give up
 the TinyGo target for that build.
 
 ## What is actually the framework
@@ -252,7 +252,7 @@ e.Use(echo.WrapMiddleware(middlewares.MaxRequestBody(10 << 20)))
 | --- | --- |
 | the implicit document shell | `pw.WriteHTML` resolves a registered wrapper chain; `htmlbind.RenderChain` needs the chain passed in |
 | layered configuration and `--generate-config` | `configbind` binds a struct; the file search order, environment selection, and merged scaffolds are the framework's |
-| `/healthz`, `/readyz`, the served OpenAPI document | mounted by `pw.Middlewares` |
+| the operational endpoints (`server.health`, `server.readiness`, `server.openapi`) | mounted by `pw.Middlewares` at the paths a deployment configures |
 | project-wide OpenAPI merge | `tinybind-gen` emits one fragment per package; merging them deterministically is `pw generate` |
 | `pw dev`, migrations, seeds, Tailwind, the dev identity provider | tooling, not runtime |
 

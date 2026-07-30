@@ -14,6 +14,7 @@ fields:
 rules:
   - honor Accept-Encoding negotiation
   - emit Vary for negotiated encoding
-  - skip pre-compressed, streaming, no-transform, and ineligible response types
+  - skip pre-compressed, no-transform, and ineligible response types
+  - a streaming response is eligible only where the encoder flushes per chunk, as decision:streaming-response-compression does for progressive HTML
   - validate minimum size and content-type patterns at startup
 ```

@@ -6,14 +6,8 @@ import (
 	"net"
 	"net/url"
 	"slices"
-	"sort"
-	"strconv"
 	"strings"
 	"time"
-
-	"github.com/shibukawa/popcornwave/pw"
-	"github.com/shibukawa/tinybind-go/cliparser"
-	"github.com/shibukawa/tinybind-go/configbind"
 )
 
 // Authentication modes. Only ModeOIDCOnly is implemented; the passkey modes are
@@ -86,34 +80,35 @@ const (
 // Config is the [auth] runtime binding. It is registered when this package is
 // imported.
 type Config struct {
-	Enabled bool
-	Mode    string
-	// LoginPath starts the provider flow. PostLoginPath is the local path a
-	// completed login lands on.
-	LoginPath     string
-	CallbackPath  string
-	LogoutPath    string
-	PostLoginPath string
+	Enabled bool   `default:"false"`
+	Mode    string `default:"oidc_only" dependon:".enabled" help:"oidc_only"`
+	// LoginPath starts the provider flow.
+	LoginPath    string `default:"/auth/login" dependon:".enabled" help:"path that starts the provider flow"`
+	CallbackPath string `default:"/auth/callback" dependon:".enabled"`
+	LogoutPath   string `default:"/auth/logout" dependon:".enabled"`
+	// PostLoginPath is the local path a completed login lands on.
+	PostLoginPath string `default:"/" dependon:".enabled" help:"path a completed login lands on"`
 	// RecentAuthMaxAge bounds how long a completed authentication still counts
 	// as recent enough to add or remove a login method.
-	RecentAuthMaxAge time.Duration
-	Protection       ProtectionConfig
-	Registration     RegistrationConfig
-	Recovery         RecoveryConfig
-	Bootstrap        BootstrapConfig
-	OIDC             OIDCConfig
-	Passkey          PasskeyConfig
+	RecentAuthMaxAge time.Duration      `default:"5m" dependon:".enabled" help:"how recently a request must have authenticated to change a login method"`
+	Protection       ProtectionConfig   `dependon:".enabled"`
+	Registration     RegistrationConfig `dependon:".enabled"`
+	Recovery         RecoveryConfig     `dependon:".enabled"`
+	Bootstrap        BootstrapConfig    `dependon:".enabled"`
+	OIDC             OIDCConfig         `dependon:".enabled"`
+	Passkey          PasskeyConfig      `dependon:".enabled"`
 }
 
-// RegistrationConfig names how a deployment admits a new account.
+// RegistrationConfig names how a deployment admits a new account. It carries no
+// default, because a mode that needs it must not inherit an answer nobody chose.
 type RegistrationConfig struct {
-	Policy string
+	Policy string `help:"disabled, oidc, invite, administrator, or open"`
 }
 
 // RecoveryConfig names the authority that restores access to an account whose
 // credentials are gone.
 type RecoveryConfig struct {
-	Policy string
+	Policy string `help:"oidc, administrator, or application"`
 }
 
 // BootstrapConfig bounds the issued credential that opens a first passkey
@@ -121,21 +116,22 @@ type RecoveryConfig struct {
 //
 // The two durations bound consecutive phases and are deliberately different
 // lengths: one covers a person receiving a secret out of band, the other covers
-// them finishing a ceremony at the keyboard.
+// them finishing a ceremony at the keyboard. Neither is a secret, so both are
+// shown in the startup summary despite sitting under a credential heading.
 type BootstrapConfig struct {
 	// IssueTTL is how long an issued secret stays redeemable, measured from
 	// issuance. It spans delivery, so it is the longer of the two.
-	IssueTTL time.Duration
+	IssueTTL time.Duration `default:"24h" secret:"show" help:"how long an issued secret stays redeemable"`
 	// EnrollmentTTL is how long the enrollment stays open, measured from a
 	// successful redemption. It spans one ceremony, so it is short.
 	//
 	// It is not a session lifetime: what a redemption grants is a ticket that
 	// authorizes exactly one registration, and the request stays unauthenticated
 	// until that registration finishes.
-	EnrollmentTTL time.Duration
+	EnrollmentTTL time.Duration `default:"10m" secret:"show" help:"how long an enrollment stays open after a redemption"`
 	// MaxAttempts bounds how many redemptions may be tried before the
 	// credential is spent, whether or not any of them was close.
-	MaxAttempts int
+	MaxAttempts int `default:"5" secret:"show" help:"redemption attempts before the credential is spent"`
 }
 
 // PasskeyConfig is the WebAuthn relying-party registration of this deployment.
@@ -143,31 +139,31 @@ type PasskeyConfig struct {
 	// Path is the base path of the ceremony endpoints. The five endpoints hang
 	// off it, so one setting keeps them consistent and keeps them all reachable
 	// past the guard.
-	Path string
+	Path string `default:"/auth/passkey" help:"base path of the ceremony endpoints"`
 	// RPID scopes every credential. It is a domain, never an IP literal,
 	// because an IP address cannot be an RP ID.
-	RPID    string
-	RPName  string
-	Origins []string
+	RPID    string   `key:"rp_id" help:"relying party domain; localhost during development"`
+	RPName  string   `key:"rp_name" help:"relying party display name"`
+	Origins []string `help:"origin the browser reaches this deployment on"`
 	// UserVerification and Discoverable are the ceremony requirements the
 	// relying party asks the authenticator for.
-	UserVerification string
-	Discoverable     string
+	UserVerification string `default:"required" help:"required, preferred, or discouraged"`
+	Discoverable     string `default:"preferred" help:"required or preferred"`
 }
 
 // ProtectionConfig selects the paths that require an authenticated request.
 type ProtectionConfig struct {
-	Include []string
-	Exclude []string
+	Include []string `help:"protected path pattern"`
+	Exclude []string `help:"public path pattern"`
 	// Unauthenticated is redirect or unauthorized.
-	Unauthenticated string
+	Unauthenticated string `default:"redirect" help:"redirect or unauthorized"`
 }
 
 // OIDCConfig describes the relying-party registration and admission policy.
 type OIDCConfig struct {
-	Issuer       string
-	ClientID     string
-	ClientSecret string
+	Issuer       string `env:"AUTH_OIDC_ISSUER"`
+	ClientID     string `env:"AUTH_OIDC_CLIENT_ID"`
+	ClientSecret string `secret:"mask" env:"AUTH_OIDC_CLIENT_SECRET"`
 	RedirectURL  string
 	Scopes       []string
 	// IdentityClaim names the verified claim that identifies a local account.
@@ -179,241 +175,38 @@ type OIDCConfig struct {
 	// life of the account and unique within the issuer: it becomes the account
 	// link, so a reissued or reused value hands one person another person's
 	// account.
-	IdentityClaim string
-	Admission     string
+	IdentityClaim string `default:"sub" help:"verified claim that identifies a local account"`
+	Admission     string `default:"authenticated" help:"authenticated, claim, registered, or existing"`
 	// AutoProvision permits an unknown verified identity to create an account
 	// through the registered account resolver.
-	AutoProvision bool
-	Claim         ClaimConfig
+	AutoProvision bool `default:"true" help:"AutoProvision permits an unknown verified identity to create an account through the registered account resolver"`
+	// Claim is the admission rule applied when Admission is claim.
+	Claim ClaimConfig `help:"admission rule applied when admission is claim"`
 	// RegisteredClaims names the verified claims compared against the
 	// allowlist table under AdmissionRegistered. It defaults to IdentityClaim
 	// alone, because that is the value a deployment registers in advance.
-	RegisteredClaims []string
+	RegisteredClaims []string `help:"claims compared against the allowlist; defaults to identity_claim"`
 	// ProviderLogout ends the provider session as well, through the
 	// discovered end session endpoint. Without it the provider stays signed
 	// in, so the next login returns the same user without asking and the
 	// sign-out looks like it did nothing.
-	ProviderLogout bool
+	ProviderLogout bool `default:"true" help:"also end the provider session on logout"`
 	// AllowLoopbackHTTP permits an http issuer on localhost. It exists for
 	// local development against a loopback identity provider and must stay
 	// false everywhere else.
-	AllowLoopbackHTTP bool
+	AllowLoopbackHTTP bool `default:"false" help:"permit an http loopback issuer during development"`
 }
 
-// ClaimConfig is the admission rule of AdmissionClaim.
+// ClaimConfig is the admission rule of AdmissionClaim. Its keys hang off
+// auth.enabled rather than the admission policy: falsy names the single value
+// that means off, and here every policy except claim would have to be named.
 type ClaimConfig struct {
 	// Path is a JSON Pointer into the verified ID Token claims.
-	Path   string
+	Path   string `help:"JSON Pointer into verified claims"`
 	Values []string
-	Match  string
+	Match  string `default:"any" help:"any or all"`
 }
 
-func init() {
-	registerConfig()
-	pw.RegisterConfig[Config]("auth")
-}
-
-func registerConfig() {
-	const typeName = "github.com/shibukawa/popcornwave/plugin/auth.Config"
-	// List-valued keys carry no scalar default.
-	defaults := map[string]string{
-		"auth.enabled":                    "false",
-		"auth.mode":                       ModeOIDCOnly,
-		"auth.login_path":                 "/auth/login",
-		"auth.callback_path":              "/auth/callback",
-		"auth.logout_path":                "/auth/logout",
-		"auth.post_login_path":            "/",
-		"auth.protection.unauthenticated": UnauthenticatedRedirect,
-		"auth.recent_auth_max_age":        "5m",
-		// Registration and recovery carry no default, because a mode that needs
-		// them must not inherit an answer nobody chose.
-		"auth.registration.policy":       "",
-		"auth.recovery.policy":           "",
-		"auth.bootstrap.issue_ttl":       "24h",
-		"auth.bootstrap.enrollment_ttl":  "10m",
-		"auth.bootstrap.max_attempts":    "5",
-		"auth.passkey.path":              "/auth/passkey",
-		"auth.passkey.rp_id":             "",
-		"auth.passkey.rp_name":           "",
-		"auth.passkey.user_verification": UserVerificationRequired,
-		"auth.passkey.discoverable":      DiscoverablePreferred,
-		"auth.oidc.issuer":               "",
-		"auth.oidc.client_id":            "",
-		"auth.oidc.client_secret":        "",
-		"auth.oidc.redirect_url":         "",
-		"auth.oidc.identity_claim":       ClaimSubject,
-		"auth.oidc.admission":            AdmissionAuthenticated,
-		"auth.oidc.auto_provision":       "true",
-		"auth.oidc.claim.path":           "",
-		"auth.oidc.claim.match":          MatchAny,
-		"auth.oidc.allow_loopback_http":  "false",
-		"auth.oidc.provider_logout":      "true",
-	}
-	keys := []string{
-		"auth.enabled", "auth.mode", "auth.login_path", "auth.callback_path",
-		"auth.logout_path", "auth.post_login_path", "auth.recent_auth_max_age",
-		"auth.protection.include", "auth.protection.exclude", "auth.protection.unauthenticated",
-		"auth.registration.policy", "auth.recovery.policy",
-		"auth.bootstrap.issue_ttl", "auth.bootstrap.enrollment_ttl", "auth.bootstrap.max_attempts",
-		"auth.passkey.path", "auth.passkey.rp_id", "auth.passkey.rp_name", "auth.passkey.origins",
-		"auth.passkey.user_verification", "auth.passkey.discoverable",
-		"auth.oidc.issuer", "auth.oidc.client_id", "auth.oidc.client_secret",
-		"auth.oidc.redirect_url", "auth.oidc.scopes", "auth.oidc.identity_claim",
-		"auth.oidc.admission",
-		"auth.oidc.auto_provision", "auth.oidc.claim.path", "auth.oidc.claim.values",
-		"auth.oidc.claim.match", "auth.oidc.allow_loopback_http",
-		"auth.oidc.provider_logout", "auth.oidc.registered_claims",
-	}
-	sort.Strings(keys)
-	configbind.Register[Config](configbind.Definition{
-		TypeName:  typeName,
-		Prefix:    "auth",
-		KnownKeys: keys,
-		Defaults:  defaults,
-		FlagMetas: []cliparser.FieldMeta{
-			{Prefix: "auth", Key: "enabled", Kind: cliparser.KindBool},
-			{Prefix: "auth", Key: "mode", Help: "oidc_only"},
-			{Prefix: "auth", Key: "login_path"},
-			{Prefix: "auth", Key: "callback_path"},
-			{Prefix: "auth", Key: "logout_path"},
-			{Prefix: "auth", Key: "post_login_path"},
-			{Prefix: "auth", Key: "protection.include", Kind: cliparser.KindArray, Help: "protected path pattern"},
-			{Prefix: "auth", Key: "protection.exclude", Kind: cliparser.KindArray, Help: "public path pattern"},
-			{Prefix: "auth", Key: "protection.unauthenticated", Help: "redirect or unauthorized"},
-			{Prefix: "auth", Key: "recent_auth_max_age", Help: "how long an authentication stays recent enough to change a login method"},
-			{Prefix: "auth", Key: "registration.policy", Help: "disabled, oidc, invite, administrator, or open"},
-			{Prefix: "auth", Key: "recovery.policy", Help: "oidc, administrator, or application"},
-			{Prefix: "auth", Key: "bootstrap.issue_ttl"},
-			{Prefix: "auth", Key: "bootstrap.enrollment_ttl", Help: "how long an enrollment stays open after a redemption"},
-			{Prefix: "auth", Key: "bootstrap.max_attempts"},
-			{Prefix: "auth", Key: "passkey.path", Help: "base path of the ceremony endpoints"},
-			{Prefix: "auth", Key: "passkey.rp_id", Help: "relying party domain; never an IP literal"},
-			{Prefix: "auth", Key: "passkey.rp_name"},
-			{Prefix: "auth", Key: "passkey.origins", Kind: cliparser.KindArray},
-			{Prefix: "auth", Key: "passkey.user_verification", Help: "required, preferred, or discouraged"},
-			{Prefix: "auth", Key: "passkey.discoverable", Help: "required or preferred"},
-			{Prefix: "auth", Key: "oidc.issuer", Env: "AUTH_OIDC_ISSUER"},
-			{Prefix: "auth", Key: "oidc.client_id", Env: "AUTH_OIDC_CLIENT_ID"},
-			{Prefix: "auth", Key: "oidc.client_secret", Env: "AUTH_OIDC_CLIENT_SECRET"},
-			{Prefix: "auth", Key: "oidc.redirect_url"},
-			{Prefix: "auth", Key: "oidc.scopes", Kind: cliparser.KindArray},
-			{Prefix: "auth", Key: "oidc.identity_claim", Help: "verified claim that identifies a local account"},
-			{Prefix: "auth", Key: "oidc.admission", Help: "authenticated, claim, registered, or existing"},
-			{Prefix: "auth", Key: "oidc.auto_provision", Kind: cliparser.KindBool},
-			{Prefix: "auth", Key: "oidc.claim.path", Help: "JSON Pointer into verified claims"},
-			{Prefix: "auth", Key: "oidc.claim.values", Kind: cliparser.KindArray},
-			{Prefix: "auth", Key: "oidc.claim.match", Help: "any or all"},
-			{Prefix: "auth", Key: "oidc.provider_logout", Kind: cliparser.KindBool, Help: "also end the provider session on logout"},
-			{Prefix: "auth", Key: "oidc.allow_loopback_http", Kind: cliparser.KindBool, Help: "permit an http loopback issuer during development"},
-			{Prefix: "auth", Key: "oidc.registered_claims", Kind: cliparser.KindArray, Help: "claims compared against the allowlist; defaults to identity_claim"},
-		},
-		Apply: func(dst any, overlay *configbind.Overlay) error {
-			p, ok := dst.(*Config)
-			if !ok || p == nil {
-				return fmt.Errorf("configbind: bad auth.Config destination")
-			}
-			p.Enabled = boolValue(overlay, "auth.enabled")
-			p.Mode = stringValue(overlay, "auth.mode")
-			p.LoginPath = stringValue(overlay, "auth.login_path")
-			p.CallbackPath = stringValue(overlay, "auth.callback_path")
-			p.LogoutPath = stringValue(overlay, "auth.logout_path")
-			p.PostLoginPath = stringValue(overlay, "auth.post_login_path")
-			var err error
-			if p.RecentAuthMaxAge, err = durationValue(overlay, "auth.recent_auth_max_age"); err != nil {
-				return err
-			}
-			p.Registration = RegistrationConfig{Policy: stringValue(overlay, "auth.registration.policy")}
-			p.Recovery = RecoveryConfig{Policy: stringValue(overlay, "auth.recovery.policy")}
-			if p.Bootstrap.IssueTTL, err = durationValue(overlay, "auth.bootstrap.issue_ttl"); err != nil {
-				return err
-			}
-			if p.Bootstrap.EnrollmentTTL, err = durationValue(overlay, "auth.bootstrap.enrollment_ttl"); err != nil {
-				return err
-			}
-			if p.Bootstrap.MaxAttempts, err = intValue(overlay, "auth.bootstrap.max_attempts"); err != nil {
-				return err
-			}
-			origins, _ := overlay.GetMulti("auth.passkey.origins")
-			p.Passkey = PasskeyConfig{
-				Path:             stringValue(overlay, "auth.passkey.path"),
-				RPID:             stringValue(overlay, "auth.passkey.rp_id"),
-				RPName:           stringValue(overlay, "auth.passkey.rp_name"),
-				Origins:          origins,
-				UserVerification: stringValue(overlay, "auth.passkey.user_verification"),
-				Discoverable:     stringValue(overlay, "auth.passkey.discoverable"),
-			}
-			include, _ := overlay.GetMulti("auth.protection.include")
-			exclude, _ := overlay.GetMulti("auth.protection.exclude")
-			p.Protection = ProtectionConfig{
-				Include:         include,
-				Exclude:         exclude,
-				Unauthenticated: stringValue(overlay, "auth.protection.unauthenticated"),
-			}
-			scopes, _ := overlay.GetMulti("auth.oidc.scopes")
-			values, _ := overlay.GetMulti("auth.oidc.claim.values")
-			registered, _ := overlay.GetMulti("auth.oidc.registered_claims")
-			p.OIDC = OIDCConfig{
-				Issuer:            stringValue(overlay, "auth.oidc.issuer"),
-				ClientID:          stringValue(overlay, "auth.oidc.client_id"),
-				ClientSecret:      stringValue(overlay, "auth.oidc.client_secret"),
-				RedirectURL:       stringValue(overlay, "auth.oidc.redirect_url"),
-				Scopes:            scopes,
-				IdentityClaim:     stringValue(overlay, "auth.oidc.identity_claim"),
-				Admission:         stringValue(overlay, "auth.oidc.admission"),
-				AutoProvision:     boolValue(overlay, "auth.oidc.auto_provision"),
-				AllowLoopbackHTTP: boolValue(overlay, "auth.oidc.allow_loopback_http"),
-				ProviderLogout:    boolValue(overlay, "auth.oidc.provider_logout"),
-				RegisteredClaims:  registered,
-				Claim: ClaimConfig{
-					Path:   stringValue(overlay, "auth.oidc.claim.path"),
-					Values: values,
-					Match:  stringValue(overlay, "auth.oidc.claim.match"),
-				},
-			}
-			return nil
-		},
-		Scaffold: []configbind.ScaffoldField{
-			{Key: "enabled", Kind: configbind.ScaffoldBool, Default: "false"},
-			{Key: "mode", Kind: configbind.ScaffoldString, Default: ModeOIDCOnly, Help: "oidc_only"},
-			{Key: "login_path", Kind: configbind.ScaffoldString, Default: "/auth/login"},
-			{Key: "callback_path", Kind: configbind.ScaffoldString, Default: "/auth/callback"},
-			{Key: "logout_path", Kind: configbind.ScaffoldString, Default: "/auth/logout"},
-			{Key: "post_login_path", Kind: configbind.ScaffoldString, Default: "/"},
-			{Key: "protection.include", Kind: configbind.ScaffoldStringSlice, Help: "protected path pattern such as /account or /admin/**"},
-			{Key: "protection.exclude", Kind: configbind.ScaffoldStringSlice, Help: "public override; security sensitive"},
-			{Key: "protection.unauthenticated", Kind: configbind.ScaffoldString, Default: UnauthenticatedRedirect, Help: "redirect or unauthorized"},
-			{Key: "recent_auth_max_age", Kind: configbind.ScaffoldString, Default: "5m", Help: "how long an authentication stays recent enough to change a login method"},
-			{Key: "registration.policy", Kind: configbind.ScaffoldString, Default: "", Help: "disabled, oidc, invite, administrator, or open; required unless the mode is oidc_only"},
-			{Key: "recovery.policy", Kind: configbind.ScaffoldString, Default: "", Help: "oidc, administrator, or application; required unless the mode is oidc_only"},
-			{Key: "bootstrap.issue_ttl", Kind: configbind.ScaffoldString, Default: "24h"},
-			{Key: "bootstrap.enrollment_ttl", Kind: configbind.ScaffoldString, Default: "10m", Help: "how long an enrollment stays open after a redemption"},
-			{Key: "bootstrap.max_attempts", Kind: configbind.ScaffoldInt, Default: "5"},
-			{Key: "passkey.path", Kind: configbind.ScaffoldString, Default: "/auth/passkey", Help: "base path of the ceremony endpoints"},
-			{Key: "passkey.rp_id", Kind: configbind.ScaffoldString, Default: "", Help: "relying party domain, such as example.com or localhost; never an IP literal"},
-			{Key: "passkey.rp_name", Kind: configbind.ScaffoldString, Default: "", Help: "name the authenticator shows the user"},
-			{Key: "passkey.origins", Kind: configbind.ScaffoldStringSlice, Help: "https origins allowed to run a ceremony; loopback http during development"},
-			{Key: "passkey.user_verification", Kind: configbind.ScaffoldString, Default: UserVerificationRequired, Help: "required, preferred, or discouraged"},
-			{Key: "passkey.discoverable", Kind: configbind.ScaffoldString, Default: DiscoverablePreferred, Help: "required or preferred"},
-			{Key: "oidc.issuer", Kind: configbind.ScaffoldString, Default: "", Env: "AUTH_OIDC_ISSUER"},
-			{Key: "oidc.client_id", Kind: configbind.ScaffoldString, Default: "", Env: "AUTH_OIDC_CLIENT_ID"},
-			{Key: "oidc.client_secret", Kind: configbind.ScaffoldString, Default: "", Env: "AUTH_OIDC_CLIENT_SECRET"},
-			{Key: "oidc.redirect_url", Kind: configbind.ScaffoldString, Default: ""},
-			{Key: "oidc.scopes", Kind: configbind.ScaffoldStringSlice, Help: "additional scopes; openid is always requested"},
-			{Key: "oidc.identity_claim", Kind: configbind.ScaffoldString, Default: ClaimSubject, Help: "verified claim that identifies a local account; must be stable and unique per issuer"},
-			{Key: "oidc.admission", Kind: configbind.ScaffoldString, Default: AdmissionAuthenticated, Help: "authenticated, claim, registered, or existing"},
-			{Key: "oidc.auto_provision", Kind: configbind.ScaffoldBool, Default: "true"},
-			{Key: "oidc.claim.path", Kind: configbind.ScaffoldString, Default: "", Help: "JSON Pointer into verified claims"},
-			{Key: "oidc.claim.values", Kind: configbind.ScaffoldStringSlice},
-			{Key: "oidc.claim.match", Kind: configbind.ScaffoldString, Default: MatchAny, Help: "any or all"},
-			{Key: "oidc.provider_logout", Kind: configbind.ScaffoldBool, Default: "true", Help: "also end the provider session on logout"},
-			{Key: "oidc.allow_loopback_http", Kind: configbind.ScaffoldBool, Default: "false", Help: "permit an http loopback issuer during development"},
-			{Key: "oidc.registered_claims", Kind: configbind.ScaffoldStringSlice, Help: "claims compared against the allowlist under registered admission; defaults to identity_claim"},
-		},
-	})
-}
-
-// validate rejects a configuration this build cannot serve. It runs during
-// framework initialization so a deployment fails before accepting requests.
 func (c Config) validate() error { return c.validateShape() }
 
 // validateShape applies the rules that outlive the current implementation
@@ -705,38 +498,4 @@ func validClaimName(value string) bool {
 		}
 	}
 	return true
-}
-
-func stringValue(overlay *configbind.Overlay, key string) string {
-	value, _ := overlay.GetString(key)
-	return value
-}
-
-func boolValue(overlay *configbind.Overlay, key string) bool {
-	value, _ := overlay.GetString(key)
-	return value == "true" || value == "1"
-}
-
-func durationValue(overlay *configbind.Overlay, key string) (time.Duration, error) {
-	raw, _ := overlay.GetString(key)
-	if raw == "" {
-		return 0, nil
-	}
-	parsed, err := time.ParseDuration(raw)
-	if err != nil {
-		return 0, fmt.Errorf("%s must be a duration such as 5m, got %q", key, raw)
-	}
-	return parsed, nil
-}
-
-func intValue(overlay *configbind.Overlay, key string) (int, error) {
-	raw, _ := overlay.GetString(key)
-	if raw == "" {
-		return 0, nil
-	}
-	parsed, err := strconv.Atoi(raw)
-	if err != nil {
-		return 0, fmt.Errorf("%s must be an integer, got %q", key, raw)
-	}
-	return parsed, nil
 }

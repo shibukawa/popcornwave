@@ -1,0 +1,37 @@
+:root { color-scheme: light dark; font-family: system-ui, sans-serif; }
+body { margin: 0; padding: 3rem 1.5rem; line-height: 1.6; }
+main { margin: 0 auto; max-width: 44rem; }
+h1 { margin-top: 0; }
+code { font-size: 0.85em; padding: 0.1rem 0.35rem; border-radius: 0.3rem; background: color-mix(in srgb, currentColor 10%, transparent); }
+
+.card { border: 1px solid color-mix(in srgb, currentColor 20%, transparent); border-radius: 0.75rem; padding: 1.25rem 1.5rem; margin: 1rem 0; }
+.card h2 { margin: 0 0 0.75rem; font-size: 1rem; text-transform: uppercase; letter-spacing: 0.08em; opacity: 0.7; }
+.muted { opacity: 0.6; font-size: 0.9rem; }
+.pending { opacity: 0.55; font-style: italic; }
+.note { color: #047857; }
+.error { color: #b91c1c; margin: 0.25rem 0 0; font-size: 0.9rem; }
+
+input, select, button { font: inherit; }
+input[type="search"], input:not([type]), select { width: 100%; max-width: 22rem; padding: 0.4rem 0.6rem; border-radius: 0.5rem; border: 1px solid color-mix(in srgb, currentColor 30%, transparent); background: transparent; color: inherit; }
+.field { margin-bottom: 0.75rem; }
+.field label { display: block; font-size: 0.85rem; opacity: 0.7; }
+.actions { display: flex; align-items: center; gap: 0.75rem; }
+button { padding: 0.4rem 1rem; border-radius: 0.5rem; border: 1px solid transparent; background: #4338ca; color: white; cursor: pointer; }
+button.secondary, button.remove { background: transparent; color: inherit; border-color: color-mix(in srgb, currentColor 30%, transparent); }
+button.remove { padding: 0.15rem 0.6rem; font-size: 0.8rem; }
+
+.task-list { list-style: none; margin: 1rem 0 0; padding: 0; }
+.task { display: flex; align-items: center; gap: 0.75rem; padding: 0.5rem 0; border-top: 1px solid color-mix(in srgb, currentColor 12%, transparent); }
+.task .title { flex: 1; }
+.task .owner { opacity: 0.6; font-size: 0.9rem; }
+.empty { padding: 0.75rem 0; opacity: 0.6; font-style: italic; }
+.badge { border-radius: 999px; padding: 0.1rem 0.6rem; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; border: 1px solid currentColor; }
+.badge.high { color: #b91c1c; }
+.badge.normal { opacity: 0.7; }
+.badge.low { opacity: 0.45; }
+
+/* htmx sets htmx-request on the element that issued the request for as long as
+   it is in flight. A fragment never streams, so this is what carries the
+   waiting state that a fallback carries on the page path. */
+.indicator { visibility: hidden; opacity: 0.6; font-size: 0.9rem; }
+.htmx-request .indicator, .htmx-request.indicator { visibility: visible; }

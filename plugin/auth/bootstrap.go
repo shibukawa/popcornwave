@@ -206,7 +206,7 @@ func (rt *runtime) handleBootstrap(w http.ResponseWriter, r *http.Request) {
 		Purpose:   credential.Purpose,
 	})
 	if err != nil {
-		pw.Logger(r.Context()).ErrorContext(r.Context(), "enrollment ticket could not be stored", "error", err)
+		pw.Logger(r.Context()).Log(r.Context(), pw.LevelError, "enrollment ticket could not be stored", pw.Err(err))
 		pw.WriteProblem(w, r, pw.ServiceUnavailable())
 		return
 	}
@@ -220,7 +220,7 @@ func (rt *runtime) handleBootstrap(w http.ResponseWriter, r *http.Request) {
 func (rt *runtime) refuseBootstrap(w http.ResponseWriter, r *http.Request, reason string) {
 	// The reason is recorded without the login ID or the secret, so an audit
 	// trail exists without a credential in the log.
-	pw.Logger(r.Context()).WarnContext(r.Context(), "bootstrap redemption refused", "reason", reason)
+	pw.Logger(r.Context()).Log(r.Context(), pw.LevelWarn, "bootstrap redemption refused", pw.String("reason", reason))
 	pw.WriteProblem(w, r, pw.Forbidden())
 }
 
@@ -267,7 +267,7 @@ func (rt *runtime) rotateEnrollmentTicket(w http.ResponseWriter, r *http.Request
 	}
 	key, err := rt.putEnrollmentTicket(r.Context(), ticket)
 	if err != nil {
-		pw.Logger(r.Context()).ErrorContext(r.Context(), "enrollment ticket could not be reissued", "error", err)
+		pw.Logger(r.Context()).Log(r.Context(), pw.LevelError, "enrollment ticket could not be reissued", pw.Err(err))
 		return enrollmentTicket{}, false
 	}
 	rt.writeEnrollmentCookie(w, key)
@@ -322,7 +322,7 @@ func (rt *runtime) completeBootstrapEnrollment(w http.ResponseWriter, r *http.Re
 	if err != nil {
 		// A partially applied enrollment would leave an account that looks
 		// enrolled but cannot log in, so the whole unit fails.
-		pw.Logger(r.Context()).ErrorContext(r.Context(), "first passkey enrollment failed", "error", err)
+		pw.Logger(r.Context()).Log(r.Context(), pw.LevelError, "first passkey enrollment failed", pw.Err(err))
 		pw.WriteProblem(w, r, pw.ServiceUnavailable())
 		return false
 	}
@@ -330,7 +330,7 @@ func (rt *runtime) completeBootstrapEnrollment(w http.ResponseWriter, r *http.Re
 	account, err := lookupAccount(r.Context(), ticket.AccountID)
 	if err != nil || account.Suspended {
 		if err != nil && !errors.Is(err, ErrAccessDenied) {
-			pw.Logger(r.Context()).ErrorContext(r.Context(), "account lookup failed", "error", err)
+			pw.Logger(r.Context()).Log(r.Context(), pw.LevelError, "account lookup failed", pw.Err(err))
 		}
 		pw.WriteProblem(w, r, pw.Forbidden())
 		return false
@@ -340,7 +340,7 @@ func (rt *runtime) completeBootstrapEnrollment(w http.ResponseWriter, r *http.Re
 		DisplayName: account.DisplayName,
 		Email:       account.Email,
 	}, MethodPasskey); err != nil {
-		pw.Logger(r.Context()).ErrorContext(r.Context(), "session creation failed", "error", err)
+		pw.Logger(r.Context()).Log(r.Context(), pw.LevelError, "session creation failed", pw.Err(err))
 		pw.WriteProblem(w, r, pw.ServiceUnavailable())
 		return false
 	}

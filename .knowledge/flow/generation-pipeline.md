@@ -10,10 +10,12 @@ flow:
   trigger: api:cli-generate reads data:project-config
   steps:
     - id: resolve
-      action: resolve configured globs and sort matching source paths
+      action: walk each decision:explicit-generation-sources purpose, sort matching source paths, and warn about sources found outside the purpose that owns their kind
     - id: analyze
       actor: system:tinybind
       action: parse route registrations, pw.Parse calls, response calls, reachable types, .pw.html, and .pw.sql sources
+    - id: select
+      action: drop artifacts whose purpose does not list the directory that produced them
     - id: emit-go
       outputs:
         - request binders and OpenAPI fragments

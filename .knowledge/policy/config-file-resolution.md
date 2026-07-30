@@ -26,7 +26,7 @@ rules:
   - project-local candidates are limited to the working directory and its config/ directory
   - project-local lookup never falls back to a local config.toml
   - user and system directories are never environment-specific
-  - the resolved path and the active environment are logged at startup
+  - the resolved path and the active environment are reported by policy:startup-summary
   - a readable project-local file suppresses user and system candidates
 rationale:
   - deployment-specific values live beside the project and are selected without editing files
