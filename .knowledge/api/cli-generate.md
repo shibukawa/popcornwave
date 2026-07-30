@@ -29,6 +29,7 @@ artifacts:
   from_generate_templates: typed HTML renderers
   from_generate_queries: context-based SQL functions
   from_generate_config: configuration and subcommand binding
+  from_every_purpose: data:route-table, the exported view of the same route analysis
   optional: generated tests
 check_mode:
   writes: none

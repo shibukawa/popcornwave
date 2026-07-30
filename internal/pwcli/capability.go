@@ -228,6 +228,23 @@ func containsSection(document, section string) bool {
 	return false
 }
 
+// carriedCapabilities lists what the project already has, in catalog order.
+// api:cli-doctor reports the same probes api:cli-add offers from, so a gap the
+// report names can be answered with pw add rather than by hand.
+func (p projectState) carriedCapabilities() ([]string, error) {
+	var carried []string
+	for _, name := range capabilityOrder {
+		_, present, err := p.carries(name)
+		if err != nil {
+			return nil, err
+		}
+		if present {
+			carried = append(carried, name)
+		}
+	}
+	return carried, nil
+}
+
 // missingCapabilities lists what the project can still take, in catalog order.
 func (p projectState) missingCapabilities() ([]string, error) {
 	var missing []string
