@@ -6,7 +6,7 @@ title: pw init
 pw init creates a runnable Popcorn Wave project with a shared document shell, representative handler, typed page template, SQL query, error pages, Devbox environment, and generated-artifact conventions.
 
 ```yaml
-usage: pw init [myapp] [--interactive] [--tailwind|--no-tailwind] [--tinygo|--no-tinygo] [--devbox|--no-devbox] [--database|--no-database] [--db=sqlite|postgres|mysql] [--redis|--no-redis] [--auth=none|oidc|oidc-passkey|passkey] [--devidp|--no-devidp]
+usage: pw init [myapp] [--interactive] [--router=registered|discovered|both] [--tailwind|--no-tailwind] [--tinygo|--no-tinygo] [--devbox|--no-devbox] [--database|--no-database] [--db=sqlite|postgres|mysql] [--redis|--no-redis] [--auth=none|oidc|oidc-passkey|passkey] [--devidp|--no-devidp]
 mode: decision:interactive-project-bootstrap
 catalog: the capability questions are the requirement:incremental-project-capabilities catalog api:cli-add installs into an existing project
 inputs:
@@ -19,6 +19,15 @@ questions:
     yes: api:serve-mux routing and the TinyGo toolchain in Devbox
     no: net/http.ServeMux routing and the host Go toolchain only
     rationale: TinyGo produces much smaller binaries and has the more complete wasm target
+  router:
+    default: registered
+    owner: decision:page-router-scaffold-choice
+    registered: the handlers tree, its route example, and OpenAPI, which is the shape every existing project has
+    discovered: a concept:page-tree only, for a project whose whole job is an HTML website
+    both: both trees on one mux, per decision:dual-router-coexistence
+    asked_after: the toolchain question, because it decides which source trees the later answers write their examples into
+    shortcut: --router
+    directories: the answer scaffolds handlers and pages, which are defaults the purpose lists can move afterwards
   tailwind: optional_css below
   devbox:
     default: yes
@@ -60,9 +69,11 @@ outputs:
   - config.dev.toml for requirement:environment-switching
   - Go module and cmd/myapp/main.go
   - project.toolchain in data:project-config recording the selected compiler
-  - the four decision:explicit-generation-sources purpose lists in data:project-config, each naming the directories this scaffold actually created
-  - flow:handler-registration mux for the selected toolchain
-  - handler registration and pw.Parse example
+  - the decision:explicit-generation-sources purpose lists in data:project-config, each naming the directories this scaffold actually created, with generate.pages named only for a router answer that creates a tree
+  - flow:handler-registration mux for the selected toolchain, only for a router answer that includes the handlers tree
+  - handler registration and pw.Parse example, only for a router answer that includes the handlers tree
+  - pages/page.pw.html, pages/layout.pw.html, and a pages/users/id_ dynamic route example, only for a router answer that includes the page tree
+  - api:page-registry Register wiring in concept:application-entry-point for a page tree, over the pw.NewServeMux mux when the handlers tree was declined and over the handler package mux when it was not
   - templates/document.pw.html shared document shell
   - .pw.html page and 400, 401, 403, 404, 409, 413, and 500 templates
   - .pw.sql query example, only when the database is selected
@@ -92,6 +103,7 @@ behavior:
   - create files atomically
   - run api:cli-generate
   - scaffold classic rendering according to requirement:nested-html-templates
+  - scaffold every tree the router answer selects, and write the document shell and error pages for all three answers because both routers render through them
   - scaffold runtime database configuration for decision:config-driven-database when the database example is enabled
   - refuse an authentication mode without the database, because api:cli-add applies the same dependency
   - refuse --db together with --no-database, before anything is written

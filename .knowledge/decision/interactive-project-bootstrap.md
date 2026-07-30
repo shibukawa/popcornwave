@@ -24,6 +24,7 @@ question_model:
 questions:
   - project name
   - TinyGo support, defaulting to yes for decision:stdlib-servemux parity
+  - router, defaulting to registered, per decision:page-router-scaffold-choice
   - Tailwind CSS
   - database, defaulting to yes because the SQL and migration examples depend on it
   - database engine, asked only with a database, per requirement:database-engine-selection

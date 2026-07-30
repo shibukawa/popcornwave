@@ -12,7 +12,9 @@ handwritten_default:
 generated_runtime:
   import: github.com/shibukawa/popcornwave/pwruntime
   rule: generated code may use pwruntime but handwritten application code normally does not
+  page_tree: api:page-render-runtime is the same kind of boundary for generated page code, and it imports pw rather than being imported by it
 public_lower_level:
+  - pwpage
   - server
   - middlewares
   - session

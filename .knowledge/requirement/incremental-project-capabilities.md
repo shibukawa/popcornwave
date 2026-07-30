@@ -22,6 +22,9 @@ capability_catalog:
     - redis-valkey
     - auth
     - tailwind
+    - registered
+    - discovered
+  router_pair: registered and discovered are the two routers the one api:cli-init router question selects between, per decision:page-router-scaffold-choice, so either can be installed into a project that started with only the other; they are named after the router rather than after the directory it reads
   dependencies:
     auth: database, because its session store is the rdb backend of data:session-runtime-config
     redis-valkey: devbox, because the answer writes nothing but a package in that environment
@@ -36,6 +39,8 @@ detection:
     redis-valkey: the Valkey package in devbox.json
     auth: the rule:framework-owned-tables migration name stem, at any version
     tailwind: assets.tailwind.enabled in data:project-config
+    discovered: the generate.pages entries, whatever directory they name
+    registered: the generate.handlers entries, whatever directory they name
 behavior:
   - both commands run inside an existing project and fail without data:project-config
   - both ask their questions in a terminal wizard and write only after the review screen is accepted
@@ -47,6 +52,8 @@ acceptance:
   - adding a capability the project already carries fails with the path that proves it is present
   - a canceled wizard leaves the project byte-identical
   - api:cli-new handler produces a route that api:cli-generate accepts under rule:static-route-discovery
+  - api:cli-new page produces a route directory that api:cli-generate serves without any registration
+  - a project initialized with one router tree reaches the same file state as one initialized with both after adding the other
   - a failed write leaves no partially installed capability and no orphan handler source
 non_goals:
   - removing a capability from a project

@@ -57,6 +57,20 @@ capabilities:
       - account resolver source that api:authentication-endpoints calls
       - data:devidp-config roster and data:project-config dev.idp when the local emulator is selected
     imports: the application already links plugin/auth through its account resolver, so no separate wiring step exists
+  discovered:
+    writes:
+      - the concept:page-tree root with the same starter page, layout, and dynamic route example api:cli-init writes
+      - the data:project-config generate.pages entry that opens the purpose for it
+    detection: the generate.pages entries, because a tree no purpose lists is a directory nothing generates from
+    key_may_be_absent: generate.pages is the one optional purpose, so this is the only capability whose edit may have to add its key rather than replace it
+    manual: the api:page-registry Register call, because concept:application-entry-point is application-owned
+    requirement: requirement:discovered-page-routing
+  registered:
+    writes:
+      - the handler package, its flow:handler-registration mux and accessor, and one route example
+      - the generate.handlers entry, and the same directory added to generate.templates, because a page template sits beside the handler that renders it
+    for: a project scaffolded with the discovered-only answer of decision:page-router-scaffold-choice
+    manual: the mux wiring in concept:application-entry-point
   tailwind:
     writes:
       - assets.tailwind section in data:project-config for requirement:tailwind-css-integration
@@ -88,7 +102,7 @@ relations:
   init: api:cli-init writes the same files for a new project, from the same capability catalog
   flow: flow:capability-addition
   layout: concept:project-layout
-  sibling: api:cli-new adds sources rather than capabilities
+  sibling: api:cli-new adds sources rather than capabilities, and names them after what they are rather than after the router that serves them
 exit:
   success: 0
   canceled_wizard: 0 with a canceled notice and no files written

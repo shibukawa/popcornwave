@@ -30,6 +30,7 @@ schema:
     templates: [handlers, templates] as scaffolded, because a page template sits beside its handler
     queries: [queries] as scaffolded
     config: [cmd/myapp] as scaffolded
+    pages: [pages] as scaffolded for a project with a concept:page-tree, and empty otherwise
   migration:
     dir: migrations
     auto: true for api:cli-dev only
@@ -46,7 +47,11 @@ optional_extensions:
   - build output location
 rules:
   - api:cli-generate reads each source kind only under the generate purpose that owns it, and warns about a .pw.html or .pw.sql outside its purpose
-  - every generate purpose key is required; an empty list states that the purpose generates nothing
+  - every generate purpose key is required except generate.pages; an empty list states that the purpose generates nothing
+  - a missing generate.pages means the empty list, because a project scaffolded before requirement:discovered-page-routing has no concept:page-tree and no way to acquire one silently
+  - a generate.pages entry is a tree root, so it is neither nested in another root nor listed under generate.templates or generate.handlers
+  - the scaffolded directory names are defaults, not identity: handlers and pages are what api:cli-init writes, and every consumer reads the purpose list instead of the name, so renaming a tree is moving the directory and editing its entry
+  - a generated package name follows the directory it is in, so a renamed tree compiles without an edit to its sources
   - a generate entry is relative, names an existing directory, and is neither duplicated nor nested inside another entry of the same purpose
   - one generate.templates entry holds the requirement:nested-html-templates document shell, and a second one is an error
   - api:cli-dev regenerates from the generate purposes but watches per decision:developer-loop-watch-scope

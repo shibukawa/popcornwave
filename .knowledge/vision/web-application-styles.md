@@ -15,7 +15,9 @@ principles:
 layers:
   - requirement:shared-web-runtime
   - requirement:classic-web-acceptance
+  - requirement:discovered-page-routing
   - requirement:modern-web-acceptance
+routing: decision:dual-router-coexistence, so a project writes registrations, derives them from a page tree, or both
 delivery: decision:web-runtime-delivery-order
 architecture: decision:layered-web-runtime
 ```

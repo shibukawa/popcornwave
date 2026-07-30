@@ -15,7 +15,7 @@ location:
     - these are framework assets rather than application assets, so the application mount has no say over them
     - a stable prefix keeps the URL derivable without reading configuration, which matters because the document shell references it
     - it stays available when requirement:public-asset-delivery is disabled, so no configuration combination can silently break rendering
-  collision: an unknown path under the reserved prefix answers 404 rather than falling through to the application
+  collision: an unknown path under the reserved prefix answers 404 rather than falling through to the application, which is why api:page-action-endpoint mounts outside it
 delivery:
   source: a constant in the framework, served directly rather than written into the project tree
   rationale: nothing to generate, embed, precompress, or keep in sync with a dependency, and no way for a project to hold a stale copy

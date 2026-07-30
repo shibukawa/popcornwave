@@ -31,6 +31,14 @@ layout:
   handlers/home.pw.html: typed HTML source
   handlers/home_pw_gen.go: generated HTML and request mapping
   handlers/{name}_handler.go: further routes added by api:cli-new
+  pages/: concept:page-tree root, only in a project with the discovered router
+  pages/layout.pw.html: ancestor layout wrapping every page below it
+  pages/page.pw.html: the root page, served as GET /{$}
+  pages/page_pw_gen.go: generated page component
+  pages/route_pw_gen.go: generated route parameters and decoder
+  pages/routes_pw_gen.go: generated api:page-registry, in the tree root only
+  pages/greet/name_/page.pw.html: dynamic route example, serving GET /greet/{name}
+  pages/greet/name_/page.go: optional Load and api:page-action-endpoint handlers
   queries/users.pw.sql: named SQL source, only in a project with the database capability
   queries/users_pw_gen.go: generated context-based query functions
   migrations/: data:migration-source handwritten versioned SQL, only in a project with the database capability
@@ -61,6 +69,7 @@ ownership:
     - public source files excluding *.zstd
     - cmd/myapp/main.go
     - handlers/*_handler.go
+    - pages/**/page.go
     - "**/*.pw.html"
     - "**/*.pw.sql"
     - migrations/*.sql
@@ -69,6 +78,9 @@ ownership:
   asset_output: optional public/generated/app.css from flow:tailwind-css-build
 rules:
   - a capability declined at api:cli-init leaves its files out and api:cli-add writes the same set later, per requirement:incremental-project-capabilities
+  - decision:page-router-scaffold-choice decides whether the handlers tree, the pages tree, or both exist; the document shell and the error pages exist either way
+  - a page tree directory is a URL segment and a Go package at once, so rule:page-directory-naming governs its name
+  - the generated registry lives in the tree root only, because every generated import points down the tree
   - each decision:explicit-generation-sources purpose lists the directories it may read, so handlers appears under both the handler and template purposes and cmd/myapp appears under the config purpose
   - a source outside the purpose that owns its kind is only warned about
   - generated Go is emitted beside its source
