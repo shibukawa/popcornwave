@@ -37,10 +37,28 @@ empty, so the reference stays private until a staging or production config opts
 in.
 
 The UI page is a few hundred bytes of HTML that loads the interface from a
-public CDN, so the binary stays small — but the browser has to reach that CDN.
-With a Content-Security-Policy in place, add the CDN host to `script-src` and
-keep `'unsafe-inline'` in `style-src`, because the UI writes inline style
-attributes.
+public CDN, so the binary stays small. The browser then has to reach that CDN,
+and it has to run the inline script that starts the interface. A
+Content-Security-Policy written for your own pages blocks both, and the page
+renders blank.
+
+The endpoint answers that itself. When a policy is present on the response, it
+is replaced with the one this page actually needs:
+
+```
+script-src 'self' https://cdn.jsdelivr.net 'unsafe-inline'; style-src 'self' https://cdn.jsdelivr.net 'unsafe-inline'; img-src 'self' data:; font-src 'self' https://cdn.jsdelivr.net data:; connect-src 'self'
+```
+
+The substitution is per response, so the CDN host and the inline allowances
+never leave this page — every other route keeps
+`security.headers.content_security_policy` exactly as you wrote it. Widening
+that key instead would have carried both into every response the application
+sends.
+
+An application that configures no policy still receives no header here. One that
+uses `content_security_policy_report_only` has that header replaced instead, so
+the documentation page stops filling the report with violations you cannot act
+on.
 
 ## What the document already knows
 

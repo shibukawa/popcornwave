@@ -111,6 +111,77 @@ func TestValidateAPIDocConfig(t *testing.T) {
 	}
 }
 
+// The page loads its bundle from a CDN and initialises the UI from an inline
+// script, so an application policy written for its own pages blanks it. The
+// endpoint answers with the policy it needs instead, and only for itself.
+func TestAPIDocReplacesTheApplicationCSPOnItsOwnResponse(t *testing.T) {
+	const applicationPolicy = "default-src 'self'"
+	for _, ui := range []string{APIDocScalar, APIDocSwagger} {
+		t.Run(ui, func(t *testing.T) {
+			server, security, middleware := apiDocConfigs(ui)
+			security.Headers.ContentSecurityPolicy = applicationPolicy
+			handler, err := buildRuntimeHandler(http.NotFoundHandler(), server, security, middleware, pwruntime.Resources{}, false)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			docs := httptest.NewRecorder()
+			handler.ServeHTTP(docs, httptest.NewRequest(http.MethodGet, "/docs", nil))
+			policy := docs.Header().Get("Content-Security-Policy")
+			for _, want := range []string{
+				"script-src 'self' https://cdn.jsdelivr.net 'unsafe-inline'",
+				"style-src 'self' https://cdn.jsdelivr.net 'unsafe-inline'",
+			} {
+				if !strings.Contains(policy, want) {
+					t.Fatalf("policy = %q, want it to contain %q", policy, want)
+				}
+			}
+
+			// Every other route keeps the application's own policy; relaxing the
+			// documentation page must not relax the application.
+			other := httptest.NewRecorder()
+			handler.ServeHTTP(other, httptest.NewRequest(http.MethodGet, "/", nil))
+			if got := other.Header().Get("Content-Security-Policy"); got != applicationPolicy {
+				t.Fatalf("policy on / = %q, want the application's %q", got, applicationPolicy)
+			}
+		})
+	}
+}
+
+func TestAPIDocReplacesAReportOnlyPolicyToo(t *testing.T) {
+	server, security, middleware := apiDocConfigs(APIDocScalar)
+	security.Headers.ContentSecurityPolicyReportOnly = "default-src 'self'"
+	handler, err := buildRuntimeHandler(http.NotFoundHandler(), server, security, middleware, pwruntime.Resources{}, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/docs", nil))
+	if policy := response.Header().Get("Content-Security-Policy-Report-Only"); !strings.Contains(policy, "cdn.jsdelivr.net") {
+		t.Fatalf("report-only policy = %q", policy)
+	}
+	if policy := response.Header().Get("Content-Security-Policy"); policy != "" {
+		t.Fatalf("enforcing policy = %q, want none where the application set none", policy)
+	}
+}
+
+// An application that configures no policy has chosen not to send one, and the
+// documentation page is not the place to start.
+func TestAPIDocSendsNoCSPWhenTheApplicationConfiguresNone(t *testing.T) {
+	server, security, middleware := apiDocConfigs(APIDocScalar)
+	handler, err := buildRuntimeHandler(http.NotFoundHandler(), server, security, middleware, pwruntime.Resources{}, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/docs", nil))
+	for _, name := range []string{"Content-Security-Policy", "Content-Security-Policy-Report-Only"} {
+		if policy := response.Header().Get(name); policy != "" {
+			t.Fatalf("%s = %q, want none", name, policy)
+		}
+	}
+}
+
 func TestAPIDocSpecURLCannotEscapeInlineScript(t *testing.T) {
 	response := httptest.NewRecorder()
 	ScalarUI(`/openapi.json"</script><script>alert(1)</script>`).ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/docs", nil))
