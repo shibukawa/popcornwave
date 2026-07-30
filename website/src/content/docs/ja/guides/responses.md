@@ -67,7 +67,9 @@ pw.WriteHTMLFragment(w, r, Row(RowParams{Item: item}))
 `check` の失敗をそのまま problem レスポンスにすると swap ライブラリが無視するためです。
 
 テンプレートの構文、スロット、エスケープ、スコープ付きスタイルは
-[テンプレート](/ja/guides/templates/)で扱います。
+[テンプレート](/ja/guides/templates/)で扱います。この API の上に何を組むか ——
+サーバーが中身を用意するダイアログ、トースト、swap が最も安い答えでなくなる境目
+—— は[フラグメントと島](/ja/interaction/fragments/)にあります。
 
 ## JSON
 

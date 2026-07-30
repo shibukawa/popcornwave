@@ -60,6 +60,11 @@ export default defineConfig({
           items: [{ autogenerate: { directory: 'guides' } }],
         },
         {
+          label: 'Interaction Ideas',
+          translations: { ja: 'インタラクション集' },
+          items: [{ autogenerate: { directory: 'interaction' } }],
+        },
+        {
           label: 'Advanced Features',
           translations: { ja: '応用機能' },
           items: [{ autogenerate: { directory: 'advanced' } }],
