@@ -24,6 +24,7 @@ tiers:
     cost: application-owned browser JavaScript
     covers: local state and events no server round trip can answer
     boundary: custom elements, matching how requirement:framework-script-assets registers the framework runtime
+    mutation_address: api:page-action-endpoint inside concept:page-tree, whose attribute the application still intercepts and protects itself
   unavailable:
     - full-document hydration
     - client-side routing
@@ -38,5 +39,6 @@ framework_couplings:
   head_hoisting: scoped styles and head contributions reach the document only on the page path, so styles for swapped regions belong to the loaded page per decision:fragment-head-rejection
   waiting_state: requirement:async-html-rendering fallbacks never reach the browser on the fragment path, so a swapped region's waiting state is the swap library's or CSS's
   shared_markup: one server component called by both the page route and the fragment route keeps the two renderings identical under decision:implicit-document-shell
-  script_placement: only the document shell can carry script tags, so every tier above platform is admitted there once
+  script_placement: a site-wide module is admitted once in the document shell, since a swapped region cannot reach the head and re-running a per-fragment tag is nothing's job
+  script_braces: script content is literal unless a brace reads as a template insertion, so JavaScript shorthand property syntax collides and doubling the brace, an intrinsic, or a file under the public directory resolves it; a head contribution block stays verbatim throughout
 ```

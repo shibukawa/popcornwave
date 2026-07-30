@@ -17,4 +17,9 @@ unsupported:
   - registration APIs without a built-in or configured analysis adapter
   - cross-package handler bodies whose types cannot be inspected
 consequence: unsupported routes may run but are absent or incomplete in generated OpenAPI and must fail api:cli-generate --check
+out_of_scope:
+  page_routes: a concept:page-tree route is generated rather than discovered, so it is neither analyzed here nor reported here, and it stays out of the OpenAPI document by design per decision:dual-router-coexistence
+  action_endpoints: api:page-action-endpoint registrations are generated for the same reason
+  not_automatic: a generated registry is an ordinary registration site to anything that reads it, so the exclusion is maintained by flow:page-route-generation rather than implied by the page tree being generated
+  generated_sources: discovery skips a file whose header prefix it was told to recognize, so api:cli-generate registers the Popcorn Wave prefix and its own output stops being an input, per decision:page-render-binding
 ```

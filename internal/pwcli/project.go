@@ -45,6 +45,16 @@ type idpConfig struct {
 	Port    int
 }
 
+// otelConfig selects the telemetry viewer `pw dev` runs beside the application.
+// It is on by default because an observable developer loop is the point of it,
+// and the port defaults to 0 because pw dev injects the resolved endpoint. Max
+// bounds the retained records per signal; zero keeps the viewer default.
+type otelConfig struct {
+	Enabled bool
+	Port    int
+	Max     int
+}
+
 // generationScope records, per generation purpose, the directories pw generate
 // may read for it. Paths are project-relative and in slash form. No purpose has
 // a default: a project states where each kind of generated code comes from
@@ -54,6 +64,10 @@ type generationScope struct {
 	Templates []string
 	Queries   []string
 	Config    []string
+	// Pages lists page tree roots. An entry is a whole tree rather than a
+	// directory of independent sources: one entry is one generation run and one
+	// generated registry.
+	Pages []string
 }
 
 // generatePurposes are the configuration keys of generationScope, in the order
@@ -61,11 +75,16 @@ type generationScope struct {
 var generatePurposes = []struct {
 	key    string
 	target func(*generationScope) *[]string
+	// optional marks a purpose whose absent key means the empty list. Only
+	// generate.pages is one: every project written before page trees existed
+	// has no such key, and none of them has a page tree either.
+	optional bool
 }{
-	{"generate.handlers", func(s *generationScope) *[]string { return &s.Handlers }},
-	{"generate.templates", func(s *generationScope) *[]string { return &s.Templates }},
-	{"generate.queries", func(s *generationScope) *[]string { return &s.Queries }},
-	{"generate.config", func(s *generationScope) *[]string { return &s.Config }},
+	{key: "generate.handlers", target: func(s *generationScope) *[]string { return &s.Handlers }},
+	{key: "generate.templates", target: func(s *generationScope) *[]string { return &s.Templates }},
+	{key: "generate.queries", target: func(s *generationScope) *[]string { return &s.Queries }},
+	{key: "generate.config", target: func(s *generationScope) *[]string { return &s.Config }},
+	{key: "generate.pages", target: func(s *generationScope) *[]string { return &s.Pages }, optional: true},
 }
 
 // watchConfig widens or trims the pw dev walk. Unlike generation, the walk has a
@@ -80,9 +99,16 @@ type projectConfig struct {
 	Name      string
 	Main      string
 	Toolchain string
+	// Database is the engine .pw.sql sources generate for. It sits beside the
+	// toolchain because both are build-time properties of the source tree: one
+	// decides which compiler reads it, the other which dialect it is written
+	// in. The runtime engine still comes from the rdb DSN scheme, which must
+	// agree with this.
+	Database  string
 	Generate  generationScope
 	Watch     watchConfig
 	IdP       idpConfig
+	Otel      otelConfig
 	Migration migrationConfig
 	Tailwind  tailwindConfig
 }
@@ -98,10 +124,11 @@ func loadProjectConfig(root string) (projectConfig, error) {
 		return projectConfig{}, fmt.Errorf("parse %s: %w", path, err)
 	}
 	known := []string{
-		"project.name", "project.main", "project.toolchain",
-		"generate.handlers", "generate.templates", "generate.queries", "generate.config",
+		"project.name", "project.main", "project.toolchain", "project.database",
+		"generate.handlers", "generate.templates", "generate.queries", "generate.config", "generate.pages",
 		"dev.watch.includes", "dev.watch.excludes",
 		"dev.idp.enabled", "dev.idp.config", "dev.idp.port",
+		"dev.otel.enabled", "dev.otel.port", "dev.otel.max",
 		"migration.dir", "migration.auto",
 		"assets.tailwind.enabled", "assets.tailwind.input",
 		"assets.tailwind.output", "assets.tailwind.minify",
@@ -129,6 +156,18 @@ func loadProjectConfig(root string) (projectConfig, error) {
 	}
 	if config.Toolchain != toolchainTinyGo && config.Toolchain != toolchainGo {
 		return projectConfig{}, fmt.Errorf("popcornwave.toml: project.toolchain must be %q or %q", toolchainTinyGo, toolchainGo)
+	}
+	config.Database, err = optionalScalar(document, "project.database")
+	if err != nil {
+		return projectConfig{}, err
+	}
+	if config.Database == "" {
+		// Projects scaffolded before the key existed could only be SQLite, and
+		// it generates what they already have.
+		config.Database = engineSQLite
+	}
+	if !validEngine(config.Database) {
+		return projectConfig{}, fmt.Errorf("popcornwave.toml: project.database must be %s", engineNames())
 	}
 	config.Generate, err = generationSources(document, root)
 	if err != nil {
@@ -166,6 +205,33 @@ func loadProjectConfig(root string) (projectConfig, error) {
 			return projectConfig{}, fmt.Errorf("popcornwave.toml: dev.idp.port must be between 0 and 65535")
 		}
 		config.IdP.Port = int(port)
+	}
+	config.Otel.Enabled = true
+	if value, ok := document.Get("dev.otel.enabled"); ok {
+		config.Otel.Enabled, err = value.AsBool()
+		if err != nil {
+			return projectConfig{}, fmt.Errorf("popcornwave.toml: dev.otel.enabled: %w", err)
+		}
+	}
+	if value, ok := document.Get("dev.otel.port"); ok {
+		port, err := value.AsInt()
+		if err != nil {
+			return projectConfig{}, fmt.Errorf("popcornwave.toml: dev.otel.port: %w", err)
+		}
+		if port < 0 || port > 65535 {
+			return projectConfig{}, fmt.Errorf("popcornwave.toml: dev.otel.port must be between 0 and 65535")
+		}
+		config.Otel.Port = int(port)
+	}
+	if value, ok := document.Get("dev.otel.max"); ok {
+		max, err := value.AsInt()
+		if err != nil {
+			return projectConfig{}, fmt.Errorf("popcornwave.toml: dev.otel.max: %w", err)
+		}
+		if max < 0 {
+			return projectConfig{}, fmt.Errorf("popcornwave.toml: dev.otel.max must not be negative")
+		}
+		config.Otel.Max = int(max)
 	}
 	config.Migration.Dir, err = optionalScalar(document, "migration.dir")
 	if err != nil {
@@ -233,19 +299,49 @@ const sourcesExample = `generate.handlers = ["handlers"]`
 func generationSources(document minitoml.Document, root string) (generationScope, error) {
 	scope := generationScope{}
 	for _, purpose := range generatePurposes {
-		directories, err := purposeDirectories(document, root, purpose.key)
+		directories, err := purposeDirectories(document, root, purpose.key, purpose.optional)
 		if err != nil {
 			return generationScope{}, err
 		}
 		*purpose.target(&scope) = directories
 	}
+	if err := checkPageRoots(scope); err != nil {
+		return generationScope{}, err
+	}
 	return scope, nil
 }
 
+// checkPageRoots keeps a page tree from being read twice. The tree run already
+// compiles the page and layout templates it holds, so a directory inside a root
+// that another purpose also lists would have one output written twice, by two
+// runs, with different content.
+func checkPageRoots(scope generationScope) error {
+	overlaps := func(key string, entries []string) error {
+		for _, root := range scope.Pages {
+			for _, entry := range entries {
+				if entry == root || strings.HasPrefix(entry, root+"/") {
+					return fmt.Errorf("popcornwave.toml: %s %q is inside the page tree root %q, which generates it already", key, entry, root)
+				}
+				if strings.HasPrefix(root, entry+"/") {
+					return fmt.Errorf("popcornwave.toml: page tree root %q is inside %s %q, which would read its templates a second time", root, key, entry)
+				}
+			}
+		}
+		return nil
+	}
+	if err := overlaps("generate.templates", scope.Templates); err != nil {
+		return err
+	}
+	return overlaps("generate.handlers", scope.Handlers)
+}
+
 // purposeDirectories validates one purpose list.
-func purposeDirectories(document minitoml.Document, root, key string) ([]string, error) {
+func purposeDirectories(document minitoml.Document, root, key string, optional bool) ([]string, error) {
 	value, ok := document.Get(key)
 	if !ok {
+		if optional {
+			return nil, nil
+		}
 		return nil, fmt.Errorf("popcornwave.toml: %s is required; list the directories it reads, such as %s, or [] when it generates nothing", key, sourcesExample)
 	}
 	entries, err := value.AsStringSlice()

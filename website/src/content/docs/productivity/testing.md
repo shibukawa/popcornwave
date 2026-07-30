@@ -89,8 +89,22 @@ testutil.Update[AppConfig](config, func(app *AppConfig) {
 testutil.WithMigrations("../migrations")
 ```
 
-Applies the migration set to the copied database before the server starts.
-`WithMigrationsFS` takes an `fs.FS` instead, for embedded migrations.
+Applies the migration set before the server starts. `WithMigrationsFS` takes an
+`fs.FS` instead, for embedded migrations.
+
+How the schema arrives depends on the engine in the DSN:
+
+- **SQLite** replays a cached snapshot into the copied database. That is what
+  makes `sqlite://:memory:` work — an in-process database is unreachable by
+  DSN, so SQL is transferred rather than a connection string.
+- **PostgreSQL and MySQL** apply the migrations to the configured database
+  directly. A second `TestRun` against the same database applies nothing and
+  reuses the schema, which is how a package of tests shares one prepared
+  server.
+
+Point a server DSN at a database dedicated to the test suite. Applied versions
+are recorded by number, so a database already carrying another project's
+version 1 makes your first migration look applied and the schema never arrives.
 
 ### `WithSeed` / `WithSeedDir`
 

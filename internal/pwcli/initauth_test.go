@@ -179,8 +179,10 @@ func TestInitWizardAsksForTheProviderOnlyForOIDC(t *testing.T) {
 	model := feedWizard(t, newTestWizard(defaultInitOptions()),
 		typeText("demo"), pressKey(tea.KeyEnter),
 		pressKey(tea.KeyEnter), // TinyGo
+		pressKey(tea.KeyEnter), // Router
 		pressKey(tea.KeyEnter), // Tailwind
 		pressKey(tea.KeyEnter), // Database
+		pressKey(tea.KeyEnter), // Database engine
 		typeText("2"),          // Authentication: OIDC
 	)
 	if model.reviewing() {
@@ -198,12 +200,14 @@ func TestInitWizardAsksForTheProviderOnlyForOIDC(t *testing.T) {
 
 func TestInitWizardSkipsTheProviderStepWithoutOIDC(t *testing.T) {
 	t.Chdir(t.TempDir())
-	seeded := initOptions{TinyGo: true, Devbox: true, Database: true, Redis: true, Auth: authOIDC, AuthEmulator: true}
+	seeded := initOptions{TinyGo: true, Devbox: true, Database: true, Engine: engineSQLite, Redis: true, Auth: authOIDC, AuthEmulator: true}
 	model := feedWizard(t, newTestWizard(seeded),
 		typeText("demo"), pressKey(tea.KeyEnter),
 		pressKey(tea.KeyEnter), // TinyGo
+		pressKey(tea.KeyEnter), // Router
 		pressKey(tea.KeyEnter), // Tailwind
 		pressKey(tea.KeyEnter), // Database
+		pressKey(tea.KeyEnter), // Database engine
 		typeText("3"),          // Authentication: Passkey only
 	)
 	// The provider question is skipped; the environment questions still follow.
@@ -222,8 +226,10 @@ func TestInitWizardGoesBackPastASkippedStep(t *testing.T) {
 	model := feedWizard(t, newTestWizard(defaultInitOptions()),
 		typeText("demo"), pressKey(tea.KeyEnter),
 		pressKey(tea.KeyEnter), // TinyGo
+		pressKey(tea.KeyEnter), // Router
 		pressKey(tea.KeyEnter), // Tailwind
 		pressKey(tea.KeyEnter), // Database
+		pressKey(tea.KeyEnter), // Database engine
 		pressKey(tea.KeyEnter), // Authentication: None
 		pressKey(tea.KeyEnter), // Devbox
 		pressKey(tea.KeyEnter), // Redis or Valkey

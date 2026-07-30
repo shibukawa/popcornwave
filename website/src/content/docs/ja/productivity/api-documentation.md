@@ -36,10 +36,25 @@ api_doc_path = "/docs"
 空なので、ステージングや本番の設定に書かなければ API リファレンスは公開されません。
 
 UI のページは数百バイトの HTML で、インターフェース本体は公開 CDN から読み込みます。
-そのためバイナリは大きくなりませんが、ブラウザから CDN に到達できる必要があります。
-Content-Security-Policy を設定している場合は、`script-src` に CDN のホストを追加し、
-`style-src` に `'unsafe-inline'` を残してください。UI がインラインの style 属性を
-出力するためです。
+そのためバイナリは大きくなりません。かわりにブラウザは CDN へ到達する必要があり、
+UI を起動するインラインの script も実行する必要があります。自分のページ向けに書いた
+Content-Security-Policy は、その両方を止めます。ページは真っ白になります。
+
+これはエンドポイント自身が引き受けます。レスポンスにポリシーが載っていれば、この
+ページが実際に必要とするものへ差し替えます。
+
+```
+script-src 'self' https://cdn.jsdelivr.net 'unsafe-inline'; style-src 'self' https://cdn.jsdelivr.net 'unsafe-inline'; img-src 'self' data:; font-src 'self' https://cdn.jsdelivr.net data:; connect-src 'self'
+```
+
+差し替えはレスポンス単位です。CDN ホストとインライン許可がこのページの外へ出ることは
+なく、ほかのルートは `security.headers.content_security_policy` に書いたままの値を
+返します。このキー自体を緩めていたら、両方がアプリケーションの全レスポンスに付いて
+回っていました。
+
+ポリシーを設定していないアプリケーションには、ここでもヘッダは付きません。
+`content_security_policy_report_only` を使っている場合は、そちらが差し替えられます。
+対処のしようがない違反でレポートが埋まることもありません。
 
 ## 何が最初から入っているか
 
@@ -155,7 +170,7 @@ type item struct {
 | `default:"…"` | `default` |
 
 最後の 2 つは `check` の規則ではなく独立したタグです。`check` の中に書くとエラーに
-なります。[ハンドラ](/ja/guides/handlers/#デフォルト値と列挙)を参照してください。
+なります。[ハンドラ](/ja/guides/frontend/handlers/#デフォルト値と列挙)を参照してください。
 
 ## API に名前を付ける
 
@@ -206,6 +221,6 @@ doc, err := pw.AssembleOpenAPI()
 エンドポイントも説明されません。このドキュメントが対象とするのは JSON と
 ストリーミングの面、つまりクライアント生成器が使える範囲です。
 
-バインディングとバリデーションのタグは[ハンドラ](/ja/guides/handlers/)を、書き出しの
-呼び出しは[レスポンス](/ja/guides/responses/)を、フラグメントが作られるタイミングは
+バインディングとバリデーションのタグは[ハンドラ](/ja/guides/frontend/handlers/)を、書き出しの
+呼び出しは[レスポンス](/ja/guides/frontend/responses/)を、フラグメントが作られるタイミングは
 [`pw generate`](/ja/pw/project/generate/)を参照してください。

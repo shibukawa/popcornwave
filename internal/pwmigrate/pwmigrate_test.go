@@ -181,17 +181,48 @@ func TestCreateNumbersSequentially(t *testing.T) {
 }
 
 func TestParseDSN(t *testing.T) {
-	driver, dataSource, dialect, err := ParseDSN("sqlite://app.db")
-	if err != nil {
-		t.Fatalf("parse: %v", err)
+	for _, testCase := range []struct {
+		dsn        string
+		dialect    string
+		dataSource string
+		goose      string
+	}{
+		// SQLite and MySQL lose the scheme, because neither data source is a
+		// URL; a libpq URL is already a DSN and keeps it.
+		{dsn: "sqlite://app.db", dialect: "sqlite", dataSource: "app.db", goose: "sqlite3"},
+		{dsn: "sqlite3://app.db", dialect: "sqlite", dataSource: "app.db", goose: "sqlite3"},
+		{
+			dsn:        "postgres://user:pass@127.0.0.1:5432/app?sslmode=disable",
+			dialect:    "postgres",
+			dataSource: "postgres://user:pass@127.0.0.1:5432/app?sslmode=disable",
+			goose:      "postgres",
+		},
+		{
+			dsn:        "postgresql://user:pass@127.0.0.1:5432/app",
+			dialect:    "postgres",
+			dataSource: "postgresql://user:pass@127.0.0.1:5432/app",
+			goose:      "postgres",
+		},
+		{
+			dsn:        "mysql://user:pass@tcp(127.0.0.1:3306)/app",
+			dialect:    "mysql",
+			dataSource: "user:pass@tcp(127.0.0.1:3306)/app",
+			goose:      "mysql",
+		},
+	} {
+		target, dialect, err := ParseDSN(testCase.dsn)
+		if err != nil {
+			t.Fatalf("parse %q: %v", testCase.dsn, err)
+		}
+		if target.Dialect != testCase.dialect || target.DataSource != testCase.dataSource ||
+			string(dialect) != testCase.goose {
+			t.Fatalf("parse %q = %q %q %q", testCase.dsn, target.Dialect, target.DataSource, dialect)
+		}
 	}
-	if driver != "sqlite" || dataSource != "app.db" || string(dialect) != "sqlite3" {
-		t.Fatalf("parse = %q %q %q", driver, dataSource, dialect)
-	}
-	if _, _, _, err := ParseDSN("app.db"); err == nil {
+	if _, _, err := ParseDSN("app.db"); err == nil {
 		t.Fatal("parse accepted a DSN without a scheme")
 	}
-	if _, _, _, err := ParseDSN("cassandra://host"); err == nil {
+	if _, _, err := ParseDSN("cassandra://host"); err == nil {
 		t.Fatal("parse accepted an unsupported driver")
 	}
 }

@@ -66,12 +66,12 @@ func prepareTestRuntime(handler http.Handler, configs pwtestbridge.Configs, opti
 		if !middleware.RDB.Enabled {
 			return pwtestbridge.Prepared{}, fmt.Errorf("popcornwave: test transaction requires middleware.rdb.enabled")
 		}
-		configured, _, err := databaseTarget(testConnection.DSN)
+		target, err := databaseTarget(testConnection.DSN)
 		if err != nil {
 			return pwtestbridge.Prepared{}, err
 		}
-		if !pwruntime.SupportsSavepoint(configured) {
-			return pwtestbridge.Prepared{}, fmt.Errorf("popcornwave: test transaction requires a driver with savepoint support, got %q", configured)
+		if !pwruntime.SupportsSavepoint(target.Dialect) {
+			return pwtestbridge.Prepared{}, fmt.Errorf("popcornwave: test transaction requires a driver with savepoint support, got %q", target.Dialect)
 		}
 	}
 	var dbClose func() error
@@ -99,13 +99,13 @@ func prepareTestRuntime(handler http.Handler, configs pwtestbridge.Configs, opti
 	}
 	resources := pwruntime.Resources{
 		Configs:  map[reflect.Type]any(configs),
-		Logger:   slog.Default(),
+		Log:      pwruntime.NewLogBackend(pwruntime.LevelInfo, pwruntime.NewSlogSink(slog.Default().Handler())),
 		DB:       db,
 		DBDriver: driver,
 		TxScope:  scope,
 		Query:    resolveQueryDiagnostics(testConfigValue[ObservabilityConfig](configs), Env()),
 	}
-	wrapped, err := buildRuntimeHandler(handler, server, security, middleware, resources)
+	wrapped, err := buildRuntimeHandler(handler, server, security, middleware, resources, false)
 	if err != nil {
 		if dbClose != nil {
 			_ = dbClose()

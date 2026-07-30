@@ -23,6 +23,8 @@ runtime:
 validation:
   - missing or duplicate default document registration is a startup error
   - handler code never selects or constructs the default document
-layouts: future explicit layout selection may extend the registered chain without exposing the document shell
+layouts:
+  classic: future explicit layout selection may extend the registered chain without exposing the document shell
+  page_tree: a concept:page-tree layout is already such an extension, inserted between the document and the page by decision:page-render-binding, and the page tree's own document.pw.html is not applied
 bypass: api:html-fragment-response resolves no document, because requirement:html-fragment-rendering answers a request whose document already exists
 ```

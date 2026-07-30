@@ -3,7 +3,6 @@ package pw
 import (
 	"context"
 	"database/sql"
-	"log/slog"
 
 	"github.com/shibukawa/popcornwave/pwruntime"
 )
@@ -18,8 +17,6 @@ func Config[T any](ctx context.Context) T {
 	var zero T
 	return zero
 }
-
-func Logger(ctx context.Context) *slog.Logger { return pwruntime.Logger(ctx) }
 
 // Authentication is the verified authentication result recorded by
 // authentication middleware.

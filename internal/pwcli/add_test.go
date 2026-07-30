@@ -37,8 +37,9 @@ func writeScaffoldedProject(t *testing.T, options initOptions) string {
 	return root
 }
 
-// declinedProject is a project that took neither the database, Redis, Tailwind,
-// nor authentication, which is what pw add exists to repair.
+// declinedProject is a project that took the registered router alone and
+// neither the database, Redis, Tailwind, nor authentication, which is what pw
+// add exists to repair.
 func declinedProject(t *testing.T) string {
 	t.Helper()
 	return writeScaffoldedProject(t, initOptions{Name: "fixture", TinyGo: true, Auth: authNone})
@@ -46,8 +47,8 @@ func declinedProject(t *testing.T) string {
 
 func TestCapabilityDetectionReadsTheProjectFiles(t *testing.T) {
 	full := writeScaffoldedProject(t, initOptions{
-		Name: "fixture", TinyGo: true, Devbox: true, Database: true, Redis: true, Tailwind: true,
-		Auth: authOIDC, AuthEmulator: true,
+		Name: "fixture", Router: routerBoth, TinyGo: true, Devbox: true, Database: true, Redis: true,
+		Tailwind: true, Auth: authOIDC, AuthEmulator: true,
 	})
 	state, err := loadProjectState(full)
 	if err != nil {
@@ -69,7 +70,7 @@ func TestCapabilityDetectionReadsTheProjectFiles(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := []string{capabilityDevbox, capabilityDatabase, capabilityRedis, capabilityAuth, capabilityTailwind}
+	want := []string{capabilityDiscovered, capabilityDevbox, capabilityDatabase, capabilityRedis, capabilityAuth, capabilityTailwind}
 	if strings.Join(missing, ",") != strings.Join(want, ",") {
 		t.Fatalf("missing = %v, want %v", missing, want)
 	}
@@ -313,10 +314,11 @@ func TestRunAddWizardOverKeystrokes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// database (first choice), the default DSN, then the review screen.
+	// database (first choice), the engine (SQLite, first choice), the seeded
+	// DSN, then the review screen.
 	options, err := runAddWizard(state, missing,
-		addOptions{Capability: capabilityDatabase, DSN: "sqlite://fixture.db"},
-		tea.WithInput(strings.NewReader("\r\r\r")),
+		addOptions{Capability: capabilityDatabase, Engine: engineSQLite, DSN: "sqlite://fixture.db"},
+		tea.WithInput(strings.NewReader("\r\r\r\r")),
 		tea.WithOutput(io.Discard),
 		tea.WithoutRenderer(),
 		tea.WithoutSignalHandler(),
@@ -324,8 +326,115 @@ func TestRunAddWizardOverKeystrokes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if options.Capability != capabilityDatabase || options.DSN != "sqlite://fixture.db" {
+	if options.Capability != capabilityDatabase || options.Engine != engineSQLite ||
+		options.DSN != "sqlite://fixture.db" {
 		t.Fatalf("options = %#v", options)
+	}
+}
+
+// TestAddWizardEngineSelectsTheDSN asserts an empty DSN answer takes the
+// engine default, so the engine step decides it rather than a value seeded
+// before the engine was known.
+func TestAddWizardEngineSelectsTheDSN(t *testing.T) {
+	for _, testcase := range []struct {
+		engine string
+		want   string
+	}{
+		{engine: engineSQLite, want: "sqlite://fixture.db"},
+		{engine: enginePostgres, want: "postgres://fixture:fixture@127.0.0.1:5432/fixture?sslmode=disable"},
+		{engine: engineMySQL, want: "mysql://fixture:fixture@tcp(127.0.0.1:3306)/fixture"},
+	} {
+		options := addOptions{Capability: capabilityDatabase, Engine: testcase.engine}
+		if got := options.databaseDSN("fixture"); got != testcase.want {
+			t.Fatalf("%s DSN = %q, want %q", testcase.engine, got, testcase.want)
+		}
+	}
+	// An explicit answer still wins over the engine default.
+	explicit := addOptions{Capability: capabilityDatabase, Engine: enginePostgres, DSN: "postgres://elsewhere/db"}
+	if got := explicit.databaseDSN("fixture"); got != "postgres://elsewhere/db" {
+		t.Fatalf("explicit DSN = %q", got)
+	}
+}
+
+// TestAddDatabasePerEngine asserts pw add reaches the same per-engine file
+// state pw init writes, including the import it cannot inject itself.
+func TestAddDatabasePerEngine(t *testing.T) {
+	root := declinedProject(t)
+	state, err := loadProjectState(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	plan, err := planCapability(state, addOptions{Capability: capabilityDatabase, Engine: enginePostgres})
+	if err != nil {
+		t.Fatal(err)
+	}
+	schema := plan.creates["migrations/00001_init.sql"]
+	if !strings.Contains(schema, "CREATE TABLE users") {
+		t.Fatalf("schema = %q", schema)
+	}
+	joined := strings.Join(plan.summary(), "\n")
+	if !strings.Contains(joined, "popcornwave/database/postgres") {
+		t.Fatalf("plan does not name the engine import:\n%s", joined)
+	}
+	// Generation reads the engine from popcornwave.toml, so pw add has to
+	// record it there as pw init does.
+	if project := plan.edits["popcornwave.toml"]; !strings.Contains(project, `database = "postgres"`) {
+		t.Fatalf("plan does not record the engine:\n%s", project)
+	}
+
+	// Every engine now has a generated SQL path, so every engine gets the
+	// example and the purpose that reads it.
+	for _, engine := range []string{engineSQLite, engineMySQL} {
+		enginePlan, err := planCapability(state, addOptions{Capability: capabilityDatabase, Engine: engine})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, wrote := enginePlan.creates["queries/users.pw.sql"]; !wrote {
+			t.Fatalf("%s plan wrote no query example", engine)
+		}
+		if project := enginePlan.edits["popcornwave.toml"]; !strings.Contains(project, `database = "`+engine+`"`) {
+			t.Fatalf("%s plan does not record the engine:\n%s", engine, project)
+		}
+	}
+}
+
+// TestSetProjectDatabase covers the popcornwave.toml edit directly, including
+// the shapes a hand-edited project can present.
+func TestSetProjectDatabase(t *testing.T) {
+	for _, testcase := range []struct {
+		name     string
+		document string
+		want     string
+	}{
+		{
+			name:     "appends to a project table followed by another",
+			document: "[project]\nname = \"demo\"\n\n[generate]\nqueries = []\n",
+			want:     "[project]\nname = \"demo\"\n\ndatabase = \"mysql\"\n[generate]\nqueries = []\n",
+		},
+		{
+			name:     "appends at the end of the document",
+			document: "[project]\nname = \"demo\"\n",
+			want:     "[project]\nname = \"demo\"\ndatabase = \"mysql\"\n",
+		},
+		{
+			name:     "replaces an existing key",
+			document: "[project]\nname = \"demo\"\ndatabase = \"sqlite\"\nmain = \"./cmd/demo\"\n",
+			want:     "[project]\nname = \"demo\"\ndatabase = \"mysql\"\nmain = \"./cmd/demo\"\n",
+		},
+	} {
+		t.Run(testcase.name, func(t *testing.T) {
+			got, err := setProjectDatabase(testcase.document, engineMySQL)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got != testcase.want {
+				t.Fatalf("got:\n%q\nwant:\n%q", got, testcase.want)
+			}
+		})
+	}
+	// A document with no [project] table is not one this edit can repair.
+	if _, err := setProjectDatabase("[generate]\nqueries = []\n", engineMySQL); err == nil {
+		t.Fatal("an edit without a [project] table was accepted")
 	}
 }
 
@@ -507,8 +616,10 @@ func TestInitWizardSkipsValkeyWithoutDevbox(t *testing.T) {
 	model := feedWizard(t, newTestWizard(defaultInitOptions()),
 		typeText("demo"), pressKey(tea.KeyEnter),
 		pressKey(tea.KeyEnter), // TinyGo
+		pressKey(tea.KeyEnter), // Router
 		pressKey(tea.KeyEnter), // Tailwind
 		pressKey(tea.KeyEnter), // Database
+		pressKey(tea.KeyEnter), // Database engine
 		pressKey(tea.KeyEnter), // Authentication
 		typeText("2"),          // Devbox: No
 	)

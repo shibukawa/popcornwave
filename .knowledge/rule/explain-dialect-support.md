@@ -3,7 +3,7 @@ id: rule:explain-dialect-support
 type: rule
 title: EXPLAIN Dialect Support
 ---
-The slow path of flow:query-diagnostics resolves its EXPLAIN statement from the runtime driver name, the same source rule:savepoint-dialect-support uses.
+The slow path of flow:query-diagnostics resolves its EXPLAIN statement from the dialect rule:rdb-dsn-resolution reports, the same source rule:savepoint-dialect-support uses.
 
 ```yaml
 mode: plan only
@@ -18,7 +18,7 @@ rules:
   - pass the original arguments, so the captured plan matches a parameterized execution rather than a literal one
   - an unsupported driver disables EXPLAIN and leaves the rest of flow:query-diagnostics intact
   - report an unsupported driver once at startup through policy:startup-summary, never per statement
-  - decision:server-sql-support-tier keeps SQLite the only tier-one dialect, so other mappings activate only with their driver
+  - every mapping here is first-class under decision:server-sql-support-tier, and each activates only for the engine a project actually selected
   - a driver that rejects EXPLAIN for a statement records explain_error and continues
   - a dialect that returns no plan rows for a statement kind records neither a plan nor an error
   - sqlite returns no plan for an INSERT with a VALUES list, including one carrying ON CONFLICT or RETURNING, because the plan describes how rows are found and such a statement finds none

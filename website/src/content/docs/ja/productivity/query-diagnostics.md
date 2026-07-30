@@ -131,5 +131,5 @@ max_value_length = 256
 テストではログも出ます。失敗したテストを追うときはたいていそれが望ましい挙動です。
 静かにしたい場合は、テストが読む設定で `enabled = "off"` にしてください。
 
-ステートメント自体については[クエリーとマイグレーション](/ja/guides/queries/)を、
-これらのキーの解決順序については[設定](/ja/guides/configuration/)を参照してください。
+ステートメント自体については[クエリ](/ja/guides/backend/queries/)を、
+これらのキーの解決順序については[設定](/ja/guides/architecture/configuration/)を参照してください。

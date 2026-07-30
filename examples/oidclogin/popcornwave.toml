@@ -1,6 +1,7 @@
 [project]
 name = "oidclogin"
 main = "./cmd/oidclogin"
+database = "sqlite"
 
 # Each purpose reads only the directories it lists, and nothing else. A source
 # directory is invisible to that purpose until it appears here.

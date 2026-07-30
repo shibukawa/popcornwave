@@ -6,7 +6,7 @@ sidebar:
 ---
 
 ```sh
-pw init <project-name> [--tailwind] [--no-devbox] [--no-database] [--no-redis] [--auth=<mode>] [--devidp]
+pw init <project-name> [--tailwind] [--no-tinygo] [--no-devbox] [--no-database] [--db=<engine>] [--no-redis] [--router=<kind>] [--auth=<mode>] [--devidp] [-i]
 ```
 
 新しいディレクトリに、動作する完全なプロジェクトを作ります。名前とオプションを
@@ -21,7 +21,9 @@ pw init <project-name> [--tailwind] [--no-devbox] [--no-database] [--no-redis] [
 | `--no-tinygo` | TinyGo ではなくホストの Go を対象にする |
 | `--no-devbox` | `devbox.json` を作らない。mise、Docker Compose、Nix、Homebrew、Scoop など自分の環境を使う |
 | `--no-database` | rdb 設定・マイグレーション・SQL の例を作らない |
+| `--db=<engine>` | `sqlite`（既定）、`postgres`、`mysql` |
 | `--no-redis` | `devbox.json` に Valkey 開発サーバーを入れない |
+| `--router=<kind>` | `registered`（既定）、`discovered`、`both`。[探索型ルーティング](/ja/advanced/discovered-routing/#コマンド)を参照 |
 | `--auth=<mode>` | `none`（既定）、`oidc`、`oidc-passkey`、`passkey` |
 | `--devidp` | OIDC を選んだ場合に、ローカルの認証プロバイダを組み込む |
 | `-i`, `--interactive` | 名前を与えた場合でも全項目を質問する |
@@ -35,6 +37,58 @@ pw init <project-name> [--tailwind] [--no-devbox] [--no-database] [--no-redis] [
 
 `--no-tinygo` だけは `pw add` で後から変えられません。
 [ツールチェインを変更する](#ツールチェインを変更する)を参照してください。
+
+## データベースを選ぶ
+
+`--db` は 5 つのことを一度に決めます。`config.dev.toml` の DSN、最初の
+マイグレーションを書く方言、`devbox.json` に入る開発サーバー、バイナリが
+リンクするドライバ、そして `popcornwave.toml` の `project.database` です。
+最後の 1 つは `pw generate` が読み、`.pw.sql` をどのプレースホルダ構文に
+コンパイルするかを決めます。既定が SQLite なのは、アプリケーションのほかに
+起動するものが何もないからです。
+
+| エンジン | DSN | 開発サーバー |
+| --- | --- | --- |
+| `sqlite` | `sqlite://<name>.db` | なし |
+| `postgres` | `postgres://<name>:<name>@127.0.0.1:5432/<name>?sslmode=disable` | `devbox.json` の `postgresql` |
+| `mysql` | `mysql://<name>:<name>@tcp(127.0.0.1:3306)/<name>` | `devbox.json` の `mysql80` |
+
+サーバーエンジンを選ぶと `main.go` にブランクインポートが 1 行入ります。これが
+エンジンを登録します。
+
+```go
+import _ "github.com/shibukawa/popcornwave/database/postgres"
+```
+
+スキャフォールドが書く資格情報は `config.dev.toml` の開発用の値です。そこに書かれた
+ロールとデータベースを一度だけ作ってから `pw migrate up` を実行してください。
+
+あとからエンジンを変えることは `pw add` では行いません。DSN もマイグレーションも
+`.pw.sql` もすべて書き直しになるからです。デプロイ先のエンジンを選んでください。
+
+### 生成される SQL はエンジンに従う
+
+`project.database` は、生成のためにプロジェクトがエンジンを表明する唯一の場所です。
+ジェネレータ側に暗黙の既定はありません。黙って仮定した方言は、エンジンが最初の
+クエリで拒否するプレースホルダを出力してしまうからです。`pw generate` は
+`popcornwave.toml` に書かれたものだけを渡します。
+
+```toml
+[project]
+database = "postgres"   # sqlite、postgres、mysql
+```
+
+| エンジン | プレースホルダ |
+| --- | --- |
+| `postgres` | `$1`、`$2`、… |
+| `mysql` | `?` |
+| `sqlite` | `?` |
+
+このキーを変えると生成済みのクエリがすべて変わります。編集したら `pw generate` を
+実行し、DSN の変更と一緒にコミットしてください。
+
+このキーができる前に作られたプロジェクトには `[project] database` がありませんが、
+`sqlite` として読まれます。当時存在したエンジンがそれだけだからです。
 
 ## ツールチェインを変更する
 
@@ -102,7 +156,7 @@ myapp/
 ├── templates/
 │   ├── document.pw.html       共有ドキュメントシェル
 │   ├── templates.go           初回生成前から存在するパッケージマーカー
-│   └── 400|404|500.pw.html    エラーページ
+│   └── 400|401|403|404|409|413|500.pw.html   エラーページ
 ├── queries/users.pw.sql       型付き結果を持つ名前付き SQL（データベース選択時）
 ├── migrations/00001_init.sql  初期スキーマ、goose 形式（データベース選択時）
 ├── public/.keep               空ツリーの番兵。配信されない
@@ -124,7 +178,7 @@ OIDC 系のモードで `--devidp` を付けると、選択できる開発用ユ
 `popcornwave.toml` に `[assets.tailwind]` ブロックを追加し、`devbox.json` に
 `tailwindcss` をピン留めし、ドキュメントシェルからスタイルシートをリンクします。
 `package.json` も Node のロックファイルも作られません。あとから有効にする方法は
-[スタイリング](/ja/guides/styling/)を参照してください。
+[スタイリング](/ja/guides/frontend/styling/)を参照してください。
 
 各ファイルは一時パスに書いてから所定の場所へリネームされます。コマンドが中断しても、
 書きかけのソースファイルは残りません。
@@ -168,7 +222,7 @@ require します。`pw` がリリース版ではなく作業コピーからビ�
 
 ## 次のステップ
 
-- [はじめる](/ja/start/getting-started/) — 生成物の詳しい解説。
+- [1. はじめる](/ja/tutorial/getting-started/) — 生成物の詳しい解説。
 - [pw add](/ja/pw/project/add/) — ここで断った機能をあとから追加する。
 - [pw new](/ja/pw/project/new/) — 2 つめのハンドラを追加する。
-- [プロジェクト構成](/ja/guides/project-structure/) — 1 パッケージを超えて成長させる。
+- [プロジェクト構成](/ja/guides/architecture/project-structure/) — 1 パッケージを超えて成長させる。

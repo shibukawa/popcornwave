@@ -7,10 +7,11 @@ import (
 	"testing"
 
 	"github.com/shibukawa/tinybind-go/generator"
+	"github.com/shibukawa/tinybind-go/templates/sqlbind"
 )
 
 func TestOptionsAreValid(t *testing.T) {
-	options, err := Options()
+	options, err := Options(sqlbind.DialectPostgreSQL)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -23,7 +24,7 @@ func TestOptionsAreValid(t *testing.T) {
 }
 
 func TestPWCallsDriveTinyBindGeneration(t *testing.T) {
-	options, err := Options()
+	options, err := Options(sqlbind.DialectPostgreSQL)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -2,7 +2,7 @@
 title: Architecture
 description: The request model Popcorn Wave is built around, what is generated ahead of time, and what a minimal build excludes.
 sidebar:
-  order: 3
+  order: 2
 ---
 
 Popcorn Wave starts with a familiar constraint: a server-rendered application
@@ -103,5 +103,5 @@ this foundation, but it never becomes a prerequisite for it.
 
 ## Next steps
 
-- [Handlers](/guides/handlers/)
-- [Responses](/guides/responses/)
+- [Handlers](/guides/frontend/handlers/)
+- [Responses](/guides/frontend/responses/)

@@ -12,7 +12,7 @@ import (
 	"github.com/shibukawa/popcornwave/pwruntime"
 )
 
-func buildRuntimeHandler(handler http.Handler, server ServerConfig, security SecurityConfig, middleware MiddlewareConfig, resources pwruntime.Resources, publicFS ...fs.FS) (http.Handler, error) {
+func buildRuntimeHandler(handler http.Handler, server ServerConfig, security SecurityConfig, middleware MiddlewareConfig, resources pwruntime.Resources, tracing bool, publicFS ...fs.FS) (http.Handler, error) {
 	trusted, err := compileTrustedProxies(server.TrustedProxies)
 	if err != nil {
 		return nil, err
@@ -59,30 +59,36 @@ func buildRuntimeHandler(handler http.Handler, server ServerConfig, security Sec
 		result = middlewares.RequestID()(result)
 	}
 	result = middlewares.InjectResources(resources)(result)
+	// Tracing wraps everything the framework installs, so the request root span
+	// covers the whole chain and every record taken inside it correlates. It is
+	// omitted when nothing exports, because an unsampled span is pure cost.
+	if tracing {
+		result = middlewares.Otel()(result)
+	}
 	return middlewares.Track(result), nil
 }
 
 func writePanicProblem(w http.ResponseWriter, r *http.Request, err error) {
 	if responseCommitted(w) {
-		Logger(r.Context()).ErrorContext(r.Context(), "panic after response commit", "error", err)
+		Logger(r.Context()).Log(r.Context(), LevelError, "panic after response commit", String("error", err.Error()))
 		return
 	}
 	WriteProblem(w, r, InternalServerError(err))
 }
 
 func operationalEndpoints(next http.Handler, config ServerConfig, resources pwruntime.Resources) http.Handler {
-	apiDoc := apiDocUI(config.APIDoc, config.OpenAPI.Path)
+	apiDoc := apiDocUI(config.APIDoc, config.OpenAPI)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case serveFrameworkScript(w, r):
 			return
-		case config.Health.Enabled && r.URL.Path == config.Health.Path:
+		case config.Health != "" && r.URL.Path == config.Health:
 			writeOperationalStatus(w, r, true)
 			return
-		case config.Readiness.Enabled && r.URL.Path == config.Readiness.Path:
+		case config.Readiness != "" && r.URL.Path == config.Readiness:
 			writeOperationalStatus(w, r, databasesReady(r.Context(), resources))
 			return
-		case config.OpenAPI.Enabled && r.URL.Path == config.OpenAPI.Path:
+		case config.OpenAPI != "" && r.URL.Path == config.OpenAPI:
 			if !operationalMethod(w, r) {
 				return
 			}

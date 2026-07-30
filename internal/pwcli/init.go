@@ -15,11 +15,12 @@ import (
 
 	"github.com/charmbracelet/x/term"
 	"github.com/shibukawa/popcornwave/internal/pwenv"
+	"github.com/shibukawa/popcornwave/internal/pwgen"
 	"github.com/shibukawa/popcornwave/plugin/auth"
 	"github.com/shibukawa/popcornwave/plugin/session/rdb"
 )
 
-const initUsage = "usage: pw init [<project-name>] [--interactive] [--tailwind] [--no-tinygo] [--no-devbox] [--no-database] [--no-redis] [--auth=none|oidc|passkey] [--devidp]"
+const initUsage = "usage: pw init [<project-name>] [--interactive] [--router=registered|discovered|both] [--tailwind] [--no-tinygo] [--no-devbox] [--no-database] [--db=sqlite|postgres|mysql] [--no-redis] [--auth=none|oidc|passkey] [--devidp]"
 
 // Authentication modes the wizard and the --auth flag select between. They map
 // onto the plugin/auth modes, with none meaning no [auth] configuration.
@@ -32,16 +33,75 @@ const (
 // usesOIDC reports whether a mode needs an OpenID Provider.
 func usesOIDC(mode string) bool { return mode == authOIDC }
 
+// Router answers of pw init. The two routers coexist on one mux, so this
+// decides which of them the scaffold writes rather than how the framework
+// behaves.
+//
+// These three names are the project's vocabulary for the pair, and everything
+// that talks about a router uses them: the flag, the wizard, and the capability
+// catalog of pw add. What each router reads is a directory, and which directory
+// is a data:project-config value rather than part of the name.
+const (
+	// routerRegistered writes registrations in Go: any method, any response,
+	// and the generated OpenAPI document.
+	routerRegistered = "registered"
+	// routerDiscovered derives routes from a directory tree: a directory
+	// holding a page template is a route, and generation writes the
+	// registration.
+	routerDiscovered = "discovered"
+	routerBoth       = "both"
+)
+
+// The directories pw init scaffolds each router into. They are defaults rather
+// than fixed names: generation, pw new, and pw dev all read the data:project-config
+// purpose lists, so a project renames a tree by editing popcornwave.toml and
+// moving the directory.
+const (
+	defaultRegisteredDir = "handlers"
+	defaultDiscoveredDir = "pages"
+	defaultTemplatesDir  = "templates"
+)
+
+// effectiveRouter reads an unset answer as the registered router: that is the
+// shape every project scaffolded before page trees existed has, and the one a
+// caller that never asked should get.
+func effectiveRouter(router string) string {
+	if router == "" {
+		return routerRegistered
+	}
+	return router
+}
+
+func routerHasRegistered(router string) bool {
+	router = effectiveRouter(router)
+	return router == routerRegistered || router == routerBoth
+}
+
+func routerHasDiscovered(router string) bool {
+	return router == routerDiscovered || router == routerBoth
+}
+
+func validRouter(router string) bool {
+	return router == routerRegistered || router == routerDiscovered || router == routerBoth
+}
+
 // initOptions holds every project bootstrap choice. Shortcut flags and the
 // wizard produce the same value, and scaffoldFiles is its only consumer.
 type initOptions struct {
-	Name     string
+	Name string
+	// Router selects the routers this project starts with. Either can be
+	// installed later, so this is a starting point rather than a mode.
+	Router   string
 	TinyGo   bool
 	Tailwind bool
 	// Database scaffolds the rdb configuration, the migration directory, and
 	// the SQL example. Declining it removes all three together, because none
 	// of them is useful without the others.
 	Database bool
+	// Engine names the database. It decides the DSN, the dialect of the
+	// starter schema, the development server, and the driver the binary links,
+	// and applies only to a project that took the database.
+	Engine string
 	// Redis adds the Valkey development server to the Devbox environment.
 	Redis bool
 	// Devbox scaffolds the reproducible development environment. Declining it
@@ -58,12 +118,25 @@ type initOptions struct {
 // defaultInitOptions keeps TinyGo compatible routing as the scaffold default so
 // the shortcut form matches decision:stdlib-servemux.
 func defaultInitOptions() initOptions {
-	return initOptions{TinyGo: true, Devbox: true, Database: true, Redis: true, Auth: authNone}
+	return initOptions{
+		// Router is left unset rather than defaulted: effectiveRouter reads that
+		// as the registered tree, which keeps the rule in one place and a
+		// scripted run on the shape it has always produced.
+		TinyGo:   true,
+		Devbox:   true,
+		Database: true,
+		Engine:   engineSQLite,
+		Redis:    true,
+		Auth:     authNone,
+	}
 }
 
 func parseInitArgs(args []string) (initOptions, error) {
 	options := defaultInitOptions()
 	var positional []string
+	// Tracked so --db can contradict --no-database. Without it the engine
+	// would silently apply to a project that has no database to apply it to.
+	engineSelected := false
 	for _, arg := range args {
 		switch arg {
 		case "--tailwind":
@@ -93,6 +166,22 @@ func parseInitArgs(args []string) (initOptions, error) {
 		case "--no-devidp":
 			options.AuthEmulator = false
 		default:
+			if engine, ok := strings.CutPrefix(arg, "--db="); ok {
+				if !validEngine(engine) {
+					return initOptions{}, fmt.Errorf("init: --db must be %s", engineNames())
+				}
+				options.Engine = engine
+				engineSelected = true
+				continue
+			}
+			if router, ok := strings.CutPrefix(arg, "--router="); ok {
+				if !validRouter(router) {
+					return initOptions{}, fmt.Errorf("init: --router must be %s, %s, or %s",
+						routerRegistered, routerDiscovered, routerBoth)
+				}
+				options.Router = router
+				continue
+			}
 			if mode, ok := strings.CutPrefix(arg, "--auth="); ok {
 				switch mode {
 				case authNone, authOIDC, authPasskey:
@@ -125,6 +214,9 @@ func parseInitArgs(args []string) (initOptions, error) {
 	}
 	if !options.Database && servesLogin(options) {
 		return initOptions{}, fmt.Errorf("init: --auth=%s stores its login sessions in the database; drop --no-database", options.Auth)
+	}
+	if !options.Database && engineSelected {
+		return initOptions{}, errors.New("init: --db selects the database engine; drop --no-database")
 	}
 	return options, nil
 }
@@ -200,6 +292,9 @@ func runInit(args []string, stdout io.Writer) error {
 	if declined := declinedCapabilities(options); len(declined) > 0 {
 		fmt.Fprintf(stdout, "\nNot included: %s\n  pw add <capability> enables one later\n",
 			strings.Join(declined, ", "))
+	}
+	if notice := databaseEngineNotice(options); notice != "" {
+		fmt.Fprint(stdout, notice)
 	}
 	// Without the Devbox environment nothing pins the CSS toolchain, and the
 	// first pw dev would fail on a binary the scaffold never installed.
@@ -314,6 +409,11 @@ func scaffoldFiles(options initOptions) map[string]string {
 	name := options.Name
 	moduleExtra := frameworkModuleDirective()
 	devboxPackages := []string{"go@latest"}
+	if options.Database {
+		if server := engineFor(options.Engine).DevboxPackage; server != "" {
+			devboxPackages = append(devboxPackages, server)
+		}
+	}
 	if options.Redis {
 		devboxPackages = append(devboxPackages, "valkey@latest")
 	}
@@ -335,7 +435,7 @@ func scaffoldFiles(options initOptions) map[string]string {
 name = "` + name + `"
 main = "./cmd/` + name + `"
 toolchain = "` + projectToolchain(options) + `"
-
+` + projectDatabaseConfig(options) + `
 # Each purpose reads only the directories it lists, and nothing else. A source
 # directory is invisible to that purpose until it appears here.
 [generate]
@@ -343,6 +443,9 @@ handlers = [` + quotedList(scaffoldGenerationScope(options).Handlers) + `]
 templates = [` + quotedList(scaffoldGenerationScope(options).Templates) + `]
 queries = [` + quotedList(scaffoldGenerationScope(options).Queries) + `]
 config = [` + quotedList(scaffoldGenerationScope(options).Config) + `]
+# A page tree root is one generation run: every directory below it holding a
+# page template is a route, and the registration is generated.
+pages = [` + quotedList(scaffoldGenerationScope(options).Pages) + `]
 
 # pw dev walks the module for rebuild inputs. Add what the walk misses, and
 # exclude a subtree that only makes the walk slower.
@@ -354,33 +457,21 @@ excludes = []
 # APP_ENV selects this file; add config.stg.toml and config.prod.toml as needed.
 [server]
 port = 8080
-# Scalar API reference for /openapi.json, served at server.api_doc_path (/docs).
-# Leave this key out of staging and production configs to keep the UI private.
+# Operational endpoints answer only at the paths named here; an unset key
+# serves nothing, so this file lists every address the server responds on.
+health = "/healthz"
+readiness = "/readyz"
+openapi = "/openapi.json"
+# Scalar API reference for the document above, served at server.api_doc_path
+# (/docs). Leave this key out of staging and production configs to keep the UI
+# private.
 api_doc = "scalar"
 
 [observability]
 minimum_level = "debug"
 service_name = "` + name + `"
 ` + databaseRuntimeConfig(options) + authRuntimeConfig(options),
-		"cmd/" + name + "/main.go": `package main
-
-import (
-	"context"
-	"log"
-
-	"` + name + `/handlers"
-	"github.com/shibukawa/popcornwave/pw"
-)
-
-func main() {` + authBootstrap(options) + `
-	if err := pw.Run(context.Background(), handlers.Handlers()); err != nil {
-		log.Fatal(err)
-	}
-}
-`,
-		"handlers/index.go":        muxScaffold(options),
-		"handlers/home_handler.go": homeHandlerScaffold(options),
-		"handlers/home.pw.html":    homeTemplateScaffold(options),
+		"cmd/" + name + "/main.go": mainScaffold(options),
 		"templates/document.pw.html": `package templates
 
 external RuntimeScriptURL(): url
@@ -455,31 +546,23 @@ func PublicFS() fs.FS {
 		// so pw dev leaves no change behind in a fresh checkout.
 		".gitignore": ".devbox/\ndevbox.d/\n/" + name + "\n*_pw_gen.go\npublic/**/*.zstd\n*.db\n",
 	}
+	if routerHasRegistered(options.Router) {
+		for path, source := range registeredRouterScaffold(options, defaultRegisteredDir) {
+			files[path] = source
+		}
+	}
+	if routerHasDiscovered(options.Router) {
+		for path, source := range pageTreeScaffold(options, defaultDiscoveredDir) {
+			files[path] = source
+		}
+	}
 	if options.Devbox {
 		files["devbox.json"] = devboxScaffold(devboxPackages)
 		files["devbox.lock"] = "{}\n"
 	}
 	if options.Database {
-		files["queries/users.pw.sql"] = `package queries
-
-type User {
-  id: int
-  name: string
-}
-
-export statement FindUser(id: int): sql.one<User> {
-SELECT id, name FROM users WHERE id = {id}
-}
-`
-		files["migrations/00001_init.sql"] = `-- +goose Up
-CREATE TABLE users (
-    id INTEGER PRIMARY KEY,
-    name TEXT NOT NULL
-);
-
--- +goose Down
-DROP TABLE users;
-`
+		files["queries/users.pw.sql"] = starterQuery()
+		files["migrations/00001_init.sql"] = engineFor(options.Engine).Schema
 	}
 	if options.TinyGo {
 		files["tinygohelper.go"] = `//go:build tinygo
@@ -522,12 +605,15 @@ func databaseRuntimeConfig(options initOptions) string {
 	if !options.Database {
 		return ""
 	}
-	return databaseRuntimeSection("sqlite://" + options.Name + ".db")
+	engine := engineFor(options.Engine)
+	return databaseRuntimeSection(engine.DSN(options.Name), engine)
 }
 
 // databaseRuntimeSection is the rdb configuration api:cli-init scaffolds and
-// api:cli-add appends, so both reach the same file state.
-func databaseRuntimeSection(dsn string) string {
+// api:cli-add appends, so both reach the same file state. The pool bounds come
+// from the engine: one connection is right for a file SQLite writes serially
+// and wrong for a server that expects a pool.
+func databaseRuntimeSection(dsn string, engine databaseEngine) string {
 	return `
 # The scaffolded migrations and queries need a database; pw dev and pw migrate
 # read this DSN.
@@ -535,9 +621,33 @@ func databaseRuntimeSection(dsn string) string {
 enabled = true
 dsn = "` + dsn + `"
 connect_timeout = "5s"
-max_open_conns = 1
-max_idle_conns = 1
+max_open_conns = ` + strconv.Itoa(engine.MaxOpenConns) + `
+max_idle_conns = ` + strconv.Itoa(engine.MaxIdleConns) + `
 `
+}
+
+// projectDatabaseConfig records the engine .pw.sql sources are generated for.
+// A project without a database writes no key, because there is nothing to
+// generate and the default would be an answer to a question it never asked.
+func projectDatabaseConfig(options initOptions) string {
+	if !options.Database {
+		return ""
+	}
+	return "database = \"" + options.Engine + "\"\n"
+}
+
+// databaseDriverImport links the selected engine into the application binary.
+// pw links SQLite itself, so only a server engine adds an import; without it
+// the pool refuses to open and names the import to add.
+func databaseDriverImport(options initOptions) string {
+	if !options.Database {
+		return ""
+	}
+	path := engineFor(options.Engine).DriverImport
+	if path == "" {
+		return ""
+	}
+	return "\n\t// Registers the engine middleware.rdb.dsn names.\n\t_ " + strconv.Quote(path)
 }
 
 // authBootstrap installs the account resolver. That call is the whole
@@ -791,6 +901,111 @@ func projectToolchain(options initOptions) string {
 // muxScaffold emits the route registry. TinyGo projects go through pw.ServeMux
 // so one import works on both toolchains; host-only projects keep the standard
 // library type, which api:cli-generate discovers just the same.
+// mainScaffold writes the entry point for the routers the project took. Both
+// register on one mux, and the order they do it in does not matter: a generated
+// page route does not shadow a hand-registered subtree, and the standard
+// library panics on a duplicate rather than silently letting one win.
+func mainScaffold(options initOptions) string {
+	name := options.Name
+	registered, discovered := defaultRegisteredDir, defaultDiscoveredDir
+	registeredPkg, discoveredPkg := goPackageIdentifier(registered), goPackageIdentifier(discovered)
+	imports := "\t\"context\"\n\t\"log\"\n\n"
+	body := ""
+	handler := ""
+	switch router := effectiveRouter(options.Router); {
+	case router == routerRegistered:
+		imports += "\t\"" + name + "/" + registered + "\"\n\t\"github.com/shibukawa/popcornwave/pw\""
+		handler = registeredPkg + ".Handlers()"
+	case router == routerDiscovered:
+		imports += "\t\"" + name + "/" + discovered + "\"\n\t\"github.com/shibukawa/popcornwave/pw\""
+		body = "\tmux := pw.NewServeMux()\n\t" + discoveredPkg + ".Register(mux)\n"
+		handler = "mux"
+	default:
+		imports += "\t\"" + name + "/" + registered + "\"\n\t\"" + name + "/" + discovered +
+			"\"\n\t\"github.com/shibukawa/popcornwave/pw\""
+		body = "\t// The page routes join the handler mux. Registration order does not\n" +
+			"\t// matter; a duplicate pattern would panic here rather than shadow.\n" +
+			"\tmux := " + registeredPkg + ".Handlers()\n\t" + discoveredPkg + ".Register(mux)\n"
+		handler = "mux"
+	}
+	return `package main
+
+import (
+` + imports + databaseDriverImport(options) + `
+)
+
+func main() {` + authBootstrap(options) + `
+` + body + `	if err := pw.Run(context.Background(), ` + handler + `); err != nil {
+		log.Fatal(err)
+	}
+}
+`
+}
+
+// registeredRouterScaffold writes a handler package into directory: the mux the
+// package owns, one route, and the page it renders.
+//
+// The directory is a parameter because it is a data:project-config value: the
+// scaffold picks the default, and everything downstream reads generate.handlers
+// rather than the name.
+func registeredRouterScaffold(options initOptions, directory string) map[string]string {
+	return map[string]string{
+		directory + "/index.go":        muxScaffold(options),
+		directory + "/home_handler.go": homeHandlerScaffold(options),
+		directory + "/home.pw.html":    homeTemplateScaffold(options),
+	}
+}
+
+// pageTreeScaffold writes a page tree into root: a layout, the root page, and
+// one dynamic route whose Go entry point runs between the request and the
+// render.
+//
+// The root is a parameter for the same reason the handler directory is: it is
+// what generate.pages names, and a project may name it something else.
+func pageTreeScaffold(options initOptions, root string) map[string]string {
+	// The tree root is a Go package like every directory below it, so its name
+	// follows the directory rather than the other way round.
+	pkg := goPackageIdentifier(root)
+	return map[string]string{
+		// A layout must declare children as html: that shape is what makes the
+		// template compiler emit the wrapper the generated chain calls.
+		root + "/" + pwgen.LayoutFile: `package ` + pkg + `
+
+export component Layout(children: html): html {
+<div class="page"><slot required /></div>
+}
+`,
+		// A directory holding this file is a route. This one is the tree root,
+		// which serves GET /.
+		root + "/" + pwgen.PageFile: `package ` + pkg + `
+
+export component Page(): html {
+<h1 class="text-3xl font-bold">Hello, Popcorn Wave</h1>
+<p><a href="/greet/world">a page with a dynamic segment</a></p>
+}
+`,
+		// One trailing underscore marks a dynamic segment, so this directory
+		// serves GET /greet/{name}. Brackets are impossible: the directory is
+		// also a Go package, and the toolchain rejects an illegal import path
+		// element before it evaluates anything else.
+		root + "/greet/name_/" + pwgen.PageFile: `package name_
+
+export component Page(greeting: string): html {
+<h1 class="text-3xl font-bold">{greeting}</h1>
+}
+`,
+		// page.go is optional. Adding it puts Go between the request and the
+		// render: these parameters are the route's dynamic segments in order,
+		// and these results are the page component's parameters.
+		root + "/greet/name_/page.go": `package name_
+
+func Load(name string) (string, error) {
+	return "Hello, " + name, nil
+}
+`,
+	}
+}
+
 func muxScaffold(options initOptions) string {
 	if options.TinyGo {
 		return `package handlers
@@ -819,9 +1034,20 @@ func Handlers() *http.ServeMux { return mux }
 // the main package carries the configuration the application registers.
 func scaffoldGenerationScope(options initOptions) generationScope {
 	scope := generationScope{
-		Handlers:  []string{"handlers"},
-		Templates: []string{"handlers", "templates"},
+		// templates always holds the document shell and the error pages, which
+		// both routers render through.
+		Templates: []string{defaultTemplatesDir},
 		Config:    []string{"cmd/" + options.Name},
+	}
+	if routerHasRegistered(options.Router) {
+		scope.Handlers = []string{defaultRegisteredDir}
+		// A page template sits beside the handler that renders it.
+		scope.Templates = []string{defaultRegisteredDir, defaultTemplatesDir}
+	}
+	if routerHasDiscovered(options.Router) {
+		// A tree root is one generation run, not a directory of independent
+		// sources, so it is never listed under another purpose.
+		scope.Pages = []string{defaultDiscoveredDir}
 	}
 	if options.Database {
 		// A purpose may only name directories that exist, so a project without

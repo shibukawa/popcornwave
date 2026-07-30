@@ -13,7 +13,7 @@ pw help
 
 ```
 Usage: pw <command>
-Commands: init, add, new, generate, migrate, seed, build, dev
+Commands: init, add, new, generate, migrate, seed, build, dev, doctor
 Migrate actions: status, version, up, up-by-one, up-to, down, down-to, create, validate, snapshot
 Seed usage: pw seed [--dir=testdata/seed] [name...]
 ```
@@ -36,6 +36,7 @@ go install github.com/shibukawa/popcornwave/cmd/pw@latest
 | [`pw generate`](/pw/project/generate/) | compile `.pw.html` and `.pw.sql` into Go |
 | [`pw dev`](/pw/project/dev/) | watch, regenerate, migrate, and restart |
 | [`pw build`](/pw/project/build/) | produce a release binary |
+| [`pw doctor`](/pw/project/doctor/) | report what an environment would run, and what is wrong |
 
 ### Database
 
@@ -61,4 +62,4 @@ are written to standard error prefixed with `pw:`.
 
 The deployed binary has a different command line: configuration flags,
 configuration scaffold output, and application-defined subcommands. See
-[Application CLI](/guides/application-cli/) for that boundary.
+[Custom Commands](/guides/architecture/custom-commands/) for that boundary.

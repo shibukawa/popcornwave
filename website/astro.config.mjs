@@ -55,14 +55,30 @@ export default defineConfig({
           items: [{ autogenerate: { directory: 'start' } }],
         },
         {
-          label: 'Guides',
-          translations: { ja: 'ガイド' },
-          items: [{ autogenerate: { directory: 'guides' } }],
+          label: 'Tutorial',
+          translations: { ja: 'チュートリアル' },
+          items: [{ autogenerate: { directory: 'tutorial' } }],
         },
         {
-          label: 'Interaction Ideas',
-          translations: { ja: 'インタラクション集' },
-          items: [{ autogenerate: { directory: 'interaction' } }],
+          label: 'Guides',
+          translations: { ja: 'ガイド' },
+          items: [
+            {
+              label: 'For Frontend',
+              translations: { ja: 'フロントエンド' },
+              items: [{ autogenerate: { directory: 'guides/frontend' } }],
+            },
+            {
+              label: 'As a Backend',
+              translations: { ja: 'バックエンド' },
+              items: [{ autogenerate: { directory: 'guides/backend' } }],
+            },
+            {
+              label: 'Architecture',
+              translations: { ja: 'アーキテクチャ' },
+              items: [{ autogenerate: { directory: 'guides/architecture' } }],
+            },
+          ],
         },
         {
           label: 'Advanced Features',
@@ -90,6 +106,11 @@ export default defineConfig({
               items: [{ autogenerate: { directory: 'pw/database' } }],
             },
           ],
+        },
+        {
+          label: 'Reference',
+          translations: { ja: 'リファレンス' },
+          items: [{ autogenerate: { directory: 'reference' } }],
         },
         {
           label: 'Appendix',

@@ -3,7 +3,7 @@ id: rule:savepoint-dialect-support
 type: rule
 title: Savepoint Dialect Support
 ---
-Savepoint capability is a static property of the driver resolved by decision:config-driven-database, not a runtime probe.
+Savepoint capability is a static property of the dialect rule:rdb-dsn-resolution reports, not a runtime probe.
 
 ```yaml
 statements:
@@ -14,7 +14,7 @@ supported:
   - requirement:contrib-sqlite
   - requirement:contrib-postgresql
   - requirement:contrib-mysql
-support_tier_note: listing a dialect here states savepoint syntax support only; runtime support tier stays decision:server-sql-support-tier
+support_tier_note: every listed dialect is first-class under decision:server-sql-support-tier, so this list and the support tier now agree
 unknown_driver:
   default: unsupported
   effect: nested api:transaction-runner calls fail; depth 0 transactions still work

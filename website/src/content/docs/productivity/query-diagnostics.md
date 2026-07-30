@@ -140,5 +140,5 @@ Test runs default to `dev`, so an application test that exercises generated
 queries logs them too. That is usually what you want from a failing test. To
 quiet it, set `enabled = "off"` in the configuration your tests load.
 
-See [Queries and migrations](/guides/queries/) for the statements themselves and
-[Configuration](/guides/configuration/) for how these keys are resolved.
+See [Queries](/guides/backend/queries/) for the statements themselves and
+[Configuration](/guides/architecture/configuration/) for how these keys are resolved.

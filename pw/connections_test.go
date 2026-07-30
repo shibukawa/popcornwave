@@ -10,6 +10,17 @@ import (
 	"github.com/shibukawa/tinybind-go/minitoml"
 )
 
+// applyRDBConnections drives the generated binding and hands back just the
+// connection set. The elements used to be read by hand here; codegen owns that
+// now, so the tests below exercise the code that actually runs.
+func applyRDBConnections(overlay *configbind.Overlay) ([]RDBConnectionConfig, error) {
+	var config MiddlewareConfig
+	if err := applyMiddlewareConfigDefinition4(&config, overlay); err != nil {
+		return nil, err
+	}
+	return config.RDB.Connections, nil
+}
+
 func TestApplyRDBConnectionsReadsElementsAndDefaults(t *testing.T) {
 	element := func(pairs map[string]string) *configbind.Overlay {
 		table := configbind.NewOverlay()
@@ -45,7 +56,8 @@ func TestApplyRDBConnectionsReadsElementsAndDefaults(t *testing.T) {
 	if connections[0].ReadOnly {
 		t.Fatal("an element without readonly was marked read-only")
 	}
-	// A malformed element value names the element, not just the key.
+	// A malformed element value names the key and the element it came from, so
+	// an operator with several connections is told which one to fix.
 	broken := configbind.NewOverlay()
 	broken.SetTables("middleware.rdb.connections", []*configbind.Overlay{
 		element(map[string]string{"group": "writer", "conn_max_lifetime": "thirty"}),
@@ -171,7 +183,13 @@ func TestConnectionBootEntriesRedactEveryElementDSN(t *testing.T) {
 		element(map[string]string{"group": "replica", "dsn": "postgres://app:s3cret@replica/app", "readonly": "true"}),
 	}, configbind.PlaceFile)
 
-	entries := bootEntries(overlay)
+	// bootEntries takes a LoadResult now and hands array elements to this, which
+	// is the step the indexed key and its redaction belong to.
+	arrayEntry, ok := overlay.Get("middleware.rdb.connections")
+	if !ok {
+		t.Fatal("the connections array is missing from the overlay")
+	}
+	entries := tableArrayEntries("middleware.rdb.connections", arrayEntry)
 	found := map[string]string{}
 	for _, entry := range entries {
 		found[entry.key] = entry.value

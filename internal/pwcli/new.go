@@ -12,15 +12,26 @@ import (
 	"unicode"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/shibukawa/popcornwave/internal/pwgen"
 )
 
-// newKindHandler is the only implemented kind. A second one costs an entry
-// here, a step list, and its scaffold branch.
-const newKindHandler = "handler"
+// The implemented kinds. A third one costs an entry here, a step list, and its
+// scaffold branch.
+//
+// A kind is named after the source it writes, never after the router that will
+// serve it: pw add installs a registered or a discovered router, and pw new adds
+// a handler or a page to one that is already there. The two commands work at
+// different levels, so they use different words on purpose.
+const (
+	newKindHandler = "handler"
+	// newKindPage adds a route to a concept:page-tree. It is offered only to a
+	// project that has one, because a route with no tree to live in is nothing.
+	newKindPage = "page"
+)
 
-var newKinds = []string{newKindHandler}
+var newKinds = []string{newKindHandler, newKindPage}
 
-const newUsage = "usage: pw new [" + newKindHandler + "]"
+const newUsage = "usage: pw new [" + newKindHandler + "|" + newKindPage + "]"
 
 // newOptions holds every answer the wizard collects.
 type newOptions struct {
@@ -34,6 +45,11 @@ type newOptions struct {
 	HTML bool
 	// Input scaffolds a request type and the pw.Parse call that fills it.
 	Input bool
+	// Rung selects how much Go runs between the request and the render of a
+	// page. It applies to the page kind only.
+	Rung string
+	// Layout writes the tree's layout when it has none yet.
+	Layout bool
 }
 
 func runNew(ctx context.Context, args []string, stdout io.Writer) error {
@@ -55,15 +71,30 @@ func runNew(ctx context.Context, args []string, stdout io.Writer) error {
 		}
 		options.Kind = arg
 	}
-	destinations, err := handlerDestinations(state)
-	if err != nil {
-		return err
+	var destinations []string
+	if options.Kind == newKindPage {
+		destinations = pageDestinations(state)
+		if len(destinations) == 0 {
+			// The kinds this command writes are named after the source — a page,
+			// a handler — while the routers that serve them are named registered
+			// and discovered. Installing one is pw add's job, so the message
+			// crosses from one vocabulary to the other rather than mixing them.
+			return fmt.Errorf("new: this project serves no %s; run pw add %s, or list a tree root in generate.pages",
+				newKindPage+" tree", capabilityDiscovered)
+		}
+		options.Package = preselectedPageTree(state, destinations)
+		options.Rung = pageRungTemplate
+	} else {
+		destinations, err = handlerDestinations(state)
+		if err != nil {
+			return err
+		}
+		if len(destinations) == 0 {
+			return fmt.Errorf("new: this project serves no %s package; run pw add %s, or list a directory in generate.handlers",
+				newKindHandler, capabilityRegistered)
+		}
+		options.Package = preselectedPackage(state, destinations)
 	}
-	if len(destinations) == 0 {
-		return fmt.Errorf("new: generate.handlers lists no directory that can hold a handler; %s",
-			"add one to popcornwave.toml first")
-	}
-	options.Package = preselectedPackage(state, destinations)
 	if !interactiveTerminal() {
 		return fmt.Errorf("new: the wizard needs a terminal; %s", newUsage)
 	}
@@ -75,7 +106,7 @@ func runNew(ctx context.Context, args []string, stdout io.Writer) error {
 	if err != nil {
 		return err
 	}
-	plan, err := planHandler(state, options)
+	plan, err := planNewSource(state, options)
 	if err != nil {
 		return err
 	}
@@ -86,12 +117,34 @@ func runNew(ctx context.Context, args []string, stdout io.Writer) error {
 		fmt.Fprintln(stdout, " ", line)
 	}
 	if err := runGenerate(ctx, nil, stdout); err != nil {
-		// The handler is handwritten source the operator owns and fixes, so it
-		// stays; only the generated artifacts are missing.
+		// The written sources are handwritten code the operator owns and fixes,
+		// so they stay; only the generated artifacts are missing.
 		return fmt.Errorf("generate %s: %w", options.Package, err)
+	}
+	if options.Kind == newKindPage {
+		fmt.Fprintf(stdout, "\nAdded GET %s\n", pageRoutePattern(options.Path))
+		return nil
 	}
 	fmt.Fprintf(stdout, "\nAdded %s %s\n", options.Method, options.Path)
 	return nil
+}
+
+// planNewSource routes one answer set to the scaffold of its kind.
+func planNewSource(state projectState, options newOptions) (*capabilityPlan, error) {
+	if options.Kind == newKindPage {
+		return planPage(state, options)
+	}
+	return planHandler(state, options)
+}
+
+// pageRoutePattern normalizes what the operator typed into the path the route
+// is actually served under.
+func pageRoutePattern(path string) string {
+	trimmed := "/" + strings.Trim(strings.TrimSpace(path), "/")
+	if trimmed == "/" {
+		return "/{$}"
+	}
+	return trimmed
 }
 
 // handlerDestinations lists the directories a handler may go in: the
@@ -322,13 +375,19 @@ func runNewWizard(state projectState, destinations []string, defaults newOptions
 }
 
 func newNewWizard(state projectState, destinations []string, defaults newOptions) wizardModel[newOptions] {
+	steps := newWizardSteps(state, destinations, defaults)
+	title := "Popcorn Wave  new handler"
+	if defaults.Kind == newKindPage {
+		steps = newPageWizardSteps(state, destinations, defaults)
+		title = "Popcorn Wave  new page"
+	}
 	return wizardModel[newOptions]{
-		steps:    newWizardSteps(state, destinations, defaults),
+		steps:    steps,
 		defaults: defaults,
-		title:    "Popcorn Wave  new handler",
+		title:    title,
 		confirm:  "write",
 		plan: func(options newOptions) []string {
-			plan, err := planHandler(state, options)
+			plan, err := planNewSource(state, options)
 			if err != nil {
 				return []string{"cannot write it: " + err.Error()}
 			}
@@ -336,6 +395,96 @@ func newNewWizard(state projectState, destinations []string, defaults newOptions
 		},
 		theme: newWizardTheme(),
 	}
+}
+
+// newPageWizardSteps asks what a route needs: where it lives, what it serves,
+// and how much Go runs before it renders.
+func newPageWizardSteps(state projectState, destinations []string, defaults newOptions) []wizardStep[newOptions] {
+	trees := make([]wizardChoice[newOptions], 0, len(destinations))
+	for _, destination := range destinations {
+		trees = append(trees, wizardChoice[newOptions]{
+			name:        destination,
+			description: "a generate.pages tree root",
+			apply:       func(target *newOptions) { target.Package = destination },
+		})
+	}
+	steps := []wizardStep[newOptions]{
+		newTextStep(
+			"Path",
+			"The URL this page answers: /about, /users/{id}, or /files/{rest...}. "+
+				"A dynamic segment becomes a directory ending in an underscore, because it is also a Go package.",
+			defaults.Path,
+			"/about",
+			validatePagePath,
+			func(target *newOptions, value string) { target.Path = value },
+		),
+		newChoiceStep(
+			"Go beside the page",
+			"One file is a page. What you add beside it decides how much Go runs between the request and the render.",
+			0,
+			wizardChoice[newOptions]{
+				name:        "None",
+				description: "the template alone; its own external calls fetch the data",
+				apply:       func(target *newOptions) { target.Rung = pageRungTemplate },
+			},
+			wizardChoice[newOptions]{
+				name:        "Typed Load",
+				description: "page.go returns the page's parameters; the handler is still generated",
+				apply:       func(target *newOptions) { target.Rung = pageRungTyped },
+			},
+			wizardChoice[newOptions]{
+				name:        "Handler Load",
+				description: "page.go owns the whole response; only the registration is generated",
+				apply:       func(target *newOptions) { target.Rung = pageRungHandler },
+			},
+		),
+	}
+	if len(trees) > 1 {
+		steps = append([]wizardStep[newOptions]{newChoiceStep(
+			"Page tree",
+			"Only generate.pages roots are offered; a page elsewhere is served by nothing.",
+			max(slices.Index(destinations, defaults.Package), 0),
+			trees...,
+		)}, steps...)
+	}
+	// A tree with no layout above the new route renders the page on its own,
+	// which is a working page but rarely the one wanted.
+	if !hasPageLayout(state, defaults.Package) {
+		steps = append(steps, newChoiceStep(
+			"Layout",
+			"This tree has no layout, so a page renders on its own. A layout wraps every page below it.",
+			0,
+			wizardChoice[newOptions]{
+				name:        "Add one",
+				description: "writes " + defaults.Package + "/" + pwgen.LayoutFile,
+				apply:       func(target *newOptions) { target.Layout = true },
+			},
+			wizardChoice[newOptions]{
+				name:        "No",
+				description: "the page renders with no wrapper of its own",
+				apply:       func(target *newOptions) { target.Layout = false },
+			},
+		))
+	}
+	return steps
+}
+
+// hasPageLayout reports whether a tree root already carries a layout.
+func hasPageLayout(state projectState, root string) bool {
+	if root == "" {
+		return true
+	}
+	_, err := os.Stat(filepath.Join(state.root, filepath.FromSlash(root), pwgen.LayoutFile))
+	return err == nil
+}
+
+// validatePagePath reports why a route path cannot become directories.
+func validatePagePath(path string) error {
+	if strings.TrimSpace(path) == "" {
+		return errors.New("enter a path, such as /about")
+	}
+	_, err := parsePagePath(path)
+	return err
 }
 
 func newWizardSteps(state projectState, destinations []string, defaults newOptions) []wizardStep[newOptions] {

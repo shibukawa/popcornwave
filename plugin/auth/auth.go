@@ -284,6 +284,6 @@ func parseSameSite(value string) (http.SameSite, error) {
 }
 
 func writeUnavailable(w http.ResponseWriter, r *http.Request, err error) {
-	pw.Logger(r.Context()).ErrorContext(r.Context(), "session backend unavailable", "error", err)
+	pw.Logger(r.Context()).Log(r.Context(), pw.LevelError, "session backend unavailable", pw.Err(err))
 	pw.WriteProblem(w, r, pw.ServiceUnavailable())
 }

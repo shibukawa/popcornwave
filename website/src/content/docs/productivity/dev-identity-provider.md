@@ -50,9 +50,9 @@ running application already holds stay valid, so no restart is needed.
 
 The provider implements Authorization Code with mandatory S256 PKCE, discovery,
 JWKS, RS256 ID Tokens, and UserInfo. Refresh tokens, logout, device and client
-credentials grants, and consent screens are deliberately absent. See
+credentials grants, and consent screens are deliberately absent. `pw build`
+refuses to build an application that imports it. See
 [`contrib/devidp`](https://github.com/shibukawa/popcornwave/tree/main/contrib/devidp).
-`pw build` refuses to build an application that imports it.
 
 For tests, `testutil.WithIdentityProvider` starts the same provider and
 `WithLoginUser` pre-selects the subject, so a login completes without a browser.

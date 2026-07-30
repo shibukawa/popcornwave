@@ -13,7 +13,7 @@ pw help
 
 ```
 Usage: pw <command>
-Commands: init, add, new, generate, migrate, seed, build, dev
+Commands: init, add, new, generate, migrate, seed, build, dev, doctor
 Migrate actions: status, version, up, up-by-one, up-to, down, down-to, create, validate, snapshot
 Seed usage: pw seed [--dir=testdata/seed] [name...]
 ```
@@ -36,6 +36,7 @@ go install github.com/shibukawa/popcornwave/cmd/pw@latest
 | [`pw generate`](/ja/pw/project/generate/) | `.pw.html` と `.pw.sql` を Go にコンパイルする |
 | [`pw dev`](/ja/pw/project/dev/) | 監視、再生成、マイグレーション、再起動 |
 | [`pw build`](/ja/pw/project/build/) | リリース用バイナリを作る |
+| [`pw doctor`](/ja/pw/project/doctor/) | その環境で何が動き、どこが間違っているかを報告する |
 
 ### データベース
 
@@ -60,4 +61,4 @@ go install github.com/shibukawa/popcornwave/cmd/pw@latest
 
 デプロイするバイナリには別のコマンドラインがあります。設定オプション、設定
 スキャフォールドの出力、アプリケーション定義のサブコマンドです。この境界は
-[アプリケーション CLI](/ja/guides/application-cli/)で扱います。
+[カスタムコマンド](/ja/guides/architecture/custom-commands/)で扱います。

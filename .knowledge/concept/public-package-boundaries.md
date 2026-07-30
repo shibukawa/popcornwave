@@ -12,7 +12,9 @@ handwritten_default:
 generated_runtime:
   import: github.com/shibukawa/popcornwave/pwruntime
   rule: generated code may use pwruntime but handwritten application code normally does not
+  page_tree: api:page-render-runtime is the same kind of boundary for generated page code, and it imports pw rather than being imported by it
 public_lower_level:
+  - pwpage
   - server
   - middlewares
   - session
@@ -24,6 +26,7 @@ tinybind:
   normal_usage: hidden
   escape_hatch: applications may intentionally import low-level packages such as jsonbind
 drivers:
-  selection: explicit application imports
-  rule: data:project-config never selects runtime drivers
+  registry: github.com/shibukawa/popcornwave/database, with one subpackage per engine
+  selection: explicit application imports, resolved by rule:rdb-dsn-resolution
+  rule: data:project-config never selects runtime drivers; the rdb DSN scheme does
 ```
