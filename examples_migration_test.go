@@ -22,7 +22,7 @@ func TestExampleFrameworkMigrationsMatchOwners(t *testing.T) {
 		rdb.MigrationName:  rdb.MigrationSQL(""),
 		auth.MigrationName: auth.MigrationSQL(),
 	}
-	for _, example := range []string{"oidclogin"} {
+	for _, example := range []string{"oidclogin", "passkeylogin"} {
 		directory := filepath.Join("examples", example, "migrations")
 		entries, err := os.ReadDir(directory)
 		if err != nil {

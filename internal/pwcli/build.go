@@ -44,11 +44,16 @@ func runBuild(ctx context.Context, args []string, stdout, stderr io.Writer) erro
 	return nil
 }
 
-// developmentOnlyPackages must never reach a built application. The
-// development identity provider authenticates nobody, so linking it into a
-// deployable binary is a security defect rather than a configuration mistake.
+// developmentOnlyPackages must never reach a built application. Each one is a
+// security defect in a deployable binary rather than a configuration mistake:
+// the development identity provider authenticates nobody, the virtual
+// authenticator holds a signing key that mints assertions a relying party
+// accepts, and the authentication test seam builds a request context that is
+// already logged in.
 var developmentOnlyPackages = []string{
 	"github.com/shibukawa/popcornwave/contrib/devidp",
+	"github.com/shibukawa/popcornwave/contrib/passkey/passkeytest",
+	"github.com/shibukawa/popcornwave/plugin/auth/authtest",
 }
 
 func rejectDevelopmentImports(ctx context.Context, root, mainPackage string) error {

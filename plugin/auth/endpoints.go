@@ -34,12 +34,18 @@ func (rt *runtime) endpoints(next http.Handler) http.Handler {
 			pw.WriteProblem(w, r, pw.BadRequest())
 			return
 		}
-		switch path {
-		case rt.config.LoginPath:
+		// A ceremony path is claimed before the OIDC paths so that a mode
+		// without a provider never falls through to a login it cannot serve.
+		if suffix, mounted := rt.passkeyPaths[path]; mounted {
+			rt.handlePasskey(w, r, suffix)
+			return
+		}
+		switch {
+		case rt.config.usesOIDC() && path == rt.config.LoginPath:
 			rt.handleLogin(w, r)
-		case rt.config.CallbackPath:
+		case rt.config.usesOIDC() && path == rt.config.CallbackPath:
 			rt.handleCallback(w, r)
-		case rt.config.LogoutPath:
+		case path == rt.config.LogoutPath:
 			rt.handleLogout(w, r)
 		default:
 			next.ServeHTTP(w, r)
@@ -133,7 +139,7 @@ func (rt *runtime) handleCallback(w http.ResponseWriter, r *http.Request) {
 		Key:         identity.Key,
 		DisplayName: account.DisplayName,
 		Email:       account.Email,
-	}, methodOIDC)
+	}, MethodOIDC)
 	if err != nil {
 		pw.Logger(r.Context()).ErrorContext(r.Context(), "session creation failed", "error", err)
 		pw.WriteProblem(w, r, pw.ServiceUnavailable())

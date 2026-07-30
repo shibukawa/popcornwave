@@ -23,8 +23,16 @@ questions:
     default: none
     none: no data:authentication-runtime-config section is written
     oidc: auth.mode oidc
-    oidc_passkey: auth.mode oidc_passkey per decision:authentication-bootstrap-strategy
-    passkey_only: auth.mode passkey_only recorded with auth.enabled false, because no implementation exists yet
+    oidc-passkey: auth.mode oidc_passkey per decision:authentication-bootstrap-strategy, with recovery.policy oidc
+    passkey: auth.mode passkey_only, with registration.policy and recovery.policy both administrator and the bootstrap bounds set
+    passkey_scaffold:
+      when: the selected mode mounts api:passkey-endpoints
+      config: passkey.rp_id localhost, passkey.origins the development origin, user_verification required, discoverable preferred
+      origin: an OIDC redirect_url in a passkey mode uses localhost rather than 127.0.0.1, because an origin has to sit inside the RP ID and an address can never be one
+      accounts: SetAccountLookup for every passkey mode, plus SetAccountActivator and an IssueBootstrapCredential wrapper for passkey_only
+      browser: public/passkey.js, dependency free, because the framework serves the endpoints but cannot call navigator.credentials for the page
+      page: controls bound by element id, so the template carries no inline script
+      emulator: refused outside an OIDC mode, so passkey_only never scaffolds an identity provider roster
   oidc_provider:
     asked_when: the selected mode uses OIDC
     local_emulator: requirement:contrib-devidp enabled through data:project-config dev.idp, with a data:devidp-config starter roster

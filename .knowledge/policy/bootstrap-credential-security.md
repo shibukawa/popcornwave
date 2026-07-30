@@ -23,8 +23,12 @@ authorization:
     - application handlers
     - account administration
     - normal session creation before passkey persistence
+grant_shape:
+  form: a single-use enrollment ticket, not a session
+  reason: a session with a restriction relies on every handler remembering the restriction, while a request that carries no session cannot be mistaken for authority at all
+  effect: the request stays unauthenticated until the passkey is persisted
 completion:
   - atomically persist the passkey, activate the account, and consume the credential
-  - replace the restricted enrollment session with a new normal session
-  - invalidate abandoned restricted sessions after a short TTL
+  - replace the restricted enrollment ticket with a normal session
+  - invalidate an abandoned ticket after a short TTL
 ```

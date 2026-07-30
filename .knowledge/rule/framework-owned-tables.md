@@ -13,6 +13,14 @@ current_tables:
   popcornwave_session: plugin/session/rdb login sessions
   popcornwave_authstate: contrib/authstate/sqlite single-use ceremony records
   popcornwave_auth_allowlist: plugin/auth pre-registration for policy:oidc-admission registered mode
+  popcornwave_passkey_credential: the api:auth-credential-store default store for data:passkey-credential
+  popcornwave_auth_bootstrap: the api:auth-credential-store default store for data:account-bootstrap-credential
+conditional_verification:
+  tables: popcornwave_passkey_credential and popcornwave_auth_bootstrap
+  rule: a table is verified only when the selected mode reads it and the application installed no store of its own
+  bootstrap: additionally only when registration or recovery actually issues a credential
+  reason: a deployment asked for a table nothing will ever write to learns to ignore the startup refusal
+  note: the migration still creates them, because one package publishes one file
 migrations:
   location: the application migration directory, beside application migrations
   file_name: "{version}_init_popcornwave_{capability}.sql"

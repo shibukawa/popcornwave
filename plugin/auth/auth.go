@@ -22,13 +22,21 @@ import (
 	authsqlite "github.com/shibukawa/popcornwave/contrib/authstate/sqlite"
 	"github.com/shibukawa/popcornwave/contrib/oauth"
 	"github.com/shibukawa/popcornwave/contrib/oidc"
+	"github.com/shibukawa/popcornwave/contrib/passkey"
 	"github.com/shibukawa/popcornwave/plugin/session/rdb"
 	"github.com/shibukawa/popcornwave/pw"
 	"github.com/shibukawa/popcornwave/session"
 )
 
-// methodOIDC labels sessions created by the OIDC flow.
-const methodOIDC = "oidc"
+// Authentication method names recorded on a session and reported by
+// pw.RequestAuthentication. An application compares against these rather than
+// against a literal.
+const (
+	// MethodOIDC labels sessions created by the OIDC flow.
+	MethodOIDC = "oidc"
+	// MethodPasskey labels sessions created by a passkey assertion.
+	MethodPasskey = "passkey"
+)
 
 // stateNamespace isolates this package's correlation records in the shared
 // auth state table.
@@ -64,6 +72,17 @@ type runtime struct {
 	cookiePolicy pw.SessionCookieConfig
 	include      []pattern
 	exclude      []pattern
+	// passkeyFlow is nil unless the selected mode mounts api:passkey-endpoints.
+	passkeyFlow *passkey.SessionFlow
+	// credentials and bootstrap are the installed stores, or the framework
+	// defaults over the tables this package owns.
+	credentials CredentialStore
+	bootstrap   BootstrapStore
+	// enrollment holds the restricted tickets a redeemed bootstrap credential
+	// grants. It is nil outside passkey_only.
+	enrollment *authsqlite.Store[enrollmentTicket]
+	// passkeyPaths maps a mounted ceremony path to its endpoint suffix.
+	passkeyPaths map[string]string
 	// stopPruning ends the background expiry sweep during shutdown.
 	stopPruning chan struct{}
 
@@ -141,7 +160,7 @@ func setupSession(ctx context.Context) (pw.Middleware, error) {
 	if table == "" {
 		table = rdb.DefaultTable
 	}
-	if err := verifyTables(schemaCtx, db, table); err != nil {
+	if err := verifyTables(schemaCtx, db, table, config); err != nil {
 		return nil, err
 	}
 	if err := sessionStore.VerifySchema(schemaCtx); err != nil {
@@ -173,6 +192,12 @@ func setupSession(ctx context.Context) (pw.Middleware, error) {
 		include:      include,
 		exclude:      exclude,
 		stopPruning:  make(chan struct{}),
+		passkeyPaths: config.passkeyPaths(),
+	}
+	if config.usesPasskey() {
+		if err := instance.setupPasskey(schemaCtx, db); err != nil {
+			return nil, err
+		}
 	}
 	// Sessions that are never revoked and ceremonies that are never completed
 	// only expire logically, so a sweep keeps both tables bounded.
@@ -256,7 +281,7 @@ func sessionOptions(config pw.SessionConfig) (session.Options[SessionData], erro
 			HTTPOnly: config.Cookie.HTTPOnly,
 			SameSite: sameSite,
 		},
-		Method:  methodOIDC,
+		Method:  MethodOIDC,
 		Subject: func(data SessionData) string { return data.AccountID },
 	}, nil
 }

@@ -1,0 +1,19 @@
+# Development identity provider users, selected on the login screen.
+# pw dev serves these; no password is checked, so this file never ships.
+#
+# employee_number is what auth.oidc.identity_claim selects, so it is the value
+# this application links its accounts to.
+
+[users.hanako]
+display_name = "Hanako Yamada"
+[users.hanako.claims]
+name = "Hanako Yamada"
+email = "hanako@example.com"
+employee_number = "EMP-0001"
+
+[users.taro]
+display_name = "Taro Suzuki"
+[users.taro.claims]
+name = "Taro Suzuki"
+email = "taro@example.com"
+employee_number = "EMP-0002"

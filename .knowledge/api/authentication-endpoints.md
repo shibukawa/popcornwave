@@ -55,8 +55,12 @@ rules:
   - the account link is the issuer plus the claim auth.oidc.identity_claim names, never an email address
   - identity carries proof of authentication only; authorization stays with the application
 modes:
-  oidc_only: implemented
-  oidc_passkey and passkey_only: rejected during startup validation, and api:cli-init records the choice without enabling it
+  oidc_only: implemented; this concept is its whole endpoint surface
+  oidc_passkey: these endpoints plus the login and enrollment endpoints of api:passkey-endpoints
+  passkey_only: api:passkey-endpoints alone; login_path, callback_path, and the OIDC configuration are absent
+  logout: shared by every mode, because a session is mode-neutral once created
+  selection: data:authentication-runtime-config mode_validation decides which endpoints mount and which fields are read
+  status: every mode serves; api:cli-init still records passkey_only with auth.enabled false until its scaffold exists
 guard:
   paths: auth.protection.include requires a session, everything else stays public
   unauthenticated: redirect through the login and return, or answer 401

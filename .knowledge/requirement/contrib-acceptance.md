@@ -38,6 +38,14 @@ package_gates:
   requirement:contrib-passkey:
     - ES256 registration and authentication succeed against two independent authenticator fixtures or implementations
     - negative vectors cover challenge, origin, RP ID hash, flags, user handle, algorithm, signature, counter, and backup state
+  requirement:contrib-passkey-test:
+    - a registration and an authentication built from the emitted options JSON alone complete against requirement:contrib-passkey
+    - every declared fault is rejected with its specific requirement:contrib-passkey error and none is accepted
+    - a seeded run reproduces identical credential IDs and keys; signatures still vary, because ECDSA is randomized exactly as it is on a real authenticator
+    - two credentials registered for one account are independently selectable through allowCredentials
+    - discoverable and non-discoverable registrations differ only in the returned user handle
+    - it counts as at most one of the two independent authenticator implementations, per decision:passkey-test-authenticator
+    - the TinyGo matrix is not required, per decision:host-tools-target-runtime
   requirement:contrib-otel:
     - W3C propagation vectors pass
     - OTLP/HTTP JSON trace and log requests are accepted on standard endpoints by an OpenTelemetry Collector

@@ -1,0 +1,7 @@
+.devbox/
+devbox.d/
+/passkeylogin
+/pw
+*_pw_gen.go
+public/**/*.zstd
+*.db

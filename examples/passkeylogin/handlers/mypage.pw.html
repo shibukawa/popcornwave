@@ -1,0 +1,18 @@
+package handlers
+
+export component MyPage(displayName: string, accountID: string, issuer: string, keyClaim: string, key: string, subject: string, method: string): html {
+<main>
+  <h1>Protected page</h1>
+  <p class="badge">auth.protection.include matches this path</p>
+  <p>Hello, {displayName}.</p>
+  <dl>
+    <dt>Local account</dt><dd>{accountID}</dd>
+    <dt>Issuer</dt><dd>{issuer}</dd>
+    <dt>Identified by</dt><dd>{keyClaim} = {key}</dd>
+    <dt>Subject</dt><dd>{subject}</dd>
+    <dt>Authentication method</dt><dd>{method}</dd>
+  </dl>
+  <p><a href="/">Back to the public page</a></p>
+  <form method="post" action="/auth/logout"><button type="submit">Log out</button></form>
+</main>
+}

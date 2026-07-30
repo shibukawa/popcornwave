@@ -74,11 +74,11 @@ func TestScaffoldWiresAnExternalProvider(t *testing.T) {
 func TestScaffoldWiresTheFrameworkOwnedEndpoints(t *testing.T) {
 	files := scaffoldFiles(initOptions{Name: "demo", TinyGo: true, Auth: authOIDC, AuthEmulator: true})
 
-	// Registering the resolver is the whole application-side wiring: it also
-	// imports plugin/auth, whose extensions serve the endpoints.
+	// Registering the account seams is the whole application-side wiring: it
+	// also imports plugin/auth, whose extensions serve the endpoints.
 	main := files["cmd/demo/main.go"]
-	if !strings.Contains(main, "handlers.RegisterAccountResolver()") {
-		t.Fatalf("main.go does not install the account resolver:\n%s", main)
+	if !strings.Contains(main, "handlers.RegisterAccounts()") {
+		t.Fatalf("main.go does not install the account seams:\n%s", main)
 	}
 	resolver, ok := files["handlers/accounts.go"]
 	if !ok || !strings.Contains(resolver, "auth.SetAccountResolver(resolveAccount)") {
@@ -125,42 +125,107 @@ func TestScaffoldedAuthKeysAreRegistered(t *testing.T) {
 		// [auth]
 		"mode": true, "post_login_path": true,
 		"protection.include": true, "protection.unauthenticated": true,
+		"recent_auth_max_age": true, "registration.policy": true, "recovery.policy": true,
+		"bootstrap.issue_ttl": true, "bootstrap.enrollment_ttl": true, "bootstrap.max_attempts": true,
+		// [auth.passkey]
+		"rp_id": true, "rp_name": true, "origins": true,
+		"user_verification": true, "discoverable": true,
 		// [auth.oidc]
 		"issuer": true, "client_id": true, "client_secret": true,
 		"redirect_url": true, "scopes": true, "identity_claim": true,
 		"admission": true, "auto_provision": true,
 		"provider_logout": true, "allow_loopback_http": true,
 	}
-	config := scaffoldFiles(initOptions{Name: "demo", Auth: authOIDC})[pwenv.FileName(pwenv.Development)]
-	section := config[strings.Index(config, "[session]"):]
-	for _, line := range strings.Split(section, "\n") {
-		line = strings.TrimSpace(line)
-		if line == "" || strings.HasPrefix(line, "#") || strings.HasPrefix(line, "[") {
-			continue
-		}
-		key, _, found := strings.Cut(line, "=")
-		if !found {
-			t.Fatalf("unparsable line %q", line)
-		}
-		if !known[strings.TrimSpace(key)] {
-			t.Fatalf("scaffolded key %q is not registered by the plugins", strings.TrimSpace(key))
-		}
+	for _, mode := range []string{authOIDC, authOIDCPasskey, authPasskey} {
+		t.Run(mode, func(t *testing.T) {
+			config := scaffoldFiles(initOptions{Name: "demo", Auth: mode})[pwenv.FileName(pwenv.Development)]
+			section := config[strings.Index(config, "[session]"):]
+			for _, line := range strings.Split(section, "\n") {
+				line = strings.TrimSpace(line)
+				if line == "" || strings.HasPrefix(line, "#") || strings.HasPrefix(line, "[") {
+					continue
+				}
+				key, _, found := strings.Cut(line, "=")
+				if !found {
+					t.Fatalf("unparsable line %q", line)
+				}
+				if !known[strings.TrimSpace(key)] {
+					t.Fatalf("scaffolded key %q is not registered by the plugins", strings.TrimSpace(key))
+				}
+			}
+		})
 	}
 }
 
-func TestScaffoldRecordsPasskeyOnlyWithoutEnablingIt(t *testing.T) {
-	files := scaffoldFiles(initOptions{Name: "demo", Auth: authPasskey})
+// passkey_only has no provider, so it scaffolds neither an OIDC section nor an
+// identity provider roster, and it must choose both lifecycle policies.
+func TestScaffoldPasskeyOnly(t *testing.T) {
+	files := scaffoldFiles(initOptions{Name: "demo", Auth: authPasskey, AuthEmulator: true})
 	config := files[pwenv.FileName(pwenv.Development)]
-	// plugin/auth rejects the mode, so an enabled section would fail at
-	// startup. The choice is recorded as a comment instead.
-	if !strings.Contains(config, `# mode = "passkey_only"`) {
-		t.Fatalf("config = %q", config)
+	for _, want := range []string{
+		`mode = "passkey_only"`, `registration.policy = "administrator"`,
+		`recovery.policy = "administrator"`, `rp_id = "localhost"`,
+	} {
+		if !strings.Contains(config, want) {
+			t.Fatalf("config is missing %q:\n%s", want, config)
+		}
 	}
-	if _, ok := files["handlers/accounts.go"]; ok {
-		t.Fatal("a mode with no implementation must not scaffold a resolver")
+	if strings.Contains(config, "[auth.oidc]") {
+		t.Fatal("passkey_only reads no OIDC setting, so the scaffold must write none")
 	}
 	if _, ok := files[defaultIdPConfig]; ok {
 		t.Fatal("passkey-only must not scaffold an identity provider roster")
+	}
+	accounts := files["handlers/accounts.go"]
+	for _, want := range []string{"SetAccountLookup", "SetAccountActivator", "IssueBootstrapCredential"} {
+		if !strings.Contains(accounts, want) {
+			t.Fatalf("handlers/accounts.go is missing %q:\n%s", want, accounts)
+		}
+	}
+	if !strings.Contains(files["public/passkey.js"], "redeemBootstrap") {
+		t.Fatal("passkey_only needs the browser side of the bootstrap redemption")
+	}
+}
+
+// oidc_passkey serves both, so it carries the provider registration and the
+// relying-party registration together.
+func TestScaffoldOIDCPasskey(t *testing.T) {
+	files := scaffoldFiles(initOptions{Name: "demo", Auth: authOIDCPasskey, AuthEmulator: true})
+	config := files[pwenv.FileName(pwenv.Development)]
+	for _, want := range []string{
+		`mode = "oidc_passkey"`, "[auth.oidc]", "[auth.passkey]",
+		`recovery.policy = "oidc"`,
+		// The origin has to sit inside the RP ID, and an address cannot be one.
+		`redirect_url = "http://localhost:8080/auth/callback"`,
+	} {
+		if !strings.Contains(config, want) {
+			t.Fatalf("config is missing %q:\n%s", want, config)
+		}
+	}
+	if strings.Contains(config, "registration.policy") {
+		t.Fatal("oidc_passkey lets registration default to the provider login")
+	}
+	accounts := files["handlers/accounts.go"]
+	if !strings.Contains(accounts, "SetAccountResolver") || !strings.Contains(accounts, "SetAccountLookup") {
+		t.Fatalf("oidc_passkey needs both account seams:\n%s", accounts)
+	}
+	if strings.Contains(accounts, "SetAccountActivator") {
+		t.Fatal("only passkey_only activates a provisional account")
+	}
+	if _, ok := files[defaultIdPConfig]; !ok {
+		t.Fatal("oidc_passkey with the emulator needs an identity provider roster")
+	}
+}
+
+// Only a mode that mounts a ceremony endpoint needs the browser side.
+func TestBrowserScaffoldFollowsTheMode(t *testing.T) {
+	for mode, want := range map[string]bool{
+		authNone: false, authOIDC: false, authOIDCPasskey: true, authPasskey: true,
+	} {
+		_, ok := scaffoldFiles(initOptions{Name: "demo", Auth: mode})["public/passkey.js"]
+		if ok != want {
+			t.Fatalf("auth %s scaffolded passkey.js = %v, want %v", mode, ok, want)
+		}
 	}
 }
 
@@ -195,13 +260,30 @@ func TestInitWizardAsksForTheProviderOnlyForOIDC(t *testing.T) {
 	}
 }
 
+// oidc_passkey still needs a provider, so the wizard keeps asking for one.
+func TestInitWizardAsksForTheProviderForOIDCPasskey(t *testing.T) {
+	t.Chdir(t.TempDir())
+	model := feedWizard(t, newTestWizard(defaultInitOptions()),
+		typeText("demo"), pressKey(tea.KeyEnter),
+		pressKey(tea.KeyEnter), // TinyGo
+		pressKey(tea.KeyEnter), // Tailwind
+		typeText("3"),          // Authentication: OIDC and passkey
+	)
+	if model.reviewing() {
+		t.Fatal("the provider step was skipped for a mode that uses one")
+	}
+	if label := model.steps[model.index].label(); label != "OIDC provider" {
+		t.Fatalf("step = %q, want the provider question", label)
+	}
+}
+
 func TestInitWizardSkipsTheProviderStepWithoutOIDC(t *testing.T) {
 	t.Chdir(t.TempDir())
 	model := feedWizard(t, newTestWizard(initOptions{TinyGo: true, Auth: authOIDC, AuthEmulator: true}),
 		typeText("demo"), pressKey(tea.KeyEnter),
 		pressKey(tea.KeyEnter), // TinyGo
 		pressKey(tea.KeyEnter), // Tailwind
-		typeText("3"),          // Authentication: Passkey only
+		typeText("4"),          // Authentication: Passkey only
 	)
 	if !model.reviewing() {
 		t.Fatalf("expected the review screen, got step %q", model.steps[model.index].label())

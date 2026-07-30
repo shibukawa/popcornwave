@@ -111,8 +111,13 @@ func initWizardSteps(defaults initOptions) []wizardStep {
 				apply:       setAuth(authOIDC),
 			},
 			wizardChoice{
+				name:        "OIDC and passkey",
+				description: "the provider bootstraps the account; a passkey is the everyday login",
+				apply:       setAuth(authOIDCPasskey),
+			},
+			wizardChoice{
 				name:        "Passkey only",
-				description: "not implemented yet; the choice is recorded, disabled",
+				description: "no provider; an administrator issues the first sign-in credential",
 				apply:       setAuth(authPasskey),
 			},
 		),
@@ -152,8 +157,10 @@ func authCursor(mode string) int {
 	switch mode {
 	case authOIDC:
 		return 1
-	case authPasskey:
+	case authOIDCPasskey:
 		return 2
+	case authPasskey:
+		return 3
 	default:
 		return 0
 	}

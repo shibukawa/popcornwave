@@ -163,6 +163,35 @@ func SetAccountResolver(resolve AccountResolver) {
 	resolverState.resolve = resolve
 }
 
+// AccountLookup returns the account of a stable identifier. A passkey login
+// resolves a credential to an account ID, which AccountResolver cannot answer
+// because it starts from a verified external identity instead.
+type AccountLookup func(ctx context.Context, accountID string) (Account, error)
+
+var lookupState struct {
+	sync.RWMutex
+	lookup AccountLookup
+}
+
+// SetAccountLookup installs the application account lookup. Without one a
+// passkey session carries the account identifier alone, which is enough to
+// authenticate and authorize but shows the user no name.
+func SetAccountLookup(lookup AccountLookup) {
+	lookupState.Lock()
+	defer lookupState.Unlock()
+	lookupState.lookup = lookup
+}
+
+func lookupAccount(ctx context.Context, accountID string) (Account, error) {
+	lookupState.RLock()
+	lookup := lookupState.lookup
+	lookupState.RUnlock()
+	if lookup == nil {
+		return Account{ID: accountID}, nil
+	}
+	return lookup(ctx, accountID)
+}
+
 func accountResolver() AccountResolver {
 	resolverState.RLock()
 	defer resolverState.RUnlock()

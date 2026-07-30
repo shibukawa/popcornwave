@@ -292,12 +292,31 @@ func logConfigSources(result *configbind.LoadResult) {
 	}
 }
 
+// isSecretKey reports whether a configuration key holds a value that must not
+// reach the log.
+//
+// The last word of the leaf decides. A key that *is* a secret ends in one of
+// these words; a key that merely describes one, such as bootstrap.issue_ttl
+// or idp.token_ttl, ends in something else. Matching the whole key as a
+// substring redacted those durations too, which teaches an operator that
+// [REDACTED] means nothing in particular.
 func isSecretKey(key string) bool {
-	key = strings.ToLower(key)
-	for _, fragment := range []string{"secret", "password", "token", "credential", "dsn", "private_key"} {
-		if strings.Contains(key, fragment) {
-			return true
-		}
+	leaf := strings.ToLower(key)
+	if index := strings.LastIndex(leaf, "."); index >= 0 {
+		leaf = leaf[index+1:]
+	}
+	// A private key is named as a whole, because its last word is too common to
+	// match on its own.
+	if leaf == "private_key" {
+		return true
+	}
+	last := leaf
+	if index := strings.LastIndex(last, "_"); index >= 0 {
+		last = last[index+1:]
+	}
+	switch last {
+	case "secret", "password", "token", "credential", "dsn":
+		return true
 	}
 	return false
 }

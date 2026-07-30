@@ -20,6 +20,7 @@ phases:
   - phase: 2
     packages:
       - requirement:contrib-passkey
+      - requirement:contrib-passkey-test
       - requirement:contrib-oauth
       - requirement:contrib-oidc
       - requirement:contrib-devidp
@@ -39,6 +40,7 @@ rationale:
   - requirement:contrib-auth-state-memory is the process-local reference adapter for the base store contract
   - requirement:contrib-oidc extends requirement:contrib-oauth and depends on JWT
   - requirement:contrib-devidp follows requirement:contrib-oidc because it exists to exercise the relying party, and it ships with api:testutil-idp
+  - requirement:contrib-passkey-test follows requirement:contrib-passkey for the same reason and ships with api:testutil-passkey, because decision:passkey-test-authenticator makes it the only way to exercise a ceremony in CI
   - requirement:contrib-html-template remains phase 2 because frontend JSON writers require generated encoding work
   - database wire protocols require larger interoperability matrices
   - requirement:contrib-auth-state-redis follows the base store and tested requirement:contrib-redis-valkey dependency
