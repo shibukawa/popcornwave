@@ -36,11 +36,10 @@ type Options struct {
 	MaxPruneBatch   int
 }
 
-// Store is a database/sql backed session.Store. The caller owns db and must
-// call EnsureSchema before serving requests.
-type Store[T any] struct {
+// Store is a database/sql backed session.RawStore. The caller owns db and must
+// call EnsureSchema, or carry the migration, before serving requests.
+type Store struct {
 	db              *sql.DB
-	codec           session.Codec[T]
 	table           string
 	now             func() time.Time
 	maxPayloadBytes int
@@ -48,9 +47,10 @@ type Store[T any] struct {
 }
 
 // NewStore constructs a Store over db. db stays owned by the caller, because a
-// session store commonly shares the pool of the RDB middleware.
-func NewStore[T any](db *sql.DB, codec session.Codec[T], options Options) (*Store[T], error) {
-	if db == nil || codec == nil {
+// session store commonly shares the pool of the RDB middleware. Wrap the result
+// with session.Typed to give a Manager the payload type it stores.
+func NewStore(db *sql.DB, options Options) (*Store, error) {
+	if db == nil {
 		return nil, fmt.Errorf("%w: nil dependency", session.ErrInvalidOptions)
 	}
 	table := options.Table
@@ -76,9 +76,8 @@ func NewStore[T any](db *sql.DB, codec session.Codec[T], options Options) (*Stor
 	if now == nil {
 		now = time.Now
 	}
-	return &Store[T]{
+	return &Store{
 		db:              db,
-		codec:           codec,
 		table:           table,
 		now:             now,
 		maxPayloadBytes: maxPayloadBytes,
@@ -130,11 +129,11 @@ DROP TABLE ` + table + `;
 }
 
 // SchemaSQL returns the deterministic SQLite DDL of the owned table.
-func (s *Store[T]) SchemaSQL() string { return SchemaSQL(s.table) }
+func (s *Store) SchemaSQL() string { return SchemaSQL(s.table) }
 
 // EnsureSchema creates the owned table when it is missing. A project that
 // carries MigrationSQL does not need it; VerifySchema is the startup check.
-func (s *Store[T]) EnsureSchema(ctx context.Context) error {
+func (s *Store) EnsureSchema(ctx context.Context) error {
 	if !s.ready() || ctx == nil {
 		return fmt.Errorf("%w: store", session.ErrInvalidOptions)
 	}
@@ -149,7 +148,7 @@ func (s *Store[T]) EnsureSchema(ctx context.Context) error {
 
 // VerifySchema reports whether the owned table exists with the expected
 // columns. It never changes the schema.
-func (s *Store[T]) VerifySchema(ctx context.Context) error {
+func (s *Store) VerifySchema(ctx context.Context) error {
 	if !s.ready() || ctx == nil {
 		return fmt.Errorf("%w: store", session.ErrInvalidOptions)
 	}
@@ -190,7 +189,7 @@ func (s *Store[T]) VerifySchema(ctx context.Context) error {
 	return nil
 }
 
-func (s *Store[T]) Put(ctx context.Context, keyHash string, record session.Record[T]) error {
+func (s *Store) Put(ctx context.Context, keyHash string, record session.RawRecord) error {
 	if !s.ready() || ctx == nil {
 		return fmt.Errorf("%w: store", session.ErrInvalidOptions)
 	}
@@ -203,14 +202,11 @@ func (s *Store[T]) Put(ctx context.Context, keyHash string, record session.Recor
 	if record.ExpiresAt.IsZero() || len(record.Method) > maxMethodBytes {
 		return fmt.Errorf("%w: record", session.ErrInvalidOptions)
 	}
-	payload, err := s.codec.Encode(record.Data)
-	if err != nil {
-		return err
-	}
+	payload := record.Payload
 	if len(payload) == 0 || len(payload) > s.maxPayloadBytes {
 		return fmt.Errorf("%w: payload size", session.ErrCodec)
 	}
-	_, err = s.db.ExecContext(ctx, `
+	_, err := s.db.ExecContext(ctx, `
 		INSERT INTO `+s.table+`(key_hash, created_at_ms, authenticated_at_ms, last_seen_at_ms,
 			expires_at_ms, idle_expires_at_ms, method, version, payload)
 		VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -231,8 +227,8 @@ func (s *Store[T]) Put(ctx context.Context, keyHash string, record session.Recor
 	return nil
 }
 
-func (s *Store[T]) Get(ctx context.Context, keyHash string) (session.Record[T], error) {
-	var zero session.Record[T]
+func (s *Store) Get(ctx context.Context, keyHash string) (session.RawRecord, error) {
+	var zero session.RawRecord
 	if !s.ready() || ctx == nil {
 		return zero, fmt.Errorf("%w: store", session.ErrInvalidOptions)
 	}
@@ -260,7 +256,8 @@ func (s *Store[T]) Get(ctx context.Context, keyHash string) (session.Record[T], 
 	if expiresAt <= 0 || len(payload) == 0 || len(payload) > s.maxPayloadBytes {
 		return zero, fmt.Errorf("%w: malformed record", session.ErrCodec)
 	}
-	record := session.Record[T]{
+	record := session.RawRecord{
+		Payload:         payload,
 		CreatedAt:       time.UnixMilli(createdAt),
 		AuthenticatedAt: time.UnixMilli(authenticatedAt),
 		LastSeenAt:      time.UnixMilli(lastSeenAt),
@@ -269,18 +266,13 @@ func (s *Store[T]) Get(ctx context.Context, keyHash string) (session.Record[T], 
 		Method:          method,
 		Version:         version,
 	}
-	if !expiryOf(record).After(s.now()) {
+	if !record.Deadline().After(s.now()) {
 		return zero, session.ErrExpired
 	}
-	data, err := s.codec.Decode(payload)
-	if err != nil {
-		return zero, err
-	}
-	record.Data = data
 	return record, nil
 }
 
-func (s *Store[T]) Touch(ctx context.Context, keyHash string, lastSeenAt, idleExpiresAt time.Time) error {
+func (s *Store) Touch(ctx context.Context, keyHash string, lastSeenAt, idleExpiresAt time.Time) error {
 	if !s.ready() || ctx == nil {
 		return fmt.Errorf("%w: store", session.ErrInvalidOptions)
 	}
@@ -311,7 +303,7 @@ func (s *Store[T]) Touch(ctx context.Context, keyHash string, lastSeenAt, idleEx
 	return nil
 }
 
-func (s *Store[T]) Delete(ctx context.Context, keyHash string) error {
+func (s *Store) Delete(ctx context.Context, keyHash string) error {
 	if !s.ready() || ctx == nil {
 		return fmt.Errorf("%w: store", session.ErrInvalidOptions)
 	}
@@ -328,7 +320,7 @@ func (s *Store[T]) Delete(ctx context.Context, keyHash string) error {
 }
 
 // Prune removes at most limit records that expired before the given time.
-func (s *Store[T]) Prune(ctx context.Context, before time.Time, limit int) (int64, error) {
+func (s *Store) Prune(ctx context.Context, before time.Time, limit int) (int64, error) {
 	if !s.ready() || ctx == nil || before.IsZero() || limit <= 0 || limit > s.maxPruneBatch {
 		return 0, fmt.Errorf("%w: prune", session.ErrInvalidOptions)
 	}
@@ -352,8 +344,8 @@ func (s *Store[T]) Prune(ctx context.Context, before time.Time, limit int) (int6
 	return affected, nil
 }
 
-func (s *Store[T]) ready() bool {
-	return s != nil && s.db != nil && s.codec != nil && s.table != "" && s.now != nil &&
+func (s *Store) ready() bool {
+	return s != nil && s.db != nil && s.table != "" && s.now != nil &&
 		s.maxPayloadBytes > 0 && s.maxPruneBatch > 0
 }
 
@@ -364,13 +356,6 @@ func unavailable(ctx context.Context) error {
 		return err
 	}
 	return fmt.Errorf("%w: rdb", session.ErrUnavailable)
-}
-
-func expiryOf[T any](record session.Record[T]) time.Time {
-	if !record.IdleExpiresAt.IsZero() && record.IdleExpiresAt.Before(record.ExpiresAt) {
-		return record.IdleExpiresAt
-	}
-	return record.ExpiresAt
 }
 
 func milli(value time.Time) int64 {
@@ -418,4 +403,4 @@ func validIdentifier(value string) bool {
 	return !strings.EqualFold(value, "sqlite_master")
 }
 
-var _ session.Store[string] = (*Store[string])(nil)
+var _ session.RawStore = (*Store)(nil)

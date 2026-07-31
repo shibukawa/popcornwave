@@ -19,7 +19,7 @@ import (
 	"github.com/shibukawa/popcornwave/plugin/session/rdb"
 )
 
-const initUsage = "usage: pw init [<project-name>] [--interactive] [--tailwind] [--no-tinygo] [--no-devbox] [--no-database] [--no-redis] [--auth=none|oidc|passkey] [--devidp]"
+const initUsage = "usage: pw init [<project-name>] [--interactive] [--tailwind] [--no-tinygo] [--no-devbox] [--no-database] [--no-redis] [--auth=none|oidc|passkey] [--session=rdb|cookie|redis] [--devidp]"
 
 // Authentication modes the wizard and the --auth flag select between. They map
 // onto the plugin/auth modes, with none meaning no [auth] configuration.
@@ -29,8 +29,39 @@ const (
 	authPasskey = "passkey"
 )
 
+// Session storage backends the wizard and the --session flag select between.
+// They are the api:session-backend-plugin names, and each one but cookie is
+// contributed to the binary by a blank import the scaffold writes.
+const (
+	sessionRDB    = "rdb"
+	sessionCookie = "cookie"
+	sessionRedis  = "redis"
+)
+
 // usesOIDC reports whether a mode needs an OpenID Provider.
 func usesOIDC(mode string) bool { return mode == authOIDC }
+
+// sessionBackend is the selected backend. An options value built without the
+// answer, which every pre-session caller is, scaffolds the default.
+func sessionBackend(options initOptions) string {
+	if options.Session == "" {
+		return sessionRDB
+	}
+	return options.Session
+}
+
+// sessionBackendPlugin names the import that registers a backend. The cookie
+// backend is built into pw, so it needs none.
+func sessionBackendPlugin(backend string) string {
+	switch backend {
+	case sessionRDB:
+		return "github.com/shibukawa/popcornwave/plugin/session/rdb"
+	case sessionRedis:
+		return "github.com/shibukawa/popcornwave/plugin/session/redis"
+	default:
+		return ""
+	}
+}
 
 // initOptions holds every project bootstrap choice. Shortcut flags and the
 // wizard produce the same value, and scaffoldFiles is its only consumer.
@@ -49,6 +80,9 @@ type initOptions struct {
 	// project already standardized on Nix, Docker, or asdf wants.
 	Devbox bool
 	Auth   string
+	// Session selects where login sessions are stored. It only applies to a
+	// project that scaffolds a login.
+	Session string
 	// AuthEmulator scaffolds the development identity provider instead of
 	// pointing the project at an external one. It only applies to an OIDC mode.
 	AuthEmulator bool
@@ -58,7 +92,7 @@ type initOptions struct {
 // defaultInitOptions keeps TinyGo compatible routing as the scaffold default so
 // the shortcut form matches decision:stdlib-servemux.
 func defaultInitOptions() initOptions {
-	return initOptions{TinyGo: true, Devbox: true, Database: true, Redis: true, Auth: authNone}
+	return initOptions{TinyGo: true, Devbox: true, Database: true, Redis: true, Auth: authNone, Session: sessionRDB}
 }
 
 func parseInitArgs(args []string) (initOptions, error) {
@@ -93,6 +127,16 @@ func parseInitArgs(args []string) (initOptions, error) {
 		case "--no-devidp":
 			options.AuthEmulator = false
 		default:
+			if backend, ok := strings.CutPrefix(arg, "--session="); ok {
+				switch backend {
+				case sessionRDB, sessionCookie, sessionRedis:
+					options.Session = backend
+				default:
+					return initOptions{}, fmt.Errorf("init: --session must be %s, %s, or %s",
+						sessionRDB, sessionCookie, sessionRedis)
+				}
+				continue
+			}
 			if mode, ok := strings.CutPrefix(arg, "--auth="); ok {
 				switch mode {
 				case authNone, authOIDC, authPasskey:
@@ -124,9 +168,29 @@ func parseInitArgs(args []string) (initOptions, error) {
 		options.Redis = false
 	}
 	if !options.Database && servesLogin(options) {
-		return initOptions{}, fmt.Errorf("init: --auth=%s stores its login sessions in the database; drop --no-database", options.Auth)
+		// The login ceremony and admission tables are server state in every
+		// session backend, so authentication needs the database whichever one
+		// stores the sessions themselves.
+		return initOptions{}, fmt.Errorf("init: --auth=%s keeps its login ceremony and allowlist tables in the database; drop --no-database", options.Auth)
 	}
+	if !options.Database && sessionBackend(options) == sessionRDB {
+		options.Session = sessionCookie
+	}
+	options = normalizeSession(options)
 	return options, nil
+}
+
+// normalizeSession settles what the session backend implies. A Redis-backed
+// session wants the development server that serves it, and a project without a
+// login stores no sessions at all.
+func normalizeSession(options initOptions) initOptions {
+	if !servesLogin(options) {
+		return options
+	}
+	if sessionBackend(options) == sessionRedis && options.Devbox {
+		options.Redis = true
+	}
+	return options
 }
 
 // interactiveTerminal reports whether the wizard can drive the current session.
@@ -200,6 +264,12 @@ func runInit(args []string, stdout io.Writer) error {
 	if declined := declinedCapabilities(options); len(declined) > 0 {
 		fmt.Fprintf(stdout, "\nNot included: %s\n  pw add <capability> enables one later\n",
 			strings.Join(declined, ", "))
+	}
+	// The cookie backend seals its records under a secret the project cannot
+	// invent for itself, so an operator has to supply one before the first run.
+	if servesLogin(options) && sessionBackend(options) == sessionCookie {
+		fmt.Fprint(stdout, "\nThe cookie session backend needs its sealing secret:\n"+
+			"  export SESSION_COOKIE_SECRET=$(openssl rand -base64 32)\n")
 	}
 	// Without the Devbox environment nothing pins the CSS toolchain, and the
 	// first pw dev would fail on a binary the scaffold never installed.
@@ -369,7 +439,7 @@ import (
 	"log"
 
 	"` + name + `/handlers"
-	"github.com/shibukawa/popcornwave/pw"
+	"github.com/shibukawa/popcornwave/pw"` + sessionBackendImport(options) + `
 )
 
 func main() {` + authBootstrap(options) + `
@@ -505,8 +575,14 @@ import _ "github.com/shibukawa/tinygodriver/netdev"
 		// The framework tables come from the packages that own them. A fresh
 		// project has only the application schema, so these take the versions
 		// after it; pw add would take whatever is free at that point instead.
-		files["migrations/00002_"+rdb.MigrationName+".sql"] = rdb.MigrationSQL("popcornwave_session")
-		files["migrations/00003_"+auth.MigrationName+".sql"] = auth.MigrationSQL()
+		// Only the rdb backend owns a table: a cookie or Redis session leaves
+		// the numbering to the auth migration alone.
+		version := 2
+		if sessionBackend(options) == sessionRDB {
+			files["migrations/00002_"+rdb.MigrationName+".sql"] = rdb.MigrationSQL("popcornwave_session")
+			version = 3
+		}
+		files[fmt.Sprintf("migrations/0000%d_%s.sql", version, auth.MigrationName)] = auth.MigrationSQL()
 	}
 	return files
 }
@@ -538,6 +614,22 @@ connect_timeout = "5s"
 max_open_conns = 1
 max_idle_conns = 1
 `
+}
+
+// sessionBackendImport contributes the storage the configuration selects.
+// Session storage is opt-in by blank import, so an application links the one
+// backend it configured and nothing else. The cookie backend is built into pw
+// and needs no line here.
+func sessionBackendImport(options initOptions) string {
+	plugin := ""
+	if servesLogin(options) {
+		plugin = sessionBackendPlugin(sessionBackend(options))
+	}
+	if plugin == "" {
+		return ""
+	}
+	return "\n\n\t// session.backend = \"" + sessionBackend(options) +
+		"\" is served by this import; storage is opt-in.\n\t_ \"" + plugin + "\""
 }
 
 // authBootstrap installs the account resolver. That call is the whole
@@ -745,17 +837,18 @@ client_secret = ""`
 		loopback = "true"
 	}
 	return `
-# Login sessions are opaque and server-side; the rdb backend stores them in the
-# database configured above.
+# The browser token is opaque in every backend; this selects where the record
+# behind it lives. A backend other than cookie reaches the binary through the
+# blank import in cmd/` + options.Name + `/main.go.
 [session]
 enabled = true
-backend = "rdb"
+backend = "` + sessionBackend(options) + `"
 ttl = "12h"
 idle_timeout = "1h"
 cookie.name = "pw_session"
 # Loopback development only. Keep secure = true everywhere else.
 cookie.secure = false
-rdb.source = "middleware"
+` + sessionBackendConfig(options) + `
 
 # The framework serves login_path, callback_path, and logout_path itself, so
 # the application registers no authentication route. Logout is POST only.
@@ -778,6 +871,30 @@ auto_provision = true
 provider_logout = true
 allow_loopback_http = ` + loopback + `
 `
+}
+
+// sessionBackendConfig writes the keys of the selected backend and only those:
+// keys of a backend nothing opens would describe storage that is not there.
+func sessionBackendConfig(options initOptions) string {
+	switch sessionBackend(options) {
+	case sessionCookie:
+		return `# The record is sealed into a second cookie, so this deployment stores no
+# sessions at all. Generate the secret with: openssl rand -base64 32
+# Keep it in the environment. During a rotation the old value moves into
+# cookie_store.previous_secrets, which keeps issued records readable.
+cookie_store.secret = "${SESSION_COOKIE_SECRET}"
+`
+	case sessionRedis:
+		return `# Redis or Valkey holds each record under its own TTL, so no sweep runs.
+redis.dsn = "redis://127.0.0.1:6379/0"
+redis.key_prefix = "pw:session:"
+`
+	default:
+		return `# The session table lives in the database configured above, created by the
+# scaffolded migration.
+rdb.source = "middleware"
+`
+	}
 }
 
 // projectToolchain names the compiler the project is scaffolded for.

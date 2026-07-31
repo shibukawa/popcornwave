@@ -10,6 +10,7 @@ request:
   - read the configured cookie once
   - treat a missing cookie as an explicit unauthenticated request
   - validate token syntax and hash it before store lookup
+  - bind the request and response for a store that keeps its records in the browser
   - load through api:session-store
   - reject absolute, idle, or version expiry
   - add the safe data:session-record view and data:request-authentication to the request capsule

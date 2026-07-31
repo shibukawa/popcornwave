@@ -17,6 +17,7 @@ import (
 	"github.com/shibukawa/popcornwave/internal/pwenv"
 	"github.com/shibukawa/popcornwave/middlewares"
 	"github.com/shibukawa/popcornwave/pwruntime"
+	"github.com/shibukawa/popcornwave/session"
 	"github.com/shibukawa/tinybind-go/cliparser"
 	"github.com/shibukawa/tinybind-go/configbind"
 )
@@ -102,17 +103,46 @@ type SecurityHeadersConfig = middlewares.SecurityHeadersConfig
 // HSTSConfig controls Strict-Transport-Security on verified HTTPS requests.
 type HSTSConfig = middlewares.HSTSConfig
 
+// Session storage backends.
+const (
+	// SessionBackendRDB keeps records in a database through
+	// plugin/session/rdb. It is the backend a deployment that must revoke a
+	// session, or that outgrows a cookie, uses.
+	SessionBackendRDB = "rdb"
+	// SessionBackendCookie keeps records in a sealed browser cookie. It needs
+	// no storage at all, and it cannot revoke a record it already wrote.
+	SessionBackendCookie = "cookie"
+	// SessionBackendRedis keeps records in Redis or Valkey through
+	// plugin/session/redis, where the server owns expiry and no sweep runs.
+	SessionBackendRedis = "redis"
+)
+
 // SessionConfig selects login-session behavior, cookie policy, and storage.
-// Sessions are opaque and server-side, so no signing secret is configured.
+// The session token is opaque in every backend; only SessionBackendCookie
+// carries the record itself, and it seals it under a configured secret.
 type SessionConfig struct {
 	Enabled bool
-	// Backend selects the storage plugin. Only rdb is implemented.
+	// Backend selects the storage plugin: rdb or cookie.
 	Backend         string
 	TTL             time.Duration
 	IdleTimeout     time.Duration
 	RenewalInterval time.Duration
 	Cookie          SessionCookieConfig
 	RDB             SessionRDBConfig
+	Redis           SessionRedisConfig
+	CookieStore     SessionCookieStoreConfig
+}
+
+// SessionRedisConfig configures the Redis-compatible session store. The server
+// owns record expiry, so nothing here schedules a sweep.
+type SessionRedisConfig struct {
+	// DSN is a redis:// or rediss:// URL. Keep credentials out of the file
+	// itself with a ${NAME} reference or SESSION_REDIS_DSN.
+	DSN string
+	// KeyPrefix isolates session keys from every other user of the server.
+	KeyPrefix string
+	// ConnectTimeout bounds the startup ping and the per-command deadlines.
+	ConnectTimeout time.Duration
 }
 
 // SessionCookieConfig is the browser cookie policy of the session middleware.
@@ -135,6 +165,21 @@ type SessionRDBConfig struct {
 	Group string
 	DSN   string
 	Table string
+}
+
+// SessionCookieStoreConfig configures the client-side session backend. The
+// record cookie follows the [session.cookie] policy, so both cookies of a
+// session expire and travel under the same rules; only the name is separate.
+type SessionCookieStoreConfig struct {
+	// Name holds the sealed record beside the token cookie.
+	Name string
+	// Secret is 32 or more random bytes in base64, generated with
+	// `openssl rand -base64 32`. Keep it out of the file itself: write
+	// "${SESSION_COOKIE_SECRET}" or set SESSION_COOKIE_STORE_SECRET.
+	Secret string
+	// PreviousSecrets keep records written before a rotation readable. They
+	// never write.
+	PreviousSecrets []string
 }
 
 // ObservabilityConfig controls runtime logging and service identity.
@@ -705,27 +750,37 @@ func registerSecurityConfig() {
 
 func registerSessionConfig() {
 	const typeName = "github.com/shibukawa/popcornwave/pw.SessionConfig"
+	// The list-valued rotation key carries no scalar default.
 	defaults := map[string]string{
-		"session.enabled":          "false",
-		"session.backend":          "rdb",
-		"session.ttl":              "24h",
-		"session.idle_timeout":     "0s",
-		"session.renewal_interval": "0s",
-		"session.cookie.name":      "pw_session",
-		"session.cookie.path":      "/",
-		"session.cookie.domain":    "",
-		"session.cookie.secure":    "true",
-		"session.cookie.http_only": "true",
-		"session.cookie.same_site": "lax",
-		"session.rdb.source":       "middleware",
-		"session.rdb.group":        "",
-		"session.rdb.dsn":          "",
-		"session.rdb.table":        "popcornwave_session",
+		"session.enabled":             "false",
+		"session.backend":             SessionBackendRDB,
+		"session.ttl":                 "24h",
+		"session.idle_timeout":        "0s",
+		"session.renewal_interval":    "0s",
+		"session.cookie.name":         "pw_session",
+		"session.cookie.path":         "/",
+		"session.cookie.domain":       "",
+		"session.cookie.secure":       "true",
+		"session.cookie.http_only":    "true",
+		"session.cookie.same_site":    "lax",
+		"session.rdb.source":          "middleware",
+		"session.rdb.group":           "",
+		"session.rdb.dsn":             "",
+		"session.rdb.table":           "popcornwave_session",
+		"session.cookie_store.name":   session.DefaultDataCookieName,
+		"session.cookie_store.secret": "",
+		// The key prefix repeats plugin/session/redis DefaultKeyPrefix as a
+		// literal, the way rdb.table does: pw declares the keys of a backend
+		// without importing it.
+		"session.redis.dsn":             "",
+		"session.redis.key_prefix":      "pw:session:",
+		"session.redis.connect_timeout": "5s",
 	}
-	keys := make([]string, 0, len(defaults))
+	keys := make([]string, 0, len(defaults)+1)
 	for key := range defaults {
 		keys = append(keys, key)
 	}
+	keys = append(keys, "session.cookie_store.previous_secrets")
 	sort.Strings(keys)
 	configbind.Register[SessionConfig](configbind.Definition{
 		TypeName:  typeName,
@@ -748,6 +803,19 @@ func registerSessionConfig() {
 			{Prefix: "session", Key: "rdb.group", Help: "middleware connection group holding the session table"},
 			{Prefix: "session", Key: "rdb.dsn", Help: "dedicated session database DSN"},
 			{Prefix: "session", Key: "rdb.table"},
+			{Prefix: "session", Key: "cookie_store.name", Help: "cookie holding the sealed record"},
+			{
+				Prefix: "session", Key: "cookie_store.secret",
+				Env:  "SESSION_COOKIE_STORE_SECRET",
+				Help: "base64 secret sealing cookie-backed records",
+			},
+			{
+				Prefix: "session", Key: "cookie_store.previous_secrets", Kind: cliparser.KindArray,
+				Help: "retired secrets kept readable during a rotation",
+			},
+			{Prefix: "session", Key: "redis.dsn", Env: "SESSION_REDIS_DSN", Help: "redis:// or rediss:// session server"},
+			{Prefix: "session", Key: "redis.key_prefix", Help: "key space owned by the session store"},
+			{Prefix: "session", Key: "redis.connect_timeout", Help: "startup ping and per-command deadline"},
 		},
 		Apply: func(dst any, overlay *configbind.Overlay) error {
 			p, ok := dst.(*SessionConfig)
@@ -758,9 +826,10 @@ func registerSessionConfig() {
 			p.Backend = valueOf(overlay, "session.backend")
 			var err error
 			for key, target := range map[string]*time.Duration{
-				"ttl":              &p.TTL,
-				"idle_timeout":     &p.IdleTimeout,
-				"renewal_interval": &p.RenewalInterval,
+				"ttl":                   &p.TTL,
+				"idle_timeout":          &p.IdleTimeout,
+				"renewal_interval":      &p.RenewalInterval,
+				"redis.connect_timeout": &p.Redis.ConnectTimeout,
 			} {
 				*target, err = parseConfigDuration(overlay, "session."+key)
 				if err != nil {
@@ -781,6 +850,16 @@ func registerSessionConfig() {
 				DSN:    valueOf(overlay, "session.rdb.dsn"),
 				Table:  valueOf(overlay, "session.rdb.table"),
 			}
+			// ConnectTimeout is already parsed by the duration loop above, so
+			// only the string fields are assigned here.
+			p.Redis.DSN = valueOf(overlay, "session.redis.dsn")
+			p.Redis.KeyPrefix = valueOf(overlay, "session.redis.key_prefix")
+			previous, _ := overlay.GetMulti("session.cookie_store.previous_secrets")
+			p.CookieStore = SessionCookieStoreConfig{
+				Name:            valueOf(overlay, "session.cookie_store.name"),
+				Secret:          valueOf(overlay, "session.cookie_store.secret"),
+				PreviousSecrets: previous,
+			}
 			return nil
 		},
 		Scaffold: []configbind.ScaffoldField{
@@ -799,6 +878,17 @@ func registerSessionConfig() {
 			{Key: "rdb.group", Kind: configbind.ScaffoldString, Default: "", Help: "middleware connection group holding the session table"},
 			{Key: "rdb.dsn", Kind: configbind.ScaffoldString, Default: "", Help: "dedicated session database DSN"},
 			{Key: "rdb.table", Kind: configbind.ScaffoldString, Default: "popcornwave_session"},
+			{Key: "cookie_store.name", Kind: configbind.ScaffoldString, Default: session.DefaultDataCookieName},
+			{
+				Key: "cookie_store.secret", Kind: configbind.ScaffoldString, Default: "",
+				Help: "backend = cookie only; openssl rand -base64 32, kept in the environment",
+			},
+			{
+				Key: "redis.dsn", Kind: configbind.ScaffoldString, Default: "",
+				Help: "backend = redis only; redis:// or rediss:// URL",
+			},
+			{Key: "redis.key_prefix", Kind: configbind.ScaffoldString, Default: "pw:session:"},
+			{Key: "redis.connect_timeout", Kind: configbind.ScaffoldString, Default: "5s"},
 		},
 	})
 }

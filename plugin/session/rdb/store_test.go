@@ -20,14 +20,34 @@ type payload struct {
 
 const testKey = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
 
-func testStore(t *testing.T, now func() time.Time) (*Store[payload], *sql.DB) {
+// encoded and decoded stand in for the host codec. A backend stores bytes, so
+// these tests hold the only codec in play.
+func encoded(t *testing.T, value payload) []byte {
+	t.Helper()
+	blob, err := session.JSONCodec[payload]{}.Encode(value)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return blob
+}
+
+func decoded(t *testing.T, blob []byte) payload {
+	t.Helper()
+	value, err := session.JSONCodec[payload]{}.Decode(blob)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return value
+}
+
+func testStore(t *testing.T, now func() time.Time) (*Store, *sql.DB) {
 	t.Helper()
 	db, err := sql.Open("sqlite", filepath.Join(t.TempDir(), "session.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = db.Close() })
-	store, err := NewStore[payload](db, session.JSONCodec[payload]{}, Options{Now: now})
+	store, err := NewStore(db, Options{Now: now})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -42,8 +62,8 @@ func TestStoreRoundTripsRecord(t *testing.T) {
 	store, _ := testStore(t, func() time.Time { return now })
 	ctx := context.Background()
 
-	record := session.Record[payload]{
-		Data:            payload{AccountID: "account-1"},
+	record := session.RawRecord{
+		Payload:         encoded(t, payload{AccountID: "account-1"}),
 		CreatedAt:       now,
 		AuthenticatedAt: now,
 		LastSeenAt:      now,
@@ -59,7 +79,7 @@ func TestStoreRoundTripsRecord(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if loaded.Data.AccountID != "account-1" || loaded.Method != "oidc" || loaded.Version != 1 {
+	if decoded(t, loaded.Payload).AccountID != "account-1" || loaded.Method != "oidc" || loaded.Version != 1 {
 		t.Fatalf("record = %#v", loaded)
 	}
 	if !loaded.ExpiresAt.Equal(record.ExpiresAt) || !loaded.IdleExpiresAt.Equal(record.IdleExpiresAt) {
@@ -71,14 +91,14 @@ func TestStoreReplacesOneKeyAtomically(t *testing.T) {
 	now := time.Unix(1_700_000_000, 0)
 	store, db := testStore(t, func() time.Time { return now })
 	ctx := context.Background()
-	record := session.Record[payload]{
-		Data: payload{AccountID: "first"}, CreatedAt: now, LastSeenAt: now,
+	record := session.RawRecord{
+		Payload: encoded(t, payload{AccountID: "first"}), CreatedAt: now, LastSeenAt: now,
 		ExpiresAt: now.Add(time.Hour),
 	}
 	if err := store.Put(ctx, testKey, record); err != nil {
 		t.Fatal(err)
 	}
-	record.Data = payload{AccountID: "second"}
+	record.Payload = encoded(t, payload{AccountID: "second"})
 	if err := store.Put(ctx, testKey, record); err != nil {
 		t.Fatal(err)
 	}
@@ -90,7 +110,7 @@ func TestStoreReplacesOneKeyAtomically(t *testing.T) {
 		t.Fatalf("rows = %d", count)
 	}
 	loaded, err := store.Get(ctx, testKey)
-	if err != nil || loaded.Data.AccountID != "second" {
+	if err != nil || decoded(t, loaded.Payload).AccountID != "second" {
 		t.Fatalf("record = %#v err = %v", loaded, err)
 	}
 }
@@ -99,8 +119,8 @@ func TestStoreExpiryIsAuthoritative(t *testing.T) {
 	current := time.Unix(1_700_000_000, 0)
 	store, _ := testStore(t, func() time.Time { return current })
 	ctx := context.Background()
-	if err := store.Put(ctx, testKey, session.Record[payload]{
-		Data: payload{AccountID: "a"}, CreatedAt: current, LastSeenAt: current,
+	if err := store.Put(ctx, testKey, session.RawRecord{
+		Payload: encoded(t, payload{AccountID: "a"}), CreatedAt: current, LastSeenAt: current,
 		ExpiresAt: current.Add(time.Hour), IdleExpiresAt: current.Add(10 * time.Minute),
 	}); err != nil {
 		t.Fatal(err)
@@ -116,8 +136,8 @@ func TestTouchNeverRevivesOrOutlivesAbsoluteExpiry(t *testing.T) {
 	store, _ := testStore(t, func() time.Time { return current })
 	ctx := context.Background()
 	expiresAt := current.Add(time.Hour)
-	if err := store.Put(ctx, testKey, session.Record[payload]{
-		Data: payload{AccountID: "a"}, CreatedAt: current, LastSeenAt: current,
+	if err := store.Put(ctx, testKey, session.RawRecord{
+		Payload: encoded(t, payload{AccountID: "a"}), CreatedAt: current, LastSeenAt: current,
 		ExpiresAt: expiresAt, IdleExpiresAt: current.Add(30 * time.Minute),
 	}); err != nil {
 		t.Fatal(err)
@@ -142,8 +162,8 @@ func TestDeleteIsIdempotentAndPruneRemovesExpired(t *testing.T) {
 	current := time.Unix(1_700_000_000, 0)
 	store, db := testStore(t, func() time.Time { return current })
 	ctx := context.Background()
-	if err := store.Put(ctx, testKey, session.Record[payload]{
-		Data: payload{AccountID: "a"}, CreatedAt: current, LastSeenAt: current,
+	if err := store.Put(ctx, testKey, session.RawRecord{
+		Payload: encoded(t, payload{AccountID: "a"}), CreatedAt: current, LastSeenAt: current,
 		ExpiresAt: current.Add(time.Minute),
 	}); err != nil {
 		t.Fatal(err)
@@ -155,8 +175,8 @@ func TestDeleteIsIdempotentAndPruneRemovesExpired(t *testing.T) {
 		t.Fatalf("second delete = %v", err)
 	}
 
-	if err := store.Put(ctx, testKey, session.Record[payload]{
-		Data: payload{AccountID: "a"}, CreatedAt: current, LastSeenAt: current,
+	if err := store.Put(ctx, testKey, session.RawRecord{
+		Payload: encoded(t, payload{AccountID: "a"}), CreatedAt: current, LastSeenAt: current,
 		ExpiresAt: current.Add(time.Minute),
 	}); err != nil {
 		t.Fatal(err)
@@ -190,11 +210,11 @@ func TestStoreRejectsUnsafeInputs(t *testing.T) {
 		if table == "" {
 			continue
 		}
-		if _, err := NewStore[payload](db, session.JSONCodec[payload]{}, Options{Table: table}); err == nil {
+		if _, err := NewStore(db, Options{Table: table}); err == nil {
 			t.Fatalf("table %q was accepted", table)
 		}
 	}
-	if _, err := NewStore[payload](db, session.JSONCodec[payload]{}, Options{MaxPayloadBytes: -1}); err == nil {
+	if _, err := NewStore(db, Options{MaxPayloadBytes: -1}); err == nil {
 		t.Fatal("negative payload bound was accepted")
 	}
 }
@@ -206,7 +226,7 @@ func TestStoreRejectsOversizedPayload(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer db.Close()
-	store, err := NewStore[payload](db, session.JSONCodec[payload]{}, Options{
+	store, err := NewStore(db, Options{
 		Now: func() time.Time { return now }, MaxPayloadBytes: 16,
 	})
 	if err != nil {
@@ -215,8 +235,8 @@ func TestStoreRejectsOversizedPayload(t *testing.T) {
 	if err := store.EnsureSchema(context.Background()); err != nil {
 		t.Fatal(err)
 	}
-	err = store.Put(context.Background(), testKey, session.Record[payload]{
-		Data: payload{AccountID: strings.Repeat("a", 128)}, CreatedAt: now, LastSeenAt: now,
+	err = store.Put(context.Background(), testKey, session.RawRecord{
+		Payload: encoded(t, payload{AccountID: strings.Repeat("a", 128)}), CreatedAt: now, LastSeenAt: now,
 		ExpiresAt: now.Add(time.Hour),
 	})
 	if !errors.Is(err, session.ErrCodec) {

@@ -18,6 +18,8 @@ Popcorn Wave はその仕組みを引き受けます。プロバイダを設定�
 ```go
 // cmd/myapp/main.go — アカウントリゾルバの登録が plugin/auth の import を
 // 兼ねます。エンドポイントとセッション解決はその拡張が担当します。
+import _ "github.com/shibukawa/popcornwave/plugin/session/rdb" // session.backend = "rdb"
+
 func main() {
 	handlers.RegisterAccountResolver()
 	if err := pw.Run(context.Background(), handlers.Handlers()); err != nil {
@@ -26,11 +28,15 @@ func main() {
 }
 ```
 
+ストレージの import が `plugin/auth` と別なのは意図的です。auth プラグインは
+バックエンドを一切リンクしないので、アプリケーションは `session.backend` で選んだ
+ものだけを持ちます。`pw init --auth=oidc` は両方の行を書き出します。
+
 ```toml
 # config.dev.toml
 [session]
 enabled = true
-backend = "rdb"          # セッションは不透明でサーバー側に保存される
+backend = "rdb"          # "cookie" と "redis" も選べる。トークンが不透明なのはどれも同じ
 
 [auth]
 enabled = true
@@ -129,10 +135,14 @@ func home(w http.ResponseWriter, r *http.Request) {
 
 ## セッション
 
-クッキーが運ぶのは不透明なトークンだけで、セッション本体は `plugin/session/rdb` が
-データベースに保存します。だからサーバー側で失効させられます。`session.ttl` が絶対
-有効期限、`session.idle_timeout` が無操作期限です。ログイン時にトークンは新しくなり、
-それ以前にブラウザが持っていたセッションは失効します。
+クッキーが運ぶのは不透明なトークンだけで、セッション本体がどこに住むかは
+`session.backend` が決めます。既定の `rdb` は `plugin/session/rdb` がデータベースに、
+`redis` は Redis または Valkey にサーバー側 TTL 付きで保存し、`cookie` はセッション用
+ストレージを持たないデプロイのために2つ目のクッキーに封をします（違いは
+[クッキー](/ja/guides/cookies/)を参照）。`session.ttl` が絶対有効期限、
+`session.idle_timeout` が無操作期限です。ログイン時にトークンは新しくなり、それ以前に
+ブラウザが持っていたセッションは失効します——ただし cookie バックエンドだけは、
+クライアントがすでに取ったコピーを失効させられません。
 
 保存されるのはアカウントの要約だけで、トークン本体は含みません。プロバイダの
 アクセストークンや ID Token がセッションに残ることはありません。

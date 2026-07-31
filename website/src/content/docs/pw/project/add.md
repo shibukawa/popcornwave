@@ -30,7 +30,7 @@ and the review screen is where that edit is approved.
 
 The argument preselects the first step; omitting it lists only what this project
 does not already carry. Two capabilities depend on another one: `auth` needs
-`database` for its login sessions, and `redis-valkey` needs `devbox`, because
+`database` for its login ceremony and allowlist tables, and `redis-valkey` needs `devbox`, because
 the Valkey answer writes nothing but a Devbox package. Choosing one in a project
 that lacks its dependency installs the dependency first and says so on the
 review screen.
@@ -69,6 +69,7 @@ The review screen lists every change before anything is written:
     create  migrations/00003_init_popcornwave_auth.sql
     append  config.dev.toml
     by hand call handlers.RegisterAccountResolver() in ./cmd/lean before pw.Run
+    by hand add import _ "github.com/shibukawa/popcornwave/plugin/session/rdb" to ./cmd/lean
     then    pw migrate up
 
   enter add  ·  esc back  ·  ctrl+c cancel
@@ -82,6 +83,12 @@ the project may have applied can never move.
 
 **Configuration is appended, not rewritten.** Your comments and tuned values
 survive. A section of the same name already present stops the command.
+
+`pw add auth` installs the `rdb` session backend, the one that fits a project
+that already has a database. Session storage is opt-in by blank import, so the
+import line is one of the manual steps —
+[`pw init`](/pw/project/init/#session-storage) is where the cookie and Redis
+backends are offered instead.
 
 **Application-owned files are never overwritten.** A conflict is reported and
 nothing is written. What the framework will not do for you — the call in

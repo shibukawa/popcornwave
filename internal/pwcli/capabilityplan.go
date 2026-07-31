@@ -213,7 +213,9 @@ func planAuth(state projectState, options addOptions, plan *capabilityPlan) erro
 	resolver := handlers + "/accounts.go"
 	plan.creates[resolver] = accountResolverScaffold()
 
-	section := authRuntimeConfig(initOptions{Auth: authOIDC, AuthEmulator: options.AuthEmulator})
+	// pw add installs the rdb backend, which is the one that fits a project
+	// that already has a database. pw init offers the other two.
+	section := authRuntimeConfig(initOptions{Name: state.config.Name, Auth: authOIDC, Session: sessionRDB, AuthEmulator: options.AuthEmulator})
 	for _, name := range state.configFiles {
 		plan.appends[name] = section
 	}
@@ -222,7 +224,10 @@ func planAuth(state projectState, options addOptions, plan *capabilityPlan) erro
 		plan.appends["popcornwave.toml"] = devIdPProjectConfig(initOptions{AuthEmulator: true})
 	}
 	plan.manual = append(plan.manual,
-		"call "+goPackageIdentifier(handlers)+".RegisterAccountResolver() in "+state.config.Main+" before pw.Run")
+		"call "+goPackageIdentifier(handlers)+".RegisterAccountResolver() in "+state.config.Main+" before pw.Run",
+		// Session storage is opt-in by blank import, so the backend this
+		// configuration selects has to be imported by the application.
+		`add import _ "`+sessionBackendPlugin(sessionRDB)+`" to `+state.config.Main)
 	plan.next = append(plan.next, "pw migrate up")
 	plan.generate = true
 	return nil

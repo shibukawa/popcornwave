@@ -67,6 +67,7 @@ pw: add: this project already has auth, per migrations/00003_init_popcornwave_au
     create  migrations/00003_init_popcornwave_auth.sql
     append  config.dev.toml
     by hand call handlers.RegisterAccountResolver() in ./cmd/lean before pw.Run
+    by hand add import _ "github.com/shibukawa/popcornwave/plugin/session/rdb" to ./cmd/lean
     then    pw migrate up
 
   enter add  ·  esc back  ·  ctrl+c cancel

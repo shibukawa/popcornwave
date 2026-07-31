@@ -3,6 +3,7 @@ package pwcli
 import (
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"testing"
 
@@ -184,8 +185,14 @@ func TestInitWizardAsksForTheProviderOnlyForOIDC(t *testing.T) {
 		typeText("2"),          // Authentication: OIDC
 	)
 	if model.reviewing() {
-		t.Fatal("choosing OIDC must ask which provider to use")
+		t.Fatal("choosing OIDC must ask where the session lives")
 	}
+	// A login asks for its storage first: it is the answer the provider
+	// question has no bearing on.
+	if label := model.steps[model.index].label(); label != "Session storage" {
+		t.Fatalf("step = %q", label)
+	}
+	model = feedWizard(t, model, typeText("1")) // Session storage: Database
 	if label := model.steps[model.index].label(); label != "OIDC provider" {
 		t.Fatalf("step = %q", label)
 	}
@@ -268,4 +275,76 @@ func TestScaffoldedMigrationsApply(t *testing.T) {
 			t.Fatalf("auth=%s applied no migration", mode)
 		}
 	}
+}
+
+// The session backend decides three scaffold outputs at once: the import that
+// contributes it, the configuration keys that describe it, and whether a
+// migration is needed at all.
+func TestScaffoldFollowsTheSessionBackendChoice(t *testing.T) {
+	rdbFiles := scaffoldFiles(initOptions{Name: "demo", Database: true, Auth: authOIDC, Session: sessionRDB})
+	if !strings.Contains(rdbFiles["cmd/demo/main.go"], `_ "github.com/shibukawa/popcornwave/plugin/session/rdb"`) {
+		t.Errorf("rdb backend is not imported:\n%s", rdbFiles["cmd/demo/main.go"])
+	}
+	if !strings.Contains(rdbFiles["config.dev.toml"], `backend = "rdb"`) ||
+		!strings.Contains(rdbFiles["config.dev.toml"], `rdb.source = "middleware"`) {
+		t.Errorf("rdb session config:\n%s", rdbFiles["config.dev.toml"])
+	}
+	if _, ok := rdbFiles["migrations/00002_"+rdb.MigrationName+".sql"]; !ok {
+		t.Error("rdb backend did not scaffold its session migration")
+	}
+	if _, ok := rdbFiles["migrations/00003_"+auth.MigrationName+".sql"]; !ok {
+		t.Error("auth migration is not numbered after the session one")
+	}
+
+	cookieFiles := scaffoldFiles(initOptions{Name: "demo", Database: true, Auth: authOIDC, Session: sessionCookie})
+	if strings.Contains(cookieFiles["cmd/demo/main.go"], "plugin/session/") {
+		t.Errorf("the built-in cookie backend was imported:\n%s", cookieFiles["cmd/demo/main.go"])
+	}
+	if !strings.Contains(cookieFiles["config.dev.toml"], `cookie_store.secret = "${SESSION_COOKIE_SECRET}"`) {
+		t.Errorf("cookie session config:\n%s", cookieFiles["config.dev.toml"])
+	}
+	if strings.Contains(cookieFiles["config.dev.toml"], "rdb.source") {
+		t.Error("cookie backend wrote keys of a backend it does not use")
+	}
+	// No session table exists, so the auth migration takes the free version.
+	if _, ok := cookieFiles["migrations/00002_"+auth.MigrationName+".sql"]; !ok {
+		t.Errorf("auth migration was not renumbered: %v", migrationNames(cookieFiles))
+	}
+
+	redisFiles := scaffoldFiles(initOptions{Name: "demo", Database: true, Auth: authOIDC, Session: sessionRedis})
+	if !strings.Contains(redisFiles["cmd/demo/main.go"], `_ "github.com/shibukawa/popcornwave/plugin/session/redis"`) {
+		t.Errorf("redis backend is not imported:\n%s", redisFiles["cmd/demo/main.go"])
+	}
+	if !strings.Contains(redisFiles["config.dev.toml"], "redis.dsn") {
+		t.Errorf("redis session config:\n%s", redisFiles["config.dev.toml"])
+	}
+	if _, ok := redisFiles["migrations/00002_"+auth.MigrationName+".sql"]; !ok {
+		t.Errorf("auth migration was not renumbered: %v", migrationNames(redisFiles))
+	}
+}
+
+// A Redis-backed session brings the server that serves it into the development
+// environment, rather than leaving a project that cannot start.
+func TestRedisSessionTakesTheDevelopmentServer(t *testing.T) {
+	options, err := parseInitArgs([]string{"demo", "--auth=oidc", "--session=redis", "--no-redis"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !options.Redis {
+		t.Fatalf("options = %#v", options)
+	}
+	if _, err := parseInitArgs([]string{"demo", "--session=memcached"}); err == nil {
+		t.Fatal("an unknown backend was accepted")
+	}
+}
+
+func migrationNames(files map[string]string) []string {
+	var names []string
+	for path := range files {
+		if strings.HasPrefix(path, "migrations/") {
+			names = append(names, path)
+		}
+	}
+	sort.Strings(names)
+	return names
 }

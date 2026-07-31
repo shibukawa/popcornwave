@@ -9,7 +9,7 @@ The `[session]` binding selects login-session behavior, cookie policy, and stora
 registration: automatically registered by pw
 fields:
   enabled: bool
-  backend: redis or rdb
+  backend: rdb, cookie, or redis
   ttl: duration
   idle_timeout: optional duration
   renewal_interval: duration
@@ -19,11 +19,14 @@ fields:
   cookie.secure: bool
   cookie.http_only: bool
   cookie.same_site: strict, lax, or none
+  cookie_store.name: cookie holding the sealed record under backend cookie
+  cookie_store.secret: base64 secret of at least 256 bits, read from SESSION_COOKIE_STORE_SECRET or a ${NAME} reference
+  cookie_store.previous_secrets: retired secrets kept readable during a rotation
 plugin_fields:
   plugin/session/redis:
-    redis.dsn: redis or rediss URL
+    redis.dsn: redis or rediss URL, read from SESSION_REDIS_DSN or a ${NAME} reference
     redis.key_prefix: string
-    redis.connect_timeout: duration
+    redis.connect_timeout: duration bounding the startup ping and per-command deadlines
   plugin/session/rdb:
     rdb.source: middleware or dedicated
     rdb.group: middleware-only data:database-connection-set group holding the session tables
@@ -31,18 +34,24 @@ plugin_fields:
     rdb.table: string
     rdb.busy_timeout: duration
 implemented:
-  binding: enabled, backend, ttl, idle_timeout, renewal_interval, and every cookie key
+  binding: enabled, backend, ttl, idle_timeout, renewal_interval, and every cookie and cookie_store key
   rdb_keys: rdb.source, rdb.dsn, and rdb.table are declared by pw rather than by the plugin
-  backend: rdb only
+  backend: rdb, cookie, and redis
+  redis_keys: redis.dsn, redis.key_prefix, and redis.connect_timeout are declared by pw rather than by the plugin
   source: middleware only
 deferred:
-  - redis backend and its plugin keys
   - dedicated rdb source and rdb.busy_timeout
   - plugin-owned registration of backend-specific keys
 rules:
   - all keys are declared under one session binding
-  - related fields share cookie, redis, or rdb prefixes
-  - backend-specific keys exist only when decision:import-registered-session-plugins imports their plugin
+  - related fields share cookie, cookie_store, redis, or rdb prefixes
+  - the cookie backend needs no storage and reuses the cookie policy for its record cookie
+  - reject an empty or under-length cookie_store.secret when backend is cookie, per decision:cookie-session-storage
+  - reject an empty redis.dsn, a non-redis scheme, or a server that fails the startup ping when backend is redis
+  - report a malformed redis.dsn by shape only, because the URL can carry a password
+  - keep the sealing secret out of the file itself; the error naming a bad secret never repeats it
+  - a backend other than cookie requires the blank import that registers it, per decision:import-registered-session-plugins
+  - a selected backend with no registered factory fails startup with the missing import line named
   - validate only fields used by the selected imported backend
   - redis accepts Redis or Valkey endpoints through requirement:contrib-redis-valkey
   - middleware source reuses a *sql.DB owned by api:rdb-middleware and forbids session.rdb.dsn
@@ -54,6 +63,7 @@ rules:
   - reject unimported backends and unregistered RDB drivers at startup
   - redact Redis and RDB DSN credentials and sensitive query values
 contracts:
+  tiers: requirement:state-storage-tiers
   store: api:session-store
   manager: api:session-manager
   plugin: api:session-backend-plugin

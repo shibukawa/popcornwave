@@ -7,7 +7,6 @@ import (
 	"fmt"
 
 	authsqlite "github.com/shibukawa/popcornwave/contrib/authstate/sqlite"
-	"github.com/shibukawa/popcornwave/plugin/session/rdb"
 )
 
 // MigrationName is the stable name of the migration a project carries for the
@@ -52,11 +51,12 @@ DROP TABLE ` + authsqlite.TableName + `;
 `
 }
 
-// requiredTables lists the framework tables and the migration that creates
-// each one, in the order a project applies them.
-func requiredTables(sessionTable string) [][2]string {
+// requiredTables lists the tables this package owns and the migration that
+// creates each one. The session table is not among them: a session backend
+// verifies its own storage, and a cookie or Redis backend has no table here at
+// all.
+func requiredTables() [][2]string {
 	return [][2]string{
-		{sessionTable, rdb.MigrationName},
 		{authsqlite.TableName, MigrationName},
 		{AllowlistTable, MigrationName},
 	}
@@ -68,8 +68,8 @@ func requiredTables(sessionTable string) [][2]string {
 //
 // The migration is named without a version, because the version is whatever was
 // free in that project when the file was written.
-func verifyTables(ctx context.Context, db *sql.DB, sessionTable string) error {
-	for _, required := range requiredTables(sessionTable) {
+func verifyTables(ctx context.Context, db *sql.DB) error {
+	for _, required := range requiredTables() {
 		exists, err := tableExists(ctx, db, required[0])
 		if err != nil {
 			return err

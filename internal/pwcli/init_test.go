@@ -21,13 +21,13 @@ func TestParseInitArgs(t *testing.T) {
 		args []string
 		want initOptions
 	}{
-		{name: "name only keeps the TinyGo default", args: []string{"demo"}, want: initOptions{Name: "demo", TinyGo: true, Database: true, Redis: true, Devbox: true, Auth: authNone}},
-		{name: "shortcut flags", args: []string{"demo", "--tailwind", "--no-tinygo"}, want: initOptions{Name: "demo", Tailwind: true, Database: true, Redis: true, Devbox: true, Auth: authNone}},
-		{name: "explicit tinygo", args: []string{"--tinygo", "demo"}, want: initOptions{Name: "demo", TinyGo: true, Database: true, Redis: true, Devbox: true, Auth: authNone}},
-		{name: "no name requests the wizard", args: nil, want: initOptions{TinyGo: true, Database: true, Redis: true, Devbox: true, Auth: authNone}},
-		{name: "interactive with a seeded name", args: []string{"-i", "demo"}, want: initOptions{Name: "demo", TinyGo: true, Database: true, Redis: true, Devbox: true, Interactive: true, Auth: authNone}},
-		{name: "oidc with the local emulator", args: []string{"demo", "--auth=oidc", "--devidp"}, want: initOptions{Name: "demo", TinyGo: true, Database: true, Redis: true, Devbox: true, Auth: authOIDC, AuthEmulator: true}},
-		{name: "passkey drops a stray emulator flag", args: []string{"demo", "--auth=passkey", "--devidp"}, want: initOptions{Name: "demo", TinyGo: true, Database: true, Redis: true, Devbox: true, Auth: authPasskey}},
+		{name: "name only keeps the TinyGo default", args: []string{"demo"}, want: initOptions{Name: "demo", TinyGo: true, Database: true, Redis: true, Devbox: true, Auth: authNone, Session: sessionRDB}},
+		{name: "shortcut flags", args: []string{"demo", "--tailwind", "--no-tinygo"}, want: initOptions{Name: "demo", Tailwind: true, Database: true, Redis: true, Devbox: true, Auth: authNone, Session: sessionRDB}},
+		{name: "explicit tinygo", args: []string{"--tinygo", "demo"}, want: initOptions{Name: "demo", TinyGo: true, Database: true, Redis: true, Devbox: true, Auth: authNone, Session: sessionRDB}},
+		{name: "no name requests the wizard", args: nil, want: initOptions{TinyGo: true, Database: true, Redis: true, Devbox: true, Auth: authNone, Session: sessionRDB}},
+		{name: "interactive with a seeded name", args: []string{"-i", "demo"}, want: initOptions{Name: "demo", TinyGo: true, Database: true, Redis: true, Devbox: true, Interactive: true, Auth: authNone, Session: sessionRDB}},
+		{name: "oidc with the local emulator", args: []string{"demo", "--auth=oidc", "--devidp"}, want: initOptions{Name: "demo", TinyGo: true, Database: true, Redis: true, Devbox: true, Auth: authOIDC, AuthEmulator: true, Session: sessionRDB}},
+		{name: "passkey drops a stray emulator flag", args: []string{"demo", "--auth=passkey", "--devidp"}, want: initOptions{Name: "demo", TinyGo: true, Database: true, Redis: true, Devbox: true, Auth: authPasskey, Session: sessionRDB}},
 	} {
 		t.Run(testcase.name, func(t *testing.T) {
 			options, err := parseInitArgs(testcase.args)
@@ -194,7 +194,7 @@ func TestInitWizardCollectsAnswers(t *testing.T) {
 		t.Fatalf("wizard did not confirm: index = %d", model.index)
 	}
 	options := wizardResult(model, defaultInitOptions())
-	if options != (initOptions{Name: "demo", Devbox: true, Database: true, Redis: true, Auth: authNone}) {
+	if options != (initOptions{Name: "demo", Devbox: true, Database: true, Redis: true, Auth: authNone, Session: sessionRDB}) {
 		t.Fatalf("options = %#v", options)
 	}
 }
@@ -216,7 +216,7 @@ func TestInitWizardDigitShortcutSelectsTailwind(t *testing.T) {
 		t.Fatalf("wizard did not confirm: index = %d", model.index)
 	}
 	options := wizardResult(model, defaultInitOptions())
-	if options != (initOptions{Name: "demo", TinyGo: true, Tailwind: true, Devbox: true, Database: true, Redis: true, Auth: authNone}) {
+	if options != (initOptions{Name: "demo", TinyGo: true, Tailwind: true, Devbox: true, Database: true, Redis: true, Auth: authNone, Session: sessionRDB}) {
 		t.Fatalf("options = %#v", options)
 	}
 }
@@ -224,9 +224,9 @@ func TestInitWizardDigitShortcutSelectsTailwind(t *testing.T) {
 func TestInitWizardSeedsAnswersFromShortcutFlags(t *testing.T) {
 	steps := initWizardSteps(initOptions{
 		Name: "seeded", TinyGo: true, Tailwind: true, Devbox: true,
-		Database: true, Redis: true, Auth: authOIDC, AuthEmulator: true,
+		Database: true, Redis: true, Auth: authOIDC, Session: sessionRedis, AuthEmulator: true,
 	})
-	want := []string{"seeded", "Yes", "Yes", "Yes", "OIDC", "Local emulator", "Yes", "Yes"}
+	want := []string{"seeded", "Yes", "Yes", "Yes", "OIDC", "Redis or Valkey", "Local emulator", "Yes", "Yes"}
 	for index, step := range steps {
 		if step.value() != want[index] {
 			t.Errorf("step %d (%s) value = %q, want %q", index, step.label(), step.value(), want[index])
@@ -312,7 +312,7 @@ func TestRunInitWizardOverKeystrokes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if options != (initOptions{Name: "demo", Devbox: true, Database: true, Redis: true, Auth: authNone}) {
+	if options != (initOptions{Name: "demo", Devbox: true, Database: true, Redis: true, Auth: authNone, Session: sessionRDB}) {
 		t.Fatalf("options = %#v", options)
 	}
 }
@@ -379,5 +379,24 @@ func TestScaffoldDocumentLoadsTheBoundaryRuntime(t *testing.T) {
 	}
 	if _, err := parser.ParseFile(token.NewFileSet(), "templates/templates.go", helper, parser.AllErrors); err != nil {
 		t.Fatalf("scaffold is invalid Go: %v\n%s", err, helper)
+	}
+}
+
+// The session backend is opt-in by blank import, so a project that scaffolds a
+// login has to carry the line that registers the storage it configured.
+func TestScaffoldWithLoginImportsItsSessionBackend(t *testing.T) {
+	files := scaffoldFiles(initOptions{Name: "fixture", Database: true, Auth: authOIDC})
+	main := files["cmd/fixture/main.go"]
+	if !strings.Contains(main, `_ "github.com/shibukawa/popcornwave/plugin/session/rdb"`) {
+		t.Errorf("entry point does not register the rdb session backend:\n%s", main)
+	}
+	if _, err := parser.ParseFile(token.NewFileSet(), "cmd/fixture/main.go", main, parser.AllErrors); err != nil {
+		t.Fatalf("entry point is invalid Go: %v\n%s", err, main)
+	}
+	// A project without a login configures no session storage, so it carries
+	// no storage import either.
+	plain := scaffoldFiles(initOptions{Name: "fixture"})["cmd/fixture/main.go"]
+	if strings.Contains(plain, "plugin/session/") {
+		t.Errorf("a project without a login imports a session backend:\n%s", plain)
 	}
 }

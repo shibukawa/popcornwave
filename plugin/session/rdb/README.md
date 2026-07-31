@@ -1,11 +1,26 @@
 # plugin/session/rdb
 
-A `database/sql` backed `session.Store[T]`. The package owns the
+A `database/sql` backed `session.RawStore`. The package owns the
 `popcornwave_session` table and never inspects application tables.
 
+Importing it is what makes `session.backend = "rdb"` resolve:
+
 ```go
-store, err := rdb.NewStore[Data](db, session.JSONCodec[Data]{}, rdb.Options{})
+import _ "github.com/shibukawa/popcornwave/plugin/session/rdb"
+```
+
+The import registers the backend and opens nothing. At startup the framework
+hands it the pool of the RDB middleware, and the backend verifies its own table
+before the application serves a request — a deployment that skipped the
+migration is told which migration to apply.
+
+Constructing it directly stays available. The store is not generic; the payload
+type is added by the host:
+
+```go
+store, err := rdb.NewStore(db, rdb.Options{})
 err = store.VerifySchema(context.Background())
+typed := session.Typed[Data](store, session.JSONCodec[Data]{})
 ```
 
 The caller owns `db`, because a session store commonly shares the pool of the

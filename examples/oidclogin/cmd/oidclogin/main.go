@@ -6,6 +6,10 @@ import (
 
 	"github.com/shibukawa/popcornwave/pw"
 	"oidclogin/handlers"
+
+	// session.backend = "rdb" is served by this import: storage is opt-in, so
+	// an application links the backend it configured and no other.
+	_ "github.com/shibukawa/popcornwave/plugin/session/rdb"
 )
 
 func main() {
