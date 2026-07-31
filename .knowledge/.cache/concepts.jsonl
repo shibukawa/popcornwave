@@ -54,6 +54,7 @@
 {"category": "concept", "id": "concept:application-entry-point", "path": ".knowledge/concept/application-entry-point.md", "role": "supporting", "title": "Application Entry Point", "type": "concept"}
 {"category": "concept", "id": "concept:classic-web-style", "path": ".knowledge/concept/classic-web-style.md", "role": "supporting", "title": "Classic Web Style", "type": "concept"}
 {"category": "concept", "id": "concept:client-component", "path": ".knowledge/concept/client-component.md", "role": "supporting", "title": "Client Component", "type": "concept"}
+{"category": "concept", "id": "concept:interaction-cost-ladder", "path": ".knowledge/concept/interaction-cost-ladder.md", "role": "supporting", "title": "Interaction Cost Ladder", "type": "concept"}
 {"category": "concept", "id": "concept:modern-server-ui", "path": ".knowledge/concept/modern-server-ui.md", "role": "supporting", "title": "Modern Server UI", "type": "concept"}
 {"category": "concept", "id": "concept:page-tree", "path": ".knowledge/concept/page-tree.md", "role": "supporting", "title": "Page Tree", "type": "concept"}
 {"category": "concept", "id": "concept:project-layout", "path": ".knowledge/concept/project-layout.md", "role": "supporting", "title": "Generated Project Layout", "type": "concept"}
