@@ -1,8 +1,8 @@
 ---
-title: Forms and feedback
+title: Forms
 description: Client-side feedback that agrees with server-side checks, dialogs that submit, and suggestion lists that need no script.
 sidebar:
-  order: 8
+  order: 4
 ---
 
 A form is where a server-rendered application is most obviously fine and most
@@ -61,7 +61,7 @@ the reader has actually interacted:
 
 Remember that a scoped selector needs a class to hang off — a bare
 `input:user-invalid` fails generation. See
-[Browser controls](/guides/frontend/browser-controls/) for the rule.
+[Browser controls](/guides/interactivity/browser-controls/) for the rule.
 
 ## Errors that come back from the server
 
@@ -126,7 +126,7 @@ on your part.
 
 The case that needs thought is a rejected submission you want to show *in* the
 still-open dialog. That is a fragment swap, not a navigation — see
-[Fragments and islands](/guides/frontend/fragments/).
+[Fragments and islands](/guides/interactivity/fragments/).
 
 ## Suggestions without a script
 

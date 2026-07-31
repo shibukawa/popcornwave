@@ -1,8 +1,8 @@
 ---
-title: インタラクション
+title: 概要
 description: サーバー描画のアプリケーションでインタラクションはどこから来るのか、そして階段のどの段から手をつけるか。
 sidebar:
-  order: 5
+  order: 1
 ---
 
 Popcorn Wave はサーバーで描画します。ハイドレーションも、クライアントサイド
@@ -33,18 +33,18 @@ Popcorn Wave はサーバーで描画します。ハイドレーションも、�
 
 | やりたいこと | 成立する最も安い段 | 場所 |
 | --- | --- | --- |
-| モーダル、確認 | `<dialog>` | [ブラウザ標準の部品](/ja/guides/frontend/browser-controls/) |
-| ドロップダウン、ツールチップ | Popover API | [ブラウザ標準の部品](/ja/guides/frontend/browser-controls/) |
-| アコーディオン、開閉 | `<details name>` | [ブラウザ標準の部品](/ja/guides/frontend/browser-controls/) |
-| トースト、通知 | `popover="manual"` | [フラグメントと島](/ja/guides/frontend/fragments/) |
-| 送信前の入力フィードバック | 制約検証、`:user-invalid` | [フォーム](/ja/guides/frontend/forms/) |
-| 送信後のフィールドエラー | サーバーがフォームを描き直す | [フォーム](/ja/guides/frontend/forms/) |
-| 小さな候補リスト | `<datalist>` | [フォーム](/ja/guides/frontend/forms/) |
-| ページ間の連続性 | ビュートランジション | [ナビゲーション](/ja/guides/frontend/navigation/) |
-| 一瞬で切り替わる遷移 | Speculation Rules | [ナビゲーション](/ja/guides/frontend/navigation/) |
-| 絞り込み、インライン編集、ライブなリスト | フラグメントの swap | [フラグメントと島](/ja/guides/frontend/fragments/) |
-| 中身をサーバーが用意するダイアログ | `<dialog>` への swap | [フラグメントと島](/ja/guides/frontend/fragments/) |
-| クライアントだけの状態、ドラッグ、canvas | カスタム要素 | [フラグメントと島](/ja/guides/frontend/fragments/) |
+| モーダル、確認 | `<dialog>` | [ブラウザ標準の部品](/ja/guides/interactivity/browser-controls/) |
+| ドロップダウン、ツールチップ | Popover API | [ブラウザ標準の部品](/ja/guides/interactivity/browser-controls/) |
+| アコーディオン、開閉 | `<details name>` | [ブラウザ標準の部品](/ja/guides/interactivity/browser-controls/) |
+| トースト、通知 | `popover="manual"` | [フラグメントと島](/ja/guides/interactivity/fragments/) |
+| 送信前の入力フィードバック | 制約検証、`:user-invalid` | [フォーム](/ja/guides/interactivity/forms/) |
+| 送信後のフィールドエラー | サーバーがフォームを描き直す | [フォーム](/ja/guides/interactivity/forms/) |
+| 小さな候補リスト | `<datalist>` | [フォーム](/ja/guides/interactivity/forms/) |
+| ページ間の連続性 | ビュートランジション | [ナビゲーション](/ja/guides/interactivity/navigation/) |
+| 一瞬で切り替わる遷移 | Speculation Rules | [ナビゲーション](/ja/guides/interactivity/navigation/) |
+| 絞り込み、インライン編集、ライブなリスト | フラグメントの swap | [フラグメントと島](/ja/guides/interactivity/fragments/) |
+| 中身をサーバーが用意するダイアログ | `<dialog>` への swap | [フラグメントと島](/ja/guides/interactivity/fragments/) |
+| クライアントだけの状態、ドラッグ、canvas | カスタム要素 | [フラグメントと島](/ja/guides/interactivity/fragments/) |
 | 楽観的更新、オフライン編集 | —— | このフレームワークの領分ではありません |
 
 ## 見た目は別の軸

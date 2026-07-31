@@ -2,7 +2,7 @@
 title: ブラウザ標準の部品
 description: JavaScript を必要としないダイアログ・ポップオーバー・開閉ウィジェットと、.pw.html コンポーネントに置いたときだけ現れる 4 つの規則。
 sidebar:
-  order: 6
+  order: 2
 ---
 
 モーダル、メニュー、ツールチップ、アコーディオンは、10 年のあいだライブラリの
@@ -195,7 +195,7 @@ selector "dialog::backdrop" has no class to scope; add a class or wrap it in :gl
 
 したがって swap で届くダイアログは自分のスタイルを連れてこられません。すでにページが
 描画したコンポーネントか、共有のスタイルシートで宣言してください。詳細は
-[フラグメントと島](/ja/guides/frontend/fragments/)にあります。
+[フラグメントと島](/ja/guides/interactivity/fragments/)にあります。
 
 ### スクリプト内の中括弧が挿入になることがある
 
@@ -262,7 +262,7 @@ id に行の識別子を与えてください。
 
 あるいは —— 長いリストではたいていこちらのほうがよく —— ループの外にダイアログを
 1 つ描画し、それを開く操作に中身を用意させます。
-[フラグメントのレシピ](/ja/guides/frontend/fragments/)が取っている形です。
+[フラグメントのレシピ](/ja/guides/interactivity/fragments/)が取っている形です。
 
 ## アクセシビリティの覚え書き
 
@@ -271,7 +271,7 @@ id に行の識別子を与えてください。
   なくモーダル形式を使ってください。
 - `<summary>` は支援技術にとってすでにボタンです。中にもう 1 つ入れないでください。
 - 遷移なしに変化する領域は、変化したことを伝えるべきです。`aria-live="polite"` を
-  付けてください。[フラグメントと島](/ja/guides/frontend/fragments/)の swap レシピは
+  付けてください。[フラグメントと島](/ja/guides/interactivity/fragments/)の swap レシピは
   これに依存しています。
 - アニメーションするものは `prefers-reduced-motion` を尊重してください。
 

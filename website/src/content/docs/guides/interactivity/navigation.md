@@ -1,8 +1,8 @@
 ---
-title: Navigation and transitions
+title: Navigation
 description: Making ordinary page-to-page navigation feel continuous and instant — view transitions, speculation rules, and when not to navigate at all.
 sidebar:
-  order: 7
+  order: 3
 ---
 
 The reason single-page applications took over navigation was never routing. It
@@ -76,7 +76,7 @@ export component Document(children: html?): html {
 
 Braces in script content are literal unless they read as a template insertion,
 which a rules block never does — see
-[Browser controls](/guides/frontend/browser-controls/) for the case that does.
+[Browser controls](/guides/interactivity/browser-controls/) for the case that does.
 
 The alternative avoids the inline script altogether — point at the rules with a
 response header, which is what a strict `script-src` policy prefers:

@@ -1,8 +1,8 @@
 ---
-title: Interactivity
+title: Overview
 description: Where interactivity comes from in a server-rendered application, and which tier of the ladder to reach for first.
 sidebar:
-  order: 5
+  order: 1
 ---
 
 Popcorn Wave renders on the server. It ships no hydration, no client-side
@@ -34,18 +34,18 @@ library look identical to the reader, and only one of them can break.
 
 | You want | Cheapest tier that works | Where |
 | --- | --- | --- |
-| Modal, confirmation | `<dialog>` | [Browser controls](/guides/frontend/browser-controls/) |
-| Dropdown menu, tooltip | Popover API | [Browser controls](/guides/frontend/browser-controls/) |
-| Accordion, disclosure | `<details name>` | [Browser controls](/guides/frontend/browser-controls/) |
-| Toast, notification | `popover="manual"` | [Fragments and islands](/guides/frontend/fragments/) |
-| Input feedback before submit | constraint validation, `:user-invalid` | [Forms](/guides/frontend/forms/) |
-| Field errors after submit | the server re-renders the form | [Forms](/guides/frontend/forms/) |
-| Small suggestion list | `<datalist>` | [Forms](/guides/frontend/forms/) |
-| Page-to-page continuity | view transitions | [Navigation](/guides/frontend/navigation/) |
-| Navigation that feels instant | speculation rules | [Navigation](/guides/frontend/navigation/) |
-| Filter, inline edit, live list | fragment swap | [Fragments and islands](/guides/frontend/fragments/) |
-| Dialog whose contents come from the server | fragment swap into a `<dialog>` | [Fragments and islands](/guides/frontend/fragments/) |
-| Client-only state, drag, canvas | a custom element | [Fragments and islands](/guides/frontend/fragments/) |
+| Modal, confirmation | `<dialog>` | [Browser controls](/guides/interactivity/browser-controls/) |
+| Dropdown menu, tooltip | Popover API | [Browser controls](/guides/interactivity/browser-controls/) |
+| Accordion, disclosure | `<details name>` | [Browser controls](/guides/interactivity/browser-controls/) |
+| Toast, notification | `popover="manual"` | [Fragments and islands](/guides/interactivity/fragments/) |
+| Input feedback before submit | constraint validation, `:user-invalid` | [Forms](/guides/interactivity/forms/) |
+| Field errors after submit | the server re-renders the form | [Forms](/guides/interactivity/forms/) |
+| Small suggestion list | `<datalist>` | [Forms](/guides/interactivity/forms/) |
+| Page-to-page continuity | view transitions | [Navigation](/guides/interactivity/navigation/) |
+| Navigation that feels instant | speculation rules | [Navigation](/guides/interactivity/navigation/) |
+| Filter, inline edit, live list | fragment swap | [Fragments and islands](/guides/interactivity/fragments/) |
+| Dialog whose contents come from the server | fragment swap into a `<dialog>` | [Fragments and islands](/guides/interactivity/fragments/) |
+| Client-only state, drag, canvas | a custom element | [Fragments and islands](/guides/interactivity/fragments/) |
 | Optimistic update, offline edit | — | not this framework |
 
 ## Appearance is a separate axis

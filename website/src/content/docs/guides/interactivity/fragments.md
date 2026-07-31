@@ -2,7 +2,7 @@
 title: Fragments and islands
 description: Combining server-rendered fragments with dialogs, popovers and custom elements — and the framework rules that decide how they fit together.
 sidebar:
-  order: 9
+  order: 5
 ---
 
 The tiers below this one rearrange what the page already holds. This one is for

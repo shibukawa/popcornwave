@@ -1,8 +1,8 @@
 ---
-title: ナビゲーションと遷移
+title: ナビゲーション
 description: 普通のページ遷移を連続的に、そして一瞬にする —— ビュートランジション、Speculation Rules、そして遷移しないという判断。
 sidebar:
-  order: 7
+  order: 3
 ---
 
 シングルページアプリケーションがナビゲーションを奪ったのは、ルーティングのためでは
@@ -74,7 +74,7 @@ export component Document(children: html?): html {
 
 スクリプト内の中括弧は、テンプレートの挿入として読めない限りリテラルです。ルールの
 ブロックがそう読まれることはありません。読まれてしまう例は
-[ブラウザ標準の部品](/ja/guides/frontend/browser-controls/)にあります。
+[ブラウザ標準の部品](/ja/guides/interactivity/browser-controls/)にあります。
 
 インラインスクリプト自体を避ける手もあります。レスポンスヘッダでルールを指し示す
 やり方で、厳しい `script-src` ポリシーが好むのもこちらです。

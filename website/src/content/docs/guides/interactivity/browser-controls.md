@@ -2,7 +2,7 @@
 title: Browser controls
 description: Dialogs, popovers, and disclosure widgets that need no JavaScript — and the four template rules that apply when they live in a .pw.html component.
 sidebar:
-  order: 6
+  order: 2
 ---
 
 Modals, menus, tooltips and accordions were library territory for a decade.
@@ -197,7 +197,7 @@ dropping the contribution silently.
 
 So a dialog that arrives by swap cannot bring its own styles. Declare them in a
 component the page already rendered, or in the shared stylesheet. Details are in
-[Fragments and islands](/guides/frontend/fragments/).
+[Fragments and islands](/guides/interactivity/fragments/).
 
 ### A brace in an inline script may be an insertion
 
@@ -265,7 +265,7 @@ Give the id the row's identity:
 
 Or — usually better for a long list — render one dialog outside the loop and
 let the interaction that opens it fill in what it needs. That is the shape the
-[fragment recipes](/guides/frontend/fragments/) use.
+[fragment recipes](/guides/interactivity/fragments/) use.
 
 ## Accessibility notes
 
@@ -276,7 +276,7 @@ let the interaction that opens it fill in what it needs. That is the shape the
   one inside it.
 - A region that changes without a navigation should say so. Mark it
   `aria-live="polite"` — the swap recipes in
-  [Fragments and islands](/guides/frontend/fragments/) depend on it.
+  [Fragments and islands](/guides/interactivity/fragments/) depend on it.
 - Anything that animates should respect `prefers-reduced-motion`.
 
 Only the last of those is work. The rest is a description of what `<dialog>`,

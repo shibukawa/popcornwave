@@ -1,8 +1,8 @@
 ---
-title: フォームとフィードバック
+title: フォーム
 description: サーバーの検証と食い違わないクライアント側フィードバック、送信するダイアログ、スクリプト不要の候補リスト。
 sidebar:
-  order: 8
+  order: 4
 ---
 
 フォームは、サーバー描画のアプリケーションがいちばん明らかに「ちゃんと動く」場所
@@ -61,7 +61,7 @@ HTML の属性は、その規則を読み手のいる場所に置いた反響で
 
 スコープ付きセレクタにはぶら下げるクラスが要ることを忘れないでください。素の
 `input:user-invalid` は生成に失敗します。規則は
-[ブラウザ標準の部品](/ja/guides/frontend/browser-controls/)にあります。
+[ブラウザ標準の部品](/ja/guides/interactivity/browser-controls/)にあります。
 
 ## サーバーから返るエラー
 
@@ -121,7 +121,7 @@ POST のほうはページごと離れ、Post/Redirect/Get が新しいドキュ
 
 考える必要があるのは、ダイアログを開いたまま拒否結果を見せたい場合です。これは
 遷移ではなくフラグメントの swap になります ——
-[フラグメントと島](/ja/guides/frontend/fragments/)を参照してください。
+[フラグメントと島](/ja/guides/interactivity/fragments/)を参照してください。
 
 ## スクリプトなしの候補表示
 
