@@ -13,11 +13,18 @@ callbacks.
 
 ## Turning it on
 
-Two things:
+An entry point and a configuration file:
 
 ```go
 // cmd/myapp/main.go — installing the account resolver imports plugin/auth,
-// whose extensions serve the endpoints and resolve the session.
+// whose extensions serve the endpoints and resolve the session. The two
+// storage imports are the SQLite ones: the sessions, and the single-use
+// records a login ceremony consumes.
+import (
+	_ "github.com/shibukawa/popcornwave/authstate/sqlite"
+	_ "github.com/shibukawa/popcornwave/sessionstore/sqlite"
+)
+
 func main() {
 	handlers.RegisterAccountResolver()
 	if err := pw.Run(context.Background(), handlers.Handlers()); err != nil {
@@ -26,11 +33,17 @@ func main() {
 }
 ```
 
+The storage imports are separate from `plugin/auth` on purpose: the auth plugin
+links no backend, so an application carries only what it configured — and a SQL
+store is one package per engine, so switching to PostgreSQL means importing
+`sessionstore/postgres` and `authstate/postgres` instead. `pw init --auth=oidc
+--db=postgres` writes those lines for you.
+
 ```toml
 # config.dev.toml
 [session]
 enabled = true
-backend = "rdb"          # sessions are opaque and stored server-side
+backend = "rdb"          # or "cookie" or "redis"; the token stays opaque in all three
 
 [auth]
 enabled = true
@@ -48,6 +61,93 @@ provider_logout = true   # also sign out of the provider
 `pw init --auth=oidc` writes both, plus the migrations that create the
 framework tables. Startup verifies those tables and names the migration to
 apply when one is missing.
+
+### What a login needs before it starts
+
+Four things have to be true, and startup checks each one rather than
+discovering it during a sign-in:
+
+- `session.enabled = true`, since the login has nowhere to land otherwise.
+  Which backend holds it is a separate decision — see [Sessions](/guides/backend/sessions/).
+- `middleware.rdb.enabled = true`. This holds even under a cookie or Redis
+  session backend: the single-use login records and the admission allowlist are
+  server state in every configuration.
+- The migrations applied, so both framework tables exist.
+- `issuer`, `client_id`, `client_secret`, and `redirect_url` all non-empty.
+  They are placeholders in the scaffolded file, not optional settings.
+
+The issuer must be `https`. The one exception is a loopback development
+provider, which needs `auth.oidc.allow_loopback_http = true` and must never
+carry that flag anywhere else.
+
+## Every option
+
+The `[auth]` keys decide what the framework mounts and what it protects:
+
+| Key | Default | Meaning |
+| --- | --- | --- |
+| `enabled` | `false` | the endpoints and the guard exist only when true |
+| `mode` | `"oidc_only"` | the only implemented mode; see [Modes](#modes) |
+| `login_path` | `"/auth/login"` | rooted local path that starts the provider flow |
+| `callback_path` | `"/auth/callback"` | rooted local path the provider returns to |
+| `logout_path` | `"/auth/logout"` | rooted local path; `POST` only |
+| `post_login_path` | `"/"` | where a completed login lands when no path was requested |
+| `protection.include` | `[]` | path patterns that require a session |
+| `protection.exclude` | `[]` | patterns carved back out of `include` |
+| `protection.unauthenticated` | `"redirect"` | `redirect` through the login, or `unauthorized` with `401` |
+
+Each path is validated as rooted and free of `//` before the server starts, so
+a typo is a startup error rather than a route nobody can reach.
+
+The `[auth.oidc]` keys describe the relying party and decide who is admitted:
+
+| Key | Default | Meaning |
+| --- | --- | --- |
+| `issuer` | *(empty)* | **required**; `https` unless `allow_loopback_http` |
+| `client_id` | *(empty)* | **required** |
+| `client_secret` | *(empty)* | **required**; masked in the startup summary |
+| `redirect_url` | *(empty)* | **required**; must match what the provider has registered |
+| `scopes` | `[]` | extra scopes beside `openid` |
+| `identity_claim` | `"sub"` | the verified claim that identifies a local account |
+| `admission` | `"authenticated"` | `authenticated`, `claim`, `registered`, or `existing` |
+| `auto_provision` | `true` | let an unknown verified identity create an account |
+| `claim.path` | *(empty)* | JSON Pointer into the verified claims; required by `admission = "claim"` |
+| `claim.values` | `[]` | accepted values at that pointer |
+| `claim.match` | `"any"` | `any` or `all` |
+| `registered_claims` | *(empty)* | claims compared against the allowlist; defaults to `identity_claim` |
+| `provider_logout` | `true` | also end the provider session on logout |
+| `allow_loopback_http` | `false` | permit an `http` loopback issuer during development |
+
+Supply the three secrets through `AUTH_OIDC_ISSUER`, `AUTH_OIDC_CLIENT_ID`, and
+`AUTH_OIDC_CLIENT_SECRET`, or through `${NAME}` references in the file. Both
+routes reach the same value; neither belongs in a commit.
+
+## Who gets in
+
+A verified identity is not yet an authorized one, and `admission` is where the
+two separate:
+
+| `admission` | Who is admitted |
+| --- | --- |
+| `authenticated` | everyone the issuer verifies |
+| `claim` | identities whose `claim.path` value matches `claim.values` |
+| `registered` | identities a deployment listed in the allowlist table beforehand |
+| `existing` | only identities the account resolver already knows; requires `auto_provision = false` |
+
+`claim` is the rule for a directory that already carries the answer — a group,
+a role, a department. `claim.match = "all"` demands every listed value, which
+suits an intersection of groups; `any` admits on the first match.
+
+`registered` is the rule for a closed deployment whose users are known before
+their first login. The allowlist table takes an issuer, a claim name, and the
+value expected at it, which is why `registered_claims` exists: a deployment
+that pre-registers people by employee number compares that claim rather than
+the subject it cannot know yet.
+
+Whichever rule admits, the account link is the issuer plus the claim named by
+`identity_claim` — never the email address, which providers reassign. Change
+`identity_claim` only to something the directory guarantees is stable and
+unique for the life of an account.
 
 ## The endpoints
 
@@ -130,11 +230,13 @@ authorization remains in the application.
 
 ## The session
 
-The cookie carries an opaque token; the session itself lives in the database
-through `plugin/session/rdb`, so it can be expired and revoked server-side.
-`session.ttl` is the absolute lifetime and `session.idle_timeout` the
-inactivity one. Logging in rotates the token, which revokes whatever the
-browser held before.
+The cookie carries an opaque token; where the session itself lives is
+`session.backend`, and that choice is independent of everything above.
+[Sessions](/guides/backend/sessions/) covers the three backends, their required
+keys, and what each one gives up. `session.ttl` bounds the absolute lifetime
+and `session.idle_timeout` the inactivity one; logging in rotates the token,
+which revokes whatever the browser held before — except under the cookie
+backend, which cannot revoke a copy the client already took.
 
 The stored payload holds the account summary and no token body, so a provider
 access or ID token never sits in the session.
@@ -163,18 +265,21 @@ completes the entire flow. See [Testing](/productivity/testing/#withidentityprov
 
 ## Deploying
 
-Deployment removes that convenience. `issuer`, `client_id`, and `client_secret`
-must be non-empty or the application refuses to start, naming both the missing
-keys and their `AUTH_OIDC_*` environment variables. Supply them — and
-`SESSION_SECRET` — through the environment rather than a committed file.
+Deployment removes that convenience. `issuer`, `client_id`, `client_secret`,
+and `redirect_url` must all be non-empty or the application refuses to start,
+naming what is missing. Supply the provider values through `AUTH_OIDC_ISSUER`,
+`AUTH_OIDC_CLIENT_ID`, and `AUTH_OIDC_CLIENT_SECRET`, or through `${NAME}`
+references, rather than committing them. A cookie-backed session adds one more
+secret of its own — see [Sessions](/guides/backend/sessions/#cookie-no-storage-at-all).
 
-`auth.oidc.redirect_url` may stay empty, in which case the callback URL follows
-the request origin. Set it explicitly when the browser-facing origin differs
-from what the application sees, and register the same value at your provider.
+`redirect_url` has to be the URL your provider has registered, character for
+character. It is the value the framework sends as `redirect_uri`, so a callback
+that differs from the registration is refused by the provider before the
+application ever sees it.
 
 Register the post-logout URL too: providers reject a `post_logout_redirect_uri`
-they do not know. It is `auth.post_logout_redirect` on your public origin —
-`https://app.example/` for the default `/`.
+they do not know. The framework sends the root of the request origin, so
+register `https://app.example/` for an application served there.
 
 The development provider is the exception: it accepts any local post-logout URL
 without registration, so a `pw dev` logout works before you have configured

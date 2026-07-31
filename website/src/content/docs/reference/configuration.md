@@ -252,7 +252,7 @@ duration string, and one key cannot mean both.
 | Key | Default | Meaning |
 | --- | --- | --- |
 | `enabled` | `false` | |
-| `backend` | `"rdb"` | storage backend; only `rdb` is implemented |
+| `backend` | `"rdb"` | storage backend: `rdb`, `cookie`, or `redis` |
 | `ttl` | `"24h"` | absolute session lifetime |
 | `idle_timeout` | `"0s"` | inactivity expiry; zero disables it |
 | `renewal_interval` | `"0s"` | minimum interval between idle expiry renewals |
@@ -266,10 +266,22 @@ duration string, and one key cannot mean both.
 | `rdb.group` | *(empty)* | connection group holding the session table; empty resolves to `middleware.rdb.write_group` |
 | `rdb.dsn` | *(empty)* | dedicated session database (masked in the startup summary) |
 | `rdb.table` | `"popcornwave_session"` | |
+| `redis.dsn` | *(empty)* | `redis://` or `rediss://` server (masked in the startup summary) |
+| `redis.key_prefix` | `"pw:session:"` | key space the session store owns |
+| `redis.connect_timeout` | `"5s"` | startup ping and per-command deadline |
+| `cookie_store.name` | `"pw_session_data"` | cookie holding the sealed record under `backend = "cookie"` |
+| `cookie_store.secret` | *(empty)* | base64 secret sealing cookie-backed records (masked) |
+| `cookie_store.previous_secrets` | `[]` | retired secrets kept readable during a rotation (masked) |
 
-There is no signing secret here, and nothing is missing. Sessions are opaque and
-stored server-side, so the cookie carries an identifier rather than state a
-client could tamper with.
+Only the keys of the selected backend are read, and a backend other than
+`cookie` reaches the binary through its own blank import — the startup error
+quotes the line to add. [Sessions](/guides/backend/sessions/) compares the
+three and lists what each one requires.
+
+The token in the browser is opaque in all three, so nothing here signs it. Only
+`backend = "cookie"` puts the record itself in the browser, and it seals that
+record under `cookie_store.secret` — the one secret this section has, and one
+that belongs in the environment rather than in the file.
 
 ## `[auth]`
 

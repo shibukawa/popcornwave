@@ -370,7 +370,7 @@ func registerSessionConfigDefinition2() {
 	configbind.Register[SessionConfig](configbind.Definition{
 		TypeName: "github.com/shibukawa/popcornwave/pw.SessionConfig",
 		Prefix:   "session",
-		Doc:      "SessionConfig selects login-session behavior, cookie policy, and storage. Sessions are opaque and server-side, so no signing secret is configured",
+		Doc:      "SessionConfig selects login-session behavior, cookie policy, and storage. The session token is opaque in every backend; only SessionBackendCookie carries the record itself, and it seals it under a configured secret",
 		KnownKeys: []string{
 			"session.enabled",
 			"session.backend",
@@ -387,43 +387,61 @@ func registerSessionConfigDefinition2() {
 			"session.rdb.group",
 			"session.rdb.dsn",
 			"session.rdb.table",
+			"session.redis.dsn",
+			"session.redis.key_prefix",
+			"session.redis.connect_timeout",
+			"session.cookie_store.name",
+			"session.cookie_store.secret",
+			"session.cookie_store.previous_secrets",
 		},
 		Defaults: map[string]string{
-			"session.enabled":          "false",
-			"session.backend":          "rdb",
-			"session.ttl":              "24h",
-			"session.idle_timeout":     "0s",
-			"session.renewal_interval": "0s",
-			"session.cookie.name":      "pw_session",
-			"session.cookie.path":      "/",
-			"session.cookie.secure":    "true",
-			"session.cookie.http_only": "true",
-			"session.cookie.same_site": "lax",
-			"session.rdb.source":       "middleware",
-			"session.rdb.table":        "popcornwave_session",
+			"session.enabled":               "false",
+			"session.backend":               "rdb",
+			"session.ttl":                   "24h",
+			"session.idle_timeout":          "0s",
+			"session.renewal_interval":      "0s",
+			"session.cookie.name":           "pw_session",
+			"session.cookie.path":           "/",
+			"session.cookie.secure":         "true",
+			"session.cookie.http_only":      "true",
+			"session.cookie.same_site":      "lax",
+			"session.rdb.source":            "middleware",
+			"session.rdb.table":             "popcornwave_session",
+			"session.redis.key_prefix":      "pw:session:",
+			"session.redis.connect_timeout": "5s",
+			"session.cookie_store.name":     "pw_session_data",
 		},
 		DependsOn: map[string][]string{
-			"session.backend":          {"session.enabled"},
-			"session.ttl":              {"session.enabled"},
-			"session.idle_timeout":     {"session.enabled"},
-			"session.renewal_interval": {"session.enabled"},
-			"session.cookie.name":      {"session.enabled"},
-			"session.cookie.path":      {"session.enabled"},
-			"session.cookie.domain":    {"session.enabled"},
-			"session.cookie.secure":    {"session.enabled"},
-			"session.cookie.http_only": {"session.enabled"},
-			"session.cookie.same_site": {"session.enabled"},
-			"session.rdb.source":       {"session.enabled"},
-			"session.rdb.group":        {"session.enabled"},
-			"session.rdb.dsn":          {"session.enabled"},
-			"session.rdb.table":        {"session.enabled"},
+			"session.backend":                       {"session.enabled"},
+			"session.ttl":                           {"session.enabled"},
+			"session.idle_timeout":                  {"session.enabled"},
+			"session.renewal_interval":              {"session.enabled"},
+			"session.cookie.name":                   {"session.enabled"},
+			"session.cookie.path":                   {"session.enabled"},
+			"session.cookie.domain":                 {"session.enabled"},
+			"session.cookie.secure":                 {"session.enabled"},
+			"session.cookie.http_only":              {"session.enabled"},
+			"session.cookie.same_site":              {"session.enabled"},
+			"session.rdb.source":                    {"session.enabled"},
+			"session.rdb.group":                     {"session.enabled"},
+			"session.rdb.dsn":                       {"session.enabled"},
+			"session.rdb.table":                     {"session.enabled"},
+			"session.redis.dsn":                     {"session.enabled"},
+			"session.redis.key_prefix":              {"session.enabled"},
+			"session.redis.connect_timeout":         {"session.enabled"},
+			"session.cookie_store.name":             {"session.enabled"},
+			"session.cookie_store.secret":           {"session.enabled"},
+			"session.cookie_store.previous_secrets": {"session.enabled"},
 		},
 		Secrets: map[string]string{
-			"session.rdb.dsn": "mask",
+			"session.rdb.dsn":                       "mask",
+			"session.redis.dsn":                     "mask",
+			"session.cookie_store.secret":           "mask",
+			"session.cookie_store.previous_secrets": "mask",
 		},
 		FlagMetas: []cliparser.FieldMeta{
 			{Prefix: "session", Key: "enabled", Kind: cliparser.KindBool},
-			{Prefix: "session", Key: "backend", Help: "session storage backend"},
+			{Prefix: "session", Key: "backend", Help: "session storage backend: rdb, cookie, or redis"},
 			{Prefix: "session", Key: "ttl", Help: "absolute session lifetime"},
 			{Prefix: "session", Key: "idle_timeout", Help: "inactivity expiry; zero disables it"},
 			{Prefix: "session", Key: "renewal_interval", Help: "minimum interval between idle expiry renewals"},
@@ -437,11 +455,17 @@ func registerSessionConfigDefinition2() {
 			{Prefix: "session", Key: "rdb.group", Help: "connection group holding the session table"},
 			{Prefix: "session", Key: "rdb.dsn", Help: "dedicated session database DSN"},
 			{Prefix: "session", Key: "rdb.table"},
+			{Prefix: "session", Key: "redis.dsn", Env: "SESSION_REDIS_DSN", Help: "redis:// or rediss:// session server"},
+			{Prefix: "session", Key: "redis.key_prefix", Help: "key space owned by the session store"},
+			{Prefix: "session", Key: "redis.connect_timeout", Help: "startup ping and per-command deadline"},
+			{Prefix: "session", Key: "cookie_store.name", Help: "cookie holding the sealed record"},
+			{Prefix: "session", Key: "cookie_store.secret", Env: "SESSION_COOKIE_STORE_SECRET", Help: "base64 secret sealing cookie-backed records"},
+			{Prefix: "session", Key: "cookie_store.previous_secrets", Help: "retired secrets kept readable during a rotation", Kind: cliparser.KindArray},
 		},
 		Apply: applySessionConfigDefinition2,
 		Scaffold: []configbind.ScaffoldField{
 			{Key: "enabled", Kind: configbind.ScaffoldBool, Default: "false"},
-			{Key: "backend", Kind: configbind.ScaffoldString, Default: "rdb", Help: "session storage backend"},
+			{Key: "backend", Kind: configbind.ScaffoldString, Default: "rdb", Help: "session storage backend: rdb, cookie, or redis"},
 			{Key: "ttl", Kind: configbind.ScaffoldDuration, Default: "24h", Help: "absolute session lifetime"},
 			{Key: "idle_timeout", Kind: configbind.ScaffoldDuration, Default: "0s", Help: "inactivity expiry; zero disables it"},
 			{Key: "renewal_interval", Kind: configbind.ScaffoldDuration, Default: "0s", Help: "minimum interval between idle expiry renewals"},
@@ -455,6 +479,12 @@ func registerSessionConfigDefinition2() {
 			{Key: "rdb.group", Kind: configbind.ScaffoldString, Help: "connection group holding the session table"},
 			{Key: "rdb.dsn", Kind: configbind.ScaffoldString, Help: "dedicated session database DSN"},
 			{Key: "rdb.table", Kind: configbind.ScaffoldString, Default: "popcornwave_session"},
+			{Key: "redis.dsn", Kind: configbind.ScaffoldString, Env: "SESSION_REDIS_DSN", Help: "redis:// or rediss:// session server"},
+			{Key: "redis.key_prefix", Kind: configbind.ScaffoldString, Default: "pw:session:", Help: "key space owned by the session store"},
+			{Key: "redis.connect_timeout", Kind: configbind.ScaffoldDuration, Default: "5s", Help: "startup ping and per-command deadline"},
+			{Key: "cookie_store.name", Kind: configbind.ScaffoldString, Default: "pw_session_data", Help: "cookie holding the sealed record"},
+			{Key: "cookie_store.secret", Kind: configbind.ScaffoldString, Env: "SESSION_COOKIE_STORE_SECRET", Help: "base64 secret sealing cookie-backed records"},
+			{Key: "cookie_store.previous_secrets", Kind: configbind.ScaffoldStringSlice, Help: "retired secrets kept readable during a rotation"},
 		},
 	})
 }
@@ -556,6 +586,34 @@ func applySessionConfigDefinition2(dst any, o *configbind.Overlay) error {
 		p.RDB.Table = v
 	} else {
 		p.RDB.Table = "popcornwave_session"
+	}
+	if v, ok := o.GetString("session.redis.dsn"); ok {
+		p.Redis.DSN = v
+	}
+	if v, ok := o.GetString("session.redis.key_prefix"); ok {
+		p.Redis.KeyPrefix = v
+	} else {
+		p.Redis.KeyPrefix = "pw:session:"
+	}
+	if v, ok := o.GetString("session.redis.connect_timeout"); ok {
+		d, err := time.ParseDuration(v)
+		if err != nil {
+			return fmt.Errorf("configbind: session.redis.connect_timeout: %w", err)
+		}
+		p.Redis.ConnectTimeout = d
+	} else {
+		p.Redis.ConnectTimeout = 5000000000 // 5s
+	}
+	if v, ok := o.GetString("session.cookie_store.name"); ok {
+		p.CookieStore.Name = v
+	} else {
+		p.CookieStore.Name = "pw_session_data"
+	}
+	if v, ok := o.GetString("session.cookie_store.secret"); ok {
+		p.CookieStore.Secret = v
+	}
+	if v, ok := o.GetMulti("session.cookie_store.previous_secrets"); ok {
+		p.CookieStore.PreviousSecrets = v
 	}
 	return nil
 }

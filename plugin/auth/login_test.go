@@ -22,8 +22,11 @@ import (
 	"time"
 
 	"github.com/shibukawa/popcornwave/internal/pwmigrate"
-	"github.com/shibukawa/popcornwave/plugin/session/rdb"
 	"github.com/shibukawa/popcornwave/pw"
+	"github.com/shibukawa/popcornwave/sessionstore"
+
+	_ "github.com/shibukawa/popcornwave/authstate/sqlite"
+	_ "github.com/shibukawa/popcornwave/sessionstore/sqlite"
 	"github.com/shibukawa/tinybind-go/configbind"
 )
 
@@ -362,8 +365,8 @@ func applyFrameworkMigrations(t *testing.T, database string) {
 	// The versions here are this fixture's, not the packages': a project picks
 	// whatever is free when the file is written.
 	for version, migration := range map[int]struct{ name, content string }{
-		1: {rdb.MigrationName, rdb.MigrationSQL("")},
-		2: {MigrationName, MigrationSQL()},
+		1: {sessionstore.MigrationName, mustSessionMigration()},
+		2: {MigrationName, mustAuthMigration()},
 	} {
 		name := fmt.Sprintf("%05d_%s.sql", version, migration.name)
 		if err := os.WriteFile(filepath.Join(directory, name), []byte(migration.content), 0o600); err != nil {
@@ -430,4 +433,22 @@ allow_loopback_http = true
 		t.Fatal(err)
 	}
 	return path
+}
+
+// mustSessionMigration and mustAuthMigration are the SQLite migrations the
+// scaffold writes, which is the dialect these fixtures use.
+func mustSessionMigration() string {
+	migration, err := sessionstore.MigrationSQL("sqlite", "popcornwave_session")
+	if err != nil {
+		panic(err)
+	}
+	return migration
+}
+
+func mustAuthMigration() string {
+	migration, err := MigrationSQL("sqlite")
+	if err != nil {
+		panic(err)
+	}
+	return migration
 }

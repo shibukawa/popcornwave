@@ -7,8 +7,12 @@
 //
 // The current build implements auth.mode = "oidc_only": OpenID Connect
 // Authorization Code with PKCE against one configured issuer, a login session
-// stored by plugin/session/rdb, and single-use OAuth correlation state stored
-// by contrib/authstate/sqlite.
+// in whatever backend session.backend selects, and single-use OAuth
+// correlation state stored by authstate/sqlite.
+//
+// This package imports no storage plugin. It asks pw for the configured
+// backend, so an application links the storage it configured and no more, and
+// a backend other than cookie needs its own blank import.
 package auth
 
 import (
@@ -19,10 +23,9 @@ import (
 	"sync"
 	"time"
 
-	authsqlite "github.com/shibukawa/popcornwave/contrib/authstate/sqlite"
+	"github.com/shibukawa/popcornwave/authstate"
 	"github.com/shibukawa/popcornwave/contrib/oauth"
 	"github.com/shibukawa/popcornwave/contrib/oidc"
-	"github.com/shibukawa/popcornwave/plugin/session/rdb"
 	"github.com/shibukawa/popcornwave/pw"
 	"github.com/shibukawa/popcornwave/session"
 )
@@ -56,10 +59,15 @@ func init() {
 // runtime is the state shared by the three extensions of this package. It is
 // rebuilt whenever framework initialization runs.
 type runtime struct {
-	config       Config
-	manager      *session.Manager[SessionData]
-	sessionStore *rdb.Store[SessionData]
-	stateStore   *authsqlite.Store[oauth.Transaction]
+	config  Config
+	manager *session.Manager[SessionData]
+	// sessionPrune is the expiry sweep of the session backend. A backend whose
+	// server or browser forgets records on its own leaves it nil.
+	sessionPrune func(context.Context, time.Time, int) (int64, error)
+	// sessionClose releases a client the backend opened. A backend that
+	// borrowed the middleware database leaves it nil.
+	sessionClose func(context.Context) error
+	stateStore   *authstate.SQLStore[oauth.Transaction]
 	allowlist    Allowlist
 	cookiePolicy pw.SessionCookieConfig
 	include      []pattern
@@ -101,14 +109,11 @@ func setupSession(ctx context.Context) (pw.Middleware, error) {
 	if !sessionConfig.Enabled {
 		return nil, errors.New("auth requires session.enabled = true")
 	}
-	if sessionConfig.Backend != "rdb" {
-		return nil, fmt.Errorf("session.backend %q is not implemented; use \"rdb\"", sessionConfig.Backend)
-	}
-	if sessionConfig.RDB.Source != "middleware" {
-		return nil, fmt.Errorf("session.rdb.source %q is not implemented; use \"middleware\"", sessionConfig.RDB.Source)
-	}
+	// Whatever the session backend is, this package needs the database: the
+	// single-use OAuth correlation records and the admission allowlist are
+	// server state in every backend.
 	if _, ok := pw.DB(ctx); !ok {
-		return nil, errors.New("session.rdb.source = \"middleware\" requires middleware.rdb.enabled = true")
+		return nil, errors.New("auth requires middleware.rdb.enabled = true")
 	}
 	// The session table is written on every login, so it lives in the session
 	// group rather than in the default group, which is normally a replica.
@@ -118,49 +123,41 @@ func setupSession(ctx context.Context) (pw.Middleware, error) {
 	}
 	db, ok := pw.DB(sessionCtx)
 	if !ok {
-		return nil, errors.New("session.rdb.source = \"middleware\" requires middleware.rdb.enabled = true")
+		return nil, errors.New("auth requires middleware.rdb.enabled = true")
 	}
-	if driver, _ := pw.DBDriver(sessionCtx); driver != "sqlite" {
-		// The OAuth correlation store is the SQLite implementation of
-		// contrib/authstate; another dialect needs its own adapter.
-		return nil, fmt.Errorf("auth currently requires a sqlite middleware.rdb.dsn, got driver %q", driver)
-	}
-
 	options, err := sessionOptions(sessionConfig)
 	if err != nil {
 		return nil, err
 	}
-	sessionStore, err := rdb.NewStore[SessionData](db, session.JSONCodec[SessionData]{}, rdb.Options{
-		Table: sessionConfig.RDB.Table,
-	})
+	// The backend is resolved by name, so this package links no storage
+	// plugin and each backend validates its own configuration and schema.
+	driver, _ := pw.DBDriver(sessionCtx)
+	backend, err := pw.OpenSessionBackend(ctx, sessionConfig, pw.SessionResources{DB: db, DBDriver: driver})
 	if err != nil {
 		return nil, err
 	}
-	stateStore, err := authsqlite.NewStore[oauth.Transaction](db, oauth.TransactionCodec{}, authsqlite.Options{
+	// The ceremony store speaks whatever engine the DSN resolved to, so its
+	// dialect comes from the same place the session backend's does.
+	stateStore, err := authstate.NewSQLStore[oauth.Transaction](db, oauth.TransactionCodec{}, authstate.SQLOptions{
+		Dialect:   driver,
 		Namespace: stateNamespace,
 	})
 	if err != nil {
 		return nil, err
 	}
-	// Framework tables are migration-owned, so startup verifies them instead
-	// of creating them.
+	// The tables this package owns are migration-owned, so startup verifies
+	// them instead of creating them. The session backend verifies its own.
 	schemaCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
-	table := sessionConfig.RDB.Table
-	if table == "" {
-		table = rdb.DefaultTable
-	}
-	if err := verifyTables(schemaCtx, db, table); err != nil {
+	if err := verifyTables(schemaCtx, db); err != nil {
 		return nil, err
-	}
-	if err := sessionStore.VerifySchema(schemaCtx); err != nil {
-		return nil, fmt.Errorf("session schema: %w", err)
 	}
 	// The table already exists, so this validates its column layout only.
 	if err := stateStore.EnsureSchema(schemaCtx); err != nil {
 		return nil, fmt.Errorf("auth state schema: %w", err)
 	}
-	manager, err := session.NewManager[SessionData](sessionStore, options)
+	manager, err := session.NewManager[SessionData](
+		session.Typed[SessionData](backend.Store, session.JSONCodec[SessionData]{}), options)
 	if err != nil {
 		return nil, err
 	}
@@ -175,7 +172,8 @@ func setupSession(ctx context.Context) (pw.Middleware, error) {
 	instance := &runtime{
 		config:       config,
 		manager:      manager,
-		sessionStore: sessionStore,
+		sessionPrune: backend.Prune,
+		sessionClose: backend.Close,
 		stateStore:   stateStore,
 		allowlist:    Allowlist{db: db},
 		cookiePolicy: sessionConfig.Cookie,
@@ -190,14 +188,17 @@ func setupSession(ctx context.Context) (pw.Middleware, error) {
 	return instance.manager.Middleware(writeUnavailable), nil
 }
 
-// replaceRuntime installs instance and stops the sweep of the runtime it
-// replaces. Repeated framework initialization, which tests perform, must not
-// leave an earlier sweep running.
+// replaceRuntime installs instance and releases the runtime it replaces.
+// Repeated framework initialization, which tests perform, must not leave an
+// earlier sweep running or an earlier backend client open.
 func replaceRuntime(instance *runtime) {
 	current.Lock()
 	defer current.Unlock()
-	if current.runtime != nil {
-		close(current.runtime.stopPruning)
+	if previous := current.runtime; previous != nil {
+		close(previous.stopPruning)
+		if previous.sessionClose != nil {
+			_ = previous.sessionClose(context.Background())
+		}
 	}
 	current.runtime = instance
 }
@@ -218,7 +219,9 @@ func (rt *runtime) prune() {
 		case <-ticker.C:
 			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 			now := time.Now()
-			_, _ = rt.sessionStore.Prune(ctx, now, pruneBatch)
+			if rt.sessionPrune != nil {
+				_, _ = rt.sessionPrune(ctx, now, pruneBatch)
+			}
 			_, _ = rt.stateStore.Prune(ctx, now, pruneBatch)
 			cancel()
 		}
@@ -241,8 +244,9 @@ func setupGuard(context.Context) (pw.Middleware, error) {
 	return instance.guard, nil
 }
 
-// closeRuntime stops the expiry sweep during shutdown. The database pool
-// belongs to the RDB middleware, so only this package's own state is released.
+// closeRuntime stops the expiry sweep and closes an owned backend client
+// during shutdown. The database pool belongs to the RDB middleware, so only
+// this package's own state is released.
 func closeRuntime(context.Context) error {
 	replaceRuntime(nil)
 	return nil

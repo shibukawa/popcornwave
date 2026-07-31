@@ -247,7 +247,7 @@ HSTS が付くのは検証済みの HTTPS リクエストだけです。平文�
 | キー | 既定値 | 意味 |
 | --- | --- | --- |
 | `enabled` | `false` | |
-| `backend` | `"rdb"` | 保存バックエンド。実装があるのは `rdb` のみ |
+| `backend` | `"rdb"` | 保存バックエンド: `rdb`、`cookie`、`redis` |
 | `ttl` | `"24h"` | セッションの絶対寿命 |
 | `idle_timeout` | `"0s"` | 無操作での失効。ゼロで無効 |
 | `renewal_interval` | `"0s"` | 無操作失効の更新間隔の下限 |
@@ -261,10 +261,22 @@ HSTS が付くのは検証済みの HTTPS リクエストだけです。平文�
 | `rdb.group` | *(空)* | セッションテーブルを持つ接続グループ。空なら `middleware.rdb.write_group` |
 | `rdb.dsn` | *(空)* | 専用セッションデータベース（起動サマリではマスクされる） |
 | `rdb.table` | `"popcornwave_session"` | |
+| `redis.dsn` | *(空)* | `redis://` または `rediss://` のサーバー（起動サマリではマスクされる） |
+| `redis.key_prefix` | `"pw:session:"` | セッションストアが所有する鍵空間 |
+| `redis.connect_timeout` | `"5s"` | 起動時の ping と各コマンドの期限 |
+| `cookie_store.name` | `"pw_session_data"` | `backend = "cookie"` で封をしたレコードを運ぶクッキー |
+| `cookie_store.secret` | *(空)* | クッキーのレコードを封印する base64 の秘密鍵（マスクされる） |
+| `cookie_store.previous_secrets` | `[]` | ローテーション中も読める引退した秘密鍵（マスクされる） |
 
-署名用のシークレットはここになく、抜けているわけでもありません。セッションは
-不透明でサーバ側に保存されるため、Cookie が運ぶのはクライアントが改竄しうる状態では
-なく識別子だけです。
+読まれるのは選んだバックエンドのキーだけです。`cookie` 以外のバックエンドは、それ自身の
+blank import でバイナリに入ります。書き忘れたときは起動時のエラーが追加すべき行を引用
+します。3つの比較と、それぞれに必要な設定は[セッション](/ja/guides/backend/sessions/)に
+あります。
+
+ブラウザにあるトークンはどのバックエンドでも不透明なので、ここに署名鍵はありません。
+レコードそのものをブラウザに置くのは `backend = "cookie"` だけで、その場合は
+`cookie_store.secret` で封をします。このセクション唯一の秘密鍵であり、ファイルではなく
+環境に置くべきものです。
 
 ## `[auth]`
 

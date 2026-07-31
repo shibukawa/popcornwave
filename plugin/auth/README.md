@@ -20,8 +20,8 @@ package costs one configuration binding.
 
 `auth.mode = "oidc_only"`: Authorization Code with S256 PKCE, state, and nonce
 against one configured issuer, over `contrib/oidc`. Login sessions go to
-`plugin/session/rdb`; the single-use correlation record goes to
-`contrib/authstate/sqlite`, so the database behind `middleware.rdb` must
+`sessionstore/sqlite`; the single-use correlation record goes to
+`authstate/sqlite`, so the database behind `middleware.rdb` must
 currently be SQLite. `session.rdb.source` must be `middleware`.
 
 `oidc_passkey` and `passkey_only` are rejected during startup validation.
@@ -37,7 +37,7 @@ migration `MigrationSQL` publishes, which a project carries under
 - `popcornwave_auth_allowlist` — identities registered before their first
   login, consulted only under `registered` admission
 
-`plugin/session/rdb` owns `popcornwave_session` through its own migration.
+`sessionstore/sqlite` owns `popcornwave_session` through its own migration.
 Startup verifies every one of them and refuses to serve when one is missing,
 naming the migration to apply, so a forgotten migration fails immediately
 rather than during a login.

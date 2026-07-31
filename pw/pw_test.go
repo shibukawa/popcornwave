@@ -26,6 +26,8 @@ func TestScaffoldsIncludeBuiltInDefinitions(t *testing.T) {
 		`public.enabled = true`, `public.mount = "/public"`,
 		`headers.frame_options = "deny"`, "[observability]", "[middleware]",
 		"access_log = true",
+		`backend = "rdb"`, `cookie_store.name = "pw_session_data"`, `cookie_store.secret = ""`,
+		`redis.key_prefix = "pw:session:"`, `redis.connect_timeout = "5s"`,
 	} {
 		if !strings.Contains(toml, fragment) {
 			t.Fatalf("TOML scaffold missing %q:\n%s", fragment, toml)
@@ -39,6 +41,9 @@ func TestScaffoldsIncludeBuiltInDefinitions(t *testing.T) {
 		"PORT=8080", "SERVER_MAX_REQUEST_BODY=10485760",
 		"SERVER_HEALTH=\"\"", "SECURITY_HEADERS_ENABLED=true",
 		"OTEL_SERVICE_NAME=\"\"", "SESSION_ENABLED=false", "SESSION_COOKIE_SECURE=true",
+		// The sealing secret is read from the environment rather than kept in
+		// the configuration file.
+		"SESSION_COOKIE_STORE_SECRET=\"\"", "SESSION_REDIS_DSN=\"\"",
 	} {
 		if !strings.Contains(env, fragment) {
 			t.Fatalf("env scaffold missing %q:\n%s", fragment, env)

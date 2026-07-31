@@ -6,8 +6,7 @@ import (
 	"errors"
 	"fmt"
 
-	authsqlite "github.com/shibukawa/popcornwave/contrib/authstate/sqlite"
-	"github.com/shibukawa/popcornwave/plugin/session/rdb"
+	"github.com/shibukawa/popcornwave/authstate"
 )
 
 // MigrationName is the stable name of the migration a project carries for the
@@ -19,45 +18,58 @@ const MigrationName = "init_popcornwave_auth"
 // consulted by AdmissionRegistered.
 const AllowlistTable = "popcornwave_auth_allowlist"
 
-// allowlistSchemaSQL is the DDL of the pre-registration table.
+// allowlistSchemaSQL is the DDL of the pre-registration table under one
+// engine.
 //
 // A row names one verified claim and its expected value, because a local
 // deployment usually knows an operator's email or account name before that
-// person has ever logged in and therefore before its subject exists.
-const allowlistSchemaSQL = `CREATE TABLE IF NOT EXISTS ` + AllowlistTable + ` (
-	issuer TEXT NOT NULL,
-	claim TEXT NOT NULL,
-	value TEXT NOT NULL,
-	note TEXT NOT NULL DEFAULT '',
+// person has ever logged in and therefore before its subject exists. MySQL
+// indexes no unbounded text, so its three key columns carry a length.
+func allowlistSchemaSQL(dialect string) string {
+	text, key := "TEXT", "TEXT"
+	if dialect == "mysql" {
+		key = "VARCHAR(255)"
+	}
+	return `CREATE TABLE IF NOT EXISTS ` + AllowlistTable + ` (
+	issuer ` + key + ` NOT NULL,
+	claim ` + key + ` NOT NULL,
+	value ` + key + ` NOT NULL,
+	note ` + text + ` NOT NULL DEFAULT '',
 	PRIMARY KEY (issuer, claim, value)
 )`
+}
 
-// MigrationSQL returns the goose migration that creates the tables this package
-// owns: the single-use OIDC correlation records and the pre-registration
-// allowlist.
-func MigrationSQL() string {
+// MigrationSQL returns the goose migration that creates the tables this
+// package owns under one engine: the single-use OIDC correlation records and
+// the pre-registration allowlist.
+func MigrationSQL(dialect string) (string, error) {
+	stateSchema, err := authstate.SchemaSQL(dialect)
+	if err != nil {
+		return "", err
+	}
 	return `-- +goose Up
 -- Owned by github.com/shibukawa/popcornwave/plugin/auth.
 -- Single-use login correlation: state, nonce, and PKCE verifier of a pending
 -- ceremony. Rows are consumed by the callback and swept after they expire.
-` + authsqlite.SchemaSQL() + `;
+` + stateSchema + `;
 
 -- Identities a deployment registered before their first login. Only consulted
 -- when auth.oidc.admission is "registered".
-` + allowlistSchemaSQL + `;
+` + allowlistSchemaSQL(dialect) + `;
 
 -- +goose Down
 DROP TABLE ` + AllowlistTable + `;
-DROP TABLE ` + authsqlite.TableName + `;
-`
+DROP TABLE ` + authstate.TableName + `;
+`, nil
 }
 
-// requiredTables lists the framework tables and the migration that creates
-// each one, in the order a project applies them.
-func requiredTables(sessionTable string) [][2]string {
+// requiredTables lists the tables this package owns and the migration that
+// creates each one. The session table is not among them: a session backend
+// verifies its own storage, and a cookie or Redis backend has no table here at
+// all.
+func requiredTables() [][2]string {
 	return [][2]string{
-		{sessionTable, rdb.MigrationName},
-		{authsqlite.TableName, MigrationName},
+		{authstate.TableName, MigrationName},
 		{AllowlistTable, MigrationName},
 	}
 }
@@ -68,8 +80,8 @@ func requiredTables(sessionTable string) [][2]string {
 //
 // The migration is named without a version, because the version is whatever was
 // free in that project when the file was written.
-func verifyTables(ctx context.Context, db *sql.DB, sessionTable string) error {
-	for _, required := range requiredTables(sessionTable) {
+func verifyTables(ctx context.Context, db *sql.DB) error {
+	for _, required := range requiredTables() {
 		exists, err := tableExists(ctx, db, required[0])
 		if err != nil {
 			return err

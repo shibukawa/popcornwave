@@ -46,12 +46,18 @@ pw add auth
     append  config.dev.toml
     append  popcornwave.toml
     by hand call handlers.RegisterAccountResolver() in ./cmd/memoapp before pw.Run
+    by hand add import _ "github.com/shibukawa/popcornwave/sessionstore/sqlite" to ./cmd/memoapp
+    by hand add import _ "github.com/shibukawa/popcornwave/authstate/sqlite" to ./cmd/memoapp
     then    pw migrate up
 ```
 
-セッションはサーバー側、データベースに保存されます。ログインと一緒にマイグレーションが
-2つ来るのも、データベースのないプロジェクトで `pw add auth` が動かないのもそのためです。
-ブラウザが受け取るのは中身のないトークンで、その先にあるレコードはサーバーから失効させられます。
+`pw add auth` はセッションをサーバー側、データベースに保存します。ログインと一緒に
+マイグレーションが2つ来るのも、データベースのないプロジェクトでは動かないのもそのため
+です。ブラウザが受け取るのは中身のないトークンで、その先にあるレコードはサーバーから
+失効させられます。この import がデータベースバックエンドをバイナリに入れます。ストレージ
+はオプトインなので、アプリケーションが持つのは設定したバックエンドだけです。残る2つの
+選択肢は[クッキー](/ja/guides/backend/cookies/)にあり、`pw init --session` なら最初から
+選べます。
 
 `devidp.toml` は開発用ユーザーの名簿で、`Administrator` と `Member` が載っています。
 `pw dev` はこれをローカルの OpenID Provider から提供し、パスワードは検証しません。

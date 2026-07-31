@@ -6,7 +6,7 @@ title: pw init
 pw init creates a runnable Popcorn Wave project with a shared document shell, representative handler, typed page template, SQL query, error pages, Devbox environment, and generated-artifact conventions.
 
 ```yaml
-usage: pw init [myapp] [--interactive] [--router=registered|discovered|both] [--tailwind|--no-tailwind] [--tinygo|--no-tinygo] [--devbox|--no-devbox] [--database|--no-database] [--db=sqlite|postgres|mysql] [--redis|--no-redis] [--auth=none|oidc|oidc-passkey|passkey] [--devidp|--no-devidp]
+usage: pw init [myapp] [--interactive] [--router=registered|discovered|both] [--tailwind|--no-tailwind] [--tinygo|--no-tinygo] [--devbox|--no-devbox] [--database|--no-database] [--db=sqlite|postgres|mysql] [--redis|--no-redis] [--auth=none|oidc|oidc-passkey|passkey] [--session=rdb|cookie|redis] [--devidp|--no-devidp]
 mode: decision:interactive-project-bootstrap
 catalog: the capability questions are the requirement:incremental-project-capabilities catalog api:cli-add installs into an existing project
 inputs:
@@ -58,6 +58,15 @@ questions:
     oidc: auth.mode oidc
     oidc_passkey: auth.mode oidc_passkey per decision:authentication-bootstrap-strategy
     passkey_only: auth.mode passkey_only recorded with auth.enabled false, because no implementation exists yet
+  session_storage:
+    asked_when: the selected mode serves a login
+    default: rdb
+    choices: requirement:state-storage-tiers opaque backends
+    rdb: one row per session through the sessionstore/sqlite blank import, with its rule:framework-owned-tables migration
+    cookie: sealed into a second cookie with no storage and no import, and cookie_store.secret read from the environment
+    redis: server-side TTL through the sessionstore/redis blank import, taking the Valkey development server with it
+    writes: session.backend, the keys of the selected backend only, and the api:session-backend-plugin import in main
+    rationale: the choice is a deployment decision, because every backend reads the same in a handler
   oidc_provider:
     asked_when: the selected mode uses OIDC
     local_emulator: requirement:contrib-devidp enabled through data:project-config dev.idp, with a data:devidp-config starter roster
@@ -88,7 +97,9 @@ outputs:
   - data:authentication-runtime-config section for the selected authentication mode
   - data:devidp-config roster and data:project-config dev.idp when the local emulator is selected
   - api:authentication-endpoints blank import in main and a sign-in and sign-out control on the starter page
+  - api:session-backend-plugin blank import in main for a selected backend other than cookie
   - rule:framework-owned-tables migrations from the packages that own those tables, at the versions after the application schema, when the mode serves a login
+  - the session table migration only for the rdb backend; another backend leaves that version to the auth migration
   - data:middleware-runtime-config rdb settings carrying the requirement:database-engine-selection DSN for the chosen engine, because the scaffolded migrations and queries need a database, only when the database is selected
 optional_css:
   tailwind:
@@ -105,9 +116,11 @@ behavior:
   - scaffold classic rendering according to requirement:nested-html-templates
   - scaffold every tree the router answer selects, and write the document shell and error pages for all three answers because both routers render through them
   - scaffold runtime database configuration for decision:config-driven-database when the database example is enabled
-  - refuse an authentication mode without the database, because api:cli-add applies the same dependency
+  - refuse an authentication mode without the database, because its login ceremony and allowlist tables need one whatever backend stores the sessions
   - refuse --db together with --no-database, before anything is written
   - write the starter migration and .pw.sql example in the dialect of the selected engine, since decision:server-sql-support-tier does not translate between them
+  - take the Valkey development server with a Redis-backed session, because the configured session needs a server to reach
+  - print the command that generates cookie_store.secret when the cookie backend is selected
   - leave every declined capability to api:cli-add, which reaches the same file state later
 next_steps:
   - cd myapp

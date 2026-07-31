@@ -130,17 +130,47 @@ type SecurityHeadersConfig = middlewares.SecurityHeadersConfig
 // HSTSConfig controls Strict-Transport-Security on verified HTTPS requests.
 type HSTSConfig = middlewares.HSTSConfig
 
+// Session storage backends.
+const (
+	// SessionBackendRDB keeps records in a database through
+	// sessionstore/sqlite. It is the backend a deployment that must revoke a
+	// session, or that outgrows a cookie, uses.
+	SessionBackendRDB = "rdb"
+	// SessionBackendCookie keeps records in a sealed browser cookie. It needs
+	// no storage at all, and it cannot revoke a record it already wrote.
+	SessionBackendCookie = "cookie"
+	// SessionBackendRedis keeps records in Redis or Valkey through
+	// sessionstore/redis, where the server owns expiry and no sweep runs.
+	SessionBackendRedis = "redis"
+)
+
 // SessionConfig selects login-session behavior, cookie policy, and storage.
-// Sessions are opaque and server-side, so no signing secret is configured.
+// The session token is opaque in every backend; only SessionBackendCookie
+// carries the record itself, and it seals it under a configured secret.
 type SessionConfig struct {
 	Enabled bool `default:"false"`
-	// Backend selects the storage plugin. Only rdb is implemented.
-	Backend         string              `default:"rdb" dependon:".enabled" help:"session storage backend"`
-	TTL             time.Duration       `default:"24h" dependon:".enabled" help:"absolute session lifetime"`
-	IdleTimeout     time.Duration       `default:"0s" dependon:".enabled" help:"inactivity expiry; zero disables it"`
-	RenewalInterval time.Duration       `default:"0s" dependon:".enabled" help:"minimum interval between idle expiry renewals"`
-	Cookie          SessionCookieConfig `dependon:".enabled"`
-	RDB             SessionRDBConfig    `dependon:".enabled"`
+	// Backend selects the storage plugin: rdb, cookie, or redis. Every backend
+	// but cookie reaches the binary through its own blank import.
+	Backend         string                   `default:"rdb" dependon:".enabled" help:"session storage backend: rdb, cookie, or redis"`
+	TTL             time.Duration            `default:"24h" dependon:".enabled" help:"absolute session lifetime"`
+	IdleTimeout     time.Duration            `default:"0s" dependon:".enabled" help:"inactivity expiry; zero disables it"`
+	RenewalInterval time.Duration            `default:"0s" dependon:".enabled" help:"minimum interval between idle expiry renewals"`
+	Cookie          SessionCookieConfig      `dependon:".enabled"`
+	RDB             SessionRDBConfig         `dependon:".enabled"`
+	Redis           SessionRedisConfig       `dependon:".enabled"`
+	CookieStore     SessionCookieStoreConfig `dependon:".enabled"`
+}
+
+// SessionRedisConfig configures the Redis-compatible session store. The server
+// owns record expiry, so nothing here schedules a sweep.
+type SessionRedisConfig struct {
+	// DSN is a redis:// or rediss:// URL. Keep credentials out of the file
+	// itself with a ${NAME} reference or SESSION_REDIS_DSN.
+	DSN string `secret:"mask" env:"SESSION_REDIS_DSN" help:"redis:// or rediss:// session server"`
+	// KeyPrefix isolates session keys from every other user of the server.
+	KeyPrefix string `default:"pw:session:" help:"key space owned by the session store"`
+	// ConnectTimeout bounds the startup ping and the per-command deadlines.
+	ConnectTimeout time.Duration `default:"5s" help:"startup ping and per-command deadline"`
 }
 
 // SessionCookieConfig is the browser cookie policy of the session middleware.
@@ -163,6 +193,21 @@ type SessionRDBConfig struct {
 	Group string `help:"connection group holding the session table"`
 	DSN   string `secret:"mask" help:"dedicated session database DSN"`
 	Table string `default:"popcornwave_session"`
+}
+
+// SessionCookieStoreConfig configures the client-side session backend. The
+// record cookie follows the [session.cookie] policy, so both cookies of a
+// session expire and travel under the same rules; only the name is separate.
+type SessionCookieStoreConfig struct {
+	// Name holds the sealed record beside the token cookie.
+	Name string `default:"pw_session_data" help:"cookie holding the sealed record"`
+	// Secret is 32 or more random bytes in base64, generated with
+	// `openssl rand -base64 32`. Keep it out of the file itself: write
+	// "${SESSION_COOKIE_SECRET}" or set SESSION_COOKIE_STORE_SECRET.
+	Secret string `secret:"mask" env:"SESSION_COOKIE_STORE_SECRET" help:"base64 secret sealing cookie-backed records"`
+	// PreviousSecrets keep records written before a rotation readable. They
+	// never write.
+	PreviousSecrets []string `secret:"mask" help:"retired secrets kept readable during a rotation"`
 }
 
 // ObservabilityConfig controls runtime logging, tracing, and service identity.

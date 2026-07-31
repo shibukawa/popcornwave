@@ -7,7 +7,7 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/shibukawa/popcornwave/contrib/authstate/memory"
+	"github.com/shibukawa/popcornwave/authstate/memory"
 	"github.com/shibukawa/popcornwave/contrib/oauth"
 )
 
