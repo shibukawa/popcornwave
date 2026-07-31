@@ -188,6 +188,81 @@ renderings of the same data. This is the property that makes fragments cheap
 here, and it is worth designing components around: the region a swap replaces
 should be a component before it is a route.
 
+## When the swap is a timer
+
+Sooner or later a region has to change without anybody clicking anything. A swap
+library will do it:
+
+```html
+<div id="queue" hx-get="/queue" hx-trigger="every 2s" hx-swap="innerHTML">…</div>
+```
+
+Two seconds is a guess, and it is wrong in both directions at once. Most of those
+requests re-render a queue depth that did not move, and the ones that matter wait
+up to two seconds to arrive. Shortening the interval multiplies the first
+problem; lengthening it deepens the second. Meanwhile every open tab keeps its
+own timer, so the load scales with tabs rather than with events, and the server
+has no way to say "nothing happened, stop asking."
+
+A live boundary removes the guess by letting the server speak when it has
+something to say. The template is the `await` clause the previous section
+already used, with a source that keeps producing instead of settling once:
+
+```html
+external live WatchQueue(): Depth
+
+export component Queue(): html {
+<section class="card" id="queue">
+{await depth = WatchQueue()}
+  <strong>{depth.waiting}</strong> waiting · <small>{depth.at}</small>
+{fallback}
+  <p class="pending">connecting…</p>
+{/await}
+</section>
+}
+```
+
+```go
+func WatchQueue(ctx context.Context) iter.Seq2[Depth, error] {
+	return func(yield func(Depth, error) bool) {
+		for event := range queue.Watch(ctx) {
+			if !yield(Depth{Waiting: event.Waiting, At: event.At.Format("15:04:05")}, nil) {
+				return
+			}
+		}
+	}
+}
+```
+
+No attribute on the markup, no interval, and no endpoint: the browser reconnects
+to the page's own URL, and the runtime already in the document shell applies each
+delivery. What arrives is the whole region rendered again, which is why the
+source yields the current state rather than a diff — a reconnect after a dropped
+connection needs the next value and nothing else.
+
+Three consequences are worth knowing before you reach for it.
+
+A live region renders output and never input. Placing a `form`, `input`,
+`textarea`, or `select` inside a live clause fails generation, because a delivery
+arriving while the reader types would discard what they typed with no warning.
+Keep the form outside the boundary and the changing data inside it.
+
+Announcement is yours to choose, and the two useful answers are opposite. A gauge
+re-rendering every second should announce nothing; a message list should sit
+inside `role="log"`, which implies polite. Put the attribute on an element
+*around* the boundary — one inside the replaced subtree is destroyed and
+recreated with the content, which resets the live region.
+
+And a swap still wins whenever the reader is the one who moved. Filtering,
+sorting, inline editing, and pagination are all faster to write and cheaper to
+serve as a swap, because they need no open connection and no subscription. Live
+delivery is for the case a swap cannot express: the value changed, and nobody on
+this page did it.
+
+[Live rendering](/guides/cross-layer/live-rendering/) covers the bounds, the
+reconnect behaviour, and what a connection costs; `examples/live_render` is a
+running dashboard built on it.
+
 ## Islands you write yourself
 
 Some interactions have no server round trip in them at all — a copy button,
@@ -225,7 +300,7 @@ Three properties make this the right shape for a server-rendered application:
 - **It matches how the framework loads its own runtime.** The async rendering
   runtime is a module loaded by `src` from a revision-stamped path; keeping your
   islands in files under `public/` puts them under the same `script-src 'self'`
-  policy. See [Async rendering](/advanced/async-rendering/).
+  policy. See [Async rendering](/guides/cross-layer/async-rendering/).
 
 ### Where an island posts
 
@@ -240,7 +315,7 @@ What acts on that attribute is yours today: the framework module that would
 intercept it does not exist yet, and neither does the CSRF middleware that
 should stand in front of a `POST` endpoint reachable with ambient credentials.
 An island that fires one owns both jobs. See
-[Discovered routing](/advanced/discovered-routing/).
+[Discovered routing](/guides/cross-layer/discovered-routing/).
 
 Prefer light DOM. A shadow root buys encapsulation you rarely need here and
 costs you the page's stylesheet — Tailwind utilities and daisyUI classes on the
