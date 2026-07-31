@@ -59,7 +59,10 @@ bootstrap:
   limits: auth.bootstrap.max_attempts, auth.bootstrap.issue_ttl, and auth.bootstrap.enrollment_ttl
   security: policy:bootstrap-credential-security
 ceremony_state:
-  store: requirement:contrib-auth-state through api:auth-state-codec, the same store the OIDC transaction already uses
+  store: authstate through api:auth-state-codec, the same store the OIDC transaction already uses
+  engine: the dialect the DSN resolved to, so a ceremony record follows the database the deployment already runs
+  independent_of_session: a challenge stays server-side whatever session.backend is, including cookie, because a client that chose its own challenge could replay a response against it
+  evidence: examples/passkeylogin proves the whole ceremony on a cookie-backed session, with no session row written and every ceremony record consumed
   correlation: an opaque key in a short-lived cookie scoped to the base path, matching the OIDC transaction cookie
   reason: the challenge never leaves the server, so a captured response cannot be replayed against another ceremony
 session:

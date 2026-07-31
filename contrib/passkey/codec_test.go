@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/shibukawa/popcornwave/contrib/authstate"
+	"github.com/shibukawa/popcornwave/authstate"
 )
 
 func TestCeremonyStateCodecRoundTrip(t *testing.T) {

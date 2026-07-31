@@ -20,7 +20,7 @@ func allowlistDB(t *testing.T) *sql.DB {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = db.Close() })
-	if _, err := db.Exec(allowlistSchemaSQL); err != nil {
+	if _, err := db.Exec(allowlistSchemaSQL("sqlite")); err != nil {
 		t.Fatal(err)
 	}
 	return db

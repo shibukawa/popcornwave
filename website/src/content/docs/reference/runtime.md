@@ -159,7 +159,7 @@ the work becomes the handle's error and surfaces through the boundary's recover
 clause instead of taking the process down.
 
 `Resolved` is what a test passes instead of starting a goroutine. See
-[Async rendering](/advanced/async-rendering/).
+[Async rendering](/guides/cross-layer/async-rendering/).
 
 ## Database
 

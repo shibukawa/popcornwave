@@ -119,6 +119,29 @@ func initWizardSteps(defaults initOptions) []wizardStep[initOptions] {
 				},
 			),
 		),
+		when(func(options initOptions) bool { return servesLogin(options) },
+			newChoiceStep(
+				"Session storage",
+				"Where a login session lives. Every choice reads the same in handlers; "+
+					"a backend other than cookie is added to the binary by a blank import the scaffold writes.",
+				sessionCursor(defaults.Session),
+				wizardChoice[initOptions]{
+					name:        "Database",
+					description: "one row per session through sessionstore/sqlite; revocable, swept, carries a migration",
+					apply:       setSession(sessionRDB),
+				},
+				wizardChoice[initOptions]{
+					name:        "Cookie",
+					description: "sealed into a second cookie; no storage and no import, but no revoking either",
+					apply:       setSession(sessionCookie),
+				},
+				wizardChoice[initOptions]{
+					name:        "Redis or Valkey",
+					description: "server-side TTL through sessionstore/redis; revocable, nothing to sweep",
+					apply:       setSession(sessionRedis),
+				},
+			),
+		),
 		when(func(options initOptions) bool { return usesOIDC(options.Auth) },
 			newChoiceStep(
 				"OIDC provider",
@@ -228,6 +251,30 @@ func setAuth(mode string) func(*initOptions) {
 		if !usesOIDC(mode) {
 			target.AuthEmulator = false
 		}
+	}
+}
+
+// setSession records the backend and takes what it implies with it. A
+// Redis-backed session needs the server that serves it, so the Devbox answer
+// follows the storage answer rather than contradicting it.
+func setSession(backend string) func(*initOptions) {
+	return func(target *initOptions) {
+		target.Session = backend
+		if backend == sessionRedis && target.Devbox {
+			target.Redis = true
+		}
+	}
+}
+
+// sessionCursor maps a backend onto its position in the choice list.
+func sessionCursor(backend string) int {
+	switch backend {
+	case sessionCookie:
+		return 1
+	case sessionRedis:
+		return 2
+	default:
+		return 0
 	}
 }
 

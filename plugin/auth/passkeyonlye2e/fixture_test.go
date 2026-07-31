@@ -17,10 +17,14 @@ import (
 	"github.com/shibukawa/popcornwave/contrib/passkey/passkeytest"
 	"github.com/shibukawa/popcornwave/internal/pwmigrate"
 	"github.com/shibukawa/popcornwave/plugin/auth"
-	"github.com/shibukawa/popcornwave/plugin/session/rdb"
 	"github.com/shibukawa/popcornwave/pw"
+	"github.com/shibukawa/popcornwave/sessionstore"
+	_ "github.com/shibukawa/popcornwave/sessionstore/sqlite"
 	"github.com/shibukawa/tinybind-go/configbind"
 
+	// Storage is opt-in by blank import: the sessions, the single-use
+	// ceremony records, and the driver the DSN names.
+	_ "github.com/shibukawa/popcornwave/authstate/sqlite"
 	_ "github.com/shibukawa/tinygodriver/database/sql/sqlite"
 )
 
@@ -224,9 +228,17 @@ func applyFrameworkMigrations(directory, database string) error {
 	if err := os.MkdirAll(migrations, 0o750); err != nil {
 		return err
 	}
+	sessionMigration, err := sessionstore.MigrationSQL("sqlite", "popcornwave_session")
+	if err != nil {
+		return err
+	}
+	authMigration, err := auth.MigrationSQL("sqlite")
+	if err != nil {
+		return err
+	}
 	for version, migration := range map[int]struct{ name, content string }{
-		1: {rdb.MigrationName, rdb.MigrationSQL("")},
-		2: {auth.MigrationName, auth.MigrationSQL()},
+		1: {sessionstore.MigrationName, sessionMigration},
+		2: {auth.MigrationName, authMigration},
 	} {
 		name := fmt.Sprintf("%05d_%s.sql", version, migration.name)
 		if err := os.WriteFile(filepath.Join(migrations, name), []byte(migration.content), 0o600); err != nil {

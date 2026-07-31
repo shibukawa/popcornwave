@@ -6,7 +6,7 @@ title: Authentication State Codec
 authstate.Codec[T] provides explicit bounded serialization for durable requirement:contrib-auth-state adapters.
 
 ```yaml
-package: contrib/authstate
+package: authstate
 interface:
   - Encode(value T) returns []byte or stable error
   - Decode([]byte) returns T or stable error

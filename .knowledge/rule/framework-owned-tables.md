@@ -10,8 +10,8 @@ naming:
   prefix: popcornwave_
   reason: an application reading its own schema can tell at a glance which tables it does not own
 current_tables:
-  popcornwave_session: plugin/session/rdb login sessions
-  popcornwave_authstate: contrib/authstate/sqlite single-use ceremony records
+  popcornwave_session: sessionstore/sqlite login sessions
+  popcornwave_authstate: authstate/sqlite single-use ceremony records
   popcornwave_auth_allowlist: plugin/auth pre-registration for policy:oidc-admission registered mode
   popcornwave_passkey_credential: the api:auth-credential-store default store for data:passkey-credential
   popcornwave_auth_bootstrap: the api:auth-credential-store default store for data:account-bootstrap-credential

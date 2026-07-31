@@ -32,6 +32,10 @@ envelopes:
     target: the children of the document body, so no identifier is needed
     trigger: the marker, for the same parser reason as a completion
     terminal: nothing may be written after it, and the runtime ignores any later completion
+  record_driven:
+    use: api:live-delivery-protocol, where deliveries continue after the document is complete
+    framing: one JSON record per delivery from htmlbind.Content.AppendJSON, never markup
+    rationale: past the initial document there is no parser reading, so the marker rule has nothing to trigger
   fetch_driven:
     use: flow:partial-refresh and any navigation the runtime drives with fetch
     framing: boundary id and HTML as data, never marker markup
@@ -41,15 +45,24 @@ rules:
   - marker framing appears only in a parser-driven response body
   - the runtime core is a plain apply function taking a boundary id and HTML
   - a custom element, where used, is a thin parser-path adapter over that function
-  - apply each boundary at most once
-  - do nothing when the target placeholder is missing, so a truncated or superseded response leaves the fallback visible
+  - apply each boundary at most once per delivery; a settle-once boundary therefore applies once, and a live one applies per delivery into the range it already holds
+  - do nothing when the target placeholder is missing and no range holds that id, so a truncated or superseded response leaves the fallback visible
   - no framing carries script, so policy:security-response-headers needs no nonce beyond the shell reference
 cleanup:
-  on_apply: the placeholder is replaced and the framing elements are removed, so an applied boundary leaves no id, template, or marker behind
-  effect: applied boundaries cannot accumulate and cannot collide with anything later
+  on_apply: the placeholder element and the framing elements are removed, and the applied content is left bracketed by a pair of comment nodes carrying the boundary id
+  why_a_range: a live boundary is re-rendered for as long as its subscription lives, so its content needs an address that survives the first delivery; comments are inert, invisible to CSS and layout, and bracket a range rather than wrap it, so a delivery of several top-level nodes needs no container element the author never wrote
+  why_every_boundary: nothing on the wire says which boundary is live, since the placeholder markup and the delivery record are identical for both kinds, so the range is kept for all of them
+  effect: no id, template, or marker element survives an apply, and applied boundaries still cannot collide with anything later
+  cost: two comment nodes per applied boundary, which is the price of the address a live delivery replaces
   not_unconditional: a boundary that never settles keeps its placeholder on purpose, because that placeholder is the visible fallback
+  nested_reuse: an enclosing live boundary re-rendering removes the ranges inside it, and the replacement subtree carries those boundaries' placeholders again under the same ids, so the next delivery re-establishes them
 identifiers:
-  scope: allocated upstream, numbered per render as tb-1, tb-2
+  scope: allocated upstream; a top-level boundary is tb-1, tb-2
+  positional_since_v0_2_7:
+    shape: each boundary's subtree is a namespace under its own id, so a nested boundary is tb-1-1 rather than a number from one flat counter
+    gained: the same chain executed again produces the same ids, which is what requirement:live-connection-recovery reconnects against, and a nested id no longer depends on the order siblings settled in
+    breaking: a project with a boundary nested inside another sees different ids than before
+    affects_here: the fetch-path rewrite below namespaces whole ids, so it keeps working, but any code matching the flat tb-N shape does not
   cleared_by_apply: an applied boundary removes its own id, so history is not what collides
   remaining_collisions:
     unsettled: a boundary that timed out or was cut off keeps its placeholder forever, and a later render numbering from tb-1 duplicates that id

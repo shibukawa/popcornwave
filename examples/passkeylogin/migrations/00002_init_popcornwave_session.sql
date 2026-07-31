@@ -1,5 +1,5 @@
 -- +goose Up
--- Owned by github.com/shibukawa/popcornwave/plugin/session/rdb.
+-- Owned by github.com/shibukawa/popcornwave/sessionstore.
 -- Login sessions: one row per issued cookie token, keyed by its hash.
 CREATE TABLE IF NOT EXISTS popcornwave_session (
 	key_hash TEXT PRIMARY KEY,

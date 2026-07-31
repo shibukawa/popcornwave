@@ -132,7 +132,10 @@ func TestForgedAssertionIsRefused(t *testing.T) {
 
 // passkeyServer starts this sample in oidc_passkey mode against the same
 // development identity provider pw dev runs.
-func passkeyServer(t *testing.T, port int, origin string) *testutil.Server {
+// passkeyServer starts this sample in oidc_passkey mode. Each override runs
+// after the defaults, so a test can move one piece such as the session backend
+// without restating the rest.
+func passkeyServer(t *testing.T, port int, origin string, overrides ...func(*testutil.Config)) *testutil.Server {
 	t.Helper()
 	return testutil.TestRun(t, Handlers(), func(config *testutil.Config) {
 		testutil.Update[pw.ServerConfig](config, func(server *pw.ServerConfig) {
@@ -172,6 +175,9 @@ func passkeyServer(t *testing.T, port int, origin string) *testutil.Server {
 			settings.OIDC.AutoProvision = true
 			settings.OIDC.AllowLoopbackHTTP = true
 		})
+		for _, override := range overrides {
+			override(config)
+		}
 	}, testutil.WithMigrations("../migrations"), testutil.WithIdentityProvider(
 		testutil.WithIdPConfig("../devidp.toml"),
 		testutil.WithLoginUser("hanako"),

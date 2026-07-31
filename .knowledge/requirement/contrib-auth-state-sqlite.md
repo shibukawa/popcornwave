@@ -3,10 +3,10 @@ id: requirement:contrib-auth-state-sqlite
 type: requirement
 title: SQLite Authentication State Store
 ---
-contrib/authstate/sqlite implements requirement:contrib-auth-state over the portable SQLite facade for durable single-node deployments.
+authstate/sqlite implements requirement:contrib-auth-state over the portable SQLite facade for durable single-node deployments.
 
 ```yaml
-package: contrib/authstate/sqlite
+package: authstate/sqlite
 database: requirement:contrib-sqlite
 minimum_sqlite: 3.35 for DELETE RETURNING
 public_api:

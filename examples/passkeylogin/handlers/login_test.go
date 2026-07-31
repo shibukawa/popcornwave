@@ -12,6 +12,11 @@ import (
 
 	_ "passkeylogin"
 	_ "passkeylogin/templates"
+
+	// Storage is opt-in by blank import. main.go carries these for the binary;
+	// a test builds its own binary and has to link them itself.
+	_ "github.com/shibukawa/popcornwave/authstate/sqlite"
+	_ "github.com/shibukawa/popcornwave/sessionstore/sqlite"
 )
 
 // TestLoginProvisionsAnAccountAndSignsOut drives the framework endpoints

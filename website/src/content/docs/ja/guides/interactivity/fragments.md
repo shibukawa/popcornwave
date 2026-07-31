@@ -184,6 +184,77 @@ document.body.addEventListener('htmx:oobAfterSwap', () => {
 つくのはこの性質のおかげで、設計の指針にする価値もあります。**swap が差し替える
 領域は、ルートである前にコンポーネントであるべきです。**
 
+## swap がタイマーになるとき
+
+遅かれ早かれ、誰もクリックしていないのに変わらなければならない領域が出てきます。
+swap ライブラリはそれをやってくれます。
+
+```html
+<div id="queue" hx-get="/queue" hx-trigger="every 2s" hx-swap="innerHTML">…</div>
+```
+
+2 秒は当て推量で、しかも両方向に同時に外れています。ほとんどのリクエストは動いて
+いないキューの深さを描き直し、意味のあった変化は最大 2 秒待たされる。間隔を縮めれば
+前者が増え、伸ばせば後者が深くなります。そのあいだ、開いているタブはそれぞれ自前の
+タイマーを持つので、負荷はイベントの数ではなくタブの数に比例します。サーバーの側から
+「何も起きていないから訊くのをやめてくれ」と言う手段はありません。
+
+live 境界は、言うことができたときにサーバーが話す形にして、この当て推量を消します。
+テンプレートは前節と同じ `await` 節のままで、違うのは一度で確定せず出し続ける
+ソースを束縛することだけです。
+
+```html
+external live WatchQueue(): Depth
+
+export component Queue(): html {
+<section class="card" id="queue">
+{await depth = WatchQueue()}
+  <strong>{depth.waiting}</strong> 件待ち · <small>{depth.at}</small>
+{fallback}
+  <p class="pending">接続中…</p>
+{/await}
+</section>
+}
+```
+
+```go
+func WatchQueue(ctx context.Context) iter.Seq2[Depth, error] {
+	return func(yield func(Depth, error) bool) {
+		for event := range queue.Watch(ctx) {
+			if !yield(Depth{Waiting: event.Waiting, At: event.At.Format("15:04:05")}, nil) {
+				return
+			}
+		}
+	}
+}
+```
+
+マークアップに属性はなく、間隔の指定もなく、エンドポイントもありません。ブラウザは
+ページ自身の URL に接続し直し、ドキュメントシェルがすでに読み込んでいるランタイムが
+配信を適用します。届くのは領域を丸ごと描き直したものです。だからソースは差分ではなく
+現在の状態を yield します。接続が切れたあとの再接続に必要なのは次の 1 回だけ、という
+形になるからです。
+
+手を出す前に知っておく価値のあることが 3 つあります。
+
+live な領域には出力を置き、入力は置きません。live 節の中の `form`、`input`、
+`textarea`、`select` は生成に失敗します。読み手が入力している最中に配信が届けば、
+打ち込んだものが警告もなく消えるからです。フォームは境界の外に、変わるデータは
+境界の中に置いてください。
+
+読み上げの扱いは選ぶ側の仕事で、有用な答えは 2 つあって正反対です。毎秒描き直される
+ゲージは何も読み上げるべきではなく、メッセージの一覧は polite を含む `role="log"` の
+中に置くのが適切です。属性は境界の**外側**の要素に付けてください。置き換えられる
+サブツリーの中にあるものは中身ごと壊れて作り直され、ライブリージョンがリセットされます。
+
+そして、動いたのが読み手であるかぎり swap のほうが勝ちます。絞り込み、並べ替え、
+インライン編集、ページ送り —— どれも swap のほうが書くのが速く、配信も安く済みます。
+開いた接続もサブスクリプションも要らないからです。live 配信が担うのは swap では
+表現できない場合、つまり値が変わったのに、変えたのはこのページの誰でもない場合です。
+
+[ライブレンダリング](/ja/guides/cross-layer/live-rendering/)に上限・再接続の挙動・
+接続 1 本のコストがあります。`examples/live_render` はそれで組んだ動くダッシュボードです。
+
 ## 自分で書く島
 
 サーバーとの往復がまったく関わらない操作もあります。コピーボタン、ドラッグでの
@@ -219,7 +290,7 @@ customElements.define('copy-button', CopyButton);
 - **フレームワーク自身のランタイムの読み込み方と同じ。** 非同期レンダリングの
   ランタイムは、リビジョン入りのパスから `src` で読み込まれるモジュールです。自作の島も
   `public/` 下のファイルに置けば、同じ `script-src 'self'` ポリシーの内側に収まります。
-  [非同期レンダリング](/ja/advanced/async-rendering/)を参照してください。
+  [非同期レンダリング](/ja/guides/cross-layer/async-rendering/)を参照してください。
 
 ### 島はどこへ POST するか
 
@@ -232,7 +303,7 @@ customElements.define('copy-button', CopyButton);
 その属性に対して何をするかは、今日のところ自分の仕事です。それを横取りする
 フレームワークのモジュールはまだありませんし、ambient credential で届く `POST`
 エンドポイントの前に立つべき CSRF ミドルウェアもまだありません。これを撃つ島は
-両方を引き受けることになります。[探索型ルーティング](/ja/advanced/discovered-routing/)を
+両方を引き受けることになります。[探索型ルーティング](/ja/guides/cross-layer/discovered-routing/)を
 参照してください。
 
 light DOM を勧めます。shadow root はここではめったに要らないカプセル化を買う代わりに、

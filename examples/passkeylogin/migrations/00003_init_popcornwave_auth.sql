@@ -23,18 +23,18 @@ CREATE TABLE IF NOT EXISTS popcornwave_auth_allowlist (
 -- Passkey credentials of the default credential store. Unused when the
 -- application installs its own store, and unused entirely in oidc_only.
 CREATE TABLE IF NOT EXISTS popcornwave_passkey_credential (
-	credential_id BLOB PRIMARY KEY,
+	credential_id BLOB NOT NULL PRIMARY KEY,
 	account_id TEXT NOT NULL,
 	user_handle BLOB NOT NULL,
 	public_key BLOB NOT NULL,
 	public_key_x BLOB NOT NULL,
 	public_key_y BLOB NOT NULL,
 	algorithm INTEGER NOT NULL,
-	sign_count INTEGER NOT NULL DEFAULT 0,
+	sign_count BIGINT NOT NULL DEFAULT 0,
 	backup_eligible INTEGER NOT NULL DEFAULT 0,
 	backup_state INTEGER NOT NULL DEFAULT 0,
-	transports TEXT NOT NULL DEFAULT '',
-	label TEXT NOT NULL DEFAULT '',
+	transports TEXT NOT NULL,
+	label TEXT NOT NULL,
 	created_at TIMESTAMP NOT NULL,
 	last_used_at TIMESTAMP
 );
@@ -43,7 +43,7 @@ CREATE INDEX IF NOT EXISTS popcornwave_passkey_credential_account
 
 -- Issued login IDs and secret digests that open one passkey enrollment.
 CREATE TABLE IF NOT EXISTS popcornwave_auth_bootstrap (
-	login_id TEXT PRIMARY KEY,
+	login_id TEXT NOT NULL PRIMARY KEY,
 	account_id TEXT NOT NULL,
 	secret_digest BLOB NOT NULL,
 	purpose TEXT NOT NULL,

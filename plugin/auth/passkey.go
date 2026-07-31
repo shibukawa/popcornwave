@@ -13,7 +13,7 @@ import (
 	"strings"
 	"time"
 
-	authsqlite "github.com/shibukawa/popcornwave/contrib/authstate/sqlite"
+	"github.com/shibukawa/popcornwave/authstate"
 	"github.com/shibukawa/popcornwave/contrib/passkey"
 	"github.com/shibukawa/popcornwave/pw"
 )
@@ -78,12 +78,13 @@ func newRelyingParty(config PasskeyConfig) (*passkey.RelyingParty, error) {
 // setupPasskey builds the relying party, the ceremony state store, and the
 // credential stores. It runs only in a mode that mounts the endpoints, so an
 // oidc_only deployment carries none of it.
-func (rt *runtime) setupPasskey(ctx context.Context, db *sql.DB) error {
+func (rt *runtime) setupPasskey(ctx context.Context, db *sql.DB, dialect string) error {
 	relyingParty, err := newRelyingParty(rt.config.Passkey)
 	if err != nil {
 		return fmt.Errorf("auth.passkey: %w", err)
 	}
-	stateStore, err := authsqlite.NewStore[passkey.CeremonyState](db, passkey.CeremonyStateCodec{}, authsqlite.Options{
+	stateStore, err := authstate.NewSQLStore[passkey.CeremonyState](db, passkey.CeremonyStateCodec{}, authstate.SQLOptions{
+		Dialect:   dialect,
 		Namespace: passkeyStateNamespace,
 	})
 	if err != nil {
@@ -111,7 +112,8 @@ func (rt *runtime) setupPasskey(ctx context.Context, db *sql.DB) error {
 		// carries the ticket store or the endpoint that fills it.
 		return nil
 	}
-	enrollment, err := authsqlite.NewStore[enrollmentTicket](db, enrollmentTicketCodec{}, authsqlite.Options{
+	enrollment, err := authstate.NewSQLStore[enrollmentTicket](db, enrollmentTicketCodec{}, authstate.SQLOptions{
+		Dialect:   dialect,
 		Namespace: enrollmentStateNamespace,
 	})
 	if err != nil {

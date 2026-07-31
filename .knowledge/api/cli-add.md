@@ -47,16 +47,18 @@ capabilities:
     requires: devbox, because the answer writes nothing but a package in that environment
     writes:
       - Valkey package in devbox.json, which api:cli-dev exposes as the development server
-      - the endpoint an application passes to requirement:contrib-auth-state-redis
-    refuses: enabling session.backend redis, which data:session-runtime-config still defers
+      - the endpoint an application passes to requirement:contrib-auth-state-redis and to session.backend redis
   auth:
-    requires: database, because the login session store is the rdb backend
+    requires: database, because its login ceremony and allowlist tables live there whichever backend stores the sessions
+    session_backend:
+      installed: rdb, the backend that fits a project already carrying a database
+      alternatives: api:cli-init offers the cookie and redis backends of requirement:state-storage-tiers
     writes:
       - rule:framework-owned-tables migration files for the session store and the authentication tables
       - data:authentication-runtime-config section in every environment configuration file
       - account resolver source that api:authentication-endpoints calls
       - data:devidp-config roster and data:project-config dev.idp when the local emulator is selected
-    imports: the application already links plugin/auth through its account resolver, so no separate wiring step exists
+    imports: the application already links plugin/auth through its account resolver, so only the api:session-backend-plugin blank import is printed as a manual step
   discovered:
     writes:
       - the concept:page-tree root with the same starter page, layout, and dynamic route example api:cli-init writes

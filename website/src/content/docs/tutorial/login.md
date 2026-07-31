@@ -49,13 +49,18 @@ written before anything is:
     append  config.dev.toml
     append  popcornwave.toml
     by hand call handlers.RegisterAccountResolver() in ./cmd/memoapp before pw.Run
+    by hand add import _ "github.com/shibukawa/popcornwave/sessionstore/sqlite" to ./cmd/memoapp
+    by hand add import _ "github.com/shibukawa/popcornwave/authstate/sqlite" to ./cmd/memoapp
     then    pw migrate up
 ```
 
-Sessions are stored server-side in the database, which is why two migrations
-arrive with the login and why `pw add auth` refuses to run in a project without
-a database. The browser gets an opaque token; the record it points at can be
-expired and revoked from the server.
+`pw add auth` stores sessions server-side in the database, which is why two
+migrations arrive with the login and why it refuses to run in a project without
+one. The browser gets an opaque token; the record it points at can be expired
+and revoked from the server. That import is what puts the database backend in
+the binary — storage is opt-in, so an application links the backend it
+configured and no other. [Cookies](/guides/backend/cookies/) covers the two
+alternatives, which `pw init --session` offers to a project from the start.
 
 `devidp.toml` is the roster of development users, `Administrator` and `Member`.
 `pw dev` serves them from a local OpenID Provider and checks no password, which

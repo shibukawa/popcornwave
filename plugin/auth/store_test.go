@@ -19,7 +19,7 @@ func storeDB(t *testing.T) *sql.DB {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = db.Close() })
-	for _, statement := range []string{credentialSchemaSQL, credentialAccountIndexSQL, bootstrapSchemaSQL} {
+	for _, statement := range []string{credentialSchemaSQL("sqlite"), credentialAccountIndexSQL(), bootstrapSchemaSQL("sqlite")} {
 		if _, err := db.Exec(statement); err != nil {
 			t.Fatal(err)
 		}
@@ -271,12 +271,12 @@ func TestRequiredTablesFollowTheModeAndTheInstalledStores(t *testing.T) {
 		SetBootstrapStore(nil)
 	})
 
-	oidcOnly := names(requiredTables("popcornwave_session", baseConfig(ModeOIDCOnly)))
+	oidcOnly := names(requiredTables(baseConfig(ModeOIDCOnly)))
 	if contains(oidcOnly, CredentialTable) || contains(oidcOnly, BootstrapTable) {
 		t.Fatalf("oidc_only required %v, want no passkey table", oidcOnly)
 	}
 
-	passkeyOnly := names(requiredTables("popcornwave_session", baseConfig(ModePasskeyOnly)))
+	passkeyOnly := names(requiredTables(baseConfig(ModePasskeyOnly)))
 	if !contains(passkeyOnly, CredentialTable) || !contains(passkeyOnly, BootstrapTable) {
 		t.Fatalf("passkey_only required %v, want both passkey tables", passkeyOnly)
 	}
@@ -285,7 +285,7 @@ func TestRequiredTablesFollowTheModeAndTheInstalledStores(t *testing.T) {
 	// framework would have written to.
 	SetCredentialStore(dbStore{})
 	SetBootstrapStore(bootstrapStore{})
-	installed := names(requiredTables("popcornwave_session", baseConfig(ModePasskeyOnly)))
+	installed := names(requiredTables(baseConfig(ModePasskeyOnly)))
 	if contains(installed, CredentialTable) || contains(installed, BootstrapTable) {
 		t.Fatalf("required %v after installing stores, want neither passkey table", installed)
 	}
@@ -296,12 +296,12 @@ func TestBootstrapTableIsRequiredOnlyWhenACredentialIsIssued(t *testing.T) {
 	config := baseConfig(ModePasskeyOnly)
 	config.Registration.Policy = RegistrationDisabled
 	config.Recovery.Policy = RecoveryApplication
-	if contains(names(requiredTables("popcornwave_session", config)), BootstrapTable) {
+	if contains(names(requiredTables(config)), BootstrapTable) {
 		t.Fatal("a deployment that issues no bootstrap credential was asked for the table")
 	}
 
 	config.Recovery.Policy = RecoveryAdministrator
-	if !contains(names(requiredTables("popcornwave_session", config)), BootstrapTable) {
+	if !contains(names(requiredTables(config)), BootstrapTable) {
 		t.Fatal("administrator recovery issues a credential but the table was not required")
 	}
 }
