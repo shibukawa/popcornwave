@@ -279,6 +279,7 @@
 {"category": "constraint", "id": "rule:savepoint-dialect-support", "path": ".knowledge/rule/savepoint-dialect-support.md", "role": "supporting", "title": "Savepoint Dialect Support", "type": "rule"}
 {"category": "constraint", "id": "rule:static-route-discovery", "path": ".knowledge/rule/static-route-discovery.md", "role": "supporting", "title": "Static Route Discovery", "type": "rule"}
 {"category": "constraint", "id": "rule:storage-checks", "path": ".knowledge/rule/storage-checks.md", "role": "supporting", "title": "Storage Checks", "type": "rule"}
+{"category": "constraint", "id": "rule:storage-package-layout", "path": ".knowledge/rule/storage-package-layout.md", "role": "supporting", "title": "Storage Package Layout", "type": "rule"}
 {"category": "constraint", "id": "rule:tinygo-runtime-compatibility", "path": ".knowledge/rule/tinygo-runtime-compatibility.md", "role": "supporting", "title": "TinyGo Runtime Compatibility", "type": "rule"}
 {"category": "external", "id": "system:dbtestify", "path": ".knowledge/system/dbtestify.md", "role": "supporting", "title": "dbtestify", "type": "system"}
 {"category": "external", "id": "system:goose", "path": ".knowledge/system/goose.md", "role": "supporting", "title": "goose Migration Engine", "type": "system"}

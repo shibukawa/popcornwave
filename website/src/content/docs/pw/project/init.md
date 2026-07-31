@@ -156,8 +156,17 @@ client library — in the binary:
 
 ```go
 // cmd/myapp/main.go, written by pw init
-import _ "github.com/shibukawa/popcornwave/plugin/session/rdb"
+import (
+	// The sessions, and the single-use login records the ceremony needs.
+	_ "github.com/shibukawa/popcornwave/authstate/sqlite"
+	_ "github.com/shibukawa/popcornwave/sessionstore/sqlite"
+)
 ```
+
+A SQL store is one package per engine, because no engine reads another's DDL.
+`--db=postgres` therefore writes `sessionstore/postgres` and
+`authstate/postgres`, and the migrations in the PostgreSQL dialect. `sqlite`,
+`postgres`, and `mysql` all pass the same store contract test.
 
 `pw init` writes that line for `rdb` and `redis`. The cookie backend is built
 into `pw` and needs none, which is why a project can start with sessions and no
@@ -169,7 +178,7 @@ quoted, rather than with a login that fails at the first request:
 
 ```
 session.backend = "redis" needs its plugin; add to the application:
-import _ "github.com/shibukawa/popcornwave/plugin/session/redis"
+import _ "github.com/shibukawa/popcornwave/sessionstore/redis"
 ```
 
 The answer also decides what else is scaffolded. `rdb` writes the session table

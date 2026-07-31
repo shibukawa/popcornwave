@@ -7,7 +7,10 @@ import (
 	"testing"
 
 	"github.com/shibukawa/popcornwave/plugin/auth"
-	"github.com/shibukawa/popcornwave/plugin/session/rdb"
+	"github.com/shibukawa/popcornwave/sessionstore"
+
+	_ "github.com/shibukawa/popcornwave/authstate/sqlite"
+	_ "github.com/shibukawa/popcornwave/sessionstore/sqlite"
 )
 
 // TestExampleFrameworkMigrationsMatchOwners keeps the migration files carried by
@@ -19,8 +22,8 @@ import (
 // was free in that project when api:cli-init or api:cli-add wrote the file.
 func TestExampleFrameworkMigrationsMatchOwners(t *testing.T) {
 	owned := map[string]string{
-		rdb.MigrationName:  rdb.MigrationSQL(""),
-		auth.MigrationName: auth.MigrationSQL(),
+		sessionstore.MigrationName: mustSessionMigration(),
+		auth.MigrationName:         mustAuthMigration(),
 	}
 	for _, example := range []string{"oidclogin"} {
 		directory := filepath.Join("examples", example, "migrations")
@@ -65,4 +68,22 @@ func migrationName(fileName string) (string, bool) {
 	}
 	_, name, ok := strings.Cut(base, "_")
 	return name, ok
+}
+
+// mustSessionMigration and mustAuthMigration are the SQLite migrations the
+// scaffold writes, which is the dialect these fixtures use.
+func mustSessionMigration() string {
+	migration, err := sessionstore.MigrationSQL("sqlite", "popcornwave_session")
+	if err != nil {
+		panic(err)
+	}
+	return migration
+}
+
+func mustAuthMigration() string {
+	migration, err := auth.MigrationSQL("sqlite")
+	if err != nil {
+		panic(err)
+	}
+	return migration
 }

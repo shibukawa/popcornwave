@@ -134,7 +134,8 @@ backend = "rdb"     # "redis" も選べる
 
 ```go
 // cmd/myapp/main.go — バイナリに入るバックエンドは、import したものだけです。
-import _ "github.com/shibukawa/popcornwave/plugin/session/rdb"
+// SQL ストアはエンジンごとに別パッケージ（sqlite / postgres / mysql）です。
+import _ "github.com/shibukawa/popcornwave/sessionstore/sqlite"
 ```
 
 ```toml
@@ -145,7 +146,7 @@ key_prefix = "pw:session:"
 ```
 
 ```go
-import _ "github.com/shibukawa/popcornwave/plugin/session/redis"
+import _ "github.com/shibukawa/popcornwave/sessionstore/redis"
 ```
 
 ストレージのクライアントをバイナリに入れるのはこの import です。つまりアプリケーション
@@ -156,7 +157,7 @@ import _ "github.com/shibukawa/popcornwave/plugin/session/redis"
 
 ほかには何も動きません。ハンドラの `session.Read[T]`、マネージャの `Create`、
 `Rotate`、`Delete`、リクエストを解決するミドルウェア——どれも `session.CookieStore`
-の上でも、`plugin/session/rdb` の上でも、`plugin/session/redis` の上でも同じ
+の上でも、`sessionstore/sqlite` の上でも、`sessionstore/redis` の上でも同じ
 コードです。どれも同じ非ジェネリックな `session.RawStore` を実装し、ペイロードの型は
 `session.Typed` がフレームワーク側で戻します。設定値ひとつで選び替えられるのは、
 この形のためです。
@@ -171,7 +172,8 @@ import _ "github.com/shibukawa/popcornwave/plugin/session/redis"
 
 サーバー側の2つはどちらも即座に失効でき、違いは「誰も失効させなかったものを誰が回収
 するか」です。RDB ストアはセッションごとに行を持つので定期的な掃除が必要で、それは
-auth プラグインが動かします。Redis ストアは各レコードを自分の期限から計算した TTL 付き
+auth プラグインが動かします。SQLite・PostgreSQL・MySQL のいずれでも動き、パッケージも
+マイグレーションの方言もエンジンごとです。Redis ストアは各レコードを自分の期限から計算した TTL 付き
 で書くので、放置されたセッションは勝手に消え、スケジュールすべき掃除自体が存在しません。
 Redis と Valkey の両方に対応し、使うのは `GET`、`SET`、`SET XX`、`DEL` だけです。
 スキャンはせず、設定したプレフィックスの外の鍵にも触れません。起動時に ping し、

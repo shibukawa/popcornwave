@@ -42,14 +42,14 @@ var sessionBackends struct {
 // fix is a single line, so the startup error prints that line instead of a
 // list of names.
 var knownSessionBackendImports = map[string]string{
-	SessionBackendRDB:   "github.com/shibukawa/popcornwave/plugin/session/rdb",
-	SessionBackendRedis: "github.com/shibukawa/popcornwave/plugin/session/redis",
+	SessionBackendRDB:   "github.com/shibukawa/popcornwave/sessionstore/sqlite",
+	SessionBackendRedis: "github.com/shibukawa/popcornwave/sessionstore/redis",
 }
 
 // RegisterSessionBackend registers factory under name. A storage plugin calls
 // it from init, so a blank import is what puts a backend in a binary:
 //
-//	import _ "github.com/shibukawa/popcornwave/plugin/session/redis"
+//	import _ "github.com/shibukawa/popcornwave/sessionstore/redis"
 //
 // The cookie backend is the exception. It stores records in the browser and
 // adds no dependency, so pw registers it here and it needs no import.

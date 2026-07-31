@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/shibukawa/popcornwave/contrib/authstate/memory"
+	"github.com/shibukawa/popcornwave/authstate/memory"
 	"github.com/shibukawa/popcornwave/contrib/devidp"
 	"github.com/shibukawa/popcornwave/contrib/oauth"
 	"github.com/shibukawa/popcornwave/contrib/oidc"

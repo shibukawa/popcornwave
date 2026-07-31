@@ -18,7 +18,12 @@ Popcorn Wave はその仕組みを引き受けます。プロバイダを設定�
 ```go
 // cmd/myapp/main.go — アカウントリゾルバの登録が plugin/auth の import を
 // 兼ねます。エンドポイントとセッション解決はその拡張が担当します。
-import _ "github.com/shibukawa/popcornwave/plugin/session/rdb" // session.backend = "rdb"
+// ストレージはオプトインで、SQL ストアはエンジンごとに別パッケージです。この2つは
+// SQLite のもの——セッションと、単回限りのログイン記録です。
+import (
+	_ "github.com/shibukawa/popcornwave/authstate/sqlite"
+	_ "github.com/shibukawa/popcornwave/sessionstore/sqlite"
+)
 
 func main() {
 	handlers.RegisterAccountResolver()
@@ -29,8 +34,10 @@ func main() {
 ```
 
 ストレージの import が `plugin/auth` と別なのは意図的です。auth プラグインは
-バックエンドを一切リンクしないので、アプリケーションは `session.backend` で選んだ
-ものだけを持ちます。`pw init --auth=oidc` は両方の行を書き出します。
+バックエンドを一切リンクしないので、アプリケーションは設定したものだけを持ちます。
+SQL ストアはエンジンごとに別パッケージなので、PostgreSQL に移るときは
+`sessionstore/postgres` と `authstate/postgres` を import します。
+`pw init --auth=oidc --db=postgres` はその行を書き出します。
 
 ```toml
 # config.dev.toml
@@ -136,7 +143,7 @@ func home(w http.ResponseWriter, r *http.Request) {
 ## セッション
 
 クッキーが運ぶのは不透明なトークンだけで、セッション本体がどこに住むかは
-`session.backend` が決めます。既定の `rdb` は `plugin/session/rdb` がデータベースに、
+`session.backend` が決めます。既定の `rdb` は `sessionstore/<engine>` がデータベースに、
 `redis` は Redis または Valkey にサーバー側 TTL 付きで保存し、`cookie` はセッション用
 ストレージを持たないデプロイのために2つ目のクッキーに封をします（違いは
 [クッキー](/ja/guides/backend/cookies/)を参照）。`session.ttl` が絶対有効期限、

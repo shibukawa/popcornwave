@@ -33,13 +33,13 @@ built_in:
     import: none
 imported:
   rdb:
-    import: _ "popcornwave/plugin/session/rdb"
+    import: _ "popcornwave/sessionstore/<engine>", where the engine is the dialect the DSN resolves to
     config_prefix: session.rdb
     resources: reuses the *sql.DB of api:rdb-middleware, which the host lends and keeps
     driver_selection: DSN scheme resolves a separately imported database/sql driver
     schema_provider: deterministic dialect SQL, check, and apply for api:cli-session-schema
   redis:
-    import: _ "popcornwave/plugin/session/redis"
+    import: _ "popcornwave/sessionstore/redis"
     config_prefix: session.redis
     resources: opens its own client and returns it as Close
     compatibility: requirement:contrib-redis-valkey

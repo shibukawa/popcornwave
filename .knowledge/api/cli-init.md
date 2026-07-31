@@ -62,9 +62,9 @@ questions:
     asked_when: the selected mode serves a login
     default: rdb
     choices: requirement:state-storage-tiers opaque backends
-    rdb: one row per session through the plugin/session/rdb blank import, with its rule:framework-owned-tables migration
+    rdb: one row per session through the sessionstore/sqlite blank import, with its rule:framework-owned-tables migration
     cookie: sealed into a second cookie with no storage and no import, and cookie_store.secret read from the environment
-    redis: server-side TTL through the plugin/session/redis blank import, taking the Valkey development server with it
+    redis: server-side TTL through the sessionstore/redis blank import, taking the Valkey development server with it
     writes: session.backend, the keys of the selected backend only, and the api:session-backend-plugin import in main
     rationale: the choice is a deployment decision, because every backend reads the same in a handler
   oidc_provider:

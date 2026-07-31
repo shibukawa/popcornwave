@@ -46,11 +46,11 @@ func TestCookieBackendNeedsNoImport(t *testing.T) {
 }
 
 func TestUnimportedBackendNamesTheImport(t *testing.T) {
-	// Nothing here imports plugin/session/rdb or plugin/session/redis, which
+	// Nothing here imports sessionstore/sqlite or sessionstore/redis, which
 	// is exactly the mistake this message exists for.
 	for backend, path := range map[string]string{
-		SessionBackendRDB:   "plugin/session/rdb",
-		SessionBackendRedis: "plugin/session/redis",
+		SessionBackendRDB:   "sessionstore/sqlite",
+		SessionBackendRedis: "sessionstore/redis",
 	} {
 		_, err := OpenSessionBackend(t.Context(), testSessionConfig(backend), SessionResources{})
 		if err == nil {

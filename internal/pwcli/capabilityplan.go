@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	"github.com/shibukawa/popcornwave/plugin/auth"
-	"github.com/shibukawa/popcornwave/plugin/session/rdb"
+	"github.com/shibukawa/popcornwave/sessionstore"
 )
 
 // capabilityPlan is everything installing a capability would do. It is computed
@@ -234,8 +234,18 @@ func planRedisValkey(state projectState, plan *capabilityPlan) error {
 func planAuth(state projectState, options addOptions, plan *capabilityPlan) error {
 	version := state.nextMigrationVersion()
 	migrations := state.config.Migration.Dir
-	plan.creates[migrations+"/"+migrationFileName(version, rdb.MigrationName)] = rdb.MigrationSQL("popcornwave_session")
-	plan.creates[migrations+"/"+migrationFileName(version+1, auth.MigrationName)] = auth.MigrationSQL()
+	// The project already chose its engine, and no engine reads another's DDL.
+	dialect := engineDialect(state.config.Database)
+	sessionMigration, err := sessionstore.MigrationSQL(dialect, "popcornwave_session")
+	if err != nil {
+		return err
+	}
+	authMigration, err := auth.MigrationSQL(dialect)
+	if err != nil {
+		return err
+	}
+	plan.creates[migrations+"/"+migrationFileName(version, sessionstore.MigrationName)] = sessionMigration
+	plan.creates[migrations+"/"+migrationFileName(version+1, auth.MigrationName)] = authMigration
 
 	handlers := handlerPackageDirectory(state)
 	resolver := handlers + "/accounts.go"
@@ -253,9 +263,11 @@ func planAuth(state projectState, options addOptions, plan *capabilityPlan) erro
 	}
 	plan.manual = append(plan.manual,
 		"call "+goPackageIdentifier(handlers)+".RegisterAccountResolver() in "+state.config.Main+" before pw.Run",
-		// Session storage is opt-in by blank import, so the backend this
-		// configuration selects has to be imported by the application.
-		`add import _ "`+sessionBackendPlugin(sessionRDB)+`" to `+state.config.Main)
+		// Storage is opt-in by blank import, so both stores this configuration
+		// selects have to be imported by the application: the sessions and the
+		// single-use login records.
+		`add import _ "`+sessionBackendPlugin(sessionRDB, dialect)+`" to `+state.config.Main,
+		`add import _ "github.com/shibukawa/popcornwave/authstate/`+dialect+`" to `+state.config.Main)
 	plan.next = append(plan.next, "pw migrate up")
 	plan.generate = true
 	return nil

@@ -37,7 +37,7 @@ backend_selection:
     processes: every process holding the secret reads it, with no shared infrastructure
     fits: development, single-process deployments, small payloads
   rdb:
-    import: _ "popcornwave/plugin/session/rdb"
+    import: _ "popcornwave/sessionstore/<engine>", one package per engine
     storage: api:session-store rdb plugin over an existing database
     revocation: immediate
     size: bounded by the row, not by the browser
@@ -45,7 +45,7 @@ backend_selection:
     cost: one write per login and one renewal write per interval, plus an expiry sweep
     fits: deployments that already run a database and must end a session on demand
   redis:
-    import: _ "popcornwave/plugin/session/redis"
+    import: _ "popcornwave/sessionstore/redis"
     storage: requirement:contrib-redis-valkey keyed records with native expiry
     revocation: immediate
     size: bounded by the record

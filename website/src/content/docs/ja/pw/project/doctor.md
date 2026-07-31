@@ -81,7 +81,7 @@ $ pw doctor --env=prod
 ```
 features
   database             on  sqlite
-  session              on  rdb  not linked: github.com/shibukawa/popcornwave/plugin/session/rdb
+  session              on  rdb  not linked: github.com/shibukawa/popcornwave/sessionstore/sqlite
   authentication       off
   security headers     on
   query diagnostics    on  auto

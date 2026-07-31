@@ -154,8 +154,17 @@ OIDC 系を選ぶと、**ローカルエミュレータ**か**外部プロバイ
 
 ```go
 // cmd/myapp/main.go — pw init が書き出します
-import _ "github.com/shibukawa/popcornwave/plugin/session/rdb"
+import (
+	// セッションと、ログインの儀式が使う単回限りのレコード。
+	_ "github.com/shibukawa/popcornwave/authstate/sqlite"
+	_ "github.com/shibukawa/popcornwave/sessionstore/sqlite"
+)
 ```
+
+SQL ストアはエンジンごとに別パッケージです。あるエンジンの DDL を別のエンジンは
+読めないからです。`--db=postgres` なら `sessionstore/postgres` と
+`authstate/postgres` を書き、マイグレーションも PostgreSQL の方言で出します。
+`sqlite`、`postgres`、`mysql` は同じストア契約テストを通っています。
 
 `pw init` は `rdb` と `redis` のときにこの行を書きます。クッキーバックエンドは `pw` に
 組み込まれているので import は不要です。だからこそ「セッションはあるがストレージは無い」
@@ -167,7 +176,7 @@ import を書かずにバックエンドを設定した場合は、最初のリ�
 
 ```
 session.backend = "redis" needs its plugin; add to the application:
-import _ "github.com/shibukawa/popcornwave/plugin/session/redis"
+import _ "github.com/shibukawa/popcornwave/sessionstore/redis"
 ```
 
 回答は書き出される内容も変えます。`rdb` はセッションテーブルのマイグレーションを書き、

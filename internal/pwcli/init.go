@@ -17,7 +17,16 @@ import (
 	"github.com/shibukawa/popcornwave/internal/pwenv"
 	"github.com/shibukawa/popcornwave/internal/pwgen"
 	"github.com/shibukawa/popcornwave/plugin/auth"
-	"github.com/shibukawa/popcornwave/plugin/session/rdb"
+	"github.com/shibukawa/popcornwave/sessionstore"
+
+	// The CLI writes a migration in any dialect, so it links every engine the
+	// framework knows rather than the one this machine happens to run.
+	_ "github.com/shibukawa/popcornwave/authstate/mysql"
+	_ "github.com/shibukawa/popcornwave/authstate/postgres"
+	_ "github.com/shibukawa/popcornwave/authstate/sqlite"
+	_ "github.com/shibukawa/popcornwave/sessionstore/mysql"
+	_ "github.com/shibukawa/popcornwave/sessionstore/postgres"
+	_ "github.com/shibukawa/popcornwave/sessionstore/sqlite"
 )
 
 const initUsage = "usage: pw init [<project-name>] [--interactive] [--router=registered|discovered|both] [--tailwind] [--no-tinygo] [--no-devbox] [--no-database] [--db=sqlite|postgres|mysql] [--no-redis] [--auth=none|oidc|passkey] [--session=rdb|cookie|redis] [--devidp]"
@@ -53,12 +62,14 @@ func sessionBackend(options initOptions) string {
 
 // sessionBackendPlugin names the import that registers a backend. The cookie
 // backend is built into pw, so it needs none.
-func sessionBackendPlugin(backend string) string {
+func sessionBackendPlugin(backend, engine string) string {
 	switch backend {
 	case sessionRDB:
-		return "github.com/shibukawa/popcornwave/plugin/session/rdb"
+		// A SQL store is one package per engine, because no engine reads
+		// another's DDL.
+		return "github.com/shibukawa/popcornwave/sessionstore/" + engineDialect(engine)
 	case sessionRedis:
-		return "github.com/shibukawa/popcornwave/plugin/session/redis"
+		return "github.com/shibukawa/popcornwave/sessionstore/redis"
 	default:
 		return ""
 	}
@@ -659,11 +670,22 @@ import _ "github.com/shibukawa/tinygodriver/netdev"
 		// Only the rdb backend owns a table: a cookie or Redis session leaves
 		// the numbering to the auth migration alone.
 		version := 2
+		dialect := engineDialect(options.Engine)
 		if sessionBackend(options) == sessionRDB {
-			files["migrations/00002_"+rdb.MigrationName+".sql"] = rdb.MigrationSQL("popcornwave_session")
+			// A migration is written in the dialect of the engine this project
+			// selected, because no engine reads another's DDL.
+			migration, err := sessionstore.MigrationSQL(dialect, "popcornwave_session")
+			if err != nil {
+				panic(err)
+			}
+			files["migrations/00002_"+sessionstore.MigrationName+".sql"] = migration
 			version = 3
 		}
-		files[fmt.Sprintf("migrations/0000%d_%s.sql", version, auth.MigrationName)] = auth.MigrationSQL()
+		authMigration, err := auth.MigrationSQL(dialect)
+		if err != nil {
+			panic(err)
+		}
+		files[fmt.Sprintf("migrations/0000%d_%s.sql", version, auth.MigrationName)] = authMigration
 	}
 	return files
 }
@@ -705,15 +727,19 @@ max_idle_conns = ` + strconv.Itoa(engine.MaxIdleConns) + `
 // backend it configured and nothing else. The cookie backend is built into pw
 // and needs no line here.
 func sessionBackendImport(options initOptions) string {
-	plugin := ""
-	if servesLogin(options) {
-		plugin = sessionBackendPlugin(sessionBackend(options))
-	}
-	if plugin == "" {
+	if !servesLogin(options) {
 		return ""
 	}
-	return "\n\t// session.backend = \"" + sessionBackend(options) +
-		"\" is served by this import; storage is opt-in.\n\t_ " + strconv.Quote(plugin)
+	imports := ""
+	if plugin := sessionBackendPlugin(sessionBackend(options), options.Engine); plugin != "" {
+		imports += "\n\t// session.backend = \"" + sessionBackend(options) +
+			"\" is served by this import; storage is opt-in.\n\t_ " + strconv.Quote(plugin)
+	}
+	// The login ceremony records live in the database whichever backend holds
+	// the sessions, so their engine is imported for every login.
+	imports += "\n\t// The single-use login records this engine stores.\n\t_ " +
+		strconv.Quote("github.com/shibukawa/popcornwave/authstate/"+engineDialect(options.Engine))
+	return imports
 }
 
 // projectDatabaseConfig records the engine .pw.sql sources are generated for.

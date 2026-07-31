@@ -8,9 +8,9 @@ ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 cd "$ROOT"
 
 packages='
-./contrib/authstate
-./contrib/authstate/memory
-./contrib/authstate/redis
+./authstate
+./authstate/memory
+./authstate/redis
 ./contrib/internal/authn
 ./contrib/cbor
 ./contrib/jwt

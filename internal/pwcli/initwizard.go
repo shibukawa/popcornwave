@@ -122,7 +122,7 @@ func initWizardSteps(defaults initOptions) []wizardStep[initOptions] {
 				sessionCursor(defaults.Session),
 				wizardChoice[initOptions]{
 					name:        "Database",
-					description: "one row per session through plugin/session/rdb; revocable, swept, carries a migration",
+					description: "one row per session through sessionstore/sqlite; revocable, swept, carries a migration",
 					apply:       setSession(sessionRDB),
 				},
 				wizardChoice[initOptions]{
@@ -132,7 +132,7 @@ func initWizardSteps(defaults initOptions) []wizardStep[initOptions] {
 				},
 				wizardChoice[initOptions]{
 					name:        "Redis or Valkey",
-					description: "server-side TTL through plugin/session/redis; revocable, nothing to sweep",
+					description: "server-side TTL through sessionstore/redis; revocable, nothing to sweep",
 					apply:       setSession(sessionRedis),
 				},
 			),

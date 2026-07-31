@@ -40,7 +40,7 @@ type CookieStoreOptions struct {
 
 // CookieStore keeps session records in a sealed browser cookie instead of in a
 // backend. It implements RawStore and RequestBinder, so a Manager built over
-// Typed of it behaves like one built over plugin/session/rdb: the same Options,
+// Typed of it behaves like one built over sessionstore/sqlite: the same Options,
 // the same Create, Rotate, and Delete, and the same Read[T] in handlers. Moving
 // a deployment to a persistent backend later replaces the store and nothing
 // else.

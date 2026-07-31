@@ -58,7 +58,7 @@ redis:
   servers: Redis or Valkey
   compatibility: requirement:contrib-redis-valkey
   status: implemented
-  session_plugin: popcornwave/plugin/session/redis
+  session_plugin: popcornwave/sessionstore/redis
   constructor: redis.NewStore[T](go-redis UniversalClient, session.Codec[T], Options)
   key_space: configured prefix and the key hash; the store never scans or enumerates
   expiry: server TTL from the record deadline, with the stored deadline still authoritative on read
@@ -68,15 +68,16 @@ redis:
   client_ownership: the caller opens and closes the client
 rdb:
   backend_name: rdb
-  session_plugin: popcornwave/plugin/session/rdb
+  session_plugin: popcornwave/sessionstore, with one package per engine under it
   status: implemented
-  constructor: rdb.NewStore[T](*sql.DB, session.Codec[T], Options)
+  constructor: sessionstore.NewStore(*sql.DB, Options) with the dialect of the resolved DSN
   owned_table: popcornwave_session
   schema: MigrationSQL publishes the migration file; VerifySchema is the startup check
   schema_ownership: rule:framework-owned-tables
-  dialect: SQLite DDL; other dialects are deferred
+  dialects: sqlite, postgres, and mysql, each contributed by its own blank import
+  dialect_scope: an engine package supplies the DDL, the upsert, the bounded delete, and the catalog query; every other statement is shared
   expiry_sweep: Prune removes records that expire without being revoked
-  driver_registration: separate database/sql driver import
+  driver_registration: separate popcornwave/database engine import
   guaranteed_driver: requirement:contrib-sqlite
   in_memory: sqlite://:memory:
   future_schemes: require implemented and verified drivers before configuration acceptance

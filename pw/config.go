@@ -101,14 +101,14 @@ type HSTSConfig = middlewares.HSTSConfig
 // Session storage backends.
 const (
 	// SessionBackendRDB keeps records in a database through
-	// plugin/session/rdb. It is the backend a deployment that must revoke a
+	// sessionstore/sqlite. It is the backend a deployment that must revoke a
 	// session, or that outgrows a cookie, uses.
 	SessionBackendRDB = "rdb"
 	// SessionBackendCookie keeps records in a sealed browser cookie. It needs
 	// no storage at all, and it cannot revoke a record it already wrote.
 	SessionBackendCookie = "cookie"
 	// SessionBackendRedis keeps records in Redis or Valkey through
-	// plugin/session/redis, where the server owns expiry and no sweep runs.
+	// sessionstore/redis, where the server owns expiry and no sweep runs.
 	SessionBackendRedis = "redis"
 )
 

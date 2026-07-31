@@ -46,7 +46,8 @@ pw add auth
     append  config.dev.toml
     append  popcornwave.toml
     by hand call handlers.RegisterAccountResolver() in ./cmd/memoapp before pw.Run
-    by hand add import _ "github.com/shibukawa/popcornwave/plugin/session/rdb" to ./cmd/memoapp
+    by hand add import _ "github.com/shibukawa/popcornwave/sessionstore/sqlite" to ./cmd/memoapp
+    by hand add import _ "github.com/shibukawa/popcornwave/authstate/sqlite" to ./cmd/memoapp
     then    pw migrate up
 ```
 

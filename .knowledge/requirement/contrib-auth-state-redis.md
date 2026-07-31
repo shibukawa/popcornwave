@@ -3,10 +3,10 @@ id: requirement:contrib-auth-state-redis
 type: requirement
 title: Redis Authentication State Store
 ---
-contrib/authstate/redis implements requirement:contrib-auth-state over Redis or Valkey without implementing a Redis protocol client.
+authstate/redis implements requirement:contrib-auth-state over Redis or Valkey without implementing a Redis protocol client.
 
 ```yaml
-package: contrib/authstate/redis
+package: authstate/redis
 dependency: requirement:contrib-redis-valkey
 transport: policy:outbound-transport-security
 public_api:

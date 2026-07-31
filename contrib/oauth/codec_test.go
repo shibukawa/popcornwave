@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/shibukawa/popcornwave/contrib/authstate"
+	"github.com/shibukawa/popcornwave/authstate"
 )
 
 func TestTransactionCodecRoundTrip(t *testing.T) {

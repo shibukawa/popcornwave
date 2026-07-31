@@ -11,7 +11,7 @@ import (
 	"github.com/shibukawa/popcornwave/internal/pwenv"
 	"github.com/shibukawa/popcornwave/internal/pwmigrate"
 	"github.com/shibukawa/popcornwave/plugin/auth"
-	"github.com/shibukawa/popcornwave/plugin/session/rdb"
+	"github.com/shibukawa/popcornwave/sessionstore"
 )
 
 func TestParseInitArgsRejectsAnUnknownAuthMode(t *testing.T) {
@@ -86,10 +86,10 @@ func TestScaffoldWiresTheFrameworkOwnedEndpoints(t *testing.T) {
 		t.Fatalf("accounts.go = %q", resolver)
 	}
 	// The framework tables come from the packages that own them.
-	if files["migrations/00002_"+rdb.MigrationName+".sql"] != rdb.MigrationSQL("popcornwave_session") {
-		t.Fatal("the scaffolded session migration is not the one plugin/session/rdb publishes")
+	if files["migrations/00002_"+sessionstore.MigrationName+".sql"] != mustSessionMigration() {
+		t.Fatal("the scaffolded session migration is not the one sessionstore/sqlite publishes")
 	}
-	if files["migrations/00003_"+auth.MigrationName+".sql"] != auth.MigrationSQL() {
+	if files["migrations/00003_"+auth.MigrationName+".sql"] != mustAuthMigration() {
 		t.Fatal("the scaffolded auth migration is not the one plugin/auth publishes")
 	}
 
@@ -288,14 +288,19 @@ func TestScaffoldedMigrationsApply(t *testing.T) {
 // migration is needed at all.
 func TestScaffoldFollowsTheSessionBackendChoice(t *testing.T) {
 	rdbFiles := scaffoldFiles(initOptions{Name: "demo", Database: true, Auth: authOIDC, Session: sessionRDB})
-	if !strings.Contains(rdbFiles["cmd/demo/main.go"], `_ "github.com/shibukawa/popcornwave/plugin/session/rdb"`) {
+	if !strings.Contains(rdbFiles["cmd/demo/main.go"], `_ "github.com/shibukawa/popcornwave/sessionstore/sqlite"`) {
 		t.Errorf("rdb backend is not imported:\n%s", rdbFiles["cmd/demo/main.go"])
+	}
+	// The login ceremony records live in the database whichever backend holds
+	// the sessions.
+	if !strings.Contains(rdbFiles["cmd/demo/main.go"], `_ "github.com/shibukawa/popcornwave/authstate/sqlite"`) {
+		t.Errorf("ceremony store is not imported:\n%s", rdbFiles["cmd/demo/main.go"])
 	}
 	if !strings.Contains(rdbFiles["config.dev.toml"], `backend = "rdb"`) ||
 		!strings.Contains(rdbFiles["config.dev.toml"], `rdb.source = "middleware"`) {
 		t.Errorf("rdb session config:\n%s", rdbFiles["config.dev.toml"])
 	}
-	if _, ok := rdbFiles["migrations/00002_"+rdb.MigrationName+".sql"]; !ok {
+	if _, ok := rdbFiles["migrations/00002_"+sessionstore.MigrationName+".sql"]; !ok {
 		t.Error("rdb backend did not scaffold its session migration")
 	}
 	if _, ok := rdbFiles["migrations/00003_"+auth.MigrationName+".sql"]; !ok {
@@ -303,7 +308,7 @@ func TestScaffoldFollowsTheSessionBackendChoice(t *testing.T) {
 	}
 
 	cookieFiles := scaffoldFiles(initOptions{Name: "demo", Database: true, Auth: authOIDC, Session: sessionCookie})
-	if strings.Contains(cookieFiles["cmd/demo/main.go"], "plugin/session/") {
+	if strings.Contains(cookieFiles["cmd/demo/main.go"], "sessionstore/") {
 		t.Errorf("the built-in cookie backend was imported:\n%s", cookieFiles["cmd/demo/main.go"])
 	}
 	if !strings.Contains(cookieFiles["config.dev.toml"], `cookie_store.secret = "${SESSION_COOKIE_SECRET}"`) {
@@ -318,7 +323,7 @@ func TestScaffoldFollowsTheSessionBackendChoice(t *testing.T) {
 	}
 
 	redisFiles := scaffoldFiles(initOptions{Name: "demo", Database: true, Auth: authOIDC, Session: sessionRedis})
-	if !strings.Contains(redisFiles["cmd/demo/main.go"], `_ "github.com/shibukawa/popcornwave/plugin/session/redis"`) {
+	if !strings.Contains(redisFiles["cmd/demo/main.go"], `_ "github.com/shibukawa/popcornwave/sessionstore/redis"`) {
 		t.Errorf("redis backend is not imported:\n%s", redisFiles["cmd/demo/main.go"])
 	}
 	if !strings.Contains(redisFiles["config.dev.toml"], "redis.dsn") {
@@ -353,4 +358,54 @@ func migrationNames(files map[string]string) []string {
 	}
 	sort.Strings(names)
 	return names
+}
+
+// mustSessionMigration and mustAuthMigration are the SQLite migrations the
+// scaffold writes, which is the dialect these fixtures use.
+func mustSessionMigration() string {
+	migration, err := sessionstore.MigrationSQL("sqlite", "popcornwave_session")
+	if err != nil {
+		panic(err)
+	}
+	return migration
+}
+
+func mustAuthMigration() string {
+	migration, err := auth.MigrationSQL("sqlite")
+	if err != nil {
+		panic(err)
+	}
+	return migration
+}
+
+// A SQL store is one package per engine, so the engine answer decides which
+// storage packages the entry point imports and which dialect the migrations
+// are written in.
+func TestScaffoldImportsTheStoresOfTheSelectedEngine(t *testing.T) {
+	for engine, want := range map[string][]string{
+		engineSQLite:   {"sessionstore/sqlite", "authstate/sqlite"},
+		enginePostgres: {"sessionstore/postgres", "authstate/postgres"},
+		engineMySQL:    {"sessionstore/mysql", "authstate/mysql"},
+	} {
+		t.Run(engine, func(t *testing.T) {
+			files := scaffoldFiles(initOptions{
+				Name: "demo", Database: true, Engine: engine, Auth: authOIDC, Session: sessionRDB,
+			})
+			main := files["cmd/demo/main.go"]
+			for _, path := range want {
+				if !strings.Contains(main, `_ "github.com/shibukawa/popcornwave/`+path+`"`) {
+					t.Errorf("%s is not imported:\n%s", path, main)
+				}
+			}
+			// The migration has to be readable by the engine that will run it.
+			migration := files["migrations/00002_"+sessionstore.MigrationName+".sql"]
+			expected, err := sessionstore.MigrationSQL(engine, "popcornwave_session")
+			if err != nil {
+				t.Fatal(err)
+			}
+			if migration != expected {
+				t.Errorf("session migration is not in the %s dialect:\n%s", engine, migration)
+			}
+		})
+	}
 }

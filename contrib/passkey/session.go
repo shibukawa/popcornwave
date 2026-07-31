@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 
-	"github.com/shibukawa/popcornwave/contrib/authstate"
+	"github.com/shibukawa/popcornwave/authstate"
 	"github.com/shibukawa/popcornwave/contrib/internal/authn"
 )
 

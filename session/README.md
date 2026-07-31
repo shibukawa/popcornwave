@@ -8,8 +8,8 @@ authoritative lifetime is decided by the server, even when a cookie survives.
 The package contains the `Store[T]` contract, the payload `Codec[T]`, and the
 `Manager[T]` that owns cookies and record lifetime, plus `Jar[T]` for
 application cookies and `CookieStore` for sessions that need no storage.
-`plugin/session/rdb` stores records in a `database/sql` database, and
-`plugin/session/redis` stores them in Redis or Valkey. A backend implements the
+`sessionstore/sqlite` stores records in a `database/sql` database, and
+`sessionstore/redis` stores them in Redis or Valkey. A backend implements the
 non-generic `RawStore`, and `Typed[T]` adds the payload type back, which is what
 lets one registry hold every backend and an application link only the one it
 configured.
@@ -80,7 +80,7 @@ retired ones keep reading, which is what makes a rotation invisible.
 
 `CookieStore` is a `RawStore` that seals the record into a second cookie, bound
 to the hash of its own token. A `Manager` over `Typed[T]` of it behaves exactly
-like one over `plugin/session/rdb` — the same options, the same `Create`,
+like one over `sessionstore/sqlite` — the same options, the same `Create`,
 `Rotate`, and `Delete`, the same `Read[T]` — so a deployment moves to a database
 by setting `session.backend` and adding that backend's import. This one is built
 into the framework and needs no import.

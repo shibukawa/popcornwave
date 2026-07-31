@@ -515,7 +515,7 @@ func TestScaffoldDocumentLoadsTheBoundaryRuntime(t *testing.T) {
 func TestScaffoldWithLoginImportsItsSessionBackend(t *testing.T) {
 	files := scaffoldFiles(initOptions{Name: "fixture", Database: true, Auth: authOIDC})
 	main := files["cmd/fixture/main.go"]
-	if !strings.Contains(main, `_ "github.com/shibukawa/popcornwave/plugin/session/rdb"`) {
+	if !strings.Contains(main, `_ "github.com/shibukawa/popcornwave/sessionstore/sqlite"`) {
 		t.Errorf("entry point does not register the rdb session backend:\n%s", main)
 	}
 	if _, err := parser.ParseFile(token.NewFileSet(), "cmd/fixture/main.go", main, parser.AllErrors); err != nil {
@@ -524,7 +524,7 @@ func TestScaffoldWithLoginImportsItsSessionBackend(t *testing.T) {
 	// A project without a login configures no session storage, so it carries
 	// no storage import either.
 	plain := scaffoldFiles(initOptions{Name: "fixture"})["cmd/fixture/main.go"]
-	if strings.Contains(plain, "plugin/session/") {
+	if strings.Contains(plain, "sessionstore/") {
 		t.Errorf("a project without a login imports a session backend:\n%s", plain)
 	}
 }

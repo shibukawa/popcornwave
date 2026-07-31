@@ -21,7 +21,7 @@ modes:
     - apply pending versioned statements transactionally where supported
     - record the resulting plugin schema version
 rules:
-  - require selected and imported plugin/session/rdb
+  - require selected and imported sessionstore/sqlite
   - reject Redis backend because it has no SQL schema
   - never inspect or migrate application-owned tables
   - refuse downgrade and destructive migration without a future explicit contract

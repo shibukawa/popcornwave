@@ -8,7 +8,7 @@
 // The current build implements auth.mode = "oidc_only": OpenID Connect
 // Authorization Code with PKCE against one configured issuer, a login session
 // in whatever backend session.backend selects, and single-use OAuth
-// correlation state stored by contrib/authstate/sqlite.
+// correlation state stored by authstate/sqlite.
 //
 // This package imports no storage plugin. It asks pw for the configured
 // backend, so an application links the storage it configured and no more, and
@@ -23,7 +23,7 @@ import (
 	"sync"
 	"time"
 
-	authsqlite "github.com/shibukawa/popcornwave/contrib/authstate/sqlite"
+	"github.com/shibukawa/popcornwave/authstate"
 	"github.com/shibukawa/popcornwave/contrib/oauth"
 	"github.com/shibukawa/popcornwave/contrib/oidc"
 	"github.com/shibukawa/popcornwave/pw"
@@ -67,7 +67,7 @@ type runtime struct {
 	// sessionClose releases a client the backend opened. A backend that
 	// borrowed the middleware database leaves it nil.
 	sessionClose func(context.Context) error
-	stateStore   *authsqlite.Store[oauth.Transaction]
+	stateStore   *authstate.SQLStore[oauth.Transaction]
 	allowlist    Allowlist
 	cookiePolicy pw.SessionCookieConfig
 	include      []pattern
@@ -125,12 +125,6 @@ func setupSession(ctx context.Context) (pw.Middleware, error) {
 	if !ok {
 		return nil, errors.New("auth requires middleware.rdb.enabled = true")
 	}
-	if driver, _ := pw.DBDriver(sessionCtx); driver != "sqlite" {
-		// The OAuth correlation store is the SQLite implementation of
-		// contrib/authstate; another dialect needs its own adapter.
-		return nil, fmt.Errorf("auth currently requires a sqlite middleware.rdb.dsn, got driver %q", driver)
-	}
-
 	options, err := sessionOptions(sessionConfig)
 	if err != nil {
 		return nil, err
@@ -142,7 +136,10 @@ func setupSession(ctx context.Context) (pw.Middleware, error) {
 	if err != nil {
 		return nil, err
 	}
-	stateStore, err := authsqlite.NewStore[oauth.Transaction](db, oauth.TransactionCodec{}, authsqlite.Options{
+	// The ceremony store speaks whatever engine the DSN resolved to, so its
+	// dialect comes from the same place the session backend's does.
+	stateStore, err := authstate.NewSQLStore[oauth.Transaction](db, oauth.TransactionCodec{}, authstate.SQLOptions{
+		Dialect:   driver,
 		Namespace: stateNamespace,
 	})
 	if err != nil {

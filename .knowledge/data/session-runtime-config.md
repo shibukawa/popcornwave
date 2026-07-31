@@ -23,11 +23,11 @@ fields:
   cookie_store.secret: base64 secret of at least 256 bits, read from SESSION_COOKIE_STORE_SECRET or a ${NAME} reference
   cookie_store.previous_secrets: retired secrets kept readable during a rotation
 plugin_fields:
-  plugin/session/redis:
+  sessionstore/redis:
     redis.dsn: redis or rediss URL, read from SESSION_REDIS_DSN or a ${NAME} reference
     redis.key_prefix: string
     redis.connect_timeout: duration bounding the startup ping and per-command deadlines
-  plugin/session/rdb:
+  sessionstore/<engine>:
     rdb.source: middleware or dedicated
     rdb.group: middleware-only data:database-connection-set group holding the session tables
     rdb.dsn: dedicated-only URL such as sqlite://app.db or sqlite://:memory:

@@ -139,7 +139,8 @@ backend = "rdb"     # or "redis"
 
 ```go
 // cmd/myapp/main.go — the backend a binary contains is the one it imports.
-import _ "github.com/shibukawa/popcornwave/plugin/session/rdb"
+// A SQL store is one package per engine: sqlite, postgres, or mysql.
+import _ "github.com/shibukawa/popcornwave/sessionstore/sqlite"
 ```
 
 ```toml
@@ -150,7 +151,7 @@ key_prefix = "pw:session:"
 ```
 
 ```go
-import _ "github.com/shibukawa/popcornwave/plugin/session/redis"
+import _ "github.com/shibukawa/popcornwave/sessionstore/redis"
 ```
 
 The import is what puts a storage client in the binary, so an application links
@@ -161,8 +162,8 @@ first login.
 
 Nothing else moves. `session.Read[T]` in a handler, `Create`, `Rotate`, and
 `Delete` on the manager, and the middleware that resolves the request are the
-same code over `session.CookieStore`, over `plugin/session/rdb`, and over
-`plugin/session/redis`. Each implements the same non-generic `session.RawStore`,
+same code over `session.CookieStore`, over `sessionstore/<engine>`, and over
+`sessionstore/redis`. Each implements the same non-generic `session.RawStore`,
 and the framework adds the payload type back with `session.Typed`, which is what
 lets one configuration value choose between them.
 
@@ -176,7 +177,9 @@ outstanding session at once, which is the blunt version of the same control.
 
 The two server backends both revoke immediately and differ mainly in who
 collects what nobody revoked. The RDB store keeps a row per session and needs a
-periodic sweep, which the auth plugin runs for it. The Redis store writes each
+periodic sweep, which the auth plugin runs for it; SQLite, PostgreSQL, and
+MySQL all serve it, each through its own package and its own dialect of the
+migration. The Redis store writes each
 record with a TTL taken from its own deadline, so an abandoned session
 disappears on its own and no sweep exists to schedule. Redis and Valkey are both
 supported, over `GET`, `SET`, `SET XX`, and `DEL` — no scanning, and no key

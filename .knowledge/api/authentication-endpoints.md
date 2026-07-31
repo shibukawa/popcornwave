@@ -44,7 +44,7 @@ placement:
 session:
   form: opaque cookie token over a server-side record, per api:session-manager
   payload: account summary only, with no token body and no provider secret
-  store: plugin/session/rdb, verified at startup against rule:framework-owned-tables
+  store: sessionstore/sqlite, verified at startup against rule:framework-owned-tables
   lifetime: session.ttl absolute and session.idle_timeout inactivity
   rotation: login rotates the token, which revokes whatever the browser held before
 rules:

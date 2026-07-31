@@ -18,7 +18,12 @@ Two things:
 ```go
 // cmd/myapp/main.go — installing the account resolver imports plugin/auth,
 // whose extensions serve the endpoints and resolve the session.
-import _ "github.com/shibukawa/popcornwave/plugin/session/rdb" // session.backend = "rdb"
+// Storage is opt-in, and a SQL store is one package per engine. These two are
+// the SQLite ones: the sessions, and the single-use login records.
+import (
+	_ "github.com/shibukawa/popcornwave/authstate/sqlite"
+	_ "github.com/shibukawa/popcornwave/sessionstore/sqlite"
+)
 
 func main() {
 	handlers.RegisterAccountResolver()
@@ -28,9 +33,11 @@ func main() {
 }
 ```
 
-The storage import is separate from `plugin/auth` on purpose: the auth plugin
-links no backend, so an application carries only the one its `session.backend`
-selects. `pw init --auth=oidc` writes both lines.
+The storage imports are separate from `plugin/auth` on purpose: the auth plugin
+links no backend, so an application carries only what it configured — and a SQL
+store is one package per engine, so switching to PostgreSQL means importing
+`sessionstore/postgres` and `authstate/postgres` instead. `pw init --auth=oidc
+--db=postgres` writes those lines for you.
 
 ```toml
 # config.dev.toml
@@ -138,7 +145,7 @@ authorization remains in the application.
 
 The cookie carries an opaque token; where the session itself lives is
 `session.backend`. The default `rdb` keeps it in the database through
-`plugin/session/rdb`, `redis` keeps it in Redis or Valkey with a server-owned
+`sessionstore/<engine>`, `redis` keeps it in Redis or Valkey with a server-owned
 TTL, and `cookie` seals it into a second cookie for a deployment that wants no
 session storage — see [Cookies](/guides/backend/cookies/) for how that choice differs.
 `session.ttl` is the absolute lifetime and `session.idle_timeout` the
