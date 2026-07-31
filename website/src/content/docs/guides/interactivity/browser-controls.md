@@ -5,6 +5,13 @@ sidebar:
   order: 2
 ---
 
+:::note[Browser features]
+`<dialog>`, the popover attributes and `<details>` belong to the web platform,
+not to Popcorn Wave. The framework's share of this page is the four template
+rules at the end, which govern how that same markup behaves inside a `.pw.html`
+component.
+:::
+
 Modals, menus, tooltips and accordions were library territory for a decade.
 They are now elements and attributes — which makes them markup, and markup is
 what a component emits. A server-rendered template turns out to be a perfectly

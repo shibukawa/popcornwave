@@ -5,6 +5,12 @@ sidebar:
   order: 5
 ---
 
+:::note[Where the line falls]
+The fragment surface on this page is the framework's. The swap library, the
+popover, the custom element and the browser APIs they call are not — they are
+what the application chooses and owns, including their failures.
+:::
+
 The tiers below this one rearrange what the page already holds. This one is for
 everything else: a list that has to be filtered by the database, a panel whose
 contents depend on a row, a form that must come back with errors while its

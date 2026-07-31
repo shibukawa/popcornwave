@@ -71,14 +71,6 @@ export default defineConfig({
                 {
                   label: 'Interactivity',
                   translations: { ja: 'インタラクション' },
-                  // These pages are mostly browser features rather than framework
-                  // API, and the badge is the only place a reader glancing at the
-                  // sidebar can learn that. Each page still marks its own
-                  // framework-specific parts.
-                  badge: {
-                    variant: 'note',
-                    text: { en: 'Web platform', ja: 'ブラウザ標準' },
-                  },
                   items: [{ autogenerate: { directory: 'guides/interactivity' } }],
                 },
               ],

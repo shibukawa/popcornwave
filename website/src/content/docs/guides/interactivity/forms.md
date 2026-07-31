@@ -5,6 +5,12 @@ sidebar:
   order: 4
 ---
 
+:::note[Browser features]
+Constraint validation, `:user-invalid` and `<datalist>` come from the browser.
+The `check` rules and the re-rendered form are the framework's. Most of this
+page is about keeping the two from disagreeing.
+:::
+
 A form is where a server-rendered application is most obviously fine and most
 obviously improvable. It works: the browser submits, the handler answers, the
 page comes back with errors on it. What it lacks is the half-second in which

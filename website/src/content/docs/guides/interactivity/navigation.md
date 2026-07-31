@@ -5,6 +5,13 @@ sidebar:
   order: 3
 ---
 
+:::note[Browser features]
+View transitions and speculation rules are browser features a server-rendered
+site opts into with CSS and markup. The framework has no API for either, and no
+handler changes to adopt them; what it contributes is the document shell they
+are declared in.
+:::
+
 The reason single-page applications took over navigation was never routing. It
 was the two things a full page load used to cost: a white flash between
 documents, and a wait long enough to notice.
