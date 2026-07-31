@@ -14,6 +14,22 @@ scope:
   - namespace inserted placeholder ids per response on the fetch path
   - register the parser-path custom element as a thin adapter over the apply function
   - preserve the framing invariants the module no longer enforces
+live_scope:
+  status: implemented with requirement:live-html-rendering
+  added:
+    - read the api:live-delivery-protocol document marker and open a live connection only when it says live work remains
+    - read the record stream, applying each delivery through the same apply function, so the live path adds a reader rather than a second runtime
+    - reconnect, back off, and stop, per requirement:live-connection-recovery
+    - abort the connection before applying a same-document navigation
+  unchanged: the module reference in the scaffolded document shell, so a live page loads no extra asset and policy:security-response-headers still needs no nonce
+  cost: the reader ships to every page that loads the runtime, whether or not that page has a live boundary
+  open: whether the live half is a separate module fetched on demand, which would keep a static page's first visit at today's bytes
+declaration_order:
+  rule: every module-level binding is declared above the first customElements.define
+  why: defining an element upgrades the ones the parser already inserted, synchronously, inside the define call, so a callback reading a binding declared further down reads it before its initializer has run and throws
+  why_it_is_not_a_race: the document marker is always already in the DOM by the time its element is defined, so this is the ordinary path
+  how_it_failed: the marker's callback threw during load, silently, leaving a page that applied its boundaries and then never updated; found by running the example in a browser, not by any test
+  guarded_by: a test over the script text, since the failure is invisible to every Go-level assertion
 placement:
   where: the api:cli-init scaffolded templates/document.pw.html, so every page loads it
   rationale: an always-present runtime removes the need for any head-injection hook, now and for the capabilities that follow it
@@ -47,5 +63,7 @@ acceptance:
   - a completion whose bytes are split across chunks never destroys its fallback
   - a dependency upgrade changes the served URL without editing the scaffolded template
   - an unknown revision under the reserved path answers 404 rather than reaching the application
-  - the applied document retains no placeholder, template, or marker
+  - the applied document retains no placeholder, template, or marker element; it retains the comment brackets api:html-boundary-protocol keeps as a live delivery's address
+  - a document cut off mid-stream is detected from the missing terminal marker and reloaded once, with the guard that stops a server truncating every response from producing a reload loop
+  - an identical delivery for a boundary already showing that content changes no node, so focus, selection, and animation inside it survive a reconnect
 ```

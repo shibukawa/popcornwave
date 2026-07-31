@@ -9,6 +9,7 @@ TinyBind is the generated binding, configuration, response, validation, streamin
 module: github.com/shibukawa/tinybind-go
 html_template_baseline: v0.1.15
 html_async_baseline: v0.1.20
+html_live_baseline: v0.2.8, required by requirement:live-html-rendering; v0.2.7 introduced live boundaries and v0.2.8 answered the first of the integration requests raised against them
 route_tree_baseline: v0.2.6
 public_wrappers:
   - api:request-binding
@@ -34,6 +35,17 @@ generator:
     - await, fallback, and recover clauses compile to boundaries described by api:html-boundary-protocol
     - the generated plan carries a constant HasAwaitBlock flag used by decision:automatic-async-render-selection
     - the async render path emits placeholders and bare fragments; completion framing and the client runtime belong to the framework
+    - "`external live` declarations bind Go functions of the shape func(ctx, args...) iter.Seq2[T, error], with the context mandatory rather than optional"
+    - a live binding sits in an ordinary await clause, so there is no second clause keyword and one clause may mix a live binding with a settle-once one
+    - "RenderChain renders a live boundary from its first delivery; RenderChainAsync commits the first delivery and unsubscribes; RenderChainLive keeps delivering and does not end"
+    - the entries that must answer bound how long a boundary may show nothing, and running out leaves the fallback rather than rendering recover
+    - HasLiveBlock reports whether a chain keeps changing after the document ends, a subset of HasAwaitBlock
+    - Content.AppendJSON writes one delivery as a JSON record, escaped for a script context as well as a JSON one
+    - boundary ids became positional, so a nested boundary is tb-1-1 and the same chain executed again produces the same ids; api:html-boundary-protocol carries what that changes here
+    - "the live entry does not enforce that the body writer is discarded, so passing a real writer produces an endless document response"
+    - a live failure reaches the error reporter after the delivery lock is released, from v0.2.8; before that a blocking reporter held the clause's goroutines
+    - nothing states which boundary is live, so requirement:live-boundary-liveness-signal is still answered by the framework's own bookkeeping
+    - a live render executes the whole composed chain, so requirement:live-mode-plan-slice is still paid per reconnect
   route_tree:
     - the routetree package discovers a directory tree and writes the registrations, which is the opposite direction from the registered-router analysis above
     - one run covers one tree; requirement:discovered-page-routing wraps it and flow:page-route-generation drives it

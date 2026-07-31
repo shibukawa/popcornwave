@@ -27,5 +27,11 @@ rules:
   - an external without a context parameter cannot be interrupted; the render abandons it and discards its result
   - work started by api:async-html-value stays the handler's to cancel
   - a boundary goroutine panic becomes that boundary's error and never reaches the recovery middleware
+live_boundaries:
+  scope: these rules bound work that settles; a binding that keeps delivering is bounded by policy:live-subscription-bounds instead
+  not_covered_here:
+    concurrency: htmlbind excludes live subscriptions from WithConcurrencyLimit, so html.async_concurrency caps nothing about them
+    timeout: the bound still applies to a live boundary's first delivery on the entries that must answer, and running out leaves the fallback rather than rendering recover, because a quiet source has not failed
+    reporter: reported off the delivery lock since system:tinybind v0.2.8, per requirement:live-error-report-off-lock, so both paths now report the same way
 extends: policy:server-ui-security
 ```

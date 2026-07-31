@@ -1,0 +1,13 @@
+[project]
+name = "live_render"
+main = "./cmd/live_render"
+
+[generate]
+handlers = ["handlers"]
+templates = ["handlers", "templates"]
+queries = []
+config = ["cmd/live_render"]
+
+[dev.watch]
+includes = []
+excludes = []

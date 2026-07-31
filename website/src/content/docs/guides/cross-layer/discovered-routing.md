@@ -2,7 +2,7 @@
 title: Discovered Routing
 description: Serve a website from a directory tree, where a directory holding a page template is a route and the registration is generated.
 sidebar:
-  order: 2
+  order: 3
 ---
 
 A website is mostly `GET` pages, and the code that serves them is mostly the
@@ -236,7 +236,7 @@ For a rung whose reason to exist is owning the response, that is the right side
 of the trade.
 
 Every page renders through the same response path a classic handler uses, so the
-document shell, [async rendering](/advanced/async-rendering/), crawler handling,
+document shell, [async rendering](/guides/cross-layer/async-rendering/), crawler handling,
 compression, and the project's error pages all apply without a page asking for
 them.
 
