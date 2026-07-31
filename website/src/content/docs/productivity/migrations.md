@@ -2,7 +2,7 @@
 title: Database Migrations
 description: The versioned record of schema change — file format, the development loop, deployment, and which database receives it.
 sidebar:
-  order: 6
+  order: 7
 ---
 
 One application has more than one database. There is the file on your laptop,
@@ -80,7 +80,7 @@ rather than at the first `ALTER TABLE`.
 configuration precedence — which means migrations follow whatever `APP_ENV`
 selects. Confirm the environment before pointing the command at anything that is
 not a development database. See [Queries](/guides/backend/queries/) for
-connection groups, and [Configuration Keys](/reference/configuration/) for the
+connection groups, and [Application Configuration](/reference/configuration/) for the
 keys themselves.
 
 ## In tests

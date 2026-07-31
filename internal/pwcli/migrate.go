@@ -10,12 +10,22 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 
 	"github.com/shibukawa/popcornwave/internal/pwmigrate"
 	"github.com/shibukawa/popcornwave/migrate"
 )
+
+// migrateActions is the accepted action set. Help and validation read the same
+// slice, so an added action cannot be accepted by one and unknown to the other.
+var migrateActions = []string{
+	"status", "version", "up", "up-by-one", "up-to",
+	"down", "down-to", "create", "validate", "snapshot",
+}
+
+const migrateUsage = "usage: pw migrate <action> [<version>|<name>] [--dir=path] [--dsn=dsn] [--dry-run] [--yes]"
 
 type migrateOptions struct {
 	action  string
@@ -350,7 +360,7 @@ func credentialPart(dsn string) string {
 
 func parseMigrateArgs(args []string) (migrateOptions, error) {
 	if len(args) == 0 {
-		return migrateOptions{}, errors.New("migrate: an action is required; see pw help")
+		return migrateOptions{}, errors.New("migrate: an action is required; " + migrateUsage)
 	}
 	options := migrateOptions{action: args[0]}
 	rest := args[1:]
@@ -402,10 +412,9 @@ func parseMigrateArgs(args []string) (migrateOptions, error) {
 	case len(positional) != 0:
 		return migrateOptions{}, fmt.Errorf("migrate %s: unexpected argument %q", options.action, positional[0])
 	}
-	switch options.action {
-	case "status", "version", "up", "up-by-one", "up-to", "down", "down-to", "create", "validate", "snapshot":
-	default:
-		return migrateOptions{}, fmt.Errorf("migrate: unknown action %q", options.action)
+	if !slices.Contains(migrateActions, options.action) {
+		return migrateOptions{}, fmt.Errorf("migrate: unknown action %q; want %s",
+			options.action, strings.Join(migrateActions, ", "))
 	}
 	return options, nil
 }

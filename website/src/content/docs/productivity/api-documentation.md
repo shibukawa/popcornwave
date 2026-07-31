@@ -21,20 +21,37 @@ because there is no separate specification.
 
 ```toml
 [server]
-openapi.enabled = true       # default
-openapi.path = "/openapi.json"
+openapi = "/openapi.json"    # unset serves nothing
 api_doc = "scalar"           # "scalar", "swagger", or empty to disable
 api_doc_path = "/docs"
 ```
 
-`openapi.enabled` serves the merged document. `api_doc` adds a browsable UI over
-it — Scalar or Swagger UI — and requires `openapi.enabled`; a non-empty
-`api_doc` without it fails at startup rather than serving a page that cannot
+`openapi` names the path the merged document answers on. It has no default: an
+endpoint nobody wrote down is an endpoint nobody audits, so an unset key
+registers no route. `api_doc` adds a browsable UI over it — Scalar or Swagger UI
+— and requires `openapi`; a non-empty `api_doc` without it fails startup with
+`server.api_doc requires server.openapi` rather than serving a page that cannot
 load its own spec.
 
 `pw init` writes `api_doc = "scalar"` into `config.dev.toml` only. The default is
 empty, so the reference stays private until a staging or production config opts
 in.
+
+## Who can read it
+
+An API description is a map of your whole surface, so both paths are mounted
+beneath the authentication chain. `auth.protection.include` covers them exactly
+as it covers an application route:
+
+```toml
+[auth.protection]
+include = ["/openapi.json", "/docs"]
+```
+
+Protection is opt-in, so without a matching pattern they stay public like any
+unlisted route. The [health and readiness probes](/guides/deployment/operational-endpoints/)
+are the two endpoints that can never be protected — nothing authenticates above
+them, which is what a liveness check needs.
 
 The UI page is a few hundred bytes of HTML that loads the interface from a
 public CDN, so the binary stays small. The browser then has to reach that CDN,

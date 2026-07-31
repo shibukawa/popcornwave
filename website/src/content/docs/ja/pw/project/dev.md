@@ -19,7 +19,8 @@ pw dev
 3. `migration.auto` が `false` でなければ、未適用のマイグレーションを適用する
 4. Tailwind が有効なら、スタイルシートをビルドしてウォッチャを起動する
 5. `dev.idp.enabled` が `true` なら、開発用の認証プロバイダを起動する
-6. `project.main` をビルドして実行する
+6. `dev.otel.enabled` が `false` でなければ、テレメトリビューアを起動する
+7. `project.main` をビルドして実行する
 
 起動後は 0.5 秒ごとに監視対象を確認します。変更があれば、環境全体ではなく、その
 ファイルに関係するステップだけを繰り返します。
@@ -93,6 +94,25 @@ enabled = true
 
 ユーザー定義ファイルの形式、claim、このプロバイダが実装するもの・しないものは
 [開発用の認証プロバイダ](/ja/productivity/dev-identity-provider/)を参照してください。
+
+## テレメトリビューア
+
+`pw dev` はループバックの OpenTelemetry レシーバとブラウザ UI も起動し、標準の OTLP
+環境変数でアプリケーションをそこへ向けます。既定で有効なので、コレクタを用意しなくても
+トレースと関連づいたログレコードが読めます。
+
+```
+pw dev: telemetry viewer http://127.0.0.1:54321
+```
+
+```toml
+[dev.otel]
+enabled = true
+```
+
+`OTEL_EXPORTER_OTLP_ENDPOINT` がすでに設定されていれば何も起動せず、自前のコレクタに
+任せます。[開発用テレメトリビューア](/ja/productivity/dev-telemetry-viewer/)を参照して
+ください。
 
 ## 停止
 

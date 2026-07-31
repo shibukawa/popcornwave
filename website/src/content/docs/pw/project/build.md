@@ -19,7 +19,8 @@ arguments; its inputs come from `popcornwave.toml` and the environment.
    overrides `assets.tailwind.minify`, so a release is never accidentally
    unminified;
 3. prepares the public asset tree, writing the compressed `*.zstd` sidecars
-   that the asset middleware serves to clients accepting them;
+   that the [asset middleware](/guides/frontend/static-assets/) serves to
+   clients accepting them;
 4. rejects the build if `project.main` depends on a development-only package;
 5. runs `go build` on `project.main` from `popcornwave.toml`.
 

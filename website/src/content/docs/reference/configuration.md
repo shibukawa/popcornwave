@@ -1,9 +1,14 @@
 ---
-title: Configuration Keys
-description: Every framework configuration key, its default, and the TOML, environment, and command-line names it answers to.
+title: Application Configuration
+description: Every runtime configuration key of a running application, its default, and the TOML, environment, and command-line names it answers to.
 sidebar:
   order: 2
 ---
+
+These are the keys a *running application* reads: ports, pools, cookies,
+severities. The file `pw` itself reads to build that application is a different
+file with a different schema — see
+[Build Tool Configuration](/reference/build-configuration/).
 
 One struct field becomes three inputs. `ServerConfig.ReadHeaderTimeout` is
 `server.read_header_timeout` in TOML, `SERVER_READ_HEADER_TIMEOUT` in the

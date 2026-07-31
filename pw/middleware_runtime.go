@@ -20,7 +20,11 @@ func buildRuntimeHandler(handler http.Handler, server ServerConfig, security Sec
 	// Extensions see the same resources the request handler will, so a
 	// disabled or misconfigured capability fails during startup rather than on
 	// the first request.
-	extended, err := applyExtensions(pwruntime.WithResources(context.Background(), resources), handler)
+	//
+	// The documentation endpoints go underneath them, so the session and the
+	// authentication guard reach the OpenAPI document exactly as they reach an
+	// application route. The probes stay above, where nothing authenticates.
+	extended, err := applyExtensions(pwruntime.WithResources(context.Background(), resources), documentationEndpoints(handler, server))
 	if err != nil {
 		return nil, err
 	}
@@ -76,8 +80,11 @@ func writePanicProblem(w http.ResponseWriter, r *http.Request, err error) {
 	WriteProblem(w, r, InternalServerError(err))
 }
 
+// operationalEndpoints answers the framework assets and the two probes, above
+// every extension. Health and readiness reveal only status and are reachable by
+// anything that can reach the port, which is what a liveness probe needs and
+// what keeps a dependency outage from turning into a restart loop.
 func operationalEndpoints(next http.Handler, config ServerConfig, resources pwruntime.Resources) http.Handler {
-	apiDoc := apiDocUI(config.APIDoc, config.OpenAPI)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case serveFrameworkScript(w, r):
@@ -88,6 +95,28 @@ func operationalEndpoints(next http.Handler, config ServerConfig, resources pwru
 		case config.Readiness != "" && r.URL.Path == config.Readiness:
 			writeOperationalStatus(w, r, databasesReady(r.Context(), resources))
 			return
+		default:
+			next.ServeHTTP(w, r)
+		}
+	})
+}
+
+// documentationEndpoints answers the generated OpenAPI document and the UI over
+// it. Unlike the probes it is mounted beneath the extension chain, because an
+// API description is a map of the whole application surface and belongs behind
+// whatever protects the routes it describes. Reaching it therefore costs a
+// session where the configuration says so, and a test that authenticates
+// reaches it the same way its own routes are reached.
+//
+// A configuration that serves neither returns the handler unchanged, so the
+// common case adds no frame to the chain.
+func documentationEndpoints(next http.Handler, config ServerConfig) http.Handler {
+	apiDoc := apiDocUI(config.APIDoc, config.OpenAPI)
+	if config.OpenAPI == "" && apiDoc == nil {
+		return next
+	}
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
 		case config.OpenAPI != "" && r.URL.Path == config.OpenAPI:
 			if !operationalMethod(w, r) {
 				return

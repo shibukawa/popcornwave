@@ -87,6 +87,9 @@ pw.WriteAPI(w, r, user)
 
 ## ストリーム
 
+トークン、ログ行、キューのイベントのように時間をかけて届くレスポンスは、代わりに
+`pw.NewStream[T]` で書きます。
+
 ```go
 func events(w http.ResponseWriter, r *http.Request) {
 	stream := pw.NewStream[ChatEvent](w, r)
@@ -100,23 +103,10 @@ func events(w http.ResponseWriter, r *http.Request) {
 }
 ```
 
-`pw.NewStream[T]` はリクエストからワイヤ形式をネゴシエートしてレスポンスを開始します。
-`Send` が 1 つの値を書き、`Close` がレスポンスを確定します。JSON 配列形式では閉じ括弧が
-ここで書かれるため、`Close` は重要です。
-
-| 形式 | メディアタイプ |
-| --- | --- |
-| Server-Sent Events | `text/event-stream` |
-| NDJSON | `application/x-ndjson`、`application/ndjson`、`application/jsonl` |
-| JSON 配列 | `application/json` |
-
-形式は `?stream=` クエリパラメータ、`Accept`、User-Agent のヒューリスティックの順に
-選び、最後に NDJSON へフォールバックします。`Accept` ヘッダがサポート対象をすべて
-除外した場合、ストリームは `406 Not Acceptable` の problem レスポンスで始まります。
-以降の `Send` は矛盾するボディを書かず、同じエラーを返します。
-
-`server.write_timeout` の既定が `0s` なのは、まさに長時間のストリームを切断しないため
-です。[設定](/ja/guides/architecture/configuration/)を参照。
+Server-Sent Events、NDJSON、JSON 配列のどれになるかを選ぶのはクライアントで、上の
+ハンドラは 3 つすべてをそのまま処理します。ネゴシエーションの詳細、フレーミング、
+長時間のレスポンスが設定に求めるものは[ストリーム](/ja/guides/frontend/streams/)に
+あります。
 
 ## エラー
 

@@ -150,8 +150,8 @@ nothing framework-specific is involved.
 Avoid mounting an area at `/public/`. The framework serves embedded static
 assets at `server.public.mount`, which defaults to `/public`, and a collision
 between your routes and an enabled operational endpoint is reported at startup.
-Either mount the area elsewhere or move the asset mount in
-[Configuration](/guides/architecture/configuration/).
+Either mount the area elsewhere or move the asset mount — see
+[Static Assets](/guides/frontend/static-assets/).
 :::
 
 ## What stays global

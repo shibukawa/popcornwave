@@ -90,6 +90,9 @@ document, so a JSON endpoint is described without a separate annotation pass.
 
 ## Streams
 
+A response that arrives over time — tokens, log lines, queue events — is written
+with `pw.NewStream[T]` instead:
+
 ```go
 func events(w http.ResponseWriter, r *http.Request) {
 	stream := pw.NewStream[ChatEvent](w, r)
@@ -103,24 +106,10 @@ func events(w http.ResponseWriter, r *http.Request) {
 }
 ```
 
-`pw.NewStream[T]` negotiates the wire format from the request and starts the
-response. `Send` writes one value; `Close` finalises the response — which
-matters for the JSON-array format, whose closing bracket is written there.
-
-| Format | Media type |
-| --- | --- |
-| Server-Sent Events | `text/event-stream` |
-| NDJSON | `application/x-ndjson`, `application/ndjson`, `application/jsonl` |
-| JSON array | `application/json` |
-
-Format selection begins with the `?stream=` query parameter, then considers
-`Accept`, then User-Agent heuristics, and finally falls back to NDJSON. If an
-`Accept` header rules out every supported type, the stream starts with a `406
-Not Acceptable` problem response. Every later `Send` returns that same error
-instead of writing a contradictory body.
-
-`server.write_timeout` defaults to `0s` precisely so that long-lived streams are
-not cut off; see [Configuration](/guides/architecture/configuration/).
+The client chooses between Server-Sent Events, NDJSON, and a JSON array, and the
+handler above serves all three unchanged. [Streams](/guides/frontend/streams/)
+covers the negotiation, the framing, and what a long-lived response needs from
+the rest of the configuration.
 
 ## Errors
 

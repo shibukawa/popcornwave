@@ -19,7 +19,8 @@ defines the loop.
 3. applies pending migrations, unless `migration.auto` is `false`;
 4. builds the Tailwind stylesheet and starts its watcher, if Tailwind is enabled;
 5. starts the development identity provider, if `dev.idp.enabled` is `true`;
-6. builds and runs `project.main`.
+6. starts the telemetry viewer, unless `dev.otel.enabled` is `false`;
+7. builds and runs `project.main`.
 
 After startup, it polls watched files twice a second. A change repeats only the
 steps affected by that file rather than rebuilding the entire environment.
@@ -94,6 +95,26 @@ enabled = true
 
 See [Development Identity Provider](/productivity/dev-identity-provider/) for the
 roster format, the claims, and what the provider does and does not implement.
+
+## Telemetry viewer
+
+`pw dev` also runs a loopback OpenTelemetry receiver and a browser UI, and
+points the application at it through the standard OTLP environment variables. It
+is on by default, so traces and correlated log records are readable without a
+collector:
+
+```
+pw dev: telemetry viewer http://127.0.0.1:54321
+```
+
+```toml
+[dev.otel]
+enabled = true
+```
+
+It starts nothing when `OTEL_EXPORTER_OTLP_ENDPOINT` is already set, leaving your
+own collector in charge. See
+[Development Telemetry Viewer](/productivity/dev-telemetry-viewer/).
 
 ## Stopping
 

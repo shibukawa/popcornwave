@@ -78,6 +78,11 @@ export default defineConfig({
               translations: { ja: 'アーキテクチャ' },
               items: [{ autogenerate: { directory: 'guides/architecture' } }],
             },
+            {
+              label: 'Deployment',
+              translations: { ja: 'デプロイ' },
+              items: [{ autogenerate: { directory: 'guides/deployment' } }],
+            },
           ],
         },
         {
