@@ -61,7 +61,7 @@ rather than silently picking it up.
 | `generate.templates` | `.pw.html` templates, including the document shell | yes |
 | `generate.queries` | `.pw.sql` sources | yes |
 | `generate.config` | configuration registrations | yes |
-| `generate.pages` | [page tree](/advanced/discovered-routing/) roots | no |
+| `generate.pages` | [page tree](/guides/cross-layer/discovered-routing/) roots | no |
 
 Every key but `pages` is required, and `[]` is how a project says a purpose
 generates nothing. A missing key cannot say that, which is why the empty list is

@@ -50,7 +50,7 @@ When the client does accept `zstd` with a non-zero q-value:
 
 ## Streaming costs something
 
-A page with [await boundaries](/advanced/async-rendering/) commits its shell
+A page with [await boundaries](/guides/cross-layer/async-rendering/) commits its shell
 first and sends each region as it settles. Compression follows it there, and the
 encoder is flushed once per settled boundary so a completion reaches the browser
 instead of waiting in a buffer.

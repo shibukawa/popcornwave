@@ -7,7 +7,7 @@ import (
 	"github.com/shibukawa/popcornwave/pw"
 )
 
-func init() { mux.HandleFunc("GET /", home) }
+func init() { mux.HandleFunc("GET /{$}", home) }
 
 // home is public. It renders either the login entry point or the signed-in
 // summary, so the sample shows both states without a second route.

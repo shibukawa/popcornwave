@@ -156,7 +156,7 @@ panic はハンドルのエラーになり、プロセスを落とさずに境�
 出ます。
 
 テストで goroutine を起こさずに済ませたいときに渡すのが `Resolved` です。
-[非同期レンダリング](/ja/advanced/async-rendering/)を参照してください。
+[非同期レンダリング](/ja/guides/cross-layer/async-rendering/)を参照してください。
 
 ## データベース
 

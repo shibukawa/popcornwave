@@ -370,7 +370,7 @@ func registerSessionConfigDefinition2() {
 	configbind.Register[SessionConfig](configbind.Definition{
 		TypeName: "github.com/shibukawa/popcornwave/pw.SessionConfig",
 		Prefix:   "session",
-		Doc:      "SessionConfig selects login-session behavior, cookie policy, and storage. Sessions are opaque and server-side, so no signing secret is configured",
+		Doc:      "SessionConfig selects login-session behavior, cookie policy, and storage. The session token is opaque in every backend; only SessionBackendCookie carries the record itself, and it seals it under a configured secret",
 		KnownKeys: []string{
 			"session.enabled",
 			"session.backend",
@@ -387,43 +387,61 @@ func registerSessionConfigDefinition2() {
 			"session.rdb.group",
 			"session.rdb.dsn",
 			"session.rdb.table",
+			"session.redis.dsn",
+			"session.redis.key_prefix",
+			"session.redis.connect_timeout",
+			"session.cookie_store.name",
+			"session.cookie_store.secret",
+			"session.cookie_store.previous_secrets",
 		},
 		Defaults: map[string]string{
-			"session.enabled":          "false",
-			"session.backend":          "rdb",
-			"session.ttl":              "24h",
-			"session.idle_timeout":     "0s",
-			"session.renewal_interval": "0s",
-			"session.cookie.name":      "pw_session",
-			"session.cookie.path":      "/",
-			"session.cookie.secure":    "true",
-			"session.cookie.http_only": "true",
-			"session.cookie.same_site": "lax",
-			"session.rdb.source":       "middleware",
-			"session.rdb.table":        "popcornwave_session",
+			"session.enabled":               "false",
+			"session.backend":               "rdb",
+			"session.ttl":                   "24h",
+			"session.idle_timeout":          "0s",
+			"session.renewal_interval":      "0s",
+			"session.cookie.name":           "pw_session",
+			"session.cookie.path":           "/",
+			"session.cookie.secure":         "true",
+			"session.cookie.http_only":      "true",
+			"session.cookie.same_site":      "lax",
+			"session.rdb.source":            "middleware",
+			"session.rdb.table":             "popcornwave_session",
+			"session.redis.key_prefix":      "pw:session:",
+			"session.redis.connect_timeout": "5s",
+			"session.cookie_store.name":     "pw_session_data",
 		},
 		DependsOn: map[string][]string{
-			"session.backend":          {"session.enabled"},
-			"session.ttl":              {"session.enabled"},
-			"session.idle_timeout":     {"session.enabled"},
-			"session.renewal_interval": {"session.enabled"},
-			"session.cookie.name":      {"session.enabled"},
-			"session.cookie.path":      {"session.enabled"},
-			"session.cookie.domain":    {"session.enabled"},
-			"session.cookie.secure":    {"session.enabled"},
-			"session.cookie.http_only": {"session.enabled"},
-			"session.cookie.same_site": {"session.enabled"},
-			"session.rdb.source":       {"session.enabled"},
-			"session.rdb.group":        {"session.enabled"},
-			"session.rdb.dsn":          {"session.enabled"},
-			"session.rdb.table":        {"session.enabled"},
+			"session.backend":                       {"session.enabled"},
+			"session.ttl":                           {"session.enabled"},
+			"session.idle_timeout":                  {"session.enabled"},
+			"session.renewal_interval":              {"session.enabled"},
+			"session.cookie.name":                   {"session.enabled"},
+			"session.cookie.path":                   {"session.enabled"},
+			"session.cookie.domain":                 {"session.enabled"},
+			"session.cookie.secure":                 {"session.enabled"},
+			"session.cookie.http_only":              {"session.enabled"},
+			"session.cookie.same_site":              {"session.enabled"},
+			"session.rdb.source":                    {"session.enabled"},
+			"session.rdb.group":                     {"session.enabled"},
+			"session.rdb.dsn":                       {"session.enabled"},
+			"session.rdb.table":                     {"session.enabled"},
+			"session.redis.dsn":                     {"session.enabled"},
+			"session.redis.key_prefix":              {"session.enabled"},
+			"session.redis.connect_timeout":         {"session.enabled"},
+			"session.cookie_store.name":             {"session.enabled"},
+			"session.cookie_store.secret":           {"session.enabled"},
+			"session.cookie_store.previous_secrets": {"session.enabled"},
 		},
 		Secrets: map[string]string{
-			"session.rdb.dsn": "mask",
+			"session.rdb.dsn":                       "mask",
+			"session.redis.dsn":                     "mask",
+			"session.cookie_store.secret":           "mask",
+			"session.cookie_store.previous_secrets": "mask",
 		},
 		FlagMetas: []cliparser.FieldMeta{
 			{Prefix: "session", Key: "enabled", Kind: cliparser.KindBool},
-			{Prefix: "session", Key: "backend", Help: "session storage backend"},
+			{Prefix: "session", Key: "backend", Help: "session storage backend: rdb, cookie, or redis"},
 			{Prefix: "session", Key: "ttl", Help: "absolute session lifetime"},
 			{Prefix: "session", Key: "idle_timeout", Help: "inactivity expiry; zero disables it"},
 			{Prefix: "session", Key: "renewal_interval", Help: "minimum interval between idle expiry renewals"},
@@ -437,11 +455,17 @@ func registerSessionConfigDefinition2() {
 			{Prefix: "session", Key: "rdb.group", Help: "connection group holding the session table"},
 			{Prefix: "session", Key: "rdb.dsn", Help: "dedicated session database DSN"},
 			{Prefix: "session", Key: "rdb.table"},
+			{Prefix: "session", Key: "redis.dsn", Env: "SESSION_REDIS_DSN", Help: "redis:// or rediss:// session server"},
+			{Prefix: "session", Key: "redis.key_prefix", Help: "key space owned by the session store"},
+			{Prefix: "session", Key: "redis.connect_timeout", Help: "startup ping and per-command deadline"},
+			{Prefix: "session", Key: "cookie_store.name", Help: "cookie holding the sealed record"},
+			{Prefix: "session", Key: "cookie_store.secret", Env: "SESSION_COOKIE_STORE_SECRET", Help: "base64 secret sealing cookie-backed records"},
+			{Prefix: "session", Key: "cookie_store.previous_secrets", Help: "retired secrets kept readable during a rotation", Kind: cliparser.KindArray},
 		},
 		Apply: applySessionConfigDefinition2,
 		Scaffold: []configbind.ScaffoldField{
 			{Key: "enabled", Kind: configbind.ScaffoldBool, Default: "false"},
-			{Key: "backend", Kind: configbind.ScaffoldString, Default: "rdb", Help: "session storage backend"},
+			{Key: "backend", Kind: configbind.ScaffoldString, Default: "rdb", Help: "session storage backend: rdb, cookie, or redis"},
 			{Key: "ttl", Kind: configbind.ScaffoldDuration, Default: "24h", Help: "absolute session lifetime"},
 			{Key: "idle_timeout", Kind: configbind.ScaffoldDuration, Default: "0s", Help: "inactivity expiry; zero disables it"},
 			{Key: "renewal_interval", Kind: configbind.ScaffoldDuration, Default: "0s", Help: "minimum interval between idle expiry renewals"},
@@ -455,6 +479,12 @@ func registerSessionConfigDefinition2() {
 			{Key: "rdb.group", Kind: configbind.ScaffoldString, Help: "connection group holding the session table"},
 			{Key: "rdb.dsn", Kind: configbind.ScaffoldString, Help: "dedicated session database DSN"},
 			{Key: "rdb.table", Kind: configbind.ScaffoldString, Default: "popcornwave_session"},
+			{Key: "redis.dsn", Kind: configbind.ScaffoldString, Env: "SESSION_REDIS_DSN", Help: "redis:// or rediss:// session server"},
+			{Key: "redis.key_prefix", Kind: configbind.ScaffoldString, Default: "pw:session:", Help: "key space owned by the session store"},
+			{Key: "redis.connect_timeout", Kind: configbind.ScaffoldDuration, Default: "5s", Help: "startup ping and per-command deadline"},
+			{Key: "cookie_store.name", Kind: configbind.ScaffoldString, Default: "pw_session_data", Help: "cookie holding the sealed record"},
+			{Key: "cookie_store.secret", Kind: configbind.ScaffoldString, Env: "SESSION_COOKIE_STORE_SECRET", Help: "base64 secret sealing cookie-backed records"},
+			{Key: "cookie_store.previous_secrets", Kind: configbind.ScaffoldStringSlice, Help: "retired secrets kept readable during a rotation"},
 		},
 	})
 }
@@ -556,6 +586,34 @@ func applySessionConfigDefinition2(dst any, o *configbind.Overlay) error {
 		p.RDB.Table = v
 	} else {
 		p.RDB.Table = "popcornwave_session"
+	}
+	if v, ok := o.GetString("session.redis.dsn"); ok {
+		p.Redis.DSN = v
+	}
+	if v, ok := o.GetString("session.redis.key_prefix"); ok {
+		p.Redis.KeyPrefix = v
+	} else {
+		p.Redis.KeyPrefix = "pw:session:"
+	}
+	if v, ok := o.GetString("session.redis.connect_timeout"); ok {
+		d, err := time.ParseDuration(v)
+		if err != nil {
+			return fmt.Errorf("configbind: session.redis.connect_timeout: %w", err)
+		}
+		p.Redis.ConnectTimeout = d
+	} else {
+		p.Redis.ConnectTimeout = 5000000000 // 5s
+	}
+	if v, ok := o.GetString("session.cookie_store.name"); ok {
+		p.CookieStore.Name = v
+	} else {
+		p.CookieStore.Name = "pw_session_data"
+	}
+	if v, ok := o.GetString("session.cookie_store.secret"); ok {
+		p.CookieStore.Secret = v
+	}
+	if v, ok := o.GetMulti("session.cookie_store.previous_secrets"); ok {
+		p.CookieStore.PreviousSecrets = v
 	}
 	return nil
 }
@@ -1121,17 +1179,35 @@ func registerHTMLConfigDefinition5() {
 			"html.bot_detection",
 			"html.bot_async_timeout",
 			"html.bot_user_agents",
+			"html.live",
+			"html.live_max_duration",
+			"html.live_duration_jitter",
+			"html.live_idle_timeout",
+			"html.live_max_boundaries",
+			"html.live_max_responses",
 		},
 		Defaults: map[string]string{
-			"html.streaming":         "true",
-			"html.async_timeout":     "3s",
-			"html.async_concurrency": "0",
-			"html.bot_detection":     "true",
-			"html.bot_async_timeout": "5s",
+			"html.streaming":            "true",
+			"html.async_timeout":        "3s",
+			"html.async_concurrency":    "0",
+			"html.bot_detection":        "true",
+			"html.bot_async_timeout":    "5s",
+			"html.live":                 "true",
+			"html.live_max_duration":    "10m0s",
+			"html.live_duration_jitter": "20",
+			"html.live_idle_timeout":    "5m0s",
+			"html.live_max_boundaries":  "32",
+			"html.live_max_responses":   "4",
 		},
 		DependsOn: map[string][]string{
-			"html.bot_async_timeout": {"html.bot_detection"},
-			"html.bot_user_agents":   {"html.bot_detection"},
+			"html.bot_async_timeout":    {"html.bot_detection"},
+			"html.bot_user_agents":      {"html.bot_detection"},
+			"html.live":                 {"html.streaming"},
+			"html.live_max_duration":    {"html.live"},
+			"html.live_duration_jitter": {"html.live"},
+			"html.live_idle_timeout":    {"html.live"},
+			"html.live_max_boundaries":  {"html.live"},
+			"html.live_max_responses":   {"html.live"},
 		},
 		FlagMetas: []cliparser.FieldMeta{
 			{Prefix: "html", Key: "streaming", Help: "Streaming false forces the buffered branch even when a chain can open a boundary, which is the escape hatch for a proxy that buffers responses", Kind: cliparser.KindBool},
@@ -1140,6 +1216,12 @@ func registerHTMLConfigDefinition5() {
 			{Prefix: "html", Key: "bot_detection", Help: "render the settled document for crawlers and CLI clients", Kind: cliparser.KindBool},
 			{Prefix: "html", Key: "bot_async_timeout", Help: "await boundary bound for a classified bot request"},
 			{Prefix: "html", Key: "bot_user_agents", Help: "additional bot User-Agent substrings", Kind: cliparser.KindArray},
+			{Prefix: "html", Key: "live", Help: "answer the live mode request that keeps a page updating after the document is complete", Kind: cliparser.KindBool},
+			{Prefix: "html", Key: "live_max_duration", Help: "maximum lifetime of one live response before it closes and the client reconnects"},
+			{Prefix: "html", Key: "live_duration_jitter", Help: "percentage the live response lifetime is spread by, so clients do not reconnect in lockstep"},
+			{Prefix: "html", Key: "live_idle_timeout", Help: "close a live response after this long with no delivery"},
+			{Prefix: "html", Key: "live_max_boundaries", Help: "maximum boundaries one live response may serve"},
+			{Prefix: "html", Key: "live_max_responses", Help: "maximum concurrent live responses per client"},
 		},
 		Apply: applyHTMLConfigDefinition5,
 		Scaffold: []configbind.ScaffoldField{
@@ -1149,6 +1231,12 @@ func registerHTMLConfigDefinition5() {
 			{Key: "bot_detection", Kind: configbind.ScaffoldBool, Default: "true", Help: "render the settled document for crawlers and CLI clients"},
 			{Key: "bot_async_timeout", Kind: configbind.ScaffoldDuration, Default: "5s", Help: "await boundary bound for a classified bot request"},
 			{Key: "bot_user_agents", Kind: configbind.ScaffoldStringSlice, Help: "additional bot User-Agent substrings"},
+			{Key: "live", Kind: configbind.ScaffoldBool, Default: "true", Help: "answer the live mode request that keeps a page updating after the document is complete"},
+			{Key: "live_max_duration", Kind: configbind.ScaffoldDuration, Default: "10m0s", Help: "maximum lifetime of one live response before it closes and the client reconnects"},
+			{Key: "live_duration_jitter", Kind: configbind.ScaffoldInt, Default: "20", Help: "percentage the live response lifetime is spread by, so clients do not reconnect in lockstep"},
+			{Key: "live_idle_timeout", Kind: configbind.ScaffoldDuration, Default: "5m0s", Help: "close a live response after this long with no delivery"},
+			{Key: "live_max_boundaries", Kind: configbind.ScaffoldInt, Default: "32", Help: "maximum boundaries one live response may serve"},
+			{Key: "live_max_responses", Kind: configbind.ScaffoldInt, Default: "4", Help: "maximum concurrent live responses per client"},
 		},
 	})
 }
@@ -1205,6 +1293,60 @@ func applyHTMLConfigDefinition5(dst any, o *configbind.Overlay) error {
 	}
 	if v, ok := o.GetMulti("html.bot_user_agents"); ok {
 		p.BotUserAgents = v
+	}
+	if v, ok := o.GetString("html.live"); ok {
+		bb, err := strconv.ParseBool(v)
+		if err != nil {
+			return fmt.Errorf("configbind: html.live: %w", err)
+		}
+		p.Live = bb
+	} else {
+		p.Live = true
+	}
+	if v, ok := o.GetString("html.live_max_duration"); ok {
+		d, err := time.ParseDuration(v)
+		if err != nil {
+			return fmt.Errorf("configbind: html.live_max_duration: %w", err)
+		}
+		p.LiveMaxDuration = d
+	} else {
+		p.LiveMaxDuration = 600000000000 // 10m0s
+	}
+	if v, ok := o.GetString("html.live_duration_jitter"); ok {
+		n, err := strconv.ParseInt(v, 10, 0)
+		if err != nil {
+			return fmt.Errorf("configbind: html.live_duration_jitter: %w", err)
+		}
+		p.LiveDurationJitter = int(n)
+	} else {
+		p.LiveDurationJitter = 20
+	}
+	if v, ok := o.GetString("html.live_idle_timeout"); ok {
+		d, err := time.ParseDuration(v)
+		if err != nil {
+			return fmt.Errorf("configbind: html.live_idle_timeout: %w", err)
+		}
+		p.LiveIdleTimeout = d
+	} else {
+		p.LiveIdleTimeout = 300000000000 // 5m0s
+	}
+	if v, ok := o.GetString("html.live_max_boundaries"); ok {
+		n, err := strconv.ParseInt(v, 10, 0)
+		if err != nil {
+			return fmt.Errorf("configbind: html.live_max_boundaries: %w", err)
+		}
+		p.LiveMaxBoundaries = int(n)
+	} else {
+		p.LiveMaxBoundaries = 32
+	}
+	if v, ok := o.GetString("html.live_max_responses"); ok {
+		n, err := strconv.ParseInt(v, 10, 0)
+		if err != nil {
+			return fmt.Errorf("configbind: html.live_max_responses: %w", err)
+		}
+		p.LiveMaxResponses = int(n)
+	} else {
+		p.LiveMaxResponses = 4
 	}
 	return nil
 }

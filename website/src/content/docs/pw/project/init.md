@@ -6,7 +6,7 @@ sidebar:
 ---
 
 ```sh
-pw init <project-name> [--tailwind] [--no-tinygo] [--no-devbox] [--no-database] [--db=<engine>] [--no-redis] [--router=<kind>] [--auth=<mode>] [--devidp] [-i]
+pw init <project-name> [--tailwind] [--no-tinygo] [--no-devbox] [--no-database] [--db=<engine>] [--no-redis] [--router=<kind>] [--auth=<mode>] [--session=<backend>] [--devidp] [-i]
 ```
 
 The command creates a complete, runnable project in a new directory. A name and
@@ -23,17 +23,18 @@ presents the same choices as a wizard.
 | `--no-database` | no rdb configuration, no migrations, and no SQL example |
 | `--db=<engine>` | `sqlite` (default), `postgres`, or `mysql` |
 | `--no-redis` | leave the Valkey development server out of `devbox.json` |
-| `--router=<kind>` | `registered` (default), `discovered`, or `both`; see [Discovered routing](/advanced/discovered-routing/#commands) |
+| `--router=<kind>` | `registered` (default), `discovered`, or `both`; see [Discovered routing](/guides/cross-layer/discovered-routing/#commands) |
 | `--auth=<mode>` | `none` (default), `oidc`, `oidc-passkey`, or `passkey` |
+| `--session=<backend>` | with a login, where sessions live: `rdb` (default), `cookie`, or `redis` |
 | `--devidp` | with an OIDC mode, wire up the local identity provider |
 | `-i`, `--interactive` | ask every question even when a name was given |
 
 `--tailwind`, `--no-database`, `--no-redis`, and `--auth` all select
 capabilities [`pw add`](/pw/project/add/) can install later, so declining one
 costs nothing permanent. The database is the exception in one direction only:
-authentication stores its login sessions in it, so `--no-database` with an
-`--auth` mode is rejected, and the wizard skips the authentication question
-entirely when the database is declined.
+the login ceremony and admission tables live in it whichever backend stores the
+sessions, so `--no-database` with an `--auth` mode is rejected, and the wizard
+skips the authentication question entirely when the database is declined.
 
 `--no-tinygo` is the answer `pw add` cannot revisit — see
 [Changing the toolchain](#changing-the-toolchain).
@@ -137,6 +138,64 @@ optional settings**. The application refuses to start until they are supplied
 in the file or through `AUTH_OIDC_*` environment variables; the remaining
 alternative is to use the emulator.
 
+## Session storage
+
+An `--auth` mode asks one more question: where a login session lives. All three
+answers read the same in a handler — `session.Read[T]` and the auth helpers do
+not change — so this is a deployment decision, not an API one.
+
+| Answer | `session.backend` | What the project gets |
+| --- | --- | --- |
+| Database | `rdb` | one row per session, revocable, swept; carries a migration |
+| Cookie | `cookie` | the record sealed into a second cookie; no storage, no revoking |
+| Redis or Valkey | `redis` | server-side TTL per record; revocable, nothing to sweep |
+
+**Storage is opt-in by blank import.** A session backend registers itself from
+its package `init`, so the one line that imports it is what puts it — and its
+client library — in the binary:
+
+```go
+// cmd/myapp/main.go, written by pw init
+import (
+	// The sessions, and the single-use login records the ceremony needs.
+	_ "github.com/shibukawa/popcornwave/authstate/sqlite"
+	_ "github.com/shibukawa/popcornwave/sessionstore/sqlite"
+)
+```
+
+A SQL store is one package per engine, because no engine reads another's DDL.
+`--db=postgres` therefore writes `sessionstore/postgres` and
+`authstate/postgres`, and the migrations in the PostgreSQL dialect. `sqlite`,
+`postgres`, and `mysql` all pass the same store contract test.
+
+`pw init` writes that line for `rdb` and `redis`. The cookie backend is built
+into `pw` and needs none, which is why a project can start with sessions and no
+storage at all. A project on `rdb` never links the Redis client, and the reverse
+holds too.
+
+Configure a backend without its import and startup stops with the missing line
+quoted, rather than with a login that fails at the first request:
+
+```
+session.backend = "redis" needs its plugin; add to the application:
+import _ "github.com/shibukawa/popcornwave/sessionstore/redis"
+```
+
+The answer also decides what else is scaffolded. `rdb` writes the session table
+migration; `cookie` and `redis` own no table, so the auth migration takes the
+free version instead. `redis` adds the Valkey development server to
+`devbox.json` even if `--no-redis` was passed, because the session it configures
+needs a server to reach. `cookie` writes
+`cookie_store.secret = "${SESSION_COOKIE_SECRET}"` and the command prints the
+line that generates one:
+
+```sh
+export SESSION_COOKIE_SECRET=$(openssl rand -base64 32)
+```
+
+[Cookies](/guides/backend/cookies/) compares the three in terms of revocation, size, and
+who enforces expiry.
+
 ## Validation
 
 The project name accepts letters, digits, `-`, and `_`; `.` and `..` are
@@ -162,6 +221,8 @@ myapp/
 │   └── 400|401|403|404|409|413|500.pw.html   error pages
 ├── queries/users.pw.sql       named SQL with a typed result (with the database)
 ├── migrations/00001_init.sql  initial schema, in goose format (with the database)
+│                              plus framework tables with a login: the session
+│                              table only for --session=rdb
 ├── public/.keep               empty-tree sentinel; never served
 ├── public.go                  embeds public/ and registers it
 ├── .vscode/settings.json      hides **/*_pw_gen.go

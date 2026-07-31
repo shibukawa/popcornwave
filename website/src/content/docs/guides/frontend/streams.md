@@ -94,7 +94,7 @@ flush.
 An HTML page that streams — the shell first, then each region as its data
 settles — is a different mechanism. That one is decided by the templates you
 composed rather than by a call you made, and it is covered in
-[Progressive rendering](/advanced/async-rendering/). `pw.NewStream` is for
+[Progressive rendering](/guides/cross-layer/async-rendering/). `pw.NewStream` is for
 responses whose *content* is a sequence, and it never renders a template.
 
 ## What the OpenAPI document knows

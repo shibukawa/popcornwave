@@ -45,7 +45,7 @@ not dependencies of this package.
 ## Authentication
 
 Opaque server-side login sessions live in [`session`](session/README.md), and
-[`plugin/session/rdb`](plugin/session/rdb/README.md) stores them in a
+[`sessionstore/sqlite`](sessionstore/sqlite/README.md) stores them in a
 `database/sql` database. Importing
 [`plugin/auth`](plugin/auth/README.md) adds the `[auth]` binding and the login
 flow itself; nothing is installed until `auth.enabled` is true, so an unused

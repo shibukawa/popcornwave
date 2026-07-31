@@ -19,6 +19,10 @@ solution:
   claim: no new render path is required
   reason: decision:automatic-async-render-selection already documents that the buffered branch renders every await boundary correctly, blocking until each one settles
   change: classify the client with decision:bot-client-classification and add its verdict as one more gate on the same branch selection
+live_boundaries:
+  behavior: the buffered branch renders a live boundary from its first delivery and stops watching, so a crawler receives one real render rather than a placeholder or an endless response
+  quiet_source: a source that delivers nothing inside the bound leaves the fallback, which is the honest answer and not a failure
+  consequence: requirement:live-html-rendering needs no bot-aware path either, for the same reason this requirement needs no async one
 classification: api:client-classification over data:bot-user-agent-catalog
 configuration: data:html-render-config
 bounds: policy:async-render-bounds

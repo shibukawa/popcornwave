@@ -46,7 +46,7 @@ pw dev:   traces and logs export to OTEL_EXPORTER_OTLP_ENDPOINT as service "myap
 
 **トレース。** すべてのリクエストには、フレームワークのミドルウェアチェイン全体を
 覆うルートスパンがあり、`pw.Tracer` で開いたスパンはその内側に入れ子になります。
-失敗した [await 境界](/ja/advanced/async-rendering/)や記録されたエラーも一緒に
+失敗した [await 境界](/ja/guides/cross-layer/async-rendering/)や記録されたエラーも一緒に
 届きます。
 
 **ログ。** [`pw.Logger`](/ja/reference/runtime/#ロギング) のレコードは、書かれた時点で

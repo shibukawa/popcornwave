@@ -15,6 +15,22 @@ keys:
   html.bot_detection: bool gating requirement:bot-synchronous-render
   html.bot_async_timeout: duration bounding one await boundary on a classified bot request
   html.bot_user_agents: string list appended to data:bot-user-agent-catalog
+live_keys:
+  status: implemented with requirement:live-html-rendering
+  html.live: bool gating the live mode; false keeps every document valid and static, and tells no client to connect
+  html.live_max_duration: maximum lifetime of one live response before it closes with the retry record, default 10m
+  html.live_duration_jitter: percentage that lifetime is spread by, per response, default 20
+  html.live_idle_timeout: duration with no delivery after which a live response closes, default 5m
+  html.live_max_boundaries: maximum boundaries one live response may serve, default 32
+  html.live_max_responses: maximum concurrent live responses per client, default 4, keyed as policy:live-subscription-bounds describes
+  deferred: a per-boundary minimum interval, which is still an open question upstream about where pacing is declared
+  bounds: policy:live-subscription-bounds states what each one buys
+  binding: the same html prefix, because these tune the same render rather than a second subsystem
+  depends_on_streaming: every live key hangs off html.streaming, because a buffered document writes no placeholder a delivery could replace
+  rules:
+    - zero live_max_duration or live_idle_timeout leaves the request context as the only bound
+    - zero or negative live_max_boundaries and live_max_responses are unbounded
+    - live_duration_jitter above 100 is clamped, and zero means no spread
 defaults:
   html.streaming: "true"
   html.async_timeout: 3s

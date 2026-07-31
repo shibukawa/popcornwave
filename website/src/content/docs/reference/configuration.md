@@ -154,6 +154,12 @@ what lets a caller that must write stay ignorant of the topology. See
 | `bot_detection` | `true` | render the settled document for crawlers and CLI clients |
 | `bot_async_timeout` | `"5s"` | boundary bound on a classified bot request |
 | `bot_user_agents` | `[]` | additional `User-Agent` substrings, matched case-insensitively |
+| `live` | `true` | answer the live connection that keeps a page updating after its document is complete |
+| `live_max_duration` | `"10m"` | lifetime of one live connection before it closes and the client reconnects |
+| `live_duration_jitter` | `20` | percentage that lifetime is spread by, per connection |
+| `live_idle_timeout` | `"5m"` | close a live connection nothing has delivered on |
+| `live_max_boundaries` | `32` | boundaries one live connection may serve; zero or less is unbounded |
+| `live_max_responses` | `4` | concurrent live connections per client; zero or less is unbounded |
 
 A template that opens an await boundary renders correctly under either
 `streaming` setting. The key decides only whether the fallbacks reach the
@@ -166,6 +172,13 @@ browser. A zero here falls back to `async_timeout` rather than meaning
 unbounded: a mistyped key must not hold a crawler's connection open for the
 whole request deadline. Entries in `bot_user_agents` are appended to the
 built-in catalog and never replace a built-in token.
+
+Every `live_` key depends on `streaming`, because a buffered document settles
+its live boundaries in place and writes no placeholder a delivery could replace.
+`live = false` is a load dial rather than an outage: documents stay valid and
+keep the content their live boundaries committed, and no client is invited to
+connect. See [Live Rendering](/guides/cross-layer/live-rendering/) for what each bound
+buys.
 
 ## `[security]`
 
@@ -244,7 +257,7 @@ duration string, and one key cannot mean both.
 | Key | Default | Meaning |
 | --- | --- | --- |
 | `enabled` | `false` | |
-| `backend` | `"rdb"` | storage backend; only `rdb` is implemented |
+| `backend` | `"rdb"` | storage backend: `rdb`, `cookie`, or `redis` |
 | `ttl` | `"24h"` | absolute session lifetime |
 | `idle_timeout` | `"0s"` | inactivity expiry; zero disables it |
 | `renewal_interval` | `"0s"` | minimum interval between idle expiry renewals |
@@ -258,10 +271,22 @@ duration string, and one key cannot mean both.
 | `rdb.group` | *(empty)* | connection group holding the session table; empty resolves to `middleware.rdb.write_group` |
 | `rdb.dsn` | *(empty)* | dedicated session database (masked in the startup summary) |
 | `rdb.table` | `"popcornwave_session"` | |
+| `redis.dsn` | *(empty)* | `redis://` or `rediss://` server (masked in the startup summary) |
+| `redis.key_prefix` | `"pw:session:"` | key space the session store owns |
+| `redis.connect_timeout` | `"5s"` | startup ping and per-command deadline |
+| `cookie_store.name` | `"pw_session_data"` | cookie holding the sealed record under `backend = "cookie"` |
+| `cookie_store.secret` | *(empty)* | base64 secret sealing cookie-backed records (masked) |
+| `cookie_store.previous_secrets` | `[]` | retired secrets kept readable during a rotation (masked) |
 
-There is no signing secret here, and nothing is missing. Sessions are opaque and
-stored server-side, so the cookie carries an identifier rather than state a
-client could tamper with.
+Only the keys of the selected backend are read, and a backend other than
+`cookie` reaches the binary through its own blank import — the startup error
+quotes the line to add. [Sessions](/guides/backend/sessions/) compares the
+three and lists what each one requires.
+
+The token in the browser is opaque in all three, so nothing here signs it. Only
+`backend = "cookie"` puts the record itself in the browser, and it seals that
+record under `cookie_store.secret` — the one secret this section has, and one
+that belongs in the environment rather than in the file.
 
 ## `[auth]`
 

@@ -70,7 +70,9 @@ head です。そのページが描画するコンポーネントか、共有の
 `check` の失敗をそのまま problem レスポンスにすると swap ライブラリが無視するためです。
 
 テンプレートの構文、スロット、エスケープ、スコープ付きスタイルは
-[テンプレート](/ja/guides/frontend/templates/)で扱います。
+[テンプレート](/ja/guides/frontend/templates/)で扱います。この API の上に何を組むか
+—— サーバーが中身を用意するダイアログ、トースト、swap が最も安い答えでなくなる境目
+—— は[フラグメントと島](/ja/guides/interactivity/fragments/)にあります。
 
 ## JSON
 

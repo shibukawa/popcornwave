@@ -3,6 +3,7 @@ package pwcli
 import (
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"testing"
 
@@ -10,7 +11,7 @@ import (
 	"github.com/shibukawa/popcornwave/internal/pwenv"
 	"github.com/shibukawa/popcornwave/internal/pwmigrate"
 	"github.com/shibukawa/popcornwave/plugin/auth"
-	"github.com/shibukawa/popcornwave/plugin/session/rdb"
+	"github.com/shibukawa/popcornwave/sessionstore"
 )
 
 func TestParseInitArgsRejectsAnUnknownAuthMode(t *testing.T) {
@@ -74,21 +75,21 @@ func TestScaffoldWiresAnExternalProvider(t *testing.T) {
 func TestScaffoldWiresTheFrameworkOwnedEndpoints(t *testing.T) {
 	files := scaffoldFiles(initOptions{Name: "demo", TinyGo: true, Auth: authOIDC, AuthEmulator: true})
 
-	// Registering the resolver is the whole application-side wiring: it also
-	// imports plugin/auth, whose extensions serve the endpoints.
+	// Registering the account seams is the whole application-side wiring: it
+	// also imports plugin/auth, whose extensions serve the endpoints.
 	main := files["cmd/demo/main.go"]
-	if !strings.Contains(main, "handlers.RegisterAccountResolver()") {
-		t.Fatalf("main.go does not install the account resolver:\n%s", main)
+	if !strings.Contains(main, "handlers.RegisterAccounts()") {
+		t.Fatalf("main.go does not install the account seams:\n%s", main)
 	}
 	resolver, ok := files["handlers/accounts.go"]
 	if !ok || !strings.Contains(resolver, "auth.SetAccountResolver(resolveAccount)") {
 		t.Fatalf("accounts.go = %q", resolver)
 	}
 	// The framework tables come from the packages that own them.
-	if files["migrations/00002_"+rdb.MigrationName+".sql"] != rdb.MigrationSQL("popcornwave_session") {
-		t.Fatal("the scaffolded session migration is not the one plugin/session/rdb publishes")
+	if files["migrations/00002_"+sessionstore.MigrationName+".sql"] != mustSessionMigration() {
+		t.Fatal("the scaffolded session migration is not the one sessionstore/sqlite publishes")
 	}
-	if files["migrations/00003_"+auth.MigrationName+".sql"] != auth.MigrationSQL() {
+	if files["migrations/00003_"+auth.MigrationName+".sql"] != mustAuthMigration() {
 		t.Fatal("the scaffolded auth migration is not the one plugin/auth publishes")
 	}
 
@@ -125,42 +126,107 @@ func TestScaffoldedAuthKeysAreRegistered(t *testing.T) {
 		// [auth]
 		"mode": true, "post_login_path": true,
 		"protection.include": true, "protection.unauthenticated": true,
+		"recent_auth_max_age": true, "registration.policy": true, "recovery.policy": true,
+		"bootstrap.issue_ttl": true, "bootstrap.enrollment_ttl": true, "bootstrap.max_attempts": true,
+		// [auth.passkey]
+		"rp_id": true, "rp_name": true, "origins": true,
+		"user_verification": true, "discoverable": true,
 		// [auth.oidc]
 		"issuer": true, "client_id": true, "client_secret": true,
 		"redirect_url": true, "scopes": true, "identity_claim": true,
 		"admission": true, "auto_provision": true,
 		"provider_logout": true, "allow_loopback_http": true,
 	}
-	config := scaffoldFiles(initOptions{Name: "demo", Auth: authOIDC})[pwenv.FileName(pwenv.Development)]
-	section := config[strings.Index(config, "[session]"):]
-	for _, line := range strings.Split(section, "\n") {
-		line = strings.TrimSpace(line)
-		if line == "" || strings.HasPrefix(line, "#") || strings.HasPrefix(line, "[") {
-			continue
-		}
-		key, _, found := strings.Cut(line, "=")
-		if !found {
-			t.Fatalf("unparsable line %q", line)
-		}
-		if !known[strings.TrimSpace(key)] {
-			t.Fatalf("scaffolded key %q is not registered by the plugins", strings.TrimSpace(key))
-		}
+	for _, mode := range []string{authOIDC, authOIDCPasskey, authPasskey} {
+		t.Run(mode, func(t *testing.T) {
+			config := scaffoldFiles(initOptions{Name: "demo", Auth: mode})[pwenv.FileName(pwenv.Development)]
+			section := config[strings.Index(config, "[session]"):]
+			for _, line := range strings.Split(section, "\n") {
+				line = strings.TrimSpace(line)
+				if line == "" || strings.HasPrefix(line, "#") || strings.HasPrefix(line, "[") {
+					continue
+				}
+				key, _, found := strings.Cut(line, "=")
+				if !found {
+					t.Fatalf("unparsable line %q", line)
+				}
+				if !known[strings.TrimSpace(key)] {
+					t.Fatalf("scaffolded key %q is not registered by the plugins", strings.TrimSpace(key))
+				}
+			}
+		})
 	}
 }
 
-func TestScaffoldRecordsPasskeyOnlyWithoutEnablingIt(t *testing.T) {
-	files := scaffoldFiles(initOptions{Name: "demo", Auth: authPasskey})
+// passkey_only has no provider, so it scaffolds neither an OIDC section nor an
+// identity provider roster, and it must choose both lifecycle policies.
+func TestScaffoldPasskeyOnly(t *testing.T) {
+	files := scaffoldFiles(initOptions{Name: "demo", Auth: authPasskey, AuthEmulator: true})
 	config := files[pwenv.FileName(pwenv.Development)]
-	// plugin/auth rejects the mode, so an enabled section would fail at
-	// startup. The choice is recorded as a comment instead.
-	if !strings.Contains(config, `# mode = "passkey_only"`) {
-		t.Fatalf("config = %q", config)
+	for _, want := range []string{
+		`mode = "passkey_only"`, `registration.policy = "administrator"`,
+		`recovery.policy = "administrator"`, `rp_id = "localhost"`,
+	} {
+		if !strings.Contains(config, want) {
+			t.Fatalf("config is missing %q:\n%s", want, config)
+		}
 	}
-	if _, ok := files["handlers/accounts.go"]; ok {
-		t.Fatal("a mode with no implementation must not scaffold a resolver")
+	if strings.Contains(config, "[auth.oidc]") {
+		t.Fatal("passkey_only reads no OIDC setting, so the scaffold must write none")
 	}
 	if _, ok := files[defaultIdPConfig]; ok {
 		t.Fatal("passkey-only must not scaffold an identity provider roster")
+	}
+	accounts := files["handlers/accounts.go"]
+	for _, want := range []string{"SetAccountLookup", "SetAccountActivator", "IssueBootstrapCredential"} {
+		if !strings.Contains(accounts, want) {
+			t.Fatalf("handlers/accounts.go is missing %q:\n%s", want, accounts)
+		}
+	}
+	if !strings.Contains(files["public/passkey.js"], "redeemBootstrap") {
+		t.Fatal("passkey_only needs the browser side of the bootstrap redemption")
+	}
+}
+
+// oidc_passkey serves both, so it carries the provider registration and the
+// relying-party registration together.
+func TestScaffoldOIDCPasskey(t *testing.T) {
+	files := scaffoldFiles(initOptions{Name: "demo", Auth: authOIDCPasskey, AuthEmulator: true})
+	config := files[pwenv.FileName(pwenv.Development)]
+	for _, want := range []string{
+		`mode = "oidc_passkey"`, "[auth.oidc]", "[auth.passkey]",
+		`recovery.policy = "oidc"`,
+		// The origin has to sit inside the RP ID, and an address cannot be one.
+		`redirect_url = "http://localhost:8080/auth/callback"`,
+	} {
+		if !strings.Contains(config, want) {
+			t.Fatalf("config is missing %q:\n%s", want, config)
+		}
+	}
+	if strings.Contains(config, "registration.policy") {
+		t.Fatal("oidc_passkey lets registration default to the provider login")
+	}
+	accounts := files["handlers/accounts.go"]
+	if !strings.Contains(accounts, "SetAccountResolver") || !strings.Contains(accounts, "SetAccountLookup") {
+		t.Fatalf("oidc_passkey needs both account seams:\n%s", accounts)
+	}
+	if strings.Contains(accounts, "SetAccountActivator") {
+		t.Fatal("only passkey_only activates a provisional account")
+	}
+	if _, ok := files[defaultIdPConfig]; !ok {
+		t.Fatal("oidc_passkey with the emulator needs an identity provider roster")
+	}
+}
+
+// Only a mode that mounts a ceremony endpoint needs the browser side.
+func TestBrowserScaffoldFollowsTheMode(t *testing.T) {
+	for mode, want := range map[string]bool{
+		authNone: false, authOIDC: false, authOIDCPasskey: true, authPasskey: true,
+	} {
+		_, ok := scaffoldFiles(initOptions{Name: "demo", Auth: mode})["public/passkey.js"]
+		if ok != want {
+			t.Fatalf("auth %s scaffolded passkey.js = %v, want %v", mode, ok, want)
+		}
 	}
 }
 
@@ -186,8 +252,14 @@ func TestInitWizardAsksForTheProviderOnlyForOIDC(t *testing.T) {
 		typeText("2"),          // Authentication: OIDC
 	)
 	if model.reviewing() {
-		t.Fatal("choosing OIDC must ask which provider to use")
+		t.Fatal("choosing OIDC must ask where the session lives")
 	}
+	// A login asks for its storage first: it is the answer the provider
+	// question has no bearing on.
+	if label := model.steps[model.index].label(); label != "Session storage" {
+		t.Fatalf("step = %q", label)
+	}
+	model = feedWizard(t, model, typeText("1")) // Session storage: Database
 	if label := model.steps[model.index].label(); label != "OIDC provider" {
 		t.Fatalf("step = %q", label)
 	}
@@ -195,6 +267,27 @@ func TestInitWizardAsksForTheProviderOnlyForOIDC(t *testing.T) {
 	options := wizardResult(model, defaultInitOptions())
 	if options.Auth != authOIDC || !options.AuthEmulator {
 		t.Fatalf("options = %#v", options)
+	}
+}
+
+// oidc_passkey still needs a provider, so the wizard keeps asking for one.
+func TestInitWizardAsksForTheProviderForOIDCPasskey(t *testing.T) {
+	t.Chdir(t.TempDir())
+	model := feedWizard(t, newTestWizard(defaultInitOptions()),
+		typeText("demo"), pressKey(tea.KeyEnter),
+		pressKey(tea.KeyEnter), // TinyGo
+		pressKey(tea.KeyEnter), // Router
+		pressKey(tea.KeyEnter), // Tailwind
+		pressKey(tea.KeyEnter), // Database
+		pressKey(tea.KeyEnter), // Database engine
+		typeText("3"),          // Authentication: OIDC and passkey
+		pressKey(tea.KeyEnter), // Session storage
+	)
+	if model.reviewing() {
+		t.Fatal("the provider step was skipped for a mode that uses one")
+	}
+	if label := model.steps[model.index].label(); label != "OIDC provider" {
+		t.Fatalf("step = %q, want the provider question", label)
 	}
 }
 
@@ -208,7 +301,8 @@ func TestInitWizardSkipsTheProviderStepWithoutOIDC(t *testing.T) {
 		pressKey(tea.KeyEnter), // Tailwind
 		pressKey(tea.KeyEnter), // Database
 		pressKey(tea.KeyEnter), // Database engine
-		typeText("3"),          // Authentication: Passkey only
+		typeText("4"),          // Authentication: Passkey only
+		pressKey(tea.KeyEnter), // Session storage
 	)
 	// The provider question is skipped; the environment questions still follow.
 	if label := model.steps[model.index].label(); label != "Devbox environment" {
@@ -273,5 +367,132 @@ func TestScaffoldedMigrationsApply(t *testing.T) {
 		if result.Current == 0 {
 			t.Fatalf("auth=%s applied no migration", mode)
 		}
+	}
+}
+
+// The session backend decides three scaffold outputs at once: the import that
+// contributes it, the configuration keys that describe it, and whether a
+// migration is needed at all.
+func TestScaffoldFollowsTheSessionBackendChoice(t *testing.T) {
+	rdbFiles := scaffoldFiles(initOptions{Name: "demo", Database: true, Auth: authOIDC, Session: sessionRDB})
+	if !strings.Contains(rdbFiles["cmd/demo/main.go"], `_ "github.com/shibukawa/popcornwave/sessionstore/sqlite"`) {
+		t.Errorf("rdb backend is not imported:\n%s", rdbFiles["cmd/demo/main.go"])
+	}
+	// The login ceremony records live in the database whichever backend holds
+	// the sessions.
+	if !strings.Contains(rdbFiles["cmd/demo/main.go"], `_ "github.com/shibukawa/popcornwave/authstate/sqlite"`) {
+		t.Errorf("ceremony store is not imported:\n%s", rdbFiles["cmd/demo/main.go"])
+	}
+	if !strings.Contains(rdbFiles["config.dev.toml"], `backend = "rdb"`) ||
+		!strings.Contains(rdbFiles["config.dev.toml"], `rdb.source = "middleware"`) {
+		t.Errorf("rdb session config:\n%s", rdbFiles["config.dev.toml"])
+	}
+	if _, ok := rdbFiles["migrations/00002_"+sessionstore.MigrationName+".sql"]; !ok {
+		t.Error("rdb backend did not scaffold its session migration")
+	}
+	if _, ok := rdbFiles["migrations/00003_"+auth.MigrationName+".sql"]; !ok {
+		t.Error("auth migration is not numbered after the session one")
+	}
+
+	cookieFiles := scaffoldFiles(initOptions{Name: "demo", Database: true, Auth: authOIDC, Session: sessionCookie})
+	if strings.Contains(cookieFiles["cmd/demo/main.go"], "sessionstore/") {
+		t.Errorf("the built-in cookie backend was imported:\n%s", cookieFiles["cmd/demo/main.go"])
+	}
+	if !strings.Contains(cookieFiles["config.dev.toml"], `cookie_store.secret = "${SESSION_COOKIE_SECRET}"`) {
+		t.Errorf("cookie session config:\n%s", cookieFiles["config.dev.toml"])
+	}
+	if strings.Contains(cookieFiles["config.dev.toml"], "rdb.source") {
+		t.Error("cookie backend wrote keys of a backend it does not use")
+	}
+	// No session table exists, so the auth migration takes the free version.
+	if _, ok := cookieFiles["migrations/00002_"+auth.MigrationName+".sql"]; !ok {
+		t.Errorf("auth migration was not renumbered: %v", migrationNames(cookieFiles))
+	}
+
+	redisFiles := scaffoldFiles(initOptions{Name: "demo", Database: true, Auth: authOIDC, Session: sessionRedis})
+	if !strings.Contains(redisFiles["cmd/demo/main.go"], `_ "github.com/shibukawa/popcornwave/sessionstore/redis"`) {
+		t.Errorf("redis backend is not imported:\n%s", redisFiles["cmd/demo/main.go"])
+	}
+	if !strings.Contains(redisFiles["config.dev.toml"], "redis.dsn") {
+		t.Errorf("redis session config:\n%s", redisFiles["config.dev.toml"])
+	}
+	if _, ok := redisFiles["migrations/00002_"+auth.MigrationName+".sql"]; !ok {
+		t.Errorf("auth migration was not renumbered: %v", migrationNames(redisFiles))
+	}
+}
+
+// A Redis-backed session brings the server that serves it into the development
+// environment, rather than leaving a project that cannot start.
+func TestRedisSessionTakesTheDevelopmentServer(t *testing.T) {
+	options, err := parseInitArgs([]string{"demo", "--auth=oidc", "--session=redis", "--no-redis"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !options.Redis {
+		t.Fatalf("options = %#v", options)
+	}
+	if _, err := parseInitArgs([]string{"demo", "--session=memcached"}); err == nil {
+		t.Fatal("an unknown backend was accepted")
+	}
+}
+
+func migrationNames(files map[string]string) []string {
+	var names []string
+	for path := range files {
+		if strings.HasPrefix(path, "migrations/") {
+			names = append(names, path)
+		}
+	}
+	sort.Strings(names)
+	return names
+}
+
+// mustSessionMigration and mustAuthMigration are the SQLite migrations the
+// scaffold writes, which is the dialect these fixtures use.
+func mustSessionMigration() string {
+	migration, err := sessionstore.MigrationSQL("sqlite", "popcornwave_session")
+	if err != nil {
+		panic(err)
+	}
+	return migration
+}
+
+func mustAuthMigration() string {
+	migration, err := auth.MigrationSQL("sqlite")
+	if err != nil {
+		panic(err)
+	}
+	return migration
+}
+
+// A SQL store is one package per engine, so the engine answer decides which
+// storage packages the entry point imports and which dialect the migrations
+// are written in.
+func TestScaffoldImportsTheStoresOfTheSelectedEngine(t *testing.T) {
+	for engine, want := range map[string][]string{
+		engineSQLite:   {"sessionstore/sqlite", "authstate/sqlite"},
+		enginePostgres: {"sessionstore/postgres", "authstate/postgres"},
+		engineMySQL:    {"sessionstore/mysql", "authstate/mysql"},
+	} {
+		t.Run(engine, func(t *testing.T) {
+			files := scaffoldFiles(initOptions{
+				Name: "demo", Database: true, Engine: engine, Auth: authOIDC, Session: sessionRDB,
+			})
+			main := files["cmd/demo/main.go"]
+			for _, path := range want {
+				if !strings.Contains(main, `_ "github.com/shibukawa/popcornwave/`+path+`"`) {
+					t.Errorf("%s is not imported:\n%s", path, main)
+				}
+			}
+			// The migration has to be readable by the engine that will run it.
+			migration := files["migrations/00002_"+sessionstore.MigrationName+".sql"]
+			expected, err := sessionstore.MigrationSQL(engine, "popcornwave_session")
+			if err != nil {
+				t.Fatal(err)
+			}
+			if migration != expected {
+				t.Errorf("session migration is not in the %s dialect:\n%s", engine, migration)
+			}
+		})
 	}
 }

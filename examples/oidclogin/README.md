@@ -27,7 +27,7 @@ files, beside the application's:
 | Migration | Tables | Owner |
 | --- | --- | --- |
 | [00001_init.sql](migrations/00001_init.sql) | `accounts`, `external_identities` | this application |
-| [00002_init_popcornwave_session.sql](migrations/00002_init_popcornwave_session.sql) | `popcornwave_session` | `plugin/session/rdb` |
+| [00002_init_popcornwave_session.sql](migrations/00002_init_popcornwave_session.sql) | `popcornwave_session` | `sessionstore/sqlite` |
 | [00003_init_popcornwave_auth.sql](migrations/00003_init_popcornwave_auth.sql) | `popcornwave_authstate`, `popcornwave_auth_allowlist` | `plugin/auth` |
 
 No version range is reserved for the framework. A framework migration takes the

@@ -60,7 +60,7 @@ pages = []
 | `generate.templates` | `.pw.html` テンプレート。ドキュメントシェルを含む | はい |
 | `generate.queries` | `.pw.sql` のソース | はい |
 | `generate.config` | 設定の登録 | はい |
-| `generate.pages` | [ページツリー](/ja/advanced/discovered-routing/)のルート | いいえ |
+| `generate.pages` | [ページツリー](/ja/guides/cross-layer/discovered-routing/)のルート | いいえ |
 
 `pages` 以外はすべて必須で、その purpose が何も生成しないことを表すのが `[]` です。
 キーを書かないことではそれを表現できません。だから空リストと省略は同じではありません。

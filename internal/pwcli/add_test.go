@@ -190,7 +190,7 @@ func TestAddAuthWritesFrameworkMigrationsAtTheNextFreeVersion(t *testing.T) {
 		t.Fatalf("an existing migration was renumbered: %v", err)
 	}
 	// The call in main is application-owned, so it is printed, not injected.
-	if len(plan.manual) == 0 || !strings.Contains(plan.manual[0], "RegisterAccountResolver") {
+	if len(plan.manual) == 0 || !strings.Contains(plan.manual[0], "RegisterAccounts") {
 		t.Fatalf("manual steps = %#v", plan.manual)
 	}
 	reloaded, err := loadProjectState(root)

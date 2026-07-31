@@ -66,12 +66,24 @@ export default defineConfig({
             {
               label: 'For Frontend',
               translations: { ja: 'フロントエンド' },
-              items: [{ autogenerate: { directory: 'guides/frontend' } }],
+              items: [
+                { autogenerate: { directory: 'guides/frontend' } },
+                {
+                  label: 'Interactivity',
+                  translations: { ja: 'インタラクション' },
+                  items: [{ autogenerate: { directory: 'guides/interactivity' } }],
+                },
+              ],
             },
             {
               label: 'As a Backend',
               translations: { ja: 'バックエンド' },
               items: [{ autogenerate: { directory: 'guides/backend' } }],
+            },
+            {
+              label: 'Cross-layer Features',
+              translations: { ja: 'レイヤー横断機能' },
+              items: [{ autogenerate: { directory: 'guides/cross-layer' } }],
             },
             {
               label: 'Architecture',
@@ -84,11 +96,6 @@ export default defineConfig({
               items: [{ autogenerate: { directory: 'guides/deployment' } }],
             },
           ],
-        },
-        {
-          label: 'Advanced Features',
-          translations: { ja: '応用機能' },
-          items: [{ autogenerate: { directory: 'advanced' } }],
         },
         {
           label: 'Productivity Support',

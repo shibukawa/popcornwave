@@ -72,7 +72,9 @@ rejected form, since a swap library ignores the problem response a failed check
 would produce.
 
 Template syntax, slots, escaping, and scoped styles are covered in
-[Templates](/guides/frontend/templates/).
+[Templates](/guides/frontend/templates/). For what to build on top of this
+surface — dialogs the server fills, toasts, and where a swap stops being the
+cheapest answer — see [Fragments and islands](/guides/interactivity/fragments/).
 
 ## JSON
 

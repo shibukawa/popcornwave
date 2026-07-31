@@ -22,8 +22,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/shibukawa/popcornwave/contrib/authstate"
-	"github.com/shibukawa/popcornwave/contrib/authstate/memory"
+	"github.com/shibukawa/popcornwave/authstate"
+	"github.com/shibukawa/popcornwave/authstate/memory"
 	"github.com/shibukawa/popcornwave/contrib/jwt"
 	"github.com/shibukawa/popcornwave/contrib/oauth"
 )

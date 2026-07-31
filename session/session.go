@@ -1,14 +1,21 @@
-// Package session provides opaque, server-side login sessions. The browser
-// receives only a random token; every authoritative lifetime and payload stays
-// in a Store implementation owned by the application deployment.
+// Package session provides opaque login sessions and the typed browser cookies
+// an application writes on its own. The browser receives only a random token;
+// every authoritative lifetime and payload stays in a Store implementation
+// owned by the application deployment.
 //
 // Handlers normally read sessions through Read and never observe the token, the
 // store key hash, or the backend client.
+//
+// Jar reads and writes one typed application cookie, plain, signed, or sealed,
+// under one API that does not change with the protection. CookieStore is the
+// Store implementation for a deployment that wants no session storage at all;
+// every other store keeps its records on the server.
 package session
 
 import (
 	"context"
 	"errors"
+	"net/http"
 	"time"
 
 	"github.com/shibukawa/popcornwave/pwruntime"
@@ -61,6 +68,18 @@ type Store[T any] interface {
 	Touch(ctx context.Context, keyHash string, lastSeenAt, idleExpiresAt time.Time) error
 	// Delete is idempotent.
 	Delete(ctx context.Context, keyHash string) error
+}
+
+// RequestBinder is the optional contract of a Store whose records live in the
+// browser instead of a backend, such as CookieStore. The Manager calls
+// BindRequest before every store call it makes on behalf of a request, so the
+// store can reach the cookie it reads and the response it writes.
+//
+// A backend store implements nothing here and is unaffected, which is what
+// keeps one Manager, one Options, and one handler working over a cookie, an
+// RDB, or a Redis store.
+type RequestBinder interface {
+	BindRequest(ctx context.Context, w http.ResponseWriter, r *http.Request) context.Context
 }
 
 // Codec serializes the typed payload of a record for durable stores. Record

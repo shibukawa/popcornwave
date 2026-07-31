@@ -24,6 +24,11 @@ scheduler:
   measured: a 5s server-side sleep under a 500ms deadline returned after the full 5s
   default: threads on desktop targets, so the constraint is an assertion rather than a change for most projects
   applies_to: api:cli-build, api:cli-dev, and every TinyGo test target
+wasm_panic_recovery:
+  finding: TinyGo's wasm targets do not run a deferred recover at all, measured upstream against a plain function with no goroutine involved
+  consequence: a panic in an async external or a requirement:live-html-rendering live source ends the program instead of becoming a boundary error the recover clause renders
+  scope: the platform's, not the framework's; system:tinybind names the condition rather than working around it
+  handling: a wasm build must treat a panicking external as fatal, so the code behind one belongs under the same review as any other unrecoverable path
 unsupported_runtime_packages:
   os/signal:
     behavior: registering a handler replaces the default disposition but never delivers to the channel

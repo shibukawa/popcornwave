@@ -129,7 +129,7 @@ binary — the assets are still embedded, just not reachable.
 The framework's own browser scripts do not live here. They are served from a
 fixed `/_pw/` prefix ahead of application routing, which is what keeps them
 available no matter how this endpoint is configured. See
-[Progressive rendering](/advanced/async-rendering/).
+[Progressive rendering](/guides/cross-layer/async-rendering/).
 
 ## Not the same as response compression
 

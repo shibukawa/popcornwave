@@ -88,7 +88,7 @@ func events(w http.ResponseWriter, r *http.Request) {
 
 シェルを先に送り、データが揃った領域から順に送る HTML ページは、別の仕組みです。
 そちらは呼び出しではなく、組み合わせたテンプレートが決めるもので、
-[非同期レンダリング](/ja/advanced/async-rendering/)で扱っています。`pw.NewStream` は
+[非同期レンダリング](/ja/guides/cross-layer/async-rendering/)で扱っています。`pw.NewStream` は
 *中身*が並びであるレスポンスのためのもので、テンプレートを一切レンダリングしません。
 
 ## OpenAPI 文書に現れるもの

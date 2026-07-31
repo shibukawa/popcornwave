@@ -35,7 +35,7 @@ docker run --rm -d --name "$redis_name" -p "127.0.0.1:$redis_port:6379" \
 	"${REDIS_TEST_IMAGE:-redis:8.4-alpine}" >/dev/null
 wait_ready "$redis_name" redis-cli
 PETITWEB_REDIS_ADDR="127.0.0.1:$redis_port" \
-	go test ./contrib/authstate/redis -run TestLiveRedisOrValkey -count=1
+	go test ./authstate/redis -run TestLiveRedisOrValkey -count=1
 docker stop "$redis_name" >/dev/null
 
 echo '== Valkey authstate interoperability =='
@@ -43,5 +43,5 @@ docker run --rm -d --name "$valkey_name" -p "127.0.0.1:$valkey_port:6379" \
 	"${VALKEY_TEST_IMAGE:-valkey/valkey:latest}" >/dev/null
 wait_ready "$valkey_name" valkey-cli
 PETITWEB_REDIS_ADDR="127.0.0.1:$valkey_port" \
-	go test ./contrib/authstate/redis -run TestLiveRedisOrValkey -count=1
+	go test ./authstate/redis -run TestLiveRedisOrValkey -count=1
 docker stop "$valkey_name" >/dev/null

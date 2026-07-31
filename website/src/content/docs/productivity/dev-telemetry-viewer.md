@@ -48,7 +48,7 @@ keys that do get configured, all of which still reach the
 
 **Traces.** Every request has a root span covering the whole framework
 middleware chain, and the spans you open with `pw.Tracer` nest inside it. Failed
-[await boundaries](/advanced/async-rendering/) and recorded errors arrive with
+[await boundaries](/guides/cross-layer/async-rendering/) and recorded errors arrive with
 them.
 
 **Logs.** Records from [`pw.Logger`](/reference/runtime/#logging) reach the
