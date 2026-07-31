@@ -1,8 +1,8 @@
 ---
 title: Cookies
-description: Typed cookies in three protections — client-editable, tamper-evident, and encrypted — and the session storage that continues from them.
+description: Typed cookies in three protections — client-editable, tamper-evident, and encrypted — and the keys that protect them.
 sidebar:
-  order: 4
+  order: 5
 ---
 
 A cookie is the one piece of application state the client holds, so the first
@@ -110,12 +110,14 @@ And a `MaxAge` is enforced on both sides. The browser is asked to forget the
 cookie, and the same deadline is stamped inside the authenticated payload, so a
 client that keeps sending an expired value is refused rather than trusted.
 
-## Sessions: the same cookie, then a database
+## Sessions are the same machinery, one level up
 
 Login state is not a jar. It belongs to the session manager, which keeps the
 browser holding an opaque token and the record wherever storage is configured.
-What the cookie mode buys there is a starting point that needs no storage at
-all:
+What this page buys there is a starting point that needs no storage at all:
+`session.backend = "cookie"` seals the record with the same AES-256-GCM used
+above, binds it to the hash of its own session token, and stores it in a second
+cookie beside it.
 
 ```toml
 [session]
@@ -126,68 +128,7 @@ backend = "cookie"
 secret = "${SESSION_COOKIE_SECRET}"
 ```
 
-The record is sealed under the hash of its own session token and travels in a
-second cookie beside it. It needs nothing else: the cookie backend is built into
-the framework, which is why a project can start here with no storage at all.
-
-Moving to server storage later is a configuration line and an import:
-
-```toml
-[session]
-backend = "rdb"     # or "redis"
-```
-
-```go
-// cmd/myapp/main.go — the backend a binary contains is the one it imports.
-// A SQL store is one package per engine: sqlite, postgres, or mysql.
-import _ "github.com/shibukawa/popcornwave/sessionstore/sqlite"
-```
-
-```toml
-# backend = "redis"
-[session.redis]
-dsn = "redis://${REDIS_HOST}:6379/0"
-key_prefix = "pw:session:"
-```
-
-```go
-import _ "github.com/shibukawa/popcornwave/sessionstore/redis"
-```
-
-The import is what puts a storage client in the binary, so an application links
-the backend it configured and no other — a project on cookies or `rdb` never
-carries the Redis client. Configure a backend without its import and startup
-stops with the missing line quoted, rather than with a session that fails at the
-first login.
-
-Nothing else moves. `session.Read[T]` in a handler, `Create`, `Rotate`, and
-`Delete` on the manager, and the middleware that resolves the request are the
-same code over `session.CookieStore`, over `sessionstore/<engine>`, and over
-`sessionstore/redis`. Each implements the same non-generic `session.RawStore`,
-and the framework adds the payload type back with `session.Typed`, which is what
-lets one configuration value choose between them.
-
-Which one to run is a question about revocation, size, and where expiry is
-enforced, and it is worth answering before a deployment rather than after.
-
-A cookie-backed session cannot be revoked. Logout expires the client's copy, but
-a copy taken beforehand stays valid until its sealed expiry passes, because
-there is no server record to delete. Rotating the sealing secret ends every
-outstanding session at once, which is the blunt version of the same control.
-
-The two server backends both revoke immediately and differ mainly in who
-collects what nobody revoked. The RDB store keeps a row per session and needs a
-periodic sweep, which the auth plugin runs for it; SQLite, PostgreSQL, and
-MySQL all serve it, each through its own package and its own dialect of the
-migration. The Redis store writes each
-record with a TTL taken from its own deadline, so an abandoned session
-disappears on its own and no sweep exists to schedule. Redis and Valkey are both
-supported, over `GET`, `SET`, `SET XX`, and `DEL` — no scanning, and no key
-outside the configured prefix. Startup pings the server and refuses to serve
-against one it cannot reach, rather than answering the first login with a
-backend failure.
-
-So: a cookie backend fits development, a single-process deployment, and a small
-payload. The RDB store fits a deployment that already runs a database. The Redis
-store fits session volume or a renewal rate that a relational store should not
-absorb. The code that reads the session never notices the difference.
+The same sealing, the same rotation, the same size ceiling — and one limit that
+only matters for a login: a sealed record cannot be revoked, because there is no
+server copy to delete. [Sessions](/guides/backend/sessions/) compares that
+against the database and Redis backends, and lists what each one needs.

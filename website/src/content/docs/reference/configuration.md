@@ -262,7 +262,8 @@ duration string, and one key cannot mean both.
 
 Only the keys of the selected backend are read, and a backend other than
 `cookie` reaches the binary through its own blank import — the startup error
-quotes the line to add. [Cookies](/guides/backend/cookies/) compares the three.
+quotes the line to add. [Sessions](/guides/backend/sessions/) compares the
+three and lists what each one requires.
 
 The token in the browser is opaque in all three, so nothing here signs it. Only
 `backend = "cookie"` puts the record itself in the browser, and it seals that
