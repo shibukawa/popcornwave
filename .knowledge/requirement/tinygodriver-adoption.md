@@ -15,6 +15,11 @@ imports:
   host_network_driver: github.com/shibukawa/tinygodriver/netdev
   zstd: github.com/shibukawa/tinygodriver/compress/zstd
   sqlite: github.com/shibukawa/tinygodriver/database/sql/sqlite
+  postgresql: github.com/shibukawa/tinygodriver/database/sql/pgxstdlib
+  mysql: github.com/shibukawa/tinygodriver/database/sql/mysql
+pinned_baseline:
+  version: v1.1.0
+  reason: the first release carrying both server SQL drivers required by decision:server-sql-support-tier
 repository_boundary:
   - no local httpmux, httprevproxy, netdev, zstd, or database driver implementation
   - application examples import system:tinygodriver directly
@@ -30,4 +35,6 @@ acceptance:
   - host Go tests pass with httpmux resolving to net/http.ServeMux
   - TinyGo HTTP build and route fixtures pass with httpmux and netdev
   - reverse proxy fixtures pass against the external httprevproxy package
+  - each rule:rdb-dsn-resolution scheme opens through its external package with no local driver code
+  - the MPL-2.0 notice of the requirement:contrib-mysql fork travels with every artifact that links it
 ```

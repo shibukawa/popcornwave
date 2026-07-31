@@ -4,11 +4,9 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"log/slog"
 	"os"
 	"path/filepath"
 	"reflect"
-	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -17,33 +15,30 @@ import (
 	"github.com/shibukawa/popcornwave/internal/pwenv"
 	"github.com/shibukawa/popcornwave/middlewares"
 	"github.com/shibukawa/popcornwave/pwruntime"
-	"github.com/shibukawa/popcornwave/session"
-	"github.com/shibukawa/tinybind-go/cliparser"
 	"github.com/shibukawa/tinybind-go/configbind"
 )
 
 // ServerConfig controls the primary HTTP listener and operational endpoints.
 type ServerConfig struct {
-	Port              int `opt:"port" env:"PORT" default:"8080" help:"HTTP listen port"`
-	ReadHeaderTimeout time.Duration
-	ReadTimeout       time.Duration
-	WriteTimeout      time.Duration
-	IdleTimeout       time.Duration
-	ShutdownTimeout   time.Duration
-	MaxRequestBody    int64
-	TrustedProxies    []string
-	Health            EndpointConfig
-	Readiness         EndpointConfig
-	OpenAPI           EndpointConfig
-	APIDoc            string
-	APIDocPath        string
-	Public            PublicConfig
-}
-
-// EndpointConfig enables one framework-owned HTTP endpoint.
-type EndpointConfig struct {
-	Enabled bool
-	Path    string
+	Port              int           `opt:"port" env:"PORT" default:"8080" help:"HTTP listen port"`
+	ReadHeaderTimeout time.Duration `default:"5s" help:"request header read timeout"`
+	ReadTimeout       time.Duration `default:"30s" help:"request read timeout"`
+	WriteTimeout      time.Duration `default:"0s" help:"response write timeout; zero permits long-lived streams"`
+	IdleTimeout       time.Duration `default:"2m" help:"keep-alive idle timeout"`
+	ShutdownTimeout   time.Duration `default:"10s" help:"graceful shutdown timeout"`
+	MaxRequestBody    int64         `default:"10485760" help:"maximum request body in bytes"`
+	TrustedProxies    []string      `help:"trusted proxy IP or CIDR"`
+	// Health, Readiness, and OpenAPI are the paths their endpoints serve, and
+	// an unset path serves nothing. They carry no default so that the operator
+	// reading a deployment's configuration sees every address it answers on;
+	// a default would leave three endpoints running that no file mentions.
+	Health     string `help:"liveness endpoint path, e.g. /healthz; unset serves none"`
+	Readiness  string `help:"readiness endpoint path, e.g. /readyz; unset serves none"`
+	OpenAPI    string `key:"openapi" help:"OpenAPI document path, e.g. /openapi.json; unset serves none"`
+	APIDoc     string `help:"API documentation UI: scalar, swagger, or empty to disable"`
+	APIDocPath string `default:"/docs" dependon:".api_doc" help:"API documentation UI path"`
+	// Public serves the application's embedded static assets.
+	Public PublicConfig `help:"framework-owned static asset endpoint"`
 }
 
 // HTMLConfig bounds and gates progressive HTML rendering. A template that opens
@@ -52,30 +47,30 @@ type EndpointConfig struct {
 type HTMLConfig struct {
 	// Streaming false forces the buffered branch even when a chain can open a
 	// boundary, which is the escape hatch for a proxy that buffers responses.
-	Streaming bool
+	Streaming bool `default:"true" help:"Streaming false forces the buffered branch even when a chain can open a boundary, which is the escape hatch for a proxy that buffers responses"`
 	// AsyncTimeout bounds one await boundary. Zero leaves the request context as
 	// the only deadline.
-	AsyncTimeout time.Duration
+	AsyncTimeout time.Duration `default:"3s" help:"AsyncTimeout bounds one await boundary. Zero leaves the request context as the only deadline"`
 	// AsyncConcurrency bounds simultaneously running boundary work across one
 	// render. Zero or less is unbounded.
-	AsyncConcurrency int
+	AsyncConcurrency int `default:"0" help:"AsyncConcurrency bounds simultaneously running boundary work across one render. Zero or less is unbounded"`
 	// BotDetection forces the buffered branch for a client that will not run
 	// the boundary runtime, so a crawler indexes the page instead of the
 	// fallbacks. False skips classification entirely.
-	BotDetection bool
+	BotDetection bool `default:"true" help:"render the settled document for crawlers and CLI clients"`
 	// BotAsyncTimeout bounds one await boundary on a classified bot request,
 	// which waits for every boundary before any byte leaves. Zero falls back to
 	// AsyncTimeout rather than meaning unbounded, so a misread key cannot hold a
 	// crawler connection open for the whole request deadline.
-	BotAsyncTimeout time.Duration
+	BotAsyncTimeout time.Duration `default:"5s" dependon:".bot_detection" help:"await boundary bound for a classified bot request"`
 	// BotUserAgents extends the built-in catalog. Entries are appended and
 	// matched case-insensitively; they never replace a built-in token.
-	BotUserAgents []string
+	BotUserAgents []string `dependon:".bot_detection" help:"additional bot User-Agent substrings"`
 }
 
-// defaultHTMLConfig is the effective configuration until a file, environment,
-// or flag says otherwise. The registration below reads its string defaults from
-// here, so the two cannot drift.
+// defaultHTMLConfig seeds the effective configuration for a runtime that never
+// parses a config source. The parse-time defaults live in the struct tags
+// above; TestHTMLDefaultsMatchTags holds the two in agreement.
 //
 // BotAsyncTimeout sits above AsyncTimeout because an indexer waits far longer
 // than a browser, and a timeout fallback baked into a buffered document is the
@@ -121,16 +116,17 @@ const (
 // The session token is opaque in every backend; only SessionBackendCookie
 // carries the record itself, and it seals it under a configured secret.
 type SessionConfig struct {
-	Enabled bool
-	// Backend selects the storage plugin: rdb or cookie.
-	Backend         string
-	TTL             time.Duration
-	IdleTimeout     time.Duration
-	RenewalInterval time.Duration
-	Cookie          SessionCookieConfig
-	RDB             SessionRDBConfig
-	Redis           SessionRedisConfig
-	CookieStore     SessionCookieStoreConfig
+	Enabled bool `default:"false"`
+	// Backend selects the storage plugin: rdb, cookie, or redis. Every backend
+	// but cookie reaches the binary through its own blank import.
+	Backend         string                   `default:"rdb" dependon:".enabled" help:"session storage backend: rdb, cookie, or redis"`
+	TTL             time.Duration            `default:"24h" dependon:".enabled" help:"absolute session lifetime"`
+	IdleTimeout     time.Duration            `default:"0s" dependon:".enabled" help:"inactivity expiry; zero disables it"`
+	RenewalInterval time.Duration            `default:"0s" dependon:".enabled" help:"minimum interval between idle expiry renewals"`
+	Cookie          SessionCookieConfig      `dependon:".enabled"`
+	RDB             SessionRDBConfig         `dependon:".enabled"`
+	Redis           SessionRedisConfig       `dependon:".enabled"`
+	CookieStore     SessionCookieStoreConfig `dependon:".enabled"`
 }
 
 // SessionRedisConfig configures the Redis-compatible session store. The server
@@ -138,33 +134,33 @@ type SessionConfig struct {
 type SessionRedisConfig struct {
 	// DSN is a redis:// or rediss:// URL. Keep credentials out of the file
 	// itself with a ${NAME} reference or SESSION_REDIS_DSN.
-	DSN string
+	DSN string `secret:"mask" env:"SESSION_REDIS_DSN" help:"redis:// or rediss:// session server"`
 	// KeyPrefix isolates session keys from every other user of the server.
-	KeyPrefix string
+	KeyPrefix string `default:"pw:session:" help:"key space owned by the session store"`
 	// ConnectTimeout bounds the startup ping and the per-command deadlines.
-	ConnectTimeout time.Duration
+	ConnectTimeout time.Duration `default:"5s" help:"startup ping and per-command deadline"`
 }
 
 // SessionCookieConfig is the browser cookie policy of the session middleware.
 type SessionCookieConfig struct {
-	Name     string
-	Path     string
+	Name     string `default:"pw_session"`
+	Path     string `default:"/"`
 	Domain   string
-	Secure   bool
-	HTTPOnly bool
-	SameSite string
+	Secure   bool   `default:"true" help:"disable only for loopback development"`
+	HTTPOnly bool   `default:"true"`
+	SameSite string `default:"lax"`
 }
 
 // SessionRDBConfig configures the database-backed session store. The middleware
 // source reuses the pool owned by middleware.rdb; the dedicated source opens
 // its own pool from DSN.
 type SessionRDBConfig struct {
-	Source string
+	Source string `default:"middleware" help:"middleware reuses middleware.rdb; dedicated opens rdb.dsn"`
 	// Group names the middleware-source connection group holding the session
 	// table. Empty resolves to middleware.rdb.write_group.
-	Group string
-	DSN   string
-	Table string
+	Group string `help:"connection group holding the session table"`
+	DSN   string `secret:"mask" help:"dedicated session database DSN"`
+	Table string `default:"popcornwave_session"`
 }
 
 // SessionCookieStoreConfig configures the client-side session backend. The
@@ -172,24 +168,65 @@ type SessionRDBConfig struct {
 // session expire and travel under the same rules; only the name is separate.
 type SessionCookieStoreConfig struct {
 	// Name holds the sealed record beside the token cookie.
-	Name string
+	Name string `default:"pw_session_data" help:"cookie holding the sealed record"`
 	// Secret is 32 or more random bytes in base64, generated with
 	// `openssl rand -base64 32`. Keep it out of the file itself: write
 	// "${SESSION_COOKIE_SECRET}" or set SESSION_COOKIE_STORE_SECRET.
-	Secret string
+	Secret string `secret:"mask" env:"SESSION_COOKIE_STORE_SECRET" help:"base64 secret sealing cookie-backed records"`
 	// PreviousSecrets keep records written before a rotation readable. They
 	// never write.
-	PreviousSecrets []string
+	PreviousSecrets []string `secret:"mask" help:"retired secrets kept readable during a rotation"`
 }
 
-// ObservabilityConfig controls runtime logging and service identity.
+// ObservabilityConfig controls runtime logging, tracing, and service identity.
 type ObservabilityConfig struct {
-	MinimumLevel string
-	ServiceName  string
+	// MinimumLevel is the severity floor. Records below it cost one comparison.
+	MinimumLevel string `default:"info" help:"severity floor: trace, debug, info, warn, error, or off"`
+	// StdoutFormat selects the terminal encoding.
+	StdoutFormat string `default:"json" help:"terminal record encoding: json or plaintext"`
+	ServiceName  string `env:"OTEL_SERVICE_NAME"`
+	// ResourceAttributes are extra key=value identifiers reported to the
+	// collector alongside the service name.
+	ResourceAttributes []string `help:"extra key=value identifiers reported with the service name"`
 	// BootLog selects the startup summary format: auto, tree, record, or off.
-	BootLog string
+	BootLog string `default:"auto" help:"startup summary: auto, tree, record, or off"`
 	// Query configures the development query diagnostics.
-	Query QueryLogConfig
+	Query QueryLogConfig `help:"Query configures the development query diagnostics"`
+	// Otel configures OpenTelemetry export.
+	Otel OtelExportConfig `help:"Otel configures OpenTelemetry trace and log export"`
+}
+
+// OtelExportConfig configures OTLP/HTTP export of traces and logs.
+//
+// The endpoint and header variables are the standard OTLP ones, which is what
+// lets api:cli-dev point an application at its local viewer without the project
+// committing anything. OTEL_EXPORTER_OTLP_TIMEOUT is deliberately not bound to
+// RequestTimeout: it counts milliseconds, while every duration here is a Go
+// duration string, and one key cannot mean both.
+//
+// The defaults restate the bounds the exporter and the batch processors apply to
+// a zero value, so a scaffolded file says what the process will do rather than
+// showing a zero that means "ask someone else".
+type OtelExportConfig struct {
+	// Enabled is the switch every other key here answers to, so a process that
+	// exports nothing reports one line instead of seven.
+	//
+	// api:cli-dev injects it along with the endpoint, which is what keeps the
+	// injected address visible in the startup summary.
+	Enabled bool `default:"false" help:"export traces and logs"`
+	// Endpoint is the OTLP/HTTP base URL. /v1/traces and /v1/logs are appended.
+	Endpoint string `env:"OTEL_EXPORTER_OTLP_ENDPOINT" dependon:".enabled" help:"OTLP/HTTP base URL; /v1/traces and /v1/logs are appended"`
+	// Headers is a comma-separated key=value list. Values are never logged.
+	Headers string `env:"OTEL_EXPORTER_OTLP_HEADERS" dependon:".enabled" help:"comma-separated key=value list; values are never logged"`
+	// RequestTimeout bounds one export request.
+	RequestTimeout time.Duration `default:"10s" dependon:".enabled" help:"bounds one export request"`
+	// QueueSize bounds records held in memory; a full queue drops rather than
+	// blocking the request goroutine.
+	QueueSize int `default:"2048" dependon:".enabled" help:"records held in memory; a full queue drops rather than blocking"`
+	// MaxExportSize bounds one exported batch.
+	MaxExportSize int `default:"512" dependon:".enabled" help:"bounds one exported batch"`
+	// FlushInterval is how often a partial batch is sent.
+	FlushInterval time.Duration `default:"5s" dependon:".enabled" help:"how often a partial batch is sent"`
 }
 
 // QueryLogConfig controls per-statement query logging, the slow-statement
@@ -197,35 +234,36 @@ type ObservabilityConfig struct {
 // produces log records; middleware.rdb stays pool configuration.
 type QueryLogConfig struct {
 	// Enabled is auto, on, or off. Auto resolves to on in the development
-	// environment and off everywhere else.
-	Enabled string
+	// environment and off everywhere else. Off disables every key below it.
+	Enabled string `default:"auto" falsy:"off" help:"log every generated SQL statement: auto, on, or off; auto is on in dev"`
 	// Level is the severity of an ordinary statement record.
-	Level string
+	Level string `default:"info" dependon:".enabled" help:"Level is the severity of an ordinary statement record"`
 	// SlowThreshold is the duration above which a statement is slow. Zero
-	// disables slow detection, and with it EXPLAIN and reproduction.
-	SlowThreshold time.Duration
+	// disables slow detection, and with it EXPLAIN and reproduction; falsy is
+	// what lets those three name it as their parent.
+	SlowThreshold time.Duration `default:"200ms" falsy:"0s" dependon:".enabled" help:"duration above which a statement is explained; zero disables it"`
 	// SlowLevel is the severity of a slow statement record.
-	SlowLevel string
+	SlowLevel string `default:"warn" dependon:".slow_threshold" help:"SlowLevel is the severity of a slow statement record"`
 	// BindValues is auto, on, or off, and follows the same environment rule as
 	// Enabled. It is the only path by which row values reach a query record.
-	BindValues string
+	BindValues string `default:"auto" falsy:"off" dependon:".enabled" help:"log argument values: auto, on, or off; auto is on in dev"`
 	// Explain captures a plan-only EXPLAIN for a slow statement.
-	Explain bool
+	Explain bool `default:"true" dependon:".slow_threshold" help:"capture a plan-only EXPLAIN for a slow statement"`
 	// Reproduction renders a paste-able rerun snippet for a slow statement.
-	Reproduction bool
+	Reproduction bool `default:"true" dependon:".slow_threshold" help:"emit a paste-able rerun snippet for a slow statement"`
 	// MaxSQLLength bounds the logged statement text.
-	MaxSQLLength int
+	MaxSQLLength int `default:"4096" dependon:".enabled" help:"MaxSQLLength bounds the logged statement text"`
 	// MaxValueLength bounds each logged argument value.
-	MaxValueLength int
+	MaxValueLength int `default:"256" dependon:".enabled" help:"MaxValueLength bounds each logged argument value"`
 }
 
 // MiddlewareConfig selects the framework's basic HTTP middleware.
 type MiddlewareConfig struct {
-	Recovery       bool
-	RequestID      bool
-	AccessLog      bool
-	Compression    bool
-	RequestTimeout time.Duration
+	Recovery       bool          `default:"true"`
+	RequestID      bool          `default:"true"`
+	AccessLog      bool          `default:"true"`
+	Compression    bool          `default:"false"`
+	RequestTimeout time.Duration `default:"0s"`
 	RDB            RDBConfig
 }
 
@@ -235,41 +273,42 @@ type MiddlewareConfig struct {
 // reader-writer topology is configured with Connections instead, one element
 // per pool. Declaring both is a configuration error rather than a merge.
 type RDBConfig struct {
-	Enabled         bool
-	DSN             string
-	ConnectTimeout  time.Duration
-	MaxOpenConns    int
-	MaxIdleConns    int
-	ConnMaxLifetime time.Duration
-	ConnMaxIdleTime time.Duration
+	Enabled         bool          `default:"false"`
+	DSN             string        `secret:"mask" dependon:".enabled"`
+	ConnectTimeout  time.Duration `default:"5s" dependon:".enabled"`
+	MaxOpenConns    int           `default:"0" dependon:".enabled"`
+	MaxIdleConns    int           `default:"0" dependon:".enabled"`
+	ConnMaxLifetime time.Duration `default:"0s" dependon:".enabled"`
+	ConnMaxIdleTime time.Duration `default:"0s" dependon:".enabled"`
 	// DefaultGroup serves statements that pin no group. It is normally the
 	// replica group. Required once more than one group is configured.
-	DefaultGroup string
+	DefaultGroup string `dependon:".enabled" help:"connection group for statements that pin none"`
 	// WriteGroup serves framework-owned writes. Empty resolves to the only
 	// group holding a writable connection.
-	WriteGroup string
+	WriteGroup string `dependon:".enabled" help:"connection group for framework-owned writes"`
 	// MigrationGroup receives migrations and seed data. Empty resolves to
 	// WriteGroup.
-	MigrationGroup string
-	// Connections is the array-of-tables form. An element has no CLI option and
-	// no environment variable, because its identity is its position in the file.
-	Connections []RDBConnectionConfig
+	MigrationGroup string `dependon:".enabled" help:"connection group for migrations and seeds"`
+	// Connections is the array-of-tables form. An element has no CLI option, no
+	// environment variable, and no dependon, because its identity is its
+	// position in the file rather than a stable key.
+	Connections []RDBConnectionConfig `help:"connection set, one element per pool"`
 }
 
 // RDBConnectionConfig is one pool of the connection set.
 type RDBConnectionConfig struct {
 	// Group is the name this connection is addressed by. Several connections
 	// may share one group, which is what makes round robin expressible.
-	Group string
-	DSN   string
+	Group string `help:"name this connection is addressed by"`
+	DSN   string `secret:"mask"`
 	// ReadOnly marks a replica: it opens read-only transactions and never
 	// serves a framework-owned write.
-	ReadOnly        bool
-	ConnectTimeout  time.Duration
-	MaxOpenConns    int
-	MaxIdleConns    int
-	ConnMaxLifetime time.Duration
-	ConnMaxIdleTime time.Duration
+	ReadOnly        bool          `key:"readonly" default:"false" help:"open read-only transactions and serve no framework write"`
+	ConnectTimeout  time.Duration `default:"5s"`
+	MaxOpenConns    int           `default:"0"`
+	MaxIdleConns    int           `default:"0"`
+	ConnMaxLifetime time.Duration `default:"0s"`
+	ConnMaxIdleTime time.Duration `default:"0s"`
 }
 
 type configEntry struct {
@@ -294,7 +333,6 @@ var configState = struct {
 	entries  map[reflect.Type]configEntry
 	parsed   bool
 	parseErr error
-	result   *configbind.LoadResult
 	options  configbind.LoadOptions
 	// db and dbDriver mirror the default group's connection for callers that
 	// predate the connection set.
@@ -308,6 +346,47 @@ var configState = struct {
 		Vendor:   "popcornwave",
 		FileName: "config.toml",
 	},
+}
+
+// deriveExportEnabled turns observability.otel.enabled on whenever an endpoint
+// arrived from any source.
+//
+// Naming an endpoint is the OTLP convention for asking for export, and it is how
+// api:cli-dev points an application at its viewer. But every other otel key
+// declares enabled as its dependon parent, so leaving the switch off would hide
+// the very address that was just configured, and the summary would describe a
+// process that does not exist.
+//
+// The value is written into the overlay as well as the bound struct, because the
+// startup summary reads provenance rather than the struct. It is recorded at the
+// place the endpoint came from, so the summary says who asked for export instead
+// of claiming a default did.
+//
+// bound is passed in rather than looked up so that the function carries no
+// locking contract and a test can drive it against its own value.
+func deriveExportEnabled(result *configbind.LoadResult, bound *ObservabilityConfig) {
+	if result == nil || result.Overlay == nil {
+		return
+	}
+	endpoint, ok := result.Overlay.Get("observability.otel.endpoint")
+	if !ok || strings.TrimSpace(endpoint.Raw) == "" {
+		return
+	}
+	result.Overlay.Set("observability.otel.enabled", "true", endpoint.Place)
+	if bound != nil {
+		bound.Otel.Enabled = true
+	}
+}
+
+// boundConfig returns the registered binding for T, or nil when none is
+// registered. Callers hold configState.
+func boundConfig[T any]() *T {
+	entry, ok := configState.entries[reflect.TypeFor[T]()]
+	if !ok {
+		return nil
+	}
+	bound, _ := entry.ptr.(*T)
+	return bound
 }
 
 // RegisterConfig registers one generated configbind target without parsing it.
@@ -360,10 +439,11 @@ func ParseConfig() error {
 		return actionErr
 	}
 	result, err := configbind.Load(options)
-	configState.result, configState.parseErr = result, err
+	configState.parseErr = err
 	if err != nil {
 		return err
 	}
+	deriveExportEnabled(result, boundConfig[ObservabilityConfig]())
 	captureBootReport(result)
 	return nil
 }
@@ -412,7 +492,7 @@ func registeredConfig[T any]() (T, bool) {
 	return *ptr, true
 }
 
-func runtimeResources(logger *slog.Logger) pwruntime.Resources {
+func runtimeResources(backend *pwruntime.LogBackend) pwruntime.Resources {
 	// Resolved before the lock because reading a registered binding takes the
 	// same read lock, and a waiting writer would deadlock the reacquisition.
 	query := resolveQueryDiagnostics(Config[ObservabilityConfig](nil), Env())
@@ -427,33 +507,12 @@ func runtimeResources(logger *slog.Logger) pwruntime.Resources {
 	}
 	return pwruntime.Resources{
 		Configs:     configs,
-		Logger:      logger,
+		Log:         backend,
 		DB:          configState.db,
 		DBDriver:    configState.dbDriver,
 		Connections: configState.connections,
 		Query:       query,
 	}
-}
-
-func isSecretKey(key string) bool {
-	key = strings.ToLower(key)
-	for _, fragment := range []string{"secret", "password", "token", "credential", "dsn", "private_key"} {
-		if strings.Contains(key, fragment) {
-			return true
-		}
-	}
-	return false
-}
-
-func init() {
-	registerBuiltinConfigs()
-	RegisterConfig[ServerConfig]("server")
-	RegisterConfig[SecurityConfig]("security")
-	RegisterConfig[SessionConfig]("session")
-	RegisterConfig[ObservabilityConfig]("observability")
-	RegisterConfig[MiddlewareConfig]("middleware")
-	RegisterConfig[HTMLConfig]("html")
-	seedConfigDefaults(defaultHTMLConfig)
 }
 
 // seedConfigDefaults gives a registered binding its documented values before
@@ -464,6 +523,19 @@ func init() {
 // HTMLConfig that distinction matters: a zero Streaming would turn progressive
 // rendering off in every test and in every embedding that never calls
 // ParseConfig, which is the opposite of the documented default.
+// isSecretKey masks a value inside an array of tables. Provenance applies a
+// secret tag and its own name check to every stable key, but an array element
+// has no stable key, so this covers what the startup summary expands by hand.
+func isSecretKey(key string) bool {
+	key = strings.ToLower(key)
+	for _, fragment := range []string{"secret", "password", "token", "credential", "dsn", "private_key"} {
+		if strings.Contains(key, fragment) {
+			return true
+		}
+	}
+	return false
+}
+
 func seedConfigDefaults[T any](value T) {
 	configState.Lock()
 	defer configState.Unlock()
@@ -474,695 +546,6 @@ func seedConfigDefaults[T any](value T) {
 	if ptr, ok := entry.ptr.(*T); ok && ptr != nil {
 		*ptr = value
 	}
-}
-
-func registerBuiltinConfigs() {
-	registerServerConfig()
-	registerSecurityConfig()
-	registerSessionConfig()
-	registerObservabilityConfig()
-	registerMiddlewareConfig()
-	registerHTMLConfig()
-}
-
-func registerHTMLConfig() {
-	const typeName = "github.com/shibukawa/popcornwave/pw.HTMLConfig"
-	configbind.Register[HTMLConfig](configbind.Definition{
-		TypeName: typeName,
-		Prefix:   "html",
-		KnownKeys: []string{
-			"html.streaming", "html.async_timeout", "html.async_concurrency",
-			"html.bot_detection", "html.bot_async_timeout", "html.bot_user_agents",
-		},
-		Defaults: map[string]string{
-			"html.streaming":         strconv.FormatBool(defaultHTMLConfig.Streaming),
-			"html.async_timeout":     defaultHTMLConfig.AsyncTimeout.String(),
-			"html.async_concurrency": strconv.Itoa(defaultHTMLConfig.AsyncConcurrency),
-			"html.bot_detection":     strconv.FormatBool(defaultHTMLConfig.BotDetection),
-			"html.bot_async_timeout": defaultHTMLConfig.BotAsyncTimeout.String(),
-		},
-		FlagMetas: []cliparser.FieldMeta{
-			{Prefix: "html", Key: "streaming", Kind: cliparser.KindBool},
-			{Prefix: "html", Key: "async_timeout"},
-			{Prefix: "html", Key: "async_concurrency"},
-			{Prefix: "html", Key: "bot_detection", Kind: cliparser.KindBool, Help: "render the settled document for crawlers and CLI clients"},
-			{Prefix: "html", Key: "bot_async_timeout", Help: "await boundary bound for a classified bot request"},
-			{Prefix: "html", Key: "bot_user_agents", Kind: cliparser.KindArray, Help: "additional bot User-Agent substrings"},
-		},
-		Apply: func(dst any, overlay *configbind.Overlay) error {
-			p, ok := dst.(*HTMLConfig)
-			if !ok || p == nil {
-				return fmt.Errorf("configbind: bad HTMLConfig destination")
-			}
-			p.Streaming = configBool(overlay, "html.streaming")
-			var err error
-			if p.AsyncTimeout, err = parseConfigDuration(overlay, "html.async_timeout"); err != nil {
-				return err
-			}
-			if p.AsyncTimeout < 0 {
-				return fmt.Errorf("html.async_timeout must not be negative")
-			}
-			if p.AsyncConcurrency, err = parseConfigInt(overlay, "html.async_concurrency"); err != nil {
-				return err
-			}
-			p.BotDetection = configBool(overlay, "html.bot_detection")
-			if p.BotAsyncTimeout, err = parseConfigDuration(overlay, "html.bot_async_timeout"); err != nil {
-				return err
-			}
-			if p.BotAsyncTimeout < 0 {
-				return fmt.Errorf("html.bot_async_timeout must not be negative")
-			}
-			extra, _ := overlay.GetMulti("html.bot_user_agents")
-			p.BotUserAgents = normalizeBotUserAgents(extra)
-			return nil
-		},
-		Scaffold: []configbind.ScaffoldField{
-			{Key: "streaming", Kind: configbind.ScaffoldBool, Default: strconv.FormatBool(defaultHTMLConfig.Streaming)},
-			{Key: "async_timeout", Kind: configbind.ScaffoldString, Default: defaultHTMLConfig.AsyncTimeout.String()},
-			{Key: "async_concurrency", Kind: configbind.ScaffoldInt, Default: strconv.Itoa(defaultHTMLConfig.AsyncConcurrency)},
-			{Key: "bot_detection", Kind: configbind.ScaffoldBool, Default: strconv.FormatBool(defaultHTMLConfig.BotDetection), Help: "render the settled document for crawlers and CLI clients"},
-			{Key: "bot_async_timeout", Kind: configbind.ScaffoldString, Default: defaultHTMLConfig.BotAsyncTimeout.String(), Help: "await boundary bound for a classified bot request"},
-			{Key: "bot_user_agents", Kind: configbind.ScaffoldStringSlice, Help: "additional bot User-Agent substrings"},
-		},
-	})
-}
-
-func registerServerConfig() {
-	const typeName = "github.com/shibukawa/popcornwave/pw.ServerConfig"
-	defaults := map[string]string{
-		"server.port":                "8080",
-		"server.read_header_timeout": "5s",
-		"server.read_timeout":        "30s",
-		"server.write_timeout":       "0s",
-		"server.idle_timeout":        "2m",
-		"server.shutdown_timeout":    "10s",
-		"server.max_request_body":    "10485760",
-		"server.health.enabled":      "true",
-		"server.health.path":         "/healthz",
-		"server.readiness.enabled":   "true",
-		"server.readiness.path":      "/readyz",
-		"server.openapi.enabled":     "true",
-		"server.openapi.path":        "/openapi.json",
-		"server.api_doc":             "",
-		"server.api_doc_path":        "/docs",
-		"server.public.enabled":      "true",
-		"server.public.mount":        "/public",
-		"server.public.read_local":   "false",
-	}
-	keys := []string{
-		"server.port", "server.read_header_timeout", "server.read_timeout",
-		"server.write_timeout", "server.idle_timeout", "server.shutdown_timeout",
-		"server.max_request_body", "server.trusted_proxies",
-		"server.health.enabled", "server.health.path",
-		"server.readiness.enabled", "server.readiness.path",
-		"server.openapi.enabled", "server.openapi.path",
-		"server.api_doc", "server.api_doc_path",
-		"server.public.enabled", "server.public.mount", "server.public.read_local",
-	}
-	configbind.Register[ServerConfig](configbind.Definition{
-		TypeName:  typeName,
-		Prefix:    "server",
-		KnownKeys: keys,
-		Defaults:  defaults,
-		FlagMetas: []cliparser.FieldMeta{
-			{Prefix: "server", Key: "port", Opt: "port", Env: "PORT", Help: "HTTP listen port"},
-			{Prefix: "server", Key: "read_header_timeout", Help: "request header read timeout"},
-			{Prefix: "server", Key: "read_timeout", Help: "request read timeout"},
-			{Prefix: "server", Key: "write_timeout", Help: "response write timeout"},
-			{Prefix: "server", Key: "idle_timeout", Help: "keep-alive idle timeout"},
-			{Prefix: "server", Key: "shutdown_timeout", Help: "graceful shutdown timeout"},
-			{Prefix: "server", Key: "max_request_body", Help: "maximum request body in bytes"},
-			{Prefix: "server", Key: "trusted_proxies", Kind: cliparser.KindArray, Help: "trusted proxy IP or CIDR"},
-			{Prefix: "server", Key: "health.enabled", Kind: cliparser.KindBool},
-			{Prefix: "server", Key: "health.path"},
-			{Prefix: "server", Key: "readiness.enabled", Kind: cliparser.KindBool},
-			{Prefix: "server", Key: "readiness.path"},
-			{Prefix: "server", Key: "openapi.enabled", Kind: cliparser.KindBool},
-			{Prefix: "server", Key: "openapi.path"},
-			{Prefix: "server", Key: "api_doc", Help: "API documentation UI: scalar, swagger, or empty to disable"},
-			{Prefix: "server", Key: "api_doc_path", Help: "API documentation UI path"},
-			{Prefix: "server", Key: "public.enabled", Kind: cliparser.KindBool},
-			{Prefix: "server", Key: "public.mount"},
-			{Prefix: "server", Key: "public.read_local", Kind: cliparser.KindBool},
-		},
-		Apply: func(dst any, overlay *configbind.Overlay) error {
-			p, ok := dst.(*ServerConfig)
-			if !ok || p == nil {
-				return fmt.Errorf("configbind: bad ServerConfig destination")
-			}
-			var err error
-			p.Port, err = parseConfigInt(overlay, "server.port")
-			if err != nil {
-				return err
-			}
-			for key, target := range map[string]*time.Duration{
-				"read_header_timeout": &p.ReadHeaderTimeout,
-				"read_timeout":        &p.ReadTimeout,
-				"write_timeout":       &p.WriteTimeout,
-				"idle_timeout":        &p.IdleTimeout,
-				"shutdown_timeout":    &p.ShutdownTimeout,
-			} {
-				*target, err = parseConfigDuration(overlay, "server."+key)
-				if err != nil {
-					return err
-				}
-			}
-			p.MaxRequestBody, err = parseConfigInt64(overlay, "server.max_request_body")
-			if err != nil {
-				return err
-			}
-			p.TrustedProxies, _ = overlay.GetMulti("server.trusted_proxies")
-			if err := applyEndpointConfig(overlay, "server.health", &p.Health); err != nil {
-				return err
-			}
-			if err := applyEndpointConfig(overlay, "server.readiness", &p.Readiness); err != nil {
-				return err
-			}
-			if err := applyEndpointConfig(overlay, "server.openapi", &p.OpenAPI); err != nil {
-				return err
-			}
-			p.APIDoc = valueOf(overlay, "server.api_doc")
-			p.APIDocPath = valueOf(overlay, "server.api_doc_path")
-			p.Public.Enabled = configBool(overlay, "server.public.enabled")
-			p.Public.Mount = valueOf(overlay, "server.public.mount")
-			p.Public.ReadLocal = configBool(overlay, "server.public.read_local")
-			return nil
-		},
-		Scaffold: []configbind.ScaffoldField{
-			{Key: "port", Kind: configbind.ScaffoldInt, Default: "8080", Opt: "port", Env: "PORT", Help: "HTTP listen port"},
-			{Key: "read_header_timeout", Kind: configbind.ScaffoldString, Default: "5s", Help: "request header read timeout"},
-			{Key: "read_timeout", Kind: configbind.ScaffoldString, Default: "30s", Help: "request read timeout"},
-			{Key: "write_timeout", Kind: configbind.ScaffoldString, Default: "0s", Help: "response write timeout; zero permits long-lived streams"},
-			{Key: "idle_timeout", Kind: configbind.ScaffoldString, Default: "2m", Help: "keep-alive idle timeout"},
-			{Key: "shutdown_timeout", Kind: configbind.ScaffoldString, Default: "10s", Help: "graceful shutdown timeout"},
-			{Key: "max_request_body", Kind: configbind.ScaffoldInt, Default: "10485760", Help: "maximum request body in bytes"},
-			{Key: "trusted_proxies", Kind: configbind.ScaffoldStringSlice, Help: "trusted proxy IP or CIDR"},
-			{Key: "health.enabled", Kind: configbind.ScaffoldBool, Default: "true"},
-			{Key: "health.path", Kind: configbind.ScaffoldString, Default: "/healthz"},
-			{Key: "readiness.enabled", Kind: configbind.ScaffoldBool, Default: "true"},
-			{Key: "readiness.path", Kind: configbind.ScaffoldString, Default: "/readyz"},
-			{Key: "openapi.enabled", Kind: configbind.ScaffoldBool, Default: "true"},
-			{Key: "openapi.path", Kind: configbind.ScaffoldString, Default: "/openapi.json"},
-			{Key: "api_doc", Kind: configbind.ScaffoldString, Help: "API documentation UI: scalar, swagger, or empty to disable"},
-			{Key: "api_doc_path", Kind: configbind.ScaffoldString, Default: "/docs", Help: "API documentation UI path"},
-			{Key: "public.enabled", Kind: configbind.ScaffoldBool, Default: "true"},
-			{Key: "public.mount", Kind: configbind.ScaffoldString, Default: "/public"},
-			{Key: "public.read_local", Kind: configbind.ScaffoldBool, Default: "false"},
-		},
-	})
-}
-
-func registerSecurityConfig() {
-	const typeName = "github.com/shibukawa/popcornwave/pw.SecurityConfig"
-	defaults := map[string]string{
-		"security.headers.enabled":                             "true",
-		"security.headers.content_type_options":                "true",
-		"security.headers.frame_options":                       "deny",
-		"security.headers.referrer_policy":                     "strict-origin-when-cross-origin",
-		"security.headers.content_security_policy":             "",
-		"security.headers.content_security_policy_report_only": "",
-		"security.headers.permissions_policy":                  "",
-		"security.headers.hsts.enabled":                        "false",
-		"security.headers.hsts.max_age":                        "0s",
-		"security.headers.hsts.include_subdomains":             "false",
-		"security.headers.hsts.preload":                        "false",
-	}
-	keys := make([]string, 0, len(defaults))
-	for key := range defaults {
-		keys = append(keys, key)
-	}
-	sort.Strings(keys)
-	configbind.Register[SecurityConfig](configbind.Definition{
-		TypeName:  typeName,
-		Prefix:    "security",
-		KnownKeys: keys,
-		Defaults:  defaults,
-		FlagMetas: []cliparser.FieldMeta{
-			{Prefix: "security", Key: "headers.enabled", Kind: cliparser.KindBool},
-			{Prefix: "security", Key: "headers.content_type_options", Kind: cliparser.KindBool},
-			{Prefix: "security", Key: "headers.frame_options"},
-			{Prefix: "security", Key: "headers.referrer_policy"},
-			{Prefix: "security", Key: "headers.content_security_policy", Env: "-"},
-			{Prefix: "security", Key: "headers.content_security_policy_report_only", Env: "-"},
-			{Prefix: "security", Key: "headers.permissions_policy", Env: "-"},
-			{Prefix: "security", Key: "headers.hsts.enabled", Kind: cliparser.KindBool},
-			{Prefix: "security", Key: "headers.hsts.max_age"},
-			{Prefix: "security", Key: "headers.hsts.include_subdomains", Kind: cliparser.KindBool},
-			{Prefix: "security", Key: "headers.hsts.preload", Kind: cliparser.KindBool},
-		},
-		Apply: func(dst any, overlay *configbind.Overlay) error {
-			p, ok := dst.(*SecurityConfig)
-			if !ok || p == nil {
-				return fmt.Errorf("configbind: bad SecurityConfig destination")
-			}
-			p.Headers.Enabled = configBool(overlay, "security.headers.enabled")
-			p.Headers.ContentTypeOptions = configBool(overlay, "security.headers.content_type_options")
-			p.Headers.FrameOptions = valueOf(overlay, "security.headers.frame_options")
-			p.Headers.ReferrerPolicy = valueOf(overlay, "security.headers.referrer_policy")
-			p.Headers.ContentSecurityPolicy = valueOf(overlay, "security.headers.content_security_policy")
-			p.Headers.ContentSecurityPolicyReportOnly = valueOf(overlay, "security.headers.content_security_policy_report_only")
-			p.Headers.PermissionsPolicy = valueOf(overlay, "security.headers.permissions_policy")
-			p.Headers.HSTS.Enabled = configBool(overlay, "security.headers.hsts.enabled")
-			p.Headers.HSTS.IncludeSubdomains = configBool(overlay, "security.headers.hsts.include_subdomains")
-			p.Headers.HSTS.Preload = configBool(overlay, "security.headers.hsts.preload")
-			duration, err := parseConfigDuration(overlay, "security.headers.hsts.max_age")
-			if err != nil {
-				return err
-			}
-			p.Headers.HSTS.MaxAge = duration
-			return nil
-		},
-		Scaffold: []configbind.ScaffoldField{
-			{Key: "headers.enabled", Kind: configbind.ScaffoldBool, Default: "true"},
-			{Key: "headers.content_type_options", Kind: configbind.ScaffoldBool, Default: "true"},
-			{Key: "headers.frame_options", Kind: configbind.ScaffoldString, Default: "deny"},
-			{Key: "headers.referrer_policy", Kind: configbind.ScaffoldString, Default: "strict-origin-when-cross-origin"},
-			{Key: "headers.content_security_policy", Kind: configbind.ScaffoldString, Env: "-"},
-			{Key: "headers.content_security_policy_report_only", Kind: configbind.ScaffoldString, Env: "-"},
-			{Key: "headers.permissions_policy", Kind: configbind.ScaffoldString, Env: "-"},
-			{Key: "headers.hsts.enabled", Kind: configbind.ScaffoldBool, Default: "false"},
-			{Key: "headers.hsts.max_age", Kind: configbind.ScaffoldString, Default: "0s"},
-			{Key: "headers.hsts.include_subdomains", Kind: configbind.ScaffoldBool, Default: "false"},
-			{Key: "headers.hsts.preload", Kind: configbind.ScaffoldBool, Default: "false"},
-		},
-	})
-}
-
-func registerSessionConfig() {
-	const typeName = "github.com/shibukawa/popcornwave/pw.SessionConfig"
-	// The list-valued rotation key carries no scalar default.
-	defaults := map[string]string{
-		"session.enabled":             "false",
-		"session.backend":             SessionBackendRDB,
-		"session.ttl":                 "24h",
-		"session.idle_timeout":        "0s",
-		"session.renewal_interval":    "0s",
-		"session.cookie.name":         "pw_session",
-		"session.cookie.path":         "/",
-		"session.cookie.domain":       "",
-		"session.cookie.secure":       "true",
-		"session.cookie.http_only":    "true",
-		"session.cookie.same_site":    "lax",
-		"session.rdb.source":          "middleware",
-		"session.rdb.group":           "",
-		"session.rdb.dsn":             "",
-		"session.rdb.table":           "popcornwave_session",
-		"session.cookie_store.name":   session.DefaultDataCookieName,
-		"session.cookie_store.secret": "",
-		// The key prefix repeats plugin/session/redis DefaultKeyPrefix as a
-		// literal, the way rdb.table does: pw declares the keys of a backend
-		// without importing it.
-		"session.redis.dsn":             "",
-		"session.redis.key_prefix":      "pw:session:",
-		"session.redis.connect_timeout": "5s",
-	}
-	keys := make([]string, 0, len(defaults)+1)
-	for key := range defaults {
-		keys = append(keys, key)
-	}
-	keys = append(keys, "session.cookie_store.previous_secrets")
-	sort.Strings(keys)
-	configbind.Register[SessionConfig](configbind.Definition{
-		TypeName:  typeName,
-		Prefix:    "session",
-		KnownKeys: keys,
-		Defaults:  defaults,
-		FlagMetas: []cliparser.FieldMeta{
-			{Prefix: "session", Key: "enabled", Kind: cliparser.KindBool},
-			{Prefix: "session", Key: "backend", Help: "session storage backend"},
-			{Prefix: "session", Key: "ttl", Help: "absolute session lifetime"},
-			{Prefix: "session", Key: "idle_timeout", Help: "inactivity expiry; zero disables it"},
-			{Prefix: "session", Key: "renewal_interval", Help: "minimum interval between idle expiry renewals"},
-			{Prefix: "session", Key: "cookie.name"},
-			{Prefix: "session", Key: "cookie.path"},
-			{Prefix: "session", Key: "cookie.domain"},
-			{Prefix: "session", Key: "cookie.secure", Kind: cliparser.KindBool},
-			{Prefix: "session", Key: "cookie.http_only", Kind: cliparser.KindBool},
-			{Prefix: "session", Key: "cookie.same_site"},
-			{Prefix: "session", Key: "rdb.source", Help: "middleware reuses middleware.rdb; dedicated opens rdb.dsn"},
-			{Prefix: "session", Key: "rdb.group", Help: "middleware connection group holding the session table"},
-			{Prefix: "session", Key: "rdb.dsn", Help: "dedicated session database DSN"},
-			{Prefix: "session", Key: "rdb.table"},
-			{Prefix: "session", Key: "cookie_store.name", Help: "cookie holding the sealed record"},
-			{
-				Prefix: "session", Key: "cookie_store.secret",
-				Env:  "SESSION_COOKIE_STORE_SECRET",
-				Help: "base64 secret sealing cookie-backed records",
-			},
-			{
-				Prefix: "session", Key: "cookie_store.previous_secrets", Kind: cliparser.KindArray,
-				Help: "retired secrets kept readable during a rotation",
-			},
-			{Prefix: "session", Key: "redis.dsn", Env: "SESSION_REDIS_DSN", Help: "redis:// or rediss:// session server"},
-			{Prefix: "session", Key: "redis.key_prefix", Help: "key space owned by the session store"},
-			{Prefix: "session", Key: "redis.connect_timeout", Help: "startup ping and per-command deadline"},
-		},
-		Apply: func(dst any, overlay *configbind.Overlay) error {
-			p, ok := dst.(*SessionConfig)
-			if !ok || p == nil {
-				return fmt.Errorf("configbind: bad SessionConfig destination")
-			}
-			p.Enabled = configBool(overlay, "session.enabled")
-			p.Backend = valueOf(overlay, "session.backend")
-			var err error
-			for key, target := range map[string]*time.Duration{
-				"ttl":                   &p.TTL,
-				"idle_timeout":          &p.IdleTimeout,
-				"renewal_interval":      &p.RenewalInterval,
-				"redis.connect_timeout": &p.Redis.ConnectTimeout,
-			} {
-				*target, err = parseConfigDuration(overlay, "session."+key)
-				if err != nil {
-					return err
-				}
-			}
-			p.Cookie = SessionCookieConfig{
-				Name:     valueOf(overlay, "session.cookie.name"),
-				Path:     valueOf(overlay, "session.cookie.path"),
-				Domain:   valueOf(overlay, "session.cookie.domain"),
-				Secure:   configBool(overlay, "session.cookie.secure"),
-				HTTPOnly: configBool(overlay, "session.cookie.http_only"),
-				SameSite: valueOf(overlay, "session.cookie.same_site"),
-			}
-			p.RDB = SessionRDBConfig{
-				Source: valueOf(overlay, "session.rdb.source"),
-				Group:  valueOf(overlay, "session.rdb.group"),
-				DSN:    valueOf(overlay, "session.rdb.dsn"),
-				Table:  valueOf(overlay, "session.rdb.table"),
-			}
-			// ConnectTimeout is already parsed by the duration loop above, so
-			// only the string fields are assigned here.
-			p.Redis.DSN = valueOf(overlay, "session.redis.dsn")
-			p.Redis.KeyPrefix = valueOf(overlay, "session.redis.key_prefix")
-			previous, _ := overlay.GetMulti("session.cookie_store.previous_secrets")
-			p.CookieStore = SessionCookieStoreConfig{
-				Name:            valueOf(overlay, "session.cookie_store.name"),
-				Secret:          valueOf(overlay, "session.cookie_store.secret"),
-				PreviousSecrets: previous,
-			}
-			return nil
-		},
-		Scaffold: []configbind.ScaffoldField{
-			{Key: "enabled", Kind: configbind.ScaffoldBool, Default: "false"},
-			{Key: "backend", Kind: configbind.ScaffoldString, Default: "rdb", Help: "session storage backend"},
-			{Key: "ttl", Kind: configbind.ScaffoldString, Default: "24h", Help: "absolute session lifetime"},
-			{Key: "idle_timeout", Kind: configbind.ScaffoldString, Default: "0s", Help: "inactivity expiry; zero disables it"},
-			{Key: "renewal_interval", Kind: configbind.ScaffoldString, Default: "0s", Help: "minimum interval between idle expiry renewals"},
-			{Key: "cookie.name", Kind: configbind.ScaffoldString, Default: "pw_session"},
-			{Key: "cookie.path", Kind: configbind.ScaffoldString, Default: "/"},
-			{Key: "cookie.domain", Kind: configbind.ScaffoldString, Default: ""},
-			{Key: "cookie.secure", Kind: configbind.ScaffoldBool, Default: "true", Help: "disable only for loopback development"},
-			{Key: "cookie.http_only", Kind: configbind.ScaffoldBool, Default: "true"},
-			{Key: "cookie.same_site", Kind: configbind.ScaffoldString, Default: "lax"},
-			{Key: "rdb.source", Kind: configbind.ScaffoldString, Default: "middleware", Help: "middleware reuses middleware.rdb; dedicated opens rdb.dsn"},
-			{Key: "rdb.group", Kind: configbind.ScaffoldString, Default: "", Help: "middleware connection group holding the session table"},
-			{Key: "rdb.dsn", Kind: configbind.ScaffoldString, Default: "", Help: "dedicated session database DSN"},
-			{Key: "rdb.table", Kind: configbind.ScaffoldString, Default: "popcornwave_session"},
-			{Key: "cookie_store.name", Kind: configbind.ScaffoldString, Default: session.DefaultDataCookieName},
-			{
-				Key: "cookie_store.secret", Kind: configbind.ScaffoldString, Default: "",
-				Help: "backend = cookie only; openssl rand -base64 32, kept in the environment",
-			},
-			{
-				Key: "redis.dsn", Kind: configbind.ScaffoldString, Default: "",
-				Help: "backend = redis only; redis:// or rediss:// URL",
-			},
-			{Key: "redis.key_prefix", Kind: configbind.ScaffoldString, Default: "pw:session:"},
-			{Key: "redis.connect_timeout", Kind: configbind.ScaffoldString, Default: "5s"},
-		},
-	})
-}
-
-func registerObservabilityConfig() {
-	const typeName = "github.com/shibukawa/popcornwave/pw.ObservabilityConfig"
-	configbind.Register[ObservabilityConfig](configbind.Definition{
-		TypeName: typeName,
-		Prefix:   "observability",
-		KnownKeys: []string{
-			"observability.minimum_level", "observability.service_name", "observability.boot_log",
-			"observability.query.enabled", "observability.query.level",
-			"observability.query.slow_threshold", "observability.query.slow_level",
-			"observability.query.bind_values", "observability.query.explain",
-			"observability.query.reproduction",
-			"observability.query.max_sql_length", "observability.query.max_value_length",
-		},
-		Defaults: map[string]string{
-			"observability.minimum_level": "info", "observability.service_name": "",
-			"observability.boot_log":               BootLogAuto,
-			"observability.query.enabled":          QueryToggleAuto,
-			"observability.query.level":            "info",
-			"observability.query.slow_threshold":   defaultQuerySlowThreshold.String(),
-			"observability.query.slow_level":       "warn",
-			"observability.query.bind_values":      QueryToggleAuto,
-			"observability.query.explain":          "true",
-			"observability.query.reproduction":     "true",
-			"observability.query.max_sql_length":   strconv.Itoa(defaultQueryMaxSQLLength),
-			"observability.query.max_value_length": strconv.Itoa(defaultQueryMaxValueLength),
-		},
-		FlagMetas: []cliparser.FieldMeta{
-			{Prefix: "observability", Key: "minimum_level"},
-			{Prefix: "observability", Key: "service_name", Env: "OTEL_SERVICE_NAME"},
-			{Prefix: "observability", Key: "boot_log"},
-			{Prefix: "observability.query", Key: "enabled"},
-			{Prefix: "observability.query", Key: "level"},
-			{Prefix: "observability.query", Key: "slow_threshold"},
-			{Prefix: "observability.query", Key: "slow_level"},
-			{Prefix: "observability.query", Key: "bind_values"},
-			{Prefix: "observability.query", Key: "explain", Kind: cliparser.KindBool},
-			{Prefix: "observability.query", Key: "reproduction", Kind: cliparser.KindBool},
-			{Prefix: "observability.query", Key: "max_sql_length"},
-			{Prefix: "observability.query", Key: "max_value_length"},
-		},
-		Apply: func(dst any, overlay *configbind.Overlay) error {
-			p := dst.(*ObservabilityConfig)
-			p.MinimumLevel, _ = overlay.GetString("observability.minimum_level")
-			p.ServiceName, _ = overlay.GetString("observability.service_name")
-			p.BootLog, _ = overlay.GetString("observability.boot_log")
-			p.Query.Enabled = valueOf(overlay, "observability.query.enabled")
-			p.Query.Level = valueOf(overlay, "observability.query.level")
-			p.Query.SlowLevel = valueOf(overlay, "observability.query.slow_level")
-			p.Query.BindValues = valueOf(overlay, "observability.query.bind_values")
-			p.Query.Explain = configBool(overlay, "observability.query.explain")
-			p.Query.Reproduction = configBool(overlay, "observability.query.reproduction")
-			var err error
-			p.Query.SlowThreshold, err = parseConfigDuration(overlay, "observability.query.slow_threshold")
-			if err != nil {
-				return err
-			}
-			p.Query.MaxSQLLength, err = parseConfigInt(overlay, "observability.query.max_sql_length")
-			if err != nil {
-				return err
-			}
-			p.Query.MaxValueLength, err = parseConfigInt(overlay, "observability.query.max_value_length")
-			return err
-		},
-		Scaffold: []configbind.ScaffoldField{
-			{Key: "minimum_level", Kind: configbind.ScaffoldString, Default: "info"},
-			{Key: "service_name", Kind: configbind.ScaffoldString, Default: "", Env: "OTEL_SERVICE_NAME"},
-			{Key: "boot_log", Kind: configbind.ScaffoldString, Default: BootLogAuto, Help: "startup summary: auto, tree, record, or off"},
-			{Key: "query.enabled", Kind: configbind.ScaffoldString, Default: QueryToggleAuto, Help: "log every generated SQL statement: auto, on, or off; auto is on in dev"},
-			{Key: "query.level", Kind: configbind.ScaffoldString, Default: "info"},
-			{Key: "query.slow_threshold", Kind: configbind.ScaffoldString, Default: defaultQuerySlowThreshold.String(), Help: "duration above which a statement is explained; zero disables it"},
-			{Key: "query.slow_level", Kind: configbind.ScaffoldString, Default: "warn"},
-			{Key: "query.bind_values", Kind: configbind.ScaffoldString, Default: QueryToggleAuto, Help: "log argument values: auto, on, or off; auto is on in dev"},
-			{Key: "query.explain", Kind: configbind.ScaffoldBool, Default: "true", Help: "capture a plan-only EXPLAIN for a slow statement"},
-			{Key: "query.reproduction", Kind: configbind.ScaffoldBool, Default: "true", Help: "emit a paste-able rerun snippet for a slow statement"},
-			{Key: "query.max_sql_length", Kind: configbind.ScaffoldInt, Default: strconv.Itoa(defaultQueryMaxSQLLength)},
-			{Key: "query.max_value_length", Kind: configbind.ScaffoldInt, Default: strconv.Itoa(defaultQueryMaxValueLength)},
-		},
-	})
-}
-
-func registerMiddlewareConfig() {
-	const typeName = "github.com/shibukawa/popcornwave/pw.MiddlewareConfig"
-	configbind.Register[MiddlewareConfig](configbind.Definition{
-		TypeName: typeName,
-		Prefix:   "middleware",
-		KnownKeys: []string{
-			"middleware.recovery", "middleware.request_id", "middleware.access_log",
-			"middleware.compression", "middleware.request_timeout",
-			"middleware.rdb.enabled", "middleware.rdb.dsn",
-			"middleware.rdb.connect_timeout",
-			"middleware.rdb.max_open_conns", "middleware.rdb.max_idle_conns",
-			"middleware.rdb.conn_max_lifetime", "middleware.rdb.conn_max_idle_time",
-			"middleware.rdb.default_group", "middleware.rdb.write_group",
-			"middleware.rdb.migration_group",
-		},
-		Defaults: map[string]string{
-			"middleware.recovery": "true", "middleware.request_id": "true",
-			"middleware.access_log": "true", "middleware.compression": "false",
-			"middleware.request_timeout": "0s",
-			"middleware.rdb.enabled":     "false", "middleware.rdb.dsn": "",
-			"middleware.rdb.connect_timeout": "5s",
-			"middleware.rdb.max_open_conns":  "0", "middleware.rdb.max_idle_conns": "0",
-			"middleware.rdb.conn_max_lifetime": "0s", "middleware.rdb.conn_max_idle_time": "0s",
-			"middleware.rdb.default_group": "", "middleware.rdb.write_group": "",
-			"middleware.rdb.migration_group": "",
-		},
-		FlagMetas: []cliparser.FieldMeta{
-			{Prefix: "middleware", Key: "recovery", Kind: cliparser.KindBool},
-			{Prefix: "middleware", Key: "request_id", Kind: cliparser.KindBool},
-			{Prefix: "middleware", Key: "access_log", Kind: cliparser.KindBool},
-			{Prefix: "middleware", Key: "compression", Kind: cliparser.KindBool},
-			{Prefix: "middleware", Key: "request_timeout"},
-			{Prefix: "middleware.rdb", Key: "enabled", Kind: cliparser.KindBool},
-			{Prefix: "middleware.rdb", Key: "dsn"},
-			{Prefix: "middleware.rdb", Key: "connect_timeout"},
-			{Prefix: "middleware.rdb", Key: "max_open_conns"},
-			{Prefix: "middleware.rdb", Key: "max_idle_conns"},
-			{Prefix: "middleware.rdb", Key: "conn_max_lifetime"},
-			{Prefix: "middleware.rdb", Key: "conn_max_idle_time"},
-			{Prefix: "middleware.rdb", Key: "default_group"},
-			{Prefix: "middleware.rdb", Key: "write_group"},
-			{Prefix: "middleware.rdb", Key: "migration_group"},
-		},
-		Apply: func(dst any, overlay *configbind.Overlay) error {
-			p, ok := dst.(*MiddlewareConfig)
-			if !ok || p == nil {
-				return fmt.Errorf("configbind: bad MiddlewareConfig destination")
-			}
-			p.Recovery = configBool(overlay, "middleware.recovery")
-			p.RequestID = configBool(overlay, "middleware.request_id")
-			p.AccessLog = configBool(overlay, "middleware.access_log")
-			p.Compression = configBool(overlay, "middleware.compression")
-			var err error
-			p.RequestTimeout, err = parseConfigDuration(overlay, "middleware.request_timeout")
-			if err != nil {
-				return err
-			}
-			p.RDB.Enabled = configBool(overlay, "middleware.rdb.enabled")
-			p.RDB.DSN = valueOf(overlay, "middleware.rdb.dsn")
-			p.RDB.ConnectTimeout, err = parseConfigDuration(overlay, "middleware.rdb.connect_timeout")
-			if err != nil {
-				return err
-			}
-			p.RDB.MaxOpenConns, err = parseConfigInt(overlay, "middleware.rdb.max_open_conns")
-			if err != nil {
-				return err
-			}
-			p.RDB.MaxIdleConns, err = parseConfigInt(overlay, "middleware.rdb.max_idle_conns")
-			if err != nil {
-				return err
-			}
-			p.RDB.ConnMaxLifetime, err = parseConfigDuration(overlay, "middleware.rdb.conn_max_lifetime")
-			if err != nil {
-				return err
-			}
-			p.RDB.ConnMaxIdleTime, err = parseConfigDuration(overlay, "middleware.rdb.conn_max_idle_time")
-			if err != nil {
-				return err
-			}
-			p.RDB.DefaultGroup = valueOf(overlay, "middleware.rdb.default_group")
-			p.RDB.WriteGroup = valueOf(overlay, "middleware.rdb.write_group")
-			p.RDB.MigrationGroup = valueOf(overlay, "middleware.rdb.migration_group")
-			p.RDB.Connections, err = applyRDBConnections(overlay)
-			return err
-		},
-		Scaffold: []configbind.ScaffoldField{
-			{Key: "recovery", Kind: configbind.ScaffoldBool, Default: "true"},
-			{Key: "request_id", Kind: configbind.ScaffoldBool, Default: "true"},
-			{Key: "access_log", Kind: configbind.ScaffoldBool, Default: "true"},
-			{Key: "compression", Kind: configbind.ScaffoldBool, Default: "false"},
-			{Key: "request_timeout", Kind: configbind.ScaffoldString, Default: "0s"},
-			{Key: "rdb.enabled", Kind: configbind.ScaffoldBool, Default: "false"},
-			{Key: "rdb.dsn", Kind: configbind.ScaffoldString, Default: ""},
-			{Key: "rdb.connect_timeout", Kind: configbind.ScaffoldString, Default: "5s"},
-			{Key: "rdb.max_open_conns", Kind: configbind.ScaffoldInt, Default: "0"},
-			{Key: "rdb.max_idle_conns", Kind: configbind.ScaffoldInt, Default: "0"},
-			{Key: "rdb.conn_max_lifetime", Kind: configbind.ScaffoldString, Default: "0s"},
-			{Key: "rdb.conn_max_idle_time", Kind: configbind.ScaffoldString, Default: "0s"},
-			{Key: "rdb.default_group", Kind: configbind.ScaffoldString, Default: "", Help: "connection group serving statements that pin no group"},
-			{Key: "rdb.write_group", Kind: configbind.ScaffoldString, Default: "", Help: "connection group serving framework-owned writes"},
-			{Key: "rdb.migration_group", Kind: configbind.ScaffoldString, Default: "", Help: "connection group receiving migrations and seeds; defaults to write_group"},
-			{
-				Key:  "rdb.connections",
-				Kind: configbind.ScaffoldTableArray,
-				Help: "one element per pool; use instead of rdb.dsn for a reader-writer topology",
-				Nested: []configbind.ScaffoldField{
-					{Key: "group", Kind: configbind.ScaffoldString, Default: "", Help: "group name, such as writer or replica"},
-					{Key: "dsn", Kind: configbind.ScaffoldString, Default: ""},
-					{Key: "readonly", Kind: configbind.ScaffoldBool, Default: "false", Help: "a replica: read-only transactions, never a framework write"},
-					{Key: "connect_timeout", Kind: configbind.ScaffoldString, Default: defaultRDBConnectTimeout},
-					{Key: "max_open_conns", Kind: configbind.ScaffoldInt, Default: "0"},
-					{Key: "max_idle_conns", Kind: configbind.ScaffoldInt, Default: "0"},
-					{Key: "conn_max_lifetime", Kind: configbind.ScaffoldString, Default: "0s"},
-					{Key: "conn_max_idle_time", Kind: configbind.ScaffoldString, Default: "0s"},
-				},
-			},
-		},
-	})
-}
-
-// defaultRDBConnectTimeout is the per-connection default. An array element
-// takes no value from the enclosing table, so the default is applied here.
-const defaultRDBConnectTimeout = "5s"
-
-// applyRDBConnections reads the [[middleware.rdb.connections]] elements.
-//
-// configbind supplies no defaults inside an array of tables, so each element
-// starts from the documented zero values and overrides only what the file set.
-func applyRDBConnections(overlay *configbind.Overlay) ([]RDBConnectionConfig, error) {
-	tables, ok := overlay.GetTables("middleware.rdb.connections")
-	if !ok || len(tables) == 0 {
-		return nil, nil
-	}
-	connections := make([]RDBConnectionConfig, 0, len(tables))
-	for index, table := range tables {
-		connection := RDBConnectionConfig{
-			Group:    strings.TrimSpace(valueOf(table, "group")),
-			DSN:      strings.TrimSpace(valueOf(table, "dsn")),
-			ReadOnly: configBool(table, "readonly"),
-		}
-		element := fmt.Sprintf("middleware.rdb.connections[%d]", index)
-		var err error
-		if connection.ConnectTimeout, err = elementDuration(table, element, "connect_timeout", defaultRDBConnectTimeout); err != nil {
-			return nil, err
-		}
-		if connection.MaxOpenConns, err = elementInt(table, element, "max_open_conns"); err != nil {
-			return nil, err
-		}
-		if connection.MaxIdleConns, err = elementInt(table, element, "max_idle_conns"); err != nil {
-			return nil, err
-		}
-		if connection.ConnMaxLifetime, err = elementDuration(table, element, "conn_max_lifetime", "0s"); err != nil {
-			return nil, err
-		}
-		if connection.ConnMaxIdleTime, err = elementDuration(table, element, "conn_max_idle_time", "0s"); err != nil {
-			return nil, err
-		}
-		connections = append(connections, connection)
-	}
-	return connections, nil
-}
-
-func elementDuration(table *configbind.Overlay, element, key, fallback string) (time.Duration, error) {
-	raw, ok := table.GetString(key)
-	if !ok || strings.TrimSpace(raw) == "" {
-		raw = fallback
-	}
-	duration, err := time.ParseDuration(raw)
-	if err != nil {
-		return 0, fmt.Errorf("%s.%s: %w", element, key, err)
-	}
-	return duration, nil
-}
-
-func elementInt(table *configbind.Overlay, element, key string) (int, error) {
-	raw, ok := table.GetString(key)
-	if !ok || strings.TrimSpace(raw) == "" {
-		return 0, nil
-	}
-	value, err := strconv.Atoi(raw)
-	if err != nil {
-		return 0, fmt.Errorf("%s.%s: %w", element, key, err)
-	}
-	return value, nil
-}
-
-func applyEndpointConfig(overlay *configbind.Overlay, prefix string, target *EndpointConfig) error {
-	target.Enabled = configBool(overlay, prefix+".enabled")
-	target.Path = valueOf(overlay, prefix+".path")
-	return nil
 }
 
 func parseConfigDuration(overlay *configbind.Overlay, key string) (time.Duration, error) {

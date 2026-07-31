@@ -230,7 +230,8 @@ func TestRun(t TestingT, handler http.Handler, customize func(*Config), options 
 		if db == nil {
 			return fmt.Errorf("configured RDB is disabled")
 		}
-		return installMigrations(context.Background(), db, settings.migration)
+		dsn := Get[pw.MiddlewareConfig](config).RDB.DSN
+		return installMigrations(context.Background(), db, dsn, settings.migration)
 	}
 	prepared, err := pwtestbridge.Prepare(handler, config.values, pwtestbridge.Options{
 		Transaction: settings.transaction, PrepareDatabase: prepareDatabase,

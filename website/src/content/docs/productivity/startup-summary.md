@@ -62,6 +62,6 @@ the summary is emitted after initialization, without the `listening` line.
 Keys containing `secret`, `password`, `token`, `credential`, `dsn`, or
 `private_key` appear as `[REDACTED]` in both formats.
 
-See [Configuration](/guides/configuration/) for where these values come from,
+See [Configuration](/guides/architecture/configuration/) for where these values come from,
 and [Query Diagnostics](/productivity/query-diagnostics/) for the same idea
 applied to SQL.

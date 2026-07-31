@@ -1,15 +1,13 @@
 package pw
 
 import (
-	"log/slog"
 	"os"
-	"sort"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
-	"unicode/utf8"
 
+	"github.com/shibukawa/popcornwave/internal/pwtree"
 	"github.com/shibukawa/tinybind-go/configbind"
 )
 
@@ -30,7 +28,9 @@ const (
 // bootMessage is the stable message of the structured startup record.
 const bootMessage = "popcornwave started"
 
-const redactedValue = "[REDACTED]"
+// redactedValue matches the mask configbind applies to the keys it recognizes
+// as sensitive, so a summary never shows two different marks for one idea.
+const redactedValue = "*****"
 
 type bootEntry struct {
 	key    string
@@ -59,37 +59,34 @@ func captureBootReport(result *configbind.LoadResult) {
 	report := bootReport{startedAt: time.Now(), environment: Env()}
 	if result != nil {
 		report.configPath, report.configFound = result.ConfigPath, result.FoundFile
-		report.entries = bootEntries(result.Overlay)
+		report.entries = bootEntries(result)
 	}
 	bootState.Lock()
 	bootState.report, bootState.emitted = report, false
 	bootState.Unlock()
 }
 
-func bootEntries(overlay *configbind.Overlay) []bootEntry {
-	if overlay == nil {
+// bootEntries takes the keys configbind considers worth reporting: already in
+// registration then declaration order, already stripped of the settings a
+// disabled parent made irrelevant, and already masked. Redaction is a secret
+// tag or a recognized key name, so it is decided where the field is declared
+// rather than guessed again here.
+func bootEntries(result *configbind.LoadResult) []bootEntry {
+	if result == nil || result.Overlay == nil {
 		return nil
 	}
-	keys := overlay.Keys()
-	sort.Strings(keys)
-	entries := make([]bootEntry, 0, len(keys))
-	for _, key := range keys {
-		entry, ok := overlay.Get(key)
-		if !ok {
-			continue
-		}
+	reported := result.Provenance()
+	entries := make([]bootEntry, 0, len(reported))
+	for _, key := range reported {
 		// An array of tables has no scalar form, so each element is reported
 		// under its own indexed key. Otherwise a connection set would show up as
-		// one empty line.
-		if entry.IsTables {
-			entries = append(entries, tableArrayEntries(key, entry)...)
+		// one empty line. Provenance has no per-element view, so the masking it
+		// applies to scalars is repeated for the elements.
+		if entry, ok := result.Overlay.Get(key.Key); ok && entry.IsTables {
+			entries = append(entries, tableArrayEntries(key.Key, entry)...)
 			continue
 		}
-		value := entry.Raw
-		if isSecretKey(key) {
-			value = redactedValue
-		}
-		entries = append(entries, bootEntry{key: key, value: value, source: string(entry.Place)})
+		entries = append(entries, bootEntry{key: key.Key, value: key.Value, source: string(key.Place)})
 	}
 	return entries
 }
@@ -128,7 +125,7 @@ func emitBootReport(listening string) {
 	case BootLogTree:
 		_, _ = os.Stderr.WriteString(renderBootTree(report, listening, bootStyleFor(os.Stderr)))
 	default:
-		slog.Info(bootMessage, bootRecordAttrs(report, listening)...)
+		processLogger().Info(bootMessage, bootRecordAttrs(report, listening)...)
 	}
 }
 
@@ -161,66 +158,15 @@ func isTerminal(file *os.File) bool {
 	return info.Mode()&os.ModeCharDevice != 0
 }
 
-// bootNode is one level of the dotted configuration key space.
-type bootNode struct {
-	name     string
-	entry    *bootEntry
-	children []*bootNode
-	index    map[string]*bootNode
-}
-
-func (node *bootNode) child(name string) *bootNode {
-	if existing, ok := node.index[name]; ok {
-		return existing
+// bootTreeEntries hands the reported keys to the shared layout. api:cli-doctor
+// renders the same shape from the same package, so the two summaries a reader
+// sees cannot drift apart.
+func bootTreeEntries(entries []bootEntry) []pwtree.Entry {
+	converted := make([]pwtree.Entry, 0, len(entries))
+	for _, entry := range entries {
+		converted = append(converted, pwtree.Entry{Key: entry.key, Value: entry.value, Source: entry.source})
 	}
-	created := &bootNode{name: name, index: map[string]*bootNode{}}
-	node.index[name] = created
-	node.children = append(node.children, created)
-	return created
-}
-
-func buildBootTree(entries []bootEntry) *bootNode {
-	root := &bootNode{index: map[string]*bootNode{}}
-	for index := range entries {
-		node := root
-		for _, part := range strings.Split(entries[index].key, ".") {
-			node = node.child(part)
-		}
-		node.entry = &entries[index]
-	}
-	return root
-}
-
-type bootLine struct {
-	label string
-	// column is where the value starts, so that keys sharing a parent line up
-	// with each other instead of with the deepest key in the whole tree.
-	column int
-	// valueWidth is the widest value among those siblings, so their source
-	// marks form a column of their own.
-	valueWidth int
-	entry      *bootEntry
-}
-
-func bootLines(node *bootNode, prefix string, lines []bootLine) []bootLine {
-	column, valueWidth := 0, 0
-	for _, child := range node.children {
-		if child.entry != nil {
-			column = max(column, utf8.RuneCountInString(prefix+"├─ "+child.name)+2)
-			valueWidth = max(valueWidth, utf8.RuneCountInString(bootDisplayValue(child.entry.value)))
-		}
-	}
-	for index, child := range node.children {
-		branch, indent := "├─ ", prefix+"│  "
-		if index == len(node.children)-1 {
-			branch, indent = "└─ ", prefix+"   "
-		}
-		lines = append(lines, bootLine{
-			label: prefix + branch + child.name, column: column, valueWidth: valueWidth, entry: child.entry,
-		})
-		lines = bootLines(child, indent, lines)
-	}
-	return lines
+	return converted
 }
 
 // renderBootTree formats the whole startup summary: banner, configuration
@@ -231,23 +177,11 @@ func renderBootTree(report bootReport, listening string, style bootStyle) string
 		out.WriteString(line)
 		out.WriteByte('\n')
 	}
-	lines := bootLines(buildBootTree(report.entries), "", nil)
+	lines := pwtree.Lines(bootTreeEntries(report.entries))
 	if len(lines) > 0 {
 		out.WriteString(style.dim("configuration") + "\n")
 	}
-	for _, line := range lines {
-		out.WriteString(line.label)
-		if line.entry != nil {
-			value := bootDisplayValue(line.entry.value)
-			out.WriteString(strings.Repeat(" ", line.column-utf8.RuneCountInString(line.label)))
-			out.WriteString(value)
-			if source := bootSourceTag(line.entry.source); source != "" {
-				out.WriteString(strings.Repeat(" ", line.valueWidth-utf8.RuneCountInString(value)))
-				out.WriteString(style.dim("  ← " + source))
-			}
-		}
-		out.WriteByte('\n')
-	}
+	pwtree.Render(&out, lines, bootSourceTag, style.dim)
 	if listening != "" {
 		out.WriteString("\nlistening on " + style.bold(listening) + "\n")
 	}
@@ -319,43 +253,33 @@ func bootSourceTag(source string) string {
 	}
 }
 
-// bootRecordAttrs renders the same facts as one structured record: nested
-// groups for values, a flat group naming every non-default source.
-func bootRecordAttrs(report bootReport, listening string) []any {
-	attrs := []any{
-		slog.String("environment", report.environment),
-		slog.Time("started_at", report.startedAt),
+// bootRecordAttrs renders the same facts as one structured record.
+//
+// Nesting is expressed with dotted keys rather than groups, because a record
+// attribute is a scalar: the same record has to survive OTLP export, where a
+// nested group has no representation, and "config.server.port" reads the same
+// in a terminal as a group would.
+func bootRecordAttrs(report bootReport, listening string) []Attribute {
+	attrs := []Attribute{
+		String("environment", report.environment),
+		String("started_at", report.startedAt.Format(time.RFC3339Nano)),
 	}
 	if version := frameworkVersion(); version != "" {
-		attrs = append(attrs, slog.String("version", version))
+		attrs = append(attrs, String("version", version))
 	}
 	if report.configFound && report.configPath != "" {
-		attrs = append(attrs, slog.String("config_file", report.configPath))
+		attrs = append(attrs, String("config_file", report.configPath))
 	}
 	if listening != "" {
-		attrs = append(attrs, slog.String("listening", listening))
+		attrs = append(attrs, String("listening", listening))
 	}
-	attrs = append(attrs, slog.Group("config", bootConfigAttrs(buildBootTree(report.entries))...))
-	sources := make([]any, 0, len(report.entries))
+	for _, entry := range report.entries {
+		attrs = append(attrs, String("config."+entry.key, entry.value))
+	}
 	for _, entry := range report.entries {
 		if tag := bootSourceTag(entry.source); tag != "" {
-			sources = append(sources, slog.String(entry.key, tag))
+			attrs = append(attrs, String("config_source."+entry.key, tag))
 		}
-	}
-	if len(sources) > 0 {
-		attrs = append(attrs, slog.Group("config_source", sources...))
-	}
-	return attrs
-}
-
-func bootConfigAttrs(node *bootNode) []any {
-	attrs := make([]any, 0, len(node.children))
-	for _, child := range node.children {
-		if child.entry != nil {
-			attrs = append(attrs, slog.String(child.name, child.entry.value))
-			continue
-		}
-		attrs = append(attrs, slog.Group(child.name, bootConfigAttrs(child)...))
 	}
 	return attrs
 }

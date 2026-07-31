@@ -13,6 +13,7 @@ import (
 
 	"github.com/shibukawa/popcornwave/internal/pwgen"
 	"github.com/shibukawa/tinybind-go/generator"
+	"github.com/shibukawa/tinybind-go/templates/sqlbind"
 )
 
 // allPurposes is the scope of a directory every purpose lists, which is what
@@ -40,12 +41,12 @@ SELECT id, name FROM users WHERE id = {id}
 }
 `)
 
-	options, err := pwgen.Options()
+	options, err := pwgen.Options(sqlbind.DialectPostgreSQL)
 	if err != nil {
 		t.Fatal(err)
 	}
 	runner := generator.New(options)
-	changes, err := planDirectory(context.Background(), runner, directory, allPurposes)
+	changes, err := planDirectory(context.Background(), runner, directory, allPurposes, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -73,7 +74,7 @@ SELECT id, name FROM users WHERE id = {id}
 	if err := applyFileChanges(changes); err != nil {
 		t.Fatal(err)
 	}
-	changes, err = planDirectory(context.Background(), runner, directory, allPurposes)
+	changes, err = planDirectory(context.Background(), runner, directory, allPurposes, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -83,7 +84,7 @@ SELECT id, name FROM users WHERE id = {id}
 
 	stale := filepath.Join(directory, "obsolete_pw_gen.go")
 	writeTestFile(t, stale, "package fixture\n")
-	changes, err = planDirectory(context.Background(), runner, directory, allPurposes)
+	changes, err = planDirectory(context.Background(), runner, directory, allPurposes, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -145,11 +146,11 @@ export component Document(children: html?): html {
 <!doctype html><html><body><slot /></body></html>
 }
 `)
-	options, err := pwgen.Options()
+	options, err := pwgen.Options(sqlbind.DialectPostgreSQL)
 	if err != nil {
 		t.Fatal(err)
 	}
-	changes, err := planDirectory(context.Background(), generator.New(options), directory, allPurposes)
+	changes, err := planDirectory(context.Background(), generator.New(options), directory, allPurposes, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

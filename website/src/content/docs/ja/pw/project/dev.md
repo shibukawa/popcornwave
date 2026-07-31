@@ -67,7 +67,7 @@ CSS を作ります。minify がループの中で最も遅い部分だからで
 フォールバックします。
 
 `tailwindcss` は `PATH` 上にある必要があります。そのための `devbox shell` です。
-[スタイリング](/ja/guides/styling/)を参照。
+[スタイリング](/ja/guides/frontend/styling/)を参照。
 
 ## マイグレーション
 

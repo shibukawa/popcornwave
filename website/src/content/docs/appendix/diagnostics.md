@@ -1,0 +1,416 @@
+---
+title: Diagnostics
+description: Every pw doctor finding, what it means, and how to resolve it.
+sidebar:
+  order: 2
+---
+
+`pw doctor` reports one finding per condition, each carrying a stable
+identifier such as `PW0412`. The identifier never changes and is never
+reused, so it can be searched, cited in an issue, and looked up here.
+
+Severity is a function of the environment being diagnosed and nothing else:
+`pw doctor --env=prod` judges the same file more strictly than
+`pw doctor --env=dev` does. A check whose scope excludes the diagnosed
+environment stays silent rather than being softened.
+
+This page is generated from the check catalog. Adding a check adds its entry
+here.
+
+## Project and toolchain (PW01xx)
+
+Whether the project's declared shape, its toolchain, and its generated artifacts still agree with each other.
+
+### PW0101: project.main does not name a main package
+
+- **Severity**: error
+- **Applies to**: every environment
+- **Reads**: project files
+- **Fix**: point project.main at the directory holding func main, or scaffold one with pw new
+
+### PW0102: migration directory is missing
+
+- **Severity**: error
+- **Applies to**: every environment
+- **Reads**: merged configuration, project files
+- **Fix**: run pw add database, which writes the directory and its starter schema
+
+### PW0110: generated file outlived its source
+
+- **Severity**: error
+- **Applies to**: every environment
+- **Reads**: project files
+- **Fix**: delete the generated file
+
+### PW0111: generated file is older than its source
+
+- **Severity**: warning
+- **Applies to**: every environment
+- **Reads**: project files
+- **Fix**: run pw generate
+
+### PW0113: generated sources are neither committed nor ignored
+
+- **Severity**: note
+- **Applies to**: every environment
+- **Reads**: project files
+- **Fix**: commit *_pw_gen.go or add it to .gitignore, so the project says once which it is
+
+### PW0120: devbox Go version disagrees with the go.mod directive
+
+- **Severity**: warning
+- **Applies to**: every environment
+- **Reads**: project files
+- **Fix**: align devbox.json with the go directive, so the shell build and the CI build are one build
+
+### PW0121: pinned TinyGo is below the supported baseline
+
+- **Severity**: error
+- **Applies to**: every environment
+- **Reads**: project files
+- **Fix**: pin tinygo 0.42 or newer in devbox.json
+
+### PW0122: running outside the devbox shell
+
+- **Severity**: note
+- **Applies to**: every environment
+- **Reads**: project files, process environment
+- **Fix**: run devbox shell, so the tools pw dev expects are on PATH
+
+### PW0123: configuration selects a service devbox does not declare
+
+- **Severity**: warning
+- **Applies to**: every environment
+- **Reads**: merged configuration, project files
+- **Fix**: run pw add redis-valkey
+
+### PW0124: Tailwind is enabled without its toolchain or entry point
+
+- **Severity**: error
+- **Applies to**: every environment
+- **Reads**: project files
+- **Fix**: run pw add tailwind, or create the configured CSS entry point
+
+### PW0125: the configured port is already in use
+
+- **Severity**: warning
+- **Applies to**: `dev` only
+- **Reads**: merged configuration
+- **Fix**: stop the process holding it, or set server.port
+
+## Routes and templates (PW02xx)
+
+What the route table says about paths that collide and paths nothing serves. These need a route table `pw generate` does not export yet, so `pw doctor` reports them as not examined.
+
+### PW0201: two registrations share one route pattern
+
+- **Severity**: error
+- **Applies to**: every environment
+- **Reads**: route table
+- **Fix**: remove one registration
+
+### PW0202: an application route collides with an enabled framework mount
+
+- **Severity**: error
+- **Applies to**: every environment
+- **Reads**: merged configuration, route table
+- **Fix**: move the route, or disable the mount with its configuration key
+
+## Storage (PW03xx)
+
+Whether the migration sources are well-formed, and, under `--online`, whether the database still matches them.
+
+### PW0301: two migrations share one version
+
+- **Severity**: error
+- **Applies to**: every environment
+- **Reads**: project files
+- **Fix**: renumber the newer file; never renumber one already applied
+
+### PW0302: the migration version sequence has a gap
+
+- **Severity**: note
+- **Applies to**: every environment
+- **Reads**: project files
+- **Fix**: no action required
+
+### PW0304: the local database path is not writable
+
+- **Severity**: error
+- **Applies to**: every environment
+- **Reads**: merged configuration, project files
+- **Fix**: create the parent directory, or point the DSN elsewhere
+
+### PW0310: the applied migration state was not read
+
+- **Severity**: note
+- **Applies to**: every environment
+- **Reads**: merged configuration
+- **Fix**: run pw doctor --online, or pw migrate status
+
+### PW0311: a configured database connection was refused
+
+- **Severity**: error
+- **Applies to**: every environment
+- **Reads**: merged configuration, network
+- **Fix**: check the DSN, the server, and the network path
+
+### PW0312: the database is behind the migration sources
+
+- **Severity**: warning
+- **Applies to**: every environment
+- **Reads**: merged configuration, network
+- **Fix**: run pw migrate up
+
+## Configuration, secrets, and the identity provider (PW04xx)
+
+Three things go wrong here: wiring the binary does not actually carry, values that are inadvisable for the diagnosed environment, and secrets kept in the wrong place.
+
+### PW0401: selected session backend is not linked
+
+- **Severity**: error
+- **Applies to**: every environment
+- **Reads**: merged configuration, import graph
+- **Fix**: add the blank import of the backend plugin
+
+### PW0402: no database/sql driver answers the configured DSN scheme
+
+- **Severity**: error
+- **Applies to**: every environment
+- **Reads**: merged configuration, import graph
+- **Fix**: add the blank import of the driver package for that scheme
+
+### PW0403: configured key belongs to no linked binding
+
+- **Severity**: error
+- **Applies to**: every environment
+- **Reads**: merged configuration, import graph
+- **Fix**: import the plugin that owns the key, or correct the key
+
+### PW0404: the development identity provider is linked into the application
+
+- **Severity**: error
+- **Applies to**: every environment
+- **Reads**: import graph
+- **Fix**: remove the contrib/devidp import; pw dev runs it as a separate process
+
+### PW0405: a linked plugin is selected by no configuration
+
+- **Severity**: note
+- **Applies to**: every environment
+- **Reads**: merged configuration, import graph
+- **Fix**: drop the import, or select it in configuration
+
+### PW0406: a TinyGo project registers no Netdev
+
+- **Severity**: error
+- **Applies to**: every environment
+- **Reads**: project files
+- **Fix**: restore tinygohelper.go with the tinygodriver/netdev blank import
+
+### PW0407: authentication is enabled without a session store
+
+- **Severity**: error
+- **Applies to**: every environment
+- **Reads**: merged configuration
+- **Fix**: enable session, whose rdb backend holds the login session
+
+### PW0408: the session store reuses a database middleware that is off
+
+- **Severity**: error
+- **Applies to**: every environment
+- **Reads**: merged configuration
+- **Fix**: enable middleware.rdb, or give the session a dedicated source
+
+### PW0409: a framework-owned write resolves to a readonly group
+
+- **Severity**: error
+- **Applies to**: every environment
+- **Reads**: merged configuration
+- **Fix**: name a writable group in middleware.rdb.write_group
+
+### PW0410: the session cookie is not marked secure
+
+- **Severity**: error, and note in `dev`
+- **Applies to**: every environment
+- **Reads**: merged configuration
+- **Fix**: set session.cookie.secure, which is a development-only exception
+
+### PW0411: browser response headers are disabled
+
+- **Severity**: warning, and note in `dev`
+- **Applies to**: every environment except `dev`
+- **Reads**: merged configuration
+- **Fix**: enable security.headers
+
+### PW0412: a secret is set from the configuration file
+
+- **Severity**: error, and note in `dev`
+- **Applies to**: every environment
+- **Reads**: merged configuration, project files
+- **Fix**: move the value to an environment variable, or reference one with ${NAME}
+
+### PW0413: a secret still holds a scaffolded or placeholder value
+
+- **Severity**: error, and warning in `dev`
+- **Applies to**: every environment
+- **Reads**: merged configuration
+- **Fix**: replace it; a scaffold value is published in the framework source
+
+### PW0414: one secret value is shared between environments
+
+- **Severity**: error
+- **Applies to**: every environment
+- **Reads**: merged configuration, other environments' configuration
+- **Fix**: give each environment its own value
+
+### PW0415: a file holding a secret is tracked by version control
+
+- **Severity**: error, and warning in `dev`
+- **Applies to**: every environment
+- **Reads**: project files
+- **Fix**: untrack the file and read the value from the environment instead
+
+### PW0416: a file holding a secret is readable beyond its owner
+
+- **Severity**: warning
+- **Applies to**: every environment
+- **Reads**: project files
+- **Fix**: chmod 600 the file
+
+### PW0420: query diagnostics are enabled outside dev
+
+- **Severity**: warning, and note in `dev`
+- **Applies to**: every environment except `dev`
+- **Reads**: merged configuration
+- **Fix**: set observability.query.enabled to off
+
+### PW0421: query bind values are logged outside dev
+
+- **Severity**: warning, and note in `dev`
+- **Applies to**: every environment except `dev`
+- **Reads**: merged configuration
+- **Fix**: set observability.query.bind_values to off
+
+### PW0422: the log level is below info outside dev
+
+- **Severity**: warning, and note in `dev`
+- **Applies to**: every environment except `dev`
+- **Reads**: merged configuration
+- **Fix**: set observability.minimum_level to info or higher
+
+### PW0423: an in-memory database is configured outside dev
+
+- **Severity**: warning, and note in `dev`
+- **Applies to**: every environment except `dev`
+- **Reads**: merged configuration
+- **Fix**: point the DSN at a durable database; the schema and every row are lost at restart
+
+### PW0424: public assets are served from the local filesystem outside dev
+
+- **Severity**: warning, and note in `dev`
+- **Applies to**: every environment except `dev`
+- **Reads**: merged configuration
+- **Fix**: set server.public.read_local to false; pw dev forces it on its own
+
+### PW0426: logs are plaintext outside dev
+
+- **Severity**: note
+- **Applies to**: every environment except `dev`
+- **Reads**: merged configuration
+- **Fix**: set observability.stdout_format to json for a log collector
+
+### PW0427: telemetry export is disabled outside dev
+
+- **Severity**: note
+- **Applies to**: every environment except `dev`
+- **Reads**: merged configuration
+- **Fix**: set observability.otel.endpoint to export traces and logs
+
+### PW0428: the database uses the single-DSN form
+
+- **Severity**: note
+- **Applies to**: every environment
+- **Reads**: merged configuration
+- **Fix**: no action; move to [[middleware.rdb.connections]] when a second connection is needed
+
+### PW0430: the development identity provider is enabled outside dev
+
+- **Severity**: error, and note in `dev`
+- **Applies to**: every environment except `dev`
+- **Reads**: project files
+- **Fix**: set dev.idp.enabled to false; it authenticates nobody
+
+### PW0431: the OIDC issuer is a development one outside dev
+
+- **Severity**: error, and note in `dev`
+- **Applies to**: every environment except `dev`
+- **Reads**: merged configuration
+- **Fix**: set auth.oidc.issuer to the deployment provider
+
+### PW0432: the OIDC issuer is reached over http outside dev
+
+- **Severity**: error, and note in `dev`
+- **Applies to**: every environment except `dev`
+- **Reads**: merged configuration
+- **Fix**: use an https issuer and clear auth.oidc.allow_loopback_http
+
+### PW0433: the OIDC redirect URL does not match the callback path
+
+- **Severity**: error
+- **Applies to**: every environment
+- **Reads**: merged configuration
+- **Fix**: make auth.oidc.redirect_url end with auth.callback_path
+
+### PW0434: no provider values are declared for a deployed environment
+
+- **Severity**: note
+- **Applies to**: every environment except `dev`
+- **Reads**: merged configuration, process environment
+- **Fix**: confirm the deployment sets AUTH_OIDC_ISSUER, AUTH_OIDC_CLIENT_ID, and AUTH_OIDC_CLIENT_SECRET
+
+### PW0435: provider credentials come from the pw dev identity provider
+
+- **Severity**: note
+- **Applies to**: `dev` only
+- **Reads**: merged configuration, project files
+- **Fix**: no action; this is why the file declares none
+
+### PW0436: the loopback development pairing is still set outside dev
+
+- **Severity**: error, and note in `dev`
+- **Applies to**: every environment except `dev`
+- **Reads**: merged configuration
+- **Fix**: clear auth.oidc.allow_loopback_http and set session.cookie.secure
+
+## Production readiness (PW05xx)
+
+The pre-launch checklist as something that runs. Silent while the diagnosed environment is `dev`.
+
+### PW0501: the API documentation endpoint is exposed
+
+- **Severity**: warning, and note in `dev`
+- **Applies to**: every environment except `dev`
+- **Reads**: merged configuration
+- **Fix**: clear server.api_doc unless the exposure is intended
+
+### PW0502: Tailwind output is not minified
+
+- **Severity**: warning, and note in `dev`
+- **Applies to**: every environment except `dev`
+- **Reads**: project files
+- **Fix**: set assets.tailwind.minify
+
+### PW0503: the generated stylesheet is older than its sources
+
+- **Severity**: error, and warning in `dev`
+- **Applies to**: every environment except `dev`
+- **Reads**: project files
+- **Fix**: run pw build, which rebuilds the stylesheet
+
+### PW0504: a public asset is newer than its compressed sidecar
+
+- **Severity**: warning, and note in `dev`
+- **Applies to**: every environment except `dev`
+- **Reads**: project files
+- **Fix**: run pw build, which writes the sidecars

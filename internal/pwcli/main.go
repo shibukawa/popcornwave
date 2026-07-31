@@ -2,6 +2,7 @@ package pwcli
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -34,6 +35,8 @@ func Main(args []string, stdout, stderr io.Writer) int {
 		err = runBuild(ctx, args[1:], stdout, stderr)
 	case "dev":
 		err = runDev(ctx, args[1:], stdout, stderr)
+	case "doctor":
+		err = runDoctor(ctx, args[1:], stdout, stderr)
 	case "version", "--version", "-v":
 		err = runVersion(args[1:], stdout)
 	case "help", "-h", "--help":
@@ -43,6 +46,13 @@ func Main(args []string, stdout, stderr io.Writer) int {
 		err = fmt.Errorf("unknown command %q", args[0])
 	}
 	if err != nil {
+		// A diagnosis that found something already rendered its report, so the
+		// exit status is the finding count rather than a second error line.
+		var findings *exitError
+		if errors.As(err, &findings) {
+			fmt.Fprintln(stderr, "pw doctor:", findings.message)
+			return 1
+		}
 		fmt.Fprintln(stderr, "pw:", err)
 		return 1
 	}
@@ -51,7 +61,7 @@ func Main(args []string, stdout, stderr io.Writer) int {
 
 func printUsage(w io.Writer) {
 	fmt.Fprintln(w, "Usage: pw <command>")
-	fmt.Fprintln(w, "Commands: init, add, new, generate, migrate, seed, build, dev, version")
+	fmt.Fprintln(w, "Commands: init, add, new, generate, migrate, seed, build, dev, doctor, version")
 	fmt.Fprintln(w, "Init usage: pw init [<project-name>] [--interactive] [--tailwind] [--no-tinygo]")
 	fmt.Fprintln(w, "  Omit the project name to answer the same questions in the wizard.")
 	fmt.Fprintln(w, "  A capability declined here can be enabled later with pw add.")
@@ -60,4 +70,5 @@ func printUsage(w io.Writer) {
 	fmt.Fprintln(w, newUsage)
 	fmt.Fprintln(w, "Migrate actions: status, version, up, up-by-one, up-to, down, down-to, create, validate, snapshot")
 	fmt.Fprintln(w, "Seed usage: pw seed [--dir=testdata/seed] [name...]")
+	fmt.Fprintln(w, doctorUsage)
 }

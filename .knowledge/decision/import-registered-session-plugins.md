@@ -8,15 +8,16 @@ Session core does not import storage implementations; blank imports opt implemen
 ```yaml
 examples:
   rdb_session_plugin: import _ "popcornwave/plugin/session/rdb"
-  sqlite_database_driver: import _ "github.com/shibukawa/tinygodriver/database/sql/sqlite"
+  server_database_engine: import _ "popcornwave/database/postgres"
   redis_session_plugin: import _ "popcornwave/plugin/session/redis"
 built_in_exception:
   backend: cookie
   reason: decision:cookie-session-storage stores records in the browser, so it adds no dependency to exclude
   effect: it is registered by pw and needs no import; every other backend needs one
 boundaries:
-  - plugin/session/rdb registers the RDB session backend but no database/sql driver
-  - database driver packages register independently from the session plugin
+  - plugin/session/rdb registers the RDB session backend but no database engine
+  - database engine packages register into rule:rdb-dsn-resolution independently from the session plugin
+  - pw links requirement:contrib-sqlite itself, because it is the scaffold default; a server engine is the application's own import
   - plugin/session/redis registers the Redis-compatible session backend and client integration
   - core session packages import neither backend plugin
   - a host such as plugin/auth resolves the backend by name and imports no storage plugin either

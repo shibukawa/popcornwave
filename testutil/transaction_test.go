@@ -179,9 +179,14 @@ func TestRunWithoutTransactionCommits(t *testing.T) {
 	}
 }
 
-// A driver without savepoint support cannot host framework transactions inside
-// a test transaction, so the option is rejected instead of silently degrading.
-func TestRunTransactionRejectsUnsupportedDriver(t *testing.T) {
+// A DSN naming no linked engine is rejected before the pool is opened, and the
+// error names the engines this binary can serve.
+//
+// The savepoint guard behind this check is no longer reachable from a DSN:
+// every engine the framework registers supports savepoints, so a driver that
+// does not can only arrive through a caller-supplied pool. The guard itself is
+// covered by pwruntime.TestSupportsSavepoint.
+func TestRunTransactionRejectsUnknownEngine(t *testing.T) {
 	stub := &recordingT{TestingT: t}
 	TestRun(stub, notesHandler(t), func(config *Config) {
 		Update[pw.ServerConfig](config, func(value *pw.ServerConfig) {
@@ -195,8 +200,11 @@ func TestRunTransactionRejectsUnsupportedDriver(t *testing.T) {
 			}
 		})
 	}, WithTransaction(true))
-	if !strings.Contains(stub.failure, "savepoint support") {
-		t.Fatalf("TestRun failure = %q, want a savepoint support error", stub.failure)
+	if !strings.Contains(stub.failure, "unknown-driver") {
+		t.Fatalf("TestRun failure = %q, want the unserved scheme named", stub.failure)
+	}
+	if !strings.Contains(stub.failure, "sqlite") {
+		t.Fatalf("TestRun failure = %q, want the linked engines named", stub.failure)
 	}
 }
 

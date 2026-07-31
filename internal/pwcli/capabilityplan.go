@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 
@@ -141,6 +142,10 @@ func planCapability(state projectState, options addOptions) (*capabilityPlan, er
 		return plan, planAuth(state, options, plan)
 	case capabilityTailwind:
 		return plan, planTailwind(state, plan)
+	case capabilityDiscovered:
+		return plan, planPages(state, plan)
+	case capabilityRegistered:
+		return plan, planHandlers(state, plan)
 	}
 	return nil, fmt.Errorf("unknown capability %q", options.Capability)
 }
@@ -148,26 +153,49 @@ func planCapability(state projectState, options addOptions) (*capabilityPlan, er
 // planDatabase configures the pool and, for a project that has neither yet,
 // scaffolds the same starter schema and query api:cli-init writes.
 func planDatabase(state projectState, options addOptions, plan *capabilityPlan) error {
+	engine := engineFor(options.Engine)
 	for _, name := range state.configFiles {
-		plan.appends[name] = databaseRuntimeSection(options.DSN)
+		plan.appends[name] = databaseRuntimeSection(options.databaseDSN(state.config.Name), engine)
 	}
 	migrations := state.config.Migration.Dir
 	if len(state.migrations) == 0 {
-		plan.creates[migrations+"/00001_init.sql"] = starterMigration()
+		plan.creates[migrations+"/00001_init.sql"] = engine.Schema
 	} else {
 		plan.directories = append(plan.directories, migrations)
 	}
 	// The SQL example needs a purpose to read it, and generate.queries has no
 	// default, so the directory and its entry are written together or not at
 	// all.
+	document, err := os.ReadFile(filepath.Join(state.root, "popcornwave.toml"))
+	if err != nil {
+		return err
+	}
+	edited := string(document)
 	if len(state.config.Generate.Queries) == 0 {
 		plan.creates["queries/users.pw.sql"] = starterQuery()
-		edited, err := setGeneratePurpose(state, capabilityQueriesPurpose, []string{"queries"})
+		if edited, err = setGeneratePurpose(state, capabilityQueriesPurpose, []string{"queries"}); err != nil {
+			return err
+		}
+		plan.generate = true
+	}
+	// Generation needs the dialect its .pw.sql sources are written in, and the
+	// engine question is the only place a project states it.
+	if edited, err = setProjectDatabase(edited, options.Engine); err != nil {
+		return err
+	}
+	plan.edits["popcornwave.toml"] = edited
+	// The entry point is application-owned, so the blank import that links the
+	// engine is printed rather than injected.
+	if engine.DriverImport != "" {
+		plan.manual = append(plan.manual,
+			"blank-import "+engine.DriverImport+" from the application entry point")
+	}
+	if engine.DevboxPackage != "" && state.devbox != "" {
+		edited, err := addDevboxPackage(state.devbox, engine.DevboxPackage)
 		if err != nil {
 			return err
 		}
-		plan.edits["popcornwave.toml"] = edited
-		plan.generate = true
+		plan.edits["devbox.json"] = edited
 	}
 	plan.next = append(plan.next, "pw migrate up")
 	return nil
@@ -253,6 +281,64 @@ func planTailwind(state projectState, plan *capabilityPlan) error {
 	plan.manual = append(plan.manual,
 		`add <link rel="stylesheet" href="/`+defaultTailwindOutput+`"> to the document shell`)
 	plan.next = append(plan.next, "devbox shell")
+	return nil
+}
+
+// planPages installs a page tree: the same starter tree api:cli-init writes,
+// and the purpose that makes it generate. The two go together, because a tree
+// no purpose lists is a directory nothing reads.
+//
+// The Register call is printed rather than injected, since the entry point is
+// application-owned like every other main.go edit this command would rather not
+// make.
+func planPages(state projectState, plan *capabilityPlan) error {
+	root := defaultDiscoveredDir
+	for path, source := range pageTreeScaffold(initOptions{Name: state.config.Name}, root) {
+		plan.creates[path] = source
+	}
+	edited, err := setPagesPurpose(state, []string{root})
+	if err != nil {
+		return err
+	}
+	plan.edits["popcornwave.toml"] = edited
+	plan.manual = append(plan.manual,
+		"import "+state.config.Name+"/"+root+" from "+state.config.Main+
+			" and call "+goPackageIdentifier(root)+".Register on its mux")
+	plan.generate = true
+	return nil
+}
+
+// planHandlers installs the registered router into a project that started with
+// the page tree alone: the package, its mux, and one route example.
+//
+// The template purpose gains the same directory, because a page template sits
+// beside the handler that renders it, and the mounting is printed for the same
+// reason a page tree's Register call is.
+func planHandlers(state projectState, plan *capabilityPlan) error {
+	directory := defaultRegisteredDir
+	options := initOptions{
+		Name:   state.config.Name,
+		TinyGo: state.config.Toolchain == toolchainTinyGo,
+		Auth:   authNone,
+	}
+	for path, source := range registeredRouterScaffold(options, directory) {
+		plan.creates[path] = source
+	}
+
+	edited, err := setGeneratePurpose(state, "handlers", []string{directory})
+	if err != nil {
+		return err
+	}
+	templates := append([]string{directory}, state.config.Generate.Templates...)
+	sort.Strings(templates)
+	templates = slices.Compact(templates)
+	if edited, err = setGeneratePurposeIn(edited, "templates", templates); err != nil {
+		return err
+	}
+	plan.edits["popcornwave.toml"] = edited
+	plan.manual = append(plan.manual,
+		"import "+state.config.Name+"/"+directory+" from "+state.config.Main+" and serve its Handlers()")
+	plan.generate = true
 	return nil
 }
 

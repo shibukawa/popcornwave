@@ -1,0 +1,209 @@
+---
+title: Configuration
+description: How TOML, environment variables, and flags resolve into one typed struct — and how to add your own.
+sidebar:
+  order: 3
+---
+
+Configuration arrives from several places and resolves to one typed view.
+Popcorn Wave binds TOML files, environment variables, and command-line options
+to structs before the first request, so an invalid value stops startup instead
+of surfacing midway through runtime.
+
+Nothing here reflects at runtime. `pw generate` reads your registration call and
+writes the binding code ahead of time, which is what keeps the whole mechanism
+available under TinyGo — and what makes a few of the rules below stricter than
+a reflection-based binder would need.
+
+For the framework's own keys and their defaults, see
+[Configuration Keys](/reference/configuration/). This page is the machinery
+underneath them.
+
+## Environments
+
+`APP_ENV` selects the runtime environment. It accepts `dev`, `stg`, `prod`, or
+any other token made of lowercase letters, digits, `-`, and `_`. An invalid
+token fails `ParseConfig`. When unset or empty it defaults to **`dev`**.
+
+```sh
+APP_ENV=prod ./myapp
+```
+
+`pw.Env()` returns the resolved token, and `pw.EnvDevelopment`, `pw.EnvStaging`,
+and `pw.EnvProduction` name the well-known ones.
+
+## File resolution
+
+Selecting an environment determines the project-local filename. Popcorn Wave
+searches the working directory first, then its `config/` directory:
+
+1. `./config.{APP_ENV}.toml`
+2. `./config/config.{APP_ENV}.toml`
+
+User and system configuration directories use the environment-neutral
+`config.toml`. A project tree does not: a bare `config.toml` there is never
+read. The asymmetry is deliberate — a file that applies to every environment is
+reasonable on one operator's machine and misleading in a repository, where
+"which environment is this for?" would have no answer.
+
+`--config-path` replaces the search entirely:
+
+```sh
+./myapp --config-path ./deploy/staging.toml
+```
+
+## How one value is resolved
+
+Each key is reachable four ways, in increasing precedence:
+
+```
+default  <  TOML file  <  environment variable  <  command-line option
+```
+
+The three names come from one struct field. Field names become snake_case and
+nest under the registered prefix, so with prefix `app`:
+
+```go
+type AppConfig struct {
+	Mailer MailerConfig
+}
+
+type MailerConfig struct {
+	FromAddress string `default:"noreply@example.com"`
+}
+```
+
+the key is `app.mailer.from_address`, the TOML is `[app.mailer]` with
+`from_address = …`, the option is `--app-mailer-from_address`, and the
+environment variable is `APP_MAILER_FROM_ADDRESS`. Dots separating nesting
+levels become dashes in the option and underscores in the variable; underscores
+inside a single key survive untouched.
+
+Five tags adjust the result:
+
+| Tag | Effect |
+| --- | --- |
+| `default:"value"` | value when nothing else supplies one |
+| `key:"name"` | override the stable TOML/config key |
+| `opt:"long"` / `opt:"long,s"` | override the CLI option, optionally with a short form |
+| `env:"NAME"` / `env:"-"` | exact environment variable name, or disable environment input |
+| `help:"text"` | description shown in usage and scaffolds |
+
+Overriding `opt` also moves the environment name, which derives from the long
+option rather than from the key. That is how `server.port` answers to `--port`
+and to `PORT`.
+
+Three further tags describe a key rather than name it:
+
+| Tag | Effect |
+| --- | --- |
+| `secret:"mask"` / `"hide"` / `"show"` | how the value appears in the startup summary |
+| `falsy:"value"` | the value that counts as "not set" for anything depending on this key |
+| `dependon:".sibling"` | the key this one answers to; a leading dot is relative to the enclosing struct |
+
+`dependon` does not change binding. A dependent key is still read and still
+applied — it is only omitted from the startup summary while its parent is empty,
+so a disabled subsystem reports one line instead of seven. A key you set and
+cannot find in the summary is therefore a question about its parent, not about
+your spelling.
+
+:::caution
+Supported field types are `string`, `bool`, `int`, `[]string`, and nested
+structs of those. Floats, maps, pointers, other slice types, and
+`time.Duration` are **not** bindable — declare them as `string` or `int` and
+convert after parsing. (The framework's own `[server]` durations work because
+those bindings are hand-written, not generated.)
+:::
+
+## Adding your own settings
+
+Application settings follow the same path as framework settings: declare a
+struct, register it under a prefix, and read the result from the request
+context. `pw generate` turns the registration call into binding code, so adding
+a setting does not add a parallel parser.
+
+### 1. Declare the struct
+
+```go
+package handlers
+
+import "github.com/shibukawa/popcornwave/pw"
+
+type AppConfig struct {
+	EnvLabel      string `default:"local" help:"environment name shown in the page badge"`
+	EnvLabelColor string `default:"#64748b" help:"CSS color of the environment badge"`
+}
+```
+
+### 2. Register it
+
+```go
+func RegisterConfig() { pw.RegisterConfig[AppConfig]("app") }
+```
+
+```go
+func main() {
+	handlers.RegisterConfig()
+	if err := pw.Run(context.Background(), handlers.Handlers()); err != nil {
+		log.Fatal(err)
+	}
+}
+```
+
+Where you place that call matters. Generated definitions register during package
+`init`, so the binding must be created **after** every `init` has run but
+**before** parsing begins. Registration after `ParseConfig` panics, and the
+prefix must be a string literal that the generator can read.
+
+Each area of a larger application can register its own struct — see
+[Project structure](/guides/architecture/project-structure/) — but prefixes
+share one namespace, so give them distinct names (`app`, `billing`, `search`).
+
+### 3. Read it
+
+```go
+app := pw.Config[AppConfig](r.Context())
+```
+
+`pw.Config` is available anywhere a request context is, and takes `nil` outside
+a request. It returns no error: an unparsed prefix yields its declared defaults
+and an unregistered type yields the zero value, because a handler reading
+configuration is already on the response path, where a nil check would only
+postpone the same missing value to a later line.
+
+### 4. Set it
+
+```toml
+[app]
+env_label = "development"
+env_label_color = "#059669"
+```
+
+```sh
+APP_ENV_LABEL=development ./myapp
+./myapp --app-env_label=development
+```
+
+## Generating a scaffold
+
+Every registered prefix — framework and application alike — can print itself,
+with `default` values filled in and `help` text as comments:
+
+```sh
+./myapp --generate-config toml > config.dev.toml
+./myapp --generate-config env > .env
+```
+
+Because the binary reports registrations from its actual imports, the scaffold
+matches the packages linked into that build. Add a struct and rerun the command;
+the new keys appear. Either form exits after writing — the server does not
+start. See [Custom Commands](/guides/architecture/custom-commands/).
+
+## Seeing what took effect
+
+Resolved configuration is reported once at startup — as a tree on a terminal, as
+one structured record everywhere else — so "did that value actually land?" has
+an answer that costs no extra log line. Each entry shows where its value came
+from, and a `secret` tag decides whether it is printed, masked, or dropped.
+`observability.boot_log` selects the format. See
+[Startup Summary](/productivity/startup-summary/).

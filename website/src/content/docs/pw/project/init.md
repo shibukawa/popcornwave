@@ -6,7 +6,7 @@ sidebar:
 ---
 
 ```sh
-pw init <project-name> [--tailwind] [--no-devbox] [--no-database] [--no-redis] [--auth=<mode>] [--session=<backend>] [--devidp]
+pw init <project-name> [--tailwind] [--no-tinygo] [--no-devbox] [--no-database] [--db=<engine>] [--no-redis] [--router=<kind>] [--auth=<mode>] [--session=<backend>] [--devidp] [-i]
 ```
 
 The command creates a complete, runnable project in a new directory. A name and
@@ -21,7 +21,9 @@ presents the same choices as a wizard.
 | `--no-tinygo` | target host Go instead of TinyGo |
 | `--no-devbox` | no `devbox.json`; keep your own setup — mise, Docker Compose, Nix, Homebrew, Scoop |
 | `--no-database` | no rdb configuration, no migrations, and no SQL example |
+| `--db=<engine>` | `sqlite` (default), `postgres`, or `mysql` |
 | `--no-redis` | leave the Valkey development server out of `devbox.json` |
+| `--router=<kind>` | `registered` (default), `discovered`, or `both`; see [Discovered routing](/advanced/discovered-routing/#commands) |
 | `--auth=<mode>` | `none` (default), `oidc`, `oidc-passkey`, or `passkey` |
 | `--session=<backend>` | with a login, where sessions live: `rdb` (default), `cookie`, or `redis` |
 | `--devidp` | with an OIDC mode, wire up the local identity provider |
@@ -36,6 +38,58 @@ skips the authentication question entirely when the database is declined.
 
 `--no-tinygo` is the answer `pw add` cannot revisit — see
 [Changing the toolchain](#changing-the-toolchain).
+
+## Choosing the database
+
+`--db` decides five things at once: the DSN in `config.dev.toml`, the dialect
+the starter migration is written in, the development server added to
+`devbox.json`, the driver the binary links, and `project.database` in
+`popcornwave.toml`. That last key is what `pw generate` reads to know the
+placeholder syntax `.pw.sql` sources compile to. SQLite is the default because
+it runs with nothing to start beside the application.
+
+| Engine | DSN | Development server |
+| --- | --- | --- |
+| `sqlite` | `sqlite://<name>.db` | none |
+| `postgres` | `postgres://<name>:<name>@127.0.0.1:5432/<name>?sslmode=disable` | `postgresql` in `devbox.json` |
+| `mysql` | `mysql://<name>:<name>@tcp(127.0.0.1:3306)/<name>` | `mysql80` in `devbox.json` |
+
+A server engine adds one blank import to `main.go`, which is what registers it:
+
+```go
+import _ "github.com/shibukawa/popcornwave/database/postgres"
+```
+
+The scaffolded credentials are development values in `config.dev.toml`. Create
+the role and database they name once, then `pw migrate up`.
+
+Changing engines afterwards is not something `pw add` will do for you: the DSN,
+every migration, and every `.pw.sql` source would have to be rewritten together.
+Pick the engine the project is going to deploy against.
+
+### Generated SQL follows the engine
+
+`project.database` is the one place a project states its engine for generation.
+There is no implicit default at the generator: a silently assumed dialect emits
+placeholders the engine rejects at the first query, so `pw generate` passes what
+`popcornwave.toml` says and nothing else.
+
+```toml
+[project]
+database = "postgres"   # sqlite, postgres, or mysql
+```
+
+| Engine | Placeholders |
+| --- | --- |
+| `postgres` | `$1`, `$2`, … |
+| `mysql` | `?` |
+| `sqlite` | `?` |
+
+Changing this key changes every generated query, so run `pw generate` after
+editing it and commit the result together with the DSN change.
+
+A project written before this key existed has no `[project] database`, and is
+read as `sqlite`, which is the only engine that existed then.
 
 ## Changing the toolchain
 
@@ -130,7 +184,7 @@ line that generates one:
 export SESSION_COOKIE_SECRET=$(openssl rand -base64 32)
 ```
 
-[Cookies](/guides/cookies/) compares the three in terms of revocation, size, and
+[Cookies](/guides/backend/cookies/) compares the three in terms of revocation, size, and
 who enforces expiry.
 
 ## Validation
@@ -155,7 +209,7 @@ myapp/
 ├── templates/
 │   ├── document.pw.html       shared document shell
 │   ├── templates.go           package marker, present before first generation
-│   └── 400|404|500.pw.html    error pages
+│   └── 400|401|403|404|409|413|500.pw.html   error pages
 ├── queries/users.pw.sql       named SQL with a typed result (with the database)
 ├── migrations/00001_init.sql  initial schema, in goose format (with the database)
 │                              plus framework tables with a login: the session
@@ -180,7 +234,7 @@ With `--tailwind` it also writes `assets/app.css` and
 `public/generated/app.css`, adds the `[assets.tailwind]` block to
 `popcornwave.toml`, pins `tailwindcss` in `devbox.json`, and links the
 stylesheet from the document shell. No `package.json` and no Node lockfile are
-created. See [Styling](/guides/styling/) for enabling this later.
+created. See [Styling](/guides/frontend/styling/) for enabling this later.
 
 Each file is written to a temporary path and renamed into place. If the command
 is interrupted, it cannot leave a half-written source file behind.
@@ -225,7 +279,7 @@ it writes a `replace` directive pointing at that checkout instead.
 
 ## Next steps
 
-- [Getting started](/start/getting-started/) — a walkthrough of the output.
+- [1. Getting started](/tutorial/getting-started/) — a walkthrough of the output.
 - [pw add](/pw/project/add/) — installing a capability you declined here.
 - [pw new](/pw/project/new/) — adding the second handler.
-- [Project structure](/guides/project-structure/) — growing past one package.
+- [Project structure](/guides/architecture/project-structure/) — growing past one package.

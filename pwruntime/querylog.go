@@ -5,17 +5,12 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"fmt"
-	"log/slog"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/shibukawa/tinybind-go/sqlbind"
 )
-
-// LevelTrace is the severity below slog.LevelDebug that the trace level of
-// observability configuration maps to. slog has no trace level of its own.
-const LevelTrace = slog.LevelDebug - 4
 
 // queryMessage is the stable message of a query diagnostics record.
 const queryMessage = "sql executed"
@@ -26,9 +21,9 @@ const queryMessage = "sql executed"
 // database handle and no statement is timed.
 type QueryDiagnostics struct {
 	// Level is the severity of an ordinary statement record.
-	Level slog.Level
+	Level Level
 	// SlowLevel is the severity once a statement exceeds SlowThreshold.
-	SlowLevel slog.Level
+	SlowLevel Level
 	// SlowThreshold is the duration above which a statement is slow. Zero
 	// disables slow detection, and with it EXPLAIN and reproduction.
 	SlowThreshold time.Duration
@@ -68,7 +63,7 @@ func unwrapExecutor(executor sqlbind.SQLExecutor) sqlbind.SQLExecutor {
 
 // instrument decorates executor when diagnostics are enabled. The wrapper is
 // built once per executor resolution rather than once per statement.
-func instrument(current *Resources, executor sqlbind.SQLExecutor, logger *slog.Logger) sqlbind.SQLExecutor {
+func instrument(current *Resources, executor sqlbind.SQLExecutor, logger Logger) sqlbind.SQLExecutor {
 	config := current.Query
 	if config == nil || executor == nil {
 		return executor
@@ -99,7 +94,7 @@ func instrument(current *Resources, executor sqlbind.SQLExecutor, logger *slog.L
 type instrumentedExecutor struct {
 	inner  sqlbind.SQLExecutor
 	config *QueryDiagnostics
-	logger *slog.Logger
+	logger Logger
 	driver string
 	// connection labels which pool ran the statement. Empty when only one is
 	// configured.
@@ -143,61 +138,64 @@ func (executor *instrumentedExecutor) record(ctx context.Context, operation, que
 	if slow {
 		level = config.SlowLevel
 	}
-	if !executor.logger.Enabled(ctx, level) {
+	if !executor.logger.Enabled(level) {
 		return
 	}
 
 	statement, statementTruncated := truncateText(query, config.MaxSQLLength)
-	attrs := []any{
-		"sql", statement,
-		"duration", elapsed,
-		"operation", operation,
+	attrs := []Attribute{
+		String("sql", statement),
+		Duration("duration", elapsed),
+		String("operation", operation),
 	}
 	if statementTruncated {
-		attrs = append(attrs, "sql_truncated", true)
+		attrs = append(attrs, Bool("sql_truncated", true))
 	}
 	if executor.driver != "" {
-		attrs = append(attrs, "driver", executor.driver)
+		attrs = append(attrs, String("driver", executor.driver))
 	}
 	if executor.connection != "" {
-		attrs = append(attrs, "connection", executor.connection)
+		attrs = append(attrs, String("connection", executor.connection))
 	}
 	if executor.inTx {
-		attrs = append(attrs, "tx_depth", executor.depth)
+		attrs = append(attrs, Int("tx_depth", executor.depth))
 	}
 	if affected >= 0 {
-		attrs = append(attrs, "rows_affected", affected)
+		attrs = append(attrs, Int64("rows_affected", affected))
 	}
 	if callErr != nil {
-		attrs = append(attrs, "outcome", "error", "error", callErr.Error())
+		attrs = append(attrs, String("outcome", "error"), String("error", callErr.Error()))
 	} else {
-		attrs = append(attrs, "outcome", "ok")
+		attrs = append(attrs, String("outcome", "ok"))
 	}
 
 	rendered, valuesComplete := renderArgs(args, config)
 	if config.BindValues && len(args) > 0 {
-		attrs = append(attrs, "args", rendered)
+		// One joined string rather than a list, because a record attribute is a
+		// scalar: a consumer that wants the values separately reads the
+		// reproduction snippet, which is the runnable form anyway.
+		attrs = append(attrs, String("args", strings.Join(rendered, ", ")))
 		if !valuesComplete {
-			attrs = append(attrs, "args_truncated", true)
+			attrs = append(attrs, Bool("args_truncated", true))
 		}
 	}
 
 	if slow {
-		attrs = append(attrs, "slow", true)
+		attrs = append(attrs, Bool("slow", true))
 		if config.Explain {
 			plan, planErr := executor.explain(ctx, query, args)
 			switch {
 			case planErr != nil:
-				attrs = append(attrs, "explain_error", planErr.Error())
+				attrs = append(attrs, String("explain_error", planErr.Error()))
 			case plan != "":
-				attrs = append(attrs, "explain", plan)
+				attrs = append(attrs, String("explain", plan))
 			}
 		}
 		// A snippet without its arguments cannot run, and a snippet built from a
 		// truncated value reproduces a different query.
 		if config.Reproduction && config.BindValues && valuesComplete {
 			if snippet := reproductionSnippet(executor.driver, query, args); snippet != "" {
-				attrs = append(attrs, "reproduction", snippet)
+				attrs = append(attrs, String("reproduction", snippet))
 			}
 		}
 	}

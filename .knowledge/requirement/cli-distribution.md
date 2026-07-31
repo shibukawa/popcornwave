@@ -26,10 +26,14 @@ supported_targets:
   - windows/amd64
 channel_coverage:
   note: the Nix channel omits intel macOS per decision:nix-flake-packaging; every other target is served by both channels or by the archive
-license: Apache-2.0
+license:
+  own_code: Apache-2.0
+  bundled: the requirement:contrib-mysql TinyGo fork is MPL-2.0, so an artifact that links it ships that notice alongside the Apache-2.0 one
+  reason: api:cli-migrate and api:cli-seed serve any project, so one binary links every rule:rdb-dsn-resolution engine rather than the one a project selected
 build_mode:
   cgo: disabled
   sqlite_backend: modernc.org/sqlite selected by decision:sqlite-backend-selection non-cgo constraint
+  server_sql_backends: the standard-Go pgx and go-sql-driver backends, which need no C toolchain
   consequence: every target cross-compiles from one linux runner with no C toolchain
 acceptance:
   - nix run github:shibukawa/popcornwave#pw prints usage on a clean machine

@@ -48,9 +48,10 @@ email = "guest@example.com"
 
 このプロバイダが実装するのは、S256 PKCE 必須の認可コードフロー、discovery、JWKS、
 RS256 の ID Token、UserInfo です。リフレッシュトークン、ログアウト、デバイス
-フロー、client credentials、同意画面は意図的にありません。詳細は
+フロー、client credentials、同意画面は意図的にありません。これを import した
+アプリケーションは `pw build` が拒否します。詳細は
 [`contrib/devidp`](https://github.com/shibukawa/popcornwave/tree/main/contrib/devidp)
-を参照してください。これを import したアプリケーションは `pw build` が拒否します。
+を参照してください。
 
 テストでは `testutil.WithIdentityProvider` が同じプロバイダを起動し、
 `WithLoginUser` でログインするユーザーを事前に指定できます。ブラウザ操作なしで

@@ -38,10 +38,11 @@ database:
   migration:
     source: WithMigrations reads data:migration-source from disk and WithMigrationsFS reads an embedded tree
     timing: flow:database-migration completes before the server starts and before any test transaction begins
-    install: decision:test-migration-snapshot replays a cached data:migration-snapshot into the isolated database
+    install: decision:test-migration-snapshot replays a cached data:migration-snapshot into the isolated sqlite database
     backend: decision:migration-execution-split selects in-process goose or pw migrate snapshot to produce that artifact
     memory_database: supported on both paths because SQL is transferred instead of a DSN
-    fallback: direct apply for a non-sqlite dialect or when the test opts out of snapshots
+    server_engine: direct apply against the configured DSN, selected by the rule:rdb-dsn-resolution dialect, because the snapshot is SQLite DDL and a server database is reachable by DSN
+    fallback: direct apply when the test opts out of snapshots
     default: no schema work when no migration option is supplied
     rollback: never; test databases are created and discarded
 transaction:

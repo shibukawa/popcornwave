@@ -1,0 +1,290 @@
+---
+title: Templates
+description: Typed .pw.html components — parameters, control flow, slots, escaping, and scoped styles.
+sidebar:
+  order: 3
+---
+
+A template normally fails only after data reaches it. A `.pw.html` component
+moves that failure earlier: `pw generate` compiles it into a `_pw_gen.go` file
+beside the source, checking value types and HTML insertion contexts before the
+application runs.
+
+## A component
+
+```html
+package handlers
+
+export component Home(name: string): html {
+<h1 class="text-3xl font-bold">Hello, {name}</h1>
+}
+```
+
+The file opens with the Go package it belongs to. `export component` declares
+the name, a typed parameter list, and the `html` result type. Generation
+produces:
+
+```go
+type HomeParams struct {
+	Name string
+}
+
+func Home(params HomeParams) pw.HTMLFragment
+```
+
+The generated API makes the handler call type-checked:
+
+```go
+pw.WriteHTML(w, r, Home(HomeParams{Name: input.Name}))
+```
+
+Renaming a parameter renames the field, and changing its type changes the
+field's type, so the handler stops compiling until it catches up. Adding a
+parameter is the quiet case: the struct literal still compiles, and the new
+field arrives at its zero value until a caller fills it in.
+A component without `export` remains private and can be called only from other
+templates.
+
+## Types
+
+| Template type | Go type |
+| --- | --- |
+| `string`, `decimal` | `string` |
+| `bool` | `bool` |
+| `int` | `int` |
+| `float` | `float64` |
+| `bytes` | `[]byte` |
+| `datetime`, `date`, `time` | `time.Time` |
+| `url` | `url.URL` |
+| `html` | a fragment |
+
+`T[]` is a slice and `T?` is optional. You can declare your own composites and
+enumerations, which become Go structs and constants:
+
+```html
+type User {
+  name: string
+  active: bool
+  nickname: string?
+  profileURL: url
+  tags: string[]
+}
+
+enum Tone { Primary, Secondary }
+```
+
+## Control flow
+
+```html
+{if active}
+  <span class="active">active</span>
+{else if score >= 80}
+  <strong>A</strong>
+{else}
+  <span class="inactive">inactive</span>
+{/if}
+```
+
+Conditions must be `bool` — there is no truthiness.
+
+```html
+{for user, index in users}
+  <li data-index={index}>{user.name}</li>
+{/for}
+```
+
+The index is optional; omit it when unused.
+
+## Attributes
+
+Ordinary attributes take expressions:
+
+```html
+<p class="user {user.active ? 'active' : 'inactive'}">…</p>
+```
+
+When an optional `string?` supplies the **entire** value, a nil omits the
+attribute altogether. Optional values cannot be mixed with static text in the
+same attribute.
+
+Boolean attributes are emitted only when true:
+
+```html
+<article hidden={not user.active}>…</article>
+```
+
+URL attributes require the `url` type, not `string`. Passing a `string` is a
+generation error — which is the point.
+
+## Composition and slots
+
+A `children: html` parameter receives whatever appears between the tags:
+
+```html
+component Badge(label: string, children: html): html {
+<span class="badge"><strong>{label}</strong>{children}</span>
+}
+
+export component Card(user: User): html {
+<Badge label={user.name}>
+  <em>member</em>
+</Badge>
+}
+```
+
+Named slots give a component several insertion points, with defaults:
+
+```html
+component Panel(title: string, header: html?, children: html, footer: html?): html {
+<section class="panel">
+  <div class="head"><slot name="header"><b>{title}</b></slot></div>
+  <div class="body"><slot required /></div>
+  <slot name="footer" />
+</section>
+}
+```
+
+Callers fill them with `template` elements:
+
+```html
+export component Page(caption: string): html {
+<Panel title={caption}>
+  <template name="header"><em>Guide</em></template>
+  <p>body text</p>
+</Panel>
+}
+```
+
+Slots compose markup, but they are not ordinary values. A slot parameter cannot
+be read in an expression, tested for presence, or forwarded, and a slot cannot
+appear inside a `for` loop.
+
+That restriction reinforces a broader boundary: **presentational components do
+not fetch data.** A component renders what its parameters carry; the handler
+loads those values.
+
+## The document shell
+
+`templates/document.pw.html` owns `doctype`, `html`, `head`, and `body`, and
+its body contains one unnamed `<slot />`:
+
+```html
+package templates
+
+export component Document(children: html?): html {
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>My App</title></head>
+<body><slot /></body></html>
+}
+```
+
+Page templates provide leaf content only and never repeat the shell. The
+generated document artifact registers itself during package initialisation, and
+`pw generate` links that registration package into your main package without
+any handler referencing it. `pw.WriteHTML` then resolves the registered
+document and renders the chain with the document outermost.
+
+Handler code therefore neither selects nor constructs a document. A missing or
+duplicate registration fails at **startup**, before a request can discover it.
+
+:::caution
+A project has **exactly one** `document.pw.html`. `pw generate` fails with
+`multiple default documents` if it finds more than one anywhere in the tree.
+Alternative shells are ordinary exported components with an unnamed slot,
+selected explicitly through `pw.WriteHTMLChain`.
+:::
+
+Any exported component with an unnamed slot also gets a `Bind<Name>` wrapper
+function, which is what `WriteHTMLChain` accepts:
+
+```go
+pw.WriteHTMLChain(w, r,
+	[]pw.HTMLWrapper{templates.BindPrintDocument(templates.PrintDocumentParams{})},
+	Invoice(InvoiceParams{ID: id}),
+)
+```
+
+Wrappers compose outermost-first, each filling the next into its unnamed slot.
+
+## Escaping
+
+Type checking prevents one class of template error; contextual escaping handles
+another. Strings are escaped automatically for the position where they land:
+
+```html
+<p title={message}>{message}</p>
+```
+
+Trusted content requires an explicit intrinsic:
+
+| Intrinsic | Context |
+| --- | --- |
+| `RawHTML(string)` | HTML children |
+| `RawCSS(string)` | inside `<style>` |
+| `RawJavaScript(string)` | inside `<script>` |
+| `JsonForScript(value)` | inside `<script>`, from typed data |
+
+:::danger
+`Raw*` is not a sanitiser. Never pass arbitrary external input to it. Restrict
+it to fixed or previously validated trusted content.
+:::
+
+Use `JsonForScript` rather than `RawJavaScript` whenever you are handing typed
+data to the page — it encodes for you.
+
+## Component styles
+
+A component can contribute static head content, which is how styles stay next
+to the markup they belong to:
+
+```html
+export component Card(label: string): html {
+<head>
+<style>
+.box { color: red }
+</style>
+</head>
+<div class="box"><span>{label}</span></div>
+}
+```
+
+Declared class names are renamed, and matching `class` attributes are rewritten,
+so the styles remain scoped to the component. Undeclared classes pass through
+unchanged; that distinction lets Tailwind utilities coexist with scoped rules.
+Use `:global(...)` to opt a selector out. A bare element selector fails
+generation and must be qualified with a class.
+
+## External functions
+
+Display-specific conversions are declared in the template and implemented in Go:
+
+```html
+external Decorate(value: string, tone: Tone): string
+```
+
+```go
+func Decorate(value string, tone Tone) string {
+	if tone == TonePrimary {
+		return "★ " + value
+	}
+	return value
+}
+```
+
+## Multiple files in one package
+
+Several template files in a directory combine into one generated Go file. They
+must declare the same package and must not duplicate component names.
+
+## Errors
+
+Generation failures carry the template position:
+
+```
+profile.pw.html:12:8: html:url requires url, got string
+```
+
+Common causes include a `string` where a `url` is required, a `string` inserted
+into `<script>`, an optional value mixed with static attribute text, a
+non-boolean condition, an undeclared reference, an intrinsic in the wrong
+context, incompatible slot markers, or a bare element selector in scoped CSS.

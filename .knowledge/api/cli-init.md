@@ -6,7 +6,7 @@ title: pw init
 pw init creates a runnable Popcorn Wave project with a shared document shell, representative handler, typed page template, SQL query, error pages, Devbox environment, and generated-artifact conventions.
 
 ```yaml
-usage: pw init [myapp] [--interactive] [--tailwind|--no-tailwind] [--tinygo|--no-tinygo] [--devbox|--no-devbox] [--database|--no-database] [--redis|--no-redis] [--auth=none|oidc|oidc-passkey|passkey] [--session=rdb|cookie|redis] [--devidp|--no-devidp]
+usage: pw init [myapp] [--interactive] [--router=registered|discovered|both] [--tailwind|--no-tailwind] [--tinygo|--no-tinygo] [--devbox|--no-devbox] [--database|--no-database] [--db=sqlite|postgres|mysql] [--redis|--no-redis] [--auth=none|oidc|oidc-passkey|passkey] [--session=rdb|cookie|redis] [--devidp|--no-devidp]
 mode: decision:interactive-project-bootstrap
 catalog: the capability questions are the requirement:incremental-project-capabilities catalog api:cli-add installs into an existing project
 inputs:
@@ -19,6 +19,15 @@ questions:
     yes: api:serve-mux routing and the TinyGo toolchain in Devbox
     no: net/http.ServeMux routing and the host Go toolchain only
     rationale: TinyGo produces much smaller binaries and has the more complete wasm target
+  router:
+    default: registered
+    owner: decision:page-router-scaffold-choice
+    registered: the handlers tree, its route example, and OpenAPI, which is the shape every existing project has
+    discovered: a concept:page-tree only, for a project whose whole job is an HTML website
+    both: both trees on one mux, per decision:dual-router-coexistence
+    asked_after: the toolchain question, because it decides which source trees the later answers write their examples into
+    shortcut: --router
+    directories: the answer scaffolds handlers and pages, which are defaults the purpose lists can move afterwards
   tailwind: optional_css below
   devbox:
     default: yes
@@ -31,6 +40,12 @@ questions:
     yes: data:middleware-runtime-config rdb section, the migrations directory, and the .pw.sql and migration examples
     no: no rdb section and no SQL example, leaving a project that renders and serves only
     rationale: the SQL example, the initial migration, and rule:framework-owned-tables migrations all need a database, so declining it removes them together
+  database_engine:
+    asked_when: the database answer is yes
+    default: sqlite
+    choices: sqlite, postgres, and mysql per requirement:database-engine-selection
+    writes: the rdb DSN, the dialect of the scaffolded migration and .pw.sql example, and the development server package
+    shortcut: --db, which conflicts with --no-database
   redis_valkey:
     default: yes
     requires: the Devbox environment, which is the only thing this answer writes to
@@ -63,25 +78,29 @@ outputs:
   - config.dev.toml for requirement:environment-switching
   - Go module and cmd/myapp/main.go
   - project.toolchain in data:project-config recording the selected compiler
-  - the four decision:explicit-generation-sources purpose lists in data:project-config, each naming the directories this scaffold actually created
-  - flow:handler-registration mux for the selected toolchain
-  - handler registration and pw.Parse example
+  - the decision:explicit-generation-sources purpose lists in data:project-config, each naming the directories this scaffold actually created, with generate.pages named only for a router answer that creates a tree
+  - flow:handler-registration mux for the selected toolchain, only for a router answer that includes the handlers tree
+  - handler registration and pw.Parse example, only for a router answer that includes the handlers tree
+  - pages/page.pw.html, pages/layout.pw.html, and a pages/users/id_ dynamic route example, only for a router answer that includes the page tree
+  - api:page-registry Register wiring in concept:application-entry-point for a page tree, over the pw.NewServeMux mux when the handlers tree was declined and over the handler package mux when it was not
   - templates/document.pw.html shared document shell
   - .pw.html page and 400, 401, 403, 404, 409, 413, and 500 templates
   - .pw.sql query example, only when the database is selected
-  - migrations/00001_init.sql application schema as migration version 1, only when the database is selected
+  - data:project-config project.database naming the selected engine, which api:cli-generate reads as its SQL dialect
+  - migrations/00001_init.sql application schema as migration version 1, in the dialect of the selected engine
+  - a rule:rdb-dsn-resolution engine blank import in main, only for an engine pw does not link itself
   - public directory with non-served .keep sentinel and stable public.go embedding scaffold
   - tinygohelper.go netdev registration for rule:tinygo-runtime-compatibility, only when TinyGo is selected
   - .gitignore excluding **/*_pw_gen.go generated application build inputs
   - .vscode/settings.json hiding **/*_pw_gen.go
-  - Devbox configuration with Valkey when selected and TinyGo when selected, only when the Devbox environment is selected
+  - Devbox configuration with Valkey when selected, TinyGo when selected, and the selected requirement:database-engine-selection server package, only when the Devbox environment is selected
   - data:authentication-runtime-config section for the selected authentication mode
   - data:devidp-config roster and data:project-config dev.idp when the local emulator is selected
   - api:authentication-endpoints blank import in main and a sign-in and sign-out control on the starter page
   - api:session-backend-plugin blank import in main for a selected backend other than cookie
   - rule:framework-owned-tables migrations from the packages that own those tables, at the versions after the application schema, when the mode serves a login
   - the session table migration only for the rdb backend; another backend leaves that version to the auth migration
-  - data:middleware-runtime-config rdb settings, because the scaffolded migrations and queries need a database, only when the database is selected
+  - data:middleware-runtime-config rdb settings carrying the requirement:database-engine-selection DSN for the chosen engine, because the scaffolded migrations and queries need a database, only when the database is selected
 optional_css:
   tailwind:
     - configure requirement:tailwind-css-integration in data:project-config
@@ -95,8 +114,11 @@ behavior:
   - create files atomically
   - run api:cli-generate
   - scaffold classic rendering according to requirement:nested-html-templates
+  - scaffold every tree the router answer selects, and write the document shell and error pages for all three answers because both routers render through them
   - scaffold runtime database configuration for decision:config-driven-database when the database example is enabled
   - refuse an authentication mode without the database, because its login ceremony and allowlist tables need one whatever backend stores the sessions
+  - refuse --db together with --no-database, before anything is written
+  - write the starter migration and .pw.sql example in the dialect of the selected engine, since decision:server-sql-support-tier does not translate between them
   - take the Valkey development server with a Redis-backed session, because the configured session needs a server to reach
   - print the command that generates cookie_store.secret when the cookie backend is selected
   - leave every declined capability to api:cli-add, which reaches the same file state later
@@ -105,6 +127,7 @@ next_steps:
   - devbox shell, only for a project with the Devbox environment
   - pw dev
   - a notice naming every declined capability, because a scripted run never sees the wizard say it
+  - for a server engine, the server to start and the role and database to create
 exit:
   success: 0
   wizard_canceled: 0 with a canceled notice and no files written

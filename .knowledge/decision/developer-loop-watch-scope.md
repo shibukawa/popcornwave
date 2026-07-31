@@ -26,6 +26,7 @@ excludes_motivation:
 watched_by_default:
   - Go sources, for rebuild
   - .pw.html and .pw.sql, for regeneration
+  - a new or removed concept:page-tree route, which needs nothing added: the walk compares files rather than subscribing to events, and a route always carries the page template that makes it one
   - popcornwave.toml and the policy:config-file-resolution project-local files
   - the data:migration-source directory and the data:devidp-config file when enabled
 rationale:

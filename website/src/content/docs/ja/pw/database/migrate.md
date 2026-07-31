@@ -83,5 +83,6 @@ auto = false
 
 ## 関連
 
-- [クエリとマイグレーション](/ja/guides/queries/) — SQL の書き方。
+- [データベースマイグレーション](/ja/productivity/migrations/) — ファイル形式と、このコマンドの前後の流れ。
+- [クエリ](/ja/guides/backend/queries/) — SQL の書き方。
 - [`pw seed`](/ja/pw/database/seed/) — スキーマ適用後のデータ投入。

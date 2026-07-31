@@ -8,6 +8,7 @@ Deliver reusable lower layers before dependent modern UI features.
 ```yaml
 order:
   - requirement:shared-web-runtime and requirement:classic-rendering
+  - requirement:discovered-page-routing, which reuses the classic response path and needs none of the rungs below it
   - api:typed-external-function and concept:modern-server-ui
   - memory-backed policy:layered-cache with TTL, private scope, and tags
   - flow:initial-streaming-render, unblocked by system:tinybind html_async_baseline and scoped by requirement:async-html-rendering

@@ -3,6 +3,7 @@ package pwcli
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"go/ast"
 	"go/format"
@@ -45,14 +46,25 @@ func runGenerate(ctx context.Context, args []string, stdout io.Writer) error {
 	if err := reportSourcesOutsideScope(root, config, stdout); err != nil {
 		return err
 	}
-	options, err := pwgen.Options()
+	// The page trees are generated first because their output is planned as part
+	// of the directory it lands in, and a tree root may hold no source the walk
+	// above would have found.
+	pageArtifacts, err := planPageTrees(root, config)
+	if err != nil {
+		return err
+	}
+	directories, err = withPageDirectories(directories, pageArtifacts)
+	if err != nil {
+		return err
+	}
+	options, err := pwgen.Options(engineFor(config.Database).SQLDialect)
 	if err != nil {
 		return err
 	}
 	runner := generator.New(options)
 	var changes []fileChange
 	for _, directory := range directories {
-		planned, err := planDirectory(ctx, runner, directory, directoryPurposes(root, config.Generate, directory))
+		planned, err := planDirectory(ctx, runner, directory, directoryPurposes(root, config.Generate, directory), pageArtifacts[directory])
 		if err != nil {
 			return err
 		}
@@ -243,6 +255,10 @@ func generationInput(name string) bool {
 // directoryPurposes reports which generation purposes list a directory. A
 // directory usually serves more than one, because a page template lives beside
 // the handler that renders it.
+//
+// root and directory must be spelled the same way, which in practice means both
+// absolute: a directory that resolves to no purpose is one whose generated files
+// are swept as stale.
 func directoryPurposes(root string, scope generationScope, directory string) generationPurposes {
 	within := func(sources []string) bool {
 		for _, source := range sources {
@@ -257,6 +273,7 @@ func directoryPurposes(root string, scope generationScope, directory string) gen
 		templates: within(scope.Templates),
 		queries:   within(scope.Queries),
 		config:    within(scope.Config),
+		pages:     within(scope.Pages),
 	}
 }
 
@@ -266,11 +283,15 @@ type generationPurposes struct {
 	templates bool
 	queries   bool
 	config    bool
+	// pages marks a directory inside a page tree root. Its templates are
+	// compiled by the tree run rather than the flat one, so what this enables
+	// here is the request binding a server action needs.
+	pages bool
 }
 
 // any reports whether the directory serves any purpose at all.
 func (p generationPurposes) any() bool {
-	return p.handlers || p.templates || p.queries || p.config
+	return p.handlers || p.templates || p.queries || p.config || p.pages
 }
 
 // keeps maps an artifact back to the purpose that may produce it. Go analysis
@@ -278,7 +299,12 @@ func (p generationPurposes) any() bool {
 // selected here rather than at discovery.
 func (p generationPurposes) keeps(kind generator.ArtifactKind) bool {
 	switch kind {
-	case generator.ArtifactBinding, generator.ArtifactOpenAPI:
+	case generator.ArtifactBinding:
+		// A page tree gets binders so a server action can read a typed request,
+		// but no OpenAPI: a rendered page is not a published contract, and an
+		// action endpoint is one page's implementation detail.
+		return p.handlers || p.pages
+	case generator.ArtifactOpenAPI:
 		return p.handlers
 	case generator.ArtifactHTMLTemplate:
 		return p.templates
@@ -293,7 +319,7 @@ func (p generationPurposes) keeps(kind generator.ArtifactKind) bool {
 
 func packageDirectories(root string, scope generationScope) ([]string, error) {
 	found := map[string]bool{}
-	for _, sources := range [][]string{scope.Handlers, scope.Templates, scope.Queries, scope.Config} {
+	for _, sources := range [][]string{scope.Handlers, scope.Templates, scope.Queries, scope.Config, scope.Pages} {
 		err := walkSources(root, sources, func(path string, entry fs.DirEntry) error {
 			if generationInput(entry.Name()) {
 				found[filepath.Dir(path)] = true
@@ -351,6 +377,14 @@ func reportSourcesOutsideScope(root string, config projectConfig, stdout io.Writ
 		}
 		relative = filepath.ToSlash(relative)
 		switch {
+		case purposes.pages && strings.HasSuffix(name, ".pw.html"):
+			// The tree run compiles the names a page tree reserves. Any other
+			// template inside a root is compiled by neither run.
+			if !reservedPageTemplates[name] {
+				stray = append(stray, strayReport{relative, fmt.Sprintf(
+					"pw: %s is inside a page tree but is not %s, %s, or %s, so nothing compiles it",
+					relative, pwgen.PageFile, pwgen.LayoutFile, pwgen.DocumentFile)})
+			}
 		case strings.HasSuffix(name, ".pw.html") && !purposes.templates:
 			stray = append(stray, strayReport{relative, fmt.Sprintf(
 				"pw: %s is outside generate.templates and is not generated from; list its directory to include it", relative)})
@@ -384,7 +418,13 @@ type fileChange struct {
 // rather than filtered afterwards, so an unlisted template is never parsed.
 const disabledTemplatePattern = "*.not-a-generation-source"
 
-func planDirectory(ctx context.Context, runner *generator.Generator, directory string, purposes generationPurposes) ([]fileChange, error) {
+// planDirectory plans every generated file of one directory. extra carries the
+// artifacts another run produced for it, which today means the compiled
+// components, decoder, and registry of a page tree: they are planned here so
+// one directory has one staleness sweep, and so a component and a binder that
+// derive the same base name merge into one file rather than deleting each
+// other.
+func planDirectory(ctx context.Context, runner *generator.Generator, directory string, purposes generationPurposes, extra []generator.Artifact) ([]fileChange, error) {
 	goSources, err := hasGoSources(directory)
 	if err != nil {
 		return nil, err
@@ -403,11 +443,17 @@ func planDirectory(ctx context.Context, runner *generator.Generator, directory s
 		request.SQLTemplatePattern = ""
 	}
 	artifacts, err := runner.GenerateArtifacts(ctx, request)
-	if err != nil {
+	if err != nil && !errors.Is(err, generator.ErrNothingToGenerate) {
+		// A page tree route package usually holds no request model at all, so
+		// finding nothing is the ordinary outcome rather than a failure.
 		return nil, fmt.Errorf("%s: %w", directory, err)
 	}
 
 	grouped := make(map[string][]generator.Artifact)
+	for _, artifact := range extra {
+		target := filepath.Join(directory, artifact.OutputBase+"_pw_gen.go")
+		grouped[target] = append(grouped[target], artifact)
+	}
 	for _, artifact := range artifacts {
 		if !purposes.keeps(artifact.Kind) {
 			continue

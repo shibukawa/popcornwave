@@ -9,6 +9,9 @@ CSRF middleware validates a session-bound synchronizer token and request origin 
 scope:
   unsafe_methods: every method except GET, HEAD, and OPTIONS
   protected: canonical path matches security.csrf.include and no security.csrf.exclude
+  page_actions:
+    requirement: the api:page-action-endpoint prefix must be covered, because those are POST endpoints reachable with ambient credentials and system:tinybind wires no protection around them
+    not_yet_scaffolded: this policy has no runtime implementation, so api:cli-init writes no csrf section for a concept:page-tree; the coverage lands with the middleware rather than before it
   patterns: same segment grammar and exclude precedence as policy:authenticated-path-protection
 token:
   secret: random value stored only in data:session-record

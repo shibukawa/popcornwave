@@ -14,6 +14,7 @@ commands:
   - api:cli-build
   - api:cli-migrate
   - api:cli-seed
+  - api:cli-doctor
   - api:cli-version
 configuration: data:project-config
 runtime_dependency_policy: concept:public-package-boundaries
@@ -22,5 +23,5 @@ distribution: requirement:cli-distribution
 initial_exclusions:
   - no pw schema-init command; requirement:database-migration replaced it
   - no pw test command; use go test ./...
-  - no standalone pw check command; use pw generate --check for generated drift
+  - no standalone pw check command; pw generate --check answers generated drift and api:cli-doctor answers configuration and wiring
 ```

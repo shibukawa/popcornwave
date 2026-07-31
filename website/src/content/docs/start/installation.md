@@ -11,7 +11,7 @@ is the `pw` command and the library dependency it manages.
 ## The `pw` command
 
 Scaffolding, code generation, migrations, and the development server all go
-through the `pw` command:
+through `pw`, so install it first:
 
 ```sh
 go install github.com/shibukawa/popcornwave/cmd/pw@latest
@@ -38,7 +38,7 @@ step:
 go get github.com/shibukawa/popcornwave
 ```
 
-Application code imports the [`pw`](/guides/handlers/) package, which is the
+Application code imports the [`pw`](/guides/frontend/handlers/) package, which is the
 stable application-facing API:
 
 ```go
@@ -56,4 +56,4 @@ Install Devbox from [jetify.com/devbox](https://www.jetify.com/devbox/).
 
 ## Next steps
 
-- [Getting started](/start/getting-started/) — create and run your first project.
+- [1. Getting started](/tutorial/getting-started/) — create and run your first project.

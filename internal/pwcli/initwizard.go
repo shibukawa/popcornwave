@@ -33,6 +33,27 @@ func initWizardSteps(defaults initOptions) []wizardStep[initOptions] {
 			},
 		),
 		newChoiceStep(
+			"Router",
+			"Which routers this project starts with. They coexist on one mux, pw add installs "+
+				"the other one later, and the directory each reads is a popcornwave.toml value.",
+			routerCursor(defaults.Router),
+			wizardChoice[initOptions]{
+				name:        "Registered",
+				description: defaultRegisteredDir + "/: routes written in Go, any method, generated OpenAPI",
+				apply:       func(target *initOptions) { target.Router = routerRegistered },
+			},
+			wizardChoice[initOptions]{
+				name:        "Discovered",
+				description: defaultDiscoveredDir + "/: a directory with a page template is a route; for an HTML website",
+				apply:       func(target *initOptions) { target.Router = routerDiscovered },
+			},
+			wizardChoice[initOptions]{
+				name:        "Both",
+				description: "an API in " + defaultRegisteredDir + "/ and a website in " + defaultDiscoveredDir + "/, on one mux",
+				apply:       func(target *initOptions) { target.Router = routerBoth },
+			},
+		),
+		newChoiceStep(
 			"Tailwind CSS",
 			"Wires the pinned Tailwind toolchain into the project and generates public/generated/app.css.",
 			yesNoCursor(defaults.Tailwind),
@@ -53,7 +74,7 @@ func initWizardSteps(defaults initOptions) []wizardStep[initOptions] {
 			yesNoCursor(defaults.Database),
 			wizardChoice[initOptions]{
 				name:        "Yes",
-				description: "SQLite through [middleware.rdb], migrations/00001_init.sql, and queries/users.pw.sql",
+				description: "[middleware.rdb], migrations/00001_init.sql, and a typed SQL example",
 				apply:       setDatabase(true),
 			},
 			wizardChoice[initOptions]{
@@ -61,6 +82,15 @@ func initWizardSteps(defaults initOptions) []wizardStep[initOptions] {
 				description: "no database, no SQL example, and no migrations; pw add database enables it later",
 				apply:       setDatabase(false),
 			},
+		),
+		when(func(options initOptions) bool { return options.Database },
+			newChoiceStep(
+				"Database engine",
+				"Decides the DSN, the dialect of the starter schema and migrations, and the development server. "+
+					"Changing it later means rewriting both, so pw add cannot do it for you.",
+				engineCursor(defaults.Engine),
+				engineChoices()...,
+			),
 		),
 		when(func(options initOptions) bool { return options.Database },
 			newChoiceStep(
@@ -159,6 +189,26 @@ func initWizardSteps(defaults initOptions) []wizardStep[initOptions] {
 	}
 }
 
+// engineChoices renders the engine table as wizard choices, in catalog order,
+// so adding an engine costs one table entry rather than a step edit as well.
+func engineChoices() []wizardChoice[initOptions] {
+	choices := make([]wizardChoice[initOptions], 0, len(engineOrder))
+	for _, name := range engineOrder {
+		engine := databaseEngines[name]
+		choices = append(choices, wizardChoice[initOptions]{
+			name:        engine.Label,
+			description: engine.Summary,
+			apply:       setEngine(name),
+		})
+	}
+	return choices
+}
+
+// setEngine records the engine answer.
+func setEngine(name string) func(*initOptions) {
+	return func(target *initOptions) { target.Engine = name }
+}
+
 // setDevbox records the answer and clears what depends on it. The Valkey
 // question only ever writes a Devbox package, so a declined environment takes
 // that step out of the wizard rather than leaving an answer nothing applies.
@@ -178,6 +228,10 @@ func setDatabase(enabled bool) func(*initOptions) {
 	return func(target *initOptions) {
 		target.Database = enabled
 		if !enabled {
+			// The engine step goes with it. Its answer applies only inside a
+			// project that has a database, so leaving one behind would be an
+			// answer to a question this project never reached.
+			target.Engine = engineSQLite
 			target.Auth = authNone
 			target.AuthEmulator = false
 		}
@@ -232,6 +286,18 @@ func authCursor(mode string) int {
 }
 
 // yesNoCursor maps a boolean default onto a leading yes, trailing no choice list.
+// routerCursor preselects the router answer a shortcut flag already supplied.
+func routerCursor(router string) int {
+	switch effectiveRouter(router) {
+	case routerDiscovered:
+		return 1
+	case routerBoth:
+		return 2
+	default:
+		return 0
+	}
+}
+
 func yesNoCursor(enabled bool) int {
 	if enabled {
 		return 0

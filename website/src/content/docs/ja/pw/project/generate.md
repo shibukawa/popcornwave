@@ -108,7 +108,7 @@ pw: multiple default documents: templates/document.pw.html, admin/document.pw.ht
 
 別のシェルは名前なしスロットを持つ通常のエクスポート済みコンポーネントとして書き、
 ハンドラごとに `pw.WriteHTMLChain` で選択してください。
-[テンプレート](/ja/guides/templates/)を参照。
+[テンプレート](/ja/guides/frontend/templates/)を参照。
 
 ## CI での使い方
 

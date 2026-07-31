@@ -1,0 +1,278 @@
+package pwcheck
+
+// PW04xx: wiring, configuration values, secret material, and the identity
+// provider. Severity turns on the diagnosed token, never on a hard-coded list
+// of deployment names.
+const (
+	// Wiring: configuration selects something the binary does not link.
+	MissingSessionPlugin = "PW0401"
+	MissingSQLDriver     = "PW0402"
+	UnclaimedConfigKey   = "PW0403"
+	DevIdPLinked         = "PW0404"
+	UnusedLinkedPlugin   = "PW0405"
+	MissingNetdev        = "PW0406"
+
+	// Dependency: one feature needs another that is off.
+	AuthWithoutSession  = "PW0407"
+	SessionRDBWithoutMW = "PW0408"
+	ReadonlyFrameworkDB = "PW0409"
+
+	// Secret material, keyed to the configbind secret classification rather
+	// than to a list of field names, so a signing key added later is covered
+	// the moment its metadata marks it secret.
+	LiteralSecretInFile  = "PW0412"
+	PlaceholderSecret    = "PW0413"
+	SecretSharedBetween  = "PW0414"
+	SecretFileNotIgnored = "PW0415"
+	SecretFilePerms      = "PW0416"
+
+	// Environment-appropriate values.
+	InsecureSessionCookie = "PW0410"
+	ResponseHeadersWeak   = "PW0411"
+	QueryDiagnosticsOn    = "PW0420"
+	BindValuesOn          = "PW0421"
+	VerboseLogLevel       = "PW0422"
+	MemoryDatabase        = "PW0423"
+	LocalPublicRead       = "PW0424"
+	PlaintextLogs         = "PW0426"
+	TelemetryDisabled     = "PW0427"
+	LegacySingleDSN       = "PW0428"
+
+	// Identity provider: dev may authenticate against the local emulator, and
+	// a deployment must not.
+	DevIdPEnabled        = "PW0430"
+	DevelopmentIssuer    = "PW0431"
+	InsecureIssuer       = "PW0432"
+	RedirectDisagreement = "PW0433"
+	ProviderNotDeclared  = "PW0434"
+	ProviderInjectedDev  = "PW0435"
+	LoopbackPairing      = "PW0436"
+)
+
+func init() {
+	register(
+		Check{
+			ID: MissingSessionPlugin, Group: GroupConfig,
+			Title:    "selected session backend is not linked",
+			Severity: Error, DevSeverity: Error, Scope: Every,
+			Inputs: Config | ImportGraph, Phase: Doctor,
+			Remedy: "add the blank import of the backend plugin",
+		},
+		Check{
+			ID: MissingSQLDriver, Group: GroupConfig,
+			Title:    "no database/sql driver answers the configured DSN scheme",
+			Severity: Error, DevSeverity: Error, Scope: Every,
+			Inputs: Config | ImportGraph, Phase: Doctor,
+			Remedy: "add the blank import of the driver package for that scheme",
+		},
+		Check{
+			ID: UnclaimedConfigKey, Group: GroupConfig,
+			Title:    "configured key belongs to no linked binding",
+			Severity: Error, DevSeverity: Error, Scope: Every,
+			Inputs: Config | ImportGraph, Phase: Doctor,
+			Remedy: "import the plugin that owns the key, or correct the key",
+		},
+		Check{
+			ID: DevIdPLinked, Group: GroupConfig,
+			Title:    "the development identity provider is linked into the application",
+			Severity: Error, DevSeverity: Error, Scope: Every,
+			Inputs: ImportGraph, Phase: Doctor,
+			Remedy: "remove the contrib/devidp import; pw dev runs it as a separate process",
+		},
+		Check{
+			ID: UnusedLinkedPlugin, Group: GroupConfig,
+			Title:    "a linked plugin is selected by no configuration",
+			Severity: Note, DevSeverity: Note, Scope: Every,
+			Inputs: Config | ImportGraph, Phase: Doctor,
+			Remedy: "drop the import, or select it in configuration",
+		},
+		Check{
+			ID: MissingNetdev, Group: GroupConfig,
+			Title:    "a TinyGo project registers no Netdev",
+			Severity: Error, DevSeverity: Error, Scope: Every,
+			Inputs: ProjectFiles, Phase: Doctor,
+			Remedy: "restore tinygohelper.go with the tinygodriver/netdev blank import",
+		},
+		Check{
+			ID: AuthWithoutSession, Group: GroupConfig,
+			Title:    "authentication is enabled without a session store",
+			Severity: Error, DevSeverity: Error, Scope: Every,
+			Inputs: Config, Phase: Doctor | Startup,
+			Remedy: "enable session, whose rdb backend holds the login session",
+		},
+		Check{
+			ID: SessionRDBWithoutMW, Group: GroupConfig,
+			Title:    "the session store reuses a database middleware that is off",
+			Severity: Error, DevSeverity: Error, Scope: Every,
+			Inputs: Config, Phase: Doctor | Startup,
+			Remedy: "enable middleware.rdb, or give the session a dedicated source",
+		},
+		Check{
+			ID: ReadonlyFrameworkDB, Group: GroupConfig,
+			Title:    "a framework-owned write resolves to a readonly group",
+			Severity: Error, DevSeverity: Error, Scope: Every,
+			Inputs: Config, Phase: Doctor | Startup,
+			Remedy: "name a writable group in middleware.rdb.write_group",
+		},
+		Check{
+			ID: InsecureSessionCookie, Group: GroupConfig,
+			Title:    "the session cookie is not marked secure",
+			Severity: Error, DevSeverity: Note, Scope: Every,
+			Inputs: Config, Phase: Doctor,
+			Remedy: "set session.cookie.secure, which is a development-only exception",
+		},
+		Check{
+			ID: ResponseHeadersWeak, Group: GroupConfig,
+			Title:    "browser response headers are disabled",
+			Severity: Warning, DevSeverity: Note, Scope: Deployed,
+			Inputs: Config, Phase: Doctor,
+			Remedy: "enable security.headers",
+		},
+		Check{
+			ID: LiteralSecretInFile, Group: GroupConfig,
+			Title:    "a secret is set from the configuration file",
+			Severity: Error, DevSeverity: Note, Scope: Every,
+			Inputs: Config | ProjectFiles, Phase: Doctor,
+			Remedy: "move the value to an environment variable, or reference one with ${NAME}",
+		},
+		Check{
+			ID: PlaceholderSecret, Group: GroupConfig,
+			Title:    "a secret still holds a scaffolded or placeholder value",
+			Severity: Error, DevSeverity: Warning, Scope: Every,
+			Inputs: Config, Phase: Doctor,
+			Remedy: "replace it; a scaffold value is published in the framework source",
+		},
+		Check{
+			ID: SecretSharedBetween, Group: GroupConfig,
+			Title:    "one secret value is shared between environments",
+			Severity: Error, DevSeverity: Error, Scope: Every,
+			Inputs: Config | OtherEnvironments, Phase: Doctor,
+			Remedy: "give each environment its own value",
+		},
+		Check{
+			ID: SecretFileNotIgnored, Group: GroupConfig,
+			Title:    "a file holding a secret is tracked by version control",
+			Severity: Error, DevSeverity: Warning, Scope: Every,
+			Inputs: ProjectFiles, Phase: Doctor,
+			Remedy: "untrack the file and read the value from the environment instead",
+		},
+		Check{
+			ID: SecretFilePerms, Group: GroupConfig,
+			Title:    "a file holding a secret is readable beyond its owner",
+			Severity: Warning, DevSeverity: Warning, Scope: Every,
+			Inputs: ProjectFiles, Phase: Doctor,
+			Remedy: "chmod 600 the file",
+		},
+		Check{
+			ID: QueryDiagnosticsOn, Group: GroupConfig,
+			Title:    "query diagnostics are enabled outside dev",
+			Severity: Warning, DevSeverity: Note, Scope: Deployed,
+			Inputs: Config, Phase: Doctor,
+			Remedy: "set observability.query.enabled to off",
+		},
+		Check{
+			ID: BindValuesOn, Group: GroupConfig,
+			Title:    "query bind values are logged outside dev",
+			Severity: Warning, DevSeverity: Note, Scope: Deployed,
+			Inputs: Config, Phase: Doctor,
+			// Bind values are the only path by which application row data
+			// enters a framework SQL record.
+			Remedy: "set observability.query.bind_values to off",
+		},
+		Check{
+			ID: VerboseLogLevel, Group: GroupConfig,
+			Title:    "the log level is below info outside dev",
+			Severity: Warning, DevSeverity: Note, Scope: Deployed,
+			Inputs: Config, Phase: Doctor,
+			Remedy: "set observability.minimum_level to info or higher",
+		},
+		Check{
+			ID: MemoryDatabase, Group: GroupConfig,
+			Title:    "an in-memory database is configured outside dev",
+			Severity: Warning, DevSeverity: Note, Scope: Deployed,
+			Inputs: Config, Phase: Doctor,
+			Remedy: "point the DSN at a durable database; the schema and every row are lost at restart",
+		},
+		Check{
+			ID: LocalPublicRead, Group: GroupConfig,
+			Title:    "public assets are served from the local filesystem outside dev",
+			Severity: Warning, DevSeverity: Note, Scope: Deployed,
+			Inputs: Config, Phase: Doctor,
+			Remedy: "set server.public.read_local to false; pw dev forces it on its own",
+		},
+		Check{
+			ID: PlaintextLogs, Group: GroupConfig,
+			Title:    "logs are plaintext outside dev",
+			Severity: Note, DevSeverity: Note, Scope: Deployed,
+			Inputs: Config, Phase: Doctor,
+			Remedy: "set observability.stdout_format to json for a log collector",
+		},
+		Check{
+			ID: TelemetryDisabled, Group: GroupConfig,
+			Title:    "telemetry export is disabled outside dev",
+			Severity: Note, DevSeverity: Note, Scope: Deployed,
+			Inputs: Config, Phase: Doctor,
+			Remedy: "set observability.otel.endpoint to export traces and logs",
+		},
+		Check{
+			ID: LegacySingleDSN, Group: GroupConfig,
+			Title:    "the database uses the single-DSN form",
+			Severity: Note, DevSeverity: Note, Scope: Every,
+			Inputs: Config, Phase: Doctor,
+			// Retained rather than deprecated: it is the only form with
+			// environment and CLI overrides.
+			Remedy: "no action; move to [[middleware.rdb.connections]] when a second connection is needed",
+		},
+		Check{
+			ID: DevIdPEnabled, Group: GroupConfig,
+			Title:    "the development identity provider is enabled outside dev",
+			Severity: Error, DevSeverity: Note, Scope: Deployed,
+			Inputs: ProjectFiles, Phase: Doctor,
+			Remedy: "set dev.idp.enabled to false; it authenticates nobody",
+		},
+		Check{
+			ID: DevelopmentIssuer, Group: GroupConfig,
+			Title:    "the OIDC issuer is a development one outside dev",
+			Severity: Error, DevSeverity: Note, Scope: Deployed,
+			Inputs: Config, Phase: Doctor,
+			Remedy: "set auth.oidc.issuer to the deployment provider",
+		},
+		Check{
+			ID: InsecureIssuer, Group: GroupConfig,
+			Title:    "the OIDC issuer is reached over http outside dev",
+			Severity: Error, DevSeverity: Note, Scope: Deployed,
+			Inputs: Config, Phase: Doctor,
+			Remedy: "use an https issuer and clear auth.oidc.allow_loopback_http",
+		},
+		Check{
+			ID: RedirectDisagreement, Group: GroupConfig,
+			Title:    "the OIDC redirect URL does not match the callback path",
+			Severity: Error, DevSeverity: Error, Scope: Every,
+			Inputs: Config, Phase: Doctor,
+			// The provider would redirect to a URL the application does not
+			// serve, and a loopback redirect that works locally hides it.
+			Remedy: "make auth.oidc.redirect_url end with auth.callback_path",
+		},
+		Check{
+			ID: ProviderNotDeclared, Group: GroupConfig,
+			Title:    "no provider values are declared for a deployed environment",
+			Severity: Note, DevSeverity: Note, Scope: Deployed,
+			Inputs: Config | ProcessEnv, Phase: Doctor,
+			Remedy: "confirm the deployment sets AUTH_OIDC_ISSUER, AUTH_OIDC_CLIENT_ID, and AUTH_OIDC_CLIENT_SECRET",
+		},
+		Check{
+			ID: ProviderInjectedDev, Group: GroupConfig,
+			Title:    "provider credentials come from the pw dev identity provider",
+			Severity: Note, DevSeverity: Note, Scope: Development,
+			Inputs: Config | ProjectFiles, Phase: Doctor,
+			Remedy: "no action; this is why the file declares none",
+		},
+		Check{
+			ID: LoopbackPairing, Group: GroupConfig,
+			Title:    "the loopback development pairing is still set outside dev",
+			Severity: Error, DevSeverity: Note, Scope: Deployed,
+			Inputs: Config, Phase: Doctor,
+			Remedy: "clear auth.oidc.allow_loopback_http and set session.cookie.secure",
+		},
+	)
+}

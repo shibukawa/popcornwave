@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/shibukawa/popcornwave/database"
+	"github.com/shibukawa/popcornwave/database/sqlite"
 	"github.com/shibukawa/popcornwave/migrate"
 )
 
@@ -18,7 +20,19 @@ var snapshotCache = struct {
 	scripts map[string]string
 }{scripts: make(map[string]string)}
 
-func installMigrations(ctx context.Context, db *sql.DB, options []migrate.Option) error {
+func installMigrations(ctx context.Context, db *sql.DB, dsn string, options []migrate.Option) error {
+	target, err := database.Resolve(dsn)
+	if err != nil {
+		return fmt.Errorf("testutil: %w", err)
+	}
+	if target.Dialect != sqlite.Dialect {
+		// A server database is reachable by DSN, so the migrations run against
+		// it directly. The snapshot below exists only because an in-process
+		// sqlite://:memory: is not reachable that way, and its script is
+		// SQLite DDL that no other engine would accept anyway.
+		_, err := migrate.Up(ctx, dsn, options...)
+		return err
+	}
 	installed, err := alreadyInstalled(ctx, db)
 	if err != nil {
 		return err
@@ -35,8 +49,9 @@ func installMigrations(ctx context.Context, db *sql.DB, options []migrate.Option
 	return migrate.Replay(ctx, db, script)
 }
 
-// alreadyInstalled reports whether this database carries applied migration
-// versions from an earlier TestRun.
+// alreadyInstalled reports whether this SQLite database carries applied
+// migration versions from an earlier TestRun. Server engines never reach it:
+// migrate.Up is idempotent, so a second run applies nothing.
 func alreadyInstalled(ctx context.Context, db *sql.DB) (bool, error) {
 	var present int
 	err := db.QueryRowContext(ctx,

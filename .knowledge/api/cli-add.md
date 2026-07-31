@@ -14,9 +14,13 @@ inputs:
   answers: the capability-specific questions, asked in the wizard only
 questions:
   capability: single-select over the capabilities the project does not already carry
-  database_dsn:
+  database_engine:
     asked_when: the answers reach the database, directly or through a dependency
-    default: sqlite://{project}.db per requirement:contrib-sqlite
+    choices: sqlite, postgres, and mysql per requirement:database-engine-selection
+    default: sqlite
+  database_dsn:
+    asked_when: an engine has been chosen
+    default: the requirement:database-engine-selection DSN for that engine
   oidc_provider:
     asked_when: auth is selected
     choices: requirement:contrib-devidp local emulator, or an external provider left for the operator to fill in
@@ -33,6 +37,10 @@ capabilities:
       - data:middleware-runtime-config rdb section in every environment configuration file present
       - the migration directory, holding the same starter schema api:cli-init writes when the project has none
       - the same starter .pw.sql api:cli-init writes, and the generate.queries entry that opens the purpose for it
+      - data:project-config project.database naming the selected engine, which api:cli-generate reads as its SQL dialect
+      - the development server package in devbox.json for a server engine, when the project has that environment
+    dialect: the starter migration and .pw.sql are written for the selected engine, per requirement:database-engine-selection
+    manual: the engine blank import, because the entry point is application-owned
     enables: data:migration-source, api:migration-runner, and .pw.sql generation
     leaves_alone: an existing migration set, which is the application's own schema
   redis-valkey:
@@ -51,6 +59,20 @@ capabilities:
       - account resolver source that api:authentication-endpoints calls
       - data:devidp-config roster and data:project-config dev.idp when the local emulator is selected
     imports: the application already links plugin/auth through its account resolver, so only the api:session-backend-plugin blank import is printed as a manual step
+  discovered:
+    writes:
+      - the concept:page-tree root with the same starter page, layout, and dynamic route example api:cli-init writes
+      - the data:project-config generate.pages entry that opens the purpose for it
+    detection: the generate.pages entries, because a tree no purpose lists is a directory nothing generates from
+    key_may_be_absent: generate.pages is the one optional purpose, so this is the only capability whose edit may have to add its key rather than replace it
+    manual: the api:page-registry Register call, because concept:application-entry-point is application-owned
+    requirement: requirement:discovered-page-routing
+  registered:
+    writes:
+      - the handler package, its flow:handler-registration mux and accessor, and one route example
+      - the generate.handlers entry, and the same directory added to generate.templates, because a page template sits beside the handler that renders it
+    for: a project scaffolded with the discovered-only answer of decision:page-router-scaffold-choice
+    manual: the mux wiring in concept:application-entry-point
   tailwind:
     writes:
       - assets.tailwind section in data:project-config for requirement:tailwind-css-integration
@@ -82,7 +104,7 @@ relations:
   init: api:cli-init writes the same files for a new project, from the same capability catalog
   flow: flow:capability-addition
   layout: concept:project-layout
-  sibling: api:cli-new adds sources rather than capabilities
+  sibling: api:cli-new adds sources rather than capabilities, and names them after what they are rather than after the router that serves them
 exit:
   success: 0
   canceled_wizard: 0 with a canceled notice and no files written

@@ -8,7 +8,9 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"os"
 	"reflect"
+	"sync"
 
 	"github.com/shibukawa/tinybind-go/sqlbind"
 )
@@ -18,7 +20,12 @@ type contextKey struct{}
 // Resources is the immutable process/request state installed by pw.
 type Resources struct {
 	Configs map[reflect.Type]any
-	Logger  *slog.Logger
+	// Log is the process emission policy. A nil backend falls back to a plain
+	// stderr text handler so that a request served outside pw still logs.
+	Log *LogBackend
+	// LogAttributes are the stable request attributes every record carries,
+	// such as the request correlation ID.
+	LogAttributes []Attribute
 	// DB is the pool of the default group. It stays the whole database for a
 	// configuration that declares no connection set.
 	DB *sql.DB
@@ -47,8 +54,8 @@ func WithResources(ctx context.Context, resources Resources) context.Context {
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	if resources.Logger == nil {
-		resources.Logger = slog.Default()
+	if resources.Log == nil {
+		resources.Log = fallbackBackend()
 	}
 	// The memo is per request, not per process. InjectResources hands every
 	// request the same Resources value, whose memo is nil, so each request
@@ -102,8 +109,16 @@ func resources(ctx context.Context) *Resources {
 			return value
 		}
 	}
-	return &Resources{Logger: slog.Default()}
+	return &Resources{Log: fallbackBackend()}
 }
+
+// fallbackBackend serves a context that never passed through pw, which is what
+// a unit test and an unconfigured tool both look like. Info to stderr is the
+// least surprising thing to do there, and it is built once rather than per
+// lookup because an accessor on the request path must not allocate a handler.
+var fallbackBackend = sync.OnceValue(func() *LogBackend {
+	return NewLogBackend(LevelInfo, NewSlogSink(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelInfo})))
+})
 
 func Config[T any](ctx context.Context) (T, bool) {
 	var zero T
@@ -115,19 +130,33 @@ func Config[T any](ctx context.Context) (T, bool) {
 	return typed, ok
 }
 
-func Logger(ctx context.Context) *slog.Logger {
-	logger := resources(ctx).Logger
-	if logger == nil {
-		return slog.Default()
-	}
-	return logger
+// ReadLogger returns a logger bound to the emission policy of ctx, its stable
+// request attributes, and the span active on it. It never returns a logger that
+// cannot be called: a context with nothing installed still yields a usable one.
+//
+// Acquire again inside a child span to correlate with that span, because the
+// correlation is captured here rather than at each call.
+func ReadLogger(ctx context.Context) Logger {
+	current := resources(ctx)
+	return NewLogger(ctx, current.Log, current.LogAttributes...)
 }
 
-// WithLogger replaces only the request logger while preserving other runtime
-// resources already installed on ctx.
-func WithLogger(ctx context.Context, logger *slog.Logger) context.Context {
+// WithLogAttributes adds stable request attributes to every record taken from
+// ctx afterwards, preserving the other runtime resources already installed.
+func WithLogAttributes(ctx context.Context, attributes ...Attribute) context.Context {
+	if len(attributes) == 0 {
+		return ctx
+	}
 	current := *resources(ctx)
-	current.Logger = logger
+	current.LogAttributes = mergeAttributes(current.LogAttributes, attributes)
+	return WithResources(ctx, current)
+}
+
+// WithLogBackend replaces only the emission policy, which is what a test needs
+// to capture records without rebuilding every other resource.
+func WithLogBackend(ctx context.Context, backend *LogBackend) context.Context {
+	current := *resources(ctx)
+	current.Log = backend
 	return WithResources(ctx, current)
 }
 
@@ -161,7 +190,7 @@ func SQLExecutor(ctx context.Context) (sqlbind.SQLExecutor, error) {
 	if err != nil {
 		return nil, err
 	}
-	return instrument(current, executor, Logger(ctx)), nil
+	return instrument(current, executor, ReadLogger(ctx)), nil
 }
 
 func baseSQLExecutor(ctx context.Context, current *Resources) (sqlbind.SQLExecutor, error) {

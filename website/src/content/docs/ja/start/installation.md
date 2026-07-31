@@ -11,7 +11,7 @@ Popcorn Wave は **Go 1.26 以降**が必要です。その先で必須となる
 ## `pw` コマンド
 
 スキャフォールド、コード生成、マイグレーション、開発サーバは、いずれも `pw`
-コマンドを経由します。
+コマンドを経由します。まずはこれを入れます。
 
 ```sh
 go install github.com/shibukawa/popcornwave/cmd/pw@latest
@@ -38,7 +38,7 @@ go get github.com/shibukawa/popcornwave
 ```
 
 アプリケーションコードは、安定したアプリケーション向け API である
-[`pw`](/ja/guides/handlers/) パッケージをインポートします。
+[`pw`](/ja/guides/frontend/handlers/) パッケージをインポートします。
 
 ```go
 import "github.com/shibukawa/popcornwave/pw"
@@ -55,4 +55,4 @@ Devbox は [jetify.com/devbox](https://www.jetify.com/devbox/) から導入で�
 
 ## 次のステップ
 
-- [はじめる](/ja/start/getting-started/) — 最初のプロジェクトを作って動かす。
+- [1. はじめる](/ja/tutorial/getting-started/) — 最初のプロジェクトを作って動かす。

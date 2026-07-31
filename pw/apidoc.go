@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 )
 
@@ -24,11 +25,15 @@ const (
 // specURL. Assets load from a public CDN; nothing is embedded in the binary.
 //
 //	mux.Handle("GET /docs/{$}", pw.ScalarUI("/openapi.json"))
-func ScalarUI(specURL string) http.Handler { return apiDocPage(scalarUIPage, specURL) }
+func ScalarUI(specURL string) http.Handler {
+	return apiDocPage(scalarUIPage, specURL, scalarAssetURL)
+}
 
 // SwaggerUI serves a Swagger UI page for the OpenAPI document at specURL.
 // Assets load from a public CDN; nothing is embedded in the binary.
-func SwaggerUI(specURL string) http.Handler { return apiDocPage(swaggerUIPage, specURL) }
+func SwaggerUI(specURL string) http.Handler {
+	return apiDocPage(swaggerUIPage, specURL, swaggerUIAssetBase)
+}
 
 // apiDocUI returns the handler for a validated server.api_doc value.
 func apiDocUI(kind, specURL string) http.Handler {
@@ -42,18 +47,66 @@ func apiDocUI(kind, specURL string) http.Handler {
 	}
 }
 
-func apiDocPage(template, specURL string) http.Handler {
+func apiDocPage(template, specURL, assetURL string) http.Handler {
 	if strings.TrimSpace(specURL) == "" {
 		specURL = "/openapi.json"
 	}
 	page := strings.ReplaceAll(template, "__SPEC_URL__", safeJSString(specURL))
+	policy := apiDocCSP(assetOrigin(assetURL))
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		header := w.Header()
+		relaxAPIDocCSP(header, policy)
+		header.Set("Content-Type", "text/html; charset=utf-8")
 		w.WriteHeader(http.StatusOK)
 		if r.Method != http.MethodHead {
 			_, _ = io.WriteString(w, page)
 		}
 	})
+}
+
+// relaxAPIDocCSP replaces the application's policy with the one this page needs.
+//
+// The security headers middleware wraps the operational endpoints, so its policy
+// is already on the header while the response is still uncommitted. Rewriting it
+// here scopes the CDN and inline allowances to this one page, where widening
+// security.headers.content_security_policy would carry them into every response
+// the application sends. An application that configures no policy keeps none:
+// the header is only replaced where it already exists.
+func relaxAPIDocCSP(header http.Header, policy string) {
+	if policy == "" {
+		return
+	}
+	for _, name := range []string{"Content-Security-Policy", "Content-Security-Policy-Report-Only"} {
+		if header.Get(name) != "" {
+			header.Set(name, policy)
+		}
+	}
+}
+
+// apiDocCSP is what the documentation page actually loads: the pinned CDN for
+// the bundle, plus inline script and style, because the page initialises the UI
+// from a <script> element and the UI writes style attributes as it renders.
+func apiDocCSP(origin string) string {
+	if origin == "" {
+		return ""
+	}
+	return strings.Join([]string{
+		"script-src 'self' " + origin + " 'unsafe-inline'",
+		"style-src 'self' " + origin + " 'unsafe-inline'",
+		"img-src 'self' data:",
+		"font-src 'self' " + origin + " data:",
+		"connect-src 'self'",
+	}, "; ")
+}
+
+// assetOrigin reduces a pinned CDN URL to the scheme and host a policy names.
+// Deriving it keeps the policy correct when a pin moves to another host.
+func assetOrigin(assetURL string) string {
+	parsed, err := url.Parse(assetURL)
+	if err != nil || parsed.Scheme == "" || parsed.Host == "" {
+		return ""
+	}
+	return parsed.Scheme + "://" + parsed.Host
 }
 
 // safeJSString renders a JavaScript string literal. json.Marshal escapes the
