@@ -31,6 +31,7 @@ schema:
     queries: [queries] as scaffolded
     config: [cmd/myapp] as scaffolded
     pages: [pages] as scaffolded for a project with a concept:page-tree, and empty otherwise
+    dynamo: [records] as scaffolded for a project with requirement:dynamodb-store, and empty otherwise
   migration:
     dir: migrations
     auto: true for api:cli-dev only
@@ -46,8 +47,10 @@ optional_extensions:
   - build tags and targets
   - build output location
 rules:
-  - api:cli-generate reads each source kind only under the generate purpose that owns it, and warns about a .pw.html or .pw.sql outside its purpose
-  - every generate purpose key is required except generate.pages; an empty list states that the purpose generates nothing
+  - api:cli-generate reads each source kind only under the generate purpose that owns it, and warns about a .pw.html, .pw.sql, or .pw.dynamo outside its purpose
+  - every generate purpose key is required except generate.pages and generate.dynamo; an empty list states that the purpose generates nothing
+  - a missing generate.dynamo means the empty list, for the same reason generate.pages does; requirement:dynamodb-store is a capability a project acquires rather than one it always had
+  - project.database names the SQL engine only, and says nothing about requirement:dynamodb-store, which is configured at runtime and never here
   - a missing generate.pages means the empty list, because a project scaffolded before requirement:discovered-page-routing has no concept:page-tree and no way to acquire one silently
   - a generate.pages entry is a tree root, so it is neither nested in another root nor listed under generate.templates or generate.handlers
   - the scaffolded directory names are defaults, not identity: handlers and pages are what api:cli-init writes, and every consumer reads the purpose list instead of the name, so renaming a tree is moving the directory and editing its entry

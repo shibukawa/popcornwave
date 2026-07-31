@@ -67,9 +67,13 @@ acceptance:
   - api:cli-add database reaches the same file state for the same engine as api:cli-init
   - a project without the Devbox environment still receives a valid DSN and a printed server requirement
   - no scaffolded credential appears in a file the project would deploy
+not_an_engine_here:
+  store: requirement:dynamodb-store
+  reason: it is not a database/sql engine, so it resolves no DSN scheme, compiles no .pw.sql, and shares no migration engine; adding it as a fourth choice would make the three SQL surfaces unreachable for that project
+  question: DynamoDB is a separate capability answer in decision:interactive-project-bootstrap, asked independently of this one and combinable with any answer including no database
 non_goals:
   - converting an existing project from one engine to another
   - one .pw.sql source that compiles for every dialect at once; a project picks its engine and generates for it
-  - more than one database in a project
+  - more than one relational database in a project; a second kind of store is requirement:dynamodb-store, not a second engine here
   - provisioning a managed or remote database
 ```

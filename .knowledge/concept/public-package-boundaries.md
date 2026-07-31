@@ -20,6 +20,7 @@ public_lower_level:
   - session
   - observability
   - database
+  - database/dynamo
   - pwruntime
 tinybind:
   role: implementation dependency behind pw
@@ -29,4 +30,9 @@ drivers:
   registry: github.com/shibukawa/popcornwave/database, with one subpackage per engine
   selection: explicit application imports, resolved by rule:rdb-dsn-resolution
   rule: data:project-config never selects runtime drivers; the rdb DSN scheme does
+dynamo:
+  import: github.com/shibukawa/popcornwave/database/dynamo, per api:dynamo-package
+  exception: it is the one store a handler reaches without going through pw, because decision:dynamodb-no-runtime-abstraction found nothing for pw to wrap
+  not_an_rdb_engine: it sits beside the engine subpackages and registers nothing into the rule:rdb-dsn-resolution table
+  visible_dependency: application code using it names the driver types directly, which the SQL path hides behind database/sql
 ```

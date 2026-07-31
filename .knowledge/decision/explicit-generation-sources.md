@@ -32,11 +32,16 @@ purposes:
     artifact_selection: request binding is kept and the OpenAPI fragment is dropped, which is the same per-directory selection every other purpose makes and is what keeps a page route out of the document
     disjoint_from_templates: a directory below a root is never a generate.templates entry, because the tree run already compiles its page and layout templates and the flat run would claim the same output with different content
     disjoint_from_handlers: a root is never a generate.handlers entry, so no page route is analyzed for OpenAPI, per decision:dual-router-coexistence
+  generate.dynamo:
+    reads: Go sources carrying dynamo struct tags, the dynamobind call sites that direct which half of each codec is emitted, and .pw.dynamo query declarations
+    emits: requirement:dynamodb-generation item codecs, key builders, table definitions, the decision:dynamodb-table-registry list, and the requirement:dynamodb-typed-queries functions
+    not_queries: generate.queries reads .pw.sql for a SQL dialect, and this purpose reads Go type declarations plus a declaration language checked against those types, so one scanner could not serve both
+    overlaps_handlers: a directory may be both, because a tagged record commonly lives beside the handler that stores it
 form:
   value: project-relative directories, listed explicitly and walked recursively
   required: the four original keys, so the block states every purpose and its scope in one place
   empty_list: the explicit way to say a purpose generates nothing, distinguishable from a forgotten key
-  pages_exception: generate.pages is the one optional key, and its absence means the empty list, because a project written before the purpose existed cannot have named it
+  pages_exception: generate.pages and generate.dynamo are the optional keys, and an absent one means the empty list, because a project written before the purpose existed cannot have named it
   overlap: a directory may appear under several purposes, because concept:project-layout keeps a page template beside the handler that renders it
   scaffolded: written by api:cli-init for the directories it creates
   no_implicit_default: nothing is scanned because it happens to be inside the project
@@ -59,6 +64,7 @@ outside_sources:
     - .pw.html outside every generate.templates entry
     - .pw.html inside a generate.pages root under a name concept:page-tree does not reserve, which nothing compiles
     - .pw.sql outside every generate.queries entry
+    - .pw.dynamo outside every generate.dynamo entry
     - a policy:generated-artifacts file outside every purpose, which nothing regenerates or removes any more
   not_reported: Go sources, because ordinary Go code lives throughout a project; a call site outside its purpose simply has no generated binding
   behavior: warn and ignore

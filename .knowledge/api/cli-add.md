@@ -49,6 +49,17 @@ capabilities:
       - Valkey package in devbox.json, which api:cli-dev exposes as the development server
       - the endpoint an application passes to requirement:contrib-auth-state-redis
     refuses: enabling session.backend redis, which data:session-runtime-config still defers
+  dynamo:
+    requires: nothing, per requirement:dynamodb-store; it combines with any database answer including none
+    writes:
+      - data:dynamodb-runtime-config section in every environment configuration file present
+      - the records directory holding one dynamo-tagged starter type and one .pw.dynamo declaration, and the data:project-config generate.dynamo entry that opens the purpose for both
+      - the amazon/dynamodb-local package in devbox.json, which api:cli-dev exposes as the development server, following the redis-valkey model
+      - the local endpoint and placeholder credentials in config.dev.toml only
+    key_may_be_absent: generate.dynamo is optional like generate.pages, so this edit may have to add the key rather than replace it
+    manual: the api:dynamo-package import, because concept:application-entry-point is application-owned
+    enables: requirement:dynamodb-generation and requirement:dynamodb-migration
+    writes_no_migration: the schema is the generated table set, per decision:dynamodb-desired-state-migration, so no migration file and no version range is involved
   auth:
     requires: database, because the login session store is the rdb backend
     writes:

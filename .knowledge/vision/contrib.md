@@ -32,6 +32,7 @@ principles:
 acceptance: requirement:contrib-acceptance
 compatibility:
   - requirement:contrib-redis-valkey
+  - requirement:dynamodb-store
 external_networking: requirement:tinygodriver-adoption
 external_runtime_compatibility: requirement:tinygodriver-adoption
 scope_rule: implement explicit useful subsets; never claim full upstream compatibility without conformance evidence

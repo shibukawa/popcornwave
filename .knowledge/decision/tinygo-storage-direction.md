@@ -15,6 +15,7 @@ selected:
     - requirement:contrib-mysql
   tinygo_native: requirement:contrib-cgosqlite
   network_kv: requirement:contrib-redis-valkey
+  network_document: requirement:dynamodb-store, added 2026-07-31 once system:tinygodriver-dynamodb and the system:tinybind dynamo generator made a typed TinyGo path exist
   transport_boundary: decision:local-tls-proxy-boundary
   server_sql_tier: decision:server-sql-support-tier
 findings:

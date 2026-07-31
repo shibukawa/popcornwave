@@ -56,6 +56,27 @@ generator:
     - a SQL dialect option selects the target engine, required from v0.2.2 with no default
     - the dialect carries the placeholder style, dollar for postgresql and question for mysql and sqlite
     - postgresql, mysql, and sqlite from v0.2.3, which covers every decision:server-sql-support-tier first-class engine
+  dynamo:
+    - the dynamobind runtime package and a generator mode, from v0.2.8, consumed by requirement:dynamodb-generation
+    - a dynamo struct tag names the attribute and its options, and an unknown option is a generation error rather than a silently ignored string
+    - each tagged type yields EncodeItem, DecodeItem, ItemKey, and a table definition constructor, with compile-time assertions against the runtime interfaces
+    - codec emission is usage-directed, so a type gets only the halves a discovered call needs; the key builder and the table constructor are emitted whenever a partitionkey tag exists
+    - the table constructor carries the name, the partition key, and the optional sort key; billing mode, capacity, and secondary indexes are left zero
+    - dispatch is static, so no registry or init entry is emitted and an unused type links nothing
+    - the operation helpers take a driver client argument and pass driver errors, retries, and page boundaries through untouched, which is why decision:dynamodb-no-runtime-abstraction wraps none of it
+    - from v0.2.9 a query declaration file generates one named function per access pattern, consumed by requirement:dynamodb-typed-queries
+    - from v0.2.10 the client is carried in the context and set with a client setter, so no entry of the package takes one
+    - the same setter takes an optional table resolver function, run inside every runtime entry, which is the seam rule:dynamodb-table-naming installs
+    - a declaration carries a required table clause, so a generated query names neither a client nor a table
+    - a missing client is a named error rather than a panic, so an entry reached without the middleware fails as an ordinary error
+    - the declaration suffix is configurable through DynamoTemplatePattern and the output file name through DynamoQueryName, so Popcorn Wave brands both without renaming anything after generation
+    - a declared query's attribute names are checked against the tags, and every attribute is aliased unconditionally so no reserved word reaches an expression literally
+    - the string key-condition form remains as an unchecked escape hatch
+    - table definition emission is suppressible as the named feature item-table, and the whole mode as item-codec
+    - single-table design is a stated non-goal, so one struct owns one table
+    - a version tag for optimistic locking and a ttl tag are proposed, the latter blocked on the driver
+    - no update or condition expression is generated, and secondary index tags are deferred
+    - no generation option selects a framework resolver, unlike the SQL executor resolver, because resolution moved into the runtime and left no generated call site to redirect
 constraints:
   - a route tree directory name must be a legal Go import path element, per rule:page-directory-naming
   - generator executes with host Go
@@ -72,6 +93,18 @@ compatibility:
     resolves_for_pw: api:cli-generate writes its own generated header, which the v0.2.5 filter could not recognize; registering the prefix is now the supported answer, so page tree output keeps the Popcorn Wave brand
   sql_v0_2_2: the SQL dialect became a required generation input, so a run that discovers a .pw.sql without one is a configuration error rather than a silent postgresql assumption
   sql_v0_2_3: the sqlite dialect is additive and emits the question placeholders sqlite already generated through mysql, so naming it changes no generated output
+  dynamo_v0_2_8:
+    additive: dynamobind is a new package and a new generator mode, so nothing an existing project generates changes
+    module_graph: the module now requires system:tinygodriver v1.1.3, because a runtime package imports the DynamoDB client rather than only an example doing so
+  dynamo_v0_2_9:
+    additive: the query declaration is a new source kind and a new output file, so a project generating only codecs regenerates identically
+    answers: the downstream Popcorn Wave request, whose allocation decision:dynamodb-framework-scope records
+    closes: the read-path drift requirement:dynamodb-generation could not close on its own
+  dynamo_v0_2_10:
+    breaking: every runtime entry lost its client parameter and a declaration gained a required table clause, so v0.2.9 call sites and declarations both need editing
+    scope_for_pw: nothing was released against v0.2.9, so the change costs an edit to these concepts rather than to a project
+    size: about 37 KB on a TinyGo wasip1 build, from the context value and the assertion reading it back
+    answers: the second downstream request, and answers it by removing the seam rather than adding one
   html_v0_1_15: generated HTML APIs are not source-compatible with earlier direct-writer output
   html_v0_1_19: async parameters and async render entry points are additive, so existing templates and call sites keep compiling after regeneration
   html_v0_1_20: Content.WriteTo narrows to the bare fragment and the module injects no client runtime, so an async caller must supply framing and a runtime it previously inherited

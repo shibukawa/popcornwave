@@ -17,6 +17,7 @@ packages:
   sqlite: github.com/shibukawa/tinygodriver/database/sql/sqlite
   postgresql: github.com/shibukawa/tinygodriver/database/sql/pgxstdlib
   mysql: github.com/shibukawa/tinygodriver/database/sql/mysql
+  dynamodb: github.com/shibukawa/tinygodriver/nosql/dynamodb
 roles:
   netdev: host TCP/IP Netdever registration for TinyGo
   https: net/http-compatible HTTPS client over the OS TLS stack, exposing the in-band upgrade seam the database drivers use
@@ -26,6 +27,7 @@ roles:
   sqlite: portable database/sql SQLite facade selecting a host or TinyGo backend
   postgresql: pgx stdlib driver, vendored with TLS rerouted for TinyGo, from v1.0.6
   mysql: MySQL and MariaDB driver forked from go-sql-driver for TinyGo, from v1.1.0
+  dynamodb: DynamoDB JSON-protocol client written to build under TinyGo, from v1.1.3; detailed in system:tinygodriver-dynamodb
 standard_go:
   netdev: no-op registration
   https: crypto/tls

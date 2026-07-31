@@ -3,10 +3,22 @@ id: api:cli-migrate
 type: api
 title: pw migrate
 ---
-pw migrate inspects and applies data:migration-source against the application's effective database using the goose engine linked into the pw binary.
+pw migrate inspects and applies data:migration-source against the application's effective database using the goose engine linked into the pw binary, and applies the generated table set of requirement:dynamodb-migration when that store is configured.
 
 ```yaml
 usage: pw migrate <action> [flags]
+stores:
+  selection: a store participates when its configuration section is enabled, so a project with both runs both from one command
+  order: SQL first, then DynamoDB, because a failed relational schema is the more common blocker
+  scoping: --store=rdb|dynamo restricts a run to one of them
+  reason: requirement:dynamodb-store is a second kind of store, not a second database, so it belongs under the same verb rather than a second command
+dynamo_actions:
+  status: report the plan of flow:dynamodb-migration, which is the created, matching, and refused tables
+  up: apply the plan, creating what is missing
+  unsupported: version, up-by-one, up-to, down, down-to, create, validate, and snapshot have no meaning without versions, per decision:dynamodb-desired-state-migration
+  unsupported_form: a clear error naming the action and the store, never a silent skip
+  no_rollback: policy:dynamodb-migration-safety refuses every destructive change, so --yes has no DynamoDB use
+  resolution: the decision:dynamodb-table-registry framework action supplies the resolved table set, the way --pw-print-dsn supplies the DSN
 actions:
   status: list every version with applied state and pending count
   version: print the current applied version

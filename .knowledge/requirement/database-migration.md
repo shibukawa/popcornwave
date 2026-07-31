@@ -3,9 +3,14 @@ id: requirement:database-migration
 type: requirement
 title: Versioned Database Migration
 ---
-Versioned migrations are the single schema mechanism of Popcorn Wave, running identically from the CLI, the development loop, and isolated tests.
+Versioned migrations are the single relational schema mechanism of Popcorn Wave, running identically from the CLI, the development loop, and isolated tests.
 
 ```yaml
+scope:
+  covers: every rule:rdb-dsn-resolution engine
+  excludes: requirement:dynamodb-store, whose schema is applied by requirement:dynamodb-migration
+  why_split: system:goose is a SQL engine and host-only, and a DynamoDB table shape is readable back through DescribeTable, so neither the engine nor the version table transfers
+  shared: the api:cli-migrate verbs, the api:cli-dev apply step, and the api:test-run integration, so an operator meets one mechanism
 engine: system:goose
 sources: data:migration-source
 surfaces:

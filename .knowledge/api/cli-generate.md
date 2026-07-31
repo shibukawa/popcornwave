@@ -14,9 +14,11 @@ inputs:
   - .pw.sql files
   - reachable JSON types
   - concept:page-tree roots, their reserved files, and their optional page.go
+  - dynamo-tagged struct declarations and their dynamobind call sites
+  - .pw.dynamo query declarations
 flow: flow:generation-pipeline
 discovery_scope:
-  per_purpose: the data:project-config generate.handlers, generate.templates, generate.queries, generate.config, and generate.pages lists, per decision:explicit-generation-sources
+  per_purpose: the data:project-config generate.handlers, generate.templates, generate.queries, generate.config, generate.pages, and generate.dynamo lists, per decision:explicit-generation-sources
   effect: a directory contributes only the artifact kinds whose purpose lists it, so a query directory is never analyzed for routes
   pages_unit: a generate.pages entry is walked as one concept:page-tree per flow:page-route-generation, not as a directory of independent sources
   fixed: the project.main directory and the project-root public.go
@@ -42,6 +44,10 @@ artifacts:
     - api:page-action-endpoint registrations
     - request binders for the route packages, so an action can call pw.Parse
     - no OpenAPI, per decision:dual-router-coexistence
+  from_generate_dynamo:
+    - item codecs, key builders, and table definitions, per requirement:dynamodb-generation
+    - the decision:dynamodb-table-registry list in the project.main package
+    - no SQL dialect input, because there is no engine variant to compile for
   from_every_purpose: data:route-table, the exported view of the same route analysis
   optional: generated tests
 check_mode:
