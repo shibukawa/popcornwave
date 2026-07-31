@@ -894,7 +894,7 @@ type homeInput struct {
 	Name string ` + "`query:\"name\" default:\"World\"`" + `
 }
 
-func init() { mux.HandleFunc("GET /", home) }
+func init() { mux.HandleFunc("GET /{$}", home) }
 
 func home(w http.ResponseWriter, r *http.Request) {
 	input, err := pw.Parse[homeInput](r)
@@ -916,7 +916,7 @@ import (
 	"github.com/shibukawa/popcornwave/pw"
 )
 
-func init() { mux.HandleFunc("GET /", home) }
+func init() { mux.HandleFunc("GET /{$}", home) }
 
 func home(w http.ResponseWriter, r *http.Request) {
 	// The framework resolved the session before this handler ran.

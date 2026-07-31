@@ -7,7 +7,7 @@ import (
 	"helloworld/queries"
 )
 
-func init() { mux.HandleFunc("GET /", home) }
+func init() { mux.HandleFunc("GET /{$}", home) }
 
 func home(w http.ResponseWriter, r *http.Request) {
 	counter, err := queries.IncrementAccess(r.Context())
