@@ -1,6 +1,6 @@
 ---
 title: Overview
-description: Where interactivity comes from in a server-rendered application, and which tier of the ladder to reach for first.
+description: Browser features rather than framework API — where interactivity comes from in a server-rendered application, and which tier of the ladder to reach for first.
 sidebar:
   order: 1
 ---
