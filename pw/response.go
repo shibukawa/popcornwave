@@ -248,6 +248,23 @@ func WriteHTMLChain(w http.ResponseWriter, r *http.Request, wrappers []HTMLWrapp
 	// only one that can rule streaming out entirely, so a page that could never
 	// stream never classifies its client.
 	async := htmlbind.HasAwaitBlock(wrappers, leaf)
+	// A second probe answers a different question: whether this screen keeps
+	// changing once the document is complete. It never changes which branch
+	// runs, because a live block implies an await block.
+	live := htmlbind.HasLiveBlock(wrappers, leaf)
+	if liveModeRequested(r) {
+		// The handler, the layouts, and the binding that produced this chain have
+		// already run, which is what makes a reconnect need no continuation: the
+		// reconstruction path is the render path.
+		serveLive(w, r, wrappers, leaf, config, options...)
+		return
+	}
+	if live && liveEnabled(config) {
+		// One URL now has a document representation and a delivery one. The
+		// delivery stream is no-store, so this exists to stop a cache from
+		// answering a live request with the stored document.
+		addVaryHeader(w.Header(), ResponseModeHeader)
+	}
 	bot := false
 	if async {
 		bot = isBotRequest(r, config)
@@ -366,6 +383,7 @@ func streamHTMLChain(w http.ResponseWriter, r *http.Request, wrappers []HTMLWrap
 		return
 	}
 	logger := Logger(ctx)
+	failed := false
 	for content, err := range htmlbind.RenderChainAsync(ctx, writer, wrappers, leaf, renderOptions(ctx, config, false, options)...) {
 		if err != nil {
 			// A boundary that failed with no recover clause is reported after the
@@ -379,6 +397,7 @@ func streamHTMLChain(w http.ResponseWriter, r *http.Request, wrappers []HTMLWrap
 					logger.Log(ctx, LevelError, "HTML error page write failed", Err(err))
 				}
 				htmlbind.Flush(writer)
+				failed = true
 				break
 			}
 			if !responseCommitted(w) {
@@ -395,14 +414,20 @@ func streamHTMLChain(w http.ResponseWriter, r *http.Request, wrappers []HTMLWrap
 			// The status is already on the wire, so this is for the operator
 			// rather than for the client: every committed fallback stays.
 			logger.Log(ctx, LevelError, "HTML stream failed after commit", Err(err))
+			failed = true
 			break
 		}
 		if err := writeBoundaryCompletion(writer, content); err != nil {
 			logger.Log(ctx, LevelError, "HTML boundary write failed", Err(err))
+			failed = true
 			break
 		}
 		htmlbind.Flush(writer)
 	}
+	if err := writeStreamEnd(writer, streamEndState(config, wrappers, leaf, failed)); err != nil {
+		logger.Log(ctx, LevelError, "HTML stream end write failed", Err(err))
+	}
+	htmlbind.Flush(writer)
 	if err := closeWriter(); err != nil {
 		logger.Log(ctx, LevelError, "HTML response close failed", Err(err))
 	}
@@ -424,6 +449,41 @@ func writeBoundaryCompletion(w io.Writer, content htmlbind.Content) error {
 	}
 	_, err := io.WriteString(w, `</template><tb-apply for="`+content.BoundaryID+`"></tb-apply>`)
 	return err
+}
+
+// writeStreamEnd closes a streamed document with an inert marker naming what,
+// if anything, follows it.
+//
+// Completion cannot be inferred from the transport here. A chunked document cut
+// off mid-stream is end of file to the parser, which renders what arrived and
+// fires DOMContentLoaded and load with nothing surfaced to the page, and the
+// response carries no Content-Length to compare against. So the last bytes say
+// it explicitly, and a client that finished parsing without seeing them knows
+// it holds a truncated page.
+//
+// The state is also what keeps a screen that will never change again from
+// paying for a live request, which costs a whole page execution to answer with
+// nothing.
+func writeStreamEnd(w io.Writer, state string) error {
+	marker := `<tb-stream-end state="` + state + `"`
+	if version := renderVersion(); version != "" {
+		marker += ` version="` + htmlbind.Escape(version) + `"`
+	}
+	_, err := io.WriteString(w, marker+`></tb-stream-end>`)
+	return err
+}
+
+func streamEndState(config HTMLConfig, wrappers []HTMLWrapper, leaf HTMLFragment, failed bool) string {
+	switch {
+	case failed:
+		// The committed fallbacks this response left behind are not going to be
+		// replaced by it, and the client is told so rather than left waiting.
+		return "failed"
+	case liveEnabled(config) && htmlbind.HasLiveBlock(wrappers, leaf):
+		return "live"
+	default:
+		return "final"
+	}
 }
 
 // boundaryTimeout is the bound one render applies to the work behind its await

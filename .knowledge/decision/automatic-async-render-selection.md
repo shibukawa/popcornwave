@@ -11,6 +11,11 @@ probe:
   call: htmlbind.HasAwaitBlock(wrappers, leaf)
   cost: reads a constant on the generated plan, starts no goroutine, writes nothing
   transitivity: a component that only calls an async one reports true
+second_probe:
+  call: htmlbind.HasLiveBlock(wrappers, leaf)
+  answers: whether the screen keeps changing after this response ends, which is a different question from whether the response needs the boundary runtime at all
+  subset: a live block implies an await block, so this probe never changes which branch runs
+  used_for: the api:live-delivery-protocol document marker state, and so whether requirement:live-html-rendering costs a live connection at all
 gates:
   order: probe the chain, then check configuration, then classify the client
   chain: htmlbind.HasAwaitBlock must report true for streaming to be possible at all

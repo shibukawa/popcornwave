@@ -415,6 +415,14 @@ than at request time.
 success, contained failure, and unhandled failure — so each path is reachable on
 purpose rather than by luck.
 
+## When once is not enough
+
+An await boundary settles once, so a screen rendered this way stops changing.
+A source declared `external live` keeps delivering instead, and the same
+boundary re-renders on its cadence for as long as the reader keeps the page
+open — same clause, same fallback, same recover. See
+[Live Rendering](/guides/cross-layer/live-rendering/).
+
 ## How it works
 
 Nothing above requires knowing this. It is here because the mechanism is small

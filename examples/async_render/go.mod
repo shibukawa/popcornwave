@@ -4,7 +4,8 @@ go 1.26.0
 
 require (
 	github.com/shibukawa/popcornwave v0.0.0
-	github.com/shibukawa/tinygodriver v1.1.0
+	github.com/shibukawa/tinybind-go v0.2.8
+	github.com/shibukawa/tinygodriver v1.1.3
 )
 
 require (
@@ -16,7 +17,6 @@ require (
 	github.com/ncruces/go-strftime v1.0.0 // indirect
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
 	github.com/shibukawa/configdir v0.0.0-20170330084843-e180dbdc8da0 // indirect
-	github.com/shibukawa/tinybind-go v0.2.6 // indirect
 	golang.org/x/sys v0.47.0 // indirect
 	modernc.org/libc v1.74.3 // indirect
 	modernc.org/mathutil v1.7.1 // indirect

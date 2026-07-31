@@ -1,0 +1,81 @@
+package handlers
+
+type Sample {
+  label: string
+  value: int
+  at: string
+}
+
+type Message {
+  author: string
+  text: string
+  at: string
+}
+
+external async LoadRoomTitle(room: string): string
+external live WatchThroughput(): Sample
+external live WatchMessages(room: string): Message[]
+
+export component Dashboard(room: string): html {
+<main>
+  <h1>Live rendering</h1>
+  <p>
+    Two regions below keep changing on the server's clock. Nothing on this page
+    polls: the document finished, and one connection back to this same URL
+    carries a new render of a region whenever its source produces one.
+  </p>
+
+  <section class="card">
+    <h2>Rendered once</h2>
+    <p>
+      This panel is here to be ignored. It is rendered with the document and is
+      never sent again, including after a reconnect, which is what makes a
+      dropped connection cost nothing outside the live regions.
+    </p>
+  </section>
+
+  <section class="card">
+    <h2>Throughput</h2>
+    <p>
+{await sample = WatchThroughput()}
+      <strong>{sample.value}</strong> {sample.label} <small>at {sample.at}</small>
+{fallback}
+      <span class="pending">sampling…</span>
+{recover err}
+      <span class="failed">the sampler is unavailable ({err.code})</span>
+{/await}
+    </p>
+    <p>
+      A timer-paced region announces nothing to a screen reader, because a
+      number changing every second on the server's cadence would make the page
+      unusable with one.
+    </p>
+  </section>
+
+  <section class="card" role="log">
+    <h2>Room</h2>
+{await title = LoadRoomTitle(room), messages = WatchMessages(room)}
+    <h3>{title}</h3>
+    <ul>
+{for message in messages}
+      <li><strong>{message.author}</strong> {message.text} <small>{message.at}</small></li>
+{/for}
+    </ul>
+{fallback}
+    <p class="pending">connecting…</p>
+{/await}
+    <p>
+      One clause, two sources: the title is fetched once and stays, the message
+      list keeps arriving, and every render reads both. Each delivery carries
+      the whole list rather than the new message, which is what lets a reconnect
+      show the current room with no replay.
+    </p>
+    <p>
+      Arrival is the information here, so the panel around the boundary carries
+      <code>role="log"</code>. It sits outside the region that gets replaced,
+      because an attribute inside it would be destroyed and recreated with the
+      content.
+    </p>
+  </section>
+</main>
+}
