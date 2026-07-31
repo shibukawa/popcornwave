@@ -22,6 +22,7 @@ template_delta:
   - read it only inside an await clause with a required fallback
   - optional recover clause renders a safe error subtree
 selection: decision:automatic-async-render-selection
+continuous: requirement:live-html-rendering, where a binding keeps delivering instead of settling once; a live boundary reaches the document response through this same path and commits one delivery
 non_browser_clients: requirement:bot-synchronous-render
 bounds: policy:async-render-bounds
 wire: api:html-boundary-protocol

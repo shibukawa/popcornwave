@@ -1121,17 +1121,35 @@ func registerHTMLConfigDefinition5() {
 			"html.bot_detection",
 			"html.bot_async_timeout",
 			"html.bot_user_agents",
+			"html.live",
+			"html.live_max_duration",
+			"html.live_duration_jitter",
+			"html.live_idle_timeout",
+			"html.live_max_boundaries",
+			"html.live_max_responses",
 		},
 		Defaults: map[string]string{
-			"html.streaming":         "true",
-			"html.async_timeout":     "3s",
-			"html.async_concurrency": "0",
-			"html.bot_detection":     "true",
-			"html.bot_async_timeout": "5s",
+			"html.streaming":            "true",
+			"html.async_timeout":        "3s",
+			"html.async_concurrency":    "0",
+			"html.bot_detection":        "true",
+			"html.bot_async_timeout":    "5s",
+			"html.live":                 "true",
+			"html.live_max_duration":    "10m0s",
+			"html.live_duration_jitter": "20",
+			"html.live_idle_timeout":    "5m0s",
+			"html.live_max_boundaries":  "32",
+			"html.live_max_responses":   "4",
 		},
 		DependsOn: map[string][]string{
-			"html.bot_async_timeout": {"html.bot_detection"},
-			"html.bot_user_agents":   {"html.bot_detection"},
+			"html.bot_async_timeout":    {"html.bot_detection"},
+			"html.bot_user_agents":      {"html.bot_detection"},
+			"html.live":                 {"html.streaming"},
+			"html.live_max_duration":    {"html.live"},
+			"html.live_duration_jitter": {"html.live"},
+			"html.live_idle_timeout":    {"html.live"},
+			"html.live_max_boundaries":  {"html.live"},
+			"html.live_max_responses":   {"html.live"},
 		},
 		FlagMetas: []cliparser.FieldMeta{
 			{Prefix: "html", Key: "streaming", Help: "Streaming false forces the buffered branch even when a chain can open a boundary, which is the escape hatch for a proxy that buffers responses", Kind: cliparser.KindBool},
@@ -1140,6 +1158,12 @@ func registerHTMLConfigDefinition5() {
 			{Prefix: "html", Key: "bot_detection", Help: "render the settled document for crawlers and CLI clients", Kind: cliparser.KindBool},
 			{Prefix: "html", Key: "bot_async_timeout", Help: "await boundary bound for a classified bot request"},
 			{Prefix: "html", Key: "bot_user_agents", Help: "additional bot User-Agent substrings", Kind: cliparser.KindArray},
+			{Prefix: "html", Key: "live", Help: "answer the live mode request that keeps a page updating after the document is complete", Kind: cliparser.KindBool},
+			{Prefix: "html", Key: "live_max_duration", Help: "maximum lifetime of one live response before it closes and the client reconnects"},
+			{Prefix: "html", Key: "live_duration_jitter", Help: "percentage the live response lifetime is spread by, so clients do not reconnect in lockstep"},
+			{Prefix: "html", Key: "live_idle_timeout", Help: "close a live response after this long with no delivery"},
+			{Prefix: "html", Key: "live_max_boundaries", Help: "maximum boundaries one live response may serve"},
+			{Prefix: "html", Key: "live_max_responses", Help: "maximum concurrent live responses per client"},
 		},
 		Apply: applyHTMLConfigDefinition5,
 		Scaffold: []configbind.ScaffoldField{
@@ -1149,6 +1173,12 @@ func registerHTMLConfigDefinition5() {
 			{Key: "bot_detection", Kind: configbind.ScaffoldBool, Default: "true", Help: "render the settled document for crawlers and CLI clients"},
 			{Key: "bot_async_timeout", Kind: configbind.ScaffoldDuration, Default: "5s", Help: "await boundary bound for a classified bot request"},
 			{Key: "bot_user_agents", Kind: configbind.ScaffoldStringSlice, Help: "additional bot User-Agent substrings"},
+			{Key: "live", Kind: configbind.ScaffoldBool, Default: "true", Help: "answer the live mode request that keeps a page updating after the document is complete"},
+			{Key: "live_max_duration", Kind: configbind.ScaffoldDuration, Default: "10m0s", Help: "maximum lifetime of one live response before it closes and the client reconnects"},
+			{Key: "live_duration_jitter", Kind: configbind.ScaffoldInt, Default: "20", Help: "percentage the live response lifetime is spread by, so clients do not reconnect in lockstep"},
+			{Key: "live_idle_timeout", Kind: configbind.ScaffoldDuration, Default: "5m0s", Help: "close a live response after this long with no delivery"},
+			{Key: "live_max_boundaries", Kind: configbind.ScaffoldInt, Default: "32", Help: "maximum boundaries one live response may serve"},
+			{Key: "live_max_responses", Kind: configbind.ScaffoldInt, Default: "4", Help: "maximum concurrent live responses per client"},
 		},
 	})
 }
@@ -1205,6 +1235,60 @@ func applyHTMLConfigDefinition5(dst any, o *configbind.Overlay) error {
 	}
 	if v, ok := o.GetMulti("html.bot_user_agents"); ok {
 		p.BotUserAgents = v
+	}
+	if v, ok := o.GetString("html.live"); ok {
+		bb, err := strconv.ParseBool(v)
+		if err != nil {
+			return fmt.Errorf("configbind: html.live: %w", err)
+		}
+		p.Live = bb
+	} else {
+		p.Live = true
+	}
+	if v, ok := o.GetString("html.live_max_duration"); ok {
+		d, err := time.ParseDuration(v)
+		if err != nil {
+			return fmt.Errorf("configbind: html.live_max_duration: %w", err)
+		}
+		p.LiveMaxDuration = d
+	} else {
+		p.LiveMaxDuration = 600000000000 // 10m0s
+	}
+	if v, ok := o.GetString("html.live_duration_jitter"); ok {
+		n, err := strconv.ParseInt(v, 10, 0)
+		if err != nil {
+			return fmt.Errorf("configbind: html.live_duration_jitter: %w", err)
+		}
+		p.LiveDurationJitter = int(n)
+	} else {
+		p.LiveDurationJitter = 20
+	}
+	if v, ok := o.GetString("html.live_idle_timeout"); ok {
+		d, err := time.ParseDuration(v)
+		if err != nil {
+			return fmt.Errorf("configbind: html.live_idle_timeout: %w", err)
+		}
+		p.LiveIdleTimeout = d
+	} else {
+		p.LiveIdleTimeout = 300000000000 // 5m0s
+	}
+	if v, ok := o.GetString("html.live_max_boundaries"); ok {
+		n, err := strconv.ParseInt(v, 10, 0)
+		if err != nil {
+			return fmt.Errorf("configbind: html.live_max_boundaries: %w", err)
+		}
+		p.LiveMaxBoundaries = int(n)
+	} else {
+		p.LiveMaxBoundaries = 32
+	}
+	if v, ok := o.GetString("html.live_max_responses"); ok {
+		n, err := strconv.ParseInt(v, 10, 0)
+		if err != nil {
+			return fmt.Errorf("configbind: html.live_max_responses: %w", err)
+		}
+		p.LiveMaxResponses = int(n)
+	} else {
+		p.LiveMaxResponses = 4
 	}
 	return nil
 }

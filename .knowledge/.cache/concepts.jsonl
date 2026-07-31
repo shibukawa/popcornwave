@@ -23,6 +23,7 @@
 {"category": "interface", "id": "api:html-fragment-response", "path": ".knowledge/api/html-fragment-response.md", "role": "primary", "title": "HTML Fragment Response API", "type": "api"}
 {"category": "interface", "id": "api:html-response", "path": ".knowledge/api/html-response.md", "role": "primary", "title": "HTML Response API", "type": "api"}
 {"category": "interface", "id": "api:instrumented-sql-executor", "path": ".knowledge/api/instrumented-sql-executor.md", "role": "primary", "title": "Instrumented SQL Executor", "type": "api"}
+{"category": "interface", "id": "api:live-delivery-protocol", "path": ".knowledge/api/live-delivery-protocol.md", "role": "primary", "title": "Live Delivery Wire Protocol", "type": "api"}
 {"category": "interface", "id": "api:logger", "path": ".knowledge/api/logger.md", "role": "primary", "title": "Context-Bound Logger API", "type": "api"}
 {"category": "interface", "id": "api:migration-runner", "path": ".knowledge/api/migration-runner.md", "role": "primary", "title": "Migration Runner", "type": "api"}
 {"category": "interface", "id": "api:page-action-endpoint", "path": ".knowledge/api/page-action-endpoint.md", "role": "primary", "title": "Page Action Endpoint", "type": "api"}
@@ -121,6 +122,7 @@
 {"category": "constraint", "id": "decision:independent-runtime-config-bindings", "path": ".knowledge/decision/independent-runtime-config-bindings.md", "role": "supporting", "title": "Independent Runtime Config Bindings", "type": "decision"}
 {"category": "constraint", "id": "decision:interactive-project-bootstrap", "path": ".knowledge/decision/interactive-project-bootstrap.md", "role": "supporting", "title": "Interactive Project Bootstrap", "type": "decision"}
 {"category": "constraint", "id": "decision:layered-web-runtime", "path": ".knowledge/decision/layered-web-runtime.md", "role": "supporting", "title": "Layered Web Runtime", "type": "decision"}
+{"category": "constraint", "id": "decision:live-delivery-transport", "path": ".knowledge/decision/live-delivery-transport.md", "role": "supporting", "title": "Live Deliveries On The Page Route", "type": "decision"}
 {"category": "constraint", "id": "decision:local-tls-proxy-boundary", "path": ".knowledge/decision/local-tls-proxy-boundary.md", "role": "supporting", "title": "Local TLS Proxy Boundary", "type": "decision"}
 {"category": "constraint", "id": "decision:migration-execution-split", "path": ".knowledge/decision/migration-execution-split.md", "role": "supporting", "title": "Migration Execution Split", "type": "decision"}
 {"category": "constraint", "id": "decision:nix-flake-packaging", "path": ".knowledge/decision/nix-flake-packaging.md", "role": "supporting", "title": "In-repository Nix Flake Packaging", "type": "decision"}
@@ -155,6 +157,7 @@
 {"category": "behavior", "id": "flow:handler-registration", "path": ".knowledge/flow/handler-registration.md", "role": "primary", "title": "Handler Registration", "type": "flow"}
 {"category": "behavior", "id": "flow:handler-scaffolding", "path": ".knowledge/flow/handler-scaffolding.md", "role": "primary", "title": "Handler Scaffolding Flow", "type": "flow"}
 {"category": "behavior", "id": "flow:initial-streaming-render", "path": ".knowledge/flow/initial-streaming-render.md", "role": "primary", "title": "Initial Streaming Render", "type": "flow"}
+{"category": "behavior", "id": "flow:live-boundary-delivery", "path": ".knowledge/flow/live-boundary-delivery.md", "role": "primary", "title": "Live Boundary Delivery", "type": "flow"}
 {"category": "behavior", "id": "flow:oidc-account-login", "path": ".knowledge/flow/oidc-account-login.md", "role": "primary", "title": "OIDC Account Login", "type": "flow"}
 {"category": "behavior", "id": "flow:oidc-auth-code", "path": ".knowledge/flow/oidc-auth-code.md", "role": "primary", "title": "OIDC Authorization Code Flow", "type": "flow"}
 {"category": "behavior", "id": "flow:page-route-generation", "path": ".knowledge/flow/page-route-generation.md", "role": "primary", "title": "Page Route Generation", "type": "flow"}
@@ -187,6 +190,7 @@
 {"category": "constraint", "id": "policy:generated-artifacts", "path": ".knowledge/policy/generated-artifacts.md", "role": "supporting", "title": "Generated Artifact Ownership", "type": "policy"}
 {"category": "constraint", "id": "policy:jwt-security", "path": ".knowledge/policy/jwt-security.md", "role": "supporting", "title": "JWT Security Policy", "type": "policy"}
 {"category": "constraint", "id": "policy:layered-cache", "path": ".knowledge/policy/layered-cache.md", "role": "supporting", "title": "Layered Web Cache", "type": "policy"}
+{"category": "constraint", "id": "policy:live-subscription-bounds", "path": ".knowledge/policy/live-subscription-bounds.md", "role": "supporting", "title": "Live Subscription Bounds", "type": "policy"}
 {"category": "constraint", "id": "policy:log-emission", "path": ".knowledge/policy/log-emission.md", "role": "supporting", "title": "Log Emission Policy", "type": "policy"}
 {"category": "constraint", "id": "policy:migration-safety", "path": ".knowledge/policy/migration-safety.md", "role": "supporting", "title": "Migration Safety", "type": "policy"}
 {"category": "constraint", "id": "policy:oauth-security", "path": ".knowledge/policy/oauth-security.md", "role": "supporting", "title": "OAuth Client Security Policy", "type": "policy"}
@@ -247,6 +251,11 @@
 {"category": "objective", "id": "requirement:html-fragment-rendering", "path": ".knowledge/requirement/html-fragment-rendering.md", "role": "primary", "title": "HTML Fragment Rendering", "type": "requirement"}
 {"category": "objective", "id": "requirement:httpbinder-extensible-route-analysis", "path": ".knowledge/requirement/httpbinder-extensible-route-analysis.md", "role": "primary", "title": "Extensible httpbind-go Route Analysis", "type": "requirement"}
 {"category": "objective", "id": "requirement:incremental-project-capabilities", "path": ".knowledge/requirement/incremental-project-capabilities.md", "role": "primary", "title": "Incremental Project Capabilities", "type": "requirement"}
+{"category": "objective", "id": "requirement:live-boundary-liveness-signal", "path": ".knowledge/requirement/live-boundary-liveness-signal.md", "role": "primary", "title": "Liveness Must Be Visible Per Boundary", "type": "requirement"}
+{"category": "objective", "id": "requirement:live-connection-recovery", "path": ".knowledge/requirement/live-connection-recovery.md", "role": "primary", "title": "Live Connection Recovery", "type": "requirement"}
+{"category": "objective", "id": "requirement:live-error-report-off-lock", "path": ".knowledge/requirement/live-error-report-off-lock.md", "role": "primary", "title": "Report A Live Failure Without Holding The Boundary", "type": "requirement"}
+{"category": "objective", "id": "requirement:live-html-rendering", "path": ".knowledge/requirement/live-html-rendering.md", "role": "primary", "title": "Live HTML Rendering", "type": "requirement"}
+{"category": "objective", "id": "requirement:live-mode-plan-slice", "path": ".knowledge/requirement/live-mode-plan-slice.md", "role": "primary", "title": "Execute Only What A Live Response Transfers", "type": "requirement"}
 {"category": "objective", "id": "requirement:modern-observability", "path": ".knowledge/requirement/modern-observability.md", "role": "primary", "title": "Modern UI Observability", "type": "requirement"}
 {"category": "objective", "id": "requirement:modern-web-acceptance", "path": ".knowledge/requirement/modern-web-acceptance.md", "role": "primary", "title": "Modern Web Acceptance", "type": "requirement"}
 {"category": "objective", "id": "requirement:mvp-acceptance", "path": ".knowledge/requirement/mvp-acceptance.md", "role": "primary", "title": "MVP Acceptance Criteria", "type": "requirement"}
@@ -266,6 +275,7 @@
 {"category": "constraint", "id": "rule:configuration-advisories", "path": ".knowledge/rule/configuration-advisories.md", "role": "supporting", "title": "Configuration Advisories", "type": "rule"}
 {"category": "constraint", "id": "rule:explain-dialect-support", "path": ".knowledge/rule/explain-dialect-support.md", "role": "supporting", "title": "EXPLAIN Dialect Support", "type": "rule"}
 {"category": "constraint", "id": "rule:framework-owned-tables", "path": ".knowledge/rule/framework-owned-tables.md", "role": "supporting", "title": "Framework Owned Tables", "type": "rule"}
+{"category": "constraint", "id": "rule:live-boundary-authoring", "path": ".knowledge/rule/live-boundary-authoring.md", "role": "supporting", "title": "Live Boundary Authoring Rules", "type": "rule"}
 {"category": "constraint", "id": "rule:multi-statement-sql-execution", "path": ".knowledge/rule/multi-statement-sql-execution.md", "role": "supporting", "title": "Multi-statement SQL Execution", "type": "rule"}
 {"category": "constraint", "id": "rule:page-directory-naming", "path": ".knowledge/rule/page-directory-naming.md", "role": "supporting", "title": "Page Directory Naming", "type": "rule"}
 {"category": "constraint", "id": "rule:production-readiness-checks", "path": ".knowledge/rule/production-readiness-checks.md", "role": "supporting", "title": "Production Readiness Checks", "type": "rule"}

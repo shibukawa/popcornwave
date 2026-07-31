@@ -23,7 +23,7 @@ presents the same choices as a wizard.
 | `--no-database` | no rdb configuration, no migrations, and no SQL example |
 | `--db=<engine>` | `sqlite` (default), `postgres`, or `mysql` |
 | `--no-redis` | leave the Valkey development server out of `devbox.json` |
-| `--router=<kind>` | `registered` (default), `discovered`, or `both`; see [Discovered routing](/advanced/discovered-routing/#commands) |
+| `--router=<kind>` | `registered` (default), `discovered`, or `both`; see [Discovered routing](/guides/cross-layer/discovered-routing/#commands) |
 | `--auth=<mode>` | `none` (default), `oidc`, `oidc-passkey`, or `passkey` |
 | `--devidp` | with an OIDC mode, wire up the local identity provider |
 | `-i`, `--interactive` | ask every question even when a name was given |

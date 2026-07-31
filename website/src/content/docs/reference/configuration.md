@@ -149,6 +149,12 @@ what lets a caller that must write stay ignorant of the topology. See
 | `bot_detection` | `true` | render the settled document for crawlers and CLI clients |
 | `bot_async_timeout` | `"5s"` | boundary bound on a classified bot request |
 | `bot_user_agents` | `[]` | additional `User-Agent` substrings, matched case-insensitively |
+| `live` | `true` | answer the live connection that keeps a page updating after its document is complete |
+| `live_max_duration` | `"10m"` | lifetime of one live connection before it closes and the client reconnects |
+| `live_duration_jitter` | `20` | percentage that lifetime is spread by, per connection |
+| `live_idle_timeout` | `"5m"` | close a live connection nothing has delivered on |
+| `live_max_boundaries` | `32` | boundaries one live connection may serve; zero or less is unbounded |
+| `live_max_responses` | `4` | concurrent live connections per client; zero or less is unbounded |
 
 A template that opens an await boundary renders correctly under either
 `streaming` setting. The key decides only whether the fallbacks reach the
@@ -161,6 +167,13 @@ browser. A zero here falls back to `async_timeout` rather than meaning
 unbounded: a mistyped key must not hold a crawler's connection open for the
 whole request deadline. Entries in `bot_user_agents` are appended to the
 built-in catalog and never replace a built-in token.
+
+Every `live_` key depends on `streaming`, because a buffered document settles
+its live boundaries in place and writes no placeholder a delivery could replace.
+`live = false` is a load dial rather than an outage: documents stay valid and
+keep the content their live boundaries committed, and no client is invited to
+connect. See [Live Rendering](/guides/cross-layer/live-rendering/) for what each bound
+buys.
 
 ## `[security]`
 
