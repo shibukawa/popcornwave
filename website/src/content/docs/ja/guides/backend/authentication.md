@@ -1,6 +1,6 @@
 ---
 title: 認証
-description: OIDC を設定すると、ログイン・コールバック・ログアウトはフレームワークが提供する。
+description: 認証モードを選べば、ログイン・コールバック・ログアウトとパスキーのエンドポイントはフレームワークが提供する。
 sidebar:
   order: 1
 ---
@@ -122,10 +122,58 @@ func home(w http.ResponseWriter, r *http.Request) {
 
 ## モード
 
-| `auth.mode` | 状態 |
-| --- | --- |
-| `oidc_only` | 実装済み |
-| `oidc_passkey`、`passkey_only` | 未実装。起動時に拒否される |
+パスキーはアカウントを作れません。最初のクレデンシャルを結びつける先が無いからです。
+モードの違いはログイン方法そのものではなく、**アカウントが存在する前に何がそれを
+確立するか**にあります。
+
+| `auth.mode` | アカウントの出どころ | 日常のログイン |
+| --- | --- | --- |
+| `oidc_only` | プロバイダ | プロバイダ |
+| `oidc_passkey` | プロバイダ | パスキー。プロバイダは復旧手段 |
+| `passkey_only` | 管理者が発行するログイン ID と使い捨てシークレット | パスキー |
+
+各モードは自分が使う設定だけを読み、扱えない設定は拒否します。`passkey_only` で
+`AUTH_OIDC_ISSUER` が残っていれば起動時にエラーになり、プロバイダが関与しているかの
+ような見え方にはなりません。黙って無視される設定は、設定済みのセキュリティに見えて
+しまうためです。
+
+### パスキーのエンドポイント
+
+儀式をマウントするモードは `auth.passkey.path`（既定 `/auth/passkey`）配下に 5 本を
+提供します。`POST` と JSON のみで、bootstrap は `passkey_only` にしか存在しません。
+
+```
+POST /auth/passkey/login/begin      POST /auth/passkey/login/finish
+POST /auth/passkey/register/begin   POST /auth/passkey/register/finish
+POST /auth/passkey/bootstrap        (passkey_only のみ)
+```
+
+フレームワークはエンドポイントを提供できますが、ページの代わりに
+`navigator.credentials` を呼ぶことはできません。そのため、エンドポイントが話す
+Base64url と WebAuthn API が要求する ArrayBuffer を変換する小さなスクリプトが必要で、
+`pw init` が `public/passkey.js` として生成します。
+
+パスキーのモードではアカウントの継ぎ目が 1 つ増えます。`auth.SetAccountResolver` は
+「この検証済み ID はどのアカウントか」に答え、`auth.SetAccountLookup` は「この識別子は
+どのアカウントか」に答えます。パスキーのアサーションが必要とするのは後者の向きです。
+クレデンシャル自体がアカウントを名指しするので、結びつける外部 ID が存在しません。
+
+### パスキー構成にはアドレスではなく名前で到達する
+
+WebAuthn の Relying Party は**ドメイン**にスコープされ、IP リテラルは RP ID になれません。
+`http://127.0.0.1:8080` ではなく `http://localhost:8080` を使ってください。WebAuthn は
+`localhost` を secure origin として扱うので、ローカル開発に証明書もトンネルも要りません。
+
+### `passkey_only` の初回サインイン
+
+管理者が `auth.IssueBootstrapCredential` でログイン ID と使い捨てシークレットを発行します。
+生のシークレットが返るのは一度きりで、保存されるのはダイジェストだけです。引き換えると
+**登録を 1 回だけ許可するチケット**が得られます。セッションではありません。パスキーが
+永続化されるまでリクエストは未認証のままなので、引き換え済みのシークレットをログイン状態と
+取り違えるハンドラは存在しえません。
+
+`auth.bootstrap.issue_ttl` は受け渡しの猶予を、`auth.bootstrap.enrollment_ttl` は
+その後の儀式を区切ります。既定値が時間単位で違うのはそのためです。
 
 ## セッション
 

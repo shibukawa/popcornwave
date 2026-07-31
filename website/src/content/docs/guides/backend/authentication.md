@@ -1,6 +1,6 @@
 ---
 title: Authentication
-description: Configure OIDC login and let the framework serve the login, callback, and logout endpoints.
+description: Choose an authentication mode and let the framework serve the login, callback, logout, and passkey endpoints.
 sidebar:
   order: 1
 ---
@@ -123,10 +123,62 @@ authorization remains in the application.
 
 ## Modes
 
-| `auth.mode` | Status |
-| --- | --- |
-| `oidc_only` | implemented |
-| `oidc_passkey`, `passkey_only` | not implemented; startup rejects them |
+A passkey cannot create an account: there is nothing to attach the first
+credential to. What differs between the modes is therefore not the login but
+what establishes an account before one exists.
+
+| `auth.mode` | Account comes from | Everyday login |
+| --- | --- | --- |
+| `oidc_only` | the provider | the provider |
+| `oidc_passkey` | the provider | a passkey, with the provider as recovery |
+| `passkey_only` | a login ID and one-time secret an administrator issues | a passkey |
+
+A mode reads only its own settings and refuses one it cannot honor, so a
+leftover `AUTH_OIDC_ISSUER` under `passkey_only` fails at startup rather than
+suggesting a provider is in the loop. A setting that is silently ignored reads
+as configured security.
+
+### Passkey endpoints
+
+The modes that mount ceremonies serve five paths under `auth.passkey.path`,
+default `/auth/passkey`. They are `POST` and JSON only, and the bootstrap
+endpoint exists under `passkey_only` alone:
+
+```
+POST /auth/passkey/login/begin      POST /auth/passkey/login/finish
+POST /auth/passkey/register/begin   POST /auth/passkey/register/finish
+POST /auth/passkey/bootstrap        (passkey_only)
+```
+
+The framework serves them but cannot call `navigator.credentials` for the page,
+so a project carries a small script that converts between the Base64url the
+endpoints speak and the ArrayBuffers the WebAuthn API wants. `pw init` writes
+one into `public/passkey.js`.
+
+A passkey mode adds a second account seam. `auth.SetAccountResolver` answers
+*which account is this verified identity*, and `auth.SetAccountLookup` answers
+*which account is this identifier* — the direction a passkey assertion needs,
+because the credential names the account directly and there is no external
+identity to link.
+
+### Reach a passkey deployment by name
+
+A WebAuthn relying party is scoped to a **domain**, and an IP literal can never
+be one. Use `http://localhost:8080`, not `http://127.0.0.1:8080`. WebAuthn also
+treats `localhost` as a secure origin, so local development needs no
+certificate and no tunnel.
+
+### The first sign-in under `passkey_only`
+
+An administrator issues a login ID and a one-time secret with
+`auth.IssueBootstrapCredential`; the raw secret is returned once and only its
+digest is stored. Redeeming it grants a ticket that authorizes exactly one
+registration — **not** a session. The request stays unauthenticated until the
+passkey is persisted, so no handler can mistake a redeemed secret for a login.
+
+`auth.bootstrap.issue_ttl` bounds delivery and `auth.bootstrap.enrollment_ttl`
+bounds the ceremony that follows, which is why the two defaults differ by
+hours.
 
 ## The session
 
