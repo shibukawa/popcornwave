@@ -1,0 +1,56 @@
+<mxfile host="app.diagrams.net">
+  <diagram name="assurance-states" id="assurance-states">
+    <mxGraphModel dx="1200" dy="700" grid="0" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="0" pageScale="1" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <mxCell id="anonymous" value="anonymous" style="rounded=1;arcSize=40;html=1;fillColor=none;strokeColor=#8A94A6;strokeWidth=1.5;fontColor=#8A94A6;fontSize=14;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="40" y="220" width="150" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="active" value="active" style="rounded=1;arcSize=40;html=1;fillColor=none;strokeColor=#4C8BF5;strokeWidth=2;fontColor=#4C8BF5;fontSize=14;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="360" y="220" width="150" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="confirmed" value="confirmed" style="rounded=1;arcSize=40;html=1;fillColor=none;strokeColor=#3FA46A;strokeWidth=2;fontColor=#3FA46A;fontSize=14;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="700" y="220" width="150" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="identified" value="identified" style="rounded=1;arcSize=40;html=1;dashed=1;fillColor=none;strokeColor=#8A94A6;strokeWidth=1.5;fontColor=#8A94A6;fontSize=14;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="40" y="400" width="150" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="identifiedNote" value="only where a hint is configured" style="text;html=1;align=center;fontColor=#8A94A6;fontSize=11;fontStyle=2" vertex="1" parent="1">
+          <mxGeometry x="-20" y="452" width="270" height="20" as="geometry" />
+        </mxCell>
+
+        <mxCell id="login" value="sign in" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#4C8BF5;strokeWidth=1.5;fontColor=#4C8BF5;fontSize=12;endArrow=blockThin;endFill=1;verticalAlign=bottom" edge="1" parent="1" source="anonymous" target="active">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="stepup" value="Ensure demands a re-proof" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#3FA46A;strokeWidth=1.5;fontColor=#3FA46A;fontSize=12;endArrow=blockThin;endFill=1;verticalAlign=bottom;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0" edge="1" parent="1" source="active" target="confirmed">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points"><mxPoint x="435" y="160" /><mxPoint x="775" y="160" /></Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="decay" value="time passes" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#8A94A6;strokeWidth=1.5;fontColor=#8A94A6;fontSize=12;endArrow=blockThin;endFill=1;verticalAlign=top;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0" edge="1" parent="1" source="confirmed" target="active">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points"><mxPoint x="775" y="330" /><mxPoint x="435" y="330" /></Array>
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="expireDirect" value="idle or absolute expiry" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#8A94A6;strokeWidth=1.5;fontColor=#8A94A6;fontSize=12;endArrow=blockThin;endFill=1;verticalAlign=bottom;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0" edge="1" parent="1" source="active" target="anonymous">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points"><mxPoint x="435" y="90" /><mxPoint x="115" y="90" /></Array>
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="expireHint" value="the same expiry, where a hint is kept" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;dashed=1;strokeColor=#8A94A6;strokeWidth=1.5;fontColor=#8A94A6;fontSize=12;endArrow=blockThin;endFill=1;verticalAlign=bottom;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0" edge="1" parent="1" source="active" target="identified">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points"><mxPoint x="435" y="425" /></Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="forget" value="hint expires" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;dashed=1;strokeColor=#8A94A6;strokeWidth=1.5;fontColor=#8A94A6;fontSize=12;endArrow=blockThin;endFill=1;align=left;spacingLeft=8;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0" edge="1" parent="1" source="identified" target="anonymous">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

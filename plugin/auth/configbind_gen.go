@@ -221,6 +221,7 @@ func registerConfigDefinition0() {
 			{Key: "assurance.policy", Kind: configbind.ScaffoldTableArray, Help: "named freshness windows a handler can require by name", Nested: []configbind.ScaffoldField{
 				{Key: "name", Kind: configbind.ScaffoldString, Help: "name a handler passes to auth.Policy"},
 				{Key: "max_age", Kind: configbind.ScaffoldDuration, Help: "how old a proof may be; zero means prove again for this operation"},
+				{Key: "confirm", Kind: configbind.ScaffoldBool, Default: "false", Help: "require a re-proof this guard asked for; a login never counts"},
 			}},
 			{Key: "assurance.hint.enabled", Kind: configbind.ScaffoldBool, Default: "false", Help: "remember who last signed in, to shorten the next sign-in"},
 			{Key: "assurance.hint.name", Kind: configbind.ScaffoldString, Default: "pw_hint", Help: "cookie name"},
@@ -337,6 +338,15 @@ func applyConfigDefinition0(dst any, o *configbind.Overlay) error {
 					return fmt.Errorf("configbind: auth.assurance.policy[%d].max_age: %w", i1, err)
 				}
 				p.Assurance.Policy[i1].MaxAge = d
+			}
+			if v, ok := ta1.Tables[i1].GetString("confirm"); ok {
+				bb, err := strconv.ParseBool(v)
+				if err != nil {
+					return fmt.Errorf("configbind: auth.assurance.policy[%d].confirm: %w", i1, err)
+				}
+				p.Assurance.Policy[i1].Confirm = bb
+			} else {
+				p.Assurance.Policy[i1].Confirm = false
 			}
 		}
 	}

@@ -20,18 +20,46 @@ import (
 // nothing to order, and in a mode with two neither is stronger in general, so
 // any default would be a claim the framework is not entitled to make.
 type Requirement interface {
-	// maxAge resolves the window for one request. The bool reports whether the
+	// resolve returns the window for one request. The bool reports whether the
 	// requirement could be resolved at all.
-	maxAge(*http.Request, Config) (time.Duration, bool)
+	resolve(*http.Request, Config) (window, bool)
 }
 
-// MaxAge states the window literally, for a route whose window is a property
-// of the code rather than of the deployment.
+// window is a resolved requirement: how old a proof may be, and whether a
+// login counts as one.
+type window struct {
+	maxAge time.Duration
+	// confirmed demands a re-proof the guard asked for, so an ordinary login
+	// never satisfies it however recent it is.
+	//
+	// Signing in and confirming an operation are different acts. A login
+	// happened for its own reasons and says nothing about the person now
+	// asking to move money; a step-up happened because this operation
+	// demanded it. Freshness alone conflates them, and a window wide enough
+	// to be usable lets a sign-in stand in for the confirmation.
+	confirmed bool
+}
+
+// MaxAge admits any proof no older than d, including the login that started
+// the session. Use it where recency is the point: a session that has been
+// sitting open all afternoon should not reach an administration area, but the
+// person who just signed in already proved who they are.
+func MaxAge(d time.Duration) Requirement {
+	return literalRequirement{window: window{maxAge: d}}
+}
+
+// Confirmed admits only a re-proof this guard asked for, within d. A login,
+// however recent, never satisfies it.
 //
-// A zero duration is meaningful: it is the per-operation level, satisfied only
-// by a proof completed for this attempt. See Ensure for why that cannot be a
-// timestamp comparison.
-func MaxAge(d time.Duration) Requirement { return literalRequirement(d) }
+// Use it where the act matters rather than the clock: moving money, deleting a
+// tenant, exporting a customer list. Somebody who signed in a minute ago to
+// read their dashboard has not agreed to any of those.
+//
+// A zero duration means confirm for this attempt, and two consecutive
+// operations then require two confirmations.
+func Confirmed(d time.Duration) Requirement {
+	return literalRequirement{window: window{maxAge: d, confirmed: true}}
+}
 
 // Policy reads the window from auth.assurance.policy, so the same handler code
 // serves a consumer deployment with a long window and an internal one with a
@@ -43,50 +71,50 @@ func Policy(name string) Requirement { return namedRequirement(name) }
 // duration expresses. An internal system re-confirming after every midnight
 // returns the time elapsed since the most recent midnight, so a proof older
 // than that boundary no longer counts.
-func Dynamic(resolve func(*http.Request) time.Duration) Requirement {
-	return dynamicRequirement{resolve: resolve}
+func Dynamic(compute func(*http.Request) time.Duration) Requirement {
+	return dynamicRequirement{compute: compute}
 }
 
 // Default is the window of auth.recent_auth_max_age, which is also what the
 // passkey enrollment guard has always used.
 func Default() Requirement { return defaultRequirement{} }
 
-type literalRequirement time.Duration
+type literalRequirement struct{ window window }
 
-func (r literalRequirement) maxAge(*http.Request, Config) (time.Duration, bool) {
-	return time.Duration(r), true
+func (r literalRequirement) resolve(*http.Request, Config) (window, bool) {
+	return r.window, true
 }
 
 type namedRequirement string
 
-func (r namedRequirement) maxAge(_ *http.Request, config Config) (time.Duration, bool) {
+func (r namedRequirement) resolve(_ *http.Request, config Config) (window, bool) {
 	for _, policy := range config.Assurance.Policy {
 		if policy.Name == string(r) {
-			return policy.MaxAge, true
+			return window{maxAge: policy.MaxAge, confirmed: policy.Confirm}, true
 		}
 	}
-	return 0, false
+	return window{}, false
 }
 
 type dynamicRequirement struct {
-	resolve func(*http.Request) time.Duration
+	compute func(*http.Request) time.Duration
 }
 
-func (r dynamicRequirement) maxAge(request *http.Request, _ Config) (time.Duration, bool) {
-	if r.resolve == nil {
-		return 0, false
+func (r dynamicRequirement) resolve(request *http.Request, _ Config) (window, bool) {
+	if r.compute == nil {
+		return window{}, false
 	}
-	value := r.resolve(request)
+	value := r.compute(request)
 	if value < 0 {
-		return 0, false
+		return window{}, false
 	}
-	return value, true
+	return window{maxAge: value}, true
 }
 
 type defaultRequirement struct{}
 
-func (defaultRequirement) maxAge(_ *http.Request, config Config) (time.Duration, bool) {
-	return config.RecentAuthMaxAge, true
+func (defaultRequirement) resolve(_ *http.Request, config Config) (window, bool) {
+	return window{maxAge: config.RecentAuthMaxAge}, true
 }
 
 // ErrNoAssurance reports that assurance could not be evaluated because the auth
@@ -174,19 +202,35 @@ func satisfied(r *http.Request, requirement Requirement) (bool, error) {
 		// route is unguarded, so the challenge sends the user to log in.
 		return false, nil
 	}
-	window, resolved := requirement.maxAge(r, instance.config)
+	want, resolved := requirement.resolve(r, instance.config)
 	if !resolved {
 		return false, fmt.Errorf("%w: requirement could not be resolved", ErrNoAssurance)
 	}
-	if window == 0 {
-		// A zero window is never satisfied by elapsed time: the redirect to the
+	if want.confirmed {
+		return confirmedWithin(view.Data, want.maxAge), nil
+	}
+	if want.maxAge == 0 {
+		// Elapsed time can never satisfy a zero window: the redirect to the
 		// provider and back always consumes more than zero seconds, so a
 		// timestamp comparison would challenge again immediately after a
-		// successful re-proof and never converge. It is satisfied only by the
-		// single-use admission a completed step-up leaves behind.
+		// successful re-proof and never converge. Read it as a confirmation
+		// for this attempt, which is what it was always meant to say.
 		return stepUpAdmitted(view.Data), nil
 	}
-	return time.Since(view.Data.provenAt(view.AuthenticatedAt)) <= window, nil
+	return time.Since(view.Data.provenAt(view.AuthenticatedAt)) <= want.maxAge, nil
+}
+
+// confirmedWithin reports whether a re-proof the guard asked for happened
+// inside the window. The login that started the session does not count, however
+// recent it is: it proved an identity, not an intention.
+func confirmedWithin(data SessionData, maxAge time.Duration) bool {
+	if maxAge == 0 {
+		return stepUpAdmitted(data)
+	}
+	if data.StepUpAt <= 0 {
+		return false
+	}
+	return time.Since(time.Unix(data.StepUpAt, 0)) <= maxAge
 }
 
 // stepUpAdmissionWindow bounds how long a completed zero-window proof admits an
@@ -216,7 +260,7 @@ func challenge(w http.ResponseWriter, r *http.Request, requirement Requirement, 
 		pw.WriteProblem(w, r, pw.ServiceUnavailable())
 		return
 	}
-	window, resolved := requirement.maxAge(r, instance.config)
+	want, resolved := requirement.resolve(r, instance.config)
 	if !resolved {
 		pw.Logger(r.Context()).Log(r.Context(), pw.LevelError, "assurance requirement could not be resolved")
 		pw.WriteProblem(w, r, pw.ServiceUnavailable())
@@ -226,6 +270,6 @@ func challenge(w http.ResponseWriter, r *http.Request, requirement Requirement, 
 		pw.WriteProblem(w, r, pw.Unauthorized())
 		return
 	}
-	instance.redirect(w, r, instance.stepUpPath(r, window))
+	instance.redirect(w, r, instance.stepUpPath(r, want.maxAge))
 }
 
