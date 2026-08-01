@@ -167,49 +167,13 @@ A missing `auth_time` after `max_age` was sent is therefore a failed re-proof. O
 
 ### An ordinary sign-in
 
-```
-Browser             Popcorn Wave           Provider
-   │  GET /auth/login   │                      │
-   ├───────────────────►│                      │
-   │                    │ generate nonce, PKCE │
-   │ 302 ───────────────┤                      │
-   ├───────────────────────────────────────────►│
-   │                    │      authenticate    │
-   │◄───────────────────────────────────────────┤
-   │  GET /auth/callback?code=…                 │
-   ├───────────────────►│                      │
-   │                    │ exchange the code    │
-   │                    ├─────────────────────►│
-   │                    │◄─────────────────────┤
-   │                    │ verify the ID Token  │
-   │                    │ evaluate admission   │
-   │                    │ rotate the session   │
-   │◄───────────────────┤                      │
-```
+![A sequence across the browser, Popcorn Wave, and the provider: redirects out, a code back, and an exchange](../../../../assets/diagrams/login-sequence.svg)
 
 That final rotation revokes whatever session the browser already held. Nothing from before the login survives it, which is what closes fixation.
 
 ### A step-up
 
-```
-Browser             Popcorn Wave           Provider
-   │  GET /payment      │                      │
-   ├───────────────────►│                      │
-   │                    │ auth_time is stale   │
-   │  302 /auth/login?max_age=1800&next=/payment │
-   │◄───────────────────┤                      │
-   │  ────────────────────────────────────────►│  max_age + prompt=login
-   │                    │      re-authenticate │
-   │◄───────────────────────────────────────────┤
-   │  GET /auth/callback │                      │
-   ├───────────────────►│                      │
-   │                    │ 1 same account?      │
-   │                    │ 2 verify auth_time   │
-   │                    │ 3 re-evaluate admission
-   │                    │ 4 rotate             │
-   │  302 /payment ─────┤                      │
-   │◄───────────────────┤                      │
-```
+![A sequence where a stale auth_time forces re-authentication and four checks precede the rotation](../../../../assets/diagrams/step-up-sequence.svg)
 
 Drop step 1 and the step-up becomes an **account swap**: the previous account's sensitive operation is already staged, and somebody else's successful login completes it. Issuer, identity claim, and value are compared against the session in hand, and a mismatch writes nothing.
 
@@ -221,18 +185,7 @@ Resuming a POST has a limit. The return from the callback is a redirect, which i
 
 What a sign-out does to the provider session has three possible answers. One of them is not offered.
 
-```
-local      Revoke locally, leave the provider alone
-           → the next sign-in passes silently; the sign-out looks broken
-           → not offered
-
-reconfirm  Revoke locally, send the provider nothing (the default)
-           → the next authorization carries prompt=select_account login
-           → the provider session lives on; other relying parties are untouched
-
-global     Call end_session_endpoint
-           → the provider session ends, signing the user out of every app sharing it
-```
+![A sequence contrasting reconfirm, which sends the provider nothing, with global, which calls end_session_endpoint](../../../../assets/diagrams/logout-scopes.svg)
 
 `reconfirm` is a name we gave a behavior, not a standard. **No request goes to the provider at a reconfirm sign-out.** One parameter is added to the next ordinary authorization request, and that is the whole of it.
 
