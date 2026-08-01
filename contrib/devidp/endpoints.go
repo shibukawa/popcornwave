@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -118,6 +119,16 @@ func (p *Provider) handleAuthorize(w http.ResponseWriter, r *http.Request) {
 		redirectError(w, r, redirect, "invalid_scope", "the openid scope is required", state)
 		return
 	}
+	maxAge, ok := parseMaxAge(r.Form.Get("max_age"))
+	if !ok {
+		redirectError(w, r, redirect, "invalid_request", "max_age must be a non-negative number of seconds", state)
+		return
+	}
+	prompt := strings.Fields(r.Form.Get("prompt"))
+	if !validPrompt(prompt) {
+		redirectError(w, r, redirect, "invalid_request", "prompt carries an unknown value, or none beside another", state)
+		return
+	}
 	pending := &pendingAuthorization{
 		clientID:    client.ID,
 		redirectURI: redirect,
@@ -126,17 +137,82 @@ func (p *Provider) handleAuthorize(w http.ResponseWriter, r *http.Request) {
 		challenge:   challenge,
 		scopes:      scopes,
 		expiresAt:   p.now().Add(p.codeTTL),
+		maxAge:      maxAge,
+		prompt:      prompt,
 	}
 	key, err := p.storePending(pending)
 	if err != nil {
 		redirectError(w, r, redirect, "server_error", "the provider could not start an authorization", state)
 		return
 	}
-	if subject := p.LoginUser(); subject != "" {
+
+	existing := p.sessionOf(r)
+	// A provider answers from its own session when it may. That is what makes a
+	// relying party's max_age worth sending, and what makes auth_time worth
+	// checking: the token arrives now, carrying a proof from earlier.
+	if existing != nil && !needsReauthentication(prompt, maxAge, existing, p.now()) {
+		p.completeAuthorization(w, r, key, existing.subject, existing.authTime)
+		return
+	}
+	if contains(prompt, "none") {
+		// prompt=none forbids interaction, so a provider that would have to ask
+		// says so instead of asking.
+		p.takePending(key)
+		redirectError(w, r, redirect, "login_required", "the end user must authenticate, which prompt=none forbids", state)
+		return
+	}
+	if subject := p.LoginUser(); subject != "" && !contains(prompt, "select_account") {
 		p.completeLogin(w, r, key, subject)
 		return
 	}
 	p.renderLogin(w, r, key, pending, "")
+}
+
+// parseMaxAge reads the max_age parameter. The bool reports a usable value; a
+// negative result means the request carried none.
+func parseMaxAge(raw string) (int64, bool) {
+	if raw == "" {
+		return -1, true
+	}
+	seconds, err := strconv.ParseInt(raw, 10, 64)
+	if err != nil || seconds < 0 {
+		return 0, false
+	}
+	return seconds, true
+}
+
+// validPrompt accepts the values OpenID Connect Core defines, and refuses none
+// beside any other because the two ask for opposite things.
+func validPrompt(values []string) bool {
+	for _, value := range values {
+		switch value {
+		case "none", "login", "consent", "select_account":
+		default:
+			return false
+		}
+	}
+	return !(contains(values, "none") && len(values) > 1)
+}
+
+// needsReauthentication decides whether this provider session may answer the
+// request as it stands.
+func needsReauthentication(prompt []string, maxAge int64, session *providerSession, now time.Time) bool {
+	if contains(prompt, "login") || contains(prompt, "select_account") {
+		return true
+	}
+	if maxAge >= 0 && now.Sub(session.authTime) > time.Duration(maxAge)*time.Second {
+		return true
+	}
+	return false
+}
+
+// sessionOf reads the provider login of the requesting browser.
+func (p *Provider) sessionOf(r *http.Request) *providerSession {
+	cookie, err := r.Cookie(sessionCookieName)
+	if err != nil {
+		return nil
+	}
+	return p.session(cookie.Value)
 }
 
 // handleLoginPage re-renders the selection screen for a pending authorization.
@@ -173,8 +249,27 @@ func (p *Provider) handleLoginSubmit(w http.ResponseWriter, r *http.Request) {
 	p.completeLogin(w, r, key, r.Form.Get("subject"))
 }
 
-// completeLogin consumes the pending authorization and redirects with a code.
+// completeLogin records a fresh authentication of this browser and completes the
+// pending authorization. Everything that actually asks the developer who they
+// are goes through here, so this is the one place a provider session begins.
 func (p *Provider) completeLogin(w http.ResponseWriter, r *http.Request, key, subject string) {
+	now := p.now()
+	if sessionKey, err := p.startSession(subject, now); err == nil {
+		http.SetCookie(w, &http.Cookie{
+			Name:     sessionCookieName,
+			Value:    sessionKey,
+			Path:     "/",
+			HttpOnly: true,
+			SameSite: http.SameSiteLaxMode,
+		})
+	}
+	p.completeAuthorization(w, r, key, subject, now)
+}
+
+// completeAuthorization consumes the pending authorization and redirects with a
+// code. authTime is when the end user was actually authenticated, which an
+// answer from an existing session carries forward unchanged.
+func (p *Provider) completeAuthorization(w http.ResponseWriter, r *http.Request, key, subject string, authTime time.Time) {
 	pending := p.peekPending(key)
 	if pending == nil {
 		p.renderError(w, http.StatusBadRequest, "This login link has expired. Start the login again from the application.")
@@ -201,6 +296,7 @@ func (p *Provider) completeLogin(w http.ResponseWriter, r *http.Request, key, su
 		scopes:      p.grantableScopes(pending.scopes, client, user),
 		issuedAt:    now,
 		expiresAt:   now.Add(p.codeTTL),
+		authTime:    authTime,
 	}
 	value, err := p.issueCode(key, code)
 	if err != nil {
@@ -323,6 +419,18 @@ func (p *Provider) handleEndSession(w http.ResponseWriter, r *http.Request) {
 	// Every token issued to this subject stops working, so a stale access
 	// token cannot outlive the logout.
 	p.revokeTokens(clientID, subject)
+	// The provider session goes too. Leaving it would make the next
+	// authorization answer silently from it, which is the behaviour a global
+	// sign-out exists to prevent.
+	p.endSessions(subject)
+	http.SetCookie(w, &http.Cookie{
+		Name:     sessionCookieName,
+		Value:    "",
+		Path:     "/",
+		MaxAge:   -1,
+		HttpOnly: true,
+		SameSite: http.SameSiteLaxMode,
+	})
 
 	redirect := r.Form.Get("post_logout_redirect_uri")
 	if redirect == "" {

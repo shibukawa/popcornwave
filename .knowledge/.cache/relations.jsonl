@@ -1770,6 +1770,7 @@
 {"context": "body", "path": ".knowledge/requirement/contrib-database.md", "source": "requirement:contrib-database", "target": "rule:rdb-dsn-resolution", "target_category": "constraint", "target_type": "rule"}
 {"context": "body", "path": ".knowledge/requirement/contrib-database.md", "source": "requirement:contrib-database", "target": "decision:server-sql-support-tier", "target_category": "constraint", "target_type": "decision"}
 {"context": "body", "path": ".knowledge/requirement/contrib-devidp.md", "source": "requirement:contrib-devidp", "target": "requirement:contrib-oidc", "target_category": "objective", "target_type": "requirement"}
+{"context": "body", "path": ".knowledge/requirement/contrib-devidp.md", "source": "requirement:contrib-devidp", "target": "requirement:session-assurance-levels", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/requirement/contrib-devidp.md", "source": "requirement:contrib-devidp", "target": "policy:contrib-compatibility", "target_category": "constraint", "target_type": "policy"}
 {"context": "body", "path": ".knowledge/requirement/contrib-devidp.md", "source": "requirement:contrib-devidp", "target": "decision:devidp-scope-reduction", "target_category": "constraint", "target_type": "decision"}
 {"context": "body", "path": ".knowledge/requirement/contrib-devidp.md", "source": "requirement:contrib-devidp", "target": "system:oidcld", "target_category": "external", "target_type": "system"}
