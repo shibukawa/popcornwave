@@ -467,3 +467,92 @@ func TestChangePathsShortenAgainstTheWorkingDirectory(t *testing.T) {
 		t.Fatalf("paths = %#v, want the root-relative form for a sibling", paths)
 	}
 }
+
+// dynamoFixture is a package with a tagged type, a call that directs the codec,
+// and one access-pattern declaration.
+func writeDynamoFixture(t *testing.T, directory string) {
+	t.Helper()
+	writeTestFile(t, filepath.Join(directory, "go.mod"), "module fixture\n\ngo 1.26.0\n")
+	writeTestFile(t, filepath.Join(directory, "reading.go"), `package fixture
+
+import (
+	"context"
+
+	"github.com/shibukawa/tinybind-go/dynamobind"
+)
+
+type Reading struct {
+	Sensor  string  `+"`dynamo:\"sensor,partitionkey\"`"+`
+	At      int64   `+"`dynamo:\"at,sortkey\"`"+`
+	Celsius float64 `+"`dynamo:\"celsius\"`"+`
+}
+
+func Store(ctx context.Context, reading Reading) error {
+	return dynamobind.Store(ctx, "reading", reading)
+}
+`)
+	// A declaration file carries no package line, unlike .pw.sql: the package
+	// is the directory it sits in.
+	writeTestFile(t, filepath.Join(directory, "readings.pw.dynamo"), `export statement ReadingsSince(sensor: string, from: int64): dynamo.many<Reading> {
+  table reading
+  key sensor = {sensor} and at > {from}
+}
+`)
+}
+
+func TestPlanDirectoryGeneratesDynamoArtifacts(t *testing.T) {
+	directory := t.TempDir()
+	writeDynamoFixture(t, directory)
+
+	options, err := pwgen.Options(sqlbind.DialectPostgreSQL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	purposes := generationPurposes{handlers: true, dynamo: true}
+	changes, err := planDirectory(context.Background(), generator.New(options), directory, purposes, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var generated string
+	for _, change := range changes {
+		if strings.Contains(string(change.source), "ReadingsSince") {
+			generated = string(change.source)
+		}
+	}
+	if generated == "" {
+		t.Fatalf("no artifact carried the declared query; planned %d files", len(changes))
+	}
+	// The whole point of the declaration: the call site names neither the
+	// client nor the table, and no attribute string survives into it.
+	if !strings.Contains(generated, "func ReadingsSince(ctx context.Context, sensor string, from int64") {
+		t.Fatalf("generated signature is not context-first:\n%s", generated)
+	}
+	// A reserved word cannot reach an expression, because every attribute is
+	// aliased whether or not it needs to be.
+	if !strings.Contains(generated, `"#k0": "sensor"`) {
+		t.Fatalf("attributes must be aliased unconditionally:\n%s", generated)
+	}
+}
+
+func TestPlanDirectoryLeavesDynamoSourcesUnreadWithoutThePurpose(t *testing.T) {
+	directory := t.TempDir()
+	writeDynamoFixture(t, directory)
+	// The declaration names a table and a type that exist, so anything the run
+	// produces for it would be valid. It must still produce nothing: an
+	// unlisted source is not parsed, which is what keeps a deliberate sample
+	// beside the code from being generated from.
+	options, err := pwgen.Options(sqlbind.DialectPostgreSQL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	changes, err := planDirectory(context.Background(), generator.New(options), directory,
+		generationPurposes{handlers: true}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, change := range changes {
+		if strings.Contains(string(change.source), "ReadingsSince") {
+			t.Fatalf("a directory outside generate.dynamo generated a query:\n%s", change.source)
+		}
+	}
+}

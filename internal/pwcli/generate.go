@@ -251,7 +251,8 @@ func walkSources(root string, sources []string, visit func(path string, entry fs
 // generationInput reports whether a file name is something the generator reads.
 func generationInput(name string) bool {
 	return (strings.HasSuffix(name, ".go") && !strings.HasSuffix(name, "_test.go")) ||
-		strings.HasSuffix(name, ".pw.html") || strings.HasSuffix(name, ".pw.sql")
+		strings.HasSuffix(name, ".pw.html") || strings.HasSuffix(name, ".pw.sql") ||
+		strings.HasSuffix(name, ".pw.dynamo")
 }
 
 // directoryPurposes reports which generation purposes list a directory. A
@@ -276,6 +277,7 @@ func directoryPurposes(root string, scope generationScope, directory string) gen
 		queries:   within(scope.Queries),
 		config:    within(scope.Config),
 		pages:     within(scope.Pages),
+		dynamo:    within(scope.Dynamo),
 	}
 }
 
@@ -289,11 +291,14 @@ type generationPurposes struct {
 	// compiled by the tree run rather than the flat one, so what this enables
 	// here is the request binding a server action needs.
 	pages bool
+	// dynamo marks a directory whose dynamo-tagged types and .pw.dynamo
+	// declarations are generated for.
+	dynamo bool
 }
 
 // any reports whether the directory serves any purpose at all.
 func (p generationPurposes) any() bool {
-	return p.handlers || p.templates || p.queries || p.config || p.pages
+	return p.handlers || p.templates || p.queries || p.config || p.pages || p.dynamo
 }
 
 // keeps maps an artifact back to the purpose that may produce it. Go analysis
@@ -314,6 +319,8 @@ func (p generationPurposes) keeps(kind generator.ArtifactKind) bool {
 		return p.queries
 	case generator.ArtifactConfigBind:
 		return p.config
+	case generator.ArtifactDynamoItem, generator.ArtifactDynamoQuery:
+		return p.dynamo
 	default:
 		return false
 	}
@@ -321,7 +328,9 @@ func (p generationPurposes) keeps(kind generator.ArtifactKind) bool {
 
 func packageDirectories(root string, scope generationScope) ([]string, error) {
 	found := map[string]bool{}
-	for _, sources := range [][]string{scope.Handlers, scope.Templates, scope.Queries, scope.Config, scope.Pages} {
+	for _, sources := range [][]string{
+		scope.Handlers, scope.Templates, scope.Queries, scope.Config, scope.Pages, scope.Dynamo,
+	} {
 		err := walkSources(root, sources, func(path string, entry fs.DirEntry) error {
 			if generationInput(entry.Name()) {
 				found[filepath.Dir(path)] = true
@@ -393,6 +402,9 @@ func reportSourcesOutsideScope(root string, config projectConfig, stdout io.Writ
 		case strings.HasSuffix(name, ".pw.sql") && !purposes.queries:
 			stray = append(stray, strayReport{relative, fmt.Sprintf(
 				"pw: %s is outside generate.queries and is not generated from; list its directory to include it", relative)})
+		case strings.HasSuffix(name, ".pw.dynamo") && !purposes.dynamo:
+			stray = append(stray, strayReport{relative, fmt.Sprintf(
+				"pw: %s is outside generate.dynamo and is not generated from; list its directory to include it", relative)})
 		case strings.HasSuffix(name, "_pw_gen.go") && !purposes.any():
 			stray = append(stray, strayReport{relative, fmt.Sprintf(
 				"pw: %s was generated outside every generate purpose and is now stale; delete it or list its directory", relative)})
@@ -443,6 +455,15 @@ func planDirectory(ctx context.Context, runner *generator.Generator, directory s
 	}
 	if purposes.queries {
 		request.SQLTemplatePattern = ""
+	}
+	if !purposes.dynamo {
+		// A request carries no DynamoDB pattern, so an unlisted directory is
+		// kept from being parsed by running against a copy of the generator
+		// whose glob matches nothing. Filtering the artifacts afterwards would
+		// still have read and type-checked the declaration.
+		local := *runner
+		local.Options.DynamoTemplatePattern = disabledTemplatePattern
+		runner = &local
 	}
 	artifacts, err := runner.GenerateArtifacts(ctx, request)
 	if err != nil && !errors.Is(err, generator.ErrNothingToGenerate) {

@@ -99,6 +99,7 @@ func Options(sqlDialect string) (generator.Options, error) {
 	options.GeneratedHeaders = []string{GeneratedHeaderPrefix}
 	options.HTMLTemplatePattern = "*.pw.html"
 	options.SQLTemplatePattern = "*.pw.sql"
+	options.DynamoTemplatePattern = "*.pw.dynamo"
 	options.SQLDialect = sqlDialect
 	options.SQLContextOnlyAPI = true
 	options.SQLExecutorResolver = &generator.SymbolPattern{

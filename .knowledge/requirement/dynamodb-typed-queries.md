@@ -12,6 +12,7 @@ source_file:
   suffix: .pw.dynamo, set through the generator DynamoTemplatePattern option, the same way .pw.sql and .pw.html are branded
   location: beside the package, discovered per directory listed under generate.dynamo
   outer_form: reused from .pw.sql - an export statement, a typed parameter list, a result type after a colon, and a braced body
+  no_package_line: unlike .pw.sql, a declaration file declares no package; the directory it sits in is the package, found on implementation 2026-08-01
   body: a table clause and a key clause rather than SQL text, in either order, separated by ";" when on one line
   example: "export statement ReadingsSince(sensor: Sensor, from: int64): dynamo.many<Reading> { table readings; key sensor = {sensor} and at > {from} }"
   export_keyword: must agree with the name's own casing, since Go decides visibility by the name; either without the other is an error rather than a silent rename

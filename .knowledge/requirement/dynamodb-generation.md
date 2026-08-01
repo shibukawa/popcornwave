@@ -37,6 +37,11 @@ feature_suppression:
   available: system:tinybind can suppress the table definition as the named feature item-table, for a project whose tables are owned by CloudFormation or Terraform
   interaction: decision:dynamodb-table-registry has nothing to collect once it is suppressed, so requirement:dynamodb-migration reports that the schema source is empty rather than reporting that every table is missing
   rule: suppressing it is a project decision recorded in configuration, never a silent consequence of an empty directory
+scoping_mechanism:
+  html_and_sql: the generation request carries a per-directory pattern, so an unlisted template is never parsed
+  dynamo: the request carries no such field, so api:cli-generate runs an unlisted directory against a copy of the generator whose declaration glob matches nothing
+  why_not_filter_afterwards: filtering artifacts would still have read and type-checked the declaration, which is what the purpose exists to prevent
+  found: implementation 2026-08-01
 determinism: same input yields byte-identical output, and --check fails on a difference like every other purpose
 acceptance:
   - a tagged struct in a generate.dynamo directory produces a codec that round trips through system:tinygodriver-dynamodb without a call site naming an attribute string

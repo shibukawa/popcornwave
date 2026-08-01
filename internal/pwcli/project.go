@@ -68,6 +68,10 @@ type generationScope struct {
 	// directory of independent sources: one entry is one generation run and one
 	// generated registry.
 	Pages []string
+	// Dynamo lists the directories holding dynamo-tagged types and .pw.dynamo
+	// query declarations. It reads Go type declarations rather than a template
+	// language, which is why it is not part of generate.queries.
+	Dynamo []string
 }
 
 // generatePurposes are the configuration keys of generationScope, in the order
@@ -75,9 +79,10 @@ type generationScope struct {
 var generatePurposes = []struct {
 	key    string
 	target func(*generationScope) *[]string
-	// optional marks a purpose whose absent key means the empty list. Only
-	// generate.pages is one: every project written before page trees existed
-	// has no such key, and none of them has a page tree either.
+	// optional marks a purpose whose absent key means the empty list. Only a
+	// purpose added after the key set was fixed is one: every project written
+	// before page trees or DynamoDB existed has no such key, and none of them
+	// has the sources either.
 	optional bool
 }{
 	{key: "generate.handlers", target: func(s *generationScope) *[]string { return &s.Handlers }},
@@ -85,6 +90,7 @@ var generatePurposes = []struct {
 	{key: "generate.queries", target: func(s *generationScope) *[]string { return &s.Queries }},
 	{key: "generate.config", target: func(s *generationScope) *[]string { return &s.Config }},
 	{key: "generate.pages", target: func(s *generationScope) *[]string { return &s.Pages }, optional: true},
+	{key: "generate.dynamo", target: func(s *generationScope) *[]string { return &s.Dynamo }, optional: true},
 }
 
 // watchConfig widens or trims the pw dev walk. Unlike generation, the walk has a
