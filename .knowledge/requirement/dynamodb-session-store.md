@@ -21,12 +21,16 @@ table:
   declared_name: popcornwave_session, per rule:framework-owned-tables
   deployed_name: resolved by rule:dynamodb-table-naming like any other table, so a test prefix reaches it unchanged
   key: the record key hash as the partition key; no sort key
-  definition_source: a dynamo-tagged type in the plugin, registered through decision:dynamodb-table-registry, so requirement:dynamodb-migration creates it with every other table
+  definition_source: registered through decision:dynamodb-table-registry when the package is imported, so requirement:dynamodb-migration creates it with every other table
+  handwritten: the definition and the item mapping are written rather than generated, decided on implementation 2026-08-01
+  why: this package is the only reader and writer of the item, so there is no drift for a generated codec to close, and generating for one internal type would put a generation step in the framework's own build
+  what_replaces_the_guarantee: one constant names the key attribute, and both the definition and the item read it
   no_migration_file: this store has none, per decision:dynamodb-desired-state-migration; the rule:framework-owned-tables migration-file convention is the SQL half of the same idea
 operation_mapping:
   Put: PutItem, which replaces one item atomically and needs no condition
   Get: GetItem, with decision:dynamodb-session-read-consistency deciding the consistency
   Touch: UpdateItem conditioned on the item existing and not being dead, which is stronger than the SQL path's read-then-write
+  Touch_clamping: the caller has already clamped the renewal to the absolute expiry, so dead_at takes the new idle expiry outright; a DynamoDB update expression has no conditional operator to clamp with anyway
   Delete: DeleteItem, idempotent by construction
   errors: a miss is the driver's item-not-found sentinel, reported as the contract's not-found; nothing converts it to a zero record
 stored_attributes:

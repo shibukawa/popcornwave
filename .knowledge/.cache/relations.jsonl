@@ -571,6 +571,7 @@
 {"context": "body", "path": ".knowledge/data/dynamodb-runtime-config.md", "source": "data:dynamodb-runtime-config", "target": "api:dynamo-package", "target_category": "interface", "target_type": "api"}
 {"context": "body", "path": ".knowledge/data/dynamodb-runtime-config.md", "source": "data:dynamodb-runtime-config", "target": "decision:independent-runtime-config-bindings", "target_category": "constraint", "target_type": "decision"}
 {"context": "body", "path": ".knowledge/data/dynamodb-runtime-config.md", "source": "data:dynamodb-runtime-config", "target": "rule:dynamodb-table-naming", "target_category": "constraint", "target_type": "rule"}
+{"context": "body", "path": ".knowledge/data/dynamodb-runtime-config.md", "source": "data:dynamodb-runtime-config", "target": "system:tinybind", "target_category": "external", "target_type": "system"}
 {"context": "body", "path": ".knowledge/data/dynamodb-runtime-config.md", "source": "data:dynamodb-runtime-config", "target": "policy:dynamodb-migration-safety", "target_category": "constraint", "target_type": "policy"}
 {"context": "body", "path": ".knowledge/data/dynamodb-runtime-config.md", "source": "data:dynamodb-runtime-config", "target": "requirement:dynamodb-migration", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/data/dynamodb-runtime-config.md", "source": "data:dynamodb-runtime-config", "target": "decision:dynamodb-operational-configuration", "target_category": "constraint", "target_type": "decision"}

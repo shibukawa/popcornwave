@@ -84,9 +84,10 @@ dynamodb:
       severity: error
       remedy: pw migrate up in development, or the deployment tooling that owns it in production
     dynamo-key-schema-drift:
-      trigger: a deployed key schema differing from the generated definition
+      trigger: a deployed key attribute name differing from the registered definition
       severity: error
       reason: it is the one check deployment tooling cannot make, per requirement:dynamodb-migration
+      bounded_by_the_driver: DescribeTable reports no attribute type, so a retyped key is outside what this can see
       not_checked: billing, capacity, TTL, and every other decision:dynamodb-operational-configuration value, because a correct deployment differs there on purpose
     dynamo-untracked-table:
       trigger: a table carrying the configured prefix that no definition claims

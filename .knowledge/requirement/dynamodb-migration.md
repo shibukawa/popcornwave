@@ -24,9 +24,10 @@ change_kinds:
     wait: poll DescribeTable until the table is active, because the driver ships no waiter
   verify:
     trigger: the table exists
-    action: compare the partition key, the sort key, and their attribute types, and nothing else
+    action: compare the key attribute names positionally, and nothing else
+    not_the_types: DescribeTable reports no attribute type, per system:tinygodriver-dynamodb, so a retyped key reads as matching; a renamed, missing, or extra key is still caught
     match: no request is sent
-    mismatch: an error naming the table, the attribute, the desired shape, and the observed one
+    mismatch: an error naming the table, the desired shape, and the observed one, because knowing only that they differ does not say which one is the surprise
     deliberately_out_of_the_comparison: everything decision:dynamodb-operational-configuration assigns to deployment tooling
   alter: not expressible; the driver has no UpdateTable, so a key change is reported rather than performed
   delete: never, per policy:dynamodb-migration-safety

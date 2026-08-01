@@ -27,6 +27,12 @@ schema_types:
   KeyAttribute: "{Name string; Type AttributeType}" with S, N or B only
   BillingMode: PayPerRequest default, Provisioned
   TableDescription: what DescribeTable returns; the observed side of the same shape
+describe_table_reports_less_than_it_receives:
+  found: implementation 2026-08-01
+  fact: a described key attribute carries its name only; the driver decodes the KeySchema without its HASH and RANGE roles, and decodes no AttributeDefinitions at all
+  effect: requirement:dynamodb-migration compares key names positionally, so a deployed table whose key is named as expected but typed differently reads as matching
+  bounded: a renamed key, a missing sort key, and an extra one are all still caught; only a retyped key is invisible
+  upstream: reporting KeyType and the attribute types would close it, and is the third item worth sending after the two already ranked
 errors:
   wrapper: "*dynamodb.Error with Op, Table, StatusCode, RequestID, Unwrap, Retryable"
   sentinels_used_by_pw: [ErrTableNotFound, ErrResourceNotFound, ErrTableInUse, ErrValidation, ErrBadCredentials, ErrNoRegion]

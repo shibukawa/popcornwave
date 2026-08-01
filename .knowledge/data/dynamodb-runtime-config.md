@@ -16,7 +16,10 @@ fields:
   secret_access_key: optional, expanded from ${NAME}; redacted everywhere
   session_token: optional, expanded from ${NAME}; redacted everywhere
   table_prefix: string, default empty, prepended to a declared name, per rule:dynamodb-table-naming
-  table_names: an explicit declared-to-deployed map, default empty, for a deployed name no prefix produces
+  table_names: an array of tables, each a declared and a deployed name, for a deployed name no prefix produces
+  table_names_shape:
+    not_a_map: system:tinybind configbind binds no map type, found on implementation 2026-08-01
+    form: "[[middleware.dynamo.table_names]] with declared and deployed keys, the same repeated-element shape middleware.rdb.connections already uses"
   timeout: duration, default 10s, the driver default restated so it is configurable
   max_idle_conns: non-negative int, default 4; guidance is to set it to the expected concurrency
   verify_schema: bool, default true; reads every registered table once at startup and refuses to serve on a mismatch
@@ -31,6 +34,7 @@ validation:
   - a static access_key_id requires a static secret_access_key, and neither alone is accepted
   - every resolved name satisfies the DynamoDB name rule, checked at startup over the whole decision:dynamodb-table-registry set rather than at the first request
   - a table_names entry naming an undeclared table is an error, since it would silently do nothing
+  - two entries declaring one table is an error, because one declared name cannot resolve to two deployed ones
   - the two keys compose into the one resolver function rule:dynamodb-table-naming installs, and neither is read anywhere else
   - timeout is positive and max_idle_conns is not negative
   - an unreachable endpoint is a startup error naming the endpoint with credentials redacted
