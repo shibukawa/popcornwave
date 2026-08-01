@@ -27,9 +27,15 @@ automatic_apply:
   test: requirement:dynamodb-test-isolation applies into its own prefixed table set
   startup:
     default: disabled
-    enable: data:dynamodb-runtime-config auto_migrate true, explicitly set
+    enable: data:dynamodb-runtime-config auto_migrate true, and only in development
+    rejected_elsewhere: a non-development environment with auto_migrate set is a configuration error, not a warning, because production tables come from deployment tooling per requirement:dynamodb-migration
     scope: create only, which is the whole of what apply can do
-    reason_it_is_safer_than_the_sql_case: create is idempotent and additive, and every other change is refused before a request is sent
+startup_verification:
+  default: enabled, unlike apply
+  action: read every registered table and compare its key schema
+  missing_or_mismatched: refuse to serve, naming the table, both shapes, and what would create it
+  reason: it is the one check deployment tooling cannot make, since it knows what it created and not what the application assumes
+  cost: one read per registered table, once, before serving
 concurrency:
   - a duplicate CreateTable returns ErrTableInUse, which is read as already applied rather than as a failure
   - no advisory lock exists or is needed, because the only mutation is idempotent

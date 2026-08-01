@@ -12,6 +12,8 @@ list:
   location: the project.main directory, the fixed path that already receives the generated registration linker
   form: an explicit slice of declared name and constructor pairs, referenced by api:dynamo-package Migrate and Plan
   declared_names: the same strings a .pw.dynamo table clause and an item call use, so requirement:dynamodb-typed-queries can be checked against this set at generation
+  framework_entries: an imported framework package registers its own table the same way, which is how requirement:dynamodb-session-store reaches requirement:dynamodb-migration without a migration file
+  import_driven: a framework table enters the desired state because its package was imported, so an unimported capability contributes no table and no plan entry
   not_init: no init registration, so the static dispatch of system:tinybind keeps its property that an unused type links nothing
   cost: a binary exposing the framework action links every constructor, which is one leaf function per type; nothing links CreateTable unless the program calls it
 cli_transport:

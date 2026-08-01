@@ -22,7 +22,8 @@ fields:
   billing_mode: pay_per_request or provisioned, default pay_per_request, applied to every created table
   read_capacity: positive int, required when billing_mode is provisioned
   write_capacity: positive int, required when billing_mode is provisioned
-  auto_migrate: bool, default false, governed by policy:dynamodb-migration-safety
+  verify_schema: bool, default true; reads every registered table once at startup and refuses to serve on a mismatch
+  auto_migrate: bool, default false, development only, governed by policy:dynamodb-migration-safety
 why_capacity_is_configuration:
   fact: the dynamo struct tags carry the key attributes only, so a generated TableDefinition leaves BillingMode and capacity zero
   consequence: the operational half of a table is a deployment value and belongs here, where an environment can differ
@@ -36,6 +37,8 @@ validation:
   - the two keys compose into the one resolver function rule:dynamodb-table-naming installs, and neither is read anywhere else
   - timeout is positive and max_idle_conns is not negative
   - an unreachable endpoint is a startup error naming the endpoint with credentials redacted
+  - auto_migrate set outside development is a configuration error, because a production table comes from deployment tooling
+  - verify_schema false is accepted and warned about, since it removes the one check deployment tooling cannot make
 secrets:
   mechanism: ${NAME} expansion in TOML string values, the same file-layer mechanism data:database-connection-set uses
   rule: an undefined name is a load error rather than an empty expansion

@@ -22,6 +22,14 @@ redis_plugin:
   backend: redis
   config_prefix: session.redis
   compatibility: requirement:contrib-redis-valkey
+dynamo_plugin:
+  import: popcornwave/plugin/session/dynamo
+  backend: dynamo
+  config_prefix: session.dynamo
+  compatibility: requirement:dynamodb-store
+  factory: reuses the process client api:dynamo-package installs; it opens nothing of its own
+  schema_provider: none, because decision:dynamodb-desired-state-migration has no versioned schema to provide; the plugin registers its table definition instead
+  requirement: requirement:dynamodb-session-store
 rules:
   - registration completes before configbind load
   - reject duplicate backend names and config identities
@@ -35,4 +43,6 @@ rules:
   - never close the shared middleware database; close a dedicated session database during application shutdown
   - plugin initialization performs registration only and opens no connection
   - schema provider owns only plugin tables and schema-version metadata
+  - the dynamo backend requires api:dynamo-package imported and enabled, and refuses to start otherwise, naming the import
+  - a plugin whose store is not relational registers a table definition rather than a schema provider, and startup still verifies before serving
 ```

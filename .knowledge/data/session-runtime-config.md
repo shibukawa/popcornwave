@@ -9,7 +9,7 @@ The `[session]` binding selects login-session behavior, cookie policy, and stora
 registration: automatically registered by pw
 fields:
   enabled: bool
-  backend: redis or rdb
+  backend: redis, rdb, or dynamo
   ttl: duration
   idle_timeout: optional duration
   renewal_interval: duration
@@ -30,6 +30,9 @@ plugin_fields:
     rdb.dsn: dedicated-only URL such as sqlite://app.db or sqlite://:memory:
     rdb.table: string
     rdb.busy_timeout: duration
+  plugin/session/dynamo:
+    dynamo.table: declared table name, default popcornwave_session, resolved by rule:dynamodb-table-naming
+    dynamo.consistent_read: bool, default false, per decision:dynamodb-session-read-consistency
 implemented:
   binding: enabled, backend, ttl, idle_timeout, renewal_interval, and every cookie key
   rdb_keys: rdb.source, rdb.dsn, and rdb.table are declared by pw rather than by the plugin
@@ -52,6 +55,8 @@ rules:
   - reject dedicated source when its canonical connection identity equals middleware.rdb.dsn; select middleware source instead
   - Popcorn Wave initially guarantees rdb with requirement:contrib-sqlite, including sqlite://:memory:
   - reject unimported backends and unregistered RDB drivers at startup
+  - the dynamo backend carries no endpoint or credential of its own, because data:dynamodb-runtime-config already holds them
+  - the dynamo backend rejects a configured ttl longer than what the deployment can expire, since decision:dynamodb-session-expiry leaves removal to TTL
   - redact Redis and RDB DSN credentials and sensitive query values
 contracts:
   store: api:session-store

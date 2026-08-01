@@ -9,7 +9,7 @@ Resolve the generated table set, read the account, plan, then create only what i
 trigger:
   - api:cli-migrate against a project whose data:dynamodb-runtime-config is enabled
   - api:cli-dev before the application accepts requests
-  - api:dynamo-package Migrate at startup when auto_migrate is set
+  - api:dynamo-package at startup, verifying by default and creating only when auto_migrate is set in development
   - api:test-run per requirement:dynamodb-test-isolation
 steps:
   - id: resolve
@@ -29,6 +29,8 @@ steps:
     output: every offending table in one report, not only the first, so an operator sees the whole problem
   - id: apply
     do: CreateTable for each missing table
+    only_when: the run is allowed to create, which policy:dynamodb-migration-safety limits to development, test, and an explicit operator command
+    otherwise: stop after the plan, reporting a missing table as a failure rather than creating it
     idempotent: ErrTableInUse is read as already created
     then: poll DescribeTable until active, since the driver ships no waiter
   - id: report

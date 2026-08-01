@@ -53,5 +53,5 @@ non_goals:
   - routing a generated .pw.sql query to DynamoDB
   - changing the relational default of decision:tinygo-storage-direction
   - single-table design; system:tinybind states it as a non-goal, so one struct owns one table here too
-  - a DynamoDB session backend; it is a later api:session-backend-plugin, and it is blocked on the driver TTL call regardless
+  - the session backend itself, which is requirement:dynamodb-session-store and depends on this rather than belonging to it
 ```

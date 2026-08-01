@@ -51,6 +51,8 @@ when_update_table_lands:
 scope_of_the_word_migration:
   kept: the api:cli-migrate verbs, the runner shape, and the api:cli-dev apply step, because the operator experience should not fork
   dropped: version numbers, files, up-by-one, up-to, down, down-to, and create
+  narrowed_further: creation itself is a development and test step, per requirement:dynamodb-migration, so in production the same comparison is a check rather than an author
+  why_the_model_survives_that: a desired-state comparison is already the shape of a check; a versioned engine would have had to be rebuilt into one
 related:
   - requirement:dynamodb-migration
   - policy:dynamodb-migration-safety

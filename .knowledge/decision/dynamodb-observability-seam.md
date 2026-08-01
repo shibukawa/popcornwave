@@ -26,6 +26,10 @@ consequence:
 alignment:
   query_diagnostics: the record shape follows data:query-record where it fits, so one viewer shows both stores
   safety: policy:query-log-safety governs it; a key value and an expression value are data and are not logged
+framework_owned_tables_are_excluded:
+  rule: policy:query-log-safety, which records nothing for framework storage traffic in any store
+  why_it_matters_more_here: the reproduction value of decision:dynamodb-framework-scope comes from the captured body being the exact request, so for requirement:dynamodb-session-store an included record would carry the key hash, the CSRF secret, and the payload verbatim
+  where_the_filter_sits: at this seam, on the table the request names, before it is sent
   otel: the span is a client span with the operation and table as attributes, per requirement:modern-observability
 enabled_by: the same observability configuration that enables SQL query diagnostics, so an operator turns on one switch
 rejected_alternative:

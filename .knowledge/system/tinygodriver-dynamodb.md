@@ -43,9 +43,10 @@ transactions:
 upstream_requests:
   ranked: 2026-07-31 by how much one driver change unlocks downstream, per decision:dynamodb-framework-scope
   UpdateTimeToLive:
-    priority: first, and the smallest
-    unlocks: a session and auth-state backend on this store, and the TTL half of requirement:dynamodb-migration
-    natural_shape: a TableDefinition field, so it rides the create step rather than adding a workflow
+    status: withdrawn from this side on 2026-08-01, per decision:dynamodb-operational-configuration
+    was: ranked first, because it appeared to unlock the session backend
+    why_withdrawn: the framework would not call it if it had it; a deployed table's TTL is defined by deployment tooling
+    unaffected: system:tinybind still wants its own TTL tag, which declares an attribute rather than applying a setting
   UpdateTable:
     priority: second
     unlocks: adding a secondary index to a live table, without which an index-bearing table can only be created and never evolved

@@ -31,6 +31,7 @@ rules:
 adapters:
   - imported RDB plugin over database/sql
   - imported Redis-compatible plugin through requirement:contrib-redis-valkey
+  - imported DynamoDB plugin through requirement:dynamodb-store
 redis:
   backend_name: redis
   servers: Redis or Valkey
@@ -51,6 +52,16 @@ rdb:
   in_memory: sqlite://:memory:
   future_schemes: require implemented and verified drivers before configuration acceptance
   shared_executor: session.rdb.source middleware uses the pool owned by api:rdb-middleware
+dynamo:
+  backend_name: dynamo
+  session_plugin: popcornwave/plugin/session/dynamo
+  status: designed, per requirement:dynamodb-session-store
+  owned_table: popcornwave_session, created by requirement:dynamodb-migration rather than by a migration file
+  schema: no migration file and no version table; the table definition is generated from the plugin's own tagged type
+  expiry_sweep: none, per decision:dynamodb-session-expiry; a record is judged expired on read and removed by TTL
+  atomic_touch: the renewal is one conditional UpdateItem, so no read-then-write window exists
+  read_consistency: decision:dynamodb-session-read-consistency
+  shared_client: the process client installed by api:dynamo-package; there is no dedicated form
 plugins: decision:import-registered-session-plugins
 extension: applications may supply another Store[T] without changing session middleware
 ```

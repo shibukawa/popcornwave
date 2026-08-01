@@ -10,11 +10,13 @@ examples:
   rdb_session_plugin: import _ "popcornwave/plugin/session/rdb"
   server_database_engine: import _ "popcornwave/database/postgres"
   redis_session_plugin: import _ "popcornwave/plugin/session/redis"
+  dynamo_session_plugin: import _ "popcornwave/plugin/session/dynamo"
 boundaries:
   - plugin/session/rdb registers the RDB session backend but no database engine
   - database engine packages register into rule:rdb-dsn-resolution independently from the session plugin
   - pw links requirement:contrib-sqlite itself, because it is the scaffold default; a server engine is the application's own import
   - plugin/session/redis registers the Redis-compatible session backend and client integration
+  - plugin/session/dynamo registers the DynamoDB session backend and its table definition, but not the client, which api:dynamo-package owns
   - core session packages import neither backend plugin
 effects:
   - only imported implementations contribute code and dependencies to binary size

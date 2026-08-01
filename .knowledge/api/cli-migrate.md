@@ -13,8 +13,10 @@ stores:
   scoping: --store=rdb|dynamo restricts a run to one of them
   reason: requirement:dynamodb-store is a second kind of store, not a second database, so it belongs under the same verb rather than a second command
 dynamo_actions:
-  status: report the plan of flow:dynamodb-migration, which is the created, matching, and refused tables
-  up: apply the plan, creating what is missing
+  status: report the plan of flow:dynamodb-migration, which is the created, matching, and refused tables; this is the production-relevant action, because it is the drift check
+  up: apply the plan, creating what is missing; a development and test action, since a production table comes from deployment tooling per requirement:dynamodb-migration
+  print: write the registered table definitions to stdout, so deployment tooling declares what the code declares instead of restating it
+  print_form: the key schema of every registered table under its resolved deployed name, with the decision:dynamodb-operational-configuration surface deliberately absent
   unsupported: version, up-by-one, up-to, down, down-to, create, validate, and snapshot have no meaning without versions, per decision:dynamodb-desired-state-migration
   unsupported_form: a clear error naming the action and the store, never a silent skip
   no_rollback: policy:dynamodb-migration-safety refuses every destructive change, so --yes has no DynamoDB use

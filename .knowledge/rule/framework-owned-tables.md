@@ -22,6 +22,14 @@ migrations:
   detection: a project already carries a capability when a file with that name stem exists, at any version
   source: the owning package publishes the exact file content, and a repository test fails when a copy drifts
   scaffolding: api:cli-init writes the files of the selected authentication mode; api:cli-add writes them into an existing project
+non_relational_stores:
+  applies_to: requirement:dynamodb-session-store and any later framework table on a store with no versioned migration
+  naming: unchanged; the popcornwave_ prefix is the declared name, which rule:dynamodb-table-naming then maps to the deployed one
+  creation_in_development: the owning package registers a table definition through decision:dynamodb-table-registry, and requirement:dynamodb-migration creates it
+  creation_in_production: deployment tooling, from the definition api:cli-migrate prints, because such a table reads as part of the infrastructure
+  no_file: there is no migration file to publish, identify, or renumber, because decision:dynamodb-desired-state-migration has no version sequence
+  detection: a capability is present when its table definition is registered, rather than when a file with its name stem exists
+  unchanged: startup still verifies and never creates while serving, which is the same rule reached by a different route
 startup:
   action: verify only
   missing_table: refuse to serve and name the missing table, the migration that creates it, and the command that applies it

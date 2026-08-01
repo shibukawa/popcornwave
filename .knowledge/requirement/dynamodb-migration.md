@@ -40,17 +40,33 @@ capacity_and_billing:
   source: data:dynamodb-runtime-config, not the struct tags
   applies: at create time only, because the driver cannot change them afterwards
   drift: a billing mode changed outside this mechanism is reported by Plan and not corrected
-ttl:
-  today: absent from the applied state, because the driver exposes no UpdateTimeToLive
-  consequence: an expiring record needs an operator to enable expiry by hand, which must be documented rather than implied, since a TTL attribute nothing acts on looks like a working feature and silently retains every record
-  when_the_driver_gains_it: a ttl tag reaches the generated table definition, and expiry joins the create step as one more field rather than as a workflow
-  why_it_matters: this mechanism claims to apply a table's desired state, and cannot fully claim it while TTL sits outside what it can apply
+what_desired_state_means_here:
+  covers: table existence and key schema, per decision:dynamodb-operational-configuration
+  excludes: TTL, retention, autoscaling, tags, and replication, which deployment tooling defines
+  effect: this mechanism does not claim to apply everything about a table, and says which half it applies
+  reason_it_is_not_a_shortfall: a production table has an owner already, and two authors of one resource is worse than one narrow one
+creation_is_for_development:
+  decided: user 2026-08-01
+  create: development and test, where nobody wants to run deployment tooling to get a table
+  production: the table comes from deployment tooling; this mechanism verifies and reports, and creates nothing at startup
+  why_this_differs_from_requirement:database-migration:
+    relational: a schema is normally outside what infrastructure tooling manages, so versioned migrations are the mature answer and own production
+    dynamodb: a table reads as part of the infrastructure, so the same tooling that creates the queue and the bucket creates it too
+    consequence: the same desired-state comparison serves as an authoring step in development and as a check in production
+  publishing: the definitions are printable, so deployment tooling copies what the code declares instead of restating it, per api:cli-migrate
+  verification_is_the_production_value:
+    what: the deployed key schema differs from what the generated code expects
+    why_it_needs_the_framework: deployment tooling knows what it created and not what the application assumes, so only the application can compare the two
+    when: startup, per rule:framework-owned-tables, and on demand through api:cli-migrate
 empty_schema_source:
   trigger: the item-table feature suppressed, per requirement:dynamodb-generation
   behavior: report that no table definition is generated, not that every table is missing
   reason: a project managing tables with Terraform has made a choice, and a plan proposing to create all of them would be wrong rather than merely noisy
 acceptance:
-  - a first run against an empty account creates every generated table and returns active
+  - a first development run against an empty account creates every generated table and returns active
+  - an application whose deployed table has a different partition key refuses to start, naming both shapes
+  - auto_migrate outside development fails configuration load rather than creating a table
+  - the printed definitions round trip through deployment tooling into a table the same build then verifies as matching
   - a second run sends no write request and reports no change
   - a table whose partition key differs from the generated one fails with both shapes named and creates nothing
   - a generated table added to the source appears as one pending create in Plan before it is applied
