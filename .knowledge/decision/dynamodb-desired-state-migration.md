@@ -44,10 +44,7 @@ when_update_table_lands:
     reason: blocking would make api:cli-dev unable to start, and the mechanism stays idempotent either way because a re-run reports an in-progress index as in progress
     surface: api:cli-migrate status reports a creating index, which is the state a version table would otherwise have had to remember
   index_deletion: refused, per policy:dynamodb-migration-safety, which already states that an index disappearing from a struct is reported and never applied
-  capacity_correction:
-    possible: yes, once UpdateTable exists
-    rule: only under an explicit api:cli-migrate run, never under the data:dynamodb-runtime-config auto_migrate startup path
-    reason: writing a configured provisioned capacity back on every boot fights the account's own autoscaling
+  capacity_correction: out of scope whether or not UpdateTable exists, because decision:dynamodb-operational-configuration leaves capacity to deployment tooling and the comparison never reads it
 scope_of_the_word_migration:
   kept: the api:cli-migrate verbs, the runner shape, and the api:cli-dev apply step, because the operator experience should not fork
   dropped: version numbers, files, up-by-one, up-to, down, down-to, and create

@@ -21,9 +21,10 @@ framework_never_owns:
   - global tables and replication
   mostly_already_true: system:tinygodriver-dynamodb excludes almost all of these, so this decision names an existing boundary rather than drawing a new one
 billing_and_capacity:
-  settable: at create time, because CreateTable takes them and a development table needs some value
-  not_corrected: a deployed table whose billing mode differs is reported and left alone
-  expectation: a deployment defining its own tables has already set them, so the data:dynamodb-runtime-config keys mainly serve development
+  outcome: no configuration key, decided 2026-08-01
+  reasoning: creation happens in development and test, where the target is an emulator that ignores both, so a key to set them would configure nothing
+  created_with: the driver default, on-demand billing
+  not_compared: reporting a difference would fire on every correct production deployment, since deployment tooling legitimately provisions differently
 attributes_the_framework_still_maintains:
   what: a record field a deployment's TTL configuration points at, such as the dead_at of requirement:dynamodb-session-store
   why: the value is per-record and only the writer can compute it; the policy over that value is the deployment's

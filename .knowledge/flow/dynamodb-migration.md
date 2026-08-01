@@ -13,8 +13,8 @@ trigger:
   - api:test-run per requirement:dynamodb-test-isolation
 steps:
   - id: resolve
-    do: read the generated list of decision:dynamodb-table-registry and build each definition with its physical name from rule:dynamodb-table-naming
-    add: the billing mode and capacity of data:dynamodb-runtime-config
+    do: read the generated list of decision:dynamodb-table-registry and build each definition with its deployed name from rule:dynamodb-table-naming
+    carries: the keys and nothing else, per decision:dynamodb-operational-configuration
   - id: observe
     do: DescribeTable for every resolved name
     outcomes:

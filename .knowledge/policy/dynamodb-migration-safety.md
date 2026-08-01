@@ -19,7 +19,7 @@ refused_always:
 unperformable:
   cases:
     - a partition key, sort key, or key attribute type that differs from the deployed table
-    - a billing mode or capacity that differs, which the driver cannot change
+  not_in_this_category: billing mode and capacity, which are not compared at all, per decision:dynamodb-operational-configuration
   form: an error naming the table, the attribute, the desired value, and the observed one
   remedy: stated in the message as an operator action, since a rename or a rebuild is not this mechanism's to perform
 automatic_apply:

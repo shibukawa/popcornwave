@@ -20,13 +20,14 @@ surfaces:
 change_kinds:
   create:
     trigger: DescribeTable reports ErrTableNotFound
-    action: CreateTable with the generated keys and the configured billing mode and capacity
+    action: CreateTable with the generated keys and nothing else
     wait: poll DescribeTable until the table is active, because the driver ships no waiter
   verify:
     trigger: the table exists
-    action: compare the partition key, the sort key, and their attribute types
+    action: compare the partition key, the sort key, and their attribute types, and nothing else
     match: no request is sent
     mismatch: an error naming the table, the attribute, the desired shape, and the observed one
+    deliberately_out_of_the_comparison: everything decision:dynamodb-operational-configuration assigns to deployment tooling
   alter: not expressible; the driver has no UpdateTable, so a key change is reported rather than performed
   delete: never, per policy:dynamodb-migration-safety
 forward_only:
@@ -37,9 +38,10 @@ no_version_table:
   reason: DescribeTable reports the live shape, so the state a goose_db_version table exists to remember is directly observable
   consequence: repeated apply is a no-op by construction rather than by bookkeeping, and there is nothing to get out of step with the source
 capacity_and_billing:
-  source: data:dynamodb-runtime-config, not the struct tags
-  applies: at create time only, because the driver cannot change them afterwards
-  drift: a billing mode changed outside this mechanism is reported by Plan and not corrected
+  configured: nowhere; the keys were removed once creation became a development step, per data:dynamodb-runtime-config
+  created_with: the driver default of on-demand billing, which is what a local emulator ignores anyway
+  never_compared: a deployed table's billing mode and capacity are not read, not reported, and not corrected
+  why_not_even_reported: a correct production table is provisioned by deployment tooling, so reporting the difference would fire on every correct deployment and train a reader to ignore the report
 what_desired_state_means_here:
   covers: table existence and key schema, per decision:dynamodb-operational-configuration
   excludes: TTL, retention, autoscaling, tags, and replication, which deployment tooling defines
