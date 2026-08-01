@@ -3,26 +3,28 @@ id: decision:dynamodb-table-registry
 type: decision
 title: Generated Table List In The Main Package
 ---
-api:cli-generate collects every generated table constructor into one explicit list in the project.main package, and system:pw-cli reads it through a framework action rather than a second on-disk artifact.
+api:cli-generate registers every generated table constructor from the package that declares it, and system:pw-cli reads the assembled set through a framework action rather than a second on-disk artifact.
 
 ```yaml
 status: accepted
 problem: requirement:dynamodb-migration applies a desired state assembled from generated constructors, and neither the runtime nor system:pw-cli can enumerate them without being told
 list:
-  location: the project.main directory, the fixed path that already receives the generated registration linker
-  form: an explicit slice of declared name and constructor pairs, referenced by api:dynamo-package Migrate and Plan
-  declared_names: the same strings a .pw.dynamo table clause and an item call use, so requirement:dynamodb-typed-queries can be checked against this set at generation
+  location: beside the generated codec, in the package that declares the type; the binary assembles the set from what it links
+  form: an init registration beside the generated codec, calling api:dynamo-package RegisterTable with the declared name and the generated constructor
+  revised: implementation 2026-08-01; the design called for an explicit slice in the main package, and init registration is what the rest of the framework already does
+  why_init_won: every other capability here enters a binary the same way, from a session backend to a database engine, and one shape is worth more than the linker drop it costs
+  cost: one table-definition constructor per tagged type is linked whether or not it is used; nothing links CreateTable unless a program calls it
+  derived_from_the_generated_source: api:cli-generate reads the emitted table constructor rather than analyzing the package a second time, so a type whose constructor was suppressed registers nothing and needs no flag to say so
+  declared_names: the snake_case of the Go type name, treating a run of capitals as one word, which is the same string a .pw.dynamo table clause and an item call use
   framework_entries: an imported framework package registers its own table the same way, which is how requirement:dynamodb-session-store reaches requirement:dynamodb-migration without a migration file
   import_driven: a framework table enters the desired state because its package was imported, so an unimported capability contributes no table and no plan entry
-  not_init: no init registration, so the static dispatch of system:tinybind keeps its property that an unused type links nothing
-  cost: a binary exposing the framework action links every constructor, which is one leaf function per type; nothing links CreateTable unless the program calls it
 cli_transport:
   action: --pw-print-dynamo-schema, a framework-owned action beside the --pw-print-dsn of api:migration-runner
-  behavior: parse configuration, resolve every physical name through rule:dynamodb-table-naming, apply the data:dynamodb-runtime-config billing and capacity values, write the resolved table set to stdout, exit
+  behavior: parse configuration, resolve every deployed name through rule:dynamodb-table-naming, write the resolved table set to stdout, exit
   used_by: api:cli-migrate and api:cli-dev, run through the host Go toolchain
   precedent: the CLI already runs the application to learn the effective DSN instead of reimplementing configuration precedence
 one_source_of_truth:
-  fact: the in-process path and the CLI path read the same generated list through the same resolution
+  fact: the in-process path and the CLI path read the same registered set through the same resolution
   rejected_alternative:
     form: a committed schema descriptor file written by api:cli-generate and read directly by the CLI
     attraction: the CLI would not need to build the application, and a destructive change would appear in a review diff

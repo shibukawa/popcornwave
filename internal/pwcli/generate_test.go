@@ -556,3 +556,46 @@ func TestPlanDirectoryLeavesDynamoSourcesUnreadWithoutThePurpose(t *testing.T) {
 		}
 	}
 }
+
+func TestPlanDirectoryRegistersTheGeneratedTable(t *testing.T) {
+	directory := t.TempDir()
+	writeDynamoFixture(t, directory)
+
+	options, err := pwgen.Options(sqlbind.DialectPostgreSQL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	changes, err := planDirectory(context.Background(), generator.New(options), directory,
+		generationPurposes{handlers: true, dynamo: true}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var registration string
+	for _, change := range changes {
+		if strings.Contains(string(change.source), "RegisterTable") {
+			registration = string(change.source)
+		}
+	}
+	if registration == "" {
+		t.Fatal("a generated table definition must register itself, or pw migrate creates nothing")
+	}
+	// The declared name is the snake_case of the type, which is what a
+	// .pw.dynamo table clause and an item call both name.
+	if !strings.Contains(registration, `dynamo.RegisterTable("reading", ReadingTable)`) {
+		t.Fatalf("registration does not name the declared table:\n%s", registration)
+	}
+}
+
+func TestDeclaredTableNameIsSnakeCase(t *testing.T) {
+	for typeName, want := range map[string]string{
+		"Reading":       "reading",
+		"UserSession":   "user_session",
+		"OAuthState":    "o_auth_state",
+		"ID":            "id",
+		"HTTPRequestID": "http_request_id",
+	} {
+		if got := declaredTableName(typeName); got != want {
+			t.Errorf("declaredTableName(%q) = %q, want %q", typeName, got, want)
+		}
+	}
+}

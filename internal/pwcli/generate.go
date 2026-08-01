@@ -13,6 +13,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 
@@ -487,6 +488,11 @@ func planDirectory(ctx context.Context, runner *generator.Generator, directory s
 			filepath.Base(artifact.SourcePath) == "document.pw.html" {
 			grouped[target] = append(grouped[target], documentRegistrationArtifact(artifact.PackageName))
 		}
+		if artifact.Kind == generator.ArtifactDynamoItem {
+			if registration, declares := dynamoRegistrationArtifact(artifact); declares {
+				grouped[target] = append(grouped[target], registration)
+			}
+		}
 	}
 	expected := make(map[string]bool, len(grouped))
 	var changes []fileChange
@@ -535,6 +541,69 @@ func init() {
 }
 `),
 	}
+}
+
+// tableConstructor matches the definition constructor tinybind emits for a type
+// declaring a partition key. It is the one durable marker of "this type owns a
+// table": the codec methods are usage-directed and may be absent, and this is
+// not.
+var tableConstructor = regexp.MustCompile(`(?m)^func ([A-Za-z0-9_]+)Table\(name string\) dynamodb\.TableDefinition \{`)
+
+// dynamoRegistrationArtifact emits the init that puts a generated table into the
+// desired schema of requirement:dynamodb-migration. Without it a project would
+// generate a definition nothing ever reads, and pw migrate would create nothing.
+//
+// It is derived from the generated source rather than from a second analysis of
+// the package, so a type whose table constructor was suppressed registers
+// nothing and needs no separate flag to say so.
+func dynamoRegistrationArtifact(artifact generator.Artifact) (generator.Artifact, bool) {
+	matches := tableConstructor.FindAllStringSubmatch(string(artifact.Content), -1)
+	if len(matches) == 0 {
+		return generator.Artifact{}, false
+	}
+	var body strings.Builder
+	fmt.Fprintf(&body, "package %s\n\nimport \"github.com/shibukawa/popcornwave/database/dynamo\"\n\nfunc init() {\n", artifact.PackageName)
+	for _, match := range matches {
+		fmt.Fprintf(&body, "\tdynamo.RegisterTable(%q, %sTable)\n", declaredTableName(match[1]), match[1])
+	}
+	body.WriteString("}\n")
+	return generator.Artifact{
+		Kind:        generator.ArtifactDynamoItem,
+		SourcePath:  artifact.SourcePath,
+		OutputBase:  artifact.OutputBase,
+		PackageName: artifact.PackageName,
+		Content:     []byte(body.String()),
+	}, true
+}
+
+// declaredTableName is the snake_case of a Go type name, which is the name a
+// .pw.dynamo table clause and an item call both use.
+//
+// A run of capitals is one word, so HTTPRequestID becomes http_request_id
+// rather than a letter-by-letter spelling. The derived name is what an author
+// has to type in a table clause, so it has to be one a person would write.
+func declaredTableName(typeName string) string {
+	runes := []rune(typeName)
+	var out strings.Builder
+	for index, r := range runes {
+		upper := r >= 'A' && r <= 'Z'
+		if upper && index > 0 {
+			previous := runes[index-1]
+			previousIsUpper := previous >= 'A' && previous <= 'Z'
+			nextIsLower := index+1 < len(runes) && runes[index+1] >= 'a' && runes[index+1] <= 'z'
+			// A boundary is either the end of a lowercase run, or the last
+			// capital of an acronym that a new word follows.
+			if !previousIsUpper || nextIsLower {
+				out.WriteByte('_')
+			}
+		}
+		if upper {
+			out.WriteRune(r - 'A' + 'a')
+			continue
+		}
+		out.WriteRune(r)
+	}
+	return out.String()
 }
 
 func hasGoSources(directory string) (bool, error) {
