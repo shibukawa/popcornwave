@@ -148,7 +148,11 @@ func (p *Provider) idToken(code *issuedCode, user *User, now time.Time) (string,
 	claims["sub"] = user.Subject
 	claims["aud"] = code.clientID
 	claims["iat"] = now.Unix()
-	claims["auth_time"] = code.issuedAt.Unix()
+	// auth_time is when the end user authenticated, not when this code was
+	// issued. An authorization answered from an existing provider session
+	// carries the earlier time, which is exactly what a relying party checking
+	// max_age needs to see.
+	claims["auth_time"] = code.authTime.Unix()
 	claims["exp"] = now.Add(p.tokenTTL).Unix()
 	if code.nonce != "" {
 		claims["nonce"] = code.nonce
