@@ -126,6 +126,12 @@ const (
 // which is what the scaffolded endpoint points at.
 const dynamoDevboxPackage = "dynamodb-local@latest"
 
+// dynamoStore names DynamoDB where a store is being chosen rather than an
+// engine. It is not an engine name and never reaches project.database, because
+// requirement:dynamodb-store is a second kind of store rather than a fourth
+// dialect.
+const dynamoStore = "dynamo"
+
 // effectiveRouter reads an unset answer as the registered router: that is the
 // shape every project scaffolded before page trees existed has, and the one a
 // caller that never asked should get.
@@ -179,6 +185,12 @@ type initOptions struct {
 	// AuthEmulator scaffolds the development identity provider instead of
 	// pointing the project at an external one. It only applies to an OIDC mode.
 	AuthEmulator bool
+	// AuthStore is the store the login was chosen through: an engine name, or
+	// dynamoStore. It is a wizard answer rather than a scaffold input — what it
+	// writes is already in Database, Engine, and Dynamo — and it exists so the
+	// follow-up question knows which store the operator has not been asked
+	// about yet.
+	AuthStore string
 	// Dynamo adds the DynamoDB store. It is a second kind of store rather than
 	// a fourth SQL engine, so it stands beside the Database answer instead of
 	// replacing it, and either, both, or neither is a valid project.

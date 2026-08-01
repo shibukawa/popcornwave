@@ -41,6 +41,7 @@ pw init memoapp
 | TinyGo support | Yes | 既定のまま |
 | Router | Registered | 既定のまま |
 | Tailwind CSS | **No** | 2章で `pw add` で入れます |
+| Authentication | None | 4章で `pw add` で入れます |
 | Database | **No** | 3章で `pw add` で入れます |
 | DynamoDB | No | このチュートリアルでは使いません |
 | Devbox environment | Yes | 既定のまま |
@@ -48,8 +49,12 @@ pw init memoapp
 
 Tailwind とデータベースを断るのは、後の章で足すためです。初期化で断った機能が
 [`pw add`](/ja/pw/project/add/) でそのまま入ることを、説明で読むのではなく手元の
-プロジェクトで一度やってみます。認証の質問はデータベースが無い間は出ません。
-セッションも資格情報もそこに置くからです。
+プロジェクトで一度やってみます。
+
+認証は先に聞かれます。ログインを入れるかどうかが、ストアが任意かどうかを決めるからです。
+ここで None を選ぶと、そのあとは「データベースを入れますか」という形で聞かれます。
+ログインを選んだ場合は「どのストアに置きますか」に変わり、断る選択肢はありません。
+セッションはどこかに置くしかないからです。
 
 スクリプトから非対話で実行したいときは `--yes` を付けます。フラグと既定値だけで
 最後まで進みます。端末が無い環境（CI など）では最初からウィザードは出ません。
@@ -213,7 +218,7 @@ func home(w http.ResponseWriter, r *http.Request) {
 		pw.WriteProblem(w, r, pw.BadRequest(err))
 		return
 	}
-	pw.WriteHTML(w, r, Home(HomeParams{Name: input.Name}))
+	pw.WriteHTML(w, r, Home(HomeParams{Name: input.Name, Project: "memoapp"}))
 }
 ```
 

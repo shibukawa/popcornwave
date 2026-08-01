@@ -30,10 +30,11 @@ questions:
   - TinyGo support, defaulting to yes for decision:stdlib-servemux parity
   - router, defaulting to registered, per decision:page-router-scaffold-choice
   - Tailwind CSS
-  - database, defaulting to yes because the SQL and migration examples depend on it
-  - database engine, asked only with a database, per requirement:database-engine-selection
-  - DynamoDB, defaulting to no, asked whatever the relational answer was because requirement:dynamodb-store is a second kind of store rather than a fourth engine
-  - authentication mode, defaulting to none, and skipped entirely without the relational database it stores sessions and credentials in
+  - authentication mode, defaulting to none, asked before the stores because it is the answer that decides whether a store is optional at all
+  - store, asked only with a login, offering the requirement:database-engine-selection engines and DynamoDB with no none among them, since a session has to live somewhere
+  - database, asked only without a login, defaulting to yes because the SQL and migration examples depend on it
+  - database engine, asked without a login when the database is taken, and asked with a login when DynamoDB was the store answer, because plugin/auth keeps its ceremony records and its allowlist in SQL whatever holds the sessions
+  - DynamoDB, defaulting to no, asked wherever it was not already the store answer, because requirement:dynamodb-store is a second kind of store rather than a fourth engine
   - OIDC provider, asked only for an OIDC mode, choosing requirement:contrib-devidp or an external provider
   - Devbox environment, defaulting to yes
   - Redis or Valkey in the development environment, defaulting to yes and skipped without the Devbox environment it installs into
@@ -41,7 +42,11 @@ ordering:
   project_then_machine: the questions that shape the project come first, and the two about how this machine gets its tools close the wizard
   reason: declining Devbox changes nothing about the code, so it does not belong among the answers that do
   dependants_follow: a question whose answer only applies inside another one is asked right after it, which is why Valkey follows Devbox, the engine follows the database, and the provider follows the mode
-  stores_before_authentication: the relational answers and DynamoDB are asked as one group, and authentication follows them, because authentication is the question whose availability the store answers decide
+  authentication_before_stores:
+    rule: authentication is asked first, and the store questions follow from its answer
+    superseded: asking the stores first, which made authentication a question a project could pass without ever seeing
+    effect: every path asks about both kinds of store; only the wording changes, from whether to which
+    pairing: the store question a login answers covers one kind, and the one after it covers the other, so neither is skipped by taking a branch
 implementation:
   library: github.com/charmbracelet/bubbletea with bubbles and lipgloss
   scope: host-only per decision:host-tools-target-runtime, so it never reaches application binaries

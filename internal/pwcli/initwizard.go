@@ -68,22 +68,67 @@ func initWizardSteps(defaults initOptions) []wizardStep[initOptions] {
 				apply:       func(target *initOptions) { target.Tailwind = false },
 			},
 		),
+		// Authentication is asked before the stores rather than after them,
+		// because it is the answer that decides whether a store is optional at
+		// all. Asked the other way round it was a question a project could skip
+		// past without ever seeing.
 		newChoiceStep(
-			"Database",
-			"Adds the rdb configuration, the migration directory, and a typed SQL example. Authentication needs it.",
-			yesNoCursor(defaults.Database),
+			"Authentication",
+			"Selects the login model. The framework writes the [auth] configuration; handlers stay yours. "+
+				"A login needs somewhere to keep its sessions, so the next question is about that.",
+			authCursor(defaults.Auth),
 			wizardChoice[initOptions]{
-				name:        "Yes",
-				description: "[middleware.rdb], migrations/00001_init.sql, and a typed SQL example",
-				apply:       setDatabase(true),
+				name:        "None",
+				description: "no authentication configuration; pw add auth enables it later",
+				apply:       setAuth(authNone),
 			},
 			wizardChoice[initOptions]{
-				name:        "No",
-				description: "no database, no SQL example, and no migrations; pw add database enables it later",
-				apply:       setDatabase(false),
+				name:        "OIDC",
+				description: "log in against an OpenID Provider",
+				apply:       setAuth(authOIDC),
+			},
+			wizardChoice[initOptions]{
+				name:        "OIDC and passkey",
+				description: "the provider bootstraps the account; a passkey is the everyday login",
+				apply:       setAuth(authOIDCPasskey),
+			},
+			wizardChoice[initOptions]{
+				name:        "Passkey only",
+				description: "no provider; an administrator issues the first sign-in credential",
+				apply:       setAuth(authPasskey),
 			},
 		),
-		when(func(options initOptions) bool { return options.Database },
+		// With a login there is no "no store" answer to give, so this asks
+		// which one rather than whether.
+		when(servesLogin,
+			newChoiceStep(
+				"Store",
+				"A login has to keep its sessions somewhere, so this is which store rather than whether. "+
+					"The next question covers the other kind.",
+				authStoreCursor(defaults),
+				authStoreChoices()...,
+			),
+		),
+		// Without a login every store is optional, so the questions go back to
+		// asking whether.
+		when(func(options initOptions) bool { return !servesLogin(options) },
+			newChoiceStep(
+				"Database",
+				"Adds the rdb configuration, the migration directory, and a typed SQL example.",
+				yesNoCursor(defaults.Database),
+				wizardChoice[initOptions]{
+					name:        "Yes",
+					description: "[middleware.rdb], migrations/00001_init.sql, and a typed SQL example",
+					apply:       setDatabase(true),
+				},
+				wizardChoice[initOptions]{
+					name:        "No",
+					description: "no database, no SQL example, and no migrations; pw add database enables it later",
+					apply:       setDatabase(false),
+				},
+			),
+		),
+		when(func(options initOptions) bool { return !servesLogin(options) && options.Database },
 			newChoiceStep(
 				"Database engine",
 				"Decides the DSN, the dialect of the starter schema and migrations, and the development server. "+
@@ -92,46 +137,36 @@ func initWizardSteps(defaults initOptions) []wizardStep[initOptions] {
 				engineChoices()...,
 			),
 		),
-		newChoiceStep(
-			"DynamoDB",
-			"A second kind of store, not a fourth SQL engine. It combines with any database answer, "+
-				"including none, and brings its own typed records and local development server.",
-			yesNoCursor(defaults.Dynamo),
-			wizardChoice[initOptions]{
-				name:        "Yes",
-				description: "[middleware.dynamo], a records/ starter type, and dynamodb-local in devbox.json",
-				apply:       func(target *initOptions) { target.Dynamo = true },
-			},
-			wizardChoice[initOptions]{
-				name:        "No",
-				description: "no [middleware.dynamo] section; pw add dynamo enables it later",
-				apply:       func(target *initOptions) { target.Dynamo = false },
-			},
-		),
-		when(func(options initOptions) bool { return options.Database },
+		// DynamoDB cannot hold the login on its own: plugin/auth keeps its
+		// single-use ceremony records and its admission allowlist in SQL,
+		// whatever the session backend is. Choosing it for the login therefore
+		// asks for the engine that carries that, rather than quietly adding one.
+		when(func(options initOptions) bool { return servesLogin(options) && options.AuthStore == dynamoStore },
 			newChoiceStep(
-				"Authentication",
-				"Selects the login model. The framework writes the [auth] configuration; handlers stay yours.",
-				authCursor(defaults.Auth),
+				"Database engine",
+				"DynamoDB holds your records, and the login also needs a SQL database: plugin/auth keeps "+
+					"its ceremony records and its allowlist there whatever stores the sessions. This is that engine.",
+				engineCursor(defaults.Engine),
+				engineChoices()...,
+			),
+		),
+		// The other half of the store pair, asked wherever it was not the
+		// answer to the question above.
+		when(func(options initOptions) bool { return !servesLogin(options) || options.AuthStore != dynamoStore },
+			newChoiceStep(
+				"DynamoDB",
+				"A second kind of store, not a fourth SQL engine. It combines with any database answer, "+
+					"including none, and brings its own typed records and local development server.",
+				yesNoCursor(defaults.Dynamo),
 				wizardChoice[initOptions]{
-					name:        "None",
-					description: "no authentication configuration; pw add auth enables it later",
-					apply:       setAuth(authNone),
+					name:        "Yes",
+					description: "[middleware.dynamo], a records/ starter type, and dynamodb-local in devbox.json",
+					apply:       func(target *initOptions) { target.Dynamo = true },
 				},
 				wizardChoice[initOptions]{
-					name:        "OIDC",
-					description: "log in against an OpenID Provider",
-					apply:       setAuth(authOIDC),
-				},
-				wizardChoice[initOptions]{
-					name:        "OIDC and passkey",
-					description: "the provider bootstraps the account; a passkey is the everyday login",
-					apply:       setAuth(authOIDCPasskey),
-				},
-				wizardChoice[initOptions]{
-					name:        "Passkey only",
-					description: "no provider; an administrator issues the first sign-in credential",
-					apply:       setAuth(authPasskey),
+					name:        "No",
+					description: "no [middleware.dynamo] section; pw add dynamo enables it later",
+					apply:       func(target *initOptions) { target.Dynamo = false },
 				},
 			),
 		),
@@ -223,6 +258,53 @@ func engineChoices() []wizardChoice[initOptions] {
 		})
 	}
 	return choices
+}
+
+// authStoreChoices lists the stores a login can be built on. There is no "none"
+// among them: a session has to live somewhere, and the question exists because
+// that is already decided rather than to ask again whether it was.
+func authStoreChoices() []wizardChoice[initOptions] {
+	choices := make([]wizardChoice[initOptions], 0, len(engineOrder)+1)
+	for _, name := range engineOrder {
+		engine := databaseEngines[name]
+		choices = append(choices, wizardChoice[initOptions]{
+			name:        engine.Label,
+			description: engine.Summary,
+			apply:       setAuthStore(name),
+		})
+	}
+	choices = append(choices, wizardChoice[initOptions]{
+		name:        "DynamoDB",
+		description: "typed records in DynamoDB; the login itself still needs a SQL database, asked next",
+		apply:       setAuthStore(dynamoStore),
+	})
+	return choices
+}
+
+// setAuthStore records which store the login was chosen through and applies
+// what that store means. Either way the project ends up with a database,
+// because plugin/auth refuses to start without one.
+func setAuthStore(store string) func(*initOptions) {
+	return func(target *initOptions) {
+		target.AuthStore = store
+		target.Database = true
+		if store == dynamoStore {
+			// The engine is the next question rather than a value inherited
+			// from a default nobody was shown.
+			target.Dynamo = true
+			return
+		}
+		target.Engine = store
+		target.Dynamo = false
+	}
+}
+
+// authStoreCursor preselects the store a seeded answer already describes.
+func authStoreCursor(defaults initOptions) int {
+	if defaults.AuthStore == dynamoStore || (defaults.Dynamo && defaults.AuthStore == "") {
+		return len(engineOrder)
+	}
+	return engineCursor(defaults.Engine)
 }
 
 // setEngine records the engine answer.

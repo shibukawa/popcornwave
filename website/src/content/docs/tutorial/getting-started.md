@@ -41,6 +41,7 @@ Answer this way for the tutorial:
 | TinyGo support | Yes | the default |
 | Router | Registered | the default |
 | Tailwind CSS | **No** | chapter 2 adds it with `pw add` |
+| Authentication | None | chapter 4 adds it with `pw add` |
 | Database | **No** | chapter 3 adds it with `pw add` |
 | DynamoDB | No | this tutorial does not use it |
 | Devbox environment | Yes | the default |
@@ -49,8 +50,12 @@ Answer this way for the tutorial:
 Declining Tailwind and the database is deliberate: the later chapters install
 them. A capability you declined at init goes in later with
 [`pw add`](/pw/project/add/), and doing that once on your own project says more
-than a paragraph about it. The authentication question does not appear while
-there is no database, since that is where its sessions and credentials live.
+than a paragraph about it.
+
+Authentication is asked first, because whether there is a login is what decides
+whether a store is optional. Answering None here means the questions that follow
+ask whether you want a database; answering with a login turns them into which
+store holds it, with no way to decline — a session has to live somewhere.
 
 To run this non-interactively from a script, add `--yes`: the flags and the
 defaults answer everything. A session with no terminal — CI, for instance —
@@ -220,7 +225,7 @@ func home(w http.ResponseWriter, r *http.Request) {
 		pw.WriteProblem(w, r, pw.BadRequest(err))
 		return
 	}
-	pw.WriteHTML(w, r, Home(HomeParams{Name: input.Name}))
+	pw.WriteHTML(w, r, Home(HomeParams{Name: input.Name, Project: "memoapp"}))
 }
 ```
 

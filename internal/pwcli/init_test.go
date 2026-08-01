@@ -303,10 +303,10 @@ func TestInitWizardCollectsAnswers(t *testing.T) {
 		pressKey(tea.KeyDown), pressKey(tea.KeyEnter), // TinyGo: No
 		pressKey(tea.KeyEnter), // Router: keep Registered
 		pressKey(tea.KeyEnter), // Tailwind: keep No
+		pressKey(tea.KeyEnter), // Authentication: keep None
 		pressKey(tea.KeyEnter), // Database: keep Yes
 		pressKey(tea.KeyEnter), // Database engine: keep SQLite
 		pressKey(tea.KeyEnter), // DynamoDB: keep No
-		pressKey(tea.KeyEnter), // Authentication: keep None
 		pressKey(tea.KeyEnter), // Devbox: keep Yes
 		pressKey(tea.KeyEnter), // Redis or Valkey: keep Yes
 		pressKey(tea.KeyEnter), // review
@@ -328,10 +328,10 @@ func TestInitWizardDigitShortcutSelectsTailwind(t *testing.T) {
 		typeText("1"),          // TinyGo: Yes
 		typeText("2"),          // Router: discovered pages
 		typeText("1"),          // Tailwind: Yes
+		typeText("1"),          // Authentication: None
 		typeText("1"),          // Database: Yes
 		typeText("1"),          // Database engine: SQLite
 		typeText("2"),          // DynamoDB: No
-		typeText("1"),          // Authentication: None
 		typeText("1"),          // Devbox: Yes
 		typeText("1"),          // Redis or Valkey: Yes
 		pressKey(tea.KeyEnter), // review
@@ -351,8 +351,11 @@ func TestInitWizardSeedsAnswersFromShortcutFlags(t *testing.T) {
 		Database: true, Engine: engineSQLite, Redis: true, Dynamo: true, Auth: authOIDC,
 		Session: sessionRedis, AuthEmulator: true,
 	})
+	// Every step is listed, asked or not: the seeds have to reach the ones a
+	// different set of answers would have reached instead.
 	want := []string{
-		"seeded", "Yes", "Both", "Yes", "Yes", "SQLite", "Yes", "OIDC",
+		"seeded", "Yes", "Both", "Yes", "OIDC", "DynamoDB",
+		"Yes", "SQLite", "SQLite", "Yes",
 		"Redis or Valkey", "Local emulator", "Yes", "Yes",
 	}
 	if len(steps) != len(want) {
