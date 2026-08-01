@@ -17,6 +17,8 @@ cookie_defaults:
   path: /
 rules:
   - rotate after login, privilege change, and other authentication-strength changes
+  - authentication-strength change includes the re-proof of policy:reauthentication, which also resets idle expiry
+  - expiry is a bound on the whole session, not a substitute for the per-operation assurance of concept:assurance-axes
   - revoke server state on logout
   - enforce absolute expiry and optional idle expiry
   - protect state-changing cookie-authorized requests with policy:csrf-protection

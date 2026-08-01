@@ -37,6 +37,26 @@ required:
   - exact redirect URI supplied by application
   - end_session_endpoint is validated like every other discovered endpoint
   - id_token_hint, post_logout_redirect_uri, and state are bounded and rejected when malformed
+assurance:
+  status: implemented
+  needed_by: requirement:session-assurance-levels through policy:reauthentication
+  surface:
+    - BeginOptions.MaxAge is a pointer, so a zero duration is a request for authentication now rather than an unset field
+    - BeginOptions.Prompt accepts the prompt_values of policy:reauthentication, refuses an unlisted or duplicated value, and refuses none beside another
+    - setting max_age or prompt through the untyped Params map is refused, because that path carries no verification obligation this package can see
+    - IDToken.AuthTime is the verified auth_time, and IDToken.ACR the verified acr
+    - CallbackOptions.RequireAuthTime rejects a token that omits auth_time, which a caller sets whenever it set MaxAge
+  layering:
+    verified_here: that auth_time is present when required, is a JSON number, is non-negative, and is not in the future beyond the configured leeway
+    left_to_caller: comparing auth_time against a freshness requirement, because recent enough is policy and carries the zero_semantics of api:assurance-guard, which a timestamp comparison cannot express
+  hardening:
+    quoted_number: encoding/json decodes a quoted "1700000000" into a json.Number, so the JSON type is checked on the raw bytes before parsing
+    future_auth_time: refused, because accepting a provider clock ahead of ours would satisfy any freshness requirement trivially
+    non_string_acr: refused rather than read as absent
+  callback_signature:
+    changed: HandleCallback returns the verified IDToken and takes CallbackOptions
+    reason: it verified the token and discarded the result, so a caller needing a claim re-verified through VerifyIDToken, the entry point whose own documentation warns against use outside HandleCallback
+    effect: plugin/auth reads the already-verified claims and no longer verifies the same token twice
 deferred:
   - OpenID Provider implementation beyond the development-only requirement:contrib-devidp
   - public clients without a configured client secret

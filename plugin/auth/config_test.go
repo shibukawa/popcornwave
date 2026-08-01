@@ -25,6 +25,7 @@ func baseConfig(mode string) Config {
 			Issuer: "https://issuer.example", ClientID: "client", ClientSecret: "secret",
 			RedirectURL:   "https://app.example/auth/callback",
 			IdentityClaim: ClaimSubject, Admission: AdmissionAuthenticated,
+			LogoutScope: LogoutScopeReconfirm,
 		}
 	}
 	if mode == ModeOIDCPasskey || mode == ModePasskeyOnly {

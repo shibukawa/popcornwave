@@ -1,6 +1,7 @@
 {"category": "behavior", "id": "actor:application-developer", "path": ".knowledge/actor/application-developer.md", "role": "supporting", "title": "Application Developer", "type": "actor"}
 {"category": "interface", "id": "api:api-response", "path": ".knowledge/api/api-response.md", "role": "primary", "title": "API Response API", "type": "api"}
 {"category": "interface", "id": "api:application-lifecycle", "path": ".knowledge/api/application-lifecycle.md", "role": "primary", "title": "Application Lifecycle API", "type": "api"}
+{"category": "interface", "id": "api:assurance-guard", "path": ".knowledge/api/assurance-guard.md", "role": "primary", "title": "Assurance Guard", "type": "api"}
 {"category": "interface", "id": "api:async-html-value", "path": ".knowledge/api/async-html-value.md", "role": "primary", "title": "Async HTML Value API", "type": "api"}
 {"category": "interface", "id": "api:auth-credential-store", "path": ".knowledge/api/auth-credential-store.md", "role": "primary", "title": "Passkey Credential Store", "type": "api"}
 {"category": "interface", "id": "api:auth-state-codec", "path": ".knowledge/api/auth-state-codec.md", "role": "primary", "title": "Authentication State Codec", "type": "api"}
@@ -54,6 +55,7 @@
 {"category": "interface", "id": "api:typed-external-function", "path": ".knowledge/api/typed-external-function.md", "role": "primary", "title": "Typed External Function", "type": "api"}
 {"category": "interface", "id": "api:typed-stream", "path": ".knowledge/api/typed-stream.md", "role": "primary", "title": "Typed Stream API", "type": "api"}
 {"category": "concept", "id": "concept:application-entry-point", "path": ".knowledge/concept/application-entry-point.md", "role": "supporting", "title": "Application Entry Point", "type": "concept"}
+{"category": "concept", "id": "concept:assurance-axes", "path": ".knowledge/concept/assurance-axes.md", "role": "supporting", "title": "Assurance Strength and Freshness", "type": "concept"}
 {"category": "concept", "id": "concept:classic-web-style", "path": ".knowledge/concept/classic-web-style.md", "role": "supporting", "title": "Classic Web Style", "type": "concept"}
 {"category": "concept", "id": "concept:client-component", "path": ".knowledge/concept/client-component.md", "role": "supporting", "title": "Client Component", "type": "concept"}
 {"category": "concept", "id": "concept:interaction-cost-ladder", "path": ".knowledge/concept/interaction-cost-ladder.md", "role": "supporting", "title": "Interaction Cost Ladder", "type": "concept"}
@@ -94,11 +96,13 @@
 {"category": "structure", "id": "data:security-runtime-config", "path": ".knowledge/data/security-runtime-config.md", "role": "supporting", "title": "Security Runtime Config", "type": "data"}
 {"category": "structure", "id": "data:seed-dataset", "path": ".knowledge/data/seed-dataset.md", "role": "supporting", "title": "Seed Dataset File", "type": "data"}
 {"category": "structure", "id": "data:server-runtime-config", "path": ".knowledge/data/server-runtime-config.md", "role": "supporting", "title": "Server Runtime Config", "type": "data"}
+{"category": "structure", "id": "data:session-assurance-state", "path": ".knowledge/data/session-assurance-state.md", "role": "supporting", "title": "Session Assurance State", "type": "data"}
 {"category": "structure", "id": "data:session-record", "path": ".knowledge/data/session-record.md", "role": "supporting", "title": "Session Record", "type": "data"}
 {"category": "structure", "id": "data:session-runtime-config", "path": ".knowledge/data/session-runtime-config.md", "role": "supporting", "title": "Session Runtime Config", "type": "data"}
 {"category": "structure", "id": "data:transaction-scope", "path": ".knowledge/data/transaction-scope.md", "role": "supporting", "title": "Transaction Scope", "type": "data"}
 {"category": "structure", "id": "data:ui-dependency-graph", "path": ".knowledge/data/ui-dependency-graph.md", "role": "supporting", "title": "UI Dependency Graph", "type": "data"}
 {"category": "structure", "id": "data:user-account", "path": ".knowledge/data/user-account.md", "role": "supporting", "title": "Local User Account", "type": "data"}
+{"category": "constraint", "id": "decision:assurance-scope-oidc-only", "path": ".knowledge/decision/assurance-scope-oidc-only.md", "role": "supporting", "title": "Assurance Scope Under External-Identity-Only Login", "type": "decision"}
 {"category": "constraint", "id": "decision:authentication-bootstrap-strategy", "path": ".knowledge/decision/authentication-bootstrap-strategy.md", "role": "supporting", "title": "Authentication Bootstrap Strategy", "type": "decision"}
 {"category": "constraint", "id": "decision:automatic-async-render-selection", "path": ".knowledge/decision/automatic-async-render-selection.md", "role": "supporting", "title": "Automatic Async Render Selection", "type": "decision"}
 {"category": "constraint", "id": "decision:bot-client-classification", "path": ".knowledge/decision/bot-client-classification.md", "role": "supporting", "title": "Bot Client Classification", "type": "decision"}
@@ -180,6 +184,7 @@
 {"category": "behavior", "id": "flow:request-lifecycle", "path": ".knowledge/flow/request-lifecycle.md", "role": "primary", "title": "Typed Request Lifecycle", "type": "flow"}
 {"category": "behavior", "id": "flow:session-lifecycle", "path": ".knowledge/flow/session-lifecycle.md", "role": "primary", "title": "Session Lifecycle", "type": "flow"}
 {"category": "behavior", "id": "flow:sql-generation", "path": ".knowledge/flow/sql-generation.md", "role": "primary", "title": "SQL Generation and Execution", "type": "flow"}
+{"category": "behavior", "id": "flow:step-up-reauthentication", "path": ".knowledge/flow/step-up-reauthentication.md", "role": "primary", "title": "Step-Up Reauthentication", "type": "flow"}
 {"category": "behavior", "id": "flow:tailwind-css-build", "path": ".knowledge/flow/tailwind-css-build.md", "role": "primary", "title": "Tailwind CSS Build Flow", "type": "flow"}
 {"category": "behavior", "id": "flow:telemetry-export", "path": ".knowledge/flow/telemetry-export.md", "role": "primary", "title": "Telemetry Export Flow", "type": "flow"}
 {"category": "behavior", "id": "flow:template-generation", "path": ".knowledge/flow/template-generation.md", "role": "primary", "title": "HTML Template Generation Flow", "type": "flow"}
@@ -208,14 +213,18 @@
 {"category": "constraint", "id": "policy:operational-endpoints", "path": ".knowledge/policy/operational-endpoints.md", "role": "supporting", "title": "Operational Endpoints", "type": "policy"}
 {"category": "constraint", "id": "policy:outbound-transport-security", "path": ".knowledge/policy/outbound-transport-security.md", "role": "supporting", "title": "Outbound Transport Security Policy", "type": "policy"}
 {"category": "constraint", "id": "policy:passkey-security", "path": ".knowledge/policy/passkey-security.md", "role": "supporting", "title": "Passkey Security Policy", "type": "policy"}
+{"category": "constraint", "id": "policy:provider-session-scope", "path": ".knowledge/policy/provider-session-scope.md", "role": "supporting", "title": "Provider Session Scope of Logout", "type": "policy"}
 {"category": "constraint", "id": "policy:public-asset-negotiation", "path": ".knowledge/policy/public-asset-negotiation.md", "role": "supporting", "title": "Public Asset Negotiation", "type": "policy"}
 {"category": "constraint", "id": "policy:public-asset-precompression", "path": ".knowledge/policy/public-asset-precompression.md", "role": "supporting", "title": "Public Asset Precompression", "type": "policy"}
 {"category": "constraint", "id": "policy:public-asset-resolution", "path": ".knowledge/policy/public-asset-resolution.md", "role": "supporting", "title": "Public Asset Resolution", "type": "policy"}
 {"category": "constraint", "id": "policy:query-log-safety", "path": ".knowledge/policy/query-log-safety.md", "role": "supporting", "title": "Query Log Safety", "type": "policy"}
+{"category": "constraint", "id": "policy:reauthentication", "path": ".knowledge/policy/reauthentication.md", "role": "supporting", "title": "Reauthentication Policy", "type": "policy"}
 {"category": "constraint", "id": "policy:release-integrity", "path": ".knowledge/policy/release-integrity.md", "role": "supporting", "title": "Release Integrity", "type": "policy"}
 {"category": "constraint", "id": "policy:security-response-headers", "path": ".knowledge/policy/security-response-headers.md", "role": "supporting", "title": "Security Response Headers", "type": "policy"}
 {"category": "constraint", "id": "policy:server-ui-security", "path": ".knowledge/policy/server-ui-security.md", "role": "supporting", "title": "Server UI Security and Correctness", "type": "policy"}
+{"category": "constraint", "id": "policy:session-downgrade", "path": ".knowledge/policy/session-downgrade.md", "role": "supporting", "title": "Session Downgrade and Logout Presentation", "type": "policy"}
 {"category": "constraint", "id": "policy:session-security", "path": ".knowledge/policy/session-security.md", "role": "supporting", "title": "Session Security Policy", "type": "policy"}
+{"category": "constraint", "id": "policy:shared-device-mode", "path": ".knowledge/policy/shared-device-mode.md", "role": "supporting", "title": "Shared Device Mode", "type": "policy"}
 {"category": "constraint", "id": "policy:startup-summary", "path": ".knowledge/policy/startup-summary.md", "role": "supporting", "title": "Startup Summary", "type": "policy"}
 {"category": "constraint", "id": "policy:template-escaping", "path": ".knowledge/policy/template-escaping.md", "role": "supporting", "title": "Template Escaping Policy", "type": "policy"}
 {"category": "constraint", "id": "policy:ui-state-placement", "path": ".knowledge/policy/ui-state-placement.md", "role": "supporting", "title": "UI State Placement", "type": "policy"}
@@ -271,10 +280,12 @@
 {"category": "objective", "id": "requirement:mvp-acceptance", "path": ".knowledge/requirement/mvp-acceptance.md", "role": "primary", "title": "MVP Acceptance Criteria", "type": "requirement"}
 {"category": "objective", "id": "requirement:nested-html-templates", "path": ".knowledge/requirement/nested-html-templates.md", "role": "primary", "title": "Nested HTML Templates", "type": "requirement"}
 {"category": "objective", "id": "requirement:parallel-database-tests", "path": ".knowledge/requirement/parallel-database-tests.md", "role": "primary", "title": "Parallel Database Tests", "type": "requirement"}
+{"category": "objective", "id": "requirement:presence-signal", "path": ".knowledge/requirement/presence-signal.md", "role": "primary", "title": "Human Presence Signal", "type": "requirement"}
 {"category": "objective", "id": "requirement:project-diagnostics", "path": ".knowledge/requirement/project-diagnostics.md", "role": "primary", "title": "Project Diagnostics", "type": "requirement"}
 {"category": "objective", "id": "requirement:public-asset-delivery", "path": ".knowledge/requirement/public-asset-delivery.md", "role": "primary", "title": "Public Asset Delivery", "type": "requirement"}
 {"category": "objective", "id": "requirement:query-diagnostics", "path": ".knowledge/requirement/query-diagnostics.md", "role": "primary", "title": "Database Query Diagnostics", "type": "requirement"}
 {"category": "objective", "id": "requirement:read-write-splitting", "path": ".knowledge/requirement/read-write-splitting.md", "role": "primary", "title": "Read-Write Split Connections", "type": "requirement"}
+{"category": "objective", "id": "requirement:session-assurance-levels", "path": ".knowledge/requirement/session-assurance-levels.md", "role": "primary", "title": "Graded Session Assurance", "type": "requirement"}
 {"category": "objective", "id": "requirement:shared-web-runtime", "path": ".knowledge/requirement/shared-web-runtime.md", "role": "primary", "title": "Shared Web Runtime", "type": "requirement"}
 {"category": "objective", "id": "requirement:state-storage-tiers", "path": ".knowledge/requirement/state-storage-tiers.md", "role": "primary", "title": "Browser State Storage Tiers", "type": "requirement"}
 {"category": "objective", "id": "requirement:tailwind-css-integration", "path": ".knowledge/requirement/tailwind-css-integration.md", "role": "primary", "title": "Tailwind CSS Integration", "type": "requirement"}

@@ -1,12 +1,14 @@
 package oidc
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	"encoding/json"
 	"errors"
 	"net/http"
 	urlpkg "net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -115,36 +117,97 @@ func (c *Client) BeginAuthorization(ctx context.Context, options BeginOptions) (
 	if !hasOpenID {
 		scopes = append([]string{"openid"}, scopes...)
 	}
-	urlValue, key, err := c.oauth.BeginAuthorization(ctx, oauth.BeginOptions{Scopes: scopes, Params: options.Params, Nonce: nonce})
+	params, err := authenticationParams(options)
+	if err != nil {
+		return "", "", err
+	}
+	urlValue, key, err := c.oauth.BeginAuthorization(ctx, oauth.BeginOptions{Scopes: scopes, Params: params, Nonce: nonce})
 	return urlValue, key, err
+}
+
+// promptValues are the values OpenID Connect Core defines. An unlisted value
+// is refused rather than forwarded: a provider that does not recognize it may
+// ignore it silently, and a caller would read the resulting silence as an
+// honored request.
+var promptValues = map[string]bool{"none": true, "login": true, "consent": true, "select_account": true}
+
+// authenticationParams merges the typed authentication parameters into the
+// caller's Params. Setting either through Params directly is refused, because
+// max_age carries a verification obligation this package cannot see through an
+// untyped map, and a request that asks for freshness without checking the
+// answer is worse than one that never asked.
+func authenticationParams(options BeginOptions) (map[string]string, error) {
+	for key := range options.Params {
+		if key == "max_age" || key == "prompt" {
+			return nil, ErrInvalidOptions
+		}
+	}
+	if options.MaxAge == nil && len(options.Prompt) == 0 {
+		return options.Params, nil
+	}
+	params := make(map[string]string, len(options.Params)+2)
+	for key, value := range options.Params {
+		params[key] = value
+	}
+	if options.MaxAge != nil {
+		if *options.MaxAge < 0 {
+			return nil, ErrInvalidOptions
+		}
+		params["max_age"] = strconv.FormatInt(int64(*options.MaxAge/time.Second), 10)
+	}
+	if len(options.Prompt) > 0 {
+		if len(options.Prompt) > len(promptValues) {
+			return nil, ErrInvalidOptions
+		}
+		seen := make(map[string]bool, len(options.Prompt))
+		for _, value := range options.Prompt {
+			if !promptValues[value] || seen[value] {
+				return nil, ErrInvalidOptions
+			}
+			seen[value] = true
+		}
+		if seen["none"] && len(options.Prompt) > 1 {
+			return nil, ErrInvalidOptions
+		}
+		params["prompt"] = strings.Join(options.Prompt, " ")
+	}
+	return params, nil
 }
 
 // HandleCallback exchanges the code and verifies the returned ID Token,
 // including its nonce against the atomically consumed transaction.
-func (c *Client) HandleCallback(ctx context.Context, key string, callback Callback) (TokenSet, error) {
+func (c *Client) HandleCallback(ctx context.Context, key string, callback Callback, options CallbackOptions) (TokenSet, IDToken, error) {
 	set, transaction, err := c.oauth.HandleCallbackWithTransaction(ctx, key, callback)
 	if err != nil {
-		return TokenSet{}, err
+		return TokenSet{}, IDToken{}, err
 	}
 	if !strings.EqualFold(set.TokenType, "Bearer") {
-		return TokenSet{}, ErrIDToken
+		return TokenSet{}, IDToken{}, ErrIDToken
 	}
 	nonce, nonceErr := authn.DecodeBase64URL(transaction.Nonce, 256, 64)
 	if nonceErr != nil || len(nonce) < 16 {
-		return TokenSet{}, ErrNonce
+		return TokenSet{}, IDToken{}, ErrNonce
 	}
 	raw, ok := set.Raw["id_token"]
 	if !ok {
-		return TokenSet{}, ErrIDToken
+		return TokenSet{}, IDToken{}, ErrIDToken
 	}
 	var idToken string
 	if json.Unmarshal(raw, &idToken) != nil || idToken == "" {
-		return TokenSet{}, ErrIDToken
+		return TokenSet{}, IDToken{}, ErrIDToken
 	}
-	if _, err := c.verifyIDToken(ctx, idToken, transaction.Nonce); err != nil {
-		return TokenSet{}, err
+	verified, err := c.verifyIDToken(ctx, idToken, transaction.Nonce)
+	if err != nil {
+		return TokenSet{}, IDToken{}, err
 	}
-	return set, nil
+	// OpenID Connect requires auth_time whenever max_age was requested, so its
+	// absence here means the provider did not answer the question that was
+	// asked. Treating that as a completed re-authentication is the whole of
+	// the trap this check exists to close.
+	if options.RequireAuthTime && verified.AuthTime == nil {
+		return TokenSet{}, IDToken{}, ErrAuthTime
+	}
+	return set, verified, nil
 }
 
 // VerifyIDToken verifies JWT signature and registered OIDC claims. It also
@@ -186,7 +249,61 @@ func (c *Client) verifyIDToken(ctx context.Context, raw, expectedNonce string) (
 	if err := validateAuthorizedParty(claims, c.clientID); err != nil {
 		return IDToken{}, err
 	}
-	return IDToken{Claims: claims, Nonce: nonce}, nil
+	authTime, err := c.authTime(claims)
+	if err != nil {
+		return IDToken{}, err
+	}
+	acr, acrErr := stringClaim(claims, "acr")
+	if acrErr != nil {
+		return IDToken{}, ErrIDToken
+	}
+	return IDToken{Claims: claims, Nonce: nonce, AuthTime: authTime, ACR: acr}, nil
+}
+
+// authTime reads the auth_time claim. A present claim of the wrong shape is an
+// error rather than an absence, because a caller measuring freshness from a
+// value silently dropped would measure from nothing at all.
+func (c *Client) authTime(claims jwt.Claims) (*time.Time, error) {
+	raw, present := claims.Value("auth_time")
+	if !present {
+		return nil, nil
+	}
+	// encoding/json will decode a quoted "1700000000" into a json.Number, so
+	// the JSON type is checked on the raw bytes first. A provider that quotes
+	// the value is reporting a string where the specification requires a
+	// number, and guessing its intent would accept a shape nothing verified.
+	trimmed := bytes.TrimSpace(raw)
+	if len(trimmed) == 0 || (trimmed[0] != '-' && (trimmed[0] < '0' || trimmed[0] > '9')) {
+		return nil, ErrAuthTime
+	}
+	var number json.Number
+	if json.Unmarshal(trimmed, &number) != nil {
+		return nil, ErrAuthTime
+	}
+	seconds, err := number.Int64()
+	if err != nil || seconds < 0 {
+		return nil, ErrAuthTime
+	}
+	value := time.Unix(seconds, 0).UTC()
+	// An authentication in the future is a broken or hostile provider clock.
+	// Accepting it would make any freshness requirement trivially satisfiable.
+	if value.After(c.clock().Add(c.leeway)) {
+		return nil, ErrAuthTime
+	}
+	return &value, nil
+}
+
+// stringClaim distinguishes an absent claim from one present with a non-string
+// value, which the Claims.String accessor reports identically.
+func stringClaim(claims jwt.Claims, name string) (string, error) {
+	if _, present := claims.Value(name); !present {
+		return "", nil
+	}
+	value, ok := claims.String(name)
+	if !ok {
+		return "", ErrIDToken
+	}
+	return value, nil
 }
 
 func validateAuthorizedParty(claims jwt.Claims, clientID string) error {

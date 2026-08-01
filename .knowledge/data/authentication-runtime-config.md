@@ -18,6 +18,7 @@ fields:
   registration.policy: disabled, oidc, invite, administrator, or open
   recovery.policy: oidc, administrator, or application
   recent_auth_max_age: duration
+  shared_device: bool, default false, per policy:shared-device-mode
   bootstrap.issue_ttl: duration an issued secret stays redeemable, measured from issuance
   bootstrap.enrollment_ttl: duration the enrollment stays open, measured from redemption
   bootstrap.max_attempts: positive integer
@@ -34,6 +35,9 @@ fields:
   oidc.claim.match: any or all
   oidc.allow_loopback_http: bool
   oidc.registered_claims: string list
+  oidc.logout_scope: enum of reconfirm or global, default reconfirm, per policy:provider-session-scope
+  oidc.allow_global_logout_request: bool, default false, permitting a logout request to escalate to global
+  oidc.provider_logout: removed; a configuration still carrying it fails startup, because configbind would otherwise ignore it silently
   logout_path: path
   post_login_path: path
   passkey.path: base path of api:passkey-endpoints
@@ -79,6 +83,7 @@ binding_implemented:
   reason: the rules outlive the implementation status, so they were written and tested before the endpoints that needed them
 planned:
   testing: decision:test-authentication-seams
+  assurance: data:session-assurance-state adds the auth.assurance prefix, and recent_auth_max_age becomes its default rather than a passkey-only field
 deferred:
   - policy:csrf-protection, until then api:passkey-endpoints relies on same-origin and a required JSON content type
 loopback_development:

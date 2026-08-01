@@ -31,6 +31,7 @@ endpoints:
     method: POST only
     reason: a logout reachable by link or prefetch is a denial-of-service surface
     action: delete the server-side session, then end the provider session before returning to the landing path
+    scope: auth.oidc.logout_scope selects reconfirm or global, defaulting to reconfirm, per policy:provider-session-scope; the block below describes the removed bool it replaces
     provider_logout:
       default: enabled through auth.oidc.provider_logout
       reason: clearing only the local cookie leaves the provider signed in, so the next login silently returns the same user and the sign-out appears to do nothing
@@ -38,6 +39,7 @@ endpoints:
       no_hint: the session payload holds no token body, so no id_token_hint is available or sent
       fallback: local logout when the provider advertises no end session endpoint, discovery fails, or the request cannot be built
       opt_out: auth.oidc.provider_logout false, for a provider shared with applications that must stay signed in
+      resolved: policy:provider-session-scope replaces this bool with logout_scope, adds reconfirm as the default, and drops the false branch entirely; the no_hint cost above is one of its arguments
 placement:
   inside: every framework middleware, so recovery, logging, and security headers apply
   resolve: a middleware installs the identity of an existing session on every request

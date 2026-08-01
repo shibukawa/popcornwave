@@ -151,10 +151,10 @@ func TestAutomaticLoginCompletesAuthorizationCodeFlow(t *testing.T) {
 		t.Fatalf("expected a code, got %v", query)
 	}
 
-	tokens, err := party.client.HandleCallback(t.Context(), key, oidc.Callback{
+	tokens, _, err := party.client.HandleCallback(t.Context(), key, oidc.Callback{
 		Code:  query.Get("code"),
 		State: query.Get("state"),
-	})
+	}, oidc.CallbackOptions{})
 	if err != nil {
 		t.Fatalf("handle callback: %v", err)
 	}
@@ -222,10 +222,10 @@ func TestUserSelectionScreenIssuesTheSameClaims(t *testing.T) {
 		"csrf":    {csrf},
 		"subject": {"guest"},
 	}))
-	tokens, err := party.client.HandleCallback(t.Context(), key, oidc.Callback{
+	tokens, _, err := party.client.HandleCallback(t.Context(), key, oidc.Callback{
 		Code:  query.Get("code"),
 		State: query.Get("state"),
-	})
+	}, oidc.CallbackOptions{})
 	if err != nil {
 		t.Fatalf("handle callback: %v", err)
 	}
@@ -278,10 +278,10 @@ func TestCancelReturnsAccessDenied(t *testing.T) {
 	if query.Get("error") != "access_denied" {
 		t.Fatalf("error = %q", query.Get("error"))
 	}
-	if _, err := party.client.HandleCallback(t.Context(), key, oidc.Callback{
+	if _, _, err := party.client.HandleCallback(t.Context(), key, oidc.Callback{
 		State: query.Get("state"),
 		Error: query.Get("error"),
-	}); err == nil {
+	}, oidc.CallbackOptions{}); err == nil {
 		t.Fatal("expected the relying party to reject a cancelled login")
 	}
 }
@@ -295,10 +295,10 @@ func TestCodeIsSingleUse(t *testing.T) {
 	}
 	query := callbackOf(t, browse(t, http.MethodGet, authorizeURL, nil))
 	callback := oidc.Callback{Code: query.Get("code"), State: query.Get("state")}
-	if _, err := party.client.HandleCallback(t.Context(), key, callback); err != nil {
+	if _, _, err := party.client.HandleCallback(t.Context(), key, callback, oidc.CallbackOptions{}); err != nil {
 		t.Fatalf("first exchange: %v", err)
 	}
-	if _, err := party.client.HandleCallback(t.Context(), key, callback); err == nil {
+	if _, _, err := party.client.HandleCallback(t.Context(), key, callback, oidc.CallbackOptions{}); err == nil {
 		t.Fatal("expected the replayed code to fail")
 	}
 }
@@ -432,10 +432,10 @@ func TestScopesAreIntersectedWithTheRoster(t *testing.T) {
 		t.Fatalf("begin authorization: %v", err)
 	}
 	query := callbackOf(t, browse(t, http.MethodGet, authorizeURL, nil))
-	tokens, err := party.client.HandleCallback(t.Context(), key, oidc.Callback{
+	tokens, _, err := party.client.HandleCallback(t.Context(), key, oidc.Callback{
 		Code:  query.Get("code"),
 		State: query.Get("state"),
-	})
+	}, oidc.CallbackOptions{})
 	if err != nil {
 		t.Fatalf("handle callback: %v", err)
 	}
@@ -573,10 +573,10 @@ func completeLogin(t *testing.T, server *devidp.Server, party relyingParty) oidc
 		t.Fatalf("begin authorization: %v", err)
 	}
 	query := callbackOf(t, browse(t, http.MethodGet, authorizeURL, nil))
-	tokens, err := party.client.HandleCallback(t.Context(), key, oidc.Callback{
+	tokens, _, err := party.client.HandleCallback(t.Context(), key, oidc.Callback{
 		Code:  query.Get("code"),
 		State: query.Get("state"),
-	})
+	}, oidc.CallbackOptions{})
 	if err != nil {
 		t.Fatalf("handle callback: %v", err)
 	}

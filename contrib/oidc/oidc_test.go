@@ -148,7 +148,7 @@ func TestDiscoveryAuthorizationAndNonceBoundIDToken(t *testing.T) {
 	if parsed.Query().Get("scope") != "openid profile" || expectedNonce == "" {
 		t.Fatalf("authorization query = %v", parsed.Query())
 	}
-	set, err := client.HandleCallback(context.Background(), transactionKey, Callback{State: parsed.Query().Get("state"), Code: "code"})
+	set, _, err := client.HandleCallback(context.Background(), transactionKey, Callback{State: parsed.Query().Get("state"), Code: "code"}, CallbackOptions{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -206,7 +206,7 @@ func TestDiscoveryAuthorizationAndNonceBoundIDToken(t *testing.T) {
 		t.Fatal(err)
 	}
 	badParsed, _ := url.Parse(badURL)
-	if _, err := badClient.HandleCallback(context.Background(), badKey, Callback{State: badParsed.Query().Get("state"), Code: "code"}); !errors.Is(err, oauth.ErrState) {
+	if _, _, err := badClient.HandleCallback(context.Background(), badKey, Callback{State: badParsed.Query().Get("state"), Code: "code"}, CallbackOptions{}); !errors.Is(err, oauth.ErrState) {
 		t.Fatalf("stripped nonce = %v", err)
 	}
 	if tokenRequests != 1 {
@@ -355,7 +355,7 @@ func TestOIDCRejectsNonBearerTokenType(t *testing.T) {
 		t.Fatal(err)
 	}
 	expectedNonce = parsed.Query().Get("nonce")
-	if _, err := client.HandleCallback(context.Background(), keyValue, Callback{State: parsed.Query().Get("state"), Code: "code"}); !errors.Is(err, ErrIDToken) {
+	if _, _, err := client.HandleCallback(context.Background(), keyValue, Callback{State: parsed.Query().Get("state"), Code: "code"}, CallbackOptions{}); !errors.Is(err, ErrIDToken) {
 		t.Fatalf("non-Bearer token type error = %v", err)
 	}
 }
@@ -573,7 +573,7 @@ func TestSecondIndependentProviderFixture(t *testing.T) {
 		t.Fatal(err)
 	}
 	nonce = parsed.Query().Get("nonce")
-	if _, err := client.HandleCallback(context.Background(), keyValue, Callback{State: parsed.Query().Get("state"), Code: "code"}); err != nil {
+	if _, _, err := client.HandleCallback(context.Background(), keyValue, Callback{State: parsed.Query().Get("state"), Code: "code"}, CallbackOptions{}); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -628,7 +628,7 @@ func TestUnknownKeyRefreshesOnce(t *testing.T) {
 		t.Fatal(err)
 	}
 	nonce = parsed.Query().Get("nonce")
-	if _, err := client.HandleCallback(context.Background(), keyValue, Callback{State: parsed.Query().Get("state"), Code: "code"}); err != nil {
+	if _, _, err := client.HandleCallback(context.Background(), keyValue, Callback{State: parsed.Query().Get("state"), Code: "code"}, CallbackOptions{}); err != nil {
 		t.Fatal(err)
 	}
 	if keyRequests != 2 {

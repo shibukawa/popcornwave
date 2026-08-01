@@ -48,6 +48,7 @@ login:
   enumeration: an unknown credential, an inactive account, and a bad signature produce one identical response
 register:
   begin: require an authenticated session whose authenticated_at is within auth.recent_auth_max_age, then start registration
+  begin_remediation: the refusal is a bare 403 today, which is honest only while no remedy exists; api:assurance-guard replaces the inline check, gives it flow:step-up-reauthentication, and makes 401 the correct code
   finish: run flow:passkey-enrollment and persist through api:auth-credential-store
   exclude: the existing credential IDs of the account become excludeCredentials
   session: rotate when the deployment treats enrollment as an authentication-strength change

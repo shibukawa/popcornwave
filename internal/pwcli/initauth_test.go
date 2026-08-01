@@ -96,7 +96,7 @@ func TestScaffoldWiresTheFrameworkOwnedEndpoints(t *testing.T) {
 	config := files[pwenv.FileName(pwenv.Development)]
 	for _, expected := range []string{
 		"[session]", `backend = "rdb"`, "cookie.secure = false", `rdb.source = "middleware"`,
-		`post_login_path = "/"`, "protection.unauthenticated", "provider_logout = true",
+		`post_login_path = "/"`, "protection.unauthenticated", `logout_scope = "reconfirm"`,
 	} {
 		if !strings.Contains(config, expected) {
 			t.Fatalf("config is missing %s:\n%s", expected, config)
@@ -135,7 +135,7 @@ func TestScaffoldedAuthKeysAreRegistered(t *testing.T) {
 		"issuer": true, "client_id": true, "client_secret": true,
 		"redirect_url": true, "scopes": true, "identity_claim": true,
 		"admission": true, "auto_provision": true,
-		"provider_logout": true, "allow_loopback_http": true,
+		"logout_scope": true, "allow_loopback_http": true,
 	}
 	for _, mode := range []string{authOIDC, authOIDCPasskey, authPasskey} {
 		t.Run(mode, func(t *testing.T) {

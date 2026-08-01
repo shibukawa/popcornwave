@@ -76,6 +76,9 @@ type runtime struct {
 	// borrowed the middleware database leaves it nil.
 	sessionClose func(context.Context) error
 	stateStore   *authstate.SQLStore[oauth.Transaction]
+	// hint is the sealed sign-in hint cookie, nil unless the deployment turned
+	// it on. It carries no authority; see SignInHint.
+	hint *session.Jar[SignInHint]
 	allowlist    Allowlist
 	cookiePolicy pw.SessionCookieConfig
 	include      []pattern
@@ -200,6 +203,9 @@ func setupSession(ctx context.Context) (pw.Middleware, error) {
 		exclude:      exclude,
 		stopPruning:  make(chan struct{}),
 		passkeyPaths: config.passkeyPaths(),
+	}
+	if instance.hint, err = hintJar(config.Assurance.Hint, sessionConfig.Cookie); err != nil {
+		return nil, err
 	}
 	if config.usesPasskey() {
 		if err := instance.setupPasskey(schemaCtx, db, driver); err != nil {

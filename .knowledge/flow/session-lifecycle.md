@@ -19,6 +19,7 @@ renewal:
   - touch only after renewal_interval
   - never extend beyond absolute expiry
   - align cookie lifetime with authoritative server expiry
+  - any request counts as activity, including a live-connection reconnect an unattended page makes on its own; requirement:presence-signal is the wanted replacement
 login:
   - api:session-manager creates or rotates after successful authentication
 logout:

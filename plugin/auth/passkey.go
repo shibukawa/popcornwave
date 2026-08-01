@@ -247,9 +247,12 @@ type enroller struct {
 func (rt *runtime) resolveEnroller(w http.ResponseWriter, r *http.Request, consume bool) (enroller, bool) {
 	if view, ok := Session(r.Context()); ok {
 		// Adding a login method is an authentication-strength change, so it
-		// needs proof that is recent rather than merely valid.
-		if time.Since(view.AuthenticatedAt) > rt.config.RecentAuthMaxAge {
-			pw.WriteProblem(w, r, pw.Forbidden())
+		// needs proof that is recent rather than merely valid. Going through
+		// the guard rather than comparing timestamps here gives the refusal a
+		// way back: these are JSON endpoints, so the challenge names what was
+		// missing instead of redirecting a fetch into a login page.
+		if !IsRecent(r, Default()) {
+			Challenge(w, r, Default(), true)
 			return enroller{}, false
 		}
 		return enroller{accountID: view.Data.AccountID, label: displayOrAccount(view.Data)}, true
