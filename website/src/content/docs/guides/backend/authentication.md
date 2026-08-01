@@ -11,6 +11,10 @@ mounts login, callback, and logout, resolves each request's session, and gives
 handlers an identity. The application registers neither routes nor OIDC
 callbacks.
 
+This page is the reference: keys, endpoints, ceremonies, storage. Which mode a
+deployment should pick, and what a session is trusted to do once the login is
+over, are decided in [Authentication design](/guides/backend/authentication-design/).
+
 ## Turning it on
 
 An entry point and a configuration file:

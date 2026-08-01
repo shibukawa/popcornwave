@@ -310,6 +310,14 @@ type HintConfig struct {
 type AssurancePolicy struct {
 	Name   string        `help:"name a handler passes to auth.Policy"`
 	MaxAge time.Duration `help:"how old a proof may be; zero means prove again for this operation"`
+	// Confirm refuses to count the login that started the session, so only a
+	// re-proof this guard asked for satisfies the policy.
+	//
+	// Signing in and confirming an operation are different acts. Without this,
+	// a window wide enough to be usable lets a sign-in stand in for the
+	// confirmation: someone who signed in a minute ago to read their dashboard
+	// would reach a transfer without ever being asked about it.
+	Confirm bool `default:"false" help:"require a re-proof this guard asked for; a login never counts"`
 }
 
 // ClaimConfig is the admission rule of AdmissionClaim. Its keys hang off

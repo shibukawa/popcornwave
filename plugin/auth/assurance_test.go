@@ -16,12 +16,12 @@ func TestNamedPolicyResolvesItsWindow(t *testing.T) {
 	}}
 	request := httptest.NewRequest("GET", "/admin", nil)
 	for name, want := range map[string]time.Duration{"admin": 15 * time.Minute, "danger": 0} {
-		got, ok := Policy(name).maxAge(request, config)
-		if !ok || got != want {
+		got, ok := Policy(name).resolve(request, config)
+		if !ok || got.maxAge != want {
 			t.Fatalf("policy %q = %v, %v; want %v", name, got, ok, want)
 		}
 	}
-	if _, ok := Policy("absent").maxAge(request, config); ok {
+	if _, ok := Policy("absent").resolve(request, config); ok {
 		t.Fatal("an undefined policy resolved")
 	}
 }
@@ -54,8 +54,8 @@ func TestAnUndefinedPolicyNameIsRefusedAtStartup(t *testing.T) {
 func TestDefaultRequirementReadsRecentAuthMaxAge(t *testing.T) {
 	config := baseConfig(ModeOIDCOnly)
 	config.RecentAuthMaxAge = 90 * time.Second
-	got, ok := Default().maxAge(httptest.NewRequest("GET", "/", nil), config)
-	if !ok || got != 90*time.Second {
+	got, ok := Default().resolve(httptest.NewRequest("GET", "/", nil), config)
+	if !ok || got.maxAge != 90*time.Second {
 		t.Fatalf("default = %v, %v", got, ok)
 	}
 }
@@ -72,15 +72,77 @@ func TestDynamicRequirementComputesItsWindow(t *testing.T) {
 		midnight := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
 		return now.Sub(midnight)
 	}
-	got, ok := Dynamic(sinceMidnight).maxAge(request, config)
-	if !ok || got != 9*time.Hour+30*time.Minute {
+	got, ok := Dynamic(sinceMidnight).resolve(request, config)
+	if !ok || got.maxAge != 9*time.Hour+30*time.Minute {
 		t.Fatalf("dynamic window = %v, %v", got, ok)
 	}
-	if _, ok := Dynamic(nil).maxAge(request, config); ok {
+	if _, ok := Dynamic(nil).resolve(request, config); ok {
 		t.Fatal("a nil resolver produced a window")
 	}
-	if _, ok := Dynamic(func(*http.Request) time.Duration { return -time.Second }).maxAge(request, config); ok {
+	if _, ok := Dynamic(func(*http.Request) time.Duration { return -time.Second }).resolve(request, config); ok {
 		t.Fatal("a negative window was accepted")
+	}
+}
+
+// Signing in and confirming an operation are different acts. Freshness alone
+// conflates them: a window wide enough to be usable lets the login that started
+// the session stand in for a confirmation nobody asked the user for.
+func TestAFreshLoginDoesNotCountAsAConfirmation(t *testing.T) {
+	justSignedIn := SessionData{ProviderAuthTime: time.Now().Unix()}
+
+	if !confirmedWithin(SessionData{StepUpAt: time.Now().Unix()}, 15*time.Minute) {
+		t.Fatal("a step-up inside the window was refused")
+	}
+	if confirmedWithin(justSignedIn, 15*time.Minute) {
+		t.Fatal("a login one second old satisfied a confirmation requirement")
+	}
+	stale := time.Now().Add(-16 * time.Minute).Unix()
+	if confirmedWithin(SessionData{StepUpAt: stale}, 15*time.Minute) {
+		t.Fatal("a confirmation older than the window was accepted")
+	}
+}
+
+// A zero duration means confirm for this attempt, whichever constructor asked,
+// so Confirmed(0) and an unconfirmed zero window agree.
+func TestAZeroConfirmationWindowMeansThisAttempt(t *testing.T) {
+	if confirmedWithin(SessionData{}, 0) {
+		t.Fatal("a session with no step-up satisfied a zero confirmation window")
+	}
+	if !confirmedWithin(SessionData{StepUpAt: time.Now().Unix()}, 0) {
+		t.Fatal("a just-completed step-up was refused")
+	}
+}
+
+// The two constructors differ only in whether a login counts, which is the
+// whole of the distinction.
+func TestConfirmedAndMaxAgeDifferOnlyOnWhoMayProve(t *testing.T) {
+	config := baseConfig(ModeOIDCOnly)
+	request := httptest.NewRequest("GET", "/", nil)
+	plain, _ := MaxAge(15 * time.Minute).resolve(request, config)
+	strict, _ := Confirmed(15 * time.Minute).resolve(request, config)
+	if plain.maxAge != strict.maxAge {
+		t.Fatalf("windows differ: %v and %v", plain.maxAge, strict.maxAge)
+	}
+	if plain.confirmed || !strict.confirmed {
+		t.Fatalf("confirmed = %v and %v", plain.confirmed, strict.confirmed)
+	}
+}
+
+// A named policy carries the same distinction, so a deployment tunes both the
+// window and whether a login may fill it.
+func TestANamedPolicyCanDemandAConfirmation(t *testing.T) {
+	config := baseConfig(ModeOIDCOnly)
+	config.Assurance = AssuranceConfig{Policy: []AssurancePolicy{
+		{Name: "admin", MaxAge: 15 * time.Minute},
+		{Name: "transfer", MaxAge: 5 * time.Minute, Confirm: true},
+	}}
+	request := httptest.NewRequest("GET", "/", nil)
+	if got, _ := Policy("admin").resolve(request, config); got.confirmed {
+		t.Fatal("admin demanded a confirmation it did not declare")
+	}
+	got, ok := Policy("transfer").resolve(request, config)
+	if !ok || !got.confirmed || got.maxAge != 5*time.Minute {
+		t.Fatalf("transfer = %+v, %v", got, ok)
 	}
 }
 

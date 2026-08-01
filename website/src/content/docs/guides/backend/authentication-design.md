@@ -1,0 +1,271 @@
+---
+title: Authentication design
+description: What the three modes actually separate, how to choose one, and the assurance a session carries once the login is over.
+sidebar:
+  order: 0
+---
+
+`auth.mode` takes three values. Read the names alone and they look like a choice of sign-in method: OpenID Connect, passkeys, or both.
+
+But the daily sign-in under `oidc_passkey` is a passkey, and the provider appears only when someone needs to recover. So `oidc_only` and `oidc_passkey` are not divided by whether OIDC is used. They are divided somewhere else.
+
+## What the modes separate
+
+A passkey cannot create an account. The reason is plain: there is nothing for the first credential to attach to. A public key arrives, and unless something else can say whose it is, the service has nothing to do with it.
+
+Every mode therefore has to answer one question before anybody signs in at all: what brought this account into existence? The three modes are three answers.
+
+| `auth.mode` | Where an account comes from | Daily sign-in | Recovery authority |
+| --- | --- | --- | --- |
+| `oidc_only` | The provider | The provider | The provider |
+| `oidc_passkey` | The provider | A passkey | The provider |
+| `passkey_only` | A login ID and one-time secret an administrator issues | A passkey | An administrator, or another passkey |
+
+That last column carries the most operational weight.
+
+### `oidc_only`
+
+Everything leans on the provider. Accounts are created there, daily sign-ins happen there, and the person who forgot their password is rescued there. You hold a session and nothing else.
+
+**What you get.** No credential to store, so nothing to leak and no leak to defend against. When the provider account stops — a departure, a cancelled contract — sign-in here stops with it. In B2B that alone can decide the design.
+
+**What you take on.** The provider's outage is your outage, and its policy becomes your policy. Anyone without an account there cannot get in by any route.
+
+### `oidc_passkey`
+
+The first visit goes through the provider; every later one uses a passkey. The provider leaves the daily path and waits behind it as the way back in.
+
+**What you get.** Sign-in gets faster, because the round trip to the provider drops out of the ordinary path along with its latency and its availability. Someone who loses a passkey still has the recovery route `oidc_only` would have given them.
+
+**What you take on.** Two authentication methods, and the obligation to keep reasoning about both. Which one outranks the other, who may remove one, what happens to a person who loses both. Startup refuses until `auth.recovery.policy` is set explicitly, so that question cannot be quietly postponed.
+
+### `passkey_only`
+
+No provider exists. An administrator creates the account and hands the person a login ID and a one-time secret. They redeem it and register a passkey of their own.
+
+**What you get.** No external dependency and no shared secret in storage. It works on a closed network, and it works for an organization that has no identity provider at all.
+
+**What you take on.** Recovery, entirely. Knowing an email address is not grounds for recovery — anyone can know one, which is why it is forbidden by default. What remains is another enrolled passkey, an administrator reissuing a credential, or a verified mechanism the application provides itself.
+
+## Choosing one
+
+The mode alone does not settle it. Admission — who may enter — settles the rest.
+
+### Consumer products
+
+People arrive already holding a Google or Apple account. Use `oidc_only` or `oidc_passkey` with admission `authenticated` and `auto_provision = true`, so a first sign-in creates the account.
+
+One consequence deserves attention. If a user loses that Google account, they lose yours at the same moment. Choosing `oidc_passkey` and getting a passkey enrolled early puts a second door in the wall.
+
+### Business customers
+
+The buying organization's identity provider is the authority. Pair `oidc_only` with admission `registered` and record who may enter **before** anyone signs in. Because `auth.oidc.identity_claim` can name a stable directory-issued identifier such as an employee number, you can register a person who has never logged in — which a subject claim would never let you do.
+
+Offboarding happens in their provider. The account stops there, and sign-in here stops with it. Not maintaining a list of former employees is the practical value of this arrangement.
+
+### Shared terminals
+
+A reception desk, a line-side station, a till. The browser does not correspond to one person.
+
+Set `auth.shared_device = true`. It couples three settings, and **any one of them alone accomplishes nothing**. Clear the local memory while the provider session stays alive and the next visitor still reads the previous person's name — out of the provider's own account picker, because the provider is what supplies the name.
+
+The common end of a session on a shared terminal is not a sign-out but abandonment, so enable `auth.assurance.presence` alongside it. More on that below.
+
+### Closed internal systems
+
+No identity provider, or none you may reach. Use `passkey_only` with admission `registered` and `auth.registration.policy = "administrator"`. The bootstrap credential an administrator issues is itself the account-opening ceremony.
+
+## After the login
+
+Everything so far concerned signing in. Once that is done, the simple design gives a session two states: valid or not.
+
+That design has a problem. A stolen session cookie reaches settlement, credential changes, and export **at full authority**. The harder you make the moment of login with passkeys and MFA, the more attackers stop attacking authentication and start stealing the cookie behind it. Since 2025 that has been the dominant route into accounts.
+
+Shortening the expiry as a remedy makes ordinary users sign in repeatedly. The dial that keeps logins rare and the dial that bounds a theft are the same dial. That is the limit of the two-state model.
+
+### States and transitions
+
+A session has four states, and they do not sit in a line. A login enters
+`active`, a heavy operation raises it to `confirmed`, and time lowers it again.
+The path is a loop.
+
+![A state diagram: sign-in moves anonymous to active, Ensure raises active to confirmed, and time returns it](../../../../assets/diagrams/assurance-states.svg)
+
+`identified` is dashed for a reason. Without a configured hint that state does
+not exist, and a session drops from `active` straight to `anonymous`. Keeping a
+memory of the last visitor is something a deployment turns on deliberately, and
+a shared-terminal deployment is forbidden from turning it on at all.
+
+**A handler branches on two of these.**
+
+- Authenticated or not — written in `auth.protection.include`, with no handler code at all
+- Recently proved or not — declared per operation, in the handler that performs it
+
+`identified` is a login-screen appearance, not something a handler tests. `anonymous` is a login problem, and path protection answers it first.
+
+### Freshness is the only axis
+
+You could add a second axis beside "how recently": how strongly. We do not.
+
+The framework cannot rank the methods it mounts. `oidc_only` and `passkey_only` each produce a single method, so an ordering would have nothing to order. `oidc_passkey` produces two, and neither is stronger in general — a provider backed by a hardware key beats a local passkey, and a passkey requiring user verification beats a provider that waves through a ninety-day SSO session. An ordering is a claim a deployment makes about its provider, not a property of the label.
+
+So a handler writes one predicate and one parameter.
+
+```go
+app.HandleFunc("GET /admin", auth.Ensure(adminPage, auth.Policy("admin")))
+app.HandleFunc("POST /api/admin/drop", auth.EnsureAPI(drop, auth.Policy("danger")))
+```
+
+```toml
+[[auth.assurance.policy]]
+name = "admin"
+max_age = "15m"
+
+[[auth.assurance.policy]]
+name = "danger"
+max_age = "0"
+confirm = true    # confirm now, for this operation
+```
+
+Windows are named rather than written inline so that one handler serves a consumer deployment with a generous window and an internal one with a tight window.
+
+### A login is not a confirmation
+
+Every window so far measures minutes since the last proof. That gives a freshly signed-in session a free pass through all of them: someone who signed in to read a dashboard walks on to the transfer screen without ever being asked about it.
+
+Signing in and confirming an operation are different acts. The login happened for its own reasons, and it says nothing about the person **now** asking to move money. The step-up happened because this operation demanded it. Measured by freshness alone, the two become the same thing.
+
+So a requirement comes in two kinds.
+
+```go
+auth.MaxAge(15 * time.Minute)     // any recent proof, the login included
+auth.Confirmed(5 * time.Minute)   // only a re-proof this guard asked for
+```
+
+```toml
+[[auth.assurance.policy]]
+name = "transfer"
+max_age = "5m"
+confirm = true    # a login never fills this
+```
+
+Entering an administration area wants `MaxAge`: the target is a session left open all afternoon, not the person who signed in a minute ago. Transfers, tenant deletion, and customer-list exports want `Confirmed`.
+
+`Confirmed(0)` means confirm for this attempt. Elapsed time can never satisfy a zero window — the trip to the provider and back always costs more than zero seconds, so a timestamp comparison would refuse again immediately after a successful re-proof and never converge. Only the admission a completed step-up leaves behind satisfies it. A positive window lets one confirmation cover several operations over the next few minutes.
+
+### Where freshness is measured from
+
+Not from when the answer arrived.
+
+A provider that receives `max_age` may satisfy it out of its own single sign-on session. A token arriving now does not mean an authentication happening now. The `auth_time` claim is the real moment of proof, and freshness is measured from there.
+
+A missing `auth_time` after `max_age` was sent is therefore a failed re-proof. OpenID Connect requires the claim in exactly that case, so its absence means the provider did not answer the question it was asked.
+
+`prompt=login` cannot be checked at all. The specification makes it a SHOULD, and no claim reports whether it was honored. Prompt improves the odds of an interaction; it proves nothing. **Security decisions rest on `max_age` and `auth_time`.**
+
+## Sequences
+
+### An ordinary sign-in
+
+```
+Browser             Popcorn Wave           Provider
+   │  GET /auth/login   │                      │
+   ├───────────────────►│                      │
+   │                    │ generate nonce, PKCE │
+   │ 302 ───────────────┤                      │
+   ├───────────────────────────────────────────►│
+   │                    │      authenticate    │
+   │◄───────────────────────────────────────────┤
+   │  GET /auth/callback?code=…                 │
+   ├───────────────────►│                      │
+   │                    │ exchange the code    │
+   │                    ├─────────────────────►│
+   │                    │◄─────────────────────┤
+   │                    │ verify the ID Token  │
+   │                    │ evaluate admission   │
+   │                    │ rotate the session   │
+   │◄───────────────────┤                      │
+```
+
+That final rotation revokes whatever session the browser already held. Nothing from before the login survives it, which is what closes fixation.
+
+### A step-up
+
+```
+Browser             Popcorn Wave           Provider
+   │  GET /payment      │                      │
+   ├───────────────────►│                      │
+   │                    │ auth_time is stale   │
+   │  302 /auth/login?max_age=1800&next=/payment │
+   │◄───────────────────┤                      │
+   │  ────────────────────────────────────────►│  max_age + prompt=login
+   │                    │      re-authenticate │
+   │◄───────────────────────────────────────────┤
+   │  GET /auth/callback │                      │
+   ├───────────────────►│                      │
+   │                    │ 1 same account?      │
+   │                    │ 2 verify auth_time   │
+   │                    │ 3 re-evaluate admission
+   │                    │ 4 rotate             │
+   │  302 /payment ─────┤                      │
+   │◄───────────────────┤                      │
+```
+
+Drop step 1 and the step-up becomes an **account swap**: the previous account's sensitive operation is already staged, and somebody else's successful login completes it. Issuer, identity claim, and value are compared against the session in hand, and a mismatch writes nothing.
+
+Step 3 is there so that a person who lost access in the meantime cannot re-prove their way back.
+
+Resuming a POST has a limit. The return from the callback is a redirect, which is a GET, so the wrapper can only replay a safe method. Give the read route the working window and the write route the boundary, and make the write window slightly the more generous of the two — otherwise a long form filled after a fresh read loses its input on submit.
+
+### Signing out
+
+What a sign-out does to the provider session has three possible answers. One of them is not offered.
+
+```
+local      Revoke locally, leave the provider alone
+           → the next sign-in passes silently; the sign-out looks broken
+           → not offered
+
+reconfirm  Revoke locally, send the provider nothing (the default)
+           → the next authorization carries prompt=select_account login
+           → the provider session lives on; other relying parties are untouched
+
+global     Call end_session_endpoint
+           → the provider session ends, signing the user out of every app sharing it
+```
+
+`reconfirm` is a name we gave a behavior, not a standard. **No request goes to the provider at a reconfirm sign-out.** One parameter is added to the next ordinary authorization request, and that is the whole of it.
+
+No specification offers a way to be forgotten by a provider for one relying party alone. The provider session is a single session shared across all of them, and RP-Initiated Logout ends all or nothing. Reconfirm sidesteps that by asking the provider for nothing.
+
+Choose `global` for shared terminals, kiosks, and any deployment whose definition of signing out is leaving everything. To offer both to a user, set `auth.oidc.allow_global_logout_request`. A request may **escalate only**, never downgrade.
+
+### Sessions nobody is sitting at
+
+An idle timeout measures time since the last **request**. It does not measure time since a person did anything.
+
+That gap causes real trouble in both directions. A page holding a live connection reconnects on its own, so an unattended browser stays signed in indefinitely. A person reading one page for forty minutes issues no request and is signed out mid-task.
+
+Enable `auth.assurance.presence` and the browser reports **one bit per tick**: whether any input happened since the last one. No coordinate, no keystroke, no timing pattern leaves the browser.
+
+The trust here runs one way.
+
+- A report of absence is **acted on**. A false positive costs one extra sign-in.
+- A claim of presence is **bounded by what the server already enforces**. A script can send it, so it never moves the absolute expiry.
+- A beacon that stops arriving **is itself a report of absence**. A client cannot assert not-being-there.
+
+Nothing reports a machine waking from sleep. A timer that should fire on a fixed interval observing a much larger gap is how it is inferred, and that counts as absence rather than presence.
+
+## Remembering the last visitor
+
+After a session ends, the browser can keep a note of who signed in last. By default it keeps none.
+
+Keeping one is worth something because it holds **what no protocol can supply**. A provider can name which of its own accounts a returning visitor holds, through `prompt=select_account`. It knows nothing about the other providers a deployment offers. Whether a multi-issuer login screen shows its picker again is decided by local memory or by nothing. A passkey-only deployment has nobody to ask at all.
+
+The note rides in a sealed cookie, unreadable by the browser, which is what lets it hold a login identifier. What needs protecting is not the contents but **what the login screen renders** — that is what the next person at a shared terminal reads, so put it through `auth.MaskIdentifier`.
+
+An issuer cannot be masked. The screen either offers the "Continue with Microsoft" button or it does not; there is no partial form. Whether an issuer may be remembered is therefore the enabled flag and the lifetime, not a rendering choice. Setting `ttl = "0"` is a valid answer, and it sends the browser from `active` straight to `anonymous`.
+
+## Where to go next
+
+Configuration keys, endpoint behavior, the passkey ceremonies, and session backend selection are in [Authentication](/guides/backend/authentication/). For where a session is stored, see [Sessions](/guides/backend/sessions/).
