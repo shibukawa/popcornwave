@@ -22,6 +22,12 @@ coverage:
     - framework-internal SQL issued directly against the pool, such as session, auth, and migration statements
     - statements run through a raw transaction handle taken from an api:transaction-runner scope accessor
   reason: decision:executor-seam-instrumentation
+  dynamodb:
+    observed: every request an application makes through decision:dynamodb-observability-seam, whether from a declared query or an item call
+    record: data:dynamodb-request-record, shaped so one viewer reads both stores
+    reproduction: rule:dynamodb-reproduction-format
+    unobserved: every rule:framework-owned-tables table, per policy:query-log-safety
+    no_explain: DynamoDB has no plan to capture; the scanned count of a read is what answers the same question
 acceptance:
   - a disabled configuration performs no timing and constructs no wrapper
   - a dev run logs every generated statement with SQL text, duration, outcome, driver, and transaction depth

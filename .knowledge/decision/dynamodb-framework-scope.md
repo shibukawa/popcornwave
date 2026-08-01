@@ -18,21 +18,23 @@ sent_to_the_driver:
   third: transactions, larger than the other two together
   tracked_in: system:tinygodriver-dynamodb
 assigned_here:
+  all_four_specified: 2026-08-01
   request_reproduction:
     why_framework: the binding layer builds an item and hands it to the driver, so it never sees the request
-    seam: decision:dynamodb-observability-seam already captures the HTTP body, and that body is the exact CLI input
-    advantage_over_sql: rule:query-reproduction-format has to rebuild a parameterized statement; here there is no placeholder to reconstruct, so reproduction is exact by construction
+    specified_by: data:dynamodb-request-record and rule:dynamodb-reproduction-format
   offline_doctor_checks:
     available: the generator reports every bound type and every tag error without a network, and returns artifacts without writing a file
-    framework_half: endpoint reachability and the deployed-versus-generated diff, because rule:dynamodb-table-naming makes the physical name the framework's
-    lands_in: rule:storage-checks, as further PW03xx entries
+    framework_half: endpoint reachability and the deployed-versus-generated diff, because rule:dynamodb-table-naming makes the deployed name the framework's
+    specified_by: rule:storage-checks, as further PW03xx entries
   seed_and_assert:
-    path: decode fixture data with the JSON binder, then EncodeItem; assert by scanning and comparing decoded values
-    consequence: the fixture-to-item direction composes from two existing codecs, so requirement:test-data-seeding needs no DynamoDB engine beside system:dbtestify
+    path: decode fixture data with the JSON binder, then encode through the generated item codec; assert by reading and comparing decoded values
+    specified_by: requirement:dynamodb-test-data
   paging_cursor:
     available: a driver Key round trips through encoding/json without loss, measured over a 38-digit number, high-byte binary, and a NUL-bearing multi-byte string
-    rule: a cursor is a table position and not an authorization, so a signature must cover whatever scoped the query
-    fits: the route query binding, which is why this is a web framework's feature rather than a binding layer's
+    specified_by: requirement:dynamodb-page-cursor
+    signature_question: upstream cautions that a signature must cover whatever scopes the query; that requirement answers it by keeping the scope in the key condition, where a forged cursor cannot reach past it, and by naming the filter case that would change the answer
+beyond_the_four:
+  auth_state: requirement:contrib-auth-state-dynamo, which was never assigned because it is a Popcorn Wave contract with no upstream half at all
 resolved_ask:
   what: a context-resolved form of the generated query function, asked for after v0.2.9
   answered_by: system:tinybind, which carries the client in the context and made the table clause a required part of a declaration

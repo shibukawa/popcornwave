@@ -16,6 +16,7 @@ scope:
   cli: api:cli-seed
   test: api:test-seed
   engine: system:dbtestify through decision:dbtestify-integration
+  other_store: requirement:dynamodb-test-data reuses the dataset format and the two surfaces with an executor of its own, because system:dbtestify speaks database/sql
 constraints:
   - decision:config-driven-database keeps pool ownership with the framework
   - decision:sqlite-backend-selection keeps the sqlite driver in system:tinygodriver

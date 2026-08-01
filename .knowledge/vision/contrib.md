@@ -13,6 +13,7 @@ packages:
   - requirement:contrib-auth-state-memory
   - requirement:contrib-auth-state-redis
   - requirement:contrib-auth-state-sqlite
+  - requirement:contrib-auth-state-dynamo
   - requirement:contrib-cbor
   - requirement:contrib-passkey
   - requirement:contrib-otel

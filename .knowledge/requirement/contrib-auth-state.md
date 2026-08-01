@@ -18,6 +18,7 @@ adapters:
   - requirement:contrib-auth-state-memory
   - requirement:contrib-auth-state-redis
   - requirement:contrib-auth-state-sqlite
+  - requirement:contrib-auth-state-dynamo
 required:
   - Take removes a value atomically before returning it
   - expired values are removed and never returned

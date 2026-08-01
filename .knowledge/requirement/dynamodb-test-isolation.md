@@ -28,10 +28,10 @@ acceptance:
   - a failing test leaves no table behind
   - a call naming a table literally still reaches the run's own prefixed table, because the resolver maps it
   - a suite against the local server needs no AWS account or credential beyond a non-empty placeholder pair
+seeding: requirement:dynamodb-test-data, which loads its baseline into the prefixed table set this requirement created
 non_goals:
   - transactional rollback, which the store does not offer
   - sharing one table set across parallel tests and cleaning items between them
-  - seeding, until requirement:test-data-seeding is extended to this store
 related:
   - requirement:parallel-database-tests
   - api:test-run

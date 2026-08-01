@@ -67,6 +67,7 @@
 {"category": "structure", "id": "data:devidp-config", "path": ".knowledge/data/devidp-config.md", "role": "supporting", "title": "Development IdP Configuration", "type": "data"}
 {"category": "structure", "id": "data:diagnostic-check", "path": ".knowledge/data/diagnostic-check.md", "role": "supporting", "title": "Diagnostic Check", "type": "data"}
 {"category": "structure", "id": "data:diagnostic-report", "path": ".knowledge/data/diagnostic-report.md", "role": "supporting", "title": "Diagnostic Report", "type": "data"}
+{"category": "structure", "id": "data:dynamodb-request-record", "path": ".knowledge/data/dynamodb-request-record.md", "role": "supporting", "title": "DynamoDB Request Record", "type": "data"}
 {"category": "structure", "id": "data:dynamodb-runtime-config", "path": ".knowledge/data/dynamodb-runtime-config.md", "role": "supporting", "title": "DynamoDB Runtime Configuration", "type": "data"}
 {"category": "structure", "id": "data:external-identity", "path": ".knowledge/data/external-identity.md", "role": "supporting", "title": "External OIDC Identity", "type": "data"}
 {"category": "structure", "id": "data:html-render-config", "path": ".knowledge/data/html-render-config.md", "role": "supporting", "title": "HTML Render Runtime Config", "type": "data"}
@@ -229,6 +230,7 @@
 {"category": "objective", "id": "requirement:cli-distribution", "path": ".knowledge/requirement/cli-distribution.md", "role": "primary", "title": "pw CLI Distribution", "type": "requirement"}
 {"category": "objective", "id": "requirement:contrib-acceptance", "path": ".knowledge/requirement/contrib-acceptance.md", "role": "primary", "title": "Contrib Acceptance Criteria", "type": "requirement"}
 {"category": "objective", "id": "requirement:contrib-auth-common", "path": ".knowledge/requirement/contrib-auth-common.md", "role": "primary", "title": "Authentication Security Primitives", "type": "requirement"}
+{"category": "objective", "id": "requirement:contrib-auth-state-dynamo", "path": ".knowledge/requirement/contrib-auth-state-dynamo.md", "role": "primary", "title": "DynamoDB Authentication State Store", "type": "requirement"}
 {"category": "objective", "id": "requirement:contrib-auth-state-memory", "path": ".knowledge/requirement/contrib-auth-state-memory.md", "role": "primary", "title": "In-Memory Authentication State Adapter", "type": "requirement"}
 {"category": "objective", "id": "requirement:contrib-auth-state-redis", "path": ".knowledge/requirement/contrib-auth-state-redis.md", "role": "primary", "title": "Redis Authentication State Store", "type": "requirement"}
 {"category": "objective", "id": "requirement:contrib-auth-state-sqlite", "path": ".knowledge/requirement/contrib-auth-state-sqlite.md", "role": "primary", "title": "SQLite Authentication State Store", "type": "requirement"}
@@ -255,8 +257,10 @@
 {"category": "objective", "id": "requirement:discovered-page-routing", "path": ".knowledge/requirement/discovered-page-routing.md", "role": "primary", "title": "Discovered Page Routing", "type": "requirement"}
 {"category": "objective", "id": "requirement:dynamodb-generation", "path": ".knowledge/requirement/dynamodb-generation.md", "role": "primary", "title": "DynamoDB Code Generation", "type": "requirement"}
 {"category": "objective", "id": "requirement:dynamodb-migration", "path": ".knowledge/requirement/dynamodb-migration.md", "role": "primary", "title": "DynamoDB Schema Application", "type": "requirement"}
+{"category": "objective", "id": "requirement:dynamodb-page-cursor", "path": ".knowledge/requirement/dynamodb-page-cursor.md", "role": "primary", "title": "DynamoDB Page Cursor", "type": "requirement"}
 {"category": "objective", "id": "requirement:dynamodb-session-store", "path": ".knowledge/requirement/dynamodb-session-store.md", "role": "primary", "title": "DynamoDB Session Backend", "type": "requirement"}
 {"category": "objective", "id": "requirement:dynamodb-store", "path": ".knowledge/requirement/dynamodb-store.md", "role": "primary", "title": "DynamoDB Store", "type": "requirement"}
+{"category": "objective", "id": "requirement:dynamodb-test-data", "path": ".knowledge/requirement/dynamodb-test-data.md", "role": "primary", "title": "DynamoDB Seeding And Assertion", "type": "requirement"}
 {"category": "objective", "id": "requirement:dynamodb-test-isolation", "path": ".knowledge/requirement/dynamodb-test-isolation.md", "role": "primary", "title": "Isolated DynamoDB Tests", "type": "requirement"}
 {"category": "objective", "id": "requirement:dynamodb-typed-queries", "path": ".knowledge/requirement/dynamodb-typed-queries.md", "role": "primary", "title": "Declared DynamoDB Queries", "type": "requirement"}
 {"category": "objective", "id": "requirement:environment-switching", "path": ".knowledge/requirement/environment-switching.md", "role": "primary", "title": "Environment Switching", "type": "requirement"}
@@ -282,6 +286,7 @@
 {"category": "objective", "id": "requirement:typed-http-contract", "path": ".knowledge/requirement/typed-http-contract.md", "role": "primary", "title": "Typed HTTP Contract", "type": "requirement"}
 {"category": "objective", "id": "requirement:unhandled-boundary-signal", "path": ".knowledge/requirement/unhandled-boundary-signal.md", "role": "primary", "title": "Unhandled Boundary Signal", "type": "requirement"}
 {"category": "constraint", "id": "rule:configuration-advisories", "path": ".knowledge/rule/configuration-advisories.md", "role": "supporting", "title": "Configuration Advisories", "type": "rule"}
+{"category": "constraint", "id": "rule:dynamodb-reproduction-format", "path": ".knowledge/rule/dynamodb-reproduction-format.md", "role": "supporting", "title": "DynamoDB Reproduction Format", "type": "rule"}
 {"category": "constraint", "id": "rule:dynamodb-table-naming", "path": ".knowledge/rule/dynamodb-table-naming.md", "role": "supporting", "title": "DynamoDB Table Name Resolution", "type": "rule"}
 {"category": "constraint", "id": "rule:explain-dialect-support", "path": ".knowledge/rule/explain-dialect-support.md", "role": "supporting", "title": "EXPLAIN Dialect Support", "type": "rule"}
 {"category": "constraint", "id": "rule:framework-owned-tables", "path": ".knowledge/rule/framework-owned-tables.md", "role": "supporting", "title": "Framework Owned Tables", "type": "rule"}
