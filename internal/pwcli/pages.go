@@ -128,7 +128,7 @@ func pageArtifact(file routetree.Generated) (generator.Artifact, error) {
 		SourcePath:  file.Path,
 		OutputBase:  base,
 		PackageName: parsed.Name.Name,
-		GoSource:    file.Source,
+		Content:     file.Source,
 	}, nil
 }
 

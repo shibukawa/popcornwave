@@ -36,7 +36,7 @@ func TestPWCallsDriveTinyBindGeneration(t *testing.T) {
 	}
 	byKind := map[generator.ArtifactKind]string{}
 	for _, artifact := range artifacts {
-		byKind[artifact.Kind] += string(artifact.GoSource)
+		byKind[artifact.Kind] += string(artifact.Content)
 	}
 	assertContains(t, "binding", byKind[generator.ArtifactBinding], "RegisterBind[request]", "RegisterWrite[response]")
 	assertContains(t, "configbind", byKind[generator.ArtifactConfigBind],

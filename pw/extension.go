@@ -19,6 +19,10 @@ type Middleware = func(http.Handler) http.Handler
 type Slot int
 
 const (
+	// SlotStorage installs storage clients that later slots resolve from the
+	// request context. A session backend reads its store here, so this runs
+	// before SlotSession.
+	SlotStorage Slot = 5
 	// SlotSession resolves stored session state.
 	SlotSession Slot = 10
 	// SlotAuthentication finalizes the request authentication result and owns

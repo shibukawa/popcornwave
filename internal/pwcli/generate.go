@@ -503,7 +503,7 @@ func documentRegistrationArtifact(packageName string) generator.Artifact {
 		Kind:        generator.ArtifactHTMLTemplate,
 		OutputBase:  "document",
 		PackageName: packageName,
-		GoSource: []byte("package " + packageName + `
+		Content: []byte("package " + packageName + `
 
 import "github.com/shibukawa/popcornwave/pw"
 
@@ -534,7 +534,7 @@ func mergeArtifacts(artifacts []generator.Artifact) ([]byte, error) {
 		return nil, fmt.Errorf("popcornwave: no artifacts to merge")
 	}
 	if len(artifacts) == 1 {
-		return artifacts[0].GoSource, nil
+		return artifacts[0].Content, nil
 	}
 	packageName := artifacts[0].PackageName
 	fset := token.NewFileSet()
@@ -544,7 +544,7 @@ func mergeArtifacts(artifacts []generator.Artifact) ([]byte, error) {
 		if artifact.PackageName != packageName {
 			return nil, fmt.Errorf("popcornwave: artifact package mismatch %q and %q", packageName, artifact.PackageName)
 		}
-		file, err := parser.ParseFile(fset, fmt.Sprintf("artifact-%d.go", index), artifact.GoSource, parser.ParseComments)
+		file, err := parser.ParseFile(fset, fmt.Sprintf("artifact-%d.go", index), artifact.Content, parser.ParseComments)
 		if err != nil {
 			return nil, fmt.Errorf("parse %s artifact: %w", artifact.Kind, err)
 		}

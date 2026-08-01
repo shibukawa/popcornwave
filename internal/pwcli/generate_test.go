@@ -104,7 +104,7 @@ func TestMergeArtifactsProducesOneValidGoFile(t *testing.T) {
 	source, err := mergeArtifacts([]generator.Artifact{
 		{
 			PackageName: "fixture",
-			GoSource: []byte(`package fixture
+			Content: []byte(`package fixture
 
 import "fmt"
 
@@ -113,7 +113,7 @@ func first() { fmt.Print("first") }
 		},
 		{
 			PackageName: "fixture",
-			GoSource: []byte(`package fixture
+			Content: []byte(`package fixture
 
 import "strings"
 
