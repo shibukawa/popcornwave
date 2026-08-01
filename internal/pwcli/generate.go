@@ -21,6 +21,8 @@ import (
 	"golang.org/x/mod/modfile"
 )
 
+const generateUsage = "usage: pw generate [--check]"
+
 func runGenerate(ctx context.Context, args []string, stdout io.Writer) error {
 	check := false
 	for _, arg := range args {
@@ -28,7 +30,7 @@ func runGenerate(ctx context.Context, args []string, stdout io.Writer) error {
 		case "--check":
 			check = true
 		default:
-			return fmt.Errorf("generate: unknown argument %q", arg)
+			return fmt.Errorf("generate: unknown argument %q; %s", arg, generateUsage)
 		}
 	}
 	root, err := projectRoot(".")

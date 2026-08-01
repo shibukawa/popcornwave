@@ -17,21 +17,69 @@ import (
 	"github.com/shibukawa/popcornwave/internal/pwenv"
 	"github.com/shibukawa/popcornwave/internal/pwgen"
 	"github.com/shibukawa/popcornwave/plugin/auth"
-	"github.com/shibukawa/popcornwave/plugin/session/rdb"
+	"github.com/shibukawa/popcornwave/sessionstore"
+
+	// The CLI writes a migration in any dialect, so it links every engine the
+	// framework knows rather than the one this machine happens to run.
+	_ "github.com/shibukawa/popcornwave/authstate/mysql"
+	_ "github.com/shibukawa/popcornwave/authstate/postgres"
+	_ "github.com/shibukawa/popcornwave/authstate/sqlite"
+	_ "github.com/shibukawa/popcornwave/sessionstore/mysql"
+	_ "github.com/shibukawa/popcornwave/sessionstore/postgres"
+	_ "github.com/shibukawa/popcornwave/sessionstore/sqlite"
 )
 
-const initUsage = "usage: pw init [<project-name>] [--interactive] [--router=registered|discovered|both] [--tailwind] [--no-tinygo] [--no-devbox] [--no-database] [--db=sqlite|postgres|mysql] [--no-redis] [--auth=none|oidc|passkey] [--devidp]"
+const initUsage = "usage: pw init [<project-name>] [--interactive] [--router=registered|discovered|both] [--tailwind] [--no-tinygo] [--no-devbox] [--no-database] [--db=sqlite|postgres|mysql] [--no-redis] [--auth=none|oidc|oidc-passkey|passkey] [--session=rdb|cookie|redis] [--devidp]"
 
 // Authentication modes the wizard and the --auth flag select between. They map
 // onto the plugin/auth modes, with none meaning no [auth] configuration.
 const (
-	authNone    = "none"
-	authOIDC    = "oidc"
-	authPasskey = "passkey"
+	authNone        = "none"
+	authOIDC        = "oidc"
+	authOIDCPasskey = "oidc-passkey"
+	authPasskey     = "passkey"
+)
+
+// Session storage backends the wizard and the --session flag select between.
+// They are the api:session-backend-plugin names, and each one but cookie is
+// contributed to the binary by a blank import the scaffold writes.
+const (
+	sessionRDB    = "rdb"
+	sessionCookie = "cookie"
+	sessionRedis  = "redis"
 )
 
 // usesOIDC reports whether a mode needs an OpenID Provider.
-func usesOIDC(mode string) bool { return mode == authOIDC }
+func usesOIDC(mode string) bool { return mode == authOIDC || mode == authOIDCPasskey }
+
+// usesPasskey reports whether the mode mounts the ceremony endpoints, which
+// decides whether the project needs a relying-party registration and the
+// browser side that calls navigator.credentials.
+func usesPasskey(mode string) bool { return mode == authOIDCPasskey || mode == authPasskey }
+
+// sessionBackend is the selected backend. An options value built without the
+// answer, which every pre-session caller is, scaffolds the default.
+func sessionBackend(options initOptions) string {
+	if options.Session == "" {
+		return sessionRDB
+	}
+	return options.Session
+}
+
+// sessionBackendPlugin names the import that registers a backend. The cookie
+// backend is built into pw, so it needs none.
+func sessionBackendPlugin(backend, engine string) string {
+	switch backend {
+	case sessionRDB:
+		// A SQL store is one package per engine, because no engine reads
+		// another's DDL.
+		return "github.com/shibukawa/popcornwave/sessionstore/" + engineDialect(engine)
+	case sessionRedis:
+		return "github.com/shibukawa/popcornwave/sessionstore/redis"
+	default:
+		return ""
+	}
+}
 
 // Router answers of pw init. The two routers coexist on one mux, so this
 // decides which of them the scaffold writes rather than how the framework
@@ -109,6 +157,9 @@ type initOptions struct {
 	// project already standardized on Nix, Docker, or asdf wants.
 	Devbox bool
 	Auth   string
+	// Session selects where login sessions are stored. It only applies to a
+	// project that scaffolds a login.
+	Session string
 	// AuthEmulator scaffolds the development identity provider instead of
 	// pointing the project at an external one. It only applies to an OIDC mode.
 	AuthEmulator bool
@@ -128,6 +179,7 @@ func defaultInitOptions() initOptions {
 		Engine:   engineSQLite,
 		Redis:    true,
 		Auth:     authNone,
+		Session:  sessionRDB,
 	}
 }
 
@@ -166,6 +218,16 @@ func parseInitArgs(args []string) (initOptions, error) {
 		case "--no-devidp":
 			options.AuthEmulator = false
 		default:
+			if backend, ok := strings.CutPrefix(arg, "--session="); ok {
+				switch backend {
+				case sessionRDB, sessionCookie, sessionRedis:
+					options.Session = backend
+				default:
+					return initOptions{}, fmt.Errorf("init: --session must be %s, %s, or %s",
+						sessionRDB, sessionCookie, sessionRedis)
+				}
+				continue
+			}
 			if engine, ok := strings.CutPrefix(arg, "--db="); ok {
 				if !validEngine(engine) {
 					return initOptions{}, fmt.Errorf("init: --db must be %s", engineNames())
@@ -184,11 +246,11 @@ func parseInitArgs(args []string) (initOptions, error) {
 			}
 			if mode, ok := strings.CutPrefix(arg, "--auth="); ok {
 				switch mode {
-				case authNone, authOIDC, authPasskey:
+				case authNone, authOIDC, authOIDCPasskey, authPasskey:
 					options.Auth = mode
 				default:
-					return initOptions{}, fmt.Errorf("init: --auth must be %s, %s, or %s",
-						authNone, authOIDC, authPasskey)
+					return initOptions{}, fmt.Errorf("init: --auth must be %s, %s, %s, or %s",
+						authNone, authOIDC, authOIDCPasskey, authPasskey)
 				}
 				continue
 			}
@@ -213,12 +275,29 @@ func parseInitArgs(args []string) (initOptions, error) {
 		options.Redis = false
 	}
 	if !options.Database && servesLogin(options) {
-		return initOptions{}, fmt.Errorf("init: --auth=%s stores its login sessions in the database; drop --no-database", options.Auth)
+		// The login ceremony and admission tables are server state in every
+		// session backend, so authentication needs the database whichever one
+		// stores the sessions themselves.
+		return initOptions{}, fmt.Errorf("init: --auth=%s keeps its login ceremony and allowlist tables in the database; drop --no-database", options.Auth)
 	}
 	if !options.Database && engineSelected {
 		return initOptions{}, errors.New("init: --db selects the database engine; drop --no-database")
 	}
+	options = normalizeSession(options)
 	return options, nil
+}
+
+// normalizeSession settles what the session backend implies. A Redis-backed
+// session wants the development server that serves it, and a project without a
+// login stores no sessions at all.
+func normalizeSession(options initOptions) initOptions {
+	if !servesLogin(options) {
+		return options
+	}
+	if sessionBackend(options) == sessionRedis && options.Devbox {
+		options.Redis = true
+	}
+	return options
 }
 
 // interactiveTerminal reports whether the wizard can drive the current session.
@@ -292,6 +371,12 @@ func runInit(args []string, stdout io.Writer) error {
 	if declined := declinedCapabilities(options); len(declined) > 0 {
 		fmt.Fprintf(stdout, "\nNot included: %s\n  pw add <capability> enables one later\n",
 			strings.Join(declined, ", "))
+	}
+	// The cookie backend seals its records under a secret the project cannot
+	// invent for itself, so an operator has to supply one before the first run.
+	if servesLogin(options) && sessionBackend(options) == sessionCookie {
+		fmt.Fprint(stdout, "\nThe cookie session backend needs its sealing secret:\n"+
+			"  export SESSION_COOKIE_SECRET=$(openssl rand -base64 32)\n")
 	}
 	if notice := databaseEngineNotice(options); notice != "" {
 		fmt.Fprint(stdout, notice)
@@ -580,23 +665,54 @@ import _ "github.com/shibukawa/tinygodriver/netdev"
 		files[defaultTailwindInput] = tailwindEntryScaffold(scaffoldGenerationScope(options))
 		files[defaultTailwindOutput] = "/* Generated by Tailwind CSS. */\n"
 	}
-	if options.AuthEmulator {
+	// The emulator is an OpenID Provider, so a mode without one never gets a
+	// roster even if the option survived from an earlier answer.
+	if options.AuthEmulator && usesOIDC(options.Auth) {
 		files[defaultIdPConfig] = devIdPRoster()
 	}
+	if usesPasskey(options.Auth) {
+		files["public/passkey.js"] = passkeyBrowserScaffold(options)
+	}
 	if servesLogin(options) {
-		files["handlers/accounts.go"] = accountResolverScaffold()
+		files["public/presence.js"] = presenceBrowserScaffold()
+	}
+	if servesLogin(options) {
+		files["handlers/accounts.go"] = accountsScaffold(options)
 		// The framework tables come from the packages that own them. A fresh
 		// project has only the application schema, so these take the versions
 		// after it; pw add would take whatever is free at that point instead.
-		files["migrations/00002_"+rdb.MigrationName+".sql"] = rdb.MigrationSQL("popcornwave_session")
-		files["migrations/00003_"+auth.MigrationName+".sql"] = auth.MigrationSQL()
+		// Only the rdb backend owns a table: a cookie or Redis session leaves
+		// the numbering to the auth migration alone.
+		version := 2
+		dialect := engineDialect(options.Engine)
+		if sessionBackend(options) == sessionRDB {
+			// A migration is written in the dialect of the engine this project
+			// selected, because no engine reads another's DDL.
+			migration, err := sessionstore.MigrationSQL(dialect, "popcornwave_session")
+			if err != nil {
+				panic(err)
+			}
+			files["migrations/00002_"+sessionstore.MigrationName+".sql"] = migration
+			version = 3
+		}
+		authMigration, err := auth.MigrationSQL(dialect)
+		if err != nil {
+			panic(err)
+		}
+		files[fmt.Sprintf("migrations/0000%d_%s.sql", version, auth.MigrationName)] = authMigration
 	}
 	return files
 }
 
-// servesLogin reports whether the framework mounts the authentication
-// endpoints for this project. Only the OIDC modes have an implementation.
-func servesLogin(options initOptions) bool { return usesOIDC(options.Auth) }
+// servesLogin reports whether the framework mounts authentication endpoints for
+// this project.
+// servesLogin reports whether the framework mounts authentication endpoints for
+// this project. An unset answer reads as none, the way effectiveRouter reads an
+// unset router: a caller that never asked gets the shape it had before the
+// question existed.
+func servesLogin(options initOptions) bool {
+	return options.Auth != "" && options.Auth != authNone
+}
 
 // databaseRuntimeConfig writes the rdb section the scaffolded migrations and
 // queries need. A project that declined the database has neither, so the
@@ -624,6 +740,26 @@ connect_timeout = "5s"
 max_open_conns = ` + strconv.Itoa(engine.MaxOpenConns) + `
 max_idle_conns = ` + strconv.Itoa(engine.MaxIdleConns) + `
 `
+}
+
+// sessionBackendImport contributes the storage the configuration selects.
+// Session storage is opt-in by blank import, so an application links the one
+// backend it configured and nothing else. The cookie backend is built into pw
+// and needs no line here.
+func sessionBackendImport(options initOptions) string {
+	if !servesLogin(options) {
+		return ""
+	}
+	imports := ""
+	if plugin := sessionBackendPlugin(sessionBackend(options), options.Engine); plugin != "" {
+		imports += "\n\t// session.backend = \"" + sessionBackend(options) +
+			"\" is served by this import; storage is opt-in.\n\t_ " + strconv.Quote(plugin)
+	}
+	// The login ceremony records live in the database whichever backend holds
+	// the sessions, so their engine is imported for every login.
+	imports += "\n\t// The single-use login records this engine stores.\n\t_ " +
+		strconv.Quote("github.com/shibukawa/popcornwave/authstate/"+engineDialect(options.Engine))
+	return imports
 }
 
 // projectDatabaseConfig records the engine .pw.sql sources are generated for.
@@ -657,26 +793,159 @@ func authBootstrap(options initOptions) string {
 	if !servesLogin(options) {
 		return ""
 	}
-	return "\n\t// Installed before Run: the framework calls it during the OIDC callback.\n\thandlers.RegisterAccountResolver()"
+	return "\n\t// Installed before Run: the framework calls these while it serves a login.\n\thandlers.RegisterAccounts()"
 }
 
-// accountResolverScaffold links a verified identity to an application account.
-// The starter derives the account from the identity itself, so a new project
-// logs in before it has an account table; the comment names the seam.
-func accountResolverScaffold() string {
-	return `package handlers
+// passkeyBrowserScaffold is the browser half of a ceremony. The framework
+// serves the endpoints but cannot run navigator.credentials for the page, so a
+// project needs this much script; it has no dependencies and is meant to be
+// read and replaced.
+func passkeyBrowserScaffold(options initOptions) string {
+	bootstrap := ""
+	if options.Auth == authPasskey {
+		bootstrap = `
+// redeemBootstrap trades an administrator-issued login ID and one-time secret
+// for one restricted enrollment. It creates no session: finishing the
+// registration is what signs the account in.
+export async function redeemBootstrap(loginId, secret) {
+  await post("/auth/passkey/bootstrap", { login_id: loginId, secret });
+  return register();
+}
 
-import (
-	"context"
+wire("passkey-bootstrap", (form) => {
+  const data = new FormData(form);
+  return redeemBootstrap(data.get("login_id"), data.get("secret"));
+});
+`
+	}
+	return `// Passkey ceremonies, driven from the page.
+//
+// The framework serves /auth/passkey/*; this file only converts between the
+// Base64url the endpoints speak and the ArrayBuffers the WebAuthn API wants,
+// which is the whole reason a script is needed at all.
 
-	"github.com/shibukawa/popcornwave/plugin/auth"
-)
+const decode = (value) => {
+  const padded = value.replace(/-/g, "+").replace(/_/g, "/");
+  const binary = atob(padded + "=".repeat((4 - (padded.length % 4)) % 4));
+  return Uint8Array.from(binary, (c) => c.charCodeAt(0));
+};
 
-// RegisterAccountResolver installs the account resolver. Call it from main
-// before pw.Run: the framework verifies the OIDC identity and then asks this
-// function which local account it belongs to.
-func RegisterAccountResolver() { auth.SetAccountResolver(resolveAccount) }
+const encode = (buffer) =>
+  btoa(String.fromCharCode(...new Uint8Array(buffer)))
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/, "");
 
+async function post(path, body) {
+  const response = await fetch(path, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    // The endpoints are same-origin only, and a session cookie has to travel.
+    credentials: "same-origin",
+    body: JSON.stringify(body ?? {}),
+  });
+  if (!response.ok) {
+    throw new Error("passkey: " + path + " failed with " + response.status);
+  }
+  return response.json();
+}
+
+// register adds a passkey to the account this browser is already allowed to
+// enroll for.
+export async function register() {
+  const options = await post("/auth/passkey/register/begin");
+  const credential = await navigator.credentials.create({
+    publicKey: {
+      ...options,
+      challenge: decode(options.challenge),
+      user: { ...options.user, id: decode(options.user.id) },
+      excludeCredentials: (options.excludeCredentials ?? []).map((c) => ({
+        ...c,
+        id: decode(c.id),
+      })),
+    },
+  });
+  return post("/auth/passkey/register/finish", {
+    id: credential.id,
+    rawId: encode(credential.rawId),
+    type: credential.type,
+    response: {
+      clientDataJSON: encode(credential.response.clientDataJSON),
+      attestationObject: encode(credential.response.attestationObject),
+      transports: credential.response.getTransports?.() ?? [],
+    },
+  });
+}
+
+// login signs in with a passkey. No user name is asked for: the credential
+// itself names the account.
+export async function login() {
+  const options = await post("/auth/passkey/login/begin");
+  const assertion = await navigator.credentials.get({
+    publicKey: {
+      ...options,
+      challenge: decode(options.challenge),
+      allowCredentials: (options.allowCredentials ?? []).map((c) => ({
+        ...c,
+        id: decode(c.id),
+      })),
+    },
+  });
+  return post("/auth/passkey/login/finish", {
+    id: assertion.id,
+    rawId: encode(assertion.rawId),
+    type: assertion.type,
+    response: {
+      clientDataJSON: encode(assertion.response.clientDataJSON),
+      authenticatorData: encode(assertion.response.authenticatorData),
+      signature: encode(assertion.response.signature),
+      userHandle: assertion.response.userHandle
+        ? encode(assertion.response.userHandle)
+        : undefined,
+    },
+  });
+}
+
+// wire binds a control by id, so the page needs no inline script and the
+// template stays free of JavaScript.
+function wire(id, run) {
+  const element = document.getElementById(id);
+  if (!element) return;
+  const event = element.tagName === "FORM" ? "submit" : "click";
+  element.addEventListener(event, async (e) => {
+    e.preventDefault();
+    try {
+      await run(element);
+      location.reload();
+    } catch (error) {
+      const status = document.getElementById("passkey-status");
+      if (status) status.textContent = String(error.message ?? error);
+    }
+  });
+}
+
+wire("passkey-login", login);
+wire("passkey-register", register);
+` + bootstrap
+}
+
+// accountsScaffold wires the account seams the selected mode needs. Each one is
+// a small function the framework calls; the application owns account storage.
+func accountsScaffold(options initOptions) string {
+	imports := "\t\"context\"\n\n\t\"github.com/shibukawa/popcornwave/plugin/auth\"\n"
+	body := "// RegisterAccounts installs the account seams. Call it from main before\n// pw.Run.\nfunc RegisterAccounts() {\n"
+	if usesOIDC(options.Auth) {
+		body += "\tauth.SetAccountResolver(resolveAccount)\n"
+	}
+	if usesPasskey(options.Auth) {
+		body += "\tauth.SetAccountLookup(lookupAccount)\n"
+	}
+	if options.Auth == authPasskey {
+		body += "\tauth.SetAccountActivator(activateAccount)\n"
+	}
+	body += "}\n"
+	if usesOIDC(options.Auth) {
+		body += `
 // resolveAccount answers with the account behind a verified identity.
 //
 // This starter derives one instead of storing it, which is enough to log in
@@ -696,6 +965,42 @@ func resolveAccount(ctx context.Context, identity auth.Identity, provision bool)
 	}, nil
 }
 `
+	}
+	if usesPasskey(options.Auth) {
+		body += `
+// lookupAccount answers with the account behind a stable identifier.
+//
+// A passkey assertion resolves a credential to an account ID, which is the
+// opposite direction from resolveAccount, so the framework asks here instead.
+// Replace it with a read from your own table; returning the identifier alone
+// is enough to authenticate but shows the user no name.
+func lookupAccount(ctx context.Context, accountID string) (auth.Account, error) {
+	return auth.Account{ID: accountID, DisplayName: accountID}, nil
+}
+`
+	}
+	if options.Auth == authPasskey {
+		body += `
+// activateAccount marks a provisional account usable. The framework runs it
+// inside the transaction that persists the first passkey, so an account never
+// becomes active without a credential and never gains a credential without
+// becoming active. Replace the body with your own UPDATE.
+func activateAccount(ctx context.Context, accountID string) error {
+	return nil
+}
+
+// IssueFirstPasskey provisions the login ID and one-time secret that open one
+// passkey enrollment, and returns the secret for delivery out of band.
+//
+// The secret is returned exactly once and is never stored; only its digest is.
+// Put this behind administrator authorization before exposing it: anyone who
+// can call it can enroll a credential for any account.
+func IssueFirstPasskey(ctx context.Context, loginID, accountID string) (string, error) {
+	return auth.IssueBootstrapCredential(ctx, loginID, accountID, auth.PurposeInitialPasskey)
+}
+`
+	}
+	return "package handlers\n\nimport (\n" + imports + ")\n\n" + body
 }
 
 // homeHandlerScaffold renders the starter page. With authentication it reads
@@ -714,7 +1019,7 @@ type homeInput struct {
 	Name string ` + "`query:\"name\" default:\"World\"`" + `
 }
 
-func init() { mux.HandleFunc("GET /", home) }
+func init() { mux.HandleFunc("GET /{$}", home) }
 
 func home(w http.ResponseWriter, r *http.Request) {
 	input, err := pw.Parse[homeInput](r)
@@ -736,7 +1041,7 @@ import (
 	"github.com/shibukawa/popcornwave/pw"
 )
 
-func init() { mux.HandleFunc("GET /", home) }
+func init() { mux.HandleFunc("GET /{$}", home) }
 
 func home(w http.ResponseWriter, r *http.Request) {
 	// The framework resolved the session before this handler ran.
@@ -749,14 +1054,25 @@ func home(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	pw.WriteHTML(w, r, Home(HomeParams{
-		Name:       name,
-		SignedIn:   signedIn,
-		Email:      user.Email,
-		LoginPath:  url.URL{Path: "/auth/login"},
-		LogoutPath: url.URL{Path: "/auth/logout"},
+		Name:        name,
+		SignedIn:    signedIn,
+		Email:       user.Email,
+		LoginPath:   url.URL{Path: "/auth/login"},
+		LogoutPath:  url.URL{Path: "/auth/logout"},
+		Passkey:     ` + passkeyLiteral(usesPasskey(options.Auth)) + `,
+		ProviderLogin: ` + passkeyLiteral(usesOIDC(options.Auth)) + `,
+		Bootstrap:   ` + passkeyLiteral(options.Auth == authPasskey) + `,
 	}))
 }
 `
+}
+
+// passkeyLiteral renders a Go bool literal for the scaffold.
+func passkeyLiteral(value bool) string {
+	if value {
+		return "true"
+	}
+	return "false"
 }
 
 // homeTemplateScaffold renders the starter page. The logout control is a form
@@ -772,15 +1088,40 @@ export component Home(name: string): html {
 	}
 	return `package handlers
 
-export component Home(name: string, signedIn: bool, email: string, loginPath: url, logoutPath: url): html {
+export component Home(name: string, signedIn: bool, email: string, loginPath: url, logoutPath: url, passkey: bool, providerLogin: bool, bootstrap: bool): html {
 <h1 class="text-3xl font-bold">Hello, {name}</h1>
 {if signedIn}
   <p>Signed in as {email}</p>
+  {if passkey}
+    <p><button type="button" id="passkey-register">Add a passkey</button></p>
+  {/if}
   <form method="post" action={logoutPath}>
     <button type="submit">Sign out</button>
   </form>
+  <!-- Signing out keeps the session at the identity provider and makes the next
+       sign-in here ask again, which is what auth.oidc.logout_scope defaults to.
+       To offer a sign-out-everywhere control as well, set
+       auth.oidc.allow_global_logout_request and add a second form posting to
+       the same path with <input type="hidden" name="scope" value="global">. -->
 {else}
-  <p><a href={loginPath}>Sign in</a></p>
+  {if providerLogin}
+    <p><a href={loginPath}>Sign in</a></p>
+  {/if}
+  {if passkey}
+    <p><button type="button" id="passkey-login">Sign in with a passkey</button></p>
+  {/if}
+  {if bootstrap}
+    <form id="passkey-bootstrap">
+      <p>First sign-in: use the login ID and one-time secret an administrator issued.</p>
+      <input name="login_id" placeholder="login ID">
+      <input name="secret" type="password" placeholder="one-time secret">
+      <button type="submit">Enroll a passkey</button>
+    </form>
+  {/if}
+{/if}
+{if passkey}
+  <p id="passkey-status"></p>
+  <script type="module" src="/public/passkey.js"></script>
 {/if}
 }
 `
@@ -788,7 +1129,7 @@ export component Home(name: string, signedIn: bool, email: string, loginPath: ur
 
 // devIdPProjectConfig enables the development identity provider for pw dev.
 func devIdPProjectConfig(options initOptions) string {
-	if !options.AuthEmulator {
+	if !options.AuthEmulator || !usesOIDC(options.Auth) {
 		return ""
 	}
 	return `
@@ -825,19 +1166,100 @@ role = "member"
 // supplies them.
 func authRuntimeConfig(options initOptions) string {
 	if !servesLogin(options) {
-		if options.Auth == authPasskey {
-			// Recorded, not enabled: no implementation exists yet, and an
-			// enabled mode without one fails at startup.
-			return `
-# Passkey-only login has no implementation yet. Enable it once one is
-# registered; plugin/auth rejects the mode today.
-# [auth]
-# enabled = true
-# mode = "passkey_only"
-`
-		}
 		return ""
 	}
+	// The browser token is opaque in every backend; this selects where the
+	// record behind it lives. A backend other than cookie reaches the binary
+	// through the blank import in main.
+	section := `
+[session]
+enabled = true
+backend = "` + sessionBackend(options) + `"
+ttl = "12h"
+idle_timeout = "1h"
+cookie.name = "pw_session"
+# Loopback development only. Keep secure = true everywhere else.
+cookie.secure = false
+` + sessionBackendConfig(options) + `
+
+# The framework serves every authentication path itself, so the application
+# registers no authentication route. Logout is POST only.
+[auth]
+enabled = true
+mode = "` + authConfigMode(options.Auth) + `"
+post_login_path = "/"
+# Opt in per path; everything else stays public.
+protection.include = []
+protection.unauthenticated = "redirect"
+`
+	if usesPasskey(options.Auth) {
+		section += authPasskeyConfig(options)
+	}
+	if usesOIDC(options.Auth) {
+		section += authOIDCConfig(options)
+	}
+	return section
+}
+
+// authConfigMode maps the scaffold choice onto the plugin/auth mode name.
+func authConfigMode(mode string) string {
+	switch mode {
+	case authOIDCPasskey:
+		return "oidc_passkey"
+	case authPasskey:
+		return "passkey_only"
+	default:
+		return "oidc_only"
+	}
+}
+
+// authPasskeyConfig writes the relying-party registration and the account
+// lifecycle policies the selected mode requires.
+func authPasskeyConfig(options initOptions) string {
+	lifecycle := `
+# Two login methods, so a lost passkey is recoverable through the provider.
+recovery.policy = "oidc"
+`
+	if options.Auth == authPasskey {
+		// Nothing can stand in for a provider, so both policies are explicit
+		// and the issued credential is bounded.
+		lifecycle = `
+# No provider can stand in for either policy, so both are chosen here. An
+# administrator issues the login ID and one-time secret that open a first
+# enrollment; see handlers/accounts.go.
+registration.policy = "administrator"
+recovery.policy = "administrator"
+# How long an issued secret stays redeemable, measured from issuance: it spans
+# delivery, so it is the longer of the two.
+bootstrap.issue_ttl = "24h"
+# How long the enrollment stays open after a successful redemption: it spans one
+# ceremony at the keyboard, so it is short. A redemption grants a ticket for one
+# registration, not a session, so the request stays unauthenticated until the
+# registration finishes.
+bootstrap.enrollment_ttl = "10m"
+bootstrap.max_attempts = 5
+`
+	}
+	return lifecycle + `# How recently a request must have authenticated before it may add or remove a
+# login method.
+recent_auth_max_age = "5m"
+
+# A relying party is scoped to a domain. "localhost" is a secure origin for
+# WebAuthn without TLS, which is why development needs no certificate; an IP
+# literal such as 127.0.0.1 can never be an RP ID.
+[auth.passkey]
+rp_id = "localhost"
+rp_name = "` + options.Name + `"
+origins = ["http://localhost:8080"]
+user_verification = "required"
+discoverable = "preferred"
+`
+}
+
+// authOIDCConfig writes the provider registration. The values stay empty for
+// the emulator because pw dev injects them, and the application refuses to
+// start if neither the file nor the environment supplies them.
+func authOIDCConfig(options initOptions) string {
 	provider := `
 # Supply these from the environment in every deployed environment:
 # AUTH_OIDC_ISSUER, AUTH_OIDC_CLIENT_ID, AUTH_OIDC_CLIENT_SECRET.
@@ -855,39 +1277,53 @@ client_secret = ""`
 		loopback = "true"
 	}
 	return `
-# Login sessions are opaque and server-side; the rdb backend stores them in the
-# database configured above.
-[session]
-enabled = true
-backend = "rdb"
-ttl = "12h"
-idle_timeout = "1h"
-cookie.name = "pw_session"
-# Loopback development only. Keep secure = true everywhere else.
-cookie.secure = false
-rdb.source = "middleware"
-
-# The framework serves login_path, callback_path, and logout_path itself, so
-# the application registers no authentication route. Logout is POST only.
-[auth]
-enabled = true
-mode = "oidc_only"
-post_login_path = "/"
-# Opt in per path; everything else stays public.
-protection.include = []
-protection.unauthenticated = "redirect"
-
 [auth.oidc]` + provider + `
-redirect_url = "http://127.0.0.1:8080/auth/callback"
+redirect_url = "` + authDevelopmentOrigin(options) + `/auth/callback"
 scopes = ["profile", "email"]
 identity_claim = "sub"
 admission = "authenticated"
 auto_provision = true
-# Sign out of the provider as well. Without it the provider stays signed in and
-# the next login returns the same user without asking.
-provider_logout = true
+# What a logout does to the provider session, which is shared with every other
+# application signed in through it.
+#   reconfirm: keep it, and make the next login here ask again
+#   global:    end it, signing the user out of those applications too
+logout_scope = "reconfirm"
 allow_loopback_http = ` + loopback + `
 `
+}
+
+// authDevelopmentOrigin is the origin the browser uses in development. A
+// passkey mode must be reached by name rather than by address, because the RP
+// ID is a domain and the origin has to sit inside it.
+func authDevelopmentOrigin(options initOptions) string {
+	if usesPasskey(options.Auth) {
+		return "http://localhost:8080"
+	}
+	return "http://127.0.0.1:8080"
+}
+
+// sessionBackendConfig writes the keys of the selected backend and only those:
+// keys of a backend nothing opens would describe storage that is not there.
+func sessionBackendConfig(options initOptions) string {
+	switch sessionBackend(options) {
+	case sessionCookie:
+		return `# The record is sealed into a second cookie, so this deployment stores no
+# sessions at all. Generate the secret with: openssl rand -base64 32
+# Keep it in the environment. During a rotation the old value moves into
+# cookie_store.previous_secrets, which keeps issued records readable.
+cookie_store.secret = "${SESSION_COOKIE_SECRET}"
+`
+	case sessionRedis:
+		return `# Redis or Valkey holds each record under its own TTL, so no sweep runs.
+redis.dsn = "redis://127.0.0.1:6379/0"
+redis.key_prefix = "pw:session:"
+`
+	default:
+		return `# The session table lives in the database configured above, created by the
+# scaffolded migration.
+rdb.source = "middleware"
+`
+	}
 }
 
 // projectToolchain names the compiler the project is scaffolded for.
@@ -931,7 +1367,7 @@ func mainScaffold(options initOptions) string {
 	return `package main
 
 import (
-` + imports + databaseDriverImport(options) + `
+` + imports + databaseDriverImport(options) + sessionBackendImport(options) + `
 )
 
 func main() {` + authBootstrap(options) + `
@@ -1064,6 +1500,65 @@ func quotedList(values []string) string {
 		quoted[index] = strconv.Quote(value)
 	}
 	return strings.Join(quoted, ", ")
+}
+
+// presenceBrowserScaffold writes the browser half of auth.assurance.presence.
+//
+// Include it from a page only when that setting is on. It reports one bit per
+// tick, so nothing about what the user did leaves the browser and behavioral
+// analysis is impossible rather than merely discouraged.
+func presenceBrowserScaffold() string {
+	return `// Reports whether anybody is at the keyboard, so a session ends when a person
+// leaves rather than when requests stop arriving. Those are different things: a
+// page holding a live connection keeps requesting with nobody there, and a
+// person reading one page for an hour requests nothing at all.
+//
+// What is sent is one boolean per tick and, when the clock jumped, how far.
+// No key, no coordinate, and no timing pattern leaves this file.
+
+const INTERVAL_MS = 60_000;
+
+// Set by any input and cleared by each report, so the whole of the state is
+// "did anything happen since last time".
+let active = false;
+let lastTick = Date.now();
+
+const mark = () => { active = true; };
+for (const type of ["pointerdown", "pointermove", "keydown", "wheel", "scroll", "touchstart"]) {
+  // Passive, and it returns immediately once the flag is set, so even
+  // pointermove costs nothing measurable.
+  addEventListener(type, mark, { passive: true });
+}
+// A tab becoming visible is interaction; becoming hidden is not, and is left to
+// the tick to notice.
+addEventListener("visibilitychange", () => { if (!document.hidden) mark(); });
+
+async function tick() {
+  const now = Date.now();
+  // Nothing reports a machine waking. A gap far larger than the interval is
+  // how it is inferred, and it counts as absence rather than as presence.
+  const gap = Math.max(0, Math.round((now - lastTick - INTERVAL_MS) / 1000));
+  lastTick = now;
+  const report = { active, gap };
+  active = false;
+  try {
+    const response = await fetch("/auth/logout/presence", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(report),
+      credentials: "same-origin",
+    });
+    // The server ends the session when it decides nobody is here. Reloading
+    // lands on whatever an anonymous visitor sees.
+    if (response.status === 401 || response.status === 403) location.reload();
+  } catch {
+    // A failed report is not a presence claim. The server treats silence as
+    // absence, which is the safe direction.
+  }
+}
+
+setInterval(tick, INTERVAL_MS);
+`
 }
 
 func errorTemplate(pkg, component, title string) string {

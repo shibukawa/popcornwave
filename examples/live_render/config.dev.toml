@@ -1,0 +1,21 @@
+# Development configuration, selected by APP_ENV=dev (the default).
+
+[observability]
+minimum_level = "debug"
+service_name = "live_render"
+
+# Live delivery depends on streaming: a buffered document settles its live
+# boundaries in place and writes no placeholder a delivery could replace. Set
+# live = false to watch the same page render once and stay valid, which is what
+# shedding this load looks like.
+[html]
+streaming = true
+async_timeout = "3s"
+live = true
+# Short here so a reconnect is something you can watch rather than wait out. A
+# deployment would leave these at their defaults, 10m and 5m.
+live_max_duration = "30s"
+live_idle_timeout = "20s"
+
+[middleware]
+compression = true

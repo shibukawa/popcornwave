@@ -118,6 +118,16 @@ func engineFor(name string) databaseEngine {
 	return databaseEngines[engineSQLite]
 }
 
+// engineDialect is the engine a project's migrations are written for. It is
+// the same string the store dialects register under, and an unset value means
+// the scaffold default.
+func engineDialect(name string) string {
+	if _, known := databaseEngines[name]; known {
+		return name
+	}
+	return engineSQLite
+}
+
 // validEngine reports whether a name selects an engine the scaffold knows.
 func validEngine(name string) bool {
 	_, known := databaseEngines[name]

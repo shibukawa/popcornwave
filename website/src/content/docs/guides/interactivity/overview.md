@@ -45,8 +45,63 @@ library look identical to the reader, and only one of them can break.
 | Navigation that feels instant | speculation rules | [Navigation](/guides/interactivity/navigation/) |
 | Filter, inline edit, live list | fragment swap | [Fragments and islands](/guides/interactivity/fragments/) |
 | Dialog whose contents come from the server | fragment swap into a `<dialog>` | [Fragments and islands](/guides/interactivity/fragments/) |
+| Region that is slow to produce | `await` boundary | [Async rendering](/guides/cross-layer/async-rendering/) |
+| Region that changes with nobody watching | live boundary | [Live rendering](/guides/cross-layer/live-rendering/) |
 | Client-only state, drag, canvas | a custom element | [Fragments and islands](/guides/interactivity/fragments/) |
 | Optimistic update, offline edit | — | not this framework |
+
+## Who moves first
+
+Every row in that table begins with the reader: a click, a keystroke, a hover.
+Two things an interface needs do not begin there, and they are the two places
+where this framework has more to offer than a client-rendered one rather than
+less.
+
+The first is a region the server cannot produce quickly. The reader has already
+asked for the page; the page is what is late. A component framework answers this
+with a loading state per region — client state to hold it, a fetch to fill it, a
+spinner you wrote, and a waterfall if one fetch depends on another. An `await`
+boundary answers it with a `fallback` written beside the content it stands in
+for. The shell and every fallback commit immediately, each slow region replaces
+itself over the same response as its data settles, and the slow dependencies
+behind them overlap instead of queueing. No client state describes any of it.
+A crawler or a CLI client, which runs nothing, is served the settled document
+instead — so what gets indexed is the page rather than the word "loading." A
+browser with scripting turned off is the one case that keeps the fallbacks,
+which is the ordinary reason to write a fallback worth reading.
+
+The second is a value that changes while nobody is touching the page: a queue
+depth, a build that finishes, a message somebody else sent. The instinct here is
+`hx-trigger="every 2s"`, and it works — at the price of asking a question whose
+answer is usually "nothing changed." Every open tab pays that price on its own
+timer, and the interval is a guess between two failures: too short wastes
+requests, too long leaves the number stale. A live boundary inverts the
+direction. A Go source yields when it has something to say, the server re-renders
+that one region, and the connection carrying it is already open. The template is
+the same `await` clause; the browser applies the delivery through the runtime it
+already loads. A reader with no script still sees one real render of the region,
+because the document commits the source's first value before it ends.
+
+| What moved | Who asked | What you write | Where |
+| --- | --- | --- | --- |
+| The reader | the reader | a swap, or nothing at all | this section |
+| The page is slow to render | the reader, once | `async` parameter, `await`, `fallback` | [Async rendering](/guides/cross-layer/async-rendering/) |
+| The data, on its own | nobody | `external live` source, same `await` clause | [Live rendering](/guides/cross-layer/live-rendering/) |
+
+Neither is free, and their costs land somewhere a frontend developer does not
+usually look. An `await` boundary gives up `Content-Length`, and its compression
+flushes per boundary rather than once. A live boundary costs one open connection
+per screen and one page execution per reconnect — server load rather than client
+complexity, and a dashboard watched by two hundred people is two hundred renders
+per tick rather than two hundred polls every two seconds.
+
+One rule matters more than the rest when you design with them. A live region is
+replaced on the server's clock, while the reader is doing something else, so it
+renders output and never input: a `form`, `input`, `textarea`, or `select` inside
+a live clause is a generation error rather than a runtime surprise. The form
+stays outside the boundary and the changing data goes inside it — which is the
+same split that keeps focus and selection intact, and the reason this is a
+compiler rule instead of advice.
 
 ## Appearance is a separate axis
 
@@ -62,7 +117,7 @@ tier and the CSS tier be used at the same time rather than as alternatives.
 
 ## What the framework does contribute
 
-Two things, both of which the pages that follow lean on:
+Four things, all of which the pages that follow lean on:
 
 - **`pw.WriteHTMLFragment`** renders one template and nothing else, so a region
   can be re-rendered by the same component that first drew it. See
@@ -70,12 +125,15 @@ Two things, both of which the pages that follow lean on:
   for a full application built on it.
 - **Async rendering** streams a page whose slow parts arrive later, which
   removes a whole class of client-side loading state. See
-  [Async rendering](/advanced/async-rendering/).
+  [Async rendering](/guides/cross-layer/async-rendering/).
+- **Live rendering** keeps re-rendering one region for as long as the reader
+  holds the page open, which removes the polling that would otherwise stand in
+  for it. See [Live rendering](/guides/cross-layer/live-rendering/).
 - **A checked address for a mutation**, inside a page tree: `server-action`
   resolves the name of a Go handler to a generated endpoint, so a renamed
   function fails generation instead of a click failing in production.
   Intercepting that click is still yours. See
-  [Discovered routing](/advanced/discovered-routing/).
+  [Discovered routing](/guides/cross-layer/discovered-routing/).
 
 Everything else on this ladder is standard web platform work. The framework
 does not name a swap library, does not wrap a CSS plugin, and no route knows

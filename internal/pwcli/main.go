@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 )
 
@@ -59,16 +60,45 @@ func Main(args []string, stdout, stderr io.Writer) int {
 	return 0
 }
 
+// commandSummaries is the one-line description of every command, in the order
+// a project meets them: create, extend, generate, run, then diagnose. The
+// dispatch switch above and this table are the two places a new command is
+// added, and help that omits a command is how the documented list went stale
+// before.
+var commandSummaries = []struct{ name, summary string }{
+	{"init", "create a project in a new directory"},
+	{"add", "enable a capability in a project that declined it"},
+	{"new", "scaffold a handler or a page beside the ones you have"},
+	{"generate", "regenerate everything derived from your sources"},
+	{"migrate", "inspect and apply database migrations"},
+	{"seed", "load seed datasets into the database"},
+	{"build", "generate, build assets, and compile the project"},
+	{"dev", "watch, regenerate, rebuild, and restart"},
+	{"doctor", "report what a named environment will actually run"},
+	{"version", "print the version, revision, and toolchain"},
+	{"help", "print this message"},
+}
+
 func printUsage(w io.Writer) {
-	fmt.Fprintln(w, "Usage: pw <command>")
-	fmt.Fprintln(w, "Commands: init, add, new, generate, migrate, seed, build, dev, doctor, version")
-	fmt.Fprintln(w, "Init usage: pw init [<project-name>] [--interactive] [--tailwind] [--no-tinygo]")
+	fmt.Fprintln(w, "Usage: pw <command> [arguments]")
+	fmt.Fprintln(w)
+	fmt.Fprintln(w, "Commands:")
+	for _, command := range commandSummaries {
+		fmt.Fprintf(w, "  %-8s  %s\n", command.name, command.summary)
+	}
+	fmt.Fprintln(w)
+	fmt.Fprintln(w, initUsage)
 	fmt.Fprintln(w, "  Omit the project name to answer the same questions in the wizard.")
 	fmt.Fprintln(w, "  A capability declined here can be enabled later with pw add.")
 	fmt.Fprintln(w, addUsage)
 	fmt.Fprintln(w, "  Omit the capability to pick from what this project does not already have.")
 	fmt.Fprintln(w, newUsage)
-	fmt.Fprintln(w, "Migrate actions: status, version, up, up-by-one, up-to, down, down-to, create, validate, snapshot")
-	fmt.Fprintln(w, "Seed usage: pw seed [--dir=testdata/seed] [name...]")
+	fmt.Fprintln(w, "  Omit the kind to pick one, then answer for the route and the package.")
+	fmt.Fprintln(w, generateUsage)
+	fmt.Fprintln(w, migrateUsage)
+	fmt.Fprintln(w, "  Actions: "+strings.Join(migrateActions, ", "))
+	fmt.Fprintln(w, seedUsage)
 	fmt.Fprintln(w, doctorUsage)
+	fmt.Fprintln(w)
+	fmt.Fprintln(w, "Documentation: https://shibukawa.github.io/popcornwave/")
 }

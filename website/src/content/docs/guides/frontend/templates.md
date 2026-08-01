@@ -2,7 +2,7 @@
 title: Templates
 description: Typed .pw.html components — parameters, control flow, slots, escaping, and scoped styles.
 sidebar:
-  order: 3
+  order: 4
 ---
 
 A template normally fails only after data reaches it. A `.pw.html` component

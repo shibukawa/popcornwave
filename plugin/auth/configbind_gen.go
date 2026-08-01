@@ -5,6 +5,7 @@ package auth
 import (
 	"fmt"
 	"strconv"
+	"time"
 
 	"github.com/shibukawa/tinybind-go/cliparser"
 	"github.com/shibukawa/tinybind-go/configbind"
@@ -26,9 +27,26 @@ func registerConfigDefinition0() {
 			"auth.callback_path",
 			"auth.logout_path",
 			"auth.post_login_path",
+			"auth.recent_auth_max_age",
+			"auth.shared_device",
+			"auth.assurance.policy",
+			"auth.assurance.hint.enabled",
+			"auth.assurance.hint.name",
+			"auth.assurance.hint.secret",
+			"auth.assurance.hint.previous_secrets",
+			"auth.assurance.hint.ttl",
+			"auth.assurance.hint.idle_timeout",
+			"auth.assurance.presence.enabled",
+			"auth.assurance.presence.interval",
+			"auth.assurance.presence.absent_after",
 			"auth.protection.include",
 			"auth.protection.exclude",
 			"auth.protection.unauthenticated",
+			"auth.registration.policy",
+			"auth.recovery.policy",
+			"auth.bootstrap.issue_ttl",
+			"auth.bootstrap.enrollment_ttl",
+			"auth.bootstrap.max_attempts",
 			"auth.oidc.issuer",
 			"auth.oidc.client_id",
 			"auth.oidc.client_secret",
@@ -41,50 +59,105 @@ func registerConfigDefinition0() {
 			"auth.oidc.claim.values",
 			"auth.oidc.claim.match",
 			"auth.oidc.registered_claims",
+			"auth.oidc.logout_scope",
 			"auth.oidc.provider_logout",
+			"auth.oidc.allow_global_logout_request",
 			"auth.oidc.allow_loopback_http",
+			"auth.passkey.path",
+			"auth.passkey.rp_id",
+			"auth.passkey.rp_name",
+			"auth.passkey.origins",
+			"auth.passkey.user_verification",
+			"auth.passkey.discoverable",
 		},
 		Defaults: map[string]string{
-			"auth.enabled":                    "false",
-			"auth.mode":                       "oidc_only",
-			"auth.login_path":                 "/auth/login",
-			"auth.callback_path":              "/auth/callback",
-			"auth.logout_path":                "/auth/logout",
-			"auth.post_login_path":            "/",
-			"auth.protection.unauthenticated": "redirect",
-			"auth.oidc.identity_claim":        "sub",
-			"auth.oidc.admission":             "authenticated",
-			"auth.oidc.auto_provision":        "true",
-			"auth.oidc.claim.match":           "any",
-			"auth.oidc.provider_logout":       "true",
-			"auth.oidc.allow_loopback_http":   "false",
+			"auth.enabled":                          "false",
+			"auth.mode":                             "oidc_only",
+			"auth.login_path":                       "/auth/login",
+			"auth.callback_path":                    "/auth/callback",
+			"auth.logout_path":                      "/auth/logout",
+			"auth.post_login_path":                  "/",
+			"auth.recent_auth_max_age":              "5m",
+			"auth.shared_device":                    "false",
+			"auth.assurance.hint.enabled":           "false",
+			"auth.assurance.hint.name":              "pw_hint",
+			"auth.assurance.hint.ttl":               "720h",
+			"auth.assurance.hint.idle_timeout":      "336h",
+			"auth.assurance.presence.enabled":       "false",
+			"auth.assurance.presence.interval":      "1m",
+			"auth.assurance.presence.absent_after":  "30m",
+			"auth.protection.unauthenticated":       "redirect",
+			"auth.bootstrap.issue_ttl":              "24h",
+			"auth.bootstrap.enrollment_ttl":         "10m",
+			"auth.bootstrap.max_attempts":           "5",
+			"auth.oidc.identity_claim":              "sub",
+			"auth.oidc.admission":                   "authenticated",
+			"auth.oidc.auto_provision":              "true",
+			"auth.oidc.claim.match":                 "any",
+			"auth.oidc.logout_scope":                "reconfirm",
+			"auth.oidc.provider_logout":             "false",
+			"auth.oidc.allow_global_logout_request": "false",
+			"auth.oidc.allow_loopback_http":         "false",
+			"auth.passkey.path":                     "/auth/passkey",
+			"auth.passkey.user_verification":        "required",
+			"auth.passkey.discoverable":             "preferred",
 		},
 		DependsOn: map[string][]string{
-			"auth.mode":                       {"auth.enabled"},
-			"auth.login_path":                 {"auth.enabled"},
-			"auth.callback_path":              {"auth.enabled"},
-			"auth.logout_path":                {"auth.enabled"},
-			"auth.post_login_path":            {"auth.enabled"},
-			"auth.protection.include":         {"auth.enabled"},
-			"auth.protection.exclude":         {"auth.enabled"},
-			"auth.protection.unauthenticated": {"auth.enabled"},
-			"auth.oidc.issuer":                {"auth.enabled"},
-			"auth.oidc.client_id":             {"auth.enabled"},
-			"auth.oidc.client_secret":         {"auth.enabled"},
-			"auth.oidc.redirect_url":          {"auth.enabled"},
-			"auth.oidc.scopes":                {"auth.enabled"},
-			"auth.oidc.identity_claim":        {"auth.enabled"},
-			"auth.oidc.admission":             {"auth.enabled"},
-			"auth.oidc.auto_provision":        {"auth.enabled"},
-			"auth.oidc.claim.path":            {"auth.enabled"},
-			"auth.oidc.claim.values":          {"auth.enabled"},
-			"auth.oidc.claim.match":           {"auth.enabled"},
-			"auth.oidc.registered_claims":     {"auth.enabled"},
-			"auth.oidc.provider_logout":       {"auth.enabled"},
-			"auth.oidc.allow_loopback_http":   {"auth.enabled"},
+			"auth.mode":                             {"auth.enabled"},
+			"auth.login_path":                       {"auth.enabled"},
+			"auth.callback_path":                    {"auth.enabled"},
+			"auth.logout_path":                      {"auth.enabled"},
+			"auth.post_login_path":                  {"auth.enabled"},
+			"auth.recent_auth_max_age":              {"auth.enabled"},
+			"auth.shared_device":                    {"auth.enabled"},
+			"auth.assurance.policy":                 {"auth.enabled"},
+			"auth.assurance.hint.enabled":           {"auth.enabled"},
+			"auth.assurance.hint.name":              {"auth.enabled"},
+			"auth.assurance.hint.secret":            {"auth.enabled"},
+			"auth.assurance.hint.previous_secrets":  {"auth.enabled"},
+			"auth.assurance.hint.ttl":               {"auth.enabled"},
+			"auth.assurance.hint.idle_timeout":      {"auth.enabled"},
+			"auth.assurance.presence.enabled":       {"auth.enabled"},
+			"auth.assurance.presence.interval":      {"auth.enabled"},
+			"auth.assurance.presence.absent_after":  {"auth.enabled"},
+			"auth.protection.include":               {"auth.enabled"},
+			"auth.protection.exclude":               {"auth.enabled"},
+			"auth.protection.unauthenticated":       {"auth.enabled"},
+			"auth.registration.policy":              {"auth.enabled"},
+			"auth.recovery.policy":                  {"auth.enabled"},
+			"auth.bootstrap.issue_ttl":              {"auth.enabled"},
+			"auth.bootstrap.enrollment_ttl":         {"auth.enabled"},
+			"auth.bootstrap.max_attempts":           {"auth.enabled"},
+			"auth.oidc.issuer":                      {"auth.enabled"},
+			"auth.oidc.client_id":                   {"auth.enabled"},
+			"auth.oidc.client_secret":               {"auth.enabled"},
+			"auth.oidc.redirect_url":                {"auth.enabled"},
+			"auth.oidc.scopes":                      {"auth.enabled"},
+			"auth.oidc.identity_claim":              {"auth.enabled"},
+			"auth.oidc.admission":                   {"auth.enabled"},
+			"auth.oidc.auto_provision":              {"auth.enabled"},
+			"auth.oidc.claim.path":                  {"auth.enabled"},
+			"auth.oidc.claim.values":                {"auth.enabled"},
+			"auth.oidc.claim.match":                 {"auth.enabled"},
+			"auth.oidc.registered_claims":           {"auth.enabled"},
+			"auth.oidc.logout_scope":                {"auth.enabled"},
+			"auth.oidc.provider_logout":             {"auth.enabled"},
+			"auth.oidc.allow_global_logout_request": {"auth.enabled"},
+			"auth.oidc.allow_loopback_http":         {"auth.enabled"},
+			"auth.passkey.path":                     {"auth.enabled"},
+			"auth.passkey.rp_id":                    {"auth.enabled"},
+			"auth.passkey.rp_name":                  {"auth.enabled"},
+			"auth.passkey.origins":                  {"auth.enabled"},
+			"auth.passkey.user_verification":        {"auth.enabled"},
+			"auth.passkey.discoverable":             {"auth.enabled"},
 		},
 		Secrets: map[string]string{
-			"auth.oidc.client_secret": "mask",
+			"auth.assurance.hint.secret":           "mask",
+			"auth.assurance.hint.previous_secrets": "mask",
+			"auth.bootstrap.issue_ttl":             "show",
+			"auth.bootstrap.enrollment_ttl":        "show",
+			"auth.bootstrap.max_attempts":          "show",
+			"auth.oidc.client_secret":              "mask",
 		},
 		FlagMetas: []cliparser.FieldMeta{
 			{Prefix: "auth", Key: "enabled", Kind: cliparser.KindBool},
@@ -93,9 +166,25 @@ func registerConfigDefinition0() {
 			{Prefix: "auth", Key: "callback_path"},
 			{Prefix: "auth", Key: "logout_path"},
 			{Prefix: "auth", Key: "post_login_path", Help: "path a completed login lands on"},
+			{Prefix: "auth", Key: "recent_auth_max_age", Help: "how recently a request must have authenticated to change a login method"},
+			{Prefix: "auth", Key: "shared_device", Help: "declare that browsers are shared, coupling the settings that hide one user from the next", Kind: cliparser.KindBool},
+			{Prefix: "auth", Key: "assurance.hint.enabled", Help: "remember who last signed in, to shorten the next sign-in", Kind: cliparser.KindBool},
+			{Prefix: "auth", Key: "assurance.hint.name", Help: "cookie name"},
+			{Prefix: "auth", Key: "assurance.hint.secret", Env: "AUTH_HINT_SECRET", Help: "base64 secret of at least 256 bits that seals the hint"},
+			{Prefix: "auth", Key: "assurance.hint.previous_secrets", Help: "retired secrets kept readable during a rotation", Kind: cliparser.KindArray},
+			{Prefix: "auth", Key: "assurance.hint.ttl", Help: "how long a hint may live at all"},
+			{Prefix: "auth", Key: "assurance.hint.idle_timeout", Help: "how long since the last successful login a hint survives"},
+			{Prefix: "auth", Key: "assurance.presence.enabled", Help: "accept presence reports from the browser", Kind: cliparser.KindBool},
+			{Prefix: "auth", Key: "assurance.presence.interval", Help: "how often a browser reports"},
+			{Prefix: "auth", Key: "assurance.presence.absent_after", Help: "end the session after this long with no interaction"},
 			{Prefix: "auth", Key: "protection.include", Help: "protected path pattern", Kind: cliparser.KindArray},
 			{Prefix: "auth", Key: "protection.exclude", Help: "public path pattern", Kind: cliparser.KindArray},
 			{Prefix: "auth", Key: "protection.unauthenticated", Help: "redirect or unauthorized"},
+			{Prefix: "auth", Key: "registration.policy", Help: "disabled, oidc, invite, administrator, or open"},
+			{Prefix: "auth", Key: "recovery.policy", Help: "oidc, administrator, or application"},
+			{Prefix: "auth", Key: "bootstrap.issue_ttl", Help: "how long an issued secret stays redeemable"},
+			{Prefix: "auth", Key: "bootstrap.enrollment_ttl", Help: "how long an enrollment stays open after a redemption"},
+			{Prefix: "auth", Key: "bootstrap.max_attempts", Help: "redemption attempts before the credential is spent"},
 			{Prefix: "auth", Key: "oidc.issuer", Env: "AUTH_OIDC_ISSUER"},
 			{Prefix: "auth", Key: "oidc.client_id", Env: "AUTH_OIDC_CLIENT_ID"},
 			{Prefix: "auth", Key: "oidc.client_secret", Env: "AUTH_OIDC_CLIENT_SECRET"},
@@ -108,8 +197,16 @@ func registerConfigDefinition0() {
 			{Prefix: "auth", Key: "oidc.claim.values", Kind: cliparser.KindArray},
 			{Prefix: "auth", Key: "oidc.claim.match", Help: "any or all"},
 			{Prefix: "auth", Key: "oidc.registered_claims", Help: "claims compared against the allowlist; defaults to identity_claim", Kind: cliparser.KindArray},
-			{Prefix: "auth", Key: "oidc.provider_logout", Help: "also end the provider session on logout", Kind: cliparser.KindBool},
+			{Prefix: "auth", Key: "oidc.logout_scope", Help: "what a logout does to the provider session: reconfirm or global"},
+			{Prefix: "auth", Key: "oidc.provider_logout", Help: "removed; use auth.oidc.logout_scope", Kind: cliparser.KindBool},
+			{Prefix: "auth", Key: "oidc.allow_global_logout_request", Help: "permit a logout request to escalate to a global sign-out", Kind: cliparser.KindBool},
 			{Prefix: "auth", Key: "oidc.allow_loopback_http", Help: "permit an http loopback issuer during development", Kind: cliparser.KindBool},
+			{Prefix: "auth", Key: "passkey.path", Help: "base path of the ceremony endpoints"},
+			{Prefix: "auth", Key: "passkey.rp_id", Help: "relying party domain; localhost during development"},
+			{Prefix: "auth", Key: "passkey.rp_name", Help: "relying party display name"},
+			{Prefix: "auth", Key: "passkey.origins", Help: "origin the browser reaches this deployment on", Kind: cliparser.KindArray},
+			{Prefix: "auth", Key: "passkey.user_verification", Help: "required, preferred, or discouraged"},
+			{Prefix: "auth", Key: "passkey.discoverable", Help: "required or preferred"},
 		},
 		Apply: applyConfigDefinition0,
 		Scaffold: []configbind.ScaffoldField{
@@ -119,9 +216,29 @@ func registerConfigDefinition0() {
 			{Key: "callback_path", Kind: configbind.ScaffoldString, Default: "/auth/callback"},
 			{Key: "logout_path", Kind: configbind.ScaffoldString, Default: "/auth/logout"},
 			{Key: "post_login_path", Kind: configbind.ScaffoldString, Default: "/", Help: "path a completed login lands on"},
+			{Key: "recent_auth_max_age", Kind: configbind.ScaffoldDuration, Default: "5m", Help: "how recently a request must have authenticated to change a login method"},
+			{Key: "shared_device", Kind: configbind.ScaffoldBool, Default: "false", Help: "declare that browsers are shared, coupling the settings that hide one user from the next"},
+			{Key: "assurance.policy", Kind: configbind.ScaffoldTableArray, Help: "named freshness windows a handler can require by name", Nested: []configbind.ScaffoldField{
+				{Key: "name", Kind: configbind.ScaffoldString, Help: "name a handler passes to auth.Policy"},
+				{Key: "max_age", Kind: configbind.ScaffoldDuration, Help: "how old a proof may be; zero means prove again for this operation"},
+			}},
+			{Key: "assurance.hint.enabled", Kind: configbind.ScaffoldBool, Default: "false", Help: "remember who last signed in, to shorten the next sign-in"},
+			{Key: "assurance.hint.name", Kind: configbind.ScaffoldString, Default: "pw_hint", Help: "cookie name"},
+			{Key: "assurance.hint.secret", Kind: configbind.ScaffoldString, Env: "AUTH_HINT_SECRET", Help: "base64 secret of at least 256 bits that seals the hint"},
+			{Key: "assurance.hint.previous_secrets", Kind: configbind.ScaffoldStringSlice, Help: "retired secrets kept readable during a rotation"},
+			{Key: "assurance.hint.ttl", Kind: configbind.ScaffoldDuration, Default: "720h", Help: "how long a hint may live at all"},
+			{Key: "assurance.hint.idle_timeout", Kind: configbind.ScaffoldDuration, Default: "336h", Help: "how long since the last successful login a hint survives"},
+			{Key: "assurance.presence.enabled", Kind: configbind.ScaffoldBool, Default: "false", Help: "accept presence reports from the browser"},
+			{Key: "assurance.presence.interval", Kind: configbind.ScaffoldDuration, Default: "1m", Help: "how often a browser reports"},
+			{Key: "assurance.presence.absent_after", Kind: configbind.ScaffoldDuration, Default: "30m", Help: "end the session after this long with no interaction"},
 			{Key: "protection.include", Kind: configbind.ScaffoldStringSlice, Help: "protected path pattern"},
 			{Key: "protection.exclude", Kind: configbind.ScaffoldStringSlice, Help: "public path pattern"},
 			{Key: "protection.unauthenticated", Kind: configbind.ScaffoldString, Default: "redirect", Help: "redirect or unauthorized"},
+			{Key: "registration.policy", Kind: configbind.ScaffoldString, Help: "disabled, oidc, invite, administrator, or open"},
+			{Key: "recovery.policy", Kind: configbind.ScaffoldString, Help: "oidc, administrator, or application"},
+			{Key: "bootstrap.issue_ttl", Kind: configbind.ScaffoldDuration, Default: "24h", Help: "how long an issued secret stays redeemable"},
+			{Key: "bootstrap.enrollment_ttl", Kind: configbind.ScaffoldDuration, Default: "10m", Help: "how long an enrollment stays open after a redemption"},
+			{Key: "bootstrap.max_attempts", Kind: configbind.ScaffoldInt, Default: "5", Help: "redemption attempts before the credential is spent"},
 			{Key: "oidc.issuer", Kind: configbind.ScaffoldString, Env: "AUTH_OIDC_ISSUER"},
 			{Key: "oidc.client_id", Kind: configbind.ScaffoldString, Env: "AUTH_OIDC_CLIENT_ID"},
 			{Key: "oidc.client_secret", Kind: configbind.ScaffoldString, Env: "AUTH_OIDC_CLIENT_SECRET"},
@@ -134,8 +251,16 @@ func registerConfigDefinition0() {
 			{Key: "oidc.claim.values", Kind: configbind.ScaffoldStringSlice},
 			{Key: "oidc.claim.match", Kind: configbind.ScaffoldString, Default: "any", Help: "any or all"},
 			{Key: "oidc.registered_claims", Kind: configbind.ScaffoldStringSlice, Help: "claims compared against the allowlist; defaults to identity_claim"},
-			{Key: "oidc.provider_logout", Kind: configbind.ScaffoldBool, Default: "true", Help: "also end the provider session on logout"},
+			{Key: "oidc.logout_scope", Kind: configbind.ScaffoldString, Default: "reconfirm", Help: "what a logout does to the provider session: reconfirm or global"},
+			{Key: "oidc.provider_logout", Kind: configbind.ScaffoldBool, Default: "false", Help: "removed; use auth.oidc.logout_scope"},
+			{Key: "oidc.allow_global_logout_request", Kind: configbind.ScaffoldBool, Default: "false", Help: "permit a logout request to escalate to a global sign-out"},
 			{Key: "oidc.allow_loopback_http", Kind: configbind.ScaffoldBool, Default: "false", Help: "permit an http loopback issuer during development"},
+			{Key: "passkey.path", Kind: configbind.ScaffoldString, Default: "/auth/passkey", Help: "base path of the ceremony endpoints"},
+			{Key: "passkey.rp_id", Kind: configbind.ScaffoldString, Help: "relying party domain; localhost during development"},
+			{Key: "passkey.rp_name", Kind: configbind.ScaffoldString, Help: "relying party display name"},
+			{Key: "passkey.origins", Kind: configbind.ScaffoldStringSlice, Help: "origin the browser reaches this deployment on"},
+			{Key: "passkey.user_verification", Kind: configbind.ScaffoldString, Default: "required", Help: "required, preferred, or discouraged"},
+			{Key: "passkey.discoverable", Kind: configbind.ScaffoldString, Default: "preferred", Help: "required or preferred"},
 		},
 	})
 }
@@ -179,6 +304,107 @@ func applyConfigDefinition0(dst any, o *configbind.Overlay) error {
 	} else {
 		p.PostLoginPath = "/"
 	}
+	if v, ok := o.GetString("auth.recent_auth_max_age"); ok {
+		d, err := time.ParseDuration(v)
+		if err != nil {
+			return fmt.Errorf("configbind: auth.recent_auth_max_age: %w", err)
+		}
+		p.RecentAuthMaxAge = d
+	} else {
+		p.RecentAuthMaxAge = 300000000000 // 5m0s
+	}
+	if v, ok := o.GetString("auth.shared_device"); ok {
+		bb, err := strconv.ParseBool(v)
+		if err != nil {
+			return fmt.Errorf("configbind: auth.shared_device: %w", err)
+		}
+		p.SharedDevice = bb
+	} else {
+		p.SharedDevice = false
+	}
+	if ta1, ok := o.Get("auth.assurance.policy"); ok {
+		if !ta1.IsTables {
+			return fmt.Errorf("configbind: auth.assurance.policy: expected an array of tables ([[auth.assurance.policy]])")
+		}
+		p.Assurance.Policy = make([]AssurancePolicy, len(ta1.Tables))
+		for i1 := range ta1.Tables {
+			if v, ok := ta1.Tables[i1].GetString("name"); ok {
+				p.Assurance.Policy[i1].Name = v
+			}
+			if v, ok := ta1.Tables[i1].GetString("max_age"); ok {
+				d, err := time.ParseDuration(v)
+				if err != nil {
+					return fmt.Errorf("configbind: auth.assurance.policy[%d].max_age: %w", i1, err)
+				}
+				p.Assurance.Policy[i1].MaxAge = d
+			}
+		}
+	}
+	if v, ok := o.GetString("auth.assurance.hint.enabled"); ok {
+		bb, err := strconv.ParseBool(v)
+		if err != nil {
+			return fmt.Errorf("configbind: auth.assurance.hint.enabled: %w", err)
+		}
+		p.Assurance.Hint.Enabled = bb
+	} else {
+		p.Assurance.Hint.Enabled = false
+	}
+	if v, ok := o.GetString("auth.assurance.hint.name"); ok {
+		p.Assurance.Hint.Name = v
+	} else {
+		p.Assurance.Hint.Name = "pw_hint"
+	}
+	if v, ok := o.GetString("auth.assurance.hint.secret"); ok {
+		p.Assurance.Hint.Secret = v
+	}
+	if v, ok := o.GetMulti("auth.assurance.hint.previous_secrets"); ok {
+		p.Assurance.Hint.PreviousSecrets = v
+	}
+	if v, ok := o.GetString("auth.assurance.hint.ttl"); ok {
+		d, err := time.ParseDuration(v)
+		if err != nil {
+			return fmt.Errorf("configbind: auth.assurance.hint.ttl: %w", err)
+		}
+		p.Assurance.Hint.TTL = d
+	} else {
+		p.Assurance.Hint.TTL = 2592000000000000 // 720h0m0s
+	}
+	if v, ok := o.GetString("auth.assurance.hint.idle_timeout"); ok {
+		d, err := time.ParseDuration(v)
+		if err != nil {
+			return fmt.Errorf("configbind: auth.assurance.hint.idle_timeout: %w", err)
+		}
+		p.Assurance.Hint.IdleTimeout = d
+	} else {
+		p.Assurance.Hint.IdleTimeout = 1209600000000000 // 336h0m0s
+	}
+	if v, ok := o.GetString("auth.assurance.presence.enabled"); ok {
+		bb, err := strconv.ParseBool(v)
+		if err != nil {
+			return fmt.Errorf("configbind: auth.assurance.presence.enabled: %w", err)
+		}
+		p.Assurance.Presence.Enabled = bb
+	} else {
+		p.Assurance.Presence.Enabled = false
+	}
+	if v, ok := o.GetString("auth.assurance.presence.interval"); ok {
+		d, err := time.ParseDuration(v)
+		if err != nil {
+			return fmt.Errorf("configbind: auth.assurance.presence.interval: %w", err)
+		}
+		p.Assurance.Presence.Interval = d
+	} else {
+		p.Assurance.Presence.Interval = 60000000000 // 1m0s
+	}
+	if v, ok := o.GetString("auth.assurance.presence.absent_after"); ok {
+		d, err := time.ParseDuration(v)
+		if err != nil {
+			return fmt.Errorf("configbind: auth.assurance.presence.absent_after: %w", err)
+		}
+		p.Assurance.Presence.AbsentAfter = d
+	} else {
+		p.Assurance.Presence.AbsentAfter = 1800000000000 // 30m0s
+	}
 	if v, ok := o.GetMulti("auth.protection.include"); ok {
 		p.Protection.Include = v
 	}
@@ -189,6 +415,39 @@ func applyConfigDefinition0(dst any, o *configbind.Overlay) error {
 		p.Protection.Unauthenticated = v
 	} else {
 		p.Protection.Unauthenticated = "redirect"
+	}
+	if v, ok := o.GetString("auth.registration.policy"); ok {
+		p.Registration.Policy = v
+	}
+	if v, ok := o.GetString("auth.recovery.policy"); ok {
+		p.Recovery.Policy = v
+	}
+	if v, ok := o.GetString("auth.bootstrap.issue_ttl"); ok {
+		d, err := time.ParseDuration(v)
+		if err != nil {
+			return fmt.Errorf("configbind: auth.bootstrap.issue_ttl: %w", err)
+		}
+		p.Bootstrap.IssueTTL = d
+	} else {
+		p.Bootstrap.IssueTTL = 86400000000000 // 24h0m0s
+	}
+	if v, ok := o.GetString("auth.bootstrap.enrollment_ttl"); ok {
+		d, err := time.ParseDuration(v)
+		if err != nil {
+			return fmt.Errorf("configbind: auth.bootstrap.enrollment_ttl: %w", err)
+		}
+		p.Bootstrap.EnrollmentTTL = d
+	} else {
+		p.Bootstrap.EnrollmentTTL = 600000000000 // 10m0s
+	}
+	if v, ok := o.GetString("auth.bootstrap.max_attempts"); ok {
+		n, err := strconv.ParseInt(v, 10, 0)
+		if err != nil {
+			return fmt.Errorf("configbind: auth.bootstrap.max_attempts: %w", err)
+		}
+		p.Bootstrap.MaxAttempts = int(n)
+	} else {
+		p.Bootstrap.MaxAttempts = 5
 	}
 	if v, ok := o.GetString("auth.oidc.issuer"); ok {
 		p.OIDC.Issuer = v
@@ -238,6 +497,11 @@ func applyConfigDefinition0(dst any, o *configbind.Overlay) error {
 	if v, ok := o.GetMulti("auth.oidc.registered_claims"); ok {
 		p.OIDC.RegisteredClaims = v
 	}
+	if v, ok := o.GetString("auth.oidc.logout_scope"); ok {
+		p.OIDC.LogoutScope = v
+	} else {
+		p.OIDC.LogoutScope = "reconfirm"
+	}
 	if v, ok := o.GetString("auth.oidc.provider_logout"); ok {
 		bb, err := strconv.ParseBool(v)
 		if err != nil {
@@ -245,7 +509,16 @@ func applyConfigDefinition0(dst any, o *configbind.Overlay) error {
 		}
 		p.OIDC.ProviderLogout = bb
 	} else {
-		p.OIDC.ProviderLogout = true
+		p.OIDC.ProviderLogout = false
+	}
+	if v, ok := o.GetString("auth.oidc.allow_global_logout_request"); ok {
+		bb, err := strconv.ParseBool(v)
+		if err != nil {
+			return fmt.Errorf("configbind: auth.oidc.allow_global_logout_request: %w", err)
+		}
+		p.OIDC.AllowGlobalLogoutRequest = bb
+	} else {
+		p.OIDC.AllowGlobalLogoutRequest = false
 	}
 	if v, ok := o.GetString("auth.oidc.allow_loopback_http"); ok {
 		bb, err := strconv.ParseBool(v)
@@ -255,6 +528,30 @@ func applyConfigDefinition0(dst any, o *configbind.Overlay) error {
 		p.OIDC.AllowLoopbackHTTP = bb
 	} else {
 		p.OIDC.AllowLoopbackHTTP = false
+	}
+	if v, ok := o.GetString("auth.passkey.path"); ok {
+		p.Passkey.Path = v
+	} else {
+		p.Passkey.Path = "/auth/passkey"
+	}
+	if v, ok := o.GetString("auth.passkey.rp_id"); ok {
+		p.Passkey.RPID = v
+	}
+	if v, ok := o.GetString("auth.passkey.rp_name"); ok {
+		p.Passkey.RPName = v
+	}
+	if v, ok := o.GetMulti("auth.passkey.origins"); ok {
+		p.Passkey.Origins = v
+	}
+	if v, ok := o.GetString("auth.passkey.user_verification"); ok {
+		p.Passkey.UserVerification = v
+	} else {
+		p.Passkey.UserVerification = "required"
+	}
+	if v, ok := o.GetString("auth.passkey.discoverable"); ok {
+		p.Passkey.Discoverable = v
+	} else {
+		p.Passkey.Discoverable = "preferred"
 	}
 	return nil
 }

@@ -80,25 +80,9 @@ func NewManager[T any](store Store[T], options Options[T]) (*Manager[T], error) 
 	if options.Version < 0 {
 		return nil, fmt.Errorf("%w: version", ErrInvalidOptions)
 	}
-	cookie := options.Cookie
-	if cookie.Name == "" {
-		cookie.Name = DefaultCookieName
-	}
-	if !validCookieName(cookie.Name) {
-		return nil, fmt.Errorf("%w: cookie name", ErrInvalidOptions)
-	}
-	if cookie.Path == "" {
-		cookie.Path = "/"
-	}
-	if !strings.HasPrefix(cookie.Path, "/") {
-		return nil, fmt.Errorf("%w: cookie path", ErrInvalidOptions)
-	}
-	sameSite := cookie.SameSite
-	if sameSite == 0 {
-		sameSite = http.SameSiteLaxMode
-	}
-	if sameSite == http.SameSiteNoneMode && !cookie.Secure {
-		return nil, fmt.Errorf("%w: insecure same-site none cookie", ErrInvalidOptions)
+	cookie, sameSite, err := normalizeCookie(options.Cookie, DefaultCookieName)
+	if err != nil {
+		return nil, err
 	}
 	renewal := options.RenewalInterval
 	if renewal == 0 && options.IdleTimeout > 0 {
@@ -147,7 +131,7 @@ func (m *Manager[T]) Rotate(w http.ResponseWriter, r *http.Request, data T) erro
 
 // RotateWithMethod is Rotate with an explicit authentication method label.
 func (m *Manager[T]) RotateWithMethod(w http.ResponseWriter, r *http.Request, data T, method string) error {
-	if err := m.revokeRequestRecord(r); err != nil {
+	if err := m.revokeRequestRecord(w, r); err != nil {
 		return err
 	}
 	return m.create(w, r, data, method)
@@ -156,9 +140,20 @@ func (m *Manager[T]) RotateWithMethod(w http.ResponseWriter, r *http.Request, da
 // Delete revokes the stored record and expires the browser cookie. Deleting a
 // request without a session succeeds.
 func (m *Manager[T]) Delete(w http.ResponseWriter, r *http.Request) error {
-	err := m.revokeRequestRecord(r)
+	err := m.revokeRequestRecord(w, r)
 	m.clearCookie(w)
 	return err
+}
+
+// bind hands the request and response to a Store that keeps its records in the
+// browser rather than in a backend. A backend store implements no binder and
+// receives the context unchanged.
+func (m *Manager[T]) bind(ctx context.Context, w http.ResponseWriter, r *http.Request) context.Context {
+	binder, ok := m.store.(RequestBinder)
+	if !ok {
+		return ctx
+	}
+	return binder.BindRequest(ctx, w, r)
 }
 
 func (m *Manager[T]) create(w http.ResponseWriter, r *http.Request, data T, method string) error {
@@ -182,7 +177,7 @@ func (m *Manager[T]) create(w http.ResponseWriter, r *http.Request, data T, meth
 	if m.options.IdleTimeout > 0 {
 		record.IdleExpiresAt = now.Add(m.options.IdleTimeout)
 	}
-	if err := m.store.Put(r.Context(), keyHash(token), record); err != nil {
+	if err := m.store.Put(m.bind(r.Context(), w, r), keyHash(token), record); err != nil {
 		return err
 	}
 	m.writeCookie(w, token, record.deadline())
@@ -191,7 +186,7 @@ func (m *Manager[T]) create(w http.ResponseWriter, r *http.Request, data T, meth
 
 // revokeRequestRecord removes the store record referenced by the request
 // cookie. A missing or malformed cookie is not an error.
-func (m *Manager[T]) revokeRequestRecord(r *http.Request) error {
+func (m *Manager[T]) revokeRequestRecord(w http.ResponseWriter, r *http.Request) error {
 	if r == nil {
 		return nil
 	}
@@ -199,7 +194,7 @@ func (m *Manager[T]) revokeRequestRecord(r *http.Request) error {
 	if !ok {
 		return nil
 	}
-	return m.store.Delete(r.Context(), keyHash(token))
+	return m.store.Delete(m.bind(r.Context(), w, r), keyHash(token))
 }
 
 func (m *Manager[T]) requestToken(r *http.Request) (string, bool) {
@@ -217,20 +212,21 @@ func (m *Manager[T]) resolve(w http.ResponseWriter, r *http.Request) (Record[T],
 		return Record[T]{}, false, nil
 	}
 	hash := keyHash(token)
-	record, err := m.store.Get(r.Context(), hash)
+	ctx := m.bind(r.Context(), w, r)
+	record, err := m.store.Get(ctx, hash)
 	if err != nil {
 		return Record[T]{}, false, err
 	}
 	if record.Version != m.options.Version {
-		_ = m.store.Delete(r.Context(), hash)
+		_ = m.store.Delete(ctx, hash)
 		return Record[T]{}, false, ErrExpired
 	}
 	now := m.now()
 	if !record.deadline().After(now) {
-		_ = m.store.Delete(r.Context(), hash)
+		_ = m.store.Delete(ctx, hash)
 		return Record[T]{}, false, ErrExpired
 	}
-	if renewed, ok := m.renew(r.Context(), hash, record, now); ok {
+	if renewed, ok := m.renew(ctx, hash, record, now); ok {
 		record = renewed
 		m.writeCookie(w, token, record.deadline())
 	}
@@ -283,6 +279,32 @@ func (m *Manager[T]) clearCookie(w http.ResponseWriter) {
 		HttpOnly: m.cookie.HTTPOnly,
 		SameSite: m.sameSite,
 	})
+}
+
+// normalizeCookie applies the cookie policy defaults shared by the session
+// manager and Jar, and rejects a policy the browser would not honor safely.
+// An empty defaultName makes the name required.
+func normalizeCookie(cookie CookieOptions, defaultName string) (CookieOptions, http.SameSite, error) {
+	if cookie.Name == "" {
+		cookie.Name = defaultName
+	}
+	if !validCookieName(cookie.Name) {
+		return CookieOptions{}, 0, fmt.Errorf("%w: cookie name", ErrInvalidOptions)
+	}
+	if cookie.Path == "" {
+		cookie.Path = "/"
+	}
+	if !strings.HasPrefix(cookie.Path, "/") {
+		return CookieOptions{}, 0, fmt.Errorf("%w: cookie path", ErrInvalidOptions)
+	}
+	sameSite := cookie.SameSite
+	if sameSite == 0 {
+		sameSite = http.SameSiteLaxMode
+	}
+	if sameSite == http.SameSiteNoneMode && !cookie.Secure {
+		return CookieOptions{}, 0, fmt.Errorf("%w: insecure same-site none cookie", ErrInvalidOptions)
+	}
+	return cookie, sameSite, nil
 }
 
 func validCookieName(value string) bool {

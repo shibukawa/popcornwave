@@ -108,9 +108,37 @@ func initWizardSteps(defaults initOptions) []wizardStep[initOptions] {
 					apply:       setAuth(authOIDC),
 				},
 				wizardChoice[initOptions]{
+					name:        "OIDC and passkey",
+					description: "the provider bootstraps the account; a passkey is the everyday login",
+					apply:       setAuth(authOIDCPasskey),
+				},
+				wizardChoice[initOptions]{
 					name:        "Passkey only",
-					description: "not implemented yet; the choice is recorded, disabled",
+					description: "no provider; an administrator issues the first sign-in credential",
 					apply:       setAuth(authPasskey),
+				},
+			),
+		),
+		when(func(options initOptions) bool { return servesLogin(options) },
+			newChoiceStep(
+				"Session storage",
+				"Where a login session lives. Every choice reads the same in handlers; "+
+					"a backend other than cookie is added to the binary by a blank import the scaffold writes.",
+				sessionCursor(defaults.Session),
+				wizardChoice[initOptions]{
+					name:        "Database",
+					description: "one row per session through sessionstore/sqlite; revocable, swept, carries a migration",
+					apply:       setSession(sessionRDB),
+				},
+				wizardChoice[initOptions]{
+					name:        "Cookie",
+					description: "sealed into a second cookie; no storage and no import, but no revoking either",
+					apply:       setSession(sessionCookie),
+				},
+				wizardChoice[initOptions]{
+					name:        "Redis or Valkey",
+					description: "server-side TTL through sessionstore/redis; revocable, nothing to sweep",
+					apply:       setSession(sessionRedis),
 				},
 			),
 		),
@@ -226,13 +254,39 @@ func setAuth(mode string) func(*initOptions) {
 	}
 }
 
+// setSession records the backend and takes what it implies with it. A
+// Redis-backed session needs the server that serves it, so the Devbox answer
+// follows the storage answer rather than contradicting it.
+func setSession(backend string) func(*initOptions) {
+	return func(target *initOptions) {
+		target.Session = backend
+		if backend == sessionRedis && target.Devbox {
+			target.Redis = true
+		}
+	}
+}
+
+// sessionCursor maps a backend onto its position in the choice list.
+func sessionCursor(backend string) int {
+	switch backend {
+	case sessionCookie:
+		return 1
+	case sessionRedis:
+		return 2
+	default:
+		return 0
+	}
+}
+
 // authCursor maps an authentication mode onto its position in the choice list.
 func authCursor(mode string) int {
 	switch mode {
 	case authOIDC:
 		return 1
-	case authPasskey:
+	case authOIDCPasskey:
 		return 2
+	case authPasskey:
+		return 3
 	default:
 		return 0
 	}

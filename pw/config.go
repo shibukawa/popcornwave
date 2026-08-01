@@ -66,6 +66,32 @@ type HTMLConfig struct {
 	// BotUserAgents extends the built-in catalog. Entries are appended and
 	// matched case-insensitively; they never replace a built-in token.
 	BotUserAgents []string `dependon:".bot_detection" help:"additional bot User-Agent substrings"`
+	// Live answers the live mode request that keeps a page updating after its
+	// document is complete. False leaves every document valid and static: the
+	// content a live boundary committed stays, and no client is told to connect.
+	// It depends on streaming, because a buffered document settles its live
+	// boundaries in place and holds no placeholder a delivery could replace.
+	Live bool `default:"true" dependon:".streaming" help:"answer the live mode request that keeps a page updating after the document is complete"`
+	// LiveMaxDuration closes a healthy live response and expects the client to
+	// reconnect. A bounded lifetime is what buys back authorization re-checks,
+	// deploy rollover, and load rebalancing; the price is one page execution per
+	// rollover. Zero leaves the request context as the only bound.
+	LiveMaxDuration time.Duration `default:"10m0s" dependon:".live" help:"maximum lifetime of one live response before it closes and the client reconnects"`
+	// LiveDurationJitter spreads that lifetime, as a percentage of it. Without
+	// it one restart synchronizes every client and the herd repeats forever,
+	// which no client-side backoff can undo because the server chose the moment.
+	LiveDurationJitter int `default:"20" dependon:".live" help:"percentage the live response lifetime is spread by, so clients do not reconnect in lockstep"`
+	// LiveIdleTimeout closes a live response no source has delivered on. Zero
+	// disables the bound, which is right only where a quiet source is expected
+	// to stay quiet for hours.
+	LiveIdleTimeout time.Duration `default:"5m0s" dependon:".live" help:"close a live response after this long with no delivery"`
+	// LiveMaxBoundaries bounds how many distinct boundaries one live response
+	// may serve. Reaching it closes the response rather than dropping deliveries
+	// silently. Zero or less is unbounded.
+	LiveMaxBoundaries int `default:"32" dependon:".live" help:"maximum boundaries one live response may serve"`
+	// LiveMaxResponses bounds concurrent live responses per client, so reopening
+	// cannot multiply subscriptions. Zero or less is unbounded.
+	LiveMaxResponses int `default:"4" dependon:".live" help:"maximum concurrent live responses per client"`
 }
 
 // defaultHTMLConfig seeds the effective configuration for a runtime that never
@@ -78,10 +104,16 @@ type HTMLConfig struct {
 // deadline because a link preview spider abandons a slow response within a few
 // seconds, and the buffered branch has no head start to offer it.
 var defaultHTMLConfig = HTMLConfig{
-	Streaming:       true,
-	AsyncTimeout:    3 * time.Second,
-	BotDetection:    true,
-	BotAsyncTimeout: 5 * time.Second,
+	Streaming:          true,
+	AsyncTimeout:       3 * time.Second,
+	BotDetection:       true,
+	BotAsyncTimeout:    5 * time.Second,
+	Live:               true,
+	LiveMaxDuration:    10 * time.Minute,
+	LiveDurationJitter: 20,
+	LiveIdleTimeout:    5 * time.Minute,
+	LiveMaxBoundaries:  32,
+	LiveMaxResponses:   4,
 }
 
 // PublicConfig controls the framework-owned static asset endpoint.
@@ -98,17 +130,64 @@ type SecurityHeadersConfig = middlewares.SecurityHeadersConfig
 // HSTSConfig controls Strict-Transport-Security on verified HTTPS requests.
 type HSTSConfig = middlewares.HSTSConfig
 
+// Session storage backends.
+const (
+	// SessionBackendRDB keeps records in a database through
+	// sessionstore/sqlite. It is the backend a deployment that must revoke a
+	// session, or that outgrows a cookie, uses.
+	SessionBackendRDB = "rdb"
+	// SessionBackendCookie keeps records in a sealed browser cookie. It needs
+	// no storage at all, and it cannot revoke a record it already wrote.
+	SessionBackendCookie = "cookie"
+	// SessionBackendRedis keeps records in Redis or Valkey through
+	// sessionstore/redis, where the server owns expiry and no sweep runs.
+	SessionBackendRedis = "redis"
+	// SessionBackendDynamo keeps records in DynamoDB through
+	// sessionstore/dynamo, for a deployment with no relational database at
+	// all. TTL on the deployed table removes dead records, and nothing sweeps.
+	SessionBackendDynamo = "dynamo"
+)
+
 // SessionConfig selects login-session behavior, cookie policy, and storage.
-// Sessions are opaque and server-side, so no signing secret is configured.
+// The session token is opaque in every backend; only SessionBackendCookie
+// carries the record itself, and it seals it under a configured secret.
 type SessionConfig struct {
 	Enabled bool `default:"false"`
-	// Backend selects the storage plugin. Only rdb is implemented.
-	Backend         string              `default:"rdb" dependon:".enabled" help:"session storage backend"`
-	TTL             time.Duration       `default:"24h" dependon:".enabled" help:"absolute session lifetime"`
-	IdleTimeout     time.Duration       `default:"0s" dependon:".enabled" help:"inactivity expiry; zero disables it"`
-	RenewalInterval time.Duration       `default:"0s" dependon:".enabled" help:"minimum interval between idle expiry renewals"`
-	Cookie          SessionCookieConfig `dependon:".enabled"`
-	RDB             SessionRDBConfig    `dependon:".enabled"`
+	// Backend selects the storage plugin: rdb, cookie, redis, or dynamo. Every
+	// backend but cookie reaches the binary through its own blank import.
+	Backend         string                   `default:"rdb" dependon:".enabled" help:"session storage backend: rdb, cookie, redis, or dynamo"`
+	TTL             time.Duration            `default:"24h" dependon:".enabled" help:"absolute session lifetime"`
+	IdleTimeout     time.Duration            `default:"0s" dependon:".enabled" help:"inactivity expiry; zero disables it"`
+	RenewalInterval time.Duration            `default:"0s" dependon:".enabled" help:"minimum interval between idle expiry renewals"`
+	Cookie          SessionCookieConfig      `dependon:".enabled"`
+	RDB             SessionRDBConfig         `dependon:".enabled"`
+	Redis           SessionRedisConfig       `dependon:".enabled"`
+	CookieStore     SessionCookieStoreConfig `dependon:".enabled"`
+	Dynamo          SessionDynamoConfig      `dependon:".enabled"`
+}
+
+// SessionDynamoConfig configures the DynamoDB session store. It carries no
+// endpoint and no credential: middleware.dynamo already opens the client this
+// backend borrows.
+type SessionDynamoConfig struct {
+	// Table is the declared table name, which rule:dynamodb-table-naming maps
+	// onto the deployed one.
+	Table string `default:"popcornwave_session" help:"declared session table name"`
+	// ConsistentRead makes the first read strongly consistent and removes the
+	// retry a miss otherwise pays. It costs twice the read capacity.
+	ConsistentRead bool `default:"false" help:"read sessions with strong consistency"`
+}
+
+// SessionRedisConfig configures the Redis-compatible session store. The server
+// owns record expiry, so nothing here schedules a sweep.
+type SessionRedisConfig struct {
+	// DSN is a redis:// or rediss:// URL. Keep credentials out of the file
+	// itself with a ${NAME} reference or SESSION_REDIS_DSN.
+	DSN string `secret:"mask" env:"SESSION_REDIS_DSN" help:"redis:// or rediss:// session server"`
+	// KeyPrefix isolates session keys from every other user of the server.
+	KeyPrefix string `default:"pw:session:" help:"key space owned by the session store"`
+	// ConnectTimeout bounds the startup ping and the per-command deadlines.
+	ConnectTimeout time.Duration `default:"5s" help:"startup ping and per-command deadline"`
 }
 
 // SessionCookieConfig is the browser cookie policy of the session middleware.
@@ -131,6 +210,21 @@ type SessionRDBConfig struct {
 	Group string `help:"connection group holding the session table"`
 	DSN   string `secret:"mask" help:"dedicated session database DSN"`
 	Table string `default:"popcornwave_session"`
+}
+
+// SessionCookieStoreConfig configures the client-side session backend. The
+// record cookie follows the [session.cookie] policy, so both cookies of a
+// session expire and travel under the same rules; only the name is separate.
+type SessionCookieStoreConfig struct {
+	// Name holds the sealed record beside the token cookie.
+	Name string `default:"pw_session_data" help:"cookie holding the sealed record"`
+	// Secret is 32 or more random bytes in base64, generated with
+	// `openssl rand -base64 32`. Keep it out of the file itself: write
+	// "${SESSION_COOKIE_SECRET}" or set SESSION_COOKIE_STORE_SECRET.
+	Secret string `secret:"mask" env:"SESSION_COOKIE_STORE_SECRET" help:"base64 secret sealing cookie-backed records"`
+	// PreviousSecrets keep records written before a rotation readable. They
+	// never write.
+	PreviousSecrets []string `secret:"mask" help:"retired secrets kept readable during a rotation"`
 }
 
 // ObservabilityConfig controls runtime logging, tracing, and service identity.

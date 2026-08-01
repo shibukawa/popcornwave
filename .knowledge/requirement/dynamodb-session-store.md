@@ -3,7 +3,7 @@ id: requirement:dynamodb-session-store
 type: requirement
 title: DynamoDB Session Backend
 ---
-plugin/session/dynamo implements api:session-store over requirement:dynamodb-store, so a deployment with no relational database can still hold login sessions.
+sessionstore/dynamo implements api:session-store over requirement:dynamodb-store, so a deployment with no relational database can still hold login sessions.
 
 ```yaml
 motivation:
@@ -11,12 +11,13 @@ motivation:
   - a serverless deployment already paying for DynamoDB should not add a relational database for one table
   - api:session-store is a four-operation key-value contract, which is what this store is
 plugin:
-  import: popcornwave/plugin/session/dynamo
+  import: popcornwave/sessionstore/dynamo
   backend_name: dynamo
   config_prefix: session.dynamo
-  registration: api:session-backend-plugin, registering the factory and its configbind target before configuration load
+  registration: api:session-backend-plugin; the import registers the factory under the backend name, so session.backend selects it
   requires: api:dynamo-package imported and enabled, the way the rdb backend requires api:rdb-middleware
-  client: the process client that middleware installs; no second client and no second endpoint
+  client: the process client that middleware installs; the backend borrows it, so it returns no Close and opens nothing
+  raw_store: it implements session.RawStore over already encoded payloads, so it never sees the application payload type; the host adds it back with session.Typed
 table:
   declared_name: popcornwave_session, per rule:framework-owned-tables
   deployed_name: resolved by rule:dynamodb-table-naming like any other table, so a test prefix reaches it unchanged

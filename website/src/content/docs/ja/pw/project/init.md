@@ -6,7 +6,7 @@ sidebar:
 ---
 
 ```sh
-pw init <project-name> [--tailwind] [--no-tinygo] [--no-devbox] [--no-database] [--db=<engine>] [--no-redis] [--router=<kind>] [--auth=<mode>] [--devidp] [-i]
+pw init <project-name> [--tailwind] [--no-tinygo] [--no-devbox] [--no-database] [--db=<engine>] [--no-redis] [--router=<kind>] [--auth=<mode>] [--session=<backend>] [--devidp] [-i]
 ```
 
 新しいディレクトリに、動作する完全なプロジェクトを作ります。名前とオプションを
@@ -23,17 +23,19 @@ pw init <project-name> [--tailwind] [--no-tinygo] [--no-devbox] [--no-database] 
 | `--no-database` | rdb 設定・マイグレーション・SQL の例を作らない |
 | `--db=<engine>` | `sqlite`（既定）、`postgres`、`mysql` |
 | `--no-redis` | `devbox.json` に Valkey 開発サーバーを入れない |
-| `--router=<kind>` | `registered`（既定）、`discovered`、`both`。[探索型ルーティング](/ja/advanced/discovered-routing/#コマンド)を参照 |
+| `--router=<kind>` | `registered`（既定）、`discovered`、`both`。[探索型ルーティング](/ja/guides/cross-layer/discovered-routing/#コマンド)を参照 |
 | `--auth=<mode>` | `none`（既定）、`oidc`、`oidc-passkey`、`passkey` |
+| `--session=<backend>` | ログインを作る場合のセッションの置き場所: `rdb`（既定）、`cookie`、`redis` |
 | `--devidp` | OIDC を選んだ場合に、ローカルの認証プロバイダを組み込む |
 | `-i`, `--interactive` | 名前を与えた場合でも全項目を質問する |
 
 `--tailwind`、`--no-devbox`、`--no-database`、`--no-redis`、`--auth` はいずれも、
 あとから [`pw add`](/ja/pw/project/add/) で追加できる機能の選択です。断っても失うものは
-ありません。ただし 2 つは他に依存します。認証はログインセッションをデータベースに
-保存し、Valkey サーバーは Devbox のパッケージです。そのため `--no-database` と
-`--auth` の併用は拒否され、`--no-devbox` は Valkey も一緒に落とし、答えても何も
-適用されない質問はウィザードに現れません。
+ありません。ただし 2 つは他に依存します。認証はログインの儀式テーブルと許可リストを
+データベースに置き（セッションをどこに保存するかとは無関係です）、Valkey サーバーは
+Devbox のパッケージです。そのため `--no-database` と `--auth` の併用は拒否され、
+`--no-devbox` は Valkey も一緒に落とし、答えても何も適用されない質問はウィザードに
+現れません。
 
 `--no-tinygo` だけは `pw add` で後から変えられません。
 [ツールチェインを変更する](#ツールチェインを変更する)を参照してください。
@@ -133,6 +135,61 @@ OIDC 系を選ぶと、**ローカルエミュレータ**か**外部プロバイ
 `client_secret` が書かれます。これらはプレースホルダであり、**省略可能な設定では
 ありません**。ファイルまたは `AUTH_OIDC_*` 環境変数から値を与えるまで、
 アプリケーションは起動を拒否します。残る選択肢はエミュレータへの切り替えです。
+
+## セッションの置き場所
+
+`--auth` を選ぶと、もう1つだけ質問があります。ログインセッションをどこに置くか、です。
+ハンドラから見た姿は3つとも同じで、`session.Read[T]` も auth のヘルパも変わりません。
+つまりこれは API の選択ではなくデプロイの選択です。
+
+| 回答 | `session.backend` | 得られるもの |
+| --- | --- | --- |
+| データベース | `rdb` | セッションごとに1行。失効可能、掃除あり、マイグレーションを伴う |
+| クッキー | `cookie` | レコードを2つ目のクッキーに封入。ストレージ不要、ただし失効不可 |
+| Redis / Valkey | `redis` | レコードごとにサーバー側 TTL。失効可能、掃除は不要 |
+
+**ストレージは blank import によるオプトインです。** セッションバックエンドはパッケージ
+の `init` で自分を登録するので、それを import する1行が、バックエンドとそのクライアント
+ライブラリをバイナリに入れる唯一の手段になります。
+
+```go
+// cmd/myapp/main.go — pw init が書き出します
+import (
+	// セッションと、ログインの儀式が使う単回限りのレコード。
+	_ "github.com/shibukawa/popcornwave/authstate/sqlite"
+	_ "github.com/shibukawa/popcornwave/sessionstore/sqlite"
+)
+```
+
+SQL ストアはエンジンごとに別パッケージです。あるエンジンの DDL を別のエンジンは
+読めないからです。`--db=postgres` なら `sessionstore/postgres` と
+`authstate/postgres` を書き、マイグレーションも PostgreSQL の方言で出します。
+`sqlite`、`postgres`、`mysql` は同じストア契約テストを通っています。
+
+`pw init` は `rdb` と `redis` のときにこの行を書きます。クッキーバックエンドは `pw` に
+組み込まれているので import は不要です。だからこそ「セッションはあるがストレージは無い」
+状態から始められます。`rdb` のプロジェクトが Redis クライアントを抱えることはなく、その逆も
+同じです。
+
+import を書かずにバックエンドを設定した場合は、最初のリクエストでログインが失敗するのでは
+なく、起動時に足りない行を引用して止まります。
+
+```
+session.backend = "redis" needs its plugin; add to the application:
+import _ "github.com/shibukawa/popcornwave/sessionstore/redis"
+```
+
+回答は書き出される内容も変えます。`rdb` はセッションテーブルのマイグレーションを書き、
+`cookie` と `redis` はテーブルを持たないので auth のマイグレーションが空いている番号を
+取ります。`redis` は `--no-redis` を渡していても Valkey の開発サーバーを `devbox.json` に
+加えます。設定したセッションが到達先を必要とするからです。`cookie` は
+`cookie_store.secret = "${SESSION_COOKIE_SECRET}"` を書き、生成用のコマンドを表示します。
+
+```sh
+export SESSION_COOKIE_SECRET=$(openssl rand -base64 32)
+```
+
+失効・サイズ・期限を誰が守るかという観点での比較は[クッキー](/ja/guides/backend/cookies/)にあります。
 
 ## 検証
 

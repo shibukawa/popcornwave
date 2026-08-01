@@ -96,9 +96,11 @@ func TestNewHandlerWritesAJSONHandlerWithoutATemplate(t *testing.T) {
 
 func TestNewHandlerRefusesADuplicateRoute(t *testing.T) {
 	state, _ := newTestProject(t)
-	// The scaffolded home handler already owns GET /.
+	// The scaffolded home handler already owns the document root exactly.
+	// "GET /" is a different pattern: it matches every unrouted path, which is
+	// why the scaffold no longer claims it.
 	_, err := planHandler(state, newOptions{
-		Kind: newKindHandler, Package: "handlers", Method: "GET", Path: "/",
+		Kind: newKindHandler, Package: "handlers", Method: "GET", Path: "/{$}",
 		Name: "getIndex", HTML: true,
 	})
 	if err == nil || !strings.Contains(err.Error(), "already registered") {

@@ -22,8 +22,13 @@ import (
 	"time"
 
 	"github.com/shibukawa/popcornwave/internal/pwmigrate"
-	"github.com/shibukawa/popcornwave/plugin/session/rdb"
 	"github.com/shibukawa/popcornwave/pw"
+	"github.com/shibukawa/popcornwave/sessionstore"
+
+	_ "github.com/shibukawa/popcornwave/authstate/sqlite"
+	_ "github.com/shibukawa/popcornwave/sessionstore/sqlite"
+
+	httpbind "github.com/shibukawa/tinybind-go"
 	"github.com/shibukawa/tinybind-go/configbind"
 )
 
@@ -251,6 +256,40 @@ func TestOIDCLoginEndToEnd(t *testing.T) {
 		t.Fatalf("home page = %q", body)
 	}
 
+	// The OpenAPI document is mounted beneath the extension chain rather than
+	// beside the probes, so the guard reaches it exactly as it reaches an
+	// application route. An anonymous request is sent into the login flow
+	// instead of being answered with a map of the whole surface.
+	anonymous := &http.Client{CheckRedirect: func(*http.Request, []*http.Request) error {
+		return http.ErrUseLastResponse
+	}}
+	document, err := anonymous.Get(app.URL + "/openapi.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	readBody(t, document)
+	if document.StatusCode != http.StatusSeeOther {
+		t.Fatalf("anonymous openapi status = %d, want a redirect into the login flow", document.StatusCode)
+	}
+	if location := document.Header.Get("Location"); !strings.HasPrefix(location, "/auth/login") {
+		t.Fatalf("anonymous openapi redirected to %q, want the login path", location)
+	}
+
+	// The session that the protected page created reads it. Assembly needs at
+	// least one fragment, which generated code contributes in a real project.
+	httpbind.RegisterOpenAPIFragment("auth-test", []byte(`{"openapi":"3.1.0","paths":{"/mypage":{}}}`))
+	document, err = client.Get(app.URL + "/openapi.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	body = readBody(t, document)
+	if document.StatusCode != http.StatusOK {
+		t.Fatalf("authenticated openapi status = %d body = %q", document.StatusCode, body)
+	}
+	if !strings.Contains(body, "/mypage") {
+		t.Fatalf("openapi document = %q", body)
+	}
+
 	// A callback replayed with the consumed correlation cookie is rejected.
 	replay, err := client.Get(app.URL + "/auth/callback?code=authorization-code&state=stale")
 	if err != nil {
@@ -362,8 +401,8 @@ func applyFrameworkMigrations(t *testing.T, database string) {
 	// The versions here are this fixture's, not the packages': a project picks
 	// whatever is free when the file is written.
 	for version, migration := range map[int]struct{ name, content string }{
-		1: {rdb.MigrationName, rdb.MigrationSQL("")},
-		2: {MigrationName, MigrationSQL()},
+		1: {sessionstore.MigrationName, mustSessionMigration()},
+		2: {MigrationName, mustAuthMigration()},
 	} {
 		name := fmt.Sprintf("%05d_%s.sql", version, migration.name)
 		if err := os.WriteFile(filepath.Join(directory, name), []byte(migration.content), 0o600); err != nil {
@@ -390,6 +429,7 @@ func writeConfig(t *testing.T, issuer, appURL, database string) string {
 	content := fmt.Sprintf(`
 [server]
 public.enabled = false
+openapi = "/openapi.json"
 
 [middleware.rdb]
 enabled = true
@@ -410,7 +450,7 @@ cookie.secure = false
 enabled = true
 mode = "oidc_only"
 post_login_path = "/"
-protection.include = ["/mypage"]
+protection.include = ["/mypage", "/openapi.json"]
 
 [auth.oidc]
 issuer = "%s"
@@ -430,4 +470,22 @@ allow_loopback_http = true
 		t.Fatal(err)
 	}
 	return path
+}
+
+// mustSessionMigration and mustAuthMigration are the SQLite migrations the
+// scaffold writes, which is the dialect these fixtures use.
+func mustSessionMigration() string {
+	migration, err := sessionstore.MigrationSQL("sqlite", "popcornwave_session")
+	if err != nil {
+		panic(err)
+	}
+	return migration
+}
+
+func mustAuthMigration() string {
+	migration, err := MigrationSQL("sqlite")
+	if err != nil {
+		panic(err)
+	}
+	return migration
 }

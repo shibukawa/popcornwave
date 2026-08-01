@@ -16,7 +16,7 @@ available under TinyGo — and what makes a few of the rules below stricter than
 a reflection-based binder would need.
 
 For the framework's own keys and their defaults, see
-[Configuration Keys](/reference/configuration/). This page is the machinery
+[Application Configuration](/reference/configuration/). This page is the machinery
 underneath them.
 
 ## Environments

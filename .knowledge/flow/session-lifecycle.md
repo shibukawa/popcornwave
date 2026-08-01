@@ -10,6 +10,7 @@ request:
   - read the configured cookie once
   - treat a missing cookie as an explicit unauthenticated request
   - validate token syntax and hash it before store lookup
+  - bind the request and response for a store that keeps its records in the browser
   - load through api:session-store
   - reject absolute, idle, or version expiry
   - add the safe data:session-record view and data:request-authentication to the request capsule
@@ -18,6 +19,7 @@ renewal:
   - touch only after renewal_interval
   - never extend beyond absolute expiry
   - align cookie lifetime with authoritative server expiry
+  - any request counts as activity, including a live-connection reconnect an unattended page makes on its own; requirement:presence-signal is the wanted replacement
 login:
   - api:session-manager creates or rotates after successful authentication
 logout:

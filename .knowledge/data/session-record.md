@@ -27,6 +27,9 @@ excluded_from_request_view:
   - key hash
   - backend serialization bytes
   - CSRF secret
+assurance:
+  today: authenticated_at and authentication_method are the whole freshness and strength surface
+  planned: data:session-assurance-state adds the ordered strength label and the provider proof time
 rules:
   - store codecs are bounded and reject malformed records
   - expiry is authoritative on the server even when a cookie remains

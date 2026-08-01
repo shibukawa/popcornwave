@@ -87,7 +87,7 @@ func (e *listError) Error() string { return e.detail }
 const (
 	frameworkPackage    = "github.com/shibukawa/popcornwave/pw"
 	authPluginPackage   = "github.com/shibukawa/popcornwave/plugin/auth"
-	rdbSessionPackage   = "github.com/shibukawa/popcornwave/plugin/session/rdb"
+	rdbSessionPackage   = "github.com/shibukawa/popcornwave/sessionstore/sqlite"
 	devIdPPackagePrefix = "github.com/shibukawa/popcornwave/contrib/devidp"
 	sqliteDriverPackage = "github.com/shibukawa/tinygodriver/database/sql/sqlite"
 	mysqlDriverPackage  = "github.com/shibukawa/tinygodriver/database/sql/mysql"

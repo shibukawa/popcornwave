@@ -1,37 +1,97 @@
 ---
 title: インストール
-description: pw コマンドを導入し、Popcorn Wave を Go モジュールに追加する。
+description: pw コマンドを Homebrew、Nix、リリースアーカイブ、Go ツールチェインのいずれかで導入し、Popcorn Wave を Go モジュールに追加する。
 sidebar:
   order: 1
 ---
 
-Popcorn Wave は **Go 1.26 以降**が必要です。その先で必須となる準備は、`pw` コマンドと、
-それが扱うライブラリ依存だけです。
+スキャフォールド、コード生成、マイグレーション、開発サーバは、いずれも `pw` を経由します。
+だから `pw` は他の何よりも先——Go 本体よりも先です。`pw init` で作ったプロジェクトは
+自分でツールチェインをピン留めするので、始める時点のマシンにはまだ Go が無くて構いません。
 
-## `pw` コマンド
+## `pw` を入れる
 
-スキャフォールド、コード生成、マイグレーション、開発サーバは、いずれも `pw`
-コマンドを経由します。まずはこれを入れます。
+### Homebrew
+
+```sh
+brew install shibukawa/tap/pw
+```
+
+タグ付きリリースのビルド済みバイナリを入れます。対象は macOS（Apple Silicon と Intel）と
+Linux です。更新は `brew upgrade` で行えます。
+
+### Nix
+
+```sh
+nix run github:shibukawa/popcornwave#pw -- version
+```
+
+これは何もインストールせずに `pw` を実行します。`PATH` に置きたい場合は、flake の
+`packages.<system>.pw` をプロファイルや環境に追加するか、公開されている
+`overlays.default` を自分の flake から使ってください。
+
+derivation は `buildGoModule` でソースからビルドするので、`x86_64-linux`、
+`aarch64-linux`、`aarch64-darwin` を対象にします。Intel の macOS は Homebrew の formula と
+リリースアーカイブが担当します。nixpkgs がそのプラットフォームを外したためです。
+
+flake は Go、`gopls`、TinyGo を含む `devShells.default` も公開しています。Devbox を
+使わずにホスト側のツールチェインが欲しいときに使えます。
+
+### リリースアーカイブ
+
+タグごとに、ターゲット別のアーカイブと `checksums.txt` が
+[リリースページ](https://github.com/shibukawa/popcornwave/releases)に公開されます。
+展開するとディレクトリの階層無しで `pw` が出てくるので、チェックサムを検証してバイナリを
+`PATH` に置けば終わりです。Windows をカバーするのは、このチャネルだけです。
+
+### Go ツールチェイン
 
 ```sh
 go install github.com/shibukawa/popcornwave/cmd/pw@latest
 ```
 
+これも動きますし、サポートも続きます。最後に挙げているのは、モジュールが要求する Go
+ツールチェインが先に必要になるからです。それこそ、他の 3 つのチャネルが取り除いている
+前提条件です。
+
+### 確認
+
 ```sh
-pw help
+pw version
 ```
 
 ```
-Usage: pw <command>
-Commands: init, generate, migrate, seed, build, dev
-Migrate actions: status, version, up, up-by-one, up-to, down, down-to, create, validate, snapshot
-Seed usage: pw seed [--dir=testdata/seed] [name...]
+pw 0.1.0 (abc1234, darwin/arm64, go1.26.0)
 ```
+
+`pw help` はコマンドの一覧を出します。
+
+```
+Usage: pw <command> [arguments]
+
+Commands:
+  init      create a project in a new directory
+  add       enable a capability in a project that declined it
+  new       scaffold a handler or a page beside the ones you have
+  generate  regenerate everything derived from your sources
+  migrate   inspect and apply database migrations
+  seed      load seed datasets into the database
+  build     generate, build assets, and compile the project
+  dev       watch, regenerate, rebuild, and restart
+  doctor    report what a named environment will actually run
+  version   print the version, revision, and toolchain
+  help      print this message
+```
+
+各コマンドには [pw コマンド](/ja/pw/overview/)配下に個別のページがあります。
 
 ## ライブラリ
 
-新しいプロジェクトでは、`pw init` がフレームワークを require 済みの `go.mod` を
-書き出すため、手動の `go get` は不要です。既存モジュールには 1 つだけ手順を追加します。
+Popcorn Wave は **Go 1.26 以降**が必要です。
+
+新しいプロジェクトでは、[`pw init`](/ja/pw/project/init/) がフレームワークを require 済みの
+`go.mod` を書き出すため、手動の `go get` は不要です。既存モジュールには 1 つだけ手順を
+追加します。
 
 ```sh
 go get github.com/shibukawa/popcornwave

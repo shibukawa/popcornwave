@@ -13,7 +13,7 @@ import (
 	"github.com/shibukawa/popcornwave/internal/pwtree"
 )
 
-const doctorUsage = "Doctor usage: pw doctor [--env=token|all]... [--config-path=path] [--format=text|json] [--strict] [--online]"
+const doctorUsage = "usage: pw doctor [--env=token|all]... [--config-path=path] [--format=text|json] [--strict] [--online]"
 
 // doctorOptions are the answers pw doctor takes from its own command line. The
 // environment is an option rather than an ambient variable because diagnosing

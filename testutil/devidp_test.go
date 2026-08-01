@@ -9,7 +9,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/shibukawa/popcornwave/contrib/authstate/memory"
+	"github.com/shibukawa/popcornwave/authstate/memory"
 	"github.com/shibukawa/popcornwave/contrib/oauth"
 	"github.com/shibukawa/popcornwave/contrib/oidc"
 	"github.com/shibukawa/popcornwave/pw"
@@ -88,11 +88,11 @@ func (app *loginApp) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		app.mu.Lock()
 		key := app.key
 		app.mu.Unlock()
-		tokens, err := app.client.HandleCallback(r.Context(), key, oidc.Callback{
+		tokens, _, err := app.client.HandleCallback(r.Context(), key, oidc.Callback{
 			Code:  r.URL.Query().Get("code"),
 			State: r.URL.Query().Get("state"),
 			Error: r.URL.Query().Get("error"),
-		})
+		}, oidc.CallbackOptions{})
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusUnauthorized)
 			return

@@ -3,10 +3,10 @@ id: requirement:contrib-auth-state-memory
 type: requirement
 title: In-Memory Authentication State Adapter
 ---
-contrib/authstate/memory provides bounded process-local requirement:contrib-auth-state storage.
+authstate/memory provides bounded process-local requirement:contrib-auth-state storage.
 
 ```yaml
-package: contrib/authstate/memory
+package: authstate/memory
 public_api:
   - NewStore[T](Options)
 required:

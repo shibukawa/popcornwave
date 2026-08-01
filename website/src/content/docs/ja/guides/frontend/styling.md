@@ -2,7 +2,7 @@
 title: スタイリング
 description: コンポーネントスコープのスタイルと、Tailwind CSS の有効化。あとから有効にする手順も。
 sidebar:
-  order: 4
+  order: 5
 ---
 
 Popcorn Wave は CSS の手法を 1 つに強制しません。コンポーネントスコープのスタイルは
@@ -117,7 +117,8 @@ export component Document(children: html?): html {
 ```
 
 URL は `server.public.mount`（既定 `/public`）に、`public/` 内での `output` のパスを
-続けたものです。
+続けたものです。このディレクトリがどう埋め込まれ、どう配信されるかは
+[静的ファイル配信](/ja/guides/frontend/static-assets/)を参照してください。
 
 あとは開発サーバを起動します。
 

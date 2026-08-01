@@ -12,17 +12,24 @@ pw help
 ```
 
 ```
-Usage: pw <command>
-Commands: init, add, new, generate, migrate, seed, build, dev, doctor
-Migrate actions: status, version, up, up-by-one, up-to, down, down-to, create, validate, snapshot
-Seed usage: pw seed [--dir=testdata/seed] [name...]
+Usage: pw <command> [arguments]
+
+Commands:
+  init      create a project in a new directory
+  add       enable a capability in a project that declined it
+  new       scaffold a handler or a page beside the ones you have
+  generate  regenerate everything derived from your sources
+  migrate   inspect and apply database migrations
+  seed      load seed datasets into the database
+  build     generate, build assets, and compile the project
+  dev       watch, regenerate, rebuild, and restart
+  doctor    report what a named environment will actually run
+  version   print the version, revision, and toolchain
+  help      print this message
 ```
 
-インストールは次のとおりです。
-
-```sh
-go install github.com/shibukawa/popcornwave/cmd/pw@latest
-```
+インストールは Homebrew、Nix、リリースアーカイブ、Go ツールチェインのいずれかで行えます。
+[インストール](/ja/start/installation/)を参照してください。
 
 ## コマンド一覧
 

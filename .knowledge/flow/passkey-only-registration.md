@@ -15,11 +15,11 @@ flow:
   - allocate provisional data:user-account with random stable user handle
   - issue login ID and one-time temporary secret under policy:bootstrap-credential-security
   - verify the ID and secret without revealing account existence
-  - create a short-lived enrollment-only session; do not create a normal application session
+  - grant a short-lived enrollment ticket; create no session at all, so the request stays unauthenticated
   - begin requirement:contrib-passkey registration
   - persist single-use ceremony state in requirement:contrib-auth-state
   - finish registration and atomically save data:passkey-credential, activate the account, and consume the bootstrap credential
-  - replace the enrollment-only session with an api:session-manager normal session
+  - replace the enrollment ticket with an api:session-manager session
 failure:
   - leave no active account without a credential
   - expire or clean abandoned provisional accounts

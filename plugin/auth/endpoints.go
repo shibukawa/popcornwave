@@ -2,10 +2,10 @@ package auth
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -23,6 +23,27 @@ const (
 	// returnPathSeparator splits the transaction key from the local path the
 	// completed login returns to. The key is base64url and cannot contain it.
 	returnPathSeparator = ":"
+	// reconfirmCookieSuffix names the cookie carrying the one thing a
+	// reconfirm logout leaves behind: that the next authorization request must
+	// not be answered silently.
+	//
+	// It needs no integrity protection. Its only effect is to add prompt,
+	// which can add an interaction and never remove one, so a forged value
+	// costs a redundant confirmation and grants nothing.
+	reconfirmCookieSuffix = "_reconfirm"
+	// reconfirmCookieMaxAge outlives a browser sitting on the landing page
+	// before signing in again, without becoming a lasting setting.
+	reconfirmCookieMaxAge = 3600
+	// logoutScopeField lets a logout form escalate to a global sign-out where
+	// the deployment permits it.
+	logoutScopeField = "scope"
+)
+
+// Logout scopes decide what a logout does to the provider session. There is no
+// local-only scope: see OIDCConfig.LogoutScope.
+const (
+	LogoutScopeReconfirm = "reconfirm"
+	LogoutScopeGlobal    = "global"
 )
 
 // endpoints owns the login, callback, and logout paths and passes every other
@@ -34,13 +55,23 @@ func (rt *runtime) endpoints(next http.Handler) http.Handler {
 			pw.WriteProblem(w, r, pw.BadRequest())
 			return
 		}
-		switch path {
-		case rt.config.LoginPath:
+		// A ceremony path is claimed before the OIDC paths so that a mode
+		// without a provider never falls through to a login it cannot serve.
+		if suffix, mounted := rt.passkeyPaths[path]; mounted {
+			rt.handlePasskey(w, r, suffix)
+			return
+		}
+		switch {
+		case rt.config.usesOIDC() && path == rt.config.LoginPath:
 			rt.handleLogin(w, r)
-		case rt.config.CallbackPath:
+		case rt.config.usesOIDC() && path == rt.config.CallbackPath:
 			rt.handleCallback(w, r)
-		case rt.config.LogoutPath:
+		case path == rt.config.LogoutPath:
 			rt.handleLogout(w, r)
+		case rt.hint != nil && path == rt.forgetPath():
+			rt.handleForget(w, r)
+		case rt.config.Assurance.Presence.Enabled && path == rt.presencePath():
+			rt.handlePresence(w, r)
 		default:
 			next.ServeHTTP(w, r)
 		}
@@ -51,8 +82,13 @@ func (rt *runtime) handleLogin(w http.ResponseWriter, r *http.Request) {
 	if !allowMethod(w, r, http.MethodGet, http.MethodHead) {
 		return
 	}
-	returnPath := localReturnPath(r.URL.Query().Get("next"))
-	if pw.Authenticated(r.Context()) {
+	query := r.URL.Query()
+	returnPath := localReturnPath(query.Get("next"))
+	// A step-up arrives already authenticated and asks to prove again, so the
+	// usual shortcut of sending an authenticated browser straight to the
+	// landing path would defeat it.
+	stepUp, stepUpWindow := rt.pendingStepUp(r, query)
+	if pw.Authenticated(r.Context()) && !stepUp {
 		rt.redirect(w, r, rt.landingPath(returnPath))
 		return
 	}
@@ -62,23 +98,76 @@ func (rt *runtime) handleLogin(w http.ResponseWriter, r *http.Request) {
 		pw.WriteProblem(w, r, pw.ServiceUnavailable())
 		return
 	}
-	authorizationURL, key, err := client.BeginAuthorization(r.Context(), oidc.BeginOptions{
-		Scopes: rt.config.OIDC.Scopes,
-	})
+	begin := oidc.BeginOptions{Scopes: rt.config.OIDC.Scopes}
+	if stepUp {
+		// max_age is the load-bearing half: the provider must return auth_time
+		// when it is sent, so the answer can be checked. prompt=login only
+		// improves the odds of an interactive confirmation and reports nothing.
+		begin.MaxAge = &stepUpWindow
+		begin.Prompt = []string{"login"}
+	} else if rt.takeReconfirm(w, r) {
+		// select_account names who the provider knows, which is the account
+		// picker a returning user expects, and login stops it from being
+		// answered from a single sign-on session the logout left alive.
+		//
+		// A shared-device deployment withholds select_account: it exists to
+		// surface exactly what that mode is trying to hide.
+		if rt.config.SharedDevice {
+			begin.Prompt = []string{"login"}
+		} else {
+			begin.Prompt = []string{"select_account", "login"}
+		}
+	}
+	authorizationURL, key, err := client.BeginAuthorization(r.Context(), begin)
 	if err != nil {
 		pw.Logger(r.Context()).Log(r.Context(), pw.LevelError, "oidc authorization request failed", pw.Err(err))
 		pw.WriteProblem(w, r, pw.ServiceUnavailable())
 		return
 	}
-	rt.writeTransactionCookie(w, key+returnPathSeparator+returnPath)
+	rt.writeTransactionCookie(w, encodeTransaction(key, stepUp, stepUpWindow, returnPath))
 	rt.redirect(w, r, authorizationURL)
+}
+
+// stepUpQueryField carries the requested window into the login endpoint. It is
+// not trusted: a larger value only weakens the request, and the guard that sent
+// the browser here re-evaluates its own requirement when it returns, so a
+// tampered window fails that check instead of passing it.
+const stepUpQueryField = "max_age"
+
+// pendingStepUp reports whether this login is a re-proof of the session the
+// browser already holds, and the window it must satisfy.
+func (rt *runtime) pendingStepUp(r *http.Request, query url.Values) (bool, time.Duration) {
+	raw := query.Get(stepUpQueryField)
+	if raw == "" || !pw.Authenticated(r.Context()) {
+		return false, 0
+	}
+	seconds, err := strconv.Atoi(raw)
+	if err != nil || seconds < 0 || seconds > int(maxStepUpWindow/time.Second) {
+		return false, 0
+	}
+	return true, time.Duration(seconds) * time.Second
+}
+
+// maxStepUpWindow bounds the window a redirect may name, so a hostile link
+// cannot ask for one so large that the re-proof is satisfied by anything.
+const maxStepUpWindow = 24 * time.Hour
+
+// stepUpPath builds the local login URL that re-proves the current session and
+// returns to the operation that was refused.
+func (rt *runtime) stepUpPath(r *http.Request, window time.Duration) string {
+	values := url.Values{}
+	values.Set(stepUpQueryField, strconv.Itoa(int(window/time.Second)))
+	if next := localReturnPath(r.URL.RequestURI()); next != "" {
+		values.Set("next", next)
+	}
+	return rt.config.LoginPath + "?" + values.Encode()
 }
 
 func (rt *runtime) handleCallback(w http.ResponseWriter, r *http.Request) {
 	if !allowMethod(w, r, http.MethodGet) {
 		return
 	}
-	key, returnPath, ok := rt.takeTransactionCookie(w, r)
+	key, stepUp, stepUpWindow, returnPath, ok := rt.takeTransaction(w, r)
 	if !ok {
 		pw.WriteProblem(w, r, pw.BadRequest())
 		return
@@ -96,19 +185,18 @@ func (rt *runtime) handleCallback(w http.ResponseWriter, r *http.Request) {
 		pw.WriteProblem(w, r, pw.ServiceUnavailable())
 		return
 	}
-	tokens, err := client.HandleCallback(r.Context(), key, oidc.Callback{
+	_, idToken, err := client.HandleCallback(r.Context(), key, oidc.Callback{
 		State: query.Get("state"),
 		Code:  query.Get("code"),
-	})
+	}, oidc.CallbackOptions{RequireAuthTime: stepUp})
 	if err != nil {
 		pw.Logger(r.Context()).Log(r.Context(), pw.LevelWarn, "oidc callback rejected", pw.Err(err))
 		pw.WriteProblem(w, r, pw.Forbidden())
 		return
 	}
-	identity, err := verifiedIdentity(r.Context(), client, tokens, rt.config.OIDC.IdentityClaim)
-	if err != nil {
-		pw.Logger(r.Context()).Log(r.Context(), pw.LevelWarn, "id token verification failed", pw.Err(err))
-		pw.WriteProblem(w, r, pw.Forbidden())
+	identity := identityFrom(idToken.Claims, rt.config.OIDC.IdentityClaim)
+	if stepUp {
+		rt.completeStepUp(w, r, identity, idToken, stepUpWindow, returnPath)
 		return
 	}
 	account, err := admit(r.Context(), rt.config.OIDC, rt.allowlist, identity)
@@ -125,7 +213,7 @@ func (rt *runtime) handleCallback(w http.ResponseWriter, r *http.Request) {
 	}
 	// Rotation, rather than creation, revokes any session the browser already
 	// held before this authentication.
-	err = rt.manager.RotateWithMethod(w, r, SessionData{
+	data := SessionData{
 		AccountID:   account.ID,
 		Issuer:      identity.Issuer,
 		Subject:     identity.Subject,
@@ -133,9 +221,63 @@ func (rt *runtime) handleCallback(w http.ResponseWriter, r *http.Request) {
 		Key:         identity.Key,
 		DisplayName: account.DisplayName,
 		Email:       account.Email,
-	}, methodOIDC)
+	}
+	// A provider that reported auth_time without being asked still reported the
+	// truth about when it authenticated this person, and that is what freshness
+	// is measured from.
+	if idToken.AuthTime != nil {
+		data.ProviderAuthTime = idToken.AuthTime.Unix()
+	}
+	err = rt.manager.RotateWithMethod(w, r, data, MethodOIDC)
 	if err != nil {
 		pw.Logger(r.Context()).Log(r.Context(), pw.LevelError, "session creation failed", pw.Err(err))
+		pw.WriteProblem(w, r, pw.ServiceUnavailable())
+		return
+	}
+	rt.rememberSignIn(w, data)
+	rt.redirect(w, r, rt.landingPath(returnPath))
+}
+
+// completeStepUp refreshes the assurance of the session the browser already
+// holds. It never provisions, never links, and never changes which account is
+// signed in: a step-up that accepted any successful login would be an account
+// swap with the previous account's guarded operation already staged.
+func (rt *runtime) completeStepUp(w http.ResponseWriter, r *http.Request, identity Identity, idToken oidc.IDToken, window time.Duration, returnPath string) {
+	view, ok := Session(r.Context())
+	if !ok {
+		// The session ended while the browser was at the provider. Nothing is
+		// left to refresh, and silently creating one would turn a re-proof into
+		// a login the guard never asked for.
+		pw.WriteProblem(w, r, pw.Forbidden())
+		return
+	}
+	if identity.Issuer != view.Data.Issuer || identity.KeyClaim != view.Data.KeyClaim || identity.Key != view.Data.Key || identity.Key == "" {
+		pw.Logger(r.Context()).Log(r.Context(), pw.LevelWarn, "step-up completed by a different identity")
+		pw.WriteProblem(w, r, pw.Forbidden())
+		return
+	}
+	// Admission still applies, so an identity that lost it fails the re-proof
+	// rather than refreshing a session it may no longer have.
+	if _, err := admit(r.Context(), rt.config.OIDC, rt.allowlist, identity); err != nil {
+		if !errors.Is(err, ErrAccessDenied) {
+			pw.Logger(r.Context()).Log(r.Context(), pw.LevelError, "step-up admission failed", pw.Err(err))
+			pw.WriteProblem(w, r, pw.InternalServerError(err))
+			return
+		}
+		pw.WriteProblem(w, r, pw.Forbidden())
+		return
+	}
+	data := view.Data
+	if idToken.AuthTime != nil {
+		data.ProviderAuthTime = idToken.AuthTime.Unix()
+	}
+	if window == 0 {
+		data.StepUpAt = time.Now().Unix()
+	}
+	// Rotation, because an assurance change is an authentication-strength
+	// change: the previous token is revoked and the CSRF secret turns with it.
+	if err := rt.manager.RotateWithMethod(w, r, data, MethodOIDC); err != nil {
+		pw.Logger(r.Context()).Log(r.Context(), pw.LevelError, "step-up session rotation failed", pw.Err(err))
 		pw.WriteProblem(w, r, pw.ServiceUnavailable())
 		return
 	}
@@ -152,39 +294,69 @@ func (rt *runtime) handleLogout(w http.ResponseWriter, r *http.Request) {
 		pw.WriteProblem(w, r, pw.Forbidden())
 		return
 	}
+	// An explicit sign-out asks to be forgotten, so the hint goes with the
+	// session. Only expiry leaves one behind.
+	rt.forgetSignIn(w)
+	// The local session goes first and unconditionally, whatever the selected
+	// scope does afterward.
 	if err := rt.manager.Delete(w, r); err != nil {
 		pw.Logger(r.Context()).Log(r.Context(), pw.LevelError, "session deletion failed", pw.Err(err))
 		pw.WriteProblem(w, r, pw.ServiceUnavailable())
 		return
 	}
-	// Ending only the local session leaves the provider signed in, so the next
-	// login returns the same user without asking and the sign-out looks like it
-	// did nothing.
-	if rt.config.OIDC.ProviderLogout {
+	if rt.logoutScope(r) == LogoutScopeGlobal {
 		if target := rt.endSessionURL(r); target != "" {
 			rt.redirect(w, r, target)
 			return
 		}
+		// A provider advertising no end session endpoint degrades to reconfirm
+		// rather than to a silent logout: the next login must still ask.
 	}
+	// Reconfirm asks the provider for nothing. It records that the next
+	// authorization request carries prompt, which is what stops the provider
+	// from answering silently from a single sign-on session this logout could
+	// not reach.
+	rt.markReconfirm(w)
 	rt.redirect(w, r, "/")
 }
 
-// verifiedIdentity reads the ID Token claims of a callback whose nonce binding
-// HandleCallback already validated.
-func verifiedIdentity(ctx context.Context, client *oidc.Client, tokens oidc.TokenSet, identityClaim string) (Identity, error) {
-	raw, ok := tokens.Raw["id_token"]
-	if !ok {
-		return Identity{}, errors.New("auth: callback response has no id_token")
+// forgetPath is the not-me control of a login screen. It hangs off the logout
+// path because it is the same act at a lower level: one ends a session, the
+// other ends the memory of one.
+func (rt *runtime) forgetPath() string { return rt.config.LogoutPath + "/forget" }
+
+// handleForget clears the sign-in hint. It requires no session and no
+// authentication, because the person pressing it is by definition not signed
+// in, and it grants nothing: clearing a hint can only make the next sign-in
+// longer.
+//
+// It is still POST and same-origin, for the reason the logout endpoint is: a
+// control reachable by a link or a prefetch is one anything that fetches URLs
+// can trigger on the user's behalf.
+func (rt *runtime) handleForget(w http.ResponseWriter, r *http.Request) {
+	if !allowMethod(w, r, http.MethodPost) {
+		return
 	}
-	var encoded string
-	if err := json.Unmarshal(raw, &encoded); err != nil || encoded == "" {
-		return Identity{}, errors.New("auth: malformed id_token")
+	if !sameOrigin(r) {
+		pw.WriteProblem(w, r, pw.Forbidden())
+		return
 	}
-	idToken, err := client.VerifyIDToken(ctx, encoded)
-	if err != nil {
-		return Identity{}, err
+	rt.forgetSignIn(w)
+	rt.redirect(w, r, "/")
+}
+
+// logoutScope resolves the configured scope, allowing a request to escalate to
+// global and never to downgrade. Escalation costs the user extra sign-outs;
+// a forced downgrade would leave the provider session alive after the user
+// asked to leave it.
+func (rt *runtime) logoutScope(r *http.Request) string {
+	if rt.config.OIDC.LogoutScope == LogoutScopeGlobal {
+		return LogoutScopeGlobal
 	}
-	return identityFrom(idToken.Claims, identityClaim), nil
+	if rt.config.OIDC.AllowGlobalLogoutRequest && r.PostFormValue(logoutScopeField) == LogoutScopeGlobal {
+		return LogoutScopeGlobal
+	}
+	return LogoutScopeReconfirm
 }
 
 // endSessionURL builds the RP-initiated logout request, or returns an empty
@@ -270,8 +442,47 @@ func (rt *runtime) writeTransactionCookie(w http.ResponseWriter, value string) {
 	})
 }
 
+// encodeTransaction packs the correlation key, whether this is a re-proof of an
+// existing session, its window, and the local return path into one value.
+//
+// The key is base64url and the window is digits, so neither can contain the
+// separator and only the trailing return path can.
+func encodeTransaction(key string, stepUp bool, window time.Duration, returnPath string) string {
+	marker := "0"
+	if stepUp {
+		marker = strconv.Itoa(int(window/time.Second) + 1)
+	}
+	return key + returnPathSeparator + marker + returnPathSeparator + returnPath
+}
+
 // takeTransactionCookie reads and immediately expires the pending transaction
 // cookie, so one callback can consume it only once.
+//
+// stepUp reports a re-proof of the session the browser already holds, and
+// window is what it must satisfy. Both come from the server-set cookie rather
+// than from the callback query, so the requirement a login started with is the
+// one its callback enforces.
+func (rt *runtime) takeTransaction(w http.ResponseWriter, r *http.Request) (key string, stepUp bool, window time.Duration, returnPath string, ok bool) {
+	rawKey, rest, found := rt.takeTransactionCookie(w, r)
+	if !found {
+		return "", false, 0, "", false
+	}
+	marker, path, split := strings.Cut(rest, returnPathSeparator)
+	if !split {
+		return "", false, 0, "", false
+	}
+	value, err := strconv.Atoi(marker)
+	if err != nil || value < 0 {
+		return "", false, 0, "", false
+	}
+	if value > 0 {
+		// The marker is the window plus one, so zero stays available to mean
+		// "not a step-up" while a zero-second window is still expressible.
+		return rawKey, true, time.Duration(value-1) * time.Second, localReturnPath(path), true
+	}
+	return rawKey, false, 0, localReturnPath(path), true
+}
+
 func (rt *runtime) takeTransactionCookie(w http.ResponseWriter, r *http.Request) (key, returnPath string, ok bool) {
 	cookie, err := r.Cookie(rt.transactionCookieName())
 	http.SetCookie(w, &http.Cookie{
@@ -290,11 +501,51 @@ func (rt *runtime) takeTransactionCookie(w http.ResponseWriter, r *http.Request)
 	if !found || key == "" {
 		return "", "", false
 	}
-	return key, localReturnPath(rest), true
+	return key, rest, true
 }
 
 func (rt *runtime) transactionCookieName() string {
 	return rt.manager.CookieName() + transactionCookieSuffix
+}
+
+func (rt *runtime) reconfirmCookieName() string {
+	return rt.manager.CookieName() + reconfirmCookieSuffix
+}
+
+// markReconfirm records that the next authorization request must carry prompt.
+// This is the whole of a reconfirm logout: nothing is sent to the provider, and
+// the provider session of every other relying party is untouched.
+func (rt *runtime) markReconfirm(w http.ResponseWriter) {
+	http.SetCookie(w, &http.Cookie{
+		Name:     rt.reconfirmCookieName(),
+		Value:    "1",
+		Path:     rt.config.LoginPath,
+		MaxAge:   reconfirmCookieMaxAge,
+		Secure:   rt.cookieSecure(),
+		HttpOnly: true,
+		SameSite: http.SameSiteLaxMode,
+	})
+}
+
+// takeReconfirm reports whether the pending reconfirmation is set and clears
+// it, so the intent survives only until the next authorization request rather
+// than becoming a permanent setting.
+func (rt *runtime) takeReconfirm(w http.ResponseWriter, r *http.Request) bool {
+	cookie, err := r.Cookie(rt.reconfirmCookieName())
+	pending := err == nil && cookie != nil && cookie.Value != ""
+	if !pending {
+		return false
+	}
+	http.SetCookie(w, &http.Cookie{
+		Name:     rt.reconfirmCookieName(),
+		Value:    "",
+		Path:     rt.config.LoginPath,
+		MaxAge:   -1,
+		Secure:   rt.cookieSecure(),
+		HttpOnly: true,
+		SameSite: http.SameSiteLaxMode,
+	})
+	return true
 }
 
 // cookieSecure mirrors the session cookie policy, so the correlation cookie is

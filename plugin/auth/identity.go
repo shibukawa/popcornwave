@@ -8,6 +8,7 @@ import (
 	"errors"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/shibukawa/popcornwave/contrib/jwt"
 )
@@ -163,6 +164,35 @@ func SetAccountResolver(resolve AccountResolver) {
 	resolverState.resolve = resolve
 }
 
+// AccountLookup returns the account of a stable identifier. A passkey login
+// resolves a credential to an account ID, which AccountResolver cannot answer
+// because it starts from a verified external identity instead.
+type AccountLookup func(ctx context.Context, accountID string) (Account, error)
+
+var lookupState struct {
+	sync.RWMutex
+	lookup AccountLookup
+}
+
+// SetAccountLookup installs the application account lookup. Without one a
+// passkey session carries the account identifier alone, which is enough to
+// authenticate and authorize but shows the user no name.
+func SetAccountLookup(lookup AccountLookup) {
+	lookupState.Lock()
+	defer lookupState.Unlock()
+	lookupState.lookup = lookup
+}
+
+func lookupAccount(ctx context.Context, accountID string) (Account, error) {
+	lookupState.RLock()
+	lookup := lookupState.lookup
+	lookupState.RUnlock()
+	if lookup == nil {
+		return Account{ID: accountID}, nil
+	}
+	return lookup(ctx, accountID)
+}
+
 func accountResolver() AccountResolver {
 	resolverState.RLock()
 	defer resolverState.RUnlock()
@@ -201,6 +231,36 @@ type SessionData struct {
 	Key         string `json:"key,omitempty"`
 	DisplayName string `json:"name,omitempty"`
 	Email       string `json:"email,omitempty"`
+	// ProviderAuthTime is the verified auth_time of the identity provider: the
+	// moment it last actively authenticated this person, which is not the
+	// moment the login landed here. A provider may satisfy an authorization
+	// request from a single sign-on session established much earlier, so
+	// freshness is measured from this and only falls back to the session's own
+	// AuthenticatedAt when the provider reported nothing.
+	//
+	// It lives here rather than on the session record because it is an OpenID
+	// Connect concept: a passkey-only deployment has no provider at all, and
+	// the generic session package must not learn what an issuer is.
+	ProviderAuthTime int64 `json:"provider_auth_time,omitempty"`
+	// StepUpAt records that a zero-window re-proof completed, which is the only
+	// thing that can satisfy a per-operation requirement.
+	//
+	// It lives in the session rather than in a cookie so it cannot be forged,
+	// and it is bounded by a short window rather than consumed exactly once,
+	// because consuming it would mean rotating the session inside an ordinary
+	// read. Two zero-window operations within that window therefore share one
+	// proof; a truly single-use admission needs a server-side record this
+	// package does not yet own.
+	StepUpAt int64 `json:"step_up_at,omitempty"`
+}
+
+// provenAt reports when this session's identity was last actually proved,
+// preferring what the provider reported over when the login arrived.
+func (d SessionData) provenAt(fallback time.Time) time.Time {
+	if d.ProviderAuthTime > 0 {
+		return time.Unix(d.ProviderAuthTime, 0).UTC()
+	}
+	return fallback
 }
 
 // identityFrom builds the verified identity and resolves the configured lookup

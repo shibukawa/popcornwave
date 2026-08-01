@@ -13,12 +13,25 @@ import (
 	_ "async_render/templates"
 )
 
+const chromeUserAgent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 " +
+	"(KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"
+
+// browserRequest is a request from a client that will run the boundary runtime.
+// A streaming assertion needs one: httptest.NewRequest sends no User-Agent, and
+// an absent header classifies as a bot, which is the buffered branch these
+// tests are not looking at.
+func browserRequest(target string) *http.Request {
+	request := httptest.NewRequest(http.MethodGet, target, nil)
+	request.Header.Set("User-Agent", chromeUserAgent)
+	return request
+}
+
 // TestHomeStreamsFallbacksBeforeCompletions asserts the property the example
 // exists to show: the fallbacks are on the wire before the work behind them
 // settles, and each completion follows in its own right.
 func TestHomeStreamsFallbacksBeforeCompletions(t *testing.T) {
 	recorder := httptest.NewRecorder()
-	profile(recorder, httptest.NewRequest(http.MethodGet, "/profile", nil))
+	profile(recorder, browserRequest("/profile"))
 
 	body := recorder.Body.String()
 	if recorder.Code != http.StatusOK {
@@ -47,7 +60,7 @@ func TestHomeStreamsFallbacksBeforeCompletions(t *testing.T) {
 // visit to see the recover clause.
 func TestRecommendationFailureStaysServerSide(t *testing.T) {
 	recorder := httptest.NewRecorder()
-	profile(recorder, httptest.NewRequest(http.MethodGet, "/profile?fail=recommendation", nil))
+	profile(recorder, browserRequest("/profile?fail=recommendation"))
 
 	body := recorder.Body.String()
 	if recorder.Code != http.StatusOK {
@@ -63,7 +76,7 @@ func TestRecommendationFailureStaysServerSide(t *testing.T) {
 
 func TestDocumentReferencesTheRuntimeModule(t *testing.T) {
 	recorder := httptest.NewRecorder()
-	profile(recorder, httptest.NewRequest(http.MethodGet, "/profile", nil))
+	profile(recorder, browserRequest("/profile"))
 
 	want := `<script type="module" src="` + pw.RuntimeScriptURL() + `">`
 	if !strings.Contains(recorder.Body.String(), want) {
@@ -76,7 +89,7 @@ func TestDocumentReferencesTheRuntimeModule(t *testing.T) {
 // on rather than left claiming to load.
 func TestUnhandledFailureReplacesTheDocument(t *testing.T) {
 	recorder := httptest.NewRecorder()
-	profile(recorder, httptest.NewRequest(http.MethodGet, "/profile?fail=orders", nil))
+	profile(recorder, browserRequest("/profile?fail=orders"))
 
 	body := recorder.Body.String()
 	if recorder.Code != http.StatusOK {

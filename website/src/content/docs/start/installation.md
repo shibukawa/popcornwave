@@ -1,45 +1,107 @@
 ---
 title: Installation
-description: Install the pw command and add Popcorn Wave to a Go module.
+description: Install the pw command through Homebrew, Nix, a release archive, or the Go toolchain, and add Popcorn Wave to a Go module.
 sidebar:
   order: 1
 ---
 
-Popcorn Wave requires **Go 1.26 or later**. From there, the only required setup
-is the `pw` command and the library dependency it manages.
-
-## The `pw` command
-
 Scaffolding, code generation, migrations, and the development server all go
-through `pw`, so install it first:
+through `pw`, so it comes before anything else — including Go itself. A `pw init`
+project pins its own toolchain, which means the machine you start on does not
+need one yet.
+
+## Installing `pw`
+
+### Homebrew
+
+```sh
+brew install shibukawa/tap/pw
+```
+
+The formula installs a prebuilt binary from the tagged release, on macOS
+(Apple Silicon and Intel) and Linux. Upgrades come with `brew upgrade`.
+
+### Nix
+
+```sh
+nix run github:shibukawa/popcornwave#pw -- version
+```
+
+That runs `pw` without installing anything. To put it on `PATH`, add the flake's
+`packages.<system>.pw` to your profile or environment, or use the exported
+`overlays.default` from a flake of your own.
+
+The derivation builds from source with `buildGoModule`, so it covers
+`x86_64-linux`, `aarch64-linux`, and `aarch64-darwin`. Intel macOS is served by
+the Homebrew formula and the release archives instead — nixpkgs dropped that
+platform.
+
+The flake also exposes a `devShells.default` with Go, `gopls`, and TinyGo, if
+you want the host toolchain without Devbox.
+
+### Release archive
+
+Every tag publishes one archive per target plus a `checksums.txt`, on the
+[releases page](https://github.com/shibukawa/popcornwave/releases). Extraction
+yields `pw` directly, with no directory prefix, so verifying the checksum and
+moving the binary onto your `PATH` is the whole procedure. Windows is covered
+here and by no other channel.
+
+### Go toolchain
 
 ```sh
 go install github.com/shibukawa/popcornwave/cmd/pw@latest
 ```
 
+This works and stays supported. It is listed last because it needs a Go
+toolchain that matches the module's requirement, which is exactly the
+prerequisite the other three channels remove.
+
+### Checking
+
 ```sh
-pw help
+pw version
 ```
 
 ```
-Usage: pw <command>
-Commands: init, generate, migrate, seed, build, dev
-Migrate actions: status, version, up, up-by-one, up-to, down, down-to, create, validate, snapshot
-Seed usage: pw seed [--dir=testdata/seed] [name...]
+pw 0.1.0 (abc1234, darwin/arm64, go1.26.0)
 ```
+
+`pw help` lists every command:
+
+```
+Usage: pw <command> [arguments]
+
+Commands:
+  init      create a project in a new directory
+  add       enable a capability in a project that declined it
+  new       scaffold a handler or a page beside the ones you have
+  generate  regenerate everything derived from your sources
+  migrate   inspect and apply database migrations
+  seed      load seed datasets into the database
+  build     generate, build assets, and compile the project
+  dev       watch, regenerate, rebuild, and restart
+  doctor    report what a named environment will actually run
+  version   print the version, revision, and toolchain
+  help      print this message
+```
+
+Each command has its own page under [pw command](/pw/overview/).
 
 ## The library
 
-For a new project, `pw init` writes a `go.mod` that already requires the
-framework; no manual `go get` is needed. An existing module needs one additional
-step:
+Popcorn Wave requires **Go 1.26 or later**.
+
+For a new project, [`pw init`](/pw/project/init/) writes a `go.mod` that already
+requires the framework; no manual `go get` is needed. An existing module needs
+one additional step:
 
 ```sh
 go get github.com/shibukawa/popcornwave
 ```
 
-Application code imports the [`pw`](/guides/frontend/handlers/) package, which is the
-stable application-facing API:
+Application code imports the [`pw`](/guides/frontend/handlers/) package, which is
+the stable application-facing API:
 
 ```go
 import "github.com/shibukawa/popcornwave/pw"

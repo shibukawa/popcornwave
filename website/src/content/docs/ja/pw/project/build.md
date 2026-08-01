@@ -18,8 +18,9 @@ pw build
 2. Tailwind が有効なら、スタイルシートを **minify して**ビルドする。これは
    `assets.tailwind.minify` を上書きするので、リリースが誤って非 minify になることは
    ない
-3. 公開アセットツリーを準備し、対応するクライアントに配信する圧縮済み `*.zstd`
-   サイドカーを書き出す
+3. 公開アセットツリーを準備し、対応するクライアントに
+   [配信](/ja/guides/frontend/static-assets/)する圧縮済み `*.zstd` サイドカーを
+   書き出す
 4. `project.main` が開発専用パッケージに依存していればビルドを拒否する
 5. `popcornwave.toml` の `project.main` に対して `go build` を実行する
 

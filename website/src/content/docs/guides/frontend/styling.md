@@ -2,7 +2,7 @@
 title: Styling
 description: Component-scoped styles, and enabling Tailwind CSS — including after the fact.
 sidebar:
-  order: 4
+  order: 5
 ---
 
 Popcorn Wave does not force one CSS workflow. Component-scoped styles require no
@@ -119,7 +119,8 @@ export component Document(children: html?): html {
 ```
 
 The URL is `server.public.mount` (default `/public`) followed by the path of
-`output` inside `public/`.
+`output` inside `public/`. See [Static Assets](/guides/frontend/static-assets/)
+for how that directory is embedded and served.
 
 Then start the dev server:
 

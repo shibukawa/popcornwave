@@ -1,9 +1,14 @@
 ---
-title: 設定キー
-description: フレームワークの全設定キーと既定値、そして TOML・環境変数・コマンドラインでの名前。
+title: アプリケーション設定
+description: 動作中のアプリケーションが読むランタイム設定キーの全一覧と既定値、そして TOML・環境変数・コマンドラインでの名前。
 sidebar:
   order: 2
 ---
+
+ここに並ぶのは*動作中のアプリケーション*が読むキーです。ポート、コネクションプール、
+クッキー、ログレベル。そのアプリケーションをビルドするために `pw` 自身が読むファイルは
+別物で、スキーマも別です。そちらは
+[ビルドツール設定](/ja/reference/build-configuration/)を参照してください。
 
 構造体のフィールド1つが、3つの入力になります。`ServerConfig.ReadHeaderTimeout` は
 TOML では `server.read_header_timeout`、環境変数では `SERVER_READ_HEADER_TIMEOUT`、
@@ -145,6 +150,12 @@ Popcorn Wave は次の順に読みます。
 | `bot_detection` | `true` | クローラや CLI クライアントには確定済みのドキュメントを描画する |
 | `bot_async_timeout` | `"5s"` | bot と判定したリクエストでの境界の上限 |
 | `bot_user_agents` | `[]` | 追加の `User-Agent` 部分文字列。大文字小文字を無視して照合する |
+| `live` | `true` | ドキュメント完成後もページを更新し続ける live 接続に応える |
+| `live_max_duration` | `"10m"` | live 接続1本の寿命。これを過ぎると閉じ、クライアントが再接続する |
+| `live_duration_jitter` | `20` | その寿命を接続ごとにばらつかせる割合（%） |
+| `live_idle_timeout` | `"5m"` | 何も配信していない live 接続を閉じるまでの時間 |
+| `live_max_boundaries` | `32` | live 接続1本が扱う境界数。ゼロ以下は無制限 |
+| `live_max_responses` | `4` | クライアントあたりの同時 live 接続数。ゼロ以下は無制限 |
 
 await 境界を開くテンプレートは、`streaming` がどちらでも正しく描画されます。この
 キーが決めるのは、その裏の処理が確定する前に fallback がブラウザへ届くかどうか
@@ -157,6 +168,12 @@ await 境界を開くテンプレートは、`streaming` がどちらでも正�
 たキーが、リクエスト期限いっぱいクローラの接続を掴んだままにしてはいけません。
 `bot_user_agents` の項目は組み込みのカタログに追加されるだけで、組み込みのトークンを
 置き換えることはありません。
+
+`live_` で始まるキーはすべて `streaming` に依存します。バッファされたドキュメントは
+live な境界をその場で確定させ、配信が置き換えるプレースホルダを書かないからです。
+`live = false` は障害ではなく負荷のつまみで、ドキュメントは有効なまま live な境界が
+コミットした内容を保ち、接続を促されるクライアントもいません。それぞれの上限が何を
+買っているかは[ライブレンダリング](/ja/guides/cross-layer/live-rendering/)を参照してください。
 
 ## `[security]`
 
@@ -235,7 +252,7 @@ HSTS が付くのは検証済みの HTTPS リクエストだけです。平文�
 | キー | 既定値 | 意味 |
 | --- | --- | --- |
 | `enabled` | `false` | |
-| `backend` | `"rdb"` | 保存バックエンド。実装があるのは `rdb` のみ |
+| `backend` | `"rdb"` | 保存バックエンド: `rdb`、`cookie`、`redis` |
 | `ttl` | `"24h"` | セッションの絶対寿命 |
 | `idle_timeout` | `"0s"` | 無操作での失効。ゼロで無効 |
 | `renewal_interval` | `"0s"` | 無操作失効の更新間隔の下限 |
@@ -249,10 +266,22 @@ HSTS が付くのは検証済みの HTTPS リクエストだけです。平文�
 | `rdb.group` | *(空)* | セッションテーブルを持つ接続グループ。空なら `middleware.rdb.write_group` |
 | `rdb.dsn` | *(空)* | 専用セッションデータベース（起動サマリではマスクされる） |
 | `rdb.table` | `"popcornwave_session"` | |
+| `redis.dsn` | *(空)* | `redis://` または `rediss://` のサーバー（起動サマリではマスクされる） |
+| `redis.key_prefix` | `"pw:session:"` | セッションストアが所有する鍵空間 |
+| `redis.connect_timeout` | `"5s"` | 起動時の ping と各コマンドの期限 |
+| `cookie_store.name` | `"pw_session_data"` | `backend = "cookie"` で封をしたレコードを運ぶクッキー |
+| `cookie_store.secret` | *(空)* | クッキーのレコードを封印する base64 の秘密鍵（マスクされる） |
+| `cookie_store.previous_secrets` | `[]` | ローテーション中も読める引退した秘密鍵（マスクされる） |
 
-署名用のシークレットはここになく、抜けているわけでもありません。セッションは
-不透明でサーバ側に保存されるため、Cookie が運ぶのはクライアントが改竄しうる状態では
-なく識別子だけです。
+読まれるのは選んだバックエンドのキーだけです。`cookie` 以外のバックエンドは、それ自身の
+blank import でバイナリに入ります。書き忘れたときは起動時のエラーが追加すべき行を引用
+します。3つの比較と、それぞれに必要な設定は[セッション](/ja/guides/backend/sessions/)に
+あります。
+
+ブラウザにあるトークンはどのバックエンドでも不透明なので、ここに署名鍵はありません。
+レコードそのものをブラウザに置くのは `backend = "cookie"` だけで、その場合は
+`cookie_store.secret` で封をします。このセクション唯一の秘密鍵であり、ファイルではなく
+環境に置くべきものです。
 
 ## `[auth]`
 

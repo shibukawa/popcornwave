@@ -18,6 +18,7 @@ surface:
   - WithTransaction(enabled bool)
   - api:test-seed WithSeed and WithSeedDir
   - api:testutil-idp WithIdentityProvider
+  - api:testutil-passkey WithVirtualAuthenticator
 isolation:
   source: api:runtime-configuration registered effective values
   copy: deep copy keyed by exact Go type

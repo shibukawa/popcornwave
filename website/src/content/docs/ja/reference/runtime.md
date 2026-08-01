@@ -63,7 +63,7 @@ sidebar:
 フレームワークの設定構造体もすべて公開されています。`ServerConfig`、
 `MiddlewareConfig`、`SecurityConfig`、`SessionConfig`、`ObservabilityConfig`、
 `HTMLConfig`、`RDBConfig` と、その下にネストする型です。フィールドと既定値は
-[設定キー](/ja/reference/configuration/)に、解説は[設定](/ja/guides/architecture/configuration/)に
+[アプリケーション設定](/ja/reference/configuration/)に、解説は[設定](/ja/guides/architecture/configuration/)に
 あります。
 
 ## リクエストを読む
@@ -156,7 +156,7 @@ panic はハンドルのエラーになり、プロセスを落とさずに境�
 出ます。
 
 テストで goroutine を起こさずに済ませたいときに渡すのが `Resolved` です。
-[非同期レンダリング](/ja/advanced/async-rendering/)を参照してください。
+[非同期レンダリング](/ja/guides/cross-layer/async-rendering/)を参照してください。
 
 ## データベース
 

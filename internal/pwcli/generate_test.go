@@ -100,6 +100,55 @@ SELECT id, name FROM users WHERE id = {id}
 	}
 }
 
+// A live source is a template-level declaration the framework never sees
+// directly: what reaches pw is a plan flagged live and a boundary that keeps
+// delivering. This holds the generation half of that path, so a template a
+// project writes today produces what api:live-delivery-protocol serves.
+func TestPlanDirectoryGeneratesLiveBoundaries(t *testing.T) {
+	directory := t.TempDir()
+	writeTestFile(t, filepath.Join(directory, "go.mod"), "module fixture\n\ngo 1.26.0\n")
+	writeTestFile(t, filepath.Join(directory, "gauge.pw.html"), `package fixture
+
+type Point {
+  label: string
+  value: int
+}
+
+external live WatchMetrics(id: string): Point
+
+export component Gauge(id: string): html {
+{await point = WatchMetrics(id)}
+  <p>{point.label}: {point.value}</p>
+{fallback}
+  <p>waiting</p>
+{/await}
+}
+`)
+
+	options, err := pwgen.Options(sqlbind.DialectPostgreSQL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	changes, err := planDirectory(context.Background(), generator.New(options), directory, allPurposes, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	gauge := string(changesByBase(changes)["gauge_pw_gen.go"].source)
+	// The flag is what decision:automatic-async-render-selection probes to decide
+	// whether the document ends by inviting a live connection.
+	if !strings.Contains(strings.Join(strings.Fields(gauge), " "), "HasLiveBlock: true") {
+		t.Errorf("generated plan does not carry the live flag:\n%s", gauge)
+	}
+	if !strings.Contains(gauge, "htmlbind.Live(") {
+		t.Errorf("generated plan does not open a live boundary:\n%s", gauge)
+	}
+	// The leading context is mandatory for a live source, because a source with
+	// no context has nothing to make it return when the subscription ends.
+	if !strings.Contains(gauge, "WatchMetrics(ctx,") {
+		t.Errorf("generated call does not pass the subscription context:\n%s", gauge)
+	}
+}
+
 func TestMergeArtifactsProducesOneValidGoFile(t *testing.T) {
 	source, err := mergeArtifacts([]generator.Artifact{
 		{

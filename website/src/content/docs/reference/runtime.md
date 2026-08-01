@@ -64,7 +64,7 @@ a nil check would only postpone the same missing value to a later line.
 Every framework configuration struct is exported too — `ServerConfig`,
 `MiddlewareConfig`, `SecurityConfig`, `SessionConfig`, `ObservabilityConfig`,
 `HTMLConfig`, `RDBConfig`, and the nested types under them. Their fields and
-defaults are listed in [Configuration Keys](/reference/configuration/); the
+defaults are listed in [Application Configuration](/reference/configuration/); the
 narrative version is [Configuration](/guides/architecture/configuration/).
 
 ## Reading a request
@@ -159,7 +159,7 @@ the work becomes the handle's error and surfaces through the boundary's recover
 clause instead of taking the process down.
 
 `Resolved` is what a test passes instead of starting a goroutine. See
-[Async rendering](/advanced/async-rendering/).
+[Async rendering](/guides/cross-layer/async-rendering/).
 
 ## Database
 

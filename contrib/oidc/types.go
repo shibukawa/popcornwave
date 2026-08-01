@@ -19,6 +19,11 @@ var (
 	ErrDiscovery      = errors.New("oidc: invalid discovery metadata")
 	ErrNonce          = errors.New("oidc: nonce mismatch")
 	ErrIDToken        = errors.New("oidc: invalid ID token")
+	// ErrAuthTime reports an ID Token that carries no usable auth_time when
+	// the caller required one. It is distinct from ErrIDToken because the
+	// token is otherwise valid and the caller's remedy is different: the
+	// provider answered a freshness request it did not honor.
+	ErrAuthTime = errors.New("oidc: missing or invalid auth_time")
 	ErrUserInfo       = errors.New("oidc: invalid UserInfo response")
 	ErrLimitExceeded  = errors.New("oidc: response limit exceeded")
 	ErrHTTP           = errors.New("oidc: HTTP request failed")
@@ -125,6 +130,37 @@ type Client struct {
 type BeginOptions struct {
 	Scopes []string
 	Params map[string]string
+	// MaxAge asks the provider to re-authenticate when the end user's last
+	// active authentication is older than this. Nil sends nothing; a zero
+	// duration is meaningful and sends max_age=0, which asks for
+	// authentication now. Sub-second values truncate toward zero, which only
+	// ever tightens the request.
+	//
+	// A provider that honors max_age MUST return auth_time, so a caller that
+	// sets this sets CallbackOptions.RequireAuthTime as well. Sending the
+	// parameter without checking the answer proves nothing.
+	MaxAge *time.Duration
+	// Prompt carries the OpenID Connect prompt values. Only none, login,
+	// consent, and select_account are accepted, and none may not be combined
+	// with another value.
+	//
+	// Unlike MaxAge, prompt is unverifiable: no claim reports whether the
+	// provider honored it, so it improves an interaction and never proves one.
+	Prompt []string
+}
+
+// CallbackOptions controls verification of the returned ID Token.
+type CallbackOptions struct {
+	// RequireAuthTime rejects a token carrying no usable auth_time. Set it
+	// whenever BeginOptions.MaxAge was set, because OpenID Connect requires
+	// the claim in exactly that case, and its absence means the provider did
+	// not answer the question that was asked.
+	//
+	// This package verifies that auth_time is present and sane. Comparing it
+	// against a freshness requirement is the caller's, because the meaning of
+	// "recent enough" belongs to the caller's policy rather than to the
+	// protocol.
+	RequireAuthTime bool
 }
 
 type Callback = oauth.Callback
@@ -133,6 +169,16 @@ type TokenSet = oauth.TokenSet
 type IDToken struct {
 	Claims jwt.Claims
 	Nonce  string
+	// AuthTime is the verified auth_time claim, the moment the provider last
+	// actively authenticated the end user. It is nil when the claim is absent.
+	//
+	// It is not the moment this token was issued: a provider may satisfy an
+	// authorization request from a single sign-on session established much
+	// earlier, so freshness is measured from here and never from arrival.
+	AuthTime *time.Time
+	// ACR is the verified acr claim, empty when absent. This package does not
+	// rank its values, because their meaning is defined by the provider.
+	ACR string
 }
 
 type discoveryDocument struct {

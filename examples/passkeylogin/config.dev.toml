@@ -1,0 +1,74 @@
+# Development runtime configuration, selected by APP_ENV=dev (the default).
+
+[server]
+port = 8080
+
+[observability]
+minimum_level = "debug"
+service_name = "passkeylogin"
+
+# The framework tables and the application tables share this database. The
+# framework tables come from the migrations named after their owning package.
+[middleware.rdb]
+enabled = true
+dsn = "sqlite://passkeylogin.db"
+connect_timeout = "5s"
+max_open_conns = 1
+max_idle_conns = 1
+
+[session]
+enabled = true
+backend = "rdb"
+ttl = "12h"
+idle_timeout = "1h"
+renewal_interval = "5m"
+cookie.name = "pw_session"
+# Loopback development only. Keep secure = true everywhere else.
+cookie.secure = false
+cookie.same_site = "lax"
+rdb.source = "middleware"
+
+[auth]
+enabled = true
+mode = "oidc_passkey"
+post_login_path = "/"
+protection.include = ["/mypage"]
+protection.unauthenticated = "redirect"
+# The provider is the recovery authority: an account that loses every passkey
+# signs in through OpenID Connect again and enrolls a new one.
+recovery.policy = "oidc"
+# How recently a request must have authenticated before it may add a login
+# method. A passkey session counts, so a second device needs no provider trip.
+recent_auth_max_age = "5m"
+
+# A relying party is scoped to a domain. "localhost" is a secure origin for
+# WebAuthn without TLS, which is why this sample needs no certificate; an IP
+# literal such as 127.0.0.1 can never be an RP ID, so reach the app by name.
+[auth.passkey]
+rp_id = "localhost"
+rp_name = "Passkey login"
+origins = ["http://localhost:8080"]
+user_verification = "required"
+discoverable = "preferred"
+
+[auth.oidc]
+# pw dev injects AUTH_OIDC_ISSUER, AUTH_OIDC_CLIENT_ID, and
+# AUTH_OIDC_CLIENT_SECRET from the provider it starts, so no issuer or
+# credential is committed here. Running without pw dev requires setting them.
+redirect_url = "http://localhost:8080/auth/callback"
+scopes = ["profile", "email"]
+# The verified claim that identifies a local account. "sub" is the OpenID
+# Connect default; a directory that issues its own stable identifier, such as an
+# employee number, names that claim here instead.
+identity_claim = "employee_number"
+admission = "authenticated"
+auto_provision = true
+# Set admission = "registered" to admit only identities that were inserted into
+# popcornwave_auth_allowlist beforehand.
+# registered_claims = ["sub", "email"]
+# The development provider serves plain HTTP on loopback; a real issuer must be
+# HTTPS.
+allow_loopback_http = true
+# Sign out of the provider as well. Without it the provider stays signed in and
+# the next login returns the same user without asking.
+provider_logout = true

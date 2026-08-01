@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	"github.com/shibukawa/popcornwave/plugin/auth"
-	"github.com/shibukawa/popcornwave/plugin/session/rdb"
+	"github.com/shibukawa/popcornwave/sessionstore"
 )
 
 // capabilityPlan is everything installing a capability would do. It is computed
@@ -234,14 +234,33 @@ func planRedisValkey(state projectState, plan *capabilityPlan) error {
 func planAuth(state projectState, options addOptions, plan *capabilityPlan) error {
 	version := state.nextMigrationVersion()
 	migrations := state.config.Migration.Dir
-	plan.creates[migrations+"/"+migrationFileName(version, rdb.MigrationName)] = rdb.MigrationSQL("popcornwave_session")
-	plan.creates[migrations+"/"+migrationFileName(version+1, auth.MigrationName)] = auth.MigrationSQL()
+	// The project already chose its engine, and no engine reads another's DDL.
+	dialect := engineDialect(state.config.Database)
+	sessionMigration, err := sessionstore.MigrationSQL(dialect, "popcornwave_session")
+	if err != nil {
+		return err
+	}
+	authMigration, err := auth.MigrationSQL(dialect)
+	if err != nil {
+		return err
+	}
+	plan.creates[migrations+"/"+migrationFileName(version, sessionstore.MigrationName)] = sessionMigration
+	plan.creates[migrations+"/"+migrationFileName(version+1, auth.MigrationName)] = authMigration
 
+	// pw add installs the OIDC mode. A passkey mode additionally needs a
+	// relying-party registration that depends on the origin this deployment is
+	// reached on, which pw add cannot know, so it stays a pw init answer.
+	scaffold := initOptions{
+		Name: state.config.Name, Auth: authOIDC,
+		// pw add installs the rdb backend, which is the one that fits a project
+		// that already has a database. pw init offers the other two.
+		Session: sessionRDB, AuthEmulator: options.AuthEmulator,
+	}
 	handlers := handlerPackageDirectory(state)
 	resolver := handlers + "/accounts.go"
-	plan.creates[resolver] = accountResolverScaffold()
+	plan.creates[resolver] = accountsScaffold(scaffold)
 
-	section := authRuntimeConfig(initOptions{Auth: authOIDC, AuthEmulator: options.AuthEmulator})
+	section := authRuntimeConfig(scaffold)
 	for _, name := range state.configFiles {
 		plan.appends[name] = section
 	}
@@ -250,7 +269,12 @@ func planAuth(state projectState, options addOptions, plan *capabilityPlan) erro
 		plan.appends["popcornwave.toml"] = devIdPProjectConfig(initOptions{AuthEmulator: true})
 	}
 	plan.manual = append(plan.manual,
-		"call "+goPackageIdentifier(handlers)+".RegisterAccountResolver() in "+state.config.Main+" before pw.Run")
+		"call "+goPackageIdentifier(handlers)+".RegisterAccounts() in "+state.config.Main+" before pw.Run",
+		// Storage is opt-in by blank import, so both stores this configuration
+		// selects have to be imported by the application: the sessions and the
+		// single-use login records.
+		`add import _ "`+sessionBackendPlugin(sessionRDB, dialect)+`" to `+state.config.Main,
+		`add import _ "github.com/shibukawa/popcornwave/authstate/`+dialect+`" to `+state.config.Main)
 	plan.next = append(plan.next, "pw migrate up")
 	plan.generate = true
 	return nil

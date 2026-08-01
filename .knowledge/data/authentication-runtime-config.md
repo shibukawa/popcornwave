@@ -18,8 +18,9 @@ fields:
   registration.policy: disabled, oidc, invite, administrator, or open
   recovery.policy: oidc, administrator, or application
   recent_auth_max_age: duration
-  bootstrap.credential_ttl: duration
-  bootstrap.session_ttl: duration
+  shared_device: bool, default false, per policy:shared-device-mode
+  bootstrap.issue_ttl: duration an issued secret stays redeemable, measured from issuance
+  bootstrap.enrollment_ttl: duration the enrollment stays open, measured from redemption
   bootstrap.max_attempts: positive integer
   oidc.issuer: URL
   oidc.client_id: string
@@ -34,26 +35,57 @@ fields:
   oidc.claim.match: any or all
   oidc.allow_loopback_http: bool
   oidc.registered_claims: string list
+  oidc.logout_scope: enum of reconfirm or global, default reconfirm, per policy:provider-session-scope
+  oidc.allow_global_logout_request: bool, default false, permitting a logout request to escalate to global
+  oidc.provider_logout: removed; a configuration still carrying it fails startup, because configbind would otherwise ignore it silently
   logout_path: path
   post_login_path: path
+  passkey.path: base path of api:passkey-endpoints
   passkey.rp_id: domain
   passkey.rp_name: string
   passkey.origins: URL list
   passkey.user_verification: required, preferred, or discouraged
   passkey.discoverable: required or preferred
+mode_validation:
+  principle: validate and read only the fields the selected mode uses, and refuse a field the mode cannot honor, because a silently ignored provider setting reads as configured security
+  oidc_only:
+    required: the oidc issuer, client_id, client_secret, and redirect_url set today
+    refused: every passkey field, because no ceremony endpoint exists to use it
+  oidc_passkey:
+    required: the oidc_only set, plus passkey.rp_id and passkey.origins
+    required_policy: recovery.policy, because two login methods make credential loss recoverable in more than one way
+    defaulted: registration.policy oidc, because the OIDC login is the account bootstrap
+  passkey_only:
+    required: passkey.rp_id and passkey.origins
+    required_policy: registration.policy and recovery.policy, both explicit, because no identity provider can stand in for either
+    required_bootstrap: bootstrap.issue_ttl, bootstrap.enrollment_ttl, and bootstrap.max_attempts when registration.policy is administrator or invite
+    bootstrap_naming: issue_ttl rather than credential_ttl, because the two durations bound consecutive phases and the name should say which; a leading noun also kept it out of the secret-redaction match
+    refused: every oidc field, so a leftover AUTH_OIDC_ISSUER cannot suggest a provider is in the loop
+  shared:
+    - passkey.rp_id must be a registrable domain or localhost, never an IP literal, because an IP cannot be an RP ID
+    - every passkey.origins entry must be https, or loopback http under the same allowance oidc.allow_loopback_http already carries
+    - every passkey.origins entry must have passkey.rp_id as its registrable suffix
+    - recent_auth_max_age must be positive whenever enrollment is reachable
 implemented:
   package: popcornwave/plugin/auth registered through api:framework-extension
-  mode: oidc_only
+  mode: oidc_only, oidc_passkey, and passkey_only
   endpoints: login_path begins authorization, callback_path completes it, logout_path revokes the local session and ends the provider session
   logout_method: POST only, same-origin checked, because a logout reachable by link or prefetch is a denial-of-service surface
   correlation: the opaque transaction key rides a short-lived cookie scoped to callback_path
   discovery: deferred to the first login and not cached on failure
   storage: requires session backend rdb over sqlite, because correlation records use requirement:contrib-auth-state-sqlite
   tables: rule:framework-owned-tables migrations, verified at startup
+binding_implemented:
+  fields: registration, recovery, recent_auth_max_age, bootstrap, and the whole passkey prefix are bound and validated
+  validation: mode_validation above is enforced, so a passkey mode is refused for a bad relying-party registration before anything serves
+  tables: popcornwave_passkey_credential and popcornwave_auth_bootstrap exist under rule:framework-owned-tables
+  modes: all three serve; there is no remaining implementation gate
+  reason: the rules outlive the implementation status, so they were written and tested before the endpoints that needed them
+planned:
+  testing: decision:test-authentication-seams
+  assurance: data:session-assurance-state adds the auth.assurance prefix, and recent_auth_max_age becomes its default rather than a passkey-only field
 deferred:
-  - oidc_passkey and passkey_only modes, rejected during startup validation
-  - registration, recovery, recent_auth_max_age, and bootstrap settings
-  - policy:csrf-protection
+  - policy:csrf-protection, until then api:passkey-endpoints relies on same-origin and a required JSON content type
 loopback_development:
   field: oidc.allow_loopback_http
   effect: permits an http issuer whose host is loopback

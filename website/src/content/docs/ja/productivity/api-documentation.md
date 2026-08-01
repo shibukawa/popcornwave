@@ -21,19 +21,35 @@ Popcorn Wave はドキュメントをコードから組み立てます。`pw gen
 
 ```toml
 [server]
-openapi.enabled = true       # 既定
-openapi.path = "/openapi.json"
+openapi = "/openapi.json"    # 未設定なら何も配信しない
 api_doc = "scalar"           # "scalar"、"swagger"、または空文字で無効
 api_doc_path = "/docs"
 ```
 
-`openapi.enabled` がマージ済みのドキュメントを配信します。`api_doc` はその上に
-閲覧 UI（Scalar または Swagger UI）を追加します。`api_doc` は `openapi.enabled` を
-必要とし、空でない `api_doc` を `openapi.enabled` なしで指定すると、spec を読めない
-ページを配信する代わりに起動時に失敗します。
+`openapi` は、マージ済みのドキュメントが応答するパスです。既定値はありません。どこにも
+書かれていないエンドポイントは誰も監査しないので、未設定ならルートを登録しません。
+`api_doc` はその上に閲覧 UI（Scalar または Swagger UI）を追加し、`openapi` を必要とします。
+空でない `api_doc` を `openapi` なしで指定すると、spec を読めないページを配信する代わりに
+`server.api_doc requires server.openapi` で起動に失敗します。
 
 `pw init` は `config.dev.toml` にのみ `api_doc = "scalar"` を書き出します。既定値は
 空なので、ステージングや本番の設定に書かなければ API リファレンスは公開されません。
+
+## 誰が読めるか
+
+API の記述はサーフェス全体の地図です。だからどちらのパスも認証チェインの内側に
+マウントされています。`auth.protection.include` は、アプリケーションのルートに対するのと
+まったく同じようにこれらを覆います。
+
+```toml
+[auth.protection]
+include = ["/openapi.json", "/docs"]
+```
+
+保護はオプトインなので、一致するパターンが無ければ、列挙していない他のルートと同じく
+公開のままです。決して保護できないのは
+[ヘルスチェックと readiness](/ja/guides/deployment/operational-endpoints/) の 2 つです。
+その上には認証するものが何も無く、liveness チェックが必要とするのはまさにそれです。
 
 UI のページは数百バイトの HTML で、インターフェース本体は公開 CDN から読み込みます。
 そのためバイナリは大きくなりません。かわりにブラウザは CDN へ到達する必要があり、

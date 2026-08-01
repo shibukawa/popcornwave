@@ -11,6 +11,8 @@ import (
 	"github.com/shibukawa/popcornwave/internal/pwmigrate"
 )
 
+const seedUsage = "usage: pw seed [--dir=" + dbseed.DefaultDir + "] [<name>...]"
+
 func runSeed(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 	directory := dbseed.DefaultDir
 	var names []string
@@ -19,14 +21,14 @@ func runSeed(ctx context.Context, args []string, stdout, stderr io.Writer) error
 		switch {
 		case arg == "--dir":
 			if index+1 >= len(args) {
-				return fmt.Errorf("seed: --dir requires a directory")
+				return fmt.Errorf("seed: --dir requires a directory; %s", seedUsage)
 			}
 			index++
 			directory = args[index]
 		case strings.HasPrefix(arg, "--dir="):
 			directory = strings.TrimPrefix(arg, "--dir=")
 		case strings.HasPrefix(arg, "-"):
-			return fmt.Errorf("seed: unknown flag %q", arg)
+			return fmt.Errorf("seed: unknown flag %q; %s", arg, seedUsage)
 		default:
 			names = append(names, arg)
 		}

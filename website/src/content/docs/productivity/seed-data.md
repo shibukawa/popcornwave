@@ -2,7 +2,7 @@
 title: Seed Data
 description: What seed data is, how a dataset file is written, and why the CLI and the test suite read the same files.
 sidebar:
-  order: 7
+  order: 8
 ---
 
 An empty schema runs, but it does not demonstrate anything. Open the application

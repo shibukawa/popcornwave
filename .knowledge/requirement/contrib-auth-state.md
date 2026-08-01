@@ -3,10 +3,10 @@ id: requirement:contrib-auth-state
 type: requirement
 title: Authentication State Store
 ---
-contrib/authstate provides expiring single-use state storage shared by requirement:contrib-passkey, requirement:contrib-oauth, and requirement:contrib-oidc.
+authstate provides expiring single-use state storage shared by requirement:contrib-passkey, requirement:contrib-oauth, and requirement:contrib-oidc.
 
 ```yaml
-package: contrib/authstate
+package: authstate
 public_api:
   - Store[T] with Put(context, key, value, expiresAt) and atomic Take(context, key)
   - api:auth-state-codec for durable adapters
