@@ -166,11 +166,12 @@ import (
 
 	"memoapp/queries"
 
-	"github.com/shibukawa/popcornwave/plugin/auth"
+	"github.com/shibukawa/popcornwave/plugin/auth" // 追加
 	"github.com/shibukawa/popcornwave/pw"
 	httpbind "github.com/shibukawa/tinybind-go"
 )
 
+// 変更: 3章の home に、ユーザーの取得と作者での絞り込みが加わる。
 func home(w http.ResponseWriter, r *http.Request) {
 	user, ok := auth.User(r.Context())
 	if !ok {
@@ -185,6 +186,7 @@ func home(w http.ResponseWriter, r *http.Request) {
 	pw.WriteHTML(w, r, Home(HomeParams{DisplayName: user.DisplayName, Memos: list}))
 }
 
+// 変更: author が増えた。3章の listMemos は引数がコンテキストだけだった。
 func listMemos(ctx context.Context, author string) ([]Memo, error) {
 	var list []Memo
 	for row, err := range queries.ListMemos(ctx, author) {

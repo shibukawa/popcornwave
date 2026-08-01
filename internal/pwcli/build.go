@@ -13,32 +13,44 @@ func runBuild(ctx context.Context, args []string, stdout, stderr io.Writer) erro
 	if len(args) != 0 {
 		return fmt.Errorf("build: unexpected arguments")
 	}
-	if err := runGenerate(ctx, nil, stdout); err != nil {
+	progress := newProgressRegion(stdout)
+	progress.Phase("generating")
+	if _, err := generateProject(ctx, false, stdout, false); err != nil {
+		progress.Done()
 		return err
 	}
 	root, err := projectRoot(".")
 	if err != nil {
+		progress.Done()
 		return err
 	}
 	config, err := loadProjectConfig(root)
 	if err != nil {
+		progress.Done()
 		return err
 	}
 	if config.Tailwind.Enabled {
+		progress.Phase("building CSS")
 		config.Tailwind.Minify = true
 		if err := buildTailwind(ctx, root, config.Tailwind, stdout, stderr); err != nil {
+			progress.Done()
 			return err
 		}
 	}
 	if err := preparePublicAssets(root); err != nil {
+		progress.Done()
 		return err
 	}
 	if err := rejectDevelopmentImports(ctx, root, config.Main); err != nil {
+		progress.Done()
 		return err
 	}
+	progress.Phase("compiling")
 	command := exec.CommandContext(ctx, "go", "build", config.Main)
 	command.Dir, command.Stdout, command.Stderr, command.Env = root, stdout, stderr, os.Environ()
-	if err := command.Run(); err != nil {
+	err = command.Run()
+	progress.Done()
+	if err != nil {
 		return fmt.Errorf("go build: %w", err)
 	}
 	return nil

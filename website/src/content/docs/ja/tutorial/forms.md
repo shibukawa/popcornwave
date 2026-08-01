@@ -14,9 +14,25 @@ sidebar:
 
 :::note[ここから始めるには]
 1章の続きです。`pw init memoapp` を実行し、`handlers/home.pw.html` が雛形の
-`Home(name: string)` に戻っている状態。1章を飛ばした場合、`pw init memoapp` を
+`Home(name: string, project: string)` に戻っている状態。1章を飛ばした場合、`pw init memoapp` を
 実行すればちょうどその状態になります。
 :::
+
+## 0. Tailwind を足す
+
+1章で断った Tailwind を、ここで入れます。
+
+```sh
+pw add tailwind
+```
+
+ウィザードが開き、書き込む前に「何を作り、何に追記するか」を並べた確認画面が出ます。
+`pw add` にはフラグで飛ばす方法がありません。これから触るのは、すでに動いている
+プロジェクトのファイルだからです。承認すると、ツールチェーンのピン留め、
+`assets/app.css`、CSS のビルド手順が入ります。
+
+初期化で断った機能が後からそのまま入る、というのはこういうことです。3章はデータベースを、
+4章はログインを、同じやり方で足します。
 
 ## 1. フォームのあるページ
 
@@ -24,6 +40,7 @@ sidebar:
 `handlers/home.pw.html` を置き換えます。
 
 ```html
+// handlers/home.pw.html
 package handlers
 
 type Memo {
@@ -32,17 +49,19 @@ type Memo {
 }
 
 export component Home(memos: Memo[], draft: string, error: string): html {
-<h1>Memos</h1>
-<form method="post" action="/memos">
-  <textarea name="body" rows="3">{draft}</textarea>
-  {if error != ''}<p class="error">{error}</p>{/if}
-  <button type="submit">Add</button>
-</form>
-<ul>
-{for memo in memos}
-  <li>{memo.body}</li>
-{/for}
-</ul>
+  <h1 class="text-3xl font-bold">Memos</h1>
+  <form method="post" action="/memos" class="mt-6 space-y-2">
+    <textarea name="body" rows="3"
+      class="w-full rounded-lg border border-slate-300 p-3 focus:border-indigo-500 focus:outline-none">{draft}</textarea>
+    {if error != ''}<p class="text-sm text-red-600">{error}</p>{/if}
+    <button type="submit"
+      class="rounded-lg bg-indigo-600 px-4 py-2 font-medium text-white hover:bg-indigo-500">Add</button>
+  </form>
+  <ul class="mt-8 space-y-2">
+  {for memo in memos}
+    <li class="rounded-lg border border-slate-200 p-3">{memo.body}</li>
+  {/for}
+  </ul>
 }
 ```
 
@@ -106,14 +125,17 @@ import (
 )
 
 func init() {
-	mux.HandleFunc("GET /{$}", home)
-	mux.HandleFunc("POST /memos", createMemo)
+	mux.HandleFunc("GET /{$}", home) // 変更: 雛形は "GET /" だった
+	mux.HandleFunc("POST /memos", createMemo) // 追加
 }
 
+// 変更: 雛形の home は homeInput を pw.Parse で読んでいた。
+// 読むものが無くなったので、その型ごと消える。
 func home(w http.ResponseWriter, r *http.Request) {
 	pw.WriteHTML(w, r, Home(HomeParams{Memos: memos.list()}))
 }
 
+// ここから下は雛形に無い。すべて追加。
 type createMemoInput struct {
 	Body string `payload:"body" check:"required,maxlen=200"`
 }
@@ -172,11 +194,12 @@ Problem Details、ステータス 400、問題のあるフィールドの名前�
 宣言はそのままに、失敗をどう扱うかをハンドラが決めます。
 
 ```go
+// 3節の createMemo を、これで差し替える。
 import (
 	"net/http"
 
 	"github.com/shibukawa/popcornwave/pw"
-	httpbind "github.com/shibukawa/tinybind-go"
+	httpbind "github.com/shibukawa/tinybind-go" // 追加
 )
 
 func createMemo(w http.ResponseWriter, r *http.Request) {

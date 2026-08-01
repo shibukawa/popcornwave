@@ -61,7 +61,7 @@ func buildObservability(config ObservabilityConfig, env string) (*observability,
 	// the surface the developer is actually watching and emptying it would make
 	// the loop worse, not better.
 	if resolved.logs == nil || env == EnvDevelopment {
-		handler, err := stdoutHandler(config, minimum)
+		handler, err := stdoutHandler(config, minimum, env)
 		if err != nil {
 			return nil, err
 		}
@@ -228,10 +228,19 @@ func resourceAttributes(config ObservabilityConfig) []otel.Attribute {
 // stdoutHandler builds the terminal or container-log encoder. The handler
 // carries the same floor as the backend so a substituted handler cannot widen
 // what the configuration allows.
-func stdoutHandler(config ObservabilityConfig, minimum Level) (slog.Handler, error) {
+func stdoutHandler(config ObservabilityConfig, minimum Level, env string) (slog.Handler, error) {
 	options := &slog.HandlerOptions{Level: slog.Level(minimum)}
 	switch strings.ToLower(strings.TrimSpace(config.StdoutFormat)) {
-	case "", StdoutFormatJSON:
+	case "":
+		// Unset resolves by environment rather than to one format everywhere.
+		// The development stream is read by a person in a terminal, where the
+		// slog text encoding is legible and a JSON object per line is not.
+		// Every other environment feeds a collector, which wants the opposite.
+		if env == EnvDevelopment {
+			return slog.NewTextHandler(os.Stdout, options), nil
+		}
+		return slog.NewJSONHandler(os.Stdout, options), nil
+	case StdoutFormatJSON:
 		return slog.NewJSONHandler(os.Stdout, options), nil
 	case StdoutFormatPlaintext:
 		return slog.NewTextHandler(os.Stdout, options), nil

@@ -177,11 +177,12 @@ import (
 
 	"memoapp/queries"
 
-	"github.com/shibukawa/popcornwave/plugin/auth"
+	"github.com/shibukawa/popcornwave/plugin/auth" // new
 	"github.com/shibukawa/popcornwave/pw"
 	httpbind "github.com/shibukawa/tinybind-go"
 )
 
+// changed: the home of chapter 3, plus the user lookup and the author filter.
 func home(w http.ResponseWriter, r *http.Request) {
 	user, ok := auth.User(r.Context())
 	if !ok {
@@ -196,6 +197,7 @@ func home(w http.ResponseWriter, r *http.Request) {
 	pw.WriteHTML(w, r, Home(HomeParams{DisplayName: user.DisplayName, Memos: list}))
 }
 
+// changed: author is new; the listMemos of chapter 3 took only the context.
 func listMemos(ctx context.Context, author string) ([]Memo, error) {
 	var list []Memo
 	for row, err := range queries.ListMemos(ctx, author) {

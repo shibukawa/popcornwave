@@ -26,7 +26,8 @@ func TestParseInitArgs(t *testing.T) {
 		{name: "shortcut flags", args: []string{"demo", "--tailwind", "--no-tinygo"}, want: initOptions{Name: "demo", Tailwind: true, Database: true, Engine: engineSQLite, Redis: true, Devbox: true, Auth: authNone, Session: sessionRDB}},
 		{name: "explicit tinygo", args: []string{"--tinygo", "demo"}, want: initOptions{Name: "demo", TinyGo: true, Database: true, Engine: engineSQLite, Redis: true, Devbox: true, Auth: authNone, Session: sessionRDB}},
 		{name: "no name requests the wizard", args: nil, want: initOptions{TinyGo: true, Database: true, Engine: engineSQLite, Redis: true, Devbox: true, Auth: authNone, Session: sessionRDB}},
-		{name: "interactive with a seeded name", args: []string{"-i", "demo"}, want: initOptions{Name: "demo", TinyGo: true, Database: true, Engine: engineSQLite, Redis: true, Devbox: true, Interactive: true, Auth: authNone, Session: sessionRDB}},
+		{name: "the retired interactive flag is accepted and changes nothing", args: []string{"-i", "demo"}, want: initOptions{Name: "demo", TinyGo: true, Database: true, Engine: engineSQLite, Redis: true, Devbox: true, Auth: authNone, Session: sessionRDB}},
+		{name: "yes takes the flags as the whole answer", args: []string{"--yes", "demo"}, want: initOptions{Name: "demo", TinyGo: true, Database: true, Engine: engineSQLite, Redis: true, Devbox: true, Yes: true, Auth: authNone, Session: sessionRDB}},
 		{name: "oidc with the local emulator", args: []string{"demo", "--auth=oidc", "--devidp"}, want: initOptions{Name: "demo", TinyGo: true, Database: true, Engine: engineSQLite, Redis: true, Devbox: true, Auth: authOIDC, AuthEmulator: true, Session: sessionRDB}},
 		{name: "passkey drops a stray emulator flag", args: []string{"demo", "--auth=passkey", "--devidp"}, want: initOptions{Name: "demo", TinyGo: true, Database: true, Engine: engineSQLite, Redis: true, Devbox: true, Auth: authPasskey, Session: sessionRDB}},
 		{name: "engine shortcut", args: []string{"demo", "--db=postgres"}, want: initOptions{Name: "demo", TinyGo: true, Database: true, Engine: enginePostgres, Redis: true, Devbox: true, Auth: authNone, Session: sessionRDB}},
@@ -163,12 +164,15 @@ func TestScaffoldDeclinedDatabaseIgnoresEngine(t *testing.T) {
 	}
 }
 
-func TestMainInitWizardNeedsTerminal(t *testing.T) {
+// Without a terminal there is no wizard to ask the name in, and a directory
+// this command is about to create is not something to guess a name for.
+func TestMainInitWithoutTerminalNeedsAName(t *testing.T) {
+	t.Chdir(t.TempDir())
 	var output strings.Builder
-	if code := Main([]string{"init", "-i", "demo"}, &output, &output); code != 1 {
+	if code := Main([]string{"init"}, &output, &output); code != 1 {
 		t.Fatalf("code = %d, output = %q", code, output.String())
 	}
-	if !strings.Contains(output.String(), "needs a terminal") {
+	if !strings.Contains(output.String(), "project name is required") {
 		t.Fatalf("unexpected error: %q", output.String())
 	}
 }
@@ -301,6 +305,7 @@ func TestInitWizardCollectsAnswers(t *testing.T) {
 		pressKey(tea.KeyEnter), // Tailwind: keep No
 		pressKey(tea.KeyEnter), // Database: keep Yes
 		pressKey(tea.KeyEnter), // Database engine: keep SQLite
+		pressKey(tea.KeyEnter), // DynamoDB: keep No
 		pressKey(tea.KeyEnter), // Authentication: keep None
 		pressKey(tea.KeyEnter), // Devbox: keep Yes
 		pressKey(tea.KeyEnter), // Redis or Valkey: keep Yes
@@ -325,6 +330,7 @@ func TestInitWizardDigitShortcutSelectsTailwind(t *testing.T) {
 		typeText("1"),          // Tailwind: Yes
 		typeText("1"),          // Database: Yes
 		typeText("1"),          // Database engine: SQLite
+		typeText("2"),          // DynamoDB: No
 		typeText("1"),          // Authentication: None
 		typeText("1"),          // Devbox: Yes
 		typeText("1"),          // Redis or Valkey: Yes
@@ -342,11 +348,11 @@ func TestInitWizardDigitShortcutSelectsTailwind(t *testing.T) {
 func TestInitWizardSeedsAnswersFromShortcutFlags(t *testing.T) {
 	steps := initWizardSteps(initOptions{
 		Name: "seeded", Router: routerBoth, TinyGo: true, Tailwind: true, Devbox: true,
-		Database: true, Engine: engineSQLite, Redis: true, Auth: authOIDC,
+		Database: true, Engine: engineSQLite, Redis: true, Dynamo: true, Auth: authOIDC,
 		Session: sessionRedis, AuthEmulator: true,
 	})
 	want := []string{
-		"seeded", "Yes", "Both", "Yes", "Yes", "SQLite", "OIDC",
+		"seeded", "Yes", "Both", "Yes", "Yes", "SQLite", "Yes", "OIDC",
 		"Redis or Valkey", "Local emulator", "Yes", "Yes",
 	}
 	if len(steps) != len(want) {
@@ -408,6 +414,7 @@ func TestInitWizardReviewListsEveryStep(t *testing.T) {
 		pressKey(tea.KeyEnter),
 		pressKey(tea.KeyEnter),
 		pressKey(tea.KeyEnter),
+		pressKey(tea.KeyEnter),
 	)
 	view := model.View()
 	if !strings.Contains(view, "Review") {
@@ -428,9 +435,13 @@ func TestInitWizardReviewListsEveryStep(t *testing.T) {
 func TestRunInitWizardOverKeystrokes(t *testing.T) {
 	t.Chdir(t.TempDir())
 	// demo, enter, down, enter (TinyGo: No), enter (router), enter (Tailwind),
-	// enter (database), enter (engine), enter (auth), enter (devbox),
-	// enter (redis), enter (review)
-	keystrokes := "demo\r\x1b[B\r\r\r\r\r\r\r\r\r"
+	// enter (database), enter (engine), enter (DynamoDB), enter (auth),
+	// enter (devbox), enter (redis), enter (review).
+	//
+	// One Enter per step, and the wizard waits for input it never gets when the
+	// count is short, so a missing keystroke here is a hung test rather than a
+	// failing one.
+	keystrokes := "demo\r\x1b[B\r\r\r\r\r\r\r\r\r\r"
 	options, err := runInitWizard(defaultInitOptions(),
 		tea.WithInput(strings.NewReader(keystrokes)),
 		tea.WithOutput(io.Discard),

@@ -8,16 +8,20 @@ api:cli-init asks its questions in a terminal wizard while every answer stays re
 ```yaml
 status: accepted
 selection:
-  wizard: no project name given, or --interactive
-  shortcut: project name given, which keeps existing scripts non-interactive
-  no_terminal: refuse the wizard and print usage instead of guessing answers
+  wizard: every run that has a terminal, whether or not a project name was given
+  name_argument: seeds the project name step rather than skipping the wizard, because the name is one answer out of ten and a caller who knows it still has not answered the store, authentication, or toolchain questions
+  shortcut: --yes takes the flags and the defaults for every unanswered question, which is the only way to skip the wizard in a terminal
+  no_terminal:
+    with_name: the shortcut path, so an existing CI script keeps working unchanged
+    without_name: refuse and print usage instead of guessing the name
+  superseded: the earlier rule that a project name alone selected the shortcut path, which hid every question after the first from anyone who typed the name they already knew
 question_model:
   ordered_steps: text input and single-select steps
   conditional_steps:
     rule: a step may declare the answers it applies to, and is skipped when they do not hold
     effect: a skipped step is absent from navigation, the step counter, and the review screen, and its answer is never applied
     reason: a follow-up question must not leak an answer into a project that never asked it
-  seeding: shortcut flags become the preselected wizard answers
+  seeding: shortcut flags and the project name argument become the preselected wizard answers
   review: final screen lists every answer before anything is written
   keys: arrow or jk to move, digits to jump, enter to accept, esc to go back, ctrl+c to cancel
   extension_cost: one option field, one shortcut flag, one wizard step, and its scaffold branch
@@ -28,7 +32,8 @@ questions:
   - Tailwind CSS
   - database, defaulting to yes because the SQL and migration examples depend on it
   - database engine, asked only with a database, per requirement:database-engine-selection
-  - authentication mode, defaulting to none, and skipped entirely without the database it stores sessions in
+  - DynamoDB, defaulting to no, asked whatever the relational answer was because requirement:dynamodb-store is a second kind of store rather than a fourth engine
+  - authentication mode, defaulting to none, and skipped entirely without the relational database it stores sessions and credentials in
   - OIDC provider, asked only for an OIDC mode, choosing requirement:contrib-devidp or an external provider
   - Devbox environment, defaulting to yes
   - Redis or Valkey in the development environment, defaulting to yes and skipped without the Devbox environment it installs into
@@ -36,12 +41,14 @@ ordering:
   project_then_machine: the questions that shape the project come first, and the two about how this machine gets its tools close the wizard
   reason: declining Devbox changes nothing about the code, so it does not belong among the answers that do
   dependants_follow: a question whose answer only applies inside another one is asked right after it, which is why Valkey follows Devbox, the engine follows the database, and the provider follows the mode
+  stores_before_authentication: the relational answers and DynamoDB are asked as one group, and authentication follows them, because authentication is the question whose availability the store answers decide
 implementation:
   library: github.com/charmbracelet/bubbletea with bubbles and lipgloss
   scope: host-only per decision:host-tools-target-runtime, so it never reaches application binaries
 reused_by: decision:post-init-scaffold-wizard, which drives api:cli-add and api:cli-new from the same step machinery without shortcut-flag parity
 rationale:
   - a wizard explains each trade-off where the operator decides it
+  - a question never asked is an option never discovered, and the questions after the name are the ones a first project most needs
   - shortcut parity keeps api:cli-init scriptable and CI friendly
   - a declarative step list keeps future options additive
 non_goals:

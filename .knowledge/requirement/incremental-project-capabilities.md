@@ -22,12 +22,14 @@ capability_catalog:
     - redis-valkey
     - auth
     - tailwind
+    - dynamo
     - registered
     - discovered
   router_pair: registered and discovered are the two routers the one api:cli-init router question selects between, per decision:page-router-scaffold-choice, so either can be installed into a project that started with only the other; they are named after the router rather than after the directory it reads
   dependencies:
     auth: database, because its session store is the rdb backend of data:session-runtime-config
     redis-valkey: devbox, because the answer writes nothing but a package in that environment
+    dynamo: nothing, per requirement:dynamodb-store; it is a second kind of store rather than an alternative to the first
   parameterized:
     database: carries the requirement:database-engine-selection engine, so the capability is one entry with an answer rather than three entries
 detection:
@@ -40,6 +42,7 @@ detection:
     redis-valkey: the Valkey package in devbox.json
     auth: the rule:framework-owned-tables migration name stem, at any version
     tailwind: assets.tailwind.enabled in data:project-config
+    dynamo: middleware.dynamo in the environment configuration, and the generate.dynamo entries
     discovered: the generate.pages entries, whatever directory they name
     registered: the generate.handlers entries, whatever directory they name
 behavior:

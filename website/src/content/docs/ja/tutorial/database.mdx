@@ -5,17 +5,40 @@ sidebar:
   order: 3
 ---
 
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+
 `pw dev` を再起動すると、2章で書いたメモは全部消えています。一覧はスライスの中にあり、
 スライスはプロセスの中にあるからです。
 
 これをデータベースに移すには3つの部品が要ります。テーブルを作るマイグレーション、
-型付きの Go 関数にコンパイルされる `.pw.sql`、そしてそれを呼ぶハンドラ。動かすための準備は
-すでに整っています。`pw init` がプロジェクト作成時にデータベースも用意したので、
-`config.dev.toml` には DSN が書かれています。所要時間は20分ほど。
+型付きの Go 関数にコンパイルされる `.pw.sql`、そしてそれを呼ぶハンドラ。所要時間は20分ほど。
 
 :::note[ここから始めるには]
 2章の続きです。`Memo` を宣言した `handlers/home.pw.html`、メモリ上のリストを持つ
 `handlers/memos.go`、`GET /{$}` と `POST /memos` を持つ `handlers/home_handler.go`。
+:::
+
+## 0. データベースを足す
+
+1章で断ったデータベースを、ここで入れます。
+
+```sh
+pw add database
+```
+
+ウィザードがエンジンを聞くので **SQLite** を選んでください。ファイル1つで動き、
+別に起動しておくサーバーが要りません。確認画面を承認すると、`config.dev.toml` の
+`[middleware.rdb]`、`migrations/` ディレクトリ、`queries/` と、それを読ませる
+`generate.queries` が入ります。
+
+`migrations/00001_init.sql` は中身が全部コメントです。データベースを足しただけで
+テーブルが1つ増えていた、ということにはなりません。書いてあるのはマイグレーションの形と、
+このプロジェクトのエンジンの方言だけで、自分の version 1 はその下に書きます。
+
+:::caution[マイグレーションにテストデータを入れないでください]
+マイグレーションは全環境に適用されます。本番も含めてです。しかも適用済みのファイルは
+編集できないので、間違った行の訂正は「それを消す新しいバージョン」でしかできません。
+開発用のデータは [`pw seed`](/ja/pw/database/seed/) とデータセットの担当です。
 :::
 
 ## 1. テーブルのマイグレーション
@@ -23,7 +46,11 @@ sidebar:
 マイグレーションは [goose](https://github.com/pressly/goose) 形式のただの SQL ファイルで、
 適用される順に番号が振られます。`migrations/00002_create_memos.sql` を作ります。
 
+<Tabs syncKey="engine">
+<TabItem label="SQLite">
+
 ```sql
+-- migrations/00002_create_memos.sql
 -- +goose Up
 CREATE TABLE memos (
     id INTEGER PRIMARY KEY,
@@ -34,13 +61,50 @@ CREATE TABLE memos (
 DROP TABLE memos;
 ```
 
+</TabItem>
+<TabItem label="PostgreSQL">
+
+```sql
+-- migrations/00002_create_memos.sql
+-- +goose Up
+CREATE TABLE memos (
+    id SERIAL PRIMARY KEY,
+    body TEXT NOT NULL
+);
+
+-- +goose Down
+DROP TABLE memos;
+```
+
+</TabItem>
+<TabItem label="MySQL">
+
+```sql
+-- migrations/00002_create_memos.sql
+-- +goose Up
+CREATE TABLE memos (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    body VARCHAR(255) NOT NULL
+);
+
+-- +goose Down
+DROP TABLE memos;
+```
+
+</TabItem>
+</Tabs>
+
 2つの注釈がファイルを分けます。`Up` はこのバージョンがすることで、`Down` はそれを
 取り消すものです。いま `Down` を書くのは安上がりですが、3バージョン先のスキーマから
 これを復元するのはそうではありません。
 
-`00001_init.sql` は最初からありました。雛形の例で、このチュートリアルが一度も読まない
-`users` テーブルを作ります。放っておいてください。適用済みで、何のコストもなく、
-そして適用済みのマイグレーションに番号を振り直すことだけは、絶対にしてはいけないことです。
+`00001_init.sql` は最初からありましたが、何も作りません。中身はコメントだからです。
+放っておいてください。適用済みで、何のコストもなく、そして適用済みのマイグレーションに
+番号を振り直すことだけは、絶対にしてはいけないことです。
+
+上のタブは同じマイグレーションを各エンジンの方言で書いたものです。互いに翻訳する仕組みは
+ありません。`pw add database` は選んだエンジンの方言で書いているので、これもそれに
+合わせてください。
 
 `pw dev` は起動時と、マイグレーションディレクトリのファイルが変わるたびに未適用のものを
 適用します。つまりこのファイルは保存するだけです。
@@ -102,20 +166,22 @@ predicate は[クエリー](/ja/guides/backend/queries/)にあります。
 package handlers
 
 import (
-	"context"
+	"context" // 追加
 	"net/http"
 
-	"memoapp/queries"
+	"memoapp/queries" // 追加
 
 	"github.com/shibukawa/popcornwave/pw"
 	httpbind "github.com/shibukawa/tinybind-go"
 )
 
+// init は2章のまま。ルートは変わらない。
 func init() {
 	mux.HandleFunc("GET /{$}", home)
 	mux.HandleFunc("POST /memos", createMemo)
 }
 
+// 変更: memos.list() は失敗しなかったが、テーブルを読む方は失敗しうる。
 func home(w http.ResponseWriter, r *http.Request) {
 	list, err := listMemos(r.Context())
 	if err != nil {
@@ -137,6 +203,7 @@ func createMemo(w http.ResponseWriter, r *http.Request) {
 			pw.WriteProblem(w, r, pw.BadRequest(err))
 			return
 		}
+		// 変更: 2章はここで memos.list() をそのまま渡していた。
 		list, listErr := listMemos(r.Context())
 		if listErr != nil {
 			pw.WriteProblem(w, r, listErr)
@@ -149,6 +216,7 @@ func createMemo(w http.ResponseWriter, r *http.Request) {
 		}))
 		return
 	}
+	// 変更: memos.add(input.Body) の置き換え。
 	if _, err := queries.CreateMemo(r.Context(), input.Body); err != nil {
 		pw.WriteProblem(w, r, err)
 		return
@@ -156,7 +224,7 @@ func createMemo(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
 
-// listMemos は流れてくる行を、テンプレートが描画するスライスにする。
+// 追加: listMemos は流れてくる行を、テンプレートが描画するスライスにする。
 func listMemos(ctx context.Context) ([]Memo, error) {
 	var list []Memo
 	for row, err := range queries.ListMemos(ctx) {

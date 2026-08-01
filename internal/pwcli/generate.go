@@ -34,61 +34,75 @@ func runGenerate(ctx context.Context, args []string, stdout io.Writer) error {
 			return fmt.Errorf("generate: unknown argument %q; %s", arg, generateUsage)
 		}
 	}
+	// Invoked directly, the path list is the whole answer, so it is printed.
+	_, err := generateProject(ctx, check, stdout, true)
+	return err
+}
+
+// generateProject runs generation and reports how many files it wrote.
+// listPaths false means the caller has its own report: a generated path names a
+// build input the operator never opens, so a command that ends by saying what it
+// did should name the sources it wrote instead and count these. Diagnostics go
+// to stdout either way, because a warning is never what a report is hiding.
+func generateProject(ctx context.Context, check bool, stdout io.Writer, listPaths bool) (int, error) {
 	root, err := projectRoot(".")
 	if err != nil {
-		return err
+		return 0, err
 	}
 	config, err := loadProjectConfig(root)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	directories, err := packageDirectories(root, config.Generate)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	if err := reportSourcesOutsideScope(root, config, stdout); err != nil {
-		return err
+		return 0, err
 	}
 	// The page trees are generated first because their output is planned as part
 	// of the directory it lands in, and a tree root may hold no source the walk
 	// above would have found.
 	pageArtifacts, err := planPageTrees(root, config)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	directories, err = withPageDirectories(directories, pageArtifacts)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	options, err := pwgen.Options(engineFor(config.Database).SQLDialect)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	runner := generator.New(options)
 	var changes []fileChange
 	for _, directory := range directories {
 		planned, err := planDirectory(ctx, runner, directory, directoryPurposes(root, config.Generate, directory), pageArtifacts[directory])
 		if err != nil {
-			return err
+			return 0, err
 		}
 		changes = append(changes, planned...)
 	}
 	changes, err = planBootstrapLink(root, config, changes)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	sort.Slice(changes, func(i, j int) bool { return changes[i].path < changes[j].path })
 	if check && len(changes) > 0 {
 		drift := changePaths(root, changes)
-		return fmt.Errorf("generated files are stale:\n  %s", strings.Join(drift, "\n  "))
+		return 0, fmt.Errorf("generated files are stale:\n  %s", strings.Join(drift, "\n  "))
 	}
 	if err := applyFileChanges(changes); err != nil {
-		return err
+		return 0, err
 	}
-	for _, path := range changePaths(root, changes) {
-		fmt.Fprintln(stdout, path)
+	paths := changePaths(root, changes)
+	if listPaths {
+		for _, path := range paths {
+			fmt.Fprintln(stdout, path)
+		}
 	}
-	return nil
+	return len(paths), nil
 }
 
 func planBootstrapLink(root string, config projectConfig, changes []fileChange) ([]fileChange, error) {

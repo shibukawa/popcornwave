@@ -136,6 +136,8 @@ func planCapability(state projectState, options addOptions) (*capabilityPlan, er
 		return plan, planDevbox(state, plan)
 	case capabilityDatabase:
 		return plan, planDatabase(state, options, plan)
+	case capabilityDynamo:
+		return plan, planDynamo(state, plan)
 	case capabilityRedis:
 		return plan, planRedisValkey(state, plan)
 	case capabilityAuth:
@@ -219,6 +221,39 @@ func planDevbox(state projectState, plan *capabilityPlan) error {
 }
 
 // planRedisValkey adds the development server to the Devbox environment.
+// planDynamo installs the DynamoDB store: its configuration, the starter record
+// the generator reads, and the local server pw dev starts. It writes no
+// migration, because the DynamoDB schema is the set of registered table
+// definitions and has no version sequence to add a file to.
+func planDynamo(state projectState, plan *capabilityPlan) error {
+	for _, name := range state.configFiles {
+		plan.appends[name] = dynamoRuntimeSection()
+	}
+	// The records directory and the purpose that reads it are written together:
+	// generate.dynamo has no default, so a directory no purpose lists is a
+	// directory nothing generates from.
+	plan.creates[defaultDynamoDir+"/note.go"] = dynamoRecordScaffold()
+	edited, err := setGeneratePurpose(state, capabilityDynamoPurpose, []string{defaultDynamoDir})
+	if err != nil {
+		return err
+	}
+	plan.edits["popcornwave.toml"] = edited
+	plan.generate = true
+	// The entry point is application-owned, so the import that installs the
+	// client middleware is printed rather than injected.
+	plan.manual = append(plan.manual,
+		"blank-import github.com/shibukawa/popcornwave/database/dynamo from the application entry point")
+	if state.devbox != "" {
+		devbox, err := addDevboxPackage(state.devbox, dynamoDevboxPackage)
+		if err != nil {
+			return err
+		}
+		plan.edits["devbox.json"] = devbox
+		plan.next = append(plan.next, "devbox shell")
+	}
+	return nil
+}
+
 func planRedisValkey(state projectState, plan *capabilityPlan) error {
 	edited, err := addDevboxPackage(state.devbox, "valkey@latest")
 	if err != nil {
@@ -312,7 +347,18 @@ func planTailwind(state projectState, plan *capabilityPlan) error {
 // make.
 func planPages(state projectState, plan *capabilityPlan) error {
 	root := defaultDiscoveredDir
-	for path, source := range pageTreeScaffold(initOptions{Name: state.config.Name}, root) {
+	// The starter page describes the project it was written into, so the tree
+	// this command adds has to be built from the same answers pw init would
+	// have had. Reading them back from the project is what keeps the two paths
+	// on one file state rather than on two pages that only look alike.
+	options, err := scaffoldOptionsOf(state)
+	if err != nil {
+		return err
+	}
+	// The tree is not in the project yet, so the probes cannot see it. This
+	// command is what puts it there.
+	options.Router = withRouter(options.Router, routerDiscovered)
+	for path, source := range pageTreeScaffold(options, root) {
 		plan.creates[path] = source
 	}
 	edited, err := setPagesPurpose(state, []string{root})
@@ -391,15 +437,23 @@ DROP TABLE users;
 }
 
 func starterQuery() string {
+	// Commented out with the migration it reads. A live statement against a
+	// table the starter migration no longer creates would generate a function
+	// that fails on its first call, which is worse than an example the reader
+	// has to uncomment.
 	return `package queries
 
-type User {
-  id: int
-  name: string
-}
-
-export statement FindUser(id: int): sql.one<User> {
-SELECT id, name FROM users WHERE id = {id}
-}
+// A typed query. Uncomment it together with the example table in
+// migrations/00001_init.sql, and pw generate emits a Go function whose
+// arguments and result come from the statement below.
+//
+// type Example {
+//   id: int
+//   name: string
+// }
+//
+// export statement FindExample(id: int): sql.one<Example> {
+// SELECT id, name FROM example WHERE id = {id}
+// }
 `
 }

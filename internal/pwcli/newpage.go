@@ -165,6 +165,21 @@ func pageInputs(segments []pageSegment) []string {
 	return inputs
 }
 
+// indentTemplateBody puts the body of a brace-delimited template block one
+// level in. The component brace is a block like any other, and leaving its body
+// at column zero made the one block whose nesting was invisible the outermost
+// one, so the markup read as if it sat beside the component rather than inside.
+func indentTemplateBody(body string) string {
+	lines := strings.Split(body, "\n")
+	for index, line := range lines {
+		if strings.TrimSpace(line) == "" {
+			continue
+		}
+		lines[index] = "  " + line
+	}
+	return strings.Join(lines, "\n")
+}
+
 func pageTemplateSource(pkg, rung string, segments []pageSegment) string {
 	var params, body string
 	switch rung {
@@ -187,7 +202,7 @@ func pageTemplateSource(pkg, rung string, segments []pageSegment) string {
 	return "package " + pkg + `
 
 export component Page(` + params + `): html {
-` + body + `
+` + indentTemplateBody(body) + `
 }
 `
 }
@@ -249,7 +264,7 @@ func pageLayoutSource(pkg string) string {
 // A layout wraps every page below it. Declaring children as html is what makes
 // the template compiler emit the wrapper the generated chain calls.
 export component Layout(children: html): html {
-<div class="page"><slot required /></div>
+  <div class="page"><slot required /></div>
 }
 `
 }

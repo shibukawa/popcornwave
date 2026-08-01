@@ -5,19 +5,44 @@ sidebar:
   order: 3
 ---
 
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+
 Restart `pw dev` and every memo from chapter 2 is gone. The list lives in a
 slice, and the slice lives in a process.
 
 Moving it into the database means three new pieces: a migration that creates the
 table, a `.pw.sql` file that compiles into typed Go functions, and a handler
-that calls them. The project already has everything needed to run all three —
-`pw init` scaffolded the database when you created the project, which is why
-`config.dev.toml` already carries a DSN. Twenty minutes or so.
+that calls them. Twenty minutes or so.
 
 :::note[Where this starts]
 From chapter 2: `handlers/home.pw.html` with `Memo`, `handlers/memos.go` holding
 the list in memory, and `handlers/home_handler.go` with `GET /{$}` and
 `POST /memos`.
+:::
+
+## 0. Add the database
+
+Chapter 1 declined the database. Install it now:
+
+```sh
+pw add database
+```
+
+The wizard asks for an engine; choose **SQLite**, which is one file and no
+server to start beside the application. Accept the review screen and you get
+`[middleware.rdb]` in `config.dev.toml`, the `migrations/` directory, and
+`queries/` together with the `generate.queries` entry that makes anything read
+it.
+
+`migrations/00001_init.sql` is comments all the way down. Adding a database does
+not also add a table you did not ask for: the file carries the shape of a
+migration and the dialect of this project's engine, and your own version 1 goes
+under it.
+
+:::caution[Migrations are not for test data]
+A migration runs in every environment, production included, and an applied one
+cannot be edited — correcting a wrong row means a later version that deletes it.
+Development data belongs to [`pw seed`](/pw/database/seed/) and a dataset.
 :::
 
 ## 1. A migration for the table
@@ -26,7 +51,11 @@ Migrations are plain SQL files in [goose](https://github.com/pressly/goose)
 format, numbered in the order they must be applied. Create
 `migrations/00002_create_memos.sql`:
 
+<Tabs syncKey="engine">
+<TabItem label="SQLite">
+
 ```sql
+-- migrations/00002_create_memos.sql
 -- +goose Up
 CREATE TABLE memos (
     id INTEGER PRIMARY KEY,
@@ -37,13 +66,51 @@ CREATE TABLE memos (
 DROP TABLE memos;
 ```
 
+</TabItem>
+<TabItem label="PostgreSQL">
+
+```sql
+-- migrations/00002_create_memos.sql
+-- +goose Up
+CREATE TABLE memos (
+    id SERIAL PRIMARY KEY,
+    body TEXT NOT NULL
+);
+
+-- +goose Down
+DROP TABLE memos;
+```
+
+</TabItem>
+<TabItem label="MySQL">
+
+```sql
+-- migrations/00002_create_memos.sql
+-- +goose Up
+CREATE TABLE memos (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    body VARCHAR(255) NOT NULL
+);
+
+-- +goose Down
+DROP TABLE memos;
+```
+
+</TabItem>
+</Tabs>
+
 The two annotations divide the file: `Up` is what this version does, `Down` is
 what undoes it. Writing the `Down` half now is cheap; reconstructing it later,
 from a schema three versions further along, is not.
 
-`00001_init.sql` was already there — the scaffold's example, creating a `users`
-table this tutorial never reads. Leave it. It is applied, it costs nothing, and
-renumbering an applied migration is the one thing migrations must never do.
+`00001_init.sql` was already there, and it creates nothing: it is comments, so
+adding a database did not also add a table. Leave it where it is. It is applied,
+it costs nothing, and renumbering an applied migration is the one thing
+migrations must never do.
+
+The tabs above are the same migration in each engine's dialect. Nothing
+translates between them — `pw add database` wrote `00001_init.sql` in the
+dialect you chose, and yours has to match.
 
 `pw dev` applies pending migrations on startup and again whenever a file in the
 migration directory changes, so saving this file is enough:
@@ -108,20 +175,22 @@ expansion, and reusable predicates.
 package handlers
 
 import (
-	"context"
+	"context" // new
 	"net/http"
 
-	"memoapp/queries"
+	"memoapp/queries" // new
 
 	"github.com/shibukawa/popcornwave/pw"
 	httpbind "github.com/shibukawa/tinybind-go"
 )
 
+// init is unchanged from chapter 2; the routes stay as they were.
 func init() {
 	mux.HandleFunc("GET /{$}", home)
 	mux.HandleFunc("POST /memos", createMemo)
 }
 
+// changed: memos.list() could not fail, and reading the table can.
 func home(w http.ResponseWriter, r *http.Request) {
 	list, err := listMemos(r.Context())
 	if err != nil {
@@ -143,6 +212,7 @@ func createMemo(w http.ResponseWriter, r *http.Request) {
 			pw.WriteProblem(w, r, pw.BadRequest(err))
 			return
 		}
+		// changed: chapter 2 passed memos.list() straight in here.
 		list, listErr := listMemos(r.Context())
 		if listErr != nil {
 			pw.WriteProblem(w, r, listErr)
@@ -155,6 +225,7 @@ func createMemo(w http.ResponseWriter, r *http.Request) {
 		}))
 		return
 	}
+	// changed: this replaces memos.add(input.Body).
 	if _, err := queries.CreateMemo(r.Context(), input.Body); err != nil {
 		pw.WriteProblem(w, r, err)
 		return
@@ -162,7 +233,7 @@ func createMemo(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
 
-// listMemos turns the streamed rows into the slice the template renders.
+// new: listMemos turns the streamed rows into the slice the template renders.
 func listMemos(ctx context.Context) ([]Memo, error) {
 	var list []Memo
 	for row, err := range queries.ListMemos(ctx) {

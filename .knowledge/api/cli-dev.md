@@ -27,6 +27,33 @@ steps:
   - regenerate when generated inputs change
   - reapply pending migrations before restart when migration sources changed
   - rebuild and restart after successful changes
+child_process_lifetime:
+  rule: no process api:cli-dev started outlives it, by any exit path
+  problem:
+    indirection: the application is started as go run, which compiles and then runs the binary as a grandchild, so the process pw holds is not the process listening on the port
+    escalation: the stop path signals go run and then kills it, and a kill cannot be forwarded, so the binary underneath is orphaned
+    unconditional_kill: the wait between the two has no branch for the process having already exited, so the kill is not an escalation after a failed interrupt but the normal ending of every stop
+    no_wait_for_exit: the stop path returns without waiting for the process to be gone or the port to be released, so the replacement is started against a socket the previous one may still hold
+    rebuild_is_the_common_case: every watched change stops and restarts, so this is met during ordinary editing rather than only at shutdown; the symptom is a restart that cannot bind
+    cancellation: the context kills go run the same way, so a canceled run has the same orphan
+    abrupt_exit: a pw process that dies without unwinding leaves every child it started, since nothing but its own deferred stops reaps them
+    symptom: the next pw dev fails on an address already in use, held by a process the developer did not start and cannot name
+    services: the same shape as the known devbox case, where interrupting devbox leaves the process manager it spawned running
+  requirement:
+    - the application is stopped through something that reaches the process actually serving, not only its launcher
+    - a kill applies to the whole group pw created, so an unforwardable signal is not the end of the chain
+    - the stop path is the same whether the loop ended by interrupt, by error, or by context cancellation
+    - the stop path waits for the process to be gone before the replacement starts, and reports the wait rather than racing it
+    - a process that exits on the interrupt is not killed afterwards
+    - a leftover process from an earlier run is reported by name and port rather than surfacing as a bind failure
+reporting:
+  policy: policy:cli-progress-reporting
+  startup: a bounded progress region naming the phase in progress, because these steps together take long enough that silence reads as a hang
+  phases: services, generation, migration, identity provider, telemetry viewer, CSS build, and the Go build
+  collapse: the region gives way to policy:startup-summary and then the application and service log stream
+  rebuild: a watch-triggered regenerate, migrate, and rebuild reuses the same region rather than reprinting the startup sequence
+  logs: the application stream stays plaintext under policy:log-emission, since the developer loop is read in a terminal
+  diagnostics: never enter the region, so a generation or migration failure keeps its place in the scrollback
 services:
   absent_environment: a project without devbox.json declares no service here, so the step is skipped in silence
   default: Valkey
@@ -64,10 +91,36 @@ telemetry_viewer:
   output: records reach both the viewer and the developer loop stream, because a viewer must not empty the terminal
   default: enabled
 migration:
-  default: enabled and forward-only under policy:migration-safety
+  default: enabled, and the one place policy:migration-safety permits an automatic rollback
   ordering: migrations complete before the application process starts
+  edited_file:
+    problem: a forward-only loop does nothing useful when the file that changed is one already applied, because its version is recorded; the schema the developer is editing is the one schema the loop cannot reach
+    behavior: roll back to the version before the changed file, then apply forward to the latest
+    scope: the api:cli-dev loop only; api:cli-migrate, startup apply, and api:test-run keep the policy:migration-safety rules unchanged
+    trigger: a watched change to an already-applied migration, or a new file inserted below the highest applied version
+    data: rows below that version are lost, which is accepted here because requirement:test-data-seeding is where a development database gets its rows back
+    reseed:
+      default: on, through data:project-config seed.auto
+      action: apply the api:cli-seed datasets after the schema is back at the latest version, so the cycle that emptied the database is the cycle that refills it
+      bounded_to: the migration cycles that reset the schema, and the first apply that created it; an ordinary rebuild reseeds nothing
+      why_bounded: seeding is clear-insert and truncates its tables, so reseeding on every restart would delete what the developer typed into the running application
+      off: seed.auto false leaves the database empty after a rollback, for a developer whose rows are worth more than the datasets
+    down_required: a changed migration with no usable Down stops before any statement runs, per policy:migration-safety, and the loop reports it and leaves the schema alone rather than half-reversing it
+    announced: the loop names the version it is rolling back to and the files it will reverse, because this is the one automatic action in the loop that destroys something
+    detection:
+      within_a_session: the watcher already knows which file changed, which is enough to pick the target version
+      across_sessions: an edit made while the loop was down is invisible, since nothing records the content of an applied file; that case still surfaces as the existing integrity error
+  forward_only_elsewhere: policy:migration-safety, unchanged for every other caller
 failure:
   generation_css_or_build: keep the developer loop alive and report diagnostics
+  application_process:
+    rule: report the exit and keep watching, whatever the status was
+    reason: the loop exists to survive a half-finished edit, and a project is unbuildable for most of the time between two working states
+    instance: a compile error reaching the loop as "application exited: exit status 1", which ended pw dev over a field the developer was in the middle of renaming
+    clean_exit: also non-terminal; an application that returned zero on its own is waiting for the next change like any other
+    recovery: the next watched change rebuilds and restarts, with no second command to type
+    ends_the_loop: only the interrupt, which is the one exit the developer asked for
+    precedent: the CSS toolchain exit in the same select already reports and keeps going
   migration: report diagnostics, skip the restart, and keep the developer loop alive
   identity_provider: report diagnostics and stop the loop, because the application cannot log in without its configured issuer
   telemetry_viewer: report diagnostics and keep the loop alive, because an unobservable run is still a working one

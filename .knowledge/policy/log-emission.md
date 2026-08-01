@@ -21,7 +21,8 @@ json:
   - stable top-level reserved field names
   - scalar attributes remain typed
 plaintext:
-  - one record per line
+  - the slog text encoding, one key=value record per line
+  - the default under data:runtime-environment dev, including the api:cli-dev stream, because that stream is read by a person rather than by a collector
   - escape control characters and line breaks in message and values
 failure:
   stdout: do not panic on write failure; expose bounded internal diagnostics where possible

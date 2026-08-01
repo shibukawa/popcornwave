@@ -48,7 +48,7 @@ func declinedProject(t *testing.T) string {
 func TestCapabilityDetectionReadsTheProjectFiles(t *testing.T) {
 	full := writeScaffoldedProject(t, initOptions{
 		Name: "fixture", Router: routerBoth, TinyGo: true, Devbox: true, Database: true, Redis: true,
-		Tailwind: true, Auth: authOIDC, AuthEmulator: true,
+		Dynamo: true, Tailwind: true, Auth: authOIDC, AuthEmulator: true,
 	})
 	state, err := loadProjectState(full)
 	if err != nil {
@@ -70,7 +70,7 @@ func TestCapabilityDetectionReadsTheProjectFiles(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := []string{capabilityDiscovered, capabilityDevbox, capabilityDatabase, capabilityRedis, capabilityAuth, capabilityTailwind}
+	want := []string{capabilityDiscovered, capabilityDevbox, capabilityDatabase, capabilityDynamo, capabilityRedis, capabilityAuth, capabilityTailwind}
 	if strings.Join(missing, ",") != strings.Join(want, ",") {
 		t.Fatalf("missing = %v, want %v", missing, want)
 	}
@@ -368,9 +368,16 @@ func TestAddDatabasePerEngine(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// Version 1 creates nothing: it carries the shape of a migration for this
+	// dialect, commented out, so adding a database does not also add a table.
 	schema := plan.creates["migrations/00001_init.sql"]
-	if !strings.Contains(schema, "CREATE TABLE users") {
+	if !strings.Contains(schema, "-- +goose Up") || !strings.Contains(schema, "-- CREATE TABLE example (") {
 		t.Fatalf("schema = %q", schema)
+	}
+	for _, statement := range []string{"\nCREATE TABLE", "\nDROP TABLE"} {
+		if strings.Contains(schema, statement) {
+			t.Fatalf("starter migration executes a statement: %q", schema)
+		}
 	}
 	joined := strings.Join(plan.summary(), "\n")
 	if !strings.Contains(joined, "popcornwave/database/postgres") {
@@ -504,16 +511,16 @@ func TestInitReportsDeclinedCapabilities(t *testing.T) {
 		{
 			name:    "everything declined",
 			options: initOptions{Database: false, Redis: false, Tailwind: false, Auth: authNone},
-			want:    "devbox,database,redis-valkey,auth,tailwind",
+			want:    "devbox,database,dynamo,redis-valkey,auth,tailwind",
 		},
 		{
 			name:    "only Tailwind declined",
-			options: initOptions{Devbox: true, Database: true, Redis: true, Auth: authOIDC},
+			options: initOptions{Devbox: true, Database: true, Dynamo: true, Redis: true, Auth: authOIDC},
 			want:    "tailwind",
 		},
 		{
 			name:    "nothing declined",
-			options: initOptions{Devbox: true, Database: true, Redis: true, Tailwind: true, Auth: authOIDC},
+			options: initOptions{Devbox: true, Database: true, Dynamo: true, Redis: true, Tailwind: true, Auth: authOIDC},
 			want:    "",
 		},
 	} {
@@ -620,6 +627,7 @@ func TestInitWizardSkipsValkeyWithoutDevbox(t *testing.T) {
 		pressKey(tea.KeyEnter), // Tailwind
 		pressKey(tea.KeyEnter), // Database
 		pressKey(tea.KeyEnter), // Database engine
+		pressKey(tea.KeyEnter), // DynamoDB
 		pressKey(tea.KeyEnter), // Authentication
 		typeText("2"),          // Devbox: No
 	)

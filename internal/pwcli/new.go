@@ -116,7 +116,7 @@ func runNew(ctx context.Context, args []string, stdout io.Writer) error {
 	for _, line := range plan.summary() {
 		fmt.Fprintln(stdout, " ", line)
 	}
-	if err := runGenerate(ctx, nil, stdout); err != nil {
+	if _, err := generateProject(ctx, false, stdout, false); err != nil {
 		// The written sources are handwritten code the operator owns and fixes,
 		// so they stay; only the generated artifacts are missing.
 		return fmt.Errorf("generate %s: %w", options.Package, err)
@@ -326,7 +326,7 @@ func handlerSourceScaffold(pkg string, options newOptions) string {
 func handlerTemplateScaffold(pkg string, options newOptions) string {
 	exported := exportedName(options.Name)
 	return "package " + pkg + "\n\nexport component " + exported + "(name: string): html {\n" +
-		"<h1>Hello, {name}</h1>\n}\n"
+		"  <h1>Hello, {name}</h1>\n}\n"
 }
 
 // exportedName turns a handler name into the exported identifier generation

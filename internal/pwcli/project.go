@@ -36,6 +36,14 @@ type migrationConfig struct {
 	Auto bool
 }
 
+// seedConfig governs the one place pw applies a dataset on its own: after the
+// developer loop rolls a schema back to reach an edited migration, which empties
+// the tables below it. Seeding is clear-insert, so it never runs on an ordinary
+// rebuild, where it would delete what the developer just typed in.
+type seedConfig struct {
+	Auto bool
+}
+
 // idpConfig selects the development identity provider `pw dev` runs beside the
 // application. The port defaults to 0 because pw dev injects the resolved
 // issuer, so a fixed port only matters to an externally registered client.
@@ -116,6 +124,7 @@ type projectConfig struct {
 	IdP       idpConfig
 	Otel      otelConfig
 	Migration migrationConfig
+	Seed      seedConfig
 	Tailwind  tailwindConfig
 }
 
@@ -132,7 +141,9 @@ func loadProjectConfig(root string) (projectConfig, error) {
 	known := []string{
 		"project.name", "project.main", "project.toolchain", "project.database",
 		"generate.handlers", "generate.templates", "generate.queries", "generate.config", "generate.pages",
+		"generate.dynamo",
 		"dev.watch.includes", "dev.watch.excludes",
+		"seed.auto",
 		"dev.idp.enabled", "dev.idp.config", "dev.idp.port",
 		"dev.otel.enabled", "dev.otel.port", "dev.otel.max",
 		"migration.dir", "migration.auto",
@@ -254,6 +265,13 @@ func loadProjectConfig(root string) (projectConfig, error) {
 		config.Migration.Auto, err = value.AsBool()
 		if err != nil {
 			return projectConfig{}, fmt.Errorf("popcornwave.toml: migration.auto: %w", err)
+		}
+	}
+	config.Seed.Auto = true
+	if value, ok := document.Get("seed.auto"); ok {
+		config.Seed.Auto, err = value.AsBool()
+		if err != nil {
+			return projectConfig{}, fmt.Errorf("popcornwave.toml: seed.auto: %w", err)
 		}
 	}
 	if value, ok := document.Get("assets.tailwind.enabled"); ok {

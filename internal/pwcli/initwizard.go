@@ -92,6 +92,22 @@ func initWizardSteps(defaults initOptions) []wizardStep[initOptions] {
 				engineChoices()...,
 			),
 		),
+		newChoiceStep(
+			"DynamoDB",
+			"A second kind of store, not a fourth SQL engine. It combines with any database answer, "+
+				"including none, and brings its own typed records and local development server.",
+			yesNoCursor(defaults.Dynamo),
+			wizardChoice[initOptions]{
+				name:        "Yes",
+				description: "[middleware.dynamo], a records/ starter type, and dynamodb-local in devbox.json",
+				apply:       func(target *initOptions) { target.Dynamo = true },
+			},
+			wizardChoice[initOptions]{
+				name:        "No",
+				description: "no [middleware.dynamo] section; pw add dynamo enables it later",
+				apply:       func(target *initOptions) { target.Dynamo = false },
+			},
+		),
 		when(func(options initOptions) bool { return options.Database },
 			newChoiceStep(
 				"Authentication",

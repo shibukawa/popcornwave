@@ -111,7 +111,7 @@ func TestScaffoldWiresTheFrameworkOwnedEndpoints(t *testing.T) {
 	if !strings.Contains(template, `<form method="post" action={logoutPath}>`) {
 		t.Fatalf("logout must be a POST form:\n%s", template)
 	}
-	if !strings.Contains(template, `<a href={loginPath}>`) {
+	if !strings.Contains(template, `href={loginPath}>Sign in</a>`) {
 		t.Fatalf("no login link:\n%s", template)
 	}
 }
@@ -249,6 +249,7 @@ func TestInitWizardAsksForTheProviderOnlyForOIDC(t *testing.T) {
 		pressKey(tea.KeyEnter), // Tailwind
 		pressKey(tea.KeyEnter), // Database
 		pressKey(tea.KeyEnter), // Database engine
+		pressKey(tea.KeyEnter), // DynamoDB
 		typeText("2"),          // Authentication: OIDC
 	)
 	if model.reviewing() {
@@ -280,6 +281,7 @@ func TestInitWizardAsksForTheProviderForOIDCPasskey(t *testing.T) {
 		pressKey(tea.KeyEnter), // Tailwind
 		pressKey(tea.KeyEnter), // Database
 		pressKey(tea.KeyEnter), // Database engine
+		pressKey(tea.KeyEnter), // DynamoDB
 		typeText("3"),          // Authentication: OIDC and passkey
 		pressKey(tea.KeyEnter), // Session storage
 	)
@@ -301,6 +303,7 @@ func TestInitWizardSkipsTheProviderStepWithoutOIDC(t *testing.T) {
 		pressKey(tea.KeyEnter), // Tailwind
 		pressKey(tea.KeyEnter), // Database
 		pressKey(tea.KeyEnter), // Database engine
+		pressKey(tea.KeyEnter), // DynamoDB
 		typeText("4"),          // Authentication: Passkey only
 		pressKey(tea.KeyEnter), // Session storage
 	)
@@ -324,6 +327,7 @@ func TestInitWizardGoesBackPastASkippedStep(t *testing.T) {
 		pressKey(tea.KeyEnter), // Tailwind
 		pressKey(tea.KeyEnter), // Database
 		pressKey(tea.KeyEnter), // Database engine
+		pressKey(tea.KeyEnter), // DynamoDB
 		pressKey(tea.KeyEnter), // Authentication: None
 		pressKey(tea.KeyEnter), // Devbox
 		pressKey(tea.KeyEnter), // Redis or Valkey

@@ -15,9 +15,25 @@ minutes.
 
 :::note[Where this starts]
 From chapter 1: `pw init memoapp`, and `handlers/home.pw.html` back at the
-scaffolded `Home(name: string)`. If you skipped chapter 1, `pw init memoapp`
+scaffolded `Home(name: string, project: string)`. If you skipped chapter 1, `pw init memoapp`
 produces exactly that state.
 :::
+
+## 0. Add Tailwind
+
+Chapter 1 declined Tailwind. Install it now:
+
+```sh
+pw add tailwind
+```
+
+A wizard opens, and before anything is written it shows a review screen listing
+every file it will create and every file it will append to. There is no flag
+that skips it: this command edits a project that already exists. Accept it and
+the pinned toolchain, `assets/app.css`, and the CSS build step go in.
+
+This is what "declined at init is not permanent" means in practice. Chapter 3
+adds the database the same way, and chapter 4 the login.
 
 ## 1. A page with a form on it
 
@@ -25,6 +41,7 @@ The page has two jobs now: list what has been written, and offer a box to write
 the next one. Replace `handlers/home.pw.html`:
 
 ```html
+// handlers/home.pw.html
 package handlers
 
 type Memo {
@@ -33,17 +50,19 @@ type Memo {
 }
 
 export component Home(memos: Memo[], draft: string, error: string): html {
-<h1>Memos</h1>
-<form method="post" action="/memos">
-  <textarea name="body" rows="3">{draft}</textarea>
-  {if error != ''}<p class="error">{error}</p>{/if}
-  <button type="submit">Add</button>
-</form>
-<ul>
-{for memo in memos}
-  <li>{memo.body}</li>
-{/for}
-</ul>
+  <h1 class="text-3xl font-bold">Memos</h1>
+  <form method="post" action="/memos" class="mt-6 space-y-2">
+    <textarea name="body" rows="3"
+      class="w-full rounded-lg border border-slate-300 p-3 focus:border-indigo-500 focus:outline-none">{draft}</textarea>
+    {if error != ''}<p class="text-sm text-red-600">{error}</p>{/if}
+    <button type="submit"
+      class="rounded-lg bg-indigo-600 px-4 py-2 font-medium text-white hover:bg-indigo-500">Add</button>
+  </form>
+  <ul class="mt-8 space-y-2">
+  {for memo in memos}
+    <li class="rounded-lg border border-slate-200 p-3">{memo.body}</li>
+  {/for}
+  </ul>
 }
 ```
 
@@ -107,14 +126,17 @@ import (
 )
 
 func init() {
-	mux.HandleFunc("GET /{$}", home)
-	mux.HandleFunc("POST /memos", createMemo)
+	mux.HandleFunc("GET /{$}", home) // changed: the scaffold had "GET /"
+	mux.HandleFunc("POST /memos", createMemo) // new
 }
 
+// changed: the scaffolded home read a homeInput through pw.Parse.
+// There is nothing left to read, so that type goes with it.
 func home(w http.ResponseWriter, r *http.Request) {
 	pw.WriteHTML(w, r, Home(HomeParams{Memos: memos.list()}))
 }
 
+// Everything below is new; none of it was in the scaffold.
 type createMemoInput struct {
 	Body string `payload:"body" check:"required,maxlen=200"`
 }
@@ -176,11 +198,12 @@ still in it. The declarations stay where they are; the handler decides what to
 do with the failure:
 
 ```go
+// This replaces the createMemo of section 3.
 import (
 	"net/http"
 
 	"github.com/shibukawa/popcornwave/pw"
-	httpbind "github.com/shibukawa/tinybind-go"
+	httpbind "github.com/shibukawa/tinybind-go" // new
 )
 
 func createMemo(w http.ResponseWriter, r *http.Request) {
