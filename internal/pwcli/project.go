@@ -15,6 +15,10 @@ const (
 	defaultTailwindOutput = "public/generated/app.css"
 	defaultMigrationDir   = "migrations"
 	defaultIdPConfig      = "devidp.toml"
+	// defaultIdPPort is what the scaffold pins the development provider to. A
+	// reserved port would move on every run, and the issuer it appears in is
+	// part of the account identity the scaffolded resolver derives.
+	defaultIdPPort = 18080
 )
 
 // Target compilers recorded by project.toolchain. Projects scaffolded before the

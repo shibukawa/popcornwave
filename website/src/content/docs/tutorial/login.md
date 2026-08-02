@@ -109,21 +109,21 @@ Listing the two paths this application actually has keeps `/healthz` and the
 other operational endpoints public, which is what a load balancer needs them to
 be.
 
-While you are in the configuration files, pin the development provider's port in
-`popcornwave.toml`:
+In `popcornwave.toml`, what `pw add auth` wrote is already what you want:
 
 ```toml
 [dev.idp]
 enabled = true
 config = "devidp.toml"
-# A fixed port keeps the issuer URL stable across restarts.
 port = 18080
 ```
 
-Without it the provider takes a free port, and the issuer URL changes on every
-`pw dev`. The issuer is half of what identifies an account, so a new port would
-hand the same person a new account — and, three steps from now, an empty memo
-list — after each restart.
+The `port` is deliberate. Without it the provider takes a free port and the
+issuer URL changes on every `pw dev`. The issuer is half of what identifies an
+account: the `resolveAccount` you will read in section 4 builds an account ID out
+of `issuer + "|" + subject`. A moving port would hand the same person a new
+account after every restart — and, three steps from now, an empty memo list. If
+something already listens on 18080, change it.
 
 Then apply the migrations:
 

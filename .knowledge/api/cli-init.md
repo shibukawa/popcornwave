@@ -117,7 +117,7 @@ outputs:
   - editor_configuration below
   - Devbox configuration with Valkey when selected, TinyGo when selected, and the selected requirement:database-engine-selection server package, only when the Devbox environment is selected
   - data:authentication-runtime-config section for the selected authentication mode
-  - data:devidp-config roster and data:project-config dev.idp when the local emulator is selected
+  - data:devidp-config roster and data:project-config dev.idp when the local emulator is selected, with dev.idp.port pinned rather than reserved, because api:auth-credential-store derives the scaffolded account ID from the issuer and a moving port issues a new account on every run
   - api:authentication-endpoints blank import in main and a sign-in and sign-out control on the starter page
   - api:session-backend-plugin blank import in main for a selected backend other than cookie
   - rule:framework-owned-tables migrations from the packages that own those tables, at the versions after the application schema, when the mode serves a login

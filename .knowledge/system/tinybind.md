@@ -18,6 +18,24 @@ public_wrappers:
   - api:typed-stream
   - api:problem-response
   - api:runtime-configuration
+defects:
+  unguarded_position_lookup:
+    version: v0.2.10, and every earlier version carrying the same lines
+    symptom: a nil pointer dereference in go/token.(*File).Name, taking the calling process down
+    sites:
+      - generator/plan.go:204, reached by every binding run
+      - generator/configbind.go:108, the same loop over a different artifact
+      - generator/dynamobind.go:290, dynamoFileName
+    shape: each guards f, pkg, and Fset for nil and then dereferences the one call that returns nil, Fset.File(f.Pos())
+    correct_form_already_present: generator/configbind_doc.go:61 writes "if handle := pkg.Fset.File(file.Pos()); handle != nil", so the fix is the guard the package already uses three files away
+    trigger: a Go file in a generated directory that does not parse, most often a zero-byte one an editor has created and not yet written into
+    mechanism:
+      loader: packages.Load returns a syntax entry for a file it could not parse
+      position: that entry reports token.NoPos, and a FileSet lookup of NoPos is nil
+      measured: a package holding one empty and one valid .go file returns two syntax entries; the empty one has Pos 0 and no FileSet handle, verified against golang.org/x/tools without Popcorn Wave in the picture on 2026-08-02
+    fix: return an empty path when the handle is nil, which every call site already tolerates because it also handles the fset == nil case that way
+    downstream_containment: api:cli-generate unparsable_source, which reports the file and skips its directory, and a recover that turns any generation panic into an error
+    why_still_upstream: the containment keeps api:cli-dev alive, and it cannot keep another consumer of this generator alive
 generator:
   extensible_analysis: requirement:httpbinder-extensible-route-analysis
   openapi:

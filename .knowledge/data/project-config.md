@@ -20,7 +20,7 @@ schema:
     idp:
       enabled: false
       config: devidp.toml
-      port: 0 for an automatically reserved loopback port
+      port: 0 for an automatically reserved loopback port; api:cli-init writes a fixed one, because the issuer it appears in is part of the account identity
     otel:
       enabled: true
       port: 0 for an automatically reserved loopback port

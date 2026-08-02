@@ -69,7 +69,7 @@ identity_provider:
   lifetime: starts before the application process and stops with the developer loop
   issuer:
     port: an available loopback port reserved per run, because the injected issuer makes a fixed port unnecessary
-    pin: data:project-config dev.idp.port pins it only when an external client needs a stable registration
+    pin: data:project-config dev.idp.port, which api:cli-init scaffolds with a value rather than leaving reserved; a reserved port moves the issuer every run, and the scaffolded resolver builds its account ID out of the issuer, so the same person is handed a new account each time
   client:
     ownership: pw dev registers one ephemeral client per run and the developer declares none
     credentials: client id and secret generated from crypto/rand at startup and discarded at shutdown

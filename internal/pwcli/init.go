@@ -1548,6 +1548,12 @@ func devIdPProjectConfig(options initOptions) string {
 [dev.idp]
 enabled = true
 config = "` + defaultIdPConfig + `"
+# A fixed port keeps the issuer URL stable across restarts, and the issuer is
+# half of what identifies an account: the scaffolded resolver builds an account
+# ID out of the issuer and the subject. On an automatically reserved port every
+# pw dev would hand the same person a new account, and everything stored against
+# the old one would be gone. Change it if something else here already listens.
+port = ` + strconv.Itoa(defaultIdPPort) + `
 `
 }
 
