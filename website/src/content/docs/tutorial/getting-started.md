@@ -213,12 +213,19 @@ import (
 	"github.com/shibukawa/popcornwave/pw"
 )
 
+// homeInput is what this route reads from the request.
 type homeInput struct {
+	// Name is who the page greets. Anything the request does not carry falls
+	// back to the declared default.
 	Name string `query:"name" default:"World"`
 }
 
-func init() { mux.HandleFunc("GET /", home) }
+func init() { mux.HandleFunc("GET /{$}", home) }
 
+// home renders the starter landing page.
+//
+// The greeting is whoever the request names, and the project the page was
+// scaffolded for otherwise.
 func home(w http.ResponseWriter, r *http.Request) {
 	input, err := pw.Parse[homeInput](r)
 	if err != nil {
@@ -232,6 +239,11 @@ func home(w http.ResponseWriter, r *http.Request) {
 An ordinary `net/http` handler, with two framework calls in it. `pw.Parse` fills
 `homeInput` from the request — here from `?name=`, falling back to the declared
 default. `pw.WriteHTML` renders the fragment `Home` returned.
+
+The godoc is not decoration. `pw generate` copies a handler's comment into the
+OpenAPI document: the first sentence becomes the operation summary and the rest
+its description, and the comments on `homeInput` and its fields become the
+schema and parameter descriptions. The end of chapter 2 shows where that lands.
 
 `mux` comes from `handlers/index.go`, which is three lines long:
 

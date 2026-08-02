@@ -1206,12 +1206,28 @@ import (
 	"github.com/shibukawa/popcornwave/pw"
 )
 
+// homeInput is what this route reads from the request.
 type homeInput struct {
+	// Name is who the page greets. Anything the request does not carry falls
+	// back to the declared default.
 	Name string ` + "`query:\"name\" default:\"World\"`" + `
 }
 
 func init() { mux.HandleFunc("GET /{$}", home) }
 
+// The comment below is not decoration. pw generate reads a handler's godoc into
+// the OpenAPI document this project serves: the first sentence becomes the
+// operation summary and the rest its description, and the field comments in
+// homeInput describe the parameters. Write them and /docs explains the route;
+// leave them out and it lists a path and nothing else.
+//
+// This paragraph is separated by a blank line, so it is not part of that godoc
+// and does not reach the document.
+
+// home renders the starter landing page.
+//
+// The greeting is whoever the request names, and the project the page was
+// scaffolded for otherwise.
 func home(w http.ResponseWriter, r *http.Request) {
 	input, err := pw.Parse[homeInput](r)
 	if err != nil {
@@ -1234,6 +1250,18 @@ import (
 
 func init() { mux.HandleFunc("GET /{$}", home) }
 
+// The comment below is not decoration. pw generate reads a handler's godoc into
+// the OpenAPI document this project serves: the first sentence becomes the
+// operation summary and the rest its description. Write them and /docs explains
+// the route; leave them out and it lists a path and nothing else.
+//
+// This paragraph is separated by a blank line, so it is not part of that godoc
+// and does not reach the document.
+
+// home renders the starter landing page, signed in or not.
+//
+// A signed-in visitor is greeted by display name and offered a sign-out
+// control; everyone else is offered the ways in that this project configured.
 func home(w http.ResponseWriter, r *http.Request) {
 	// The framework resolved the session before this handler ran.
 	user, signedIn := auth.User(r.Context())
@@ -1727,7 +1755,13 @@ import (
 ` + imports + databaseDriverImport(options) + sessionBackendImport(options) + `
 )
 
-func main() {` + authBootstrap(options) + `
+func main() {
+	// Names the API document served at server.openapi_path and shown by the
+	// reference UI at /docs. Without it both fall back to "Application API".
+	if err := pw.SetOpenAPIInfo(pw.OpenAPIInfo{Title: "` + name + `", Version: "0.1.0"}); err != nil {
+		log.Fatal(err)
+	}
+` + authBootstrap(options) + `
 ` + body + `	if err := pw.Run(context.Background(), ` + handler + `); err != nil {
 		log.Fatal(err)
 	}

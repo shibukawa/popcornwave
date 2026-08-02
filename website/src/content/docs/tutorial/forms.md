@@ -126,21 +126,30 @@ import (
 )
 
 func init() {
-	mux.HandleFunc("GET /{$}", home) // changed: the scaffold had "GET /"
+	mux.HandleFunc("GET /{$}", home)
 	mux.HandleFunc("POST /memos", createMemo) // new
 }
 
 // changed: the scaffolded home read a homeInput through pw.Parse.
 // There is nothing left to read, so that type goes with it.
+
+// home lists every memo that has been written.
 func home(w http.ResponseWriter, r *http.Request) {
 	pw.WriteHTML(w, r, Home(HomeParams{Memos: memos.list()}))
 }
 
 // Everything below is new; none of it was in the scaffold.
+
+// createMemoInput is the submitted form.
 type createMemoInput struct {
+	// Body is the memo text. It is required and capped at 200 characters.
 	Body string `payload:"body" check:"required,maxlen=200"`
 }
 
+// createMemo stores one memo and redirects back to the list.
+//
+// A rejected submission comes back as the same page with the message beside
+// the field, not as a problem document.
 func createMemo(w http.ResponseWriter, r *http.Request) {
 	input, err := pw.Parse[createMemoInput](r)
 	if err != nil {
@@ -152,9 +161,9 @@ func createMemo(w http.ResponseWriter, r *http.Request) {
 }
 ```
 
-The scaffolded pattern was `GET /`, which in Go's mux matches every path that
-nothing more specific claims. `GET /{$}` matches the root and only the root, so
-a typo in the URL now gets a 404 instead of the memo list.
+`GET /{$}` is the scaffolded pattern, unchanged. A bare `GET /` in Go's mux
+matches every path that nothing more specific claims; the `{$}` restricts it to
+the root, so a typo in the URL gets a 404 rather than the memo list.
 
 `payload:"body"` reads the request body rather than the query string; the form
 posts `application/x-www-form-urlencoded`, and the same declaration would accept
@@ -247,6 +256,22 @@ The response above is a page about a rejected input, sent with a success status.
 For a browser form that is normal — the browser renders it either way — but an
 API client on the same route needs the problem document, which is what the JSON
 branch is for.
+
+:::note[Where the godoc you wrote ends up]
+With `pw dev` still running, open <http://localhost:8080/docs>. Both routes from
+this chapter are listed. The summary on `POST /memos` is the first sentence of
+`createMemo`'s godoc, the text under it is the rest, and the description on the
+`body` parameter is the field comment in `createMemoInput`.
+
+`pw generate` copied all of it into the OpenAPI document. Skip the godoc and the
+page lists paths and types and nothing else — the code runs the same either way,
+but whether anyone else can read this API does not. Add a sentence, save, and it
+is there.
+
+The reference UI comes from `server.api_doc` in `config.dev.toml`. Leave that key
+out of a production configuration and the document is still generated, just not
+served.
+:::
 
 ## What you have now
 

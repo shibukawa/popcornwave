@@ -480,7 +480,15 @@ func planDirectory(ctx context.Context, runner *generator.Generator, directory s
 		local.Options.DynamoTemplatePattern = disabledTemplatePattern
 		runner = &local
 	}
-	artifacts, err := runner.GenerateArtifacts(ctx, request)
+	// A source that does not parse is reported here rather than handed to the
+	// generator. The developer loop regenerates the moment a file appears, so
+	// it routinely sees one an editor has created and not yet written into, and
+	// the generator walks such a file into a nil position.
+	// The parser error already names the file, the line, and the column.
+	if reason := firstUnparsableSource(directory); reason != nil {
+		return nil, reason
+	}
+	artifacts, err := generateArtifacts(ctx, runner, request)
 	if err != nil && !errors.Is(err, generator.ErrNothingToGenerate) {
 		// A page tree route package usually holds no request model at all, so
 		// finding nothing is the ordinary outcome rather than a failure.
@@ -539,6 +547,43 @@ func planDirectory(ctx context.Context, runner *generator.Generator, directory s
 		}
 	}
 	return changes, nil
+}
+
+// firstUnparsableSource names the first Go file in directory that does not
+// parse, with the reason. Only the package clause is read: anything further is
+// the compiler's to report, and a file that is being written into right now
+// fails at the very first token anyway.
+func firstUnparsableSource(directory string) error {
+	entries, err := os.ReadDir(directory)
+	if err != nil {
+		return nil
+	}
+	fileset := token.NewFileSet()
+	for _, entry := range entries {
+		name := entry.Name()
+		if entry.IsDir() || !strings.HasSuffix(name, ".go") {
+			continue
+		}
+		path := filepath.Join(directory, name)
+		if _, err := parser.ParseFile(fileset, path, nil, parser.PackageClauseOnly); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// generateArtifacts runs one generation request and turns a panic inside the
+// generator into an error. The developer loop is meant to survive a
+// half-finished edit, and a panic escaping from here would take the loop, the
+// application it supervises, and the services it started down with it.
+func generateArtifacts(ctx context.Context, runner *generator.Generator, request generator.GenerateRequest) (artifacts []generator.Artifact, err error) {
+	defer func() {
+		if recovered := recover(); recovered != nil {
+			err = fmt.Errorf("the generator panicked on this directory, which is a defect rather than "+
+				"something to fix in the sources: %v", recovered)
+		}
+	}()
+	return runner.GenerateArtifacts(ctx, request)
 }
 
 func documentRegistrationArtifact(packageName string) generator.Artifact {

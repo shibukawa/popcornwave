@@ -125,21 +125,30 @@ import (
 )
 
 func init() {
-	mux.HandleFunc("GET /{$}", home) // 変更: 雛形は "GET /" だった
+	mux.HandleFunc("GET /{$}", home)
 	mux.HandleFunc("POST /memos", createMemo) // 追加
 }
 
 // 変更: 雛形の home は homeInput を pw.Parse で読んでいた。
 // 読むものが無くなったので、その型ごと消える。
+
+// home lists every memo that has been written.
 func home(w http.ResponseWriter, r *http.Request) {
 	pw.WriteHTML(w, r, Home(HomeParams{Memos: memos.list()}))
 }
 
 // ここから下は雛形に無い。すべて追加。
+
+// createMemoInput is the submitted form.
 type createMemoInput struct {
+	// Body is the memo text. It is required and capped at 200 characters.
 	Body string `payload:"body" check:"required,maxlen=200"`
 }
 
+// createMemo stores one memo and redirects back to the list.
+//
+// A rejected submission comes back as the same page with the message beside
+// the field, not as a problem document.
 func createMemo(w http.ResponseWriter, r *http.Request) {
 	input, err := pw.Parse[createMemoInput](r)
 	if err != nil {
@@ -151,9 +160,9 @@ func createMemo(w http.ResponseWriter, r *http.Request) {
 }
 ```
 
-雛形は `GET /` でした。Go の mux では、これはより具体的なパターンが拾わなかった
-すべてのパスにマッチします。`GET /{$}` はルートだけにマッチするので、URL を打ち間違えたら
-メモ一覧ではなく 404 が返るようになります。
+`GET /{$}` は雛形のままです。Go の mux で `GET /` と書くと、より具体的なパターンが
+拾わなかったすべてのパスにマッチしてしまいます。`{$}` を付けるとルートだけにマッチするので、
+URL を打ち間違えたらメモ一覧ではなく 404 が返ります。
 
 `payload:"body"` はクエリ文字列ではなくリクエストボディを読みます。フォームは
 `application/x-www-form-urlencoded` で送りますが、同じ宣言のまま API クライアントからの
@@ -241,6 +250,19 @@ func createMemo(w http.ResponseWriter, r *http.Request) {
 成功のステータスで送っていることになります。ブラウザのフォームとしては問題ありません
 （どちらでも描画されます）。同じルートを叩く API クライアントには問題文書が要る、
 というのが JSON 側の分岐の意味です。
+
+:::note[書いた godoc がどこに出るか]
+`pw dev` を動かしたまま <http://localhost:8080/docs> を開いてください。この章で足した
+2つのルートが並んでいます。`POST /memos` の要約は `createMemo` の godoc の1文目、
+説明はその続き、`body` パラメータの説明は `createMemoInput` のフィールドコメントです。
+
+`pw generate` がこれらを OpenAPI 文書に書き写しています。godoc を書かなければ、
+このページはパスと型だけを並べます。動くものは同じですが、他人がこの API を
+読めるかどうかが変わります。書き足して保存すれば、その場で反映されます。
+
+この参照 UI は `config.dev.toml` の `server.api_doc` が出しています。本番の設定
+ファイルからこのキーを外せば、文書は生成されたまま公開はされません。
+:::
 
 ## ここまでで手元にあるもの
 

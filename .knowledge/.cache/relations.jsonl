@@ -144,9 +144,9 @@
 {"context": "body", "path": ".knowledge/api/cli-generate.md", "source": "api:cli-generate", "target": "requirement:dynamodb-generation", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/api/cli-generate.md", "source": "api:cli-generate", "target": "decision:dynamodb-table-registry", "target_category": "constraint", "target_type": "decision"}
 {"context": "body", "path": ".knowledge/api/cli-generate.md", "source": "api:cli-generate", "target": "data:route-table", "target_category": "structure", "target_type": "data"}
+{"context": "body", "path": ".knowledge/api/cli-generate.md", "source": "api:cli-generate", "target": "system:tinybind", "target_category": "external", "target_type": "system"}
 {"context": "body", "path": ".knowledge/api/cli-generate.md", "source": "api:cli-generate", "target": "decision:page-render-binding", "target_category": "constraint", "target_type": "decision"}
 {"context": "body", "path": ".knowledge/api/cli-generate.md", "source": "api:cli-generate", "target": "api:page-render-runtime", "target_category": "interface", "target_type": "api"}
-{"context": "body", "path": ".knowledge/api/cli-generate.md", "source": "api:cli-generate", "target": "system:tinybind", "target_category": "external", "target_type": "system"}
 {"context": "body", "path": ".knowledge/api/cli-init.md", "source": "api:cli-init", "target": "decision:interactive-project-bootstrap", "target_category": "constraint", "target_type": "decision"}
 {"context": "body", "path": ".knowledge/api/cli-init.md", "source": "api:cli-init", "target": "requirement:incremental-project-capabilities", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/api/cli-init.md", "source": "api:cli-init", "target": "api:cli-add", "target_category": "interface", "target_type": "api"}

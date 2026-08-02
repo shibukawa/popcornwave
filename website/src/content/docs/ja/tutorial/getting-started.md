@@ -206,12 +206,19 @@ import (
 	"github.com/shibukawa/popcornwave/pw"
 )
 
+// homeInput is what this route reads from the request.
 type homeInput struct {
+	// Name is who the page greets. Anything the request does not carry falls
+	// back to the declared default.
 	Name string `query:"name" default:"World"`
 }
 
-func init() { mux.HandleFunc("GET /", home) }
+func init() { mux.HandleFunc("GET /{$}", home) }
 
+// home renders the starter landing page.
+//
+// The greeting is whoever the request names, and the project the page was
+// scaffolded for otherwise.
 func home(w http.ResponseWriter, r *http.Request) {
 	input, err := pw.Parse[homeInput](r)
 	if err != nil {
@@ -225,6 +232,11 @@ func home(w http.ResponseWriter, r *http.Request) {
 ふつうの `net/http` ハンドラに、フレームワークの呼び出しが2つ入っています。
 `pw.Parse` はリクエストから `homeInput` を埋めます。ここでは `?name=` から、
 無ければ宣言された既定値から。`pw.WriteHTML` は `Home` が返したフラグメントを描画します。
+
+godoc は飾りではありません。`pw generate` はハンドラのコメントを OpenAPI 文書に
+書き写します。最初の1文が操作の要約、残りが説明になり、`homeInput` の型と
+フィールドのコメントはスキーマとパラメータの説明になります。2章の最後で、
+それがどこに出るかを見ます。
 
 `mux` は `handlers/index.go` にあり、3行です。
 
