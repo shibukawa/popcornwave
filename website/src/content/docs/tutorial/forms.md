@@ -49,12 +49,11 @@ type Memo {
   body: string
 }
 
-export component Home(memos: Memo[], draft: string, error: string): html {
+export component Home(memos: Memo[]): html {
   <h1 class="text-3xl font-bold">Memos</h1>
   <form method="post" action="/memos" class="mt-6 space-y-2">
-    <textarea name="body" rows="3"
-      class="w-full rounded-lg border border-slate-300 p-3 focus:border-indigo-500 focus:outline-none">{draft}</textarea>
-    {if error != ''}<p class="text-sm text-red-600">{error}</p>{/if}
+    <textarea name="body" rows="3" required maxlength="200"
+      class="w-full rounded-lg border border-slate-300 p-3 focus:border-indigo-500 focus:outline-none"></textarea>
     <button type="submit"
       class="rounded-lg bg-indigo-600 px-4 py-2 font-medium text-white hover:bg-indigo-500">Add</button>
   </form>
@@ -66,14 +65,18 @@ export component Home(memos: Memo[], draft: string, error: string): html {
 }
 ```
 
-Three things arrived at once. `type Memo` declares a composite that becomes a Go
-struct, so the rows the template renders and the rows the handler builds are one
-type rather than two that have to be kept in step. `Memo[]` is a slice of it.
-And `draft` and `error` exist for a case that has not been written yet: a
-submission that comes back rejected, with the text still in the box.
+`type Memo` declares a composite that becomes a Go struct, so the rows the
+template renders and the rows the handler builds are one type rather than two
+that have to be kept in step. `Memo[]` is a slice of it.
 
-Conditions in `.pw.html` are booleans — there is no truthiness — which is why
-the error test is `error != ''` rather than `error`.
+`required` and `maxlength="200"` are the form declaring what it will accept —
+the same rules the `check` tag on `createMemoInput` will declare in a moment,
+said to the browser as well. Press the button with the box empty, or paste more
+than two hundred characters, and no request leaves.
+
+That does not replace the validation on the server. **The form is a
+convenience; the handler is the boundary.** Writing both is not duplication:
+they stop different things, and section 4 is where the difference shows.
 
 ## 2. Somewhere to put them
 
@@ -179,9 +182,21 @@ the reload re-reads the list instead.
 Save the files. `pw dev` regenerates, rebuilds, and restarts; type something
 into the box and press **Add**, and it appears in the list.
 
-## 4. Submit an empty form
+## 4. When it is rejected
 
-Press **Add** with the box empty. The browser shows this:
+Press **Add** with the box empty. **Nothing happens.** The browser refuses to
+submit and puts its own message under the box, because the textarea says
+`required`. Paste more than two hundred characters and it stops accepting them
+at the two hundredth.
+
+That is not the end of it. What the form stops is submissions from the form.
+Reach the same route without a browser:
+
+```sh
+curl -i -X POST http://localhost:8080/memos \
+  -H 'Content-Type: application/x-www-form-urlencoded' \
+  --data 'body='
+```
 
 ```json
 {
@@ -194,68 +209,43 @@ Press **Add** with the box empty. The browser shows this:
 }
 ```
 
-That is a correct answer, and it is the right one for an API client: RFC 9457
-problem details, status 400, the offending field named. `pw.WriteProblem` maps a
-binding failure to exactly this, and if you had wrapped the error —
-`pw.BadRequest(err)`, as the scaffolded handler does — the status would be the
-same but the `errors` array would be gone, since the wrapper replaces the
-validation error rather than carrying it.
+That is `check:"required"` doing its half: RFC 9457 problem details, status 400,
+the offending field named. **Delete `required` from the form and this answer does
+not change.** Neither one was redundant — they stop different things. The form
+catches a person mistyping; `check` looks at the request.
 
-For a person who mistyped a form, though, a JSON document is a dead end. What
-they need is the page again, with the message next to the field and their text
-still in it. The declarations stay where they are; the handler decides what to
-do with the failure:
+Now do it again as a browser would:
 
-```go
-// This replaces the createMemo of section 3.
-import (
-	"net/http"
-
-	"github.com/shibukawa/popcornwave/pw"
-	httpbind "github.com/shibukawa/tinybind-go" // new
-)
-
-func createMemo(w http.ResponseWriter, r *http.Request) {
-	input, err := pw.Parse[createMemoInput](r)
-	if err != nil {
-		mapped, fieldError := httpbind.AsHTTPError(err)
-		if !fieldError || len(mapped.Fields) == 0 {
-			// Not a field-level failure — an unreadable body, or one too
-			// large. Nothing on the page can be usefully re-rendered for it.
-			pw.WriteProblem(w, r, pw.BadRequest(err))
-			return
-		}
-		pw.WriteHTML(w, r, Home(HomeParams{
-			Memos: memos.list(),
-			Draft: r.PostFormValue("body"),
-			Error: mapped.Fields[0].Message,
-		}))
-		return
-	}
-	memos.add(input.Body)
-	http.Redirect(w, r, "/", http.StatusSeeOther)
-}
+```sh
+curl -i -X POST http://localhost:8080/memos \
+  -H 'Accept: text/html' \
+  -H 'Content-Type: application/x-www-form-urlencoded' \
+  --data 'body='
 ```
 
-`httpbind.AsHTTPError` is the test that separates the two situations. A failed
-`check` is expected traffic — someone submitted an empty box — and belongs on
-the page. A body that could not be read at all is not, and still answers with a
-problem document.
+```
+HTTP/1.1 400 Bad Request
+Content-Type: text/html; charset=utf-8
+Vary: Accept
+```
 
-The re-rendered text comes from `r.PostFormValue`, not from `input`: when a
-check fails, `pw.Parse` returns the zero value, so the only place the typed
-characters still exist is the request itself. Binding already parsed that body,
-so reading it again costs nothing.
+The same failure, answered as a page. `pw.WriteProblem` reads `Accept` and picks
+the representation: `templates/400.pw.html` for a client that wants a page,
+problem details for everything else. Notice that the handler has no branch in
+it. One route answers a browser and an API client, and none of the code that
+does it is yours.
 
-Save, submit an empty form again, and the page comes back with `required` under
-the box. Submit more than two hundred characters and the message changes
-accordingly.
+That page is `templates/400.pw.html`, which `pw init` left behind. Open it and
+you will find it takes the status, the title, the detail, and the field failures
+as parameters. What fills them in is decided by the environment:
 
-One honest limitation: `pw.WriteHTML` takes no status code and answers `200`.
-The response above is a page about a rejected input, sent with a success status.
-For a browser form that is normal — the browser renders it either way — but an
-API client on the same route needs the problem document, which is what the JSON
-branch is for.
+- `dev`: everything the problem carries. The reader is the developer who caused
+  it and is about to fix it.
+- anywhere else: the status, the title, and the request id. The same page served
+  to the public says what went wrong and not why.
+
+One template, and what changes is what it is handed. Restart under `APP_ENV=prod`
+and the same curl comes back with the details gone.
 
 :::note[Where the godoc you wrote ends up]
 With `pw dev` still running, open <http://localhost:8080/docs>. Both routes from
@@ -277,9 +267,10 @@ served.
 
 - A form that posts, a route that accepts it, and a redirect that survives a
   reload.
-- Validation declared on the struct and compiled ahead of the request.
-- One failure, answered two ways: a problem document for a client, a re-rendered
-  page for a person.
+- Validation in two places: the form stops a person mistyping, the `check` rules
+  stop the request.
+- Two representations of one failure, chosen by the framework from `Accept`, with
+  no branch in the handler.
 
 The list still disappears on every restart. Chapter 3 gives it a table.
 

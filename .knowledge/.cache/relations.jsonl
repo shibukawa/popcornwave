@@ -179,6 +179,7 @@
 {"context": "body", "path": ".knowledge/api/cli-init.md", "source": "api:cli-init", "target": "api:page-registry", "target_category": "interface", "target_type": "api"}
 {"context": "body", "path": ".knowledge/api/cli-init.md", "source": "api:cli-init", "target": "concept:application-entry-point", "target_category": "concept", "target_type": "concept"}
 {"context": "body", "path": ".knowledge/api/cli-init.md", "source": "api:cli-init", "target": "ui:starter-landing-page", "target_category": "interface", "target_type": "ui"}
+{"context": "body", "path": ".knowledge/api/cli-init.md", "source": "api:cli-init", "target": "api:error-renderer", "target_category": "interface", "target_type": "api"}
 {"context": "body", "path": ".knowledge/api/cli-init.md", "source": "api:cli-init", "target": "data:observability-runtime-config", "target_category": "structure", "target_type": "data"}
 {"context": "body", "path": ".knowledge/api/cli-init.md", "source": "api:cli-init", "target": "api:cli-generate", "target_category": "interface", "target_type": "api"}
 {"context": "body", "path": ".knowledge/api/cli-init.md", "source": "api:cli-init", "target": "data:migration-source", "target_category": "structure", "target_type": "data"}
@@ -268,6 +269,7 @@
 {"context": "body", "path": ".knowledge/api/dynamo-package.md", "source": "api:dynamo-package", "target": "decision:dynamodb-table-registry", "target_category": "constraint", "target_type": "decision"}
 {"context": "body", "path": ".knowledge/api/dynamo-package.md", "source": "api:dynamo-package", "target": "policy:startup-summary", "target_category": "constraint", "target_type": "policy"}
 {"context": "body", "path": ".knowledge/api/error-renderer.md", "source": "api:error-renderer", "target": "api:problem-response", "target_category": "interface", "target_type": "api"}
+{"context": "body", "path": ".knowledge/api/error-renderer.md", "source": "api:error-renderer", "target": "api:cli-init", "target_category": "interface", "target_type": "api"}
 {"context": "body", "path": ".knowledge/api/error-renderer.md", "source": "api:error-renderer", "target": "decision:unhandled-boundary-escalation", "target_category": "constraint", "target_type": "decision"}
 {"context": "body", "path": ".knowledge/api/error-renderer.md", "source": "api:error-renderer", "target": "policy:validation-errors", "target_category": "constraint", "target_type": "policy"}
 {"context": "body", "path": ".knowledge/api/framework-extension.md", "source": "api:framework-extension", "target": "data:request-authentication", "target_category": "structure", "target_type": "data"}
@@ -379,6 +381,9 @@
 {"context": "body", "path": ".knowledge/api/passkey-endpoints.md", "source": "api:passkey-endpoints", "target": "api:auth-state-codec", "target_category": "interface", "target_type": "api"}
 {"context": "body", "path": ".knowledge/api/passkey-endpoints.md", "source": "api:passkey-endpoints", "target": "data:request-authentication", "target_category": "structure", "target_type": "data"}
 {"context": "body", "path": ".knowledge/api/passkey-endpoints.md", "source": "api:passkey-endpoints", "target": "policy:passkey-security", "target_category": "constraint", "target_type": "policy"}
+{"context": "body", "path": ".knowledge/api/problem-response.md", "source": "api:problem-response", "target": "api:error-renderer", "target_category": "interface", "target_type": "api"}
+{"context": "body", "path": ".knowledge/api/problem-response.md", "source": "api:problem-response", "target": "data:runtime-environment", "target_category": "structure", "target_type": "data"}
+{"context": "body", "path": ".knowledge/api/problem-response.md", "source": "api:problem-response", "target": "policy:validation-errors", "target_category": "constraint", "target_type": "policy"}
 {"context": "body", "path": ".knowledge/api/public-asset-middleware.md", "source": "api:public-asset-middleware", "target": "api:application-lifecycle", "target_category": "interface", "target_type": "api"}
 {"context": "body", "path": ".knowledge/api/public-asset-middleware.md", "source": "api:public-asset-middleware", "target": "data:server-runtime-config", "target_category": "structure", "target_type": "data"}
 {"context": "body", "path": ".knowledge/api/public-asset-middleware.md", "source": "api:public-asset-middleware", "target": "api:cli-dev", "target_category": "interface", "target_type": "api"}
@@ -2809,6 +2814,7 @@
 {"context": "body", "path": ".knowledge/ui/tutorial-memo-app.md", "source": "ui:tutorial-memo-app", "target": "api:cli-init", "target_category": "interface", "target_type": "api"}
 {"context": "body", "path": ".knowledge/ui/tutorial-memo-app.md", "source": "ui:tutorial-memo-app", "target": "api:cli-add", "target_category": "interface", "target_type": "api"}
 {"context": "body", "path": ".knowledge/ui/tutorial-memo-app.md", "source": "ui:tutorial-memo-app", "target": "requirement:tutorial-capability-growth", "target_category": "objective", "target_type": "requirement"}
+{"context": "body", "path": ".knowledge/ui/tutorial-memo-app.md", "source": "ui:tutorial-memo-app", "target": "api:problem-response", "target_category": "interface", "target_type": "api"}
 {"context": "body", "path": ".knowledge/ui/tutorial-memo-app.md", "source": "ui:tutorial-memo-app", "target": "ui:starter-landing-page", "target_category": "interface", "target_type": "ui"}
 {"context": "body", "path": ".knowledge/vision/contrib.md", "source": "vision:contrib", "target": "requirement:contrib-auth-common", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/vision/contrib.md", "source": "vision:contrib", "target": "requirement:contrib-auth-state", "target_category": "objective", "target_type": "requirement"}

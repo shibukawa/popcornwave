@@ -45,7 +45,7 @@ pw add auth
     create  migrations/00004_init_popcornwave_auth.sql
     append  config.dev.toml
     append  popcornwave.toml
-    by hand call handlers.RegisterAccountResolver() in ./cmd/memoapp before pw.Run
+    by hand call handlers.RegisterAccounts() in ./cmd/memoapp before pw.Run
     by hand add import _ "github.com/shibukawa/popcornwave/sessionstore/sqlite" to ./cmd/memoapp
     by hand add import _ "github.com/shibukawa/popcornwave/authstate/sqlite" to ./cmd/memoapp
     then    pw migrate up
@@ -69,17 +69,18 @@ pw add auth
 ```go
 func main() {
 	// Run より前に入れる。OIDC のコールバック中にフレームワークが呼ぶ。
-	handlers.RegisterAccountResolver()
+	handlers.RegisterAccounts()
 	if err := pw.Run(context.Background(), handlers.Handlers()); err != nil {
 		log.Fatal(err)
 	}
 }
 ```
 
-`RegisterAccountResolver` は、いまウィザードが書いた `handlers/accounts.go` にあります。
-フレームワークはプロバイダで身元を検証したあと、それがどのローカルアカウントなのかを
-この関数に尋ねます。初期版は身元そのものからアカウントを導出するので、アカウントの
-テーブルを持つ前からログインできます。
+`RegisterAccounts` は、いまウィザードが書いた `handlers/accounts.go` にあります。
+中身は `auth.SetAccountResolver(resolveAccount)` の1行で、選んだモードが要求する
+継ぎ目をまとめて据え付ける関数です。フレームワークはプロバイダで身元を検証したあと、
+それがどのローカルアカウントなのかを `resolveAccount` に尋ねます。初期版は身元そのものから
+アカウントを導出するので、アカウントのテーブルを持つ前からログインできます。
 
 ## 2. 何にセッションが要るかを決める
 
@@ -161,16 +162,16 @@ INSERT INTO memos (author, body) VALUES ({author}, {body})
 ```go
 // handlers/home_handler.go
 import (
-	"context"
 	"net/http"
 
 	"memoapp/queries"
 
 	"github.com/shibukawa/popcornwave/plugin/auth" // 追加
 	"github.com/shibukawa/popcornwave/pw"
-	httpbind "github.com/shibukawa/tinybind-go"
 )
 
+// home lists the signed-in account's memos.
+//
 // 変更: 3章の home に、ユーザーの取得と作者での絞り込みが加わる。
 func home(w http.ResponseWriter, r *http.Request) {
 	user, ok := auth.User(r.Context())
@@ -178,24 +179,16 @@ func home(w http.ResponseWriter, r *http.Request) {
 		pw.WriteProblem(w, r, pw.Unauthorized())
 		return
 	}
-	list, err := listMemos(r.Context(), user.AccountID)
-	if err != nil {
-		pw.WriteProblem(w, r, err)
-		return
-	}
-	pw.WriteHTML(w, r, Home(HomeParams{DisplayName: user.DisplayName, Memos: list}))
-}
-
-// 変更: author が増えた。3章の listMemos は引数がコンテキストだけだった。
-func listMemos(ctx context.Context, author string) ([]Memo, error) {
 	var list []Memo
-	for row, err := range queries.ListMemos(ctx, author) {
+	// 変更: 作者が引数に増えた。ここが誰の一覧かを決めている。
+	for row, err := range queries.ListMemos(r.Context(), user.AccountID) {
 		if err != nil {
-			return nil, err
+			pw.WriteProblem(w, r, err)
+			return
 		}
 		list = append(list, Memo{Id: row.Id, Body: row.Body})
 	}
-	return list, nil
+	pw.WriteHTML(w, r, Home(HomeParams{DisplayName: user.DisplayName, Memos: list}))
 }
 ```
 
@@ -205,10 +198,14 @@ func listMemos(ctx context.Context, author string) ([]Memo, error) {
 持ち主のない行すべてに一致する、という事態を防げます。
 
 `createMemo` も同じ形に変わります。先にユーザーを読み、`user.AccountID` を
-`queries.CreateMemo` と、バリデーション分岐の `listMemos` に渡します。
+`queries.CreateMemo` に渡します。
 
 ```go
+// handlers/home_handler.go
+
+// createMemo は署名した本人のメモとして1件保存する。
 func createMemo(w http.ResponseWriter, r *http.Request) {
+	// 変更: ここから2行。誰のメモかを決めるのがこれ。
 	user, ok := auth.User(r.Context())
 	if !ok {
 		pw.WriteProblem(w, r, pw.Unauthorized())
@@ -216,24 +213,10 @@ func createMemo(w http.ResponseWriter, r *http.Request) {
 	}
 	input, err := pw.Parse[createMemoInput](r)
 	if err != nil {
-		mapped, fieldError := httpbind.AsHTTPError(err)
-		if !fieldError || len(mapped.Fields) == 0 {
-			pw.WriteProblem(w, r, pw.BadRequest(err))
-			return
-		}
-		list, listErr := listMemos(r.Context(), user.AccountID)
-		if listErr != nil {
-			pw.WriteProblem(w, r, listErr)
-			return
-		}
-		pw.WriteHTML(w, r, Home(HomeParams{
-			DisplayName: user.DisplayName,
-			Memos:       list,
-			Draft:       r.PostFormValue("body"),
-			Error:       mapped.Fields[0].Message,
-		}))
+		pw.WriteProblem(w, r, err)
 		return
 	}
+	// 変更: 作者が引数に増えた。
 	if _, err := queries.CreateMemo(r.Context(), user.AccountID, input.Body); err != nil {
 		pw.WriteProblem(w, r, err)
 		return
@@ -245,6 +228,7 @@ func createMemo(w http.ResponseWriter, r *http.Request) {
 ページは名前を受け取り、出口を用意します。
 
 ```html
+// handlers/home.pw.html
 package handlers
 
 type Memo {
@@ -252,19 +236,20 @@ type Memo {
   body: string
 }
 
-export component Home(displayName: string, memos: Memo[], draft: string, error: string): html {
-<h1>{displayName}'s memos</h1>
-<form method="post" action="/auth/logout"><button type="submit">Sign out</button></form>
-<form method="post" action="/memos">
-  <textarea name="body" rows="3">{draft}</textarea>
-  {if error != ''}<p class="error">{error}</p>{/if}
-  <button type="submit">Add</button>
-</form>
-<ul>
-{for memo in memos}
-  <li>{memo.body}</li>
-{/for}
-</ul>
+export component Home(displayName: string, memos: Memo[]): html {
+  <h1 class="text-3xl font-bold">{displayName}'s memos</h1>
+  <form method="post" action="/auth/logout"><button type="submit">Sign out</button></form>
+  <form method="post" action="/memos" class="mt-6 space-y-2">
+    <textarea name="body" rows="3" required maxlength="200"
+      class="w-full rounded-lg border border-slate-300 p-3"></textarea>
+    <button type="submit"
+      class="rounded-lg bg-indigo-600 px-4 py-2 font-medium text-white">Add</button>
+  </form>
+  <ul class="mt-8 space-y-2">
+  {for memo in memos}
+    <li class="rounded-lg border border-slate-200 p-3">{memo.body}</li>
+  {/for}
+  </ul>
 }
 ```
 

@@ -103,7 +103,7 @@ outputs:
   - api:page-registry Register wiring in concept:application-entry-point for a page tree, over the pw.NewServeMux mux when the handlers tree was declined and over the handler package mux when it was not
   - templates/document.pw.html shared document shell
   - ui:starter-landing-page as the scaffolded page of every router answer, rather than a greeting heading
-  - .pw.html page and 400, 401, 403, 404, 409, 413, and 500 templates
+  - .pw.html page and 400, 401, 403, 404, 409, 413, and 500 templates, each taking the api:error-renderer model as parameters rather than a fixed heading
   - config.dev.toml observability.stdout_format plaintext, the data:observability-runtime-config development default written down where the operator can see it
   - data:dynamodb-runtime-config section, the starter dynamo-tagged type, its .pw.dynamo declaration, and the generate.dynamo purpose, only when DynamoDB is selected
   - .pw.sql query example, only when the database is selected

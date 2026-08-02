@@ -30,7 +30,7 @@ import (
 )
 
 func main() {
-	handlers.RegisterAccountResolver()
+	handlers.RegisterAccounts()
 	if err := pw.Run(context.Background(), handlers.Handlers()); err != nil {
 		log.Fatal(err)
 	}

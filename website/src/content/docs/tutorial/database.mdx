@@ -17,19 +17,27 @@ that calls them. Twenty minutes or so.
 :::note[Where this starts]
 From chapter 2: `handlers/home.pw.html` with `Memo`, `handlers/memos.go` holding
 the list in memory, and `handlers/home_handler.go` with `GET /{$}` and
-`POST /memos`.
+`POST /memos`. There is no database yet; section 0 adds it.
 :::
 
 ## 0. Add the database
 
-Chapter 1 declined the database. Install it now:
+**If you declined the database in chapter 1, add it now** — following this
+tutorial leaves you in exactly that state. If `config.dev.toml` already has a
+`[middleware.rdb]` section and `migrations/` exists, you have one already; skip
+to section 1.
 
 ```sh
-pw add database
+pw add
 ```
 
-The wizard asks for an engine; choose **SQLite**, which is one file and no
-server to start beside the application. Accept the review screen and you get
+With no argument it lists the capabilities this project does not have yet.
+Choose **database** — the one described as the rdb configuration, the migration
+directory, and a typed SQL example. Writing `pw add database` goes straight
+there.
+
+It then asks for an engine; choose **SQLite**, which is one file and no server
+to start beside the application. Accept the review screen and you get
 `[middleware.rdb]` in `config.dev.toml`, the `migrations/` directory, and
 `queries/` together with the `generate.queries` entry that makes anything read
 it.
@@ -175,13 +183,11 @@ expansion, and reusable predicates.
 package handlers
 
 import (
-	"context" // new
 	"net/http"
 
 	"memoapp/queries" // new
 
 	"github.com/shibukawa/popcornwave/pw"
-	httpbind "github.com/shibukawa/tinybind-go"
 )
 
 // init is unchanged from chapter 2; the routes stay as they were.
@@ -190,39 +196,35 @@ func init() {
 	mux.HandleFunc("POST /memos", createMemo)
 }
 
+// home lists every memo that has been written.
+//
 // changed: memos.list() could not fail, and reading the table can.
 func home(w http.ResponseWriter, r *http.Request) {
-	list, err := listMemos(r.Context())
-	if err != nil {
-		pw.WriteProblem(w, r, err)
-		return
+	// The generated function streams rows. The template wants a slice, so this
+	// is where they accumulate; the per-row err is the failure of reading that
+	// row.
+	var list []Memo
+	for row, err := range queries.ListMemos(r.Context()) {
+		if err != nil {
+			pw.WriteProblem(w, r, err)
+			return
+		}
+		list = append(list, Memo{Id: row.Id, Body: row.Body})
 	}
 	pw.WriteHTML(w, r, Home(HomeParams{Memos: list}))
 }
 
+// createMemoInput is the submitted form, unchanged from chapter 2.
 type createMemoInput struct {
+	// Body is the memo text. It is required and capped at 200 characters.
 	Body string `payload:"body" check:"required,maxlen=200"`
 }
 
+// createMemo stores one memo and redirects back to the list.
 func createMemo(w http.ResponseWriter, r *http.Request) {
 	input, err := pw.Parse[createMemoInput](r)
 	if err != nil {
-		mapped, fieldError := httpbind.AsHTTPError(err)
-		if !fieldError || len(mapped.Fields) == 0 {
-			pw.WriteProblem(w, r, pw.BadRequest(err))
-			return
-		}
-		// changed: chapter 2 passed memos.list() straight in here.
-		list, listErr := listMemos(r.Context())
-		if listErr != nil {
-			pw.WriteProblem(w, r, listErr)
-			return
-		}
-		pw.WriteHTML(w, r, Home(HomeParams{
-			Memos: list,
-			Draft: r.PostFormValue("body"),
-			Error: mapped.Fields[0].Message,
-		}))
+		pw.WriteProblem(w, r, err)
 		return
 	}
 	// changed: this replaces memos.add(input.Body).
@@ -231,18 +233,6 @@ func createMemo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	http.Redirect(w, r, "/", http.StatusSeeOther)
-}
-
-// new: listMemos turns the streamed rows into the slice the template renders.
-func listMemos(ctx context.Context) ([]Memo, error) {
-	var list []Memo
-	for row, err := range queries.ListMemos(ctx) {
-		if err != nil {
-			return nil, err
-		}
-		list = append(list, Memo{Id: row.Id, Body: row.Body})
-	}
-	return list, nil
 }
 ```
 
@@ -256,7 +246,8 @@ same call inside `pw.Transaction` finds the active transaction instead, which is
 why one generated function works in both places without a variant that takes a
 `*sql.Tx`.
 
-**There are now two `Memo` types**, and `listMemos` converts between them.
+**There are now two `Memo` types**, and the loop inside `home` converts
+between them.
 `queries.Memo` describes a row; `handlers.Memo` describes what the page renders.
 Merging them would be less code today and a worse boundary tomorrow, because the
 first column a page stops showing — or the first field it needs that no column

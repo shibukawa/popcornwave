@@ -44,6 +44,15 @@ project_toolchain:
   requirement: the tutorial project has Tailwind from the chapter that first shows a styled template
   mechanism: api:cli-add at the head of that chapter, per requirement:tutorial-capability-growth
   consequence: getting-started declines Tailwind, which is what makes the forms chapter have something to add
+form_validation:
+  rule: the form declares what it will accept, so the browser rejects an empty or over-long memo before it is sent
+  attributes: required and maxlength on the textarea, matching the check rules on createMemoInput
+  server_still_validates: the check rules stay exactly as they are; the form is a convenience and the handler is the boundary, which is the lesson rather than a caveat
+  effect_on_the_chapter:
+    keeps: the first createMemo, the one that answers a rejection with pw.WriteProblem and nothing else
+    drops: the second one, which re-rendered the page with the message beside the field
+    why: that branch existed to give a browser something readable, and it was doing api:problem-response negotiation by hand; with the form rejecting the ordinary case and the framework answering the rest with an error page, the chapter no longer needs it
+  demonstration: bypass the form with a command-line client and the same route answers with problem details, which is what shows that the two validations are not the same thing
 rules:
   - styling is shown, not taught; the chapters explain the framework and let the classes speak for themselves
   - a class appears in a template only where the chapter has already added the page it belongs to

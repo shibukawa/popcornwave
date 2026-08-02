@@ -37,7 +37,7 @@ const (
 	repositoryURL    = "https://github.com/shibukawa/popcornwave"
 )
 
-const initUsage ="usage: pw init [<project-name>] [--yes] [--router=registered|discovered|both] [--tailwind] [--no-tinygo] [--no-devbox] [--no-database] [--db=sqlite|postgres|mysql] [--dynamo] [--no-redis] [--auth=none|oidc|oidc-passkey|passkey] [--session=rdb|cookie|redis] [--devidp]"
+const initUsage = "usage: pw init [<project-name>] [--yes] [--router=registered|discovered|both] [--tailwind] [--no-tinygo] [--no-devbox] [--no-database] [--db=sqlite|postgres|mysql] [--dynamo] [--no-redis] [--auth=none|oidc|oidc-passkey|passkey] [--session=rdb|cookie|redis] [--devidp]"
 
 // Authentication modes the wizard and the --auth flag select between. They map
 // onto the plugin/auth modes, with none meaning no [auth] configuration.
@@ -115,7 +115,7 @@ const (
 const (
 	defaultRegisteredDir = "handlers"
 	defaultDiscoveredDir = "pages"
-	defaultTemplatesDir = "templates"
+	defaultTemplatesDir  = "templates"
 	// defaultDynamoDir holds the dynamo-tagged types and .pw.dynamo queries of
 	// requirement:dynamodb-store. It is its own purpose because a directory
 	// contributes only the artifact kinds whose purpose lists it.
@@ -609,12 +609,15 @@ func scaffoldFiles(options initOptions) map[string]string {
 	// Declining Tailwind costs the utilities, not the page: the starter page is
 	// styled either way, by the toolchain or by a stylesheet the application
 	// owns from the moment it is written.
+	// public/app.css is written either way. With Tailwind it carries the error
+	// pages only, because those are framework-shaped and their class names are
+	// not utilities; without it, it carries the starter page as well.
 	homeStylesheet := `<link rel="stylesheet" href="/public/app.css">`
 	homeClasses := ""
 	if options.Tailwind {
 		configTailwind = tailwindProjectConfig()
 		devboxPackages = append(devboxPackages, tailwindDevboxPackage)
-		homeStylesheet = `<link rel="stylesheet" href="/public/generated/app.css">`
+		homeStylesheet += `<link rel="stylesheet" href="/public/generated/app.css">`
 		homeClasses = ` class="mx-auto max-w-3xl p-8 text-slate-900"`
 	}
 	files := map[string]string{
@@ -698,6 +701,7 @@ import (
 // bytes the server no longer serves.
 func RuntimeScriptURL() *url.URL { return &url.URL{Path: pw.RuntimeScriptURL()} }
 `,
+		"templates/errors.go":   errorRegistrationScaffold(),
 		"templates/400.pw.html": errorTemplate("templates", "Error400", "Bad Request"),
 		"templates/401.pw.html": errorTemplate("templates", "Error401", "Unauthorized"),
 		"templates/403.pw.html": errorTemplate("templates", "Error403", "Forbidden"),
@@ -757,9 +761,7 @@ func PublicFS() fs.FS {
 		files["devbox.json"] = devboxScaffold(devboxPackages)
 		files["devbox.lock"] = "{}\n"
 	}
-	if !options.Tailwind {
-		files["public/app.css"] = landingStylesheet()
-	}
+	files["public/app.css"] = applicationStylesheet(options)
 	if options.Dynamo {
 		files[defaultDynamoDir+"/note.go"] = dynamoRecordScaffold()
 	}
@@ -1341,6 +1343,31 @@ func landingStyleFor(options initOptions) landingStyle {
 // landingStylesheet is the application-owned CSS a project that declined
 // Tailwind gets. Declining the toolchain should cost the utilities, not the
 // page, so the same structure is styled by hand instead of going unstyled.
+// applicationStylesheet is the CSS the project owns. The error pages are always
+// in it: their class names come from the framework's own templates rather than
+// from a toolchain, so a project that took Tailwind still needs them defined.
+func applicationStylesheet(options initOptions) string {
+	if options.Tailwind {
+		return errorPageStylesheet()
+	}
+	return landingStylesheet() + errorPageStylesheet()
+}
+
+// errorPageStylesheet styles the scaffolded error templates. It is small on
+// purpose: an error page is rare, and the one thing it owes a reader is that the
+// status and the title are legible.
+func errorPageStylesheet() string {
+	return `
+.error { margin: 0 auto; max-width: 34rem; padding: 4rem 1.5rem; }
+.error-status { color: #9aa3b8; font-size: 3rem; font-weight: 700; line-height: 1; margin: 0; }
+.error-title { font-size: 1.5rem; margin: .5rem 0 0; }
+.error-detail { margin: 1rem 0 0; }
+.error-fields { margin: 1rem 0 0; padding-left: 1.25rem; }
+.error-fields:empty { display: none; }
+.error-code, .error-request { color: #5b6478; font-family: ui-monospace, monospace; font-size: .8rem; margin: 1.5rem 0 0; }
+`
+}
+
 func landingStylesheet() string {
 	return `:root { color-scheme: light dark; --edge: #d8dce4; --muted: #5b6478; --accent: #4f46e5; }
 body { font: 16px/1.6 system-ui, sans-serif; margin: 0 auto; max-width: 46rem; padding: 3rem 1.5rem; }
@@ -2006,9 +2033,77 @@ func editorExtensionsScaffold(options initOptions) string {
 	return body.String()
 }
 
+// errorRegistrationScaffold connects the error templates to the framework.
+// Without it they are generated and never reached, which is what they were
+// before this file existed.
+func errorRegistrationScaffold() string {
+	return `package templates
+
+import "github.com/shibukawa/popcornwave/pw"
+
+// The framework renders one of these when a request fails and the client would
+// rather have a page than a problem document. It also renders one in place of a
+// page whose async boundary failed with no recover clause.
+//
+// The problem arrives already bounded: outside development it carries the
+// status and the title only, so nothing here has to decide what is safe to
+// show. Add a status to the switch and the framework starts using it.
+func init() {
+	pw.RegisterHTMLErrorPage(func(problem pw.Problem) pw.HTMLFragment {
+		fields := make([]string, 0, len(problem.Fields))
+		for _, field := range problem.Fields {
+			fields = append(fields, field.Field+": "+field.Message)
+		}
+		switch problem.Status {
+		case 400:
+			return Error400(Error400Params{Status: problem.Status, Title: problem.Title,
+				Detail: problem.Message, Code: problem.Code, Fields: fields})
+		case 401:
+			return Error401(Error401Params{Status: problem.Status, Title: problem.Title,
+				Detail: problem.Message, Code: problem.Code, Fields: fields})
+		case 403:
+			return Error403(Error403Params{Status: problem.Status, Title: problem.Title,
+				Detail: problem.Message, Code: problem.Code, Fields: fields})
+		case 404:
+			return Error404(Error404Params{Status: problem.Status, Title: problem.Title,
+				Detail: problem.Message, Code: problem.Code, Fields: fields})
+		case 409:
+			return Error409(Error409Params{Status: problem.Status, Title: problem.Title,
+				Detail: problem.Message, Code: problem.Code, Fields: fields})
+		case 413:
+			return Error413(Error413Params{Status: problem.Status, Title: problem.Title,
+				Detail: problem.Message, Code: problem.Code, Fields: fields})
+		default:
+			return Error500(Error500Params{Status: problem.Status, Title: problem.Title,
+				Detail: problem.Message, Code: problem.Code, Fields: fields})
+		}
+	})
+}
+`
+}
+
 func errorTemplate(pkg, component, title string) string {
-	return "package " + pkg + "\n\nexport component " + component + "(): html {\n" +
-		"  <h1>" + title + "</h1>\n}\n"
+	// The parameters are the api:error-renderer model. How much of it arrives
+	// filled in is the framework's decision, not this template's: outside
+	// development it hands over the status and the title and nothing else, so
+	// the same file serves a developer and the public without a branch here.
+	return "package " + pkg + `
+
+export component ` + component + `(status: int, title: string, detail: string, code: string, requestId: string, fields: string[]): html {
+  <main class="error">
+    <p class="error-status">{status}</p>
+    <h1 class="error-title">` + title + `</h1>
+    {if detail != ''}<p class="error-detail">{detail}</p>{/if}
+    <ul class="error-fields">
+    {for field in fields}
+      <li>{field}</li>
+    {/for}
+    </ul>
+    {if code != ''}<p class="error-code">{code}</p>{/if}
+    {if requestId != ''}<p class="error-request">Request {requestId}</p>{/if}
+  </main>
+}
+`
 }
 
 func frameworkModuleDirective() string {

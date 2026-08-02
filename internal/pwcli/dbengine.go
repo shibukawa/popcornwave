@@ -53,7 +53,7 @@ var databaseEngines = map[string]databaseEngine{
 		Label:   "SQLite",
 		Summary: "an embedded file database; nothing to run beside the application",
 		DSN:     func(project string) string { return "sqlite://" + project + ".db" },
-		Schema: starterSchema("id INTEGER PRIMARY KEY", "name TEXT NOT NULL"),
+		Schema:  starterSchema("id INTEGER PRIMARY KEY", "name TEXT NOT NULL"),
 
 		MaxOpenConns: 1,
 		MaxIdleConns: 1,
@@ -67,7 +67,7 @@ var databaseEngines = map[string]databaseEngine{
 		},
 		DevboxPackage: "postgresql@latest",
 		DriverImport:  "github.com/shibukawa/popcornwave/database/postgres",
-		Schema: starterSchema("id INTEGER PRIMARY KEY", "name TEXT NOT NULL"),
+		Schema:        starterSchema("id INTEGER PRIMARY KEY", "name TEXT NOT NULL"),
 
 		MaxOpenConns: 10,
 		MaxIdleConns: 5,
@@ -81,7 +81,7 @@ var databaseEngines = map[string]databaseEngine{
 		},
 		DevboxPackage: "mysql80@latest",
 		DriverImport:  "github.com/shibukawa/popcornwave/database/mysql",
-		Schema: starterSchema("id INT PRIMARY KEY", "name VARCHAR(255) NOT NULL"),
+		Schema:        starterSchema("id INT PRIMARY KEY", "name VARCHAR(255) NOT NULL"),
 
 		MaxOpenConns: 10,
 		MaxIdleConns: 5,

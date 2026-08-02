@@ -48,7 +48,7 @@ written before anything is:
     create  migrations/00004_init_popcornwave_auth.sql
     append  config.dev.toml
     append  popcornwave.toml
-    by hand call handlers.RegisterAccountResolver() in ./cmd/memoapp before pw.Run
+    by hand call handlers.RegisterAccounts() in ./cmd/memoapp before pw.Run
     by hand add import _ "github.com/shibukawa/popcornwave/sessionstore/sqlite" to ./cmd/memoapp
     by hand add import _ "github.com/shibukawa/popcornwave/authstate/sqlite" to ./cmd/memoapp
     then    pw migrate up
@@ -72,17 +72,19 @@ Open `cmd/memoapp/main.go`:
 ```go
 func main() {
 	// Installed before Run: the framework calls it during the OIDC callback.
-	handlers.RegisterAccountResolver()
+	handlers.RegisterAccounts()
 	if err := pw.Run(context.Background(), handlers.Handlers()); err != nil {
 		log.Fatal(err)
 	}
 }
 ```
 
-`RegisterAccountResolver` lives in the `handlers/accounts.go` the wizard just
-wrote. The framework verifies an identity with the provider and then asks this
-function which local account it belongs to; the starter version derives one from
-the identity itself, so the project can log in before it owns an account table.
+`RegisterAccounts` lives in the `handlers/accounts.go` the wizard just wrote.
+It is one line — `auth.SetAccountResolver(resolveAccount)` — and it installs
+whichever account seams the selected mode needs. The framework verifies an
+identity with the provider and then asks `resolveAccount` which local account it
+belongs to; the starter version derives one from the identity itself, so the
+project can log in before it owns an account table.
 
 ## 2. Decide what needs a session
 
@@ -172,16 +174,16 @@ what it found:
 ```go
 // handlers/home_handler.go
 import (
-	"context"
 	"net/http"
 
 	"memoapp/queries"
 
 	"github.com/shibukawa/popcornwave/plugin/auth" // new
 	"github.com/shibukawa/popcornwave/pw"
-	httpbind "github.com/shibukawa/tinybind-go"
 )
 
+// home lists the signed-in account's memos.
+//
 // changed: the home of chapter 3, plus the user lookup and the author filter.
 func home(w http.ResponseWriter, r *http.Request) {
 	user, ok := auth.User(r.Context())
@@ -189,24 +191,17 @@ func home(w http.ResponseWriter, r *http.Request) {
 		pw.WriteProblem(w, r, pw.Unauthorized())
 		return
 	}
-	list, err := listMemos(r.Context(), user.AccountID)
-	if err != nil {
-		pw.WriteProblem(w, r, err)
-		return
-	}
-	pw.WriteHTML(w, r, Home(HomeParams{DisplayName: user.DisplayName, Memos: list}))
-}
-
-// changed: author is new; the listMemos of chapter 3 took only the context.
-func listMemos(ctx context.Context, author string) ([]Memo, error) {
 	var list []Memo
-	for row, err := range queries.ListMemos(ctx, author) {
+	// changed: the author is a new argument, and it is what makes this one
+	// person's list rather than everyone's.
+	for row, err := range queries.ListMemos(r.Context(), user.AccountID) {
 		if err != nil {
-			return nil, err
+			pw.WriteProblem(w, r, err)
+			return
 		}
 		list = append(list, Memo{Id: row.Id, Body: row.Body})
 	}
-	return list, nil
+	pw.WriteHTML(w, r, Home(HomeParams{DisplayName: user.DisplayName, Memos: list}))
 }
 ```
 
@@ -217,11 +212,14 @@ silently turn `user.AccountID` into an empty string that matches every
 unowned row.
 
 `createMemo` changes the same way — read the user first, then pass
-`user.AccountID` to `queries.CreateMemo` and to the `listMemos` call in the
-validation branch:
+`user.AccountID` to `queries.CreateMemo`:
 
 ```go
+// handlers/home_handler.go
+
+// createMemo stores one memo as the signed-in account's own.
 func createMemo(w http.ResponseWriter, r *http.Request) {
+	// changed: these two lines are what decides whose memo this is.
 	user, ok := auth.User(r.Context())
 	if !ok {
 		pw.WriteProblem(w, r, pw.Unauthorized())
@@ -229,24 +227,10 @@ func createMemo(w http.ResponseWriter, r *http.Request) {
 	}
 	input, err := pw.Parse[createMemoInput](r)
 	if err != nil {
-		mapped, fieldError := httpbind.AsHTTPError(err)
-		if !fieldError || len(mapped.Fields) == 0 {
-			pw.WriteProblem(w, r, pw.BadRequest(err))
-			return
-		}
-		list, listErr := listMemos(r.Context(), user.AccountID)
-		if listErr != nil {
-			pw.WriteProblem(w, r, listErr)
-			return
-		}
-		pw.WriteHTML(w, r, Home(HomeParams{
-			DisplayName: user.DisplayName,
-			Memos:       list,
-			Draft:       r.PostFormValue("body"),
-			Error:       mapped.Fields[0].Message,
-		}))
+		pw.WriteProblem(w, r, err)
 		return
 	}
+	// changed: the author is a new argument.
 	if _, err := queries.CreateMemo(r.Context(), user.AccountID, input.Body); err != nil {
 		pw.WriteProblem(w, r, err)
 		return
@@ -258,6 +242,7 @@ func createMemo(w http.ResponseWriter, r *http.Request) {
 The page takes the name and offers a way out:
 
 ```html
+// handlers/home.pw.html
 package handlers
 
 type Memo {
@@ -265,19 +250,20 @@ type Memo {
   body: string
 }
 
-export component Home(displayName: string, memos: Memo[], draft: string, error: string): html {
-<h1>{displayName}'s memos</h1>
-<form method="post" action="/auth/logout"><button type="submit">Sign out</button></form>
-<form method="post" action="/memos">
-  <textarea name="body" rows="3">{draft}</textarea>
-  {if error != ''}<p class="error">{error}</p>{/if}
-  <button type="submit">Add</button>
-</form>
-<ul>
-{for memo in memos}
-  <li>{memo.body}</li>
-{/for}
-</ul>
+export component Home(displayName: string, memos: Memo[]): html {
+  <h1 class="text-3xl font-bold">{displayName}'s memos</h1>
+  <form method="post" action="/auth/logout"><button type="submit">Sign out</button></form>
+  <form method="post" action="/memos" class="mt-6 space-y-2">
+    <textarea name="body" rows="3" required maxlength="200"
+      class="w-full rounded-lg border border-slate-300 p-3"></textarea>
+    <button type="submit"
+      class="rounded-lg bg-indigo-600 px-4 py-2 font-medium text-white">Add</button>
+  </form>
+  <ul class="mt-8 space-y-2">
+  {for memo in memos}
+    <li class="rounded-lg border border-slate-200 p-3">{memo.body}</li>
+  {/for}
+  </ul>
 }
 ```
 

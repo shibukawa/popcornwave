@@ -48,12 +48,11 @@ type Memo {
   body: string
 }
 
-export component Home(memos: Memo[], draft: string, error: string): html {
+export component Home(memos: Memo[]): html {
   <h1 class="text-3xl font-bold">Memos</h1>
   <form method="post" action="/memos" class="mt-6 space-y-2">
-    <textarea name="body" rows="3"
-      class="w-full rounded-lg border border-slate-300 p-3 focus:border-indigo-500 focus:outline-none">{draft}</textarea>
-    {if error != ''}<p class="text-sm text-red-600">{error}</p>{/if}
+    <textarea name="body" rows="3" required maxlength="200"
+      class="w-full rounded-lg border border-slate-300 p-3 focus:border-indigo-500 focus:outline-none"></textarea>
     <button type="submit"
       class="rounded-lg bg-indigo-600 px-4 py-2 font-medium text-white hover:bg-indigo-500">Add</button>
   </form>
@@ -65,14 +64,17 @@ export component Home(memos: Memo[], draft: string, error: string): html {
 }
 ```
 
-3つのものが同時に入りました。`type Memo` は Go の構造体になる複合型の宣言です。
-テンプレートが描画する行とハンドラが組み立てる行が1つの型になるので、2つの型を
-足並みそろえて保守する必要がありません。`Memo[]` はそのスライスです。
-`draft` と `error` は、まだ書いていない場合のためにあります。弾かれて戻ってきた送信を、
-入力した文字を箱に残したまま表示する場合です。
+`type Memo` は Go の構造体になる複合型の宣言です。テンプレートが描画する行と
+ハンドラが組み立てる行が1つの型になるので、2つの型を足並みそろえて保守する必要が
+ありません。`Memo[]` はそのスライスです。
 
-`.pw.html` の条件は真偽値だけで、真偽値らしさのような概念はありません。
-エラーの判定が `error` ではなく `error != ''` なのはそのためです。
+`required` と `maxlength="200"` は、フォーム自身が受け付ける条件の宣言です。
+このあと書く `createMemoInput` の `check` 規則と同じ内容を、ブラウザにも言わせています。
+空のまま、あるいは200文字を超えて送信ボタンを押しても、リクエストは飛びません。
+
+これはサーバー側の検証を置き換えるものではありません。**フォームは利便性で、
+ハンドラが境界です。**両方書くのは重複ではなく、効く相手が違います。4節でその違いを
+実際に見ます。
 
 ## 2. 置き場所
 
@@ -177,9 +179,20 @@ JSON ボディも受け取れます。分岐は増えません。`check` の規�
 保存してください。`pw dev` が再生成、リビルド、再起動します。箱に何か書いて **Add** を
 押せば、一覧に出ます。
 
-## 4. 空のまま送信する
+## 4. 弾かれたとき
 
-箱を空にしたまま **Add** を押してください。ブラウザにはこれが出ます。
+箱を空にしたまま **Add** を押してください。**何も起きません。**ブラウザが送信を止め、
+箱の下に「このフィールドを入力してください」と出します。`required` を書いたからです。
+200文字を超えて貼り付ければ、ブラウザは201文字目を受け付けません。
+
+これで終わり、ではありません。フォームが止めているのはフォームからの送信だけです。
+ブラウザを介さずに同じルートを叩いてみてください。
+
+```sh
+curl -i -X POST http://localhost:8080/memos \
+  -H 'Content-Type: application/x-www-form-urlencoded' \
+  --data 'body='
+```
 
 ```json
 {
@@ -192,64 +205,41 @@ JSON ボディも受け取れます。分岐は増えません。`check` の規�
 }
 ```
 
-これは正しい応答で、API クライアントに対してはこれが正解です。RFC 9457 の
-Problem Details、ステータス 400、問題のあるフィールドの名前。`pw.WriteProblem` は
-バインディングの失敗をここまで写し取ります。もしエラーを包んでいたら —— 雛形のハンドラが
-そうしているように `pw.BadRequest(err)` と書いていたら —— ステータスは同じでも
-`errors` は消えます。包んだ側がバリデーションエラーを持ち歩かずに置き換えるからです。
+`check:"required"` が効いています。RFC 9457 の Problem Details、ステータス 400、
+問題のあるフィールドの名前。**フォームの `required` を消してもこの応答は変わりません。**
+どちらか一方でよかったのではなく、止めている相手が違います。フォームは人の
+打ち間違いを、`check` はリクエストそのものを見ています。
 
-一方、フォームを打ち間違えた人にとって、JSON 文書は行き止まりです。必要なのは、
-フィールドの隣にメッセージが出て、入力した文字が残ったままのページです。
-宣言はそのままに、失敗をどう扱うかをハンドラが決めます。
+もう一度、今度はブラウザのふりをして同じことをします。
 
-```go
-// 3節の createMemo を、これで差し替える。
-import (
-	"net/http"
-
-	"github.com/shibukawa/popcornwave/pw"
-	httpbind "github.com/shibukawa/tinybind-go" // 追加
-)
-
-func createMemo(w http.ResponseWriter, r *http.Request) {
-	input, err := pw.Parse[createMemoInput](r)
-	if err != nil {
-		mapped, fieldError := httpbind.AsHTTPError(err)
-		if !fieldError || len(mapped.Fields) == 0 {
-			// フィールド単位の失敗ではない。読めないボディか、大きすぎるボディ。
-			// ページ上に描き直して意味のあるものが何もない。
-			pw.WriteProblem(w, r, pw.BadRequest(err))
-			return
-		}
-		pw.WriteHTML(w, r, Home(HomeParams{
-			Memos: memos.list(),
-			Draft: r.PostFormValue("body"),
-			Error: mapped.Fields[0].Message,
-		}))
-		return
-	}
-	memos.add(input.Body)
-	http.Redirect(w, r, "/", http.StatusSeeOther)
-}
+```sh
+curl -i -X POST http://localhost:8080/memos \
+  -H 'Accept: text/html' \
+  -H 'Content-Type: application/x-www-form-urlencoded' \
+  --data 'body='
 ```
 
-2つの状況を分けているのが `httpbind.AsHTTPError` です。`check` の失敗は想定内の通信で
-—— 誰かが空の箱を送っただけで —— ページの上に出すべきものです。そもそもボディが
-読めなかったのはそうではないので、問題文書のまま返します。
+```
+HTTP/1.1 400 Bad Request
+Content-Type: text/html; charset=utf-8
+Vary: Accept
+```
 
-描き直す文字が `input` ではなく `r.PostFormValue` から来ているのには理由があります。
-`check` が落ちたとき `pw.Parse` はゼロ値を返すので、打ち込まれた文字が残っているのは
-リクエスト自身だけです。バインディングがすでにボディを解析しているため、読み直しは
-ただ同然です。
+同じ失敗が、今度は HTML で返ってきます。`pw.WriteProblem` は `Accept` を見て表現を
+選びます。ページを欲しがるクライアントには `templates/400.pw.html`、それ以外には
+Problem Details。ハンドラには分岐が1つもないことに注意してください。1つのルートが
+ブラウザと API クライアントの両方に答えるのに、そのために書くコードはありません。
 
-保存して、もう一度空のまま送信すると、箱の下に `required` が出たページが返ります。
-200文字を超えて送れば、メッセージがそれに応じて変わります。
+返ってきたページは `templates/400.pw.html` で、`pw init` が置いていったものです。
+中身を見ると、ステータス・タイトル・詳細・フィールドの一覧をパラメータで受け取って
+います。誰がそれを埋めるかは環境が決めます。
 
-正直に書いておくと、ここには1つ限界があります。`pw.WriteHTML` はステータスコードを
-受け取らず、`200` を返します。つまり上の応答は、入力を弾いたことを伝えるページを、
-成功のステータスで送っていることになります。ブラウザのフォームとしては問題ありません
-（どちらでも描画されます）。同じルートを叩く API クライアントには問題文書が要る、
-というのが JSON 側の分岐の意味です。
+- `dev`: 問題が持っているものを全部。原因を作ったのは目の前の開発者で、これから直すからです
+- それ以外: ステータスとタイトルと request id だけ。同じページが公開先で出るとき、
+  何が起きたかは言い、なぜ起きたかは言いません
+
+テンプレートは1つで、切り替わるのは渡される中身の方です。`APP_ENV=prod` で起動し直して
+同じ curl を投げれば、詳細が消えたページが返ります。
 
 :::note[書いた godoc がどこに出るか]
 `pw dev` を動かしたまま <http://localhost:8080/docs> を開いてください。この章で足した
@@ -267,8 +257,8 @@ func createMemo(w http.ResponseWriter, r *http.Request) {
 ## ここまでで手元にあるもの
 
 - POST するフォーム、それを受けるルート、リロードに耐えるリダイレクト。
-- 構造体に宣言され、ハンドラ本体より前にコンパイル済みの規則として効くバリデーション。
-- 1つの失敗に対する2通りの応答。クライアントには問題文書、人にはページ。
+- 2箇所のバリデーション。フォームが人の打ち間違いを止め、`check` の規則がリクエストを止めます。
+- 1つの失敗に対する2通りの表現。`Accept` を見てフレームワークが選ぶので、ハンドラに分岐はありません。
 
 一覧は再起動のたびに消えたままです。3章でテーブルを与えます。
 

@@ -16,18 +16,25 @@ import { Tabs, TabItem } from '@astrojs/starlight/components';
 :::note[ここから始めるには]
 2章の続きです。`Memo` を宣言した `handlers/home.pw.html`、メモリ上のリストを持つ
 `handlers/memos.go`、`GET /{$}` と `POST /memos` を持つ `handlers/home_handler.go`。
+データベースはまだありません。0節で入れます。
 :::
 
 ## 0. データベースを足す
 
-1章で断ったデータベースを、ここで入れます。
+**1章でデータベースを断った場合は、ここで入れてください。**このチュートリアル通りに
+進めていればその状態です。すでに `config.dev.toml` に `[middleware.rdb]` があり、
+`migrations/` が存在するなら、この節は飛ばして1節へ進んでください。
 
 ```sh
-pw add database
+pw add
 ```
 
-ウィザードがエンジンを聞くので **SQLite** を選んでください。ファイル1つで動き、
-別に起動しておくサーバーが要りません。確認画面を承認すると、`config.dev.toml` の
+引数無しで実行すると、このプロジェクトがまだ持っていない機能が並びます。
+**database**（説明に rdb 設定・マイグレーションディレクトリ・型付き SQL の例と出ているもの）
+を選んでください。`pw add database` と直接書いても同じです。
+
+続けてエンジンを聞かれるので **SQLite** を選びます。ファイル1つで動き、別に起動して
+おくサーバーが要りません。確認画面を承認すると、`config.dev.toml` の
 `[middleware.rdb]`、`migrations/` ディレクトリ、`queries/` と、それを読ませる
 `generate.queries` が入ります。
 
@@ -166,13 +173,11 @@ predicate は[クエリー](/ja/guides/backend/queries/)にあります。
 package handlers
 
 import (
-	"context" // 追加
 	"net/http"
 
 	"memoapp/queries" // 追加
 
 	"github.com/shibukawa/popcornwave/pw"
-	httpbind "github.com/shibukawa/tinybind-go"
 )
 
 // init は2章のまま。ルートは変わらない。
@@ -181,39 +186,34 @@ func init() {
 	mux.HandleFunc("POST /memos", createMemo)
 }
 
+// home lists every memo that has been written.
+//
 // 変更: memos.list() は失敗しなかったが、テーブルを読む方は失敗しうる。
 func home(w http.ResponseWriter, r *http.Request) {
-	list, err := listMemos(r.Context())
-	if err != nil {
-		pw.WriteProblem(w, r, err)
-		return
+	// 生成された関数は行を流してきます。テンプレートが要るのはスライスなので、
+	// ここで溜めます。行ごとの err は、その行を読んだ時点の失敗です。
+	var list []Memo
+	for row, err := range queries.ListMemos(r.Context()) {
+		if err != nil {
+			pw.WriteProblem(w, r, err)
+			return
+		}
+		list = append(list, Memo{Id: row.Id, Body: row.Body})
 	}
 	pw.WriteHTML(w, r, Home(HomeParams{Memos: list}))
 }
 
+// createMemoInput は送られてきたフォーム。2章のまま。
 type createMemoInput struct {
+	// Body はメモ本文。必須で、200文字まで。
 	Body string `payload:"body" check:"required,maxlen=200"`
 }
 
+// createMemo は1件保存して一覧へ戻す。
 func createMemo(w http.ResponseWriter, r *http.Request) {
 	input, err := pw.Parse[createMemoInput](r)
 	if err != nil {
-		mapped, fieldError := httpbind.AsHTTPError(err)
-		if !fieldError || len(mapped.Fields) == 0 {
-			pw.WriteProblem(w, r, pw.BadRequest(err))
-			return
-		}
-		// 変更: 2章はここで memos.list() をそのまま渡していた。
-		list, listErr := listMemos(r.Context())
-		if listErr != nil {
-			pw.WriteProblem(w, r, listErr)
-			return
-		}
-		pw.WriteHTML(w, r, Home(HomeParams{
-			Memos: list,
-			Draft: r.PostFormValue("body"),
-			Error: mapped.Fields[0].Message,
-		}))
+		pw.WriteProblem(w, r, err)
 		return
 	}
 	// 変更: memos.add(input.Body) の置き換え。
@@ -224,17 +224,6 @@ func createMemo(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
 
-// 追加: listMemos は流れてくる行を、テンプレートが描画するスライスにする。
-func listMemos(ctx context.Context) ([]Memo, error) {
-	var list []Memo
-	for row, err := range queries.ListMemos(ctx) {
-		if err != nil {
-			return nil, err
-		}
-		list = append(list, Memo{Id: row.Id, Body: row.Body})
-	}
-	return list, nil
-}
 ```
 
 そして `handlers/memos.go` を削除します。スライスは消えました。
@@ -246,7 +235,7 @@ func listMemos(ctx context.Context) ([]Memo, error) {
 `pw.Transaction` の中では実行中のトランザクションを見つけます。生成された1つの関数が
 両方の場所で動き、`*sql.Tx` を取る変種が要らないのはそのためです。
 
-**`Memo` 型が2つになりました。** 変換しているのが `listMemos` です。`queries.Memo` は
+**`Memo` 型が2つになりました。** 変換しているのが `home` の中のループです。`queries.Memo` は
 行の説明で、`handlers.Memo` はページが描画するものの説明です。統合すれば今日のコードは
 短くなりますが、境界としては明日そのぶん悪くなります。ページが表示をやめる最初の列、
 あるいはどの列も供給しない最初のフィールドが出てきたとき、両方の役目を背負った型の中で
