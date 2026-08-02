@@ -10,10 +10,26 @@ type PageParams struct{}
 
 var planPageOps = htmlbind.Builder[PageParams]{}
 
+// planPageInput canonically encodes the declared inputs of Page.
+// Slot arguments are excluded: their content belongs to the child boundary,
+// so a frame stays comparable when only its child changed.
+func planPageInput(p PageParams) string {
+	return htmlbind.CanonJoin()
+}
+
+var planPageBoundary = &htmlbind.Boundary[PageParams]{
+	ComponentID: "pages.page.Page",
+	Attr:        "data-tb-id",
+	Input:       planPageInput,
+}
+
 var planPagePlan = &htmlbind.Plan[PageParams]{
-	Head: nil,
+	Head:     nil,
+	Boundary: planPageBoundary,
 	Ops: []htmlbind.Op[PageParams]{
-		planPageOps.Static(" <h1>home</h1> "),
+		planPageOps.Static(" <h1"),
+		planPageOps.BoundaryAttr(),
+		planPageOps.Static(">home</h1> "),
 	},
 }
 

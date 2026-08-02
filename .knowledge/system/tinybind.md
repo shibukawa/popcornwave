@@ -11,6 +11,7 @@ html_template_baseline: v0.1.15
 html_async_baseline: v0.1.20
 html_live_baseline: v0.2.8, required by requirement:live-html-rendering; v0.2.7 introduced live boundaries and v0.2.8 answered the first of the integration requests raised against them
 route_tree_baseline: v0.2.6
+current: v0.3.2, taken for the generator crash fix below and carrying the partial-update boundary emission with it
 public_wrappers:
   - api:request-binding
   - api:html-response
@@ -20,22 +21,14 @@ public_wrappers:
   - api:runtime-configuration
 defects:
   unguarded_position_lookup:
-    version: v0.2.10, and every earlier version carrying the same lines
-    symptom: a nil pointer dereference in go/token.(*File).Name, taking the calling process down
-    sites:
-      - generator/plan.go:204, reached by every binding run
-      - generator/configbind.go:108, the same loop over a different artifact
-      - generator/dynamobind.go:290, dynamoFileName
-    shape: each guards f, pkg, and Fset for nil and then dereferences the one call that returns nil, Fset.File(f.Pos())
-    correct_form_already_present: generator/configbind_doc.go:61 writes "if handle := pkg.Fset.File(file.Pos()); handle != nil", so the fix is the guard the package already uses three files away
+    status: fixed in v0.3.2, which is why this module moved off v0.2.10
+    was: three call sites dereferenced Fset.File(f.Pos()) after guarding f, pkg, and Fset for nil, and that call is the one that returns nil
+    sites: generator/plan.go, generator/configbind.go, and generator/dynamobind.go
+    fix: each now takes the handle and checks it, which is what generator/configbind_doc.go already did three files away
+    symptom_it_removed: a nil pointer dereference in go/token.(*File).Name, taking the calling process down
     trigger: a Go file in a generated directory that does not parse, most often a zero-byte one an editor has created and not yet written into
-    mechanism:
-      loader: packages.Load returns a syntax entry for a file it could not parse
-      position: that entry reports token.NoPos, and a FileSet lookup of NoPos is nil
-      measured: a package holding one empty and one valid .go file returns two syntax entries; the empty one has Pos 0 and no FileSet handle, verified against golang.org/x/tools without Popcorn Wave in the picture on 2026-08-02
-    fix: return an empty path when the handle is nil, which every call site already tolerates because it also handles the fset == nil case that way
-    downstream_containment: api:cli-generate unparsable_source, which reports the file and skips its directory, and a recover that turns any generation panic into an error
-    why_still_upstream: the containment keeps api:cli-dev alive, and it cannot keep another consumer of this generator alive
+    mechanism: packages.Load returns a syntax entry for a file it could not parse, that entry reports token.NoPos, and a FileSet lookup of NoPos is nil; measured against golang.org/x/tools with Popcorn Wave out of the picture on 2026-08-02
+    downstream_containment_kept: api:cli-generate unparsable_source and its recover stay, because the pre-check names the file and the line where the generator would only name the directory, and the recover bounds every generation panic rather than this one
 generator:
   extensible_analysis: requirement:httpbinder-extensible-route-analysis
   openapi:
@@ -135,6 +128,12 @@ compatibility:
     scope_for_pw: nothing was released against v0.2.9, so the change costs an edit to these concepts rather than to a project
     size: about 37 KB on a TinyGo wasip1 build, from the context value and the assertion reading it back
     answers: the second downstream request, and answers it by removing the seam rather than adding one
+  v0_3_2:
+    taken_for: the unguarded position lookup above, which crashed api:cli-generate on a file an editor had created and not yet written into
+    arrives_with: requirement:partial-update-boundaries, whose activation is opt-in per component except for generated route layouts, which take it automatically
+    effect_on_pw: a concept:page-tree component now emits a boundary marker attribute and one update-manifest entry; the rendered document gains an attribute and loses nothing
+    measured: one page tree fixture regenerated, and the rest of the suite passed unchanged, so no Popcorn Wave source needed editing
+    not_yet_adopted: the client half of partial updates; nothing here serves the update protocol, so the markers are inert until a requirement claims them
   html_v0_1_15: generated HTML APIs are not source-compatible with earlier direct-writer output
   html_v0_1_19: async parameters and async render entry points are additive, so existing templates and call sites keep compiling after regeneration
   html_v0_1_20: Content.WriteTo narrows to the bare fragment and the module injects no client runtime, so an async caller must supply framing and a runtime it previously inherited

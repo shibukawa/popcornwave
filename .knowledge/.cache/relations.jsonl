@@ -2337,6 +2337,7 @@
 {"context": "body", "path": ".knowledge/requirement/incremental-project-capabilities.md", "source": "requirement:incremental-project-capabilities", "target": "api:cli-doctor", "target_category": "interface", "target_type": "api"}
 {"context": "body", "path": ".knowledge/requirement/incremental-project-capabilities.md", "source": "requirement:incremental-project-capabilities", "target": "data:middleware-runtime-config", "target_category": "structure", "target_type": "data"}
 {"context": "body", "path": ".knowledge/requirement/incremental-project-capabilities.md", "source": "requirement:incremental-project-capabilities", "target": "rule:framework-owned-tables", "target_category": "constraint", "target_type": "rule"}
+{"context": "body", "path": ".knowledge/requirement/incremental-project-capabilities.md", "source": "requirement:incremental-project-capabilities", "target": "concept:application-entry-point", "target_category": "concept", "target_type": "concept"}
 {"context": "body", "path": ".knowledge/requirement/incremental-project-capabilities.md", "source": "requirement:incremental-project-capabilities", "target": "api:cli-generate", "target_category": "interface", "target_type": "api"}
 {"context": "body", "path": ".knowledge/requirement/incremental-project-capabilities.md", "source": "requirement:incremental-project-capabilities", "target": "rule:static-route-discovery", "target_category": "constraint", "target_type": "rule"}
 {"context": "body", "path": ".knowledge/requirement/live-boundary-liveness-signal.md", "source": "requirement:live-boundary-liveness-signal", "target": "system:tinybind", "target_category": "external", "target_type": "system"}
@@ -2768,7 +2769,6 @@
 {"context": "body", "path": ".knowledge/system/tinybind.md", "source": "system:tinybind", "target": "api:problem-response", "target_category": "interface", "target_type": "api"}
 {"context": "body", "path": ".knowledge/system/tinybind.md", "source": "system:tinybind", "target": "api:runtime-configuration", "target_category": "interface", "target_type": "api"}
 {"context": "body", "path": ".knowledge/system/tinybind.md", "source": "system:tinybind", "target": "api:cli-generate", "target_category": "interface", "target_type": "api"}
-{"context": "body", "path": ".knowledge/system/tinybind.md", "source": "system:tinybind", "target": "api:cli-dev", "target_category": "interface", "target_type": "api"}
 {"context": "body", "path": ".knowledge/system/tinybind.md", "source": "system:tinybind", "target": "requirement:httpbinder-extensible-route-analysis", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/system/tinybind.md", "source": "system:tinybind", "target": "api:render-html-chain", "target_category": "interface", "target_type": "api"}
 {"context": "body", "path": ".knowledge/system/tinybind.md", "source": "system:tinybind", "target": "api:async-html-value", "target_category": "interface", "target_type": "api"}
@@ -2788,6 +2788,8 @@
 {"context": "body", "path": ".knowledge/system/tinybind.md", "source": "system:tinybind", "target": "rule:page-directory-naming", "target_category": "constraint", "target_type": "rule"}
 {"context": "body", "path": ".knowledge/system/tinybind.md", "source": "system:tinybind", "target": "system:tinygodriver", "target_category": "external", "target_type": "system"}
 {"context": "body", "path": ".knowledge/system/tinybind.md", "source": "system:tinybind", "target": "decision:dynamodb-framework-scope", "target_category": "constraint", "target_type": "decision"}
+{"context": "body", "path": ".knowledge/system/tinybind.md", "source": "system:tinybind", "target": "requirement:partial-update-boundaries", "target_category": "objective", "target_type": "requirement"}
+{"context": "body", "path": ".knowledge/system/tinybind.md", "source": "system:tinybind", "target": "concept:page-tree", "target_category": "concept", "target_type": "concept"}
 {"context": "body", "path": ".knowledge/system/tinygodriver-dynamodb.md", "source": "system:tinygodriver-dynamodb", "target": "system:tinygodriver", "target_category": "external", "target_type": "system"}
 {"context": "body", "path": ".knowledge/system/tinygodriver-dynamodb.md", "source": "system:tinygodriver-dynamodb", "target": "requirement:dynamodb-migration", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/system/tinygodriver-dynamodb.md", "source": "system:tinygodriver-dynamodb", "target": "system:tinybind", "target_category": "external", "target_type": "system"}

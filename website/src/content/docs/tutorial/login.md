@@ -48,36 +48,92 @@ written before anything is:
     create  migrations/00004_init_popcornwave_auth.sql
     append  config.dev.toml
     append  popcornwave.toml
-    by hand call handlers.RegisterAccounts() in ./cmd/memoapp before pw.Run
-    by hand add import _ "github.com/shibukawa/popcornwave/sessionstore/sqlite" to ./cmd/memoapp
-    by hand add import _ "github.com/shibukawa/popcornwave/authstate/sqlite" to ./cmd/memoapp
+    edit    cmd/memoapp/main.go
     then    pw migrate up
 ```
-
-`pw add auth` stores sessions server-side in the database, which is why two
-migrations arrive with the login and why it refuses to run in a project without
-one. The browser gets an opaque token; the record it points at can be expired
-and revoked from the server. That import is what puts the database backend in
-the binary — storage is opt-in, so an application links the backend it
-configured and no other. [Cookies](/guides/backend/cookies/) covers the two
-alternatives, which `pw init --session` offers to a project from the start.
 
 `devidp.toml` is the roster of development users, `Administrator` and `Member`.
 `pw dev` serves them from a local OpenID Provider and checks no password, which
 is exactly why it never runs outside development.
 
-The line marked **by hand** is the one edit the command will not make for you.
-Open `cmd/memoapp/main.go`:
+### A login needs two kinds of storage
+
+Two migrations is not an accident. A login puts two different things on the
+server:
+
+| What | Holds | Package |
+| --- | --- | --- |
+| Sessions | who is signed in | `sessionstore/sqlite` |
+| Ceremony records | the single-use state of one login in progress | `authstate/sqlite` |
+
+![auth runs once at sign-in, takes the browser out to an external IdP and back, and hands session an account ID; session carries it on every request after that. Below auth sit the external IdP and authstate; below session sits sessionstore](../../../assets/diagrams/auth-and-session.svg)
+
+**auth decides who this is.** It sends the browser out to a provider, verifies
+the identity that comes back, and settles on an account ID for this application.
+It runs at sign-in and not again.
+
+**session carries who it decided.** On every request after that, it holds who
+this is and what is true of them right now.
+
+A session is the record behind the opaque token the browser carries, which is
+what makes it revocable from the server. A ceremony record correlates the one
+round trip out to the provider and back, and is consumed when it returns.
+
+`session.backend = "rdb"` in `config.dev.toml` chooses only **where** they go.
+**What puts that somewhere into the binary is the import.** That is what "storage
+is opt-in" means: an application links the backend it configured and no other, and
+a project keeping sessions in a cookie links no store at all — see
+[Cookies](/guides/backend/cookies/), which `pw init --session` offers from the
+start.
+
+When the configuration and the imports disagree, startup says so:
+
+```
+popcornwave: auth.session: session.backend = "rdb" needs its plugin;
+add to the application: import _ "github.com/shibukawa/popcornwave/sessionstore/sqlite"
+```
+
+That is the `edit cmd/memoapp/main.go` line. Accept the screen and the file
+becomes this:
 
 ```go
+// cmd/memoapp/main.go
+package main
+
+import (
+	"context"
+	"log"
+
+	"memoapp/handlers"
+
+	// new: this is what actually provides session.backend = "rdb".
+	_ "github.com/shibukawa/popcornwave/sessionstore/sqlite"
+	// new: where the single-use login records go.
+	_ "github.com/shibukawa/popcornwave/authstate/sqlite"
+
+	"github.com/shibukawa/popcornwave/pw"
+)
+
 func main() {
-	// Installed before Run: the framework calls it during the OIDC callback.
+	// new: installed before Run, because the framework calls it during the
+	// OIDC callback.
 	handlers.RegisterAccounts()
 	if err := pw.Run(context.Background(), handlers.Handlers()); err != nil {
 		log.Fatal(err)
 	}
 }
 ```
+
+A project that chose the login at `pw init` has these three lines in its
+scaffold already, which is exactly why `pw add` writes them too: a capability
+declined at bootstrap and installed later has to arrive at the same file as one
+that was never declined.
+
+`main.go` belongs to the application, so editing it is not something a command
+should do quietly. What makes it acceptable is that the review screen names the
+file before anything is written, and that the edit is spliced in at a position
+the parser found — the rest of the file is copied through unchanged, comments,
+grouping, and all.
 
 `RegisterAccounts` lives in the `handlers/accounts.go` the wizard just wrote.
 It is one line — `auth.SetAccountResolver(resolveAccount)` — and it installs

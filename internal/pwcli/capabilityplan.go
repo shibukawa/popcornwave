@@ -189,8 +189,10 @@ func planDatabase(state projectState, options addOptions, plan *capabilityPlan) 
 	// The entry point is application-owned, so the blank import that links the
 	// engine is printed rather than injected.
 	if engine.DriverImport != "" {
-		plan.manual = append(plan.manual,
-			"blank-import "+engine.DriverImport+" from the application entry point")
+		if err := planEntryPointEdit(state, plan,
+			[]blankImport{{engine.DriverImport, "the engine middleware.rdb.dsn names"}}, "", ""); err != nil {
+			return err
+		}
 	}
 	if engine.DevboxPackage != "" && state.devbox != "" {
 		edited, err := addDevboxPackage(state.devbox, engine.DevboxPackage)
@@ -241,8 +243,11 @@ func planDynamo(state projectState, plan *capabilityPlan) error {
 	plan.generate = true
 	// The entry point is application-owned, so the import that installs the
 	// client middleware is printed rather than injected.
-	plan.manual = append(plan.manual,
-		"blank-import github.com/shibukawa/popcornwave/database/dynamo from the application entry point")
+	if err := planEntryPointEdit(state, plan,
+		[]blankImport{{"github.com/shibukawa/popcornwave/database/dynamo", "installs the DynamoDB client middleware"}},
+		"", ""); err != nil {
+		return err
+	}
 	if state.devbox != "" {
 		devbox, err := addDevboxPackage(state.devbox, dynamoDevboxPackage)
 		if err != nil {
@@ -252,6 +257,57 @@ func planDynamo(state projectState, plan *capabilityPlan) error {
 		plan.next = append(plan.next, "devbox shell")
 	}
 	return nil
+}
+
+// planEntryPointEdit adds imports and an optional call to the application entry
+// point, so a capability installed later reaches the file state one installed at
+// bootstrap already has.
+//
+// A file this cannot edit — an unparenthesized import block, no func main, a
+// package that does not parse — falls back to printing the step. The operator
+// still learns what is missing, which is what the command did for every
+// capability before this.
+func planEntryPointEdit(state projectState, plan *capabilityPlan, imports []blankImport, call, callComment string) error {
+	path, source, err := entryPointSource(state.root, state.config.Main)
+	if err != nil {
+		printEntryPointSteps(plan, state.config.Main, imports, call)
+		return nil
+	}
+	// An edit already planned for this file is the one to build on: two
+	// capabilities in one run would otherwise each start from what is on disk
+	// and the second would discard the first.
+	if planned, ok := plan.edits[path]; ok {
+		source = planned
+	}
+	edited, err := withBlankImports(source, imports...)
+	if err != nil {
+		printEntryPointSteps(plan, state.config.Main, imports, call)
+		return nil
+	}
+	if call != "" {
+		edited, err = withMainCall(edited, call, callComment)
+		if err != nil {
+			printEntryPointSteps(plan, state.config.Main, imports, call)
+			return nil
+		}
+	}
+	if edited == source {
+		// Everything was already there, so there is nothing to show on the
+		// review screen and nothing to write.
+		return nil
+	}
+	plan.edits[path] = edited
+	return nil
+}
+
+// printEntryPointSteps is the fallback for a file the command will not touch.
+func printEntryPointSteps(plan *capabilityPlan, mainPackage string, imports []blankImport, call string) {
+	for _, wanted := range imports {
+		plan.manual = append(plan.manual, `add import _ "`+wanted.path+`" to `+mainPackage)
+	}
+	if call != "" {
+		plan.manual = append(plan.manual, "call "+call+" in "+mainPackage+" before pw.Run")
+	}
 }
 
 func planRedisValkey(state projectState, plan *capabilityPlan) error {
@@ -301,15 +357,29 @@ func planAuth(state projectState, options addOptions, plan *capabilityPlan) erro
 	}
 	if options.AuthEmulator {
 		plan.creates[defaultIdPConfig] = devIdPRoster()
-		plan.appends["popcornwave.toml"] = devIdPProjectConfig(initOptions{AuthEmulator: true})
+		// Built from scaffold rather than from a fresh value: this section is
+		// written only for a mode that uses OIDC, and a hand-built options with
+		// no mode in it reads as a project that has none, which silently
+		// produced an empty append.
+		emulator := scaffold
+		emulator.AuthEmulator = true
+		plan.appends["popcornwave.toml"] = devIdPProjectConfig(emulator)
 	}
-	plan.manual = append(plan.manual,
-		"call "+goPackageIdentifier(handlers)+".RegisterAccounts() in "+state.config.Main+" before pw.Run",
-		// Storage is opt-in by blank import, so both stores this configuration
-		// selects have to be imported by the application: the sessions and the
-		// single-use login records.
-		`add import _ "`+sessionBackendPlugin(sessionRDB, dialect)+`" to `+state.config.Main,
-		`add import _ "github.com/shibukawa/popcornwave/authstate/`+dialect+`" to `+state.config.Main)
+	// Storage is opt-in by blank import, so both stores this configuration
+	// selects have to be linked by the application: the sessions and the
+	// single-use login records. Naming a backend in configuration and leaving
+	// the import out is a startup failure, which is why these are planned edits
+	// rather than printed instructions.
+	if err := planEntryPointEdit(state, plan,
+		[]blankImport{
+			{sessionBackendPlugin(sessionRDB, dialect), `serves session.backend = "rdb"`},
+			{"github.com/shibukawa/popcornwave/authstate/" + dialect, "holds the single-use login records"},
+		},
+		goPackageIdentifier(handlers)+".RegisterAccounts()",
+		"installed before Run: the framework calls these while it serves a login",
+	); err != nil {
+		return err
+	}
 	plan.next = append(plan.next, "pw migrate up")
 	plan.generate = true
 	return nil

@@ -68,9 +68,7 @@ The review screen lists every change before anything is written:
     create  migrations/00002_init_popcornwave_session.sql
     create  migrations/00003_init_popcornwave_auth.sql
     append  config.dev.toml
-    by hand call handlers.RegisterAccounts() in ./cmd/lean before pw.Run
-    by hand add import _ "github.com/shibukawa/popcornwave/sessionstore/sqlite" to ./cmd/lean
-    by hand add import _ "github.com/shibukawa/popcornwave/authstate/sqlite" to ./cmd/lean
+    edit    cmd/lean/main.go
     then    pw migrate up
 
   enter add  ·  esc back  ·  ctrl+c cancel

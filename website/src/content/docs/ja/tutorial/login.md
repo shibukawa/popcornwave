@@ -45,36 +45,86 @@ pw add auth
     create  migrations/00004_init_popcornwave_auth.sql
     append  config.dev.toml
     append  popcornwave.toml
-    by hand call handlers.RegisterAccounts() in ./cmd/memoapp before pw.Run
-    by hand add import _ "github.com/shibukawa/popcornwave/sessionstore/sqlite" to ./cmd/memoapp
-    by hand add import _ "github.com/shibukawa/popcornwave/authstate/sqlite" to ./cmd/memoapp
+    edit    cmd/memoapp/main.go
     then    pw migrate up
 ```
-
-`pw add auth` はセッションをサーバー側、データベースに保存します。ログインと一緒に
-マイグレーションが2つ来るのも、データベースのないプロジェクトでは動かないのもそのため
-です。ブラウザが受け取るのは中身のないトークンで、その先にあるレコードはサーバーから
-失効させられます。この import がデータベースバックエンドをバイナリに入れます。ストレージ
-はオプトインなので、アプリケーションが持つのは設定したバックエンドだけです。残る2つの
-選択肢は[クッキー](/ja/guides/backend/cookies/)にあり、`pw init --session` なら最初から
-選べます。
 
 `devidp.toml` は開発用ユーザーの名簿で、`Administrator` と `Member` が載っています。
 `pw dev` はこれをローカルの OpenID Provider から提供し、パスワードは検証しません。
 だからこそ開発以外では決して動きません。
 
-**by hand** と書かれた行が、このコマンドが代わりにやらない唯一の編集です。
-`cmd/memoapp/main.go` を開きます。
+### ログインが必要とするストレージは2種類
+
+マイグレーションが2本来たのは偶然ではありません。ログインはサーバー側に2種類の
+ものを置きます。
+
+| 置くもの | 中身 | 担当パッケージ |
+| --- | --- | --- |
+| セッション | 誰がサインインしているか | `sessionstore/sqlite` |
+| ceremony レコード | 進行中のログイン1回分の単発の状態 | `authstate/sqlite` |
+
+![auth はサインイン時に一度だけ動いて外部 IdP と往復し、決めたアカウント ID を session に渡す。session はそれ以降の毎リクエストでユーザーの状態を運ぶ。auth の下に外部 IdP と authstate、session の下に sessionstore が並ぶ図](../../../../assets/diagrams/auth-and-session.svg)
+
+**auth は「誰か」を決める役**です。外部の IdP へブラウザを送り出し、戻ってきた身元を
+検証して、このアプリケーションのアカウント ID を確定します。動くのはサインインの
+ときだけです。
+
+**session は「決まった誰か」を運ぶ役**です。それ以降のすべてのリクエストで、
+いま誰なのかと、その人について今なにが成り立っているかを保ちます。
+
+セッションは、ブラウザが持つ中身のないトークンの先にあるレコードです。だから
+サーバー側から失効させられます。ceremony レコードは、プロバイダへ送り出してから
+戻ってくるまでの1往復を照合するためのもので、使ったら消えます。
+
+`config.dev.toml` の `session.backend = "rdb"` が選ぶのは**どこに置くか**だけです。
+**その置き場所を実際にバイナリへ入れるのは import の方**です。ストレージがオプトインで、
+アプリケーションが持つのは設定したバックエンドだけ、というのはこのためです。クッキーに
+置くプロジェクトはストアを1つもリンクしません（[クッキー](/ja/guides/backend/cookies/)、
+`pw init --session` で最初から選べます）。
+
+設定と import が食い違うと、起動時にこう言われます。
+
+```
+popcornwave: auth.session: session.backend = "rdb" needs its plugin;
+add to the application: import _ "github.com/shibukawa/popcornwave/sessionstore/sqlite"
+```
+
+`edit cmd/memoapp/main.go` の行がそれです。承認すると、この形になります。
 
 ```go
+// cmd/memoapp/main.go
+package main
+
+import (
+	"context"
+	"log"
+
+	"memoapp/handlers"
+
+	// 追加: session.backend = "rdb" を実際に提供するのがこれ。
+	_ "github.com/shibukawa/popcornwave/sessionstore/sqlite"
+	// 追加: 単発のログインレコードを置く先。
+	_ "github.com/shibukawa/popcornwave/authstate/sqlite"
+
+	"github.com/shibukawa/popcornwave/pw"
+)
+
 func main() {
-	// Run より前に入れる。OIDC のコールバック中にフレームワークが呼ぶ。
+	// 追加: Run より前に入れる。OIDC のコールバック中にフレームワークが呼ぶ。
 	handlers.RegisterAccounts()
 	if err := pw.Run(context.Background(), handlers.Handlers()); err != nil {
 		log.Fatal(err)
 	}
 }
 ```
+
+`pw init` で最初からログインを選んだプロジェクトでは、この3行は雛形に入っています。
+`pw add` が同じものを書くのはそのためです。初期化で断った機能を後から入れても、
+最初から選んだのと同じファイルに行き着く、というのがこのコマンドの約束です。
+
+`main.go` はアプリケーションの持ち物なので、勝手に書き換えられるのは本来避けたいところ
+です。それが許されるのは、書き込む前にレビュー画面がこのファイルを名指しするからです。
+編集はパーサーが見つけた位置に差し込むだけで、コメントも並びも書式もそのまま残ります。
 
 `RegisterAccounts` は、いまウィザードが書いた `handlers/accounts.go` にあります。
 中身は `auth.SetAccountResolver(resolveAccount)` の1行で、選んだモードが要求する

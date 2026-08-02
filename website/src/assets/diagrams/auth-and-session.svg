@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="840" height="300" viewBox="0 0 840 300"
+     style="background: transparent; color-scheme: light dark;" role="img">
+  <style>
+    .d { --line: light-dark(#8a94a6, #676f7f); }
+    .d rect { fill: none; stroke: var(--line); stroke-width: 1.5; }
+    .d path, .d line { stroke: var(--line); stroke-width: 1.5; fill: none; }
+    .d text {
+      fill: var(--line);
+      font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    }
+    .when { font-size: 13px; font-style: italic; }
+    .title { font-size: 15px; font-weight: 600; }
+    .body { font-size: 13px; }
+    .edge { font-size: 12px; }
+    .store { font-size: 12px; }
+  </style>
+  <g class="d">
+    <text class="when" x="185" y="22" text-anchor="middle">at sign-in, once</text>
+    <text class="when" x="655" y="22" text-anchor="middle">on every request after it</text>
+
+    <rect x="20" y="36" width="330" height="96" rx="8"/>
+    <text class="title" x="44" y="64">auth</text>
+    <text class="body" x="44" y="90">Decides who this is, by taking the</text>
+    <text class="body" x="44" y="110">browser out to a provider and back.</text>
+
+    <rect x="490" y="36" width="330" height="96" rx="8"/>
+    <text class="title" x="514" y="64">session</text>
+    <text class="body" x="514" y="90">Carries who it decided, and holds</text>
+    <text class="body" x="514" y="110">what is true of them right now.</text>
+
+    <path d="M350 84 L484 84"/>
+    <path d="M484 84 l-8 -4 l0 8 z" fill="var(--line)" stroke="none"/>
+    <text class="edge" x="417" y="76" text-anchor="middle">an account ID</text>
+
+    <path d="M110 132 L110 196" stroke-dasharray="4 4"/>
+    <path d="M260 132 L260 196" stroke-dasharray="4 4"/>
+    <path d="M655 132 L655 196" stroke-dasharray="4 4"/>
+
+    <rect x="20" y="200" width="170" height="72" rx="8" stroke-dasharray="4 4"/>
+    <text class="store" x="40" y="228">external IdP</text>
+    <text class="store" x="40" y="250">devidp in development</text>
+
+    <rect x="210" y="200" width="140" height="72" rx="8" stroke-dasharray="4 4"/>
+    <text class="store" x="230" y="228">authstate</text>
+    <text class="store" x="230" y="250">one round trip,</text>
+    <text class="store" x="230" y="266">then consumed</text>
+
+    <rect x="490" y="200" width="330" height="72" rx="8" stroke-dasharray="4 4"/>
+    <text class="store" x="514" y="228">sessionstore</text>
+    <text class="store" x="514" y="250">rdb, cookie, or redis — chosen by session.backend,</text>
+    <text class="store" x="514" y="266">linked into the binary by its import</text>
+  </g>
+</svg>
