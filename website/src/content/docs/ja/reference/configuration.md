@@ -252,6 +252,7 @@ HSTS が付くのは検証済みの HTTPS リクエストだけです。平文�
 | --- | --- | --- |
 | `enabled` | `false` | |
 | `backend` | `"rdb"` | サーバに置くスロットが使うバックエンド: `rdb`、`cookie`、`redis`、`dynamo` |
+| `retention` | `"720h"` | ストアがレコードを保持してよい期間。`[auth]` の寿命が短ければそちらが効く |
 | `cookie.name` | `"pw_session"` | |
 | `cookie.path` | `"/"` | |
 | `cookie.domain` | *(空)* | |

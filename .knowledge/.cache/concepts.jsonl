@@ -170,6 +170,7 @@
 {"category": "constraint", "id": "decision:slot-lifetime-axis", "path": ".knowledge/decision/slot-lifetime-axis.md", "role": "supporting", "title": "Slot Lifetime as an Independent Axis", "type": "decision"}
 {"category": "constraint", "id": "decision:sqlite-backend-selection", "path": ".knowledge/decision/sqlite-backend-selection.md", "role": "supporting", "title": "SQLite Backend Selection", "type": "decision"}
 {"category": "constraint", "id": "decision:stdlib-servemux", "path": ".knowledge/decision/stdlib-servemux.md", "role": "supporting", "title": "Standard ServeMux Routing", "type": "decision"}
+{"category": "constraint", "id": "decision:storage-bounded-session-record", "path": ".knowledge/decision/storage-bounded-session-record.md", "role": "supporting", "title": "The Store Bounds Its Own Records", "type": "decision"}
 {"category": "constraint", "id": "decision:streaming-response-compression", "path": ".knowledge/decision/streaming-response-compression.md", "role": "supporting", "title": "Streaming Response Compression", "type": "decision"}
 {"category": "constraint", "id": "decision:tailwind-host-toolchain", "path": ".knowledge/decision/tailwind-host-toolchain.md", "role": "supporting", "title": "Tailwind Host Toolchain", "type": "decision"}
 {"category": "constraint", "id": "decision:test-authentication-seams", "path": ".knowledge/decision/test-authentication-seams.md", "role": "supporting", "title": "Test Authentication Seams", "type": "decision"}

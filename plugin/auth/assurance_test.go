@@ -2,6 +2,8 @@ package auth
 
 import (
 	"net/http"
+
+	"github.com/shibukawa/popcornwave/session"
 	"net/http/httptest"
 	"strings"
 	"testing"
@@ -174,5 +176,62 @@ func TestFreshnessPrefersTheProviderProofTime(t *testing.T) {
 	}
 	if got := (SessionData{AuthenticatedAt: arrival}).provenAt(); !got.Equal(arrival) {
 		t.Fatalf("provenAt with no provider time = %v, want the fallback %v", got, arrival)
+	}
+}
+
+// A zero window means prove again for this operation. Before per-slot writes
+// existed the proof was only time-bounded, so two destructive operations inside
+// the window shared one confirmation; spending it on use closes that.
+func TestAZeroWindowAdmissionIsSpentOnUse(t *testing.T) {
+	registry := session.NewRegistry()
+	if err := session.Register[SessionData](registry, sessionSlotKey, session.Private, nil); err != nil {
+		t.Fatal(err)
+	}
+	keys, err := session.ParseKeyring("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=")
+	if err != nil {
+		t.Fatal(err)
+	}
+	manager, err := session.NewManager(registry, nil, session.Options{
+		TTL:    time.Hour,
+		Cookie: session.CookieOptions{Name: "pw_session", Path: "/"},
+		Keys:   keys,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	config := baseConfig(ModeOIDCOnly)
+	replaceRuntime(&runtime{config: config, stopPruning: make(chan struct{})})
+	t.Cleanup(func() { replaceRuntime(nil) })
+
+	// Establish a session carrying a completed zero-window proof.
+	issue := httptest.NewRecorder()
+	manager.Middleware(nil)(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
+		handle, _ := session.Value[SessionData](r.Context())
+		if err := handle.Set(SessionData{
+			AccountID: "a", AuthenticatedAt: time.Now(), StepUpAt: time.Now().Unix(),
+		}); err != nil {
+			t.Fatal(err)
+		}
+	})).ServeHTTP(issue, httptest.NewRequest(http.MethodGet, "/", nil))
+
+	admitted := 0
+	guarded := manager.Middleware(nil)(Ensure(func(http.ResponseWriter, *http.Request) { admitted++ }, MaxAge(0)))
+	visit := func(cookies []*http.Cookie) *httptest.ResponseRecorder {
+		request := httptest.NewRequest(http.MethodGet, "/danger", nil)
+		for _, cookie := range cookies {
+			request.AddCookie(cookie)
+		}
+		recorder := httptest.NewRecorder()
+		guarded.ServeHTTP(recorder, request)
+		return recorder
+	}
+
+	first := visit(issue.Result().Cookies())
+	if admitted != 1 {
+		t.Fatalf("the first operation was not admitted: %d", admitted)
+	}
+	visit(first.Result().Cookies())
+	if admitted != 1 {
+		t.Fatalf("a second operation reused the same proof: %d admissions", admitted)
 	}
 }

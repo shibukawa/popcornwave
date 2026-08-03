@@ -12,6 +12,7 @@ scope: placement and cookie policy; every lifetime is declared by data:authentic
 fields:
   enabled: bool
   backend: rdb, cookie, redis, or dynamo; which server backend a server-placed slot uses, never whether a slot is server-placed
+  retention: how long the store may hold one record, default 720h, narrowed by the auth.session lifetime, per decision:storage-bounded-session-record
   cookie.name: string
   cookie.path: string
   cookie.domain: optional string
@@ -77,7 +78,8 @@ deferred:
   - plugin-owned registration of backend-specific keys
 rules:
   - all keys are declared under one session binding
-  - no key here states a duration; a duration under [session] is a misplaced auth.session key
+  - retention is the one duration here, and it bounds the table rather than a proof; every other duration is a misplaced auth.session key
+  - reject a non-positive retention for a server backend, because the sweep reads a zero expiry as already past and the renewal statement never matches one
   - related fields share cookie, cookie_store, keyring, redis, or rdb prefixes
   - the cookie backend needs no storage and reuses the cookie policy for its record cookie
   - the backend key names which server backend to use; api:session-registry decides which slots go there, per decision:slot-declared-placement

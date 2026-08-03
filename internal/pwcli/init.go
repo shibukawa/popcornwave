@@ -67,13 +67,22 @@ func usesOIDC(mode string) bool { return mode == authOIDC || mode == authOIDCPas
 // browser side that calls navigator.credentials.
 func usesPasskey(mode string) bool { return mode == authOIDCPasskey || mode == authPasskey }
 
-// sessionBackend is the selected backend. An options value built without the
-// answer, which every pre-session caller is, scaffolds the default.
+// sessionBackend is the selected backend.
+//
+// An unanswered project takes cookie when it serves no login and rdb when it
+// does. Session storage is not a login, so a project that only remembers a
+// language preference still gets the middleware; what it does not need is a
+// table, a migration, and a storage import to hold state that fits in a sealed
+// cookie. A project with a login writes a record on every sign-in and normally
+// wants to end one on demand, which is what rdb is for.
 func sessionBackend(options initOptions) string {
-	if options.Session == "" {
+	if options.Session != "" {
+		return options.Session
+	}
+	if servesLogin(options) {
 		return sessionRDB
 	}
-	return options.Session
+	return sessionCookie
 }
 
 // generatedKeyringSecret returns a fresh session keyring for the scaffolded
@@ -697,7 +706,7 @@ service_name = "` + name + `"
 # resolves to this in dev and to "json" everywhere else; it is written out here
 # so the format this file produces is visible rather than inferred.
 stdout_format = "plaintext"
-` + databaseRuntimeConfig(options) + dynamoRuntimeConfig(options) + authRuntimeConfig(options) + securityRuntimeConfig(options),
+` + databaseRuntimeConfig(options) + dynamoRuntimeConfig(options) + sessionRuntimeConfig(options) + authRuntimeConfig(options) + securityRuntimeConfig(options),
 		"cmd/" + name + "/main.go": mainScaffold(options),
 		"templates/document.pw.html": `package templates
 
@@ -990,18 +999,17 @@ func LoadNote(ctx context.Context, id string, createdAt time.Time) (Note, error)
 // backend it configured and nothing else. The cookie backend is built into pw
 // and needs no line here.
 func sessionBackendImport(options initOptions) string {
-	if !servesLogin(options) {
-		return ""
-	}
 	imports := ""
 	if plugin := sessionBackendPlugin(sessionBackend(options), options.Engine); plugin != "" {
 		imports += "\n\t// session.backend = \"" + sessionBackend(options) +
 			"\" is served by this import; storage is opt-in.\n\t_ " + strconv.Quote(plugin)
 	}
-	// The login ceremony records live in the database whichever backend holds
-	// the sessions, so their engine is imported for every login.
-	imports += "\n\t// The single-use login records this engine stores.\n\t_ " +
-		strconv.Quote("github.com/shibukawa/popcornwave/authstate/"+engineDialect(options.Engine))
+	if servesLogin(options) {
+		// The login ceremony records live in the database whichever backend
+		// holds the sessions, so their engine is imported for every login.
+		imports += "\n\t// The single-use login records this engine stores.\n\t_ " +
+			strconv.Quote("github.com/shibukawa/popcornwave/authstate/"+engineDialect(options.Engine))
+	}
 	return imports
 }
 
@@ -1633,14 +1641,20 @@ role = "member"
 // provider values stay empty for the emulator because pw dev injects them, and
 // the application refuses to start if neither the file nor the environment
 // supplies them.
-func authRuntimeConfig(options initOptions) string {
-	if !servesLogin(options) {
-		return ""
-	}
+// sessionRuntimeConfig writes the [session] section.
+//
+// It is written whether or not the project serves a login, because session
+// storage is not a login: a project with a language preference or a dismissed
+// notice declares a slot and needs the middleware, and the framework installs
+// it from session.enabled rather than from an authentication plugin.
+//
+// Without a login the record is bounded by session.retention alone, since the
+// [auth] durations that would otherwise narrow it are not there.
+func sessionRuntimeConfig(options initOptions) string {
 	// The browser token is opaque in every backend; this selects where the
 	// record behind it lives. A backend other than cookie reaches the binary
 	// through the blank import in main.
-	section := `
+	return `
 [session]
 enabled = true
 backend = "` + sessionBackend(options) + `"
@@ -1658,7 +1672,18 @@ cookie.secure = false
 # reports a literal here as an error for any environment but dev.
 keyring.secret = "` + generatedKeyringSecret() + `"
 ` + sessionBackendConfig(options) + `
+`
+}
 
+// authRuntimeConfig writes the [auth] section for the selected mode. The OIDC
+// provider values stay empty for the emulator because pw dev injects them, and
+// the application refuses to start if neither the file nor the environment
+// supplies them.
+func authRuntimeConfig(options initOptions) string {
+	if !servesLogin(options) {
+		return ""
+	}
+	section := `
 # The framework serves every authentication path itself, so the application
 # registers no authentication route. Logout is POST only.
 [auth]

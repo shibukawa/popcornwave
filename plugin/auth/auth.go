@@ -66,9 +66,6 @@ func init() {
 type runtime struct {
 	config  Config
 	manager *session.Manager
-	// sessionPrune is the expiry sweep of the session backend. A backend whose
-	// server or browser forgets records on its own leaves it nil.
-	sessionPrune func(context.Context, time.Time, int) (int64, error)
 	// sessionClose releases a client the backend opened. A backend that
 	// borrowed the middleware database leaves it nil.
 	sessionClose func(context.Context) error
@@ -184,7 +181,6 @@ func setupAuthentication(ctx context.Context) (pw.Middleware, error) {
 	instance := &runtime{
 		config:       config,
 		manager:      manager,
-		sessionPrune: pw.SessionPrune(),
 		stateStore:   stateStore,
 		allowlist:    Allowlist{db: db},
 		cookiePolicy: sessionConfig.Cookie,
@@ -239,9 +235,8 @@ func (rt *runtime) prune() {
 		case <-ticker.C:
 			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 			now := time.Now()
-			if rt.sessionPrune != nil {
-				_, _ = rt.sessionPrune(ctx, now, pruneBatch)
-			}
+			// The session store sweeps itself; these are the ceremony records
+			// this package owns.
 			_, _ = rt.stateStore.Prune(ctx, now, pruneBatch)
 			cancel()
 		}

@@ -44,7 +44,18 @@ type SessionConfig struct {
 	// backend but cookie reaches the binary through its own blank import. It
 	// names which server backend a server-placed slot uses, never whether a
 	// slot is server-placed, which RegisterSessionStore states instead.
-	Backend     string                   `default:"rdb" dependon:".enabled" help:"session storage backend: rdb, cookie, redis, or dynamo"`
+	Backend string `default:"rdb" dependon:".enabled" help:"session storage backend: rdb, cookie, redis, or dynamo"`
+	// Retention bounds how long the store may hold one record.
+	//
+	// It is not the session lifetime, which [auth] declares: an expiry states
+	// how long a proof of identity stays good, and this states how long bytes
+	// may sit in a table. They bound different things, so the effective record
+	// lifetime is whichever is shorter.
+	//
+	// A server backend needs it whatever authentication says. A record with no
+	// deadline is one the expiry sweep has no cutoff for, and the sweep is what
+	// keeps a table bounded when sessions are abandoned rather than ended.
+	Retention   time.Duration            `default:"720h" dependon:".enabled" help:"how long the store may hold one record; the session lifetime under [auth] narrows it"`
 	Cookie      SessionCookieConfig      `dependon:".enabled"`
 	RDB         SessionRDBConfig         `dependon:".enabled"`
 	Redis       SessionRedisConfig       `dependon:".enabled"`

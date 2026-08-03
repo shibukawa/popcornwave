@@ -2,6 +2,7 @@ package pw
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"sync"
 	"time"
@@ -29,6 +30,37 @@ var sessionState struct {
 	manager *session.Manager
 	close   func(context.Context) error
 	prune   func(context.Context, time.Time, int) (int64, error)
+	stop    chan struct{}
+}
+
+// sessionPruneInterval bounds how often expired records are swept, and
+// sessionPruneBatch bounds one sweep so a large backlog cannot hold
+// connections.
+const (
+	sessionPruneInterval = 10 * time.Minute
+	sessionPruneBatch    = 256
+)
+
+// sweepSessions removes records that expired without being revoked.
+//
+// It runs here rather than in an authentication plugin because the records are
+// the framework's: a deployment with no login still writes them for a
+// session.ServerOnly slot, and abandonment rather than logout is how most
+// sessions end. The cutoff exists because session.retention bounds every
+// record, per decision:storage-bounded-session-record.
+func sweepSessions(prune func(context.Context, time.Time, int) (int64, error), stop <-chan struct{}) {
+	ticker := time.NewTicker(sessionPruneInterval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-stop:
+			return
+		case <-ticker.C:
+			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			_, _ = prune(ctx, time.Now(), sessionPruneBatch)
+			cancel()
+		}
+	}
 }
 
 // SessionManager returns the manager the session middleware installed, or nil
@@ -83,6 +115,12 @@ func setupSession(ctx context.Context) (Middleware, error) {
 	if err != nil {
 		return nil, err
 	}
+	if config.Backend != SessionBackendCookie && options.TTL <= 0 {
+		// A server record with no deadline is one the sweep has no cutoff for,
+		// and the store reads a zero expiry as already past.
+		return nil, errors.New(
+			"session.retention must be positive for a server backend, because a record with no deadline is never swept")
+	}
 
 	var store session.RawStore
 	var backend session.Backend
@@ -116,10 +154,20 @@ func setupSession(ctx context.Context) (Middleware, error) {
 func replaceSession(manager *session.Manager, closer func(context.Context) error, prune func(context.Context, time.Time, int) (int64, error)) {
 	sessionState.Lock()
 	defer sessionState.Unlock()
+	// Repeated framework initialization, which tests perform, must not leave an
+	// earlier sweep running or an earlier client open.
+	if previous := sessionState.stop; previous != nil {
+		close(previous)
+	}
 	if previous := sessionState.close; previous != nil {
 		_ = previous(context.Background())
 	}
 	sessionState.manager, sessionState.close, sessionState.prune = manager, closer, prune
+	sessionState.stop = nil
+	if prune != nil {
+		sessionState.stop = make(chan struct{})
+		go sweepSessions(prune, sessionState.stop)
+	}
 }
 
 func closeSession(context.Context) error {
@@ -143,13 +191,33 @@ func sessionOptions(config SessionConfig, lifetime sessionconfig.SessionLifetime
 		return session.Options{}, err
 	}
 	return session.Options{
-		TTL:             lifetime.TTL,
+		TTL:             recordLifetime(config.Retention, lifetime.TTL),
 		IdleTimeout:     lifetime.IdleTimeout,
 		RenewalInterval: lifetime.RenewalInterval,
 		Cookie:          policy,
 		RecordCookie:    session.CookieOptions{Name: config.CookieStore.Name},
 		Keys:            keys,
 	}, nil
+}
+
+// recordLifetime is how long a record actually lives: the shorter of what the
+// store will hold and what a proof of identity stays good for.
+//
+// They bound different things, so neither subsumes the other. A zero on either
+// side is that side declining to bound it, which leaves the other one in force;
+// zero on both leaves the browser as the only bound, which validateSessionStore
+// refuses for a server backend.
+func recordLifetime(retention, ttl time.Duration) time.Duration {
+	switch {
+	case retention <= 0:
+		return ttl
+	case ttl <= 0:
+		return retention
+	case ttl < retention:
+		return ttl
+	default:
+		return retention
+	}
 }
 
 // writeSessionUnavailable fails closed. "The store is unreachable" and "you are

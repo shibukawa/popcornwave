@@ -654,3 +654,50 @@ func TestScaffoldWritesTheUpdateSectionOffByDefault(t *testing.T) {
 		t.Errorf("the validator key is not shown:\n%s", config)
 	}
 }
+
+// Session storage is not a login. A project that declares only a language
+// preference still needs the middleware, and the framework installs it from
+// session.enabled rather than from an authentication plugin.
+func TestSessionIsScaffoldedWithoutALogin(t *testing.T) {
+	files := scaffoldFiles(initOptions{Name: "demo", Database: true})
+	config := files["config.dev.toml"]
+	if !strings.Contains(config, "[session]") {
+		t.Fatalf("a project without a login got no session section:\n%s", config)
+	}
+	if strings.Contains(config, "[auth]") {
+		t.Fatal("a project without a login got an auth section")
+	}
+	// Cookie is the coherent default there: no table, no migration, no import
+	// to hold state that fits in a sealed cookie.
+	if !strings.Contains(config, `backend = "cookie"`) {
+		t.Fatalf("session backend without a login:\n%s", config)
+	}
+	if strings.Contains(files["cmd/demo/main.go"], "sessionstore/") {
+		t.Error("a cookie session imported a storage plugin")
+	}
+	if strings.Contains(files["cmd/demo/main.go"], "authstate/") {
+		t.Error("a project with no login imported the login ceremony store")
+	}
+	for name := range files {
+		if strings.Contains(name, sessionstore.MigrationName) {
+			t.Errorf("a cookie session scaffolded a table migration: %s", name)
+		}
+	}
+	// The keyring is still written, because a sealed slot needs one whatever
+	// the backend is.
+	if !strings.Contains(config, "keyring.secret = ") {
+		t.Error("no keyring was scaffolded for a session that seals")
+	}
+}
+
+// Asking for a server backend without a login is honored, and it brings the
+// import with it rather than leaving a configuration nothing serves.
+func TestAServerBackendWithoutALoginBringsItsImport(t *testing.T) {
+	files := scaffoldFiles(initOptions{Name: "demo", Database: true, Session: sessionRDB})
+	if !strings.Contains(files["config.dev.toml"], `backend = "rdb"`) {
+		t.Fatal("the selected backend was not scaffolded")
+	}
+	if !strings.Contains(files["cmd/demo/main.go"], "sessionstore/") {
+		t.Errorf("the rdb backend was configured without its import:\n%s", files["cmd/demo/main.go"])
+	}
+}

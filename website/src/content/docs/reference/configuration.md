@@ -258,6 +258,7 @@ duration string, and one key cannot mean both.
 | --- | --- | --- |
 | `enabled` | `false` | |
 | `backend` | `"rdb"` | server backend a server-placed slot uses: `rdb`, `cookie`, `redis`, or `dynamo` |
+| `retention` | `"720h"` | how long the store may hold one record; the `[auth]` lifetime narrows it |
 | `cookie.name` | `"pw_session"` | |
 | `cookie.path` | `"/"` | |
 | `cookie.domain` | *(empty)* | |

@@ -181,7 +181,22 @@ session.ttl = "12h"
 session.idle_timeout = "1h"
 ```
 
-These used to sit under `[session]`, and moving them was not tidying. An
+`[session]` keeps one duration of its own:
+
+```toml
+[session]
+retention = "720h"
+```
+
+The two bound different things. `retention` says how long the store may hold a
+record; `auth.session.ttl` says how long a proof of identity stays good. A
+record lives for whichever is shorter, and a server backend requires a positive
+`retention` whatever authentication says — the sweep that keeps a table bounded
+reads a record with no deadline as already past, so one would never be readable
+back.
+
+The `[auth]` durations used to sit under `[session]`, and moving them was not
+tidying. An
 absolute expiry, an idle expiry, and a re-proof window are three answers to one
 question — how long a proof of identity stays good — and splitting them across
 two files split one policy in half. A deployment reasons about them together,

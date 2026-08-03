@@ -7,6 +7,7 @@ Every session duration is declared under `[auth]`, because an expiry is a statem
 
 ```yaml
 status: accepted
+corrected_by: decision:storage-bounded-session-record, which restores a bound the store owns; the without_auth section below described an outcome that a server backend cannot actually serve
 moved:
   from: data:session-runtime-config
   to: data:authentication-runtime-config

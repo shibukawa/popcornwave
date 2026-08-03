@@ -77,7 +77,9 @@ questions:
       page: controls bound by element id, so the template carries no inline script
       emulator: refused outside an OIDC mode, so passkey_only never scaffolds an identity provider roster
   session_storage:
-    asked_when: the selected mode serves a login
+    asked_when: always; session storage is not a login, so a project declaring only a language preference still gets the middleware
+    default_without_a_login: cookie, which needs no table, no migration, and no import to hold state that fits in a sealed cookie
+    default_with_a_login: rdb, because a login writes a record on every sign-in and normally must end one on demand
     default: rdb
     choices: requirement:state-storage-tiers opaque backends
     rdb: one row per session through the sessionstore/sqlite blank import, with its rule:framework-owned-tables migration

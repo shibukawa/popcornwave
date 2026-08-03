@@ -11,6 +11,7 @@
 {"context": "body", "path": ".knowledge/api/assurance-guard.md", "source": "api:assurance-guard", "target": "policy:authenticated-path-protection", "target_category": "constraint", "target_type": "policy"}
 {"context": "body", "path": ".knowledge/api/assurance-guard.md", "source": "api:assurance-guard", "target": "concept:assurance-axes", "target_category": "concept", "target_type": "concept"}
 {"context": "body", "path": ".knowledge/api/assurance-guard.md", "source": "api:assurance-guard", "target": "flow:step-up-reauthentication", "target_category": "behavior", "target_type": "flow"}
+{"context": "body", "path": ".knowledge/api/assurance-guard.md", "source": "api:assurance-guard", "target": "api:session-registry", "target_category": "interface", "target_type": "api"}
 {"context": "body", "path": ".knowledge/api/assurance-guard.md", "source": "api:assurance-guard", "target": "requirement:contrib-oidc", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/api/assurance-guard.md", "source": "api:assurance-guard", "target": "policy:reauthentication", "target_category": "constraint", "target_type": "policy"}
 {"context": "body", "path": ".knowledge/api/assurance-guard.md", "source": "api:assurance-guard", "target": "api:testutil-auth", "target_category": "interface", "target_type": "api"}
@@ -956,6 +957,7 @@
 {"context": "body", "path": ".knowledge/data/session-runtime-config.md", "source": "data:session-runtime-config", "target": "decision:framework-owned-session-extension", "target_category": "constraint", "target_type": "decision"}
 {"context": "body", "path": ".knowledge/data/session-runtime-config.md", "source": "data:session-runtime-config", "target": "data:authentication-runtime-config", "target_category": "structure", "target_type": "data"}
 {"context": "body", "path": ".knowledge/data/session-runtime-config.md", "source": "data:session-runtime-config", "target": "decision:session-lifetime-owned-by-auth", "target_category": "constraint", "target_type": "decision"}
+{"context": "body", "path": ".knowledge/data/session-runtime-config.md", "source": "data:session-runtime-config", "target": "decision:storage-bounded-session-record", "target_category": "constraint", "target_type": "decision"}
 {"context": "body", "path": ".knowledge/data/session-runtime-config.md", "source": "data:session-runtime-config", "target": "policy:cookie-value-protection", "target_category": "constraint", "target_type": "policy"}
 {"context": "body", "path": ".knowledge/data/session-runtime-config.md", "source": "data:session-runtime-config", "target": "policy:log-emission", "target_category": "constraint", "target_type": "policy"}
 {"context": "body", "path": ".knowledge/data/session-runtime-config.md", "source": "data:session-runtime-config", "target": "rule:configuration-advisories", "target_category": "constraint", "target_type": "rule"}
@@ -1470,6 +1472,7 @@
 {"context": "body", "path": ".knowledge/decision/server-sql-support-tier.md", "source": "decision:server-sql-support-tier", "target": "rule:explain-dialect-support", "target_category": "constraint", "target_type": "rule"}
 {"context": "body", "path": ".knowledge/decision/server-sql-support-tier.md", "source": "decision:server-sql-support-tier", "target": "decision:local-tls-proxy-boundary", "target_category": "constraint", "target_type": "decision"}
 {"context": "body", "path": ".knowledge/decision/server-sql-support-tier.md", "source": "decision:server-sql-support-tier", "target": "policy:outbound-transport-security", "target_category": "constraint", "target_type": "policy"}
+{"context": "body", "path": ".knowledge/decision/session-lifetime-owned-by-auth.md", "source": "decision:session-lifetime-owned-by-auth", "target": "decision:storage-bounded-session-record", "target_category": "constraint", "target_type": "decision"}
 {"context": "body", "path": ".knowledge/decision/session-lifetime-owned-by-auth.md", "source": "decision:session-lifetime-owned-by-auth", "target": "data:session-runtime-config", "target_category": "structure", "target_type": "data"}
 {"context": "body", "path": ".knowledge/decision/session-lifetime-owned-by-auth.md", "source": "decision:session-lifetime-owned-by-auth", "target": "data:authentication-runtime-config", "target_category": "structure", "target_type": "data"}
 {"context": "body", "path": ".knowledge/decision/session-lifetime-owned-by-auth.md", "source": "decision:session-lifetime-owned-by-auth", "target": "api:session-manager", "target_category": "interface", "target_type": "api"}
@@ -1507,6 +1510,11 @@
 {"context": "body", "path": ".knowledge/decision/stdlib-servemux.md", "source": "decision:stdlib-servemux", "target": "api:cli-generate", "target_category": "interface", "target_type": "api"}
 {"context": "body", "path": ".knowledge/decision/stdlib-servemux.md", "source": "decision:stdlib-servemux", "target": "system:tinybind", "target_category": "external", "target_type": "system"}
 {"context": "body", "path": ".knowledge/decision/stdlib-servemux.md", "source": "decision:stdlib-servemux", "target": "requirement:tinygodriver-adoption", "target_category": "objective", "target_type": "requirement"}
+{"context": "body", "path": ".knowledge/decision/storage-bounded-session-record.md", "source": "decision:storage-bounded-session-record", "target": "decision:session-lifetime-owned-by-auth", "target_category": "constraint", "target_type": "decision"}
+{"context": "body", "path": ".knowledge/decision/storage-bounded-session-record.md", "source": "decision:storage-bounded-session-record", "target": "api:session-store", "target_category": "interface", "target_type": "api"}
+{"context": "body", "path": ".knowledge/decision/storage-bounded-session-record.md", "source": "decision:storage-bounded-session-record", "target": "data:session-runtime-config", "target_category": "structure", "target_type": "data"}
+{"context": "body", "path": ".knowledge/decision/storage-bounded-session-record.md", "source": "decision:storage-bounded-session-record", "target": "data:authentication-runtime-config", "target_category": "structure", "target_type": "data"}
+{"context": "body", "path": ".knowledge/decision/storage-bounded-session-record.md", "source": "decision:storage-bounded-session-record", "target": "requirement:contrib-auth-state", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/decision/streaming-response-compression.md", "source": "decision:streaming-response-compression", "target": "decision:automatic-async-render-selection", "target_category": "constraint", "target_type": "decision"}
 {"context": "body", "path": ".knowledge/decision/streaming-response-compression.md", "source": "decision:streaming-response-compression", "target": "requirement:contrib-zstd", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/decision/streaming-response-compression.md", "source": "decision:streaming-response-compression", "target": "system:tinygodriver", "target_category": "external", "target_type": "system"}

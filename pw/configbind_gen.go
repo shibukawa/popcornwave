@@ -452,6 +452,7 @@ func registerSessionConfigDefinition2() {
 		KnownKeys: []string{
 			"session.enabled",
 			"session.backend",
+			"session.retention",
 			"session.cookie.name",
 			"session.cookie.path",
 			"session.cookie.domain",
@@ -474,6 +475,7 @@ func registerSessionConfigDefinition2() {
 		Defaults: map[string]string{
 			"session.enabled":                "false",
 			"session.backend":                "rdb",
+			"session.retention":              "720h",
 			"session.cookie.name":            "pw_session",
 			"session.cookie.path":            "/",
 			"session.cookie.secure":          "true",
@@ -489,6 +491,7 @@ func registerSessionConfigDefinition2() {
 		},
 		DependsOn: map[string][]string{
 			"session.backend":                  {"session.enabled"},
+			"session.retention":                {"session.enabled"},
 			"session.cookie.name":              {"session.enabled"},
 			"session.cookie.path":              {"session.enabled"},
 			"session.cookie.domain":            {"session.enabled"},
@@ -517,6 +520,7 @@ func registerSessionConfigDefinition2() {
 		FlagMetas: []cliparser.FieldMeta{
 			{Prefix: "session", Key: "enabled", Kind: cliparser.KindBool},
 			{Prefix: "session", Key: "backend", Help: "session storage backend: rdb, cookie, redis, or dynamo"},
+			{Prefix: "session", Key: "retention", Help: "how long the store may hold one record; the session lifetime under [auth] narrows it"},
 			{Prefix: "session", Key: "cookie.name"},
 			{Prefix: "session", Key: "cookie.path"},
 			{Prefix: "session", Key: "cookie.domain"},
@@ -540,6 +544,7 @@ func registerSessionConfigDefinition2() {
 		Scaffold: []configbind.ScaffoldField{
 			{Key: "enabled", Kind: configbind.ScaffoldBool, Default: "false"},
 			{Key: "backend", Kind: configbind.ScaffoldString, Default: "rdb", Help: "session storage backend: rdb, cookie, redis, or dynamo"},
+			{Key: "retention", Kind: configbind.ScaffoldDuration, Default: "720h", Help: "how long the store may hold one record; the session lifetime under [auth] narrows it"},
 			{Key: "cookie.name", Kind: configbind.ScaffoldString, Default: "pw_session"},
 			{Key: "cookie.path", Kind: configbind.ScaffoldString, Default: "/"},
 			{Key: "cookie.domain", Kind: configbind.ScaffoldString},
@@ -580,6 +585,15 @@ func applySessionConfigDefinition2(dst any, o *configbind.Overlay) error {
 		p.Backend = v
 	} else {
 		p.Backend = "rdb"
+	}
+	if v, ok := o.GetString("session.retention"); ok {
+		d, err := time.ParseDuration(v)
+		if err != nil {
+			return fmt.Errorf("configbind: session.retention: %w", err)
+		}
+		p.Retention = d
+	} else {
+		p.Retention = 2592000000000000 // 720h0m0s
 	}
 	if v, ok := o.GetString("session.cookie.name"); ok {
 		p.Cookie.Name = v
