@@ -106,6 +106,7 @@ outputs:
   - data:devidp-config roster and data:project-config dev.idp when the local emulator is selected
   - api:authentication-endpoints blank import in main and a sign-in and sign-out control on the starter page
   - api:session-backend-plugin blank import in main for a selected backend other than cookie
+  - a data:session-runtime-config keyring.secret generated from crypto/rand, written as a literal into config.dev.toml only, per its development_generation; it is per project rather than a template constant, and rule:configuration-advisories reports it as an error if the same file is ever diagnosed as another token
   - rule:framework-owned-tables migrations from the packages that own those tables, at the versions after the application schema, when the mode serves a login
   - the session table migration only for the rdb backend; another backend leaves that version to the auth migration
   - data:middleware-runtime-config rdb settings carrying the requirement:database-engine-selection DSN for the chosen engine, because the scaffolded migrations and queries need a database, only when the database is selected

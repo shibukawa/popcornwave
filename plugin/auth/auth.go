@@ -46,16 +46,12 @@ const (
 const stateNamespace = "auth-oidc"
 
 func init() {
-	pw.RegisterExtension(pw.Extension{
-		Name:  "auth.session",
-		Slot:  pw.SlotSession,
-		Setup: setupSession,
-		Close: closeRuntime,
-	})
+	registerSessionSlot()
 	pw.RegisterExtension(pw.Extension{
 		Name:  "auth.endpoints",
 		Slot:  pw.SlotAuthentication,
-		Setup: setupEndpoints,
+		Setup: setupAuthentication,
+		Close: closeRuntime,
 	})
 	pw.RegisterExtension(pw.Extension{
 		Name:  "auth.guard",
@@ -68,7 +64,7 @@ func init() {
 // rebuilt whenever framework initialization runs.
 type runtime struct {
 	config  Config
-	manager *session.Manager[SessionData]
+	manager *session.Manager
 	// sessionPrune is the expiry sweep of the session backend. A backend whose
 	// server or browser forgets records on its own leaves it nil.
 	sessionPrune func(context.Context, time.Time, int) (int64, error)
@@ -78,7 +74,7 @@ type runtime struct {
 	stateStore   *authstate.SQLStore[oauth.Transaction]
 	// hint is the sealed sign-in hint cookie, nil unless the deployment turned
 	// it on. It carries no authority; see SignInHint.
-	hint *session.Jar[SignInHint]
+	hint         *session.Jar[SignInHint]
 	allowlist    Allowlist
 	cookiePolicy pw.SessionCookieConfig
 	include      []pattern
@@ -114,10 +110,14 @@ func activeRuntime() *runtime {
 	return current.runtime
 }
 
-// setupSession validates configuration, opens session storage, and returns the
-// session middleware. It runs first, so the later slots only read the prepared
-// runtime.
-func setupSession(ctx context.Context) (pw.Middleware, error) {
+// setupAuthentication validates configuration, opens the state this package
+// owns, and returns the middleware that finalizes the request authentication
+// and serves the login endpoints.
+//
+// It runs at SlotAuthentication, after the framework has already resolved the
+// session at SlotSession. Storage is not this package's job: it reaches the
+// manager pw prepared and drives it.
+func setupAuthentication(ctx context.Context) (pw.Middleware, error) {
 	replaceRuntime(nil)
 
 	config := pw.Config[Config](ctx)
@@ -147,17 +147,11 @@ func setupSession(ctx context.Context) (pw.Middleware, error) {
 	if !ok {
 		return nil, errors.New("auth requires middleware.rdb.enabled = true")
 	}
-	options, err := sessionOptions(sessionConfig)
-	if err != nil {
-		return nil, err
+	manager := pw.SessionManager()
+	if manager == nil {
+		return nil, errors.New("auth requires session.enabled = true")
 	}
-	// The backend is resolved by name, so this package links no storage
-	// plugin and each backend validates its own configuration and schema.
 	driver, _ := pw.DBDriver(sessionCtx)
-	backend, err := pw.OpenSessionBackend(ctx, sessionConfig, pw.SessionResources{DB: db, DBDriver: driver})
-	if err != nil {
-		return nil, err
-	}
 	// The ceremony store speaks whatever engine the DSN resolved to, so its
 	// dialect comes from the same place the session backend's does.
 	stateStore, err := authstate.NewSQLStore[oauth.Transaction](db, oauth.TransactionCodec{}, authstate.SQLOptions{
@@ -178,11 +172,6 @@ func setupSession(ctx context.Context) (pw.Middleware, error) {
 	if err := stateStore.EnsureSchema(schemaCtx); err != nil {
 		return nil, fmt.Errorf("auth state schema: %w", err)
 	}
-	manager, err := session.NewManager[SessionData](
-		session.Typed[SessionData](backend.Store, session.JSONCodec[SessionData]{}), options)
-	if err != nil {
-		return nil, err
-	}
 	include, err := compilePatterns(config.Protection.Include)
 	if err != nil {
 		return nil, err
@@ -194,8 +183,7 @@ func setupSession(ctx context.Context) (pw.Middleware, error) {
 	instance := &runtime{
 		config:       config,
 		manager:      manager,
-		sessionPrune: backend.Prune,
-		sessionClose: backend.Close,
+		sessionPrune: pw.SessionPrune(),
 		stateStore:   stateStore,
 		allowlist:    Allowlist{db: db},
 		cookiePolicy: sessionConfig.Cookie,
@@ -216,7 +204,7 @@ func setupSession(ctx context.Context) (pw.Middleware, error) {
 	// only expire logically, so a sweep keeps both tables bounded.
 	go instance.prune()
 	replaceRuntime(instance)
-	return instance.manager.Middleware(writeUnavailable), nil
+	return instance.authenticate, nil
 }
 
 // replaceRuntime installs instance and releases the runtime it replaces.
@@ -259,14 +247,6 @@ func (rt *runtime) prune() {
 	}
 }
 
-func setupEndpoints(context.Context) (pw.Middleware, error) {
-	instance := activeRuntime()
-	if instance == nil {
-		return nil, nil
-	}
-	return instance.endpoints, nil
-}
-
 func setupGuard(context.Context) (pw.Middleware, error) {
 	instance := activeRuntime()
 	if instance == nil || len(instance.include) == 0 {
@@ -281,41 +261,6 @@ func setupGuard(context.Context) (pw.Middleware, error) {
 func closeRuntime(context.Context) error {
 	replaceRuntime(nil)
 	return nil
-}
-
-func sessionOptions(config pw.SessionConfig) (session.Options[SessionData], error) {
-	sameSite, err := parseSameSite(config.Cookie.SameSite)
-	if err != nil {
-		return session.Options[SessionData]{}, err
-	}
-	return session.Options[SessionData]{
-		TTL:             config.TTL,
-		IdleTimeout:     config.IdleTimeout,
-		RenewalInterval: config.RenewalInterval,
-		Cookie: session.CookieOptions{
-			Name:     config.Cookie.Name,
-			Path:     config.Cookie.Path,
-			Domain:   config.Cookie.Domain,
-			Secure:   config.Cookie.Secure,
-			HTTPOnly: config.Cookie.HTTPOnly,
-			SameSite: sameSite,
-		},
-		Method:  MethodOIDC,
-		Subject: func(data SessionData) string { return data.AccountID },
-	}, nil
-}
-
-func parseSameSite(value string) (http.SameSite, error) {
-	switch value {
-	case "", "lax":
-		return http.SameSiteLaxMode, nil
-	case "strict":
-		return http.SameSiteStrictMode, nil
-	case "none":
-		return http.SameSiteNoneMode, nil
-	default:
-		return 0, fmt.Errorf("session.cookie.same_site must be strict, lax, or none, got %q", value)
-	}
 }
 
 func writeUnavailable(w http.ResponseWriter, r *http.Request, err error) {

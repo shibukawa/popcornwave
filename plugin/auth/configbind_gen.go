@@ -13,6 +13,7 @@ import (
 
 func init() {
 	registerConfigDefinition0()
+	registerSessionLifetimeConfigDefinition1()
 }
 
 func registerConfigDefinition0() {
@@ -562,6 +563,70 @@ func applyConfigDefinition0(dst any, o *configbind.Overlay) error {
 		p.Passkey.Discoverable = v
 	} else {
 		p.Passkey.Discoverable = "preferred"
+	}
+	return nil
+}
+
+func registerSessionLifetimeConfigDefinition1() {
+	configbind.Register[SessionLifetimeConfig](configbind.Definition{
+		TypeName: "github.com/shibukawa/popcornwave/plugin/auth.SessionLifetimeConfig",
+		Prefix:   "auth.session",
+		Doc:      "SessionLifetimeConfig is the [auth.session] binding, declared in popcornwave/sessionconfig so that pw can read it without importing this package",
+		KnownKeys: []string{
+			"auth.session.ttl",
+			"auth.session.idle_timeout",
+			"auth.session.renewal_interval",
+		},
+		Defaults: map[string]string{
+			"auth.session.ttl":              "24h",
+			"auth.session.idle_timeout":     "0s",
+			"auth.session.renewal_interval": "0s",
+		},
+		FlagMetas: []cliparser.FieldMeta{
+			{Prefix: "auth.session", Key: "ttl", Help: "absolute session lifetime"},
+			{Prefix: "auth.session", Key: "idle_timeout", Help: "inactivity expiry; zero disables it"},
+			{Prefix: "auth.session", Key: "renewal_interval", Help: "minimum interval between idle expiry renewals"},
+		},
+		Apply: applySessionLifetimeConfigDefinition1,
+		Scaffold: []configbind.ScaffoldField{
+			{Key: "ttl", Kind: configbind.ScaffoldDuration, Default: "24h", Help: "absolute session lifetime"},
+			{Key: "idle_timeout", Kind: configbind.ScaffoldDuration, Default: "0s", Help: "inactivity expiry; zero disables it"},
+			{Key: "renewal_interval", Kind: configbind.ScaffoldDuration, Default: "0s", Help: "minimum interval between idle expiry renewals"},
+		},
+	})
+}
+
+func applySessionLifetimeConfigDefinition1(dst any, o *configbind.Overlay) error {
+	p, ok := dst.(*SessionLifetimeConfig)
+	if !ok || p == nil {
+		return fmt.Errorf("configbind: apply SessionLifetimeConfig: bad destination")
+	}
+	if v, ok := o.GetString("auth.session.ttl"); ok {
+		d, err := time.ParseDuration(v)
+		if err != nil {
+			return fmt.Errorf("configbind: auth.session.ttl: %w", err)
+		}
+		p.TTL = d
+	} else {
+		p.TTL = 86400000000000 // 24h0m0s
+	}
+	if v, ok := o.GetString("auth.session.idle_timeout"); ok {
+		d, err := time.ParseDuration(v)
+		if err != nil {
+			return fmt.Errorf("configbind: auth.session.idle_timeout: %w", err)
+		}
+		p.IdleTimeout = d
+	} else {
+		p.IdleTimeout = 0 // 0s
+	}
+	if v, ok := o.GetString("auth.session.renewal_interval"); ok {
+		d, err := time.ParseDuration(v)
+		if err != nil {
+			return fmt.Errorf("configbind: auth.session.renewal_interval: %w", err)
+		}
+		p.RenewalInterval = d
+	} else {
+		p.RenewalInterval = 0 // 0s
 	}
 	return nil
 }

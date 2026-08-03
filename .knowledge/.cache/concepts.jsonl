@@ -45,6 +45,7 @@
 {"category": "interface", "id": "api:server-action", "path": ".knowledge/api/server-action.md", "role": "primary", "title": "Server Action", "type": "api"}
 {"category": "interface", "id": "api:session-backend-plugin", "path": ".knowledge/api/session-backend-plugin.md", "role": "primary", "title": "Session Backend Plugin Contract", "type": "api"}
 {"category": "interface", "id": "api:session-manager", "path": ".knowledge/api/session-manager.md", "role": "primary", "title": "Session Manager API", "type": "api"}
+{"category": "interface", "id": "api:session-registry", "path": ".knowledge/api/session-registry.md", "role": "primary", "title": "Typed Session Storage Registry", "type": "api"}
 {"category": "interface", "id": "api:session-store", "path": ".knowledge/api/session-store.md", "role": "primary", "title": "Session Store Contract", "type": "api"}
 {"category": "interface", "id": "api:subcommands", "path": ".knowledge/api/subcommands.md", "role": "primary", "title": "Application Subcommands", "type": "api"}
 {"category": "interface", "id": "api:test-run", "path": ".knowledge/api/test-run.md", "role": "primary", "title": "Isolated TestRun", "type": "api"}
@@ -64,6 +65,7 @@
 {"category": "concept", "id": "concept:page-tree", "path": ".knowledge/concept/page-tree.md", "role": "supporting", "title": "Page Tree", "type": "concept"}
 {"category": "concept", "id": "concept:project-layout", "path": ".knowledge/concept/project-layout.md", "role": "supporting", "title": "Generated Project Layout", "type": "concept"}
 {"category": "concept", "id": "concept:public-package-boundaries", "path": ".knowledge/concept/public-package-boundaries.md", "role": "supporting", "title": "Public Package Boundaries", "type": "concept"}
+{"category": "concept", "id": "concept:session-storage-boundary", "path": ".knowledge/concept/session-storage-boundary.md", "role": "supporting", "title": "Session Storage and Authentication Boundary", "type": "concept"}
 {"category": "structure", "id": "data:account-bootstrap-credential", "path": ".knowledge/data/account-bootstrap-credential.md", "role": "supporting", "title": "Account Bootstrap Credential", "type": "data"}
 {"category": "structure", "id": "data:auth-state-record", "path": ".knowledge/data/auth-state-record.md", "role": "supporting", "title": "Authentication State Record", "type": "data"}
 {"category": "structure", "id": "data:authentication-runtime-config", "path": ".knowledge/data/authentication-runtime-config.md", "role": "supporting", "title": "Authentication Runtime Config", "type": "data"}
@@ -133,6 +135,7 @@
 {"category": "constraint", "id": "decision:explicit-transaction-boundary", "path": ".knowledge/decision/explicit-transaction-boundary.md", "role": "supporting", "title": "Explicit Transaction Boundary", "type": "decision"}
 {"category": "constraint", "id": "decision:force-tinygo-logic", "path": ".knowledge/decision/force-tinygo-logic.md", "role": "supporting", "title": "Forced TinyGo Logic Build Tag", "type": "decision"}
 {"category": "constraint", "id": "decision:fragment-head-rejection", "path": ".knowledge/decision/fragment-head-rejection.md", "role": "supporting", "title": "Fragment Head Rejection", "type": "decision"}
+{"category": "constraint", "id": "decision:framework-owned-session-extension", "path": ".knowledge/decision/framework-owned-session-extension.md", "role": "supporting", "title": "The Framework Installs the Session", "type": "decision"}
 {"category": "constraint", "id": "decision:goose-migration-engine", "path": ".knowledge/decision/goose-migration-engine.md", "role": "supporting", "title": "Statically Linked goose Engine", "type": "decision"}
 {"category": "constraint", "id": "decision:grouped-database-connections", "path": ".knowledge/decision/grouped-database-connections.md", "role": "supporting", "title": "Grouped Database Connections", "type": "decision"}
 {"category": "constraint", "id": "decision:homebrew-tap-channel", "path": ".knowledge/decision/homebrew-tap-channel.md", "role": "supporting", "title": "Homebrew Own-Tap Channel", "type": "decision"}
@@ -155,8 +158,11 @@
 {"category": "constraint", "id": "decision:root-pw-api", "path": ".knowledge/decision/root-pw-api.md", "role": "supporting", "title": "Root pw API", "type": "decision"}
 {"category": "constraint", "id": "decision:savepoint-nested-transaction", "path": ".knowledge/decision/savepoint-nested-transaction.md", "role": "supporting", "title": "Savepoint-Backed Nested Transaction", "type": "decision"}
 {"category": "constraint", "id": "decision:server-sql-support-tier", "path": ".knowledge/decision/server-sql-support-tier.md", "role": "supporting", "title": "Server SQL Support Tier", "type": "decision"}
+{"category": "constraint", "id": "decision:session-lifetime-owned-by-auth", "path": ".knowledge/decision/session-lifetime-owned-by-auth.md", "role": "supporting", "title": "Session Lifetime Owned by Authentication", "type": "decision"}
 {"category": "constraint", "id": "decision:shared-check-catalog", "path": ".knowledge/decision/shared-check-catalog.md", "role": "supporting", "title": "Shared Check Catalog", "type": "decision"}
 {"category": "constraint", "id": "decision:slog-handler-log-backend", "path": ".knowledge/decision/slog-handler-log-backend.md", "role": "supporting", "title": "slog Handler as the Log Encoder", "type": "decision"}
+{"category": "constraint", "id": "decision:slot-declared-placement", "path": ".knowledge/decision/slot-declared-placement.md", "role": "supporting", "title": "Slot-Declared Placement and Anonymous Promotion", "type": "decision"}
+{"category": "constraint", "id": "decision:slot-lifetime-axis", "path": ".knowledge/decision/slot-lifetime-axis.md", "role": "supporting", "title": "Slot Lifetime as an Independent Axis", "type": "decision"}
 {"category": "constraint", "id": "decision:sqlite-backend-selection", "path": ".knowledge/decision/sqlite-backend-selection.md", "role": "supporting", "title": "SQLite Backend Selection", "type": "decision"}
 {"category": "constraint", "id": "decision:stdlib-servemux", "path": ".knowledge/decision/stdlib-servemux.md", "role": "supporting", "title": "Standard ServeMux Routing", "type": "decision"}
 {"category": "constraint", "id": "decision:streaming-response-compression", "path": ".knowledge/decision/streaming-response-compression.md", "role": "supporting", "title": "Streaming Response Compression", "type": "decision"}
@@ -167,6 +173,7 @@
 {"category": "constraint", "id": "decision:tinybind-sql-runtime", "path": ".knowledge/decision/tinybind-sql-runtime.md", "role": "supporting", "title": "TinyBind SQL Plan Runtime", "type": "decision"}
 {"category": "constraint", "id": "decision:tinygo-042-baseline", "path": ".knowledge/decision/tinygo-042-baseline.md", "role": "supporting", "title": "TinyGo 0.42 Baseline", "type": "decision"}
 {"category": "constraint", "id": "decision:tinygo-storage-direction", "path": ".knowledge/decision/tinygo-storage-direction.md", "role": "supporting", "title": "TinyGo Storage Direction", "type": "decision"}
+{"category": "constraint", "id": "decision:type-keyed-session-storage", "path": ".knowledge/decision/type-keyed-session-storage.md", "role": "supporting", "title": "Type-Keyed Session Storage Registry", "type": "decision"}
 {"category": "constraint", "id": "decision:unhandled-boundary-escalation", "path": ".knowledge/decision/unhandled-boundary-escalation.md", "role": "supporting", "title": "Unhandled Boundary Escalation", "type": "decision"}
 {"category": "constraint", "id": "decision:wasi-http-deferred", "path": ".knowledge/decision/wasi-http-deferred.md", "role": "supporting", "title": "Defer WASI HTTP Adapter", "type": "decision"}
 {"category": "constraint", "id": "decision:web-runtime-delivery-order", "path": ".knowledge/decision/web-runtime-delivery-order.md", "role": "supporting", "title": "Web Runtime Delivery Order", "type": "decision"}

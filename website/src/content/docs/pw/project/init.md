@@ -140,9 +140,11 @@ alternative is to use the emulator.
 
 ## Session storage
 
-An `--auth` mode asks one more question: where a login session lives. All three
-answers read the same in a handler — `session.Read[T]` and the auth helpers do
-not change — so this is a deployment decision, not an API one.
+An `--auth` mode asks one more question: which server backend holds the session
+state that goes there. All three answers read the same in a handler —
+`session.Load[T]` and the auth helpers do not change — so this is a deployment
+decision, not an API one. What *is* server-placed is decided by each
+`pw.RegisterSessionStore` line instead.
 
 | Answer | `session.backend` | What the project gets |
 | --- | --- | --- |
@@ -185,12 +187,16 @@ The answer also decides what else is scaffolded. `rdb` writes the session table
 migration; `cookie` and `redis` own no table, so the auth migration takes the
 free version instead. `redis` adds the Valkey development server to
 `devbox.json` even if `--no-redis` was passed, because the session it configures
-needs a server to reach. `cookie` writes
-`cookie_store.secret = "${SESSION_COOKIE_SECRET}"` and the command prints the
-line that generates one:
+needs a server to reach.
+
+Every answer gets a `session.keyring.secret`, generated for that project and
+written into `config.dev.toml`, because a scaffolded project should run without
+an authored secret. It belongs to development: any other environment reads
+`SESSION_KEYRING_SECRET`, and `pw doctor --env=prod` reports a literal there as
+an error.
 
 ```sh
-export SESSION_COOKIE_SECRET=$(openssl rand -base64 32)
+export SESSION_KEYRING_SECRET=$(openssl rand -base64 32)
 ```
 
 [Cookies](/guides/backend/cookies/) compares the three in terms of revocation, size, and

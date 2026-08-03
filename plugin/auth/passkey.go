@@ -219,7 +219,7 @@ func (rt *runtime) handlePasskeyLoginFinish(w http.ResponseWriter, r *http.Reque
 		return
 	}
 	// Rotation revokes whatever the browser held before this authentication.
-	if err := rt.manager.RotateWithMethod(w, r, SessionData{
+	if err := rt.establish(w, r, SessionData{
 		AccountID:   account.ID,
 		DisplayName: account.DisplayName,
 		Email:       account.Email,
@@ -255,7 +255,7 @@ func (rt *runtime) resolveEnroller(w http.ResponseWriter, r *http.Request, consu
 			Challenge(w, r, Default(), true)
 			return enroller{}, false
 		}
-		return enroller{accountID: view.Data.AccountID, label: displayOrAccount(view.Data)}, true
+		return enroller{accountID: view.AccountID, label: displayOrAccount(view)}, true
 	}
 	if rt.enrollment != nil {
 		take := rt.rotateEnrollmentTicket
@@ -340,7 +340,7 @@ func (rt *runtime) handlePasskeyRegisterFinish(w http.ResponseWriter, r *http.Re
 		// The account can now authenticate a new way, so the session it did
 		// that from is replaced rather than carried forward.
 		view, _ := Session(r.Context())
-		if err := rt.manager.RotateWithMethod(w, r, view.Data, view.Method); err != nil {
+		if err := rt.establish(w, r, view, view.Method); err != nil {
 			pw.Logger(r.Context()).Log(r.Context(), pw.LevelError, "session rotation failed", pw.Err(err))
 			pw.WriteProblem(w, r, pw.ServiceUnavailable())
 			return

@@ -13,8 +13,9 @@ bundled:
   - data:runtime-config-registry with all configbind values and provenance
   - request root span
   - api:logger backend and stable request logging attributes
-  - validated data:session-record safe view
-  - verified data:request-authentication
+  - verified data:request-authentication, finalized at SlotAuthentication rather than by session middleware
+not_bundled:
+  session_slots: api:session-registry keeps its own request value, because a slot is read by type rather than from a flat capsule field
   - masked CSRF request token; never the stored session secret
   - future stable request resources approved by this contract
 individual_values:

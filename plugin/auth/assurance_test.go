@@ -118,8 +118,8 @@ func TestAZeroConfirmationWindowMeansThisAttempt(t *testing.T) {
 func TestConfirmedAndMaxAgeDifferOnlyOnWhoMayProve(t *testing.T) {
 	config := baseConfig(ModeOIDCOnly)
 	request := httptest.NewRequest("GET", "/", nil)
-	plain, _ := MaxAge(15 * time.Minute).resolve(request, config)
-	strict, _ := Confirmed(15 * time.Minute).resolve(request, config)
+	plain, _ := MaxAge(15*time.Minute).resolve(request, config)
+	strict, _ := Confirmed(15*time.Minute).resolve(request, config)
 	if plain.maxAge != strict.maxAge {
 		t.Fatalf("windows differ: %v and %v", plain.maxAge, strict.maxAge)
 	}
@@ -168,11 +168,11 @@ func TestAZeroWindowIsSatisfiedOnlyByACompletedStepUp(t *testing.T) {
 func TestFreshnessPrefersTheProviderProofTime(t *testing.T) {
 	arrival := time.Now()
 	proved := arrival.Add(-8 * time.Hour)
-	data := SessionData{ProviderAuthTime: proved.Unix()}
-	if got := data.provenAt(arrival); got.Unix() != proved.Unix() {
+	data := SessionData{AuthenticatedAt: arrival, ProviderAuthTime: proved.Unix()}
+	if got := data.provenAt(); got.Unix() != proved.Unix() {
 		t.Fatalf("provenAt = %v, want the reported %v", got, proved)
 	}
-	if got := (SessionData{}).provenAt(arrival); !got.Equal(arrival) {
+	if got := (SessionData{AuthenticatedAt: arrival}).provenAt(); !got.Equal(arrival) {
 		t.Fatalf("provenAt with no provider time = %v, want the fallback %v", got, arrival)
 	}
 }

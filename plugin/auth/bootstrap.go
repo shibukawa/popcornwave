@@ -335,7 +335,7 @@ func (rt *runtime) completeBootstrapEnrollment(w http.ResponseWriter, r *http.Re
 		pw.WriteProblem(w, r, pw.Forbidden())
 		return false
 	}
-	if err := rt.manager.RotateWithMethod(w, r, SessionData{
+	if err := rt.establish(w, r, SessionData{
 		AccountID:   account.ID,
 		DisplayName: account.DisplayName,
 		Email:       account.Email,

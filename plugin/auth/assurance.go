@@ -186,7 +186,7 @@ func LastProvedAt(ctx context.Context) (time.Time, bool) {
 	if !ok {
 		return time.Time{}, false
 	}
-	return view.Data.provenAt(view.AuthenticatedAt), true
+	return view.provenAt(), true
 }
 
 // satisfied evaluates the requirement against the request's session.
@@ -207,7 +207,7 @@ func satisfied(r *http.Request, requirement Requirement) (bool, error) {
 		return false, fmt.Errorf("%w: requirement could not be resolved", ErrNoAssurance)
 	}
 	if want.confirmed {
-		return confirmedWithin(view.Data, want.maxAge), nil
+		return confirmedWithin(view, want.maxAge), nil
 	}
 	if want.maxAge == 0 {
 		// Elapsed time can never satisfy a zero window: the redirect to the
@@ -215,9 +215,9 @@ func satisfied(r *http.Request, requirement Requirement) (bool, error) {
 		// timestamp comparison would challenge again immediately after a
 		// successful re-proof and never converge. Read it as a confirmation
 		// for this attempt, which is what it was always meant to say.
-		return stepUpAdmitted(view.Data), nil
+		return stepUpAdmitted(view), nil
 	}
-	return time.Since(view.Data.provenAt(view.AuthenticatedAt)) <= want.maxAge, nil
+	return time.Since(view.provenAt()) <= want.maxAge, nil
 }
 
 // confirmedWithin reports whether a re-proof the guard asked for happened
@@ -272,4 +272,3 @@ func challenge(w http.ResponseWriter, r *http.Request, requirement Requirement, 
 	}
 	instance.redirect(w, r, instance.stepUpPath(r, want.maxAge))
 }
-

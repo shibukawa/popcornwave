@@ -118,10 +118,12 @@ openssl rand -base64 32
 [session]
 enabled = true
 backend = "cookie"
-
-[session.cookie_store]
-secret = "${SESSION_COOKIE_SECRET}"
+keyring.secret = "${SESSION_KEYRING_SECRET}"
 ```
+
+この秘密鍵は cookie バックエンド固有の設定ではありません。1つの鍵が `session.ReadOnly` の
+スロット全部に署名し、`session.Private` のスロット全部に封をします。`rdb` や `redis` の
+デプロイでも宣言します。
 
 封も、ローテーションも、サイズの上限も同じです。ログインのときだけ効いてくる制限がひとつ
 あります。封をしたレコードは失効させられません。消すべきサーバー側のコピーが無いからです。

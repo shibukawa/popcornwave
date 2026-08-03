@@ -257,10 +257,7 @@ duration string, and one key cannot mean both.
 | Key | Default | Meaning |
 | --- | --- | --- |
 | `enabled` | `false` | |
-| `backend` | `"rdb"` | storage backend: `rdb`, `cookie`, or `redis` |
-| `ttl` | `"24h"` | absolute session lifetime |
-| `idle_timeout` | `"0s"` | inactivity expiry; zero disables it |
-| `renewal_interval` | `"0s"` | minimum interval between idle expiry renewals |
+| `backend` | `"rdb"` | server backend a server-placed slot uses: `rdb`, `cookie`, `redis`, or `dynamo` |
 | `cookie.name` | `"pw_session"` | |
 | `cookie.path` | `"/"` | |
 | `cookie.domain` | *(empty)* | |
@@ -274,19 +271,26 @@ duration string, and one key cannot mean both.
 | `redis.dsn` | *(empty)* | `redis://` or `rediss://` server (masked in the startup summary) |
 | `redis.key_prefix` | `"pw:session:"` | key space the session store owns |
 | `redis.connect_timeout` | `"5s"` | startup ping and per-command deadline |
-| `cookie_store.name` | `"pw_session_data"` | cookie holding the sealed record under `backend = "cookie"` |
-| `cookie_store.secret` | *(empty)* | base64 secret sealing cookie-backed records (masked) |
-| `cookie_store.previous_secrets` | `[]` | retired secrets kept readable during a rotation (masked) |
+| `cookie_store.name` | `"pw_session_data"` | cookie holding the sealed record |
+| `keyring.secret` | *(empty)* | base64 secret signing and sealing anything the browser carries (masked) |
+| `keyring.previous_secrets` | `[]` | retired secrets kept readable during a rotation (masked) |
 
 Only the keys of the selected backend are read, and a backend other than
 `cookie` reaches the binary through its own blank import — the startup error
 quotes the line to add. [Sessions](/guides/backend/sessions/) compares the
 three and lists what each one requires.
 
-The token in the browser is opaque in all three, so nothing here signs it. Only
-`backend = "cookie"` puts the record itself in the browser, and it seals that
-record under `cookie_store.secret` — the one secret this section has, and one
-that belongs in the environment rather than in the file.
+This section declares no duration. An expiry states how long a proof of identity
+stays good, so `session.ttl`, `session.idle_timeout`, and
+`session.renewal_interval` are declared under `[auth]` instead.
+
+The token in the browser is opaque in every backend, so nothing here signs it.
+`keyring.secret` protects what travels beside it: a `session.ReadOnly` slot is
+signed and a `session.Private` slot is sealed, both from that one secret. It is
+therefore required unless every registered slot is `session.Shared`, whatever
+`backend` names — a private slot rides a sealed cookie while a visitor is still
+anonymous. `pw init` generates one into `config.dev.toml`; every other
+environment reads `SESSION_KEYRING_SECRET`.
 
 ## `[auth]`
 
@@ -302,6 +306,10 @@ imports nothing authentication-related has no `[auth]` prefix to configure.
 | `callback_path` | `"/auth/callback"` | verifies the result and starts the session |
 | `logout_path` | `"/auth/logout"` | ends the session; `POST` only |
 | `post_login_path` | `"/"` | local path a completed login lands on |
+| `session.ttl` | `"24h"` | absolute session lifetime |
+| `session.idle_timeout` | `"0s"` | inactivity expiry; zero disables it |
+| `session.renewal_interval` | `"0s"` | minimum interval between idle expiry renewals |
+| `recent_auth_max_age` | `"5m"` | how recently a request must have authenticated to change a login method |
 | `protection.include` | `[]` | path patterns that require a session |
 | `protection.exclude` | `[]` | path patterns that stay public |
 | `protection.unauthenticated` | `"redirect"` | `redirect` or `unauthorized` |

@@ -45,10 +45,11 @@ placement:
   resolve: a middleware installs the identity of an existing session on every request
 session:
   form: opaque cookie token over a server-side record, per api:session-manager
-  payload: account summary only, with no token body and no provider secret
+  payload: the plugin/auth slot of api:session-registry, holding an account summary with no token body and no provider secret
   store: sessionstore/sqlite, verified at startup against rule:framework-owned-tables
-  lifetime: session.ttl absolute and session.idle_timeout inactivity
-  rotation: login rotates the token, which revokes whatever the browser held before
+  lifetime: auth.session.ttl absolute and auth.session.idle_timeout inactivity, per decision:session-lifetime-owned-by-auth
+  rotation: login rotates the token, which revokes whatever the browser held before and preserves every other slot
+  logout: destroys every slot, per flow:session-lifecycle
 rules:
   - an unknown or expired session cookie yields an anonymous request rather than an error
   - a cross-origin logout is refused even though SameSite already blocks the cookie

@@ -138,9 +138,10 @@ OIDC 系を選ぶと、**ローカルエミュレータ**か**外部プロバイ
 
 ## セッションの置き場所
 
-`--auth` を選ぶと、もう1つだけ質問があります。ログインセッションをどこに置くか、です。
-ハンドラから見た姿は3つとも同じで、`session.Read[T]` も auth のヘルパも変わりません。
-つまりこれは API の選択ではなくデプロイの選択です。
+`--auth` を選ぶと、もう1つだけ質問があります。サーバに置く状態をどのバックエンドが持つか、です。
+ハンドラから見た姿は3つとも同じで、`session.Load[T]` も auth のヘルパも変わりません。
+つまりこれは API の選択ではなくデプロイの選択です。何がサーバに置かれるかのほうは、
+`pw.RegisterSessionStore` の各行が決めます。
 
 | 回答 | `session.backend` | 得られるもの |
 | --- | --- | --- |
@@ -182,11 +183,15 @@ import _ "github.com/shibukawa/popcornwave/sessionstore/redis"
 回答は書き出される内容も変えます。`rdb` はセッションテーブルのマイグレーションを書き、
 `cookie` と `redis` はテーブルを持たないので auth のマイグレーションが空いている番号を
 取ります。`redis` は `--no-redis` を渡していても Valkey の開発サーバーを `devbox.json` に
-加えます。設定したセッションが到達先を必要とするからです。`cookie` は
-`cookie_store.secret = "${SESSION_COOKIE_SECRET}"` を書き、生成用のコマンドを表示します。
+加えます。設定したセッションが到達先を必要とするからです。
+
+`session.keyring.secret` はどの回答でも書かれます。そのプロジェクト用に生成した値が
+`config.dev.toml` に入る。生成したプロジェクトは、秘密を自分で書かずに動くべきだからです。
+これは開発環境のもので、それ以外の環境は `SESSION_KEYRING_SECRET` を読みます。
+`pw doctor --env=prod` は、そこに直値があればエラーとして報告します。
 
 ```sh
-export SESSION_COOKIE_SECRET=$(openssl rand -base64 32)
+export SESSION_KEYRING_SECRET=$(openssl rand -base64 32)
 ```
 
 失効・サイズ・期限を誰が守るかという観点での比較は[クッキー](/ja/guides/backend/cookies/)にあります。

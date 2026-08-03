@@ -252,10 +252,7 @@ HSTS が付くのは検証済みの HTTPS リクエストだけです。平文�
 | キー | 既定値 | 意味 |
 | --- | --- | --- |
 | `enabled` | `false` | |
-| `backend` | `"rdb"` | 保存バックエンド: `rdb`、`cookie`、`redis` |
-| `ttl` | `"24h"` | セッションの絶対寿命 |
-| `idle_timeout` | `"0s"` | 無操作での失効。ゼロで無効 |
-| `renewal_interval` | `"0s"` | 無操作失効の更新間隔の下限 |
+| `backend` | `"rdb"` | サーバに置くスロットが使うバックエンド: `rdb`、`cookie`、`redis`、`dynamo` |
 | `cookie.name` | `"pw_session"` | |
 | `cookie.path` | `"/"` | |
 | `cookie.domain` | *(空)* | |
@@ -269,19 +266,25 @@ HSTS が付くのは検証済みの HTTPS リクエストだけです。平文�
 | `redis.dsn` | *(空)* | `redis://` または `rediss://` のサーバー（起動サマリではマスクされる） |
 | `redis.key_prefix` | `"pw:session:"` | セッションストアが所有する鍵空間 |
 | `redis.connect_timeout` | `"5s"` | 起動時の ping と各コマンドの期限 |
-| `cookie_store.name` | `"pw_session_data"` | `backend = "cookie"` で封をしたレコードを運ぶクッキー |
-| `cookie_store.secret` | *(空)* | クッキーのレコードを封印する base64 の秘密鍵（マスクされる） |
-| `cookie_store.previous_secrets` | `[]` | ローテーション中も読める引退した秘密鍵（マスクされる） |
+| `cookie_store.name` | `"pw_session_data"` | 封をしたレコードを運ぶクッキー |
+| `keyring.secret` | *(空)* | ブラウザが運ぶもの全部に署名し封をする base64 の秘密鍵（マスクされる） |
+| `keyring.previous_secrets` | `[]` | ローテーション中も読める引退した秘密鍵（マスクされる） |
 
 読まれるのは選んだバックエンドのキーだけです。`cookie` 以外のバックエンドは、それ自身の
 blank import でバイナリに入ります。書き忘れたときは起動時のエラーが追加すべき行を引用
 します。3つの比較と、それぞれに必要な設定は[セッション](/ja/guides/backend/sessions/)に
 あります。
 
-ブラウザにあるトークンはどのバックエンドでも不透明なので、ここに署名鍵はありません。
-レコードそのものをブラウザに置くのは `backend = "cookie"` だけで、その場合は
-`cookie_store.secret` で封をします。このセクション唯一の秘密鍵であり、ファイルではなく
-環境に置くべきものです。
+このセクションは期間を1つも宣言しません。有効期限は身元の証明がどれだけ有効かを述べるもの
+なので、`session.ttl`、`session.idle_timeout`、`session.renewal_interval` は `[auth]` の下に
+あります。
+
+ブラウザにあるトークンはどのバックエンドでも不透明なので、それ自体に署名はしません。
+`keyring.secret` が守るのはトークンの隣を運ばれるものです。`session.ReadOnly` のスロットには
+署名、`session.Private` のスロットには封。どちらも同じ1つの秘密から導きます。だから
+`backend` が何であれ、全スロットが `session.Shared` でない限り必須です。private なスロットは
+訪問者が匿名のあいだ封をしたクッキーに載るからです。`pw init` が `config.dev.toml` に生成し、
+それ以外の環境は `SESSION_KEYRING_SECRET` を読みます。
 
 ## `[auth]`
 
@@ -297,6 +300,9 @@ blank import でバイナリに入ります。書き忘れたときは起動時�
 | `callback_path` | `"/auth/callback"` | 結果を検証してセッションを開始する |
 | `logout_path` | `"/auth/logout"` | セッションを終了する。`POST` のみ |
 | `post_login_path` | `"/"` | ログイン完了後に着地するローカルパス |
+| `session.ttl` | `"24h"` | セッションの絶対寿命 |
+| `session.idle_timeout` | `"0s"` | 無操作での失効。ゼロで無効 |
+| `session.renewal_interval` | `"0s"` | 無操作失効の更新間隔の下限 |
 | `protection.include` | `[]` | セッションを必要とするパスパターン |
 | `protection.exclude` | `[]` | 公開のままにするパスパターン |
 | `protection.unauthenticated` | `"redirect"` | `redirect` または `unauthorized` |

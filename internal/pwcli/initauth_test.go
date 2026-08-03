@@ -1,6 +1,7 @@
 package pwcli
 
 import (
+	"encoding/base64"
 	"os"
 	"path/filepath"
 	"sort"
@@ -136,6 +137,10 @@ func TestScaffoldedAuthKeysAreRegistered(t *testing.T) {
 		"redirect_url": true, "scopes": true, "identity_claim": true,
 		"admission": true, "auto_provision": true,
 		"logout_scope": true, "allow_loopback_http": true,
+		// [session]
+		"keyring.secret": true,
+		// [auth], where every session lifetime is declared
+		"session.ttl": true, "session.idle_timeout": true,
 	}
 	for _, mode := range []string{authOIDC, authOIDCPasskey, authPasskey} {
 		t.Run(mode, func(t *testing.T) {
@@ -373,6 +378,39 @@ func TestScaffoldedMigrationsApply(t *testing.T) {
 // The session backend decides three scaffold outputs at once: the import that
 // contributes it, the configuration keys that describe it, and whether a
 // migration is needed at all.
+// The scaffolded keyring is generated per project rather than shipped in this
+// source. A constant here would be a published credential in every project that
+// ever ran pw init, which is the thing the placeholder check exists to catch.
+func TestTheScaffoldedKeyringIsGeneratedPerProject(t *testing.T) {
+	// The scaffold writes [session] alongside [auth] today, so this asks for an
+	// authentication mode to get one.
+	first := scaffoldFiles(initOptions{Name: "demo", Auth: authOIDC})["config.dev.toml"]
+	second := scaffoldFiles(initOptions{Name: "demo", Auth: authOIDC})["config.dev.toml"]
+	secretOf := func(config string) string {
+		for _, line := range strings.Split(config, "\n") {
+			if key, value, found := strings.Cut(strings.TrimSpace(line), "="); found &&
+				strings.TrimSpace(key) == "keyring.secret" {
+				return strings.Trim(strings.TrimSpace(value), `"`)
+			}
+		}
+		return ""
+	}
+	one, other := secretOf(first), secretOf(second)
+	if one == "" {
+		t.Fatalf("no keyring was scaffolded:\n%s", first)
+	}
+	if one == other {
+		t.Error("two projects were scaffolded with the same keyring")
+	}
+	decoded, err := base64.StdEncoding.DecodeString(one)
+	if err != nil {
+		t.Fatalf("the scaffolded keyring is not base64: %v", err)
+	}
+	if len(decoded) < 32 {
+		t.Errorf("the scaffolded keyring is %d bytes, want at least 32", len(decoded))
+	}
+}
+
 func TestScaffoldFollowsTheSessionBackendChoice(t *testing.T) {
 	rdbFiles := scaffoldFiles(initOptions{Name: "demo", Database: true, Auth: authOIDC, Session: sessionRDB})
 	if !strings.Contains(rdbFiles["cmd/demo/main.go"], `_ "github.com/shibukawa/popcornwave/sessionstore/sqlite"`) {
@@ -398,7 +436,10 @@ func TestScaffoldFollowsTheSessionBackendChoice(t *testing.T) {
 	if strings.Contains(cookieFiles["cmd/demo/main.go"], "sessionstore/") {
 		t.Errorf("the built-in cookie backend was imported:\n%s", cookieFiles["cmd/demo/main.go"])
 	}
-	if !strings.Contains(cookieFiles["config.dev.toml"], `cookie_store.secret = "${SESSION_COOKIE_SECRET}"`) {
+	// Every backend seals a record into the browser while a session is still
+	// anonymous, so the keyring is scaffolded whatever the backend is, and the
+	// cookie backend adds no key of its own.
+	if !strings.Contains(cookieFiles["config.dev.toml"], "keyring.secret = ") {
 		t.Errorf("cookie session config:\n%s", cookieFiles["config.dev.toml"])
 	}
 	if strings.Contains(cookieFiles["config.dev.toml"], "rdb.source") {

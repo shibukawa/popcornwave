@@ -2,6 +2,8 @@ package pwcli
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"io"
@@ -64,6 +66,33 @@ func sessionBackend(options initOptions) string {
 		return sessionRDB
 	}
 	return options.Session
+}
+
+// generatedKeyringSecret returns a fresh session keyring for the scaffolded
+// development configuration.
+//
+// It is written into config.dev.toml as a literal rather than left for the
+// developer to author, because requiring an authored secret to run a scaffolded
+// project puts a deployment concern in the way of getting started. It is
+// written to a file rather than generated at startup because a keyring
+// generated per process dies with the process: restarting the developer loop
+// would sign every developer out and empty every cart and preference being
+// worked on. The devidp client credentials are generated per run for the
+// opposite reason, that they mean nothing beyond one run.
+//
+// It is per project rather than a constant in this source, so it is not a
+// published credential and the placeholder check has nothing to match. It still
+// belongs to development only: every other environment reads
+// SESSION_KEYRING_SECRET, and pw doctor reports a literal here as an error for
+// any environment but dev.
+func generatedKeyringSecret() string {
+	secret := make([]byte, 32)
+	if _, err := rand.Read(secret); err != nil {
+		// crypto/rand does not fail in practice, and a scaffold that quietly
+		// wrote a predictable secret would be worse than one that stops.
+		panic("pw init: cannot generate a session keyring: " + err.Error())
+	}
+	return base64.StdEncoding.EncodeToString(secret)
 }
 
 // sessionBackendPlugin names the import that registers a backend. The cookie
@@ -1175,11 +1204,17 @@ func authRuntimeConfig(options initOptions) string {
 [session]
 enabled = true
 backend = "` + sessionBackend(options) + `"
-ttl = "12h"
-idle_timeout = "1h"
 cookie.name = "pw_session"
 # Loopback development only. Keep secure = true everywhere else.
 cookie.secure = false
+# One secret signs and seals everything the browser carries, whatever the
+# backend is: a session.ReadOnly slot is signed and a session.Private slot is
+# sealed, including while a visitor is still anonymous.
+#
+# This value was generated for this project and belongs to development only.
+# Every other environment reads SESSION_KEYRING_SECRET, and "pw doctor --env"
+# reports a literal here as an error for any environment but dev.
+keyring.secret = "` + generatedKeyringSecret() + `"
 ` + sessionBackendConfig(options) + `
 
 # The framework serves every authentication path itself, so the application
@@ -1188,6 +1223,11 @@ cookie.secure = false
 enabled = true
 mode = "` + authConfigMode(options.Auth) + `"
 post_login_path = "/"
+# Every session lifetime is declared here rather than under [session]: an
+# expiry states how long a proof of identity stays good, and the store holding
+# the bytes has no basis to make that statement.
+session.ttl = "12h"
+session.idle_timeout = "1h"
 # Opt in per path; everything else stays public.
 protection.include = []
 protection.unauthenticated = "redirect"
@@ -1307,11 +1347,10 @@ func authDevelopmentOrigin(options initOptions) string {
 func sessionBackendConfig(options initOptions) string {
 	switch sessionBackend(options) {
 	case sessionCookie:
-		return `# The record is sealed into a second cookie, so this deployment stores no
-# sessions at all. Generate the secret with: openssl rand -base64 32
-# Keep it in the environment. During a rotation the old value moves into
-# cookie_store.previous_secrets, which keeps issued records readable.
-cookie_store.secret = "${SESSION_COOKIE_SECRET}"
+		return `# The record stays sealed in a second cookie for the whole of a session, so
+# this deployment stores no sessions at all. It uses the same keyring.secret
+# above; during a rotation the old value moves into keyring.previous_secrets,
+# which keeps issued records readable.
 `
 	case sessionRedis:
 		return `# Redis or Valkey holds each record under its own TTL, so no sweep runs.

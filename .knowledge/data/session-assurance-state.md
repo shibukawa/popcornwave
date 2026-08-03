@@ -3,25 +3,29 @@ id: data:session-assurance-state
 type: data
 title: Session Assurance State
 ---
-Assurance state adds a provider-verified proof time to the plugin's own session payload, leaving the generic session package unchanged, and adds the `[auth]` keys that bound how stale a proof may be.
+Assurance state is the whole of what proved this session and when, held in the plugin/auth slot of api:session-registry, together with the `[auth]` keys that bound how stale a proof may be.
 
 ```yaml
 ownership:
-  principle: data:session-record owns when and how strongly, and plugin/auth owns what proved it and whether that is enough
-  session_package: unchanged; authenticated_at and authentication_method already exist there and are already protocol-neutral
-  plugin_auth: owns every field and key below
+  principle: plugin/auth owns what proved the session, when, and whether that is still enough; the session package owns only where those bytes live
+  boundary: concept:session-storage-boundary
+  slot: one registered session.Private slot, stored exactly like an application's own
   why_not_the_record:
+    - every field here answers how well the subject is proved, which data:session-record has no basis to answer for an anonymous browser
     - a provider proof time is an OpenID Connect concept, and passkey_only has no provider at all
-    - adding it to the generic record would put a permanently empty field in every deployment that uses no provider
-    - the plugin payload already carries issuer, subject, key claim, and key, so this belongs beside them
-    - api:session-manager stores the payload as opaque typed data and never learns what an issuer is
-existing_fields:
-  authenticated_at: time of the most recent authentication-strength change, on data:session-record and already on the session view
-  authentication_method: on data:session-record as an unordered label such as oidc or passkey
-added_fields:
-  location: the plugin/auth session payload, not data:session-record
+    - a record field would be permanently empty in every deployment that uses no provider, and in every session that holds only a cart
+    - api:session-manager stores the slot as opaque encoded data and never learns what an issuer is
+fields:
+  authenticated_at: time of the most recent authentication-strength change
+  authentication_method: unordered label such as oidc or passkey
   provider_authenticated_at: verified auth_time of the identity provider when the proof came from OIDC, supplied by requirement:contrib-oidc
   reauth_count: completed re-proofs on this session, for audit only
+  step_up_at: the single-use admission stamp of api:assurance-guard
+moved_from_the_record:
+  keys: authenticated_at and authentication_method
+  was: data:session-record fields exposed on the generic session view
+  now: slot fields exposed through auth accessors
+  effect: a handler asks plugin/auth how fresh the proof is, and never asks the session package
 strength:
   today: the existing unordered authentication_method label, recorded and audited but never compared
   deferred: an ordered label set and the auth.assurance.strengths key, for the reason api:assurance-guard gives
@@ -35,6 +39,7 @@ config_fields:
   auth.recent_auth_max_age: the existing duration, default 5m, which becomes the default maximum age of a guard naming none
   auth.assurance.policy.<name>.max_age: a named window an api:assurance-guard Requirement resolves, so user experience is deployment-tunable
   auth.assurance.hint: the keys policy:session-downgrade defines, which are the hint's own absolute and idle bounds and not the session's
+  auth.session: the ttl, idle_timeout, and renewal_interval keys decision:session-lifetime-owned-by-auth moved here, so a guard window and the session bound it must fit inside are declared together
 absolute_expiry_on_reproof:
   behavior: re-proof resets it, because api:session-manager Rotate revokes and creates, and creation stamps a fresh CreatedAt and ExpiresAt
   aligned_with: the reauthentication rule of policy:session-security and the NIST rule that a successful reauthentication resets both timeouts

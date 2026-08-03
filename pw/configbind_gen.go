@@ -370,13 +370,9 @@ func registerSessionConfigDefinition2() {
 	configbind.Register[SessionConfig](configbind.Definition{
 		TypeName: "github.com/shibukawa/popcornwave/pw.SessionConfig",
 		Prefix:   "session",
-		Doc:      "SessionConfig selects login-session behavior, cookie policy, and storage. The session token is opaque in every backend; only SessionBackendCookie carries the record itself, and it seals it under a configured secret",
 		KnownKeys: []string{
 			"session.enabled",
 			"session.backend",
-			"session.ttl",
-			"session.idle_timeout",
-			"session.renewal_interval",
 			"session.cookie.name",
 			"session.cookie.path",
 			"session.cookie.domain",
@@ -391,17 +387,14 @@ func registerSessionConfigDefinition2() {
 			"session.redis.key_prefix",
 			"session.redis.connect_timeout",
 			"session.cookie_store.name",
-			"session.cookie_store.secret",
-			"session.cookie_store.previous_secrets",
+			"session.keyring.secret",
+			"session.keyring.previous_secrets",
 			"session.dynamo.table",
 			"session.dynamo.consistent_read",
 		},
 		Defaults: map[string]string{
 			"session.enabled":                "false",
 			"session.backend":                "rdb",
-			"session.ttl":                    "24h",
-			"session.idle_timeout":           "0s",
-			"session.renewal_interval":       "0s",
 			"session.cookie.name":            "pw_session",
 			"session.cookie.path":            "/",
 			"session.cookie.secure":          "true",
@@ -416,41 +409,35 @@ func registerSessionConfigDefinition2() {
 			"session.dynamo.consistent_read": "false",
 		},
 		DependsOn: map[string][]string{
-			"session.backend":                       {"session.enabled"},
-			"session.ttl":                           {"session.enabled"},
-			"session.idle_timeout":                  {"session.enabled"},
-			"session.renewal_interval":              {"session.enabled"},
-			"session.cookie.name":                   {"session.enabled"},
-			"session.cookie.path":                   {"session.enabled"},
-			"session.cookie.domain":                 {"session.enabled"},
-			"session.cookie.secure":                 {"session.enabled"},
-			"session.cookie.http_only":              {"session.enabled"},
-			"session.cookie.same_site":              {"session.enabled"},
-			"session.rdb.source":                    {"session.enabled"},
-			"session.rdb.group":                     {"session.enabled"},
-			"session.rdb.dsn":                       {"session.enabled"},
-			"session.rdb.table":                     {"session.enabled"},
-			"session.redis.dsn":                     {"session.enabled"},
-			"session.redis.key_prefix":              {"session.enabled"},
-			"session.redis.connect_timeout":         {"session.enabled"},
-			"session.cookie_store.name":             {"session.enabled"},
-			"session.cookie_store.secret":           {"session.enabled"},
-			"session.cookie_store.previous_secrets": {"session.enabled"},
-			"session.dynamo.table":                  {"session.enabled"},
-			"session.dynamo.consistent_read":        {"session.enabled"},
+			"session.backend":                  {"session.enabled"},
+			"session.cookie.name":              {"session.enabled"},
+			"session.cookie.path":              {"session.enabled"},
+			"session.cookie.domain":            {"session.enabled"},
+			"session.cookie.secure":            {"session.enabled"},
+			"session.cookie.http_only":         {"session.enabled"},
+			"session.cookie.same_site":         {"session.enabled"},
+			"session.rdb.source":               {"session.enabled"},
+			"session.rdb.group":                {"session.enabled"},
+			"session.rdb.dsn":                  {"session.enabled"},
+			"session.rdb.table":                {"session.enabled"},
+			"session.redis.dsn":                {"session.enabled"},
+			"session.redis.key_prefix":         {"session.enabled"},
+			"session.redis.connect_timeout":    {"session.enabled"},
+			"session.cookie_store.name":        {"session.enabled"},
+			"session.keyring.secret":           {"session.enabled"},
+			"session.keyring.previous_secrets": {"session.enabled"},
+			"session.dynamo.table":             {"session.enabled"},
+			"session.dynamo.consistent_read":   {"session.enabled"},
 		},
 		Secrets: map[string]string{
-			"session.rdb.dsn":                       "mask",
-			"session.redis.dsn":                     "mask",
-			"session.cookie_store.secret":           "mask",
-			"session.cookie_store.previous_secrets": "mask",
+			"session.rdb.dsn":                  "mask",
+			"session.redis.dsn":                "mask",
+			"session.keyring.secret":           "mask",
+			"session.keyring.previous_secrets": "mask",
 		},
 		FlagMetas: []cliparser.FieldMeta{
 			{Prefix: "session", Key: "enabled", Kind: cliparser.KindBool},
 			{Prefix: "session", Key: "backend", Help: "session storage backend: rdb, cookie, redis, or dynamo"},
-			{Prefix: "session", Key: "ttl", Help: "absolute session lifetime"},
-			{Prefix: "session", Key: "idle_timeout", Help: "inactivity expiry; zero disables it"},
-			{Prefix: "session", Key: "renewal_interval", Help: "minimum interval between idle expiry renewals"},
 			{Prefix: "session", Key: "cookie.name"},
 			{Prefix: "session", Key: "cookie.path"},
 			{Prefix: "session", Key: "cookie.domain"},
@@ -465,8 +452,8 @@ func registerSessionConfigDefinition2() {
 			{Prefix: "session", Key: "redis.key_prefix", Help: "key space owned by the session store"},
 			{Prefix: "session", Key: "redis.connect_timeout", Help: "startup ping and per-command deadline"},
 			{Prefix: "session", Key: "cookie_store.name", Help: "cookie holding the sealed record"},
-			{Prefix: "session", Key: "cookie_store.secret", Env: "SESSION_COOKIE_STORE_SECRET", Help: "base64 secret sealing cookie-backed records"},
-			{Prefix: "session", Key: "cookie_store.previous_secrets", Help: "retired secrets kept readable during a rotation", Kind: cliparser.KindArray},
+			{Prefix: "session", Key: "keyring.secret", Env: "SESSION_KEYRING_SECRET", Help: "base64 secret signing and sealing everything the browser carries"},
+			{Prefix: "session", Key: "keyring.previous_secrets", Help: "retired secrets kept readable during a rotation", Kind: cliparser.KindArray},
 			{Prefix: "session", Key: "dynamo.table", Help: "declared session table name"},
 			{Prefix: "session", Key: "dynamo.consistent_read", Help: "read sessions with strong consistency", Kind: cliparser.KindBool},
 		},
@@ -474,9 +461,6 @@ func registerSessionConfigDefinition2() {
 		Scaffold: []configbind.ScaffoldField{
 			{Key: "enabled", Kind: configbind.ScaffoldBool, Default: "false"},
 			{Key: "backend", Kind: configbind.ScaffoldString, Default: "rdb", Help: "session storage backend: rdb, cookie, redis, or dynamo"},
-			{Key: "ttl", Kind: configbind.ScaffoldDuration, Default: "24h", Help: "absolute session lifetime"},
-			{Key: "idle_timeout", Kind: configbind.ScaffoldDuration, Default: "0s", Help: "inactivity expiry; zero disables it"},
-			{Key: "renewal_interval", Kind: configbind.ScaffoldDuration, Default: "0s", Help: "minimum interval between idle expiry renewals"},
 			{Key: "cookie.name", Kind: configbind.ScaffoldString, Default: "pw_session"},
 			{Key: "cookie.path", Kind: configbind.ScaffoldString, Default: "/"},
 			{Key: "cookie.domain", Kind: configbind.ScaffoldString},
@@ -491,8 +475,8 @@ func registerSessionConfigDefinition2() {
 			{Key: "redis.key_prefix", Kind: configbind.ScaffoldString, Default: "pw:session:", Help: "key space owned by the session store"},
 			{Key: "redis.connect_timeout", Kind: configbind.ScaffoldDuration, Default: "5s", Help: "startup ping and per-command deadline"},
 			{Key: "cookie_store.name", Kind: configbind.ScaffoldString, Default: "pw_session_data", Help: "cookie holding the sealed record"},
-			{Key: "cookie_store.secret", Kind: configbind.ScaffoldString, Env: "SESSION_COOKIE_STORE_SECRET", Help: "base64 secret sealing cookie-backed records"},
-			{Key: "cookie_store.previous_secrets", Kind: configbind.ScaffoldStringSlice, Help: "retired secrets kept readable during a rotation"},
+			{Key: "keyring.secret", Kind: configbind.ScaffoldString, Env: "SESSION_KEYRING_SECRET", Help: "base64 secret signing and sealing everything the browser carries"},
+			{Key: "keyring.previous_secrets", Kind: configbind.ScaffoldStringSlice, Help: "retired secrets kept readable during a rotation"},
 			{Key: "dynamo.table", Kind: configbind.ScaffoldString, Default: "popcornwave_session", Help: "declared session table name"},
 			{Key: "dynamo.consistent_read", Kind: configbind.ScaffoldBool, Default: "false", Help: "read sessions with strong consistency"},
 		},
@@ -517,33 +501,6 @@ func applySessionConfigDefinition2(dst any, o *configbind.Overlay) error {
 		p.Backend = v
 	} else {
 		p.Backend = "rdb"
-	}
-	if v, ok := o.GetString("session.ttl"); ok {
-		d, err := time.ParseDuration(v)
-		if err != nil {
-			return fmt.Errorf("configbind: session.ttl: %w", err)
-		}
-		p.TTL = d
-	} else {
-		p.TTL = 86400000000000 // 24h0m0s
-	}
-	if v, ok := o.GetString("session.idle_timeout"); ok {
-		d, err := time.ParseDuration(v)
-		if err != nil {
-			return fmt.Errorf("configbind: session.idle_timeout: %w", err)
-		}
-		p.IdleTimeout = d
-	} else {
-		p.IdleTimeout = 0 // 0s
-	}
-	if v, ok := o.GetString("session.renewal_interval"); ok {
-		d, err := time.ParseDuration(v)
-		if err != nil {
-			return fmt.Errorf("configbind: session.renewal_interval: %w", err)
-		}
-		p.RenewalInterval = d
-	} else {
-		p.RenewalInterval = 0 // 0s
 	}
 	if v, ok := o.GetString("session.cookie.name"); ok {
 		p.Cookie.Name = v
@@ -619,11 +576,11 @@ func applySessionConfigDefinition2(dst any, o *configbind.Overlay) error {
 	} else {
 		p.CookieStore.Name = "pw_session_data"
 	}
-	if v, ok := o.GetString("session.cookie_store.secret"); ok {
-		p.CookieStore.Secret = v
+	if v, ok := o.GetString("session.keyring.secret"); ok {
+		p.Keyring.Secret = v
 	}
-	if v, ok := o.GetMulti("session.cookie_store.previous_secrets"); ok {
-		p.CookieStore.PreviousSecrets = v
+	if v, ok := o.GetMulti("session.keyring.previous_secrets"); ok {
+		p.Keyring.PreviousSecrets = v
 	}
 	if v, ok := o.GetString("session.dynamo.table"); ok {
 		p.Dynamo.Table = v

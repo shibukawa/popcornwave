@@ -130,6 +130,38 @@ dsn = "mysql://app:` + password + `@db.internal:3306/app"
 	}
 }
 
+// pw init writes a generated session keyring into config.dev.toml so that a
+// scaffolded project runs without an authored secret. That convenience is
+// bounded by this check: the same literal is a note in dev and an error
+// anywhere else, so it cannot travel to a deployment unnoticed.
+//
+// Nothing here names the keyring: the check reads the configbind secret
+// classification, so the key was covered the moment it was marked secret.
+func TestTheDevelopmentKeyringIsANoteInDevAndAnErrorElsewhere(t *testing.T) {
+	const keyring = `keyring.secret = "c2VjcmV0LXRoaXJ0eS10d28tYnl0ZXMtZm9yLWEtdGVzdCE="`
+	body := "[session]\nenabled = true\n" + keyring + "\n"
+	root := diagnosedProject(t, map[string]string{
+		"config.dev.toml":  body,
+		"config.prod.toml": body,
+	})
+	report := diagnoseFor(t, root, doctorOptions{Envs: []string{"dev", "prod"}})
+
+	finding, reported := findingsFor(report, "prod")[pwcheck.LiteralSecretInFile]
+	if !reported {
+		t.Fatal("a keyring literal must be reported outside development")
+	}
+	if finding.Severity != pwcheck.Error {
+		t.Errorf("prod severity = %v, want error", finding.Severity)
+	}
+	if !strings.Contains(finding.Evidence, "config.prod.toml") {
+		t.Errorf("evidence %q must name the file", finding.Evidence)
+	}
+	if finding, reported := findingsFor(report, "dev")[pwcheck.LiteralSecretInFile]; reported &&
+		finding.Severity != pwcheck.Note {
+		t.Errorf("dev severity = %v, want note, because pw init put it there", finding.Severity)
+	}
+}
+
 // A sqlite path is secret-classified by name and carries no credential, so
 // reporting it would train a reader to ignore the finding that matters.
 func TestCredentialFreeDSNIsNotReportedAsADisclosure(t *testing.T) {
