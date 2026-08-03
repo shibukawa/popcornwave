@@ -18,7 +18,11 @@ configuration:
   framework_fixed:
     header_prefix: Pw, which from system:tinybind v0.3.1 reaches the browser as configuration rather than by rebuilding the runtime
     path_prefix: the reserved prefix of requirement:framework-script-assets, so nothing the framework owns can move outside one routing rule
-    data_attribute_prefix: the Popcorn Wave brand, set once and used by generation, by the boundary render option, and by the runtime, so one document holds one spelling
+    data_attribute_prefix: one value used by generation, by the boundary render option, and by the runtime, so one document holds one spelling
+    prefix_is_the_module_default_not_the_brand:
+      why: system:tinybind routetree compiles a page tree's templates without threading the prefix option, so branding it would give a page tree the default while a registered-router template took the brand, and one document would hold both spellings
+      chosen: agreement over branding, since the runtime reads its prefix from configuration and gains nothing from the name
+      revisit: when the option reaches both generation paths; requirement:tinybind-update-composition-seams carries the ask
     global_name: this framework's own namespace, per api:client-update-api
     runtime_serving: declared caller-owned, so the module serves no asset and emits no tag of its own
     reason_they_are_fixed: they are contracts of requirement:unified-update-runtime rather than deployment choices, and a project changing one would describe a framework it is not running
@@ -28,8 +32,12 @@ validator_key:
   rotation: not a break; comparisons miss and the next response is a complete document
   secrecy: the key is secret configuration metadata, so policy:query-log-safety and rule:configuration-advisories treat it as data:session-runtime-config secrets are treated
 build_identity:
-  value: the vcs.revision stamp the binary carries, or a per-process value for a dirty or unstamped tree
-  shared: the same value api:live-delivery-protocol sends as its open record version, because both answer whether the page asking was rendered by this build
+  value: the vcs.revision stamp the binary carries, or the module's per-process value for a dirty or unstamped tree
+  same_question_as: api:live-delivery-protocol, which also asks whether the page requesting was rendered by this build
+  differs_when_unstamped:
+    live: reports nothing, which disables the check rather than inventing a value that would differ per process and reload every client on every restart
+    update: falls back to the per-process value, which costs a complete document after a restart and never a wrong delta
+    why_the_split_is_right: a frozen live screen is worse than a re-transferred page, so the two failure modes are not the same trade
   effect: a page from another build is served a complete document, and a redraw from one is refused
 headers:
   render: Pw-Render, carrying 'mode;v=N'

@@ -1236,6 +1236,9 @@ func registerHTMLConfigDefinition5() {
 			"html.bot_detection",
 			"html.bot_async_timeout",
 			"html.bot_user_agents",
+			"html.update.enabled",
+			"html.update.validator_key",
+			"html.update.max_manifest_bytes",
 			"html.live",
 			"html.live_max_duration",
 			"html.live_duration_jitter",
@@ -1244,27 +1247,34 @@ func registerHTMLConfigDefinition5() {
 			"html.live_max_responses",
 		},
 		Defaults: map[string]string{
-			"html.streaming":            "true",
-			"html.async_timeout":        "3s",
-			"html.async_concurrency":    "0",
-			"html.bot_detection":        "true",
-			"html.bot_async_timeout":    "5s",
-			"html.live":                 "true",
-			"html.live_max_duration":    "10m0s",
-			"html.live_duration_jitter": "20",
-			"html.live_idle_timeout":    "5m0s",
-			"html.live_max_boundaries":  "32",
-			"html.live_max_responses":   "4",
+			"html.streaming":                 "true",
+			"html.async_timeout":             "3s",
+			"html.async_concurrency":         "0",
+			"html.bot_detection":             "true",
+			"html.bot_async_timeout":         "5s",
+			"html.update.enabled":            "false",
+			"html.update.max_manifest_bytes": "8192",
+			"html.live":                      "true",
+			"html.live_max_duration":         "10m0s",
+			"html.live_duration_jitter":      "20",
+			"html.live_idle_timeout":         "5m0s",
+			"html.live_max_boundaries":       "32",
+			"html.live_max_responses":        "4",
 		},
 		DependsOn: map[string][]string{
-			"html.bot_async_timeout":    {"html.bot_detection"},
-			"html.bot_user_agents":      {"html.bot_detection"},
-			"html.live":                 {"html.streaming"},
-			"html.live_max_duration":    {"html.live"},
-			"html.live_duration_jitter": {"html.live"},
-			"html.live_idle_timeout":    {"html.live"},
-			"html.live_max_boundaries":  {"html.live"},
-			"html.live_max_responses":   {"html.live"},
+			"html.bot_async_timeout":         {"html.bot_detection"},
+			"html.bot_user_agents":           {"html.bot_detection"},
+			"html.update.validator_key":      {"html.update.enabled"},
+			"html.update.max_manifest_bytes": {"html.update.enabled"},
+			"html.live":                      {"html.streaming"},
+			"html.live_max_duration":         {"html.live"},
+			"html.live_duration_jitter":      {"html.live"},
+			"html.live_idle_timeout":         {"html.live"},
+			"html.live_max_boundaries":       {"html.live"},
+			"html.live_max_responses":        {"html.live"},
+		},
+		Secrets: map[string]string{
+			"html.update.validator_key": "mask",
 		},
 		FlagMetas: []cliparser.FieldMeta{
 			{Prefix: "html", Key: "streaming", Help: "Streaming false forces the buffered branch even when a chain can open a boundary, which is the escape hatch for a proxy that buffers responses", Kind: cliparser.KindBool},
@@ -1273,6 +1283,9 @@ func registerHTMLConfigDefinition5() {
 			{Prefix: "html", Key: "bot_detection", Help: "render the settled document for crawlers and CLI clients", Kind: cliparser.KindBool},
 			{Prefix: "html", Key: "bot_async_timeout", Help: "await boundary bound for a classified bot request"},
 			{Prefix: "html", Key: "bot_user_agents", Help: "additional bot User-Agent substrings", Kind: cliparser.KindArray},
+			{Prefix: "html", Key: "update.enabled", Help: "answer navigation deltas, redraws, and action responses", Kind: cliparser.KindBool},
+			{Prefix: "html", Key: "update.validator_key", Env: "HTML_UPDATE_VALIDATOR_KEY", Help: "base64 or raw secret keying update validators"},
+			{Prefix: "html", Key: "update.max_manifest_bytes", Help: "cap on the update manifest request header"},
 			{Prefix: "html", Key: "live", Help: "answer the live mode request that keeps a page updating after the document is complete", Kind: cliparser.KindBool},
 			{Prefix: "html", Key: "live_max_duration", Help: "maximum lifetime of one live response before it closes and the client reconnects"},
 			{Prefix: "html", Key: "live_duration_jitter", Help: "percentage the live response lifetime is spread by, so clients do not reconnect in lockstep"},
@@ -1288,6 +1301,9 @@ func registerHTMLConfigDefinition5() {
 			{Key: "bot_detection", Kind: configbind.ScaffoldBool, Default: "true", Help: "render the settled document for crawlers and CLI clients"},
 			{Key: "bot_async_timeout", Kind: configbind.ScaffoldDuration, Default: "5s", Help: "await boundary bound for a classified bot request"},
 			{Key: "bot_user_agents", Kind: configbind.ScaffoldStringSlice, Help: "additional bot User-Agent substrings"},
+			{Key: "update.enabled", Kind: configbind.ScaffoldBool, Default: "false", Help: "answer navigation deltas, redraws, and action responses"},
+			{Key: "update.validator_key", Kind: configbind.ScaffoldString, Env: "HTML_UPDATE_VALIDATOR_KEY", Help: "base64 or raw secret keying update validators"},
+			{Key: "update.max_manifest_bytes", Kind: configbind.ScaffoldInt, Default: "8192", Help: "cap on the update manifest request header"},
 			{Key: "live", Kind: configbind.ScaffoldBool, Default: "true", Help: "answer the live mode request that keeps a page updating after the document is complete"},
 			{Key: "live_max_duration", Kind: configbind.ScaffoldDuration, Default: "10m0s", Help: "maximum lifetime of one live response before it closes and the client reconnects"},
 			{Key: "live_duration_jitter", Kind: configbind.ScaffoldInt, Default: "20", Help: "percentage the live response lifetime is spread by, so clients do not reconnect in lockstep"},
@@ -1350,6 +1366,27 @@ func applyHTMLConfigDefinition5(dst any, o *configbind.Overlay) error {
 	}
 	if v, ok := o.GetMulti("html.bot_user_agents"); ok {
 		p.BotUserAgents = v
+	}
+	if v, ok := o.GetString("html.update.enabled"); ok {
+		bb, err := strconv.ParseBool(v)
+		if err != nil {
+			return fmt.Errorf("configbind: html.update.enabled: %w", err)
+		}
+		p.Update.Enabled = bb
+	} else {
+		p.Update.Enabled = false
+	}
+	if v, ok := o.GetString("html.update.validator_key"); ok {
+		p.Update.ValidatorKey = v
+	}
+	if v, ok := o.GetString("html.update.max_manifest_bytes"); ok {
+		n, err := strconv.ParseInt(v, 10, 0)
+		if err != nil {
+			return fmt.Errorf("configbind: html.update.max_manifest_bytes: %w", err)
+		}
+		p.Update.MaxManifestBytes = int(n)
+	} else {
+		p.Update.MaxManifestBytes = 8192
 	}
 	if v, ok := o.GetString("html.live"); ok {
 		bb, err := strconv.ParseBool(v)

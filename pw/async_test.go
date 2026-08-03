@@ -216,7 +216,7 @@ func TestAsyncTimeoutBoundsTheBufferedBranch(t *testing.T) {
 func TestFrameworkScriptIsImmutableAndRevisioned(t *testing.T) {
 	recorder := httptest.NewRecorder()
 	url := RuntimeScriptURL()
-	if !strings.HasPrefix(url, "/_pw/") || !strings.HasSuffix(url, "/boundary.js") {
+	if !strings.HasPrefix(url, "/_pw/") || !strings.HasSuffix(url, "/popcornwave-runtime.js") {
 		t.Fatalf("url = %q", url)
 	}
 	if !serveFrameworkScript(recorder, httptest.NewRequest(http.MethodGet, url, nil)) {
@@ -230,6 +230,11 @@ func TestFrameworkScriptIsImmutableAndRevisioned(t *testing.T) {
 	}
 	if !strings.Contains(recorder.Body.String(), `customElements.define("tb-apply"`) {
 		t.Error("the served script does not define the marker element")
+	}
+	// One asset, both halves: the module's factory and this framework's
+	// boundary runtime. Two would mean two boundary id spaces on one document.
+	if !strings.Contains(recorder.Body.String(), "createPartialUpdateRuntime") {
+		t.Error("the served script does not carry the update runtime")
 	}
 
 	stale := httptest.NewRecorder()

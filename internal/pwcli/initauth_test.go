@@ -598,3 +598,18 @@ func TestInitWizardStillAsksAboutDynamoAfterASQLLogin(t *testing.T) {
 		t.Fatalf("options = %#v", options)
 	}
 }
+
+// Partial updates are scaffolded off, with the key they need shown rather than
+// left for the reader to find. Enabling them without one is a startup failure.
+func TestScaffoldWritesTheUpdateSectionOffByDefault(t *testing.T) {
+	config := scaffoldFiles(initOptions{Name: "demo", Auth: authOIDC})[pwenv.FileName(pwenv.Development)]
+	if !strings.Contains(config, "[html.update]") {
+		t.Fatalf("no update section:\n%s", config)
+	}
+	if !strings.Contains(config, "enabled = false") {
+		t.Errorf("updates are not scaffolded off:\n%s", config)
+	}
+	if !strings.Contains(config, "# validator_key =") {
+		t.Errorf("the validator key is not shown:\n%s", config)
+	}
+}
