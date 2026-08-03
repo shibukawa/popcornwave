@@ -46,7 +46,8 @@ TOML のキーの `.` を `-` に置き換えて `--` を付けます。
 `security.headers.permissions_policy` です。TOML で設定してください。
 
 `[[middleware.rdb.connections]]` の配列も TOML 専用です。テーブルの配列には
-バインドできる平坦な名前がありません。
+バインドできる平坦な名前がありません。だから配備先の DSN は `${DATABASE_URL}` の参照として
+書きます。展開するのはファイル層で、未定義の名前は空の DSN ではなく読み込みエラーです。
 
 ## 値の出どころ
 
@@ -105,12 +106,6 @@ Popcorn Wave は次の順に読みます。
 | `compression` | `false` | 受け入れるクライアントに HTML を zstd で返す |
 | `request_timeout` | `"0s"` | リクエスト単位の期限。ゼロなら設けない |
 | `rdb.enabled` | `false` | フレームワーク所有のデータベースプールを開く |
-| `rdb.dsn` | *(空)* | 単一データベースの DSN（起動サマリではマスクされる） |
-| `rdb.connect_timeout` | `"5s"` | 接続を開く際の上限 |
-| `rdb.max_open_conns` | `0` | `database/sql` のプール上限。ゼロはドライバの既定 |
-| `rdb.max_idle_conns` | `0` | |
-| `rdb.conn_max_lifetime` | `"0s"` | |
-| `rdb.conn_max_idle_time` | `"0s"` | |
 | `rdb.default_group` | *(空)* | どのグループも指定しないステートメント用の接続グループ |
 | `rdb.write_group` | *(空)* | フレームワークの書き込み用の接続グループ |
 | `rdb.migration_group` | *(空)* | マイグレーションとシード用の接続グループ |
@@ -119,16 +114,20 @@ Popcorn Wave は次の順に読みます。
 片方の表現をキャッシュしたものが、もう片方を求めるクライアントへ渡ってはいけない
 からです。
 
-単一のデータベースは `rdb.dsn` と上のプール系キーで設定します。リーダ・ライタ構成は
-代わりに接続セットで、プール1つにつきテーブル1つを書きます。両方を書くのはマージ
-ではなく設定エラーです。どちらが勝つのか、正直に答えられないからです。
+データベースはすべて下の接続セットで設定します。プール1つにつきテーブル1つで、単一の
+データベースならテーブル1つ、リーダ・ライタ構成なら複数です。セクション自体は DSN を
+持ちません。DSN を探す場所は1か所だけです。
+
+以前は `rdb.dsn` とその隣のプール系キーでも書けました。この形式は削除しました。DSN と
+プールの上限は `[[middleware.rdb.connections]]` のテーブル1つへ移してください。テーブルが
+1つもないまま有効にしたデータベースは起動時に失敗し、移行先のテーブルを名指しします。
 
 ### `[[middleware.rdb.connections]]`
 
 | キー | 既定値 | 意味 |
 | --- | --- | --- |
 | `group` | *(空)* | この接続を指す名前 |
-| `dsn` | *(空)* | DSN（起動サマリではマスクされる） |
+| `dsn` | *(空)* | DSN。表示されるときにマスクされるのは資格情報だけ |
 | `readonly` | `false` | 読み取り専用トランザクションを開き、フレームワークの書き込みは引き受けない |
 | `connect_timeout` | `"5s"` | 以下、接続ごとに上と同じ |
 | `max_open_conns` | `0` | |
@@ -259,14 +258,14 @@ HSTS が付くのは検証済みの HTTPS リクエストだけです。平文�
 | `cookie.name` | `"pw_session"` | |
 | `cookie.path` | `"/"` | |
 | `cookie.domain` | *(空)* | |
-| `cookie.secure` | `true` | 無効にしてよいのはループバックの開発時だけ |
+| `cookie.secure` | `true` | `false` にしてよいのはループバックの開発時だけ。`dev` 以外では起動を拒否する |
 | `cookie.http_only` | `true` | |
 | `cookie.same_site` | `"lax"` | |
-| `rdb.source` | `"middleware"` | `middleware` は `middleware.rdb` のプールを再利用し、`dedicated` は `rdb.dsn` を開く |
+| `rdb.source` | `"middleware"` | `middleware` は `middleware.rdb` のプールを再利用し、`dedicated` は `session.rdb.dsn` を開く |
 | `rdb.group` | *(空)* | セッションテーブルを持つ接続グループ。空なら `middleware.rdb.write_group` |
-| `rdb.dsn` | *(空)* | 専用セッションデータベース（起動サマリではマスクされる） |
+| `rdb.dsn` | *(空)* | 専用セッションデータベース。表示されるときにマスクされるのは資格情報だけ |
 | `rdb.table` | `"popcornwave_session"` | |
-| `redis.dsn` | *(空)* | `redis://` または `rediss://` のサーバー（起動サマリではマスクされる） |
+| `redis.dsn` | *(空)* | `redis://` または `rediss://` のサーバー。表示されるときにマスクされるのは資格情報だけ |
 | `redis.key_prefix` | `"pw:session:"` | セッションストアが所有する鍵空間 |
 | `redis.connect_timeout` | `"5s"` | 起動時の ping と各コマンドの期限 |
 | `cookie_store.name` | `"pw_session_data"` | `backend = "cookie"` で封をしたレコードを運ぶクッキー |

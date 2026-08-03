@@ -157,7 +157,10 @@ func planCapability(state projectState, options addOptions) (*capabilityPlan, er
 func planDatabase(state projectState, options addOptions, plan *capabilityPlan) error {
 	engine := engineFor(options.Engine)
 	for _, name := range state.configFiles {
-		plan.appends[name] = databaseRuntimeSection(options.databaseDSN(state.config.Name), engine)
+		// Every environment gets the pool, and only dev gets the local DSN:
+		// the file for a deployment names the environment variable the
+		// deployment sets.
+		plan.appends[name] = databaseRuntimeSection(environmentToken(name), options.databaseDSN(state.config.Name), engine)
 	}
 	migrations := state.config.Migration.Dir
 	if len(state.migrations) == 0 {
@@ -190,7 +193,7 @@ func planDatabase(state projectState, options addOptions, plan *capabilityPlan) 
 	// engine is printed rather than injected.
 	if engine.DriverImport != "" {
 		if err := planEntryPointEdit(state, plan,
-			[]blankImport{{engine.DriverImport, "the engine middleware.rdb.dsn names"}}, "", ""); err != nil {
+			[]blankImport{{engine.DriverImport, "the engine the configured DSN names"}}, "", ""); err != nil {
 			return err
 		}
 	}

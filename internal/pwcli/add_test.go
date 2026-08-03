@@ -107,7 +107,7 @@ func TestAddDatabaseReachesTheScaffoldedState(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(config), "[middleware.rdb]") ||
+	if !strings.Contains(string(config), "[[middleware.rdb.connections]]") ||
 		!strings.Contains(string(config), `dsn = "sqlite://fixture.db"`) {
 		t.Fatalf("the rdb section did not reach the environment config:\n%s", config)
 	}
@@ -122,6 +122,45 @@ func TestAddDatabaseReachesTheScaffoldedState(t *testing.T) {
 	}
 	if _, present, err := reloaded.carries(capabilityDatabase); err != nil || !present {
 		t.Fatalf("the database is not detected after adding it: %v", err)
+	}
+}
+
+// The database reaches every environment the project configures, and the local
+// DSN reaches only dev: a connections element has no environment variable of
+// its own, so a deployment's value arrives through the ${NAME} reference rather
+// than by an operator remembering to replace the development database.
+func TestAddDatabaseNamesTheEnvironmentOutsideDev(t *testing.T) {
+	root := declinedProject(t)
+	if err := os.WriteFile(filepath.Join(root, "config.prod.toml"), []byte("[observability]\nminimum_level = \"info\"\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	state, err := loadProjectState(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	plan, err := planCapability(state, addOptions{Capability: capabilityDatabase, DSN: "sqlite://fixture.db"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := plan.apply(root); err != nil {
+		t.Fatal(err)
+	}
+	production, err := os.ReadFile(filepath.Join(root, "config.prod.toml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(production), `dsn = "${DATABASE_URL}"`) {
+		t.Fatalf("the production file names no environment variable:\n%s", production)
+	}
+	if strings.Contains(string(production), "sqlite://fixture.db") {
+		t.Fatalf("the development database reached the production file:\n%s", production)
+	}
+	development, err := os.ReadFile(filepath.Join(root, "config.dev.toml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(development), `dsn = "sqlite://fixture.db"`) {
+		t.Fatalf("the development file lost its own database:\n%s", development)
 	}
 }
 

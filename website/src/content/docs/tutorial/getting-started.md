@@ -131,7 +131,7 @@ listening on http://localhost:8080
 
 The real tree is longer: it lists every resolved configuration key, framework
 and application alike, marks the ones that came from somewhere other than the
-built-in defaults, and redacts secrets such as `rdb.dsn` (that `rdb` branch appears once chapter 3
+built-in defaults, and redacts secrets such as a connection DSN (that `rdb` branch appears once chapter 3
 adds the database). What it is for, and
 what it becomes when nothing is attached to a terminal, is described under
 [Seeing what took effect](/guides/architecture/configuration/#seeing-what-took-effect).

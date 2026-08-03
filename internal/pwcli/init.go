@@ -842,20 +842,42 @@ func databaseRuntimeConfig(options initOptions) string {
 		return ""
 	}
 	engine := engineFor(options.Engine)
-	return databaseRuntimeSection(engine.DSN(options.Name), engine)
+	return databaseRuntimeSection(pwenv.Development, engine.DSN(options.Name), engine)
 }
 
 // databaseRuntimeSection is the rdb configuration api:cli-init scaffolds and
 // api:cli-add appends, so both reach the same file state. The pool bounds come
 // from the engine: one connection is right for a file SQLite writes serially
 // and wrong for a server that expects a pool.
-func databaseRuntimeSection(dsn string, engine databaseEngine) string {
+//
+// One element is one pool, and it is the only form the section has. A project
+// that grows a replica adds a second element and names the groups above them;
+// nothing about the first element changes.
+//
+// devDSN is the local database the scaffolded migrations run against, and it is
+// written only into the development file. A deployed environment names no
+// database here: the element carries a ${DATABASE_URL} reference instead,
+// because an array element has no environment variable of its own and the value
+// belongs to the deployment rather than to the repository.
+func databaseRuntimeSection(env, devDSN string, engine databaseEngine) string {
+	dsn := `dsn = "` + devDSN + `"`
+	if env != pwenv.Development {
+		dsn = `# The deployment supplies this. ${NAME} is expanded when the file loads, and
+# an undefined name is a load error rather than an empty DSN.
+dsn = "${DATABASE_URL}"`
+	}
 	return `
 # The scaffolded migrations and queries need a database; pw dev and pw migrate
-# read this DSN.
+# read this connection.
 [middleware.rdb]
 enabled = true
-dsn = "` + dsn + `"
+
+# One element is one pool. The group is the name statements address it by, and
+# a single connection answers to every group name, so this one stays "default"
+# until a second database arrives.
+[[middleware.rdb.connections]]
+group = "default"
+` + dsn + `
 connect_timeout = "5s"
 max_open_conns = ` + strconv.Itoa(engine.MaxOpenConns) + `
 max_idle_conns = ` + strconv.Itoa(engine.MaxIdleConns) + `
@@ -975,7 +997,7 @@ func databaseDriverImport(options initOptions) string {
 	if path == "" {
 		return ""
 	}
-	return "\n\t// Registers the engine middleware.rdb.dsn names.\n\t_ " + strconv.Quote(path)
+	return "\n\t// Registers the engine the configured DSN names.\n\t_ " + strconv.Quote(path)
 }
 
 // authBootstrap installs the account resolver. That call is the whole
@@ -1596,7 +1618,9 @@ backend = "` + sessionBackend(options) + `"
 ttl = "12h"
 idle_timeout = "1h"
 cookie.name = "pw_session"
-# Loopback development only. Keep secure = true everywhere else.
+# Loopback development only, because there is no TLS to require here. Every
+# other environment refuses to start with this false, so a deployment file
+# either sets it true or leaves it out.
 cookie.secure = false
 ` + sessionBackendConfig(options) + `
 

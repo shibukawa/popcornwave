@@ -405,6 +405,7 @@
 {"context": "body", "path": ".knowledge/api/rdb-middleware.md", "source": "api:rdb-middleware", "target": "system:goose", "target_category": "external", "target_type": "system"}
 {"context": "body", "path": ".knowledge/api/rdb-middleware.md", "source": "api:rdb-middleware", "target": "policy:connection-group-selection", "target_category": "constraint", "target_type": "policy"}
 {"context": "body", "path": ".knowledge/api/rdb-middleware.md", "source": "api:rdb-middleware", "target": "policy:startup-summary", "target_category": "constraint", "target_type": "policy"}
+{"context": "body", "path": ".knowledge/api/rdb-middleware.md", "source": "api:rdb-middleware", "target": "rule:dsn-redaction", "target_category": "constraint", "target_type": "rule"}
 {"context": "body", "path": ".knowledge/api/rdb-middleware.md", "source": "api:rdb-middleware", "target": "decision:config-driven-database", "target_category": "constraint", "target_type": "decision"}
 {"context": "body", "path": ".knowledge/api/rdb-middleware.md", "source": "api:rdb-middleware", "target": "api:request-context-accessors", "target_category": "interface", "target_type": "api"}
 {"context": "body", "path": ".knowledge/api/rdb-middleware.md", "source": "api:rdb-middleware", "target": "api:database-selection", "target_category": "interface", "target_type": "api"}
@@ -663,6 +664,7 @@
 {"context": "body", "path": ".knowledge/data/database-connection-set.md", "source": "data:database-connection-set", "target": "api:rdb-middleware", "target_category": "interface", "target_type": "api"}
 {"context": "body", "path": ".knowledge/data/database-connection-set.md", "source": "data:database-connection-set", "target": "data:query-record", "target_category": "structure", "target_type": "data"}
 {"context": "body", "path": ".knowledge/data/database-connection-set.md", "source": "data:database-connection-set", "target": "api:test-run", "target_category": "interface", "target_type": "api"}
+{"context": "body", "path": ".knowledge/data/database-connection-set.md", "source": "data:database-connection-set", "target": "rule:dsn-redaction", "target_category": "constraint", "target_type": "rule"}
 {"context": "body", "path": ".knowledge/data/database-connection-set.md", "source": "data:database-connection-set", "target": "decision:grouped-database-connections", "target_category": "constraint", "target_type": "decision"}
 {"context": "body", "path": ".knowledge/data/database-connection-set.md", "source": "data:database-connection-set", "target": "system:tinybind", "target_category": "external", "target_type": "system"}
 {"context": "body", "path": ".knowledge/data/devidp-config.md", "source": "data:devidp-config", "target": "requirement:contrib-devidp", "target_category": "objective", "target_type": "requirement"}
@@ -1823,6 +1825,7 @@
 {"context": "body", "path": ".knowledge/policy/startup-summary.md", "source": "policy:startup-summary", "target": "api:runtime-configuration", "target_category": "interface", "target_type": "api"}
 {"context": "body", "path": ".knowledge/policy/startup-summary.md", "source": "policy:startup-summary", "target": "data:loaded-configuration", "target_category": "structure", "target_type": "data"}
 {"context": "body", "path": ".knowledge/policy/startup-summary.md", "source": "policy:startup-summary", "target": "policy:log-emission", "target_category": "constraint", "target_type": "policy"}
+{"context": "body", "path": ".knowledge/policy/startup-summary.md", "source": "policy:startup-summary", "target": "rule:dsn-redaction", "target_category": "constraint", "target_type": "rule"}
 {"context": "body", "path": ".knowledge/policy/startup-summary.md", "source": "policy:startup-summary", "target": "api:logger", "target_category": "interface", "target_type": "api"}
 {"context": "body", "path": ".knowledge/policy/ui-state-placement.md", "source": "policy:ui-state-placement", "target": "flow:partial-refresh", "target_category": "behavior", "target_type": "flow"}
 {"context": "body", "path": ".knowledge/policy/ui-state-placement.md", "source": "policy:ui-state-placement", "target": "api:server-action", "target_category": "interface", "target_type": "api"}
@@ -2568,6 +2571,7 @@
 {"context": "body", "path": ".knowledge/rule/configuration-advisories.md", "source": "rule:configuration-advisories", "target": "policy:connection-group-selection", "target_category": "constraint", "target_type": "policy"}
 {"context": "body", "path": ".knowledge/rule/configuration-advisories.md", "source": "rule:configuration-advisories", "target": "data:query-diagnostics-config", "target_category": "structure", "target_type": "data"}
 {"context": "body", "path": ".knowledge/rule/configuration-advisories.md", "source": "rule:configuration-advisories", "target": "policy:query-log-safety", "target_category": "constraint", "target_type": "policy"}
+{"context": "body", "path": ".knowledge/rule/configuration-advisories.md", "source": "rule:configuration-advisories", "target": "api:cli-init", "target_category": "interface", "target_type": "api"}
 {"context": "body", "path": ".knowledge/rule/configuration-advisories.md", "source": "rule:configuration-advisories", "target": "policy:csrf-protection", "target_category": "constraint", "target_type": "policy"}
 {"context": "body", "path": ".knowledge/rule/configuration-advisories.md", "source": "rule:configuration-advisories", "target": "policy:security-response-headers", "target_category": "constraint", "target_type": "policy"}
 {"context": "body", "path": ".knowledge/rule/configuration-advisories.md", "source": "rule:configuration-advisories", "target": "decision:development-public-assets", "target_category": "constraint", "target_type": "decision"}
@@ -2576,7 +2580,6 @@
 {"context": "body", "path": ".knowledge/rule/configuration-advisories.md", "source": "rule:configuration-advisories", "target": "policy:log-emission", "target_category": "constraint", "target_type": "policy"}
 {"context": "body", "path": ".knowledge/rule/configuration-advisories.md", "source": "rule:configuration-advisories", "target": "data:session-record", "target_category": "structure", "target_type": "data"}
 {"context": "body", "path": ".knowledge/rule/configuration-advisories.md", "source": "rule:configuration-advisories", "target": "requirement:built-in-config-generation", "target_category": "objective", "target_type": "requirement"}
-{"context": "body", "path": ".knowledge/rule/configuration-advisories.md", "source": "rule:configuration-advisories", "target": "api:cli-init", "target_category": "interface", "target_type": "api"}
 {"context": "body", "path": ".knowledge/rule/configuration-advisories.md", "source": "rule:configuration-advisories", "target": "policy:config-file-resolution", "target_category": "constraint", "target_type": "policy"}
 {"context": "body", "path": ".knowledge/rule/configuration-advisories.md", "source": "rule:configuration-advisories", "target": "decision:host-side-diagnostic-analysis", "target_category": "constraint", "target_type": "decision"}
 {"context": "body", "path": ".knowledge/rule/configuration-advisories.md", "source": "rule:configuration-advisories", "target": "api:cli-dev", "target_category": "interface", "target_type": "api"}
@@ -2584,6 +2587,11 @@
 {"context": "body", "path": ".knowledge/rule/configuration-advisories.md", "source": "rule:configuration-advisories", "target": "data:devidp-config", "target_category": "structure", "target_type": "data"}
 {"context": "body", "path": ".knowledge/rule/configuration-advisories.md", "source": "rule:configuration-advisories", "target": "api:application-lifecycle", "target_category": "interface", "target_type": "api"}
 {"context": "body", "path": ".knowledge/rule/configuration-advisories.md", "source": "rule:configuration-advisories", "target": "api:cli-add", "target_category": "interface", "target_type": "api"}
+{"context": "body", "path": ".knowledge/rule/dsn-redaction.md", "source": "rule:dsn-redaction", "target": "policy:startup-summary", "target_category": "constraint", "target_type": "policy"}
+{"context": "body", "path": ".knowledge/rule/dsn-redaction.md", "source": "rule:dsn-redaction", "target": "api:cli-doctor", "target_category": "interface", "target_type": "api"}
+{"context": "body", "path": ".knowledge/rule/dsn-redaction.md", "source": "rule:dsn-redaction", "target": "api:cli-migrate", "target_category": "interface", "target_type": "api"}
+{"context": "body", "path": ".knowledge/rule/dsn-redaction.md", "source": "rule:dsn-redaction", "target": "api:cli-seed", "target_category": "interface", "target_type": "api"}
+{"context": "body", "path": ".knowledge/rule/dsn-redaction.md", "source": "rule:dsn-redaction", "target": "rule:rdb-dsn-resolution", "target_category": "constraint", "target_type": "rule"}
 {"context": "body", "path": ".knowledge/rule/dynamodb-reproduction-format.md", "source": "rule:dynamodb-reproduction-format", "target": "decision:dynamodb-observability-seam", "target_category": "constraint", "target_type": "decision"}
 {"context": "body", "path": ".knowledge/rule/dynamodb-reproduction-format.md", "source": "rule:dynamodb-reproduction-format", "target": "rule:query-reproduction-format", "target_category": "constraint", "target_type": "rule"}
 {"context": "body", "path": ".knowledge/rule/dynamodb-reproduction-format.md", "source": "rule:dynamodb-reproduction-format", "target": "policy:query-log-safety", "target_category": "constraint", "target_type": "policy"}
@@ -2654,7 +2662,7 @@
 {"context": "body", "path": ".knowledge/rule/project-integrity-checks.md", "source": "rule:project-integrity-checks", "target": "requirement:project-diagnostics", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/rule/query-reproduction-format.md", "source": "rule:query-reproduction-format", "target": "data:query-record", "target_category": "structure", "target_type": "data"}
 {"context": "body", "path": ".knowledge/rule/query-reproduction-format.md", "source": "rule:query-reproduction-format", "target": "policy:query-log-safety", "target_category": "constraint", "target_type": "policy"}
-{"context": "body", "path": ".knowledge/rule/rdb-dsn-resolution.md", "source": "rule:rdb-dsn-resolution", "target": "data:middleware-runtime-config", "target_category": "structure", "target_type": "data"}
+{"context": "body", "path": ".knowledge/rule/rdb-dsn-resolution.md", "source": "rule:rdb-dsn-resolution", "target": "data:database-connection-set", "target_category": "structure", "target_type": "data"}
 {"context": "body", "path": ".knowledge/rule/rdb-dsn-resolution.md", "source": "rule:rdb-dsn-resolution", "target": "decision:import-registered-session-plugins", "target_category": "constraint", "target_type": "decision"}
 {"context": "body", "path": ".knowledge/rule/rdb-dsn-resolution.md", "source": "rule:rdb-dsn-resolution", "target": "api:cli-init", "target_category": "interface", "target_type": "api"}
 {"context": "body", "path": ".knowledge/rule/rdb-dsn-resolution.md", "source": "rule:rdb-dsn-resolution", "target": "api:rdb-middleware", "target_category": "interface", "target_type": "api"}
@@ -2667,6 +2675,8 @@
 {"context": "body", "path": ".knowledge/rule/rdb-dsn-resolution.md", "source": "rule:rdb-dsn-resolution", "target": "requirement:contrib-sqlite", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/rule/rdb-dsn-resolution.md", "source": "rule:rdb-dsn-resolution", "target": "requirement:contrib-postgresql", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/rule/rdb-dsn-resolution.md", "source": "rule:rdb-dsn-resolution", "target": "requirement:contrib-mysql", "target_category": "objective", "target_type": "requirement"}
+{"context": "body", "path": ".knowledge/rule/rdb-dsn-resolution.md", "source": "rule:rdb-dsn-resolution", "target": "data:middleware-runtime-config", "target_category": "structure", "target_type": "data"}
+{"context": "body", "path": ".knowledge/rule/rdb-dsn-resolution.md", "source": "rule:rdb-dsn-resolution", "target": "rule:dsn-redaction", "target_category": "constraint", "target_type": "rule"}
 {"context": "body", "path": ".knowledge/rule/route-and-template-checks.md", "source": "rule:route-and-template-checks", "target": "data:diagnostic-check", "target_category": "structure", "target_type": "data"}
 {"context": "body", "path": ".knowledge/rule/route-and-template-checks.md", "source": "rule:route-and-template-checks", "target": "data:route-table", "target_category": "structure", "target_type": "data"}
 {"context": "body", "path": ".knowledge/rule/route-and-template-checks.md", "source": "rule:route-and-template-checks", "target": "api:serve-mux", "target_category": "interface", "target_type": "api"}

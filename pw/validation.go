@@ -38,6 +38,33 @@ func validateRuntimeConfig(server ServerConfig, security SecurityConfig, middlew
 	return validateQueryLogConfig(observability.Query)
 }
 
+// validateSessionConfig enforces the browser cookie policy, which is diagnosed
+// as PW0410 and refused here.
+//
+// A session cookie without Secure travels over plain http, so anything that
+// reads the traffic holds the session. api:cli-init writes secure = false into
+// the development configuration on purpose, because loopback development serves
+// no TLS; every other environment is a deployment, and the process refuses to
+// start rather than serve one session that way. A cross-site cookie is refused
+// in every environment, dev included, because no browser accepts it and the
+// login would fail there too.
+func validateSessionConfig(config SessionConfig, env string) error {
+	if !config.Enabled || config.Cookie.Secure {
+		return nil
+	}
+	sameSite, err := parseSessionSameSite(config.Cookie.SameSite)
+	if err != nil {
+		return err
+	}
+	if sameSite == http.SameSiteNoneMode {
+		return fmt.Errorf("session.cookie.same_site is none without session.cookie.secure, which no browser accepts as a cross-site cookie")
+	}
+	if env != EnvDevelopment {
+		return fmt.Errorf("session.cookie.secure must be true when %s is %q; false is a development-only exception, and it lets the session cookie travel over plain http", EnvVar, env)
+	}
+	return nil
+}
+
 // validateHTMLConfig rejects a negative await bound. Generated apply functions
 // only assign, so a rule like this one belongs with the other runtime checks
 // rather than in the binding.
@@ -95,7 +122,7 @@ func validateRDBConfig(config RDBConfig) error {
 	members := make(map[string]int, len(connections))
 	drivers := make(map[string]string, len(connections))
 	for index, connection := range connections {
-		key := connectionKey(config, index)
+		key := connectionKey(index)
 		if err := validateGroupName(connection.Group, key); err != nil {
 			return err
 		}
@@ -117,7 +144,7 @@ func validateRDBConfig(config RDBConfig) error {
 	}
 	for index, connection := range connections {
 		if connection.DSN == "sqlite://:memory:" && members[connection.Group] > 1 {
-			return fmt.Errorf("%s: sqlite://:memory: cannot share a group, because each such DSN is a separate database", connectionKey(config, index))
+			return fmt.Errorf("%s: sqlite://:memory: cannot share a group, because each such DSN is a separate database", connectionKey(index))
 		}
 	}
 	if _, err := resolveDefaultGroup(config, connections); err != nil {
@@ -134,10 +161,7 @@ func validateRDBConfig(config RDBConfig) error {
 
 // connectionKey names one connection the way it appears in the file, so an
 // error points at the element the operator has to edit.
-func connectionKey(config RDBConfig, index int) string {
-	if len(config.Connections) == 0 {
-		return "middleware.rdb"
-	}
+func connectionKey(index int) string {
 	return fmt.Sprintf("middleware.rdb.connections[%d]", index)
 }
 

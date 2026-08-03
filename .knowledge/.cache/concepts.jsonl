@@ -321,6 +321,7 @@
 {"category": "objective", "id": "requirement:typed-http-contract", "path": ".knowledge/requirement/typed-http-contract.md", "role": "primary", "title": "Typed HTTP Contract", "type": "requirement"}
 {"category": "objective", "id": "requirement:unhandled-boundary-signal", "path": ".knowledge/requirement/unhandled-boundary-signal.md", "role": "primary", "title": "Unhandled Boundary Signal", "type": "requirement"}
 {"category": "constraint", "id": "rule:configuration-advisories", "path": ".knowledge/rule/configuration-advisories.md", "role": "supporting", "title": "Configuration Advisories", "type": "rule"}
+{"category": "constraint", "id": "rule:dsn-redaction", "path": ".knowledge/rule/dsn-redaction.md", "role": "supporting", "title": "DSN Redaction", "type": "rule"}
 {"category": "constraint", "id": "rule:dynamodb-reproduction-format", "path": ".knowledge/rule/dynamodb-reproduction-format.md", "role": "supporting", "title": "DynamoDB Reproduction Format", "type": "rule"}
 {"category": "constraint", "id": "rule:dynamodb-table-naming", "path": ".knowledge/rule/dynamodb-table-naming.md", "role": "supporting", "title": "DynamoDB Table Name Resolution", "type": "rule"}
 {"category": "constraint", "id": "rule:explain-dialect-support", "path": ".knowledge/rule/explain-dialect-support.md", "role": "supporting", "title": "EXPLAIN Dialect Support", "type": "rule"}

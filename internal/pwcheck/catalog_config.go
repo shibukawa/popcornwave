@@ -36,7 +36,9 @@ const (
 	LocalPublicRead       = "PW0424"
 	PlaintextLogs         = "PW0426"
 	TelemetryDisabled     = "PW0427"
-	LegacySingleDSN       = "PW0428"
+	// PW0428 named the single-DSN form of middleware.rdb, which no longer
+	// exists. The identifier is retired rather than reused, so that an
+	// identifier printed by one build never means two different things.
 
 	// Identity provider: dev may authenticate against the local emulator, and
 	// a deployment must not.
@@ -45,8 +47,10 @@ const (
 	InsecureIssuer       = "PW0432"
 	RedirectDisagreement = "PW0433"
 	ProviderNotDeclared  = "PW0434"
-	ProviderInjectedDev  = "PW0435"
-	LoopbackPairing      = "PW0436"
+	// PW0435 stated that pw dev injects the provider credentials in dev. That
+	// is the arrangement working, not a finding, so the identifier is retired
+	// alongside PW0428.
+	LoopbackPairing = "PW0436"
 )
 
 func init() {
@@ -117,9 +121,15 @@ func init() {
 		Check{
 			ID: InsecureSessionCookie, Group: GroupConfig,
 			Title:    "the session cookie is not marked secure",
-			Severity: Error, DevSeverity: Note, Scope: Every,
-			Inputs: Config, Phase: Doctor,
-			Remedy: "set session.cookie.secure, which is a development-only exception",
+			Severity: Error, DevSeverity: Error, Scope: Deployed,
+			Inputs: Config, Phase: Doctor | Startup,
+			// api:cli-init writes the false into the development configuration
+			// on purpose, because loopback development serves plain http.
+			// Repeating it there is a note nobody can act on, so the check is
+			// silent in dev and the process refuses to start with it anywhere
+			// else. A cookie that is cross-site as well is broken in every
+			// environment, and that form is reported at its own severity.
+			Remedy: "set session.cookie.secure; false is a development-only exception, and the process refuses to start with it outside dev",
 		},
 		Check{
 			ID: ResponseHeadersWeak, Group: GroupConfig,
@@ -128,10 +138,22 @@ func init() {
 			Inputs: Config, Phase: Doctor,
 			Remedy: "enable security.headers",
 		},
+		// Where a secret is kept — in the file, in version control, in a file
+		// anyone on the host can read — is diagnosed for a deployment only.
+		// A development machine keeps its secrets in config.dev.toml on
+		// purpose: the password of a database devbox runs beside the
+		// application is a development fixture, and that file is written to be
+		// shared with the people who run it. PW0412, PW0415, and PW0416 are
+		// therefore silent in dev.
+		//
+		// What a secret *is* stays a finding everywhere: a placeholder value is
+		// published in the framework source, and a value shared with a
+		// deployment is that deployment's secret whichever file it was read
+		// from.
 		Check{
 			ID: LiteralSecretInFile, Group: GroupConfig,
 			Title:    "a secret is set from the configuration file",
-			Severity: Error, DevSeverity: Note, Scope: Every,
+			Severity: Error, DevSeverity: Error, Scope: Deployed,
 			Inputs: Config | ProjectFiles, Phase: Doctor,
 			Remedy: "move the value to an environment variable, or reference one with ${NAME}",
 		},
@@ -152,14 +174,14 @@ func init() {
 		Check{
 			ID: SecretFileNotIgnored, Group: GroupConfig,
 			Title:    "a file holding a secret is tracked by version control",
-			Severity: Error, DevSeverity: Warning, Scope: Every,
+			Severity: Error, DevSeverity: Error, Scope: Deployed,
 			Inputs: ProjectFiles, Phase: Doctor,
 			Remedy: "untrack the file and read the value from the environment instead",
 		},
 		Check{
 			ID: SecretFilePerms, Group: GroupConfig,
 			Title:    "a file holding a secret is readable beyond its owner",
-			Severity: Warning, DevSeverity: Warning, Scope: Every,
+			Severity: Warning, DevSeverity: Warning, Scope: Deployed,
 			Inputs: ProjectFiles, Phase: Doctor,
 			Remedy: "chmod 600 the file",
 		},
@@ -215,15 +237,6 @@ func init() {
 			Remedy: "set observability.otel.endpoint to export traces and logs",
 		},
 		Check{
-			ID: LegacySingleDSN, Group: GroupConfig,
-			Title:    "the database uses the single-DSN form",
-			Severity: Note, DevSeverity: Note, Scope: Every,
-			Inputs: Config, Phase: Doctor,
-			// Retained rather than deprecated: it is the only form with
-			// environment and CLI overrides.
-			Remedy: "no action; move to [[middleware.rdb.connections]] when a second connection is needed",
-		},
-		Check{
 			ID: DevIdPEnabled, Group: GroupConfig,
 			Title:    "the development identity provider is enabled outside dev",
 			Severity: Error, DevSeverity: Note, Scope: Deployed,
@@ -259,13 +272,6 @@ func init() {
 			Severity: Note, DevSeverity: Note, Scope: Deployed,
 			Inputs: Config | ProcessEnv, Phase: Doctor,
 			Remedy: "confirm the deployment sets AUTH_OIDC_ISSUER, AUTH_OIDC_CLIENT_ID, and AUTH_OIDC_CLIENT_SECRET",
-		},
-		Check{
-			ID: ProviderInjectedDev, Group: GroupConfig,
-			Title:    "provider credentials come from the pw dev identity provider",
-			Severity: Note, DevSeverity: Note, Scope: Development,
-			Inputs: Config | ProjectFiles, Phase: Doctor,
-			Remedy: "no action; this is why the file declares none",
 		},
 		Check{
 			ID: LoopbackPairing, Group: GroupConfig,

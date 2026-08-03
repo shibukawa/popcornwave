@@ -8,13 +8,13 @@ RDB middleware initializes and owns the data:database-connection-set and install
 ```yaml
 startup:
   - read rdb fields from data:middleware-runtime-config
-  - expand the legacy single-DSN form into one connection in group default
+  - name the default group for an element that names none, which is the single-database project
   - resolve each connection DSN scheme to a requirement:contrib-database opener and dialect through rule:rdb-dsn-resolution
   - open one *sql.DB per connection through that opener and apply its own pool settings
   - publish the resolved dialect per connection, which rule:savepoint-dialect-support, rule:explain-dialect-support, and the system:goose provider read
   - ping each connection within its connect_timeout before accepting requests
   - resolve default_group and write_group per policy:connection-group-selection
-  - report every connection in the policy:startup-summary output with its label and redacted DSN
+  - report every connection in the policy:startup-summary output with its label and its rule:dsn-redaction DSN
   - construct standard http.Handler middleware
   - require no application pw.SetDatabase call under decision:config-driven-database
 request:

@@ -9,7 +9,7 @@ Resolved configuration is reported once per process, in the shape its reader can
 capture:
   when: api:runtime-configuration finishes loading data:loaded-configuration
   content: environment, resolved config path, every key with value and winning place, start time
-  secrets: policy:log-emission redaction applies before the value is stored
+  secrets: policy:log-emission redaction applies before the value is stored, and a DSN takes the rule:dsn-redaction form rather than the whole mask
 emission:
   once: the first of Run or Middlewares to complete initialization emits it
   run: emitted after the listener binds, so the reported address is the accepted one

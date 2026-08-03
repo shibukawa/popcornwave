@@ -9,7 +9,8 @@ The checks data:diagnostic-report renders as findings: a wiring gap the process 
 severity:
   error: the process would refuse to start, or a policy forbids the value in the diagnosed environment
   warning: the process starts, and the value is inadvisable for the diagnosed environment
-  note: the value is intentional and worth stating, such as a legacy form or an unused linked plugin
+  note: the value is intentional and worth stating, such as an unused linked plugin
+  not_a_finding: an arrangement working as designed, whose only remedy would be "no action"; it is left out rather than reported, because a report full of them is one a reader skims
 environment_model:
   dev_only: the advisory fires for every token other than dev, because data:runtime-environment treats an unknown token as a deployment
   prod_only: reserved for a policy that names prod, as policy:devidp-safety does
@@ -78,6 +79,8 @@ environment:
     trigger: session cookie.secure false, or same_site none without secure
     scope: dev_only for the first, every for the second
     severity: error
+    phase: doctor and startup, so a deployment refuses to serve one session over plain http rather than being advised about it
+    dev_silence: api:cli-init writes the false into the development file on purpose, and an advisory whose remedy is the arrangement working teaches a reader to skim
   csrf-disabled:
     trigger: security csrf.enabled false, which is its default
     scope: dev_only
@@ -116,11 +119,6 @@ environment:
     scope: dev_only
     severity: note
     reference: requirement:modern-observability
-  legacy-single-dsn-form:
-    trigger: the data:middleware-runtime-config legacy rdb form
-    scope: every
-    severity: note
-    reason: it is retained rather than deprecated, and it is the only form with environment and CLI overrides
 secret_material:
   basis:
     classification: the configbind metadata already marks a field secret, because policy:log-emission and policy:startup-summary redact by that mark; these advisories read the same mark instead of a list of names
@@ -128,10 +126,14 @@ secret_material:
     cookies: the framework holds no cookie signing or encryption key, because a login session is a server-side data:session-record and the CSRF secret is per-session crypto/rand; a plugin that adds such a key is covered the moment its metadata marks it secret
     intent: keying the check to the classification means a future signing key needs no new advisory
     credential_test: classification is by field name, so it marks every DSN; a value holding no user info and no credential parameter, such as a sqlite path, discloses nothing and is skipped, because a finding a reader learns to ignore costs the ones that matter
+  where_a_secret_is_kept:
+    members: literal-secret-in-config-file, secret-file-not-ignored, secret-file-permissions
+    scope: dev_only
+    reason: a development machine keeps the password of the database running beside it in config.dev.toml on purpose, and that file is written to be shared with the people who run it; what a secret is, rather than where it sits, stays a finding in every token
   literal-secret-in-config-file:
     trigger: a secret-classified field whose place is the TOML file as a literal, rather than an environment variable, a CLI argument, or a ${NAME} expansion
-    scope: every
-    severity: error outside dev, note in dev
+    scope: dev_only
+    severity: error
     evidence: the key, the file, and whether that file is tracked in version control when the project is a git work tree, since tracking is what turns a fixed value into a disclosure
     remedy: the ${NAME} expansion of data:database-connection-set for an array element, or the generated environment variable name for a scalar key
   scaffolded-or-placeholder-secret:
@@ -148,12 +150,12 @@ secret_material:
     visibility: only a reader of every environment file sees this, which is why it is a doctor check and not a startup one
   secret-file-not-ignored:
     trigger: a file this analysis found carrying a secret-classified literal that the project's git work tree tracks or does not ignore
-    scope: every
-    severity: error outside dev, warning in dev
+    scope: dev_only
+    severity: error
     bound: the file set comes from what was actually read; no advisory assumes a .env or a local override file, because policy:config-file-resolution defines none
   secret-file-permissions:
     trigger: a file carrying a secret-classified literal that is readable beyond its owner
-    scope: every
+    scope: dev_only
     severity: warning
     reason: it is the cheapest half of the same disclosure question, and it is a check only a reader of the filesystem can make
   required-secret-not-set:
@@ -202,11 +204,6 @@ identity_provider:
     severity: note
     message: names the data:authentication-runtime-config environment variables the deployment must set, so a reader confirms them instead of assuming them
     reason: an absent value here is either platform injection or a real gap, and doctor cannot tell which; naming what must be set is the useful half
-  provider-credentials-injected-in-dev:
-    trigger: a dev token with auth enabled and data:project-config dev.idp.enabled
-    scope: dev
-    severity: note
-    message: the issuer, client id, and client secret arrive from api:cli-dev injection, which is why the file declares none
 rules:
   - an advisory that restates a startup validation failure carries that failure's message, so doctor and api:application-lifecycle never disagree
   - an advisory evaluates a merged value and its place, never a value it assumed

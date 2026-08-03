@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/shibukawa/popcornwave/internal/configview"
 	"github.com/shibukawa/popcornwave/internal/pwenv"
 	"github.com/shibukawa/popcornwave/internal/pwtree"
 	"github.com/shibukawa/tinybind-go/configbind"
@@ -79,15 +80,17 @@ func loadEnvironmentConfig(root, env, explicitPath string, environ []string) (en
 	for _, entry := range result.Provenance() {
 		value := configValue{Key: entry.Key, Shown: entry.Value, Place: entry.Place, Secret: entry.Masked}
 		value.Raw = entry.Value
-		if raw, ok := result.Overlay.GetString(entry.Key); ok {
+		if raw, ok := configview.Raw(result.Overlay, entry); ok {
 			value.Raw = raw
+			// A DSN masked whole answers none of what this report is opened
+			// for. The framework renders its public half in the startup
+			// summary, and the two summaries a reader compares must agree.
+			if entry.Masked && configview.IsDSNKey(entry.Key) {
+				value.Shown = configview.DSN(raw)
+			}
 		}
 		loaded.Values[entry.Key] = value
-		if overlayEntry, ok := result.Overlay.Get(entry.Key); ok && overlayEntry.IsTables {
-			loaded.Entries = append(loaded.Entries, tableEntries(&loaded, entry.Key, overlayEntry)...)
-			continue
-		}
-		loaded.Entries = append(loaded.Entries, pwtree.Entry{Key: entry.Key, Value: entry.Value, Source: string(entry.Place)})
+		loaded.Entries = append(loaded.Entries, pwtree.Entry{Key: entry.Key, Value: value.Shown, Source: string(entry.Place)})
 	}
 	// Sections are grouped by their top-level prefix. A key that provenance
 	// does not report is hidden by a disabled parent rather than unknown, so
@@ -113,46 +116,6 @@ func loadEnvironmentConfig(root, env, explicitPath string, environ []string) (en
 func containsString(values []string, want string) bool {
 	for _, value := range values {
 		if value == want {
-			return true
-		}
-	}
-	return false
-}
-
-// tableEntries expands an array of tables into one reported key per element.
-// Provenance has no per-element view, so the masking it applies to scalars is
-// repeated here by key name.
-func tableEntries(loaded *environmentConfig, key string, entry configbind.Entry) []pwtree.Entry {
-	var entries []pwtree.Entry
-	for index, table := range entry.Tables {
-		prefix := key + "[" + strconv.Itoa(index) + "]."
-		for _, elementKey := range table.Keys() {
-			raw, ok := table.GetString(elementKey)
-			if !ok {
-				continue
-			}
-			full := prefix + elementKey
-			shown, secret := raw, secretKeyName(full)
-			if secret {
-				shown = maskedValue
-			}
-			loaded.Values[full] = configValue{Key: full, Raw: raw, Shown: shown, Place: entry.Place, Secret: secret}
-			entries = append(entries, pwtree.Entry{Key: full, Value: shown, Source: string(entry.Place)})
-		}
-	}
-	return entries
-}
-
-// maskedValue matches the mask configbind applies to the keys it recognizes as
-// sensitive, so one idea has one mark.
-const maskedValue = "*****"
-
-// secretKeyName repeats the name-based classification configbind applies to
-// scalar keys, for the array elements it has no provenance view of.
-func secretKeyName(key string) bool {
-	lowered := strings.ToLower(key)
-	for _, fragment := range []string{"secret", "password", "token", "credential", "dsn", "private_key"} {
-		if strings.Contains(lowered, fragment) {
 			return true
 		}
 	}
@@ -214,8 +177,7 @@ func (c environmentConfig) secretKeys() []string {
 	return keys
 }
 
-// databaseDSNs lists every configured DSN with the label its errors will use,
-// covering both the connections array and the retained single-DSN form.
+// databaseDSNs lists every configured DSN with the label its errors will use.
 func (c environmentConfig) databaseDSNs() []labeledDSN {
 	var found []labeledDSN
 	groups := map[string]int{}
@@ -235,19 +197,13 @@ func (c environmentConfig) databaseDSNs() []labeledDSN {
 		groups[group]++
 		found = append(found, labeledDSN{Key: key, Label: fmt.Sprintf("%s#%d", group, groups[group]), DSN: value.Raw})
 	}
-	if len(found) == 0 {
-		if dsn := c.raw("middleware.rdb.dsn"); dsn != "" {
-			found = append(found, labeledDSN{Key: "middleware.rdb.dsn", Label: "default#1", DSN: dsn, Legacy: true})
-		}
-	}
 	return found
 }
 
 type labeledDSN struct {
-	Key    string
-	Label  string
-	DSN    string
-	Legacy bool
+	Key   string
+	Label string
+	DSN   string
 }
 
 // scheme returns the driver scheme of the DSN.
@@ -275,8 +231,7 @@ func environmentTokens(root string) ([]string, error) {
 	seen := map[string]bool{}
 	var tokens []string
 	for _, file := range files {
-		name := filepath.Base(file)
-		token := strings.TrimSuffix(strings.TrimPrefix(name, "config."), ".toml")
+		token := environmentToken(file)
 		if token == "" || seen[token] {
 			continue
 		}
@@ -285,6 +240,13 @@ func environmentTokens(root string) ([]string, error) {
 	}
 	sortStrings(tokens)
 	return tokens, nil
+}
+
+// environmentToken reads the environment out of a configuration file path, so
+// what is written into a file is decided by the environment it configures.
+func environmentToken(file string) string {
+	name := filepath.Base(filepath.FromSlash(file))
+	return strings.TrimSuffix(strings.TrimPrefix(name, "config."), ".toml")
 }
 
 // hostMode records whether this host is the one holding the deployment's

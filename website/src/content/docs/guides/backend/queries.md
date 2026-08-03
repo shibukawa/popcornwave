@@ -208,19 +208,29 @@ db, ok := pw.DB(r.Context())
 
 ## Database configuration
 
-The pool lives under `[middleware.rdb]` and is **off by default**:
+The pool lives under `[middleware.rdb]` and is **off by default**. One
+`[[middleware.rdb.connections]]` element is one pool, and one element is a
+single database:
 
 ```toml
 [middleware.rdb]
 enabled = true
+
+[[middleware.rdb.connections]]
+group = "default"
 dsn = "sqlite://myapp.db"
 connect_timeout = "5s"
 max_open_conns = 1
 max_idle_conns = 1
 ```
 
-`dsn` is treated as a secret: redacted in configuration logs and in error
-messages. See [Configuration](/guides/architecture/configuration/).
+`dsn` is treated as a secret, but only the credential is: the startup summary,
+`pw doctor`, and a failure message all print
+`postgres://*****@db.internal:5432/app` — scheme, host, port, and database name
+kept, userinfo and query string dropped. Which database a process is attached to
+is an operational fact, and a line that answers nothing is a line an operator
+stops reading. A SQLite path or `:memory:` carries no credential and appears
+whole. See [Configuration](/guides/architecture/configuration/).
 
 The scheme selects the engine, and a server engine needs a blank import to
 register it:
@@ -238,11 +248,10 @@ runs the query, the other which syntax it was compiled to.
 
 ## Readers and writers
 
-A reader-writer cluster is described by connections instead of a single `dsn`.
-Each element names the group it belongs to, and several elements may share one
-group — reads are spread across them round robin. Because TOML reads every key
-after a `[[…]]` header as part of that element, the plain `rdb` keys have to
-come first:
+A reader-writer cluster is the same shape with more elements. Each names the
+group it belongs to, and several elements may share one group — reads are spread
+across them round robin. Because TOML reads every key after a `[[…]]` header as
+part of that element, the plain `rdb` keys have to come first:
 
 ```toml
 [middleware.rdb]

@@ -2,11 +2,11 @@ package pw
 
 import (
 	"os"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/shibukawa/popcornwave/internal/configview"
 	"github.com/shibukawa/popcornwave/internal/pwtree"
 	"github.com/shibukawa/tinybind-go/configbind"
 )
@@ -30,7 +30,7 @@ const bootMessage = "popcornwave started"
 
 // redactedValue matches the mask configbind applies to the keys it recognizes
 // as sensitive, so a summary never shows two different marks for one idea.
-const redactedValue = "*****"
+const redactedValue = configview.Redacted
 
 type bootEntry struct {
 	key    string
@@ -70,7 +70,12 @@ func captureBootReport(result *configbind.LoadResult) {
 // registration then declaration order, already stripped of the settings a
 // disabled parent made irrelevant, and already masked. Redaction is a secret
 // tag or a recognized key name, so it is decided where the field is declared
-// rather than guessed again here.
+// rather than guessed again here. An array of tables arrives expanded, one
+// entry per element key, which is what keeps a connection set from showing up
+// as a single empty line.
+//
+// A DSN is the one exception. Masked whole it answers none of what an operator
+// opens this summary for, so its public half is rendered back in.
 func bootEntries(result *configbind.LoadResult) []bootEntry {
 	if result == nil || result.Overlay == nil {
 		return nil
@@ -78,34 +83,13 @@ func bootEntries(result *configbind.LoadResult) []bootEntry {
 	reported := result.Provenance()
 	entries := make([]bootEntry, 0, len(reported))
 	for _, key := range reported {
-		// An array of tables has no scalar form, so each element is reported
-		// under its own indexed key. Otherwise a connection set would show up as
-		// one empty line. Provenance has no per-element view, so the masking it
-		// applies to scalars is repeated for the elements.
-		if entry, ok := result.Overlay.Get(key.Key); ok && entry.IsTables {
-			entries = append(entries, tableArrayEntries(key.Key, entry)...)
-			continue
-		}
-		entries = append(entries, bootEntry{key: key.Key, value: key.Value, source: string(key.Place)})
-	}
-	return entries
-}
-
-func tableArrayEntries(key string, entry configbind.Entry) []bootEntry {
-	var entries []bootEntry
-	for index, table := range entry.Tables {
-		prefix := key + "[" + strconv.Itoa(index) + "]."
-		for _, elementKey := range table.Keys() {
-			value, ok := table.GetString(elementKey)
-			if !ok {
-				continue
+		value := key.Value
+		if key.Masked && configview.IsDSNKey(key.Key) {
+			if raw, ok := configview.Raw(result.Overlay, key); ok {
+				value = configview.DSN(raw)
 			}
-			full := prefix + elementKey
-			if isSecretKey(full) {
-				value = redactedValue
-			}
-			entries = append(entries, bootEntry{key: full, value: value, source: string(entry.Place)})
 		}
+		entries = append(entries, bootEntry{key: key.Key, value: value, source: string(key.Place)})
 	}
 	return entries
 }

@@ -11,6 +11,9 @@ service_name = "oidclogin"
 # framework tables come from the migrations named after their owning package.
 [middleware.rdb]
 enabled = true
+
+[[middleware.rdb.connections]]
+group = "default"
 dsn = "sqlite://oidclogin.db"
 connect_timeout = "5s"
 max_open_conns = 1

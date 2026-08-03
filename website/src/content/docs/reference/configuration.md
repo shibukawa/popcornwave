@@ -48,7 +48,9 @@ Three keys have no environment binding at all:
 `security.headers.permissions_policy`. Set them in TOML.
 
 The `[[middleware.rdb.connections]]` array is TOML-only as well. An array of
-tables has no flat name to bind.
+tables has no flat name to bind, which is why a deployment's DSN goes in as a
+`${DATABASE_URL}` reference: the file layer expands it, and an undefined name is
+a load error rather than an empty DSN.
 
 ## Where values come from
 
@@ -108,12 +110,6 @@ startup, before either can shadow the other. `api_doc` additionally requires
 | `compression` | `false` | zstd-encode HTML for clients that accept it |
 | `request_timeout` | `"0s"` | per-request deadline; zero leaves none |
 | `rdb.enabled` | `false` | open the framework-owned database pool |
-| `rdb.dsn` | *(empty)* | data source name for a single database (masked in the startup summary) |
-| `rdb.connect_timeout` | `"5s"` | bound on opening a connection |
-| `rdb.max_open_conns` | `0` | `database/sql` pool bounds; zero means the driver default |
-| `rdb.max_idle_conns` | `0` | |
-| `rdb.conn_max_lifetime` | `"0s"` | |
-| `rdb.conn_max_idle_time` | `"0s"` | |
 | `rdb.default_group` | *(empty)* | connection group for statements that pin none |
 | `rdb.write_group` | *(empty)* | connection group for framework-owned writes |
 | `rdb.migration_group` | *(empty)* | connection group for migrations and seeds |
@@ -122,17 +118,21 @@ With `compression` enabled, `Vary: Accept-Encoding` is set either way — a cach
 that saw one representation must not serve it to a client that asked for the
 other.
 
-A single database is configured with `rdb.dsn` and the pool keys above. A
-reader-writer topology is configured with the connection set instead, one table
-per pool. Declaring both is a configuration error rather than a merge, because
-there is no honest answer to which one wins.
+Every database is configured with the connection set below, one table per pool:
+a single database is one table, and a reader-writer topology is several. The
+section itself carries no DSN, so there is one place to look for one.
+
+Earlier versions also took a `rdb.dsn` key with the pool keys beside it. That
+form is gone. Move the DSN and its pool bounds into one
+`[[middleware.rdb.connections]]` table; an enabled database with no table fails
+at startup and names the replacement.
 
 ### `[[middleware.rdb.connections]]`
 
 | Key | Default | Meaning |
 | --- | --- | --- |
 | `group` | *(empty)* | the name this connection is addressed by |
-| `dsn` | *(empty)* | data source name (masked in the startup summary) |
+| `dsn` | *(empty)* | data source name; only its credential is masked where it is reported |
 | `readonly` | `false` | open read-only transactions and serve no framework write |
 | `connect_timeout` | `"5s"` | as above, per connection |
 | `max_open_conns` | `0` | |
@@ -264,14 +264,14 @@ duration string, and one key cannot mean both.
 | `cookie.name` | `"pw_session"` | |
 | `cookie.path` | `"/"` | |
 | `cookie.domain` | *(empty)* | |
-| `cookie.secure` | `true` | disable only for loopback development |
+| `cookie.secure` | `true` | `false` only for loopback development; outside `dev` the process refuses to start with it |
 | `cookie.http_only` | `true` | |
 | `cookie.same_site` | `"lax"` | |
-| `rdb.source` | `"middleware"` | `middleware` reuses the `middleware.rdb` pool; `dedicated` opens `rdb.dsn` |
+| `rdb.source` | `"middleware"` | `middleware` reuses the `middleware.rdb` pool; `dedicated` opens `session.rdb.dsn` |
 | `rdb.group` | *(empty)* | connection group holding the session table; empty resolves to `middleware.rdb.write_group` |
-| `rdb.dsn` | *(empty)* | dedicated session database (masked in the startup summary) |
+| `rdb.dsn` | *(empty)* | dedicated session database; only its credential is masked where it is reported |
 | `rdb.table` | `"popcornwave_session"` | |
-| `redis.dsn` | *(empty)* | `redis://` or `rediss://` server (masked in the startup summary) |
+| `redis.dsn` | *(empty)* | `redis://` or `rediss://` server; only its credential is masked where it is reported |
 | `redis.key_prefix` | `"pw:session:"` | key space the session store owns |
 | `redis.connect_timeout` | `"5s"` | startup ping and per-command deadline |
 | `cookie_store.name` | `"pw_session_data"` | cookie holding the sealed record under `backend = "cookie"` |
