@@ -146,28 +146,25 @@ compares in constant time. Rails and Django mask for the same reason.
 
 ### Anonymous visitors
 
-A token needs a secret, and a secret normally comes from a session. A public
-page with its own unsafe form — a contact form, a search POST — has neither.
+A token needs a secret, and a public page with its own unsafe form — a contact
+form, a search POST — has no login to take one from.
 
-Issuing a session for every anonymous visitor would work and is the wrong
-trade: any unauthenticated request to that page writes a row, so a crawler
-decides how many rows the store holds, and those rows expire rather than being
-deleted, because there is no logout.
+It needs no separate mechanism. The secret is a
+[registered session slot](/guides/storage/session-storage/#the-csrf-secret)
+declared `session.Private`, and a private slot rides a sealed cookie while the
+session is anonymous. So an anonymous visitor gets a secret and the store gets
+no row: a crawler that loads the page costs a cookie, not a record.
 
-So the secret is the cookie, signed:
+Once the visitor signs in, the login rotation moves the same slot onto the
+configured backend and mints a fresh secret with it. There is no anonymous
+secret left in play, because there was never a second one — one slot serves both
+populations, and nothing here is configured on its own.
 
-```toml
-csrf.anonymous.enabled = true
-csrf.anonymous.secret = "${SECURITY_CSRF_ANONYMOUS_SECRET}"
-```
-
-Verification recomputes the signature instead of reading anything, so the
-anonymous population costs nothing to remember. The signature is what separates
-this from the naive double-submit pattern, where anyone able to set a cookie
-satisfies the check.
-
-A session secret always wins, so logging in does not leave the anonymous one in
-play.
+For a while the two were separate: a record field for a signed-in visitor and a
+signed cookie for an anonymous one, under its own key and its own opt-in. That
+split existed to keep anonymous traffic from deciding how many rows the store
+holds. Placing a private slot in a cookie until the login answered the same
+question, so the second mechanism went away.
 
 ### What a refusal looks like
 

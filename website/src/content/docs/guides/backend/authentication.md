@@ -289,8 +289,10 @@ hours.
 The cookie carries an opaque token; where the session itself lives is
 `session.backend`, and that choice is independent of everything above.
 [Session storage](/guides/storage/session-storage/) covers the four backends, their required
-keys, and what each one gives up. `session.ttl` bounds the absolute lifetime
-and `session.idle_timeout` the inactivity one; logging in rotates the token,
+keys, and what each one gives up. The lifetime is declared here rather than
+there: `auth.session.ttl` bounds the absolute one and
+`auth.session.idle_timeout` the inactivity one, because an expiry states how
+long a proof of identity stays good. Logging in rotates the token,
 which revokes whatever the browser held before — except under the cookie
 backend, which cannot revoke a copy the client already took.
 

@@ -146,110 +146,6 @@ value together. Go past it and the write is refused —
 server behind your back. Anything that can grow without bound while anonymous
 is declared `ServerOnly` and pays for its row from the first write.
 
-## One secret, for anything the browser carries
-
-```toml
-[session]
-enabled = true
-backend = "rdb"
-keyring.secret = "${SESSION_KEYRING_SECRET}"
-```
-
-A `ReadOnly` slot is signed with HMAC-SHA256 and a `Private` slot is sealed with
-AES-256-GCM, and both derive a purpose-separated subkey from the same secret.
-`Shared` is the only placement that protects nothing, so the keyring is required
-unless every declared slot is `Shared` — including on `rdb`, `redis`, and
-`dynamo`, because the anonymous phase of a private slot is a sealed cookie
-whatever the backend is.
-
-`pw init` generates one into `config.dev.toml`, so a scaffolded project runs
-without an authored secret. That value is per project rather than a constant in
-the framework source, and it belongs to development only. `pw doctor --env=prod`
-reports a literal there as an error while grading the same line in `dev` as a
-note.
-
-Rotating is what `keyring.previous_secrets` exists for: the first secret writes,
-retired ones still read, and browsers holding a value keep it until it expires.
-Drop an old secret and everything written under it stops being accepted at once
-— which is also the only way a cookie-placed record can be revoked at all.
-
-## Lifetime is declared under `[auth]`
-
-```toml
-[auth]
-session.ttl = "12h"
-session.idle_timeout = "1h"
-```
-
-`[session]` keeps one duration of its own:
-
-```toml
-[session]
-retention = "720h"
-```
-
-The two bound different things. `retention` says how long the store may hold a
-record; `auth.session.ttl` says how long a proof of identity stays good. A
-record lives for whichever is shorter, and a server backend requires a positive
-`retention` whatever authentication says — the sweep that keeps a table bounded
-reads a record with no deadline as already past, so one would never be readable
-back.
-
-The `[auth]` durations used to sit under `[session]`, and moving them was not
-tidying. An
-absolute expiry, an idle expiry, and a re-proof window are three answers to one
-question — how long a proof of identity stays good — and splitting them across
-two files split one policy in half. A deployment reasons about them together,
-and a TTL shorter than an assurance guard window is a misconfiguration that only
-the authentication side can detect.
-
-The session package enforces whatever deadline it is handed and forms no opinion
-about the number. That indifference is exactly what lets one store hold a
-shopping cart and a login.
-
-Renewal has one behavior worth knowing before you tune it. An active request
-extends idle expiry, but not on every request: the store is touched only after
-`renewal_interval` has passed since the record was last seen, and never past the
-absolute expiry. Leave it at zero and a one-hour idle timeout writes at most one
-renewal every six minutes per session. Lower it and you buy precision with
-writes.
-
-## Where a server-placed value goes
-
-`session.backend` names which server store the `Private` and `ServerOnly`
-placements use. It never decides whether a value is server-placed; the
-registration already did.
-
-| | `cookie` | `rdb` | `redis` | `dynamo` |
-| --- | --- | --- | --- | --- |
-| Storage to operate | none | a table you already have | one more service | one more table |
-| Revoke one session | no | yes | yes | yes |
-| Payload size | ~3.8 KB, enforced | row-sized | record-sized | item-sized |
-| Who collects the abandoned | nobody; the stamp expires | a periodic sweep | the server's TTL | the table's TTL |
-| Import | none | `sessionstore/<engine>` | `sessionstore/redis` | `sessionstore/dynamo` |
-
-Read the table as one question: does this deployment need to end a session it
-did not start? Answer no and `cookie` is coherent, and everything else about it
-follows. Answer yes and the choice narrows to where the record is cheaper to
-keep.
-
-Selecting `cookie` while a `ServerOnly` slot is registered fails at startup,
-naming the slot. That slot asked for revocation, and a record the browser holds
-cannot be taken back; letting it start would be the framework pretending to
-enforce something it cannot.
-
-Every backend but `cookie` reaches the binary through its own blank import, and
-configuring one without importing it produces an error that contains its own
-fix:
-
-```
-session.backend = "rdb" needs its plugin; add to the application:
-import _ "github.com/shibukawa/popcornwave/sessionstore/sqlite"
-```
-
-Changing the backend later is a configuration edit and an import. Sessions
-issued under the old one do not migrate; users sign in again.
-
 ## Logging out ends everything
 
 `auth` logout destroys the session: every record is revoked and every cookie the
@@ -277,3 +173,10 @@ project that imports no authentication still declares slots and still reads them
 back; what it does not get is a lifetime, because nothing declares one. The
 token cookie then lasts as long as the browser keeps it, and no absolute
 deadline is stamped.
+
+## Where the bytes go
+
+Everything above is what a handler sees. Where a server-placed slot actually
+lands, what bounds it, what each backend costs, and the one keyring that signs
+and seals it are all one deployment decision, and they live in
+[session storage](/guides/storage/session-storage/).
