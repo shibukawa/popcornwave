@@ -2,11 +2,13 @@ package pwcli
 
 import (
 	"errors"
+	"go/ast"
 	"go/parser"
 	"go/token"
 	"io"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -540,5 +542,65 @@ func TestScaffoldWithLoginImportsItsSessionBackend(t *testing.T) {
 	plain := scaffoldFiles(initOptions{Name: "fixture"})["cmd/fixture/main.go"]
 	if strings.Contains(plain, "sessionstore/") {
 		t.Errorf("a project without a login imports a session backend:\n%s", plain)
+	}
+}
+
+// The starter record's item calls and the table pw generate registers have to
+// name one table. They are derived separately — the calls are written here by
+// hand, the registration from declaredTableName — so a plausible-looking plural
+// in the scaffold would produce a table nothing reads and reads of a table
+// nothing creates.
+func TestDynamoScaffoldNamesTheRegisteredTable(t *testing.T) {
+	source := dynamoRecordScaffold()
+	file, err := parser.ParseFile(token.NewFileSet(), "records/note.go", source, parser.AllErrors)
+	if err != nil {
+		t.Fatalf("dynamo scaffold is invalid Go: %v\n%s", err, source)
+	}
+
+	// The type declaring a partition key is the one that owns a table, which is
+	// the same marker the generated registration is derived from.
+	var want string
+	ast.Inspect(file, func(node ast.Node) bool {
+		spec, ok := node.(*ast.TypeSpec)
+		if !ok {
+			return true
+		}
+		structure, ok := spec.Type.(*ast.StructType)
+		if !ok {
+			return true
+		}
+		for _, field := range structure.Fields.List {
+			if field.Tag != nil && strings.Contains(field.Tag.Value, "partitionkey") {
+				want = declaredTableName(spec.Name.Name)
+				return false
+			}
+		}
+		return true
+	})
+	if want == "" {
+		t.Fatal("the dynamo scaffold declares no partition key, so it registers no table")
+	}
+
+	named := 0
+	ast.Inspect(file, func(node ast.Node) bool {
+		call, ok := node.(*ast.CallExpr)
+		if !ok || len(call.Args) < 2 {
+			return true
+		}
+		if !strings.Contains(source[call.Fun.Pos()-1:call.Fun.End()-1], "dynamobind.") {
+			return true
+		}
+		literal, ok := call.Args[1].(*ast.BasicLit)
+		if !ok || literal.Kind != token.STRING {
+			return true
+		}
+		named++
+		if got, _ := strconv.Unquote(literal.Value); got != want {
+			t.Errorf("scaffolded call names table %q, but pw generate registers %q", got, want)
+		}
+		return true
+	})
+	if named == 0 {
+		t.Fatal("the dynamo scaffold makes no item call, so nothing directs the codec")
 	}
 }

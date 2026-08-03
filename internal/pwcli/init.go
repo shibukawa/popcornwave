@@ -947,11 +947,11 @@ type Note struct {
 // The client comes from the request context, installed by the dynamo
 // middleware, so nothing here takes a handle.
 func StoreNote(ctx context.Context, note Note) error {
-	return dynamobind.Store(ctx, "notes", note)
+	return dynamobind.Store(ctx, "note", note)
 }
 
 func LoadNote(ctx context.Context, id string, createdAt time.Time) (Note, error) {
-	return dynamobind.Load[Note](ctx, "notes", Note{ID: id, CreatedAt: createdAt}.ItemKey())
+	return dynamobind.Load[Note](ctx, "note", Note{ID: id, CreatedAt: createdAt}.ItemKey())
 }
 `
 }
