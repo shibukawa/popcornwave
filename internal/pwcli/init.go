@@ -1656,6 +1656,14 @@ func securityRuntimeConfig(options initOptions) string {
 		return ""
 	}
 	section := `
+# Partial updates are off until a project wants a page to refresh a region
+# rather than reload. The validator key is required with them: an unkeyed digest
+# of low-entropy content lets a guess be confirmed by comparing digests, so
+# startup refuses the combination rather than serving one.
+[html.update]
+enabled = false
+# validator_key = "${HTML_UPDATE_VALIDATOR_KEY}"
+
 # CSRF is off until the paths it covers are named, because a check installed
 # over nothing reads as protection that is not there. Turn it on once the
 # application has an unsafe route, and keep the include list as narrow as the

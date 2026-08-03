@@ -3,14 +3,15 @@ id: requirement:tinybind-update-composition-seams
 type: requirement
 title: TinyBind Update Composition Seams
 ---
-Five seams system:tinybind owned that this framework needed opened before the update capabilities could be composed safely; v0.3.3 answered every one, and this records what was asked, what arrived, and the two readings of the headline item that were wrong.
+Six seams system:tinybind owns that this framework needs opened before the update capabilities compose cleanly; v0.3.3 answered the five raised against v0.3.1, and wiring the transport found a sixth.
 
 ```yaml
 owner: system:tinybind
 raised_against: v0.3.1
 answered_partly: v0.3.2, which settled the documentation defect and carried head on the action response
 answered_fully: v0.3.3
-status: closed; kept as the record of the round and of two corrections this framework had to make to its own findings
+status: five closed by v0.3.3; the attribute prefix below is open, found while wiring the transport rather than raised with the others
+kept_for: the record of the round and of two corrections this framework had to make to its own findings
 as_built:
   live_token: its own negotiated mode, so subscriptions stay open only in live mode; the validator question answered as deliveries carrying none and the opening delta carrying them
   adopted_from_here: the done-versus-retry distinction, the build identity on the opening record, and resetting the attempt count on a healthy close, all offered as input and taken
@@ -94,6 +95,14 @@ csrf_token_rotation:
   independent_of: the head gap above, which is what makes it worth stating separately rather than folding in
   what_stays_true: a form rendered before a rotation is refused after it, which is correct and is what every comparable framework does
   module_open_question: a delta-response token refresh header remains listed upstream; this framework no longer needs it
+routetree_drops_the_attribute_prefix:
+  found: 2026-08-03, while wiring requirement:navigation-delta-rendering
+  what: the generator option naming the boundary attributes reaches the templates path but not routetree, whose compileTemplate builds its generate options without it and exposes no option of its own
+  effect: a page tree's components keep the module default while a registered-router template takes the configured prefix, so one document can hold data-pw-id boundaries beside tb-boundary placeholders
+  why_it_matters: this is the split naming the prefix option exists to prevent, and v0.3.1 closed it for the render path only
+  workaround_here: use the module default on both paths, because one agreed spelling is worth more than the framework's brand; api:html-update-options records the choice
+  ask: thread the prefix into routetree's template compilation, or give routetree the same option
+  size: small, and it is the last place a document can end up with two spellings
 fragment_head_from_a_parameter:
   the_defect: binding copies only the plan's own contributions, so a fragment passed into a component through its parameter struct contributes no head
   why_it_matters_here: decision:fragment-head-rejection refuses a fragment response carrying head contributions, and this defect makes that check incomplete for exactly the cross-file composition case, so a slot-supplied component's styles are dropped rather than reported
@@ -113,4 +122,5 @@ acceptance:
   - a caller can read a chain's required assets before rendering starts
   - a template writes one registered element for a CSRF token
   - a slot-supplied component's head contributions are delivered or reported, never dropped
+  - one attribute prefix reaches every generation path, so no document holds two spellings
 ```

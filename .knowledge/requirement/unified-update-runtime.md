@@ -8,14 +8,17 @@ One browser asset, popcornwave-runtime.js, carries every client capability the f
 ```yaml
 source: decision:update-runtime-convergence
 supersedes_delivery_of: requirement:external-boundary-runtime, whose scope becomes one half of this asset rather than its own file
+as_built:
+  asset: one served file composed at process start from the module's exported source, this framework's boundary runtime, and a bootstrap that builds the instance
+  both_halves_are_files: boundary.js and updateboot.js are real files embedded at build time rather than Go string literals, so a formatter, a linter, and an editor all read them
+  no_copy: the module's bytes come from the pinned dependency, so an upgrade that changes them changes this asset and its revision with it
+  order_is_load_bearing: the module's half registers the factory and the bootstrap below it builds the instance; the module's own self-instantiation reads document.currentScript, which is null in a module script, so it cannot produce a second instance
+  configuration_channel: an inert escaped meta element, because a module script has no way to read its own tag
 composition:
   pw_half: the boundary apply function, the parser-path custom elements, the document end marker, truncation reload, and the live reader of api:live-delivery-protocol
   upstream_half: mode negotiation, manifest bookkeeping, delta application, head synchronization, redraw, action apply, link and GET-form interception, history, scroll, focus, form-state reconciliation, and preserved islands
   shared_core: one apply function both halves call, so a boundary lands the same way whichever path delivered it
   header_names: supplied as configuration rather than compiled in, from system:tinybind v0.3.1; the upstream half reads its attribute prefix, header namespace, endpoint prefix, and installed name from one object the server builds
-  source_form: both halves are real .js files embedded at build time, not Go string literals, so the merged asset is lintable, formattable, and readable in an editor
-  upstream_half: the exported runtime source, composed at build time rather than copied; the module serves nothing here because this framework declares that it owns the runtime
-  no_drift: the bytes come from the pinned module version, so an upgrade that changes them changes the merged asset and its revision, and nothing silently disagrees
   instantiation: upstream exposes a factory rather than installing a global, so the merged asset constructs one instance under this framework's own name and the two halves share one boundary id space
 delivery:
   path: the revision-stamped reserved path of requirement:framework-script-assets, under the name popcornwave-runtime.js
@@ -56,5 +59,4 @@ acceptance:
   - no application template and no served byte carries the dependency's name
 open_questions:
   - whether the upstream half is fetched on demand as a capability module, keeping a static page at today's bytes, per the loading design of requirement:framework-script-assets
-  - whether the merged asset is built at generation time or assembled once at process start, given the source is now an ordinary value
 ```

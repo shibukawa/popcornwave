@@ -279,8 +279,16 @@ func WriteHTMLChain(w http.ResponseWriter, r *http.Request, wrappers []HTMLWrapp
 	// document path is where that is supplied: WriteHTMLFragment renders no
 	// document and shares only the option builder below, so it is untouched.
 	//
-	// The option goes first, so a caller passing its own still wins.
-	options = append(csrfRenderOptions(requestContext(r)), options...)
+	// The framework's options go first, so a caller passing its own still wins.
+	token := csrfRenderToken(requestContext(r))
+	options = append(documentRenderOptions(config, token), options...)
+	// A page that can update answers three ways from one URL, and which one is
+	// decided before anything is written. An unrecognized mode resolves to the
+	// document, so a crawler, curl, and a browser without the runtime are
+	// unaffected by any of this.
+	if config.Update.Enabled && serveUpdate(w, r, wrappers, leaf, config, options) {
+		return
+	}
 	// The probe runs first because it is the cheapest of the three gates and the
 	// only one that can rule streaming out entirely, so a page that could never
 	// stream never classifies its client.
@@ -334,24 +342,47 @@ func WriteHTMLChain(w http.ResponseWriter, r *http.Request, wrappers []HTMLWrapp
 	commitHTMLBody(w, r, &body)
 }
 
-// csrfRenderOptions supplies the token every unsafe form of a document render
-// carries, when the request has a session to take one from.
+// documentRenderOptions is everything the framework contributes to a document
+// render: the CSRF token every unsafe form carries, the boundary prefix, and
+// the head nodes that load the client runtime.
 //
-// A request without one supplies nothing rather than htmlbind.WithoutCSRFToken:
+// It is deliberately not part of the option builder the fragment path shares.
+// A fragment response renders no document, so it has no head to merge into and
+// decision:fragment-head-rejection refuses one that tries.
+func documentRenderOptions(config HTMLConfig, csrfToken string) []HTMLOption {
+	options := make([]HTMLOption, 0, 3)
+	if csrfToken != "" {
+		options = append(options, htmlbind.WithCSRFToken(csrfToken))
+	}
+	if config.Update.Enabled {
+		// One prefix names the generated attributes, the placeholder element,
+		// and the boundary ids, so a document does not hold two spellings.
+		options = append(options, htmlbind.WithBoundaryPrefix(UpdateAttributePrefix))
+		if nodes := updateHeadNodes(config, csrfToken); len(nodes) > 0 {
+			options = append(options, htmlbind.WithHead(nodes...))
+		}
+	}
+	return options
+}
+
+// csrfRenderToken derives the token every unsafe form of this render carries,
+// when the request has a secret to take one from.
+//
+// A request without one yields nothing rather than htmlbind.WithoutCSRFToken:
 // that option renders an unsafe form with an empty token, which is right for a
 // mail body or a golden test and wrong for a response, where it would put an
-// unprotected form on screen and say nothing. Supplying nothing fails the render
+// unprotected form on screen and say nothing. Yielding nothing fails the render
 // instead, which is the outcome policy:csrf-protection asks for.
-func csrfRenderOptions(ctx context.Context) []HTMLOption {
+func csrfRenderToken(ctx context.Context) string {
 	secret, ok := pwruntime.CSRFSecret(ctx)
 	if !ok {
-		return nil
+		return ""
 	}
 	token, err := pwruntime.CSRFToken(secret, nil)
-	if err != nil || token == "" {
-		return nil
+	if err != nil {
+		return ""
 	}
-	return []HTMLOption{htmlbind.WithCSRFToken(token)}
+	return token
 }
 
 // WriteHTMLFragment renders one generated template as the whole response, with

@@ -57,6 +57,12 @@ func buildMiddlewares(handler http.Handler, option ...Option) (http.Handler, err
 			return nil, err
 		}
 	}
+	// Updates key their validators with a secret, and an unkeyed digest of
+	// low-entropy content lets a guess be confirmed by comparing digests. That
+	// is refused before the port is bound rather than degraded at request time.
+	if err := validateUpdateConfig(Config[HTMLConfig](nil)); err != nil {
+		return nil, err
+	}
 	server := Config[ServerConfig](nil)
 	security := Config[SecurityConfig](nil)
 	middleware := Config[MiddlewareConfig](nil)

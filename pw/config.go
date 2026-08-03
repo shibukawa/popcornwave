@@ -66,6 +66,9 @@ type HTMLConfig struct {
 	// BotUserAgents extends the built-in catalog. Entries are appended and
 	// matched case-insensitively; they never replace a built-in token.
 	BotUserAgents []string `dependon:".bot_detection" help:"additional bot User-Agent substrings"`
+	// Update turns on partial updates: the mode negotiation, the redraw
+	// endpoint, and the runtime tag.
+	Update HTMLUpdateConfig `help:"Update turns on partial updates: the mode negotiation, the redraw endpoint, and the runtime tag"`
 	// Live answers the live mode request that keeps a page updating after its
 	// document is complete. False leaves every document valid and static: the
 	// content a live boundary committed stays, and no client is told to connect.
@@ -114,6 +117,23 @@ var defaultHTMLConfig = HTMLConfig{
 	LiveIdleTimeout:    5 * time.Minute,
 	LiveMaxBoundaries:  32,
 	LiveMaxResponses:   4,
+}
+
+// HTMLUpdateConfig controls partial updates.
+//
+// Off by default. A project turns it on when it wants a page to refresh a
+// region rather than reload, and the validator key is required with it: an
+// unkeyed digest of low-entropy content lets a guess be confirmed by comparing
+// digests, so startup refuses the combination rather than serving one.
+type HTMLUpdateConfig struct {
+	Enabled bool `default:"false" help:"answer navigation deltas, redraws, and action responses"`
+	// ValidatorKey keys the frame and input validators. Rotating it is not a
+	// break: comparisons miss and the next response is a complete document.
+	ValidatorKey string `secret:"mask" env:"HTML_UPDATE_VALIDATOR_KEY" dependon:".enabled" help:"base64 or raw secret keying update validators"`
+	// MaxManifestBytes caps the hint header a request may carry. An oversized
+	// one is dropped rather than rejected, so the response is a larger delta
+	// instead of an error.
+	MaxManifestBytes int `default:"8192" dependon:".enabled" help:"cap on the update manifest request header"`
 }
 
 // PublicConfig controls the framework-owned static asset endpoint.
