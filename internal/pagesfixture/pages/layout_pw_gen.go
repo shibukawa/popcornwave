@@ -28,6 +28,9 @@ var planLayoutBoundary = &htmlbind.Boundary[LayoutParams]{
 var planLayoutPlan = &htmlbind.Plan[LayoutParams]{
 	Head:     nil,
 	Boundary: planLayoutBoundary,
+	Slots: func(p LayoutParams) []htmlbind.Fragment {
+		return []htmlbind.Fragment{p.Children}
+	},
 	Ops: []htmlbind.Op[LayoutParams]{
 		planLayoutOps.Static(" <main"),
 		planLayoutOps.BoundaryAttr(),

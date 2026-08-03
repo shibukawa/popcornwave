@@ -232,6 +232,16 @@ func registerSecurityConfigDefinition1() {
 			"security.headers.hsts.max_age",
 			"security.headers.hsts.include_subdomains",
 			"security.headers.hsts.preload",
+			"security.csrf.enabled",
+			"security.csrf.include",
+			"security.csrf.exclude",
+			"security.csrf.form_field",
+			"security.csrf.header",
+			"security.csrf.trusted_origins",
+			"security.csrf.anonymous.enabled",
+			"security.csrf.anonymous.secret",
+			"security.csrf.anonymous.previous_secrets",
+			"security.csrf.anonymous.ttl",
 		},
 		Defaults: map[string]string{
 			"security.headers.enabled":                 "true",
@@ -242,6 +252,12 @@ func registerSecurityConfigDefinition1() {
 			"security.headers.hsts.max_age":            "0s",
 			"security.headers.hsts.include_subdomains": "false",
 			"security.headers.hsts.preload":            "false",
+			"security.csrf.enabled":                    "false",
+			"security.csrf.include":                    "[\"/**\"]",
+			"security.csrf.form_field":                 "_csrf",
+			"security.csrf.header":                     "X-CSRF-Token",
+			"security.csrf.anonymous.enabled":          "false",
+			"security.csrf.anonymous.ttl":              "12h",
 		},
 		DependsOn: map[string][]string{
 			"security.headers.content_type_options":                {"security.headers.enabled"},
@@ -254,6 +270,19 @@ func registerSecurityConfigDefinition1() {
 			"security.headers.hsts.max_age":                        {"security.headers.enabled", "security.headers.hsts.enabled"},
 			"security.headers.hsts.include_subdomains":             {"security.headers.enabled", "security.headers.hsts.enabled"},
 			"security.headers.hsts.preload":                        {"security.headers.enabled", "security.headers.hsts.enabled"},
+			"security.csrf.include":                                {"security.csrf.enabled"},
+			"security.csrf.exclude":                                {"security.csrf.enabled"},
+			"security.csrf.form_field":                             {"security.csrf.enabled"},
+			"security.csrf.header":                                 {"security.csrf.enabled"},
+			"security.csrf.trusted_origins":                        {"security.csrf.enabled"},
+			"security.csrf.anonymous.enabled":                      {"security.csrf.enabled"},
+			"security.csrf.anonymous.secret":                       {"security.csrf.enabled", "security.csrf.anonymous.enabled"},
+			"security.csrf.anonymous.previous_secrets":             {"security.csrf.enabled", "security.csrf.anonymous.enabled"},
+			"security.csrf.anonymous.ttl":                          {"security.csrf.enabled", "security.csrf.anonymous.enabled"},
+		},
+		Secrets: map[string]string{
+			"security.csrf.anonymous.secret":           "mask",
+			"security.csrf.anonymous.previous_secrets": "mask",
 		},
 		FlagMetas: []cliparser.FieldMeta{
 			{Prefix: "security", Key: "headers.enabled", Kind: cliparser.KindBool},
@@ -267,6 +296,16 @@ func registerSecurityConfigDefinition1() {
 			{Prefix: "security", Key: "headers.hsts.max_age"},
 			{Prefix: "security", Key: "headers.hsts.include_subdomains", Kind: cliparser.KindBool},
 			{Prefix: "security", Key: "headers.hsts.preload", Kind: cliparser.KindBool},
+			{Prefix: "security", Key: "csrf.enabled", Kind: cliparser.KindBool},
+			{Prefix: "security", Key: "csrf.include", Kind: cliparser.KindArray},
+			{Prefix: "security", Key: "csrf.exclude", Env: "-", Kind: cliparser.KindArray},
+			{Prefix: "security", Key: "csrf.form_field"},
+			{Prefix: "security", Key: "csrf.header"},
+			{Prefix: "security", Key: "csrf.trusted_origins", Env: "-", Kind: cliparser.KindArray},
+			{Prefix: "security", Key: "csrf.anonymous.enabled", Kind: cliparser.KindBool},
+			{Prefix: "security", Key: "csrf.anonymous.secret", Env: "SECURITY_CSRF_ANONYMOUS_SECRET", Help: "base64 secret signing the anonymous CSRF cookie"},
+			{Prefix: "security", Key: "csrf.anonymous.previous_secrets", Help: "retired secrets kept readable during a rotation", Kind: cliparser.KindArray},
+			{Prefix: "security", Key: "csrf.anonymous.ttl"},
 		},
 		Apply: applySecurityConfigDefinition1,
 		Scaffold: []configbind.ScaffoldField{
@@ -281,6 +320,16 @@ func registerSecurityConfigDefinition1() {
 			{Key: "headers.hsts.max_age", Kind: configbind.ScaffoldDuration, Default: "0s"},
 			{Key: "headers.hsts.include_subdomains", Kind: configbind.ScaffoldBool, Default: "false"},
 			{Key: "headers.hsts.preload", Kind: configbind.ScaffoldBool, Default: "false"},
+			{Key: "csrf.enabled", Kind: configbind.ScaffoldBool, Default: "false"},
+			{Key: "csrf.include", Kind: configbind.ScaffoldStringSlice, Default: "[\"/**\"]"},
+			{Key: "csrf.exclude", Kind: configbind.ScaffoldStringSlice, Env: "-"},
+			{Key: "csrf.form_field", Kind: configbind.ScaffoldString, Default: "_csrf"},
+			{Key: "csrf.header", Kind: configbind.ScaffoldString, Default: "X-CSRF-Token"},
+			{Key: "csrf.trusted_origins", Kind: configbind.ScaffoldStringSlice, Env: "-"},
+			{Key: "csrf.anonymous.enabled", Kind: configbind.ScaffoldBool, Default: "false"},
+			{Key: "csrf.anonymous.secret", Kind: configbind.ScaffoldString, Env: "SECURITY_CSRF_ANONYMOUS_SECRET", Help: "base64 secret signing the anonymous CSRF cookie"},
+			{Key: "csrf.anonymous.previous_secrets", Kind: configbind.ScaffoldStringSlice, Help: "retired secrets kept readable during a rotation"},
+			{Key: "csrf.anonymous.ttl", Kind: configbind.ScaffoldDuration, Default: "12h"},
 		},
 	})
 }
@@ -363,6 +412,58 @@ func applySecurityConfigDefinition1(dst any, o *configbind.Overlay) error {
 	} else {
 		p.Headers.HSTS.Preload = false
 	}
+	if v, ok := o.GetString("security.csrf.enabled"); ok {
+		bb, err := strconv.ParseBool(v)
+		if err != nil {
+			return fmt.Errorf("configbind: security.csrf.enabled: %w", err)
+		}
+		p.CSRF.Enabled = bb
+	} else {
+		p.CSRF.Enabled = false
+	}
+	if v, ok := o.GetMulti("security.csrf.include"); ok {
+		p.CSRF.Include = v
+	}
+	if v, ok := o.GetMulti("security.csrf.exclude"); ok {
+		p.CSRF.Exclude = v
+	}
+	if v, ok := o.GetString("security.csrf.form_field"); ok {
+		p.CSRF.FormField = v
+	} else {
+		p.CSRF.FormField = "_csrf"
+	}
+	if v, ok := o.GetString("security.csrf.header"); ok {
+		p.CSRF.Header = v
+	} else {
+		p.CSRF.Header = "X-CSRF-Token"
+	}
+	if v, ok := o.GetMulti("security.csrf.trusted_origins"); ok {
+		p.CSRF.TrustedOrigins = v
+	}
+	if v, ok := o.GetString("security.csrf.anonymous.enabled"); ok {
+		bb, err := strconv.ParseBool(v)
+		if err != nil {
+			return fmt.Errorf("configbind: security.csrf.anonymous.enabled: %w", err)
+		}
+		p.CSRF.Anonymous.Enabled = bb
+	} else {
+		p.CSRF.Anonymous.Enabled = false
+	}
+	if v, ok := o.GetString("security.csrf.anonymous.secret"); ok {
+		p.CSRF.Anonymous.Secret = v
+	}
+	if v, ok := o.GetMulti("security.csrf.anonymous.previous_secrets"); ok {
+		p.CSRF.Anonymous.PreviousSecrets = v
+	}
+	if v, ok := o.GetString("security.csrf.anonymous.ttl"); ok {
+		d, err := time.ParseDuration(v)
+		if err != nil {
+			return fmt.Errorf("configbind: security.csrf.anonymous.ttl: %w", err)
+		}
+		p.CSRF.Anonymous.TTL = d
+	} else {
+		p.CSRF.Anonymous.TTL = 43200000000000 // 12h0m0s
+	}
 	return nil
 }
 
@@ -383,6 +484,7 @@ func registerSessionConfigDefinition2() {
 			"session.cookie.secure",
 			"session.cookie.http_only",
 			"session.cookie.same_site",
+			"session.cookie.csrf_name",
 			"session.rdb.source",
 			"session.rdb.group",
 			"session.rdb.dsn",
@@ -407,6 +509,7 @@ func registerSessionConfigDefinition2() {
 			"session.cookie.secure":          "true",
 			"session.cookie.http_only":       "true",
 			"session.cookie.same_site":       "lax",
+			"session.cookie.csrf_name":       "pw_csrf",
 			"session.rdb.source":             "middleware",
 			"session.rdb.table":              "popcornwave_session",
 			"session.redis.key_prefix":       "pw:session:",
@@ -426,6 +529,7 @@ func registerSessionConfigDefinition2() {
 			"session.cookie.secure":                 {"session.enabled"},
 			"session.cookie.http_only":              {"session.enabled"},
 			"session.cookie.same_site":              {"session.enabled"},
+			"session.cookie.csrf_name":              {"session.enabled"},
 			"session.rdb.source":                    {"session.enabled"},
 			"session.rdb.group":                     {"session.enabled"},
 			"session.rdb.dsn":                       {"session.enabled"},
@@ -457,6 +561,7 @@ func registerSessionConfigDefinition2() {
 			{Prefix: "session", Key: "cookie.secure", Help: "disable only for loopback development", Kind: cliparser.KindBool},
 			{Prefix: "session", Key: "cookie.http_only", Kind: cliparser.KindBool},
 			{Prefix: "session", Key: "cookie.same_site"},
+			{Prefix: "session", Key: "cookie.csrf_name", Help: "CSRFName is the companion cookie carrying the CSRF token the browser runtime reads. It is written only when security.csrf.enabled is on, and it is never HttpOnly, because the runtime has to read it"},
 			{Prefix: "session", Key: "rdb.source", Help: "middleware reuses middleware.rdb; dedicated opens rdb.dsn"},
 			{Prefix: "session", Key: "rdb.group", Help: "connection group holding the session table"},
 			{Prefix: "session", Key: "rdb.dsn", Help: "dedicated session database DSN"},
@@ -483,6 +588,7 @@ func registerSessionConfigDefinition2() {
 			{Key: "cookie.secure", Kind: configbind.ScaffoldBool, Default: "true", Help: "disable only for loopback development"},
 			{Key: "cookie.http_only", Kind: configbind.ScaffoldBool, Default: "true"},
 			{Key: "cookie.same_site", Kind: configbind.ScaffoldString, Default: "lax"},
+			{Key: "cookie.csrf_name", Kind: configbind.ScaffoldString, Default: "pw_csrf", Help: "CSRFName is the companion cookie carrying the CSRF token the browser runtime reads. It is written only when security.csrf.enabled is on, and it is never HttpOnly, because the runtime has to read it"},
 			{Key: "rdb.source", Kind: configbind.ScaffoldString, Default: "middleware", Help: "middleware reuses middleware.rdb; dedicated opens rdb.dsn"},
 			{Key: "rdb.group", Kind: configbind.ScaffoldString, Help: "connection group holding the session table"},
 			{Key: "rdb.dsn", Kind: configbind.ScaffoldString, Help: "dedicated session database DSN"},
@@ -580,6 +686,11 @@ func applySessionConfigDefinition2(dst any, o *configbind.Overlay) error {
 		p.Cookie.SameSite = v
 	} else {
 		p.Cookie.SameSite = "lax"
+	}
+	if v, ok := o.GetString("session.cookie.csrf_name"); ok {
+		p.Cookie.CSRFName = v
+	} else {
+		p.Cookie.CSRFName = "pw_csrf"
 	}
 	if v, ok := o.GetString("session.rdb.source"); ok {
 		p.RDB.Source = v

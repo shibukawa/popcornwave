@@ -122,7 +122,11 @@ type PublicConfig = middlewares.PublicAssetConfig
 // SecurityConfig controls framework request and response security policy.
 type SecurityConfig struct {
 	Headers SecurityHeadersConfig
+	CSRF    CSRFConfig
 }
+
+// CSRFConfig controls the synchronizer-token check on unsafe browser requests.
+type CSRFConfig = middlewares.CSRFConfig
 
 // SecurityHeadersConfig controls browser-facing response headers.
 type SecurityHeadersConfig = middlewares.SecurityHeadersConfig
@@ -198,6 +202,10 @@ type SessionCookieConfig struct {
 	Secure   bool   `default:"true" help:"disable only for loopback development"`
 	HTTPOnly bool   `default:"true"`
 	SameSite string `default:"lax"`
+	// CSRFName is the companion cookie carrying the CSRF token the browser
+	// runtime reads. It is written only when security.csrf.enabled is on, and
+	// it is never HttpOnly, because the runtime has to read it.
+	CSRFName string `default:"pw_csrf" help:"CSRFName is the companion cookie carrying the CSRF token the browser runtime reads. It is written only when security.csrf.enabled is on, and it is never HttpOnly, because the runtime has to read it"`
 }
 
 // SessionRDBConfig configures the database-backed session store. The middleware

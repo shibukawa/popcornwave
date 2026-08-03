@@ -11,6 +11,7 @@ import (
 
 	"github.com/shibukawa/popcornwave/contrib/oauth"
 	"github.com/shibukawa/popcornwave/contrib/oidc"
+	"github.com/shibukawa/popcornwave/internal/pathpattern"
 	"github.com/shibukawa/popcornwave/pw"
 )
 
@@ -50,7 +51,7 @@ const (
 // request through.
 func (rt *runtime) endpoints(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		path, ok := canonicalPath(r)
+		path, ok := pathpattern.CanonicalPath(r)
 		if !ok {
 			pw.WriteProblem(w, r, pw.BadRequest())
 			return

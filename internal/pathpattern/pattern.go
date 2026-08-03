@@ -1,4 +1,10 @@
-package auth
+// Package pathpattern is the path-matching grammar the framework's
+// path-scoped policies share.
+//
+// policy:csrf-protection is specified as using the same segment grammar and
+// exclude precedence as policy:authenticated-path-protection, so the two read
+// one implementation rather than two that can drift.
+package pathpattern
 
 import (
 	"fmt"
@@ -12,19 +18,20 @@ import (
 // segment matches exactly one non-empty segment, and a trailing "**" segment
 // matches the prefix itself and every descendant. Regular expressions, query
 // matching, and mid-segment wildcards are not part of it.
-type pattern struct {
+type Pattern struct {
 	source   []string
 	subtree  bool
 	original string
 }
 
-func compilePatterns(values []string) ([]pattern, error) {
+// Compile compiles a pattern list, rejecting the first malformed entry.
+func Compile(values []string) ([]Pattern, error) {
 	if len(values) == 0 {
 		return nil, nil
 	}
-	compiled := make([]pattern, 0, len(values))
+	compiled := make([]Pattern, 0, len(values))
 	for _, value := range values {
-		p, err := compilePattern(value)
+		p, err := compileOne(value)
 		if err != nil {
 			return nil, err
 		}
@@ -33,12 +40,12 @@ func compilePatterns(values []string) ([]pattern, error) {
 	return compiled, nil
 }
 
-func compilePattern(value string) (pattern, error) {
+func compileOne(value string) (Pattern, error) {
 	if !strings.HasPrefix(value, "/") {
-		return pattern{}, fmt.Errorf("pattern %q must start with a slash", value)
+		return Pattern{}, fmt.Errorf("pattern %q must start with a slash", value)
 	}
 	if strings.Contains(value, "?") || strings.Contains(value, "#") {
-		return pattern{}, fmt.Errorf("pattern %q must not contain a query or fragment", value)
+		return Pattern{}, fmt.Errorf("pattern %q must not contain a query or fragment", value)
 	}
 	trimmed := strings.TrimPrefix(value, "/")
 	var segments []string
@@ -50,25 +57,26 @@ func compilePattern(value string) (pattern, error) {
 		switch {
 		case segment == "**":
 			if index != len(segments)-1 {
-				return pattern{}, fmt.Errorf("pattern %q may use ** only as the last segment", value)
+				return Pattern{}, fmt.Errorf("pattern %q may use ** only as the last segment", value)
 			}
 			subtree = true
 		case segment == "*":
 		case segment == "", segment == ".", segment == "..":
-			return pattern{}, fmt.Errorf("pattern %q has an empty or dot segment", value)
+			return Pattern{}, fmt.Errorf("pattern %q has an empty or dot segment", value)
 		case strings.Contains(segment, "*"):
-			return pattern{}, fmt.Errorf("pattern %q may not use a mid-segment wildcard", value)
+			return Pattern{}, fmt.Errorf("pattern %q may not use a mid-segment wildcard", value)
 		}
 	}
 	if subtree {
 		segments = segments[:len(segments)-1]
 	}
-	return pattern{source: segments, subtree: subtree, original: value}, nil
+	return Pattern{source: segments, subtree: subtree, original: value}, nil
 }
 
 // match reports whether path matches. path must already be the canonical
 // request path.
-func (p pattern) match(path string) bool {
+// Match reports whether path matches. path must already be canonical.
+func (p Pattern) Match(path string) bool {
 	trimmed := strings.TrimPrefix(path, "/")
 	var segments []string
 	if trimmed != "" {
@@ -96,9 +104,10 @@ func (p pattern) match(path string) bool {
 	return true
 }
 
-func matchAny(patterns []pattern, path string) bool {
+// MatchAny reports whether any pattern matches path.
+func MatchAny(patterns []Pattern, path string) bool {
 	for _, p := range patterns {
-		if p.match(path) {
+		if p.Match(path) {
 			return true
 		}
 	}
@@ -108,7 +117,9 @@ func matchAny(patterns []pattern, path string) bool {
 // canonicalPath rejects a request whose path cannot be matched unambiguously.
 // Dot segments and encoded separators could otherwise select a different routed
 // target than the one the guard decided about.
-func canonicalPath(r *http.Request) (string, bool) {
+// CanonicalPath returns the request path a policy may match against, and
+// reports false for one that cannot be matched unambiguously.
+func CanonicalPath(r *http.Request) (string, bool) {
 	if r == nil || r.URL == nil {
 		return "", false
 	}

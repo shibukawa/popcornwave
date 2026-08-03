@@ -12,7 +12,7 @@ transport: decision:live-delivery-transport
 request:
   method_and_url: the page's own, unchanged
   headers:
-    mode: the live token, which is what selects this response
+    mode: the live token, which is what selects this response; from decision:update-runtime-convergence it rides the shared render header as 'live;v=N' rather than a header of its own, and pw tests it before delegating to the update modes
     csrf: the policy:csrf-protection header token, as for any credentialed non-document request
   credentials: ambient, exactly as for the document request
   body: none

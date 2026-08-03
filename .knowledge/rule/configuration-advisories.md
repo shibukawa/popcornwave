@@ -123,8 +123,8 @@ secret_material:
   basis:
     classification: the configbind metadata already marks a field secret, because policy:log-emission and policy:startup-summary redact by that mark; these advisories read the same mark instead of a list of names
     fields_today: DSN credentials, auth oidc.client_secret, and observability otel.headers
-    cookies: the framework holds no cookie signing or encryption key, because a login session is a server-side data:session-record and the CSRF secret is per-session crypto/rand; a plugin that adds such a key is covered the moment its metadata marks it secret
-    intent: keying the check to the classification means a future signing key needs no new advisory
+    cookies: no cookie key is configured while every CSRF secret lives in a server-side data:session-record; decision:anonymous-csrf-secret-storage needs one, and it is the policy:cookie-value-protection keyring rather than a key of its own, so it is covered the moment that keyring's metadata marks it secret
+    intent: keying the check to the classification means a cookie keyring needs no new advisory
     credential_test: classification is by field name, so it marks every DSN; a value holding no user info and no credential parameter, such as a sqlite path, discloses nothing and is skipped, because a finding a reader learns to ignore costs the ones that matter
   where_a_secret_is_kept:
     members: literal-secret-in-config-file, secret-file-not-ignored, secret-file-permissions

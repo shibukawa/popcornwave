@@ -53,6 +53,15 @@ type Record[T any] struct {
 	// Version invalidates records after an incompatible schema or policy
 	// change.
 	Version int
+	// CSRFSecret is the per-session secret policy:csrf-protection validates
+	// against. It is written at creation and replaced by rotation, so a token
+	// minted for an earlier authentication strength cannot be presented after
+	// one.
+	//
+	// It is deliberately absent from the request view: a handler has no reason
+	// to read it, and every path that legitimately needs it reaches it through
+	// pwruntime rather than through the session payload.
+	CSRFSecret string
 }
 
 // Store persists session records behind one context-aware contract. Stores

@@ -221,6 +221,29 @@ the same job is one cheap `DELETE`.
 A record larger than the DynamoDB item limit is refused before it is sent, with
 the limit named.
 
+## The CSRF secret
+
+Every record carries one more field the browser never sees: a random secret the
+CSRF check verifies against. It is written when the record is created and
+replaced whenever the session rotates, so a token minted before a login is
+refused after one. Every backend stores it, including the cookie one, which
+seals it along with the rest of the record.
+
+Two cookies go out together once `security.csrf.enabled` is on:
+
+| Cookie | Holds | `HttpOnly` |
+| --- | --- | --- |
+| `pw_session` | the opaque session token | yes |
+| `pw_csrf` | a token derived from the secret | **no** |
+
+The second is deliberately readable by script, because the browser runtime reads
+it when it issues a request. That is the one exception to the rule that framework
+cookies are `HttpOnly`, and it buys something specific: a token read at request
+time survives a rotation that a token embedded in the page would not.
+
+Both are written at the same call site, so a browser holding a session cookie
+always holds a matching token. Logging out expires both.
+
 ## Choosing
 
 | | cookie | rdb | redis | dynamo |

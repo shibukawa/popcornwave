@@ -15,7 +15,7 @@ stored_fields:
   expires_at: absolute timestamp
   idle_expires_at: optional timestamp
   authentication_method: string
-  csrf_secret: random session-bound secret when CSRF is enabled
+  csrf_secret: random session-bound secret when CSRF is enabled, per requirement:csrf-token-lifecycle; a visitor with no session carries one in a signed cookie instead, per decision:anonymous-csrf-secret-storage, so this field is the authenticated half only
   version: integer
 request_view:
   - typed data

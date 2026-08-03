@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/shibukawa/popcornwave/middlewares"
+	"github.com/shibukawa/popcornwave/pwruntime"
 	tinybind "github.com/shibukawa/tinybind-go"
 	"github.com/shibukawa/tinybind-go/htmlbind"
 	"github.com/shibukawa/tinygodriver/compress/zstd"
@@ -274,6 +275,12 @@ func WriteHTMLPage(w http.ResponseWriter, r *http.Request, wrappers []HTMLWrappe
 // finished document instead of the fallbacks it can never replace.
 func WriteHTMLChain(w http.ResponseWriter, r *http.Request, wrappers []HTMLWrapper, leaf HTMLFragment, options ...HTMLOption) {
 	config := Config[HTMLConfig](requestContext(r))
+	// Every unsafe form in this chain carries the session's token, and the
+	// document path is where that is supplied: WriteHTMLFragment renders no
+	// document and shares only the option builder below, so it is untouched.
+	//
+	// The option goes first, so a caller passing its own still wins.
+	options = append(csrfRenderOptions(requestContext(r)), options...)
 	// The probe runs first because it is the cheapest of the three gates and the
 	// only one that can rule streaming out entirely, so a page that could never
 	// stream never classifies its client.
@@ -325,6 +332,26 @@ func WriteHTMLChain(w http.ResponseWriter, r *http.Request, wrappers []HTMLWrapp
 		return
 	}
 	commitHTMLBody(w, r, &body)
+}
+
+// csrfRenderOptions supplies the token every unsafe form of a document render
+// carries, when the request has a session to take one from.
+//
+// A request without one supplies nothing rather than htmlbind.WithoutCSRFToken:
+// that option renders an unsafe form with an empty token, which is right for a
+// mail body or a golden test and wrong for a response, where it would put an
+// unprotected form on screen and say nothing. Supplying nothing fails the render
+// instead, which is the outcome policy:csrf-protection asks for.
+func csrfRenderOptions(ctx context.Context) []HTMLOption {
+	secret, ok := pwruntime.CSRFSecret(ctx)
+	if !ok {
+		return nil
+	}
+	token, err := pwruntime.CSRFToken(secret, nil)
+	if err != nil || token == "" {
+		return nil
+	}
+	return []HTMLOption{htmlbind.WithCSRFToken(token)}
 }
 
 // WriteHTMLFragment renders one generated template as the whole response, with

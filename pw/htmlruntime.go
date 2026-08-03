@@ -7,6 +7,8 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+
+	"github.com/shibukawa/popcornwave/pwruntime"
 )
 
 // boundaryRuntimeScript applies streamed await boundaries in the browser.
@@ -32,6 +34,38 @@ const boundaryRuntimeScript = `// Popcorn Wave boundary runtime.
 
 const modeHeader = "Pw-Response-Mode";
 const liveMode = "live";
+
+// The CSRF token travels in a cookie rather than in the page, and it is read
+// here at the moment a request is issued rather than once at load. That is the
+// whole difference: a value written into the document is fixed at render, so a
+// session rotation — a login, a privilege change — would never reach a screen
+// that is already open, and its next request would be refused with nothing on
+// screen explaining why.
+//
+// The names are constants because this script cannot read them off its own tag:
+// a module script has no document.currentScript. They are pw.CSRFCookieName and
+// the header the middleware reads, and the Go side names the same two.
+const csrfCookieName = "` + pwruntime.CSRFCookieName + `";
+const csrfHeaderName = "` + pwruntime.CSRFHeaderName + `";
+
+function csrfToken() {
+	// A cookie value cannot contain a semicolon or a space unquoted, and this
+	// one is base64url, so splitting on "; " is exact rather than a heuristic.
+	const prefix = csrfCookieName + "=";
+	for (const entry of document.cookie.split("; ")) {
+		if (entry.startsWith(prefix)) return entry.slice(prefix.length);
+	}
+	return "";
+}
+
+// withCSRF adds the token to a header set. Every request this runtime issues
+// goes through it, so a request that should carry one cannot be written without
+// it by forgetting a call site.
+function withCSRF(headers) {
+	const token = csrfToken();
+	if (token) headers[csrfHeaderName] = token;
+	return headers;
+}
 
 // Every piece of module state is declared here, above the custom element
 // definitions, and that placement is load-bearing. Defining an element upgrades
@@ -267,7 +301,7 @@ async function connectOnce() {
 	let opened = false;
 	try {
 		const response = await fetch(location.href, {
-			headers: { [modeHeader]: liveMode },
+			headers: withCSRF({ [modeHeader]: liveMode }),
 			credentials: "same-origin",
 			cache: "no-store",
 			redirect: "error",

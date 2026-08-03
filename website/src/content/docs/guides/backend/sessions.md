@@ -49,6 +49,11 @@ backend it was, either — which is what lets one deployment keep sessions in a
 table and the next in DynamoDB without a handler edit between them. Where the
 record actually lives is [Session storage](/guides/storage/session-storage/).
 
+The view carries no CSRF secret. The record holds one, and it is deliberately
+not here: nothing in a handler needs it, and keeping it out of reach is cheaper
+than remembering not to log it. [Security](/guides/architecture/security/) covers
+what the check does with it.
+
 ## When there is no session
 
 `ok` is false for a request that never had a session, and equally for one whose

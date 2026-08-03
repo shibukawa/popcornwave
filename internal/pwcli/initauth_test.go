@@ -116,8 +116,11 @@ func TestScaffoldWiresTheFrameworkOwnedEndpoints(t *testing.T) {
 	}
 }
 
-// The scaffolded keys must be the ones the plugins register, otherwise the
-// generated project fails to start on an unknown key.
+// The scaffolded keys must be registered, otherwise the generated project fails
+// to start on an unknown key.
+//
+// The scan runs from [session] to the end of the file, so it covers every
+// section the scaffold appends after that point, not only the auth ones.
 func TestScaffoldedAuthKeysAreRegistered(t *testing.T) {
 	known := map[string]bool{
 		// [session]
@@ -136,6 +139,8 @@ func TestScaffoldedAuthKeysAreRegistered(t *testing.T) {
 		"redirect_url": true, "scopes": true, "identity_claim": true,
 		"admission": true, "auto_provision": true,
 		"logout_scope": true, "allow_loopback_http": true,
+		// [security]
+		"csrf.enabled": true, "csrf.include": true, "csrf.exclude": true,
 	}
 	for _, mode := range []string{authOIDC, authOIDCPasskey, authPasskey} {
 		t.Run(mode, func(t *testing.T) {
@@ -495,6 +500,41 @@ func TestScaffoldImportsTheStoresOfTheSelectedEngine(t *testing.T) {
 				t.Errorf("session migration is not in the %s dialect:\n%s", engine, migration)
 			}
 		})
+	}
+}
+
+// A project with a session gets the CSRF shape written out and switched off.
+// Turning it on later should be uncommenting rather than looking the keys up.
+func TestScaffoldWritesTheCSRFSectionOffByDefault(t *testing.T) {
+	config := scaffoldFiles(initOptions{Name: "demo", Auth: authOIDC})[pwenv.FileName(pwenv.Development)]
+	if !strings.Contains(config, "[security]") {
+		t.Fatalf("no security section:\n%s", config)
+	}
+	if !strings.Contains(config, "csrf.enabled = false") {
+		t.Errorf("CSRF is not scaffolded off:\n%s", config)
+	}
+	// The anonymous path is a comment, so a project that needs it finds the
+	// keys rather than the documentation.
+	if !strings.Contains(config, "# csrf.anonymous.enabled = true") {
+		t.Errorf("the anonymous path is not shown:\n%s", config)
+	}
+}
+
+// A page tree's action endpoints are POSTs reachable with the session cookie
+// and nothing else in front of them, so the prefix must be in the include list.
+func TestScaffoldCoversThePageActionPrefix(t *testing.T) {
+	pages := scaffoldFiles(initOptions{Name: "demo", Auth: authOIDC, Router: routerDiscovered})[pwenv.FileName(pwenv.Development)]
+	if !strings.Contains(pages, `csrf.include = ["/_action/**", "/**"]`) {
+		t.Errorf("a page tree did not cover the action prefix:\n%s", pages)
+	}
+}
+
+// Without a session there is nothing to bind a token to, so the section would
+// only describe a check that could not pass.
+func TestScaffoldWritesNoSecuritySectionWithoutASession(t *testing.T) {
+	config := scaffoldFiles(initOptions{Name: "demo"})[pwenv.FileName(pwenv.Development)]
+	if strings.Contains(config, "[security]") {
+		t.Errorf("a session-less project got a security section:\n%s", config)
 	}
 }
 
