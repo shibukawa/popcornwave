@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"runtime/debug"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -31,7 +32,14 @@ import (
 	_ "github.com/shibukawa/popcornwave/sessionstore/sqlite"
 )
 
-const initUsage = "usage: pw init [<project-name>] [--interactive] [--router=registered|discovered|both] [--tailwind] [--no-tinygo] [--no-devbox] [--no-database] [--db=sqlite|postgres|mysql] [--no-redis] [--auth=none|oidc|oidc-passkey|passkey] [--session=rdb|cookie|redis] [--devidp]"
+// Where the starter page sends a reader who wants more than it holds. Literal,
+// because a landing page that needs a lookup to render is not a starting point.
+const (
+	documentationURL = "https://shibukawa.github.io/popcornwave/"
+	repositoryURL    = "https://github.com/shibukawa/popcornwave"
+)
+
+const initUsage = "usage: pw init [<project-name>] [--yes] [--router=registered|discovered|both] [--tailwind] [--no-tinygo] [--no-devbox] [--no-database] [--db=sqlite|postgres|mysql] [--dynamo] [--no-redis] [--auth=none|oidc|oidc-passkey|passkey] [--session=rdb|cookie|redis] [--devidp]"
 
 // Authentication modes the wizard and the --auth flag select between. They map
 // onto the plugin/auth modes, with none meaning no [auth] configuration.
@@ -137,7 +145,21 @@ const (
 	defaultRegisteredDir = "handlers"
 	defaultDiscoveredDir = "pages"
 	defaultTemplatesDir  = "templates"
+	// defaultDynamoDir holds the dynamo-tagged types and .pw.dynamo queries of
+	// requirement:dynamodb-store. It is its own purpose because a directory
+	// contributes only the artifact kinds whose purpose lists it.
+	defaultDynamoDir = "records"
 )
+
+// dynamoDevboxPackage is the local DynamoDB server pw dev starts, the address of
+// which is what the scaffolded endpoint points at.
+const dynamoDevboxPackage = "dynamodb-local@latest"
+
+// dynamoStore names DynamoDB where a store is being chosen rather than an
+// engine. It is not an engine name and never reaches project.database, because
+// requirement:dynamodb-store is a second kind of store rather than a fourth
+// dialect.
+const dynamoStore = "dynamo"
 
 // effectiveRouter reads an unset answer as the registered router: that is the
 // shape every project scaffolded before page trees existed has, and the one a
@@ -192,7 +214,21 @@ type initOptions struct {
 	// AuthEmulator scaffolds the development identity provider instead of
 	// pointing the project at an external one. It only applies to an OIDC mode.
 	AuthEmulator bool
-	Interactive  bool
+	// AuthStore is the store the login was chosen through: an engine name, or
+	// dynamoStore. It is a wizard answer rather than a scaffold input — what it
+	// writes is already in Database, Engine, and Dynamo — and it exists so the
+	// follow-up question knows which store the operator has not been asked
+	// about yet.
+	AuthStore string
+	// Dynamo adds the DynamoDB store. It is a second kind of store rather than
+	// a fourth SQL engine, so it stands beside the Database answer instead of
+	// replacing it, and either, both, or neither is a valid project.
+	Dynamo bool
+	// Yes skips the wizard and takes the flags with the defaults for everything
+	// they do not answer. It is the only way to run non-interactively in a
+	// terminal, because the project name alone no longer means the caller has
+	// answered anything but the name.
+	Yes bool
 }
 
 // defaultInitOptions keeps TinyGo compatible routing as the scaffold default so
@@ -228,8 +264,11 @@ func parseInitArgs(args []string) (initOptions, error) {
 			options.TinyGo = true
 		case "--no-tinygo":
 			options.TinyGo = false
+		case "-y", "--yes":
+			options.Yes = true
 		case "-i", "--interactive":
-			options.Interactive = true
+			// Accepted and ignored: the wizard it used to request is now what
+			// every terminal run does.
 		case "--devbox":
 			options.Devbox = true
 		case "--no-devbox":
@@ -238,6 +277,10 @@ func parseInitArgs(args []string) (initOptions, error) {
 			options.Database = true
 		case "--no-database":
 			options.Database = false
+		case "--dynamo":
+			options.Dynamo = true
+		case "--no-dynamo":
+			options.Dynamo = false
 		case "--redis":
 			options.Redis = true
 		case "--no-redis":
@@ -339,10 +382,12 @@ func runInit(args []string, stdout io.Writer) error {
 	if err != nil {
 		return err
 	}
-	if options.Name == "" || options.Interactive {
-		if !interactiveTerminal() {
-			return fmt.Errorf("init: the wizard needs a terminal; %s", initUsage)
-		}
+	// The wizard runs whether or not a name was given. A caller who knows the
+	// name has still not answered the store, authentication, router, or
+	// toolchain questions, and a question never asked is an option never
+	// discovered. --yes is the way to say the flags are the whole answer, and a
+	// session with no terminal is that case by construction.
+	if !options.Yes && interactiveTerminal() {
 		options, err = runInitWizard(options)
 		if errors.Is(err, errWizardCanceled) {
 			fmt.Fprintln(stdout, "init canceled")
@@ -351,6 +396,10 @@ func runInit(args []string, stdout io.Writer) error {
 		if err != nil {
 			return err
 		}
+	} else if options.Name == "" {
+		// Nothing can supply the name here: there is no wizard to ask in, and no
+		// default worth guessing for a directory this command is about to create.
+		return fmt.Errorf("init: a project name is required without the wizard; %s", initUsage)
 	}
 	name := options.Name
 	destination, err := initDestination(name)
@@ -360,6 +409,8 @@ func runInit(args []string, stdout io.Writer) error {
 	if err := os.MkdirAll(destination, 0o755); err != nil {
 		return err
 	}
+	progress := newProgressRegion(stdout)
+	progress.Phase("writing " + name)
 	files := scaffoldFiles(options)
 	for path, content := range files {
 		target := filepath.Join(destination, filepath.FromSlash(path))
@@ -370,14 +421,17 @@ func runInit(args []string, stdout io.Writer) error {
 			return err
 		}
 	}
+	progress.Phase("resolving modules")
 	tidy := exec.Command("go", "mod", "tidy")
 	tidy.Dir = destination
 	tidy.Stdout = stdout
 	tidy.Stderr = stdout
 	tidy.Env = os.Environ()
 	if err := tidy.Run(); err != nil {
+		progress.Done()
 		return fmt.Errorf("initialize Go module: %w", err)
 	}
+	progress.Phase("generating")
 	previous, err := os.Getwd()
 	if err != nil {
 		return err
@@ -385,8 +439,9 @@ func runInit(args []string, stdout io.Writer) error {
 	if err := os.Chdir(destination); err != nil {
 		return err
 	}
-	generateErr := runGenerate(context.Background(), nil, stdout)
+	generated, generateErr := generateProject(context.Background(), false, stdout, false)
 	restoreErr := os.Chdir(previous)
+	progress.Done()
 	if generateErr != nil {
 		return fmt.Errorf("generate starter: %w", generateErr)
 	}
@@ -394,6 +449,11 @@ func runInit(args []string, stdout io.Writer) error {
 		return restoreErr
 	}
 	fmt.Fprintf(stdout, "\nCreated %s\n", name)
+	reportCreatedSources(stdout, files)
+	// The generated files are build inputs, named after sources the operator has
+	// not read yet and excluded by the .gitignore this same scaffold wrote.
+	// Listing them answers no question; saying how to remake them does.
+	fmt.Fprintf(stdout, "\n%d generated files, rebuilt any time by pw generate\n", generated)
 	// The wizard says this beside each answer, but a scripted run never sees
 	// it, and a declined capability is the one thing about the new project an
 	// operator may not know is reversible.
@@ -420,6 +480,37 @@ func runInit(args []string, stdout io.Writer) error {
 	return nil
 }
 
+// reportCreatedSources names the handwritten files the scaffold wrote, grouped
+// by the directory they landed in. These are the files the operator now owns,
+// edits, and commits, which is what a report of a new project should be about.
+func reportCreatedSources(stdout io.Writer, files map[string]string) {
+	grouped := map[string][]string{}
+	for path := range files {
+		directory, file := "", path
+		if cut := strings.LastIndex(path, "/"); cut >= 0 {
+			directory, file = path[:cut], path[cut+1:]
+		}
+		grouped[directory] = append(grouped[directory], file)
+	}
+	directories := make([]string, 0, len(grouped))
+	for directory := range grouped {
+		directories = append(directories, directory)
+	}
+	// The project root sorts first as the empty string, which is where the
+	// files an operator opens first happen to live.
+	sort.Strings(directories)
+	fmt.Fprintln(stdout)
+	for _, directory := range directories {
+		names := grouped[directory]
+		sort.Strings(names)
+		label := directory + "/"
+		if directory == "" {
+			label = "."
+		}
+		fmt.Fprintf(stdout, "  %-14s %s\n", label, strings.Join(names, "  "))
+	}
+}
+
 // devboxNextStep names the shell to enter first, for a project that has one.
 func devboxNextStep(options initOptions) string {
 	if !options.Devbox {
@@ -439,6 +530,10 @@ func declinedCapabilities(options initOptions) []string {
 			}
 		case capabilityDatabase:
 			if !options.Database {
+				declined = append(declined, capability)
+			}
+		case capabilityDynamo:
+			if !options.Dynamo {
 				declined = append(declined, capability)
 			}
 		case capabilityRedis:
@@ -528,6 +623,11 @@ func scaffoldFiles(options initOptions) map[string]string {
 			devboxPackages = append(devboxPackages, server)
 		}
 	}
+	if options.Dynamo {
+		// The local server the scaffolded endpoint points at, added the way the
+		// Valkey and the SQL servers are.
+		devboxPackages = append(devboxPackages, dynamoDevboxPackage)
+	}
 	if options.Redis {
 		devboxPackages = append(devboxPackages, "valkey@latest")
 	}
@@ -535,12 +635,18 @@ func scaffoldFiles(options initOptions) map[string]string {
 		devboxPackages = append(devboxPackages, "tinygo@latest")
 	}
 	configTailwind := ""
-	homeStylesheet := ""
+	// Declining Tailwind costs the utilities, not the page: the starter page is
+	// styled either way, by the toolchain or by a stylesheet the application
+	// owns from the moment it is written.
+	// public/app.css is written either way. With Tailwind it carries the error
+	// pages only, because those are framework-shaped and their class names are
+	// not utilities; without it, it carries the starter page as well.
+	homeStylesheet := `<link rel="stylesheet" href="/public/app.css">`
 	homeClasses := ""
 	if options.Tailwind {
 		configTailwind = tailwindProjectConfig()
 		devboxPackages = append(devboxPackages, tailwindDevboxPackage)
-		homeStylesheet = `<link rel="stylesheet" href="/public/generated/app.css">`
+		homeStylesheet += `<link rel="stylesheet" href="/public/generated/app.css">`
 		homeClasses = ` class="mx-auto max-w-3xl p-8 text-slate-900"`
 	}
 	files := map[string]string{
@@ -560,6 +666,9 @@ config = [` + quotedList(scaffoldGenerationScope(options).Config) + `]
 # A page tree root is one generation run: every directory below it holding a
 # page template is a route, and the registration is generated.
 pages = [` + quotedList(scaffoldGenerationScope(options).Pages) + `]
+# The dynamo-tagged types and .pw.dynamo queries of the DynamoDB store, which is
+# its own purpose because it shares no source kind with the SQL path.
+dynamo = [` + quotedList(scaffoldGenerationScope(options).Dynamo) + `]
 
 # pw dev walks the module for rebuild inputs. Add what the walk misses, and
 # exclude a subtree that only makes the walk slower.
@@ -584,17 +693,21 @@ api_doc = "scalar"
 [observability]
 minimum_level = "debug"
 service_name = "` + name + `"
-` + databaseRuntimeConfig(options) + authRuntimeConfig(options),
+# The slog text encoding, which is what a terminal reads. An unset key already
+# resolves to this in dev and to "json" everywhere else; it is written out here
+# so the format this file produces is visible rather than inferred.
+stdout_format = "plaintext"
+` + databaseRuntimeConfig(options) + dynamoRuntimeConfig(options) + authRuntimeConfig(options) + securityRuntimeConfig(options),
 		"cmd/" + name + "/main.go": mainScaffold(options),
 		"templates/document.pw.html": `package templates
 
 external RuntimeScriptURL(): url
 
 export component Document(children: html?): html {
-<!doctype html>
-<html lang="en"><head><meta charset="utf-8"><title>Popcorn Wave</title>` + homeStylesheet +
+  <!doctype html>
+  <html lang="en"><head><meta charset="utf-8"><title>Popcorn Wave</title>` + homeStylesheet +
 			`<script type="module" src={RuntimeScriptURL()}></script></head>
-<body` + homeClasses + `><slot /></body></html>
+  <body` + homeClasses + `><slot /></body></html>
 }
 `,
 		"templates/templates.go": `package templates
@@ -617,6 +730,7 @@ import (
 // bytes the server no longer serves.
 func RuntimeScriptURL() *url.URL { return &url.URL{Path: pw.RuntimeScriptURL()} }
 `,
+		"templates/errors.go":   errorRegistrationScaffold(),
 		"templates/400.pw.html": errorTemplate("templates", "Error400", "Bad Request"),
 		"templates/401.pw.html": errorTemplate("templates", "Error401", "Unauthorized"),
 		"templates/403.pw.html": errorTemplate("templates", "Error403", "Forbidden"),
@@ -655,6 +769,8 @@ func PublicFS() fs.FS {
     }
 }
 `,
+		".vscode/extensions.json": editorExtensionsScaffold(options),
+		".editorconfig":           editorConfigScaffold(),
 		// The binary pattern is anchored: a bare name would also ignore cmd/<name>/.
 		// devbox.d holds the service configuration devbox writes on first run,
 		// so pw dev leaves no change behind in a fresh checkout.
@@ -673,6 +789,10 @@ func PublicFS() fs.FS {
 	if options.Devbox {
 		files["devbox.json"] = devboxScaffold(devboxPackages)
 		files["devbox.lock"] = "{}\n"
+	}
+	files["public/app.css"] = applicationStylesheet(options)
+	if options.Dynamo {
+		files[defaultDynamoDir+"/note.go"] = dynamoRecordScaffold()
 	}
 	if options.Database {
 		files["queries/users.pw.sql"] = starterQuery()
@@ -751,23 +871,117 @@ func databaseRuntimeConfig(options initOptions) string {
 		return ""
 	}
 	engine := engineFor(options.Engine)
-	return databaseRuntimeSection(engine.DSN(options.Name), engine)
+	return databaseRuntimeSection(pwenv.Development, engine.DSN(options.Name), engine)
 }
 
 // databaseRuntimeSection is the rdb configuration api:cli-init scaffolds and
 // api:cli-add appends, so both reach the same file state. The pool bounds come
 // from the engine: one connection is right for a file SQLite writes serially
 // and wrong for a server that expects a pool.
-func databaseRuntimeSection(dsn string, engine databaseEngine) string {
+//
+// One element is one pool, and it is the only form the section has. A project
+// that grows a replica adds a second element and names the groups above them;
+// nothing about the first element changes.
+//
+// devDSN is the local database the scaffolded migrations run against, and it is
+// written only into the development file. A deployed environment names no
+// database here: the element carries a ${DATABASE_URL} reference instead,
+// because an array element has no environment variable of its own and the value
+// belongs to the deployment rather than to the repository.
+func databaseRuntimeSection(env, devDSN string, engine databaseEngine) string {
+	dsn := `dsn = "` + devDSN + `"`
+	if env != pwenv.Development {
+		dsn = `# The deployment supplies this. ${NAME} is expanded when the file loads, and
+# an undefined name is a load error rather than an empty DSN.
+dsn = "${DATABASE_URL}"`
+	}
 	return `
 # The scaffolded migrations and queries need a database; pw dev and pw migrate
-# read this DSN.
+# read this connection.
 [middleware.rdb]
 enabled = true
-dsn = "` + dsn + `"
+
+# One element is one pool. The group is the name statements address it by, and
+# a single connection answers to every group name, so this one stays "default"
+# until a second database arrives.
+[[middleware.rdb.connections]]
+group = "default"
+` + dsn + `
 connect_timeout = "5s"
 max_open_conns = ` + strconv.Itoa(engine.MaxOpenConns) + `
 max_idle_conns = ` + strconv.Itoa(engine.MaxIdleConns) + `
+`
+}
+
+// dynamoRuntimeConfig is the middleware.dynamo section. It is independent of
+// middleware.rdb: a project may have either, both, or neither, because DynamoDB
+// is a second kind of store rather than another SQL engine.
+func dynamoRuntimeConfig(options initOptions) string {
+	if !options.Dynamo {
+		return ""
+	}
+	return dynamoRuntimeSection()
+}
+
+// dynamoRuntimeSection is what api:cli-init scaffolds and api:cli-add appends,
+// so both reach the same file state. The credentials are development values:
+// the local server does not verify a signature, and the region is a placeholder
+// it accepts.
+func dynamoRuntimeSection() string {
+	return `
+# The DynamoDB store, independent of middleware.rdb. These values point at the
+# amazon/dynamodb-local server pw dev starts; deployment supplies its own.
+[middleware.dynamo]
+enabled = true
+region = "us-east-1"
+endpoint = "http://127.0.0.1:8000"
+access_key_id = "local"
+secret_access_key = "local"
+# Development creates tables from the registered definitions. A deployed table
+# comes from deployment tooling, so this key is a configuration error outside dev.
+auto_migrate = true
+`
+}
+
+// dynamoRecordScaffold is the starter typed record. Its table is created from
+// the generated definition rather than from a migration file, because the
+// DynamoDB schema is the set of registered tables and has no version sequence.
+func dynamoRecordScaffold() string {
+	return `package records
+
+import (
+	"context"
+	"time"
+
+	"github.com/shibukawa/tinybind-go/dynamobind"
+)
+
+// A dynamo-tagged struct declares a table. pw generate emits its item codec,
+// its key builder, and the table definition that creates the table in
+// development, all beside this file and none of it by hand.
+//
+// There is no migration file for this: the DynamoDB schema is the set of
+// registered table definitions, so a table is added by declaring a type rather
+// than by adding a version.
+type Note struct {
+	ID        string    ` + "`dynamo:\"id,partitionkey\"`" + `
+	CreatedAt time.Time ` + "`dynamo:\"created_at,sortkey\"`" + `
+	Body      string    ` + "`dynamo:\"body\"`" + `
+}
+
+// The generator emits a codec only for the directions something actually uses,
+// so these two calls are what make EncodeItem, DecodeItem, and ItemKey appear
+// beside this file. Delete them and the generated code shrinks to match.
+//
+// The client comes from the request context, installed by the dynamo
+// middleware, so nothing here takes a handle.
+func StoreNote(ctx context.Context, note Note) error {
+	return dynamobind.Store(ctx, "note", note)
+}
+
+func LoadNote(ctx context.Context, id string, createdAt time.Time) (Note, error) {
+	return dynamobind.Load[Note](ctx, "note", Note{ID: id, CreatedAt: createdAt}.ItemKey())
+}
 `
 }
 
@@ -812,7 +1026,7 @@ func databaseDriverImport(options initOptions) string {
 	if path == "" {
 		return ""
 	}
-	return "\n\t// Registers the engine middleware.rdb.dsn names.\n\t_ " + strconv.Quote(path)
+	return "\n\t// Registers the engine the configured DSN names.\n\t_ " + strconv.Quote(path)
 }
 
 // authBootstrap installs the account resolver. That call is the whole
@@ -1035,6 +1249,7 @@ func IssueFirstPasskey(ctx context.Context, loginID, accountID string) (string, 
 // homeHandlerScaffold renders the starter page. With authentication it reads
 // the signed-in user; the login itself belongs to the framework.
 func homeHandlerScaffold(options initOptions) string {
+	project := strconv.Quote(options.Name)
 	if !servesLogin(options) {
 		return `package handlers
 
@@ -1044,19 +1259,35 @@ import (
 	"github.com/shibukawa/popcornwave/pw"
 )
 
+// homeInput is what this route reads from the request.
 type homeInput struct {
+	// Name is who the page greets. Anything the request does not carry falls
+	// back to the declared default.
 	Name string ` + "`query:\"name\" default:\"World\"`" + `
 }
 
 func init() { mux.HandleFunc("GET /{$}", home) }
 
+// The comment below is not decoration. pw generate reads a handler's godoc into
+// the OpenAPI document this project serves: the first sentence becomes the
+// operation summary and the rest its description, and the field comments in
+// homeInput describe the parameters. Write them and /docs explains the route;
+// leave them out and it lists a path and nothing else.
+//
+// This paragraph is separated by a blank line, so it is not part of that godoc
+// and does not reach the document.
+
+// home renders the starter landing page.
+//
+// The greeting is whoever the request names, and the project the page was
+// scaffolded for otherwise.
 func home(w http.ResponseWriter, r *http.Request) {
 	input, err := pw.Parse[homeInput](r)
 	if err != nil {
 		pw.WriteProblem(w, r, pw.BadRequest(err))
 		return
 	}
-	pw.WriteHTML(w, r, Home(HomeParams{Name: input.Name}))
+	pw.WriteHTML(w, r, Home(HomeParams{Name: input.Name, Project: ` + project + `}))
 }
 `
 	}
@@ -1072,6 +1303,18 @@ import (
 
 func init() { mux.HandleFunc("GET /{$}", home) }
 
+// The comment below is not decoration. pw generate reads a handler's godoc into
+// the OpenAPI document this project serves: the first sentence becomes the
+// operation summary and the rest its description. Write them and /docs explains
+// the route; leave them out and it lists a path and nothing else.
+//
+// This paragraph is separated by a blank line, so it is not part of that godoc
+// and does not reach the document.
+
+// home renders the starter landing page, signed in or not.
+//
+// A signed-in visitor is greeted by display name and offered a sign-out
+// control; everyone else is offered the ways in that this project configured.
 func home(w http.ResponseWriter, r *http.Request) {
 	// The framework resolved the session before this handler ran.
 	user, signedIn := auth.User(r.Context())
@@ -1084,6 +1327,7 @@ func home(w http.ResponseWriter, r *http.Request) {
 	}
 	pw.WriteHTML(w, r, Home(HomeParams{
 		Name:        name,
+		Project:     ` + project + `,
 		SignedIn:    signedIn,
 		Email:       user.Email,
 		LoginPath:   url.URL{Path: "/auth/login"},
@@ -1104,54 +1348,244 @@ func passkeyLiteral(value bool) string {
 	return "false"
 }
 
+// landingStyle names the class of each element on the starter page. Tailwind
+// selected means utilities; declined means the class names the scaffolded
+// stylesheet defines. The two tables exist so there is one template rather than
+// one per answer, because two page scaffolds would drift apart.
+type landingStyle struct {
+	Page    string
+	Eyebrow string
+	Title   string
+	Lead    string
+	Section string
+	Heading string
+	List    string
+	Link    string
+	Note    string
+}
+
+func landingStyleFor(options initOptions) landingStyle {
+	if options.Tailwind {
+		return landingStyle{
+			Page:    ` class="space-y-10"`,
+			Eyebrow: ` class="text-sm font-semibold uppercase tracking-widest text-indigo-600"`,
+			Title:   ` class="mt-1 text-4xl font-bold tracking-tight"`,
+			Lead:    ` class="mt-3 text-slate-600"`,
+			Section: ` class="rounded-xl border border-slate-200 p-6"`,
+			Heading: ` class="text-lg font-semibold"`,
+			List:    ` class="mt-3 space-y-2 text-slate-700"`,
+			Link:    ` class="font-medium text-indigo-600 underline underline-offset-2"`,
+			Note:    ` class="text-sm text-slate-500"`,
+		}
+	}
+	return landingStyle{
+		Page:    ` class="page"`,
+		Eyebrow: ` class="eyebrow"`,
+		Title:   ` class="title"`,
+		Lead:    ` class="lead"`,
+		Section: ` class="card"`,
+		Heading: ` class="card-heading"`,
+		List:    ` class="card-list"`,
+		Link:    ` class="link"`,
+		Note:    ` class="note"`,
+	}
+}
+
+// landingStylesheet is the application-owned CSS a project that declined
+// Tailwind gets. Declining the toolchain should cost the utilities, not the
+// page, so the same structure is styled by hand instead of going unstyled.
+// applicationStylesheet is the CSS the project owns. The error pages are always
+// in it: their class names come from the framework's own templates rather than
+// from a toolchain, so a project that took Tailwind still needs them defined.
+func applicationStylesheet(options initOptions) string {
+	if options.Tailwind {
+		return errorPageStylesheet()
+	}
+	return landingStylesheet() + errorPageStylesheet()
+}
+
+// errorPageStylesheet styles the scaffolded error templates. It is small on
+// purpose: an error page is rare, and the one thing it owes a reader is that the
+// status and the title are legible.
+func errorPageStylesheet() string {
+	return `
+.error { margin: 0 auto; max-width: 34rem; padding: 4rem 1.5rem; }
+.error-status { color: #9aa3b8; font-size: 3rem; font-weight: 700; line-height: 1; margin: 0; }
+.error-title { font-size: 1.5rem; margin: .5rem 0 0; }
+.error-detail { margin: 1rem 0 0; }
+.error-fields { margin: 1rem 0 0; padding-left: 1.25rem; }
+.error-fields:empty { display: none; }
+.error-code, .error-request { color: #5b6478; font-family: ui-monospace, monospace; font-size: .8rem; margin: 1.5rem 0 0; }
+`
+}
+
+func landingStylesheet() string {
+	return `:root { color-scheme: light dark; --edge: #d8dce4; --muted: #5b6478; --accent: #4f46e5; }
+body { font: 16px/1.6 system-ui, sans-serif; margin: 0 auto; max-width: 46rem; padding: 3rem 1.5rem; }
+.page > * + * { margin-top: 2.5rem; }
+.eyebrow { color: var(--accent); font-size: .8rem; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; }
+.title { font-size: 2.25rem; letter-spacing: -.02em; margin: .25rem 0 0; }
+.lead { color: var(--muted); margin: .75rem 0 0; }
+.card { border: 1px solid var(--edge); border-radius: .75rem; padding: 1.5rem; }
+.card-heading { font-size: 1.05rem; margin: 0; }
+.card-list { color: var(--muted); margin: .75rem 0 0; padding-left: 1.25rem; }
+.card-list li + li { margin-top: .5rem; }
+.link { color: var(--accent); font-weight: 500; }
+.note { color: var(--muted); font-size: .875rem; }
+button, .button { border: 1px solid var(--edge); border-radius: .5rem; background: none; cursor: pointer; font: inherit; padding: .4rem .9rem; }
+@media (prefers-color-scheme: dark) { :root { --edge: #333a4a; --muted: #9aa3b8; --accent: #a5b4fc; } }
+`
+}
+
+// landingSections builds the body of the starter page. Every line of it comes
+// from an answer this project was actually scaffolded with, so a declined
+// capability is never advertised as present, and the links are literal because
+// a landing page that needs a lookup to render is not a starting point.
+func landingSections(options initOptions, style landingStyle, self string) string {
+	var body strings.Builder
+	fmt.Fprintf(&body, "  <section%s>\n    <h2%s>What this project has</h2>\n    <ul%s>\n",
+		style.Section, style.Heading, style.List)
+	for _, item := range landingIncluded(options) {
+		fmt.Fprintf(&body, "      <li>%s</li>\n", item)
+	}
+	body.WriteString("    </ul>\n  </section>\n")
+
+	fmt.Fprintf(&body, "  <section%s>\n    <h2%s>What to do next</h2>\n    <ul%s>\n",
+		style.Section, style.Heading, style.List)
+	for _, item := range landingNextSteps(options, self) {
+		fmt.Fprintf(&body, "      <li>%s</li>\n", item)
+	}
+	body.WriteString("    </ul>\n  </section>\n")
+
+	fmt.Fprintf(&body, `  <section%s>
+    <h2%s>Documentation</h2>
+    <ul%s>
+      <li><a%s href="%s">Guides, tutorial, and reference</a></li>
+      <li><a%s href="%s">Source and issues</a></li>
+    </ul>
+  </section>
+`, style.Section, style.Heading, style.List, style.Link, documentationURL, style.Link, repositoryURL)
+	return body.String()
+}
+
+// landingIncluded describes the project as it was scaffolded, one line per
+// answer that wrote something.
+func landingIncluded(options initOptions) []string {
+	var items []string
+	if routerHasRegistered(options.Router) {
+		items = append(items, "Routes written in Go on <code>"+muxTypeName(options)+"</code>, registered from <code>"+defaultRegisteredDir+"/</code>")
+	}
+	if routerHasDiscovered(options.Router) {
+		items = append(items, "A page tree in <code>"+defaultDiscoveredDir+"/</code>, where a directory with a page template is a route")
+	}
+	if options.Database {
+		items = append(items, "A "+engineFor(options.Engine).Label+" database, with <code>migrations/</code> and typed SQL in <code>queries/</code>")
+	}
+	if options.Dynamo {
+		items = append(items, "A DynamoDB store, with typed records in <code>"+defaultDynamoDir+"/</code>")
+	}
+	if servesLogin(options) {
+		items = append(items, "Authentication, with the sign-in controls below served by the framework")
+	}
+	if options.Tailwind {
+		items = append(items, "Tailwind CSS, compiled from <code>assets/app.css</code>")
+	}
+	if options.Devbox {
+		items = append(items, "A Devbox environment pinning the toolchain and the development services")
+	}
+	return items
+}
+
+// landingNextSteps names the commands that do something to this project now.
+func landingNextSteps(options initOptions, self string) []string {
+	steps := []string{"Edit this page: <code>" + self + "</code>"}
+	if routerHasRegistered(options.Router) {
+		steps = append(steps, "Add a route: <code>pw new handler</code>")
+	}
+	if routerHasDiscovered(options.Router) {
+		steps = append(steps, "Add a page: <code>pw new page</code>")
+	}
+	if options.Database {
+		steps = append(steps, "Write a query in <code>queries/</code> and a migration in <code>migrations/</code>; both start out commented")
+	}
+	if declined := declinedCapabilities(options); len(declined) > 0 {
+		steps = append(steps, "Install what this project skipped ("+strings.Join(declined, ", ")+"): <code>pw add &lt;capability&gt;</code>")
+	}
+	return steps
+}
+
+// muxTypeName names the router type this project's handlers register on.
+func muxTypeName(options initOptions) string {
+	if options.TinyGo {
+		return "pw.ServeMux"
+	}
+	return "http.ServeMux"
+}
+
 // homeTemplateScaffold renders the starter page. The logout control is a form
 // because the endpoint accepts POST only.
 func homeTemplateScaffold(options initOptions) string {
+	style := landingStyleFor(options)
 	if !servesLogin(options) {
 		return `package handlers
 
-export component Home(name: string): html {
-<h1 class="text-3xl font-bold">Hello, {name}</h1>
+export component Home(name: string, project: string): html {
+<div` + style.Page + `>
+  <header>
+    <p` + style.Eyebrow + `>Popcorn Wave</p>
+    <h1` + style.Title + `>{project}</h1>
+    <p` + style.Lead + `>Hello, {name}. This page is yours to delete; nothing in the framework reads it.</p>
+  </header>
+` + landingSections(options, style, "handlers/home.pw.html") + `</div>
 }
 `
 	}
 	return `package handlers
 
-export component Home(name: string, signedIn: bool, email: string, loginPath: url, logoutPath: url, passkey: bool, providerLogin: bool, bootstrap: bool): html {
-<h1 class="text-3xl font-bold">Hello, {name}</h1>
-{if signedIn}
-  <p>Signed in as {email}</p>
-  {if passkey}
-    <p><button type="button" id="passkey-register">Add a passkey</button></p>
-  {/if}
-  <form method="post" action={logoutPath}>
-    <button type="submit">Sign out</button>
-  </form>
-  <!-- Signing out keeps the session at the identity provider and makes the next
-       sign-in here ask again, which is what auth.oidc.logout_scope defaults to.
-       To offer a sign-out-everywhere control as well, set
-       auth.oidc.allow_global_logout_request and add a second form posting to
-       the same path with <input type="hidden" name="scope" value="global">. -->
-{else}
-  {if providerLogin}
-    <p><a href={loginPath}>Sign in</a></p>
-  {/if}
-  {if passkey}
-    <p><button type="button" id="passkey-login">Sign in with a passkey</button></p>
-  {/if}
-  {if bootstrap}
-    <form id="passkey-bootstrap">
-      <p>First sign-in: use the login ID and one-time secret an administrator issued.</p>
-      <input name="login_id" placeholder="login ID">
-      <input name="secret" type="password" placeholder="one-time secret">
-      <button type="submit">Enroll a passkey</button>
-    </form>
-  {/if}
-{/if}
-{if passkey}
-  <p id="passkey-status"></p>
-  <script type="module" src="/public/passkey.js"></script>
-{/if}
+export component Home(name: string, project: string, signedIn: bool, email: string, loginPath: url, logoutPath: url, passkey: bool, providerLogin: bool, bootstrap: bool): html {
+<div` + style.Page + `>
+  <header>
+    <p` + style.Eyebrow + `>Popcorn Wave</p>
+    <h1` + style.Title + `>{project}</h1>
+    <p` + style.Lead + `>Hello, {name}. This page is yours to delete; nothing in the framework reads it.</p>
+  </header>
+  <section` + style.Section + `>
+    <h2` + style.Heading + `>Account</h2>
+    {if signedIn}
+      <p>Signed in as {email}</p>
+      {if passkey}
+        <p><button type="button" id="passkey-register">Add a passkey</button></p>
+      {/if}
+      <form method="post" action={logoutPath}>
+        <button type="submit">Sign out</button>
+      </form>
+      <!-- Signing out keeps the session at the identity provider and makes the next
+           sign-in here ask again, which is what auth.oidc.logout_scope defaults to.
+           To offer a sign-out-everywhere control as well, set
+           auth.oidc.allow_global_logout_request and add a second form posting to
+           the same path with <input type="hidden" name="scope" value="global">. -->
+    {else}
+      {if providerLogin}
+        <p><a` + style.Link + ` href={loginPath}>Sign in</a></p>
+      {/if}
+      {if passkey}
+        <p><button type="button" id="passkey-login">Sign in with a passkey</button></p>
+      {/if}
+      {if bootstrap}
+        <form id="passkey-bootstrap">
+          <p` + style.Note + `>First sign-in: use the login ID and one-time secret an administrator issued.</p>
+          <input name="login_id" placeholder="login ID">
+          <input name="secret" type="password" placeholder="one-time secret">
+          <button type="submit">Enroll a passkey</button>
+        </form>
+      {/if}
+    {/if}
+    {if passkey}
+      <p id="passkey-status"></p>
+      <script type="module" src="/public/passkey.js"></script>
+    {/if}
+  </section>
+` + landingSections(options, style, "handlers/home.pw.html") + `</div>
 }
 `
 }
@@ -1165,6 +1599,12 @@ func devIdPProjectConfig(options initOptions) string {
 [dev.idp]
 enabled = true
 config = "` + defaultIdPConfig + `"
+# A fixed port keeps the issuer URL stable across restarts, and the issuer is
+# half of what identifies an account: the scaffolded resolver builds an account
+# ID out of the issuer and the subject. On an automatically reserved port every
+# pw dev would hand the same person a new account, and everything stored against
+# the old one would be gone. Change it if something else here already listens.
+port = ` + strconv.Itoa(defaultIdPPort) + `
 `
 }
 
@@ -1205,7 +1645,9 @@ func authRuntimeConfig(options initOptions) string {
 enabled = true
 backend = "` + sessionBackend(options) + `"
 cookie.name = "pw_session"
-# Loopback development only. Keep secure = true everywhere else.
+# Loopback development only, because there is no TLS to require here. Every
+# other environment refuses to start with this false, so a deployment file
+# either sets it true or leaves it out.
 cookie.secure = false
 # One secret signs and seals everything the browser carries, whatever the
 # backend is: a session.ReadOnly slot is signed and a session.Private slot is
@@ -1239,6 +1681,61 @@ protection.unauthenticated = "redirect"
 		section += authOIDCConfig(options)
 	}
 	return section
+}
+
+// securityRuntimeConfig writes the [security] section.
+//
+// The check is scaffolded off, with the patterns that turn it on written out
+// and commented. A project without a session has nothing to bind a token to, so
+// switching it on before there is one would refuse every post; leaving the
+// shape here means turning it on later is uncommenting rather than looking up.
+func securityRuntimeConfig(options initOptions) string {
+	if !servesLogin(options) {
+		// No session, so no token. The section would only describe a check that
+		// could not pass.
+		return ""
+	}
+	section := `
+# Partial updates are off until a project wants a page to refresh a region
+# rather than reload. The validator key is required with them: an unkeyed digest
+# of low-entropy content lets a guess be confirmed by comparing digests, so
+# startup refuses the combination rather than serving one.
+[html.update]
+enabled = false
+# validator_key = "${HTML_UPDATE_VALIDATOR_KEY}"
+
+# CSRF is off until the paths it covers are named, because a check installed
+# over nothing reads as protection that is not there. Turn it on once the
+# application has an unsafe route, and keep the include list as narrow as the
+# routes that mutate.
+[security]
+csrf.enabled = false
+csrf.include = ["/**"]
+`
+	if hasDiscoveredPages(options) {
+		// A page action is a POST reachable with ambient credentials, and
+		// nothing else stands in front of it, so it is the one prefix a page
+		// tree must not leave out.
+		section += `# Page actions are POST endpoints reachable with the session cookie, so the
+# action prefix belongs in the include list of any page tree.
+csrf.include = ["/_action/**", "/**"]
+`
+	}
+	section += `# Exclude what a browser never posts: a webhook has no session and carries its
+# own authentication.
+csrf.exclude = []
+# A public page with its own unsafe form needs a token before there is a
+# session. This issues one in a signed cookie and writes no session record.
+# csrf.anonymous.enabled = true
+# csrf.anonymous.secret = "${SECURITY_CSRF_ANONYMOUS_SECRET}"
+`
+	return section
+}
+
+// hasDiscoveredPages reports whether the project starts with a page tree, whose
+// action endpoints are what the CSRF include list must cover.
+func hasDiscoveredPages(options initOptions) bool {
+	return len(scaffoldGenerationScope(options).Pages) > 0
 }
 
 // authConfigMode maps the scaffold choice onto the plugin/auth mode name.
@@ -1409,7 +1906,13 @@ import (
 ` + imports + databaseDriverImport(options) + sessionBackendImport(options) + `
 )
 
-func main() {` + authBootstrap(options) + `
+func main() {
+	// Names the API document served at server.openapi_path and shown by the
+	// reference UI at /docs. Without it both fall back to "Application API".
+	if err := pw.SetOpenAPIInfo(pw.OpenAPIInfo{Title: "` + name + `", Version: "0.1.0"}); err != nil {
+		log.Fatal(err)
+	}
+` + authBootstrap(options) + `
 ` + body + `	if err := pw.Run(context.Background(), ` + handler + `); err != nil {
 		log.Fatal(err)
 	}
@@ -1441,13 +1944,14 @@ func pageTreeScaffold(options initOptions, root string) map[string]string {
 	// The tree root is a Go package like every directory below it, so its name
 	// follows the directory rather than the other way round.
 	pkg := goPackageIdentifier(root)
+	style := landingStyleFor(options)
 	return map[string]string{
 		// A layout must declare children as html: that shape is what makes the
 		// template compiler emit the wrapper the generated chain calls.
 		root + "/" + pwgen.LayoutFile: `package ` + pkg + `
 
 export component Layout(children: html): html {
-<div class="page"><slot required /></div>
+  <div class="page"><slot required /></div>
 }
 `,
 		// A directory holding this file is a route. This one is the tree root,
@@ -1455,8 +1959,13 @@ export component Layout(children: html): html {
 		root + "/" + pwgen.PageFile: `package ` + pkg + `
 
 export component Page(): html {
-<h1 class="text-3xl font-bold">Hello, Popcorn Wave</h1>
-<p><a href="/greet/world">a page with a dynamic segment</a></p>
+<div` + style.Page + `>
+  <header>
+    <p` + style.Eyebrow + `>Popcorn Wave</p>
+    <h1` + style.Title + `>` + options.Name + `</h1>
+    <p` + style.Lead + `>A directory holding a page template is a route, so <a` + style.Link + ` href="/greet/world">/greet/world</a> is served by the directory beside this one.</p>
+  </header>
+` + landingSections(options, style, root+"/"+pwgen.PageFile) + `</div>
 }
 `,
 		// One trailing underscore marks a dynamic segment, so this directory
@@ -1466,7 +1975,7 @@ export component Page(): html {
 		root + "/greet/name_/" + pwgen.PageFile: `package name_
 
 export component Page(greeting: string): html {
-<h1 class="text-3xl font-bold">{greeting}</h1>
+  <h1 class="text-3xl font-bold">{greeting}</h1>
 }
 `,
 		// page.go is optional. Adding it puts Go between the request and the
@@ -1528,6 +2037,9 @@ func scaffoldGenerationScope(options initOptions) generationScope {
 		// A purpose may only name directories that exist, so a project without
 		// the database says so with an empty list rather than a stale entry.
 		scope.Queries = []string{"queries"}
+	}
+	if options.Dynamo {
+		scope.Dynamo = []string{defaultDynamoDir}
 	}
 	return scope
 }
@@ -1600,9 +2112,122 @@ setInterval(tick, INTERVAL_MS);
 `
 }
 
+// editorConfigScaffold states the indent, encoding, and line endings the
+// scaffolded sources are written with. The Go rule restates what gofmt already
+// does, so an editor with no Go support does not fight it, and the two-space
+// rule is the width a .pw.html block is indented by.
+func editorConfigScaffold() string {
+	return `root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+[*.go]
+indent_style = tab
+
+[*.{pw.html,html,pw.sql,sql,toml,json,css,js,mjs,yaml,yml}]
+indent_style = space
+indent_size = 2
+`
+}
+
+// editorExtensionsScaffold recommends the extensions the scaffolded sources
+// need to be edited the way they were written. Recommendations only: nothing is
+// listed as unwanted, and nothing here is required to build the project.
+func editorExtensionsScaffold(options initOptions) string {
+	recommendations := []string{"golang.go", "EditorConfig.EditorConfig"}
+	// A declined capability is never advertised as present, so a project
+	// without Tailwind is not told to install its extension.
+	if options.Tailwind {
+		recommendations = append(recommendations, "bradlc.vscode-tailwindcss")
+	}
+	var body strings.Builder
+	body.WriteString("{\n    \"recommendations\": [\n")
+	for index, name := range recommendations {
+		separator := ","
+		if index == len(recommendations)-1 {
+			separator = ""
+		}
+		fmt.Fprintf(&body, "        %q%s\n", name, separator)
+	}
+	body.WriteString("    ]\n}\n")
+	return body.String()
+}
+
+// errorRegistrationScaffold connects the error templates to the framework.
+// Without it they are generated and never reached, which is what they were
+// before this file existed.
+func errorRegistrationScaffold() string {
+	return `package templates
+
+import "github.com/shibukawa/popcornwave/pw"
+
+// The framework renders one of these when a request fails and the client would
+// rather have a page than a problem document. It also renders one in place of a
+// page whose async boundary failed with no recover clause.
+//
+// The problem arrives already bounded: outside development it carries the
+// status and the title only, so nothing here has to decide what is safe to
+// show. Add a status to the switch and the framework starts using it.
+func init() {
+	pw.RegisterHTMLErrorPage(func(problem pw.Problem) pw.HTMLFragment {
+		fields := make([]string, 0, len(problem.Fields))
+		for _, field := range problem.Fields {
+			fields = append(fields, field.Field+": "+field.Message)
+		}
+		switch problem.Status {
+		case 400:
+			return Error400(Error400Params{Status: problem.Status, Title: problem.Title,
+				Detail: problem.Message, Code: problem.Code, Fields: fields})
+		case 401:
+			return Error401(Error401Params{Status: problem.Status, Title: problem.Title,
+				Detail: problem.Message, Code: problem.Code, Fields: fields})
+		case 403:
+			return Error403(Error403Params{Status: problem.Status, Title: problem.Title,
+				Detail: problem.Message, Code: problem.Code, Fields: fields})
+		case 404:
+			return Error404(Error404Params{Status: problem.Status, Title: problem.Title,
+				Detail: problem.Message, Code: problem.Code, Fields: fields})
+		case 409:
+			return Error409(Error409Params{Status: problem.Status, Title: problem.Title,
+				Detail: problem.Message, Code: problem.Code, Fields: fields})
+		case 413:
+			return Error413(Error413Params{Status: problem.Status, Title: problem.Title,
+				Detail: problem.Message, Code: problem.Code, Fields: fields})
+		default:
+			return Error500(Error500Params{Status: problem.Status, Title: problem.Title,
+				Detail: problem.Message, Code: problem.Code, Fields: fields})
+		}
+	})
+}
+`
+}
+
 func errorTemplate(pkg, component, title string) string {
-	return "package " + pkg + "\n\nexport component " + component + "(): html {\n" +
-		"<h1>" + title + "</h1>\n}\n"
+	// The parameters are the api:error-renderer model. How much of it arrives
+	// filled in is the framework's decision, not this template's: outside
+	// development it hands over the status and the title and nothing else, so
+	// the same file serves a developer and the public without a branch here.
+	return "package " + pkg + `
+
+export component ` + component + `(status: int, title: string, detail: string, code: string, requestId: string, fields: string[]): html {
+  <main class="error">
+    <p class="error-status">{status}</p>
+    <h1 class="error-title">` + title + `</h1>
+    {if detail != ''}<p class="error-detail">{detail}</p>{/if}
+    <ul class="error-fields">
+    {for field in fields}
+      <li>{field}</li>
+    {/for}
+    </ul>
+    {if code != ''}<p class="error-code">{code}</p>{/if}
+    {if requestId != ''}<p class="error-request">Request {requestId}</p>{/if}
+  </main>
+}
+`
 }
 
 func frameworkModuleDirective() string {

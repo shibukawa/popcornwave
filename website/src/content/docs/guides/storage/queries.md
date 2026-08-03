@@ -1,8 +1,8 @@
 ---
 title: Queries
-description: Typed .pw.sql statements, conditional SQL, transactions, and reader-writer connection groups.
+description: Typed .pw.sql statements, conditional SQL, and transactions over the configured connections.
 sidebar:
-  order: 2
+  order: 1
 ---
 
 SQL remains visible as SQL, but its boundary with Go becomes typed. You write
@@ -206,102 +206,18 @@ Raw access is there when a query does not fit the generated layer:
 db, ok := pw.DB(r.Context())
 ```
 
-## Database configuration
+## Which connection ran it
 
-The pool lives under `[middleware.rdb]` and is **off by default**:
+Nothing above names a database. A statement that says nothing about where it
+runs goes to the default connection group; a write, or a whole transaction
+against a reader-writer cluster, pins one with `pw.SelectDB` and `pw.OnGroup`.
+Those live with the connections themselves, in
+[Relational databases](/guides/storage/rdb/), along with the `[middleware.rdb]`
+section, the DSN schemes, and the import each engine needs.
 
-```toml
-[middleware.rdb]
-enabled = true
-dsn = "sqlite://myapp.db"
-connect_timeout = "5s"
-max_open_conns = 1
-max_idle_conns = 1
-```
-
-`dsn` is treated as a secret: redacted in configuration logs and in error
-messages. See [Configuration](/guides/architecture/configuration/).
-
-The scheme selects the engine, and a server engine needs a blank import to
-register it:
-
-| Scheme | Engine | Import |
-| --- | --- | --- |
-| `sqlite://` | SQLite | already linked |
-| `postgres://` | PostgreSQL | `_ "github.com/shibukawa/popcornwave/database/postgres"` |
-| `mysql://` | MySQL, MariaDB | `_ "github.com/shibukawa/popcornwave/database/mysql"` |
-
-`pw init` writes that import for you. Without it the pool refuses to open and
-names the import to add rather than failing somewhere inside `database/sql`.
-Keep the scheme in agreement with `project.database`: one decides which driver
-runs the query, the other which syntax it was compiled to.
-
-## Readers and writers
-
-A reader-writer cluster is described by connections instead of a single `dsn`.
-Each element names the group it belongs to, and several elements may share one
-group — reads are spread across them round robin. Because TOML reads every key
-after a `[[…]]` header as part of that element, the plain `rdb` keys have to
-come first:
-
-```toml
-[middleware.rdb]
-enabled = true
-default_group = "replica"
-write_group = "writer"
-
-[[middleware.rdb.connections]]
-group = "writer"
-dsn = "postgres://app:${DB_PASSWORD}@writer.example/app"
-max_open_conns = 20
-
-[[middleware.rdb.connections]]
-group = "replica"
-dsn = "postgres://app:${DB_PASSWORD}@replica-1.example/app"
-readonly = true
-
-[[middleware.rdb.connections]]
-group = "replica"
-dsn = "postgres://app:${DB_PASSWORD}@replica-2.example/app"
-readonly = true
-```
-
-A connection element takes no CLI option and no environment variable of its own
-— its identity is its position in the file — so `${NAME}` is how a per-connection
-password stays out of the committed TOML. It is expanded while the file is read,
-in string values only, and an undefined name fails the load rather than
-expanding to nothing. Write `$$` for a literal `$`. Expanded or not, `dsn` stays
-redacted in the startup summary and in errors.
-
-Statements that say nothing about a group run on `default_group`. A write picks
-its group explicitly:
-
-```go
-// One statement.
-user, err := queries.CreateUser(pw.SelectDB(ctx, "writer"), name)
-
-// A whole transaction — unpinned statements inside it stay on the writer.
-err := pw.Transaction(ctx, func(ctx context.Context) error {
-	return queries.RecordAudit(ctx, "user.created")
-}, pw.OnGroup("writer"))
-```
-
-One transaction never spans two groups: a nested `pw.Transaction` naming a
-different group returns `ErrCrossGroupTransaction` and leaves the outer one
-usable. Inside a transaction you may still `SelectDB` a `readonly` group — that
-read simply happens outside the transaction — but not a writable one: such a
-write would look atomic without being atomic.
-
-[Migrations](/productivity/migrations/), [seed data](/productivity/seed-data/),
-and the session table go to `write_group`, or to the
-narrower `migration_group` and `session.rdb.group` when they are set. A
-`readonly` connection is never chosen for them, and configuring one there fails
-at startup.
-
-A configuration with a single connection — including the plain `dsn` form above
-and every `testutil` run — answers *every* group name with that one database. So
-code written for a cluster runs unchanged against one development SQLite file,
-with no test-only branch.
+A generated function never learns the topology, which is why it can be silent
+about it. One development SQLite file answers every group name, so the code
+above runs unchanged against a cluster and against nothing but that file.
 
 ## Seeing what ran
 

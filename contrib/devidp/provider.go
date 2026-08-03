@@ -71,6 +71,11 @@ type Provider struct {
 	scopes      []string
 	clients     map[string]*Client
 	loginUser   string
+	// sessions are the provider's own logins, keyed by the browser cookie. A
+	// real provider keeps one and answers later requests from it; without one
+	// here, every authorization would look like a fresh authentication and a
+	// freshness requirement could never be seen to fail.
+	sessions    map[string]*providerSession
 	pending     map[string]*pendingAuthorization
 	codes       map[string]*issuedCode
 	tokens      map[string]*accessToken
@@ -85,6 +90,10 @@ type pendingAuthorization struct {
 	scopes      []string
 	csrf        string
 	expiresAt   time.Time
+	// maxAge and prompt are what the relying party asked about freshness. A
+	// negative maxAge means the request carried none.
+	maxAge int64
+	prompt []string
 }
 
 type issuedCode struct {
@@ -96,6 +105,18 @@ type issuedCode struct {
 	scopes      []string
 	issuedAt    time.Time
 	expiresAt   time.Time
+	// authTime is when this provider last actually authenticated the end user,
+	// which is not when the code was issued. A relying party that satisfies an
+	// authorization request from a session established earlier receives an
+	// auth_time from earlier, and that difference is the whole reason the claim
+	// exists.
+	authTime time.Time
+}
+
+// providerSession is one signed-in browser at the provider.
+type providerSession struct {
+	subject  string
+	authTime time.Time
 }
 
 type accessToken struct {
@@ -129,6 +150,7 @@ func New(config Config, options Options) (*Provider, error) {
 		extraScopes: append([]string(nil), config.ValidScopes...),
 		scopes:      supportedScopes(config),
 		clients:     map[string]*Client{},
+		sessions:    map[string]*providerSession{},
 		pending:     map[string]*pendingAuthorization{},
 		codes:       map[string]*issuedCode{},
 		tokens:      map[string]*accessToken{},
@@ -484,4 +506,50 @@ func requireLoopbackAddr(addr string) error {
 func keyID(public *rsa.PublicKey) string {
 	digest := sha256.Sum256(public.N.Bytes())
 	return base64.RawURLEncoding.EncodeToString(digest[:12])
+}
+
+// sessionCookieName is the provider's own login cookie. It is scoped to the
+// provider paths and is unrelated to whatever the relying party sets.
+const sessionCookieName = "devidp_session"
+
+// startSession records that this browser authenticated now.
+func (p *Provider) startSession(subject string, at time.Time) (string, error) {
+	key, err := authn.GenerateSecret(p.random, 32)
+	if err != nil {
+		return "", err
+	}
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if p.closed {
+		return "", ErrClosed
+	}
+	p.sessions[key] = &providerSession{subject: subject, authTime: at}
+	return key, nil
+}
+
+// session returns the provider login of this browser, if it has one.
+func (p *Provider) session(key string) *providerSession {
+	if key == "" {
+		return nil
+	}
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	found, ok := p.sessions[key]
+	if !ok {
+		return nil
+	}
+	copied := *found
+	return &copied
+}
+
+// endSessions drops the provider logins of one subject, or of everyone when the
+// subject is empty. RP-initiated logout is what calls it.
+func (p *Provider) endSessions(subject string) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	for key, value := range p.sessions {
+		if subject == "" || value.subject == subject {
+			delete(p.sessions, key)
+		}
+	}
 }

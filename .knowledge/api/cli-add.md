@@ -35,8 +35,8 @@ capabilities:
   database:
     writes:
       - data:middleware-runtime-config rdb section in every environment configuration file present
-      - the migration directory, holding the same starter schema api:cli-init writes when the project has none
-      - the same starter .pw.sql api:cli-init writes, and the generate.queries entry that opens the purpose for it
+      - the migration directory, holding the same data:migration-source scaffolded_version_1 api:cli-init writes when the project has none, which creates no table
+      - the same commented-out starter .pw.sql api:cli-init writes, and the generate.queries entry that opens the purpose for it
       - data:project-config project.database naming the selected engine, which api:cli-generate reads as its SQL dialect
       - the development server package in devbox.json for a server engine, when the project has that environment
     dialect: the starter migration and .pw.sql are written for the selected engine, per requirement:database-engine-selection

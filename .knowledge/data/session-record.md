@@ -17,7 +17,7 @@ stored_fields:
   last_seen_at: timestamp
   expires_at: absolute timestamp
   idle_expires_at: optional timestamp
-  csrf_secret: random session-bound secret when CSRF is enabled
+  csrf_secret: not a field; the CSRF secret is a registered session.Private slot, per decision:csrf-secret-as-a-session-slot
   version: integer
 not_stored_here:
   fields: authenticated_at and authentication_method

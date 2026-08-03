@@ -20,6 +20,11 @@ const tailwindToolchainRequirement = "the standalone tailwindcss CLI, version 4 
 // to open before its SQL example is read by anything.
 const capabilityQueriesPurpose = "queries"
 
+// capabilityDynamoPurpose is the generate purpose the DynamoDB capability
+// opens. Like the page tree purpose it may be absent, because a project written
+// without the store never named it.
+const capabilityDynamoPurpose = "dynamo"
+
 // capabilityPageTreePurpose is the generate purpose the page tree capability
 // opens. Unlike the others it may be absent, because a project written before
 // page trees existed never named it.

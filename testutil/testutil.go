@@ -230,7 +230,12 @@ func TestRun(t TestingT, handler http.Handler, customize func(*Config), options 
 		if db == nil {
 			return fmt.Errorf("configured RDB is disabled")
 		}
-		dsn := Get[pw.MiddlewareConfig](config).RDB.DSN
+		// The migrations run against the group that receives them, which is
+		// where the seeds and pw migrate also write.
+		dsn, err := Get[pw.MiddlewareConfig](config).RDB.MigrationDSN()
+		if err != nil {
+			return err
+		}
 		return installMigrations(context.Background(), db, dsn, settings.migration)
 	}
 	prepared, err := pwtestbridge.Prepare(handler, config.values, pwtestbridge.Options{

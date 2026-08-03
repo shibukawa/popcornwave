@@ -79,6 +79,23 @@ func OutlivesSession(d time.Duration) SlotOption {
 	}
 }
 
+// ResetOnRotate drops the slot at a rotation instead of carrying it forward.
+//
+// A rotation normally preserves every value, which is what lets a login keep
+// what the anonymous browser accumulated. A few values must not survive it: a
+// CSRF secret is the standing example, because policy:session-security requires
+// it to change with the session, so a token minted before a sign-in cannot be
+// presented after one.
+//
+// It states what a rotation does to the value, where ExpiresAfter states what
+// time does and OutlivesSession states what a destroy does.
+func ResetOnRotate() SlotOption {
+	return func(entry *slot) error {
+		entry.resetOnRotate = true
+		return nil
+	}
+}
+
 // slotStampBytes is the fixed-width deadline a record-placed slot carries when
 // it states a lifetime shorter than its session.
 const slotStampBytes = 8

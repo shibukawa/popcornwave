@@ -48,41 +48,99 @@ written before anything is:
     create  migrations/00004_init_popcornwave_auth.sql
     append  config.dev.toml
     append  popcornwave.toml
-    by hand call handlers.RegisterAccountResolver() in ./cmd/memoapp before pw.Run
-    by hand add import _ "github.com/shibukawa/popcornwave/sessionstore/sqlite" to ./cmd/memoapp
-    by hand add import _ "github.com/shibukawa/popcornwave/authstate/sqlite" to ./cmd/memoapp
+    edit    cmd/memoapp/main.go
     then    pw migrate up
 ```
-
-`pw add auth` stores sessions server-side in the database, which is why two
-migrations arrive with the login and why it refuses to run in a project without
-one. The browser gets an opaque token; the record it points at can be expired
-and revoked from the server. That import is what puts the database backend in
-the binary — storage is opt-in, so an application links the backend it
-configured and no other. [Cookies](/guides/backend/cookies/) covers the two
-alternatives, which `pw init --session` offers to a project from the start.
 
 `devidp.toml` is the roster of development users, `Administrator` and `Member`.
 `pw dev` serves them from a local OpenID Provider and checks no password, which
 is exactly why it never runs outside development.
 
-The line marked **by hand** is the one edit the command will not make for you.
-Open `cmd/memoapp/main.go`:
+### A login needs two kinds of storage
+
+Two migrations is not an accident. A login puts two different things on the
+server:
+
+| What | Holds | Package |
+| --- | --- | --- |
+| Sessions | who is signed in | `sessionstore/sqlite` |
+| Ceremony records | the single-use state of one login in progress | `authstate/sqlite` |
+
+![auth runs once at sign-in, takes the browser out to an external IdP and back, and hands session an account ID; session carries it on every request after that. Below auth sit the external IdP and authstate; below session sits sessionstore](../../../assets/diagrams/auth-and-session.svg)
+
+**auth decides who this is.** It sends the browser out to a provider, verifies
+the identity that comes back, and settles on an account ID for this application.
+It runs at sign-in and not again.
+
+**session carries who it decided.** On every request after that, it holds who
+this is and what is true of them right now.
+
+A session is the record behind the opaque token the browser carries, which is
+what makes it revocable from the server. A ceremony record correlates the one
+round trip out to the provider and back, and is consumed when it returns.
+
+`session.backend = "rdb"` in `config.dev.toml` chooses only **where** they go.
+**What puts that somewhere into the binary is the import.** That is what "storage
+is opt-in" means: an application links the backend it configured and no other, and
+a project keeping sessions in a cookie links no store at all — see
+[Cookies](/guides/backend/cookies/), which `pw init --session` offers from the
+start.
+
+When the configuration and the imports disagree, startup says so:
+
+```
+popcornwave: auth.session: session.backend = "rdb" needs its plugin;
+add to the application: import _ "github.com/shibukawa/popcornwave/sessionstore/sqlite"
+```
+
+That is the `edit cmd/memoapp/main.go` line. Accept the screen and the file
+becomes this:
 
 ```go
+// cmd/memoapp/main.go
+package main
+
+import (
+	"context"
+	"log"
+
+	"memoapp/handlers"
+
+	// new: this is what actually provides session.backend = "rdb".
+	_ "github.com/shibukawa/popcornwave/sessionstore/sqlite"
+	// new: where the single-use login records go.
+	_ "github.com/shibukawa/popcornwave/authstate/sqlite"
+
+	"github.com/shibukawa/popcornwave/pw"
+)
+
 func main() {
-	// Installed before Run: the framework calls it during the OIDC callback.
-	handlers.RegisterAccountResolver()
+	// new: installed before Run, because the framework calls it during the
+	// OIDC callback.
+	handlers.RegisterAccounts()
 	if err := pw.Run(context.Background(), handlers.Handlers()); err != nil {
 		log.Fatal(err)
 	}
 }
 ```
 
-`RegisterAccountResolver` lives in the `handlers/accounts.go` the wizard just
-wrote. The framework verifies an identity with the provider and then asks this
-function which local account it belongs to; the starter version derives one from
-the identity itself, so the project can log in before it owns an account table.
+A project that chose the login at `pw init` has these three lines in its
+scaffold already, which is exactly why `pw add` writes them too: a capability
+declined at bootstrap and installed later has to arrive at the same file as one
+that was never declined.
+
+`main.go` belongs to the application, so editing it is not something a command
+should do quietly. What makes it acceptable is that the review screen names the
+file before anything is written, and that the edit is spliced in at a position
+the parser found — the rest of the file is copied through unchanged, comments,
+grouping, and all.
+
+`RegisterAccounts` lives in the `handlers/accounts.go` the wizard just wrote.
+It is one line — `auth.SetAccountResolver(resolveAccount)` — and it installs
+whichever account seams the selected mode needs. The framework verifies an
+identity with the provider and then asks `resolveAccount` which local account it
+belongs to; the starter version derives one from the identity itself, so the
+project can log in before it owns an account table.
 
 ## 2. Decide what needs a session
 
@@ -107,21 +165,21 @@ Listing the two paths this application actually has keeps `/healthz` and the
 other operational endpoints public, which is what a load balancer needs them to
 be.
 
-While you are in the configuration files, pin the development provider's port in
-`popcornwave.toml`:
+In `popcornwave.toml`, what `pw add auth` wrote is already what you want:
 
 ```toml
 [dev.idp]
 enabled = true
 config = "devidp.toml"
-# A fixed port keeps the issuer URL stable across restarts.
 port = 18080
 ```
 
-Without it the provider takes a free port, and the issuer URL changes on every
-`pw dev`. The issuer is half of what identifies an account, so a new port would
-hand the same person a new account — and, three steps from now, an empty memo
-list — after each restart.
+The `port` is deliberate. Without it the provider takes a free port and the
+issuer URL changes on every `pw dev`. The issuer is half of what identifies an
+account: the `resolveAccount` you will read in section 4 builds an account ID out
+of `issuer + "|" + subject`. A moving port would hand the same person a new
+account after every restart — and, three steps from now, an empty memo list. If
+something already listens on 18080, change it.
 
 Then apply the migrations:
 
@@ -172,39 +230,34 @@ what it found:
 ```go
 // handlers/home_handler.go
 import (
-	"context"
 	"net/http"
 
 	"memoapp/queries"
 
-	"github.com/shibukawa/popcornwave/plugin/auth"
+	"github.com/shibukawa/popcornwave/plugin/auth" // new
 	"github.com/shibukawa/popcornwave/pw"
-	httpbind "github.com/shibukawa/tinybind-go"
 )
 
+// home lists the signed-in account's memos.
+//
+// changed: the home of chapter 3, plus the user lookup and the author filter.
 func home(w http.ResponseWriter, r *http.Request) {
 	user, ok := auth.User(r.Context())
 	if !ok {
 		pw.WriteProblem(w, r, pw.Unauthorized())
 		return
 	}
-	list, err := listMemos(r.Context(), user.AccountID)
-	if err != nil {
-		pw.WriteProblem(w, r, err)
-		return
-	}
-	pw.WriteHTML(w, r, Home(HomeParams{DisplayName: user.DisplayName, Memos: list}))
-}
-
-func listMemos(ctx context.Context, author string) ([]Memo, error) {
 	var list []Memo
-	for row, err := range queries.ListMemos(ctx, author) {
+	// changed: the author is a new argument, and it is what makes this one
+	// person's list rather than everyone's.
+	for row, err := range queries.ListMemos(r.Context(), user.AccountID) {
 		if err != nil {
-			return nil, err
+			pw.WriteProblem(w, r, err)
+			return
 		}
 		list = append(list, Memo{Id: row.Id, Body: row.Body})
 	}
-	return list, nil
+	pw.WriteHTML(w, r, Home(HomeParams{DisplayName: user.DisplayName, Memos: list}))
 }
 ```
 
@@ -215,11 +268,14 @@ silently turn `user.AccountID` into an empty string that matches every
 unowned row.
 
 `createMemo` changes the same way — read the user first, then pass
-`user.AccountID` to `queries.CreateMemo` and to the `listMemos` call in the
-validation branch:
+`user.AccountID` to `queries.CreateMemo`:
 
 ```go
+// handlers/home_handler.go
+
+// createMemo stores one memo as the signed-in account's own.
 func createMemo(w http.ResponseWriter, r *http.Request) {
+	// changed: these two lines are what decides whose memo this is.
 	user, ok := auth.User(r.Context())
 	if !ok {
 		pw.WriteProblem(w, r, pw.Unauthorized())
@@ -227,24 +283,10 @@ func createMemo(w http.ResponseWriter, r *http.Request) {
 	}
 	input, err := pw.Parse[createMemoInput](r)
 	if err != nil {
-		mapped, fieldError := httpbind.AsHTTPError(err)
-		if !fieldError || len(mapped.Fields) == 0 {
-			pw.WriteProblem(w, r, pw.BadRequest(err))
-			return
-		}
-		list, listErr := listMemos(r.Context(), user.AccountID)
-		if listErr != nil {
-			pw.WriteProblem(w, r, listErr)
-			return
-		}
-		pw.WriteHTML(w, r, Home(HomeParams{
-			DisplayName: user.DisplayName,
-			Memos:       list,
-			Draft:       r.PostFormValue("body"),
-			Error:       mapped.Fields[0].Message,
-		}))
+		pw.WriteProblem(w, r, err)
 		return
 	}
+	// changed: the author is a new argument.
 	if _, err := queries.CreateMemo(r.Context(), user.AccountID, input.Body); err != nil {
 		pw.WriteProblem(w, r, err)
 		return
@@ -256,6 +298,7 @@ func createMemo(w http.ResponseWriter, r *http.Request) {
 The page takes the name and offers a way out:
 
 ```html
+// handlers/home.pw.html
 package handlers
 
 type Memo {
@@ -263,19 +306,20 @@ type Memo {
   body: string
 }
 
-export component Home(displayName: string, memos: Memo[], draft: string, error: string): html {
-<h1>{displayName}'s memos</h1>
-<form method="post" action="/auth/logout"><button type="submit">Sign out</button></form>
-<form method="post" action="/memos">
-  <textarea name="body" rows="3">{draft}</textarea>
-  {if error != ''}<p class="error">{error}</p>{/if}
-  <button type="submit">Add</button>
-</form>
-<ul>
-{for memo in memos}
-  <li>{memo.body}</li>
-{/for}
-</ul>
+export component Home(displayName: string, memos: Memo[]): html {
+  <h1 class="text-3xl font-bold">{displayName}'s memos</h1>
+  <form method="post" action="/auth/logout"><button type="submit">Sign out</button></form>
+  <form method="post" action="/memos" class="mt-6 space-y-2">
+    <textarea name="body" rows="3" required maxlength="200"
+      class="w-full rounded-lg border border-slate-300 p-3"></textarea>
+    <button type="submit"
+      class="rounded-lg bg-indigo-600 px-4 py-2 font-medium text-white">Add</button>
+  </form>
+  <ul class="mt-8 space-y-2">
+  {for memo in memos}
+    <li class="rounded-lg border border-slate-200 p-3">{memo.body}</li>
+  {/for}
+  </ul>
 }
 ```
 

@@ -27,6 +27,7 @@ import (
 	"github.com/shibukawa/popcornwave/contrib/oauth"
 	"github.com/shibukawa/popcornwave/contrib/oidc"
 	"github.com/shibukawa/popcornwave/contrib/passkey"
+	"github.com/shibukawa/popcornwave/internal/pathpattern"
 	"github.com/shibukawa/popcornwave/pw"
 	"github.com/shibukawa/popcornwave/session"
 )
@@ -77,8 +78,8 @@ type runtime struct {
 	hint         *session.Jar[SignInHint]
 	allowlist    Allowlist
 	cookiePolicy pw.SessionCookieConfig
-	include      []pattern
-	exclude      []pattern
+	include      []pathpattern.Pattern
+	exclude      []pathpattern.Pattern
 	// passkeyFlow is nil unless the selected mode mounts api:passkey-endpoints.
 	passkeyFlow *passkey.SessionFlow
 	// credentials and bootstrap are the installed stores, or the framework
@@ -172,11 +173,11 @@ func setupAuthentication(ctx context.Context) (pw.Middleware, error) {
 	if err := stateStore.EnsureSchema(schemaCtx); err != nil {
 		return nil, fmt.Errorf("auth state schema: %w", err)
 	}
-	include, err := compilePatterns(config.Protection.Include)
+	include, err := pathpattern.Compile(config.Protection.Include)
 	if err != nil {
 		return nil, err
 	}
-	exclude, err := compilePatterns(config.Protection.Exclude)
+	exclude, err := pathpattern.Compile(config.Protection.Exclude)
 	if err != nil {
 		return nil, err
 	}

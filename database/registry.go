@@ -96,7 +96,7 @@ func (target Target) Open() (*sql.DB, error) {
 func Scheme(configured string) (scheme, rest string, err error) {
 	scheme, rest, found := strings.Cut(strings.TrimSpace(configured), "://")
 	if !found || scheme == "" || rest == "" {
-		return "", "", errors.New("middleware.rdb.dsn must use driver://dsn syntax")
+		return "", "", errors.New("a DSN must use driver://dsn syntax")
 	}
 	return scheme, rest, nil
 }
@@ -111,7 +111,7 @@ func Resolve(configured string) (Target, error) {
 	engine, served := registry.engines[scheme]
 	registry.RUnlock()
 	if !served {
-		return Target{}, fmt.Errorf("middleware.rdb.dsn names %q, %s", scheme, remedy(scheme))
+		return Target{}, fmt.Errorf("the DSN names scheme %q, %s", scheme, remedy(scheme))
 	}
 	dataSource := rest
 	if engine.KeepScheme {

@@ -33,10 +33,12 @@ caching:
   headers: public, max-age one year, immutable
   soundness: a revision segment never serves different bytes, so the response is genuinely immutable
 core_module:
-  exports: the boundary apply function both api:html-boundary-protocol envelopes use, so the parser path and the fetch path share one implementation
+  name: popcornwave-runtime.js, the one asset requirement:unified-update-runtime merges every client capability into
+  exports: the boundary apply function every api:html-boundary-protocol envelope uses, so the parser path, the record path, and the fetch path share one implementation
   adapter: the custom element registration is a thin wrapper the core installs, not a separate module
+  endpoints_beside_it: the redraw route of requirement:reloadable-component-endpoint mounts under this same reserved prefix, so the 404-ahead-of-routing rule below has to know it rather than be bypassed
 loading:
-  tags: exactly one, the core module declared in the document shell by requirement:external-boundary-runtime
+  tags: exactly one, the core module the framework contributes at the render call per decision:runtime-tag-injection, rather than one the document shell declares
   capabilities: the core dynamically imports a capability module when it finds that capability's markup in the document
   rationale: one tag per capability would make the shell accumulate tags and would load every capability on every page, and it would need a head-injection hook the framework does not have
   cost: a capability module costs one extra round trip after the core loads, which suits progressive enhancement and not the streaming path, where the core is itself the boundary logic

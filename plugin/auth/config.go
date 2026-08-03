@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/shibukawa/popcornwave/internal/pathpattern"
 	"github.com/shibukawa/popcornwave/session"
 	"github.com/shibukawa/popcornwave/sessionconfig"
 )
@@ -374,10 +375,10 @@ func (c Config) validateShape() error {
 		return fmt.Errorf("auth.protection.unauthenticated must be %q or %q",
 			UnauthenticatedRedirect, UnauthenticatedUnauthorized)
 	}
-	if _, err := compilePatterns(c.Protection.Include); err != nil {
+	if _, err := pathpattern.Compile(c.Protection.Include); err != nil {
 		return fmt.Errorf("auth.protection.include: %w", err)
 	}
-	if _, err := compilePatterns(c.Protection.Exclude); err != nil {
+	if _, err := pathpattern.Compile(c.Protection.Exclude); err != nil {
 		return fmt.Errorf("auth.protection.exclude: %w", err)
 	}
 	if err := c.validateAssurance(); err != nil {

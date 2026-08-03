@@ -46,7 +46,8 @@ TOML のキーの `.` を `-` に置き換えて `--` を付けます。
 `security.headers.permissions_policy` です。TOML で設定してください。
 
 `[[middleware.rdb.connections]]` の配列も TOML 専用です。テーブルの配列には
-バインドできる平坦な名前がありません。
+バインドできる平坦な名前がありません。だから配備先の DSN は `${DATABASE_URL}` の参照として
+書きます。展開するのはファイル層で、未定義の名前は空の DSN ではなく読み込みエラーです。
 
 ## 値の出どころ
 
@@ -105,12 +106,6 @@ Popcorn Wave は次の順に読みます。
 | `compression` | `false` | 受け入れるクライアントに HTML を zstd で返す |
 | `request_timeout` | `"0s"` | リクエスト単位の期限。ゼロなら設けない |
 | `rdb.enabled` | `false` | フレームワーク所有のデータベースプールを開く |
-| `rdb.dsn` | *(空)* | 単一データベースの DSN（起動サマリではマスクされる） |
-| `rdb.connect_timeout` | `"5s"` | 接続を開く際の上限 |
-| `rdb.max_open_conns` | `0` | `database/sql` のプール上限。ゼロはドライバの既定 |
-| `rdb.max_idle_conns` | `0` | |
-| `rdb.conn_max_lifetime` | `"0s"` | |
-| `rdb.conn_max_idle_time` | `"0s"` | |
 | `rdb.default_group` | *(空)* | どのグループも指定しないステートメント用の接続グループ |
 | `rdb.write_group` | *(空)* | フレームワークの書き込み用の接続グループ |
 | `rdb.migration_group` | *(空)* | マイグレーションとシード用の接続グループ |
@@ -119,16 +114,20 @@ Popcorn Wave は次の順に読みます。
 片方の表現をキャッシュしたものが、もう片方を求めるクライアントへ渡ってはいけない
 からです。
 
-単一のデータベースは `rdb.dsn` と上のプール系キーで設定します。リーダ・ライタ構成は
-代わりに接続セットで、プール1つにつきテーブル1つを書きます。両方を書くのはマージ
-ではなく設定エラーです。どちらが勝つのか、正直に答えられないからです。
+データベースはすべて下の接続セットで設定します。プール1つにつきテーブル1つで、単一の
+データベースならテーブル1つ、リーダ・ライタ構成なら複数です。セクション自体は DSN を
+持ちません。DSN を探す場所は1か所だけです。
+
+以前は `rdb.dsn` とその隣のプール系キーでも書けました。この形式は削除しました。DSN と
+プールの上限は `[[middleware.rdb.connections]]` のテーブル1つへ移してください。テーブルが
+1つもないまま有効にしたデータベースは起動時に失敗し、移行先のテーブルを名指しします。
 
 ### `[[middleware.rdb.connections]]`
 
 | キー | 既定値 | 意味 |
 | --- | --- | --- |
 | `group` | *(空)* | この接続を指す名前 |
-| `dsn` | *(空)* | DSN（起動サマリではマスクされる） |
+| `dsn` | *(空)* | DSN。表示されるときにマスクされるのは資格情報だけ |
 | `readonly` | `false` | 読み取り専用トランザクションを開き、フレームワークの書き込みは引き受けない |
 | `connect_timeout` | `"5s"` | 以下、接続ごとに上と同じ |
 | `max_open_conns` | `0` | |
@@ -138,7 +137,7 @@ Popcorn Wave は次の順に読みます。
 
 `readonly` の接続が `pw.SelectWriteDB` に選ばれることはありません。だからこそ、
 書き込みを行う側はデプロイ構成を知らずに済みます。
-[クエリ](/ja/guides/backend/queries/)を参照してください。
+[リレーショナルデータベース](/ja/guides/storage/rdb/)を参照してください。
 
 ## `[html]`
 
@@ -256,23 +255,25 @@ HSTS が付くのは検証済みの HTTPS リクエストだけです。平文�
 | `cookie.name` | `"pw_session"` | |
 | `cookie.path` | `"/"` | |
 | `cookie.domain` | *(空)* | |
-| `cookie.secure` | `true` | 無効にしてよいのはループバックの開発時だけ |
+| `cookie.secure` | `true` | `false` にしてよいのはループバックの開発時だけ。`dev` 以外では起動を拒否する |
 | `cookie.http_only` | `true` | |
 | `cookie.same_site` | `"lax"` | |
-| `rdb.source` | `"middleware"` | `middleware` は `middleware.rdb` のプールを再利用し、`dedicated` は `rdb.dsn` を開く |
+| `rdb.source` | `"middleware"` | `middleware` は `middleware.rdb` のプールを再利用し、`dedicated` は `session.rdb.dsn` を開く |
 | `rdb.group` | *(空)* | セッションテーブルを持つ接続グループ。空なら `middleware.rdb.write_group` |
-| `rdb.dsn` | *(空)* | 専用セッションデータベース（起動サマリではマスクされる） |
+| `rdb.dsn` | *(空)* | 専用セッションデータベース。表示されるときにマスクされるのは資格情報だけ |
 | `rdb.table` | `"popcornwave_session"` | |
-| `redis.dsn` | *(空)* | `redis://` または `rediss://` のサーバー（起動サマリではマスクされる） |
+| `redis.dsn` | *(空)* | `redis://` または `rediss://` のサーバー。表示されるときにマスクされるのは資格情報だけ |
 | `redis.key_prefix` | `"pw:session:"` | セッションストアが所有する鍵空間 |
 | `redis.connect_timeout` | `"5s"` | 起動時の ping と各コマンドの期限 |
 | `cookie_store.name` | `"pw_session_data"` | 封をしたレコードを運ぶクッキー |
 | `keyring.secret` | *(空)* | ブラウザが運ぶもの全部に署名し封をする base64 の秘密鍵（マスクされる） |
 | `keyring.previous_secrets` | `[]` | ローテーション中も読める引退した秘密鍵（マスクされる） |
+| `dynamo.table` | `"popcornwave_session"` | 宣言上のセッションテーブル名。実際の名前へは `middleware.dynamo` が対応づける |
+| `dynamo.consistent_read` | `false` | セッションを強整合で読む。読み取り容量は倍 |
 
 読まれるのは選んだバックエンドのキーだけです。`cookie` 以外のバックエンドは、それ自身の
 blank import でバイナリに入ります。書き忘れたときは起動時のエラーが追加すべき行を引用
-します。3つの比較と、それぞれに必要な設定は[セッション](/ja/guides/backend/sessions/)に
+します。4つの比較と、それぞれに必要な設定は[セッションストレージ](/ja/guides/storage/session-storage/)に
 あります。
 
 このセクションは期間を1つも宣言しません。有効期限は身元の証明がどれだけ有効かを述べるもの
@@ -280,6 +281,9 @@ blank import でバイナリに入ります。書き忘れたときは起動時�
 あります。
 
 ブラウザにあるトークンはどのバックエンドでも不透明なので、それ自体に署名はしません。
+CSRF の秘密もここの鍵ではありません。登録されたセッションスロットなので、同じ keyring が
+封をし、`security.csrf` は自前の秘密を持ちません。
+
 `keyring.secret` が守るのはトークンの隣を運ばれるものです。`session.ReadOnly` のスロットには
 署名、`session.Private` のスロットには封。どちらも同じ1つの秘密から導きます。だから
 `backend` が何であれ、全スロットが `session.Shared` でない限り必須です。private なスロットは

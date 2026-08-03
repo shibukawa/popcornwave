@@ -50,6 +50,12 @@ artifacts:
     - no SQL dialect input, because there is no engine variant to compile for
   from_every_purpose: data:route-table, the exported view of the same route analysis
   optional: generated tests
+unparsable_source:
+  rule: a Go file that does not parse is reported by name, line, and column, and its directory is skipped for that run
+  reason: api:cli-dev regenerates the moment a file appears, so it routinely reads one an editor has created and not yet written into
+  upstream_defect: system:tinybind walks such a file to a nil position and panics, found by generating over a zero-byte source on 2026-08-02
+  containment: a panic anywhere in a generation request becomes an error, because one escaping would take the developer loop, the application it supervises, and the services it started down with it
+  transient: the next watched change regenerates, so a file caught mid-save costs a message rather than a restart
 check_mode:
   writes: none
   failure: generated content differs or is missing

@@ -216,4 +216,4 @@ issuer はマスクできません。「Microsoft で続ける」ボタンを出
 
 ## 次に読むもの
 
-設定キーの一覧、エンドポイントの仕様、パスキーの儀式、セッションのバックエンド選択は [認証](/ja/guides/backend/authentication/) にあります。セッションの保存先そのものについては [セッション](/ja/guides/backend/sessions/) を参照してください。
+設定キーの一覧、エンドポイントの仕様、パスキーの儀式、セッションのバックエンド選択は [認証](/ja/guides/backend/authentication/) にあります。セッションの保存先そのものについては [セッションストレージ](/ja/guides/storage/session-storage/) を参照してください。

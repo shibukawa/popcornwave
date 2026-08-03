@@ -29,11 +29,13 @@ func withMemberDatabase(config *Config) {
 	})
 	Update[pw.MiddlewareConfig](config, func(value *pw.MiddlewareConfig) {
 		value.RDB = pw.RDBConfig{
-			Enabled:        true,
-			DSN:            "sqlite://:memory:",
-			ConnectTimeout: time.Second,
-			MaxOpenConns:   1,
-			MaxIdleConns:   1,
+			Enabled: true,
+			Connections: []pw.RDBConnectionConfig{{
+				DSN:            "sqlite://:memory:",
+				ConnectTimeout: time.Second,
+				MaxOpenConns:   1,
+				MaxIdleConns:   1,
+			}},
 		}
 	})
 }
@@ -161,11 +163,13 @@ func TestSeedAndAssertInsideTestTransaction(t *testing.T) {
 		})
 		Update[pw.MiddlewareConfig](config, func(value *pw.MiddlewareConfig) {
 			value.RDB = pw.RDBConfig{
-				Enabled:        true,
-				DSN:            dsn,
-				ConnectTimeout: time.Second,
-				MaxOpenConns:   2,
-				MaxIdleConns:   2,
+				Enabled: true,
+				Connections: []pw.RDBConnectionConfig{{
+					DSN:            dsn,
+					ConnectTimeout: time.Second,
+					MaxOpenConns:   2,
+					MaxIdleConns:   2,
+				}},
 			}
 		})
 	}
@@ -218,11 +222,13 @@ func TestTestTransactionRollbackDiscardsSeededRows(t *testing.T) {
 		})
 		Update[pw.MiddlewareConfig](config, func(value *pw.MiddlewareConfig) {
 			value.RDB = pw.RDBConfig{
-				Enabled:        true,
-				DSN:            dsn,
-				ConnectTimeout: time.Second,
-				MaxOpenConns:   2,
-				MaxIdleConns:   2,
+				Enabled: true,
+				Connections: []pw.RDBConnectionConfig{{
+					DSN:            dsn,
+					ConnectTimeout: time.Second,
+					MaxOpenConns:   2,
+					MaxIdleConns:   2,
+				}},
 			}
 		})
 	}

@@ -44,9 +44,10 @@ transaction_scope:
   reason: two pools are two connections, and the framework adds no two-phase commit
   surface: api:transaction-runner rejects a nested call naming a different group
 compatibility:
-  legacy: middleware.rdb.dsn keeps working as one connection in group default
-  removed: nothing
-  mixing: declaring both forms is a startup error rather than a merge
+  removed: middleware.rdb.dsn and its sibling pool keys, which were one connection in group default
+  reason: keeping a second form made every reader ask which one a file used, and the array element expresses the same single database
+  migration: move the DSN and the pool bounds into one [[middleware.rdb.connections]] element, and read a deployment's value with a ${NAME} reference
+  detection: an enabled rdb with no element fails startup, naming both the removed key and the element
 non_goals:
   - health checking or automatic ejection of a failing replica
   - failover or promotion

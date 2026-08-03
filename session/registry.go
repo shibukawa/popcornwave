@@ -61,6 +61,9 @@ type slot struct {
 	// outlives exempts the slot from the destruction of the session. Only a
 	// cookie-placed slot can set it.
 	outlives bool
+	// resetOnRotate drops the slot at a rotation rather than carrying it, for a
+	// value whose whole point is to change when the session does.
+	resetOnRotate bool
 }
 
 // cookieSlot is the non-generic view of one cookie-placed slot's Jar.

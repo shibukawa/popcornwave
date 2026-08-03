@@ -6,7 +6,7 @@ sidebar:
 ---
 
 ```sh
-pw add [devbox|database|redis-valkey|auth|tailwind]
+pw add [devbox|database|dynamo|redis-valkey|auth|tailwind]
 ```
 
 `pw init` asks which capabilities a project starts with, before the project is
@@ -24,6 +24,7 @@ and the review screen is where that edit is approved.
 | --- | --- |
 | `devbox` | `devbox.json` and `devbox.lock`, carrying the toolchain this project already uses |
 | `database` | the `[middleware.rdb]` section, the migration directory, and a typed SQL example |
+| `dynamo` | the `[middleware.dynamo]` section, a typed record, and the local DynamoDB server |
 | `redis-valkey` | the Valkey development server in `devbox.json` |
 | `auth` | login sessions, the framework tables, and the account resolver |
 | `tailwind` | the pinned Tailwind toolchain, its CSS entry, and the `[assets.tailwind]` block |
@@ -68,9 +69,7 @@ The review screen lists every change before anything is written:
     create  migrations/00002_init_popcornwave_session.sql
     create  migrations/00003_init_popcornwave_auth.sql
     append  config.dev.toml
-    by hand call handlers.RegisterAccountResolver() in ./cmd/lean before pw.Run
-    by hand add import _ "github.com/shibukawa/popcornwave/sessionstore/sqlite" to ./cmd/lean
-    by hand add import _ "github.com/shibukawa/popcornwave/authstate/sqlite" to ./cmd/lean
+    edit    cmd/lean/main.go
     then    pw migrate up
 
   enter add  ·  esc back  ·  ctrl+c cancel

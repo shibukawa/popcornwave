@@ -73,11 +73,13 @@ func TestRunCopiesAndCustomizesArbitraryConfig(t *testing.T) {
 		})
 		Update[pw.MiddlewareConfig](config, func(value *pw.MiddlewareConfig) {
 			value.RDB = pw.RDBConfig{
-				Enabled:        true,
-				DSN:            "sqlite://:memory:",
-				ConnectTimeout: time.Second,
-				MaxOpenConns:   1,
-				MaxIdleConns:   1,
+				Enabled: true,
+				Connections: []pw.RDBConnectionConfig{{
+					DSN:            "sqlite://:memory:",
+					ConnectTimeout: time.Second,
+					MaxOpenConns:   1,
+					MaxIdleConns:   1,
+				}},
 			}
 		})
 	}, WithMigrations(migrationDir))

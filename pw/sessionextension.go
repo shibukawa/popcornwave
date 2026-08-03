@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/shibukawa/popcornwave/middlewares"
 	"github.com/shibukawa/popcornwave/session"
 	"github.com/shibukawa/popcornwave/sessionconfig"
 )
@@ -67,6 +68,16 @@ func setupSession(ctx context.Context) (Middleware, error) {
 	registry, err := newSessionRegistry()
 	if err != nil {
 		return nil, err
+	}
+	// The CSRF secret is a slot like any other, declared here rather than from
+	// an init so that a project with the check off carries no slot and needs no
+	// keyring on its account.
+	if Config[SecurityConfig](ctx).CSRF.Enabled {
+		if err := session.Register[middlewares.CSRFSecret](
+			registry, middlewares.CSRFSecretSlot, session.Private, nil,
+			session.ResetOnRotate()); err != nil {
+			return nil, err
+		}
 	}
 	options, err := sessionOptions(config, Config[sessionconfig.SessionLifetimeConfig](ctx))
 	if err != nil {

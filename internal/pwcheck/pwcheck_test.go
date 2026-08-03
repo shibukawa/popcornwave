@@ -64,14 +64,14 @@ func TestScopeAndSeverityFollowTheDiagnosedToken(t *testing.T) {
 			t.Errorf("a deployed-scope check must apply to %q, which is not dev", token)
 		}
 	}
-	both := MustLookup(LiteralSecretInFile)
-	if got := both.SeverityFor("dev"); got != Note {
-		t.Errorf("dev severity = %v, want note", got)
+	both := MustLookup(PlaceholderSecret)
+	if got := both.SeverityFor("dev"); got != Warning {
+		t.Errorf("dev severity = %v, want warning", got)
 	}
 	if got := both.SeverityFor("prod"); got != Error {
 		t.Errorf("prod severity = %v, want error", got)
 	}
-	development := MustLookup(ProviderInjectedDev)
+	development := MustLookup(PortUnavailable)
 	if development.AppliesTo("prod") {
 		t.Error("a development-scope check must not apply to a deployment")
 	}

@@ -2,7 +2,7 @@
 title: Sessions
 description: Declaring per-browser state by type, stating what the client may do with it, and following it from an anonymous visit into a signed-in one.
 sidebar:
-  order: 4
+  order: 2
 ---
 
 A locale preference and a credential are both session state, and they want

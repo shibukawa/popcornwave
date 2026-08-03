@@ -115,6 +115,14 @@ func (m *Manager) Rotate(w http.ResponseWriter, r *http.Request) error {
 	}
 	previous := current.token
 	values, present := current.values, current.present
+	// A slot that declared ResetOnRotate is dropped rather than carried, so the
+	// replacement session mints its own.
+	for _, entry := range m.slots {
+		if entry.resetOnRotate {
+			delete(values, entry.typ)
+			delete(present, entry.typ)
+		}
+	}
 
 	// Revoke first, so no window leaves two live tokens for one browser. This
 	// also expires the record cookie, which is the marker of an unpromoted

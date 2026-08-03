@@ -89,6 +89,8 @@ func operationalEndpoints(next http.Handler, config ServerConfig, resources pwru
 		switch {
 		case serveFrameworkScript(w, r):
 			return
+		case serveRedraw(w, r):
+			return
 		case config.Health != "" && r.URL.Path == config.Health:
 			writeOperationalStatus(w, r, true)
 			return

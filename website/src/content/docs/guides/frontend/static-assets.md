@@ -46,7 +46,7 @@ rather than a directory that quietly 404s.
 
 `public` is the only static directory convention the framework has. Anything
 else you want to serve — a user upload, a generated report — is an ordinary
-route, and [object storage](/guides/backend/object-storage/) is usually the
+route, and [object storage](/guides/storage/object-storage/) is usually the
 better home for it.
 
 ## Precompression at build time

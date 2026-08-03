@@ -10,6 +10,9 @@ service_name = "helloworld"
 
 [middleware.rdb]
 enabled = true
+
+[[middleware.rdb.connections]]
+group = "default"
 dsn = "sqlite://helloworld.db"
 connect_timeout = "5s"
 max_open_conns = 1

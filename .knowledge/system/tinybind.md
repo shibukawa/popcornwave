@@ -10,7 +10,9 @@ module: github.com/shibukawa/tinybind-go
 html_template_baseline: v0.1.15
 html_async_baseline: v0.1.20
 html_live_baseline: v0.2.8, required by requirement:live-html-rendering; v0.2.7 introduced live boundaries and v0.2.8 answered the first of the integration requests raised against them
+html_update_baseline: v0.3.3; v0.3.0 added the htmlupdate package, v0.3.1 handed the asset and every name to the caller per requirement:tinybind-runtime-ownership, v0.3.2 carried head on the action response, and v0.3.3 closed every remaining seam of requirement:tinybind-update-composition-seams and made CSRF module native; adopted by decision:update-runtime-convergence
 route_tree_baseline: v0.2.6
+current: v0.3.3, which carries the generator crash fix below and, from requirement:module-native-csrf, writes the token into every unsafe form itself
 public_wrappers:
   - api:request-binding
   - api:html-response
@@ -18,6 +20,16 @@ public_wrappers:
   - api:typed-stream
   - api:problem-response
   - api:runtime-configuration
+defects:
+  unguarded_position_lookup:
+    status: fixed in v0.3.2, which is why this module first moved off v0.2.10
+    was: three call sites dereferenced Fset.File(f.Pos()) after guarding f, pkg, and Fset for nil, and that call is the one that returns nil
+    sites: generator/plan.go, generator/configbind.go, and generator/dynamobind.go
+    fix: each now takes the handle and checks it, which is what generator/configbind_doc.go already did three files away
+    symptom_it_removed: a nil pointer dereference in go/token.(*File).Name, taking the calling process down
+    trigger: a Go file in a generated directory that does not parse, most often a zero-byte one an editor has created and not yet written into
+    mechanism: packages.Load returns a syntax entry for a file it could not parse, that entry reports token.NoPos, and a FileSet lookup of NoPos is nil; measured against golang.org/x/tools with Popcorn Wave out of the picture on 2026-08-02
+    downstream_containment_kept: api:cli-generate unparsable_source and its recover stay, because the pre-check names the file and the line where the generator would only name the directory, and the recover bounds every generation panic rather than this one
 generator:
   extensible_analysis: requirement:httpbinder-extensible-route-analysis
   openapi:
@@ -46,6 +58,29 @@ generator:
     - a live failure reaches the error reporter after the delivery lock is released, from v0.2.8; before that a blocking reporter held the clause's goroutines
     - nothing states which boundary is live, so requirement:live-boundary-liveness-signal is still answered by the framework's own bookkeeping
     - a live render executes the whole composed chain, so requirement:live-mode-plan-slice is still paid per reconnect
+  html_update:
+    - the htmlupdate package holds every net/http concern of partial updates, so htmlbind stays free of it and generated plans keep working on TinyGo and WebAssembly targets
+    - every layout and page of a rendered chain is an update boundary automatically; an ordinary component call is not, and the document shell never is
+    - a boundary must render exactly one root element, and a component that cannot is simply not a boundary rather than a generation error
+    - two keyed digests per boundary, the frame validator over its own bytes excluding nested boundaries and the input validator over its declared parameters; the frame one is the authority for omitting a boundary
+    - a delta skips transmission and never execution, so only a component opting into output caching skips its own render
+    - Options carries the validator key, the header prefix, the path prefix, the build identity, and the manifest size cap, and pw wraps it as api:html-update-options
+    - Negotiate resolves anything unrecognized to a complete document, which is what lets a live token share the header per decision:update-runtime-convergence
+    - Mount installs the runtime asset and the redraw endpoint under one path prefix; pw serves its own merged asset and takes only the redraw route
+    - a reloadable modifier on a component declaration generates a typed query decoder and a registration value, consumed by requirement:reloadable-component-endpoint
+    - Registry.Register panics on a repeated kind, because the kind covers name, parameters, and markup but not the package
+    - WantsUpdate, WriteUpdate, WriteUpdateStatus, and WriteNavigate are the action-response surface requirement:action-response-update branches on
+    - the generator gained a data attribute prefix option naming the boundary attributes, which pw sets to its own brand
+    - from v0.3.1 a render option names the async placeholder element and the boundary identifiers from that same prefix, so one document no longer holds two spellings
+    - from v0.3.1 the browser runtime source, its asset form, and its naming configuration are exported, and serving it is switchable, so a framework composes it into its own asset instead of copying it
+    - the runtime is a factory reading its attribute prefix, header namespace, endpoint prefix, and installed name from that configuration; only the protocol version stays compiled in, and an empty installed name installs no global
+    - the author-written preserve and ignore markers follow the configured prefix, so no application template carries the module's name
+    - Mount takes a one-method router interface satisfied by api:serve-mux, registration returns an error beside a must-variant, and an options validator reports every unusable option at once
+    - a failure callback receives every refused redraw with a kind, status, message, cause, and the component and instance it named, so a refusal reaches api:error-renderer and requirement:modern-observability
+    - the redraw response carries a keyed ETag with a private, no-cache policy, so an unchanged region answers 304; the policy, the query bound, and the stream media type are all options
+    - builtin element registration is unimplemented at v0.3.0 and lands in v0.3.3, so a framework-supplied element had no registration seam until then
+    - a synchronous external declaring a leading context.Context receives the render context, and one returning html lowers to a slot, which was the interim shape planned for a framework CSRF element
+    - style and script blocks extract to content-hashed files under a configured public directory, unused until requirement:component-asset-extraction sets the options
   route_tree:
     - the routetree package discovers a directory tree and writes the registrations, which is the opposite direction from the registered-router analysis above
     - one run covers one tree; requirement:discovered-page-routing wraps it and flow:page-route-generation drives it
@@ -117,7 +152,63 @@ compatibility:
     scope_for_pw: nothing was released against v0.2.9, so the change costs an edit to these concepts rather than to a project
     size: about 37 KB on a TinyGo wasip1 build, from the context value and the assertion reading it back
     answers: the second downstream request, and answers it by removing the seam rather than adding one
+  v0_3_2:
+    taken_for: the unguarded position lookup above, which crashed api:cli-generate on a file an editor had created and not yet written into
+    arrives_with: the boundary emission requirement:navigation-delta-rendering consumes, whose activation is opt-in per component except for generated route layouts, which take it automatically
+    effect_on_pw: a concept:page-tree component now emits a boundary marker attribute and one update-manifest entry; the rendered document gains an attribute and loses nothing
+    measured: one page tree fixture regenerated, and the rest of the suite passed unchanged, so no Popcorn Wave source needed editing
+    superseded_by: v0.3.3 and the adoption decision:update-runtime-convergence records, so the markers are no longer inert; requirement:module-native-csrf is the half taken first
   html_v0_1_15: generated HTML APIs are not source-compatible with earlier direct-writer output
   html_v0_1_19: async parameters and async render entry points are additive, so existing templates and call sites keep compiling after regeneration
   html_v0_1_20: Content.WriteTo narrows to the bare fragment and the module injects no client runtime, so an async caller must supply framing and a runtime it previously inherited
+  html_v0_3_0:
+    additive_on_the_wire: a project that never sends the render header renders and serves exactly as it did, so the pin moves without regenerating differently
+    generated_output: boundary attributes and validators appear on layout and page roots, which changes generated markup for every page even when no update is enabled
+    duplicated_here: the module shipped a browser runtime, a header namespace, and an endpoint prefix that overlap what this framework already owns; decision:update-runtime-convergence decides what happens to each
+    not_a_drop_in: the shipped runtime was built for the upstream names, so adopting the transport without adopting the names would have cost an adapted copy of its source
+    superseded_by: v0.3.1, so this version is never the one to pin
+  html_v0_3_1:
+    answers: requirement:tinybind-runtime-ownership in full, which is what makes the transport adoptable without a copy
+    generated_go: unchanged, so the pin moves without regenerating differently
+    breaking_for_a_direct_user:
+      - the preserve and ignore attributes default to the module's short prefix rather than its full name
+      - the query bound and stream media type constants were renamed as defaults, having become options
+      - registration returns an error rather than panicking
+    breaking_here: none, because nothing was released against v0.3.0
+    upstream_correction: the embedded runtime was an interim shape its own rollout requirement had recorded, whose exit was never scheduled, rather than a reversed boundary; the effect downstream was the same and requirement:tinybind-runtime-ownership carries the correction
+    still_interim_upstream: the module serves an asset by default and retires that only when its own runtime bootstrap selects and injects one; this framework declares caller ownership, so the default never applies here
+  html_v0_3_2:
+    additive: an action response gained a head field and the rest is documentation, so nothing generated or served changes for a project that does not use it
+    action_head: each written region's own contributions are collected and deduplicated across the set; the browser already installed a delta's head before applying operations, so only the server was never filling it
+    live_transport_confirmed: the module's document render settles a live boundary in place and finishes the response, and a second connection carries deliveries, which is this framework's own shape rather than a divergence
+    live_token_still_absent: no live token is parsed on either side, and the shipped upstream runtime sends the navigation token for both the first connection and every reconnect; filed as a must-priority requirement recommending a live token, which is this framework's existing choice
+    still_open: the redraw response carries no head, the slot-carried fragment head defect, and what a fragment response owes a caller it cannot deliver to, each filed as its own requirement rather than settled
+  html_v0_3_3:
+    answers: every remaining item of requirement:tinybind-update-composition-seams, and moves CSRF into the module
+    live_mode: a live token of its own with its own negotiated mode, so subscriptions stay open only in that mode; termination reasons name final, live-pending, failed, done, and retry, a retry may carry a server-side delay hint, the head record carries the build, and a cancelled context closes as retry rather than done
+    live_handoff: a response header, a delta body field, and a stream terminator each say whether a live connection is expected, and none appears when the page has no live boundary
+    adopted_from_here: the done-versus-retry distinction, the build on the opening record, and resetting the attempt count on a healthy close were this framework's shipped behaviour, offered as input and taken
+    live_validators: a delivery carries none and the opening delta does, which answers the question that item left open
+    live_defect_fixed_upstream: the live entry had set subscriptions unconditionally, so an ordinary navigation delta on a live route never terminated
+    redraw_head: the registry reports the head and assets of every published component for the shell to install once, and a redraw that contributes head announces it on a response header; the body stays a bare subtree
+    asset_set: an asset value on the plan with fragment, wrapper, and merge accessors, readable before rendering and folded through slots
+    slot_head: the plan reaches fragments carried in parameter structs, so head, sources, assets, and capability flags all fold; a project declaring no html parameter regenerates identically
+    vary_axes: a composition reports the request properties its output varies on, so a response can set an honest Vary header rather than guessing
+    builtin_elements: a framework registers hyphenated elements that lower to plan steps at generation time, with the value never entering template scope
+    csrf: consumed by requirement:module-native-csrf
+    protocol_version: deliberately left at 1, because nothing has shipped under it and spending a bump would cost the first real deployment one wasted fallback
+  breaking_v0_3_3:
+    hyphenated_elements: the namespace is closed, so a project writing Web Components must declare them; requirement:custom-element-registration carries what this framework owes projects
+    cached_unsafe_form: a component holding an unsafe form can no longer be output-cached, which policy:csrf-protection records
+    scaffolds_unaffected: no template this framework scaffolds writes a hyphenated element or caches a form, so a scaffolded project regenerates identically
+  not_built_upstream_v0_3_3:
+    - the opaque builtin element shape, declined because the trust assertion would move into framework code
+    - a builtin element inside a head declaration, so head placement means only that the body position is refused
+    - the embedded asset byte table and the caller-supplied URL function, which is what requirement:component-asset-extraction needs for a TinyGo target
+    - a server-side lifetime bound calling the retry seam, left to the caller
+    - the redraw head bound as an option, since registration cannot reach the options value
+  known_flake_upstream: a superseded live delivery can report a stale value into a reused placeholder, reproduced on the baseline and predating v0.3.3, so a cancellation-ordering race rather than a regression
+  other_v0_3_1_features:
+    template_formatters: formatters for the html, sql, and dynamo template languages, unevaluated here and a candidate for api:cli-generate or a project check
+    asset_transform_hooks: build-time rewriting of referenced assets through registered hooks, which is the seam requirement:component-asset-extraction would build on if that work is taken up
 ```

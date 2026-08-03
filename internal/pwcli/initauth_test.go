@@ -112,13 +112,16 @@ func TestScaffoldWiresTheFrameworkOwnedEndpoints(t *testing.T) {
 	if !strings.Contains(template, `<form method="post" action={logoutPath}>`) {
 		t.Fatalf("logout must be a POST form:\n%s", template)
 	}
-	if !strings.Contains(template, `<a href={loginPath}>`) {
+	if !strings.Contains(template, `href={loginPath}>Sign in</a>`) {
 		t.Fatalf("no login link:\n%s", template)
 	}
 }
 
-// The scaffolded keys must be the ones the plugins register, otherwise the
-// generated project fails to start on an unknown key.
+// The scaffolded keys must be registered, otherwise the generated project fails
+// to start on an unknown key.
+//
+// The scan runs from [session] to the end of the file, so it covers every
+// section the scaffold appends after that point, not only the auth ones.
 func TestScaffoldedAuthKeysAreRegistered(t *testing.T) {
 	known := map[string]bool{
 		// [session]
@@ -141,6 +144,8 @@ func TestScaffoldedAuthKeysAreRegistered(t *testing.T) {
 		"keyring.secret": true,
 		// [auth], where every session lifetime is declared
 		"session.ttl": true, "session.idle_timeout": true,
+		// [security]
+		"csrf.enabled": true, "csrf.include": true, "csrf.exclude": true,
 	}
 	for _, mode := range []string{authOIDC, authOIDCPasskey, authPasskey} {
 		t.Run(mode, func(t *testing.T) {
@@ -252,9 +257,9 @@ func TestInitWizardAsksForTheProviderOnlyForOIDC(t *testing.T) {
 		pressKey(tea.KeyEnter), // TinyGo
 		pressKey(tea.KeyEnter), // Router
 		pressKey(tea.KeyEnter), // Tailwind
-		pressKey(tea.KeyEnter), // Database
-		pressKey(tea.KeyEnter), // Database engine
 		typeText("2"),          // Authentication: OIDC
+		typeText("1"),          // Store: SQLite
+		pressKey(tea.KeyEnter), // DynamoDB
 	)
 	if model.reviewing() {
 		t.Fatal("choosing OIDC must ask where the session lives")
@@ -283,9 +288,9 @@ func TestInitWizardAsksForTheProviderForOIDCPasskey(t *testing.T) {
 		pressKey(tea.KeyEnter), // TinyGo
 		pressKey(tea.KeyEnter), // Router
 		pressKey(tea.KeyEnter), // Tailwind
-		pressKey(tea.KeyEnter), // Database
-		pressKey(tea.KeyEnter), // Database engine
 		typeText("3"),          // Authentication: OIDC and passkey
+		typeText("1"),          // Store: SQLite
+		pressKey(tea.KeyEnter), // DynamoDB
 		pressKey(tea.KeyEnter), // Session storage
 	)
 	if model.reviewing() {
@@ -304,9 +309,9 @@ func TestInitWizardSkipsTheProviderStepWithoutOIDC(t *testing.T) {
 		pressKey(tea.KeyEnter), // TinyGo
 		pressKey(tea.KeyEnter), // Router
 		pressKey(tea.KeyEnter), // Tailwind
-		pressKey(tea.KeyEnter), // Database
-		pressKey(tea.KeyEnter), // Database engine
 		typeText("4"),          // Authentication: Passkey only
+		typeText("1"),          // Store: SQLite
+		pressKey(tea.KeyEnter), // DynamoDB
 		pressKey(tea.KeyEnter), // Session storage
 	)
 	// The provider question is skipped; the environment questions still follow.
@@ -327,9 +332,10 @@ func TestInitWizardGoesBackPastASkippedStep(t *testing.T) {
 		pressKey(tea.KeyEnter), // TinyGo
 		pressKey(tea.KeyEnter), // Router
 		pressKey(tea.KeyEnter), // Tailwind
+		pressKey(tea.KeyEnter), // Authentication: None
 		pressKey(tea.KeyEnter), // Database
 		pressKey(tea.KeyEnter), // Database engine
-		pressKey(tea.KeyEnter), // Authentication: None
+		pressKey(tea.KeyEnter), // DynamoDB
 		pressKey(tea.KeyEnter), // Devbox
 		pressKey(tea.KeyEnter), // Redis or Valkey
 		pressKey(tea.KeyEsc),   // back from the review screen
@@ -535,5 +541,116 @@ func TestScaffoldImportsTheStoresOfTheSelectedEngine(t *testing.T) {
 				t.Errorf("session migration is not in the %s dialect:\n%s", engine, migration)
 			}
 		})
+	}
+}
+
+// A project with a session gets the CSRF shape written out and switched off.
+// Turning it on later should be uncommenting rather than looking the keys up.
+func TestScaffoldWritesTheCSRFSectionOffByDefault(t *testing.T) {
+	config := scaffoldFiles(initOptions{Name: "demo", Auth: authOIDC})[pwenv.FileName(pwenv.Development)]
+	if !strings.Contains(config, "[security]") {
+		t.Fatalf("no security section:\n%s", config)
+	}
+	if !strings.Contains(config, "csrf.enabled = false") {
+		t.Errorf("CSRF is not scaffolded off:\n%s", config)
+	}
+	// The anonymous path is a comment, so a project that needs it finds the
+	// keys rather than the documentation.
+	if !strings.Contains(config, "# csrf.anonymous.enabled = true") {
+		t.Errorf("the anonymous path is not shown:\n%s", config)
+	}
+}
+
+// A page tree's action endpoints are POSTs reachable with the session cookie
+// and nothing else in front of them, so the prefix must be in the include list.
+func TestScaffoldCoversThePageActionPrefix(t *testing.T) {
+	pages := scaffoldFiles(initOptions{Name: "demo", Auth: authOIDC, Router: routerDiscovered})[pwenv.FileName(pwenv.Development)]
+	if !strings.Contains(pages, `csrf.include = ["/_action/**", "/**"]`) {
+		t.Errorf("a page tree did not cover the action prefix:\n%s", pages)
+	}
+}
+
+// Without a session there is nothing to bind a token to, so the section would
+// only describe a check that could not pass.
+func TestScaffoldWritesNoSecuritySectionWithoutASession(t *testing.T) {
+	config := scaffoldFiles(initOptions{Name: "demo"})[pwenv.FileName(pwenv.Development)]
+	if strings.Contains(config, "[security]") {
+		t.Errorf("a session-less project got a security section:\n%s", config)
+	}
+}
+
+// Choosing DynamoDB for the login does not skip the SQL question: plugin/auth
+// keeps its ceremony records and its allowlist in a relational database
+// whatever holds the sessions, so the wizard asks which engine that is instead
+// of adding one the operator never saw.
+func TestInitWizardAsksForTheEngineBehindADynamoLogin(t *testing.T) {
+	t.Chdir(t.TempDir())
+	model := feedWizard(t, newTestWizard(defaultInitOptions()),
+		typeText("demo"), pressKey(tea.KeyEnter),
+		pressKey(tea.KeyEnter), // TinyGo
+		pressKey(tea.KeyEnter), // Router
+		pressKey(tea.KeyEnter), // Tailwind
+		typeText("2"),          // Authentication: OIDC
+		typeText("4"),          // Store: DynamoDB
+	)
+	if label := model.steps[model.index].label(); label != "Database engine" {
+		t.Fatalf("step = %q, want the engine the login is kept in", label)
+	}
+	model = feedWizard(t, model,
+		typeText("2"),          // Database engine: PostgreSQL
+		pressKey(tea.KeyEnter), // Session storage
+		pressKey(tea.KeyEnter), // OIDC provider
+	)
+	options := wizardResult(model, defaultInitOptions())
+	if !options.Dynamo || !options.Database || options.Engine != enginePostgres {
+		t.Fatalf("options = %#v", options)
+	}
+	// The DynamoDB question was already answered by the store choice, so it is
+	// not asked a second time.
+	for _, index := range model.activeSteps() {
+		if model.steps[index].label() == "DynamoDB" {
+			t.Fatal("the DynamoDB question was asked again after it was the store answer")
+		}
+	}
+}
+
+// A SQL login still reaches the DynamoDB question: the store answer covered one
+// kind of store, and the other one is a separate decision.
+func TestInitWizardStillAsksAboutDynamoAfterASQLLogin(t *testing.T) {
+	t.Chdir(t.TempDir())
+	model := feedWizard(t, newTestWizard(defaultInitOptions()),
+		typeText("demo"), pressKey(tea.KeyEnter),
+		pressKey(tea.KeyEnter), // TinyGo
+		pressKey(tea.KeyEnter), // Router
+		pressKey(tea.KeyEnter), // Tailwind
+		typeText("2"),          // Authentication: OIDC
+		typeText("1"),          // Store: SQLite
+	)
+	if label := model.steps[model.index].label(); label != "DynamoDB" {
+		t.Fatalf("step = %q, want the other kind of store", label)
+	}
+	model = feedWizard(t, model,
+		typeText("1"),          // DynamoDB: Yes
+		pressKey(tea.KeyEnter), // Session storage
+		pressKey(tea.KeyEnter), // OIDC provider
+	)
+	options := wizardResult(model, defaultInitOptions())
+	if !options.Dynamo || options.Engine != engineSQLite {
+		t.Fatalf("options = %#v", options)
+	}
+}
+
+// Partial updates are scaffolded off, with the key they need shown rather than
+// left for the reader to find. Enabling them without one is a startup failure.
+func TestScaffoldWritesTheUpdateSectionOffByDefault(t *testing.T) {
+	config := scaffoldFiles(initOptions{Name: "demo", Auth: authOIDC})[pwenv.FileName(pwenv.Development)]
+	if !strings.Contains(config, "[html.update]") {
+		t.Fatalf("no update section:\n%s", config)
+	}
+	if !strings.Contains(config, "enabled = false") {
+		t.Errorf("updates are not scaffolded off:\n%s", config)
+	}
+	if !strings.Contains(config, "# validator_key =") {
+		t.Errorf("the validator key is not shown:\n%s", config)
 	}
 }

@@ -34,61 +34,75 @@ func runGenerate(ctx context.Context, args []string, stdout io.Writer) error {
 			return fmt.Errorf("generate: unknown argument %q; %s", arg, generateUsage)
 		}
 	}
+	// Invoked directly, the path list is the whole answer, so it is printed.
+	_, err := generateProject(ctx, check, stdout, true)
+	return err
+}
+
+// generateProject runs generation and reports how many files it wrote.
+// listPaths false means the caller has its own report: a generated path names a
+// build input the operator never opens, so a command that ends by saying what it
+// did should name the sources it wrote instead and count these. Diagnostics go
+// to stdout either way, because a warning is never what a report is hiding.
+func generateProject(ctx context.Context, check bool, stdout io.Writer, listPaths bool) (int, error) {
 	root, err := projectRoot(".")
 	if err != nil {
-		return err
+		return 0, err
 	}
 	config, err := loadProjectConfig(root)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	directories, err := packageDirectories(root, config.Generate)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	if err := reportSourcesOutsideScope(root, config, stdout); err != nil {
-		return err
+		return 0, err
 	}
 	// The page trees are generated first because their output is planned as part
 	// of the directory it lands in, and a tree root may hold no source the walk
 	// above would have found.
 	pageArtifacts, err := planPageTrees(root, config)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	directories, err = withPageDirectories(directories, pageArtifacts)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	options, err := pwgen.Options(engineFor(config.Database).SQLDialect)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	runner := generator.New(options)
 	var changes []fileChange
 	for _, directory := range directories {
 		planned, err := planDirectory(ctx, runner, directory, directoryPurposes(root, config.Generate, directory), pageArtifacts[directory])
 		if err != nil {
-			return err
+			return 0, err
 		}
 		changes = append(changes, planned...)
 	}
 	changes, err = planBootstrapLink(root, config, changes)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	sort.Slice(changes, func(i, j int) bool { return changes[i].path < changes[j].path })
 	if check && len(changes) > 0 {
 		drift := changePaths(root, changes)
-		return fmt.Errorf("generated files are stale:\n  %s", strings.Join(drift, "\n  "))
+		return 0, fmt.Errorf("generated files are stale:\n  %s", strings.Join(drift, "\n  "))
 	}
 	if err := applyFileChanges(changes); err != nil {
-		return err
+		return 0, err
 	}
-	for _, path := range changePaths(root, changes) {
-		fmt.Fprintln(stdout, path)
+	paths := changePaths(root, changes)
+	if listPaths {
+		for _, path := range paths {
+			fmt.Fprintln(stdout, path)
+		}
 	}
-	return nil
+	return len(paths), nil
 }
 
 func planBootstrapLink(root string, config projectConfig, changes []fileChange) ([]fileChange, error) {
@@ -466,7 +480,15 @@ func planDirectory(ctx context.Context, runner *generator.Generator, directory s
 		local.Options.DynamoTemplatePattern = disabledTemplatePattern
 		runner = &local
 	}
-	artifacts, err := runner.GenerateArtifacts(ctx, request)
+	// A source that does not parse is reported here rather than handed to the
+	// generator. The developer loop regenerates the moment a file appears, so
+	// it routinely sees one an editor has created and not yet written into, and
+	// the generator walks such a file into a nil position.
+	// The parser error already names the file, the line, and the column.
+	if reason := firstUnparsableSource(directory); reason != nil {
+		return nil, reason
+	}
+	artifacts, err := generateArtifacts(ctx, runner, request)
 	if err != nil && !errors.Is(err, generator.ErrNothingToGenerate) {
 		// A page tree route package usually holds no request model at all, so
 		// finding nothing is the ordinary outcome rather than a failure.
@@ -525,6 +547,43 @@ func planDirectory(ctx context.Context, runner *generator.Generator, directory s
 		}
 	}
 	return changes, nil
+}
+
+// firstUnparsableSource names the first Go file in directory that does not
+// parse, with the reason. Only the package clause is read: anything further is
+// the compiler's to report, and a file that is being written into right now
+// fails at the very first token anyway.
+func firstUnparsableSource(directory string) error {
+	entries, err := os.ReadDir(directory)
+	if err != nil {
+		return nil
+	}
+	fileset := token.NewFileSet()
+	for _, entry := range entries {
+		name := entry.Name()
+		if entry.IsDir() || !strings.HasSuffix(name, ".go") {
+			continue
+		}
+		path := filepath.Join(directory, name)
+		if _, err := parser.ParseFile(fileset, path, nil, parser.PackageClauseOnly); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// generateArtifacts runs one generation request and turns a panic inside the
+// generator into an error. The developer loop is meant to survive a
+// half-finished edit, and a panic escaping from here would take the loop, the
+// application it supervises, and the services it started down with it.
+func generateArtifacts(ctx context.Context, runner *generator.Generator, request generator.GenerateRequest) (artifacts []generator.Artifact, err error) {
+	defer func() {
+		if recovered := recover(); recovered != nil {
+			err = fmt.Errorf("the generator panicked on this directory, which is a defect rather than "+
+				"something to fix in the sources: %v", recovered)
+		}
+	}()
+	return runner.GenerateArtifacts(ctx, request)
 }
 
 func documentRegistrationArtifact(packageName string) generator.Artifact {

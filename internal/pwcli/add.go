@@ -11,7 +11,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-const addUsage = "usage: pw add [" + capabilityDatabase + "|" + capabilityRedis + "|" + capabilityAuth + "|" + capabilityTailwind + "]"
+const addUsage = "usage: pw add [" + capabilityDatabase + "|" + capabilityDynamo + "|" + capabilityRedis + "|" + capabilityAuth + "|" + capabilityTailwind + "]"
 
 // addOptions holds every answer the wizard collects. Unlike api:cli-init there
 // is no flag form: these answers edit a project that already exists, and the
@@ -104,7 +104,7 @@ func applyCapability(ctx context.Context, state projectState, options addOptions
 			fmt.Fprintln(stdout, " ", line)
 		}
 		if plan.generate {
-			if err := runGenerate(ctx, nil, stdout); err != nil {
+			if _, err := generateProject(ctx, false, stdout, false); err != nil {
 				return fmt.Errorf("generate %s: %w", name, err)
 			}
 		}

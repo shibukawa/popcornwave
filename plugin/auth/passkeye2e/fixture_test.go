@@ -293,6 +293,9 @@ public.enabled = false
 
 [middleware.rdb]
 enabled = true
+
+[[middleware.rdb.connections]]
+group = "default"
 dsn = "sqlite://%s"
 connect_timeout = "5s"
 max_open_conns = 1

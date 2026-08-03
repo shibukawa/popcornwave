@@ -13,8 +13,15 @@ model:
   code: stable machine code
   request_id: optional diagnostic identifier
 selection:
+  by: the request Accept header, per api:problem-response negotiation
   html: generated 400, 401, 403, 404, 409, 413, or 500 .pw.html renderer
   api: api:problem-response RFC problem details
+template_parameters:
+  rule: an error template takes the model above as parameters and renders it, so the page says which request failed and why
+  registration: api:cli-init scaffolds the resolver that maps a status onto its template; without one the templates are generated and never reached
+  fields: the field failures are a repeatable parameter, so a rejected form can name the field it rejected
+  bounded_by: api:problem-response detail_by_environment, which decides how much of the model is populated before the template sees it
+  unpopulated: a parameter the environment withholds arrives empty rather than absent, so one template renders in both without a conditional per field
 fallback:
   - use a minimal safe built-in response when no HTML renderer is registered
   - do not recursively invoke an error renderer when it fails

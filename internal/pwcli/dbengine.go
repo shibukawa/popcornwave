@@ -2,6 +2,7 @@ package pwcli
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/shibukawa/tinybind-go/templates/sqlbind"
 )
@@ -52,15 +53,8 @@ var databaseEngines = map[string]databaseEngine{
 		Label:   "SQLite",
 		Summary: "an embedded file database; nothing to run beside the application",
 		DSN:     func(project string) string { return "sqlite://" + project + ".db" },
-		Schema: `-- +goose Up
-CREATE TABLE users (
-    id INTEGER PRIMARY KEY,
-    name TEXT NOT NULL
-);
+		Schema:  starterSchema("id INTEGER PRIMARY KEY", "name TEXT NOT NULL"),
 
--- +goose Down
-DROP TABLE users;
-`,
 		MaxOpenConns: 1,
 		MaxIdleConns: 1,
 		SQLDialect:   sqlbind.DialectSQLite,
@@ -73,15 +67,8 @@ DROP TABLE users;
 		},
 		DevboxPackage: "postgresql@latest",
 		DriverImport:  "github.com/shibukawa/popcornwave/database/postgres",
-		Schema: `-- +goose Up
-CREATE TABLE users (
-    id INTEGER PRIMARY KEY,
-    name TEXT NOT NULL
-);
+		Schema:        starterSchema("id INTEGER PRIMARY KEY", "name TEXT NOT NULL"),
 
--- +goose Down
-DROP TABLE users;
-`,
 		MaxOpenConns: 10,
 		MaxIdleConns: 5,
 		SQLDialect:   sqlbind.DialectPostgreSQL,
@@ -94,19 +81,50 @@ DROP TABLE users;
 		},
 		DevboxPackage: "mysql80@latest",
 		DriverImport:  "github.com/shibukawa/popcornwave/database/mysql",
-		Schema: `-- +goose Up
-CREATE TABLE users (
-    id INT PRIMARY KEY,
-    name VARCHAR(255) NOT NULL
-);
+		Schema:        starterSchema("id INT PRIMARY KEY", "name VARCHAR(255) NOT NULL"),
 
--- +goose Down
-DROP TABLE users;
-`,
 		MaxOpenConns: 10,
 		MaxIdleConns: 5,
 		SQLDialect:   sqlbind.DialectMySQL,
 	},
+}
+
+// starterSchema is migration version 1, and it creates nothing. The example it
+// carries is written for this dialect and commented out, so a project that
+// selected a database gets the shape of a migration without also getting a
+// table it never asked for and has to drop before writing its own.
+//
+// The columns are passed in because the two lines are the whole difference
+// between the dialects, and repeating the surrounding comment three times to
+// vary them would put the explanation in three places.
+func starterSchema(columns ...string) string {
+	var body strings.Builder
+	body.WriteString(`-- Migration version 1.
+--
+-- This file is empty on purpose: pw creates no table for you. The example
+-- below is the shape of a migration, written for this project's engine.
+-- Uncomment it, or replace it with your own schema, and pw dev applies it.
+--
+-- Sample rows do not belong here. A migration runs in every environment,
+-- including production, and an applied one cannot be edited. Use pw seed and
+-- a dataset for development data.
+
+-- +goose Up
+-- CREATE TABLE example (
+`)
+	for index, column := range columns {
+		separator := ","
+		if index == len(columns)-1 {
+			separator = ""
+		}
+		fmt.Fprintf(&body, "--     %s%s\n", column, separator)
+	}
+	body.WriteString(`-- );
+
+-- +goose Down
+-- DROP TABLE example;
+`)
+	return body.String()
 }
 
 // engineFor returns the scaffold description of an engine, falling back to
@@ -162,9 +180,9 @@ func databaseEngineNotice(options initOptions) string {
 	}
 	notice := "\n" + engine.Label + " runs beside the application:\n"
 	if options.Devbox {
-		notice += "  devbox services up starts it; create the role and database named in middleware.rdb.dsn once\n"
+		notice += "  devbox services up starts it; create the role and database the middleware.rdb connection names once\n"
 	} else {
-		notice += "  install and start it yourself, then create the role and database named in middleware.rdb.dsn\n"
+		notice += "  install and start it yourself, then create the role and database the middleware.rdb connection names\n"
 	}
 	return notice
 }

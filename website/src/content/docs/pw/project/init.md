@@ -6,7 +6,7 @@ sidebar:
 ---
 
 ```sh
-pw init <project-name> [--tailwind] [--no-tinygo] [--no-devbox] [--no-database] [--db=<engine>] [--no-redis] [--router=<kind>] [--auth=<mode>] [--session=<backend>] [--devidp] [-i]
+pw init <project-name> [--tailwind] [--no-tinygo] [--no-devbox] [--no-database] [--db=<engine>] [--dynamo] [--no-redis] [--router=<kind>] [--auth=<mode>] [--session=<backend>] [--devidp] [-i]
 ```
 
 The command creates a complete, runnable project in a new directory. A name and
@@ -22,6 +22,7 @@ presents the same choices as a wizard.
 | `--no-devbox` | no `devbox.json`; keep your own setup — mise, Docker Compose, Nix, Homebrew, Scoop |
 | `--no-database` | no rdb configuration, no migrations, and no SQL example |
 | `--db=<engine>` | `sqlite` (default), `postgres`, or `mysql` |
+| `--dynamo` | add the DynamoDB store: its configuration, a typed record, and the local server |
 | `--no-redis` | leave the Valkey development server out of `devbox.json` |
 | `--router=<kind>` | `registered` (default), `discovered`, or `both`; see [Discovered routing](/guides/cross-layer/discovered-routing/#commands) |
 | `--auth=<mode>` | `none` (default), `oidc`, `oidc-passkey`, or `passkey` |

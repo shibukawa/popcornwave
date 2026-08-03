@@ -6,6 +6,17 @@ title: Development OpenID Provider
 contrib/devidp is a development-only OpenID Provider that authenticates by selecting a user from a TOML roster, giving requirement:contrib-oidc an in-repo counterparty without external IdP credentials.
 
 ```yaml
+authentication_age:
+  status: implemented
+  why: a development provider that ignored max_age would let the requirement:session-assurance-levels step-up appear to work while proving nothing, because auth_time would always read as now
+  provider_session:
+    added: a cookie-keyed login the provider keeps for itself, distinct from the automatic-login shortcut
+    reason: without one, every authorization looked like a fresh authentication, so no freshness requirement could be seen to fail
+    effect: a second authorization is answered from it and carries the earlier auth_time, which is what a real provider does and what auth_time exists to report
+  max_age: refused when malformed, honoured by authenticating again when the session is older than it, and satisfied from the session when it is not
+  prompt: login and select_account force an interaction, none refuses with login_required rather than asking, and an unknown value or none beside another is an invalid_request
+  auth_time: the time the end user was authenticated, not the time the code was issued, which is the defect this replaced
+  end_session: drops the provider session and its cookie, so a global sign-out is not silently answered from it afterward
 package: contrib/devidp
 scope: development and test identity provider only
 runtime: host Go only, exempt from the policy:contrib-compatibility TinyGo matrix per decision:devidp-scope-reduction
