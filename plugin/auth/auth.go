@@ -27,6 +27,7 @@ import (
 	"github.com/shibukawa/popcornwave/contrib/oauth"
 	"github.com/shibukawa/popcornwave/contrib/oidc"
 	"github.com/shibukawa/popcornwave/contrib/passkey"
+	"github.com/shibukawa/popcornwave/internal/pathpattern"
 	"github.com/shibukawa/popcornwave/pw"
 	"github.com/shibukawa/popcornwave/session"
 )
@@ -78,11 +79,11 @@ type runtime struct {
 	stateStore   *authstate.SQLStore[oauth.Transaction]
 	// hint is the sealed sign-in hint cookie, nil unless the deployment turned
 	// it on. It carries no authority; see SignInHint.
-	hint *session.Jar[SignInHint]
+	hint         *session.Jar[SignInHint]
 	allowlist    Allowlist
 	cookiePolicy pw.SessionCookieConfig
-	include      []pattern
-	exclude      []pattern
+	include      []pathpattern.Pattern
+	exclude      []pathpattern.Pattern
 	// passkeyFlow is nil unless the selected mode mounts api:passkey-endpoints.
 	passkeyFlow *passkey.SessionFlow
 	// credentials and bootstrap are the installed stores, or the framework
@@ -147,7 +148,7 @@ func setupSession(ctx context.Context) (pw.Middleware, error) {
 	if !ok {
 		return nil, errors.New("auth requires middleware.rdb.enabled = true")
 	}
-	options, err := sessionOptions(sessionConfig)
+	options, err := sessionOptions(sessionConfig, pw.Config[pw.SecurityConfig](ctx).CSRF.Enabled)
 	if err != nil {
 		return nil, err
 	}
@@ -183,11 +184,11 @@ func setupSession(ctx context.Context) (pw.Middleware, error) {
 	if err != nil {
 		return nil, err
 	}
-	include, err := compilePatterns(config.Protection.Include)
+	include, err := pathpattern.Compile(config.Protection.Include)
 	if err != nil {
 		return nil, err
 	}
-	exclude, err := compilePatterns(config.Protection.Exclude)
+	exclude, err := pathpattern.Compile(config.Protection.Exclude)
 	if err != nil {
 		return nil, err
 	}
@@ -283,10 +284,16 @@ func closeRuntime(context.Context) error {
 	return nil
 }
 
-func sessionOptions(config pw.SessionConfig) (session.Options[SessionData], error) {
+func sessionOptions(config pw.SessionConfig, csrfEnabled bool) (session.Options[SessionData], error) {
 	sameSite, err := parseSameSite(config.Cookie.SameSite)
 	if err != nil {
 		return session.Options[SessionData]{}, err
+	}
+	// The companion cookie exists to feed the browser runtime a token, so a
+	// deployment that verifies none should not be handed one.
+	csrfName := ""
+	if csrfEnabled {
+		csrfName = pw.CSRFCookieName
 	}
 	return session.Options[SessionData]{
 		TTL:             config.TTL,
@@ -299,6 +306,7 @@ func sessionOptions(config pw.SessionConfig) (session.Options[SessionData], erro
 			Secure:   config.Cookie.Secure,
 			HTTPOnly: config.Cookie.HTTPOnly,
 			SameSite: sameSite,
+			CSRFName: csrfName,
 		},
 		Method:  MethodOIDC,
 		Subject: func(data SessionData) string { return data.AccountID },
@@ -306,16 +314,11 @@ func sessionOptions(config pw.SessionConfig) (session.Options[SessionData], erro
 }
 
 func parseSameSite(value string) (http.SameSite, error) {
-	switch value {
-	case "", "lax":
-		return http.SameSiteLaxMode, nil
-	case "strict":
-		return http.SameSiteStrictMode, nil
-	case "none":
-		return http.SameSiteNoneMode, nil
-	default:
+	sameSite, err := session.ParseSameSite(value)
+	if err != nil {
 		return 0, fmt.Errorf("session.cookie.same_site must be strict, lax, or none, got %q", value)
 	}
+	return sameSite, nil
 }
 
 func writeUnavailable(w http.ResponseWriter, r *http.Request, err error) {

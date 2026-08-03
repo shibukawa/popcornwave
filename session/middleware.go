@@ -29,6 +29,10 @@ func (m *Manager[T]) Middleware(unavailable UnavailableHandler) func(http.Handle
 				view := record.view()
 				ctx := pwruntime.WithSession(r.Context(), &view)
 				ctx = pwruntime.WithAuthentication(ctx, m.authentication(record))
+				// The secret travels beside the view rather than inside it, so
+				// the render path and the CSRF middleware can reach it and a
+				// handler reading the session cannot.
+				ctx = pwruntime.WithCSRFSecret(ctx, record.CSRFSecret)
 				next.ServeHTTP(w, r.WithContext(ctx))
 				return
 			case err == nil,

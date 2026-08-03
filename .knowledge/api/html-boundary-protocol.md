@@ -7,7 +7,7 @@ system:tinybind emits boundary placeholders and allocates their identity; every 
 
 ```yaml
 upstream_emits:
-  placeholder: "<tb-boundary id=\"tb-N\" style=\"display:contents\">fallback</tb-boundary>"
+  placeholder: "<tb-boundary id=\"tb-N\" style=\"display:contents\">fallback</tb-boundary>", where the element name and the id prefix follow the configured boundary prefix from system:tinybind v0.3.1 and carry the Popcorn Wave brand here
   commit: shell, merged head, and every fallback flush before slow work settles
   head: component contributions only, with nothing injected
   completion: htmlbind.Content carries BoundaryID and HTML; WriteTo writes the bare fragment and nothing else
@@ -17,6 +17,7 @@ framework_owns:
   - the framing written around each fragment, on every transport
   - the client runtime that applies a fragment to its placeholder
   - keeping framing and runtime consistent, since they are one design
+  narrowed_at_v0_3_0: the fetch envelope and its runtime half come from upstream, so what stays framework-owned is the parser and record envelopes, the merged asset of requirement:unified-update-runtime, and the naming; decision:update-runtime-convergence records why
 envelopes:
   parser_driven:
     use: the streaming initial load, where the browser parser consumes the response as it arrives
@@ -41,6 +42,10 @@ envelopes:
     framing: boundary id and HTML as data, never marker markup
     trigger: the runtime applies by id once it holds the complete bytes, because a resolved fetch already proves completeness
     rationale: no parser runs over a fetched body, so a marker has nothing to connect; parsing one into a detached document does not upgrade custom elements at all, and adopting the nodes later upgrades them at an unpredictable point
+    supplied_by: system:tinybind htmlupdate from v0.3.0, per decision:update-runtime-convergence, so the delta encoder, the operation kinds, and the manifest codec are no longer this framework's to define
+    operations: replace for a boundary, plus head operations installing a first-appearing component's tags before its markup lands
+    addressing: the framework boundary attribute first, then the author-written element id, since requirement:action-response-update and requirement:reloadable-component-endpoint address regions the author named
+    streamed_form: one record per line, each carrying its own manifest entry because a trailing manifest cannot precede the operations it describes, and an explicit terminator because that is the only way to tell a finished render from a truncated one
 rules:
   - marker framing appears only in a parser-driven response body
   - the runtime core is a plain apply function taking a boundary id and HTML

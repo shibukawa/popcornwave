@@ -8,6 +8,8 @@ import (
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/shibukawa/popcornwave/pwruntime"
 )
 
 const (
@@ -25,6 +27,18 @@ type CookieOptions struct {
 	Secure   bool
 	HTTPOnly bool
 	SameSite http.SameSite
+	// CSRFName is the companion cookie carrying the session's CSRF token for
+	// the browser runtime to read when it issues a request. Empty writes none,
+	// which is what a deployment with the check turned off wants.
+	//
+	// It is written and cleared wherever the session cookie is, so the two
+	// cannot diverge: a browser holding one always holds the other.
+	//
+	// Unlike the session cookie it is never HttpOnly. The runtime has to read
+	// it, and that is the whole reason it exists: a token embedded in the page
+	// is fixed at render, so a rotation would never reach a screen that is
+	// already open.
+	CSRFName string
 }
 
 // Options configures a Manager. TTL is required; every other field has a safe
@@ -164,6 +178,13 @@ func (m *Manager[T]) create(w http.ResponseWriter, r *http.Request, data T, meth
 	if err != nil {
 		return fmt.Errorf("%w: token", ErrUnavailable)
 	}
+	// A fresh secret per created record is what makes rotation rotate: Rotate
+	// revokes and recreates, so a token minted before a login cannot be
+	// presented after one.
+	secret, err := pwruntime.NewCSRFSecret(m.random)
+	if err != nil {
+		return fmt.Errorf("%w: csrf secret", ErrUnavailable)
+	}
 	now := m.now()
 	record := Record[T]{
 		Data:            data,
@@ -173,6 +194,7 @@ func (m *Manager[T]) create(w http.ResponseWriter, r *http.Request, data T, meth
 		ExpiresAt:       now.Add(m.options.TTL),
 		Method:          method,
 		Version:         m.options.Version,
+		CSRFSecret:      secret,
 	}
 	if m.options.IdleTimeout > 0 {
 		record.IdleExpiresAt = now.Add(m.options.IdleTimeout)
@@ -181,6 +203,7 @@ func (m *Manager[T]) create(w http.ResponseWriter, r *http.Request, data T, meth
 		return err
 	}
 	m.writeCookie(w, token, record.deadline())
+	m.writeCSRFCookie(w, record.CSRFSecret, record.deadline())
 	return nil
 }
 
@@ -229,6 +252,7 @@ func (m *Manager[T]) resolve(w http.ResponseWriter, r *http.Request) (Record[T],
 	if renewed, ok := m.renew(ctx, hash, record, now); ok {
 		record = renewed
 		m.writeCookie(w, token, record.deadline())
+		m.writeCSRFCookie(w, record.CSRFSecret, record.deadline())
 	}
 	return record, true, nil
 }
@@ -277,6 +301,55 @@ func (m *Manager[T]) clearCookie(w http.ResponseWriter) {
 		MaxAge:   -1,
 		Secure:   m.cookie.Secure,
 		HttpOnly: m.cookie.HTTPOnly,
+		SameSite: m.sameSite,
+	})
+	m.clearCSRFCookie(w)
+}
+
+// writeCSRFCookie hands the browser runtime a token for this session.
+//
+// The value is masked, like every other emission: the cookie is not in a
+// compressed body, so it is not what a compression oracle reads, but sending
+// the bare secret would put the thing verification compares against into a
+// place script can read.
+//
+// It is rewritten only where the session cookie is, which is creation,
+// rotation, and idle renewal. Re-masking it per response would cost a
+// set-cookie on every response and buy nothing.
+func (m *Manager[T]) writeCSRFCookie(w http.ResponseWriter, secret string, expiresAt time.Time) {
+	if m.cookie.CSRFName == "" || secret == "" {
+		return
+	}
+	token, err := pwruntime.CSRFToken(secret, m.random)
+	if err != nil || token == "" {
+		return
+	}
+	http.SetCookie(w, &http.Cookie{
+		Name:    m.cookie.CSRFName,
+		Value:   token,
+		Path:    m.cookie.Path,
+		Domain:  m.cookie.Domain,
+		Expires: expiresAt,
+		MaxAge:  int(expiresAt.Sub(m.now()).Seconds()),
+		Secure:  m.cookie.Secure,
+		// Never HttpOnly: the runtime reads this one.
+		HttpOnly: false,
+		SameSite: m.sameSite,
+	})
+}
+
+func (m *Manager[T]) clearCSRFCookie(w http.ResponseWriter) {
+	if m.cookie.CSRFName == "" {
+		return
+	}
+	http.SetCookie(w, &http.Cookie{
+		Name:     m.cookie.CSRFName,
+		Value:    "",
+		Path:     m.cookie.Path,
+		Domain:   m.cookie.Domain,
+		MaxAge:   -1,
+		Secure:   m.cookie.Secure,
+		HttpOnly: false,
 		SameSite: m.sameSite,
 	})
 }

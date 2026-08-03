@@ -555,7 +555,7 @@ api_doc = "scalar"
 [observability]
 minimum_level = "debug"
 service_name = "` + name + `"
-` + databaseRuntimeConfig(options) + authRuntimeConfig(options),
+` + databaseRuntimeConfig(options) + authRuntimeConfig(options) + securityRuntimeConfig(options),
 		"cmd/" + name + "/main.go": mainScaffold(options),
 		"templates/document.pw.html": `package templates
 
@@ -1199,6 +1199,53 @@ protection.unauthenticated = "redirect"
 		section += authOIDCConfig(options)
 	}
 	return section
+}
+
+// securityRuntimeConfig writes the [security] section.
+//
+// The check is scaffolded off, with the patterns that turn it on written out
+// and commented. A project without a session has nothing to bind a token to, so
+// switching it on before there is one would refuse every post; leaving the
+// shape here means turning it on later is uncommenting rather than looking up.
+func securityRuntimeConfig(options initOptions) string {
+	if !servesLogin(options) {
+		// No session, so no token. The section would only describe a check that
+		// could not pass.
+		return ""
+	}
+	section := `
+# CSRF is off until the paths it covers are named, because a check installed
+# over nothing reads as protection that is not there. Turn it on once the
+# application has an unsafe route, and keep the include list as narrow as the
+# routes that mutate.
+[security]
+csrf.enabled = false
+csrf.include = ["/**"]
+`
+	if hasDiscoveredPages(options) {
+		// A page action is a POST reachable with ambient credentials, and
+		// nothing else stands in front of it, so it is the one prefix a page
+		// tree must not leave out.
+		section += `# Page actions are POST endpoints reachable with the session cookie, so the
+# action prefix belongs in the include list of any page tree.
+csrf.include = ["/_action/**", "/**"]
+`
+	}
+	section += `# Exclude what a browser never posts: a webhook has no session and carries its
+# own authentication.
+csrf.exclude = []
+# A public page with its own unsafe form needs a token before there is a
+# session. This issues one in a signed cookie and writes no session record.
+# csrf.anonymous.enabled = true
+# csrf.anonymous.secret = "${SECURITY_CSRF_ANONYMOUS_SECRET}"
+`
+	return section
+}
+
+// hasDiscoveredPages reports whether the project starts with a page tree, whose
+// action endpoints are what the CSRF include list must cover.
+func hasDiscoveredPages(options initOptions) bool {
+	return len(scaffoldGenerationScope(options).Pages) > 0
 }
 
 // authConfigMode maps the scaffold choice onto the plugin/auth mode name.

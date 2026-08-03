@@ -14,6 +14,7 @@ fields:
   csrf.form_field: string
   csrf.header: HTTP header name
   csrf.trusted_origins: exact origin list
+  csrf.anonymous.enabled: bool, whether a visitor with no session is issued a secret at all, per decision:anonymous-csrf-secret-storage; the cookie is signed with the policy:cookie-value-protection keyring rather than a key of its own
   headers.enabled: bool
   headers.content_type_options: bool
   headers.frame_options: deny, sameorigin, or off
@@ -31,6 +32,7 @@ defaults:
   csrf.exclude: []
   csrf.form_field: _csrf
   csrf.header: X-CSRF-Token
+  csrf.anonymous.enabled: false, and turning it on without a configured cookie keyring is a startup failure rather than an unsigned cookie
   headers.enabled: true
   headers.content_type_options: true
   headers.frame_options: deny

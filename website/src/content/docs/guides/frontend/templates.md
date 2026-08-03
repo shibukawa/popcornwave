@@ -232,6 +232,48 @@ it to fixed or previously validated trusted content.
 Use `JsonForScript` rather than `RawJavaScript` whenever you are handing typed
 data to the page — it encodes for you.
 
+## Forms and CSRF
+
+A form that changes something needs a token proving the request came from your
+page. You do not write it.
+
+```html
+<form method="post" action="/orders">
+  <button>Buy</button>
+</form>
+```
+
+Generation puts a hidden field carrying the token as the form's first child, so
+a later field cannot displace it and no author has to remember it. A GET form
+gets nothing: its fields become the query string, and a token in a URL reaches
+history, logs, and referrers.
+
+Two shapes fail generation rather than producing a form that half works:
+
+- a form posting to another origin, which would hand your session's secret to a
+  third party;
+- a form whose method is a computed value, which cannot be classified as safe or
+  unsafe — dropping the token would expose it on a GET, and keeping it would
+  leave the form unprotected.
+
+One constraint follows from this. A component containing an unsafe form cannot
+be output-cached, because a stored body would hand one session's token to the
+next visitor. The fix is to split what is cacheable from what carries the token:
+
+```html
+@cache(ttl: "1m") component ProductList(rows: Product[]): html { … }
+component OrderForm(): html { <form method="post">…</form> }
+export component Page(rows: Product[]): html { <ProductList rows={rows} /><OrderForm /> }
+```
+
+Rendering a page with an unsafe form outside a request — a mail body, a golden
+test — has no session to take a token from, and the render fails rather than
+emitting an empty field. That failure is the point: an empty token submits, is
+rejected, and leaves nothing pointing at the cause.
+
+See [Security](/guides/architecture/security/) for what happens to the token
+after it leaves the template.
+
 ## Component styles
 
 A component can contribute static head content, which is how styles stay next

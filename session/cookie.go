@@ -11,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/http"
 	"strings"
 	"time"
 )
@@ -380,4 +381,22 @@ func (k *Keyring) open(binding string, sealed []byte) ([]byte, bool) {
 		}
 	}
 	return nil, false
+}
+
+// ParseSameSite reads the configured same-site policy.
+//
+// It lives here rather than beside one caller because CookieOptions is this
+// package's type: a second parser elsewhere would be a second place for the
+// accepted spellings to drift.
+func ParseSameSite(value string) (http.SameSite, error) {
+	switch value {
+	case "", "lax":
+		return http.SameSiteLaxMode, nil
+	case "strict":
+		return http.SameSiteStrictMode, nil
+	case "none":
+		return http.SameSiteNoneMode, nil
+	default:
+		return 0, fmt.Errorf("%w: same_site must be strict, lax, or none, got %q", ErrInvalidOptions, value)
+	}
 }

@@ -12,7 +12,7 @@ order:
   - api:typed-external-function and concept:modern-server-ui
   - memory-backed policy:layered-cache with TTL, private scope, and tags
   - flow:initial-streaming-render, unblocked by system:tinybind html_async_baseline and scoped by requirement:async-html-rendering
-  - flow:partial-refresh
+  - flow:partial-refresh, unblocked by system:tinybind html_update_baseline and scoped by decision:update-runtime-convergence; it arrives before the memory-backed cache above it, because upstream compares rendered output instead of reusing it
   - api:server-action with automatic invalidation
   - concept:client-component with selective module loading
   - distributed caches and stale-while-revalidate
