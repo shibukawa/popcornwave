@@ -137,7 +137,7 @@ Popcorn Wave は次の順に読みます。
 
 `readonly` の接続が `pw.SelectWriteDB` に選ばれることはありません。だからこそ、
 書き込みを行う側はデプロイ構成を知らずに済みます。
-[クエリ](/ja/guides/backend/queries/)を参照してください。
+[リレーショナルデータベース](/ja/guides/storage/rdb/)を参照してください。
 
 ## `[html]`
 
@@ -251,7 +251,7 @@ HSTS が付くのは検証済みの HTTPS リクエストだけです。平文�
 | キー | 既定値 | 意味 |
 | --- | --- | --- |
 | `enabled` | `false` | |
-| `backend` | `"rdb"` | 保存バックエンド: `rdb`、`cookie`、`redis` |
+| `backend` | `"rdb"` | 保存バックエンド: `rdb`、`cookie`、`redis`、`dynamo` |
 | `ttl` | `"24h"` | セッションの絶対寿命 |
 | `idle_timeout` | `"0s"` | 無操作での失効。ゼロで無効 |
 | `renewal_interval` | `"0s"` | 無操作失効の更新間隔の下限 |
@@ -271,10 +271,12 @@ HSTS が付くのは検証済みの HTTPS リクエストだけです。平文�
 | `cookie_store.name` | `"pw_session_data"` | `backend = "cookie"` で封をしたレコードを運ぶクッキー |
 | `cookie_store.secret` | *(空)* | クッキーのレコードを封印する base64 の秘密鍵（マスクされる） |
 | `cookie_store.previous_secrets` | `[]` | ローテーション中も読める引退した秘密鍵（マスクされる） |
+| `dynamo.table` | `"popcornwave_session"` | 宣言上のセッションテーブル名。実際の名前へは `middleware.dynamo` が対応づける |
+| `dynamo.consistent_read` | `false` | セッションを強整合で読む。読み取り容量は倍 |
 
 読まれるのは選んだバックエンドのキーだけです。`cookie` 以外のバックエンドは、それ自身の
 blank import でバイナリに入ります。書き忘れたときは起動時のエラーが追加すべき行を引用
-します。3つの比較と、それぞれに必要な設定は[セッション](/ja/guides/backend/sessions/)に
+します。4つの比較と、それぞれに必要な設定は[セッションストレージ](/ja/guides/storage/session-storage/)に
 あります。
 
 ブラウザにあるトークンはどのバックエンドでも不透明なので、ここに署名鍵はありません。

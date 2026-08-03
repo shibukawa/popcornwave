@@ -6,7 +6,7 @@ sidebar:
 ---
 
 ```sh
-pw add [devbox|database|redis-valkey|auth|tailwind]
+pw add [devbox|database|dynamo|redis-valkey|auth|tailwind]
 ```
 
 `pw init` はどの機能から始めるかを尋ねますが、それはプロジェクトを理解しきる前の
@@ -24,6 +24,7 @@ pw add [devbox|database|redis-valkey|auth|tailwind]
 | --- | --- |
 | `devbox` | `devbox.json` と `devbox.lock`。このプロジェクトが既に使っているツールチェインを含む |
 | `database` | `[middleware.rdb]` セクション、マイグレーションディレクトリ、型付き SQL の例 |
+| `dynamo` | `[middleware.dynamo]` セクション、型付きレコード、ローカルの DynamoDB サーバー |
 | `redis-valkey` | `devbox.json` の Valkey 開発サーバー |
 | `auth` | ログインセッション、フレームワークのテーブル、アカウントリゾルバ |
 | `tailwind` | ピン留めした Tailwind ツールチェイン、CSS エントリ、`[assets.tailwind]` ブロック |

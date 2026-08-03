@@ -71,7 +71,7 @@ provider_logout = true   # プロバイダ側もサインアウトする
 4つあります。どれもサインインの途中で判明するのではなく、起動時に検査されます。
 
 - `session.enabled = true`。そうでないとログインの着地先がありません。どのバックエンドが
-  それを持つかは別の判断です（[セッション](/ja/guides/backend/sessions/)）。
+  それを持つかは別の判断です（[セッションストレージ](/ja/guides/storage/session-storage/)）。
 - `middleware.rdb.enabled = true`。これはセッションが cookie でも redis でも同じです。
   単回限りのログイン記録と許可リストは、どの構成でもサーバー側の状態だからです。
 - マイグレーション適用済み。フレームワークのテーブルが2つとも存在すること。
@@ -281,7 +281,7 @@ WebAuthn の Relying Party は**ドメイン**にスコープされ、IP リテ�
 クッキーが運ぶのは不透明なトークンだけで、セッション本体がどこに住むかは
 `session.backend` が決めます。この選択はここまでの設定から独立しています。3つの
 バックエンド、それぞれに必要なキー、そして何を諦めるかは
-[セッション](/ja/guides/backend/sessions/)にあります。`session.ttl` が絶対有効期限、
+[セッションストレージ](/ja/guides/storage/session-storage/)にあります。`session.ttl` が絶対有効期限、
 `session.idle_timeout` が無操作期限です。ログイン時にトークンは新しくなり、それ以前に
 ブラウザが持っていたセッションは失効します——ただし cookie バックエンドだけは、
 クライアントがすでに取ったコピーを失効させられません。
@@ -317,7 +317,7 @@ enabled = true
 拒否して不足分を示します。プロバイダの値は `AUTH_OIDC_ISSUER`、`AUTH_OIDC_CLIENT_ID`、
 `AUTH_OIDC_CLIENT_SECRET`、あるいは `${NAME}` 参照から与え、コミットはしません。
 cookie バックエンドのセッションはもう1つ独自の秘密鍵を要求します
-（[セッション](/ja/guides/backend/sessions/#cookie--ストレージなし)）。
+（[セッションストレージ](/ja/guides/storage/session-storage/#cookie--ストレージなし)）。
 
 `redirect_url` はプロバイダに登録した URL と一字一句一致している必要があります。
 フレームワークが `redirect_uri` として送るのがこの値なので、登録と違えばアプリケーションに

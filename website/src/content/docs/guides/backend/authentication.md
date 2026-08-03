@@ -72,7 +72,7 @@ Four things have to be true, and startup checks each one rather than
 discovering it during a sign-in:
 
 - `session.enabled = true`, since the login has nowhere to land otherwise.
-  Which backend holds it is a separate decision — see [Sessions](/guides/backend/sessions/).
+  Which backend holds it is a separate decision — see [Session storage](/guides/storage/session-storage/).
 - `middleware.rdb.enabled = true`. This holds even under a cookie or Redis
   session backend: the single-use login records and the admission allowlist are
   server state in every configuration.
@@ -288,7 +288,7 @@ hours.
 
 The cookie carries an opaque token; where the session itself lives is
 `session.backend`, and that choice is independent of everything above.
-[Sessions](/guides/backend/sessions/) covers the three backends, their required
+[Session storage](/guides/storage/session-storage/) covers the four backends, their required
 keys, and what each one gives up. `session.ttl` bounds the absolute lifetime
 and `session.idle_timeout` the inactivity one; logging in rotates the token,
 which revokes whatever the browser held before — except under the cookie
@@ -326,7 +326,7 @@ and `redirect_url` must all be non-empty or the application refuses to start,
 naming what is missing. Supply the provider values through `AUTH_OIDC_ISSUER`,
 `AUTH_OIDC_CLIENT_ID`, and `AUTH_OIDC_CLIENT_SECRET`, or through `${NAME}`
 references, rather than committing them. A cookie-backed session adds one more
-secret of its own — see [Sessions](/guides/backend/sessions/#cookie--no-storage-at-all).
+secret of its own — see [Session storage](/guides/storage/session-storage/#cookie--no-storage-at-all).
 
 `redirect_url` has to be the URL your provider has registered, character for
 character. It is the value the framework sends as `redirect_uri`, so a callback

@@ -6,7 +6,7 @@ sidebar:
 ---
 
 ```sh
-pw init <project-name> [--tailwind] [--no-tinygo] [--no-devbox] [--no-database] [--db=<engine>] [--no-redis] [--router=<kind>] [--auth=<mode>] [--session=<backend>] [--devidp] [-i]
+pw init <project-name> [--tailwind] [--no-tinygo] [--no-devbox] [--no-database] [--db=<engine>] [--dynamo] [--no-redis] [--router=<kind>] [--auth=<mode>] [--session=<backend>] [--devidp] [-i]
 ```
 
 新しいディレクトリに、動作する完全なプロジェクトを作ります。名前とオプションを
@@ -22,6 +22,7 @@ pw init <project-name> [--tailwind] [--no-tinygo] [--no-devbox] [--no-database] 
 | `--no-devbox` | `devbox.json` を作らない。mise、Docker Compose、Nix、Homebrew、Scoop など自分の環境を使う |
 | `--no-database` | rdb 設定・マイグレーション・SQL の例を作らない |
 | `--db=<engine>` | `sqlite`（既定）、`postgres`、`mysql` |
+| `--dynamo` | DynamoDB ストアを追加する。設定・型付きレコード・ローカルサーバー |
 | `--no-redis` | `devbox.json` に Valkey 開発サーバーを入れない |
 | `--router=<kind>` | `registered`（既定）、`discovered`、`both`。[探索型ルーティング](/ja/guides/cross-layer/discovered-routing/#コマンド)を参照 |
 | `--auth=<mode>` | `none`（既定）、`oidc`、`oidc-passkey`、`passkey` |

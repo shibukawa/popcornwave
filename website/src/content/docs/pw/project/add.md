@@ -6,7 +6,7 @@ sidebar:
 ---
 
 ```sh
-pw add [devbox|database|redis-valkey|auth|tailwind]
+pw add [devbox|database|dynamo|redis-valkey|auth|tailwind]
 ```
 
 `pw init` asks which capabilities a project starts with, before the project is
@@ -24,6 +24,7 @@ and the review screen is where that edit is approved.
 | --- | --- |
 | `devbox` | `devbox.json` and `devbox.lock`, carrying the toolchain this project already uses |
 | `database` | the `[middleware.rdb]` section, the migration directory, and a typed SQL example |
+| `dynamo` | the `[middleware.dynamo]` section, a typed record, and the local DynamoDB server |
 | `redis-valkey` | the Valkey development server in `devbox.json` |
 | `auth` | login sessions, the framework tables, and the account resolver |
 | `tailwind` | the pinned Tailwind toolchain, its CSS entry, and the `[assets.tailwind]` block |

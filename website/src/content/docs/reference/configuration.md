@@ -142,7 +142,7 @@ at startup and names the replacement.
 
 A `readonly` connection can never be selected by `pw.SelectWriteDB`, which is
 what lets a caller that must write stay ignorant of the topology. See
-[Queries](/guides/backend/queries/).
+[Relational databases](/guides/storage/rdb/).
 
 ## `[html]`
 
@@ -257,7 +257,7 @@ duration string, and one key cannot mean both.
 | Key | Default | Meaning |
 | --- | --- | --- |
 | `enabled` | `false` | |
-| `backend` | `"rdb"` | storage backend: `rdb`, `cookie`, or `redis` |
+| `backend` | `"rdb"` | storage backend: `rdb`, `cookie`, `redis`, or `dynamo` |
 | `ttl` | `"24h"` | absolute session lifetime |
 | `idle_timeout` | `"0s"` | inactivity expiry; zero disables it |
 | `renewal_interval` | `"0s"` | minimum interval between idle expiry renewals |
@@ -277,13 +277,15 @@ duration string, and one key cannot mean both.
 | `cookie_store.name` | `"pw_session_data"` | cookie holding the sealed record under `backend = "cookie"` |
 | `cookie_store.secret` | *(empty)* | base64 secret sealing cookie-backed records (masked) |
 | `cookie_store.previous_secrets` | `[]` | retired secrets kept readable during a rotation (masked) |
+| `dynamo.table` | `"popcornwave_session"` | declared session table, mapped onto the deployed one by `middleware.dynamo` |
+| `dynamo.consistent_read` | `false` | read sessions with strong consistency, at twice the read capacity |
 
 Only the keys of the selected backend are read, and a backend other than
 `cookie` reaches the binary through its own blank import — the startup error
-quotes the line to add. [Sessions](/guides/backend/sessions/) compares the
-three and lists what each one requires.
+quotes the line to add. [Session storage](/guides/storage/session-storage/) compares the
+four and lists what each one requires.
 
-The token in the browser is opaque in all three, so nothing here signs it. Only
+The token in the browser is opaque in every one of them, so nothing here signs it. Only
 `backend = "cookie"` puts the record itself in the browser, and it seals that
 record under `cookie_store.secret` — the one secret this section has, and one
 that belongs in the environment rather than in the file.

@@ -1,8 +1,8 @@
 ---
 title: クエリ
-description: 型付き .pw.sql ステートメント、条件付き SQL、トランザクション、リーダー・ライターの接続グループ。
+description: 型付き .pw.sql ステートメント、条件付き SQL、そして設定済みの接続の上で走るトランザクション。
 sidebar:
-  order: 2
+  order: 1
 ---
 
 SQL は SQL のまま見えますが、Go との境界には型が付きます。ステートメントを
@@ -202,106 +202,17 @@ err := pw.Transaction(r.Context(), func(ctx context.Context) error {
 db, ok := pw.DB(r.Context())
 ```
 
-## データベースの設定
+## どの接続で走るのか
 
-プールは `[middleware.rdb]` にあり、既定では**無効**です。`[[middleware.rdb.connections]]`
-の要素1つがプール1つで、単一のデータベースなら要素も1つです。
+ここまでのどこにもデータベースは出てきません。どこで実行するかを言わないステートメントは
+既定の接続グループへ行きます。書き込みや、リーダー・ライター構成に対するトランザクションが
+グループを固定する手段が `pw.SelectDB` と `pw.OnGroup` です。どちらも接続そのものと一緒に
+[リレーショナルデータベース](/ja/guides/storage/rdb/)にあります。`[middleware.rdb]` セクション、
+DSN のスキーム、エンジンごとに必要なインポートもそちらです。
 
-```toml
-[middleware.rdb]
-enabled = true
-
-[[middleware.rdb.connections]]
-group = "default"
-dsn = "sqlite://myapp.db"
-connect_timeout = "5s"
-max_open_conns = 1
-max_idle_conns = 1
-```
-
-`dsn` は秘密情報として扱われますが、隠されるのは資格情報だけです。起動サマリでも
-`pw doctor` でもエラーメッセージでも `postgres://*****@db.internal:5432/app` の形で出ます。
-スキーム・ホスト・ポート・データベース名は残り、ユーザー情報とクエリ文字列は落とします。
-どのデータベースに繋がっているかは運用上の事実であり、何も答えない行は読まれなくなるからです。
-SQLite のパスや `:memory:` は資格情報を持たないのでそのまま出ます。
-[設定](/ja/guides/architecture/configuration/)を参照。
-
-スキームがエンジンを選びます。サーバーエンジンは登録のためにブランクインポートが
-必要です。
-
-| スキーム | エンジン | インポート |
-| --- | --- | --- |
-| `sqlite://` | SQLite | すでにリンク済み |
-| `postgres://` | PostgreSQL | `_ "github.com/shibukawa/popcornwave/database/postgres"` |
-| `mysql://` | MySQL、MariaDB | `_ "github.com/shibukawa/popcornwave/database/mysql"` |
-
-このインポートは `pw init` が書きます。無い場合、プールは開くのを拒否し、
-`database/sql` の奥で失敗する代わりに追加すべきインポートを名指しします。スキームは
-`project.database` と一致させてください。一方はどのドライバがクエリを実行するかを、
-もう一方はどの構文にコンパイルされたかを決めています。
-
-## リーダーとライター
-
-リードレプリカを持つ構成も同じ形で、要素が増えるだけです。要素ごとに
-所属グループを指定し、同じグループに複数の要素を置けます。読み取りはその中でラウンド
-ロビンに振り分けられます。TOML では `[[…]]` ヘッダー以降のキーがその要素のものになる
-ため、`rdb` 直下のキーは先に書く必要があります。
-
-```toml
-[middleware.rdb]
-enabled = true
-default_group = "replica"
-write_group = "writer"
-
-[[middleware.rdb.connections]]
-group = "writer"
-dsn = "postgres://app:${DB_PASSWORD}@writer.example/app"
-max_open_conns = 20
-
-[[middleware.rdb.connections]]
-group = "replica"
-dsn = "postgres://app:${DB_PASSWORD}@replica-1.example/app"
-readonly = true
-
-[[middleware.rdb.connections]]
-group = "replica"
-dsn = "postgres://app:${DB_PASSWORD}@replica-2.example/app"
-readonly = true
-```
-
-接続の要素は固有の CLI オプションも環境変数も持ちません（要素の同一性はファイル内での
-位置だからです）。そのため接続ごとのパスワードをコミットする TOML の外に出す手段が
-`${NAME}` です。展開はファイル読み込み時に、文字列の値に対してのみ行われます。未定義の名前は
-空文字に展開されるのではなく読み込みエラーになります。リテラルの `$` は `$$` と書きます。
-展開の有無にかかわらず、`dsn` は起動サマリーでもエラーメッセージでもマスクされたままです。
-
-グループを指定しないステートメントは `default_group` で実行されます。書き込みは明示的に
-グループを選びます。
-
-```go
-// 単一のステートメント
-user, err := queries.CreateUser(pw.SelectDB(ctx, "writer"), name)
-
-// トランザクション全体。中でグループを指定しないステートメントも writer に残ります
-err := pw.Transaction(ctx, func(ctx context.Context) error {
-	return queries.RecordAudit(ctx, "user.created")
-}, pw.OnGroup("writer"))
-```
-
-1 つのトランザクションが 2 つのグループにまたがることはありません。別のグループを指定した
-ネストした `pw.Transaction` は `ErrCrossGroupTransaction` を返し、外側はそのまま使えます。
-トランザクションの中から `readonly` グループを `SelectDB` することはできます（その読み取りは
-トランザクションの外で実行されます）が、書き込み可能なグループは選べません。原子的に見えて
-実際はそうではない書き込みになるためです。
-
-[マイグレーション](/ja/productivity/migrations/)、[シードデータ](/ja/productivity/seed-data/)、
-セッションテーブルは `write_group`（さらに絞る場合は
-`migration_group` と `session.rdb.group`）に書き込まれます。`readonly` の接続がそれらに
-選ばれることはなく、そう設定すると起動時にエラーになります。
-
-接続が 1 つだけの構成 — 上記の単純な `dsn` 形式と、`testutil` によるテスト実行を含みます —
-では、*どのグループ名*もその 1 つのデータベースを指します。クラスタ向けに書いたコードが、
-テスト用の分岐なしで開発用の SQLite ファイル 1 つに対してもそのまま動きます。
+生成された関数はトポロジを知りません。だからそれについて何も言わずに済みます。開発用の
+SQLite ファイル 1 つはどのグループ名にも応えるので、上のコードはクラスタに対しても、その
+ファイル 1 つしか無い環境に対しても、同じまま動きます。
 
 ## 実行されたクエリーを見る
 

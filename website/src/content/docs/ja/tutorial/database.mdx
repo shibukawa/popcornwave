@@ -164,7 +164,7 @@ PostgreSQL なら `$1`。決めるのは `popcornwave.toml` の `project.databas
 UPDATE と DELETE はその場で拒否されます。そして SELECT の列は、順序も名前も、宣言した
 結果型と一致していなければなりません。`Memo` がそのステートメントの返しうる行の正確な
 説明でいられるのは、この規則のおかげです。条件付き SQL、スライスの展開、再利用可能な
-predicate は[クエリー](/ja/guides/backend/queries/)にあります。
+predicate は[クエリー](/ja/guides/storage/queries/)にあります。
 
 ## 3. ハンドラをテーブルにつなぐ
 
@@ -276,5 +276,6 @@ DSN が決めています。スキーマがまだ動いている間は、これ�
 アプリケーションに与えます。
 
 - [4. ログインする](/ja/tutorial/login/) — 次の章。
-- [クエリー](/ja/guides/backend/queries/) — 条件付き SQL、トランザクション、リードレプリカ。
+- [クエリー](/ja/guides/storage/queries/) — 条件付き SQL、predicate、トランザクション。
+- [リレーショナルデータベース](/ja/guides/storage/rdb/) — エンジン、プールの上限、リードレプリカ。
 - [マイグレーション](/ja/productivity/migrations/)と[シードデータ](/ja/productivity/seed-data/) — スキーマ運用の残り。
