@@ -11,7 +11,7 @@ logger_api: api:logger
 emission: policy:log-emission
 fields:
   minimum_level: trace, debug, info, warn, error, or off
-  stdout_format: json or plaintext
+  stdout_format: json or plaintext, defaulting by data:runtime-environment; dev takes plaintext because a terminal reads the slog text encoding and not a JSON object per line, and every other environment takes json for the log pipeline that consumes it
   service_name: string
   boot_log: auto, tree, record, or off; selects policy:startup-summary output
   resource_attributes: data:log-attribute list

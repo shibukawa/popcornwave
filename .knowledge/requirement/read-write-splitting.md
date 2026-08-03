@@ -18,8 +18,8 @@ decision: decision:grouped-database-connections
 selection: policy:connection-group-selection
 lifecycle: api:rdb-middleware
 acceptance:
-  - an existing middleware.rdb.dsn configuration keeps working unchanged, as one connection in group default
-  - declaring both middleware.rdb.dsn and a connections element fails startup with both key paths named
+  - one connections element naming no group is the single-database project, and it needs no group pointer
+  - an enabled rdb with no connections element fails startup, naming the removed middleware.rdb.dsn form and the element that replaces it
   - two connections sharing one group alternate across successive requests
   - one request that reads twice from a group uses one connection for both statements
   - unpinned SQL resolves default_group; SelectDB with a group name resolves that group

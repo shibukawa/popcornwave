@@ -28,11 +28,36 @@ pw init memoapp
 すでにファイルがあるディレクトリへの書き込みは拒否されるので、既存の作業の上に
 雛形をばらまいてしまう事故は起きません。
 
-ここでは何も質問されません。既定値がすべての質問に答えているからです。データベースは
-SQLite、開発環境には Valkey のサービス、Tailwind なし、ログインなし。3章と4章で
-データベースを使い、ログインを足します。断った機能は [`pw add`](/ja/pw/project/add/) が
-後から入れるので、この既定値は決定事項ではありません。プロジェクト名を省いて
-`pw init` を実行すると、同じ選択肢がウィザードで出てきます。
+名前を書いてもウィザードは出ます。名前は10個ある質問のうちの1つでしかなく、
+それを知っているからといって残りに答えたことにはならないからです。矢印か `jk` で移動、
+数字で直接ジャンプ、`Enter` で確定、`Esc` で1つ戻る、`Ctrl-C` で中止。最後に全部の回答が
+並ぶので、書き込みが始まる前に見直せます。
+
+このチュートリアルでは次のように答えてください。
+
+| 質問 | 回答 | 理由 |
+|---|---|---|
+| Project name | `memoapp` | |
+| TinyGo support | Yes | 既定のまま |
+| Router | Registered | 既定のまま |
+| Tailwind CSS | **No** | 2章で `pw add` で入れます |
+| Authentication | None | 4章で `pw add` で入れます |
+| Database | **No** | 3章で `pw add` で入れます |
+| DynamoDB | No | このチュートリアルでは使いません |
+| Devbox environment | Yes | 既定のまま |
+| Redis or Valkey | Yes | 既定のまま |
+
+Tailwind とデータベースを断るのは、後の章で足すためです。初期化で断った機能が
+[`pw add`](/ja/pw/project/add/) でそのまま入ることを、説明で読むのではなく手元の
+プロジェクトで一度やってみます。
+
+認証は先に聞かれます。ログインを入れるかどうかが、ストアが任意かどうかを決めるからです。
+ここで None を選ぶと、そのあとは「データベースを入れますか」という形で聞かれます。
+ログインを選んだ場合は「どのストアに置きますか」に変わり、断る選択肢はありません。
+セッションはどこかに置くしかないからです。
+
+スクリプトから非対話で実行したいときは `--yes` を付けます。フラグと既定値だけで
+最後まで進みます。端末が無い環境（CI など）では最初からウィザードは出ません。
 
 ファイルを書いて終わりではありません。`pw init` は続けて `go mod tidy` と `pw generate` を
 実行します。成功を報告する時点で、生成されたプロジェクトはコンパイルできる状態です。
@@ -40,13 +65,26 @@ SQLite、開発環境には Valkey のサービス、Tailwind なし、ログイ
 ```
 Created memoapp
 
-Not included: auth, tailwind
+  .              .editorconfig  .gitignore  config.dev.toml  devbox.json  go.mod  popcornwave.toml  public.go
+  .vscode/       extensions.json  settings.json
+  cmd/memoapp/   main.go
+  handlers/      home.pw.html  home_handler.go  index.go
+  public/        .keep  app.css
+  templates/     400.pw.html  401.pw.html  ... document.pw.html  templates.go
+
+12 generated files, rebuilt any time by pw generate
+
+Not included: database, dynamo, auth, tailwind
   pw add <capability> enables one later
 
   cd memoapp
   devbox shell
   pw dev
 ```
+
+名前が出ているのは手で書くファイルだけです。生成されるファイルは件数だけ。
+`*_pw_gen.go` はビルド入力で、同じ `pw init` が書いた `.gitignore` が除外していますし、
+消えても `pw generate` が作り直します。開いて編集するものではありません。
 
 ## 2. 動かす
 
@@ -78,10 +116,9 @@ Devbox を使わない場合は `devbox shell` を飛ばして `pw dev` を直�
  '-.__.___.__-'
 
 configuration
-├─ middleware
-│  └─ rdb
-│     ├─ dsn      [REDACTED]  ← file
-│     └─ enabled  true        ← file
+├─ observability
+│  ├─ minimum_level  debug       ← file
+│  └─ stdout_format  plaintext   ← file
 └─ server
    └─ port  8080  ← file
 
@@ -89,7 +126,8 @@ listening on http://localhost:8080
 ```
 
 実際の木はもっと長く、フレームワークとアプリケーション双方の解決済みキーがすべて並びます。
-既定値以外から来た値には印が付き、`rdb.dsn` のような秘密は伏せられます。この出力が
+既定値以外から来た値には印が付き、接続の DSN のような秘密は伏せられます（3章で
+データベースを足すと、その `rdb` の枝もここに出てきます）。この出力が
 何のためにあり、端末につながっていないときに何になるかは
 [何が効いたのかを見る](/ja/guides/architecture/configuration/#何が効いたのかを見る)にあります。
 
@@ -109,11 +147,10 @@ listening on http://localhost:8080
 
 `popcornwave.toml` は名前だけ覚えておいてください。ツールチェイン、データベースエンジン、
 生成の各目的がどのディレクトリを読むかを記録しています。`config.dev.toml` は
-`APP_ENV=dev` のランタイム設定で、さきほどのポートと DSN はここから来ています。
+`APP_ENV=dev` のランタイム設定で、さきほどのポートとログ形式はここから来ています。
 
-生成はされるものの、3章まで出番のないファイルが2つあります。`queries/users.pw.sql` と
-`migrations/00001_init.sql` は型付き SQL 層の動くサンプルで、この章にも次の章にも
-読み手はいません。ツリー全体は
+データベースを断ったので、`queries/` も `migrations/` もまだありません。3章で
+`pw add database` が両方を持ってきます。ツリー全体は
 [`pw init`](/ja/pw/project/init/#書き出されるもの) にあります。
 
 全体に効くルールが1つあります。すべての `.pw.html` と `.pw.sql` は、**ソースの隣**の
@@ -123,13 +160,28 @@ VS Code は隠し、`pw generate` が作り直します。編集するのはソ�
 
 ### ページ
 
+`pw init` が書いたのは挨拶1行ではなく、このプロジェクトに何が入っていて次に何が
+できるかを並べたトップページです。全文は手元のファイルで見てください。ここで見るのは
+先頭の2行です。
+
 ```html
+// handlers/home.pw.html
 package handlers
 
-export component Home(name: string): html {
-<h1 class="text-3xl font-bold">Hello, {name}</h1>
+export component Home(name: string, project: string): html {
+  <div class="page">
+    <header>
+      <p class="eyebrow">Popcorn Wave</p>
+      <h1 class="title">{project}</h1>
+      <p class="lead">Hello, {name}. This page is yours to delete; nothing in the framework reads it.</p>
+    </header>
+    <!-- 入っている機能、次にやること、ドキュメントへのリンクが続きます -->
+  </div>
 }
 ```
+
+消して構いません。フレームワークはこのページを読んでいません。3章で丸ごと
+書き換えます。
 
 これは Go ではありませんし、実行時テンプレートでもありません。`.pw.html` は小さな
 型付き言語で、`pw generate` がこのファイルから Go の関数 `Home` とパラメータ構造体
@@ -137,13 +189,15 @@ export component Home(name: string): html {
 コンパイル時に落ちます。言語そのものは[テンプレート](/ja/guides/frontend/templates/)にあります。
 ここで効いてくるのはパラメータの並びです。
 
-`class` 属性は Tailwind のユーティリティです。Tailwind を入れていなければ何のスタイルも
-当たりません。見出しが素っ気ないのはそのためです。効かせたくなったら
-`pw add tailwind` でツールチェインが入ります（[スタイリング](/ja/guides/frontend/styling/)）。
+Tailwind を断ったので、`class` の中身は `pw init` が書いた `public/app.css` が
+定義しているクラス名です。断って困るのはユーティリティが使えないことであって、
+ページが素っ気なくなることではありません。2章で `pw add tailwind` を入れると、
+同じ構造が Tailwind のユーティリティで書かれます（[スタイリング](/ja/guides/frontend/styling/)）。
 
 ### ハンドラ
 
 ```go
+// handlers/home_handler.go
 package handlers
 
 import (
@@ -152,19 +206,26 @@ import (
 	"github.com/shibukawa/popcornwave/pw"
 )
 
+// homeInput is what this route reads from the request.
 type homeInput struct {
+	// Name is who the page greets. Anything the request does not carry falls
+	// back to the declared default.
 	Name string `query:"name" default:"World"`
 }
 
-func init() { mux.HandleFunc("GET /", home) }
+func init() { mux.HandleFunc("GET /{$}", home) }
 
+// home renders the starter landing page.
+//
+// The greeting is whoever the request names, and the project the page was
+// scaffolded for otherwise.
 func home(w http.ResponseWriter, r *http.Request) {
 	input, err := pw.Parse[homeInput](r)
 	if err != nil {
 		pw.WriteProblem(w, r, pw.BadRequest(err))
 		return
 	}
-	pw.WriteHTML(w, r, Home(HomeParams{Name: input.Name}))
+	pw.WriteHTML(w, r, Home(HomeParams{Name: input.Name, Project: "memoapp"}))
 }
 ```
 
@@ -172,9 +233,15 @@ func home(w http.ResponseWriter, r *http.Request) {
 `pw.Parse` はリクエストから `homeInput` を埋めます。ここでは `?name=` から、
 無ければ宣言された既定値から。`pw.WriteHTML` は `Home` が返したフラグメントを描画します。
 
+godoc は飾りではありません。`pw generate` はハンドラのコメントを OpenAPI 文書に
+書き写します。最初の1文が操作の要約、残りが説明になり、`homeInput` の型と
+フィールドのコメントはスキーマとパラメータの説明になります。2章の最後で、
+それがどこに出るかを見ます。
+
 `mux` は `handlers/index.go` にあり、3行です。
 
 ```go
+// handlers/index.go
 package handlers
 
 import "github.com/shibukawa/popcornwave/pw"
@@ -187,6 +254,17 @@ func Handlers() *pw.ServeMux { return mux }
 各ハンドラファイルが `init` で自分のルートを登録します。ルートを増やすことは
 ファイルを増やすことであって、機能を足すたびに全員が触る表を編集することではありません。
 
+`pw.NewServeMux` はフレームワーク独自のルーターではありません。ホストの Go では
+`pw.ServeMux` は `net/http.ServeMux` の型エイリアスで、包んでいるのではなく
+そのものです。TinyGo でビルドしたときだけ、同じパターン構文を実装した互換実装に
+入れ替わります。`import` を1つ書き換えずに両方のターゲットへ出せることがこの型の
+役目で、`pw init` で TinyGo を断ったプロジェクトの雛形は `http.NewServeMux` を
+直接書きます。
+
+登録するパターンは Go 1.22 のもの、つまり `"GET /users/{id}"` のままで、
+`r.PathValue` も標準どおりに動きます。持っているのはルートとメソッドのマッチと
+パスパラメータだけです。ミドルウェアもルートのメタデータもここにはありません。
+
 ハンドラが言及して*いない*ものにも注意してください。`doctype`、`html`、`head`、`body` は
 `templates/document.pw.html` にあり、`pw.WriteHTML` がページのフラグメントをその外枠の中に
 描画します。ページテンプレートが持つのは葉の部分だけです。
@@ -196,11 +274,12 @@ func Handlers() *pw.ServeMux { return mux }
 `pw dev` は動かしたままにしてください。`handlers/home.pw.html` を編集します。
 
 ```html
+// handlers/home.pw.html
 package handlers
 
-export component Home(name: string): html {
-<h1 class="text-3xl font-bold">Hello, {name}</h1>
-<p>Served by Popcorn Wave.</p>
+export component Home(name: string, project: string): html {
+  <h1 class="text-3xl font-bold">Hello, {name}</h1>
+  <p>Served by Popcorn Wave.</p>
 }
 ```
 
@@ -214,10 +293,11 @@ export component Home(name: string): html {
 やってみましょう。パラメータ名を変えます。
 
 ```html
+// handlers/home.pw.html
 package handlers
 
-export component Home(visitor: string): html {
-<h1 class="text-3xl font-bold">Hello, {visitor}</h1>
+export component Home(visitor: string, project: string): html {
+  <h1 class="text-3xl font-bold">Hello, {visitor}</h1>
 }
 ```
 

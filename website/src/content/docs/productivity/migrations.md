@@ -79,7 +79,7 @@ rather than at the first `ALTER TABLE`.
 `pw` asks the application for its resolved DSN instead of reimplementing
 configuration precedence — which means migrations follow whatever `APP_ENV`
 selects. Confirm the environment before pointing the command at anything that is
-not a development database. See [Queries](/guides/backend/queries/) for
+not a development database. See [Relational databases](/guides/storage/rdb/) for
 connection groups, and [Application Configuration](/reference/configuration/) for the
 keys themselves.
 

@@ -102,11 +102,15 @@ func startTailwindWatch(ctx context.Context, root string, config tailwindConfig,
 	if err := os.MkdirAll(filepath.Dir(output), 0o755); err != nil {
 		return nil, nil, fmt.Errorf("create Tailwind output directory: %w", err)
 	}
-	command := exec.CommandContext(ctx, "tailwindcss", "-i", input, "-o", output, "--watch")
+	// Started without the context for the same reason the application is: the
+	// developer loop stops its children itself, through the group, rather than
+	// letting cancellation kill a launcher and orphan what it started.
+	command := exec.Command("tailwindcss", "-i", input, "-o", output, "--watch")
 	command.Dir = root
 	command.Stdout = newPrefixWriter(stdout, "tailwind: ")
 	command.Stderr = newPrefixWriter(stderr, "tailwind: ")
 	command.Env = os.Environ()
+	ownProcessGroup(command)
 	if err := command.Start(); err != nil {
 		return nil, nil, fmt.Errorf("start tailwindcss: %w", err)
 	}

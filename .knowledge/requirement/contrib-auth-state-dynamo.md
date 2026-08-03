@@ -6,8 +6,16 @@ title: DynamoDB Authentication State Store
 contrib/authstate/dynamo implements requirement:contrib-auth-state over requirement:dynamodb-store, so a deployment with no relational database can run the passkey, OAuth, and OIDC ceremonies.
 
 ```yaml
-package: contrib/authstate/dynamo
+package: authstate/dynamo, beside the memory, sqlite, postgres, mysql, and redis adapters
 store: requirement:dynamodb-store
+blocked_by:
+  state: designed, not built; authstate ships no dynamo adapter today
+  adapter: this package itself
+  seam: plugin/auth constructs authstate.NewSQLStore directly, so no configuration selects an adapter for the ceremony store
+  gate: plugin/auth refuses to start without middleware.rdb.enabled, whatever the session backend is, so requirement:dynamodb-session-store alone does not make a relational-free login
+  allowlist: popcornwave_auth_allowlist is read through SQL with no store seam, so policy:oidc-admission registered mode stays relational even after the three above are done
+  credentials: api:auth-credential-store already has its seam, so a passkey mode needs an application store rather than a framework change
+  effect: api:cli-init refuses an authentication mode on a DynamoDB-only project until the gate is lifted
 record: data:auth-state-record
 public_api:
   - NewStore[T](api:auth-state-codec, Options)

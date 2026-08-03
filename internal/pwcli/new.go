@@ -116,7 +116,7 @@ func runNew(ctx context.Context, args []string, stdout io.Writer) error {
 	for _, line := range plan.summary() {
 		fmt.Fprintln(stdout, " ", line)
 	}
-	if err := runGenerate(ctx, nil, stdout); err != nil {
+	if _, err := generateProject(ctx, false, stdout, false); err != nil {
 		// The written sources are handwritten code the operator owns and fixes,
 		// so they stay; only the generated artifacts are missing.
 		return fmt.Errorf("generate %s: %w", options.Package, err)
@@ -292,7 +292,10 @@ func handlerSourceScaffold(pkg string, options newOptions) string {
 	parse := ""
 	input := ""
 	if options.Input {
-		input = "type " + options.Name + "Input struct {\n" +
+		input = "// " + options.Name + "Input is what this route reads from the request.\n" +
+			"type " + options.Name + "Input struct {\n" +
+			"\t// Name is the value the response echoes back. A field comment becomes\n" +
+			"\t// the parameter description in the OpenAPI document.\n" +
 			"\tName string `query:\"name\" default:\"World\"`\n" +
 			"}\n\n"
 		parse = "\tinput, err := pw.Parse[" + options.Name + "Input](r)\n" +
@@ -313,11 +316,21 @@ func handlerSourceScaffold(pkg string, options newOptions) string {
 	}
 	response := ""
 	if !options.HTML {
-		response = "type " + exported + "Response struct {\n\tName string `json:\"name\"`\n}\n\n"
+		response = "// " + exported + "Response is what this route answers with.\n" +
+			"type " + exported + "Response struct {\n" +
+			"\t// Name is the greeting subject.\n" +
+			"\tName string `json:\"name\"`\n}\n\n"
 	}
 	return "package " + pkg + "\n\nimport (\n" + imports + ")\n\n" +
 		input + response +
 		"func init() { mux.HandleFunc(\"" + options.Method + " " + options.Path + "\", " + options.Name + ") }\n\n" +
+		"// pw generate reads the godoc below into the OpenAPI document: the first\n" +
+		"// sentence becomes the operation summary and the rest its description, so\n" +
+		"// what is written there is what /docs shows about this route. This\n" +
+		"// paragraph is separated by a blank line and reaches no document.\n\n" +
+		"// " + options.Name + " serves " + options.Method + " " + options.Path + ".\n" +
+		"//\n" +
+		"// Replace this sentence with what the route is for.\n" +
 		"func " + options.Name + "(w http.ResponseWriter, r *http.Request) {\n" + parse + body + "}\n"
 }
 
@@ -326,7 +339,7 @@ func handlerSourceScaffold(pkg string, options newOptions) string {
 func handlerTemplateScaffold(pkg string, options newOptions) string {
 	exported := exportedName(options.Name)
 	return "package " + pkg + "\n\nexport component " + exported + "(name: string): html {\n" +
-		"<h1>Hello, {name}</h1>\n}\n"
+		"  <h1>Hello, {name}</h1>\n}\n"
 }
 
 // exportedName turns a handler name into the exported identifier generation

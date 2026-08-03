@@ -158,10 +158,40 @@ func WriteProblem(w http.ResponseWriter, r *http.Request, err error) {
 	p := mapProblem(err)
 	if p.Status >= 500 {
 		Logger(requestContext(r)).Log(requestContext(r), LevelError, "request failed", Err(err))
-		p.Message = "internal error"
-		p.Code = "internal"
-		p.Fields = nil
 	}
+	p = sanitizedProblem(p)
+	// One handler answers a browser form post and an API client on the same
+	// route. Which representation this failure takes is the client's to say, so
+	// it is read from Accept rather than branched on by the caller.
+	if acceptsHTML(r) && registeredHTMLErrorPage() != nil {
+		writeHTMLProblem(w, r, registeredHTMLDocument(), p)
+		return
+	}
+	writeProblemJSON(w, r, p)
+}
+
+// sanitizedProblem drops what a 5xx must never carry out of the process.
+//
+// It sits here rather than in WriteProblem because both representations are
+// written from more than one place: a boundary that failed with no recover
+// clause reaches the HTML writer directly, and every path that can answer with
+// a server error has to lose the cause on the way out. Applying it twice
+// changes nothing, which is what makes it safe to put at each writer.
+func sanitizedProblem(p Problem) Problem {
+	if p.Status < 500 {
+		return p
+	}
+	p.Message = "internal error"
+	p.Code = "internal"
+	p.Fields = nil
+	return p
+}
+
+// writeProblemJSON is the API branch, and the fallback for every way the HTML
+// branch can decline: no renderer, no fragment, or a render that failed.
+func writeProblemJSON(w http.ResponseWriter, r *http.Request, p Problem) {
+	p = sanitizedProblem(p)
+	addVaryHeader(w.Header(), "Accept")
 	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(p.Status)
 	payload := map[string]any{

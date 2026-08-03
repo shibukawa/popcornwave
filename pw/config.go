@@ -326,17 +326,12 @@ type MiddlewareConfig struct {
 
 // RDBConfig controls the framework-owned database pools.
 //
-// A single database is configured with DSN and the pool fields below. A
-// reader-writer topology is configured with Connections instead, one element
-// per pool. Declaring both is a configuration error rather than a merge.
+// Every database is configured with Connections, one element per pool: a single
+// database is one element, and a reader-writer topology is several. There is no
+// second form. The keys below name groups within that set, so the section
+// carries no DSN of its own.
 type RDBConfig struct {
-	Enabled         bool          `default:"false"`
-	DSN             string        `secret:"mask" dependon:".enabled"`
-	ConnectTimeout  time.Duration `default:"5s" dependon:".enabled"`
-	MaxOpenConns    int           `default:"0" dependon:".enabled"`
-	MaxIdleConns    int           `default:"0" dependon:".enabled"`
-	ConnMaxLifetime time.Duration `default:"0s" dependon:".enabled"`
-	ConnMaxIdleTime time.Duration `default:"0s" dependon:".enabled"`
+	Enabled bool `default:"false"`
 	// DefaultGroup serves statements that pin no group. It is normally the
 	// replica group. Required once more than one group is configured.
 	DefaultGroup string `dependon:".enabled" help:"connection group for statements that pin none"`

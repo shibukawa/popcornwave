@@ -166,44 +166,41 @@ readonly = true
 	}
 }
 
-func TestConnectionBootEntriesRedactEveryElementDSN(t *testing.T) {
-	// configbind expands ${VAR} while merging the file, so what reaches the
-	// startup summary is the resolved secret. Redaction has to survive the
-	// indexed key an array element produces.
-	element := func(pairs map[string]string) *configbind.Overlay {
-		table := configbind.NewOverlay()
-		for key, value := range pairs {
-			table.Set(key, value, configbind.PlaceFile)
-		}
-		return table
-	}
-	overlay := configbind.NewOverlay()
-	overlay.SetTables("middleware.rdb.connections", []*configbind.Overlay{
-		element(map[string]string{"group": "writer", "dsn": "postgres://app:s3cret@writer/app"}),
-		element(map[string]string{"group": "replica", "dsn": "postgres://app:s3cret@replica/app", "readonly": "true"}),
-	}, configbind.PlaceFile)
+// The startup summary is read to find out which database this process talks to,
+// so a DSN is not masked whole: the credential goes and the address stays. The
+// value reaching this point is the resolved one, because configbind expands
+// ${VAR} while merging the file.
+func TestConnectionBootEntriesShowTheAddressAndHideTheCredential(t *testing.T) {
+	result := loadResult(t, `
+[middleware.rdb]
+enabled = true
 
-	// bootEntries takes a LoadResult now and hands array elements to this, which
-	// is the step the indexed key and its redaction belong to.
-	arrayEntry, ok := overlay.Get("middleware.rdb.connections")
-	if !ok {
-		t.Fatal("the connections array is missing from the overlay")
-	}
-	entries := tableArrayEntries("middleware.rdb.connections", arrayEntry)
+[[middleware.rdb.connections]]
+group = "writer"
+dsn = "postgres://app:s3cret@writer.internal:5432/app?sslmode=verify-full"
+
+[[middleware.rdb.connections]]
+group = "replica"
+dsn = "postgres://app:s3cret@replica.internal:5432/app"
+readonly = true
+`)
 	found := map[string]string{}
-	for _, entry := range entries {
+	for _, entry := range bootEntries(result) {
 		found[entry.key] = entry.value
 	}
-	for _, key := range []string{
-		"middleware.rdb.connections[0].dsn",
-		"middleware.rdb.connections[1].dsn",
+	for key, want := range map[string]string{
+		"middleware.rdb.connections[0].dsn": "postgres://" + redactedValue + "@writer.internal:5432/app",
+		"middleware.rdb.connections[1].dsn": "postgres://" + redactedValue + "@replica.internal:5432/app",
 	} {
 		value, ok := found[key]
 		if !ok {
 			t.Fatalf("%s missing from the startup summary: %v", key, found)
 		}
-		if value != redactedValue {
-			t.Fatalf("%s = %q, want it redacted", key, value)
+		if value != want {
+			t.Fatalf("%s = %q, want %q", key, value, want)
+		}
+		if strings.Contains(value, "s3cret") {
+			t.Fatalf("%s printed the password: %q", key, value)
 		}
 	}
 	// Everything else about a connection is operational detail worth reporting.
@@ -238,11 +235,12 @@ func replica(dsn string) RDBConnectionConfig {
 	return RDBConnectionConfig{Group: "replica", DSN: dsn, ReadOnly: true, ConnectTimeout: 5 * time.Second}
 }
 
-func TestResolveRDBConnectionsExpandsLegacyForm(t *testing.T) {
+func TestResolveRDBConnectionsCarriesOneConnectionThrough(t *testing.T) {
 	connections, err := resolveRDBConnections(RDBConfig{
-		Enabled:      true,
-		DSN:          "sqlite://app.db",
-		MaxOpenConns: 4,
+		Enabled: true,
+		Connections: []RDBConnectionConfig{
+			{DSN: "sqlite://app.db", MaxOpenConns: 4, ConnectTimeout: 5 * time.Second},
+		},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -254,27 +252,21 @@ func TestResolveRDBConnectionsExpandsLegacyForm(t *testing.T) {
 		t.Fatalf("connection = %+v", connections[0])
 	}
 	if connections[0].ReadOnly {
-		t.Fatal("the legacy single database was marked read-only")
+		t.Fatal("the single database was marked read-only")
 	}
 }
 
-func TestResolveRDBConnectionsRejectsBothForms(t *testing.T) {
-	_, err := resolveRDBConnections(RDBConfig{
-		Enabled:     true,
-		DSN:         "sqlite://app.db",
-		Connections: []RDBConnectionConfig{writer("sqlite://writer.db")},
-	})
-	if err == nil {
-		t.Fatal("both configuration forms were accepted")
-	}
-	if !strings.Contains(err.Error(), "middleware.rdb.dsn") || !strings.Contains(err.Error(), "middleware.rdb.connections") {
-		t.Fatalf("err = %v, want both key paths named", err)
-	}
-}
-
+// The single-DSN form was removed, so a file still setting middleware.rdb.dsn
+// configures an enabled database with no pool behind it. The error has to name
+// the form that replaced it, because the stale key itself is claimed by no
+// binding and reaches nothing here.
 func TestResolveRDBConnectionsRequiresAConnection(t *testing.T) {
-	if _, err := resolveRDBConnections(RDBConfig{Enabled: true}); err == nil {
+	_, err := resolveRDBConnections(RDBConfig{Enabled: true})
+	if err == nil {
 		t.Fatal("an enabled rdb without any connection was accepted")
+	}
+	if !strings.Contains(err.Error(), "middleware.rdb.connections") || !strings.Contains(err.Error(), "middleware.rdb.dsn") {
+		t.Fatalf("err = %v, want the replacement form and the removed key named", err)
 	}
 }
 
@@ -397,9 +389,15 @@ func TestValidateRDBConfigAcceptsAReaderWriterTopology(t *testing.T) {
 	if err := validateRDBConfig(config); err != nil {
 		t.Fatal(err)
 	}
-	// The legacy single-database form keeps validating unchanged.
-	legacy := RDBConfig{Enabled: true, DSN: "sqlite://app.db", ConnectTimeout: 5 * time.Second}
-	if err := validateRDBConfig(legacy); err != nil {
+	// One element naming no group is the single-database project, and it
+	// validates without naming a default, write, or migration group.
+	single := RDBConfig{
+		Enabled: true,
+		Connections: []RDBConnectionConfig{
+			{DSN: "sqlite://app.db", ConnectTimeout: 5 * time.Second},
+		},
+	}
+	if err := validateRDBConfig(single); err != nil {
 		t.Fatal(err)
 	}
 }

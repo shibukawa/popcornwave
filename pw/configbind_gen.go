@@ -1028,43 +1028,25 @@ func registerMiddlewareConfigDefinition4() {
 			"middleware.compression",
 			"middleware.request_timeout",
 			"middleware.rdb.enabled",
-			"middleware.rdb.dsn",
-			"middleware.rdb.connect_timeout",
-			"middleware.rdb.max_open_conns",
-			"middleware.rdb.max_idle_conns",
-			"middleware.rdb.conn_max_lifetime",
-			"middleware.rdb.conn_max_idle_time",
 			"middleware.rdb.default_group",
 			"middleware.rdb.write_group",
 			"middleware.rdb.migration_group",
 			"middleware.rdb.connections",
 		},
 		Defaults: map[string]string{
-			"middleware.recovery":               "true",
-			"middleware.request_id":             "true",
-			"middleware.access_log":             "true",
-			"middleware.compression":            "false",
-			"middleware.request_timeout":        "0s",
-			"middleware.rdb.enabled":            "false",
-			"middleware.rdb.connect_timeout":    "5s",
-			"middleware.rdb.max_open_conns":     "0",
-			"middleware.rdb.max_idle_conns":     "0",
-			"middleware.rdb.conn_max_lifetime":  "0s",
-			"middleware.rdb.conn_max_idle_time": "0s",
+			"middleware.recovery":        "true",
+			"middleware.request_id":      "true",
+			"middleware.access_log":      "true",
+			"middleware.compression":     "false",
+			"middleware.request_timeout": "0s",
+			"middleware.rdb.enabled":     "false",
 		},
 		DependsOn: map[string][]string{
-			"middleware.rdb.dsn":                {"middleware.rdb.enabled"},
-			"middleware.rdb.connect_timeout":    {"middleware.rdb.enabled"},
-			"middleware.rdb.max_open_conns":     {"middleware.rdb.enabled"},
-			"middleware.rdb.max_idle_conns":     {"middleware.rdb.enabled"},
-			"middleware.rdb.conn_max_lifetime":  {"middleware.rdb.enabled"},
-			"middleware.rdb.conn_max_idle_time": {"middleware.rdb.enabled"},
-			"middleware.rdb.default_group":      {"middleware.rdb.enabled"},
-			"middleware.rdb.write_group":        {"middleware.rdb.enabled"},
-			"middleware.rdb.migration_group":    {"middleware.rdb.enabled"},
+			"middleware.rdb.default_group":   {"middleware.rdb.enabled"},
+			"middleware.rdb.write_group":     {"middleware.rdb.enabled"},
+			"middleware.rdb.migration_group": {"middleware.rdb.enabled"},
 		},
 		Secrets: map[string]string{
-			"middleware.rdb.dsn":             "mask",
 			"middleware.rdb.connections.dsn": "mask",
 		},
 		FlagMetas: []cliparser.FieldMeta{
@@ -1074,12 +1056,6 @@ func registerMiddlewareConfigDefinition4() {
 			{Prefix: "middleware", Key: "compression", Kind: cliparser.KindBool},
 			{Prefix: "middleware", Key: "request_timeout"},
 			{Prefix: "middleware", Key: "rdb.enabled", Kind: cliparser.KindBool},
-			{Prefix: "middleware", Key: "rdb.dsn"},
-			{Prefix: "middleware", Key: "rdb.connect_timeout"},
-			{Prefix: "middleware", Key: "rdb.max_open_conns"},
-			{Prefix: "middleware", Key: "rdb.max_idle_conns"},
-			{Prefix: "middleware", Key: "rdb.conn_max_lifetime"},
-			{Prefix: "middleware", Key: "rdb.conn_max_idle_time"},
 			{Prefix: "middleware", Key: "rdb.default_group", Help: "connection group for statements that pin none"},
 			{Prefix: "middleware", Key: "rdb.write_group", Help: "connection group for framework-owned writes"},
 			{Prefix: "middleware", Key: "rdb.migration_group", Help: "connection group for migrations and seeds"},
@@ -1092,12 +1068,6 @@ func registerMiddlewareConfigDefinition4() {
 			{Key: "compression", Kind: configbind.ScaffoldBool, Default: "false"},
 			{Key: "request_timeout", Kind: configbind.ScaffoldDuration, Default: "0s"},
 			{Key: "rdb.enabled", Kind: configbind.ScaffoldBool, Default: "false"},
-			{Key: "rdb.dsn", Kind: configbind.ScaffoldString},
-			{Key: "rdb.connect_timeout", Kind: configbind.ScaffoldDuration, Default: "5s"},
-			{Key: "rdb.max_open_conns", Kind: configbind.ScaffoldInt, Default: "0"},
-			{Key: "rdb.max_idle_conns", Kind: configbind.ScaffoldInt, Default: "0"},
-			{Key: "rdb.conn_max_lifetime", Kind: configbind.ScaffoldDuration, Default: "0s"},
-			{Key: "rdb.conn_max_idle_time", Kind: configbind.ScaffoldDuration, Default: "0s"},
 			{Key: "rdb.default_group", Kind: configbind.ScaffoldString, Help: "connection group for statements that pin none"},
 			{Key: "rdb.write_group", Kind: configbind.ScaffoldString, Help: "connection group for framework-owned writes"},
 			{Key: "rdb.migration_group", Kind: configbind.ScaffoldString, Help: "connection group for migrations and seeds"},
@@ -1173,54 +1143,6 @@ func applyMiddlewareConfigDefinition4(dst any, o *configbind.Overlay) error {
 		p.RDB.Enabled = bb
 	} else {
 		p.RDB.Enabled = false
-	}
-	if v, ok := o.GetString("middleware.rdb.dsn"); ok {
-		p.RDB.DSN = v
-	}
-	if v, ok := o.GetString("middleware.rdb.connect_timeout"); ok {
-		d, err := time.ParseDuration(v)
-		if err != nil {
-			return fmt.Errorf("configbind: middleware.rdb.connect_timeout: %w", err)
-		}
-		p.RDB.ConnectTimeout = d
-	} else {
-		p.RDB.ConnectTimeout = 5000000000 // 5s
-	}
-	if v, ok := o.GetString("middleware.rdb.max_open_conns"); ok {
-		n, err := strconv.ParseInt(v, 10, 0)
-		if err != nil {
-			return fmt.Errorf("configbind: middleware.rdb.max_open_conns: %w", err)
-		}
-		p.RDB.MaxOpenConns = int(n)
-	} else {
-		p.RDB.MaxOpenConns = 0
-	}
-	if v, ok := o.GetString("middleware.rdb.max_idle_conns"); ok {
-		n, err := strconv.ParseInt(v, 10, 0)
-		if err != nil {
-			return fmt.Errorf("configbind: middleware.rdb.max_idle_conns: %w", err)
-		}
-		p.RDB.MaxIdleConns = int(n)
-	} else {
-		p.RDB.MaxIdleConns = 0
-	}
-	if v, ok := o.GetString("middleware.rdb.conn_max_lifetime"); ok {
-		d, err := time.ParseDuration(v)
-		if err != nil {
-			return fmt.Errorf("configbind: middleware.rdb.conn_max_lifetime: %w", err)
-		}
-		p.RDB.ConnMaxLifetime = d
-	} else {
-		p.RDB.ConnMaxLifetime = 0 // 0s
-	}
-	if v, ok := o.GetString("middleware.rdb.conn_max_idle_time"); ok {
-		d, err := time.ParseDuration(v)
-		if err != nil {
-			return fmt.Errorf("configbind: middleware.rdb.conn_max_idle_time: %w", err)
-		}
-		p.RDB.ConnMaxIdleTime = d
-	} else {
-		p.RDB.ConnMaxIdleTime = 0 // 0s
 	}
 	if v, ok := o.GetString("middleware.rdb.default_group"); ok {
 		p.RDB.DefaultGroup = v

@@ -30,11 +30,11 @@ rdb_fields:
   rdb.connections[].max_idle_conns: non-negative integer
   rdb.connections[].conn_max_lifetime: non-negative duration
   rdb.connections[].conn_max_idle_time: non-negative duration
-rdb_legacy_fields:
+rdb_removed_fields:
   form: rdb.dsn plus rdb.connect_timeout and the four pool keys, with no connections element
-  meaning: one writable connection in group default
-  retained: it is the only form with environment and CLI overrides, since an array element has neither
-  toml_layout: every scalar rdb key must precede the first [[middleware.rdb.connections]] header
+  status: removed; one element is the only way to configure a database, however many there are
+  migration: move the DSN and the pool bounds into a [[middleware.rdb.connections]] element, and read a deployment's value with a ${NAME} reference
+toml_layout: every scalar rdb key must precede the first [[middleware.rdb.connections]] header
 recommended_order:
   - recovery
   - trusted proxy

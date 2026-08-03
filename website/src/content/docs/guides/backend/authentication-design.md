@@ -221,4 +221,4 @@ An issuer cannot be masked. The screen either offers the "Continue with Microsof
 
 ## Where to go next
 
-Configuration keys, endpoint behavior, the passkey ceremonies, and session backend selection are in [Authentication](/guides/backend/authentication/). For where a session is stored, see [Sessions](/guides/backend/sessions/).
+Configuration keys, endpoint behavior, the passkey ceremonies, and session backend selection are in [Authentication](/guides/backend/authentication/). For where a session is stored, see [Session storage](/guides/storage/session-storage/).

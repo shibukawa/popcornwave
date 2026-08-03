@@ -111,7 +111,7 @@ func TestScaffoldWiresTheFrameworkOwnedEndpoints(t *testing.T) {
 	if !strings.Contains(template, `<form method="post" action={logoutPath}>`) {
 		t.Fatalf("logout must be a POST form:\n%s", template)
 	}
-	if !strings.Contains(template, `<a href={loginPath}>`) {
+	if !strings.Contains(template, `href={loginPath}>Sign in</a>`) {
 		t.Fatalf("no login link:\n%s", template)
 	}
 }
@@ -252,9 +252,9 @@ func TestInitWizardAsksForTheProviderOnlyForOIDC(t *testing.T) {
 		pressKey(tea.KeyEnter), // TinyGo
 		pressKey(tea.KeyEnter), // Router
 		pressKey(tea.KeyEnter), // Tailwind
-		pressKey(tea.KeyEnter), // Database
-		pressKey(tea.KeyEnter), // Database engine
 		typeText("2"),          // Authentication: OIDC
+		typeText("1"),          // Store: SQLite
+		pressKey(tea.KeyEnter), // DynamoDB
 	)
 	if model.reviewing() {
 		t.Fatal("choosing OIDC must ask where the session lives")
@@ -283,9 +283,9 @@ func TestInitWizardAsksForTheProviderForOIDCPasskey(t *testing.T) {
 		pressKey(tea.KeyEnter), // TinyGo
 		pressKey(tea.KeyEnter), // Router
 		pressKey(tea.KeyEnter), // Tailwind
-		pressKey(tea.KeyEnter), // Database
-		pressKey(tea.KeyEnter), // Database engine
 		typeText("3"),          // Authentication: OIDC and passkey
+		typeText("1"),          // Store: SQLite
+		pressKey(tea.KeyEnter), // DynamoDB
 		pressKey(tea.KeyEnter), // Session storage
 	)
 	if model.reviewing() {
@@ -304,9 +304,9 @@ func TestInitWizardSkipsTheProviderStepWithoutOIDC(t *testing.T) {
 		pressKey(tea.KeyEnter), // TinyGo
 		pressKey(tea.KeyEnter), // Router
 		pressKey(tea.KeyEnter), // Tailwind
-		pressKey(tea.KeyEnter), // Database
-		pressKey(tea.KeyEnter), // Database engine
 		typeText("4"),          // Authentication: Passkey only
+		typeText("1"),          // Store: SQLite
+		pressKey(tea.KeyEnter), // DynamoDB
 		pressKey(tea.KeyEnter), // Session storage
 	)
 	// The provider question is skipped; the environment questions still follow.
@@ -327,9 +327,10 @@ func TestInitWizardGoesBackPastASkippedStep(t *testing.T) {
 		pressKey(tea.KeyEnter), // TinyGo
 		pressKey(tea.KeyEnter), // Router
 		pressKey(tea.KeyEnter), // Tailwind
+		pressKey(tea.KeyEnter), // Authentication: None
 		pressKey(tea.KeyEnter), // Database
 		pressKey(tea.KeyEnter), // Database engine
-		pressKey(tea.KeyEnter), // Authentication: None
+		pressKey(tea.KeyEnter), // DynamoDB
 		pressKey(tea.KeyEnter), // Devbox
 		pressKey(tea.KeyEnter), // Redis or Valkey
 		pressKey(tea.KeyEsc),   // back from the review screen
@@ -534,5 +535,66 @@ func TestScaffoldWritesNoSecuritySectionWithoutASession(t *testing.T) {
 	config := scaffoldFiles(initOptions{Name: "demo"})[pwenv.FileName(pwenv.Development)]
 	if strings.Contains(config, "[security]") {
 		t.Errorf("a session-less project got a security section:\n%s", config)
+	}
+}
+
+// Choosing DynamoDB for the login does not skip the SQL question: plugin/auth
+// keeps its ceremony records and its allowlist in a relational database
+// whatever holds the sessions, so the wizard asks which engine that is instead
+// of adding one the operator never saw.
+func TestInitWizardAsksForTheEngineBehindADynamoLogin(t *testing.T) {
+	t.Chdir(t.TempDir())
+	model := feedWizard(t, newTestWizard(defaultInitOptions()),
+		typeText("demo"), pressKey(tea.KeyEnter),
+		pressKey(tea.KeyEnter), // TinyGo
+		pressKey(tea.KeyEnter), // Router
+		pressKey(tea.KeyEnter), // Tailwind
+		typeText("2"),          // Authentication: OIDC
+		typeText("4"),          // Store: DynamoDB
+	)
+	if label := model.steps[model.index].label(); label != "Database engine" {
+		t.Fatalf("step = %q, want the engine the login is kept in", label)
+	}
+	model = feedWizard(t, model,
+		typeText("2"),          // Database engine: PostgreSQL
+		pressKey(tea.KeyEnter), // Session storage
+		pressKey(tea.KeyEnter), // OIDC provider
+	)
+	options := wizardResult(model, defaultInitOptions())
+	if !options.Dynamo || !options.Database || options.Engine != enginePostgres {
+		t.Fatalf("options = %#v", options)
+	}
+	// The DynamoDB question was already answered by the store choice, so it is
+	// not asked a second time.
+	for _, index := range model.activeSteps() {
+		if model.steps[index].label() == "DynamoDB" {
+			t.Fatal("the DynamoDB question was asked again after it was the store answer")
+		}
+	}
+}
+
+// A SQL login still reaches the DynamoDB question: the store answer covered one
+// kind of store, and the other one is a separate decision.
+func TestInitWizardStillAsksAboutDynamoAfterASQLLogin(t *testing.T) {
+	t.Chdir(t.TempDir())
+	model := feedWizard(t, newTestWizard(defaultInitOptions()),
+		typeText("demo"), pressKey(tea.KeyEnter),
+		pressKey(tea.KeyEnter), // TinyGo
+		pressKey(tea.KeyEnter), // Router
+		pressKey(tea.KeyEnter), // Tailwind
+		typeText("2"),          // Authentication: OIDC
+		typeText("1"),          // Store: SQLite
+	)
+	if label := model.steps[model.index].label(); label != "DynamoDB" {
+		t.Fatalf("step = %q, want the other kind of store", label)
+	}
+	model = feedWizard(t, model,
+		typeText("1"),          // DynamoDB: Yes
+		pressKey(tea.KeyEnter), // Session storage
+		pressKey(tea.KeyEnter), // OIDC provider
+	)
+	options := wizardResult(model, defaultInitOptions())
+	if !options.Dynamo || options.Engine != engineSQLite {
+		t.Fatalf("options = %#v", options)
 	}
 }

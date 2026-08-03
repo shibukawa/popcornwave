@@ -2,11 +2,13 @@ package pwcli
 
 import (
 	"errors"
+	"go/ast"
 	"go/parser"
 	"go/token"
 	"io"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -26,7 +28,8 @@ func TestParseInitArgs(t *testing.T) {
 		{name: "shortcut flags", args: []string{"demo", "--tailwind", "--no-tinygo"}, want: initOptions{Name: "demo", Tailwind: true, Database: true, Engine: engineSQLite, Redis: true, Devbox: true, Auth: authNone, Session: sessionRDB}},
 		{name: "explicit tinygo", args: []string{"--tinygo", "demo"}, want: initOptions{Name: "demo", TinyGo: true, Database: true, Engine: engineSQLite, Redis: true, Devbox: true, Auth: authNone, Session: sessionRDB}},
 		{name: "no name requests the wizard", args: nil, want: initOptions{TinyGo: true, Database: true, Engine: engineSQLite, Redis: true, Devbox: true, Auth: authNone, Session: sessionRDB}},
-		{name: "interactive with a seeded name", args: []string{"-i", "demo"}, want: initOptions{Name: "demo", TinyGo: true, Database: true, Engine: engineSQLite, Redis: true, Devbox: true, Interactive: true, Auth: authNone, Session: sessionRDB}},
+		{name: "the retired interactive flag is accepted and changes nothing", args: []string{"-i", "demo"}, want: initOptions{Name: "demo", TinyGo: true, Database: true, Engine: engineSQLite, Redis: true, Devbox: true, Auth: authNone, Session: sessionRDB}},
+		{name: "yes takes the flags as the whole answer", args: []string{"--yes", "demo"}, want: initOptions{Name: "demo", TinyGo: true, Database: true, Engine: engineSQLite, Redis: true, Devbox: true, Yes: true, Auth: authNone, Session: sessionRDB}},
 		{name: "oidc with the local emulator", args: []string{"demo", "--auth=oidc", "--devidp"}, want: initOptions{Name: "demo", TinyGo: true, Database: true, Engine: engineSQLite, Redis: true, Devbox: true, Auth: authOIDC, AuthEmulator: true, Session: sessionRDB}},
 		{name: "passkey drops a stray emulator flag", args: []string{"demo", "--auth=passkey", "--devidp"}, want: initOptions{Name: "demo", TinyGo: true, Database: true, Engine: engineSQLite, Redis: true, Devbox: true, Auth: authPasskey, Session: sessionRDB}},
 		{name: "engine shortcut", args: []string{"demo", "--db=postgres"}, want: initOptions{Name: "demo", TinyGo: true, Database: true, Engine: enginePostgres, Redis: true, Devbox: true, Auth: authNone, Session: sessionRDB}},
@@ -163,12 +166,15 @@ func TestScaffoldDeclinedDatabaseIgnoresEngine(t *testing.T) {
 	}
 }
 
-func TestMainInitWizardNeedsTerminal(t *testing.T) {
+// Without a terminal there is no wizard to ask the name in, and a directory
+// this command is about to create is not something to guess a name for.
+func TestMainInitWithoutTerminalNeedsAName(t *testing.T) {
+	t.Chdir(t.TempDir())
 	var output strings.Builder
-	if code := Main([]string{"init", "-i", "demo"}, &output, &output); code != 1 {
+	if code := Main([]string{"init"}, &output, &output); code != 1 {
 		t.Fatalf("code = %d, output = %q", code, output.String())
 	}
-	if !strings.Contains(output.String(), "needs a terminal") {
+	if !strings.Contains(output.String(), "project name is required") {
 		t.Fatalf("unexpected error: %q", output.String())
 	}
 }
@@ -299,9 +305,10 @@ func TestInitWizardCollectsAnswers(t *testing.T) {
 		pressKey(tea.KeyDown), pressKey(tea.KeyEnter), // TinyGo: No
 		pressKey(tea.KeyEnter), // Router: keep Registered
 		pressKey(tea.KeyEnter), // Tailwind: keep No
+		pressKey(tea.KeyEnter), // Authentication: keep None
 		pressKey(tea.KeyEnter), // Database: keep Yes
 		pressKey(tea.KeyEnter), // Database engine: keep SQLite
-		pressKey(tea.KeyEnter), // Authentication: keep None
+		pressKey(tea.KeyEnter), // DynamoDB: keep No
 		pressKey(tea.KeyEnter), // Devbox: keep Yes
 		pressKey(tea.KeyEnter), // Redis or Valkey: keep Yes
 		pressKey(tea.KeyEnter), // review
@@ -323,9 +330,10 @@ func TestInitWizardDigitShortcutSelectsTailwind(t *testing.T) {
 		typeText("1"),          // TinyGo: Yes
 		typeText("2"),          // Router: discovered pages
 		typeText("1"),          // Tailwind: Yes
+		typeText("1"),          // Authentication: None
 		typeText("1"),          // Database: Yes
 		typeText("1"),          // Database engine: SQLite
-		typeText("1"),          // Authentication: None
+		typeText("2"),          // DynamoDB: No
 		typeText("1"),          // Devbox: Yes
 		typeText("1"),          // Redis or Valkey: Yes
 		pressKey(tea.KeyEnter), // review
@@ -342,11 +350,14 @@ func TestInitWizardDigitShortcutSelectsTailwind(t *testing.T) {
 func TestInitWizardSeedsAnswersFromShortcutFlags(t *testing.T) {
 	steps := initWizardSteps(initOptions{
 		Name: "seeded", Router: routerBoth, TinyGo: true, Tailwind: true, Devbox: true,
-		Database: true, Engine: engineSQLite, Redis: true, Auth: authOIDC,
+		Database: true, Engine: engineSQLite, Redis: true, Dynamo: true, Auth: authOIDC,
 		Session: sessionRedis, AuthEmulator: true,
 	})
+	// Every step is listed, asked or not: the seeds have to reach the ones a
+	// different set of answers would have reached instead.
 	want := []string{
-		"seeded", "Yes", "Both", "Yes", "Yes", "SQLite", "OIDC",
+		"seeded", "Yes", "Both", "Yes", "OIDC", "DynamoDB",
+		"Yes", "SQLite", "SQLite", "Yes",
 		"Redis or Valkey", "Local emulator", "Yes", "Yes",
 	}
 	if len(steps) != len(want) {
@@ -408,6 +419,7 @@ func TestInitWizardReviewListsEveryStep(t *testing.T) {
 		pressKey(tea.KeyEnter),
 		pressKey(tea.KeyEnter),
 		pressKey(tea.KeyEnter),
+		pressKey(tea.KeyEnter),
 	)
 	view := model.View()
 	if !strings.Contains(view, "Review") {
@@ -428,9 +440,13 @@ func TestInitWizardReviewListsEveryStep(t *testing.T) {
 func TestRunInitWizardOverKeystrokes(t *testing.T) {
 	t.Chdir(t.TempDir())
 	// demo, enter, down, enter (TinyGo: No), enter (router), enter (Tailwind),
-	// enter (database), enter (engine), enter (auth), enter (devbox),
-	// enter (redis), enter (review)
-	keystrokes := "demo\r\x1b[B\r\r\r\r\r\r\r\r\r"
+	// enter (database), enter (engine), enter (DynamoDB), enter (auth),
+	// enter (devbox), enter (redis), enter (review).
+	//
+	// One Enter per step, and the wizard waits for input it never gets when the
+	// count is short, so a missing keystroke here is a hung test rather than a
+	// failing one.
+	keystrokes := "demo\r\x1b[B\r\r\r\r\r\r\r\r\r\r"
 	options, err := runInitWizard(defaultInitOptions(),
 		tea.WithInput(strings.NewReader(keystrokes)),
 		tea.WithOutput(io.Discard),
@@ -526,5 +542,65 @@ func TestScaffoldWithLoginImportsItsSessionBackend(t *testing.T) {
 	plain := scaffoldFiles(initOptions{Name: "fixture"})["cmd/fixture/main.go"]
 	if strings.Contains(plain, "sessionstore/") {
 		t.Errorf("a project without a login imports a session backend:\n%s", plain)
+	}
+}
+
+// The starter record's item calls and the table pw generate registers have to
+// name one table. They are derived separately — the calls are written here by
+// hand, the registration from declaredTableName — so a plausible-looking plural
+// in the scaffold would produce a table nothing reads and reads of a table
+// nothing creates.
+func TestDynamoScaffoldNamesTheRegisteredTable(t *testing.T) {
+	source := dynamoRecordScaffold()
+	file, err := parser.ParseFile(token.NewFileSet(), "records/note.go", source, parser.AllErrors)
+	if err != nil {
+		t.Fatalf("dynamo scaffold is invalid Go: %v\n%s", err, source)
+	}
+
+	// The type declaring a partition key is the one that owns a table, which is
+	// the same marker the generated registration is derived from.
+	var want string
+	ast.Inspect(file, func(node ast.Node) bool {
+		spec, ok := node.(*ast.TypeSpec)
+		if !ok {
+			return true
+		}
+		structure, ok := spec.Type.(*ast.StructType)
+		if !ok {
+			return true
+		}
+		for _, field := range structure.Fields.List {
+			if field.Tag != nil && strings.Contains(field.Tag.Value, "partitionkey") {
+				want = declaredTableName(spec.Name.Name)
+				return false
+			}
+		}
+		return true
+	})
+	if want == "" {
+		t.Fatal("the dynamo scaffold declares no partition key, so it registers no table")
+	}
+
+	named := 0
+	ast.Inspect(file, func(node ast.Node) bool {
+		call, ok := node.(*ast.CallExpr)
+		if !ok || len(call.Args) < 2 {
+			return true
+		}
+		if !strings.Contains(source[call.Fun.Pos()-1:call.Fun.End()-1], "dynamobind.") {
+			return true
+		}
+		literal, ok := call.Args[1].(*ast.BasicLit)
+		if !ok || literal.Kind != token.STRING {
+			return true
+		}
+		named++
+		if got, _ := strconv.Unquote(literal.Value); got != want {
+			t.Errorf("scaffolded call names table %q, but pw generate registers %q", got, want)
+		}
+		return true
+	})
+	if named == 0 {
+		t.Fatal("the dynamo scaffold makes no item call, so nothing directs the codec")
 	}
 }

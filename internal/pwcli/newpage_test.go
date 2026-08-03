@@ -194,7 +194,11 @@ func TestAddPagesReachesTheScaffoldedState(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	scaffolded := scaffoldFiles(initOptions{Name: "fixture", Router: routerDiscovered, TinyGo: true, Auth: authNone})
+	// declinedProject carries the registered tree, so adding the discovered one
+	// makes it a both-router project. That is the state init would have written
+	// for the both answer, and it is what the starter page has to describe: the
+	// page names the trees the project actually has.
+	scaffolded := scaffoldFiles(initOptions{Name: "fixture", Router: routerBoth, TinyGo: true, Auth: authNone})
 	for path, want := range scaffolded {
 		if !strings.HasPrefix(path, "pages/") {
 			continue

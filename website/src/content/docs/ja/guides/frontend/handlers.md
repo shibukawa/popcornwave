@@ -219,7 +219,7 @@ func createUser(w http.ResponseWriter, r *http.Request) {
 
 コールバックは、どちらのクエリにもトランザクションハンドルを渡していません。
 生成済みクエリ関数が context からトランザクションを取得します。詳しくは
-[クエリ](/ja/guides/backend/queries/)を参照してください。
+[クエリ](/ja/guides/storage/queries/)を参照してください。
 
 ## ライフサイクル
 

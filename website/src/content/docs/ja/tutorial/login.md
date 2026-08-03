@@ -45,41 +45,92 @@ pw add auth
     create  migrations/00004_init_popcornwave_auth.sql
     append  config.dev.toml
     append  popcornwave.toml
-    by hand call handlers.RegisterAccountResolver() in ./cmd/memoapp before pw.Run
-    by hand add import _ "github.com/shibukawa/popcornwave/sessionstore/sqlite" to ./cmd/memoapp
-    by hand add import _ "github.com/shibukawa/popcornwave/authstate/sqlite" to ./cmd/memoapp
+    edit    cmd/memoapp/main.go
     then    pw migrate up
 ```
-
-`pw add auth` はセッションをサーバー側、データベースに保存します。ログインと一緒に
-マイグレーションが2つ来るのも、データベースのないプロジェクトでは動かないのもそのため
-です。ブラウザが受け取るのは中身のないトークンで、その先にあるレコードはサーバーから
-失効させられます。この import がデータベースバックエンドをバイナリに入れます。ストレージ
-はオプトインなので、アプリケーションが持つのは設定したバックエンドだけです。残る2つの
-選択肢は[クッキー](/ja/guides/backend/cookies/)にあり、`pw init --session` なら最初から
-選べます。
 
 `devidp.toml` は開発用ユーザーの名簿で、`Administrator` と `Member` が載っています。
 `pw dev` はこれをローカルの OpenID Provider から提供し、パスワードは検証しません。
 だからこそ開発以外では決して動きません。
 
-**by hand** と書かれた行が、このコマンドが代わりにやらない唯一の編集です。
-`cmd/memoapp/main.go` を開きます。
+### ログインが必要とするストレージは2種類
+
+マイグレーションが2本来たのは偶然ではありません。ログインはサーバー側に2種類の
+ものを置きます。
+
+| 置くもの | 中身 | 担当パッケージ |
+| --- | --- | --- |
+| セッション | 誰がサインインしているか | `sessionstore/sqlite` |
+| ceremony レコード | 進行中のログイン1回分の単発の状態 | `authstate/sqlite` |
+
+![auth はサインイン時に一度だけ動いて外部 IdP と往復し、決めたアカウント ID を session に渡す。session はそれ以降の毎リクエストでユーザーの状態を運ぶ。auth の下に外部 IdP と authstate、session の下に sessionstore が並ぶ図](../../../../assets/diagrams/auth-and-session.svg)
+
+**auth は「誰か」を決める役**です。外部の IdP へブラウザを送り出し、戻ってきた身元を
+検証して、このアプリケーションのアカウント ID を確定します。動くのはサインインの
+ときだけです。
+
+**session は「決まった誰か」を運ぶ役**です。それ以降のすべてのリクエストで、
+いま誰なのかと、その人について今なにが成り立っているかを保ちます。
+
+セッションは、ブラウザが持つ中身のないトークンの先にあるレコードです。だから
+サーバー側から失効させられます。ceremony レコードは、プロバイダへ送り出してから
+戻ってくるまでの1往復を照合するためのもので、使ったら消えます。
+
+`config.dev.toml` の `session.backend = "rdb"` が選ぶのは**どこに置くか**だけです。
+**その置き場所を実際にバイナリへ入れるのは import の方**です。ストレージがオプトインで、
+アプリケーションが持つのは設定したバックエンドだけ、というのはこのためです。クッキーに
+置くプロジェクトはストアを1つもリンクしません（[クッキー](/ja/guides/backend/cookies/)、
+`pw init --session` で最初から選べます）。
+
+設定と import が食い違うと、起動時にこう言われます。
+
+```
+popcornwave: auth.session: session.backend = "rdb" needs its plugin;
+add to the application: import _ "github.com/shibukawa/popcornwave/sessionstore/sqlite"
+```
+
+`edit cmd/memoapp/main.go` の行がそれです。承認すると、この形になります。
 
 ```go
+// cmd/memoapp/main.go
+package main
+
+import (
+	"context"
+	"log"
+
+	"memoapp/handlers"
+
+	// 追加: session.backend = "rdb" を実際に提供するのがこれ。
+	_ "github.com/shibukawa/popcornwave/sessionstore/sqlite"
+	// 追加: 単発のログインレコードを置く先。
+	_ "github.com/shibukawa/popcornwave/authstate/sqlite"
+
+	"github.com/shibukawa/popcornwave/pw"
+)
+
 func main() {
-	// Run より前に入れる。OIDC のコールバック中にフレームワークが呼ぶ。
-	handlers.RegisterAccountResolver()
+	// 追加: Run より前に入れる。OIDC のコールバック中にフレームワークが呼ぶ。
+	handlers.RegisterAccounts()
 	if err := pw.Run(context.Background(), handlers.Handlers()); err != nil {
 		log.Fatal(err)
 	}
 }
 ```
 
-`RegisterAccountResolver` は、いまウィザードが書いた `handlers/accounts.go` にあります。
-フレームワークはプロバイダで身元を検証したあと、それがどのローカルアカウントなのかを
-この関数に尋ねます。初期版は身元そのものからアカウントを導出するので、アカウントの
-テーブルを持つ前からログインできます。
+`pw init` で最初からログインを選んだプロジェクトでは、この3行は雛形に入っています。
+`pw add` が同じものを書くのはそのためです。初期化で断った機能を後から入れても、
+最初から選んだのと同じファイルに行き着く、というのがこのコマンドの約束です。
+
+`main.go` はアプリケーションの持ち物なので、勝手に書き換えられるのは本来避けたいところ
+です。それが許されるのは、書き込む前にレビュー画面がこのファイルを名指しするからです。
+編集はパーサーが見つけた位置に差し込むだけで、コメントも並びも書式もそのまま残ります。
+
+`RegisterAccounts` は、いまウィザードが書いた `handlers/accounts.go` にあります。
+中身は `auth.SetAccountResolver(resolveAccount)` の1行で、選んだモードが要求する
+継ぎ目をまとめて据え付ける関数です。フレームワークはプロバイダで身元を検証したあと、
+それがどのローカルアカウントなのかを `resolveAccount` に尋ねます。初期版は身元そのものから
+アカウントを導出するので、アカウントのテーブルを持つ前からログインできます。
 
 ## 2. 何にセッションが要るかを決める
 
@@ -101,21 +152,22 @@ protection.unauthenticated = "redirect"
 このアプリケーションが実際に持つ2つのパスだけを挙げれば、`/healthz` などの運用エンドポイントは
 公開のままです。ロードバランサが必要としているのはそちらです。
 
-設定ファイルを開いたついでに、`popcornwave.toml` で開発用プロバイダのポートを固定します。
+`popcornwave.toml` の方は、`pw add auth` が書いた内容をそのまま使います。
 
 ```toml
 [dev.idp]
 enabled = true
 config = "devidp.toml"
-# ポートを固定すると、再起動しても issuer の URL が変わらない。
 port = 18080
 ```
 
-これがないとプロバイダは空きポートを取り、`pw dev` のたびに issuer の URL が変わります。
-issuer はアカウントを識別する要素の半分なので、ポートが変わると同じ人に新しいアカウントが
-渡ります。3手先で言えば、再起動のたびにメモの一覧が空になります。
+`port` が入っているのは意図的です。これがなければプロバイダは空きポートを取り、
+`pw dev` のたびに issuer の URL が変わります。issuer はアカウントを識別する要素の
+半分で、4節で見る `resolveAccount` はアカウント ID を `issuer + "|" + subject` から
+作ります。ポートが動けば同じ人に新しいアカウントが渡り、3手先で言えば、再起動のたびに
+メモの一覧が空になります。すでに 18080 で何かが待ち受けているなら、ここを変えてください。
 
-そのうえでマイグレーションを適用します。
+マイグレーションを適用します。
 
 ```sh
 pw migrate up
@@ -161,39 +213,33 @@ INSERT INTO memos (author, body) VALUES ({author}, {body})
 ```go
 // handlers/home_handler.go
 import (
-	"context"
 	"net/http"
 
 	"memoapp/queries"
 
-	"github.com/shibukawa/popcornwave/plugin/auth"
+	"github.com/shibukawa/popcornwave/plugin/auth" // 追加
 	"github.com/shibukawa/popcornwave/pw"
-	httpbind "github.com/shibukawa/tinybind-go"
 )
 
+// home lists the signed-in account's memos.
+//
+// 変更: 3章の home に、ユーザーの取得と作者での絞り込みが加わる。
 func home(w http.ResponseWriter, r *http.Request) {
 	user, ok := auth.User(r.Context())
 	if !ok {
 		pw.WriteProblem(w, r, pw.Unauthorized())
 		return
 	}
-	list, err := listMemos(r.Context(), user.AccountID)
-	if err != nil {
-		pw.WriteProblem(w, r, err)
-		return
-	}
-	pw.WriteHTML(w, r, Home(HomeParams{DisplayName: user.DisplayName, Memos: list}))
-}
-
-func listMemos(ctx context.Context, author string) ([]Memo, error) {
 	var list []Memo
-	for row, err := range queries.ListMemos(ctx, author) {
+	// 変更: 作者が引数に増えた。ここが誰の一覧かを決めている。
+	for row, err := range queries.ListMemos(r.Context(), user.AccountID) {
 		if err != nil {
-			return nil, err
+			pw.WriteProblem(w, r, err)
+			return
 		}
 		list = append(list, Memo{Id: row.Id, Body: row.Body})
 	}
-	return list, nil
+	pw.WriteHTML(w, r, Home(HomeParams{DisplayName: user.DisplayName, Memos: list}))
 }
 ```
 
@@ -203,10 +249,14 @@ func listMemos(ctx context.Context, author string) ([]Memo, error) {
 持ち主のない行すべてに一致する、という事態を防げます。
 
 `createMemo` も同じ形に変わります。先にユーザーを読み、`user.AccountID` を
-`queries.CreateMemo` と、バリデーション分岐の `listMemos` に渡します。
+`queries.CreateMemo` に渡します。
 
 ```go
+// handlers/home_handler.go
+
+// createMemo は署名した本人のメモとして1件保存する。
 func createMemo(w http.ResponseWriter, r *http.Request) {
+	// 変更: ここから2行。誰のメモかを決めるのがこれ。
 	user, ok := auth.User(r.Context())
 	if !ok {
 		pw.WriteProblem(w, r, pw.Unauthorized())
@@ -214,24 +264,10 @@ func createMemo(w http.ResponseWriter, r *http.Request) {
 	}
 	input, err := pw.Parse[createMemoInput](r)
 	if err != nil {
-		mapped, fieldError := httpbind.AsHTTPError(err)
-		if !fieldError || len(mapped.Fields) == 0 {
-			pw.WriteProblem(w, r, pw.BadRequest(err))
-			return
-		}
-		list, listErr := listMemos(r.Context(), user.AccountID)
-		if listErr != nil {
-			pw.WriteProblem(w, r, listErr)
-			return
-		}
-		pw.WriteHTML(w, r, Home(HomeParams{
-			DisplayName: user.DisplayName,
-			Memos:       list,
-			Draft:       r.PostFormValue("body"),
-			Error:       mapped.Fields[0].Message,
-		}))
+		pw.WriteProblem(w, r, err)
 		return
 	}
+	// 変更: 作者が引数に増えた。
 	if _, err := queries.CreateMemo(r.Context(), user.AccountID, input.Body); err != nil {
 		pw.WriteProblem(w, r, err)
 		return
@@ -243,6 +279,7 @@ func createMemo(w http.ResponseWriter, r *http.Request) {
 ページは名前を受け取り、出口を用意します。
 
 ```html
+// handlers/home.pw.html
 package handlers
 
 type Memo {
@@ -250,19 +287,20 @@ type Memo {
   body: string
 }
 
-export component Home(displayName: string, memos: Memo[], draft: string, error: string): html {
-<h1>{displayName}'s memos</h1>
-<form method="post" action="/auth/logout"><button type="submit">Sign out</button></form>
-<form method="post" action="/memos">
-  <textarea name="body" rows="3">{draft}</textarea>
-  {if error != ''}<p class="error">{error}</p>{/if}
-  <button type="submit">Add</button>
-</form>
-<ul>
-{for memo in memos}
-  <li>{memo.body}</li>
-{/for}
-</ul>
+export component Home(displayName: string, memos: Memo[]): html {
+  <h1 class="text-3xl font-bold">{displayName}'s memos</h1>
+  <form method="post" action="/auth/logout"><button type="submit">Sign out</button></form>
+  <form method="post" action="/memos" class="mt-6 space-y-2">
+    <textarea name="body" rows="3" required maxlength="200"
+      class="w-full rounded-lg border border-slate-300 p-3"></textarea>
+    <button type="submit"
+      class="rounded-lg bg-indigo-600 px-4 py-2 font-medium text-white">Add</button>
+  </form>
+  <ul class="mt-8 space-y-2">
+  {for memo in memos}
+    <li class="rounded-lg border border-slate-200 p-3">{memo.body}</li>
+  {/for}
+  </ul>
 }
 ```
 

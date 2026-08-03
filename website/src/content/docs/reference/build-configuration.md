@@ -35,7 +35,8 @@ could only have been TinyGo, and could only have been SQLite.
 
 `database` is a *generation* input. It decides the dialect the generated Go
 reads your SQL as; the engine the application actually connects to still comes
-from the scheme of `middleware.rdb.dsn`. Keeping the two in agreement is on you
+from the scheme of the `[[middleware.rdb.connections]]` DSN. Keeping the two in
+agreement is on you
 — nothing here can check a DSN it is forbidden to hold.
 
 ## `[generate]`

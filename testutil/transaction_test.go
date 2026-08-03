@@ -113,11 +113,13 @@ func sharedDatabaseConfig(dsn string) func(*Config) {
 		})
 		Update[pw.MiddlewareConfig](config, func(value *pw.MiddlewareConfig) {
 			value.RDB = pw.RDBConfig{
-				Enabled:        true,
-				DSN:            dsn,
-				ConnectTimeout: time.Second,
-				MaxOpenConns:   2,
-				MaxIdleConns:   2,
+				Enabled: true,
+				Connections: []pw.RDBConnectionConfig{{
+					DSN:            dsn,
+					ConnectTimeout: time.Second,
+					MaxOpenConns:   2,
+					MaxIdleConns:   2,
+				}},
 			}
 		})
 	}
@@ -194,9 +196,11 @@ func TestRunTransactionRejectsUnknownEngine(t *testing.T) {
 		})
 		Update[pw.MiddlewareConfig](config, func(value *pw.MiddlewareConfig) {
 			value.RDB = pw.RDBConfig{
-				Enabled:        true,
-				DSN:            "unknown-driver://ignored",
-				ConnectTimeout: time.Second,
+				Enabled: true,
+				Connections: []pw.RDBConnectionConfig{{
+					DSN:            "unknown-driver://ignored",
+					ConnectTimeout: time.Second,
+				}},
 			}
 		})
 	}, WithTransaction(true))

@@ -21,6 +21,10 @@ const (
 	capabilityRedis    = "redis-valkey"
 	capabilityAuth     = "auth"
 	capabilityTailwind = "tailwind"
+	// capabilityDynamo is a second kind of store rather than a fourth SQL
+	// engine, so it depends on nothing and combines with any database answer
+	// including none.
+	capabilityDynamo = "dynamo"
 	// capabilityRegistered and capabilityDiscovered are the two routers the one
 	// question of decision:page-router-scaffold-choice selects between, so
 	// either can be installed into a project that started with the other. They
@@ -34,7 +38,7 @@ const (
 // puts a capability before the ones that depend on it.
 var capabilityOrder = []string{
 	capabilityRegistered, capabilityDiscovered,
-	capabilityDevbox, capabilityDatabase, capabilityRedis, capabilityAuth, capabilityTailwind,
+	capabilityDevbox, capabilityDatabase, capabilityDynamo, capabilityRedis, capabilityAuth, capabilityTailwind,
 }
 
 // capabilitySummary is the one-line description shown beside each choice.
@@ -44,6 +48,7 @@ var capabilitySummary = map[string]string{
 	capabilityRedis:      "the Valkey development server in devbox.json",
 	capabilityAuth:       "login sessions, the framework tables, and the account resolver",
 	capabilityTailwind:   "the pinned Tailwind toolchain and its CSS entry point",
+	capabilityDynamo:     "the DynamoDB client, its typed records, and a local development server",
 	capabilityRegistered: "the registered router: a route is a registration written in Go",
 	capabilityDiscovered: "the discovered router: a directory holding a page template is a route",
 }
@@ -196,6 +201,8 @@ func (p projectState) carries(name string) (string, bool, error) {
 		return "", false, nil
 	case capabilityDatabase:
 		return p.configSectionEvidence("[middleware.rdb]")
+	case capabilityDynamo:
+		return p.configSectionEvidence("[middleware.dynamo]")
 	case capabilityRedis:
 		if strings.Contains(p.devbox, "valkey@") {
 			return "devbox.json", true, nil
@@ -267,6 +274,56 @@ func (p projectState) carriedCapabilities() ([]string, error) {
 		}
 	}
 	return carried, nil
+}
+
+// scaffoldOptionsOf reconstructs the pw init answers a project carries, so a
+// scaffold this command writes describes the project it is writing into rather
+// than a default one. The capabilities come from the probes rather than from a
+// manifest, for the same reason detection does: a manifest would disagree with
+// a project someone edited by hand.
+func scaffoldOptionsOf(state projectState) (initOptions, error) {
+	carried, err := state.carriedCapabilities()
+	if err != nil {
+		return initOptions{}, err
+	}
+	options := initOptions{
+		Name:   state.config.Name,
+		TinyGo: state.config.Toolchain != toolchainGo,
+		Engine: state.config.Database,
+		Auth:   authNone,
+	}
+	for _, capability := range carried {
+		switch capability {
+		case capabilityDevbox:
+			options.Devbox = true
+		case capabilityDatabase:
+			options.Database = true
+		case capabilityRedis:
+			options.Redis = true
+		case capabilityTailwind:
+			options.Tailwind = true
+		case capabilityDynamo:
+			options.Dynamo = true
+		case capabilityAuth:
+			// The probe reports that a login is served, not which mode serves
+			// it. The starter page only asks the first question.
+			options.Auth = authOIDC
+		case capabilityRegistered:
+			options.Router = withRouter(options.Router, routerRegistered)
+		case capabilityDiscovered:
+			options.Router = withRouter(options.Router, routerDiscovered)
+		}
+	}
+	return options, nil
+}
+
+// withRouter adds a tree to a router answer. Both trees present is the one
+// answer that names neither of them.
+func withRouter(current, added string) string {
+	if current == "" || current == added {
+		return added
+	}
+	return routerBoth
 }
 
 // missingCapabilities lists what the project can still take, in catalog order.

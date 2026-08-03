@@ -12,6 +12,7 @@ html_async_baseline: v0.1.20
 html_live_baseline: v0.2.8, required by requirement:live-html-rendering; v0.2.7 introduced live boundaries and v0.2.8 answered the first of the integration requests raised against them
 html_update_baseline: v0.3.3; v0.3.0 added the htmlupdate package, v0.3.1 handed the asset and every name to the caller per requirement:tinybind-runtime-ownership, v0.3.2 carried head on the action response, and v0.3.3 closed every remaining seam of requirement:tinybind-update-composition-seams and made CSRF module native; adopted by decision:update-runtime-convergence
 route_tree_baseline: v0.2.6
+current: v0.3.3, which carries the generator crash fix below and, from requirement:module-native-csrf, writes the token into every unsafe form itself
 public_wrappers:
   - api:request-binding
   - api:html-response
@@ -19,6 +20,16 @@ public_wrappers:
   - api:typed-stream
   - api:problem-response
   - api:runtime-configuration
+defects:
+  unguarded_position_lookup:
+    status: fixed in v0.3.2, which is why this module first moved off v0.2.10
+    was: three call sites dereferenced Fset.File(f.Pos()) after guarding f, pkg, and Fset for nil, and that call is the one that returns nil
+    sites: generator/plan.go, generator/configbind.go, and generator/dynamobind.go
+    fix: each now takes the handle and checks it, which is what generator/configbind_doc.go already did three files away
+    symptom_it_removed: a nil pointer dereference in go/token.(*File).Name, taking the calling process down
+    trigger: a Go file in a generated directory that does not parse, most often a zero-byte one an editor has created and not yet written into
+    mechanism: packages.Load returns a syntax entry for a file it could not parse, that entry reports token.NoPos, and a FileSet lookup of NoPos is nil; measured against golang.org/x/tools with Popcorn Wave out of the picture on 2026-08-02
+    downstream_containment_kept: api:cli-generate unparsable_source and its recover stay, because the pre-check names the file and the line where the generator would only name the directory, and the recover bounds every generation panic rather than this one
 generator:
   extensible_analysis: requirement:httpbinder-extensible-route-analysis
   openapi:
@@ -141,6 +152,12 @@ compatibility:
     scope_for_pw: nothing was released against v0.2.9, so the change costs an edit to these concepts rather than to a project
     size: about 37 KB on a TinyGo wasip1 build, from the context value and the assertion reading it back
     answers: the second downstream request, and answers it by removing the seam rather than adding one
+  v0_3_2:
+    taken_for: the unguarded position lookup above, which crashed api:cli-generate on a file an editor had created and not yet written into
+    arrives_with: the boundary emission requirement:navigation-delta-rendering consumes, whose activation is opt-in per component except for generated route layouts, which take it automatically
+    effect_on_pw: a concept:page-tree component now emits a boundary marker attribute and one update-manifest entry; the rendered document gains an attribute and loses nothing
+    measured: one page tree fixture regenerated, and the rest of the suite passed unchanged, so no Popcorn Wave source needed editing
+    superseded_by: v0.3.3 and the adoption decision:update-runtime-convergence records, so the markers are no longer inert; requirement:module-native-csrf is the half taken first
   html_v0_1_15: generated HTML APIs are not source-compatible with earlier direct-writer output
   html_v0_1_19: async parameters and async render entry points are additive, so existing templates and call sites keep compiling after regeneration
   html_v0_1_20: Content.WriteTo narrows to the bare fragment and the module injects no client runtime, so an async caller must supply framing and a runtime it previously inherited
