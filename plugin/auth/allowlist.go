@@ -6,40 +6,97 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
 )
 
-// Allowlist reads the pre-registration table owned by this package.
-type Allowlist struct {
-	db *sql.DB
+// AllowlistCandidate is one verified claim of a login offered to the store as a
+// possible pre-registration match.
+type AllowlistCandidate struct {
+	Claim string
+	Value string
 }
 
-// registered reports whether the verified identity appears in the allowlist.
+// AllowlistStore answers the pre-registration question of the registered
+// admission mode.
 //
-// Each compared claim is read from the verified claim set and matched as one
-// (issuer, claim, value) row. The configured identity claim is compared by
-// default, because that is the value a deployment knows in advance. Listing
-// further claims lets a deployment also recognize someone it registered by
-// another attribute, such as an email address.
-func (a Allowlist) registered(ctx context.Context, claims []string, identity Identity) (bool, error) {
-	if a.db == nil {
-		return false, errors.New("auth: allowlist is not available")
-	}
+// Registered receives every compared claim the verified identity carries, so
+// one login is one lookup whatever backs the store. A lookup failure is an
+// error and never a denial: reporting an outage as "not registered" would turn
+// it into a silent access change.
+type AllowlistStore interface {
+	Registered(ctx context.Context, issuer string, candidates []AllowlistCandidate) (bool, error)
+}
+
+var allowlistState struct {
+	sync.RWMutex
+	store AllowlistStore
+}
+
+// SetAllowlistStore installs the application allowlist store. Call it from main
+// before pw.Run. Installing one means the framework creates and verifies no
+// table for this capability, exactly as SetCredentialStore does.
+func SetAllowlistStore(store AllowlistStore) {
+	allowlistState.Lock()
+	defer allowlistState.Unlock()
+	allowlistState.store = store
+}
+
+func installedAllowlistStore() AllowlistStore {
+	allowlistState.RLock()
+	defer allowlistState.RUnlock()
+	return allowlistState.store
+}
+
+// allowlistCandidates reads the compared claims from the verified identity.
+//
+// The configured identity claim is compared by default, because that is the
+// value a deployment knows in advance. Listing further claims lets a deployment
+// also recognize someone it registered by another attribute, such as an email
+// address. A claim the identity does not carry is omitted rather than compared
+// as empty.
+func allowlistCandidates(claims []string, identity Identity) []AllowlistCandidate {
 	if len(claims) == 0 {
 		claims = []string{identity.KeyClaim}
 	}
-	conditions := make([]string, 0, len(claims))
-	arguments := make([]any, 0, len(claims)*2+1)
-	arguments = append(arguments, identity.Issuer)
+	candidates := make([]AllowlistCandidate, 0, len(claims))
 	for _, claim := range claims {
 		value, ok := claimLookupValue(claim, identity)
 		if !ok {
 			continue
 		}
-		conditions = append(conditions, `(claim = ? AND value = ?)`)
-		arguments = append(arguments, claim, value)
+		candidates = append(candidates, AllowlistCandidate{Claim: claim, Value: value})
 	}
-	if len(conditions) == 0 {
-		return false, nil
+	return candidates
+}
+
+// resolveAllowlistStore prefers the application store and falls back to the
+// framework table, matching how the credential and bootstrap stores resolve.
+func resolveAllowlistStore(db *sql.DB) AllowlistStore {
+	if store := installedAllowlistStore(); store != nil {
+		return store
+	}
+	return sqlAllowlist{db: db}
+}
+
+// sqlAllowlist reads the pre-registration table owned by this package. It is
+// used only when the application installed no store of its own.
+type sqlAllowlist struct {
+	db *sql.DB
+}
+
+// Registered matches each candidate as one (issuer, claim, value) row. The
+// whole set is one statement, so a login costs one round trip however many
+// claims a deployment compares.
+func (a sqlAllowlist) Registered(ctx context.Context, issuer string, candidates []AllowlistCandidate) (bool, error) {
+	if a.db == nil {
+		return false, errors.New("auth: allowlist is not available")
+	}
+	conditions := make([]string, 0, len(candidates))
+	arguments := make([]any, 0, len(candidates)*2+1)
+	arguments = append(arguments, issuer)
+	for _, candidate := range candidates {
+		conditions = append(conditions, `(claim = ? AND value = ?)`)
+		arguments = append(arguments, candidate.Claim, candidate.Value)
 	}
 	query := `SELECT 1 FROM ` + AllowlistTable + ` WHERE issuer = ? AND (` +
 		strings.Join(conditions, " OR ") + `) LIMIT 1`

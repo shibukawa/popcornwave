@@ -125,16 +125,11 @@ func setupSession(ctx context.Context) (Middleware, error) {
 	var store session.RawStore
 	var backend session.Backend
 	if config.Backend != SessionBackendCookie {
-		// The session record is written on every change, so it lives in the
-		// session group rather than in the default group, which is normally a
-		// replica.
-		sessionCtx, err := SelectSessionDB(ctx)
+		resources, err := sessionResources(ctx)
 		if err != nil {
 			return nil, err
 		}
-		db, _ := DB(sessionCtx)
-		driver, _ := DBDriver(sessionCtx)
-		backend, err = OpenSessionBackend(ctx, config, SessionResources{DB: db, DBDriver: driver})
+		backend, err = OpenSessionBackend(ctx, config, resources)
 		if err != nil {
 			return nil, err
 		}
@@ -225,4 +220,26 @@ func recordLifetime(retention, ttl time.Duration) time.Duration {
 // show, so the request is refused rather than downgraded to anonymous.
 func writeSessionUnavailable(w http.ResponseWriter, r *http.Request, _ error) {
 	WriteProblem(w, r, ServiceUnavailable())
+}
+
+// sessionResources opens what a session backend might want.
+//
+// A project with no relational middleware gets an empty set rather than an
+// error: whether a database is needed is the selected backend's question, and
+// the rdb backend is the one that answers it. Resolving eagerly here would
+// refuse a DynamoDB or Redis session for the absence of something it never
+// reads.
+func sessionResources(ctx context.Context) (SessionResources, error) {
+	if _, enabled := DB(ctx); !enabled {
+		return SessionResources{}, nil
+	}
+	// The session record is written on every change, so it lives in the session
+	// group rather than in the default group, which is normally a replica.
+	sessionCtx, err := SelectSessionDB(ctx)
+	if err != nil {
+		return SessionResources{}, err
+	}
+	db, _ := DB(sessionCtx)
+	driver, _ := DBDriver(sessionCtx)
+	return SessionResources{DB: db, DBDriver: driver}, nil
 }

@@ -357,7 +357,7 @@ func TestInitWizardSeedsAnswersFromShortcutFlags(t *testing.T) {
 	// different set of answers would have reached instead.
 	want := []string{
 		"seeded", "Yes", "Both", "Yes", "OIDC", "DynamoDB",
-		"Yes", "SQLite", "SQLite", "Yes",
+		"Yes", "SQLite", "Yes",
 		"Redis or Valkey", "Local emulator", "Yes", "Yes",
 	}
 	if len(steps) != len(want) {

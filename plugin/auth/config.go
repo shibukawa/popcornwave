@@ -138,7 +138,13 @@ type SessionLifetimeConfig = sessionconfig.SessionLifetimeConfig
 // Config is the [auth] runtime binding. It is registered when this package is
 // imported.
 type Config struct {
-	Enabled bool   `default:"false"`
+	Enabled bool `default:"false"`
+	// Backend names the storage of the four stores this package owns: the
+	// ceremony records, the admission allowlist, the passkey credentials, and
+	// the issued bootstrap credentials. They move together, because they are
+	// one deployment's authentication state and splitting them across two
+	// engines gains nothing.
+	Backend string `default:"rdb" dependon:".enabled" help:"storage backend of the authentication tables: rdb or dynamo"`
 	Mode    string `default:"oidc_only" dependon:".enabled" help:"oidc_only"`
 	// LoginPath starts the provider flow.
 	LoginPath    string `default:"/auth/login" dependon:".enabled" help:"path that starts the provider flow"`
@@ -506,6 +512,21 @@ func (c Config) validateShape() error {
 	default:
 		return fmt.Errorf("auth.mode must be %q, %q, %q, or %q",
 			ModeOIDCOnly, ModeOIDCPasskey, ModePasskeyOnly, ModeJWTOnly)
+	}
+	// An unknown backend names what is linked rather than what exists, because
+	// the difference between the two is an import line a deployment can add.
+	if _, linked := backendFactory(c.backendName()); !linked {
+		return fmt.Errorf("auth.backend = %q is not linked; registered backends are %s",
+			c.backendName(), strings.Join(registeredBackends(), ", "))
+	}
+	if c.usesJWT() && c.backendName() != BackendRDB && c.JWT.readsAStore() {
+		// jwt_only reads the allowlist and the revocation list directly rather
+		// than through the backend, and neither has a non-relational
+		// implementation. Refusing the pair is the alternative to accepting a
+		// key that would silently do nothing.
+		return fmt.Errorf(
+			"auth.backend = %q is not implemented for auth.mode %q; its registered allowlist and revocation list are relational, so use %q or turn both off",
+			c.backendName(), ModeJWTOnly, BackendRDB)
 	}
 	paths := map[string]string{
 		"auth.login_path":      c.LoginPath,

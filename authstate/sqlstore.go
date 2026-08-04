@@ -221,3 +221,9 @@ func unavailable(ctx context.Context) error {
 }
 
 var _ Store[string] = (*SQLStore[string])(nil)
+
+// NewSQLRawStore constructs a SQL store over already encoded payloads, which is
+// the form a storage backend supplies for a value type it cannot name.
+func NewSQLRawStore(db *sql.DB, options SQLOptions) (*SQLStore[[]byte], error) {
+	return NewSQLStore[[]byte](db, RawCodec{}, options)
+}

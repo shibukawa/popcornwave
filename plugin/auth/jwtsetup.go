@@ -49,7 +49,7 @@ func setupBearer(ctx context.Context, config Config) (pw.Middleware, error) {
 		if err := verifyTables(schemaCtx, db, config); err != nil {
 			return nil, err
 		}
-		instance.allowlist = Allowlist{db: db}
+		instance.allowlist = resolveAllowlistStore(db)
 		if config.JWT.Revocation.enabled() {
 			driver, _ := pw.DBDriver(ctx)
 			instance.revocations = newRevocationStore(db, driver, config.JWT)
@@ -87,7 +87,7 @@ func setupBearer(ctx context.Context, config Config) (pw.Middleware, error) {
 // bearerDatabase returns the database this configuration reads, or nil when it
 // reads none.
 func bearerDatabase(ctx context.Context, config Config) (*sql.DB, error) {
-	if config.JWT.Admission != AdmissionRegistered && !config.JWT.Revocation.enabled() {
+	if !config.JWT.readsAStore() {
 		return nil, nil
 	}
 	db, ok := pw.DB(ctx)
@@ -223,4 +223,12 @@ func BearerClaims(ctx context.Context) (Claims, bool) {
 func Bearer(ctx context.Context) (BearerIdentity, bool) {
 	identity, ok := pw.RequestAuthentication(ctx).Principal.(BearerIdentity)
 	return identity, ok
+}
+
+// readsAStore reports whether this mode consults a framework table at all.
+//
+// Both of the tables it can read are relational, which is why auth.backend is
+// refused for this mode when either is in play; see Config.validateShape.
+func (j JWTConfig) readsAStore() bool {
+	return j.Admission == AdmissionRegistered || j.Revocation.enabled()
 }

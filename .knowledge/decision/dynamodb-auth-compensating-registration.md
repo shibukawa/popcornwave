@@ -42,6 +42,11 @@ divergence_from_the_relational_path:
   what: api:auth-credential-store states that a partially applied ceremony is a defect, not a recoverable state
   now: that holds for the relational default, and this backend narrows it to a bounded, enumerated set of partial states with a named operator action
   documented: the guide states the difference where auth.backend is described, because a deployment choosing this backend is accepting it
+seam:
+  problem: api:auth-credential-store Save takes one opaque callback that bundles activation and the bootstrap spend, so a store receiving it cannot order the two
+  answer: auth.FirstEnrollmentStore, an optional interface taking the two steps apart; the framework prefers it when the installed store offers it
+  why_optional: adding a method to CredentialStore would break every application that implements it, and a relational store needs none of this
+  built: 2026-08-05
 revisit_if:
   - system:tinygodriver-dynamodb gains TransactWriteItems, after which the three writes become one and this decision is superseded rather than amended
 related:

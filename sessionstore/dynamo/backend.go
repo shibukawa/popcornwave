@@ -7,7 +7,6 @@ import (
 	"github.com/shibukawa/popcornwave/database/dynamo"
 	"github.com/shibukawa/popcornwave/pw"
 	"github.com/shibukawa/popcornwave/session"
-	"github.com/shibukawa/tinybind-go/dynamobind"
 )
 
 // Importing this package registers the dynamo session backend and puts the
@@ -28,7 +27,9 @@ func init() {
 // than answering the first login with a backend failure, which is the same
 // promise the other backends make by dialing at startup.
 func open(ctx context.Context, config pw.SessionConfig, _ pw.SessionResources) (session.Backend, error) {
-	if _, err := dynamobind.ClientFromContext(ctx); err != nil {
+	// A setup context is not a request context, so the client is read from the
+	// middleware that opened it one slot earlier rather than from the chain.
+	if _, opened := dynamo.EnsureClient(ctx); !opened {
 		return session.Backend{}, errors.New(
 			`session.backend = "dynamo" requires middleware.dynamo.enabled and the ` +
 				`github.com/shibukawa/popcornwave/database/dynamo import`)

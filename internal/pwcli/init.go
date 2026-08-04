@@ -39,7 +39,7 @@ const (
 	repositoryURL    = "https://github.com/shibukawa/popcornwave"
 )
 
-const initUsage = "usage: pw init [<project-name>] [--yes] [--router=registered|discovered|both] [--tailwind] [--no-tinygo] [--no-devbox] [--no-database] [--db=sqlite|postgres|mysql] [--dynamo] [--no-redis] [--auth=none|oidc|oidc-passkey|passkey] [--session=rdb|cookie|redis] [--devidp]"
+const initUsage = "usage: pw init [<project-name>] [--yes] [--router=registered|discovered|both] [--tailwind] [--no-tinygo] [--no-devbox] [--no-database] [--db=sqlite|postgres|mysql] [--dynamo] [--no-redis] [--auth=none|oidc|oidc-passkey|passkey] [--session=rdb|cookie|redis|dynamo] [--devidp]"
 
 // Authentication modes the wizard and the --auth flag select between. They map
 // onto the plugin/auth modes, with none meaning no [auth] configuration.
@@ -57,6 +57,7 @@ const (
 	sessionRDB    = "rdb"
 	sessionCookie = "cookie"
 	sessionRedis  = "redis"
+	sessionDynamo = "dynamo"
 )
 
 // usesOIDC reports whether a mode needs an OpenID Provider.
@@ -80,6 +81,11 @@ func sessionBackend(options initOptions) string {
 		return options.Session
 	}
 	if servesLogin(options) {
+		if !options.Database && options.Dynamo {
+			// The default follows the store the project actually has. A
+			// relational default here would name a pool nothing opens.
+			return sessionDynamo
+		}
 		return sessionRDB
 	}
 	return sessionCookie
@@ -122,6 +128,8 @@ func sessionBackendPlugin(backend, engine string) string {
 		return "github.com/shibukawa/popcornwave/sessionstore/" + engineDialect(engine)
 	case sessionRedis:
 		return "github.com/shibukawa/popcornwave/sessionstore/redis"
+	case sessionDynamo:
+		return "github.com/shibukawa/popcornwave/sessionstore/dynamo"
 	default:
 		return ""
 	}
@@ -267,6 +275,10 @@ func parseInitArgs(args []string) (initOptions, error) {
 	// Tracked so --db can contradict --no-database. Without it the engine
 	// would silently apply to a project that has no database to apply it to.
 	engineSelected := false
+	// Tracked for the same reason: the default session backend is relational,
+	// and a project with no relational database has to move off it rather than
+	// scaffold a pool nothing opens.
+	sessionSelected := false
 	for _, arg := range args {
 		switch arg {
 		case "--tailwind":
@@ -305,11 +317,12 @@ func parseInitArgs(args []string) (initOptions, error) {
 		default:
 			if backend, ok := strings.CutPrefix(arg, "--session="); ok {
 				switch backend {
-				case sessionRDB, sessionCookie, sessionRedis:
+				case sessionRDB, sessionCookie, sessionRedis, sessionDynamo:
 					options.Session = backend
+					sessionSelected = true
 				default:
-					return initOptions{}, fmt.Errorf("init: --session must be %s, %s, or %s",
-						sessionRDB, sessionCookie, sessionRedis)
+					return initOptions{}, fmt.Errorf("init: --session must be %s, %s, %s, or %s",
+						sessionRDB, sessionCookie, sessionRedis, sessionDynamo)
 				}
 				continue
 			}
@@ -359,14 +372,23 @@ func parseInitArgs(args []string) (initOptions, error) {
 		// environment there is nothing for it to do.
 		options.Redis = false
 	}
-	if !options.Database && servesLogin(options) {
-		// The login ceremony and admission tables are server state in every
-		// session backend, so authentication needs the database whichever one
-		// stores the sessions themselves.
-		return initOptions{}, fmt.Errorf("init: --auth=%s keeps its login ceremony and allowlist tables in the database; drop --no-database", options.Auth)
+	if !options.Database && servesLogin(options) && !options.Dynamo {
+		// The login keeps ceremony records, an admission allowlist, and any
+		// passkey credentials somewhere. DynamoDB can hold all of them; with
+		// neither store there is nowhere for them to go.
+		return initOptions{}, fmt.Errorf("init: --auth=%s needs a store for its login records; keep the database or add --dynamo", options.Auth)
 	}
 	if !options.Database && engineSelected {
 		return initOptions{}, errors.New("init: --db selects the database engine; drop --no-database")
+	}
+	if !options.Database && sessionSelected && options.Session == sessionRDB {
+		return initOptions{}, errors.New("init: --session=rdb needs the database; drop --no-database or choose another backend")
+	}
+	if !options.Database && !sessionSelected && options.Dynamo {
+		// The default is relational, and this project has no relational
+		// database. Following the store it does have beats scaffolding a
+		// session pool nothing opens.
+		options.Session = sessionDynamo
 	}
 	options = normalizeSession(options)
 	return options, nil
@@ -874,11 +896,16 @@ import _ "github.com/shibukawa/tinygodriver/netdev"
 			files["migrations/00002_"+sessionstore.MigrationName+".sql"] = migration
 			version = 3
 		}
-		authMigration, err := auth.MigrationSQL(dialect)
-		if err != nil {
-			panic(err)
+		if authBackend(options) == "rdb" {
+			// The DynamoDB backend has no migration file to write: its tables
+			// are the desired state pw migrate assembles from the definitions
+			// the imported packages register.
+			authMigration, err := auth.MigrationSQL(dialect)
+			if err != nil {
+				panic(err)
+			}
+			files[fmt.Sprintf("migrations/0000%d_%s.sql", version, auth.MigrationName)] = authMigration
 		}
-		files[fmt.Sprintf("migrations/0000%d_%s.sql", version, auth.MigrationName)] = authMigration
 	}
 	return files
 }
@@ -1015,6 +1042,16 @@ func LoadNote(ctx context.Context, id string, createdAt time.Time) (Note, error)
 `
 }
 
+// authBackend names the storage of the tables plugin/auth owns. It follows the
+// store the login was built on: a project with no relational database keeps
+// them in DynamoDB, and every other project keeps the relational default.
+func authBackend(options initOptions) string {
+	if servesLogin(options) && !options.Database && options.Dynamo {
+		return "dynamo"
+	}
+	return "rdb"
+}
+
 // sessionBackendImport contributes the storage the configuration selects.
 // Session storage is opt-in by blank import, so an application links the one
 // backend it configured and nothing else. The cookie backend is built into pw
@@ -1026,10 +1063,19 @@ func sessionBackendImport(options initOptions) string {
 			"\" is served by this import; storage is opt-in.\n\t_ " + strconv.Quote(plugin)
 	}
 	if servesLogin(options) {
-		// The login ceremony records live in the database whichever backend
-		// holds the sessions, so their engine is imported for every login.
-		imports += "\n\t// The single-use login records this engine stores.\n\t_ " +
-			strconv.Quote("github.com/shibukawa/popcornwave/authstate/"+engineDialect(options.Engine))
+		if authBackend(options) == "dynamo" {
+			// auth.backend = "dynamo" moves all four tables plugin/auth owns,
+			// so both halves are imported: the ceremony store and the
+			// account-side stores.
+			imports += "\n\t// auth.backend = \"dynamo\" is served by these two imports.\n\t_ " +
+				strconv.Quote("github.com/shibukawa/popcornwave/authstate/dynamo") +
+				"\n\t_ " + strconv.Quote("github.com/shibukawa/popcornwave/authstore/dynamo")
+		} else {
+			// The login ceremony records live in the database whichever backend
+			// holds the sessions, so their engine is imported for every login.
+			imports += "\n\t// The single-use login records this engine stores.\n\t_ " +
+				strconv.Quote("github.com/shibukawa/popcornwave/authstate/"+engineDialect(options.Engine))
+		}
 	}
 	return imports
 }
@@ -1709,6 +1755,8 @@ func authRuntimeConfig(options initOptions) string {
 # registers no authentication route. Logout is POST only.
 [auth]
 enabled = true
+# The four tables plugin/auth owns move together, so one key names their store.
+backend = "` + authBackend(options) + `"
 mode = "` + authConfigMode(options.Auth) + `"
 post_login_path = "/"
 # Every session lifetime is declared here rather than under [session]: an

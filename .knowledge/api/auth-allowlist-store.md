@@ -35,6 +35,10 @@ rules:
   - no candidate at all is a non-match rather than an error
   - store errors are logged without claim values, per policy:oidc-security
   - the store answers admission only, and never authorization
+implemented:
+  built: 2026-08-05, replacing the raw SQL in plugin/auth
+  default: sqlAllowlist over popcornwave_auth_allowlist, one statement per login
+  verification: the table is verified only under the registered admission mode and only when no store is installed
 related:
   - policy:oidc-admission
   - data:external-identity

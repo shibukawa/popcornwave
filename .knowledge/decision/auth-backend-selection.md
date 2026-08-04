@@ -38,6 +38,13 @@ validation:
   - an unknown auth.backend value fails startup naming the registered names
   - auth.backend dynamo without middleware.dynamo enabled fails startup, the way session.backend rdb without middleware.rdb does today
   - auth.backend rdb without middleware.rdb keeps the current error, which is now the backend's rather than the package's
+implemented:
+  built: 2026-08-05
+  revocation_list: the fifth store arrived with requirement:jwt-only-api-authentication and is relational only; jwt_only reads it and the allowlist directly rather than through the backend, so a non-rdb auth.backend is refused for that mode when either is in play, rather than accepted as a key that silently does nothing
+  registry: auth.RegisterBackend, with the relational backend registered by plugin/auth itself and the DynamoDB one by authstore/dynamo from init
+  ceremony_store: a backend supplies authstate.RawStore per namespace rather than a typed store, because two of the three ceremony types are unexported
+  sweep: a ceremony store that needs one implements Prune; a store whose expiry is decided on read implements nothing and the sweep skips it
+  validation: an unlinked name is refused at configuration validation, naming what is linked
 related:
   - requirement:dynamodb-auth-backend
   - data:authentication-runtime-config

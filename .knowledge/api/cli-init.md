@@ -160,7 +160,9 @@ behavior:
   - refuse an authentication mode without the database, because its login ceremony and allowlist tables need one whatever backend stores the sessions
   - refuse --db together with --no-database, before anything is written
   - accept DynamoDB beside any relational answer, and accept it as the only store, per requirement:dynamodb-store
-  - refuse an authentication mode backed only by DynamoDB, because plugin/auth requires middleware.rdb.enabled whatever the session backend is, per requirement:contrib-auth-state-dynamo blocked_by
+  - accept an authentication mode backed only by DynamoDB, writing auth.backend = "dynamo", both storage imports, and no auth migration file, per requirement:dynamodb-auth-backend
+  - refuse a login with neither store, naming both ways out rather than only the database
+  - follow the store the project has when nothing selected a session backend, so a DynamoDB-only project does not default to a relational pool it never opens
   - write the starter migration and .pw.sql example in the dialect of the selected engine, since decision:server-sql-support-tier does not translate between them
   - take the Valkey development server with a Redis-backed session, because the configured session needs a server to reach
   - print the command that generates cookie_store.secret when the cookie backend is selected

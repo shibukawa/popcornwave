@@ -137,21 +137,10 @@ func initWizardSteps(defaults initOptions) []wizardStep[initOptions] {
 				engineChoices()...,
 			),
 		),
-		// DynamoDB cannot hold the login on its own: plugin/auth keeps its
-		// single-use ceremony records and its admission allowlist in SQL,
-		// whatever the session backend is. Choosing it for the login therefore
-		// asks for the engine that carries that, rather than quietly adding one.
-		when(func(options initOptions) bool { return servesLogin(options) && options.AuthStore == dynamoStore },
-			newChoiceStep(
-				"Database engine",
-				"DynamoDB holds your records, and the login also needs a SQL database: plugin/auth keeps "+
-					"its ceremony records and its allowlist there whatever stores the sessions. This is that engine.",
-				engineCursor(defaults.Engine),
-				engineChoices()...,
-			),
-		),
-		// The other half of the store pair, asked wherever it was not the
-		// answer to the question above.
+		// DynamoDB holds the login on its own, through auth.backend = "dynamo",
+		// so choosing it asks for no SQL engine to carry what it cannot.
+		// The other half of the store pair, asked wherever DynamoDB was not
+		// already the login answer.
 		when(func(options initOptions) bool { return !servesLogin(options) || options.AuthStore != dynamoStore },
 			newChoiceStep(
 				"DynamoDB",
@@ -190,6 +179,11 @@ func initWizardSteps(defaults initOptions) []wizardStep[initOptions] {
 					name:        "Redis or Valkey",
 					description: "server-side TTL through sessionstore/redis; revocable, nothing to sweep",
 					apply:       setSession(sessionRedis),
+				},
+				wizardChoice[initOptions]{
+					name:        "DynamoDB",
+					description: "one item per session through sessionstore/dynamo; revocable, expired by table TTL",
+					apply:       setSession(sessionDynamo),
 				},
 			),
 		),
@@ -282,18 +276,18 @@ func authStoreChoices() []wizardChoice[initOptions] {
 }
 
 // setAuthStore records which store the login was chosen through and applies
-// what that store means. Either way the project ends up with a database,
-// because plugin/auth refuses to start without one.
+// what that store means.
 func setAuthStore(store string) func(*initOptions) {
 	return func(target *initOptions) {
 		target.AuthStore = store
-		target.Database = true
 		if store == dynamoStore {
-			// The engine is the next question rather than a value inherited
-			// from a default nobody was shown.
+			// DynamoDB carries the whole login, so no relational database is
+			// added behind the answer.
 			target.Dynamo = true
+			target.Database = false
 			return
 		}
+		target.Database = true
 		target.Engine = store
 		target.Dynamo = false
 	}
