@@ -61,7 +61,8 @@ modes:
   oidc_only: implemented; this concept is its whole endpoint surface
   oidc_passkey: these endpoints plus the login and enrollment endpoints of api:passkey-endpoints
   passkey_only: api:passkey-endpoints alone; login_path, callback_path, and the OIDC configuration are absent
-  logout: shared by every mode, because a session is mode-neutral once created
+  jwt_only: no endpoint at all, per api:bearer-authentication; the mode installs a middleware and nothing this concept describes exists in it
+  logout: shared by every browser mode, because a session is mode-neutral once created; jwt_only has none, because a credential this framework never issued is not one it can end
   selection: data:authentication-runtime-config mode_validation decides which endpoints mount and which fields are read
   status: every mode serves; api:cli-init still records passkey_only with auth.enabled false until its scaffold exists
 guard:

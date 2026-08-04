@@ -42,6 +42,14 @@ const (
 	MethodPasskey = "passkey"
 )
 
+// admissionFor returns the admission rule of the mode this runtime serves.
+func (rt *runtime) admissionFor() admissionRule {
+	if rt.config.usesJWT() {
+		return rt.config.JWT.admissionRule()
+	}
+	return rt.config.OIDC.admissionRule()
+}
+
 // stateNamespace isolates this package's correlation records in the shared
 // auth state table.
 const stateNamespace = "auth-oidc"
@@ -88,6 +96,11 @@ type runtime struct {
 	enrollment *authstate.SQLStore[enrollmentTicket]
 	// passkeyPaths maps a mounted ceremony path to its endpoint suffix.
 	passkeyPaths map[string]string
+	// bearer and revocations are nil outside ModeJWTOnly. That mode mounts no
+	// endpoint and creates no session, so almost none of the state above
+	// applies to it.
+	bearer      *bearerVerifier
+	revocations *RevocationStore
 	// stopPruning ends the background expiry sweep during shutdown.
 	stopPruning chan struct{}
 
@@ -124,6 +137,15 @@ func setupAuthentication(ctx context.Context) (pw.Middleware, error) {
 	}
 	if err := config.validate(); err != nil {
 		return nil, err
+	}
+	if err := checkDevRelaxation(config.JWT); err != nil {
+		return nil, err
+	}
+	if config.usesJWT() {
+		// A bearer request carries its own credential, so this mode needs
+		// neither a session backend nor the correlation storage every ceremony
+		// mode opens. It branches before all of it.
+		return setupBearer(ctx, config)
 	}
 	sessionConfig := pw.Config[pw.SessionConfig](ctx)
 	if !sessionConfig.Enabled {

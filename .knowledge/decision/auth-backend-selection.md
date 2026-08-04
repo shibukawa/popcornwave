@@ -12,7 +12,8 @@ question: how requirement:dynamodb-auth-backend is selected, given that plugin/a
 answer:
   key: auth.backend, a new field of data:authentication-runtime-config
   values: rdb, the default and the current behavior, and dynamo
-  scope: authstate, allowlist, credential, and bootstrap at once
+  scope: authstate, allowlist, credential, and bootstrap at once, plus data:revoked-token-record, which requirement:jwt-only-api-authentication added after this was decided
+  scope_growth: the revocation list arrived as a fifth store and is implemented against rdb only; it is named here rather than left out, because a store nobody listed is one the dynamo backend will silently not cover
   linking: decision:import-registered-session-plugins; importing the backend package registers its factory under the name, so a project links the backend it runs and no other
   missing_import: a startup error naming the import line to add, per rule:storage-package-layout
 one_key_for_four:
