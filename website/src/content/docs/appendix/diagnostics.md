@@ -394,9 +394,16 @@ The pre-launch checklist as something that runs. Silent while the diagnosed envi
 - **Reads**: project files
 - **Fix**: run pw build, which rebuilds the stylesheet
 
-### PW0504: a public asset is newer than its compressed sidecar
+### PW0504: the built asset tree is older than what it was built from
 
 - **Severity**: warning, and note in `dev`
 - **Applies to**: every environment except `dev`
 - **Reads**: project files
-- **Fix**: run pw build, which writes the sidecars
+- **Fix**: run pw build, which rebuilds dist/public and its manifest
+
+### PW0505: image conversion is enabled and no encoder is installed
+
+- **Severity**: warning, and note in `dev`
+- **Applies to**: every environment except `dev`
+- **Reads**: project files
+- **Fix**: run pw add images, or install the encoders it pins

@@ -256,7 +256,7 @@ func TestTailwindWatchPathsSkipPublicOutput(t *testing.T) {
 	}
 }
 
-func TestSnapshotWatchFilesUsesDefaultSourcesAndIgnoresPublicTree(t *testing.T) {
+func TestSnapshotWatchFilesFollowsSourcesAndAssetsButNotTheBuiltTree(t *testing.T) {
 	root := t.TempDir()
 	writeTestFile(t, filepath.Join(root, "app.go"), "package fixture\n")
 	writeTestFile(t, filepath.Join(root, "public.go"), "package fixture\n")
@@ -271,6 +271,12 @@ func TestSnapshotWatchFilesUsesDefaultSourcesAndIgnoresPublicTree(t *testing.T) 
 		t.Fatal(err)
 	}
 	writeTestFile(t, filepath.Join(root, "public", "generated", "asset.go"), "static content\n")
+	// The built tree is what the loop produces, so watching it would make every
+	// rebuild trigger the next one.
+	if err := os.MkdirAll(filepath.Join(root, "dist", "public"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	writeTestFile(t, filepath.Join(root, "dist", "public", "app.css"), "body{}\n")
 
 	state, err := snapshotWatchFiles(root, nil)
 	if err != nil {
@@ -289,12 +295,17 @@ func TestSnapshotWatchFilesUsesDefaultSourcesAndIgnoresPublicTree(t *testing.T) 
 			t.Errorf("default watch path is missing: %s", included)
 		}
 	}
+	// An authored asset is a build input: editing one has to rebuild the served
+	// tree, which is why the walk follows public rather than skipping it.
+	if _, ok := state[filepath.Join(root, "public", "generated", "asset.go")]; !ok {
+		t.Error("an authored asset is missing from watch state")
+	}
 	for _, ignored := range []string{
-		filepath.Join(root, "public", "generated", "asset.go"),
 		filepath.Join(root, "config.toml"),
+		filepath.Join(root, "dist", "public", "app.css"),
 	} {
 		if _, ok := state[ignored]; ok {
-			t.Errorf("public asset path unexpectedly triggers an application rebuild: %s", ignored)
+			t.Errorf("path unexpectedly triggers a rebuild: %s", ignored)
 		}
 	}
 }

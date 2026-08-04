@@ -21,13 +21,13 @@ func TestDevelopmentPublicAssetsUseOnlyLocalIdentity(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = os.Chdir(old) })
-	if err := os.Mkdir("public", 0o755); err != nil {
+	if err := os.MkdirAll(filepath.FromSlash(localPublicRoot), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join("public", "app.css"), []byte("live"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(filepath.FromSlash(localPublicRoot), "app.css"), []byte("live"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join("public", "app.css.zstd"), []byte("stale"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(filepath.FromSlash(localPublicRoot), "app.css.zstd"), []byte("stale"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	middleware, err := PublicAssets(PublicAssetConfig{Mount: "/public"},

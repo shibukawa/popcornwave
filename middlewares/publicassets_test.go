@@ -99,13 +99,13 @@ func TestReadLocalPublicAssetRejectsSymlink(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = os.Chdir(old) })
-	if err := os.Mkdir("public", 0o755); err != nil {
+	if err := os.MkdirAll(filepath.FromSlash(localPublicRoot), 0o755); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(filepath.Join(root, "secret.txt"), []byte("secret"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.Symlink(filepath.Join(root, "secret.txt"), filepath.Join(root, "public", "leak.txt")); err != nil {
+	if err := os.Symlink(filepath.Join(root, "secret.txt"), filepath.Join(root, filepath.FromSlash(localPublicRoot), "leak.txt")); err != nil {
 		t.Skipf("symlinks unavailable: %v", err)
 	}
 	if _, found, rejected := readLocalPublicAsset("leak.txt"); found || !rejected {
@@ -126,10 +126,10 @@ func TestPublicAssetLocalOverlayIsLayerConsistent(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = os.Chdir(old) })
-	if err := os.Mkdir("public", 0o755); err != nil {
+	if err := os.MkdirAll(filepath.FromSlash(localPublicRoot), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join("public", "app.css"), []byte("local"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(filepath.FromSlash(localPublicRoot), "app.css"), []byte("local"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	embedded := fstest.MapFS{

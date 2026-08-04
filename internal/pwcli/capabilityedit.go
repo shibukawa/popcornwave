@@ -16,6 +16,15 @@ const tailwindDevboxPackage = "tailwindcss_4@4.1.18"
 // so it means nothing to someone reaching for mise, Homebrew, or Scoop.
 const tailwindToolchainRequirement = "the standalone tailwindcss CLI, version 4 or later"
 
+// imageDevboxPackages are the pinned encoders of decision:asset-transform-toolchain.
+// libwebp carries cwebp and libavif carries avifenc.
+var imageDevboxPackages = []string{"libwebp@latest", "libavif@latest"}
+
+// imageToolchainRequirement is what an operator installing the encoders
+// themselves has to satisfy. The Devbox names are nixpkgs identifiers, so they
+// mean nothing to someone reaching for Homebrew or apt.
+const imageToolchainRequirement = "cwebp from libwebp, and avifenc from libavif for the optional avif variant"
+
 // capabilityQueriesPurpose is the generate purpose the database capability has
 // to open before its SQL example is read by anything.
 const capabilityQueriesPurpose = "queries"
@@ -198,6 +207,19 @@ enabled = true
 input = "` + defaultTailwindInput + `"
 output = "` + defaultTailwindOutput + `"
 minify = true
+`
+}
+
+// imagesProjectConfig turns the conversion on. The avif variant is off by
+// default: it costs a second encode of every image and wins less often than the
+// webp conversion does.
+func imagesProjectConfig() string {
+	return `
+[assets.images]
+enabled = true
+# quality applies to a lossy source; a png stays on the lossless axis.
+quality = ` + strconv.Itoa(defaultImageQuality) + `
+avif = false
 `
 }
 

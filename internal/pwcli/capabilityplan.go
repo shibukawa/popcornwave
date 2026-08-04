@@ -144,6 +144,8 @@ func planCapability(state projectState, options addOptions) (*capabilityPlan, er
 		return plan, planAuth(state, options, plan)
 	case capabilityTailwind:
 		return plan, planTailwind(state, plan)
+	case capabilityImages:
+		return plan, planImages(state, plan)
 	case capabilityDiscovered:
 		return plan, planPages(state, plan)
 	case capabilityRegistered:
@@ -407,6 +409,30 @@ func planTailwind(state projectState, plan *capabilityPlan) error {
 	}
 	plan.manual = append(plan.manual,
 		`add <link rel="stylesheet" href="/`+defaultTailwindOutput+`"> to the document shell`)
+	plan.next = append(plan.next, "devbox shell")
+	return nil
+}
+
+// planImages turns on the conversion and installs the encoders it runs.
+//
+// The encoders are declared rather than downloaded: a build never installs a
+// tool, so a project that took this capability and then removed the packages
+// converts nothing and says so, instead of quietly fetching them.
+func planImages(state projectState, plan *capabilityPlan) error {
+	plan.appends["popcornwave.toml"] = imagesProjectConfig()
+	if state.devbox == "" {
+		plan.manual = append(plan.manual, "install "+imageToolchainRequirement)
+		return nil
+	}
+	devbox := state.devbox
+	for _, pkg := range imageDevboxPackages {
+		edited, err := addDevboxPackage(devbox, pkg)
+		if err != nil {
+			return err
+		}
+		devbox = edited
+	}
+	plan.edits["devbox.json"] = devbox
 	plan.next = append(plan.next, "devbox shell")
 	return nil
 }

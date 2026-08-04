@@ -7,6 +7,7 @@ require (
 	github.com/charmbracelet/bubbletea v1.3.10
 	github.com/charmbracelet/lipgloss v1.1.0
 	github.com/charmbracelet/x/term v0.2.2
+	github.com/evanw/esbuild v0.28.1
 	github.com/klauspost/compress v1.19.1
 	github.com/pressly/goose/v3 v3.27.3
 	github.com/redis/go-redis/v9 v9.17.3

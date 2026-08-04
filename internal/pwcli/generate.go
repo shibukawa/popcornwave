@@ -75,6 +75,16 @@ func generateProject(ctx context.Context, check bool, stdout io.Writer, listPath
 	if err != nil {
 		return 0, err
 	}
+	// A conversion produces files and rewrites the reference that names them,
+	// so it belongs to generation rather than to the asset build that runs
+	// after it. The produced files are staged outside the served tree, which is
+	// what lets that tree be cleared and rebuilt without deleting them.
+	if hooks := assetReferenceHooks(root, config.Assets); len(hooks) > 0 {
+		options.ReferenceHooks = hooks
+		options.DerivedAssetDir = filepath.Join(root, filepath.FromSlash(derivedStageDir))
+		options.ConversionCacheDir = filepath.Join(root, filepath.FromSlash(conversionCacheDir))
+		options.ConversionWorkers = conversionWorkers()
+	}
 	runner := generator.New(options)
 	var changes []fileChange
 	for _, directory := range directories {
@@ -336,6 +346,11 @@ func (p generationPurposes) keeps(kind generator.ArtifactKind) bool {
 		return p.config
 	case generator.ArtifactDynamoItem, generator.ArtifactDynamoQuery:
 		return p.dynamo
+	case generator.ArtifactDerivedAsset:
+		// A conversion is a consequence of compiling a template, so it belongs
+		// to the purpose that reads templates. Dropping it here would write the
+		// rewritten reference and discard the file it names.
+		return p.templates || p.pages
 	default:
 		return false
 	}
