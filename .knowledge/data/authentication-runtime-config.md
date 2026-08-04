@@ -9,6 +9,7 @@ The `[auth]` binding selects OIDC and passkey bootstrap, login, linking, registr
 registration: popcornwave/plugin/auth registers this binding when imported
 fields:
   enabled: bool
+  backend: rdb or dynamo, default rdb, selecting the storage of all four framework-owned authentication stores, per decision:auth-backend-selection
   mode: oidc_passkey, oidc_only, passkey_only, or jwt_only
   login_path: path
   callback_path: path
@@ -71,7 +72,7 @@ fields:
   jwt.revocation.mode: off, token, subject, or both, with no default; it replaces the enabled bool and the forms list of the first draft, because two fields could disagree and one cannot, and because stating off is what makes running without a revocation path a decision on the page rather than an omission
   jwt.revocation.on_unavailable: refuse or admit, default refuse
   jwt.revocation.max_propagation_delay: duration bounding a per-process cache, default zero, and refused entirely when the mode is off
-  jwt.revocation.storage: not a field; the list is data:revoked-token-record in the rdb table rule:framework-owned-tables creates, so there is no backend to select and no second store to keep consistent with the allowlist beside it
+  jwt.revocation.storage: not a field of its own; the list is data:revoked-token-record in a table rule:framework-owned-tables creates, so there is no second selector to keep consistent with the allowlist beside it, and it follows the auth.backend answer like every other framework-owned store, per decision:auth-backend-selection
   jwt.dev.trust_unverified_tokens: bool, default false, per policy:dev-token-relaxation; a binary built without the pwdev mode fails startup on its presence rather than ignoring it
 mode_validation:
   principle: validate and read only the fields the selected mode uses, and refuse a field the mode cannot honor, because a silently ignored provider setting reads as configured security

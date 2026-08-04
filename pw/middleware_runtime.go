@@ -89,7 +89,11 @@ func operationalEndpoints(next http.Handler, config ServerConfig, resources pwru
 		switch {
 		case serveFrameworkScript(w, r):
 			return
-		case serveRedraw(w, r):
+		// Below every handler that owns a route inside the reserved prefix, so
+		// each gets its turn before the namespace is closed. The redraw route
+		// used to sit here; it is answered at the page's own URL now, which is
+		// what puts it behind the same authentication the page has.
+		case serveReservedPath(w, r):
 			return
 		case config.Health != "" && r.URL.Path == config.Health:
 			writeOperationalStatus(w, r, true)

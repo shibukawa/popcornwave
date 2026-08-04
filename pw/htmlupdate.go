@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"net/http"
 	"runtime/debug"
-	"strings"
 	"sync"
 
 	"github.com/shibukawa/popcornwave/pwruntime"
@@ -60,6 +59,18 @@ var updateBuildID = sync.OnceValue(func() string {
 	}
 	return ""
 })
+
+// UpdateBuildID is the identity a rendered page carries and every update
+// request is checked against, so a page from another build is answered with a
+// complete document and a redraw from one is refused.
+//
+// It is the effective value rather than the stamp: an unstamped binary has no
+// vcs.revision, and the module's per-process identity stands in, which costs a
+// complete document after a restart and never a wrong delta. Reading it is what
+// a diagnostic and a test both need, since neither can derive it.
+func UpdateBuildID() string {
+	return updateOptions(Config[HTMLConfig](nil)).RuntimeConfig().Build
+}
 
 // updateOptions builds the transport configuration for one process.
 //
@@ -146,9 +157,14 @@ func validateUpdateConfig(config HTMLConfig) error {
 // and no request log would ever see. Version skew is the ordinary case here: a
 // page loaded before a deploy asks for a component whose markup has changed,
 // gets a 404, and reloads. It is recorded rather than treated as a fault.
+//
+// A stale build is no longer one of these. Since system:tinybind v0.3.5 a redraw
+// is answered at the page's own URL, so a request from another build is not
+// refused at all: the caller renders the page it was going to render, which
+// costs a reload instead of a refusal followed by one.
 func writeUpdateFailure(w http.ResponseWriter, r *http.Request, failure htmlupdate.Failure) {
 	level := LevelWarn
-	if failure.Kind == htmlupdate.FailureUnknownComponent || failure.Kind == htmlupdate.FailureStalePage {
+	if failure.Kind == htmlupdate.FailureUnknownComponent {
 		level = LevelInfo
 	}
 	Logger(r.Context()).Log(r.Context(), level, "update request refused",
@@ -210,24 +226,49 @@ var reloadableState = struct {
 	sync.Mutex
 	registry *htmlupdate.Registry
 	count    int
+	failure  error
 }{registry: &htmlupdate.Registry{}}
 
 // RegisterReloadable publishes one generated component as a redraw endpoint.
 //
-// It is intended for generated page registry code. A repeated kind is a startup
-// error rather than a silent overwrite: the kind covers a component's name,
-// parameters, and markup but not its package, so two identical templates in
-// different packages produce the same one and the wrong component could answer.
+// A repeated kind is a startup error rather than a silent overwrite: the kind
+// covers a component's name, parameters, and markup but not its package, so two
+// identical templates in different packages produce the same one and the wrong
+// component could answer.
+//
+// The failure is also kept, because the ordinary caller is a generated init
+// beside the component it registers. An init has nowhere to return an error to,
+// and panicking there would end the process before any of the framework's
+// logging exists to say which component collided, so startup reports it instead.
+// A project registering by hand still gets it here and can decide for itself.
 func RegisterReloadable(components ...htmlupdate.Reloadable) error {
 	reloadableState.Lock()
 	defer reloadableState.Unlock()
 	for _, component := range components {
 		if err := reloadableState.registry.Register(component); err != nil {
-			return fmt.Errorf("popcornwave: reloadable component: %w", err)
+			err = fmt.Errorf("popcornwave: reloadable component: %w", err)
+			if reloadableState.failure == nil {
+				reloadableState.failure = err
+			}
+			return err
 		}
 		reloadableState.count++
 	}
 	return nil
+}
+
+// validateReloadableRegistration reports a registration that failed before main
+// ran.
+//
+// It is checked whatever html.update.enabled says. A collision is not a
+// deployment choice but a defect in what generation produced: two components
+// asked to publish one endpoint, and whichever registered second is unreachable
+// on every deployment that ever turns updates on. Refusing here is the whole
+// point of returning an error from a call an init cannot handle.
+func validateReloadableRegistration() error {
+	reloadableState.Lock()
+	defer reloadableState.Unlock()
+	return reloadableState.failure
 }
 
 // reloadableRegistry is the set the redraw endpoint serves, or nil when a
@@ -241,26 +282,134 @@ func reloadableRegistry() *htmlupdate.Registry {
 	return reloadableState.registry
 }
 
-// serveRedraw answers a registered component's redraw request and reports
-// whether it handled one.
+// Redraw answers a redraw request for the components named here, and reports
+// whether it did. A caller that gets true has had its whole response written.
 //
-// It sits inside the reserved prefix beside the runtime asset, so one routing,
-// caching, and access rule covers everything this framework owns.
-func serveRedraw(w http.ResponseWriter, r *http.Request) bool {
-	if !strings.HasPrefix(r.URL.Path, updatePathPrefix+"/redraw/") {
+// It belongs at the top of a handler, after that handler's own authorization:
+//
+//	func orders(w http.ResponseWriter, r *http.Request) {
+//		if !mayView(r) { pw.WriteProblem(w, r, pw.Forbidden(nil)); return }
+//		if pw.Redraw(w, r, templates.OrderRowReloadable) { return }
+//		// ordinary page render
+//	}
+//
+// The address is the page's own URL, which is the whole reason this is a call
+// rather than an endpoint. Path protection is configured by path pattern, so a
+// redraw on a reserved path needs a second pattern kept in step with the one
+// protecting the page the component sits on — two rules that must agree with
+// nothing forcing them to. Here the redraw is the same request as the page, so
+// it inherits the page's protection, and placed after the handler's own checks
+// it inherits those too rather than only the middleware's.
+//
+// Naming the components is what bounds the surface: this handler answers for
+// these and nothing else, so a page cannot be asked to render a component it
+// never shows. That set is readable in Go beside the check that guards it.
+//
+// It stays the caller's job to authorize the arguments. Every parameter but the
+// instance id arrives from whoever issued the request, so a component that loads
+// a record by identifier verifies ownership itself exactly as a handler does.
+// ReloadablePage is implemented by a generated component's parameter struct when
+// that component's markup can contain a reloadable one.
+//
+// Nobody writes it. Generation folds each component's call graph and emits the
+// method on the components it reaches something from, which is what lets Redraw
+// take the page itself rather than a list the author has to keep in step with
+// the template.
+type ReloadablePage interface {
+	PwReloadables() []htmlupdate.Reloadable
+}
+
+// Redraw answers a redraw for what this page's markup can contain, and reports
+// whether it did. A caller that gets true has had its whole response written.
+//
+// It takes the page component, so the set comes from the template rather than
+// from a list beside it:
+//
+//	func orders(w http.ResponseWriter, r *http.Request) {
+//		if !mayView(r) { pw.WriteProblem(w, r, pw.Forbidden(nil)); return }
+//		if pw.Redraw(w, r, templates.OrdersPage) { return }
+//		// the query the page needs, which a redraw has now skipped
+//	}
+//
+// The component is named, not called, so nothing builds its parameters and the
+// data behind them is never fetched. That is the point of answering here rather
+// than inside the page render, where the same redraw costs the whole page's
+// preparation.
+//
+// A page whose markup reaches no reloadable component does not satisfy
+// ReloadablePage and will not compile here. That is the honest answer: there is
+// nothing on that page to redraw.
+//
+// It belongs after the handler's own authorization. The address is the page's
+// own URL, so the redraw already inherits what guards the page; placing the call
+// below the checks is what extends that to the handler's own.
+func Redraw[P ReloadablePage](w http.ResponseWriter, r *http.Request, page func(P) HTMLFragment) bool {
+	_ = page
+	var declared P
+	return RedrawComponents(w, r, declared.PwReloadables()...)
+}
+
+// RedrawComponents answers a redraw for the components named here.
+//
+// It is the escape hatch behind Redraw, for a handler that renders something
+// other than a generated page component, or that publishes a narrower set than
+// its template reaches. Prefer Redraw, which cannot fall out of step with the
+// markup.
+func RedrawComponents(w http.ResponseWriter, r *http.Request, components ...htmlupdate.Reloadable) bool {
+	if len(components) == 0 {
 		return false
 	}
 	config := Config[HTMLConfig](requestContext(r))
-	registry := reloadableRegistry()
-	if !config.Update.Enabled || registry == nil {
-		// A project that publishes nothing answers 404 here rather than
-		// falling through to application routing, which is the reserved
-		// prefix's rule for every path it does not serve.
-		http.NotFound(w, r)
-		return true
+	if !config.Update.Enabled {
+		return false
 	}
-	updateOptions(config).RedrawHandler(registry).ServeHTTP(w, r)
-	return true
+	options := updateOptions(config)
+	// The mode is tested before the registry is built, because this call sits on
+	// the ordinary page path and runs on every request to it. Registration
+	// encodes each component's head to check its bound, which is work no
+	// document request should pay for.
+	if options.Negotiate(r).Mode != htmlupdate.ModeRedraw {
+		return false
+	}
+	registry := &htmlupdate.Registry{}
+	for _, component := range components {
+		if err := registry.Register(component); err != nil {
+			// A duplicate kind or an oversized head is a defect in what this
+			// handler named rather than anything the request did, so it is
+			// reported through the failure path like any other refusal.
+			writeUpdateFailure(w, r, htmlupdate.Failure{
+				Kind:    htmlupdate.FailureRenderFailed,
+				Status:  http.StatusInternalServerError,
+				Message: "redraw registry",
+				Err:     err,
+			})
+			return true
+		}
+	}
+	return options.Redraw(w, r, registry)
+}
+
+// serveRegisteredRedraw answers a redraw from the process-wide published set.
+//
+// It is the page tree's half of the same capability. A generated route handler
+// runs its Load and then calls the render entry, so the branch lands there: the
+// page's authorization has already run and already returned its own error, and
+// the redraw is refused exactly when the page would be. The cost is the one data
+// fetch the redraw did not need, which is the price of not having a seam of its
+// own inside a generated handler.
+//
+// Calling Redraw first is the faster path and the narrower one. It is answered
+// before whatever the handler does to build its page, so a redraw pays for no
+// data the page needed and none it did not, and the set it names bounds what the
+// URL can be asked to render. This is the same capability either way; the
+// difference is what the redraw costs and how much of the published set one URL
+// exposes.
+func serveRegisteredRedraw(w http.ResponseWriter, r *http.Request, config HTMLConfig) bool {
+	registry := reloadableRegistry()
+	if registry == nil {
+		return false
+	}
+	return updateOptions(config).Redraw(w, r, registry)
 }
 
 // WantsUpdate reports whether the caller can apply an update response.

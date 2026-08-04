@@ -3,11 +3,12 @@ id: requirement:contrib-auth-state-dynamo
 type: requirement
 title: DynamoDB Authentication State Store
 ---
-contrib/authstate/dynamo implements requirement:contrib-auth-state over requirement:dynamodb-store, so a deployment with no relational database can run the passkey, OAuth, and OIDC ceremonies.
+authstate/dynamo implements requirement:contrib-auth-state over requirement:dynamodb-store, so a deployment with no relational database can run the passkey, OAuth, and OIDC ceremonies.
 
 ```yaml
 package: authstate/dynamo, beside the memory, sqlite, postgres, mysql, and redis adapters
 store: requirement:dynamodb-store
+selected_by: decision:auth-backend-selection, as one of the four stores requirement:dynamodb-auth-backend moves together
 blocked_by:
   state: designed, not built; authstate ships no dynamo adapter today
   adapter: this package itself
@@ -16,6 +17,7 @@ blocked_by:
   allowlist: popcornwave_auth_allowlist is read through SQL with no store seam, so policy:oidc-admission registered mode stays relational even after the three above are done
   credentials: api:auth-credential-store already has its seam, so a passkey mode needs an application store rather than a framework change
   effect: api:cli-init refuses an authentication mode on a DynamoDB-only project until the gate is lifted
+  now_specified: requirement:dynamodb-auth-backend answers the seam, the gate, and the allowlist; api:auth-allowlist-store is the seam that was missing and decision:auth-backend-selection is the configuration that selects an adapter, so what stays blocked here is this adapter itself
 record: data:auth-state-record
 public_api:
   - NewStore[T](api:auth-state-codec, Options)

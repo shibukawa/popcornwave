@@ -75,6 +75,38 @@ func generateProject(ctx context.Context, check bool, stdout io.Writer, listPath
 	if err != nil {
 		return 0, err
 	}
+	// A conversion produces files and rewrites the reference that names them,
+	// so it belongs to generation rather than to the asset build that runs
+	// after it. The produced files are staged outside the served tree, which is
+	// what lets that tree be cleared and rebuilt without deleting them.
+	if config.Assets.Scripts {
+		// Before a single file is generated: the build emits a module, and a
+		// module under a classic script tag is a page that renders and silently
+		// loses its script. It runs here rather than in the asset build so that
+		// pw generate reports it too, and so that a --check run sees it.
+		if err := verifyScriptModuleTags(root); err != nil {
+			return 0, err
+		}
+	}
+	if hooks := assetReferenceHooks(root, config.Assets); len(hooks) > 0 {
+		staging := filepath.Join(root, filepath.FromSlash(derivedStageDir))
+		if !check {
+			// The staging directory is cleared first, because the asset build
+			// copies everything it finds there into the served tree. A file
+			// produced for a source that has since been deleted would otherwise
+			// keep being shipped, with a manifest entry and a URL, forever.
+			//
+			// Clearing it costs nothing: the conversion cache is separate, so a
+			// run replays its outcomes instead of re-encoding them.
+			if err := os.RemoveAll(staging); err != nil {
+				return 0, fmt.Errorf("clear %s: %w", derivedStageDir, err)
+			}
+		}
+		options.ReferenceHooks = hooks
+		options.DerivedAssetDir = staging
+		options.ConversionCacheDir = filepath.Join(root, filepath.FromSlash(conversionCacheDir))
+		options.ConversionWorkers = conversionWorkers()
+	}
 	runner := generator.New(options)
 	var changes []fileChange
 	for _, directory := range directories {
@@ -336,6 +368,11 @@ func (p generationPurposes) keeps(kind generator.ArtifactKind) bool {
 		return p.config
 	case generator.ArtifactDynamoItem, generator.ArtifactDynamoQuery:
 		return p.dynamo
+	case generator.ArtifactDerivedAsset:
+		// A conversion is a consequence of compiling a template, so it belongs
+		// to the purpose that reads templates. Dropping it here would write the
+		// rewritten reference and discard the file it names.
+		return p.templates || p.pages
 	default:
 		return false
 	}
@@ -499,6 +536,12 @@ func planDirectory(ctx context.Context, runner *generator.Generator, directory s
 	for _, artifact := range extra {
 		target := filepath.Join(directory, artifact.OutputBase+"_pw_gen.go")
 		grouped[target] = append(grouped[target], artifact)
+		// A page tree's own templates are compiled by the tree run rather than
+		// the flat one, so they reach here as somebody else's output. A
+		// component declared reloadable in one still publishes an endpoint.
+		if registration, declares := reloadableRegistrationArtifact(artifact); declares {
+			grouped[target] = append(grouped[target], registration)
+		}
 	}
 	for _, artifact := range artifacts {
 		if !purposes.keeps(artifact.Kind) {
@@ -509,6 +552,9 @@ func planDirectory(ctx context.Context, runner *generator.Generator, directory s
 		if artifact.Kind == generator.ArtifactHTMLTemplate &&
 			filepath.Base(artifact.SourcePath) == "document.pw.html" {
 			grouped[target] = append(grouped[target], documentRegistrationArtifact(artifact.PackageName))
+		}
+		if registration, declares := reloadableRegistrationArtifact(artifact); declares {
+			grouped[target] = append(grouped[target], registration)
 		}
 		if artifact.Kind == generator.ArtifactDynamoItem {
 			if registration, declares := dynamoRegistrationArtifact(artifact); declares {
@@ -600,6 +646,215 @@ func init() {
 }
 `),
 	}
+}
+
+// reloadableValue matches the registration value tinybind emits for a component
+// carrying the @reloadable annotation. It is that declaration's one durable
+// marker: the kind constant beside it is emitted for other reasons too, and the
+// typed query decoder is a closure with no name of its own.
+var reloadableValue = regexp.MustCompile(`(?m)^var ([A-Za-z0-9_]+Reloadable) = htmlupdate\.Reloadable\{`)
+
+// reloadableRegistrationArtifact emits the init that publishes a generated
+// component as a redraw endpoint. Without it a project would generate a
+// registration value nothing ever reads, and every redraw would answer 404.
+//
+// It is derived from the generated source rather than from a second reading of
+// the template, so what publishes an endpoint is exactly what the annotation
+// produced. The declaration in the .pw.html source is the deliberate act;
+// nothing here decides to publish anything.
+//
+// The init runs because something linked the package in, which is the right
+// condition rather than a gap: a reloadable component is reached from a page or
+// a handler that imports it, and one no build ever links is one no rendered
+// element carries the kind of, so nothing could address it anyway.
+//
+// The registration error is discarded at the call site because an init has
+// nowhere to return one to, and panicking would end the process before there is
+// any logging to say which component collided. pw keeps it and answers it in
+// startup validation instead. The explanation lives here rather than in the
+// emitted body: merging artifacts rebuilds the file from declarations, and a
+// comment inside a function body does not survive that.
+func reloadableRegistrationArtifact(artifact generator.Artifact) (generator.Artifact, bool) {
+	if artifact.Kind != generator.ArtifactHTMLTemplate {
+		return generator.Artifact{}, false
+	}
+	matches := reloadableValue.FindAllStringSubmatch(string(artifact.Content), -1)
+	if len(matches) == 0 {
+		return generator.Artifact{}, false
+	}
+	names := make([]string, 0, len(matches))
+	for _, match := range matches {
+		names = append(names, match[1])
+	}
+	sets := reloadableSets(artifact)
+	var body strings.Builder
+	body.WriteString("package " + artifact.PackageName + "\n\nimport (\n\t\"github.com/shibukawa/popcornwave/pw\"\n")
+	if len(sets) > 0 {
+		body.WriteString("\t\"github.com/shibukawa/tinybind-go/htmlupdate\"\n")
+	}
+	body.WriteString(")\n")
+	for _, set := range sets {
+		fmt.Fprintf(&body, `
+// PwReloadables is every reloadable component %s can render, itself included
+// when it is one. It is what pw.Redraw reads, so a handler names the page and
+// never a list that could fall out of step with the markup.
+func (%s) PwReloadables() []htmlupdate.Reloadable {
+	return []htmlupdate.Reloadable{%s}
+}
+`, set.component, set.params, strings.Join(set.reloadables, ", "))
+	}
+	fmt.Fprintf(&body, `
+func init() {
+	_ = pw.RegisterReloadable(%s)
+}
+`, strings.Join(names, ", "))
+	return generator.Artifact{
+		Kind:        generator.ArtifactHTMLTemplate,
+		SourcePath:  artifact.SourcePath,
+		OutputBase:  artifact.OutputBase,
+		PackageName: artifact.PackageName,
+		Content:     []byte(body.String()),
+	}, true
+}
+
+// reloadableSet is one component and the reloadable components its markup can
+// contain, transitively.
+type reloadableSet struct {
+	component   string
+	params      string
+	reloadables []string
+}
+
+// componentBinder matches the binder tinybind emits per component, which is the
+// one declaration that names every component this file holds.
+var componentBinder = regexp.MustCompile(`(?m)^func ([A-Za-z0-9_]+)\(params ([A-Za-z0-9_]+)\) htmlbind\.Fragment`)
+
+// reloadableSets folds each component's call graph down to the reloadable
+// components it can render.
+//
+// The fold is possible at all because a component call resolves inside its own
+// .pw.html file: tinybind refuses `<Card/>` when Card is declared elsewhere, so
+// composition across files happens through the layout chain rather than through
+// a call. One generated file therefore holds the whole graph, and walking it
+// needs no type information — a component call is emitted as a plain identifier
+// applied to its parameter struct, which nothing else in the file looks like.
+//
+// This is the same shape system:tinybind already folds twice, for a component's
+// transitive head and its transitive assets. It is done here rather than asked
+// for upstream because the marker is durable and the answer is wanted now;
+// requirement:tinybind-update-composition-seams records the accessor that would
+// replace it.
+//
+// A file whose components reach no reloadable one produces nothing, so a project
+// that declares none regenerates byte for byte.
+func reloadableSets(artifact generator.Artifact) []reloadableSet {
+	source := string(artifact.Content)
+	reloadable := map[string]bool{}
+	for _, match := range reloadableValue.FindAllStringSubmatch(source, -1) {
+		reloadable[strings.TrimSuffix(match[1], "Reloadable")] = true
+	}
+	if len(reloadable) == 0 {
+		return nil
+	}
+	components := map[string]bool{}
+	params := map[string]string{}
+	for _, match := range componentBinder.FindAllStringSubmatch(source, -1) {
+		components[match[1]] = true
+		params[match[1]] = match[2]
+	}
+	file, err := parser.ParseFile(token.NewFileSet(), "artifact.go", source, 0)
+	if err != nil {
+		// The artifact is about to be written and compiled, so a parse failure
+		// here is reported by the build with a position. Emitting no set keeps
+		// this from turning that into a confusing second error.
+		return nil
+	}
+	calls := map[string][]string{}
+	for _, declaration := range file.Decls {
+		generic, ok := declaration.(*ast.GenDecl)
+		if !ok || generic.Tok != token.VAR {
+			continue
+		}
+		for _, spec := range generic.Specs {
+			value, ok := spec.(*ast.ValueSpec)
+			if !ok || len(value.Names) != 1 {
+				continue
+			}
+			owner, ok := planOwner(value.Names[0].Name, components)
+			if !ok {
+				continue
+			}
+			ast.Inspect(spec, func(node ast.Node) bool {
+				call, ok := node.(*ast.CallExpr)
+				if !ok {
+					return true
+				}
+				// A component call is an identifier; every helper the plan uses
+				// is qualified by a package or a builder value.
+				if named, ok := call.Fun.(*ast.Ident); ok && components[named.Name] {
+					calls[owner] = append(calls[owner], named.Name)
+				}
+				return true
+			})
+		}
+	}
+	var sets []reloadableSet
+	for _, component := range sortedNames(components) {
+		reached := reachableReloadables(component, calls, reloadable)
+		if len(reached) == 0 {
+			continue
+		}
+		names := make([]string, 0, len(reached))
+		for _, name := range reached {
+			names = append(names, name+"Reloadable")
+		}
+		sets = append(sets, reloadableSet{component: component, params: params[component], reloadables: names})
+	}
+	return sets
+}
+
+// planOwner reads the component a generated plan or op builder belongs to.
+func planOwner(name string, components map[string]bool) (string, bool) {
+	trimmed, ok := strings.CutPrefix(name, "plan")
+	if !ok {
+		return "", false
+	}
+	for _, suffix := range []string{"Plan", "Ops", "Boundary"} {
+		if owner, ok := strings.CutSuffix(trimmed, suffix); ok && components[owner] {
+			return owner, true
+		}
+	}
+	return "", false
+}
+
+// reachableReloadables walks the call graph from one component, itself included.
+func reachableReloadables(start string, calls map[string][]string, reloadable map[string]bool) []string {
+	seen := map[string]bool{}
+	found := map[string]bool{}
+	var visit func(string)
+	visit = func(current string) {
+		if seen[current] {
+			return
+		}
+		seen[current] = true
+		if reloadable[current] {
+			found[current] = true
+		}
+		for _, called := range calls[current] {
+			visit(called)
+		}
+	}
+	visit(start)
+	return sortedNames(found)
+}
+
+func sortedNames(set map[string]bool) []string {
+	names := make([]string, 0, len(set))
+	for name := range set {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return names
 }
 
 // tableConstructor matches the definition constructor tinybind emits for a type

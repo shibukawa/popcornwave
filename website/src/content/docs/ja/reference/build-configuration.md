@@ -163,6 +163,38 @@ Tailwind のプラグインはここでは設定しません。CSS のエント�
 解決するのは Tailwind CLI です。Popcorn Wave はエントリをそのまま渡すだけで、プラグインの
 レジストリを持ちません。
 
+## `[assets.images]`、`[assets.css]`、`[assets.scripts]`
+
+```toml
+[assets.images]
+enabled = true
+quality = 75
+avif = false
+
+[assets.css]
+minify = true
+
+[assets.scripts]
+enabled = true
+```
+
+[アセット変換](/ja/guides/frontend/static-assets/)のスイッチです。すべて既定で無効なので、
+何も宣言しないプロジェクトは authored なツリーの複製を埋め込み、これらが存在しなかった頃と
+まったく同じものを配信します。
+
+| キー | 既定値 | 意味 |
+| --- | --- | --- |
+| `assets.images.enabled` | `false` | `img src` が指す `.png` / `.jpg` を WebP に変換する |
+| `assets.images.quality` | `75` | JPEG ソースを再エンコードする際の品質。PNG は可逆のままで、この値を見ない |
+| `assets.images.avif` | `false` | 配信する画像に AVIF 表現を追加し、`Accept` で選ばせる |
+| `assets.css.minify` | `false` | スタイルシートをその場で minify する |
+| `assets.scripts.enabled` | `false` | `.ts` エントリをビルドし、authored な `.js` を minify する |
+
+`assets.images` はホスト側のエンコーダを必要とします。[`pw add images`](/ja/pw/project/add/)
+がキーと Devbox パッケージを同時に書くのはそのためです。ツール無しで有効にしてもエラーには
+なりません——変換は見送られ、authored な画像がそのまま出荷され、`pw doctor` がそれを報告
+します。変換されていない画像は、壊れたページではなく重いページだからです。
+
 ## ファイル全体にかかる規則
 
 - **未知のキーはエラーです。** 打ち間違いが黙って無視されることはありません。

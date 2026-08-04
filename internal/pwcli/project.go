@@ -19,6 +19,10 @@ const (
 	// reserved port would move on every run, and the issuer it appears in is
 	// part of the account identity the scaffolded resolver derives.
 	defaultIdPPort = 18080
+	// defaultImageQuality is libwebp's own default, so a project that sets
+	// nothing gets what the encoder considers reasonable rather than a number
+	// this framework invented.
+	defaultImageQuality = 75
 )
 
 // Target compilers recorded by project.toolchain. Projects scaffolded before the
@@ -130,6 +134,10 @@ type projectConfig struct {
 	Migration migrationConfig
 	Seed      seedConfig
 	Tailwind  tailwindConfig
+	// Assets is the build-time conversion set. Every field defaults to off, so
+	// a project that declares nothing embeds a copy of its authored tree and
+	// serves exactly what it served before any of this existed.
+	Assets assetsConfig
 }
 
 func loadProjectConfig(root string) (projectConfig, error) {
@@ -153,6 +161,8 @@ func loadProjectConfig(root string) (projectConfig, error) {
 		"migration.dir", "migration.auto",
 		"assets.tailwind.enabled", "assets.tailwind.input",
 		"assets.tailwind.output", "assets.tailwind.minify",
+		"assets.css.minify", "assets.images.enabled", "assets.images.quality",
+		"assets.images.avif", "assets.scripts.enabled",
 	}
 	for _, key := range document.Keys() {
 		if !slices.Contains(known, key) {
@@ -277,6 +287,38 @@ func loadProjectConfig(root string) (projectConfig, error) {
 		if err != nil {
 			return projectConfig{}, fmt.Errorf("popcornwave.toml: seed.auto: %w", err)
 		}
+	}
+	for _, binding := range []struct {
+		key    string
+		target *bool
+	}{
+		{"assets.css.minify", &config.Assets.CSSMinify},
+		{"assets.images.enabled", &config.Assets.Images},
+		{"assets.images.avif", &config.Assets.AVIF},
+		{"assets.scripts.enabled", &config.Assets.Scripts},
+	} {
+		value, ok := document.Get(binding.key)
+		if !ok {
+			continue
+		}
+		parsed, err := value.AsBool()
+		if err != nil {
+			return projectConfig{}, fmt.Errorf("popcornwave.toml: %s: %w", binding.key, err)
+		}
+		*binding.target = parsed
+	}
+	// The quality only reaches a lossy source. Its default is libwebp's own, so
+	// a project that states nothing gets what the tool considers reasonable.
+	config.Assets.ImageQuality = defaultImageQuality
+	if value, ok := document.Get("assets.images.quality"); ok {
+		quality, err := value.AsInt()
+		if err != nil {
+			return projectConfig{}, fmt.Errorf("popcornwave.toml: assets.images.quality: %w", err)
+		}
+		if quality < 1 || quality > 100 {
+			return projectConfig{}, fmt.Errorf("popcornwave.toml: assets.images.quality must be between 1 and 100")
+		}
+		config.Assets.ImageQuality = int(quality)
 	}
 	if value, ok := document.Get("assets.tailwind.enabled"); ok {
 		config.Tailwind.Enabled, err = value.AsBool()

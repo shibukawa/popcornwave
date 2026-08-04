@@ -11,7 +11,7 @@ relying_party: requirement:contrib-passkey, configured from the passkey fields o
 implemented:
   modes: every mode serves; oidc_only mounts nothing here, oidc_passkey mounts four endpoints, passkey_only mounts five
   transport: POST only, application/json required, same-origin checked, no-store on every response
-  state: contrib/authstate/sqlite under its own namespace, keyed by a strict same-site cookie scoped to the base path
+  state: authstate/sqlite under its own namespace, keyed by a strict same-site cookie scoped to the base path
   counter_policy: a counter that does not advance refuses the login rather than only warning, because an authenticator that keeps no counter reports zero on both sides and never reaches that branch
   account: a passkey assertion resolves an account ID, so auth.SetAccountLookup supplies the display data an OIDC login gets from claims
   enrollment_ticket:

@@ -63,6 +63,11 @@ func buildMiddlewares(handler http.Handler, option ...Option) (http.Handler, err
 	if err := validateUpdateConfig(Config[HTMLConfig](nil)); err != nil {
 		return nil, err
 	}
+	// A redraw endpoint is published by a generated init, which has nowhere to
+	// return a collision to. This is where one is answered.
+	if err := validateReloadableRegistration(); err != nil {
+		return nil, err
+	}
 	server := Config[ServerConfig](nil)
 	security := Config[SecurityConfig](nil)
 	middleware := Config[MiddlewareConfig](nil)

@@ -90,13 +90,128 @@ function bracket(id, fragment, html) {
 
 function refill(range, fragment, html) {
 	let node = range.start.nextSibling;
+	const outgoing = [];
 	while (node && node !== range.end) {
 		const next = node.nextSibling;
-		node.remove();
+		outgoing.push(node);
 		node = next;
 	}
+	// A live boundary replaces content a user may have been typing into, so the
+	// same carrying-across an update does applies here.
+	carryClientState(outgoing, fragment);
+	for (const gone of outgoing) gone.remove();
 	range.end.parentNode.insertBefore(fragment, range.end);
 	range.html = html;
+}
+
+// The client state a server render cannot know about, carried from the outgoing
+// nodes into the replacement before it lands.
+//
+// It lives here rather than beside the update runtime because both halves of
+// this asset replace content: a delta swaps a region and a live delivery refills
+// one, and a user who lost their typing would not care which did it. One
+// implementation is also the only way the two cannot drift.
+
+// composing is true while an input method has an unconfirmed composition open.
+// Replacing the element under it would commit or discard whatever the user was
+// midway through spelling.
+let composing = false;
+document.addEventListener("compositionstart", () => { composing = true; });
+document.addEventListener("compositionend", () => { composing = false; });
+
+export function compositionActive() {
+	return composing;
+}
+
+// A marked region is moved rather than re-rendered: a third-party widget, a
+// canvas, a media element mid-playback. The server does not own what is inside
+// it and cannot reproduce it.
+export function preserveAttributeName(attr) {
+	return "data-" + attr + "-preserve";
+}
+
+let preserveAttr = preserveAttributeName("tb");
+
+export function setPreserveAttribute(name) {
+	preserveAttr = name;
+}
+
+// carryClientState moves preserved islands into the replacement and restores
+// form values the render did not mean to change.
+function carryClientState(outgoing, fragment) {
+	const live = new Map();
+	const values = new Map();
+	for (const node of outgoing) {
+		if (!node.querySelectorAll) continue;
+		collectPreserved(node, live);
+		collectFormState(node, values);
+	}
+	if (live.size) restorePreserved(fragment, live);
+	if (values.size) restoreFormState(fragment, values);
+}
+
+function collectPreserved(root, into) {
+	if (root.getAttribute && root.hasAttribute(preserveAttr)) {
+		into.set(root.getAttribute(preserveAttr), root);
+	}
+	for (const marked of root.querySelectorAll("[" + preserveAttr + "]")) {
+		into.set(marked.getAttribute(preserveAttr), marked);
+	}
+}
+
+function restorePreserved(fragment, live) {
+	for (const hole of fragment.querySelectorAll("[" + preserveAttr + "]")) {
+		const kept = live.get(hole.getAttribute(preserveAttr));
+		if (kept) hole.replaceWith(kept);
+	}
+}
+
+// A control's value is compared against its own default rather than against the
+// replacement's. That comparison is the whole rule: a value equal to its default
+// is one the user never touched, so the new default wins; a value that differs
+// is the user's typing, and an update that did not assert a new default must not
+// discard it.
+function collectFormState(root, into) {
+	const controls = root.querySelectorAll ? root.querySelectorAll("input, textarea, select") : [];
+	for (const control of controls) {
+		const key = control.name || control.id;
+		if (!key) continue;
+		if (control.type === "checkbox" || control.type === "radio") {
+			if (control.checked !== control.defaultChecked) into.set(key, { checked: control.checked });
+			continue;
+		}
+		// A file input's value cannot be set from script at all, so it is not
+		// restorable by value; it belongs in a preserved island or outside the
+		// region, which requirement:unified-update-runtime records as a gap.
+		if (control.type === "file") continue;
+		if (control.value !== control.defaultValue) into.set(key, { value: control.value });
+	}
+}
+
+function restoreFormState(fragment, values) {
+	const controls = fragment.querySelectorAll ? fragment.querySelectorAll("input, textarea, select") : [];
+	for (const control of controls) {
+		const held = values.get(control.name || control.id);
+		if (!held) continue;
+		if ("checked" in held) {
+			// A changed default is the server asserting a new value, and it wins.
+			if (control.checked === control.defaultChecked) control.checked = held.checked;
+			continue;
+		}
+		if (control.value === control.defaultValue) control.value = held.value;
+	}
+}
+
+// swapElement replaces one addressed element with rendered markup, carrying the
+// client state across. It is what a delta operation, a redraw, and an action
+// response all land through, so a region arrives the same way whichever asked.
+export function swapElement(target, html) {
+	if (!target || !target.parentNode) return false;
+	const holder = document.createElement("template");
+	holder.innerHTML = html;
+	carryClientState([target], holder.content);
+	target.replaceWith(holder.content);
+	return true;
 }
 
 export function applyBoundary(id, fragment, html) {
@@ -239,7 +354,7 @@ export function stopLive() {
 	}
 }
 
-function startLive() {
+export function startLive() {
 	if (running) return;
 	running = true;
 	runLive();

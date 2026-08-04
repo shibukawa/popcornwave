@@ -13,6 +13,11 @@ import (
 	"strings"
 )
 
+// localPublicRoot is the built tree, relative to the working directory. It is
+// what the development loop and an explicit local override both read, because
+// it is the only tree whose file names match the URLs the pages carry.
+const localPublicRoot = "dist/public"
+
 // PublicAssetConfig controls the framework-owned static asset endpoint.
 type PublicAssetConfig struct {
 	Enabled   bool   `default:"true"`
@@ -79,6 +84,13 @@ func PublicAssets(config PublicAssetConfig, embedded fs.FS) (Middleware, error) 
 				http.NotFound(w, r)
 				return
 			}
+			// A build that produced a manifest already knows every URL, every
+			// representation, and every validator, so the request path reads
+			// bytes and nothing else.
+			if !publicDevelopment && manifestRegistered() {
+				servePublicManifest(w, r, name, embedded)
+				return
+			}
 			asset, ok := resolvePublicAsset(name, config, embedded)
 			if !ok {
 				http.NotFound(w, r)
@@ -113,6 +125,56 @@ func PublicAssets(config PublicAssetConfig, embedded fs.FS) (Middleware, error) 
 			}
 		})
 	}, nil
+}
+
+// servePublicManifest answers from data the build computed. Nothing here stats
+// a file, digests a body, or infers a media type: a URL the manifest does not
+// name is 404 even when bytes for it exist, because serving what a build did
+// not declare is how a stale representation reaches a cache.
+func servePublicManifest(w http.ResponseWriter, r *http.Request, name string, embedded fs.FS) {
+	entry, found := manifestEntry(name)
+	if !found {
+		http.NotFound(w, r)
+		return
+	}
+	header := w.Header()
+	header.Set("Vary", varyForEntry(entry))
+	representation, acceptable := selectRepresentation(entry, r.Header.Values("Accept"), r.Header.Values("Accept-Encoding"))
+	if !acceptable {
+		http.Error(w, http.StatusText(http.StatusNotAcceptable), http.StatusNotAcceptable)
+		return
+	}
+	header.Set("Content-Type", representation.MediaType)
+	header.Set("Cache-Control", entry.CacheControl)
+	header.Set("ETag", representation.ETag)
+	if representation.ContentEncoding != "" {
+		header.Set("Content-Encoding", representation.ContentEncoding)
+	}
+	if r.Header.Get("If-None-Match") == representation.ETag {
+		w.WriteHeader(http.StatusNotModified)
+		return
+	}
+	body, err := fs.ReadFile(embedded, representation.Path)
+	if err != nil {
+		// The manifest and the tree ship together, so a missing file means the
+		// two came from different builds and no response would be honest.
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		return
+	}
+	header.Set("Content-Length", strconv.Itoa(len(body)))
+	w.WriteHeader(http.StatusOK)
+	if r.Method == http.MethodGet {
+		_, _ = w.Write(body)
+	}
+}
+
+// varyForEntry names only the headers that can actually change the answer, so a
+// cache stores one variant for an asset that negotiates nothing on Accept.
+func varyForEntry(entry AssetEntry) string {
+	if entryNegotiatesMedia(entry) {
+		return "Accept, Accept-Encoding"
+	}
+	return "Accept-Encoding"
 }
 
 func hasControl(value string) bool {
@@ -159,7 +221,10 @@ func resolvePublicAsset(name string, config PublicAssetConfig, embedded fs.FS) (
 }
 
 func readLocalPublicAsset(name string) (publicAsset, bool, bool) {
-	root := "public"
+	// The built tree is what is served in every mode. The authored tree is an
+	// input: a development loop that read it would answer 404 for every
+	// reference a conversion moved, since the page names the derived file.
+	root := filepath.FromSlash(localPublicRoot)
 	info, err := os.Lstat(root)
 	if err != nil {
 		return publicAsset{}, false, err != nil && !os.IsNotExist(err)

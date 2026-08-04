@@ -7,8 +7,9 @@ The browser surface requirement:unified-update-runtime installs, so application 
 
 ```yaml
 source: decision:update-runtime-convergence
-namespace: one namespaced object under this framework's own name, which system:tinybind v0.3.1 made configuration rather than a compiled-in global; no bare global functions, per the injection rule of requirement:framework-script-assets
-instantiation: the upstream half exposes a factory and installs nothing on its own, so the merged runtime of requirement:unified-update-runtime constructs one instance and both halves share it
+namespace: one namespaced object under this framework's own name, read from the runtime configuration rather than compiled in; no bare global functions, per the injection rule of requirement:framework-script-assets
+instantiation: update.js exports a factory and installs nothing on its own, so the bootstrap of requirement:unified-update-runtime constructs one instance and both halves of the asset share it
+implemented_here: since 2026-08-04 every function behind this surface is this framework's, written against the wire contract system:tinybind publishes rather than inherited from its client
 feature_detection: an author tests for the namespace rather than assuming it, since a page may load with the runtime disabled
 surface:
   update: re-render the current route with different search parameters, replacing the URL rather than stacking a history entry
@@ -17,14 +18,16 @@ surface:
   apply: install the regions a mutating fetch returned, per requirement:action-response-update
   updateHeaders: the headers an application fetch must carry to ask for an action response
   subscribe: lifecycle outcomes for a progress indicator, an analytics call, or a widget that must reinitialize
-  protocolVersion and endpointPrefix: what the runtime is speaking and where it is mounted
+  attribute names: the id, kind, preserve, and ignore attributes, so an author writing a marker from script uses the same spelling its templates do rather than guessing from a prefix it did not choose
+  no_protocol_version: the contract defines none; the build identity is what two parties compare, and it is strictly stronger because it changes when a template, a Go function a template calls, or the client itself changes
+  no_endpoint_prefix: a redraw is answered at the page URL, so there is no mount for a caller to read
 redraw:
   arguments: the element id and every declared parameter, since nothing is reconstructed on the server
   local_rejection: an id no element carries is refused without a network request
   supersession: an older in-flight redraw for the same id is aborted
   result: applied, superseded, or fell back, resolved after the swap
   trust: the endpoint is public input under requirement:reloadable-component-endpoint, so this API is not an authorization boundary
-  target: only the generated same-origin endpoint; a URL derived from page content or a message is never fetched
+  target: the page's own URL by default, or one the caller names; same-origin only, and never a URL derived from page content or a message
 interception:
   links_and_get_forms: same-origin navigation is intercepted by default; a data attribute on an element or an ancestor returns it to the browser
   form_fields: become the query, so a search form refines the page it is on

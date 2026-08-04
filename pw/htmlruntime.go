@@ -8,12 +8,13 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-
-	"github.com/shibukawa/tinybind-go/htmlupdate"
 )
 
 //go:embed boundary.js
 var boundarySource string
+
+//go:embed update.js
+var updateSource string
 
 //go:embed updateboot.js
 var updateBootSource string
@@ -40,18 +41,24 @@ var boundaryRuntimeScript = boundarySource
 
 // mergedRuntimeScript is the one asset a document loads.
 //
-// Two runtimes on one page would mean two boundary id spaces, two build
-// identities, and two script tags with nothing deciding which owns a region, so
-// the module's half is composed in rather than served beside this one. Its
-// bytes come from the pinned dependency, not from a copy, so an upgrade that
-// changes them changes this asset and its revision with it.
+// Every byte of it is this framework's. The dependency's own client used to be
+// concatenated above these files, and it was removed because the protocol's
+// names, its endpoints, and its server are all this framework's: a browser half
+// belonging to a dependency meant a change this framework could make alone —
+// where a redraw is addressed, most concretely — needed a coordinated release.
+// system:tinybind v0.3.5 published the wire contract and made its own asset
+// opt-in, which is what made writing this one an ordinary piece of work.
 //
-// Order is load-bearing. The module's half registers the factory; the bootstrap
-// below it builds the instance. The module's own self-instantiation reads
-// document.currentScript, which is null in a module script, so it does nothing
-// here and cannot produce a second instance.
+// The gain beyond addressing is that there is now one apply core rather than
+// two. The merged asset used to carry the module's swap and this framework's
+// side by side, with no channel between them and nothing making them agree.
+//
+// Order is load-bearing. boundary.js defines custom elements at module scope
+// and the parser may upgrade one during the define call, so it comes first and
+// everything it can reach at that moment is declared inside it. update.js
+// installs nothing, and the bootstrap below builds the single instance.
 var mergedRuntimeScript = sync.OnceValue(func() string {
-	return string(htmlupdate.RuntimeSource()) + "\n" + boundarySource + "\n" + updateBootSource
+	return boundarySource + "\n" + updateSource + "\n" + updateBootSource
 })
 
 // frameworkScriptPrefix is reserved for framework-owned browser assets. It is a
@@ -82,12 +89,12 @@ func RuntimeScriptURL() string {
 // serveFrameworkScript answers a framework asset request and reports whether it
 // handled the request.
 func serveFrameworkScript(w http.ResponseWriter, r *http.Request) bool {
-	if !strings.HasPrefix(r.URL.Path, frameworkScriptPrefix) {
-		return false
-	}
 	if r.URL.Path != RuntimeScriptURL() {
-		http.NotFound(w, r)
-		return true
+		// Only this one URL is claimed. The prefix holds more than the asset —
+		// the redraw endpoint lives here too — so answering for the whole
+		// namespace here would swallow every route that arrived after this one.
+		// serveReservedPath keeps the namespace closed, below all of them.
+		return false
 	}
 	if !operationalMethod(w, r) {
 		return true
@@ -103,5 +110,21 @@ func serveFrameworkScript(w http.ResponseWriter, r *http.Request) bool {
 		return true
 	}
 	_, _ = w.Write([]byte(mergedRuntimeScript()))
+	return true
+}
+
+// serveReservedPath closes the framework namespace.
+//
+// It runs below every handler that owns something inside the prefix, so an
+// unclaimed path there is one no framework route serves: a stale script
+// revision, a redraw on a deployment publishing no component, or a probe of the
+// namespace. Each answers 404 here rather than reaching application routing,
+// which is what keeps one reserved prefix a single routing and access rule
+// instead of a hole an application could accidentally serve through.
+func serveReservedPath(w http.ResponseWriter, r *http.Request) bool {
+	if !strings.HasPrefix(r.URL.Path, frameworkScriptPrefix) {
+		return false
+	}
+	http.NotFound(w, r)
 	return true
 }

@@ -3,6 +3,7 @@
 {"category": "interface", "id": "api:application-lifecycle", "path": ".knowledge/api/application-lifecycle.md", "role": "primary", "title": "Application Lifecycle API", "type": "api"}
 {"category": "interface", "id": "api:assurance-guard", "path": ".knowledge/api/assurance-guard.md", "role": "primary", "title": "Assurance Guard", "type": "api"}
 {"category": "interface", "id": "api:async-html-value", "path": ".knowledge/api/async-html-value.md", "role": "primary", "title": "Async HTML Value API", "type": "api"}
+{"category": "interface", "id": "api:auth-allowlist-store", "path": ".knowledge/api/auth-allowlist-store.md", "role": "primary", "title": "Admission Allowlist Store", "type": "api"}
 {"category": "interface", "id": "api:auth-credential-store", "path": ".knowledge/api/auth-credential-store.md", "role": "primary", "title": "Passkey Credential Store", "type": "api"}
 {"category": "interface", "id": "api:auth-state-codec", "path": ".knowledge/api/auth-state-codec.md", "role": "primary", "title": "Authentication State Codec", "type": "api"}
 {"category": "interface", "id": "api:authentication-endpoints", "path": ".knowledge/api/authentication-endpoints.md", "role": "primary", "title": "Authentication Endpoints", "type": "api"}
@@ -63,6 +64,7 @@
 {"category": "concept", "id": "concept:assurance-axes", "path": ".knowledge/concept/assurance-axes.md", "role": "supporting", "title": "Assurance Strength and Freshness", "type": "concept"}
 {"category": "concept", "id": "concept:classic-web-style", "path": ".knowledge/concept/classic-web-style.md", "role": "supporting", "title": "Classic Web Style", "type": "concept"}
 {"category": "concept", "id": "concept:client-component", "path": ".knowledge/concept/client-component.md", "role": "supporting", "title": "Client Component", "type": "concept"}
+{"category": "concept", "id": "concept:derived-public-tree", "path": ".knowledge/concept/derived-public-tree.md", "role": "supporting", "title": "Derived Public Tree", "type": "concept"}
 {"category": "concept", "id": "concept:interaction-cost-ladder", "path": ".knowledge/concept/interaction-cost-ladder.md", "role": "supporting", "title": "Interaction Cost Ladder", "type": "concept"}
 {"category": "concept", "id": "concept:modern-server-ui", "path": ".knowledge/concept/modern-server-ui.md", "role": "supporting", "title": "Modern Server UI", "type": "concept"}
 {"category": "concept", "id": "concept:page-tree", "path": ".knowledge/concept/page-tree.md", "role": "supporting", "title": "Page Tree", "type": "concept"}
@@ -93,6 +95,7 @@
 {"category": "structure", "id": "data:page-route-table", "path": ".knowledge/data/page-route-table.md", "role": "supporting", "title": "Page Route Table", "type": "data"}
 {"category": "structure", "id": "data:passkey-credential", "path": ".knowledge/data/passkey-credential.md", "role": "supporting", "title": "Passkey Credential", "type": "data"}
 {"category": "structure", "id": "data:project-config", "path": ".knowledge/data/project-config.md", "role": "supporting", "title": "Project Configuration", "type": "data"}
+{"category": "structure", "id": "data:public-asset-manifest", "path": ".knowledge/data/public-asset-manifest.md", "role": "supporting", "title": "Public Asset Manifest", "type": "data"}
 {"category": "structure", "id": "data:query-diagnostics-config", "path": ".knowledge/data/query-diagnostics-config.md", "role": "supporting", "title": "Query Diagnostics Config", "type": "data"}
 {"category": "structure", "id": "data:query-record", "path": ".knowledge/data/query-record.md", "role": "supporting", "title": "Query Record", "type": "data"}
 {"category": "structure", "id": "data:release-artifact", "path": ".knowledge/data/release-artifact.md", "role": "supporting", "title": "Release Artifact Set", "type": "data"}
@@ -112,7 +115,9 @@
 {"category": "structure", "id": "data:ui-dependency-graph", "path": ".knowledge/data/ui-dependency-graph.md", "role": "supporting", "title": "UI Dependency Graph", "type": "data"}
 {"category": "structure", "id": "data:user-account", "path": ".knowledge/data/user-account.md", "role": "supporting", "title": "Local User Account", "type": "data"}
 {"category": "constraint", "id": "decision:anonymous-csrf-secret-storage", "path": ".knowledge/decision/anonymous-csrf-secret-storage.md", "role": "supporting", "title": "Anonymous CSRF Secret Storage", "type": "decision"}
+{"category": "constraint", "id": "decision:asset-transform-toolchain", "path": ".knowledge/decision/asset-transform-toolchain.md", "role": "supporting", "title": "Asset Transform Toolchain", "type": "decision"}
 {"category": "constraint", "id": "decision:assurance-scope-oidc-only", "path": ".knowledge/decision/assurance-scope-oidc-only.md", "role": "supporting", "title": "Assurance Scope Under External-Identity-Only Login", "type": "decision"}
+{"category": "constraint", "id": "decision:auth-backend-selection", "path": ".knowledge/decision/auth-backend-selection.md", "role": "supporting", "title": "One auth.backend Key Selects All Four Authentication Stores", "type": "decision"}
 {"category": "constraint", "id": "decision:authentication-bootstrap-strategy", "path": ".knowledge/decision/authentication-bootstrap-strategy.md", "role": "supporting", "title": "Authentication Bootstrap Strategy", "type": "decision"}
 {"category": "constraint", "id": "decision:automatic-async-render-selection", "path": ".knowledge/decision/automatic-async-render-selection.md", "role": "supporting", "title": "Automatic Async Render Selection", "type": "decision"}
 {"category": "constraint", "id": "decision:bot-client-classification", "path": ".knowledge/decision/bot-client-classification.md", "role": "supporting", "title": "Bot Client Classification", "type": "decision"}
@@ -123,11 +128,13 @@
 {"category": "constraint", "id": "decision:cookie-session-storage", "path": ".knowledge/decision/cookie-session-storage.md", "role": "supporting", "title": "Cookie-Backed Session Storage", "type": "decision"}
 {"category": "constraint", "id": "decision:csrf-secret-as-a-session-slot", "path": ".knowledge/decision/csrf-secret-as-a-session-slot.md", "role": "supporting", "title": "The CSRF Secret Is a Session Slot", "type": "decision"}
 {"category": "constraint", "id": "decision:dbtestify-integration", "path": ".knowledge/decision/dbtestify-integration.md", "role": "supporting", "title": "dbtestify Integration Boundary", "type": "decision"}
+{"category": "constraint", "id": "decision:derived-tree-development", "path": ".knowledge/decision/derived-tree-development.md", "role": "supporting", "title": "Derived Tree in Development", "type": "decision"}
 {"category": "constraint", "id": "decision:dev-telemetry-viewer-adoption", "path": ".knowledge/decision/dev-telemetry-viewer-adoption.md", "role": "supporting", "title": "Development Telemetry Viewer Adoption", "type": "decision"}
 {"category": "constraint", "id": "decision:developer-loop-watch-scope", "path": ".knowledge/decision/developer-loop-watch-scope.md", "role": "supporting", "title": "Developer Loop Watch Scope", "type": "decision"}
 {"category": "constraint", "id": "decision:development-public-assets", "path": ".knowledge/decision/development-public-assets.md", "role": "supporting", "title": "Development Public Assets", "type": "decision"}
 {"category": "constraint", "id": "decision:devidp-scope-reduction", "path": ".knowledge/decision/devidp-scope-reduction.md", "role": "supporting", "title": "Development IdP Scope Reduction", "type": "decision"}
 {"category": "constraint", "id": "decision:dual-router-coexistence", "path": ".knowledge/decision/dual-router-coexistence.md", "role": "supporting", "title": "Dual Router Coexistence", "type": "decision"}
+{"category": "constraint", "id": "decision:dynamodb-auth-compensating-registration", "path": ".knowledge/decision/dynamodb-auth-compensating-registration.md", "role": "supporting", "title": "Passkey-Only Registration Is A Compensating Sequence On DynamoDB", "type": "decision"}
 {"category": "constraint", "id": "decision:dynamodb-desired-state-migration", "path": ".knowledge/decision/dynamodb-desired-state-migration.md", "role": "supporting", "title": "Desired State Instead Of Versioned Migrations", "type": "decision"}
 {"category": "constraint", "id": "decision:dynamodb-framework-scope", "path": ".knowledge/decision/dynamodb-framework-scope.md", "role": "supporting", "title": "What The DynamoDB Binding Layer Left To The Framework", "type": "decision"}
 {"category": "constraint", "id": "decision:dynamodb-no-runtime-abstraction", "path": ".knowledge/decision/dynamodb-no-runtime-abstraction.md", "role": "supporting", "title": "No pw Or pwruntime Abstraction For DynamoDB", "type": "decision"}
@@ -191,6 +198,7 @@
 {"category": "behavior", "id": "flow:capability-addition", "path": ".knowledge/flow/capability-addition.md", "role": "primary", "title": "Capability Addition Flow", "type": "flow"}
 {"category": "behavior", "id": "flow:cli-release", "path": ".knowledge/flow/cli-release.md", "role": "primary", "title": "CLI Release Flow", "type": "flow"}
 {"category": "behavior", "id": "flow:database-migration", "path": ".knowledge/flow/database-migration.md", "role": "primary", "title": "Database Migration Flow", "type": "flow"}
+{"category": "behavior", "id": "flow:derived-asset-build", "path": ".knowledge/flow/derived-asset-build.md", "role": "primary", "title": "Derived Asset Build Flow", "type": "flow"}
 {"category": "behavior", "id": "flow:dev-telemetry-capture", "path": ".knowledge/flow/dev-telemetry-capture.md", "role": "primary", "title": "Development Telemetry Capture Flow", "type": "flow"}
 {"category": "behavior", "id": "flow:devidp-user-selection", "path": ".knowledge/flow/devidp-user-selection.md", "role": "primary", "title": "Development IdP User Selection", "type": "flow"}
 {"category": "behavior", "id": "flow:dynamodb-migration", "path": ".knowledge/flow/dynamodb-migration.md", "role": "primary", "title": "DynamoDB Schema Application", "type": "flow"}
@@ -222,6 +230,7 @@
 {"category": "constraint", "id": "policy:access-token-verification", "path": ".knowledge/policy/access-token-verification.md", "role": "supporting", "title": "Access Token Verification Policy", "type": "policy"}
 {"category": "constraint", "id": "policy:account-linking", "path": ".knowledge/policy/account-linking.md", "role": "supporting", "title": "Account Linking Policy", "type": "policy"}
 {"category": "constraint", "id": "policy:account-recovery", "path": ".knowledge/policy/account-recovery.md", "role": "supporting", "title": "Account Recovery Policy", "type": "policy"}
+{"category": "constraint", "id": "policy:asset-transform-matrix", "path": ".knowledge/policy/asset-transform-matrix.md", "role": "supporting", "title": "Asset Transform Matrix", "type": "policy"}
 {"category": "constraint", "id": "policy:async-render-bounds", "path": ".knowledge/policy/async-render-bounds.md", "role": "supporting", "title": "Async Render Bounds", "type": "policy"}
 {"category": "constraint", "id": "policy:authenticated-path-protection", "path": ".knowledge/policy/authenticated-path-protection.md", "role": "supporting", "title": "Authenticated Path Protection", "type": "policy"}
 {"category": "constraint", "id": "policy:bearer-admission", "path": ".knowledge/policy/bearer-admission.md", "role": "supporting", "title": "Bearer Admission Policy", "type": "policy"}
@@ -249,6 +258,7 @@
 {"category": "constraint", "id": "policy:outbound-transport-security", "path": ".knowledge/policy/outbound-transport-security.md", "role": "supporting", "title": "Outbound Transport Security Policy", "type": "policy"}
 {"category": "constraint", "id": "policy:passkey-security", "path": ".knowledge/policy/passkey-security.md", "role": "supporting", "title": "Passkey Security Policy", "type": "policy"}
 {"category": "constraint", "id": "policy:provider-session-scope", "path": ".knowledge/policy/provider-session-scope.md", "role": "supporting", "title": "Provider Session Scope of Logout", "type": "policy"}
+{"category": "constraint", "id": "policy:public-asset-media-negotiation", "path": ".knowledge/policy/public-asset-media-negotiation.md", "role": "supporting", "title": "Public Asset Media Negotiation", "type": "policy"}
 {"category": "constraint", "id": "policy:public-asset-negotiation", "path": ".knowledge/policy/public-asset-negotiation.md", "role": "supporting", "title": "Public Asset Negotiation", "type": "policy"}
 {"category": "constraint", "id": "policy:public-asset-precompression", "path": ".knowledge/policy/public-asset-precompression.md", "role": "supporting", "title": "Public Asset Precompression", "type": "policy"}
 {"category": "constraint", "id": "policy:public-asset-resolution", "path": ".knowledge/policy/public-asset-resolution.md", "role": "supporting", "title": "Public Asset Resolution", "type": "policy"}
@@ -303,8 +313,11 @@
 {"category": "objective", "id": "requirement:daisyui-integration", "path": ".knowledge/requirement/daisyui-integration.md", "role": "primary", "title": "daisyUI Integration", "type": "requirement"}
 {"category": "objective", "id": "requirement:database-engine-selection", "path": ".knowledge/requirement/database-engine-selection.md", "role": "primary", "title": "Database Engine Selection", "type": "requirement"}
 {"category": "objective", "id": "requirement:database-migration", "path": ".knowledge/requirement/database-migration.md", "role": "primary", "title": "Versioned Database Migration", "type": "requirement"}
+{"category": "objective", "id": "requirement:derived-asset-pipeline", "path": ".knowledge/requirement/derived-asset-pipeline.md", "role": "primary", "title": "Derived Asset Pipeline", "type": "requirement"}
 {"category": "objective", "id": "requirement:dev-telemetry-viewer", "path": ".knowledge/requirement/dev-telemetry-viewer.md", "role": "primary", "title": "Development Telemetry Viewer", "type": "requirement"}
 {"category": "objective", "id": "requirement:discovered-page-routing", "path": ".knowledge/requirement/discovered-page-routing.md", "role": "primary", "title": "Discovered Page Routing", "type": "requirement"}
+{"category": "objective", "id": "requirement:dynamodb-auth-backend", "path": ".knowledge/requirement/dynamodb-auth-backend.md", "role": "primary", "title": "DynamoDB Authentication Backend", "type": "requirement"}
+{"category": "objective", "id": "requirement:dynamodb-auth-stores", "path": ".knowledge/requirement/dynamodb-auth-stores.md", "role": "primary", "title": "DynamoDB Account-Side Authentication Stores", "type": "requirement"}
 {"category": "objective", "id": "requirement:dynamodb-generation", "path": ".knowledge/requirement/dynamodb-generation.md", "role": "primary", "title": "DynamoDB Code Generation", "type": "requirement"}
 {"category": "objective", "id": "requirement:dynamodb-migration", "path": ".knowledge/requirement/dynamodb-migration.md", "role": "primary", "title": "DynamoDB Schema Application", "type": "requirement"}
 {"category": "objective", "id": "requirement:dynamodb-page-cursor", "path": ".knowledge/requirement/dynamodb-page-cursor.md", "role": "primary", "title": "DynamoDB Page Cursor", "type": "requirement"}

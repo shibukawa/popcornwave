@@ -2,91 +2,15 @@ package pwcli
 
 import (
 	"fmt"
+	"io"
 	"mime"
-	"os"
 	"path/filepath"
 	"strings"
-
-	"github.com/klauspost/compress/zstd"
 )
 
-func preparePublicAssets(root string) error {
-	publicRoot := filepath.Join(root, "public")
-	if info, err := os.Lstat(filepath.Join(root, "public.go")); err != nil || !info.Mode().IsRegular() {
-		return fmt.Errorf("public.go is required; run pw init to create the public embed scaffold")
-	}
-	rootInfo, err := os.Lstat(publicRoot)
-	if err != nil {
-		return fmt.Errorf("public assets: %w", err)
-	}
-	if rootInfo.Mode()&os.ModeSymlink != 0 || !rootInfo.IsDir() {
-		return fmt.Errorf("public assets: public must be a regular directory")
-	}
-
-	encoder, err := zstd.NewWriter(nil,
-		zstd.WithEncoderLevel(zstd.SpeedDefault),
-		zstd.WithEncoderConcurrency(1),
-		zstd.WithEncoderCRC(false),
-	)
-	if err != nil {
-		return fmt.Errorf("public assets: create zstd encoder: %w", err)
-	}
-	defer encoder.Close()
-
-	eligible := make(map[string]bool)
-	var sidecars []string
-	err = filepath.WalkDir(publicRoot, func(name string, entry os.DirEntry, walkErr error) error {
-		if walkErr != nil {
-			return walkErr
-		}
-		if name == publicRoot {
-			return nil
-		}
-		info, err := os.Lstat(name)
-		if err != nil {
-			return err
-		}
-		if info.Mode()&os.ModeSymlink != 0 {
-			return fmt.Errorf("public assets: symbolic links are not allowed: %s", name)
-		}
-		if entry.IsDir() {
-			return nil
-		}
-		if !info.Mode().IsRegular() {
-			return fmt.Errorf("public assets: irregular file is not allowed: %s", name)
-		}
-		if strings.HasSuffix(name, ".zstd") {
-			sidecars = append(sidecars, name)
-			return nil
-		}
-		if entry.Name() == ".keep" || !publicAssetCompressible(name) {
-			return nil
-		}
-		sidecar := name + ".zstd"
-		eligible[sidecar] = true
-		source, err := os.ReadFile(name)
-		if err != nil {
-			return err
-		}
-		encoded := encoder.EncodeAll(source, nil)
-		if err := writeScaffoldFile(sidecar, encoded); err != nil {
-			return fmt.Errorf("public assets: write %s: %w", sidecar, err)
-		}
-		return nil
-	})
-	if err != nil {
-		return err
-	}
-	for _, sidecar := range sidecars {
-		if !eligible[sidecar] {
-			if err := os.Remove(sidecar); err != nil && !os.IsNotExist(err) {
-				return fmt.Errorf("public assets: remove stale %s: %w", sidecar, err)
-			}
-		}
-	}
-	return nil
-}
-
+// publicAssetCompressible reports whether a served file earns a precompressed
+// sibling. Eligibility is decided from the path and its media type, so an
+// already-compressed format is never encoded again into something larger.
 func publicAssetCompressible(name string) bool {
 	mediaType := strings.ToLower(mime.TypeByExtension(filepath.Ext(name)))
 	if separator := strings.IndexByte(mediaType, ';'); separator >= 0 {
@@ -105,5 +29,23 @@ func publicAssetCompressible(name string) bool {
 		return true
 	default:
 		return false
+	}
+}
+
+// reportDerivedAssets names every rewrite, every declined conversion, and every
+// source kept anyway.
+//
+// An author cannot see a build-time rewrite by reading the template, and a
+// source that stayed looks exactly like a conversion that never ran, so the
+// build is the only place either becomes visible.
+func reportDerivedAssets(stdout io.Writer, report derivedReport) {
+	for _, line := range report.converted {
+		fmt.Fprintf(stdout, "asset: converted %s\n", line)
+	}
+	for _, line := range report.skipped {
+		fmt.Fprintf(stdout, "asset: kept %s\n", line)
+	}
+	for _, line := range report.retained {
+		fmt.Fprintf(stdout, "asset: source retained %s\n", line)
 	}
 }

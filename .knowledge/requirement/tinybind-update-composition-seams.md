@@ -3,14 +3,14 @@ id: requirement:tinybind-update-composition-seams
 type: requirement
 title: TinyBind Update Composition Seams
 ---
-Six seams system:tinybind owns that this framework needs opened before the update capabilities compose cleanly; v0.3.3 answered the five raised against v0.3.1, and wiring the transport found a sixth.
+Seams system:tinybind owns that this framework needs opened before the update capabilities compose cleanly; v0.3.3 answered the five raised against v0.3.1 and v0.3.5 answered the client ownership round, leaving the attribute prefix as the one item still open.
 
 ```yaml
 owner: system:tinybind
 raised_against: v0.3.1
 answered_partly: v0.3.2, which settled the documentation defect and carried head on the action response
 answered_fully: v0.3.3
-status: five closed by v0.3.3; the attribute prefix below is open, found while wiring the transport rather than raised with the others
+status: five closed by v0.3.3; the client ownership question answered by v0.3.5 and settled on this side; the attribute prefix is the one item still open
 kept_for: the record of the round and of two corrections this framework had to make to its own findings
 as_built:
   live_token: its own negotiated mode, so subscriptions stay open only in live mode; the validator question answered as deliveries carrying none and the opening delta carrying them
@@ -62,6 +62,42 @@ live_mode_convergence:
     take_this_as_input: the control vocabulary, the done-versus-retry distinction, and the reset-on-healthy-close backoff are shipped here and are offered rather than asserted
     or_reserve_a_space: failing convergence, a documented caller-owned token space, or extra modes declared on the options and reported back as a distinct negotiated mode
   why_now: a token is a wire contract; settling it after either side ships costs a coordinated deploy, which is what the build identity exists to avoid
+client_ownership:
+  raised: 2026-08-04, while wiring requirement:reloadable-component-endpoint end to end
+  priority: highest of this round, because it decides whether the items below are asks at all
+  what_forced_it:
+    the_endpoint_is_this_framework_s: pw mounts the redraw route, owns the reserved prefix, owns the registry, and routes every refusal to its own error path
+    the_client_is_the_module_s: the browser half builds the redraw URL as prefix plus kind plus instance and sends no render mode at all, so the address of this framework's own endpoint is decided in a dependency
+    effect: moving that endpoint under the page URL, which is what makes it inherit the page's authentication rather than needing a protection pattern of its own, cannot be done here at all
+  what_the_audit_found:
+    one_file: the module ships exactly one browser asset; htmlbind ships none, so this is the whole surface
+    apply_duplicated: the module's half swaps through its own function and references neither of this framework's, against what requirement:unified-update-runtime records
+    live_duplicated: the module implements a live reader, a stream consumer, and a reconnect policy speaking the token this framework defined, beside the ones already built here
+    reach_in: the module reads this framework's live handoff header to decide whether a route expects a delivery stream
+  positions:
+    minimal: make redraw addressing a caller decision, as the action path already is, where the caller issues the request and the module only applies what came back
+    proposed_here: the module supplies no browser code at all and stays with HTML fragment production, boundary identity, and the validators its compiler already emits
+    why_the_larger_one: every protocol name is already this framework's configuration, so the browser half is this framework's protocol wearing the module's implementation, and each round spends a coordinated release on something one side could decide alone
+    cost_named_honestly: the module's asset is roughly two and a half times what this framework's own half is, and the weight is in form-state reconciliation against per-control defaults, composition deferral, preserved islands, history, scroll, focus, supersession, and the fall-back-to-navigation rule on every failure path
+    line_to_draw: whether the module keeps the server halves and publishes the wire format as a specification, or the transport moves whole and htmlupdate is retired
+  reverses: the keep_pw_runtime_only rejection of decision:update-runtime-convergence, whose stated reason was the cost above; what has changed is that the coupling cost was not counted then and has since been paid once
+  decided: 2026-08-04, that every byte running in a browser becomes this framework's
+  not_a_reversal_upstream:
+    found: the module already decided the caller owns the browser script, and records its own shipped runtime as a milestone deviation whose exit condition is the default shipping none
+    so: the ask is to finish a transition already defined rather than to change a position, which is how the request is written
+    blocking_item: the wire contract is listed as the module's to publish and its form is still an open question there, so a caller-written client today infers the protocol by reading the module's JavaScript
+  request_written: docs/tinybind-go-client-ownership-request.md, against v0.3.3
+  answered: v0.3.5, on every ask
+  what_shipped:
+    wire_contract: published as docs/httpbind_update_wire_contract.md, which is what a caller-written client needs and what the module had listed as its own to write
+    redraw_addressing: a negotiated redraw request mode with the component on kind and instance headers, and an Options entry answering from a request rather than from a mounted route, so the caller picks the URL
+    mount_narrowed: Mount takes no registry and registers the asset alone, because a redraw is no longer an endpoint the module owns
+    asset_default: ServeRuntime is off by default and exactly one of it and CallerOwnsRuntime must be set, which retires the milestone deviation the module had recorded against itself
+    unasked_and_welcome: validators are now seeded with the build identity, so two builds cannot produce comparable digests where the build header was dropped in transit
+  what_this_framework_did: moved the redraw to the page URL, retired the reserved-prefix route, and added an explicit handler entry naming the components a URL answers for
+  still_ships_javascript: the module's browser runtime is unchanged, and this framework no longer merges it
+  closed_here: 2026-08-04, when the client half was written against the published contract; the module ships a reference implementation and this framework ships its own, which is the shape the module's own client runtime ownership decision always described
+  nothing_further_asked: the remaining seam items are unaffected, since none of them is about the browser
 head_on_redraw_and_action:
   what_works: the navigation delta carries the merged head, so a component appearing for the first time installs its tags before its markup lands and never flashes unstyled
   action_half_shipped:

@@ -160,6 +160,9 @@ what lets a caller that must write stay ignorant of the topology. See
 | `live_idle_timeout` | `"5m"` | close a live connection nothing has delivered on |
 | `live_max_boundaries` | `32` | boundaries one live connection may serve; zero or less is unbounded |
 | `live_max_responses` | `4` | concurrent live connections per client; zero or less is unbounded |
+| `update.enabled` | `false` | answer navigation deltas, redraws, and action responses |
+| `update.validator_key` | — | secret keying the boundary digests; required when `update.enabled` is true |
+| `update.max_manifest_bytes` | `8192` | cap on the digest hint a request may carry |
 
 A template that opens an await boundary renders correctly under either
 `streaming` setting. The key decides only whether the fallbacks reach the
@@ -179,6 +182,14 @@ its live boundaries in place and writes no placeholder a delivery could replace.
 keep the content their live boundaries committed, and no client is invited to
 connect. See [Live Rendering](/guides/cross-layer/live-rendering/) for what each bound
 buys.
+
+`update.validator_key` is refused at startup when it is missing and updates are
+on, rather than serving unkeyed digests: an unkeyed digest of low-entropy content
+lets a guess be confirmed by comparing digests. Rotating it is not a break —
+comparisons miss and the next response is a complete document. An oversized
+manifest is dropped rather than rejected, so a request past
+`update.max_manifest_bytes` costs a larger delta instead of an error. See
+[Partial Updates](/guides/cross-layer/partial-updates/) for what each path buys.
 
 ## `[security]`
 

@@ -12,7 +12,8 @@ html_async_baseline: v0.1.20
 html_live_baseline: v0.2.8, required by requirement:live-html-rendering; v0.2.7 introduced live boundaries and v0.2.8 answered the first of the integration requests raised against them
 html_update_baseline: v0.3.3; v0.3.0 added the htmlupdate package, v0.3.1 handed the asset and every name to the caller per requirement:tinybind-runtime-ownership, v0.3.2 carried head on the action response, and v0.3.3 closed every remaining seam of requirement:tinybind-update-composition-seams and made CSRF module native; adopted by decision:update-runtime-convergence
 route_tree_baseline: v0.2.6
-current: v0.3.3, which carries the generator crash fix below and, from requirement:module-native-csrf, writes the token into every unsafe form itself
+current: v0.3.5, which carries the reference-hook head contribution and concurrent conversion, renames the redraw handler to Options.Redraw, drops the module-owned protocol version, and carries the generator crash fix below and, from requirement:module-native-csrf, writes the token into every unsafe form itself
+newer_tag_not_taken: v0.3.4 exists and changes only that repository's knowledge catalog and its author documentation, so the pin stays where it is until a code change earns the bump
 public_wrappers:
   - api:request-binding
   - api:html-response
@@ -30,6 +31,17 @@ defects:
     trigger: a Go file in a generated directory that does not parse, most often a zero-byte one an editor has created and not yet written into
     mechanism: packages.Load returns a syntax entry for a file it could not parse, that entry reports token.NoPos, and a FileSet lookup of NoPos is nil; measured against golang.org/x/tools with Popcorn Wave out of the picture on 2026-08-02
     downstream_containment_kept: api:cli-generate unparsable_source and its recover stay, because the pre-check names the file and the line where the generator would only name the directory, and the recover bounds every generation panic rather than this one
+asset_transform_seam:
+  shipped: v0.3.1, in one commit that carried the hooks, the cache, the produced files, and the recorded dependency file together; read against the upstream tree on 2026-08-04
+  correction: this said v0.3.3 until 2026-08-04, which was the version pinned here rather than the version that shipped it; nothing depends on the difference, since the pin is later than the seam
+  design_lives_upstream: its build-time-asset-transforms concept, its element-reference-hook and derived-asset-generation requirements, and its transform-seam-ownership decision, none of which are restated here
+  surface: GenerateOptions.ReferenceHooks and StrictReferenceHooks, ConversionCacheDir, DerivedAssetDir, ArtifactDerivedAsset, and GenerateResult Produced, Rewrites, and ReadSet
+  results: value and skip; the markup-replacing element result is designed and not built
+  head_contribution: v0.3.5 added ReferenceResult.Head as link, script, and style entries, deduplicated per component, cached with the conversion, and restricted so a hook cannot rewrite the document
+  concurrency: v0.3.5 added GenerateOptions.ConversionWorkers, excluded from the hashed options because it changes wall clock and never bytes
+  bookkeeping: produced files are declared artifacts, and the read set is recorded per run so an edited import regenerates
+  division: the module matches, rewrites, and records; the caller owns every codec, format, name, and switch, per requirement:derived-asset-pipeline
+  module_non_goals: bundling, minification, a format table, and any runtime negotiation
 generator:
   extensible_analysis: requirement:httpbinder-extensible-route-analysis
   openapi:

@@ -21,6 +21,10 @@ const (
 	capabilityRedis    = "redis-valkey"
 	capabilityAuth     = "auth"
 	capabilityTailwind = "tailwind"
+	// capabilityImages installs the image encoders and turns the conversion on.
+	// It is a capability rather than a plain configuration key because the
+	// encoders are host tools: switching it on without them converts nothing.
+	capabilityImages = "images"
 	// capabilityDynamo is a second kind of store rather than a fourth SQL
 	// engine, so it depends on nothing and combines with any database answer
 	// including none.
@@ -39,6 +43,7 @@ const (
 var capabilityOrder = []string{
 	capabilityRegistered, capabilityDiscovered,
 	capabilityDevbox, capabilityDatabase, capabilityDynamo, capabilityRedis, capabilityAuth, capabilityTailwind,
+	capabilityImages,
 }
 
 // capabilitySummary is the one-line description shown beside each choice.
@@ -48,6 +53,7 @@ var capabilitySummary = map[string]string{
 	capabilityRedis:      "the Valkey development server in devbox.json",
 	capabilityAuth:       "login sessions, the framework tables, and the account resolver",
 	capabilityTailwind:   "the pinned Tailwind toolchain and its CSS entry point",
+	capabilityImages:     "build-time image conversion and the encoders it runs",
 	capabilityDynamo:     "the DynamoDB client, its typed records, and a local development server",
 	capabilityRegistered: "the registered router: a route is a registration written in Go",
 	capabilityDiscovered: "the discovered router: a directory holding a page template is a route",
@@ -218,6 +224,11 @@ func (p projectState) carries(name string) (string, bool, error) {
 			return "popcornwave.toml", true, nil
 		}
 		return "", false, nil
+	case capabilityImages:
+		if p.config.Assets.Images {
+			return "popcornwave.toml", true, nil
+		}
+		return "", false, nil
 	case capabilityDiscovered:
 		// The purpose is the capability: a tree nothing generates from is not
 		// installed, whatever the directory holds.
@@ -302,6 +313,8 @@ func scaffoldOptionsOf(state projectState) (initOptions, error) {
 			options.Redis = true
 		case capabilityTailwind:
 			options.Tailwind = true
+		case capabilityImages:
+			options.Images = true
 		case capabilityDynamo:
 			options.Dynamo = true
 		case capabilityAuth:

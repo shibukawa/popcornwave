@@ -10,6 +10,7 @@ const (
 	TailwindMinifyOff = "PW0502"
 	StylesheetStale   = "PW0503"
 	PrecompressionOld = "PW0504"
+	ImageToolMissing  = "PW0505"
 )
 
 func init() {
@@ -37,10 +38,21 @@ func init() {
 		},
 		Check{
 			ID: PrecompressionOld, Group: GroupReadiness,
-			Title:    "a public asset is newer than its compressed sidecar",
+			Title:    "the built asset tree is older than what it was built from",
 			Severity: Warning, DevSeverity: Note, Scope: Deployed,
 			Inputs: ProjectFiles, Phase: Doctor,
-			Remedy: "run pw build, which writes the sidecars",
+			Remedy: "run pw build, which rebuilds dist/public and its manifest",
+		},
+		Check{
+			ID: ImageToolMissing, Group: GroupReadiness,
+			// A missing encoder costs bytes rather than correctness: the
+			// conversion declines and the authored image is served as it was
+			// written, so the build succeeds and the page works. That is a
+			// warning about a lost optimization, not a broken deployment.
+			Title:    "image conversion is enabled and no encoder is installed",
+			Severity: Warning, DevSeverity: Note, Scope: Deployed,
+			Inputs: ProjectFiles, Phase: Doctor,
+			Remedy: "run pw add images, or install the encoders it pins",
 		},
 	)
 }

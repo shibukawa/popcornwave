@@ -1,0 +1,44 @@
+<mxfile host="app.diagrams.net">
+  <diagram name="partial-update-sequence" id="partial-update-sequence">
+    <mxGraphModel dx="1400" dy="800" grid="0" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="0" pageScale="1" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <mxCell id="browser" value="Browser" style="rounded=0;html=1;fillColor=none;strokeColor=#8A94A6;strokeWidth=1.5;fontColor=#8A94A6;fontSize=13;fontStyle=1" vertex="1" parent="1"><mxGeometry x="40" y="40" width="190" height="44" as="geometry" /></mxCell>
+        <mxCell id="browser_life" style="endArrow=none;dashed=1;html=1;strokeColor=#8A94A6;strokeWidth=1" edge="1" parent="1"><mxGeometry relative="1" as="geometry"><mxPoint x="135.0" y="84" as="sourcePoint" /><mxPoint x="135.0" y="676" as="targetPoint" /></mxGeometry></mxCell>
+
+        <mxCell id="runtime" value="Runtime in the page" style="rounded=0;html=1;fillColor=none;strokeColor=#8A94A6;strokeWidth=1.5;fontColor=#8A94A6;fontSize=13;fontStyle=1" vertex="1" parent="1"><mxGeometry x="380" y="40" width="190" height="44" as="geometry" /></mxCell>
+        <mxCell id="runtime_life" style="endArrow=none;dashed=1;html=1;strokeColor=#8A94A6;strokeWidth=1" edge="1" parent="1"><mxGeometry relative="1" as="geometry"><mxPoint x="475.0" y="84" as="sourcePoint" /><mxPoint x="475.0" y="676" as="targetPoint" /></mxGeometry></mxCell>
+
+        <mxCell id="handler" value="Your handler" style="rounded=0;html=1;fillColor=none;strokeColor=#8A94A6;strokeWidth=1.5;fontColor=#8A94A6;fontSize=13;fontStyle=1" vertex="1" parent="1"><mxGeometry x="760" y="40" width="190" height="44" as="geometry" /></mxCell>
+        <mxCell id="handler_life" style="endArrow=none;dashed=1;html=1;strokeColor=#8A94A6;strokeWidth=1" edge="1" parent="1"><mxGeometry relative="1" as="geometry"><mxPoint x="855.0" y="84" as="sourcePoint" /><mxPoint x="855.0" y="676" as="targetPoint" /></mxGeometry></mxCell>
+
+        <mxCell id="label_doc" value="A request with no update header. The runtime is not involved at all." style="text;html=1;align=left;verticalAlign=middle;fillColor=none;strokeColor=none;fontColor=#4C8BF5;fontSize=13;fontStyle=1" vertex="1" parent="1"><mxGeometry x="40" y="104" width="620" height="24" as="geometry" /></mxCell>
+
+        <mxCell id="d1" value="GET /orders?sort=newest" style="endArrow=blockThin;endFill=1;html=1;dashed=0;strokeColor=#4C8BF5;strokeWidth=1.5;fontColor=#4C8BF5;fontSize=12;verticalAlign=bottom;labelBackgroundColor=none" edge="1" parent="1"><mxGeometry relative="1" as="geometry"><mxPoint x="135.0" y="156" as="sourcePoint" /><mxPoint x="855.0" y="156" as="targetPoint" /></mxGeometry></mxCell>
+
+        <mxCell id="d2" value="render the whole chain:&lt;br&gt;document shell, layout, page" style="rounded=1;arcSize=20;html=1;align=left;spacingLeft=10;fillColor=none;strokeColor=#4C8BF5;fontColor=#4C8BF5;fontSize=12" vertex="1" parent="1"><mxGeometry x="700" y="174" width="310" height="44" as="geometry" /></mxCell>
+
+        <mxCell id="d3" value="200 text/html — a whole document" style="endArrow=blockThin;endFill=1;html=1;dashed=0;strokeColor=#4C8BF5;strokeWidth=1.5;fontColor=#4C8BF5;fontSize=12;verticalAlign=bottom;labelBackgroundColor=none" edge="1" parent="1"><mxGeometry relative="1" as="geometry"><mxPoint x="855.0" y="250" as="sourcePoint" /><mxPoint x="135.0" y="250" as="targetPoint" /></mxGeometry></mxCell>
+
+        <mxCell id="d4" value="the browser parses it and&lt;br&gt;paints a new page" style="rounded=1;arcSize=20;html=1;align=left;spacingLeft=10;fillColor=none;strokeColor=#4C8BF5;fontColor=#4C8BF5;fontSize=12" vertex="1" parent="1"><mxGeometry x="20" y="268" width="290" height="44" as="geometry" /></mxCell>
+
+        <mxCell id="label_update" value="The same URL and the same handler. The headers are the only difference." style="text;html=1;align=left;verticalAlign=middle;fillColor=none;strokeColor=none;fontColor=#3FA46A;fontSize=13;fontStyle=1" vertex="1" parent="1"><mxGeometry x="40" y="356" width="660" height="24" as="geometry" /></mxCell>
+
+        <mxCell id="u1" value="a link or a GET form, intercepted" style="endArrow=blockThin;endFill=1;html=1;dashed=0;strokeColor=#3FA46A;strokeWidth=1.5;fontColor=#3FA46A;fontSize=12;verticalAlign=bottom;labelBackgroundColor=none" edge="1" parent="1"><mxGeometry relative="1" as="geometry"><mxPoint x="135.0" y="404" as="sourcePoint" /><mxPoint x="475.0" y="404" as="targetPoint" /></mxGeometry></mxCell>
+
+        <mxCell id="u2" value="GET /orders?sort=newest&lt;br&gt;Pw-Render: navigation · Pw-Manifest: c1:8Qv…" style="endArrow=blockThin;endFill=1;html=1;dashed=0;strokeColor=#3FA46A;strokeWidth=1.5;fontColor=#3FA46A;fontSize=12;verticalAlign=bottom;labelBackgroundColor=none" edge="1" parent="1"><mxGeometry relative="1" as="geometry"><mxPoint x="475.0" y="456" as="sourcePoint" /><mxPoint x="855.0" y="456" as="targetPoint" /></mxGeometry></mxCell>
+
+        <mxCell id="u3" value="the same handler, the same chain;&lt;br&gt;each region compared against the digests" style="rounded=1;arcSize=20;html=1;align=left;spacingLeft=10;fillColor=none;strokeColor=#3FA46A;fontColor=#3FA46A;fontSize=12" vertex="1" parent="1"><mxGeometry x="660" y="474" width="350" height="44" as="geometry" /></mxCell>
+
+        <mxCell id="u4" value="200 ndjson — replace #results, and nothing else" style="endArrow=blockThin;endFill=1;html=1;dashed=0;strokeColor=#3FA46A;strokeWidth=1.5;fontColor=#3FA46A;fontSize=12;verticalAlign=bottom;labelBackgroundColor=none" edge="1" parent="1"><mxGeometry relative="1" as="geometry"><mxPoint x="855.0" y="550" as="sourcePoint" /><mxPoint x="475.0" y="550" as="targetPoint" /></mxGeometry></mxCell>
+
+        <mxCell id="u5" value="swap #results into the live DOM" style="endArrow=blockThin;endFill=1;html=1;dashed=0;strokeColor=#3FA46A;strokeWidth=1.5;fontColor=#3FA46A;fontSize=12;verticalAlign=bottom;labelBackgroundColor=none" edge="1" parent="1"><mxGeometry relative="1" as="geometry"><mxPoint x="475.0" y="600" as="sourcePoint" /><mxPoint x="135.0" y="600" as="targetPoint" /></mxGeometry></mxCell>
+
+        <mxCell id="u6" value="the rest of the page is never touched:&lt;br&gt;focus, scroll and half-typed text survive" style="rounded=1;arcSize=20;html=1;align=left;spacingLeft=10;fillColor=none;strokeColor=#3FA46A;fontColor=#3FA46A;fontSize=12" vertex="1" parent="1"><mxGeometry x="20" y="618" width="350" height="44" as="geometry" /></mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

@@ -48,7 +48,7 @@ func declinedProject(t *testing.T) string {
 func TestCapabilityDetectionReadsTheProjectFiles(t *testing.T) {
 	full := writeScaffoldedProject(t, initOptions{
 		Name: "fixture", Router: routerBoth, TinyGo: true, Devbox: true, Database: true, Redis: true,
-		Dynamo: true, Tailwind: true, Auth: authOIDC, AuthEmulator: true,
+		Dynamo: true, Tailwind: true, Images: true, Auth: authOIDC, AuthEmulator: true,
 	})
 	state, err := loadProjectState(full)
 	if err != nil {
@@ -70,7 +70,7 @@ func TestCapabilityDetectionReadsTheProjectFiles(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := []string{capabilityDiscovered, capabilityDevbox, capabilityDatabase, capabilityDynamo, capabilityRedis, capabilityAuth, capabilityTailwind}
+	want := []string{capabilityDiscovered, capabilityDevbox, capabilityDatabase, capabilityDynamo, capabilityRedis, capabilityAuth, capabilityTailwind, capabilityImages}
 	if strings.Join(missing, ",") != strings.Join(want, ",") {
 		t.Fatalf("missing = %v, want %v", missing, want)
 	}
@@ -786,5 +786,51 @@ func TestAddAuthReachesTheScaffoldedEntryPoint(t *testing.T) {
 	}
 	if strings.Count(string(added), "handlers.RegisterAccounts()") != 1 {
 		t.Fatalf("RegisterAccounts appears more than once:\n%s", added)
+	}
+}
+
+// TestAddImagesReachesTheScaffoldedState covers the encoders being declared
+// rather than discovered: taking the capability writes the configuration and
+// the tool environment together, so a project cannot end up converting nothing
+// because a package was never added.
+func TestAddImagesReachesTheScaffoldedState(t *testing.T) {
+	root := writeScaffoldedProject(t, initOptions{Name: "fixture", TinyGo: true, Devbox: true, Auth: authNone})
+	state, err := loadProjectState(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	plan, err := planCapability(state, addOptions{Capability: capabilityImages})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(plan.appends["popcornwave.toml"], "[assets.images]") {
+		t.Errorf("popcornwave.toml append = %q", plan.appends["popcornwave.toml"])
+	}
+	devbox := plan.edits["devbox.json"]
+	for _, pkg := range imageDevboxPackages {
+		if !strings.Contains(devbox, pkg) {
+			t.Errorf("devbox.json is missing %s:\n%s", pkg, devbox)
+		}
+	}
+}
+
+// TestAddImagesWithoutDevboxNamesTheTools is the other environment: a project
+// installing its own toolchain gets the requirement in words, since a nixpkgs
+// package name means nothing to someone using Homebrew.
+func TestAddImagesWithoutDevboxNamesTheTools(t *testing.T) {
+	root := writeScaffoldedProject(t, initOptions{Name: "fixture", TinyGo: true, Auth: authNone})
+	state, err := loadProjectState(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	plan, err := planCapability(state, addOptions{Capability: capabilityImages})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := plan.edits["devbox.json"]; ok {
+		t.Error("a project with no devbox got a devbox edit")
+	}
+	if len(plan.manual) == 0 || !strings.Contains(strings.Join(plan.manual, " "), "cwebp") {
+		t.Errorf("plan.manual = %v", plan.manual)
 	}
 }

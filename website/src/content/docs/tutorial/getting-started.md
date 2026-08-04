@@ -287,7 +287,7 @@ Leave `pw dev` running. Edit `handlers/home.pw.html`:
 package handlers
 
 export component Home(name: string, project: string): html {
-  <h1 class="text-3xl font-bold">Hello, {name}</h1>
+  <h1 class="title">Hello, {name}</h1>
   <p>Served by Popcorn Wave.</p>
 }
 ```
@@ -306,7 +306,7 @@ happens. Rename the parameter:
 package handlers
 
 export component Home(visitor: string, project: string): html {
-  <h1 class="text-3xl font-bold">Hello, {visitor}</h1>
+  <h1 class="title">Hello, {visitor}</h1>
 }
 ```
 
