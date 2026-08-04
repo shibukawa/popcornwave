@@ -53,7 +53,24 @@ CREATE TABLE IF NOT EXISTS popcornwave_auth_bootstrap (
 	consumed_at TIMESTAMP
 );
 
+-- Tokens and identities withdrawn before their tokens expire. Only consulted
+-- when auth.mode is "jwt_only" and auth.jwt.revocation.mode is not "off". A row
+-- is a positive statement, so an unreachable table is an unknown rather than a
+-- "not revoked".
+CREATE TABLE IF NOT EXISTS popcornwave_auth_revocation (
+	issuer TEXT NOT NULL,
+	kind TEXT NOT NULL,
+	key_value TEXT NOT NULL,
+	revoked_at TIMESTAMP NOT NULL,
+	expires_at TIMESTAMP NOT NULL,
+	note TEXT NOT NULL DEFAULT '',
+	PRIMARY KEY (issuer, kind, key_value)
+);
+CREATE INDEX IF NOT EXISTS popcornwave_auth_revocation_expires
+	ON popcornwave_auth_revocation (expires_at);
+
 -- +goose Down
+DROP TABLE popcornwave_auth_revocation;
 DROP TABLE popcornwave_auth_bootstrap;
 DROP TABLE popcornwave_passkey_credential;
 DROP TABLE popcornwave_auth_allowlist;

@@ -37,6 +37,18 @@ type Identity struct {
 	KeyClaim string
 	Key      string
 	Claims   Claims
+	// TokenID is the verified jti of a bearer access token, and empty for a
+	// browser login. It names one token, which is what the token form of
+	// policy:token-revocation withdraws.
+	TokenID string
+	// IssuedAt and ExpiresAt are the verified iat and exp of a bearer access
+	// token, and zero for a browser login.
+	//
+	// IssuedAt is what a subject-form revocation compares against: a token
+	// minted after the identity was revoked is admitted, so revoking an
+	// identity ends its outstanding tokens without ending the identity.
+	IssuedAt  time.Time
+	ExpiresAt time.Time
 }
 
 // ClaimSubject is the default identity claim and the only one OpenID Connect
@@ -193,6 +205,16 @@ func lookupAccount(ctx context.Context, accountID string) (Account, error) {
 	return lookup(ctx, accountID)
 }
 
+// installedAccountResolver returns the application's resolver, or nil when it
+// installed none. It is distinct from accountResolver, which substitutes the
+// derived account: a caller that needs to know whether the application answered
+// cannot use a function that always answers.
+func installedAccountResolver() AccountResolver {
+	resolverState.RLock()
+	defer resolverState.RUnlock()
+	return resolverState.resolve
+}
+
 func accountResolver() AccountResolver {
 	resolverState.RLock()
 	defer resolverState.RUnlock()
@@ -295,9 +317,45 @@ func identityFrom(claims jwt.Claims, identityClaim string) Identity {
 	return identity
 }
 
+// admissionRule is the admission policy of whichever mode is asking.
+//
+// OIDC admission and bearer admission are the same decision reached by
+// different proofs: verification establishes who the caller is, and this decides
+// whether that identity may enter this application. Sharing the rule is what
+// keeps a deployment from having two answers to the same question.
+type admissionRule struct {
+	Admission        string
+	Claim            ClaimConfig
+	RegisteredClaims []string
+	AutoProvision    bool
+}
+
+func (c OIDCConfig) admissionRule() admissionRule {
+	return admissionRule{
+		Admission:        c.Admission,
+		Claim:            c.Claim,
+		RegisteredClaims: c.RegisteredClaims,
+		AutoProvision:    c.AutoProvision,
+	}
+}
+
+func (j JWTConfig) admissionRule() admissionRule {
+	return admissionRule{
+		Admission:        j.Admission,
+		Claim:            j.Claim,
+		RegisteredClaims: j.RegisteredClaims,
+		AutoProvision:    j.AutoProvision,
+	}
+}
+
 // admit applies policy:oidc-admission to an already verified identity. It runs
 // on every login, including one that resolves to an existing account.
 func admit(ctx context.Context, config OIDCConfig, allowlist Allowlist, identity Identity) (Account, error) {
+	return admitIdentity(ctx, config.admissionRule(), allowlist, identity)
+}
+
+// admitIdentity is the mode-neutral admission decision.
+func admitIdentity(ctx context.Context, config admissionRule, allowlist Allowlist, identity Identity) (Account, error) {
 	if identity.Issuer == "" || identity.Subject == "" || identity.Key == "" {
 		// No usable lookup key means no account can be identified, so nothing
 		// downstream may treat this login as a known person.

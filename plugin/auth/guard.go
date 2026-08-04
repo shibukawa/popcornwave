@@ -24,6 +24,11 @@ func (rt *runtime) guard(next http.Handler) http.Handler {
 		}
 		w.Header().Set("Cache-Control", "no-store")
 		if rt.config.Protection.Unauthenticated == UnauthenticatedUnauthorized {
+			if rt.config.usesJWT() {
+				// RFC 6750 asks a protected resource to name the scheme it
+				// accepts, so a client that sent nothing learns what to send.
+				w.Header().Set("WWW-Authenticate", `Bearer realm="`+rt.bearerRealm()+`"`)
+			}
 			pw.WriteProblem(w, r, pw.Unauthorized())
 			return
 		}
