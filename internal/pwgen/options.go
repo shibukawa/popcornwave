@@ -11,6 +11,14 @@ const (
 // Options builds the generator configuration. sqlDialect names the target
 // database for .pw.sql sources; it is required whenever the run discovers one,
 // because a silently assumed dialect emits placeholders the engine rejects.
+// The Popcorn Wave source suffixes. They are the generator's discovery globs
+// and the formatter's, so they live here rather than in either caller.
+const (
+	HTMLTemplatePattern   = "*.pw.html"
+	SQLTemplatePattern    = "*.pw.sql"
+	DynamoTemplatePattern = "*.pw.dynamo"
+)
+
 func Options(sqlDialect string) (generator.Options, error) {
 	registry := generator.NewCallRegistry()
 	patterns := []generator.CallPattern{
@@ -97,9 +105,9 @@ func Options(sqlDialect string) (generator.Options, error) {
 	// developer had written it, and its page registrations become documented API
 	// routes.
 	options.GeneratedHeaders = []string{GeneratedHeaderPrefix}
-	options.HTMLTemplatePattern = "*.pw.html"
-	options.SQLTemplatePattern = "*.pw.sql"
-	options.DynamoTemplatePattern = "*.pw.dynamo"
+	options.HTMLTemplatePattern = HTMLTemplatePattern
+	options.SQLTemplatePattern = SQLTemplatePattern
+	options.DynamoTemplatePattern = DynamoTemplatePattern
 	options.SQLDialect = sqlDialect
 	options.SQLContextOnlyAPI = true
 	options.SQLExecutorResolver = &generator.SymbolPattern{
