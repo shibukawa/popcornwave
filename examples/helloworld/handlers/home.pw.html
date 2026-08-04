@@ -1,30 +1,33 @@
 package handlers
 
 export component Home(count: int, envLabel: string, envLabelColor: string): html {
-<main class="mx-auto flex min-h-screen w-full max-w-5xl items-center px-6 py-16 sm:px-10">
-  <section class="relative w-full overflow-hidden rounded-[2rem] border border-white/70 bg-white/80 p-8 shadow-2xl shadow-indigo-200/60 backdrop-blur-xl sm:p-14">
-    <div class="absolute -right-20 -top-24 h-64 w-64 rounded-full bg-violet-300/30 blur-3xl"></div>
-    <div class="absolute -bottom-24 -left-16 h-56 w-56 rounded-full bg-sky-300/30 blur-3xl"></div>
-    <div class="relative">
-      <div class="flex flex-wrap items-center gap-3">
-        <span class="inline-flex items-center gap-2 rounded-full border border-indigo-100 bg-indigo-50 px-4 py-2 text-sm font-semibold text-indigo-700">
-          <span class="h-2 w-2 rounded-full bg-emerald-500"></span>
-          Popcorn Wave + SQLite
-        </span>
-        <span class="inline-flex items-center rounded-full px-4 py-2 text-sm font-bold uppercase tracking-[0.15em] text-white shadow-sm" style="background-color: {envLabelColor}">{envLabel}</span>
-      </div>
-      <h1 class="mt-8 text-5xl font-black tracking-tight text-slate-950 sm:text-7xl">
-        Hello, <span class="bg-gradient-to-r from-indigo-600 via-violet-600 to-sky-500 bg-clip-text text-transparent">World!</span>
-      </h1>
-      <p class="mt-6 max-w-2xl text-lg leading-8 text-slate-600">
-        A tiny server-rendered page composed from nested typed templates.
+  <main class="mx-auto flex min-h-screen w-full max-w-5xl items-center px-6 py-16 sm:px-10">
+    <section class="relative w-full overflow-hidden rounded-[2rem] border border-white/70 bg-white/80 p-8 shadow-2xl shadow-indigo-200/60 backdrop-blur-xl sm:p-14">
+      <div class="absolute -right-20 -top-24 h-64 w-64 rounded-full bg-violet-300/30 blur-3xl"></div>
+      <div class="absolute -bottom-24 -left-16 h-56 w-56 rounded-full bg-sky-300/30 blur-3xl"></div>
+      <div class="relative">
+        <div class="flex flex-wrap items-center gap-3">
+          <span class="inline-flex items-center gap-2 rounded-full border border-indigo-100 bg-indigo-50 px-4 py-2 text-sm font-semibold text-indigo-700">
+            <span class="h-2 w-2 rounded-full bg-emerald-500"></span>
+            Popcorn Wave + SQLite
+          </span>
+          <span
+            class="inline-flex items-center rounded-full px-4 py-2 text-sm font-bold uppercase tracking-[0.15em] text-white shadow-sm"
+            style="background-color: {envLabelColor}">{envLabel}</span>
+        </div>
+        <h1 class="mt-8 text-5xl font-black tracking-tight text-slate-950 sm:text-7xl">
+          Hello,
+          <span class="bg-gradient-to-r from-indigo-600 via-violet-600 to-sky-500 bg-clip-text text-transparent">World!</span>
+        </h1>
+        <p class="mt-6 max-w-2xl text-lg leading-8 text-slate-600">
+          A tiny server-rendered page composed from nested typed templates.
         Every visit is counted atomically in a local SQLite database.
-      </p>
-      <div class="mt-10 inline-flex items-center gap-4 rounded-2xl border border-slate-200 bg-slate-950 px-6 py-4 text-white shadow-lg shadow-slate-300">
-        <span class="text-sm font-medium uppercase tracking-[0.2em] text-slate-400">Page views</span>
-        <strong class="text-3xl font-black tabular-nums">{count}</strong>
+        </p>
+        <div class="mt-10 inline-flex items-center gap-4 rounded-2xl border border-slate-200 bg-slate-950 px-6 py-4 text-white shadow-lg shadow-slate-300">
+          <span class="text-sm font-medium uppercase tracking-[0.2em] text-slate-400">Page views</span>
+          <strong class="text-3xl font-black tabular-nums">{count}</strong>
+        </div>
       </div>
-    </div>
-  </section>
-</main>
+    </section>
+  </main>
 }
