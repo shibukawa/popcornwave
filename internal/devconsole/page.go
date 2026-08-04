@@ -104,6 +104,15 @@ var indexBody = template.Must(template.New("index").Parse(`
 {{end}}
 </div>
 
+<h2>API reference</h2>
+<div class="card">
+{{if .Project.APIDocURL}}<a href="{{.Project.APIDocURL}}">{{.Project.APIDocURL}}</a>
+<div class="muted">served by the application, so it answers while the application is running</div>
+{{else}}<span class="muted">the application serves no API documentation UI</span>
+{{if .Project.APIDocKey}}<div class="why muted">enable with <code>{{.Project.APIDocKey}}</code> in the runtime configuration</div>{{end}}
+{{end}}
+</div>
+
 <h2>Panes</h2>
 <ul class="panes">
 {{range .Panes}}<li>

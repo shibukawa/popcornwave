@@ -13,6 +13,11 @@ configuration: data:project-config dev.console.overlay
 state: data:dev-loop-state
 behavior: flow:dev-overlay-delivery
 runtime_class: decision:dev-browser-runtime-scope development class, delivered by the in-application exception it describes
+delivery:
+  switch: a disabled overlay injects no console address, so the framework serves no development module and the core carries no import of one
+  consequence: turning it off is what makes the served page byte-identical to a production render, rather than something the browser decides not to show
+  isolation: the overlay is rendered into a shadow root, so the application's stylesheet cannot restyle it and it cannot restyle the application
+  text: the diagnostic is written as text rather than markup, so a diagnostic quoting the developer's own HTML is read rather than run
 shows:
   - the phase that failed, named as api:cli-dev names it
   - the diagnostic text unchanged, because a reformatted compiler error is harder to read than the original
@@ -34,6 +39,8 @@ survives_the_application:
 reload:
   default: on, and disabled by dev.console.overlay.reload
   trigger: a transition to healthy whose build identity differs from the one the page was served under
+  learned: the page takes its build from the first record it receives rather than from anything rendered into the document, which keeps the framework injecting nothing into a page it does not own
+  window: an application replaced between the page being served and the stream connecting is not detected, which is a sub-second gap and costs a stale page rather than a wrong one
   rationale: a concept:classic-web-style page has no client state to preserve, so a full reload is the whole feature and costs nothing
   restraint: never reload while the loop is failing, because it would replace a readable diagnostic with a connection error
 non_goals:

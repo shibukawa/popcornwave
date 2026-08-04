@@ -58,9 +58,12 @@ type State struct {
 	Since      time.Time   `json:"since"`
 }
 
-// stateHolder keeps the current State. It is deliberately not a channel or a
-// log: readers want what is true now, and every one of them is willing to have
-// missed the transitions that got there.
+// stateHolder keeps the current State and wakes whoever is watching it.
+//
+// What it keeps is deliberately not a log: readers want what is true now, and
+// every one of them is willing to have missed the transitions that got there.
+// A subscriber that falls behind is therefore given the newest record rather
+// than a backlog, which is also why the channels are buffered to one.
 type stateHolder struct {
 	mutex   sync.RWMutex
 	current State
@@ -68,12 +71,46 @@ type stateHolder struct {
 	// page stale, so counting them is enough and a hash of anything would say
 	// no more.
 	build int
+	// watchers are woken on every transition. The map is keyed by the channel
+	// so that a subscriber can remove exactly its own without a second
+	// identifier.
+	watchers map[chan struct{}]struct{}
 }
 
 func (h *stateHolder) get() State {
 	h.mutex.RLock()
 	defer h.mutex.RUnlock()
 	return h.current
+}
+
+// watch returns a channel woken on each transition, and the function that stops
+// watching. The channel carries no value: a woken subscriber reads the current
+// state, which is the only thing it wanted.
+func (h *stateHolder) watch() (<-chan struct{}, func()) {
+	woken := make(chan struct{}, 1)
+	h.mutex.Lock()
+	if h.watchers == nil {
+		h.watchers = map[chan struct{}]struct{}{}
+	}
+	h.watchers[woken] = struct{}{}
+	h.mutex.Unlock()
+	return woken, func() {
+		h.mutex.Lock()
+		delete(h.watchers, woken)
+		h.mutex.Unlock()
+	}
+}
+
+// wake notifies every watcher without blocking on any of them. A watcher whose
+// buffer is already full has a wake-up pending and will read the newest state
+// when it gets there, so dropping this one loses nothing.
+func (h *stateHolder) wake() {
+	for woken := range h.watchers {
+		select {
+		case woken <- struct{}{}:
+		default:
+		}
+	}
 }
 
 // publish records a transition. A failed phase carries its diagnostic; every
@@ -92,6 +129,7 @@ func (h *stateHolder) publish(phase string, status Status, diagnostic *Diagnosti
 		Diagnostic: diagnostic,
 		Since:      now,
 	}
+	h.wake()
 	return h.current
 }
 

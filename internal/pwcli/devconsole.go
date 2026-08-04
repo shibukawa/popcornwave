@@ -23,14 +23,17 @@ func startDevConsole(root string, config projectConfig, telemetry *devTelemetryV
 	if !config.Console.Enabled {
 		return nil
 	}
+	server := readDevelopmentServer(root)
 	console, err := devconsole.New(
 		"127.0.0.1:"+strconv.Itoa(config.Console.Port),
 		devconsole.Project{
 			Name:           config.Name,
 			Environment:    developmentEnvironment(),
-			ApplicationURL: applicationURL(root),
+			ApplicationURL: server.URL,
+			APIDocURL:      server.APIDocURL(),
+			APIDocKey:      "server.api_doc",
 		},
-		devConsolePanes(root, config, telemetry),
+		devConsolePanes(root, config, server, telemetry),
 	)
 	if err != nil {
 		fmt.Fprintln(stderr, "pw dev: console:", err)
@@ -44,7 +47,7 @@ func startDevConsole(root string, config projectConfig, telemetry *devTelemetryV
 // disabled pane is listed with the key that would enable it rather than left
 // out, so a developer who expected a surface is told why it is missing instead
 // of wondering whether the version they run has it.
-func devConsolePanes(root string, config projectConfig, telemetry *devTelemetryViewer) []devconsole.Pane {
+func devConsolePanes(root string, config projectConfig, server developmentServer, telemetry *devTelemetryViewer) []devconsole.Pane {
 	panes := []devconsole.Pane{{
 		Slug:    "telemetry",
 		Title:   "telemetry",
@@ -70,7 +73,7 @@ func devConsolePanes(root string, config projectConfig, telemetry *devTelemetryV
 	if config.Console.Assets {
 		assets.Handler = devconsole.AssetPane(devconsole.AssetSource{
 			Root:            root,
-			Mount:           publicMount(root),
+			Mount:           server.PublicMount,
 			TailwindEnabled: config.Tailwind.Enabled,
 			TailwindInput:   config.Tailwind.Input,
 			TailwindOutput:  config.Tailwind.Output,
@@ -82,10 +85,14 @@ func devConsolePanes(root string, config projectConfig, telemetry *devTelemetryV
 	return append(panes, assets)
 }
 
-// envDevConsoleURL names the variable the application reads to find the
-// console. It matches pw.DevConsoleURLVar, which is declared in the pwdev half
-// of the framework and so cannot be referenced from a host build.
-const envDevConsoleURL = "PW_DEV_CONSOLE_URL"
+// The variables the application reads to find the console and to know whether
+// a recovered build should reload the page. They match pw.DevConsoleURLVar and
+// pw.DevConsoleReloadVar, which are declared in the pwdev half of the framework
+// and so cannot be referenced from a host build.
+const (
+	envDevConsoleURL    = "PW_DEV_CONSOLE_URL"
+	envDevConsoleReload = "PW_DEV_CONSOLE_RELOAD"
+)
 
 // consoleEnviron adds the resolved console address to the application
 // environment, preserving a value the developer already exported.
@@ -93,14 +100,23 @@ const envDevConsoleURL = "PW_DEV_CONSOLE_URL"
 // It is injected rather than configured for the same reason the OTLP endpoint
 // is: pw dev resolves the address at startup, and a project that wrote it down
 // would be committing a development port.
-func consoleEnviron(console *devconsole.Console, base []string) []string {
-	if console == nil {
+//
+// A disabled overlay injects nothing at all. That is what makes the page the
+// application serves byte-identical to a production render: with no address to
+// reach, the framework serves no development module and the core carries no
+// import of one, so there is nothing to turn off in the browser.
+func consoleEnviron(console *devconsole.Console, overlay, reload bool, base []string) []string {
+	if console == nil || !overlay {
 		return base
 	}
 	if value, ok := os.LookupEnv(envDevConsoleURL); ok && value != "" {
 		return base
 	}
-	return append(base, envDevConsoleURL+"="+console.URL())
+	base = append(base, envDevConsoleURL+"="+console.URL())
+	if !reload {
+		base = append(base, envDevConsoleReload+"=0")
+	}
+	return base
 }
 
 // developmentEnvironment is the APP_ENV the loop runs the application under,
@@ -112,43 +128,51 @@ func developmentEnvironment() string {
 	return pwenv.Development
 }
 
-// applicationURL reads the port the application is configured to listen on.
+// developmentServer is what the console could learn about the running
+// application by reading the project.
 //
-// This is a best-effort read of the development configuration file and not the
-// full resolution api:runtime-configuration performs: an environment variable
-// or a flag outranks the file and is not consulted here. An unreadable or
-// absent value returns the empty string, which the index reports as
-// undetermined rather than filling in with a default that may be wrong.
-func applicationURL(root string) string {
-	for _, name := range []string{
-		pwenv.FileName(pwenv.Development),
-		filepath.Join("config", pwenv.FileName(pwenv.Development)),
-	} {
-		source, err := os.ReadFile(filepath.Join(root, name))
-		if err != nil {
-			continue
-		}
-		document, err := minitoml.Parse(source)
-		if err != nil {
-			continue
-		}
-		value, ok := document.Get("server.port")
-		if !ok {
-			continue
-		}
-		port, err := value.AsInt()
-		if err != nil || port <= 0 || port > 65535 {
-			continue
-		}
-		return "http://localhost:" + strconv.FormatInt(port, 10)
-	}
-	return ""
+// Every field is best effort. This reads the development configuration file and
+// is not the full resolution api:runtime-configuration performs: an environment
+// variable or a flag outranks the file and is not consulted here. An
+// undetermined value stays empty, and the console says undetermined rather than
+// filling in a default that may be wrong.
+type developmentServer struct {
+	// URL is where the application listens, derived from server.port.
+	URL string
+	// PublicMount is server.public.mount, which the asset pane resolves each
+	// file's URL through.
+	PublicMount string
+	// APIDoc is server.api_doc: scalar, swagger, or empty when the application
+	// serves no documentation UI.
+	APIDoc string
+	// APIDocPath is server.api_doc_path. The default lives in the framework
+	// rather than here, so an absent key means the framework's default applies
+	// and the console can say which path that is.
+	APIDocPath string
 }
 
-// publicMount reads the configured public mount the same best-effort way, so
-// the asset pane can name the URL each file answers. An absent key means the
-// endpoint is not configured here, which the pane reports as undetermined.
-func publicMount(root string) string {
+// defaultAPIDocPath mirrors the framework default for server.api_doc_path. It
+// is duplicated rather than imported because the value belongs to the runtime
+// configuration a host build does not link, and a wrong link here would send
+// the developer to a 404 rather than fail loudly.
+const defaultAPIDocPath = "/docs"
+
+// APIDocURL is the absolute address of the documentation UI, or empty when the
+// application serves none or the console could not place it.
+func (s developmentServer) APIDocURL() string {
+	if s.APIDoc == "" || s.URL == "" {
+		return ""
+	}
+	path := s.APIDocPath
+	if path == "" {
+		path = defaultAPIDocPath
+	}
+	return s.URL + path
+}
+
+// readDevelopmentServer parses the development configuration once for every
+// value the console wants out of it.
+func readDevelopmentServer(root string) developmentServer {
 	for _, name := range []string{
 		pwenv.FileName(pwenv.Development),
 		filepath.Join("config", pwenv.FileName(pwenv.Development)),
@@ -161,11 +185,28 @@ func publicMount(root string) string {
 		if err != nil {
 			continue
 		}
-		if value, ok := document.Get("server.public.mount"); ok {
-			if mount, err := value.AsString(); err == nil && mount != "" {
-				return mount
+		server := developmentServer{}
+		if value, ok := document.Get("server.port"); ok {
+			if port, err := value.AsInt(); err == nil && port > 0 && port <= 65535 {
+				server.URL = "http://localhost:" + strconv.FormatInt(port, 10)
 			}
 		}
+		server.PublicMount = tomlString(document, "server.public.mount")
+		server.APIDoc = tomlString(document, "server.api_doc")
+		server.APIDocPath = tomlString(document, "server.api_doc_path")
+		return server
 	}
-	return ""
+	return developmentServer{}
+}
+
+func tomlString(document minitoml.Document, key string) string {
+	value, ok := document.Get(key)
+	if !ok {
+		return ""
+	}
+	text, err := value.AsString()
+	if err != nil {
+		return ""
+	}
+	return text
 }

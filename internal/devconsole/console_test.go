@@ -1,6 +1,7 @@
 package devconsole
 
 import (
+	"bufio"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -167,4 +168,116 @@ func TestNilConsoleToleratesEveryCall(t *testing.T) {
 	if console.URL() != "" || console.State().Phase != "" {
 		t.Error("a nil console answered as though it were running")
 	}
+}
+
+// The stream sends what is true now before it waits, so a page that connects
+// after the transition it cares about is still told about it.
+func TestStreamSendsTheCurrentStateBeforeWaiting(t *testing.T) {
+	console := startConsole(t)
+	console.Failed("generating", "undefined: Titel")
+
+	state := readStreamEvent(t, console, nil)
+	if state.Status != StatusFailed || state.Diagnostic == nil {
+		t.Fatalf("first event = %+v, want the failure already recorded", state)
+	}
+}
+
+func TestStreamPushesLaterTransitions(t *testing.T) {
+	console := startConsole(t)
+	console.Publish("starting services", StatusStarting, nil)
+
+	state := readStreamEvent(t, console, func() {
+		console.Failed("building CSS", "tailwindcss: exit status 1")
+	})
+	if state.Status != StatusFailed || state.Phase != "building CSS" {
+		t.Fatalf("pushed event = %+v, want the CSS failure", state)
+	}
+}
+
+// A page served by the application is a different origin to the console, so a
+// stream it cannot read is a stream that does not work.
+func TestStreamAllowsALoopbackOrigin(t *testing.T) {
+	console := startConsole(t)
+	request, err := http.NewRequest(http.MethodGet, console.URL()+"/api/loop-state/stream", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	request.Header.Set("Origin", "http://127.0.0.1:8080")
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer response.Body.Close()
+	if got := response.Header.Get("Access-Control-Allow-Origin"); got != "http://127.0.0.1:8080" {
+		t.Errorf("Access-Control-Allow-Origin = %q, want the loopback origin echoed", got)
+	}
+	if got := response.Header.Get("Content-Type"); !strings.HasPrefix(got, "text/event-stream") {
+		t.Errorf("Content-Type = %q, want an event stream", got)
+	}
+}
+
+func TestIndexLinksTheAPIDocumentationTheApplicationServes(t *testing.T) {
+	console, err := New("127.0.0.1:0", Project{
+		Name: "app", Environment: "dev",
+		ApplicationURL: "http://localhost:8080",
+		APIDocURL:      "http://localhost:8080/reference",
+		APIDocKey:      "server.api_doc",
+	}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(console.Close)
+	_, body := get(t, console.URL()+"/")
+	if !strings.Contains(body, "http://localhost:8080/reference") {
+		t.Errorf("the index never linked the documentation:\n%s", body)
+	}
+}
+
+func TestIndexNamesTheKeyWhenTheAPIDocumentationIsOff(t *testing.T) {
+	console, err := New("127.0.0.1:0", Project{
+		Name: "app", Environment: "dev", APIDocKey: "server.api_doc",
+	}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(console.Close)
+	_, body := get(t, console.URL()+"/")
+	if !strings.Contains(body, "server.api_doc") {
+		t.Errorf("the index never named the key that enables it:\n%s", body)
+	}
+}
+
+// readStreamEvent opens the stream, runs during if given, and returns the last
+// state the stream delivered.
+func readStreamEvent(t *testing.T, console *Console, during func()) State {
+	t.Helper()
+	response, err := http.Get(console.URL() + "/api/loop-state/stream")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { response.Body.Close() })
+	reader := bufio.NewReader(response.Body)
+	read := func() State {
+		for {
+			line, err := reader.ReadString('\n')
+			if err != nil {
+				t.Fatalf("read stream: %v", err)
+			}
+			payload, ok := strings.CutPrefix(strings.TrimSpace(line), "data: ")
+			if !ok {
+				continue
+			}
+			var state State
+			if err := json.Unmarshal([]byte(payload), &state); err != nil {
+				t.Fatalf("decode %q: %v", payload, err)
+			}
+			return state
+		}
+	}
+	first := read()
+	if during == nil {
+		return first
+	}
+	during()
+	return read()
 }

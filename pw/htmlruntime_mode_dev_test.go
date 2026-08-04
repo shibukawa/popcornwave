@@ -47,15 +47,50 @@ func TestDevelopmentModuleIsFetchable(t *testing.T) {
 	if !strings.Contains(body, developmentConsoleURL()) {
 		t.Error("the console address was not baked into the served module")
 	}
-	if !strings.Contains(body, "/api/loop-state") {
-		t.Error("the module does not read the loop state")
+	if !strings.Contains(body, "/api/loop-state/stream") {
+		t.Error("the module does not subscribe to the loop state stream")
+	}
+}
+
+// The overlay renders the diagnostic as text and the module never builds markup
+// out of it, so a diagnostic quoting the developer's own HTML is read rather
+// than run.
+func TestOverlayWritesTheDiagnosticAsText(t *testing.T) {
+	module := developmentModule("http://127.0.0.1:18081", true)
+	if strings.Contains(module, "innerHTML") {
+		t.Error("the overlay assigns innerHTML somewhere")
+	}
+	if !strings.Contains(module, "text.textContent = state.diagnostic") {
+		t.Error("the diagnostic is not written as text")
+	}
+}
+
+func TestReloadSwitchReachesTheModule(t *testing.T) {
+	if !strings.Contains(developmentModule("http://c", true), "reloadOnRecovery = true") {
+		t.Error("reload was not enabled in the module")
+	}
+	if !strings.Contains(developmentModule("http://c", false), "reloadOnRecovery = false") {
+		t.Error("reload was not disabled in the module")
+	}
+}
+
+func TestReloadIsOnUnlessTurnedOff(t *testing.T) {
+	t.Setenv(DevConsoleReloadVar, "")
+	if !developmentReload() {
+		t.Error("an unset variable disabled reload")
+	}
+	for _, off := range []string{"0", "false"} {
+		t.Setenv(DevConsoleReloadVar, off)
+		if developmentReload() {
+			t.Errorf("%q did not disable reload", off)
+		}
 	}
 }
 
 // The address is quoted as JSON rather than concatenated, so a value carrying a
 // quote cannot close the string and continue as code.
 func TestConsoleAddressIsQuotedIntoTheModule(t *testing.T) {
-	module := developmentModule(`http://x"+alert(1)+"`)
+	module := developmentModule(`http://x"+alert(1)+"`, true)
 	if strings.Contains(module, `"+alert(1)+"`) {
 		t.Errorf("the address was spliced in unquoted:\n%s", module)
 	}

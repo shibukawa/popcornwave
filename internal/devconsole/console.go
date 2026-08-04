@@ -51,6 +51,17 @@ type Project struct {
 	// not determine it. The index reports an undetermined value as
 	// undetermined rather than printing a default that may be wrong.
 	ApplicationURL string
+	// APIDocURL is the documentation UI the application already serves, at the
+	// path its configuration puts it. The console links it rather than
+	// rendering the specification itself: a second renderer would be a second
+	// thing to keep current with the same document, and a link cannot disagree
+	// with what the application serves.
+	//
+	// Empty means the endpoint is off, or that its path could not be resolved.
+	APIDocURL string
+	// APIDocKey names the configuration key that turns the endpoint on, for the
+	// index to quote when there is no URL to link.
+	APIDocKey string
 }
 
 // Console is the listener, the panes mounted on it, and the current loop state.
@@ -87,6 +98,7 @@ func (c *Console) routes() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /{$}", c.index)
 	mux.HandleFunc("GET /api/loop-state", c.loopState)
+	mux.HandleFunc("GET /api/loop-state/stream", c.loopStateStream)
 	for _, pane := range c.panes {
 		if !pane.Enabled() {
 			continue
@@ -163,6 +175,57 @@ func (c *Console) loopState(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Cache-Control", "no-store")
 	_ = json.NewEncoder(w).Encode(c.state.get())
+}
+
+// loopStateStream pushes the current state and then every transition.
+//
+// The stream terminates here rather than at the application, which is the whole
+// point of it: a page keeps being told what the loop is doing while the process
+// that served it is stopped, which is exactly when a developer wants to know.
+func (c *Console) loopStateStream(w http.ResponseWriter, r *http.Request) {
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		http.Error(w, "streaming unsupported", http.StatusInternalServerError)
+		return
+	}
+	allowLoopbackOrigin(w, r)
+	header := w.Header()
+	header.Set("Content-Type", "text/event-stream")
+	header.Set("Cache-Control", "no-store")
+	// The console is reached directly on loopback, but a proxy between them
+	// would otherwise buffer the stream into uselessness.
+	header.Set("X-Accel-Buffering", "no")
+	w.WriteHeader(http.StatusOK)
+
+	woken, stop := c.state.watch()
+	defer stop()
+	// The first record goes out before anything is awaited, so a page that
+	// connects after the transition it cares about is still told about it.
+	if !writeStateEvent(w, flusher, c.state.get()) {
+		return
+	}
+	for {
+		select {
+		case <-r.Context().Done():
+			return
+		case <-woken:
+			if !writeStateEvent(w, flusher, c.state.get()) {
+				return
+			}
+		}
+	}
+}
+
+func writeStateEvent(w http.ResponseWriter, flusher http.Flusher, state State) bool {
+	encoded, err := json.Marshal(state)
+	if err != nil {
+		return false
+	}
+	if _, err := fmt.Fprintf(w, "data: %s\n\n", encoded); err != nil {
+		return false
+	}
+	flusher.Flush()
+	return true
 }
 
 // allowLoopbackOrigin lets a page served by the application read this response.

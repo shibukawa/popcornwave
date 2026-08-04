@@ -17,6 +17,13 @@ import (
 // issuer.
 const DevConsoleURLVar = "PW_DEV_CONSOLE_URL"
 
+// DevConsoleReloadVar carries the reload half of the overlay configuration. It
+// is a second variable rather than a field in the state record, because whether
+// to reload is configuration and the record describes what the loop did.
+//
+// Absent means enabled, so only a project that turned it off sets it.
+const DevConsoleReloadVar = "PW_DEV_CONSOLE_RELOAD"
+
 // developmentModuleName is the capability module the core imports under pwdev.
 const developmentModuleName = "dev.js"
 
@@ -50,25 +57,31 @@ func developmentScripts() map[string]string {
 	if console == "" {
 		return nil
 	}
-	return map[string]string{developmentModuleName: developmentModule(console)}
+	return map[string]string{developmentModuleName: developmentModule(console, developmentReload())}
 }
 
 func developmentConsoleURL() string {
 	return strings.TrimSpace(os.Getenv(DevConsoleURLVar))
 }
 
-// developmentModule is the pwdev-only browser module.
+// developmentReload reads the reload switch, which is on unless turned off.
+func developmentReload() bool {
+	switch strings.TrimSpace(os.Getenv(DevConsoleReloadVar)) {
+	case "0", "false":
+		return false
+	}
+	return true
+}
+
+// developmentModule is the pwdev-only browser module: the error overlay and the
+// reload that clears it.
 //
 // The console address is baked into the bytes rather than read from markup,
 // because the address is known when the module is served and markup would mean
 // the framework injecting into a document it does not own. Baking it in also
 // means the revision moves when the console moves, which is correct: they are
 // one deployment as far as a cached module is concerned.
-//
-// What this module does today is read the loop state once. The overlay that
-// renders it, and the stream that replaces this fetch, arrive with their own
-// step; this is the loading mechanism they land on.
-func developmentModule(console string) string {
+func developmentModule(console string, reload bool) string {
 	address, err := json.Marshal(console)
 	if err != nil {
 		// The value came from the environment as a string, so encoding it
@@ -76,24 +89,125 @@ func developmentModule(console string) string {
 		// with an unquoted address spliced into it.
 		return ""
 	}
-	return `// Popcorn Wave development module. Served only under the pwdev build mode,
+	reloadLiteral := "false"
+	if reload {
+		reloadLiteral = "true"
+	}
+	return `// Popcorn Wave development overlay. Served only under the pwdev build mode,
 // and never present in a binary pw build produced.
 
-const console_ = ` + string(address) + `;
+const consoleURL = ` + string(address) + `;
+const reloadOnRecovery = ` + reloadLiteral + `;
 
-export async function loopState() {
-	const response = await fetch(console_ + "/api/loop-state", { cache: "no-store" });
-	if (!response.ok) throw new Error("loop state: " + response.status);
-	return await response.json();
+const overlayID = "pw-dev-overlay";
+
+// pageBuild is the application the page in front of us came from. It is learned
+// from the first record rather than rendered into the document, because the
+// framework injects nothing into a page it does not own.
+let pageBuild = null;
+
+function removeOverlay() {
+	const existing = document.getElementById(overlayID);
+	if (existing) existing.remove();
 }
 
-// The state is published on the document rather than returned, because the
-// module is imported for its effect and nothing awaits it.
-loopState().then(state => {
+function showOverlay(state) {
+	removeOverlay();
+	const host = document.createElement("div");
+	host.id = overlayID;
+	// A shadow root so the application's stylesheet cannot restyle the
+	// overlay and the overlay cannot restyle the application.
+	const root = host.attachShadow({ mode: "open" });
+	const style = document.createElement("style");
+	style.textContent = ` + "`" + `
+:host { all: initial; }
+.sheet { position: fixed; inset: 0; z-index: 2147483647; overflow: auto;
+  background: #12100fee; color: #f5f2f0; padding: 2.5rem 2rem;
+  font: 14px/1.6 ui-monospace, SFMono-Regular, Menlo, monospace; }
+.frame { max-width: 60rem; margin: 0 auto; }
+.what { color: #f2b8b5; font-weight: 700; letter-spacing: .04em;
+  text-transform: uppercase; font-size: 12px; }
+.phase { font-size: 1.25rem; margin: .3rem 0 1.2rem; font-family: ui-sans-serif, system-ui, sans-serif; }
+pre { background: #00000055; border: 1px solid #ffffff1f; border-radius: 6px;
+  padding: 1rem; overflow-x: auto; white-space: pre-wrap; margin: 0; }
+.where { margin-top: 1rem; color: #b9b2ad; }
+a { color: #9fd0ff; }
+` + "`" + `;
+	const sheet = document.createElement("div");
+	sheet.className = "sheet";
+	const frame = document.createElement("div");
+	frame.className = "frame";
+
+	const what = document.createElement("div");
+	what.className = "what";
+	what.textContent = "pw dev — " + (state.status === "failed" ? "failed" : state.status);
+	const phase = document.createElement("div");
+	phase.className = "phase";
+	phase.textContent = state.phase || "";
+	const text = document.createElement("pre");
+	// textContent, so a diagnostic quoting the developer's own markup is read
+	// as the text it is.
+	text.textContent = state.diagnostic ? state.diagnostic.text : "";
+	frame.append(what, phase, text);
+
+	if (state.diagnostic && state.diagnostic.file) {
+		const where = document.createElement("div");
+		where.className = "where";
+		const link = document.createElement("a");
+		const line = state.diagnostic.line || 1;
+		link.href = "vscode://file/" + state.diagnostic.file + ":" + line;
+		link.textContent = state.diagnostic.file + ":" + line;
+		where.append("open ", link);
+		frame.append(where);
+	}
+
+	const console_ = document.createElement("div");
+	console_.className = "where";
+	const consoleLink = document.createElement("a");
+	consoleLink.href = consoleURL;
+	consoleLink.textContent = consoleURL;
+	console_.append("console ", consoleLink);
+	frame.append(console_);
+
+	sheet.append(frame);
+	root.append(style, sheet);
+	(document.body || document.documentElement).append(host);
+}
+
+function apply(state) {
+	if (state.status === "failed") {
+		showOverlay(state);
+		return;
+	}
+	removeOverlay();
+	if (state.status !== "healthy" || !state.build) return;
+	if (pageBuild === null) {
+		pageBuild = state.build;
+		return;
+	}
+	// A different application is serving than the one this page came from, so
+	// what is on screen is stale. Nothing here holds client state worth
+	// preserving, which is what makes a full reload the whole feature.
+	if (state.build !== pageBuild && reloadOnRecovery) {
+		pageBuild = state.build;
+		location.reload();
+	}
+}
+
+// The stream terminates at the console, never at the application, so the
+// overlay survives the process that served the page. EventSource reconnects on
+// its own, which is what a page open across a restart needs.
+const stream = new EventSource(consoleURL + "/api/loop-state/stream");
+stream.onmessage = event => {
+	let state;
+	try {
+		state = JSON.parse(event.data);
+	} catch {
+		return;
+	}
 	window.__pwDevLoopState = state;
+	apply(state);
 	window.dispatchEvent(new CustomEvent("pw:loop-state", { detail: state }));
-}).catch(error => {
-	window.__pwDevLoopStateError = String(error);
-});
+};
 `
 }

@@ -242,7 +242,7 @@ func main() {
 	stdout, stderr := &bytes.Buffer{}, &bytes.Buffer{}
 	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 	defer cancel()
-	app, exited, err := startApplication(ctx, root, "./cmd/app", nil, telemetry, nil, stdout, stderr)
+	app, exited, err := startApplication(ctx, root, "./cmd/app", nil, telemetry, nil, false, false, stdout, stderr)
 	if err != nil {
 		t.Fatalf("start application: %v", err)
 	}

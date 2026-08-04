@@ -99,7 +99,7 @@ func runDev(ctx context.Context, args []string, stdout, stderr io.Writer) error 
 		return err
 	}
 	report.Phase("building and starting the application")
-	app, exited, err := startApplication(ctx, root, config.Main, idp, telemetry, console, stdout, stderr)
+	app, exited, err := startApplication(ctx, root, config.Main, idp, telemetry, console, config.Console.Overlay, config.Console.Reload, stdout, stderr)
 	// The region gives way here: everything after this point is the application
 	// and its services talking, which is the scrollback the loop exists to show.
 	report.Done()
@@ -197,7 +197,7 @@ func runDev(ctx context.Context, args []string, stdout, stderr io.Writer) error 
 			}
 			state, _ = watchSnapshot(root, config, tailwind == nil)
 			report.Phase("building and starting the application")
-			app, exited, err = startApplication(ctx, root, config.Main, idp, telemetry, console, stdout, stderr)
+			app, exited, err = startApplication(ctx, root, config.Main, idp, telemetry, console, config.Console.Overlay, config.Console.Reload, stdout, stderr)
 			if err != nil {
 				fmt.Fprintln(stderr, "pw dev:", err)
 				report.Failed(err)
@@ -210,14 +210,14 @@ func runDev(ctx context.Context, args []string, stdout, stderr io.Writer) error 
 	}
 }
 
-func startApplication(ctx context.Context, root, mainPackage string, idp *devIdentityProvider, telemetry *devTelemetryViewer, console *devconsole.Console, stdout, stderr io.Writer) (*exec.Cmd, <-chan error, error) {
+func startApplication(ctx context.Context, root, mainPackage string, idp *devIdentityProvider, telemetry *devTelemetryViewer, console *devconsole.Console, overlay, reload bool, stdout, stderr io.Writer) (*exec.Cmd, <-chan error, error) {
 	// Not CommandContext: its cancellation kills this process the moment the
 	// interrupt arrives, and a kill is the one signal `go run` cannot pass down
 	// to the binary it compiled. The loop stops the application through
 	// stopCommand instead, which addresses the whole group and waits.
 	command := exec.Command("go", "run", "-tags=pwdev", mainPackage)
 	command.Dir, command.Stdout, command.Stderr, command.Stdin = root, stdout, stderr, os.Stdin
-	command.Env = consoleEnviron(console, telemetry.environ(idp.environ(developmentEnviron())))
+	command.Env = consoleEnviron(console, overlay, reload, telemetry.environ(idp.environ(developmentEnviron())))
 	ownProcessGroup(command)
 	if err := command.Start(); err != nil {
 		return nil, nil, err

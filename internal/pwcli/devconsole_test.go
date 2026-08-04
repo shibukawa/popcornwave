@@ -188,31 +188,105 @@ func TestAssetPaneUsesTheBuildEligibilityTest(t *testing.T) {
 	}
 }
 
-func TestApplicationURLComesFromTheDevelopmentConfig(t *testing.T) {
+func TestDevelopmentServerComesFromTheDevelopmentConfig(t *testing.T) {
 	root := writeProject(t, map[string]string{
 		"popcornwave.toml": consoleProject,
-		"config.dev.toml":  "[server]\nport = 9123\n",
+		"config.dev.toml": "[server]\nport = 9123\napi_doc = \"scalar\"\napi_doc_path = \"/reference\"\n" +
+			"[server.public]\nmount = \"/static\"\n",
 	})
-	if url := applicationURL(root); url != "http://localhost:9123" {
-		t.Errorf("applicationURL = %q, want the configured port", url)
+	server := readDevelopmentServer(root)
+	if server.URL != "http://localhost:9123" {
+		t.Errorf("URL = %q, want the configured port", server.URL)
+	}
+	if server.PublicMount != "/static" {
+		t.Errorf("PublicMount = %q, want the configured mount", server.PublicMount)
+	}
+	// The path is configuration, so a console that hardcoded /docs would send
+	// the developer to a 404 in every project that moved it.
+	if url := server.APIDocURL(); url != "http://localhost:9123/reference" {
+		t.Errorf("APIDocURL = %q, want the moved path", url)
+	}
+}
+
+// An absent path means the framework default applies, and the console says
+// which path that is rather than leaving the link out.
+func TestAPIDocFallsBackToTheFrameworkDefaultPath(t *testing.T) {
+	root := writeProject(t, map[string]string{
+		"popcornwave.toml": consoleProject,
+		"config.dev.toml":  "[server]\nport = 8080\napi_doc = \"scalar\"\n",
+	})
+	if url := readDevelopmentServer(root).APIDocURL(); url != "http://localhost:8080/docs" {
+		t.Errorf("APIDocURL = %q, want the default path", url)
+	}
+}
+
+// An application serving no documentation UI gets no link, and the index says
+// which key would turn it on.
+func TestAPIDocIsEmptyWhenTheEndpointIsOff(t *testing.T) {
+	root := writeProject(t, map[string]string{
+		"popcornwave.toml": consoleProject,
+		"config.dev.toml":  "[server]\nport = 8080\n",
+	})
+	if url := readDevelopmentServer(root).APIDocURL(); url != "" {
+		t.Errorf("APIDocURL = %q, want none", url)
 	}
 }
 
 // An address pw could not read is left empty, so the index says undetermined
 // rather than printing a default that may be wrong.
-func TestApplicationURLIsEmptyWhenUnreadable(t *testing.T) {
-	if url := applicationURL(writeProject(t, map[string]string{"popcornwave.toml": consoleProject})); url != "" {
-		t.Errorf("applicationURL = %q, want an empty string", url)
+func TestDevelopmentServerIsEmptyWhenUnreadable(t *testing.T) {
+	server := readDevelopmentServer(writeProject(t, map[string]string{"popcornwave.toml": consoleProject}))
+	if server.URL != "" || server.PublicMount != "" || server.APIDocURL() != "" {
+		t.Errorf("server = %+v, want every value undetermined", server)
 	}
 }
 
-func TestPublicMountComesFromTheDevelopmentConfig(t *testing.T) {
-	root := writeProject(t, map[string]string{
-		"popcornwave.toml": consoleProject,
-		"config.dev.toml":  "[server.public]\nmount = \"/static\"\n",
+// A disabled overlay injects no address, which is what leaves the served page
+// byte-identical to a production render: with nothing to reach, the framework
+// serves no development module and the core carries no import of one.
+func TestOverlayInjectionFollowsTheConfiguration(t *testing.T) {
+	root := writeProject(t, map[string]string{"popcornwave.toml": consoleProject})
+	config, _ := loadProjectConfig(root)
+	stdout, stderr := &bytes.Buffer{}, &bytes.Buffer{}
+	console := startDevConsole(root, config, nil, stdout, stderr)
+	if console == nil {
+		t.Fatalf("the console did not start:\n%s", stderr)
+	}
+	t.Cleanup(console.Close)
+
+	on := strings.Join(consoleEnviron(console, true, true, nil), " ")
+	if !strings.Contains(on, envDevConsoleURL+"="+console.URL()) {
+		t.Errorf("environ = %q, want the console address", on)
+	}
+	if strings.Contains(on, envDevConsoleReload) {
+		t.Errorf("environ = %q, want no reload variable when reload is on", on)
+	}
+	if noReload := strings.Join(consoleEnviron(console, true, false, nil), " "); !strings.Contains(noReload, envDevConsoleReload+"=0") {
+		t.Errorf("environ = %q, want reload turned off", noReload)
+	}
+	if off := consoleEnviron(console, false, true, nil); len(off) != 0 {
+		t.Errorf("environ = %v, want nothing injected with the overlay off", off)
+	}
+}
+
+func TestOverlaySwitchesDefaultOnAndParse(t *testing.T) {
+	root := writeProject(t, map[string]string{"popcornwave.toml": consoleProject})
+	config, err := loadProjectConfig(root)
+	if err != nil {
+		t.Fatalf("load: %v", err)
+	}
+	if !config.Console.Overlay || !config.Console.Reload {
+		t.Errorf("overlay=%v reload=%v, want both on by default", config.Console.Overlay, config.Console.Reload)
+	}
+	root = writeProject(t, map[string]string{
+		"popcornwave.toml": consoleProject + "\n[dev.console.overlay]\nenabled = false\nreload = false\n",
 	})
-	if mount := publicMount(root); mount != "/static" {
-		t.Errorf("publicMount = %q, want the configured mount", mount)
+	config, err = loadProjectConfig(root)
+	if err != nil {
+		t.Fatalf("load: %v", err)
+	}
+	if config.Console.Overlay || config.Console.Reload {
+		t.Errorf("overlay=%v reload=%v, want both off", config.Console.Overlay, config.Console.Reload)
 	}
 }
 

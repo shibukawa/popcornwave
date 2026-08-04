@@ -86,6 +86,13 @@ type consoleConfig struct {
 	// Assets enables the static asset pane. Each pane has a key of its own so
 	// that turning one off is not turning the console off.
 	Assets bool
+	// Overlay puts the loop's failures over the pages the application serves.
+	// Turning it off is what makes a development page byte-identical to a
+	// production one, because nothing is served to load.
+	Overlay bool
+	// Reload reloads a page whose application has been replaced. It only
+	// applies where the overlay is already attached.
+	Reload bool
 }
 
 // generationScope records, per generation purpose, the directories pw generate
@@ -173,6 +180,7 @@ func loadProjectConfig(root string) (projectConfig, error) {
 		"dev.idp.enabled", "dev.idp.config", "dev.idp.port",
 		"dev.otel.enabled", "dev.otel.port", "dev.otel.max",
 		"dev.console.enabled", "dev.console.port", "dev.console.assets.enabled",
+		"dev.console.overlay.enabled", "dev.console.overlay.reload",
 		"migration.dir", "migration.auto",
 		"assets.tailwind.enabled", "assets.tailwind.input",
 		"assets.tailwind.output", "assets.tailwind.minify",
@@ -279,6 +287,8 @@ func loadProjectConfig(root string) (projectConfig, error) {
 	}
 	config.Console.Enabled = true
 	config.Console.Assets = true
+	config.Console.Overlay = true
+	config.Console.Reload = true
 	config.Console.Port = defaultConsolePort
 	if value, ok := document.Get("dev.console.enabled"); ok {
 		config.Console.Enabled, err = value.AsBool()
@@ -290,6 +300,18 @@ func loadProjectConfig(root string) (projectConfig, error) {
 		config.Console.Assets, err = value.AsBool()
 		if err != nil {
 			return projectConfig{}, fmt.Errorf("popcornwave.toml: dev.console.assets.enabled: %w", err)
+		}
+	}
+	if value, ok := document.Get("dev.console.overlay.enabled"); ok {
+		config.Console.Overlay, err = value.AsBool()
+		if err != nil {
+			return projectConfig{}, fmt.Errorf("popcornwave.toml: dev.console.overlay.enabled: %w", err)
+		}
+	}
+	if value, ok := document.Get("dev.console.overlay.reload"); ok {
+		config.Console.Reload, err = value.AsBool()
+		if err != nil {
+			return projectConfig{}, fmt.Errorf("popcornwave.toml: dev.console.overlay.reload: %w", err)
 		}
 	}
 	if value, ok := document.Get("dev.console.port"); ok {

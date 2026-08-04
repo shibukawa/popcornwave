@@ -17,7 +17,8 @@ subscription:
   loaded_by: the requirement:framework-script-assets core, which dynamically imports the dev module under pwdev per decision:dev-browser-runtime-scope
   address: the console URL, baked into the module bytes the framework serves, because api:cli-dev already injects that URL into the application process
   cross_origin: the application and the console are different loopback ports, so the console answers the loopback origin; nothing else may subscribe
-  reconnect: back off and retry, because a console restart is not a page reload; the shape requirement:live-connection-recovery already defines is reused rather than reinvented
+  transport: an event stream on the console, which reconnects on its own; that is what a page open across an application restart needs, and requirement:live-connection-recovery defines the same shape for the application's own stream
+  first_record: the current state is sent before the stream waits, so a page that connects after the transition it cares about is still told about it
 failure:
   console_unreachable: the page keeps its last overlay and retries; it never blanks a readable diagnostic on a transport failure
   stream_unsupported: no overlay, and no other behavior changes
