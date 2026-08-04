@@ -251,7 +251,7 @@ engines = ["sqlite"]
 | --- | --- |
 | `module` | *(required)* the Go module path, which must match `go.mod` |
 | `summary` | one line, shown when `pw add` reports the package |
-| `import` | the package path an application links, when it differs from the module root |
+| `import` | the package path an application links, when it differs from the module root; omitting it where the root holds no Go is `PW0144` |
 | `requires.capabilities` | project capabilities the package needs, such as `database` |
 | `requires.engines` | the SQL engines the package supports; empty means it touches no SQL |
 | `generated_with.pw`, `generated_with.tinybind` | the versions that produced the committed artifacts |

@@ -102,7 +102,7 @@ sidebar:
 - **深刻度**: error
 - **対象**: すべての環境
 - **読むもの**: マージ済み設定、プロジェクトのファイル
-- **直し方**: run go get for the module, or remove the packages entry
+- **直し方**: run go get for the module, then pw generate before go mod tidy — tidy drops a declaration nothing imports yet
 
 ### PW0141: a linked module publishes a package this project never declared
 
@@ -117,6 +117,13 @@ sidebar:
 - **対象**: すべての環境
 - **読むもの**: マージ済み設定、プロジェクトのファイル
 - **直し方**: upgrade this project's Popcorn Wave, or pin the package to a version generated against it
+
+### PW0144: a declared package has no Go package at its import path
+
+- **深刻度**: error
+- **対象**: すべての環境
+- **読むもの**: マージ済み設定、プロジェクトのファイル
+- **直し方**: the package's manifest needs package.import naming the path that holds its Go, unless the module root holds it
 
 ## ルートとテンプレート (PW02xx)
 

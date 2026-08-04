@@ -291,3 +291,47 @@ config = []
 		t.Fatalf("the existing document was rewritten:\n%s", updated)
 	}
 }
+
+// TestPackageHasGoAnswersTheCompilersQuestion covers the check behind PW0144.
+// A package whose Go lives below its module root has to say so in
+// package.import; without it the generated bootstrap imports a path that holds
+// nothing, and the build fails with a message naming neither the declaration
+// nor the key.
+func TestPackageHasGoAnswersTheCompilersQuestion(t *testing.T) {
+	packageDir := t.TempDir()
+	writeWidgetPackage(t, packageDir)
+	// Move the Go out of the module root, which is the shape that breaks.
+	if err := os.MkdirAll(filepath.Join(packageDir, "ui"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Rename(filepath.Join(packageDir, "widget.go"), filepath.Join(packageDir, "ui", "widget.go")); err != nil {
+		t.Fatal(err)
+	}
+	writeTestFile(t, filepath.Join(packageDir, "ui", "widget.go"), "package ui\n")
+	root := t.TempDir()
+	consumingProject(t, root, packageDir)
+
+	ctx := context.Background()
+	if packageHasGo(ctx, root, "example.com/widget") {
+		t.Fatal("the module root reported a Go package it does not hold")
+	}
+	if !packageHasGo(ctx, root, "example.com/widget/ui") {
+		t.Fatal("the path holding the Go reported no package")
+	}
+}
+
+// TestResolvedPackageImportPathFollowsTheManifest is the other half: the import
+// the bootstrap writes comes from the manifest when it names one.
+func TestResolvedPackageImportPathFollowsTheManifest(t *testing.T) {
+	root := resolvedPackage{Module: "example.com/widget", Manifest: packageManifest{Module: "example.com/widget"}}
+	if got := root.ImportPath(); got != "example.com/widget" {
+		t.Fatalf("ImportPath = %q", got)
+	}
+	nested := resolvedPackage{
+		Module:   "example.com/widget",
+		Manifest: packageManifest{Module: "example.com/widget", Import: "example.com/widget/ui"},
+	}
+	if got := nested.ImportPath(); got != "example.com/widget/ui" {
+		t.Fatalf("ImportPath = %q", got)
+	}
+}

@@ -114,6 +114,7 @@ const (
 	PackageNotResolved    = "PW0140"
 	PackageNotDeclared    = "PW0141"
 	PackageGeneratorNewer = "PW0143"
+	PackageImportMissing  = "PW0144"
 )
 
 func init() {
@@ -123,7 +124,11 @@ func init() {
 			Title:    "a declared package is not in the module graph",
 			Severity: Error, DevSeverity: Error, Scope: Every,
 			Inputs: ProjectFiles | Config, Phase: Doctor,
-			Remedy: "run go get for the module, or remove the packages entry",
+			// go mod tidy run before the first pw generate drops a declared
+			// module, because nothing imports it until generation writes the
+			// blank import. That is the common way to arrive here, and it is
+			// not obvious from the module graph alone.
+			Remedy: "run go get for the module, then pw generate before go mod tidy — tidy drops a declaration nothing imports yet",
 		},
 		Check{
 			ID: PackageNotDeclared, Group: GroupProject,
@@ -144,6 +149,16 @@ func init() {
 			// Its committed artifacts may call a runtime entry this version does
 			// not have, which is a compile error worth naming in advance.
 			Remedy: "upgrade this project's Popcorn Wave, or pin the package to a version generated against it",
+		},
+		Check{
+			ID: PackageImportMissing, Group: GroupProject,
+			Title:    "a declared package has no Go package at its import path",
+			Severity: Error, DevSeverity: Error, Scope: Every,
+			Inputs: ProjectFiles | Config, Phase: Doctor,
+			// Generation blank-imports that path, so the build fails with the Go
+			// tool's "no required module provides package", which names neither
+			// the declaration nor the manifest key that decides the path.
+			Remedy: "the package's manifest needs package.import naming the path that holds its Go, unless the module root holds it",
 		},
 	)
 }

@@ -113,6 +113,33 @@ func mustSub(root fs.FS, dir string) fs.FS {
 ルートはアプリケーションが呼ぶ公開関数 `Register` を通ります。ここで登録したもの
 が単独でリクエストに応えることはありません。
 
+パッケージの Go がモジュールルートより下 — たとえば `ui/` ディレクトリ — にある
+場合は、`package.import` でそのパスを指す必要があります。利用側の生成された
+ブートストラップが import するのはこのパスだからです。
+
+```toml
+[package]
+module = "example.com/widget"
+import = "example.com/widget/ui"
+```
+
+書き忘れると、Go の無い場所を import することになり、利用側のビルドは Go ツールの
+`no required module provides package` で落ちます。このメッセージは宣言のことも
+このキーのことも教えてくれません。そうなる前に
+[`pw doctor`](/ja/pw/project/doctor/) が `PW0144` として報告します。
+
+### 生成はここで、一度だけ走る
+
+パッケージでの `pw generate` は、アプリケーションでの実行とまったく同じものです。
+同じジェネレータが同じオプションで、`.pw.html` をソースの隣の `_pw_gen.go` に
+コンパイルします。パッケージ用のモードはありません。
+
+ひとつだけ引っかかる点があります。生成コードはテンプレートランタイムを直接
+import するので、一度生成すると**パッケージの `go.mod` は `tinybind-go` を直接
+依存として要求します**。最初の生成のあとに `go mod tidy` を走らせれば自動で入り
+ますが、これは実装の詳細ではなく、公開する依存集合の一部です。import している
+のは、あなたがコミットした生成物そのものだからです。
+
 ### 生成ファイルはここではコミットする
 
 反転するのはこの 1 点だけです。アプリケーションでは `_pw_gen.go` は git が無視し、
@@ -162,6 +189,22 @@ package セクションを持ちながら宣言されていないモジュール
 ままです。[`pw doctor`](/ja/pw/project/doctor/) はそれを報告します — 推移的依存が
 資産とスキーマを持ち込んでくるのは、名指しする価値のある驚きだからです — が、
 リンクは何もしません。
+
+### `go mod tidy` との順序に注意
+
+宣言したばかりのパッケージは、生成が import を書くまで誰も import していません。
+そして `go mod tidy` は、誰も import していない require を削除します。順序はこう
+です。
+
+```sh
+go get example.com/widget   # pw add がやってくれることでもある
+pw generate                 # blank import を書く
+go mod tidy
+```
+
+先に tidy すると require が消えるので、次の `pw generate` は
+`packages "example.com/widget": not in the module graph` で止まります。`pw add`
+はこの順序で動きます。罠になるのは、宣言を手で書いたときです。
 
 ### 宣言が肩代わりできない 1 行
 

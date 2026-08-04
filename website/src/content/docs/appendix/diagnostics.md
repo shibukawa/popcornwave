@@ -103,7 +103,7 @@ Whether the project's declared shape, its toolchain, and its generated artifacts
 - **Severity**: error
 - **Applies to**: every environment
 - **Reads**: merged configuration, project files
-- **Fix**: run go get for the module, or remove the packages entry
+- **Fix**: run go get for the module, then pw generate before go mod tidy — tidy drops a declaration nothing imports yet
 
 ### PW0141: a linked module publishes a package this project never declared
 
@@ -118,6 +118,13 @@ Whether the project's declared shape, its toolchain, and its generated artifacts
 - **Applies to**: every environment
 - **Reads**: merged configuration, project files
 - **Fix**: upgrade this project's Popcorn Wave, or pin the package to a version generated against it
+
+### PW0144: a declared package has no Go package at its import path
+
+- **Severity**: error
+- **Applies to**: every environment
+- **Reads**: merged configuration, project files
+- **Fix**: the package's manifest needs package.import naming the path that holds its Go, unless the module root holds it
 
 ## Routes and templates (PW02xx)
 

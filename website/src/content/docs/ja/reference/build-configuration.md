@@ -245,7 +245,7 @@ engines = ["sqlite"]
 | --- | --- |
 | `module` | *(必須)* Go のモジュールパス。`go.mod` と一致していること |
 | `summary` | 1 行。`pw add` がパッケージを表示するときに使う |
-| `import` | モジュールルートと異なる場合に、アプリケーションがリンクするパッケージパス |
+| `import` | モジュールルートと異なる場合に、アプリケーションがリンクするパッケージパス。ルートに Go が無いのに省略すると `PW0144` |
 | `requires.capabilities` | パッケージが必要とするプロジェクト機能。`database` など |
 | `requires.engines` | 対応する SQL エンジン。空なら SQL に触れない |
 | `generated_with.pw`、`generated_with.tinybind` | コミット済み生成物を作ったバージョン |
