@@ -1,0 +1,149 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "Popcorn Wave DynamoDB",
+  "scopeName": "source.pw.dynamo",
+  "comment": "A .pw.dynamo file: the shared declaration header of source.pw, plus statement declarations whose bodies are a clause list. The body is deliberately not SQL, so no source.sql scope appears anywhere in this grammar.",
+  "patterns": [
+    {
+      "include": "#declaration"
+    },
+    {
+      "include": "source.pw#header"
+    }
+  ],
+  "repository": {
+    "declaration": {
+      "begin": "(?:\\b(export)\\s+)?\\b(statement)\\s+([A-Za-z_][A-Za-z0-9_]*)",
+      "beginCaptures": {
+        "1": {
+          "name": "storage.modifier.pw"
+        },
+        "2": {
+          "name": "keyword.declaration.pw"
+        },
+        "3": {
+          "name": "entity.name.function.pw"
+        }
+      },
+      "end": "(?<=\\})",
+      "patterns": [
+        {
+          "include": "#body"
+        },
+        {
+          "include": "source.pw#parameter-list"
+        },
+        {
+          "include": "source.pw#return-type"
+        },
+        {
+          "include": "source.pw#comments"
+        }
+      ]
+    },
+
+    "body": {
+      "begin": "\\{",
+      "beginCaptures": {
+        "0": {
+          "name": "punctuation.definition.block.begin.pw"
+        }
+      },
+      "end": "\\}",
+      "endCaptures": {
+        "0": {
+          "name": "punctuation.definition.block.end.pw"
+        }
+      },
+      "contentName": "meta.embedded.block.dynamo.pw",
+      "patterns": [
+        {
+          "include": "#clauses"
+        }
+      ]
+    },
+
+    "clauses": {
+      "patterns": [
+        {
+          "include": "source.pw#comments"
+        },
+        {
+          "include": "#table-clause"
+        },
+        {
+          "include": "#clause-keyword"
+        },
+        {
+          "include": "source.pw#template-forms"
+        },
+        {
+          "include": "#operator"
+        },
+        {
+          "include": "#literal"
+        },
+        {
+          "name": "variable.other.attribute.pw",
+          "match": "\\b[A-Za-z_][A-Za-z0-9_]*\\b"
+        },
+        {
+          "name": "punctuation.terminator.clause.pw",
+          "match": ";"
+        }
+      ]
+    },
+
+    "table-clause": {
+      "comment": "The table clause is required in every declaration and names a logical table, not a deployed one.",
+      "match": "\\b(table)\\s+([A-Za-z_][A-Za-z0-9_.-]*)",
+      "captures": {
+        "1": {
+          "name": "keyword.other.clause.pw"
+        },
+        "2": {
+          "name": "entity.name.table.pw"
+        }
+      }
+    },
+
+    "clause-keyword": {
+      "comment": "The body grammar is closed: table and key are the only clauses, and filter is recognized by name so it can be rejected. Nothing else is a keyword here, so nothing else may be colored as one.",
+      "name": "keyword.other.clause.pw",
+      "match": "\\b(key|filter)\\b"
+    },
+
+    "operator": {
+      "patterns": [
+        {
+          "name": "keyword.operator.logical.pw",
+          "match": "\\b(and)\\b"
+        },
+        {
+          "name": "keyword.operator.comparison.pw",
+          "match": "\\b(between|begins_with)\\b"
+        },
+        {
+          "name": "keyword.operator.comparison.pw",
+          "match": "(<=|>=|=|<|>)"
+        }
+      ]
+    },
+
+    "literal": {
+      "patterns": [
+        {
+          "include": "source.pw#string"
+        },
+        {
+          "name": "constant.numeric.pw",
+          "match": "\\b\\d+\\b"
+        },
+        {
+          "name": "constant.language.pw",
+          "match": "\\b(true|false)\\b"
+        }
+      ]
+    }
+  }
+}

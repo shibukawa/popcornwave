@@ -1,0 +1,144 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "Popcorn Wave SQL",
+  "scopeName": "source.pw.sql",
+  "comment": "A .pw.sql file: the shared declaration header of source.pw, plus statement declarations whose bodies are SQL with template insertions. SQL literals, quoted identifiers, comments, and dollar-quoted strings are matched before any template form, because the sqlbind parser does not read template syntax inside them.",
+  "patterns": [
+    {
+      "include": "#declaration"
+    },
+    {
+      "include": "source.pw#header"
+    }
+  ],
+  "repository": {
+    "declaration": {
+      "begin": "(?:\\b(export)\\s+)?\\b(statement)\\s+([A-Za-z_][A-Za-z0-9_]*)",
+      "beginCaptures": {
+        "1": {
+          "name": "storage.modifier.pw"
+        },
+        "2": {
+          "name": "keyword.declaration.pw"
+        },
+        "3": {
+          "name": "entity.name.function.pw"
+        }
+      },
+      "end": "(?<=\\})",
+      "patterns": [
+        {
+          "include": "#body"
+        },
+        {
+          "include": "source.pw#parameter-list"
+        },
+        {
+          "include": "source.pw#return-type"
+        },
+        {
+          "include": "source.pw#comments"
+        }
+      ]
+    },
+
+    "body": {
+      "begin": "\\{",
+      "beginCaptures": {
+        "0": {
+          "name": "punctuation.definition.block.begin.pw"
+        }
+      },
+      "end": "\\}",
+      "endCaptures": {
+        "0": {
+          "name": "punctuation.definition.block.end.pw"
+        }
+      },
+      "contentName": "meta.embedded.block.sql",
+      "patterns": [
+        {
+          "include": "#sql"
+        }
+      ]
+    },
+
+    "sql": {
+      "comment": "Guards first, then template forms, then general SQL.",
+      "patterns": [
+        {
+          "include": "#sql-comment"
+        },
+        {
+          "include": "#sql-dollar-quoted"
+        },
+        {
+          "include": "#sql-string"
+        },
+        {
+          "include": "#sql-quoted-identifier"
+        },
+        {
+          "include": "source.pw#template-forms"
+        },
+        {
+          "include": "source.sql"
+        }
+      ]
+    },
+
+    "sql-comment": {
+      "patterns": [
+        {
+          "name": "comment.line.double-dash.sql",
+          "match": "--.*$"
+        },
+        {
+          "name": "comment.block.sql",
+          "begin": "/\\*",
+          "end": "\\*/"
+        }
+      ]
+    },
+
+    "sql-string": {
+      "name": "string.quoted.single.sql",
+      "begin": "'",
+      "end": "'(?!')",
+      "patterns": [
+        {
+          "name": "constant.character.escape.sql",
+          "match": "''"
+        }
+      ]
+    },
+
+    "sql-quoted-identifier": {
+      "patterns": [
+        {
+          "name": "string.quoted.double.sql",
+          "begin": "\"",
+          "end": "\"(?!\")",
+          "patterns": [
+            {
+              "name": "constant.character.escape.sql",
+              "match": "\"\""
+            }
+          ]
+        },
+        {
+          "name": "string.quoted.other.backtick.sql",
+          "begin": "`",
+          "end": "`"
+        }
+      ]
+    },
+
+    "sql-dollar-quoted": {
+      "comment": "PostgreSQL $tag$ ... $tag$; the body is opaque to both SQL and template syntax.",
+      "name": "string.quoted.other.dollar.sql",
+      "begin": "(\\$)([A-Za-z_][A-Za-z0-9_]*)?(\\$)",
+      "end": "(\\$)(\\2)?(\\$)"
+    }
+  }
+}
