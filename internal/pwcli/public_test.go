@@ -265,3 +265,30 @@ func TestGeneratedManifestIsValidGo(t *testing.T) {
 		t.Fatalf("generated manifest does not parse: %v", err)
 	}
 }
+
+// TestBuildDerivedAssetsShipsWhatIsStaged pins the contract the staging
+// directory has with generation: everything found there reaches the served
+// tree, which is why generation clears it before writing.
+//
+// Without that, a file produced for a source since deleted would keep being
+// copied in, with a manifest entry and a URL, on every build after the source
+// was gone.
+func TestBuildDerivedAssetsShipsWhatIsStaged(t *testing.T) {
+	root := derivedFixture(t)
+	writeNestedTestFile(t, filepath.Join(root, filepath.FromSlash(derivedStageDir), "js", "orphan.js"), "console.log(1)")
+
+	if _, err := buildDerivedAssets(root, assetsConfig{}); err != nil {
+		t.Fatal(err)
+	}
+	served := filepath.Join(root, filepath.FromSlash(derivedPublicDir), "js", "orphan.js")
+	if _, err := os.Stat(served); err != nil {
+		t.Fatalf("a staged file did not reach the tree: %v", err)
+	}
+	manifest, err := os.ReadFile(filepath.Join(root, assetManifestFile))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(manifest), `{URL: "js/orphan.js"`) {
+		t.Errorf("manifest missing the staged file:\n%s", manifest)
+	}
+}

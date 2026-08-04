@@ -80,8 +80,21 @@ func generateProject(ctx context.Context, check bool, stdout io.Writer, listPath
 	// after it. The produced files are staged outside the served tree, which is
 	// what lets that tree be cleared and rebuilt without deleting them.
 	if hooks := assetReferenceHooks(root, config.Assets); len(hooks) > 0 {
+		staging := filepath.Join(root, filepath.FromSlash(derivedStageDir))
+		if !check {
+			// The staging directory is cleared first, because the asset build
+			// copies everything it finds there into the served tree. A file
+			// produced for a source that has since been deleted would otherwise
+			// keep being shipped, with a manifest entry and a URL, forever.
+			//
+			// Clearing it costs nothing: the conversion cache is separate, so a
+			// run replays its outcomes instead of re-encoding them.
+			if err := os.RemoveAll(staging); err != nil {
+				return 0, fmt.Errorf("clear %s: %w", derivedStageDir, err)
+			}
+		}
 		options.ReferenceHooks = hooks
-		options.DerivedAssetDir = filepath.Join(root, filepath.FromSlash(derivedStageDir))
+		options.DerivedAssetDir = staging
 		options.ConversionCacheDir = filepath.Join(root, filepath.FromSlash(conversionCacheDir))
 		options.ConversionWorkers = conversionWorkers()
 	}
