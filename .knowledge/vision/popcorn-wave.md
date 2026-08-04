@@ -28,4 +28,5 @@ acceptance: requirement:mvp-acceptance
 authoritative_experience: requirement:application-user-experience
 runtime_expansion: vision:contrib
 application_styles: vision:web-application-styles
+editor_experience: vision:editor-support
 ```

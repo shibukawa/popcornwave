@@ -10,8 +10,10 @@
 {"category": "interface", "id": "api:cli-build", "path": ".knowledge/api/cli-build.md", "role": "primary", "title": "pw build", "type": "api"}
 {"category": "interface", "id": "api:cli-dev", "path": ".knowledge/api/cli-dev.md", "role": "primary", "title": "pw dev", "type": "api"}
 {"category": "interface", "id": "api:cli-doctor", "path": ".knowledge/api/cli-doctor.md", "role": "primary", "title": "pw doctor", "type": "api"}
+{"category": "interface", "id": "api:cli-fmt", "path": ".knowledge/api/cli-fmt.md", "role": "primary", "title": "pw fmt", "type": "api"}
 {"category": "interface", "id": "api:cli-generate", "path": ".knowledge/api/cli-generate.md", "role": "primary", "title": "pw generate", "type": "api"}
 {"category": "interface", "id": "api:cli-init", "path": ".knowledge/api/cli-init.md", "role": "primary", "title": "pw init", "type": "api"}
+{"category": "interface", "id": "api:cli-lsp", "path": ".knowledge/api/cli-lsp.md", "role": "primary", "title": "pw lsp", "type": "api"}
 {"category": "interface", "id": "api:cli-migrate", "path": ".knowledge/api/cli-migrate.md", "role": "primary", "title": "pw migrate", "type": "api"}
 {"category": "interface", "id": "api:cli-new", "path": ".knowledge/api/cli-new.md", "role": "primary", "title": "pw new", "type": "api"}
 {"category": "interface", "id": "api:cli-seed", "path": ".knowledge/api/cli-seed.md", "role": "primary", "title": "pw seed", "type": "api"}
@@ -64,6 +66,7 @@
 {"category": "concept", "id": "concept:page-tree", "path": ".knowledge/concept/page-tree.md", "role": "supporting", "title": "Page Tree", "type": "concept"}
 {"category": "concept", "id": "concept:project-layout", "path": ".knowledge/concept/project-layout.md", "role": "supporting", "title": "Generated Project Layout", "type": "concept"}
 {"category": "concept", "id": "concept:public-package-boundaries", "path": ".knowledge/concept/public-package-boundaries.md", "role": "supporting", "title": "Public Package Boundaries", "type": "concept"}
+{"category": "concept", "id": "concept:template-source-dialects", "path": ".knowledge/concept/template-source-dialects.md", "role": "supporting", "title": "Popcorn Wave Source Dialects", "type": "concept"}
 {"category": "structure", "id": "data:account-bootstrap-credential", "path": ".knowledge/data/account-bootstrap-credential.md", "role": "supporting", "title": "Account Bootstrap Credential", "type": "data"}
 {"category": "structure", "id": "data:auth-state-record", "path": ".knowledge/data/auth-state-record.md", "role": "supporting", "title": "Authentication State Record", "type": "data"}
 {"category": "structure", "id": "data:authentication-runtime-config", "path": ".knowledge/data/authentication-runtime-config.md", "role": "supporting", "title": "Authentication Runtime Config", "type": "data"}
@@ -131,7 +134,9 @@
 {"category": "constraint", "id": "decision:executor-seam-instrumentation", "path": ".knowledge/decision/executor-seam-instrumentation.md", "role": "supporting", "title": "Executor Seam Instrumentation", "type": "decision"}
 {"category": "constraint", "id": "decision:explicit-generation-sources", "path": ".knowledge/decision/explicit-generation-sources.md", "role": "supporting", "title": "Explicit Generation Sources", "type": "decision"}
 {"category": "constraint", "id": "decision:explicit-transaction-boundary", "path": ".knowledge/decision/explicit-transaction-boundary.md", "role": "supporting", "title": "Explicit Transaction Boundary", "type": "decision"}
+{"category": "constraint", "id": "decision:extension-in-repository", "path": ".knowledge/decision/extension-in-repository.md", "role": "supporting", "title": "Extension Lives in the Framework Repository", "type": "decision"}
 {"category": "constraint", "id": "decision:force-tinygo-logic", "path": ".knowledge/decision/force-tinygo-logic.md", "role": "supporting", "title": "Forced TinyGo Logic Build Tag", "type": "decision"}
+{"category": "constraint", "id": "decision:formatter-delivery", "path": ".knowledge/decision/formatter-delivery.md", "role": "supporting", "title": "Formatter Delivery to the Editor", "type": "decision"}
 {"category": "constraint", "id": "decision:fragment-head-rejection", "path": ".knowledge/decision/fragment-head-rejection.md", "role": "supporting", "title": "Fragment Head Rejection", "type": "decision"}
 {"category": "constraint", "id": "decision:goose-migration-engine", "path": ".knowledge/decision/goose-migration-engine.md", "role": "supporting", "title": "Statically Linked goose Engine", "type": "decision"}
 {"category": "constraint", "id": "decision:grouped-database-connections", "path": ".knowledge/decision/grouped-database-connections.md", "role": "supporting", "title": "Grouped Database Connections", "type": "decision"}
@@ -142,6 +147,7 @@
 {"category": "constraint", "id": "decision:import-registered-session-plugins", "path": ".knowledge/decision/import-registered-session-plugins.md", "role": "supporting", "title": "Import-Registered Session Plugins", "type": "decision"}
 {"category": "constraint", "id": "decision:independent-runtime-config-bindings", "path": ".knowledge/decision/independent-runtime-config-bindings.md", "role": "supporting", "title": "Independent Runtime Config Bindings", "type": "decision"}
 {"category": "constraint", "id": "decision:interactive-project-bootstrap", "path": ".knowledge/decision/interactive-project-bootstrap.md", "role": "supporting", "title": "Interactive Project Bootstrap", "type": "decision"}
+{"category": "constraint", "id": "decision:language-server-in-pw-cli", "path": ".knowledge/decision/language-server-in-pw-cli.md", "role": "supporting", "title": "Language Server Inside the pw CLI", "type": "decision"}
 {"category": "constraint", "id": "decision:layered-web-runtime", "path": ".knowledge/decision/layered-web-runtime.md", "role": "supporting", "title": "Layered Web Runtime", "type": "decision"}
 {"category": "constraint", "id": "decision:live-delivery-transport", "path": ".knowledge/decision/live-delivery-transport.md", "role": "supporting", "title": "Live Deliveries On The Page Route", "type": "decision"}
 {"category": "constraint", "id": "decision:local-tls-proxy-boundary", "path": ".knowledge/decision/local-tls-proxy-boundary.md", "role": "supporting", "title": "Local TLS Proxy Boundary", "type": "decision"}
@@ -164,10 +170,13 @@
 {"category": "constraint", "id": "decision:test-authentication-seams", "path": ".knowledge/decision/test-authentication-seams.md", "role": "supporting", "title": "Test Authentication Seams", "type": "decision"}
 {"category": "constraint", "id": "decision:test-migration-snapshot", "path": ".knowledge/decision/test-migration-snapshot.md", "role": "supporting", "title": "Test Migration Snapshot", "type": "decision"}
 {"category": "constraint", "id": "decision:testutil-testing-interface", "path": ".knowledge/decision/testutil-testing-interface.md", "role": "supporting", "title": "testutil TestingT Interface", "type": "decision"}
+{"category": "constraint", "id": "decision:textmate-grammar-first", "path": ".knowledge/decision/textmate-grammar-first.md", "role": "supporting", "title": "Highlight Without a Server First", "type": "decision"}
 {"category": "constraint", "id": "decision:tinybind-sql-runtime", "path": ".knowledge/decision/tinybind-sql-runtime.md", "role": "supporting", "title": "TinyBind SQL Plan Runtime", "type": "decision"}
+{"category": "constraint", "id": "decision:tinybind-v03-adoption", "path": ".knowledge/decision/tinybind-v03-adoption.md", "role": "supporting", "title": "Adopting TinyBind v0.3", "type": "decision"}
 {"category": "constraint", "id": "decision:tinygo-042-baseline", "path": ".knowledge/decision/tinygo-042-baseline.md", "role": "supporting", "title": "TinyGo 0.42 Baseline", "type": "decision"}
 {"category": "constraint", "id": "decision:tinygo-storage-direction", "path": ".knowledge/decision/tinygo-storage-direction.md", "role": "supporting", "title": "TinyGo Storage Direction", "type": "decision"}
 {"category": "constraint", "id": "decision:unhandled-boundary-escalation", "path": ".knowledge/decision/unhandled-boundary-escalation.md", "role": "supporting", "title": "Unhandled Boundary Escalation", "type": "decision"}
+{"category": "constraint", "id": "decision:vscode-first-editor-target", "path": ".knowledge/decision/vscode-first-editor-target.md", "role": "supporting", "title": "VS Code as the First Editor Target", "type": "decision"}
 {"category": "constraint", "id": "decision:wasi-http-deferred", "path": ".knowledge/decision/wasi-http-deferred.md", "role": "supporting", "title": "Defer WASI HTTP Adapter", "type": "decision"}
 {"category": "constraint", "id": "decision:web-runtime-delivery-order", "path": ".knowledge/decision/web-runtime-delivery-order.md", "role": "supporting", "title": "Web Runtime Delivery Order", "type": "decision"}
 {"category": "behavior", "id": "flow:capability-addition", "path": ".knowledge/flow/capability-addition.md", "role": "primary", "title": "Capability Addition Flow", "type": "flow"}
@@ -214,6 +223,7 @@
 {"category": "constraint", "id": "policy:csrf-protection", "path": ".knowledge/policy/csrf-protection.md", "role": "supporting", "title": "CSRF Protection", "type": "policy"}
 {"category": "constraint", "id": "policy:devidp-safety", "path": ".knowledge/policy/devidp-safety.md", "role": "supporting", "title": "Development IdP Safety Policy", "type": "policy"}
 {"category": "constraint", "id": "policy:dynamodb-migration-safety", "path": ".knowledge/policy/dynamodb-migration-safety.md", "role": "supporting", "title": "DynamoDB Migration Safety", "type": "policy"}
+{"category": "constraint", "id": "policy:editor-tool-execution", "path": ".knowledge/policy/editor-tool-execution.md", "role": "supporting", "title": "Editor Tool Execution Safety", "type": "policy"}
 {"category": "constraint", "id": "policy:generated-artifacts", "path": ".knowledge/policy/generated-artifacts.md", "role": "supporting", "title": "Generated Artifact Ownership", "type": "policy"}
 {"category": "constraint", "id": "policy:jwt-security", "path": ".knowledge/policy/jwt-security.md", "role": "supporting", "title": "JWT Security Policy", "type": "policy"}
 {"category": "constraint", "id": "policy:layered-cache", "path": ".knowledge/policy/layered-cache.md", "role": "supporting", "title": "Layered Web Cache", "type": "policy"}
@@ -286,7 +296,14 @@
 {"category": "objective", "id": "requirement:dynamodb-test-data", "path": ".knowledge/requirement/dynamodb-test-data.md", "role": "primary", "title": "DynamoDB Seeding And Assertion", "type": "requirement"}
 {"category": "objective", "id": "requirement:dynamodb-test-isolation", "path": ".knowledge/requirement/dynamodb-test-isolation.md", "role": "primary", "title": "Isolated DynamoDB Tests", "type": "requirement"}
 {"category": "objective", "id": "requirement:dynamodb-typed-queries", "path": ".knowledge/requirement/dynamodb-typed-queries.md", "role": "primary", "title": "Declared DynamoDB Queries", "type": "requirement"}
+{"category": "objective", "id": "requirement:editor-completion", "path": ".knowledge/requirement/editor-completion.md", "role": "primary", "title": "Template Completion", "type": "requirement"}
+{"category": "objective", "id": "requirement:editor-diagnostics", "path": ".knowledge/requirement/editor-diagnostics.md", "role": "primary", "title": "In-Editor Diagnostics", "type": "requirement"}
+{"category": "objective", "id": "requirement:editor-formatting", "path": ".knowledge/requirement/editor-formatting.md", "role": "primary", "title": "Editor Formatting", "type": "requirement"}
+{"category": "objective", "id": "requirement:editor-language-registration", "path": ".knowledge/requirement/editor-language-registration.md", "role": "primary", "title": "Editor Language Registration", "type": "requirement"}
+{"category": "objective", "id": "requirement:editor-navigation", "path": ".knowledge/requirement/editor-navigation.md", "role": "primary", "title": "Cross-Language Navigation", "type": "requirement"}
+{"category": "objective", "id": "requirement:editor-tasks", "path": ".knowledge/requirement/editor-tasks.md", "role": "primary", "title": "Editor Commands and Tasks", "type": "requirement"}
 {"category": "objective", "id": "requirement:environment-switching", "path": ".knowledge/requirement/environment-switching.md", "role": "primary", "title": "Environment Switching", "type": "requirement"}
+{"category": "objective", "id": "requirement:extension-distribution", "path": ".knowledge/requirement/extension-distribution.md", "role": "primary", "title": "Extension Distribution", "type": "requirement"}
 {"category": "objective", "id": "requirement:external-boundary-runtime", "path": ".knowledge/requirement/external-boundary-runtime.md", "role": "primary", "title": "External Boundary Runtime Script", "type": "requirement"}
 {"category": "objective", "id": "requirement:framework-script-assets", "path": ".knowledge/requirement/framework-script-assets.md", "role": "primary", "title": "Framework Script Assets", "type": "requirement"}
 {"category": "objective", "id": "requirement:html-fragment-rendering", "path": ".knowledge/requirement/html-fragment-rendering.md", "role": "primary", "title": "HTML Fragment Rendering", "type": "requirement"}
@@ -305,6 +322,7 @@
 {"category": "objective", "id": "requirement:presence-signal", "path": ".knowledge/requirement/presence-signal.md", "role": "primary", "title": "Human Presence Signal", "type": "requirement"}
 {"category": "objective", "id": "requirement:project-diagnostics", "path": ".knowledge/requirement/project-diagnostics.md", "role": "primary", "title": "Project Diagnostics", "type": "requirement"}
 {"category": "objective", "id": "requirement:public-asset-delivery", "path": ".knowledge/requirement/public-asset-delivery.md", "role": "primary", "title": "Public Asset Delivery", "type": "requirement"}
+{"category": "objective", "id": "requirement:pw-language-server", "path": ".knowledge/requirement/pw-language-server.md", "role": "primary", "title": "Popcorn Wave Language Server", "type": "requirement"}
 {"category": "objective", "id": "requirement:query-diagnostics", "path": ".knowledge/requirement/query-diagnostics.md", "role": "primary", "title": "Database Query Diagnostics", "type": "requirement"}
 {"category": "objective", "id": "requirement:read-write-splitting", "path": ".knowledge/requirement/read-write-splitting.md", "role": "primary", "title": "Read-Write Split Connections", "type": "requirement"}
 {"category": "objective", "id": "requirement:session-assurance-levels", "path": ".knowledge/requirement/session-assurance-levels.md", "role": "primary", "title": "Graded Session Assurance", "type": "requirement"}
@@ -312,6 +330,8 @@
 {"category": "objective", "id": "requirement:state-storage-tiers", "path": ".knowledge/requirement/state-storage-tiers.md", "role": "primary", "title": "Browser State Storage Tiers", "type": "requirement"}
 {"category": "objective", "id": "requirement:tailwind-css-integration", "path": ".knowledge/requirement/tailwind-css-integration.md", "role": "primary", "title": "Tailwind CSS Integration", "type": "requirement"}
 {"category": "objective", "id": "requirement:tailwind-plugin-integration", "path": ".knowledge/requirement/tailwind-plugin-integration.md", "role": "primary", "title": "Tailwind Plugin Integration", "type": "requirement"}
+{"category": "objective", "id": "requirement:template-formatting", "path": ".knowledge/requirement/template-formatting.md", "role": "primary", "title": "Canonical Template Source Formatting", "type": "requirement"}
+{"category": "objective", "id": "requirement:template-syntax-highlighting", "path": ".knowledge/requirement/template-syntax-highlighting.md", "role": "primary", "title": "Template Syntax Highlighting", "type": "requirement"}
 {"category": "objective", "id": "requirement:test-data-seeding", "path": ".knowledge/requirement/test-data-seeding.md", "role": "primary", "title": "Test Data Seeding and Comparison", "type": "requirement"}
 {"category": "objective", "id": "requirement:tinygodriver-adoption", "path": ".knowledge/requirement/tinygodriver-adoption.md", "role": "primary", "title": "tinygodriver Adoption", "type": "requirement"}
 {"category": "objective", "id": "requirement:typed-http-contract", "path": ".knowledge/requirement/typed-http-contract.md", "role": "primary", "title": "Typed HTTP Contract", "type": "requirement"}
@@ -333,6 +353,7 @@
 {"category": "constraint", "id": "rule:static-route-discovery", "path": ".knowledge/rule/static-route-discovery.md", "role": "supporting", "title": "Static Route Discovery", "type": "rule"}
 {"category": "constraint", "id": "rule:storage-checks", "path": ".knowledge/rule/storage-checks.md", "role": "supporting", "title": "Storage Checks", "type": "rule"}
 {"category": "constraint", "id": "rule:storage-package-layout", "path": ".knowledge/rule/storage-package-layout.md", "role": "supporting", "title": "Storage Package Layout", "type": "rule"}
+{"category": "constraint", "id": "rule:template-grammar-scopes", "path": ".knowledge/rule/template-grammar-scopes.md", "role": "supporting", "title": "Template Grammar Scopes", "type": "rule"}
 {"category": "constraint", "id": "rule:tinygo-runtime-compatibility", "path": ".knowledge/rule/tinygo-runtime-compatibility.md", "role": "supporting", "title": "TinyGo Runtime Compatibility", "type": "rule"}
 {"category": "external", "id": "system:dbtestify", "path": ".knowledge/system/dbtestify.md", "role": "supporting", "title": "dbtestify", "type": "system"}
 {"category": "external", "id": "system:goose", "path": ".knowledge/system/goose.md", "role": "supporting", "title": "goose Migration Engine", "type": "system"}
@@ -342,7 +363,9 @@
 {"category": "external", "id": "system:tinybind", "path": ".knowledge/system/tinybind.md", "role": "supporting", "title": "TinyBind", "type": "system"}
 {"category": "external", "id": "system:tinygodriver-dynamodb", "path": ".knowledge/system/tinygodriver-dynamodb.md", "role": "supporting", "title": "tinygodriver DynamoDB Client", "type": "system"}
 {"category": "external", "id": "system:tinygodriver", "path": ".knowledge/system/tinygodriver.md", "role": "supporting", "title": "tinygodriver", "type": "system"}
+{"category": "external", "id": "system:vscode", "path": ".knowledge/system/vscode.md", "role": "supporting", "title": "Visual Studio Code", "type": "system"}
 {"category": "interface", "id": "ui:devidp-login", "path": ".knowledge/ui/devidp-login.md", "role": "primary", "title": "Development IdP Login Screen", "type": "ui"}
 {"category": "objective", "id": "vision:contrib", "path": ".knowledge/vision/contrib.md", "role": "primary", "title": "TinyGo Contrib Vision", "type": "vision"}
+{"category": "objective", "id": "vision:editor-support", "path": ".knowledge/vision/editor-support.md", "role": "primary", "title": "Editor Support Vision", "type": "vision"}
 {"category": "objective", "id": "vision:popcorn-wave", "path": ".knowledge/vision/popcorn-wave.md", "role": "primary", "title": "Popcorn Wave Vision", "type": "vision"}
 {"category": "objective", "id": "vision:web-application-styles", "path": ".knowledge/vision/web-application-styles.md", "role": "primary", "title": "Classic and Modern Web Styles", "type": "vision"}

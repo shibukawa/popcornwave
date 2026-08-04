@@ -7,6 +7,7 @@ TinyBind is the generated binding, configuration, response, validation, streamin
 
 ```yaml
 module: github.com/shibukawa/tinybind-go
+pin: v0.3.5, moved from v0.2.10 by decision:tinybind-v03-adoption
 html_template_baseline: v0.1.15
 html_async_baseline: v0.1.20
 html_live_baseline: v0.2.8, required by requirement:live-html-rendering; v0.2.7 introduced live boundaries and v0.2.8 answered the first of the integration requests raised against them
@@ -89,6 +90,31 @@ generator:
     - a version tag for optimistic locking and a ttl tag are proposed, the latter blocked on the driver
     - no update or condition expression is generated, and secondary index tags are deferred
     - no generation option selects a framework resolver, unlike the SQL executor resolver, because resolution moved into the runtime and left no generated call site to redirect
+  formatter:
+    - the templates/templatefmt package canonicalizes a template source, from v0.3.1, consumed by requirement:template-formatting
+    - "Source and SourceAs are pure functions over a byte slice, so an embedder needs no filesystem, no process, and no project"
+    - SourceAs names the format explicitly, so the .pw suffixes need no pattern configuration on the editor path; Dir and Identify take the HTMLPattern, SQLPattern, and DynamoPattern options instead
+    - a parse failure is carried on the result with the formatted output left nil, so a broken source is never partially rewritten
+    - the fmt subcommand is a thin wrapper over the library, with a stdin filter mode selected by -as and a -l listing mode for CI
+    - the printer is delegated the same way the parser is: the shared package prints the header and the expressions, each format package prints its own body
+    - two spaces per level, a declaration body opening exactly one level, and a soft 100-column width
+    - it will not sort, deduplicate, or rewrite one construct into another; SQL keyword case and HTML self-closing syntax are left as authored
+  formatter_defects_reported_and_fixed:
+    found_in: v0.3.1, formatting every .pw source in this repository, 2026-08-02
+    fixed_in: v0.3.2, verified the same way the same day
+    non_idempotent_raw_text_escape:
+      was: a literal brace run in a script or style body gained one brace pair per formatting pass and never converged
+      now: a raw text brace is written back as it stands, because the parser already keeps it as text; only a brace the insertion gate would read as syntax keeps its escape
+      note: upstream also drew the pre, textarea, and preserve-whitespace boundary, which are whitespace-preserving but still template text and so still escape
+    sql_upsert_split:
+      was: "ON CONFLICT(id) DO UPDATE SET was broken across three lines"
+      now: the clause absorbs its action keywords and stays on one line
+    both: reported upstream rather than worked around here, because a local workaround would have been a second layout implementation
+  formatter_idempotence_guard:
+    from: v0.3.2
+    what: Source and SourceAs format twice and return an error rather than a result that differs between the passes
+    where_it_belongs: upstream, which has the AST; it replaces the equivalent check requirement:editor-formatting carried in the extension
+    version_floor: an embedder relying on it rather than repeating it must pin v0.3.2 or later
 constraints:
   - a route tree directory name must be a legal Go import path element, per rule:page-directory-naming
   - generator executes with host Go
@@ -117,6 +143,13 @@ compatibility:
     scope_for_pw: nothing was released against v0.2.9, so the change costs an edit to these concepts rather than to a project
     size: about 37 KB on a TinyGo wasip1 build, from the context value and the assertion reading it back
     answers: the second downstream request, and answers it by removing the seam rather than adding one
+  v0_3_1:
+    additive_for_generation: templatefmt and the fmt command are new surfaces, so a project that never formats regenerates identically
+    cost_of_adopting: every one of the 33 .pw sources in this repository changes, almost all of it the body indent the formatter adds and this repository never wrote
+  v0_3_2:
+    additive: the formatter fixes and the idempotence guard change no generation output
+    unblocks: requirement:template-formatting, whose repository-wide run was waiting on the escape defect
+    required_by: requirement:editor-formatting, which stopped carrying its own guard once this one existed
   html_v0_1_15: generated HTML APIs are not source-compatible with earlier direct-writer output
   html_v0_1_19: async parameters and async render entry points are additive, so existing templates and call sites keep compiling after regeneration
   html_v0_1_20: Content.WriteTo narrows to the bare fragment and the module injects no client runtime, so an async caller must supply framing and a runtime it previously inherited
