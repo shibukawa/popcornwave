@@ -23,8 +23,22 @@ schema:
       port: 0 for an automatically reserved loopback port; api:cli-init writes a fixed one, because the issuer it appears in is part of the account identity
     otel:
       enabled: true
-      port: 0 for an automatically reserved loopback port
+      port: 0 for an automatically reserved loopback port, which is the OTLP receiver rather than the viewer page
       max: 0 for the system:localotelviewer retention default
+    console:
+      enabled: true
+      port: 18081, a fixed loopback port scaffolded by api:cli-init as dev.idp.port is, placed beside the 18080 the identity provider already takes
+      overlay:
+        enabled: true
+        reload: true
+      storybook:
+        enabled: true
+      queries:
+        enabled: true
+      assets:
+        enabled: true
+      api:
+        enabled: true
   generate:
     handlers: [handlers] as scaffolded, per decision:explicit-generation-sources
     templates: [handlers, templates] as scaffolded, because a page template sits beside its handler
@@ -76,6 +90,13 @@ rules:
   - dev.otel only affects api:cli-dev and configures requirement:dev-telemetry-viewer
   - dev.otel.port defaults to an automatically reserved port because api:cli-dev injects the resolved endpoint, as it does for dev.idp
   - dev.otel.max bounds retained records per signal and zero keeps the viewer default
+  - dev.console only affects api:cli-dev and configures requirement:dev-console
+  - dev.console.port is fixed rather than reserved, because a console is bookmarked and returned to, and a reserved port would move every run
+  - dev.console.enabled false disables every pane, including the requirement:dev-telemetry-viewer page, while dev.otel.enabled still governs whether records are received at all
+  - a dev.console pane key disables one pane and nothing else, and a missing pane key means enabled
+  - dev.console.overlay.reload only reloads a page requirement:dev-error-overlay is already attached to, and never restarts anything
+  - dev.console.storybook.enabled false builds and starts no decision:dev-harness-process binary, because nothing else needs it
+  - dev.console.queries.enabled false opens no decision:dev-application-attachment, so the application dials nothing
   - relative paths resolve from the config file directory
   - unknown keys are errors
   - command flags override config values

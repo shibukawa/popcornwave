@@ -11,19 +11,34 @@ adoption: decision:dev-telemetry-viewer-adoption
 scope: api:cli-dev only; never api:cli-build, api:test-run, or any deployed environment
 default: enabled
 configuration: data:project-config dev.otel
+pane_of: requirement:dev-console
+responsibility:
+  holds: everything the developer loop shows about what the application did, which is traces, api:logger records, requirement:query-diagnostics records, and the per-request timing a span tree already carries
+  consequence: requirement:dev-console adds no log pane and no request profiler, because a second reader of the same records would be a second thing to keep correct
+  instrumentation: a runtime fact a pane wants is added as a span or an attribute here, per policy:dev-console-boundary, rather than as an endpoint in the application
 signals:
   traces: requirement:contrib-otel spans delivered by flow:telemetry-export
   logs: api:logger records routed by policy:log-emission
   metrics: the receiver accepts /v1/metrics, but requirement:contrib-otel emits none, so the view stays empty unless the application exports its own
   process: the viewer samples cpu, memory, threads, open files, and io of the process api:cli-dev started
 listener:
-  bind: loopback only
-  port: dev.otel.port, defaulting to 0 so the operating system selects a free one
-  reason: the endpoint is injected rather than written down, so no number has to be agreed in advance and concurrent projects never collide
-  pin: a fixed port is set only when an external tool must find the receiver
-  collision: a bound port fails the viewer, reports the address, and leaves the developer loop running
-  url: printed once at startup beside the api:cli-dev identity provider report
-  mount: receiver, snapshot API, and UI share one listener, so the printed URL is both the export target and the page to open
+  split: the OTLP receiver keeps a listener of its own; the UI moves onto the requirement:dev-console listener per decision:dev-console-consolidation
+  reason: the two have opposite port needs, since the receiver is an address a machine is handed and the console is one a person returns to
+  receiver:
+    bind: loopback only
+    port: dev.otel.port, defaulting to 0 so the operating system selects a free one
+    why_reserved: the endpoint is injected rather than written down, so no number has to be agreed in advance and concurrent projects never collide
+    pin: a fixed port is set only when an external tool must find the receiver
+    collision: a bound port fails the viewer, reports the address, and leaves the developer loop running
+  ui:
+    port: dev.console.port
+    url: reached from the requirement:dev-console index rather than printed as a URL of its own
+    mount:
+      form: the whole handler under the pane prefix, through http.StripPrefix
+      shared_store: receiver and pane are two mounts of one handler, so telemetry received at either address is read at both
+      no_path_list: the pane names no path; the UI resolves its API against the served document and its assets relatively, so the page, the snapshot API, and the OTLP paths follow the mount together
+      displayed_endpoint: the page shows its own mount base, which an exporter appends the OTLP paths to and this mount serves, so the address it offers to copy is a working one
+      why_not_enumerated: the OTLP paths are specification defaults rather than the viewer's to publish, so a host that copied them would be duplicating somebody else's constants and would miss a path added later
 injection:
   mechanism: environment variables on the application process, which outrank TOML in data:loaded-configuration precedence
   variables:
@@ -57,10 +72,10 @@ security:
   - data:log-attribute and policy:query-log-safety already bound what enters a record, and the viewer adds no new source
   - the viewer holds no credential and serves no application route
 acceptance:
-  - pw dev with no observability configuration serves the viewer on a free loopback port and prints its URL
+  - pw dev with no observability configuration receives on a free loopback port and reaches the UI from the requirement:dev-console index
   - the process api:cli-dev starts receives the resolved endpoint, the protocol, and the project name in its environment
   - an OTLP export posted to the injected endpoint appears in the snapshot the UI reads
-  - the same listener serves the UI page
+  - the receiver port and the console port are independent, and moving one does not move the other
   - a record emitted through api:logger appears in the viewer and in the developer loop terminal
   - trace_id and span_id correlate a record with its span in the UI
   - requirement:query-diagnostics records reach the viewer as logs when data:query-diagnostics-config enables them

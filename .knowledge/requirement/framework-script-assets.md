@@ -8,6 +8,11 @@ Framework-owned browser JavaScript is fixed per framework version and served fro
 ```yaml
 motivation: the boundary runtime is the first such script; flow:partial-refresh, api:server-action, and concept:client-component add more
 nature: the script set is framework source, identical for every project on one dependency set, and never derived from application code
+class: the framework class of decision:dev-browser-runtime-scope; development scripts and application scripts are bounded elsewhere
+build_mode:
+  rule: the set is per build mode, so the pwdev set is the production set plus the requirement:dev-error-overlay module
+  revision: the digest is computed from the bytes actually served, so the two modes get different URLs with no constant to bump
+  guarantee: an api:cli-build artifact serves the production set, and no configuration reaches the development one
 location:
   path: "/_pw/<revision>/<name>.js"
   reserved: a fixed absolute path, ahead of application routing, rather than a subtree of the configurable public mount

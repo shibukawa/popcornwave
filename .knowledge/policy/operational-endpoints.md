@@ -28,7 +28,11 @@ rules:
   - paths are unique absolute paths on the primary listener
   - return no DSN, backend name, stack, configuration, or dependency detail
   - disabled endpoints register no route
+api_doc:
+  status: implemented, superseding the earlier non-goal that named a hosted documentation UI out of scope
+  configuration: data:server-runtime-config api_doc selects scalar or swagger, and api_doc_path serves it
+  default: api:cli-init scaffolds it into the development configuration only, so staging and production omit the key and register no route
+  access: policy:authenticated-path-protection applies, as it does to the document itself
 non_goals:
   - metrics endpoint in the first release
-  - hosted API documentation UI
 ```

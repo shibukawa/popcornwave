@@ -20,11 +20,15 @@ license_analysis:
 split:
   go: linked from the upstream viewer package, so the receiver, store, and snapshot API have one implementation and one maintainer
   ui:
-    mechanism: upstream React component sources are built into a bundle committed under internal/otelui and embedded
-    why_copied: the public Go package ships no assets on purpose, and the component is not published to npm
-    why_built_here: a committed bundle keeps the pure-Go release pipeline of data:release-artifact free of a Node toolchain
-    cost: the bundle is refreshed by hand when the upstream component changes
-    value: pw owns the mount point, so a later admin console can host the same component beside its own surfaces
+    mechanism: linked from the upstream viewer/webui subpackage, which embeds the committed build
+    linkage: importing the viewer alone still links no assets, so this import is the explicit choice to take them
+    pipeline: the assets arrive as Go source, so data:release-artifact stays a pure-Go cross-compile with no Node toolchain
+    value: pw owns the mount point, which is what let requirement:dev-console host the same component beside its own panes without renegotiating with the dependency
+  superseded_copy:
+    was: a bundle built from upstream component sources and committed under internal/otelui, because the public package shipped no assets
+    cost_paid: the copy was refreshed by hand on every upstream change, and it turned out to differ from the upstream build only in two lines of index.html
+    resolved_by: upstream v1.0.2, which exports the assets, makes their references relative, resolves the snapshot API against the served document, and separates the displayed OTLP endpoint from the API base
+    lesson: the divergence was worth reporting rather than absorbing; every part of the copy existed to work around something the dependency could fix once for every embedder
 alternatives_rejected:
   reimplement_subset:
     precedent: decision:devidp-scope-reduction did exactly this for system:oidcld

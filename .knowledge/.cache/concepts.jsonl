@@ -72,6 +72,7 @@
 {"category": "structure", "id": "data:compression-runtime-config", "path": ".knowledge/data/compression-runtime-config.md", "role": "supporting", "title": "Compression Runtime Config", "type": "data"}
 {"category": "structure", "id": "data:database-connection-set", "path": ".knowledge/data/database-connection-set.md", "role": "supporting", "title": "Database Connection Set", "type": "data"}
 {"category": "structure", "id": "data:database-driver-contract", "path": ".knowledge/data/database-driver-contract.md", "role": "supporting", "title": "Database Driver Contract", "type": "data"}
+{"category": "structure", "id": "data:dev-loop-state", "path": ".knowledge/data/dev-loop-state.md", "role": "supporting", "title": "Developer Loop State", "type": "data"}
 {"category": "structure", "id": "data:devidp-config", "path": ".knowledge/data/devidp-config.md", "role": "supporting", "title": "Development IdP Configuration", "type": "data"}
 {"category": "structure", "id": "data:diagnostic-check", "path": ".knowledge/data/diagnostic-check.md", "role": "supporting", "title": "Diagnostic Check", "type": "data"}
 {"category": "structure", "id": "data:diagnostic-report", "path": ".knowledge/data/diagnostic-report.md", "role": "supporting", "title": "Diagnostic Report", "type": "data"}
@@ -115,6 +116,11 @@
 {"category": "constraint", "id": "decision:contrib-delivery-order", "path": ".knowledge/decision/contrib-delivery-order.md", "role": "supporting", "title": "Contrib Delivery Order", "type": "decision"}
 {"category": "constraint", "id": "decision:cookie-session-storage", "path": ".knowledge/decision/cookie-session-storage.md", "role": "supporting", "title": "Cookie-Backed Session Storage", "type": "decision"}
 {"category": "constraint", "id": "decision:dbtestify-integration", "path": ".knowledge/decision/dbtestify-integration.md", "role": "supporting", "title": "dbtestify Integration Boundary", "type": "decision"}
+{"category": "constraint", "id": "decision:dev-application-attachment", "path": ".knowledge/decision/dev-application-attachment.md", "role": "supporting", "title": "Development Application Attachment", "type": "decision"}
+{"category": "constraint", "id": "decision:dev-browser-runtime-scope", "path": ".knowledge/decision/dev-browser-runtime-scope.md", "role": "supporting", "title": "Development Browser Runtime Scope", "type": "decision"}
+{"category": "constraint", "id": "decision:dev-console-consolidation", "path": ".knowledge/decision/dev-console-consolidation.md", "role": "supporting", "title": "One Development Console Listener", "type": "decision"}
+{"category": "constraint", "id": "decision:dev-console-delivery-order", "path": ".knowledge/decision/dev-console-delivery-order.md", "role": "supporting", "title": "Development Console Delivery Order", "type": "decision"}
+{"category": "constraint", "id": "decision:dev-harness-process", "path": ".knowledge/decision/dev-harness-process.md", "role": "supporting", "title": "Development Harness Process", "type": "decision"}
 {"category": "constraint", "id": "decision:dev-telemetry-viewer-adoption", "path": ".knowledge/decision/dev-telemetry-viewer-adoption.md", "role": "supporting", "title": "Development Telemetry Viewer Adoption", "type": "decision"}
 {"category": "constraint", "id": "decision:developer-loop-watch-scope", "path": ".knowledge/decision/developer-loop-watch-scope.md", "role": "supporting", "title": "Developer Loop Watch Scope", "type": "decision"}
 {"category": "constraint", "id": "decision:development-public-assets", "path": ".knowledge/decision/development-public-assets.md", "role": "supporting", "title": "Development Public Assets", "type": "decision"}
@@ -173,6 +179,7 @@
 {"category": "behavior", "id": "flow:capability-addition", "path": ".knowledge/flow/capability-addition.md", "role": "primary", "title": "Capability Addition Flow", "type": "flow"}
 {"category": "behavior", "id": "flow:cli-release", "path": ".knowledge/flow/cli-release.md", "role": "primary", "title": "CLI Release Flow", "type": "flow"}
 {"category": "behavior", "id": "flow:database-migration", "path": ".knowledge/flow/database-migration.md", "role": "primary", "title": "Database Migration Flow", "type": "flow"}
+{"category": "behavior", "id": "flow:dev-overlay-delivery", "path": ".knowledge/flow/dev-overlay-delivery.md", "role": "primary", "title": "Development Overlay Delivery", "type": "flow"}
 {"category": "behavior", "id": "flow:dev-telemetry-capture", "path": ".knowledge/flow/dev-telemetry-capture.md", "role": "primary", "title": "Development Telemetry Capture Flow", "type": "flow"}
 {"category": "behavior", "id": "flow:devidp-user-selection", "path": ".knowledge/flow/devidp-user-selection.md", "role": "primary", "title": "Development IdP User Selection", "type": "flow"}
 {"category": "behavior", "id": "flow:dynamodb-migration", "path": ".knowledge/flow/dynamodb-migration.md", "role": "primary", "title": "DynamoDB Schema Application", "type": "flow"}
@@ -213,6 +220,7 @@
 {"category": "constraint", "id": "policy:contrib-compatibility", "path": ".knowledge/policy/contrib-compatibility.md", "role": "supporting", "title": "Contrib Compatibility Policy", "type": "policy"}
 {"category": "constraint", "id": "policy:cookie-value-protection", "path": ".knowledge/policy/cookie-value-protection.md", "role": "supporting", "title": "Cookie Value Protection", "type": "policy"}
 {"category": "constraint", "id": "policy:csrf-protection", "path": ".knowledge/policy/csrf-protection.md", "role": "supporting", "title": "CSRF Protection", "type": "policy"}
+{"category": "constraint", "id": "policy:dev-console-boundary", "path": ".knowledge/policy/dev-console-boundary.md", "role": "supporting", "title": "Development Console Boundary", "type": "policy"}
 {"category": "constraint", "id": "policy:devidp-safety", "path": ".knowledge/policy/devidp-safety.md", "role": "supporting", "title": "Development IdP Safety Policy", "type": "policy"}
 {"category": "constraint", "id": "policy:dynamodb-migration-safety", "path": ".knowledge/policy/dynamodb-migration-safety.md", "role": "supporting", "title": "DynamoDB Migration Safety", "type": "policy"}
 {"category": "constraint", "id": "policy:generated-artifacts", "path": ".knowledge/policy/generated-artifacts.md", "role": "supporting", "title": "Generated Artifact Ownership", "type": "policy"}
@@ -277,6 +285,11 @@
 {"category": "objective", "id": "requirement:daisyui-integration", "path": ".knowledge/requirement/daisyui-integration.md", "role": "primary", "title": "daisyUI Integration", "type": "requirement"}
 {"category": "objective", "id": "requirement:database-engine-selection", "path": ".knowledge/requirement/database-engine-selection.md", "role": "primary", "title": "Database Engine Selection", "type": "requirement"}
 {"category": "objective", "id": "requirement:database-migration", "path": ".knowledge/requirement/database-migration.md", "role": "primary", "title": "Versioned Database Migration", "type": "requirement"}
+{"category": "objective", "id": "requirement:dev-api-reference", "path": ".knowledge/requirement/dev-api-reference.md", "role": "primary", "title": "Development API Reference", "type": "requirement"}
+{"category": "objective", "id": "requirement:dev-asset-inspector", "path": ".knowledge/requirement/dev-asset-inspector.md", "role": "primary", "title": "Development Asset Inspector", "type": "requirement"}
+{"category": "objective", "id": "requirement:dev-console", "path": ".knowledge/requirement/dev-console.md", "role": "primary", "title": "Development Console", "type": "requirement"}
+{"category": "objective", "id": "requirement:dev-error-overlay", "path": ".knowledge/requirement/dev-error-overlay.md", "role": "primary", "title": "Development Error Overlay", "type": "requirement"}
+{"category": "objective", "id": "requirement:dev-query-runner", "path": ".knowledge/requirement/dev-query-runner.md", "role": "primary", "title": "Development Query Runner", "type": "requirement"}
 {"category": "objective", "id": "requirement:dev-telemetry-viewer", "path": ".knowledge/requirement/dev-telemetry-viewer.md", "role": "primary", "title": "Development Telemetry Viewer", "type": "requirement"}
 {"category": "objective", "id": "requirement:discovered-page-routing", "path": ".knowledge/requirement/discovered-page-routing.md", "role": "primary", "title": "Discovered Page Routing", "type": "requirement"}
 {"category": "objective", "id": "requirement:dynamodb-generation", "path": ".knowledge/requirement/dynamodb-generation.md", "role": "primary", "title": "DynamoDB Code Generation", "type": "requirement"}
@@ -314,6 +327,7 @@
 {"category": "objective", "id": "requirement:state-storage-tiers", "path": ".knowledge/requirement/state-storage-tiers.md", "role": "primary", "title": "Browser State Storage Tiers", "type": "requirement"}
 {"category": "objective", "id": "requirement:tailwind-css-integration", "path": ".knowledge/requirement/tailwind-css-integration.md", "role": "primary", "title": "Tailwind CSS Integration", "type": "requirement"}
 {"category": "objective", "id": "requirement:tailwind-plugin-integration", "path": ".knowledge/requirement/tailwind-plugin-integration.md", "role": "primary", "title": "Tailwind Plugin Integration", "type": "requirement"}
+{"category": "objective", "id": "requirement:template-storybook", "path": ".knowledge/requirement/template-storybook.md", "role": "primary", "title": "Template Storybook", "type": "requirement"}
 {"category": "objective", "id": "requirement:test-data-seeding", "path": ".knowledge/requirement/test-data-seeding.md", "role": "primary", "title": "Test Data Seeding and Comparison", "type": "requirement"}
 {"category": "objective", "id": "requirement:tinygodriver-adoption", "path": ".knowledge/requirement/tinygodriver-adoption.md", "role": "primary", "title": "tinygodriver Adoption", "type": "requirement"}
 {"category": "objective", "id": "requirement:tutorial-capability-growth", "path": ".knowledge/requirement/tutorial-capability-growth.md", "role": "primary", "title": "Tutorial Capability Growth", "type": "requirement"}

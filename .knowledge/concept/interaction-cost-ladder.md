@@ -7,6 +7,7 @@ Interactivity in a concept:classic-web-style application is bought in ordered ti
 
 ```yaml
 premise: the framework ships no hydration, client router, or client state store, so interaction technique is an application choice; this ladder is the map that choice reads
+governs: what an application spends on the people using it; development tooling is priced separately by decision:dev-browser-runtime-scope, because its one user is the developer and its cost never ships
 tiers:
   platform:
     cost: no dependency, no build step, no framework surface

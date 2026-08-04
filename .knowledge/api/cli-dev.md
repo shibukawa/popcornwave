@@ -12,7 +12,8 @@ steps:
   - run api:cli-generate
   - run api:cli-migrate up when data:project-config migration.auto is enabled
   - start requirement:contrib-devidp when data:project-config dev.idp.enabled is true
-  - start requirement:dev-telemetry-viewer unless data:project-config dev.otel disables it
+  - start requirement:dev-console unless data:project-config dev.console disables it, which mounts requirement:dev-telemetry-viewer and every other enabled pane
+  - build and start the decision:dev-harness-process binary when a pane needing it is enabled
   - start flow:tailwind-css-build watch mode when enabled
   - enable decision:development-public-assets
   - build and run data:project-config project.main
@@ -49,7 +50,8 @@ child_process_lifetime:
 reporting:
   policy: policy:cli-progress-reporting
   startup: a bounded progress region naming the phase in progress, because these steps together take long enough that silence reads as a hang
-  phases: services, generation, migration, identity provider, telemetry viewer, CSS build, and the Go build
+  phases: services, generation, migration, identity provider, console, CSS build, and the Go build
+  browser: a failing phase also reaches an open page through requirement:dev-error-overlay, so the terminal is no longer the only place a diagnostic lands
   collapse: the region gives way to policy:startup-summary and then the application and service log stream
   rebuild: a watch-triggered regenerate, migrate, and rebuild reuses the same region rather than reprinting the startup sequence
   logs: the application stream stays plaintext under policy:log-emission, since the developer loop is read in a terminal
@@ -83,10 +85,20 @@ identity_provider:
   reload: roster changes reload in place without restarting the application
   guardrails: policy:devidp-safety
   default: disabled
+console:
+  requirement: requirement:dev-console
+  boundary: policy:dev-console-boundary
+  lifetime: starts before the application process, survives every rebuild and restart, and stops with the developer loop
+  listener: one loopback port for the index and every pane, per decision:dev-console-consolidation
+  injection: the resolved console URL, on the application process only, for requirement:dev-error-overlay
+  state: every phase transition publishes data:dev-loop-state, which reaches an open page through flow:dev-overlay-delivery
+  build_mode: the application is built with the pwdev tag, which selects decision:development-public-assets, the overlay module of decision:dev-browser-runtime-scope, and decision:dev-application-attachment
+  attachment: an attachment token is generated per run and injected beside the console URL, the way requirement:contrib-devidp injects its client secret
+  default: enabled
 telemetry_viewer:
   requirement: requirement:dev-telemetry-viewer
   flow: flow:dev-telemetry-capture
-  lifetime: starts before the application process, survives every rebuild and restart, and stops with the developer loop
+  mount: a requirement:dev-console pane; the OTLP receiver keeps its own port for exporters that must find it
   injection: data:observability-runtime-config otel enabled and endpoint, on the application process only
   output: records reach both the viewer and the developer loop stream, because a viewer must not empty the terminal
   default: enabled
@@ -123,5 +135,6 @@ failure:
     precedent: the CSS toolchain exit in the same select already reports and keeps going
   migration: report diagnostics, skip the restart, and keep the developer loop alive
   identity_provider: report diagnostics and stop the loop, because the application cannot log in without its configured issuer
-  telemetry_viewer: report diagnostics and keep the loop alive, because an unobservable run is still a working one
+  console: report diagnostics and keep the loop alive, because an unobservable run is still a working one; this covers the telemetry viewer and every other pane
+  dev_harness: report diagnostics, disable the panes that need it, and keep the loop alive, because the harness of decision:dev-harness-process is a reader of the project and not part of it
 ```

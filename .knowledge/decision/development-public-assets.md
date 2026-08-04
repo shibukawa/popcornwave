@@ -8,7 +8,9 @@ title: Development Public Assets
 ```yaml
 source: project-root public/
 mode:
-  selection: reserved pwdev build mode used by api:cli-dev
+  selection: reserved pwdev build mode used by api:cli-dev, whose admitted uses policy:dev-console-boundary now bounds
+  sibling: requirement:dev-error-overlay is the second use of the same mode
+  visibility: requirement:dev-asset-inspector reports how this reading differs from the production one, since a developer otherwise meets the difference only after a release build
   enabled: server.public.enabled
   mount: server.public.mount
   local_read: forced true independently of server.public.read_local
