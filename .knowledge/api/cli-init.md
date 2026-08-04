@@ -6,12 +6,13 @@ title: pw init
 pw init creates a runnable Popcorn Wave project with a shared document shell, representative handler, typed page template, SQL query, error pages, Devbox environment, and generated-artifact conventions.
 
 ```yaml
-usage: pw init [myapp] [--interactive] [--router=registered|discovered|both] [--tailwind|--no-tailwind] [--tinygo|--no-tinygo] [--devbox|--no-devbox] [--database|--no-database] [--db=sqlite|postgres|mysql] [--redis|--no-redis] [--auth=none|oidc|oidc-passkey|passkey] [--session=rdb|cookie|redis] [--devidp|--no-devidp]
+usage: pw init [myapp] [--yes] [--router=registered|discovered|both] [--tailwind|--no-tailwind] [--tinygo|--no-tinygo] [--devbox|--no-devbox] [--database|--no-database] [--db=sqlite|postgres|mysql] [--dynamo|--no-dynamo] [--redis|--no-redis] [--auth=none|oidc|oidc-passkey|passkey] [--session=rdb|cookie|redis] [--devidp|--no-devidp]
 mode: decision:interactive-project-bootstrap
 catalog: the capability questions are the requirement:incremental-project-capabilities catalog api:cli-add installs into an existing project
 inputs:
-  directory: project directory; omitting it starts the wizard
+  directory: project directory; it seeds the project name step rather than skipping the wizard
   flags: shortcut answers that also seed the wizard
+  yes: takes the flags and the defaults without asking, for a scripted run inside a terminal
 questions:
   project_name: directory and Go module name
   tinygo_support:
@@ -46,6 +47,15 @@ questions:
     choices: sqlite, postgres, and mysql per requirement:database-engine-selection
     writes: the rdb DSN, the dialect of the scaffolded migration and .pw.sql example, and the development server package
     shortcut: --db, which conflicts with --no-database
+  dynamodb:
+    default: no
+    asked_when: always, per requirement:dynamodb-store; it combines with any relational answer including none
+    yes: data:dynamodb-runtime-config section, the starter dynamo-tagged type and .pw.dynamo declaration, the generate.dynamo purpose, and the amazon/dynamodb-local package in Devbox
+    no: no dynamo section and no generate.dynamo key; pw add dynamo enables it later
+    shortcut: --dynamo
+    writes_no_migration: the schema is the generated table set, per decision:dynamodb-desired-state-migration
+    starter_uses_its_own_type: the scaffolded record carries a store and a load call, because requirement:dynamodb-generation emits a codec only for the directions something uses; a tagged type nobody calls generates nothing at all
+    not_an_engine: it never becomes a project.database value, and selecting it alone leaves a project with no SQL dialect and no migrations directory
   redis_valkey:
     default: yes
     requires: the Devbox environment, which is the only thing this answer writes to
@@ -67,7 +77,9 @@ questions:
       page: controls bound by element id, so the template carries no inline script
       emulator: refused outside an OIDC mode, so passkey_only never scaffolds an identity provider roster
   session_storage:
-    asked_when: the selected mode serves a login
+    asked_when: always; session storage is not a login, so a project declaring only a language preference still gets the middleware
+    default_without_a_login: cookie, which needs no table, no migration, and no import to hold state that fits in a sealed cookie
+    default_with_a_login: rdb, because a login writes a record on every sign-in and normally must end one on demand
     default: rdb
     choices: requirement:state-storage-tiers opaque backends
     rdb: one row per session through the sessionstore/sqlite blank import, with its rule:framework-owned-tables migration
@@ -92,44 +104,71 @@ outputs:
   - pages/page.pw.html, pages/layout.pw.html, and a pages/users/id_ dynamic route example, only for a router answer that includes the page tree
   - api:page-registry Register wiring in concept:application-entry-point for a page tree, over the pw.NewServeMux mux when the handlers tree was declined and over the handler package mux when it was not
   - templates/document.pw.html shared document shell
-  - .pw.html page and 400, 401, 403, 404, 409, 413, and 500 templates
+  - ui:starter-landing-page as the scaffolded page of every router answer, rather than a greeting heading
+  - .pw.html page and 400, 401, 403, 404, 409, 413, and 500 templates, each taking the api:error-renderer model as parameters rather than a fixed heading
+  - config.dev.toml observability.stdout_format plaintext, the data:observability-runtime-config development default written down where the operator can see it
+  - data:dynamodb-runtime-config section, the starter dynamo-tagged type, its .pw.dynamo declaration, and the generate.dynamo purpose, only when DynamoDB is selected
   - .pw.sql query example, only when the database is selected
   - data:project-config project.database naming the selected engine, which api:cli-generate reads as its SQL dialect
-  - migrations/00001_init.sql application schema as migration version 1, in the dialect of the selected engine
+  - migrations/00001_init.sql as migration version 1, in the dialect of the selected engine, with the data:migration-source scaffolded_version_1 comment-only body
   - a rule:rdb-dsn-resolution engine blank import in main, only for an engine pw does not link itself
   - public directory with non-served .keep sentinel and stable public.go embedding scaffold
   - tinygohelper.go netdev registration for rule:tinygo-runtime-compatibility, only when TinyGo is selected
   - .gitignore excluding **/*_pw_gen.go generated application build inputs
   - .vscode/settings.json hiding **/*_pw_gen.go
+  - editor_configuration below
   - Devbox configuration with Valkey when selected, TinyGo when selected, and the selected requirement:database-engine-selection server package, only when the Devbox environment is selected
   - data:authentication-runtime-config section for the selected authentication mode
-  - data:devidp-config roster and data:project-config dev.idp when the local emulator is selected
+  - data:devidp-config roster and data:project-config dev.idp when the local emulator is selected, with dev.idp.port pinned rather than reserved, because api:auth-credential-store derives the scaffolded account ID from the issuer and a moving port issues a new account on every run
   - api:authentication-endpoints blank import in main and a sign-in and sign-out control on the starter page
   - api:session-backend-plugin blank import in main for a selected backend other than cookie
+  - a data:session-runtime-config keyring.secret generated from crypto/rand, written as a literal into config.dev.toml only, per its development_generation; it is per project rather than a template constant, and rule:configuration-advisories reports it as an error if the same file is ever diagnosed as another token
   - rule:framework-owned-tables migrations from the packages that own those tables, at the versions after the application schema, when the mode serves a login
   - the session table migration only for the rdb backend; another backend leaves that version to the auth migration
   - data:middleware-runtime-config rdb settings carrying the requirement:database-engine-selection DSN for the chosen engine, because the scaffolded migrations and queries need a database, only when the database is selected
+editor_configuration:
+  editorconfig:
+    file: .editorconfig, root true
+    defaults: utf-8, lf, a final newline, and trimmed trailing whitespace
+    go: tabs, restating what gofmt already does so an editor with no Go support does not fight it
+    two_space: .pw.html, .pw.sql, TOML, JSON, CSS, and JavaScript, which is the width rule:template-source-layout indents a block by
+    reason: the scaffold writes sources in five languages, and the editor that opens them first decides what the next contributor sees
+  extensions:
+    file: .vscode/extensions.json recommendations
+    always: the Go extension and the EditorConfig extension, which are what the scaffolded sources need to be edited the way they were written
+    tailwind: the Tailwind CSS extension, only for a project that selected Tailwind, since a declined capability is never advertised as present
+    form: recommendations only; nothing is marked unwanted and nothing is required
+    scope: VS Code alone, because it is the only editor with a project-local recommendation file the scaffold can write; .editorconfig is the part every other editor reads
 optional_css:
   tailwind:
     - configure requirement:tailwind-css-integration in data:project-config
     - add pinned decision:tailwind-host-toolchain package to Devbox
     - create assets/app.css and application-owned CSS output wiring
 behavior:
-  - start the wizard when no project name is given or --interactive is set
-  - refuse the wizard and print usage when the session has no terminal
+  - start the wizard on every terminal run, seeding the project name step from the directory argument when one was given
+  - skip the wizard only for --yes, or for a session with no terminal that was given a name
+  - accept --interactive as a no-op, since the wizard it used to request is now the default
+  - refuse and print usage when the session has no terminal and no name
   - validate the project name and destination, in the wizard before any file is written
   - refuse to overwrite nonempty destinations by default
   - create files atomically
   - run api:cli-generate
-  - scaffold classic rendering according to requirement:nested-html-templates
+  - scaffold classic rendering according to requirement:nested-html-templates, writing every template under rule:template-source-layout
   - scaffold every tree the router answer selects, and write the document shell and error pages for all three answers because both routers render through them
   - scaffold runtime database configuration for decision:config-driven-database when the database example is enabled
   - refuse an authentication mode without the database, because its login ceremony and allowlist tables need one whatever backend stores the sessions
   - refuse --db together with --no-database, before anything is written
+  - accept DynamoDB beside any relational answer, and accept it as the only store, per requirement:dynamodb-store
+  - refuse an authentication mode backed only by DynamoDB, because plugin/auth requires middleware.rdb.enabled whatever the session backend is, per requirement:contrib-auth-state-dynamo blocked_by
   - write the starter migration and .pw.sql example in the dialect of the selected engine, since decision:server-sql-support-tier does not translate between them
   - take the Valkey development server with a Redis-backed session, because the configured session needs a server to reach
   - print the command that generates cookie_store.secret when the cookie backend is selected
   - leave every declined capability to api:cli-add, which reaches the same file state later
+reporting:
+  policy: policy:cli-progress-reporting
+  during: a progress region over the scaffold write, the module resolution, and the api:cli-generate run
+  after: the handwritten sources it created, grouped by concept:project-layout directory
+  generated: a count and the api:cli-generate command, never the policy:generated-artifacts path list, which is what the same scaffold puts in .gitignore
 next_steps:
   - cd myapp
   - devbox shell, only for a project with the Devbox environment

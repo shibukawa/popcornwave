@@ -14,6 +14,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/shibukawa/popcornwave/internal/configview"
 	"github.com/shibukawa/popcornwave/internal/pwmigrate"
 	"github.com/shibukawa/popcornwave/migrate"
 )
@@ -320,27 +321,19 @@ func resolveApplicationDSN(ctx context.Context, root, mainPackage string, stderr
 	return dsn, nil
 }
 
-// redactDSN keeps credentials out of reported failures.
+// redactDSN keeps credentials out of reported failures. The DSN is replaced by
+// the same form the startup summary and pw doctor show, so a reader comparing a
+// failure with a summary sees one address written one way; a password that
+// reached the message by some other route is scrubbed separately.
 func redactDSN(err error, dsn string) error {
 	if err == nil || dsn == "" {
 		return err
 	}
-	message := strings.ReplaceAll(err.Error(), dsn, redacted(dsn))
+	message := strings.ReplaceAll(err.Error(), dsn, configview.DSN(dsn))
 	if secret := credentialPart(dsn); secret != "" {
-		message = strings.ReplaceAll(message, secret, "***")
+		message = strings.ReplaceAll(message, secret, configview.Redacted)
 	}
 	return errors.New(message)
-}
-
-func redacted(dsn string) string {
-	scheme, remainder, ok := strings.Cut(dsn, "://")
-	if !ok {
-		return "***"
-	}
-	if secret := credentialPart(dsn); secret != "" {
-		remainder = strings.Replace(remainder, secret, "***", 1)
-	}
-	return scheme + "://" + remainder
 }
 
 func credentialPart(dsn string) string {

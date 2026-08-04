@@ -20,6 +20,7 @@ generated_per_type:
   - EncodeItem, when a discovered call writes the type
   - DecodeItem, when a discovered call reads it
   - ItemKey and the table constructor, whenever a partitionkey tag exists, which system:tinybind emits without waiting for a discoverable use
+  - measured_exception: the artifact path api:cli-generate uses skips a type with no discovered call, so a tagged declaration nobody stores or loads produces no file at all; the file-writing entry point upstream is the one that emits without a use
   - the compile-time assertions that make a stale generated file a build failure
 usage_direction:
   owner: system:tinybind

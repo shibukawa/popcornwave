@@ -216,7 +216,7 @@ func TestAsyncTimeoutBoundsTheBufferedBranch(t *testing.T) {
 func TestFrameworkScriptIsImmutableAndRevisioned(t *testing.T) {
 	recorder := httptest.NewRecorder()
 	url := RuntimeScriptURL()
-	if !strings.HasPrefix(url, "/_pw/") || !strings.HasSuffix(url, "/boundary.js") {
+	if !strings.HasPrefix(url, "/_pw/") || !strings.HasSuffix(url, "/popcornwave-runtime.js") {
 		t.Fatalf("url = %q", url)
 	}
 	if !serveFrameworkScript(recorder, httptest.NewRequest(http.MethodGet, url, nil)) {
@@ -231,13 +231,28 @@ func TestFrameworkScriptIsImmutableAndRevisioned(t *testing.T) {
 	if !strings.Contains(recorder.Body.String(), `customElements.define("tb-apply"`) {
 		t.Error("the served script does not define the marker element")
 	}
+	// One asset, both halves: the boundary runtime and the update runtime, both
+	// this framework's since the client ownership work. Two would mean two
+	// boundary id spaces on one document.
+	if !strings.Contains(recorder.Body.String(), "createUpdateRuntime") {
+		t.Error("the served script does not carry the update runtime")
+	}
 
+	// A stale revision is not this handler's, because the prefix holds more than
+	// the asset. It falls through to the one that closes the namespace, which is
+	// what keeps it from reaching the application.
+	if serveFrameworkScript(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/_pw/deadbeef/boundary.js", nil)) {
+		t.Error("the script handler claimed a path that is not its own")
+	}
 	stale := httptest.NewRecorder()
-	if !serveFrameworkScript(stale, httptest.NewRequest(http.MethodGet, "/_pw/deadbeef/boundary.js", nil)) {
+	if !serveReservedPath(stale, httptest.NewRequest(http.MethodGet, "/_pw/deadbeef/boundary.js", nil)) {
 		t.Fatal("a reserved path must not fall through to the application")
 	}
 	if stale.Code != http.StatusNotFound {
 		t.Errorf("stale revision status = %d", stale.Code)
+	}
+	if serveReservedPath(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/orders", nil)) {
+		t.Error("an application path was claimed by the reserved prefix")
 	}
 }
 

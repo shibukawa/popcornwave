@@ -71,6 +71,8 @@ bind_values = "on"
 
 [middleware.rdb]
 enabled = true
+
+[[middleware.rdb.connections]]
 dsn = "sqlite://fixture.db"
 `
 
@@ -97,8 +99,10 @@ func TestSameConfigurationIsJudgedByTheDiagnosedEnvironment(t *testing.T) {
 	} else if finding.Severity != pwcheck.Error {
 		t.Errorf("severity = %v, want error", finding.Severity)
 	}
-	if finding, reported := dev[pwcheck.InsecureSessionCookie]; reported && finding.Severity != pwcheck.Note {
-		t.Errorf("dev severity = %v, want note", finding.Severity)
+	// api:cli-init writes secure = false into the development file on purpose,
+	// so saying it back in dev would be a note with nothing to do about it.
+	if _, reported := dev[pwcheck.InsecureSessionCookie]; reported {
+		t.Error("an insecure session cookie must stay silent in dev")
 	}
 }
 
@@ -108,6 +112,8 @@ func TestSecretFindingsNameThePlaceAndNeverTheValue(t *testing.T) {
 	root := diagnosedProject(t, map[string]string{
 		"config.prod.toml": `[middleware.rdb]
 enabled = true
+
+[[middleware.rdb.connections]]
 dsn = "mysql://app:` + password + `@db.internal:3306/app"
 `,
 	})
@@ -130,12 +136,80 @@ dsn = "mysql://app:` + password + `@db.internal:3306/app"
 	}
 }
 
+// pw init writes a generated session keyring into config.dev.toml so that a
+// scaffolded project runs without an authored secret. That convenience is
+// bounded by this check: the same literal is a note in dev and an error
+// anywhere else, so it cannot travel to a deployment unnoticed.
+//
+// Nothing here names the keyring: the check reads the configbind secret
+// classification, so the key was covered the moment it was marked secret.
+func TestTheDevelopmentKeyringIsANoteInDevAndAnErrorElsewhere(t *testing.T) {
+	const keyring = `keyring.secret = "c2VjcmV0LXRoaXJ0eS10d28tYnl0ZXMtZm9yLWEtdGVzdCE="`
+	body := "[session]\nenabled = true\n" + keyring + "\n"
+	root := diagnosedProject(t, map[string]string{
+		"config.dev.toml":  body,
+		"config.prod.toml": body,
+	})
+	report := diagnoseFor(t, root, doctorOptions{Envs: []string{"dev", "prod"}})
+
+	finding, reported := findingsFor(report, "prod")[pwcheck.LiteralSecretInFile]
+	if !reported {
+		t.Fatal("a keyring literal must be reported outside development")
+	}
+	if finding.Severity != pwcheck.Error {
+		t.Errorf("prod severity = %v, want error", finding.Severity)
+	}
+	if !strings.Contains(finding.Evidence, "config.prod.toml") {
+		t.Errorf("evidence %q must name the file", finding.Evidence)
+	}
+	if finding, reported := findingsFor(report, "dev")[pwcheck.LiteralSecretInFile]; reported &&
+		finding.Severity != pwcheck.Note {
+		t.Errorf("dev severity = %v, want note, because pw init put it there", finding.Severity)
+	}
+}
+
+// Where a secret is kept is a deployment question. A development machine keeps
+// the password of the database running beside it in the file it shares with the
+// people who run it, so the same content that is an error for prod is nothing
+// at all for dev.
+func TestASecretInTheDevelopmentFileIsNotAFinding(t *testing.T) {
+	const withCredential = `[middleware.rdb]
+enabled = true
+
+[[middleware.rdb.connections]]
+dsn = "postgres://app:s3cret@localhost:5432/fixture"
+`
+	root := diagnosedProject(t, map[string]string{
+		"config.dev.toml":  withCredential,
+		"config.prod.toml": withCredential,
+	})
+	// The file mode is the third of the three checks, and the scaffold writes
+	// exactly this one.
+	if err := os.Chmod(filepath.Join(root, "config.dev.toml"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	report := diagnoseFor(t, root, doctorOptions{Envs: []string{"dev", "prod"}})
+	dev, prod := findingsFor(report, "dev"), findingsFor(report, "prod")
+	for _, id := range []string{pwcheck.LiteralSecretInFile, pwcheck.SecretFileNotIgnored, pwcheck.SecretFilePerms} {
+		if finding, reported := dev[id]; reported {
+			t.Errorf("%s must stay silent in dev: %s", id, finding.Message)
+		}
+	}
+	if finding, reported := prod[pwcheck.LiteralSecretInFile]; !reported {
+		t.Error("a literal secret in a deployment file must still be reported")
+	} else if finding.Severity != pwcheck.Error {
+		t.Errorf("severity = %v, want error", finding.Severity)
+	}
+}
+
 // A sqlite path is secret-classified by name and carries no credential, so
 // reporting it would train a reader to ignore the finding that matters.
 func TestCredentialFreeDSNIsNotReportedAsADisclosure(t *testing.T) {
 	root := diagnosedProject(t, map[string]string{
 		"config.prod.toml": `[middleware.rdb]
 enabled = true
+
+[[middleware.rdb.connections]]
 dsn = "sqlite://fixture.db"
 `,
 	})

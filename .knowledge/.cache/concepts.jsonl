@@ -19,6 +19,7 @@
 {"category": "interface", "id": "api:cli-session-schema", "path": ".knowledge/api/cli-session-schema.md", "role": "primary", "title": "pw session schema", "type": "api"}
 {"category": "interface", "id": "api:cli-version", "path": ".knowledge/api/cli-version.md", "role": "primary", "title": "pw version", "type": "api"}
 {"category": "interface", "id": "api:client-classification", "path": ".knowledge/api/client-classification.md", "role": "primary", "title": "Client Classification API", "type": "api"}
+{"category": "interface", "id": "api:client-update-api", "path": ".knowledge/api/client-update-api.md", "role": "primary", "title": "Client Update API", "type": "api"}
 {"category": "interface", "id": "api:cookie-jar", "path": ".knowledge/api/cookie-jar.md", "role": "primary", "title": "Typed Cookie Jar", "type": "api"}
 {"category": "interface", "id": "api:database-selection", "path": ".knowledge/api/database-selection.md", "role": "primary", "title": "Database Group Selection", "type": "api"}
 {"category": "interface", "id": "api:dynamo-package", "path": ".knowledge/api/dynamo-package.md", "role": "primary", "title": "database/dynamo Package", "type": "api"}
@@ -27,6 +28,7 @@
 {"category": "interface", "id": "api:html-boundary-protocol", "path": ".knowledge/api/html-boundary-protocol.md", "role": "primary", "title": "HTML Boundary Wire Protocol", "type": "api"}
 {"category": "interface", "id": "api:html-fragment-response", "path": ".knowledge/api/html-fragment-response.md", "role": "primary", "title": "HTML Fragment Response API", "type": "api"}
 {"category": "interface", "id": "api:html-response", "path": ".knowledge/api/html-response.md", "role": "primary", "title": "HTML Response API", "type": "api"}
+{"category": "interface", "id": "api:html-update-options", "path": ".knowledge/api/html-update-options.md", "role": "primary", "title": "HTML Update Options", "type": "api"}
 {"category": "interface", "id": "api:instrumented-sql-executor", "path": ".knowledge/api/instrumented-sql-executor.md", "role": "primary", "title": "Instrumented SQL Executor", "type": "api"}
 {"category": "interface", "id": "api:live-delivery-protocol", "path": ".knowledge/api/live-delivery-protocol.md", "role": "primary", "title": "Live Delivery Wire Protocol", "type": "api"}
 {"category": "interface", "id": "api:logger", "path": ".knowledge/api/logger.md", "role": "primary", "title": "Context-Bound Logger API", "type": "api"}
@@ -46,6 +48,7 @@
 {"category": "interface", "id": "api:server-action", "path": ".knowledge/api/server-action.md", "role": "primary", "title": "Server Action", "type": "api"}
 {"category": "interface", "id": "api:session-backend-plugin", "path": ".knowledge/api/session-backend-plugin.md", "role": "primary", "title": "Session Backend Plugin Contract", "type": "api"}
 {"category": "interface", "id": "api:session-manager", "path": ".knowledge/api/session-manager.md", "role": "primary", "title": "Session Manager API", "type": "api"}
+{"category": "interface", "id": "api:session-registry", "path": ".knowledge/api/session-registry.md", "role": "primary", "title": "Typed Session Storage Registry", "type": "api"}
 {"category": "interface", "id": "api:session-store", "path": ".knowledge/api/session-store.md", "role": "primary", "title": "Session Store Contract", "type": "api"}
 {"category": "interface", "id": "api:subcommands", "path": ".knowledge/api/subcommands.md", "role": "primary", "title": "Application Subcommands", "type": "api"}
 {"category": "interface", "id": "api:test-run", "path": ".knowledge/api/test-run.md", "role": "primary", "title": "Isolated TestRun", "type": "api"}
@@ -65,6 +68,7 @@
 {"category": "concept", "id": "concept:page-tree", "path": ".knowledge/concept/page-tree.md", "role": "supporting", "title": "Page Tree", "type": "concept"}
 {"category": "concept", "id": "concept:project-layout", "path": ".knowledge/concept/project-layout.md", "role": "supporting", "title": "Generated Project Layout", "type": "concept"}
 {"category": "concept", "id": "concept:public-package-boundaries", "path": ".knowledge/concept/public-package-boundaries.md", "role": "supporting", "title": "Public Package Boundaries", "type": "concept"}
+{"category": "concept", "id": "concept:session-storage-boundary", "path": ".knowledge/concept/session-storage-boundary.md", "role": "supporting", "title": "Session Storage and Authentication Boundary", "type": "concept"}
 {"category": "structure", "id": "data:account-bootstrap-credential", "path": ".knowledge/data/account-bootstrap-credential.md", "role": "supporting", "title": "Account Bootstrap Credential", "type": "data"}
 {"category": "structure", "id": "data:auth-state-record", "path": ".knowledge/data/auth-state-record.md", "role": "supporting", "title": "Authentication State Record", "type": "data"}
 {"category": "structure", "id": "data:authentication-runtime-config", "path": ".knowledge/data/authentication-runtime-config.md", "role": "supporting", "title": "Authentication Runtime Config", "type": "data"}
@@ -106,6 +110,7 @@
 {"category": "structure", "id": "data:transaction-scope", "path": ".knowledge/data/transaction-scope.md", "role": "supporting", "title": "Transaction Scope", "type": "data"}
 {"category": "structure", "id": "data:ui-dependency-graph", "path": ".knowledge/data/ui-dependency-graph.md", "role": "supporting", "title": "UI Dependency Graph", "type": "data"}
 {"category": "structure", "id": "data:user-account", "path": ".knowledge/data/user-account.md", "role": "supporting", "title": "Local User Account", "type": "data"}
+{"category": "constraint", "id": "decision:anonymous-csrf-secret-storage", "path": ".knowledge/decision/anonymous-csrf-secret-storage.md", "role": "supporting", "title": "Anonymous CSRF Secret Storage", "type": "decision"}
 {"category": "constraint", "id": "decision:assurance-scope-oidc-only", "path": ".knowledge/decision/assurance-scope-oidc-only.md", "role": "supporting", "title": "Assurance Scope Under External-Identity-Only Login", "type": "decision"}
 {"category": "constraint", "id": "decision:auth-backend-selection", "path": ".knowledge/decision/auth-backend-selection.md", "role": "supporting", "title": "One auth.backend Key Selects All Four Authentication Stores", "type": "decision"}
 {"category": "constraint", "id": "decision:authentication-bootstrap-strategy", "path": ".knowledge/decision/authentication-bootstrap-strategy.md", "role": "supporting", "title": "Authentication Bootstrap Strategy", "type": "decision"}
@@ -116,6 +121,7 @@
 {"category": "constraint", "id": "decision:config-driven-database", "path": ".knowledge/decision/config-driven-database.md", "role": "supporting", "title": "Config-driven Database Lifecycle", "type": "decision"}
 {"category": "constraint", "id": "decision:contrib-delivery-order", "path": ".knowledge/decision/contrib-delivery-order.md", "role": "supporting", "title": "Contrib Delivery Order", "type": "decision"}
 {"category": "constraint", "id": "decision:cookie-session-storage", "path": ".knowledge/decision/cookie-session-storage.md", "role": "supporting", "title": "Cookie-Backed Session Storage", "type": "decision"}
+{"category": "constraint", "id": "decision:csrf-secret-as-a-session-slot", "path": ".knowledge/decision/csrf-secret-as-a-session-slot.md", "role": "supporting", "title": "The CSRF Secret Is a Session Slot", "type": "decision"}
 {"category": "constraint", "id": "decision:dbtestify-integration", "path": ".knowledge/decision/dbtestify-integration.md", "role": "supporting", "title": "dbtestify Integration Boundary", "type": "decision"}
 {"category": "constraint", "id": "decision:dev-telemetry-viewer-adoption", "path": ".knowledge/decision/dev-telemetry-viewer-adoption.md", "role": "supporting", "title": "Development Telemetry Viewer Adoption", "type": "decision"}
 {"category": "constraint", "id": "decision:developer-loop-watch-scope", "path": ".knowledge/decision/developer-loop-watch-scope.md", "role": "supporting", "title": "Developer Loop Watch Scope", "type": "decision"}
@@ -136,6 +142,7 @@
 {"category": "constraint", "id": "decision:explicit-transaction-boundary", "path": ".knowledge/decision/explicit-transaction-boundary.md", "role": "supporting", "title": "Explicit Transaction Boundary", "type": "decision"}
 {"category": "constraint", "id": "decision:force-tinygo-logic", "path": ".knowledge/decision/force-tinygo-logic.md", "role": "supporting", "title": "Forced TinyGo Logic Build Tag", "type": "decision"}
 {"category": "constraint", "id": "decision:fragment-head-rejection", "path": ".knowledge/decision/fragment-head-rejection.md", "role": "supporting", "title": "Fragment Head Rejection", "type": "decision"}
+{"category": "constraint", "id": "decision:framework-owned-session-extension", "path": ".knowledge/decision/framework-owned-session-extension.md", "role": "supporting", "title": "The Framework Installs the Session", "type": "decision"}
 {"category": "constraint", "id": "decision:goose-migration-engine", "path": ".knowledge/decision/goose-migration-engine.md", "role": "supporting", "title": "Statically Linked goose Engine", "type": "decision"}
 {"category": "constraint", "id": "decision:grouped-database-connections", "path": ".knowledge/decision/grouped-database-connections.md", "role": "supporting", "title": "Grouped Database Connections", "type": "decision"}
 {"category": "constraint", "id": "decision:homebrew-tap-channel", "path": ".knowledge/decision/homebrew-tap-channel.md", "role": "supporting", "title": "Homebrew Own-Tap Channel", "type": "decision"}
@@ -156,12 +163,17 @@
 {"category": "constraint", "id": "decision:passkey-test-authenticator", "path": ".knowledge/decision/passkey-test-authenticator.md", "role": "supporting", "title": "Passkey Test Authenticator Strategy", "type": "decision"}
 {"category": "constraint", "id": "decision:post-init-scaffold-wizard", "path": ".knowledge/decision/post-init-scaffold-wizard.md", "role": "supporting", "title": "Post-init Scaffold Wizard", "type": "decision"}
 {"category": "constraint", "id": "decision:root-pw-api", "path": ".knowledge/decision/root-pw-api.md", "role": "supporting", "title": "Root pw API", "type": "decision"}
+{"category": "constraint", "id": "decision:runtime-tag-injection", "path": ".knowledge/decision/runtime-tag-injection.md", "role": "supporting", "title": "Runtime Tag Injection", "type": "decision"}
 {"category": "constraint", "id": "decision:savepoint-nested-transaction", "path": ".knowledge/decision/savepoint-nested-transaction.md", "role": "supporting", "title": "Savepoint-Backed Nested Transaction", "type": "decision"}
 {"category": "constraint", "id": "decision:server-sql-support-tier", "path": ".knowledge/decision/server-sql-support-tier.md", "role": "supporting", "title": "Server SQL Support Tier", "type": "decision"}
+{"category": "constraint", "id": "decision:session-lifetime-owned-by-auth", "path": ".knowledge/decision/session-lifetime-owned-by-auth.md", "role": "supporting", "title": "Session Lifetime Owned by Authentication", "type": "decision"}
 {"category": "constraint", "id": "decision:shared-check-catalog", "path": ".knowledge/decision/shared-check-catalog.md", "role": "supporting", "title": "Shared Check Catalog", "type": "decision"}
 {"category": "constraint", "id": "decision:slog-handler-log-backend", "path": ".knowledge/decision/slog-handler-log-backend.md", "role": "supporting", "title": "slog Handler as the Log Encoder", "type": "decision"}
+{"category": "constraint", "id": "decision:slot-declared-placement", "path": ".knowledge/decision/slot-declared-placement.md", "role": "supporting", "title": "Slot-Declared Placement and Anonymous Promotion", "type": "decision"}
+{"category": "constraint", "id": "decision:slot-lifetime-axis", "path": ".knowledge/decision/slot-lifetime-axis.md", "role": "supporting", "title": "Slot Lifetime as an Independent Axis", "type": "decision"}
 {"category": "constraint", "id": "decision:sqlite-backend-selection", "path": ".knowledge/decision/sqlite-backend-selection.md", "role": "supporting", "title": "SQLite Backend Selection", "type": "decision"}
 {"category": "constraint", "id": "decision:stdlib-servemux", "path": ".knowledge/decision/stdlib-servemux.md", "role": "supporting", "title": "Standard ServeMux Routing", "type": "decision"}
+{"category": "constraint", "id": "decision:storage-bounded-session-record", "path": ".knowledge/decision/storage-bounded-session-record.md", "role": "supporting", "title": "The Store Bounds Its Own Records", "type": "decision"}
 {"category": "constraint", "id": "decision:streaming-response-compression", "path": ".knowledge/decision/streaming-response-compression.md", "role": "supporting", "title": "Streaming Response Compression", "type": "decision"}
 {"category": "constraint", "id": "decision:tailwind-host-toolchain", "path": ".knowledge/decision/tailwind-host-toolchain.md", "role": "supporting", "title": "Tailwind Host Toolchain", "type": "decision"}
 {"category": "constraint", "id": "decision:test-authentication-seams", "path": ".knowledge/decision/test-authentication-seams.md", "role": "supporting", "title": "Test Authentication Seams", "type": "decision"}
@@ -170,7 +182,9 @@
 {"category": "constraint", "id": "decision:tinybind-sql-runtime", "path": ".knowledge/decision/tinybind-sql-runtime.md", "role": "supporting", "title": "TinyBind SQL Plan Runtime", "type": "decision"}
 {"category": "constraint", "id": "decision:tinygo-042-baseline", "path": ".knowledge/decision/tinygo-042-baseline.md", "role": "supporting", "title": "TinyGo 0.42 Baseline", "type": "decision"}
 {"category": "constraint", "id": "decision:tinygo-storage-direction", "path": ".knowledge/decision/tinygo-storage-direction.md", "role": "supporting", "title": "TinyGo Storage Direction", "type": "decision"}
+{"category": "constraint", "id": "decision:type-keyed-session-storage", "path": ".knowledge/decision/type-keyed-session-storage.md", "role": "supporting", "title": "Type-Keyed Session Storage Registry", "type": "decision"}
 {"category": "constraint", "id": "decision:unhandled-boundary-escalation", "path": ".knowledge/decision/unhandled-boundary-escalation.md", "role": "supporting", "title": "Unhandled Boundary Escalation", "type": "decision"}
+{"category": "constraint", "id": "decision:update-runtime-convergence", "path": ".knowledge/decision/update-runtime-convergence.md", "role": "supporting", "title": "Update Runtime Convergence", "type": "decision"}
 {"category": "constraint", "id": "decision:wasi-http-deferred", "path": ".knowledge/decision/wasi-http-deferred.md", "role": "supporting", "title": "Defer WASI HTTP Adapter", "type": "decision"}
 {"category": "constraint", "id": "decision:web-runtime-delivery-order", "path": ".knowledge/decision/web-runtime-delivery-order.md", "role": "supporting", "title": "Web Runtime Delivery Order", "type": "decision"}
 {"category": "behavior", "id": "flow:capability-addition", "path": ".knowledge/flow/capability-addition.md", "role": "primary", "title": "Capability Addition Flow", "type": "flow"}
@@ -209,6 +223,7 @@
 {"category": "constraint", "id": "policy:async-render-bounds", "path": ".knowledge/policy/async-render-bounds.md", "role": "supporting", "title": "Async Render Bounds", "type": "policy"}
 {"category": "constraint", "id": "policy:authenticated-path-protection", "path": ".knowledge/policy/authenticated-path-protection.md", "role": "supporting", "title": "Authenticated Path Protection", "type": "policy"}
 {"category": "constraint", "id": "policy:bootstrap-credential-security", "path": ".knowledge/policy/bootstrap-credential-security.md", "role": "supporting", "title": "Bootstrap Credential Security", "type": "policy"}
+{"category": "constraint", "id": "policy:cli-progress-reporting", "path": ".knowledge/policy/cli-progress-reporting.md", "role": "supporting", "title": "CLI Progress Reporting", "type": "policy"}
 {"category": "constraint", "id": "policy:config-file-resolution", "path": ".knowledge/policy/config-file-resolution.md", "role": "supporting", "title": "Config File Resolution", "type": "policy"}
 {"category": "constraint", "id": "policy:connection-group-selection", "path": ".knowledge/policy/connection-group-selection.md", "role": "supporting", "title": "Connection Group Selection", "type": "policy"}
 {"category": "constraint", "id": "policy:context-value-storage", "path": ".knowledge/policy/context-value-storage.md", "role": "supporting", "title": "Context Value Storage Policy", "type": "policy"}
@@ -246,6 +261,7 @@
 {"category": "constraint", "id": "policy:ui-state-placement", "path": ".knowledge/policy/ui-state-placement.md", "role": "supporting", "title": "UI State Placement", "type": "policy"}
 {"category": "constraint", "id": "policy:validation-errors", "path": ".knowledge/policy/validation-errors.md", "role": "supporting", "title": "Validation and Error Policy", "type": "policy"}
 {"category": "constraint", "id": "policy:web-middleware", "path": ".knowledge/policy/web-middleware.md", "role": "supporting", "title": "Web Middleware Integration", "type": "policy"}
+{"category": "objective", "id": "requirement:action-response-update", "path": ".knowledge/requirement/action-response-update.md", "role": "primary", "title": "Action Response Update", "type": "requirement"}
 {"category": "objective", "id": "requirement:application-user-experience", "path": ".knowledge/requirement/application-user-experience.md", "role": "primary", "title": "Popcorn Wave Application User Experience", "type": "requirement"}
 {"category": "objective", "id": "requirement:async-html-rendering", "path": ".knowledge/requirement/async-html-rendering.md", "role": "primary", "title": "Async HTML Rendering", "type": "requirement"}
 {"category": "objective", "id": "requirement:bot-synchronous-render", "path": ".knowledge/requirement/bot-synchronous-render.md", "role": "primary", "title": "Bot Synchronous Render", "type": "requirement"}
@@ -253,6 +269,7 @@
 {"category": "objective", "id": "requirement:classic-rendering", "path": ".knowledge/requirement/classic-rendering.md", "role": "primary", "title": "Classic Rendering", "type": "requirement"}
 {"category": "objective", "id": "requirement:classic-web-acceptance", "path": ".knowledge/requirement/classic-web-acceptance.md", "role": "primary", "title": "Classic Web Acceptance", "type": "requirement"}
 {"category": "objective", "id": "requirement:cli-distribution", "path": ".knowledge/requirement/cli-distribution.md", "role": "primary", "title": "pw CLI Distribution", "type": "requirement"}
+{"category": "objective", "id": "requirement:component-asset-extraction", "path": ".knowledge/requirement/component-asset-extraction.md", "role": "primary", "title": "Component Asset Extraction", "type": "requirement"}
 {"category": "objective", "id": "requirement:contrib-acceptance", "path": ".knowledge/requirement/contrib-acceptance.md", "role": "primary", "title": "Contrib Acceptance Criteria", "type": "requirement"}
 {"category": "objective", "id": "requirement:contrib-auth-common", "path": ".knowledge/requirement/contrib-auth-common.md", "role": "primary", "title": "Authentication Security Primitives", "type": "requirement"}
 {"category": "objective", "id": "requirement:contrib-auth-state-dynamo", "path": ".knowledge/requirement/contrib-auth-state-dynamo.md", "role": "primary", "title": "DynamoDB Authentication State Store", "type": "requirement"}
@@ -276,6 +293,8 @@
 {"category": "objective", "id": "requirement:contrib-redis-valkey", "path": ".knowledge/requirement/contrib-redis-valkey.md", "role": "primary", "title": "TinyGo Redis and Valkey Compatibility", "type": "requirement"}
 {"category": "objective", "id": "requirement:contrib-sqlite", "path": ".knowledge/requirement/contrib-sqlite.md", "role": "primary", "title": "Portable SQLite Facade", "type": "requirement"}
 {"category": "objective", "id": "requirement:contrib-zstd", "path": ".knowledge/requirement/contrib-zstd.md", "role": "primary", "title": "Zstandard Response Encoder", "type": "requirement"}
+{"category": "objective", "id": "requirement:csrf-token-lifecycle", "path": ".knowledge/requirement/csrf-token-lifecycle.md", "role": "primary", "title": "CSRF Token Lifecycle And Delivery", "type": "requirement"}
+{"category": "objective", "id": "requirement:custom-element-registration", "path": ".knowledge/requirement/custom-element-registration.md", "role": "primary", "title": "Custom Element Registration", "type": "requirement"}
 {"category": "objective", "id": "requirement:daisyui-integration", "path": ".knowledge/requirement/daisyui-integration.md", "role": "primary", "title": "daisyUI Integration", "type": "requirement"}
 {"category": "objective", "id": "requirement:database-engine-selection", "path": ".knowledge/requirement/database-engine-selection.md", "role": "primary", "title": "Database Engine Selection", "type": "requirement"}
 {"category": "objective", "id": "requirement:database-migration", "path": ".knowledge/requirement/database-migration.md", "role": "primary", "title": "Versioned Database Migration", "type": "requirement"}
@@ -291,6 +310,7 @@
 {"category": "objective", "id": "requirement:dynamodb-test-data", "path": ".knowledge/requirement/dynamodb-test-data.md", "role": "primary", "title": "DynamoDB Seeding And Assertion", "type": "requirement"}
 {"category": "objective", "id": "requirement:dynamodb-test-isolation", "path": ".knowledge/requirement/dynamodb-test-isolation.md", "role": "primary", "title": "Isolated DynamoDB Tests", "type": "requirement"}
 {"category": "objective", "id": "requirement:dynamodb-typed-queries", "path": ".knowledge/requirement/dynamodb-typed-queries.md", "role": "primary", "title": "Declared DynamoDB Queries", "type": "requirement"}
+{"category": "objective", "id": "requirement:engine-parameterized-docs", "path": ".knowledge/requirement/engine-parameterized-docs.md", "role": "primary", "title": "Engine-Parameterized Documentation", "type": "requirement"}
 {"category": "objective", "id": "requirement:environment-switching", "path": ".knowledge/requirement/environment-switching.md", "role": "primary", "title": "Environment Switching", "type": "requirement"}
 {"category": "objective", "id": "requirement:external-boundary-runtime", "path": ".knowledge/requirement/external-boundary-runtime.md", "role": "primary", "title": "External Boundary Runtime Script", "type": "requirement"}
 {"category": "objective", "id": "requirement:framework-script-assets", "path": ".knowledge/requirement/framework-script-assets.md", "role": "primary", "title": "Framework Script Assets", "type": "requirement"}
@@ -304,7 +324,9 @@
 {"category": "objective", "id": "requirement:live-mode-plan-slice", "path": ".knowledge/requirement/live-mode-plan-slice.md", "role": "primary", "title": "Execute Only What A Live Response Transfers", "type": "requirement"}
 {"category": "objective", "id": "requirement:modern-observability", "path": ".knowledge/requirement/modern-observability.md", "role": "primary", "title": "Modern UI Observability", "type": "requirement"}
 {"category": "objective", "id": "requirement:modern-web-acceptance", "path": ".knowledge/requirement/modern-web-acceptance.md", "role": "primary", "title": "Modern Web Acceptance", "type": "requirement"}
+{"category": "objective", "id": "requirement:module-native-csrf", "path": ".knowledge/requirement/module-native-csrf.md", "role": "primary", "title": "Module Native CSRF", "type": "requirement"}
 {"category": "objective", "id": "requirement:mvp-acceptance", "path": ".knowledge/requirement/mvp-acceptance.md", "role": "primary", "title": "MVP Acceptance Criteria", "type": "requirement"}
+{"category": "objective", "id": "requirement:navigation-delta-rendering", "path": ".knowledge/requirement/navigation-delta-rendering.md", "role": "primary", "title": "Navigation Delta Rendering", "type": "requirement"}
 {"category": "objective", "id": "requirement:nested-html-templates", "path": ".knowledge/requirement/nested-html-templates.md", "role": "primary", "title": "Nested HTML Templates", "type": "requirement"}
 {"category": "objective", "id": "requirement:parallel-database-tests", "path": ".knowledge/requirement/parallel-database-tests.md", "role": "primary", "title": "Parallel Database Tests", "type": "requirement"}
 {"category": "objective", "id": "requirement:presence-signal", "path": ".knowledge/requirement/presence-signal.md", "role": "primary", "title": "Human Presence Signal", "type": "requirement"}
@@ -312,16 +334,23 @@
 {"category": "objective", "id": "requirement:public-asset-delivery", "path": ".knowledge/requirement/public-asset-delivery.md", "role": "primary", "title": "Public Asset Delivery", "type": "requirement"}
 {"category": "objective", "id": "requirement:query-diagnostics", "path": ".knowledge/requirement/query-diagnostics.md", "role": "primary", "title": "Database Query Diagnostics", "type": "requirement"}
 {"category": "objective", "id": "requirement:read-write-splitting", "path": ".knowledge/requirement/read-write-splitting.md", "role": "primary", "title": "Read-Write Split Connections", "type": "requirement"}
+{"category": "objective", "id": "requirement:reloadable-component-endpoint", "path": ".knowledge/requirement/reloadable-component-endpoint.md", "role": "primary", "title": "Reloadable Component Endpoint", "type": "requirement"}
 {"category": "objective", "id": "requirement:session-assurance-levels", "path": ".knowledge/requirement/session-assurance-levels.md", "role": "primary", "title": "Graded Session Assurance", "type": "requirement"}
 {"category": "objective", "id": "requirement:shared-web-runtime", "path": ".knowledge/requirement/shared-web-runtime.md", "role": "primary", "title": "Shared Web Runtime", "type": "requirement"}
 {"category": "objective", "id": "requirement:state-storage-tiers", "path": ".knowledge/requirement/state-storage-tiers.md", "role": "primary", "title": "Browser State Storage Tiers", "type": "requirement"}
 {"category": "objective", "id": "requirement:tailwind-css-integration", "path": ".knowledge/requirement/tailwind-css-integration.md", "role": "primary", "title": "Tailwind CSS Integration", "type": "requirement"}
 {"category": "objective", "id": "requirement:tailwind-plugin-integration", "path": ".knowledge/requirement/tailwind-plugin-integration.md", "role": "primary", "title": "Tailwind Plugin Integration", "type": "requirement"}
 {"category": "objective", "id": "requirement:test-data-seeding", "path": ".knowledge/requirement/test-data-seeding.md", "role": "primary", "title": "Test Data Seeding and Comparison", "type": "requirement"}
+{"category": "objective", "id": "requirement:tinybind-runtime-ownership", "path": ".knowledge/requirement/tinybind-runtime-ownership.md", "role": "primary", "title": "TinyBind Runtime Ownership Seams", "type": "requirement"}
+{"category": "objective", "id": "requirement:tinybind-update-composition-seams", "path": ".knowledge/requirement/tinybind-update-composition-seams.md", "role": "primary", "title": "TinyBind Update Composition Seams", "type": "requirement"}
 {"category": "objective", "id": "requirement:tinygodriver-adoption", "path": ".knowledge/requirement/tinygodriver-adoption.md", "role": "primary", "title": "tinygodriver Adoption", "type": "requirement"}
+{"category": "objective", "id": "requirement:tutorial-capability-growth", "path": ".knowledge/requirement/tutorial-capability-growth.md", "role": "primary", "title": "Tutorial Capability Growth", "type": "requirement"}
+{"category": "objective", "id": "requirement:tutorial-continuity", "path": ".knowledge/requirement/tutorial-continuity.md", "role": "primary", "title": "Tutorial Continuity", "type": "requirement"}
 {"category": "objective", "id": "requirement:typed-http-contract", "path": ".knowledge/requirement/typed-http-contract.md", "role": "primary", "title": "Typed HTTP Contract", "type": "requirement"}
 {"category": "objective", "id": "requirement:unhandled-boundary-signal", "path": ".knowledge/requirement/unhandled-boundary-signal.md", "role": "primary", "title": "Unhandled Boundary Signal", "type": "requirement"}
+{"category": "objective", "id": "requirement:unified-update-runtime", "path": ".knowledge/requirement/unified-update-runtime.md", "role": "primary", "title": "Unified Update Runtime", "type": "requirement"}
 {"category": "constraint", "id": "rule:configuration-advisories", "path": ".knowledge/rule/configuration-advisories.md", "role": "supporting", "title": "Configuration Advisories", "type": "rule"}
+{"category": "constraint", "id": "rule:dsn-redaction", "path": ".knowledge/rule/dsn-redaction.md", "role": "supporting", "title": "DSN Redaction", "type": "rule"}
 {"category": "constraint", "id": "rule:dynamodb-reproduction-format", "path": ".knowledge/rule/dynamodb-reproduction-format.md", "role": "supporting", "title": "DynamoDB Reproduction Format", "type": "rule"}
 {"category": "constraint", "id": "rule:dynamodb-table-naming", "path": ".knowledge/rule/dynamodb-table-naming.md", "role": "supporting", "title": "DynamoDB Table Name Resolution", "type": "rule"}
 {"category": "constraint", "id": "rule:explain-dialect-support", "path": ".knowledge/rule/explain-dialect-support.md", "role": "supporting", "title": "EXPLAIN Dialect Support", "type": "rule"}
@@ -338,6 +367,7 @@
 {"category": "constraint", "id": "rule:static-route-discovery", "path": ".knowledge/rule/static-route-discovery.md", "role": "supporting", "title": "Static Route Discovery", "type": "rule"}
 {"category": "constraint", "id": "rule:storage-checks", "path": ".knowledge/rule/storage-checks.md", "role": "supporting", "title": "Storage Checks", "type": "rule"}
 {"category": "constraint", "id": "rule:storage-package-layout", "path": ".knowledge/rule/storage-package-layout.md", "role": "supporting", "title": "Storage Package Layout", "type": "rule"}
+{"category": "constraint", "id": "rule:template-source-layout", "path": ".knowledge/rule/template-source-layout.md", "role": "supporting", "title": "Template Source Layout", "type": "rule"}
 {"category": "constraint", "id": "rule:tinygo-runtime-compatibility", "path": ".knowledge/rule/tinygo-runtime-compatibility.md", "role": "supporting", "title": "TinyGo Runtime Compatibility", "type": "rule"}
 {"category": "external", "id": "system:dbtestify", "path": ".knowledge/system/dbtestify.md", "role": "supporting", "title": "dbtestify", "type": "system"}
 {"category": "external", "id": "system:goose", "path": ".knowledge/system/goose.md", "role": "supporting", "title": "goose Migration Engine", "type": "system"}
@@ -348,6 +378,8 @@
 {"category": "external", "id": "system:tinygodriver-dynamodb", "path": ".knowledge/system/tinygodriver-dynamodb.md", "role": "supporting", "title": "tinygodriver DynamoDB Client", "type": "system"}
 {"category": "external", "id": "system:tinygodriver", "path": ".knowledge/system/tinygodriver.md", "role": "supporting", "title": "tinygodriver", "type": "system"}
 {"category": "interface", "id": "ui:devidp-login", "path": ".knowledge/ui/devidp-login.md", "role": "primary", "title": "Development IdP Login Screen", "type": "ui"}
+{"category": "interface", "id": "ui:starter-landing-page", "path": ".knowledge/ui/starter-landing-page.md", "role": "primary", "title": "Starter Landing Page", "type": "ui"}
+{"category": "interface", "id": "ui:tutorial-memo-app", "path": ".knowledge/ui/tutorial-memo-app.md", "role": "primary", "title": "Tutorial Memo Application", "type": "ui"}
 {"category": "objective", "id": "vision:contrib", "path": ".knowledge/vision/contrib.md", "role": "primary", "title": "TinyGo Contrib Vision", "type": "vision"}
 {"category": "objective", "id": "vision:popcorn-wave", "path": ".knowledge/vision/popcorn-wave.md", "role": "primary", "title": "Popcorn Wave Vision", "type": "vision"}
 {"category": "objective", "id": "vision:web-application-styles", "path": ".knowledge/vision/web-application-styles.md", "role": "primary", "title": "Classic and Modern Web Styles", "type": "vision"}

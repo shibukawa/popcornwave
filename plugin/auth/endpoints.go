@@ -11,7 +11,9 @@ import (
 
 	"github.com/shibukawa/popcornwave/contrib/oauth"
 	"github.com/shibukawa/popcornwave/contrib/oidc"
+	"github.com/shibukawa/popcornwave/internal/pathpattern"
 	"github.com/shibukawa/popcornwave/pw"
+	"github.com/shibukawa/popcornwave/pwruntime"
 )
 
 const (
@@ -46,11 +48,34 @@ const (
 	LogoutScopeGlobal    = "global"
 )
 
+// authenticate finalizes the request authentication and then serves the login
+// endpoints.
+//
+// Deriving the authentication is this package's job rather than the session
+// package's: a session is storage, and only what is in this package's own slot
+// says that the browser holding it is a signed-in account. SlotAuthentication
+// is where that is settled, which is what the slot is named for.
+func (rt *runtime) authenticate(next http.Handler) http.Handler {
+	endpoints := rt.endpoints(next)
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if data, ok := Session(r.Context()); ok {
+			r = r.WithContext(pwruntime.WithAuthentication(r.Context(), pwruntime.Authentication{
+				Authenticated:   true,
+				Subject:         data.AccountID,
+				Method:          data.Method,
+				Principal:       data,
+				AuthenticatedAt: data.AuthenticatedAt,
+			}))
+		}
+		endpoints.ServeHTTP(w, r)
+	})
+}
+
 // endpoints owns the login, callback, and logout paths and passes every other
 // request through.
 func (rt *runtime) endpoints(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		path, ok := canonicalPath(r)
+		path, ok := pathpattern.CanonicalPath(r)
 		if !ok {
 			pw.WriteProblem(w, r, pw.BadRequest())
 			return
@@ -228,7 +253,7 @@ func (rt *runtime) handleCallback(w http.ResponseWriter, r *http.Request) {
 	if idToken.AuthTime != nil {
 		data.ProviderAuthTime = idToken.AuthTime.Unix()
 	}
-	err = rt.manager.RotateWithMethod(w, r, data, MethodOIDC)
+	err = rt.establish(w, r, data, MethodOIDC)
 	if err != nil {
 		pw.Logger(r.Context()).Log(r.Context(), pw.LevelError, "session creation failed", pw.Err(err))
 		pw.WriteProblem(w, r, pw.ServiceUnavailable())
@@ -251,7 +276,7 @@ func (rt *runtime) completeStepUp(w http.ResponseWriter, r *http.Request, identi
 		pw.WriteProblem(w, r, pw.Forbidden())
 		return
 	}
-	if identity.Issuer != view.Data.Issuer || identity.KeyClaim != view.Data.KeyClaim || identity.Key != view.Data.Key || identity.Key == "" {
+	if identity.Issuer != view.Issuer || identity.KeyClaim != view.KeyClaim || identity.Key != view.Key || identity.Key == "" {
 		pw.Logger(r.Context()).Log(r.Context(), pw.LevelWarn, "step-up completed by a different identity")
 		pw.WriteProblem(w, r, pw.Forbidden())
 		return
@@ -267,7 +292,7 @@ func (rt *runtime) completeStepUp(w http.ResponseWriter, r *http.Request, identi
 		pw.WriteProblem(w, r, pw.Forbidden())
 		return
 	}
-	data := view.Data
+	data := view
 	if idToken.AuthTime != nil {
 		data.ProviderAuthTime = idToken.AuthTime.Unix()
 	}
@@ -276,7 +301,7 @@ func (rt *runtime) completeStepUp(w http.ResponseWriter, r *http.Request, identi
 	}
 	// Rotation, because an assurance change is an authentication-strength
 	// change: the previous token is revoked and the CSRF secret turns with it.
-	if err := rt.manager.RotateWithMethod(w, r, data, MethodOIDC); err != nil {
+	if err := rt.establish(w, r, data, MethodOIDC); err != nil {
 		pw.Logger(r.Context()).Log(r.Context(), pw.LevelError, "step-up session rotation failed", pw.Err(err))
 		pw.WriteProblem(w, r, pw.ServiceUnavailable())
 		return
@@ -299,7 +324,7 @@ func (rt *runtime) handleLogout(w http.ResponseWriter, r *http.Request) {
 	rt.forgetSignIn(w)
 	// The local session goes first and unconditionally, whatever the selected
 	// scope does afterward.
-	if err := rt.manager.Delete(w, r); err != nil {
+	if err := rt.endSession(w, r); err != nil {
 		pw.Logger(r.Context()).Log(r.Context(), pw.LevelError, "session deletion failed", pw.Err(err))
 		pw.WriteProblem(w, r, pw.ServiceUnavailable())
 		return

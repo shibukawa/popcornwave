@@ -246,7 +246,7 @@ func main() {
 	if err != nil {
 		t.Fatalf("start application: %v", err)
 	}
-	defer stopCommand(app)
+	defer stopCommand(app, exited)
 	telemetry.monitor(app)
 	if err := <-exited; err != nil {
 		t.Fatalf("application exited: %v\n%s", err, stderr)

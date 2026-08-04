@@ -23,7 +23,7 @@ func sampleBootReport() bootReport {
 		configFound: true,
 		entries: []bootEntry{
 			{key: "html.streaming", value: "true", source: "file_toml"},
-			{key: "middleware.rdb.dsn", value: redactedValue, source: "default"},
+			{key: "middleware.rdb.connections[0].dsn", value: redactedValue, source: "file_toml"},
 			{key: "middleware.rdb.enabled", value: "false", source: "default"},
 			{key: "server.port", value: "8080", source: "cli"},
 			{key: "session.cookie.name", value: "pw_session", source: "default"},
@@ -39,7 +39,7 @@ func TestRenderBootTreeGroupsKeysBySection(t *testing.T) {
 		"env dev · config.dev.toml",
 		"├─ middleware",
 		"│  └─ rdb",
-		"│     ├─ dsn",
+		"│     ├─ connections[0]",
 		"└─ session",
 		"listening on http://localhost:8080",
 	} {
@@ -149,13 +149,13 @@ func TestBootRecordIsOneStructuredEvent(t *testing.T) {
 		t.Fatalf("record is not valid JSON: %v\n%s", err, buffer.String())
 	}
 	for key, want := range map[string]string{
-		"msg":                          bootMessage,
-		"environment":                  "dev",
-		"listening":                    "http://localhost:8080",
-		"config.server.port":           "8080",
-		"config.middleware.rdb.dsn":    redactedValue,
-		"config_source.server.port":    "flag",
-		"config_source.html.streaming": "file",
+		"msg":                bootMessage,
+		"environment":        "dev",
+		"listening":          "http://localhost:8080",
+		"config.server.port": "8080",
+		"config.middleware.rdb.connections[0].dsn": redactedValue,
+		"config_source.server.port":                "flag",
+		"config_source.html.streaming":             "file",
 	} {
 		if got, _ := record[key].(string); got != want {
 			t.Errorf("%s = %q, want %q", key, got, want)

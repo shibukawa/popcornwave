@@ -6,7 +6,7 @@ sidebar:
 ---
 
 ```sh
-pw add [devbox|database|redis-valkey|auth|tailwind]
+pw add [devbox|database|dynamo|redis-valkey|auth|tailwind]
 ```
 
 `pw init` はどの機能から始めるかを尋ねますが、それはプロジェクトを理解しきる前の
@@ -24,6 +24,7 @@ pw add [devbox|database|redis-valkey|auth|tailwind]
 | --- | --- |
 | `devbox` | `devbox.json` と `devbox.lock`。このプロジェクトが既に使っているツールチェインを含む |
 | `database` | `[middleware.rdb]` セクション、マイグレーションディレクトリ、型付き SQL の例 |
+| `dynamo` | `[middleware.dynamo]` セクション、型付きレコード、ローカルの DynamoDB サーバー |
 | `redis-valkey` | `devbox.json` の Valkey 開発サーバー |
 | `auth` | ログインセッション、フレームワークのテーブル、アカウントリゾルバ |
 | `tailwind` | ピン留めした Tailwind ツールチェイン、CSS エントリ、`[assets.tailwind]` ブロック |
@@ -66,9 +67,7 @@ pw: add: this project already has auth, per migrations/00003_init_popcornwave_au
     create  migrations/00002_init_popcornwave_session.sql
     create  migrations/00003_init_popcornwave_auth.sql
     append  config.dev.toml
-    by hand call handlers.RegisterAccountResolver() in ./cmd/lean before pw.Run
-    by hand add import _ "github.com/shibukawa/popcornwave/sessionstore/sqlite" to ./cmd/lean
-    by hand add import _ "github.com/shibukawa/popcornwave/authstate/sqlite" to ./cmd/lean
+    edit    cmd/lean/main.go
     then    pw migrate up
 
   enter add  ·  esc back  ·  ctrl+c cancel

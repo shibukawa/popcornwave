@@ -2,7 +2,7 @@
 title: Cookies
 description: Typed cookies in three protections — client-editable, tamper-evident, and encrypted — and the keys that protect them.
 sidebar:
-  order: 5
+  order: 3
 ---
 
 A cookie is the one piece of application state the client holds, so the first
@@ -123,12 +123,14 @@ cookie beside it.
 [session]
 enabled = true
 backend = "cookie"
-
-[session.cookie_store]
-secret = "${SESSION_COOKIE_SECRET}"
+keyring.secret = "${SESSION_KEYRING_SECRET}"
 ```
+
+That secret is not the cookie backend's own setting. One keyring signs every
+`session.ReadOnly` slot and seals every `session.Private` one, so a deployment
+on `rdb` or `redis` declares it too.
 
 The same sealing, the same rotation, the same size ceiling — and one limit that
 only matters for a login: a sealed record cannot be revoked, because there is no
-server copy to delete. [Sessions](/guides/backend/sessions/) compares that
+server copy to delete. [Session storage](/guides/storage/session-storage/) compares that
 against the database and Redis backends, and lists what each one needs.

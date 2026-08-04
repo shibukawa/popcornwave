@@ -136,6 +136,8 @@ func planCapability(state projectState, options addOptions) (*capabilityPlan, er
 		return plan, planDevbox(state, plan)
 	case capabilityDatabase:
 		return plan, planDatabase(state, options, plan)
+	case capabilityDynamo:
+		return plan, planDynamo(state, plan)
 	case capabilityRedis:
 		return plan, planRedisValkey(state, plan)
 	case capabilityAuth:
@@ -155,7 +157,10 @@ func planCapability(state projectState, options addOptions) (*capabilityPlan, er
 func planDatabase(state projectState, options addOptions, plan *capabilityPlan) error {
 	engine := engineFor(options.Engine)
 	for _, name := range state.configFiles {
-		plan.appends[name] = databaseRuntimeSection(options.databaseDSN(state.config.Name), engine)
+		// Every environment gets the pool, and only dev gets the local DSN:
+		// the file for a deployment names the environment variable the
+		// deployment sets.
+		plan.appends[name] = databaseRuntimeSection(environmentToken(name), options.databaseDSN(state.config.Name), engine)
 	}
 	migrations := state.config.Migration.Dir
 	if len(state.migrations) == 0 {
@@ -187,8 +192,10 @@ func planDatabase(state projectState, options addOptions, plan *capabilityPlan) 
 	// The entry point is application-owned, so the blank import that links the
 	// engine is printed rather than injected.
 	if engine.DriverImport != "" {
-		plan.manual = append(plan.manual,
-			"blank-import "+engine.DriverImport+" from the application entry point")
+		if err := planEntryPointEdit(state, plan,
+			[]blankImport{{engine.DriverImport, "the engine the configured DSN names"}}, "", ""); err != nil {
+			return err
+		}
 	}
 	if engine.DevboxPackage != "" && state.devbox != "" {
 		edited, err := addDevboxPackage(state.devbox, engine.DevboxPackage)
@@ -219,6 +226,93 @@ func planDevbox(state projectState, plan *capabilityPlan) error {
 }
 
 // planRedisValkey adds the development server to the Devbox environment.
+// planDynamo installs the DynamoDB store: its configuration, the starter record
+// the generator reads, and the local server pw dev starts. It writes no
+// migration, because the DynamoDB schema is the set of registered table
+// definitions and has no version sequence to add a file to.
+func planDynamo(state projectState, plan *capabilityPlan) error {
+	for _, name := range state.configFiles {
+		plan.appends[name] = dynamoRuntimeSection()
+	}
+	// The records directory and the purpose that reads it are written together:
+	// generate.dynamo has no default, so a directory no purpose lists is a
+	// directory nothing generates from.
+	plan.creates[defaultDynamoDir+"/note.go"] = dynamoRecordScaffold()
+	edited, err := setGeneratePurpose(state, capabilityDynamoPurpose, []string{defaultDynamoDir})
+	if err != nil {
+		return err
+	}
+	plan.edits["popcornwave.toml"] = edited
+	plan.generate = true
+	// The entry point is application-owned, so the import that installs the
+	// client middleware is printed rather than injected.
+	if err := planEntryPointEdit(state, plan,
+		[]blankImport{{"github.com/shibukawa/popcornwave/database/dynamo", "installs the DynamoDB client middleware"}},
+		"", ""); err != nil {
+		return err
+	}
+	if state.devbox != "" {
+		devbox, err := addDevboxPackage(state.devbox, dynamoDevboxPackage)
+		if err != nil {
+			return err
+		}
+		plan.edits["devbox.json"] = devbox
+		plan.next = append(plan.next, "devbox shell")
+	}
+	return nil
+}
+
+// planEntryPointEdit adds imports and an optional call to the application entry
+// point, so a capability installed later reaches the file state one installed at
+// bootstrap already has.
+//
+// A file this cannot edit — an unparenthesized import block, no func main, a
+// package that does not parse — falls back to printing the step. The operator
+// still learns what is missing, which is what the command did for every
+// capability before this.
+func planEntryPointEdit(state projectState, plan *capabilityPlan, imports []blankImport, call, callComment string) error {
+	path, source, err := entryPointSource(state.root, state.config.Main)
+	if err != nil {
+		printEntryPointSteps(plan, state.config.Main, imports, call)
+		return nil
+	}
+	// An edit already planned for this file is the one to build on: two
+	// capabilities in one run would otherwise each start from what is on disk
+	// and the second would discard the first.
+	if planned, ok := plan.edits[path]; ok {
+		source = planned
+	}
+	edited, err := withBlankImports(source, imports...)
+	if err != nil {
+		printEntryPointSteps(plan, state.config.Main, imports, call)
+		return nil
+	}
+	if call != "" {
+		edited, err = withMainCall(edited, call, callComment)
+		if err != nil {
+			printEntryPointSteps(plan, state.config.Main, imports, call)
+			return nil
+		}
+	}
+	if edited == source {
+		// Everything was already there, so there is nothing to show on the
+		// review screen and nothing to write.
+		return nil
+	}
+	plan.edits[path] = edited
+	return nil
+}
+
+// printEntryPointSteps is the fallback for a file the command will not touch.
+func printEntryPointSteps(plan *capabilityPlan, mainPackage string, imports []blankImport, call string) {
+	for _, wanted := range imports {
+		plan.manual = append(plan.manual, `add import _ "`+wanted.path+`" to `+mainPackage)
+	}
+	if call != "" {
+		plan.manual = append(plan.manual, "call "+call+" in "+mainPackage+" before pw.Run")
+	}
+}
+
 func planRedisValkey(state projectState, plan *capabilityPlan) error {
 	edited, err := addDevboxPackage(state.devbox, "valkey@latest")
 	if err != nil {
@@ -266,15 +360,29 @@ func planAuth(state projectState, options addOptions, plan *capabilityPlan) erro
 	}
 	if options.AuthEmulator {
 		plan.creates[defaultIdPConfig] = devIdPRoster()
-		plan.appends["popcornwave.toml"] = devIdPProjectConfig(initOptions{AuthEmulator: true})
+		// Built from scaffold rather than from a fresh value: this section is
+		// written only for a mode that uses OIDC, and a hand-built options with
+		// no mode in it reads as a project that has none, which silently
+		// produced an empty append.
+		emulator := scaffold
+		emulator.AuthEmulator = true
+		plan.appends["popcornwave.toml"] = devIdPProjectConfig(emulator)
 	}
-	plan.manual = append(plan.manual,
-		"call "+goPackageIdentifier(handlers)+".RegisterAccounts() in "+state.config.Main+" before pw.Run",
-		// Storage is opt-in by blank import, so both stores this configuration
-		// selects have to be imported by the application: the sessions and the
-		// single-use login records.
-		`add import _ "`+sessionBackendPlugin(sessionRDB, dialect)+`" to `+state.config.Main,
-		`add import _ "github.com/shibukawa/popcornwave/authstate/`+dialect+`" to `+state.config.Main)
+	// Storage is opt-in by blank import, so both stores this configuration
+	// selects have to be linked by the application: the sessions and the
+	// single-use login records. Naming a backend in configuration and leaving
+	// the import out is a startup failure, which is why these are planned edits
+	// rather than printed instructions.
+	if err := planEntryPointEdit(state, plan,
+		[]blankImport{
+			{sessionBackendPlugin(sessionRDB, dialect), `serves session.backend = "rdb"`},
+			{"github.com/shibukawa/popcornwave/authstate/" + dialect, "holds the single-use login records"},
+		},
+		goPackageIdentifier(handlers)+".RegisterAccounts()",
+		"installed before Run: the framework calls these while it serves a login",
+	); err != nil {
+		return err
+	}
 	plan.next = append(plan.next, "pw migrate up")
 	plan.generate = true
 	return nil
@@ -312,7 +420,18 @@ func planTailwind(state projectState, plan *capabilityPlan) error {
 // make.
 func planPages(state projectState, plan *capabilityPlan) error {
 	root := defaultDiscoveredDir
-	for path, source := range pageTreeScaffold(initOptions{Name: state.config.Name}, root) {
+	// The starter page describes the project it was written into, so the tree
+	// this command adds has to be built from the same answers pw init would
+	// have had. Reading them back from the project is what keeps the two paths
+	// on one file state rather than on two pages that only look alike.
+	options, err := scaffoldOptionsOf(state)
+	if err != nil {
+		return err
+	}
+	// The tree is not in the project yet, so the probes cannot see it. This
+	// command is what puts it there.
+	options.Router = withRouter(options.Router, routerDiscovered)
+	for path, source := range pageTreeScaffold(options, root) {
 		plan.creates[path] = source
 	}
 	edited, err := setPagesPurpose(state, []string{root})
@@ -391,15 +510,23 @@ DROP TABLE users;
 }
 
 func starterQuery() string {
+	// Commented out with the migration it reads. A live statement against a
+	// table the starter migration no longer creates would generate a function
+	// that fails on its first call, which is worse than an example the reader
+	// has to uncomment.
 	return `package queries
 
-type User {
-  id: int
-  name: string
-}
-
-export statement FindUser(id: int): sql.one<User> {
-SELECT id, name FROM users WHERE id = {id}
-}
+// A typed query. Uncomment it together with the example table in
+// migrations/00001_init.sql, and pw generate emits a Go function whose
+// arguments and result come from the statement below.
+//
+// type Example {
+//   id: int
+//   name: string
+// }
+//
+// export statement FindExample(id: int): sql.one<Example> {
+// SELECT id, name FROM example WHERE id = {id}
+// }
 `
 }

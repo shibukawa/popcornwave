@@ -28,6 +28,13 @@ const (
 	// SlotAuthentication finalizes the request authentication result and owns
 	// its own login, callback, and logout paths.
 	SlotAuthentication Slot = 20
+	// SlotCSRF rejects forged unsafe requests.
+	//
+	// It sits below SlotSession because the token it compares against comes
+	// from the resolved session, and below SlotAuthentication so a plugin's own
+	// endpoints — a login post, an OIDC callback — answer above it rather than
+	// needing a configured exclusion to reach their handlers.
+	SlotCSRF Slot = 25
 	// SlotGuard rejects unauthenticated requests to protected paths.
 	SlotGuard Slot = 30
 )

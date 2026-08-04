@@ -8,6 +8,7 @@ import (
 	"time"
 
 	pw "github.com/shibukawa/popcornwave/pw"
+	"github.com/shibukawa/popcornwave/session"
 )
 
 // A Requirement states how recently the identity of a request must have been
@@ -156,6 +157,10 @@ func guard(handler http.HandlerFunc, requirement Requirement, api bool) http.Han
 			return
 		}
 		if ok {
+			// A zero-window admission is spent here rather than left to time
+			// out, so two destructive operations inside the window cannot share
+			// one proof.
+			consumeAdmission(r, requirement)
 			handler(w, r)
 			return
 		}
@@ -186,7 +191,7 @@ func LastProvedAt(ctx context.Context) (time.Time, bool) {
 	if !ok {
 		return time.Time{}, false
 	}
-	return view.Data.provenAt(view.AuthenticatedAt), true
+	return view.provenAt(), true
 }
 
 // satisfied evaluates the requirement against the request's session.
@@ -207,7 +212,7 @@ func satisfied(r *http.Request, requirement Requirement) (bool, error) {
 		return false, fmt.Errorf("%w: requirement could not be resolved", ErrNoAssurance)
 	}
 	if want.confirmed {
-		return confirmedWithin(view.Data, want.maxAge), nil
+		return confirmedWithin(view, want.maxAge), nil
 	}
 	if want.maxAge == 0 {
 		// Elapsed time can never satisfy a zero window: the redirect to the
@@ -215,9 +220,9 @@ func satisfied(r *http.Request, requirement Requirement) (bool, error) {
 		// timestamp comparison would challenge again immediately after a
 		// successful re-proof and never converge. Read it as a confirmation
 		// for this attempt, which is what it was always meant to say.
-		return stepUpAdmitted(view.Data), nil
+		return stepUpAdmitted(view), nil
 	}
-	return time.Since(view.Data.provenAt(view.AuthenticatedAt)) <= want.maxAge, nil
+	return time.Since(view.provenAt()) <= want.maxAge, nil
 }
 
 // confirmedWithin reports whether a re-proof the guard asked for happened
@@ -233,9 +238,45 @@ func confirmedWithin(data SessionData, maxAge time.Duration) bool {
 	return time.Since(time.Unix(data.StepUpAt, 0)) <= maxAge
 }
 
+// consumeAdmission spends a zero-window admission the guard just accepted.
+//
+// The window that bounds it is a backstop rather than the mechanism: a proof
+// asked for one operation admits that operation and no other. Writing the slot
+// is an ordinary session write, which is what makes exact single use possible
+// here; before per-slot writes existed, spending it would have meant rotating
+// the session inside a read, and the stamp was left to expire instead.
+//
+// It runs only where the guard admits. A handler that calls IsRecent and
+// Challenge itself keeps the time-bounded behavior, because IsRecent writes
+// nothing by contract and owns its own denial.
+func consumeAdmission(r *http.Request, requirement Requirement) {
+	instance := activeRuntime()
+	if instance == nil {
+		return
+	}
+	want, resolved := requirement.resolve(r, instance.config)
+	if !resolved || want.maxAge != 0 {
+		// Only a zero window rests on the admission; every other window is
+		// satisfied by elapsed time, which nothing can spend.
+		return
+	}
+	handle, ok := session.Value[SessionData](r.Context())
+	if !ok {
+		return
+	}
+	data, present := handle.Get()
+	if !present || data.StepUpAt <= 0 {
+		return
+	}
+	data.StepUpAt = 0
+	// A failed write leaves the admission standing, which is the direction that
+	// costs a redundant confirmation rather than granting one.
+	_ = handle.Set(data)
+}
+
 // stepUpAdmissionWindow bounds how long a completed zero-window proof admits an
-// operation. It covers the redirect back and the click that follows, and
-// nothing longer.
+// operation. It is the backstop for an admission nobody spent, such as one the
+// user abandoned; consumeAdmission is what makes it single use.
 const stepUpAdmissionWindow = 30 * time.Second
 
 func stepUpAdmitted(data SessionData) bool {
@@ -272,4 +313,3 @@ func challenge(w http.ResponseWriter, r *http.Request, requirement Requirement, 
 	}
 	instance.redirect(w, r, instance.stepUpPath(r, want.maxAge))
 }
-

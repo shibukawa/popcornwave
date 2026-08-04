@@ -19,6 +19,9 @@ fields:
   registration.policy: disabled, oidc, invite, administrator, or open
   recovery.policy: oidc, administrator, or application
   recent_auth_max_age: duration
+  session.ttl: absolute session lifetime, moved here by decision:session-lifetime-owned-by-auth; the auth.session prefix is its own binding, whose struct lives in popcornwave/sessionconfig so pw can enforce it without importing this package
+  session.idle_timeout: optional inactivity lifetime, never later than session.ttl
+  session.renewal_interval: how often an active session is touched
   shared_device: bool, default false, per policy:shared-device-mode
   bootstrap.issue_ttl: duration an issued secret stays redeemable, measured from issuance
   bootstrap.enrollment_ttl: duration the enrollment stays open, measured from redemption
@@ -63,6 +66,8 @@ mode_validation:
     bootstrap_naming: issue_ttl rather than credential_ttl, because the two durations bound consecutive phases and the name should say which; a leading noun also kept it out of the secret-redaction match
     refused: every oidc field, so a leftover AUTH_OIDC_ISSUER cannot suggest a provider is in the loop
   shared:
+    - session.idle_timeout must not exceed session.ttl, and session.renewal_interval must be shorter than both
+    - a guard window of api:assurance-guard longer than session.ttl is refused, because a requirement no live session can satisfy is a configuration error rather than a permanent challenge loop
     - passkey.rp_id must be a registrable domain or localhost, never an IP literal, because an IP cannot be an RP ID
     - every passkey.origins entry must be https, or loopback http under the same allowance oidc.allow_loopback_http already carries
     - every passkey.origins entry must have passkey.rp_id as its registrable suffix
@@ -109,7 +114,8 @@ rules:
   - existing admission requires auto_provision false
   - claim admission requires a non-empty path and values
   - authenticated admission with auto_provision permits every verified issuer subject to create an account
-  - require data:session-runtime-config when provider flow needs login continuity
+  - require data:session-runtime-config when provider flow needs login continuity; that binding places the storage and this one bounds its lifetime, per concept:session-storage-boundary
+  - supply the session.ttl, session.idle_timeout, and session.renewal_interval durations to api:session-manager at construction, so the session package holds no default of its own
   - redact provider secrets
   - derive oidc.redirect_url from the request only under the development_injection conditions, never from a forwarded or non-loopback host
   - verified request results become data:request-authentication

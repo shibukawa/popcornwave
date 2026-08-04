@@ -215,6 +215,129 @@ export component Document(children: html?): html {
 	}
 }
 
+// A component carrying the annotation is published, and one beside it that does
+// not is left alone. Both are asserted from one directory, because the failure
+// worth catching is a scan that registers every component it can see.
+func TestPlanDirectoryRegistersReloadableComponents(t *testing.T) {
+	directory := t.TempDir()
+	writeTestFile(t, filepath.Join(directory, "go.mod"), "module fixture\n\ngo 1.26.0\n")
+	writeTestFile(t, filepath.Join(directory, "card.pw.html"), `package fixture
+
+@reloadable
+export component Card(id: string, page: int): html {
+<article>{page}</article>
+}
+
+export component Plain(label: string): html {
+<span>{label}</span>
+}
+`)
+	options, err := pwgen.Options(sqlbind.DialectPostgreSQL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	changes, err := planDirectory(context.Background(), generator.New(options), directory, allPurposes, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	card := string(changesByBase(changes)["card_pw_gen.go"].source)
+	for _, fragment := range []string{
+		`"github.com/shibukawa/popcornwave/pw"`,
+		"var CardReloadable = htmlupdate.Reloadable{",
+		"pw.RegisterReloadable(CardReloadable)",
+	} {
+		if !strings.Contains(card, fragment) {
+			t.Fatalf("reloadable artifact is missing %q:\n%s", fragment, card)
+		}
+	}
+	if strings.Contains(card, "PlainReloadable") {
+		t.Fatalf("a component without the annotation was published:\n%s", card)
+	}
+	if _, err := parser.ParseFile(token.NewFileSet(), "card.go", card, parser.AllErrors); err != nil {
+		t.Fatalf("generated source is invalid: %v\n%s", err, card)
+	}
+}
+
+// The set a page hands to pw.Redraw is folded from what its markup can actually
+// contain, so an author never enumerates it and cannot forget an entry.
+func TestPlanDirectoryFoldsTheReloadableSetOfEachComponent(t *testing.T) {
+	directory := t.TempDir()
+	writeTestFile(t, filepath.Join(directory, "go.mod"), "module fixture\n\ngo 1.26.0\n")
+	writeTestFile(t, filepath.Join(directory, "page.pw.html"), `package fixture
+
+@reloadable
+export component Card(id: string, page: int): html {
+<article>{page}</article>
+}
+
+export component Sidebar(): html {
+<aside><Card id="card-1" page={1} /></aside>
+}
+
+export component Page(): html {
+<main><Sidebar /></main>
+}
+
+export component Plain(label: string): html {
+<span>{label}</span>
+}
+`)
+	options, err := pwgen.Options(sqlbind.DialectPostgreSQL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	changes, err := planDirectory(context.Background(), generator.New(options), directory, allPurposes, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	page := string(changesByBase(changes)["page_pw_gen.go"].source)
+	// Page calls Sidebar calls Card, so the fold is transitive rather than one
+	// level deep. Card names itself, because redrawing the region you are already
+	// looking at is the ordinary case.
+	for _, fragment := range []string{
+		"func (PageParams) PwReloadables() []htmlupdate.Reloadable",
+		"func (SidebarParams) PwReloadables() []htmlupdate.Reloadable",
+		"func (CardParams) PwReloadables() []htmlupdate.Reloadable",
+	} {
+		if !strings.Contains(page, fragment) {
+			t.Errorf("missing %q:\n%s", fragment, page)
+		}
+	}
+	// A component whose markup can contain none publishes no set, so a handler
+	// cannot hand out a list that promises something it never renders.
+	if strings.Contains(page, "PlainParams) PwReloadables") {
+		t.Errorf("a component reaching no reloadable one published a set:\n%s", page)
+	}
+	if _, err := parser.ParseFile(token.NewFileSet(), "page.go", page, parser.AllErrors); err != nil {
+		t.Fatalf("generated source is invalid: %v\n%s", err, page)
+	}
+}
+
+// A template declaring none regenerates exactly as it did before, so turning the
+// scan on does not rewrite every generated file in an existing project.
+func TestPlanDirectoryLeavesPlainTemplatesUnregistered(t *testing.T) {
+	directory := t.TempDir()
+	writeTestFile(t, filepath.Join(directory, "go.mod"), "module fixture\n\ngo 1.26.0\n")
+	writeTestFile(t, filepath.Join(directory, "plain.pw.html"), `package fixture
+
+export component Plain(label: string): html {
+<span>{label}</span>
+}
+`)
+	options, err := pwgen.Options(sqlbind.DialectPostgreSQL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	changes, err := planDirectory(context.Background(), generator.New(options), directory, allPurposes, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	plain := string(changesByBase(changes)["plain_pw_gen.go"].source)
+	if strings.Contains(plain, "RegisterReloadable") {
+		t.Fatalf("a plain template registered a redraw endpoint:\n%s", plain)
+	}
+}
+
 func TestPlanBootstrapLinkGeneratesRuntimeRegistrationImports(t *testing.T) {
 	root := t.TempDir()
 	if err := os.MkdirAll(filepath.Join(root, "cmd", "fixture"), 0o755); err != nil {

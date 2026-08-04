@@ -5,6 +5,17 @@ import "github.com/shibukawa/tinybind-go/generator"
 const (
 	pwPackage        = "github.com/shibukawa/popcornwave/pw"
 	pwRuntimePackage = "github.com/shibukawa/popcornwave/pwruntime"
+	// pwAttributePrefix mirrors pw.UpdateAttributePrefix. It is repeated rather
+	// than imported because this package is a host-side tool and pw is the
+	// runtime; a test asserts the two agree.
+	//
+	// It is the module's own default rather than this framework's brand, and
+	// that is deliberate: system:tinybind routetree does not thread the prefix
+	// into the templates it compiles, so a page tree would keep the default
+	// while a registered-router template took the brand, and one document would
+	// hold both spellings. One agreed spelling is worth more than the brand
+	// until the option reaches both paths.
+	pwAttributePrefix = "tb"
 )
 
 // Options returns TinyBind generator options extended with the stable pw API.
@@ -97,6 +108,11 @@ func Options(sqlDialect string) (generator.Options, error) {
 	// developer had written it, and its page registrations become documented API
 	// routes.
 	options.GeneratedHeaders = []string{GeneratedHeaderPrefix}
+	// One prefix names the generated boundary attributes, the placeholder
+	// element, and the boundary ids. The browser runtime is built for it, so a
+	// document holding the module's default beside this one would address
+	// regions the runtime never looks for.
+	options.DataAttributePrefix = pwAttributePrefix
 	options.HTMLTemplatePattern = "*.pw.html"
 	options.SQLTemplatePattern = "*.pw.sql"
 	options.DynamoTemplatePattern = "*.pw.dynamo"

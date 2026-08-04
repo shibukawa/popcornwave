@@ -67,7 +67,7 @@ func NewJar[T any](codec Codec[T], options JarOptions) (*Jar[T], error) {
 	if err != nil {
 		return nil, err
 	}
-	if options.MaxAge < 0 || options.MaxAge > maxTTL {
+	if options.MaxAge < 0 || options.MaxAge > BrowserMax {
 		return nil, fmt.Errorf("%w: cookie max age", ErrInvalidOptions)
 	}
 	maxBytes, err := cookieBudget(options.MaxBytes)

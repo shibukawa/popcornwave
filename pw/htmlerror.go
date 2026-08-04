@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/http"
 	"strconv"
+	"strings"
 	"sync"
 
 	"github.com/shibukawa/tinybind-go/htmlbind"
@@ -91,6 +92,54 @@ func builtinErrorPage(w io.Writer, problem Problem) {
 	_, _ = io.WriteString(w, `<main><h1>`+strconv.Itoa(status)+` `+htmlbind.Escape(title)+`</h1></main>`)
 }
 
+// publicProblem bounds what an error page is allowed to say, by environment
+// rather than by status or by client.
+//
+// In development the reader is the person who caused the failure and is about
+// to fix it, so the page carries everything the problem does. Anywhere else the
+// same page is served to the public, and it says what went wrong without saying
+// why. The template is the same in both: the difference is what it is given,
+// because a template that decides this itself decides it once and then gets
+// copied into an application that meant something else by it.
+func publicProblem(problem Problem) Problem {
+	if Env() == EnvDevelopment {
+		return problem
+	}
+	return Problem{Status: problem.Status, Title: problem.Title}
+}
+
+// acceptsHTML reports whether the client would rather have a page than a
+// document. An absent, empty, or unreadable Accept is not a preference, so it
+// takes the API representation, which is also what a client that sent no
+// opinion at all is most likely to be.
+func acceptsHTML(r *http.Request) bool {
+	if r == nil {
+		return false
+	}
+	htmlQuality, jsonQuality := -1.0, -1.0
+	for _, entry := range strings.Split(r.Header.Get("Accept"), ",") {
+		parts := strings.Split(entry, ";")
+		media := strings.TrimSpace(strings.ToLower(parts[0]))
+		quality := 1.0
+		for _, parameter := range parts[1:] {
+			name, value, found := strings.Cut(strings.TrimSpace(parameter), "=")
+			if !found || strings.TrimSpace(name) != "q" {
+				continue
+			}
+			if parsed, err := strconv.ParseFloat(strings.TrimSpace(value), 64); err == nil {
+				quality = parsed
+			}
+		}
+		switch media {
+		case "text/html", "application/xhtml+xml":
+			htmlQuality = max(htmlQuality, quality)
+		case "application/json", "application/problem+json":
+			jsonQuality = max(jsonQuality, quality)
+		}
+	}
+	return htmlQuality > 0 && htmlQuality >= jsonQuality
+}
+
 // writeHTMLProblem answers an uncommitted HTML request with the error page and
 // its real status.
 //
@@ -103,19 +152,21 @@ func builtinErrorPage(w io.Writer, problem Problem) {
 func writeHTMLProblem(w http.ResponseWriter, r *http.Request, wrappers []HTMLWrapper, problem Problem) {
 	resolve := registeredHTMLErrorPage()
 	if resolve == nil {
-		WriteProblem(w, r, problem)
+		writeProblemJSON(w, r, problem)
 		return
 	}
-	fragment := resolve(problem)
+	problem = sanitizedProblem(problem)
+	fragment := resolve(publicProblem(problem))
 	if !fragment.Present() {
-		WriteProblem(w, r, problem)
+		writeProblemJSON(w, r, problem)
 		return
 	}
+	addVaryHeader(w.Header(), "Accept")
 	var body bytes.Buffer
 	if err := htmlbind.RenderChain(&body, wrappers, fragment); err != nil {
 		// Never let an error page's own failure recurse into another one.
 		Logger(requestContext(r)).Log(requestContext(r), LevelError, "HTML error page render failed", Err(err))
-		WriteProblem(w, r, problem)
+		writeProblemJSON(w, r, problem)
 		return
 	}
 	status := problem.Status

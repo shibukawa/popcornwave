@@ -9,7 +9,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/shibukawa/popcornwave/internal/pathpattern"
 	"github.com/shibukawa/popcornwave/session"
+	"github.com/shibukawa/popcornwave/sessionconfig"
 )
 
 // Authentication modes. Only ModeOIDCOnly is implemented; the passkey modes are
@@ -78,6 +80,17 @@ const (
 	RecoveryAdministrator = "administrator"
 	RecoveryApplication   = "application"
 )
+
+// SessionLifetimeConfig is the [auth.session] binding, declared in
+// popcornwave/sessionconfig so that pw can read it without importing this
+// package.
+//
+// It is bound here rather than there because a lifetime is authentication's
+// statement: linking this package is what makes the keys exist, and a
+// deployment with no authentication has no framework session lifetime at all.
+// The alias must stay an alias, because the configuration registry is keyed by
+// reflect.Type and a defined type would be a different one.
+type SessionLifetimeConfig = sessionconfig.SessionLifetimeConfig
 
 // Config is the [auth] runtime binding. It is registered when this package is
 // imported.
@@ -362,10 +375,10 @@ func (c Config) validateShape() error {
 		return fmt.Errorf("auth.protection.unauthenticated must be %q or %q",
 			UnauthenticatedRedirect, UnauthenticatedUnauthorized)
 	}
-	if _, err := compilePatterns(c.Protection.Include); err != nil {
+	if _, err := pathpattern.Compile(c.Protection.Include); err != nil {
 		return fmt.Errorf("auth.protection.include: %w", err)
 	}
-	if _, err := compilePatterns(c.Protection.Exclude); err != nil {
+	if _, err := pathpattern.Compile(c.Protection.Exclude); err != nil {
 		return fmt.Errorf("auth.protection.exclude: %w", err)
 	}
 	if err := c.validateAssurance(); err != nil {

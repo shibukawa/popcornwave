@@ -25,33 +25,26 @@ func validateConfiguredRuntime() error {
 	); err != nil {
 		return err
 	}
+	// The cookie policy is the one rule here that reads the environment: the
+	// same value is deliberate on a loopback development machine and a defect
+	// anywhere else.
+	if err := validateSessionConfig(Config[SessionConfig](nil), Env()); err != nil {
+		return err
+	}
 	return validateHTMLConfig(Config[HTMLConfig](nil))
 }
 
 // resolveRDBConnections expands the configuration into the effective connection
 // list, in configuration order.
 //
-// The legacy single-DSN form becomes one writable connection in the default
-// group. It is retained because it is the only form with environment and CLI
-// overrides: an array element has neither.
+// An element naming no group joins the default group, so the single-database
+// project writes one element and names nothing.
 func resolveRDBConnections(config RDBConfig) ([]RDBConnectionConfig, error) {
-	legacy := strings.TrimSpace(config.DSN) != ""
-	if legacy && len(config.Connections) > 0 {
-		return nil, errors.New("middleware.rdb.dsn and middleware.rdb.connections cannot both be set; keep one form")
-	}
-	if legacy {
-		return []RDBConnectionConfig{{
-			Group:           pwruntime.DefaultConnectionGroup,
-			DSN:             config.DSN,
-			ConnectTimeout:  config.ConnectTimeout,
-			MaxOpenConns:    config.MaxOpenConns,
-			MaxIdleConns:    config.MaxIdleConns,
-			ConnMaxLifetime: config.ConnMaxLifetime,
-			ConnMaxIdleTime: config.ConnMaxIdleTime,
-		}}, nil
-	}
 	if len(config.Connections) == 0 {
-		return nil, errors.New("middleware.rdb.enabled needs middleware.rdb.dsn or at least one [[middleware.rdb.connections]] element")
+		// A file written against the removed single-DSN form lands here: the
+		// key it sets is claimed by no binding, so the section reads as an
+		// enabled database with no pool behind it.
+		return nil, errors.New("middleware.rdb.enabled needs at least one [[middleware.rdb.connections]] element; the middleware.rdb.dsn form was removed, so move that DSN into an element")
 	}
 	connections := make([]RDBConnectionConfig, 0, len(config.Connections))
 	for _, connection := range config.Connections {

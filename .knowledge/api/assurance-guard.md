@@ -71,8 +71,10 @@ zero_semantics:
   rule: zero is satisfied only by a single-use admission that a completed flow:step-up-reauthentication round trip issues, never by a timestamp comparison
   implemented: a StepUpAt stamp written into the session at the completed step-up, admitted while it is within a short window
   why_the_session: a cookie would be forgeable by anything that can set one, and the session is the only unforgeable place this package can write without owning a new server-side table
-  shortfall: the stamp is time-bounded rather than consumed exactly once, because consuming it would mean rotating the session inside an ordinary read, so two zero-window operations inside the window share one proof
-  follow_up: a server-side single-use record restores exact per-operation semantics
+  single_use: the admission is spent where the guard admits, so two zero-window operations cannot share one proof
+  how: clearing the stamp is an ordinary api:session-registry slot write, which is what made exact single use possible; before per-slot writes existed it would have meant rotating the session inside a read, and the stamp was left to expire instead
+  window_is_now_a_backstop: the thirty seconds bound an admission nobody spent, such as one the user abandoned
+  escape_hatch: a handler calling auth.IsRecent and auth.Challenge itself keeps the time-bounded behavior, because IsRecent writes nothing by contract and owns its own denial
 resumption_limit:
   fact: the callback returns through a redirect, which is a GET, so the wrapper can resume only a safe method
   consequence: a guarded mutation cannot be replayed by the wrapper; it answers the challenge and the user arrives back on the page that submitted it

@@ -12,10 +12,29 @@ type LayoutParams struct {
 
 var planLayoutOps = htmlbind.Builder[LayoutParams]{}
 
+// planLayoutInput canonically encodes the declared inputs of Layout.
+// Slot arguments are excluded: their content belongs to the child boundary,
+// so a frame stays comparable when only its child changed.
+func planLayoutInput(p LayoutParams) string {
+	return htmlbind.CanonJoin()
+}
+
+var planLayoutBoundary = &htmlbind.Boundary[LayoutParams]{
+	ComponentID: "pages.layout.Layout",
+	Attr:        "data-tb-id",
+	Input:       planLayoutInput,
+}
+
 var planLayoutPlan = &htmlbind.Plan[LayoutParams]{
-	Head: nil,
+	Head:     nil,
+	Boundary: planLayoutBoundary,
+	Slots: func(p LayoutParams) []htmlbind.Fragment {
+		return []htmlbind.Fragment{p.Children}
+	},
 	Ops: []htmlbind.Op[LayoutParams]{
-		planLayoutOps.Static(" <main class=\"app\">"),
+		planLayoutOps.Static(" <main"),
+		planLayoutOps.BoundaryAttr(),
+		planLayoutOps.Static(" class=\"app\">"),
 		planLayoutOps.Slot(func(p LayoutParams) htmlbind.Fragment { return p.Children },
 			nil),
 		planLayoutOps.Static("</main> "),

@@ -393,11 +393,6 @@ func (r *checkRun) checkEnvironmentValues() {
 					"connection "+connection.Label+" is an in-memory database, so the schema and every row are lost at restart",
 					connection.Key)
 			}
-			if connection.Legacy {
-				r.report(pwcheck.LegacySingleDSN,
-					"the database uses middleware.rdb.dsn rather than a connections array",
-					connection.Key)
-			}
 		}
 	}
 	if enabled, resolved := r.Config.boolValue("server.public.read_local"); resolved && enabled {
@@ -428,12 +423,10 @@ func (r *checkRun) checkIdentityProvider() {
 				"auth.oidc.redirect_url")
 		}
 	}
+	// In dev the provider values are expected to be absent from the file:
+	// pw dev runs the development identity provider and injects them. Nothing
+	// below has anything to say about that arrangement working.
 	if r.Env == pwenv.Development {
-		if r.State.config.IdP.Enabled {
-			r.report(pwcheck.ProviderInjectedDev,
-				"pw dev injects the issuer, client id, and client secret from the development identity provider",
-				"AUTH_OIDC_ISSUER, AUTH_OIDC_CLIENT_ID, AUTH_OIDC_CLIENT_SECRET")
-		}
 		return
 	}
 	if issuer != "" {

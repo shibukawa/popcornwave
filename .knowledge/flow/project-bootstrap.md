@@ -11,12 +11,12 @@ flow:
   steps:
     - id: choose
       actor: actor:application-developer
-      action: answer the decision:interactive-project-bootstrap wizard, or supply the same answers as shortcut flags
+      action: answer the decision:interactive-project-bootstrap wizard, which a project name argument seeds rather than skips; --yes or a session with no terminal takes the shortcut flags instead
     - id: validate
       actor: system:pw-cli
       action: validate project name and destination
     - id: scaffold
-      action: write concept:project-layout handwritten files, including requirement:nested-html-templates document shell and data:migration-source version 1
+      action: write concept:project-layout handwritten files, including requirement:nested-html-templates document shell, ui:starter-landing-page, and data:migration-source version 1
     - id: toolchain
       action: record project.toolchain and emit the flow:handler-registration mux for it, adding TinyGo to Devbox when selected
     - id: generate
@@ -24,6 +24,7 @@ flow:
     - id: optional-css
       action: pin decision:tailwind-host-toolchain in Devbox and scaffold the CSS entry when requested
     - id: summarize
+      action: report the created sources under policy:cli-progress-reporting, counting rather than listing the generated artifacts
       output: cd, devbox shell, and api:cli-dev commands
   failure:
     default: report failing phase and leave no partial replacement of existing files

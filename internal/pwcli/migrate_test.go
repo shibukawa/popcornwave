@@ -112,7 +112,9 @@ func TestRedactDSNHidesCredentials(t *testing.T) {
 	if strings.Contains(err.Error(), "s3cret") {
 		t.Fatalf("credentials leaked: %v", err)
 	}
-	if !strings.Contains(err.Error(), "postgres://") {
+	// The address is what makes the failure actionable: which server refused,
+	// on which port, for which database.
+	if !strings.Contains(err.Error(), "postgres://") || !strings.Contains(err.Error(), "host:5432/app") {
 		t.Fatalf("redaction removed too much: %v", err)
 	}
 }

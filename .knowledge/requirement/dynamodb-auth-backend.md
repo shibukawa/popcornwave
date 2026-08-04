@@ -14,6 +14,10 @@ current_gate:
   where: plugin/auth setup, before any store is opened
   behavior: a project with no pw.DB fails with "auth requires middleware.rdb.enabled = true"
   second_gate: the same setup resolves pw.SelectSessionDB and passes the handle as a session resource, which requirement:dynamodb-session-store ignores, so the handle exists only to satisfy the check
+  reaches_the_cli:
+    - api:cli-init refuses an authentication mode backed only by DynamoDB, because the runtime would refuse to start
+    - decision:interactive-project-bootstrap asks the database-engine question even when DynamoDB was the store answer, for the same reason
+    - both stop being true when the gate is lifted, so scaffolding and startup change together
   removal: the gate becomes a per-backend requirement, asserted by the selected backend rather than by the package
 four_stores:
   authstate:
@@ -40,7 +44,8 @@ tables:
   no_migration_file: per decision:dynamodb-desired-state-migration; the goose file plugin/auth publishes stays the SQL half
   startup: verify only, never create, which rule:framework-owned-tables already states for a non-relational store
 scaffolding:
-  api:cli-init: writes no auth migration file for a project selecting this backend, because there is none to write
+  api:cli-init: offers an authentication mode on a DynamoDB-only project, which it refuses today, and writes no auth migration file for it, because there is none to write
+  wizard: decision:interactive-project-bootstrap stops asking for a database engine when DynamoDB is the store answer and a login is wanted
   api:cli-add: the same
   verification: startup names the missing table and the pw migrate run that creates it, not a migration file
 acceptance:
@@ -49,6 +54,7 @@ acceptance:
   - oidc.admission registered admits a pre-registered identity and denies an unregistered one, and a backend failure is an error rather than a denial, per policy:oidc-admission
   - every table this backend needs is created by the same pw migrate run that creates application tables
   - startup refuses to serve when one of them is absent, naming the table and the command
+  - pw init offers an authentication mode on a project that selected DynamoDB and no relational database, and the project it writes serves
   - a project keeping middleware.rdb and auth.backend rdb is unchanged in every observable way
   - an application that installs its own CredentialStore or BootstrapStore keeps that store whichever backend is selected
   - no request any of these stores issues produces a query-diagnostics record, per policy:query-log-safety

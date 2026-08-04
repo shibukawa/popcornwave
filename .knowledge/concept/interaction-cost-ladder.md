@@ -23,8 +23,15 @@ tiers:
   authored_islands:
     cost: application-owned browser JavaScript
     covers: local state and events no server round trip can answer
-    boundary: custom elements, matching how requirement:framework-script-assets registers the framework runtime
+    boundary: custom elements, matching how requirement:framework-script-assets registers the framework runtime; from system:tinybind v0.3.3 each one must be declared per requirement:custom-element-registration, so reaching this tier now costs a configuration entry as well as the JavaScript
     mutation_address: api:page-action-endpoint inside concept:page-tree, whose attribute the application still intercepts and protects itself
+  framework_updates:
+    cost: one configuration section and one shell script reference, both already scaffolded
+    covers: a region the server re-renders, addressed and applied by the framework rather than by a library the application chose
+    surface: flow:partial-refresh over requirement:navigation-delta-rendering, requirement:reloadable-component-endpoint, and requirement:action-response-update
+    sits_above: server_fragments, which it does not replace; a project already using a swap library keeps working and gains nothing it has to adopt
+    what_it_adds_over_a_swap_library: boundary identity, validators so unchanged markup is not sent, supersession and ordering, form-state and focus preservation, and a documented fallback on every failure
+    runtime: requirement:unified-update-runtime, one asset for every capability
   unavailable:
     - full-document hydration
     - client-side routing

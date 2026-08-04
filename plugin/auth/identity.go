@@ -220,10 +220,23 @@ func derivedAccount(_ context.Context, identity Identity, _ bool) (Account, erro
 
 // SessionData is the payload stored in the login session. It holds no token
 // body, no provider secret, and no raw cookie material.
+//
+// It is one registered session slot, stored exactly like an application's own:
+// the session package holds the bytes and this package holds their meaning.
+// Everything about how well and how recently the subject was proved lives here
+// rather than on the session record, because a record holding a shopping cart
+// for an anonymous browser has no authentication time to report.
 type SessionData struct {
 	AccountID string `json:"account_id"`
 	Issuer    string `json:"iss"`
 	Subject   string `json:"sub"`
+	// AuthenticatedAt is when the current authentication strength was
+	// established. A rotation after a login or a re-proof refreshes it.
+	AuthenticatedAt time.Time `json:"authenticated_at"`
+	// Method is the unordered label of what proved this session, such as oidc
+	// or passkey. Nothing ranks one above another: the framework cannot order
+	// the methods it mounts, so an ordering would be a deployment claim.
+	Method string `json:"method,omitempty"`
 	// KeyClaim and Key record which verified claim identified the account and
 	// its value, so a handler can show or audit the link without repeating the
 	// configuration.
@@ -256,11 +269,11 @@ type SessionData struct {
 
 // provenAt reports when this session's identity was last actually proved,
 // preferring what the provider reported over when the login arrived.
-func (d SessionData) provenAt(fallback time.Time) time.Time {
+func (d SessionData) provenAt() time.Time {
 	if d.ProviderAuthTime > 0 {
 		return time.Unix(d.ProviderAuthTime, 0).UTC()
 	}
-	return fallback
+	return d.AuthenticatedAt
 }
 
 // identityFrom builds the verified identity and resolves the configured lookup

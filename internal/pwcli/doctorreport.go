@@ -48,7 +48,13 @@ func resolveConnections(config environmentConfig, graph importGraph) []doctorCon
 	defaultGroup := config.raw("middleware.rdb.default_group")
 	writeGroup := config.raw("middleware.rdb.write_group")
 	migrationGroup := config.raw("middleware.rdb.migration_group")
-	for _, connection := range config.databaseDSNs() {
+	configured := config.databaseDSNs()
+	// One connection answers every group name, so a configuration that names
+	// no group still has one connection carrying all three roles. Reading the
+	// pointers alone would print a blank role for the commonest project there
+	// is: the one with a single database.
+	sole := len(configured) == 1
+	for _, connection := range configured {
 		scheme := connection.scheme()
 		driver := scheme
 		if pkg, known := driverPackages[scheme]; known && graph.available() && !graph.links(pkg) && scheme != "sqlite" {
@@ -58,13 +64,13 @@ func resolveConnections(config environmentConfig, graph importGraph) []doctorCon
 		}
 		group, _, _ := strings.Cut(connection.Label, "#")
 		var roles []string
+		if sole {
+			roles = []string{"default", "migration", "write"}
+		}
 		for name, role := range map[string]string{defaultGroup: "default", writeGroup: "write", migrationGroup: "migration"} {
-			if name != "" && name == group {
+			if name != "" && name == group && !containsString(roles, role) {
 				roles = append(roles, role)
 			}
-		}
-		if connection.Legacy {
-			roles = append(roles, "default", "write")
 		}
 		sortStrings(roles)
 		connections = append(connections, doctorConnection{
