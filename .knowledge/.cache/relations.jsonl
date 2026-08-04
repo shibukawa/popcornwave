@@ -2494,6 +2494,7 @@
 {"context": "body", "path": ".knowledge/requirement/derived-asset-pipeline.md", "source": "requirement:derived-asset-pipeline", "target": "policy:asset-transform-matrix", "target_category": "constraint", "target_type": "policy"}
 {"context": "body", "path": ".knowledge/requirement/derived-asset-pipeline.md", "source": "requirement:derived-asset-pipeline", "target": "policy:public-asset-resolution", "target_category": "constraint", "target_type": "policy"}
 {"context": "body", "path": ".knowledge/requirement/derived-asset-pipeline.md", "source": "requirement:derived-asset-pipeline", "target": "api:cli-add", "target_category": "interface", "target_type": "api"}
+{"context": "body", "path": ".knowledge/requirement/derived-asset-pipeline.md", "source": "requirement:derived-asset-pipeline", "target": "api:cli-generate", "target_category": "interface", "target_type": "api"}
 {"context": "body", "path": ".knowledge/requirement/derived-asset-pipeline.md", "source": "requirement:derived-asset-pipeline", "target": "flow:derived-asset-build", "target_category": "behavior", "target_type": "flow"}
 {"context": "body", "path": ".knowledge/requirement/derived-asset-pipeline.md", "source": "requirement:derived-asset-pipeline", "target": "flow:public-asset-build", "target_category": "behavior", "target_type": "flow"}
 {"context": "body", "path": ".knowledge/requirement/derived-asset-pipeline.md", "source": "requirement:derived-asset-pipeline", "target": "api:public-asset-middleware", "target_category": "interface", "target_type": "api"}

@@ -450,3 +450,48 @@ func TestScriptReadSetHoldsOnlyRealInputs(t *testing.T) {
 		t.Errorf("read set is unordered: %v", result.Read)
 	}
 }
+
+// TestVariantCacheSkipsTheSecondEncode is the cost this cache exists for: a
+// variant is converted by the tree walk, so the upstream conversion cache never
+// sees it, and every build re-encoded every image whether or not anything had
+// changed.
+func TestVariantCacheSkipsTheSecondEncode(t *testing.T) {
+	root := t.TempDir()
+	source := filepath.Join(root, "photo.jpg")
+	writeTestJPEG(t, source, 48, 48)
+	calls := 0
+	counted := func(name string, lossless bool, quality int) ([]byte, error) {
+		calls++
+		return []byte("encoded-bytes"), nil
+	}
+	encode := cachedImageEncoder(filepath.Join(root, "cache"), "avif", counted)
+
+	for range 3 {
+		encoded, err := encode(source, false, defaultImageQuality)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if string(encoded) != "encoded-bytes" {
+			t.Fatalf("encoded = %q", encoded)
+		}
+	}
+	if calls != 1 {
+		t.Errorf("the encoder ran %d times", calls)
+	}
+
+	// Everything the output depends on has to miss: an edited source, and a
+	// different setting on the same source.
+	writeTestJPEG(t, source, 64, 64)
+	if _, err := encode(source, false, defaultImageQuality); err != nil {
+		t.Fatal(err)
+	}
+	if calls != 2 {
+		t.Errorf("an edited source hit the cache: %d calls", calls)
+	}
+	if _, err := encode(source, false, defaultImageQuality-10); err != nil {
+		t.Fatal(err)
+	}
+	if calls != 3 {
+		t.Errorf("a changed quality hit the cache: %d calls", calls)
+	}
+}

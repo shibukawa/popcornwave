@@ -79,6 +79,15 @@ func generateProject(ctx context.Context, check bool, stdout io.Writer, listPath
 	// so it belongs to generation rather than to the asset build that runs
 	// after it. The produced files are staged outside the served tree, which is
 	// what lets that tree be cleared and rebuilt without deleting them.
+	if config.Assets.Scripts {
+		// Before a single file is generated: the build emits a module, and a
+		// module under a classic script tag is a page that renders and silently
+		// loses its script. It runs here rather than in the asset build so that
+		// pw generate reports it too, and so that a --check run sees it.
+		if err := verifyScriptModuleTags(root); err != nil {
+			return 0, err
+		}
+	}
 	if hooks := assetReferenceHooks(root, config.Assets); len(hooks) > 0 {
 		staging := filepath.Join(root, filepath.FromSlash(derivedStageDir))
 		if !check {

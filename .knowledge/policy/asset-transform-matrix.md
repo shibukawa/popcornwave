@@ -28,7 +28,7 @@ kinds:
       out_of_scope: a url built from a custom property or any value not literal at build time, which is left alone and reported
       quoting: the token ends at the parenthesis outside quotes, since taking the first one would cut url("a (1).png") in half and emit a stylesheet that no longer parses
       ambiguous_absolute: an absolute reference matching two sources by suffix is left alone, because the mount prefix is runtime configuration and guessing would rewrite the wrong file
-      inline_style_blocks: a style block inside a template is not covered; system:tinybind already rewrites those blocks for scoped styles and a url pass there has no design yet
+      inline_style_blocks: deferred 2026-08-05; a style block inside a template is not covered, and system:tinybind already rewrites those blocks for scoped styles, so a url pass there has a home and no design
       image_set: not generated, because policy:public-asset-media-negotiation answers the same question on the response and needs no css syntax
   png:
     becomes: webp, lossless axis; an avif variant, when produced, is lossless too
@@ -96,10 +96,10 @@ image_scope:
     reason: wrapping an img changes descendant and sibling structure, so css combinators, flex and grid item identity, and structural javascript can all stop matching, and the build sees neither the global stylesheet nor the scripts to warn about it
     author_written: a picture the author wrote is ordinary markup; its img src is converted like any other and its source elements are left alone
   srcset:
-    status: undecided, and expressible today
-    mechanism: a rewrite replaces the whole attribute string, so a transform can parse the descriptor list and reassemble it without any upstream change
-    cost: every URL in the list is a separate conversion, and a partial failure has to leave the whole list authored
-    today: left alone, so a srcset keeps naming authored files that still ship
+    status: refused 2026-08-05
+    expressible: a rewrite replaces the whole attribute string, so a transform could parse the descriptor list and reassemble it with no upstream change
+    why_not: every URL in the list is a separate conversion and a partial failure has to leave the whole list authored, which is a second failure mode for an attribute a project writes when it is already making density decisions by hand
+    consequence: a srcset keeps naming authored files, and those files stay in the tree because source_retention sees them
 source_retention:
   rule: an authored source is dropped only when every reference the build can see was rewritten, and kept otherwise
   detection: a literal occurrence scan over the authored tree and the templates reports every remaining mention of a dropped URL

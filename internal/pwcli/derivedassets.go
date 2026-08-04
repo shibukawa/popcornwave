@@ -68,7 +68,11 @@ type derivedReport struct {
 // written over final bytes, and the manifest is written last because it
 // describes all of it.
 func buildDerivedAssets(root string, assets assetsConfig) (derivedReport, error) {
-	return buildDerivedAssetsWithEncoder(root, assets, encodeAVIF)
+	// A variant is converted by the tree walk, so the upstream conversion cache
+	// never sees it. Without one of its own, every build re-encoded every image
+	// whether or not anything had changed.
+	cache := filepath.Join(root, filepath.FromSlash(conversionCacheDir))
+	return buildDerivedAssetsWithEncoder(root, assets, cachedImageEncoder(cache, "avif", encodeAVIF))
 }
 
 // buildDerivedAssetsWithEncoder is the body, with the variant encoder stated.
@@ -101,15 +105,6 @@ func buildDerivedAssetsWithEncoder(root string, assets assetsConfig, encodeVaria
 	// removes it, so it is written back rather than left as a deletion.
 	if err := writeDerivedFile(filepath.Join(output, ".keep"), nil); err != nil {
 		return report, err
-	}
-
-	if assets.Scripts {
-		// Before anything is written: a module served under a classic tag is a
-		// page that renders and silently loses its script, and finding that in
-		// a browser console is far more expensive than finding it here.
-		if err := verifyScriptModuleTags(root); err != nil {
-			return report, err
-		}
 	}
 
 	produced, err := stagedProducedFiles(staged)

@@ -73,15 +73,20 @@ as_built:
   encoders: pinned by the api:cli-add images capability, which writes the devbox packages and the switch together; a machine with none declines and reports rather than failing
   head_contribution: a css companion of a typescript build declares its own link, through the upstream field v0.3.5 added
   read_set_is_inputs_only: the build tool reports its outputs beside its inputs, and recording an output as a dependency makes it unverifiable, which regenerates every run while appearing to cache
-  module_tag_check: the script build emits a module and the build refuses a built entry under a classic tag, naming the template file and line; the constraint cannot be decided inside a memoized transform, so it is checked where every template is readable at once
+  module_tag_check: the script build emits a module and generation refuses a built entry under a classic tag, naming the template file and line; it runs in api:cli-generate rather than in the asset build, so a generate on its own reports it and a --check run sees it, and it is the one place that does
+  variant_cache: a media variant is produced by the tree walk, which the upstream conversion cache never sees, so it has one of its own under the same directory, keyed by the source digest with the format, the axis, the quality, and the tool identity
+  staging_is_cleared: generation clears the staging directory before writing, because everything found there reaches the served tree and a file produced for a deleted source would otherwise ship forever
   retention: a converted source is dropped only when the literal-occurrence scan finds no reference the build could not rewrite, and a retention is reported
   development: pw dev runs the same conversions and serves dist/public from disk, so a rewritten reference resolves there too
   checks: pw doctor reports a tree older than its sources and an enabled image conversion whose encoder is absent
 still_missing:
-  - a hashed-name or runtime-resolved variant, so immutable caching is still unavailable
-  - srcset, which is expressible and undecided
-  - a stylesheet url() inside a template style block, which has no upstream home yet
-  - cleanup of dist/derived, which grows with removed sources until the directory is deleted
+  - a hashed-name or runtime-resolved variant, so immutable caching is still unavailable and every asset costs a revalidation
+  - a stylesheet url() inside a template style block, deferred rather than open
+  - source maps, which no build emits today
+  - the documentation, which still describes the authored tree as the served one
+out_of_scope:
+  srcset: refused, per policy:asset-transform-matrix
+  existing_project_migration: a project scaffolded before this states its own embed path and ignore rules; the build names the two lines to change and nothing rewrites them
 upstream_requests:
   delivered_in_v0_3_5:
     head_contribution:

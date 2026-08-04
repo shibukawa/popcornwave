@@ -15,7 +15,7 @@ Profile: `review`
 | `rule:project-integrity-checks` | `rule` | Project Integrity Checks |
 | `system:tinybind` | `system` | TinyBind |
 | `api:cli-add` | `api` | pw add |
-| `api:cli-init` | `api` | pw init |
+| `api:cli-generate` | `api` | pw generate |
 
 ## requirement:derived-asset-pipeline
 
@@ -89,15 +89,20 @@ as_built:
   encoders: pinned by the api:cli-add images capability, which writes the devbox packages and the switch together; a machine with none declines and reports rather than failing
   head_contribution: a css companion of a typescript build declares its own link, through the upstream field v0.3.5 added
   read_set_is_inputs_only: the build tool reports its outputs beside its inputs, and recording an output as a dependency makes it unverifiable, which regenerates every run while appearing to cache
-  module_tag_check: the script build emits a module and the build refuses a built entry under a classic tag, naming the template file and line; the constraint cannot be decided inside a memoized transform, so it is checked where every template is readable at once
+  module_tag_check: the script build emits a module and generation refuses a built entry under a classic tag, naming the template file and line; it runs in api:cli-generate rather than in the asset build, so a generate on its own reports it and a --check run sees it, and it is the one place that does
+  variant_cache: a media variant is produced by the tree walk, which the upstream conversion cache never sees, so it has one of its own under the same directory, keyed by the source digest with the format, the axis, the quality, and the tool identity
+  staging_is_cleared: generation clears the staging directory before writing, because everything found there reaches the served tree and a file produced for a deleted source would otherwise ship forever
   retention: a converted source is dropped only when the literal-occurrence scan finds no reference the build could not rewrite, and a retention is reported
   development: pw dev runs the same conversions and serves dist/public from disk, so a rewritten reference resolves there too
   checks: pw doctor reports a tree older than its sources and an enabled image conversion whose encoder is absent
 still_missing:
-  - a hashed-name or runtime-resolved variant, so immutable caching is still unavailable
-  - srcset, which is expressible and undecided
-  - a stylesheet url() inside a template style block, which has no upstream home yet
-  - cleanup of dist/derived, which grows with removed sources until the directory is deleted
+  - a hashed-name or runtime-resolved variant, so immutable caching is still unavailable and every asset costs a revalidation
+  - a stylesheet url() inside a template style block, deferred rather than open
+  - source maps, which no build emits today
+  - the documentation, which still describes the authored tree as the served one
+out_of_scope:
+  srcset: refused, per policy:asset-transform-matrix
+  existing_project_migration: a project scaffolded before this states its own embed path and ignore rules; the build names the two lines to change and nothing rewrites them
 upstream_requests:
   delivered_in_v0_3_5:
     head_contribution:
@@ -393,7 +398,7 @@ kinds:
       out_of_scope: a url built from a custom property or any value not literal at build time, which is left alone and reported
       quoting: the token ends at the parenthesis outside quotes, since taking the first one would cut url("a (1).png") in half and emit a stylesheet that no longer parses
       ambiguous_absolute: an absolute reference matching two sources by suffix is left alone, because the mount prefix is runtime configuration and guessing would rewrite the wrong file
-      inline_style_blocks: a style block inside a template is not covered; system:tinybind already rewrites those blocks for scoped styles and a url pass there has no design yet
+      inline_style_blocks: deferred 2026-08-05; a style block inside a template is not covered, and system:tinybind already rewrites those blocks for scoped styles, so a url pass there has a home and no design
       image_set: not generated, because policy:public-asset-media-negotiation answers the same question on the response and needs no css syntax
   png:
     becomes: webp, lossless axis; an avif variant, when produced, is lossless too
@@ -461,10 +466,10 @@ image_scope:
     reason: wrapping an img changes descendant and sibling structure, so css combinators, flex and grid item identity, and structural javascript can all stop matching, and the build sees neither the global stylesheet nor the scripts to warn about it
     author_written: a picture the author wrote is ordinary markup; its img src is converted like any other and its source elements are left alone
   srcset:
-    status: undecided, and expressible today
-    mechanism: a rewrite replaces the whole attribute string, so a transform can parse the descriptor list and reassemble it without any upstream change
-    cost: every URL in the list is a separate conversion, and a partial failure has to leave the whole list authored
-    today: left alone, so a srcset keeps naming authored files that still ship
+    status: refused 2026-08-05
+    expressible: a rewrite replaces the whole attribute string, so a transform could parse the descriptor list and reassemble it with no upstream change
+    why_not: every URL in the list is a separate conversion and a partial failure has to leave the whole list authored, which is a second failure mode for an attribute a project writes when it is already making density decisions by hand
+    consequence: a srcset keeps naming authored files, and those files stay in the tree because source_retention sees them
 source_retention:
   rule: an authored source is dropped only when every reference the build can see was rewritten, and kept otherwise
   detection: a literal occurrence scan over the authored tree and the templates reports every remaining mention of a dropped URL
@@ -1009,184 +1014,78 @@ exit:
   already_present_or_conflict: nonzero with the path and the reason
 ```
 
-## api:cli-init
+## api:cli-generate
 
-pw init creates a runnable Popcorn Wave project with a shared document shell, representative handler, typed page template, SQL query, error pages, Devbox environment, and generated-artifact conventions.
+pw generate scans Go, .pw.html, and .pw.sql sources and emits all required application mapping and codec code beside its source.
 
 ```yaml
-usage: pw init [myapp] [--yes] [--router=registered|discovered|both] [--tailwind|--no-tailwind] [--tinygo|--no-tinygo] [--devbox|--no-devbox] [--database|--no-database] [--db=sqlite|postgres|mysql] [--dynamo|--no-dynamo] [--redis|--no-redis] [--auth=none|oidc|oidc-passkey|passkey] [--session=rdb|cookie|redis] [--devidp|--no-devidp]
-mode: decision:interactive-project-bootstrap
-catalog: the capability questions are the requirement:incremental-project-capabilities catalog api:cli-add installs into an existing project
+usage: pw generate [--check]
 inputs:
-  directory: project directory; it seeds the project name step rather than skipping the wizard
-  flags: shortcut answers that also seed the wizard
-  yes: takes the flags and the defaults without asking, for a scripted run inside a terminal
-questions:
-  project_name: directory and Go module name
-  tinygo_support:
-    default: yes
-    yes: api:serve-mux routing and the TinyGo toolchain in Devbox
-    no: net/http.ServeMux routing and the host Go toolchain only
-    rationale: TinyGo produces much smaller binaries and has the more complete wasm target
-  router:
-    default: registered
-    owner: decision:page-router-scaffold-choice
-    registered: the handlers tree, its route example, and OpenAPI, which is the shape every existing project has
-    discovered: a concept:page-tree only, for a project whose whole job is an HTML website
-    both: both trees on one mux, per decision:dual-router-coexistence
-    asked_after: the toolchain question, because it decides which source trees the later answers write their examples into
-    shortcut: --router
-    directories: the answer scaffolds handlers and pages, which are defaults the purpose lists can move afterwards
-  tailwind: optional_css below
-  devbox:
-    default: yes
-    asked_last: it decides how this machine gets its tools rather than what the project contains
-    yes: devbox.json and devbox.lock pinning the toolchain and the services
-    no: the operator keeps their own setup, such as mise, Docker Compose, Nix, Homebrew, or Scoop; the Valkey question is skipped with it
-    consequence: without it nothing pins the decision:tailwind-host-toolchain version, so api:cli-init and api:cli-build name the requirement, the standalone CLI at version 4 or later, rather than the Devbox package identifier that only nixpkgs understands
-  database:
-    default: yes
-    yes: data:middleware-runtime-config rdb section, the migrations directory, and the .pw.sql and migration examples
-    no: no rdb section and no SQL example, leaving a project that renders and serves only
-    rationale: the SQL example, the initial migration, and rule:framework-owned-tables migrations all need a database, so declining it removes them together
-  database_engine:
-    asked_when: the database answer is yes
-    default: sqlite
-    choices: sqlite, postgres, and mysql per requirement:database-engine-selection
-    writes: the rdb DSN, the dialect of the scaffolded migration and .pw.sql example, and the development server package
-    shortcut: --db, which conflicts with --no-database
-  dynamodb:
-    default: no
-    asked_when: always, per requirement:dynamodb-store; it combines with any relational answer including none
-    yes: data:dynamodb-runtime-config section, the starter dynamo-tagged type and .pw.dynamo declaration, the generate.dynamo purpose, and the amazon/dynamodb-local package in Devbox
-    no: no dynamo section and no generate.dynamo key; pw add dynamo enables it later
-    shortcut: --dynamo
-    writes_no_migration: the schema is the generated table set, per decision:dynamodb-desired-state-migration
-    starter_uses_its_own_type: the scaffolded record carries a store and a load call, because requirement:dynamodb-generation emits a codec only for the directions something uses; a tagged type nobody calls generates nothing at all
-    not_an_engine: it never becomes a project.database value, and selecting it alone leaves a project with no SQL dialect and no migrations directory
-  redis_valkey:
-    default: yes
-    requires: the Devbox environment, which is the only thing this answer writes to
-    yes: Valkey in the Devbox environment for requirement:contrib-redis-valkey consumers
-    no: no Valkey package, keeping the development environment minimal
-  authentication:
-    default: none
-    requires: database, because the login session store is the rdb backend
-    none: no data:authentication-runtime-config section is written
-    oidc: auth.mode oidc
-    oidc-passkey: auth.mode oidc_passkey per decision:authentication-bootstrap-strategy, with recovery.policy oidc
-    passkey: auth.mode passkey_only, with registration.policy and recovery.policy both administrator and the bootstrap bounds set
-    passkey_scaffold:
-      when: the selected mode mounts api:passkey-endpoints
-      config: passkey.rp_id localhost, passkey.origins the development origin, user_verification required, discoverable preferred
-      origin: an OIDC redirect_url in a passkey mode uses localhost rather than 127.0.0.1, because an origin has to sit inside the RP ID and an address can never be one
-      accounts: SetAccountLookup for every passkey mode, plus SetAccountActivator and an IssueBootstrapCredential wrapper for passkey_only
-      browser: public/passkey.js, dependency free, because the framework serves the endpoints but cannot call navigator.credentials for the page
-      page: controls bound by element id, so the template carries no inline script
-      emulator: refused outside an OIDC mode, so passkey_only never scaffolds an identity provider roster
-  session_storage:
-    asked_when: always; session storage is not a login, so a project declaring only a language preference still gets the middleware
-    default_without_a_login: cookie, which needs no table, no migration, and no import to hold state that fits in a sealed cookie
-    default_with_a_login: rdb, because a login writes a record on every sign-in and normally must end one on demand
-    default: rdb
-    choices: requirement:state-storage-tiers opaque backends
-    rdb: one row per session through the sessionstore/sqlite blank import, with its rule:framework-owned-tables migration
-    cookie: sealed into a second cookie with no storage and no import, and cookie_store.secret read from the environment
-    redis: server-side TTL through the sessionstore/redis blank import, taking the Valkey development server with it
-    writes: session.backend, the keys of the selected backend only, and the api:session-backend-plugin import in main
-    rationale: the choice is a deployment decision, because every backend reads the same in a handler
-  oidc_provider:
-    asked_when: the selected mode uses OIDC
-    local_emulator: requirement:contrib-devidp enabled through data:project-config dev.idp, with a data:devidp-config starter roster
-    external: empty issuer, client id, and client secret that the operator or the environment must supply
-    rationale: a skipped question never applies its answer, so a provider choice cannot leak into a project without OIDC
-outputs:
-  - data:project-config
-  - concept:project-layout
-  - config.dev.toml for requirement:environment-switching
-  - Go module and cmd/myapp/main.go
-  - project.toolchain in data:project-config recording the selected compiler
-  - the decision:explicit-generation-sources purpose lists in data:project-config, each naming the directories this scaffold actually created, with generate.pages named only for a router answer that creates a tree
-  - flow:handler-registration mux for the selected toolchain, only for a router answer that includes the handlers tree
-  - handler registration and pw.Parse example, only for a router answer that includes the handlers tree
-  - pages/page.pw.html, pages/layout.pw.html, and a pages/users/id_ dynamic route example, only for a router answer that includes the page tree
-  - api:page-registry Register wiring in concept:application-entry-point for a page tree, over the pw.NewServeMux mux when the handlers tree was declined and over the handler package mux when it was not
-  - templates/document.pw.html shared document shell
-  - ui:starter-landing-page as the scaffolded page of every router answer, rather than a greeting heading
-  - .pw.html page and 400, 401, 403, 404, 409, 413, and 500 templates, each taking the api:error-renderer model as parameters rather than a fixed heading
-  - config.dev.toml observability.stdout_format plaintext, the data:observability-runtime-config development default written down where the operator can see it
-  - data:dynamodb-runtime-config section, the starter dynamo-tagged type, its .pw.dynamo declaration, and the generate.dynamo purpose, only when DynamoDB is selected
-  - .pw.sql query example, only when the database is selected
-  - data:project-config project.database naming the selected engine, which api:cli-generate reads as its SQL dialect
-  - migrations/00001_init.sql as migration version 1, in the dialect of the selected engine, with the data:migration-source scaffolded_version_1 comment-only body
-  - a rule:rdb-dsn-resolution engine blank import in main, only for an engine pw does not link itself
-  - public directory with non-served .keep sentinel and stable public.go embedding scaffold
-  - tinygohelper.go netdev registration for rule:tinygo-runtime-compatibility, only when TinyGo is selected
-  - .gitignore excluding **/*_pw_gen.go generated application build inputs
-  - .vscode/settings.json hiding **/*_pw_gen.go
-  - editor_configuration below
-  - Devbox configuration with Valkey when selected, TinyGo when selected, and the selected requirement:database-engine-selection server package, only when the Devbox environment is selected
-  - data:authentication-runtime-config section for the selected authentication mode
-  - data:devidp-config roster and data:project-config dev.idp when the local emulator is selected, with dev.idp.port pinned rather than reserved, because api:auth-credential-store derives the scaffolded account ID from the issuer and a moving port issues a new account on every run
-  - api:authentication-endpoints blank import in main and a sign-in and sign-out control on the starter page
-  - api:session-backend-plugin blank import in main for a selected backend other than cookie
-  - a data:session-runtime-config keyring.secret generated from crypto/rand, written as a literal into config.dev.toml only, per its development_generation; it is per project rather than a template constant, and rule:configuration-advisories reports it as an error if the same file is ever diagnosed as another token
-  - rule:framework-owned-tables migrations from the packages that own those tables, at the versions after the application schema, when the mode serves a login
-  - the session table migration only for the rdb backend; another backend leaves that version to the auth migration
-  - data:middleware-runtime-config rdb settings carrying the requirement:database-engine-selection DSN for the chosen engine, because the scaffolded migrations and queries need a database, only when the database is selected
-editor_configuration:
-  editorconfig:
-    file: .editorconfig, root true
-    defaults: utf-8, lf, a final newline, and trimmed trailing whitespace
-    go: tabs, restating what gofmt already does so an editor with no Go support does not fight it
-    two_space: .pw.html, .pw.sql, TOML, JSON, CSS, and JavaScript, which is the width rule:template-source-layout indents a block by
-    reason: the scaffold writes sources in five languages, and the editor that opens them first decides what the next contributor sees
-  extensions:
-    file: .vscode/extensions.json recommendations
-    always: the Go extension and the EditorConfig extension, which are what the scaffolded sources need to be edited the way they were written
-    tailwind: the Tailwind CSS extension, only for a project that selected Tailwind, since a declined capability is never advertised as present
-    form: recommendations only; nothing is marked unwanted and nothing is required
-    scope: VS Code alone, because it is the only editor with a project-local recommendation file the scaffold can write; .editorconfig is the part every other editor reads
-optional_css:
-  tailwind:
-    - configure requirement:tailwind-css-integration in data:project-config
-    - add pinned decision:tailwind-host-toolchain package to Devbox
-    - create assets/app.css and application-owned CSS output wiring
+  - pw.Parse[T] call sites
+  - route registrations
+  - .pw.html files
+  - .pw.sql files
+  - reachable JSON types
+  - concept:page-tree roots, their reserved files, and their optional page.go
+  - dynamo-tagged struct declarations and their dynamobind call sites
+  - .pw.dynamo query declarations
+flow: flow:generation-pipeline
+discovery_scope:
+  per_purpose: the data:project-config generate.handlers, generate.templates, generate.queries, generate.config, generate.pages, and generate.dynamo lists, per decision:explicit-generation-sources
+  effect: a directory contributes only the artifact kinds whose purpose lists it, so a query directory is never analyzed for routes
+  pages_unit: a generate.pages entry is walked as one concept:page-tree per flow:page-route-generation, not as a directory of independent sources
+  fixed: the project.main directory and the project-root public.go
+  required: the keys have no default, so a project without them fails to load
+sql_dialect:
+  source: data:project-config project.database
+  effect: .pw.sql sources compile to the placeholder syntax of that engine, per flow:sql-generation
+  no_default: the value is passed through rather than assumed, because a wrong dialect fails at the first query rather than at generation
+  outside: warn and ignore a .pw.html, .pw.sql, or stale generated file found outside its purpose; Go sources are not reported
+  consumers: api:cli-new derives its default destination from this scope, and api:cli-dev regenerates from it
+artifacts:
+  from_generate_handlers:
+    - request binding
+    - optimized JSON codecs
+    - OpenAPI fragments
+  from_generate_templates: typed HTML renderers
+  from_generate_queries: context-based SQL functions
+  from_generate_config: configuration and subcommand binding
+  from_generate_pages:
+    - compiled page and layout components
+    - the route decoder of each page
+    - the api:page-registry and data:page-route-table of each tree root
+    - api:page-action-endpoint registrations
+    - request binders for the route packages, so an action can call pw.Parse
+    - no OpenAPI, per decision:dual-router-coexistence
+  from_generate_dynamo:
+    - item codecs, key builders, and table definitions, per requirement:dynamodb-generation
+    - the decision:dynamodb-table-registry list in the project.main package
+    - no SQL dialect input, because there is no engine variant to compile for
+  from_every_purpose: data:route-table, the exported view of the same route analysis
+  optional: generated tests
+unparsable_source:
+  rule: a Go file that does not parse is reported by name, line, and column, and its directory is skipped for that run
+  reason: api:cli-dev regenerates the moment a file appears, so it routinely reads one an editor has created and not yet written into
+  upstream_defect: system:tinybind walks such a file to a nil position and panics, found by generating over a zero-byte source on 2026-08-02
+  containment: a panic anywhere in a generation request becomes an error, because one escaping would take the developer loop, the application it supervises, and the services it started down with it
+  transient: the next watched change regenerates, so a file caught mid-save costs a message rather than a restart
+check_mode:
+  writes: none
+  failure: generated content differs or is missing
 behavior:
-  - start the wizard on every terminal run, seeding the project name step from the directory argument when one was given
-  - skip the wizard only for --yes, or for a session with no terminal that was given a name
-  - accept --interactive as a no-op, since the wizard it used to request is now the default
-  - refuse and print usage when the session has no terminal and no name
-  - validate the project name and destination, in the wizard before any file is written
-  - refuse to overwrite nonempty destinations by default
-  - create files atomically
-  - run api:cli-generate
-  - scaffold classic rendering according to requirement:nested-html-templates, writing every template under rule:template-source-layout
-  - scaffold every tree the router answer selects, and write the document shell and error pages for all three answers because both routers render through them
-  - scaffold runtime database configuration for decision:config-driven-database when the database example is enabled
-  - refuse an authentication mode without the database, because its login ceremony and allowlist tables need one whatever backend stores the sessions
-  - refuse --db together with --no-database, before anything is written
-  - accept DynamoDB beside any relational answer, and accept it as the only store, per requirement:dynamodb-store
-  - refuse an authentication mode backed only by DynamoDB, because plugin/auth requires middleware.rdb.enabled whatever the session backend is, per requirement:contrib-auth-state-dynamo blocked_by
-  - write the starter migration and .pw.sql example in the dialect of the selected engine, since decision:server-sql-support-tier does not translate between them
-  - take the Valkey development server with a Redis-backed session, because the configured session needs a server to reach
-  - print the command that generates cookie_store.secret when the cookie backend is selected
-  - leave every declined capability to api:cli-add, which reaches the same file state later
-reporting:
-  policy: policy:cli-progress-reporting
-  during: a progress region over the scaffold write, the module resolution, and the api:cli-generate run
-  after: the handwritten sources it created, grouped by concept:project-layout directory
-  generated: a count and the api:cli-generate command, never the policy:generated-artifacts path list, which is what the same scaffold puts in .gitignore
-next_steps:
-  - cd myapp
-  - devbox shell, only for a project with the Devbox environment
-  - pw dev
-  - a notice naming every declined capability, because a scripted run never sees the wizard say it
-  - for a server engine, the server to start and the role and database to create
-exit:
-  success: 0
-  wizard_canceled: 0 with a canceled notice and no files written
-  invalid_input_or_collision: nonzero with actionable path
+  - read a source only where the purpose that owns its kind lists its directory
+  - walk each generate.pages root once, reporting every discovery problem in that walk rather than only the first
+  - use the pw emitter of decision:page-render-binding for every page tree artifact, so generated pages call api:page-render-runtime rather than system:tinybind
+  - run request binding over the packages a discovered tree reports, skipping the ones the generator reports nothing to generate for
+  - register the Popcorn Wave generated header prefix with every discovery pass, so nothing this command wrote is analyzed as a source on the next run
+  - keep, per directory, only the artifacts whose purpose lists that directory
+  - warn once per .pw.html, .pw.sql, or stale generated file found outside its purpose, naming the path and the key
+  - use system:tinybind route and call analysis behind the pw API
+  - process sources and packages in stable lexical order
+  - stop on parse or generation error
+  - format generated Go source
+  - replace destination files atomically after all generation succeeds
+  - emit {source-base}_pw_gen.go beside each source
 ```
 
 ## Review Checklist
