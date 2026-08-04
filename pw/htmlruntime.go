@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"net/http"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -380,20 +381,66 @@ const frameworkScriptPrefix = "/_pw/"
 
 const boundaryRuntimeName = "boundary.js"
 
+// frameworkScripts is the module set this build serves, by file name.
+//
+// It is a set rather than one file because the core loads its capabilities by
+// dynamic import, and because the pwdev build mode adds one the release build
+// has no bytes for. Everything here is framework source: nothing is derived
+// from application code, and nothing is written into the project.
+var frameworkScripts = sync.OnceValue(func() map[string]string {
+	scripts := map[string]string{
+		// The development import is appended rather than branched on at run
+		// time, so a release build contains neither the import nor the name of
+		// what it would have imported.
+		boundaryRuntimeName: boundaryRuntimeScript + developmentImport(),
+	}
+	for name, source := range developmentScripts() {
+		scripts[name] = source
+	}
+	return scripts
+})
+
 // scriptRevision digests the script set so a changed dependency changes every
 // URL. Deriving it from the bytes rather than from a release constant means an
 // htmlbind upgrade that changes the runtime cannot ship under a URL a browser
 // already cached forever.
+//
+// Digesting the whole set rather than the core alone is what separates the
+// build modes: the pwdev set has an extra module and an extra import line, so
+// it lands on a different revision with no constant for anyone to bump, and a
+// browser holding the release URL immutably never sees development bytes under
+// it.
 var scriptRevision = sync.OnceValue(func() string {
-	sum := sha256.Sum256([]byte(boundaryRuntimeScript))
-	return hex.EncodeToString(sum[:])[:16]
+	scripts := frameworkScripts()
+	names := make([]string, 0, len(scripts))
+	for name := range scripts {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	digest := sha256.New()
+	for _, name := range names {
+		// The separators keep the digest a function of the set rather than of
+		// the concatenation, so no rename can collide with a content change.
+		digest.Write([]byte(name))
+		digest.Write([]byte{0})
+		digest.Write([]byte(scripts[name]))
+		digest.Write([]byte{0})
+	}
+	return hex.EncodeToString(digest.Sum(nil))[:16]
 })
+
+// frameworkScriptURL is the absolute path of one module in the set. Modules
+// share one revision segment so that imports between them stay ordinary
+// relative specifiers and nothing has to rewrite them.
+func frameworkScriptURL(name string) string {
+	return frameworkScriptPrefix + scriptRevision() + "/" + name
+}
 
 // RuntimeScriptURL is the absolute path of the boundary runtime module. A
 // document template names it through a declared external function rather than
 // as a literal, so the template text survives an upgrade that moves the URL.
 func RuntimeScriptURL() string {
-	return frameworkScriptPrefix + scriptRevision() + "/" + boundaryRuntimeName
+	return frameworkScriptURL(boundaryRuntimeName)
 }
 
 // serveFrameworkScript answers a framework asset request and reports whether it
@@ -402,7 +449,11 @@ func serveFrameworkScript(w http.ResponseWriter, r *http.Request) bool {
 	if !strings.HasPrefix(r.URL.Path, frameworkScriptPrefix) {
 		return false
 	}
-	if r.URL.Path != RuntimeScriptURL() {
+	source, ok := frameworkScripts()[frameworkScriptName(r.URL.Path)]
+	if !ok {
+		// An unknown path under the reserved prefix answers 404 rather than
+		// falling through to the application, which is why an application
+		// route never mounts inside it.
 		http.NotFound(w, r)
 		return true
 	}
@@ -414,11 +465,23 @@ func serveFrameworkScript(w http.ResponseWriter, r *http.Request) bool {
 	// The revision segment never serves different bytes, so this is genuinely
 	// immutable rather than merely long-lived.
 	header.Set("Cache-Control", "public, max-age=31536000, immutable")
-	header.Set("Content-Length", strconv.Itoa(len(boundaryRuntimeScript)))
+	header.Set("Content-Length", strconv.Itoa(len(source)))
 	if r.Method == http.MethodHead {
 		w.WriteHeader(http.StatusOK)
 		return true
 	}
-	_, _ = w.Write([]byte(boundaryRuntimeScript))
+	_, _ = w.Write([]byte(source))
 	return true
+}
+
+// frameworkScriptName reads the module name out of a request path, or returns
+// the empty string when the path is not this build's revision directory. A
+// stale revision is therefore not found rather than served from the current
+// set, which is what makes the immutable caching sound.
+func frameworkScriptName(path string) string {
+	rest, ok := strings.CutPrefix(path, frameworkScriptPrefix+scriptRevision()+"/")
+	if !ok || strings.Contains(rest, "/") {
+		return ""
+	}
+	return rest
 }
