@@ -356,7 +356,7 @@ export component Document(children: html?): html {
 }
 `)
 	config := projectConfig{Main: "./cmd/fixture", Generate: generationScope{Templates: []string{"templates"}}}
-	changes, err := planBootstrapLink(root, config, nil)
+	changes, err := planBootstrapLink(root, config, nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

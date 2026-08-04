@@ -116,7 +116,18 @@ func generateProject(ctx context.Context, check bool, stdout io.Writer, listPath
 		}
 		changes = append(changes, planned...)
 	}
-	changes, err = planBootstrapLink(root, config, changes)
+	// Declaring a package is what links it, so the declarations are resolved
+	// before the bootstrap is planned. A declaration the module graph cannot
+	// resolve stops generation here rather than producing a bootstrap that does
+	// not compile.
+	declared, err := resolvePackages(ctx, root, config.Packages)
+	if err != nil {
+		return 0, err
+	}
+	if err := checkPackageCompatibility(config, declared, nil); err != nil {
+		return 0, err
+	}
+	changes, err = planBootstrapLink(root, config, declared, changes)
 	if err != nil {
 		return 0, err
 	}
@@ -137,7 +148,7 @@ func generateProject(ctx context.Context, check bool, stdout io.Writer, listPath
 	return len(paths), nil
 }
 
-func planBootstrapLink(root string, config projectConfig, changes []fileChange) ([]fileChange, error) {
+func planBootstrapLink(root string, config projectConfig, declared []resolvedPackage, changes []fileChange) ([]fileChange, error) {
 	var documents []string
 	err := walkSources(root, config.Generate.Templates, func(path string, entry fs.DirEntry) error {
 		if entry.Name() == "document.pw.html" {
@@ -165,7 +176,7 @@ func planBootstrapLink(root string, config projectConfig, changes []fileChange) 
 	} else if !os.IsNotExist(err) {
 		return nil, err
 	}
-	if len(documents) == 0 && !hasPublic {
+	if len(documents) == 0 && !hasPublic && len(declared) == 0 {
 		if _, err := os.Stat(target); err == nil {
 			filtered = append(filtered, fileChange{path: target, remove: true})
 		} else if !os.IsNotExist(err) {
@@ -195,6 +206,13 @@ func planBootstrapLink(root string, config projectConfig, changes []fileChange) 
 	}
 	if hasPublic && mainDirectory != filepath.Clean(root) {
 		imports = append(imports, modulePath)
+	}
+	// A declared package is linked by this import and nothing else, which is
+	// what makes the declaration the install. For a package the application also
+	// imports itself — to call its Register — this is a harmless duplicate in a
+	// separate file rather than the mechanism.
+	for _, pkg := range declared {
+		imports = append(imports, pkg.ImportPath())
 	}
 	sort.Strings(imports)
 	imports = slicesCompact(imports)

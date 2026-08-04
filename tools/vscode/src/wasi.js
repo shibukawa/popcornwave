@@ -1,0 +1,165 @@
+"use strict";
+
+// A WASI preview1 shim covering exactly the seven imports the formatter module
+// declares, and nothing else.
+//
+// Written by hand rather than taken from a package for two reasons. The
+// extension host's Node build does not reliably expose node:wasi, and a web
+// extension host has no Node at all; and a shim this small is easier to audit
+// than a dependency, which matters because policy:editor-tool-execution
+// promises this module reaches no filesystem and no network. There is nothing
+// here to open a file with.
+
+const WASI_ESUCCESS = 0;
+const WASI_EBADF = 8;
+
+const CLOCK_REALTIME = 0;
+
+/**
+ * Builds the import object and the result collector for one run.
+ *
+ * @param {object} options
+ * @param {string[]} options.args   argv, argv[0] included
+ * @param {Uint8Array} options.stdin  bytes the module reads from fd 0
+ * @param {() => WebAssembly.Memory} options.memory  resolved lazily, because
+ *   the memory is an export of the instance the imports are built for
+ */
+function createWasi({ args, stdin, memory }) {
+  const encoder = new TextEncoder();
+  const encodedArgs = args.map((a) => encoder.encode(a + "\0"));
+
+  const stdout = [];
+  const stderr = [];
+  let stdinOffset = 0;
+  let exitCode = 0;
+  let exited = false;
+
+  const view = () => new DataView(memory().buffer);
+  const bytes = () => new Uint8Array(memory().buffer);
+
+  /** Thrown to unwind out of the module when it calls proc_exit. */
+  class Exit extends Error {}
+
+  const wasi = {
+    args_sizes_get(countPtr, bufSizePtr) {
+      const v = view();
+      v.setUint32(countPtr, encodedArgs.length, true);
+      v.setUint32(
+        bufSizePtr,
+        encodedArgs.reduce((total, a) => total + a.length, 0),
+        true,
+      );
+      return WASI_ESUCCESS;
+    },
+
+    args_get(argvPtr, argvBufPtr) {
+      const v = view();
+      const b = bytes();
+      let cursor = argvBufPtr;
+      for (const [index, arg] of encodedArgs.entries()) {
+        v.setUint32(argvPtr + index * 4, cursor, true);
+        b.set(arg, cursor);
+        cursor += arg.length;
+      }
+      return WASI_ESUCCESS;
+    },
+
+    fd_read(fd, iovsPtr, iovsLen, readPtr) {
+      if (fd !== 0) {
+        return WASI_EBADF;
+      }
+      const v = view();
+      const b = bytes();
+      let read = 0;
+      for (let i = 0; i < iovsLen; i++) {
+        const bufPtr = v.getUint32(iovsPtr + i * 8, true);
+        const bufLen = v.getUint32(iovsPtr + i * 8 + 4, true);
+        const take = Math.min(bufLen, stdin.length - stdinOffset);
+        if (take <= 0) {
+          break;
+        }
+        b.set(stdin.subarray(stdinOffset, stdinOffset + take), bufPtr);
+        stdinOffset += take;
+        read += take;
+      }
+      v.setUint32(readPtr, read, true);
+      return WASI_ESUCCESS;
+    },
+
+    fd_write(fd, iovsPtr, iovsLen, writtenPtr) {
+      const sink = fd === 1 ? stdout : fd === 2 ? stderr : null;
+      if (!sink) {
+        return WASI_EBADF;
+      }
+      const v = view();
+      const b = bytes();
+      let written = 0;
+      for (let i = 0; i < iovsLen; i++) {
+        const bufPtr = v.getUint32(iovsPtr + i * 8, true);
+        const bufLen = v.getUint32(iovsPtr + i * 8 + 4, true);
+        // slice, not subarray: the buffer is reused and may also be detached
+        // by a later memory growth.
+        sink.push(b.slice(bufPtr, bufPtr + bufLen));
+        written += bufLen;
+      }
+      v.setUint32(writtenPtr, written, true);
+      return WASI_ESUCCESS;
+    },
+
+    proc_exit(code) {
+      exitCode = code;
+      exited = true;
+      throw new Exit(`exit ${code}`);
+    },
+
+    clock_time_get(_id, _precision, timePtr) {
+      // The formatter does not read the clock for anything observable; the Go
+      // runtime does. A coarse monotonic-enough value is sufficient and keeps
+      // the module from being a timing side channel.
+      view().setBigUint64(timePtr, BigInt(Date.now()) * 1000000n, true);
+      return WASI_ESUCCESS;
+    },
+
+    random_get(bufPtr, bufLen) {
+      // Reached only through Go's map seeding. Determinism is not required and
+      // unpredictability costs nothing here.
+      const target = bytes().subarray(bufPtr, bufPtr + bufLen);
+      if (globalThis.crypto?.getRandomValues) {
+        // getRandomValues caps at 65536 bytes per call.
+        for (let i = 0; i < target.length; i += 65536) {
+          globalThis.crypto.getRandomValues(target.subarray(i, Math.min(i + 65536, target.length)));
+        }
+      } else {
+        for (let i = 0; i < target.length; i++) {
+          target[i] = Math.floor(Math.random() * 256);
+        }
+      }
+      return WASI_ESUCCESS;
+    },
+  };
+
+  const concat = (chunks) => {
+    const total = chunks.reduce((sum, c) => sum + c.length, 0);
+    const out = new Uint8Array(total);
+    let at = 0;
+    for (const chunk of chunks) {
+      out.set(chunk, at);
+      at += chunk.length;
+    }
+    return out;
+  };
+
+  return {
+    imports: { wasi_snapshot_preview1: wasi },
+    Exit,
+    result() {
+      return {
+        exitCode: exited ? exitCode : 0,
+        stdout: concat(stdout),
+        stderr: concat(stderr),
+      };
+    },
+  };
+}
+
+module.exports = { createWasi, CLOCK_REALTIME };

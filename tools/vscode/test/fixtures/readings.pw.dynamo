@@ -1,0 +1,18 @@
+// The repository has no production .pw.dynamo source yet, so the grammar's
+// snapshot coverage for the dialect comes from here. Keep it in step with
+// requirement:dynamodb-typed-queries; it is read by the drift guard only and
+// by no generator.
+
+export statement ReadingsSince(sensor: string, from: int64): dynamo.many<Reading> {
+  table readings
+  key sensor = {sensor} and at > {from}
+}
+
+export statement ReadingsBetween(sensor: string, from: int64, to: int64): dynamo.page<Reading> {
+  table readings; key sensor = {sensor} and at between {from} and {to}
+}
+
+export statement ReadingsPrefixed(sensor: string, prefix: string): dynamo.many<Reading> {
+  table readings
+  key sensor = {sensor} and begins_with(label, {prefix})
+}

@@ -185,6 +185,15 @@ func executeMigrate(ctx context.Context, located project, options migrateOptions
 			return nil
 		}
 	}
+	// Every declared package's stream applies before the application's own, so a
+	// package's tables exist before anything the application writes can
+	// reference them. A rollback leaves them alone: the application is reversing
+	// its own schema, and a package's stream is not its to move.
+	if !isRollback(action) {
+		if err := applyPackageStreams(ctx, located, target, stdout); err != nil {
+			return fmt.Errorf("migrate %s: %w", options.action, redactDSN(err, dsn))
+		}
+	}
 	result, err := pwmigrate.Apply(ctx, target, sources, action, options.version)
 	for _, applied := range result.Applied {
 		fmt.Fprintf(stdout, "%s\t%d\t%s\t%s\n",
@@ -410,4 +419,46 @@ func parseMigrateArgs(args []string) (migrateOptions, error) {
 			options.action, strings.Join(migrateActions, ", "))
 	}
 	return options, nil
+}
+
+// applyPackageStreams brings every declared package's migrations up before the
+// application's own run.
+//
+// The pending statements are printed first. Nothing was copied into the project,
+// so this listing is what replaces the review a migration written into the
+// project used to get: an operator sees what a dependency is about to do to
+// their database before it does it.
+func applyPackageStreams(ctx context.Context, located project, target *pwmigrate.Target, stdout io.Writer) error {
+	if len(located.config.Packages) == 0 {
+		return nil
+	}
+	resolved, err := resolvePackages(ctx, located.root, located.config.Packages)
+	if err != nil {
+		return err
+	}
+	if err := checkPackageCompatibility(located.config, resolved, nil); err != nil {
+		return err
+	}
+	streams, err := packageStreams(ctx, located.root, resolved)
+	if err != nil {
+		return err
+	}
+	for _, stream := range streams {
+		pending, err := pwmigrate.StreamPending(ctx, target, stream)
+		if err != nil {
+			return err
+		}
+		for _, status := range pending {
+			fmt.Fprintf(stdout, "pending\t%s\t%d\t%s\n", stream.Module, status.Version, filepath.Base(status.Path))
+		}
+	}
+	results, err := pwmigrate.ApplyStreams(ctx, target, streams)
+	for _, result := range results {
+		for _, applied := range result.Result.Applied {
+			fmt.Fprintf(stdout, "%s\t%s\t%d\t%s\t%s\n",
+				applied.Direction, result.Module, applied.Version,
+				filepath.Base(applied.Path), applied.Duration.Round(1e6))
+		}
+	}
+	return err
 }

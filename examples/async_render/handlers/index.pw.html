@@ -1,57 +1,65 @@
 package handlers
 
 export component Index(): html {
-<main>
-  <h1>Async rendering</h1>
-  <p>
-    Each page below composes the same templates and the same handler shape. What
+  <main>
+    <h1>Async rendering</h1>
+    <p>
+      Each page below composes the same templates and the same handler shape. What
     changes is only what the slow dependency does, and whether its
-    <code>await</code> block declares a <code>recover</code> clause.
-  </p>
-
-  <section class="card">
-    <h2>Success</h2>
-    <p><a href="/profile">/profile</a></p>
-    <p>
-      Two dependencies settle after the page has already been delivered. Each
-      section replaces its own fallback as its data arrives.
+      <code>await</code>
+      block declares a
+      <code>recover</code>
+      clause.
     </p>
-  </section>
 
-  <section class="card">
-    <h2>Failure, contained</h2>
-    <p><a href="/profile?fail=recommendation">/profile?fail=recommendation</a></p>
-    <p>
-      The recommendation fails, and its boundary declares <code>recover</code>.
+    <section class="card">
+      <h2>Success</h2>
+      <p><a href="/profile">/profile</a></p>
+      <p>
+        Two dependencies settle after the page has already been delivered. Each
+      section replaces its own fallback as its data arrives.
+      </p>
+    </section>
+
+    <section class="card">
+      <h2>Failure, contained</h2>
+      <p><a href="/profile?fail=recommendation">/profile?fail=recommendation</a></p>
+      <p>
+        The recommendation fails, and its boundary declares
+        <code>recover</code>.
       The clause renders in place of that section and the rest of the page is
       untouched. The response stays 200, which is honest: most of it worked.
-    </p>
-  </section>
+      </p>
+    </section>
 
-  <section class="card">
-    <h2>Failure, unhandled</h2>
-    <p><a href="/profile?fail=orders">/profile?fail=orders</a></p>
-    <p>
-      The orders fail, and their boundary declares no <code>recover</code>. The
+    <section class="card">
+      <h2>Failure, unhandled</h2>
+      <p><a href="/profile?fail=orders">/profile?fail=orders</a></p>
+      <p>
+        The orders fail, and their boundary declares no
+        <code>recover</code>. The
       template said what to show while waiting and what to show on success, and
       nothing about failure, so the framework replaces the page with an error
       document rather than leaving a section claiming to load forever.
-    </p>
-    <p>
-      The status is still 200, because it went out with the shell long before
+      </p>
+      <p>
+        The status is still 200, because it went out with the shell long before
       the failure was known. Only the log can carry that truth.
-    </p>
-  </section>
+      </p>
+    </section>
 
-  <section class="card">
-    <h2>Failure, before anything was sent</h2>
-    <p>Set <code>html.streaming = false</code> in <code>config.dev.toml</code>, then reload the unhandled case.</p>
-    <p>
-      The same templates render as one buffered response, so the failure happens
+    <section class="card">
+      <h2>Failure, before anything was sent</h2>
+      <p>Set
+        <code>html.streaming = false</code>
+        in
+        <code>config.dev.toml</code>, then reload the unhandled case.</p>
+      <p>
+        The same templates render as one buffered response, so the failure happens
       while nothing is committed. That response answers with a real 500 instead
       of patching a page that already left. Only one of the two branches can
       still tell the truth in its status line, and it should.
-    </p>
-  </section>
-</main>
+      </p>
+    </section>
+  </main>
 }
