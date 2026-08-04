@@ -72,7 +72,7 @@ func groupByURL(assets []derivedAsset) []manifestEntryJSON {
 	for _, asset := range assets {
 		position, found := index[asset.url]
 		if !found {
-			entries = append(entries, manifestEntryJSON{URL: asset.url, CacheControl: derivedCacheControl})
+			entries = append(entries, manifestEntryJSON{URL: asset.url, CacheControl: cacheControlFor(asset)})
 			position = len(entries) - 1
 			index[asset.url] = position
 		}
@@ -88,11 +88,24 @@ func groupByURL(assets []derivedAsset) []manifestEntryJSON {
 	return entries
 }
 
-// derivedCacheControl revalidates. A derived file keeps its source's name, so
-// the same URL can serve different bytes after a rebuild; the strong validator
-// makes an unchanged asset a 304 with no body, which is what a stable name can
-// honestly promise.
-const derivedCacheControl = "public, no-cache"
+// The two cache policies, one per kind of name.
+const (
+	// derivedCacheControl revalidates. A file that kept the name its author
+	// wrote can serve different bytes after a rebuild, so the strong validator
+	// does the work and an unchanged asset costs a 304 with no body.
+	derivedCacheControl = "public, no-cache"
+	// immutableCacheControl is only honest for a name carrying the digest of
+	// its own bytes: different bytes are a different URL, so the response can
+	// promise never to change and be believed.
+	immutableCacheControl = "public, max-age=31536000, immutable"
+)
+
+func cacheControlFor(asset derivedAsset) string {
+	if asset.immutable {
+		return immutableCacheControl
+	}
+	return derivedCacheControl
+}
 
 func renderAssetManifest(packageName string, entries []manifestEntryJSON) ([]byte, error) {
 	var out bytes.Buffer

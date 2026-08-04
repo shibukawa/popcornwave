@@ -13,7 +13,8 @@ why_the_old_rule_breaks:
   rewrite_is_compiled: the rewrite lands in generated Go, so a development-only skip makes generated output differ by environment and policy:generated-artifacts --check compares one profile
   conclusion: the switch cannot be per environment; only the settings behind it can be
 what_keeps_it_affordable:
-  names_ignore_settings: an output name derived from its source is identical under any quality profile, so a cheap development encode produces the same generated Go as a production one
+  one_settings_set: development and production convert with the same settings, which is what lets a produced name carry the digest of its own bytes and still be identical in both; a cheaper development profile would move every URL and was not taken
+  reproducibility: the encoders are pinned by decision:asset-transform-toolchain, so two machines on one lock file produce one set of names
   conversion_cache: an outcome, including a decision to decline, is reused across runs, so a warm loop converts nothing
   incremental: a build tool that rebuilds only what changed carries the javascript case, per decision:asset-transform-toolchain
   first_run_cost: a cold cache converts serially, which is the one visible regression against today's loop

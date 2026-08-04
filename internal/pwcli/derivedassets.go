@@ -42,12 +42,16 @@ const (
 // derivedAsset is one file in the built tree, with the metadata the manifest
 // needs. Everything here is decided by the build, never at request time.
 type derivedAsset struct {
-	url        string
-	path       string
-	mediaType  string
-	encoding   string
-	length     int
-	etag       string
+	url       string
+	path      string
+	mediaType string
+	encoding  string
+	length    int
+	etag      string
+	// immutable marks a URL the build invented, whose name carries the digest
+	// of its own bytes. Only such a URL can promise never to change: a name the
+	// author wrote serves whatever the next build puts behind it.
+	immutable  bool
 	preference int
 }
 
@@ -193,7 +197,11 @@ func buildDerivedAssetsWithEncoder(root string, assets assetsConfig, encodeVaria
 	if err := writeDerivedSidecars(output); err != nil {
 		return report, err
 	}
-	entries, err := collectDerivedAssets(output)
+	immutable := map[string]bool{}
+	for name := range produced {
+		immutable[name] = true
+	}
+	entries, err := collectDerivedAssets(output, immutable)
 	if err != nil {
 		return report, err
 	}
@@ -258,6 +266,9 @@ func stagedProducedFiles(staged string) (map[string][]byte, error) {
 func convertedSourceFor(produced, authored string) (string, bool) {
 	extension := path.Ext(produced)
 	base := strings.TrimSuffix(produced, extension)
+	// A produced name carries the digest of its own bytes, which is what makes
+	// its URL immutable. The source it came from is the name without it.
+	base = strings.TrimSuffix(base, "."+contentHashOf(base))
 	var candidates []string
 	switch extension {
 	case ".webp":
@@ -274,6 +285,24 @@ func convertedSourceFor(produced, authored string) (string, bool) {
 		}
 	}
 	return "", false
+}
+
+// contentHashOf reports the digest segment a produced name ends with, or the
+// empty string when it ends with something else. It is what lets a produced
+// file be mapped back to the source it replaced without threading a table out
+// of generation.
+func contentHashOf(name string) string {
+	segment := name[strings.LastIndexByte(name, '.')+1:]
+	if len(segment) != contentHashLength {
+		return ""
+	}
+	for index := 0; index < len(segment); index++ {
+		character := segment[index]
+		if (character < '0' || character > '9') && (character < 'a' || character > 'f') {
+			return ""
+		}
+	}
+	return segment
 }
 
 // publicURLRewrites turns the conversion set into the substitutions a stylesheet
@@ -478,7 +507,7 @@ func writeDerivedSidecars(output string) error {
 // collectDerivedAssets reads the finished tree once and produces one manifest
 // entry per URL, with the compressed sibling folded in as a representation of
 // the same URL rather than as a URL of its own.
-func collectDerivedAssets(output string) ([]derivedAsset, error) {
+func collectDerivedAssets(output string, immutable map[string]bool) ([]derivedAsset, error) {
 	var assets []derivedAsset
 	err := filepath.WalkDir(output, func(name string, entry fs.DirEntry, walkErr error) error {
 		if walkErr != nil || entry.IsDir() {
@@ -511,6 +540,7 @@ func collectDerivedAssets(output string) ([]derivedAsset, error) {
 		sum := sha256.Sum256(content)
 		assets = append(assets, derivedAsset{
 			url:        url,
+			immutable:  immutable[url],
 			path:       slashed,
 			mediaType:  mediaType,
 			encoding:   encoding,

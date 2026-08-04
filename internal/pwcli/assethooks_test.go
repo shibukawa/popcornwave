@@ -7,7 +7,9 @@ import (
 	"image/jpeg"
 	"image/png"
 	"os"
+	"path"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"sort"
 	"strings"
@@ -15,6 +17,9 @@ import (
 
 	"github.com/shibukawa/tinybind-go/templates/htmlbind"
 )
+
+// hashedURL matches a name carrying the digest segment that makes it immutable.
+var hashedURL = regexp.MustCompile(`\.[0-9a-f]{12}\.[a-z]+(\.map)?$`)
 
 // writeTestJPEG writes a lossy source, which is the axis the avif variant is
 // worth measuring on: both formats are then re-encoding an approximation.
@@ -84,10 +89,12 @@ func TestImageReferenceHookConverts(t *testing.T) {
 	if result.Skip {
 		t.Fatalf("conversion declined: %s", result.Reason)
 	}
-	if result.Value != "/public/img/logo.webp" {
+	// The name carries the digest of the bytes, which is what lets the response
+	// promise immutability and be believed.
+	if !hashedURL.MatchString(result.Value) || !strings.HasPrefix(result.Value, "/public/img/logo.") {
 		t.Errorf("value = %q", result.Value)
 	}
-	if len(result.Files) != 1 || result.Files[0].Name != "img/logo.webp" {
+	if len(result.Files) != 1 || !hashedURL.MatchString(result.Files[0].Name) {
 		t.Fatalf("files = %+v", result.Files)
 	}
 	if result.Files[0].MediaType != "image/webp" {
@@ -148,21 +155,24 @@ func TestScriptReferenceHookContributesHead(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if result.Value != "/public/js/app.js" {
+	if !hashedURL.MatchString(result.Value) || !strings.HasPrefix(result.Value, "/public/js/app.") {
 		t.Errorf("value = %q", result.Value)
 	}
-	names := map[string]bool{}
+	kinds := map[string]string{}
 	for _, file := range result.Files {
-		names[file.Name] = true
+		kinds[path.Ext(file.Name)] = file.Name
 	}
-	if !names["js/app.js"] || !names["js/app.css"] {
-		t.Fatalf("files = %v", names)
+	for _, extension := range []string{".js", ".css", ".map"} {
+		if kinds[extension] == "" {
+			t.Fatalf("no %s output: %v", extension, kinds)
+		}
 	}
 	if len(result.Head) != 1 {
 		t.Fatalf("head = %+v", result.Head)
 	}
 	entry := result.Head[0]
-	if entry.Element != "link" || entry.Attributes["rel"] != "stylesheet" || entry.Attributes["href"] != "/public/js/app.css" {
+	if entry.Element != "link" || entry.Attributes["rel"] != "stylesheet" ||
+		!strings.HasSuffix(entry.Attributes["href"], path.Base(kinds[".css"])) {
 		t.Errorf("head entry = %+v", entry)
 	}
 	// The stylesheet is named by no template, so only a reported read set makes
@@ -493,5 +503,62 @@ func TestVariantCacheSkipsTheSecondEncode(t *testing.T) {
 	}
 	if calls != 3 {
 		t.Errorf("a changed quality hit the cache: %d calls", calls)
+	}
+}
+
+// TestScriptBundleLinksItsSourceMap covers the one ordering problem hashing
+// creates: the bundle names its map in a trailing comment, so the digest is
+// taken over the bundle without it and the comment is written back naming the
+// map that digest produced.
+func TestScriptBundleLinksItsSourceMap(t *testing.T) {
+	root := t.TempDir()
+	writeNestedTestFile(t, filepath.Join(root, "public", "js", "app.ts"),
+		"const greet = (name: string): string => `hi ${name}`;\nconsole.log(greet(\"world\"));\n")
+
+	result, err := buildScriptEntry(root, "/public/js/app.ts")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var bundle, sourcemap htmlbind.ProducedFile
+	for _, file := range result.Files {
+		switch path.Ext(file.Name) {
+		case ".js":
+			bundle = file
+		case ".map":
+			sourcemap = file
+		}
+	}
+	if bundle.Name == "" || sourcemap.Name == "" {
+		t.Fatalf("files = %+v", result.Files)
+	}
+	if sourcemap.Name != bundle.Name+".map" {
+		t.Errorf("the map does not follow the bundle: %q and %q", bundle.Name, sourcemap.Name)
+	}
+	if !strings.HasSuffix(strings.TrimSpace(string(bundle.Content)),
+		"//# sourceMappingURL="+path.Base(sourcemap.Name)) {
+		t.Errorf("the bundle does not link its map: %q", bundle.Content)
+	}
+}
+
+// TestHashedNameFollowsTheBytes is the property the immutable cache header
+// rests on: different bytes are a different URL, so a response that promises
+// never to change can be believed.
+func TestHashedNameFollowsTheBytes(t *testing.T) {
+	first := hashedName("img/logo.webp", []byte("one"))
+	again := hashedName("img/logo.webp", []byte("one"))
+	other := hashedName("img/logo.webp", []byte("two"))
+	if first != again {
+		t.Errorf("the same bytes produced two names: %q and %q", first, again)
+	}
+	if first == other {
+		t.Errorf("different bytes produced one name: %q", first)
+	}
+	if !hashedURL.MatchString(first) || !strings.HasPrefix(first, "img/logo.") {
+		t.Errorf("name = %q", first)
+	}
+	// The tree builder maps a produced file back to its source by removing the
+	// segment, so the two have to agree on what one looks like.
+	if contentHashOf(strings.TrimSuffix(first, ".webp")) == "" {
+		t.Errorf("the digest segment is not recognized in %q", first)
 	}
 }

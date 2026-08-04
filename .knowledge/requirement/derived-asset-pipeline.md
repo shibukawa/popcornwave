@@ -68,7 +68,11 @@ as_built:
   manifest: a generated Go table in the public.go package plus dist/manifest.json for tooling; the middleware reads it and computes no digest per request
   embed: the scaffold embeds dist/public, and a project still embedding the authored tree is refused with the two lines to change
   serving: manifest-driven, so a URL the build did not declare is 404 whatever the tree holds; Vary names Accept only where a URL carries more than one media type
-  cache_control: the stable-name default shipped, as public, no-cache with a strong per-representation validator
+  cache_control:
+    invented_urls: a file the build produced carries the digest of its own bytes in its name and is answered with a year and immutable, which is honest because different bytes are a different URL
+    authored_urls: a file that kept the name its author wrote revalidates, since nothing rewrites a stylesheet link or an authored script reference and the next build may put different bytes behind it
+    why_not_everything: hashing a name only works where every reference to it is rewritten, and a link href is not
+  source_maps: the script build emits a linked map, named from the bundle's digest; the digest is taken over the bundle without its sourceMappingURL comment, and the comment is written back naming the map that digest produced
   conversions: img src png and jpeg to webp, script src typescript to javascript, css minified with its url() references rewritten, and an optional avif sibling of every served image
   encoders: pinned by the api:cli-add images capability, which writes the devbox packages and the switch together; a machine with none declines and reports rather than failing
   head_contribution: a css companion of a typescript build declares its own link, through the upstream field v0.3.5 added
@@ -80,10 +84,8 @@ as_built:
   development: pw dev runs the same conversions and serves dist/public from disk, so a rewritten reference resolves there too
   checks: pw doctor reports a tree older than its sources and an enabled image conversion whose encoder is absent
 still_missing:
-  - a hashed-name or runtime-resolved variant, so immutable caching is still unavailable and every asset costs a revalidation
   - a stylesheet url() inside a template style block, deferred rather than open
-  - source maps, which no build emits today
-  - the documentation, which still describes the authored tree as the served one
+  - an authored stylesheet or script keeps its name, so only a produced file is immutable; widening that means rewriting link href too
 out_of_scope:
   srcset: refused, per policy:asset-transform-matrix
   existing_project_migration: a project scaffolded before this states its own embed path and ignore rules; the build names the two lines to change and nothing rewrites them

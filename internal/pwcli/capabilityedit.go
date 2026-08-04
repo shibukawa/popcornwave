@@ -18,7 +18,12 @@ const tailwindToolchainRequirement = "the standalone tailwindcss CLI, version 4 
 
 // imageDevboxPackages are the pinned encoders of decision:asset-transform-toolchain.
 // libwebp carries cwebp and libavif carries avifenc.
-var imageDevboxPackages = []string{"libwebp@latest", "libavif@latest"}
+//
+// The versions are pinned rather than tracked, because a produced file now
+// carries the digest of its own bytes in its name: an encoder that changed
+// under a project would move every image URL, which is correct and is not
+// something a build should do without the project saying so.
+var imageDevboxPackages = []string{"libwebp@1.6.0", "libavif@1.3.0"}
 
 // imageToolchainRequirement is what an operator installing the encoders
 // themselves has to satisfy. The Devbox names are nixpkgs identifiers, so they

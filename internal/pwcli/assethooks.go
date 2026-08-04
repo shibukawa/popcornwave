@@ -1,6 +1,8 @@
 package pwcli
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -115,14 +117,33 @@ func convertImageReference(root, reference string, assets assetsConfig, encode i
 			Reason: "webp was larger than the source",
 		}, nil
 	}
+	name := hashedName(replaceExtension(assetTreePath(reference), ".webp"), encoded)
 	return htmlbind.ReferenceResult{
-		Value: replaceExtension(reference, ".webp"),
+		Value: referenceSibling(reference, path.Base(name)),
 		Files: []htmlbind.ProducedFile{{
-			Name:      replaceExtension(assetTreePath(reference), ".webp"),
+			Name:      name,
 			MediaType: "image/webp",
 			Content:   encoded,
 		}},
 	}, nil
+}
+
+// contentHashLength is how much of the digest a name carries. Twelve hex
+// characters is 48 bits: enough that a collision is not a thing that happens to
+// a project, short enough that the name still reads as the file it came from.
+const contentHashLength = 12
+
+// hashedName puts the digest of the emitted bytes into the file name, which is
+// what makes the URL immutable rather than merely long-lived.
+//
+// Only a URL the build invented is named this way. A URL the author wrote —
+// a stylesheet link, an authored script — is left exactly as written, because
+// nothing rewrites those references and a renamed file would simply be gone.
+func hashedName(name string, content []byte) string {
+	digest := sha256.Sum256(content)
+	extension := path.Ext(name)
+	return strings.TrimSuffix(name, extension) + "." +
+		hex.EncodeToString(digest[:])[:contentHashLength] + extension
 }
 
 // losslessSource reports whether the authored bytes are exact, which is what
@@ -169,7 +190,12 @@ func buildScriptEntry(root, reference string) (htmlbind.ReferenceResult, error) 
 	treePath := assetTreePath(reference)
 	outputBase := replaceExtension(treePath, ".js")
 	result := api.Build(api.BuildOptions{
-		EntryPoints:       []string{source},
+		EntryPoints: []string{source},
+		// A linked map, so a stack trace in production names the authored
+		// TypeScript rather than one line of minified output. The map is a
+		// declared artifact like any other file the build writes, and it is
+		// served from the same immutable URL space as the bundle.
+		Sourcemap:         api.SourceMapLinked,
 		Bundle:            true,
 		Write:             false,
 		MinifyWhitespace:  true,
@@ -199,7 +225,7 @@ func buildScriptEntry(root, reference string) (htmlbind.ReferenceResult, error) 
 		return htmlbind.ReferenceResult{}, err
 	}
 	return htmlbind.ReferenceResult{
-		Value: replaceExtension(reference, ".js"),
+		Value: referenceSibling(reference, path.Base(produced[0].Name)),
 		Files: produced,
 		Head:  head,
 		Read:  scriptReadSet(result, root),
@@ -214,41 +240,75 @@ func buildScriptEntry(root, reference string) (htmlbind.ReferenceResult, error) 
 // introduce its link.
 func scriptOutputs(result api.BuildResult, treePath, reference string) ([]htmlbind.ProducedFile, []htmlbind.HeadEntry, error) {
 	directory := path.Dir(treePath)
-	var produced []htmlbind.ProducedFile
-	var head []htmlbind.HeadEntry
-	for _, file := range result.OutputFiles {
-		name := path.Join(directory, path.Base(filepath.ToSlash(file.Path)))
-		switch path.Ext(name) {
+	// The bundle names its map in a trailing comment, so the two names are one
+	// decision: the digest is taken over the bundle without that comment, and
+	// the comment is written back naming the map the digest produced. Hashing
+	// the commented bytes would need the name the comment carries, which is
+	// what the digest is being taken to decide.
+	var bundle, stylesheet, sourcemap *api.OutputFile
+	for index := range result.OutputFiles {
+		file := &result.OutputFiles[index]
+		switch path.Ext(filepath.ToSlash(file.Path)) {
 		case ".js":
-			produced = append(produced, htmlbind.ProducedFile{
-				Name:      name,
-				MediaType: "text/javascript; charset=utf-8",
-				Content:   file.Contents,
-			})
+			bundle = file
 		case ".css":
-			produced = append(produced, htmlbind.ProducedFile{
-				Name:      name,
-				MediaType: "text/css; charset=utf-8",
-				Content:   file.Contents,
-			})
-			head = append(head, htmlbind.HeadEntry{
-				Element: "link",
-				Attributes: map[string]string{
-					"rel":  "stylesheet",
-					"href": referenceSibling(reference, path.Base(name)),
-				},
-			})
+			stylesheet = file
 		case ".map":
-			produced = append(produced, htmlbind.ProducedFile{
-				Name:      name,
-				MediaType: "application/json",
-				Content:   file.Contents,
-			})
+			sourcemap = file
 		default:
-			return nil, nil, fmt.Errorf("script %s: unexpected output %s", reference, name)
+			return nil, nil, fmt.Errorf("script %s: unexpected output %s", reference, file.Path)
 		}
 	}
+	if bundle == nil {
+		return nil, nil, fmt.Errorf("script %s: the build produced no bundle", reference)
+	}
+	body, comment := splitSourceMapComment(string(bundle.Contents))
+	base := hashedName(path.Join(directory, path.Base(replaceExtension(treePath, ".js"))), []byte(body))
+	produced := []htmlbind.ProducedFile{}
+	if sourcemap != nil && comment != "" {
+		produced = append(produced, htmlbind.ProducedFile{
+			Name:      base + ".map",
+			MediaType: "application/json",
+			Content:   sourcemap.Contents,
+		})
+		body += "//# sourceMappingURL=" + path.Base(base) + ".map\n"
+	}
+	produced = append([]htmlbind.ProducedFile{{
+		Name:      base,
+		MediaType: "text/javascript; charset=utf-8",
+		Content:   []byte(body),
+	}}, produced...)
+
+	var head []htmlbind.HeadEntry
+	if stylesheet != nil {
+		// A css module imported by the entry becomes a file no attribute names,
+		// so the conversion declares the link that loads it.
+		companion := hashedName(path.Join(directory, path.Base(replaceExtension(treePath, ".css"))), stylesheet.Contents)
+		produced = append(produced, htmlbind.ProducedFile{
+			Name:      companion,
+			MediaType: "text/css; charset=utf-8",
+			Content:   stylesheet.Contents,
+		})
+		head = append(head, htmlbind.HeadEntry{
+			Element: "link",
+			Attributes: map[string]string{
+				"rel":  "stylesheet",
+				"href": referenceSibling(reference, path.Base(companion)),
+			},
+		})
+	}
 	return produced, head, nil
+}
+
+// splitSourceMapComment separates a bundle from the trailing comment naming its
+// map, so the digest covers what the code is and not what it is called.
+func splitSourceMapComment(bundle string) (string, string) {
+	marker := "//# sourceMappingURL="
+	index := strings.LastIndex(bundle, marker)
+	if index < 0 {
+		return bundle, ""
+	}
+	return bundle[:index], bundle[index:]
 }
 
 // scriptReadSet reports every file the build opened, so editing an imported

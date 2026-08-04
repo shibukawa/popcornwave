@@ -1,6 +1,7 @@
 package pwcli
 
 import (
+	"encoding/json"
 	"go/parser"
 	"go/token"
 	"os"
@@ -290,5 +291,39 @@ func TestBuildDerivedAssetsShipsWhatIsStaged(t *testing.T) {
 	}
 	if !strings.Contains(string(manifest), `{URL: "js/orphan.js"`) {
 		t.Errorf("manifest missing the staged file:\n%s", manifest)
+	}
+}
+
+// TestManifestPromisesImmutabilityOnlyForInventedURLs is the rule the two cache
+// policies rest on: a name carrying its own digest can promise never to change,
+// and a name the author wrote serves whatever the next build puts behind it.
+func TestManifestPromisesImmutabilityOnlyForInventedURLs(t *testing.T) {
+	root := derivedFixture(t)
+	writeTestFile(t, filepath.Join(root, "public", "app.css"), "body{}\n")
+	writeNestedTestFile(t, filepath.Join(root, filepath.FromSlash(derivedStageDir), "js", "app.abcdef012345.js"), "console.log(1)")
+
+	if _, err := buildDerivedAssets(root, assetsConfig{}); err != nil {
+		t.Fatal(err)
+	}
+	manifest, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(assetManifestJSON)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var entries []struct {
+		URL          string `json:"url"`
+		CacheControl string `json:"cache_control"`
+	}
+	if err := json.Unmarshal(manifest, &entries); err != nil {
+		t.Fatal(err)
+	}
+	policies := map[string]string{}
+	for _, entry := range entries {
+		policies[entry.URL] = entry.CacheControl
+	}
+	if got := policies["js/app.abcdef012345.js"]; got != immutableCacheControl {
+		t.Errorf("a produced URL is not immutable: %q", got)
+	}
+	if got := policies["app.css"]; got != derivedCacheControl {
+		t.Errorf("an authored URL claims immutability: %q", got)
 	}
 }
