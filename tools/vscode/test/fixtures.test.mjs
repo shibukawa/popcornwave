@@ -14,19 +14,11 @@ import { test } from "node:test";
 import { dirname, join, relative, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { SCOPE_BY_EXTENSION, tokenize } from "./tokenize.mjs";
+import { SCOPE_BY_EXTENSION, SKIP_DIRECTORIES, tokenize } from "./tokenize.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const repoRoot = join(here, "..", "..", "..");
 const snapshotPath = join(here, "snapshots", "tokens.txt");
-
-const SKIP_DIRECTORIES = new Set([
-  ".git",
-  ".knowledge",
-  "node_modules",
-  "public",
-  "result",
-]);
 
 async function* walk(directory) {
   for (const entry of await readdir(directory, { withFileTypes: true })) {

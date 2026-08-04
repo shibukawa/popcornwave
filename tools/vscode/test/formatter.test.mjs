@@ -19,6 +19,8 @@ const { EmbeddedFormatter, FormatError } = require(
   join(extensionRoot, "src", "formatter.js"),
 );
 
+const { SKIP_DIRECTORIES } = await import("./tokenize.mjs");
+
 const wasmPath = join(extensionRoot, "wasm", "pwfmt.wasm");
 const formatter = new EmbeddedFormatter(() => readFile(wasmPath));
 
@@ -145,7 +147,7 @@ test("an unknown language is rejected before the module runs", async () => {
 async function* walk(directory) {
   for (const entry of await readdir(directory, { withFileTypes: true })) {
     if (entry.isDirectory()) {
-      if ([".git", ".knowledge", "node_modules", "public"].includes(entry.name)) {
+      if (SKIP_DIRECTORIES.has(entry.name)) {
         continue;
       }
       yield* walk(join(directory, entry.name));

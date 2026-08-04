@@ -26,6 +26,21 @@ const GRAMMARS = {
   "source.pw.dynamo": "pw-dynamo.tmLanguage.json",
 };
 
+/**
+ * Directories the corpus walks never descend into. `.claude` matters most: it
+ * holds git worktrees of this same repository, so walking it would tokenize
+ * every other branch's sources and make the snapshot depend on which worktrees
+ * happen to exist.
+ */
+export const SKIP_DIRECTORIES = new Set([
+  ".claude",
+  ".git",
+  ".knowledge",
+  "node_modules",
+  "public",
+  "result",
+]);
+
 export const SCOPE_BY_EXTENSION = {
   ".pw.html": "source.pw.html",
   ".pw.sql": "source.pw.sql",
