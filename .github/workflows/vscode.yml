@@ -1,0 +1,97 @@
+name: VS Code extension
+
+on:
+  push:
+    branches: [main]
+    tags: ['vscode-v*']
+    paths:
+      - 'tools/vscode/**'
+      - '.github/workflows/vscode.yml'
+      # Both the tokenization drift guard and the formatter test read every
+      # .pw.* source in the repository, so a template edit has to run them.
+      - '**/*.pw.html'
+      - '**/*.pw.sql'
+      - '**/*.pw.dynamo'
+  pull_request:
+    paths:
+      - 'tools/vscode/**'
+      - '.github/workflows/vscode.yml'
+      - '**/*.pw.html'
+      - '**/*.pw.sql'
+      - '**/*.pw.dynamo'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: tools/vscode/package-lock.json
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: tools/vscode/wasm/go.mod
+          cache-dependency-path: tools/vscode/wasm/go.sum
+
+      # Must match tools/vscode/wasm/TOOLCHAIN: a different TinyGo emits
+      # different bytes, which the freshness check below would report as drift.
+      - uses: acifani/setup-tinygo@v2
+        with:
+          tinygo-version: '0.41.1'
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: tools/vscode
+
+      - name: Committed formatter module matches a fresh build
+        run: npm run check:wasm
+        working-directory: tools/vscode
+
+      - name: Tokenization, formatting, and drift guard tests
+        run: npm test
+        working-directory: tools/vscode
+
+      - name: Package
+        run: npm run package
+        working-directory: tools/vscode
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: popcornwave-vsix
+          path: tools/vscode/popcornwave.vsix
+
+  publish:
+    # A vscode-v* tag publishes the extension. The CLI's own v* tags do not,
+    # so a CLI patch never republishes an unchanged extension.
+    if: startsWith(github.ref, 'refs/tags/vscode-v')
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v5
+        with:
+          name: popcornwave-vsix
+          path: tools/vscode
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+
+      - name: Publish to the Visual Studio Marketplace
+        run: npx --yes @vscode/vsce publish --packagePath popcornwave.vsix
+        working-directory: tools/vscode
+        env:
+          VSCE_PAT: ${{ secrets.VSCE_PAT }}
+
+      - name: Publish to Open VSX
+        run: npx --yes ovsx publish popcornwave.vsix
+        working-directory: tools/vscode
+        env:
+          OVSX_PAT: ${{ secrets.OVSX_PAT }}

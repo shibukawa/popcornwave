@@ -1,20 +1,19 @@
 package handlers
 
 export component Home(authenticated: bool, displayName: string, email: string): html {
-<main>
-  <h1>OpenID Connect login</h1>
-{if authenticated}
-  <p class="badge">Signed in</p>
-  <dl>
-    <dt>Name</dt><dd>{displayName}</dd>
-    <dt>Email</dt><dd>{email}</dd>
-  </dl>
-  <p><a href="/mypage">Open the protected page</a></p>
-  <form method="post" action="/auth/logout"><button type="submit">Log out</button></form>
-{else}
-  <p>This page is public. <code>pw dev</code> runs the identity provider, so nothing needs installing.</p>
-  <p><a class="button" href="/auth/login">Log in with OpenID Connect</a></p>
-  <p><a href="/mypage">Open the protected page</a> — it sends you through login first.</p>
-{/if}
-</main>
+  <main>
+    <h1>OpenID Connect login</h1>
+    {if authenticated}
+      <p class="badge">Signed in</p>
+      <dl> <dt>Name</dt><dd>{displayName}</dd> <dt>Email</dt><dd>{email}</dd> </dl>
+      <p><a href="/mypage">Open the protected page</a></p>
+      <form method="post" action="/auth/logout"><button type="submit">Log out</button></form>
+    {else}
+      <p>This page is public.
+        <code>pw dev</code>
+        runs the identity provider, so nothing needs installing.</p>
+      <p><a class="button" href="/auth/login">Log in with OpenID Connect</a></p>
+      <p><a href="/mypage">Open the protected page</a> — it sends you through login first.</p>
+    {/if}
+  </main>
 }

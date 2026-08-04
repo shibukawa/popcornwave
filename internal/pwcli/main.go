@@ -28,6 +28,8 @@ func Main(args []string, stdout, stderr io.Writer) int {
 		err = runNew(ctx, args[1:], stdout)
 	case "generate":
 		err = runGenerate(ctx, args[1:], stdout)
+	case "fmt":
+		err = runFmt(ctx, args[1:], stdout, stderr)
 	case "migrate":
 		err = runMigrate(ctx, args[1:], stdout, stderr)
 	case "seed":
@@ -47,11 +49,11 @@ func Main(args []string, stdout, stderr io.Writer) int {
 		err = fmt.Errorf("unknown command %q", args[0])
 	}
 	if err != nil {
-		// A diagnosis that found something already rendered its report, so the
-		// exit status is the finding count rather than a second error line.
+		// A command that already rendered its own report exits on the finding
+		// rather than on a second error line.
 		var findings *exitError
 		if errors.As(err, &findings) {
-			fmt.Fprintln(stderr, "pw doctor:", findings.message)
+			fmt.Fprintln(stderr, findings.command+":", findings.message)
 			return 1
 		}
 		fmt.Fprintln(stderr, "pw:", err)
@@ -70,6 +72,7 @@ var commandSummaries = []struct{ name, summary string }{
 	{"add", "enable a capability in a project that declined it"},
 	{"new", "scaffold a handler or a page beside the ones you have"},
 	{"generate", "regenerate everything derived from your sources"},
+	{"fmt", "format template sources into their canonical form"},
 	{"migrate", "inspect and apply database migrations"},
 	{"seed", "load seed datasets into the database"},
 	{"build", "generate, build assets, and compile the project"},
@@ -95,6 +98,8 @@ func printUsage(w io.Writer) {
 	fmt.Fprintln(w, newUsage)
 	fmt.Fprintln(w, "  Omit the kind to pick one, then answer for the route and the package.")
 	fmt.Fprintln(w, generateUsage)
+	fmt.Fprintln(w, fmtUsage)
+	fmt.Fprintln(w, "  Omit every path to format the sources your generate purposes list.")
 	fmt.Fprintln(w, migrateUsage)
 	fmt.Fprintln(w, "  Actions: "+strings.Join(migrateActions, ", "))
 	fmt.Fprintln(w, seedUsage)

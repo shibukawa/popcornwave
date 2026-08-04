@@ -1,12 +1,12 @@
 package templates
 
 export component Error500(title: string): html {
-<main>
-  <h1>{title}</h1>
-  <p>
-    Something this page depended on failed, and the template that needed it
+  <main>
+    <h1>{title}</h1>
+    <p>
+      Something this page depended on failed, and the template that needed it
     declared no recover clause. The details are in the server log.
-  </p>
-  <p><a href="/">Back to the index</a></p>
-</main>
+    </p>
+    <p><a href="/">Back to the index</a></p>
+  </main>
 }

@@ -1,8 +1,8 @@
 package pages
 
 export component Page(): html {
-<h1>home</h1>
-<Card id="card-1" page={1} />
+  <h1>home</h1>
+  <Card id="card-1" page="{1}"/>
 }
 
 // Card is the fixture's redraw endpoint. The annotation is the whole
@@ -10,5 +10,5 @@ export component Page(): html {
 // proves the generated init reached the runtime registry.
 @reloadable
 export component Card(id: string, page: int): html {
-<article>card page {page}</article>
+  <article>card page {page}</article>
 }

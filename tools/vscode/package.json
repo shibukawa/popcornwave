@@ -1,0 +1,162 @@
+{
+  "name": "popcornwave",
+  "displayName": "Popcorn Wave",
+  "description": "Syntax highlighting and canonical formatting for Popcorn Wave .pw.html, .pw.sql, and .pw.dynamo sources.",
+  "version": "0.3.0",
+  "publisher": "shibukawa",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/shibukawa/popcornwave.git",
+    "directory": "tools/vscode"
+  },
+  "homepage": "https://github.com/shibukawa/popcornwave/tree/main/tools/vscode",
+  "bugs": {
+    "url": "https://github.com/shibukawa/popcornwave/issues"
+  },
+  "engines": {
+    "vscode": "^1.75.0",
+    "node": ">=20"
+  },
+  "categories": [
+    "Programming Languages",
+    "Formatters"
+  ],
+  "keywords": [
+    "popcornwave",
+    "tinybind",
+    "go",
+    "tinygo"
+  ],
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": true,
+      "description": "Highlighting is a static grammar and formatting runs a WebAssembly module bundled with the extension. Nothing is spawned and nothing is downloaded, so an untrusted workspace loses no functionality."
+    },
+    "virtualWorkspaces": true
+  },
+  "contributes": {
+    "languages": [
+      {
+        "id": "pw-html",
+        "aliases": [
+          "Popcorn Wave HTML",
+          "pw-html"
+        ],
+        "extensions": [
+          ".pw.html"
+        ],
+        "configuration": "./language-configuration/pw-html.json"
+      },
+      {
+        "id": "pw-sql",
+        "aliases": [
+          "Popcorn Wave SQL",
+          "pw-sql"
+        ],
+        "extensions": [
+          ".pw.sql"
+        ],
+        "configuration": "./language-configuration/pw-sql.json"
+      },
+      {
+        "id": "pw-dynamo",
+        "aliases": [
+          "Popcorn Wave DynamoDB",
+          "pw-dynamo"
+        ],
+        "extensions": [
+          ".pw.dynamo"
+        ],
+        "configuration": "./language-configuration/pw-dynamo.json"
+      }
+    ],
+    "grammars": [
+      {
+        "scopeName": "source.pw",
+        "path": "./syntaxes/pw.tmLanguage.json"
+      },
+      {
+        "language": "pw-html",
+        "scopeName": "source.pw.html",
+        "path": "./syntaxes/pw-html.tmLanguage.json",
+        "embeddedLanguages": {
+          "meta.embedded.block.html": "html",
+          "meta.embedded.expression.pw": "pw-html"
+        }
+      },
+      {
+        "language": "pw-sql",
+        "scopeName": "source.pw.sql",
+        "path": "./syntaxes/pw-sql.tmLanguage.json",
+        "embeddedLanguages": {
+          "meta.embedded.block.sql": "sql",
+          "meta.embedded.expression.pw": "pw-sql"
+        }
+      },
+      {
+        "language": "pw-dynamo",
+        "scopeName": "source.pw.dynamo",
+        "path": "./syntaxes/pw-dynamo.tmLanguage.json",
+        "embeddedLanguages": {
+          "meta.embedded.expression.pw": "pw-dynamo"
+        }
+      }
+    ],
+    "snippets": [
+      {
+        "language": "pw-html",
+        "path": "./snippets/pw-html.json"
+      },
+      {
+        "language": "pw-sql",
+        "path": "./snippets/pw-sql.json"
+      },
+      {
+        "language": "pw-dynamo",
+        "path": "./snippets/pw-dynamo.json"
+      }
+    ],
+    "commands": [
+      {
+        "command": "popcornwave.showOutput",
+        "title": "Show Output",
+        "category": "Popcorn Wave"
+      }
+    ],
+    "configurationDefaults": {
+      "[pw-html]": {
+        "editor.insertSpaces": true,
+        "editor.tabSize": 2
+      },
+      "[pw-sql]": {
+        "editor.insertSpaces": true,
+        "editor.tabSize": 2
+      },
+      "[pw-dynamo]": {
+        "editor.insertSpaces": true,
+        "editor.tabSize": 2
+      }
+    }
+  },
+  "scripts": {
+    "test": "node --test test/",
+    "build:wasm": "sh wasm/build.sh",
+    "check:wasm": "node test/check-wasm-fresh.mjs",
+    "package": "vsce package --out popcornwave.vsix",
+    "publish:vsce": "vsce publish --packagePath popcornwave.vsix",
+    "publish:ovsx": "ovsx publish popcornwave.vsix"
+  },
+  "devDependencies": {
+    "@vscode/vsce": "^3.2.1",
+    "ovsx": "^0.10.1",
+    "vscode-oniguruma": "^2.0.1",
+    "vscode-textmate": "^9.1.0"
+  },
+  "main": "./src/extension.js",
+  "activationEvents": [
+    "onLanguage:pw-html",
+    "onLanguage:pw-sql",
+    "onLanguage:pw-dynamo"
+  ]
+}

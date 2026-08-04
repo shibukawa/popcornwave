@@ -42,6 +42,15 @@ The runtime provides:
 Modern component graphs, patch protocols, hydration, and browser JavaScript are
 not dependencies of this package.
 
+## Editor support
+
+[`tools/vscode`](tools/vscode/README.md) is a Visual Studio Code extension that
+highlights the three source dialects — `*.pw.html`, `*.pw.sql`, and
+`*.pw.dynamo` — including the template expressions embedded in their HTML, SQL,
+and clause bodies. It is a grammar only: nothing is executed, no binary is
+needed, and it works on a file opened with no workspace. Diagnostics and
+completion are planned for a later version through a `pw lsp` language server.
+
 ## Authentication
 
 Opaque server-side login sessions live in [`session`](session/README.md), and

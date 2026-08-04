@@ -5,6 +5,11 @@ result-*
 # telemetry viewer UI dependencies and incremental state; the build output under
 # web/ is committed
 internal/otelui/webui/node_modules
+
+# VS Code extension build inputs and output; the grammars, the tests, and the
+# token snapshot are committed
+tools/vscode/node_modules
+tools/vscode/*.vsix
 internal/otelui/webui/*.tsbuildinfo
 cmd/pw/pw
 cmd/pw/pw.exe

@@ -16,6 +16,8 @@ commands:
   - api:cli-seed
   - api:cli-doctor
   - api:cli-version
+  - api:cli-fmt
+  - api:cli-lsp, proposed by decision:language-server-in-pw-cli
 configuration: data:project-config
 runtime_dependency_policy: concept:public-package-boundaries
 execution_split: decision:host-tools-target-runtime
