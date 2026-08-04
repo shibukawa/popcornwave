@@ -7,6 +7,7 @@ sidebar:
 
 ```sh
 pw add [devbox|database|dynamo|redis-valkey|auth|tailwind|images]
+pw add <module-path>
 ```
 
 `pw init` asks which capabilities a project starts with, before the project is
@@ -17,6 +18,13 @@ The command runs inside an existing project and asks its questions in a wizard.
 There is no flag form: unlike `pw init`, which creates a fresh directory, this
 edits configuration, migrations, and sources the project already depends on —
 and the review screen is where that edit is approved.
+
+An argument containing a dot in its first element is read as a module path
+instead, which installs a
+[component package](/guides/deployment/package/). That route has no wizard and
+no review screen, because it copies nothing: it writes the `go.mod` requirement
+and one `[[packages]]` entry, then prints the remaining commands. See
+[The consuming side](/guides/deployment/package/#the-consuming-side).
 
 ## The catalog
 

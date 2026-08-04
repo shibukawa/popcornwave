@@ -10,7 +10,8 @@ file: popcornwave.toml
 schema:
   project:
     name: myapp
-    main: ./cmd/myapp
+    kind: application or package, defaulting to application; a package project is a concept:component-package and carries the data:component-package-manifest package section
+    main: ./cmd/myapp, required for an application and absent for a package
     toolchain: tinygo or go, defaulting to tinygo
     database: sqlite, postgres, or mysql, defaulting to sqlite
   dev:
@@ -37,6 +38,10 @@ schema:
     auto: true for api:cli-dev only
   seed:
     auto: true for api:cli-dev only
+  packages:
+    form: an array of tables naming the concept:component-package modules the application uses, per decision:declared-package-installation
+    entry: module, the Go module path, which must also be in go.mod
+    absent: the empty list, because a project that uses no package has nothing to name
   assets:
     tailwind:
       enabled: false
@@ -49,6 +54,9 @@ optional_extensions:
   - build tags and targets
   - build output location
 rules:
+  - project.kind selects which commands apply and which keys are legal, per api:cli-package; a missing key means application, because it was the only kind before the key existed
+  - a packages entry is what links its module, because api:cli-generate emits the blank import from it; a module in go.mod and not in this list is an ordinary dependency
+  - a packages entry naming a module with no data:component-package-manifest package section is an error
   - api:cli-generate reads each source kind only under the generate purpose that owns it, and warns about a .pw.html, .pw.sql, or .pw.dynamo outside its purpose
   - every generate purpose key is required except generate.pages and generate.dynamo; an empty list states that the purpose generates nothing
   - a missing generate.dynamo means the empty list, for the same reason generate.pages does; requirement:dynamodb-store is a capability a project acquires rather than one it always had

@@ -7,6 +7,7 @@ sidebar:
 
 ```sh
 pw add [devbox|database|dynamo|redis-valkey|auth|tailwind|images]
+pw add <module-path>
 ```
 
 `pw init` はどの機能から始めるかを尋ねますが、それはプロジェクトを理解しきる前の
@@ -17,6 +18,12 @@ pw add [devbox|database|dynamo|redis-valkey|auth|tailwind|images]
 ありません。新しいディレクトリを作る `pw init` と違い、こちらはプロジェクトが既に
 依存している設定・マイグレーション・ソースを編集します。その編集を承認する場所が
 レビュー画面です。
+
+最初の要素にドットを含む引数は、モジュールパスとして読まれます。この場合は
+[コンポーネントパッケージ](/ja/guides/deployment/package/)を導入します。こちらには
+ウィザードもレビュー画面もありません。何もコピーしないからです。`go.mod` の require と
+`[[packages]]` の 1 エントリを書き、残りのコマンドを表示して終わります。
+[利用側](/ja/guides/deployment/package/#利用側)を参照してください。
 
 ## カタログ
 

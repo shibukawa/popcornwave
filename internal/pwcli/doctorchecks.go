@@ -68,6 +68,7 @@ func (r *checkRun) escalate(id string, severity pwcheck.Severity, message, evide
 func runChecks(ctx context.Context, context checkContext) ([]doctorFinding, []doctorLimit) {
 	run := &checkRun{checkContext: context}
 	run.checkProject()
+	run.checkPackages(ctx)
 	run.checkWiring()
 	run.checkDependencies()
 	run.checkSecrets()

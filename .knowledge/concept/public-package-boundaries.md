@@ -22,6 +22,10 @@ public_lower_level:
   - database
   - database/dynamo
   - pwruntime
+third_party:
+  unit: concept:component-package, an ordinary Go module importing pw exactly as an application does
+  rule: a package's handwritten code stays inside the handwritten_default boundary, and its committed generated code sits inside generated_runtime like any other generated file
+  registration: api:package-registration and api:framework-extension, both called from the package's own init, so pw imports nothing
 tinybind:
   role: implementation dependency behind pw
   normal_usage: hidden

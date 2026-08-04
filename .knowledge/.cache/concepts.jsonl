@@ -15,6 +15,7 @@
 {"category": "interface", "id": "api:cli-init", "path": ".knowledge/api/cli-init.md", "role": "primary", "title": "pw init", "type": "api"}
 {"category": "interface", "id": "api:cli-migrate", "path": ".knowledge/api/cli-migrate.md", "role": "primary", "title": "pw migrate", "type": "api"}
 {"category": "interface", "id": "api:cli-new", "path": ".knowledge/api/cli-new.md", "role": "primary", "title": "pw new", "type": "api"}
+{"category": "interface", "id": "api:cli-package", "path": ".knowledge/api/cli-package.md", "role": "primary", "title": "Package Authoring Commands", "type": "api"}
 {"category": "interface", "id": "api:cli-seed", "path": ".knowledge/api/cli-seed.md", "role": "primary", "title": "pw seed", "type": "api"}
 {"category": "interface", "id": "api:cli-session-schema", "path": ".knowledge/api/cli-session-schema.md", "role": "primary", "title": "pw session schema", "type": "api"}
 {"category": "interface", "id": "api:cli-version", "path": ".knowledge/api/cli-version.md", "role": "primary", "title": "pw version", "type": "api"}
@@ -33,6 +34,7 @@
 {"category": "interface", "id": "api:live-delivery-protocol", "path": ".knowledge/api/live-delivery-protocol.md", "role": "primary", "title": "Live Delivery Wire Protocol", "type": "api"}
 {"category": "interface", "id": "api:logger", "path": ".knowledge/api/logger.md", "role": "primary", "title": "Context-Bound Logger API", "type": "api"}
 {"category": "interface", "id": "api:migration-runner", "path": ".knowledge/api/migration-runner.md", "role": "primary", "title": "Migration Runner", "type": "api"}
+{"category": "interface", "id": "api:package-registration", "path": ".knowledge/api/package-registration.md", "role": "primary", "title": "Package Registration", "type": "api"}
 {"category": "interface", "id": "api:page-action-endpoint", "path": ".knowledge/api/page-action-endpoint.md", "role": "primary", "title": "Page Action Endpoint", "type": "api"}
 {"category": "interface", "id": "api:page-registry", "path": ".knowledge/api/page-registry.md", "role": "primary", "title": "Page Registry", "type": "api"}
 {"category": "interface", "id": "api:page-render-runtime", "path": ".knowledge/api/page-render-runtime.md", "role": "primary", "title": "Page Render Runtime", "type": "api"}
@@ -63,6 +65,7 @@
 {"category": "concept", "id": "concept:assurance-axes", "path": ".knowledge/concept/assurance-axes.md", "role": "supporting", "title": "Assurance Strength and Freshness", "type": "concept"}
 {"category": "concept", "id": "concept:classic-web-style", "path": ".knowledge/concept/classic-web-style.md", "role": "supporting", "title": "Classic Web Style", "type": "concept"}
 {"category": "concept", "id": "concept:client-component", "path": ".knowledge/concept/client-component.md", "role": "supporting", "title": "Client Component", "type": "concept"}
+{"category": "concept", "id": "concept:component-package", "path": ".knowledge/concept/component-package.md", "role": "supporting", "title": "Component Package", "type": "concept"}
 {"category": "concept", "id": "concept:derived-public-tree", "path": ".knowledge/concept/derived-public-tree.md", "role": "supporting", "title": "Derived Public Tree", "type": "concept"}
 {"category": "concept", "id": "concept:interaction-cost-ladder", "path": ".knowledge/concept/interaction-cost-ladder.md", "role": "supporting", "title": "Interaction Cost Ladder", "type": "concept"}
 {"category": "concept", "id": "concept:modern-server-ui", "path": ".knowledge/concept/modern-server-ui.md", "role": "supporting", "title": "Modern Server UI", "type": "concept"}
@@ -75,6 +78,7 @@
 {"category": "structure", "id": "data:authentication-runtime-config", "path": ".knowledge/data/authentication-runtime-config.md", "role": "supporting", "title": "Authentication Runtime Config", "type": "data"}
 {"category": "structure", "id": "data:bot-user-agent-catalog", "path": ".knowledge/data/bot-user-agent-catalog.md", "role": "supporting", "title": "Bot User Agent Catalog", "type": "data"}
 {"category": "structure", "id": "data:component-boundary", "path": ".knowledge/data/component-boundary.md", "role": "supporting", "title": "Component Boundary Metadata", "type": "data"}
+{"category": "structure", "id": "data:component-package-manifest", "path": ".knowledge/data/component-package-manifest.md", "role": "supporting", "title": "Component Package Manifest", "type": "data"}
 {"category": "structure", "id": "data:compression-runtime-config", "path": ".knowledge/data/compression-runtime-config.md", "role": "supporting", "title": "Compression Runtime Config", "type": "data"}
 {"category": "structure", "id": "data:database-connection-set", "path": ".knowledge/data/database-connection-set.md", "role": "supporting", "title": "Database Connection Set", "type": "data"}
 {"category": "structure", "id": "data:database-driver-contract", "path": ".knowledge/data/database-driver-contract.md", "role": "supporting", "title": "Database Driver Contract", "type": "data"}
@@ -121,11 +125,13 @@
 {"category": "constraint", "id": "decision:bot-client-classification", "path": ".knowledge/decision/bot-client-classification.md", "role": "supporting", "title": "Bot Client Classification", "type": "decision"}
 {"category": "constraint", "id": "decision:buffered-fragment-delivery", "path": ".knowledge/decision/buffered-fragment-delivery.md", "role": "supporting", "title": "Buffered Fragment Delivery", "type": "decision"}
 {"category": "constraint", "id": "decision:cli-release-pipeline", "path": ".knowledge/decision/cli-release-pipeline.md", "role": "supporting", "title": "Hand-written CLI Release Pipeline", "type": "decision"}
+{"category": "constraint", "id": "decision:committed-package-artifacts", "path": ".knowledge/decision/committed-package-artifacts.md", "role": "supporting", "title": "Committed Package Artifacts", "type": "decision"}
 {"category": "constraint", "id": "decision:config-driven-database", "path": ".knowledge/decision/config-driven-database.md", "role": "supporting", "title": "Config-driven Database Lifecycle", "type": "decision"}
 {"category": "constraint", "id": "decision:contrib-delivery-order", "path": ".knowledge/decision/contrib-delivery-order.md", "role": "supporting", "title": "Contrib Delivery Order", "type": "decision"}
 {"category": "constraint", "id": "decision:cookie-session-storage", "path": ".knowledge/decision/cookie-session-storage.md", "role": "supporting", "title": "Cookie-Backed Session Storage", "type": "decision"}
 {"category": "constraint", "id": "decision:csrf-secret-as-a-session-slot", "path": ".knowledge/decision/csrf-secret-as-a-session-slot.md", "role": "supporting", "title": "The CSRF Secret Is a Session Slot", "type": "decision"}
 {"category": "constraint", "id": "decision:dbtestify-integration", "path": ".knowledge/decision/dbtestify-integration.md", "role": "supporting", "title": "dbtestify Integration Boundary", "type": "decision"}
+{"category": "constraint", "id": "decision:declared-package-installation", "path": ".knowledge/decision/declared-package-installation.md", "role": "supporting", "title": "Declared Package Installation", "type": "decision"}
 {"category": "constraint", "id": "decision:derived-tree-development", "path": ".knowledge/decision/derived-tree-development.md", "role": "supporting", "title": "Derived Tree in Development", "type": "decision"}
 {"category": "constraint", "id": "decision:dev-telemetry-viewer-adoption", "path": ".knowledge/decision/dev-telemetry-viewer-adoption.md", "role": "supporting", "title": "Development Telemetry Viewer Adoption", "type": "decision"}
 {"category": "constraint", "id": "decision:developer-loop-watch-scope", "path": ".knowledge/decision/developer-loop-watch-scope.md", "role": "supporting", "title": "Developer Loop Watch Scope", "type": "decision"}
@@ -161,6 +167,7 @@
 {"category": "constraint", "id": "decision:local-tls-proxy-boundary", "path": ".knowledge/decision/local-tls-proxy-boundary.md", "role": "supporting", "title": "Local TLS Proxy Boundary", "type": "decision"}
 {"category": "constraint", "id": "decision:migration-execution-split", "path": ".knowledge/decision/migration-execution-split.md", "role": "supporting", "title": "Migration Execution Split", "type": "decision"}
 {"category": "constraint", "id": "decision:nix-flake-packaging", "path": ".knowledge/decision/nix-flake-packaging.md", "role": "supporting", "title": "In-repository Nix Flake Packaging", "type": "decision"}
+{"category": "constraint", "id": "decision:package-contract-split", "path": ".knowledge/decision/package-contract-split.md", "role": "supporting", "title": "Package Contract Split", "type": "decision"}
 {"category": "constraint", "id": "decision:page-render-binding", "path": ".knowledge/decision/page-render-binding.md", "role": "supporting", "title": "Page Render Binding", "type": "decision"}
 {"category": "constraint", "id": "decision:page-router-scaffold-choice", "path": ".knowledge/decision/page-router-scaffold-choice.md", "role": "supporting", "title": "Page Router Scaffold Choice", "type": "decision"}
 {"category": "constraint", "id": "decision:passkey-first-authentication", "path": ".knowledge/decision/passkey-first-authentication.md", "role": "supporting", "title": "Passkey-First Authentication Priority", "type": "decision"}
@@ -193,6 +200,7 @@
 {"category": "constraint", "id": "decision:web-runtime-delivery-order", "path": ".knowledge/decision/web-runtime-delivery-order.md", "role": "supporting", "title": "Web Runtime Delivery Order", "type": "decision"}
 {"category": "behavior", "id": "flow:capability-addition", "path": ".knowledge/flow/capability-addition.md", "role": "primary", "title": "Capability Addition Flow", "type": "flow"}
 {"category": "behavior", "id": "flow:cli-release", "path": ".knowledge/flow/cli-release.md", "role": "primary", "title": "CLI Release Flow", "type": "flow"}
+{"category": "behavior", "id": "flow:component-package-consumption", "path": ".knowledge/flow/component-package-consumption.md", "role": "primary", "title": "Component Package Consumption", "type": "flow"}
 {"category": "behavior", "id": "flow:database-migration", "path": ".knowledge/flow/database-migration.md", "role": "primary", "title": "Database Migration Flow", "type": "flow"}
 {"category": "behavior", "id": "flow:derived-asset-build", "path": ".knowledge/flow/derived-asset-build.md", "role": "primary", "title": "Derived Asset Build Flow", "type": "flow"}
 {"category": "behavior", "id": "flow:dev-telemetry-capture", "path": ".knowledge/flow/dev-telemetry-capture.md", "role": "primary", "title": "Development Telemetry Capture Flow", "type": "flow"}
@@ -249,6 +257,7 @@
 {"category": "constraint", "id": "policy:oidc-security", "path": ".knowledge/policy/oidc-security.md", "role": "supporting", "title": "OIDC Security Policy", "type": "policy"}
 {"category": "constraint", "id": "policy:operational-endpoints", "path": ".knowledge/policy/operational-endpoints.md", "role": "supporting", "title": "Operational Endpoints", "type": "policy"}
 {"category": "constraint", "id": "policy:outbound-transport-security", "path": ".knowledge/policy/outbound-transport-security.md", "role": "supporting", "title": "Outbound Transport Security Policy", "type": "policy"}
+{"category": "constraint", "id": "policy:package-compatibility", "path": ".knowledge/policy/package-compatibility.md", "role": "supporting", "title": "Package Compatibility", "type": "policy"}
 {"category": "constraint", "id": "policy:passkey-security", "path": ".knowledge/policy/passkey-security.md", "role": "supporting", "title": "Passkey Security Policy", "type": "policy"}
 {"category": "constraint", "id": "policy:provider-session-scope", "path": ".knowledge/policy/provider-session-scope.md", "role": "supporting", "title": "Provider Session Scope of Logout", "type": "policy"}
 {"category": "constraint", "id": "policy:public-asset-media-negotiation", "path": ".knowledge/policy/public-asset-media-negotiation.md", "role": "supporting", "title": "Public Asset Media Negotiation", "type": "policy"}
@@ -277,6 +286,7 @@
 {"category": "objective", "id": "requirement:classic-web-acceptance", "path": ".knowledge/requirement/classic-web-acceptance.md", "role": "primary", "title": "Classic Web Acceptance", "type": "requirement"}
 {"category": "objective", "id": "requirement:cli-distribution", "path": ".knowledge/requirement/cli-distribution.md", "role": "primary", "title": "pw CLI Distribution", "type": "requirement"}
 {"category": "objective", "id": "requirement:component-asset-extraction", "path": ".knowledge/requirement/component-asset-extraction.md", "role": "primary", "title": "Component Asset Extraction", "type": "requirement"}
+{"category": "objective", "id": "requirement:component-package-distribution", "path": ".knowledge/requirement/component-package-distribution.md", "role": "primary", "title": "Component Package Distribution", "type": "requirement"}
 {"category": "objective", "id": "requirement:contrib-acceptance", "path": ".knowledge/requirement/contrib-acceptance.md", "role": "primary", "title": "Contrib Acceptance Criteria", "type": "requirement"}
 {"category": "objective", "id": "requirement:contrib-auth-common", "path": ".knowledge/requirement/contrib-auth-common.md", "role": "primary", "title": "Authentication Security Primitives", "type": "requirement"}
 {"category": "objective", "id": "requirement:contrib-auth-state-dynamo", "path": ".knowledge/requirement/contrib-auth-state-dynamo.md", "role": "primary", "title": "DynamoDB Authentication State Store", "type": "requirement"}
@@ -300,6 +310,7 @@
 {"category": "objective", "id": "requirement:contrib-redis-valkey", "path": ".knowledge/requirement/contrib-redis-valkey.md", "role": "primary", "title": "TinyGo Redis and Valkey Compatibility", "type": "requirement"}
 {"category": "objective", "id": "requirement:contrib-sqlite", "path": ".knowledge/requirement/contrib-sqlite.md", "role": "primary", "title": "Portable SQLite Facade", "type": "requirement"}
 {"category": "objective", "id": "requirement:contrib-zstd", "path": ".knowledge/requirement/contrib-zstd.md", "role": "primary", "title": "Zstandard Response Encoder", "type": "requirement"}
+{"category": "objective", "id": "requirement:cross-package-components", "path": ".knowledge/requirement/cross-package-components.md", "role": "primary", "title": "A Component Must Be Callable From Another Module", "type": "requirement"}
 {"category": "objective", "id": "requirement:csrf-token-lifecycle", "path": ".knowledge/requirement/csrf-token-lifecycle.md", "role": "primary", "title": "CSRF Token Lifecycle And Delivery", "type": "requirement"}
 {"category": "objective", "id": "requirement:custom-element-registration", "path": ".knowledge/requirement/custom-element-registration.md", "role": "primary", "title": "Custom Element Registration", "type": "requirement"}
 {"category": "objective", "id": "requirement:daisyui-integration", "path": ".knowledge/requirement/daisyui-integration.md", "role": "primary", "title": "daisyUI Integration", "type": "requirement"}
@@ -322,6 +333,7 @@
 {"category": "objective", "id": "requirement:environment-switching", "path": ".knowledge/requirement/environment-switching.md", "role": "primary", "title": "Environment Switching", "type": "requirement"}
 {"category": "objective", "id": "requirement:external-boundary-runtime", "path": ".knowledge/requirement/external-boundary-runtime.md", "role": "primary", "title": "External Boundary Runtime Script", "type": "requirement"}
 {"category": "objective", "id": "requirement:framework-script-assets", "path": ".knowledge/requirement/framework-script-assets.md", "role": "primary", "title": "Framework Script Assets", "type": "requirement"}
+{"category": "objective", "id": "requirement:generated-code-version-tolerance", "path": ".knowledge/requirement/generated-code-version-tolerance.md", "role": "primary", "title": "Generated Code Must State What Runtime It Links Against", "type": "requirement"}
 {"category": "objective", "id": "requirement:html-fragment-rendering", "path": ".knowledge/requirement/html-fragment-rendering.md", "role": "primary", "title": "HTML Fragment Rendering", "type": "requirement"}
 {"category": "objective", "id": "requirement:httpbinder-extensible-route-analysis", "path": ".knowledge/requirement/httpbinder-extensible-route-analysis.md", "role": "primary", "title": "Extensible httpbind-go Route Analysis", "type": "requirement"}
 {"category": "objective", "id": "requirement:incremental-project-capabilities", "path": ".knowledge/requirement/incremental-project-capabilities.md", "role": "primary", "title": "Incremental Project Capabilities", "type": "requirement"}
@@ -336,6 +348,9 @@
 {"category": "objective", "id": "requirement:mvp-acceptance", "path": ".knowledge/requirement/mvp-acceptance.md", "role": "primary", "title": "MVP Acceptance Criteria", "type": "requirement"}
 {"category": "objective", "id": "requirement:navigation-delta-rendering", "path": ".knowledge/requirement/navigation-delta-rendering.md", "role": "primary", "title": "Navigation Delta Rendering", "type": "requirement"}
 {"category": "objective", "id": "requirement:nested-html-templates", "path": ".knowledge/requirement/nested-html-templates.md", "role": "primary", "title": "Nested HTML Templates", "type": "requirement"}
+{"category": "objective", "id": "requirement:package-asset-delivery", "path": ".knowledge/requirement/package-asset-delivery.md", "role": "primary", "title": "Package Asset Delivery", "type": "requirement"}
+{"category": "objective", "id": "requirement:package-component-assets", "path": ".knowledge/requirement/package-component-assets.md", "role": "primary", "title": "A Distributed Component Must Carry Its Own Assets", "type": "requirement"}
+{"category": "objective", "id": "requirement:package-schema-contribution", "path": ".knowledge/requirement/package-schema-contribution.md", "role": "primary", "title": "Package Schema Contribution", "type": "requirement"}
 {"category": "objective", "id": "requirement:parallel-database-tests", "path": ".knowledge/requirement/parallel-database-tests.md", "role": "primary", "title": "Parallel Database Tests", "type": "requirement"}
 {"category": "objective", "id": "requirement:presence-signal", "path": ".knowledge/requirement/presence-signal.md", "role": "primary", "title": "Human Presence Signal", "type": "requirement"}
 {"category": "objective", "id": "requirement:project-diagnostics", "path": ".knowledge/requirement/project-diagnostics.md", "role": "primary", "title": "Project Diagnostics", "type": "requirement"}

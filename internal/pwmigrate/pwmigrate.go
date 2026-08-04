@@ -125,13 +125,39 @@ func Sources(dir string) (fs.FS, error) {
 }
 
 func newProvider(target *Target, sources fs.FS) (*goose.Provider, error) {
+	return newStreamProvider(target, sources, "")
+}
+
+// StreamTable returns the version table of a component package's migration
+// stream. A package numbers its migrations independently of the project and of
+// every other package, so each stream needs its own ledger: one shared table
+// would let each stream read the others' applied versions as its own.
+//
+// The name carries the framework prefix for the same reason every other
+// framework-owned table does — an application reading its own schema can tell at
+// a glance which tables it does not own.
+func StreamTable(stem string) string {
+	if stem == "" {
+		return ""
+	}
+	return "popcornwave_migrations_" + stem
+}
+
+// newStreamProvider builds a provider over one stream. An empty stem is the
+// application's own stream, which keeps goose's default table so an existing
+// project's recorded versions stay where they are.
+func newStreamProvider(target *Target, sources fs.FS, stem string) (*goose.Provider, error) {
 	if target == nil || target.DB == nil {
 		return nil, errors.New("migration target is not open")
 	}
-	provider, err := goose.NewProvider(target.Dialect, target.DB, sources,
+	options := []goose.ProviderOption{
 		goose.WithDisableGlobalRegistry(true),
 		goose.WithLogger(goose.NopLogger()),
-	)
+	}
+	if table := StreamTable(stem); table != "" {
+		options = append(options, goose.WithTableName(table))
+	}
+	provider, err := goose.NewProvider(target.Dialect, target.DB, sources, options...)
 	if err != nil {
 		return nil, fmt.Errorf("load migrations: %w", err)
 	}
@@ -221,6 +247,13 @@ func Statuses(ctx context.Context, target *Target, sources fs.FS) ([]Status, err
 	if err != nil {
 		return nil, err
 	}
+	return statusesFrom(ctx, provider)
+}
+
+// statusesFrom reads one provider's recorded state. It is shared by the
+// application's stream and by every package stream, which differ only in the
+// version table their provider was built with.
+func statusesFrom(ctx context.Context, provider *goose.Provider) ([]Status, error) {
 	reported, err := provider.Status(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("read migration status: %w", err)
@@ -377,4 +410,88 @@ func SourceFiles(sources fs.FS) ([]string, error) {
 	}
 	sort.Strings(names)
 	return names, nil
+}
+
+// Stream is one component package's migrations, kept separate from the
+// application's because a package numbers its versions independently and cannot
+// know which numbers the project has free.
+type Stream struct {
+	// Module identifies the package, for reporting.
+	Module string
+	// Stem names the stream's version table and prefixes the package's own
+	// tables.
+	Stem string
+	// Sources is the package's embedded migration directory.
+	Sources fs.FS
+}
+
+// ApplyStreams brings every package stream up before the application's own
+// migrations run.
+//
+// The order is the caller's, which derives it from the Go module import graph:
+// a package cannot reference an application table it has never seen, and an
+// application may reference a package table, so the import direction and the
+// reference direction agree by construction. Nothing here re-derives it.
+func ApplyStreams(ctx context.Context, target *Target, streams []Stream) ([]StreamResult, error) {
+	results := make([]StreamResult, 0, len(streams))
+	for _, stream := range streams {
+		provider, err := newStreamProvider(target, stream.Sources, stream.Stem)
+		if err != nil {
+			return results, fmt.Errorf("%s: %w", stream.Module, err)
+		}
+		previous, err := provider.GetDBVersion(ctx)
+		if err != nil {
+			return results, fmt.Errorf("%s: read applied version: %w", stream.Module, err)
+		}
+		applied, err := provider.Up(ctx)
+		result := StreamResult{
+			Module: stream.Module,
+			Stem:   stream.Stem,
+			Result: Result{Previous: previous, Current: previous, Applied: appliedFrom(applied)},
+		}
+		if current, versionErr := provider.GetDBVersion(ctx); versionErr == nil {
+			result.Result.Current = current
+		}
+		results = append(results, result)
+		if err != nil {
+			// The streams already applied stay applied; a package's schema is
+			// its own unit and rolling one back because a later package failed
+			// would leave the working ones half removed.
+			return results, fmt.Errorf("%s: %w", stream.Module, err)
+		}
+	}
+	return results, nil
+}
+
+// StreamResult reports one stream's version change.
+type StreamResult struct {
+	Module string
+	Stem   string
+	Result Result
+}
+
+// StreamStatuses reports one stream's recorded state, so a caller can list what
+// a package would apply before it applies it. That listing is what replaces the
+// review a migration copied into the project used to get.
+func StreamStatuses(ctx context.Context, target *Target, stream Stream) ([]Status, error) {
+	provider, err := newStreamProvider(target, stream.Sources, stream.Stem)
+	if err != nil {
+		return nil, err
+	}
+	return statusesFrom(ctx, provider)
+}
+
+// StreamPending lists the versions a stream would apply.
+func StreamPending(ctx context.Context, target *Target, stream Stream) ([]Status, error) {
+	statuses, err := StreamStatuses(ctx, target, stream)
+	if err != nil {
+		return nil, err
+	}
+	pending := make([]Status, 0, len(statuses))
+	for _, status := range statuses {
+		if !status.Applied {
+			pending = append(pending, status)
+		}
+	}
+	return pending, nil
 }
