@@ -1,0 +1,48 @@
+{
+  "Exec statement": {
+    "prefix": "statement exec",
+    "body": [
+      "export statement ${1:Name}(${2:id}: ${3:int}): sql.exec {",
+      "$0",
+      "}"
+    ],
+    "description": "A statement returning only an affected-row count"
+  },
+  "One-row statement": {
+    "prefix": "statement one",
+    "body": [
+      "export statement ${1:Name}(${2:id}: ${3:int}): sql.one<${4:Row}> {",
+      "SELECT $0 FROM ${5:table} WHERE id = {${2:id}}",
+      "}"
+    ],
+    "description": "A statement returning exactly one row"
+  },
+  "Optional-row statement": {
+    "prefix": "statement optional",
+    "body": [
+      "export statement ${1:Name}(${2:id}: ${3:int}): sql.optional<${4:Row}> {",
+      "SELECT $0 FROM ${5:table} WHERE id = {${2:id}}",
+      "}"
+    ],
+    "description": "A statement returning zero or one row"
+  },
+  "Many-row statement": {
+    "prefix": "statement many",
+    "body": [
+      "export statement ${1:Name}(): sql.many<${2:Row}> {",
+      "SELECT $0 FROM ${3:table}",
+      "}"
+    ],
+    "description": "A statement returning every matching row"
+  },
+  "Record type": {
+    "prefix": "type",
+    "body": ["type ${1:Name} {", "\t${2:field}: ${3:string}", "}"],
+    "description": "A record type declaration"
+  },
+  "If block": {
+    "prefix": "if",
+    "body": ["{if ${1:condition}}", "\t$0", "{/if}"],
+    "description": "A conditional fragment with its closing form"
+  }
+}

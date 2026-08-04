@@ -1,0 +1,64 @@
+{
+  "Exported component": {
+    "prefix": "component",
+    "body": [
+      "export component ${1:Name}(${2:value}: ${3:string}): html {",
+      "<${4:div}>$0</${4:div}>",
+      "}"
+    ],
+    "description": "An exported HTML component declaration"
+  },
+  "If block": {
+    "prefix": "if",
+    "body": ["{if ${1:condition}}", "\t$0", "{/if}"],
+    "description": "A conditional block with its closing form"
+  },
+  "If else block": {
+    "prefix": "ifelse",
+    "body": ["{if ${1:condition}}", "\t$0", "{else}", "\t", "{/if}"],
+    "description": "A conditional block with an else branch"
+  },
+  "For block": {
+    "prefix": "for",
+    "body": ["{for ${1:item} in ${2:items}}", "\t$0", "{/for}"],
+    "description": "An iteration block with its closing form"
+  },
+  "Await block": {
+    "prefix": "await",
+    "body": [
+      "{await ${1:value} = ${2:Load}(${3:id})}",
+      "\t$0",
+      "{fallback}",
+      "\t",
+      "{recover err}",
+      "\t{err.message}",
+      "{/await}"
+    ],
+    "description": "An async boundary with a fallback and a recover clause"
+  },
+  "External async binding": {
+    "prefix": "external async",
+    "body": ["external async ${1:Load}(${2:id}: ${3:string}): ${4:Type}"],
+    "description": "Bind a Go function returning a value and an error"
+  },
+  "External live binding": {
+    "prefix": "external live",
+    "body": ["external live ${1:Watch}(${2:id}: ${3:string}): ${4:Type}"],
+    "description": "Bind a Go function returning an iter.Seq2"
+  },
+  "Record type": {
+    "prefix": "type",
+    "body": ["type ${1:Name} {", "\t${2:field}: ${3:string}", "}"],
+    "description": "A record type declaration"
+  },
+  "Unnamed slot": {
+    "prefix": "slot",
+    "body": ["<slot />"],
+    "description": "The unnamed slot of a slot-capable component"
+  },
+  "Named slot": {
+    "prefix": "slotnamed",
+    "body": ["<slot name=\"${1:header}\" />"],
+    "description": "A named slot"
+  }
+}

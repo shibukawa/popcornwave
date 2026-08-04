@@ -1,0 +1,680 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "Popcorn Wave Shared",
+  "scopeName": "source.pw",
+  "comment": "Shared declaration header and template body grammar for every Popcorn Wave source dialect. Included by source.pw.html, source.pw.sql, and source.pw.dynamo; never bound to a language of its own. Scope names are fixed by rule:template-grammar-scopes.",
+  "patterns": [
+    {
+      "include": "#header"
+    }
+  ],
+  "repository": {
+    "header": {
+      "comment": "Everything legal outside a declaration body.",
+      "patterns": [
+        {
+          "include": "#comments"
+        },
+        {
+          "include": "#annotation"
+        },
+        {
+          "include": "#package-decl"
+        },
+        {
+          "include": "#import-decl"
+        },
+        {
+          "include": "#type-decl"
+        },
+        {
+          "include": "#enum-decl"
+        },
+        {
+          "include": "#external-decl"
+        }
+      ]
+    },
+
+    "comments": {
+      "patterns": [
+        {
+          "name": "comment.line.pw",
+          "match": "//.*$"
+        },
+        {
+          "name": "comment.block.pw",
+          "begin": "/\\*",
+          "end": "\\*/"
+        }
+      ]
+    },
+
+    "annotation": {
+      "comment": "@name(key: \"value\", ...) preceding a declaration. Argument values are always string literals.",
+      "patterns": [
+        {
+          "begin": "(@[a-z][A-Za-z0-9_]*)\\s*(\\()",
+          "beginCaptures": {
+            "1": {
+              "name": "entity.name.tag.annotation.pw"
+            },
+            "2": {
+              "name": "punctuation.definition.parameters.begin.pw"
+            }
+          },
+          "end": "\\)",
+          "endCaptures": {
+            "0": {
+              "name": "punctuation.definition.parameters.end.pw"
+            }
+          },
+          "patterns": [
+            {
+              "match": "([a-z][A-Za-z0-9_]*)\\s*(:)",
+              "captures": {
+                "1": {
+                  "name": "variable.parameter.pw"
+                },
+                "2": {
+                  "name": "punctuation.separator.key-value.pw"
+                }
+              }
+            },
+            {
+              "include": "#string"
+            },
+            {
+              "include": "#comments"
+            },
+            {
+              "name": "punctuation.separator.parameter.pw",
+              "match": ","
+            }
+          ]
+        },
+        {
+          "name": "entity.name.tag.annotation.pw",
+          "match": "@[a-z][A-Za-z0-9_]*"
+        }
+      ]
+    },
+
+    "package-decl": {
+      "match": "\\b(package|module)\\s+([A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)*)",
+      "captures": {
+        "1": {
+          "name": "keyword.control.import.pw"
+        },
+        "2": {
+          "name": "entity.name.namespace.pw"
+        }
+      }
+    },
+
+    "import-decl": {
+      "begin": "\\b(import)\\b",
+      "beginCaptures": {
+        "1": {
+          "name": "keyword.control.import.pw"
+        }
+      },
+      "end": "$",
+      "patterns": [
+        {
+          "include": "#string"
+        },
+        {
+          "match": "\\b(as)\\s+([A-Za-z_][A-Za-z0-9_]*)",
+          "captures": {
+            "1": {
+              "name": "keyword.control.import.pw"
+            },
+            "2": {
+              "name": "entity.name.namespace.pw"
+            }
+          }
+        },
+        {
+          "include": "#comments"
+        }
+      ]
+    },
+
+    "type-decl": {
+      "comment": "type Name { field: Type } and the record spelling of the same thing. The block form is matched through its opening brace so the brace cannot end the rule before the body is entered.",
+      "patterns": [
+        {
+          "begin": "\\b(type|record)\\s+([A-Za-z_][A-Za-z0-9_]*)\\s*(\\{)",
+          "beginCaptures": {
+            "1": {
+              "name": "storage.type.pw"
+            },
+            "2": {
+              "name": "entity.name.type.pw"
+            },
+            "3": {
+              "name": "punctuation.definition.block.begin.pw"
+            }
+          },
+          "end": "\\}",
+          "endCaptures": {
+            "0": {
+              "name": "punctuation.definition.block.end.pw"
+            }
+          },
+          "patterns": [
+            {
+              "include": "#comments"
+            },
+            {
+              "include": "#field"
+            },
+            {
+              "include": "#type-reference"
+            }
+          ]
+        },
+        {
+          "match": "\\b(type|record)\\s+([A-Za-z_][A-Za-z0-9_]*)",
+          "captures": {
+            "1": {
+              "name": "storage.type.pw"
+            },
+            "2": {
+              "name": "entity.name.type.pw"
+            }
+          }
+        }
+      ]
+    },
+
+    "enum-decl": {
+      "patterns": [
+        {
+          "begin": "\\b(enum)\\s+([A-Za-z_][A-Za-z0-9_]*)\\s*(\\{)",
+          "beginCaptures": {
+            "1": {
+              "name": "storage.type.pw"
+            },
+            "2": {
+              "name": "entity.name.type.pw"
+            },
+            "3": {
+              "name": "punctuation.definition.block.begin.pw"
+            }
+          },
+          "end": "\\}",
+          "endCaptures": {
+            "0": {
+              "name": "punctuation.definition.block.end.pw"
+            }
+          },
+          "patterns": [
+            {
+              "include": "#comments"
+            },
+            {
+              "include": "#string"
+            },
+            {
+              "name": "variable.other.enummember.pw",
+              "match": "[A-Za-z_][A-Za-z0-9_]*"
+            },
+            {
+              "name": "punctuation.separator.parameter.pw",
+              "match": ","
+            }
+          ]
+        },
+        {
+          "match": "\\b(enum)\\s+([A-Za-z_][A-Za-z0-9_]*)",
+          "captures": {
+            "1": {
+              "name": "storage.type.pw"
+            },
+            "2": {
+              "name": "entity.name.type.pw"
+            }
+          }
+        }
+      ]
+    },
+
+    "external-decl": {
+      "comment": "external, external async, and external live bind a Go function or component.",
+      "begin": "\\b(external)(?:\\s+(async|live))?(?:\\s+(component|function))?\\s+([A-Za-z_][A-Za-z0-9_]*)",
+      "beginCaptures": {
+        "1": {
+          "name": "storage.type.pw"
+        },
+        "2": {
+          "name": "storage.modifier.pw"
+        },
+        "3": {
+          "name": "storage.type.pw"
+        },
+        "4": {
+          "name": "entity.name.function.pw"
+        }
+      },
+      "end": "$|(?<=[>)\\w])\\s*$",
+      "patterns": [
+        {
+          "include": "#parameter-list"
+        },
+        {
+          "include": "#return-type"
+        },
+        {
+          "include": "#comments"
+        }
+      ]
+    },
+
+    "field": {
+      "match": "([A-Za-z_][A-Za-z0-9_]*)\\s*(:)",
+      "captures": {
+        "1": {
+          "name": "variable.other.property.pw"
+        },
+        "2": {
+          "name": "punctuation.separator.type.pw"
+        }
+      }
+    },
+
+    "parameter-list": {
+      "begin": "\\(",
+      "beginCaptures": {
+        "0": {
+          "name": "punctuation.definition.parameters.begin.pw"
+        }
+      },
+      "end": "\\)",
+      "endCaptures": {
+        "0": {
+          "name": "punctuation.definition.parameters.end.pw"
+        }
+      },
+      "patterns": [
+        {
+          "include": "#comments"
+        },
+        {
+          "match": "([A-Za-z_][A-Za-z0-9_]*)\\s*(:)",
+          "captures": {
+            "1": {
+              "name": "variable.parameter.pw"
+            },
+            "2": {
+              "name": "punctuation.separator.type.pw"
+            }
+          }
+        },
+        {
+          "include": "#type-reference"
+        },
+        {
+          "name": "punctuation.separator.parameter.pw",
+          "match": ","
+        }
+      ]
+    },
+
+    "return-type": {
+      "begin": "(:)",
+      "beginCaptures": {
+        "1": {
+          "name": "punctuation.separator.type.pw"
+        }
+      },
+      "end": "(?=\\{)|$",
+      "patterns": [
+        {
+          "include": "#output-type"
+        },
+        {
+          "include": "#type-reference"
+        },
+        {
+          "include": "#comments"
+        }
+      ]
+    },
+
+    "output-type": {
+      "comment": "The declared output selects the body parser, so html, sql.*, and dynamo.* are their own scope.",
+      "patterns": [
+        {
+          "match": "\\b(html)\\b(?!\\s*\\.)",
+          "name": "support.type.output.pw"
+        },
+        {
+          "match": "\\b((?:sql|dynamo)\\.[a-z]+)\\b",
+          "name": "support.type.output.pw"
+        },
+        {
+          "match": "\\b(trusted_html|trusted_css|trusted_javascript|script_json)\\b",
+          "name": "support.type.output.pw"
+        }
+      ]
+    },
+
+    "type-reference": {
+      "patterns": [
+        {
+          "include": "#primitive-type"
+        },
+        {
+          "include": "#output-type"
+        },
+        {
+          "name": "storage.modifier.pw",
+          "match": "\\b(async)\\b"
+        },
+        {
+          "begin": "(<)",
+          "beginCaptures": {
+            "1": {
+              "name": "punctuation.definition.typeparameters.begin.pw"
+            }
+          },
+          "end": "(>)",
+          "endCaptures": {
+            "1": {
+              "name": "punctuation.definition.typeparameters.end.pw"
+            }
+          },
+          "patterns": [
+            {
+              "include": "#type-reference"
+            }
+          ]
+        },
+        {
+          "name": "punctuation.definition.array.pw",
+          "match": "\\[\\]"
+        },
+        {
+          "name": "keyword.operator.optional.pw",
+          "match": "\\?"
+        },
+        {
+          "name": "entity.name.type.pw",
+          "match": "\\b[A-Z][A-Za-z0-9_]*\\b"
+        }
+      ]
+    },
+
+    "primitive-type": {
+      "comment": "The primitive list is owned upstream by tinybind-go; int8..uint64 and float32/64 appear in declarations alongside the documented set.",
+      "name": "support.type.pw",
+      "match": "\\b(string|bool|int|int8|int16|int32|int64|uint|uint8|uint16|uint32|uint64|float|float32|float64|decimal|datetime|date|time|url|bytes)\\b"
+    },
+
+    "string": {
+      "name": "string.quoted.double.pw",
+      "begin": "\"",
+      "beginCaptures": {
+        "0": {
+          "name": "punctuation.definition.string.begin.pw"
+        }
+      },
+      "end": "\"",
+      "endCaptures": {
+        "0": {
+          "name": "punctuation.definition.string.end.pw"
+        }
+      },
+      "patterns": [
+        {
+          "name": "constant.character.escape.pw",
+          "match": "\\\\."
+        }
+      ]
+    },
+
+    "escaped-braces": {
+      "comment": "{{ ... }} emits one literal brace pair and parses nothing inside.",
+      "name": "constant.character.escape.pw",
+      "begin": "\\{\\{",
+      "end": "\\}\\}"
+    },
+
+    "control-open": {
+      "comment": "An opening control form. The body between it and its closer stays in the caller's format.",
+      "begin": "(\\{)\\s*(if|for|await)\\b",
+      "beginCaptures": {
+        "1": {
+          "name": "punctuation.section.embedded.pw"
+        },
+        "2": {
+          "name": "keyword.control.pw"
+        }
+      },
+      "end": "(\\})",
+      "endCaptures": {
+        "1": {
+          "name": "punctuation.section.embedded.pw"
+        }
+      },
+      "contentName": "meta.embedded.expression.pw",
+      "patterns": [
+        {
+          "name": "keyword.control.pw",
+          "match": "\\b(in)\\b"
+        },
+        {
+          "include": "#expression-body"
+        }
+      ]
+    },
+
+    "control-continue": {
+      "comment": "else, else if, fallback, and recover continue an open block rather than opening one.",
+      "begin": "(\\{)\\s*(else\\s+if|else|fallback|recover)\\b",
+      "beginCaptures": {
+        "1": {
+          "name": "punctuation.section.embedded.pw"
+        },
+        "2": {
+          "name": "keyword.control.pw"
+        }
+      },
+      "end": "(\\})",
+      "endCaptures": {
+        "1": {
+          "name": "punctuation.section.embedded.pw"
+        }
+      },
+      "contentName": "meta.embedded.expression.pw",
+      "patterns": [
+        {
+          "include": "#expression-body"
+        }
+      ]
+    },
+
+    "control-close": {
+      "match": "(\\{)\\s*(/)(if|for|await)\\s*(\\})",
+      "captures": {
+        "1": {
+          "name": "punctuation.section.embedded.pw"
+        },
+        "2": {
+          "name": "keyword.control.pw"
+        },
+        "3": {
+          "name": "keyword.control.pw"
+        },
+        "4": {
+          "name": "punctuation.section.embedded.pw"
+        }
+      }
+    },
+
+    "expression": {
+      "comment": "A value insertion. Opened only where the active format parser allows one.",
+      "begin": "(\\{)(?![{/])",
+      "beginCaptures": {
+        "1": {
+          "name": "punctuation.section.embedded.pw"
+        }
+      },
+      "end": "(\\})",
+      "endCaptures": {
+        "1": {
+          "name": "punctuation.section.embedded.pw"
+        }
+      },
+      "contentName": "meta.embedded.expression.pw",
+      "patterns": [
+        {
+          "include": "#expression-body"
+        }
+      ]
+    },
+
+    "expression-body": {
+      "patterns": [
+        {
+          "include": "#string"
+        },
+        {
+          "name": "string.quoted.single.pw",
+          "begin": "'",
+          "end": "'",
+          "patterns": [
+            {
+              "name": "constant.character.escape.pw",
+              "match": "\\\\."
+            }
+          ]
+        },
+        {
+          "name": "constant.numeric.pw",
+          "match": "\\b\\d+(\\.\\d+)?\\b"
+        },
+        {
+          "name": "constant.language.pw",
+          "match": "\\b(true|false|null)\\b"
+        },
+        {
+          "name": "keyword.operator.pw",
+          "match": "(==|!=|<=|>=|&&|\\|\\||[+\\-*/%<>!?:=])"
+        },
+        {
+          "comment": "The compiler-known context-sensitive functions. Their result types are opaque output types, so they are not ordinary calls.",
+          "name": "support.function.builtin.pw",
+          "match": "\\b(RawHTML|RawCSS|RawJavaScript|JsonForScript)\\b(?=\\s*\\()"
+        },
+        {
+          "match": "([A-Za-z_][A-Za-z0-9_]*)\\s*(?=\\()",
+          "captures": {
+            "1": {
+              "name": "entity.name.function.pw"
+            }
+          }
+        },
+        {
+          "match": "(\\.)([A-Za-z_][A-Za-z0-9_]*)",
+          "captures": {
+            "1": {
+              "name": "punctuation.accessor.pw"
+            },
+            "2": {
+              "name": "variable.other.property.pw"
+            }
+          }
+        },
+        {
+          "name": "variable.other.pw",
+          "match": "\\b[A-Za-z_][A-Za-z0-9_]*\\b"
+        },
+        {
+          "name": "meta.brace.round.pw",
+          "match": "[()\\[\\],]"
+        }
+      ]
+    },
+
+    "template-forms": {
+      "comment": "Every brace form the shared parser owns, in the order the parser tries them.",
+      "patterns": [
+        {
+          "include": "#escaped-braces"
+        },
+        {
+          "include": "#control-close"
+        },
+        {
+          "include": "#control-continue"
+        },
+        {
+          "include": "#control-open"
+        },
+        {
+          "include": "#expression"
+        }
+      ]
+    },
+
+    "template-forms-gated": {
+      "comment": "The rule:raw-text-insertion-gate subset, for script and style content. A brace opens an insertion only in a recognized tight shape, is never preceded by '$', and a closing brace is always content.",
+      "patterns": [
+        {
+          "include": "#escaped-braces"
+        },
+        {
+          "include": "#control-close"
+        },
+        {
+          "begin": "(?<!\\$)(\\{)(?=(?:if|else|for|await|recover|fallback)\\b)",
+          "beginCaptures": {
+            "1": {
+              "name": "punctuation.section.embedded.pw"
+            }
+          },
+          "end": "(\\})",
+          "endCaptures": {
+            "1": {
+              "name": "punctuation.section.embedded.pw"
+            }
+          },
+          "contentName": "meta.embedded.expression.pw",
+          "patterns": [
+            {
+              "name": "keyword.control.pw",
+              "match": "\\b(if|else|for|await|recover|fallback|in)\\b"
+            },
+            {
+              "include": "#expression-body"
+            }
+          ]
+        },
+        {
+          "comment": "Parenthesized, bare value, member access, and call shapes. Each requires no blank after the brace.",
+          "begin": "(?<!\\$)(\\{)(?=\\(|[A-Za-z_][A-Za-z0-9_]*\\s*[.(}])",
+          "beginCaptures": {
+            "1": {
+              "name": "punctuation.section.embedded.pw"
+            }
+          },
+          "end": "(\\})",
+          "endCaptures": {
+            "1": {
+              "name": "punctuation.section.embedded.pw"
+            }
+          },
+          "contentName": "meta.embedded.expression.pw",
+          "patterns": [
+            {
+              "include": "#expression-body"
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

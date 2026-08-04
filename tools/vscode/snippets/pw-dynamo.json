@@ -1,0 +1,32 @@
+{
+  "Paged query": {
+    "prefix": "statement page",
+    "body": [
+      "export statement ${1:Name}(${2:key}: ${3:string}): dynamo.page<${4:Record}> {",
+      "  table ${5:records}",
+      "  key ${6:pk} = {${2:key}}$0",
+      "}"
+    ],
+    "description": "One request, returning a page with a continuation key"
+  },
+  "Iterating query": {
+    "prefix": "statement many",
+    "body": [
+      "export statement ${1:Name}(${2:key}: ${3:string}): dynamo.many<${4:Record}> {",
+      "  table ${5:records}",
+      "  key ${6:pk} = {${2:key}}$0",
+      "}"
+    ],
+    "description": "An iterator over every page"
+  },
+  "Sort key range": {
+    "prefix": "key range",
+    "body": ["key ${1:pk} = {${2:partition}} and ${3:sk} > {${4:from}}"],
+    "description": "A partition key equality plus one sort key predicate"
+  },
+  "Sort key prefix": {
+    "prefix": "key begins",
+    "body": ["key ${1:pk} = {${2:partition}} and begins_with(${3:sk}, {${4:prefix}})"],
+    "description": "A partition key equality plus a sort key prefix predicate"
+  }
+}

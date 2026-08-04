@@ -1,0 +1,346 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "Popcorn Wave HTML",
+  "scopeName": "source.pw.html",
+  "comment": "A .pw.html file: the shared declaration header of source.pw, plus component declarations whose bodies are HTML with template insertions.",
+  "patterns": [
+    {
+      "include": "#declaration"
+    },
+    {
+      "include": "source.pw#header"
+    }
+  ],
+  "repository": {
+    "declaration": {
+      "comment": "Spans the signature and the body, so the body's closing brace also closes this rule.",
+      "begin": "(?:\\b(export)\\s+)?\\b(component)\\s+([A-Za-z_][A-Za-z0-9_]*)",
+      "beginCaptures": {
+        "1": {
+          "name": "storage.modifier.pw"
+        },
+        "2": {
+          "name": "keyword.declaration.pw"
+        },
+        "3": {
+          "name": "entity.name.function.pw"
+        }
+      },
+      "end": "(?<=\\})",
+      "patterns": [
+        {
+          "include": "#body"
+        },
+        {
+          "include": "source.pw#parameter-list"
+        },
+        {
+          "include": "source.pw#return-type"
+        },
+        {
+          "include": "source.pw#comments"
+        }
+      ]
+    },
+
+    "body": {
+      "begin": "\\{",
+      "beginCaptures": {
+        "0": {
+          "name": "punctuation.definition.block.begin.pw"
+        }
+      },
+      "end": "\\}",
+      "endCaptures": {
+        "0": {
+          "name": "punctuation.definition.block.end.pw"
+        }
+      },
+      "contentName": "meta.embedded.block.html",
+      "patterns": [
+        {
+          "include": "#html"
+        }
+      ]
+    },
+
+    "html": {
+      "comment": "Order matters: template forms win over markup, and raw-text elements capture their own content before the generic tag rule sees them.",
+      "patterns": [
+        {
+          "include": "source.pw#template-forms"
+        },
+        {
+          "include": "#raw-text-element"
+        },
+        {
+          "include": "#slot-tag"
+        },
+        {
+          "include": "#component-tag"
+        },
+        {
+          "include": "#tag"
+        },
+        {
+          "include": "text.html.basic"
+        }
+      ]
+    },
+
+    "raw-text-element": {
+      "comment": "script and style content is authored JavaScript or CSS; rule:raw-text-insertion-gate decides which braces are still insertions.",
+      "patterns": [
+        {
+          "begin": "(<)(style)\\b",
+          "beginCaptures": {
+            "1": {
+              "name": "punctuation.definition.tag.begin.html"
+            },
+            "2": {
+              "name": "entity.name.tag.html"
+            }
+          },
+          "end": "(</)(style)\\s*(>)",
+          "endCaptures": {
+            "1": {
+              "name": "punctuation.definition.tag.begin.html"
+            },
+            "2": {
+              "name": "entity.name.tag.html"
+            },
+            "3": {
+              "name": "punctuation.definition.tag.end.html"
+            }
+          },
+          "patterns": [
+            {
+              "include": "#raw-text-open-tag-rest"
+            },
+            {
+              "begin": "(?<=>)",
+              "end": "(?=</style)",
+              "contentName": "meta.embedded.block.css",
+              "patterns": [
+                {
+                  "include": "source.pw#template-forms-gated"
+                },
+                {
+                  "include": "source.css"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "begin": "(<)(script)\\b",
+          "beginCaptures": {
+            "1": {
+              "name": "punctuation.definition.tag.begin.html"
+            },
+            "2": {
+              "name": "entity.name.tag.html"
+            }
+          },
+          "end": "(</)(script)\\s*(>)",
+          "endCaptures": {
+            "1": {
+              "name": "punctuation.definition.tag.begin.html"
+            },
+            "2": {
+              "name": "entity.name.tag.html"
+            },
+            "3": {
+              "name": "punctuation.definition.tag.end.html"
+            }
+          },
+          "patterns": [
+            {
+              "include": "#raw-text-open-tag-rest"
+            },
+            {
+              "begin": "(?<=>)",
+              "end": "(?=</script)",
+              "contentName": "meta.embedded.block.js",
+              "patterns": [
+                {
+                  "include": "source.pw#template-forms-gated"
+                },
+                {
+                  "include": "source.js"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+
+    "raw-text-open-tag-rest": {
+      "comment": "The attribute region of a script or style open tag, up to and including its '>'.",
+      "begin": "(?<=<style|<script)",
+      "end": ">",
+      "endCaptures": {
+        "0": {
+          "name": "punctuation.definition.tag.end.html"
+        }
+      },
+      "patterns": [
+        {
+          "include": "#attribute"
+        }
+      ]
+    },
+
+    "slot-tag": {
+      "comment": "<slot /> and <slot name=\"x\"> are reserved template syntax, not markup.",
+      "begin": "(</?)(slot)\\b",
+      "beginCaptures": {
+        "1": {
+          "name": "punctuation.definition.tag.begin.html"
+        },
+        "2": {
+          "name": "entity.name.tag.slot.pw"
+        }
+      },
+      "end": "/?>",
+      "endCaptures": {
+        "0": {
+          "name": "punctuation.definition.tag.end.html"
+        }
+      },
+      "patterns": [
+        {
+          "include": "#attribute"
+        }
+      ]
+    },
+
+    "component-tag": {
+      "comment": "A PascalCase tag is a component reference rather than an HTML element.",
+      "begin": "(</?)([A-Z][A-Za-z0-9_]*)\\b",
+      "beginCaptures": {
+        "1": {
+          "name": "punctuation.definition.tag.begin.html"
+        },
+        "2": {
+          "name": "entity.name.tag.component.pw"
+        }
+      },
+      "end": "/?>",
+      "endCaptures": {
+        "0": {
+          "name": "punctuation.definition.tag.end.html"
+        }
+      },
+      "patterns": [
+        {
+          "include": "#attribute"
+        }
+      ]
+    },
+
+    "tag": {
+      "begin": "(</?)([a-zA-Z][-\\w:.]*)",
+      "beginCaptures": {
+        "1": {
+          "name": "punctuation.definition.tag.begin.html"
+        },
+        "2": {
+          "name": "entity.name.tag.html"
+        }
+      },
+      "end": "/?>",
+      "endCaptures": {
+        "0": {
+          "name": "punctuation.definition.tag.end.html"
+        }
+      },
+      "name": "meta.tag.html",
+      "patterns": [
+        {
+          "include": "#attribute"
+        }
+      ]
+    },
+
+    "attribute": {
+      "patterns": [
+        {
+          "comment": "An unquoted attribute value is always a single template expression, as in label={user.name}.",
+          "begin": "([-\\w:.@]+)\\s*(=)\\s*(?=\\{)",
+          "beginCaptures": {
+            "1": {
+              "name": "entity.other.attribute-name.html"
+            },
+            "2": {
+              "name": "punctuation.separator.key-value.html"
+            }
+          },
+          "end": "(?<=\\})",
+          "patterns": [
+            {
+              "include": "source.pw#template-forms"
+            }
+          ]
+        },
+        {
+          "begin": "([-\\w:.@]+)\\s*(=)\\s*(\")",
+          "beginCaptures": {
+            "1": {
+              "name": "entity.other.attribute-name.html"
+            },
+            "2": {
+              "name": "punctuation.separator.key-value.html"
+            },
+            "3": {
+              "name": "punctuation.definition.string.begin.html"
+            }
+          },
+          "end": "\"",
+          "endCaptures": {
+            "0": {
+              "name": "punctuation.definition.string.end.html"
+            }
+          },
+          "contentName": "string.quoted.double.html",
+          "patterns": [
+            {
+              "include": "source.pw#template-forms"
+            }
+          ]
+        },
+        {
+          "begin": "([-\\w:.@]+)\\s*(=)\\s*(')",
+          "beginCaptures": {
+            "1": {
+              "name": "entity.other.attribute-name.html"
+            },
+            "2": {
+              "name": "punctuation.separator.key-value.html"
+            },
+            "3": {
+              "name": "punctuation.definition.string.begin.html"
+            }
+          },
+          "end": "'",
+          "endCaptures": {
+            "0": {
+              "name": "punctuation.definition.string.end.html"
+            }
+          },
+          "contentName": "string.quoted.single.html",
+          "patterns": [
+            {
+              "include": "source.pw#template-forms"
+            }
+          ]
+        },
+        {
+          "name": "entity.other.attribute-name.html",
+          "match": "[-\\w:.@]+"
+        }
+      ]
+    }
+  }
+}

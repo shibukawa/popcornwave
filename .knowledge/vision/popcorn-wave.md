@@ -29,4 +29,5 @@ authoritative_experience: requirement:application-user-experience
 runtime_expansion: vision:contrib
 third_party_expansion: requirement:component-package-distribution, which opens the same reach to modules published outside this repository
 application_styles: vision:web-application-styles
+editor_experience: vision:editor-support
 ```
