@@ -168,6 +168,39 @@ Tailwind plugins are not configured here. They are `@plugin` declarations in the
 CSS entry, resolved by the Tailwind CLI — Popcorn Wave passes the entry through
 unchanged and holds no plugin registry.
 
+## `[assets.images]`, `[assets.css]`, `[assets.scripts]`
+
+```toml
+[assets.images]
+enabled = true
+quality = 75
+avif = false
+
+[assets.css]
+minify = true
+
+[assets.scripts]
+enabled = true
+```
+
+These switch the [asset conversions](/guides/frontend/static-assets/) on. Every
+one of them defaults to off, so a project that declares none embeds a copy of
+its authored tree and serves exactly what it served before any of this existed.
+
+| Key | Default | Meaning |
+| --- | --- | --- |
+| `assets.images.enabled` | `false` | convert a `.png` or `.jpg` named by an `img src` to WebP |
+| `assets.images.quality` | `75` | the lossy setting a JPEG source is re-encoded at; a PNG stays lossless and ignores it |
+| `assets.images.avif` | `false` | add an AVIF representation of every served image, chosen from `Accept` |
+| `assets.css.minify` | `false` | minify stylesheets in place |
+| `assets.scripts.enabled` | `false` | build a `.ts` entry point, and minify an authored `.js` |
+
+`assets.images` needs encoders on the host, which is why
+[`pw add images`](/pw/project/add/) writes the key and the Devbox packages
+together. Turning it on without them is not an error: the conversion declines,
+the authored image ships as written, and `pw doctor` reports it — an unconverted
+image is a larger page rather than a broken one.
+
 ## Rules that apply to the whole file
 
 - **Unknown keys are errors.** A typo does not silently do nothing.
