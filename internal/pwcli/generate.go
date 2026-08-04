@@ -75,6 +75,38 @@ func generateProject(ctx context.Context, check bool, stdout io.Writer, listPath
 	if err != nil {
 		return 0, err
 	}
+	// A conversion produces files and rewrites the reference that names them,
+	// so it belongs to generation rather than to the asset build that runs
+	// after it. The produced files are staged outside the served tree, which is
+	// what lets that tree be cleared and rebuilt without deleting them.
+	if config.Assets.Scripts {
+		// Before a single file is generated: the build emits a module, and a
+		// module under a classic script tag is a page that renders and silently
+		// loses its script. It runs here rather than in the asset build so that
+		// pw generate reports it too, and so that a --check run sees it.
+		if err := verifyScriptModuleTags(root); err != nil {
+			return 0, err
+		}
+	}
+	if hooks := assetReferenceHooks(root, config.Assets); len(hooks) > 0 {
+		staging := filepath.Join(root, filepath.FromSlash(derivedStageDir))
+		if !check {
+			// The staging directory is cleared first, because the asset build
+			// copies everything it finds there into the served tree. A file
+			// produced for a source that has since been deleted would otherwise
+			// keep being shipped, with a manifest entry and a URL, forever.
+			//
+			// Clearing it costs nothing: the conversion cache is separate, so a
+			// run replays its outcomes instead of re-encoding them.
+			if err := os.RemoveAll(staging); err != nil {
+				return 0, fmt.Errorf("clear %s: %w", derivedStageDir, err)
+			}
+		}
+		options.ReferenceHooks = hooks
+		options.DerivedAssetDir = staging
+		options.ConversionCacheDir = filepath.Join(root, filepath.FromSlash(conversionCacheDir))
+		options.ConversionWorkers = conversionWorkers()
+	}
 	runner := generator.New(options)
 	var changes []fileChange
 	for _, directory := range directories {
@@ -336,6 +368,11 @@ func (p generationPurposes) keeps(kind generator.ArtifactKind) bool {
 		return p.config
 	case generator.ArtifactDynamoItem, generator.ArtifactDynamoQuery:
 		return p.dynamo
+	case generator.ArtifactDerivedAsset:
+		// A conversion is a consequence of compiling a template, so it belongs
+		// to the purpose that reads templates. Dropping it here would write the
+		// rewritten reference and discard the file it names.
+		return p.templates || p.pages
 	default:
 		return false
 	}

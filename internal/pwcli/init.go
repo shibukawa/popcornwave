@@ -210,6 +210,10 @@ type initOptions struct {
 	Router   string
 	TinyGo   bool
 	Tailwind bool
+	// Images installs the build-time image conversion and the encoders it
+	// runs. It is separate from the other asset answers because it is the only
+	// one whose usefulness depends on host tools.
+	Images bool
 	// Database scaffolds the rdb configuration, the migration directory, and
 	// the SQL example. Declining it removes all three together, because none
 	// of them is useful without the others.
@@ -666,6 +670,7 @@ func scaffoldFiles(options initOptions) map[string]string {
 		devboxPackages = append(devboxPackages, "tinygo@latest")
 	}
 	configTailwind := ""
+	configImages := ""
 	// Declining Tailwind costs the utilities, not the page: the starter page is
 	// styled either way, by the toolchain or by a stylesheet the application
 	// owns from the moment it is written.
@@ -674,6 +679,15 @@ func scaffoldFiles(options initOptions) map[string]string {
 	// not utilities; without it, it carries the starter page as well.
 	homeStylesheet := `<link rel="stylesheet" href="/public/app.css">`
 	homeClasses := ""
+	if options.Images {
+		// The encoders the image conversion runs. They are declared here so the
+		// tool environment installs them, rather than being something a
+		// developer discovers from a build that quietly converted nothing.
+		devboxPackages = append(devboxPackages, imageDevboxPackages...)
+	}
+	if options.Images {
+		configImages = imagesProjectConfig()
+	}
 	if options.Tailwind {
 		configTailwind = tailwindProjectConfig()
 		devboxPackages = append(devboxPackages, tailwindDevboxPackage)
@@ -706,7 +720,7 @@ dynamo = [` + quotedList(scaffoldGenerationScope(options).Dynamo) + `]
 [dev.watch]
 includes = []
 excludes = []
-` + devIdPProjectConfig(options) + configTailwind,
+` + devIdPProjectConfig(options) + configTailwind + configImages,
 		pwenv.FileName(pwenv.Development): `# Development runtime configuration.
 # APP_ENV selects this file; add config.stg.toml and config.prod.toml as needed.
 [server]
@@ -778,7 +792,7 @@ import (
 	"github.com/shibukawa/popcornwave/middlewares"
 )
 
-//go:embed all:public
+//go:embed all:dist/public
 var embeddedPublic embed.FS
 
 func init() {
@@ -786,7 +800,7 @@ func init() {
 }
 
 func PublicFS() fs.FS {
-	result, err := fs.Sub(embeddedPublic, "public")
+	result, err := fs.Sub(embeddedPublic, "dist/public")
 	if err != nil {
 		panic(err)
 	}
@@ -794,6 +808,9 @@ func PublicFS() fs.FS {
 }
 `,
 		"public/.keep": "",
+		// go:embed fails on an absent directory, so a project that has never
+		// run a build still has a tree to embed. The build replaces it.
+		"dist/public/.keep": "",
 		".vscode/settings.json": `{
     "files.exclude": {
         "**/*_pw_gen.go": true
@@ -805,7 +822,11 @@ func PublicFS() fs.FS {
 		// The binary pattern is anchored: a bare name would also ignore cmd/<name>/.
 		// devbox.d holds the service configuration devbox writes on first run,
 		// so pw dev leaves no change behind in a fresh checkout.
-		".gitignore": ".devbox/\ndevbox.d/\n/" + name + "\n*_pw_gen.go\npublic/**/*.zstd\n*.db\n",
+		".gitignore": ".devbox/\ndevbox.d/\n/" + name + "\n*_pw_gen.go\n" +
+			// Everything under dist is built, except the sentinel: go:embed
+			// fails on an absent directory, so a fresh clone has to carry one
+			// file that makes the tree exist before the first build.
+			"dist/cache/\ndist/derived/\ndist/manifest.json\ndist/public/*\n!dist/public/.keep\n*.db\n",
 	}
 	if routerHasRegistered(options.Router) {
 		for path, source := range registeredRouterScaffold(options, defaultRegisteredDir) {

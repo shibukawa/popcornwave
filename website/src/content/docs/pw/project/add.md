@@ -6,7 +6,7 @@ sidebar:
 ---
 
 ```sh
-pw add [devbox|database|dynamo|redis-valkey|auth|tailwind]
+pw add [devbox|database|dynamo|redis-valkey|auth|tailwind|images]
 ```
 
 `pw init` asks which capabilities a project starts with, before the project is
@@ -28,6 +28,7 @@ and the review screen is where that edit is approved.
 | `redis-valkey` | the Valkey development server in `devbox.json` |
 | `auth` | login sessions, the framework tables, and the account resolver |
 | `tailwind` | the pinned Tailwind toolchain, its CSS entry, and the `[assets.tailwind]` block |
+| `images` | the pinned image encoders and the `[assets.images]` block that switches conversion on |
 
 The argument preselects the first step; omitting it lists only what this project
 does not already carry. Two capabilities depend on another one: `auth` needs
@@ -35,6 +36,12 @@ does not already carry. Two capabilities depend on another one: `auth` needs
 the Valkey answer writes nothing but a Devbox package. Choosing one in a project
 that lacks its dependency installs the dependency first and says so on the
 review screen.
+
+`images` writes the encoders and the switch in one step on purpose. A project
+that turned conversion on without them would convert nothing and report that on
+every build; a project that installed them without the switch would carry two
+packages it never runs. Without Devbox there is nothing to pin them with, so the
+capability names the tools in words and leaves the install to you.
 
 ## Detection
 
@@ -48,6 +55,7 @@ A capability is detected from the files that carry it, never from a list in
 | `redis-valkey` | the Valkey package in `devbox.json` |
 | `auth` | the `init_popcornwave_auth` migration, at any version |
 | `tailwind` | `assets.tailwind.enabled` in `popcornwave.toml` |
+| `images` | `assets.images.enabled` in `popcornwave.toml` |
 
 Adding a capability the project already has fails and names the file that proves
 it:

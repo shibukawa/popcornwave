@@ -37,10 +37,13 @@ func runBuild(ctx context.Context, args []string, stdout, stderr io.Writer) erro
 			return err
 		}
 	}
-	if err := preparePublicAssets(root); err != nil {
+	progress.Phase("building assets")
+	report, err := buildDerivedAssets(root, config.Assets)
+	if err != nil {
 		progress.Done()
 		return err
 	}
+	reportDerivedAssets(stdout, report)
 	if err := rejectDevelopmentImports(ctx, root, config.Main); err != nil {
 		progress.Done()
 		return err

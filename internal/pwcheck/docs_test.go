@@ -13,34 +13,56 @@ import (
 //	go test ./internal/pwcheck -run TestDiagnosticsPage -update
 var update = flag.Bool("update", false, "rewrite the generated diagnostics page")
 
-const diagnosticsPage = "../../website/src/content/docs/appendix/diagnostics.md"
+const (
+	diagnosticsPage = "../../website/src/content/docs/appendix/diagnostics.md"
+	// The Japanese page is generated too. Starlight falls back to English when
+	// a page is missing rather than failing the build, so a hand-written
+	// counterpart would drift silently; generating both is what keeps a check
+	// added today from being English-only tomorrow.
+	diagnosticsPageJA = "../../website/src/content/docs/ja/appendix/diagnostics.md"
+)
 
 // Every identifier a report prints has to resolve to something a reader can
 // open, so the page is generated from the catalog and this test is what keeps
 // the two from drifting.
 func TestDiagnosticsPageIsGeneratedFromTheCatalog(t *testing.T) {
-	generated := Markdown()
-	path := filepath.FromSlash(diagnosticsPage)
-	if *update {
-		if err := os.WriteFile(path, []byte(generated), 0o644); err != nil {
-			t.Fatal(err)
+	for _, page := range []struct {
+		path      string
+		generated string
+	}{
+		{diagnosticsPage, Markdown()},
+		{diagnosticsPageJA, MarkdownJA()},
+	} {
+		path := filepath.FromSlash(page.path)
+		if *update {
+			if err := os.WriteFile(path, []byte(page.generated), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			t.Log("wrote", path)
+			continue
 		}
-		t.Log("wrote", path)
-		return
-	}
-	current, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("%v\nrun: go test ./internal/pwcheck -run TestDiagnosticsPage -update", err)
-	}
-	if string(current) != generated {
-		t.Fatal("the diagnostics page is out of date; run: go test ./internal/pwcheck -run TestDiagnosticsPage -update")
+		current, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatalf("%v\nrun: go test ./internal/pwcheck -run TestDiagnosticsPage -update", err)
+		}
+		if string(current) != page.generated {
+			t.Fatalf("%s is out of date; run: go test ./internal/pwcheck -run TestDiagnosticsPage -update", page.path)
+		}
 	}
 }
 
 // A finding prints its documentation link, so every identifier must have a
 // heading on the page to land on.
 func TestEveryCheckHasAnEntryAndAnAnchor(t *testing.T) {
-	page := Markdown()
+	// Both locales, because a report links one URL and a reader may be on
+	// either page when they follow it.
+	for _, page := range []string{Markdown(), MarkdownJA()} {
+		checkEntriesAndAnchors(t, page)
+	}
+}
+
+func checkEntriesAndAnchors(t *testing.T, page string) {
+	t.Helper()
 	for _, check := range All() {
 		heading := "### " + check.ID + ": " + check.Title
 		if !strings.Contains(page, heading) {

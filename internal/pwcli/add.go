@@ -11,7 +11,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-const addUsage = "usage: pw add [" + capabilityDatabase + "|" + capabilityDynamo + "|" + capabilityRedis + "|" + capabilityAuth + "|" + capabilityTailwind + "]"
+const addUsage = "usage: pw add [" + capabilityDatabase + "|" + capabilityDynamo + "|" + capabilityRedis + "|" + capabilityAuth + "|" + capabilityTailwind + "|" + capabilityImages + "]"
 
 // addOptions holds every answer the wizard collects. Unlike api:cli-init there
 // is no flag form: these answers edit a project that already exists, and the
