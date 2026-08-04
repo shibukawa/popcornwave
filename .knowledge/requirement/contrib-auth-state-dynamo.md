@@ -3,11 +3,13 @@ id: requirement:contrib-auth-state-dynamo
 type: requirement
 title: DynamoDB Authentication State Store
 ---
-contrib/authstate/dynamo implements requirement:contrib-auth-state over requirement:dynamodb-store, so a deployment with no relational database can run the passkey, OAuth, and OIDC ceremonies.
+authstate/dynamo implements requirement:contrib-auth-state over requirement:dynamodb-store, so a deployment with no relational database can run the passkey, OAuth, and OIDC ceremonies.
 
 ```yaml
-package: contrib/authstate/dynamo
+package: authstate/dynamo
+corrected: the concept read contrib/authstate/dynamo, which rule:storage-package-layout rejected when it dropped the contrib prefix; the sibling adapters already sit at authstate/
 store: requirement:dynamodb-store
+selected_by: decision:auth-backend-selection, as one of the four stores requirement:dynamodb-auth-backend moves together
 record: data:auth-state-record
 public_api:
   - NewStore[T](api:auth-state-codec, Options)

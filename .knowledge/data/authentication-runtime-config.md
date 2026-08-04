@@ -9,6 +9,7 @@ The `[auth]` binding selects OIDC and passkey bootstrap, login, linking, registr
 registration: popcornwave/plugin/auth registers this binding when imported
 fields:
   enabled: bool
+  backend: rdb or dynamo, default rdb, selecting the storage of all four framework-owned authentication stores, per decision:auth-backend-selection
   mode: oidc_passkey, oidc_only, or passkey_only
   login_path: path
   callback_path: path

@@ -3,6 +3,7 @@
 {"category": "interface", "id": "api:application-lifecycle", "path": ".knowledge/api/application-lifecycle.md", "role": "primary", "title": "Application Lifecycle API", "type": "api"}
 {"category": "interface", "id": "api:assurance-guard", "path": ".knowledge/api/assurance-guard.md", "role": "primary", "title": "Assurance Guard", "type": "api"}
 {"category": "interface", "id": "api:async-html-value", "path": ".knowledge/api/async-html-value.md", "role": "primary", "title": "Async HTML Value API", "type": "api"}
+{"category": "interface", "id": "api:auth-allowlist-store", "path": ".knowledge/api/auth-allowlist-store.md", "role": "primary", "title": "Admission Allowlist Store", "type": "api"}
 {"category": "interface", "id": "api:auth-credential-store", "path": ".knowledge/api/auth-credential-store.md", "role": "primary", "title": "Passkey Credential Store", "type": "api"}
 {"category": "interface", "id": "api:auth-state-codec", "path": ".knowledge/api/auth-state-codec.md", "role": "primary", "title": "Authentication State Codec", "type": "api"}
 {"category": "interface", "id": "api:authentication-endpoints", "path": ".knowledge/api/authentication-endpoints.md", "role": "primary", "title": "Authentication Endpoints", "type": "api"}
@@ -106,6 +107,7 @@
 {"category": "structure", "id": "data:ui-dependency-graph", "path": ".knowledge/data/ui-dependency-graph.md", "role": "supporting", "title": "UI Dependency Graph", "type": "data"}
 {"category": "structure", "id": "data:user-account", "path": ".knowledge/data/user-account.md", "role": "supporting", "title": "Local User Account", "type": "data"}
 {"category": "constraint", "id": "decision:assurance-scope-oidc-only", "path": ".knowledge/decision/assurance-scope-oidc-only.md", "role": "supporting", "title": "Assurance Scope Under External-Identity-Only Login", "type": "decision"}
+{"category": "constraint", "id": "decision:auth-backend-selection", "path": ".knowledge/decision/auth-backend-selection.md", "role": "supporting", "title": "One auth.backend Key Selects All Four Authentication Stores", "type": "decision"}
 {"category": "constraint", "id": "decision:authentication-bootstrap-strategy", "path": ".knowledge/decision/authentication-bootstrap-strategy.md", "role": "supporting", "title": "Authentication Bootstrap Strategy", "type": "decision"}
 {"category": "constraint", "id": "decision:automatic-async-render-selection", "path": ".knowledge/decision/automatic-async-render-selection.md", "role": "supporting", "title": "Automatic Async Render Selection", "type": "decision"}
 {"category": "constraint", "id": "decision:bot-client-classification", "path": ".knowledge/decision/bot-client-classification.md", "role": "supporting", "title": "Bot Client Classification", "type": "decision"}
@@ -120,6 +122,7 @@
 {"category": "constraint", "id": "decision:development-public-assets", "path": ".knowledge/decision/development-public-assets.md", "role": "supporting", "title": "Development Public Assets", "type": "decision"}
 {"category": "constraint", "id": "decision:devidp-scope-reduction", "path": ".knowledge/decision/devidp-scope-reduction.md", "role": "supporting", "title": "Development IdP Scope Reduction", "type": "decision"}
 {"category": "constraint", "id": "decision:dual-router-coexistence", "path": ".knowledge/decision/dual-router-coexistence.md", "role": "supporting", "title": "Dual Router Coexistence", "type": "decision"}
+{"category": "constraint", "id": "decision:dynamodb-auth-compensating-registration", "path": ".knowledge/decision/dynamodb-auth-compensating-registration.md", "role": "supporting", "title": "Passkey-Only Registration Is A Compensating Sequence On DynamoDB", "type": "decision"}
 {"category": "constraint", "id": "decision:dynamodb-desired-state-migration", "path": ".knowledge/decision/dynamodb-desired-state-migration.md", "role": "supporting", "title": "Desired State Instead Of Versioned Migrations", "type": "decision"}
 {"category": "constraint", "id": "decision:dynamodb-framework-scope", "path": ".knowledge/decision/dynamodb-framework-scope.md", "role": "supporting", "title": "What The DynamoDB Binding Layer Left To The Framework", "type": "decision"}
 {"category": "constraint", "id": "decision:dynamodb-no-runtime-abstraction", "path": ".knowledge/decision/dynamodb-no-runtime-abstraction.md", "role": "supporting", "title": "No pw Or pwruntime Abstraction For DynamoDB", "type": "decision"}
@@ -278,6 +281,8 @@
 {"category": "objective", "id": "requirement:database-migration", "path": ".knowledge/requirement/database-migration.md", "role": "primary", "title": "Versioned Database Migration", "type": "requirement"}
 {"category": "objective", "id": "requirement:dev-telemetry-viewer", "path": ".knowledge/requirement/dev-telemetry-viewer.md", "role": "primary", "title": "Development Telemetry Viewer", "type": "requirement"}
 {"category": "objective", "id": "requirement:discovered-page-routing", "path": ".knowledge/requirement/discovered-page-routing.md", "role": "primary", "title": "Discovered Page Routing", "type": "requirement"}
+{"category": "objective", "id": "requirement:dynamodb-auth-backend", "path": ".knowledge/requirement/dynamodb-auth-backend.md", "role": "primary", "title": "DynamoDB Authentication Backend", "type": "requirement"}
+{"category": "objective", "id": "requirement:dynamodb-auth-stores", "path": ".knowledge/requirement/dynamodb-auth-stores.md", "role": "primary", "title": "DynamoDB Account-Side Authentication Stores", "type": "requirement"}
 {"category": "objective", "id": "requirement:dynamodb-generation", "path": ".knowledge/requirement/dynamodb-generation.md", "role": "primary", "title": "DynamoDB Code Generation", "type": "requirement"}
 {"category": "objective", "id": "requirement:dynamodb-migration", "path": ".knowledge/requirement/dynamodb-migration.md", "role": "primary", "title": "DynamoDB Schema Application", "type": "requirement"}
 {"category": "objective", "id": "requirement:dynamodb-page-cursor", "path": ".knowledge/requirement/dynamodb-page-cursor.md", "role": "primary", "title": "DynamoDB Page Cursor", "type": "requirement"}
