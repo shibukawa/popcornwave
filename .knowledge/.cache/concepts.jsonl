@@ -290,6 +290,7 @@
 {"category": "objective", "id": "requirement:dev-console", "path": ".knowledge/requirement/dev-console.md", "role": "primary", "title": "Development Console", "type": "requirement"}
 {"category": "objective", "id": "requirement:dev-error-overlay", "path": ".knowledge/requirement/dev-error-overlay.md", "role": "primary", "title": "Development Error Overlay", "type": "requirement"}
 {"category": "objective", "id": "requirement:dev-query-runner", "path": ".knowledge/requirement/dev-query-runner.md", "role": "primary", "title": "Development Query Runner", "type": "requirement"}
+{"category": "objective", "id": "requirement:dev-table-viewer", "path": ".knowledge/requirement/dev-table-viewer.md", "role": "primary", "title": "Development Table Viewer", "type": "requirement"}
 {"category": "objective", "id": "requirement:dev-telemetry-viewer", "path": ".knowledge/requirement/dev-telemetry-viewer.md", "role": "primary", "title": "Development Telemetry Viewer", "type": "requirement"}
 {"category": "objective", "id": "requirement:discovered-page-routing", "path": ".knowledge/requirement/discovered-page-routing.md", "role": "primary", "title": "Discovered Page Routing", "type": "requirement"}
 {"category": "objective", "id": "requirement:dynamodb-generation", "path": ".knowledge/requirement/dynamodb-generation.md", "role": "primary", "title": "DynamoDB Code Generation", "type": "requirement"}

@@ -28,9 +28,21 @@ why_not_an_inbound_route:
   precedent: the flow:telemetry-export exporter already dials out to requirement:dev-telemetry-viewer, so the direction is the established one
 closed_set:
   rule: the attachment answers an enumerated set of requests, never a general remote call surface
-  today: run one declared requirement:dev-query-runner statement with typed parameters and return its typed result
+  discipline: the set is enumerated here, so adding a request kind is a change to this decision rather than an implementation detail; that is the whole mechanism keeping it closed
+  requests:
+    run_statement: one declared requirement:dev-query-runner statement with typed parameters, returning its typed result
+    list_tables: the tables and columns the live catalog reports, for requirement:dev-table-viewer
+    read_rows: one bounded page of one named table, for requirement:dev-table-viewer
+  shape:
+    selection_not_sql: a request names a declared statement or a table the catalog already reported; it never carries SQL text, a predicate, or an ordering the developer typed
+    resolution: the application matches the name against what it holds before anything reaches a statement, so an unknown name is refused rather than interpolated
+    bounds: every read is paged and every value is length-capped by the application, not by what the console asked for
   refused_here_as_elsewhere: arbitrary SQL, a merged configuration dump, a session listing, a cache listing
+  refused_data:
+    tables: the rows of a rule:framework-owned-tables table, per requirement:dev-table-viewer
+    reason: policy:query-log-safety already keeps that traffic out of every diagnostic artifact, and an attachment that served it would reopen exactly what that policy closed
   reason: an open set is the development route this decision exists to avoid, arrived at by a different path
+  growth_test: a proposed request is admitted when it answers a question about the application's own data through the application's own connection, and refused when it would answer a question about the application's configuration, its sessions, or its process
 gains:
   - the pane runs against the connection the application already holds, so an in-memory database is reachable and a file-backed one takes no second writer
   - a run goes through api:instrumented-sql-executor natively, so its data:query-record is the application's own rather than a harness imitation of one
@@ -45,5 +57,6 @@ costs:
     note: today the loop builds with host Go and the tag, so this is a constraint kept on purpose rather than one currently enforced by the build
 relations:
   harness: decision:dev-harness-process keeps every pane that needs generated code but no live connection, which is requirement:template-storybook
+  consumers: requirement:dev-query-runner and requirement:dev-table-viewer, which share one attachment and one pane
   boundary: policy:dev-console-boundary places this tier
 ```

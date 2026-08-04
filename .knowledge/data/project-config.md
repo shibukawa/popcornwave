@@ -35,6 +35,8 @@ schema:
         enabled: true
       queries:
         enabled: true
+      tables:
+        enabled: true
       assets:
         enabled: true
       api:
@@ -96,7 +98,8 @@ rules:
   - a dev.console pane key disables one pane and nothing else, and a missing pane key means enabled
   - dev.console.overlay.reload only reloads a page requirement:dev-error-overlay is already attached to, and never restarts anything
   - dev.console.storybook.enabled false builds and starts no decision:dev-harness-process binary, because nothing else needs it
-  - dev.console.queries.enabled false opens no decision:dev-application-attachment, so the application dials nothing
+  - dev.console.queries.enabled and dev.console.tables.enabled are the two halves of one data pane, and both false open no decision:dev-application-attachment, so the application dials nothing
+  - the two are separate keys because requirement:dev-query-runner may write and requirement:dev-table-viewer may not, so a project can take the reading half alone
   - relative paths resolve from the config file directory
   - unknown keys are errors
   - command flags override config values

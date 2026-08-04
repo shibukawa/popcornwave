@@ -34,9 +34,10 @@ order:
   - step: requirement:template-storybook
     delivers: templates rendered in isolation
     introduces: decision:dev-harness-process, and the generated pwdev registry that makes an unexported symbol enumerable from inside its own package
-  - step: requirement:dev-query-runner
-    delivers: declared statements run with their own types
+  - step: requirement:dev-query-runner and requirement:dev-table-viewer
+    delivers: declared statements run with their own types, and the tables they changed read beside them
     introduces: decision:dev-application-attachment
+    order_within: the attachment and the read-only half first, because browsing exercises the transport with nothing that can write, and the executing half lands on a proven one
     why_last: it reuses the registry technique the storybook step builds, and it is the step whose conventions benefit most from a settled console
 spikes:
   reason: each proves an assumption a whole step rests on, and each is cheaper than the step it guards

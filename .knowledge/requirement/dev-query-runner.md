@@ -38,8 +38,11 @@ refused:
     offered: no
     reason: the pane's value is that it runs the project's own statements with the project's own types, and a free text box is a different tool with a different risk
     alternative: the developer's own client, reached by the DSN policy:startup-summary already reports
+pairing:
+  concept: requirement:dev-table-viewer
+  relation: the two share one attachment and one pane, because running a statement and looking at what it changed is one activity rather than two
+  split: this half may write, since a declared statement is what the application itself would run; the viewer is read-only, since a hand-edited row is what nothing would run
 non_goals:
-  - a schema browser or a table row viewer, which is a different pane and a different question
   - editing a .pw.sql source from the browser
   - saving, naming, or replaying past runs; requirement:dev-telemetry-viewer holds what ran
   - running against anything but the development environment

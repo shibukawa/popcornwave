@@ -24,7 +24,10 @@ panes:
     concept: requirement:dev-telemetry-viewer
     scope: traces, logs, and per-request timing; the console adds no log pane and no profiler of its own
   storybook: requirement:template-storybook
-  queries: requirement:dev-query-runner
+  data:
+    execution: requirement:dev-query-runner
+    browsing: requirement:dev-table-viewer
+    shared: one pane and one decision:dev-application-attachment, with a key each because one half may write and the other may not
   assets: requirement:dev-asset-inspector
   api: requirement:dev-api-reference
   loop_state:
@@ -61,7 +64,7 @@ harness:
   effect: the pane is proxied rather than served, and its availability depends on a build succeeding
 attachment:
   concept: decision:dev-application-attachment
-  needed_by: requirement:dev-query-runner, whose connection only the application can address
+  needed_by: requirement:dev-query-runner and requirement:dev-table-viewer, whose connection only the application can address
   effect: the pane is available exactly while the application is up, which is the one pane for which that is true
 packaging:
   ui:
