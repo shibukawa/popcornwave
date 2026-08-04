@@ -70,6 +70,24 @@ type CredentialStore interface {
 	Delete(ctx context.Context, accountID string, credentialID []byte) error
 }
 
+// FirstEnrollmentStore is implemented by a credential store that cannot make a
+// first enrollment one unit of work.
+//
+// The three writes of a passkey-only registration are spending the bootstrap
+// credential, persisting the credential, and activating the account. A store
+// with transactions applies them together and needs only Save. A store without
+// them receives the two callbacks separately, so it can fix an order whose
+// every partial outcome is safe rather than being handed one opaque callback it
+// cannot sequence.
+//
+// The framework prefers this method when the installed store offers it.
+type FirstEnrollmentStore interface {
+	// SaveFirstCredential applies the enrollment. spend consumes the bootstrap
+	// credential that authorized it and activate promotes the provisional
+	// account; either may be nil.
+	SaveFirstCredential(ctx context.Context, credential Credential, spend, activate func(context.Context) error) error
+}
+
 // BootstrapCredential is an issued login ID and secret that opens exactly one
 // passkey enrollment. It is not a reusable password.
 type BootstrapCredential struct {

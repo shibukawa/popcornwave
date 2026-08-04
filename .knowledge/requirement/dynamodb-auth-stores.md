@@ -8,6 +8,7 @@ authstore/dynamo implements the allowlist, credential, and bootstrap stores of p
 ```yaml
 package: authstore/dynamo
 family: authstore, a fourth entry in rule:storage-package-layout, named by user 2026-08-01
+implemented: 2026-08-05, all three stores with the account index, the conditional sign-count update, and the single-request attempt spend
 why_a_new_family: these are the framework-owned account tables of plugin/auth, and they are neither a connection, a session record, nor a single-use ceremony record
 why_one_package: decision:dynamodb-auth-compensating-registration orders three writes across two of these stores, so they ship and are verified together
 selected_by: decision:auth-backend-selection
@@ -39,7 +40,8 @@ credential:
     index: declared in the handwritten TableDefinition, which system:tinygodriver-dynamodb supports at creation
     bound: no UpdateTable, so this index cannot be added to a table that already exists; a deployment that created the table before the index existed recreates it
     scope_note: the "no secondary index" bound of requirement:dynamodb-store is about the deferred system:tinybind gsi tag, and does not reach a handwritten definition
-    projection: the fields excludeCredentials and allowCredentials need, which is the credential ID and the transports
+    projection: the credential ID, the transports, and the user handle
+    why_the_handle: an enrollment reuses the handle the account already has, and a listing that could not see it would mint a second one for the same account
   save: PutItem conditioned on the credential ID being absent, then the activation callback, per decision:dynamodb-auth-compensating-registration
   update_on_assertion:
     operation: UpdateItem conditioned on the stored sign count being lower than the accepted one

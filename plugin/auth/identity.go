@@ -297,7 +297,7 @@ func identityFrom(claims jwt.Claims, identityClaim string) Identity {
 
 // admit applies policy:oidc-admission to an already verified identity. It runs
 // on every login, including one that resolves to an existing account.
-func admit(ctx context.Context, config OIDCConfig, allowlist Allowlist, identity Identity) (Account, error) {
+func admit(ctx context.Context, config OIDCConfig, allowlist AllowlistStore, identity Identity) (Account, error) {
 	if identity.Issuer == "" || identity.Subject == "" || identity.Key == "" {
 		// No usable lookup key means no account can be identified, so nothing
 		// downstream may treat this login as a known person.
@@ -309,7 +309,16 @@ func admit(ctx context.Context, config OIDCConfig, allowlist Allowlist, identity
 			return Account{}, ErrAccessDenied
 		}
 	case AdmissionRegistered:
-		registered, err := allowlist.registered(ctx, config.RegisteredClaims, identity)
+		candidates := allowlistCandidates(config.RegisteredClaims, identity)
+		if len(candidates) == 0 {
+			// Nothing to compare is a non-match rather than an error, and the
+			// store is never asked an empty question.
+			return Account{}, ErrAccessDenied
+		}
+		if allowlist == nil {
+			return Account{}, errors.New("auth: allowlist is not available")
+		}
+		registered, err := allowlist.Registered(ctx, identity.Issuer, candidates)
 		if err != nil {
 			// A lookup failure is an error, never a denial, so an outage
 			// cannot silently reopen or close a deployment.

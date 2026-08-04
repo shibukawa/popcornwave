@@ -33,7 +33,7 @@ questions:
   - authentication mode, defaulting to none, asked before the stores because it is the answer that decides whether a store is optional at all
   - store, asked only with a login, offering the requirement:database-engine-selection engines and DynamoDB with no none among them, since a session has to live somewhere
   - database, asked only without a login, defaulting to yes because the SQL and migration examples depend on it
-  - database engine, asked without a login when the database is taken, and asked with a login when DynamoDB was the store answer, because plugin/auth keeps its ceremony records and its allowlist in SQL whatever holds the sessions
+  - database engine, asked without a login when the database is taken; a DynamoDB login no longer asks it, because requirement:dynamodb-auth-backend moved all four tables plugin/auth owns onto that store
   - DynamoDB, defaulting to no, asked wherever it was not already the store answer, because requirement:dynamodb-store is a second kind of store rather than a fourth engine
   - OIDC provider, asked only for an OIDC mode, choosing requirement:contrib-devidp or an external provider
   - Devbox environment, defaulting to yes

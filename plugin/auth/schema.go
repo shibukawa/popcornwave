@@ -186,7 +186,11 @@ func timestampType(dialect string) string {
 func requiredTables(config Config) [][2]string {
 	required := [][2]string{
 		{authstate.TableName, MigrationName},
-		{AllowlistTable, MigrationName},
+	}
+	// The allowlist is read only by the registered admission mode, and not at
+	// all when the application installed a store of its own.
+	if config.OIDC.Admission == AdmissionRegistered && installedAllowlistStore() == nil {
+		required = append(required, [2]string{AllowlistTable, MigrationName})
 	}
 	if !config.usesPasskey() {
 		return required

@@ -3,7 +3,6 @@ package auth
 import (
 	"context"
 	"crypto/rand"
-	"database/sql"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -13,7 +12,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/shibukawa/popcornwave/authstate"
 	"github.com/shibukawa/popcornwave/contrib/passkey"
 	"github.com/shibukawa/popcornwave/pw"
 )
@@ -78,49 +76,33 @@ func newRelyingParty(config PasskeyConfig) (*passkey.RelyingParty, error) {
 // setupPasskey builds the relying party, the ceremony state store, and the
 // credential stores. It runs only in a mode that mounts the endpoints, so an
 // oidc_only deployment carries none of it.
-func (rt *runtime) setupPasskey(ctx context.Context, db *sql.DB, dialect string) error {
+func (rt *runtime) setupPasskey(ctx context.Context) error {
 	relyingParty, err := newRelyingParty(rt.config.Passkey)
 	if err != nil {
 		return fmt.Errorf("auth.passkey: %w", err)
 	}
-	stateStore, err := authstate.NewSQLStore[passkey.CeremonyState](db, passkey.CeremonyStateCodec{}, authstate.SQLOptions{
-		Dialect:   dialect,
-		Namespace: passkeyStateNamespace,
-	})
+	stateStore, err := openState(ctx, rt, passkeyStateNamespace, passkey.CeremonyStateCodec{})
 	if err != nil {
-		return err
-	}
-	// The table already exists, so this validates its column layout only.
-	if err := stateStore.EnsureSchema(ctx); err != nil {
-		return fmt.Errorf("passkey ceremony state schema: %w", err)
+		return fmt.Errorf("passkey ceremony state: %w", err)
 	}
 	flow, err := passkey.NewSessionFlow(relyingParty, stateStore)
 	if err != nil {
 		return err
 	}
 	rt.passkeyFlow = flow
-	rt.credentials = installedCredentialStore()
-	if rt.credentials == nil {
-		rt.credentials = dbStore{db: db}
-	}
-	rt.bootstrap = installedBootstrapStore()
-	if rt.bootstrap == nil {
-		rt.bootstrap = bootstrapStore{db: db}
+	rt.credentials = rt.backend.Credentials
+	rt.bootstrap = rt.backend.Bootstrap
+	if rt.credentials == nil || rt.bootstrap == nil {
+		return fmt.Errorf("auth.backend = %q supplies no passkey credential storage", rt.config.backendName())
 	}
 	if rt.config.Mode != ModePasskeyOnly {
 		// Only passkey_only redeems a bootstrap credential, so no other mode
 		// carries the ticket store or the endpoint that fills it.
 		return nil
 	}
-	enrollment, err := authstate.NewSQLStore[enrollmentTicket](db, enrollmentTicketCodec{}, authstate.SQLOptions{
-		Dialect:   dialect,
-		Namespace: enrollmentStateNamespace,
-	})
+	enrollment, err := openState(ctx, rt, enrollmentStateNamespace, enrollmentTicketCodec{})
 	if err != nil {
-		return err
-	}
-	if err := enrollment.EnsureSchema(ctx); err != nil {
-		return fmt.Errorf("enrollment ticket schema: %w", err)
+		return fmt.Errorf("enrollment ticket: %w", err)
 	}
 	rt.enrollment = enrollment
 	return nil

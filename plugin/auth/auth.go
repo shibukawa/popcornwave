@@ -18,7 +18,6 @@ package auth
 import (
 	"context"
 	"errors"
-	"fmt"
 	"net/http"
 	"sync"
 	"time"
@@ -69,11 +68,15 @@ type runtime struct {
 	// sessionClose releases a client the backend opened. A backend that
 	// borrowed the middleware database leaves it nil.
 	sessionClose func(context.Context) error
-	stateStore   *authstate.SQLStore[oauth.Transaction]
+	backend      Backend
+	// pruners are the ceremony stores that need sweeping, which is none of
+	// them on a backend whose expiry is decided on read.
+	pruners    []statePruner
+	stateStore authstate.Store[oauth.Transaction]
 	// hint is the sealed sign-in hint cookie, nil unless the deployment turned
 	// it on. It carries no authority; see SignInHint.
 	hint         *session.Jar[SignInHint]
-	allowlist    Allowlist
+	allowlist    AllowlistStore
 	cookiePolicy pw.SessionCookieConfig
 	include      []pathpattern.Pattern
 	exclude      []pathpattern.Pattern
@@ -85,7 +88,7 @@ type runtime struct {
 	bootstrap   BootstrapStore
 	// enrollment holds the restricted tickets a redeemed bootstrap credential
 	// grants. It is nil outside passkey_only.
-	enrollment *authstate.SQLStore[enrollmentTicket]
+	enrollment authstate.Store[enrollmentTicket]
 	// passkeyPaths maps a mounted ceremony path to its endpoint suffix.
 	passkeyPaths map[string]string
 	// stopPruning ends the background expiry sweep during shutdown.
@@ -129,46 +132,22 @@ func setupAuthentication(ctx context.Context) (pw.Middleware, error) {
 	if !sessionConfig.Enabled {
 		return nil, errors.New("auth requires session.enabled = true")
 	}
-	// Whatever the session backend is, this package needs the database: the
-	// single-use OAuth correlation records and the admission allowlist are
-	// server state in every backend.
-	if _, ok := pw.DB(ctx); !ok {
-		return nil, errors.New("auth requires middleware.rdb.enabled = true")
-	}
-	// The session table is written on every login, so it lives in the session
-	// group rather than in the default group, which is normally a replica.
-	sessionCtx, err := pw.SelectSessionDB(ctx)
-	if err != nil {
-		return nil, err
-	}
-	db, ok := pw.DB(sessionCtx)
-	if !ok {
-		return nil, errors.New("auth requires middleware.rdb.enabled = true")
-	}
 	manager := pw.SessionManager()
 	if manager == nil {
 		return nil, errors.New("auth requires session.enabled = true")
 	}
-	driver, _ := pw.DBDriver(sessionCtx)
-	// The ceremony store speaks whatever engine the DSN resolved to, so its
-	// dialect comes from the same place the session backend's does.
-	stateStore, err := authstate.NewSQLStore[oauth.Transaction](db, oauth.TransactionCodec{}, authstate.SQLOptions{
-		Dialect:   driver,
-		Namespace: stateNamespace,
-	})
+	// The stores this package owns come from the selected backend. Only the
+	// relational one needs a database handle, and it is the one that says so:
+	// a project on DynamoDB reaches none of this.
+	resources, err := backendResources(ctx)
 	if err != nil {
 		return nil, err
 	}
-	// The tables this package owns are migration-owned, so startup verifies
-	// them instead of creating them. The session backend verifies its own.
-	schemaCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	schemaCtx, cancel := context.WithTimeout(ctx, schemaTimeout)
 	defer cancel()
-	if err := verifyTables(schemaCtx, db, config); err != nil {
+	backend, err := openBackend(schemaCtx, config, resources)
+	if err != nil {
 		return nil, err
-	}
-	// The table already exists, so this validates its column layout only.
-	if err := stateStore.EnsureSchema(schemaCtx); err != nil {
-		return nil, fmt.Errorf("auth state schema: %w", err)
 	}
 	include, err := pathpattern.Compile(config.Protection.Include)
 	if err != nil {
@@ -181,24 +160,28 @@ func setupAuthentication(ctx context.Context) (pw.Middleware, error) {
 	instance := &runtime{
 		config:       config,
 		manager:      manager,
-		stateStore:   stateStore,
-		allowlist:    Allowlist{db: db},
+		backend:      backend,
+		allowlist:    backend.Allowlist,
 		cookiePolicy: sessionConfig.Cookie,
 		include:      include,
 		exclude:      exclude,
 		stopPruning:  make(chan struct{}),
 		passkeyPaths: config.passkeyPaths(),
 	}
+	if instance.stateStore, err = openState(schemaCtx, instance, stateNamespace, oauth.TransactionCodec{}); err != nil {
+		return nil, err
+	}
 	if instance.hint, err = hintJar(config.Assurance.Hint, sessionConfig.Cookie); err != nil {
 		return nil, err
 	}
 	if config.usesPasskey() {
-		if err := instance.setupPasskey(schemaCtx, db, driver); err != nil {
+		if err := instance.setupPasskey(schemaCtx); err != nil {
 			return nil, err
 		}
 	}
-	// Sessions that are never revoked and ceremonies that are never completed
-	// only expire logically, so a sweep keeps both tables bounded.
+	// Ceremonies that are never completed only expire logically, so a sweep
+	// keeps the table bounded. A backend whose store needs none registers no
+	// pruner and the goroutine idles.
 	go instance.prune()
 	replaceRuntime(instance)
 	return instance.authenticate, nil
@@ -237,7 +220,9 @@ func (rt *runtime) prune() {
 			now := time.Now()
 			// The session store sweeps itself; these are the ceremony records
 			// this package owns.
-			_, _ = rt.stateStore.Prune(ctx, now, pruneBatch)
+			for _, pruner := range rt.pruners {
+				_, _ = pruner.Prune(ctx, now, pruneBatch)
+			}
 			cancel()
 		}
 	}

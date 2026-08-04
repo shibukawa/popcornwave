@@ -44,7 +44,7 @@ func TestRegisteredAdmissionRequiresAnAllowlistedIdentity(t *testing.T) {
 		"https://issuer.example", "email", "known@example.com", "operator"); err != nil {
 		t.Fatal(err)
 	}
-	allowlist := Allowlist{db: db}
+	allowlist := sqlAllowlist{db: db}
 	// The identity claim is the subject here, so recognizing a registration by
 	// email is an explicit configuration choice.
 	config := OIDCConfig{
@@ -83,7 +83,7 @@ func TestRegisteredAdmissionMatchesTheSubjectClaim(t *testing.T) {
 		"https://issuer.example", "sub", "subject-1"); err != nil {
 		t.Fatal(err)
 	}
-	allowlist := Allowlist{db: db}
+	allowlist := sqlAllowlist{db: db}
 	config := OIDCConfig{Admission: AdmissionRegistered, AutoProvision: true}
 
 	identity := testIdentity("https://issuer.example", "subject-1", nil)
@@ -106,7 +106,7 @@ func TestAllowlistFailureIsNotADenial(t *testing.T) {
 	defer db.Close()
 	// The table is missing, so the lookup fails. An outage must surface as an
 	// error rather than silently denying or admitting.
-	allowlist := Allowlist{db: db}
+	allowlist := sqlAllowlist{db: db}
 	config := OIDCConfig{Admission: AdmissionRegistered, AutoProvision: true}
 	identity := testIdentity("https://issuer.example", "subject-1", nil)
 	_, err = admit(context.Background(), config, allowlist, identity)
@@ -194,7 +194,7 @@ func TestIdentityKeyUsesTheConfiguredClaim(t *testing.T) {
 		t.Fatalf("missing identity claim produced key %q", missing.Key)
 	}
 	_, err := admit(context.Background(), OIDCConfig{Admission: AdmissionAuthenticated, AutoProvision: true},
-		Allowlist{}, missing)
+		sqlAllowlist{}, missing)
 	if !errors.Is(err, ErrAccessDenied) {
 		t.Fatalf("login without the configured identity claim = %v", err)
 	}
@@ -236,5 +236,82 @@ func TestDerivedAccountFollowsTheIdentityClaim(t *testing.T) {
 	}
 	if bySubject.ID == first.ID {
 		t.Fatal("different identity claims produced the same account identifier")
+	}
+}
+
+// stubAllowlist records the question it was asked, so a test can check that one
+// login is one lookup carrying every compared claim.
+type stubAllowlist struct {
+	issuer     string
+	candidates []AllowlistCandidate
+	calls      int
+	registered bool
+	err        error
+}
+
+func (s *stubAllowlist) Registered(_ context.Context, issuer string, candidates []AllowlistCandidate) (bool, error) {
+	s.calls++
+	s.issuer = issuer
+	s.candidates = candidates
+	return s.registered, s.err
+}
+
+func TestInstalledAllowlistStoreAnswersAdmission(t *testing.T) {
+	store := &stubAllowlist{registered: true}
+	SetAllowlistStore(store)
+	t.Cleanup(func() { SetAllowlistStore(nil) })
+
+	config := OIDCConfig{
+		Admission: AdmissionRegistered, AutoProvision: true,
+		RegisteredClaims: []string{"email", "staff_id"},
+	}
+	identity := testIdentity("https://issuer.example", "subject-1", map[string]string{
+		"email": "known@example.com",
+	})
+	if _, err := admit(context.Background(), config, resolveAllowlistStore(nil), identity); err != nil {
+		t.Fatalf("installed store admitted = %v", err)
+	}
+	if store.calls != 1 {
+		t.Fatalf("one login asked the store %d times", store.calls)
+	}
+	if store.issuer != "https://issuer.example" {
+		t.Fatalf("issuer = %q", store.issuer)
+	}
+	// staff_id is configured but absent from the token, so it is omitted rather
+	// than compared as an empty value.
+	if len(store.candidates) != 1 || store.candidates[0] != (AllowlistCandidate{Claim: "email", Value: "known@example.com"}) {
+		t.Fatalf("candidates = %#v", store.candidates)
+	}
+
+	store.registered = false
+	if _, err := admit(context.Background(), config, store, identity); !errors.Is(err, ErrAccessDenied) {
+		t.Fatalf("unregistered identity = %v", err)
+	}
+}
+
+func TestInstalledAllowlistStoreFailureIsNotADenial(t *testing.T) {
+	store := &stubAllowlist{err: errors.New("directory unreachable")}
+	config := OIDCConfig{Admission: AdmissionRegistered, AutoProvision: true}
+	identity := testIdentity("https://issuer.example", "subject-1", nil)
+	_, err := admit(context.Background(), config, store, identity)
+	if err == nil || errors.Is(err, ErrAccessDenied) {
+		t.Fatalf("store failure = %v", err)
+	}
+}
+
+func TestNoComparableClaimNeverReachesTheStore(t *testing.T) {
+	store := &stubAllowlist{registered: true}
+	config := OIDCConfig{
+		Admission: AdmissionRegistered, AutoProvision: true,
+		RegisteredClaims: []string{"staff_id"},
+	}
+	// The token carries no staff_id, so there is nothing to compare. That is a
+	// non-match, and the store is never asked an empty question.
+	identity := testIdentity("https://issuer.example", "subject-1", nil)
+	if _, err := admit(context.Background(), config, store, identity); !errors.Is(err, ErrAccessDenied) {
+		t.Fatalf("uncomparable identity = %v", err)
+	}
+	if store.calls != 0 {
+		t.Fatalf("store was asked %d times with no candidates", store.calls)
 	}
 }

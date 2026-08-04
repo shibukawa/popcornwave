@@ -11,7 +11,7 @@ families:
   database: the connection itself, per rule:rdb-dsn-resolution
   sessionstore: api:session-store records
   authstate: single-use requirement:contrib-auth-state ceremony records
-  authstore: the framework-owned account tables of plugin/auth, per requirement:dynamodb-auth-stores; named by user 2026-08-01 and unimplemented
+  authstore: the framework-owned account tables of plugin/auth, per requirement:dynamodb-auth-stores; named by user 2026-08-01
 depth:
   rule: two segments, so an application reads the family and the backend and nothing else
   rejected: contrib/ and plugin/ prefixes, which added a segment that named the framework rather than the storage

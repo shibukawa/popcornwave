@@ -579,11 +579,10 @@ func TestScaffoldWritesNoSecuritySectionWithoutASession(t *testing.T) {
 	}
 }
 
-// Choosing DynamoDB for the login does not skip the SQL question: plugin/auth
-// keeps its ceremony records and its allowlist in a relational database
-// whatever holds the sessions, so the wizard asks which engine that is instead
-// of adding one the operator never saw.
-func TestInitWizardAsksForTheEngineBehindADynamoLogin(t *testing.T) {
+// Choosing DynamoDB for the login asks for no SQL engine behind it. All four
+// tables plugin/auth owns move to DynamoDB with auth.backend, so there is
+// nothing left for a relational database to carry.
+func TestInitWizardAsksForNoEngineBehindADynamoLogin(t *testing.T) {
 	t.Chdir(t.TempDir())
 	model := feedWizard(t, newTestWizard(defaultInitOptions()),
 		typeText("demo"), pressKey(tea.KeyEnter),
@@ -593,24 +592,89 @@ func TestInitWizardAsksForTheEngineBehindADynamoLogin(t *testing.T) {
 		typeText("2"),          // Authentication: OIDC
 		typeText("4"),          // Store: DynamoDB
 	)
-	if label := model.steps[model.index].label(); label != "Database engine" {
-		t.Fatalf("step = %q, want the engine the login is kept in", label)
+	if label := model.steps[model.index].label(); label == "Database engine" {
+		t.Fatal("a DynamoDB login still asked for a SQL engine")
 	}
 	model = feedWizard(t, model,
-		typeText("2"),          // Database engine: PostgreSQL
 		pressKey(tea.KeyEnter), // Session storage
 		pressKey(tea.KeyEnter), // OIDC provider
 	)
 	options := wizardResult(model, defaultInitOptions())
-	if !options.Dynamo || !options.Database || options.Engine != enginePostgres {
+	if !options.Dynamo || options.Database {
 		t.Fatalf("options = %#v", options)
 	}
-	// The DynamoDB question was already answered by the store choice, so it is
-	// not asked a second time.
+	// Neither the engine nor the DynamoDB question is asked again: the store
+	// answer settled both.
 	for _, index := range model.activeSteps() {
-		if model.steps[index].label() == "DynamoDB" {
-			t.Fatal("the DynamoDB question was asked again after it was the store answer")
+		switch label := model.steps[index].label(); label {
+		case "DynamoDB", "Database engine", "Database":
+			t.Fatalf("%q was asked after DynamoDB was the store answer", label)
 		}
+	}
+}
+
+// The project that answer produces is the one the backend was built for: no rdb
+// section, and the four auth tables named as DynamoDB's.
+func TestDynamoLoginScaffoldsTheDynamoAuthBackend(t *testing.T) {
+	options := initOptions{
+		Name: "demo", Router: routerRegistered, Auth: authOIDC, AuthStore: dynamoStore,
+		Dynamo: true, Database: false, Session: sessionDynamo,
+	}
+	if backend := authBackend(options); backend != "dynamo" {
+		t.Fatalf("auth backend = %q", backend)
+	}
+	config := authRuntimeConfig(options)
+	if !strings.Contains(config, `backend = "dynamo"`) {
+		t.Fatalf("[auth] section does not name the backend:\n%s", config)
+	}
+	// Both halves are imported: the ceremony store and the account-side stores.
+	imports := sessionBackendImport(options)
+	for _, wanted := range []string{"authstate/dynamo", "authstore/dynamo"} {
+		if !strings.Contains(imports, wanted) {
+			t.Fatalf("imports do not carry %s:\n%s", wanted, imports)
+		}
+	}
+	if strings.Contains(imports, "authstate/sqlite") {
+		t.Fatalf("a relational ceremony store was imported anyway:\n%s", imports)
+	}
+}
+
+// A relational login is untouched by any of this.
+func TestRelationalLoginKeepsTheRelationalBackend(t *testing.T) {
+	options := initOptions{
+		Name: "demo", Router: routerRegistered, Auth: authOIDC, AuthStore: engineSQLite,
+		Database: true, Engine: engineSQLite, Session: sessionRDB,
+	}
+	if backend := authBackend(options); backend != "rdb" {
+		t.Fatalf("auth backend = %q", backend)
+	}
+	if !strings.Contains(authRuntimeConfig(options), `backend = "rdb"`) {
+		t.Fatal("[auth] section does not name the relational backend")
+	}
+	imports := sessionBackendImport(options)
+	if !strings.Contains(imports, "authstate/sqlite") || strings.Contains(imports, "authstore/dynamo") {
+		t.Fatalf("imports = %s", imports)
+	}
+}
+
+// A login with neither store has nowhere to keep its records, and the refusal
+// names both ways out rather than only the database.
+func TestALoginNeedsAStore(t *testing.T) {
+	_, err := parseInitArgs([]string{"demo", "--auth=oidc", "--no-database"})
+	if err == nil || !strings.Contains(err.Error(), "--dynamo") {
+		t.Fatalf("a login with no store = %v", err)
+	}
+	// Naming the other store is accepted, and the session follows it rather
+	// than defaulting to a pool the project does not open.
+	options, err := parseInitArgs([]string{"demo", "--auth=oidc", "--no-database", "--dynamo"})
+	if err != nil {
+		t.Fatalf("a DynamoDB-only login = %v", err)
+	}
+	if backend := sessionBackend(options); backend != sessionDynamo {
+		t.Fatalf("session backend = %q", backend)
+	}
+	if backend := authBackend(options); backend != "dynamo" {
+		t.Fatalf("auth backend = %q", backend)
 	}
 }
 

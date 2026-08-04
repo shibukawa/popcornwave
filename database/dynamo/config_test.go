@@ -1,6 +1,8 @@
 package dynamo
 
 import (
+	"reflect"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -106,5 +108,47 @@ func TestDefaultConfigVerifiesSchema(t *testing.T) {
 	}
 	if DefaultConfig().AutoMigrate {
 		t.Fatal("auto_migrate must default off")
+	}
+}
+
+// TestDefaultConfigMatchesTheBoundDefaults keeps the two statements of the
+// same defaults from drifting: the struct tags configbind reads to fill an
+// unset key, and DefaultConfig for a caller building a Config in Go.
+//
+// They drifted once already. DefaultConfig existed while the tags did not, so
+// nothing called it and every project with the section enabled failed startup
+// on a zero timeout.
+func TestDefaultConfigMatchesTheBoundDefaults(t *testing.T) {
+	tags := map[string]string{}
+	for _, field := range reflect.VisibleFields(reflect.TypeOf(Config{})) {
+		if value, tagged := field.Tag.Lookup("default"); tagged {
+			tags[field.Name] = value
+		}
+	}
+	defaults := DefaultConfig()
+	want := map[string]string{
+		"Timeout":      defaults.Timeout.String(),
+		"MaxIdleConns": strconv.Itoa(defaults.MaxIdleConns),
+		"VerifySchema": strconv.FormatBool(defaults.VerifySchema),
+	}
+	for name, value := range want {
+		tagged, present := tags[name]
+		if !present {
+			t.Errorf("%s has no default tag, so configbind leaves it zero", name)
+			continue
+		}
+		parsed, err := time.ParseDuration(tagged)
+		if err == nil {
+			tagged = parsed.String()
+		}
+		if tagged != value {
+			t.Errorf("%s: tag says %q, DefaultConfig says %q", name, tagged, value)
+		}
+	}
+	// Anything else carrying a tag is a value this test does not know about.
+	for name := range tags {
+		if _, known := want[name]; !known {
+			t.Errorf("%s gained a default tag; add it to DefaultConfig and to this test", name)
+		}
 	}
 }

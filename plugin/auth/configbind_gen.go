@@ -23,6 +23,7 @@ func registerConfigDefinition0() {
 		Doc:      "Config is the [auth] runtime binding. It is registered when this package is imported",
 		KnownKeys: []string{
 			"auth.enabled",
+			"auth.backend",
 			"auth.mode",
 			"auth.login_path",
 			"auth.callback_path",
@@ -73,6 +74,7 @@ func registerConfigDefinition0() {
 		},
 		Defaults: map[string]string{
 			"auth.enabled":                          "false",
+			"auth.backend":                          "rdb",
 			"auth.mode":                             "oidc_only",
 			"auth.login_path":                       "/auth/login",
 			"auth.callback_path":                    "/auth/callback",
@@ -104,6 +106,7 @@ func registerConfigDefinition0() {
 			"auth.passkey.discoverable":             "preferred",
 		},
 		DependsOn: map[string][]string{
+			"auth.backend":                          {"auth.enabled"},
 			"auth.mode":                             {"auth.enabled"},
 			"auth.login_path":                       {"auth.enabled"},
 			"auth.callback_path":                    {"auth.enabled"},
@@ -162,6 +165,7 @@ func registerConfigDefinition0() {
 		},
 		FlagMetas: []cliparser.FieldMeta{
 			{Prefix: "auth", Key: "enabled", Kind: cliparser.KindBool},
+			{Prefix: "auth", Key: "backend", Help: "storage backend of the authentication tables: rdb or dynamo"},
 			{Prefix: "auth", Key: "mode", Help: "oidc_only"},
 			{Prefix: "auth", Key: "login_path", Help: "path that starts the provider flow"},
 			{Prefix: "auth", Key: "callback_path"},
@@ -212,6 +216,7 @@ func registerConfigDefinition0() {
 		Apply: applyConfigDefinition0,
 		Scaffold: []configbind.ScaffoldField{
 			{Key: "enabled", Kind: configbind.ScaffoldBool, Default: "false"},
+			{Key: "backend", Kind: configbind.ScaffoldString, Default: "rdb", Help: "storage backend of the authentication tables: rdb or dynamo"},
 			{Key: "mode", Kind: configbind.ScaffoldString, Default: "oidc_only", Help: "oidc_only"},
 			{Key: "login_path", Kind: configbind.ScaffoldString, Default: "/auth/login", Help: "path that starts the provider flow"},
 			{Key: "callback_path", Kind: configbind.ScaffoldString, Default: "/auth/callback"},
@@ -280,6 +285,11 @@ func applyConfigDefinition0(dst any, o *configbind.Overlay) error {
 		p.Enabled = bb
 	} else {
 		p.Enabled = false
+	}
+	if v, ok := o.GetString("auth.backend"); ok {
+		p.Backend = v
+	} else {
+		p.Backend = "rdb"
 	}
 	if v, ok := o.GetString("auth.mode"); ok {
 		p.Mode = v
