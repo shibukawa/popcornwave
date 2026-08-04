@@ -32,6 +32,8 @@ capability_catalog:
     dynamo: nothing, per requirement:dynamodb-store; it is a second kind of store rather than an alternative to the first
   parameterized:
     database: carries the requirement:database-engine-selection engine, so the capability is one entry with an answer rather than three entries
+  excluded:
+    jwt_only: requirement:jwt-only-api-authentication is not a catalog member and auth never means it, per decision:jwt-only-mode-not-scaffolded; a mode whose whole installation is a configuration section is not a capability a command installs
 detection:
   source: the project files that carry the capability
   reason: a separate manifest in data:project-config would disagree with a hand-edited project

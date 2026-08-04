@@ -12,7 +12,8 @@ question: how requirement:dynamodb-auth-backend is selected, given that plugin/a
 answer:
   key: auth.backend, a new field of data:authentication-runtime-config
   values: rdb, the default and the current behavior, and dynamo
-  scope: authstate, allowlist, credential, and bootstrap at once
+  scope: authstate, allowlist, credential, and bootstrap at once, plus data:revoked-token-record, which requirement:jwt-only-api-authentication added after this was decided
+  scope_growth: the revocation list arrived as a fifth store and is implemented against rdb only; it is named here rather than left out, because a store nobody listed is one the dynamo backend will silently not cover
   linking: decision:import-registered-session-plugins; importing the backend package registers its factory under the name, so a project links the backend it runs and no other
   missing_import: a startup error naming the import line to add, per rule:storage-package-layout
 one_key_for_four:
@@ -39,6 +40,7 @@ validation:
   - auth.backend rdb without middleware.rdb keeps the current error, which is now the backend's rather than the package's
 implemented:
   built: 2026-08-05
+  revocation_list: the fifth store arrived with requirement:jwt-only-api-authentication and is relational only; jwt_only reads it and the allowlist directly rather than through the backend, so a non-rdb auth.backend is refused for that mode when either is in play, rather than accepted as a key that silently does nothing
   registry: auth.RegisterBackend, with the relational backend registered by plugin/auth itself and the DynamoDB one by authstore/dynamo from init
   ceremony_store: a backend supplies authstate.RawStore per namespace rather than a typed store, because two of the three ceremony types are unexported
   sweep: a ceremony store that needs one implements Prune; a store whose expiry is decided on read implements nothing and the sweep skips it

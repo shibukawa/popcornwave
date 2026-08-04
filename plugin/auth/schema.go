@@ -65,7 +65,15 @@ func MigrationSQL(dialect string) (string, error) {
 -- Issued login IDs and secret digests that open one passkey enrollment.
 ` + bootstrapSchemaSQL(dialect) + `;
 
+-- Tokens and identities withdrawn before their tokens expire. Only consulted
+-- when auth.mode is "jwt_only" and auth.jwt.revocation.mode is not "off". A row
+-- is a positive statement, so an unreachable table is an unknown rather than a
+-- "not revoked".
+` + revocationSchemaSQL(dialect) + `;
+` + revocationExpiryIndexSQL() + `;
+
 -- +goose Down
+DROP TABLE ` + RevocationTable + `;
 DROP TABLE ` + BootstrapTable + `;
 DROP TABLE ` + CredentialTable + `;
 DROP TABLE ` + AllowlistTable + `;
@@ -184,6 +192,19 @@ func timestampType(dialect string) string {
 // installed no store of its own, so a deployment is never asked for a table
 // nothing will ever write to.
 func requiredTables(config Config) [][2]string {
+	if config.usesJWT() {
+		// A bearer request runs no ceremony and creates no session, so the
+		// correlation table is not among the tables this mode reads. The
+		// allowlist is required only by the admission policy that consults it.
+		required := [][2]string{}
+		if config.JWT.Admission == AdmissionRegistered {
+			required = append(required, [2]string{AllowlistTable, MigrationName})
+		}
+		if config.JWT.Revocation.enabled() {
+			required = append(required, [2]string{RevocationTable, MigrationName})
+		}
+		return required
+	}
 	required := [][2]string{
 		{authstate.TableName, MigrationName},
 	}

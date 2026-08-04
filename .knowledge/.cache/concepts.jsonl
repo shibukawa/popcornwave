@@ -7,6 +7,7 @@
 {"category": "interface", "id": "api:auth-credential-store", "path": ".knowledge/api/auth-credential-store.md", "role": "primary", "title": "Passkey Credential Store", "type": "api"}
 {"category": "interface", "id": "api:auth-state-codec", "path": ".knowledge/api/auth-state-codec.md", "role": "primary", "title": "Authentication State Codec", "type": "api"}
 {"category": "interface", "id": "api:authentication-endpoints", "path": ".knowledge/api/authentication-endpoints.md", "role": "primary", "title": "Authentication Endpoints", "type": "api"}
+{"category": "interface", "id": "api:bearer-authentication", "path": ".knowledge/api/bearer-authentication.md", "role": "primary", "title": "Bearer Authentication Surface", "type": "api"}
 {"category": "interface", "id": "api:cli-add", "path": ".knowledge/api/cli-add.md", "role": "primary", "title": "pw add", "type": "api"}
 {"category": "interface", "id": "api:cli-build", "path": ".knowledge/api/cli-build.md", "role": "primary", "title": "pw build", "type": "api"}
 {"category": "interface", "id": "api:cli-dev", "path": ".knowledge/api/cli-dev.md", "role": "primary", "title": "pw dev", "type": "api"}
@@ -100,6 +101,7 @@
 {"category": "structure", "id": "data:release-artifact", "path": ".knowledge/data/release-artifact.md", "role": "supporting", "title": "Release Artifact Set", "type": "data"}
 {"category": "structure", "id": "data:request-authentication", "path": ".knowledge/data/request-authentication.md", "role": "supporting", "title": "Request Authentication", "type": "data"}
 {"category": "structure", "id": "data:request-context-capsule", "path": ".knowledge/data/request-context-capsule.md", "role": "supporting", "title": "Request Context Capsule", "type": "data"}
+{"category": "structure", "id": "data:revoked-token-record", "path": ".knowledge/data/revoked-token-record.md", "role": "supporting", "title": "Revoked Token Record", "type": "data"}
 {"category": "structure", "id": "data:route-table", "path": ".knowledge/data/route-table.md", "role": "supporting", "title": "Route Table", "type": "data"}
 {"category": "structure", "id": "data:runtime-config-registry", "path": ".knowledge/data/runtime-config-registry.md", "role": "supporting", "title": "Runtime Config Registry", "type": "data"}
 {"category": "structure", "id": "data:runtime-environment", "path": ".knowledge/data/runtime-environment.md", "role": "supporting", "title": "Runtime Environment", "type": "data"}
@@ -156,6 +158,7 @@
 {"category": "constraint", "id": "decision:import-registered-session-plugins", "path": ".knowledge/decision/import-registered-session-plugins.md", "role": "supporting", "title": "Import-Registered Session Plugins", "type": "decision"}
 {"category": "constraint", "id": "decision:independent-runtime-config-bindings", "path": ".knowledge/decision/independent-runtime-config-bindings.md", "role": "supporting", "title": "Independent Runtime Config Bindings", "type": "decision"}
 {"category": "constraint", "id": "decision:interactive-project-bootstrap", "path": ".knowledge/decision/interactive-project-bootstrap.md", "role": "supporting", "title": "Interactive Project Bootstrap", "type": "decision"}
+{"category": "constraint", "id": "decision:jwt-only-mode-not-scaffolded", "path": ".knowledge/decision/jwt-only-mode-not-scaffolded.md", "role": "supporting", "title": "JWT-Only Mode Is Configured, Never Scaffolded", "type": "decision"}
 {"category": "constraint", "id": "decision:layered-web-runtime", "path": ".knowledge/decision/layered-web-runtime.md", "role": "supporting", "title": "Layered Web Runtime", "type": "decision"}
 {"category": "constraint", "id": "decision:live-delivery-transport", "path": ".knowledge/decision/live-delivery-transport.md", "role": "supporting", "title": "Live Deliveries On The Page Route", "type": "decision"}
 {"category": "constraint", "id": "decision:local-tls-proxy-boundary", "path": ".knowledge/decision/local-tls-proxy-boundary.md", "role": "supporting", "title": "Local TLS Proxy Boundary", "type": "decision"}
@@ -191,6 +194,7 @@
 {"category": "constraint", "id": "decision:update-runtime-convergence", "path": ".knowledge/decision/update-runtime-convergence.md", "role": "supporting", "title": "Update Runtime Convergence", "type": "decision"}
 {"category": "constraint", "id": "decision:wasi-http-deferred", "path": ".knowledge/decision/wasi-http-deferred.md", "role": "supporting", "title": "Defer WASI HTTP Adapter", "type": "decision"}
 {"category": "constraint", "id": "decision:web-runtime-delivery-order", "path": ".knowledge/decision/web-runtime-delivery-order.md", "role": "supporting", "title": "Web Runtime Delivery Order", "type": "decision"}
+{"category": "behavior", "id": "flow:bearer-request-authentication", "path": ".knowledge/flow/bearer-request-authentication.md", "role": "primary", "title": "Bearer Request Authentication Flow", "type": "flow"}
 {"category": "behavior", "id": "flow:capability-addition", "path": ".knowledge/flow/capability-addition.md", "role": "primary", "title": "Capability Addition Flow", "type": "flow"}
 {"category": "behavior", "id": "flow:cli-release", "path": ".knowledge/flow/cli-release.md", "role": "primary", "title": "CLI Release Flow", "type": "flow"}
 {"category": "behavior", "id": "flow:database-migration", "path": ".knowledge/flow/database-migration.md", "role": "primary", "title": "Database Migration Flow", "type": "flow"}
@@ -223,11 +227,13 @@
 {"category": "behavior", "id": "flow:telemetry-export", "path": ".knowledge/flow/telemetry-export.md", "role": "primary", "title": "Telemetry Export Flow", "type": "flow"}
 {"category": "behavior", "id": "flow:template-generation", "path": ".knowledge/flow/template-generation.md", "role": "primary", "title": "HTML Template Generation Flow", "type": "flow"}
 {"category": "behavior", "id": "flow:test-transaction-isolation", "path": ".knowledge/flow/test-transaction-isolation.md", "role": "primary", "title": "Test Transaction Isolation", "type": "flow"}
+{"category": "constraint", "id": "policy:access-token-verification", "path": ".knowledge/policy/access-token-verification.md", "role": "supporting", "title": "Access Token Verification Policy", "type": "policy"}
 {"category": "constraint", "id": "policy:account-linking", "path": ".knowledge/policy/account-linking.md", "role": "supporting", "title": "Account Linking Policy", "type": "policy"}
 {"category": "constraint", "id": "policy:account-recovery", "path": ".knowledge/policy/account-recovery.md", "role": "supporting", "title": "Account Recovery Policy", "type": "policy"}
 {"category": "constraint", "id": "policy:asset-transform-matrix", "path": ".knowledge/policy/asset-transform-matrix.md", "role": "supporting", "title": "Asset Transform Matrix", "type": "policy"}
 {"category": "constraint", "id": "policy:async-render-bounds", "path": ".knowledge/policy/async-render-bounds.md", "role": "supporting", "title": "Async Render Bounds", "type": "policy"}
 {"category": "constraint", "id": "policy:authenticated-path-protection", "path": ".knowledge/policy/authenticated-path-protection.md", "role": "supporting", "title": "Authenticated Path Protection", "type": "policy"}
+{"category": "constraint", "id": "policy:bearer-admission", "path": ".knowledge/policy/bearer-admission.md", "role": "supporting", "title": "Bearer Admission Policy", "type": "policy"}
 {"category": "constraint", "id": "policy:bootstrap-credential-security", "path": ".knowledge/policy/bootstrap-credential-security.md", "role": "supporting", "title": "Bootstrap Credential Security", "type": "policy"}
 {"category": "constraint", "id": "policy:cli-progress-reporting", "path": ".knowledge/policy/cli-progress-reporting.md", "role": "supporting", "title": "CLI Progress Reporting", "type": "policy"}
 {"category": "constraint", "id": "policy:config-file-resolution", "path": ".knowledge/policy/config-file-resolution.md", "role": "supporting", "title": "Config File Resolution", "type": "policy"}
@@ -236,6 +242,7 @@
 {"category": "constraint", "id": "policy:contrib-compatibility", "path": ".knowledge/policy/contrib-compatibility.md", "role": "supporting", "title": "Contrib Compatibility Policy", "type": "policy"}
 {"category": "constraint", "id": "policy:cookie-value-protection", "path": ".knowledge/policy/cookie-value-protection.md", "role": "supporting", "title": "Cookie Value Protection", "type": "policy"}
 {"category": "constraint", "id": "policy:csrf-protection", "path": ".knowledge/policy/csrf-protection.md", "role": "supporting", "title": "CSRF Protection", "type": "policy"}
+{"category": "constraint", "id": "policy:dev-token-relaxation", "path": ".knowledge/policy/dev-token-relaxation.md", "role": "supporting", "title": "Development Token Relaxation Policy", "type": "policy"}
 {"category": "constraint", "id": "policy:devidp-safety", "path": ".knowledge/policy/devidp-safety.md", "role": "supporting", "title": "Development IdP Safety Policy", "type": "policy"}
 {"category": "constraint", "id": "policy:dynamodb-migration-safety", "path": ".knowledge/policy/dynamodb-migration-safety.md", "role": "supporting", "title": "DynamoDB Migration Safety", "type": "policy"}
 {"category": "constraint", "id": "policy:generated-artifacts", "path": ".knowledge/policy/generated-artifacts.md", "role": "supporting", "title": "Generated Artifact Ownership", "type": "policy"}
@@ -265,6 +272,7 @@
 {"category": "constraint", "id": "policy:shared-device-mode", "path": ".knowledge/policy/shared-device-mode.md", "role": "supporting", "title": "Shared Device Mode", "type": "policy"}
 {"category": "constraint", "id": "policy:startup-summary", "path": ".knowledge/policy/startup-summary.md", "role": "supporting", "title": "Startup Summary", "type": "policy"}
 {"category": "constraint", "id": "policy:template-escaping", "path": ".knowledge/policy/template-escaping.md", "role": "supporting", "title": "Template Escaping Policy", "type": "policy"}
+{"category": "constraint", "id": "policy:token-revocation", "path": ".knowledge/policy/token-revocation.md", "role": "supporting", "title": "Bearer Token Revocation Policy", "type": "policy"}
 {"category": "constraint", "id": "policy:ui-state-placement", "path": ".knowledge/policy/ui-state-placement.md", "role": "supporting", "title": "UI State Placement", "type": "policy"}
 {"category": "constraint", "id": "policy:validation-errors", "path": ".knowledge/policy/validation-errors.md", "role": "supporting", "title": "Validation and Error Policy", "type": "policy"}
 {"category": "constraint", "id": "policy:web-middleware", "path": ".knowledge/policy/web-middleware.md", "role": "supporting", "title": "Web Middleware Integration", "type": "policy"}
@@ -325,6 +333,7 @@
 {"category": "objective", "id": "requirement:html-fragment-rendering", "path": ".knowledge/requirement/html-fragment-rendering.md", "role": "primary", "title": "HTML Fragment Rendering", "type": "requirement"}
 {"category": "objective", "id": "requirement:httpbinder-extensible-route-analysis", "path": ".knowledge/requirement/httpbinder-extensible-route-analysis.md", "role": "primary", "title": "Extensible httpbind-go Route Analysis", "type": "requirement"}
 {"category": "objective", "id": "requirement:incremental-project-capabilities", "path": ".knowledge/requirement/incremental-project-capabilities.md", "role": "primary", "title": "Incremental Project Capabilities", "type": "requirement"}
+{"category": "objective", "id": "requirement:jwt-only-api-authentication", "path": ".knowledge/requirement/jwt-only-api-authentication.md", "role": "primary", "title": "JWT-Only API Authentication", "type": "requirement"}
 {"category": "objective", "id": "requirement:live-boundary-liveness-signal", "path": ".knowledge/requirement/live-boundary-liveness-signal.md", "role": "primary", "title": "Liveness Must Be Visible Per Boundary", "type": "requirement"}
 {"category": "objective", "id": "requirement:live-connection-recovery", "path": ".knowledge/requirement/live-connection-recovery.md", "role": "primary", "title": "Live Connection Recovery", "type": "requirement"}
 {"category": "objective", "id": "requirement:live-error-report-off-lock", "path": ".knowledge/requirement/live-error-report-off-lock.md", "role": "primary", "title": "Report A Live Failure Without Holding The Boundary", "type": "requirement"}

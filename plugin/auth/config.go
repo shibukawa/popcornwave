@@ -14,12 +14,55 @@ import (
 	"github.com/shibukawa/popcornwave/sessionconfig"
 )
 
-// Authentication modes. Only ModeOIDCOnly is implemented; the passkey modes are
-// rejected during startup validation until their flows exist.
+// Authentication modes.
+//
+// ModeJWTOnly is deliberately absent from the api:cli-init capability catalog:
+// it authenticates an API caller that already holds a token from an
+// authorization server this framework does not run, so scaffolding it would
+// scaffold a dependency the project does not have. See
+// decision:jwt-only-mode-not-scaffolded.
 const (
 	ModeOIDCOnly    = "oidc_only"
 	ModeOIDCPasskey = "oidc_passkey"
 	ModePasskeyOnly = "passkey_only"
+	ModeJWTOnly     = "jwt_only"
+)
+
+// Revocation modes of ModeJWTOnly. There is no default: a deployment states
+// whether it can revoke a token, because the permissive answer must not arrive
+// as one nobody typed.
+const (
+	// RevocationOff accepts every verified token until it expires.
+	RevocationOff = "off"
+	// RevocationToken revokes one token by its jti claim.
+	RevocationToken = "token"
+	// RevocationSubject revokes every token issued to an identity before a
+	// stamp, which is what a compromised account needs and what enumerating
+	// jti values cannot do.
+	RevocationSubject = "subject"
+	// RevocationBoth is the ordinary answer; neither form substitutes for the
+	// other.
+	RevocationBoth = "both"
+)
+
+// What a revocation lookup does when the store cannot answer.
+const (
+	// RevocationRefuse fails closed, which is the default.
+	RevocationRefuse = "refuse"
+	// RevocationAdmit keeps serving while the store is down, which makes
+	// revocation advisory for the duration. It is an incident lever rather
+	// than a deployment posture.
+	RevocationAdmit = "admit"
+)
+
+// How the signing keys of the issuer are found.
+const (
+	// DiscoveryOIDC reads /.well-known/openid-configuration.
+	DiscoveryOIDC = "oidc"
+	// DiscoveryOAuth reads the RFC 8414 authorization server metadata.
+	DiscoveryOAuth = "oauth"
+	// DiscoveryManual takes auth.jwt.jwks_uri and fetches no metadata.
+	DiscoveryManual = "manual"
 )
 
 // Admission policies applied to a verified OIDC identity.
@@ -133,6 +176,114 @@ type Config struct {
 	Bootstrap    BootstrapConfig    `dependon:".enabled"`
 	OIDC         OIDCConfig         `dependon:".enabled"`
 	Passkey      PasskeyConfig      `dependon:".enabled"`
+	JWT          JWTConfig          `dependon:".enabled"`
+}
+
+// JWTConfig is the bearer-token binding of ModeJWTOnly. It describes one
+// authorization server this deployment trusts and one resource this deployment
+// is.
+//
+// Several fields carry no default on purpose. Each of them has a permissive
+// answer, and a permissive answer that arrives as a default is one nobody
+// decided: the audience would be "any resource", the admission rule "everyone
+// the issuer knows", and the revocation mode "cannot revoke". Startup names the
+// missing key instead.
+type JWTConfig struct {
+	// Issuer is the exact iss claim this deployment accepts. Key discovery
+	// starts here, so it is also where the trust in a signing key comes from.
+	Issuer string `env:"AUTH_JWT_ISSUER" help:"exact iss claim value this deployment accepts"`
+	// Audience is what this API is called by the authorization server. It has
+	// no default: a token verified without an audience check was minted for
+	// some other service and would be accepted here anyway.
+	Audience []string `help:"aud value naming this API; required"`
+	// AudienceMatch decides how a multi-valued aud is compared. any is
+	// ordinary, because an access token names every resource it may reach.
+	AudienceMatch string `default:"any" enum:"any,all" key:"audience_match" help:"any or all"`
+	// Algorithms is the exact verification allowlist. It never comes from the
+	// token header. An HMAC algorithm is refused outright: the verification key
+	// arrives from a public JWKS, so accepting one would let a published key be
+	// used as a shared secret.
+	//
+	// It is required rather than defaulted. Which signatures this deployment
+	// trusts is not a question to inherit an answer to, and the answer is one
+	// line: algorithms = ["RS256"].
+	Algorithms []string `help:"exact verification algorithm allowlist; required, e.g. [\"RS256\"]"`
+	// RequiredTokenType is the typ header this deployment demands. RFC 9068
+	// names at+jwt, and demanding it is what keeps an ID Token from being
+	// replayed here as an access token.
+	//
+	// Setting it empty accepts an absent typ, for an issuer predating RFC 9068.
+	// That is an explicit act with a cost: the audience becomes the only thing
+	// separating the two token kinds, so it must be one the issuer does not put
+	// in its ID Tokens.
+	RequiredTokenType string `default:"at+jwt" key:"required_token_type" help:"typ header to demand; empty accepts an absent typ"`
+	// RequiredScopes are the scope values every request must carry. It is its
+	// own field rather than a claim rule because scope is a space-delimited
+	// string and a generic claim comparison would match the whole value.
+	RequiredScopes []string `key:"required_scopes" help:"scope values every request must carry"`
+	// Discovery selects where the signing keys are found.
+	Discovery string `default:"oidc" enum:"oidc,oauth,manual" help:"oidc, oauth, or manual"`
+	// JWKSURI is read only under DiscoveryManual.
+	JWKSURI string `key:"jwks_uri" help:"signing key set, for manual discovery"`
+	// Leeway absorbs clock skew between this host and the issuer.
+	Leeway time.Duration `default:"30s" help:"clock skew allowance"`
+	// MaxTokenLifetime bounds exp minus iat. It is required, because it is also
+	// how long a subject-form revocation entry must be kept: this application
+	// cannot know how long the issuer mints for, so the deployment says.
+	MaxTokenLifetime time.Duration `key:"max_token_lifetime" help:"longest exp-minus-iat accepted; required"`
+	// MaxTokenBytes bounds the compact token before it is decoded.
+	MaxTokenBytes int `default:"8192" key:"max_token_bytes" help:"largest compact token accepted"`
+	// JWKSRefreshCooldown bounds how often an unknown kid may cause a refresh,
+	// so a stream of forged kid values cannot be amplified into traffic against
+	// the issuer.
+	JWKSRefreshCooldown time.Duration `default:"1m" key:"jwks_refresh_cooldown" help:"shortest interval between unknown-kid refreshes"`
+	// AllowLoopbackHTTP permits an http issuer on loopback and relaxes the
+	// same-origin rule on the discovered key set. Development only.
+	AllowLoopbackHTTP bool `default:"false" key:"allow_loopback_http" help:"permit an http loopback issuer during development"`
+	// IdentityClaim names the verified claim that identifies a local account.
+	IdentityClaim string `default:"sub" key:"identity_claim" help:"verified claim that identifies a local account"`
+	// Admission decides whether a verified identity may enter this application.
+	// Verification proves who the caller is; this decides whether they belong.
+	Admission string `help:"authenticated, claim, registered, or existing; required"`
+	// AutoProvision permits an unknown verified identity to create an account.
+	// It defaults false here and true under OIDC, because a browser login is a
+	// person arriving and a bearer request is a machine already running.
+	AutoProvision bool `default:"false" key:"auto_provision" help:"permit an unknown verified identity to create an account"`
+	// Claim is the admission rule applied when Admission is claim.
+	Claim ClaimConfig `help:"admission rule applied when admission is claim"`
+	// RegisteredClaims names the claims compared against the allowlist table
+	// under AdmissionRegistered.
+	RegisteredClaims []string `key:"registered_claims" help:"claims compared against the allowlist; defaults to identity_claim"`
+	Revocation       JWTRevocationConfig
+	Dev              JWTDevConfig
+}
+
+// JWTRevocationConfig decides whether a token can be withdrawn before it
+// expires, and what happens when the store that knows cannot be reached.
+type JWTRevocationConfig struct {
+	// Mode is off, token, subject, or both, and carries no default. Selecting a
+	// form is what turns its requirements on: the token form makes jti
+	// mandatory, rather than a second switch that can disagree with it.
+	Mode string `help:"off, token, subject, or both; required in jwt_only"`
+	// OnUnavailable is refuse or admit. It defaults to refuse, because a store
+	// that cannot answer has not said the token is valid.
+	OnUnavailable string `default:"refuse" enum:"refuse,admit" key:"on_unavailable" help:"refuse or admit when the store cannot answer"`
+	// MaxPropagationDelay bounds a per-process cache of revocation answers. It
+	// defaults to zero, which is no cache: a revocation that takes effect at
+	// the next request is the answer nobody has to reason about.
+	MaxPropagationDelay time.Duration `key:"max_propagation_delay" help:"how stale a cached revocation answer may be; zero disables the cache"`
+}
+
+// JWTDevConfig turns off token verification under `pw dev`.
+//
+// This is the one setting that turns authentication off, so it is reachable
+// only when four independent locks are open at once: the pwdev build mode, a
+// runtime environment that is not staging or production, this field, and a
+// request that arrived from loopback. A binary built without the pwdev mode
+// refuses to start when it sees the field rather than ignoring it, because a
+// security setting that is silently dropped reads as configured security.
+type JWTDevConfig struct {
+	TrustUnverifiedTokens bool `default:"false" key:"trust_unverified_tokens" help:"development only: admit a token without verifying it"`
 }
 
 // RegistrationConfig names how a deployment admits a new account. It carries no
@@ -357,9 +508,10 @@ func (c Config) validate() error { return c.validateShape() }
 // security.
 func (c Config) validateShape() error {
 	switch c.Mode {
-	case ModeOIDCOnly, ModeOIDCPasskey, ModePasskeyOnly:
+	case ModeOIDCOnly, ModeOIDCPasskey, ModePasskeyOnly, ModeJWTOnly:
 	default:
-		return fmt.Errorf("auth.mode must be %q, %q, or %q", ModeOIDCOnly, ModeOIDCPasskey, ModePasskeyOnly)
+		return fmt.Errorf("auth.mode must be %q, %q, %q, or %q",
+			ModeOIDCOnly, ModeOIDCPasskey, ModePasskeyOnly, ModeJWTOnly)
 	}
 	// An unknown backend names what is linked rather than what exists, because
 	// the difference between the two is an import line a deployment can add.
@@ -367,11 +519,25 @@ func (c Config) validateShape() error {
 		return fmt.Errorf("auth.backend = %q is not linked; registered backends are %s",
 			c.backendName(), strings.Join(registeredBackends(), ", "))
 	}
+	if c.usesJWT() && c.backendName() != BackendRDB && c.JWT.readsAStore() {
+		// jwt_only reads the allowlist and the revocation list directly rather
+		// than through the backend, and neither has a non-relational
+		// implementation. Refusing the pair is the alternative to accepting a
+		// key that would silently do nothing.
+		return fmt.Errorf(
+			"auth.backend = %q is not implemented for auth.mode %q; its registered allowlist and revocation list are relational, so use %q or turn both off",
+			c.backendName(), ModeJWTOnly, BackendRDB)
+	}
 	paths := map[string]string{
 		"auth.login_path":      c.LoginPath,
 		"auth.callback_path":   c.CallbackPath,
 		"auth.logout_path":     c.LogoutPath,
 		"auth.post_login_path": c.PostLoginPath,
+	}
+	if c.usesJWT() {
+		// No ceremony is mounted, so none of those paths mean anything. They
+		// keep their defaults and are not validated as routes this mode serves.
+		paths = nil
 	}
 	if c.usesPasskey() {
 		paths["auth.passkey.path"] = c.Passkey.Path
@@ -399,7 +565,10 @@ func (c Config) validateShape() error {
 	if err := c.validateOIDCUse(); err != nil {
 		return err
 	}
-	return c.validatePasskeyUse()
+	if err := c.validatePasskeyUse(); err != nil {
+		return err
+	}
+	return c.validateJWTUse()
 }
 
 // validateAssurance rejects a policy table a handler could not resolve, so a
@@ -486,6 +655,18 @@ func (h HintConfig) validate() error {
 
 func (c Config) usesOIDC() bool    { return c.Mode == ModeOIDCOnly || c.Mode == ModeOIDCPasskey }
 func (c Config) usesPasskey() bool { return c.Mode == ModeOIDCPasskey || c.Mode == ModePasskeyOnly }
+func (c Config) usesJWT() bool     { return c.Mode == ModeJWTOnly }
+
+// revokesTokens and revokesSubjects report which lookups a verified token faces.
+func (r JWTRevocationConfig) revokesTokens() bool {
+	return r.Mode == RevocationToken || r.Mode == RevocationBoth
+}
+
+func (r JWTRevocationConfig) revokesSubjects() bool {
+	return r.Mode == RevocationSubject || r.Mode == RevocationBoth
+}
+
+func (r JWTRevocationConfig) enabled() bool { return r.Mode != "" && r.Mode != RevocationOff }
 
 // issuesBootstrapCredentials reports whether this deployment ever hands out a
 // login ID and temporary secret, which is what the bootstrap table stores.

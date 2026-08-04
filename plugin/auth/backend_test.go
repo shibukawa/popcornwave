@@ -137,3 +137,43 @@ func TestOpenStatePutsTheCodecBackOn(t *testing.T) {
 		t.Fatalf("second take = %v", err)
 	}
 }
+
+// jwt_only reads the allowlist and the revocation list directly rather than
+// through the backend, and neither has a non-relational implementation. The
+// pair is refused rather than silently ignoring the key.
+func TestJWTOnlyRefusesANonRelationalBackend(t *testing.T) {
+	registerTestBackend(t, "test-elsewhere", Backend{})
+
+	// Revocation is on in the valid configuration, which is enough on its own
+	// to reach the relational store.
+	revoking := validJWTConfig()
+	revoking.Backend = "test-elsewhere"
+	if err := revoking.validate(); err == nil || !strings.Contains(err.Error(), BackendRDB) {
+		t.Fatalf("revocation on a non-relational backend = %v", err)
+	}
+
+	// The registered admission mode reaches the other relational table.
+	registered := validJWTConfig()
+	registered.Backend = "test-elsewhere"
+	registered.JWT.Revocation.Mode = RevocationOff
+	registered.JWT.Admission = AdmissionRegistered
+	if err := registered.validate(); err == nil || !strings.Contains(err.Error(), BackendRDB) {
+		t.Fatalf("registered admission on a non-relational backend = %v", err)
+	}
+
+	// A deployment reading neither table has nothing relational left, so the
+	// key is not in its way.
+	neither := validJWTConfig()
+	neither.Backend = "test-elsewhere"
+	neither.JWT.Revocation.Mode = RevocationOff
+	if err := neither.validate(); err != nil {
+		t.Fatalf("jwt_only reading no store = %v", err)
+	}
+
+	// And the relational backend is unaffected by any of this.
+	relational := validJWTConfig()
+	relational.Backend = BackendRDB
+	if err := relational.validate(); err != nil {
+		t.Fatalf("jwt_only on the relational backend = %v", err)
+	}
+}
