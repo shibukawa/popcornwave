@@ -9,17 +9,33 @@ One browser asset, popcornwave-runtime.js, carries every client capability the f
 source: decision:update-runtime-convergence
 supersedes_delivery_of: requirement:external-boundary-runtime, whose scope becomes one half of this asset rather than its own file
 as_built:
-  asset: one served file composed at process start from the module's exported source, this framework's boundary runtime, and a bootstrap that builds the instance
-  both_halves_are_files: boundary.js and updateboot.js are real files embedded at build time rather than Go string literals, so a formatter, a linter, and an editor all read them
-  no_copy: the module's bytes come from the pinned dependency, so an upgrade that changes them changes this asset and its revision with it
-  order_is_load_bearing: the module's half registers the factory and the bootstrap below it builds the instance; the module's own self-instantiation reads document.currentScript, which is null in a module script, so it cannot produce a second instance
+  asset: one served file composed at process start from boundary.js, update.js, and a bootstrap that builds the instance
+  every_half_is_a_file: all three are real files embedded at build time rather than Go string literals, so a formatter, a linter, and an editor read them
+  no_dependency_bytes: nothing here comes from the module any more, so an upgrade cannot change what a browser runs; what an upgrade can change is the wire, which the conformance harness is what catches
+  order_is_load_bearing: boundary.js defines custom elements at module scope and the parser may upgrade one inside the define call, so it comes first and everything reachable at that moment is declared inside it; update.js installs nothing and the bootstrap builds the instance
   configuration_channel: an inert escaped meta element, because a module script has no way to read its own tag
 composition:
-  pw_half: the boundary apply function, the parser-path custom elements, the document end marker, truncation reload, and the live reader of api:live-delivery-protocol
-  upstream_half: mode negotiation, manifest bookkeeping, delta application, head synchronization, redraw, action apply, link and GET-form interception, history, scroll, focus, form-state reconciliation, and preserved islands
-  shared_core: one apply function both halves call, so a boundary lands the same way whichever path delivered it
-  header_names: supplied as configuration rather than compiled in, from system:tinybind v0.3.1; the upstream half reads its attribute prefix, header namespace, endpoint prefix, and installed name from one object the server builds
-  instantiation: upstream exposes a factory rather than installing a global, so the merged asset constructs one instance under this framework's own name and the two halves share one boundary id space
+  every_byte_is_this_frameworks: since 2026-08-04 the asset is boundary.js, update.js, and a bootstrap, with nothing from the dependency in it
+  boundary_half: the apply core, the parser-path custom elements, the document end marker, truncation reload, and the live reader of api:live-delivery-protocol
+  update_half: mode negotiation, manifest bookkeeping, delta application, head installation, redraw, action apply, link and GET-form interception, history, scroll, supersession, form-state reconciliation, and preserved islands
+  shared_core:
+    what: one function carries client state from the outgoing nodes into a replacement, and both halves call it
+    covers: preserved islands, per-control form-state restoration against each control's own default, and the file input that cannot be restored by value at all
+    why_one: a delta swaps a region and a live delivery refills one, and a user who lost their typing would not care which did it; two implementations is what the merged asset used to be
+    guarded_by: a test asserting the core is declared exactly once in the served bytes
+  what_the_previous_composition_was:
+    shape: the dependency's client concatenated above this framework's, with a factory the bootstrap called
+    recorded_as: one apply function both halves call, which was never true; the module referenced neither exported apply function and swapped through its own
+    also_duplicated: a live reader, a record stream consumer, and a reconnect policy, all speaking the token this framework defined
+    why_it_could_not_be_fixed_in_place: the halves were concatenated text and the configuration reached the module as JSON from a meta element, so there was no channel an apply function could travel on
+  written_against: the wire contract system:tinybind publishes rather than against its client, which is what makes this an implementation of a specification rather than a fork
+  header_names: read from the configuration object the server builds, so a deployment that changes the prefix and a client that did not is impossible rather than silent
+  instantiation: update.js exports a factory and installs nothing; the bootstrap builds the single instance and gives it this framework's name
+conformance:
+  harness: a node suite drives the update runtime against a stubbed page, covering the requests issued, the responses consumed, validator bookkeeping, supersession, head ordering, the terminator reasons, and every fallback path
+  scope: the protocol half deliberately, since real DOM insertion is the browser's job and what this framework can be wrong about alone is the wire
+  run_by: a Go test that skips when node is absent, so the toolchain is not a build dependency of a Go library
+  parse_guard: the merged asset is parsed as a module, because a load-time throw leaves a page with no updates, no boundaries, and nothing in the console saying why
 delivery:
   path: the revision-stamped reserved path of requirement:framework-script-assets, under the name popcornwave-runtime.js
   revision: a digest over the merged bytes, so an upstream upgrade that changes the runtime changes the URL with no constant to bump
@@ -50,12 +66,12 @@ declaration_order:
 acceptance:
   - a strict CSP with no inline allowance applies every boundary, every delta, and every action response
   - one document loads exactly one framework script, whatever capabilities it uses
-  - an upstream upgrade changes the served URL without editing the scaffolded shell
+  - a change to any of the three files changes the served URL without editing the scaffolded shell
   - an unknown revision under the reserved path answers 404 rather than reaching the application
   - a completion whose bytes are split across chunks never destroys its fallback
   - typed text survives an update whose server-rendered default did not change
   - an application removing every script tag from its document shell still applies boundaries and still updates
-  - an upstream upgrade that changes the runtime changes the merged asset and its revision, with no copy to reconcile
+  - the served bytes carry no dependency code, and the shared client-state core is declared exactly once
   - no application template and no served byte carries the dependency's name
 open_questions:
   - whether the upstream half is fetched on demand as a capability module, keeping a static page at today's bytes, per the loading design of requirement:framework-script-assets

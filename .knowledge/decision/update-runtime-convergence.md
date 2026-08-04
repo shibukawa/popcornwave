@@ -32,8 +32,13 @@ why_coexistence_works:
   version_suffix: the live token gains the ;v=N form the other modes carry, so one parser reads the header
   token_shared_with_a_planned_mode: the module publishes 'live;v=N' in its guide for its own live reconnect, but parses no live token and carries live deliveries on the navigation mode instead, so the two describe the same intent with different bodies; requirement:tinybind-update-composition-seams carries the convergence
 retired:
-  - Pw-Response-Mode as a distinct header, replaced by a mode value on the shared one
   - the separate boundary runtime file, absorbed rather than deleted
+not_actually_retired:
+  what: Pw-Response-Mode was to be replaced by a mode value on the shared header, and it was not; the live path still selects on it, both in the server entry and in this framework's own boundary runtime
+  found: 2026-08-04, while adopting v0.3.5
+  harmless_today: the two headers do not collide, and the module's own live token on the shared header reaches a path this framework does not read, so nothing is misrouted
+  but: the ordering rule this decision calls the one cost of a shared header is therefore paying for a merge that has not happened
+  settles_with: the client ownership work, now done, since one side writing both halves makes a single header a choice rather than a negotiation
 kept:
   - every envelope of api:html-boundary-protocol, since the async and live paths are unchanged on the wire
   - api:live-delivery-protocol records and the document end marker
@@ -59,6 +64,16 @@ rejected:
   keep_pw_runtime_only:
     what: implement navigation delta, redraw, and action apply on the htmlbind boundary and validator primitives
     why_not: it rewrites form-state reconciliation, preserved islands, history, scroll, and focus handling that upstream already ships and tests
+    under_review: 2026-08-04, per the client ownership entry of requirement:tinybind-update-composition-seams
+    what_the_estimate_missed: the cost of the coupling itself, counted here as zero; wiring the redraw endpoint found that the module's browser half decides the address of an endpoint this framework serves, so a change this framework could make alone needs a coordinated round instead
+    what_it_got_right: the size of what would be rewritten, which the audit confirmed rather than reduced
+    not_reversed_yet: the trade is now between a known rewrite and a coupling that bills per round, and that is the argument the next round settles
+    decided: 2026-08-04, that every byte running in a browser becomes this framework's; v0.3.5 made the module's asset opt-in, so what remained was writing the replacement rather than negotiating for the right to
+    narrowed_by_v0_3_5: the coupling that forced the decision was addressing, and that is now the caller's, so the rewrite was taken because it was worth taking rather than to unblock anything
+    done: the client half is this framework's, written against the published wire contract rather than derived from the module's implementation
+    what_it_cost: about four hundred and fifty lines, against an estimate that had counted the rewrite correctly and the coupling at zero
+    what_it_bought: one apply core instead of two, one live implementation instead of two, addressing this framework can change alone, and a conformance harness that tests the wire rather than a JavaScript entry surface
+    what_stays_the_module_s: every Go half, and everything the compiler emits; the transport decision above is unchanged
   adopt_upstream_names:
     what: serve under X-Tinybind and /_tb
     why_not: the reserved prefix, the immutable revision URL, and the framework-owned asset rule are Popcorn Wave contracts a dependency name must not leak into

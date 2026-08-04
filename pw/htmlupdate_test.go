@@ -4,10 +4,12 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
-	"strconv"
+	"net/url"
+	"reflect"
 	"strings"
 	"testing"
 
+	"github.com/shibukawa/popcornwave/pwruntime"
 	"github.com/shibukawa/tinybind-go/htmlbind"
 	"github.com/shibukawa/tinybind-go/htmlupdate"
 )
@@ -22,7 +24,10 @@ func updateConfig() HTMLConfig {
 func updateRequest(t *testing.T, mode string) *http.Request {
 	t.Helper()
 	request := httptest.NewRequest(http.MethodGet, "/search?q=go", nil)
-	request.Header.Set("Pw-Render", mode+";v="+strconv.Itoa(htmlupdate.Version))
+	// The version is whatever the client writes and the response echoes it back;
+	// since v0.3.5 the module compares the build rather than a version number, so
+	// a mode with no version is a valid request.
+	request.Header.Set("Pw-Render", mode)
 	// An unstamped binary has no vcs.revision, so the module falls back to a
 	// per-process identity. Reading the effective value is what a rendered page
 	// would have carried.
@@ -118,9 +123,6 @@ func TestTheRuntimeConfigurationNamesWhatTheServerUses(t *testing.T) {
 	if err := json.Unmarshal([]byte(raw), &config); err != nil {
 		t.Fatalf("the configuration is not readable JSON: %v\n%s", err, raw)
 	}
-	if config.Prefix != updatePathPrefix {
-		t.Errorf("prefix = %q, want %q", config.Prefix, updatePathPrefix)
-	}
 	if config.Header != UpdateHeaderPrefix {
 		t.Errorf("header = %q, want %q", config.Header, UpdateHeaderPrefix)
 	}
@@ -154,22 +156,152 @@ func TestUpdatesRequireAValidatorKey(t *testing.T) {
 	}
 }
 
-// A project publishing no reloadable component answers 404 under the reserved
-// prefix rather than falling through to application routing.
-func TestRedrawWithNoRegistryIsNotFoundRatherThanRouted(t *testing.T) {
+// redrawRequest is what the browser sends: the page's own URL, the redraw mode,
+// and the component named in headers rather than in the path.
+func redrawRequest(t *testing.T, kind, instance, query string) *http.Request {
+	t.Helper()
+	request := httptest.NewRequest(http.MethodGet, "/orders?"+query, nil)
+	request.Header.Set("Pw-Render", "redraw")
+	request.Header.Set("Pw-Kind", kind)
+	request.Header.Set("Pw-Instance", instance)
+	request.Header.Set("Pw-Build", updateOptions(updateConfig()).RuntimeConfig().Build)
+	return request.WithContext(pwruntime.WithResources(request.Context(), pwruntime.Resources{
+		Configs: map[reflect.Type]any{reflect.TypeFor[HTMLConfig](): updateConfig()},
+	}))
+}
+
+func cardComponent(kind string) htmlupdate.Reloadable {
+	return htmlupdate.Reloadable{
+		KindID: kind,
+		Render: func(_ *http.Request, instanceID string, values url.Values) (htmlbind.Fragment, error) {
+			return staticFragment(`<article id="` + instanceID + `">page ` + values.Get("page") + `</article>`), nil
+		},
+	}
+}
+
+// withEmptyReloadableRegistry isolates one test from the process-wide set a
+// generated init would have filled. The registry is global on purpose — it is
+// what a package's init publishes into — so a test that adds to it has to put
+// back what it found.
+func withEmptyReloadableRegistry(t *testing.T) {
+	t.Helper()
+	reloadableState.Lock()
+	saved := struct {
+		registry *htmlupdate.Registry
+		count    int
+		failure  error
+	}{reloadableState.registry, reloadableState.count, reloadableState.failure}
+	reloadableState.registry, reloadableState.count, reloadableState.failure = &htmlupdate.Registry{}, 0, nil
+	reloadableState.Unlock()
+	t.Cleanup(func() {
+		reloadableState.Lock()
+		defer reloadableState.Unlock()
+		reloadableState.registry, reloadableState.count, reloadableState.failure = saved.registry, saved.count, saved.failure
+	})
+}
+
+// The escape hatch behind Redraw: a handler that publishes a set of its own
+// rather than the one its page's markup reaches.
+func TestRedrawComponentsAnswersAComponentTheHandlerNamed(t *testing.T) {
 	recorder := httptest.NewRecorder()
-	request := httptest.NewRequest(http.MethodGet, updatePathPrefix+"/redraw/Kind/card-1", nil)
-	if !serveRedraw(recorder, request) {
-		t.Fatal("the redraw path was not handled by the reserved prefix")
+	request := redrawRequest(t, "fixture.card.Card", "card-1", "page=2")
+	if !RedrawComponents(recorder, request, cardComponent("fixture.card.Card")) {
+		t.Fatal("a redraw request was not answered")
+	}
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200: %s", recorder.Code, recorder.Body.String())
+	}
+	if body := recorder.Body.String(); !strings.Contains(body, "page 2") {
+		t.Errorf("the redraw did not render the component: %s", body)
+	}
+}
+
+// Naming the components is what bounds the surface. A page cannot be asked to
+// render one it never shows, even though the process publishes it elsewhere.
+func TestRedrawComponentsRefusesAComponentThisHandlerDidNotName(t *testing.T) {
+	recorder := httptest.NewRecorder()
+	request := redrawRequest(t, "fixture.other.Panel", "panel-1", "")
+	if !RedrawComponents(recorder, request, cardComponent("fixture.card.Card")) {
+		t.Fatal("an unnamed component was not answered at all")
 	}
 	if recorder.Code != http.StatusNotFound {
 		t.Errorf("status = %d, want 404", recorder.Code)
 	}
 }
 
-func TestARequestOutsideTheRedrawPrefixIsLeftAlone(t *testing.T) {
-	if serveRedraw(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/orders", nil)) {
-		t.Error("an application path was claimed by the redraw handler")
+// An ordinary page request passes straight through, which is what lets the call
+// sit at the top of a handler that mostly renders documents.
+func TestRedrawComponentsLeavesAnOrdinaryRequestAlone(t *testing.T) {
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "/orders", nil)
+	request = request.WithContext(pwruntime.WithResources(request.Context(), pwruntime.Resources{
+		Configs: map[reflect.Type]any{reflect.TypeFor[HTMLConfig](): updateConfig()},
+	}))
+	if RedrawComponents(recorder, request, cardComponent("fixture.card.Card")) {
+		t.Error("a document request was claimed as a redraw")
+	}
+	if recorder.Body.Len() != 0 {
+		t.Errorf("a document request had bytes written to it: %s", recorder.Body.String())
+	}
+}
+
+// A page rendered by another build is not refused: at a page URL the right
+// answer to a stale redraw is the page, which the caller is about to render.
+func TestRedrawComponentsFromAnotherBuildFallsThroughToThePage(t *testing.T) {
+	recorder := httptest.NewRecorder()
+	request := redrawRequest(t, "fixture.card.Card", "card-1", "")
+	request.Header.Set("Pw-Build", "some-other-build")
+	if RedrawComponents(recorder, request, cardComponent("fixture.card.Card")) {
+		t.Error("a redraw from another build was answered rather than left to the page")
+	}
+}
+
+// The page tree half: a generated route handler has no seam of its own, so the
+// render entry answers from the process-wide published set.
+func TestTheRenderEntryAnswersARegisteredRedraw(t *testing.T) {
+	withEmptyReloadableRegistry(t)
+	if err := RegisterReloadable(cardComponent("fixture.card.Card")); err != nil {
+		t.Fatal(err)
+	}
+	recorder := httptest.NewRecorder()
+	request := redrawRequest(t, "fixture.card.Card", "card-1", "page=5")
+	if !serveRegisteredRedraw(recorder, request, updateConfig()) {
+		t.Fatal("a registered redraw was not answered by the render entry")
+	}
+	if body := recorder.Body.String(); !strings.Contains(body, "page 5") {
+		t.Errorf("the redraw did not render the component: %s", body)
+	}
+}
+
+// A project publishing none leaves every request on the document path.
+func TestTheRenderEntryIgnoresRedrawWithNoRegistry(t *testing.T) {
+	withEmptyReloadableRegistry(t)
+	recorder := httptest.NewRecorder()
+	if serveRegisteredRedraw(recorder, redrawRequest(t, "any.Kind", "card-1", ""), updateConfig()) {
+		t.Error("a project publishing nothing answered a redraw")
+	}
+}
+
+// The kind covers a component's name, parameters, and markup but not its
+// package, so two identical templates in different packages produce the same
+// one. A generated init cannot answer that, which is why startup does.
+func TestADuplicateRegistrationIsAStartupDiagnostic(t *testing.T) {
+	withEmptyReloadableRegistry(t)
+	component := cardComponent("fixture.card.Card")
+	if err := RegisterReloadable(component); err != nil {
+		t.Fatal(err)
+	}
+	if err := validateReloadableRegistration(); err != nil {
+		t.Fatalf("a clean registration was reported as a failure: %v", err)
+	}
+	// The generated init discards this, which is exactly the case under test.
+	_ = RegisterReloadable(component)
+	err := validateReloadableRegistration()
+	if err == nil {
+		t.Fatal("a duplicate kind was accepted")
+	}
+	if !strings.Contains(err.Error(), "fixture.card.Card") {
+		t.Errorf("the diagnostic does not name the component: %v", err)
 	}
 }
 
@@ -188,8 +320,9 @@ func TestANavigationRequestIsAnsweredWithADelta(t *testing.T) {
 		t.Errorf("Content-Type = %q, want the record stream", got)
 	}
 	// The served mode is echoed, so a proxy that substituted a body is
-	// detectable rather than silently applied.
-	if got := response.Header.Get("Pw-Render"); !strings.HasPrefix(got, "navigation;") {
+	// detectable rather than silently applied. The version echoed is the one the
+	// request carried, and since v0.3.5 the client sends a bare mode token.
+	if got := response.Header.Get("Pw-Render"); got != "navigation" {
 		t.Errorf("Pw-Render = %q", got)
 	}
 	// Both representations of one URL vary on what selected them.

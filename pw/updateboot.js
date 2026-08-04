@@ -1,8 +1,9 @@
 // Popcorn Wave update bootstrap.
 //
-// The partial-update half above this is a factory: it installs nothing and
-// names nothing on its own, so something has to build one instance and give it
-// the names this framework owns. That is all this file does.
+// The two halves above this file are libraries: the boundary runtime installs
+// its own custom elements because the parser needs them present, and the update
+// runtime installs nothing at all. This builds the one instance and gives it the
+// name this framework owns.
 //
 // The configuration arrives as an inert escaped meta element rather than as an
 // attribute on this script's own tag. A module script has no
@@ -11,7 +12,7 @@
 
 const updateConfigMeta = document.querySelector('meta[name="pw-runtime"]');
 
-if (updateConfigMeta && typeof createPartialUpdateRuntime === "function") {
+if (updateConfigMeta) {
 	let updateConfig = null;
 	try {
 		updateConfig = JSON.parse(updateConfigMeta.getAttribute("content") || "");
@@ -22,7 +23,7 @@ if (updateConfigMeta && typeof createPartialUpdateRuntime === "function") {
 		console.error("Popcorn Wave: unreadable runtime configuration", error);
 	}
 	if (updateConfig) {
-		const runtime = createPartialUpdateRuntime(updateConfig);
+		const runtime = createUpdateRuntime(updateConfig);
 		if (updateConfig.global) {
 			window[updateConfig.global] = runtime;
 		}

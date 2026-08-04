@@ -286,8 +286,16 @@ func WriteHTMLChain(w http.ResponseWriter, r *http.Request, wrappers []HTMLWrapp
 	// decided before anything is written. An unrecognized mode resolves to the
 	// document, so a crawler, curl, and a browser without the runtime are
 	// unaffected by any of this.
-	if config.Update.Enabled && serveUpdate(w, r, wrappers, leaf, config, options) {
-		return
+	if config.Update.Enabled {
+		// A redraw is tested first because it answers with one component's
+		// subtree and never touches this chain, so there is nothing about the
+		// page left to decide once it has been recognized.
+		if serveRegisteredRedraw(w, r, config) {
+			return
+		}
+		if serveUpdate(w, r, wrappers, leaf, config, options) {
+			return
+		}
 	}
 	// The probe runs first because it is the cheapest of the three gates and the
 	// only one that can rule streaming out entirely, so a page that could never
