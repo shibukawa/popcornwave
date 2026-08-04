@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net"
+	"net/http"
 	"os"
 	"os/exec"
 	"strconv"
@@ -11,7 +13,7 @@ import (
 	"time"
 
 	"github.com/shibukawa/localotelviewer/viewer"
-	"github.com/shibukawa/popcornwave/internal/otelui"
+	"github.com/shibukawa/localotelviewer/viewer/webui"
 )
 
 // Environment variables the telemetry viewer injects into the application
@@ -31,16 +33,24 @@ const (
 // accepts OTLP JSON, but protobuf is the exporter default and the smaller wire.
 const otlpProtocol = "http/protobuf"
 
-// devTelemetryViewer is the running receiver and UI plus the values pw dev
-// hands to the application.
+// devTelemetryViewer is the running receiver plus the values pw dev hands to
+// the application.
+//
+// The receiver and the UI are two mounts of one handler, so they share a store
+// while answering on different addresses. They want opposite things from a
+// port: the receiver publishes an address a process is handed, so a reserved
+// port costs nothing, and the UI is an address a person returns to, so it lives
+// on the fixed console port instead.
 type devTelemetryViewer struct {
-	server     *viewer.Server
+	handler    *viewer.Handler
+	server     *http.Server
+	listener   net.Listener
 	env        []string
 	stopHealth func()
 }
 
-// startDevTelemetryViewer serves the OTLP receiver, the snapshot API, and the
-// UI from one loopback listener.
+// startDevTelemetryViewer serves the OTLP receiver and the snapshot API on a
+// loopback listener of its own. The UI is mounted separately, by the console.
 //
 // The port defaults to 0 so the operating system chooses a free one: the
 // endpoint is injected rather than written down, which makes a fixed number
@@ -54,26 +64,49 @@ func startDevTelemetryViewer(config projectConfig, stdout io.Writer) (*devTeleme
 		fmt.Fprintf(stdout, "pw dev: telemetry viewer skipped; %s already points at %s\n", envOTLPEndpoint, value)
 		return nil, nil
 	}
-	server, err := viewer.New("127.0.0.1:"+strconv.Itoa(config.Otel.Port), config.Otel.Max,
-		viewer.WithWebHandler(otelui.Handler()))
+	// The UI comes from the dependency rather than from a build committed here.
+	// Importing viewer alone still links no assets, so this import is the
+	// explicit choice to take them.
+	handler := viewer.NewHandler(config.Otel.Max, viewer.WithWebHandler(webui.Handler()))
+	listener, err := net.Listen("tcp", "127.0.0.1:"+strconv.Itoa(config.Otel.Port))
 	if err != nil {
 		return nil, err
 	}
 	telemetry := &devTelemetryViewer{
-		server: server,
+		handler:  handler,
+		listener: listener,
+		server:   &http.Server{Handler: handler},
 		env: []string{
-			envOTLPEndpoint + "=" + server.URL(),
+			envOTLPEndpoint + "=http://" + listener.Addr().String(),
 			envOTLPProtocol + "=" + otlpProtocol,
 			envOTLPService + "=" + config.Name,
 		},
 	}
+	go telemetry.server.Serve(listener)
 	telemetry.report(stdout)
 	return telemetry, nil
 }
 
+// paneHandler is the viewer mounted for the console: the UI it serves for every
+// path the receiver and snapshot API do not claim.
+//
+// The snapshot API is claimed at the console root rather than under the pane
+// prefix, because the committed UI bundle resolves its fetch against the
+// document origin. See devconsole.Pane.RootPaths.
+func (v *devTelemetryViewer) paneHandler() http.Handler {
+	if v == nil {
+		return nil
+	}
+	return v.handler
+}
+
+// report names the receiver address rather than a page to open. The page is the
+// console's telemetry pane; this address is what the application exports to,
+// and it is printed because an exporter of the developer's own may have to be
+// pointed at it.
 func (v *devTelemetryViewer) report(stdout io.Writer) {
-	fmt.Fprintf(stdout, "pw dev: telemetry viewer %s\n", v.server.URL())
-	fmt.Fprintf(stdout, "pw dev:   traces and logs export to %s as service %q\n", envOTLPEndpoint, v.serviceName())
+	fmt.Fprintf(stdout, "pw dev: telemetry receiver %s\n", v.url())
+	fmt.Fprintf(stdout, "pw dev:   traces and logs export there as service %q, and read on the console\n", v.serviceName())
 }
 
 func (v *devTelemetryViewer) serviceName() string {
@@ -85,12 +118,12 @@ func (v *devTelemetryViewer) serviceName() string {
 	return ""
 }
 
-// url reports where the viewer listens, or the empty string when none runs.
+// url reports where the receiver listens, or the empty string when none runs.
 func (v *devTelemetryViewer) url() string {
 	if v == nil {
 		return ""
 	}
-	return v.server.URL()
+	return "http://" + v.listener.Addr().String()
 }
 
 // environ returns the process environment for the application, preserving any
@@ -123,7 +156,7 @@ func (v *devTelemetryViewer) monitor(command *exec.Cmd) {
 	if command == nil || command.Process == nil {
 		return
 	}
-	v.stopHealth = v.server.MonitorProcess(command.Process.Pid)
+	v.stopHealth = v.handler.MonitorProcess(command.Process.Pid)
 }
 
 // close stops the viewer with the developer loop. Telemetry is held in memory
@@ -139,4 +172,5 @@ func (v *devTelemetryViewer) close() {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 	_ = v.server.Shutdown(ctx)
+	_ = v.listener.Close()
 }

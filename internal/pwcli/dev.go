@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/shibukawa/popcornwave/internal/dbseed"
+	"github.com/shibukawa/popcornwave/internal/devconsole"
 	"github.com/shibukawa/popcornwave/internal/pwenv"
 )
 
@@ -31,52 +32,11 @@ func runDev(ctx context.Context, args []string, stdout, stderr io.Writer) error 
 	}
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
-	// Startup spends its time on services, generation, migration, and a build,
-	// and said nothing while it did. The region names the phase in progress and
-	// gives way once the loop reaches its steady state.
-	progress := newProgressRegion(stdout)
-	progress.Phase("starting services")
-	stopServices := startDevboxServices(ctx, root, stdout, stderr)
-	defer stopServices()
-
-	progress.Phase("generating")
-	if _, err := generateProject(ctx, false, stdout, false); err != nil {
-		progress.Done()
-		return err
-	}
-	progress.Phase("applying migrations")
-	if err := runDevMigrations(ctx, root, config, stdout, stderr); err != nil {
-		progress.Done()
-		return err
-	}
-	var tailwind *exec.Cmd
-	var tailwindExited <-chan error
-	if config.Tailwind.Enabled {
-		progress.Phase("building CSS")
-		development := config.Tailwind
-		development.Minify = false
-		if err := buildTailwind(ctx, root, development, stdout, stderr); err != nil {
-			fmt.Fprintln(stderr, "pw dev:", err)
-		}
-		tailwind, tailwindExited, err = startTailwindWatch(ctx, root, development, stdout, stderr)
-		if err != nil {
-			progress.Done()
-			return err
-		}
-		defer func() { stopCommand(tailwind, tailwindExited) }()
-	}
-	var idp *devIdentityProvider
-	if config.IdP.Enabled {
-		idp, err = startDevIdentityProvider(ctx, root, config, stdout)
-		if err != nil {
-			return fmt.Errorf("pw dev: development identity provider: %w", err)
-		}
-		defer idp.close()
-	}
-	// The viewer starts before the application and outlives every rebuild, so
-	// telemetry captured before a restart stays readable afterwards. A viewer
-	// that fails to listen is not worth ending the loop over: the application
-	// still runs, it is only unobserved.
+	// The viewer and the console start before anything the loop reports on, so
+	// that the first phase already has somewhere to be published and the
+	// developer can open the console while the first build is still running.
+	// Neither failing is worth ending the loop over: the application still
+	// runs, it is only unobserved.
 	var telemetry *devTelemetryViewer
 	if config.Otel.Enabled {
 		telemetry, err = startDevTelemetryViewer(config, stdout)
@@ -85,19 +45,69 @@ func runDev(ctx context.Context, args []string, stdout, stderr io.Writer) error 
 		}
 		defer telemetry.close()
 	}
+	console := startDevConsole(root, config, telemetry, stdout, stderr)
+	defer console.Close()
+
+	// Startup spends its time on services, generation, migration, and a build,
+	// and said nothing while it did. The region names the phase in progress and
+	// gives way once the loop reaches its steady state.
+	report := &devReporter{progress: newProgressRegion(stdout), console: console}
+	report.Phase("starting services")
+	stopServices := startDevboxServices(ctx, root, stdout, stderr)
+	defer stopServices()
+
+	report.Phase("generating")
+	if _, err := generateProject(ctx, false, stdout, false); err != nil {
+		report.Failed(err)
+		return err
+	}
+	report.Phase("applying migrations")
+	if err := runDevMigrations(ctx, root, config, stdout, stderr); err != nil {
+		report.Failed(err)
+		return err
+	}
+	var tailwind *exec.Cmd
+	var tailwindExited <-chan error
+	if config.Tailwind.Enabled {
+		report.Phase("building CSS")
+		development := config.Tailwind
+		development.Minify = false
+		if err := buildTailwind(ctx, root, development, stdout, stderr); err != nil {
+			fmt.Fprintln(stderr, "pw dev:", err)
+			report.Failed(err)
+		}
+		tailwind, tailwindExited, err = startTailwindWatch(ctx, root, development, stdout, stderr)
+		if err != nil {
+			report.Failed(err)
+			return err
+		}
+		defer func() { stopCommand(tailwind, tailwindExited) }()
+	}
+	var idp *devIdentityProvider
+	if config.IdP.Enabled {
+		report.Phase("starting the identity provider")
+		idp, err = startDevIdentityProvider(ctx, root, config, stdout)
+		if err != nil {
+			report.Failed(err)
+			return fmt.Errorf("pw dev: development identity provider: %w", err)
+		}
+		defer idp.close()
+	}
 	rosterState := idp.watchState()
 	state, err := watchSnapshot(root, config, tailwind == nil)
 	if err != nil {
 		return err
 	}
-	progress.Phase("building and starting the application")
-	app, exited, err := startApplication(ctx, root, config.Main, idp, telemetry, stdout, stderr)
+	report.Phase("building and starting the application")
+	app, exited, err := startApplication(ctx, root, config.Main, idp, telemetry, console, stdout, stderr)
 	// The region gives way here: everything after this point is the application
 	// and its services talking, which is the scrollback the loop exists to show.
-	progress.Done()
+	report.Done()
 	if err != nil {
+		report.Failed(err)
 		return err
 	}
+	report.Healthy()
 	defer func() { stopCommand(app, exited) }()
 	telemetry.monitor(app)
 
@@ -119,10 +129,12 @@ func runDev(ctx context.Context, args []string, stdout, stderr io.Writer) error 
 			app, exited = nil, nil
 			if err == nil {
 				fmt.Fprintln(stdout, "pw dev: the application exited; waiting for the next change")
+				console.Publish("the application exited", devconsole.StatusStarting, nil)
 				continue
 			}
 			fmt.Fprintln(stderr, "pw dev: application exited:", err)
 			fmt.Fprintln(stderr, "pw dev: waiting for the next change")
+			console.Failed("running the application", "the application exited: "+err.Error())
 		case err := <-tailwindExited:
 			if err != nil && !errors.Is(err, context.Canceled) {
 				fmt.Fprintln(stderr, "pw dev: tailwindcss exited:", err)
@@ -161,13 +173,16 @@ func runDev(ctx context.Context, args []string, stdout, stderr io.Writer) error 
 					tailwindExited = nil
 				}
 			}
+			report.Phase("generating")
 			if _, err := generateProject(ctx, false, stdout, false); err != nil {
 				fmt.Fprintln(stderr, "pw dev:", err)
+				report.Failed(err)
 				state = next
 				continue
 			}
 			migrateErr := error(nil)
 			if config.Migration.Auto {
+				report.Phase("applying migrations")
 				if version := changedMigrationVersion(root, config, state, next); version > 0 {
 					migrateErr = reapplyDevMigrations(ctx, root, config, version, stdout, stderr)
 				} else {
@@ -176,27 +191,33 @@ func runDev(ctx context.Context, args []string, stdout, stderr io.Writer) error 
 			}
 			if migrateErr != nil {
 				fmt.Fprintln(stderr, "pw dev:", migrateErr)
+				report.Failed(migrateErr)
 				state = next
 				continue
 			}
 			state, _ = watchSnapshot(root, config, tailwind == nil)
-			app, exited, err = startApplication(ctx, root, config.Main, idp, telemetry, stdout, stderr)
+			report.Phase("building and starting the application")
+			app, exited, err = startApplication(ctx, root, config.Main, idp, telemetry, console, stdout, stderr)
 			if err != nil {
 				fmt.Fprintln(stderr, "pw dev:", err)
+				report.Failed(err)
+			} else {
+				report.Healthy()
 			}
+			report.Done()
 			telemetry.monitor(app)
 		}
 	}
 }
 
-func startApplication(ctx context.Context, root, mainPackage string, idp *devIdentityProvider, telemetry *devTelemetryViewer, stdout, stderr io.Writer) (*exec.Cmd, <-chan error, error) {
+func startApplication(ctx context.Context, root, mainPackage string, idp *devIdentityProvider, telemetry *devTelemetryViewer, console *devconsole.Console, stdout, stderr io.Writer) (*exec.Cmd, <-chan error, error) {
 	// Not CommandContext: its cancellation kills this process the moment the
 	// interrupt arrives, and a kill is the one signal `go run` cannot pass down
 	// to the binary it compiled. The loop stops the application through
 	// stopCommand instead, which addresses the whole group and waits.
 	command := exec.Command("go", "run", "-tags=pwdev", mainPackage)
 	command.Dir, command.Stdout, command.Stderr, command.Stdin = root, stdout, stderr, os.Stdin
-	command.Env = telemetry.environ(idp.environ(developmentEnviron()))
+	command.Env = consoleEnviron(console, telemetry.environ(idp.environ(developmentEnviron())))
 	ownProcessGroup(command)
 	if err := command.Start(); err != nil {
 		return nil, nil, err

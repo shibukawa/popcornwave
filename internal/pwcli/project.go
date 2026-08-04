@@ -19,6 +19,11 @@ const (
 	// reserved port would move on every run, and the issuer it appears in is
 	// part of the account identity the scaffolded resolver derives.
 	defaultIdPPort = 18080
+	// defaultConsolePort sits beside the identity provider's, for the opposite
+	// reason: not because anything derives an identity from it, but because a
+	// console is bookmarked, and a reserved port would hand out a new address
+	// every run.
+	defaultConsolePort = 18081
 )
 
 // Target compilers recorded by project.toolchain. Projects scaffolded before the
@@ -65,6 +70,22 @@ type otelConfig struct {
 	Enabled bool
 	Port    int
 	Max     int
+}
+
+// consoleConfig selects the development console `pw dev` serves beside the
+// application: one loopback listener holding the index and every pane.
+//
+// The port is fixed rather than reserved, which is the opposite of every other
+// development listener here. A reserved port moves on every run, and a surface
+// the developer bookmarks and returns to all day cannot move. The telemetry
+// receiver keeps its reserved port because the address it publishes is one a
+// process is handed rather than one a person types.
+type consoleConfig struct {
+	Enabled bool
+	Port    int
+	// Assets enables the static asset pane. Each pane has a key of its own so
+	// that turning one off is not turning the console off.
+	Assets bool
 }
 
 // generationScope records, per generation purpose, the directories pw generate
@@ -127,6 +148,7 @@ type projectConfig struct {
 	Watch     watchConfig
 	IdP       idpConfig
 	Otel      otelConfig
+	Console   consoleConfig
 	Migration migrationConfig
 	Seed      seedConfig
 	Tailwind  tailwindConfig
@@ -150,6 +172,7 @@ func loadProjectConfig(root string) (projectConfig, error) {
 		"seed.auto",
 		"dev.idp.enabled", "dev.idp.config", "dev.idp.port",
 		"dev.otel.enabled", "dev.otel.port", "dev.otel.max",
+		"dev.console.enabled", "dev.console.port", "dev.console.assets.enabled",
 		"migration.dir", "migration.auto",
 		"assets.tailwind.enabled", "assets.tailwind.input",
 		"assets.tailwind.output", "assets.tailwind.minify",
@@ -253,6 +276,31 @@ func loadProjectConfig(root string) (projectConfig, error) {
 			return projectConfig{}, fmt.Errorf("popcornwave.toml: dev.otel.max must not be negative")
 		}
 		config.Otel.Max = int(max)
+	}
+	config.Console.Enabled = true
+	config.Console.Assets = true
+	config.Console.Port = defaultConsolePort
+	if value, ok := document.Get("dev.console.enabled"); ok {
+		config.Console.Enabled, err = value.AsBool()
+		if err != nil {
+			return projectConfig{}, fmt.Errorf("popcornwave.toml: dev.console.enabled: %w", err)
+		}
+	}
+	if value, ok := document.Get("dev.console.assets.enabled"); ok {
+		config.Console.Assets, err = value.AsBool()
+		if err != nil {
+			return projectConfig{}, fmt.Errorf("popcornwave.toml: dev.console.assets.enabled: %w", err)
+		}
+	}
+	if value, ok := document.Get("dev.console.port"); ok {
+		port, err := value.AsInt()
+		if err != nil {
+			return projectConfig{}, fmt.Errorf("popcornwave.toml: dev.console.port: %w", err)
+		}
+		if port < 0 || port > 65535 {
+			return projectConfig{}, fmt.Errorf("popcornwave.toml: dev.console.port must be between 0 and 65535")
+		}
+		config.Console.Port = int(port)
 	}
 	config.Migration.Dir, err = optionalScalar(document, "migration.dir")
 	if err != nil {

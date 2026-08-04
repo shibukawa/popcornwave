@@ -646,7 +646,7 @@ dynamo = [` + quotedList(scaffoldGenerationScope(options).Dynamo) + `]
 [dev.watch]
 includes = []
 excludes = []
-` + devIdPProjectConfig(options) + configTailwind,
+` + devConsoleProjectConfig() + devIdPProjectConfig(options) + configTailwind,
 		pwenv.FileName(pwenv.Development): `# Development runtime configuration.
 # APP_ENV selects this file; add config.stg.toml and config.prod.toml as needed.
 [server]
@@ -1536,6 +1536,21 @@ export component Home(name: string, project: string, signedIn: bool, email: stri
   </section>
 ` + landingSections(options, style, "handlers/home.pw.html") + `</div>
 }
+`
+}
+
+// devConsoleProjectConfig pins the development console port.
+//
+// This is the one development listener with a written-down number, and it is
+// written down for the opposite reason to dev.idp.port: nothing derives an
+// identity from it, but it is the address a developer bookmarks and returns to
+// all day, and a reserved port would hand out a new one every run.
+func devConsoleProjectConfig() string {
+	return `
+# The pw dev console: the telemetry viewer, the asset report, and whatever else
+# the loop can say about the project, on one loopback address.
+[dev.console]
+port = ` + strconv.Itoa(defaultConsolePort) + `
 `
 }
 
