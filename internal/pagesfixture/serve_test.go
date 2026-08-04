@@ -7,6 +7,7 @@
 package pagesfixture_test
 
 import (
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -14,6 +15,7 @@ import (
 
 	"github.com/shibukawa/popcornwave/internal/pagesfixture/pages"
 	"github.com/shibukawa/popcornwave/pw"
+	"github.com/shibukawa/popcornwave/testutil"
 )
 
 // fixtureMux registers the tree on a mux and installs a document shell.
@@ -128,6 +130,101 @@ func TestPagesServeServerAction(t *testing.T) {
 	mux.ServeHTTP(recorder, request)
 	if recorder.Code != http.StatusBadRequest {
 		t.Errorf("missing required field: status %d, want 400\n%s", recorder.Code, recorder.Body.String())
+	}
+}
+
+// The redraw endpoint, from the template annotation to the served region.
+//
+// Nothing in this package registers Card: the .pw.html source carries
+// @reloadable, generation derived an init from that, and linking the package is
+// what put it in the runtime registry. Serving it here is the only assertion
+// that covers the whole chain, because every link in it is invisible in Go
+// source a person wrote.
+//
+// It runs the real server rather than the mux, so the request passes through the
+// same middleware an ordinary page request does — which is the point: the redraw
+// is answered at the page's own URL and inherits everything that guards it.
+func TestPagesServeRedrawsAnAnnotatedComponent(t *testing.T) {
+	server := testutil.TestRun(t, fixtureMux(t), func(config *testutil.Config) {
+		testutil.Update[pw.HTMLConfig](config, func(html *pw.HTMLConfig) {
+			html.Update.Enabled = true
+			html.Update.ValidatorKey = "fixture-validator-key"
+		})
+		// The fixture registers no public filesystem, and startup refuses the
+		// endpoint without one.
+		testutil.Update[pw.ServerConfig](config, func(server *pw.ServerConfig) {
+			server.Public.Enabled = false
+		})
+	})
+	defer server.Close()
+
+	// The browser asks the page it is on, naming the component in headers. That
+	// is what puts the redraw behind the page's own authentication instead of a
+	// reserved path with a protection rule of its own.
+	request, err := http.NewRequest(http.MethodGet, server.URL+"/?page=7", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	request.Header.Set("Pw-Render", "redraw")
+	request.Header.Set("Pw-Kind", pages.CardKind)
+	request.Header.Set("Pw-Instance", "card-1")
+	// A redraw from another build is left to the page, so carrying the identity
+	// is part of what the endpoint is being asked here.
+	request.Header.Set("Pw-Build", pw.UpdateBuildID())
+	response, err := server.Client().Do(request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer response.Body.Close()
+	body, err := io.ReadAll(response.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if response.StatusCode != http.StatusOK {
+		t.Fatalf("redraw: status %d\n%s", response.StatusCode, body)
+	}
+	// The parameter arrived through the generated typed decoder, so a rendered
+	// 7 is what separates a real redraw from a page that merely rendered.
+	if strings.Contains(string(body), "<h1>home</h1>") {
+		t.Fatalf("the whole page was rendered rather than the one region:\n%s", body)
+	}
+	if !strings.Contains(string(body), "card page 7") {
+		t.Errorf("redraw did not render the component:\n%s", body)
+	}
+}
+
+// The shape a handler writes: name the page, not a list beside it. The set comes
+// from what the page's markup can contain, folded at generation, so adding a
+// component to the template is the only edit adding it to the surface needs.
+//
+// It compiles at all only because the page's parameters carry the set, which is
+// the property under test here — a page reaching no reloadable component does
+// not satisfy the constraint and this call would not build.
+func TestRedrawTakesThePageItself(t *testing.T) {
+	server := testutil.TestRun(t, pw.NewServeMux(), func(config *testutil.Config) {
+		testutil.Update[pw.HTMLConfig](config, func(html *pw.HTMLConfig) {
+			html.Update.Enabled = true
+			html.Update.ValidatorKey = "fixture-validator-key"
+		})
+		testutil.Update[pw.ServerConfig](config, func(server *pw.ServerConfig) {
+			server.Public.Enabled = false
+		})
+	})
+	defer server.Close()
+
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "/?page=3", nil)
+	request.Header.Set("Pw-Render", "redraw")
+	request.Header.Set("Pw-Kind", pages.CardKind)
+	request.Header.Set("Pw-Instance", "card-1")
+	request.Header.Set("Pw-Build", pw.UpdateBuildID())
+	request = request.WithContext(server.Context())
+
+	if !pw.Redraw(recorder, request, pages.Page) {
+		t.Fatal("naming the page did not answer its redraw")
+	}
+	if body := recorder.Body.String(); !strings.Contains(body, "card page 3") {
+		t.Errorf("the redraw did not render the component: %s", body)
 	}
 }
 

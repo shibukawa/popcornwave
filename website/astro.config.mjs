@@ -78,7 +78,14 @@ export default defineConfig({
             {
               label: 'As a Backend',
               translations: { ja: 'バックエンド' },
-              items: [{ autogenerate: { directory: 'guides/backend' } }],
+              items: [
+                { autogenerate: { directory: 'guides/backend' } },
+                {
+                  label: 'Storage',
+                  translations: { ja: 'ストレージ' },
+                  items: [{ autogenerate: { directory: 'guides/storage' } }],
+                },
+              ],
             },
             {
               label: 'Cross-layer Features',

@@ -231,10 +231,10 @@ Three things go wrong here: wiring the binary does not actually carry, values th
 
 ### PW0410: the session cookie is not marked secure
 
-- **Severity**: error, and note in `dev`
-- **Applies to**: every environment
+- **Severity**: error
+- **Applies to**: every environment except `dev`
 - **Reads**: merged configuration
-- **Fix**: set session.cookie.secure, which is a development-only exception
+- **Fix**: set session.cookie.secure; false is a development-only exception, and the process refuses to start with it outside dev
 
 ### PW0411: browser response headers are disabled
 
@@ -245,8 +245,8 @@ Three things go wrong here: wiring the binary does not actually carry, values th
 
 ### PW0412: a secret is set from the configuration file
 
-- **Severity**: error, and note in `dev`
-- **Applies to**: every environment
+- **Severity**: error
+- **Applies to**: every environment except `dev`
 - **Reads**: merged configuration, project files
 - **Fix**: move the value to an environment variable, or reference one with ${NAME}
 
@@ -266,15 +266,15 @@ Three things go wrong here: wiring the binary does not actually carry, values th
 
 ### PW0415: a file holding a secret is tracked by version control
 
-- **Severity**: error, and warning in `dev`
-- **Applies to**: every environment
+- **Severity**: error
+- **Applies to**: every environment except `dev`
 - **Reads**: project files
 - **Fix**: untrack the file and read the value from the environment instead
 
 ### PW0416: a file holding a secret is readable beyond its owner
 
 - **Severity**: warning
-- **Applies to**: every environment
+- **Applies to**: every environment except `dev`
 - **Reads**: project files
 - **Fix**: chmod 600 the file
 
@@ -327,13 +327,6 @@ Three things go wrong here: wiring the binary does not actually carry, values th
 - **Reads**: merged configuration
 - **Fix**: set observability.otel.endpoint to export traces and logs
 
-### PW0428: the database uses the single-DSN form
-
-- **Severity**: note
-- **Applies to**: every environment
-- **Reads**: merged configuration
-- **Fix**: no action; move to [[middleware.rdb.connections]] when a second connection is needed
-
 ### PW0430: the development identity provider is enabled outside dev
 
 - **Severity**: error, and note in `dev`
@@ -369,13 +362,6 @@ Three things go wrong here: wiring the binary does not actually carry, values th
 - **Reads**: merged configuration, process environment
 - **Fix**: confirm the deployment sets AUTH_OIDC_ISSUER, AUTH_OIDC_CLIENT_ID, and AUTH_OIDC_CLIENT_SECRET
 
-### PW0435: provider credentials come from the pw dev identity provider
-
-- **Severity**: note
-- **Applies to**: `dev` only
-- **Reads**: merged configuration, project files
-- **Fix**: no action; this is why the file declares none
-
 ### PW0436: the loopback development pairing is still set outside dev
 
 - **Severity**: error, and note in `dev`
@@ -408,9 +394,16 @@ The pre-launch checklist as something that runs. Silent while the diagnosed envi
 - **Reads**: project files
 - **Fix**: run pw build, which rebuilds the stylesheet
 
-### PW0504: a public asset is newer than its compressed sidecar
+### PW0504: the built asset tree is older than what it was built from
 
 - **Severity**: warning, and note in `dev`
 - **Applies to**: every environment except `dev`
 - **Reads**: project files
-- **Fix**: run pw build, which writes the sidecars
+- **Fix**: run pw build, which rebuilds dist/public and its manifest
+
+### PW0505: image conversion is enabled and no encoder is installed
+
+- **Severity**: warning, and note in `dev`
+- **Applies to**: every environment except `dev`
+- **Reads**: project files
+- **Fix**: run pw add images, or install the encoders it pins

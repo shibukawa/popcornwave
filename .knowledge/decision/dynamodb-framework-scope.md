@@ -35,6 +35,7 @@ assigned_here:
     signature_question: upstream cautions that a signature must cover whatever scopes the query; that requirement answers it by keeping the scope in the key condition, where a forged cursor cannot reach past it, and by naming the filter case that would change the answer
 beyond_the_four:
   auth_state: requirement:contrib-auth-state-dynamo, which was never assigned because it is a Popcorn Wave contract with no upstream half at all
+  auth_backend: requirement:dynamodb-auth-backend, the same shape; plugin/auth is entirely a Popcorn Wave contract
 resolved_ask:
   what: a context-resolved form of the generated query function, asked for after v0.2.9
   answered_by: system:tinybind, which carries the client in the context and made the table clause a required part of a declaration
@@ -44,8 +45,9 @@ resolved_ask:
   consequence_here: decision:dynamodb-no-runtime-abstraction needs no revision, and the wrapper layer considered as an alternative is unnecessary
 sequencing_here:
   now: requirement:dynamodb-typed-queries, plus the four assigned items in whatever order they are wanted
-  blocked: any session or auth-state backend, on UpdateTimeToLive
+  unblocked: the session and auth-state backends, which read as blocked on UpdateTimeToLive above; decision:dynamodb-operational-configuration withdrew that ask, so neither needs a driver change
   blocked: evolving a table, on UpdateTable
+  not_blocked_either: requirement:dynamodb-auth-backend, which decision:dynamodb-auth-compensating-registration keeps off the ranked-third transaction item
 related:
   - requirement:dynamodb-store
   - requirement:dynamodb-typed-queries

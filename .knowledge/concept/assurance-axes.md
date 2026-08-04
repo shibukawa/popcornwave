@@ -9,12 +9,12 @@ Session assurance is two independent axes, strength and freshness, and a named l
 axes:
   strength:
     question: what proof was made
-    source: the data:session-record authentication method, ordered by deployment configuration
+    source: the data:session-assurance-state authentication method, ordered by deployment configuration
     changes: only at login, re-proof, or a login-method change
     provider_name: acr in OpenID Connect
   freshness:
     question: how long ago that proof was made
-    source: the data:session-record authenticated_at timestamp
+    source: the data:session-assurance-state authenticated_at timestamp
     changes: continuously, with no event
     provider_name: auth_time in OpenID Connect
 requirement_shape:

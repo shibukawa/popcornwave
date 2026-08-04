@@ -116,14 +116,24 @@ into an issue, and looked up in the
 catalog the command evaluates, so a check cannot exist without its entry.
 
 Secrets are reported by place, never by value. The finding names the key and the
-file; the value stays masked in every section of the report. Run `--env=all` and
-a literal secret that appears in two environment files is reported as a match
-between their keys, with no value on either side. Nothing else can see that: a
-running process knows its own environment and not the file belonging to another.
+file; the credential itself appears in no section of the report. A DSN keeps the
+half that is an operational fact — `postgres://*****@db.internal:5432/app` — so
+the report can still tell you which database the environment is attached to. Run
+`--env=all` and a literal secret that appears in two environment files is
+reported as a match between their keys, with no value on either side. Nothing
+else can see that: a running process knows its own environment and not the file
+belonging to another.
 
 The classification is by field name, which marks every DSN. A `sqlite://app.db`
 path holds no credential, so it produces no disclosure finding — a warning you
 learn to scroll past costs you the one that mattered.
+
+Where a secret is kept is a deployment question, so `--env=dev` does not ask it.
+The password of a database Devbox runs beside the application belongs in
+`config.dev.toml`, which is a file the team shares on purpose. The same content
+under `--env=prod` is an error, and so is committing that file. What a secret
+*is* is still judged everywhere: a value left at its scaffolded placeholder, or
+one shared with a deployment, is a finding in `dev` too.
 
 ## What it did not look at
 

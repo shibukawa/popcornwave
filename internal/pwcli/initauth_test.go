@@ -1,6 +1,7 @@
 package pwcli
 
 import (
+	"encoding/base64"
 	"os"
 	"path/filepath"
 	"sort"
@@ -111,13 +112,16 @@ func TestScaffoldWiresTheFrameworkOwnedEndpoints(t *testing.T) {
 	if !strings.Contains(template, `<form method="post" action={logoutPath}>`) {
 		t.Fatalf("logout must be a POST form:\n%s", template)
 	}
-	if !strings.Contains(template, `<a href={loginPath}>`) {
+	if !strings.Contains(template, `href={loginPath}>Sign in</a>`) {
 		t.Fatalf("no login link:\n%s", template)
 	}
 }
 
-// The scaffolded keys must be the ones the plugins register, otherwise the
-// generated project fails to start on an unknown key.
+// The scaffolded keys must be registered, otherwise the generated project fails
+// to start on an unknown key.
+//
+// The scan runs from [session] to the end of the file, so it covers every
+// section the scaffold appends after that point, not only the auth ones.
 func TestScaffoldedAuthKeysAreRegistered(t *testing.T) {
 	known := map[string]bool{
 		// [session]
@@ -136,6 +140,12 @@ func TestScaffoldedAuthKeysAreRegistered(t *testing.T) {
 		"redirect_url": true, "scopes": true, "identity_claim": true,
 		"admission": true, "auto_provision": true,
 		"logout_scope": true, "allow_loopback_http": true,
+		// [session]
+		"keyring.secret": true,
+		// [auth], where every session lifetime is declared
+		"session.ttl": true, "session.idle_timeout": true,
+		// [security]
+		"csrf.enabled": true, "csrf.include": true, "csrf.exclude": true,
 	}
 	for _, mode := range []string{authOIDC, authOIDCPasskey, authPasskey} {
 		t.Run(mode, func(t *testing.T) {
@@ -247,9 +257,9 @@ func TestInitWizardAsksForTheProviderOnlyForOIDC(t *testing.T) {
 		pressKey(tea.KeyEnter), // TinyGo
 		pressKey(tea.KeyEnter), // Router
 		pressKey(tea.KeyEnter), // Tailwind
-		pressKey(tea.KeyEnter), // Database
-		pressKey(tea.KeyEnter), // Database engine
 		typeText("2"),          // Authentication: OIDC
+		typeText("1"),          // Store: SQLite
+		pressKey(tea.KeyEnter), // DynamoDB
 	)
 	if model.reviewing() {
 		t.Fatal("choosing OIDC must ask where the session lives")
@@ -278,9 +288,9 @@ func TestInitWizardAsksForTheProviderForOIDCPasskey(t *testing.T) {
 		pressKey(tea.KeyEnter), // TinyGo
 		pressKey(tea.KeyEnter), // Router
 		pressKey(tea.KeyEnter), // Tailwind
-		pressKey(tea.KeyEnter), // Database
-		pressKey(tea.KeyEnter), // Database engine
 		typeText("3"),          // Authentication: OIDC and passkey
+		typeText("1"),          // Store: SQLite
+		pressKey(tea.KeyEnter), // DynamoDB
 		pressKey(tea.KeyEnter), // Session storage
 	)
 	if model.reviewing() {
@@ -299,9 +309,9 @@ func TestInitWizardSkipsTheProviderStepWithoutOIDC(t *testing.T) {
 		pressKey(tea.KeyEnter), // TinyGo
 		pressKey(tea.KeyEnter), // Router
 		pressKey(tea.KeyEnter), // Tailwind
-		pressKey(tea.KeyEnter), // Database
-		pressKey(tea.KeyEnter), // Database engine
 		typeText("4"),          // Authentication: Passkey only
+		typeText("1"),          // Store: SQLite
+		pressKey(tea.KeyEnter), // DynamoDB
 		pressKey(tea.KeyEnter), // Session storage
 	)
 	// The provider question is skipped; the environment questions still follow.
@@ -322,9 +332,10 @@ func TestInitWizardGoesBackPastASkippedStep(t *testing.T) {
 		pressKey(tea.KeyEnter), // TinyGo
 		pressKey(tea.KeyEnter), // Router
 		pressKey(tea.KeyEnter), // Tailwind
+		pressKey(tea.KeyEnter), // Authentication: None
 		pressKey(tea.KeyEnter), // Database
 		pressKey(tea.KeyEnter), // Database engine
-		pressKey(tea.KeyEnter), // Authentication: None
+		pressKey(tea.KeyEnter), // DynamoDB
 		pressKey(tea.KeyEnter), // Devbox
 		pressKey(tea.KeyEnter), // Redis or Valkey
 		pressKey(tea.KeyEsc),   // back from the review screen
@@ -373,6 +384,39 @@ func TestScaffoldedMigrationsApply(t *testing.T) {
 // The session backend decides three scaffold outputs at once: the import that
 // contributes it, the configuration keys that describe it, and whether a
 // migration is needed at all.
+// The scaffolded keyring is generated per project rather than shipped in this
+// source. A constant here would be a published credential in every project that
+// ever ran pw init, which is the thing the placeholder check exists to catch.
+func TestTheScaffoldedKeyringIsGeneratedPerProject(t *testing.T) {
+	// The scaffold writes [session] alongside [auth] today, so this asks for an
+	// authentication mode to get one.
+	first := scaffoldFiles(initOptions{Name: "demo", Auth: authOIDC})["config.dev.toml"]
+	second := scaffoldFiles(initOptions{Name: "demo", Auth: authOIDC})["config.dev.toml"]
+	secretOf := func(config string) string {
+		for _, line := range strings.Split(config, "\n") {
+			if key, value, found := strings.Cut(strings.TrimSpace(line), "="); found &&
+				strings.TrimSpace(key) == "keyring.secret" {
+				return strings.Trim(strings.TrimSpace(value), `"`)
+			}
+		}
+		return ""
+	}
+	one, other := secretOf(first), secretOf(second)
+	if one == "" {
+		t.Fatalf("no keyring was scaffolded:\n%s", first)
+	}
+	if one == other {
+		t.Error("two projects were scaffolded with the same keyring")
+	}
+	decoded, err := base64.StdEncoding.DecodeString(one)
+	if err != nil {
+		t.Fatalf("the scaffolded keyring is not base64: %v", err)
+	}
+	if len(decoded) < 32 {
+		t.Errorf("the scaffolded keyring is %d bytes, want at least 32", len(decoded))
+	}
+}
+
 func TestScaffoldFollowsTheSessionBackendChoice(t *testing.T) {
 	rdbFiles := scaffoldFiles(initOptions{Name: "demo", Database: true, Auth: authOIDC, Session: sessionRDB})
 	if !strings.Contains(rdbFiles["cmd/demo/main.go"], `_ "github.com/shibukawa/popcornwave/sessionstore/sqlite"`) {
@@ -398,7 +442,10 @@ func TestScaffoldFollowsTheSessionBackendChoice(t *testing.T) {
 	if strings.Contains(cookieFiles["cmd/demo/main.go"], "sessionstore/") {
 		t.Errorf("the built-in cookie backend was imported:\n%s", cookieFiles["cmd/demo/main.go"])
 	}
-	if !strings.Contains(cookieFiles["config.dev.toml"], `cookie_store.secret = "${SESSION_COOKIE_SECRET}"`) {
+	// Every backend seals a record into the browser while a session is still
+	// anonymous, so the keyring is scaffolded whatever the backend is, and the
+	// cookie backend adds no key of its own.
+	if !strings.Contains(cookieFiles["config.dev.toml"], "keyring.secret = ") {
 		t.Errorf("cookie session config:\n%s", cookieFiles["config.dev.toml"])
 	}
 	if strings.Contains(cookieFiles["config.dev.toml"], "rdb.source") {
@@ -494,5 +541,163 @@ func TestScaffoldImportsTheStoresOfTheSelectedEngine(t *testing.T) {
 				t.Errorf("session migration is not in the %s dialect:\n%s", engine, migration)
 			}
 		})
+	}
+}
+
+// A project with a session gets the CSRF shape written out and switched off.
+// Turning it on later should be uncommenting rather than looking the keys up.
+func TestScaffoldWritesTheCSRFSectionOffByDefault(t *testing.T) {
+	config := scaffoldFiles(initOptions{Name: "demo", Auth: authOIDC})[pwenv.FileName(pwenv.Development)]
+	if !strings.Contains(config, "[security]") {
+		t.Fatalf("no security section:\n%s", config)
+	}
+	if !strings.Contains(config, "csrf.enabled = false") {
+		t.Errorf("CSRF is not scaffolded off:\n%s", config)
+	}
+	// The anonymous path is a comment, so a project that needs it finds the
+	// keys rather than the documentation.
+	if !strings.Contains(config, "# csrf.anonymous.enabled = true") {
+		t.Errorf("the anonymous path is not shown:\n%s", config)
+	}
+}
+
+// A page tree's action endpoints are POSTs reachable with the session cookie
+// and nothing else in front of them, so the prefix must be in the include list.
+func TestScaffoldCoversThePageActionPrefix(t *testing.T) {
+	pages := scaffoldFiles(initOptions{Name: "demo", Auth: authOIDC, Router: routerDiscovered})[pwenv.FileName(pwenv.Development)]
+	if !strings.Contains(pages, `csrf.include = ["/_action/**", "/**"]`) {
+		t.Errorf("a page tree did not cover the action prefix:\n%s", pages)
+	}
+}
+
+// Without a session there is nothing to bind a token to, so the section would
+// only describe a check that could not pass.
+func TestScaffoldWritesNoSecuritySectionWithoutASession(t *testing.T) {
+	config := scaffoldFiles(initOptions{Name: "demo"})[pwenv.FileName(pwenv.Development)]
+	if strings.Contains(config, "[security]") {
+		t.Errorf("a session-less project got a security section:\n%s", config)
+	}
+}
+
+// Choosing DynamoDB for the login does not skip the SQL question: plugin/auth
+// keeps its ceremony records and its allowlist in a relational database
+// whatever holds the sessions, so the wizard asks which engine that is instead
+// of adding one the operator never saw.
+func TestInitWizardAsksForTheEngineBehindADynamoLogin(t *testing.T) {
+	t.Chdir(t.TempDir())
+	model := feedWizard(t, newTestWizard(defaultInitOptions()),
+		typeText("demo"), pressKey(tea.KeyEnter),
+		pressKey(tea.KeyEnter), // TinyGo
+		pressKey(tea.KeyEnter), // Router
+		pressKey(tea.KeyEnter), // Tailwind
+		typeText("2"),          // Authentication: OIDC
+		typeText("4"),          // Store: DynamoDB
+	)
+	if label := model.steps[model.index].label(); label != "Database engine" {
+		t.Fatalf("step = %q, want the engine the login is kept in", label)
+	}
+	model = feedWizard(t, model,
+		typeText("2"),          // Database engine: PostgreSQL
+		pressKey(tea.KeyEnter), // Session storage
+		pressKey(tea.KeyEnter), // OIDC provider
+	)
+	options := wizardResult(model, defaultInitOptions())
+	if !options.Dynamo || !options.Database || options.Engine != enginePostgres {
+		t.Fatalf("options = %#v", options)
+	}
+	// The DynamoDB question was already answered by the store choice, so it is
+	// not asked a second time.
+	for _, index := range model.activeSteps() {
+		if model.steps[index].label() == "DynamoDB" {
+			t.Fatal("the DynamoDB question was asked again after it was the store answer")
+		}
+	}
+}
+
+// A SQL login still reaches the DynamoDB question: the store answer covered one
+// kind of store, and the other one is a separate decision.
+func TestInitWizardStillAsksAboutDynamoAfterASQLLogin(t *testing.T) {
+	t.Chdir(t.TempDir())
+	model := feedWizard(t, newTestWizard(defaultInitOptions()),
+		typeText("demo"), pressKey(tea.KeyEnter),
+		pressKey(tea.KeyEnter), // TinyGo
+		pressKey(tea.KeyEnter), // Router
+		pressKey(tea.KeyEnter), // Tailwind
+		typeText("2"),          // Authentication: OIDC
+		typeText("1"),          // Store: SQLite
+	)
+	if label := model.steps[model.index].label(); label != "DynamoDB" {
+		t.Fatalf("step = %q, want the other kind of store", label)
+	}
+	model = feedWizard(t, model,
+		typeText("1"),          // DynamoDB: Yes
+		pressKey(tea.KeyEnter), // Session storage
+		pressKey(tea.KeyEnter), // OIDC provider
+	)
+	options := wizardResult(model, defaultInitOptions())
+	if !options.Dynamo || options.Engine != engineSQLite {
+		t.Fatalf("options = %#v", options)
+	}
+}
+
+// Partial updates are scaffolded off, with the key they need shown rather than
+// left for the reader to find. Enabling them without one is a startup failure.
+func TestScaffoldWritesTheUpdateSectionOffByDefault(t *testing.T) {
+	config := scaffoldFiles(initOptions{Name: "demo", Auth: authOIDC})[pwenv.FileName(pwenv.Development)]
+	if !strings.Contains(config, "[html.update]") {
+		t.Fatalf("no update section:\n%s", config)
+	}
+	if !strings.Contains(config, "enabled = false") {
+		t.Errorf("updates are not scaffolded off:\n%s", config)
+	}
+	if !strings.Contains(config, "# validator_key =") {
+		t.Errorf("the validator key is not shown:\n%s", config)
+	}
+}
+
+// Session storage is not a login. A project that declares only a language
+// preference still needs the middleware, and the framework installs it from
+// session.enabled rather than from an authentication plugin.
+func TestSessionIsScaffoldedWithoutALogin(t *testing.T) {
+	files := scaffoldFiles(initOptions{Name: "demo", Database: true})
+	config := files["config.dev.toml"]
+	if !strings.Contains(config, "[session]") {
+		t.Fatalf("a project without a login got no session section:\n%s", config)
+	}
+	if strings.Contains(config, "[auth]") {
+		t.Fatal("a project without a login got an auth section")
+	}
+	// Cookie is the coherent default there: no table, no migration, no import
+	// to hold state that fits in a sealed cookie.
+	if !strings.Contains(config, `backend = "cookie"`) {
+		t.Fatalf("session backend without a login:\n%s", config)
+	}
+	if strings.Contains(files["cmd/demo/main.go"], "sessionstore/") {
+		t.Error("a cookie session imported a storage plugin")
+	}
+	if strings.Contains(files["cmd/demo/main.go"], "authstate/") {
+		t.Error("a project with no login imported the login ceremony store")
+	}
+	for name := range files {
+		if strings.Contains(name, sessionstore.MigrationName) {
+			t.Errorf("a cookie session scaffolded a table migration: %s", name)
+		}
+	}
+	// The keyring is still written, because a sealed slot needs one whatever
+	// the backend is.
+	if !strings.Contains(config, "keyring.secret = ") {
+		t.Error("no keyring was scaffolded for a session that seals")
+	}
+}
+
+// Asking for a server backend without a login is honored, and it brings the
+// import with it rather than leaving a configuration nothing serves.
+func TestAServerBackendWithoutALoginBringsItsImport(t *testing.T) {
+	files := scaffoldFiles(initOptions{Name: "demo", Database: true, Session: sessionRDB})
+	if !strings.Contains(files["config.dev.toml"], `backend = "rdb"`) {
+		t.Fatal("the selected backend was not scaffolded")
+	}
+	if !strings.Contains(files["cmd/demo/main.go"], "sessionstore/") {
+		t.Errorf("the rdb backend was configured without its import:\n%s", files["cmd/demo/main.go"])
 	}
 }

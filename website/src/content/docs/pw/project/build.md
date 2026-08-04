@@ -1,6 +1,6 @@
 ---
 title: pw build
-description: Produce a release binary with generated code, minified CSS, and prepared assets.
+description: Produce a release binary with generated code, minified CSS, and the built asset tree.
 sidebar:
   order: 6
 ---
@@ -18,14 +18,16 @@ arguments; its inputs come from `popcornwave.toml` and the environment.
 2. builds the Tailwind stylesheet **minified**, if Tailwind is enabled — this
    overrides `assets.tailwind.minify`, so a release is never accidentally
    unminified;
-3. prepares the public asset tree, writing the compressed `*.zstd` sidecars
-   that the [asset middleware](/guides/frontend/static-assets/) serves to
-   clients accepting them;
+3. builds the [asset tree](/guides/frontend/static-assets/) into `dist/public`:
+   it converts what the project asked to convert, writes the compressed `*.zstd`
+   sidecars, and emits the manifest that decides every cache header;
 4. rejects the build if `project.main` depends on a development-only package;
 5. runs `go build` on `project.main` from `popcornwave.toml`.
 
 The binary lands in the project root, named after the main package. The
-scaffolded `.gitignore` already excludes it, along with `public/**/*.zstd`.
+scaffolded `.gitignore` already excludes it, along with everything under
+`dist/` — the built tree, the conversion cache, and the manifest are all build
+output.
 
 Today, `contrib/devidp` is the only development-only package. It is the identity
 provider used by [`pw dev`](/pw/project/dev/), and it signs users in without

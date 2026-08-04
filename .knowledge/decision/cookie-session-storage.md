@@ -33,6 +33,10 @@ size:
   budget: session.DefaultMaxCookieBytes for the cookie name and encoded record together
   failure: an oversized record is refused at the write, because a browser drops one silently
   guidance: a payload that outgrows the budget is a signal to move to a server-side store
+second_use:
+  fact: this store is also the anonymous phase of a session.Private slot, whatever backend the deployment configured
+  reason: decision:slot-declared-placement confines the revocation defect below to the interval before a login, where it costs nothing
+  effect: the data:session-runtime-config keyring becomes required in deployments that never select this backend, though session.ReadOnly already required it wherever one was registered
 suitability:
   fits: development, single-process deployments, and sessions whose payload is small and revocation is not required
   does_not_fit: immediate logout across devices, large payloads, and audit of live sessions

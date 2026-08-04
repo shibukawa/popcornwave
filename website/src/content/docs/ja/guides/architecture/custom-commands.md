@@ -24,7 +24,7 @@ sidebar:
 | prefix + フィールド | キー | オプション | 環境変数 |
 | --- | --- | --- | --- |
 | `app` + `EnvLabel` | `app.env_label` | `--app-env_label` | `APP_ENV_LABEL` |
-| `middleware.rdb` + `DSN` | `middleware.rdb.dsn` | `--middleware-rdb-dsn` | `MIDDLEWARE_RDB_DSN` |
+| `middleware.rdb` + `WriteGroup` | `middleware.rdb.write_group` | `--middleware-rdb-write_group` | `MIDDLEWARE_RDB_WRITE_GROUP` |
 
 フィールド側でいずれも上書きできます。
 

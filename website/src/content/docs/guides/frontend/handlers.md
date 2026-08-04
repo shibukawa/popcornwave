@@ -221,7 +221,7 @@ func createUser(w http.ResponseWriter, r *http.Request) {
 
 The callback does not pass a transaction handle to either query. Generated query
 functions recover it from the context, as described in
-[Queries](/guides/backend/queries/).
+[Queries](/guides/storage/queries/).
 
 ## The lifecycle
 

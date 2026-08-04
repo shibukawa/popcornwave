@@ -28,7 +28,7 @@ browser_e2e:
 placement:
   package: contrib/passkey/passkeytest
   reason: it uses requirement:contrib-passkey credential and options types directly, and the import path names the boundary the way net/http/httptest does
-  precedent: contrib/authstate already splits adapters into subpackages that carry their own requirement concepts
+  precedent: authstate already splits adapters into subpackages that carry their own requirement concepts
   constructor: NewAuthenticator rather than New, because the package is named for its purpose and not for what it returns, which is why httptest exposes NewServer, NewRecorder, and NewRequest and no bare New
   rejected:
     - the contrib/passkey package itself, for two reasons below

@@ -43,8 +43,6 @@ type Resources struct {
 	// Query enables development query diagnostics. A nil value leaves the
 	// resolved executor undecorated.
 	Query *QueryDiagnostics
-	// Session is the validated session view, installed by session middleware.
-	Session *SessionView
 	// Authentication is the verified request authentication result, finalized
 	// by authentication middleware before handler dispatch.
 	Authentication Authentication

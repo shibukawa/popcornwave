@@ -187,8 +187,10 @@ func (s *CookieStore) Get(ctx context.Context, keyHash string) (RawRecord, error
 		return zero, err
 	}
 	// The sealed expiry is authoritative over the cookie attributes, which the
-	// client controls.
-	if !record.Deadline().After(s.now()) {
+	// client controls. A zero deadline is no deadline, which is what the codec
+	// already means by a zero expiry stamp: a session whose lifetime source
+	// declared no bound is held by the browser alone.
+	if deadline := record.Deadline(); !deadline.IsZero() && !deadline.After(s.now()) {
 		return zero, ErrExpired
 	}
 	return record, nil
@@ -201,7 +203,7 @@ func (s *CookieStore) Touch(ctx context.Context, keyHash string, lastSeenAt, idl
 	if err != nil {
 		return err
 	}
-	if idleExpiresAt.After(record.ExpiresAt) {
+	if !record.ExpiresAt.IsZero() && idleExpiresAt.After(record.ExpiresAt) {
 		return ErrNotFound
 	}
 	record.LastSeenAt = lastSeenAt

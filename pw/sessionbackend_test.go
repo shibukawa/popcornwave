@@ -26,7 +26,7 @@ func TestCookieBackendNeedsNoImport(t *testing.T) {
 	// This test binary imports no storage plugin, so a cookie-backed session
 	// working here is the property the built-in backend exists for.
 	config := testSessionConfig(SessionBackendCookie)
-	config.CookieStore.Secret = base64.StdEncoding.EncodeToString(make([]byte, 32))
+	config.Keyring.Secret = base64.StdEncoding.EncodeToString(make([]byte, 32))
 
 	backend, err := OpenSessionBackend(t.Context(), config, SessionResources{})
 	if err != nil {
@@ -72,11 +72,11 @@ func TestUnimportedBackendNamesTheImport(t *testing.T) {
 func TestCookieBackendRequiresAUsableSecret(t *testing.T) {
 	config := testSessionConfig(SessionBackendCookie)
 	_, err := OpenSessionBackend(t.Context(), config, SessionResources{})
-	if err == nil || !strings.Contains(err.Error(), "session.cookie_store.secret") {
+	if err == nil || !strings.Contains(err.Error(), "session.keyring.secret") {
 		t.Fatalf("missing secret error = %v", err)
 	}
 
-	config.CookieStore.Secret = base64.StdEncoding.EncodeToString(make([]byte, 16))
+	config.Keyring.Secret = base64.StdEncoding.EncodeToString(make([]byte, 16))
 	_, err = OpenSessionBackend(t.Context(), config, SessionResources{})
 	if err == nil || !strings.Contains(err.Error(), "32 bytes") {
 		t.Fatalf("short secret error = %v", err)
@@ -84,7 +84,7 @@ func TestCookieBackendRequiresAUsableSecret(t *testing.T) {
 
 	// A rejected secret is still a secret: it must not reach the message a
 	// startup failure prints.
-	config.CookieStore.Secret = "hunter2-not-base64!"
+	config.Keyring.Secret = "hunter2-not-base64!"
 	_, err = OpenSessionBackend(t.Context(), config, SessionResources{})
 	if err == nil || strings.Contains(err.Error(), "hunter2") {
 		t.Fatalf("malformed secret error = %v", err)
@@ -93,8 +93,8 @@ func TestCookieBackendRequiresAUsableSecret(t *testing.T) {
 
 func TestCookieBackendKeepsRotatedSecretsReadable(t *testing.T) {
 	config := testSessionConfig(SessionBackendCookie)
-	config.CookieStore.Secret = base64.StdEncoding.EncodeToString(secretOf(2))
-	config.CookieStore.PreviousSecrets = []string{base64.StdEncoding.EncodeToString(secretOf(1))}
+	config.Keyring.Secret = base64.StdEncoding.EncodeToString(secretOf(2))
+	config.Keyring.PreviousSecrets = []string{base64.StdEncoding.EncodeToString(secretOf(1))}
 	if _, err := OpenSessionBackend(t.Context(), config, SessionResources{}); err != nil {
 		t.Fatalf("rotation: %v", err)
 	}

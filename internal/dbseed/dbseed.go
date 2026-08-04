@@ -77,7 +77,7 @@ type Executor = dbtestify.Executor
 func ResolveDialect(dsn string) (Dialect, error) {
 	dialect, _, err := dbtestify.SplitSource(dsn)
 	if err != nil {
-		return "", fmt.Errorf("middleware.rdb.dsn: %w", err)
+		return "", fmt.Errorf("database DSN: %w", err)
 	}
 	return dialect, nil
 }

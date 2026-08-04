@@ -34,8 +34,8 @@ sidebar:
 ありえませんでした。
 
 `database` は*生成*への入力です。生成された Go があなたの SQL をどの方言として読むかを
-決めます。アプリケーションが実際に接続するエンジンは、いまも `middleware.rdb.dsn` の
-スキームから決まります。この 2 つを一致させるのはあなたの仕事です。保持を禁じられている
+決めます。アプリケーションが実際に接続するエンジンは、いまも
+`[[middleware.rdb.connections]]` の DSN のスキームから決まります。この 2 つを一致させるのはあなたの仕事です。保持を禁じられている
 DSN を、このファイルが検査できるはずもありません。
 
 ## `[generate]`
@@ -162,6 +162,38 @@ minify し、`pw dev` は決してしません。この値が実際に効くの�
 Tailwind のプラグインはここでは設定しません。CSS のエントリに書く `@plugin` 宣言であり、
 解決するのは Tailwind CLI です。Popcorn Wave はエントリをそのまま渡すだけで、プラグインの
 レジストリを持ちません。
+
+## `[assets.images]`、`[assets.css]`、`[assets.scripts]`
+
+```toml
+[assets.images]
+enabled = true
+quality = 75
+avif = false
+
+[assets.css]
+minify = true
+
+[assets.scripts]
+enabled = true
+```
+
+[アセット変換](/ja/guides/frontend/static-assets/)のスイッチです。すべて既定で無効なので、
+何も宣言しないプロジェクトは authored なツリーの複製を埋め込み、これらが存在しなかった頃と
+まったく同じものを配信します。
+
+| キー | 既定値 | 意味 |
+| --- | --- | --- |
+| `assets.images.enabled` | `false` | `img src` が指す `.png` / `.jpg` を WebP に変換する |
+| `assets.images.quality` | `75` | JPEG ソースを再エンコードする際の品質。PNG は可逆のままで、この値を見ない |
+| `assets.images.avif` | `false` | 配信する画像に AVIF 表現を追加し、`Accept` で選ばせる |
+| `assets.css.minify` | `false` | スタイルシートをその場で minify する |
+| `assets.scripts.enabled` | `false` | `.ts` エントリをビルドし、authored な `.js` を minify する |
+
+`assets.images` はホスト側のエンコーダを必要とします。[`pw add images`](/ja/pw/project/add/)
+がキーと Devbox パッケージを同時に書くのはそのためです。ツール無しで有効にしてもエラーには
+なりません——変換は見送られ、authored な画像がそのまま出荷され、`pw doctor` がそれを報告
+します。変換されていない画像は、壊れたページではなく重いページだからです。
 
 ## ファイル全体にかかる規則
 

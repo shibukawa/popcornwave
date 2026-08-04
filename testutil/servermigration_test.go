@@ -47,11 +47,13 @@ func TestRunMigratesAServerDatabase(t *testing.T) {
 				})
 				Update[pw.MiddlewareConfig](config, func(value *pw.MiddlewareConfig) {
 					value.RDB = pw.RDBConfig{
-						Enabled:        true,
-						DSN:            dsn,
-						ConnectTimeout: 10 * time.Second,
-						MaxOpenConns:   4,
-						MaxIdleConns:   2,
+						Enabled: true,
+						Connections: []pw.RDBConnectionConfig{{
+							DSN:            dsn,
+							ConnectTimeout: 10 * time.Second,
+							MaxOpenConns:   4,
+							MaxIdleConns:   2,
+						}},
 					}
 				})
 			}, WithMigrations("testdata/servermigrations"))
@@ -76,11 +78,13 @@ func TestRunMigratesAServerDatabase(t *testing.T) {
 				})
 				Update[pw.MiddlewareConfig](config, func(value *pw.MiddlewareConfig) {
 					value.RDB = pw.RDBConfig{
-						Enabled:        true,
-						DSN:            dsn,
-						ConnectTimeout: 10 * time.Second,
-						MaxOpenConns:   4,
-						MaxIdleConns:   2,
+						Enabled: true,
+						Connections: []pw.RDBConnectionConfig{{
+							DSN:            dsn,
+							ConnectTimeout: 10 * time.Second,
+							MaxOpenConns:   4,
+							MaxIdleConns:   2,
+						}},
 					}
 				})
 			}, WithMigrations("testdata/servermigrations"))

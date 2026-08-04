@@ -433,6 +433,9 @@ openapi = "/openapi.json"
 
 [middleware.rdb]
 enabled = true
+
+[[middleware.rdb.connections]]
+group = "default"
 dsn = "sqlite://%s"
 connect_timeout = "5s"
 max_open_conns = 1
@@ -441,13 +444,14 @@ max_idle_conns = 1
 [session]
 enabled = true
 backend = "rdb"
-ttl = "1h"
-idle_timeout = "30m"
 cookie.name = "pw_session"
 cookie.secure = false
+keyring.secret = "3Sz80mOuKVzj3ZqyFelHvyAi6GoS27IKuMSrhDOrfRQ="
 
 [auth]
 enabled = true
+session.ttl = "1h"
+session.idle_timeout = "30m"
 mode = "oidc_only"
 post_login_path = "/"
 protection.include = ["/mypage", "/openapi.json"]

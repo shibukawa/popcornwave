@@ -1,0 +1,294 @@
+---
+title: 3. Storing the memos
+description: Write a migration, compile SQL into typed functions, and replace the in-memory list with a table.
+sidebar:
+  order: 3
+---
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+
+Restart `pw dev` and every memo from chapter 2 is gone. The list lives in a
+slice, and the slice lives in a process.
+
+Moving it into the database means three new pieces: a migration that creates the
+table, a `.pw.sql` file that compiles into typed Go functions, and a handler
+that calls them. Twenty minutes or so.
+
+:::note[Where this starts]
+From chapter 2: `handlers/home.pw.html` with `Memo`, `handlers/memos.go` holding
+the list in memory, and `handlers/home_handler.go` with `GET /{$}` and
+`POST /memos`. There is no database yet; section 0 adds it.
+:::
+
+## 0. Add the database
+
+**If you declined the database in chapter 1, add it now** — following this
+tutorial leaves you in exactly that state. If `config.dev.toml` already has a
+`[middleware.rdb]` section and `migrations/` exists, you have one already; skip
+to section 1.
+
+```sh
+pw add
+```
+
+With no argument it lists the capabilities this project does not have yet.
+Choose **database** — the one described as the rdb configuration, the migration
+directory, and a typed SQL example. Writing `pw add database` goes straight
+there.
+
+It then asks for an engine; choose **SQLite**, which is one file and no server
+to start beside the application. Accept the review screen and you get
+`[middleware.rdb]` in `config.dev.toml`, the `migrations/` directory, and
+`queries/` together with the `generate.queries` entry that makes anything read
+it.
+
+`migrations/00001_init.sql` is comments all the way down. Adding a database does
+not also add a table you did not ask for: the file carries the shape of a
+migration and the dialect of this project's engine, and your own version 1 goes
+under it.
+
+:::caution[Migrations are not for test data]
+A migration runs in every environment, production included, and an applied one
+cannot be edited — correcting a wrong row means a later version that deletes it.
+Development data belongs to [`pw seed`](/pw/database/seed/) and a dataset.
+:::
+
+## 1. A migration for the table
+
+Migrations are plain SQL files in [goose](https://github.com/pressly/goose)
+format, numbered in the order they must be applied. Create
+`migrations/00002_create_memos.sql`:
+
+<Tabs syncKey="engine">
+<TabItem label="SQLite">
+
+```sql
+-- migrations/00002_create_memos.sql
+-- +goose Up
+CREATE TABLE memos (
+    id INTEGER PRIMARY KEY,
+    body TEXT NOT NULL
+);
+
+-- +goose Down
+DROP TABLE memos;
+```
+
+</TabItem>
+<TabItem label="PostgreSQL">
+
+```sql
+-- migrations/00002_create_memos.sql
+-- +goose Up
+CREATE TABLE memos (
+    id SERIAL PRIMARY KEY,
+    body TEXT NOT NULL
+);
+
+-- +goose Down
+DROP TABLE memos;
+```
+
+</TabItem>
+<TabItem label="MySQL">
+
+```sql
+-- migrations/00002_create_memos.sql
+-- +goose Up
+CREATE TABLE memos (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    body VARCHAR(255) NOT NULL
+);
+
+-- +goose Down
+DROP TABLE memos;
+```
+
+</TabItem>
+</Tabs>
+
+The two annotations divide the file: `Up` is what this version does, `Down` is
+what undoes it. Writing the `Down` half now is cheap; reconstructing it later,
+from a schema three versions further along, is not.
+
+`00001_init.sql` was already there, and it creates nothing: it is comments, so
+adding a database did not also add a table. Leave it where it is. It is applied,
+it costs nothing, and renumbering an applied migration is the one thing
+migrations must never do.
+
+The tabs above are the same migration in each engine's dialect. Nothing
+translates between them — `pw add database` wrote `00001_init.sql` in the
+dialect you chose, and yours has to match.
+
+`pw dev` applies pending migrations on startup and again whenever a file in the
+migration directory changes, so saving this file is enough:
+
+```
+up	2	00002_create_memos.sql	1ms
+version 1 -> 2
+```
+
+Outside the loop, `pw migrate up` does the same thing, and `pw migrate status`
+answers what has been applied. See
+[Migrations](/productivity/migrations/).
+
+## 2. SQL that compiles
+
+Create `queries/memos.pw.sql`:
+
+```sql
+package queries
+
+type Memo {
+  id: int
+  body: string
+}
+
+export statement ListMemos(): sql.many<Memo> {
+SELECT id, body FROM memos ORDER BY id DESC
+}
+
+export statement CreateMemo(body: string): sql.exec {
+INSERT INTO memos (body) VALUES ({body})
+}
+```
+
+The shape is the same one `.pw.html` uses: a package line, a declared result
+type, and exported declarations with typed parameters. `pw generate` turns each
+`export statement` into a Go function beside the source.
+
+The result kind decides the signature. `sql.many<Memo>` returns
+`iter.Seq2[Memo, error]` — rows are streamed rather than collected into a slice,
+which is what keeps a large table from becoming a large allocation. `sql.exec`
+returns a `sql.Result`, which is what an INSERT has to offer.
+
+`{body}` is a parameter, and it becomes a prepared-statement placeholder — `?`
+here, `$1` on PostgreSQL, decided by `project.database` in `popcornwave.toml`.
+The generator will not concatenate a template expression into SQL text and
+rejects a handwritten placeholder, so a statement written this way cannot become
+an injection. The boundary is exactly that: parameters bind **values**, never
+table names, column names, or sort directions.
+
+Two rules will stop generation later, and both are worth knowing before you meet
+them. An UPDATE or DELETE without a WHERE clause is rejected outright. And the
+SELECT columns must match the declared result type, in order and by name — which
+is what makes `Memo` an accurate description of every row the statement can
+return. [Queries](/guides/storage/queries/) covers conditional SQL, slice
+expansion, and reusable predicates.
+
+## 3. The handler talks to the table
+
+```go
+// handlers/home_handler.go
+package handlers
+
+import (
+	"net/http"
+
+	"memoapp/queries" // new
+
+	"github.com/shibukawa/popcornwave/pw"
+)
+
+// init is unchanged from chapter 2; the routes stay as they were.
+func init() {
+	mux.HandleFunc("GET /{$}", home)
+	mux.HandleFunc("POST /memos", createMemo)
+}
+
+// home lists every memo that has been written.
+//
+// changed: memos.list() could not fail, and reading the table can.
+func home(w http.ResponseWriter, r *http.Request) {
+	// The generated function streams rows. The template wants a slice, so this
+	// is where they accumulate; the per-row err is the failure of reading that
+	// row.
+	var list []Memo
+	for row, err := range queries.ListMemos(r.Context()) {
+		if err != nil {
+			pw.WriteProblem(w, r, err)
+			return
+		}
+		list = append(list, Memo{Id: row.Id, Body: row.Body})
+	}
+	pw.WriteHTML(w, r, Home(HomeParams{Memos: list}))
+}
+
+// createMemoInput is the submitted form, unchanged from chapter 2.
+type createMemoInput struct {
+	// Body is the memo text. It is required and capped at 200 characters.
+	Body string `payload:"body" check:"required,maxlen=200"`
+}
+
+// createMemo stores one memo and redirects back to the list.
+func createMemo(w http.ResponseWriter, r *http.Request) {
+	input, err := pw.Parse[createMemoInput](r)
+	if err != nil {
+		pw.WriteProblem(w, r, err)
+		return
+	}
+	// changed: this replaces memos.add(input.Body).
+	if _, err := queries.CreateMemo(r.Context(), input.Body); err != nil {
+		pw.WriteProblem(w, r, err)
+		return
+	}
+	http.Redirect(w, r, "/", http.StatusSeeOther)
+}
+```
+
+Then delete `handlers/memos.go`. The slice is gone.
+
+Two details in that file are worth pausing on.
+
+**The context carries the connection.** No handle is passed to
+`queries.CreateMemo`; it takes a `context.Context` and finds the pool there. The
+same call inside `pw.Transaction` finds the active transaction instead, which is
+why one generated function works in both places without a variant that takes a
+`*sql.Tx`.
+
+**There are now two `Memo` types**, and the loop inside `home` converts
+between them.
+`queries.Memo` describes a row; `handlers.Memo` describes what the page renders.
+Merging them would be less code today and a worse boundary tomorrow, because the
+first column a page stops showing — or the first field it needs that no column
+supplies — would have to be resolved in whichever type was carrying both jobs.
+
+## 4. Run it
+
+Save everything. `pw dev` regenerates `queries/memos_pw_gen.go`, rebuilds, and
+restarts. Add a memo, then stop `pw dev` with `Ctrl-C` and start it again: the
+memo is still there.
+
+In `dev`, every generated statement is logged as it runs:
+
+```json
+{
+  "level": "INFO", "msg": "sql executed",
+  "sql": "\nINSERT INTO memos (body) VALUES (?)\n",
+  "duration": 0.601708, "operation": "exec",
+  "driver": "sqlite", "rows_affected": 1, "outcome": "ok", "args": "eggs"
+}
+```
+
+A statement slower than the configured threshold brings its query plan and a
+paste-able rerun snippet with it, without a line of change in your code — see
+[Query Diagnostics](/productivity/query-diagnostics/).
+
+The database itself is the file `memoapp.db`, named by the DSN in
+`config.dev.toml`. Deleting it and letting `pw dev` re-apply the migrations is a
+perfectly good reset while the schema is still moving.
+
+## What you have now
+
+- A schema under version control, applied by the same loop that builds the code.
+- SQL that stays SQL, compiled into functions whose parameters and rows are
+  typed.
+- A page whose contents survive a restart.
+
+Every visitor still sees every memo. Chapter 4 gives the application a notion of
+who is asking.
+
+- [4. Signing in](/tutorial/login/) — the next chapter.
+- [Queries](/guides/storage/queries/) — conditional SQL, predicates, transactions.
+- [Relational databases](/guides/storage/rdb/) — engines, pool bounds, read replicas.
+- [Migrations](/productivity/migrations/) and [Seed data](/productivity/seed-data/) — the rest of the schema workflow.

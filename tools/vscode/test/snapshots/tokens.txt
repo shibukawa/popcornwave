@@ -4533,7 +4533,52 @@
 4	"</"	meta.embedded.block.html meta.tag.html punctuation.definition.tag.begin.html
 4	"h1"	meta.embedded.block.html meta.tag.html entity.name.tag.html
 4	">"	meta.embedded.block.html meta.tag.html punctuation.definition.tag.end.html
-5	"}"	punctuation.definition.block.end.pw
+5	"<"	meta.embedded.block.html punctuation.definition.tag.begin.html
+5	"Card"	meta.embedded.block.html entity.name.tag.component.pw
+5	"id"	meta.embedded.block.html entity.other.attribute-name.html
+5	"="	meta.embedded.block.html punctuation.separator.key-value.html
+5	"\""	meta.embedded.block.html punctuation.definition.string.begin.html
+5	"card-1"	meta.embedded.block.html string.quoted.double.html
+5	"\""	meta.embedded.block.html punctuation.definition.string.end.html
+5	"page"	meta.embedded.block.html entity.other.attribute-name.html
+5	"="	meta.embedded.block.html punctuation.separator.key-value.html
+5	"\""	meta.embedded.block.html punctuation.definition.string.begin.html
+5	"{"	meta.embedded.block.html string.quoted.double.html punctuation.section.embedded.pw
+5	"1"	meta.embedded.block.html string.quoted.double.html meta.embedded.expression.pw constant.numeric.pw
+5	"}"	meta.embedded.block.html string.quoted.double.html punctuation.section.embedded.pw
+5	"\""	meta.embedded.block.html punctuation.definition.string.end.html
+5	"/>"	meta.embedded.block.html punctuation.definition.tag.end.html
+6	"}"	punctuation.definition.block.end.pw
+8	"// Card is the fixture's redraw endpoint. The annotation is the whole"	comment.line.pw
+9	"// declaration: nothing in this package registers it by hand, so serving it"	comment.line.pw
+10	"// proves the generated init reached the runtime registry."	comment.line.pw
+11	"@reloadable"	entity.name.tag.annotation.pw
+12	"export"	storage.modifier.pw
+12	"component"	keyword.declaration.pw
+12	"Card"	entity.name.function.pw
+12	"("	punctuation.definition.parameters.begin.pw
+12	"id"	variable.parameter.pw
+12	":"	punctuation.separator.type.pw
+12	"string"	support.type.pw
+12	","	punctuation.separator.parameter.pw
+12	"page"	variable.parameter.pw
+12	":"	punctuation.separator.type.pw
+12	"int"	support.type.pw
+12	")"	punctuation.definition.parameters.end.pw
+12	":"	punctuation.separator.type.pw
+12	"html"	support.type.output.pw
+12	"{"	punctuation.definition.block.begin.pw
+13	"<"	meta.embedded.block.html meta.tag.html punctuation.definition.tag.begin.html
+13	"article"	meta.embedded.block.html meta.tag.html entity.name.tag.html
+13	">"	meta.embedded.block.html meta.tag.html punctuation.definition.tag.end.html
+13	"card page "	meta.embedded.block.html
+13	"{"	meta.embedded.block.html punctuation.section.embedded.pw
+13	"page"	meta.embedded.block.html meta.embedded.expression.pw variable.other.pw
+13	"}"	meta.embedded.block.html punctuation.section.embedded.pw
+13	"</"	meta.embedded.block.html meta.tag.html punctuation.definition.tag.begin.html
+13	"article"	meta.embedded.block.html meta.tag.html entity.name.tag.html
+13	">"	meta.embedded.block.html meta.tag.html punctuation.definition.tag.end.html
+14	"}"	punctuation.definition.block.end.pw
 
 ## internal/pagesfixture/pages/users/id_/page.pw.html [source.pw.html]
 1	"package"	keyword.control.import.pw

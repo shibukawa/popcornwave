@@ -86,5 +86,5 @@ auto = false
 ## See also
 
 - [Database Migrations](/productivity/migrations/) — the file format and the workflow around this command.
-- [Queries](/guides/backend/queries/) — writing the SQL.
+- [Queries](/guides/storage/queries/) — writing the SQL.
 - [`pw seed`](/pw/database/seed/) — loading data after the schema is in place.

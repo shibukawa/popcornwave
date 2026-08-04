@@ -293,6 +293,9 @@ public.enabled = false
 
 [middleware.rdb]
 enabled = true
+
+[[middleware.rdb.connections]]
+group = "default"
 dsn = "sqlite://%s"
 connect_timeout = "5s"
 max_open_conns = 1
@@ -301,13 +304,14 @@ max_idle_conns = 1
 [session]
 enabled = true
 backend = "rdb"
-ttl = "1h"
-idle_timeout = "30m"
 cookie.name = "pw_session"
 cookie.secure = false
+keyring.secret = "2wcqk/sZ2troHw/eW31LrA8RKvZgUxUy6kgZ5ISdXGU="
 
 [auth]
 enabled = true
+session.ttl = "1h"
+session.idle_timeout = "30m"
 mode = "oidc_passkey"
 post_login_path = "/"
 recent_auth_max_age = "5m"

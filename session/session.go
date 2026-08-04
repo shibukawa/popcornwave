@@ -1,15 +1,26 @@
-// Package session provides opaque login sessions and the typed browser cookies
-// an application writes on its own. The browser receives only a random token;
-// every authoritative lifetime and payload stays in a Store implementation
-// owned by the application deployment.
+// Package session stores typed per-browser state. It knows nothing about
+// login: what proved a session, how strongly, and for how long belongs to
+// whatever owns authentication, which is normally popcornwave/plugin/auth.
 //
-// Handlers normally read sessions through Read and never observe the token, the
-// store key hash, or the backend client.
+// An application declares each piece of state once, as a Go type with a
+// Placement, and reads it back by that type:
 //
-// Jar reads and writes one typed application cookie, plain, signed, or sealed,
-// under one API that does not change with the protection. CookieStore is the
-// Store implementation for a deployment that wants no session storage at all;
-// every other store keeps its records on the server.
+//	session.Register[Cart](registry, "cart", session.Private, nil)
+//	cart, ok := session.Load[Cart](ctx)
+//
+// The Placement states what the client may do with the value and where its
+// bytes live. Shared is a plain cookie the front end reads and writes,
+// ReadOnly a signed one it may read, Private is sealed and moves from a cookie
+// to the configured backend at the login rotation, and ServerOnly is sealed and
+// always on the server because it must stay revocable.
+//
+// The browser receives only a random token, issued lazily on the first write,
+// so a visitor who writes nothing receives no cookie and occupies no storage.
+// Handlers never observe the token, the key hash, the placement, or the backend
+// client.
+//
+// Jar remains for one typed cookie deliberately kept outside the session, such
+// as a sign-in hint that has to survive the logout it describes.
 package session
 
 import (
@@ -17,8 +28,6 @@ import (
 	"errors"
 	"net/http"
 	"time"
-
-	"github.com/shibukawa/popcornwave/pwruntime"
 )
 
 var (
@@ -89,56 +98,6 @@ type RequestBinder interface {
 type Codec[T any] interface {
 	Encode(value T) ([]byte, error)
 	Decode(encoded []byte) (T, error)
-}
-
-// View is the safe request view of the current session. It excludes the cookie
-// token, the store key hash, and backend serialization.
-type View[T any] struct {
-	Data            T
-	CreatedAt       time.Time
-	AuthenticatedAt time.Time
-	LastSeenAt      time.Time
-	ExpiresAt       time.Time
-	IdleExpiresAt   time.Time
-	Method          string
-	Version         int
-}
-
-// Read returns the validated session installed by session middleware. It
-// reports false for an unauthenticated request and for a payload of another
-// type.
-func Read[T any](ctx context.Context) (View[T], bool) {
-	stored, ok := pwruntime.Session(ctx)
-	if !ok {
-		return View[T]{}, false
-	}
-	data, ok := stored.Data.(T)
-	if !ok {
-		return View[T]{}, false
-	}
-	return View[T]{
-		Data:            data,
-		CreatedAt:       stored.CreatedAt,
-		AuthenticatedAt: stored.AuthenticatedAt,
-		LastSeenAt:      stored.LastSeenAt,
-		ExpiresAt:       stored.ExpiresAt,
-		IdleExpiresAt:   stored.IdleExpiresAt,
-		Method:          stored.Method,
-		Version:         stored.Version,
-	}, true
-}
-
-func (r Record[T]) view() pwruntime.SessionView {
-	return pwruntime.SessionView{
-		Data:            r.Data,
-		CreatedAt:       r.CreatedAt,
-		AuthenticatedAt: r.AuthenticatedAt,
-		LastSeenAt:      r.LastSeenAt,
-		ExpiresAt:       r.ExpiresAt,
-		IdleExpiresAt:   r.IdleExpiresAt,
-		Method:          r.Method,
-		Version:         r.Version,
-	}
 }
 
 // deadline is the earliest authoritative expiry of the record.

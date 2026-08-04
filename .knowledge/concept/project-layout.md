@@ -13,7 +13,9 @@ layout:
   go.mod: Go module definition
   go.sum: Go dependency checksums
   .gitignore: excludes **/*_pw_gen.go, public/**/*.zstd, and other build-only output
+  .editorconfig: the indent, encoding, and line-ending rules of the scaffolded sources, so an editor with no Go or template support still writes them the way rule:template-source-layout and gofmt do
   .vscode/settings.json: hides **/*_pw_gen.go from the editor explorer
+  .vscode/extensions.json: the editor extensions this project's sources need, recommended rather than required
   devbox.json: development tools and default Valkey service
   devbox.lock: pinned Devbox dependencies
   assets/app.css: optional Tailwind CSS configuration and plugin declarations

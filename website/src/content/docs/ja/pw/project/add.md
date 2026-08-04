@@ -6,7 +6,7 @@ sidebar:
 ---
 
 ```sh
-pw add [devbox|database|redis-valkey|auth|tailwind]
+pw add [devbox|database|dynamo|redis-valkey|auth|tailwind|images]
 ```
 
 `pw init` はどの機能から始めるかを尋ねますが、それはプロジェクトを理解しきる前の
@@ -24,15 +24,22 @@ pw add [devbox|database|redis-valkey|auth|tailwind]
 | --- | --- |
 | `devbox` | `devbox.json` と `devbox.lock`。このプロジェクトが既に使っているツールチェインを含む |
 | `database` | `[middleware.rdb]` セクション、マイグレーションディレクトリ、型付き SQL の例 |
+| `dynamo` | `[middleware.dynamo]` セクション、型付きレコード、ローカルの DynamoDB サーバー |
 | `redis-valkey` | `devbox.json` の Valkey 開発サーバー |
 | `auth` | ログインセッション、フレームワークのテーブル、アカウントリゾルバ |
 | `tailwind` | ピン留めした Tailwind ツールチェイン、CSS エントリ、`[assets.tailwind]` ブロック |
+| `images` | ピン留めした画像エンコーダと、変換を有効にする `[assets.images]` ブロック |
 
 引数は最初のステップの初期選択になります。省略すると、そのプロジェクトがまだ持って
 いないものだけが並びます。他に依存するものが 2 つあります。`auth` はログインセッション
 のために `database` を必要とし、`redis-valkey` は `devbox` を必要とします。Valkey の
 選択は Devbox のパッケージ以外に何も書かないからです。依存を持たないプロジェクトで
 選ぶと、先に依存を追加し、その旨をレビュー画面に表示します。
+
+`images` がエンコーダとスイッチを1ステップで書くのは意図的です。ツール無しでスイッチだけ
+入れたプロジェクトは何も変換せず、それを毎ビルド報告し続けます。スイッチ無しでツールだけ
+入れたプロジェクトは、使わないパッケージを2つ抱えることになります。Devbox が無い場合は
+ピン留めする先が無いので、必要なツールを言葉で挙げてインストールは任せます。
 
 ## 検出
 
@@ -46,6 +53,7 @@ pw add [devbox|database|redis-valkey|auth|tailwind]
 | `redis-valkey` | `devbox.json` の Valkey パッケージ |
 | `auth` | `init_popcornwave_auth` マイグレーション（バージョンは問わない） |
 | `tailwind` | `popcornwave.toml` の `assets.tailwind.enabled` |
+| `images` | `popcornwave.toml` の `assets.images.enabled` |
 
 既にある機能を追加しようとすると、根拠のファイルを名指しして失敗します。
 
@@ -66,9 +74,7 @@ pw: add: this project already has auth, per migrations/00003_init_popcornwave_au
     create  migrations/00002_init_popcornwave_session.sql
     create  migrations/00003_init_popcornwave_auth.sql
     append  config.dev.toml
-    by hand call handlers.RegisterAccountResolver() in ./cmd/lean before pw.Run
-    by hand add import _ "github.com/shibukawa/popcornwave/sessionstore/sqlite" to ./cmd/lean
-    by hand add import _ "github.com/shibukawa/popcornwave/authstate/sqlite" to ./cmd/lean
+    edit    cmd/lean/main.go
     then    pw migrate up
 
   enter add  ·  esc back  ·  ctrl+c cancel

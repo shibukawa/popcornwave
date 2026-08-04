@@ -31,37 +31,41 @@ declaration_order:
   how_it_failed: the marker's callback threw during load, silently, leaving a page that applied its boundaries and then never updated; found by running the example in a browser, not by any test
   guarded_by: a test over the script text, since the failure is invisible to every Go-level assertion
 placement:
-  where: the api:cli-init scaffolded templates/document.pw.html, so every page loads it
-  rationale: an always-present runtime removes the need for any head-injection hook, now and for the capabilities that follow it
-  branch_independence: the tag is present whether a response streams or not, so decision:automatic-async-render-selection decides only how to render, never what to load
-  cost: a page with no dynamic behavior still fetches the module once on a first visit, immutably cached afterward
+  superseded_by: decision:runtime-tag-injection, which moves the reference out of the scaffolded shell and into a framework contribution at the render call
+  was: the api:cli-init scaffolded templates/document.pw.html, so every page loaded it
+  why_it_was_chosen: an always-present scaffolded tag removed the need for a head-injection hook system:tinybind did not yet offer
+  branch_independence: unchanged in effect; decision:automatic-async-render-selection still decides only how to render, never what to load
+  cost_now_avoidable: a page with no dynamic behavior and updates disabled can load nothing, which a scaffolded tag could not express
 url_stability:
   problem: the revision of requirement:framework-script-assets moves on a dependency upgrade, but a scaffolded template is written once and then owned by the author
   not_a_parameter: generated registration binds the document with an empty parameter struct at package init, before configuration is parsed, so the URL cannot arrive as a bound parameter
-  resolution:
-    template: "declares `external RuntimeScriptURL(): url` and writes `src={RuntimeScriptURL()}`"
-    package: the scaffolded templates package implements it over the framework accessor
-    typing: a url attribute takes a url.URL rather than a string, so the path cannot be assembled from unvalidated text
-  effect: the template text survives every upgrade that moves the URL
+  was_resolved_by: "a declared `external RuntimeScriptURL(): url` the scaffolded templates package implemented over the framework accessor"
+  no_longer_needed: injection means no template names the URL at all, so the indirection has nothing left to protect; the declaration is removed from the scaffold rather than kept as a second way in
 failure_mode:
   symptom: boundaries never apply and every fallback stays, with no console error and no failed request
   cause: the shell reference is missing or was removed, and nothing else supplies a runtime
-  guards:
-    - api:cli-init scaffolds the reference, and a test asserts the scaffold still carries it
-    - the reserved path is served unconditionally, so no configuration combination can leave the reference unresolvable
+  why_it_was_reachable: the reference lived in a file the author owns, edits, and may rewrite, and a scaffold test says nothing about a project a month later
+  closed_by: decision:runtime-tag-injection, since the framework contributes the reference itself and no shell edit can drop it
+  residual: a shell declaring no head element has nowhere for any contribution to land, which rule:route-and-template-checks reports rather than leaving silent
+  unchanged_guard: the reserved path is served unconditionally, so no configuration combination can leave the reference unresolvable
 script_loading:
   choice: module script, which defers by default
   correctness: a marker element parsed before the definition upgrades when customElements.define runs, and upgrades happen in document order, so no completion is lost
   cost: boundaries that settle during parsing stay as fallback until the module executes, which inline delivery avoided
   rejected: a classic src script without defer blocks parsing until the fetch completes
 delivery: requirement:framework-script-assets, of which this is the first consumer
+merged_at_v0_3_0:
+  what: this script stops being its own file and becomes the async and live half of requirement:unified-update-runtime, served as popcornwave-runtime.js
+  why: system:tinybind v0.3.0 ships a runtime covering the same boundaries plus navigation, redraw, and action apply, and two runtimes on one document would mean two boundary id spaces and two build identities
+  unchanged: the reserved path, the content-derived revision, the single shell reference, the declared external returning the URL, and every acceptance below
+  decided_by: decision:update-runtime-convergence
 benefits:
   - policy:security-response-headers can enforce script-src 'self' with no nonce, hash, or unsafe-inline
   - one cached file covers every page and every deployment of one dependency set
 acceptance:
   - a strict CSP with no inline allowance still applies every boundary
   - a completion whose bytes are split across chunks never destroys its fallback
-  - a dependency upgrade changes the served URL without editing the scaffolded template
+  - a dependency upgrade changes the served URL with no template edit anywhere
   - an unknown revision under the reserved path answers 404 rather than reaching the application
   - the applied document retains no placeholder, template, or marker element; it retains the comment brackets api:html-boundary-protocol keeps as a live delivery's address
   - a document cut off mid-stream is detected from the missing terminal marker and reloaded once, with the guard that stops a server truncating every response from producing a reload loop

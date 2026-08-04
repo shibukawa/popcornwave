@@ -48,7 +48,7 @@ func declinedProject(t *testing.T) string {
 func TestCapabilityDetectionReadsTheProjectFiles(t *testing.T) {
 	full := writeScaffoldedProject(t, initOptions{
 		Name: "fixture", Router: routerBoth, TinyGo: true, Devbox: true, Database: true, Redis: true,
-		Tailwind: true, Auth: authOIDC, AuthEmulator: true,
+		Dynamo: true, Tailwind: true, Images: true, Auth: authOIDC, AuthEmulator: true,
 	})
 	state, err := loadProjectState(full)
 	if err != nil {
@@ -70,7 +70,7 @@ func TestCapabilityDetectionReadsTheProjectFiles(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := []string{capabilityDiscovered, capabilityDevbox, capabilityDatabase, capabilityRedis, capabilityAuth, capabilityTailwind}
+	want := []string{capabilityDiscovered, capabilityDevbox, capabilityDatabase, capabilityDynamo, capabilityRedis, capabilityAuth, capabilityTailwind, capabilityImages}
 	if strings.Join(missing, ",") != strings.Join(want, ",") {
 		t.Fatalf("missing = %v, want %v", missing, want)
 	}
@@ -107,7 +107,7 @@ func TestAddDatabaseReachesTheScaffoldedState(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(config), "[middleware.rdb]") ||
+	if !strings.Contains(string(config), "[[middleware.rdb.connections]]") ||
 		!strings.Contains(string(config), `dsn = "sqlite://fixture.db"`) {
 		t.Fatalf("the rdb section did not reach the environment config:\n%s", config)
 	}
@@ -122,6 +122,45 @@ func TestAddDatabaseReachesTheScaffoldedState(t *testing.T) {
 	}
 	if _, present, err := reloaded.carries(capabilityDatabase); err != nil || !present {
 		t.Fatalf("the database is not detected after adding it: %v", err)
+	}
+}
+
+// The database reaches every environment the project configures, and the local
+// DSN reaches only dev: a connections element has no environment variable of
+// its own, so a deployment's value arrives through the ${NAME} reference rather
+// than by an operator remembering to replace the development database.
+func TestAddDatabaseNamesTheEnvironmentOutsideDev(t *testing.T) {
+	root := declinedProject(t)
+	if err := os.WriteFile(filepath.Join(root, "config.prod.toml"), []byte("[observability]\nminimum_level = \"info\"\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	state, err := loadProjectState(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	plan, err := planCapability(state, addOptions{Capability: capabilityDatabase, DSN: "sqlite://fixture.db"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := plan.apply(root); err != nil {
+		t.Fatal(err)
+	}
+	production, err := os.ReadFile(filepath.Join(root, "config.prod.toml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(production), `dsn = "${DATABASE_URL}"`) {
+		t.Fatalf("the production file names no environment variable:\n%s", production)
+	}
+	if strings.Contains(string(production), "sqlite://fixture.db") {
+		t.Fatalf("the development database reached the production file:\n%s", production)
+	}
+	development, err := os.ReadFile(filepath.Join(root, "config.dev.toml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(development), `dsn = "sqlite://fixture.db"`) {
+		t.Fatalf("the development file lost its own database:\n%s", development)
 	}
 }
 
@@ -189,9 +228,25 @@ func TestAddAuthWritesFrameworkMigrationsAtTheNextFreeVersion(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(root, "migrations", "00001_init.sql")); err != nil {
 		t.Fatalf("an existing migration was renumbered: %v", err)
 	}
-	// The call in main is application-owned, so it is printed, not injected.
-	if len(plan.manual) == 0 || !strings.Contains(plan.manual[0], "RegisterAccounts") {
+	// The roster is useless to pw dev without the section that points at it, and
+	// the port has to be pinned for the same reason pw init pins it: the
+	// scaffolded resolver builds an account ID out of the issuer.
+	project, err := os.ReadFile(filepath.Join(root, "popcornwave.toml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"[dev.idp]", `config = "devidp.toml"`, "port = 18080"} {
+		if !strings.Contains(string(project), want) {
+			t.Fatalf("popcornwave.toml is missing %q:\n%s", want, project)
+		}
+	}
+	// The entry point is edited rather than described, so nothing about this
+	// capability is left for the operator to carry out by hand.
+	if len(plan.manual) != 0 {
 		t.Fatalf("manual steps = %#v", plan.manual)
+	}
+	if !strings.Contains(plan.edits["cmd/fixture/main.go"], "handlers.RegisterAccounts()") {
+		t.Fatalf("the entry point edit does not install the account seams:\n%s", plan.edits["cmd/fixture/main.go"])
 	}
 	reloaded, err := loadProjectState(root)
 	if err != nil {
@@ -368,13 +423,24 @@ func TestAddDatabasePerEngine(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// Version 1 creates nothing: it carries the shape of a migration for this
+	// dialect, commented out, so adding a database does not also add a table.
 	schema := plan.creates["migrations/00001_init.sql"]
-	if !strings.Contains(schema, "CREATE TABLE users") {
+	if !strings.Contains(schema, "-- +goose Up") || !strings.Contains(schema, "-- CREATE TABLE example (") {
 		t.Fatalf("schema = %q", schema)
 	}
-	joined := strings.Join(plan.summary(), "\n")
-	if !strings.Contains(joined, "popcornwave/database/postgres") {
-		t.Fatalf("plan does not name the engine import:\n%s", joined)
+	for _, statement := range []string{"\nCREATE TABLE", "\nDROP TABLE"} {
+		if strings.Contains(schema, statement) {
+			t.Fatalf("starter migration executes a statement: %q", schema)
+		}
+	}
+	// The engine that pw does not link itself is imported by the entry point,
+	// and pw add plans that edit rather than describing it.
+	if entry := plan.edits["cmd/fixture/main.go"]; !strings.Contains(entry, `_ "github.com/shibukawa/popcornwave/database/postgres"`) {
+		t.Fatalf("the entry point does not link the engine:\n%s", entry)
+	}
+	if !strings.Contains(strings.Join(plan.summary(), "\n"), "edit    cmd/fixture/main.go") {
+		t.Fatalf("the review screen does not name the entry point:\n%s", strings.Join(plan.summary(), "\n"))
 	}
 	// Generation reads the engine from popcornwave.toml, so pw add has to
 	// record it there as pw init does.
@@ -504,16 +570,16 @@ func TestInitReportsDeclinedCapabilities(t *testing.T) {
 		{
 			name:    "everything declined",
 			options: initOptions{Database: false, Redis: false, Tailwind: false, Auth: authNone},
-			want:    "devbox,database,redis-valkey,auth,tailwind",
+			want:    "devbox,database,dynamo,redis-valkey,auth,tailwind",
 		},
 		{
 			name:    "only Tailwind declined",
-			options: initOptions{Devbox: true, Database: true, Redis: true, Auth: authOIDC},
+			options: initOptions{Devbox: true, Database: true, Dynamo: true, Redis: true, Auth: authOIDC},
 			want:    "tailwind",
 		},
 		{
 			name:    "nothing declined",
-			options: initOptions{Devbox: true, Database: true, Redis: true, Tailwind: true, Auth: authOIDC},
+			options: initOptions{Devbox: true, Database: true, Dynamo: true, Redis: true, Tailwind: true, Auth: authOIDC},
 			want:    "",
 		},
 	} {
@@ -620,6 +686,7 @@ func TestInitWizardSkipsValkeyWithoutDevbox(t *testing.T) {
 		pressKey(tea.KeyEnter), // Tailwind
 		pressKey(tea.KeyEnter), // Database
 		pressKey(tea.KeyEnter), // Database engine
+		pressKey(tea.KeyEnter), // DynamoDB
 		pressKey(tea.KeyEnter), // Authentication
 		typeText("2"),          // Devbox: No
 	)
@@ -668,5 +735,102 @@ func TestTailwindToolchainHintFollowsTheProject(t *testing.T) {
 	}
 	if hint := tailwindToolchainHint(root); !strings.Contains(hint, "Devbox shell") {
 		t.Fatalf("hint = %q, want the Devbox shell", hint)
+	}
+}
+
+// The catalog's promise is that declining costs nothing, and an entry point one
+// command writes and the other only talks about is the loudest way to break it:
+// storage is opt-in by blank import, so the configuration pw add appends does
+// nothing until the binary links what it names.
+func TestAddAuthReachesTheScaffoldedEntryPoint(t *testing.T) {
+	root := writeScaffoldedProject(t, initOptions{
+		Name: "fixture", TinyGo: true, Devbox: true, Database: true, Auth: authNone,
+	})
+	state, err := loadProjectState(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	plan, err := planCapability(state, addOptions{Capability: capabilityAuth})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := plan.apply(root); err != nil {
+		t.Fatal(err)
+	}
+	added, err := os.ReadFile(filepath.Join(root, "cmd", "fixture", "main.go"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{
+		`_ "github.com/shibukawa/popcornwave/sessionstore/sqlite"`,
+		`_ "github.com/shibukawa/popcornwave/authstate/sqlite"`,
+		"handlers.RegisterAccounts()",
+	} {
+		if !strings.Contains(string(added), want) {
+			t.Fatalf("the entry point is missing %s:\n%s", want, added)
+		}
+	}
+	// The edit is shown before it is made, which is what makes touching an
+	// application-owned file acceptable at all.
+	if !strings.Contains(strings.Join(plan.summary(), "\n"), "edit    cmd/fixture/main.go") {
+		t.Fatalf("the review screen does not name the entry point:\n%s", strings.Join(plan.summary(), "\n"))
+	}
+	// A second run must not stack a duplicate import or a second call.
+	second, err := withBlankImports(string(added),
+		blankImport{"github.com/shibukawa/popcornwave/sessionstore/sqlite", "again"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if second != string(added) {
+		t.Fatalf("a repeated import was added twice:\n%s", second)
+	}
+	if strings.Count(string(added), "handlers.RegisterAccounts()") != 1 {
+		t.Fatalf("RegisterAccounts appears more than once:\n%s", added)
+	}
+}
+
+// TestAddImagesReachesTheScaffoldedState covers the encoders being declared
+// rather than discovered: taking the capability writes the configuration and
+// the tool environment together, so a project cannot end up converting nothing
+// because a package was never added.
+func TestAddImagesReachesTheScaffoldedState(t *testing.T) {
+	root := writeScaffoldedProject(t, initOptions{Name: "fixture", TinyGo: true, Devbox: true, Auth: authNone})
+	state, err := loadProjectState(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	plan, err := planCapability(state, addOptions{Capability: capabilityImages})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(plan.appends["popcornwave.toml"], "[assets.images]") {
+		t.Errorf("popcornwave.toml append = %q", plan.appends["popcornwave.toml"])
+	}
+	devbox := plan.edits["devbox.json"]
+	for _, pkg := range imageDevboxPackages {
+		if !strings.Contains(devbox, pkg) {
+			t.Errorf("devbox.json is missing %s:\n%s", pkg, devbox)
+		}
+	}
+}
+
+// TestAddImagesWithoutDevboxNamesTheTools is the other environment: a project
+// installing its own toolchain gets the requirement in words, since a nixpkgs
+// package name means nothing to someone using Homebrew.
+func TestAddImagesWithoutDevboxNamesTheTools(t *testing.T) {
+	root := writeScaffoldedProject(t, initOptions{Name: "fixture", TinyGo: true, Auth: authNone})
+	state, err := loadProjectState(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	plan, err := planCapability(state, addOptions{Capability: capabilityImages})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := plan.edits["devbox.json"]; ok {
+		t.Error("a project with no devbox got a devbox edit")
+	}
+	if len(plan.manual) == 0 || !strings.Contains(strings.Join(plan.manual, " "), "cwebp") {
+		t.Errorf("plan.manual = %v", plan.manual)
 	}
 }

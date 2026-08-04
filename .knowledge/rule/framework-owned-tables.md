@@ -16,8 +16,9 @@ current_tables:
   popcornwave_passkey_credential: the api:auth-credential-store default store for data:passkey-credential
   popcornwave_auth_bootstrap: the api:auth-credential-store default store for data:account-bootstrap-credential
 conditional_verification:
-  tables: popcornwave_passkey_credential and popcornwave_auth_bootstrap
+  tables: popcornwave_passkey_credential, popcornwave_auth_bootstrap, and popcornwave_auth_allowlist
   rule: a table is verified only when the selected mode reads it and the application installed no store of its own
+  allowlist: read only when auth.oidc.admission is registered, and skipped when api:auth-allowlist-store carries an installed store
   bootstrap: additionally only when registration or recovery actually issues a credential
   reason: a deployment asked for a table nothing will ever write to learns to ignore the startup refusal
   note: the migration still creates them, because one package publishes one file
@@ -31,7 +32,7 @@ migrations:
   source: the owning package publishes the exact file content, and a repository test fails when a copy drifts
   scaffolding: api:cli-init writes the files of the selected authentication mode; api:cli-add writes them into an existing project
 non_relational_stores:
-  applies_to: requirement:dynamodb-session-store and any later framework table on a store with no versioned migration
+  applies_to: requirement:dynamodb-session-store, requirement:dynamodb-auth-stores, requirement:contrib-auth-state-dynamo, and any later framework table on a store with no versioned migration
   naming: unchanged; the popcornwave_ prefix is the declared name, which rule:dynamodb-table-naming then maps to the deployed one
   creation_in_development: the owning package registers a table definition through decision:dynamodb-table-registry, and requirement:dynamodb-migration creates it
   creation_in_production: deployment tooling, from the definition api:cli-migrate prints, because such a table reads as part of the infrastructure

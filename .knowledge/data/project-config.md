@@ -20,7 +20,7 @@ schema:
     idp:
       enabled: false
       config: devidp.toml
-      port: 0 for an automatically reserved loopback port
+      port: 0 for an automatically reserved loopback port; api:cli-init writes a fixed one, because the issuer it appears in is part of the account identity
     otel:
       enabled: true
       port: 0 for an automatically reserved loopback port
@@ -34,6 +34,8 @@ schema:
     dynamo: [records] as scaffolded for a project with requirement:dynamodb-store, and empty otherwise
   migration:
     dir: migrations
+    auto: true for api:cli-dev only
+  seed:
     auto: true for api:cli-dev only
   assets:
     tailwind:
@@ -66,6 +68,8 @@ rules:
   - project.database is a generation input, not a runtime one; the effective engine still comes from the rule:rdb-dsn-resolution scheme, and the two must agree
   - migration.dir locates data:migration-source and is a tooling path, not a runtime database value
   - migration.auto only enables the api:cli-dev apply step and never enables application startup apply
+  - seed.auto only enables the api:cli-dev reseed step and never seeds from application startup, api:cli-migrate, or a build
+  - seed.auto has no directory key beside it; the datasets are the api:cli-seed default location, and its --dir flag stays the way a one-off run points elsewhere
   - dev.idp only affects api:cli-dev and locates data:devidp-config
   - dev.idp.port defaults to an automatically reserved port because api:cli-dev injects the resolved issuer into the application
   - dev.idp.enabled true requires the data:devidp-config file to exist

@@ -11,6 +11,9 @@ service_name = "oidclogin"
 # framework tables come from the migrations named after their owning package.
 [middleware.rdb]
 enabled = true
+
+[[middleware.rdb.connections]]
+group = "default"
 dsn = "sqlite://oidclogin.db"
 connect_timeout = "5s"
 max_open_conns = 1
@@ -19,8 +22,6 @@ max_idle_conns = 1
 [session]
 enabled = true
 backend = "rdb"
-ttl = "12h"
-idle_timeout = "1h"
 renewal_interval = "5m"
 cookie.name = "pw_session"
 # Loopback development only. Keep secure = true everywhere else.
@@ -30,6 +31,8 @@ rdb.source = "middleware"
 
 [auth]
 enabled = true
+session.ttl = "12h"
+session.idle_timeout = "1h"
 mode = "oidc_only"
 post_login_path = "/"
 protection.include = ["/mypage"]

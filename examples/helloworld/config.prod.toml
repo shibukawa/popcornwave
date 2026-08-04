@@ -16,8 +16,11 @@ compression = true
 
 [middleware.rdb]
 enabled = true
-dsn = "sqlite://helloworld.db"
 auto_transaction = false
+
+[[middleware.rdb.connections]]
+group = "default"
+dsn = "sqlite://helloworld.db"
 connect_timeout = "5s"
 max_open_conns = 1
 max_idle_conns = 1

@@ -24,8 +24,9 @@ backend_value:
   prune: optional; the expiry sweep of a backend that accumulates records
   rule: a host reads capabilities from the returned value and never type-asserts a plugin type
 typing_seam:
-  host: session.Typed[T](RawStore, Codec[T]) returns the api:session-store Store[T] a manager takes
-  payload: the codec belongs to the host, so a backend never sees the application payload type
+  host: the api:session-registry encodes every session.Private slot into the one payload a RawStore takes
+  payload: the codec belongs to the host, so a backend never sees an application payload type
+  implemented: session.Typed[T](RawStore, Codec[T]) returns the Store[T] a generic manager takes, which the registry replaces
   request_binding: Typed forwards the RequestBinder of a store that keeps records in the browser
 built_in:
   cookie:
