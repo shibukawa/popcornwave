@@ -1,5 +1,5 @@
 ---
-title: Query Diagnostics
+title: Slow Query Diagnostics
 description: Log every generated SQL statement, explain the slow ones, and get a snippet that reruns them by hand.
 sidebar:
   order: 5
@@ -140,5 +140,5 @@ Test runs default to `dev`, so an application test that exercises generated
 queries logs them too. That is usually what you want from a failing test. To
 quiet it, set `enabled = "off"` in the configuration your tests load.
 
-See [Queries](/guides/backend/queries/) for the statements themselves and
+See [Queries](/guides/storage/queries/) for the statements themselves and
 [Configuration](/guides/architecture/configuration/) for how these keys are resolved.

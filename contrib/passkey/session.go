@@ -2,6 +2,7 @@ package passkey
 
 import (
 	"context"
+	"crypto/subtle"
 	"errors"
 
 	"github.com/shibukawa/popcornwave/authstate"
@@ -36,12 +37,27 @@ func (flow *SessionFlow) BeginRegistration(ctx context.Context, user User, optio
 	return creation, key, nil
 }
 
-func (flow *SessionFlow) FinishRegistration(ctx context.Context, key string, response RegistrationCredential) (RegistrationResult, error) {
+// FinishRegistration completes the ceremony begun for binding.
+//
+// binding must equal the RegistrationOptions.Binding the ceremony started with.
+// It is a required argument rather than an option so that a caller cannot leave
+// the ceremony unbound by forgetting it: the whole point is that the principal
+// resolved at this request may not be the one that began, and an application
+// that skipped the comparison would enroll a credential onto whoever happens to
+// be authenticated now.
+//
+// A mismatch consumes the state and fails, exactly as a bad challenge does. The
+// ceremony is over either way, and reporting which half was wrong would say
+// whether an account is mid-enrollment.
+func (flow *SessionFlow) FinishRegistration(ctx context.Context, key string, binding []byte, response RegistrationCredential) (RegistrationResult, error) {
 	if flow == nil || ctx == nil {
 		return RegistrationResult{}, ErrInvalidState
 	}
 	state, err := flow.store.Take(ctx, key)
 	if err != nil {
+		return RegistrationResult{}, ErrInvalidState
+	}
+	if subtle.ConstantTimeCompare(state.binding, binding) != 1 {
 		return RegistrationResult{}, ErrInvalidState
 	}
 	return flow.rp.FinishRegistration(state, response)

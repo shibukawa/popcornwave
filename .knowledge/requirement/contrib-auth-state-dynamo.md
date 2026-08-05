@@ -3,23 +3,21 @@ id: requirement:contrib-auth-state-dynamo
 type: requirement
 title: DynamoDB Authentication State Store
 ---
-contrib/authstate/dynamo implements requirement:contrib-auth-state over requirement:dynamodb-store, so a deployment with no relational database can run the passkey, OAuth, and OIDC ceremonies.
+authstate/dynamo implements requirement:contrib-auth-state over requirement:dynamodb-store, so a deployment with no relational database can run the passkey, OAuth, and OIDC ceremonies.
 
 ```yaml
 package: authstate/dynamo, beside the memory, sqlite, postgres, mysql, and redis adapters
 store: requirement:dynamodb-store
-blocked_by:
-  state: designed, not built; authstate ships no dynamo adapter today
-  adapter: this package itself
-  seam: plugin/auth constructs authstate.NewSQLStore directly, so no configuration selects an adapter for the ceremony store
-  gate: plugin/auth refuses to start without middleware.rdb.enabled, whatever the session backend is, so requirement:dynamodb-session-store alone does not make a relational-free login
-  allowlist: popcornwave_auth_allowlist is read through SQL with no store seam, so policy:oidc-admission registered mode stays relational even after the three above are done
-  credentials: api:auth-credential-store already has its seam, so a passkey mode needs an application store rather than a framework change
-  effect: api:cli-init refuses an authentication mode on a DynamoDB-only project until the gate is lifted
+selected_by: decision:auth-backend-selection, as one of the four stores requirement:dynamodb-auth-backend moves together
+implemented:
+  built: 2026-08-05, together with the rest of requirement:dynamodb-auth-backend
+  shape: a raw store over encoded payloads, because plugin/auth keeps three kinds of ceremony record and two of their types are unexported; NewStore puts a codec back on for a caller that owns one
+  raw_contract: authstate.RawStore and authstate.Typed, added for this
+  was_blocked_by: the adapter itself, the absent configuration seam, the middleware.rdb gate, and the allowlist having no store seam; all four are now answered
 record: data:auth-state-record
 public_api:
-  - NewStore[T](api:auth-state-codec, Options)
-  - Store[T] implements authstate.Store[T]
+  - NewRawStore(Options) returns the authstate.RawStore a backend supplies
+  - NewStore[T](api:auth-state-codec, Options) wraps it for a caller that owns a codec
 client:
   source: the request context, installed by the api:dynamo-package middleware
   no_constructor_argument: unlike the sqlite adapter, which takes a pool, because system:tinybind carries the client in the context from v0.2.10

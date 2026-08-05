@@ -24,6 +24,10 @@ const (
 	// console is bookmarked, and a reserved port would hand out a new address
 	// every run.
 	defaultConsolePort = 18081
+	// defaultImageQuality is libwebp's own default, so a project that sets
+	// nothing gets what the encoder considers reasonable rather than a number
+	// this framework invented.
+	defaultImageQuality = 75
 )
 
 // Target compilers recorded by project.toolchain. Projects scaffolded before the
@@ -31,6 +35,15 @@ const (
 const (
 	toolchainTinyGo = "tinygo"
 	toolchainGo     = "go"
+)
+
+// Project kinds recorded by project.kind. An application builds a binary; a
+// package is published as a Go module and imported by one. Every project written
+// before the key existed is an application, because it was the only kind there
+// was, so the absent key means that rather than an error.
+const (
+	kindApplication = "application"
+	kindPackage     = "package"
 )
 
 type tailwindConfig struct {
@@ -121,6 +134,11 @@ type generationScope struct {
 	// query declarations. It reads Go type declarations rather than a template
 	// language, which is why it is not part of generate.queries.
 	Dynamo []string
+	// Firestore lists the directories holding firestore-tagged types and
+	// .pw.firestore query declarations, on the same terms as Dynamo. The two
+	// are separate purposes because a project may have either store, and a
+	// directory listed for one is not a generation source for the other.
+	Firestore []string
 }
 
 // generatePurposes are the configuration keys of generationScope, in the order
@@ -140,6 +158,7 @@ var generatePurposes = []struct {
 	{key: "generate.config", target: func(s *generationScope) *[]string { return &s.Config }},
 	{key: "generate.pages", target: func(s *generationScope) *[]string { return &s.Pages }, optional: true},
 	{key: "generate.dynamo", target: func(s *generationScope) *[]string { return &s.Dynamo }, optional: true},
+	{key: "generate.firestore", target: func(s *generationScope) *[]string { return &s.Firestore }, optional: true},
 }
 
 // watchConfig widens or trims the pw dev walk. Unlike generation, the walk has a
@@ -150,8 +169,21 @@ type watchConfig struct {
 	Excludes []string
 }
 
+// packageRef is one entry of the consuming project's packages array. It names a
+// module and nothing else: the declaration says the application intends to use
+// that package, which is a different fact from go.mod saying the module is
+// available, and it is the fact the bootstrap generator needs in order to know
+// what to import.
+type packageRef struct {
+	Module string
+}
+
 type projectConfig struct {
-	Name      string
+	Name string
+	// Kind selects which commands apply and which keys are legal. It is read
+	// before anything else, so a command that does not apply to the kind is
+	// reported as such rather than failing later on a missing key.
+	Kind      string
 	Main      string
 	Toolchain string
 	// Database is the engine .pw.sql sources generate for. It sits beside the
@@ -168,6 +200,17 @@ type projectConfig struct {
 	Migration migrationConfig
 	Seed      seedConfig
 	Tailwind  tailwindConfig
+	// Assets is the build-time conversion set. Every field defaults to off, so
+	// a project that declares nothing embeds a copy of its authored tree and
+	// serves exactly what it served before any of this existed.
+	Assets assetsConfig
+	// Packages are the component packages an application declares. Declaring one
+	// is what links it: pw generate emits the blank import from this list, so a
+	// module in go.mod and not here is an ordinary dependency.
+	Packages []packageRef
+	// Package is the manifest a package project publishes. It is empty for an
+	// application, and an application carrying the section is an error.
+	Package packageManifest
 }
 
 func loadProjectConfig(root string) (projectConfig, error) {
@@ -181,9 +224,10 @@ func loadProjectConfig(root string) (projectConfig, error) {
 		return projectConfig{}, fmt.Errorf("parse %s: %w", path, err)
 	}
 	known := []string{
-		"project.name", "project.main", "project.toolchain", "project.database",
+		"project.name", "project.kind", "project.main", "project.toolchain", "project.database",
+		"packages",
 		"generate.handlers", "generate.templates", "generate.queries", "generate.config", "generate.pages",
-		"generate.dynamo",
+		"generate.dynamo", "generate.firestore",
 		"dev.watch.includes", "dev.watch.excludes",
 		"seed.auto",
 		"dev.idp.enabled", "dev.idp.config", "dev.idp.port",
@@ -194,7 +238,10 @@ func loadProjectConfig(root string) (projectConfig, error) {
 		"migration.dir", "migration.auto",
 		"assets.tailwind.enabled", "assets.tailwind.input",
 		"assets.tailwind.output", "assets.tailwind.minify",
+		"assets.css.minify", "assets.images.enabled", "assets.images.quality",
+		"assets.images.avif", "assets.scripts.enabled",
 	}
+	known = append(known, packageManifestKeys...)
 	for _, key := range document.Keys() {
 		if !slices.Contains(known, key) {
 			return projectConfig{}, fmt.Errorf("popcornwave.toml: unknown key %s", key)
@@ -205,7 +252,17 @@ func loadProjectConfig(root string) (projectConfig, error) {
 	if err != nil {
 		return projectConfig{}, err
 	}
-	config.Main, err = scalar(document, "project.main")
+	config.Kind, err = optionalScalar(document, "project.kind")
+	if err != nil {
+		return projectConfig{}, err
+	}
+	if config.Kind == "" {
+		config.Kind = kindApplication
+	}
+	if config.Kind != kindApplication && config.Kind != kindPackage {
+		return projectConfig{}, fmt.Errorf("popcornwave.toml: project.kind must be %q or %q", kindApplication, kindPackage)
+	}
+	config.Main, err = optionalScalar(document, "project.main")
 	if err != nil {
 		return projectConfig{}, err
 	}
@@ -239,8 +296,8 @@ func loadProjectConfig(root string) (projectConfig, error) {
 	if err != nil {
 		return projectConfig{}, err
 	}
-	if config.Main == "" {
-		return projectConfig{}, fmt.Errorf("popcornwave.toml: project.main is required")
+	if err := config.readKindSections(document); err != nil {
+		return projectConfig{}, err
 	}
 	if value, ok := document.Get("dev.idp.enabled"); ok {
 		config.IdP.Enabled, err = value.AsBool()
@@ -372,6 +429,38 @@ func loadProjectConfig(root string) (projectConfig, error) {
 			return projectConfig{}, fmt.Errorf("popcornwave.toml: seed.auto: %w", err)
 		}
 	}
+	for _, binding := range []struct {
+		key    string
+		target *bool
+	}{
+		{"assets.css.minify", &config.Assets.CSSMinify},
+		{"assets.images.enabled", &config.Assets.Images},
+		{"assets.images.avif", &config.Assets.AVIF},
+		{"assets.scripts.enabled", &config.Assets.Scripts},
+	} {
+		value, ok := document.Get(binding.key)
+		if !ok {
+			continue
+		}
+		parsed, err := value.AsBool()
+		if err != nil {
+			return projectConfig{}, fmt.Errorf("popcornwave.toml: %s: %w", binding.key, err)
+		}
+		*binding.target = parsed
+	}
+	// The quality only reaches a lossy source. Its default is libwebp's own, so
+	// a project that states nothing gets what the tool considers reasonable.
+	config.Assets.ImageQuality = defaultImageQuality
+	if value, ok := document.Get("assets.images.quality"); ok {
+		quality, err := value.AsInt()
+		if err != nil {
+			return projectConfig{}, fmt.Errorf("popcornwave.toml: assets.images.quality: %w", err)
+		}
+		if quality < 1 || quality > 100 {
+			return projectConfig{}, fmt.Errorf("popcornwave.toml: assets.images.quality must be between 1 and 100")
+		}
+		config.Assets.ImageQuality = int(quality)
+	}
 	if value, ok := document.Get("assets.tailwind.enabled"); ok {
 		config.Tailwind.Enabled, err = value.AsBool()
 		if err != nil {
@@ -409,6 +498,59 @@ func loadProjectConfig(root string) (projectConfig, error) {
 		}
 	}
 	return config, nil
+}
+
+// readKindSections reads the keys that belong to one project kind and rejects
+// the ones that belong to the other. The two are mutually exclusive rather than
+// merely unused: a package has no entry point to name, and an application has
+// nothing to publish, so each key appearing under the wrong kind is a mistake
+// worth naming rather than a value to ignore.
+func (config *projectConfig) readKindSections(document minitoml.Document) error {
+	hasManifest := false
+	for _, key := range packageManifestKeys {
+		if _, ok := document.Get(key); ok {
+			hasManifest = true
+			break
+		}
+	}
+	_, hasPackages := document.Get("packages")
+	switch config.Kind {
+	case kindPackage:
+		if config.Main != "" {
+			return fmt.Errorf("popcornwave.toml: project.main does not apply to a package; the application that imports it owns the entry point")
+		}
+		if hasPackages {
+			return fmt.Errorf("popcornwave.toml: packages does not apply to a package; a package depends on another through go.mod like any Go module")
+		}
+		if !hasManifest {
+			return fmt.Errorf("popcornwave.toml: a package project requires the package section; start with package.module")
+		}
+		manifest, err := loadPackageManifest(document)
+		if err != nil {
+			return err
+		}
+		config.Package = manifest
+		// A generated query carries one engine's placeholder syntax, chosen when
+		// the package was published, and a package cannot know its consumer's
+		// engine. Generating one would ship a query that compiles and then fails
+		// at the first call in half the projects that install it.
+		if len(config.Generate.Queries) > 0 {
+			return fmt.Errorf("popcornwave.toml: generate.queries must be empty in a package; a generated query is compiled for one engine and a package cannot know its consumer's")
+		}
+	default:
+		if config.Main == "" {
+			return fmt.Errorf("popcornwave.toml: project.main is required")
+		}
+		if hasManifest {
+			return fmt.Errorf("popcornwave.toml: the package section applies to a package; set project.kind = %q to publish this module", kindPackage)
+		}
+		refs, err := packageRefs(document)
+		if err != nil {
+			return err
+		}
+		config.Packages = refs
+	}
+	return nil
 }
 
 // sourcesExample shows an operator what a purpose entry looks like, for the

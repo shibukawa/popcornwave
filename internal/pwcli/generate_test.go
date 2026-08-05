@@ -6,6 +6,7 @@ import (
 	"go/parser"
 	"go/token"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -215,6 +216,129 @@ export component Document(children: html?): html {
 	}
 }
 
+// A component carrying the annotation is published, and one beside it that does
+// not is left alone. Both are asserted from one directory, because the failure
+// worth catching is a scan that registers every component it can see.
+func TestPlanDirectoryRegistersReloadableComponents(t *testing.T) {
+	directory := t.TempDir()
+	writeTestFile(t, filepath.Join(directory, "go.mod"), "module fixture\n\ngo 1.26.0\n")
+	writeTestFile(t, filepath.Join(directory, "card.pw.html"), `package fixture
+
+@reloadable
+export component Card(id: string, page: int): html {
+<article>{page}</article>
+}
+
+export component Plain(label: string): html {
+<span>{label}</span>
+}
+`)
+	options, err := pwgen.Options(sqlbind.DialectPostgreSQL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	changes, err := planDirectory(context.Background(), generator.New(options), directory, allPurposes, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	card := string(changesByBase(changes)["card_pw_gen.go"].source)
+	for _, fragment := range []string{
+		`"github.com/shibukawa/popcornwave/pw"`,
+		"var CardReloadable = htmlupdate.Reloadable{",
+		"pw.RegisterReloadable(CardReloadable)",
+	} {
+		if !strings.Contains(card, fragment) {
+			t.Fatalf("reloadable artifact is missing %q:\n%s", fragment, card)
+		}
+	}
+	if strings.Contains(card, "PlainReloadable") {
+		t.Fatalf("a component without the annotation was published:\n%s", card)
+	}
+	if _, err := parser.ParseFile(token.NewFileSet(), "card.go", card, parser.AllErrors); err != nil {
+		t.Fatalf("generated source is invalid: %v\n%s", err, card)
+	}
+}
+
+// The set a page hands to pw.Redraw is folded from what its markup can actually
+// contain, so an author never enumerates it and cannot forget an entry.
+func TestPlanDirectoryFoldsTheReloadableSetOfEachComponent(t *testing.T) {
+	directory := t.TempDir()
+	writeTestFile(t, filepath.Join(directory, "go.mod"), "module fixture\n\ngo 1.26.0\n")
+	writeTestFile(t, filepath.Join(directory, "page.pw.html"), `package fixture
+
+@reloadable
+export component Card(id: string, page: int): html {
+<article>{page}</article>
+}
+
+export component Sidebar(): html {
+<aside><Card id="card-1" page={1} /></aside>
+}
+
+export component Page(): html {
+<main><Sidebar /></main>
+}
+
+export component Plain(label: string): html {
+<span>{label}</span>
+}
+`)
+	options, err := pwgen.Options(sqlbind.DialectPostgreSQL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	changes, err := planDirectory(context.Background(), generator.New(options), directory, allPurposes, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	page := string(changesByBase(changes)["page_pw_gen.go"].source)
+	// Page calls Sidebar calls Card, so the fold is transitive rather than one
+	// level deep. Card names itself, because redrawing the region you are already
+	// looking at is the ordinary case.
+	for _, fragment := range []string{
+		"func (PageParams) PwReloadables() []htmlupdate.Reloadable",
+		"func (SidebarParams) PwReloadables() []htmlupdate.Reloadable",
+		"func (CardParams) PwReloadables() []htmlupdate.Reloadable",
+	} {
+		if !strings.Contains(page, fragment) {
+			t.Errorf("missing %q:\n%s", fragment, page)
+		}
+	}
+	// A component whose markup can contain none publishes no set, so a handler
+	// cannot hand out a list that promises something it never renders.
+	if strings.Contains(page, "PlainParams) PwReloadables") {
+		t.Errorf("a component reaching no reloadable one published a set:\n%s", page)
+	}
+	if _, err := parser.ParseFile(token.NewFileSet(), "page.go", page, parser.AllErrors); err != nil {
+		t.Fatalf("generated source is invalid: %v\n%s", err, page)
+	}
+}
+
+// A template declaring none regenerates exactly as it did before, so turning the
+// scan on does not rewrite every generated file in an existing project.
+func TestPlanDirectoryLeavesPlainTemplatesUnregistered(t *testing.T) {
+	directory := t.TempDir()
+	writeTestFile(t, filepath.Join(directory, "go.mod"), "module fixture\n\ngo 1.26.0\n")
+	writeTestFile(t, filepath.Join(directory, "plain.pw.html"), `package fixture
+
+export component Plain(label: string): html {
+<span>{label}</span>
+}
+`)
+	options, err := pwgen.Options(sqlbind.DialectPostgreSQL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	changes, err := planDirectory(context.Background(), generator.New(options), directory, allPurposes, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	plain := string(changesByBase(changes)["plain_pw_gen.go"].source)
+	if strings.Contains(plain, "RegisterReloadable") {
+		t.Fatalf("a plain template registered a redraw endpoint:\n%s", plain)
+	}
+}
+
 func TestPlanBootstrapLinkGeneratesRuntimeRegistrationImports(t *testing.T) {
 	root := t.TempDir()
 	if err := os.MkdirAll(filepath.Join(root, "cmd", "fixture"), 0o755); err != nil {
@@ -233,7 +357,7 @@ export component Document(children: html?): html {
 }
 `)
 	config := projectConfig{Main: "./cmd/fixture", Generate: generationScope{Templates: []string{"templates"}}}
-	changes, err := planBootstrapLink(root, config, nil)
+	changes, err := planBootstrapLink(root, config, nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -546,7 +670,9 @@ func TestChangePathsShortenAgainstTheWorkingDirectory(t *testing.T) {
 // and one access-pattern declaration.
 func writeDynamoFixture(t *testing.T, directory string) {
 	t.Helper()
-	writeTestFile(t, filepath.Join(directory, "go.mod"), "module fixture\n\ngo 1.26.0\n")
+	writeFixtureModule(t, directory,
+		"github.com/shibukawa/tinybind-go",
+		"github.com/shibukawa/tinygodriver")
 	writeTestFile(t, filepath.Join(directory, "reading.go"), `package fixture
 
 import (
@@ -572,6 +698,7 @@ func Store(ctx context.Context, reading Reading) error {
   key sensor = {sensor} and at > {from}
 }
 `)
+	resolveFixtureModule(t, directory)
 }
 
 func TestPlanDirectoryGeneratesDynamoArtifacts(t *testing.T) {
@@ -670,6 +797,201 @@ func TestDeclaredTableNameIsSnakeCase(t *testing.T) {
 	} {
 		if got := declaredTableName(typeName); got != want {
 			t.Errorf("declaredTableName(%q) = %q, want %q", typeName, got, want)
+		}
+	}
+}
+
+// writeFixtureModule writes a go.mod for a fixture package, requiring the
+// modules it imports at the versions this repository does.
+//
+// A fixture whose imports do not resolve is one where no call site can be
+// discovered, so a usage-directed generator sees nothing to generate. That is
+// not a property of the code under test. The versions are read from this module
+// rather than pinned here, so the fixture cannot drift from it.
+func writeFixtureModule(t *testing.T, directory string, modules ...string) {
+	t.Helper()
+	own, err := os.ReadFile(filepath.Join("..", "..", "go.mod"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	source := "module fixture\n\ngo 1.26.0\n"
+	for _, module := range modules {
+		version := ""
+		for _, line := range strings.Split(string(own), "\n") {
+			fields := strings.Fields(line)
+			if len(fields) >= 2 && fields[0] == module {
+				version = fields[1]
+				break
+			}
+		}
+		if version == "" {
+			t.Fatalf("go.mod does not require %s", module)
+		}
+		source += "\nrequire " + module + " " + version + "\n"
+	}
+	writeTestFile(t, filepath.Join(directory, "go.mod"), source)
+}
+
+// resolveFixtureModule fills in the fixture's go.sum.
+//
+// It runs after the sources exist, because tidy prunes a requirement no file
+// imports: run against an empty directory it would remove everything
+// writeFixtureModule just asked for. Everything is already in the module cache,
+// because this repository requires it, so resolution needs no network.
+func resolveFixtureModule(t *testing.T, directory string) {
+	t.Helper()
+	tidy := exec.Command("go", "mod", "tidy")
+	tidy.Dir = directory
+	tidy.Env = append(os.Environ(), "GOFLAGS=-mod=mod", "GOPROXY=off")
+	if output, err := tidy.CombinedOutput(); err != nil {
+		t.Fatalf("go mod tidy in the fixture: %v\n%s", err, output)
+	}
+}
+
+// firestoreFixture is a package with a firestore-tagged type, a call that
+// directs the codec, and one access-pattern declaration.
+//
+// The type carries a ttl tag, because the fact this store has to publish and
+// the DynamoDB one does not is which property a deployment points its expiry
+// policy at.
+func writeFirestoreFixture(t *testing.T, directory string) {
+	t.Helper()
+	// The module has to resolve its imports, or no call site is discoverable
+	// and the analysis reports that rather than quietly generating the read
+	// half of a codec.
+	writeFixtureModule(t, directory,
+		"github.com/shibukawa/tinybind-go",
+		"github.com/shibukawa/tinygodriver")
+	writeTestFile(t, filepath.Join(directory, "reading.go"), `package fixture
+
+import (
+	"context"
+	"time"
+
+	"github.com/shibukawa/tinybind-go/firestorebind"
+	"github.com/shibukawa/tinygodriver/nosql/datastore"
+)
+
+type Reading struct {
+	ID        string    `+"`firestore:\"-,name\"`"+`
+	Sensor    string    `+"`firestore:\"sensor\"`"+`
+	At        time.Time `+"`firestore:\"at\"`"+`
+	Celsius   float64   `+"`firestore:\"celsius\"`"+`
+	ExpiresAt time.Time `+"`firestore:\"expires_at,ttl\"`"+`
+}
+
+func Load(ctx context.Context, key datastore.Key) (Reading, error) {
+	return firestorebind.Load[Reading](ctx, key)
+}
+
+func Store(ctx context.Context, reading Reading) (datastore.Key, error) {
+	return firestorebind.Store(ctx, reading)
+}
+`)
+	// A declaration file carries no package line, and it names no kind: the
+	// result type names the Go type, and that type's Kind method is the kind.
+	writeTestFile(t, filepath.Join(directory, "readings.pw.firestore"), `export statement ReadingsBySensor(sensor: string): firestore.many<Reading> {
+  where sensor == {sensor}
+}
+`)
+	resolveFixtureModule(t, directory)
+}
+
+func TestPlanDirectoryGeneratesFirestoreArtifacts(t *testing.T) {
+	directory := t.TempDir()
+	writeFirestoreFixture(t, directory)
+
+	options, err := pwgen.Options(sqlbind.DialectPostgreSQL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// A records directory is a Firestore directory and nothing else, which is
+	// what the scaffold writes and what lets the whole codec be emitted.
+	purposes := generationPurposes{firestore: true}
+	changes, err := planDirectory(context.Background(), generator.New(options), directory, purposes, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// The codec and the query are separate artifacts, because each is named
+	// after the source it came from, so what is asserted is the run rather than
+	// one file.
+	var generated string
+	for _, change := range changes {
+		generated += string(change.source)
+	}
+	// The whole point of the declaration: the call site names neither the
+	// client nor the kind, and no property string survives into it.
+	if !strings.Contains(generated, "func ReadingsBySensor(ctx context.Context, sensor string") {
+		t.Fatalf("generated signature is not context-first:\n%s", generated)
+	}
+	// The codec comes from the same run: a declared query over a type with no
+	// codec would compile into nothing that can decode a result.
+	if !strings.Contains(generated, "func (v Reading) EncodeEntity() datastore.Entity") {
+		t.Fatalf("the entity codec was not generated:\n%s", generated)
+	}
+	// The key is lifted out of the properties: Datastore keeps identity beside
+	// the entity, so writing it as a property too would store it twice.
+	if !strings.Contains(generated, "func (v Reading) EntityKey() datastore.Key") {
+		t.Fatalf("no key builder was generated:\n%s", generated)
+	}
+	// A ttl tag changes no bytes and produces one fact, which is what the
+	// published policy list is built from.
+	if !strings.Contains(generated, `func (v Reading) ExpiryProperty() (string, bool) { return "expires_at", true }`) {
+		t.Fatalf("the expiry property was not declared:\n%s", generated)
+	}
+}
+
+// A generated kind registers itself, because the list a deployment applies its
+// TTL policies from is only knowable from the linked code.
+func TestGeneratedFirestoreKindsRegisterThemselves(t *testing.T) {
+	directory := t.TempDir()
+	writeFirestoreFixture(t, directory)
+
+	options, err := pwgen.Options(sqlbind.DialectPostgreSQL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	changes, err := planDirectory(context.Background(), generator.New(options), directory,
+		generationPurposes{firestore: true}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var registration string
+	for _, change := range changes {
+		if strings.Contains(string(change.source), "RegisterKind") {
+			registration = string(change.source)
+		}
+	}
+	if registration == "" {
+		t.Fatal("a generated kind must register itself, or the published policy list omits it")
+	}
+	if !strings.Contains(registration, "firestore.RegisterKind(Reading{})") {
+		t.Fatalf("registration does not name the kind:\n%s", registration)
+	}
+	if strings.Count(registration, "RegisterKind(Reading{})") != 1 {
+		t.Fatalf("a kind registered more than once:\n%s", registration)
+	}
+}
+
+// An unlisted source is not parsed. That is what keeps a deliberate sample
+// beside the code from being generated from, and it has to hold per store: a
+// project that lists a directory for one has not listed it for the other.
+func TestPlanDirectoryLeavesFirestoreSourcesUnreadWithoutThePurpose(t *testing.T) {
+	directory := t.TempDir()
+	writeFirestoreFixture(t, directory)
+
+	options, err := pwgen.Options(sqlbind.DialectPostgreSQL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	changes, err := planDirectory(context.Background(), generator.New(options), directory,
+		generationPurposes{handlers: true, dynamo: true}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, change := range changes {
+		if strings.Contains(string(change.source), "ReadingsBySensor") {
+			t.Fatalf("an unlisted declaration was generated from:\n%s", change.source)
 		}
 	}
 }

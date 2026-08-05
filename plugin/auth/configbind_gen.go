@@ -13,6 +13,7 @@ import (
 
 func init() {
 	registerConfigDefinition0()
+	registerSessionLifetimeConfigDefinition1()
 }
 
 func registerConfigDefinition0() {
@@ -22,6 +23,7 @@ func registerConfigDefinition0() {
 		Doc:      "Config is the [auth] runtime binding. It is registered when this package is imported",
 		KnownKeys: []string{
 			"auth.enabled",
+			"auth.backend",
 			"auth.mode",
 			"auth.login_path",
 			"auth.callback_path",
@@ -52,6 +54,7 @@ func registerConfigDefinition0() {
 			"auth.oidc.client_secret",
 			"auth.oidc.redirect_url",
 			"auth.oidc.scopes",
+			"auth.oidc.endpoint_hosts",
 			"auth.oidc.identity_claim",
 			"auth.oidc.admission",
 			"auth.oidc.auto_provision",
@@ -69,9 +72,34 @@ func registerConfigDefinition0() {
 			"auth.passkey.origins",
 			"auth.passkey.user_verification",
 			"auth.passkey.discoverable",
+			"auth.jwt.issuer",
+			"auth.jwt.audience",
+			"auth.jwt.audience_match",
+			"auth.jwt.algorithms",
+			"auth.jwt.required_token_type",
+			"auth.jwt.required_scopes",
+			"auth.jwt.discovery",
+			"auth.jwt.jwks_uri",
+			"auth.jwt.leeway",
+			"auth.jwt.max_token_lifetime",
+			"auth.jwt.max_token_bytes",
+			"auth.jwt.jwks_refresh_cooldown",
+			"auth.jwt.allow_loopback_http",
+			"auth.jwt.identity_claim",
+			"auth.jwt.admission",
+			"auth.jwt.auto_provision",
+			"auth.jwt.claim.path",
+			"auth.jwt.claim.values",
+			"auth.jwt.claim.match",
+			"auth.jwt.registered_claims",
+			"auth.jwt.revocation.mode",
+			"auth.jwt.revocation.on_unavailable",
+			"auth.jwt.revocation.max_propagation_delay",
+			"auth.jwt.dev.trust_unverified_tokens",
 		},
 		Defaults: map[string]string{
 			"auth.enabled":                          "false",
+			"auth.backend":                          "rdb",
 			"auth.mode":                             "oidc_only",
 			"auth.login_path":                       "/auth/login",
 			"auth.callback_path":                    "/auth/callback",
@@ -101,55 +129,93 @@ func registerConfigDefinition0() {
 			"auth.passkey.path":                     "/auth/passkey",
 			"auth.passkey.user_verification":        "required",
 			"auth.passkey.discoverable":             "preferred",
+			"auth.jwt.audience_match":               "any",
+			"auth.jwt.required_token_type":          "at+jwt",
+			"auth.jwt.discovery":                    "oidc",
+			"auth.jwt.leeway":                       "30s",
+			"auth.jwt.max_token_bytes":              "8192",
+			"auth.jwt.jwks_refresh_cooldown":        "1m",
+			"auth.jwt.allow_loopback_http":          "false",
+			"auth.jwt.identity_claim":               "sub",
+			"auth.jwt.auto_provision":               "false",
+			"auth.jwt.claim.match":                  "any",
+			"auth.jwt.revocation.on_unavailable":    "refuse",
+			"auth.jwt.dev.trust_unverified_tokens":  "false",
 		},
 		DependsOn: map[string][]string{
-			"auth.mode":                             {"auth.enabled"},
-			"auth.login_path":                       {"auth.enabled"},
-			"auth.callback_path":                    {"auth.enabled"},
-			"auth.logout_path":                      {"auth.enabled"},
-			"auth.post_login_path":                  {"auth.enabled"},
-			"auth.recent_auth_max_age":              {"auth.enabled"},
-			"auth.shared_device":                    {"auth.enabled"},
-			"auth.assurance.policy":                 {"auth.enabled"},
-			"auth.assurance.hint.enabled":           {"auth.enabled"},
-			"auth.assurance.hint.name":              {"auth.enabled"},
-			"auth.assurance.hint.secret":            {"auth.enabled"},
-			"auth.assurance.hint.previous_secrets":  {"auth.enabled"},
-			"auth.assurance.hint.ttl":               {"auth.enabled"},
-			"auth.assurance.hint.idle_timeout":      {"auth.enabled"},
-			"auth.assurance.presence.enabled":       {"auth.enabled"},
-			"auth.assurance.presence.interval":      {"auth.enabled"},
-			"auth.assurance.presence.absent_after":  {"auth.enabled"},
-			"auth.protection.include":               {"auth.enabled"},
-			"auth.protection.exclude":               {"auth.enabled"},
-			"auth.protection.unauthenticated":       {"auth.enabled"},
-			"auth.registration.policy":              {"auth.enabled"},
-			"auth.recovery.policy":                  {"auth.enabled"},
-			"auth.bootstrap.issue_ttl":              {"auth.enabled"},
-			"auth.bootstrap.enrollment_ttl":         {"auth.enabled"},
-			"auth.bootstrap.max_attempts":           {"auth.enabled"},
-			"auth.oidc.issuer":                      {"auth.enabled"},
-			"auth.oidc.client_id":                   {"auth.enabled"},
-			"auth.oidc.client_secret":               {"auth.enabled"},
-			"auth.oidc.redirect_url":                {"auth.enabled"},
-			"auth.oidc.scopes":                      {"auth.enabled"},
-			"auth.oidc.identity_claim":              {"auth.enabled"},
-			"auth.oidc.admission":                   {"auth.enabled"},
-			"auth.oidc.auto_provision":              {"auth.enabled"},
-			"auth.oidc.claim.path":                  {"auth.enabled"},
-			"auth.oidc.claim.values":                {"auth.enabled"},
-			"auth.oidc.claim.match":                 {"auth.enabled"},
-			"auth.oidc.registered_claims":           {"auth.enabled"},
-			"auth.oidc.logout_scope":                {"auth.enabled"},
-			"auth.oidc.provider_logout":             {"auth.enabled"},
-			"auth.oidc.allow_global_logout_request": {"auth.enabled"},
-			"auth.oidc.allow_loopback_http":         {"auth.enabled"},
-			"auth.passkey.path":                     {"auth.enabled"},
-			"auth.passkey.rp_id":                    {"auth.enabled"},
-			"auth.passkey.rp_name":                  {"auth.enabled"},
-			"auth.passkey.origins":                  {"auth.enabled"},
-			"auth.passkey.user_verification":        {"auth.enabled"},
-			"auth.passkey.discoverable":             {"auth.enabled"},
+			"auth.backend":                              {"auth.enabled"},
+			"auth.mode":                                 {"auth.enabled"},
+			"auth.login_path":                           {"auth.enabled"},
+			"auth.callback_path":                        {"auth.enabled"},
+			"auth.logout_path":                          {"auth.enabled"},
+			"auth.post_login_path":                      {"auth.enabled"},
+			"auth.recent_auth_max_age":                  {"auth.enabled"},
+			"auth.shared_device":                        {"auth.enabled"},
+			"auth.assurance.policy":                     {"auth.enabled"},
+			"auth.assurance.hint.enabled":               {"auth.enabled"},
+			"auth.assurance.hint.name":                  {"auth.enabled"},
+			"auth.assurance.hint.secret":                {"auth.enabled"},
+			"auth.assurance.hint.previous_secrets":      {"auth.enabled"},
+			"auth.assurance.hint.ttl":                   {"auth.enabled"},
+			"auth.assurance.hint.idle_timeout":          {"auth.enabled"},
+			"auth.assurance.presence.enabled":           {"auth.enabled"},
+			"auth.assurance.presence.interval":          {"auth.enabled"},
+			"auth.assurance.presence.absent_after":      {"auth.enabled"},
+			"auth.protection.include":                   {"auth.enabled"},
+			"auth.protection.exclude":                   {"auth.enabled"},
+			"auth.protection.unauthenticated":           {"auth.enabled"},
+			"auth.registration.policy":                  {"auth.enabled"},
+			"auth.recovery.policy":                      {"auth.enabled"},
+			"auth.bootstrap.issue_ttl":                  {"auth.enabled"},
+			"auth.bootstrap.enrollment_ttl":             {"auth.enabled"},
+			"auth.bootstrap.max_attempts":               {"auth.enabled"},
+			"auth.oidc.issuer":                          {"auth.enabled"},
+			"auth.oidc.client_id":                       {"auth.enabled"},
+			"auth.oidc.client_secret":                   {"auth.enabled"},
+			"auth.oidc.redirect_url":                    {"auth.enabled"},
+			"auth.oidc.scopes":                          {"auth.enabled"},
+			"auth.oidc.endpoint_hosts":                  {"auth.enabled"},
+			"auth.oidc.identity_claim":                  {"auth.enabled"},
+			"auth.oidc.admission":                       {"auth.enabled"},
+			"auth.oidc.auto_provision":                  {"auth.enabled"},
+			"auth.oidc.claim.path":                      {"auth.enabled"},
+			"auth.oidc.claim.values":                    {"auth.enabled"},
+			"auth.oidc.claim.match":                     {"auth.enabled"},
+			"auth.oidc.registered_claims":               {"auth.enabled"},
+			"auth.oidc.logout_scope":                    {"auth.enabled"},
+			"auth.oidc.provider_logout":                 {"auth.enabled"},
+			"auth.oidc.allow_global_logout_request":     {"auth.enabled"},
+			"auth.oidc.allow_loopback_http":             {"auth.enabled"},
+			"auth.passkey.path":                         {"auth.enabled"},
+			"auth.passkey.rp_id":                        {"auth.enabled"},
+			"auth.passkey.rp_name":                      {"auth.enabled"},
+			"auth.passkey.origins":                      {"auth.enabled"},
+			"auth.passkey.user_verification":            {"auth.enabled"},
+			"auth.passkey.discoverable":                 {"auth.enabled"},
+			"auth.jwt.issuer":                           {"auth.enabled"},
+			"auth.jwt.audience":                         {"auth.enabled"},
+			"auth.jwt.audience_match":                   {"auth.enabled"},
+			"auth.jwt.algorithms":                       {"auth.enabled"},
+			"auth.jwt.required_token_type":              {"auth.enabled"},
+			"auth.jwt.required_scopes":                  {"auth.enabled"},
+			"auth.jwt.discovery":                        {"auth.enabled"},
+			"auth.jwt.jwks_uri":                         {"auth.enabled"},
+			"auth.jwt.leeway":                           {"auth.enabled"},
+			"auth.jwt.max_token_lifetime":               {"auth.enabled"},
+			"auth.jwt.max_token_bytes":                  {"auth.enabled"},
+			"auth.jwt.jwks_refresh_cooldown":            {"auth.enabled"},
+			"auth.jwt.allow_loopback_http":              {"auth.enabled"},
+			"auth.jwt.identity_claim":                   {"auth.enabled"},
+			"auth.jwt.admission":                        {"auth.enabled"},
+			"auth.jwt.auto_provision":                   {"auth.enabled"},
+			"auth.jwt.claim.path":                       {"auth.enabled"},
+			"auth.jwt.claim.values":                     {"auth.enabled"},
+			"auth.jwt.claim.match":                      {"auth.enabled"},
+			"auth.jwt.registered_claims":                {"auth.enabled"},
+			"auth.jwt.revocation.mode":                  {"auth.enabled"},
+			"auth.jwt.revocation.on_unavailable":        {"auth.enabled"},
+			"auth.jwt.revocation.max_propagation_delay": {"auth.enabled"},
+			"auth.jwt.dev.trust_unverified_tokens":      {"auth.enabled"},
 		},
 		Secrets: map[string]string{
 			"auth.assurance.hint.secret":           "mask",
@@ -161,6 +227,7 @@ func registerConfigDefinition0() {
 		},
 		FlagMetas: []cliparser.FieldMeta{
 			{Prefix: "auth", Key: "enabled", Kind: cliparser.KindBool},
+			{Prefix: "auth", Key: "backend", Help: "storage backend of the authentication tables: rdb or dynamo"},
 			{Prefix: "auth", Key: "mode", Help: "oidc_only"},
 			{Prefix: "auth", Key: "login_path", Help: "path that starts the provider flow"},
 			{Prefix: "auth", Key: "callback_path"},
@@ -190,6 +257,7 @@ func registerConfigDefinition0() {
 			{Prefix: "auth", Key: "oidc.client_secret", Env: "AUTH_OIDC_CLIENT_SECRET"},
 			{Prefix: "auth", Key: "oidc.redirect_url"},
 			{Prefix: "auth", Key: "oidc.scopes", Kind: cliparser.KindArray},
+			{Prefix: "auth", Key: "oidc.endpoint_hosts", Help: "hosts the discovery document may point endpoints at; empty accepts any", Kind: cliparser.KindArray},
 			{Prefix: "auth", Key: "oidc.identity_claim", Help: "verified claim that identifies a local account"},
 			{Prefix: "auth", Key: "oidc.admission", Help: "authenticated, claim, registered, or existing"},
 			{Prefix: "auth", Key: "oidc.auto_provision", Help: "AutoProvision permits an unknown verified identity to create an account through the registered account resolver", Kind: cliparser.KindBool},
@@ -207,10 +275,35 @@ func registerConfigDefinition0() {
 			{Prefix: "auth", Key: "passkey.origins", Help: "origin the browser reaches this deployment on", Kind: cliparser.KindArray},
 			{Prefix: "auth", Key: "passkey.user_verification", Help: "required, preferred, or discouraged"},
 			{Prefix: "auth", Key: "passkey.discoverable", Help: "required or preferred"},
+			{Prefix: "auth", Key: "jwt.issuer", Env: "AUTH_JWT_ISSUER", Help: "exact iss claim value this deployment accepts"},
+			{Prefix: "auth", Key: "jwt.audience", Help: "aud value naming this API; required", Kind: cliparser.KindArray},
+			{Prefix: "auth", Key: "jwt.audience_match", Help: "any or all"},
+			{Prefix: "auth", Key: "jwt.algorithms", Help: "exact verification algorithm allowlist; required, e.g. [\"RS256\"]", Kind: cliparser.KindArray},
+			{Prefix: "auth", Key: "jwt.required_token_type", Help: "typ header to demand; empty accepts an absent typ"},
+			{Prefix: "auth", Key: "jwt.required_scopes", Help: "scope values every request must carry", Kind: cliparser.KindArray},
+			{Prefix: "auth", Key: "jwt.discovery", Help: "oidc, oauth, or manual"},
+			{Prefix: "auth", Key: "jwt.jwks_uri", Help: "signing key set, for manual discovery"},
+			{Prefix: "auth", Key: "jwt.leeway", Help: "clock skew allowance"},
+			{Prefix: "auth", Key: "jwt.max_token_lifetime", Help: "longest exp-minus-iat accepted; required"},
+			{Prefix: "auth", Key: "jwt.max_token_bytes", Help: "largest compact token accepted"},
+			{Prefix: "auth", Key: "jwt.jwks_refresh_cooldown", Help: "shortest interval between unknown-kid refreshes"},
+			{Prefix: "auth", Key: "jwt.allow_loopback_http", Help: "permit an http loopback issuer during development", Kind: cliparser.KindBool},
+			{Prefix: "auth", Key: "jwt.identity_claim", Help: "verified claim that identifies a local account"},
+			{Prefix: "auth", Key: "jwt.admission", Help: "authenticated, claim, registered, or existing; required"},
+			{Prefix: "auth", Key: "jwt.auto_provision", Help: "permit an unknown verified identity to create an account", Kind: cliparser.KindBool},
+			{Prefix: "auth", Key: "jwt.claim.path", Help: "JSON Pointer into verified claims"},
+			{Prefix: "auth", Key: "jwt.claim.values", Kind: cliparser.KindArray},
+			{Prefix: "auth", Key: "jwt.claim.match", Help: "any or all"},
+			{Prefix: "auth", Key: "jwt.registered_claims", Help: "claims compared against the allowlist; defaults to identity_claim", Kind: cliparser.KindArray},
+			{Prefix: "auth", Key: "jwt.revocation.mode", Help: "off, token, subject, or both; required in jwt_only"},
+			{Prefix: "auth", Key: "jwt.revocation.on_unavailable", Help: "refuse or admit when the store cannot answer"},
+			{Prefix: "auth", Key: "jwt.revocation.max_propagation_delay", Help: "how stale a cached revocation answer may be; zero disables the cache"},
+			{Prefix: "auth", Key: "jwt.dev.trust_unverified_tokens", Help: "development only: admit a token without verifying it", Kind: cliparser.KindBool},
 		},
 		Apply: applyConfigDefinition0,
 		Scaffold: []configbind.ScaffoldField{
 			{Key: "enabled", Kind: configbind.ScaffoldBool, Default: "false"},
+			{Key: "backend", Kind: configbind.ScaffoldString, Default: "rdb", Help: "storage backend of the authentication tables: rdb or dynamo"},
 			{Key: "mode", Kind: configbind.ScaffoldString, Default: "oidc_only", Help: "oidc_only"},
 			{Key: "login_path", Kind: configbind.ScaffoldString, Default: "/auth/login", Help: "path that starts the provider flow"},
 			{Key: "callback_path", Kind: configbind.ScaffoldString, Default: "/auth/callback"},
@@ -245,6 +338,7 @@ func registerConfigDefinition0() {
 			{Key: "oidc.client_secret", Kind: configbind.ScaffoldString, Env: "AUTH_OIDC_CLIENT_SECRET"},
 			{Key: "oidc.redirect_url", Kind: configbind.ScaffoldString},
 			{Key: "oidc.scopes", Kind: configbind.ScaffoldStringSlice},
+			{Key: "oidc.endpoint_hosts", Kind: configbind.ScaffoldStringSlice, Help: "hosts the discovery document may point endpoints at; empty accepts any"},
 			{Key: "oidc.identity_claim", Kind: configbind.ScaffoldString, Default: "sub", Help: "verified claim that identifies a local account"},
 			{Key: "oidc.admission", Kind: configbind.ScaffoldString, Default: "authenticated", Help: "authenticated, claim, registered, or existing"},
 			{Key: "oidc.auto_provision", Kind: configbind.ScaffoldBool, Default: "true", Help: "AutoProvision permits an unknown verified identity to create an account through the registered account resolver"},
@@ -262,6 +356,30 @@ func registerConfigDefinition0() {
 			{Key: "passkey.origins", Kind: configbind.ScaffoldStringSlice, Help: "origin the browser reaches this deployment on"},
 			{Key: "passkey.user_verification", Kind: configbind.ScaffoldString, Default: "required", Help: "required, preferred, or discouraged"},
 			{Key: "passkey.discoverable", Kind: configbind.ScaffoldString, Default: "preferred", Help: "required or preferred"},
+			{Key: "jwt.issuer", Kind: configbind.ScaffoldString, Env: "AUTH_JWT_ISSUER", Help: "exact iss claim value this deployment accepts"},
+			{Key: "jwt.audience", Kind: configbind.ScaffoldStringSlice, Help: "aud value naming this API; required"},
+			{Key: "jwt.audience_match", Kind: configbind.ScaffoldString, Default: "any", Help: "any or all"},
+			{Key: "jwt.algorithms", Kind: configbind.ScaffoldStringSlice, Help: "exact verification algorithm allowlist; required, e.g. [\"RS256\"]"},
+			{Key: "jwt.required_token_type", Kind: configbind.ScaffoldString, Default: "at+jwt", Help: "typ header to demand; empty accepts an absent typ"},
+			{Key: "jwt.required_scopes", Kind: configbind.ScaffoldStringSlice, Help: "scope values every request must carry"},
+			{Key: "jwt.discovery", Kind: configbind.ScaffoldString, Default: "oidc", Help: "oidc, oauth, or manual"},
+			{Key: "jwt.jwks_uri", Kind: configbind.ScaffoldString, Help: "signing key set, for manual discovery"},
+			{Key: "jwt.leeway", Kind: configbind.ScaffoldDuration, Default: "30s", Help: "clock skew allowance"},
+			{Key: "jwt.max_token_lifetime", Kind: configbind.ScaffoldDuration, Help: "longest exp-minus-iat accepted; required"},
+			{Key: "jwt.max_token_bytes", Kind: configbind.ScaffoldInt, Default: "8192", Help: "largest compact token accepted"},
+			{Key: "jwt.jwks_refresh_cooldown", Kind: configbind.ScaffoldDuration, Default: "1m", Help: "shortest interval between unknown-kid refreshes"},
+			{Key: "jwt.allow_loopback_http", Kind: configbind.ScaffoldBool, Default: "false", Help: "permit an http loopback issuer during development"},
+			{Key: "jwt.identity_claim", Kind: configbind.ScaffoldString, Default: "sub", Help: "verified claim that identifies a local account"},
+			{Key: "jwt.admission", Kind: configbind.ScaffoldString, Help: "authenticated, claim, registered, or existing; required"},
+			{Key: "jwt.auto_provision", Kind: configbind.ScaffoldBool, Default: "false", Help: "permit an unknown verified identity to create an account"},
+			{Key: "jwt.claim.path", Kind: configbind.ScaffoldString, Help: "JSON Pointer into verified claims"},
+			{Key: "jwt.claim.values", Kind: configbind.ScaffoldStringSlice},
+			{Key: "jwt.claim.match", Kind: configbind.ScaffoldString, Default: "any", Help: "any or all"},
+			{Key: "jwt.registered_claims", Kind: configbind.ScaffoldStringSlice, Help: "claims compared against the allowlist; defaults to identity_claim"},
+			{Key: "jwt.revocation.mode", Kind: configbind.ScaffoldString, Help: "off, token, subject, or both; required in jwt_only"},
+			{Key: "jwt.revocation.on_unavailable", Kind: configbind.ScaffoldString, Default: "refuse", Help: "refuse or admit when the store cannot answer"},
+			{Key: "jwt.revocation.max_propagation_delay", Kind: configbind.ScaffoldDuration, Help: "how stale a cached revocation answer may be; zero disables the cache"},
+			{Key: "jwt.dev.trust_unverified_tokens", Kind: configbind.ScaffoldBool, Default: "false", Help: "development only: admit a token without verifying it"},
 		},
 	})
 }
@@ -279,6 +397,11 @@ func applyConfigDefinition0(dst any, o *configbind.Overlay) error {
 		p.Enabled = bb
 	} else {
 		p.Enabled = false
+	}
+	if v, ok := o.GetString("auth.backend"); ok {
+		p.Backend = v
+	} else {
+		p.Backend = "rdb"
 	}
 	if v, ok := o.GetString("auth.mode"); ok {
 		p.Mode = v
@@ -474,6 +597,9 @@ func applyConfigDefinition0(dst any, o *configbind.Overlay) error {
 	if v, ok := o.GetMulti("auth.oidc.scopes"); ok {
 		p.OIDC.Scopes = v
 	}
+	if v, ok := o.GetMulti("auth.oidc.endpoint_hosts"); ok {
+		p.OIDC.EndpointHosts = v
+	}
 	if v, ok := o.GetString("auth.oidc.identity_claim"); ok {
 		p.OIDC.IdentityClaim = v
 	} else {
@@ -562,6 +688,198 @@ func applyConfigDefinition0(dst any, o *configbind.Overlay) error {
 		p.Passkey.Discoverable = v
 	} else {
 		p.Passkey.Discoverable = "preferred"
+	}
+	if v, ok := o.GetString("auth.jwt.issuer"); ok {
+		p.JWT.Issuer = v
+	}
+	if v, ok := o.GetMulti("auth.jwt.audience"); ok {
+		p.JWT.Audience = v
+	}
+	if v, ok := o.GetString("auth.jwt.audience_match"); ok {
+		p.JWT.AudienceMatch = v
+	} else {
+		p.JWT.AudienceMatch = "any"
+	}
+	if v, ok := o.GetMulti("auth.jwt.algorithms"); ok {
+		p.JWT.Algorithms = v
+	}
+	if v, ok := o.GetString("auth.jwt.required_token_type"); ok {
+		p.JWT.RequiredTokenType = v
+	} else {
+		p.JWT.RequiredTokenType = "at+jwt"
+	}
+	if v, ok := o.GetMulti("auth.jwt.required_scopes"); ok {
+		p.JWT.RequiredScopes = v
+	}
+	if v, ok := o.GetString("auth.jwt.discovery"); ok {
+		p.JWT.Discovery = v
+	} else {
+		p.JWT.Discovery = "oidc"
+	}
+	if v, ok := o.GetString("auth.jwt.jwks_uri"); ok {
+		p.JWT.JWKSURI = v
+	}
+	if v, ok := o.GetString("auth.jwt.leeway"); ok {
+		d, err := time.ParseDuration(v)
+		if err != nil {
+			return fmt.Errorf("configbind: auth.jwt.leeway: %w", err)
+		}
+		p.JWT.Leeway = d
+	} else {
+		p.JWT.Leeway = 30000000000 // 30s
+	}
+	if v, ok := o.GetString("auth.jwt.max_token_lifetime"); ok {
+		d, err := time.ParseDuration(v)
+		if err != nil {
+			return fmt.Errorf("configbind: auth.jwt.max_token_lifetime: %w", err)
+		}
+		p.JWT.MaxTokenLifetime = d
+	}
+	if v, ok := o.GetString("auth.jwt.max_token_bytes"); ok {
+		n, err := strconv.ParseInt(v, 10, 0)
+		if err != nil {
+			return fmt.Errorf("configbind: auth.jwt.max_token_bytes: %w", err)
+		}
+		p.JWT.MaxTokenBytes = int(n)
+	} else {
+		p.JWT.MaxTokenBytes = 8192
+	}
+	if v, ok := o.GetString("auth.jwt.jwks_refresh_cooldown"); ok {
+		d, err := time.ParseDuration(v)
+		if err != nil {
+			return fmt.Errorf("configbind: auth.jwt.jwks_refresh_cooldown: %w", err)
+		}
+		p.JWT.JWKSRefreshCooldown = d
+	} else {
+		p.JWT.JWKSRefreshCooldown = 60000000000 // 1m0s
+	}
+	if v, ok := o.GetString("auth.jwt.allow_loopback_http"); ok {
+		bb, err := strconv.ParseBool(v)
+		if err != nil {
+			return fmt.Errorf("configbind: auth.jwt.allow_loopback_http: %w", err)
+		}
+		p.JWT.AllowLoopbackHTTP = bb
+	} else {
+		p.JWT.AllowLoopbackHTTP = false
+	}
+	if v, ok := o.GetString("auth.jwt.identity_claim"); ok {
+		p.JWT.IdentityClaim = v
+	} else {
+		p.JWT.IdentityClaim = "sub"
+	}
+	if v, ok := o.GetString("auth.jwt.admission"); ok {
+		p.JWT.Admission = v
+	}
+	if v, ok := o.GetString("auth.jwt.auto_provision"); ok {
+		bb, err := strconv.ParseBool(v)
+		if err != nil {
+			return fmt.Errorf("configbind: auth.jwt.auto_provision: %w", err)
+		}
+		p.JWT.AutoProvision = bb
+	} else {
+		p.JWT.AutoProvision = false
+	}
+	if v, ok := o.GetString("auth.jwt.claim.path"); ok {
+		p.JWT.Claim.Path = v
+	}
+	if v, ok := o.GetMulti("auth.jwt.claim.values"); ok {
+		p.JWT.Claim.Values = v
+	}
+	if v, ok := o.GetString("auth.jwt.claim.match"); ok {
+		p.JWT.Claim.Match = v
+	} else {
+		p.JWT.Claim.Match = "any"
+	}
+	if v, ok := o.GetMulti("auth.jwt.registered_claims"); ok {
+		p.JWT.RegisteredClaims = v
+	}
+	if v, ok := o.GetString("auth.jwt.revocation.mode"); ok {
+		p.JWT.Revocation.Mode = v
+	}
+	if v, ok := o.GetString("auth.jwt.revocation.on_unavailable"); ok {
+		p.JWT.Revocation.OnUnavailable = v
+	} else {
+		p.JWT.Revocation.OnUnavailable = "refuse"
+	}
+	if v, ok := o.GetString("auth.jwt.revocation.max_propagation_delay"); ok {
+		d, err := time.ParseDuration(v)
+		if err != nil {
+			return fmt.Errorf("configbind: auth.jwt.revocation.max_propagation_delay: %w", err)
+		}
+		p.JWT.Revocation.MaxPropagationDelay = d
+	}
+	if v, ok := o.GetString("auth.jwt.dev.trust_unverified_tokens"); ok {
+		bb, err := strconv.ParseBool(v)
+		if err != nil {
+			return fmt.Errorf("configbind: auth.jwt.dev.trust_unverified_tokens: %w", err)
+		}
+		p.JWT.Dev.TrustUnverifiedTokens = bb
+	} else {
+		p.JWT.Dev.TrustUnverifiedTokens = false
+	}
+	return nil
+}
+
+func registerSessionLifetimeConfigDefinition1() {
+	configbind.Register[SessionLifetimeConfig](configbind.Definition{
+		TypeName: "github.com/shibukawa/popcornwave/plugin/auth.SessionLifetimeConfig",
+		Prefix:   "auth.session",
+		Doc:      "SessionLifetimeConfig is the [auth.session] binding, declared in popcornwave/sessionconfig so that pw can read it without importing this package",
+		KnownKeys: []string{
+			"auth.session.ttl",
+			"auth.session.idle_timeout",
+			"auth.session.renewal_interval",
+		},
+		Defaults: map[string]string{
+			"auth.session.ttl":              "24h",
+			"auth.session.idle_timeout":     "0s",
+			"auth.session.renewal_interval": "0s",
+		},
+		FlagMetas: []cliparser.FieldMeta{
+			{Prefix: "auth.session", Key: "ttl", Help: "absolute session lifetime"},
+			{Prefix: "auth.session", Key: "idle_timeout", Help: "inactivity expiry; zero disables it"},
+			{Prefix: "auth.session", Key: "renewal_interval", Help: "minimum interval between idle expiry renewals"},
+		},
+		Apply: applySessionLifetimeConfigDefinition1,
+		Scaffold: []configbind.ScaffoldField{
+			{Key: "ttl", Kind: configbind.ScaffoldDuration, Default: "24h", Help: "absolute session lifetime"},
+			{Key: "idle_timeout", Kind: configbind.ScaffoldDuration, Default: "0s", Help: "inactivity expiry; zero disables it"},
+			{Key: "renewal_interval", Kind: configbind.ScaffoldDuration, Default: "0s", Help: "minimum interval between idle expiry renewals"},
+		},
+	})
+}
+
+func applySessionLifetimeConfigDefinition1(dst any, o *configbind.Overlay) error {
+	p, ok := dst.(*SessionLifetimeConfig)
+	if !ok || p == nil {
+		return fmt.Errorf("configbind: apply SessionLifetimeConfig: bad destination")
+	}
+	if v, ok := o.GetString("auth.session.ttl"); ok {
+		d, err := time.ParseDuration(v)
+		if err != nil {
+			return fmt.Errorf("configbind: auth.session.ttl: %w", err)
+		}
+		p.TTL = d
+	} else {
+		p.TTL = 86400000000000 // 24h0m0s
+	}
+	if v, ok := o.GetString("auth.session.idle_timeout"); ok {
+		d, err := time.ParseDuration(v)
+		if err != nil {
+			return fmt.Errorf("configbind: auth.session.idle_timeout: %w", err)
+		}
+		p.IdleTimeout = d
+	} else {
+		p.IdleTimeout = 0 // 0s
+	}
+	if v, ok := o.GetString("auth.session.renewal_interval"); ok {
+		d, err := time.ParseDuration(v)
+		if err != nil {
+			return fmt.Errorf("configbind: auth.session.renewal_interval: %w", err)
+		}
+		p.RenewalInterval = d
+	} else {
+		p.RenewalInterval = 0 // 0s
 	}
 	return nil
 }

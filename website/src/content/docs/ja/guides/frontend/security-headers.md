@@ -1,6 +1,6 @@
 ---
 title: セキュリティヘッダー
-description: 何も設定しなくても全レスポンスに付くヘッダ、自分で書かなければならない 2 つ、そして HSTS が HTTPS の確認を待つ理由。
+description: 既定のブラウザポリシー、安全な置き換え方、そして HSTS が HTTPS の確認を待つ理由。
 sidebar:
   order: 8
 ---
@@ -13,14 +13,37 @@ X-Frame-Options: DENY
 Referrer-Policy: strict-origin-when-cross-origin
 ```
 
-これらは、既定値を弁護できるものです。nosniff はどのアプリケーションでも正しい。
-フレームに入れられることを拒むのは、入れられたいと分かるまでは正しい。そして
-`strict-origin-when-cross-origin` は、自サイト内では完全な referrer を、外に対しては
-origin だけを送ります。多くのアプリケーションが選んだであろう設定です。
+いずれも広く安全に使える既定値です。`nosniff` は Content-Type の推測を防ぎ、`DENY` は
+アプリケーションが明示的に許可するまでフレーム内の表示を拒否します。
+`strict-origin-when-cross-origin` が完全なリファラを送るのは、同一オリジン内だけです。
 
-ページの姿を実際に左右する 2 つ——Content-Security-Policy と Permissions-Policy——は空です。
-安全かつ有用な既定値が存在しないからです。持つ価値があるほど厳しいポリシーは、特定の
-ページが読み込むアセットに対して書かれたポリシーです。
+Content-Security-Policy にも、適用範囲を絞った既定値があります。
+
+```
+script-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'
+```
+
+ほぼどのアプリケーションでも受け入れられる 4 つのディレクティブだけを縛り、そうでない
+ものには触れません。画像・フォント・スタイル・通信先は制限しないので、CDN からロゴを
+読むページも設定を書き換えずにそのまま動きます。
+
+中心になるのは `script-src 'self'` です。インラインイベントハンドラ、インラインの
+`<script>`、`javascript:` URL を拒否し、HTML の差し込みからコードが実行される経路を
+まとめて塞ぎます。[CSRF](/ja/guides/architecture/security/) の同伴クッキーは、意図的に
+スクリプトから読めるため、同一オリジンで不正なスクリプトが動けば正当なトークンを
+作れてしまいます。フレームワーク自身のランタイムは同一オリジンの module タグなので、
+`'self'` だけで読み込めます。
+
+ただしこれは一次防御ではなく二次防御です。`javascript:` URL は、ヘッダを見るより前に、
+書かれた場所でテンプレートが拒否します（[URL 属性](/ja/guides/frontend/templates/#属性)）。
+ヘッダが効くのは、マークアップがそれ以外の経路でページに入った場合です。
+
+サードパーティのスクリプトを読み込む場合は、その配信元を明示したポリシーに
+置き換えてください。
+
+Permissions-Policy は空のままです。使うかどうかも分からない機能について、既定値は
+推測にしかならないからです。どちらかのポリシーをリバースプロキシ側ですでに管理している
+場合は、ここで重ねて設定せず、設定元を一方に揃えます。
 
 ## キー
 
@@ -30,10 +53,14 @@ enabled = true
 content_type_options = true
 frame_options = "deny"
 referrer_policy = "strict-origin-when-cross-origin"
-content_security_policy = ""
+content_security_policy = "script-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'"
 content_security_policy_report_only = ""
 permissions_policy = ""
 ```
+
+`content_security_policy` を設定すると、既定値への追加ではなく、ポリシー全体を
+置き換えます。`"off"` を指定するとポリシーを送信しません。空文字は既定値として扱われる
+ため、ポリシーを無効にする場合は `"off"` を明示してください。
 
 `frame_options` は `deny`、`sameorigin`、`off` を取ります。`referrer_policy` は
 `no-referrer`、`same-origin`、`strict-origin`、`strict-origin-when-cross-origin` です。
@@ -59,7 +86,7 @@ content_security_policy_report_only = "default-src 'self'; report-uri /csp-repor
 一斉切り替えの日を作らずにポリシーを締めていく方法です。
 
 [API ドキュメント UI](/ja/productivity/api-documentation/) を配信している場合でも、
-そのためにポリシーを緩める必要はありません。あのエンドポイントは自分のレスポンスに限って
+そのためにポリシーを緩める必要はありません。このエンドポイントは自身のレスポンスに限って
 必要なポリシーに差し替えるので、必要とする CDN ホストやインライン許可が他のルートに
 及ぶことはありません。
 

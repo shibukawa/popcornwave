@@ -3,32 +3,54 @@ id: requirement:state-storage-tiers
 type: requirement
 title: Browser State Storage Tiers
 ---
-An application picks how much a client may do with a piece of state first, and only the opaque tier then picks where the bytes live, so storage is a deployment choice rather than an application rewrite.
+An application states what a client may do with a piece of state, and where it lives, at the line that declares its type, so the deployment is left with the one choice it is actually qualified to make.
 
 ```yaml
 audience: actor:application-developer
+declaration: api:session-registry, where the tier is the placement argument of pw.RegisterSessionStore[T]
+decision: decision:slot-declared-placement
 axes:
-  trust: what the client may do with the value, which selects the tier
-  placement: where the bytes live, which only the opaque tier chooses
+  trust: what the client may do with the value
+  placement: where the bytes live
+  combined: the two are declared as one value, because the valid combinations are few and the invalid ones are nonsense
+  lifetime: what ends the value, stated beside the tier and independent of it, per decision:slot-lifetime-axis
 tiers:
-  client_owned:
+  shared:
+    placement: session.Shared
     client: reads and writes
-    mechanism: api:cookie-jar plain mode
+    mechanism: policy:cookie-value-protection plain
     server_storage: impossible by definition; a value the client writes cannot live on the server
     handling: request input, validated like a query parameter
     fits: display density, dismissed notices, last-used tab
-  client_visible:
+  read_only:
+    placement: session.ReadOnly
     client: reads, cannot change
-    mechanism: api:cookie-jar signed mode
+    mechanism: policy:cookie-value-protection signed
     fits: locale, tenant label, a flag the client may see but not choose
     caution: the payload stays readable, so it carries no secret
-  opaque:
+  private:
+    placement: session.Private
     client: neither reads nor changes
-    mechanism: sealed cookie, or an opaque token naming a server record
-    backends: cookie, rdb, redis
-    fits: login sessions, authorization facts, anything whose meaning is the server's
+    mechanism: a sealed cookie while anonymous, and the backend the deployment selected from the login onward
+    backends: cookie, rdb, redis, dynamo, firestore
+    ceiling: the anonymous phase is bounded by the browser cookie budget, and an oversized write is refused rather than spilled
+    default: yes
+    fits: authorization facts, the plugin/auth slot, a cart an anonymous visitor starts and a logged-in user keeps
+  server_only:
+    placement: session.ServerOnly
+    client: neither reads nor changes
+    mechanism: the configured server backend, always, including while anonymous; backend cookie is refused at startup
+    argument: revocation, not confidentiality
+    cost: an anonymous write creates a server record
+    fits: a credential, anything that must stop being valid on demand, and anything that can grow past the cookie budget while anonymous
+choosing:
+  can_the_front_end_change_it: shared
+  can_the_front_end_read_it: read_only
+  must_it_be_revocable_before_a_login_or_can_it_outgrow_a_cookie: server_only
+  otherwise: private, whose anonymous phase costs the server nothing and whose backend the deployment picks
 backend_selection:
-  scope: inside the opaque tier only
+  scope: which server backend the private and server_only tiers use; never whether a slot is server-placed
+  key: data:session-runtime-config backend
   cookie:
     storage: none; the sealed record rides in a second cookie bound to its token hash
     import: none; it is the built-in backend
@@ -42,7 +64,7 @@ backend_selection:
     revocation: immediate
     size: bounded by the row, not by the browser
     processes: every process sharing the database
-    cost: one write per login and one renewal write per interval, plus an expiry sweep
+    cost: one write per change and one renewal write per interval, plus an expiry sweep
     fits: deployments that already run a database and must end a session on demand
   redis:
     import: _ "popcornwave/sessionstore/redis"
@@ -54,25 +76,53 @@ backend_selection:
     status: implemented
     expiry: the server owns it, so no sweep runs
     fits: session volume or renewal rate a relational store should not absorb
+  dynamo:
+    import: _ "popcornwave/sessionstore/dynamo"
+    storage: requirement:dynamodb-session-store
+    revocation: immediate
+    expiry: table TTL, per decision:dynamodb-session-expiry
+  firestore:
+    import: _ "popcornwave/sessionstore/firestore"
+    storage: requirement:firestore-session-store
+    revocation: immediate
+    expiry: a field TTL policy, per decision:firestore-expiry-policy
+    reads: strongly consistent with no option to weigh, unlike dynamo
+    cost: a renewal is a read and a write rather than one conditional write, per decision:firestore-conditional-writes
+    mode: the database must have been created in Datastore mode, per decision:firestore-datastore-mode-only
+one_session:
+  fact: every registered slot shares one token, whatever tier each one carries
+  records: a session may hold a cookie-placed record and a server-placed record at once, which happens while it is anonymous and holds a session.ServerOnly slot
+  lifetime: one, supplied by decision:session-lifetime-owned-by-auth
+  destruction: a logout destroys every slot that did not declare session.OutlivesSession, per flow:session-lifecycle
+  survival: state that must outlive a logout is not a slot, and uses api:cookie-jar directly
 invariants:
-  - one Codec, one Options, one Store contract, and one Read across every tier and backend
-  - promoting a cookie between tiers changes the declared mode and nothing a handler calls
-  - moving between opaque backends changes data:session-runtime-config and nothing a handler calls
+  - one Codec, one registration call, and one typed read across every tier and backend
+  - moving a value between tiers changes the placement argument and nothing a handler calls
+  - moving between server backends changes data:session-runtime-config and nothing a handler calls
   - the server decides every authoritative lifetime, whichever tier holds the value
-  - policy:session-security governs the opaque tier regardless of backend
+  - a handler cannot tell where its slot is stored, or whether a private one has been promoted
+  - policy:session-security governs the token whichever tiers a session carries
   - policy:cookie-value-protection governs anything the browser carries
 acceptance:
-  - a plain cookie survives a client edit as ordinary input, and a signed or sealed one rejects it
-  - the same handler compiles and passes against the cookie, rdb, and redis opaque backends
+  - a shared value survives a client edit as ordinary input, and every other tier rejects it
+  - the same handler compiles and passes against the cookie, rdb, redis, dynamo, and firestore server backends
   - switching session.backend needs no migration of application code, only of stored records
-  - a cookie backend refuses a record beyond the browser budget instead of writing one the browser drops
-  - a server backend answers a logout by revoking the record, and a cookie backend states that it cannot
+  - a cookie-placed write beyond the browser budget is refused, naming the slot, instead of writing one the browser drops
+  - a server-placed slot answers a logout by revoking the record, and a cookie-placed one states that it cannot
+  - a session.ServerOnly slot registered against backend cookie fails startup naming the slot
   - selecting a backend whose plugin is not imported fails startup instead of linking every backend into every binary
-  - a tier that carries a secret is never satisfied by the client_visible tier
+  - a tier that carries a secret is never satisfied by the shared or read_only tiers
+  - an anonymous browser writes a shared and a private slot, logs in, and finds both values unchanged
+  - the private slot occupies no server storage before that login and no cookie after it
+  - a session.ServerOnly slot written while anonymous occupies server storage immediately
+  - a private slot that outgrows the cookie budget while anonymous fails the write rather than creating a server record
 non_goals:
   - a client-writable value backed by server storage
   - automatic migration of live records between backends
+  - spilling an oversized cookie-placed slot to the server
+  - demoting a server-placed value back into a cookie, at logout or at any other moment
   - reading one tier through another tier's API
-  - session affinity, replication topology, or failover between opaque backends
+  - a slot outliving the session while living in the session record, which is not a policy declined but a thing that cannot happen
+  - session affinity, replication topology, or failover between server backends
   - caching, which stores derived data rather than one client's state and shares a backend product at most
 ```

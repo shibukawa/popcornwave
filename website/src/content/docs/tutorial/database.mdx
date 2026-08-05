@@ -173,7 +173,7 @@ Two rules will stop generation later, and both are worth knowing before you meet
 them. An UPDATE or DELETE without a WHERE clause is rejected outright. And the
 SELECT columns must match the declared result type, in order and by name — which
 is what makes `Memo` an accurate description of every row the statement can
-return. [Queries](/guides/backend/queries/) covers conditional SQL, slice
+return. [Queries](/guides/storage/queries/) covers conditional SQL, slice
 expansion, and reusable predicates.
 
 ## 3. The handler talks to the table
@@ -272,7 +272,7 @@ In `dev`, every generated statement is logged as it runs:
 
 A statement slower than the configured threshold brings its query plan and a
 paste-able rerun snippet with it, without a line of change in your code — see
-[Query Diagnostics](/productivity/query-diagnostics/).
+[Slow Query Diagnostics](/productivity/query-diagnostics/).
 
 The database itself is the file `memoapp.db`, named by the DSN in
 `config.dev.toml`. Deleting it and letting `pw dev` re-apply the migrations is a
@@ -289,5 +289,6 @@ Every visitor still sees every memo. Chapter 4 gives the application a notion of
 who is asking.
 
 - [4. Signing in](/tutorial/login/) — the next chapter.
-- [Queries](/guides/backend/queries/) — conditional SQL, transactions, read replicas.
+- [Queries](/guides/storage/queries/) — conditional SQL, predicates, transactions.
+- [Relational databases](/guides/storage/rdb/) — engines, pool bounds, read replicas.
 - [Migrations](/productivity/migrations/) and [Seed data](/productivity/seed-data/) — the rest of the schema workflow.

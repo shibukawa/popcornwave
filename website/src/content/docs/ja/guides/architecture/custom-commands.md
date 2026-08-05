@@ -1,79 +1,18 @@
 ---
 title: カスタムコマンド
-description: ビルドしたバイナリのコマンドライン。設定オプション、スキャフォールド出力、独自のサブコマンド。
+description: Web サーバーと同じクエリやアプリケーションコードを再利用し、バッチ処理や運用タスクを追加する。
 sidebar:
   order: 2
 ---
 
-`pw` は開発を制御しますが、利用者がデプロイするコマンドではありません。`pw build`
-が生成するバイナリには独自の CLI があり、設定を駆動するのと同じ型付き宣言から
-生成されます。
+`pw build` が生成するバイナリには、Web サーバーだけでなく独自のサブコマンドも持たせられます。
+データのインポート、バックフィル、定期バッチ、運用時のメンテナンスなどが主な用途です。
+Web ハンドラと同じアプリケーション内で動くため、生成済みのクエリ関数やドメインコードを
+そのまま再利用でき、別の CLI プロジェクトを用意する必要はありません。
 
 開発ツール自体については [pw コマンド](/ja/pw/overview/)を参照してください。
-
-## すべての設定はオプションでもある
-
-登録済みの各設定キーは 3 つの方法で指定でき、優先度は次の順に上がります。
-
-```
-既定値  <  TOML ファイル  <  環境変数  <  コマンドラインオプション
-```
-
-既定の名前は prefix とフィールド名から導出されます。
-
-| prefix + フィールド | キー | オプション | 環境変数 |
-| --- | --- | --- | --- |
-| `app` + `EnvLabel` | `app.env_label` | `--app-env_label` | `APP_ENV_LABEL` |
-| `middleware.rdb` + `DSN` | `middleware.rdb.dsn` | `--middleware-rdb-dsn` | `MIDDLEWARE_RDB_DSN` |
-
-フィールド側でいずれも上書きできます。
-
-```go
-type ServerConfig struct {
-	Port int `key:"listen_port" default:"8080" opt:"port,p" env:"PORT" help:"HTTP listen port"`
-}
-```
-
-| タグ | 効果 |
-| --- | --- |
-| `default:"value"` | 他のどこからも値が来なかったときの値 |
-| `key:"name"` | TOML や設定のキー |
-| `opt:"long"` / `opt:"long,s"` | 長い形式のオプションと、任意の 1 文字の短縮形 |
-| `env:"NAME"` | 環境変数名を明示する。`env:"-"` は環境変数入力を無効にする |
-| `help:"text"` | usage やスキャフォールドに表示される説明 |
-
-`opt` が長い形式を上書きした場合、環境変数名はそちらから導出されます。
-
-```sh
-./myapp --port=9090
-PORT=9090 ./myapp
-```
-
-## 設定ファイルの選択
-
-`APP_ENV` がどのプロジェクトローカルファイルを読むかを選び、`--config-path` は探索
-そのものを上書きします。
-
-```sh
-APP_ENV=stg ./myapp
-./myapp --config-path ./deploy/staging.toml
-```
-
-解決順序の全体は[設定](/ja/guides/architecture/configuration/)を参照してください。
-
-## スキャフォールドの出力
-
-```sh
-./myapp --generate-config toml > config.dev.toml
-./myapp --generate-config env > .env
-```
-
-どちらの形式も、フレームワークかアプリケーションかを問わず、**登録済みすべての
-prefix** を出力し、`default` 値と `help` テキストをコメントとして残します。バイナリが
-報告するのは、実際にリンクされたパッケージの登録内容です。設定を持つ依存を追加すれば、
-次にスキャフォールドを生成したときにその設定も現れます。
-
-いずれの形式も出力後に終了し、サーバーは起動しません。
+設定ファイル、環境変数、設定スキャフォールド、値の優先順位については
+[設定](/ja/guides/architecture/configuration/)にまとめています。
 
 ## 独自のサブコマンド
 

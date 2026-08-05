@@ -1,0 +1,322 @@
+---
+title: Changing what a preset chose
+description: Moving a project off the engine, the session backend, the login, or the router its preset answered for it.
+sidebar:
+  order: 1.5
+---
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+
+A preset is ten answers with a name, and every one of them is still an answer.
+This page is what to do when one of them turns out to be wrong.
+
+Most of them are one command. A capability you declined is installed by
+[`pw add`](/pw/project/add/), which runs the same wizard `pw init` did and shows
+every file it is about to write before it writes one. The exceptions are the
+database engine, which touches more files than any other answer, and the
+project kind, which is not convertible at all.
+
+:::note[Before you start]
+Commit first. Every change below is a normal edit to files you own, but the
+engine change in particular touches your migrations, and reviewing that diff
+against a clean tree is much easier than reconstructing it.
+:::
+
+## Switching the database engine
+
+`website-login` gives you SQLite because it runs with nothing to start beside
+the application. That is right for the first week and wrong for a deployment
+that already runs Postgres.
+
+Do this before you have run a migration anywhere that matters. Nothing here
+converts data — it changes what the project generates and connects to, and the
+rows in the old database stay in the old database.
+
+Five things change together.
+
+**`project.database` in `popcornwave.toml`.** This is what `pw generate` reads
+to know which placeholder syntax your `.pw.sql` sources compile to. Change it
+and regenerate, or the typed query functions keep emitting the old dialect's
+placeholders.
+
+<Tabs syncKey="engine">
+<TabItem label="SQLite">
+```toml
+# popcornwave.toml
+[project]
+database = "sqlite"
+```
+</TabItem>
+<TabItem label="Postgres">
+```toml
+# popcornwave.toml
+[project]
+database = "postgres"
+```
+</TabItem>
+<TabItem label="MySQL">
+```toml
+# popcornwave.toml
+[project]
+database = "mysql"
+```
+</TabItem>
+</Tabs>
+
+**The DSN in `config.dev.toml`,** and in every other environment file.
+
+<Tabs syncKey="engine">
+<TabItem label="SQLite">
+```toml
+# config.dev.toml
+[middleware.rdb]
+dsn = "sqlite://myapp.db"
+```
+</TabItem>
+<TabItem label="Postgres">
+```toml
+# config.dev.toml
+[middleware.rdb]
+dsn = "postgres://myapp:myapp@127.0.0.1:5432/myapp?sslmode=disable"
+```
+</TabItem>
+<TabItem label="MySQL">
+```toml
+# config.dev.toml
+[middleware.rdb]
+dsn = "mysql://myapp:myapp@tcp(127.0.0.1:3306)/myapp"
+```
+</TabItem>
+</Tabs>
+
+**The driver import in `main.go`.** `pw` links SQLite itself; the two server
+engines arrive as a blank import.
+
+<Tabs syncKey="engine">
+<TabItem label="SQLite">
+```go
+// cmd/myapp/main.go — no import; pw links SQLite itself.
+```
+</TabItem>
+<TabItem label="Postgres">
+```go
+// cmd/myapp/main.go
+import (
+	_ "github.com/shibukawa/popcornwave/database/postgres"
+)
+```
+</TabItem>
+<TabItem label="MySQL">
+```go
+// cmd/myapp/main.go
+import (
+	_ "github.com/shibukawa/popcornwave/database/mysql"
+)
+```
+</TabItem>
+</Tabs>
+
+**The development server in `devbox.json`,** which SQLite does not have at all.
+
+<Tabs syncKey="engine">
+<TabItem label="SQLite">
+```json
+{ "packages": ["go@latest"] }
+```
+</TabItem>
+<TabItem label="Postgres">
+```json
+{ "packages": ["go@latest", "postgresql@latest"] }
+```
+</TabItem>
+<TabItem label="MySQL">
+```json
+{ "packages": ["go@latest", "mysql80@latest"] }
+```
+</TabItem>
+</Tabs>
+
+**Your migrations, by hand.** This is the part that costs real time, and there
+is no tool for it. Popcorn Wave compiles `.pw.sql` for one dialect; it does not
+translate between them, so `AUTOINCREMENT` does not become `SERIAL` and
+`datetime('now')` does not become `NOW()` because you changed a key. Every DDL
+statement in `migrations/` and every non-portable expression in `queries/` is a
+file you open and rewrite.
+
+Two more things change if the project has a login, and neither is obvious.
+
+**The framework's own migrations are in the old dialect too.** A login project
+carries `..._init_popcornwave_auth.sql`, and an `rdb` session backend adds
+`..._init_popcornwave_session.sql`. Those are the framework's DDL, not yours —
+`BLOB` against `BYTEA`, `WITHOUT ROWID` against nothing — and no command
+re-emits them. Get the new ones by scaffolding a throwaway project on the target
+engine with the same answers and copying its files across:
+
+```sh
+pw init --yes --db=postgres --auth=oidc --session=redis --router=discovered /tmp/probe
+cp /tmp/probe/migrations/*_init_popcornwave_*.sql migrations/
+```
+
+Keep your own version numbers if they differ; only the bodies are being
+replaced.
+
+**The auth state store is one package per engine.** `main.go` links
+`authstate/sqlite`, and no engine reads another's DDL:
+
+```go
+// cmd/myapp/main.go
+import (
+	// Was authstate/sqlite.
+	_ "github.com/shibukawa/popcornwave/authstate/postgres"
+)
+```
+
+That last point is why the cheapest moment to switch is before the first
+migration has run anywhere but your laptop. A project four weeks in has more
+schema to port, and a project in production has data to move as well, which this
+page does not cover.
+
+Then regenerate and re-apply:
+
+```sh
+pw generate
+pw migrate up
+```
+
+[Relational databases](/guides/storage/rdb/) covers the DSN forms and the
+connection groups in full.
+
+## Switching the session backend
+
+`website-login` puts sessions in Redis. Moving them to another backend is a
+deployment change, not an application change: every backend looks the same to
+a handler, so your application code stays as it is.
+
+Set `session.backend`, swap the blank import that registers it, and run the
+migration if the new backend has one:
+
+```toml
+# config.dev.toml
+[session]
+backend = "rdb"
+rdb.source = "middleware"
+```
+
+```go
+// cmd/myapp/main.go
+import (
+	// Was sessionstore/redis.
+	_ "github.com/shibukawa/popcornwave/sessionstore/sqlite"
+)
+```
+
+The `rdb` backend carries a framework-owned migration, so `pw migrate up` after
+the switch. The `cookie` backend has no storage and no import, and needs
+`SESSION_COOKIE_SECRET` in the environment before the first run. Redis leaves a
+Valkey package in `devbox.json` that nothing uses any more; remove it or leave
+it, since an unused development service costs only startup time.
+
+[Session storage](/guides/storage/session-storage/) compares all five backends
+on revocation, size, expiry, and operating cost.
+
+## Adding a login
+
+Both simple presets decline authentication. Installing it is one command:
+
+```sh
+pw add auth
+```
+
+The wizard asks the same questions `pw init` would have, and the review screen
+lists every file before it writes one. Authentication needs a server store for
+ceremony, account, and admission records. It can use an installed relational
+database, DynamoDB, or Firestore; if the project has none, the wizard adds the
+relational database capability first.
+
+[Authentication](/guides/backend/authentication/) is the guide for what arrives.
+
+## Adding the other router
+
+The two routers coexist on one mux, so this installs the one the project lacks
+rather than replacing the one it has:
+
+```sh
+pw add discovered   # or: pw add registered
+```
+
+What you end up with is both trees. That is the supported shape — an API in
+`handlers/` and a website in `pages/` is a normal Popcorn Wave project — but if
+you meant to move rather than to add, deleting the original tree is a manual
+step nothing does for you.
+
+[Discovered routing](/guides/cross-layer/discovered-routing/) explains what a
+page tree buys over registrations.
+
+## Finishing the API server
+
+`api-server` runs and verifies tokens on the first command, against an issuer
+that does not exist. That sounds worse than it is: under `pw dev` the token is
+read without being verified, so nothing is ever fetched from the issuer named in
+`config.dev.toml` — it is there because the mode refuses to start without one,
+which is the right rule everywhere.
+
+So the project you get is developable immediately and deployable nowhere, and
+finishing it is naming a real issuer:
+
+```toml
+# config.dev.toml — replace both, or supply AUTH_JWT_ISSUER and AUTH_JWT_AUDIENCE
+[auth.jwt]
+issuer = "https://your-idp.example.com"
+audience = ["your-api"]
+allow_loopback_http = false
+```
+
+Until you do, the scaffolded comment in `config.dev.toml` shows the `curl` that
+signs you in. Two claims have to be present in that hand-written token, `iss`
+and `sub` — nothing checks what the issuer says, but the account the API sees is
+derived from the pair, so changing either is how you develop as somebody else.
+
+Delete `dev.trust_unverified_tokens` once a real issuer exists. You do not have
+to remember: a binary built without the development tag refuses to start on that
+field rather than ignoring it, and so does the same configuration under
+`APP_ENV=stg` or `prod`.
+
+Then decide admission. The scaffold takes `authenticated`, which admits everyone
+the issuer verified. That is right when you control the issuer and it only mints
+tokens for people already entitled to this API. A shared issuer wants `claim`
+instead, naming the tenant or department:
+
+```toml
+[auth.jwt]
+admission = "claim"
+claim.path = "org"
+claim.values = ["acme"]
+```
+
+Turning on revocation, or choosing the `registered` admission mode, adds
+server-side state to this project. Choose `rdb`, `dynamo`, or `firestore` as the
+auth backend and install that capability first. With `rdb`, run `pw migrate up`
+for the `popcornwave_revoked_token` schema; the other stores follow their own
+deployment policies.
+
+## Changing the project kind
+
+You cannot. A package and an application are not convertible in either
+direction, and the differences are not answers you can flip: a package commits
+its generated Go, has no entry point, and carries no environment configuration,
+because nothing in a consuming project can generate, run, or configure it.
+
+Create the other kind and move your sources across. For anything beyond one or
+two files that is cheaper than converting, and much cheaper than discovering
+halfway through that it was.
+
+## When to start over instead
+
+If three of the sections above apply to your project, you started from the wrong
+preset. `pw init` writes into a new directory in under a minute, and moving your
+own handlers and templates into a correctly-scaffolded project is usually less
+work — and always less risk — than converting configuration, imports, and
+migrations one file at a time.
+
+The reason to convert rather than restart is having written enough that moving it
+is the expensive part. That threshold arrives later than it feels like it does.

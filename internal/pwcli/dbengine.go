@@ -180,9 +180,9 @@ func databaseEngineNotice(options initOptions) string {
 	}
 	notice := "\n" + engine.Label + " runs beside the application:\n"
 	if options.Devbox {
-		notice += "  devbox services up starts it; create the role and database named in middleware.rdb.dsn once\n"
+		notice += "  devbox services up starts it; create the role and database the middleware.rdb connection names once\n"
 	} else {
-		notice += "  install and start it yourself, then create the role and database named in middleware.rdb.dsn\n"
+		notice += "  install and start it yourself, then create the role and database the middleware.rdb connection names\n"
 	}
 	return notice
 }

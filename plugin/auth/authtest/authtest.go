@@ -33,6 +33,7 @@ import (
 
 	"github.com/shibukawa/popcornwave/plugin/auth"
 	"github.com/shibukawa/popcornwave/pwruntime"
+	"github.com/shibukawa/popcornwave/session"
 )
 
 // Identity is what a test says the request is. Only AccountID is required.
@@ -76,13 +77,15 @@ func (i Identity) normalized() Identity {
 
 func (i Identity) sessionData() auth.SessionData {
 	return auth.SessionData{
-		AccountID:   i.AccountID,
-		Issuer:      i.Issuer,
-		Subject:     i.Subject,
-		KeyClaim:    i.KeyClaim,
-		Key:         i.Key,
-		DisplayName: i.DisplayName,
-		Email:       i.Email,
+		AccountID:       i.AccountID,
+		AuthenticatedAt: i.AuthenticatedAt,
+		Method:          i.Method,
+		Issuer:          i.Issuer,
+		Subject:         i.Subject,
+		KeyClaim:        i.KeyClaim,
+		Key:             i.Key,
+		DisplayName:     i.DisplayName,
+		Email:           i.Email,
 	}
 }
 
@@ -95,17 +98,9 @@ func NewContext(ctx context.Context, identity Identity) context.Context {
 	}
 	identity = identity.normalized()
 	data := identity.sessionData()
-	view := pwruntime.SessionView{
-		Data:            data,
-		CreatedAt:       identity.AuthenticatedAt,
-		AuthenticatedAt: identity.AuthenticatedAt,
-		LastSeenAt:      identity.AuthenticatedAt,
-		ExpiresAt:       identity.ExpiresAt,
-		IdleExpiresAt:   identity.ExpiresAt,
-		Method:          identity.Method,
-		Version:         1,
-	}
-	ctx = pwruntime.WithSession(ctx, &view)
+	// The login half of a session is one registered slot, so installing it is
+	// the whole of what the middleware would have resolved.
+	ctx = session.WithValue(ctx, data)
 	return pwruntime.WithAuthentication(ctx, pwruntime.Authentication{
 		Authenticated: true,
 		// plugin/auth reports the account identifier as the subject, so a test
@@ -125,7 +120,7 @@ func Anonymous(ctx context.Context) context.Context {
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	ctx = pwruntime.WithSession(ctx, nil)
+	ctx = session.WithValue(ctx, auth.SessionData{})
 	return pwruntime.WithAuthentication(ctx, pwruntime.Authentication{})
 }
 

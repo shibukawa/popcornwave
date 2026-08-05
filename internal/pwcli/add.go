@@ -11,7 +11,13 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-const addUsage = "usage: pw add [" + capabilityDatabase + "|" + capabilityDynamo + "|" + capabilityRedis + "|" + capabilityAuth + "|" + capabilityTailwind + "]"
+// addUsage names every capability the catalog carries.
+//
+// It is built from capabilityOrder rather than written out, because a hand-kept
+// list drifts silently: the two routers and the Devbox environment were all
+// installable and absent from it, and a caller who mistypes learns from this
+// line which capabilities exist. The tutorial installs one of the routers.
+var addUsage = "usage: pw add [" + strings.Join(capabilityOrder, "|") + "|<module-path>]"
 
 // addOptions holds every answer the wizard collects. Unlike api:cli-init there
 // is no flag form: these answers edit a project that already exists, and the
@@ -40,6 +46,17 @@ func runAdd(ctx context.Context, args []string, stdout io.Writer) error {
 	root, err := projectRoot(".")
 	if err != nil {
 		return err
+	}
+	// A module path takes the package route, which writes a declaration and
+	// copies nothing. A capability name takes the wizard below, which writes
+	// files into the project and therefore still has something to review.
+	for _, arg := range args {
+		if isModulePath(arg) {
+			if len(args) != 1 {
+				return fmt.Errorf("add: name one module; %s", addUsage)
+			}
+			return addPackage(ctx, root, arg, stdout)
+		}
 	}
 	state, err := loadProjectState(root)
 	if err != nil {

@@ -18,14 +18,15 @@ pw build
 2. Tailwind が有効なら、スタイルシートを **minify して**ビルドする。これは
    `assets.tailwind.minify` を上書きするので、リリースが誤って非 minify になることは
    ない
-3. 公開アセットツリーを準備し、対応するクライアントに
-   [配信](/ja/guides/frontend/static-assets/)する圧縮済み `*.zstd` サイドカーを
-   書き出す
+3. [アセットツリー](/ja/guides/frontend/static-assets/)を `dist/public` に構築する。
+   プロジェクトが指定した変換を行い、圧縮済み `*.zstd` サイドカーを書き、キャッシュ
+   ヘッダを決めるマニフェストを出力する
 4. `project.main` が開発専用パッケージに依存していればビルドを拒否する
 5. `popcornwave.toml` の `project.main` に対して `go build` を実行する
 
 バイナリは main パッケージ名でプロジェクトルートに置かれます。スキャフォールドされた
-`.gitignore` は `public/**/*.zstd` とともにこれを除外済みです。
+`.gitignore` はこれと、`dist/` 配下すべてを除外済みです。ビルド済みツリーも変換キャッシュも
+マニフェストも、すべてビルド成果物です。
 
 現時点で開発専用パッケージは `contrib/devidp` だけです。これは
 [`pw dev`](/ja/pw/project/dev/) が使う認証プロバイダで、パスワードを検証せずに

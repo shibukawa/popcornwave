@@ -6,7 +6,7 @@ title: RDB DSN Scheme Resolution
 The rdb DSN scheme resolves to an opener and a dialect, not to a database/sql driver name, because a first-class engine may register no name and may not accept a URL.
 
 ```yaml
-source: data:middleware-runtime-config rdb.dsn, in the form scheme://rest
+source: each data:database-connection-set element dsn, in the form scheme://rest
 registry:
   package: github.com/shibukawa/popcornwave/database
   form: an engine package registers its dialect, schemes, opener, and handoff form from init, per decision:import-registered-session-plugins
@@ -46,7 +46,7 @@ rules:
   - a scheme whose engine is not linked into the build fails with that fact, not with a driver-not-found error
   - keep the resolution table the single place a new engine is registered
   - normalize an engine DSN default at the engine, so every caller inherits it rather than repeating it
-  - redact credentials from every error, log, and configuration view this resolution produces
+  - redact credentials from every error, log, and configuration view this resolution produces, in the rule:dsn-redaction form
 migration_from_current:
   was: one sql.Open call that special-cased sqlite and passed every other configured string through unchanged
   breaks_on: requirement:contrib-postgresql, which has no driver name to open, and requirement:contrib-mysql, whose DSN is rejected with the scheme still attached

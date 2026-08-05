@@ -181,7 +181,7 @@ unpinned SQL inside it stays there instead of falling back to the default group.
 `SelectDB` reports an unknown group name at the first statement that uses the
 returned context, not at the call itself. `SelectWriteDB` can never select a
 replica, which is what lets a caller that must write stay ignorant of the
-deployment topology. See [Queries](/guides/backend/queries/).
+deployment topology. See [Relational databases](/guides/storage/rdb/).
 
 ## Logging
 

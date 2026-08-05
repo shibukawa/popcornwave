@@ -4,13 +4,40 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"time"
 
+	"github.com/shibukawa/popcornwave/pw"
 	"github.com/shibukawa/popcornwave/session"
 )
 
+// sessionSlotKey names this package's slot inside a session record.
+const sessionSlotKey = "pw_auth"
+
+// registerSessionSlot declares the login half of a session, from this package's
+// init, exactly as an application declares its own.
+//
+// It is session.Private, which is the default placement: sealed either way, on
+// a cookie while the session is anonymous and on the configured backend from
+// the login onward. Nothing here is privileged in storage.
+//
+// Private rather than session.ServerOnly, even though a login wants to be
+// revocable, because this init cannot see whether auth is enabled and
+// ServerOnly would refuse the cookie backend outright for a deployment that
+// merely links this package. setupAuthentication warns about that pairing
+// itself, where both the configuration and the environment are known, and dev
+// is left alone. Nothing is written here before a login in any case: establish
+// is the only writer, so the anonymous phase stores nothing.
+func registerSessionSlot() {
+	pw.RegisterSessionStore[SessionData](sessionSlotKey, session.Private)
+}
+
 // Session returns the validated login session of the request.
-func Session(ctx context.Context) (session.View[SessionData], bool) {
-	return session.Read[SessionData](ctx)
+func Session(ctx context.Context) (SessionData, bool) {
+	data, ok := session.Load[SessionData](ctx)
+	if !ok || data.AccountID == "" {
+		return SessionData{}, false
+	}
+	return data, true
 }
 
 // EstablishSession creates the login session of an account this application
@@ -33,19 +60,49 @@ func EstablishSession(w http.ResponseWriter, r *http.Request, data SessionData, 
 	if data.AccountID == "" {
 		return errors.New("auth: a session needs an account identifier")
 	}
+	return rt.establish(w, r, data, method)
+}
+
+// establish writes the login slot and rotates the session.
+//
+// Rotation is the fixation defense, and it is also the promotion: a slot that
+// rode a sealed cookie while the browser was anonymous lands on the configured
+// backend here, so anything the visitor accumulated before signing in survives
+// the sign-in.
+func (rt *runtime) establish(w http.ResponseWriter, r *http.Request, data SessionData, method string) error {
 	if method == "" {
 		method = MethodOIDC
 	}
-	return rt.manager.RotateWithMethod(w, r, data, method)
+	data.Method = method
+	if data.AuthenticatedAt.IsZero() {
+		data.AuthenticatedAt = time.Now().UTC()
+	}
+	// A login normally arrives through the session middleware. Attach covers
+	// the callers that legitimately have nothing above them, such as the test
+	// seam, and is a no-op when the middleware already ran.
+	r, err := rt.manager.Attach(w, r)
+	if err != nil {
+		return err
+	}
+	handle, ok := session.Value[SessionData](r.Context())
+	if !ok {
+		return errors.New("auth: the session package has no slot for the login")
+	}
+	if err := handle.Set(data); err != nil {
+		return err
+	}
+	return rt.manager.Rotate(w, r)
+}
+
+// endSession destroys the whole session: every record is revoked and every
+// cookie it owns is expired, whatever placement each slot carries.
+func (rt *runtime) endSession(w http.ResponseWriter, r *http.Request) error {
+	return rt.manager.Destroy(w, r)
 }
 
 // User returns the stored account summary of the request. Handlers use it to
 // render an authenticated page; authorization decisions must still consult
 // application policy.
 func User(ctx context.Context) (SessionData, bool) {
-	view, ok := Session(ctx)
-	if !ok {
-		return SessionData{}, false
-	}
-	return view.Data, true
+	return Session(ctx)
 }

@@ -5,7 +5,7 @@ sidebar:
   order: 1
 ---
 
-このチュートリアルは全4章で、`memoapp` というメモアプリケーションを育てていきます。
+このチュートリアルは全5章で、`memoapp` というメモアプリケーションを育てていきます。
 最後にはフォームとテーブルがあり、ログインした人ごとにメモが分かれます。
 出発点は、挨拶を1行返すだけのページです。
 
@@ -126,7 +126,7 @@ listening on http://localhost:8080
 ```
 
 実際の木はもっと長く、フレームワークとアプリケーション双方の解決済みキーがすべて並びます。
-既定値以外から来た値には印が付き、`rdb.dsn` のような秘密は伏せられます（3章で
+既定値以外から来た値には印が付き、接続の DSN のような秘密は伏せられます（3章で
 データベースを足すと、その `rdb` の枝もここに出てきます）。この出力が
 何のためにあり、端末につながっていないときに何になるかは
 [何が効いたのかを見る](/ja/guides/architecture/configuration/#何が効いたのかを見る)にあります。
@@ -278,7 +278,7 @@ func Handlers() *pw.ServeMux { return mux }
 package handlers
 
 export component Home(name: string, project: string): html {
-  <h1 class="text-3xl font-bold">Hello, {name}</h1>
+  <h1 class="title">Hello, {name}</h1>
   <p>Served by Popcorn Wave.</p>
 }
 ```
@@ -297,7 +297,7 @@ export component Home(name: string, project: string): html {
 package handlers
 
 export component Home(visitor: string, project: string): html {
-  <h1 class="text-3xl font-bold">Hello, {visitor}</h1>
+  <h1 class="title">Hello, {visitor}</h1>
 }
 ```
 

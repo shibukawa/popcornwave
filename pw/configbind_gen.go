@@ -232,16 +232,31 @@ func registerSecurityConfigDefinition1() {
 			"security.headers.hsts.max_age",
 			"security.headers.hsts.include_subdomains",
 			"security.headers.hsts.preload",
+			"security.csrf.enabled",
+			"security.csrf.include",
+			"security.csrf.exclude",
+			"security.csrf.form_field",
+			"security.csrf.header",
+			"security.csrf.cookie_name",
+			"security.csrf.trusted_origins",
+			"security.csrf.ttl",
 		},
 		Defaults: map[string]string{
 			"security.headers.enabled":                 "true",
 			"security.headers.content_type_options":    "true",
 			"security.headers.frame_options":           "deny",
 			"security.headers.referrer_policy":         "strict-origin-when-cross-origin",
+			"security.headers.content_security_policy": "script-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'",
 			"security.headers.hsts.enabled":            "false",
 			"security.headers.hsts.max_age":            "0s",
 			"security.headers.hsts.include_subdomains": "false",
 			"security.headers.hsts.preload":            "false",
+			"security.csrf.enabled":                    "false",
+			"security.csrf.include":                    "[\"/**\"]",
+			"security.csrf.form_field":                 "_csrf",
+			"security.csrf.header":                     "X-CSRF-Token",
+			"security.csrf.cookie_name":                "pw_csrf",
+			"security.csrf.ttl":                        "12h",
 		},
 		DependsOn: map[string][]string{
 			"security.headers.content_type_options":                {"security.headers.enabled"},
@@ -254,19 +269,34 @@ func registerSecurityConfigDefinition1() {
 			"security.headers.hsts.max_age":                        {"security.headers.enabled", "security.headers.hsts.enabled"},
 			"security.headers.hsts.include_subdomains":             {"security.headers.enabled", "security.headers.hsts.enabled"},
 			"security.headers.hsts.preload":                        {"security.headers.enabled", "security.headers.hsts.enabled"},
+			"security.csrf.include":                                {"security.csrf.enabled"},
+			"security.csrf.exclude":                                {"security.csrf.enabled"},
+			"security.csrf.form_field":                             {"security.csrf.enabled"},
+			"security.csrf.header":                                 {"security.csrf.enabled"},
+			"security.csrf.cookie_name":                            {"security.csrf.enabled"},
+			"security.csrf.trusted_origins":                        {"security.csrf.enabled"},
+			"security.csrf.ttl":                                    {"security.csrf.enabled"},
 		},
 		FlagMetas: []cliparser.FieldMeta{
 			{Prefix: "security", Key: "headers.enabled", Kind: cliparser.KindBool},
 			{Prefix: "security", Key: "headers.content_type_options", Kind: cliparser.KindBool},
 			{Prefix: "security", Key: "headers.frame_options"},
 			{Prefix: "security", Key: "headers.referrer_policy"},
-			{Prefix: "security", Key: "headers.content_security_policy", Env: "-"},
+			{Prefix: "security", Key: "headers.content_security_policy", Env: "-", Help: "Content-Security-Policy value; off sends none"},
 			{Prefix: "security", Key: "headers.content_security_policy_report_only", Env: "-"},
 			{Prefix: "security", Key: "headers.permissions_policy", Env: "-"},
 			{Prefix: "security", Key: "headers.hsts.enabled", Kind: cliparser.KindBool},
 			{Prefix: "security", Key: "headers.hsts.max_age"},
 			{Prefix: "security", Key: "headers.hsts.include_subdomains", Kind: cliparser.KindBool},
 			{Prefix: "security", Key: "headers.hsts.preload", Kind: cliparser.KindBool},
+			{Prefix: "security", Key: "csrf.enabled", Kind: cliparser.KindBool},
+			{Prefix: "security", Key: "csrf.include", Kind: cliparser.KindArray},
+			{Prefix: "security", Key: "csrf.exclude", Env: "-", Kind: cliparser.KindArray},
+			{Prefix: "security", Key: "csrf.form_field"},
+			{Prefix: "security", Key: "csrf.header"},
+			{Prefix: "security", Key: "csrf.cookie_name", Help: "companion cookie carrying the token the browser runtime reads"},
+			{Prefix: "security", Key: "csrf.trusted_origins", Env: "-", Kind: cliparser.KindArray},
+			{Prefix: "security", Key: "csrf.ttl", Help: "lifetime of the companion token cookie"},
 		},
 		Apply: applySecurityConfigDefinition1,
 		Scaffold: []configbind.ScaffoldField{
@@ -274,13 +304,21 @@ func registerSecurityConfigDefinition1() {
 			{Key: "headers.content_type_options", Kind: configbind.ScaffoldBool, Default: "true"},
 			{Key: "headers.frame_options", Kind: configbind.ScaffoldString, Default: "deny"},
 			{Key: "headers.referrer_policy", Kind: configbind.ScaffoldString, Default: "strict-origin-when-cross-origin"},
-			{Key: "headers.content_security_policy", Kind: configbind.ScaffoldString, Env: "-"},
+			{Key: "headers.content_security_policy", Kind: configbind.ScaffoldString, Default: "script-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'", Env: "-", Help: "Content-Security-Policy value; off sends none"},
 			{Key: "headers.content_security_policy_report_only", Kind: configbind.ScaffoldString, Env: "-"},
 			{Key: "headers.permissions_policy", Kind: configbind.ScaffoldString, Env: "-"},
 			{Key: "headers.hsts.enabled", Kind: configbind.ScaffoldBool, Default: "false"},
 			{Key: "headers.hsts.max_age", Kind: configbind.ScaffoldDuration, Default: "0s"},
 			{Key: "headers.hsts.include_subdomains", Kind: configbind.ScaffoldBool, Default: "false"},
 			{Key: "headers.hsts.preload", Kind: configbind.ScaffoldBool, Default: "false"},
+			{Key: "csrf.enabled", Kind: configbind.ScaffoldBool, Default: "false"},
+			{Key: "csrf.include", Kind: configbind.ScaffoldStringSlice, Default: "[\"/**\"]"},
+			{Key: "csrf.exclude", Kind: configbind.ScaffoldStringSlice, Env: "-"},
+			{Key: "csrf.form_field", Kind: configbind.ScaffoldString, Default: "_csrf"},
+			{Key: "csrf.header", Kind: configbind.ScaffoldString, Default: "X-CSRF-Token"},
+			{Key: "csrf.cookie_name", Kind: configbind.ScaffoldString, Default: "pw_csrf", Help: "companion cookie carrying the token the browser runtime reads"},
+			{Key: "csrf.trusted_origins", Kind: configbind.ScaffoldStringSlice, Env: "-"},
+			{Key: "csrf.ttl", Kind: configbind.ScaffoldDuration, Default: "12h", Help: "lifetime of the companion token cookie"},
 		},
 	})
 }
@@ -320,6 +358,8 @@ func applySecurityConfigDefinition1(dst any, o *configbind.Overlay) error {
 	}
 	if v, ok := o.GetString("security.headers.content_security_policy"); ok {
 		p.Headers.ContentSecurityPolicy = v
+	} else {
+		p.Headers.ContentSecurityPolicy = "script-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'"
 	}
 	if v, ok := o.GetString("security.headers.content_security_policy_report_only"); ok {
 		p.Headers.ContentSecurityPolicyReportOnly = v
@@ -363,6 +403,48 @@ func applySecurityConfigDefinition1(dst any, o *configbind.Overlay) error {
 	} else {
 		p.Headers.HSTS.Preload = false
 	}
+	if v, ok := o.GetString("security.csrf.enabled"); ok {
+		bb, err := strconv.ParseBool(v)
+		if err != nil {
+			return fmt.Errorf("configbind: security.csrf.enabled: %w", err)
+		}
+		p.CSRF.Enabled = bb
+	} else {
+		p.CSRF.Enabled = false
+	}
+	if v, ok := o.GetMulti("security.csrf.include"); ok {
+		p.CSRF.Include = v
+	}
+	if v, ok := o.GetMulti("security.csrf.exclude"); ok {
+		p.CSRF.Exclude = v
+	}
+	if v, ok := o.GetString("security.csrf.form_field"); ok {
+		p.CSRF.FormField = v
+	} else {
+		p.CSRF.FormField = "_csrf"
+	}
+	if v, ok := o.GetString("security.csrf.header"); ok {
+		p.CSRF.Header = v
+	} else {
+		p.CSRF.Header = "X-CSRF-Token"
+	}
+	if v, ok := o.GetString("security.csrf.cookie_name"); ok {
+		p.CSRF.CookieName = v
+	} else {
+		p.CSRF.CookieName = "pw_csrf"
+	}
+	if v, ok := o.GetMulti("security.csrf.trusted_origins"); ok {
+		p.CSRF.TrustedOrigins = v
+	}
+	if v, ok := o.GetString("security.csrf.ttl"); ok {
+		d, err := time.ParseDuration(v)
+		if err != nil {
+			return fmt.Errorf("configbind: security.csrf.ttl: %w", err)
+		}
+		p.CSRF.TTL = d
+	} else {
+		p.CSRF.TTL = 43200000000000 // 12h0m0s
+	}
 	return nil
 }
 
@@ -370,13 +452,10 @@ func registerSessionConfigDefinition2() {
 	configbind.Register[SessionConfig](configbind.Definition{
 		TypeName: "github.com/shibukawa/popcornwave/pw.SessionConfig",
 		Prefix:   "session",
-		Doc:      "SessionConfig selects login-session behavior, cookie policy, and storage. The session token is opaque in every backend; only SessionBackendCookie carries the record itself, and it seals it under a configured secret",
 		KnownKeys: []string{
 			"session.enabled",
 			"session.backend",
-			"session.ttl",
-			"session.idle_timeout",
-			"session.renewal_interval",
+			"session.retention",
 			"session.cookie.name",
 			"session.cookie.path",
 			"session.cookie.domain",
@@ -391,17 +470,16 @@ func registerSessionConfigDefinition2() {
 			"session.redis.key_prefix",
 			"session.redis.connect_timeout",
 			"session.cookie_store.name",
-			"session.cookie_store.secret",
-			"session.cookie_store.previous_secrets",
+			"session.keyring.secret",
+			"session.keyring.previous_secrets",
 			"session.dynamo.table",
 			"session.dynamo.consistent_read",
+			"session.firestore.kind",
 		},
 		Defaults: map[string]string{
 			"session.enabled":                "false",
 			"session.backend":                "rdb",
-			"session.ttl":                    "24h",
-			"session.idle_timeout":           "0s",
-			"session.renewal_interval":       "0s",
+			"session.retention":              "720h",
 			"session.cookie.name":            "pw_session",
 			"session.cookie.path":            "/",
 			"session.cookie.secure":          "true",
@@ -414,43 +492,41 @@ func registerSessionConfigDefinition2() {
 			"session.cookie_store.name":      "pw_session_data",
 			"session.dynamo.table":           "popcornwave_session",
 			"session.dynamo.consistent_read": "false",
+			"session.firestore.kind":         "popcornwave_session",
 		},
 		DependsOn: map[string][]string{
-			"session.backend":                       {"session.enabled"},
-			"session.ttl":                           {"session.enabled"},
-			"session.idle_timeout":                  {"session.enabled"},
-			"session.renewal_interval":              {"session.enabled"},
-			"session.cookie.name":                   {"session.enabled"},
-			"session.cookie.path":                   {"session.enabled"},
-			"session.cookie.domain":                 {"session.enabled"},
-			"session.cookie.secure":                 {"session.enabled"},
-			"session.cookie.http_only":              {"session.enabled"},
-			"session.cookie.same_site":              {"session.enabled"},
-			"session.rdb.source":                    {"session.enabled"},
-			"session.rdb.group":                     {"session.enabled"},
-			"session.rdb.dsn":                       {"session.enabled"},
-			"session.rdb.table":                     {"session.enabled"},
-			"session.redis.dsn":                     {"session.enabled"},
-			"session.redis.key_prefix":              {"session.enabled"},
-			"session.redis.connect_timeout":         {"session.enabled"},
-			"session.cookie_store.name":             {"session.enabled"},
-			"session.cookie_store.secret":           {"session.enabled"},
-			"session.cookie_store.previous_secrets": {"session.enabled"},
-			"session.dynamo.table":                  {"session.enabled"},
-			"session.dynamo.consistent_read":        {"session.enabled"},
+			"session.backend":                  {"session.enabled"},
+			"session.retention":                {"session.enabled"},
+			"session.cookie.name":              {"session.enabled"},
+			"session.cookie.path":              {"session.enabled"},
+			"session.cookie.domain":            {"session.enabled"},
+			"session.cookie.secure":            {"session.enabled"},
+			"session.cookie.http_only":         {"session.enabled"},
+			"session.cookie.same_site":         {"session.enabled"},
+			"session.rdb.source":               {"session.enabled"},
+			"session.rdb.group":                {"session.enabled"},
+			"session.rdb.dsn":                  {"session.enabled"},
+			"session.rdb.table":                {"session.enabled"},
+			"session.redis.dsn":                {"session.enabled"},
+			"session.redis.key_prefix":         {"session.enabled"},
+			"session.redis.connect_timeout":    {"session.enabled"},
+			"session.cookie_store.name":        {"session.enabled"},
+			"session.keyring.secret":           {"session.enabled"},
+			"session.keyring.previous_secrets": {"session.enabled"},
+			"session.dynamo.table":             {"session.enabled"},
+			"session.dynamo.consistent_read":   {"session.enabled"},
+			"session.firestore.kind":           {"session.enabled"},
 		},
 		Secrets: map[string]string{
-			"session.rdb.dsn":                       "mask",
-			"session.redis.dsn":                     "mask",
-			"session.cookie_store.secret":           "mask",
-			"session.cookie_store.previous_secrets": "mask",
+			"session.rdb.dsn":                  "mask",
+			"session.redis.dsn":                "mask",
+			"session.keyring.secret":           "mask",
+			"session.keyring.previous_secrets": "mask",
 		},
 		FlagMetas: []cliparser.FieldMeta{
 			{Prefix: "session", Key: "enabled", Kind: cliparser.KindBool},
-			{Prefix: "session", Key: "backend", Help: "session storage backend: rdb, cookie, redis, or dynamo"},
-			{Prefix: "session", Key: "ttl", Help: "absolute session lifetime"},
-			{Prefix: "session", Key: "idle_timeout", Help: "inactivity expiry; zero disables it"},
-			{Prefix: "session", Key: "renewal_interval", Help: "minimum interval between idle expiry renewals"},
+			{Prefix: "session", Key: "backend", Help: "session storage backend: rdb, cookie, redis, dynamo, or firestore"},
+			{Prefix: "session", Key: "retention", Help: "how long the store may hold one record; the session lifetime under [auth] narrows it"},
 			{Prefix: "session", Key: "cookie.name"},
 			{Prefix: "session", Key: "cookie.path"},
 			{Prefix: "session", Key: "cookie.domain"},
@@ -465,18 +541,17 @@ func registerSessionConfigDefinition2() {
 			{Prefix: "session", Key: "redis.key_prefix", Help: "key space owned by the session store"},
 			{Prefix: "session", Key: "redis.connect_timeout", Help: "startup ping and per-command deadline"},
 			{Prefix: "session", Key: "cookie_store.name", Help: "cookie holding the sealed record"},
-			{Prefix: "session", Key: "cookie_store.secret", Env: "SESSION_COOKIE_STORE_SECRET", Help: "base64 secret sealing cookie-backed records"},
-			{Prefix: "session", Key: "cookie_store.previous_secrets", Help: "retired secrets kept readable during a rotation", Kind: cliparser.KindArray},
+			{Prefix: "session", Key: "keyring.secret", Env: "SESSION_KEYRING_SECRET", Help: "base64 secret signing and sealing everything the browser carries"},
+			{Prefix: "session", Key: "keyring.previous_secrets", Help: "retired secrets kept readable during a rotation", Kind: cliparser.KindArray},
 			{Prefix: "session", Key: "dynamo.table", Help: "declared session table name"},
 			{Prefix: "session", Key: "dynamo.consistent_read", Help: "read sessions with strong consistency", Kind: cliparser.KindBool},
+			{Prefix: "session", Key: "firestore.kind", Help: "session entity kind"},
 		},
 		Apply: applySessionConfigDefinition2,
 		Scaffold: []configbind.ScaffoldField{
 			{Key: "enabled", Kind: configbind.ScaffoldBool, Default: "false"},
-			{Key: "backend", Kind: configbind.ScaffoldString, Default: "rdb", Help: "session storage backend: rdb, cookie, redis, or dynamo"},
-			{Key: "ttl", Kind: configbind.ScaffoldDuration, Default: "24h", Help: "absolute session lifetime"},
-			{Key: "idle_timeout", Kind: configbind.ScaffoldDuration, Default: "0s", Help: "inactivity expiry; zero disables it"},
-			{Key: "renewal_interval", Kind: configbind.ScaffoldDuration, Default: "0s", Help: "minimum interval between idle expiry renewals"},
+			{Key: "backend", Kind: configbind.ScaffoldString, Default: "rdb", Help: "session storage backend: rdb, cookie, redis, dynamo, or firestore"},
+			{Key: "retention", Kind: configbind.ScaffoldDuration, Default: "720h", Help: "how long the store may hold one record; the session lifetime under [auth] narrows it"},
 			{Key: "cookie.name", Kind: configbind.ScaffoldString, Default: "pw_session"},
 			{Key: "cookie.path", Kind: configbind.ScaffoldString, Default: "/"},
 			{Key: "cookie.domain", Kind: configbind.ScaffoldString},
@@ -491,10 +566,11 @@ func registerSessionConfigDefinition2() {
 			{Key: "redis.key_prefix", Kind: configbind.ScaffoldString, Default: "pw:session:", Help: "key space owned by the session store"},
 			{Key: "redis.connect_timeout", Kind: configbind.ScaffoldDuration, Default: "5s", Help: "startup ping and per-command deadline"},
 			{Key: "cookie_store.name", Kind: configbind.ScaffoldString, Default: "pw_session_data", Help: "cookie holding the sealed record"},
-			{Key: "cookie_store.secret", Kind: configbind.ScaffoldString, Env: "SESSION_COOKIE_STORE_SECRET", Help: "base64 secret sealing cookie-backed records"},
-			{Key: "cookie_store.previous_secrets", Kind: configbind.ScaffoldStringSlice, Help: "retired secrets kept readable during a rotation"},
+			{Key: "keyring.secret", Kind: configbind.ScaffoldString, Env: "SESSION_KEYRING_SECRET", Help: "base64 secret signing and sealing everything the browser carries"},
+			{Key: "keyring.previous_secrets", Kind: configbind.ScaffoldStringSlice, Help: "retired secrets kept readable during a rotation"},
 			{Key: "dynamo.table", Kind: configbind.ScaffoldString, Default: "popcornwave_session", Help: "declared session table name"},
 			{Key: "dynamo.consistent_read", Kind: configbind.ScaffoldBool, Default: "false", Help: "read sessions with strong consistency"},
+			{Key: "firestore.kind", Kind: configbind.ScaffoldString, Default: "popcornwave_session", Help: "session entity kind"},
 		},
 	})
 }
@@ -518,32 +594,14 @@ func applySessionConfigDefinition2(dst any, o *configbind.Overlay) error {
 	} else {
 		p.Backend = "rdb"
 	}
-	if v, ok := o.GetString("session.ttl"); ok {
+	if v, ok := o.GetString("session.retention"); ok {
 		d, err := time.ParseDuration(v)
 		if err != nil {
-			return fmt.Errorf("configbind: session.ttl: %w", err)
+			return fmt.Errorf("configbind: session.retention: %w", err)
 		}
-		p.TTL = d
+		p.Retention = d
 	} else {
-		p.TTL = 86400000000000 // 24h0m0s
-	}
-	if v, ok := o.GetString("session.idle_timeout"); ok {
-		d, err := time.ParseDuration(v)
-		if err != nil {
-			return fmt.Errorf("configbind: session.idle_timeout: %w", err)
-		}
-		p.IdleTimeout = d
-	} else {
-		p.IdleTimeout = 0 // 0s
-	}
-	if v, ok := o.GetString("session.renewal_interval"); ok {
-		d, err := time.ParseDuration(v)
-		if err != nil {
-			return fmt.Errorf("configbind: session.renewal_interval: %w", err)
-		}
-		p.RenewalInterval = d
-	} else {
-		p.RenewalInterval = 0 // 0s
+		p.Retention = 2592000000000000 // 720h0m0s
 	}
 	if v, ok := o.GetString("session.cookie.name"); ok {
 		p.Cookie.Name = v
@@ -619,11 +677,11 @@ func applySessionConfigDefinition2(dst any, o *configbind.Overlay) error {
 	} else {
 		p.CookieStore.Name = "pw_session_data"
 	}
-	if v, ok := o.GetString("session.cookie_store.secret"); ok {
-		p.CookieStore.Secret = v
+	if v, ok := o.GetString("session.keyring.secret"); ok {
+		p.Keyring.Secret = v
 	}
-	if v, ok := o.GetMulti("session.cookie_store.previous_secrets"); ok {
-		p.CookieStore.PreviousSecrets = v
+	if v, ok := o.GetMulti("session.keyring.previous_secrets"); ok {
+		p.Keyring.PreviousSecrets = v
 	}
 	if v, ok := o.GetString("session.dynamo.table"); ok {
 		p.Dynamo.Table = v
@@ -638,6 +696,11 @@ func applySessionConfigDefinition2(dst any, o *configbind.Overlay) error {
 		p.Dynamo.ConsistentRead = bb
 	} else {
 		p.Dynamo.ConsistentRead = false
+	}
+	if v, ok := o.GetString("session.firestore.kind"); ok {
+		p.Firestore.Kind = v
+	} else {
+		p.Firestore.Kind = "popcornwave_session"
 	}
 	return nil
 }
@@ -709,6 +772,9 @@ func registerObservabilityConfigDefinition3() {
 			"observability.query.enabled":        "off",
 			"observability.query.slow_threshold": "0s",
 			"observability.query.bind_values":    "off",
+		},
+		Secrets: map[string]string{
+			"observability.otel.headers": "mask",
 		},
 		FlagMetas: []cliparser.FieldMeta{
 			{Prefix: "observability", Key: "minimum_level", Help: "severity floor: trace, debug, info, warn, error, or off"},
@@ -917,43 +983,25 @@ func registerMiddlewareConfigDefinition4() {
 			"middleware.compression",
 			"middleware.request_timeout",
 			"middleware.rdb.enabled",
-			"middleware.rdb.dsn",
-			"middleware.rdb.connect_timeout",
-			"middleware.rdb.max_open_conns",
-			"middleware.rdb.max_idle_conns",
-			"middleware.rdb.conn_max_lifetime",
-			"middleware.rdb.conn_max_idle_time",
 			"middleware.rdb.default_group",
 			"middleware.rdb.write_group",
 			"middleware.rdb.migration_group",
 			"middleware.rdb.connections",
 		},
 		Defaults: map[string]string{
-			"middleware.recovery":               "true",
-			"middleware.request_id":             "true",
-			"middleware.access_log":             "true",
-			"middleware.compression":            "false",
-			"middleware.request_timeout":        "0s",
-			"middleware.rdb.enabled":            "false",
-			"middleware.rdb.connect_timeout":    "5s",
-			"middleware.rdb.max_open_conns":     "0",
-			"middleware.rdb.max_idle_conns":     "0",
-			"middleware.rdb.conn_max_lifetime":  "0s",
-			"middleware.rdb.conn_max_idle_time": "0s",
+			"middleware.recovery":        "true",
+			"middleware.request_id":      "true",
+			"middleware.access_log":      "true",
+			"middleware.compression":     "false",
+			"middleware.request_timeout": "0s",
+			"middleware.rdb.enabled":     "false",
 		},
 		DependsOn: map[string][]string{
-			"middleware.rdb.dsn":                {"middleware.rdb.enabled"},
-			"middleware.rdb.connect_timeout":    {"middleware.rdb.enabled"},
-			"middleware.rdb.max_open_conns":     {"middleware.rdb.enabled"},
-			"middleware.rdb.max_idle_conns":     {"middleware.rdb.enabled"},
-			"middleware.rdb.conn_max_lifetime":  {"middleware.rdb.enabled"},
-			"middleware.rdb.conn_max_idle_time": {"middleware.rdb.enabled"},
-			"middleware.rdb.default_group":      {"middleware.rdb.enabled"},
-			"middleware.rdb.write_group":        {"middleware.rdb.enabled"},
-			"middleware.rdb.migration_group":    {"middleware.rdb.enabled"},
+			"middleware.rdb.default_group":   {"middleware.rdb.enabled"},
+			"middleware.rdb.write_group":     {"middleware.rdb.enabled"},
+			"middleware.rdb.migration_group": {"middleware.rdb.enabled"},
 		},
 		Secrets: map[string]string{
-			"middleware.rdb.dsn":             "mask",
 			"middleware.rdb.connections.dsn": "mask",
 		},
 		FlagMetas: []cliparser.FieldMeta{
@@ -963,12 +1011,6 @@ func registerMiddlewareConfigDefinition4() {
 			{Prefix: "middleware", Key: "compression", Kind: cliparser.KindBool},
 			{Prefix: "middleware", Key: "request_timeout"},
 			{Prefix: "middleware", Key: "rdb.enabled", Kind: cliparser.KindBool},
-			{Prefix: "middleware", Key: "rdb.dsn"},
-			{Prefix: "middleware", Key: "rdb.connect_timeout"},
-			{Prefix: "middleware", Key: "rdb.max_open_conns"},
-			{Prefix: "middleware", Key: "rdb.max_idle_conns"},
-			{Prefix: "middleware", Key: "rdb.conn_max_lifetime"},
-			{Prefix: "middleware", Key: "rdb.conn_max_idle_time"},
 			{Prefix: "middleware", Key: "rdb.default_group", Help: "connection group for statements that pin none"},
 			{Prefix: "middleware", Key: "rdb.write_group", Help: "connection group for framework-owned writes"},
 			{Prefix: "middleware", Key: "rdb.migration_group", Help: "connection group for migrations and seeds"},
@@ -981,12 +1023,6 @@ func registerMiddlewareConfigDefinition4() {
 			{Key: "compression", Kind: configbind.ScaffoldBool, Default: "false"},
 			{Key: "request_timeout", Kind: configbind.ScaffoldDuration, Default: "0s"},
 			{Key: "rdb.enabled", Kind: configbind.ScaffoldBool, Default: "false"},
-			{Key: "rdb.dsn", Kind: configbind.ScaffoldString},
-			{Key: "rdb.connect_timeout", Kind: configbind.ScaffoldDuration, Default: "5s"},
-			{Key: "rdb.max_open_conns", Kind: configbind.ScaffoldInt, Default: "0"},
-			{Key: "rdb.max_idle_conns", Kind: configbind.ScaffoldInt, Default: "0"},
-			{Key: "rdb.conn_max_lifetime", Kind: configbind.ScaffoldDuration, Default: "0s"},
-			{Key: "rdb.conn_max_idle_time", Kind: configbind.ScaffoldDuration, Default: "0s"},
 			{Key: "rdb.default_group", Kind: configbind.ScaffoldString, Help: "connection group for statements that pin none"},
 			{Key: "rdb.write_group", Kind: configbind.ScaffoldString, Help: "connection group for framework-owned writes"},
 			{Key: "rdb.migration_group", Kind: configbind.ScaffoldString, Help: "connection group for migrations and seeds"},
@@ -1062,54 +1098,6 @@ func applyMiddlewareConfigDefinition4(dst any, o *configbind.Overlay) error {
 		p.RDB.Enabled = bb
 	} else {
 		p.RDB.Enabled = false
-	}
-	if v, ok := o.GetString("middleware.rdb.dsn"); ok {
-		p.RDB.DSN = v
-	}
-	if v, ok := o.GetString("middleware.rdb.connect_timeout"); ok {
-		d, err := time.ParseDuration(v)
-		if err != nil {
-			return fmt.Errorf("configbind: middleware.rdb.connect_timeout: %w", err)
-		}
-		p.RDB.ConnectTimeout = d
-	} else {
-		p.RDB.ConnectTimeout = 5000000000 // 5s
-	}
-	if v, ok := o.GetString("middleware.rdb.max_open_conns"); ok {
-		n, err := strconv.ParseInt(v, 10, 0)
-		if err != nil {
-			return fmt.Errorf("configbind: middleware.rdb.max_open_conns: %w", err)
-		}
-		p.RDB.MaxOpenConns = int(n)
-	} else {
-		p.RDB.MaxOpenConns = 0
-	}
-	if v, ok := o.GetString("middleware.rdb.max_idle_conns"); ok {
-		n, err := strconv.ParseInt(v, 10, 0)
-		if err != nil {
-			return fmt.Errorf("configbind: middleware.rdb.max_idle_conns: %w", err)
-		}
-		p.RDB.MaxIdleConns = int(n)
-	} else {
-		p.RDB.MaxIdleConns = 0
-	}
-	if v, ok := o.GetString("middleware.rdb.conn_max_lifetime"); ok {
-		d, err := time.ParseDuration(v)
-		if err != nil {
-			return fmt.Errorf("configbind: middleware.rdb.conn_max_lifetime: %w", err)
-		}
-		p.RDB.ConnMaxLifetime = d
-	} else {
-		p.RDB.ConnMaxLifetime = 0 // 0s
-	}
-	if v, ok := o.GetString("middleware.rdb.conn_max_idle_time"); ok {
-		d, err := time.ParseDuration(v)
-		if err != nil {
-			return fmt.Errorf("configbind: middleware.rdb.conn_max_idle_time: %w", err)
-		}
-		p.RDB.ConnMaxIdleTime = d
-	} else {
-		p.RDB.ConnMaxIdleTime = 0 // 0s
 	}
 	if v, ok := o.GetString("middleware.rdb.default_group"); ok {
 		p.RDB.DefaultGroup = v
@@ -1203,6 +1191,9 @@ func registerHTMLConfigDefinition5() {
 			"html.bot_detection",
 			"html.bot_async_timeout",
 			"html.bot_user_agents",
+			"html.update.enabled",
+			"html.update.validator_key",
+			"html.update.max_manifest_bytes",
 			"html.live",
 			"html.live_max_duration",
 			"html.live_duration_jitter",
@@ -1211,27 +1202,34 @@ func registerHTMLConfigDefinition5() {
 			"html.live_max_responses",
 		},
 		Defaults: map[string]string{
-			"html.streaming":            "true",
-			"html.async_timeout":        "3s",
-			"html.async_concurrency":    "0",
-			"html.bot_detection":        "true",
-			"html.bot_async_timeout":    "5s",
-			"html.live":                 "true",
-			"html.live_max_duration":    "10m0s",
-			"html.live_duration_jitter": "20",
-			"html.live_idle_timeout":    "5m0s",
-			"html.live_max_boundaries":  "32",
-			"html.live_max_responses":   "4",
+			"html.streaming":                 "true",
+			"html.async_timeout":             "3s",
+			"html.async_concurrency":         "0",
+			"html.bot_detection":             "true",
+			"html.bot_async_timeout":         "5s",
+			"html.update.enabled":            "false",
+			"html.update.max_manifest_bytes": "8192",
+			"html.live":                      "true",
+			"html.live_max_duration":         "10m0s",
+			"html.live_duration_jitter":      "20",
+			"html.live_idle_timeout":         "5m0s",
+			"html.live_max_boundaries":       "32",
+			"html.live_max_responses":        "4",
 		},
 		DependsOn: map[string][]string{
-			"html.bot_async_timeout":    {"html.bot_detection"},
-			"html.bot_user_agents":      {"html.bot_detection"},
-			"html.live":                 {"html.streaming"},
-			"html.live_max_duration":    {"html.live"},
-			"html.live_duration_jitter": {"html.live"},
-			"html.live_idle_timeout":    {"html.live"},
-			"html.live_max_boundaries":  {"html.live"},
-			"html.live_max_responses":   {"html.live"},
+			"html.bot_async_timeout":         {"html.bot_detection"},
+			"html.bot_user_agents":           {"html.bot_detection"},
+			"html.update.validator_key":      {"html.update.enabled"},
+			"html.update.max_manifest_bytes": {"html.update.enabled"},
+			"html.live":                      {"html.streaming"},
+			"html.live_max_duration":         {"html.live"},
+			"html.live_duration_jitter":      {"html.live"},
+			"html.live_idle_timeout":         {"html.live"},
+			"html.live_max_boundaries":       {"html.live"},
+			"html.live_max_responses":        {"html.live"},
+		},
+		Secrets: map[string]string{
+			"html.update.validator_key": "mask",
 		},
 		FlagMetas: []cliparser.FieldMeta{
 			{Prefix: "html", Key: "streaming", Help: "Streaming false forces the buffered branch even when a chain can open a boundary, which is the escape hatch for a proxy that buffers responses", Kind: cliparser.KindBool},
@@ -1240,6 +1238,9 @@ func registerHTMLConfigDefinition5() {
 			{Prefix: "html", Key: "bot_detection", Help: "render the settled document for crawlers and CLI clients", Kind: cliparser.KindBool},
 			{Prefix: "html", Key: "bot_async_timeout", Help: "await boundary bound for a classified bot request"},
 			{Prefix: "html", Key: "bot_user_agents", Help: "additional bot User-Agent substrings", Kind: cliparser.KindArray},
+			{Prefix: "html", Key: "update.enabled", Help: "answer navigation deltas, redraws, and action responses", Kind: cliparser.KindBool},
+			{Prefix: "html", Key: "update.validator_key", Env: "HTML_UPDATE_VALIDATOR_KEY", Help: "base64 or raw secret keying update validators"},
+			{Prefix: "html", Key: "update.max_manifest_bytes", Help: "cap on the update manifest request header"},
 			{Prefix: "html", Key: "live", Help: "answer the live mode request that keeps a page updating after the document is complete", Kind: cliparser.KindBool},
 			{Prefix: "html", Key: "live_max_duration", Help: "maximum lifetime of one live response before it closes and the client reconnects"},
 			{Prefix: "html", Key: "live_duration_jitter", Help: "percentage the live response lifetime is spread by, so clients do not reconnect in lockstep"},
@@ -1255,6 +1256,9 @@ func registerHTMLConfigDefinition5() {
 			{Key: "bot_detection", Kind: configbind.ScaffoldBool, Default: "true", Help: "render the settled document for crawlers and CLI clients"},
 			{Key: "bot_async_timeout", Kind: configbind.ScaffoldDuration, Default: "5s", Help: "await boundary bound for a classified bot request"},
 			{Key: "bot_user_agents", Kind: configbind.ScaffoldStringSlice, Help: "additional bot User-Agent substrings"},
+			{Key: "update.enabled", Kind: configbind.ScaffoldBool, Default: "false", Help: "answer navigation deltas, redraws, and action responses"},
+			{Key: "update.validator_key", Kind: configbind.ScaffoldString, Env: "HTML_UPDATE_VALIDATOR_KEY", Help: "base64 or raw secret keying update validators"},
+			{Key: "update.max_manifest_bytes", Kind: configbind.ScaffoldInt, Default: "8192", Help: "cap on the update manifest request header"},
 			{Key: "live", Kind: configbind.ScaffoldBool, Default: "true", Help: "answer the live mode request that keeps a page updating after the document is complete"},
 			{Key: "live_max_duration", Kind: configbind.ScaffoldDuration, Default: "10m0s", Help: "maximum lifetime of one live response before it closes and the client reconnects"},
 			{Key: "live_duration_jitter", Kind: configbind.ScaffoldInt, Default: "20", Help: "percentage the live response lifetime is spread by, so clients do not reconnect in lockstep"},
@@ -1317,6 +1321,27 @@ func applyHTMLConfigDefinition5(dst any, o *configbind.Overlay) error {
 	}
 	if v, ok := o.GetMulti("html.bot_user_agents"); ok {
 		p.BotUserAgents = v
+	}
+	if v, ok := o.GetString("html.update.enabled"); ok {
+		bb, err := strconv.ParseBool(v)
+		if err != nil {
+			return fmt.Errorf("configbind: html.update.enabled: %w", err)
+		}
+		p.Update.Enabled = bb
+	} else {
+		p.Update.Enabled = false
+	}
+	if v, ok := o.GetString("html.update.validator_key"); ok {
+		p.Update.ValidatorKey = v
+	}
+	if v, ok := o.GetString("html.update.max_manifest_bytes"); ok {
+		n, err := strconv.ParseInt(v, 10, 0)
+		if err != nil {
+			return fmt.Errorf("configbind: html.update.max_manifest_bytes: %w", err)
+		}
+		p.Update.MaxManifestBytes = int(n)
+	} else {
+		p.Update.MaxManifestBytes = 8192
 	}
 	if v, ok := o.GetString("html.live"); ok {
 		bb, err := strconv.ParseBool(v)

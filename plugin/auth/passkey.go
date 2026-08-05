@@ -3,7 +3,6 @@ package auth
 import (
 	"context"
 	"crypto/rand"
-	"database/sql"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -13,7 +12,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/shibukawa/popcornwave/authstate"
 	"github.com/shibukawa/popcornwave/contrib/passkey"
 	"github.com/shibukawa/popcornwave/pw"
 )
@@ -78,49 +76,33 @@ func newRelyingParty(config PasskeyConfig) (*passkey.RelyingParty, error) {
 // setupPasskey builds the relying party, the ceremony state store, and the
 // credential stores. It runs only in a mode that mounts the endpoints, so an
 // oidc_only deployment carries none of it.
-func (rt *runtime) setupPasskey(ctx context.Context, db *sql.DB, dialect string) error {
+func (rt *runtime) setupPasskey(ctx context.Context) error {
 	relyingParty, err := newRelyingParty(rt.config.Passkey)
 	if err != nil {
 		return fmt.Errorf("auth.passkey: %w", err)
 	}
-	stateStore, err := authstate.NewSQLStore[passkey.CeremonyState](db, passkey.CeremonyStateCodec{}, authstate.SQLOptions{
-		Dialect:   dialect,
-		Namespace: passkeyStateNamespace,
-	})
+	stateStore, err := openState(ctx, rt, passkeyStateNamespace, passkey.CeremonyStateCodec{})
 	if err != nil {
-		return err
-	}
-	// The table already exists, so this validates its column layout only.
-	if err := stateStore.EnsureSchema(ctx); err != nil {
-		return fmt.Errorf("passkey ceremony state schema: %w", err)
+		return fmt.Errorf("passkey ceremony state: %w", err)
 	}
 	flow, err := passkey.NewSessionFlow(relyingParty, stateStore)
 	if err != nil {
 		return err
 	}
 	rt.passkeyFlow = flow
-	rt.credentials = installedCredentialStore()
-	if rt.credentials == nil {
-		rt.credentials = dbStore{db: db}
-	}
-	rt.bootstrap = installedBootstrapStore()
-	if rt.bootstrap == nil {
-		rt.bootstrap = bootstrapStore{db: db}
+	rt.credentials = rt.backend.Credentials
+	rt.bootstrap = rt.backend.Bootstrap
+	if rt.credentials == nil || rt.bootstrap == nil {
+		return fmt.Errorf("auth.backend = %q supplies no passkey credential storage", rt.config.backendName())
 	}
 	if rt.config.Mode != ModePasskeyOnly {
 		// Only passkey_only redeems a bootstrap credential, so no other mode
 		// carries the ticket store or the endpoint that fills it.
 		return nil
 	}
-	enrollment, err := authstate.NewSQLStore[enrollmentTicket](db, enrollmentTicketCodec{}, authstate.SQLOptions{
-		Dialect:   dialect,
-		Namespace: enrollmentStateNamespace,
-	})
+	enrollment, err := openState(ctx, rt, enrollmentStateNamespace, enrollmentTicketCodec{})
 	if err != nil {
-		return err
-	}
-	if err := enrollment.EnsureSchema(ctx); err != nil {
-		return fmt.Errorf("enrollment ticket schema: %w", err)
+		return fmt.Errorf("enrollment ticket: %w", err)
 	}
 	rt.enrollment = enrollment
 	return nil
@@ -133,7 +115,7 @@ func (rt *runtime) handlePasskey(w http.ResponseWriter, r *http.Request, suffix 
 	}
 	// A ceremony changes state, so it is refused cross-origin. The JSON content
 	// type a browser must send is itself unreachable from a simple form post.
-	if !sameOrigin(r) {
+	if !rt.sameOrigin(r) {
 		pw.WriteProblem(w, r, pw.Forbidden())
 		return
 	}
@@ -219,7 +201,7 @@ func (rt *runtime) handlePasskeyLoginFinish(w http.ResponseWriter, r *http.Reque
 		return
 	}
 	// Rotation revokes whatever the browser held before this authentication.
-	if err := rt.manager.RotateWithMethod(w, r, SessionData{
+	if err := rt.establish(w, r, SessionData{
 		AccountID:   account.ID,
 		DisplayName: account.DisplayName,
 		Email:       account.Email,
@@ -241,6 +223,25 @@ type enroller struct {
 	first  bool
 }
 
+// binding is what a registration ceremony begun by this enroller is tied to.
+//
+// It is compared at finish against the enroller resolved there, which is a
+// different request and may be a different principal: the browser can log out,
+// log in as someone else, or redeem a ticket in another tab while the
+// authenticator is being touched. Without the comparison the ceremony adopts
+// whoever is authenticated at that moment, and one account's authenticator is
+// enrolled onto another's.
+//
+// The two paths are labelled apart so that a ticket-begun ceremony cannot be
+// finished by an ordinary session of the same account, and the reverse. The
+// value is not a secret; it is one side of an equality the server checks.
+func (e enroller) binding() []byte {
+	if e.first {
+		return []byte("ticket\x00" + e.ticket.AccountID + "\x00" + e.ticket.LoginID)
+	}
+	return []byte("account\x00" + e.accountID)
+}
+
 // resolveEnroller admits an authenticated session with recent proof, and
 // otherwise a restricted enrollment ticket. It never admits both at once: a
 // ticket is the entry point of an account that has no session yet.
@@ -255,7 +256,7 @@ func (rt *runtime) resolveEnroller(w http.ResponseWriter, r *http.Request, consu
 			Challenge(w, r, Default(), true)
 			return enroller{}, false
 		}
-		return enroller{accountID: view.Data.AccountID, label: displayOrAccount(view.Data)}, true
+		return enroller{accountID: view.AccountID, label: displayOrAccount(view)}, true
 	}
 	if rt.enrollment != nil {
 		take := rt.rotateEnrollmentTicket
@@ -294,6 +295,7 @@ func (rt *runtime) handlePasskeyRegisterBegin(w http.ResponseWriter, r *http.Req
 		RequireUserVerification: rt.config.Passkey.UserVerification == UserVerificationRequired,
 		ResidentKey:             rt.config.Passkey.Discoverable,
 		ExcludeCredentials:      descriptorsOf(existing),
+		Binding:                 who.binding(),
 	})
 	if err != nil {
 		pw.Logger(r.Context()).Log(r.Context(), pw.LevelError, "passkey registration could not start", pw.Err(err))
@@ -318,7 +320,10 @@ func (rt *runtime) handlePasskeyRegisterFinish(w http.ResponseWriter, r *http.Re
 	if !decodeCeremonyJSON(w, r, &response) {
 		return
 	}
-	result, err := rt.passkeyFlow.FinishRegistration(r.Context(), key, response)
+	// The binding is what ties this credential to the account that began the
+	// ceremony rather than the one authenticated now. A mismatch is refused
+	// like any other rejected ceremony.
+	result, err := rt.passkeyFlow.FinishRegistration(r.Context(), key, who.binding(), response)
 	if err != nil {
 		rt.refuseCeremony(w, r, "passkey registration rejected", err, nil)
 		return
@@ -340,7 +345,7 @@ func (rt *runtime) handlePasskeyRegisterFinish(w http.ResponseWriter, r *http.Re
 		// The account can now authenticate a new way, so the session it did
 		// that from is replaced rather than carried forward.
 		view, _ := Session(r.Context())
-		if err := rt.manager.RotateWithMethod(w, r, view.Data, view.Method); err != nil {
+		if err := rt.establish(w, r, view, view.Method); err != nil {
 			pw.Logger(r.Context()).Log(r.Context(), pw.LevelError, "session rotation failed", pw.Err(err))
 			pw.WriteProblem(w, r, pw.ServiceUnavailable())
 			return

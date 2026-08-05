@@ -11,7 +11,10 @@ import (
 
 	"github.com/shibukawa/popcornwave/contrib/oauth"
 	"github.com/shibukawa/popcornwave/contrib/oidc"
+	"github.com/shibukawa/popcornwave/internal/pathpattern"
+	"github.com/shibukawa/popcornwave/internal/requestorigin"
 	"github.com/shibukawa/popcornwave/pw"
+	"github.com/shibukawa/popcornwave/pwruntime"
 )
 
 const (
@@ -46,11 +49,60 @@ const (
 	LogoutScopeGlobal    = "global"
 )
 
+// authenticate finalizes the request authentication and then serves the login
+// endpoints.
+//
+// Deriving the authentication is this package's job rather than the session
+// package's: a session is storage, and only what is in this package's own slot
+// says that the browser holding it is a signed-in account. SlotAuthentication
+// is where that is settled, which is what the slot is named for.
+func (rt *runtime) authenticate(next http.Handler) http.Handler {
+	endpoints := rt.endpoints(next)
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if data, ok := Session(r.Context()); ok {
+			// The account is re-read here, not only where the session was
+			// created: suspending an account is how a deployment answers a
+			// compromise, and the session it needs to reach is one that already
+			// exists. rt.accounts bounds how often that read happens.
+			switch rt.accounts.admit(r.Context(), data.AccountID) {
+			case accountEnded:
+				// The account may no longer act, so the session goes with it and
+				// the request continues as an anonymous one. Destroying it here
+				// means the browser stops carrying a session nothing will honour
+				// rather than presenting it until it expires.
+				if err := rt.manager.Destroy(w, r); err != nil {
+					pw.Logger(r.Context()).Log(r.Context(), pw.LevelError,
+						"session of an ended account could not be destroyed", pw.Err(err))
+				}
+			case accountUnknown:
+				// The credential was not judged. Refusing with 503 rather than
+				// 401 says the request may succeed on a retry and keeps a
+				// suspension from being conditional on the account store being
+				// reachable, which is the same trade policy:token-revocation
+				// settles the same way.
+				pw.Logger(r.Context()).Log(r.Context(), pw.LevelError,
+					"account behind a session could not be read", pw.String("account", data.AccountID))
+				pw.WriteProblem(w, r, pw.ServiceUnavailable())
+				return
+			default:
+				r = r.WithContext(pwruntime.WithAuthentication(r.Context(), pwruntime.Authentication{
+					Authenticated:   true,
+					Subject:         data.AccountID,
+					Method:          data.Method,
+					Principal:       data,
+					AuthenticatedAt: data.AuthenticatedAt,
+				}))
+			}
+		}
+		endpoints.ServeHTTP(w, r)
+	})
+}
+
 // endpoints owns the login, callback, and logout paths and passes every other
 // request through.
 func (rt *runtime) endpoints(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		path, ok := canonicalPath(r)
+		path, ok := pathpattern.CanonicalPath(r)
 		if !ok {
 			pw.WriteProblem(w, r, pw.BadRequest())
 			return
@@ -228,7 +280,7 @@ func (rt *runtime) handleCallback(w http.ResponseWriter, r *http.Request) {
 	if idToken.AuthTime != nil {
 		data.ProviderAuthTime = idToken.AuthTime.Unix()
 	}
-	err = rt.manager.RotateWithMethod(w, r, data, MethodOIDC)
+	err = rt.establish(w, r, data, MethodOIDC)
 	if err != nil {
 		pw.Logger(r.Context()).Log(r.Context(), pw.LevelError, "session creation failed", pw.Err(err))
 		pw.WriteProblem(w, r, pw.ServiceUnavailable())
@@ -251,7 +303,7 @@ func (rt *runtime) completeStepUp(w http.ResponseWriter, r *http.Request, identi
 		pw.WriteProblem(w, r, pw.Forbidden())
 		return
 	}
-	if identity.Issuer != view.Data.Issuer || identity.KeyClaim != view.Data.KeyClaim || identity.Key != view.Data.Key || identity.Key == "" {
+	if identity.Issuer != view.Issuer || identity.KeyClaim != view.KeyClaim || identity.Key != view.Key || identity.Key == "" {
 		pw.Logger(r.Context()).Log(r.Context(), pw.LevelWarn, "step-up completed by a different identity")
 		pw.WriteProblem(w, r, pw.Forbidden())
 		return
@@ -267,7 +319,7 @@ func (rt *runtime) completeStepUp(w http.ResponseWriter, r *http.Request, identi
 		pw.WriteProblem(w, r, pw.Forbidden())
 		return
 	}
-	data := view.Data
+	data := view
 	if idToken.AuthTime != nil {
 		data.ProviderAuthTime = idToken.AuthTime.Unix()
 	}
@@ -276,7 +328,7 @@ func (rt *runtime) completeStepUp(w http.ResponseWriter, r *http.Request, identi
 	}
 	// Rotation, because an assurance change is an authentication-strength
 	// change: the previous token is revoked and the CSRF secret turns with it.
-	if err := rt.manager.RotateWithMethod(w, r, data, MethodOIDC); err != nil {
+	if err := rt.establish(w, r, data, MethodOIDC); err != nil {
 		pw.Logger(r.Context()).Log(r.Context(), pw.LevelError, "step-up session rotation failed", pw.Err(err))
 		pw.WriteProblem(w, r, pw.ServiceUnavailable())
 		return
@@ -290,7 +342,7 @@ func (rt *runtime) handleLogout(w http.ResponseWriter, r *http.Request) {
 	if !allowMethod(w, r, http.MethodPost) {
 		return
 	}
-	if !sameOrigin(r) {
+	if !rt.sameOrigin(r) {
 		pw.WriteProblem(w, r, pw.Forbidden())
 		return
 	}
@@ -299,7 +351,7 @@ func (rt *runtime) handleLogout(w http.ResponseWriter, r *http.Request) {
 	rt.forgetSignIn(w)
 	// The local session goes first and unconditionally, whatever the selected
 	// scope does afterward.
-	if err := rt.manager.Delete(w, r); err != nil {
+	if err := rt.endSession(w, r); err != nil {
 		pw.Logger(r.Context()).Log(r.Context(), pw.LevelError, "session deletion failed", pw.Err(err))
 		pw.WriteProblem(w, r, pw.ServiceUnavailable())
 		return
@@ -337,7 +389,7 @@ func (rt *runtime) handleForget(w http.ResponseWriter, r *http.Request) {
 	if !allowMethod(w, r, http.MethodPost) {
 		return
 	}
-	if !sameOrigin(r) {
+	if !rt.sameOrigin(r) {
 		pw.WriteProblem(w, r, pw.Forbidden())
 		return
 	}
@@ -409,6 +461,7 @@ func (rt *runtime) oidcClient(ctx context.Context) (*oidc.Client, error) {
 	defer cancel()
 	provider, err := oidc.Discover(discoveryCtx, rt.config.OIDC.Issuer, oidc.DiscoverOptions{
 		AllowLoopbackHTTP: rt.config.OIDC.AllowLoopbackHTTP,
+		EndpointHosts:     rt.config.OIDC.EndpointHosts,
 	})
 	if err != nil {
 		return nil, err
@@ -589,20 +642,14 @@ func localReturnPath(value string) string {
 	return value
 }
 
-// sameOrigin requires an Origin header that matches the request host, falling
-// back to a strict Referer check only when Origin is absent.
-func sameOrigin(r *http.Request) bool {
-	host := r.Host
-	if origin := r.Header.Get("Origin"); origin != "" {
-		parsed, err := url.Parse(origin)
-		return err == nil && parsed.Host == host
-	}
-	referer := r.Header.Get("Referer")
-	if referer == "" {
-		return false
-	}
-	parsed, err := url.Parse(referer)
-	return err == nil && parsed.Host == host
+// sameOrigin requires a whole origin, scheme included, matching this
+// deployment's own or one it declared.
+//
+// The comparison is internal/requestorigin, the same one the CSRF middleware
+// makes. This package used to compare host names alone, which admitted an http
+// caller to an https deployment and supported no declared origin at all.
+func (rt *runtime) sameOrigin(r *http.Request) bool {
+	return requestorigin.Matches(r, rt.trustedOrigins)
 }
 
 func allowMethod(w http.ResponseWriter, r *http.Request, allowed ...string) bool {

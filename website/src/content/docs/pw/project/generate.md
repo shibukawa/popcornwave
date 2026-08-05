@@ -9,9 +9,9 @@ sidebar:
 pw generate [--check]
 ```
 
-Generation turns every `.pw.html` and `.pw.sql` source into a `_pw_gen.go` file
-**beside it**, then links the document registration package into the main
-package. It prints only the paths that changed.
+Generation turns templates, SQL, page trees, and typed store declarations into
+`_pw_gen.go` files **beside their sources**, then links the packages the
+application needs. It prints only the paths that changed.
 
 ## Options
 
@@ -30,6 +30,9 @@ handlers = ["handlers"]
 templates = ["handlers", "templates"]
 queries = ["queries"]
 config = ["cmd/myapp"]
+pages = ["pages"]
+dynamo = []
+firestore = ["entities"]
 ```
 
 | Purpose | Reads | Generates |
@@ -38,14 +41,19 @@ config = ["cmd/myapp"]
 | `templates` | `.pw.html` | typed renderers; also where the document shell and error pages are found |
 | `queries` | `.pw.sql` | context-based query functions |
 | `config` | `pw.RegisterConfig` and `pw.RegisterSubCommand` calls in Go | configuration and subcommand binding |
+| `pages` | page-tree roots | route registration and page parameters for discovered routing |
+| `dynamo` | `dynamo`-tagged Go types and `.pw.dynamo` | record codecs, keys, and typed DynamoDB queries |
+| `firestore` | `firestore`-tagged Go types and `.pw.firestore` | entity codecs, keys, and typed Datastore-mode queries |
 
 A directory may appear under several purposes — `handlers` usually appears under
 both `handlers` and `templates`, because a page template lives beside the
 handler that renders it. Each listed directory is walked recursively, so nested
 packages need no entry of their own.
 
-All four keys are required and none has a default. An empty list is how a
-project states that a purpose generates nothing:
+The original four keys—`handlers`, `templates`, `queries`, and `config`—are
+required and have no default. `pages`, `dynamo`, and `firestore` are optional
+for compatibility with older projects. An empty list is still the clearest way
+to state that a project deliberately generates nothing for a purpose:
 
 ```toml
 queries = []   # this project has no .pw.sql
@@ -66,7 +74,7 @@ a call site outside its purpose simply gets no generated binding. A `_pw_gen.go`
 left outside every purpose by an earlier layout **is** reported, since nothing
 regenerates or removes it any more.
 
-Besides the template files, it reads your Go source for call sites:
+Besides declaration files, generation reads Go source for call sites:
 
 | Call | Generates |
 | --- | --- |

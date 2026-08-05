@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/shibukawa/popcornwave/middlewares"
+	"github.com/shibukawa/popcornwave/pwruntime"
 	tinybind "github.com/shibukawa/tinybind-go"
 	"github.com/shibukawa/tinybind-go/htmlbind"
 	"github.com/shibukawa/tinygodriver/compress/zstd"
@@ -274,6 +275,28 @@ func WriteHTMLPage(w http.ResponseWriter, r *http.Request, wrappers []HTMLWrappe
 // finished document instead of the fallbacks it can never replace.
 func WriteHTMLChain(w http.ResponseWriter, r *http.Request, wrappers []HTMLWrapper, leaf HTMLFragment, options ...HTMLOption) {
 	config := Config[HTMLConfig](requestContext(r))
+	// Every unsafe form in this chain carries the session's token, and the
+	// document path is where that is supplied: WriteHTMLFragment renders no
+	// document and shares only the option builder below, so it is untouched.
+	//
+	// The framework's options go first, so a caller passing its own still wins.
+	token := csrfRenderToken(requestContext(r))
+	options = append(documentRenderOptions(config, token), options...)
+	// A page that can update answers three ways from one URL, and which one is
+	// decided before anything is written. An unrecognized mode resolves to the
+	// document, so a crawler, curl, and a browser without the runtime are
+	// unaffected by any of this.
+	if config.Update.Enabled {
+		// A redraw is tested first because it answers with one component's
+		// subtree and never touches this chain, so there is nothing about the
+		// page left to decide once it has been recognized.
+		if serveRegisteredRedraw(w, r, config) {
+			return
+		}
+		if serveUpdate(w, r, wrappers, leaf, config, options) {
+			return
+		}
+	}
 	// The probe runs first because it is the cheapest of the three gates and the
 	// only one that can rule streaming out entirely, so a page that could never
 	// stream never classifies its client.
@@ -325,6 +348,49 @@ func WriteHTMLChain(w http.ResponseWriter, r *http.Request, wrappers []HTMLWrapp
 		return
 	}
 	commitHTMLBody(w, r, &body)
+}
+
+// documentRenderOptions is everything the framework contributes to a document
+// render: the CSRF token every unsafe form carries, the boundary prefix, and
+// the head nodes that load the client runtime.
+//
+// It is deliberately not part of the option builder the fragment path shares.
+// A fragment response renders no document, so it has no head to merge into and
+// decision:fragment-head-rejection refuses one that tries.
+func documentRenderOptions(config HTMLConfig, csrfToken string) []HTMLOption {
+	options := make([]HTMLOption, 0, 3)
+	if csrfToken != "" {
+		options = append(options, htmlbind.WithCSRFToken(csrfToken))
+	}
+	if config.Update.Enabled {
+		// One prefix names the generated attributes, the placeholder element,
+		// and the boundary ids, so a document does not hold two spellings.
+		options = append(options, htmlbind.WithBoundaryPrefix(UpdateAttributePrefix))
+		if nodes := updateHeadNodes(config, csrfToken); len(nodes) > 0 {
+			options = append(options, htmlbind.WithHead(nodes...))
+		}
+	}
+	return options
+}
+
+// csrfRenderToken derives the token every unsafe form of this render carries,
+// when the request has a secret to take one from.
+//
+// A request without one yields nothing rather than htmlbind.WithoutCSRFToken:
+// that option renders an unsafe form with an empty token, which is right for a
+// mail body or a golden test and wrong for a response, where it would put an
+// unprotected form on screen and say nothing. Yielding nothing fails the render
+// instead, which is the outcome policy:csrf-protection asks for.
+func csrfRenderToken(ctx context.Context) string {
+	secret, ok := pwruntime.CSRFSecret(ctx)
+	if !ok {
+		return ""
+	}
+	token, err := pwruntime.CSRFToken(secret, nil)
+	if err != nil {
+		return ""
+	}
+	return token
 }
 
 // WriteHTMLFragment renders one generated template as the whole response, with

@@ -1,0 +1,161 @@
+// Package pathpattern is the path-matching grammar the framework's
+// path-scoped policies share.
+//
+// policy:csrf-protection is specified as using the same segment grammar and
+// exclude precedence as policy:authenticated-path-protection, so the two read
+// one implementation rather than two that can drift.
+package pathpattern
+
+import (
+	"fmt"
+	"net/http"
+	"strings"
+)
+
+// pattern is one compiled path-protection pattern.
+//
+// The grammar is deliberately small: a literal segment matches itself, a "*"
+// segment matches exactly one non-empty segment, and a trailing "**" segment
+// matches the prefix itself and every descendant. Regular expressions, query
+// matching, and mid-segment wildcards are not part of it.
+type Pattern struct {
+	source   []string
+	subtree  bool
+	original string
+}
+
+// Compile compiles a pattern list, rejecting the first malformed entry.
+func Compile(values []string) ([]Pattern, error) {
+	if len(values) == 0 {
+		return nil, nil
+	}
+	compiled := make([]Pattern, 0, len(values))
+	for _, value := range values {
+		p, err := compileOne(value)
+		if err != nil {
+			return nil, err
+		}
+		compiled = append(compiled, p)
+	}
+	return compiled, nil
+}
+
+func compileOne(value string) (Pattern, error) {
+	if !strings.HasPrefix(value, "/") {
+		return Pattern{}, fmt.Errorf("pattern %q must start with a slash", value)
+	}
+	if strings.Contains(value, "?") || strings.Contains(value, "#") {
+		return Pattern{}, fmt.Errorf("pattern %q must not contain a query or fragment", value)
+	}
+	trimmed := strings.TrimPrefix(value, "/")
+	var segments []string
+	if trimmed != "" {
+		segments = strings.Split(trimmed, "/")
+	}
+	subtree := false
+	for index, segment := range segments {
+		switch {
+		case segment == "**":
+			if index != len(segments)-1 {
+				return Pattern{}, fmt.Errorf("pattern %q may use ** only as the last segment", value)
+			}
+			subtree = true
+		case segment == "*":
+		case segment == "", segment == ".", segment == "..":
+			return Pattern{}, fmt.Errorf("pattern %q has an empty or dot segment", value)
+		case strings.Contains(segment, "*"):
+			return Pattern{}, fmt.Errorf("pattern %q may not use a mid-segment wildcard", value)
+		}
+	}
+	if subtree {
+		segments = segments[:len(segments)-1]
+	}
+	return Pattern{source: segments, subtree: subtree, original: value}, nil
+}
+
+// match reports whether path matches. path must already be the canonical
+// request path.
+// Match reports whether path matches. path must already be canonical.
+func (p Pattern) Match(path string) bool {
+	trimmed := strings.TrimPrefix(path, "/")
+	var segments []string
+	if trimmed != "" {
+		segments = strings.Split(trimmed, "/")
+		// A trailing slash names the same thing as its absence for the purpose
+		// of a policy decision, so it is dropped rather than counted. Counting
+		// it made /admin/delete/ a different length from the pattern
+		// /admin/delete, so the pattern did not match and an include failed
+		// open — the request went through unprotected instead of being refused.
+		if last := len(segments) - 1; segments[last] == "" {
+			segments = segments[:last]
+		}
+	}
+	if p.subtree {
+		if len(segments) < len(p.source) {
+			return false
+		}
+	} else if len(segments) != len(p.source) {
+		return false
+	}
+	for index, expected := range p.source {
+		actual := segments[index]
+		if actual == "" {
+			return false
+		}
+		if expected == "*" {
+			continue
+		}
+		if expected != actual {
+			return false
+		}
+	}
+	return true
+}
+
+// MatchAny reports whether any pattern matches path.
+func MatchAny(patterns []Pattern, path string) bool {
+	for _, p := range patterns {
+		if p.Match(path) {
+			return true
+		}
+	}
+	return false
+}
+
+// canonicalPath rejects a request whose path cannot be matched unambiguously.
+// Dot segments and encoded separators could otherwise select a different routed
+// target than the one the guard decided about.
+// CanonicalPath returns the request path a policy may match against, and
+// reports false for one that cannot be matched unambiguously.
+func CanonicalPath(r *http.Request) (string, bool) {
+	if r == nil || r.URL == nil {
+		return "", false
+	}
+	path := r.URL.Path
+	if path == "" || !strings.HasPrefix(path, "/") {
+		return "", false
+	}
+	// net/http percent-decodes URL.Path, so an encoded separator is only
+	// visible in the raw form.
+	if raw := r.URL.RawPath; raw != "" && (strings.Contains(raw, "%2f") || strings.Contains(raw, "%2F")) {
+		return "", false
+	}
+	segments := strings.Split(strings.TrimPrefix(path, "/"), "/")
+	for index, segment := range segments {
+		if segment == "." || segment == ".." {
+			return "", false
+		}
+		// An empty segment means the path carried "//" somewhere, and routers
+		// disagree about whether that is the same resource as the single-slash
+		// form. A policy cannot decide about a path whose target depends on who
+		// resolves it, so this is a refusal — the same answer dot segments and
+		// encoded separators get, and for the same reason.
+		//
+		// The last segment is exempt: it is empty for the ordinary directory
+		// form "/admin/", which Match normalizes rather than refusing.
+		if segment == "" && index != len(segments)-1 {
+			return "", false
+		}
+	}
+	return path, true
+}

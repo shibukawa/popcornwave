@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"net/url"
 
+	"github.com/shibukawa/popcornwave/internal/pathpattern"
 	"github.com/shibukawa/popcornwave/pw"
 )
 
@@ -12,7 +13,7 @@ import (
 // and no exclude pattern.
 func (rt *runtime) guard(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		path, ok := canonicalPath(r)
+		path, ok := pathpattern.CanonicalPath(r)
 		if !ok {
 			pw.WriteProblem(w, r, pw.BadRequest())
 			return
@@ -23,6 +24,11 @@ func (rt *runtime) guard(next http.Handler) http.Handler {
 		}
 		w.Header().Set("Cache-Control", "no-store")
 		if rt.config.Protection.Unauthenticated == UnauthenticatedUnauthorized {
+			if rt.config.usesJWT() {
+				// RFC 6750 asks a protected resource to name the scheme it
+				// accepts, so a client that sent nothing learns what to send.
+				w.Header().Set("WWW-Authenticate", `Bearer realm="`+rt.bearerRealm()+`"`)
+			}
 			pw.WriteProblem(w, r, pw.Unauthorized())
 			return
 		}
@@ -37,10 +43,10 @@ func (rt *runtime) protected(path string) bool {
 	case rt.config.LoginPath, rt.config.CallbackPath, rt.config.LogoutPath:
 		return false
 	}
-	if matchAny(rt.exclude, path) {
+	if pathpattern.MatchAny(rt.exclude, path) {
 		return false
 	}
-	return matchAny(rt.include, path)
+	return pathpattern.MatchAny(rt.include, path)
 }
 
 // loginURL sends the browser to the local login path, carrying only a validated

@@ -5,12 +5,35 @@ import "github.com/shibukawa/tinybind-go/generator"
 const (
 	pwPackage        = "github.com/shibukawa/popcornwave/pw"
 	pwRuntimePackage = "github.com/shibukawa/popcornwave/pwruntime"
+	// pwAttributePrefix mirrors pw.UpdateAttributePrefix. It is repeated rather
+	// than imported because this package is a host-side tool and pw is the
+	// runtime; a test asserts the two agree.
+	//
+	// It is the module's own default rather than this framework's brand, and
+	// that is deliberate: system:tinybind routetree does not thread the prefix
+	// into the templates it compiles, so a page tree would keep the default
+	// while a registered-router template took the brand, and one document would
+	// hold both spellings. One agreed spelling is worth more than the brand
+	// until the option reaches both paths.
+	pwAttributePrefix = "tb"
 )
 
 // Options returns TinyBind generator options extended with the stable pw API.
 // Options builds the generator configuration. sqlDialect names the target
 // database for .pw.sql sources; it is required whenever the run discovers one,
 // because a silently assumed dialect emits placeholders the engine rejects.
+// The Popcorn Wave source suffixes. They are the generator's discovery globs
+// and the formatter's, so they live here rather than in either caller.
+const (
+	HTMLTemplatePattern   = "*.pw.html"
+	SQLTemplatePattern    = "*.pw.sql"
+	DynamoTemplatePattern = "*.pw.dynamo"
+	// FirestoreTemplatePattern is the base-name glob of a Firestore query
+	// declaration. It follows the .pw. convention every other declaration
+	// source here uses rather than the module's own .tb. default.
+	FirestoreTemplatePattern = "*.pw.firestore"
+)
+
 func Options(sqlDialect string) (generator.Options, error) {
 	registry := generator.NewCallRegistry()
 	patterns := []generator.CallPattern{
@@ -97,9 +120,15 @@ func Options(sqlDialect string) (generator.Options, error) {
 	// developer had written it, and its page registrations become documented API
 	// routes.
 	options.GeneratedHeaders = []string{GeneratedHeaderPrefix}
-	options.HTMLTemplatePattern = "*.pw.html"
-	options.SQLTemplatePattern = "*.pw.sql"
-	options.DynamoTemplatePattern = "*.pw.dynamo"
+	// One prefix names the generated boundary attributes, the placeholder
+	// element, and the boundary ids. The browser runtime is built for it, so a
+	// document holding the module's default beside this one would address
+	// regions the runtime never looks for.
+	options.DataAttributePrefix = pwAttributePrefix
+	options.HTMLTemplatePattern = HTMLTemplatePattern
+	options.SQLTemplatePattern = SQLTemplatePattern
+	options.DynamoTemplatePattern = DynamoTemplatePattern
+	options.FirestoreTemplatePattern = FirestoreTemplatePattern
 	options.SQLDialect = sqlDialect
 	options.SQLContextOnlyAPI = true
 	options.SQLExecutorResolver = &generator.SymbolPattern{

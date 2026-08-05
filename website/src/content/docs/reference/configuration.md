@@ -2,7 +2,7 @@
 title: Application Configuration
 description: Every runtime configuration key of a running application, its default, and the TOML, environment, and command-line names it answers to.
 sidebar:
-  order: 2
+  order: 7
 ---
 
 These are the keys a *running application* reads: ports, pools, cookies,
@@ -48,7 +48,9 @@ Three keys have no environment binding at all:
 `security.headers.permissions_policy`. Set them in TOML.
 
 The `[[middleware.rdb.connections]]` array is TOML-only as well. An array of
-tables has no flat name to bind.
+tables has no flat name to bind, which is why a deployment's DSN goes in as a
+`${DATABASE_URL}` reference: the file layer expands it, and an undefined name is
+a load error rather than an empty DSN.
 
 ## Where values come from
 
@@ -108,12 +110,6 @@ startup, before either can shadow the other. `api_doc` additionally requires
 | `compression` | `false` | zstd-encode HTML for clients that accept it |
 | `request_timeout` | `"0s"` | per-request deadline; zero leaves none |
 | `rdb.enabled` | `false` | open the framework-owned database pool |
-| `rdb.dsn` | *(empty)* | data source name for a single database (masked in the startup summary) |
-| `rdb.connect_timeout` | `"5s"` | bound on opening a connection |
-| `rdb.max_open_conns` | `0` | `database/sql` pool bounds; zero means the driver default |
-| `rdb.max_idle_conns` | `0` | |
-| `rdb.conn_max_lifetime` | `"0s"` | |
-| `rdb.conn_max_idle_time` | `"0s"` | |
 | `rdb.default_group` | *(empty)* | connection group for statements that pin none |
 | `rdb.write_group` | *(empty)* | connection group for framework-owned writes |
 | `rdb.migration_group` | *(empty)* | connection group for migrations and seeds |
@@ -122,17 +118,21 @@ With `compression` enabled, `Vary: Accept-Encoding` is set either way — a cach
 that saw one representation must not serve it to a client that asked for the
 other.
 
-A single database is configured with `rdb.dsn` and the pool keys above. A
-reader-writer topology is configured with the connection set instead, one table
-per pool. Declaring both is a configuration error rather than a merge, because
-there is no honest answer to which one wins.
+Every database is configured with the connection set below, one table per pool:
+a single database is one table, and a reader-writer topology is several. The
+section itself carries no DSN, so there is one place to look for one.
+
+Earlier versions also took a `rdb.dsn` key with the pool keys beside it. That
+form is gone. Move the DSN and its pool bounds into one
+`[[middleware.rdb.connections]]` table; an enabled database with no table fails
+at startup and names the replacement.
 
 ### `[[middleware.rdb.connections]]`
 
 | Key | Default | Meaning |
 | --- | --- | --- |
 | `group` | *(empty)* | the name this connection is addressed by |
-| `dsn` | *(empty)* | data source name (masked in the startup summary) |
+| `dsn` | *(empty)* | data source name; only its credential is masked where it is reported |
 | `readonly` | `false` | open read-only transactions and serve no framework write |
 | `connect_timeout` | `"5s"` | as above, per connection |
 | `max_open_conns` | `0` | |
@@ -142,7 +142,28 @@ there is no honest answer to which one wins.
 
 A `readonly` connection can never be selected by `pw.SelectWriteDB`, which is
 what lets a caller that must write stay ignorant of the topology. See
-[Queries](/guides/backend/queries/).
+[Relational databases](/guides/storage/rdb/).
+
+### `[middleware.firestore]`
+
+These keys exist only when `database/firestore` is imported. The database must
+use Datastore mode.
+
+| Key | Default | Meaning |
+| --- | --- | --- |
+| `enabled` | `false` | open the client and install it into request contexts |
+| `project_id` | *(empty)* | Google Cloud project; falls back to `GOOGLE_CLOUD_PROJECT`, then `DATASTORE_PROJECT_ID` |
+| `database` | *(empty)* | named database; empty selects the default database |
+| `namespace` | *(empty)* | namespace applied to every key the process reads and writes |
+| `endpoint` | *(empty)* | service or emulator endpoint; falls back to `DATASTORE_EMULATOR_HOST` |
+| `credentials` | `"service_account"` | `service_account`, `metadata`, `oauth2`, or `static` |
+| `credentials_file` | *(empty)* | service-account key; falls back to `GOOGLE_APPLICATION_CREDENTIALS` |
+| `timeout` | `"10s"` | bound on one request |
+| `max_idle_conns` | `4` | idle HTTP connections kept for the client |
+
+`metadata` and `static` do not read `credentials_file`, so configuring both is
+an error. A non-positive timeout or negative connection bound also stops
+startup. See [Firestore](/guides/storage/firestore/).
 
 ## `[html]`
 
@@ -160,6 +181,9 @@ what lets a caller that must write stay ignorant of the topology. See
 | `live_idle_timeout` | `"5m"` | close a live connection nothing has delivered on |
 | `live_max_boundaries` | `32` | boundaries one live connection may serve; zero or less is unbounded |
 | `live_max_responses` | `4` | concurrent live connections per client; zero or less is unbounded |
+| `update.enabled` | `false` | answer navigation deltas, redraws, and action responses |
+| `update.validator_key` | — | secret keying the boundary digests; required when `update.enabled` is true |
+| `update.max_manifest_bytes` | `8192` | cap on the digest hint a request may carry |
 
 A template that opens an await boundary renders correctly under either
 `streaming` setting. The key decides only whether the fallbacks reach the
@@ -179,6 +203,14 @@ its live boundaries in place and writes no placeholder a delivery could replace.
 keep the content their live boundaries committed, and no client is invited to
 connect. See [Live Rendering](/guides/cross-layer/live-rendering/) for what each bound
 buys.
+
+`update.validator_key` is refused at startup when it is missing and updates are
+on, rather than serving unkeyed digests: an unkeyed digest of low-entropy content
+lets a guess be confirmed by comparing digests. Rotating it is not a break —
+comparisons miss and the next response is a complete document. An oversized
+manifest is dropped rather than rejected, so a request past
+`update.max_manifest_bytes` costs a larger delta instead of an error. See
+[Partial Updates](/guides/cross-layer/partial-updates/) for what each path buys.
 
 ## `[security]`
 
@@ -210,7 +242,7 @@ would ask a browser to remember a policy the connection could not vouch for.
 | `boot_log` | `"auto"` | startup summary: `auto`, `tree`, `record`, `off` |
 
 `auto` renders the tree on an interactive terminal and one structured record
-everywhere else. See [Startup Summary](/productivity/startup-summary/).
+everywhere else. See [Configuration Summary](/productivity/startup-summary/).
 
 ### `[observability.query]`
 
@@ -230,7 +262,7 @@ everywhere else. See [Startup Summary](/productivity/startup-summary/).
 without configuration and every other environment stays silent until someone
 opts in. `explain` and `reproduction` depend on `slow_threshold`, not on
 `enabled`: setting the threshold to zero switches off all three at once. See
-[Query Diagnostics](/productivity/query-diagnostics/).
+[Slow Query Diagnostics](/productivity/query-diagnostics/).
 
 ### `[observability.otel]`
 
@@ -257,36 +289,47 @@ duration string, and one key cannot mean both.
 | Key | Default | Meaning |
 | --- | --- | --- |
 | `enabled` | `false` | |
-| `backend` | `"rdb"` | storage backend: `rdb`, `cookie`, or `redis` |
-| `ttl` | `"24h"` | absolute session lifetime |
-| `idle_timeout` | `"0s"` | inactivity expiry; zero disables it |
-| `renewal_interval` | `"0s"` | minimum interval between idle expiry renewals |
+| `backend` | `"rdb"` | server backend a server-placed slot uses: `rdb`, `cookie`, `redis`, `dynamo`, or `firestore` |
+| `retention` | `"720h"` | how long the store may hold one record; the `[auth]` lifetime narrows it |
 | `cookie.name` | `"pw_session"` | |
 | `cookie.path` | `"/"` | |
 | `cookie.domain` | *(empty)* | |
-| `cookie.secure` | `true` | disable only for loopback development |
+| `cookie.secure` | `true` | `false` only for loopback development; outside `dev` the process refuses to start with it |
 | `cookie.http_only` | `true` | |
 | `cookie.same_site` | `"lax"` | |
-| `rdb.source` | `"middleware"` | `middleware` reuses the `middleware.rdb` pool; `dedicated` opens `rdb.dsn` |
+| `rdb.source` | `"middleware"` | `middleware` reuses the `middleware.rdb` pool; `dedicated` opens `session.rdb.dsn` |
 | `rdb.group` | *(empty)* | connection group holding the session table; empty resolves to `middleware.rdb.write_group` |
-| `rdb.dsn` | *(empty)* | dedicated session database (masked in the startup summary) |
+| `rdb.dsn` | *(empty)* | dedicated session database; only its credential is masked where it is reported |
 | `rdb.table` | `"popcornwave_session"` | |
-| `redis.dsn` | *(empty)* | `redis://` or `rediss://` server (masked in the startup summary) |
+| `redis.dsn` | *(empty)* | `redis://` or `rediss://` server; only its credential is masked where it is reported |
 | `redis.key_prefix` | `"pw:session:"` | key space the session store owns |
 | `redis.connect_timeout` | `"5s"` | startup ping and per-command deadline |
-| `cookie_store.name` | `"pw_session_data"` | cookie holding the sealed record under `backend = "cookie"` |
-| `cookie_store.secret` | *(empty)* | base64 secret sealing cookie-backed records (masked) |
-| `cookie_store.previous_secrets` | `[]` | retired secrets kept readable during a rotation (masked) |
+| `cookie_store.name` | `"pw_session_data"` | cookie holding the sealed record |
+| `keyring.secret` | *(empty)* | base64 secret signing and sealing anything the browser carries (masked) |
+| `keyring.previous_secrets` | `[]` | retired secrets kept readable during a rotation (masked) |
+| `dynamo.table` | `"popcornwave_session"` | declared session table, mapped onto the deployed one by `middleware.dynamo` |
+| `dynamo.consistent_read` | `false` | read sessions with strong consistency, at twice the read capacity |
+| `firestore.kind` | `"popcornwave_session"` | entity kind holding session records |
 
 Only the keys of the selected backend are read, and a backend other than
 `cookie` reaches the binary through its own blank import — the startup error
-quotes the line to add. [Sessions](/guides/backend/sessions/) compares the
-three and lists what each one requires.
+quotes the line to add. [Session storage](/guides/storage/session-storage/) compares the
+five and lists what each one requires.
 
-The token in the browser is opaque in all three, so nothing here signs it. Only
-`backend = "cookie"` puts the record itself in the browser, and it seals that
-record under `cookie_store.secret` — the one secret this section has, and one
-that belongs in the environment rather than in the file.
+This section declares no duration. An expiry states how long a proof of identity
+stays good, so `session.ttl`, `session.idle_timeout`, and
+`session.renewal_interval` are declared under `[auth]` instead.
+
+The token in the browser is opaque in every backend, so nothing here signs it.
+The CSRF secret is not a key here either: it is a registered session slot, so
+one keyring seals it too and `security.csrf` carries no secret of its own.
+
+`keyring.secret` protects what travels beside it: a `session.ReadOnly` slot is
+signed and a `session.Private` slot is sealed, both from that one secret. It is
+therefore required unless every registered slot is `session.Shared`, whatever
+`backend` names — a private slot rides a sealed cookie while a visitor is still
+anonymous. `pw init` generates one into `config.dev.toml`; every other
+environment reads `SESSION_KEYRING_SECRET`.
 
 ## `[auth]`
 
@@ -297,11 +340,16 @@ imports nothing authentication-related has no `[auth]` prefix to configure.
 | Key | Default | Meaning |
 | --- | --- | --- |
 | `enabled` | `false` | |
+| `backend` | `"rdb"` | storage for ceremony, allowlist, credential, and bootstrap records: `rdb`, `dynamo`, or `firestore` |
 | `mode` | `"oidc_only"` | |
 | `login_path` | `"/auth/login"` | starts the provider flow |
 | `callback_path` | `"/auth/callback"` | verifies the result and starts the session |
 | `logout_path` | `"/auth/logout"` | ends the session; `POST` only |
 | `post_login_path` | `"/"` | local path a completed login lands on |
+| `session.ttl` | `"24h"` | absolute session lifetime |
+| `session.idle_timeout` | `"0s"` | inactivity expiry; zero disables it |
+| `session.renewal_interval` | `"0s"` | minimum interval between idle expiry renewals |
+| `recent_auth_max_age` | `"5m"` | how recently a request must have authenticated to change a login method |
 | `protection.include` | `[]` | path patterns that require a session |
 | `protection.exclude` | `[]` | path patterns that stay public |
 | `protection.unauthenticated` | `"redirect"` | `redirect` or `unauthorized` |

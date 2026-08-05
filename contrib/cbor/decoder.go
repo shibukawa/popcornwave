@@ -94,6 +94,11 @@ func (d *Decoder) readByte() (byte, error) {
 	return 0, ErrTruncated
 }
 
+// readChunkBytes caps the buffer readBytes reserves before any payload arrives.
+// Past it the slice grows as bytes actually turn up, so the allocation follows
+// the input rather than the number the input claimed.
+const readChunkBytes = 4096
+
 func (d *Decoder) readBytes(n uint64, stringLimit bool) ([]byte, error) {
 	if n > uint64(math.MaxInt) {
 		return nil, fmt.Errorf("%w: item length", ErrLimitExceeded)
@@ -101,8 +106,19 @@ func (d *Decoder) readBytes(n uint64, stringLimit bool) ([]byte, error) {
 	if stringLimit && n > uint64(d.opts.MaxStringBytes) {
 		return nil, fmt.Errorf("%w: string bytes", ErrLimitExceeded)
 	}
-	b := make([]byte, int(n))
-	for i := range b {
+	// A length larger than the input budget still allows cannot be satisfied, so
+	// refusing here reaches the same answer readByte would — before anything is
+	// reserved rather than after, and naming the same limit it would have named.
+	if remaining := d.opts.MaxInputBytes - d.read; remaining < 0 || n > uint64(remaining) {
+		return nil, fmt.Errorf("%w: input bytes", ErrLimitExceeded)
+	}
+	// The length prefix is attacker-controlled and arrives before its payload:
+	// five bytes declaring a megabyte used to reserve a megabyte and then report
+	// a truncated item. This reaches an unauthenticated caller through a passkey
+	// attestation, so the amplification was a request the size of a header
+	// costing the whole configured string bound in live heap.
+	b := make([]byte, 0, min(int(n), readChunkBytes))
+	for range n {
 		v, err := d.readByte()
 		if err != nil {
 			if err == io.EOF {
@@ -110,7 +126,7 @@ func (d *Decoder) readBytes(n uint64, stringLimit bool) ([]byte, error) {
 			}
 			return nil, err
 		}
-		b[i] = v
+		b = append(b, v)
 	}
 	return b, nil
 }

@@ -2,7 +2,7 @@
 title: ビルドツール設定
 description: popcornwave.toml の全キー。pw が何を生成し、pw dev が何を並走させ、マイグレーションとスタイルシートがどこにあるか。
 sidebar:
-  order: 3
+  order: 8
 ---
 
 `popcornwave.toml` はプロジェクトルートに置かれ、`pw` コマンドのものです。書いてあるのは
@@ -25,17 +25,23 @@ sidebar:
 | キー | 既定値 | 意味 |
 | --- | --- | --- |
 | `name` | *(必須)* | プロジェクト名。`pw dev` が注入する `OTEL_SERVICE_NAME` でもある |
-| `main` | *(必須)* | [`pw build`](/ja/pw/project/build/) がコンパイルするパッケージ。例 `"./cmd/myapp"` |
+| `kind` | `"application"` | `application` はバイナリを作る。`package` は Go モジュールとして公開する |
+| `main` | *(application では必須)* | [`pw build`](/ja/pw/project/build/) がコンパイルするパッケージ。例 `"./cmd/myapp"` |
 | `toolchain` | `"tinygo"` | ソースがどのコンパイラ向けに作られたか。`tinygo` または `go` |
 | `database` | `"sqlite"` | `.pw.sql` がどの方言で生成されるか。`sqlite`、`postgres`、`mysql` |
 
-`toolchain` も `database` も、これ以外の値は拒否します。そしてどちらの既定値も、好みでは
+`toolchain`、`database`、`kind` は、これ以外の値を拒否します。そしてどの既定値も、好みでは
 なく歴史です。キーが存在しなかった頃のプロジェクトは TinyGo でしかありえず、SQLite でしか
-ありえませんでした。
+ありえず、アプリケーションでしかありえませんでした。
+
+`kind` は、後述の 2 つのセクションのどちらが正当かを決めます。パッケージは `main` を
+持ちません — エントリポイントを所有するのは、それを import するアプリケーションです。
+そしてアプリケーションが `[package]` セクションを持っているのは、無視されるブロックでは
+なくエラーです。[コンポーネントパッケージ](/ja/guides/deployment/package/)を参照してください。
 
 `database` は*生成*への入力です。生成された Go があなたの SQL をどの方言として読むかを
-決めます。アプリケーションが実際に接続するエンジンは、いまも `middleware.rdb.dsn` の
-スキームから決まります。この 2 つを一致させるのはあなたの仕事です。保持を禁じられている
+決めます。アプリケーションが実際に接続するエンジンは、いまも
+`[[middleware.rdb.connections]]` の DSN のスキームから決まります。この 2 つを一致させるのはあなたの仕事です。保持を禁じられている
 DSN を、このファイルが検査できるはずもありません。
 
 ## `[generate]`
@@ -47,6 +53,8 @@ templates = ["handlers", "templates"]
 queries = ["queries"]
 config = ["cmd/myapp"]
 pages = []
+dynamo = []
+firestore = []
 ```
 
 各 purpose は、[`pw generate`](/ja/pw/project/generate/) が*その purpose のために*読んで
@@ -61,11 +69,22 @@ pages = []
 | `generate.queries` | `.pw.sql` のソース | はい |
 | `generate.config` | 設定の登録 | はい |
 | `generate.pages` | [ページツリー](/ja/guides/cross-layer/discovered-routing/)のルート | いいえ |
+| `generate.dynamo` | `dynamo` タグ付きの Go 型と `.pw.dynamo` 宣言 | いいえ |
+| `generate.firestore` | `firestore` タグ付きの Go 型と `.pw.firestore` 宣言 | いいえ |
 
-`pages` 以外はすべて必須で、その purpose が何も生成しないことを表すのが `[]` です。
-キーを書かないことではそれを表現できません。だから空リストと省略は同じではありません。
-`pages` だけが例外なのは、ページツリーが存在する前に作られたプロジェクトにはキーもツリーも
-無いからです。
+`pages`、`dynamo`、`firestore` 以外はすべて必須で、その purpose が何も生成しないことを表すのが `[]`
+です。キーを書かないことではそれを表現できません。だから空リストと省略は同じではありません。
+任意の 2 つは、プロジェクトが先に存在しうるものです。ページツリーが存在する前に作られた
+プロジェクトにはキーもツリーも無く、DynamoDB を使わないプロジェクトには
+ストア固有のキーは、`pw add dynamo` または `pw add firestore` がそのストアを追加したときに
+書かれます。
+
+`dynamo` がテンプレート言語ではなく Go の型宣言を読むので、`queries` の一部ではなく独立した
+purpose になっています。[DynamoDB テンプレート](/ja/reference/dynamo-templates/)を参照して
+ください。
+
+`firestore` も同じ理由で独立しており、`dynamo` とは別の purpose です。どちらか一方だけでも、
+両方でも使えます。[Firestore 宣言](/ja/reference/firestore-templates/)を参照してください。
 
 エントリ自体の規則は次のとおりです。
 
@@ -162,6 +181,105 @@ minify し、`pw dev` は決してしません。この値が実際に効くの�
 Tailwind のプラグインはここでは設定しません。CSS のエントリに書く `@plugin` 宣言であり、
 解決するのは Tailwind CLI です。Popcorn Wave はエントリをそのまま渡すだけで、プラグインの
 レジストリを持ちません。
+
+## `[assets.images]`、`[assets.css]`、`[assets.scripts]`
+
+```toml
+[assets.images]
+enabled = true
+quality = 75
+avif = false
+
+[assets.css]
+minify = true
+
+[assets.scripts]
+enabled = true
+```
+
+[アセット変換](/ja/guides/frontend/static-assets/)のスイッチです。すべて既定で無効なので、
+何も宣言しないプロジェクトは authored なツリーの複製を埋め込み、これらが存在しなかった頃と
+まったく同じものを配信します。
+
+| キー | 既定値 | 意味 |
+| --- | --- | --- |
+| `assets.images.enabled` | `false` | `img src` が指す `.png` / `.jpg` を WebP に変換する |
+| `assets.images.quality` | `75` | JPEG ソースを再エンコードする際の品質。PNG は可逆のままで、この値を見ない |
+| `assets.images.avif` | `false` | 配信する画像に AVIF 表現を追加し、`Accept` で選ばせる |
+| `assets.css.minify` | `false` | スタイルシートをその場で minify する |
+| `assets.scripts.enabled` | `false` | `.ts` エントリをビルドし、authored な `.js` を minify する |
+
+`assets.images` はホスト側のエンコーダを必要とします。[`pw add images`](/ja/pw/project/add/)
+がキーと Devbox パッケージを同時に書くのはそのためです。ツール無しで有効にしてもエラーには
+なりません——変換は見送られ、authored な画像がそのまま出荷され、`pw doctor` がそれを報告
+します。変換されていない画像は、壊れたページではなく重いページだからです。
+
+## `[[packages]]` — アプリケーション側
+
+```toml
+[[packages]]
+module = "example.com/widget"
+```
+
+アプリケーションが使う[コンポーネントパッケージ](/ja/guides/deployment/package/)を
+1 つにつき 1 エントリ書きます。キーは `module` だけで、`go.mod` にも入っている必要が
+あります。
+
+このエントリがパッケージを*リンク*します。[`pw generate`](/ja/pw/project/generate/) が、
+管理しているブートストラップファイルに宣言ごとの blank import を書き出すからです。
+`go.mod` にあってこの一覧に無いモジュールは、ふつうの Go の依存です。逆に `[package]`
+セクションを持たないモジュールを宣言するのはエラーです。そのモジュールが公開していない
+機能を主張していることになります。
+
+## `[package]` — パッケージ側
+
+```toml
+[package]
+module = "example.com/widget"
+summary = "自前のストレージを持つメモウィジェット"
+assets.declared = true
+routes.register = "Register"
+
+[package.requires]
+capabilities = ["database"]
+engines = ["sqlite"]
+
+[package.generated_with]
+pw = "v0.4.0"
+tinybind = "v0.3.5"
+
+[package.migrations]
+dir = "migrations"
+stem = "widget"
+engines = ["sqlite"]
+```
+
+| キー | 意味 |
+| --- | --- |
+| `module` | *(必須)* Go のモジュールパス。`go.mod` と一致していること |
+| `summary` | 1 行。`pw add` がパッケージを表示するときに使う |
+| `import` | モジュールルートと異なる場合に、アプリケーションがリンクするパッケージパス。ルートに Go が無いのに省略すると `PW0144` |
+| `requires.capabilities` | パッケージが必要とするプロジェクト機能。`database` など |
+| `requires.engines` | 対応する SQL エンジン。空なら SQL に触れない |
+| `generated_with.pw`、`generated_with.tinybind` | コミット済み生成物を作ったバージョン |
+| `config.section` | パッケージが登録する実行時設定のセクション |
+| `migrations.dir` | マイグレーションストリーム。モジュールルートからの相対 |
+| `migrations.stem` | *(`dir` があれば必須)* ストリームのバージョンテーブルとパッケージのテーブルを命名する |
+| `migrations.engines` | ストリームがどのエンジン向けに書かれているか |
+| `routes.register` | アプリケーションがマウントのために呼ぶ公開シンボル |
+| `assets.declared` | 埋め込みブラウザ資産を登録するかどうか |
+| `components.exported` | 予約。今日書けばロードエラー |
+
+`generated_with` はそれ自体は何も制約しません。解決を行うのは `go.mod` です。これは
+[`pw doctor`](/ja/pw/project/doctor/) が、このプロジェクトより新しいフレームワークで
+生成されたパッケージを報告するときに突き合わせる証拠です。
+
+`migrations.engines` は `requires.engines` が宣言するものをすべて含んでいなければ
+なりません。そうでなければ、スキーマを書いたことのないエンジンへの対応を主張することに
+なり、失敗するのは宣言の時点ではなく最初のマイグレーションになります。
+
+パッケージでは `generate.queries` は空でなければなりません。生成されたクエリは 1 つの
+エンジンのプレースホルダ構文を持ちますが、パッケージは利用側のエンジンを知りません。
 
 ## ファイル全体にかかる規則
 

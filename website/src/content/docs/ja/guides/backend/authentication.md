@@ -47,10 +47,11 @@ SQL ストアはエンジンごとに別パッケージなので、PostgreSQL �
 # config.dev.toml
 [session]
 enabled = true
-backend = "rdb"          # "cookie" と "redis" も選べる。トークンが不透明なのはどれも同じ
+backend = "rdb"          # "cookie"、"redis"、"dynamo"、"firestore" も選べる
 
 [auth]
 enabled = true
+backend = "rdb"          # "dynamo" または "firestore" も選べる
 mode = "oidc_only"
 
 [auth.oidc]
@@ -62,19 +63,23 @@ identity_claim = "sub"   # アカウントを識別する検証済み claim
 provider_logout = true   # プロバイダ側もサインアウトする
 ```
 
-`pw init --auth=oidc` は両方に加えて、フレームワークのテーブルを作るマイグレーションも
-書き出します。起動時にテーブルの存在を検証し、足りなければ適用すべきマイグレーションを
-名指しで知らせます。
+`pw init --auth=oidc` は両方を書き出します。リレーショナルバックエンドを選んだ場合は、
+フレームワークのテーブルを作るマイグレーションも追加します。DynamoDB と Firestore は
+リレーショナルマイグレーションを使いません。必要なデプロイ設定は各ストレージのガイドで
+説明します。
 
 ### ログインが始まる前に満たしておくもの
 
 4つあります。どれもサインインの途中で判明するのではなく、起動時に検査されます。
 
 - `session.enabled = true`。そうでないとログインの着地先がありません。どのバックエンドが
-  それを持つかは別の判断です（[セッション](/ja/guides/backend/sessions/)）。
-- `middleware.rdb.enabled = true`。これはセッションが cookie でも redis でも同じです。
-  単回限りのログイン記録と許可リストは、どの構成でもサーバー側の状態だからです。
-- マイグレーション適用済み。フレームワークのテーブルが2つとも存在すること。
+  それを持つかは別の判断です（[セッションストレージ](/ja/guides/storage/session-storage/)）。
+- `auth.backend` が指定するバックエンドがリンクされ、到達できること。`rdb` は
+  `middleware.rdb`、`dynamo` は `middleware.dynamo`、`firestore` は
+  `middleware.firestore` を必要とします。`session.backend` とは別の選択です。
+- バックエンドのデプロイ用リソースが準備されていること。リレーショナルストレージには
+  マイグレーション、DynamoDB にはテーブル、Firestore には Datastore-mode データベースと
+  必要な TTL ポリシー・インデックスが要ります。
 - `issuer`、`client_id`、`client_secret`、`redirect_url` がすべて非空。スキャフォールドされた
   ファイルではプレースホルダであって、省略可能な設定ではありません。
 
@@ -89,6 +94,7 @@ issuer は `https` である必要があります。例外はループバック�
 | キー | 既定値 | 意味 |
 | --- | --- | --- |
 | `enabled` | `false` | true のときだけエンドポイントとガードが存在する |
+| `backend` | `"rdb"` | ceremony、許可リスト、credential、bootstrap の保存先: `rdb`、`dynamo`、`firestore` |
 | `mode` | `"oidc_only"` | 実装があるのはこれだけ（[モード](#モード)） |
 | `login_path` | `"/auth/login"` | プロバイダへの入口。ルート相対 |
 | `callback_path` | `"/auth/callback"` | プロバイダが戻ってくる先。ルート相対 |
@@ -279,10 +285,13 @@ WebAuthn の Relying Party は**ドメイン**にスコープされ、IP リテ�
 ## セッション
 
 クッキーが運ぶのは不透明なトークンだけで、セッション本体がどこに住むかは
-`session.backend` が決めます。この選択はここまでの設定から独立しています。3つの
-バックエンド、それぞれに必要なキー、そして何を諦めるかは
-[セッション](/ja/guides/backend/sessions/)にあります。`session.ttl` が絶対有効期限、
-`session.idle_timeout` が無操作期限です。ログイン時にトークンは新しくなり、それ以前に
+`session.backend` が決めます。この選択はここまでの設定から独立しています。5 つの
+バックエンド、それぞれに必要なキーと制約は
+[セッションストレージ](/ja/guides/storage/session-storage/)にあります。
+寿命はあちらではなくこちらで宣言します。
+`auth.session.ttl` が絶対有効期限、`auth.session.idle_timeout` が
+無操作期限。有効期限は「身元の証明がどれだけ有効か」を述べるものだからです。
+ログイン時にトークンは新しくなり、それ以前に
 ブラウザが持っていたセッションは失効します——ただし cookie バックエンドだけは、
 クライアントがすでに取ったコピーを失効させられません。
 
@@ -317,7 +326,7 @@ enabled = true
 拒否して不足分を示します。プロバイダの値は `AUTH_OIDC_ISSUER`、`AUTH_OIDC_CLIENT_ID`、
 `AUTH_OIDC_CLIENT_SECRET`、あるいは `${NAME}` 参照から与え、コミットはしません。
 cookie バックエンドのセッションはもう1つ独自の秘密鍵を要求します
-（[セッション](/ja/guides/backend/sessions/#cookie--ストレージなし)）。
+（[セッションストレージ](/ja/guides/storage/session-storage/#cookie--ストレージなし)）。
 
 `redirect_url` はプロバイダに登録した URL と一字一句一致している必要があります。
 フレームワークが `redirect_uri` として送るのがこの値なので、登録と違えばアプリケーションに

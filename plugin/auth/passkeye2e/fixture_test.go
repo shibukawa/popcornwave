@@ -99,7 +99,10 @@ func build() (*deployment, error) {
 		Tool:               "passkey-e2e",
 		ExplicitConfigPath: configPath,
 		Args:               []string{},
-		Environ:            []string{},
+		// The fixture serves plain http on a loopback address, which is the
+		// development exception the cookie policy allows. It has to say so:
+		// an unset APP_ENV no longer buys the development relaxations.
+		Environ: []string{"APP_ENV=dev"},
 	})
 	built, err := pw.Middlewares(application())
 	if err != nil {
@@ -293,6 +296,9 @@ public.enabled = false
 
 [middleware.rdb]
 enabled = true
+
+[[middleware.rdb.connections]]
+group = "default"
 dsn = "sqlite://%s"
 connect_timeout = "5s"
 max_open_conns = 1
@@ -301,13 +307,14 @@ max_idle_conns = 1
 [session]
 enabled = true
 backend = "rdb"
-ttl = "1h"
-idle_timeout = "30m"
 cookie.name = "pw_session"
 cookie.secure = false
+keyring.secret = "2wcqk/sZ2troHw/eW31LrA8RKvZgUxUy6kgZ5ISdXGU="
 
 [auth]
 enabled = true
+session.ttl = "1h"
+session.idle_timeout = "30m"
 mode = "oidc_passkey"
 post_login_path = "/"
 recent_auth_max_age = "5m"

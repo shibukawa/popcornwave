@@ -15,6 +15,7 @@ import (
 	"github.com/shibukawa/popcornwave/internal/pwenv"
 	"github.com/shibukawa/popcornwave/middlewares"
 	"github.com/shibukawa/popcornwave/pwruntime"
+	"github.com/shibukawa/popcornwave/sessionconfig"
 	"github.com/shibukawa/tinybind-go/configbind"
 )
 
@@ -66,6 +67,9 @@ type HTMLConfig struct {
 	// BotUserAgents extends the built-in catalog. Entries are appended and
 	// matched case-insensitively; they never replace a built-in token.
 	BotUserAgents []string `dependon:".bot_detection" help:"additional bot User-Agent substrings"`
+	// Update turns on partial updates: the mode negotiation, the redraw
+	// endpoint, and the runtime tag.
+	Update HTMLUpdateConfig `help:"Update turns on partial updates: the mode negotiation, the redraw endpoint, and the runtime tag"`
 	// Live answers the live mode request that keeps a page updating after its
 	// document is complete. False leaves every document valid and static: the
 	// content a live boundary committed stays, and no client is told to connect.
@@ -116,13 +120,34 @@ var defaultHTMLConfig = HTMLConfig{
 	LiveMaxResponses:   4,
 }
 
+// HTMLUpdateConfig controls partial updates.
+//
+// Off by default. A project turns it on when it wants a page to refresh a
+// region rather than reload, and the validator key is required with it: an
+// unkeyed digest of low-entropy content lets a guess be confirmed by comparing
+// digests, so startup refuses the combination rather than serving one.
+type HTMLUpdateConfig struct {
+	Enabled bool `default:"false" help:"answer navigation deltas, redraws, and action responses"`
+	// ValidatorKey keys the frame and input validators. Rotating it is not a
+	// break: comparisons miss and the next response is a complete document.
+	ValidatorKey string `secret:"mask" env:"HTML_UPDATE_VALIDATOR_KEY" dependon:".enabled" help:"base64 or raw secret keying update validators"`
+	// MaxManifestBytes caps the hint header a request may carry. An oversized
+	// one is dropped rather than rejected, so the response is a larger delta
+	// instead of an error.
+	MaxManifestBytes int `default:"8192" dependon:".enabled" help:"cap on the update manifest request header"`
+}
+
 // PublicConfig controls the framework-owned static asset endpoint.
 type PublicConfig = middlewares.PublicAssetConfig
 
 // SecurityConfig controls framework request and response security policy.
 type SecurityConfig struct {
 	Headers SecurityHeadersConfig
+	CSRF    CSRFConfig
 }
+
+// CSRFConfig controls the synchronizer-token check on unsafe browser requests.
+type CSRFConfig = middlewares.CSRFConfig
 
 // SecurityHeadersConfig controls browser-facing response headers.
 type SecurityHeadersConfig = middlewares.SecurityHeadersConfig
@@ -130,102 +155,33 @@ type SecurityHeadersConfig = middlewares.SecurityHeadersConfig
 // HSTSConfig controls Strict-Transport-Security on verified HTTPS requests.
 type HSTSConfig = middlewares.HSTSConfig
 
-// Session storage backends.
+// Session storage backends. They name which server backend a server-placed
+// slot uses, never whether a slot is server-placed, which
+// RegisterSessionStore states instead.
 const (
-	// SessionBackendRDB keeps records in a database through
-	// sessionstore/sqlite. It is the backend a deployment that must revoke a
-	// session, or that outgrows a cookie, uses.
-	SessionBackendRDB = "rdb"
-	// SessionBackendCookie keeps records in a sealed browser cookie. It needs
-	// no storage at all, and it cannot revoke a record it already wrote.
-	SessionBackendCookie = "cookie"
-	// SessionBackendRedis keeps records in Redis or Valkey through
-	// sessionstore/redis, where the server owns expiry and no sweep runs.
-	SessionBackendRedis = "redis"
-	// SessionBackendDynamo keeps records in DynamoDB through
-	// sessionstore/dynamo, for a deployment with no relational database at
-	// all. TTL on the deployed table removes dead records, and nothing sweeps.
-	SessionBackendDynamo = "dynamo"
+	SessionBackendRDB       = sessionconfig.SessionBackendRDB
+	SessionBackendCookie    = sessionconfig.SessionBackendCookie
+	SessionBackendRedis     = sessionconfig.SessionBackendRedis
+	SessionBackendDynamo    = sessionconfig.SessionBackendDynamo
+	SessionBackendFirestore = sessionconfig.SessionBackendFirestore
 )
 
-// SessionConfig selects login-session behavior, cookie policy, and storage.
-// The session token is opaque in every backend; only SessionBackendCookie
-// carries the record itself, and it seals it under a configured secret.
-type SessionConfig struct {
-	Enabled bool `default:"false"`
-	// Backend selects the storage plugin: rdb, cookie, redis, or dynamo. Every
-	// backend but cookie reaches the binary through its own blank import.
-	Backend         string                   `default:"rdb" dependon:".enabled" help:"session storage backend: rdb, cookie, redis, or dynamo"`
-	TTL             time.Duration            `default:"24h" dependon:".enabled" help:"absolute session lifetime"`
-	IdleTimeout     time.Duration            `default:"0s" dependon:".enabled" help:"inactivity expiry; zero disables it"`
-	RenewalInterval time.Duration            `default:"0s" dependon:".enabled" help:"minimum interval between idle expiry renewals"`
-	Cookie          SessionCookieConfig      `dependon:".enabled"`
-	RDB             SessionRDBConfig         `dependon:".enabled"`
-	Redis           SessionRedisConfig       `dependon:".enabled"`
-	CookieStore     SessionCookieStoreConfig `dependon:".enabled"`
-	Dynamo          SessionDynamoConfig      `dependon:".enabled"`
-}
-
-// SessionDynamoConfig configures the DynamoDB session store. It carries no
-// endpoint and no credential: middleware.dynamo already opens the client this
-// backend borrows.
-type SessionDynamoConfig struct {
-	// Table is the declared table name, which rule:dynamodb-table-naming maps
-	// onto the deployed one.
-	Table string `default:"popcornwave_session" help:"declared session table name"`
-	// ConsistentRead makes the first read strongly consistent and removes the
-	// retry a miss otherwise pays. It costs twice the read capacity.
-	ConsistentRead bool `default:"false" help:"read sessions with strong consistency"`
-}
-
-// SessionRedisConfig configures the Redis-compatible session store. The server
-// owns record expiry, so nothing here schedules a sweep.
-type SessionRedisConfig struct {
-	// DSN is a redis:// or rediss:// URL. Keep credentials out of the file
-	// itself with a ${NAME} reference or SESSION_REDIS_DSN.
-	DSN string `secret:"mask" env:"SESSION_REDIS_DSN" help:"redis:// or rediss:// session server"`
-	// KeyPrefix isolates session keys from every other user of the server.
-	KeyPrefix string `default:"pw:session:" help:"key space owned by the session store"`
-	// ConnectTimeout bounds the startup ping and the per-command deadlines.
-	ConnectTimeout time.Duration `default:"5s" help:"startup ping and per-command deadline"`
-}
-
-// SessionCookieConfig is the browser cookie policy of the session middleware.
-type SessionCookieConfig struct {
-	Name     string `default:"pw_session"`
-	Path     string `default:"/"`
-	Domain   string
-	Secure   bool   `default:"true" help:"disable only for loopback development"`
-	HTTPOnly bool   `default:"true"`
-	SameSite string `default:"lax"`
-}
-
-// SessionRDBConfig configures the database-backed session store. The middleware
-// source reuses the pool owned by middleware.rdb; the dedicated source opens
-// its own pool from DSN.
-type SessionRDBConfig struct {
-	Source string `default:"middleware" help:"middleware reuses middleware.rdb; dedicated opens rdb.dsn"`
-	// Group names the middleware-source connection group holding the session
-	// table. Empty resolves to middleware.rdb.write_group.
-	Group string `help:"connection group holding the session table"`
-	DSN   string `secret:"mask" help:"dedicated session database DSN"`
-	Table string `default:"popcornwave_session"`
-}
-
-// SessionCookieStoreConfig configures the client-side session backend. The
-// record cookie follows the [session.cookie] policy, so both cookies of a
-// session expire and travel under the same rules; only the name is separate.
-type SessionCookieStoreConfig struct {
-	// Name holds the sealed record beside the token cookie.
-	Name string `default:"pw_session_data" help:"cookie holding the sealed record"`
-	// Secret is 32 or more random bytes in base64, generated with
-	// `openssl rand -base64 32`. Keep it out of the file itself: write
-	// "${SESSION_COOKIE_SECRET}" or set SESSION_COOKIE_STORE_SECRET.
-	Secret string `secret:"mask" env:"SESSION_COOKIE_STORE_SECRET" help:"base64 secret sealing cookie-backed records"`
-	// PreviousSecrets keep records written before a rotation readable. They
-	// never write.
-	PreviousSecrets []string `secret:"mask" help:"retired secrets kept readable during a rotation"`
-}
+// The [session] binding. Every type is a true alias of the one declared in
+// sessionconfig, so pw and popcornwave/plugin/auth name one type from two
+// packages without depending on each other, and the reflect.Type keyed
+// configuration registry resolves both names to one entry.
+//
+// The alias must stay an alias. A defined type here would be a different
+// reflect.Type, and the registry lookup would silently miss.
+type (
+	SessionConfig            = sessionconfig.SessionConfig
+	SessionCookieConfig      = sessionconfig.SessionCookieConfig
+	SessionRDBConfig         = sessionconfig.SessionRDBConfig
+	SessionRedisConfig       = sessionconfig.SessionRedisConfig
+	SessionDynamoConfig      = sessionconfig.SessionDynamoConfig
+	SessionCookieStoreConfig = sessionconfig.SessionCookieStoreConfig
+	SessionKeyringConfig     = sessionconfig.SessionKeyringConfig
+)
 
 // ObservabilityConfig controls runtime logging, tracing, and service identity.
 type ObservabilityConfig struct {
@@ -265,8 +221,11 @@ type OtelExportConfig struct {
 	Enabled bool `default:"false" help:"export traces and logs"`
 	// Endpoint is the OTLP/HTTP base URL. /v1/traces and /v1/logs are appended.
 	Endpoint string `env:"OTEL_EXPORTER_OTLP_ENDPOINT" dependon:".enabled" help:"OTLP/HTTP base URL; /v1/traces and /v1/logs are appended"`
-	// Headers is a comma-separated key=value list. Values are never logged.
-	Headers string `env:"OTEL_EXPORTER_OTLP_HEADERS" dependon:".enabled" help:"comma-separated key=value list; values are never logged"`
+	// Headers is a comma-separated key=value list. It is where the collector's
+	// credential lives — Authorization, api-key, x-honeycomb-team — so it is
+	// masked, and the masking is the tag rather than a promise in this sentence.
+	// It used to be only the sentence, and the boot log printed the value.
+	Headers string `secret:"mask" env:"OTEL_EXPORTER_OTLP_HEADERS" dependon:".enabled" help:"comma-separated key=value list; values are never logged"`
 	// RequestTimeout bounds one export request.
 	RequestTimeout time.Duration `default:"10s" dependon:".enabled" help:"bounds one export request"`
 	// QueueSize bounds records held in memory; a full queue drops rather than
@@ -318,17 +277,12 @@ type MiddlewareConfig struct {
 
 // RDBConfig controls the framework-owned database pools.
 //
-// A single database is configured with DSN and the pool fields below. A
-// reader-writer topology is configured with Connections instead, one element
-// per pool. Declaring both is a configuration error rather than a merge.
+// Every database is configured with Connections, one element per pool: a single
+// database is one element, and a reader-writer topology is several. There is no
+// second form. The keys below name groups within that set, so the section
+// carries no DSN of its own.
 type RDBConfig struct {
-	Enabled         bool          `default:"false"`
-	DSN             string        `secret:"mask" dependon:".enabled"`
-	ConnectTimeout  time.Duration `default:"5s" dependon:".enabled"`
-	MaxOpenConns    int           `default:"0" dependon:".enabled"`
-	MaxIdleConns    int           `default:"0" dependon:".enabled"`
-	ConnMaxLifetime time.Duration `default:"0s" dependon:".enabled"`
-	ConnMaxIdleTime time.Duration `default:"0s" dependon:".enabled"`
+	Enabled bool `default:"false"`
 	// DefaultGroup serves statements that pin no group. It is normally the
 	// replica group. Required once more than one group is configured.
 	DefaultGroup string `dependon:".enabled" help:"connection group for statements that pin none"`
@@ -475,12 +429,12 @@ func ParseConfig() error {
 		return configState.parseErr
 	}
 	configState.parsed = true
-	options, env, envErr := resolveLoadOptions(configState.options)
+	options, env, declared, envErr := resolveLoadOptions(configState.options)
 	if envErr != nil {
 		configState.parseErr = envErr
 		return envErr
 	}
-	setEnv(env)
+	setEnv(env, declared)
 	var actionErr error
 	options.Args, actionErr = parseFrameworkAction(commandArgs(options.Args))
 	if actionErr != nil {
@@ -501,13 +455,13 @@ func ParseConfig() error {
 // Project-local candidates are environment-specific and searched in the working
 // directory before its config/ directory; the user and system configuration
 // directories keep the environment-neutral file name.
-func resolveLoadOptions(options configbind.LoadOptions) (configbind.LoadOptions, string, error) {
+func resolveLoadOptions(options configbind.LoadOptions) (configbind.LoadOptions, string, bool, error) {
 	if options.Tool == "" {
 		options.Tool = executableName()
 	}
-	env, err := pwenv.Resolve(options.Environ)
+	env, declared, err := pwenv.ResolveDeclared(options.Environ)
 	if err != nil {
-		return options, "", err
+		return options, "", false, err
 	}
 	if options.FileName == "" {
 		options.FileName = pwenv.NeutralFileName
@@ -515,7 +469,7 @@ func resolveLoadOptions(options configbind.LoadOptions) (configbind.LoadOptions,
 	if options.ExtraConfigReadPaths == nil {
 		options.ExtraConfigReadPaths = pwenv.ReadPaths(env)
 	}
-	return options, env, nil
+	return options, env, declared, nil
 }
 
 func executableName() string {
@@ -544,7 +498,7 @@ func registeredConfig[T any]() (T, bool) {
 func runtimeResources(backend *pwruntime.LogBackend) pwruntime.Resources {
 	// Resolved before the lock because reading a registered binding takes the
 	// same read lock, and a waiting writer would deadlock the reacquisition.
-	query := resolveQueryDiagnostics(Config[ObservabilityConfig](nil), Env())
+	query := resolveQueryDiagnostics(Config[ObservabilityConfig](nil), Development())
 	configState.RLock()
 	defer configState.RUnlock()
 	configs := make(map[reflect.Type]any, len(configState.entries))

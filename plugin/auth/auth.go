@@ -10,6 +10,10 @@
 // in whatever backend session.backend selects, and single-use OAuth
 // correlation state stored by authstate/sqlite.
 //
+// session.backend = cookie warns outside dev rather than refusing: a login this
+// package can end on demand needs a record on the server, and a browser keeps
+// what it was given. In dev that is the right trade and nothing is said.
+//
 // This package imports no storage plugin. It asks pw for the configured
 // backend, so an application links the storage it configured and no more, and
 // a backend other than cookie needs its own blank import.
@@ -18,7 +22,6 @@ package auth
 import (
 	"context"
 	"errors"
-	"fmt"
 	"net/http"
 	"sync"
 	"time"
@@ -27,6 +30,7 @@ import (
 	"github.com/shibukawa/popcornwave/contrib/oauth"
 	"github.com/shibukawa/popcornwave/contrib/oidc"
 	"github.com/shibukawa/popcornwave/contrib/passkey"
+	"github.com/shibukawa/popcornwave/internal/pathpattern"
 	"github.com/shibukawa/popcornwave/pw"
 	"github.com/shibukawa/popcornwave/session"
 )
@@ -41,21 +45,25 @@ const (
 	MethodPasskey = "passkey"
 )
 
+// admissionFor returns the admission rule of the mode this runtime serves.
+func (rt *runtime) admissionFor() admissionRule {
+	if rt.config.usesJWT() {
+		return rt.config.JWT.admissionRule()
+	}
+	return rt.config.OIDC.admissionRule()
+}
+
 // stateNamespace isolates this package's correlation records in the shared
 // auth state table.
 const stateNamespace = "auth-oidc"
 
 func init() {
-	pw.RegisterExtension(pw.Extension{
-		Name:  "auth.session",
-		Slot:  pw.SlotSession,
-		Setup: setupSession,
-		Close: closeRuntime,
-	})
+	registerSessionSlot()
 	pw.RegisterExtension(pw.Extension{
 		Name:  "auth.endpoints",
 		Slot:  pw.SlotAuthentication,
-		Setup: setupEndpoints,
+		Setup: setupAuthentication,
+		Close: closeRuntime,
 	})
 	pw.RegisterExtension(pw.Extension{
 		Name:  "auth.guard",
@@ -68,21 +76,33 @@ func init() {
 // rebuilt whenever framework initialization runs.
 type runtime struct {
 	config  Config
-	manager *session.Manager[SessionData]
-	// sessionPrune is the expiry sweep of the session backend. A backend whose
-	// server or browser forgets records on its own leaves it nil.
-	sessionPrune func(context.Context, time.Time, int) (int64, error)
+	manager *session.Manager
 	// sessionClose releases a client the backend opened. A backend that
 	// borrowed the middleware database leaves it nil.
 	sessionClose func(context.Context) error
-	stateStore   *authstate.SQLStore[oauth.Transaction]
+	backend      Backend
+	// pruners are the ceremony stores that need sweeping, which is none of
+	// them on a backend whose expiry is decided on read.
+	pruners    []statePruner
+	stateStore authstate.Store[oauth.Transaction]
 	// hint is the sealed sign-in hint cookie, nil unless the deployment turned
 	// it on. It carries no authority; see SignInHint.
-	hint *session.Jar[SignInHint]
-	allowlist    Allowlist
+	hint         *session.Jar[SignInHint]
+	allowlist    AllowlistStore
 	cookiePolicy pw.SessionCookieConfig
-	include      []pattern
-	exclude      []pattern
+	include      []pathpattern.Pattern
+	exclude      []pathpattern.Pattern
+	// accounts re-reads the account behind a live session, so that suspending
+	// or removing one ends the sessions it already has rather than only
+	// stopping the next login.
+	accounts *accountGate
+	// trustedOrigins are the origins this deployment has already declared
+	// elsewhere in its own configuration: the passkey origin allowlist and the
+	// origin of the OIDC redirect URL. They exist so that a deployment behind a
+	// TLS-terminating proxy, which reconstructs an http origin for an https
+	// browser, is not refused by its own login endpoints. Nothing is inferred
+	// from a forwarded header; see internal/requestorigin.
+	trustedOrigins map[string]bool
 	// passkeyFlow is nil unless the selected mode mounts api:passkey-endpoints.
 	passkeyFlow *passkey.SessionFlow
 	// credentials and bootstrap are the installed stores, or the framework
@@ -91,9 +111,14 @@ type runtime struct {
 	bootstrap   BootstrapStore
 	// enrollment holds the restricted tickets a redeemed bootstrap credential
 	// grants. It is nil outside passkey_only.
-	enrollment *authstate.SQLStore[enrollmentTicket]
+	enrollment authstate.Store[enrollmentTicket]
 	// passkeyPaths maps a mounted ceremony path to its endpoint suffix.
 	passkeyPaths map[string]string
+	// bearer and revocations are nil outside ModeJWTOnly. That mode mounts no
+	// endpoint and creates no session, so almost none of the state above
+	// applies to it.
+	bearer      *bearerVerifier
+	revocations *RevocationStore
 	// stopPruning ends the background expiry sweep during shutdown.
 	stopPruning chan struct{}
 
@@ -114,10 +139,44 @@ func activeRuntime() *runtime {
 	return current.runtime
 }
 
-// setupSession validates configuration, opens session storage, and returns the
-// session middleware. It runs first, so the later slots only read the prepared
-// runtime.
-func setupSession(ctx context.Context) (pw.Middleware, error) {
+// setupAuthentication validates configuration, opens the state this package
+// owns, and returns the middleware that finalizes the request authentication
+// and serves the login endpoints.
+//
+// It runs at SlotAuthentication, after the framework has already resolved the
+// session at SlotSession. Storage is not this package's job: it reaches the
+// manager pw prepared and drives it.
+// unrevocableSessionBackend reports the warning a session backend that cannot
+// take a record back deserves, and the empty string when there is none.
+//
+// A login is the state whose revocability this package depends on: logout,
+// account suspension, and the account re-read all end a session by removing the
+// record behind it. The cookie backend has no record to remove, so a copy taken
+// beforehand keeps authenticating until its sealed expiry and each of those
+// acts becomes advisory.
+//
+// It is a warning rather than a refusal because the pairing is the right one in
+// development, where the point of that backend is a login that needs no
+// infrastructure at all, and the exposure it carries needs a browser someone
+// else is holding. Outside dev the deployment is told, at every startup and
+// again by pw doctor, and the judgement stays with the deployment.
+//
+// Dev says nothing, rather than saying it quietly: a warning printed on every
+// local run is one an operator learns to scroll past, and this has to still be
+// readable on the day it appears in a staging log.
+//
+// The silence needs development to have been declared, not merely resolved. A
+// deployment that never set APP_ENV lands on "dev" by default, and that is
+// exactly the deployment that should hear this.
+func unrevocableSessionBackend(backend string, development bool) string {
+	if backend != pw.SessionBackendCookie || development {
+		return ""
+	}
+	return "session.backend = cookie keeps the login in the browser, so logout and account suspension cannot end a " +
+		"session that was already issued; use rdb, redis, or dynamo where sessions must end on demand"
+}
+
+func setupAuthentication(ctx context.Context) (pw.Middleware, error) {
 	replaceRuntime(nil)
 
 	config := pw.Config[Config](ctx)
@@ -127,96 +186,80 @@ func setupSession(ctx context.Context) (pw.Middleware, error) {
 	if err := config.validate(); err != nil {
 		return nil, err
 	}
+	if err := checkDevRelaxation(config.JWT); err != nil {
+		return nil, err
+	}
+	if config.usesJWT() {
+		// A bearer request carries its own credential, so this mode needs
+		// neither a session backend nor the correlation storage every ceremony
+		// mode opens. It branches before all of it.
+		return setupBearer(ctx, config)
+	}
 	sessionConfig := pw.Config[pw.SessionConfig](ctx)
 	if !sessionConfig.Enabled {
 		return nil, errors.New("auth requires session.enabled = true")
 	}
-	// Whatever the session backend is, this package needs the database: the
-	// single-use OAuth correlation records and the admission allowlist are
-	// server state in every backend.
-	if _, ok := pw.DB(ctx); !ok {
-		return nil, errors.New("auth requires middleware.rdb.enabled = true")
+	if warning := unrevocableSessionBackend(sessionConfig.Backend, pw.Development()); warning != "" {
+		pw.Logger(ctx).Log(ctx, pw.LevelWarn, "sessions cannot be ended on demand",
+			pw.String("setting", "session.backend"),
+			pw.String("environment", pw.Env()),
+			pw.String("consequence", warning))
 	}
-	// The session table is written on every login, so it lives in the session
-	// group rather than in the default group, which is normally a replica.
-	sessionCtx, err := pw.SelectSessionDB(ctx)
+	manager := pw.SessionManager()
+	if manager == nil {
+		return nil, errors.New("auth requires session.enabled = true")
+	}
+	// The stores this package owns come from the selected backend. Only the
+	// relational one needs a database handle, and it is the one that says so:
+	// a project on DynamoDB reaches none of this.
+	resources, err := backendResources(ctx)
 	if err != nil {
 		return nil, err
 	}
-	db, ok := pw.DB(sessionCtx)
-	if !ok {
-		return nil, errors.New("auth requires middleware.rdb.enabled = true")
-	}
-	options, err := sessionOptions(sessionConfig)
-	if err != nil {
-		return nil, err
-	}
-	// The backend is resolved by name, so this package links no storage
-	// plugin and each backend validates its own configuration and schema.
-	driver, _ := pw.DBDriver(sessionCtx)
-	backend, err := pw.OpenSessionBackend(ctx, sessionConfig, pw.SessionResources{DB: db, DBDriver: driver})
-	if err != nil {
-		return nil, err
-	}
-	// The ceremony store speaks whatever engine the DSN resolved to, so its
-	// dialect comes from the same place the session backend's does.
-	stateStore, err := authstate.NewSQLStore[oauth.Transaction](db, oauth.TransactionCodec{}, authstate.SQLOptions{
-		Dialect:   driver,
-		Namespace: stateNamespace,
-	})
-	if err != nil {
-		return nil, err
-	}
-	// The tables this package owns are migration-owned, so startup verifies
-	// them instead of creating them. The session backend verifies its own.
-	schemaCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	schemaCtx, cancel := context.WithTimeout(ctx, schemaTimeout)
 	defer cancel()
-	if err := verifyTables(schemaCtx, db, config); err != nil {
-		return nil, err
-	}
-	// The table already exists, so this validates its column layout only.
-	if err := stateStore.EnsureSchema(schemaCtx); err != nil {
-		return nil, fmt.Errorf("auth state schema: %w", err)
-	}
-	manager, err := session.NewManager[SessionData](
-		session.Typed[SessionData](backend.Store, session.JSONCodec[SessionData]{}), options)
+	backend, err := openBackend(schemaCtx, config, resources)
 	if err != nil {
 		return nil, err
 	}
-	include, err := compilePatterns(config.Protection.Include)
+	include, err := pathpattern.Compile(config.Protection.Include)
 	if err != nil {
 		return nil, err
 	}
-	exclude, err := compilePatterns(config.Protection.Exclude)
+	exclude, err := pathpattern.Compile(config.Protection.Exclude)
 	if err != nil {
 		return nil, err
 	}
 	instance := &runtime{
-		config:       config,
-		manager:      manager,
-		sessionPrune: backend.Prune,
-		sessionClose: backend.Close,
-		stateStore:   stateStore,
-		allowlist:    Allowlist{db: db},
-		cookiePolicy: sessionConfig.Cookie,
-		include:      include,
-		exclude:      exclude,
-		stopPruning:  make(chan struct{}),
-		passkeyPaths: config.passkeyPaths(),
+		config:         config,
+		manager:        manager,
+		backend:        backend,
+		allowlist:      backend.Allowlist,
+		cookiePolicy:   sessionConfig.Cookie,
+		include:        include,
+		exclude:        exclude,
+		stopPruning:    make(chan struct{}),
+		passkeyPaths:   config.passkeyPaths(),
+		trustedOrigins: config.trustedOrigins(),
+		accounts:       newAccountGate(),
+	}
+	if instance.stateStore, err = openState(schemaCtx, instance, stateNamespace, oauth.TransactionCodec{}); err != nil {
+		return nil, err
 	}
 	if instance.hint, err = hintJar(config.Assurance.Hint, sessionConfig.Cookie); err != nil {
 		return nil, err
 	}
 	if config.usesPasskey() {
-		if err := instance.setupPasskey(schemaCtx, db, driver); err != nil {
+		if err := instance.setupPasskey(schemaCtx); err != nil {
 			return nil, err
 		}
 	}
-	// Sessions that are never revoked and ceremonies that are never completed
-	// only expire logically, so a sweep keeps both tables bounded.
+	// Ceremonies that are never completed only expire logically, so a sweep
+	// keeps the table bounded. A backend whose store needs none registers no
+	// pruner and the goroutine idles.
 	go instance.prune()
 	replaceRuntime(instance)
-	return instance.manager.Middleware(writeUnavailable), nil
+	return instance.authenticate, nil
 }
 
 // replaceRuntime installs instance and releases the runtime it replaces.
@@ -250,21 +293,14 @@ func (rt *runtime) prune() {
 		case <-ticker.C:
 			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 			now := time.Now()
-			if rt.sessionPrune != nil {
-				_, _ = rt.sessionPrune(ctx, now, pruneBatch)
+			// The session store sweeps itself; these are the ceremony records
+			// this package owns.
+			for _, pruner := range rt.pruners {
+				_, _ = pruner.Prune(ctx, now, pruneBatch)
 			}
-			_, _ = rt.stateStore.Prune(ctx, now, pruneBatch)
 			cancel()
 		}
 	}
-}
-
-func setupEndpoints(context.Context) (pw.Middleware, error) {
-	instance := activeRuntime()
-	if instance == nil {
-		return nil, nil
-	}
-	return instance.endpoints, nil
 }
 
 func setupGuard(context.Context) (pw.Middleware, error) {
@@ -281,41 +317,6 @@ func setupGuard(context.Context) (pw.Middleware, error) {
 func closeRuntime(context.Context) error {
 	replaceRuntime(nil)
 	return nil
-}
-
-func sessionOptions(config pw.SessionConfig) (session.Options[SessionData], error) {
-	sameSite, err := parseSameSite(config.Cookie.SameSite)
-	if err != nil {
-		return session.Options[SessionData]{}, err
-	}
-	return session.Options[SessionData]{
-		TTL:             config.TTL,
-		IdleTimeout:     config.IdleTimeout,
-		RenewalInterval: config.RenewalInterval,
-		Cookie: session.CookieOptions{
-			Name:     config.Cookie.Name,
-			Path:     config.Cookie.Path,
-			Domain:   config.Cookie.Domain,
-			Secure:   config.Cookie.Secure,
-			HTTPOnly: config.Cookie.HTTPOnly,
-			SameSite: sameSite,
-		},
-		Method:  MethodOIDC,
-		Subject: func(data SessionData) string { return data.AccountID },
-	}, nil
-}
-
-func parseSameSite(value string) (http.SameSite, error) {
-	switch value {
-	case "", "lax":
-		return http.SameSiteLaxMode, nil
-	case "strict":
-		return http.SameSiteStrictMode, nil
-	case "none":
-		return http.SameSiteNoneMode, nil
-	default:
-		return 0, fmt.Errorf("session.cookie.same_site must be strict, lax, or none, got %q", value)
-	}
 }
 
 func writeUnavailable(w http.ResponseWriter, r *http.Request, err error) {

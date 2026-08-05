@@ -51,7 +51,7 @@ func (rt *runtime) handlePresence(w http.ResponseWriter, r *http.Request) {
 	if !allowMethod(w, r, http.MethodPost) {
 		return
 	}
-	if !sameOrigin(r) {
+	if !rt.sameOrigin(r) {
 		pw.WriteProblem(w, r, pw.Forbidden())
 		return
 	}
@@ -93,7 +93,7 @@ func (rt *runtime) handlePresence(w http.ResponseWriter, r *http.Request) {
 // hint follows the deployment's own rule: expiry may leave one, and this is an
 // expiry rather than a sign-out.
 func (rt *runtime) endForAbsence(w http.ResponseWriter, r *http.Request) {
-	if err := rt.manager.Delete(w, r); err != nil {
+	if err := rt.endSession(w, r); err != nil {
 		pw.Logger(r.Context()).Log(r.Context(), pw.LevelWarn, "ending an absent session failed", pw.Err(err))
 	}
 }

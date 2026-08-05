@@ -38,11 +38,13 @@ func TestLoginProvisionsAnAccountAndSignsOut(t *testing.T) {
 		})
 		testutil.Update[pw.MiddlewareConfig](config, func(middleware *pw.MiddlewareConfig) {
 			middleware.RDB = pw.RDBConfig{
-				Enabled:        true,
-				DSN:            "sqlite://:memory:",
-				ConnectTimeout: time.Second,
-				MaxOpenConns:   1,
-				MaxIdleConns:   1,
+				Enabled: true,
+				Connections: []pw.RDBConnectionConfig{{
+					DSN:            "sqlite://:memory:",
+					ConnectTimeout: time.Second,
+					MaxOpenConns:   1,
+					MaxIdleConns:   1,
+				}},
 			}
 		})
 		testutil.Update[pw.SessionConfig](config, func(session *pw.SessionConfig) {

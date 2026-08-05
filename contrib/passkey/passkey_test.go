@@ -461,11 +461,11 @@ func TestSessionFlowConsumesStateOnce(t *testing.T) {
 			AttestationObject: base64.RawURLEncoding.EncodeToString(encodeAttestationObject(t, authData)),
 		},
 	}
-	registration, err := flow.FinishRegistration(context.Background(), key, response)
+	registration, err := flow.FinishRegistration(context.Background(), key, nil, response)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := flow.FinishRegistration(context.Background(), key, response); !errors.Is(err, ErrInvalidState) {
+	if _, err := flow.FinishRegistration(context.Background(), key, nil, response); !errors.Is(err, ErrInvalidState) {
 		t.Fatalf("replay error = %v", err)
 	}
 	authenticationRequest, authenticationKey, err := flow.BeginAuthentication(context.Background(), fixture.user.ID, AuthenticationOptions{})
@@ -494,7 +494,7 @@ func TestSessionFlowConsumesStateOnce(t *testing.T) {
 		wait.Add(1)
 		go func() {
 			defer wait.Done()
-			if _, err := flow.FinishRegistration(context.Background(), concurrentKey, concurrentResponse); err == nil {
+			if _, err := flow.FinishRegistration(context.Background(), concurrentKey, nil, concurrentResponse); err == nil {
 				successes.Add(1)
 			} else if !errors.Is(err, ErrInvalidState) {
 				t.Errorf("concurrent finish error = %v", err)
@@ -504,6 +504,70 @@ func TestSessionFlowConsumesStateOnce(t *testing.T) {
 	wait.Wait()
 	if got := successes.Load(); got != 1 {
 		t.Fatalf("concurrent finish successes = %d, want 1", got)
+	}
+}
+
+func TestRegistrationFinishesOnlyForThePrincipalThatBeganIt(t *testing.T) {
+	fixture := newFixture(t)
+	store, err := memory.NewStore[CeremonyState](memory.Options{Now: func() time.Time { return fixture.now }})
+	if err != nil {
+		t.Fatal(err)
+	}
+	flow, err := NewSessionFlow(fixture.rp, store)
+	if err != nil {
+		t.Fatal(err)
+	}
+	accountA := []byte("account\x00A")
+	accountB := []byte("account\x00B")
+
+	begin := func(binding []byte) (CreationOptions, string) {
+		t.Helper()
+		creation, key, err := flow.BeginRegistration(context.Background(), fixture.user, RegistrationOptions{Binding: binding})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return creation, key
+	}
+	finish := func(creation CreationOptions, key string, binding []byte) error {
+		cose := encodeCOSEKey(t, &fixture.privateKey.PublicKey, ES256)
+		authData := registrationAuthData("example.com", flagUP|flagAT, 0, fixture.credentialID, cose)
+		id := base64.RawURLEncoding.EncodeToString(fixture.credentialID)
+		clientData := fixture.clientData(t, "webauthn.create", creation.Challenge, "https://example.com")
+		_, err := flow.FinishRegistration(context.Background(), key, binding, RegistrationCredential{
+			ID: id, RawID: id, Type: "public-key", Response: RegistrationCredentialResponse{
+				ClientDataJSON:    base64.RawURLEncoding.EncodeToString(clientData),
+				AttestationObject: base64.RawURLEncoding.EncodeToString(encodeAttestationObject(t, authData)),
+			},
+		})
+		return err
+	}
+
+	// The browser began as A and finished as B, which is what a second tab or a
+	// shared browser produces. The credential must not land on B.
+	creation, key := begin(accountA)
+	if err := finish(creation, key, accountB); !errors.Is(err, ErrInvalidState) {
+		t.Fatalf("finish as another account = %v, want ErrInvalidState", err)
+	}
+	// The mismatch consumed the state, exactly as a bad challenge does.
+	if err := finish(creation, key, accountA); !errors.Is(err, ErrInvalidState) {
+		t.Fatalf("finish after a refused attempt = %v, want the state to be gone", err)
+	}
+
+	// The same ceremony finished by the account that began it succeeds.
+	creation, key = begin(accountA)
+	if err := finish(creation, key, accountA); err != nil {
+		t.Fatalf("finish as the beginning account: %v", err)
+	}
+
+	// An unbound ceremony still has to be finished unbound, so a caller cannot
+	// pass a binding for a ceremony that declared none and think it checked.
+	creation, key = begin(nil)
+	if err := finish(creation, key, accountA); !errors.Is(err, ErrInvalidState) {
+		t.Fatalf("finish of an unbound ceremony with a binding = %v", err)
+	}
+	creation, key = begin(nil)
+	if err := finish(creation, key, nil); err != nil {
+		t.Fatalf("finish of an unbound ceremony: %v", err)
 	}
 }
 
@@ -520,7 +584,7 @@ func TestSessionFlowRejectsNilInputs(t *testing.T) {
 	if _, _, err := flow.BeginRegistration(nil, fixture.user, RegistrationOptions{}); !errors.Is(err, ErrInvalidState) {
 		t.Fatalf("nil BeginRegistration error = %v", err)
 	}
-	if _, err := flow.FinishRegistration(nil, "key", RegistrationCredential{}); !errors.Is(err, ErrInvalidState) {
+	if _, err := flow.FinishRegistration(nil, "key", nil, RegistrationCredential{}); !errors.Is(err, ErrInvalidState) {
 		t.Fatalf("nil FinishRegistration error = %v", err)
 	}
 	if _, _, err := flow.BeginAuthentication(nil, nil, AuthenticationOptions{}); !errors.Is(err, ErrInvalidState) {

@@ -36,6 +36,13 @@ assets:
     trigger: server public.read_local true
     severity: warning
     relation: the same condition as local-public-read-outside-dev, cited rather than duplicated
+sessions:
+  unrevocable-session:
+    trigger: auth.enabled with session.backend cookie
+    severity: warning
+    reason: the record travels with the browser, so a logout expires the client copy while a copy taken beforehand keeps authenticating, per decision:cookie-session-storage and the login_slot_placement of policy:session-security
+    silent_in_dev: the dev_only scope of the premise above is doing real work here; the pairing is the correct one in development, where the backend exists so that a login needs no infrastructure
+    relation: plugin/auth warns about the same condition at startup outside dev, so an operator who never runs doctor still hears it once per boot
 crawlers:
   status: deferred until the framework owns the artifacts
   robots-missing-or-permissive:

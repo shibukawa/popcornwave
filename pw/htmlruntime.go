@@ -2,6 +2,7 @@ package pw
 
 import (
 	"crypto/sha256"
+	_ "embed"
 	"encoding/hex"
 	"net/http"
 	"sort"
@@ -10,9 +11,19 @@ import (
 	"sync"
 )
 
-// boundaryRuntimeScript applies streamed await boundaries in the browser.
+//go:embed boundary.js
+var boundarySource string
+
+//go:embed update.js
+var updateSource string
+
+//go:embed updateboot.js
+var updateBootSource string
+
+// boundaryRuntimeScript is the framework's own half of the browser runtime: it
+// applies streamed await boundaries and reads the live delivery stream.
 //
-// The framing this reacts to is written by writeBoundaryCompletion, and the two
+// The framing it reacts to is written by writeBoundaryCompletion, and the two
 // are one design: htmlbind emits the placeholder and the settled fragment, and
 // everything about how a fragment travels and lands belongs here.
 //
@@ -22,355 +33,34 @@ import (
 // replace the placeholder with nothing, losing the fallback along with the
 // result. Because the marker follows the closing template tag in the byte
 // stream, it cannot exist before its template is complete, however a proxy, a
-// TLS record, or a compressing encoder split the bytes. This is invisible in
-// development, where a small completion arrives in one chunk.
+// TLS record, or a compressing encoder split the bytes.
 //
-// It also holds the live half: reading the terminal marker writeStreamEnd
-// leaves, opening the delivery stream serveLive answers, and deciding what to
-// do when that stream ends. Reconnect timing, backoff, and giving up are client
-// policy the module does not dictate, so they are decided here too.
-const boundaryRuntimeScript = `// Popcorn Wave boundary runtime.
+// It lives in boundary.js rather than in a Go string literal so a formatter, a
+// linter, and an editor can all read it, which matters more now that the served
+// asset is this file plus a module several times its size.
+var boundaryRuntimeScript = boundarySource
 
-const modeHeader = "Pw-Response-Mode";
-const liveMode = "live";
-
-// Every piece of module state is declared here, above the custom element
-// definitions, and that placement is load-bearing. Defining an element upgrades
-// the ones the parser already inserted, synchronously, inside the define call —
-// so a callback that reads a binding declared further down the module reads it
-// before its initializer has run, and throws. The document marker is always
-// already in the DOM by then, which makes this the ordinary case rather than a
-// race.
-
-// replaced records that the document has been given up on. A replacement is
-// terminal: the page it patched no longer exists, so a completion arriving
-// after it belongs to a document that is gone.
-let replaced = false;
-
-// documentComplete records that the terminal marker arrived. Nothing about the
-// transport can say this: a chunked document cut off mid-stream is end of file
-// to the parser, which fires DOMContentLoaded and load exactly as it does for a
-// complete one.
-let documentComplete = false;
-let documentVersion = "";
-
-// The live connection: one request to this page's own URL, carrying the mode
-// header, re-issued whenever it ends for a reason that is not terminal. The
-// server holds no subscription state, so a reconnect is the same request as the
-// first connection.
-let connection = null;
-let running = false;
-
-// applied remembers where each boundary's content sits, as the pair of comment
-// nodes that bracket it, plus the HTML currently between them.
+// mergedRuntimeScript is the one asset a document loads.
 //
-// A settled boundary could simply replace its placeholder, because it settled
-// once. A live boundary is re-rendered for as long as its subscription lives,
-// so its content needs an address that survives the first delivery. Comments
-// are that address: they are inert, invisible to CSS and to layout, and they
-// bracket a range rather than wrap it, so a delivery of several top-level nodes
-// needs no container element the author never wrote.
+// Every byte of it is this framework's. The dependency's own client used to be
+// concatenated above these files, and it was removed because the protocol's
+// names, its endpoints, and its server are all this framework's: a browser half
+// belonging to a dependency meant a change this framework could make alone —
+// where a redraw is addressed, most concretely — needed a coordinated release.
+// system:tinybind v0.3.5 published the wire contract and made its own asset
+// opt-in, which is what made writing this one an ordinary piece of work.
 //
-// Every boundary is bracketed, not only the live ones, because nothing on the
-// wire says which is which: htmlbind allocates the same placeholder markup and
-// yields the same id-and-HTML pair for both.
-const applied = new Map();
-
-function bracket(id, fragment, html) {
-	const start = document.createComment("tb:" + id);
-	const end = document.createComment("/tb:" + id);
-	const holder = document.createDocumentFragment();
-	holder.appendChild(start);
-	holder.appendChild(fragment);
-	holder.appendChild(end);
-	applied.set(id, { start: start, end: end, html: html });
-	return holder;
-}
-
-function refill(range, fragment, html) {
-	let node = range.start.nextSibling;
-	while (node && node !== range.end) {
-		const next = node.nextSibling;
-		node.remove();
-		node = next;
-	}
-	range.end.parentNode.insertBefore(fragment, range.end);
-	range.html = html;
-}
-
-export function applyBoundary(id, fragment, html) {
-	if (replaced) return false;
-	const range = applied.get(id);
-	if (range && !range.end.parentNode) {
-		// An enclosing live boundary re-rendered and took this range with it.
-		// The replacement subtree carries this boundary's placeholder again,
-		// under the same id, so the lookup below finds it.
-		applied.delete(id);
-	} else if (range) {
-		// A reconnect re-executes the page, so every boundary it renders is
-		// delivered again, including the ones that settled once and have not
-		// changed. Re-inserting identical nodes would restart animations, drop
-		// focus and selection inside the region, and make a screen reader
-		// announce a log nobody added to, so an identical delivery is left alone.
-		if (html !== undefined && html === range.html) return true;
-		refill(range, fragment, html);
-		return true;
-	}
-	const placeholder = document.getElementById(id);
-	if (!placeholder) return false;
-	placeholder.replaceWith(bracket(id, fragment, html));
-	return true;
-}
-
-export function applyHTML(id, html) {
-	const holder = document.createElement("template");
-	holder.innerHTML = html;
-	return applyBoundary(id, holder.content, html);
-}
-
-export function replaceDocument(fragment) {
-	replaced = true;
-	stopLive();
-	document.body.replaceChildren(fragment);
-}
-
-customElements.define("tb-apply", class extends HTMLElement {
-	connectedCallback() {
-		const id = this.getAttribute("for");
-		this.remove();
-		if (!id) return;
-		const quoted = id.replace(/["\\]/g, "\\$&");
-		const template = document.querySelector('template[data-tb-boundary="' + quoted + '"]');
-		if (!template) return;
-		applyBoundary(id, template.content, template.innerHTML);
-		template.remove();
-	}
-});
-
-customElements.define("tb-apply-document", class extends HTMLElement {
-	connectedCallback() {
-		this.remove();
-		const template = document.querySelector("template[data-tb-document]");
-		if (!template) return;
-		// replaceChildren drops the template along with the page it replaces,
-		// and every pending placeholder with it.
-		replaceDocument(template.content);
-	}
-});
-
-customElements.define("tb-stream-end", class extends HTMLElement {
-	connectedCallback() {
-		documentComplete = true;
-		documentVersion = this.getAttribute("version") || "";
-		const state = this.getAttribute("state");
-		this.remove();
-		// This document arrived whole, so a reload attempted for a truncated
-		// one is over and the next truncation is allowed to reload again.
-		clearReloadGuard();
-		// final means nothing more is coming and live means the screen keeps
-		// changing. Asking either way would cost a whole page execution on the
-		// server for a page that has nothing to deliver.
-		if (state === "live") startLive();
-	}
-});
-
-// checkDocumentEnd decides whether this document ended or was cut off.
+// The gain beyond addressing is that there is now one apply core rather than
+// two. The merged asset used to carry the module's swap and this framework's
+// side by side, with no channel between them and nothing making them agree.
 //
-// readyState says when the question can be answered and the marker says what
-// the answer is: while it is loading, bytes are still arriving and the marker
-// may be among them; once it is complete, no more bytes are coming and the
-// marker either arrived or never will.
-//
-// A document that streamed nothing carries no marker either, so it is excluded
-// rather than reloaded. Its boundaries — the placeholders still on screen, or
-// the ranges already applied — are what say this response was one that streams.
-function documentStreamed() {
-	return applied.size > 0 || document.querySelector("tb-boundary") !== null;
-}
-
-function checkDocumentEnd() {
-	if (document.readyState !== "complete") return;
-	if (documentComplete || !documentStreamed()) return;
-	reloadOnce("the document was truncated");
-}
-
-document.addEventListener("readystatechange", checkDocumentEnd);
-// The module may have been imported after the document settled, in which case
-// no further readystatechange is coming.
-checkDocumentEnd();
-
-// reloadOnce recovers a screen that cannot be repaired in place. The guard is
-// what keeps a server that truncates every response from turning that into a
-// reload loop the user cannot escape.
-function reloadGuardKey() {
-	return "pw:reloaded:" + location.pathname + location.search;
-}
-
-function reloadOnce(reason) {
-	try {
-		if (sessionStorage.getItem(reloadGuardKey())) {
-			console.error("Popcorn Wave: " + reason + "; reload already attempted");
-			return;
-		}
-		sessionStorage.setItem(reloadGuardKey(), "1");
-	} catch (error) {
-		// Storage can be unavailable in a private or partitioned context. A
-		// missing guard is worth less than a stuck screen, so recover anyway.
-	}
-	console.warn("Popcorn Wave: " + reason + "; reloading");
-	stopLive();
-	location.reload();
-}
-
-function clearReloadGuard() {
-	try {
-		sessionStorage.removeItem(reloadGuardKey());
-	} catch (error) {
-		// Nothing to clear if storage is unavailable.
-	}
-}
-
-export function stopLive() {
-	running = false;
-	if (connection) {
-		connection.abort();
-		connection = null;
-	}
-}
-
-function startLive() {
-	if (running) return;
-	running = true;
-	runLive();
-}
-
-async function runLive() {
-	let attempts = 0;
-	while (running) {
-		const outcome = await connectOnce();
-		if (!running || outcome.stop) return;
-		// A response the server closed at its lifetime bound is healthy, so
-		// backing off exponentially would stall a working screen. Only a failure
-		// or a truncated stream escalates.
-		if (outcome.retry) {
-			attempts = 0;
-			await sleep(jitter(outcome.retryAfter || 500));
-			continue;
-		}
-		attempts += 1;
-		await sleep(jitter(Math.min(30000, 500 * Math.pow(2, attempts))));
-	}
-}
-
-async function connectOnce() {
-	const controller = new AbortController();
-	connection = controller;
-	let opened = false;
-	try {
-		const response = await fetch(location.href, {
-			headers: { [modeHeader]: liveMode },
-			credentials: "same-origin",
-			cache: "no-store",
-			redirect: "error",
-			signal: controller.signal,
-		});
-		if (!response.ok || !response.body) return { stop: false, retry: false };
-		const reader = response.body.getReader();
-		const decoder = new TextDecoder();
-		let buffer = "";
-		let closed = null;
-		for (;;) {
-			const chunk = await reader.read();
-			if (chunk.done) break;
-			buffer += decoder.decode(chunk.value, { stream: true });
-			let newline = buffer.indexOf("\n");
-			while (newline >= 0) {
-				const line = buffer.slice(0, newline);
-				buffer = buffer.slice(newline + 1);
-				newline = buffer.indexOf("\n");
-				if (!line) continue;
-				let record;
-				try {
-					record = JSON.parse(line);
-				} catch (error) {
-					console.error("Popcorn Wave: unreadable live record", error);
-					continue;
-				}
-				const outcome = handleRecord(record);
-				if (outcome === "opened") opened = true;
-				if (outcome === "stop") {
-					controller.abort();
-					return { stop: true, retry: false };
-				}
-				if (record.control === "closed") closed = record;
-			}
-		}
-		if (closed && closed.reason === "done") return { stop: true, retry: false };
-		if (closed) return { stop: false, retry: true, retryAfter: closed.retry_after_ms };
-		// The stream ended with no terminal record, so it was cut off rather
-		// than finished. Reconnecting is safe: the page executes again and
-		// delivers the current state of every live region.
-		return { stop: false, retry: false, opened: opened };
-	} catch (error) {
-		if (controller.signal.aborted) return { stop: true, retry: false };
-		return { stop: false, retry: false };
-	} finally {
-		if (connection === controller) connection = null;
-	}
-}
-
-function handleRecord(record) {
-	if (record.control === "open") {
-		// Boundary ids name positions in generated code. A deployment that
-		// changed that code addresses a document this screen is not showing, so
-		// applying anything from it would put content in the wrong place.
-		if (documentVersion && record.version && record.version !== documentVersion) {
-			reloadOnce("the server was deployed while this page was open");
-			return "stop";
-		}
-		return "opened";
-	}
-	if (record.control === "reload") {
-		reloadOnce("the server asked for a reload");
-		return "stop";
-	}
-	if (record.control === "navigate") {
-		if (record.url) {
-			stopLive();
-			location.assign(record.url);
-		}
-		return "stop";
-	}
-	if (record.control === "closed") return "closed";
-	if (typeof record.id === "string" && typeof record.html === "string") {
-		if (!applyHTML(record.id, record.html)) {
-			// The same page executed again produces the same ids, so an id this
-			// screen does not hold means the page's structure changed — a panel
-			// added to a dashboard somebody has been watching. Placing it
-			// correctly means rendering a document this client did not render,
-			// so the honest move is to start over rather than guess.
-			reloadOnce("the page structure changed");
-			return "stop";
-		}
-		return "applied";
-	}
-	// An unknown record comes from a newer server. Ignoring it keeps an older
-	// client working instead of tearing down a connection it could still use.
-	return "ignored";
-}
-
-function jitter(delay) {
-	return Math.round(delay * (0.75 + Math.random() * 0.5));
-}
-
-function sleep(delay) {
-	return new Promise((resolve) => setTimeout(resolve, delay));
-}
-
-// A tab going away should release the response rather than leave the server
-// rendering for a screen nobody is looking at.
-window.addEventListener("pagehide", stopLive);
-`
+// Order is load-bearing. boundary.js defines custom elements at module scope
+// and the parser may upgrade one during the define call, so it comes first and
+// everything it can reach at that moment is declared inside it. update.js
+// installs nothing, and the bootstrap below builds the single instance.
+var mergedRuntimeScript = sync.OnceValue(func() string {
+	return boundarySource + "\n" + updateSource + "\n" + updateBootSource
+})
 
 // frameworkScriptPrefix is reserved for framework-owned browser assets. It is a
 // fixed absolute path rather than a subtree of the configurable public mount,
@@ -379,7 +69,7 @@ window.addEventListener("pagehide", stopLive);
 // configuration.
 const frameworkScriptPrefix = "/_pw/"
 
-const boundaryRuntimeName = "boundary.js"
+const boundaryRuntimeName = "popcornwave-runtime.js"
 
 // frameworkScripts is the module set this build serves, by file name.
 //
@@ -392,7 +82,7 @@ var frameworkScripts = sync.OnceValue(func() map[string]string {
 		// The development import is appended rather than branched on at run
 		// time, so a release build contains neither the import nor the name of
 		// what it would have imported.
-		boundaryRuntimeName: boundaryRuntimeScript + developmentImport(),
+		boundaryRuntimeName: mergedRuntimeScript() + developmentImport(),
 	}
 	for name, source := range developmentScripts() {
 		scripts[name] = source
@@ -451,11 +141,12 @@ func serveFrameworkScript(w http.ResponseWriter, r *http.Request) bool {
 	}
 	source, ok := frameworkScripts()[frameworkScriptName(r.URL.Path)]
 	if !ok {
-		// An unknown path under the reserved prefix answers 404 rather than
-		// falling through to the application, which is why an application
-		// route never mounts inside it.
-		http.NotFound(w, r)
-		return true
+		// Only the modules of the current set are claimed. The prefix holds
+		// more than the script assets — the redraw endpoint lives here too —
+		// so answering for the whole namespace here would swallow every route
+		// that arrived after this one. serveReservedPath keeps the namespace
+		// closed, below all of them.
+		return false
 	}
 	if !operationalMethod(w, r) {
 		return true
@@ -471,6 +162,22 @@ func serveFrameworkScript(w http.ResponseWriter, r *http.Request) bool {
 		return true
 	}
 	_, _ = w.Write([]byte(source))
+	return true
+}
+
+// serveReservedPath closes the framework namespace.
+//
+// It runs below every handler that owns something inside the prefix, so an
+// unclaimed path there is one no framework route serves: a stale script
+// revision, a redraw on a deployment publishing no component, or a probe of the
+// namespace. Each answers 404 here rather than reaching application routing,
+// which is what keeps one reserved prefix a single routing and access rule
+// instead of a hole an application could accidentally serve through.
+func serveReservedPath(w http.ResponseWriter, r *http.Request) bool {
+	if !strings.HasPrefix(r.URL.Path, frameworkScriptPrefix) {
+		return false
+	}
+	http.NotFound(w, r)
 	return true
 }
 

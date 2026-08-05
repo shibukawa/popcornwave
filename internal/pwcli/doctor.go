@@ -124,14 +124,20 @@ func runDoctor(ctx context.Context, args []string, stdout, stderr io.Writer) err
 		writeDoctorText(stdout, report, doctorStyleFor(stdout))
 	}
 	if failed, reason := report.failing(options.Strict); failed {
-		return &exitError{message: reason}
+		return &exitError{command: "pw doctor", message: reason}
 	}
 	return nil
 }
 
 // exitError reports a nonzero exit whose message the caller already rendered in
 // the report body.
-type exitError struct{ message string }
+// exitError reports a command that already printed its own findings, so Main
+// exits nonzero without adding a second error line. command names the prefix
+// the message is attributed to.
+type exitError struct {
+	command string
+	message string
+}
 
 func (e *exitError) Error() string { return e.message }
 

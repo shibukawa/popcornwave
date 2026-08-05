@@ -6,14 +6,23 @@ title: pw init
 pw init creates a runnable Popcorn Wave project with a shared document shell, representative handler, typed page template, SQL query, error pages, Devbox environment, and generated-artifact conventions.
 
 ```yaml
-usage: pw init [myapp] [--yes] [--router=registered|discovered|both] [--tailwind|--no-tailwind] [--tinygo|--no-tinygo] [--devbox|--no-devbox] [--database|--no-database] [--db=sqlite|postgres|mysql] [--dynamo|--no-dynamo] [--redis|--no-redis] [--auth=none|oidc|oidc-passkey|passkey] [--session=rdb|cookie|redis] [--devidp|--no-devidp]
-mode: decision:interactive-project-bootstrap
+usage: pw init [myapp] [--preset=<name>] [--yes] [--router=registered|discovered|both] [--tailwind|--no-tailwind] [--tinygo|--no-tinygo] [--devbox|--no-devbox] [--database|--no-database] [--db=sqlite|postgres|mysql] [--dynamo|--no-dynamo] [--redis|--no-redis] [--auth=none|oidc|oidc-passkey|passkey] [--session=rdb|cookie|redis|dynamo] [--devidp|--no-devidp]
+mode: decision:interactive-project-bootstrap, opening on the preset step of decision:preset-first-bootstrap
 catalog: the capability questions are the requirement:incremental-project-capabilities catalog api:cli-add installs into an existing project
 inputs:
   directory: project directory; it seeds the project name step rather than skipping the wizard
   flags: shortcut answers that also seed the wizard
+  preset: requirement:init-presets answers, refused together with any capability flag it would answer
   yes: takes the flags and the defaults without asking, for a scripted run inside a terminal
 questions:
+  preset:
+    first: the screen every terminal run opens on
+    catalog: requirement:init-presets
+    effect: a named preset answers every question below except the project name, and the review screen shows what it answered
+    manual: opens decision:navigable-answer-hub on the defaults instead
+    kind: the package preset reaches the api:cli-package scaffold, per requirement:package-project-scaffold, and removes the questions that describe an application rather than answering them
+    api_server: the api-server preset writes requirement:jwt-only-api-authentication, per requirement:api-server-scaffold, which the authentication question below still refuses to offer
+    shortcut: --preset, beside the --kind spelling api:cli-package already carries
   project_name: directory and Go module name
   tinygo_support:
     default: yes
@@ -68,6 +77,7 @@ questions:
     oidc: auth.mode oidc
     oidc-passkey: auth.mode oidc_passkey per decision:authentication-bootstrap-strategy, with recovery.policy oidc
     passkey: auth.mode passkey_only, with registration.policy and recovery.policy both administrator and the bootstrap bounds set
+    not_offered: jwt_only is absent from this question and from --auth, per decision:jwt-only-mode-not-scaffolded; the enum is the four values above and an unrecognized --auth is rejected rather than passed through
     passkey_scaffold:
       when: the selected mode mounts api:passkey-endpoints
       config: passkey.rp_id localhost, passkey.origins the development origin, user_verification required, discoverable preferred
@@ -77,12 +87,15 @@ questions:
       page: controls bound by element id, so the template carries no inline script
       emulator: refused outside an OIDC mode, so passkey_only never scaffolds an identity provider roster
   session_storage:
-    asked_when: the selected mode serves a login
+    asked_when: always; session storage is not a login, so a project declaring only a language preference still gets the middleware
+    default_without_a_login: cookie, which needs no table, no migration, and no import to hold state that fits in a sealed cookie
+    default_with_a_login: rdb, because a login writes a record on every sign-in and normally must end one on demand
     default: rdb
     choices: requirement:state-storage-tiers opaque backends
     rdb: one row per session through the sessionstore/sqlite blank import, with its rule:framework-owned-tables migration
     cookie: sealed into a second cookie with no storage and no import, and cookie_store.secret read from the environment
     redis: server-side TTL through the sessionstore/redis blank import, taking the Valkey development server with it
+    dynamo: one item per session through the sessionstore/dynamo blank import, expired by table TTL, per requirement:dynamodb-session-store; it is what the website-aws preset of requirement:init-presets takes
     writes: session.backend, the keys of the selected backend only, and the api:session-backend-plugin import in main
     rationale: the choice is a deployment decision, because every backend reads the same in a handler
   oidc_provider:
@@ -120,6 +133,7 @@ outputs:
   - data:devidp-config roster and data:project-config dev.idp when the local emulator is selected, with dev.idp.port pinned rather than reserved, because api:auth-credential-store derives the scaffolded account ID from the issuer and a moving port issues a new account on every run
   - api:authentication-endpoints blank import in main and a sign-in and sign-out control on the starter page
   - api:session-backend-plugin blank import in main for a selected backend other than cookie
+  - a data:session-runtime-config keyring.secret generated from crypto/rand, written as a literal into config.dev.toml only, per its development_generation; it is per project rather than a template constant, and rule:configuration-advisories reports it as an error if the same file is ever diagnosed as another token
   - rule:framework-owned-tables migrations from the packages that own those tables, at the versions after the application schema, when the mode serves a login
   - the session table migration only for the rdb backend; another backend leaves that version to the auth migration
   - data:middleware-runtime-config rdb settings carrying the requirement:database-engine-selection DSN for the chosen engine, because the scaffolded migrations and queries need a database, only when the database is selected
@@ -142,7 +156,9 @@ optional_css:
     - add pinned decision:tailwind-host-toolchain package to Devbox
     - create assets/app.css and application-owned CSS output wiring
 behavior:
-  - start the wizard on every terminal run, seeding the project name step from the directory argument when one was given
+  - start the wizard on the preset step for every terminal run, seeding the project name step from the directory argument when one was given
+  - ask nothing but the project name for a named preset, and show the review it answered
+  - refuse --preset together with any flag that answers a question the preset answers, before anything is written
   - skip the wizard only for --yes, or for a session with no terminal that was given a name
   - accept --interactive as a no-op, since the wizard it used to request is now the default
   - refuse and print usage when the session has no terminal and no name
@@ -156,7 +172,9 @@ behavior:
   - refuse an authentication mode without the database, because its login ceremony and allowlist tables need one whatever backend stores the sessions
   - refuse --db together with --no-database, before anything is written
   - accept DynamoDB beside any relational answer, and accept it as the only store, per requirement:dynamodb-store
-  - refuse an authentication mode backed only by DynamoDB, because plugin/auth requires middleware.rdb.enabled whatever the session backend is, per requirement:contrib-auth-state-dynamo blocked_by
+  - accept an authentication mode backed only by DynamoDB, writing auth.backend = "dynamo", both storage imports, and no auth migration file, per requirement:dynamodb-auth-backend
+  - refuse a login with neither store, naming both ways out rather than only the database
+  - follow the store the project has when nothing selected a session backend, so a DynamoDB-only project does not default to a relational pool it never opens
   - write the starter migration and .pw.sql example in the dialect of the selected engine, since decision:server-sql-support-tier does not translate between them
   - take the Valkey development server with a Redis-backed session, because the configured session needs a server to reach
   - print the command that generates cookie_store.secret when the cookie backend is selected

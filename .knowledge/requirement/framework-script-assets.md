@@ -21,6 +21,12 @@ location:
     - a stable prefix keeps the URL derivable without reading configuration, which matters because the document shell references it
     - it stays available when requirement:public-asset-delivery is disabled, so no configuration combination can silently break rendering
   collision: an unknown path under the reserved prefix answers 404 rather than falling through to the application, which is why api:page-action-endpoint mounts outside it
+  as_built_ordering:
+    what: the asset handler claims exactly its own URL, every other reserved route is offered the request next, and one handler below them all answers 404 for whatever is left
+    why: the asset handler used to claim the whole prefix and refuse anything that was not the current revision, which made it the only route the namespace could ever hold
+    found_by: serving the redraw endpoint of requirement:reloadable-component-endpoint end to end, where it answered 404 with the component correctly registered; every unit test had called its handler directly and so never crossed this
+    rule: a new route inside the prefix is registered above the closing handler, and the closing handler is what keeps the namespace from leaking into application routing
+    unchanged: a stale revision still answers 404, now from the closing handler rather than from the asset one
 delivery:
   source: a constant in the framework, served directly rather than written into the project tree
   rationale: nothing to generate, embed, precompress, or keep in sync with a dependency, and no way for a project to hold a stale copy
@@ -38,10 +44,13 @@ caching:
   headers: public, max-age one year, immutable
   soundness: a revision segment never serves different bytes, so the response is genuinely immutable
 core_module:
-  exports: the boundary apply function both api:html-boundary-protocol envelopes use, so the parser path and the fetch path share one implementation
+  name: popcornwave-runtime.js, the one asset requirement:unified-update-runtime merges every client capability into
+  exports: the boundary apply function every api:html-boundary-protocol envelope uses, so the parser path, the record path, and the fetch path share one implementation
   adapter: the custom element registration is a thin wrapper the core installs, not a separate module
+  endpoints_beside_it: none since system:tinybind v0.3.5; the redraw route of requirement:reloadable-component-endpoint left the prefix for the page URL, so the asset is the only thing here
+  ordering_still_matters: the closing handler stays below the asset handler, because the rule it enforces is about the namespace rather than about how many routes are in it
 loading:
-  tags: exactly one, the core module declared in the document shell by requirement:external-boundary-runtime
+  tags: exactly one, the core module the framework contributes at the render call per decision:runtime-tag-injection, rather than one the document shell declares
   capabilities: the core dynamically imports a capability module when it finds that capability's markup in the document
   rationale: one tag per capability would make the shell accumulate tags and would load every capability on every page, and it would need a head-injection hook the framework does not have
   cost: a capability module costs one extra round trip after the core loads, which suits progressive enhancement and not the streaming path, where the core is itself the boundary logic

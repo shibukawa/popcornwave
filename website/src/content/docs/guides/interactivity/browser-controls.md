@@ -12,14 +12,15 @@ rules at the end, which govern how that same markup behaves inside a `.pw.html`
 component.
 :::
 
-Modals, menus, tooltips and accordions were library territory for a decade.
-They are now elements and attributes — which makes them markup, and markup is
-what a component emits. A server-rendered template turns out to be a perfectly
-good place to write them.
+Browsers now provide native elements and attributes for many controls that once
+required a JavaScript library. Modals, menus, tooltips, and accordions can
+therefore begin as markup in a server-rendered component.
 
-Three elements carry most of the weight: `<dialog>`, the popover attributes, and
-`<details>`. Writing them inside a `.pw.html` component then imposes four rules
-that a plain HTML file never does.
+The examples below use `<dialog>`, the popover attributes, and `<details>`.
+Inside a `.pw.html` component they remain browser features, but four template
+rules affect how you write them. Use a client-side library instead when the
+native control cannot provide the interaction or accessibility behavior your
+product needs.
 
 ## Dialogs
 

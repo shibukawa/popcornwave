@@ -1,0 +1,13 @@
+.vscode/**
+node_modules/**
+test/**
+package-lock.json
+**/*.map
+
+# The formatter's Go source and build script stay in the repository; only the
+# compiled module ships.
+wasm/*.go
+wasm/go.mod
+wasm/go.sum
+wasm/build.sh
+wasm/TOOLCHAIN

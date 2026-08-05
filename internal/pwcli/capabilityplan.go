@@ -138,12 +138,16 @@ func planCapability(state projectState, options addOptions) (*capabilityPlan, er
 		return plan, planDatabase(state, options, plan)
 	case capabilityDynamo:
 		return plan, planDynamo(state, plan)
+	case capabilityFirestore:
+		return plan, planFirestore(state, plan)
 	case capabilityRedis:
 		return plan, planRedisValkey(state, plan)
 	case capabilityAuth:
 		return plan, planAuth(state, options, plan)
 	case capabilityTailwind:
 		return plan, planTailwind(state, plan)
+	case capabilityImages:
+		return plan, planImages(state, plan)
 	case capabilityDiscovered:
 		return plan, planPages(state, plan)
 	case capabilityRegistered:
@@ -157,7 +161,10 @@ func planCapability(state projectState, options addOptions) (*capabilityPlan, er
 func planDatabase(state projectState, options addOptions, plan *capabilityPlan) error {
 	engine := engineFor(options.Engine)
 	for _, name := range state.configFiles {
-		plan.appends[name] = databaseRuntimeSection(options.databaseDSN(state.config.Name), engine)
+		// Every environment gets the pool, and only dev gets the local DSN:
+		// the file for a deployment names the environment variable the
+		// deployment sets.
+		plan.appends[name] = databaseRuntimeSection(environmentToken(name), options.databaseDSN(state.config.Name), engine)
 	}
 	migrations := state.config.Migration.Dir
 	if len(state.migrations) == 0 {
@@ -190,7 +197,7 @@ func planDatabase(state projectState, options addOptions, plan *capabilityPlan) 
 	// engine is printed rather than injected.
 	if engine.DriverImport != "" {
 		if err := planEntryPointEdit(state, plan,
-			[]blankImport{{engine.DriverImport, "the engine middleware.rdb.dsn names"}}, "", ""); err != nil {
+			[]blankImport{{engine.DriverImport, "the engine the configured DSN names"}}, "", ""); err != nil {
 			return err
 		}
 	}
@@ -256,6 +263,42 @@ func planDynamo(state projectState, plan *capabilityPlan) error {
 		plan.edits["devbox.json"] = devbox
 		plan.next = append(plan.next, "devbox shell")
 	}
+	return nil
+}
+
+// planFirestore installs the Firestore store: its configuration and the import
+// that opens the client.
+//
+// It writes no migration. A Datastore kind is created by the first write, so
+// there is no schema to add a file to.
+//
+// It adds no Devbox package either. The Datastore emulator is a Java process
+// inside the Cloud SDK rather than a standalone server, so the configuration
+// names the command to run instead of promising one pw dev starts.
+func planFirestore(state projectState, plan *capabilityPlan) error {
+	for _, name := range state.configFiles {
+		plan.appends[name] = firestoreRuntimeSection()
+	}
+	// The entities directory and the purpose that reads it are written
+	// together: generate.firestore has no default, so a directory no purpose
+	// lists is a directory nothing generates from.
+	plan.creates[defaultFirestoreDir+"/note.go"] = firestoreEntityScaffold()
+	plan.creates[defaultFirestoreDir+"/notes.pw.firestore"] = firestoreQueryScaffold()
+	edited, err := setGeneratePurpose(state, capabilityFirestorePurpose, []string{defaultFirestoreDir})
+	if err != nil {
+		return err
+	}
+	plan.edits["popcornwave.toml"] = edited
+	plan.generate = true
+	// The entry point is application-owned, so the import that installs the
+	// client middleware is printed rather than injected.
+	if err := planEntryPointEdit(state, plan,
+		[]blankImport{{"github.com/shibukawa/popcornwave/database/firestore", "installs the Firestore client middleware"}},
+		"", ""); err != nil {
+		return err
+	}
+	plan.next = append(plan.next,
+		"gcloud beta emulators datastore start --host-port=127.0.0.1:8081")
 	return nil
 }
 
@@ -404,6 +447,30 @@ func planTailwind(state projectState, plan *capabilityPlan) error {
 	}
 	plan.manual = append(plan.manual,
 		`add <link rel="stylesheet" href="/`+defaultTailwindOutput+`"> to the document shell`)
+	plan.next = append(plan.next, "devbox shell")
+	return nil
+}
+
+// planImages turns on the conversion and installs the encoders it runs.
+//
+// The encoders are declared rather than downloaded: a build never installs a
+// tool, so a project that took this capability and then removed the packages
+// converts nothing and says so, instead of quietly fetching them.
+func planImages(state projectState, plan *capabilityPlan) error {
+	plan.appends["popcornwave.toml"] = imagesProjectConfig()
+	if state.devbox == "" {
+		plan.manual = append(plan.manual, "install "+imageToolchainRequirement)
+		return nil
+	}
+	devbox := state.devbox
+	for _, pkg := range imageDevboxPackages {
+		edited, err := addDevboxPackage(devbox, pkg)
+		if err != nil {
+			return err
+		}
+		devbox = edited
+	}
+	plan.edits["devbox.json"] = devbox
 	plan.next = append(plan.next, "devbox shell")
 	return nil
 }

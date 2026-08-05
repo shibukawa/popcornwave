@@ -16,8 +16,9 @@ current_tables:
   popcornwave_passkey_credential: the api:auth-credential-store default store for data:passkey-credential
   popcornwave_auth_bootstrap: the api:auth-credential-store default store for data:account-bootstrap-credential
 conditional_verification:
-  tables: popcornwave_passkey_credential and popcornwave_auth_bootstrap
+  tables: popcornwave_passkey_credential, popcornwave_auth_bootstrap, and popcornwave_auth_allowlist
   rule: a table is verified only when the selected mode reads it and the application installed no store of its own
+  allowlist: read only when auth.oidc.admission is registered, and skipped when api:auth-allowlist-store carries an installed store
   bootstrap: additionally only when registration or recovery actually issues a credential
   reason: a deployment asked for a table nothing will ever write to learns to ignore the startup refusal
   note: the migration still creates them, because one package publishes one file
@@ -31,13 +32,21 @@ migrations:
   source: the owning package publishes the exact file content, and a repository test fails when a copy drifts
   scaffolding: api:cli-init writes the files of the selected authentication mode; api:cli-add writes them into an existing project
 non_relational_stores:
-  applies_to: requirement:dynamodb-session-store and any later framework table on a store with no versioned migration
+  applies_to: requirement:dynamodb-session-store, requirement:dynamodb-auth-stores, requirement:contrib-auth-state-dynamo, and any later framework table on a store with no versioned migration
   naming: unchanged; the popcornwave_ prefix is the declared name, which rule:dynamodb-table-naming then maps to the deployed one
   creation_in_development: the owning package registers a table definition through decision:dynamodb-table-registry, and requirement:dynamodb-migration creates it
   creation_in_production: deployment tooling, from the definition api:cli-migrate prints, because such a table reads as part of the infrastructure
   no_file: there is no migration file to publish, identify, or renumber, because decision:dynamodb-desired-state-migration has no version sequence
   detection: a capability is present when its table definition is registered, rather than when a file with its name stem exists
   unchanged: startup still verifies and never creates while serving, which is the same rule reached by a different route
+schemaless_stores:
+  applies_to: requirement:firestore-session-store, requirement:firestore-auth-stores, requirement:contrib-auth-state-firestore, and any later framework kind on a store that reports no schema
+  naming: unchanged; the popcornwave_ prefix names the kind, and no resolver maps it, per decision:firestore-namespace-isolation
+  creation: none anywhere; a kind exists on first write, per decision:firestore-no-schema-application
+  detection: a capability is present when its package is linked, which is the only signal left once nothing is registered and no file is published
+  what_startup_does_instead: the reachability and mode probe of decision:firestore-datastore-mode-only, which proves the database and not the shape
+  why_the_verification_half_disappears: nothing reports a kind, so there is no observed state to compare a desired one against; this rule's verify-only stance is not weakened here, it has no object
+  isolation_from_deployment_tooling: a deployment still configures the expiry policies decision:firestore-expiry-policy names, which is the one thing it must be told about these kinds
 startup:
   action: verify only
   missing_table: refuse to serve and name the missing table, the migration that creates it, and the command that applies it

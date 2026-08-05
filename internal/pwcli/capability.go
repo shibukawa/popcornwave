@@ -21,10 +21,18 @@ const (
 	capabilityRedis    = "redis-valkey"
 	capabilityAuth     = "auth"
 	capabilityTailwind = "tailwind"
+	// capabilityImages installs the image encoders and turns the conversion on.
+	// It is a capability rather than a plain configuration key because the
+	// encoders are host tools: switching it on without them converts nothing.
+	capabilityImages = "images"
 	// capabilityDynamo is a second kind of store rather than a fourth SQL
 	// engine, so it depends on nothing and combines with any database answer
 	// including none.
 	capabilityDynamo = "dynamo"
+	// capabilityFirestore is the same kind of answer as capabilityDynamo, in
+	// Datastore mode on Google Cloud. The two are independent capabilities: a
+	// project may install either, both, or neither.
+	capabilityFirestore = "firestore"
 	// capabilityRegistered and capabilityDiscovered are the two routers the one
 	// question of decision:page-router-scaffold-choice selects between, so
 	// either can be installed into a project that started with the other. They
@@ -38,7 +46,8 @@ const (
 // puts a capability before the ones that depend on it.
 var capabilityOrder = []string{
 	capabilityRegistered, capabilityDiscovered,
-	capabilityDevbox, capabilityDatabase, capabilityDynamo, capabilityRedis, capabilityAuth, capabilityTailwind,
+	capabilityDevbox, capabilityDatabase, capabilityDynamo, capabilityFirestore, capabilityRedis, capabilityAuth, capabilityTailwind,
+	capabilityImages,
 }
 
 // capabilitySummary is the one-line description shown beside each choice.
@@ -48,7 +57,9 @@ var capabilitySummary = map[string]string{
 	capabilityRedis:      "the Valkey development server in devbox.json",
 	capabilityAuth:       "login sessions, the framework tables, and the account resolver",
 	capabilityTailwind:   "the pinned Tailwind toolchain and its CSS entry point",
+	capabilityImages:     "build-time image conversion and the encoders it runs",
 	capabilityDynamo:     "the DynamoDB client, its typed records, and a local development server",
+	capabilityFirestore:  "the Firestore client, in Datastore mode, against the local emulator",
 	capabilityRegistered: "the registered router: a route is a registration written in Go",
 	capabilityDiscovered: "the discovered router: a directory holding a page template is a route",
 }
@@ -203,6 +214,8 @@ func (p projectState) carries(name string) (string, bool, error) {
 		return p.configSectionEvidence("[middleware.rdb]")
 	case capabilityDynamo:
 		return p.configSectionEvidence("[middleware.dynamo]")
+	case capabilityFirestore:
+		return p.configSectionEvidence("[middleware.firestore]")
 	case capabilityRedis:
 		if strings.Contains(p.devbox, "valkey@") {
 			return "devbox.json", true, nil
@@ -215,6 +228,11 @@ func (p projectState) carries(name string) (string, bool, error) {
 		return p.configSectionEvidence("[auth]")
 	case capabilityTailwind:
 		if p.config.Tailwind.Enabled {
+			return "popcornwave.toml", true, nil
+		}
+		return "", false, nil
+	case capabilityImages:
+		if p.config.Assets.Images {
 			return "popcornwave.toml", true, nil
 		}
 		return "", false, nil
@@ -302,6 +320,8 @@ func scaffoldOptionsOf(state projectState) (initOptions, error) {
 			options.Redis = true
 		case capabilityTailwind:
 			options.Tailwind = true
+		case capabilityImages:
+			options.Images = true
 		case capabilityDynamo:
 			options.Dynamo = true
 		case capabilityAuth:

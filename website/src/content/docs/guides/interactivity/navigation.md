@@ -12,13 +12,13 @@ handler changes to adopt them; what it contributes is the document shell they
 are declared in.
 :::
 
-The reason single-page applications took over navigation was never routing. It
-was the two things a full page load used to cost: a white flash between
-documents, and a wait long enough to notice.
+Full-page navigation used to come with two visible costs: a white flash between
+documents and a delay long enough to interrupt the reader. Single-page
+applications avoided both, but they are no longer the only option.
 
-Both now have platform answers that a server-rendered application can adopt
-without touching a handler. Neither changes what a route returns, and both
-degrade to exactly what you have today.
+View transitions and speculation rules now address those costs in the browser,
+without changing a handler or the response it returns. If the browser does not
+support them, navigation continues to work as an ordinary page load.
 
 ## Continuity between pages
 

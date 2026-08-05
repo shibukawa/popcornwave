@@ -37,6 +37,18 @@ type Identity struct {
 	KeyClaim string
 	Key      string
 	Claims   Claims
+	// TokenID is the verified jti of a bearer access token, and empty for a
+	// browser login. It names one token, which is what the token form of
+	// policy:token-revocation withdraws.
+	TokenID string
+	// IssuedAt and ExpiresAt are the verified iat and exp of a bearer access
+	// token, and zero for a browser login.
+	//
+	// IssuedAt is what a subject-form revocation compares against: a token
+	// minted after the identity was revoked is admitted, so revoking an
+	// identity ends its outstanding tokens without ending the identity.
+	IssuedAt  time.Time
+	ExpiresAt time.Time
 }
 
 // ClaimSubject is the default identity claim and the only one OpenID Connect
@@ -193,6 +205,16 @@ func lookupAccount(ctx context.Context, accountID string) (Account, error) {
 	return lookup(ctx, accountID)
 }
 
+// installedAccountResolver returns the application's resolver, or nil when it
+// installed none. It is distinct from accountResolver, which substitutes the
+// derived account: a caller that needs to know whether the application answered
+// cannot use a function that always answers.
+func installedAccountResolver() AccountResolver {
+	resolverState.RLock()
+	defer resolverState.RUnlock()
+	return resolverState.resolve
+}
+
 func accountResolver() AccountResolver {
 	resolverState.RLock()
 	defer resolverState.RUnlock()
@@ -220,10 +242,23 @@ func derivedAccount(_ context.Context, identity Identity, _ bool) (Account, erro
 
 // SessionData is the payload stored in the login session. It holds no token
 // body, no provider secret, and no raw cookie material.
+//
+// It is one registered session slot, stored exactly like an application's own:
+// the session package holds the bytes and this package holds their meaning.
+// Everything about how well and how recently the subject was proved lives here
+// rather than on the session record, because a record holding a shopping cart
+// for an anonymous browser has no authentication time to report.
 type SessionData struct {
 	AccountID string `json:"account_id"`
 	Issuer    string `json:"iss"`
 	Subject   string `json:"sub"`
+	// AuthenticatedAt is when the current authentication strength was
+	// established. A rotation after a login or a re-proof refreshes it.
+	AuthenticatedAt time.Time `json:"authenticated_at"`
+	// Method is the unordered label of what proved this session, such as oidc
+	// or passkey. Nothing ranks one above another: the framework cannot order
+	// the methods it mounts, so an ordering would be a deployment claim.
+	Method string `json:"method,omitempty"`
 	// KeyClaim and Key record which verified claim identified the account and
 	// its value, so a handler can show or audit the link without repeating the
 	// configuration.
@@ -245,22 +280,21 @@ type SessionData struct {
 	// StepUpAt records that a zero-window re-proof completed, which is the only
 	// thing that can satisfy a per-operation requirement.
 	//
-	// It lives in the session rather than in a cookie so it cannot be forged,
-	// and it is bounded by a short window rather than consumed exactly once,
-	// because consuming it would mean rotating the session inside an ordinary
-	// read. Two zero-window operations within that window therefore share one
-	// proof; a truly single-use admission needs a server-side record this
-	// package does not yet own.
+	// It lives in the session rather than in a cookie so it cannot be forged. It
+	// is spent by the guard that accepts it, under one lock with the read that
+	// accepted it, so two operations arriving together cannot share one proof —
+	// see zeroWindowAdmission. The short window is the backstop for a proof
+	// nobody spent, such as one the user abandoned, rather than the mechanism.
 	StepUpAt int64 `json:"step_up_at,omitempty"`
 }
 
 // provenAt reports when this session's identity was last actually proved,
 // preferring what the provider reported over when the login arrived.
-func (d SessionData) provenAt(fallback time.Time) time.Time {
+func (d SessionData) provenAt() time.Time {
 	if d.ProviderAuthTime > 0 {
 		return time.Unix(d.ProviderAuthTime, 0).UTC()
 	}
-	return fallback
+	return d.AuthenticatedAt
 }
 
 // identityFrom builds the verified identity and resolves the configured lookup
@@ -282,9 +316,45 @@ func identityFrom(claims jwt.Claims, identityClaim string) Identity {
 	return identity
 }
 
+// admissionRule is the admission policy of whichever mode is asking.
+//
+// OIDC admission and bearer admission are the same decision reached by
+// different proofs: verification establishes who the caller is, and this decides
+// whether that identity may enter this application. Sharing the rule is what
+// keeps a deployment from having two answers to the same question.
+type admissionRule struct {
+	Admission        string
+	Claim            ClaimConfig
+	RegisteredClaims []string
+	AutoProvision    bool
+}
+
+func (c OIDCConfig) admissionRule() admissionRule {
+	return admissionRule{
+		Admission:        c.Admission,
+		Claim:            c.Claim,
+		RegisteredClaims: c.RegisteredClaims,
+		AutoProvision:    c.AutoProvision,
+	}
+}
+
+func (j JWTConfig) admissionRule() admissionRule {
+	return admissionRule{
+		Admission:        j.Admission,
+		Claim:            j.Claim,
+		RegisteredClaims: j.RegisteredClaims,
+		AutoProvision:    j.AutoProvision,
+	}
+}
+
 // admit applies policy:oidc-admission to an already verified identity. It runs
 // on every login, including one that resolves to an existing account.
-func admit(ctx context.Context, config OIDCConfig, allowlist Allowlist, identity Identity) (Account, error) {
+func admit(ctx context.Context, config OIDCConfig, allowlist AllowlistStore, identity Identity) (Account, error) {
+	return admitIdentity(ctx, config.admissionRule(), allowlist, identity)
+}
+
+// admitIdentity is the mode-neutral admission decision.
+func admitIdentity(ctx context.Context, config admissionRule, allowlist AllowlistStore, identity Identity) (Account, error) {
 	if identity.Issuer == "" || identity.Subject == "" || identity.Key == "" {
 		// No usable lookup key means no account can be identified, so nothing
 		// downstream may treat this login as a known person.
@@ -296,7 +366,16 @@ func admit(ctx context.Context, config OIDCConfig, allowlist Allowlist, identity
 			return Account{}, ErrAccessDenied
 		}
 	case AdmissionRegistered:
-		registered, err := allowlist.registered(ctx, config.RegisteredClaims, identity)
+		candidates := allowlistCandidates(config.RegisteredClaims, identity)
+		if len(candidates) == 0 {
+			// Nothing to compare is a non-match rather than an error, and the
+			// store is never asked an empty question.
+			return Account{}, ErrAccessDenied
+		}
+		if allowlist == nil {
+			return Account{}, errors.New("auth: allowlist is not available")
+		}
+		registered, err := allowlist.Registered(ctx, identity.Issuer, candidates)
 		if err != nil {
 			// A lookup failure is an error, never a denial, so an outage
 			// cannot silently reopen or close a deployment.

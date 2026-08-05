@@ -32,9 +32,14 @@ type Config struct {
 	Endpoint string `toml:"endpoint" help:"Endpoint overrides the regional host, which is how a local emulator is reached"`
 	// AccessKeyID and its siblings are static credentials. All three are
 	// optional; empty selects the driver's environment credentials.
-	AccessKeyID     string `toml:"access_key_id" help:"AccessKeyID and its siblings are static credentials. All three are optional; empty selects the driver's environment credentials"`
-	SecretAccessKey string `toml:"secret_access_key"`
-	SessionToken    string `toml:"session_token"`
+	//
+	// All three are masked by tag. They were masked before only because their
+	// names happen to contain tokens the binder's name heuristic looks for,
+	// which is a coincidence rather than a decision: renaming a field would have
+	// silently started printing it.
+	AccessKeyID     string `secret:"mask" toml:"access_key_id" help:"AccessKeyID and its siblings are static credentials. All three are optional; empty selects the driver's environment credentials"`
+	SecretAccessKey string `secret:"mask" toml:"secret_access_key"`
+	SessionToken    string `secret:"mask" toml:"session_token"`
 	// TablePrefix is prepended to a declared table name.
 	TablePrefix string `toml:"table_prefix" help:"TablePrefix is prepended to a declared table name"`
 	// TableNames maps a declared name onto a deployed one, for a name no
@@ -45,17 +50,31 @@ type Config struct {
 	// already uses for a repeated element.
 	TableNames []TableName `toml:"table_names" help:"TableNames maps a declared name onto a deployed one, for a name no prefix produces. An entry wins over the prefix"`
 	// Timeout bounds one request.
-	Timeout time.Duration `toml:"timeout" help:"Timeout bounds one request"`
+	Timeout time.Duration `toml:"timeout" default:"10s" help:"Timeout bounds one request"`
 	// MaxIdleConns sizes the connection pool. The rule of thumb is the
 	// expected concurrency.
-	MaxIdleConns int `toml:"max_idle_conns" help:"MaxIdleConns sizes the connection pool. The rule of thumb is the expected concurrency"`
+	MaxIdleConns int `toml:"max_idle_conns" default:"4" help:"MaxIdleConns sizes the connection pool. The rule of thumb is the expected concurrency"`
 	// VerifySchema reads every registered table once at startup and refuses to
 	// serve on a mismatch. It is the one check deployment tooling cannot make
 	// for itself, so it defaults on.
-	VerifySchema bool `toml:"verify_schema" help:"VerifySchema reads every registered table once at startup and refuses to serve on a mismatch. It is the one check deployment tooling cannot make for itself, so it defaults on"`
+	VerifySchema bool `toml:"verify_schema" default:"true" help:"VerifySchema reads every registered table once at startup and refuses to serve on a mismatch. It is the one check deployment tooling cannot make for itself, so it defaults on"`
 	// AutoMigrate creates missing tables during startup. It is a development
 	// convenience and is rejected elsewhere.
 	AutoMigrate bool `toml:"auto_migrate" help:"AutoMigrate creates missing tables during startup. It is a development convenience and is rejected elsewhere"`
+}
+
+// DefaultConfig is the binding's zero-value replacement, and the same values
+// the default struct tags carry.
+//
+// Both exist because they answer different questions: configbind reads the
+// tags to fill an unset key, and a caller building a Config in Go reads this.
+// TestDefaultConfigMatchesTheBoundDefaults keeps them from drifting.
+func DefaultConfig() Config {
+	return Config{
+		Timeout:      10 * time.Second,
+		MaxIdleConns: 4,
+		VerifySchema: true,
+	}
 }
 
 // TableName is one [[middleware.dynamo.table_names]] element: the name source
@@ -63,16 +82,6 @@ type Config struct {
 type TableName struct {
 	Declared string `toml:"declared"`
 	Deployed string `toml:"deployed"`
-}
-
-// DefaultConfig is the binding's zero-value replacement. VerifySchema defaults
-// on because it is the production value of this package.
-func DefaultConfig() Config {
-	return Config{
-		Timeout:      10 * time.Second,
-		MaxIdleConns: 4,
-		VerifySchema: true,
-	}
 }
 
 // validate reports the configuration problems that can be seen without a

@@ -13,6 +13,21 @@ public_api:
   - Sign(header, claims, Signer) returns compact JWT
   - ParseAndVerify convenience function
   - JWKS parser and key resolver
+  - NewRemoteKeySet(issuer, options) returns a fetching KeyResolver over a published key set
+remote_key_set:
+  added_for: requirement:jwt-only-api-authentication, which needs keys from an issuer rather than keys a caller already holds
+  why_here: the package already parses and resolves a JWKS, and only a package under contrib may use the bounded HTTP and JSON helpers that make a fetch safe; requirement:contrib-oidc has an equivalent path but it is unexported and reachable only through a full relying-party client
+  modes: OpenID Connect metadata, RFC 8414 authorization server metadata, or a directly supplied jwks_uri
+  trust:
+    - https only, except for a loopback issuer under the development allowance
+    - the metadata document's own issuer must equal the configured one
+    - the key set must share the issuer's scheme and host, so a metadata document cannot point the key source at another origin
+    - redirects are rejected, because a redirect on a key fetch is a request to take keys from somewhere else
+  freshness:
+    cache: keys are refetched once the cache TTL passes
+    unknown_kid: one refresh, serialized by the same lock, and no more often than the configured cooldown
+    stale_on_failure: a refresh that fails leaves the previous key set serving, because the keys did not become untrustworthy when the issuer became unreachable
+  deferred: discovery is not attempted until the first token needs a key, so an application starts while its authorization server is down
 claims:
   registered:
     - iss

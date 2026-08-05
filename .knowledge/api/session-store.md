@@ -3,28 +3,30 @@ id: api:session-store
 type: api
 title: Session Store Contract
 ---
-Session backends persist typed data:session-record values behind one context-aware contract.
+Session backends persist data:session-record values behind one context-aware contract, and never learn what any slot in them means.
 
 ```yaml
+placement_of: the session.Private tier of requirement:state-storage-tiers
 plugin_surface:
   - RawStore is the non-generic contract a backend implements over already encoded payloads
   - RawRecord carries the encoded payload beside the record timestamps
-  - session.Typed[T](RawStore, Codec[T]) returns Store[T] and forwards an optional RequestBinder
   - session.Backend bundles a RawStore with its optional Close and Prune, per api:session-backend-plugin
 surface:
-  - Store[T].Put(context.Context, keyHash, Record[T]) error
-  - Store[T].Get(context.Context, keyHash) returns Record[T]
-  - Store[T].Touch(context.Context, keyHash, lastSeenAt, idleExpiresAt) error
-  - Store[T].Delete(context.Context, keyHash) error
+  - Store.Put(context.Context, keyHash, Record) error
+  - Store.Get(context.Context, keyHash) returns Record
+  - Store.Touch(context.Context, keyHash, lastSeenAt, idleExpiresAt) error
+  - Store.Delete(context.Context, keyHash) error
   - RequestBinder.BindRequest(context.Context, http.ResponseWriter, *http.Request) context.Context, optional
 request_binding:
   purpose: a store whose records live in the browser reaches the request and the response through it
   caller: api:session-manager, before every store call it makes on behalf of a request
   backend_stores: implement nothing and receive the context unchanged
 codec:
-  scope: typed payload only
+  scope: the api:session-registry slot values only, one codec per slot
   reason: record timestamps stay in backend fields so renewal never rewrites the payload
-  default: session.JSONCodec[T]
+  default: session.JSONCodec[T] per slot
+  seam: the host encodes and decodes; a backend receives one opaque byte payload and never sees an application type
+  implemented: session.Typed[T](RawStore, Codec[T]) returns Store[T] over one payload, which the registry replaces
 errors:
   - not found or expired
   - unavailable with sanitized backend detail
@@ -93,6 +95,16 @@ dynamo:
   atomic_touch: the renewal is one conditional UpdateItem, so no read-then-write window exists
   read_consistency: decision:dynamodb-session-read-consistency
   shared_client: the process client installed by api:dynamo-package; there is no dedicated form
+firestore:
+  backend_name: firestore
+  session_plugin: popcornwave/sessionstore/firestore
+  status: designed, per requirement:firestore-session-store
+  owned_kind: popcornwave_session, which exists on first write and is neither created nor verified, per decision:firestore-no-schema-application
+  schema: none; there is no migration file, no version table, and no table definition
+  expiry_sweep: none, per decision:firestore-expiry-policy; a record is judged expired on read and removed by a field TTL policy the deployment applies
+  atomic_touch: no; a renewal is a read then a write carrying the update-time precondition, per decision:firestore-conditional-writes
+  read_consistency: strong by default, so decision:dynamodb-session-read-consistency has no counterpart and no key
+  shared_client: the process client installed by api:firestore-package; there is no dedicated form
 plugins: decision:import-registered-session-plugins
 extension: applications may supply another Store[T] without changing session middleware
 selection: a configured backend is resolved by name through api:session-backend-plugin

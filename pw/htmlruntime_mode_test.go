@@ -29,17 +29,25 @@ func TestReleaseBuildServesOnlyTheCoreModule(t *testing.T) {
 	}
 }
 
-// The prefix is answered as a whole, so an unknown name under it is not found
-// rather than falling through to the application.
+// A name outside the set is declined here rather than answered, because the
+// prefix holds more than the modules — the redraw endpoint is under it too, and
+// claiming the whole namespace here would swallow it. What nobody claims is
+// closed by serveReservedPath, below every one of them, so an unknown name
+// still never reaches the application.
 func TestUnknownFrameworkScriptIsNotFound(t *testing.T) {
 	for _, path := range []string{
 		frameworkScriptPrefix + scriptRevision() + "/dev.js",
 		frameworkScriptPrefix + "0000000000000000/" + boundaryRuntimeName,
 		frameworkScriptPrefix + scriptRevision() + "/nested/thing.js",
 	} {
+		request := httptest.NewRequest(http.MethodGet, path, nil)
+		if serveFrameworkScript(httptest.NewRecorder(), request) {
+			t.Errorf("%s: was served as a module of the set", path)
+			continue
+		}
 		recorder := httptest.NewRecorder()
-		if !serveFrameworkScript(recorder, httptest.NewRequest(http.MethodGet, path, nil)) {
-			t.Errorf("%s: the prefix was not claimed", path)
+		if !serveReservedPath(recorder, request) {
+			t.Errorf("%s: the reserved prefix was left open", path)
 			continue
 		}
 		if recorder.Code != http.StatusNotFound {

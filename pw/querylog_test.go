@@ -29,16 +29,18 @@ func queryConfig(mutate func(*QueryLogConfig)) ObservabilityConfig {
 
 // Auto is what makes the feature a development aid rather than a setting an
 // operator has to remember to turn off.
-func TestResolveQueryDiagnosticsAutoFollowsEnvironment(t *testing.T) {
-	if diagnostics := resolveQueryDiagnostics(queryConfig(nil), EnvDevelopment); diagnostics == nil {
+//
+// It follows the declared development environment rather than the resolved one.
+// A deployment that never set APP_ENV resolves to "dev" and must not be given a
+// log of every statement with its bind values on the strength of that default.
+func TestResolveQueryDiagnosticsAutoFollowsDeclaredDevelopment(t *testing.T) {
+	if diagnostics := resolveQueryDiagnostics(queryConfig(nil), true); diagnostics == nil {
 		t.Fatal("auto should enable query diagnostics in dev")
 	} else if !diagnostics.BindValues {
 		t.Error("auto should enable bind values in dev")
 	}
-	for _, env := range []string{EnvProduction, EnvStaging, "qa"} {
-		if diagnostics := resolveQueryDiagnostics(queryConfig(nil), env); diagnostics != nil {
-			t.Errorf("auto enabled query diagnostics in %q", env)
-		}
+	if diagnostics := resolveQueryDiagnostics(queryConfig(nil), false); diagnostics != nil {
+		t.Error("auto enabled query diagnostics where development was not declared")
 	}
 }
 
@@ -46,7 +48,7 @@ func TestResolveQueryDiagnosticsExplicitToggles(t *testing.T) {
 	on := resolveQueryDiagnostics(queryConfig(func(query *QueryLogConfig) {
 		query.Enabled = QueryToggleOn
 		query.BindValues = QueryToggleOff
-	}), EnvProduction)
+	}), false)
 	if on == nil {
 		t.Fatal("an explicit on should enable query diagnostics outside dev")
 	}
@@ -56,7 +58,7 @@ func TestResolveQueryDiagnosticsExplicitToggles(t *testing.T) {
 
 	off := resolveQueryDiagnostics(queryConfig(func(query *QueryLogConfig) {
 		query.Enabled = QueryToggleOff
-	}), EnvDevelopment)
+	}), true)
 	if off != nil {
 		t.Error("an explicit off should win over the development default")
 	}
@@ -69,7 +71,7 @@ func TestResolveQueryDiagnosticsMapsLevelsAndBounds(t *testing.T) {
 		query.SlowThreshold = 3 * time.Second
 		query.MaxSQLLength = 0
 		query.MaxValueLength = 0
-	}), EnvDevelopment)
+	}), true)
 	if diagnostics == nil {
 		t.Fatal("want diagnostics")
 	}

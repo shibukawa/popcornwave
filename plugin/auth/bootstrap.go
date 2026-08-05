@@ -310,15 +310,34 @@ func (rt *runtime) clearEnrollmentCookie(w http.ResponseWriter) {
 // account, and consumes the bootstrap credential as one transaction, then
 // replaces the restricted ticket with a normal session.
 func (rt *runtime) completeBootstrapEnrollment(w http.ResponseWriter, r *http.Request, ticket enrollmentTicket, credential Credential) bool {
-	activate := accountActivator()
-	err := rt.credentials.Save(r.Context(), credential, func(txCtx context.Context) error {
-		if activate != nil {
-			if err := activate(txCtx, ticket.AccountID); err != nil {
-				return fmt.Errorf("activate account: %w", err)
-			}
+	activator := accountActivator()
+	activate := func(ctx context.Context) error {
+		if activator == nil {
+			return nil
 		}
-		return rt.bootstrap.Consume(txCtx, ticket.LoginID, time.Now())
-	})
+		if err := activator(ctx, ticket.AccountID); err != nil {
+			return fmt.Errorf("activate account: %w", err)
+		}
+		return nil
+	}
+	spend := func(ctx context.Context) error {
+		return rt.bootstrap.Consume(ctx, ticket.LoginID, time.Now())
+	}
+
+	var err error
+	if sequenced, ok := rt.credentials.(FirstEnrollmentStore); ok {
+		// A store with no transactions orders the three writes itself, so it
+		// is handed them apart rather than bundled into one callback it could
+		// not sequence.
+		err = sequenced.SaveFirstCredential(r.Context(), credential, spend, activate)
+	} else {
+		err = rt.credentials.Save(r.Context(), credential, func(txCtx context.Context) error {
+			if err := activate(txCtx); err != nil {
+				return err
+			}
+			return spend(txCtx)
+		})
+	}
 	if err != nil {
 		// A partially applied enrollment would leave an account that looks
 		// enrolled but cannot log in, so the whole unit fails.
@@ -335,7 +354,7 @@ func (rt *runtime) completeBootstrapEnrollment(w http.ResponseWriter, r *http.Re
 		pw.WriteProblem(w, r, pw.Forbidden())
 		return false
 	}
-	if err := rt.manager.RotateWithMethod(w, r, SessionData{
+	if err := rt.establish(w, r, SessionData{
 		AccountID:   account.ID,
 		DisplayName: account.DisplayName,
 		Email:       account.Email,

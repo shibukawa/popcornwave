@@ -6,35 +6,76 @@ sidebar:
 ---
 
 ```sh
-pw init <project-name> [--tailwind] [--no-tinygo] [--no-devbox] [--no-database] [--db=<engine>] [--no-redis] [--router=<kind>] [--auth=<mode>] [--session=<backend>] [--devidp] [-i]
+pw init <project-name> [--preset=<name>] [--yes] [--tailwind] [--no-tinygo] [--no-devbox] [--no-database] [--db=<engine>] [--dynamo] [--firestore] [--no-redis] [--router=<kind>] [--auth=<mode>] [--session=<backend>] [--devidp]
 ```
 
-新しいディレクトリに、動作する完全なプロジェクトを作ります。名前とオプションを
-渡せば非対話で動き、名前を省略するか `-i` を付けると、同じ選択肢をウィザードで
-答えられます。
+新しいディレクトリに、動作する完全なプロジェクトを作ります。端末で実行すると
+プリセットの一覧から始まり、`--yes` を付けるとオプションと既定値だけで動きます。
+スクリプトから呼ぶならこちらです。
+
+## プリセット
+
+質問はひとつずつ見れば、どれも答える価値のあるものでした。ただ 10 個並べたとき、
+まだ何も作っていない人がその順番を最後まで答えられるかというと、それは別の話です。
+
+プリセットは、実際に使われる数少ない組み合わせに名前を付けたものです。選んだあとに
+残る質問は、プロジェクト名ひとつだけになります。
+
+| プリセット | どんなプロジェクトか | 何が決まるか |
+| --- | --- | --- |
+| `website-login` | ページがサインインした人のものになるサイト | 探索型ルーティング、OIDC、Redis セッション、SQLite、Tailwind |
+| `website-aws` | 同じサイトを、運用するリレーショナルデータベースなしで | 探索型ルーティング、OIDC、すべて DynamoDB、Tailwind |
+| `website-discovered` | アカウントも保存するものもないサイト | 探索型ルーティング、Tailwind、ログインなし、データベースなし |
+| `website-registered` | 同じサイトを Go の登録として書く | 登録型ルーティング。ほかは同じ |
+| `api-server` | 呼び出す側がトークンを持ってくる機械向け API | 登録型ルーティング、JWT 検証、ブラウザログインなし |
+| `package` | 他のプロジェクトが import するモジュール | プロジェクトの種類が違う。[コンポーネントパッケージ](/ja/guides/deployment/package/)を参照 |
+| `manual` | 上の 6 つのどれでもないもの | 何も決めない。すべて自分で答える |
+
+TinyGo と Devbox はどのプリセットも同じ答え、つまりどちらも「はい」です。この 2 つは
+プロジェクトの中身を変えないので、プリセットを区別する材料になりません。端末なしで
+同じ答えを与えるなら `--preset=<name>` を使います。プリセットがすでに答えた質問に
+答えるオプションを併記すると拒否されます。どちらを優先すべきか、決める根拠がないためです。
+
+**確認画面はプリセットが選んだ内容の一覧で、その行はすべて編集できます。** 行の上で
+enter を押すとその質問が開き、答えると一覧に戻ります。プリセットは出発点であって、
+あとから動かせない決定ではありません。`manual` は同じ画面を、既定値の状態で開いた
+ものです。
+
+どれを選ぶか。フレームワークを試している段階なら `website-discovered` です。ページを
+返す最小のプロジェクトで、断った機能はどれも [`pw add`](/ja/pw/project/add/) ひとつで
+入ります。アカウントが要ると最初からわかっているなら `website-login` を取ってください。
+あとからログインを足すというのは、データベースとセッションストアとプロバイダを
+まとめて足すということで、プリセットはその 3 つを正しく結線した状態で始まります。
+
+決めた答えをあとから変える手順は
+[プリセットの選択を変える](/ja/pw/project/presets/)にまとめてあります。
 
 ## オプション
 
 | オプション | 効果 |
 | --- | --- |
+| `--preset=<name>` | 以下の質問すべてに一度に答える。[プリセット](#プリセット)を参照 |
+| `--yes` | 質問せず、オプションと既定値で作る |
 | `--tailwind` | Tailwind CSS のツールチェインも一緒にスキャフォールドする |
 | `--no-tinygo` | TinyGo ではなくホストの Go を対象にする |
 | `--no-devbox` | `devbox.json` を作らない。mise、Docker Compose、Nix、Homebrew、Scoop など自分の環境を使う |
 | `--no-database` | rdb 設定・マイグレーション・SQL の例を作らない |
 | `--db=<engine>` | `sqlite`（既定）、`postgres`、`mysql` |
+| `--dynamo` | DynamoDB ストアを追加する。設定・型付きレコード・ローカルサーバー |
+| `--firestore` | Datastore mode の Firestore を追加する。設定・型付きエンティティ・クエリ宣言 |
 | `--no-redis` | `devbox.json` に Valkey 開発サーバーを入れない |
 | `--router=<kind>` | `registered`（既定）、`discovered`、`both`。[探索型ルーティング](/ja/guides/cross-layer/discovered-routing/#コマンド)を参照 |
 | `--auth=<mode>` | `none`（既定）、`oidc`、`oidc-passkey`、`passkey` |
-| `--session=<backend>` | ログインを作る場合のセッションの置き場所: `rdb`（既定）、`cookie`、`redis` |
+| `--session=<backend>` | ログインを作る場合のセッションの置き場所: `rdb`（既定）、`cookie`、`redis`、`dynamo`、`firestore` |
 | `--devidp` | OIDC を選んだ場合に、ローカルの認証プロバイダを組み込む |
-| `-i`, `--interactive` | 名前を与えた場合でも全項目を質問する |
 
-`--tailwind`、`--no-devbox`、`--no-database`、`--no-redis`、`--auth` はいずれも、
+`--tailwind`、`--no-database`、`--dynamo`、`--firestore`、`--no-redis`、`--auth` はいずれも、
 あとから [`pw add`](/ja/pw/project/add/) で追加できる機能の選択です。断っても失うものは
-ありません。ただし 2 つは他に依存します。認証はログインの儀式テーブルと許可リストを
-データベースに置き（セッションをどこに保存するかとは無関係です）、Valkey サーバーは
-Devbox のパッケージです。そのため `--no-database` と `--auth` の併用は拒否され、
-`--no-devbox` は Valkey も一緒に落とし、答えても何も適用されない質問はウィザードに
+ありません。ただし 2 つは他に依存します。ブラウザログインには、認証処理中のレコードと
+アカウント側のレコードを保存するサーバーストアが必要です。`--no-database` と `--auth` を
+併用する場合は `--dynamo` または `--firestore` も指定してください。どちらもなければ拒否されます。
+Valkey サーバーは Devbox のパッケージです。`--no-devbox` は Valkey も一緒に落とし、
+答えても何も適用されない質問はウィザードに
 現れません。
 
 `--no-tinygo` だけは `pw add` で後から変えられません。
@@ -138,15 +179,18 @@ OIDC 系を選ぶと、**ローカルエミュレータ**か**外部プロバイ
 
 ## セッションの置き場所
 
-`--auth` を選ぶと、もう1つだけ質問があります。ログインセッションをどこに置くか、です。
-ハンドラから見た姿は3つとも同じで、`session.Read[T]` も auth のヘルパも変わりません。
-つまりこれは API の選択ではなくデプロイの選択です。
+`--auth` を選ぶと、もう1つだけ質問があります。サーバに置く状態をどのバックエンドが持つか、です。
+ハンドラから見た姿は 5 つとも同じで、`session.Load[T]` も auth のヘルパも変わりません。
+つまりこれは API の選択ではなくデプロイの選択です。何がサーバに置かれるかのほうは、
+`pw.RegisterSessionStore` の各行が決めます。
 
 | 回答 | `session.backend` | 得られるもの |
 | --- | --- | --- |
 | データベース | `rdb` | セッションごとに1行。失効可能、掃除あり、マイグレーションを伴う |
 | クッキー | `cookie` | レコードを2つ目のクッキーに封入。ストレージ不要、ただし失効不可 |
 | Redis / Valkey | `redis` | レコードごとにサーバー側 TTL。失効可能、掃除は不要 |
+| DynamoDB | `dynamo` | セッションごとに 1 item。失効可能、テーブル TTL で削除 |
+| Firestore | `firestore` | セッションごとに 1 entity。失効可能、デプロイした TTL ポリシーで削除 |
 
 **ストレージは blank import によるオプトインです。** セッションバックエンドはパッケージ
 の `init` で自分を登録するので、それを import する1行が、バックエンドとそのクライアント
@@ -166,7 +210,7 @@ SQL ストアはエンジンごとに別パッケージです。あるエンジ�
 `authstate/postgres` を書き、マイグレーションも PostgreSQL の方言で出します。
 `sqlite`、`postgres`、`mysql` は同じストア契約テストを通っています。
 
-`pw init` は `rdb` と `redis` のときにこの行を書きます。クッキーバックエンドは `pw` に
+`pw init` は `cookie` 以外の各バックエンドに対応する import を書きます。クッキーバックエンドは `pw` に
 組み込まれているので import は不要です。だからこそ「セッションはあるがストレージは無い」
 状態から始められます。`rdb` のプロジェクトが Redis クライアントを抱えることはなく、その逆も
 同じです。
@@ -180,13 +224,17 @@ import _ "github.com/shibukawa/popcornwave/sessionstore/redis"
 ```
 
 回答は書き出される内容も変えます。`rdb` はセッションテーブルのマイグレーションを書き、
-`cookie` と `redis` はテーブルを持たないので auth のマイグレーションが空いている番号を
-取ります。`redis` は `--no-redis` を渡していても Valkey の開発サーバーを `devbox.json` に
-加えます。設定したセッションが到達先を必要とするからです。`cookie` は
-`cookie_store.secret = "${SESSION_COOKIE_SECRET}"` を書き、生成用のコマンドを表示します。
+ほかのバックエンドは書きません。`dynamo` と `firestore` は、認証レコードも含めて
+プロジェクトが選んだストアを使います。`redis` は `--no-redis` を渡していても Valkey の開発サーバーを `devbox.json` に
+加えます。設定したセッションが到達先を必要とするからです。
+
+`session.keyring.secret` はどの回答でも書かれます。そのプロジェクト用に生成した値が
+`config.dev.toml` に入る。生成したプロジェクトは、秘密を自分で書かずに動くべきだからです。
+これは開発環境のもので、それ以外の環境は `SESSION_KEYRING_SECRET` を読みます。
+`pw doctor --env=prod` は、そこに直値があればエラーとして報告します。
 
 ```sh
-export SESSION_COOKIE_SECRET=$(openssl rand -base64 32)
+export SESSION_KEYRING_SECRET=$(openssl rand -base64 32)
 ```
 
 失効・サイズ・期限を誰が守るかという観点での比較は[クッキー](/ja/guides/backend/cookies/)にあります。

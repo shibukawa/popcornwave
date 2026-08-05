@@ -2,7 +2,7 @@
 title: Build Tool Configuration
 description: Every key of popcornwave.toml — what pw generates, what pw dev runs beside your application, and where the migrations and stylesheet live.
 sidebar:
-  order: 3
+  order: 8
 ---
 
 `popcornwave.toml` sits at the project root and belongs to the `pw` command. It
@@ -25,17 +25,25 @@ by hand is expected; the rules below are what the loader checks.
 | Key | Default | Meaning |
 | --- | --- | --- |
 | `name` | *(required)* | the project name, also the `OTEL_SERVICE_NAME` `pw dev` injects |
-| `main` | *(required)* | the package [`pw build`](/pw/project/build/) compiles, e.g. `"./cmd/myapp"` |
+| `kind` | `"application"` | `application` builds a binary; `package` is published as a Go module |
+| `main` | *(required for an application)* | the package [`pw build`](/pw/project/build/) compiles, e.g. `"./cmd/myapp"` |
 | `toolchain` | `"tinygo"` | the compiler the sources were scaffolded for: `tinygo` or `go` |
 | `database` | `"sqlite"` | the SQL dialect `.pw.sql` sources generate for: `sqlite`, `postgres`, or `mysql` |
 
-Both `toolchain` and `database` reject any other value, and both have a default
-that is history rather than preference: a project written before the key existed
-could only have been TinyGo, and could only have been SQLite.
+`toolchain`, `database`, and `kind` reject any other value, and each default is
+history rather than preference: a project written before the key existed could
+only have been TinyGo, could only have been SQLite, and could only have been an
+application.
+
+`kind` decides which of the two sections below is legal. A package carries no
+`main` — the application that imports it owns the entry point — and an
+application carrying a `[package]` section is an error rather than an ignored
+block. See [Component Packages](/guides/deployment/package/).
 
 `database` is a *generation* input. It decides the dialect the generated Go
 reads your SQL as; the engine the application actually connects to still comes
-from the scheme of `middleware.rdb.dsn`. Keeping the two in agreement is on you
+from the scheme of the `[[middleware.rdb.connections]]` DSN. Keeping the two in
+agreement is on you
 — nothing here can check a DSN it is forbidden to hold.
 
 ## `[generate]`
@@ -47,6 +55,8 @@ templates = ["handlers", "templates"]
 queries = ["queries"]
 config = ["cmd/myapp"]
 pages = []
+dynamo = []
+firestore = []
 ```
 
 Each purpose lists the directories [`pw generate`](/pw/project/generate/) may
@@ -62,11 +72,23 @@ rather than silently picking it up.
 | `generate.queries` | `.pw.sql` sources | yes |
 | `generate.config` | configuration registrations | yes |
 | `generate.pages` | [page tree](/guides/cross-layer/discovered-routing/) roots | no |
+| `generate.dynamo` | `dynamo`-tagged Go types and `.pw.dynamo` declarations | no |
+| `generate.firestore` | `firestore`-tagged Go types and `.pw.firestore` declarations | no |
 
-Every key but `pages` is required, and `[]` is how a project says a purpose
-generates nothing. A missing key cannot say that, which is why the empty list is
-not the same as leaving it out. `pages` is the exception because every project
-scaffolded before page trees existed has neither the key nor a tree.
+Every key but `pages`, `dynamo`, and `firestore` is required, and `[]` is how a project says a
+purpose generates nothing. A missing key cannot say that, which is why the empty
+list is not the same as leaving it out. The two optional keys are the ones a
+project can predate: every project scaffolded before page trees existed has
+neither the key nor a tree. Store-specific keys appear when `pw add dynamo` or
+`pw add firestore` installs that store.
+
+`dynamo` reads Go type declarations rather than a template language, which is
+why it is a purpose of its own instead of part of `queries`. See
+[DynamoDB Templates](/reference/dynamo-templates/).
+
+`firestore` follows the same separation and is independent of `dynamo`; a
+project may use either or both. See
+[Firestore Declarations](/reference/firestore-templates/).
 
 The rules on the entries themselves:
 
@@ -166,6 +188,106 @@ readiness finding for a deployed environment. Leave it `true`.
 Tailwind plugins are not configured here. They are `@plugin` declarations in the
 CSS entry, resolved by the Tailwind CLI — Popcorn Wave passes the entry through
 unchanged and holds no plugin registry.
+
+## `[assets.images]`, `[assets.css]`, `[assets.scripts]`
+
+```toml
+[assets.images]
+enabled = true
+quality = 75
+avif = false
+
+[assets.css]
+minify = true
+
+[assets.scripts]
+enabled = true
+```
+
+These switch the [asset conversions](/guides/frontend/static-assets/) on. Every
+one of them defaults to off, so a project that declares none embeds a copy of
+its authored tree and serves exactly what it served before any of this existed.
+
+| Key | Default | Meaning |
+| --- | --- | --- |
+| `assets.images.enabled` | `false` | convert a `.png` or `.jpg` named by an `img src` to WebP |
+| `assets.images.quality` | `75` | the lossy setting a JPEG source is re-encoded at; a PNG stays lossless and ignores it |
+| `assets.images.avif` | `false` | add an AVIF representation of every served image, chosen from `Accept` |
+| `assets.css.minify` | `false` | minify stylesheets in place |
+| `assets.scripts.enabled` | `false` | build a `.ts` entry point, and minify an authored `.js` |
+
+`assets.images` needs encoders on the host, which is why
+[`pw add images`](/pw/project/add/) writes the key and the Devbox packages
+together. Turning it on without them is not an error: the conversion declines,
+the authored image ships as written, and `pw doctor` reports it — an unconverted
+image is a larger page rather than a broken one.
+
+## `[[packages]]` — in an application
+
+```toml
+[[packages]]
+module = "example.com/widget"
+```
+
+One entry per [component package](/guides/deployment/package/) the application
+uses. `module` is the only key, and it must also be in `go.mod`.
+
+The entry is what *links* the package: [`pw generate`](/pw/project/generate/)
+emits one blank import per declaration into the bootstrap file it maintains. A
+module in `go.mod` and not in this list is an ordinary Go dependency, and a
+declaration naming a module with no `[package]` section is an error — it claims
+a capability the module does not publish.
+
+## `[package]` — in a package
+
+```toml
+[package]
+module = "example.com/widget"
+summary = "A note widget with its own storage"
+assets.declared = true
+routes.register = "Register"
+
+[package.requires]
+capabilities = ["database"]
+engines = ["sqlite"]
+
+[package.generated_with]
+pw = "v0.4.0"
+tinybind = "v0.3.5"
+
+[package.migrations]
+dir = "migrations"
+stem = "widget"
+engines = ["sqlite"]
+```
+
+| Key | Meaning |
+| --- | --- |
+| `module` | *(required)* the Go module path, which must match `go.mod` |
+| `summary` | one line, shown when `pw add` reports the package |
+| `import` | the package path an application links, when it differs from the module root; omitting it where the root holds no Go is `PW0144` |
+| `requires.capabilities` | project capabilities the package needs, such as `database` |
+| `requires.engines` | the SQL engines the package supports; empty means it touches no SQL |
+| `generated_with.pw`, `generated_with.tinybind` | the versions that produced the committed artifacts |
+| `config.section` | the runtime configuration section the package registers |
+| `migrations.dir` | the migration stream, relative to the module root |
+| `migrations.stem` | *(required beside `dir`)* names the stream's version table and the package's tables |
+| `migrations.engines` | the engines the stream is written for |
+| `routes.register` | the exported symbol the application calls to mount the package |
+| `assets.declared` | whether the package registers embedded browser files |
+| `components.exported` | reserved; writing it today is a load error |
+
+`generated_with` constrains nothing on its own — `go.mod` performs the
+resolution. It is the evidence [`pw doctor`](/pw/project/doctor/) compares when
+it reports a package generated by a newer framework than this project builds
+with.
+
+`migrations.engines` must cover everything `requires.engines` declares.
+Otherwise the package claims support for an engine it never wrote schema for,
+and the failure lands at the first migration rather than at the declaration.
+
+`generate.queries` must be empty in a package. A generated query carries one
+engine's placeholder syntax and a package cannot know its consumer's.
 
 ## Rules that apply to the whole file
 

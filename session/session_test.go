@@ -2,6 +2,7 @@ package session
 
 import (
 	"context"
+	"encoding/base64"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -14,20 +15,32 @@ type payload struct {
 	AccountID string `json:"account_id"`
 }
 
-// mapStore is a minimal in-process Store used to exercise Manager semantics.
+type cart struct {
+	Items []string `json:"items"`
+}
+
+type locale struct {
+	Tag string `json:"tag"`
+}
+
+type density struct {
+	Compact bool `json:"compact"`
+}
+
+// mapStore is a minimal in-process RawStore used to exercise Manager semantics.
 type mapStore struct {
 	sync.Mutex
-	records map[string]Record[payload]
+	records map[string]RawRecord
 	failing bool
 	puts    int
 	touches int
 }
 
 func newMapStore() *mapStore {
-	return &mapStore{records: make(map[string]Record[payload])}
+	return &mapStore{records: make(map[string]RawRecord)}
 }
 
-func (s *mapStore) Put(_ context.Context, keyHash string, record Record[payload]) error {
+func (s *mapStore) Put(_ context.Context, keyHash string, record RawRecord) error {
 	s.Lock()
 	defer s.Unlock()
 	if s.failing {
@@ -38,15 +51,15 @@ func (s *mapStore) Put(_ context.Context, keyHash string, record Record[payload]
 	return nil
 }
 
-func (s *mapStore) Get(_ context.Context, keyHash string) (Record[payload], error) {
+func (s *mapStore) Get(_ context.Context, keyHash string) (RawRecord, error) {
 	s.Lock()
 	defer s.Unlock()
 	if s.failing {
-		return Record[payload]{}, ErrUnavailable
+		return RawRecord{}, ErrUnavailable
 	}
 	record, ok := s.records[keyHash]
 	if !ok {
-		return Record[payload]{}, ErrNotFound
+		return RawRecord{}, ErrNotFound
 	}
 	return record, nil
 }
@@ -95,30 +108,45 @@ func (c *clock) advance(d time.Duration) {
 	c.now = c.now.Add(d)
 }
 
-func testManager(t *testing.T, store Store[payload], options Options[payload]) *Manager[payload] {
+func defaultOptions(t *testing.T, now func() time.Time) Options {
 	t.Helper()
-	manager, err := NewManager(store, options)
+	return Options{
+		TTL:             time.Hour,
+		IdleTimeout:     30 * time.Minute,
+		RenewalInterval: 5 * time.Minute,
+		Cookie:          CookieOptions{Secure: true, HTTPOnly: true},
+		Keys:            testKeyring(t, 1),
+		Now:             now,
+	}
+}
+
+// accountRegistry registers one Private slot, the shape plugin/auth uses.
+func accountRegistry(t *testing.T) *Registry {
+	t.Helper()
+	registry := NewRegistry()
+	if err := Register[payload](registry, "account", Private, nil); err != nil {
+		t.Fatalf("Register: %v", err)
+	}
+	return registry
+}
+
+func testManager(t *testing.T, registry *Registry, backend RawStore, options Options) *Manager {
+	t.Helper()
+	manager, err := NewManager(registry, backend, options)
 	if err != nil {
 		t.Fatalf("NewManager: %v", err)
 	}
 	return manager
 }
 
-func defaultOptions(now func() time.Time) Options[payload] {
-	return Options[payload]{
-		TTL:             time.Hour,
-		IdleTimeout:     30 * time.Minute,
-		RenewalInterval: 5 * time.Minute,
-		Cookie:          CookieOptions{Secure: true, HTTPOnly: true},
-		Method:          "test",
-		Subject:         func(p payload) string { return p.AccountID },
-		Now:             now,
-	}
-}
-
-// sessionCookie returns the manager cookie written to the recorded response.
+// sessionCookie returns the named cookie written to the recorded response.
 func sessionCookie(t *testing.T, recorder *httptest.ResponseRecorder, name string) *http.Cookie {
 	t.Helper()
+	return cookieOf(recorder, name)
+}
+
+// cookieOf returns the named cookie written to the recorded response.
+func cookieOf(recorder *httptest.ResponseRecorder, name string) *http.Cookie {
 	for _, cookie := range recorder.Result().Cookies() {
 		if cookie.Name == name {
 			return cookie
@@ -127,73 +155,315 @@ func sessionCookie(t *testing.T, recorder *httptest.ResponseRecorder, name strin
 	return nil
 }
 
-func TestManagerCreatesOpaqueCookieAndResolvesSession(t *testing.T) {
-	store := newMapStore()
-	c := &clock{now: time.Unix(1_700_000_000, 0)}
-	manager := testManager(t, store, defaultOptions(c.Now))
-
+// run serves one request through the manager middleware and returns the
+// response. handler receives the request whose context carries the session.
+func run(manager *Manager, cookies []*http.Cookie, handler func(http.ResponseWriter, *http.Request)) *httptest.ResponseRecorder {
 	recorder := httptest.NewRecorder()
 	request := httptest.NewRequest(http.MethodGet, "/", nil)
-	if err := manager.Create(recorder, request, payload{AccountID: "account-1"}); err != nil {
-		t.Fatalf("Create: %v", err)
+	for _, cookie := range cookies {
+		request.AddCookie(cookie)
 	}
-	cookie := sessionCookie(t, recorder, DefaultCookieName)
-	if cookie == nil {
-		t.Fatal("no session cookie")
-	}
-	if !cookie.HttpOnly || !cookie.Secure || cookie.SameSite != http.SameSiteLaxMode {
-		t.Fatalf("cookie policy = %#v", cookie)
-	}
-	if !validToken(cookie.Value) {
-		t.Fatalf("cookie value %q is not a canonical token", cookie.Value)
-	}
-	// The browser value must never be the stored key.
-	if _, stored := store.records[cookie.Value]; stored {
-		t.Fatal("raw token used as store key")
-	}
-	if _, stored := store.records[keyHash(cookie.Value)]; !stored {
-		t.Fatal("record not stored under the token hash")
-	}
+	manager.Middleware(nil)(http.HandlerFunc(handler)).ServeHTTP(recorder, request)
+	return recorder
+}
 
-	var seen View[payload]
-	var found bool
-	handler := manager.Middleware(nil)(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
-		seen, found = Read[payload](r.Context())
-	}))
-	next := httptest.NewRequest(http.MethodGet, "/", nil)
-	next.AddCookie(cookie)
-	handler.ServeHTTP(httptest.NewRecorder(), next)
-	if !found || seen.Data.AccountID != "account-1" || seen.Method != "test" {
-		t.Fatalf("resolved session = %#v found=%v", seen, found)
+// carry turns a response into the cookies the browser would send next. A later
+// Set-Cookie replaces an earlier one of the same name, which is what makes a
+// rotation inside one response leave exactly one token behind.
+func carry(recorder *httptest.ResponseRecorder) []*http.Cookie {
+	client := newBrowser()
+	client.accept(recorder)
+	return client.list()
+}
+
+func TestBareReadIssuesNothing(t *testing.T) {
+	store := newMapStore()
+	c := &clock{now: time.Unix(1_700_000_000, 0)}
+	manager := testManager(t, accountRegistry(t), store, defaultOptions(t, c.Now))
+
+	recorder := run(manager, nil, func(_ http.ResponseWriter, r *http.Request) {
+		if _, ok := Load[payload](r.Context()); ok {
+			t.Error("a browser with no session reported one")
+		}
+	})
+	if len(recorder.Result().Cookies()) != 0 {
+		t.Fatalf("a visitor who wrote nothing received cookies: %#v", recorder.Result().Cookies())
+	}
+	if store.len() != 0 {
+		t.Fatalf("a visitor who wrote nothing occupies storage: %d", store.len())
 	}
 }
 
-func TestMiddlewareReportsAuthenticationAndClearsStaleCookie(t *testing.T) {
+func TestAnonymousPrivateSlotRidesTheCookieAndNotTheServer(t *testing.T) {
 	store := newMapStore()
 	c := &clock{now: time.Unix(1_700_000_000, 0)}
-	manager := testManager(t, store, defaultOptions(c.Now))
+	manager := testManager(t, accountRegistry(t), store, defaultOptions(t, c.Now))
 
-	create := httptest.NewRecorder()
-	if err := manager.Create(create, httptest.NewRequest(http.MethodGet, "/", nil), payload{AccountID: "a"}); err != nil {
+	first := run(manager, nil, func(_ http.ResponseWriter, r *http.Request) {
+		handle, ok := Value[payload](r.Context())
+		if !ok {
+			t.Fatal("no slot handle")
+		}
+		if err := handle.Set(payload{AccountID: "anonymous-cart"}); err != nil {
+			t.Fatalf("Set: %v", err)
+		}
+	})
+	token := cookieOf(first, DefaultCookieName)
+	if token == nil || !validToken(token.Value) {
+		t.Fatalf("token cookie = %#v", token)
+	}
+	if cookieOf(first, DefaultDataCookieName) == nil {
+		t.Fatal("anonymous record was not written to the sealed cookie")
+	}
+	if store.len() != 0 {
+		t.Fatalf("anonymous write reached the server: %d records", store.len())
+	}
+
+	// The value survives the round trip through the browser.
+	run(manager, carry(first), func(_ http.ResponseWriter, r *http.Request) {
+		value, ok := Load[payload](r.Context())
+		if !ok || value.AccountID != "anonymous-cart" {
+			t.Fatalf("resolved = %#v ok=%v", value, ok)
+		}
+	})
+}
+
+func TestRotatePromotesPrivateSlotToTheServer(t *testing.T) {
+	store := newMapStore()
+	c := &clock{now: time.Unix(1_700_000_000, 0)}
+	manager := testManager(t, accountRegistry(t), store, defaultOptions(t, c.Now))
+
+	anonymous := run(manager, nil, func(_ http.ResponseWriter, r *http.Request) {
+		handle, _ := Value[payload](r.Context())
+		if err := handle.Set(payload{AccountID: "kept"}); err != nil {
+			t.Fatal(err)
+		}
+	})
+	anonymousToken := cookieOf(anonymous, DefaultCookieName)
+
+	login := run(manager, carry(anonymous), func(w http.ResponseWriter, r *http.Request) {
+		if err := manager.Rotate(w, r); err != nil {
+			t.Fatalf("Rotate: %v", err)
+		}
+	})
+	loginToken := cookieOf(login, DefaultCookieName)
+	if loginToken == nil || loginToken.Value == anonymousToken.Value {
+		t.Fatal("rotation reused the previous token")
+	}
+	if store.len() != 1 {
+		t.Fatalf("promotion did not reach the server: %d records", store.len())
+	}
+	if record := cookieOf(login, DefaultDataCookieName); record == nil || record.MaxAge >= 0 {
+		t.Fatalf("the anonymous record cookie was not expired: %#v", record)
+	}
+
+	// The value written before the login is still there, now from the server.
+	run(manager, carry(login), func(_ http.ResponseWriter, r *http.Request) {
+		value, ok := Load[payload](r.Context())
+		if !ok || value.AccountID != "kept" {
+			t.Fatalf("promoted value = %#v ok=%v", value, ok)
+		}
+	})
+
+	// A later write stays on the server rather than falling back to a cookie.
+	before := store.puts
+	after := run(manager, carry(login), func(_ http.ResponseWriter, r *http.Request) {
+		handle, _ := Value[payload](r.Context())
+		if err := handle.Set(payload{AccountID: "changed"}); err != nil {
+			t.Fatal(err)
+		}
+	})
+	if store.puts == before {
+		t.Fatal("a write after promotion did not reach the server")
+	}
+	if record := cookieOf(after, DefaultDataCookieName); record != nil && record.MaxAge >= 0 {
+		t.Fatal("a write after promotion resurrected the record cookie")
+	}
+}
+
+func TestServerOnlySlotReachesTheServerWhileAnonymous(t *testing.T) {
+	store := newMapStore()
+	c := &clock{now: time.Unix(1_700_000_000, 0)}
+	registry := NewRegistry()
+	if err := Register[payload](registry, "creds", ServerOnly, nil); err != nil {
 		t.Fatal(err)
 	}
-	cookie := sessionCookie(t, create, DefaultCookieName)
+	manager := testManager(t, registry, store, defaultOptions(t, c.Now))
 
-	// An expired record is not a failure: the request continues anonymously
-	// and the browser cookie is cleared.
+	response := run(manager, nil, func(_ http.ResponseWriter, r *http.Request) {
+		handle, _ := Value[payload](r.Context())
+		if err := handle.Set(payload{AccountID: "a"}); err != nil {
+			t.Fatal(err)
+		}
+	})
+	if store.len() != 1 {
+		t.Fatalf("ServerOnly write did not reach the server: %d", store.len())
+	}
+	if cookieOf(response, DefaultDataCookieName) != nil {
+		t.Fatal("ServerOnly value was written to a cookie")
+	}
+}
+
+func TestServerOnlySlotIsRefusedOnTheCookieBackend(t *testing.T) {
+	registry := NewRegistry()
+	if err := Register[payload](registry, "creds", ServerOnly, nil); err != nil {
+		t.Fatal(err)
+	}
+	c := &clock{now: time.Unix(1_700_000_000, 0)}
+	_, err := NewManager(registry, nil, defaultOptions(t, c.Now))
+	if !errors.Is(err, ErrInvalidOptions) {
+		t.Fatalf("error = %v, want a refusal naming the slot", err)
+	}
+}
+
+func TestCookiePlacedTiersCarryTheirOwnCookies(t *testing.T) {
+	store := newMapStore()
+	c := &clock{now: time.Unix(1_700_000_000, 0)}
+	registry := NewRegistry()
+	if err := Register[density](registry, "density", Shared, nil); err != nil {
+		t.Fatal(err)
+	}
+	if err := Register[locale](registry, "locale", ReadOnly, nil); err != nil {
+		t.Fatal(err)
+	}
+	manager := testManager(t, registry, store, defaultOptions(t, c.Now))
+
+	response := run(manager, nil, func(_ http.ResponseWriter, r *http.Request) {
+		shared, _ := Value[density](r.Context())
+		if err := shared.Set(density{Compact: true}); err != nil {
+			t.Fatal(err)
+		}
+		readOnly, _ := Value[locale](r.Context())
+		if err := readOnly.Set(locale{Tag: "ja"}); err != nil {
+			t.Fatal(err)
+		}
+	})
+	// A cookie-placed slot needs no session token and no record.
+	if cookieOf(response, DefaultCookieName) != nil {
+		t.Fatal("a cookie-placed write issued a session token")
+	}
+	if store.len() != 0 {
+		t.Fatalf("a cookie-placed write reached the server: %d", store.len())
+	}
+	for _, name := range []string{"density", "locale"} {
+		cookie := cookieOf(response, name)
+		if cookie == nil {
+			t.Fatalf("slot %q wrote no cookie", name)
+		}
+		if cookie.HttpOnly {
+			t.Fatalf("slot %q is HttpOnly, so the front end cannot read it", name)
+		}
+	}
+	run(manager, carry(response), func(_ http.ResponseWriter, r *http.Request) {
+		if value, ok := Load[density](r.Context()); !ok || !value.Compact {
+			t.Fatalf("shared = %#v ok=%v", value, ok)
+		}
+		if value, ok := Load[locale](r.Context()); !ok || value.Tag != "ja" {
+			t.Fatalf("read-only = %#v ok=%v", value, ok)
+		}
+	})
+}
+
+func TestReadOnlySlotRejectsAClientEditAndSharedAcceptsIt(t *testing.T) {
+	store := newMapStore()
+	c := &clock{now: time.Unix(1_700_000_000, 0)}
+	registry := NewRegistry()
+	if err := Register[density](registry, "density", Shared, nil); err != nil {
+		t.Fatal(err)
+	}
+	if err := Register[locale](registry, "locale", ReadOnly, nil); err != nil {
+		t.Fatal(err)
+	}
+	manager := testManager(t, registry, store, defaultOptions(t, c.Now))
+
+	// A client-forged value in the plain wire format, which is exactly what the
+	// plain mode accepts and the signed mode must not.
+	plain := func(body string) string {
+		return "1.p." + base64.RawURLEncoding.EncodeToString([]byte(body))
+	}
+	forged := []*http.Cookie{
+		{Name: "density", Value: plain(`{"compact":true}`)},
+		{Name: "locale", Value: plain(`{"tag":"fr"}`)},
+	}
+	run(manager, forged, func(_ http.ResponseWriter, r *http.Request) {
+		if value, ok := Load[density](r.Context()); !ok || !value.Compact {
+			t.Fatalf("shared value rejected a client edit: %#v ok=%v", value, ok)
+		}
+		if value, ok := Load[locale](r.Context()); ok {
+			t.Fatalf("read-only value accepted a client edit: %#v", value)
+		}
+	})
+}
+
+func TestDestroyEndsEveryPlacement(t *testing.T) {
+	store := newMapStore()
+	c := &clock{now: time.Unix(1_700_000_000, 0)}
+	registry := NewRegistry()
+	if err := Register[payload](registry, "account", Private, nil); err != nil {
+		t.Fatal(err)
+	}
+	if err := Register[locale](registry, "locale", ReadOnly, nil); err != nil {
+		t.Fatal(err)
+	}
+	manager := testManager(t, registry, store, defaultOptions(t, c.Now))
+
+	live := run(manager, nil, func(w http.ResponseWriter, r *http.Request) {
+		account, _ := Value[payload](r.Context())
+		if err := account.Set(payload{AccountID: "a"}); err != nil {
+			t.Fatal(err)
+		}
+		tag, _ := Value[locale](r.Context())
+		if err := tag.Set(locale{Tag: "ja"}); err != nil {
+			t.Fatal(err)
+		}
+		if err := manager.Rotate(w, r); err != nil {
+			t.Fatal(err)
+		}
+	})
+	if store.len() != 1 {
+		t.Fatalf("records before destroy = %d", store.len())
+	}
+
+	out := run(manager, carry(live), func(w http.ResponseWriter, r *http.Request) {
+		if err := manager.Destroy(w, r); err != nil {
+			t.Fatalf("Destroy: %v", err)
+		}
+	})
+	if store.len() != 0 {
+		t.Fatalf("records after destroy = %d", store.len())
+	}
+	for _, name := range []string{DefaultCookieName, DefaultDataCookieName, "locale"} {
+		cookie := cookieOf(out, name)
+		if cookie == nil || cookie.MaxAge >= 0 {
+			t.Fatalf("cookie %q survived the destroy: %#v", name, cookie)
+		}
+	}
+}
+
+func TestExpiredRecordIsClearedAndTheRequestContinues(t *testing.T) {
+	store := newMapStore()
+	c := &clock{now: time.Unix(1_700_000_000, 0)}
+	manager := testManager(t, accountRegistry(t), store, defaultOptions(t, c.Now))
+
+	live := run(manager, nil, func(w http.ResponseWriter, r *http.Request) {
+		handle, _ := Value[payload](r.Context())
+		if err := handle.Set(payload{AccountID: "a"}); err != nil {
+			t.Fatal(err)
+		}
+		if err := manager.Rotate(w, r); err != nil {
+			t.Fatal(err)
+		}
+	})
+
 	c.advance(2 * time.Hour)
-	var authenticated bool
-	handler := manager.Middleware(nil)(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
-		_, authenticated = Read[payload](r.Context())
-	}))
-	recorder := httptest.NewRecorder()
-	request := httptest.NewRequest(http.MethodGet, "/", nil)
-	request.AddCookie(cookie)
-	handler.ServeHTTP(recorder, request)
-	if authenticated {
+	seen := true
+	recorder := run(manager, carry(live), func(_ http.ResponseWriter, r *http.Request) {
+		_, seen = Load[payload](r.Context())
+	})
+	if seen {
 		t.Fatal("expired session was accepted")
 	}
-	cleared := sessionCookie(t, recorder, DefaultCookieName)
+	cleared := cookieOf(recorder, DefaultCookieName)
 	if cleared == nil || cleared.MaxAge >= 0 {
 		t.Fatalf("stale cookie was not cleared: %#v", cleared)
 	}
@@ -205,20 +475,20 @@ func TestMiddlewareReportsAuthenticationAndClearsStaleCookie(t *testing.T) {
 func TestMiddlewareFailsClosedWhenBackendIsUnavailable(t *testing.T) {
 	store := newMapStore()
 	c := &clock{now: time.Unix(1_700_000_000, 0)}
-	manager := testManager(t, store, defaultOptions(c.Now))
-	create := httptest.NewRecorder()
-	if err := manager.Create(create, httptest.NewRequest(http.MethodGet, "/", nil), payload{AccountID: "a"}); err != nil {
-		t.Fatal(err)
-	}
-	cookie := sessionCookie(t, create, DefaultCookieName)
+	manager := testManager(t, accountRegistry(t), store, defaultOptions(t, c.Now))
+	live := run(manager, nil, func(w http.ResponseWriter, r *http.Request) {
+		handle, _ := Value[payload](r.Context())
+		if err := handle.Set(payload{AccountID: "a"}); err != nil {
+			t.Fatal(err)
+		}
+		if err := manager.Rotate(w, r); err != nil {
+			t.Fatal(err)
+		}
+	})
 
 	store.failing = true
 	reached := false
-	handler := manager.Middleware(nil)(http.HandlerFunc(func(http.ResponseWriter, *http.Request) { reached = true }))
-	recorder := httptest.NewRecorder()
-	request := httptest.NewRequest(http.MethodGet, "/", nil)
-	request.AddCookie(cookie)
-	handler.ServeHTTP(recorder, request)
+	recorder := run(manager, carry(live), func(http.ResponseWriter, *http.Request) { reached = true })
 	if reached {
 		t.Fatal("handler ran while the session backend was unavailable")
 	}
@@ -227,76 +497,21 @@ func TestMiddlewareFailsClosedWhenBackendIsUnavailable(t *testing.T) {
 	}
 }
 
-func TestRotateRevokesPreviousRecord(t *testing.T) {
-	store := newMapStore()
-	c := &clock{now: time.Unix(1_700_000_000, 0)}
-	manager := testManager(t, store, defaultOptions(c.Now))
-
-	first := httptest.NewRecorder()
-	if err := manager.Create(first, httptest.NewRequest(http.MethodGet, "/", nil), payload{AccountID: "a"}); err != nil {
-		t.Fatal(err)
-	}
-	firstCookie := sessionCookie(t, first, DefaultCookieName)
-
-	second := httptest.NewRecorder()
-	request := httptest.NewRequest(http.MethodGet, "/", nil)
-	request.AddCookie(firstCookie)
-	if err := manager.Rotate(second, request, payload{AccountID: "b"}); err != nil {
-		t.Fatal(err)
-	}
-	secondCookie := sessionCookie(t, second, DefaultCookieName)
-	if secondCookie.Value == firstCookie.Value {
-		t.Fatal("rotation reused the previous token")
-	}
-	if store.len() != 1 {
-		t.Fatalf("stored records = %d, want only the rotated one", store.len())
-	}
-	if _, err := store.Get(context.Background(), keyHash(firstCookie.Value)); !errors.Is(err, ErrNotFound) {
-		t.Fatalf("previous record error = %v", err)
-	}
-}
-
-func TestDeleteRevokesRecordAndExpiresCookie(t *testing.T) {
-	store := newMapStore()
-	c := &clock{now: time.Unix(1_700_000_000, 0)}
-	manager := testManager(t, store, defaultOptions(c.Now))
-	create := httptest.NewRecorder()
-	if err := manager.Create(create, httptest.NewRequest(http.MethodGet, "/", nil), payload{AccountID: "a"}); err != nil {
-		t.Fatal(err)
-	}
-	cookie := sessionCookie(t, create, DefaultCookieName)
-
-	recorder := httptest.NewRecorder()
-	request := httptest.NewRequest(http.MethodPost, "/logout", nil)
-	request.AddCookie(cookie)
-	if err := manager.Delete(recorder, request); err != nil {
-		t.Fatal(err)
-	}
-	if store.len() != 0 {
-		t.Fatalf("records after delete = %d", store.len())
-	}
-	cleared := sessionCookie(t, recorder, DefaultCookieName)
-	if cleared == nil || cleared.MaxAge >= 0 || cleared.Value != "" {
-		t.Fatalf("cookie after delete = %#v", cleared)
-	}
-}
-
 func TestRenewalIsBoundedByIntervalAndAbsoluteExpiry(t *testing.T) {
 	store := newMapStore()
 	c := &clock{now: time.Unix(1_700_000_000, 0)}
-	manager := testManager(t, store, defaultOptions(c.Now))
-	create := httptest.NewRecorder()
-	if err := manager.Create(create, httptest.NewRequest(http.MethodGet, "/", nil), payload{AccountID: "a"}); err != nil {
-		t.Fatal(err)
-	}
-	cookie := sessionCookie(t, create, DefaultCookieName)
-	handler := manager.Middleware(nil)(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}))
-
-	visit := func() {
-		request := httptest.NewRequest(http.MethodGet, "/", nil)
-		request.AddCookie(cookie)
-		handler.ServeHTTP(httptest.NewRecorder(), request)
-	}
+	manager := testManager(t, accountRegistry(t), store, defaultOptions(t, c.Now))
+	live := run(manager, nil, func(w http.ResponseWriter, r *http.Request) {
+		handle, _ := Value[payload](r.Context())
+		if err := handle.Set(payload{AccountID: "a"}); err != nil {
+			t.Fatal(err)
+		}
+		if err := manager.Rotate(w, r); err != nil {
+			t.Fatal(err)
+		}
+	})
+	cookies := carry(live)
+	visit := func() { run(manager, cookies, func(http.ResponseWriter, *http.Request) {}) }
 
 	c.advance(time.Minute)
 	visit()
@@ -309,11 +524,16 @@ func TestRenewalIsBoundedByIntervalAndAbsoluteExpiry(t *testing.T) {
 		t.Fatalf("touches after the renewal interval = %d", store.touches)
 	}
 
-	// Idle renewal must never move the record past its absolute expiry. At
-	// this point the renewed idle window would reach beyond it.
+	// Idle renewal must never move the record past its absolute expiry.
 	c.advance(25 * time.Minute)
 	visit()
-	record, err := store.Get(context.Background(), keyHash(cookie.Value))
+	var token string
+	for _, cookie := range cookies {
+		if cookie.Name == DefaultCookieName {
+			token = cookie.Value
+		}
+	}
+	record, err := store.Get(context.Background(), keyHash(token))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -325,23 +545,24 @@ func TestRenewalIsBoundedByIntervalAndAbsoluteExpiry(t *testing.T) {
 func TestVersionMismatchInvalidatesRecord(t *testing.T) {
 	store := newMapStore()
 	c := &clock{now: time.Unix(1_700_000_000, 0)}
-	options := defaultOptions(c.Now)
-	manager := testManager(t, store, options)
-	create := httptest.NewRecorder()
-	if err := manager.Create(create, httptest.NewRequest(http.MethodGet, "/", nil), payload{AccountID: "a"}); err != nil {
-		t.Fatal(err)
-	}
-	cookie := sessionCookie(t, create, DefaultCookieName)
+	options := defaultOptions(t, c.Now)
+	manager := testManager(t, accountRegistry(t), store, options)
+	live := run(manager, nil, func(w http.ResponseWriter, r *http.Request) {
+		handle, _ := Value[payload](r.Context())
+		if err := handle.Set(payload{AccountID: "a"}); err != nil {
+			t.Fatal(err)
+		}
+		if err := manager.Rotate(w, r); err != nil {
+			t.Fatal(err)
+		}
+	})
 
 	options.Version = 2
-	upgraded := testManager(t, store, options)
+	upgraded := testManager(t, accountRegistry(t), store, options)
 	authenticated := false
-	handler := upgraded.Middleware(nil)(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
-		_, authenticated = Read[payload](r.Context())
-	}))
-	request := httptest.NewRequest(http.MethodGet, "/", nil)
-	request.AddCookie(cookie)
-	handler.ServeHTTP(httptest.NewRecorder(), request)
+	run(upgraded, carry(live), func(_ http.ResponseWriter, r *http.Request) {
+		_, authenticated = Load[payload](r.Context())
+	})
 	if authenticated {
 		t.Fatal("record of an older version was accepted")
 	}
@@ -351,41 +572,109 @@ func TestVersionMismatchInvalidatesRecord(t *testing.T) {
 }
 
 func TestManagerRejectsUnsafeOptions(t *testing.T) {
-	store := newMapStore()
-	cases := map[string]Options[payload]{
-		"missing ttl":     {},
-		"idle beyond ttl": {TTL: time.Hour, IdleTimeout: 2 * time.Hour},
+	keys := testKeyring(t, 1)
+	cases := map[string]Options{
+		"idle beyond ttl": {TTL: time.Hour, IdleTimeout: 2 * time.Hour, Keys: keys},
 		"insecure same-site none": {
 			TTL:    time.Hour,
+			Keys:   keys,
 			Cookie: CookieOptions{SameSite: http.SameSiteNoneMode},
 		},
-		"invalid cookie name": {TTL: time.Hour, Cookie: CookieOptions{Name: "bad name"}},
-		"relative cookie path": {
-			TTL:    time.Hour,
-			Cookie: CookieOptions{Path: "relative"},
-		},
+		"invalid cookie name":  {TTL: time.Hour, Keys: keys, Cookie: CookieOptions{Name: "bad name"}},
+		"relative cookie path": {TTL: time.Hour, Keys: keys, Cookie: CookieOptions{Path: "relative"}},
+		"missing keyring":      {TTL: time.Hour},
 	}
 	for name, options := range cases {
-		if _, err := NewManager(store, options); !errors.Is(err, ErrInvalidOptions) {
+		if _, err := NewManager(accountRegistry(t), newMapStore(), options); !errors.Is(err, ErrInvalidOptions) {
 			t.Fatalf("%s: error = %v", name, err)
 		}
+	}
+}
+
+func TestSharedOnlyRegistryNeedsNoKeyring(t *testing.T) {
+	registry := NewRegistry()
+	if err := Register[density](registry, "density", Shared, nil); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := NewManager(registry, nil, Options{TTL: time.Hour}); err != nil {
+		t.Fatalf("a registry of only Shared slots needs no secret: %v", err)
 	}
 }
 
 func TestMalformedCookieNeverReachesTheStore(t *testing.T) {
 	store := newMapStore()
 	c := &clock{now: time.Unix(1_700_000_000, 0)}
-	manager := testManager(t, store, defaultOptions(c.Now))
+	manager := testManager(t, accountRegistry(t), store, defaultOptions(t, c.Now))
 	store.failing = true
 
 	reached := false
-	handler := manager.Middleware(nil)(http.HandlerFunc(func(http.ResponseWriter, *http.Request) { reached = true }))
-	recorder := httptest.NewRecorder()
-	request := httptest.NewRequest(http.MethodGet, "/", nil)
-	request.AddCookie(&http.Cookie{Name: DefaultCookieName, Value: "not-a-token"})
-	handler.ServeHTTP(recorder, request)
+	recorder := run(manager, []*http.Cookie{{Name: DefaultCookieName, Value: "not-a-token"}},
+		func(http.ResponseWriter, *http.Request) { reached = true })
 	if !reached || recorder.Code != http.StatusOK {
 		t.Fatalf("malformed cookie was sent to the backend: status=%d reached=%v", recorder.Code, reached)
+	}
+}
+
+func TestRegistryRefusesDuplicates(t *testing.T) {
+	registry := NewRegistry()
+	if err := Register[payload](registry, "account", Private, nil); err != nil {
+		t.Fatal(err)
+	}
+	if err := Register[payload](registry, "other", Private, nil); !errors.Is(err, ErrInvalidOptions) {
+		t.Fatalf("duplicate type error = %v", err)
+	}
+	if err := Register[cart](registry, "account", Private, nil); !errors.Is(err, ErrInvalidOptions) {
+		t.Fatalf("duplicate key error = %v", err)
+	}
+	if err := Register[cart](registry, "bad name", Private, nil); !errors.Is(err, ErrInvalidOptions) {
+		t.Fatalf("invalid key error = %v", err)
+	}
+	if err := Register[cart](registry, "cart", Placement(0), nil); !errors.Is(err, ErrInvalidOptions) {
+		t.Fatalf("invalid placement error = %v", err)
+	}
+}
+
+func TestRegistrationAfterTheManagerIsRefused(t *testing.T) {
+	registry := accountRegistry(t)
+	c := &clock{now: time.Unix(1_700_000_000, 0)}
+	testManager(t, registry, newMapStore(), defaultOptions(t, c.Now))
+	if err := Register[cart](registry, "cart", Private, nil); !errors.Is(err, ErrInvalidOptions) {
+		t.Fatalf("late registration error = %v", err)
+	}
+}
+
+func TestUnregisteredTypeHasNoHandle(t *testing.T) {
+	store := newMapStore()
+	c := &clock{now: time.Unix(1_700_000_000, 0)}
+	manager := testManager(t, accountRegistry(t), store, defaultOptions(t, c.Now))
+	run(manager, nil, func(_ http.ResponseWriter, r *http.Request) {
+		if _, ok := Value[cart](r.Context()); ok {
+			t.Fatal("an unregistered type produced a handle")
+		}
+	})
+}
+
+func TestOversizedAnonymousPrivateWriteIsRefusedRatherThanSpilled(t *testing.T) {
+	store := newMapStore()
+	c := &clock{now: time.Unix(1_700_000_000, 0)}
+	registry := NewRegistry()
+	if err := Register[cart](registry, "cart", Private, nil); err != nil {
+		t.Fatal(err)
+	}
+	manager := testManager(t, registry, store, defaultOptions(t, c.Now))
+
+	big := cart{Items: make([]string, 0, 256)}
+	for range 256 {
+		big.Items = append(big.Items, "0123456789abcdef0123456789abcdef")
+	}
+	run(manager, nil, func(_ http.ResponseWriter, r *http.Request) {
+		handle, _ := Value[cart](r.Context())
+		if err := handle.Set(big); !errors.Is(err, ErrCookieTooLarge) {
+			t.Fatalf("oversized anonymous write error = %v, want ErrCookieTooLarge", err)
+		}
+	})
+	if store.len() != 0 {
+		t.Fatalf("an oversized anonymous write spilled to the server: %d", store.len())
 	}
 }
 
@@ -400,5 +689,23 @@ func TestJSONCodecRejectsTrailingBytes(t *testing.T) {
 	}
 	if _, err := codec.Decode(append(encoded, '{')); !errors.Is(err, ErrCodec) {
 		t.Fatalf("trailing bytes error = %v", err)
+	}
+}
+
+func TestSlotMapCodecRoundTrip(t *testing.T) {
+	codec := slotMapCodec{order: []string{"a", "b"}}
+	encoded, err := codec.Encode(slotMap{"a": []byte("one"), "b": []byte("two")})
+	if err != nil {
+		t.Fatal(err)
+	}
+	decoded, err := codec.Decode(encoded)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(decoded["a"]) != "one" || string(decoded["b"]) != "two" {
+		t.Fatalf("decoded = %#v", decoded)
+	}
+	if _, err := codec.Decode([]byte{9, 9, 9}); !errors.Is(err, ErrCodec) {
+		t.Fatalf("malformed payload error = %v", err)
 	}
 }

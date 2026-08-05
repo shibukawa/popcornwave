@@ -121,6 +121,20 @@ type RegistrationOptions struct {
 	ExcludeCredentials      []CredentialDescriptor
 	ResidentKey             string
 	RequireUserVerification bool
+	// Binding names the principal this registration is being performed for, in
+	// whatever encoding the application chooses. It is opaque here: this
+	// package stores it with the ceremony and requires SessionFlow's
+	// FinishRegistration to be given a value equal to it.
+	//
+	// It exists because the finish handler of a web application resolves its
+	// own caller, and a browser's identity can change between the two requests.
+	// Without this the ceremony adopts whoever is authenticated when it
+	// finishes, and a credential enrolled by one account lands on another.
+	//
+	// It carries no secret and no authority. It is a comparison of two values
+	// the application already knows, so binding to an account identifier is
+	// enough; it does not have to be unguessable.
+	Binding []byte
 }
 
 type AuthenticationOptions struct {
@@ -145,6 +159,10 @@ type CeremonyState struct {
 	userHandle              []byte
 	allowedCredentialIDs    [][]byte
 	requireUserVerification bool
+	// binding is the RegistrationOptions.Binding this ceremony began with, and
+	// is empty for an authentication ceremony, which has no prior principal to
+	// be bound to.
+	binding []byte
 }
 
 func (s CeremonyState) ExpiresAt() time.Time { return s.expiresAt }

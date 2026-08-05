@@ -2,6 +2,8 @@ package pwcli
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"io"
@@ -37,7 +39,7 @@ const (
 	repositoryURL    = "https://github.com/shibukawa/popcornwave"
 )
 
-const initUsage = "usage: pw init [<project-name>] [--yes] [--router=registered|discovered|both] [--tailwind] [--no-tinygo] [--no-devbox] [--no-database] [--db=sqlite|postgres|mysql] [--dynamo] [--no-redis] [--auth=none|oidc|oidc-passkey|passkey] [--session=rdb|cookie|redis] [--devidp]"
+const initUsage = "usage: pw init [<project-name>] [--yes] [--router=registered|discovered|both] [--tailwind] [--no-tinygo] [--no-devbox] [--no-database] [--db=sqlite|postgres|mysql] [--dynamo] [--no-redis] [--auth=none|oidc|oidc-passkey|passkey] [--session=rdb|cookie|redis|dynamo] [--devidp]"
 
 // Authentication modes the wizard and the --auth flag select between. They map
 // onto the plugin/auth modes, with none meaning no [auth] configuration.
@@ -46,7 +48,35 @@ const (
 	authOIDC        = "oidc"
 	authOIDCPasskey = "oidc-passkey"
 	authPasskey     = "passkey"
+	// authJWTOnly verifies a bearer token somebody else issued. It is absent
+	// from the wizard question and from --auth on purpose: it is reached by
+	// naming the project shape it belongs to, which is the api-server preset,
+	// rather than by answering a question every browser application also
+	// answers.
+	authJWTOnly = "jwt-only"
 )
+
+// authDevelopmentIssuer is the issuer name a scaffolded bearer project runs
+// with until an operator supplies a real one.
+//
+// Nothing is served there and nothing contacts it: under pw dev the relaxed
+// path never calls the verifier, so no metadata and no key set is fetched. It
+// exists because the mode refuses to start without an issuer — which is the
+// right rule everywhere — and because the identity a request resolves to is
+// derived from the issuer and the subject together, so a token has to name one.
+//
+// It is a loopback address on a port nothing runs on, which is the shape least
+// likely to be mistaken for a provider somebody should be pointing at.
+const authDevelopmentIssuer = "http://127.0.0.1:9999/dev-issuer"
+
+// servesBrowserLogin reports whether the mode mounts a login ceremony a person
+// walks through. The bearer mode authenticates every request from a header and
+// creates no account, so everything a login implies — a session record, an
+// identity provider, a CSRF token, the framework-owned ceremony tables — is
+// about the other modes.
+func servesBrowserLogin(options initOptions) bool {
+	return servesLogin(options) && options.Auth != authJWTOnly
+}
 
 // Session storage backends the wizard and the --session flag select between.
 // They are the api:session-backend-plugin names, and each one but cookie is
@@ -55,6 +85,10 @@ const (
 	sessionRDB    = "rdb"
 	sessionCookie = "cookie"
 	sessionRedis  = "redis"
+	sessionDynamo = "dynamo"
+	// sessionFirestore keeps records in Firestore in Datastore mode, for the
+	// same relational-free project on Google Cloud that dynamo serves on AWS.
+	sessionFirestore = "firestore"
 )
 
 // usesOIDC reports whether a mode needs an OpenID Provider.
@@ -65,13 +99,57 @@ func usesOIDC(mode string) bool { return mode == authOIDC || mode == authOIDCPas
 // browser side that calls navigator.credentials.
 func usesPasskey(mode string) bool { return mode == authOIDCPasskey || mode == authPasskey }
 
-// sessionBackend is the selected backend. An options value built without the
-// answer, which every pre-session caller is, scaffolds the default.
+// sessionBackend is the selected backend.
+//
+// An unanswered project takes cookie when it serves no login and rdb when it
+// does. Session storage is not a login, so a project that only remembers a
+// language preference still gets the middleware; what it does not need is a
+// table, a migration, and a storage import to hold state that fits in a sealed
+// cookie. A project with a login writes a record on every sign-in and normally
+// wants to end one on demand, which is what rdb is for.
 func sessionBackend(options initOptions) string {
-	if options.Session == "" {
+	if options.Session != "" {
+		return options.Session
+	}
+	if servesBrowserLogin(options) {
+		// The default follows the store the project actually has. A relational
+		// default here would name a pool nothing opens.
+		if !options.Database && options.Dynamo {
+			return sessionDynamo
+		}
+		if !options.Database && options.Firestore {
+			return sessionFirestore
+		}
 		return sessionRDB
 	}
-	return options.Session
+	return sessionCookie
+}
+
+// generatedKeyringSecret returns a fresh session keyring for the scaffolded
+// development configuration.
+//
+// It is written into config.dev.toml as a literal rather than left for the
+// developer to author, because requiring an authored secret to run a scaffolded
+// project puts a deployment concern in the way of getting started. It is
+// written to a file rather than generated at startup because a keyring
+// generated per process dies with the process: restarting the developer loop
+// would sign every developer out and empty every cart and preference being
+// worked on. The devidp client credentials are generated per run for the
+// opposite reason, that they mean nothing beyond one run.
+//
+// It is per project rather than a constant in this source, so it is not a
+// published credential and the placeholder check has nothing to match. It still
+// belongs to development only: every other environment reads
+// SESSION_KEYRING_SECRET, and pw doctor reports a literal here as an error for
+// any environment but dev.
+func generatedKeyringSecret() string {
+	secret := make([]byte, 32)
+	if _, err := rand.Read(secret); err != nil {
+		// crypto/rand does not fail in practice, and a scaffold that quietly
+		// wrote a predictable secret would be worse than one that stops.
+		panic("pw init: cannot generate a session keyring: " + err.Error())
+	}
+	return base64.StdEncoding.EncodeToString(secret)
 }
 
 // sessionBackendPlugin names the import that registers a backend. The cookie
@@ -84,6 +162,10 @@ func sessionBackendPlugin(backend, engine string) string {
 		return "github.com/shibukawa/popcornwave/sessionstore/" + engineDialect(engine)
 	case sessionRedis:
 		return "github.com/shibukawa/popcornwave/sessionstore/redis"
+	case sessionDynamo:
+		return "github.com/shibukawa/popcornwave/sessionstore/dynamo"
+	case sessionFirestore:
+		return "github.com/shibukawa/popcornwave/sessionstore/firestore"
 	default:
 		return ""
 	}
@@ -116,6 +198,11 @@ const (
 	defaultRegisteredDir = "handlers"
 	defaultDiscoveredDir = "pages"
 	defaultTemplatesDir  = "templates"
+	// defaultFirestoreDir holds the firestore-tagged types and .pw.firestore
+	// queries of the Firestore store. It is separate from the DynamoDB
+	// directory because each is its own generate purpose, and a directory
+	// listed for one is not a generation source for the other.
+	defaultFirestoreDir = "entities"
 	// defaultDynamoDir holds the dynamo-tagged types and .pw.dynamo queries of
 	// requirement:dynamodb-store. It is its own purpose because a directory
 	// contributes only the artifact kinds whose purpose lists it.
@@ -131,6 +218,10 @@ const dynamoDevboxPackage = "dynamodb-local@latest"
 // requirement:dynamodb-store is a second kind of store rather than a fourth
 // dialect.
 const dynamoStore = "dynamo"
+
+// firestoreStore names Firestore where a store is being chosen rather than an
+// engine, on the same terms as dynamoStore.
+const firestoreStore = "firestore"
 
 // effectiveRouter reads an unset answer as the registered router: that is the
 // shape every project scaffolded before page trees existed has, and the one a
@@ -159,11 +250,25 @@ func validRouter(router string) bool {
 // wizard produce the same value, and scaffoldFiles is its only consumer.
 type initOptions struct {
 	Name string
+	// Kind is the project.kind this scaffold writes. Empty means an
+	// application, which is what every answer below describes; kindPackage
+	// produces a module with no binary of its own, and the questions that
+	// describe an application do not apply to it.
+	Kind string
+	// Preset records which requirement:init-presets entry supplied the
+	// answers, so the review screen can say which one it is showing. It is a
+	// label rather than a scaffold input: nothing downstream reads it, and a
+	// created project records no preset it came from.
+	Preset string
 	// Router selects the routers this project starts with. Either can be
 	// installed later, so this is a starting point rather than a mode.
 	Router   string
 	TinyGo   bool
 	Tailwind bool
+	// Images installs the build-time image conversion and the encoders it
+	// runs. It is separate from the other asset answers because it is the only
+	// one whose usefulness depends on host tools.
+	Images bool
 	// Database scaffolds the rdb configuration, the migration directory, and
 	// the SQL example. Declining it removes all three together, because none
 	// of them is useful without the others.
@@ -195,6 +300,10 @@ type initOptions struct {
 	// a fourth SQL engine, so it stands beside the Database answer instead of
 	// replacing it, and either, both, or neither is a valid project.
 	Dynamo bool
+	// Firestore adds the Firestore store, in Datastore mode. It stands beside
+	// the Database answer on the same terms as Dynamo, and the two are
+	// independent: a project may have either, both, or neither.
+	Firestore bool
 	// Yes skips the wizard and takes the flags with the defaults for everything
 	// they do not answer. It is the only way to run non-interactively in a
 	// terminal, because the project name alone no longer means the caller has
@@ -221,10 +330,20 @@ func defaultInitOptions() initOptions {
 
 func parseInitArgs(args []string) (initOptions, error) {
 	options := defaultInitOptions()
+	// A preset is read before anything else, because it decides whether the
+	// rest of the flags are answers or a conflict.
+	preset, presetGiven, err := parsePresetArgs(args)
+	if err != nil {
+		return initOptions{}, err
+	}
 	var positional []string
 	// Tracked so --db can contradict --no-database. Without it the engine
 	// would silently apply to a project that has no database to apply it to.
 	engineSelected := false
+	// Tracked for the same reason: the default session backend is relational,
+	// and a project with no relational database has to move off it rather than
+	// scaffold a pool nothing opens.
+	sessionSelected := false
 	for _, arg := range args {
 		switch arg {
 		case "--tailwind":
@@ -252,6 +371,10 @@ func parseInitArgs(args []string) (initOptions, error) {
 			options.Dynamo = true
 		case "--no-dynamo":
 			options.Dynamo = false
+		case "--firestore":
+			options.Firestore = true
+		case "--no-firestore":
+			options.Firestore = false
 		case "--redis":
 			options.Redis = true
 		case "--no-redis":
@@ -261,13 +384,19 @@ func parseInitArgs(args []string) (initOptions, error) {
 		case "--no-devidp":
 			options.AuthEmulator = false
 		default:
+			// Both were read by parsePresetArgs above, which also settled what
+			// they mean together.
+			if strings.HasPrefix(arg, "--preset=") || strings.HasPrefix(arg, "--kind=") {
+				continue
+			}
 			if backend, ok := strings.CutPrefix(arg, "--session="); ok {
 				switch backend {
-				case sessionRDB, sessionCookie, sessionRedis:
+				case sessionRDB, sessionCookie, sessionRedis, sessionDynamo, sessionFirestore:
 					options.Session = backend
+					sessionSelected = true
 				default:
-					return initOptions{}, fmt.Errorf("init: --session must be %s, %s, or %s",
-						sessionRDB, sessionCookie, sessionRedis)
+					return initOptions{}, fmt.Errorf("init: --session must be %s, %s, %s, %s, or %s",
+						sessionRDB, sessionCookie, sessionRedis, sessionDynamo, sessionFirestore)
 				}
 				continue
 			}
@@ -309,6 +438,12 @@ func parseInitArgs(args []string) (initOptions, error) {
 	if len(positional) == 1 {
 		options.Name = strings.TrimSpace(positional[0])
 	}
+	if presetGiven {
+		// The preset is the answer to every question the flags above answer,
+		// and presetConflict has already refused a run that gave both. What is
+		// left to carry over is the name and --yes, which answer neither.
+		return applyPresetArgs(preset, options)
+	}
 	if !usesOIDC(options.Auth) {
 		options.AuthEmulator = false
 	}
@@ -317,14 +452,35 @@ func parseInitArgs(args []string) (initOptions, error) {
 		// environment there is nothing for it to do.
 		options.Redis = false
 	}
-	if !options.Database && servesLogin(options) {
-		// The login ceremony and admission tables are server state in every
-		// session backend, so authentication needs the database whichever one
-		// stores the sessions themselves.
-		return initOptions{}, fmt.Errorf("init: --auth=%s keeps its login ceremony and allowlist tables in the database; drop --no-database", options.Auth)
+	if !options.Database && servesLogin(options) && !options.Dynamo && !options.Firestore {
+		// The login keeps ceremony records, an admission allowlist, and any
+		// passkey credentials somewhere. Either non-relational store can hold
+		// all of them; with none there is nowhere for them to go.
+		return initOptions{}, fmt.Errorf(
+			"init: --auth=%s needs a store for its login records; keep the database, or add --dynamo or --firestore",
+			options.Auth)
+	}
+	if options.Dynamo && options.Firestore && servesLogin(options) && !options.Database {
+		// auth.backend names one store for all four of its kinds, so a project
+		// with both and no relational database has no defined winner. Asking is
+		// better than picking one and reporting the choice.
+		return initOptions{}, errors.New(
+			"init: --dynamo and --firestore both hold the login records; keep the database, or choose one store")
 	}
 	if !options.Database && engineSelected {
 		return initOptions{}, errors.New("init: --db selects the database engine; drop --no-database")
+	}
+	if !options.Database && sessionSelected && options.Session == sessionRDB {
+		return initOptions{}, errors.New("init: --session=rdb needs the database; drop --no-database or choose another backend")
+	}
+	if !options.Database && !sessionSelected && options.Dynamo {
+		// The default is relational, and this project has no relational
+		// database. Following the store it does have beats scaffolding a
+		// session pool nothing opens.
+		options.Session = sessionDynamo
+	}
+	if !options.Database && !sessionSelected && options.Firestore && !options.Dynamo {
+		options.Session = sessionFirestore
 	}
 	options = normalizeSession(options)
 	return options, nil
@@ -334,7 +490,7 @@ func parseInitArgs(args []string) (initOptions, error) {
 // session wants the development server that serves it, and a project without a
 // login stores no sessions at all.
 func normalizeSession(options initOptions) initOptions {
-	if !servesLogin(options) {
+	if !servesBrowserLogin(options) {
 		return options
 	}
 	if sessionBackend(options) == sessionRedis && options.Devbox {
@@ -372,7 +528,12 @@ func runInit(args []string, stdout io.Writer) error {
 		// default worth guessing for a directory this command is about to create.
 		return fmt.Errorf("init: a project name is required without the wizard; %s", initUsage)
 	}
+	// A package is named by the module path a consumer imports, and created in
+	// the directory a checkout of that repository is called.
 	name := options.Name
+	if options.Kind == kindPackage {
+		name = moduleDirectory(options.Name)
+	}
 	destination, err := initDestination(name)
 	if err != nil {
 		return err
@@ -412,15 +573,44 @@ func runInit(args []string, stdout io.Writer) error {
 	}
 	generated, generateErr := generateProject(context.Background(), false, stdout, false)
 	restoreErr := os.Chdir(previous)
-	progress.Done()
 	if generateErr != nil {
+		progress.Done()
 		return fmt.Errorf("generate starter: %w", generateErr)
 	}
 	if restoreErr != nil {
+		progress.Done()
 		return restoreErr
 	}
+	if options.Kind == kindPackage {
+		// A package's only Go is the generated Go, so the tidy above ran over
+		// an empty module and resolved none of the imports that generation was
+		// about to write. An application has handwritten sources naming the
+		// same packages before the first tidy, which is why it needs one run
+		// and this needs two.
+		progress.Phase("resolving generated imports")
+		tidyGenerated := exec.Command("go", "mod", "tidy")
+		tidyGenerated.Dir = destination
+		tidyGenerated.Stdout = stdout
+		tidyGenerated.Stderr = stdout
+		tidyGenerated.Env = os.Environ()
+		if err := tidyGenerated.Run(); err != nil {
+			progress.Done()
+			return fmt.Errorf("resolve generated imports: %w", err)
+		}
+	}
+	progress.Done()
 	fmt.Fprintf(stdout, "\nCreated %s\n", name)
 	reportCreatedSources(stdout, files)
+	if options.Kind == kindPackage {
+		// The generated files are not the aside they are in an application:
+		// they are what a consumer compiles, and committing them is the one
+		// thing about this project kind somebody has to know.
+		fmt.Fprintf(stdout, "\n%d generated files, which this project commits\n"+
+			"  pw generate rebuilds them, and the scaffolded workflow fails when a commit is stale\n", generated)
+		fmt.Fprintf(stdout, "\n  cd %s\n  git init && git add . && git commit\n", name)
+		fmt.Fprint(stdout, "\npw dev and pw build do not apply to a package; go test is the loop\n")
+		return nil
+	}
 	// The generated files are build inputs, named after sources the operator has
 	// not read yet and excluded by the .gitignore this same scaffold wrote.
 	// Listing them answers no question; saying how to remake them does.
@@ -434,7 +624,7 @@ func runInit(args []string, stdout io.Writer) error {
 	}
 	// The cookie backend seals its records under a secret the project cannot
 	// invent for itself, so an operator has to supply one before the first run.
-	if servesLogin(options) && sessionBackend(options) == sessionCookie {
+	if servesBrowserLogin(options) && sessionBackend(options) == sessionCookie {
 		fmt.Fprint(stdout, "\nThe cookie session backend needs its sealing secret:\n"+
 			"  export SESSION_COOKIE_SECRET=$(openssl rand -base64 32)\n")
 	}
@@ -505,6 +695,10 @@ func declinedCapabilities(options initOptions) []string {
 			}
 		case capabilityDynamo:
 			if !options.Dynamo {
+				declined = append(declined, capability)
+			}
+		case capabilityFirestore:
+			if !options.Firestore {
 				declined = append(declined, capability)
 			}
 		case capabilityRedis:
@@ -586,6 +780,13 @@ func validateProjectName(name string) error {
 }
 
 func scaffoldFiles(options initOptions) map[string]string {
+	if options.Kind == kindPackage {
+		// A different project kind rather than a different set of answers:
+		// there is no entry point, no document shell, no environment file, and
+		// no capability to configure, so this shares the editor files and
+		// nothing else.
+		return packageScaffoldFiles(options)
+	}
 	name := options.Name
 	moduleExtra := frameworkModuleDirective()
 	devboxPackages := []string{"go@latest"}
@@ -606,6 +807,7 @@ func scaffoldFiles(options initOptions) map[string]string {
 		devboxPackages = append(devboxPackages, "tinygo@latest")
 	}
 	configTailwind := ""
+	configImages := ""
 	// Declining Tailwind costs the utilities, not the page: the starter page is
 	// styled either way, by the toolchain or by a stylesheet the application
 	// owns from the moment it is written.
@@ -614,6 +816,15 @@ func scaffoldFiles(options initOptions) map[string]string {
 	// not utilities; without it, it carries the starter page as well.
 	homeStylesheet := `<link rel="stylesheet" href="/public/app.css">`
 	homeClasses := ""
+	if options.Images {
+		// The encoders the image conversion runs. They are declared here so the
+		// tool environment installs them, rather than being something a
+		// developer discovers from a build that quietly converted nothing.
+		devboxPackages = append(devboxPackages, imageDevboxPackages...)
+	}
+	if options.Images {
+		configImages = imagesProjectConfig()
+	}
 	if options.Tailwind {
 		configTailwind = tailwindProjectConfig()
 		devboxPackages = append(devboxPackages, tailwindDevboxPackage)
@@ -640,13 +851,16 @@ pages = [` + quotedList(scaffoldGenerationScope(options).Pages) + `]
 # The dynamo-tagged types and .pw.dynamo queries of the DynamoDB store, which is
 # its own purpose because it shares no source kind with the SQL path.
 dynamo = [` + quotedList(scaffoldGenerationScope(options).Dynamo) + `]
+# The firestore-tagged types and .pw.firestore queries of the Firestore store,
+# a purpose of its own for the same reason.
+firestore = [` + quotedList(scaffoldGenerationScope(options).Firestore) + `]
 
 # pw dev walks the module for rebuild inputs. Add what the walk misses, and
 # exclude a subtree that only makes the walk slower.
 [dev.watch]
 includes = []
 excludes = []
-` + devConsoleProjectConfig() + devIdPProjectConfig(options) + configTailwind,
+` + devConsoleProjectConfig() + devIdPProjectConfig(options) + configTailwind + configImages,
 		pwenv.FileName(pwenv.Development): `# Development runtime configuration.
 # APP_ENV selects this file; add config.stg.toml and config.prod.toml as needed.
 [server]
@@ -668,7 +882,7 @@ service_name = "` + name + `"
 # resolves to this in dev and to "json" everywhere else; it is written out here
 # so the format this file produces is visible rather than inferred.
 stdout_format = "plaintext"
-` + databaseRuntimeConfig(options) + dynamoRuntimeConfig(options) + authRuntimeConfig(options),
+` + databaseRuntimeConfig(options) + dynamoRuntimeConfig(options) + firestoreRuntimeConfig(options) + sessionRuntimeConfig(options) + authRuntimeConfig(options) + securityRuntimeConfig(options),
 		"cmd/" + name + "/main.go": mainScaffold(options),
 		"templates/document.pw.html": `package templates
 
@@ -718,7 +932,7 @@ import (
 	"github.com/shibukawa/popcornwave/middlewares"
 )
 
-//go:embed all:public
+//go:embed all:dist/public
 var embeddedPublic embed.FS
 
 func init() {
@@ -726,7 +940,7 @@ func init() {
 }
 
 func PublicFS() fs.FS {
-	result, err := fs.Sub(embeddedPublic, "public")
+	result, err := fs.Sub(embeddedPublic, "dist/public")
 	if err != nil {
 		panic(err)
 	}
@@ -734,6 +948,9 @@ func PublicFS() fs.FS {
 }
 `,
 		"public/.keep": "",
+		// go:embed fails on an absent directory, so a project that has never
+		// run a build still has a tree to embed. The build replaces it.
+		"dist/public/.keep": "",
 		".vscode/settings.json": `{
     "files.exclude": {
         "**/*_pw_gen.go": true
@@ -745,7 +962,11 @@ func PublicFS() fs.FS {
 		// The binary pattern is anchored: a bare name would also ignore cmd/<name>/.
 		// devbox.d holds the service configuration devbox writes on first run,
 		// so pw dev leaves no change behind in a fresh checkout.
-		".gitignore": ".devbox/\ndevbox.d/\n/" + name + "\n*_pw_gen.go\npublic/**/*.zstd\n*.db\n",
+		".gitignore": ".devbox/\ndevbox.d/\n/" + name + "\n*_pw_gen.go\n" +
+			// Everything under dist is built, except the sentinel: go:embed
+			// fails on an absent directory, so a fresh clone has to carry one
+			// file that makes the tree exist before the first build.
+			"dist/cache/\ndist/derived/\ndist/manifest.json\ndist/public/*\n!dist/public/.keep\n*.db\n",
 	}
 	if routerHasRegistered(options.Router) {
 		for path, source := range registeredRouterScaffold(options, defaultRegisteredDir) {
@@ -764,6 +985,10 @@ func PublicFS() fs.FS {
 	files["public/app.css"] = applicationStylesheet(options)
 	if options.Dynamo {
 		files[defaultDynamoDir+"/note.go"] = dynamoRecordScaffold()
+	}
+	if options.Firestore {
+		files[defaultFirestoreDir+"/note.go"] = firestoreEntityScaffold()
+		files[defaultFirestoreDir+"/notes.pw.firestore"] = firestoreQueryScaffold()
 	}
 	if options.Database {
 		files["queries/users.pw.sql"] = starterQuery()
@@ -793,10 +1018,10 @@ import _ "github.com/shibukawa/tinygodriver/netdev"
 	if usesPasskey(options.Auth) {
 		files["public/passkey.js"] = passkeyBrowserScaffold(options)
 	}
-	if servesLogin(options) {
+	if servesBrowserLogin(options) {
 		files["public/presence.js"] = presenceBrowserScaffold()
 	}
-	if servesLogin(options) {
+	if servesBrowserLogin(options) {
 		files["handlers/accounts.go"] = accountsScaffold(options)
 		// The framework tables come from the packages that own them. A fresh
 		// project has only the application schema, so these take the versions
@@ -815,11 +1040,17 @@ import _ "github.com/shibukawa/tinygodriver/netdev"
 			files["migrations/00002_"+sessionstore.MigrationName+".sql"] = migration
 			version = 3
 		}
-		authMigration, err := auth.MigrationSQL(dialect)
-		if err != nil {
-			panic(err)
+		if authBackend(options) == "rdb" {
+			// A non-relational backend has no migration file to write. The
+			// DynamoDB tables are the desired state pw migrate assembles from
+			// the registered definitions, and a Firestore kind is created by
+			// the first write, so neither has one.
+			authMigration, err := auth.MigrationSQL(dialect)
+			if err != nil {
+				panic(err)
+			}
+			files[fmt.Sprintf("migrations/0000%d_%s.sql", version, auth.MigrationName)] = authMigration
 		}
-		files[fmt.Sprintf("migrations/0000%d_%s.sql", version, auth.MigrationName)] = authMigration
 	}
 	return files
 }
@@ -842,20 +1073,42 @@ func databaseRuntimeConfig(options initOptions) string {
 		return ""
 	}
 	engine := engineFor(options.Engine)
-	return databaseRuntimeSection(engine.DSN(options.Name), engine)
+	return databaseRuntimeSection(pwenv.Development, engine.DSN(options.Name), engine)
 }
 
 // databaseRuntimeSection is the rdb configuration api:cli-init scaffolds and
 // api:cli-add appends, so both reach the same file state. The pool bounds come
 // from the engine: one connection is right for a file SQLite writes serially
 // and wrong for a server that expects a pool.
-func databaseRuntimeSection(dsn string, engine databaseEngine) string {
+//
+// One element is one pool, and it is the only form the section has. A project
+// that grows a replica adds a second element and names the groups above them;
+// nothing about the first element changes.
+//
+// devDSN is the local database the scaffolded migrations run against, and it is
+// written only into the development file. A deployed environment names no
+// database here: the element carries a ${DATABASE_URL} reference instead,
+// because an array element has no environment variable of its own and the value
+// belongs to the deployment rather than to the repository.
+func databaseRuntimeSection(env, devDSN string, engine databaseEngine) string {
+	dsn := `dsn = "` + devDSN + `"`
+	if env != pwenv.Development {
+		dsn = `# The deployment supplies this. ${NAME} is expanded when the file loads, and
+# an undefined name is a load error rather than an empty DSN.
+dsn = "${DATABASE_URL}"`
+	}
 	return `
 # The scaffolded migrations and queries need a database; pw dev and pw migrate
-# read this DSN.
+# read this connection.
 [middleware.rdb]
 enabled = true
-dsn = "` + dsn + `"
+
+# One element is one pool. The group is the name statements address it by, and
+# a single connection answers to every group name, so this one stays "default"
+# until a second database arrives.
+[[middleware.rdb.connections]]
+group = "default"
+` + dsn + `
 connect_timeout = "5s"
 max_open_conns = ` + strconv.Itoa(engine.MaxOpenConns) + `
 max_idle_conns = ` + strconv.Itoa(engine.MaxIdleConns) + `
@@ -892,6 +1145,85 @@ auto_migrate = true
 `
 }
 
+// firestoreRuntimeConfig is the middleware.firestore section. It is
+// independent of middleware.rdb and of middleware.dynamo: a project may have
+// any combination, because each is its own kind of store.
+func firestoreRuntimeConfig(options initOptions) string {
+	if !options.Firestore {
+		return ""
+	}
+	return firestoreRuntimeSection()
+}
+
+// firestoreRuntimeSection is what api:cli-init scaffolds and api:cli-add
+// appends, so both reach the same file state.
+//
+// No credential is configured. The endpoint points at the local emulator, which
+// ignores the Authorization header entirely, so a key here would be pretending
+// to exercise the token path. A deployment names its own credential source, and
+// on Cloud Run or GKE that is credentials = "metadata".
+func firestoreRuntimeSection() string {
+	return `
+# The Firestore store, in Datastore mode, independent of middleware.rdb. These
+# values point at the local Datastore emulator, which you start with
+#
+#   gcloud beta emulators datastore start --host-port=127.0.0.1:8081
+#
+# The database a deployment names must have been created in Datastore mode:
+# the mode is chosen at creation and cannot be changed afterwards.
+[middleware.firestore]
+enabled = true
+project_id = "demo-popcornwave"
+endpoint = "127.0.0.1:8081"
+`
+}
+
+// firestoreEntityScaffold is the starter bound entity.
+//
+// The key is lifted out of the properties, which is the one thing a reader
+// coming from the DynamoDB store has to unlearn: Datastore keeps identity
+// beside the entity rather than among it, so an identifier field carries no
+// property name.
+func firestoreEntityScaffold() string {
+	return `package entities
+
+import "time"
+
+// Note is stored in Firestore, in Datastore mode. Its kind is the Go type name,
+// which is why nothing here or in the declarations names one.
+//
+// ID is the key's name and is absent from the properties: Datastore stores a
+// key beside them, so writing it as a property too would store identity twice.
+//
+// ExpiresAt is written as an ordinary timestamp and produces one generated
+// fact: this kind's TTL policy targets "expires_at". Applying that policy is a
+// deployment step, because Datastore mode has no expiry on the wire.
+type Note struct {
+	ID        string    ` + "`firestore:\"-,name\"`" + `
+	Author    string    ` + "`firestore:\"author\"`" + `
+	Body      string    ` + "`firestore:\"body,noindex\"`" + `
+	CreatedAt time.Time ` + "`firestore:\"created_at\"`" + `
+	ExpiresAt time.Time ` + "`firestore:\"expires_at,ttl\"`" + `
+}
+`
+}
+
+// firestoreQueryScaffold is the starter access pattern.
+//
+// A declaration names no kind: the result type names the Go type, and that
+// type's generated Kind method is the kind, so a declaration cannot disagree
+// with the codec about what it is querying.
+func firestoreQueryScaffold() string {
+	return `// Access patterns for Note. Every property here is checked against the firestore
+// tags on the Go type, so a renamed tag fails generation rather than returning
+// an empty batch.
+
+export statement NotesByAuthor(author: string): firestore.many<Note> {
+  where author == {author}
+}
+`
+}
+
 // dynamoRecordScaffold is the starter typed record. Its table is created from
 // the generated definition rather than from a migration file, because the
 // DynamoDB schema is the set of registered tables and has no version sequence.
@@ -925,13 +1257,28 @@ type Note struct {
 // The client comes from the request context, installed by the dynamo
 // middleware, so nothing here takes a handle.
 func StoreNote(ctx context.Context, note Note) error {
-	return dynamobind.Store(ctx, "notes", note)
+	return dynamobind.Store(ctx, "note", note)
 }
 
 func LoadNote(ctx context.Context, id string, createdAt time.Time) (Note, error) {
-	return dynamobind.Load[Note](ctx, "notes", Note{ID: id, CreatedAt: createdAt}.ItemKey())
+	return dynamobind.Load[Note](ctx, "note", Note{ID: id, CreatedAt: createdAt}.ItemKey())
 }
 `
+}
+
+// authBackend names the storage of the tables plugin/auth owns. It follows the
+// store the login was built on: a project with no relational database keeps
+// them in DynamoDB, and every other project keeps the relational default.
+func authBackend(options initOptions) string {
+	if servesBrowserLogin(options) && !options.Database {
+		switch {
+		case options.Dynamo:
+			return "dynamo"
+		case options.Firestore:
+			return "firestore"
+		}
+	}
+	return "rdb"
 }
 
 // sessionBackendImport contributes the storage the configuration selects.
@@ -939,18 +1286,36 @@ func LoadNote(ctx context.Context, id string, createdAt time.Time) (Note, error)
 // backend it configured and nothing else. The cookie backend is built into pw
 // and needs no line here.
 func sessionBackendImport(options initOptions) string {
-	if !servesLogin(options) {
-		return ""
-	}
 	imports := ""
 	if plugin := sessionBackendPlugin(sessionBackend(options), options.Engine); plugin != "" {
 		imports += "\n\t// session.backend = \"" + sessionBackend(options) +
 			"\" is served by this import; storage is opt-in.\n\t_ " + strconv.Quote(plugin)
 	}
-	// The login ceremony records live in the database whichever backend holds
-	// the sessions, so their engine is imported for every login.
-	imports += "\n\t// The single-use login records this engine stores.\n\t_ " +
-		strconv.Quote("github.com/shibukawa/popcornwave/authstate/"+engineDialect(options.Engine))
+	if options.Auth == authJWTOnly {
+		// The bearer mode registers no account seam, so nothing else in this
+		// project would reach plugin/auth. Without the import the package is
+		// not linked, its extension never registers, and the [auth] section
+		// this scaffold wrote is read as plain keys nobody validates: startup
+		// accepts an empty issuer and every request arrives unauthenticated.
+		imports += "\n\t// The bearer verifier. It registers itself on import, and without\n" +
+			"\t// this line the [auth] section below is configuration nothing reads.\n\t_ " +
+			strconv.Quote("github.com/shibukawa/popcornwave/plugin/auth")
+	}
+	if servesBrowserLogin(options) {
+		if backend := authBackend(options); backend != "rdb" {
+			// A non-relational auth.backend moves all four stores plugin/auth
+			// owns, so both halves are imported: the ceremony store and the
+			// account-side stores.
+			imports += "\n\t// auth.backend = \"" + backend + "\" is served by these two imports.\n\t_ " +
+				strconv.Quote("github.com/shibukawa/popcornwave/authstate/"+backend) +
+				"\n\t_ " + strconv.Quote("github.com/shibukawa/popcornwave/authstore/"+backend)
+		} else {
+			// The login ceremony records live in the database whichever backend
+			// holds the sessions, so their engine is imported for every login.
+			imports += "\n\t// The single-use login records this engine stores.\n\t_ " +
+				strconv.Quote("github.com/shibukawa/popcornwave/authstate/"+engineDialect(options.Engine))
+		}
+	}
 	return imports
 }
 
@@ -975,14 +1340,28 @@ func databaseDriverImport(options initOptions) string {
 	if path == "" {
 		return ""
 	}
-	return "\n\t// Registers the engine middleware.rdb.dsn names.\n\t_ " + strconv.Quote(path)
+	return "\n\t// Registers the engine the configured DSN names.\n\t_ " + strconv.Quote(path)
+}
+
+// storeMiddlewareImport contributes the client a non-relational store needs.
+//
+// Only Firestore is written here. A DynamoDB project reaches database/dynamo
+// through the generated table registration, and this package generates nothing
+// for Firestore: a kind is created by the first write, so there is no
+// definition to register and nothing else would carry the import.
+func storeMiddlewareImport(options initOptions) string {
+	if !options.Firestore {
+		return ""
+	}
+	return "\n\t// Opens the Firestore client and installs it into every request.\n\t_ " +
+		strconv.Quote("github.com/shibukawa/popcornwave/database/firestore")
 }
 
 // authBootstrap installs the account resolver. That call is the whole
 // application-side wiring of a login: it also imports plugin/auth, whose
 // extensions serve the endpoints and resolve the session.
 func authBootstrap(options initOptions) string {
-	if !servesLogin(options) {
+	if !servesBrowserLogin(options) {
 		return ""
 	}
 	return "\n\t// Installed before Run: the framework calls these while it serves a login.\n\thandlers.RegisterAccounts()"
@@ -1199,7 +1578,7 @@ func IssueFirstPasskey(ctx context.Context, loginID, accountID string) (string, 
 // the signed-in user; the login itself belongs to the framework.
 func homeHandlerScaffold(options initOptions) string {
 	project := strconv.Quote(options.Name)
-	if !servesLogin(options) {
+	if !servesBrowserLogin(options) {
 		return `package handlers
 
 import (
@@ -1433,7 +1812,7 @@ func landingIncluded(options initOptions) []string {
 	if options.Dynamo {
 		items = append(items, "A DynamoDB store, with typed records in <code>"+defaultDynamoDir+"/</code>")
 	}
-	if servesLogin(options) {
+	if servesBrowserLogin(options) {
 		items = append(items, "Authentication, with the sign-in controls below served by the framework")
 	}
 	if options.Tailwind {
@@ -1475,7 +1854,7 @@ func muxTypeName(options initOptions) string {
 // because the endpoint accepts POST only.
 func homeTemplateScaffold(options initOptions) string {
 	style := landingStyleFor(options)
-	if !servesLogin(options) {
+	if !servesBrowserLogin(options) {
 		return `package handlers
 
 export component Home(name: string, project: string): html {
@@ -1597,30 +1976,84 @@ role = "member"
 // provider values stay empty for the emulator because pw dev injects them, and
 // the application refuses to start if neither the file nor the environment
 // supplies them.
+// sessionRuntimeConfig writes the [session] section.
+//
+// It is written whether or not the project serves a login, because session
+// storage is not a login: a project with a language preference or a dismissed
+// notice declares a slot and needs the middleware, and the framework installs
+// it from session.enabled rather than from an authentication plugin.
+//
+// Without a login the record is bounded by session.retention alone, since the
+// [auth] durations that would otherwise narrow it are not there.
+func sessionRuntimeConfig(options initOptions) string {
+	// The browser token is opaque in every backend; this selects where the
+	// record behind it lives. A backend other than cookie reaches the binary
+	// through the blank import in main.
+	return `
+[session]
+enabled = true
+backend = "` + sessionBackend(options) + `"
+cookie.name = "pw_session"
+# Loopback development only, because there is no TLS to require here. Every
+# other environment refuses to start with this false, so a deployment file
+# either sets it true or leaves it out.
+cookie.secure = false
+# One secret signs and seals everything the browser carries, whatever the
+# backend is: a session.ReadOnly slot is signed and a session.Private slot is
+# sealed, including while a visitor is still anonymous.
+#
+# This value was generated for this project and belongs to development only.
+# Every other environment reads SESSION_KEYRING_SECRET, and "pw doctor --env"
+# reports a literal here as an error for any environment but dev.
+keyring.secret = "` + generatedKeyringSecret() + `"
+` + sessionBackendConfig(options) + `
+`
+}
+
+// authRuntimeConfig writes the [auth] section for the selected mode. The OIDC
+// provider values stay empty for the emulator because pw dev injects them, and
+// the application refuses to start if neither the file nor the environment
+// supplies them.
 func authRuntimeConfig(options initOptions) string {
 	if !servesLogin(options) {
 		return ""
 	}
-	// The browser token is opaque in every backend; this selects where the
-	// record behind it lives. A backend other than cookie reaches the binary
-	// through the blank import in main.
-	section := `
-[session]
+	if options.Auth == authJWTOnly {
+		// A resource server mounts no login, sets no cookie, and starts no
+		// ceremony, so none of the session lifetimes or the protection
+		// redirect below applies to it. The backend key is left out with them:
+		// it names the storage of four ceremony stores this mode never opens.
+		return `
+# This application verifies a bearer token somebody else issued. It mounts no
+# login, no callback, and no logout: those are redirects a machine client
+# cannot follow.
+[auth]
 enabled = true
-backend = "` + sessionBackend(options) + `"
-ttl = "12h"
-idle_timeout = "1h"
-cookie.name = "pw_session"
-# Loopback development only. Keep secure = true everywhere else.
-cookie.secure = false
-` + sessionBackendConfig(options) + `
-
+mode = "` + authConfigMode(options.Auth) + `"
+# Opt in per path; everything else stays public. An unauthenticated request to
+# an included path is answered 401, because there is nowhere to redirect a
+# client that authenticates with its own issuer.
+protection.include = []
+protection.unauthenticated = "unauthorized"
+` + authJWTConfig(options) + authJWTDevelopmentConfig()
+		// The relaxation is appended here rather than guarded, because this
+		// section is written into config.dev.toml and nothing else. A stg or
+		// prod file added later carries the section above and not this line.
+	}
+	section := `
 # The framework serves every authentication path itself, so the application
 # registers no authentication route. Logout is POST only.
 [auth]
 enabled = true
+# The four tables plugin/auth owns move together, so one key names their store.
+backend = "` + authBackend(options) + `"
 mode = "` + authConfigMode(options.Auth) + `"
 post_login_path = "/"
+# Every session lifetime is declared here rather than under [session]: an
+# expiry states how long a proof of identity stays good, and the store holding
+# the bytes has no basis to make that statement.
+session.ttl = "12h"
+session.idle_timeout = "1h"
 # Opt in per path; everything else stays public.
 protection.include = []
 protection.unauthenticated = "redirect"
@@ -1634,6 +2067,61 @@ protection.unauthenticated = "redirect"
 	return section
 }
 
+// securityRuntimeConfig writes the [security] section.
+//
+// The check is scaffolded off, with the patterns that turn it on written out
+// and commented. A project without a session has nothing to bind a token to, so
+// switching it on before there is one would refuse every post; leaving the
+// shape here means turning it on later is uncommenting rather than looking up.
+func securityRuntimeConfig(options initOptions) string {
+	if !servesBrowserLogin(options) {
+		// No session, so no token. The section would only describe a check that
+		// could not pass.
+		return ""
+	}
+	section := `
+# Partial updates are off until a project wants a page to refresh a region
+# rather than reload. The validator key is required with them: an unkeyed digest
+# of low-entropy content lets a guess be confirmed by comparing digests, so
+# startup refuses the combination rather than serving one.
+[html.update]
+enabled = false
+# validator_key = "${HTML_UPDATE_VALIDATOR_KEY}"
+
+# CSRF is off until the paths it covers are named, because a check installed
+# over nothing reads as protection that is not there. Turn it on once the
+# application has an unsafe route, and keep the include list as narrow as the
+# routes that mutate.
+[security]
+csrf.enabled = false
+csrf.include = ["/**"]
+`
+	if hasDiscoveredPages(options) {
+		// A page action is a POST reachable with ambient credentials, and
+		// nothing else stands in front of it, so it is the one prefix a page
+		// tree must not leave out.
+		section += `# Page actions are POST endpoints reachable with the session cookie, so the
+# action prefix belongs in the include list of any page tree.
+csrf.include = ["/_action/**", "/**"]
+`
+	}
+	section += `# Exclude what a browser never posts: a webhook has no session and carries its
+# own authentication.
+csrf.exclude = []
+# A public page with its own unsafe form needs a token before there is a
+# session. This issues one in a signed cookie and writes no session record.
+# csrf.anonymous.enabled = true
+# csrf.anonymous.secret = "${SECURITY_CSRF_ANONYMOUS_SECRET}"
+`
+	return section
+}
+
+// hasDiscoveredPages reports whether the project starts with a page tree, whose
+// action endpoints are what the CSRF include list must cover.
+func hasDiscoveredPages(options initOptions) bool {
+	return len(scaffoldGenerationScope(options).Pages) > 0
+}
+
 // authConfigMode maps the scaffold choice onto the plugin/auth mode name.
 func authConfigMode(mode string) string {
 	switch mode {
@@ -1641,9 +2129,98 @@ func authConfigMode(mode string) string {
 		return "oidc_passkey"
 	case authPasskey:
 		return "passkey_only"
+	case authJWTOnly:
+		return "jwt_only"
 	default:
 		return "oidc_only"
 	}
+}
+
+// authJWTConfig writes the resource-server section.
+//
+// The issuer and the audience are left empty, and startup fails naming
+// whichever is missing. That is the same shape as the external-provider answer
+// of the OIDC question, and it is the point: this application verifies tokens
+// an authorization server somebody else runs has minted, and no scaffold can
+// know which one or what it registered this API as. A written-out example
+// would be a value that parses, and a value that parses is a value somebody
+// ships.
+//
+// Everything else is stated rather than defaulted, because the mode refuses to
+// start on an omission: a permissive answer here would be the silent one.
+func authJWTConfig(options initOptions) string {
+	return `
+# The authorization server whose tokens this API accepts.
+#
+# These two are development placeholders and neither is contacted here: under
+# "pw dev" the token is read without being verified, so nothing fetches this
+# issuer's keys. They exist because the mode refuses to start without them,
+# which is the right rule everywhere and would otherwise leave this project
+# unable to run at all before you have an authorization server.
+#
+# Replace them in every deployed environment, from the environment:
+# AUTH_JWT_ISSUER, AUTH_JWT_AUDIENCE. There is no default for either — a
+# missing one fails startup naming the field rather than verifying nothing.
+[auth.jwt]
+issuer = "` + authDevelopmentIssuer + `"
+audience = ["` + options.Name + `"]
+# The development issuer above is loopback http, which an https-only client
+# refuses. A real issuer is https and this goes back to false.
+allow_loopback_http = true
+# Which signatures this API accepts. The token header names an algorithm and is
+# not trusted to choose one, so the list is stated here. Only RSA is offered:
+# the verification key comes from a published JWKS, and accepting an HMAC
+# algorithm would let anyone holding that public document mint their own tokens.
+algorithms = ["RS256"]
+# Which verified identities may use this API. "authenticated" admits everyone
+# the issuer above verified, which is right when that issuer only mints tokens
+# for people already entitled to this API. A shared issuer wants "claim"
+# instead, with claim.path and claim.values naming the tenant, department, or
+# application; "registered" admits an allowlist, and takes a database with it.
+admission = "authenticated"
+# Which claim is the stable identity. Read auth.User in a handler only after
+# installing a resolver; without one the request still carries the verified
+# subject and claims.
+identity_claim = "sub"
+# Bounds the exp-minus-iat check. This application cannot know how long the
+# issuer mints for, so it states what it is willing to accept.
+max_token_lifetime = "1h"
+# No revocation list, so a verified token is good until it expires. Turning
+# this on takes a database and the popcornwave_revoked_token migration with it.
+revocation.mode = "off"
+`
+}
+
+// authJWTDevelopmentConfig relaxes verification for the development file only.
+//
+// It is what makes a scaffolded API server developable on the first command:
+// there is no authorization server yet, and this admits a hand-written token
+// so there is something to curl. Every lock stays on — the pwdev build, a
+// development environment, this field, and a loopback address, all four at
+// once — and no other environment file carries the field at all. "pw doctor"
+// reports it as an error wherever else it appears.
+func authJWTDevelopmentConfig() string {
+	return `
+# Development only, and only under "pw dev" from this machine. A token is read
+# without checking its signature, its issuer, its audience, or its expiry, so
+# any hand-written JWT signs you in:
+#
+#   b64() { openssl base64 -A | tr '+/' '-_' | tr -d '='; }
+#   head=$(printf '{"alg":"none","typ":"at+jwt"}' | b64)
+#   body=$(printf '{"iss":"` + authDevelopmentIssuer + `","sub":"dev-user"}' | b64)
+#   curl -H "Authorization: Bearer $head.$body." http://127.0.0.1:8080/me
+#
+# The third segment is empty, because there is no signature to put there.
+#
+# "iss" and "sub" both have to be present. Nothing checks what the issuer says,
+# but the pair identifies the caller: the account this API sees is derived from
+# them, so changing either is how you develop as somebody else.
+#
+# Admission and revocation still run, so what you develop against is the real
+# rule rather than a bypass of it. A build without the development tag refuses
+# to start on this field rather than ignoring it.
+dev.trust_unverified_tokens = true
+`
 }
 
 // authPasskeyConfig writes the relying-party registration and the account
@@ -1740,11 +2317,10 @@ func authDevelopmentOrigin(options initOptions) string {
 func sessionBackendConfig(options initOptions) string {
 	switch sessionBackend(options) {
 	case sessionCookie:
-		return `# The record is sealed into a second cookie, so this deployment stores no
-# sessions at all. Generate the secret with: openssl rand -base64 32
-# Keep it in the environment. During a rotation the old value moves into
-# cookie_store.previous_secrets, which keeps issued records readable.
-cookie_store.secret = "${SESSION_COOKIE_SECRET}"
+		return `# The record stays sealed in a second cookie for the whole of a session, so
+# this deployment stores no sessions at all. It uses the same keyring.secret
+# above; during a rotation the old value moves into keyring.previous_secrets,
+# which keeps issued records readable.
 `
 	case sessionRedis:
 		return `# Redis or Valkey holds each record under its own TTL, so no sweep runs.
@@ -1786,7 +2362,15 @@ func mainScaffold(options initOptions) string {
 		imports += "\t\"" + name + "/" + registered + "\"\n\t\"github.com/shibukawa/popcornwave/pw\""
 		handler = registeredPkg + ".Handlers()"
 	case router == routerDiscovered:
-		imports += "\t\"" + name + "/" + discovered + "\"\n\t\"github.com/shibukawa/popcornwave/pw\""
+		imports += "\t\"" + name + "/" + discovered + "\""
+		if servesBrowserLogin(options) {
+			// The account seams live in the handler package whichever router
+			// this project took, and authBootstrap calls them below. A page
+			// tree with a login therefore imports a directory it serves no
+			// route from.
+			imports += "\n\t\"" + name + "/" + registered + "\""
+		}
+		imports += "\n\t\"github.com/shibukawa/popcornwave/pw\""
 		body = "\tmux := pw.NewServeMux()\n\t" + discoveredPkg + ".Register(mux)\n"
 		handler = "mux"
 	default:
@@ -1800,7 +2384,7 @@ func mainScaffold(options initOptions) string {
 	return `package main
 
 import (
-` + imports + databaseDriverImport(options) + sessionBackendImport(options) + `
+` + imports + databaseDriverImport(options) + storeMiddlewareImport(options) + sessionBackendImport(options) + `
 )
 
 func main() {
@@ -1824,11 +2408,79 @@ func main() {
 // scaffold picks the default, and everything downstream reads generate.handlers
 // rather than the name.
 func registeredRouterScaffold(options initOptions, directory string) map[string]string {
-	return map[string]string{
-		directory + "/index.go":        muxScaffold(options),
-		directory + "/home_handler.go": homeHandlerScaffold(options),
-		directory + "/home.pw.html":    homeTemplateScaffold(options),
+	files := map[string]string{directory + "/index.go": muxScaffold(options)}
+	if options.Auth == authJWTOnly {
+		// A resource server answers machine clients. Its starter route shows
+		// reading the verified identity, which is what this project is for,
+		// and the landing page is left out rather than written for a browser
+		// none of its callers is using.
+		//
+		// The document shell and the error templates in templates/ stay: the
+		// error renderer still answers a browser that reaches a failing route,
+		// and requirement:typed-http-contract answers everything else.
+		files[directory+"/me_handler.go"] = bearerHandlerScaffold(options)
+		return files
 	}
+	files[directory+"/home_handler.go"] = homeHandlerScaffold(options)
+	files[directory+"/home.pw.html"] = homeTemplateScaffold(options)
+	return files
+}
+
+// bearerHandlerScaffold writes the endpoint that reports who the bearer token
+// says the caller is.
+//
+// It answers a typed value rather than a page: every client of this
+// application arrives with an Authorization header, and none of them follows a
+// redirect or renders HTML. What it demonstrates is that the identity is
+// already on the context by the time a handler runs — the middleware verified
+// the token, applied the admission rule, and either refused the request or put
+// this here.
+func bearerHandlerScaffold(options initOptions) string {
+	return `package handlers
+
+import (
+	"errors"
+	"net/http"
+
+	"github.com/shibukawa/popcornwave/pw"
+)
+
+// identity is what this route answers. It is an ordinary struct: pw generate
+// emits the encoder and the OpenAPI schema from it, so nothing here writes
+// JSON by hand.
+type identity struct {
+	Subject string   ` + "`json:\"subject\"`" + `
+	Method  string   ` + "`json:\"method\"`" + `
+	Scope   []string ` + "`json:\"scope,omitempty\"`" + `
+}
+
+func init() { mux.HandleFunc("GET /me", me) }
+
+// me reports the verified identity of the caller.
+//
+// There is no token parsing here and no header to read. By the time this runs
+// the framework has verified the signature against the issuer's key set,
+// checked the audience, the expiry, and the token type, applied the admission
+// rule of auth.jwt.admission, and consulted the revocation list when one is
+// configured. A request that failed any of those never reached this function.
+func me(w http.ResponseWriter, r *http.Request) {
+	// The zero value when nothing authenticated the request, which is what a
+	// path outside auth.protection.include gets. Adding "/me" to that list
+	// makes the framework answer 401 before this handler runs, and this check
+	// is what a path left public still needs.
+	authentication := pw.RequestAuthentication(r.Context())
+	if !authentication.Authenticated {
+		pw.WriteProblem(w, r, pw.Unauthorized(errors.New("this route needs a bearer token")))
+		return
+	}
+	pw.WriteAPI(w, r, identity{
+		Subject: authentication.Subject,
+		// "bearer" here, because that is what verified this request.
+		Method: authentication.Method,
+		Scope:  authentication.Scope,
+	})
+}
+`
 }
 
 // pageTreeScaffold writes a page tree into root: a layout, the root page, and
@@ -1937,6 +2589,9 @@ func scaffoldGenerationScope(options initOptions) generationScope {
 	}
 	if options.Dynamo {
 		scope.Dynamo = []string{defaultDynamoDir}
+	}
+	if options.Firestore {
+		scope.Firestore = []string{defaultFirestoreDir}
 	}
 	return scope
 }

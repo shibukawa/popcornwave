@@ -6,9 +6,11 @@ import (
 	"database/sql"
 	"errors"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/shibukawa/popcornwave/pw"
 	_ "github.com/shibukawa/tinygodriver/database/sql/sqlite"
 )
 
@@ -75,6 +77,67 @@ func TestCredentialRoundTrip(t *testing.T) {
 	}
 	if found.SignCount != 7 || !found.BackupState || found.LastUsedAt.IsZero() {
 		t.Fatalf("after assertion = %+v, want counter 7, backed up, and a last use", found)
+	}
+}
+
+func TestSignCounterOnlyMovesForward(t *testing.T) {
+	store := dbStore{db: storeDB(t)}
+	ctx := context.Background()
+	saved := testCredential("account-1", 0x21)
+	if err := store.Save(ctx, saved, nil); err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+	used := time.Unix(1_700_000_500, 0).UTC()
+	if err := store.UpdateOnAssertion(ctx, saved.CredentialID, 9, true, used); err != nil {
+		t.Fatalf("UpdateOnAssertion: %v", err)
+	}
+
+	// Two assertions racing on one credential must not leave the lower count
+	// stored: a counter that can go backwards detects no cloned authenticator,
+	// which is the only thing it is for.
+	for _, count := range []uint32{4, 9} {
+		err := store.UpdateOnAssertion(ctx, saved.CredentialID, count, false, used.Add(time.Minute))
+		if !errors.Is(err, ErrUnknownCredential) {
+			t.Fatalf("UpdateOnAssertion with count %d = %v, want ErrUnknownCredential", count, err)
+		}
+	}
+	found, err := store.Find(ctx, saved.CredentialID)
+	if err != nil {
+		t.Fatalf("Find: %v", err)
+	}
+	if found.SignCount != 9 || !found.BackupState {
+		t.Fatalf("after the refused updates = %+v, want the counter and backup state of the accepted one", found)
+	}
+
+	// An authenticator that keeps no counter reports zero every time, so zero
+	// is tolerated rather than compared, exactly as the DynamoDB store does.
+	if err := store.UpdateOnAssertion(ctx, saved.CredentialID, 0, false, used.Add(2*time.Minute)); err != nil {
+		t.Fatalf("UpdateOnAssertion with a zero count: %v", err)
+	}
+}
+
+func TestAuthWarnsAboutASessionBackendThatCannotRevoke(t *testing.T) {
+	// A login this package can end on demand needs a record on the server. The
+	// cookie backend has none, so logout and account suspension both become
+	// advisory. That is worth saying outside dev, and worth staying quiet about
+	// inside it, where a login needing no infrastructure is the point.
+	warning := unrevocableSessionBackend(pw.SessionBackendCookie, false)
+	if warning == "" {
+		t.Fatal("the cookie session backend produced no warning outside dev")
+	}
+	if !strings.Contains(warning, "session.backend = cookie") {
+		t.Fatalf("the warning does not name the setting: %q", warning)
+	}
+	if got := unrevocableSessionBackend(pw.SessionBackendCookie, true); got != "" {
+		t.Fatalf("dev produced a warning: %q", got)
+	}
+	// A backend that can revoke is silent everywhere.
+	for _, backend := range []string{pw.SessionBackendRDB, "redis", "dynamo", ""} {
+		for _, development := range []bool{true, false} {
+			if got := unrevocableSessionBackend(backend, development); got != "" {
+				t.Fatalf("unrevocableSessionBackend(%q, %t) = %q", backend, development, got)
+			}
+		}
 	}
 }
 

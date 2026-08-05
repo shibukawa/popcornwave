@@ -14,6 +14,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/shibukawa/popcornwave/internal/configview"
 	"github.com/shibukawa/popcornwave/internal/pwmigrate"
 	"github.com/shibukawa/popcornwave/migrate"
 )
@@ -184,6 +185,15 @@ func executeMigrate(ctx context.Context, located project, options migrateOptions
 			return nil
 		}
 	}
+	// Every declared package's stream applies before the application's own, so a
+	// package's tables exist before anything the application writes can
+	// reference them. A rollback leaves them alone: the application is reversing
+	// its own schema, and a package's stream is not its to move.
+	if !isRollback(action) {
+		if err := applyPackageStreams(ctx, located, target, stdout); err != nil {
+			return fmt.Errorf("migrate %s: %w", options.action, redactDSN(err, dsn))
+		}
+	}
 	result, err := pwmigrate.Apply(ctx, target, sources, action, options.version)
 	for _, applied := range result.Applied {
 		fmt.Fprintf(stdout, "%s\t%d\t%s\t%s\n",
@@ -303,9 +313,14 @@ func confirmRollback(ctx context.Context, target *pwmigrate.Target, sources fs.F
 // resolveApplicationDSN asks the application for its effective DSN so the CLI
 // never reimplements TOML, environment, and flag precedence. The value arrives
 // on a pipe and is never placed in a process argument.
+//
+// The build carries -tags=pwdev because that is what --pw-print-dsn now needs. A
+// release build does not answer it: the flag prints the database password, and
+// it used to do so for anyone who could execute the binary. Compiling from
+// source here already, this costs nothing.
 func resolveApplicationDSN(ctx context.Context, root, mainPackage string, stderr io.Writer) (string, error) {
 	var output bytes.Buffer
-	command := exec.CommandContext(ctx, "go", "run", mainPackage, "--pw-print-dsn")
+	command := exec.CommandContext(ctx, "go", "run", "-tags=pwdev", mainPackage, "--pw-print-dsn")
 	command.Dir = root
 	command.Stdout = &output
 	command.Stderr = stderr
@@ -320,27 +335,19 @@ func resolveApplicationDSN(ctx context.Context, root, mainPackage string, stderr
 	return dsn, nil
 }
 
-// redactDSN keeps credentials out of reported failures.
+// redactDSN keeps credentials out of reported failures. The DSN is replaced by
+// the same form the startup summary and pw doctor show, so a reader comparing a
+// failure with a summary sees one address written one way; a password that
+// reached the message by some other route is scrubbed separately.
 func redactDSN(err error, dsn string) error {
 	if err == nil || dsn == "" {
 		return err
 	}
-	message := strings.ReplaceAll(err.Error(), dsn, redacted(dsn))
+	message := strings.ReplaceAll(err.Error(), dsn, configview.DSN(dsn))
 	if secret := credentialPart(dsn); secret != "" {
-		message = strings.ReplaceAll(message, secret, "***")
+		message = strings.ReplaceAll(message, secret, configview.Redacted)
 	}
 	return errors.New(message)
-}
-
-func redacted(dsn string) string {
-	scheme, remainder, ok := strings.Cut(dsn, "://")
-	if !ok {
-		return "***"
-	}
-	if secret := credentialPart(dsn); secret != "" {
-		remainder = strings.Replace(remainder, secret, "***", 1)
-	}
-	return scheme + "://" + remainder
 }
 
 func credentialPart(dsn string) string {
@@ -417,4 +424,46 @@ func parseMigrateArgs(args []string) (migrateOptions, error) {
 			options.action, strings.Join(migrateActions, ", "))
 	}
 	return options, nil
+}
+
+// applyPackageStreams brings every declared package's migrations up before the
+// application's own run.
+//
+// The pending statements are printed first. Nothing was copied into the project,
+// so this listing is what replaces the review a migration written into the
+// project used to get: an operator sees what a dependency is about to do to
+// their database before it does it.
+func applyPackageStreams(ctx context.Context, located project, target *pwmigrate.Target, stdout io.Writer) error {
+	if len(located.config.Packages) == 0 {
+		return nil
+	}
+	resolved, err := resolvePackages(ctx, located.root, located.config.Packages)
+	if err != nil {
+		return err
+	}
+	if err := checkPackageCompatibility(located.config, resolved, nil); err != nil {
+		return err
+	}
+	streams, err := packageStreams(ctx, located.root, resolved)
+	if err != nil {
+		return err
+	}
+	for _, stream := range streams {
+		pending, err := pwmigrate.StreamPending(ctx, target, stream)
+		if err != nil {
+			return err
+		}
+		for _, status := range pending {
+			fmt.Fprintf(stdout, "pending\t%s\t%d\t%s\n", stream.Module, status.Version, filepath.Base(status.Path))
+		}
+	}
+	results, err := pwmigrate.ApplyStreams(ctx, target, streams)
+	for _, result := range results {
+		for _, applied := range result.Result.Applied {
+			fmt.Fprintf(stdout, "%s\t%s\t%d\t%s\t%s\n",
+				applied.Direction, result.Module, applied.Version,
+				filepath.Base(applied.Path), applied.Duration.Round(1e6))
+		}
+	}
+	return err
 }

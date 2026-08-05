@@ -5,7 +5,7 @@ sidebar:
   order: 1
 ---
 
-By the end of this tutorial's four chapters, `memoapp` is a memo application
+By the end of this tutorial's five chapters, `memoapp` is a memo application
 with a form, a database table, and a login that keeps each person's notes to
 themselves. It begins as one page that says hello.
 
@@ -131,7 +131,7 @@ listening on http://localhost:8080
 
 The real tree is longer: it lists every resolved configuration key, framework
 and application alike, marks the ones that came from somewhere other than the
-built-in defaults, and redacts secrets such as `rdb.dsn` (that `rdb` branch appears once chapter 3
+built-in defaults, and redacts secrets such as a connection DSN (that `rdb` branch appears once chapter 3
 adds the database). What it is for, and
 what it becomes when nothing is attached to a terminal, is described under
 [Seeing what took effect](/guides/architecture/configuration/#seeing-what-took-effect).
@@ -287,7 +287,7 @@ Leave `pw dev` running. Edit `handlers/home.pw.html`:
 package handlers
 
 export component Home(name: string, project: string): html {
-  <h1 class="text-3xl font-bold">Hello, {name}</h1>
+  <h1 class="title">Hello, {name}</h1>
   <p>Served by Popcorn Wave.</p>
 }
 ```
@@ -306,7 +306,7 @@ happens. Rename the parameter:
 package handlers
 
 export component Home(visitor: string, project: string): html {
-  <h1 class="text-3xl font-bold">Hello, {visitor}</h1>
+  <h1 class="title">Hello, {visitor}</h1>
 }
 ```
 

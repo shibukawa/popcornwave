@@ -13,19 +13,23 @@ func runBuild(ctx context.Context, args []string, stdout, stderr io.Writer) erro
 	if len(args) != 0 {
 		return fmt.Errorf("build: unexpected arguments")
 	}
-	progress := newProgressRegion(stdout)
-	progress.Phase("generating")
-	if _, err := generateProject(ctx, false, stdout, false); err != nil {
-		progress.Done()
-		return err
-	}
+	// The kind is read before anything runs. Generation would succeed in a
+	// package and the link step would then fail on a missing entry point,
+	// which is a late error about the wrong thing.
 	root, err := projectRoot(".")
 	if err != nil {
-		progress.Done()
 		return err
 	}
 	config, err := loadProjectConfig(root)
 	if err != nil {
+		return err
+	}
+	if err := refuseInPackage(config, "build"); err != nil {
+		return err
+	}
+	progress := newProgressRegion(stdout)
+	progress.Phase("generating")
+	if _, err := generateProject(ctx, false, stdout, false); err != nil {
 		progress.Done()
 		return err
 	}
@@ -37,10 +41,13 @@ func runBuild(ctx context.Context, args []string, stdout, stderr io.Writer) erro
 			return err
 		}
 	}
-	if err := preparePublicAssets(root); err != nil {
+	progress.Phase("building assets")
+	report, err := buildDerivedAssets(root, config.Assets)
+	if err != nil {
 		progress.Done()
 		return err
 	}
+	reportDerivedAssets(stdout, report)
 	if err := rejectDevelopmentImports(ctx, root, config.Main); err != nil {
 		progress.Done()
 		return err

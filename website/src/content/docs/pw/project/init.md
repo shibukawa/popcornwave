@@ -6,35 +6,74 @@ sidebar:
 ---
 
 ```sh
-pw init <project-name> [--tailwind] [--no-tinygo] [--no-devbox] [--no-database] [--db=<engine>] [--no-redis] [--router=<kind>] [--auth=<mode>] [--session=<backend>] [--devidp] [-i]
+pw init <project-name> [--preset=<name>] [--yes] [--tailwind] [--no-tinygo] [--no-devbox] [--no-database] [--db=<engine>] [--dynamo] [--firestore] [--no-redis] [--router=<kind>] [--auth=<mode>] [--session=<backend>] [--devidp]
 ```
 
-The command creates a complete, runnable project in a new directory. A name and
-flags make the operation non-interactive; omitting the name, or passing `-i`,
-presents the same choices as a wizard.
+The command creates a complete, runnable project in a new directory. In a
+terminal it opens on a list of presets; `--yes` takes the flags and the defaults
+without asking, which is what a script wants.
+
+## Presets
+
+Ten questions, each defensible on its own, add up to a sequence nobody can
+answer before they have built anything. A preset is a name for one of the
+handful of combinations people actually want, and choosing one is the only
+question left except the project name.
+
+| Preset | Project | What it decides |
+| --- | --- | --- |
+| `website-login` | a website whose pages belong to whoever signed in | discovered routing, OIDC, Redis sessions, SQLite, Tailwind |
+| `website-aws` | the same website with no relational database to operate | discovered routing, OIDC, DynamoDB for everything, Tailwind |
+| `website-discovered` | a website with no accounts and nothing to store | discovered routing, Tailwind, no login, no database |
+| `website-registered` | the same site written as Go registrations | registered routing, otherwise identical |
+| `api-server` | a machine-facing API whose callers bring their own token | registered routing, JWT verification, no browser login |
+| `package` | a module published for other projects to import | a different project kind — see [Component packages](/guides/deployment/package/) |
+| `manual` | anything the six above do not describe | nothing; every answer is yours |
+
+Every preset answers TinyGo and Devbox the same way — yes to both — because
+neither changes what the project contains. `--preset=<name>` gives the same
+answers without the terminal, and it is refused beside any flag that answers a
+question it already answered, since neither would obviously win.
+
+**The review screen is the list of what a preset chose, and every row on it is
+editable.** Press enter on a row to reopen that question and land back on the
+list. A preset is where you start, not what you are stuck with, and `manual` is
+the same screen opened on the defaults instead.
+
+Which one to take: `website-discovered` if you are learning the framework, since
+it is the smallest project that still serves pages, and every capability it
+declines is one [`pw add`](/pw/project/add/) away. Take `website-login` when you
+already know the application has accounts — retrofitting a login means a
+database, a session store, and a provider, and the preset wires all three
+together correctly.
+
+[Changing what a preset chose](/pw/project/presets/) covers moving off any of
+these answers afterwards.
 
 ## Options
 
 | Option | Effect |
 | --- | --- |
+| `--preset=<name>` | answer every question below at once; see [Presets](#presets) |
+| `--yes` | take the flags and the defaults without asking |
 | `--tailwind` | also scaffold the Tailwind CSS toolchain |
 | `--no-tinygo` | target host Go instead of TinyGo |
 | `--no-devbox` | no `devbox.json`; keep your own setup — mise, Docker Compose, Nix, Homebrew, Scoop |
 | `--no-database` | no rdb configuration, no migrations, and no SQL example |
 | `--db=<engine>` | `sqlite` (default), `postgres`, or `mysql` |
+| `--dynamo` | add the DynamoDB store: its configuration, a typed record, and the local server |
+| `--firestore` | add Firestore in Datastore mode: its configuration, a typed entity, and a query declaration |
 | `--no-redis` | leave the Valkey development server out of `devbox.json` |
 | `--router=<kind>` | `registered` (default), `discovered`, or `both`; see [Discovered routing](/guides/cross-layer/discovered-routing/#commands) |
 | `--auth=<mode>` | `none` (default), `oidc`, `oidc-passkey`, or `passkey` |
-| `--session=<backend>` | with a login, where sessions live: `rdb` (default), `cookie`, or `redis` |
+| `--session=<backend>` | with a login, where sessions live: `rdb` (default), `cookie`, `redis`, `dynamo`, or `firestore` |
 | `--devidp` | with an OIDC mode, wire up the local identity provider |
-| `-i`, `--interactive` | ask every question even when a name was given |
 
-`--tailwind`, `--no-database`, `--no-redis`, and `--auth` all select
+`--tailwind`, `--no-database`, `--dynamo`, `--firestore`, `--no-redis`, and `--auth` all select
 capabilities [`pw add`](/pw/project/add/) can install later, so declining one
-costs nothing permanent. The database is the exception in one direction only:
-the login ceremony and admission tables live in it whichever backend stores the
-sessions, so `--no-database` with an `--auth` mode is rejected, and the wizard
-skips the authentication question entirely when the database is declined.
+costs nothing permanent. A browser login needs one server store for ceremony
+and account-side records. With `--no-database`, add either `--dynamo` or
+`--firestore`; without one of those, an `--auth` mode is rejected.
 
 `--no-tinygo` is the answer `pw add` cannot revisit — see
 [Changing the toolchain](#changing-the-toolchain).
@@ -140,15 +179,19 @@ alternative is to use the emulator.
 
 ## Session storage
 
-An `--auth` mode asks one more question: where a login session lives. All three
-answers read the same in a handler — `session.Read[T]` and the auth helpers do
-not change — so this is a deployment decision, not an API one.
+An `--auth` mode asks one more question: which server backend holds the session
+state that goes there. All five answers read the same in a handler —
+`session.Load[T]` and the auth helpers do not change — so this is a deployment
+decision, not an API one. What *is* server-placed is decided by each
+`pw.RegisterSessionStore` line instead.
 
 | Answer | `session.backend` | What the project gets |
 | --- | --- | --- |
 | Database | `rdb` | one row per session, revocable, swept; carries a migration |
 | Cookie | `cookie` | the record sealed into a second cookie; no storage, no revoking |
 | Redis or Valkey | `redis` | server-side TTL per record; revocable, nothing to sweep |
+| DynamoDB | `dynamo` | one item per session; revocable, removed by table TTL |
+| Firestore | `firestore` | one entity per session; revocable, removed by a deployed TTL policy |
 
 **Storage is opt-in by blank import.** A session backend registers itself from
 its package `init`, so the one line that imports it is what puts it — and its
@@ -168,7 +211,7 @@ A SQL store is one package per engine, because no engine reads another's DDL.
 `authstate/postgres`, and the migrations in the PostgreSQL dialect. `sqlite`,
 `postgres`, and `mysql` all pass the same store contract test.
 
-`pw init` writes that line for `rdb` and `redis`. The cookie backend is built
+`pw init` writes the corresponding import for every backend except `cookie`. The cookie backend is built
 into `pw` and needs none, which is why a project can start with sessions and no
 storage at all. A project on `rdb` never links the Redis client, and the reverse
 holds too.
@@ -182,15 +225,19 @@ import _ "github.com/shibukawa/popcornwave/sessionstore/redis"
 ```
 
 The answer also decides what else is scaffolded. `rdb` writes the session table
-migration; `cookie` and `redis` own no table, so the auth migration takes the
-free version instead. `redis` adds the Valkey development server to
+migration; the other backends do not. `dynamo` and `firestore` use the store
+selected for the project, including its auth records. `redis` adds the Valkey development server to
 `devbox.json` even if `--no-redis` was passed, because the session it configures
-needs a server to reach. `cookie` writes
-`cookie_store.secret = "${SESSION_COOKIE_SECRET}"` and the command prints the
-line that generates one:
+needs a server to reach.
+
+Every answer gets a `session.keyring.secret`, generated for that project and
+written into `config.dev.toml`, because a scaffolded project should run without
+an authored secret. It belongs to development: any other environment reads
+`SESSION_KEYRING_SECRET`, and `pw doctor --env=prod` reports a literal there as
+an error.
 
 ```sh
-export SESSION_COOKIE_SECRET=$(openssl rand -base64 32)
+export SESSION_KEYRING_SECRET=$(openssl rand -base64 32)
 ```
 
 [Cookies](/guides/backend/cookies/) compares the three in terms of revocation, size, and

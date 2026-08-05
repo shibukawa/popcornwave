@@ -56,6 +56,29 @@ func activeResolver() TableResolver {
 	return state.resolver
 }
 
+// EnsureClient returns a context carrying the DynamoDB client, reporting false
+// when none can be reached.
+//
+// It exists for a framework extension that runs after SlotStorage during
+// startup and wants to reach the store before serving. A setup context is not
+// a request context, so the client the middleware installs per request is not
+// in it yet; this finds the one the middleware opened instead. A context that
+// already carries a client is returned unchanged.
+//
+// A handler never needs it. A request context already carries the client.
+func EnsureClient(ctx context.Context) (context.Context, bool) {
+	if _, err := dynamobind.ClientFromContext(ctx); err == nil {
+		return ctx, true
+	}
+	state.RLock()
+	client, resolver := state.client, state.resolver
+	state.RUnlock()
+	if client == nil {
+		return ctx, false
+	}
+	return dynamobind.WithClient(ctx, client, dynamobind.WithTableNames(resolver)), true
+}
+
 // Client returns the process client, for an operation dynamobind does not wrap.
 //
 // A handler does not need it: every dynamobind entry reads the client from the
@@ -68,7 +91,7 @@ func Client(ctx context.Context) (*dynamodb.Client, error) {
 // installs both into each request.
 func setup(ctx context.Context) (pw.Middleware, error) {
 	config := pw.Config[Config](ctx)
-	if err := config.validate(pw.Env() == pw.EnvDevelopment); err != nil {
+	if err := config.validate(pw.Development()); err != nil {
 		return nil, err
 	}
 	if !config.Enabled {

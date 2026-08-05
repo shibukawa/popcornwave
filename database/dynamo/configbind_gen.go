@@ -34,6 +34,16 @@ func registerConfigDefinition0() {
 			"middleware.dynamo.verify_schema",
 			"middleware.dynamo.auto_migrate",
 		},
+		Defaults: map[string]string{
+			"middleware.dynamo.timeout":        "10s",
+			"middleware.dynamo.max_idle_conns": "4",
+			"middleware.dynamo.verify_schema":  "true",
+		},
+		Secrets: map[string]string{
+			"middleware.dynamo.access_key_id":     "mask",
+			"middleware.dynamo.secret_access_key": "mask",
+			"middleware.dynamo.session_token":     "mask",
+		},
 		FlagMetas: []cliparser.FieldMeta{
 			{Prefix: "middleware.dynamo", Key: "enabled", Help: "Enabled opens the client and installs the middleware", Kind: cliparser.KindBool},
 			{Prefix: "middleware.dynamo", Key: "region", Help: "Region names the AWS region. Empty falls back to the environment, and a region resolvable from neither is a startup error"},
@@ -60,9 +70,9 @@ func registerConfigDefinition0() {
 				{Key: "declared", Kind: configbind.ScaffoldString},
 				{Key: "deployed", Kind: configbind.ScaffoldString},
 			}},
-			{Key: "timeout", Kind: configbind.ScaffoldDuration, Help: "Timeout bounds one request"},
-			{Key: "max_idle_conns", Kind: configbind.ScaffoldInt, Help: "MaxIdleConns sizes the connection pool. The rule of thumb is the expected concurrency"},
-			{Key: "verify_schema", Kind: configbind.ScaffoldBool, Help: "VerifySchema reads every registered table once at startup and refuses to serve on a mismatch. It is the one check deployment tooling cannot make for itself, so it defaults on"},
+			{Key: "timeout", Kind: configbind.ScaffoldDuration, Default: "10s", Help: "Timeout bounds one request"},
+			{Key: "max_idle_conns", Kind: configbind.ScaffoldInt, Default: "4", Help: "MaxIdleConns sizes the connection pool. The rule of thumb is the expected concurrency"},
+			{Key: "verify_schema", Kind: configbind.ScaffoldBool, Default: "true", Help: "VerifySchema reads every registered table once at startup and refuses to serve on a mismatch. It is the one check deployment tooling cannot make for itself, so it defaults on"},
 			{Key: "auto_migrate", Kind: configbind.ScaffoldBool, Help: "AutoMigrate creates missing tables during startup. It is a development convenience and is rejected elsewhere"},
 		},
 	})
@@ -118,6 +128,8 @@ func applyConfigDefinition0(dst any, o *configbind.Overlay) error {
 			return fmt.Errorf("configbind: middleware.dynamo.timeout: %w", err)
 		}
 		p.Timeout = d
+	} else {
+		p.Timeout = 10000000000 // 10s
 	}
 	if v, ok := o.GetString("middleware.dynamo.max_idle_conns"); ok {
 		n, err := strconv.ParseInt(v, 10, 0)
@@ -125,6 +137,8 @@ func applyConfigDefinition0(dst any, o *configbind.Overlay) error {
 			return fmt.Errorf("configbind: middleware.dynamo.max_idle_conns: %w", err)
 		}
 		p.MaxIdleConns = int(n)
+	} else {
+		p.MaxIdleConns = 4
 	}
 	if v, ok := o.GetString("middleware.dynamo.verify_schema"); ok {
 		bb, err := strconv.ParseBool(v)
@@ -132,6 +146,8 @@ func applyConfigDefinition0(dst any, o *configbind.Overlay) error {
 			return fmt.Errorf("configbind: middleware.dynamo.verify_schema: %w", err)
 		}
 		p.VerifySchema = bb
+	} else {
+		p.VerifySchema = true
 	}
 	if v, ok := o.GetString("middleware.dynamo.auto_migrate"); ok {
 		bb, err := strconv.ParseBool(v)

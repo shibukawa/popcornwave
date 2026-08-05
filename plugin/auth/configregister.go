@@ -8,4 +8,7 @@ import "github.com/shibukawa/popcornwave/pw"
 // configbind_gen.go; keep it that way when renaming either file.
 func init() {
 	pw.RegisterConfig[Config]("auth")
+	// The session lifetime is its own binding so that pw can enforce it without
+	// importing this package.
+	pw.RegisterConfig[SessionLifetimeConfig]("auth.session")
 }

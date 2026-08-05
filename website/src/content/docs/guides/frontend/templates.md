@@ -116,6 +116,51 @@ Boolean attributes are emitted only when true:
 URL attributes require the `url` type, not `string`. Passing a `string` is a
 generation error — which is the point.
 
+The type is only half of it, because a `url` can still name a scheme the browser
+executes rather than follows. `javascript:alert(1)` contains none of the
+characters HTML escaping touches, so escaping it changes nothing and the result
+runs. Every URL-bearing attribute is therefore checked against a scheme
+allowlist — `http`, `https`, `mailto`, `tel`, plus any relative form, which
+cannot leave the origin the document already has. Anything else renders as
+`#tb-blocked-url`:
+
+```html
+<a href={user.website}>profile</a>
+```
+
+| `user.website` | rendered |
+| --- | --- |
+| `https://example.com/u` | `href="https://example.com/u"` |
+| `/u/42` | `href="/u/42"` |
+| `javascript:alert(1)` | `href="#tb-blocked-url"` |
+| `data:text/html;base64,…` | `href="#tb-blocked-url"` |
+| `data:image/png;base64,…` | `href="data:image/png;base64,…"` |
+
+A refused URL is replaced rather than dropped, because a missing `href` looks
+exactly like an attribute the template never wrote — and a URL rejected in error
+would then leave nothing to find it by. The marker is a fragment, so following
+it reaches the current document and nothing else.
+
+Inline `data:` URLs survive for images, since an inline image is ordinary
+authoring, but only for an exact list of media types. `image/svg+xml` is not on
+it: an SVG document carries script, so it is a script sink wearing an image's
+media type.
+
+The check covers the attributes a browser resolves, not just `href` and `src` —
+`xlink:href`, `data`, `cite`, `background`, `poster` and the obsolete plugin
+attributes among them. `srcset` and `ping` hold several URLs each, and are
+checked one entry at a time so a single bad candidate does not discard the rest.
+
+An application that needs another scheme says so once, where it renders:
+
+```go
+pw.WriteHTML(w, r, page, htmlbind.WithURLSchemes("http", "https", "mailto", "tel", "ftp"))
+```
+
+Passing the option replaces the list rather than adding to it, so name every
+scheme the page uses. `htmlbind.WithDataURLMediaTypes` does the same for the
+inline-image roster.
+
 ## Composition and slots
 
 A `children: html` parameter receives whatever appears between the tags:
@@ -215,6 +260,10 @@ another. Strings are escaped automatically for the position where they land:
 <p title={message}>{message}</p>
 ```
 
+Escaping is the answer for text and attribute values. It is not the answer for a
+URL, where the danger is the scheme rather than the characters — see [URL
+attributes](#attributes) above for what happens there instead.
+
 Trusted content requires an explicit intrinsic:
 
 | Intrinsic | Context |
@@ -231,6 +280,48 @@ it to fixed or previously validated trusted content.
 
 Use `JsonForScript` rather than `RawJavaScript` whenever you are handing typed
 data to the page — it encodes for you.
+
+## Forms and CSRF
+
+A form that changes something needs a token proving the request came from your
+page. You do not write it.
+
+```html
+<form method="post" action="/orders">
+  <button>Buy</button>
+</form>
+```
+
+Generation puts a hidden field carrying the token as the form's first child, so
+a later field cannot displace it and no author has to remember it. A GET form
+gets nothing: its fields become the query string, and a token in a URL reaches
+history, logs, and referrers.
+
+Two shapes fail generation rather than producing a form that half works:
+
+- a form posting to another origin, which would hand your session's secret to a
+  third party;
+- a form whose method is a computed value, which cannot be classified as safe or
+  unsafe — dropping the token would expose it on a GET, and keeping it would
+  leave the form unprotected.
+
+One constraint follows from this. A component containing an unsafe form cannot
+be output-cached, because a stored body would hand one session's token to the
+next visitor. The fix is to split what is cacheable from what carries the token:
+
+```html
+@cache(ttl: "1m") component ProductList(rows: Product[]): html { … }
+component OrderForm(): html { <form method="post">…</form> }
+export component Page(rows: Product[]): html { <ProductList rows={rows} /><OrderForm /> }
+```
+
+Rendering a page with an unsafe form outside a request — a mail body, a golden
+test — has no session to take a token from, and the render fails rather than
+emitting an empty field. That failure is the point: an empty token submits, is
+rejected, and leaves nothing pointing at the cause.
+
+See [Security](/guides/architecture/security/) for what happens to the token
+after it leaves the template.
 
 ## Component styles
 
@@ -288,3 +379,7 @@ Common causes include a `string` where a `url` is required, a `string` inserted
 into `<script>`, an optional value mixed with static attribute text, a
 non-boolean condition, an undeclared reference, an intrinsic in the wrong
 context, incompatible slot markers, or a bare element selector in scoped CSS.
+
+The complete language — every declaration, operator, slot rule, whitespace rule,
+and the full list of what generation rejects — is
+[Template Syntax](/reference/template-syntax/).

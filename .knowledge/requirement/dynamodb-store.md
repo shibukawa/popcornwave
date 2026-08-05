@@ -32,9 +32,9 @@ surfaces:
   observability: decision:dynamodb-observability-seam
   runtime_abstraction: none, per decision:dynamodb-no-runtime-abstraction
 bounded_by_the_stack:
-  - no transactions, PartiQL, Streams, or DAX; the driver does not implement them
-  - no UpdateTable, so no table is altered in place
-  - no secondary index tags, because system:tinybind defers the gsi tag option
+  - no transactions, PartiQL, Streams, or DAX; the driver does not implement them, which is what decision:dynamodb-auth-compensating-registration works around
+  - no UpdateTable, so no table is altered in place and an index missing at creation stays missing
+  - no secondary index tags, because system:tinybind defers the gsi tag option; this bounds a generated definition, and a handwritten one may declare an index at creation, which requirement:dynamodb-auth-stores does
   effect: these bound requirement:dynamodb-migration by what exists upstream, not by a Popcorn Wave choice
 tinygo:
   buildable: the client and dynamobind both build under TinyGo, so no part of this store needs decision:migration-execution-split delegation
@@ -54,4 +54,5 @@ non_goals:
   - changing the relational default of decision:tinygo-storage-direction
   - single-table design; system:tinybind states it as a non-goal, so one struct owns one table here too
   - the session backend itself, which is requirement:dynamodb-session-store and depends on this rather than belonging to it
+  - the authentication backend, which is requirement:dynamodb-auth-backend and depends on this the same way
 ```

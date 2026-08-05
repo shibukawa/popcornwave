@@ -1,0 +1,320 @@
+package middlewares
+
+import (
+	"errors"
+	"sort"
+	"strconv"
+	"strings"
+	"sync"
+)
+
+// AssetRepresentation is one stored form of one public asset: a media type, an
+// optional content coding, and the validator for exactly those bytes.
+//
+// Two representations of one URL never share a validator, because a cache
+// holding one must not answer a request that asked for the other.
+type AssetRepresentation struct {
+	// Path locates the bytes inside the served filesystem.
+	Path string
+	// MediaType is the Content-Type to answer with. It may disagree with the
+	// extension of the URL, which is what lets one URL carry a modern format.
+	MediaType string
+	// ContentEncoding is empty for the identity form, or a coding token such as
+	// zstd for a precompressed sibling.
+	ContentEncoding string
+	// Length is the stored byte count, so a response needs no stat.
+	Length int
+	// ETag is the quoted strong tag of these bytes.
+	ETag string
+	// Preference orders the media types of one URL. The build sets it, because
+	// which encoding is worth serving is a judgment about the bytes and the
+	// client only states what it can read. Lower sorts first.
+	Preference int
+}
+
+// AssetEntry is everything the middleware answers with for one URL. A build
+// produces it; nothing is discovered by walking the filesystem at request time,
+// and no digest is computed while a request waits.
+type AssetEntry struct {
+	// URL is the mount-relative path, without a leading slash.
+	URL string
+	// CacheControl is sent verbatim. A name derived from its source is stable
+	// rather than immutable, so the default revalidates and the ETag does the
+	// work.
+	CacheControl string
+	// Representations is ordered by Preference, then by content coding.
+	Representations []AssetRepresentation
+}
+
+// defaultCacheControl revalidates every time. A derived file keeps the name of
+// the source it came from, so the same URL can serve different bytes after a
+// rebuild and no long max-age would be honest. The validator makes that cheap:
+// an unchanged asset costs a 304 and no body.
+const defaultCacheControl = "public, no-cache"
+
+var publicManifestState = struct {
+	sync.RWMutex
+	entries map[string]AssetEntry
+}{}
+
+// RegisterPublicManifest installs the build-produced description of the served
+// tree. A generated project file calls it during package initialization, beside
+// the RegisterPublicFS call that installs the bytes it describes.
+//
+// The two belong together: a manifest describing a different build than the
+// embedded tree would answer with validators for bytes nobody holds.
+func RegisterPublicManifest(entries []AssetEntry) {
+	if len(entries) == 0 {
+		return
+	}
+	indexed := make(map[string]AssetEntry, len(entries))
+	for _, entry := range entries {
+		if entry.CacheControl == "" {
+			entry.CacheControl = defaultCacheControl
+		}
+		sort.SliceStable(entry.Representations, func(i, j int) bool {
+			return entry.Representations[i].Preference < entry.Representations[j].Preference
+		})
+		indexed[entry.URL] = entry
+	}
+	publicManifestState.Lock()
+	defer publicManifestState.Unlock()
+	publicManifestState.entries = indexed
+}
+
+func manifestEntry(name string) (AssetEntry, bool) {
+	publicManifestState.RLock()
+	defer publicManifestState.RUnlock()
+	if publicManifestState.entries == nil {
+		return AssetEntry{}, false
+	}
+	entry, ok := publicManifestState.entries[name]
+	return entry, ok
+}
+
+func manifestRegistered() bool {
+	publicManifestState.RLock()
+	defer publicManifestState.RUnlock()
+	return publicManifestState.entries != nil
+}
+
+// selectRepresentation applies media-type negotiation and then content-coding
+// negotiation, in that order: a compressed sibling exists per representation
+// and not per URL, so the media type has to be settled first.
+//
+// It reports the chosen representation, or false when every representation the
+// entry holds was explicitly refused.
+func selectRepresentation(entry AssetEntry, accept []string, acceptEncoding []string) (AssetRepresentation, bool) {
+	candidates := acceptableByMediaType(entry, accept)
+	if len(candidates) == 0 {
+		return AssetRepresentation{}, false
+	}
+	identity, encoded := AssetRepresentation{}, AssetRepresentation{}
+	hasIdentity, hasEncoded := false, false
+	chosen := candidates[0].MediaType
+	for _, candidate := range candidates {
+		if candidate.MediaType != chosen {
+			continue
+		}
+		if candidate.ContentEncoding == "" {
+			identity, hasIdentity = candidate, true
+			continue
+		}
+		if !hasEncoded {
+			encoded, hasEncoded = candidate, true
+		}
+	}
+	quality := parseEncodingQuality(strings.Join(acceptEncoding, ","))
+	if hasEncoded && len(acceptEncoding) > 0 {
+		coding, set := quality[encoded.ContentEncoding]
+		if !set {
+			coding = quality["*"]
+		}
+		if coding > 0 {
+			return encoded, true
+		}
+	}
+	if !hasIdentity {
+		if hasEncoded {
+			// A URL stored only in an encoded form cannot answer a client that
+			// refuses the coding, which is a build mistake rather than a
+			// negotiation outcome.
+			return AssetRepresentation{}, false
+		}
+		return AssetRepresentation{}, false
+	}
+	if len(acceptEncoding) > 0 {
+		identityQuality, set := quality["identity"]
+		if !set {
+			if wildcard, wildcardSet := quality["*"]; wildcardSet {
+				identityQuality = wildcard
+			} else {
+				identityQuality = 1
+			}
+		}
+		if identityQuality <= 0 {
+			return AssetRepresentation{}, false
+		}
+	}
+	return identity, true
+}
+
+// acceptableByMediaType filters an entry to the representations the request
+// will take, keeping the build's preference order rather than the client's
+// q-values: the ordering is a statement about which bytes are worth serving,
+// and the header only says what can be read.
+func acceptableByMediaType(entry AssetEntry, accept []string) []AssetRepresentation {
+	if len(entry.Representations) == 0 {
+		return nil
+	}
+	if !entryNegotiatesMedia(entry) {
+		return entry.Representations
+	}
+	ranges := parseMediaRanges(strings.Join(accept, ","))
+	if len(ranges) == 0 {
+		return defaultMediaRepresentations(entry)
+	}
+	var acceptable []AssetRepresentation
+	for _, representation := range entry.Representations {
+		if mediaQuality(ranges, representation.MediaType) > 0 {
+			acceptable = append(acceptable, representation)
+		}
+	}
+	if len(acceptable) == 0 {
+		fallback := defaultMediaRepresentations(entry)
+		if mediaQuality(ranges, fallback[0].MediaType) == 0 && explicitlyRefused(ranges, fallback[0].MediaType) {
+			return nil
+		}
+		return fallback
+	}
+	return acceptable
+}
+
+// entryNegotiatesMedia reports whether an entry holds more than one media type,
+// which is the only case where the Accept header can change an answer.
+func entryNegotiatesMedia(entry AssetEntry) bool {
+	if len(entry.Representations) == 0 {
+		return false
+	}
+	first := entry.Representations[0].MediaType
+	for _, representation := range entry.Representations[1:] {
+		if representation.MediaType != first {
+			return true
+		}
+	}
+	return false
+}
+
+// defaultMediaRepresentations returns the least-preferred media type, which the
+// build guarantees every client can read.
+func defaultMediaRepresentations(entry AssetEntry) []AssetRepresentation {
+	fallback := entry.Representations[len(entry.Representations)-1].MediaType
+	var result []AssetRepresentation
+	for _, representation := range entry.Representations {
+		if representation.MediaType == fallback {
+			result = append(result, representation)
+		}
+	}
+	return result
+}
+
+type mediaRange struct {
+	kind    string
+	subtype string
+	quality float64
+}
+
+func parseMediaRanges(header string) []mediaRange {
+	var result []mediaRange
+	for _, item := range strings.Split(header, ",") {
+		parts := strings.Split(item, ";")
+		token := strings.ToLower(strings.TrimSpace(parts[0]))
+		if token == "" {
+			continue
+		}
+		kind, subtype, ok := strings.Cut(token, "/")
+		if !ok {
+			continue
+		}
+		quality := 1.0
+		for _, parameter := range parts[1:] {
+			name, value, found := strings.Cut(strings.TrimSpace(parameter), "=")
+			if !found || !strings.EqualFold(strings.TrimSpace(name), "q") {
+				continue
+			}
+			parsed, err := parseQuality(strings.TrimSpace(value))
+			if err != nil {
+				quality = 0
+			} else {
+				quality = parsed
+			}
+		}
+		result = append(result, mediaRange{kind: kind, subtype: subtype, quality: quality})
+	}
+	return result
+}
+
+// mediaQuality scores one media type against the parsed ranges, preferring the
+// most specific match, as RFC 9110 requires.
+func mediaQuality(ranges []mediaRange, mediaType string) float64 {
+	kind, subtype, ok := strings.Cut(strings.ToLower(mediaTypeName(mediaType)), "/")
+	if !ok {
+		return 0
+	}
+	best, matched := 0.0, 0
+	for _, item := range ranges {
+		specificity := 0
+		switch {
+		case item.kind == kind && item.subtype == subtype:
+			specificity = 3
+		case item.kind == kind && item.subtype == "*":
+			specificity = 2
+		case item.kind == "*" && item.subtype == "*":
+			specificity = 1
+		default:
+			continue
+		}
+		if specificity > matched {
+			best, matched = item.quality, specificity
+		}
+	}
+	return best
+}
+
+// explicitlyRefused separates "not mentioned" from "mentioned with q=0", since
+// only the second is a refusal worth a 406.
+func explicitlyRefused(ranges []mediaRange, mediaType string) bool {
+	kind, subtype, ok := strings.Cut(strings.ToLower(mediaTypeName(mediaType)), "/")
+	if !ok {
+		return false
+	}
+	for _, item := range ranges {
+		if item.quality > 0 {
+			continue
+		}
+		if (item.kind == kind && (item.subtype == subtype || item.subtype == "*")) ||
+			(item.kind == "*" && item.subtype == "*") {
+			return true
+		}
+	}
+	return false
+}
+
+// parseQuality reads a q-value, refusing anything outside the range the
+// grammar allows rather than clamping it into range.
+func parseQuality(value string) (float64, error) {
+	parsed, err := strconv.ParseFloat(value, 64)
+	if err != nil || parsed < 0 || parsed > 1 {
+		return 0, errQuality
+	}
+	return parsed, nil
+}
+
+var errQuality = errors.New("invalid q-value")
+
+func mediaTypeName(value string) string {
+	if separator := strings.IndexByte(value, ';'); separator >= 0 {
+		return strings.TrimSpace(value[:separator])
+	}
+	return strings.TrimSpace(value)
+}

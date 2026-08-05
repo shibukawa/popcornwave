@@ -10,7 +10,8 @@ audience: actor:application-developer
 teaches: requirement:incremental-project-capabilities, on the project the reader has open
 chapters:
   getting_started:
-    init: declines the capabilities the later chapters install, so each of them has something to add
+    init: the website-registered preset of requirement:init-presets, which already declines every capability the later chapters install
+    why_that_preset: it is the smallest project the catalog names, so the chapter picks one list entry instead of answering five questions no, and the reader's first screen is the one every reader sees
     says: which capabilities were declined and that api:cli-add installs any of them later, which is the notice api:cli-init already prints
   forms:
     adds: tailwind
@@ -22,6 +23,10 @@ chapters:
   login:
     adds: auth
     for: the login the chapter builds
+  page_tree:
+    adds: discovered
+    for: requirement:tutorial-page-tree-chapter, which serves one route from a concept:page-tree and introduces the three update models over it
+    coexists: decision:dual-router-coexistence, so the handlers of the earlier chapters keep serving
 form:
   command: pw add <capability>, one line at the head of the chapter
   interaction: the decision:post-init-scaffold-wizard wizard runs and its review screen lists every file, so the chapter shows what the command is about to do before it does it

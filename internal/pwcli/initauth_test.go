@@ -1,13 +1,13 @@
 package pwcli
 
 import (
+	"encoding/base64"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
 	"testing"
 
-	tea "github.com/charmbracelet/bubbletea"
 	"github.com/shibukawa/popcornwave/internal/pwenv"
 	"github.com/shibukawa/popcornwave/internal/pwmigrate"
 	"github.com/shibukawa/popcornwave/plugin/auth"
@@ -116,8 +116,11 @@ func TestScaffoldWiresTheFrameworkOwnedEndpoints(t *testing.T) {
 	}
 }
 
-// The scaffolded keys must be the ones the plugins register, otherwise the
-// generated project fails to start on an unknown key.
+// The scaffolded keys must be registered, otherwise the generated project fails
+// to start on an unknown key.
+//
+// The scan runs from [session] to the end of the file, so it covers every
+// section the scaffold appends after that point, not only the auth ones.
 func TestScaffoldedAuthKeysAreRegistered(t *testing.T) {
 	known := map[string]bool{
 		// [session]
@@ -136,6 +139,12 @@ func TestScaffoldedAuthKeysAreRegistered(t *testing.T) {
 		"redirect_url": true, "scopes": true, "identity_claim": true,
 		"admission": true, "auto_provision": true,
 		"logout_scope": true, "allow_loopback_http": true,
+		// [session]
+		"keyring.secret": true,
+		// [auth], where every session lifetime is declared
+		"session.ttl": true, "session.idle_timeout": true,
+		// [security]
+		"csrf.enabled": true, "csrf.include": true, "csrf.exclude": true,
 	}
 	for _, mode := range []string{authOIDC, authOIDCPasskey, authPasskey} {
 		t.Run(mode, func(t *testing.T) {
@@ -242,71 +251,48 @@ func TestScaffoldWritesNoAuthSectionForNone(t *testing.T) {
 
 func TestInitWizardAsksForTheProviderOnlyForOIDC(t *testing.T) {
 	t.Chdir(t.TempDir())
-	model := feedWizard(t, newTestWizard(defaultInitOptions()),
-		typeText("demo"), pressKey(tea.KeyEnter),
-		pressKey(tea.KeyEnter), // TinyGo
-		pressKey(tea.KeyEnter), // Router
-		pressKey(tea.KeyEnter), // Tailwind
-		typeText("2"),          // Authentication: OIDC
-		typeText("1"),          // Store: SQLite
-		pressKey(tea.KeyEnter), // DynamoDB
-	)
-	if model.reviewing() {
+	model := startWizard(t, presetManual, "demo", defaultInitOptions())
+	// Without a login there is no provider to choose and no store question to
+	// answer either, so both rows are absent before the mode is chosen.
+	if hubRow(model, "OIDC provider") {
+		t.Fatal("the provider row is on the list before a mode that uses one was chosen")
+	}
+	model = answerHubRow(t, model, "Authentication", 2) // OIDC
+	// A login has to keep its sessions somewhere, so the store row appears
+	// with it and the whether-a-database row leaves.
+	if !hubRow(model, "Store") || hubRow(model, "Database") {
+		t.Fatalf("choosing a login did not swap whether for which: rows are %v", hubLabels(model))
+	}
+	if !hubRow(model, "Session storage") {
 		t.Fatal("choosing OIDC must ask where the session lives")
 	}
-	// A login asks for its storage first: it is the answer the provider
-	// question has no bearing on.
-	if label := model.steps[model.index].label(); label != "Session storage" {
-		t.Fatalf("step = %q", label)
+	if !hubRow(model, "OIDC provider") {
+		t.Fatalf("the provider row is missing: rows are %v", hubLabels(model))
 	}
-	model = feedWizard(t, model, typeText("1")) // Session storage: Database
-	if label := model.steps[model.index].label(); label != "OIDC provider" {
-		t.Fatalf("step = %q", label)
-	}
-	model = feedWizard(t, model, typeText("1")) // Local emulator
+	model = answerHubRow(t, model, "OIDC provider", 1) // Local emulator
 	options := wizardResult(model, defaultInitOptions())
 	if options.Auth != authOIDC || !options.AuthEmulator {
 		t.Fatalf("options = %#v", options)
 	}
 }
 
-// oidc_passkey still needs a provider, so the wizard keeps asking for one.
+// oidc_passkey still needs a provider, so the list keeps carrying one.
 func TestInitWizardAsksForTheProviderForOIDCPasskey(t *testing.T) {
 	t.Chdir(t.TempDir())
-	model := feedWizard(t, newTestWizard(defaultInitOptions()),
-		typeText("demo"), pressKey(tea.KeyEnter),
-		pressKey(tea.KeyEnter), // TinyGo
-		pressKey(tea.KeyEnter), // Router
-		pressKey(tea.KeyEnter), // Tailwind
-		typeText("3"),          // Authentication: OIDC and passkey
-		typeText("1"),          // Store: SQLite
-		pressKey(tea.KeyEnter), // DynamoDB
-		pressKey(tea.KeyEnter), // Session storage
-	)
-	if model.reviewing() {
-		t.Fatal("the provider step was skipped for a mode that uses one")
-	}
-	if label := model.steps[model.index].label(); label != "OIDC provider" {
-		t.Fatalf("step = %q, want the provider question", label)
+	model := startWizard(t, presetManual, "demo", defaultInitOptions())
+	model = answerHubRow(t, model, "Authentication", 3) // OIDC and passkey
+	if !hubRow(model, "OIDC provider") {
+		t.Fatalf("the provider row is missing for a mode that uses one: rows are %v", hubLabels(model))
 	}
 }
 
 func TestInitWizardSkipsTheProviderStepWithoutOIDC(t *testing.T) {
 	t.Chdir(t.TempDir())
 	seeded := initOptions{TinyGo: true, Devbox: true, Database: true, Engine: engineSQLite, Redis: true, Auth: authOIDC, AuthEmulator: true}
-	model := feedWizard(t, newTestWizard(seeded),
-		typeText("demo"), pressKey(tea.KeyEnter),
-		pressKey(tea.KeyEnter), // TinyGo
-		pressKey(tea.KeyEnter), // Router
-		pressKey(tea.KeyEnter), // Tailwind
-		typeText("4"),          // Authentication: Passkey only
-		typeText("1"),          // Store: SQLite
-		pressKey(tea.KeyEnter), // DynamoDB
-		pressKey(tea.KeyEnter), // Session storage
-	)
-	// The provider question is skipped; the environment questions still follow.
-	if label := model.steps[model.index].label(); label != "Devbox environment" {
-		t.Fatalf("step = %q, want the provider question skipped", label)
+	model := startWizard(t, presetManual, "demo", seeded)
+	model = answerHubRow(t, model, "Authentication", 4) // Passkey only
+	if hubRow(model, "OIDC provider") {
+		t.Fatalf("the provider row survived a mode with no provider: rows are %v", hubLabels(model))
 	}
 	// The seeded emulator answer must not survive a mode that has no provider.
 	options := wizardResult(model, seeded)
@@ -315,23 +301,23 @@ func TestInitWizardSkipsTheProviderStepWithoutOIDC(t *testing.T) {
 	}
 }
 
-func TestInitWizardGoesBackPastASkippedStep(t *testing.T) {
+// TestInitWizardDropsARowThatStoppedApplying is the hub's version of walking
+// past a skipped question: an answer that removes a row takes that row's
+// answer with it, so a question the project never reached cannot leak into it.
+func TestInitWizardDropsARowThatStoppedApplying(t *testing.T) {
 	t.Chdir(t.TempDir())
-	model := feedWizard(t, newTestWizard(defaultInitOptions()),
-		typeText("demo"), pressKey(tea.KeyEnter),
-		pressKey(tea.KeyEnter), // TinyGo
-		pressKey(tea.KeyEnter), // Router
-		pressKey(tea.KeyEnter), // Tailwind
-		pressKey(tea.KeyEnter), // Authentication: None
-		pressKey(tea.KeyEnter), // Database
-		pressKey(tea.KeyEnter), // Database engine
-		pressKey(tea.KeyEnter), // DynamoDB
-		pressKey(tea.KeyEnter), // Devbox
-		pressKey(tea.KeyEnter), // Redis or Valkey
-		pressKey(tea.KeyEsc),   // back from the review screen
-	)
-	if label := model.steps[model.index].label(); label != "Redis or Valkey" {
-		t.Fatalf("esc landed on %q, want the last asked question", label)
+	model := startWizard(t, presetManual, "demo", defaultInitOptions())
+	model = answerHubRow(t, model, "Authentication", 2) // OIDC, which asks for a provider
+	model = answerHubRow(t, model, "OIDC provider", 1)  // Local emulator
+	if !wizardResult(model, defaultInitOptions()).AuthEmulator {
+		t.Fatal("the provider answer did not reach the options")
+	}
+	model = answerHubRow(t, model, "Authentication", 1) // back to None
+	if hubRow(model, "OIDC provider") {
+		t.Fatalf("the provider row outlived the mode that asked for it: rows are %v", hubLabels(model))
+	}
+	if options := wizardResult(model, defaultInitOptions()); options.AuthEmulator {
+		t.Fatalf("a removed row left its answer behind: %#v", options)
 	}
 }
 
@@ -374,6 +360,39 @@ func TestScaffoldedMigrationsApply(t *testing.T) {
 // The session backend decides three scaffold outputs at once: the import that
 // contributes it, the configuration keys that describe it, and whether a
 // migration is needed at all.
+// The scaffolded keyring is generated per project rather than shipped in this
+// source. A constant here would be a published credential in every project that
+// ever ran pw init, which is the thing the placeholder check exists to catch.
+func TestTheScaffoldedKeyringIsGeneratedPerProject(t *testing.T) {
+	// The scaffold writes [session] alongside [auth] today, so this asks for an
+	// authentication mode to get one.
+	first := scaffoldFiles(initOptions{Name: "demo", Auth: authOIDC})["config.dev.toml"]
+	second := scaffoldFiles(initOptions{Name: "demo", Auth: authOIDC})["config.dev.toml"]
+	secretOf := func(config string) string {
+		for _, line := range strings.Split(config, "\n") {
+			if key, value, found := strings.Cut(strings.TrimSpace(line), "="); found &&
+				strings.TrimSpace(key) == "keyring.secret" {
+				return strings.Trim(strings.TrimSpace(value), `"`)
+			}
+		}
+		return ""
+	}
+	one, other := secretOf(first), secretOf(second)
+	if one == "" {
+		t.Fatalf("no keyring was scaffolded:\n%s", first)
+	}
+	if one == other {
+		t.Error("two projects were scaffolded with the same keyring")
+	}
+	decoded, err := base64.StdEncoding.DecodeString(one)
+	if err != nil {
+		t.Fatalf("the scaffolded keyring is not base64: %v", err)
+	}
+	if len(decoded) < 32 {
+		t.Errorf("the scaffolded keyring is %d bytes, want at least 32", len(decoded))
+	}
+}
+
 func TestScaffoldFollowsTheSessionBackendChoice(t *testing.T) {
 	rdbFiles := scaffoldFiles(initOptions{Name: "demo", Database: true, Auth: authOIDC, Session: sessionRDB})
 	if !strings.Contains(rdbFiles["cmd/demo/main.go"], `_ "github.com/shibukawa/popcornwave/sessionstore/sqlite"`) {
@@ -399,7 +418,10 @@ func TestScaffoldFollowsTheSessionBackendChoice(t *testing.T) {
 	if strings.Contains(cookieFiles["cmd/demo/main.go"], "sessionstore/") {
 		t.Errorf("the built-in cookie backend was imported:\n%s", cookieFiles["cmd/demo/main.go"])
 	}
-	if !strings.Contains(cookieFiles["config.dev.toml"], `cookie_store.secret = "${SESSION_COOKIE_SECRET}"`) {
+	// Every backend seals a record into the browser while a session is still
+	// anonymous, so the keyring is scaffolded whatever the backend is, and the
+	// cookie backend adds no key of its own.
+	if !strings.Contains(cookieFiles["config.dev.toml"], "keyring.secret = ") {
 		t.Errorf("cookie session config:\n%s", cookieFiles["config.dev.toml"])
 	}
 	if strings.Contains(cookieFiles["config.dev.toml"], "rdb.source") {
@@ -498,38 +520,209 @@ func TestScaffoldImportsTheStoresOfTheSelectedEngine(t *testing.T) {
 	}
 }
 
-// Choosing DynamoDB for the login does not skip the SQL question: plugin/auth
-// keeps its ceremony records and its allowlist in a relational database
-// whatever holds the sessions, so the wizard asks which engine that is instead
-// of adding one the operator never saw.
-func TestInitWizardAsksForTheEngineBehindADynamoLogin(t *testing.T) {
-	t.Chdir(t.TempDir())
-	model := feedWizard(t, newTestWizard(defaultInitOptions()),
-		typeText("demo"), pressKey(tea.KeyEnter),
-		pressKey(tea.KeyEnter), // TinyGo
-		pressKey(tea.KeyEnter), // Router
-		pressKey(tea.KeyEnter), // Tailwind
-		typeText("2"),          // Authentication: OIDC
-		typeText("4"),          // Store: DynamoDB
-	)
-	if label := model.steps[model.index].label(); label != "Database engine" {
-		t.Fatalf("step = %q, want the engine the login is kept in", label)
+// A project with a session gets the CSRF shape written out and switched off.
+// Turning it on later should be uncommenting rather than looking the keys up.
+func TestScaffoldWritesTheCSRFSectionOffByDefault(t *testing.T) {
+	config := scaffoldFiles(initOptions{Name: "demo", Auth: authOIDC})[pwenv.FileName(pwenv.Development)]
+	if !strings.Contains(config, "[security]") {
+		t.Fatalf("no security section:\n%s", config)
 	}
-	model = feedWizard(t, model,
-		typeText("2"),          // Database engine: PostgreSQL
-		pressKey(tea.KeyEnter), // Session storage
-		pressKey(tea.KeyEnter), // OIDC provider
-	)
+	if !strings.Contains(config, "csrf.enabled = false") {
+		t.Errorf("CSRF is not scaffolded off:\n%s", config)
+	}
+	// The anonymous path is a comment, so a project that needs it finds the
+	// keys rather than the documentation.
+	if !strings.Contains(config, "# csrf.anonymous.enabled = true") {
+		t.Errorf("the anonymous path is not shown:\n%s", config)
+	}
+}
+
+// A page tree's action endpoints are POSTs reachable with the session cookie
+// and nothing else in front of them, so the prefix must be in the include list.
+func TestScaffoldCoversThePageActionPrefix(t *testing.T) {
+	pages := scaffoldFiles(initOptions{Name: "demo", Auth: authOIDC, Router: routerDiscovered})[pwenv.FileName(pwenv.Development)]
+	if !strings.Contains(pages, `csrf.include = ["/_action/**", "/**"]`) {
+		t.Errorf("a page tree did not cover the action prefix:\n%s", pages)
+	}
+}
+
+// Without a session there is nothing to bind a token to, so the section would
+// only describe a check that could not pass.
+func TestScaffoldWritesNoSecuritySectionWithoutASession(t *testing.T) {
+	config := scaffoldFiles(initOptions{Name: "demo"})[pwenv.FileName(pwenv.Development)]
+	if strings.Contains(config, "[security]") {
+		t.Errorf("a session-less project got a security section:\n%s", config)
+	}
+}
+
+// Choosing DynamoDB for the login asks for no SQL engine behind it. All four
+// tables plugin/auth owns move to DynamoDB with auth.backend, so there is
+// nothing left for a relational database to carry.
+func TestInitWizardAsksForNoEngineBehindADynamoLogin(t *testing.T) {
+	t.Chdir(t.TempDir())
+	model := startWizard(t, presetManual, "demo", defaultInitOptions())
+	model = answerHubRow(t, model, "Authentication", 2) // OIDC
+	model = answerHubRow(t, model, "Store", 4)          // DynamoDB
 	options := wizardResult(model, defaultInitOptions())
-	if !options.Dynamo || !options.Database || options.Engine != enginePostgres {
+	options.Preset = ""
+	if !options.Dynamo || options.Database {
 		t.Fatalf("options = %#v", options)
 	}
-	// The DynamoDB question was already answered by the store choice, so it is
-	// not asked a second time.
-	for _, index := range model.activeSteps() {
-		if model.steps[index].label() == "DynamoDB" {
-			t.Fatal("the DynamoDB question was asked again after it was the store answer")
+	// Neither the engine nor the DynamoDB row survives: the store answer
+	// settled both, so there is nothing left to ask.
+	for _, label := range []string{"DynamoDB", "Database engine", "Database"} {
+		if hubRow(model, label) {
+			t.Fatalf("%q is still on the list after DynamoDB was the store answer: rows are %v", label, hubLabels(model))
 		}
+	}
+}
+
+// The project that answer produces is the one the backend was built for: no rdb
+// section, and the four auth tables named as DynamoDB's.
+func TestDynamoLoginScaffoldsTheDynamoAuthBackend(t *testing.T) {
+	options := initOptions{
+		Name: "demo", Router: routerRegistered, Auth: authOIDC, AuthStore: dynamoStore,
+		Dynamo: true, Database: false, Session: sessionDynamo,
+	}
+	if backend := authBackend(options); backend != "dynamo" {
+		t.Fatalf("auth backend = %q", backend)
+	}
+	config := authRuntimeConfig(options)
+	if !strings.Contains(config, `backend = "dynamo"`) {
+		t.Fatalf("[auth] section does not name the backend:\n%s", config)
+	}
+	// Both halves are imported: the ceremony store and the account-side stores.
+	imports := sessionBackendImport(options)
+	for _, wanted := range []string{"authstate/dynamo", "authstore/dynamo"} {
+		if !strings.Contains(imports, wanted) {
+			t.Fatalf("imports do not carry %s:\n%s", wanted, imports)
+		}
+	}
+	if strings.Contains(imports, "authstate/sqlite") {
+		t.Fatalf("a relational ceremony store was imported anyway:\n%s", imports)
+	}
+}
+
+// The Firestore project is the same shape as the DynamoDB one: no rdb section,
+// and the four auth stores named as Firestore's.
+func TestFirestoreLoginScaffoldsTheFirestoreAuthBackend(t *testing.T) {
+	options := initOptions{
+		Name: "demo", Router: routerRegistered, Auth: authOIDC,
+		Firestore: true, Database: false, Session: sessionFirestore,
+	}
+	if backend := authBackend(options); backend != "firestore" {
+		t.Fatalf("auth backend = %q", backend)
+	}
+	config := authRuntimeConfig(options)
+	if !strings.Contains(config, `backend = "firestore"`) {
+		t.Fatalf("[auth] section does not name the backend:\n%s", config)
+	}
+	// Both halves are imported: the ceremony store and the account-side stores.
+	imports := sessionBackendImport(options)
+	for _, wanted := range []string{"authstate/firestore", "authstore/firestore"} {
+		if !strings.Contains(imports, wanted) {
+			t.Fatalf("imports do not carry %s:\n%s", wanted, imports)
+		}
+	}
+	if strings.Contains(imports, "authstate/sqlite") {
+		t.Fatalf("a relational ceremony store was imported anyway:\n%s", imports)
+	}
+	// Nothing is generated for Firestore, so the client middleware import has
+	// to be written by the scaffold rather than arriving with generated code.
+	if store := storeMiddlewareImport(options); !strings.Contains(store, "database/firestore") {
+		t.Fatalf("the client middleware is not imported: %q", store)
+	}
+}
+
+// The configuration points at the emulator and names no credential: the
+// emulator ignores the Authorization header, so a key here would be pretending
+// to exercise the token path.
+func TestTheFirestoreSectionScaffoldsForTheEmulator(t *testing.T) {
+	section := firestoreRuntimeConfig(initOptions{Firestore: true})
+	for _, want := range []string{"[middleware.firestore]", "127.0.0.1:8081", "Datastore mode", "gcloud beta emulators datastore start"} {
+		if !strings.Contains(section, want) {
+			t.Errorf("the section does not carry %q:\n%s", want, section)
+		}
+	}
+	for _, absent := range []string{"credentials_file", "secret", "auto_migrate", "verify_schema"} {
+		if strings.Contains(section, absent) {
+			t.Errorf("the section carries %q, which it should not", absent)
+		}
+	}
+	if firestoreRuntimeConfig(initOptions{}) != "" {
+		t.Error("a project without the store still got a section")
+	}
+}
+
+// A login with neither store has nowhere to keep its records, and both ways out
+// are named. Firestore is one of them.
+func TestAFirestoreOnlyLoginIsAccepted(t *testing.T) {
+	_, err := parseInitArgs([]string{"demo", "--auth=oidc", "--no-database"})
+	if err == nil || !strings.Contains(err.Error(), "--firestore") {
+		t.Fatalf("the refusal does not name --firestore: %v", err)
+	}
+	options, err := parseInitArgs([]string{"demo", "--auth=oidc", "--no-database", "--firestore"})
+	if err != nil {
+		t.Fatalf("a Firestore-only login = %v", err)
+	}
+	if backend := sessionBackend(options); backend != sessionFirestore {
+		t.Fatalf("session backend = %q", backend)
+	}
+	if backend := authBackend(options); backend != "firestore" {
+		t.Fatalf("auth backend = %q", backend)
+	}
+}
+
+// auth.backend names one store for all four of its kinds, so a project with
+// both non-relational stores and no database has no defined winner. Asking is
+// better than picking one.
+func TestTwoStoresAndNoDatabaseIsRefusedForALogin(t *testing.T) {
+	_, err := parseInitArgs([]string{"demo", "--auth=oidc", "--no-database", "--dynamo", "--firestore"})
+	if err == nil {
+		t.Fatal("a login with two stores and no database was accepted")
+	}
+	// Without a login there is nothing to choose between, so both stores stand.
+	if _, err := parseInitArgs([]string{"demo", "--auth=none", "--no-database", "--dynamo", "--firestore"}); err != nil {
+		t.Fatalf("two stores without a login = %v", err)
+	}
+}
+
+// A relational login is untouched by any of this.
+func TestRelationalLoginKeepsTheRelationalBackend(t *testing.T) {
+	options := initOptions{
+		Name: "demo", Router: routerRegistered, Auth: authOIDC, AuthStore: engineSQLite,
+		Database: true, Engine: engineSQLite, Session: sessionRDB,
+	}
+	if backend := authBackend(options); backend != "rdb" {
+		t.Fatalf("auth backend = %q", backend)
+	}
+	if !strings.Contains(authRuntimeConfig(options), `backend = "rdb"`) {
+		t.Fatal("[auth] section does not name the relational backend")
+	}
+	imports := sessionBackendImport(options)
+	if !strings.Contains(imports, "authstate/sqlite") || strings.Contains(imports, "authstore/dynamo") {
+		t.Fatalf("imports = %s", imports)
+	}
+}
+
+// A login with neither store has nowhere to keep its records, and the refusal
+// names both ways out rather than only the database.
+func TestALoginNeedsAStore(t *testing.T) {
+	_, err := parseInitArgs([]string{"demo", "--auth=oidc", "--no-database"})
+	if err == nil || !strings.Contains(err.Error(), "--dynamo") {
+		t.Fatalf("a login with no store = %v", err)
+	}
+	// Naming the other store is accepted, and the session follows it rather
+	// than defaulting to a pool the project does not open.
+	options, err := parseInitArgs([]string{"demo", "--auth=oidc", "--no-database", "--dynamo"})
+	if err != nil {
+		t.Fatalf("a DynamoDB-only login = %v", err)
+	}
+	if backend := sessionBackend(options); backend != sessionDynamo {
+		t.Fatalf("session backend = %q", backend)
+	}
+	if backend := authBackend(options); backend != "dynamo" {
+		t.Fatalf("auth backend = %q", backend)
 	}
 }
 
@@ -537,24 +730,78 @@ func TestInitWizardAsksForTheEngineBehindADynamoLogin(t *testing.T) {
 // kind of store, and the other one is a separate decision.
 func TestInitWizardStillAsksAboutDynamoAfterASQLLogin(t *testing.T) {
 	t.Chdir(t.TempDir())
-	model := feedWizard(t, newTestWizard(defaultInitOptions()),
-		typeText("demo"), pressKey(tea.KeyEnter),
-		pressKey(tea.KeyEnter), // TinyGo
-		pressKey(tea.KeyEnter), // Router
-		pressKey(tea.KeyEnter), // Tailwind
-		typeText("2"),          // Authentication: OIDC
-		typeText("1"),          // Store: SQLite
-	)
-	if label := model.steps[model.index].label(); label != "DynamoDB" {
-		t.Fatalf("step = %q, want the other kind of store", label)
+	model := startWizard(t, presetManual, "demo", defaultInitOptions())
+	model = answerHubRow(t, model, "Authentication", 2) // OIDC
+	model = answerHubRow(t, model, "Store", 1)          // SQLite
+	if !hubRow(model, "DynamoDB") {
+		t.Fatalf("the other kind of store is missing from the list: rows are %v", hubLabels(model))
 	}
-	model = feedWizard(t, model,
-		typeText("1"),          // DynamoDB: Yes
-		pressKey(tea.KeyEnter), // Session storage
-		pressKey(tea.KeyEnter), // OIDC provider
-	)
+	model = answerHubRow(t, model, "DynamoDB", 1) // Yes
 	options := wizardResult(model, defaultInitOptions())
+	options.Preset = ""
 	if !options.Dynamo || options.Engine != engineSQLite {
 		t.Fatalf("options = %#v", options)
+	}
+}
+
+// Partial updates are scaffolded off, with the key they need shown rather than
+// left for the reader to find. Enabling them without one is a startup failure.
+func TestScaffoldWritesTheUpdateSectionOffByDefault(t *testing.T) {
+	config := scaffoldFiles(initOptions{Name: "demo", Auth: authOIDC})[pwenv.FileName(pwenv.Development)]
+	if !strings.Contains(config, "[html.update]") {
+		t.Fatalf("no update section:\n%s", config)
+	}
+	if !strings.Contains(config, "enabled = false") {
+		t.Errorf("updates are not scaffolded off:\n%s", config)
+	}
+	if !strings.Contains(config, "# validator_key =") {
+		t.Errorf("the validator key is not shown:\n%s", config)
+	}
+}
+
+// Session storage is not a login. A project that declares only a language
+// preference still needs the middleware, and the framework installs it from
+// session.enabled rather than from an authentication plugin.
+func TestSessionIsScaffoldedWithoutALogin(t *testing.T) {
+	files := scaffoldFiles(initOptions{Name: "demo", Database: true})
+	config := files["config.dev.toml"]
+	if !strings.Contains(config, "[session]") {
+		t.Fatalf("a project without a login got no session section:\n%s", config)
+	}
+	if strings.Contains(config, "[auth]") {
+		t.Fatal("a project without a login got an auth section")
+	}
+	// Cookie is the coherent default there: no table, no migration, no import
+	// to hold state that fits in a sealed cookie.
+	if !strings.Contains(config, `backend = "cookie"`) {
+		t.Fatalf("session backend without a login:\n%s", config)
+	}
+	if strings.Contains(files["cmd/demo/main.go"], "sessionstore/") {
+		t.Error("a cookie session imported a storage plugin")
+	}
+	if strings.Contains(files["cmd/demo/main.go"], "authstate/") {
+		t.Error("a project with no login imported the login ceremony store")
+	}
+	for name := range files {
+		if strings.Contains(name, sessionstore.MigrationName) {
+			t.Errorf("a cookie session scaffolded a table migration: %s", name)
+		}
+	}
+	// The keyring is still written, because a sealed slot needs one whatever
+	// the backend is.
+	if !strings.Contains(config, "keyring.secret = ") {
+		t.Error("no keyring was scaffolded for a session that seals")
+	}
+}
+
+// Asking for a server backend without a login is honored, and it brings the
+// import with it rather than leaving a configuration nothing serves.
+func TestAServerBackendWithoutALoginBringsItsImport(t *testing.T) {
+	files := scaffoldFiles(initOptions{Name: "demo", Database: true, Session: sessionRDB})
+	if !strings.Contains(files["config.dev.toml"], `backend = "rdb"`) {
+		t.Fatal("the selected backend was not scaffolded")
+	}
+	if !strings.Contains(files["cmd/demo/main.go"], "sessionstore/") {
+		t.Errorf("the rdb backend was configured without its import:\n%s", files["cmd/demo/main.go"])
 	}
 }

@@ -29,11 +29,13 @@ func withMemberDatabase(config *Config) {
 	})
 	Update[pw.MiddlewareConfig](config, func(value *pw.MiddlewareConfig) {
 		value.RDB = pw.RDBConfig{
-			Enabled:        true,
-			DSN:            "sqlite://:memory:",
-			ConnectTimeout: time.Second,
-			MaxOpenConns:   1,
-			MaxIdleConns:   1,
+			Enabled: true,
+			Connections: []pw.RDBConnectionConfig{{
+				DSN:            "sqlite://:memory:",
+				ConnectTimeout: time.Second,
+				MaxOpenConns:   1,
+				MaxIdleConns:   1,
+			}},
 		}
 	})
 }
@@ -111,6 +113,116 @@ func TestSeedResetsStateMidTest(t *testing.T) {
 	}
 }
 
+// withMemberFileDatabase backs the member table with a file rather than
+// :memory:, so the pool may hold more than one connection.
+//
+// upsert and delete ask the connector for the table's primary keys, and that
+// query runs on the pool rather than on the seeding transaction. A single
+// connection is therefore already held when it runs, and the seed deadlocks.
+func withMemberFileDatabase(t *testing.T) func(*Config) {
+	t.Helper()
+	dsn := "sqlite://" + filepath.Join(t.TempDir(), "member.db")
+	return func(config *Config) {
+		Update[pw.ServerConfig](config, func(value *pw.ServerConfig) {
+			value.Public.Enabled = false
+		})
+		Update[pw.MiddlewareConfig](config, func(value *pw.MiddlewareConfig) {
+			value.RDB = pw.RDBConfig{
+				Enabled: true,
+				Connections: []pw.RDBConnectionConfig{{
+					DSN:            dsn,
+					ConnectTimeout: time.Second,
+					MaxOpenConns:   2,
+					MaxIdleConns:   2,
+				}},
+			}
+		})
+	}
+}
+
+// TestSeedOperationsFromDataset covers the _operation block. dbtestify reads
+// operations from its option struct rather than from the parsed dataset, so
+// every case here would silently clear-insert if Apply stopped carrying them
+// across.
+func TestSeedOperationsFromDataset(t *testing.T) {
+	for _, testcase := range []struct {
+		name    string
+		dataset string
+		want    string
+	}{
+		{
+			name:    "insert keeps the rows already there",
+			dataset: "_operation:\n  member: insert\n\nmember:\n- { id: 3, name: Heidi }\n",
+			want:    "Frank,Grace,Heidi",
+		},
+		{
+			name:    "upsert updates one row and adds another",
+			dataset: "_operation:\n  member: upsert\n\nmember:\n- { id: 2, name: Gracie }\n- { id: 3, name: Heidi }\n",
+			want:    "Frank,Gracie,Heidi",
+		},
+		{
+			// The listed row must not arrive: truncate empties the table and
+			// stops, where clear-insert would go on to insert it.
+			name:    "truncate empties the table and inserts nothing",
+			dataset: "_operation:\n  member: truncate\n\nmember:\n- { id: 99, name: Nobody }\n",
+			want:    "",
+		},
+		{
+			name:    "delete removes only the rows the dataset names",
+			dataset: "_operation:\n  member: delete\n\nmember:\n- { id: 1, name: Frank }\n",
+			want:    "Grace",
+		},
+	} {
+		t.Run(testcase.name, func(t *testing.T) {
+			directory := t.TempDir()
+			if err := os.WriteFile(filepath.Join(directory, "initial.yaml"), []byte(
+				"member:\n- { id: 1, name: Frank }\n- { id: 2, name: Grace }\n",
+			), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(filepath.Join(directory, "operation.yaml"),
+				[]byte(testcase.dataset), 0o644); err != nil {
+				t.Fatal(err)
+			}
+
+			server := TestRun(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}),
+				withMemberFileDatabase(t), WithMigrations(memberMigrationDir(t)),
+				WithSeedDir(directory), WithSeed("initial"))
+
+			server.Seed(t, "operation")
+			if got := strings.Join(memberNames(t, server), ","); got != testcase.want {
+				t.Fatalf("members = %q, want %q", got, testcase.want)
+			}
+		})
+	}
+}
+
+// TestSeedUpsertInsideTestTransaction pins the escape from the pool contention
+// described on withMemberFileDatabase. Under WithTransaction the connector is
+// built from the test transaction, so the primary-key lookup runs there instead
+// of borrowing a second connection — and upsert works against :memory: with a
+// single connection, which is the configuration the documentation shows.
+func TestSeedUpsertInsideTestTransaction(t *testing.T) {
+	directory := t.TempDir()
+	for name, body := range map[string]string{
+		"initial.yaml":   "member:\n- { id: 1, name: Frank }\n- { id: 2, name: Grace }\n",
+		"operation.yaml": "_operation:\n  member: upsert\n\nmember:\n- { id: 2, name: Gracie }\n- { id: 3, name: Heidi }\n",
+		"expected.yaml":  "member:\n- { id: 1, name: Frank }\n- { id: 2, name: Gracie }\n- { id: 3, name: Heidi }\n",
+	} {
+		if err := os.WriteFile(filepath.Join(directory, name), []byte(body), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	server := TestRun(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}),
+		withMemberDatabase, WithMigrations(memberMigrationDir(t)),
+		WithSeedDir(directory), WithTransaction(true))
+
+	server.Seed(t, "initial")
+	server.Seed(t, "operation")
+	server.AssertDB(t, "expected")
+}
+
 func TestWithSeedDirOverridesLocation(t *testing.T) {
 	directory := t.TempDir()
 	if err := os.WriteFile(filepath.Join(directory, "custom.yaml"), []byte(
@@ -161,11 +273,13 @@ func TestSeedAndAssertInsideTestTransaction(t *testing.T) {
 		})
 		Update[pw.MiddlewareConfig](config, func(value *pw.MiddlewareConfig) {
 			value.RDB = pw.RDBConfig{
-				Enabled:        true,
-				DSN:            dsn,
-				ConnectTimeout: time.Second,
-				MaxOpenConns:   2,
-				MaxIdleConns:   2,
+				Enabled: true,
+				Connections: []pw.RDBConnectionConfig{{
+					DSN:            dsn,
+					ConnectTimeout: time.Second,
+					MaxOpenConns:   2,
+					MaxIdleConns:   2,
+				}},
 			}
 		})
 	}
@@ -218,11 +332,13 @@ func TestTestTransactionRollbackDiscardsSeededRows(t *testing.T) {
 		})
 		Update[pw.MiddlewareConfig](config, func(value *pw.MiddlewareConfig) {
 			value.RDB = pw.RDBConfig{
-				Enabled:        true,
-				DSN:            dsn,
-				ConnectTimeout: time.Second,
-				MaxOpenConns:   2,
-				MaxIdleConns:   2,
+				Enabled: true,
+				Connections: []pw.RDBConnectionConfig{{
+					DSN:            dsn,
+					ConnectTimeout: time.Second,
+					MaxOpenConns:   2,
+					MaxIdleConns:   2,
+				}},
 			}
 		})
 	}

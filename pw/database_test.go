@@ -36,7 +36,10 @@ func TestDatabaseTargetUnlinkedEngine(t *testing.T) {
 }
 
 func TestConfiguredDatabaseDSN(t *testing.T) {
-	replaceMiddlewareConfig(t, RDBConfig{Enabled: true, DSN: "sqlite://app.db"})
+	replaceMiddlewareConfig(t, RDBConfig{
+		Enabled:     true,
+		Connections: []RDBConnectionConfig{{DSN: "sqlite://app.db"}},
+	})
 
 	dsn, err := configuredDatabaseDSN()
 	if err != nil {
@@ -56,7 +59,10 @@ func TestConfiguredDatabaseDSNRequiresEnabledRDB(t *testing.T) {
 }
 
 func TestConfiguredDatabaseDSNRejectsMalformedDSN(t *testing.T) {
-	replaceMiddlewareConfig(t, RDBConfig{Enabled: true, DSN: "app.db"})
+	replaceMiddlewareConfig(t, RDBConfig{
+		Enabled:     true,
+		Connections: []RDBConnectionConfig{{DSN: "app.db"}},
+	})
 
 	if _, err := configuredDatabaseDSN(); err == nil {
 		t.Fatal("malformed DSN was accepted")

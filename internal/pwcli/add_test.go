@@ -48,7 +48,7 @@ func declinedProject(t *testing.T) string {
 func TestCapabilityDetectionReadsTheProjectFiles(t *testing.T) {
 	full := writeScaffoldedProject(t, initOptions{
 		Name: "fixture", Router: routerBoth, TinyGo: true, Devbox: true, Database: true, Redis: true,
-		Dynamo: true, Tailwind: true, Auth: authOIDC, AuthEmulator: true,
+		Dynamo: true, Firestore: true, Tailwind: true, Images: true, Auth: authOIDC, AuthEmulator: true,
 	})
 	state, err := loadProjectState(full)
 	if err != nil {
@@ -70,7 +70,7 @@ func TestCapabilityDetectionReadsTheProjectFiles(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := []string{capabilityDiscovered, capabilityDevbox, capabilityDatabase, capabilityDynamo, capabilityRedis, capabilityAuth, capabilityTailwind}
+	want := []string{capabilityDiscovered, capabilityDevbox, capabilityDatabase, capabilityDynamo, capabilityFirestore, capabilityRedis, capabilityAuth, capabilityTailwind, capabilityImages}
 	if strings.Join(missing, ",") != strings.Join(want, ",") {
 		t.Fatalf("missing = %v, want %v", missing, want)
 	}
@@ -107,7 +107,7 @@ func TestAddDatabaseReachesTheScaffoldedState(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(config), "[middleware.rdb]") ||
+	if !strings.Contains(string(config), "[[middleware.rdb.connections]]") ||
 		!strings.Contains(string(config), `dsn = "sqlite://fixture.db"`) {
 		t.Fatalf("the rdb section did not reach the environment config:\n%s", config)
 	}
@@ -122,6 +122,45 @@ func TestAddDatabaseReachesTheScaffoldedState(t *testing.T) {
 	}
 	if _, present, err := reloaded.carries(capabilityDatabase); err != nil || !present {
 		t.Fatalf("the database is not detected after adding it: %v", err)
+	}
+}
+
+// The database reaches every environment the project configures, and the local
+// DSN reaches only dev: a connections element has no environment variable of
+// its own, so a deployment's value arrives through the ${NAME} reference rather
+// than by an operator remembering to replace the development database.
+func TestAddDatabaseNamesTheEnvironmentOutsideDev(t *testing.T) {
+	root := declinedProject(t)
+	if err := os.WriteFile(filepath.Join(root, "config.prod.toml"), []byte("[observability]\nminimum_level = \"info\"\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	state, err := loadProjectState(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	plan, err := planCapability(state, addOptions{Capability: capabilityDatabase, DSN: "sqlite://fixture.db"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := plan.apply(root); err != nil {
+		t.Fatal(err)
+	}
+	production, err := os.ReadFile(filepath.Join(root, "config.prod.toml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(production), `dsn = "${DATABASE_URL}"`) {
+		t.Fatalf("the production file names no environment variable:\n%s", production)
+	}
+	if strings.Contains(string(production), "sqlite://fixture.db") {
+		t.Fatalf("the development database reached the production file:\n%s", production)
+	}
+	development, err := os.ReadFile(filepath.Join(root, "config.dev.toml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(development), `dsn = "sqlite://fixture.db"`) {
+		t.Fatalf("the development file lost its own database:\n%s", development)
 	}
 }
 
@@ -531,16 +570,16 @@ func TestInitReportsDeclinedCapabilities(t *testing.T) {
 		{
 			name:    "everything declined",
 			options: initOptions{Database: false, Redis: false, Tailwind: false, Auth: authNone},
-			want:    "devbox,database,dynamo,redis-valkey,auth,tailwind",
+			want:    "devbox,database,dynamo,firestore,redis-valkey,auth,tailwind",
 		},
 		{
 			name:    "only Tailwind declined",
-			options: initOptions{Devbox: true, Database: true, Dynamo: true, Redis: true, Auth: authOIDC},
+			options: initOptions{Devbox: true, Database: true, Dynamo: true, Firestore: true, Redis: true, Auth: authOIDC},
 			want:    "tailwind",
 		},
 		{
 			name:    "nothing declined",
-			options: initOptions{Devbox: true, Database: true, Dynamo: true, Redis: true, Tailwind: true, Auth: authOIDC},
+			options: initOptions{Devbox: true, Database: true, Dynamo: true, Firestore: true, Redis: true, Tailwind: true, Auth: authOIDC},
 			want:    "",
 		},
 	} {
@@ -636,23 +675,14 @@ func TestAddTailwindWithoutDevboxPrintsTheToolchain(t *testing.T) {
 	}
 }
 
-// A declined Devbox environment takes the Valkey question out of the wizard,
-// so a seeded --redis answer cannot survive as an unreachable one.
+// A declined Devbox environment takes the Valkey question off the list, so a
+// seeded --redis answer cannot survive as an unreachable one.
 func TestInitWizardSkipsValkeyWithoutDevbox(t *testing.T) {
 	t.Chdir(t.TempDir())
-	model := feedWizard(t, newTestWizard(defaultInitOptions()),
-		typeText("demo"), pressKey(tea.KeyEnter),
-		pressKey(tea.KeyEnter), // TinyGo
-		pressKey(tea.KeyEnter), // Router
-		pressKey(tea.KeyEnter), // Tailwind
-		pressKey(tea.KeyEnter), // Database
-		pressKey(tea.KeyEnter), // Database engine
-		pressKey(tea.KeyEnter), // DynamoDB
-		pressKey(tea.KeyEnter), // Authentication
-		typeText("2"),          // Devbox: No
-	)
-	if !model.reviewing() {
-		t.Fatalf("step = %q, want the Valkey question skipped", model.steps[model.index].label())
+	model := startWizard(t, presetManual, "demo", defaultInitOptions())
+	model = answerHubRow(t, model, "Devbox environment", 2) // No
+	if hubRow(model, "Redis or Valkey") {
+		t.Fatalf("the Valkey row outlived the environment it installs into: rows are %v", hubLabels(model))
 	}
 	options := wizardResult(model, defaultInitOptions())
 	if options.Devbox || options.Redis {
@@ -747,5 +777,51 @@ func TestAddAuthReachesTheScaffoldedEntryPoint(t *testing.T) {
 	}
 	if strings.Count(string(added), "handlers.RegisterAccounts()") != 1 {
 		t.Fatalf("RegisterAccounts appears more than once:\n%s", added)
+	}
+}
+
+// TestAddImagesReachesTheScaffoldedState covers the encoders being declared
+// rather than discovered: taking the capability writes the configuration and
+// the tool environment together, so a project cannot end up converting nothing
+// because a package was never added.
+func TestAddImagesReachesTheScaffoldedState(t *testing.T) {
+	root := writeScaffoldedProject(t, initOptions{Name: "fixture", TinyGo: true, Devbox: true, Auth: authNone})
+	state, err := loadProjectState(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	plan, err := planCapability(state, addOptions{Capability: capabilityImages})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(plan.appends["popcornwave.toml"], "[assets.images]") {
+		t.Errorf("popcornwave.toml append = %q", plan.appends["popcornwave.toml"])
+	}
+	devbox := plan.edits["devbox.json"]
+	for _, pkg := range imageDevboxPackages {
+		if !strings.Contains(devbox, pkg) {
+			t.Errorf("devbox.json is missing %s:\n%s", pkg, devbox)
+		}
+	}
+}
+
+// TestAddImagesWithoutDevboxNamesTheTools is the other environment: a project
+// installing its own toolchain gets the requirement in words, since a nixpkgs
+// package name means nothing to someone using Homebrew.
+func TestAddImagesWithoutDevboxNamesTheTools(t *testing.T) {
+	root := writeScaffoldedProject(t, initOptions{Name: "fixture", TinyGo: true, Auth: authNone})
+	state, err := loadProjectState(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	plan, err := planCapability(state, addOptions{Capability: capabilityImages})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := plan.edits["devbox.json"]; ok {
+		t.Error("a project with no devbox got a devbox edit")
+	}
+	if len(plan.manual) == 0 || !strings.Contains(strings.Join(plan.manual, " "), "cwebp") {
+		t.Errorf("plan.manual = %v", plan.manual)
 	}
 }

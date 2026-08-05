@@ -45,10 +45,11 @@ placement:
   resolve: a middleware installs the identity of an existing session on every request
 session:
   form: opaque cookie token over a server-side record, per api:session-manager
-  payload: account summary only, with no token body and no provider secret
+  payload: the plugin/auth slot of api:session-registry, holding an account summary with no token body and no provider secret
   store: sessionstore/sqlite, verified at startup against rule:framework-owned-tables
-  lifetime: session.ttl absolute and session.idle_timeout inactivity
-  rotation: login rotates the token, which revokes whatever the browser held before
+  lifetime: auth.session.ttl absolute and auth.session.idle_timeout inactivity, per decision:session-lifetime-owned-by-auth
+  rotation: login rotates the token, which revokes whatever the browser held before and preserves every other slot
+  logout: destroys every slot, per flow:session-lifecycle
 rules:
   - an unknown or expired session cookie yields an anonymous request rather than an error
   - a cross-origin logout is refused even though SameSite already blocks the cookie
@@ -60,7 +61,8 @@ modes:
   oidc_only: implemented; this concept is its whole endpoint surface
   oidc_passkey: these endpoints plus the login and enrollment endpoints of api:passkey-endpoints
   passkey_only: api:passkey-endpoints alone; login_path, callback_path, and the OIDC configuration are absent
-  logout: shared by every mode, because a session is mode-neutral once created
+  jwt_only: no endpoint at all, per api:bearer-authentication; the mode installs a middleware and nothing this concept describes exists in it
+  logout: shared by every browser mode, because a session is mode-neutral once created; jwt_only has none, because a credential this framework never issued is not one it can end
   selection: data:authentication-runtime-config mode_validation decides which endpoints mount and which fields are read
   status: every mode serves; api:cli-init still records passkey_only with auth.enabled false until its scaffold exists
 guard:

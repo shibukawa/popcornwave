@@ -5,16 +5,16 @@ sidebar:
   order: 1
 ---
 
-Popcorn Wave renders on the server. It ships no hydration, no client-side
-router, and no client state store, and it is not going to grow one quietly. So
-the question a real application asks — *how does this button open a menu, this
-row edit in place, this page not flash white* — is answered outside the
-framework.
+Popcorn Wave renders on the server. It includes no hydration layer,
+client-side router, or client state store, so interactions such as opening a
+menu, editing a row in place, or smoothing a page transition use browser APIs
+or an application-chosen library.
 
-That is not a gap to be worked around. It is a choice with an order to it. Most
-of what an interface needs is already in the browser, costs nothing, and keeps
-working when a script fails to load. What is left is small enough to buy
-deliberately.
+Start with the browser when it already provides the behavior. Native controls
+add no framework runtime and continue to work when unrelated scripts fail.
+Add client-side code only for the interactions that remain; if most of the
+application depends on long-lived client state, a server-rendered architecture
+may not be the right fit.
 
 ## The ladder
 

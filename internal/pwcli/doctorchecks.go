@@ -68,6 +68,7 @@ func (r *checkRun) escalate(id string, severity pwcheck.Severity, message, evide
 func runChecks(ctx context.Context, context checkContext) ([]doctorFinding, []doctorLimit) {
 	run := &checkRun{checkContext: context}
 	run.checkProject()
+	run.checkPackages(ctx)
 	run.checkWiring()
 	run.checkDependencies()
 	run.checkSecrets()
@@ -254,6 +255,15 @@ func (r *checkRun) checkDependencies() {
 			"auth.enabled is true and session.enabled is false",
 			"session.enabled")
 	}
+	if authEnabled && sessionEnabled && r.Config.raw("session.backend") == "cookie" {
+		// The record travels with the browser, so nothing on the server can
+		// withdraw it: a logout expires the client's copy while a copy taken
+		// beforehand keeps authenticating to its sealed expiry, and account
+		// suspension has the same shape.
+		r.report(pwcheck.UnrevocableSession,
+			"auth.enabled is true and session.backend is cookie, so a logout cannot end a session already issued",
+			"session.backend")
+	}
 	if sessionEnabled && r.Config.raw("session.backend") == "rdb" &&
 		r.Config.raw("session.rdb.source") == "middleware" && !r.Config.enabled("middleware.rdb.enabled") {
 		r.report(pwcheck.SessionRDBWithoutMW,
@@ -393,11 +403,6 @@ func (r *checkRun) checkEnvironmentValues() {
 					"connection "+connection.Label+" is an in-memory database, so the schema and every row are lost at restart",
 					connection.Key)
 			}
-			if connection.Legacy {
-				r.report(pwcheck.LegacySingleDSN,
-					"the database uses middleware.rdb.dsn rather than a connections array",
-					connection.Key)
-			}
 		}
 	}
 	if enabled, resolved := r.Config.boolValue("server.public.read_local"); resolved && enabled {
@@ -428,12 +433,10 @@ func (r *checkRun) checkIdentityProvider() {
 				"auth.oidc.redirect_url")
 		}
 	}
+	// In dev the provider values are expected to be absent from the file:
+	// pw dev runs the development identity provider and injects them. Nothing
+	// below has anything to say about that arrangement working.
 	if r.Env == pwenv.Development {
-		if r.State.config.IdP.Enabled {
-			r.report(pwcheck.ProviderInjectedDev,
-				"pw dev injects the issuer, client id, and client secret from the development identity provider",
-				"AUTH_OIDC_ISSUER, AUTH_OIDC_CLIENT_ID, AUTH_OIDC_CLIENT_SECRET")
-		}
 		return
 	}
 	if issuer != "" {
@@ -652,46 +655,58 @@ func (r *checkRun) checkReadiness() {
 				tailwind.Output)
 		}
 	}
-	r.checkPrecompression()
+	r.checkDerivedTree()
+	r.checkImageTools()
 }
 
-// checkPrecompression reports a public asset whose compressed sidecar is older
-// than it is. pw build writes the sidecars, so this fires on a tree that was
-// assembled by hand.
-func (r *checkRun) checkPrecompression() {
-	public := filepath.Join(r.Root, "public")
-	entries, err := os.ReadDir(public)
-	if err != nil {
+// checkDerivedTree reports a served tree older than what it was built from.
+//
+// The tree under dist is produced, so a stale one means the last build predates
+// an edit and the application would embed bytes nobody asked for.
+func (r *checkRun) checkDerivedTree() {
+	authored := filepath.Join(r.Root, "public")
+	output := filepath.Join(r.Root, filepath.FromSlash(derivedPublicDir))
+	if _, err := os.Stat(output); err != nil {
+		r.report(pwcheck.PrecompressionOld, "dist/public has not been built", "public")
 		return
 	}
-	var stale []string
-	var walk func(directory string, items []os.DirEntry)
-	walk = func(directory string, items []os.DirEntry) {
-		for _, item := range items {
-			path := filepath.Join(directory, item.Name())
-			if item.IsDir() {
-				if children, readErr := os.ReadDir(path); readErr == nil {
-					walk(path, children)
-				}
-				continue
-			}
-			if strings.HasSuffix(path, ".zstd") {
-				continue
-			}
-			if _, sidecarErr := os.Stat(path + ".zstd"); sidecarErr != nil {
-				continue
-			}
-			if olderThan(path+".zstd", []string{path}) {
-				stale = append(stale, relativeToRoot(r.Root, path))
-			}
+	var sources []string
+	_ = filepath.WalkDir(authored, func(path string, entry os.DirEntry, err error) error {
+		if err != nil || entry.IsDir() {
+			return nil
 		}
+		sources = append(sources, path)
+		return nil
+	})
+	if len(sources) == 0 {
+		return
 	}
-	walk(public, entries)
-	if len(stale) > 0 {
-		sortStrings(stale)
+	manifest := filepath.Join(r.Root, assetManifestFile)
+	if _, err := os.Stat(manifest); err != nil {
+		r.report(pwcheck.PrecompressionOld, "the asset manifest has not been generated", "public")
+		return
+	}
+	if olderThan(manifest, sources) {
 		r.report(pwcheck.PrecompressionOld,
-			fmt.Sprintf("%d public asset(s) are newer than their .zstd sidecar", len(stale)),
-			strings.Join(stale, ", "))
+			"an authored asset is newer than the built tree", relativeToRoot(r.Root, manifest))
+	}
+}
+
+// checkImageTools reports a project that asked for image conversion on a
+// machine that cannot do it.
+//
+// Nothing is installed implicitly, so the conversion declines and the authored
+// image ships as written. The page is correct and larger than it should be,
+// which is why this is a warning rather than a failure.
+func (r *checkRun) checkImageTools() {
+	assets := r.State.config.Assets
+	if !assets.Images {
+		return
+	}
+	if missing := missingImageEncoders(assets.AVIF); len(missing) > 0 {
+		r.report(pwcheck.ImageToolMissing,
+			fmt.Sprintf("images will be served unconverted: no encoder for %s", strings.Join(missing, " or ")),
+			"popcornwave.toml assets.images")
 	}
 }
 

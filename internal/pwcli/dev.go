@@ -30,6 +30,9 @@ func runDev(ctx context.Context, args []string, stdout, stderr io.Writer) error 
 	if err != nil {
 		return err
 	}
+	if err := refuseInPackage(config, "dev"); err != nil {
+		return err
+	}
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	// The viewer and the console start before anything the loop reports on, so
@@ -80,6 +83,15 @@ func runDev(ctx context.Context, args []string, stdout, stderr io.Writer) error 
 	if _, err := generateProject(ctx, false, stdout, false); err != nil {
 		report.Failed(err)
 		return err
+	}
+	report.Phase("building assets")
+	if assets, err := buildDerivedAssets(root, config.Assets); err != nil {
+		// The loop survives an unbuildable state, here as everywhere else: the
+		// next change is what fixes it.
+		fmt.Fprintln(stderr, "pw dev:", err)
+		report.Failed(err)
+	} else {
+		reportDerivedAssets(stdout, assets)
 	}
 	storybook.start(root, storybookStyles(config, readDevelopmentServer(root)), stdout, stderr)
 	report.Phase("applying migrations")
@@ -200,6 +212,13 @@ func runDev(ctx context.Context, args []string, stdout, stderr io.Writer) error 
 				report.Failed(err)
 				state = next
 				continue
+			}
+			report.Phase("building assets")
+			if assets, err := buildDerivedAssets(root, config.Assets); err != nil {
+				fmt.Fprintln(stderr, "pw dev:", err)
+				report.Failed(err)
+			} else {
+				reportDerivedAssets(stdout, assets)
 			}
 			migrateErr := error(nil)
 			if config.Migration.Auto {
@@ -379,12 +398,24 @@ func snapshotWatchFiles(root string, excludes []string, extra ...string) (watchS
 			case ".git", ".devbox", "vendor", "node_modules":
 				return filepath.SkipDir
 			}
-			if path == filepath.Join(root, "public") || skipped[filepath.Clean(path)] {
+			// dist holds what this loop produces, so watching it would make
+			// every rebuild trigger the next one.
+			if path == filepath.Join(root, "dist") || skipped[filepath.Clean(path)] {
 				return filepath.SkipDir
 			}
 			return nil
 		}
 		name := entry.Name()
+		// An authored asset is a build input now: editing one rebuilds the
+		// served tree, and editing one a conversion reads also regenerates.
+		if pathWithin(filepath.Join(root, "public"), path) {
+			info, err := entry.Info()
+			if err != nil {
+				return err
+			}
+			state[path] = fileState{size: info.Size(), modTime: info.ModTime()}
+			return nil
+		}
 		if !included[filepath.Clean(path)] && name != "popcornwave.toml" && !pwenv.IsFileName(name) &&
 			!strings.HasSuffix(name, ".go") &&
 			!strings.HasSuffix(name, ".pw.html") && !strings.HasSuffix(name, ".pw.sql") {

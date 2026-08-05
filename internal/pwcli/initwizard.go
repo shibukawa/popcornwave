@@ -7,15 +7,56 @@ import (
 // initWizardSteps builds the question list, seeding every answer from the
 // shortcut flags that were already supplied on the command line.
 func initWizardSteps(defaults initOptions) []wizardStep[initOptions] {
-	return []wizardStep[initOptions]{
-		newTextStep(
-			"Project name",
-			"Creates ./<name> holding a Go module of the same name.",
-			defaults.Name,
-			"myapp",
-			validateProjectName,
-			func(target *initOptions, value string) { target.Name = value },
+	steps := []wizardStep[initOptions]{
+		newChoiceStep(
+			"Preset",
+			"A named set of answers for a project shape. Every answer it gives is on the next "+
+				"screen and every one of them is still editable, so this is a starting point rather than a mode.",
+			presetCursor(defaults.Preset),
+			presetChoices()...,
 		),
+		// A package is named by the module path a consumer imports, because a
+		// project named myapp and published at github.com/someone/myapp would
+		// have to be renamed before its first release.
+		when(isApplication,
+			newTextStep(
+				"Project name",
+				"Creates ./<name> holding a Go module of the same name.",
+				defaults.Name,
+				"myapp",
+				validateProjectName,
+				func(target *initOptions, value string) { target.Name = value },
+			),
+		),
+		when(func(options initOptions) bool { return options.Kind == kindPackage },
+			newTextStep(
+				"Module path",
+				"The path a consumer imports. The directory is its last element.",
+				defaults.Name,
+				"github.com/you/mycomponent",
+				validateModulePath,
+				func(target *initOptions, value string) { target.Name = value },
+			),
+		),
+	}
+	// Every capability question describes an application, so a package project
+	// skips all of them rather than answering them. Wrapping them together
+	// keeps that one rule in one place instead of on each question.
+	for _, step := range applicationSteps(defaults) {
+		steps = append(steps, when(isApplication, step))
+	}
+	return steps
+}
+
+// isApplication reports whether the capability questions apply to this project
+// kind. Everything they decide belongs to a binary, and a package produces none.
+func isApplication(options initOptions) bool { return options.Kind != kindPackage }
+
+// applicationSteps is the capability question list, in the order
+// decision:interactive-project-bootstrap fixed: what shapes the project first,
+// and how this machine gets its tools last.
+func applicationSteps(defaults initOptions) []wizardStep[initOptions] {
+	return []wizardStep[initOptions]{
 		newChoiceStep(
 			"TinyGo support",
 			"TinyGo produces much smaller binaries and has the more complete wasm target. "+
@@ -72,7 +113,13 @@ func initWizardSteps(defaults initOptions) []wizardStep[initOptions] {
 		// because it is the answer that decides whether a store is optional at
 		// all. Asked the other way round it was a question a project could skip
 		// past without ever seeing.
-		newChoiceStep(
+		//
+		// A bearer project skips it entirely. Its four answers cannot express
+		// jwt_only — deliberately, since that mode is reached by naming the
+		// project shape it belongs to rather than by answering the question
+		// every browser application also answers — and a row that cannot show
+		// this project's mode would quietly replace it with one it can.
+		when(func(options initOptions) bool { return options.Auth != authJWTOnly }, newChoiceStep(
 			"Authentication",
 			"Selects the login model. The framework writes the [auth] configuration; handlers stay yours. "+
 				"A login needs somewhere to keep its sessions, so the next question is about that.",
@@ -97,10 +144,10 @@ func initWizardSteps(defaults initOptions) []wizardStep[initOptions] {
 				description: "no provider; an administrator issues the first sign-in credential",
 				apply:       setAuth(authPasskey),
 			},
-		),
+		)),
 		// With a login there is no "no store" answer to give, so this asks
 		// which one rather than whether.
-		when(servesLogin,
+		when(servesBrowserLogin,
 			newChoiceStep(
 				"Store",
 				"A login has to keep its sessions somewhere, so this is which store rather than whether. "+
@@ -111,7 +158,7 @@ func initWizardSteps(defaults initOptions) []wizardStep[initOptions] {
 		),
 		// Without a login every store is optional, so the questions go back to
 		// asking whether.
-		when(func(options initOptions) bool { return !servesLogin(options) },
+		when(func(options initOptions) bool { return !servesBrowserLogin(options) },
 			newChoiceStep(
 				"Database",
 				"Adds the rdb configuration, the migration directory, and a typed SQL example.",
@@ -128,7 +175,7 @@ func initWizardSteps(defaults initOptions) []wizardStep[initOptions] {
 				},
 			),
 		),
-		when(func(options initOptions) bool { return !servesLogin(options) && options.Database },
+		when(func(options initOptions) bool { return !servesBrowserLogin(options) && options.Database },
 			newChoiceStep(
 				"Database engine",
 				"Decides the DSN, the dialect of the starter schema and migrations, and the development server. "+
@@ -137,22 +184,13 @@ func initWizardSteps(defaults initOptions) []wizardStep[initOptions] {
 				engineChoices()...,
 			),
 		),
-		// DynamoDB cannot hold the login on its own: plugin/auth keeps its
-		// single-use ceremony records and its admission allowlist in SQL,
-		// whatever the session backend is. Choosing it for the login therefore
-		// asks for the engine that carries that, rather than quietly adding one.
-		when(func(options initOptions) bool { return servesLogin(options) && options.AuthStore == dynamoStore },
-			newChoiceStep(
-				"Database engine",
-				"DynamoDB holds your records, and the login also needs a SQL database: plugin/auth keeps "+
-					"its ceremony records and its allowlist there whatever stores the sessions. This is that engine.",
-				engineCursor(defaults.Engine),
-				engineChoices()...,
-			),
-		),
-		// The other half of the store pair, asked wherever it was not the
-		// answer to the question above.
-		when(func(options initOptions) bool { return !servesLogin(options) || options.AuthStore != dynamoStore },
+		// DynamoDB holds the login on its own, through auth.backend = "dynamo",
+		// so choosing it asks for no SQL engine to carry what it cannot.
+		// The other half of the store pair, asked wherever DynamoDB was not
+		// already the login answer.
+		when(func(options initOptions) bool {
+			return !servesBrowserLogin(options) || options.AuthStore != dynamoStore
+		},
 			newChoiceStep(
 				"DynamoDB",
 				"A second kind of store, not a fourth SQL engine. It combines with any database answer, "+
@@ -170,7 +208,28 @@ func initWizardSteps(defaults initOptions) []wizardStep[initOptions] {
 				},
 			),
 		),
-		when(func(options initOptions) bool { return servesLogin(options) },
+		// The Google Cloud half of the same answer, on the same terms.
+		when(func(options initOptions) bool {
+			return !servesBrowserLogin(options) || options.AuthStore != firestoreStore
+		},
+			newChoiceStep(
+				"Firestore",
+				"The same kind of answer as DynamoDB, in Datastore mode on Google Cloud. The database it names "+
+					"must have been created in Datastore mode, which is chosen at creation and cannot be changed.",
+				yesNoCursor(defaults.Firestore),
+				wizardChoice[initOptions]{
+					name:        "Yes",
+					description: "[middleware.firestore], pointed at the local Datastore emulator",
+					apply:       func(target *initOptions) { target.Firestore = true },
+				},
+				wizardChoice[initOptions]{
+					name:        "No",
+					description: "no [middleware.firestore] section; pw add firestore enables it later",
+					apply:       func(target *initOptions) { target.Firestore = false },
+				},
+			),
+		),
+		when(servesBrowserLogin,
 			newChoiceStep(
 				"Session storage",
 				"Where a login session lives. Every choice reads the same in handlers; "+
@@ -190,6 +249,16 @@ func initWizardSteps(defaults initOptions) []wizardStep[initOptions] {
 					name:        "Redis or Valkey",
 					description: "server-side TTL through sessionstore/redis; revocable, nothing to sweep",
 					apply:       setSession(sessionRedis),
+				},
+				wizardChoice[initOptions]{
+					name:        "DynamoDB",
+					description: "one item per session through sessionstore/dynamo; revocable, expired by table TTL",
+					apply:       setSession(sessionDynamo),
+				},
+				wizardChoice[initOptions]{
+					name:        "Firestore",
+					description: "one entity per session through sessionstore/firestore; revocable, expired by a TTL policy",
+					apply:       setSession(sessionFirestore),
 				},
 			),
 		),
@@ -275,32 +344,48 @@ func authStoreChoices() []wizardChoice[initOptions] {
 	}
 	choices = append(choices, wizardChoice[initOptions]{
 		name:        "DynamoDB",
-		description: "typed records in DynamoDB; the login itself still needs a SQL database, asked next",
+		description: "the whole login in DynamoDB; no SQL database is scaffolded behind it",
 		apply:       setAuthStore(dynamoStore),
+	}, wizardChoice[initOptions]{
+		name:        "Firestore",
+		description: "the whole login in Firestore, in Datastore mode; no SQL database is scaffolded behind it",
+		apply:       setAuthStore(firestoreStore),
 	})
 	return choices
 }
 
 // setAuthStore records which store the login was chosen through and applies
-// what that store means. Either way the project ends up with a database,
-// because plugin/auth refuses to start without one.
+// what that store means.
 func setAuthStore(store string) func(*initOptions) {
 	return func(target *initOptions) {
 		target.AuthStore = store
-		target.Database = true
-		if store == dynamoStore {
-			// The engine is the next question rather than a value inherited
-			// from a default nobody was shown.
+		switch store {
+		case dynamoStore:
+			// DynamoDB carries the whole login, so no relational database is
+			// added behind the answer.
 			target.Dynamo = true
-			return
+			target.Firestore = false
+			target.Database = false
+		case firestoreStore:
+			// Firestore carries it on the same terms. Only one of the two can,
+			// because auth.backend names one store for all four of its kinds.
+			target.Firestore = true
+			target.Dynamo = false
+			target.Database = false
+		default:
+			target.Database = true
+			target.Engine = store
+			target.Dynamo = false
+			target.Firestore = false
 		}
-		target.Engine = store
-		target.Dynamo = false
 	}
 }
 
 // authStoreCursor preselects the store a seeded answer already describes.
 func authStoreCursor(defaults initOptions) int {
+	if defaults.AuthStore == firestoreStore || (defaults.Firestore && defaults.AuthStore == "") {
+		return len(engineOrder) + 1
+	}
 	if defaults.AuthStore == dynamoStore || (defaults.Dynamo && defaults.AuthStore == "") {
 		return len(engineOrder)
 	}
@@ -335,8 +420,14 @@ func setDatabase(enabled bool) func(*initOptions) {
 			// project that has a database, so leaving one behind would be an
 			// answer to a question this project never reached.
 			target.Engine = engineSQLite
-			target.Auth = authNone
-			target.AuthEmulator = false
+			if target.Auth != authJWTOnly {
+				// A browser login keeps its ceremony records and its allowlist
+				// in SQL, so declining the database declines it too. The
+				// bearer mode stores nothing and survives: it verifies a token
+				// somebody else issued and creates no account.
+				target.Auth = authNone
+				target.AuthEmulator = false
+			}
 		}
 	}
 }
@@ -371,6 +462,8 @@ func sessionCursor(backend string) int {
 		return 1
 	case sessionRedis:
 		return 2
+	case sessionDynamo:
+		return 3
 	default:
 		return 0
 	}
@@ -417,7 +510,14 @@ func runInitWizard(defaults initOptions, programOptions ...tea.ProgramOption) (i
 
 // newInitWizard builds the model. Unlike api:cli-add and api:cli-new, init
 // reviews answers rather than files: nothing it writes can collide with work
-// that already exists.
+// that already exists, so its review is a list that can be edited rather than
+// one that can only be read.
+//
+// The preset and the name are walked, and everything after them is a row on
+// that list. The answers are dependent — a login decides whether a store is
+// optional, a store decides whether an engine is asked — so the run that most
+// needs to go back is the run that understood a question only after seeing a
+// later one.
 func newInitWizard(defaults initOptions) wizardModel[initOptions] {
 	return wizardModel[initOptions]{
 		steps:    initWizardSteps(defaults),
@@ -425,5 +525,11 @@ func newInitWizard(defaults initOptions) wizardModel[initOptions] {
 		title:    "Popcorn Wave  new project",
 		confirm:  "create",
 		theme:    newWizardTheme(),
+		// The preset step and the name step. A named preset answers everything
+		// after them, so those two are the whole of what it asks.
+		linear:   2,
+		rebuild:  initWizardSteps,
+		editing:  hubNoStep,
+		answered: map[int]bool{},
 	}
 }

@@ -219,7 +219,7 @@ func createUser(w http.ResponseWriter, r *http.Request) {
 
 コールバックは、どちらのクエリにもトランザクションハンドルを渡していません。
 生成済みクエリ関数が context からトランザクションを取得します。詳しくは
-[クエリ](/ja/guides/backend/queries/)を参照してください。
+[クエリ](/ja/guides/storage/queries/)を参照してください。
 
 ## ライフサイクル
 
@@ -244,3 +244,7 @@ func main() {
 
 `pw.WithPublicFS(fsys)` は埋め込みの public ツリーを明示的に渡します。スキャフォールド
 されたプロジェクトでは代わりに `public.go` が登録します。
+
+上に挙げたタグには、よくある使い方より先がまだあります。各ルールがどのフィールド種別を
+受け付けるか、`input` が種別ごとにどう解決するか、rest マップが何を除外するか、何が
+OpenAPI に載るか——それは[リクエストバインディング](/ja/reference/request-binding/)です。

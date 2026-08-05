@@ -42,9 +42,10 @@ var sessionBackends struct {
 // fix is a single line, so the startup error prints that line instead of a
 // list of names.
 var knownSessionBackendImports = map[string]string{
-	SessionBackendRDB:    "github.com/shibukawa/popcornwave/sessionstore/sqlite",
-	SessionBackendRedis:  "github.com/shibukawa/popcornwave/sessionstore/redis",
-	SessionBackendDynamo: "github.com/shibukawa/popcornwave/sessionstore/dynamo",
+	SessionBackendRDB:       "github.com/shibukawa/popcornwave/sessionstore/sqlite",
+	SessionBackendRedis:     "github.com/shibukawa/popcornwave/sessionstore/redis",
+	SessionBackendDynamo:    "github.com/shibukawa/popcornwave/sessionstore/dynamo",
+	SessionBackendFirestore: "github.com/shibukawa/popcornwave/sessionstore/firestore",
 }
 
 // RegisterSessionBackend registers factory under name. A storage plugin calls
@@ -160,7 +161,7 @@ func init() {
 // openCookieSessionBackend builds the built-in browser backend. It opens
 // nothing, so it hands back neither a Close nor a Prune.
 func openCookieSessionBackend(_ context.Context, config SessionConfig, _ SessionResources) (session.Backend, error) {
-	keys, err := sessionCookieKeyring(config.CookieStore)
+	keys, err := sessionCookieKeyring(config.Keyring)
 	if err != nil {
 		return session.Backend{}, err
 	}
@@ -180,15 +181,15 @@ func openCookieSessionBackend(_ context.Context, config SessionConfig, _ Session
 
 // sessionCookieKeyring reads the secret that seals cookie-backed records. The
 // secret itself never reaches an error message or a log.
-func sessionCookieKeyring(config SessionCookieStoreConfig) (*session.Keyring, error) {
+func sessionCookieKeyring(config SessionKeyringConfig) (*session.Keyring, error) {
 	if strings.TrimSpace(config.Secret) == "" {
 		return nil, errors.New(
-			`session.backend = "cookie" requires session.cookie_store.secret; generate one with: openssl rand -base64 32`)
+			`session.backend = "cookie" requires session.keyring.secret; generate one with: openssl rand -base64 32`)
 	}
 	secrets := append([]string{config.Secret}, config.PreviousSecrets...)
 	keys, err := session.ParseKeyring(secrets...)
 	if err != nil {
-		return nil, fmt.Errorf("session.cookie_store.secret: %w", err)
+		return nil, fmt.Errorf("session.keyring.secret: %w", err)
 	}
 	return keys, nil
 }

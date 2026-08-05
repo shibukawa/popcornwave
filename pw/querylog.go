@@ -32,8 +32,10 @@ const (
 // resolveQueryDiagnostics turns configuration into the runtime setting, or nil
 // when query diagnostics are off. Invalid values resolve to nil; validation
 // reports them before requests are served.
-func resolveQueryDiagnostics(config ObservabilityConfig, env string) *pwruntime.QueryDiagnostics {
-	development := env == EnvDevelopment
+// development is whether the development relaxations apply, which is narrower
+// than the environment being "dev": a deployment that never set APP_ENV is not
+// asking for a log of every statement with its bind values.
+func resolveQueryDiagnostics(config ObservabilityConfig, development bool) *pwruntime.QueryDiagnostics {
 	enabled, err := resolveQueryToggle(config.Query.Enabled, development)
 	if err != nil || !enabled {
 		return nil
@@ -73,12 +75,19 @@ func positiveOr(value, fallback int) int {
 
 // reportQueryDiagnostics states at startup what the query log will do, so a
 // missing capability is reported once instead of silently per statement, and a
-// non-development run says out loud that records may carry row values.
-func reportQueryDiagnostics(diagnostics *pwruntime.QueryDiagnostics, env, driver string) {
+// run that did not ask for development says out loud that records may carry row
+// values.
+//
+// The warning keys off development rather than off the environment token so
+// that the one case most in need of it — a deployment that never set APP_ENV and
+// landed on "dev" by default — is the case that gets it. Suppressing it there
+// would leave the only signal about row values in logs behind the very
+// condition that produced them.
+func reportQueryDiagnostics(diagnostics *pwruntime.QueryDiagnostics, env string, development bool, driver string) {
 	if diagnostics == nil {
 		return
 	}
-	if env != EnvDevelopment {
+	if !development {
 		processLogger().Warn("popcornwave query diagnostics enabled",
 			String("environment", env),
 			Bool("bind_values", diagnostics.BindValues),

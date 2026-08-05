@@ -28,6 +28,8 @@ rules:
 boundaries:
   - core pw imports no extension package, so only linked capabilities contribute code and configuration
   - extensions own their own paths by interception; there is no framework route registration API
+  - api:package-registration does not change this; a concept:component-package serving routes exposes a Register function the application calls, and registration installs nothing that answers a request
 consumers:
   - plugin/auth registers the session, authentication, and guard extensions
+  - a concept:component-package contributing middleware or startup work uses this registry unchanged; api:package-registration adds identity and assets and duplicates nothing here
 ```

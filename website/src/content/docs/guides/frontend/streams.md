@@ -25,13 +25,14 @@ func events(w http.ResponseWriter, r *http.Request) {
 }
 ```
 
-Three calls, and the type parameter carries the rest. `NewStream` negotiates the
-wire format and commits the status and headers. `Send` writes one value and
-flushes it. `Close` finalizes the response.
+`NewStream` negotiates the wire format and commits the status and headers.
+`Send` writes and flushes one value, while `Close` finalizes the response.
 
-`defer stream.Close()` is not ceremony. In the JSON-array format the closing
-bracket is written there, and a stream that never closes produces a body no
-parser will accept.
+Always close the stream. In the JSON-array format, `Close` writes the closing
+bracket; without it, the client receives invalid JSON. Use an ordinary buffered
+response when the complete value is already available, because streaming adds
+disconnect and partial-response handling without improving latency in that
+case.
 
 ## The client picks the format
 
