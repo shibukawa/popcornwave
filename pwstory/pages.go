@@ -30,6 +30,17 @@ pre { background:var(--card); border:1px solid var(--line); border-radius:6px; p
 .fail { border-color:var(--bad); color:var(--bad); }
 .toggles a { color:var(--muted); text-decoration:none; margin-right:.8rem; font-size:13px; }
 .toggles a.on { color:var(--fg); font-weight:600; }
+.tabs { display:flex; gap:.15rem; border-bottom:1px solid var(--line); margin:.9rem 0 0; }
+.tabs button { border:1px solid var(--line); border-bottom:0; border-radius:6px 6px 0 0; background:transparent;
+  color:var(--muted); padding:.3rem .9rem; margin-bottom:-1px; font:inherit; cursor:pointer; }
+.tabs button[aria-selected="true"] { background:var(--card); color:var(--fg); font-weight:600; border-bottom:1px solid var(--card); }
+.panel { padding-top:.8rem; }
+.panel[hidden] { display:none; }
+textarea { width:100%; min-height:9rem; font:12.5px ui-monospace,SFMono-Regular,Menlo,monospace;
+  padding:.6rem; border:1px solid var(--line); border-radius:6px; background:var(--card); color:var(--fg); }
+.bar { display:flex; gap:.7rem; align-items:baseline; margin:.6rem 0; flex-wrap:wrap; }
+button { font:inherit; padding:.25rem .8rem; border:1px solid var(--line); background:var(--card);
+  color:var(--fg); border-radius:4px; cursor:pointer; }
 code { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:12.5px; }
 a.back { display:block; color:var(--muted); text-decoration:none; font-size:12px; margin-bottom:.6rem; }
 a.back:hover { color:var(--fg); }
@@ -50,6 +61,17 @@ const shellTemplate = `<!doctype html>
 {{end}}
 </aside>
 <main>{{template "body" .}}</main>
+<script>
+for (const tab of document.querySelectorAll('[role="tab"]')) {
+  tab.addEventListener("click", () => {
+    for (const other of document.querySelectorAll('[role="tab"]')) {
+      const selected = other === tab;
+      other.setAttribute("aria-selected", String(selected));
+      document.getElementById("panel-" + other.dataset.panel).hidden = !selected;
+    }
+  });
+}
+</script>
 </div></body></html>`
 
 var functions = template.FuncMap{
@@ -86,14 +108,22 @@ var storyPage = template.Must(template.New("story").Funcs(functions).Parse(
 <h2>Failed to render</h2>
 <pre class="fail">{{$r.Failed}}</pre>
 {{else}}
-<h2>Rendered</h2>
-<div class="preview">
-<iframe src="{{$.Prefix}}/raw/{{.Template.Package}}/{{.Template.Name}}{{if $r.InShell}}?shell=1{{end}}" title="{{.Template.Name}}"></iframe>
+<div class="tabs" role="tablist">
+<button role="tab" aria-selected="true" data-panel="rendered">rendered</button>
+<button role="tab" aria-selected="false" data-panel="html">HTML</button>
 </div>
-<h2>HTML</h2>
-<pre>{{$r.Source}}</pre>
+<div class="panel" id="panel-rendered">
+<div class="preview">
+<iframe src="{{$.Prefix}}/raw/{{.Template.Package}}/{{.Template.Name}}?{{if $r.InShell}}shell=1&amp;{{end}}params={{$r.ParamsQuery}}" title="{{.Template.Name}}"></iframe>
+</div>
+</div>
+<div class="panel" id="panel-html" hidden><pre>{{$r.Source}}</pre></div>
 {{end}}
 
 <h2>Parameters</h2>
-<pre>{{$r.Params}}</pre>
+<form method="post">
+<textarea name="params" spellcheck="false">{{$r.Params}}</textarea>
+<div class="bar"><button>render with these</button>
+<span class="note">synthesized from the parameter type; edit and render to ask a different question</span></div>
+</form>
 {{end}}` + shellTemplate))

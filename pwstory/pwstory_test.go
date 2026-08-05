@@ -81,8 +81,13 @@ func TestStoryRendersTheTemplate(t *testing.T) {
 	if result.Failed != "" {
 		t.Fatalf("render failed: %s", result.Failed)
 	}
-	if !strings.Contains(result.Source, "<h1>Title</h1>") {
-		t.Errorf("rendered = %q, want the synthesized title", result.Source)
+	// Raw is what the template produced; Source is the same output indented for
+	// reading, which is what the HTML tab shows.
+	if !strings.Contains(result.Raw, "<h1>Title</h1>") {
+		t.Errorf("raw = %q, want the synthesized title", result.Raw)
+	}
+	if !strings.Contains(result.Source, "<h1>\n  Title") {
+		t.Errorf("source = %q, want it indented for reading", result.Source)
 	}
 }
 
@@ -124,7 +129,7 @@ func TestIndexAndStoryPagesAreServed(t *testing.T) {
 	if recorder.Code != http.StatusOK {
 		t.Fatalf("status = %d, want 200", recorder.Code)
 	}
-	if body := recorder.Body.String(); !strings.Contains(body, "&lt;h1&gt;Title&lt;/h1&gt;") {
+	if body := recorder.Body.String(); !strings.Contains(body, "&lt;h1&gt;") {
 		t.Errorf("the story page never showed the emitted HTML:\n%s", body)
 	}
 }
@@ -168,5 +173,47 @@ func TestStorybookLinksCarryTheMount(t *testing.T) {
 	}
 	if !strings.Contains(body, `href="/"`) {
 		t.Errorf("the storybook offers no way back to the console:\n%s", body)
+	}
+}
+
+// The HTML a template emits is written for a browser, on one line. What a
+// developer opens the tab to check — which escaping context a value landed in —
+// is unreadable that way.
+func TestPrettyHTMLIndentsWithoutChangingContent(t *testing.T) {
+	pretty := prettyHTML(`<div class="a"><p>one</p><br><p>two</p></div>`)
+	for _, want := range []string{`<div class="a">`, "\n  <p>", "\n    one", "\n  <br>", "\n</div>"} {
+		if !strings.Contains(pretty, want) {
+			t.Errorf("pretty = %q, want it to contain %q", pretty, want)
+		}
+	}
+	// A void element neither indents what follows nor expects a close.
+	if strings.Contains(pretty, "</br>") {
+		t.Error("a void element was given a closing tag")
+	}
+}
+
+// Editing the parameters is what turns a story from an illustration into a
+// question, so a supplied set has to reach the render.
+func TestSuppliedParametersRenderInsteadOfTheSynthesizedOnes(t *testing.T) {
+	register(t)
+	result := renderStoryWith(Templates()[0], false, `{"Title":"typed","DisplayName":"by hand"}`)
+	if result.Failed != "" {
+		t.Fatalf("render failed: %s", result.Failed)
+	}
+	if !strings.Contains(result.Raw, "<h1>typed</h1>") {
+		t.Errorf("raw = %q, want the supplied title", result.Raw)
+	}
+}
+
+// A parameter set that will not parse keeps what was typed, so it can be
+// corrected rather than retyped, and renders nothing from a guess.
+func TestUnparsableParametersAreReportedAndKept(t *testing.T) {
+	register(t)
+	result := renderStoryWith(Templates()[0], false, `{"Title":`)
+	if result.Failed == "" {
+		t.Error("a broken parameter set was accepted")
+	}
+	if result.Params != `{"Title":` {
+		t.Errorf("params = %q, want what was typed", result.Params)
 	}
 }

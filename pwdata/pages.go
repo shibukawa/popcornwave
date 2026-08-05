@@ -1,6 +1,7 @@
 package pwdata
 
 import (
+	"encoding/json"
 	"html/template"
 	"net/http"
 	"strconv"
@@ -110,6 +111,22 @@ pre { background:var(--card); border:1px solid var(--line); border-radius:6px; p
 .ok { color:var(--ok); }
 .warn { color:var(--warn); }
 code { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:12.5px; }
+.tabs { display:flex; gap:.15rem; border-bottom:1px solid var(--line); margin:.8rem 0 0; }
+.tabs button { border:1px solid var(--line); border-bottom:0; border-radius:6px 6px 0 0; background:transparent;
+  color:var(--muted); padding:.3rem .9rem; margin-bottom:-1px; }
+.tabs button[aria-selected="true"] { background:var(--card); color:var(--fg); font-weight:600; border-bottom:1px solid var(--card); }
+.panel { padding-top:.9rem; }
+.panel[hidden] { display:none; }
+table.grid th.sortable { cursor:pointer; user-select:none; }
+table.grid th .dir { color:var(--muted); font-weight:400; margin-left:.2rem; }
+table.grid td.dirty input, table.grid input.dirty { background:color-mix(in srgb, var(--bad) 18%, transparent); }
+table.grid tr.dirty td:first-child { border-left:2px solid var(--bad); }
+.filter { margin:.6rem 0; }
+.filter input { font:inherit; padding:.25rem .5rem; border:1px solid var(--line); border-radius:4px;
+  background:var(--bg); color:var(--fg); min-width:16rem; }
+.savebar { position:sticky; top:0; z-index:5; background:var(--bg); padding:.5rem 0; border-bottom:1px solid var(--line);
+  display:flex; gap:.7rem; align-items:center; }
+.savebar button[disabled] { opacity:.45; cursor:default; }
 a.back { display:block; color:var(--muted); text-decoration:none; font-size:12px; margin-bottom:.6rem; }
 a.back:hover { color:var(--fg); }
 a.fk { text-decoration:none; color:var(--muted); margin-left:.25rem; }
@@ -160,9 +177,31 @@ var resultBlock = `
 
 func page(body string) *template.Template {
 	return template.Must(template.New("page").Funcs(template.FuncMap{
-		"inc": func(a, b int) int { return a + b },
-		"str": strconv.Itoa,
+		"inc":     func(a, b int) int { return a + b },
+		"str":     strconv.Itoa,
+		"keyJSON": keyJSON,
 	}).Parse(body + resultBlock + chrome))
+}
+
+// keyJSON renders a row's primary key for the grid to address it by.
+//
+// The key travels with the row rather than being recomputed in the browser,
+// because it is what identifies the row on the server and the browser has no
+// business deciding what that is. A row whose key value is missing carries an
+// empty object, and an edit to it is refused by the same check that refuses a
+// keyless table.
+func keyJSON(columns []Column, row []*string) template.JS {
+	key := map[string]string{}
+	for index, column := range columns {
+		if column.PrimaryKey > 0 && index < len(row) && row[index] != nil {
+			key[column.Name] = *row[index]
+		}
+	}
+	encoded, err := json.Marshal(key)
+	if err != nil {
+		return template.JS("{}")
+	}
+	return template.JS(encoded)
 }
 
 var tablesPage = page(`{{define "body"}}
@@ -181,40 +220,63 @@ var tablesPage = page(`{{define "body"}}
 var tablePage = page(`{{define "body"}}
 {{$page := .Page}}
 <h1>{{$page.Table}}</h1>
-<p class="sub">
-{{range $page.Columns}}<code>{{.Name}}</code> {{.Type}}{{if gt .PrimaryKey 0}} <span class="warn">pk</span>{{end}}{{if .NotNull}} not null{{end}} · {{end}}
-</p>
-{{with $.Referenced}}<p class="note">Showing rows of <code>{{.Table}}</code> where <code>{{.Target}}</code> is <code>{{$.ReferencedValue}}</code>, followed from a foreign key. <a href="{{$.Prefix}}/table/{{.Table}}?c={{$.Connection.Label}}">show the whole table</a></p>{{end}}
-{{if $.Connection.ReadOnly}}<p class="note warn">This connection is a read-only replica, so rows are shown but cannot be edited here.</p>{{end}}
-{{if not $page.Ordered}}<p class="note warn">This table has no primary key. Rows are paged by offset, their order is unspecified, and a single row cannot be edited here.</p>{{end}}
+<p class="sub"><code>{{.Connection.Label}}</code> · {{.Engine}}{{if .Connection.ReadOnly}} · <span class="warn">read-only replica</span>{{end}}</p>
 
+{{with $.Referenced}}<p class="note">Showing rows of <code>{{.Table}}</code> where <code>{{.Target}}</code> is <code>{{$.ReferencedValue}}</code>, followed from a foreign key. <a href="{{$.Prefix}}/table/{{.Table}}?c={{$.Connection.Label}}">show the whole table</a></p>{{end}}
+
+<div class="tabs" role="tablist">
+<button role="tab" aria-selected="true" data-panel="data">data</button>
+<button role="tab" aria-selected="false" data-panel="schema">schema</button>
+</div>
+
+<div class="panel" id="panel-schema" hidden>
 <div class="wrap"><table class="grid">
-<tr><th></th>{{range $page.Columns}}<th>{{.Name}}</th>{{end}}</tr>
-{{range $rowIndex, $row := $page.Rows}}
-<tr>
-<td>
+<tr><th>column</th><th>type</th><th>null</th><th>key</th><th>references</th></tr>
+{{range $page.Columns}}{{$fk := index $.ForeignKeys .Name}}<tr>
+<td><code>{{.Name}}</code></td><td>{{.Type}}</td>
+<td>{{if .NotNull}}not null{{else}}<span class="note">nullable</span>{{end}}</td>
+<td>{{if gt .PrimaryKey 0}}<span class="warn">pk {{.PrimaryKey}}</span>{{else}}<span class="note">—</span>{{end}}</td>
+<td>{{if $fk.Table}}<a href="{{$.Prefix}}/table/{{$fk.Table}}?c={{$.Connection.Label}}"><code>{{$fk.Table}}.{{$fk.Target}}</code></a>{{else}}<span class="note">—</span>{{end}}</td>
+</tr>{{end}}
+</table></div>
+</div>
+
+<div class="panel" id="panel-data">
+{{if not $page.Ordered}}<p class="note warn">This table has no primary key. Rows are paged by offset, their order is unspecified, and a single row cannot be edited here.</p>{{end}}
+{{if $.Connection.ReadOnly}}<p class="note warn">This connection is a read-only replica, so rows are shown but cannot be edited here.</p>{{end}}
+
 {{if and $.Keys (not $.Connection.ReadOnly)}}
-<form method="post" action="{{$.Prefix}}/table/{{$page.Table}}/row?c={{$.Connection.Label}}" id="row{{$rowIndex}}">
-<input type="hidden" name="offset" value="{{str $page.Offset}}">
-{{range $index, $column := $page.Columns}}{{if gt $column.PrimaryKey 0}}
-<input type="hidden" name="key.{{$column.Name}}" value="{{with index $row $index}}{{.}}{{end}}">
-{{end}}{{end}}
-<button name="action" value="update" title="save this row">save</button>
-<button name="action" value="delete" class="danger" title="delete this row">del</button>
-</form>
+<div class="savebar">
+<button id="save" disabled>save</button>
+<span class="note" id="dirtycount">no changes</span>
+</div>
 {{end}}
-</td>
+
+<div class="filter"><input id="filter" type="search" placeholder="filter rows on this page" autocomplete="off">
+<span class="note" id="shown"></span></div>
+
+<div class="wrap"><table class="grid" id="rows"
+ data-table="{{$page.Table}}" data-endpoint="{{$.Prefix}}/table/{{$page.Table}}/rows?c={{$.Connection.Label}}">
+<thead><tr><th></th>
+{{range $index, $column := $page.Columns}}<th class="sortable" data-index="{{$index}}"
+ title="{{.Type}}{{if .NotNull}} · not null{{end}}{{if gt .PrimaryKey 0}} · primary key {{.PrimaryKey}}{{end}}">{{.Name}}<span class="dir"></span></th>{{end}}
+</tr></thead>
+<tbody>
+{{range $rowIndex, $row := $page.Rows}}
+<tr data-key='{{keyJSON $page.Columns $row}}'>
+<td>{{if and $.Keys (not $.Connection.ReadOnly)}}<button class="danger act" data-act="delete">del</button>{{end}}</td>
 {{range $index, $column := $page.Columns}}
 {{$cell := index $row $index}}
 {{$fk := index $.ForeignKeys $column.Name}}
-<td{{if not $cell}} class="null"{{end}}>
-{{if and $.Keys (not $.Connection.ReadOnly)}}<input form="row{{$rowIndex}}" name="value.{{$column.Name}}" value="{{with $cell}}{{.}}{{end}}" placeholder="{{if not $cell}}NULL{{end}}">
+<td{{if not $cell}} class="null"{{end}} data-column="{{$column.Name}}">
+{{if and $.Keys (not $.Connection.ReadOnly)}}<input value="{{with $cell}}{{.}}{{end}}" placeholder="{{if not $cell}}NULL{{end}}" data-original="{{with $cell}}{{.}}{{end}}">
 {{else}}{{if $cell}}{{$cell}}{{else}}NULL{{end}}{{end}}
 {{if and $fk.Table $cell}}<a class="fk" title="{{$fk.Table}}.{{$fk.Target}}" href="{{$.Prefix}}/referenced/{{$fk.Table}}?c={{$.Connection.Label}}&amp;column={{$fk.Target}}&amp;value={{$cell}}">&rarr;</a>{{end}}
 </td>
 {{end}}
 </tr>
 {{end}}
+</tbody>
 </table></div>
 
 <div class="bar">
@@ -224,7 +286,7 @@ var tablePage = page(`{{define "body"}}
 <span class="note">rows {{str (inc $page.Offset 1)}}–{{str (inc $page.Offset (len $page.Rows))}}</span>
 </div>
 
-{{if $.Keys}}
+{{if and $.Keys (not $.Connection.ReadOnly)}}
 <h1 style="font-size:1rem;margin-top:2rem">Insert a row</h1>
 <form method="post" action="{{$.Prefix}}/table/{{$page.Table}}/row?c={{$.Connection.Label}}">
 <input type="hidden" name="offset" value="{{str $page.Offset}}">
@@ -235,6 +297,9 @@ var tablePage = page(`{{define "body"}}
 <div class="bar"><button name="action" value="insert">insert</button></div>
 </form>
 {{end}}
+</div>
+
+<script>` + gridScript + `</script>
 {{end}}`)
 
 var consolePage = page(`{{define "body"}}

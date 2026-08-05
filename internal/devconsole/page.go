@@ -18,10 +18,14 @@ const style = `
 * { box-sizing: border-box; }
 body { margin:0; background:var(--bg); color:var(--fg); font:14px/1.6 ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif; }
 main { max-width: 60rem; margin: 0 auto; padding: 1.5rem 1.25rem 4rem; }
-nav { border-bottom:1px solid var(--line); padding:.6rem 1.25rem; display:flex; gap:1rem; align-items:baseline; flex-wrap:wrap; }
+nav { border-bottom:1px solid var(--line); padding:.6rem 1.25rem; display:flex; gap:1rem; align-items:baseline; flex-wrap:wrap;
+  position:sticky; top:0; z-index:10; background:var(--bg); }
+body.framed { overflow:hidden; }
+body.framed main { max-width:none; margin:0; padding:0; }
 nav .brand { font-weight:600; letter-spacing:.02em; }
 nav a { color:var(--muted); text-decoration:none; }
 nav a:hover, nav a.here { color:var(--fg); }
+nav a.external { margin-left:auto; }
 h1 { font-size:1.35rem; margin:1.2rem 0 .2rem; }
 h2 { font-size:1rem; margin:2rem 0 .6rem; font-weight:600; }
 p.sub { color:var(--muted); margin:.1rem 0 0; }
@@ -42,7 +46,10 @@ form { margin:.4rem 0; display:flex; gap:.7rem; align-items:baseline; flex-wrap:
 button { font:inherit; padding:.2rem .7rem; border:1px solid var(--line); background:var(--card); color:var(--fg); border-radius:4px; cursor:pointer; }
 code { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:12.5px; }
 pre.report { max-height:none; white-space:pre; font-size:12.5px; line-height:1.45; }
-iframe.pane { width:100%; height:calc(100vh - 9rem); border:1px solid var(--line); border-radius:6px; background:var(--bg); display:block; margin:.6rem 0; }
+/* The nav is sticky and the frame fills what is left of the viewport, so the
+   pane scrolls inside it rather than the document scrolling and taking the nav
+   with it. */
+iframe.pane { display:block; width:100%; height:calc(100vh - 2.9rem); border:0; background:var(--bg); }
 `
 
 // layout wraps every console page. Panes that are their own application, such
@@ -52,9 +59,11 @@ var layout = template.Must(template.New("layout").Parse(`<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>{{.Title}} — pw dev</title><style>` + style + `</style></head>
-<body><nav><span class="brand">pw dev</span>
+<body{{if .Framed}} class="framed"{{end}}><nav><span class="brand">pw dev</span>
 <a href="/"{{if eq .Slug ""}} class="here"{{end}}>overview</a>
 {{range .Panes}}{{if .Enabled}}<a href="/{{.Slug}}/"{{if eq $.Slug .Slug}} class="here"{{end}}>{{.Title}}</a>{{end}}{{end}}
+{{if .APIDocURL}}<a class="external" href="{{.APIDocURL}}" target="_blank" rel="noreferrer"
+ title="served by the application, at the path its configuration names">api reference &#8599;</a>{{end}}
 </nav><main>{{.Body}}</main></body></html>`))
 
 type navPane struct {
@@ -67,11 +76,31 @@ type layoutData struct {
 	Title string
 	Slug  string
 	Panes []navPane
-	Body  template.HTML
+	// APIDocURL is in the navigation rather than in a pane because it is not
+	// one: it is the application's own page, on the application's own origin,
+	// and it opens in a tab of its own. It cannot be framed — the application
+	// denies framing through its security headers — so a link that leaves is
+	// the honest shape for it.
+	APIDocURL string
+	Body      template.HTML
+	// Framed makes the page a fixed shell with a scrolling frame under the
+	// navigation, so the nav stays put while the pane scrolls rather than the
+	// whole document moving and taking the nav with it.
+	Framed bool
 }
 
 func (c *Console) render(w http.ResponseWriter, slug, title string, body template.HTML) {
-	renderPage(w, c.nav(), slug, title, body)
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Header().Set("Cache-Control", "no-store")
+	_ = layout.Execute(w, layoutData{Title: title, Slug: slug, Panes: c.nav(),
+		APIDocURL: c.project.APIDocURL, Body: body})
+}
+
+func (c *Console) renderFramed(w http.ResponseWriter, slug, title string, body template.HTML) {
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Header().Set("Cache-Control", "no-store")
+	_ = layout.Execute(w, layoutData{Title: title, Slug: slug, Panes: c.nav(),
+		APIDocURL: c.project.APIDocURL, Body: body, Framed: true})
 }
 
 // renderPage writes one console page. Both the console's own pages and a pane
@@ -108,14 +137,10 @@ var indexBody = template.Must(template.New("index").Parse(`
 {{end}}
 </div>
 
+{{if not .Project.APIDocURL}}
 <h2>API reference</h2>
-<div class="card">
-{{if .Project.APIDocURL}}<a href="{{.Project.APIDocURL}}">{{.Project.APIDocURL}}</a>
-<div class="muted">served by the application, so it answers while the application is running</div>
-{{else}}<span class="muted">the application serves no API documentation UI</span>
-{{if .Project.APIDocKey}}<div class="why muted">enable with <code>{{.Project.APIDocKey}}</code> in the runtime configuration</div>{{end}}
+<p class="sub">the application serves no API documentation UI{{if .Project.APIDocKey}} · enable with <code>{{.Project.APIDocKey}}</code> in the runtime configuration{{end}}</p>
 {{end}}
-</div>
 
 {{if .Error}}<p class="state-failed">{{.Error}}</p>{{end}}
 {{if .Seeded}}<p class="state-healthy">the seed datasets were applied</p>{{end}}
@@ -179,9 +204,7 @@ type framedData struct {
 // serves, one segment deeper, which is why the pane's own links keep working
 // inside it.
 var framePage = template.Must(template.New("frame").Parse(`
-<p class="sub">{{.Summary}}</p>
 <iframe class="pane" src="{{.Entry}}" title="{{.Title}}"></iframe>
-<p class="sub"><a href="{{.Entry}}">open it on its own</a></p>
 `))
 
 func statusWord(status Status) string {

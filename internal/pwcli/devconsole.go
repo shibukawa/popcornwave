@@ -104,6 +104,9 @@ func devConsolePanes(root string, config projectConfig, server developmentServer
 		// Served by the application itself, because the development database
 		// is only addressable from inside the process that opened it.
 		data.Handler = attach.Handler("the data pane")
+		// Framed for the same reason the viewer is: the pane is a document of
+		// its own, and only a frame keeps the console navigation above it.
+		data.Framed = true
 	}
 	panes = append(panes, data, doctorPane(root))
 	return append(panes, devconsole.Pane{
@@ -111,6 +114,7 @@ func devConsolePanes(root string, config projectConfig, server developmentServer
 		Title:      "storybook",
 		Summary:    "every generated template rendered on its own, with parameters made up from its type",
 		Handler:    storybook.handler(),
+		Framed:     true,
 		DisabledBy: "dev.console.storybook.enabled",
 	})
 }

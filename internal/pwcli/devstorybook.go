@@ -86,7 +86,11 @@ func (s *devStorybook) start(root string, stdout, stderr io.Writer) {
 	address := "127.0.0.1:" + strconv.Itoa(port)
 	command := exec.Command("go", "run", "-tags=pwdev", "./"+storybookDirectory)
 	command.Dir, command.Stdout, command.Stderr = root, stdout, stderr
-	command.Env = append(os.Environ(), pwstory.AddressVar+"="+address)
+	command.Env = append(os.Environ(),
+		pwstory.AddressVar+"="+address,
+		// The shell a story renders inside links the project's stylesheet, so
+		// the harness serves the tree it lives in.
+		pwstory.PublicVar+"="+filepath.Join(root, "public"))
 	ownProcessGroup(command)
 	if err := command.Start(); err != nil {
 		fmt.Fprintln(stderr, "pw dev: storybook:", err)

@@ -554,3 +554,64 @@ func TestLinksAreUnprefixedWithoutAConsole(t *testing.T) {
 		t.Errorf("a directly reached pane should link plainly:\n%s", body)
 	}
 }
+
+func TestBatchSaveAppliesEditsAndDeletes(t *testing.T) {
+	connection := open(t)
+	server := serverFor(connection)
+	batch := `{"edits":[{"key":{"id":"1"},"values":{"title":"saved"}}],"deletes":[{"key":{"id":"2"}}]}`
+	request := httptest.NewRequest(http.MethodPost, "/table/memos/rows", strings.NewReader(batch))
+	request.Header.Set("Content-Type", "application/json")
+	recorder := httptest.NewRecorder()
+	server.Handler().ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusNoContent {
+		t.Fatalf("status = %d (%s), want 204", recorder.Code, recorder.Body)
+	}
+	page, _ := connection.Rows(context.Background(), "memos", 0)
+	if len(page.Rows) != 1 || *page.Rows[0][1] != "saved" {
+		t.Errorf("rows = %+v, want one edited row", page.Rows)
+	}
+}
+
+// A refused write is reported in the engine's own words and leaves the page to
+// decide what to do, rather than being swallowed into a reload.
+func TestBatchSaveReportsARefusal(t *testing.T) {
+	connection := open(t)
+	replica := NewConnection("replica#0", "replica", "sqlite", true, connection.db)
+	server := New([]Connection{replica}, "dev")
+	request := httptest.NewRequest(http.MethodPost, "/table/memos/rows?c=replica#0",
+		strings.NewReader(`{"edits":[{"key":{"id":"1"},"values":{"title":"x"}}]}`))
+	request.Header.Set("Content-Type", "application/json")
+	recorder := httptest.NewRecorder()
+	server.Handler().ServeHTTP(recorder, request)
+	if recorder.Code == http.StatusNoContent {
+		t.Fatal("a write through a replica was accepted")
+	}
+	if !strings.Contains(recorder.Body.String(), "read-only") {
+		t.Errorf("body = %q, want the reason", recorder.Body)
+	}
+}
+
+// The key travels with the row, because it is what identifies the row on the
+// server and the browser has no business deciding what that is.
+func TestRowCarriesItsPrimaryKey(t *testing.T) {
+	columns := []Column{{Name: "id", PrimaryKey: 1}, {Name: "title"}}
+	value, title := "7", "x"
+	if got := string(keyJSON(columns, []*string{&value, &title})); got != `{"id":"7"}` {
+		t.Errorf("key = %s, want only the key column", got)
+	}
+}
+
+func TestTablePageOffersSchemaAndDataTabs(t *testing.T) {
+	recorder := httptest.NewRecorder()
+	serverFor(open(t)).Handler().ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/table/memos", nil))
+	body := recorder.Body.String()
+	for _, want := range []string{`data-panel="schema"`, `data-panel="data"`, `id="filter"`, `class="sortable"`, `id="save"`} {
+		if !strings.Contains(body, want) {
+			t.Errorf("the table page is missing %q", want)
+		}
+	}
+	// The column type is on the header, where a developer hovers to ask.
+	if !strings.Contains(body, `title="TEXT · not null"`) {
+		t.Errorf("a column header carries no type:\n%s", body)
+	}
+}

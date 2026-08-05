@@ -18,6 +18,15 @@ import (
 // developer still sees one listener and one URL.
 const AddressVar = "PW_STORYBOOK_ADDR"
 
+// PublicVar names the project's public directory.
+//
+// A story rendered inside the document shell references whatever stylesheet the
+// shell links, which for a Tailwind project is a file under the public tree. The
+// harness is a different process on a different port, so that link resolved
+// against the harness and found nothing — the story rendered unstyled and looked
+// like a template bug rather than a missing mount.
+const PublicVar = "PW_STORYBOOK_PUBLIC"
+
 // ListenAndServe runs the storybook. It is the whole body of the generated
 // main, so that the generated file stays a list of imports and one call.
 //
@@ -44,13 +53,26 @@ func Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /{$}", index)
 	mux.HandleFunc("GET /story/{package}/{name}", story)
+	mux.HandleFunc("POST /story/{package}/{name}", story)
 	mux.HandleFunc("GET /raw/{package}/{name}", raw)
+	// The public tree is served at the mount the document shell links, so a
+	// story inside the shell finds the stylesheet the application would.
+	if public := strings.TrimSpace(os.Getenv(PublicVar)); public != "" {
+		mux.Handle("GET /public/", http.StripPrefix("/public/", http.FileServer(http.Dir(public))))
+	}
 	return mux
 }
 
 // rendering is one attempt to render a story, kept whole so a failure is shown
 // in place of the story rather than in place of the page.
 type rendering struct {
+	// ParamsQuery is the parameter set encoded for the preview frame, so the
+	// frame renders from what the page is showing rather than from the
+	// synthesized set the page has moved on from.
+	ParamsQuery string
+	// Raw is exactly what the template produced; Source is the same output
+	// indented for reading.
+	Raw      string
 	HTML     template.HTML
 	Source   string
 	Params   string
@@ -59,12 +81,35 @@ type rendering struct {
 	HasShell bool
 }
 
-func renderStory(t Template, shell bool) rendering {
+func renderStory(t Template, shell bool) rendering { return renderStoryWith(t, shell, "") }
+
+// renderStoryWith renders a story from supplied parameters, or from synthesized
+// ones when none were supplied.
+//
+// Editing them is what turns a story from an illustration into a question a
+// developer can ask: the synthesized set shows that the template renders, and a
+// set the developer typed shows how it renders for the case they are worried
+// about.
+func renderStoryWith(t Template, shell bool, supplied string) rendering {
 	result := rendering{InShell: shell, HasShell: len(document()) > 0}
 	params := t.NewParams()
 	Synthesize(params)
+	if strings.TrimSpace(supplied) != "" {
+		if err := json.Unmarshal([]byte(supplied), params); err != nil {
+			// The typed value is kept so it can be corrected rather than
+			// retyped, and the story is not rendered from something the
+			// developer did not ask for.
+			result.Params = supplied
+			result.Failed = "parameters: " + err.Error()
+			return result
+		}
+	}
 	if encoded, err := json.MarshalIndent(params, "", "  "); err == nil {
 		result.Params = string(encoded)
+		result.ParamsQuery = string(encoded)
+	}
+	if strings.TrimSpace(supplied) != "" {
+		result.Params, result.ParamsQuery = supplied, supplied
 	}
 	var out bytes.Buffer
 	err := func() (err error) {
@@ -86,8 +131,12 @@ func renderStory(t Template, shell bool) rendering {
 		result.Failed = err.Error()
 		return result
 	}
-	result.Source = out.String()
-	result.HTML = template.HTML(result.Source)
+	// Two forms of the same output: the exact bytes the template produced, which
+	// is what the preview must render, and an indented copy, which is what a
+	// person reads. Formatting the preview would change what is being shown.
+	result.Raw = out.String()
+	result.Source = prettyHTML(result.Raw)
+	result.HTML = template.HTML(result.Raw)
 	return result
 }
 
@@ -102,10 +151,15 @@ func story(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	shell := r.URL.Query().Get("shell") == "1"
+	supplied := ""
+	if r.Method == http.MethodPost {
+		_ = r.ParseForm()
+		supplied = r.FormValue("params")
+	}
 	writePage(w, r, storyPage, map[string]any{
 		"Template":  t,
 		"Templates": Templates(),
-		"Rendering": renderStory(t, shell),
+		"Rendering": renderStoryWith(t, shell, supplied),
 	})
 }
 
@@ -117,14 +171,14 @@ func raw(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	result := renderStory(t, r.URL.Query().Get("shell") == "1")
+	result := renderStoryWith(t, r.URL.Query().Get("shell") == "1", r.URL.Query().Get("params"))
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-store")
 	if result.Failed != "" {
 		http.Error(w, result.Failed, http.StatusInternalServerError)
 		return
 	}
-	_, _ = w.Write([]byte(result.Source))
+	_, _ = w.Write([]byte(result.Raw))
 }
 
 // panePrefixHeader is how the console tells a pane where it is mounted. It

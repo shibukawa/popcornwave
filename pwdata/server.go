@@ -23,6 +23,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /{$}", s.pageTables)
 	mux.HandleFunc("GET /table/{name}", s.pageTable)
 	mux.HandleFunc("POST /table/{name}/row", s.editRow)
+	mux.HandleFunc("POST /table/{name}/rows", s.editRows)
 	mux.HandleFunc("GET /console", s.pageConsole)
 	mux.HandleFunc("POST /console", s.pageConsole)
 	mux.HandleFunc("GET /referenced/{table}", s.pageReferenced)
@@ -139,6 +140,56 @@ func (s *Server) pageReferenced(w http.ResponseWriter, r *http.Request) {
 	view.Error = errorText(err)
 	view.Keys = primaryKey(page.Columns)
 	s.render(w, tablePage, view)
+}
+
+// batchEdit is what the grid sends when the developer presses save.
+//
+// Edits and deletes arrive together because they were made together, and
+// applying them in one request is what makes the save button mean what the page
+// showed: everything marked, or nothing.
+type batchEdit struct {
+	Edits []struct {
+		Key    map[string]string `json:"key"`
+		Values map[string]string `json:"values"`
+	} `json:"edits"`
+	Deletes []struct {
+		Key map[string]string `json:"key"`
+	} `json:"deletes"`
+}
+
+// editRows applies a batch and reports the first failure by its own words.
+//
+// There is no transaction around it. The pane holds no transaction anywhere,
+// because one open across a request would hold the application's pool for a
+// page nobody may be looking at; a failure part way through leaves what already
+// applied, and the reload shows exactly that rather than claiming otherwise.
+func (s *Server) editRows(w http.ResponseWriter, r *http.Request) {
+	connection := s.connection(r)
+	if connection.ReadOnly {
+		http.Error(w, errReadOnlyConnection.Error(), http.StatusBadRequest)
+		return
+	}
+	var batch batchEdit
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<20)).Decode(&batch); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	table := r.PathValue("name")
+	for _, edit := range batch.Edits {
+		if _, err := connection.UpdateRow(r.Context(), RowEdit{
+			Table: table, Key: edit.Key, Values: edit.Values,
+		}); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+	}
+	for _, remove := range batch.Deletes {
+		if _, err := connection.DeleteRow(r.Context(), RowEdit{Table: table, Key: remove.Key}); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (s *Server) pageConsole(w http.ResponseWriter, r *http.Request) {

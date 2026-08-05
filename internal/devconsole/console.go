@@ -281,7 +281,7 @@ const framedSuffix = "/pane"
 // framedPane renders the console navigation with the pane inside a frame.
 func (c *Console) framedPane(pane Pane, entry string) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		c.render(w, pane.Slug, pane.Title, buildHTML(framePage, framedData{
+		c.renderFramed(w, pane.Slug, pane.Title, buildHTML(framePage, framedData{
 			Slug: pane.Slug, Title: pane.Title, Summary: pane.Summary, Entry: entry,
 		}))
 	})
