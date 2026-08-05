@@ -1,7 +1,8 @@
 # plugin/auth
 
-Session-backed browser authentication. Importing the package registers the
-`[auth]` configuration binding and three framework extensions:
+Browser authentication and bearer-token API authentication. Importing the
+package registers the `[auth]` configuration binding and the framework
+extensions that authenticate requests and guard protected paths.
 
 | Slot | Middleware |
 | --- | --- |
@@ -16,15 +17,21 @@ import _ "github.com/shibukawa/popcornwave/plugin/auth"
 Nothing is installed unless `auth.enabled` is true, so an imported but disabled
 package costs one configuration binding.
 
-## Implemented scope
+## Modes
 
-`auth.mode = "oidc_only"`: Authorization Code with S256 PKCE, state, and nonce
-against one configured issuer, over `contrib/oidc`. Login sessions go to
-`sessionstore/sqlite`; the single-use correlation record goes to
-`authstate/sqlite`, so the database behind `middleware.rdb` must
-currently be SQLite. `session.rdb.source` must be `middleware`.
+- `oidc_only` uses Authorization Code with S256 PKCE, state, and nonce against
+  one configured issuer.
+- `oidc_passkey` uses OIDC to establish the account and permits later passkey
+  login.
+- `passkey_only` bootstraps the first passkey from an administrator-issued
+  one-time credential.
+- `jwt_only` verifies an access token from `Authorization: Bearer …` on every
+  request. It mounts no login endpoint and creates no session or cookie. This
+  is the API-server mode.
 
-`oidc_passkey` and `passkey_only` are rejected during startup validation.
+`jwt_only` is not one of the browser-oriented `pw init --auth` values. Use
+`pw init --preset=api-server`, or configure an existing project by hand. See
+the [authentication guide](../../website/src/content/docs/guides/backend/authentication.md#jwt-only-api-servers).
 
 ## Tables
 
@@ -133,10 +140,5 @@ what [`contrib/devidp`](../../contrib/devidp/README.md) serves. Together with
 `pw dev` starts that provider and injects `AUTH_OIDC_ISSUER`,
 `AUTH_OIDC_CLIENT_ID`, and `AUTH_OIDC_CLIENT_SECRET`, so a project commits no
 issuer or credential.
-
-## Not implemented
-
-CSRF middleware, passkey enrollment and login, the Redis session backend, a
-dedicated session database, and non-SQLite correlation storage.
 
 See [examples/oidclogin](../../examples/oidclogin) for a working application.

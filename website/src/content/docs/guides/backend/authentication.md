@@ -1,15 +1,15 @@
 ---
 title: Authentication
-description: Choose an authentication mode and let the framework serve the login, callback, logout, and passkey endpoints.
+description: Configure browser login or verify bearer access tokens for an API server.
 sidebar:
   order: 1
 ---
 
-OIDC usually adds three routes, session resolution, and a trail of protocol
-code. Popcorn Wave owns that machinery: configure a provider, and the framework
-mounts login, callback, and logout, resolves each request's session, and gives
-handlers an identity. The application registers neither routes nor OIDC
-callbacks.
+Browser login usually adds routes, session resolution, and a trail of protocol
+code. An API server has a different problem: it receives a bearer token on each
+request and must verify the issuer, audience, signature, lifetime, and access
+policy before a handler runs. Popcorn Wave supports both shapes without making
+the application register protocol endpoints or repeat verification middleware.
 
 This page is the reference: keys, endpoints, ceremonies, storage. Which mode a
 deployment should pick, and what a session is trusted to do once the login is
@@ -96,12 +96,12 @@ The `[auth]` keys decide what the framework mounts and what it protects:
 | --- | --- | --- |
 | `enabled` | `false` | the endpoints and the guard exist only when true |
 | `backend` | `"rdb"` | ceremony, allowlist, credential, and bootstrap storage: `rdb`, `dynamo`, or `firestore` |
-| `mode` | `"oidc_only"` | the only implemented mode; see [Modes](#modes) |
+| `mode` | `"oidc_only"` | `oidc_only`, `oidc_passkey`, `passkey_only`, or API-oriented `jwt_only`; see [Modes](#modes) |
 | `login_path` | `"/auth/login"` | rooted local path that starts the provider flow |
 | `callback_path` | `"/auth/callback"` | rooted local path the provider returns to |
 | `logout_path` | `"/auth/logout"` | rooted local path; `POST` only |
 | `post_login_path` | `"/"` | where a completed login lands when no path was requested |
-| `protection.include` | `[]` | path patterns that require a session |
+| `protection.include` | `[]` | path patterns that require authentication |
 | `protection.exclude` | `[]` | patterns carved back out of `include` |
 | `protection.unauthenticated` | `"redirect"` | `redirect` through the login, or `unauthorized` with `401` |
 
@@ -158,7 +158,77 @@ Whichever rule admits, the account link is the issuer plus the claim named by
 `identity_claim` only to something the directory guarantees is stable and
 unique for the life of an account.
 
-## The endpoints
+## JWT-only API servers
+
+`auth.mode = "jwt_only"` is the resource-server mode. It accepts an access
+token from `Authorization: Bearer …`, verifies it on every request, and records
+the verified caller in the request context. It mounts no login, callback, or
+logout endpoint, creates no session, and writes no cookie. A browser flow and a
+bearer API are different trust models, so this mode does not combine them.
+
+JWT-only is deliberately absent from the `pw init --auth` choices, which
+describe browser login. Use the API-server preset to scaffold it:
+
+```sh
+pw init myapi --preset=api-server
+```
+
+For a project you already have, link `plugin/auth` through its account resolver
+and add the configuration by hand. The smallest stateless deployment is:
+
+```toml
+[auth]
+enabled = true
+mode = "jwt_only"
+protection.include = ["/api/**"]
+protection.unauthenticated = "unauthorized"
+
+[auth.jwt]
+issuer = "https://issuer.example"
+audience = ["orders-api"]
+algorithms = ["RS256"]
+admission = "authenticated"
+identity_claim = "sub"
+max_token_lifetime = "1h"
+revocation.mode = "off"
+```
+
+There is no permissive default for the issuer, audience, algorithm allowlist,
+admission rule, maximum token lifetime, or revocation mode. Startup refuses a
+missing value. Discovery defaults to the issuer's OpenID Connect metadata;
+`discovery = "oauth"` uses authorization-server metadata, while `manual`
+requires a same-origin `jwks_uri`.
+
+Before admitting the request, the verifier checks the signature against the
+configured algorithm allowlist and discovered key set, then checks `iss`,
+`aud`, `exp`, `iat`, `sub`, token type, lifetime, and required scopes. The
+default required token type is `at+jwt`, which prevents an ID Token signed by
+the same issuer from being replayed as an access token. Every rejection has the
+same `401` problem response and a `WWW-Authenticate: Bearer` header.
+
+Handlers can read the typed principal or the protocol-neutral authentication
+result:
+
+```go
+caller, ok := auth.Bearer(r.Context())
+if !ok {
+	return // the route was not protected, so an anonymous request may reach it
+}
+
+accountID := caller.AccountID
+claims := caller.Identity.Claims
+authentication := pw.RequestAuthentication(r.Context())
+```
+
+`admission = "authenticated"` needs no server-side store. `claim` applies a
+verified-claim rule and also stays stateless. `registered` reads the relational
+allowlist, and any revocation mode other than `off` reads the relational
+revocation table; those choices require `middleware.rdb` and the framework
+migration. JWT-only never needs session storage. CSRF protection must be off
+for this mode because authority arrives in an explicit header that a browser
+does not attach automatically, and there is no session secret to validate.
+
+## Browser-login endpoints
 
 | Path | Method | What it does |
 | --- | --- | --- |
@@ -205,7 +275,7 @@ After login the browser lands on `auth.post_login_path`, or on the path it was
 originally trying to reach. Only a rooted same-site path is accepted, so a login
 link cannot be turned into an open redirect.
 
-## Reading the user
+## Reading a browser user
 
 The framework resolves the session before your handler runs:
 
@@ -232,15 +302,17 @@ authorization remains in the application.
 
 ## Modes
 
-A passkey cannot create an account: there is nothing to attach the first
-credential to. What differs between the modes is therefore not the login but
-what establishes an account before one exists.
+The three browser modes differ in what establishes an account before one
+exists. A passkey alone cannot do that because there is nothing to attach the
+first credential to. JWT-only sits outside that lifecycle: the authorization
+server has already issued a credential to an API caller.
 
 | `auth.mode` | Account comes from | Everyday login |
 | --- | --- | --- |
 | `oidc_only` | the provider | the provider |
 | `oidc_passkey` | the provider | a passkey, with the provider as recovery |
 | `passkey_only` | a login ID and one-time secret an administrator issues | a passkey |
+| `jwt_only` | the authorization server that minted the access token | a bearer token on every API request |
 
 A mode reads only its own settings and refuses one it cannot honor, so a
 leftover `AUTH_OIDC_ISSUER` under `passkey_only` fails at startup rather than
@@ -289,7 +361,7 @@ passkey is persisted, so no handler can mistake a redeemed secret for a login.
 bounds the ceremony that follows, which is why the two defaults differ by
 hours.
 
-## The session
+## The browser session
 
 The cookie carries an opaque token; where the session itself lives is
 `session.backend`, and that choice is independent of everything above.
