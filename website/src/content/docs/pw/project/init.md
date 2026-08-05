@@ -6,17 +6,56 @@ sidebar:
 ---
 
 ```sh
-pw init <project-name> [--tailwind] [--no-tinygo] [--no-devbox] [--no-database] [--db=<engine>] [--dynamo] [--no-redis] [--router=<kind>] [--auth=<mode>] [--session=<backend>] [--devidp] [-i]
+pw init <project-name> [--preset=<name>] [--yes] [--tailwind] [--no-tinygo] [--no-devbox] [--no-database] [--db=<engine>] [--dynamo] [--no-redis] [--router=<kind>] [--auth=<mode>] [--session=<backend>] [--devidp]
 ```
 
-The command creates a complete, runnable project in a new directory. A name and
-flags make the operation non-interactive; omitting the name, or passing `-i`,
-presents the same choices as a wizard.
+The command creates a complete, runnable project in a new directory. In a
+terminal it opens on a list of presets; `--yes` takes the flags and the defaults
+without asking, which is what a script wants.
+
+## Presets
+
+Ten questions, each defensible on its own, add up to a sequence nobody can
+answer before they have built anything. A preset is a name for one of the
+handful of combinations people actually want, and choosing one is the only
+question left except the project name.
+
+| Preset | Project | What it decides |
+| --- | --- | --- |
+| `website-login` | a website whose pages belong to whoever signed in | discovered routing, OIDC, Redis sessions, SQLite, Tailwind |
+| `website-aws` | the same website with no relational database to operate | discovered routing, OIDC, DynamoDB for everything, Tailwind |
+| `website-discovered` | a website with no accounts and nothing to store | discovered routing, Tailwind, no login, no database |
+| `website-registered` | the same site written as Go registrations | registered routing, otherwise identical |
+| `api-server` | a machine-facing API whose callers bring their own token | registered routing, JWT verification, no browser login |
+| `package` | a module published for other projects to import | a different project kind — see [Component packages](/guides/deployment/package/) |
+| `manual` | anything the six above do not describe | nothing; every answer is yours |
+
+Every preset answers TinyGo and Devbox the same way — yes to both — because
+neither changes what the project contains. `--preset=<name>` gives the same
+answers without the terminal, and it is refused beside any flag that answers a
+question it already answered, since neither would obviously win.
+
+**The review screen is the list of what a preset chose, and every row on it is
+editable.** Press enter on a row to reopen that question and land back on the
+list. A preset is where you start, not what you are stuck with, and `manual` is
+the same screen opened on the defaults instead.
+
+Which one to take: `website-discovered` if you are learning the framework, since
+it is the smallest project that still serves pages, and every capability it
+declines is one [`pw add`](/pw/project/add/) away. Take `website-login` when you
+already know the application has accounts — retrofitting a login means a
+database, a session store, and a provider, and the preset wires all three
+together correctly.
+
+[Changing what a preset chose](/pw/project/presets/) covers moving off any of
+these answers afterwards.
 
 ## Options
 
 | Option | Effect |
 | --- | --- |
+| `--preset=<name>` | answer every question below at once; see [Presets](#presets) |
+| `--yes` | take the flags and the defaults without asking |
 | `--tailwind` | also scaffold the Tailwind CSS toolchain |
 | `--no-tinygo` | target host Go instead of TinyGo |
 | `--no-devbox` | no `devbox.json`; keep your own setup — mise, Docker Compose, Nix, Homebrew, Scoop |
@@ -26,9 +65,8 @@ presents the same choices as a wizard.
 | `--no-redis` | leave the Valkey development server out of `devbox.json` |
 | `--router=<kind>` | `registered` (default), `discovered`, or `both`; see [Discovered routing](/guides/cross-layer/discovered-routing/#commands) |
 | `--auth=<mode>` | `none` (default), `oidc`, `oidc-passkey`, or `passkey` |
-| `--session=<backend>` | with a login, where sessions live: `rdb` (default), `cookie`, or `redis` |
+| `--session=<backend>` | with a login, where sessions live: `rdb` (default), `cookie`, `redis`, or `dynamo` |
 | `--devidp` | with an OIDC mode, wire up the local identity provider |
-| `-i`, `--interactive` | ask every question even when a name was given |
 
 `--tailwind`, `--no-database`, `--no-redis`, and `--auth` all select
 capabilities [`pw add`](/pw/project/add/) can install later, so declining one

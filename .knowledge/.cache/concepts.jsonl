@@ -170,11 +170,13 @@
 {"category": "constraint", "id": "decision:independent-runtime-config-bindings", "path": ".knowledge/decision/independent-runtime-config-bindings.md", "role": "supporting", "title": "Independent Runtime Config Bindings", "type": "decision"}
 {"category": "constraint", "id": "decision:interactive-project-bootstrap", "path": ".knowledge/decision/interactive-project-bootstrap.md", "role": "supporting", "title": "Interactive Project Bootstrap", "type": "decision"}
 {"category": "constraint", "id": "decision:jwt-only-mode-not-scaffolded", "path": ".knowledge/decision/jwt-only-mode-not-scaffolded.md", "role": "supporting", "title": "JWT-Only Mode Is Configured, Never Scaffolded", "type": "decision"}
+{"category": "constraint", "id": "decision:jwt-only-preset-scaffolding", "path": ".knowledge/decision/jwt-only-preset-scaffolding.md", "role": "supporting", "title": "JWT-Only Is Scaffolded By a Preset, Not By a Question", "type": "decision"}
 {"category": "constraint", "id": "decision:language-server-in-pw-cli", "path": ".knowledge/decision/language-server-in-pw-cli.md", "role": "supporting", "title": "Language Server Inside the pw CLI", "type": "decision"}
 {"category": "constraint", "id": "decision:layered-web-runtime", "path": ".knowledge/decision/layered-web-runtime.md", "role": "supporting", "title": "Layered Web Runtime", "type": "decision"}
 {"category": "constraint", "id": "decision:live-delivery-transport", "path": ".knowledge/decision/live-delivery-transport.md", "role": "supporting", "title": "Live Deliveries On The Page Route", "type": "decision"}
 {"category": "constraint", "id": "decision:local-tls-proxy-boundary", "path": ".knowledge/decision/local-tls-proxy-boundary.md", "role": "supporting", "title": "Local TLS Proxy Boundary", "type": "decision"}
 {"category": "constraint", "id": "decision:migration-execution-split", "path": ".knowledge/decision/migration-execution-split.md", "role": "supporting", "title": "Migration Execution Split", "type": "decision"}
+{"category": "constraint", "id": "decision:navigable-answer-hub", "path": ".knowledge/decision/navigable-answer-hub.md", "role": "supporting", "title": "Manual Bootstrap Edits an Answer Hub", "type": "decision"}
 {"category": "constraint", "id": "decision:nix-flake-packaging", "path": ".knowledge/decision/nix-flake-packaging.md", "role": "supporting", "title": "In-repository Nix Flake Packaging", "type": "decision"}
 {"category": "constraint", "id": "decision:package-contract-split", "path": ".knowledge/decision/package-contract-split.md", "role": "supporting", "title": "Package Contract Split", "type": "decision"}
 {"category": "constraint", "id": "decision:page-render-binding", "path": ".knowledge/decision/page-render-binding.md", "role": "supporting", "title": "Page Render Binding", "type": "decision"}
@@ -182,6 +184,7 @@
 {"category": "constraint", "id": "decision:passkey-first-authentication", "path": ".knowledge/decision/passkey-first-authentication.md", "role": "supporting", "title": "Passkey-First Authentication Priority", "type": "decision"}
 {"category": "constraint", "id": "decision:passkey-test-authenticator", "path": ".knowledge/decision/passkey-test-authenticator.md", "role": "supporting", "title": "Passkey Test Authenticator Strategy", "type": "decision"}
 {"category": "constraint", "id": "decision:post-init-scaffold-wizard", "path": ".knowledge/decision/post-init-scaffold-wizard.md", "role": "supporting", "title": "Post-init Scaffold Wizard", "type": "decision"}
+{"category": "constraint", "id": "decision:preset-first-bootstrap", "path": ".knowledge/decision/preset-first-bootstrap.md", "role": "supporting", "title": "Preset First, Questions Behind It", "type": "decision"}
 {"category": "constraint", "id": "decision:root-pw-api", "path": ".knowledge/decision/root-pw-api.md", "role": "supporting", "title": "Root pw API", "type": "decision"}
 {"category": "constraint", "id": "decision:runtime-tag-injection", "path": ".knowledge/decision/runtime-tag-injection.md", "role": "supporting", "title": "Runtime Tag Injection", "type": "decision"}
 {"category": "constraint", "id": "decision:savepoint-nested-transaction", "path": ".knowledge/decision/savepoint-nested-transaction.md", "role": "supporting", "title": "Savepoint-Backed Nested Transaction", "type": "decision"}
@@ -296,6 +299,7 @@
 {"category": "constraint", "id": "policy:validation-errors", "path": ".knowledge/policy/validation-errors.md", "role": "supporting", "title": "Validation and Error Policy", "type": "policy"}
 {"category": "constraint", "id": "policy:web-middleware", "path": ".knowledge/policy/web-middleware.md", "role": "supporting", "title": "Web Middleware Integration", "type": "policy"}
 {"category": "objective", "id": "requirement:action-response-update", "path": ".knowledge/requirement/action-response-update.md", "role": "primary", "title": "Action Response Update", "type": "requirement"}
+{"category": "objective", "id": "requirement:api-server-scaffold", "path": ".knowledge/requirement/api-server-scaffold.md", "role": "primary", "title": "API Server Preset Scaffold", "type": "requirement"}
 {"category": "objective", "id": "requirement:application-user-experience", "path": ".knowledge/requirement/application-user-experience.md", "role": "primary", "title": "Popcorn Wave Application User Experience", "type": "requirement"}
 {"category": "objective", "id": "requirement:async-html-rendering", "path": ".knowledge/requirement/async-html-rendering.md", "role": "primary", "title": "Async HTML Rendering", "type": "requirement"}
 {"category": "objective", "id": "requirement:bot-synchronous-render", "path": ".knowledge/requirement/bot-synchronous-render.md", "role": "primary", "title": "Bot Synchronous Render", "type": "requirement"}
@@ -362,6 +366,7 @@
 {"category": "objective", "id": "requirement:html-fragment-rendering", "path": ".knowledge/requirement/html-fragment-rendering.md", "role": "primary", "title": "HTML Fragment Rendering", "type": "requirement"}
 {"category": "objective", "id": "requirement:httpbinder-extensible-route-analysis", "path": ".knowledge/requirement/httpbinder-extensible-route-analysis.md", "role": "primary", "title": "Extensible httpbind-go Route Analysis", "type": "requirement"}
 {"category": "objective", "id": "requirement:incremental-project-capabilities", "path": ".knowledge/requirement/incremental-project-capabilities.md", "role": "primary", "title": "Incremental Project Capabilities", "type": "requirement"}
+{"category": "objective", "id": "requirement:init-presets", "path": ".knowledge/requirement/init-presets.md", "role": "primary", "title": "Project Bootstrap Presets", "type": "requirement"}
 {"category": "objective", "id": "requirement:jwt-only-api-authentication", "path": ".knowledge/requirement/jwt-only-api-authentication.md", "role": "primary", "title": "JWT-Only API Authentication", "type": "requirement"}
 {"category": "objective", "id": "requirement:live-boundary-liveness-signal", "path": ".knowledge/requirement/live-boundary-liveness-signal.md", "role": "primary", "title": "Liveness Must Be Visible Per Boundary", "type": "requirement"}
 {"category": "objective", "id": "requirement:live-connection-recovery", "path": ".knowledge/requirement/live-connection-recovery.md", "role": "primary", "title": "Live Connection Recovery", "type": "requirement"}
@@ -376,9 +381,12 @@
 {"category": "objective", "id": "requirement:nested-html-templates", "path": ".knowledge/requirement/nested-html-templates.md", "role": "primary", "title": "Nested HTML Templates", "type": "requirement"}
 {"category": "objective", "id": "requirement:package-asset-delivery", "path": ".knowledge/requirement/package-asset-delivery.md", "role": "primary", "title": "Package Asset Delivery", "type": "requirement"}
 {"category": "objective", "id": "requirement:package-component-assets", "path": ".knowledge/requirement/package-component-assets.md", "role": "primary", "title": "A Distributed Component Must Carry Its Own Assets", "type": "requirement"}
+{"category": "objective", "id": "requirement:package-project-scaffold", "path": ".knowledge/requirement/package-project-scaffold.md", "role": "primary", "title": "Package Preset Scaffold", "type": "requirement"}
 {"category": "objective", "id": "requirement:package-schema-contribution", "path": ".knowledge/requirement/package-schema-contribution.md", "role": "primary", "title": "Package Schema Contribution", "type": "requirement"}
+{"category": "objective", "id": "requirement:page-request-context", "path": ".knowledge/requirement/page-request-context.md", "role": "primary", "title": "A Page Must Reach Its Request Context", "type": "requirement"}
 {"category": "objective", "id": "requirement:parallel-database-tests", "path": ".knowledge/requirement/parallel-database-tests.md", "role": "primary", "title": "Parallel Database Tests", "type": "requirement"}
 {"category": "objective", "id": "requirement:presence-signal", "path": ".knowledge/requirement/presence-signal.md", "role": "primary", "title": "Human Presence Signal", "type": "requirement"}
+{"category": "objective", "id": "requirement:preset-customization-docs", "path": ".knowledge/requirement/preset-customization-docs.md", "role": "primary", "title": "Preset and Customization Documentation", "type": "requirement"}
 {"category": "objective", "id": "requirement:project-diagnostics", "path": ".knowledge/requirement/project-diagnostics.md", "role": "primary", "title": "Project Diagnostics", "type": "requirement"}
 {"category": "objective", "id": "requirement:public-asset-delivery", "path": ".knowledge/requirement/public-asset-delivery.md", "role": "primary", "title": "Public Asset Delivery", "type": "requirement"}
 {"category": "objective", "id": "requirement:pw-language-server", "path": ".knowledge/requirement/pw-language-server.md", "role": "primary", "title": "Popcorn Wave Language Server", "type": "requirement"}
@@ -398,6 +406,7 @@
 {"category": "objective", "id": "requirement:tinygodriver-adoption", "path": ".knowledge/requirement/tinygodriver-adoption.md", "role": "primary", "title": "tinygodriver Adoption", "type": "requirement"}
 {"category": "objective", "id": "requirement:tutorial-capability-growth", "path": ".knowledge/requirement/tutorial-capability-growth.md", "role": "primary", "title": "Tutorial Capability Growth", "type": "requirement"}
 {"category": "objective", "id": "requirement:tutorial-continuity", "path": ".knowledge/requirement/tutorial-continuity.md", "role": "primary", "title": "Tutorial Continuity", "type": "requirement"}
+{"category": "objective", "id": "requirement:tutorial-page-tree-chapter", "path": ".knowledge/requirement/tutorial-page-tree-chapter.md", "role": "primary", "title": "Tutorial Page Tree Chapter", "type": "requirement"}
 {"category": "objective", "id": "requirement:typed-http-contract", "path": ".knowledge/requirement/typed-http-contract.md", "role": "primary", "title": "Typed HTTP Contract", "type": "requirement"}
 {"category": "objective", "id": "requirement:unhandled-boundary-signal", "path": ".knowledge/requirement/unhandled-boundary-signal.md", "role": "primary", "title": "Unhandled Boundary Signal", "type": "requirement"}
 {"category": "objective", "id": "requirement:unified-update-runtime", "path": ".knowledge/requirement/unified-update-runtime.md", "role": "primary", "title": "Unified Update Runtime", "type": "requirement"}
@@ -432,6 +441,7 @@
 {"category": "external", "id": "system:tinygodriver", "path": ".knowledge/system/tinygodriver.md", "role": "supporting", "title": "tinygodriver", "type": "system"}
 {"category": "external", "id": "system:vscode", "path": ".knowledge/system/vscode.md", "role": "supporting", "title": "Visual Studio Code", "type": "system"}
 {"category": "interface", "id": "ui:devidp-login", "path": ".knowledge/ui/devidp-login.md", "role": "primary", "title": "Development IdP Login Screen", "type": "ui"}
+{"category": "interface", "id": "ui:init-preset-hub", "path": ".knowledge/ui/init-preset-hub.md", "role": "primary", "title": "pw init Preset and Answer Hub", "type": "ui"}
 {"category": "interface", "id": "ui:starter-landing-page", "path": ".knowledge/ui/starter-landing-page.md", "role": "primary", "title": "Starter Landing Page", "type": "ui"}
 {"category": "interface", "id": "ui:tutorial-memo-app", "path": ".knowledge/ui/tutorial-memo-app.md", "role": "primary", "title": "Tutorial Memo Application", "type": "ui"}
 {"category": "objective", "id": "vision:contrib", "path": ".knowledge/vision/contrib.md", "role": "primary", "title": "TinyGo Contrib Vision", "type": "vision"}
