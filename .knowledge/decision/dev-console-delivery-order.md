@@ -34,10 +34,11 @@ order:
   - step: requirement:template-storybook
     delivers: templates rendered in isolation
     introduces: decision:dev-harness-process, and the generated pwdev registry that makes an unexported symbol enumerable from inside its own package
-  - step: requirement:dev-query-runner and requirement:dev-table-viewer
-    delivers: declared statements run with their own types, and the tables they changed read beside them
+  - step: requirement:dev-data-pane and requirement:dev-query-runner
+    delivers: the development database browsable, editable, and queryable from the console
     introduces: decision:dev-application-attachment
-    order_within: the attachment and the read-only half first, because browsing exercises the transport with nothing that can write, and the executing half lands on a proven one
+    order_within: the attachment and browsing first, because they exercise the transport before anything can write; the editor and both query halves land on a proven one
+    scope_grew: the pane was specified read-only with no statement console, and became a database tool rather than a viewer; decision:dev-console-self-sufficiency records why that is the console's job at all
     why_last: it reuses the registry technique the storybook step builds, and it is the step whose conventions benefit most from a settled console
 spikes:
   reason: each proves an assumption a whole step rests on, and each is cheaper than the step it guards

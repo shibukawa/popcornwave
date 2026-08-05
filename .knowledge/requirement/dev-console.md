@@ -8,6 +8,7 @@ api:cli-dev serves one loopback web console whose panes answer what the project 
 ```yaml
 audience: actor:application-developer
 mechanism: decision:dev-console-consolidation
+hosting: decision:dev-console-self-sufficiency decides what the console answers itself and what it leaves to a tool the developer already has
 boundary: policy:dev-console-boundary
 delivery: decision:dev-console-delivery-order
 scope: api:cli-dev only; never api:cli-build, api:test-run, or any deployed environment
@@ -25,9 +26,9 @@ panes:
     scope: traces, logs, and per-request timing; the console adds no log pane and no profiler of its own
   storybook: requirement:template-storybook
   data:
-    execution: requirement:dev-query-runner
-    browsing: requirement:dev-table-viewer
-    shared: one pane and one decision:dev-application-attachment, with a key each because one half may write and the other may not
+    browsing: requirement:dev-data-pane
+    running: requirement:dev-query-runner
+    shared: one pane and one decision:dev-application-attachment; the console proxies it because the application serves it
   assets: requirement:dev-asset-inspector
   api: requirement:dev-api-reference
   loop_state:
@@ -64,7 +65,7 @@ harness:
   effect: the pane is proxied rather than served, and its availability depends on a build succeeding
 attachment:
   concept: decision:dev-application-attachment
-  needed_by: requirement:dev-query-runner and requirement:dev-table-viewer, whose connection only the application can address
+  needed_by: requirement:dev-data-pane and requirement:dev-query-runner, whose connection only the application can address
   effect: the pane is available exactly while the application is up, which is the one pane for which that is true
 packaging:
   ui:

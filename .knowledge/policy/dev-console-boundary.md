@@ -21,7 +21,7 @@ placement:
     - decision:dev-harness-process, when only the project's generated code answers and no live connection is involved
     - decision:dev-application-attachment, when the answer requires a resource only the running application can address, which requirement:contrib-sqlite makes the ordinary case rather than the exotic one
     - the application under pwdev, only when the code must run inside a page the application served
-  effect: the application carries three development behaviors and no development route: reading assets locally, serving requirement:dev-error-overlay, and holding one outbound attachment
+  effect: the application carries three development behaviors and no development route on its own listener: reading assets locally, serving requirement:dev-error-overlay, and serving requirement:dev-data-pane on a loopback listener of its own that it announces to the console
 information_sources:
   static_analysis:
     reads: the project tree, its Go packages, and its generated artifacts
@@ -34,6 +34,10 @@ information_sources:
   host_owned_resources:
     reads: what pw itself started or connected, such as requirement:contrib-devidp and the data:migration-source state
     rule: pw resolves the connection from project configuration; it does not borrow the application's
+  the_running_application:
+    serves: what only the process holding the connection can reach, through decision:dev-application-attachment
+    covers: requirement:dev-data-pane and requirement:dev-query-runner
+    bound: not by what the pane declines to do, but by never existing outside a development loop; the pwdev constraint is what makes that structural
   compiled_project_code:
     runs: the project's own generated functions, through decision:dev-harness-process
     covers: what neither the tree nor a span can answer, because the answer is what the generated code does
@@ -52,12 +56,15 @@ application_side:
     - a development route that answers with application state, such as a session list, a merged configuration dump, or a cache listing
     - reason: a route is reachable by anything that can reach the port, so one build-mode mistake turns a convenience into a disclosure
     - alternative: the same fact is reported by static analysis when it is knowable from the project, and by telemetry when it is only knowable at runtime
-    - escalation: a fact reachable by neither, and addressable only from inside the process, goes through decision:dev-application-attachment, whose closed request set is what keeps it from becoming the refused route by another name
+    - escalation: a fact reachable by neither, and addressable only from inside the process, goes through decision:dev-application-attachment, which serves it on a loopback listener of its own rather than on the application's, so the refused route stays refused
     - remainder: anything still unreachable is not served; it is recorded as a limit on the pane, the way api:cli-doctor records what it could not determine
-read_only:
-  default: a pane reports and does not change the project
-  exception: an action a pane offers must already exist as a pw subcommand, so the console is a second way to run it and never a second implementation
-  reason: api:cli-doctor refuses --fix for the same reason, and a console that edits stops being one a reader trusts
+changing_things:
+  project: no pane edits the project. Source, configuration, and generated output are read, because api:cli-doctor refuses --fix for the reason that a diagnosis which edits stops being one a reader trusts
+  running_state: a pane may change what the running application is working on, which today means the rows in its development database
+  why_the_difference:
+    project: it is the developer's work, versioned, and every way to change it already exists as an editor or a pw subcommand
+    development_data: it is neither versioned nor durable — api:cli-seed refills it and a migration cycle empties it — and being unable to fix a row is what sends the developer to the second tool decision:dev-console-self-sufficiency exists to avoid
+  bound: requirement:dev-data-pane and requirement:dev-query-runner reach only the database the running application opened, which api:cli-dev started against the development environment
 secrets:
   - a pane redacts by the rules that already bound the value, per policy:query-log-safety and policy:cookie-value-protection
   - a resolved DSN, a client secret, and a session value are masked in a pane exactly as policy:startup-summary masks them
