@@ -116,6 +116,26 @@ It starts nothing when `OTEL_EXPORTER_OTLP_ENDPOINT` is already set, leaving you
 own collector in charge. See
 [Development Telemetry Viewer](/productivity/dev-telemetry-viewer/).
 
+## The console
+
+`pw dev` serves a browser console beside the application, on a fixed loopback
+port, holding the panes the loop needs: project state, static assets, the
+database and its declared queries, the template storybook, `pw doctor`, and the
+telemetry viewer above.
+
+```
+pw dev: console http://127.0.0.1:18081
+```
+
+```toml
+[dev.console]
+enabled = true
+port = 18081
+```
+
+It is what the rest of the loop is read through, and none of it exists in a
+release build. See [Development Console](/productivity/dev-console/).
+
 ## Stopping
 
 `Ctrl-C` cancels the whole loop, stopping the application, Tailwind watcher, and
