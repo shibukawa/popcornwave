@@ -172,7 +172,12 @@ export function createUpdateRuntime(config) {
 		if (outcome.fellBack) return fall(target.href, outcome.reason);
 		if (outcome.superseded) return { applied: false, superseded: true };
 		if (outcome.navigate) {
-			location.assign(new URL(outcome.navigate, document.baseURI).href);
+			const destination = resolveNavigable(outcome.navigate);
+			// A target that would run script instead of navigating is a failure
+			// like any other here, so it takes the ordinary path: reload, and
+			// name the reason for whoever is watching the events.
+			if (!destination) return fall(location.href, "unsafe-navigate");
+			location.assign(destination);
 			return { applied: false, navigated: true };
 		}
 
@@ -366,7 +371,9 @@ export function createUpdateRuntime(config) {
 			if (!applyOperation(operation)) return fall(location.href, "missing-target");
 		}
 		if (body.navigate) {
-			location.assign(new URL(body.navigate, document.baseURI).href);
+			const destination = resolveNavigable(body.navigate);
+			if (!destination) return fall(location.href, "unsafe-navigate");
+			location.assign(destination);
 			return { applied: false, navigated: true };
 		}
 		emit("applied", {});

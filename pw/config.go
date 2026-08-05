@@ -221,8 +221,11 @@ type OtelExportConfig struct {
 	Enabled bool `default:"false" help:"export traces and logs"`
 	// Endpoint is the OTLP/HTTP base URL. /v1/traces and /v1/logs are appended.
 	Endpoint string `env:"OTEL_EXPORTER_OTLP_ENDPOINT" dependon:".enabled" help:"OTLP/HTTP base URL; /v1/traces and /v1/logs are appended"`
-	// Headers is a comma-separated key=value list. Values are never logged.
-	Headers string `env:"OTEL_EXPORTER_OTLP_HEADERS" dependon:".enabled" help:"comma-separated key=value list; values are never logged"`
+	// Headers is a comma-separated key=value list. It is where the collector's
+	// credential lives — Authorization, api-key, x-honeycomb-team — so it is
+	// masked, and the masking is the tag rather than a promise in this sentence.
+	// It used to be only the sentence, and the boot log printed the value.
+	Headers string `secret:"mask" env:"OTEL_EXPORTER_OTLP_HEADERS" dependon:".enabled" help:"comma-separated key=value list; values are never logged"`
 	// RequestTimeout bounds one export request.
 	RequestTimeout time.Duration `default:"10s" dependon:".enabled" help:"bounds one export request"`
 	// QueueSize bounds records held in memory; a full queue drops rather than
@@ -426,12 +429,12 @@ func ParseConfig() error {
 		return configState.parseErr
 	}
 	configState.parsed = true
-	options, env, envErr := resolveLoadOptions(configState.options)
+	options, env, declared, envErr := resolveLoadOptions(configState.options)
 	if envErr != nil {
 		configState.parseErr = envErr
 		return envErr
 	}
-	setEnv(env)
+	setEnv(env, declared)
 	var actionErr error
 	options.Args, actionErr = parseFrameworkAction(commandArgs(options.Args))
 	if actionErr != nil {
@@ -452,13 +455,13 @@ func ParseConfig() error {
 // Project-local candidates are environment-specific and searched in the working
 // directory before its config/ directory; the user and system configuration
 // directories keep the environment-neutral file name.
-func resolveLoadOptions(options configbind.LoadOptions) (configbind.LoadOptions, string, error) {
+func resolveLoadOptions(options configbind.LoadOptions) (configbind.LoadOptions, string, bool, error) {
 	if options.Tool == "" {
 		options.Tool = executableName()
 	}
-	env, err := pwenv.Resolve(options.Environ)
+	env, declared, err := pwenv.ResolveDeclared(options.Environ)
 	if err != nil {
-		return options, "", err
+		return options, "", false, err
 	}
 	if options.FileName == "" {
 		options.FileName = pwenv.NeutralFileName
@@ -466,7 +469,7 @@ func resolveLoadOptions(options configbind.LoadOptions) (configbind.LoadOptions,
 	if options.ExtraConfigReadPaths == nil {
 		options.ExtraConfigReadPaths = pwenv.ReadPaths(env)
 	}
-	return options, env, nil
+	return options, env, declared, nil
 }
 
 func executableName() string {
@@ -495,7 +498,7 @@ func registeredConfig[T any]() (T, bool) {
 func runtimeResources(backend *pwruntime.LogBackend) pwruntime.Resources {
 	// Resolved before the lock because reading a registered binding takes the
 	// same read lock, and a waiting writer would deadlock the reacquisition.
-	query := resolveQueryDiagnostics(Config[ObservabilityConfig](nil), Env())
+	query := resolveQueryDiagnostics(Config[ObservabilityConfig](nil), Development())
 	configState.RLock()
 	defer configState.RUnlock()
 	configs := make(map[reflect.Type]any, len(configState.entries))

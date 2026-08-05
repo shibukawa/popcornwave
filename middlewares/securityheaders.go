@@ -14,15 +14,42 @@ import (
 // Enabled records whether a runtime selects this middleware at all; SecurityHeaders
 // itself always applies the configured headers.
 type SecurityHeadersConfig struct {
-	Enabled                         bool       `default:"true"`
-	ContentTypeOptions              bool       `default:"true" dependon:".enabled"`
-	FrameOptions                    string     `default:"deny" dependon:".enabled"`
-	ReferrerPolicy                  string     `default:"strict-origin-when-cross-origin" dependon:".enabled"`
-	ContentSecurityPolicy           string     `env:"-" dependon:".enabled"`
+	Enabled            bool   `default:"true"`
+	ContentTypeOptions bool   `default:"true" dependon:".enabled"`
+	FrameOptions       string `default:"deny" dependon:".enabled"`
+	ReferrerPolicy     string `default:"strict-origin-when-cross-origin" dependon:".enabled"`
+	// ContentSecurityPolicy ships with DefaultContentSecurityPolicy rather than
+	// empty. Setting it replaces that value entirely; "off" sends no policy.
+	ContentSecurityPolicy           string     `default:"script-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'" env:"-" dependon:".enabled" help:"Content-Security-Policy value; off sends none"`
 	ContentSecurityPolicyReportOnly string     `env:"-" dependon:".enabled"`
 	PermissionsPolicy               string     `env:"-" dependon:".enabled"`
 	HSTS                            HSTSConfig `dependon:".enabled"`
 }
+
+// DefaultContentSecurityPolicy is the policy a project gets without naming one.
+//
+// It restricts the four directives a web application can almost always accept,
+// and leaves alone the ones it cannot: images, fonts, styles, and connections
+// are unrestricted, so an ordinary page keeps working without anyone editing
+// configuration.
+//
+//   - script-src 'self' is the load-bearing one. It refuses inline event
+//     handlers, inline <script>, and javascript: URLs, which together are how an
+//     HTML-injection sink becomes running code. It also matters more here than
+//     in a framework without a browser runtime: the CSRF companion cookie is
+//     readable by script on purpose, so script that runs on this origin can mint
+//     a valid token. The framework's own runtime is a same-origin module tag and
+//     needs nothing else.
+//   - object-src 'none' closes <object> and <embed>, which route around
+//     script-src on some engines.
+//   - base-uri 'self' stops an injected <base href> from re-pointing every
+//     relative URL on the page, including the runtime's own.
+//   - frame-ancestors 'none' says what X-Frame-Options: DENY already says, in
+//     the header that is not deprecated.
+//
+// A project that loads third-party script names its own policy. That is the
+// conversation this default is for: a CSP that shipped empty was one nobody had.
+const DefaultContentSecurityPolicy = "script-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'"
 
 // HSTSConfig controls Strict-Transport-Security on verified HTTPS requests.
 // The dependon on the HSTS field itself carries the headers switch down over
@@ -37,11 +64,30 @@ type HSTSConfig struct {
 // DefaultSecurityHeaders returns the classic mode defaults.
 func DefaultSecurityHeaders() SecurityHeadersConfig {
 	return SecurityHeadersConfig{
-		Enabled:            true,
-		ContentTypeOptions: true,
-		FrameOptions:       "DENY",
-		ReferrerPolicy:     "strict-origin-when-cross-origin",
+		Enabled:               true,
+		ContentTypeOptions:    true,
+		FrameOptions:          "DENY",
+		ReferrerPolicy:        "strict-origin-when-cross-origin",
+		ContentSecurityPolicy: DefaultContentSecurityPolicy,
 	}
+}
+
+// policyOff is the value that sends no policy header, for the two policies whose
+// empty value now means the default rather than silence.
+const policyOff = "off"
+
+// headerPolicy resolves a configured policy to the value to send, and reports
+// whether to send one at all.
+//
+// Empty means the default and "off" means nothing, which is the inverse of what
+// empty used to mean. The swap is deliberate: a policy that is absent by default
+// is one a project has to know to ask for, and the projects that most need this
+// one are the projects least likely to.
+func headerPolicy(configured string) (string, bool) {
+	if strings.EqualFold(strings.TrimSpace(configured), policyOff) {
+		return "", false
+	}
+	return configured, configured != ""
 }
 
 // Validate rejects response splitting and unsupported fixed-value policies.
@@ -120,8 +166,12 @@ func SecurityHeaders(config SecurityHeadersConfig, option ...SecurityHeadersOpti
 				header.Set("X-Frame-Options", frame)
 			}
 			setOptionalHeader(header, "Referrer-Policy", config.ReferrerPolicy)
-			setOptionalHeader(header, "Content-Security-Policy", config.ContentSecurityPolicy)
-			setOptionalHeader(header, "Content-Security-Policy-Report-Only", config.ContentSecurityPolicyReportOnly)
+			if policy, send := headerPolicy(config.ContentSecurityPolicy); send {
+				header.Set("Content-Security-Policy", policy)
+			}
+			if policy, send := headerPolicy(config.ContentSecurityPolicyReportOnly); send {
+				header.Set("Content-Security-Policy-Report-Only", policy)
+			}
 			setOptionalHeader(header, "Permissions-Policy", config.PermissionsPolicy)
 			if config.HSTS.Enabled && requestIsHTTPS(r, options.trustedProxies) {
 				value := "max-age=" + strconv.FormatInt(int64(config.HSTS.MaxAge/time.Second), 10)

@@ -85,7 +85,8 @@ func buildMiddlewares(handler http.Handler, option ...Option) (http.Handler, err
 		return nil, err
 	}
 	resources := runtimeResources(telemetry.backend)
-	reportQueryDiagnostics(resources.Query, Env(), resources.DBDriver)
+	reportEnvironment()
+	reportQueryDiagnostics(resources.Query, Env(), Development(), resources.DBDriver)
 	return buildRuntimeHandler(handler, server, security, middleware, resources, telemetry.tracing, options.publicFS)
 }
 

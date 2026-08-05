@@ -24,7 +24,14 @@ type RawRecord struct {
 
 // Deadline is the earliest authoritative expiry of the record. A backend
 // enforces it on read, whatever its own expiry mechanism does.
+//
+// A zero field means "no such bound" rather than "the epoch", so this is the
+// earliest of those that are set. See Record.deadline for what reading the
+// absolute bound alone used to cost.
 func (r RawRecord) Deadline() time.Time {
+	if r.ExpiresAt.IsZero() {
+		return r.IdleExpiresAt
+	}
 	if !r.IdleExpiresAt.IsZero() && r.IdleExpiresAt.Before(r.ExpiresAt) {
 		return r.IdleExpiresAt
 	}

@@ -313,9 +313,14 @@ func confirmRollback(ctx context.Context, target *pwmigrate.Target, sources fs.F
 // resolveApplicationDSN asks the application for its effective DSN so the CLI
 // never reimplements TOML, environment, and flag precedence. The value arrives
 // on a pipe and is never placed in a process argument.
+//
+// The build carries -tags=pwdev because that is what --pw-print-dsn now needs. A
+// release build does not answer it: the flag prints the database password, and
+// it used to do so for anyone who could execute the binary. Compiling from
+// source here already, this costs nothing.
 func resolveApplicationDSN(ctx context.Context, root, mainPackage string, stderr io.Writer) (string, error) {
 	var output bytes.Buffer
-	command := exec.CommandContext(ctx, "go", "run", mainPackage, "--pw-print-dsn")
+	command := exec.CommandContext(ctx, "go", "run", "-tags=pwdev", mainPackage, "--pw-print-dsn")
 	command.Dir = root
 	command.Stdout = &output
 	command.Stderr = stderr

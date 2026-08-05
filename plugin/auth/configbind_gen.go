@@ -54,6 +54,7 @@ func registerConfigDefinition0() {
 			"auth.oidc.client_secret",
 			"auth.oidc.redirect_url",
 			"auth.oidc.scopes",
+			"auth.oidc.endpoint_hosts",
 			"auth.oidc.identity_claim",
 			"auth.oidc.admission",
 			"auth.oidc.auto_provision",
@@ -173,6 +174,7 @@ func registerConfigDefinition0() {
 			"auth.oidc.client_secret":                   {"auth.enabled"},
 			"auth.oidc.redirect_url":                    {"auth.enabled"},
 			"auth.oidc.scopes":                          {"auth.enabled"},
+			"auth.oidc.endpoint_hosts":                  {"auth.enabled"},
 			"auth.oidc.identity_claim":                  {"auth.enabled"},
 			"auth.oidc.admission":                       {"auth.enabled"},
 			"auth.oidc.auto_provision":                  {"auth.enabled"},
@@ -255,6 +257,7 @@ func registerConfigDefinition0() {
 			{Prefix: "auth", Key: "oidc.client_secret", Env: "AUTH_OIDC_CLIENT_SECRET"},
 			{Prefix: "auth", Key: "oidc.redirect_url"},
 			{Prefix: "auth", Key: "oidc.scopes", Kind: cliparser.KindArray},
+			{Prefix: "auth", Key: "oidc.endpoint_hosts", Help: "hosts the discovery document may point endpoints at; empty accepts any", Kind: cliparser.KindArray},
 			{Prefix: "auth", Key: "oidc.identity_claim", Help: "verified claim that identifies a local account"},
 			{Prefix: "auth", Key: "oidc.admission", Help: "authenticated, claim, registered, or existing"},
 			{Prefix: "auth", Key: "oidc.auto_provision", Help: "AutoProvision permits an unknown verified identity to create an account through the registered account resolver", Kind: cliparser.KindBool},
@@ -335,6 +338,7 @@ func registerConfigDefinition0() {
 			{Key: "oidc.client_secret", Kind: configbind.ScaffoldString, Env: "AUTH_OIDC_CLIENT_SECRET"},
 			{Key: "oidc.redirect_url", Kind: configbind.ScaffoldString},
 			{Key: "oidc.scopes", Kind: configbind.ScaffoldStringSlice},
+			{Key: "oidc.endpoint_hosts", Kind: configbind.ScaffoldStringSlice, Help: "hosts the discovery document may point endpoints at; empty accepts any"},
 			{Key: "oidc.identity_claim", Kind: configbind.ScaffoldString, Default: "sub", Help: "verified claim that identifies a local account"},
 			{Key: "oidc.admission", Kind: configbind.ScaffoldString, Default: "authenticated", Help: "authenticated, claim, registered, or existing"},
 			{Key: "oidc.auto_provision", Kind: configbind.ScaffoldBool, Default: "true", Help: "AutoProvision permits an unknown verified identity to create an account through the registered account resolver"},
@@ -592,6 +596,9 @@ func applyConfigDefinition0(dst any, o *configbind.Overlay) error {
 	}
 	if v, ok := o.GetMulti("auth.oidc.scopes"); ok {
 		p.OIDC.Scopes = v
+	}
+	if v, ok := o.GetMulti("auth.oidc.endpoint_hosts"); ok {
+		p.OIDC.EndpointHosts = v
 	}
 	if v, ok := o.GetString("auth.oidc.identity_claim"); ok {
 		p.OIDC.IdentityClaim = v

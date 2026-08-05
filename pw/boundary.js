@@ -123,6 +123,37 @@ export function compositionActive() {
 	return composing;
 }
 
+// resolveNavigable returns the absolute form of a navigation target the browser
+// can follow without running script, or null for one it cannot.
+//
+// location.assign executes a javascript: URL rather than navigating to it, so
+// every sink that reaches it needs this. The server refuses such a target too;
+// this is the half that holds when a record arrives from somewhere the server
+// did not write it, and it costs one comparison.
+//
+// Resolving first is what keeps the rule short. A relative target resolves
+// against the page and therefore inherits the page's own scheme, so it needs no
+// case of its own — after resolution there is only ever an absolute URL to
+// check, and the allowlist mirrors internal/safeurl on the Go side.
+export function resolveNavigable(value, base) {
+	if (typeof value !== "string" || value === "") return null;
+	let resolved;
+	try {
+		resolved = new URL(value, base || document.baseURI);
+	} catch {
+		return null;
+	}
+	switch (resolved.protocol) {
+		case "http:":
+		case "https:":
+		case "mailto:":
+		case "tel:":
+			return resolved.href;
+		default:
+			return null;
+	}
+}
+
 // A marked region is moved rather than re-rendered: a third-party widget, a
 // canvas, a media element mid-playback. The server does not own what is inside
 // it and cannot reproduce it.
@@ -451,9 +482,10 @@ function handleRecord(record) {
 		return "stop";
 	}
 	if (record.control === "navigate") {
-		if (record.url) {
+		const target = resolveNavigable(record.url);
+		if (target) {
 			stopLive();
-			location.assign(record.url);
+			location.assign(target);
 		}
 		return "stop";
 	}

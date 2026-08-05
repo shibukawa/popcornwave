@@ -8,6 +8,7 @@ import (
 	"runtime/debug"
 	"sync"
 
+	"github.com/shibukawa/popcornwave/internal/safeurl"
 	"github.com/shibukawa/popcornwave/pwruntime"
 	"github.com/shibukawa/tinybind-go/htmlbind"
 	"github.com/shibukawa/tinybind-go/htmlupdate"
@@ -456,9 +457,28 @@ func WriteUpdate(w http.ResponseWriter, r *http.Request, status int, regions ...
 // WriteUpdateNavigate tells the browser to leave the page, which is how an
 // action that changed where the user belongs stays correct without guessing
 // which regions to rewrite.
+//
+// The target is refused unless it is one a browser can follow without running
+// script. The value reaching here is commonly a return path taken from the
+// request — the shape of a post-login redirect — and the browser runtime hands
+// it to location.assign, which executes a javascript: URL rather than
+// navigating to it. Refusing here means an application cannot turn its own
+// redirect into script execution by forwarding a parameter it did not check.
 func WriteUpdateNavigate(w http.ResponseWriter, r *http.Request, url string) {
+	if !safeurl.Navigable(url) {
+		// The URL itself stays out of the error: it is request-derived, and a
+		// 5xx body is sanitized anyway, so repeating it would only risk placing
+		// it somewhere that is not.
+		WriteProblem(w, r, InternalServerError(errUnsafeNavigation))
+		return
+	}
 	config := Config[HTMLConfig](requestContext(r))
 	if err := updateOptions(config).WriteNavigate(w, url); err != nil {
 		WriteProblem(w, r, InternalServerError(err))
 	}
 }
+
+// errUnsafeNavigation reports a navigation target this framework will not hand
+// to a browser. It is a programming error rather than a request error: the
+// handler chose the target, so the fix is in the handler.
+var errUnsafeNavigation = errors.New("popcornwave: navigation target is not a URL a browser can follow without running script")

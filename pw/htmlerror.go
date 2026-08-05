@@ -102,7 +102,7 @@ func builtinErrorPage(w io.Writer, problem Problem) {
 // because a template that decides this itself decides it once and then gets
 // copied into an application that meant something else by it.
 func publicProblem(problem Problem) Problem {
-	if Env() == EnvDevelopment {
+	if Development() {
 		return problem
 	}
 	return Problem{Status: problem.Status, Title: problem.Title}

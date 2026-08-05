@@ -81,7 +81,10 @@ func build() (*deployment, error) {
 		Tool:               "passkeyonly-e2e",
 		ExplicitConfigPath: configPath,
 		Args:               []string{},
-		Environ:            []string{},
+		// The fixture serves plain http on a loopback address, which is the
+		// development exception the cookie policy allows. It has to say so:
+		// an unset APP_ENV no longer buys the development relaxations.
+		Environ: []string{"APP_ENV=dev"},
 	})
 	built, err := pw.Middlewares(application())
 	if err != nil {

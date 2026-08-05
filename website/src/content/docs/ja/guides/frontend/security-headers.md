@@ -18,9 +18,28 @@ Referrer-Policy: strict-origin-when-cross-origin
 `strict-origin-when-cross-origin` は、自サイト内では完全な referrer を、外に対しては
 origin だけを送ります。多くのアプリケーションが選んだであろう設定です。
 
-ページの姿を実際に左右する 2 つ——Content-Security-Policy と Permissions-Policy——は空です。
-安全かつ有用な既定値が存在しないからです。持つ価値があるほど厳しいポリシーは、特定の
-ページが読み込むアセットに対して書かれたポリシーです。
+Content-Security-Policy にも既定値があります。意図的に狭く取ってあります。
+
+```
+script-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'
+```
+
+ほぼどのアプリケーションでも受け入れられる 4 つのディレクティブだけを縛り、そうでない
+ものには触れません。画像・フォント・スタイル・通信先は制限しないので、CDN からロゴを
+読むページも設定を書き換えずにそのまま動きます。
+
+効いているのは `script-src 'self'` です。インラインのイベントハンドラ、インラインの
+`<script>`、`javascript:` URL を拒みます——HTML 差し込みが実行コードに変わる経路が、
+まとめてこの 3 つです。ブラウザランタイムを持たないフレームワークより、ここでは重みが
+あります。[CSRF](/ja/guides/architecture/security/) の同伴クッキーは意図的にスクリプトから読める
+ので、自オリジンで動いたスクリプトは正当なトークンを作れてしまうからです。フレームワーク
+自身のランタイムは同一オリジンの module タグで、`'self'` の外を必要としません。
+
+サードパーティのスクリプトを読むなら、自分のポリシーを書くことになります。この既定値は、
+その会話を始めるためにあります。
+
+Permissions-Policy は空のままです。使うかどうかも分からない機能について、既定値は
+推測にしかならないからです。
 
 ## キー
 
@@ -30,10 +49,14 @@ enabled = true
 content_type_options = true
 frame_options = "deny"
 referrer_policy = "strict-origin-when-cross-origin"
-content_security_policy = ""
+content_security_policy = "script-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'"
 content_security_policy_report_only = ""
 permissions_policy = ""
 ```
+
+`content_security_policy` を設定すると、既定値に足すのではなく置き換えます。`"off"` に
+すると、ポリシーを一切送りません。空文字は既定値を意味するので、本当にポリシーを持ちたく
+ないプロジェクトには、沈黙以外の言い方が要ります。
 
 `frame_options` は `deny`、`sameorigin`、`off` を取ります。`referrer_policy` は
 `no-referrer`、`same-origin`、`strict-origin`、`strict-origin-when-cross-origin` です。

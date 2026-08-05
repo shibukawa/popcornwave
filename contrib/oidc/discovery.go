@@ -73,6 +73,7 @@ func Discover(ctx context.Context, issuer string, options DiscoverOptions) (*Pro
 		maxResponseBytes: maxResponse, jwksMaxBytes: options.JWKSMaxBytes,
 		jwksMaxKeys: options.JWKSMaxKeys, cacheTTL: cacheTTL, staleTTL: staleTTL,
 		allowLoopbackHTTP: options.AllowLoopbackHTTP, endpointValidator: options.EndpointValidator,
+		endpointHosts: endpointHostSet(issuerURL.Host, options.EndpointHosts),
 	}}
 	discoveryURL := *issuerURL
 	discoveryURL.Path = strings.TrimSuffix(discoveryURL.Path, "/") + "/.well-known/openid-configuration"
@@ -130,9 +131,32 @@ func (p *Provider) EndSessionEndpoint() string {
 	return p.endSessionEndpoint
 }
 
+// endpointHostSet builds the accepted-host set, or nil when the deployment named
+// none. The issuer's own host is always in it: a document pointing at the issuer
+// that served it is the case that never needed permission.
+func endpointHostSet(issuerHost string, allowed []string) map[string]bool {
+	if len(allowed) == 0 {
+		return nil
+	}
+	hosts := make(map[string]bool, len(allowed)+1)
+	hosts[strings.ToLower(issuerHost)] = true
+	for _, host := range allowed {
+		if trimmed := strings.ToLower(strings.TrimSpace(host)); trimmed != "" {
+			hosts[trimmed] = true
+		}
+	}
+	return hosts
+}
+
 func (p *Provider) endpoint(raw string) (string, error) {
 	parsed, err := authn.ParseEndpoint(raw, p.options.allowLoopbackHTTP)
 	if err != nil || parsed.RawQuery != "" || parsed.Fragment != "" {
+		return "", ErrDiscovery
+	}
+	// The document chooses where the authorization code and the client secret
+	// are sent, so a deployment that named its provider's hosts gets them
+	// enforced here rather than trusting the document to name itself honestly.
+	if p.options.endpointHosts != nil && !p.options.endpointHosts[strings.ToLower(parsed.Host)] {
 		return "", ErrDiscovery
 	}
 	if p.options.endpointValidator != nil {

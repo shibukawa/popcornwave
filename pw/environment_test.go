@@ -9,7 +9,7 @@ import (
 )
 
 func TestResolveLoadOptionsSelectsProjectLocalFilesByEnvironment(t *testing.T) {
-	options, env, err := resolveLoadOptions(configbind.LoadOptions{
+	options, env, _, err := resolveLoadOptions(configbind.LoadOptions{
 		Vendor: "popcornwave-test", Tool: "pw-test", Environ: []string{"APP_ENV=stg"},
 	})
 	if err != nil {
@@ -28,7 +28,7 @@ func TestResolveLoadOptionsSelectsProjectLocalFilesByEnvironment(t *testing.T) {
 }
 
 func TestResolveLoadOptionsDefaultsToDevelopment(t *testing.T) {
-	options, env, err := resolveLoadOptions(configbind.LoadOptions{
+	options, env, _, err := resolveLoadOptions(configbind.LoadOptions{
 		Vendor: "popcornwave-test", Tool: "pw-test", Environ: []string{"PATH=/usr/bin"},
 	})
 	if err != nil {
@@ -43,7 +43,7 @@ func TestResolveLoadOptionsDefaultsToDevelopment(t *testing.T) {
 }
 
 func TestResolveLoadOptionsNeverReadsProjectLocalNeutralFile(t *testing.T) {
-	options, _, err := resolveLoadOptions(configbind.LoadOptions{
+	options, _, _, err := resolveLoadOptions(configbind.LoadOptions{
 		Vendor: "popcornwave-test", Tool: "pw-test", Environ: []string{"APP_ENV=prod"},
 	})
 	if err != nil {
@@ -57,7 +57,7 @@ func TestResolveLoadOptionsNeverReadsProjectLocalNeutralFile(t *testing.T) {
 }
 
 func TestResolveLoadOptionsRejectsAnInvalidEnvironment(t *testing.T) {
-	if _, _, err := resolveLoadOptions(configbind.LoadOptions{
+	if _, _, _, err := resolveLoadOptions(configbind.LoadOptions{
 		Vendor: "popcornwave-test", Tool: "pw-test", Environ: []string{"APP_ENV=../etc"},
 	}); err == nil {
 		t.Fatal("an environment containing a path separator must fail before load")
@@ -66,7 +66,7 @@ func TestResolveLoadOptionsRejectsAnInvalidEnvironment(t *testing.T) {
 
 func TestResolveLoadOptionsKeepsExplicitReadPaths(t *testing.T) {
 	explicit := []string{"custom.toml"}
-	options, _, err := resolveLoadOptions(configbind.LoadOptions{
+	options, _, _, err := resolveLoadOptions(configbind.LoadOptions{
 		Vendor: "popcornwave-test", Tool: "pw-test", Environ: []string{"APP_ENV=stg"},
 		ExtraConfigReadPaths: explicit,
 	})

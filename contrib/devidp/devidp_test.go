@@ -472,18 +472,48 @@ func TestStartRefusesAProductionEnvironment(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse roster: %v", err)
 	}
-	for _, environment := range []string{"prod", "production", "PROD"} {
+	// The lock is an allowlist. It used to name the environments it refused,
+	// which meant every other spelling — "staging", "prd", "live", "uat" —
+	// walked past a lock built to stop exactly them.
+	for _, environment := range []string{"prod", "production", "PROD", "stg", "staging", "prd", "live", "uat"} {
 		t.Setenv("APP_ENV", environment)
 		if _, err := devidp.Start(t.Context(), "127.0.0.1:0", config, devidp.Options{}); err == nil {
-			t.Fatalf("expected APP_ENV=%s to be refused", environment)
+			t.Fatalf("expected APP_ENV=%q to be refused", environment)
 		}
 	}
-	t.Setenv("APP_ENV", "stg")
-	server, err := devidp.Start(t.Context(), "127.0.0.1:0", config, devidp.Options{})
-	if err != nil {
-		t.Fatalf("staging is a development-shaped environment: %v", err)
+	// An unset value passes: the framework resolves an unset APP_ENV to
+	// development, and this package does not disagree with it.
+	for _, environment := range []string{"dev", "development", "test", "local", ""} {
+		t.Setenv("APP_ENV", environment)
+		server, err := devidp.Start(t.Context(), "127.0.0.1:0", config, devidp.Options{})
+		if err != nil {
+			t.Fatalf("APP_ENV=%q is a development environment: %v", environment, err)
+		}
+		_ = server.Close()
 	}
-	_ = server.Close()
+}
+
+// Handler is exported, so an application can mount the provider on its own mux
+// without ever calling Start. The environment lock has to be on the constructor
+// for that path to carry it.
+func TestNewRefusesOutsideDevelopment(t *testing.T) {
+	config, err := devidp.ParseConfig([]byte(roster), t.TempDir())
+	if err != nil {
+		t.Fatalf("parse roster: %v", err)
+	}
+	config.Issuer = "https://idp.example"
+	for _, environment := range []string{"prod", "production", "stg", "staging"} {
+		t.Setenv("APP_ENV", environment)
+		if _, err := devidp.New(config, devidp.Options{}); err == nil {
+			t.Fatalf("New built a provider under APP_ENV=%q", environment)
+		}
+	}
+	for _, environment := range []string{"dev", ""} {
+		t.Setenv("APP_ENV", environment)
+		if _, err := devidp.New(config, devidp.Options{}); err != nil {
+			t.Fatalf("New refused APP_ENV=%q: %v", environment, err)
+		}
+	}
 }
 
 func TestDiscoveryAdvertisesOnlyImplementedBehavior(t *testing.T) {

@@ -48,7 +48,13 @@ func validateRuntimeConfig(server ServerConfig, security SecurityConfig, middlew
 // start rather than serve one session that way. A cross-site cookie is refused
 // in every environment, dev included, because no browser accepts it and the
 // login would fail there too.
-func validateSessionConfig(config SessionConfig, env string) error {
+//
+// development is whether the development relaxations apply, which an unset
+// APP_ENV satisfies: it resolves to development, and running with no environment
+// set is what working on an application looks like. A deployment that forgot the
+// variable therefore keeps this exception, and hears about it from the startup
+// warning rather than from a refusal.
+func validateSessionConfig(config SessionConfig, env string, development bool) error {
 	if !config.Enabled || config.Cookie.Secure {
 		return nil
 	}
@@ -59,7 +65,7 @@ func validateSessionConfig(config SessionConfig, env string) error {
 	if sameSite == http.SameSiteNoneMode {
 		return fmt.Errorf("session.cookie.same_site is none without session.cookie.secure, which no browser accepts as a cross-site cookie")
 	}
-	if env != EnvDevelopment {
+	if !development {
 		return fmt.Errorf("session.cookie.secure must be true when %s is %q; false is a development-only exception, and it lets the session cookie travel over plain http", EnvVar, env)
 	}
 	return nil

@@ -164,8 +164,12 @@ func activeRuntime() *runtime {
 // Dev says nothing, rather than saying it quietly: a warning printed on every
 // local run is one an operator learns to scroll past, and this has to still be
 // readable on the day it appears in a staging log.
-func unrevocableSessionBackend(backend, env string) string {
-	if backend != pw.SessionBackendCookie || env == pw.EnvDevelopment {
+//
+// The silence needs development to have been declared, not merely resolved. A
+// deployment that never set APP_ENV lands on "dev" by default, and that is
+// exactly the deployment that should hear this.
+func unrevocableSessionBackend(backend string, development bool) string {
+	if backend != pw.SessionBackendCookie || development {
 		return ""
 	}
 	return "session.backend = cookie keeps the login in the browser, so logout and account suspension cannot end a " +
@@ -195,7 +199,7 @@ func setupAuthentication(ctx context.Context) (pw.Middleware, error) {
 	if !sessionConfig.Enabled {
 		return nil, errors.New("auth requires session.enabled = true")
 	}
-	if warning := unrevocableSessionBackend(sessionConfig.Backend, pw.Env()); warning != "" {
+	if warning := unrevocableSessionBackend(sessionConfig.Backend, pw.Development()); warning != "" {
 		pw.Logger(ctx).Log(ctx, pw.LevelWarn, "sessions cannot be ended on demand",
 			pw.String("setting", "session.backend"),
 			pw.String("environment", pw.Env()),

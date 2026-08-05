@@ -12,7 +12,10 @@ func TestPatternMatching(t *testing.T) {
 		want    bool
 	}{
 		{"/account", "/account", true},
-		{"/account", "/account/", false},
+		// The trailing slash names the same thing for a policy decision, so the
+		// pattern covers it. It used to not, which meant an include naming
+		// /account left /account/ unprotected rather than protected.
+		{"/account", "/account/", true},
 		{"/account", "/account/settings", false},
 		{"/users/*/settings", "/users/42/settings", true},
 		{"/users/*/settings", "/users//settings", false},

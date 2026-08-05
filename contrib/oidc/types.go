@@ -23,10 +23,10 @@ var (
 	// the caller required one. It is distinct from ErrIDToken because the
 	// token is otherwise valid and the caller's remedy is different: the
 	// provider answered a freshness request it did not honor.
-	ErrAuthTime = errors.New("oidc: missing or invalid auth_time")
-	ErrUserInfo       = errors.New("oidc: invalid UserInfo response")
-	ErrLimitExceeded  = errors.New("oidc: response limit exceeded")
-	ErrHTTP           = errors.New("oidc: HTTP request failed")
+	ErrAuthTime      = errors.New("oidc: missing or invalid auth_time")
+	ErrUserInfo      = errors.New("oidc: invalid UserInfo response")
+	ErrLimitExceeded = errors.New("oidc: response limit exceeded")
+	ErrHTTP          = errors.New("oidc: HTTP request failed")
 )
 
 const (
@@ -60,6 +60,25 @@ type DiscoverOptions struct {
 	// EndpointValidator receives a copy of each issuer/discovered endpoint URL
 	// for caller-specific host/IP trust checks. Mutations are ignored.
 	EndpointValidator func(*url.URL) error
+	// EndpointHosts restricts which hosts the discovery document may point at.
+	// Empty accepts any host the document names.
+	//
+	// The discovery document decides where this client sends the authorization
+	// code and the client secret. An issuer that is hostile, compromised, or
+	// simply multi-tenant can therefore name a host of its choosing and be handed
+	// both — the issuer field still matches, because that is the one value the
+	// document is checked against.
+	//
+	// It is empty by default because federated endpoints are ordinary rather than
+	// suspicious: Google's issuer is accounts.google.com while its token endpoint
+	// is oauth2.googleapis.com and its keys are on www.googleapis.com. A
+	// same-origin rule would refuse the largest identity provider in use, so the
+	// deployment that knows its own provider is the one that names the hosts.
+	//
+	// The issuer's own host is always accepted and does not need listing. A host
+	// is matched exactly, without wildcards: a rule meant to pin a host that
+	// silently admitted its subdomains would be worse than no rule.
+	EndpointHosts []string
 }
 
 // Provider contains validated discovery metadata and a bounded JWKS cache.
@@ -90,6 +109,9 @@ type providerOptions struct {
 	staleTTL          time.Duration
 	allowLoopbackHTTP bool
 	endpointValidator func(*url.URL) error
+	// endpointHosts is the set EndpointHosts named, plus the issuer's own host.
+	// Nil means the deployment named none and any host is accepted.
+	endpointHosts map[string]bool
 }
 
 type Config struct {

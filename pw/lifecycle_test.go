@@ -88,11 +88,11 @@ func TestValidateRuntimeConfig(t *testing.T) {
 // accepts it and the login would fail in dev too.
 func TestValidateSessionConfigJudgesTheCookieByEnvironment(t *testing.T) {
 	insecure := SessionConfig{Enabled: true, Cookie: SessionCookieConfig{SameSite: "lax"}}
-	if err := validateSessionConfig(insecure, EnvDevelopment); err != nil {
+	if err := validateSessionConfig(insecure, EnvDevelopment, true); err != nil {
 		t.Fatalf("dev refused the loopback exception: %v", err)
 	}
 	for _, env := range []string{EnvStaging, EnvProduction, "sandbox"} {
-		err := validateSessionConfig(insecure, env)
+		err := validateSessionConfig(insecure, env, false)
 		if err == nil {
 			t.Fatalf("%s started with an insecure session cookie", env)
 		}
@@ -101,15 +101,15 @@ func TestValidateSessionConfigJudgesTheCookieByEnvironment(t *testing.T) {
 		}
 	}
 	crossSite := SessionConfig{Enabled: true, Cookie: SessionCookieConfig{SameSite: "none"}}
-	if err := validateSessionConfig(crossSite, EnvDevelopment); err == nil {
+	if err := validateSessionConfig(crossSite, EnvDevelopment, true); err == nil {
 		t.Fatal("a cross-site cookie without Secure was accepted in dev")
 	}
 	secure := SessionConfig{Enabled: true, Cookie: SessionCookieConfig{Secure: true, SameSite: "none"}}
-	if err := validateSessionConfig(secure, EnvProduction); err != nil {
+	if err := validateSessionConfig(secure, EnvProduction, false); err != nil {
 		t.Fatalf("a secure cookie was refused: %v", err)
 	}
 	// A project without sessions has no cookie policy to judge.
-	if err := validateSessionConfig(SessionConfig{}, EnvProduction); err != nil {
+	if err := validateSessionConfig(SessionConfig{}, EnvProduction, false); err != nil {
 		t.Fatalf("a disabled session was judged: %v", err)
 	}
 }

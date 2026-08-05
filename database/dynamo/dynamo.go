@@ -91,7 +91,7 @@ func Client(ctx context.Context) (*dynamodb.Client, error) {
 // installs both into each request.
 func setup(ctx context.Context) (pw.Middleware, error) {
 	config := pw.Config[Config](ctx)
-	if err := config.validate(pw.Env() == pw.EnvDevelopment); err != nil {
+	if err := config.validate(pw.Development()); err != nil {
 		return nil, err
 	}
 	if !config.Enabled {

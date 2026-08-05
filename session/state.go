@@ -462,7 +462,9 @@ func (s *state) read(store Store[slotMap], hash string) (Record[slotMap], bool, 
 		return Record[slotMap]{}, false, ErrExpired
 	}
 	now := s.manager.now()
-	if s.manager.options.TTL > 0 && !record.deadline().After(now) {
+	// The record's own deadline decides, not the configured TTL. Gating on TTL
+	// meant a session bounded only by an idle timeout was never checked here.
+	if deadline := record.deadline(); !deadline.IsZero() && !deadline.After(now) {
 		_ = store.Delete(ctx, hash)
 		return Record[slotMap]{}, false, ErrExpired
 	}
