@@ -5,13 +5,14 @@ sidebar:
   order: 4
 ---
 
-Most of a framework's security is decided before you write a handler. The
-question is which defenses are on when you have written nothing, which ones
-wait for a configuration line, and which ones you own outright — because a
-defense you assumed was on is worse than one you know is off.
+Much of the framework's security is already decided before you write a handler.
+Some defenses are always on, others need configuration, and a few remain the
+application's responsibility. That distinction matters: an absent defense is
+far easier to address when you know it is absent.
 
-This page follows one request through the checks, then covers what sits outside
-that path.
+The request path below shows where each check runs. It also makes the boundary
+clear: Popcorn Wave can reject an unsafe request, but it cannot decide who
+should be allowed to perform an application-specific action.
 
 ## What a request passes through
 
@@ -295,7 +296,7 @@ the login session is stored where it cannot be revoked
 Neither one stops the process. The judgement stays with the deployment, which
 is the only party that knows whether it can live without ending a session on
 demand — but if you are reading that warning in a staging or production log, the
-answer is almost certainly no. Move to `rdb`, `redis`, or `dynamo`: logout and
+answer is almost certainly no. Move to `rdb`, `redis`, `dynamo`, or `firestore`: logout and
 suspension are the two acts that make an incident survivable, and both need a
 record the server can delete.
 

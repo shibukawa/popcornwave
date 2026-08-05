@@ -5,9 +5,9 @@ sidebar:
   order: 2
 ---
 
-You have built something twice. An admin console, a middleware that needs two
-tables of its own, a set of components with a stylesheet — the second project
-got it by copying the first, and the copy has been drifting ever since.
+Copying an admin console, a middleware with its own tables, or a styled
+component set into a second project creates two implementations to maintain.
+Changes made in one copy soon stop reaching the other.
 
 A **component package** is that capability published as an ordinary Go module.
 The consuming project names it in one place:
@@ -17,8 +17,9 @@ The consuming project names it in one place:
 module = "example.com/widget"
 ```
 
-That declaration is the install. `pw generate` writes the import that links it,
-`pw migrate up` creates its tables, and nothing is copied into your tree.
+That declaration is enough to install it. `pw generate` writes the import that
+links the package, and `pw migrate up` creates its tables. No package source is
+copied into the application.
 
 :::note[Before you start]
 This page assumes a project created by [`pw init`](/pw/project/init/). Publishing

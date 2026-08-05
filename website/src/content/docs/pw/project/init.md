@@ -6,7 +6,7 @@ sidebar:
 ---
 
 ```sh
-pw init <project-name> [--preset=<name>] [--yes] [--tailwind] [--no-tinygo] [--no-devbox] [--no-database] [--db=<engine>] [--dynamo] [--no-redis] [--router=<kind>] [--auth=<mode>] [--session=<backend>] [--devidp]
+pw init <project-name> [--preset=<name>] [--yes] [--tailwind] [--no-tinygo] [--no-devbox] [--no-database] [--db=<engine>] [--dynamo] [--firestore] [--no-redis] [--router=<kind>] [--auth=<mode>] [--session=<backend>] [--devidp]
 ```
 
 The command creates a complete, runnable project in a new directory. In a
@@ -62,18 +62,18 @@ these answers afterwards.
 | `--no-database` | no rdb configuration, no migrations, and no SQL example |
 | `--db=<engine>` | `sqlite` (default), `postgres`, or `mysql` |
 | `--dynamo` | add the DynamoDB store: its configuration, a typed record, and the local server |
+| `--firestore` | add Firestore in Datastore mode: its configuration, a typed entity, and a query declaration |
 | `--no-redis` | leave the Valkey development server out of `devbox.json` |
 | `--router=<kind>` | `registered` (default), `discovered`, or `both`; see [Discovered routing](/guides/cross-layer/discovered-routing/#commands) |
 | `--auth=<mode>` | `none` (default), `oidc`, `oidc-passkey`, or `passkey` |
-| `--session=<backend>` | with a login, where sessions live: `rdb` (default), `cookie`, `redis`, or `dynamo` |
+| `--session=<backend>` | with a login, where sessions live: `rdb` (default), `cookie`, `redis`, `dynamo`, or `firestore` |
 | `--devidp` | with an OIDC mode, wire up the local identity provider |
 
-`--tailwind`, `--no-database`, `--no-redis`, and `--auth` all select
+`--tailwind`, `--no-database`, `--dynamo`, `--firestore`, `--no-redis`, and `--auth` all select
 capabilities [`pw add`](/pw/project/add/) can install later, so declining one
-costs nothing permanent. The database is the exception in one direction only:
-the login ceremony and admission tables live in it whichever backend stores the
-sessions, so `--no-database` with an `--auth` mode is rejected, and the wizard
-skips the authentication question entirely when the database is declined.
+costs nothing permanent. A browser login needs one server store for ceremony
+and account-side records. With `--no-database`, add either `--dynamo` or
+`--firestore`; without one of those, an `--auth` mode is rejected.
 
 `--no-tinygo` is the answer `pw add` cannot revisit — see
 [Changing the toolchain](#changing-the-toolchain).
@@ -180,7 +180,7 @@ alternative is to use the emulator.
 ## Session storage
 
 An `--auth` mode asks one more question: which server backend holds the session
-state that goes there. All three answers read the same in a handler —
+state that goes there. All five answers read the same in a handler —
 `session.Load[T]` and the auth helpers do not change — so this is a deployment
 decision, not an API one. What *is* server-placed is decided by each
 `pw.RegisterSessionStore` line instead.
@@ -190,6 +190,8 @@ decision, not an API one. What *is* server-placed is decided by each
 | Database | `rdb` | one row per session, revocable, swept; carries a migration |
 | Cookie | `cookie` | the record sealed into a second cookie; no storage, no revoking |
 | Redis or Valkey | `redis` | server-side TTL per record; revocable, nothing to sweep |
+| DynamoDB | `dynamo` | one item per session; revocable, removed by table TTL |
+| Firestore | `firestore` | one entity per session; revocable, removed by a deployed TTL policy |
 
 **Storage is opt-in by blank import.** A session backend registers itself from
 its package `init`, so the one line that imports it is what puts it — and its
@@ -209,7 +211,7 @@ A SQL store is one package per engine, because no engine reads another's DDL.
 `authstate/postgres`, and the migrations in the PostgreSQL dialect. `sqlite`,
 `postgres`, and `mysql` all pass the same store contract test.
 
-`pw init` writes that line for `rdb` and `redis`. The cookie backend is built
+`pw init` writes the corresponding import for every backend except `cookie`. The cookie backend is built
 into `pw` and needs none, which is why a project can start with sessions and no
 storage at all. A project on `rdb` never links the Redis client, and the reverse
 holds too.
@@ -223,8 +225,8 @@ import _ "github.com/shibukawa/popcornwave/sessionstore/redis"
 ```
 
 The answer also decides what else is scaffolded. `rdb` writes the session table
-migration; `cookie` and `redis` own no table, so the auth migration takes the
-free version instead. `redis` adds the Valkey development server to
+migration; the other backends do not. `dynamo` and `firestore` use the store
+selected for the project, including its auth records. `redis` adds the Valkey development server to
 `devbox.json` even if `--no-redis` was passed, because the session it configures
 needs a server to reach.
 

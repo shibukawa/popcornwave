@@ -188,9 +188,9 @@ connection groups in full.
 
 ## Switching the session backend
 
-`website-login` puts sessions in Redis. Moving them to the database or into the
-cookie is a deployment change and not an application one: every backend reads
-the same in a handler, so nothing you wrote has to change.
+`website-login` puts sessions in Redis. Moving them to another backend is a
+deployment change, not an application change: every backend looks the same to
+a handler, so your application code stays as it is.
 
 Set `session.backend`, swap the blank import that registers it, and run the
 migration if the new backend has one:
@@ -216,8 +216,8 @@ the switch. The `cookie` backend has no storage and no import, and needs
 Valkey package in `devbox.json` that nothing uses any more; remove it or leave
 it, since an unused development service costs only startup time.
 
-[Cookies](/guides/backend/cookies/) compares the four on revocation, size, and
-who enforces expiry.
+[Session storage](/guides/storage/session-storage/) compares all five backends
+on revocation, size, expiry, and operating cost.
 
 ## Adding a login
 
@@ -228,10 +228,10 @@ pw add auth
 ```
 
 The wizard asks the same questions `pw init` would have, and the review screen
-lists every file before it writes one. It takes the database with it whether or
-not you asked for one — `plugin/auth` keeps its ceremony records and its
-admission allowlist in SQL whatever holds the sessions, so a project that
-declined the database gets one here.
+lists every file before it writes one. Authentication needs a server store for
+ceremony, account, and admission records. It can use an installed relational
+database, DynamoDB, or Firestore; if the project has none, the wizard adds the
+relational database capability first.
 
 [Authentication](/guides/backend/authentication/) is the guide for what arrives.
 
@@ -293,9 +293,11 @@ claim.path = "org"
 claim.values = ["acme"]
 ```
 
-Turning on revocation, or choosing the `registered` admission mode, is what adds
-a database to this project — both read a table. Run `pw add database` first, then
-`pw migrate up` for the `popcornwave_revoked_token` schema.
+Turning on revocation, or choosing the `registered` admission mode, adds
+server-side state to this project. Choose `rdb`, `dynamo`, or `firestore` as the
+auth backend and install that capability first. With `rdb`, run `pw migrate up`
+for the `popcornwave_revoked_token` schema; the other stores follow their own
+deployment policies.
 
 ## Changing the project kind
 

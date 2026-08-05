@@ -5,9 +5,9 @@ sidebar:
   order: 6
 ---
 
-A project has a `public/` directory at its root. Whatever you put there is
-served, and it travels inside the binary rather than beside it: one file to
-deploy, and no chance of a stylesheet that belongs to yesterday's release.
+A project serves static files from the `public/` directory at its root. The
+files are embedded in the binary, so the executable and its assets are deployed
+together.
 
 ```
 public/                     what you write
@@ -20,15 +20,15 @@ public/                     what you write
 GET /public/images/logo.png
 ```
 
-That is the whole setup. `pw init` writes the directory and the `public.go` that
-embeds it, so a scaffolded project already serves from it.
+`pw init` creates both the directory and the `public.go` file that embeds it, so
+a scaffolded project can serve assets immediately.
 
-What it embeds is not that directory. [`pw build`](/pw/project/build/) walks
-`public/` and writes `dist/public`, and *that* is the tree the binary carries.
-A project that converts nothing gets a byte-identical copy, so the distinction
-costs nothing until you want it — which is the point at which it starts paying,
-because a conversion that renames a file has somewhere to put the result and
-something that follows the reference.
+The binary actually embeds `dist/public`, not the source directory.
+[`pw build`](/pw/project/build/) copies or transforms files from `public/` into
+that build tree. With no transformations the copy is byte-for-byte identical;
+when a transformation renames a file, the build tree holds the result and the
+reference rewrite follows it. Serve assets elsewhere when a CDN or object store
+needs to manage them independently from application releases.
 
 ## What ships
 

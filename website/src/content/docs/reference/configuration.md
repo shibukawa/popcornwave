@@ -144,6 +144,27 @@ A `readonly` connection can never be selected by `pw.SelectWriteDB`, which is
 what lets a caller that must write stay ignorant of the topology. See
 [Relational databases](/guides/storage/rdb/).
 
+### `[middleware.firestore]`
+
+These keys exist only when `database/firestore` is imported. The database must
+use Datastore mode.
+
+| Key | Default | Meaning |
+| --- | --- | --- |
+| `enabled` | `false` | open the client and install it into request contexts |
+| `project_id` | *(empty)* | Google Cloud project; falls back to `GOOGLE_CLOUD_PROJECT`, then `DATASTORE_PROJECT_ID` |
+| `database` | *(empty)* | named database; empty selects the default database |
+| `namespace` | *(empty)* | namespace applied to every key the process reads and writes |
+| `endpoint` | *(empty)* | service or emulator endpoint; falls back to `DATASTORE_EMULATOR_HOST` |
+| `credentials` | `"service_account"` | `service_account`, `metadata`, `oauth2`, or `static` |
+| `credentials_file` | *(empty)* | service-account key; falls back to `GOOGLE_APPLICATION_CREDENTIALS` |
+| `timeout` | `"10s"` | bound on one request |
+| `max_idle_conns` | `4` | idle HTTP connections kept for the client |
+
+`metadata` and `static` do not read `credentials_file`, so configuring both is
+an error. A non-positive timeout or negative connection bound also stops
+startup. See [Firestore](/guides/storage/firestore/).
+
 ## `[html]`
 
 | Key | Default | Meaning |
@@ -268,7 +289,7 @@ duration string, and one key cannot mean both.
 | Key | Default | Meaning |
 | --- | --- | --- |
 | `enabled` | `false` | |
-| `backend` | `"rdb"` | server backend a server-placed slot uses: `rdb`, `cookie`, `redis`, or `dynamo` |
+| `backend` | `"rdb"` | server backend a server-placed slot uses: `rdb`, `cookie`, `redis`, `dynamo`, or `firestore` |
 | `retention` | `"720h"` | how long the store may hold one record; the `[auth]` lifetime narrows it |
 | `cookie.name` | `"pw_session"` | |
 | `cookie.path` | `"/"` | |
@@ -288,11 +309,12 @@ duration string, and one key cannot mean both.
 | `keyring.previous_secrets` | `[]` | retired secrets kept readable during a rotation (masked) |
 | `dynamo.table` | `"popcornwave_session"` | declared session table, mapped onto the deployed one by `middleware.dynamo` |
 | `dynamo.consistent_read` | `false` | read sessions with strong consistency, at twice the read capacity |
+| `firestore.kind` | `"popcornwave_session"` | entity kind holding session records |
 
 Only the keys of the selected backend are read, and a backend other than
 `cookie` reaches the binary through its own blank import — the startup error
 quotes the line to add. [Session storage](/guides/storage/session-storage/) compares the
-four and lists what each one requires.
+five and lists what each one requires.
 
 This section declares no duration. An expiry states how long a proof of identity
 stays good, so `session.ttl`, `session.idle_timeout`, and
@@ -318,6 +340,7 @@ imports nothing authentication-related has no `[auth]` prefix to configure.
 | Key | Default | Meaning |
 | --- | --- | --- |
 | `enabled` | `false` | |
+| `backend` | `"rdb"` | storage for ceremony, allowlist, credential, and bootstrap records: `rdb`, `dynamo`, or `firestore` |
 | `mode` | `"oidc_only"` | |
 | `login_path` | `"/auth/login"` | starts the provider flow |
 | `callback_path` | `"/auth/callback"` | verifies the result and starts the session |

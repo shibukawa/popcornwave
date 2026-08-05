@@ -53,6 +53,8 @@ templates = ["handlers", "templates"]
 queries = ["queries"]
 config = ["cmd/myapp"]
 pages = []
+dynamo = []
+firestore = []
 ```
 
 各 purpose は、[`pw generate`](/ja/pw/project/generate/) が*その purpose のために*読んで
@@ -68,16 +70,21 @@ pages = []
 | `generate.config` | 設定の登録 | はい |
 | `generate.pages` | [ページツリー](/ja/guides/cross-layer/discovered-routing/)のルート | いいえ |
 | `generate.dynamo` | `dynamo` タグ付きの Go 型と `.pw.dynamo` 宣言 | いいえ |
+| `generate.firestore` | `firestore` タグ付きの Go 型と `.pw.firestore` 宣言 | いいえ |
 
-`pages` と `dynamo` 以外はすべて必須で、その purpose が何も生成しないことを表すのが `[]`
+`pages`、`dynamo`、`firestore` 以外はすべて必須で、その purpose が何も生成しないことを表すのが `[]`
 です。キーを書かないことではそれを表現できません。だから空リストと省略は同じではありません。
 任意の 2 つは、プロジェクトが先に存在しうるものです。ページツリーが存在する前に作られた
 プロジェクトにはキーもツリーも無く、DynamoDB を使わないプロジェクトには
-[`pw add dynamo`](/ja/pw/project/add/) が書くまでキーがありません。
+ストア固有のキーは、`pw add dynamo` または `pw add firestore` がそのストアを追加したときに
+書かれます。
 
 `dynamo` がテンプレート言語ではなく Go の型宣言を読むので、`queries` の一部ではなく独立した
 purpose になっています。[DynamoDB テンプレート](/ja/reference/dynamo-templates/)を参照して
 ください。
+
+`firestore` も同じ理由で独立しており、`dynamo` とは別の purpose です。どちらか一方だけでも、
+両方でも使えます。[Firestore 宣言](/ja/reference/firestore-templates/)を参照してください。
 
 エントリ自体の規則は次のとおりです。
 

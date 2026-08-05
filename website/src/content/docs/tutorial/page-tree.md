@@ -5,15 +5,15 @@ sidebar:
   order: 5
 ---
 
-Four chapters in, `memoapp` is an ordinary server-rendered application. You
-could have built it with `net/http` and `html/template` and a week of care, and
-nothing so far explains why this framework has a template language of its own.
+After four chapters, `memoapp` is still a conventional server-rendered
+application. Its next route exposes the features that need more than a rendered
+string: updating one region during navigation, completing a slow section after
+the response starts, and continuing to update while the page remains open.
 
-This chapter is that explanation. It adds one route the way a website adds
-routes — by making a directory — and then shows the three things that route can
-do afterwards that a rendered string cannot: change one region on navigation,
-finish rendering after the response has started, and keep updating while
-somebody is looking at it.
+You will add that route by creating a directory in the discovered page tree,
+then apply each rendering mode to the same page. Applications that need only
+ordinary request-and-response pages can stay with the registered router used in
+the earlier chapters.
 
 Twenty-five minutes. The first section is the only one that touches much code.
 

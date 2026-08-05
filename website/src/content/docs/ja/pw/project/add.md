@@ -6,7 +6,7 @@ sidebar:
 ---
 
 ```sh
-pw add [registered|discovered|devbox|database|dynamo|redis-valkey|auth|tailwind|images]
+pw add [registered|discovered|devbox|database|dynamo|firestore|redis-valkey|auth|tailwind|images]
 pw add <module-path>
 ```
 
@@ -34,14 +34,16 @@ pw add <module-path>
 | `devbox` | `devbox.json` と `devbox.lock`。このプロジェクトが既に使っているツールチェインを含む |
 | `database` | `[middleware.rdb]` セクション、マイグレーションディレクトリ、型付き SQL の例 |
 | `dynamo` | `[middleware.dynamo]` セクション、型付きレコード、ローカルの DynamoDB サーバー |
+| `firestore` | `[middleware.firestore]` セクション、型付きエンティティ、`.pw.firestore` クエリ |
 | `redis-valkey` | `devbox.json` の Valkey 開発サーバー |
 | `auth` | ログインセッション、フレームワークのテーブル、アカウントリゾルバ |
 | `tailwind` | ピン留めした Tailwind ツールチェイン、CSS エントリ、`[assets.tailwind]` ブロック |
 | `images` | ピン留めした画像エンコーダと、変換を有効にする `[assets.images]` ブロック |
 
 引数は最初のステップの初期選択になります。省略すると、そのプロジェクトがまだ持って
-いないものだけが並びます。他に依存するものが 2 つあります。`auth` はログインセッション
-のために `database` を必要とし、`redis-valkey` は `devbox` を必要とします。Valkey の
+いないものだけが並びます。他に依存するものが 2 つあります。`auth` はログイン記録の
+保存先として `database`、`dynamo`、`firestore` のいずれかを必要とし、`redis-valkey` は
+`devbox` を必要とします。Valkey の
 選択は Devbox のパッケージ以外に何も書かないからです。依存を持たないプロジェクトで
 選ぶと、先に依存を追加し、その旨をレビュー画面に表示します。
 
@@ -59,8 +61,10 @@ pw add <module-path>
 | --- | --- |
 | `devbox` | `devbox.json` |
 | `database` | 環境設定ファイルの `[middleware.rdb]` |
+| `dynamo` | 環境設定ファイルの `[middleware.dynamo]` |
+| `firestore` | 環境設定ファイルの `[middleware.firestore]` |
 | `redis-valkey` | `devbox.json` の Valkey パッケージ |
-| `auth` | `init_popcornwave_auth` マイグレーション（バージョンは問わない） |
+| `auth` | `[auth]` セクション、または `init_popcornwave_auth` マイグレーション（バージョンは問わない） |
 | `tailwind` | `popcornwave.toml` の `assets.tailwind.enabled` |
 | `images` | `popcornwave.toml` の `assets.images.enabled` |
 

@@ -1,82 +1,19 @@
 ---
 title: Custom Commands
-description: The command line of the binary you build — config flags, scaffold output, and subcommands of your own.
+description: Add batch jobs and maintenance tasks to the application binary, reusing the same queries and application code as the web server.
 sidebar:
   order: 2
 ---
 
-`pw` controls development, but it is not the command your users deploy. The
-binary produced by `pw build` has its own CLI, generated from the same typed
-declarations that drive configuration.
+The binary produced by `pw build` can run your own subcommands as well as the
+web server. This is useful for imports, backfills, scheduled batch jobs, and
+operational maintenance: the command lives in the same application, so it can
+reuse the generated queries and domain code called by web handlers instead of
+building a second CLI project.
 
 For the development tool itself, see [pw command](/pw/overview/).
-
-## Every setting is a flag
-
-Each registered configuration key is reachable three ways, in increasing
-precedence:
-
-```
-default  <  TOML file  <  environment variable  <  command-line option
-```
-
-The default names derive from the prefix and the field:
-
-| Prefix + field | Key | Option | Environment |
-| --- | --- | --- | --- |
-| `app` + `EnvLabel` | `app.env_label` | `--app-env_label` | `APP_ENV_LABEL` |
-| `middleware.rdb` + `WriteGroup` | `middleware.rdb.write_group` | `--middleware-rdb-write_group` | `MIDDLEWARE_RDB_WRITE_GROUP` |
-
-A field can override any of them:
-
-```go
-type ServerConfig struct {
-	Port int `key:"listen_port" default:"8080" opt:"port,p" env:"PORT" help:"HTTP listen port"`
-}
-```
-
-| Tag | Effect |
-| --- | --- |
-| `default:"value"` | value when nothing else supplies one |
-| `key:"name"` | the stable TOML/config key |
-| `opt:"long"` or `opt:"long,s"` | the long option, and an optional single-character short one |
-| `env:"NAME"` | an exact environment variable name; `env:"-"` disables environment input |
-| `help:"text"` | the description shown in usage and in scaffolds |
-
-When `opt` overrides the long option, the environment name derives from that
-instead.
-
-```sh
-./myapp --port=9090
-PORT=9090 ./myapp
-```
-
-## Choosing a configuration file
-
-`APP_ENV` selects which project-local file is read, and `--config-path`
-overrides the search entirely:
-
-```sh
-APP_ENV=stg ./myapp
-./myapp --config-path ./deploy/staging.toml
-```
-
-See [Configuration](/guides/architecture/configuration/) for the full resolution order.
-
-## Printing a scaffold
-
-```sh
-./myapp --generate-config toml > config.dev.toml
-./myapp --generate-config env > .env
-```
-
-Both formats include **every registered prefix**, whether it belongs to the
-framework or the application, and preserve `default` values and `help` text as
-comments. The binary reports what its linked packages actually registered. Add
-a dependency with configuration, and that configuration appears the next time
-you generate a scaffold.
-
-Either form exits after writing; the server does not start.
+Configuration files, environment variables, generated scaffolds, and their
+precedence are covered in [Configuration](/guides/architecture/configuration/).
 
 ## Your own subcommands
 

@@ -11,19 +11,20 @@ popover, the custom element and the browser APIs they call are not — they are
 what the application chooses and owns, including their failures.
 :::
 
-The tiers below this one rearrange what the page already holds. This one is for
-everything else: a list that has to be filtered by the database, a panel whose
-contents depend on a row, a form that must come back with errors while its
-dialog stays open.
+Browser-only techniques can rearrange markup the page already holds. A fragment
+request is useful when the server must produce new markup: a database-filtered
+list, a panel whose contents depend on a row, or a form that returns validation
+errors without closing its dialog.
 
-The surface is one call. `pw.WriteHTMLFragment` renders one template and
-nothing else — no document shell, no merged head, no framing —
-and [Responses](/guides/frontend/responses/) has the contract, while
-`examples/htmx_fragment` is a complete application built on it.
+The API is one call. `pw.WriteHTMLFragment` renders one template without a
+document shell, merged head, or framing. [Responses](/guides/frontend/responses/)
+defines that contract, and `examples/htmx_fragment` contains a complete
+application built on it.
 
-What that contract leaves open is the part worth working through: a fragment is
-markup with no document around it, and a `<dialog>` is a piece of the document.
-Fitting the two together is where the recipes come from.
+The application still decides how the returned markup enters the current
+document. The recipes below show that boundary with a `<dialog>`; for simple
+show-and-hide behavior over existing markup, a browser control is cheaper than
+a fragment request.
 
 ## Three rules that shape every recipe
 

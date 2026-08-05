@@ -5,9 +5,13 @@ sidebar:
   order: 0
 ---
 
-`auth.mode` takes three values. Read the names alone and they look like a choice of sign-in method: OpenID Connect, passkeys, or both.
+`auth.mode` has three values, but they do not merely select OpenID Connect,
+passkeys, or a combination of the two. In `oidc_passkey` mode, for example,
+people normally sign in with a passkey; the OIDC provider returns only for
+recovery.
 
-But the daily sign-in under `oidc_passkey` is a passkey, and the provider appears only when someone needs to recover. So `oidc_only` and `oidc_passkey` are not divided by whether OIDC is used. They are divided somewhere else.
+Choose a mode by looking at account creation and recovery authority, not only
+at the daily sign-in screen.
 
 ## What the modes separate
 

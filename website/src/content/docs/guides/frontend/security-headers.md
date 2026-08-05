@@ -1,6 +1,6 @@
 ---
 title: Security Headers
-description: The browser policy headers every response carries, the two you have to write yourself, and why HSTS waits for a verified HTTPS request.
+description: The default browser policies, how to replace them safely, and why HSTS waits for a verified HTTPS request.
 sidebar:
   order: 8
 ---
@@ -13,11 +13,10 @@ X-Frame-Options: DENY
 Referrer-Policy: strict-origin-when-cross-origin
 ```
 
-These are the ones with a defensible default. Nosniff is right for every
-application. Refusing to be framed is right until you know you want to be
-framed. And `strict-origin-when-cross-origin` sends a full referrer within your
-own site and only an origin outside it, which is what most applications would
-have picked.
+These defaults are broadly safe: `nosniff` prevents content-type guessing,
+`DENY` blocks framing until the application explicitly allows it, and
+`strict-origin-when-cross-origin` sends a full referrer only within the same
+origin.
 
 Content-Security-Policy ships with a default too, and it is deliberately narrow:
 
@@ -38,11 +37,12 @@ readable by script on purpose: script that runs on your origin can mint a valid
 token. The framework's own runtime is a same-origin module tag and needs nothing
 beyond `'self'`.
 
-If you load third-party script, you write your own policy. That is the
-conversation this default is for.
+If the application loads third-party scripts, replace the default with a policy
+that names their origins explicitly.
 
 Permissions-Policy is still empty, because a default for it would be a guess
-about features your application may not use at all.
+about features your application may not use at all. If a reverse proxy already
+owns either policy, keep one source of truth instead of setting another here.
 
 ## The keys
 

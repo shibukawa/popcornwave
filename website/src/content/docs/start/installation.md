@@ -5,10 +5,10 @@ sidebar:
   order: 1
 ---
 
-Scaffolding, code generation, migrations, and the development server all go
-through `pw`, so it comes before anything else — including Go itself. A `pw init`
-project pins its own toolchain, which means the machine you start on does not
-need one yet.
+The `pw` command handles scaffolding, code generation, migrations, and the
+development server. Install it first. Projects created by `pw init` pin their Go
+toolchain, so you do not need to install a separate Go version before creating
+the project.
 
 ## Installing `pw`
 

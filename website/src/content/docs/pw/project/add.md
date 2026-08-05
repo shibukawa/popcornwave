@@ -6,7 +6,7 @@ sidebar:
 ---
 
 ```sh
-pw add [registered|discovered|devbox|database|dynamo|redis-valkey|auth|tailwind|images]
+pw add [registered|discovered|devbox|database|dynamo|firestore|redis-valkey|auth|tailwind|images]
 pw add <module-path>
 ```
 
@@ -35,6 +35,7 @@ and one `[[packages]]` entry, then prints the remaining commands. See
 | `devbox` | `devbox.json` and `devbox.lock`, carrying the toolchain this project already uses |
 | `database` | the `[middleware.rdb]` section, the migration directory, and a typed SQL example |
 | `dynamo` | the `[middleware.dynamo]` section, a typed record, and the local DynamoDB server |
+| `firestore` | the `[middleware.firestore]` section, a typed entity, and a `.pw.firestore` query |
 | `redis-valkey` | the Valkey development server in `devbox.json` |
 | `auth` | login sessions, the framework tables, and the account resolver |
 | `tailwind` | the pinned Tailwind toolchain, its CSS entry, and the `[assets.tailwind]` block |
@@ -42,7 +43,7 @@ and one `[[packages]]` entry, then prints the remaining commands. See
 
 The argument preselects the first step; omitting it lists only what this project
 does not already carry. Two capabilities depend on another one: `auth` needs
-`database` for its login ceremony and allowlist tables, and `redis-valkey` needs `devbox`, because
+`database`, `dynamo`, or `firestore` for its login records, and `redis-valkey` needs `devbox`, because
 the Valkey answer writes nothing but a Devbox package. Choosing one in a project
 that lacks its dependency installs the dependency first and says so on the
 review screen.
@@ -62,8 +63,10 @@ A capability is detected from the files that carry it, never from a list in
 | --- | --- |
 | `devbox` | `devbox.json` |
 | `database` | `[middleware.rdb]` in an environment configuration file |
+| `dynamo` | `[middleware.dynamo]` in an environment configuration file |
+| `firestore` | `[middleware.firestore]` in an environment configuration file |
 | `redis-valkey` | the Valkey package in `devbox.json` |
-| `auth` | the `init_popcornwave_auth` migration, at any version |
+| `auth` | the `[auth]` section, or an `init_popcornwave_auth` migration at any version |
 | `tailwind` | `assets.tailwind.enabled` in `popcornwave.toml` |
 | `images` | `assets.images.enabled` in `popcornwave.toml` |
 

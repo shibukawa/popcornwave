@@ -47,10 +47,11 @@ store is one package per engine, so switching to PostgreSQL means importing
 # config.dev.toml
 [session]
 enabled = true
-backend = "rdb"          # or "cookie" or "redis"; the token stays opaque in all three
+backend = "rdb"          # cookie, redis, dynamo, and firestore are also available
 
 [auth]
 enabled = true
+backend = "rdb"          # or "dynamo" or "firestore"
 mode = "oidc_only"
 
 [auth.oidc]
@@ -62,9 +63,10 @@ identity_claim = "sub"   # the verified claim that identifies an account
 provider_logout = true   # also sign out of the provider
 ```
 
-`pw init --auth=oidc` writes both, plus the migrations that create the
-framework tables. Startup verifies those tables and names the migration to
-apply when one is missing.
+`pw init --auth=oidc` writes both. With the relational backend it also writes
+the migrations that create the framework tables. DynamoDB and Firestore create
+records without a relational migration; their deployment requirements are
+covered in the corresponding storage guides.
 
 ### What a login needs before it starts
 
@@ -73,10 +75,12 @@ discovering it during a sign-in:
 
 - `session.enabled = true`, since the login has nowhere to land otherwise.
   Which backend holds it is a separate decision — see [Session storage](/guides/storage/session-storage/).
-- `middleware.rdb.enabled = true`. This holds even under a cookie or Redis
-  session backend: the single-use login records and the admission allowlist are
-  server state in every configuration.
-- The migrations applied, so both framework tables exist.
+- The backend named by `auth.backend` is linked and reachable. `rdb` requires
+  `middleware.rdb`; `dynamo` requires `middleware.dynamo`; `firestore` requires
+  `middleware.firestore`. This choice is separate from `session.backend`.
+- The backend's deployment resources exist. Relational storage needs its
+  migrations, DynamoDB needs its tables, and Firestore needs a Datastore-mode
+  database plus any required TTL policies and indexes.
 - `issuer`, `client_id`, `client_secret`, and `redirect_url` all non-empty.
   They are placeholders in the scaffolded file, not optional settings.
 
@@ -91,6 +95,7 @@ The `[auth]` keys decide what the framework mounts and what it protects:
 | Key | Default | Meaning |
 | --- | --- | --- |
 | `enabled` | `false` | the endpoints and the guard exist only when true |
+| `backend` | `"rdb"` | ceremony, allowlist, credential, and bootstrap storage: `rdb`, `dynamo`, or `firestore` |
 | `mode` | `"oidc_only"` | the only implemented mode; see [Modes](#modes) |
 | `login_path` | `"/auth/login"` | rooted local path that starts the provider flow |
 | `callback_path` | `"/auth/callback"` | rooted local path the provider returns to |
@@ -288,7 +293,7 @@ hours.
 
 The cookie carries an opaque token; where the session itself lives is
 `session.backend`, and that choice is independent of everything above.
-[Session storage](/guides/storage/session-storage/) covers the four backends, their required
+[Session storage](/guides/storage/session-storage/) covers the five backends, their required
 keys, and what each one gives up. The lifetime is declared here rather than
 there: `auth.session.ttl` bounds the absolute one and
 `auth.session.idle_timeout` the inactivity one, because an expiry states how

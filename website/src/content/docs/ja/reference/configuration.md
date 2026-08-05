@@ -139,6 +139,27 @@ Popcorn Wave は次の順に読みます。
 書き込みを行う側はデプロイ構成を知らずに済みます。
 [リレーショナルデータベース](/ja/guides/storage/rdb/)を参照してください。
 
+### `[middleware.firestore]`
+
+これらのキーは `database/firestore` を import したときだけ存在します。データベースは
+Datastore mode で作成されている必要があります。
+
+| キー | 既定値 | 意味 |
+| --- | --- | --- |
+| `enabled` | `false` | クライアントを開き、リクエスト context に設定する |
+| `project_id` | *(空)* | Google Cloud プロジェクト。空なら `GOOGLE_CLOUD_PROJECT`、次に `DATASTORE_PROJECT_ID` |
+| `database` | *(空)* | 名前付きデータベース。空なら既定のデータベース |
+| `namespace` | *(空)* | プロセスが読み書きするすべてのキーに適用する namespace |
+| `endpoint` | *(空)* | サービスまたはエミュレータの接続先。空なら `DATASTORE_EMULATOR_HOST` |
+| `credentials` | `"service_account"` | `service_account`、`metadata`、`oauth2`、`static` |
+| `credentials_file` | *(空)* | サービスアカウント鍵。空なら `GOOGLE_APPLICATION_CREDENTIALS` |
+| `timeout` | `"10s"` | 1 リクエストの上限 |
+| `max_idle_conns` | `4` | クライアントが保持する idle HTTP 接続数 |
+
+`metadata` と `static` は `credentials_file` を読まないため、同時に設定するとエラーです。
+ゼロ以下の timeout、負の接続数も起動時に拒否されます。
+[Firestore](/ja/guides/storage/firestore/)を参照してください。
+
 ## `[html]`
 
 | キー | 既定値 | 意味 |
@@ -261,7 +282,7 @@ HSTS が付くのは検証済みの HTTPS リクエストだけです。平文�
 | キー | 既定値 | 意味 |
 | --- | --- | --- |
 | `enabled` | `false` | |
-| `backend` | `"rdb"` | サーバに置くスロットが使うバックエンド: `rdb`、`cookie`、`redis`、`dynamo` |
+| `backend` | `"rdb"` | サーバに置くスロットが使うバックエンド: `rdb`、`cookie`、`redis`、`dynamo`、`firestore` |
 | `retention` | `"720h"` | ストアがレコードを保持してよい期間。`[auth]` の寿命が短ければそちらが効く |
 | `cookie.name` | `"pw_session"` | |
 | `cookie.path` | `"/"` | |
@@ -281,6 +302,7 @@ HSTS が付くのは検証済みの HTTPS リクエストだけです。平文�
 | `keyring.previous_secrets` | `[]` | ローテーション中も読める引退した秘密鍵（マスクされる） |
 | `dynamo.table` | `"popcornwave_session"` | 宣言上のセッションテーブル名。実際の名前へは `middleware.dynamo` が対応づける |
 | `dynamo.consistent_read` | `false` | セッションを強整合で読む。読み取り容量は倍 |
+| `firestore.kind` | `"popcornwave_session"` | セッションレコードを保存する entity kind |
 
 読まれるのは選んだバックエンドのキーだけです。`cookie` 以外のバックエンドは、それ自身の
 blank import でバイナリに入ります。書き忘れたときは起動時のエラーが追加すべき行を引用
@@ -310,6 +332,7 @@ CSRF の秘密もここの鍵ではありません。登録されたセッショ
 | キー | 既定値 | 意味 |
 | --- | --- | --- |
 | `enabled` | `false` | |
+| `backend` | `"rdb"` | ceremony、許可リスト、credential、bootstrap の保存先: `rdb`、`dynamo`、`firestore` |
 | `mode` | `"oidc_only"` | |
 | `login_path` | `"/auth/login"` | プロバイダのフローを開始する |
 | `callback_path` | `"/auth/callback"` | 結果を検証してセッションを開始する |

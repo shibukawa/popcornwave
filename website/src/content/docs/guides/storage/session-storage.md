@@ -5,10 +5,9 @@ sidebar:
   order: 4
 ---
 
-An application says what a piece of state *is* when it
-[declares the slot](/guides/backend/sessions/). This page is the other half:
-where the bytes end up, what keeps them from accumulating, and what each backend
-costs to run.
+The [session declaration](/guides/backend/sessions/) defines what a piece of
+state means. Storage configuration decides where its bytes live, how expired
+records are removed, and what the backend costs to operate.
 
 Only two of the four placements leave anything to decide. `session.Shared` and
 `session.ReadOnly` are cookies by definition — a value the client reads has to
@@ -94,7 +93,7 @@ slot is sealed with AES-256-GCM. Both derive a purpose-separated subkey from
 mechanism.
 
 It is required unless every declared slot is `session.Shared` — including on
-`rdb`, `redis`, and `dynamo`, because the anonymous phase of a private slot is a
+`rdb`, `redis`, `dynamo`, and `firestore`, because the anonymous phase of a private slot is a
 sealed cookie whatever the backend is. `pw init` generates one into
 `config.dev.toml`; every other environment reads `SESSION_KEYRING_SECRET`, and
 `pw doctor --env=prod` reports a literal there as an error.
@@ -104,7 +103,7 @@ ones still read, and browsers holding a value keep it until it expires. Drop an
 old secret and everything written under it stops being accepted at once — which
 is also the only way a cookie-placed record can be revoked at all.
 
-## The four backends
+## The five backends
 
 ### rdb — a row per session
 
@@ -174,6 +173,21 @@ It borrows the client `middleware.dynamo` already opened, so it carries no
 endpoint and no credential of its own. Table TTL removes dead records, and
 nothing sweeps.
 
+### firestore — Datastore mode on Google Cloud
+
+| Key | Default | Meaning |
+| --- | --- | --- |
+| `firestore.kind` | `"popcornwave_session"` | entity kind holding session records |
+
+It borrows the client opened by `middleware.firestore` and reads each session
+strongly consistently. A renewal reads the entity and rewrites it with a
+version precondition, so `auth.session.renewal_interval` controls two requests
+per renewal rather than one.
+
+The stored deadline decides immediately whether a session is alive. Removing
+expired bytes is separate: apply a Firestore TTL policy to `expires_at` on the
+configured kind. There is no framework sweep and no migration.
+
 ## The CSRF secret
 
 The secret the CSRF check verifies against is a registered slot like any other:
@@ -199,13 +213,13 @@ framework cookies are `HttpOnly`.
 
 ## Choosing
 
-| | `cookie` | `rdb` | `redis` | `dynamo` |
-| --- | --- | --- | --- | --- |
-| Storage to operate | none | a table you already have | one more service | one more table |
-| Revoke one session | no | yes | yes | yes |
-| Payload size | ~3.8 KB, enforced | row-sized | record-sized | item-sized |
-| Who collects the abandoned | nobody; the stamp expires | the framework sweep | the server's TTL | the table's TTL |
-| Import | none | `sessionstore/<engine>` | `sessionstore/redis` | `sessionstore/dynamo` |
+| | `cookie` | `rdb` | `redis` | `dynamo` | `firestore` |
+| --- | --- | --- | --- | --- | --- |
+| Storage to operate | none | a table you already have | one more service | one more table | one more kind |
+| Revoke one session | no | yes | yes | yes | yes |
+| Payload size | ~3.8 KB, enforced | row-sized | record-sized | item-sized | entity-sized |
+| Who collects the abandoned | nobody; the stamp expires | the framework sweep | the server's TTL | the table's TTL | a deployed TTL policy |
+| Import | none | `sessionstore/<engine>` | `sessionstore/redis` | `sessionstore/dynamo` | `sessionstore/firestore` |
 
 Read the table as one question: does this deployment need to end a session it
 did not start? Answer no and `cookie` is coherent, and everything else about it

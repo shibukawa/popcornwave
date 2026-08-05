@@ -5,7 +5,7 @@ sidebar:
   order: 2
 ---
 
-DynamoDB is not a fourth database engine here. It is a second kind of store,
+DynamoDB is not another relational database engine here. It is a separate store,
 added beside a relational one or instead of it, and the two share nothing:
 `middleware.dynamo` has its own section, its own client, and no connection
 group, no transaction runner, and no `.pw.sql`. A project keeping sessions in

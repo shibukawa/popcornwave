@@ -9,9 +9,9 @@ sidebar:
 pw generate [--check]
 ```
 
-すべての `.pw.html` と `.pw.sql` ソースを**その隣**の `_pw_gen.go` に変換し、
-ドキュメント登録パッケージを main パッケージにリンクします。出力するのは変更された
-パスだけです。
+テンプレート、SQL、ページツリー、型付きストア宣言を、**ソースの隣**の
+`_pw_gen.go` に変換し、アプリケーションに必要なパッケージをリンクします。出力するのは
+変更されたパスだけです。
 
 ## オプション
 
@@ -30,6 +30,9 @@ handlers = ["handlers"]
 templates = ["handlers", "templates"]
 queries = ["queries"]
 config = ["cmd/myapp"]
+pages = ["pages"]
+dynamo = []
+firestore = ["entities"]
 ```
 
 | 用途 | 読むもの | 生成するもの |
@@ -38,14 +41,18 @@ config = ["cmd/myapp"]
 | `templates` | `.pw.html` | 型付きレンダラ。ドキュメントシェルとエラーページを探す場所でもある |
 | `queries` | `.pw.sql` | context ベースのクエリ関数 |
 | `config` | Go 中の `pw.RegisterConfig`、`pw.RegisterSubCommand` | 設定とサブコマンドのバインディング |
+| `pages` | ページツリーのルート | 探索型ルーティングのルート登録とページパラメータ |
+| `dynamo` | `dynamo` タグ付き Go 型と `.pw.dynamo` | レコードのコーデック、キー、型付き DynamoDB クエリ |
+| `firestore` | `firestore` タグ付き Go 型と `.pw.firestore` | エンティティのコーデック、キー、Datastore mode の型付きクエリ |
 
 1 つのディレクトリが複数の用途に現れて構いません。ページテンプレートはそれを描画する
 ハンドラの隣に置くため、`handlers` は通常 `handlers` と `templates` の両方に現れます。
 列挙したディレクトリは再帰的に走査されるので、入れ子のパッケージを個別に書く必要は
 ありません。
 
-4 つのキーはすべて必須で、既定値はありません。その用途が何も生成しないことは空リストで
-明示します。
+以前からある `handlers`、`templates`、`queries`、`config` の 4 キーは必須で、既定値は
+ありません。`pages`、`dynamo`、`firestore` は古いプロジェクトとの互換性のため省略できます。
+それでも、その用途では何も生成しないという判断は空リストで明示するのが分かりやすい書き方です。
 
 ```toml
 queries = []   # このプロジェクトに .pw.sql はない
@@ -66,7 +73,7 @@ Go のソースは報告しません。普通の Go コードはプロジェク�
 どの用途にも属さない場所に残した `_pw_gen.go` は報告します。もう再生成も削除も
 されないファイルだからです。
 
-テンプレートファイルに加えて、Go のソースから呼び出し箇所も読み取ります。
+宣言ファイルに加えて、Go のソースから呼び出し箇所も読み取ります。
 
 | 呼び出し | 生成されるもの |
 | --- | --- |

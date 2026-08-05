@@ -55,6 +55,8 @@ templates = ["handlers", "templates"]
 queries = ["queries"]
 config = ["cmd/myapp"]
 pages = []
+dynamo = []
+firestore = []
 ```
 
 Each purpose lists the directories [`pw generate`](/pw/project/generate/) may
@@ -71,17 +73,22 @@ rather than silently picking it up.
 | `generate.config` | configuration registrations | yes |
 | `generate.pages` | [page tree](/guides/cross-layer/discovered-routing/) roots | no |
 | `generate.dynamo` | `dynamo`-tagged Go types and `.pw.dynamo` declarations | no |
+| `generate.firestore` | `firestore`-tagged Go types and `.pw.firestore` declarations | no |
 
-Every key but `pages` and `dynamo` is required, and `[]` is how a project says a
+Every key but `pages`, `dynamo`, and `firestore` is required, and `[]` is how a project says a
 purpose generates nothing. A missing key cannot say that, which is why the empty
 list is not the same as leaving it out. The two optional keys are the ones a
 project can predate: every project scaffolded before page trees existed has
-neither the key nor a tree, and a project with no DynamoDB gains the key when
-[`pw add dynamo`](/pw/project/add/) writes it.
+neither the key nor a tree. Store-specific keys appear when `pw add dynamo` or
+`pw add firestore` installs that store.
 
 `dynamo` reads Go type declarations rather than a template language, which is
 why it is a purpose of its own instead of part of `queries`. See
 [DynamoDB Templates](/reference/dynamo-templates/).
+
+`firestore` follows the same separation and is independent of `dynamo`; a
+project may use either or both. See
+[Firestore Declarations](/reference/firestore-templates/).
 
 The rules on the entries themselves:
 

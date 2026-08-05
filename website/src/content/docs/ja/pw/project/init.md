@@ -6,7 +6,7 @@ sidebar:
 ---
 
 ```sh
-pw init <project-name> [--preset=<name>] [--yes] [--tailwind] [--no-tinygo] [--no-devbox] [--no-database] [--db=<engine>] [--dynamo] [--no-redis] [--router=<kind>] [--auth=<mode>] [--session=<backend>] [--devidp]
+pw init <project-name> [--preset=<name>] [--yes] [--tailwind] [--no-tinygo] [--no-devbox] [--no-database] [--db=<engine>] [--dynamo] [--firestore] [--no-redis] [--router=<kind>] [--auth=<mode>] [--session=<backend>] [--devidp]
 ```
 
 新しいディレクトリに、動作する完全なプロジェクトを作ります。端末で実行すると
@@ -62,18 +62,20 @@ enter を押すとその質問が開き、答えると一覧に戻ります。�
 | `--no-database` | rdb 設定・マイグレーション・SQL の例を作らない |
 | `--db=<engine>` | `sqlite`（既定）、`postgres`、`mysql` |
 | `--dynamo` | DynamoDB ストアを追加する。設定・型付きレコード・ローカルサーバー |
+| `--firestore` | Datastore mode の Firestore を追加する。設定・型付きエンティティ・クエリ宣言 |
 | `--no-redis` | `devbox.json` に Valkey 開発サーバーを入れない |
 | `--router=<kind>` | `registered`（既定）、`discovered`、`both`。[探索型ルーティング](/ja/guides/cross-layer/discovered-routing/#コマンド)を参照 |
 | `--auth=<mode>` | `none`（既定）、`oidc`、`oidc-passkey`、`passkey` |
-| `--session=<backend>` | ログインを作る場合のセッションの置き場所: `rdb`（既定）、`cookie`、`redis`、`dynamo` |
+| `--session=<backend>` | ログインを作る場合のセッションの置き場所: `rdb`（既定）、`cookie`、`redis`、`dynamo`、`firestore` |
 | `--devidp` | OIDC を選んだ場合に、ローカルの認証プロバイダを組み込む |
 
-`--tailwind`、`--no-devbox`、`--no-database`、`--no-redis`、`--auth` はいずれも、
+`--tailwind`、`--no-database`、`--dynamo`、`--firestore`、`--no-redis`、`--auth` はいずれも、
 あとから [`pw add`](/ja/pw/project/add/) で追加できる機能の選択です。断っても失うものは
-ありません。ただし 2 つは他に依存します。認証はログインの儀式テーブルと許可リストを
-データベースに置き（セッションをどこに保存するかとは無関係です）、Valkey サーバーは
-Devbox のパッケージです。そのため `--no-database` と `--auth` の併用は拒否され、
-`--no-devbox` は Valkey も一緒に落とし、答えても何も適用されない質問はウィザードに
+ありません。ただし 2 つは他に依存します。ブラウザログインには、認証処理中のレコードと
+アカウント側のレコードを保存するサーバーストアが必要です。`--no-database` と `--auth` を
+併用する場合は `--dynamo` または `--firestore` も指定してください。どちらもなければ拒否されます。
+Valkey サーバーは Devbox のパッケージです。`--no-devbox` は Valkey も一緒に落とし、
+答えても何も適用されない質問はウィザードに
 現れません。
 
 `--no-tinygo` だけは `pw add` で後から変えられません。
@@ -178,7 +180,7 @@ OIDC 系を選ぶと、**ローカルエミュレータ**か**外部プロバイ
 ## セッションの置き場所
 
 `--auth` を選ぶと、もう1つだけ質問があります。サーバに置く状態をどのバックエンドが持つか、です。
-ハンドラから見た姿は3つとも同じで、`session.Load[T]` も auth のヘルパも変わりません。
+ハンドラから見た姿は 5 つとも同じで、`session.Load[T]` も auth のヘルパも変わりません。
 つまりこれは API の選択ではなくデプロイの選択です。何がサーバに置かれるかのほうは、
 `pw.RegisterSessionStore` の各行が決めます。
 
@@ -187,6 +189,8 @@ OIDC 系を選ぶと、**ローカルエミュレータ**か**外部プロバイ
 | データベース | `rdb` | セッションごとに1行。失効可能、掃除あり、マイグレーションを伴う |
 | クッキー | `cookie` | レコードを2つ目のクッキーに封入。ストレージ不要、ただし失効不可 |
 | Redis / Valkey | `redis` | レコードごとにサーバー側 TTL。失効可能、掃除は不要 |
+| DynamoDB | `dynamo` | セッションごとに 1 item。失効可能、テーブル TTL で削除 |
+| Firestore | `firestore` | セッションごとに 1 entity。失効可能、デプロイした TTL ポリシーで削除 |
 
 **ストレージは blank import によるオプトインです。** セッションバックエンドはパッケージ
 の `init` で自分を登録するので、それを import する1行が、バックエンドとそのクライアント
@@ -206,7 +210,7 @@ SQL ストアはエンジンごとに別パッケージです。あるエンジ�
 `authstate/postgres` を書き、マイグレーションも PostgreSQL の方言で出します。
 `sqlite`、`postgres`、`mysql` は同じストア契約テストを通っています。
 
-`pw init` は `rdb` と `redis` のときにこの行を書きます。クッキーバックエンドは `pw` に
+`pw init` は `cookie` 以外の各バックエンドに対応する import を書きます。クッキーバックエンドは `pw` に
 組み込まれているので import は不要です。だからこそ「セッションはあるがストレージは無い」
 状態から始められます。`rdb` のプロジェクトが Redis クライアントを抱えることはなく、その逆も
 同じです。
@@ -220,8 +224,8 @@ import _ "github.com/shibukawa/popcornwave/sessionstore/redis"
 ```
 
 回答は書き出される内容も変えます。`rdb` はセッションテーブルのマイグレーションを書き、
-`cookie` と `redis` はテーブルを持たないので auth のマイグレーションが空いている番号を
-取ります。`redis` は `--no-redis` を渡していても Valkey の開発サーバーを `devbox.json` に
+ほかのバックエンドは書きません。`dynamo` と `firestore` は、認証レコードも含めて
+プロジェクトが選んだストアを使います。`redis` は `--no-redis` を渡していても Valkey の開発サーバーを `devbox.json` に
 加えます。設定したセッションが到達先を必要とするからです。
 
 `session.keyring.secret` はどの回答でも書かれます。そのプロジェクト用に生成した値が

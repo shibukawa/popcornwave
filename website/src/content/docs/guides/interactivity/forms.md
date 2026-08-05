@@ -11,13 +11,14 @@ The `check` rules and the re-rendered form are the framework's. Most of this
 page is about keeping the two from disagreeing.
 :::
 
-A form is where a server-rendered application is most obviously fine and most
-obviously improvable. It works: the browser submits, the handler answers, the
-page comes back with errors on it. What it lacks is the half-second in which
-the reader learns that the field is wrong before paying for a round trip.
+A server-rendered form already works without client-side code: the browser
+submits it, the handler validates it, and the response displays any errors. The
+round trip does make simple feedback, such as a missing required value, feel
+unnecessarily late.
 
-The browser can supply that half-second. What it cannot do is decide what is
-valid, and confusing the two is the mistake this page is about.
+Browser validation can provide that immediate feedback. Server validation must
+remain authoritative, because only the server can enforce every request. The
+useful design is to share the same rules without confusing their roles.
 
 ## Two validators, one truth
 
