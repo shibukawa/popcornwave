@@ -1,14 +1,14 @@
-// Package auth adds session-backed browser authentication to a Popcorn Wave
-// application. Importing it registers the [auth] configuration binding and the
-// framework extensions that resolve sessions, own the login endpoints, and
-// guard protected paths.
+// Package auth adds browser authentication and bearer-token API authentication
+// to a Popcorn Wave application. Importing it registers the [auth]
+// configuration binding and the framework extensions that authenticate
+// requests and guard protected paths.
 //
 //	import _ "github.com/shibukawa/popcornwave/plugin/auth"
 //
-// The current build implements auth.mode = "oidc_only": OpenID Connect
-// Authorization Code with PKCE against one configured issuer, a login session
-// in whatever backend session.backend selects, and single-use OAuth
-// correlation state stored by authstate/sqlite.
+// Browser modes use OIDC, passkeys, or both and establish a session in the
+// backend session.backend selects. auth.mode = "jwt_only" instead verifies an
+// Authorization bearer token on every request and creates no session or login
+// endpoint.
 //
 // session.backend = cookie warns outside dev rather than refusing: a login this
 // package can end on demand needs a record on the server, and a browser keeps

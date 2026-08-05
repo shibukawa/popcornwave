@@ -1,15 +1,15 @@
 ---
 title: 認証
-description: 認証モードを選べば、ログイン・コールバック・ログアウトとパスキーのエンドポイントはフレームワークが提供する。
+description: ブラウザのログインを構成するか、API サーバーで Bearer アクセストークンを検証する。
 sidebar:
   order: 1
 ---
 
-OIDC には通常、3 つのルート、セッション解決、そして一連のプロトコルコードが伴います。
-Popcorn Wave はその仕組みを引き受けます。プロバイダを設定すれば、ログイン、
-コールバック、ログアウトをマウントし、リクエストごとにセッションを解決して、
-ハンドラへ identity を渡します。アプリケーションはルートも OIDC コールバックも
-登録しません。
+ブラウザのログインには、ルート、セッション解決、一連のプロトコルコードが伴います。
+API サーバーが解く問題は別です。リクエストごとに Bearer トークンを受け取り、issuer、
+audience、署名、有効期間、アクセス規則を検証してからハンドラへ渡します。Popcorn Wave は
+両方を扱います。アプリケーションがプロトコルのエンドポイントや検証ミドルウェアを
+繰り返し実装する必要はありません。
 
 このページは設定キー、エンドポイント、儀式、保存先のリファレンスです。どのモードを
 選ぶか、そしてログインが終わったあとセッションが何を許されるかは
@@ -95,12 +95,12 @@ issuer は `https` である必要があります。例外はループバック�
 | --- | --- | --- |
 | `enabled` | `false` | true のときだけエンドポイントとガードが存在する |
 | `backend` | `"rdb"` | ceremony、許可リスト、credential、bootstrap の保存先: `rdb`、`dynamo`、`firestore` |
-| `mode` | `"oidc_only"` | 実装があるのはこれだけ（[モード](#モード)） |
+| `mode` | `"oidc_only"` | `oidc_only`、`oidc_passkey`、`passkey_only`、API 向けの `jwt_only`（[モード](#モード)） |
 | `login_path` | `"/auth/login"` | プロバイダへの入口。ルート相対 |
 | `callback_path` | `"/auth/callback"` | プロバイダが戻ってくる先。ルート相対 |
 | `logout_path` | `"/auth/logout"` | ルート相対。`POST` のみ |
 | `post_login_path` | `"/"` | 行き先の指定がないログインの着地先 |
-| `protection.include` | `[]` | セッションを要求するパスのパターン |
+| `protection.include` | `[]` | 認証を要求するパスのパターン |
 | `protection.exclude` | `[]` | `include` から除外するパターン |
 | `protection.unauthenticated` | `"redirect"` | ログインへ `redirect` するか、`401` の `unauthorized` か |
 
@@ -156,7 +156,73 @@ issuer は `https` である必要があります。例外はループバック�
 変えるのは、アカウントの生涯にわたって安定かつ一意だとディレクトリが保証する値に対してだけに
 してください。
 
-## エンドポイント
+## JWT-only の API サーバー
+
+`auth.mode = "jwt_only"` は、リソースサーバーのためのモードです。
+`Authorization: Bearer …` で届いたアクセストークンをリクエストごとに検証し、確認できた
+呼び出し元をリクエストコンテキストへ記録します。ログイン、コールバック、ログアウトの
+エンドポイントは作りません。セッションも cookie もありません。ブラウザのログインと
+Bearer API では信頼モデルが異なるため、この 2 つを同じモードで混在させない設計です。
+
+`jwt_only` は、ブラウザログインを選ぶ `pw init --auth` の候補には含まれません。
+API サーバーとして生成する場合は、専用プリセットを使います。
+
+```sh
+pw init myapi --preset=api-server
+```
+
+既存のプロジェクトへ追加する場合は、アカウントリゾルバを通じて `plugin/auth` をリンクし、
+設定を手で追加します。サーバー側に状態を持たない最小構成は次のとおりです。
+
+```toml
+[auth]
+enabled = true
+mode = "jwt_only"
+protection.include = ["/api/**"]
+protection.unauthenticated = "unauthorized"
+
+[auth.jwt]
+issuer = "https://issuer.example"
+audience = ["orders-api"]
+algorithms = ["RS256"]
+admission = "authenticated"
+identity_claim = "sub"
+max_token_lifetime = "1h"
+revocation.mode = "off"
+```
+
+issuer、audience、許可するアルゴリズム、admission、有効期間の上限、失効モードには、
+寛容な既定値を置いていません。ひとつでも欠ければ起動時に拒否します。鍵の discovery は
+issuer の OpenID Connect metadata が既定です。`discovery = "oauth"` なら authorization
+server metadata、`manual` なら issuer と同一オリジンの `jwks_uri` を使います。
+
+リクエストを通す前に、設定したアルゴリズムの許可リストと取得した鍵で署名を検証し、
+続いて `iss`、`aud`、`exp`、`iat`、`sub`、トークン種別、有効期間、必須 scope を
+検査します。既定のトークン種別は `at+jwt` です。同じ issuer が同じ鍵で署名した
+ID Token を、アクセストークンとして再利用させないためです。拒否理由にかかわらず、応答は
+同じ `401` の problem と `WWW-Authenticate: Bearer` ヘッダになります。
+
+ハンドラからは、型付きの principal とプロトコルに依存しない認証結果のどちらも読めます。
+
+```go
+caller, ok := auth.Bearer(r.Context())
+if !ok {
+	return // 保護していないルートなら、匿名リクエストもここへ到達できる
+}
+
+accountID := caller.AccountID
+claims := caller.Identity.Claims
+authentication := pw.RequestAuthentication(r.Context())
+```
+
+`admission = "authenticated"` はサーバー側のストアを使いません。`claim` も検証済み
+クレームだけで判定するため、状態を持たずに使えます。`registered` はリレーショナルな
+許可リストを読み、`off` 以外の失効モードはリレーショナルな失効テーブルを読みます。
+この 2 つは `middleware.rdb` とフレームワークのマイグレーションが必要です。
+JWT-only にセッションストレージは要りません。また、権限はブラウザが自動送信しない
+明示的なヘッダで届き、検査するセッション秘密も存在しないため、CSRF 保護は無効にします。
+
+## ブラウザログインのエンドポイント
 
 | パス | メソッド | 動作 |
 | --- | --- | --- |
@@ -202,7 +268,7 @@ POST /auth/logout
 ます。受け付けるのは同一サイトのルート相対パスだけなので、ログインリンクを
 オープンリダイレクトに仕立てることはできません。
 
-## ユーザーを読む
+## ブラウザのユーザーを読む
 
 セッションはハンドラが動く前に解決されています。
 
@@ -229,15 +295,17 @@ func home(w http.ResponseWriter, r *http.Request) {
 
 ## モード
 
-パスキーはアカウントを作れません。最初のクレデンシャルを結びつける先が無いからです。
-モードの違いはログイン方法そのものではなく、**アカウントが存在する前に何がそれを
-確立するか**にあります。
+ブラウザ用の 3 モードは、アカウントが存在する前に何がそれを確立するかで分かれます。
+パスキーだけでは、最初のクレデンシャルを結び付ける先がありません。JWT-only はこの
+ライフサイクルの外側にあります。authorization server が API の呼び出し元へ、すでに
+クレデンシャルを発行しているからです。
 
 | `auth.mode` | アカウントの出どころ | 日常のログイン |
 | --- | --- | --- |
 | `oidc_only` | プロバイダ | プロバイダ |
 | `oidc_passkey` | プロバイダ | パスキー。プロバイダは復旧手段 |
 | `passkey_only` | 管理者が発行するログイン ID と使い捨てシークレット | パスキー |
+| `jwt_only` | アクセストークンを発行した authorization server | API リクエストごとの Bearer トークン |
 
 各モードは自分が使う設定だけを読み、扱えない設定は拒否します。`passkey_only` で
 `AUTH_OIDC_ISSUER` が残っていれば起動時にエラーになり、プロバイダが関与しているかの
@@ -282,7 +350,7 @@ WebAuthn の Relying Party は**ドメイン**にスコープされ、IP リテ�
 `auth.bootstrap.issue_ttl` は受け渡しの猶予を、`auth.bootstrap.enrollment_ttl` は
 その後の儀式を区切ります。既定値が時間単位で違うのはそのためです。
 
-## セッション
+## ブラウザのセッション
 
 クッキーが運ぶのは不透明なトークンだけで、セッション本体がどこに住むかは
 `session.backend` が決めます。この選択はここまでの設定から独立しています。5 つの

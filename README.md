@@ -60,8 +60,15 @@ Opaque server-side login sessions live in [`session`](session/README.md), and
 flow itself; nothing is installed until `auth.enabled` is true, so an unused
 import costs one configuration binding.
 
-The implemented mode is `auth.mode = "oidc_only"`: OpenID Connect
-Authorization Code with PKCE over [`contrib/oidc`](contrib/oidc/README.md).
+Browser authentication supports OIDC, passkeys, or both. API servers can use
+`auth.mode = "jwt_only"` to verify a bearer access token on every request
+without creating a session or mounting browser login endpoints. JWT-only is
+not an `--auth` choice in `pw init`; it belongs to the dedicated `api-server`
+preset and is documented in the
+[authentication guide](website/src/content/docs/guides/backend/authentication.md#jwt-only-api-servers).
+
+OIDC Authorization Code with PKCE is implemented over
+[`contrib/oidc`](contrib/oidc/README.md).
 [`examples/oidclogin`](examples/oidclogin/README.md) is a complete application
 that keeps its sessions in SQLite and logs in against
 [`contrib/devidp`](contrib/devidp/README.md), the development-only provider

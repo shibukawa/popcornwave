@@ -341,7 +341,7 @@ imports nothing authentication-related has no `[auth]` prefix to configure.
 | --- | --- | --- |
 | `enabled` | `false` | |
 | `backend` | `"rdb"` | storage for ceremony, allowlist, credential, and bootstrap records: `rdb`, `dynamo`, or `firestore` |
-| `mode` | `"oidc_only"` | |
+| `mode` | `"oidc_only"` | browser modes plus `jwt_only` for a bearer-token API |
 | `login_path` | `"/auth/login"` | starts the provider flow |
 | `callback_path` | `"/auth/callback"` | verifies the result and starts the session |
 | `logout_path` | `"/auth/logout"` | ends the session; `POST` only |
@@ -350,7 +350,7 @@ imports nothing authentication-related has no `[auth]` prefix to configure.
 | `session.idle_timeout` | `"0s"` | inactivity expiry; zero disables it |
 | `session.renewal_interval` | `"0s"` | minimum interval between idle expiry renewals |
 | `recent_auth_max_age` | `"5m"` | how recently a request must have authenticated to change a login method |
-| `protection.include` | `[]` | path patterns that require a session |
+| `protection.include` | `[]` | path patterns that require authentication |
 | `protection.exclude` | `[]` | path patterns that stay public |
 | `protection.unauthenticated` | `"redirect"` | `redirect` or `unauthorized` |
 
@@ -385,6 +385,45 @@ missing keys and their environment variables. That is why a project scaffolded
 for the local emulator carries no provider values at all —
 [`pw dev`](/pw/project/dev/) injects them. See
 [Authentication](/guides/backend/authentication/).
+
+### `[auth.jwt]`
+
+These keys are read by `auth.mode = "jwt_only"`. The mode verifies a bearer
+access token on every request and creates no browser session or authentication
+endpoint.
+
+| Key | Default | Meaning |
+| --- | --- | --- |
+| `issuer` | *(empty)* | **required** exact `iss`; also `AUTH_JWT_ISSUER` |
+| `audience` | `[]` | **required** `aud` values naming this API |
+| `audience_match` | `"any"` | require `any` or `all` configured audiences |
+| `algorithms` | `[]` | **required** RSA verification allowlist, such as `["RS256"]` |
+| `required_token_type` | `"at+jwt"` | required `typ`; empty explicitly permits an absent type |
+| `required_scopes` | `[]` | scope values every token must carry |
+| `discovery` | `"oidc"` | `oidc`, `oauth`, or `manual` key discovery |
+| `jwks_uri` | *(empty)* | **required** for `manual`; must share the issuer origin |
+| `leeway` | `"30s"` | clock-skew allowance; at most 5 minutes |
+| `max_token_lifetime` | *(empty)* | **required** upper bound for `exp - iat`; at most 24 hours |
+| `max_token_bytes` | `8192` | compact-token size limit; at most 64 KiB |
+| `jwks_refresh_cooldown` | `"1m"` | minimum delay between unknown-`kid` key refreshes |
+| `allow_loopback_http` | `false` | permit an HTTP loopback issuer during development |
+| `identity_claim` | `"sub"` | verified claim that identifies the local account |
+| `admission` | *(empty)* | **required**: `authenticated`, `claim`, `registered`, or `existing` |
+| `auto_provision` | `false` | let an unknown verified identity create an account |
+| `claim.path` | *(empty)* | JSON Pointer into verified claims for `admission = "claim"` |
+| `claim.values` | `[]` | accepted values at that pointer |
+| `claim.match` | `"any"` | `any` or `all` |
+| `registered_claims` | `[]` | claims compared with the allowlist; defaults to `identity_claim` |
+| `revocation.mode` | *(empty)* | **required**: `off`, `token`, `subject`, or `both` |
+| `revocation.on_unavailable` | `"refuse"` | `refuse` or `admit` when the revocation store cannot answer |
+| `revocation.max_propagation_delay` | `"0s"` | revocation-result cache duration; zero disables the cache |
+| `dev.trust_unverified_tokens` | `false` | `pw dev` and loopback only; forbidden in staging and production |
+
+`registered` admission and every revocation mode except `off` require the
+relational auth tables and `middleware.rdb`. The other admission rules can stay
+stateless. `protection.unauthenticated` must be `unauthorized`, and
+`security.csrf.enabled` must be false because this mode has no session secret.
+See [JWT-only API servers](/guides/backend/authentication/#jwt-only-api-servers).
 
 ## A key you set that the startup summary does not show
 

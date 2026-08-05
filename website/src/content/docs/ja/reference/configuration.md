@@ -333,7 +333,7 @@ CSRF の秘密もここの鍵ではありません。登録されたセッショ
 | --- | --- | --- |
 | `enabled` | `false` | |
 | `backend` | `"rdb"` | ceremony、許可リスト、credential、bootstrap の保存先: `rdb`、`dynamo`、`firestore` |
-| `mode` | `"oidc_only"` | |
+| `mode` | `"oidc_only"` | ブラウザ用の各モードと、Bearer API 用の `jwt_only` |
 | `login_path` | `"/auth/login"` | プロバイダのフローを開始する |
 | `callback_path` | `"/auth/callback"` | 結果を検証してセッションを開始する |
 | `logout_path` | `"/auth/logout"` | セッションを終了する。`POST` のみ |
@@ -341,7 +341,7 @@ CSRF の秘密もここの鍵ではありません。登録されたセッショ
 | `session.ttl` | `"24h"` | セッションの絶対寿命 |
 | `session.idle_timeout` | `"0s"` | 無操作での失効。ゼロで無効 |
 | `session.renewal_interval` | `"0s"` | 無操作失効の更新間隔の下限 |
-| `protection.include` | `[]` | セッションを必要とするパスパターン |
+| `protection.include` | `[]` | 認証を必要とするパスパターン |
 | `protection.exclude` | `[]` | 公開のままにするパスパターン |
 | `protection.unauthenticated` | `"redirect"` | `redirect` または `unauthorized` |
 
@@ -375,6 +375,45 @@ CSRF の秘密もここの鍵ではありません。登録されたセッショ
 変数の両方を名指しします。ローカルのエミュレータ向けに生成されたプロジェクトが
 プロバイダの値を一切持たないのはそのためで、[`pw dev`](/ja/pw/project/dev/) が
 注入します。[認証](/ja/guides/backend/authentication/)を参照してください。
+
+### `[auth.jwt]`
+
+これらのキーを読むのは `auth.mode = "jwt_only"` です。Bearer アクセストークンを
+リクエストごとに検証し、ブラウザのセッションも認証エンドポイントも作りません。
+
+| キー | 既定値 | 意味 |
+| --- | --- | --- |
+| `issuer` | *(空)* | **必須**。`iss` と完全一致。`AUTH_JWT_ISSUER` からも読む |
+| `audience` | `[]` | **必須**。この API を表す `aud` の値 |
+| `audience_match` | `"any"` | 設定した audience の `any` または `all` を要求する |
+| `algorithms` | `[]` | **必須**。`["RS256"]` など RSA 検証アルゴリズムの許可リスト |
+| `required_token_type` | `"at+jwt"` | 要求する `typ`。空なら、型がないトークンを明示的に許可する |
+| `required_scopes` | `[]` | すべてのトークンに要求する scope |
+| `discovery` | `"oidc"` | 鍵の取得方法。`oidc`、`oauth`、`manual` |
+| `jwks_uri` | *(空)* | `manual` では**必須**。issuer と同一オリジンであること |
+| `leeway` | `"30s"` | 時計ずれの許容幅。上限 5 分 |
+| `max_token_lifetime` | *(空)* | **必須**。`exp - iat` の上限。最大 24 時間 |
+| `max_token_bytes` | `8192` | compact token のサイズ上限。最大 64 KiB |
+| `jwks_refresh_cooldown` | `"1m"` | 未知の `kid` による鍵の再取得を行う最短間隔 |
+| `allow_loopback_http` | `false` | 開発時に HTTP のループバック issuer を許可する |
+| `identity_claim` | `"sub"` | ローカルアカウントを識別する検証済みクレーム |
+| `admission` | *(空)* | **必須**。`authenticated`、`claim`、`registered`、`existing` |
+| `auto_provision` | `false` | 未知の検証済み identity にアカウント作成を許可する |
+| `claim.path` | *(空)* | `admission = "claim"` で使う検証済みクレームへの JSON Pointer |
+| `claim.values` | `[]` | その位置で受け入れる値 |
+| `claim.match` | `"any"` | `any` または `all` |
+| `registered_claims` | `[]` | 許可リストと比較するクレーム。既定は `identity_claim` |
+| `revocation.mode` | *(空)* | **必須**。`off`、`token`、`subject`、`both` |
+| `revocation.on_unavailable` | `"refuse"` | 失効ストアが応答できないとき `refuse` または `admit` |
+| `revocation.max_propagation_delay` | `"0s"` | 失効結果のキャッシュ期間。ゼロならキャッシュしない |
+| `dev.trust_unverified_tokens` | `false` | `pw dev` かつ loopback 専用。staging と production では拒否 |
+
+`registered` admission と `off` 以外の失効モードには、リレーショナルな auth テーブルと
+`middleware.rdb` が必要です。それ以外の admission は状態を持たずに使えます。
+`protection.unauthenticated` は `unauthorized`、`security.csrf.enabled` は false にします。
+このモードには、CSRF の検査に使うセッション秘密がないためです。
+[JWT-only の API サーバー](/ja/guides/backend/authentication/#jwt-only-の-api-サーバー)を
+参照してください。
 
 ## 設定したのに起動サマリに出ないキー
 
