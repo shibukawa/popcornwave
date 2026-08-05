@@ -5,7 +5,7 @@ sidebar:
   order: 1
 ---
 
-By the end of this tutorial's four chapters, `memoapp` is a memo application
+By the end of this tutorial's five chapters, `memoapp` is a memo application
 with a form, a database table, and a login that keeps each person's notes to
 themselves. It begins as one page that says hello.
 

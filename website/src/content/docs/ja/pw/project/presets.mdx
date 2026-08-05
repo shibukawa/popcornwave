@@ -1,0 +1,309 @@
+---
+title: プリセットの選択を変える
+description: プリセットが決めたエンジン・セッションバックエンド・ログイン・ルーターを、あとから変更する手順。
+sidebar:
+  order: 1.5
+---
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+
+プリセットは 10 個の答えに名前を付けたもので、そのどれもが依然として「答え」です。
+このページは、そのうちのひとつが間違っていたとわかったときに読むものです。
+
+たいていは 1 コマンドで済みます。断った機能は [`pw add`](/ja/pw/project/add/) が入れ、
+`pw init` と同じウィザードが走って、書き込む前に対象ファイルを全部見せます。例外は
+2 つ。データベースエンジンは他のどの答えより多くのファイルに触りますし、プロジェクトの
+種類はそもそも変換できません。
+
+:::note[始める前に]
+先にコミットしてください。以下はどれも自分が持っているファイルへの普通の編集ですが、
+エンジンの変更はマイグレーションに手が入ります。きれいな作業ツリーとの差分で確認する
+ほうが、あとから何をしたか思い出すよりずっと楽です。
+:::
+
+## データベースエンジンを切り替える
+
+`website-login` が SQLite を選ぶのは、アプリケーションのほかに起動するものが何もない
+からです。最初の 1 週間はそれが正しく、すでに Postgres を運用している配備先にとっては
+正しくありません。
+
+やるなら、意味のある場所でマイグレーションを走らせる前です。ここでデータは変換されません。
+変わるのは生成する内容と接続先で、古いデータベースの行は古いデータベースに残ります。
+
+変わるものは 5 つ、まとめて変わります。
+
+**`popcornwave.toml` の `project.database`。** `pw generate` はこの値を見て、`.pw.sql` を
+どの方言のプレースホルダにコンパイルするかを決めます。変えたら再生成しないと、型付き
+クエリ関数は前の方言を吐き続けます。
+
+<Tabs syncKey="engine">
+<TabItem label="SQLite">
+```toml
+# popcornwave.toml
+[project]
+database = "sqlite"
+```
+</TabItem>
+<TabItem label="Postgres">
+```toml
+# popcornwave.toml
+[project]
+database = "postgres"
+```
+</TabItem>
+<TabItem label="MySQL">
+```toml
+# popcornwave.toml
+[project]
+database = "mysql"
+```
+</TabItem>
+</Tabs>
+
+**`config.dev.toml` の DSN。** ほかの環境ファイルにも同じものがあります。
+
+<Tabs syncKey="engine">
+<TabItem label="SQLite">
+```toml
+# config.dev.toml
+[middleware.rdb]
+dsn = "sqlite://myapp.db"
+```
+</TabItem>
+<TabItem label="Postgres">
+```toml
+# config.dev.toml
+[middleware.rdb]
+dsn = "postgres://myapp:myapp@127.0.0.1:5432/myapp?sslmode=disable"
+```
+</TabItem>
+<TabItem label="MySQL">
+```toml
+# config.dev.toml
+[middleware.rdb]
+dsn = "mysql://myapp:myapp@tcp(127.0.0.1:3306)/myapp"
+```
+</TabItem>
+</Tabs>
+
+**`main.go` のドライバ import。** SQLite は `pw` 自身がリンクしていて、サーバー系の
+2 つはブランク import で入ります。
+
+<Tabs syncKey="engine">
+<TabItem label="SQLite">
+```go
+// cmd/myapp/main.go — import は不要。pw が SQLite をリンクしている。
+```
+</TabItem>
+<TabItem label="Postgres">
+```go
+// cmd/myapp/main.go
+import (
+	_ "github.com/shibukawa/popcornwave/database/postgres"
+)
+```
+</TabItem>
+<TabItem label="MySQL">
+```go
+// cmd/myapp/main.go
+import (
+	_ "github.com/shibukawa/popcornwave/database/mysql"
+)
+```
+</TabItem>
+</Tabs>
+
+**`devbox.json` の開発サーバー。** SQLite にはそもそも該当するものがありません。
+
+<Tabs syncKey="engine">
+<TabItem label="SQLite">
+```json
+{ "packages": ["go@latest"] }
+```
+</TabItem>
+<TabItem label="Postgres">
+```json
+{ "packages": ["go@latest", "postgresql@latest"] }
+```
+</TabItem>
+<TabItem label="MySQL">
+```json
+{ "packages": ["go@latest", "mysql80@latest"] }
+```
+</TabItem>
+</Tabs>
+
+**マイグレーション。手で書き換えます。** ここが実際に時間を食う部分で、道具はありません。
+Popcorn Wave は `.pw.sql` をひとつの方言にコンパイルするだけで、方言のあいだを翻訳
+しません。キーをひとつ変えたからといって `AUTOINCREMENT` が `SERIAL` になることはなく、
+`datetime('now')` が `NOW()` になることもない。`migrations/` の DDL と、`queries/` の
+移植性のない式は、ファイルを開いて書き直す対象です。
+
+ログインのあるプロジェクトでは、さらに 2 つ変わります。どちらも気づきにくい部分です。
+
+**フレームワーク自身のマイグレーションも古い方言のままです。** ログインのある
+プロジェクトは `..._init_popcornwave_auth.sql` を持ち、`rdb` セッションバックエンドなら
+`..._init_popcornwave_session.sql` も持ちます。これらはあなたの DDL ではなくフレームワークの
+DDL で（`BLOB` に対する `BYTEA`、`WITHOUT ROWID` に対する何もなし）、再発行するコマンドは
+ありません。移行先のエンジンで同じ回答の使い捨てプロジェクトを作り、そのファイルを
+持ってくるのが実際的な手順です。
+
+```sh
+pw init --yes --db=postgres --auth=oidc --session=redis --router=discovered /tmp/probe
+cp /tmp/probe/migrations/*_init_popcornwave_*.sql migrations/
+```
+
+バージョン番号が違う場合は自分のものを保ってください。置き換えるのは中身だけです。
+
+**認証状態のストアはエンジンごとに別パッケージです。** `main.go` は
+`authstate/sqlite` をリンクしていて、あるエンジンの DDL を別のエンジンは読めません。
+
+```go
+// cmd/myapp/main.go
+import (
+	// もとは authstate/sqlite。
+	_ "github.com/shibukawa/popcornwave/authstate/postgres"
+)
+```
+
+いちばん安く切り替えられるのが、手元以外でマイグレーションを走らせる前だというのは
+これが理由です。4 週間動いているプロジェクトには移すスキーマがそれだけ増えていますし、
+本番が動いていれば移すデータもあります。後者はこのページの範囲外です。
+
+書き換えたら、生成と適用をやり直します。
+
+```sh
+pw generate
+pw migrate up
+```
+
+DSN の書式と接続グループは
+[リレーショナルデータベース](/ja/guides/storage/rdb/)に全部あります。
+
+## セッションバックエンドを切り替える
+
+`website-login` はセッションを Redis に置きます。これをデータベースや cookie に移すのは
+配備の変更であって、アプリケーションの変更ではありません。ハンドラから見ればどの
+バックエンドも同じに読めるので、自分で書いたコードは 1 行も変わりません。
+
+`session.backend` を変え、登録するブランク import を差し替え、新しいバックエンドに
+マイグレーションがあれば適用します。
+
+```toml
+# config.dev.toml
+[session]
+backend = "rdb"
+rdb.source = "middleware"
+```
+
+```go
+// cmd/myapp/main.go
+import (
+	// もとは sessionstore/redis。
+	_ "github.com/shibukawa/popcornwave/sessionstore/sqlite"
+)
+```
+
+`rdb` バックエンドはフレームワークが持つマイグレーションを伴うので、切り替えたあとに
+`pw migrate up` を実行します。`cookie` バックエンドはストレージも import も持たず、
+最初の起動前に環境変数 `SESSION_COOKIE_SECRET` が要ります。Redis からの移行では、
+`devbox.json` に誰も使わない Valkey パッケージが残ります。消しても放置してもかまいません。
+使われない開発サービスの代償は起動時間だけです。
+
+失効・サイズ・期限を誰が管理するか、という軸での 4 つの比較は
+[Cookie](/ja/guides/backend/cookies/)にあります。
+
+## ログインを足す
+
+単純サイトのプリセットは 2 つとも認証を断ります。入れるのは 1 コマンドです。
+
+```sh
+pw add auth
+```
+
+`pw init` が聞いたはずの質問をウィザードが聞き、確認画面が書き込み前に全ファイルを
+並べます。頼んだかどうかに関わらずデータベースも一緒に入ります。`plugin/auth` は
+セッションをどこに置くかとは無関係に、儀式レコードと許可リストを SQL に保存するためで、
+データベースを断ったプロジェクトはここで手に入れることになります。
+
+何が入るかは[認証](/ja/guides/backend/authentication/)が扱います。
+
+## もう一方のルーターを足す
+
+2 つのルーターはひとつの mux 上で共存するので、これは持っていないほうを追加する操作で、
+持っているほうを置き換える操作ではありません。
+
+```sh
+pw add discovered   # または: pw add registered
+```
+
+結果として両方のツリーができます。これはサポートされた形です。`handlers/` に API、
+`pages/` にサイトというのは普通の Popcorn Wave プロジェクトです。ただ、追加ではなく
+移行のつもりだったなら、元のツリーを消すのは誰も代わりにやってくれない手作業です。
+
+ページツリーが登録に対して何を買うのかは
+[探索型ルーティング](/ja/guides/cross-layer/discovered-routing/)にあります。
+
+## API サーバーを完成させる
+
+`api-server` は最初のコマンドで起動し、存在しない issuer に対してトークンを検証します。
+字面ほど妙な話ではありません。`pw dev` の下ではトークンは検証されずに読まれるので、
+`config.dev.toml` に書かれた issuer に何かを取りに行くことは一度もありません。書いてあるのは、
+このモードが issuer なしでは起動を拒否するからで、その規則自体はどの環境でも正しいものです。
+
+つまり手元ではすぐ動き、どこにもデプロイできないプロジェクトが手に入ります。仕上げるとは、
+本物の issuer を名指しすることです。
+
+```toml
+# config.dev.toml — 両方を置き換えるか、AUTH_JWT_ISSUER と AUTH_JWT_AUDIENCE で与える
+[auth.jwt]
+issuer = "https://your-idp.example.com"
+audience = ["your-api"]
+allow_loopback_http = false
+```
+
+それまでのあいだ、サインインする `curl` は `config.dev.toml` のコメントにあります。手書きの
+トークンに必ず要るクレームは `iss` と `sub` の 2 つです。issuer が何を名乗っているかは
+誰も見ませんが、API から見えるアカウントはこの 2 つから導出されるので、どちらかを変えることが
+「別人として開発する」方法になります。
+
+本物の issuer ができたら `dev.trust_unverified_tokens` は消してください。忘れても大丈夫です。
+開発用タグなしでビルドしたバイナリはこのフィールドがあると起動を拒否しますし、
+`APP_ENV=stg` や `prod` でも同じ設定は拒否されます。
+
+次に admission を決めます。スキャフォールドが選ぶのは `authenticated` で、issuer が
+検証した全員を通します。issuer を自分で管理していて、そこが発行する相手がこの API を
+使ってよい人だけなら、これが正解です。共有の issuer なら `claim` にして、テナントや
+部門を名指しします。
+
+```toml
+[auth.jwt]
+admission = "claim"
+claim.path = "org"
+claim.values = ["acme"]
+```
+
+このプロジェクトにデータベースが必要になるのは、失効リストを有効にするか、admission を
+`registered` にしたときです。どちらもテーブルを読むためです。先に `pw add database`、
+それから `popcornwave_revoked_token` のスキーマのために `pw migrate up` を実行します。
+
+## プロジェクトの種類を変える
+
+できません。パッケージとアプリケーションはどちらの向きにも変換できず、その違いは
+切り替えられる答えではないからです。パッケージは生成された Go をコミットし、
+エントリポイントを持たず、環境設定も持ちません。それを利用する側のプロジェクトには、
+生成することも起動することも設定することもできないためです。
+
+もう一方の種類を作って、ソースを移してください。1〜2 ファイルを超える規模なら変換より
+安く済みますし、途中まで進んでから「変換より作り直しのほうが安かった」と気づくよりは
+ずっと安く済みます。
+
+## 作り直したほうがよいとき
+
+上の節のうち 3 つが自分のプロジェクトに当てはまるなら、出発点のプリセットが違っていました。
+`pw init` は 1 分かからず新しいディレクトリを作ります。自分で書いたハンドラとテンプレートを
+正しくスキャフォールドされたプロジェクトへ移すほうが、設定と import とマイグレーションを
+1 ファイルずつ変換していくより、たいていは手数が少なく、そして常にリスクが小さい。
+
+変換のほうを選ぶ理由は、移すこと自体が高くつくくらい書いてしまった場合です。その分岐点は、
+感覚より遅く来ます。

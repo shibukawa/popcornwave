@@ -41,7 +41,7 @@ const TAILWIND_OFF = [
 ];
 
 // Chapters in order, for the code-continuity ledger.
-const TUTORIAL_ORDER = ['getting-started', 'forms', 'database', 'login'];
+const TUTORIAL_ORDER = ['getting-started', 'forms', 'database', 'login', 'page-tree'];
 
 const BANNED_TERMS = [
   {
