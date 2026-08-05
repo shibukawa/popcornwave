@@ -8,7 +8,6 @@ import (
 	"strings"
 	"testing"
 
-	tea "github.com/charmbracelet/bubbletea"
 	"github.com/shibukawa/popcornwave/internal/pwenv"
 	"github.com/shibukawa/popcornwave/internal/pwmigrate"
 	"github.com/shibukawa/popcornwave/plugin/auth"
@@ -252,71 +251,48 @@ func TestScaffoldWritesNoAuthSectionForNone(t *testing.T) {
 
 func TestInitWizardAsksForTheProviderOnlyForOIDC(t *testing.T) {
 	t.Chdir(t.TempDir())
-	model := feedWizard(t, newTestWizard(defaultInitOptions()),
-		typeText("demo"), pressKey(tea.KeyEnter),
-		pressKey(tea.KeyEnter), // TinyGo
-		pressKey(tea.KeyEnter), // Router
-		pressKey(tea.KeyEnter), // Tailwind
-		typeText("2"),          // Authentication: OIDC
-		typeText("1"),          // Store: SQLite
-		pressKey(tea.KeyEnter), // DynamoDB
-	)
-	if model.reviewing() {
+	model := startWizard(t, presetManual, "demo", defaultInitOptions())
+	// Without a login there is no provider to choose and no store question to
+	// answer either, so both rows are absent before the mode is chosen.
+	if hubRow(model, "OIDC provider") {
+		t.Fatal("the provider row is on the list before a mode that uses one was chosen")
+	}
+	model = answerHubRow(t, model, "Authentication", 2) // OIDC
+	// A login has to keep its sessions somewhere, so the store row appears
+	// with it and the whether-a-database row leaves.
+	if !hubRow(model, "Store") || hubRow(model, "Database") {
+		t.Fatalf("choosing a login did not swap whether for which: rows are %v", hubLabels(model))
+	}
+	if !hubRow(model, "Session storage") {
 		t.Fatal("choosing OIDC must ask where the session lives")
 	}
-	// A login asks for its storage first: it is the answer the provider
-	// question has no bearing on.
-	if label := model.steps[model.index].label(); label != "Session storage" {
-		t.Fatalf("step = %q", label)
+	if !hubRow(model, "OIDC provider") {
+		t.Fatalf("the provider row is missing: rows are %v", hubLabels(model))
 	}
-	model = feedWizard(t, model, typeText("1")) // Session storage: Database
-	if label := model.steps[model.index].label(); label != "OIDC provider" {
-		t.Fatalf("step = %q", label)
-	}
-	model = feedWizard(t, model, typeText("1")) // Local emulator
+	model = answerHubRow(t, model, "OIDC provider", 1) // Local emulator
 	options := wizardResult(model, defaultInitOptions())
 	if options.Auth != authOIDC || !options.AuthEmulator {
 		t.Fatalf("options = %#v", options)
 	}
 }
 
-// oidc_passkey still needs a provider, so the wizard keeps asking for one.
+// oidc_passkey still needs a provider, so the list keeps carrying one.
 func TestInitWizardAsksForTheProviderForOIDCPasskey(t *testing.T) {
 	t.Chdir(t.TempDir())
-	model := feedWizard(t, newTestWizard(defaultInitOptions()),
-		typeText("demo"), pressKey(tea.KeyEnter),
-		pressKey(tea.KeyEnter), // TinyGo
-		pressKey(tea.KeyEnter), // Router
-		pressKey(tea.KeyEnter), // Tailwind
-		typeText("3"),          // Authentication: OIDC and passkey
-		typeText("1"),          // Store: SQLite
-		pressKey(tea.KeyEnter), // DynamoDB
-		pressKey(tea.KeyEnter), // Session storage
-	)
-	if model.reviewing() {
-		t.Fatal("the provider step was skipped for a mode that uses one")
-	}
-	if label := model.steps[model.index].label(); label != "OIDC provider" {
-		t.Fatalf("step = %q, want the provider question", label)
+	model := startWizard(t, presetManual, "demo", defaultInitOptions())
+	model = answerHubRow(t, model, "Authentication", 3) // OIDC and passkey
+	if !hubRow(model, "OIDC provider") {
+		t.Fatalf("the provider row is missing for a mode that uses one: rows are %v", hubLabels(model))
 	}
 }
 
 func TestInitWizardSkipsTheProviderStepWithoutOIDC(t *testing.T) {
 	t.Chdir(t.TempDir())
 	seeded := initOptions{TinyGo: true, Devbox: true, Database: true, Engine: engineSQLite, Redis: true, Auth: authOIDC, AuthEmulator: true}
-	model := feedWizard(t, newTestWizard(seeded),
-		typeText("demo"), pressKey(tea.KeyEnter),
-		pressKey(tea.KeyEnter), // TinyGo
-		pressKey(tea.KeyEnter), // Router
-		pressKey(tea.KeyEnter), // Tailwind
-		typeText("4"),          // Authentication: Passkey only
-		typeText("1"),          // Store: SQLite
-		pressKey(tea.KeyEnter), // DynamoDB
-		pressKey(tea.KeyEnter), // Session storage
-	)
-	// The provider question is skipped; the environment questions still follow.
-	if label := model.steps[model.index].label(); label != "Devbox environment" {
-		t.Fatalf("step = %q, want the provider question skipped", label)
+	model := startWizard(t, presetManual, "demo", seeded)
+	model = answerHubRow(t, model, "Authentication", 4) // Passkey only
+	if hubRow(model, "OIDC provider") {
+		t.Fatalf("the provider row survived a mode with no provider: rows are %v", hubLabels(model))
 	}
 	// The seeded emulator answer must not survive a mode that has no provider.
 	options := wizardResult(model, seeded)
@@ -325,23 +301,23 @@ func TestInitWizardSkipsTheProviderStepWithoutOIDC(t *testing.T) {
 	}
 }
 
-func TestInitWizardGoesBackPastASkippedStep(t *testing.T) {
+// TestInitWizardDropsARowThatStoppedApplying is the hub's version of walking
+// past a skipped question: an answer that removes a row takes that row's
+// answer with it, so a question the project never reached cannot leak into it.
+func TestInitWizardDropsARowThatStoppedApplying(t *testing.T) {
 	t.Chdir(t.TempDir())
-	model := feedWizard(t, newTestWizard(defaultInitOptions()),
-		typeText("demo"), pressKey(tea.KeyEnter),
-		pressKey(tea.KeyEnter), // TinyGo
-		pressKey(tea.KeyEnter), // Router
-		pressKey(tea.KeyEnter), // Tailwind
-		pressKey(tea.KeyEnter), // Authentication: None
-		pressKey(tea.KeyEnter), // Database
-		pressKey(tea.KeyEnter), // Database engine
-		pressKey(tea.KeyEnter), // DynamoDB
-		pressKey(tea.KeyEnter), // Devbox
-		pressKey(tea.KeyEnter), // Redis or Valkey
-		pressKey(tea.KeyEsc),   // back from the review screen
-	)
-	if label := model.steps[model.index].label(); label != "Redis or Valkey" {
-		t.Fatalf("esc landed on %q, want the last asked question", label)
+	model := startWizard(t, presetManual, "demo", defaultInitOptions())
+	model = answerHubRow(t, model, "Authentication", 2) // OIDC, which asks for a provider
+	model = answerHubRow(t, model, "OIDC provider", 1)  // Local emulator
+	if !wizardResult(model, defaultInitOptions()).AuthEmulator {
+		t.Fatal("the provider answer did not reach the options")
+	}
+	model = answerHubRow(t, model, "Authentication", 1) // back to None
+	if hubRow(model, "OIDC provider") {
+		t.Fatalf("the provider row outlived the mode that asked for it: rows are %v", hubLabels(model))
+	}
+	if options := wizardResult(model, defaultInitOptions()); options.AuthEmulator {
+		t.Fatalf("a removed row left its answer behind: %#v", options)
 	}
 }
 
@@ -584,31 +560,19 @@ func TestScaffoldWritesNoSecuritySectionWithoutASession(t *testing.T) {
 // nothing left for a relational database to carry.
 func TestInitWizardAsksForNoEngineBehindADynamoLogin(t *testing.T) {
 	t.Chdir(t.TempDir())
-	model := feedWizard(t, newTestWizard(defaultInitOptions()),
-		typeText("demo"), pressKey(tea.KeyEnter),
-		pressKey(tea.KeyEnter), // TinyGo
-		pressKey(tea.KeyEnter), // Router
-		pressKey(tea.KeyEnter), // Tailwind
-		typeText("2"),          // Authentication: OIDC
-		typeText("4"),          // Store: DynamoDB
-	)
-	if label := model.steps[model.index].label(); label == "Database engine" {
-		t.Fatal("a DynamoDB login still asked for a SQL engine")
-	}
-	model = feedWizard(t, model,
-		pressKey(tea.KeyEnter), // Session storage
-		pressKey(tea.KeyEnter), // OIDC provider
-	)
+	model := startWizard(t, presetManual, "demo", defaultInitOptions())
+	model = answerHubRow(t, model, "Authentication", 2) // OIDC
+	model = answerHubRow(t, model, "Store", 4)          // DynamoDB
 	options := wizardResult(model, defaultInitOptions())
+	options.Preset = ""
 	if !options.Dynamo || options.Database {
 		t.Fatalf("options = %#v", options)
 	}
-	// Neither the engine nor the DynamoDB question is asked again: the store
-	// answer settled both.
-	for _, index := range model.activeSteps() {
-		switch label := model.steps[index].label(); label {
-		case "DynamoDB", "Database engine", "Database":
-			t.Fatalf("%q was asked after DynamoDB was the store answer", label)
+	// Neither the engine nor the DynamoDB row survives: the store answer
+	// settled both, so there is nothing left to ask.
+	for _, label := range []string{"DynamoDB", "Database engine", "Database"} {
+		if hubRow(model, label) {
+			t.Fatalf("%q is still on the list after DynamoDB was the store answer: rows are %v", label, hubLabels(model))
 		}
 	}
 }
@@ -682,23 +646,15 @@ func TestALoginNeedsAStore(t *testing.T) {
 // kind of store, and the other one is a separate decision.
 func TestInitWizardStillAsksAboutDynamoAfterASQLLogin(t *testing.T) {
 	t.Chdir(t.TempDir())
-	model := feedWizard(t, newTestWizard(defaultInitOptions()),
-		typeText("demo"), pressKey(tea.KeyEnter),
-		pressKey(tea.KeyEnter), // TinyGo
-		pressKey(tea.KeyEnter), // Router
-		pressKey(tea.KeyEnter), // Tailwind
-		typeText("2"),          // Authentication: OIDC
-		typeText("1"),          // Store: SQLite
-	)
-	if label := model.steps[model.index].label(); label != "DynamoDB" {
-		t.Fatalf("step = %q, want the other kind of store", label)
+	model := startWizard(t, presetManual, "demo", defaultInitOptions())
+	model = answerHubRow(t, model, "Authentication", 2) // OIDC
+	model = answerHubRow(t, model, "Store", 1)          // SQLite
+	if !hubRow(model, "DynamoDB") {
+		t.Fatalf("the other kind of store is missing from the list: rows are %v", hubLabels(model))
 	}
-	model = feedWizard(t, model,
-		typeText("1"),          // DynamoDB: Yes
-		pressKey(tea.KeyEnter), // Session storage
-		pressKey(tea.KeyEnter), // OIDC provider
-	)
+	model = answerHubRow(t, model, "DynamoDB", 1) // Yes
 	options := wizardResult(model, defaultInitOptions())
+	options.Preset = ""
 	if !options.Dynamo || options.Engine != engineSQLite {
 		t.Fatalf("options = %#v", options)
 	}

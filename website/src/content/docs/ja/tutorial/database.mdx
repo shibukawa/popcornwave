@@ -260,7 +260,7 @@ func createMemo(w http.ResponseWriter, r *http.Request) {
 
 設定した閾値より遅いステートメントは、実行計画と貼り付け可能な再現用スニペットを
 連れてきます。コードは1行も変えずに、です
-（[クエリー診断](/ja/productivity/query-diagnostics/)）。
+（[スロークエリー診断](/ja/productivity/query-diagnostics/)）。
 
 データベースそのものは `memoapp.db` というファイルで、名前は `config.dev.toml` の
 DSN が決めています。スキーマがまだ動いている間は、これを消して `pw dev` に

@@ -299,24 +299,16 @@ func TestGeneratorDiscoversBothServeMuxTypes(t *testing.T) {
 
 func TestInitWizardCollectsAnswers(t *testing.T) {
 	t.Chdir(t.TempDir())
-	model := newTestWizard(defaultInitOptions())
-	model = feedWizard(t, model,
-		typeText("demo"), pressKey(tea.KeyEnter), // project name
-		pressKey(tea.KeyDown), pressKey(tea.KeyEnter), // TinyGo: No
-		pressKey(tea.KeyEnter), // Router: keep Registered
-		pressKey(tea.KeyEnter), // Tailwind: keep No
-		pressKey(tea.KeyEnter), // Authentication: keep None
-		pressKey(tea.KeyEnter), // Database: keep Yes
-		pressKey(tea.KeyEnter), // Database engine: keep SQLite
-		pressKey(tea.KeyEnter), // DynamoDB: keep No
-		pressKey(tea.KeyEnter), // Devbox: keep Yes
-		pressKey(tea.KeyEnter), // Redis or Valkey: keep Yes
-		pressKey(tea.KeyEnter), // review
-	)
+	model := startWizard(t, presetManual, "demo", defaultInitOptions())
+	// Every other answer is left at the default the list shows, which is what
+	// a Manual run that only wanted to change one thing does.
+	model = answerHubRow(t, model, "TinyGo support", 2) // No
+	model = confirmHub(t, model)
 	if !model.confirmed {
-		t.Fatalf("wizard did not confirm: index = %d", model.index)
+		t.Fatalf("wizard did not confirm: on %q", currentStep(model))
 	}
 	options := wizardResult(model, defaultInitOptions())
+	options.Preset = ""
 	if options != (initOptions{Name: "demo", Router: routerRegistered, Devbox: true, Database: true, Engine: engineSQLite, Redis: true, Auth: authNone, Session: sessionRDB}) {
 		t.Fatalf("options = %#v", options)
 	}
@@ -324,24 +316,15 @@ func TestInitWizardCollectsAnswers(t *testing.T) {
 
 func TestInitWizardDigitShortcutSelectsTailwind(t *testing.T) {
 	t.Chdir(t.TempDir())
-	model := newTestWizard(defaultInitOptions())
-	model = feedWizard(t, model,
-		typeText("demo"), pressKey(tea.KeyEnter),
-		typeText("1"),          // TinyGo: Yes
-		typeText("2"),          // Router: discovered pages
-		typeText("1"),          // Tailwind: Yes
-		typeText("1"),          // Authentication: None
-		typeText("1"),          // Database: Yes
-		typeText("1"),          // Database engine: SQLite
-		typeText("2"),          // DynamoDB: No
-		typeText("1"),          // Devbox: Yes
-		typeText("1"),          // Redis or Valkey: Yes
-		pressKey(tea.KeyEnter), // review
-	)
+	model := startWizard(t, presetManual, "demo", defaultInitOptions())
+	model = answerHubRow(t, model, "Router", 2)       // discovered pages
+	model = answerHubRow(t, model, "Tailwind CSS", 1) // Yes
+	model = confirmHub(t, model)
 	if !model.confirmed {
-		t.Fatalf("wizard did not confirm: index = %d", model.index)
+		t.Fatalf("wizard did not confirm: on %q", currentStep(model))
 	}
 	options := wizardResult(model, defaultInitOptions())
+	options.Preset = ""
 	if options != (initOptions{Name: "demo", Router: routerDiscovered, TinyGo: true, Tailwind: true, Devbox: true, Database: true, Engine: engineSQLite, Redis: true, Auth: authNone, Session: sessionRDB}) {
 		t.Fatalf("options = %#v", options)
 	}
@@ -354,9 +337,11 @@ func TestInitWizardSeedsAnswersFromShortcutFlags(t *testing.T) {
 		Session: sessionRedis, AuthEmulator: true,
 	})
 	// Every step is listed, asked or not: the seeds have to reach the ones a
-	// different set of answers would have reached instead.
+	// different set of answers would have reached instead. The preset row
+	// leads, and the two name rows are the one question asked two ways.
 	want := []string{
-		"seeded", "Yes", "Both", "Yes", "OIDC", "DynamoDB",
+		"Web site with login", "seeded", "seeded",
+		"Yes", "Both", "Yes", "OIDC", "DynamoDB",
 		"Yes", "SQLite", "Yes",
 		"Redis or Valkey", "Local emulator", "Yes", "Yes",
 	}
@@ -372,17 +357,19 @@ func TestInitWizardSeedsAnswersFromShortcutFlags(t *testing.T) {
 
 func TestInitWizardRejectsUnusableName(t *testing.T) {
 	t.Chdir(t.TempDir())
-	model := feedWizard(t, newTestWizard(defaultInitOptions()), pressKey(tea.KeyEnter))
-	if model.index != 0 {
-		t.Fatalf("wizard advanced past an empty name: index = %d", model.index)
+	empty := feedWizard(t, newTestWizard(defaultInitOptions()),
+		pickPreset(t, presetManual), pressKey(tea.KeyEnter))
+	if currentStep(empty) != "Project name" {
+		t.Fatalf("wizard advanced past an empty name: now on %q", currentStep(empty))
 	}
-	if !strings.Contains(model.View(), "a project name is required") {
-		t.Fatalf("missing validation message:\n%s", model.View())
+	if !strings.Contains(empty.View(), "a project name is required") {
+		t.Fatalf("missing validation message:\n%s", empty.View())
 	}
 
-	model = feedWizard(t, newTestWizard(defaultInitOptions()), typeText("has space"), pressKey(tea.KeyEnter))
-	if model.index != 0 {
-		t.Fatalf("wizard accepted an invalid name: index = %d", model.index)
+	spaced := feedWizard(t, newTestWizard(defaultInitOptions()),
+		pickPreset(t, presetManual), typeText("has space"), pressKey(tea.KeyEnter))
+	if currentStep(spaced) != "Project name" {
+		t.Fatalf("wizard accepted an invalid name: now on %q", currentStep(spaced))
 	}
 }
 
@@ -409,29 +396,77 @@ func TestInitWizardGoesBackAndCancels(t *testing.T) {
 
 func TestInitWizardReviewListsEveryStep(t *testing.T) {
 	t.Chdir(t.TempDir())
-	model := feedWizard(t, newTestWizard(defaultInitOptions()),
-		typeText("demo"), pressKey(tea.KeyEnter),
-		pressKey(tea.KeyEnter),
-		pressKey(tea.KeyEnter),
-		pressKey(tea.KeyEnter),
-		pressKey(tea.KeyEnter),
-		pressKey(tea.KeyEnter),
-		pressKey(tea.KeyEnter),
-		pressKey(tea.KeyEnter),
-		pressKey(tea.KeyEnter),
-		pressKey(tea.KeyEnter),
-	)
+	model := startWizard(t, presetManual, "demo", defaultInitOptions())
 	view := model.View()
 	if !strings.Contains(view, "Review") {
-		t.Fatalf("review screen missing:\n%s", view)
+		t.Fatalf("answer list missing:\n%s", view)
 	}
 	for _, index := range model.activeSteps() {
 		if !strings.Contains(view, model.steps[index].label()) {
-			t.Errorf("review screen omits %q:\n%s", model.steps[index].label(), view)
+			t.Errorf("answer list omits %q:\n%s", model.steps[index].label(), view)
 		}
 	}
 	if strings.Contains(view, "OIDC provider") {
-		t.Errorf("review screen lists a skipped step:\n%s", view)
+		t.Errorf("answer list carries a skipped step:\n%s", view)
+	}
+}
+
+// TestInitWizardOpensTheAnswerListAfterTheName keeps the two questions a run
+// walks from growing back into the ten it replaced. A preset answers
+// everything after the name, and Manual leaves those answers on a list rather
+// than asking them one after another.
+func TestInitWizardOpensTheAnswerListAfterTheName(t *testing.T) {
+	t.Chdir(t.TempDir())
+	for _, preset := range []string{presetManual, presetWebsiteLogin} {
+		model := startWizard(t, preset, "demo", defaultInitOptions())
+		if !model.inHub || model.editing != hubNoStep {
+			t.Fatalf("%s: wizard is still walking questions; now on %q", preset, currentStep(model))
+		}
+	}
+}
+
+// TestInitWizardEditsAnAnswerAndReturnsToTheList is the whole of the hub: a
+// question opens from a row, and accepting it lands back on the list rather
+// than on the question after it.
+func TestInitWizardEditsAnAnswerAndReturnsToTheList(t *testing.T) {
+	t.Chdir(t.TempDir())
+	model := startWizard(t, presetManual, "demo", defaultInitOptions())
+	opened := openHubRow(t, model, "Tailwind CSS")
+	if currentStep(opened) != "Tailwind CSS" {
+		t.Fatalf("row did not open its question: now on %q", currentStep(opened))
+	}
+	// The digit picks Yes, which is not where the cursor already sat, so the
+	// options can only carry it if the edit reached them.
+	answered := feedWizard(t, opened, typeText("1"))
+	if answered.editing != hubNoStep {
+		t.Fatalf("accepting an answer did not return to the list: now on %q", currentStep(answered))
+	}
+	if !wizardResult(answered, defaultInitOptions()).Tailwind {
+		t.Fatal("the answer the question accepted did not reach the options")
+	}
+	// Leaving a question without answering it returns to the list too, since
+	// on a list there is no question before it to go back to.
+	escaped := feedWizard(t, openHubRow(t, answered, "Devbox environment"), pressKey(tea.KeyEsc))
+	if escaped.editing != hubNoStep {
+		t.Fatalf("esc did not return to the list: now on %q", currentStep(escaped))
+	}
+}
+
+// TestInitWizardMarksAnswersNobodyOpened keeps the list honest about which of
+// its rows are decisions. Without the mark a hub with no first-to-last order
+// reads as though every value on it was considered.
+func TestInitWizardMarksAnswersNobodyOpened(t *testing.T) {
+	t.Chdir(t.TempDir())
+	model := startWizard(t, presetManual, "demo", defaultInitOptions())
+	if !strings.Contains(model.View(), "(default)") {
+		t.Fatalf("no row is marked as a default:\n%s", model.View())
+	}
+	answered := feedWizard(t, openHubRow(t, model, "Tailwind CSS"), pressKey(tea.KeyEnter))
+	view := answered.View()
+	for _, line := range strings.Split(view, "\n") {
+		if strings.Contains(line, "Tailwind CSS") && strings.Contains(line, "(default)") {
+			t.Fatalf("an answered row is still marked a default:\n%s", view)
+		}
 	}
 }
 
@@ -439,14 +474,20 @@ func TestInitWizardReviewListsEveryStep(t *testing.T) {
 // wired-up input handling and result extraction stay covered.
 func TestRunInitWizardOverKeystrokes(t *testing.T) {
 	t.Chdir(t.TempDir())
-	// demo, enter, down, enter (TinyGo: No), enter (router), enter (Tailwind),
-	// enter (database), enter (engine), enter (DynamoDB), enter (auth),
-	// enter (devbox), enter (redis), enter (review).
+	// The whole run: accept the first preset, type the name, then the answer
+	// list. On the list the cursor starts on the first row the walk did not ask
+	// about, which is TinyGo support, so three Ups walk back over the two rows
+	// above it and wrap onto the create row beneath the answers.
 	//
-	// One Enter per step, and the wizard waits for input it never gets when the
-	// count is short, so a missing keystroke here is a hung test rather than a
-	// failing one.
-	keystrokes := "demo\r\x1b[B\r\r\r\r\r\r\r\r\r\r"
+	// The preset is accepted with Enter rather than with its digit because the
+	// runtime coalesces adjacent runes: a digit typed immediately before the
+	// project name arrives as one "1demo" key, which the choice step does not
+	// recognise and the wizard then waits forever for the answer it missed.
+	//
+	// The program waits for input it never gets when the count is short either,
+	// so a missing keystroke here is a hung test rather than a failing one.
+	up := "\x1b[A"
+	keystrokes := "\r" + "demo\r" + up + up + up + "\r"
 	options, err := runInitWizard(defaultInitOptions(),
 		tea.WithInput(strings.NewReader(keystrokes)),
 		tea.WithOutput(io.Discard),
@@ -456,8 +497,12 @@ func TestRunInitWizardOverKeystrokes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if options != (initOptions{Name: "demo", Router: routerRegistered, Devbox: true, Database: true, Engine: engineSQLite, Redis: true, Auth: authNone, Session: sessionRDB}) {
-		t.Fatalf("options = %#v", options)
+	// The first preset, answered through the real program rather than through
+	// the model directly.
+	want := applyPreset(initPresetCatalog[0], initOptions{Name: "demo"})
+	want.Preset = initPresetCatalog[0].name
+	if options != normalizeSession(want) {
+		t.Fatalf("options = %#v, want %#v", options, normalizeSession(want))
 	}
 }
 
@@ -501,6 +546,97 @@ func feedWizard(t *testing.T, model wizardModel[initOptions], messages ...tea.Ms
 func typeText(text string) tea.Msg { return tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(text)} }
 
 func pressKey(key tea.KeyType) tea.Msg { return tea.KeyMsg{Type: key} }
+
+// pickPreset answers the preset step by name, using the digit shortcut the
+// choice step already accepts.
+func pickPreset(t *testing.T, name string) tea.Msg {
+	t.Helper()
+	for index, preset := range initPresetCatalog {
+		if preset.name == name {
+			return tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{rune('1' + index)}}
+		}
+	}
+	t.Fatalf("no preset named %q", name)
+	return nil
+}
+
+// startWizard walks the two questions pw init asks before the hub opens: the
+// preset, and the project name.
+func startWizard(t *testing.T, preset, name string, defaults initOptions) wizardModel[initOptions] {
+	t.Helper()
+	return feedWizard(t, newTestWizard(defaults),
+		pickPreset(t, preset),
+		typeText(name), pressKey(tea.KeyEnter),
+	)
+}
+
+// openHubRow puts the cursor on the row with this label and opens it, which is
+// how every question after the name is reached.
+func openHubRow(t *testing.T, model wizardModel[initOptions], label string) wizardModel[initOptions] {
+	t.Helper()
+	if !model.inHub {
+		t.Fatalf("wizard is not on the answer list; current step is %q", currentStep(model))
+	}
+	for _, index := range model.activeSteps() {
+		if model.steps[index].label() == label {
+			model.cursor = index
+			return feedWizard(t, model, pressKey(tea.KeyEnter))
+		}
+	}
+	t.Fatalf("no row labelled %q on the answer list; rows are %v", label, hubLabels(model))
+	return model
+}
+
+// confirmHub moves the cursor to the create row and accepts it.
+func confirmHub(t *testing.T, model wizardModel[initOptions]) wizardModel[initOptions] {
+	t.Helper()
+	if !model.inHub || model.editing != hubNoStep {
+		t.Fatalf("wizard is not on the answer list; current step is %q", currentStep(model))
+	}
+	model.cursor = hubConfirmRow
+	return feedWizard(t, model, pressKey(tea.KeyEnter))
+}
+
+// answerHubRow opens a row, picks its numbered choice, and lands back on the
+// list, which is one edit on the hub.
+func answerHubRow(t *testing.T, model wizardModel[initOptions], label string, choice int) wizardModel[initOptions] {
+	t.Helper()
+	return feedWizard(t, openHubRow(t, model, label), typeText(strconv.Itoa(choice)))
+}
+
+// hubRow reports whether the answer list carries a row with this label, which
+// is how a skipped question is asserted absent.
+func hubRow(model wizardModel[initOptions], label string) bool {
+	for _, index := range model.activeSteps() {
+		if model.steps[index].label() == label {
+			return true
+		}
+	}
+	return false
+}
+
+func hubLabels(model wizardModel[initOptions]) []string {
+	labels := make([]string, 0, len(model.steps))
+	for _, index := range model.activeSteps() {
+		labels = append(labels, model.steps[index].label())
+	}
+	return labels
+}
+
+// currentStep names the question on screen, whether the wizard walked to it or
+// it was opened from the answer list. It is empty on the list itself.
+func currentStep(model wizardModel[initOptions]) string {
+	if model.inHub {
+		if model.editing == hubNoStep {
+			return ""
+		}
+		return model.steps[model.editing].label()
+	}
+	if model.index >= len(model.steps) {
+		return ""
+	}
+	return model.steps[model.index].label()
+}
 
 // TestScaffoldDocumentLoadsTheBoundaryRuntime keeps a new project able to apply
 // streamed await boundaries. Without the reference a page whose template

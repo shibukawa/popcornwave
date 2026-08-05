@@ -2,7 +2,7 @@
 title: ビルドツール設定
 description: popcornwave.toml の全キー。pw が何を生成し、pw dev が何を並走させ、マイグレーションとスタイルシートがどこにあるか。
 sidebar:
-  order: 3
+  order: 8
 ---
 
 `popcornwave.toml` はプロジェクトルートに置かれ、`pw` コマンドのものです。書いてあるのは
@@ -67,11 +67,17 @@ pages = []
 | `generate.queries` | `.pw.sql` のソース | はい |
 | `generate.config` | 設定の登録 | はい |
 | `generate.pages` | [ページツリー](/ja/guides/cross-layer/discovered-routing/)のルート | いいえ |
+| `generate.dynamo` | `dynamo` タグ付きの Go 型と `.pw.dynamo` 宣言 | いいえ |
 
-`pages` 以外はすべて必須で、その purpose が何も生成しないことを表すのが `[]` です。
-キーを書かないことではそれを表現できません。だから空リストと省略は同じではありません。
-`pages` だけが例外なのは、ページツリーが存在する前に作られたプロジェクトにはキーもツリーも
-無いからです。
+`pages` と `dynamo` 以外はすべて必須で、その purpose が何も生成しないことを表すのが `[]`
+です。キーを書かないことではそれを表現できません。だから空リストと省略は同じではありません。
+任意の 2 つは、プロジェクトが先に存在しうるものです。ページツリーが存在する前に作られた
+プロジェクトにはキーもツリーも無く、DynamoDB を使わないプロジェクトには
+[`pw add dynamo`](/ja/pw/project/add/) が書くまでキーがありません。
+
+`dynamo` がテンプレート言語ではなく Go の型宣言を読むので、`queries` の一部ではなく独立した
+purpose になっています。[DynamoDB テンプレート](/ja/reference/dynamo-templates/)を参照して
+ください。
 
 エントリ自体の規則は次のとおりです。
 

@@ -330,3 +330,7 @@ Common causes include a `string` where a `url` is required, a `string` inserted
 into `<script>`, an optional value mixed with static attribute text, a
 non-boolean condition, an undeclared reference, an intrinsic in the wrong
 context, incompatible slot markers, or a bare element selector in scoped CSS.
+
+The complete language — every declaration, operator, slot rule, whitespace rule,
+and the full list of what generation rejects — is
+[Template Syntax](/reference/template-syntax/).

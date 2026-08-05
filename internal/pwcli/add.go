@@ -11,7 +11,13 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-const addUsage = "usage: pw add [" + capabilityDatabase + "|" + capabilityDynamo + "|" + capabilityRedis + "|" + capabilityAuth + "|" + capabilityTailwind + "|" + capabilityImages + "|<module-path>]"
+// addUsage names every capability the catalog carries.
+//
+// It is built from capabilityOrder rather than written out, because a hand-kept
+// list drifts silently: the two routers and the Devbox environment were all
+// installable and absent from it, and a caller who mistypes learns from this
+// line which capabilities exist. The tutorial installs one of the routers.
+var addUsage = "usage: pw add [" + strings.Join(capabilityOrder, "|") + "|<module-path>]"
 
 // addOptions holds every answer the wizard collects. Unlike api:cli-init there
 // is no flag form: these answers edit a project that already exists, and the

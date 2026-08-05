@@ -386,10 +386,8 @@ declared once and enforced before the handler body, a schema under version
 control with typed SQL over it, and a login whose protocol work happened
 somewhere else entirely.
 
-- [Testing](/productivity/testing/) — handler tests, including a helper that
-  completes the whole login flow in one request.
-- [Project structure](/guides/architecture/project-structure/) — splitting
-  `handlers` once one package stops being enough.
-- [Configuration](/guides/architecture/configuration/) — what changes between
-  `dev` and a deployed environment.
-- [pw build](/pw/project/build/) — producing the binary you deploy.
+All of it is an ordinary server-rendered application, and nothing so far needed
+a template language of its own to build.
+[Chapter 5](/tutorial/page-tree/) is where that changes: a route the filesystem
+describes, and the three ways one of its pages keeps changing after it has been
+rendered.

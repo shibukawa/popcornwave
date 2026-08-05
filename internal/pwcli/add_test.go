@@ -675,23 +675,14 @@ func TestAddTailwindWithoutDevboxPrintsTheToolchain(t *testing.T) {
 	}
 }
 
-// A declined Devbox environment takes the Valkey question out of the wizard,
-// so a seeded --redis answer cannot survive as an unreachable one.
+// A declined Devbox environment takes the Valkey question off the list, so a
+// seeded --redis answer cannot survive as an unreachable one.
 func TestInitWizardSkipsValkeyWithoutDevbox(t *testing.T) {
 	t.Chdir(t.TempDir())
-	model := feedWizard(t, newTestWizard(defaultInitOptions()),
-		typeText("demo"), pressKey(tea.KeyEnter),
-		pressKey(tea.KeyEnter), // TinyGo
-		pressKey(tea.KeyEnter), // Router
-		pressKey(tea.KeyEnter), // Tailwind
-		pressKey(tea.KeyEnter), // Database
-		pressKey(tea.KeyEnter), // Database engine
-		pressKey(tea.KeyEnter), // DynamoDB
-		pressKey(tea.KeyEnter), // Authentication
-		typeText("2"),          // Devbox: No
-	)
-	if !model.reviewing() {
-		t.Fatalf("step = %q, want the Valkey question skipped", model.steps[model.index].label())
+	model := startWizard(t, presetManual, "demo", defaultInitOptions())
+	model = answerHubRow(t, model, "Devbox environment", 2) // No
+	if hubRow(model, "Redis or Valkey") {
+		t.Fatalf("the Valkey row outlived the environment it installs into: rows are %v", hubLabels(model))
 	}
 	options := wizardResult(model, defaultInitOptions())
 	if options.Devbox || options.Redis {
