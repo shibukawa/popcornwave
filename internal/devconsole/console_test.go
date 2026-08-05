@@ -367,3 +367,19 @@ func TestTextPaneRendersTheOutputUnaltered(t *testing.T) {
 		t.Errorf("the output was reflowed:\n%s", body)
 	}
 }
+
+// The application is a separate thing to look at, not a place to navigate the
+// console to, so following it keeps the console where it was.
+func TestApplicationLinkOpensInItsOwnTab(t *testing.T) {
+	console, err := New("127.0.0.1:0", Project{
+		Name: "app", Environment: "dev", ApplicationURL: "http://localhost:8080",
+	}, nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(console.Close)
+	_, body := get(t, console.URL()+"/")
+	if !strings.Contains(body, `href="http://localhost:8080" target="_blank"`) {
+		t.Errorf("the application link does not open in its own tab:\n%s", body)
+	}
+}

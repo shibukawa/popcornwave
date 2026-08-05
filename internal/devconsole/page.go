@@ -123,7 +123,7 @@ func navFrom(r *http.Request) []navPane {
 var indexBody = template.Must(template.New("index").Parse(`
 <h1>{{.Project.Name}}</h1>
 <p class="sub">environment <code>{{.Project.Environment}}</code> ·
-{{if .Project.ApplicationURL}}application <a href="{{.Project.ApplicationURL}}">{{.Project.ApplicationURL}}</a>
+{{if .Project.ApplicationURL}}application <a href="{{.Project.ApplicationURL}}" target="_blank" rel="noreferrer">{{.Project.ApplicationURL}}</a>
 {{else}}<span class="undetermined">application address undetermined</span>{{end}}</p>
 
 <h2>Developer loop</h2>
