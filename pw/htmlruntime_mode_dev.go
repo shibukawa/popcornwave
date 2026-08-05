@@ -17,6 +17,15 @@ import (
 // issuer.
 const DevConsoleURLVar = "PW_DEV_CONSOLE_URL"
 
+// DevConsoleOverlayVar turns the overlay off while leaving the console address
+// injected.
+//
+// The address is no longer the overlay's switch. It has a second consumer now —
+// the data pane announces to the same console — so a project that turned the
+// overlay off would otherwise have it back the moment it enabled the data pane.
+// Absent means enabled, so only a project that turned it off sets it.
+const DevConsoleOverlayVar = "PW_DEV_CONSOLE_OVERLAY"
+
 // DevConsoleReloadVar carries the reload half of the overlay configuration. It
 // is a second variable rather than a field in the state record, because whether
 // to reload is configuration and the record describes what the loop did.
@@ -42,7 +51,7 @@ const developmentModuleName = "dev.js"
 // convenience that could break the page it is attached to would be worse than
 // no development convenience.
 func developmentImport() string {
-	if developmentConsoleURL() == "" {
+	if !developmentOverlay() || developmentConsoleURL() == "" {
 		// No console is running, so there is nothing for the module to talk
 		// to. Leaving the import out entirely also keeps the revision equal to
 		// the release one in that case, which makes the difference between the
@@ -54,7 +63,7 @@ func developmentImport() string {
 
 func developmentScripts() map[string]string {
 	console := developmentConsoleURL()
-	if console == "" {
+	if !developmentOverlay() || console == "" {
 		return nil
 	}
 	return map[string]string{developmentModuleName: developmentModule(console, developmentReload())}
@@ -64,13 +73,18 @@ func developmentConsoleURL() string {
 	return strings.TrimSpace(os.Getenv(DevConsoleURLVar))
 }
 
+// developmentOverlay reads the overlay switch, which is on unless turned off.
+func developmentOverlay() bool { return !switchedOff(DevConsoleOverlayVar) }
+
 // developmentReload reads the reload switch, which is on unless turned off.
-func developmentReload() bool {
-	switch strings.TrimSpace(os.Getenv(DevConsoleReloadVar)) {
+func developmentReload() bool { return !switchedOff(DevConsoleReloadVar) }
+
+func switchedOff(name string) bool {
+	switch strings.TrimSpace(os.Getenv(name)) {
 	case "0", "false":
-		return false
+		return true
 	}
-	return true
+	return false
 }
 
 // developmentModule is the pwdev-only browser module: the error overlay and the

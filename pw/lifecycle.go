@@ -75,6 +75,9 @@ func buildMiddlewares(handler http.Handler, option ...Option) (http.Handler, err
 	}
 	resources := runtimeResources(telemetry.backend)
 	reportQueryDiagnostics(resources.Query, Env(), resources.DBDriver)
+	// The data pane needs the pool, so it starts once the database is open and
+	// before the first request. It is a no-op outside the pwdev build mode.
+	startDevelopmentData(resources)
 	return buildRuntimeHandler(handler, server, security, middleware, resources, telemetry.tracing, options.publicFS)
 }
 

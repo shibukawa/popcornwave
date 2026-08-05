@@ -1,6 +1,8 @@
 package pwcli
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"os"
@@ -19,7 +21,7 @@ import (
 // still a working one. The port is fixed, so a collision is a real conflict
 // with a real remedy, and saying which address is taken is more useful than
 // quietly moving to another one.
-func startDevConsole(root string, config projectConfig, telemetry *devTelemetryViewer, storybook *devStorybook, stdout, stderr io.Writer) *devconsole.Console {
+func startDevConsole(root string, config projectConfig, telemetry *devTelemetryViewer, storybook *devStorybook, attach *devconsole.Attachment, stdout, stderr io.Writer) *devconsole.Console {
 	if !config.Console.Enabled {
 		return nil
 	}
@@ -33,7 +35,8 @@ func startDevConsole(root string, config projectConfig, telemetry *devTelemetryV
 			APIDocURL:      server.APIDocURL(),
 			APIDocKey:      "server.api_doc",
 		},
-		devConsolePanes(root, config, server, telemetry, storybook),
+		devConsolePanes(root, config, server, telemetry, storybook, attach),
+		attach,
 	)
 	if err != nil {
 		fmt.Fprintln(stderr, "pw dev: console:", err)
@@ -47,7 +50,7 @@ func startDevConsole(root string, config projectConfig, telemetry *devTelemetryV
 // disabled pane is listed with the key that would enable it rather than left
 // out, so a developer who expected a surface is told why it is missing instead
 // of wondering whether the version they run has it.
-func devConsolePanes(root string, config projectConfig, server developmentServer, telemetry *devTelemetryViewer, storybook *devStorybook) []devconsole.Pane {
+func devConsolePanes(root string, config projectConfig, server developmentServer, telemetry *devTelemetryViewer, storybook *devStorybook, attach *devconsole.Attachment) []devconsole.Pane {
 	panes := []devconsole.Pane{{
 		Slug:    "telemetry",
 		Title:   "telemetry",
@@ -85,6 +88,18 @@ func devConsolePanes(root string, config projectConfig, server developmentServer
 	panes = append(panes, assets)
 	// The storybook is listed whether or not it is running, because a pane the
 	// developer expected and cannot find is worth an explanation.
+	data := devconsole.Pane{
+		Slug:       "data",
+		Title:      "data",
+		Summary:    "tables, rows, an editor, a statement console, and the project's declared queries",
+		DisabledBy: "dev.console.data.enabled",
+	}
+	if config.Console.Data {
+		// Served by the application itself, because the development database
+		// is only addressable from inside the process that opened it.
+		data.Handler = attach.Handler("the data pane")
+	}
+	panes = append(panes, data)
 	return append(panes, devconsole.Pane{
 		Slug:       "storybook",
 		Title:      "storybook",
@@ -99,9 +114,23 @@ func devConsolePanes(root string, config projectConfig, server developmentServer
 // pw.DevConsoleReloadVar, which are declared in the pwdev half of the framework
 // and so cannot be referenced from a host build.
 const (
-	envDevConsoleURL    = "PW_DEV_CONSOLE_URL"
-	envDevConsoleReload = "PW_DEV_CONSOLE_RELOAD"
+	envDevConsoleURL     = "PW_DEV_CONSOLE_URL"
+	envDevConsoleReload  = "PW_DEV_CONSOLE_RELOAD"
+	envDevAttachToken    = "PW_DEV_ATTACH_TOKEN"
+	envDevConsoleOverlay = "PW_DEV_CONSOLE_OVERLAY"
 )
+
+// randomToken is the per-run secret the application presents when it announces
+// the address of the pane it serves. It is generated rather than configured for
+// the same reason requirement:contrib-devidp generates its client secret: a
+// value written into a project is a value that outlives the run.
+func randomToken() (string, error) {
+	raw := make([]byte, 32)
+	if _, err := rand.Read(raw); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(raw), nil
+}
 
 // consoleEnviron adds the resolved console address to the application
 // environment, preserving a value the developer already exported.
@@ -114,14 +143,20 @@ const (
 // application serves byte-identical to a production render: with no address to
 // reach, the framework serves no development module and the core carries no
 // import of one, so there is nothing to turn off in the browser.
-func consoleEnviron(console *devconsole.Console, overlay, reload bool, base []string) []string {
-	if console == nil || !overlay {
+func consoleEnviron(console *devconsole.Console, overlay, reload bool, attachToken string, base []string) []string {
+	if console == nil {
 		return base
 	}
 	if value, ok := os.LookupEnv(envDevConsoleURL); ok && value != "" {
 		return base
 	}
-	base = append(base, envDevConsoleURL+"="+console.URL())
+	// The address is what the data pane announces to and what the overlay
+	// subscribes to, so it is injected whenever the console is running. The
+	// overlay switch decides only whether a page loads the module.
+	base = append(base, envDevConsoleURL+"="+console.URL(), envDevAttachToken+"="+attachToken)
+	if !overlay {
+		base = append(base, envDevConsoleOverlay+"=0")
+	}
 	if !reload {
 		base = append(base, envDevConsoleReload+"=0")
 	}

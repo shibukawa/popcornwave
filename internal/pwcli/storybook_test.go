@@ -163,7 +163,7 @@ func TestDisabledStorybookRegistersNoPane(t *testing.T) {
 	if config.Console.Storybook {
 		t.Error("the storybook stayed enabled")
 	}
-	for _, pane := range devConsolePanes(root, config, developmentServer{}, nil, nil) {
+	for _, pane := range devConsolePanes(root, config, developmentServer{}, nil, nil, nil) {
 		if pane.Slug == "storybook" && pane.Enabled() {
 			t.Error("a disabled storybook still produced a working pane")
 		}

@@ -93,6 +93,11 @@ type consoleConfig struct {
 	// Reload reloads a page whose application has been replaced. It only
 	// applies where the overlay is already attached.
 	Reload bool
+	// Data serves the table browser, the row editor, the statement console,
+	// and the declared query runner. It is the one pane the application serves
+	// itself, because the development database is only addressable from inside
+	// the process that opened it.
+	Data bool
 	// Storybook builds and runs the generated harness that renders templates
 	// on their own. It is the one pane whose availability depends on a second
 	// build succeeding.
@@ -185,7 +190,7 @@ func loadProjectConfig(root string) (projectConfig, error) {
 		"dev.otel.enabled", "dev.otel.port", "dev.otel.max",
 		"dev.console.enabled", "dev.console.port", "dev.console.assets.enabled",
 		"dev.console.overlay.enabled", "dev.console.overlay.reload",
-		"dev.console.storybook.enabled",
+		"dev.console.storybook.enabled", "dev.console.data.enabled",
 		"migration.dir", "migration.auto",
 		"assets.tailwind.enabled", "assets.tailwind.input",
 		"assets.tailwind.output", "assets.tailwind.minify",
@@ -295,6 +300,7 @@ func loadProjectConfig(root string) (projectConfig, error) {
 	config.Console.Overlay = true
 	config.Console.Reload = true
 	config.Console.Storybook = true
+	config.Console.Data = true
 	config.Console.Port = defaultConsolePort
 	if value, ok := document.Get("dev.console.enabled"); ok {
 		config.Console.Enabled, err = value.AsBool()
@@ -324,6 +330,12 @@ func loadProjectConfig(root string) (projectConfig, error) {
 		config.Console.Storybook, err = value.AsBool()
 		if err != nil {
 			return projectConfig{}, fmt.Errorf("popcornwave.toml: dev.console.storybook.enabled: %w", err)
+		}
+	}
+	if value, ok := document.Get("dev.console.data.enabled"); ok {
+		config.Console.Data, err = value.AsBool()
+		if err != nil {
+			return projectConfig{}, fmt.Errorf("popcornwave.toml: dev.console.data.enabled: %w", err)
 		}
 	}
 	if value, ok := document.Get("dev.console.port"); ok {

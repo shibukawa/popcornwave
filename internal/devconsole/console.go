@@ -4,10 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
+	"net/http/httputil"
+	"net/url"
 	"sort"
 	"strings"
+	"sync/atomic"
 	"time"
 )
 
@@ -71,13 +75,98 @@ type Console struct {
 	state    *stateHolder
 	project  Project
 	panes    []Pane
+	// attach holds what the application announced about itself, and the token
+	// an announcement has to carry. It is created before the console, because
+	// the pane that uses it is one of the panes the console is built with.
+	attach *Attachment
+}
+
+// Attachment is the address the application published for a pane it serves
+// itself, plus the per-run token that guards it.
+//
+// The application dials out to announce; the console never dials in. That is
+// what keeps a development pane off the application's own listener while still
+// letting one page reach it, and it is the direction the telemetry exporter
+// already uses.
+type Attachment struct {
+	token   string
+	address atomic.Pointer[string]
+}
+
+// NewAttachment prepares one. An empty token accepts no announcement, which is
+// what a loop that generated none should do.
+func NewAttachment(token string) *Attachment {
+	return &Attachment{token: token}
+}
+
+// Address is where the application says it is listening, or empty before it has
+// said so.
+func (a *Attachment) Address() string {
+	if a == nil {
+		return ""
+	}
+	if address := a.address.Load(); address != nil {
+		return *address
+	}
+	return ""
+}
+
+// Handler proxies a pane to the attached application.
+//
+// The pane exists before the application does and outlives every restart, so
+// this is an indirection over an address filled in later. A pane whose
+// application is down says so rather than disappearing from the console.
+func (a *Attachment) Handler(what string) http.Handler {
+	if a == nil {
+		return nil
+	}
+	return &httputil.ReverseProxy{
+		Rewrite: func(request *httputil.ProxyRequest) {
+			address := a.Address()
+			if address == "" {
+				// Rewrite cannot fail, so an unset address is sent somewhere
+				// unresolvable and picked up by ErrorHandler.
+				address = "application.invalid"
+			}
+			request.SetURL(&url.URL{Scheme: "http", Host: address})
+		},
+		ErrorHandler: func(w http.ResponseWriter, r *http.Request, err error) {
+			http.Error(w, "the application is not attached, so "+what+" cannot be reached. "+
+				"This pane is served by the application itself, because the development database "+
+				"is only addressable from inside it. The console index says what the loop is doing.",
+				http.StatusServiceUnavailable)
+		},
+	}
+}
+
+// announce records the address the application published.
+//
+// The body is an address and nothing else, so there is no shape for a request
+// to carry anything the console then has to decide about.
+func (c *Console) announce(w http.ResponseWriter, r *http.Request) {
+	if c.attach == nil || c.attach.token == "" || r.Header.Get("X-Pw-Attach-Token") != c.attach.token {
+		http.Error(w, "forbidden", http.StatusForbidden)
+		return
+	}
+	body, err := io.ReadAll(io.LimitReader(r.Body, 256))
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	address := strings.TrimSpace(string(body))
+	if _, _, err := net.SplitHostPort(address); err != nil {
+		http.Error(w, "not an address", http.StatusBadRequest)
+		return
+	}
+	c.attach.address.Store(&address)
+	w.WriteHeader(http.StatusNoContent)
 }
 
 // New binds the console listener and serves the index and every pane on it.
 //
 // The address is fixed by configuration rather than reserved, so a bound port
 // is a real failure with a real remedy rather than something to route around.
-func New(address string, project Project, panes []Pane) (*Console, error) {
+func New(address string, project Project, panes []Pane, attach *Attachment) (*Console, error) {
 	listener, err := net.Listen("tcp", address)
 	if err != nil {
 		return nil, fmt.Errorf("listen %s: %w", address, err)
@@ -88,6 +177,7 @@ func New(address string, project Project, panes []Pane) (*Console, error) {
 		state:    &stateHolder{},
 		project:  project,
 		panes:    panes,
+		attach:   attach,
 	}
 	console.server = &http.Server{Handler: console.routes()}
 	go console.server.Serve(listener)
@@ -99,6 +189,7 @@ func (c *Console) routes() http.Handler {
 	mux.HandleFunc("GET /{$}", c.index)
 	mux.HandleFunc("GET /api/loop-state", c.loopState)
 	mux.HandleFunc("GET /api/loop-state/stream", c.loopStateStream)
+	mux.HandleFunc("POST /api/attach", c.announce)
 	for _, pane := range c.panes {
 		if !pane.Enabled() {
 			continue

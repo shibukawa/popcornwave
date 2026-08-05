@@ -29,7 +29,7 @@ func startTestConsole(t *testing.T, files map[string]string) (string, *bytes.Buf
 		t.Fatalf("viewer: %v", err)
 	}
 	t.Cleanup(telemetry.close)
-	console := startDevConsole(root, config, telemetry, nil, stdout, stderr)
+	console := startDevConsole(root, config, telemetry, nil, nil, stdout, stderr)
 	if console == nil {
 		t.Fatalf("the console did not start:\n%s", stderr)
 	}
@@ -81,7 +81,7 @@ func TestTelemetryPaneIsServedByTheConsoleWhileTheReceiverKeepsItsPort(t *testin
 		t.Fatalf("viewer: %v", err)
 	}
 	t.Cleanup(telemetry.close)
-	console := startDevConsole(root, config, telemetry, nil, stdout, stderr)
+	console := startDevConsole(root, config, telemetry, nil, nil, stdout, stderr)
 	if console == nil {
 		t.Fatalf("the console did not start:\n%s", stderr)
 	}
@@ -124,7 +124,7 @@ func TestDisabledConsoleStartsNoListener(t *testing.T) {
 		t.Fatalf("load: %v", err)
 	}
 	stdout, stderr := &bytes.Buffer{}, &bytes.Buffer{}
-	if console := startDevConsole(root, config, nil, nil, stdout, stderr); console != nil {
+	if console := startDevConsole(root, config, nil, nil, nil, stdout, stderr); console != nil {
 		console.Close()
 		t.Fatal("a disabled console still took a port")
 	}
@@ -147,7 +147,7 @@ func TestConsolePortCollisionIsReportedAndNotFatal(t *testing.T) {
 		t.Fatalf("load: %v", err)
 	}
 	stdout, stderr := &bytes.Buffer{}, &bytes.Buffer{}
-	if console := startDevConsole(root, config, nil, nil, stdout, stderr); console != nil {
+	if console := startDevConsole(root, config, nil, nil, nil, stdout, stderr); console != nil {
 		console.Close()
 		t.Fatal("two consoles bound the same port")
 	}
@@ -241,31 +241,44 @@ func TestDevelopmentServerIsEmptyWhenUnreadable(t *testing.T) {
 	}
 }
 
-// A disabled overlay injects no address, which is what leaves the served page
-// byte-identical to a production render: with nothing to reach, the framework
-// serves no development module and the core carries no import of one.
+// The overlay switch travels as a variable of its own. The console address no
+// longer doubles as it, because the data pane announces to the same console and
+// would otherwise turn the overlay back on for a project that turned it off.
 func TestOverlayInjectionFollowsTheConfiguration(t *testing.T) {
 	root := writeProject(t, map[string]string{"popcornwave.toml": consoleProject})
 	config, _ := loadProjectConfig(root)
 	stdout, stderr := &bytes.Buffer{}, &bytes.Buffer{}
-	console := startDevConsole(root, config, nil, nil, stdout, stderr)
+	console := startDevConsole(root, config, nil, nil, nil, stdout, stderr)
 	if console == nil {
 		t.Fatalf("the console did not start:\n%s", stderr)
 	}
 	t.Cleanup(console.Close)
 
-	on := strings.Join(consoleEnviron(console, true, true, nil), " ")
+	on := strings.Join(consoleEnviron(console, true, true, "tok", nil), " ")
 	if !strings.Contains(on, envDevConsoleURL+"="+console.URL()) {
 		t.Errorf("environ = %q, want the console address", on)
+	}
+	if !strings.Contains(on, envDevAttachToken+"=tok") {
+		t.Errorf("environ = %q, want the attach token", on)
+	}
+	if strings.Contains(on, envDevConsoleOverlay) {
+		t.Errorf("environ = %q, want no overlay variable when the overlay is on", on)
 	}
 	if strings.Contains(on, envDevConsoleReload) {
 		t.Errorf("environ = %q, want no reload variable when reload is on", on)
 	}
-	if noReload := strings.Join(consoleEnviron(console, true, false, nil), " "); !strings.Contains(noReload, envDevConsoleReload+"=0") {
+	if noReload := strings.Join(consoleEnviron(console, true, false, "tok", nil), " "); !strings.Contains(noReload, envDevConsoleReload+"=0") {
 		t.Errorf("environ = %q, want reload turned off", noReload)
 	}
-	if off := consoleEnviron(console, false, true, nil); len(off) != 0 {
-		t.Errorf("environ = %v, want nothing injected with the overlay off", off)
+	// The address stays injected with the overlay off, because the data pane
+	// announces to the same console. What turns the overlay off is its own
+	// variable, so one pane cannot switch another back on.
+	off := strings.Join(consoleEnviron(console, false, true, "tok", nil), " ")
+	if !strings.Contains(off, envDevConsoleURL+"=") {
+		t.Errorf("environ = %q, want the address still injected", off)
+	}
+	if !strings.Contains(off, envDevConsoleOverlay+"=0") {
+		t.Errorf("environ = %q, want the overlay turned off by its own variable", off)
 	}
 }
 
@@ -306,7 +319,7 @@ func TestTheMountedPaneAcceptsOTLPAtItsOwnBase(t *testing.T) {
 		t.Fatalf("viewer: %v", err)
 	}
 	t.Cleanup(telemetry.close)
-	console := startDevConsole(root, config, telemetry, nil, stdout, stderr)
+	console := startDevConsole(root, config, telemetry, nil, nil, stdout, stderr)
 	if console == nil {
 		t.Fatalf("the console did not start:\n%s", stderr)
 	}

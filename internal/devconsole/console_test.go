@@ -11,7 +11,7 @@ import (
 
 func startConsole(t *testing.T, panes ...Pane) *Console {
 	t.Helper()
-	console, err := New("127.0.0.1:0", Project{Name: "app", Environment: "dev"}, panes)
+	console, err := New("127.0.0.1:0", Project{Name: "app", Environment: "dev"}, panes, nil)
 	if err != nil {
 		t.Fatalf("new: %v", err)
 	}
@@ -222,7 +222,7 @@ func TestIndexLinksTheAPIDocumentationTheApplicationServes(t *testing.T) {
 		ApplicationURL: "http://localhost:8080",
 		APIDocURL:      "http://localhost:8080/reference",
 		APIDocKey:      "server.api_doc",
-	}, nil)
+	}, nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -236,7 +236,7 @@ func TestIndexLinksTheAPIDocumentationTheApplicationServes(t *testing.T) {
 func TestIndexNamesTheKeyWhenTheAPIDocumentationIsOff(t *testing.T) {
 	console, err := New("127.0.0.1:0", Project{
 		Name: "app", Environment: "dev", APIDocKey: "server.api_doc",
-	}, nil)
+	}, nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

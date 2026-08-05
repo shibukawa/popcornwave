@@ -110,3 +110,19 @@ func TestNoConsoleMeansNoDevelopmentModule(t *testing.T) {
 		t.Errorf("scripts = %v, want none", scripts)
 	}
 }
+
+// The console address is injected whenever the console runs, because the data
+// pane announces to it too. The overlay therefore needs a switch of its own, or
+// turning it off would stop working the moment another pane needed the address.
+func TestOverlaySwitchIsIndependentOfTheConsoleAddress(t *testing.T) {
+	if developmentConsoleURL() == "" {
+		t.Skip("no console address in the environment")
+	}
+	t.Setenv(DevConsoleOverlayVar, "0")
+	if developmentImport() != "" {
+		t.Error("the core still imported the overlay with the overlay turned off")
+	}
+	if scripts := developmentScripts(); len(scripts) != 0 {
+		t.Errorf("scripts = %v, want none with the overlay turned off", scripts)
+	}
+}
