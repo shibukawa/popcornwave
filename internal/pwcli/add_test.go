@@ -48,7 +48,7 @@ func declinedProject(t *testing.T) string {
 func TestCapabilityDetectionReadsTheProjectFiles(t *testing.T) {
 	full := writeScaffoldedProject(t, initOptions{
 		Name: "fixture", Router: routerBoth, TinyGo: true, Devbox: true, Database: true, Redis: true,
-		Dynamo: true, Tailwind: true, Images: true, Auth: authOIDC, AuthEmulator: true,
+		Dynamo: true, Firestore: true, Tailwind: true, Images: true, Auth: authOIDC, AuthEmulator: true,
 	})
 	state, err := loadProjectState(full)
 	if err != nil {
@@ -70,7 +70,7 @@ func TestCapabilityDetectionReadsTheProjectFiles(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := []string{capabilityDiscovered, capabilityDevbox, capabilityDatabase, capabilityDynamo, capabilityRedis, capabilityAuth, capabilityTailwind, capabilityImages}
+	want := []string{capabilityDiscovered, capabilityDevbox, capabilityDatabase, capabilityDynamo, capabilityFirestore, capabilityRedis, capabilityAuth, capabilityTailwind, capabilityImages}
 	if strings.Join(missing, ",") != strings.Join(want, ",") {
 		t.Fatalf("missing = %v, want %v", missing, want)
 	}
@@ -570,16 +570,16 @@ func TestInitReportsDeclinedCapabilities(t *testing.T) {
 		{
 			name:    "everything declined",
 			options: initOptions{Database: false, Redis: false, Tailwind: false, Auth: authNone},
-			want:    "devbox,database,dynamo,redis-valkey,auth,tailwind",
+			want:    "devbox,database,dynamo,firestore,redis-valkey,auth,tailwind",
 		},
 		{
 			name:    "only Tailwind declined",
-			options: initOptions{Devbox: true, Database: true, Dynamo: true, Redis: true, Auth: authOIDC},
+			options: initOptions{Devbox: true, Database: true, Dynamo: true, Firestore: true, Redis: true, Auth: authOIDC},
 			want:    "tailwind",
 		},
 		{
 			name:    "nothing declined",
-			options: initOptions{Devbox: true, Database: true, Dynamo: true, Redis: true, Tailwind: true, Auth: authOIDC},
+			options: initOptions{Devbox: true, Database: true, Dynamo: true, Firestore: true, Redis: true, Tailwind: true, Auth: authOIDC},
 			want:    "",
 		},
 	} {

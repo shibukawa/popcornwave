@@ -317,7 +317,7 @@ func walkSources(root string, sources []string, visit func(path string, entry fs
 func generationInput(name string) bool {
 	return (strings.HasSuffix(name, ".go") && !strings.HasSuffix(name, "_test.go")) ||
 		strings.HasSuffix(name, ".pw.html") || strings.HasSuffix(name, ".pw.sql") ||
-		strings.HasSuffix(name, ".pw.dynamo")
+		strings.HasSuffix(name, ".pw.dynamo") || strings.HasSuffix(name, ".pw.firestore")
 }
 
 // directoryPurposes reports which generation purposes list a directory. A
@@ -343,6 +343,7 @@ func directoryPurposes(root string, scope generationScope, directory string) gen
 		config:    within(scope.Config),
 		pages:     within(scope.Pages),
 		dynamo:    within(scope.Dynamo),
+		firestore: within(scope.Firestore),
 	}
 }
 
@@ -359,11 +360,14 @@ type generationPurposes struct {
 	// dynamo marks a directory whose dynamo-tagged types and .pw.dynamo
 	// declarations are generated for.
 	dynamo bool
+	// firestore marks the same for firestore-tagged types and .pw.firestore
+	// declarations.
+	firestore bool
 }
 
 // any reports whether the directory serves any purpose at all.
 func (p generationPurposes) any() bool {
-	return p.handlers || p.templates || p.queries || p.config || p.pages || p.dynamo
+	return p.handlers || p.templates || p.queries || p.config || p.pages || p.dynamo || p.firestore
 }
 
 // keeps maps an artifact back to the purpose that may produce it. Go analysis
@@ -386,6 +390,8 @@ func (p generationPurposes) keeps(kind generator.ArtifactKind) bool {
 		return p.config
 	case generator.ArtifactDynamoItem, generator.ArtifactDynamoQuery:
 		return p.dynamo
+	case generator.ArtifactFirestoreEntity, generator.ArtifactFirestoreQuery:
+		return p.firestore
 	case generator.ArtifactDerivedAsset:
 		// A conversion is a consequence of compiling a template, so it belongs
 		// to the purpose that reads templates. Dropping it here would write the
@@ -399,7 +405,7 @@ func (p generationPurposes) keeps(kind generator.ArtifactKind) bool {
 func packageDirectories(root string, scope generationScope) ([]string, error) {
 	found := map[string]bool{}
 	for _, sources := range [][]string{
-		scope.Handlers, scope.Templates, scope.Queries, scope.Config, scope.Pages, scope.Dynamo,
+		scope.Handlers, scope.Templates, scope.Queries, scope.Config, scope.Pages, scope.Dynamo, scope.Firestore,
 	} {
 		err := walkSources(root, sources, func(path string, entry fs.DirEntry) error {
 			if generationInput(entry.Name()) {
@@ -475,6 +481,9 @@ func reportSourcesOutsideScope(root string, config projectConfig, stdout io.Writ
 		case strings.HasSuffix(name, ".pw.dynamo") && !purposes.dynamo:
 			stray = append(stray, strayReport{relative, fmt.Sprintf(
 				"pw: %s is outside generate.dynamo and is not generated from; list its directory to include it", relative)})
+		case strings.HasSuffix(name, ".pw.firestore") && !purposes.firestore:
+			stray = append(stray, strayReport{relative, fmt.Sprintf(
+				"pw: %s is outside generate.firestore and is not generated from; list its directory to include it", relative)})
 		case strings.HasSuffix(name, "_pw_gen.go") && !purposes.any():
 			stray = append(stray, strayReport{relative, fmt.Sprintf(
 				"pw: %s was generated outside every generate purpose and is now stale; delete it or list its directory", relative)})
@@ -526,13 +535,18 @@ func planDirectory(ctx context.Context, runner *generator.Generator, directory s
 	if purposes.queries {
 		request.SQLTemplatePattern = ""
 	}
-	if !purposes.dynamo {
-		// A request carries no DynamoDB pattern, so an unlisted directory is
-		// kept from being parsed by running against a copy of the generator
-		// whose glob matches nothing. Filtering the artifacts afterwards would
-		// still have read and type-checked the declaration.
+	if !purposes.dynamo || !purposes.firestore {
+		// A request carries no store pattern, so an unlisted directory is kept
+		// from being parsed by running against a copy of the generator whose
+		// glob matches nothing. Filtering the artifacts afterwards would still
+		// have read and type-checked the declaration.
 		local := *runner
-		local.Options.DynamoTemplatePattern = disabledTemplatePattern
+		if !purposes.dynamo {
+			local.Options.DynamoTemplatePattern = disabledTemplatePattern
+		}
+		if !purposes.firestore {
+			local.Options.FirestoreTemplatePattern = disabledTemplatePattern
+		}
 		runner = &local
 	}
 	// A source that does not parse is reported here rather than handed to the
@@ -576,6 +590,11 @@ func planDirectory(ctx context.Context, runner *generator.Generator, directory s
 		}
 		if artifact.Kind == generator.ArtifactDynamoItem {
 			if registration, declares := dynamoRegistrationArtifact(artifact); declares {
+				grouped[target] = append(grouped[target], registration)
+			}
+		}
+		if artifact.Kind == generator.ArtifactFirestoreEntity {
+			if registration, declares := firestoreRegistrationArtifact(artifact); declares {
 				grouped[target] = append(grouped[target], registration)
 			}
 		}
@@ -901,6 +920,56 @@ func dynamoRegistrationArtifact(artifact generator.Artifact) (generator.Artifact
 	body.WriteString("}\n")
 	return generator.Artifact{
 		Kind:        generator.ArtifactDynamoItem,
+		SourcePath:  artifact.SourcePath,
+		OutputBase:  artifact.OutputBase,
+		PackageName: artifact.PackageName,
+		Content:     []byte(body.String()),
+	}, true
+}
+
+// kindMethod matches the generated Kind method, which every bound Firestore
+// type has: a kind belongs to the type, so the generator emits it whether or
+// not anything calls it.
+var kindMethod = regexp.MustCompile(`(?m)^func \([a-zA-Z0-9_]+ ([A-Za-z0-9_]+)\) Kind\(\) string \{`)
+
+// firestoreRegistrationArtifact emits the init that publishes a generated kind.
+//
+// It is not what the DynamoDB counterpart is. Nothing here creates a kind and
+// no migration reads the registry: what it feeds is the list a deployment is
+// handed, which names every kind and the property its TTL policy expires on. An
+// application kind carrying a ttl tag and missing from that list is a policy
+// nobody applies, and records that never expire.
+//
+// Every kind registers rather than only the expiring ones, so Kinds means kinds
+// rather than kinds-that-need-a-policy. The cost is one init per bound type,
+// which is what decision:dynamodb-table-registry already accepted for the other
+// store.
+//
+// It is derived from the generated source rather than from a second analysis of
+// the package, so a type the generator did not bind registers nothing.
+func firestoreRegistrationArtifact(artifact generator.Artifact) (generator.Artifact, bool) {
+	matches := kindMethod.FindAllStringSubmatch(string(artifact.Content), -1)
+	if len(matches) == 0 {
+		return generator.Artifact{}, false
+	}
+	seen := make(map[string]bool, len(matches))
+	var body strings.Builder
+	fmt.Fprintf(&body, "package %s\n\nimport \"github.com/shibukawa/popcornwave/database/firestore\"\n\nfunc init() {\n", artifact.PackageName)
+	registered := 0
+	for _, match := range matches {
+		if seen[match[1]] {
+			continue
+		}
+		seen[match[1]] = true
+		fmt.Fprintf(&body, "\tfirestore.RegisterKind(%s{})\n", match[1])
+		registered++
+	}
+	body.WriteString("}\n")
+	if registered == 0 {
+		return generator.Artifact{}, false
+	}
+	return generator.Artifact{
+		Kind:        generator.ArtifactFirestoreEntity,
 		SourcePath:  artifact.SourcePath,
 		OutputBase:  artifact.OutputBase,
 		PackageName: artifact.PackageName,

@@ -42,9 +42,10 @@ var sessionBackends struct {
 // fix is a single line, so the startup error prints that line instead of a
 // list of names.
 var knownSessionBackendImports = map[string]string{
-	SessionBackendRDB:    "github.com/shibukawa/popcornwave/sessionstore/sqlite",
-	SessionBackendRedis:  "github.com/shibukawa/popcornwave/sessionstore/redis",
-	SessionBackendDynamo: "github.com/shibukawa/popcornwave/sessionstore/dynamo",
+	SessionBackendRDB:       "github.com/shibukawa/popcornwave/sessionstore/sqlite",
+	SessionBackendRedis:     "github.com/shibukawa/popcornwave/sessionstore/redis",
+	SessionBackendDynamo:    "github.com/shibukawa/popcornwave/sessionstore/dynamo",
+	SessionBackendFirestore: "github.com/shibukawa/popcornwave/sessionstore/firestore",
 }
 
 // RegisterSessionBackend registers factory under name. A storage plugin calls

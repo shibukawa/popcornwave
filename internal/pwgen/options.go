@@ -28,6 +28,10 @@ const (
 	HTMLTemplatePattern   = "*.pw.html"
 	SQLTemplatePattern    = "*.pw.sql"
 	DynamoTemplatePattern = "*.pw.dynamo"
+	// FirestoreTemplatePattern is the base-name glob of a Firestore query
+	// declaration. It follows the .pw. convention every other declaration
+	// source here uses rather than the module's own .tb. default.
+	FirestoreTemplatePattern = "*.pw.firestore"
 )
 
 func Options(sqlDialect string) (generator.Options, error) {
@@ -124,6 +128,7 @@ func Options(sqlDialect string) (generator.Options, error) {
 	options.HTMLTemplatePattern = HTMLTemplatePattern
 	options.SQLTemplatePattern = SQLTemplatePattern
 	options.DynamoTemplatePattern = DynamoTemplatePattern
+	options.FirestoreTemplatePattern = FirestoreTemplatePattern
 	options.SQLDialect = sqlDialect
 	options.SQLContextOnlyAPI = true
 	options.SQLExecutorResolver = &generator.SymbolPattern{

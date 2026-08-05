@@ -28,6 +28,7 @@
 {"category": "interface", "id": "api:database-selection", "path": ".knowledge/api/database-selection.md", "role": "primary", "title": "Database Group Selection", "type": "api"}
 {"category": "interface", "id": "api:dynamo-package", "path": ".knowledge/api/dynamo-package.md", "role": "primary", "title": "database/dynamo Package", "type": "api"}
 {"category": "interface", "id": "api:error-renderer", "path": ".knowledge/api/error-renderer.md", "role": "primary", "title": "Error Rendering Contract", "type": "api"}
+{"category": "interface", "id": "api:firestore-package", "path": ".knowledge/api/firestore-package.md", "role": "primary", "title": "database/firestore Package", "type": "api"}
 {"category": "interface", "id": "api:framework-extension", "path": ".knowledge/api/framework-extension.md", "role": "primary", "title": "Framework Extension Registry", "type": "api"}
 {"category": "interface", "id": "api:html-boundary-protocol", "path": ".knowledge/api/html-boundary-protocol.md", "role": "primary", "title": "HTML Boundary Wire Protocol", "type": "api"}
 {"category": "interface", "id": "api:html-fragment-response", "path": ".knowledge/api/html-fragment-response.md", "role": "primary", "title": "HTML Fragment Response API", "type": "api"}
@@ -92,6 +93,7 @@
 {"category": "structure", "id": "data:dynamodb-request-record", "path": ".knowledge/data/dynamodb-request-record.md", "role": "supporting", "title": "DynamoDB Request Record", "type": "data"}
 {"category": "structure", "id": "data:dynamodb-runtime-config", "path": ".knowledge/data/dynamodb-runtime-config.md", "role": "supporting", "title": "DynamoDB Runtime Configuration", "type": "data"}
 {"category": "structure", "id": "data:external-identity", "path": ".knowledge/data/external-identity.md", "role": "supporting", "title": "External OIDC Identity", "type": "data"}
+{"category": "structure", "id": "data:firestore-runtime-config", "path": ".knowledge/data/firestore-runtime-config.md", "role": "supporting", "title": "Firestore Runtime Configuration", "type": "data"}
 {"category": "structure", "id": "data:html-render-config", "path": ".knowledge/data/html-render-config.md", "role": "supporting", "title": "HTML Render Runtime Config", "type": "data"}
 {"category": "structure", "id": "data:loaded-configuration", "path": ".knowledge/data/loaded-configuration.md", "role": "supporting", "title": "Loaded Configuration", "type": "data"}
 {"category": "structure", "id": "data:log-attribute", "path": ".knowledge/data/log-attribute.md", "role": "supporting", "title": "Log Attribute", "type": "data"}
@@ -156,6 +158,11 @@
 {"category": "constraint", "id": "decision:explicit-generation-sources", "path": ".knowledge/decision/explicit-generation-sources.md", "role": "supporting", "title": "Explicit Generation Sources", "type": "decision"}
 {"category": "constraint", "id": "decision:explicit-transaction-boundary", "path": ".knowledge/decision/explicit-transaction-boundary.md", "role": "supporting", "title": "Explicit Transaction Boundary", "type": "decision"}
 {"category": "constraint", "id": "decision:extension-in-repository", "path": ".knowledge/decision/extension-in-repository.md", "role": "supporting", "title": "Extension Lives in the Framework Repository", "type": "decision"}
+{"category": "constraint", "id": "decision:firestore-conditional-writes", "path": ".knowledge/decision/firestore-conditional-writes.md", "role": "supporting", "title": "Every Conditional Write Is A Verb, A Version, Or A Transaction", "type": "decision"}
+{"category": "constraint", "id": "decision:firestore-datastore-mode-only", "path": ".knowledge/decision/firestore-datastore-mode-only.md", "role": "supporting", "title": "The Firestore Store Is Datastore Mode Only, And Says So At Startup", "type": "decision"}
+{"category": "constraint", "id": "decision:firestore-expiry-policy", "path": ".knowledge/decision/firestore-expiry-policy.md", "role": "supporting", "title": "Expiry Is Decided On Read, And Deletion Is A Field Policy Nobody Here Applies", "type": "decision"}
+{"category": "constraint", "id": "decision:firestore-namespace-isolation", "path": ".knowledge/decision/firestore-namespace-isolation.md", "role": "supporting", "title": "A Namespace Replaces The Table Prefix", "type": "decision"}
+{"category": "constraint", "id": "decision:firestore-no-schema-application", "path": ".knowledge/decision/firestore-no-schema-application.md", "role": "supporting", "title": "There Is No Schema To Apply, So There Is No Migration Step", "type": "decision"}
 {"category": "constraint", "id": "decision:force-tinygo-logic", "path": ".knowledge/decision/force-tinygo-logic.md", "role": "supporting", "title": "Forced TinyGo Logic Build Tag", "type": "decision"}
 {"category": "constraint", "id": "decision:formatter-delivery", "path": ".knowledge/decision/formatter-delivery.md", "role": "supporting", "title": "Formatter Delivery to the Editor", "type": "decision"}
 {"category": "constraint", "id": "decision:fragment-head-rejection", "path": ".knowledge/decision/fragment-head-rejection.md", "role": "supporting", "title": "Fragment Head Rejection", "type": "decision"}
@@ -313,6 +320,7 @@
 {"category": "objective", "id": "requirement:contrib-acceptance", "path": ".knowledge/requirement/contrib-acceptance.md", "role": "primary", "title": "Contrib Acceptance Criteria", "type": "requirement"}
 {"category": "objective", "id": "requirement:contrib-auth-common", "path": ".knowledge/requirement/contrib-auth-common.md", "role": "primary", "title": "Authentication Security Primitives", "type": "requirement"}
 {"category": "objective", "id": "requirement:contrib-auth-state-dynamo", "path": ".knowledge/requirement/contrib-auth-state-dynamo.md", "role": "primary", "title": "DynamoDB Authentication State Store", "type": "requirement"}
+{"category": "objective", "id": "requirement:contrib-auth-state-firestore", "path": ".knowledge/requirement/contrib-auth-state-firestore.md", "role": "primary", "title": "Firestore Authentication State Store", "type": "requirement"}
 {"category": "objective", "id": "requirement:contrib-auth-state-memory", "path": ".knowledge/requirement/contrib-auth-state-memory.md", "role": "primary", "title": "In-Memory Authentication State Adapter", "type": "requirement"}
 {"category": "objective", "id": "requirement:contrib-auth-state-redis", "path": ".knowledge/requirement/contrib-auth-state-redis.md", "role": "primary", "title": "Redis Authentication State Store", "type": "requirement"}
 {"category": "objective", "id": "requirement:contrib-auth-state-sqlite", "path": ".knowledge/requirement/contrib-auth-state-sqlite.md", "role": "primary", "title": "SQLite Authentication State Store", "type": "requirement"}
@@ -362,6 +370,12 @@
 {"category": "objective", "id": "requirement:environment-switching", "path": ".knowledge/requirement/environment-switching.md", "role": "primary", "title": "Environment Switching", "type": "requirement"}
 {"category": "objective", "id": "requirement:extension-distribution", "path": ".knowledge/requirement/extension-distribution.md", "role": "primary", "title": "Extension Distribution", "type": "requirement"}
 {"category": "objective", "id": "requirement:external-boundary-runtime", "path": ".knowledge/requirement/external-boundary-runtime.md", "role": "primary", "title": "External Boundary Runtime Script", "type": "requirement"}
+{"category": "objective", "id": "requirement:firestore-auth-backend", "path": ".knowledge/requirement/firestore-auth-backend.md", "role": "primary", "title": "Firestore Authentication Backend", "type": "requirement"}
+{"category": "objective", "id": "requirement:firestore-auth-stores", "path": ".knowledge/requirement/firestore-auth-stores.md", "role": "primary", "title": "Firestore Account-Side Authentication Stores", "type": "requirement"}
+{"category": "objective", "id": "requirement:firestore-generation", "path": ".knowledge/requirement/firestore-generation.md", "role": "primary", "title": "Firestore Code Generation", "type": "requirement"}
+{"category": "objective", "id": "requirement:firestore-session-store", "path": ".knowledge/requirement/firestore-session-store.md", "role": "primary", "title": "Firestore Session Backend", "type": "requirement"}
+{"category": "objective", "id": "requirement:firestore-store", "path": ".knowledge/requirement/firestore-store.md", "role": "primary", "title": "Firestore Store", "type": "requirement"}
+{"category": "objective", "id": "requirement:firestore-test-isolation", "path": ".knowledge/requirement/firestore-test-isolation.md", "role": "primary", "title": "Isolated Firestore Tests", "type": "requirement"}
 {"category": "objective", "id": "requirement:framework-script-assets", "path": ".knowledge/requirement/framework-script-assets.md", "role": "primary", "title": "Framework Script Assets", "type": "requirement"}
 {"category": "objective", "id": "requirement:generated-code-version-tolerance", "path": ".knowledge/requirement/generated-code-version-tolerance.md", "role": "primary", "title": "Generated Code Must State What Runtime It Links Against", "type": "requirement"}
 {"category": "objective", "id": "requirement:html-fragment-rendering", "path": ".knowledge/requirement/html-fragment-rendering.md", "role": "primary", "title": "HTML Fragment Rendering", "type": "requirement"}
@@ -439,6 +453,7 @@
 {"category": "external", "id": "system:pw-cli", "path": ".knowledge/system/pw-cli.md", "role": "supporting", "title": "pw CLI", "type": "system"}
 {"category": "external", "id": "system:tinybind", "path": ".knowledge/system/tinybind.md", "role": "supporting", "title": "TinyBind", "type": "system"}
 {"category": "external", "id": "system:tinygodriver-dynamodb", "path": ".knowledge/system/tinygodriver-dynamodb.md", "role": "supporting", "title": "tinygodriver DynamoDB Client", "type": "system"}
+{"category": "external", "id": "system:tinygodriver-firestore", "path": ".knowledge/system/tinygodriver-firestore.md", "role": "supporting", "title": "tinygodriver Firestore Datastore Client", "type": "system"}
 {"category": "external", "id": "system:tinygodriver", "path": ".knowledge/system/tinygodriver.md", "role": "supporting", "title": "tinygodriver", "type": "system"}
 {"category": "external", "id": "system:vscode", "path": ".knowledge/system/vscode.md", "role": "supporting", "title": "Visual Studio Code", "type": "system"}
 {"category": "interface", "id": "ui:devidp-login", "path": ".knowledge/ui/devidp-login.md", "role": "primary", "title": "Development IdP Login Screen", "type": "ui"}

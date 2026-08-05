@@ -29,6 +29,11 @@ const (
 	// sessionstore/dynamo, for a deployment with no relational database at
 	// all. TTL on the deployed table removes dead records, and nothing sweeps.
 	SessionBackendDynamo = "dynamo"
+	// SessionBackendFirestore keeps records in Firestore in Datastore mode
+	// through sessionstore/firestore, for the same deployment on Google Cloud.
+	// A TTL policy on the deployed kind removes dead records, and nothing
+	// sweeps.
+	SessionBackendFirestore = "firestore"
 )
 
 // SessionConfig selects where per-browser state lives and how its token cookie
@@ -40,11 +45,12 @@ const (
 // one into the browser while the session is still anonymous.
 type SessionConfig struct {
 	Enabled bool `default:"false"`
-	// Backend selects the storage plugin: rdb, cookie, redis, or dynamo. Every
-	// backend but cookie reaches the binary through its own blank import. It
-	// names which server backend a server-placed slot uses, never whether a
-	// slot is server-placed, which RegisterSessionStore states instead.
-	Backend string `default:"rdb" dependon:".enabled" help:"session storage backend: rdb, cookie, redis, or dynamo"`
+	// Backend selects the storage plugin: rdb, cookie, redis, dynamo, or
+	// firestore. Every backend but cookie reaches the binary through its own
+	// blank import. It names which server backend a server-placed slot uses,
+	// never whether a slot is server-placed, which RegisterSessionStore states
+	// instead.
+	Backend string `default:"rdb" dependon:".enabled" help:"session storage backend: rdb, cookie, redis, dynamo, or firestore"`
 	// Retention bounds how long the store may hold one record.
 	//
 	// It is not the session lifetime, which [auth] declares: an expiry states
@@ -62,6 +68,20 @@ type SessionConfig struct {
 	CookieStore SessionCookieStoreConfig `dependon:".enabled"`
 	Keyring     SessionKeyringConfig     `dependon:".enabled"`
 	Dynamo      SessionDynamoConfig      `dependon:".enabled"`
+	Firestore   SessionFirestoreConfig   `dependon:".enabled"`
+}
+
+// SessionFirestoreConfig configures the Firestore session store. It carries no
+// endpoint and no credential: middleware.firestore already opens the client
+// this backend borrows.
+//
+// It has no read-consistency key. Datastore mode reads are strongly consistent,
+// so there is no false miss to retry around and nothing to weigh.
+type SessionFirestoreConfig struct {
+	// Kind is the entity kind. A kind belongs to the type rather than to the
+	// deployment, so nothing maps it; this exists for a project that has to
+	// share a database with something that already owns the name.
+	Kind string `default:"popcornwave_session" help:"session entity kind"`
 }
 
 // SessionDynamoConfig configures the DynamoDB session store. It carries no

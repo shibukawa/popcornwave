@@ -342,7 +342,7 @@ func TestInitWizardSeedsAnswersFromShortcutFlags(t *testing.T) {
 	want := []string{
 		"Web site with login", "seeded", "seeded",
 		"Yes", "Both", "Yes", "OIDC", "DynamoDB",
-		"Yes", "SQLite", "Yes",
+		"Yes", "SQLite", "Yes", "No",
 		"Redis or Valkey", "Local emulator", "Yes", "Yes",
 	}
 	if len(steps) != len(want) {
