@@ -43,6 +43,11 @@ index:
     said_plainly: the button names what clear-insert does, because a control that empties tables should not read as a refresh
   disabled_pane: named as disabled with the configuration key that enables it, rather than hidden
 shell:
+  mount_prefix:
+    problem: a pane serves itself and cannot know where it is mounted, because the console strips the prefix before the request arrives; a link written as an absolute path then resolves against the console root and misses
+    resolution: the mount tells the pane, on every request, and the pane prefixes its own links
+    why_not_guessed: a pane reached directly is at the root, so a pane that assumed a prefix would be wrong in the other direction
+    way_back: a pane that sees a prefix knows it is inside a console and offers the link back to it, which is the other half of not stranding the developer
   form: one document per pane, navigated to by ordinary links from a nav the index and every pane repeat
   not_a_single_document: one listener and one index do not imply one page; decision:dev-console-consolidation joined the listener, not the document
   rationale:
@@ -51,9 +56,11 @@ shell:
     per_page_policy: a permissive third-party bundle takes a permissive response policy on its page alone, instead of lowering the whole console to its level
     dogfood: concept:classic-web-style is what pw tells applications to do, and a console built any other way argues against its own framework
   iframe:
-    used: no
-    why_not: same-listener panes are same-origin pages already, so an iframe would add sizing, scrolling, and theme coordination to buy isolation a separate document gives for free
-    when_it_would_be: only to keep two panes visible at once or to preserve a pane's state while another is open, and neither is a goal
+    used: for a pane the console does not render, and only there
+    revision: this was refused outright, on the grounds that same-origin pages need no frame for isolation. That reasoning holds for a page the console renders and fails for one it does not: navigating to the telemetry viewer left the developer inside a document with no way back, because a foreign page cannot carry the console navigation
+    rule: a pane the console renders carries the nav directly; a pane it does not render is shown inside a frame that does
+    address: the frame takes the pane's own address and the pane moves one segment below it, because a file server canonicalises a request for its index into a redirect to the directory, which would otherwise load the frame inside itself
+    still_refused: framing to keep two panes visible at once, or to preserve a pane's state while another is open
   spa_panes: a pane whose renderer is a browser application is still one page; requirement:dev-telemetry-viewer is that case and needs no exception
 lifetime:
   start: before the application process, like requirement:contrib-devidp
@@ -86,6 +93,8 @@ security:
 acceptance:
   - pw dev with no console configuration serves the index on the configured loopback port and prints its URL
   - the index names every enabled pane and every disabled one
+  - every link a pane writes resolves under the mount the console gave it
+  - every pane offers a way back to the console index
   - an application restart preserves what the console captured before it
   - dev.console.enabled false starts no listener and reserves no port
   - a console that cannot listen reports the failure and leaves the loop running

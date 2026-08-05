@@ -41,6 +41,7 @@ ul.panes .why { color:var(--muted); }
 form { margin:.4rem 0; display:flex; gap:.7rem; align-items:baseline; flex-wrap:wrap; }
 button { font:inherit; padding:.2rem .7rem; border:1px solid var(--line); background:var(--card); color:var(--fg); border-radius:4px; cursor:pointer; }
 code { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:12.5px; }
+iframe.pane { width:100%; height:calc(100vh - 9rem); border:1px solid var(--line); border-radius:6px; background:var(--bg); display:block; margin:.6rem 0; }
 `
 
 // layout wraps every console page. Panes that are their own application, such
@@ -162,6 +163,25 @@ func (c *Console) index(w http.ResponseWriter, r *http.Request) {
 	}
 	c.render(w, "", "overview", buildHTML(indexBody, data))
 }
+
+type framedData struct {
+	Slug    string
+	Title   string
+	Summary string
+	Entry   string
+}
+
+// framePage is the page a foreign pane is shown inside.
+//
+// The frame carries the console navigation and nothing else, so the pane keeps
+// its own document and its own stylesheet. The source is the same path the pane
+// serves, one segment deeper, which is why the pane's own links keep working
+// inside it.
+var framePage = template.Must(template.New("frame").Parse(`
+<p class="sub">{{.Summary}}</p>
+<iframe class="pane" src="{{.Entry}}" title="{{.Title}}"></iframe>
+<p class="sub"><a href="{{.Entry}}">open it on its own</a></p>
+`))
 
 func statusWord(status Status) string {
 	switch status {

@@ -90,12 +90,22 @@ func TestTelemetryPaneIsServedByTheConsoleWhileTheReceiverKeepsItsPort(t *testin
 	if console.URL() == telemetry.url() {
 		t.Fatal("the console and the receiver took the same address")
 	}
-	if page := body(t, console.URL()+"/telemetry/"); !strings.Contains(page, "<div id=\"root\">") {
+	// The pane is a browser application with its own document, so the console
+	// puts its own navigation above it in a frame rather than handing the
+	// developer a page with no way back.
+	frame := body(t, console.URL()+"/telemetry/")
+	if !strings.Contains(frame, "<iframe") || !strings.Contains(frame, "/telemetry/pane/") {
+		t.Errorf("the pane was not framed with the console navigation:\n%s", frame)
+	}
+	if !strings.Contains(frame, `href="/"`) {
+		t.Errorf("the framed pane offers no way back to the console:\n%s", frame)
+	}
+	if page := body(t, console.URL()+"/telemetry/pane/"); !strings.Contains(page, "<div id=\"root\">") {
 		t.Errorf("the console did not serve the viewer UI:\n%s", page)
 	}
-	// The API follows the page under the prefix, because the UI resolves it
+	// The API follows the page under its mount, because the UI resolves it
 	// against the served document rather than against the origin.
-	if snapshot := body(t, console.URL()+"/telemetry/api/snapshot"); !strings.Contains(snapshot, "traces") {
+	if snapshot := body(t, console.URL()+"/telemetry/pane/api/snapshot"); !strings.Contains(snapshot, "traces") {
 		t.Errorf("the snapshot API did not follow the mount: %s", snapshot)
 	}
 	// The receiver still answers on its own port, which is what the
@@ -325,7 +335,7 @@ func TestTheMountedPaneAcceptsOTLPAtItsOwnBase(t *testing.T) {
 	}
 	t.Cleanup(console.Close)
 
-	response, err := http.Post(console.URL()+"/telemetry/v1/traces", "application/json", strings.NewReader(otlpTraceExport))
+	response, err := http.Post(console.URL()+"/telemetry/pane/v1/traces", "application/json", strings.NewReader(otlpTraceExport))
 	if err != nil {
 		t.Fatalf("export: %v", err)
 	}

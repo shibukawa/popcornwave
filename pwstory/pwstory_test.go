@@ -152,3 +152,21 @@ func TestUnknownStoryIsNotFound(t *testing.T) {
 		t.Errorf("status = %d, want 404", recorder.Code)
 	}
 }
+
+// The console strips the mount before the request arrives, so every link the
+// storybook writes has to carry it back.
+func TestStorybookLinksCarryTheMount(t *testing.T) {
+	register(t)
+	request := httptest.NewRequest(http.MethodGet, "/", nil)
+	request.Header.Set(panePrefixHeader, "/storybook")
+	recorder := httptest.NewRecorder()
+	Handler().ServeHTTP(recorder, request)
+
+	body := recorder.Body.String()
+	if !strings.Contains(body, `href="/storybook/story/templates/greeting"`) {
+		t.Errorf("a story link did not carry the mount:\n%s", body)
+	}
+	if !strings.Contains(body, `href="/"`) {
+		t.Errorf("the storybook offers no way back to the console:\n%s", body)
+	}
+}

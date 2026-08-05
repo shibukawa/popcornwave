@@ -10,6 +10,11 @@ import (
 // because every page carries the same chrome and the differences are which
 // fields are set.
 type view struct {
+	// Prefix is where the console mounted this pane, or empty when the pane is
+	// reached directly. Every link the pane writes carries it, because the
+	// console strips it before the request arrives and an absolute path would
+	// otherwise resolve against the console root and miss.
+	Prefix      string
 	Section     string
 	Title       string
 	Engine      string
@@ -49,6 +54,7 @@ func (s *Server) view(r *http.Request, section, title string) view {
 		reported = errorText(err)
 	}
 	return view{
+		Prefix:  r.Header.Get(panePrefixHeader),
 		Tables:  tables,
 		Error:   reported,
 		Section: section, Title: title,
@@ -104,6 +110,8 @@ pre { background:var(--card); border:1px solid var(--line); border-radius:6px; p
 .ok { color:var(--ok); }
 .warn { color:var(--warn); }
 code { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:12.5px; }
+a.back { display:block; color:var(--muted); text-decoration:none; font-size:12px; margin-bottom:.6rem; }
+a.back:hover { color:var(--fg); }
 a.fk { text-decoration:none; color:var(--muted); margin-left:.25rem; }
 a.fk:hover { color:var(--fg); }
 label { font-size:12.5px; color:var(--muted); display:block; margin:.5rem 0 .1rem; }
@@ -115,16 +123,17 @@ const chrome = `<!doctype html>
 <title>{{.Title}} — pw dev data</title><style>` + style + `</style></head>
 <body><div class="layout">
 <aside>
+{{if .Prefix}}<a class="back" href="/">&larr; pw dev console</a>{{end}}
 <strong>data</strong>
 <div class="env">{{.Engine}} · {{.Environment}}</div>
 {{if gt (len .Connections) 1}}
 <div class="group">connection</div>
 {{range .Connections}}<a href="?c={{.Label}}"{{if eq $.Connection.Label .Label}} class="here"{{end}}>{{.Label}}{{if .ReadOnly}} <span class="fw">read-only</span>{{end}}</a>{{end}}
 {{end}}
-<a href="/console?c={{.Connection.Label}}"{{if eq .Section "console"}} class="here"{{end}}>statement console</a>
-<a href="/queries?c={{.Connection.Label}}"{{if eq .Section "queries"}} class="here"{{end}}>declared queries</a>
+<a href="{{$.Prefix}}/console?c={{.Connection.Label}}"{{if eq .Section "console"}} class="here"{{end}}>statement console</a>
+<a href="{{$.Prefix}}/queries?c={{.Connection.Label}}"{{if eq .Section "queries"}} class="here"{{end}}>declared queries</a>
 <div class="group">tables</div>
-{{range .Tables}}<a href="/table/{{.Name}}?c={{$.Connection.Label}}"{{if eq $.Title .Name}} class="here"{{end}}>{{if .Framework}}<span class="fw">{{.Name}}</span>{{else}}{{.Name}}{{end}}</a>{{end}}
+{{range .Tables}}<a href="{{$.Prefix}}/table/{{.Name}}?c={{$.Connection.Label}}"{{if eq $.Title .Name}} class="here"{{end}}>{{if .Framework}}<span class="fw">{{.Name}}</span>{{else}}{{.Name}}{{end}}</a>{{end}}
 </aside>
 <main>
 {{if .Error}}<p class="bad">{{.Error}}</p>{{end}}
@@ -164,7 +173,7 @@ var tablesPage = page(`{{define "body"}}
 {{end}}
 <div class="wrap"><table class="grid">
 <tr><th>table</th><th>owner</th></tr>
-{{range .Tables}}<tr><td><a href="/table/{{.Name}}">{{.Name}}</a></td>
+{{range .Tables}}<tr><td><a href="{{$.Prefix}}/table/{{.Name}}">{{.Name}}</a></td>
 <td>{{if .Framework}}<span class="note">framework</span>{{else}}application{{end}}</td></tr>{{end}}
 </table></div>
 {{end}}`)
@@ -175,7 +184,7 @@ var tablePage = page(`{{define "body"}}
 <p class="sub">
 {{range $page.Columns}}<code>{{.Name}}</code> {{.Type}}{{if gt .PrimaryKey 0}} <span class="warn">pk</span>{{end}}{{if .NotNull}} not null{{end}} · {{end}}
 </p>
-{{with $.Referenced}}<p class="note">Showing rows of <code>{{.Table}}</code> where <code>{{.Target}}</code> is <code>{{$.ReferencedValue}}</code>, followed from a foreign key. <a href="/table/{{.Table}}?c={{$.Connection.Label}}">show the whole table</a></p>{{end}}
+{{with $.Referenced}}<p class="note">Showing rows of <code>{{.Table}}</code> where <code>{{.Target}}</code> is <code>{{$.ReferencedValue}}</code>, followed from a foreign key. <a href="{{$.Prefix}}/table/{{.Table}}?c={{$.Connection.Label}}">show the whole table</a></p>{{end}}
 {{if $.Connection.ReadOnly}}<p class="note warn">This connection is a read-only replica, so rows are shown but cannot be edited here.</p>{{end}}
 {{if not $page.Ordered}}<p class="note warn">This table has no primary key. Rows are paged by offset, their order is unspecified, and a single row cannot be edited here.</p>{{end}}
 
@@ -185,7 +194,7 @@ var tablePage = page(`{{define "body"}}
 <tr>
 <td>
 {{if and $.Keys (not $.Connection.ReadOnly)}}
-<form method="post" action="/table/{{$page.Table}}/row?c={{$.Connection.Label}}" id="row{{$rowIndex}}">
+<form method="post" action="{{$.Prefix}}/table/{{$page.Table}}/row?c={{$.Connection.Label}}" id="row{{$rowIndex}}">
 <input type="hidden" name="offset" value="{{str $page.Offset}}">
 {{range $index, $column := $page.Columns}}{{if gt $column.PrimaryKey 0}}
 <input type="hidden" name="key.{{$column.Name}}" value="{{with index $row $index}}{{.}}{{end}}">
@@ -201,7 +210,7 @@ var tablePage = page(`{{define "body"}}
 <td{{if not $cell}} class="null"{{end}}>
 {{if and $.Keys (not $.Connection.ReadOnly)}}<input form="row{{$rowIndex}}" name="value.{{$column.Name}}" value="{{with $cell}}{{.}}{{end}}" placeholder="{{if not $cell}}NULL{{end}}">
 {{else}}{{if $cell}}{{$cell}}{{else}}NULL{{end}}{{end}}
-{{if and $fk.Table $cell}}<a class="fk" title="{{$fk.Table}}.{{$fk.Target}}" href="/referenced/{{$fk.Table}}?c={{$.Connection.Label}}&amp;column={{$fk.Target}}&amp;value={{$cell}}">&rarr;</a>{{end}}
+{{if and $fk.Table $cell}}<a class="fk" title="{{$fk.Table}}.{{$fk.Target}}" href="{{$.Prefix}}/referenced/{{$fk.Table}}?c={{$.Connection.Label}}&amp;column={{$fk.Target}}&amp;value={{$cell}}">&rarr;</a>{{end}}
 </td>
 {{end}}
 </tr>
@@ -209,15 +218,15 @@ var tablePage = page(`{{define "body"}}
 </table></div>
 
 <div class="bar">
-{{if gt $page.Offset 0}}<a class="page" href="/table/{{$page.Table}}?c={{$.Connection.Label}}&offset=0">first</a>
-<a class="page" href="/table/{{$page.Table}}?c={{$.Connection.Label}}&offset={{str $.PrevOffset}}">previous</a>{{end}}
-{{if $page.More}}<a class="page" href="/table/{{$page.Table}}?c={{$.Connection.Label}}&offset={{str (inc $page.Offset $page.Limit)}}">next {{str $page.Limit}}</a>{{end}}
+{{if gt $page.Offset 0}}<a class="page" href="{{$.Prefix}}/table/{{$page.Table}}?c={{$.Connection.Label}}&offset=0">first</a>
+<a class="page" href="{{$.Prefix}}/table/{{$page.Table}}?c={{$.Connection.Label}}&offset={{str $.PrevOffset}}">previous</a>{{end}}
+{{if $page.More}}<a class="page" href="{{$.Prefix}}/table/{{$page.Table}}?c={{$.Connection.Label}}&offset={{str (inc $page.Offset $page.Limit)}}">next {{str $page.Limit}}</a>{{end}}
 <span class="note">rows {{str (inc $page.Offset 1)}}–{{str (inc $page.Offset (len $page.Rows))}}</span>
 </div>
 
 {{if $.Keys}}
 <h1 style="font-size:1rem;margin-top:2rem">Insert a row</h1>
-<form method="post" action="/table/{{$page.Table}}/row?c={{$.Connection.Label}}">
+<form method="post" action="{{$.Prefix}}/table/{{$page.Table}}/row?c={{$.Connection.Label}}">
 <input type="hidden" name="offset" value="{{str $page.Offset}}">
 {{range $page.Columns}}
 <label>{{.Name}} <span class="note">{{.Type}}</span></label>
@@ -247,7 +256,7 @@ var queriesPage = page(`{{define "body"}}
 <div class="wrap"><table class="grid">
 <tr><th>query</th><th>package</th><th>parameters</th></tr>
 {{range .Queries}}<tr>
-<td><a href="/query/{{.Package}}/{{.Name}}?c={{$.Connection.Label}}">{{.Name}}</a>{{if not .Exported}} <span class="note">unexported</span>{{end}}</td>
+<td><a href="{{$.Prefix}}/query/{{.Package}}/{{.Name}}?c={{$.Connection.Label}}">{{.Name}}</a>{{if not .Exported}} <span class="note">unexported</span>{{end}}</td>
 <td>{{.Package}}</td>
 <td>{{range .Params}}<code>{{.Name}}</code> {{.Kind}} {{end}}{{if not .Params}}<span class="note">none</span>{{end}}</td>
 </tr>{{end}}

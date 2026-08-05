@@ -92,7 +92,7 @@ func renderStory(t Template, shell bool) rendering {
 }
 
 func index(w http.ResponseWriter, r *http.Request) {
-	writePage(w, indexPage, map[string]any{"Templates": Templates()})
+	writePage(w, r, indexPage, map[string]any{"Templates": Templates()})
 }
 
 func story(w http.ResponseWriter, r *http.Request) {
@@ -102,7 +102,7 @@ func story(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	shell := r.URL.Query().Get("shell") == "1"
-	writePage(w, storyPage, map[string]any{
+	writePage(w, r, storyPage, map[string]any{
 		"Template":  t,
 		"Templates": Templates(),
 		"Rendering": renderStory(t, shell),
@@ -127,7 +127,18 @@ func raw(w http.ResponseWriter, r *http.Request) {
 	_, _ = w.Write([]byte(result.Source))
 }
 
-func writePage(w http.ResponseWriter, page *template.Template, data map[string]any) {
+// panePrefixHeader is how the console tells a pane where it is mounted. It
+// matches devconsole.PanePrefixHeader, which is in an internal package this one
+// cannot import.
+const panePrefixHeader = "X-Pw-Pane-Prefix"
+
+// writePage renders one storybook page.
+//
+// The mount prefix is added here rather than by each handler, because every
+// link on every page needs it and a page that forgot would be the bug this
+// exists to fix.
+func writePage(w http.ResponseWriter, r *http.Request, page *template.Template, data map[string]any) {
+	data["Prefix"] = r.Header.Get(panePrefixHeader)
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-store")
 	if err := page.Execute(w, data); err != nil {

@@ -522,3 +522,35 @@ func TestTheGridLinksAForeignKey(t *testing.T) {
 		t.Errorf("the grid did not link the foreign key:\n%s", body)
 	}
 }
+
+// The console strips the mount before the request arrives, so a link written as
+// an absolute path resolves against the console root and misses. Every link the
+// pane writes has to carry the mount the console named.
+func TestLinksCarryTheMountTheConsoleNamed(t *testing.T) {
+	connection := open(t)
+	request := httptest.NewRequest(http.MethodGet, "/", nil)
+	request.Header.Set(panePrefixHeader, "/data")
+	recorder := httptest.NewRecorder()
+	serverFor(connection).Handler().ServeHTTP(recorder, request)
+
+	body := recorder.Body.String()
+	if !strings.Contains(body, `href="/data/table/memos`) {
+		t.Errorf("a table link did not carry the mount:\n%s", body)
+	}
+	if !strings.Contains(body, `href="/data/console`) {
+		t.Errorf("the console link did not carry the mount:\n%s", body)
+	}
+	// Reached through a console, the pane offers the way back to it.
+	if !strings.Contains(body, `href="/"`) {
+		t.Errorf("the pane offers no way back to the console:\n%s", body)
+	}
+}
+
+// Reached directly, the pane is at the root and adds nothing.
+func TestLinksAreUnprefixedWithoutAConsole(t *testing.T) {
+	recorder := httptest.NewRecorder()
+	serverFor(open(t)).Handler().ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/", nil))
+	if body := recorder.Body.String(); !strings.Contains(body, `href="/table/memos`) {
+		t.Errorf("a directly reached pane should link plainly:\n%s", body)
+	}
+}

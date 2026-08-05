@@ -67,6 +67,11 @@ func devConsolePanes(root string, config projectConfig, server developmentServer
 		// receiver's own listener, so both addresses work and neither lies.
 		Handler:    telemetry.paneHandler(),
 		DisabledBy: "dev.otel.enabled",
+		// The viewer is a browser application with its own document, so
+		// navigating to it left the developer with no way back to the console.
+		// The frame puts the console navigation above a page the console does
+		// not render.
+		Framed: true,
 	}}
 	assets := devconsole.Pane{
 		Slug:       "assets",

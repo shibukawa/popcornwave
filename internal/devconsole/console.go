@@ -31,6 +31,16 @@ type Pane struct {
 	// pane. The index says this rather than hiding the pane, so a developer
 	// who expected a surface learns why it is not there.
 	DisabledBy string
+	// Framed wraps the pane in a page carrying the console navigation, with the
+	// pane itself in an iframe.
+	//
+	// A pane the console renders can carry the nav directly, and does. A pane it
+	// does not render cannot: the telemetry viewer is a browser application with
+	// its own document, so navigating to it left the developer inside a page
+	// with no way back. A frame is what puts the nav above a document the
+	// console does not own, and it is worth the sizing it costs only for that
+	// case.
+	Framed bool
 	// RootPaths are absolute console paths this pane owns outside its own
 	// subtree.
 	//
@@ -232,7 +242,18 @@ func (c *Console) routes() http.Handler {
 			continue
 		}
 		prefix := "/" + pane.Slug
-		mux.Handle(prefix+"/", http.StripPrefix(prefix, c.withNav(pane.Handler)))
+		if pane.Framed {
+			// The frame takes the pane's own address, so the nav and every link
+			// to it are unchanged, and the pane moves one segment deeper. It
+			// cannot share the address: a file server canonicalises a request
+			// for index.html into a redirect to the directory, which would land
+			// back on the frame and load it inside itself.
+			inner := prefix + framedSuffix
+			mux.Handle("GET "+prefix+"/{$}", c.framedPane(pane, inner+"/"))
+			mux.Handle(inner+"/", http.StripPrefix(inner, c.withPane(inner, pane.Handler)))
+			continue
+		}
+		mux.Handle(prefix+"/", http.StripPrefix(prefix, c.withPane(prefix, pane.Handler)))
 		// A pane reached without its trailing slash would resolve its own
 		// relative asset references against the console root, so the redirect
 		// is what keeps a hand-typed URL working.
@@ -242,6 +263,37 @@ func (c *Console) routes() http.Handler {
 		}
 	}
 	return mux
+}
+
+// PanePrefixHeader tells a pane where it is mounted.
+//
+// A pane serves itself and cannot know: the console strips its prefix before the
+// request arrives, so a link the pane writes as an absolute path resolves
+// against the console root and misses. Rather than have every pane guess, the
+// mount says so, and a pane that sees this header prefixes its own links and
+// offers the way back to the console.
+const PanePrefixHeader = "X-Pw-Pane-Prefix"
+
+// framedSuffix is where a framed pane actually answers, one segment below the
+// address the frame occupies.
+const framedSuffix = "/pane"
+
+// framedPane renders the console navigation with the pane inside a frame.
+func (c *Console) framedPane(pane Pane, entry string) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		c.render(w, pane.Slug, pane.Title, buildHTML(framePage, framedData{
+			Slug: pane.Slug, Title: pane.Title, Summary: pane.Summary, Entry: entry,
+		}))
+	})
+}
+
+// withPane tells the pane its mount and hands it the console navigation.
+func (c *Console) withPane(prefix string, handler http.Handler) http.Handler {
+	inner := c.withNav(handler)
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		r.Header.Set(PanePrefixHeader, prefix)
+		inner.ServeHTTP(w, r)
+	})
 }
 
 // withNav hands a pane the console navigation. A pane that renders with the

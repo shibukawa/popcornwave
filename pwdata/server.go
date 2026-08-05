@@ -7,6 +7,11 @@ import (
 	"strings"
 )
 
+// panePrefixHeader is how the console tells a pane where it is mounted. It
+// matches devconsole.PanePrefixHeader, which is in an internal package this one
+// cannot import.
+const panePrefixHeader = "X-Pw-Pane-Prefix"
+
 // Handler serves the data pane: schema, rows, edits, a statement console, and
 // the declared queries the project generated.
 //

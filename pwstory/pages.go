@@ -31,6 +31,8 @@ pre { background:var(--card); border:1px solid var(--line); border-radius:6px; p
 .toggles a { color:var(--muted); text-decoration:none; margin-right:.8rem; font-size:13px; }
 .toggles a.on { color:var(--fg); font-weight:600; }
 code { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:12.5px; }
+a.back { display:block; color:var(--muted); text-decoration:none; font-size:12px; margin-bottom:.6rem; }
+a.back:hover { color:var(--fg); }
 `
 
 const shellTemplate = `<!doctype html>
@@ -39,11 +41,12 @@ const shellTemplate = `<!doctype html>
 <title>{{template "title" .}} — pw dev</title><style>` + style + `</style></head>
 <body><div class="layout">
 <aside>
+{{if .Prefix}}<a class="back" href="/">&larr; pw dev console</a>{{end}}
 <strong>storybook</strong>
 {{$current := .Template}}
 {{range $index, $t := .Templates}}
 {{if or (eq $index 0) (ne $t.Package (index $.Templates (add $index -1)).Package)}}<div class="group">{{$t.Package}}</div>{{end}}
-<a href="/story/{{$t.Package}}/{{$t.Name}}"{{if and $current (eq $current.Name $t.Name) (eq $current.Package $t.Package)}} class="here"{{end}}>{{$t.Name}}{{if not $t.Exported}}<span class="tag">unexported</span>{{end}}</a>
+<a href="{{$.Prefix}}/story/{{$t.Package}}/{{$t.Name}}"{{if and $current (eq $current.Name $t.Name) (eq $current.Package $t.Package)}} class="here"{{end}}>{{$t.Name}}{{if not $t.Exported}}<span class="tag">unexported</span>{{end}}</a>
 {{end}}
 </aside>
 <main>{{template "body" .}}</main>
@@ -74,8 +77,8 @@ var storyPage = template.Must(template.New("story").Funcs(functions).Parse(
 
 {{if $r.HasShell}}
 <div class="toggles">
-<a href="/story/{{.Template.Package}}/{{.Template.Name}}" class="{{if not $r.InShell}}on{{end}}">on its own</a>
-<a href="/story/{{.Template.Package}}/{{.Template.Name}}?shell=1" class="{{if $r.InShell}}on{{end}}">inside the document shell</a>
+<a href="{{$.Prefix}}/story/{{.Template.Package}}/{{.Template.Name}}" class="{{if not $r.InShell}}on{{end}}">on its own</a>
+<a href="{{$.Prefix}}/story/{{.Template.Package}}/{{.Template.Name}}?shell=1" class="{{if $r.InShell}}on{{end}}">inside the document shell</a>
 </div>
 {{end}}
 
@@ -85,7 +88,7 @@ var storyPage = template.Must(template.New("story").Funcs(functions).Parse(
 {{else}}
 <h2>Rendered</h2>
 <div class="preview">
-<iframe src="/raw/{{.Template.Package}}/{{.Template.Name}}{{if $r.InShell}}?shell=1{{end}}" title="{{.Template.Name}}"></iframe>
+<iframe src="{{$.Prefix}}/raw/{{.Template.Package}}/{{.Template.Name}}{{if $r.InShell}}?shell=1{{end}}" title="{{.Template.Name}}"></iframe>
 </div>
 <h2>HTML</h2>
 <pre>{{$r.Source}}</pre>
