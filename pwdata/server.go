@@ -155,6 +155,9 @@ type batchEdit struct {
 	Deletes []struct {
 		Key map[string]string `json:"key"`
 	} `json:"deletes"`
+	Inserts []struct {
+		Values map[string]string `json:"values"`
+	} `json:"inserts"`
 }
 
 // editRows applies a batch and reports the first failure by its own words.
@@ -179,6 +182,12 @@ func (s *Server) editRows(w http.ResponseWriter, r *http.Request) {
 		if _, err := connection.UpdateRow(r.Context(), RowEdit{
 			Table: table, Key: edit.Key, Values: edit.Values,
 		}); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+	}
+	for _, insert := range batch.Inserts {
+		if _, err := connection.InsertRow(r.Context(), RowEdit{Table: table, Values: insert.Values}); err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}

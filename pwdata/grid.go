@@ -44,15 +44,24 @@ const gridScript = `
       sortIndex = index;
       for (const other of table.querySelectorAll("th.sortable .dir")) other.textContent = "";
       header.querySelector(".dir").textContent = ascending ? "↑" : "↓";
-      const sorted = rows().sort((a, b) => {
+      const sorted = rows().filter(row => !isBlank(row)).sort((a, b) => {
         const left = cellText(a, index), right = cellText(b, index);
         const numeric = left !== "" && right !== "" && !isNaN(Number(left)) && !isNaN(Number(right));
         const order = numeric ? Number(left) - Number(right) : left.localeCompare(right);
         return ascending ? order : -order;
       });
+      const blanks = rows().filter(isBlank);
+      if (blanks.length) body.appendChild(blanks[0]);
       for (const row of sorted) body.appendChild(row);
+      for (const row of blanks.slice(1)) body.appendChild(row);
+      // The first blank moves back to the top after the sort reordered the rest.
+      if (blanks.length) body.insertBefore(blanks[0], body.firstChild);
     });
   }
+
+  // A blank row is never filtered away or sorted into the middle: it is the
+  // place to type, and it belongs at the ends where it was put.
+  const isBlank = row => row.dataset.new === "1";
 
   // Filtering. It matches anywhere in the row, because a developer filtering a
   // development table is looking for a value, not composing a predicate — the
@@ -63,12 +72,14 @@ const gridScript = `
     const needle = filter.value.trim().toLowerCase();
     let visible = 0;
     for (const row of rows()) {
+      if (isBlank(row)) continue;
       const hit = !needle || Array.from(row.cells).slice(1)
         .some((_, index) => cellText(row, index).toLowerCase().includes(needle));
       row.hidden = !hit;
       if (hit) visible++;
     }
-    shown.textContent = needle ? visible + " of " + rows().length + " rows" : "";
+    const total = rows().filter(row => !isBlank(row)).length;
+    shown.textContent = needle ? visible + " of " + total + " rows" : "";
   };
   filter.addEventListener("input", applyFilter);
 
@@ -81,7 +92,9 @@ const gridScript = `
 
   const rowState = row => {
     const edited = Array.from(row.querySelectorAll("input")).some(i => i.value !== i.dataset.original);
-    return { edited, deleted: row.dataset.deleted === "1" };
+    // A blank row is not an edit of anything; it is an insert waiting to be
+    // filled, and an untouched one is not a change at all.
+    return { edited, deleted: row.dataset.deleted === "1", isNew: row.dataset.new === "1" };
   };
   const refresh = () => {
     let dirty = 0;
@@ -95,9 +108,15 @@ const gridScript = `
       }
       const button = row.querySelector("button.act");
       if (button) {
-        button.textContent = marked ? "revert" : "del";
-        button.dataset.act = marked ? "revert" : "delete";
-        button.classList.toggle("danger", !marked);
+        if (state.isNew) {
+          button.textContent = "clr";
+          button.dataset.act = "clear";
+          button.classList.remove("danger");
+        } else {
+          button.textContent = marked ? "revert" : "del";
+          button.dataset.act = marked ? "revert" : "delete";
+          button.classList.toggle("danger", !marked);
+        }
       }
       if (marked) dirty++;
     }
@@ -112,7 +131,7 @@ const gridScript = `
     const button = event.target.closest("button.act");
     if (!button) return;
     const row = button.closest("tr");
-    if (button.dataset.act === "revert") {
+    if (button.dataset.act === "revert" || button.dataset.act === "clear") {
       row.dataset.deleted = "";
       for (const input of row.querySelectorAll("input")) input.value = input.dataset.original;
     } else {
@@ -122,24 +141,30 @@ const gridScript = `
   });
 
   save.addEventListener("click", async () => {
-    const edits = [], deletes = [];
+    const edits = [], deletes = [], inserts = [];
     for (const row of rows()) {
-      const key = JSON.parse(row.dataset.key || "{}");
       const state = rowState(row);
-      if (state.deleted) { deletes.push({ key }); continue; }
-      if (!state.edited) continue;
+      if (!state.edited && !state.deleted) continue;
       const values = {};
       for (const cell of row.querySelectorAll("td[data-column]")) {
         const input = cell.querySelector("input");
-        if (input && input.value !== input.dataset.original) values[cell.dataset.column] = input.value;
+        if (!input) continue;
+        // An insert sends only what was filled in, so a column left blank
+        // takes the default the schema decided rather than an empty string.
+        if (state.isNew ? input.value !== "" : input.value !== input.dataset.original) {
+          values[cell.dataset.column] = input.value;
+        }
       }
+      if (state.isNew) { inserts.push({ values }); continue; }
+      const key = JSON.parse(row.dataset.key || "{}");
+      if (state.deleted) { deletes.push({ key }); continue; }
       edits.push({ key, values });
     }
     save.disabled = true;
     const response = await fetch(table.dataset.endpoint, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ edits, deletes }),
+      body: JSON.stringify({ edits, deletes, inserts }),
     });
     if (response.ok) { location.reload(); return; }
     // A refused write leaves the page as it was, edits intact, so nothing is

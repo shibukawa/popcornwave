@@ -18,6 +18,24 @@ type otelConfig struct {
 }
 type OtelOption func(*otelConfig)
 
+// defaultSpanName names a request span "METHOD /path".
+//
+// The method alone is what this used to be, and it makes a trace list unusable:
+// every entry reads GET and the one thing distinguishing them is not shown.
+//
+// Semantic conventions prefer the matched route over the raw path, to bound
+// cardinality. The route is not available here: net/http sets it on the request
+// the mux hands the handler, which is a copy this middleware never sees, and
+// this middleware wraps the mux rather than living inside it. A project that
+// needs the route, or that wants the path grouped some other way, replaces this
+// through WithSpanName.
+func defaultSpanName(r *http.Request) string {
+	if r.URL == nil || r.URL.Path == "" {
+		return r.Method
+	}
+	return r.Method + " " + r.URL.Path
+}
+
 func WithTracerProvider(provider *trace.Provider) OtelOption {
 	return func(c *otelConfig) { c.provider = provider }
 }
@@ -32,7 +50,7 @@ func WithSpanName(format func(*http.Request) string) OtelOption {
 // Otel extracts W3C Trace Context, creates a server span, and installs it in
 // the request context. With no options it uses trace.DefaultProvider.
 func Otel(options ...OtelOption) Middleware {
-	cfg := otelConfig{provider: trace.DefaultProvider(), spanName: func(r *http.Request) string { return r.Method }}
+	cfg := otelConfig{provider: trace.DefaultProvider(), spanName: defaultSpanName}
 	for _, option := range options {
 		option(&cfg)
 	}

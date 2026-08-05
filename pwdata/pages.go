@@ -119,6 +119,8 @@ code { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:12.5px
 .panel[hidden] { display:none; }
 table.grid th.sortable { cursor:pointer; user-select:none; }
 table.grid th .dir { color:var(--muted); font-weight:400; margin-left:.2rem; }
+table.grid tr.blank td { background:color-mix(in srgb, var(--card) 60%, transparent); }
+table.grid tr.blank input::placeholder { color:var(--muted); opacity:.6; }
 table.grid td.dirty input, table.grid input.dirty { background:color-mix(in srgb, var(--bad) 18%, transparent); }
 table.grid tr.dirty td:first-child { border-left:2px solid var(--bad); }
 .filter { margin:.6rem 0; }
@@ -217,7 +219,14 @@ var tablesPage = page(`{{define "body"}}
 </table></div>
 {{end}}`)
 
-var tablePage = page(`{{define "body"}}
+var tablePage = page(`{{define "blankrow"}}
+<tr class="blank" data-new="1">
+<td><button class="act" data-act="clear" title="clear this new row">clr</button></td>
+{{range .Page.Columns}}<td data-column="{{.Name}}">
+<input value="" data-original="" placeholder="{{.Type}}{{if gt .PrimaryKey 0}} · pk{{end}}"></td>{{end}}
+</tr>
+{{end}}
+{{define "body"}}
 {{$page := .Page}}
 <h1>{{$page.Table}}</h1>
 <p class="sub"><code>{{.Connection.Label}}</code> · {{.Engine}}{{if .Connection.ReadOnly}} · <span class="warn">read-only replica</span>{{end}}</p>
@@ -262,6 +271,7 @@ var tablePage = page(`{{define "body"}}
  title="{{.Type}}{{if .NotNull}} · not null{{end}}{{if gt .PrimaryKey 0}} · primary key {{.PrimaryKey}}{{end}}">{{.Name}}<span class="dir"></span></th>{{end}}
 </tr></thead>
 <tbody>
+{{if and $.Keys (not $.Connection.ReadOnly)}}{{template "blankrow" $}}{{end}}
 {{range $rowIndex, $row := $page.Rows}}
 <tr data-key='{{keyJSON $page.Columns $row}}'>
 <td>{{if and $.Keys (not $.Connection.ReadOnly)}}<button class="danger act" data-act="delete">del</button>{{end}}</td>
@@ -276,6 +286,7 @@ var tablePage = page(`{{define "body"}}
 {{end}}
 </tr>
 {{end}}
+{{if and $.Keys (not $.Connection.ReadOnly)}}{{template "blankrow" $}}{{end}}
 </tbody>
 </table></div>
 
@@ -286,18 +297,8 @@ var tablePage = page(`{{define "body"}}
 <span class="note">rows {{str (inc $page.Offset 1)}}–{{str (inc $page.Offset (len $page.Rows))}}</span>
 </div>
 
-{{if and $.Keys (not $.Connection.ReadOnly)}}
-<h1 style="font-size:1rem;margin-top:2rem">Insert a row</h1>
-<form method="post" action="{{$.Prefix}}/table/{{$page.Table}}/row?c={{$.Connection.Label}}">
-<input type="hidden" name="offset" value="{{str $page.Offset}}">
-{{range $page.Columns}}
-<label>{{.Name}} <span class="note">{{.Type}}</span></label>
-<input class="text" name="value.{{.Name}}" placeholder="leave blank to use the column default">
-{{end}}
-<div class="bar"><button name="action" value="insert">insert</button></div>
-</form>
-{{end}}
 </div>
+
 
 <script>` + gridScript + `</script>
 {{end}}`)

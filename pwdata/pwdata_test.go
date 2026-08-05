@@ -615,3 +615,38 @@ func TestTablePageOffersSchemaAndDataTabs(t *testing.T) {
 		t.Errorf("a column header carries no type:\n%s", body)
 	}
 }
+
+// The insert row lives in the grid, at both ends, so a value is typed where the
+// other values are rather than in a separate stack of fields.
+func TestGridCarriesBlankRowsAtBothEnds(t *testing.T) {
+	recorder := httptest.NewRecorder()
+	serverFor(open(t)).Handler().ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/table/memos", nil))
+	body := recorder.Body.String()
+	if got := strings.Count(body, `data-new="1"`); got != 2 {
+		t.Errorf("blank rows = %d, want one at each end", got)
+	}
+	// The old stacked form is gone; the grid is the only place to insert.
+	if strings.Contains(body, "Insert a row") {
+		t.Error("the separate insert form is still rendered")
+	}
+}
+
+func TestBatchSaveInserts(t *testing.T) {
+	connection := open(t)
+	batch := `{"inserts":[{"values":{"id":"9","title":"typed in the grid"}}]}`
+	request := httptest.NewRequest(http.MethodPost, "/table/memos/rows", strings.NewReader(batch))
+	request.Header.Set("Content-Type", "application/json")
+	recorder := httptest.NewRecorder()
+	serverFor(connection).Handler().ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusNoContent {
+		t.Fatalf("status = %d (%s), want 204", recorder.Code, recorder.Body)
+	}
+	page, _ := connection.Rows(context.Background(), "memos", 0)
+	if len(page.Rows) != 3 {
+		t.Fatalf("rows = %d, want the inserted row", len(page.Rows))
+	}
+	// A column left blank took the default rather than an empty string.
+	if page.Rows[2][2] != nil {
+		t.Errorf("body = %q, want the column default", *page.Rows[2][2])
+	}
+}
