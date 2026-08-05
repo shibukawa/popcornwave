@@ -6,17 +6,56 @@ sidebar:
 ---
 
 ```sh
-pw init <project-name> [--tailwind] [--no-tinygo] [--no-devbox] [--no-database] [--db=<engine>] [--dynamo] [--no-redis] [--router=<kind>] [--auth=<mode>] [--session=<backend>] [--devidp] [-i]
+pw init <project-name> [--preset=<name>] [--yes] [--tailwind] [--no-tinygo] [--no-devbox] [--no-database] [--db=<engine>] [--dynamo] [--no-redis] [--router=<kind>] [--auth=<mode>] [--session=<backend>] [--devidp]
 ```
 
-新しいディレクトリに、動作する完全なプロジェクトを作ります。名前とオプションを
-渡せば非対話で動き、名前を省略するか `-i` を付けると、同じ選択肢をウィザードで
-答えられます。
+新しいディレクトリに、動作する完全なプロジェクトを作ります。端末で実行すると
+プリセットの一覧から始まり、`--yes` を付けるとオプションと既定値だけで動きます。
+スクリプトから呼ぶならこちらです。
+
+## プリセット
+
+質問はひとつずつ見れば、どれも答える価値のあるものでした。ただ 10 個並べたとき、
+まだ何も作っていない人がその順番を最後まで答えられるかというと、それは別の話です。
+
+プリセットは、実際に使われる数少ない組み合わせに名前を付けたものです。選んだあとに
+残る質問は、プロジェクト名ひとつだけになります。
+
+| プリセット | どんなプロジェクトか | 何が決まるか |
+| --- | --- | --- |
+| `website-login` | ページがサインインした人のものになるサイト | 探索型ルーティング、OIDC、Redis セッション、SQLite、Tailwind |
+| `website-aws` | 同じサイトを、運用するリレーショナルデータベースなしで | 探索型ルーティング、OIDC、すべて DynamoDB、Tailwind |
+| `website-discovered` | アカウントも保存するものもないサイト | 探索型ルーティング、Tailwind、ログインなし、データベースなし |
+| `website-registered` | 同じサイトを Go の登録として書く | 登録型ルーティング。ほかは同じ |
+| `api-server` | 呼び出す側がトークンを持ってくる機械向け API | 登録型ルーティング、JWT 検証、ブラウザログインなし |
+| `package` | 他のプロジェクトが import するモジュール | プロジェクトの種類が違う。[コンポーネントパッケージ](/ja/guides/deployment/package/)を参照 |
+| `manual` | 上の 6 つのどれでもないもの | 何も決めない。すべて自分で答える |
+
+TinyGo と Devbox はどのプリセットも同じ答え、つまりどちらも「はい」です。この 2 つは
+プロジェクトの中身を変えないので、プリセットを区別する材料になりません。端末なしで
+同じ答えを与えるなら `--preset=<name>` を使います。プリセットがすでに答えた質問に
+答えるオプションを併記すると拒否されます。どちらを優先すべきか、決める根拠がないためです。
+
+**確認画面はプリセットが選んだ内容の一覧で、その行はすべて編集できます。** 行の上で
+enter を押すとその質問が開き、答えると一覧に戻ります。プリセットは出発点であって、
+あとから動かせない決定ではありません。`manual` は同じ画面を、既定値の状態で開いた
+ものです。
+
+どれを選ぶか。フレームワークを試している段階なら `website-discovered` です。ページを
+返す最小のプロジェクトで、断った機能はどれも [`pw add`](/ja/pw/project/add/) ひとつで
+入ります。アカウントが要ると最初からわかっているなら `website-login` を取ってください。
+あとからログインを足すというのは、データベースとセッションストアとプロバイダを
+まとめて足すということで、プリセットはその 3 つを正しく結線した状態で始まります。
+
+決めた答えをあとから変える手順は
+[プリセットの選択を変える](/ja/pw/project/presets/)にまとめてあります。
 
 ## オプション
 
 | オプション | 効果 |
 | --- | --- |
+| `--preset=<name>` | 以下の質問すべてに一度に答える。[プリセット](#プリセット)を参照 |
+| `--yes` | 質問せず、オプションと既定値で作る |
 | `--tailwind` | Tailwind CSS のツールチェインも一緒にスキャフォールドする |
 | `--no-tinygo` | TinyGo ではなくホストの Go を対象にする |
 | `--no-devbox` | `devbox.json` を作らない。mise、Docker Compose、Nix、Homebrew、Scoop など自分の環境を使う |
@@ -26,9 +65,8 @@ pw init <project-name> [--tailwind] [--no-tinygo] [--no-devbox] [--no-database] 
 | `--no-redis` | `devbox.json` に Valkey 開発サーバーを入れない |
 | `--router=<kind>` | `registered`（既定）、`discovered`、`both`。[探索型ルーティング](/ja/guides/cross-layer/discovered-routing/#コマンド)を参照 |
 | `--auth=<mode>` | `none`（既定）、`oidc`、`oidc-passkey`、`passkey` |
-| `--session=<backend>` | ログインを作る場合のセッションの置き場所: `rdb`（既定）、`cookie`、`redis` |
+| `--session=<backend>` | ログインを作る場合のセッションの置き場所: `rdb`（既定）、`cookie`、`redis`、`dynamo` |
 | `--devidp` | OIDC を選んだ場合に、ローカルの認証プロバイダを組み込む |
-| `-i`, `--interactive` | 名前を与えた場合でも全項目を質問する |
 
 `--tailwind`、`--no-devbox`、`--no-database`、`--no-redis`、`--auth` はいずれも、
 あとから [`pw add`](/ja/pw/project/add/) で追加できる機能の選択です。断っても失うものは

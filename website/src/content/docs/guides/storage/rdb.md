@@ -176,7 +176,7 @@ the first request is accepted. One that cannot answer stops the deployment and
 is named by its label — `replica#2`, the group and its ordinal — so the message
 says which of five replicas is unreachable. A set that was partly opened is
 closed rather than served. What survives that is listed by the
-[startup summary](/productivity/startup-summary/), each connection with its
+[configuration summary](/productivity/startup-summary/), each connection with its
 group, its `readonly` flag, its pool bounds, and its redacted DSN.
 
 The [readiness endpoint](/guides/deployment/operational-endpoints/) pings every

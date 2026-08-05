@@ -49,6 +49,10 @@ caching:
   default: none; a cached admit is a revocation that has not taken effect yet
   bounded: auth.jwt.revocation.max_propagation_delay, off by default, which permits a per-process cache no longer than the delay it names
   honesty: the configured delay is the answer to how fast a revocation takes effect, and there is no other
+  bounded_in_size_too: the delay bounds how long an entry is trusted, and a cap on entries bounds how many are held; an unauthenticated caller chooses the keys, so the second bound is not an optimization
+  eviction: an entry past the delay is dropped rather than kept and re-judged on every read
+  cap: 4096 entries, swept of what the delay retired and discarded whole when that is not enough
+  why_discarding_is_enough: an entry is only an optimization, it is valid for the delay at most, and losing one costs a single indexed read, so the bookkeeping an eviction order would need buys nothing
 surface: api:bearer-authentication publishes the revoke and reinstate calls; no HTTP endpoint is mounted, because an endpoint that revokes tokens needs an authorization rule this framework has no basis to write
 rules:
   - consult the list only after policy:access-token-verification and policy:bearer-admission both pass

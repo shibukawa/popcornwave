@@ -48,7 +48,35 @@ const (
 	authOIDC        = "oidc"
 	authOIDCPasskey = "oidc-passkey"
 	authPasskey     = "passkey"
+	// authJWTOnly verifies a bearer token somebody else issued. It is absent
+	// from the wizard question and from --auth on purpose: it is reached by
+	// naming the project shape it belongs to, which is the api-server preset,
+	// rather than by answering a question every browser application also
+	// answers.
+	authJWTOnly = "jwt-only"
 )
+
+// authDevelopmentIssuer is the issuer name a scaffolded bearer project runs
+// with until an operator supplies a real one.
+//
+// Nothing is served there and nothing contacts it: under pw dev the relaxed
+// path never calls the verifier, so no metadata and no key set is fetched. It
+// exists because the mode refuses to start without an issuer — which is the
+// right rule everywhere — and because the identity a request resolves to is
+// derived from the issuer and the subject together, so a token has to name one.
+//
+// It is a loopback address on a port nothing runs on, which is the shape least
+// likely to be mistaken for a provider somebody should be pointing at.
+const authDevelopmentIssuer = "http://127.0.0.1:9999/dev-issuer"
+
+// servesBrowserLogin reports whether the mode mounts a login ceremony a person
+// walks through. The bearer mode authenticates every request from a header and
+// creates no account, so everything a login implies — a session record, an
+// identity provider, a CSRF token, the framework-owned ceremony tables — is
+// about the other modes.
+func servesBrowserLogin(options initOptions) bool {
+	return servesLogin(options) && options.Auth != authJWTOnly
+}
 
 // Session storage backends the wizard and the --session flag select between.
 // They are the api:session-backend-plugin names, and each one but cookie is
@@ -83,7 +111,7 @@ func sessionBackend(options initOptions) string {
 	if options.Session != "" {
 		return options.Session
 	}
-	if servesLogin(options) {
+	if servesBrowserLogin(options) {
 		// The default follows the store the project actually has. A relational
 		// default here would name a pool nothing opens.
 		if !options.Database && options.Dynamo {
@@ -222,6 +250,16 @@ func validRouter(router string) bool {
 // wizard produce the same value, and scaffoldFiles is its only consumer.
 type initOptions struct {
 	Name string
+	// Kind is the project.kind this scaffold writes. Empty means an
+	// application, which is what every answer below describes; kindPackage
+	// produces a module with no binary of its own, and the questions that
+	// describe an application do not apply to it.
+	Kind string
+	// Preset records which requirement:init-presets entry supplied the
+	// answers, so the review screen can say which one it is showing. It is a
+	// label rather than a scaffold input: nothing downstream reads it, and a
+	// created project records no preset it came from.
+	Preset string
 	// Router selects the routers this project starts with. Either can be
 	// installed later, so this is a starting point rather than a mode.
 	Router   string
@@ -292,6 +330,12 @@ func defaultInitOptions() initOptions {
 
 func parseInitArgs(args []string) (initOptions, error) {
 	options := defaultInitOptions()
+	// A preset is read before anything else, because it decides whether the
+	// rest of the flags are answers or a conflict.
+	preset, presetGiven, err := parsePresetArgs(args)
+	if err != nil {
+		return initOptions{}, err
+	}
 	var positional []string
 	// Tracked so --db can contradict --no-database. Without it the engine
 	// would silently apply to a project that has no database to apply it to.
@@ -340,6 +384,11 @@ func parseInitArgs(args []string) (initOptions, error) {
 		case "--no-devidp":
 			options.AuthEmulator = false
 		default:
+			// Both were read by parsePresetArgs above, which also settled what
+			// they mean together.
+			if strings.HasPrefix(arg, "--preset=") || strings.HasPrefix(arg, "--kind=") {
+				continue
+			}
 			if backend, ok := strings.CutPrefix(arg, "--session="); ok {
 				switch backend {
 				case sessionRDB, sessionCookie, sessionRedis, sessionDynamo, sessionFirestore:
@@ -389,6 +438,12 @@ func parseInitArgs(args []string) (initOptions, error) {
 	if len(positional) == 1 {
 		options.Name = strings.TrimSpace(positional[0])
 	}
+	if presetGiven {
+		// The preset is the answer to every question the flags above answer,
+		// and presetConflict has already refused a run that gave both. What is
+		// left to carry over is the name and --yes, which answer neither.
+		return applyPresetArgs(preset, options)
+	}
 	if !usesOIDC(options.Auth) {
 		options.AuthEmulator = false
 	}
@@ -435,7 +490,7 @@ func parseInitArgs(args []string) (initOptions, error) {
 // session wants the development server that serves it, and a project without a
 // login stores no sessions at all.
 func normalizeSession(options initOptions) initOptions {
-	if !servesLogin(options) {
+	if !servesBrowserLogin(options) {
 		return options
 	}
 	if sessionBackend(options) == sessionRedis && options.Devbox {
@@ -473,7 +528,12 @@ func runInit(args []string, stdout io.Writer) error {
 		// default worth guessing for a directory this command is about to create.
 		return fmt.Errorf("init: a project name is required without the wizard; %s", initUsage)
 	}
+	// A package is named by the module path a consumer imports, and created in
+	// the directory a checkout of that repository is called.
 	name := options.Name
+	if options.Kind == kindPackage {
+		name = moduleDirectory(options.Name)
+	}
 	destination, err := initDestination(name)
 	if err != nil {
 		return err
@@ -513,15 +573,44 @@ func runInit(args []string, stdout io.Writer) error {
 	}
 	generated, generateErr := generateProject(context.Background(), false, stdout, false)
 	restoreErr := os.Chdir(previous)
-	progress.Done()
 	if generateErr != nil {
+		progress.Done()
 		return fmt.Errorf("generate starter: %w", generateErr)
 	}
 	if restoreErr != nil {
+		progress.Done()
 		return restoreErr
 	}
+	if options.Kind == kindPackage {
+		// A package's only Go is the generated Go, so the tidy above ran over
+		// an empty module and resolved none of the imports that generation was
+		// about to write. An application has handwritten sources naming the
+		// same packages before the first tidy, which is why it needs one run
+		// and this needs two.
+		progress.Phase("resolving generated imports")
+		tidyGenerated := exec.Command("go", "mod", "tidy")
+		tidyGenerated.Dir = destination
+		tidyGenerated.Stdout = stdout
+		tidyGenerated.Stderr = stdout
+		tidyGenerated.Env = os.Environ()
+		if err := tidyGenerated.Run(); err != nil {
+			progress.Done()
+			return fmt.Errorf("resolve generated imports: %w", err)
+		}
+	}
+	progress.Done()
 	fmt.Fprintf(stdout, "\nCreated %s\n", name)
 	reportCreatedSources(stdout, files)
+	if options.Kind == kindPackage {
+		// The generated files are not the aside they are in an application:
+		// they are what a consumer compiles, and committing them is the one
+		// thing about this project kind somebody has to know.
+		fmt.Fprintf(stdout, "\n%d generated files, which this project commits\n"+
+			"  pw generate rebuilds them, and the scaffolded workflow fails when a commit is stale\n", generated)
+		fmt.Fprintf(stdout, "\n  cd %s\n  git init && git add . && git commit\n", name)
+		fmt.Fprint(stdout, "\npw dev and pw build do not apply to a package; go test is the loop\n")
+		return nil
+	}
 	// The generated files are build inputs, named after sources the operator has
 	// not read yet and excluded by the .gitignore this same scaffold wrote.
 	// Listing them answers no question; saying how to remake them does.
@@ -535,7 +624,7 @@ func runInit(args []string, stdout io.Writer) error {
 	}
 	// The cookie backend seals its records under a secret the project cannot
 	// invent for itself, so an operator has to supply one before the first run.
-	if servesLogin(options) && sessionBackend(options) == sessionCookie {
+	if servesBrowserLogin(options) && sessionBackend(options) == sessionCookie {
 		fmt.Fprint(stdout, "\nThe cookie session backend needs its sealing secret:\n"+
 			"  export SESSION_COOKIE_SECRET=$(openssl rand -base64 32)\n")
 	}
@@ -691,6 +780,13 @@ func validateProjectName(name string) error {
 }
 
 func scaffoldFiles(options initOptions) map[string]string {
+	if options.Kind == kindPackage {
+		// A different project kind rather than a different set of answers:
+		// there is no entry point, no document shell, no environment file, and
+		// no capability to configure, so this shares the editor files and
+		// nothing else.
+		return packageScaffoldFiles(options)
+	}
 	name := options.Name
 	moduleExtra := frameworkModuleDirective()
 	devboxPackages := []string{"go@latest"}
@@ -922,10 +1018,10 @@ import _ "github.com/shibukawa/tinygodriver/netdev"
 	if usesPasskey(options.Auth) {
 		files["public/passkey.js"] = passkeyBrowserScaffold(options)
 	}
-	if servesLogin(options) {
+	if servesBrowserLogin(options) {
 		files["public/presence.js"] = presenceBrowserScaffold()
 	}
-	if servesLogin(options) {
+	if servesBrowserLogin(options) {
 		files["handlers/accounts.go"] = accountsScaffold(options)
 		// The framework tables come from the packages that own them. A fresh
 		// project has only the application schema, so these take the versions
@@ -1174,7 +1270,7 @@ func LoadNote(ctx context.Context, id string, createdAt time.Time) (Note, error)
 // store the login was built on: a project with no relational database keeps
 // them in DynamoDB, and every other project keeps the relational default.
 func authBackend(options initOptions) string {
-	if servesLogin(options) && !options.Database {
+	if servesBrowserLogin(options) && !options.Database {
 		switch {
 		case options.Dynamo:
 			return "dynamo"
@@ -1195,7 +1291,17 @@ func sessionBackendImport(options initOptions) string {
 		imports += "\n\t// session.backend = \"" + sessionBackend(options) +
 			"\" is served by this import; storage is opt-in.\n\t_ " + strconv.Quote(plugin)
 	}
-	if servesLogin(options) {
+	if options.Auth == authJWTOnly {
+		// The bearer mode registers no account seam, so nothing else in this
+		// project would reach plugin/auth. Without the import the package is
+		// not linked, its extension never registers, and the [auth] section
+		// this scaffold wrote is read as plain keys nobody validates: startup
+		// accepts an empty issuer and every request arrives unauthenticated.
+		imports += "\n\t// The bearer verifier. It registers itself on import, and without\n" +
+			"\t// this line the [auth] section below is configuration nothing reads.\n\t_ " +
+			strconv.Quote("github.com/shibukawa/popcornwave/plugin/auth")
+	}
+	if servesBrowserLogin(options) {
 		if backend := authBackend(options); backend != "rdb" {
 			// A non-relational auth.backend moves all four stores plugin/auth
 			// owns, so both halves are imported: the ceremony store and the
@@ -1255,7 +1361,7 @@ func storeMiddlewareImport(options initOptions) string {
 // application-side wiring of a login: it also imports plugin/auth, whose
 // extensions serve the endpoints and resolve the session.
 func authBootstrap(options initOptions) string {
-	if !servesLogin(options) {
+	if !servesBrowserLogin(options) {
 		return ""
 	}
 	return "\n\t// Installed before Run: the framework calls these while it serves a login.\n\thandlers.RegisterAccounts()"
@@ -1472,7 +1578,7 @@ func IssueFirstPasskey(ctx context.Context, loginID, accountID string) (string, 
 // the signed-in user; the login itself belongs to the framework.
 func homeHandlerScaffold(options initOptions) string {
 	project := strconv.Quote(options.Name)
-	if !servesLogin(options) {
+	if !servesBrowserLogin(options) {
 		return `package handlers
 
 import (
@@ -1706,7 +1812,7 @@ func landingIncluded(options initOptions) []string {
 	if options.Dynamo {
 		items = append(items, "A DynamoDB store, with typed records in <code>"+defaultDynamoDir+"/</code>")
 	}
-	if servesLogin(options) {
+	if servesBrowserLogin(options) {
 		items = append(items, "Authentication, with the sign-in controls below served by the framework")
 	}
 	if options.Tailwind {
@@ -1748,7 +1854,7 @@ func muxTypeName(options initOptions) string {
 // because the endpoint accepts POST only.
 func homeTemplateScaffold(options initOptions) string {
 	style := landingStyleFor(options)
-	if !servesLogin(options) {
+	if !servesBrowserLogin(options) {
 		return `package handlers
 
 export component Home(name: string, project: string): html {
@@ -1897,6 +2003,28 @@ func authRuntimeConfig(options initOptions) string {
 	if !servesLogin(options) {
 		return ""
 	}
+	if options.Auth == authJWTOnly {
+		// A resource server mounts no login, sets no cookie, and starts no
+		// ceremony, so none of the session lifetimes or the protection
+		// redirect below applies to it. The backend key is left out with them:
+		// it names the storage of four ceremony stores this mode never opens.
+		return `
+# This application verifies a bearer token somebody else issued. It mounts no
+# login, no callback, and no logout: those are redirects a machine client
+# cannot follow.
+[auth]
+enabled = true
+mode = "` + authConfigMode(options.Auth) + `"
+# Opt in per path; everything else stays public. An unauthenticated request to
+# an included path is answered 401, because there is nowhere to redirect a
+# client that authenticates with its own issuer.
+protection.include = []
+protection.unauthenticated = "unauthorized"
+` + authJWTConfig(options) + authJWTDevelopmentConfig()
+		// The relaxation is appended here rather than guarded, because this
+		// section is written into config.dev.toml and nothing else. A stg or
+		// prod file added later carries the section above and not this line.
+	}
 	section := `
 # The framework serves every authentication path itself, so the application
 # registers no authentication route. Logout is POST only.
@@ -1931,7 +2059,7 @@ protection.unauthenticated = "redirect"
 // switching it on before there is one would refuse every post; leaving the
 // shape here means turning it on later is uncommenting rather than looking up.
 func securityRuntimeConfig(options initOptions) string {
-	if !servesLogin(options) {
+	if !servesBrowserLogin(options) {
 		// No session, so no token. The section would only describe a check that
 		// could not pass.
 		return ""
@@ -1986,9 +2114,98 @@ func authConfigMode(mode string) string {
 		return "oidc_passkey"
 	case authPasskey:
 		return "passkey_only"
+	case authJWTOnly:
+		return "jwt_only"
 	default:
 		return "oidc_only"
 	}
+}
+
+// authJWTConfig writes the resource-server section.
+//
+// The issuer and the audience are left empty, and startup fails naming
+// whichever is missing. That is the same shape as the external-provider answer
+// of the OIDC question, and it is the point: this application verifies tokens
+// an authorization server somebody else runs has minted, and no scaffold can
+// know which one or what it registered this API as. A written-out example
+// would be a value that parses, and a value that parses is a value somebody
+// ships.
+//
+// Everything else is stated rather than defaulted, because the mode refuses to
+// start on an omission: a permissive answer here would be the silent one.
+func authJWTConfig(options initOptions) string {
+	return `
+# The authorization server whose tokens this API accepts.
+#
+# These two are development placeholders and neither is contacted here: under
+# "pw dev" the token is read without being verified, so nothing fetches this
+# issuer's keys. They exist because the mode refuses to start without them,
+# which is the right rule everywhere and would otherwise leave this project
+# unable to run at all before you have an authorization server.
+#
+# Replace them in every deployed environment, from the environment:
+# AUTH_JWT_ISSUER, AUTH_JWT_AUDIENCE. There is no default for either — a
+# missing one fails startup naming the field rather than verifying nothing.
+[auth.jwt]
+issuer = "` + authDevelopmentIssuer + `"
+audience = ["` + options.Name + `"]
+# The development issuer above is loopback http, which an https-only client
+# refuses. A real issuer is https and this goes back to false.
+allow_loopback_http = true
+# Which signatures this API accepts. The token header names an algorithm and is
+# not trusted to choose one, so the list is stated here. Only RSA is offered:
+# the verification key comes from a published JWKS, and accepting an HMAC
+# algorithm would let anyone holding that public document mint their own tokens.
+algorithms = ["RS256"]
+# Which verified identities may use this API. "authenticated" admits everyone
+# the issuer above verified, which is right when that issuer only mints tokens
+# for people already entitled to this API. A shared issuer wants "claim"
+# instead, with claim.path and claim.values naming the tenant, department, or
+# application; "registered" admits an allowlist, and takes a database with it.
+admission = "authenticated"
+# Which claim is the stable identity. Read auth.User in a handler only after
+# installing a resolver; without one the request still carries the verified
+# subject and claims.
+identity_claim = "sub"
+# Bounds the exp-minus-iat check. This application cannot know how long the
+# issuer mints for, so it states what it is willing to accept.
+max_token_lifetime = "1h"
+# No revocation list, so a verified token is good until it expires. Turning
+# this on takes a database and the popcornwave_revoked_token migration with it.
+revocation.mode = "off"
+`
+}
+
+// authJWTDevelopmentConfig relaxes verification for the development file only.
+//
+// It is what makes a scaffolded API server developable on the first command:
+// there is no authorization server yet, and this admits a hand-written token
+// so there is something to curl. Every lock stays on — the pwdev build, a
+// development environment, this field, and a loopback address, all four at
+// once — and no other environment file carries the field at all. "pw doctor"
+// reports it as an error wherever else it appears.
+func authJWTDevelopmentConfig() string {
+	return `
+# Development only, and only under "pw dev" from this machine. A token is read
+# without checking its signature, its issuer, its audience, or its expiry, so
+# any hand-written JWT signs you in:
+#
+#   b64() { openssl base64 -A | tr '+/' '-_' | tr -d '='; }
+#   head=$(printf '{"alg":"none","typ":"at+jwt"}' | b64)
+#   body=$(printf '{"iss":"` + authDevelopmentIssuer + `","sub":"dev-user"}' | b64)
+#   curl -H "Authorization: Bearer $head.$body." http://127.0.0.1:8080/me
+#
+# The third segment is empty, because there is no signature to put there.
+#
+# "iss" and "sub" both have to be present. Nothing checks what the issuer says,
+# but the pair identifies the caller: the account this API sees is derived from
+# them, so changing either is how you develop as somebody else.
+#
+# Admission and revocation still run, so what you develop against is the real
+# rule rather than a bypass of it. A build without the development tag refuses
+# to start on this field rather than ignoring it.
+dev.trust_unverified_tokens = true
+`
 }
 
 // authPasskeyConfig writes the relying-party registration and the account
@@ -2130,7 +2347,15 @@ func mainScaffold(options initOptions) string {
 		imports += "\t\"" + name + "/" + registered + "\"\n\t\"github.com/shibukawa/popcornwave/pw\""
 		handler = registeredPkg + ".Handlers()"
 	case router == routerDiscovered:
-		imports += "\t\"" + name + "/" + discovered + "\"\n\t\"github.com/shibukawa/popcornwave/pw\""
+		imports += "\t\"" + name + "/" + discovered + "\""
+		if servesBrowserLogin(options) {
+			// The account seams live in the handler package whichever router
+			// this project took, and authBootstrap calls them below. A page
+			// tree with a login therefore imports a directory it serves no
+			// route from.
+			imports += "\n\t\"" + name + "/" + registered + "\""
+		}
+		imports += "\n\t\"github.com/shibukawa/popcornwave/pw\""
 		body = "\tmux := pw.NewServeMux()\n\t" + discoveredPkg + ".Register(mux)\n"
 		handler = "mux"
 	default:
@@ -2168,11 +2393,79 @@ func main() {
 // scaffold picks the default, and everything downstream reads generate.handlers
 // rather than the name.
 func registeredRouterScaffold(options initOptions, directory string) map[string]string {
-	return map[string]string{
-		directory + "/index.go":        muxScaffold(options),
-		directory + "/home_handler.go": homeHandlerScaffold(options),
-		directory + "/home.pw.html":    homeTemplateScaffold(options),
+	files := map[string]string{directory + "/index.go": muxScaffold(options)}
+	if options.Auth == authJWTOnly {
+		// A resource server answers machine clients. Its starter route shows
+		// reading the verified identity, which is what this project is for,
+		// and the landing page is left out rather than written for a browser
+		// none of its callers is using.
+		//
+		// The document shell and the error templates in templates/ stay: the
+		// error renderer still answers a browser that reaches a failing route,
+		// and requirement:typed-http-contract answers everything else.
+		files[directory+"/me_handler.go"] = bearerHandlerScaffold(options)
+		return files
 	}
+	files[directory+"/home_handler.go"] = homeHandlerScaffold(options)
+	files[directory+"/home.pw.html"] = homeTemplateScaffold(options)
+	return files
+}
+
+// bearerHandlerScaffold writes the endpoint that reports who the bearer token
+// says the caller is.
+//
+// It answers a typed value rather than a page: every client of this
+// application arrives with an Authorization header, and none of them follows a
+// redirect or renders HTML. What it demonstrates is that the identity is
+// already on the context by the time a handler runs — the middleware verified
+// the token, applied the admission rule, and either refused the request or put
+// this here.
+func bearerHandlerScaffold(options initOptions) string {
+	return `package handlers
+
+import (
+	"errors"
+	"net/http"
+
+	"github.com/shibukawa/popcornwave/pw"
+)
+
+// identity is what this route answers. It is an ordinary struct: pw generate
+// emits the encoder and the OpenAPI schema from it, so nothing here writes
+// JSON by hand.
+type identity struct {
+	Subject string   ` + "`json:\"subject\"`" + `
+	Method  string   ` + "`json:\"method\"`" + `
+	Scope   []string ` + "`json:\"scope,omitempty\"`" + `
+}
+
+func init() { mux.HandleFunc("GET /me", me) }
+
+// me reports the verified identity of the caller.
+//
+// There is no token parsing here and no header to read. By the time this runs
+// the framework has verified the signature against the issuer's key set,
+// checked the audience, the expiry, and the token type, applied the admission
+// rule of auth.jwt.admission, and consulted the revocation list when one is
+// configured. A request that failed any of those never reached this function.
+func me(w http.ResponseWriter, r *http.Request) {
+	// The zero value when nothing authenticated the request, which is what a
+	// path outside auth.protection.include gets. Adding "/me" to that list
+	// makes the framework answer 401 before this handler runs, and this check
+	// is what a path left public still needs.
+	authentication := pw.RequestAuthentication(r.Context())
+	if !authentication.Authenticated {
+		pw.WriteProblem(w, r, pw.Unauthorized(errors.New("this route needs a bearer token")))
+		return
+	}
+	pw.WriteAPI(w, r, identity{
+		Subject: authentication.Subject,
+		// "bearer" here, because that is what verified this request.
+		Method: authentication.Method,
+		Scope:  authentication.Scope,
+	})
+}
+`
 }
 
 // pageTreeScaffold writes a page tree into root: a layout, the root page, and

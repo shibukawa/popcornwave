@@ -7,7 +7,8 @@ The CLI gains a package project kind, so a concept:component-package is scaffold
 
 ```yaml
 scaffolding:
-  command: "pw init --kind package"
+  command: "pw init --kind package", reached from the package preset of requirement:init-presets, which is the same scaffold named in the list a reader is already looking at
+  detail: requirement:package-project-scaffold, which owns what this writes and adds the staleness-guard CI decision:committed-package-artifacts requires and nothing wrote
   writes:
     - data:project-config with project.kind = "package", no project.main, and the data:component-package-manifest package section
     - go.mod, .editorconfig, and .vscode settings, unchanged from the api:cli-init application scaffold

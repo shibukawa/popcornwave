@@ -189,6 +189,11 @@ A failed check makes `pw.Parse` return an error carrying the offending field.
 Passing it to `pw.WriteProblem` produces a 400 with field-level detail — see
 [Responses](/guides/frontend/responses/).
 
+Every tag above has more to it than the common case: which field kinds each rule
+accepts, how `input` resolves per kind, what a rest map excludes, and what
+reaches OpenAPI. That is
+[Request Binding](/reference/request-binding/).
+
 ## Request-scoped accessors
 
 | Call | Returns |

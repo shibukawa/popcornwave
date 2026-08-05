@@ -43,6 +43,11 @@ func Discover(ctx context.Context, issuer string, options DiscoverOptions) (*Pro
 		httpClient = &copy
 	}
 	httpClient.CheckRedirect = authn.RejectRedirect
+	// RequestTimeout is applied as a context deadline, and TinyGo's net/http
+	// ignores those. Discovery, the token exchange, and the userinfo request
+	// all run on a request handler and all talk to a host this application does
+	// not control, so the deadline has to be real on that runtime too.
+	httpClient = authn.EnforceDeadlines(httpClient)
 	clock := options.Clock
 	if clock == nil {
 		clock = time.Now

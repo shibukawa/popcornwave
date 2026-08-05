@@ -11,7 +11,9 @@ flow:
   steps:
     - id: choose
       actor: actor:application-developer
-      action: answer the decision:interactive-project-bootstrap wizard, which a project name argument seeds rather than skips; --yes or a session with no terminal takes the shortcut flags instead
+      action: pick a requirement:init-presets preset, per decision:preset-first-bootstrap; a named preset then asks the project name only, and Manual opens the decision:navigable-answer-hub over the decision:interactive-project-bootstrap questions
+      seeded_by: a project name argument, which seeds its step rather than skipping the wizard
+      shortcut: --preset, --yes, or a session with no terminal takes the flags instead
     - id: validate
       actor: system:pw-cli
       action: validate project name and destination

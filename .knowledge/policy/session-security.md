@@ -20,6 +20,25 @@ lifetime:
   declared_by: data:authentication-runtime-config, under auth.session
   enforced_by: api:session-manager and flow:session-lifecycle
   shape: an absolute expiry and an optional idle expiry, both authoritative on the server
+account_revocation:
+  rule: ending an account ends the sessions already issued to it, without waiting for their expiry
+  reason: data:user-account Suspended is read where a session is created, and a request that already has one creates nothing, so a check placed only at admission never runs again for the sessions that matter
+  mechanism: the account behind a live session is re-read through the installed AccountLookup where data:request-authentication is derived
+  why_not_a_stamp: an epoch compared against the session still has to be fetched from somewhere to be compared against, and the application already publishes exactly one way to ask about an account
+  bound: 30 seconds per account, cached in process; reading on every request would put a store round trip in front of every authenticated page
+  honesty: that interval is the answer to how fast a suspension reaches a live session, and there is no other
+  immediate: auth.ForgetAccount drops the cached answer, which is process-local, so a multi-instance deployment still waits the interval elsewhere
+  ended: a suspended or removed account has its session destroyed on the spot and the request continues anonymous, so the browser stops carrying a session nothing will honour
+  unavailable: a store that cannot answer produces 503 rather than an admission or a denial, because the credential was not judged and admitting on an outage would make every suspension conditional on the account store being up
+  no_lookup_installed: nothing to re-read and nothing refused, which is honest for a deployment that keeps no local account table
+login_slot_placement:
+  rule: a deployment that authenticates outside dev is told when its session backend cannot revoke, and decides
+  reason: under the cookie backend the login rotation promotes nothing, because the destination is where the value already is, so logout expires the client copy while a copy taken beforehand keeps authenticating to its sealed expiry, and account_revocation above has the same shape
+  mechanism: plugin/auth setup warns on session.backend = cookie, and rule:production-readiness-checks reports it as PW0506 against the configuration
+  dev: silent rather than quieter, because the pairing is the correct one there, where a login needing no infrastructure is the point and the exposure needs a browser someone else is holding; a warning printed on every local run is one an operator learns to scroll past, and this has to still be readable the day it appears in a staging log
+  why_not_a_refusal: the deployment is the only party that knows whether it can live without ending a session on demand, and refusing would take the cheapest backend away from the case it was built for
+  why_not_serveronly: the session package already refuses that backend for a session.ServerOnly slot, but the slot is registered from an init that cannot see whether auth is enabled, and that refusal has no environment in it
+  slot_stays_private: plugin/auth writes its slot only through establish at login, so the anonymous phase stores nothing either way and the placement buys nothing the warning does not
 rules:
   - rotate after login, privilege change, and other authentication-strength changes
   - authentication-strength change includes the re-proof of policy:reauthentication, which also resets idle expiry

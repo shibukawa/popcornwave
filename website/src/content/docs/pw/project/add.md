@@ -6,7 +6,7 @@ sidebar:
 ---
 
 ```sh
-pw add [devbox|database|dynamo|redis-valkey|auth|tailwind|images]
+pw add [registered|discovered|devbox|database|dynamo|redis-valkey|auth|tailwind|images]
 pw add <module-path>
 ```
 
@@ -30,6 +30,8 @@ and one `[[packages]]` entry, then prints the remaining commands. See
 
 | Capability | What it installs |
 | --- | --- |
+| `registered` | the handler tree, its mux, and one route registration written in Go |
+| `discovered` | the page tree, its layout, and the `generate.pages` entry that reads it |
 | `devbox` | `devbox.json` and `devbox.lock`, carrying the toolchain this project already uses |
 | `database` | the `[middleware.rdb]` section, the migration directory, and a typed SQL example |
 | `dynamo` | the `[middleware.dynamo]` section, a typed record, and the local DynamoDB server |

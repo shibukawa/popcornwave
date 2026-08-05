@@ -113,6 +113,34 @@ through `pw.RegisterExtension`, configuration through the generated binding that
 already registers itself, and routes through an exported `Register` the
 application calls. Nothing you register here answers a request on its own.
 
+If the package's Go lives below the module root — a `ui/` directory, say —
+`package.import` has to name that path, because it is what the consumer's
+generated bootstrap imports:
+
+```toml
+[package]
+module = "example.com/widget"
+import = "example.com/widget/ui"
+```
+
+Leaving it out points the import at a path holding no Go, and the consumer's
+build fails with the Go tool's `no required module provides package`, which
+names neither the declaration nor this key. [`pw doctor`](/pw/project/doctor/)
+reports it as `PW0144` before that happens.
+
+### Generation runs here, once
+
+`pw generate` in a package is the same run an application makes: it compiles
+`.pw.html` into `_pw_gen.go` beside its source, using the same generator with
+the same options. There is no package mode.
+
+One consequence catches people. Generated code imports the template runtime
+directly, so **the package's `go.mod` requires `tinybind-go` as a direct
+dependency** once you have generated. Run `go mod tidy` after the first
+generation and it lands there on its own — but it is a real part of your
+published dependency set, not an implementation detail, because your committed
+artifacts are what import it.
+
 ### Generated files are committed here
 
 This is the one rule that inverts. In an application, `_pw_gen.go` is ignored by
@@ -163,6 +191,22 @@ A module that carries a package section and no declaration stays an ordinary Go
 dependency. [`pw doctor`](/pw/project/doctor/) reports it — a transitive
 dependency contributing assets and a schema is a surprise worth naming — but
 nothing links it.
+
+### Mind the order against `go mod tidy`
+
+Nothing imports a freshly declared package until generation writes the import,
+and `go mod tidy` removes a requirement that nothing imports. Run them in this
+order:
+
+```sh
+go get example.com/widget   # or pw add, which does this for you
+pw generate                 # writes the blank import
+go mod tidy
+```
+
+Tidy first and the requirement disappears, so the next `pw generate` stops with
+`packages "example.com/widget": not in the module graph`. `pw add` follows this
+order on its own; writing the declaration by hand is where the trap is.
 
 ### The one line a declaration cannot replace
 

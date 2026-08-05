@@ -19,7 +19,7 @@ repository, applied by one command.
 | --- | --- |
 | seed data | rows loaded into a database to make it usable, separately from its schema |
 | dataset | one YAML file: table names mapped to lists of rows |
-| fixture | the same file when a test uses it as its starting state |
+| fixture | the same file when a test uses it as a known state — see [Fixtures](/productivity/testing/#fixtures) |
 
 The line between a seed and a [migration](/productivity/migrations/) is worth
 drawing precisely, because both put things into a database. A migration changes
@@ -51,6 +51,25 @@ Names are relative to the seed directory and the `.yaml` extension may be
 omitted, so `pw seed users` and `pw seed users.yaml` are one request. See
 [pw seed](/pw/database/seed/).
 
+### If you know DBUnit
+
+The model is DBUnit's: one file describes a set of tables, and the same file
+serves both as the state you load and as the state you compare against. The keys
+that shape either direction come from that lineage and work as described under
+[Fixtures](/productivity/testing/#fixtures) — `_operation` for the per-table
+operations DBUnit spells `CLEAN_INSERT`, `INSERT`, `TRUNCATE_TABLE`, and
+`DELETE`; `_match` for whether unlisted rows are tolerated; matcher values like
+`[notnull]` or `[currentdate, 2m]` for columns whose value cannot be written
+down in advance.
+
+What does not carry over is the file format. Datasets are YAML only. A DBUnit
+XML dataset is not converted and not read: `Resolve` accepts the name because it
+has an extension, and the YAML parser then rejects the first line with a message
+about a string where a mapping was expected. Nothing in Popcorn Wave or in
+[dbtestify](https://github.com/shibukawa/dbtestify), the library underneath,
+parses XML, CSV, or Excel — porting an existing DBUnit suite means converting
+the datasets.
+
 ## One file, two consumers
 
 The test helpers read these exact files:
@@ -66,7 +85,14 @@ server := testutil.TestRun(t, Handlers(), nil,
 starts; `WithSeedDir` moves the directory. Sharing the files is the point rather
 than a convenience: a fixture maintained separately from the seed drifts, and it
 drifts silently — the test keeps passing against a shape the development
-database no longer has. See [Testing](/productivity/testing/).
+database no longer has.
+
+A test also reads these files in the other direction. `server.AssertDB(t,
+"after_archive")` compares the database against a dataset and reports a per-table
+diff, so the expected state after a request is another file beside this one
+rather than a column of `SELECT` assertions. [Fixtures](/productivity/testing/#fixtures)
+covers that round trip, along with the match strategies and the per-table
+operations that make a dataset add to a table rather than replace it.
 
 ## Which database receives it
 

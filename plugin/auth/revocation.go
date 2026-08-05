@@ -190,6 +190,15 @@ func (s *RevocationStore) lookup(ctx context.Context, issuer, kind, key string) 
 	return entry, nil
 }
 
+// maxRevocationCacheEntries bounds how many answers this process holds.
+//
+// The delay above bounds how long one answer is trusted; this bounds how many
+// there can be. Both are needed, because the key is built from the issuer and
+// an identifier taken out of a presented token, so whoever presents tokens
+// chooses how many distinct entries the map is asked to hold, and nothing about
+// that caller has been authenticated at the point the lookup runs.
+const maxRevocationCacheEntries = 4096
+
 func (s *RevocationStore) cached(key string) (cachedRevocation, bool) {
 	if s.cache == nil {
 		return cachedRevocation{}, false
@@ -197,7 +206,13 @@ func (s *RevocationStore) cached(key string) (cachedRevocation, bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	entry, ok := s.cache[key]
-	if !ok || time.Since(entry.answeredAt) > s.config.MaxPropagationDelay {
+	if !ok {
+		return cachedRevocation{}, false
+	}
+	if time.Since(entry.answeredAt) > s.config.MaxPropagationDelay {
+		// Drop it rather than leave it to be re-judged on every later read: an
+		// entry past the delay can never be used again under this key.
+		delete(s.cache, key)
 		return cachedRevocation{}, false
 	}
 	return entry, true
@@ -207,10 +222,32 @@ func (s *RevocationStore) remember(key string, entry cachedRevocation) {
 	if s.cache == nil {
 		return
 	}
+	now := time.Now()
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	entry.answeredAt = time.Now()
+	if len(s.cache) >= maxRevocationCacheEntries {
+		s.evictLocked(now)
+	}
+	entry.answeredAt = now
 	s.cache[key] = entry
+}
+
+// evictLocked drops what the delay has already made unusable, and then
+// everything if that was not enough.
+//
+// Discarding the whole map is acceptable here where an eviction policy would
+// normally be wanted: an entry is only an optimization, it is valid for
+// max_propagation_delay at most, and losing one costs a single indexed read.
+// Growing without a bound is what is not acceptable.
+func (s *RevocationStore) evictLocked(now time.Time) {
+	for key, entry := range s.cache {
+		if now.Sub(entry.answeredAt) > s.config.MaxPropagationDelay {
+			delete(s.cache, key)
+		}
+	}
+	if len(s.cache) >= maxRevocationCacheEntries {
+		clear(s.cache)
+	}
 }
 
 // read runs the lookup. A backend failure is an error rather than "not

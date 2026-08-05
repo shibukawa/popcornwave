@@ -29,6 +29,9 @@ func runDev(ctx context.Context, args []string, stdout, stderr io.Writer) error 
 	if err != nil {
 		return err
 	}
+	if err := refuseInPackage(config, "dev"); err != nil {
+		return err
+	}
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	// Startup spends its time on services, generation, migration, and a build,

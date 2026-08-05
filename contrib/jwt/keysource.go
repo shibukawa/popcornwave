@@ -45,6 +45,7 @@ const (
 	maxMetadataMembers         = 128
 	defaultRefreshCooldown     = time.Minute
 	maxKeySourceRequestTimeout = time.Minute
+	defaultMaxStaleAge         = time.Hour
 )
 
 // KeySourceOptions configures a RemoteKeySet.
@@ -62,6 +63,20 @@ type KeySourceOptions struct {
 	RefreshCooldown time.Duration
 	// CacheTTL is how long a fetched key set is used before it is refetched.
 	CacheTTL time.Duration
+	// MaxStaleAge is how long past CacheTTL a failing refresh may keep the
+	// cached key set in use. Beyond it, verification fails rather than trusting
+	// keys this process can no longer confirm are published.
+	//
+	// The reachability of the issuer is what a refresh proves. A key withdrawn
+	// from the published set is withdrawn whether or not this process can fetch
+	// the document that says so, so an unbounded stale window makes a
+	// compromised key usable for exactly as long as the outage lasts.
+	//
+	// It defaults to defaultMaxStaleAge and is capped at maxKeySourceCacheTTL.
+	// There is deliberately no unbounded setting: an outage that outlasts the
+	// cap is an outage, and admitting tokens through it is a decision no
+	// default should make quietly.
+	MaxStaleAge time.Duration
 	// RequestTimeout bounds one metadata or key set request.
 	RequestTimeout time.Duration
 	// JWKS bounds the parsed key document.
@@ -104,7 +119,8 @@ func NewRemoteKeySet(issuer string, options KeySourceOptions) (*RemoteKeySet, er
 	}
 	if options.CacheTTL < 0 || options.CacheTTL > maxKeySourceCacheTTL ||
 		options.RefreshCooldown < 0 || options.RefreshCooldown > maxKeySourceCacheTTL ||
-		options.RequestTimeout < 0 || options.RequestTimeout > maxKeySourceRequestTimeout {
+		options.RequestTimeout < 0 || options.RequestTimeout > maxKeySourceRequestTimeout ||
+		options.MaxStaleAge < 0 || options.MaxStaleAge > maxKeySourceCacheTTL {
 		return nil, ErrInvalidOptions
 	}
 	issuerURL, err := authn.ParseEndpoint(issuer, options.AllowLoopbackHTTP)
@@ -119,6 +135,9 @@ func NewRemoteKeySet(issuer string, options KeySourceOptions) (*RemoteKeySet, er
 	}
 	if options.RequestTimeout == 0 {
 		options.RequestTimeout = defaultKeySourceTimeout
+	}
+	if options.MaxStaleAge == 0 {
+		options.MaxStaleAge = defaultMaxStaleAge
 	}
 	if options.Clock == nil {
 		options.Clock = time.Now
@@ -178,12 +197,19 @@ func (set *RemoteKeySet) current(ctx context.Context) (*JWKS, error) {
 		return set.keys, nil
 	}
 	if err := set.fetchLocked(ctx, now); err != nil {
-		if set.keys != nil {
+		if set.keys != nil && now.Sub(set.fetchedAt) <= set.options.CacheTTL+set.options.MaxStaleAge {
 			// A refresh failure on a set that still parses is not a reason to
 			// stop verifying: the keys did not become untrustworthy because the
 			// issuer became unreachable.
+			//
+			// That holds for an outage, not forever. Past the stale window the
+			// cached set is dropped, because a key withdrawn from the published
+			// document is withdrawn whether or not this process can read the
+			// document that says so, and serving it until the outage ends is
+			// how a compromised key stays usable.
 			return set.keys, nil
 		}
+		set.keys = nil
 		return nil, err
 	}
 	return set.keys, nil
@@ -299,6 +325,9 @@ func (set *RemoteKeySet) get(ctx context.Context, endpoint string) ([]byte, erro
 		client = &copied
 	}
 	client.CheckRedirect = authn.RejectRedirect
+	// The RequestTimeout below is a context deadline, which TinyGo's net/http
+	// does not act on. This is what makes it act on it there.
+	client = authn.EnforceDeadlines(client)
 
 	requestCtx, cancel := context.WithTimeout(ctx, set.options.RequestTimeout)
 	defer cancel()

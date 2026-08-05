@@ -2,7 +2,7 @@
 title: Build Tool Configuration
 description: Every key of popcornwave.toml — what pw generates, what pw dev runs beside your application, and where the migrations and stylesheet live.
 sidebar:
-  order: 3
+  order: 8
 ---
 
 `popcornwave.toml` sits at the project root and belongs to the `pw` command. It
@@ -70,11 +70,18 @@ rather than silently picking it up.
 | `generate.queries` | `.pw.sql` sources | yes |
 | `generate.config` | configuration registrations | yes |
 | `generate.pages` | [page tree](/guides/cross-layer/discovered-routing/) roots | no |
+| `generate.dynamo` | `dynamo`-tagged Go types and `.pw.dynamo` declarations | no |
 
-Every key but `pages` is required, and `[]` is how a project says a purpose
-generates nothing. A missing key cannot say that, which is why the empty list is
-not the same as leaving it out. `pages` is the exception because every project
-scaffolded before page trees existed has neither the key nor a tree.
+Every key but `pages` and `dynamo` is required, and `[]` is how a project says a
+purpose generates nothing. A missing key cannot say that, which is why the empty
+list is not the same as leaving it out. The two optional keys are the ones a
+project can predate: every project scaffolded before page trees existed has
+neither the key nor a tree, and a project with no DynamoDB gains the key when
+[`pw add dynamo`](/pw/project/add/) writes it.
+
+`dynamo` reads Go type declarations rather than a template language, which is
+why it is a purpose of its own instead of part of `queries`. See
+[DynamoDB Templates](/reference/dynamo-templates/).
 
 The rules on the entries themselves:
 
@@ -251,7 +258,7 @@ engines = ["sqlite"]
 | --- | --- |
 | `module` | *(required)* the Go module path, which must match `go.mod` |
 | `summary` | one line, shown when `pw add` reports the package |
-| `import` | the package path an application links, when it differs from the module root |
+| `import` | the package path an application links, when it differs from the module root; omitting it where the root holds no Go is `PW0144` |
 | `requires.capabilities` | project capabilities the package needs, such as `database` |
 | `requires.engines` | the SQL engines the package supports; empty means it touches no SQL |
 | `generated_with.pw`, `generated_with.tinybind` | the versions that produced the committed artifacts |

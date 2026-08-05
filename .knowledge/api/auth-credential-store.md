@@ -41,6 +41,13 @@ atomicity:
   limit: the framework cannot span two databases, so an application whose accounts live elsewhere must install a store and own the whole unit
   failure: a partially applied ceremony is a defect, not a recoverable state
   relational_only: the transaction is the relational default's mechanism; decision:dynamodb-auth-compensating-registration replaces it with an ordered sequence and a bounded set of named partial states, and the guide states the difference where the backend is selected
+counter_monotonicity:
+  rule: UpdateOnAssertion moves the stored sign counter forward or fails, in one conditional statement rather than a read and a write
+  tolerated: an incoming count of zero, which means the authenticator keeps no counter
+  reason: the counter exists to expose a cloned authenticator, and a value that can be overwritten with a lower one detects nothing
+  mechanism: the comparison rides in the WHERE clause of the relational UPDATE and in the DynamoDB condition expression, so both backends refuse the same thing and neither reads before it writes
+  reports: ErrUnknownCredential when nothing was updated, which covers a missing credential and a counter that did not advance; both fail the ceremony closed
+  stated_on_the_interface: the contract carries the rule, so a store an application installs is held to it rather than to whichever backend it was tested against
 rules:
   - the framework never writes a credential outside a store call
   - a store error fails the ceremony closed and is never downgraded to a warning

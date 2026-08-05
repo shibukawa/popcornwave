@@ -2,11 +2,10 @@ package middlewares
 
 import (
 	"net/http"
-	"net/url"
-	"strings"
 	"time"
 
 	"github.com/shibukawa/popcornwave/internal/pathpattern"
+	"github.com/shibukawa/popcornwave/internal/requestorigin"
 	"github.com/shibukawa/popcornwave/pwruntime"
 	"github.com/shibukawa/popcornwave/session"
 	"github.com/shibukawa/tinybind-go/htmlupdate"
@@ -71,10 +70,7 @@ func CSRF(config CSRFConfig, cookie session.CookieOptions, sameSite http.SameSit
 	// field and this reads it, so taking the reader from there is what keeps
 	// the two from disagreeing.
 	options := htmlupdate.Options{CSRFFieldName: config.FormField, CSRFHeaderName: config.Header}
-	trusted := make(map[string]bool, len(config.TrustedOrigins))
-	for _, origin := range config.TrustedOrigins {
-		trusted[origin] = true
-	}
+	trusted := requestorigin.Set(config.TrustedOrigins...)
 	ttl := config.TTL
 	if ttl <= 0 {
 		ttl = 12 * time.Hour
@@ -151,48 +147,14 @@ func protectedPath(include, exclude []pathpattern.Pattern, path string) bool {
 // checkOrigin refuses a request whose origin is neither this host nor one the
 // deployment named.
 //
-// Origin is preferred because a browser sets it on exactly the requests this
-// protects. Referer is the fallback for the case where a proxy stripped it, and
-// it is read strictly: a missing one is a refusal rather than a pass, since
-// treating absence as trust would make the whole check optional.
+// The comparison itself is requestorigin.Matches, shared with the
+// authentication endpoints so the two cannot drift; this keeps only the error
+// this middleware answers with.
 func checkOrigin(r *http.Request, trusted map[string]bool) error {
-	host := requestOrigin(r)
-	if origin := r.Header.Get("Origin"); origin != "" && origin != "null" {
-		if origin == host || trusted[origin] {
-			return nil
-		}
-		return errCSRFOrigin
-	}
-	referer := r.Header.Get("Referer")
-	if referer == "" {
-		return errCSRFOrigin
-	}
-	parsed, err := url.Parse(referer)
-	if err != nil || parsed.Scheme == "" || parsed.Host == "" {
-		return errCSRFOrigin
-	}
-	origin := parsed.Scheme + "://" + parsed.Host
-	if origin == host || trusted[origin] {
+	if requestorigin.Matches(r, trusted) {
 		return nil
 	}
 	return errCSRFOrigin
-}
-
-// requestOrigin reconstructs this request's own origin.
-//
-// A deployment behind a proxy that rewrites the scheme has to name its origin
-// in TrustedOrigins, because nothing here trusts a forwarded header: doing so
-// would let a caller assert the value the check compares against.
-func requestOrigin(r *http.Request) string {
-	scheme := "http"
-	if r.TLS != nil {
-		scheme = "https"
-	}
-	host := r.Host
-	if host == "" {
-		return ""
-	}
-	return scheme + "://" + strings.TrimSuffix(host, ":")
 }
 
 func writeCSRFStatus(w http.ResponseWriter, r *http.Request, reason error) {

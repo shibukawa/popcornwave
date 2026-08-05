@@ -164,7 +164,7 @@ read-your-writes のルーティングもありません。遅れているレプ
 ping されます。応答しない接続はデプロイを止め、`replica#2` のようにグループ名と連番の
 ラベルで名指しされます。5 台のレプリカのどれが届かないのかが、メッセージだけでわかります。
 途中まで開いた集合は、そのまま使われるのではなく閉じられます。そこを通り抜けたものを、
-[起動サマリ](/ja/productivity/startup-summary/)がグループ、`readonly` の有無、プールの上限、
+[設定サマリ](/ja/productivity/startup-summary/)がグループ、`readonly` の有無、プールの上限、
 マスク済みの DSN とともに並べます。
 
 [readiness エンドポイント](/ja/guides/deployment/operational-endpoints/)は、プロセスが動いて

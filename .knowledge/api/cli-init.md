@@ -6,14 +6,23 @@ title: pw init
 pw init creates a runnable Popcorn Wave project with a shared document shell, representative handler, typed page template, SQL query, error pages, Devbox environment, and generated-artifact conventions.
 
 ```yaml
-usage: pw init [myapp] [--yes] [--router=registered|discovered|both] [--tailwind|--no-tailwind] [--tinygo|--no-tinygo] [--devbox|--no-devbox] [--database|--no-database] [--db=sqlite|postgres|mysql] [--dynamo|--no-dynamo] [--redis|--no-redis] [--auth=none|oidc|oidc-passkey|passkey] [--session=rdb|cookie|redis] [--devidp|--no-devidp]
-mode: decision:interactive-project-bootstrap
+usage: pw init [myapp] [--preset=<name>] [--yes] [--router=registered|discovered|both] [--tailwind|--no-tailwind] [--tinygo|--no-tinygo] [--devbox|--no-devbox] [--database|--no-database] [--db=sqlite|postgres|mysql] [--dynamo|--no-dynamo] [--redis|--no-redis] [--auth=none|oidc|oidc-passkey|passkey] [--session=rdb|cookie|redis|dynamo] [--devidp|--no-devidp]
+mode: decision:interactive-project-bootstrap, opening on the preset step of decision:preset-first-bootstrap
 catalog: the capability questions are the requirement:incremental-project-capabilities catalog api:cli-add installs into an existing project
 inputs:
   directory: project directory; it seeds the project name step rather than skipping the wizard
   flags: shortcut answers that also seed the wizard
+  preset: requirement:init-presets answers, refused together with any capability flag it would answer
   yes: takes the flags and the defaults without asking, for a scripted run inside a terminal
 questions:
+  preset:
+    first: the screen every terminal run opens on
+    catalog: requirement:init-presets
+    effect: a named preset answers every question below except the project name, and the review screen shows what it answered
+    manual: opens decision:navigable-answer-hub on the defaults instead
+    kind: the package preset reaches the api:cli-package scaffold, per requirement:package-project-scaffold, and removes the questions that describe an application rather than answering them
+    api_server: the api-server preset writes requirement:jwt-only-api-authentication, per requirement:api-server-scaffold, which the authentication question below still refuses to offer
+    shortcut: --preset, beside the --kind spelling api:cli-package already carries
   project_name: directory and Go module name
   tinygo_support:
     default: yes
@@ -86,6 +95,7 @@ questions:
     rdb: one row per session through the sessionstore/sqlite blank import, with its rule:framework-owned-tables migration
     cookie: sealed into a second cookie with no storage and no import, and cookie_store.secret read from the environment
     redis: server-side TTL through the sessionstore/redis blank import, taking the Valkey development server with it
+    dynamo: one item per session through the sessionstore/dynamo blank import, expired by table TTL, per requirement:dynamodb-session-store; it is what the website-aws preset of requirement:init-presets takes
     writes: session.backend, the keys of the selected backend only, and the api:session-backend-plugin import in main
     rationale: the choice is a deployment decision, because every backend reads the same in a handler
   oidc_provider:
@@ -146,7 +156,9 @@ optional_css:
     - add pinned decision:tailwind-host-toolchain package to Devbox
     - create assets/app.css and application-owned CSS output wiring
 behavior:
-  - start the wizard on every terminal run, seeding the project name step from the directory argument when one was given
+  - start the wizard on the preset step for every terminal run, seeding the project name step from the directory argument when one was given
+  - ask nothing but the project name for a named preset, and show the review it answered
+  - refuse --preset together with any flag that answers a question the preset answers, before anything is written
   - skip the wizard only for --yes, or for a session with no terminal that was given a name
   - accept --interactive as a no-op, since the wizard it used to request is now the default
   - refuse and print usage when the session has no terminal and no name

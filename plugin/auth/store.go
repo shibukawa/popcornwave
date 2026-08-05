@@ -65,6 +65,12 @@ type CredentialStore interface {
 	Save(ctx context.Context, credential Credential, within func(ctx context.Context) error) error
 	// UpdateOnAssertion persists the accepted counter and backup state of a
 	// completed assertion.
+	//
+	// An implementation moves the stored counter forward or changes nothing,
+	// in one conditional statement rather than a read and a write, and
+	// tolerates an incoming count of zero from an authenticator that keeps
+	// none. It reports ErrUnknownCredential when nothing was updated, which
+	// covers both a missing credential and a counter that did not advance.
 	UpdateOnAssertion(ctx context.Context, credentialID []byte, signCount uint32, backupState bool, usedAt time.Time) error
 	// Delete removes one credential of an account.
 	Delete(ctx context.Context, accountID string, credentialID []byte) error
@@ -242,10 +248,27 @@ func (s dbStore) Save(ctx context.Context, credential Credential, within func(co
 	return tx.Commit()
 }
 
+// UpdateOnAssertion moves the stored counter forward or changes nothing.
+//
+// The WHERE clause carries the comparison rather than a read followed by a
+// write, so two assertions racing on one credential cannot leave the lower
+// count stored. A counter that can go backwards detects no clone, which is the
+// only thing it is for.
+//
+// A zero incoming count means the authenticator keeps none, and the comparison
+// is dropped for it. Zero rows updated is returned as ErrUnknownCredential
+// whether the credential is gone or the counter did not advance: both fail the
+// ceremony closed, and neither is downgraded to a warning. The DynamoDB store
+// applies the same condition and maps it the same way.
 func (s dbStore) UpdateOnAssertion(ctx context.Context, credentialID []byte, signCount uint32, backupState bool, usedAt time.Time) error {
-	result, err := s.executor(ctx).ExecContext(ctx, `UPDATE `+CredentialTable+`
-		SET sign_count = ?, backup_state = ?, last_used_at = ? WHERE credential_id = ?`,
-		signCount, backupState, usedAt, credentialID)
+	statement := `UPDATE ` + CredentialTable + `
+		SET sign_count = ?, backup_state = ?, last_used_at = ? WHERE credential_id = ?`
+	arguments := []any{signCount, backupState, usedAt, credentialID}
+	if signCount > 0 {
+		statement += ` AND sign_count < ?`
+		arguments = append(arguments, signCount)
+	}
+	result, err := s.executor(ctx).ExecContext(ctx, statement, arguments...)
 	if err != nil {
 		return err
 	}

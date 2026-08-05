@@ -255,6 +255,15 @@ func (r *checkRun) checkDependencies() {
 			"auth.enabled is true and session.enabled is false",
 			"session.enabled")
 	}
+	if authEnabled && sessionEnabled && r.Config.raw("session.backend") == "cookie" {
+		// The record travels with the browser, so nothing on the server can
+		// withdraw it: a logout expires the client's copy while a copy taken
+		// beforehand keeps authenticating to its sealed expiry, and account
+		// suspension has the same shape.
+		r.report(pwcheck.UnrevocableSession,
+			"auth.enabled is true and session.backend is cookie, so a logout cannot end a session already issued",
+			"session.backend")
+	}
 	if sessionEnabled && r.Config.raw("session.backend") == "rdb" &&
 		r.Config.raw("session.rdb.source") == "middleware" && !r.Config.enabled("middleware.rdb.enabled") {
 		r.report(pwcheck.SessionRDBWithoutMW,

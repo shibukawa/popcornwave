@@ -40,7 +40,7 @@ pw dev:   traces and logs export to OTEL_EXPORTER_OTLP_ENDPOINT as service "myap
 ありません。エンドポイントを指定することが、そのまま送信を有効にするからです。
 どこに送るかを書いた設定は、送ると言ったのと同じことです。実際に設定されるキーは
 [`[observability.otel]`](/ja/reference/configuration/#observabilityotel) にあり、
-そのすべてが[起動サマリ](/ja/productivity/startup-summary/)にも現れます。
+そのすべてが[設定サマリ](/ja/productivity/startup-summary/)にも現れます。
 
 ## 何が見えるのか
 

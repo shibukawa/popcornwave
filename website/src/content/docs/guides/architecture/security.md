@@ -195,6 +195,166 @@ as a handler would. Registration is the review point.
 the startup summary, and `pw doctor` reports a literal secret in a committed
 file. It cannot tell you the value was already leaked.
 
+## What development is allowed to do
+
+A number of settings mean something different depending on `APP_ENV`. None of
+them is read from a request, and none is inferred from a hostname — the
+environment is a token the deployment sets, and the framework treats an
+unrecognized one as a deployment rather than as development.
+
+The three tiers below are worth telling apart, because they fail at different
+times and one of them never fails at all.
+
+### Refused outside development
+
+These stop the process from starting. Each one turns a defense off rather than
+weakening it, which is why none of them is left to a warning.
+
+`session.cookie.secure = false` lets the session cookie travel over plain http.
+`pw init` writes it into the development configuration on purpose, and outside
+`dev` startup fails naming the setting. The exception is `same_site = none`
+without `secure`, which fails everywhere, because no browser accepts that
+combination as a cross-site cookie in the first place.
+
+`auth.jwt.dev.trust_unverified_tokens` admits a hand-written bearer token with
+no signature, so a developer with `curl` needs no authorization server. It has
+four locks and needs all of them: the `pwdev` build mode, an `APP_ENV` that is
+not `stg` or `prod`, the setting itself, and a request from a loopback address
+with no opt-out. A binary built without the tag fails at startup when it merely
+sees the setting, rather than ignoring it. What it does not relax is as
+important: admission, revocation, and the parser bounds all keep running, so a
+developer exercises the real rules rather than a bypass of them.
+
+The [development identity provider](/productivity/dev-identity-provider/)
+authenticates nobody — signing in means picking a user from a list — so it
+refuses to start under `prod` and binds to loopback with no opt-out. `pw build`
+also fails when the application being built imports it, so it cannot reach a
+release artifact by accident. [Authentication](/guides/backend/authentication/#development)
+covers how `pw dev` wires it up.
+
+### Allowed outside development, with a warning
+
+These start, warn at startup, and are reported by `pw doctor`. They cost
+visibility, durability, or defense in depth rather than switching authentication
+off, so the judgement stays with the deployment.
+
+| Setting | What it costs outside `dev` |
+| --- | --- |
+| `security.csrf.enabled = false` | Unsafe requests are not checked for origin or token |
+| `security.headers.enabled = false`, `hsts.enabled = false` | The browser applies a weaker response policy |
+| `observability.query.enabled` | SQL text reaches diagnostic records |
+| `observability.query.bind_values` | Row values reach them too — the only path by which application data enters a framework SQL record |
+| `observability.minimum_level = trace` or `debug` | Verbose logs in a deployed process |
+| A `sqlite` in-memory DSN | Schema and every row are lost at restart |
+| `server.public.read_local = true` | Assets are served from disk rather than the built tree |
+| `session.backend = cookie` with `auth.enabled` | A logout cannot end a session already issued — see below |
+
+`csrf.enabled` is the one to look at first. It is off by default, so a project
+that never turned it on is in this row without having chosen to be.
+
+### Different with no setting at all
+
+Error pages carry the whole problem in `dev` — message, cause, the detail the
+`Problem` was built with — and only a status and a title anywhere else. There is
+no configuration for this, and the template is the same in both: what changes is
+what it is handed. In development the reader is the person who caused the
+failure and is about to fix it. Everywhere else the same page is public.
+
+One relaxation is deliberately *not* environment-gated:
+`auth.oidc.allow_loopback_http` and its JWT counterpart permit an `http` issuer,
+and they are bounded by the host actually being loopback rather than by
+`APP_ENV`. That is a stronger bound than the environment token, which the
+deployment sets and can get wrong.
+
+## Known limits
+
+Four defenses here are bounded rather than absolute. Each bound is a
+consequence of something real — a browser keeps what it was given, a runtime
+cannot cancel a socket read — and none of them is a setting you can turn up
+until the problem goes away. They are listed because a limit you know about is
+one you can design around.
+
+### The cookie session backend cannot end a session
+
+`session.backend = cookie` seals the session record into the browser instead of
+storing it. That makes it the cheapest backend to run and the only one that
+needs no infrastructure, and it costs revocation: a record already written to a
+browser cannot be taken back, so logging out expires the client's copy while a
+copy taken beforehand keeps working until its sealed expiry. Account suspension
+has the same shape.
+
+Pairing it with a login is the right trade in development, where a login that
+needs no database is the whole point and the exposure needs a browser someone
+else is holding. So `dev` says nothing. Every other environment gets a warning
+at startup, and `pw doctor` reports `PW0506` against the configuration:
+
+```
+the login session is stored where it cannot be revoked
+```
+
+Neither one stops the process. The judgement stays with the deployment, which
+is the only party that knows whether it can live without ending a session on
+demand — but if you are reading that warning in a staging or production log, the
+answer is almost certainly no. Move to `rdb`, `redis`, or `dynamo`: logout and
+suspension are the two acts that make an incident survivable, and both need a
+record the server can delete.
+
+The cookie backend stays a good choice for a cart, a locale, or a wizard's
+progress with no login in front of it.
+
+### Suspending an account takes up to 30 seconds
+
+A suspended account is refused at login. It is also refused on requests that
+already have a session, because the account behind a live session is re-read as
+requests come in — but no more often than every 30 seconds per account, since
+reading it on every request would put a database round trip in front of every
+authenticated page.
+
+That interval is the honest answer to how quickly a suspension reaches a session
+someone is already holding. Call `auth.ForgetAccount(accountID)` from whatever
+performs the suspension and the next request re-reads immediately; that is
+process-local, so a deployment running several instances still waits out the
+interval on the others.
+
+When the account store cannot be reached at all, the request is refused with 503
+rather than being admitted or signed out. The credential was never judged, a
+retry may succeed, and admitting on an outage would make every suspension
+conditional on the account database being up.
+
+### A TinyGo build enforces its own request timeouts
+
+TinyGo's `net/http` dials and then reads with no deadline — its own source says
+so, in a `TINYGO: TODO handle timeouts` comment — so a `context.WithTimeout`
+around an OIDC discovery, a token exchange, or a JWKS fetch would bound nothing,
+and a slow identity provider would hold the request handler until the peer
+closed the connection.
+
+The OIDC and JWT clients wrap their transport on TinyGo builds so the deadline
+returns to the caller regardless. What the wrapper cannot do is cancel the round
+trip underneath it, because that runtime offers nowhere to cancel it: a hung
+provider costs a goroutine and a connection until the socket itself fails,
+rather than a stalled handler. Requests keep being served, and a provider that
+hangs indefinitely under sustained traffic is still worth an alert.
+
+None of this reproduces on a host Go build, including under
+`force_tinygo_logic`, which selects the TinyGo code paths while still linking
+the host `net/http`. Timeout behavior is one of the few things that has to be
+tested on the real toolchain.
+
+### Cached JWKS keys expire even during an outage
+
+Verification keys are fetched from the issuer and cached. When a refresh fails,
+the cached keys stay in use — an unreachable issuer does not make its keys
+wrong. That holds for an hour past the cache TTL, and then verification starts
+failing instead.
+
+The reason is that a key withdrawn from the published document is withdrawn
+whether or not this process can read the document that says so. An unbounded
+stale window would make a compromised key usable for exactly as long as the
+outage lasted, which is the window an attacker would choose. An hour is the
+default; `MaxStaleAge` moves it, up to 24 hours, and there is deliberately no
+setting for *forever*.
+
 ## Checking what is on
 
 `pw doctor` reads the merged configuration for the environment you name and

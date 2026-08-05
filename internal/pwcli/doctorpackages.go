@@ -39,8 +39,49 @@ func (r *checkRun) checkPackages(ctx context.Context) {
 		}
 		resolved = append(resolved, resolvedPackage{Module: ref.Module, Dir: dir, Manifest: manifest})
 	}
+	r.checkPackageImports(ctx, resolved)
 	r.checkPackageVersions(ctx, resolved)
 	r.checkUndeclaredPackages(ctx, declared)
+}
+
+// checkPackageImports reports a declared package whose import path holds no Go.
+//
+// Generation blank-imports that path, so the failure otherwise surfaces at
+// `go build` as the Go tool's "no required module provides package" — which
+// names neither the declaration that caused it nor the manifest key that
+// decides the path. A package whose Go lives below its module root has to say
+// so in `package.import`, and forgetting that is the ordinary way to get here.
+func (r *checkRun) checkPackageImports(ctx context.Context, resolved []resolvedPackage) {
+	for _, pkg := range resolved {
+		path := pkg.ImportPath()
+		if packageHasGo(ctx, r.Root, path) {
+			continue
+		}
+		message := fmt.Sprintf("%q has no Go package at %s, which is what the generated bootstrap imports", pkg.Module, path)
+		if pkg.Manifest.Import == "" {
+			message += "; its manifest sets no package.import, so the module root is used"
+		}
+		r.report(pwcheck.PackageImportMissing, message, "popcornwave.toml packages")
+	}
+}
+
+// packageHasGo asks the Go tool whether an import path resolves to a package.
+// The question is the same one the compiler will ask about the generated blank
+// import, so a directory listing of .go files would only approximate it — build
+// constraints, a directory of tests alone, and a replace directive all change
+// the answer.
+func packageHasGo(ctx context.Context, root, importPath string) bool {
+	command := exec.CommandContext(ctx, "go", "list", "-e", "-f", "{{if .Error}}error{{else}}{{.Name}}{{end}}", importPath)
+	command.Dir = root
+	output, err := command.Output()
+	if err != nil {
+		// The Go tool could not answer at all. That is a different condition
+		// from an empty package, and PW0140 already covers an unresolvable
+		// module, so this stays quiet rather than guessing.
+		return true
+	}
+	answer := strings.TrimSpace(string(output))
+	return answer != "" && answer != "error"
 }
 
 // checkUndeclaredPackages reports a module in the graph that publishes a package

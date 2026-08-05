@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/shibukawa/popcornwave/internal/pathpattern"
+	"github.com/shibukawa/popcornwave/internal/requestorigin"
 	"github.com/shibukawa/popcornwave/session"
 	"github.com/shibukawa/popcornwave/sessionconfig"
 )
@@ -656,6 +657,26 @@ func (h HintConfig) validate() error {
 func (c Config) usesOIDC() bool    { return c.Mode == ModeOIDCOnly || c.Mode == ModeOIDCPasskey }
 func (c Config) usesPasskey() bool { return c.Mode == ModeOIDCPasskey || c.Mode == ModePasskeyOnly }
 func (c Config) usesJWT() bool     { return c.Mode == ModeJWTOnly }
+
+// trustedOrigins are the origins the state-changing endpoints of this package
+// accept besides the one they reconstruct from the request itself.
+//
+// Both sources are origins this deployment already had to declare for another
+// reason: the passkey allowlist, which policy:passkey-security requires to be
+// explicit and HTTPS, and the OIDC redirect URL, which the provider will only
+// send a browser back to because it was registered there. Neither is a new
+// setting, and neither is inferred from a header a caller can send.
+//
+// This is what keeps a deployment behind a TLS-terminating proxy working: such
+// a request arrives without r.TLS, so its own origin reconstructs as http while
+// the browser reports https, and the origin it declared is the one that matches.
+func (c Config) trustedOrigins() map[string]bool {
+	origins := append([]string(nil), c.Passkey.Origins...)
+	if c.OIDC.RedirectURL != "" {
+		origins = append(origins, c.OIDC.RedirectURL)
+	}
+	return requestorigin.Set(origins...)
+}
 
 // revokesTokens and revokesSubjects report which lookups a verified token faces.
 func (r JWTRevocationConfig) revokesTokens() bool {

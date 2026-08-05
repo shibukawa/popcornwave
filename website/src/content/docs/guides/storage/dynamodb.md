@@ -165,6 +165,9 @@ Neither are secondary indexes, so a declared query runs against the table's own
 keys. The unchecked string key-condition form stays available for what the
 declaration cannot express.
 
+Every tag option, attribute type, key predicate, and generation check is in
+[DynamoDB Templates](/reference/dynamo-templates/).
+
 ## Declared names and deployed names
 
 Source declares `note`. A deployment may have called it `myapp-note-prod`, and

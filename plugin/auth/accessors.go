@@ -19,6 +19,14 @@ const sessionSlotKey = "pw_auth"
 // It is session.Private, which is the default placement: sealed either way, on
 // a cookie while the session is anonymous and on the configured backend from
 // the login onward. Nothing here is privileged in storage.
+//
+// Private rather than session.ServerOnly, even though a login wants to be
+// revocable, because this init cannot see whether auth is enabled and
+// ServerOnly would refuse the cookie backend outright for a deployment that
+// merely links this package. setupAuthentication warns about that pairing
+// itself, where both the configuration and the environment are known, and dev
+// is left alone. Nothing is written here before a login in any case: establish
+// is the only writer, so the anonymous phase stores nothing.
 func registerSessionSlot() {
 	pw.RegisterSessionStore[SessionData](sessionSlotKey, session.Private)
 }
