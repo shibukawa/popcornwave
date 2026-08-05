@@ -267,9 +267,9 @@ between the phases of one test:
 server.Seed(t, "initial")
 ```
 
-Each table named in the file is truncated and re-inserted, so a dataset returns
-that table to exactly what it describes regardless of what the previous phase
-did to it. Tables the file does not mention are untouched.
+By default each table named in the file is truncated and re-inserted, so a
+dataset returns that table to exactly what it describes regardless of what the
+previous phase did to it. Tables the file does not mention are untouched.
 
 Under `WithTransaction` both helpers operate inside the test transaction. That
 is what makes them usable together: `AssertDB` sees writes the request has not
@@ -277,18 +277,48 @@ committed, and rows `Seed` adds disappear with the rollback. Without it,
 `AssertDB` compares committed state only, and a request whose transaction is
 still open has not been compared at all.
 
-### Two things the dataset format does not do here
+### Adding to a table instead of replacing it
 
-A dataset may carry an `_operation` block, and dbtestify's own documentation
-describes it. Popcorn Wave parses that block and then ignores it — seeding is
-always clear-insert. A file asking for `insert` still truncates first, and the
-rows you expected to accumulate will not be there. Sequence the phases with
-separate datasets instead of trying to append with one.
+Truncate-then-insert is the default, not the only option. `_operation` selects
+something else per table:
 
-Row `_tag` filtering has the same shape of limitation. Tags parse, but neither
-`WithSeed` nor `Seed` exposes the include and exclude filters that would act on
-them, so every row in the file is applied. Split the rows across files when a
-test needs a subset.
+| Operation | Effect |
+| --- | --- |
+| `clear-insert` (default) | truncate the table, then insert the listed rows |
+| `insert` | insert the listed rows, leaving what is already there |
+| `upsert` | insert each listed row, updating it if the primary key exists |
+| `truncate` | empty the table and insert nothing |
+| `delete` | remove the rows whose primary keys the file lists |
+
+```yaml
+_operation:
+  member: insert
+  access_log: truncate
+
+member:
+- { id: 3, name: Heidi }
+```
+
+The key is `_operation`, singular. Writing `_operations` does not select
+anything — an unrecognised top-level key is read as a table name, so the parser
+reports a mapping where it wanted a list of rows, and the message says nothing
+about operations. The same trap applies to row tags, where the key is `_tag`.
+
+`upsert` and `delete` need the table's primary keys, and that lookup runs on the
+pool rather than on the transaction doing the seeding. A pool capped at one
+connection is therefore already empty when the lookup runs, and the seed stops
+there and waits. Reach for one of these two operations only under
+`WithTransaction`, which puts the lookup on the test transaction, or against a
+database whose pool can open a second connection — which rules out
+`sqlite://:memory:`, where a second connection would be a second empty database.
+`insert`, `truncate`, and the default need no primary keys and are unaffected.
+
+### Row tags are parsed but never filter
+
+A row may carry a `_tag` list, and dbtestify's CLI filters on it. Popcorn Wave
+exposes neither the include nor the exclude filter, so every row in the file is
+applied whatever its tags say. Split the rows across files when a test needs a
+subset.
 
 ## Asserting against the database
 

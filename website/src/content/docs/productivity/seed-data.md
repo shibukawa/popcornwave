@@ -54,11 +54,13 @@ omitted, so `pw seed users` and `pw seed users.yaml` are one request. See
 ### If you know DBUnit
 
 The model is DBUnit's: one file describes a set of tables, and the same file
-serves both as the state you load and as the state you compare against. The
-dataset keys that shape a comparison — `_match` for whether unlisted rows are
-tolerated, and matcher values like `[notnull]` or `[currentdate, 2m]` for
-columns whose value cannot be written down in advance — come from that lineage
-and work as described under [Fixtures](/productivity/testing/#fixtures).
+serves both as the state you load and as the state you compare against. The keys
+that shape either direction come from that lineage and work as described under
+[Fixtures](/productivity/testing/#fixtures) — `_operation` for the per-table
+operations DBUnit spells `CLEAN_INSERT`, `INSERT`, `TRUNCATE_TABLE`, and
+`DELETE`; `_match` for whether unlisted rows are tolerated; matcher values like
+`[notnull]` or `[currentdate, 2m]` for columns whose value cannot be written
+down in advance.
 
 What does not carry over is the file format. Datasets are YAML only. A DBUnit
 XML dataset is not converted and not read: `Resolve` accepts the name because it
@@ -89,8 +91,8 @@ A test also reads these files in the other direction. `server.AssertDB(t,
 "after_archive")` compares the database against a dataset and reports a per-table
 diff, so the expected state after a request is another file beside this one
 rather than a column of `SELECT` assertions. [Fixtures](/productivity/testing/#fixtures)
-covers that round trip, along with the match strategies and the two dataset keys
-that do not take effect through Popcorn Wave.
+covers that round trip, along with the match strategies and the per-table
+operations that make a dataset add to a table rather than replace it.
 
 ## Which database receives it
 
