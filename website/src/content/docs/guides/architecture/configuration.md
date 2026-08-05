@@ -209,4 +209,4 @@ one structured record everywhere else — so "did that value actually land?" has
 an answer that costs no extra log line. Each entry shows where its value came
 from, and a `secret` tag decides whether it is printed, masked, or dropped.
 `observability.boot_log` selects the format. See
-[Startup Summary](/productivity/startup-summary/).
+[Configuration Summary](/productivity/startup-summary/).

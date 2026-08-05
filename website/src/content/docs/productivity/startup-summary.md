@@ -1,6 +1,6 @@
 ---
-title: Startup Summary
-description: See which configuration values actually took effect, and where each one came from, in one record per start.
+title: Configuration Summary
+description: Check which configuration values actually took effect, and where each one came from, in one report per start.
 sidebar:
   order: 4
 ---
@@ -63,5 +63,5 @@ Keys containing `secret`, `password`, `token`, `credential`, `dsn`, or
 `private_key` appear as `[REDACTED]` in both formats.
 
 See [Configuration](/guides/architecture/configuration/) for where these values come from,
-and [Query Diagnostics](/productivity/query-diagnostics/) for the same idea
+and [Slow Query Diagnostics](/productivity/query-diagnostics/) for the same idea
 applied to SQL.

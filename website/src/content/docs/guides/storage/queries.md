@@ -232,7 +232,7 @@ level=WARN msg="sql executed" sql="SELECT name FROM items WHERE name = $1"
   reproduction=".parameter set $1 'alpha'\nSELECT name FROM items WHERE name = $1;"
 ```
 
-See [Query Diagnostics](/productivity/query-diagnostics/).
+See [Slow Query Diagnostics](/productivity/query-diagnostics/).
 
 The complete language — every statement kind, the generated signatures, the
 `export` casing rule, and `ScanRows` for grouping JOIN rows — is

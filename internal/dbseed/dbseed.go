@@ -88,6 +88,11 @@ func ResolveDialect(dsn string) (Dialect, error) {
 // inside a transaction, in which case dbtestify neither commits nor rolls back
 // and the caller's rollback undoes the seeding. Otherwise each dataset is
 // applied in its own transaction. The first failure stops the run.
+//
+// A dataset's own _operation block selects the per-table operation. dbtestify
+// reads operations from the option struct rather than from the parsed dataset,
+// so the caller has to carry them across — its CLI and HTTP API do the same.
+// Omitting that step silently clear-inserts every table.
 func Apply(ctx context.Context, exec Executor, dialect Dialect, inTransaction bool, paths []string) error {
 	connector, err := connector(exec, dialect, inTransaction)
 	if err != nil {
@@ -98,7 +103,9 @@ func Apply(ctx context.Context, exec Executor, dialect Dialect, inTransaction bo
 		if err != nil {
 			return err
 		}
-		if err := dbtestify.Seed(ctx, connector, dataset, dbtestify.SeedOpt{}); err != nil {
+		if err := dbtestify.Seed(ctx, connector, dataset, dbtestify.SeedOpt{
+			Operations: dataset.Operation,
+		}); err != nil {
 			return fmt.Errorf("seed %s: %w", filepath.Base(path), err)
 		}
 	}

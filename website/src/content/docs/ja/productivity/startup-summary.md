@@ -1,6 +1,6 @@
 ---
-title: 起動サマリ
-description: どの設定値が実際に効いたのか、それぞれがどこから来たのかを、起動 1 回につき 1 レコードで。
+title: 設定サマリ
+description: どの設定値が実際に効いたのか、それぞれがどこから来たのかを、起動 1 回につき 1 回だけ確認する。
 sidebar:
   order: 4
 ---
@@ -62,5 +62,5 @@ listening on http://localhost:8080
 どちらの形式でも `[REDACTED]` として記録されます。
 
 値の取得元については[設定](/ja/guides/architecture/configuration/)を、同じ考え方を SQL に
-適用したものについては[クエリー診断](/ja/productivity/query-diagnostics/)を
+適用したものについては[スロークエリー診断](/ja/productivity/query-diagnostics/)を
 参照してください。
