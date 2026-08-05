@@ -23,7 +23,9 @@ declared:
   registration:
     shape: a pwdev-constrained file generated into the queries package, so an unexported builder registers from where it is reachable
     same_technique: decision:dev-harness-process, which does this for templates
-    no_harness: the queries package is already linked into the application, which is the process serving the pane, so registering at package initialisation is enough
+    no_harness: the application is the process serving the pane, so registering at package initialisation is enough and no second process is built
+    linked_by: a pwdev-constrained import of every queries package, generated into the main package
+    why_linked: package initialisation runs only where something links the package, and a statement declared before the handler that will call it is linked from nowhere — which is exactly the statement worth trying here
     naming: the statement name survives only in the internal builder generation emits; the callable builder's spelling follows from whether the statement was exported, and is confirmed present rather than assumed
     arguments: a form field is text, so generation emits one converter call per parameter, named after the parameter, because a parse error without a field name is worse than the browser's own
     unsupported_type: the statement is still listed and says why it cannot be run, rather than being absent from a list a developer is scanning for it

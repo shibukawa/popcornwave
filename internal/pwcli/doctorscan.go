@@ -59,6 +59,7 @@ var packageArtifacts = map[string]bool{
 	// that source finds none and would report every project carrying them.
 	storybookFileName:     true,
 	queryRegistryFileName: true,
+	queryLinkFileName:     true,
 }
 
 func newProjectScan(root string, state projectState, configFiles map[string]string) *projectScan {

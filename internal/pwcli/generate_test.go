@@ -431,6 +431,80 @@ export component Note(): html {
 	}
 }
 
+// The data pane lists a declared statement only if the package registering it
+// is linked, and a statement declared before the handler that will call it is
+// linked from nowhere. The development-only import is what puts it in reach.
+func TestRunGenerateLinksQueryPackagesForDevelopment(t *testing.T) {
+	root := queryFixtureProject(t)
+	t.Chdir(root)
+	if err := runGenerate(context.Background(), nil, &strings.Builder{}); err != nil {
+		t.Fatal(err)
+	}
+
+	link := filepath.Join(root, "cmd", "fixture", queryLinkFileName)
+	source, err := os.ReadFile(link)
+	if err != nil {
+		t.Fatalf("the queries package was never linked: %v", err)
+	}
+	if !strings.HasPrefix(string(source), "//go:build pwdev") {
+		t.Fatalf("the link must be absent from a release build:\n%s", source)
+	}
+	if !strings.Contains(string(source), `_ "example.test/fixture/queries"`) {
+		t.Fatalf("the queries package is not imported:\n%s", source)
+	}
+}
+
+// Generating twice must plan nothing the second time. api:cli-generate reports
+// what it wrote and --check fails on what is left to write, so a planner that
+// plans every file it could produce makes a project stale the moment it is
+// generated.
+func TestRunGenerateIsIdempotent(t *testing.T) {
+	root := queryFixtureProject(t)
+	t.Chdir(root)
+	if err := runGenerate(context.Background(), nil, &strings.Builder{}); err != nil {
+		t.Fatal(err)
+	}
+	var second strings.Builder
+	if err := runGenerate(context.Background(), []string{"--check"}, &second); err != nil {
+		t.Fatalf("a freshly generated project was reported stale: %v\n%s", err, second.String())
+	}
+}
+
+// queryFixtureProject is a project holding both registries the development
+// panes read: a template beside a handler, and a declared statement.
+func queryFixtureProject(t *testing.T) string {
+	t.Helper()
+	root := t.TempDir()
+	for _, directory := range []string{"handlers", "queries", filepath.Join("cmd", "fixture")} {
+		if err := os.MkdirAll(filepath.Join(root, directory), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	writeTestFile(t, filepath.Join(root, "go.mod"), "module example.test/fixture\n\ngo 1.26.0\n")
+	writeTestFile(t, filepath.Join(root, "popcornwave.toml"),
+		"[project]\nname = \"fixture\"\nmain = \"./cmd/fixture\"\n\n[generate]\n"+
+			"handlers = [\"handlers\"]\ntemplates = [\"handlers\"]\nqueries = [\"queries\"]\nconfig = []\n")
+	writeTestFile(t, filepath.Join(root, "cmd", "fixture", "main.go"), "package main\n\nfunc main() {}\n")
+	writeTestFile(t, filepath.Join(root, "handlers", "home.pw.html"), `package handlers
+
+export component Home(name: string): html {
+<h1>Hello, {name}</h1>
+}
+`)
+	writeTestFile(t, filepath.Join(root, "queries", "users.pw.sql"), `package queries
+
+type User {
+  id: int
+  name: string
+}
+
+export statement FindUser(id: int): sql.one<User> {
+SELECT id, name FROM users WHERE id = {id}
+}
+`)
+	return root
+}
+
 // An absolute path buries the interesting part of a generation log, so the
 // prefix the operator is already standing in comes off.
 func TestChangePathsShortenAgainstTheWorkingDirectory(t *testing.T) {

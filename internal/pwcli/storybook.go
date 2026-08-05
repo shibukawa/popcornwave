@@ -264,10 +264,12 @@ func planStorybook(root string, config projectConfig, changes []fileChange) ([]f
 		if err != nil || len(templates) == 0 {
 			continue
 		}
-		changes = append(changes, fileChange{
-			path:   filepath.Join(directory, storybookFileName),
-			source: []byte(storybookRegistration(templates)),
-		})
+		changes, err = appendIfChanged(changes,
+			filepath.Join(directory, storybookFileName),
+			[]byte(storybookRegistration(templates)))
+		if err != nil {
+			return nil, err
+		}
 		relative, err := filepath.Rel(root, directory)
 		if err != nil {
 			return nil, err
@@ -278,8 +280,7 @@ func planStorybook(root string, config projectConfig, changes []fileChange) ([]f
 		return changes, nil
 	}
 	sort.Strings(packages)
-	return append(changes, fileChange{
-		path:   filepath.Join(root, storybookDirectory, "main_pw_gen.go"),
-		source: []byte(storybookHarness(modulePath, packages)),
-	}), nil
+	return appendIfChanged(changes,
+		filepath.Join(root, storybookDirectory, "main_pw_gen.go"),
+		[]byte(storybookHarness(modulePath, packages)))
 }
