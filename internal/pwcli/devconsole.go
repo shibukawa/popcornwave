@@ -19,7 +19,7 @@ import (
 // still a working one. The port is fixed, so a collision is a real conflict
 // with a real remedy, and saying which address is taken is more useful than
 // quietly moving to another one.
-func startDevConsole(root string, config projectConfig, telemetry *devTelemetryViewer, stdout, stderr io.Writer) *devconsole.Console {
+func startDevConsole(root string, config projectConfig, telemetry *devTelemetryViewer, storybook *devStorybook, stdout, stderr io.Writer) *devconsole.Console {
 	if !config.Console.Enabled {
 		return nil
 	}
@@ -33,7 +33,7 @@ func startDevConsole(root string, config projectConfig, telemetry *devTelemetryV
 			APIDocURL:      server.APIDocURL(),
 			APIDocKey:      "server.api_doc",
 		},
-		devConsolePanes(root, config, server, telemetry),
+		devConsolePanes(root, config, server, telemetry, storybook),
 	)
 	if err != nil {
 		fmt.Fprintln(stderr, "pw dev: console:", err)
@@ -47,7 +47,7 @@ func startDevConsole(root string, config projectConfig, telemetry *devTelemetryV
 // disabled pane is listed with the key that would enable it rather than left
 // out, so a developer who expected a surface is told why it is missing instead
 // of wondering whether the version they run has it.
-func devConsolePanes(root string, config projectConfig, server developmentServer, telemetry *devTelemetryViewer) []devconsole.Pane {
+func devConsolePanes(root string, config projectConfig, server developmentServer, telemetry *devTelemetryViewer, storybook *devStorybook) []devconsole.Pane {
 	panes := []devconsole.Pane{{
 		Slug:    "telemetry",
 		Title:   "telemetry",
@@ -82,7 +82,16 @@ func devConsolePanes(root string, config projectConfig, server developmentServer
 			Compressible: publicAssetCompressible,
 		})
 	}
-	return append(panes, assets)
+	panes = append(panes, assets)
+	// The storybook is listed whether or not it is running, because a pane the
+	// developer expected and cannot find is worth an explanation.
+	return append(panes, devconsole.Pane{
+		Slug:       "storybook",
+		Title:      "storybook",
+		Summary:    "every generated template rendered on its own, with parameters made up from its type",
+		Handler:    storybook.handler(),
+		DisabledBy: "dev.console.storybook.enabled",
+	})
 }
 
 // The variables the application reads to find the console and to know whether

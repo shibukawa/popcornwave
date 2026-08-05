@@ -24,15 +24,20 @@ parameters:
     location: beside the template, named for it
     content: named stories, each one parameter set
     absent: not an error; the synthesized set is used
+    status: not delivered; every story renders from the synthesized set today, and a template needing particular values is the case that will ask for this
   synthesized:
     derived_from: the resolved type graph flow:template-generation already builds
     values: representative rather than zero, so a string field shows as text and a slice shows more than one element
     determinism: identical inputs produce identical values, because a story that changes every render reports nothing
   slots: filled with marked placeholder content, so slot placement is visible without inventing a child template
 async:
+  status: not delivered; an async parameter renders at whatever its zero value produces until this lands
   states: a story renders at the fallback state and at the resolved state, selectable
   reason: requirement:async-html-rendering makes the fallback a real rendering an application ships, and a route only shows it while it is racing
   bounds: policy:async-render-bounds unchanged; the pane resolves rather than waits
+preview:
+  form: the story is framed from a page carrying nothing of the storybook, so the harness stylesheet never reaches the markup under review
+  raw: that page is also the plain output, which is what makes the frame possible without a second rendering path
 shows:
   - the rendered result
   - the same result inside the document shell, toggled, because requirement:tailwind-css-integration styles reach it only there

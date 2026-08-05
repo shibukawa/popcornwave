@@ -13,7 +13,7 @@ steps:
   - run api:cli-migrate up when data:project-config migration.auto is enabled
   - start requirement:contrib-devidp when data:project-config dev.idp.enabled is true
   - start requirement:dev-console unless data:project-config dev.console disables it, which mounts requirement:dev-telemetry-viewer and every other enabled pane
-  - build and start the decision:dev-harness-process binary when a pane needing it is enabled
+  - build and start the decision:dev-harness-process binary when a pane needing it is enabled, and rebuild it with the project so a template edit reaches the storybook the way it reaches the application
   - start flow:tailwind-css-build watch mode when enabled
   - enable decision:development-public-assets
   - build and run data:project-config project.main

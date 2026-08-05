@@ -29,7 +29,7 @@ func startTestConsole(t *testing.T, files map[string]string) (string, *bytes.Buf
 		t.Fatalf("viewer: %v", err)
 	}
 	t.Cleanup(telemetry.close)
-	console := startDevConsole(root, config, telemetry, stdout, stderr)
+	console := startDevConsole(root, config, telemetry, nil, stdout, stderr)
 	if console == nil {
 		t.Fatalf("the console did not start:\n%s", stderr)
 	}
@@ -81,7 +81,7 @@ func TestTelemetryPaneIsServedByTheConsoleWhileTheReceiverKeepsItsPort(t *testin
 		t.Fatalf("viewer: %v", err)
 	}
 	t.Cleanup(telemetry.close)
-	console := startDevConsole(root, config, telemetry, stdout, stderr)
+	console := startDevConsole(root, config, telemetry, nil, stdout, stderr)
 	if console == nil {
 		t.Fatalf("the console did not start:\n%s", stderr)
 	}
@@ -124,7 +124,7 @@ func TestDisabledConsoleStartsNoListener(t *testing.T) {
 		t.Fatalf("load: %v", err)
 	}
 	stdout, stderr := &bytes.Buffer{}, &bytes.Buffer{}
-	if console := startDevConsole(root, config, nil, stdout, stderr); console != nil {
+	if console := startDevConsole(root, config, nil, nil, stdout, stderr); console != nil {
 		console.Close()
 		t.Fatal("a disabled console still took a port")
 	}
@@ -147,7 +147,7 @@ func TestConsolePortCollisionIsReportedAndNotFatal(t *testing.T) {
 		t.Fatalf("load: %v", err)
 	}
 	stdout, stderr := &bytes.Buffer{}, &bytes.Buffer{}
-	if console := startDevConsole(root, config, nil, stdout, stderr); console != nil {
+	if console := startDevConsole(root, config, nil, nil, stdout, stderr); console != nil {
 		console.Close()
 		t.Fatal("two consoles bound the same port")
 	}
@@ -248,7 +248,7 @@ func TestOverlayInjectionFollowsTheConfiguration(t *testing.T) {
 	root := writeProject(t, map[string]string{"popcornwave.toml": consoleProject})
 	config, _ := loadProjectConfig(root)
 	stdout, stderr := &bytes.Buffer{}, &bytes.Buffer{}
-	console := startDevConsole(root, config, nil, stdout, stderr)
+	console := startDevConsole(root, config, nil, nil, stdout, stderr)
 	if console == nil {
 		t.Fatalf("the console did not start:\n%s", stderr)
 	}
@@ -306,7 +306,7 @@ func TestTheMountedPaneAcceptsOTLPAtItsOwnBase(t *testing.T) {
 		t.Fatalf("viewer: %v", err)
 	}
 	t.Cleanup(telemetry.close)
-	console := startDevConsole(root, config, telemetry, stdout, stderr)
+	console := startDevConsole(root, config, telemetry, nil, stdout, stderr)
 	if console == nil {
 		t.Fatalf("the console did not start:\n%s", stderr)
 	}

@@ -93,6 +93,10 @@ type consoleConfig struct {
 	// Reload reloads a page whose application has been replaced. It only
 	// applies where the overlay is already attached.
 	Reload bool
+	// Storybook builds and runs the generated harness that renders templates
+	// on their own. It is the one pane whose availability depends on a second
+	// build succeeding.
+	Storybook bool
 }
 
 // generationScope records, per generation purpose, the directories pw generate
@@ -181,6 +185,7 @@ func loadProjectConfig(root string) (projectConfig, error) {
 		"dev.otel.enabled", "dev.otel.port", "dev.otel.max",
 		"dev.console.enabled", "dev.console.port", "dev.console.assets.enabled",
 		"dev.console.overlay.enabled", "dev.console.overlay.reload",
+		"dev.console.storybook.enabled",
 		"migration.dir", "migration.auto",
 		"assets.tailwind.enabled", "assets.tailwind.input",
 		"assets.tailwind.output", "assets.tailwind.minify",
@@ -289,6 +294,7 @@ func loadProjectConfig(root string) (projectConfig, error) {
 	config.Console.Assets = true
 	config.Console.Overlay = true
 	config.Console.Reload = true
+	config.Console.Storybook = true
 	config.Console.Port = defaultConsolePort
 	if value, ok := document.Get("dev.console.enabled"); ok {
 		config.Console.Enabled, err = value.AsBool()
@@ -312,6 +318,12 @@ func loadProjectConfig(root string) (projectConfig, error) {
 		config.Console.Reload, err = value.AsBool()
 		if err != nil {
 			return projectConfig{}, fmt.Errorf("popcornwave.toml: dev.console.overlay.reload: %w", err)
+		}
+	}
+	if value, ok := document.Get("dev.console.storybook.enabled"); ok {
+		config.Console.Storybook, err = value.AsBool()
+		if err != nil {
+			return projectConfig{}, fmt.Errorf("popcornwave.toml: dev.console.storybook.enabled: %w", err)
 		}
 	}
 	if value, ok := document.Get("dev.console.port"); ok {

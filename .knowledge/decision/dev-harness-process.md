@@ -15,6 +15,18 @@ problem:
 decision:
   artifact: one main package api:cli-generate emits under the pwdev build constraint
   content: blank imports of every package a pane needs, plus a server over the registries those packages register into
+  location:
+    directory: .pwstorybook at the project root
+    why_dotted: the go tool skips a dot directory when it expands a wildcard, so go build ./... and go vet ./... never meet a main package whose only file a build constraint excludes, which would otherwise be an error in every project that has one
+    reachable: an explicit path still resolves it, which is how pw runs it
+  registration:
+    shape: one file per template package, generated inside it, so an unexported binder is registered from where it is reachable
+    source: the generated Go rather than the template source, because what the harness calls is the emitted function and its parameter type
+    timing: planned from the output the same run is about to write, not from the disk, so api:cli-generate check mode still reports drift without writing anything
+    sweep: the registration file is exempt from the stale-generated-file sweep, which runs before it and would otherwise delete on every run what this step writes on every run
+  address:
+    mechanism: pw reserves a loopback port and hands it to the harness, so the console can proxy to an address it chose rather than parse one out of a shared log stream
+    pane_before_process: the pane is registered before the first generation run produces the harness, so the handler is an indirection over an address filled in later and reports its own absence until then
   build: host Go with the pwdev tag, the way api:cli-dev already builds the application
   lifetime: started with requirement:dev-console, rebuilt on the same watched changes, and stopped with the developer loop
   mount: requirement:dev-console proxies each pane to it, so the developer still sees one listener and one URL

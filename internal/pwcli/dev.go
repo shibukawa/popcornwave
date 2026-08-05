@@ -45,7 +45,14 @@ func runDev(ctx context.Context, args []string, stdout, stderr io.Writer) error 
 		}
 		defer telemetry.close()
 	}
-	console := startDevConsole(root, config, telemetry, stdout, stderr)
+	// The pane is registered before the harness exists, because the harness is
+	// one of the things the first generation run produces.
+	var storybook *devStorybook
+	if config.Console.Storybook {
+		storybook = &devStorybook{}
+		defer storybook.stop()
+	}
+	console := startDevConsole(root, config, telemetry, storybook, stdout, stderr)
 	defer console.Close()
 
 	// Startup spends its time on services, generation, migration, and a build,
@@ -61,6 +68,7 @@ func runDev(ctx context.Context, args []string, stdout, stderr io.Writer) error 
 		report.Failed(err)
 		return err
 	}
+	storybook.start(root, stdout, stderr)
 	report.Phase("applying migrations")
 	if err := runDevMigrations(ctx, root, config, stdout, stderr); err != nil {
 		report.Failed(err)
@@ -195,6 +203,10 @@ func runDev(ctx context.Context, args []string, stdout, stderr io.Writer) error 
 				state = next
 				continue
 			}
+			// The harness is rebuilt with the project, so a template edit is
+			// visible in the storybook for the same reason it is visible in
+			// the application.
+			storybook.start(root, stdout, stderr)
 			state, _ = watchSnapshot(root, config, tailwind == nil)
 			report.Phase("building and starting the application")
 			app, exited, err = startApplication(ctx, root, config.Main, idp, telemetry, console, config.Console.Overlay, config.Console.Reload, stdout, stderr)
