@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"path/filepath"
+	"strconv"
 	"testing"
 	"time"
 
@@ -24,6 +25,45 @@ func revocationStore(t *testing.T, mode string) *RevocationStore {
 	config := validJWTConfig().JWT
 	config.Revocation.Mode = mode
 	return newRevocationStore(db, "sqlite", config)
+}
+
+func TestRevocationCacheIsBounded(t *testing.T) {
+	store := revocationStore(t, RevocationToken)
+	store.config.MaxPropagationDelay = time.Minute
+	store.cache = make(map[string]cachedRevocation)
+
+	// The key carries an identifier taken out of a presented token, so the
+	// number of distinct entries is chosen by whoever presents tokens.
+	for i := range maxRevocationCacheEntries * 2 {
+		store.remember("issuer\x00token\x00"+strconv.Itoa(i), cachedRevocation{})
+		if len(store.cache) > maxRevocationCacheEntries {
+			t.Fatalf("cache grew to %d entries, past the %d cap", len(store.cache), maxRevocationCacheEntries)
+		}
+	}
+	if len(store.cache) == 0 {
+		t.Fatal("the cache retained nothing at all")
+	}
+}
+
+func TestRevocationCacheDropsWhatTheDelayExpired(t *testing.T) {
+	store := revocationStore(t, RevocationToken)
+	store.config.MaxPropagationDelay = time.Minute
+	store.cache = map[string]cachedRevocation{
+		"stale": {answeredAt: time.Now().Add(-2 * time.Minute)},
+		"fresh": {answeredAt: time.Now()},
+	}
+
+	// Reading an entry the delay has already retired removes it, rather than
+	// leaving it to be re-judged on every later read.
+	if _, ok := store.cached("stale"); ok {
+		t.Fatal("an entry past the delay was used")
+	}
+	if _, found := store.cache["stale"]; found {
+		t.Fatal("an entry past the delay was kept")
+	}
+	if _, ok := store.cached("fresh"); !ok {
+		t.Fatal("an entry within the delay was discarded")
+	}
 }
 
 func bearerIdentity(issuer, subject, tokenID string, issuedAt time.Time) Identity {

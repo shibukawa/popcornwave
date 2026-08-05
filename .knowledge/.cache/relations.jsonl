@@ -2320,6 +2320,7 @@
 {"context": "body", "path": ".knowledge/policy/generated-artifacts.md", "source": "policy:generated-artifacts", "target": "decision:committed-package-artifacts", "target_category": "constraint", "target_type": "decision"}
 {"context": "body", "path": ".knowledge/policy/generated-artifacts.md", "source": "policy:generated-artifacts", "target": "decision:tinybind-sql-runtime", "target_category": "constraint", "target_type": "decision"}
 {"context": "body", "path": ".knowledge/policy/generated-artifacts.md", "source": "policy:generated-artifacts", "target": "system:tinybind", "target_category": "external", "target_type": "system"}
+{"context": "body", "path": ".knowledge/policy/jwt-security.md", "source": "policy:jwt-security", "target": "policy:token-revocation", "target_category": "constraint", "target_type": "policy"}
 {"context": "body", "path": ".knowledge/policy/layered-cache.md", "source": "policy:layered-cache", "target": "api:async-html-value", "target_category": "interface", "target_type": "api"}
 {"context": "body", "path": ".knowledge/policy/live-subscription-bounds.md", "source": "policy:live-subscription-bounds", "target": "requirement:live-html-rendering", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/policy/live-subscription-bounds.md", "source": "policy:live-subscription-bounds", "target": "policy:async-render-bounds", "target_category": "constraint", "target_type": "policy"}
@@ -2374,6 +2375,7 @@
 {"context": "body", "path": ".knowledge/policy/package-compatibility.md", "source": "policy:package-compatibility", "target": "requirement:package-schema-contribution", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/policy/package-compatibility.md", "source": "policy:package-compatibility", "target": "requirement:component-package-distribution", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/policy/package-compatibility.md", "source": "policy:package-compatibility", "target": "requirement:contrib-acceptance", "target_category": "objective", "target_type": "requirement"}
+{"context": "body", "path": ".knowledge/policy/passkey-security.md", "source": "policy:passkey-security", "target": "data:account-bootstrap-credential", "target_category": "structure", "target_type": "data"}
 {"context": "body", "path": ".knowledge/policy/provider-session-scope.md", "source": "policy:provider-session-scope", "target": "policy:reauthentication", "target_category": "constraint", "target_type": "policy"}
 {"context": "body", "path": ".knowledge/policy/provider-session-scope.md", "source": "policy:provider-session-scope", "target": "requirement:contrib-oidc", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/policy/provider-session-scope.md", "source": "policy:provider-session-scope", "target": "policy:shared-device-mode", "target_category": "constraint", "target_type": "policy"}
@@ -2440,10 +2442,12 @@
 {"context": "body", "path": ".knowledge/policy/session-security.md", "source": "policy:session-security", "target": "data:authentication-runtime-config", "target_category": "structure", "target_type": "data"}
 {"context": "body", "path": ".knowledge/policy/session-security.md", "source": "policy:session-security", "target": "api:session-manager", "target_category": "interface", "target_type": "api"}
 {"context": "body", "path": ".knowledge/policy/session-security.md", "source": "policy:session-security", "target": "flow:session-lifecycle", "target_category": "behavior", "target_type": "flow"}
+{"context": "body", "path": ".knowledge/policy/session-security.md", "source": "policy:session-security", "target": "data:user-account", "target_category": "structure", "target_type": "data"}
+{"context": "body", "path": ".knowledge/policy/session-security.md", "source": "policy:session-security", "target": "data:request-authentication", "target_category": "structure", "target_type": "data"}
+{"context": "body", "path": ".knowledge/policy/session-security.md", "source": "policy:session-security", "target": "rule:production-readiness-checks", "target_category": "constraint", "target_type": "rule"}
 {"context": "body", "path": ".knowledge/policy/session-security.md", "source": "policy:session-security", "target": "policy:reauthentication", "target_category": "constraint", "target_type": "policy"}
 {"context": "body", "path": ".knowledge/policy/session-security.md", "source": "policy:session-security", "target": "concept:assurance-axes", "target_category": "concept", "target_type": "concept"}
 {"context": "body", "path": ".knowledge/policy/session-security.md", "source": "policy:session-security", "target": "policy:csrf-protection", "target_category": "constraint", "target_type": "policy"}
-{"context": "body", "path": ".knowledge/policy/session-security.md", "source": "policy:session-security", "target": "data:request-authentication", "target_category": "structure", "target_type": "data"}
 {"context": "body", "path": ".knowledge/policy/session-security.md", "source": "policy:session-security", "target": "policy:cookie-value-protection", "target_category": "constraint", "target_type": "policy"}
 {"context": "body", "path": ".knowledge/policy/session-security.md", "source": "policy:session-security", "target": "decision:slot-declared-placement", "target_category": "constraint", "target_type": "decision"}
 {"context": "body", "path": ".knowledge/policy/shared-device-mode.md", "source": "policy:shared-device-mode", "target": "policy:session-downgrade", "target_category": "constraint", "target_type": "policy"}
@@ -2541,6 +2545,14 @@
 {"context": "body", "path": ".knowledge/requirement/async-html-rendering.md", "source": "requirement:async-html-rendering", "target": "decision:unhandled-boundary-escalation", "target_category": "constraint", "target_type": "decision"}
 {"context": "body", "path": ".knowledge/requirement/async-html-rendering.md", "source": "requirement:async-html-rendering", "target": "flow:template-generation", "target_category": "behavior", "target_type": "flow"}
 {"context": "body", "path": ".knowledge/requirement/async-html-rendering.md", "source": "requirement:async-html-rendering", "target": "flow:partial-refresh", "target_category": "behavior", "target_type": "flow"}
+{"context": "body", "path": ".knowledge/requirement/auth-security-remediation.md", "source": "requirement:auth-security-remediation", "target": "policy:passkey-security", "target_category": "constraint", "target_type": "policy"}
+{"context": "body", "path": ".knowledge/requirement/auth-security-remediation.md", "source": "requirement:auth-security-remediation", "target": "policy:session-security", "target_category": "constraint", "target_type": "policy"}
+{"context": "body", "path": ".knowledge/requirement/auth-security-remediation.md", "source": "requirement:auth-security-remediation", "target": "rule:tinygo-runtime-compatibility", "target_category": "constraint", "target_type": "rule"}
+{"context": "body", "path": ".knowledge/requirement/auth-security-remediation.md", "source": "requirement:auth-security-remediation", "target": "api:auth-credential-store", "target_category": "interface", "target_type": "api"}
+{"context": "body", "path": ".knowledge/requirement/auth-security-remediation.md", "source": "requirement:auth-security-remediation", "target": "policy:jwt-security", "target_category": "constraint", "target_type": "policy"}
+{"context": "body", "path": ".knowledge/requirement/auth-security-remediation.md", "source": "requirement:auth-security-remediation", "target": "policy:token-revocation", "target_category": "constraint", "target_type": "policy"}
+{"context": "body", "path": ".knowledge/requirement/auth-security-remediation.md", "source": "requirement:auth-security-remediation", "target": "policy:csrf-protection", "target_category": "constraint", "target_type": "policy"}
+{"context": "body", "path": ".knowledge/requirement/auth-security-remediation.md", "source": "requirement:auth-security-remediation", "target": "system:tinygodriver", "target_category": "external", "target_type": "system"}
 {"context": "body", "path": ".knowledge/requirement/bot-synchronous-render.md", "source": "requirement:bot-synchronous-render", "target": "requirement:async-html-rendering", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/requirement/bot-synchronous-render.md", "source": "requirement:bot-synchronous-render", "target": "requirement:external-boundary-runtime", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/requirement/bot-synchronous-render.md", "source": "requirement:bot-synchronous-render", "target": "decision:automatic-async-render-selection", "target_category": "constraint", "target_type": "decision"}
@@ -3666,6 +3678,8 @@
 {"context": "body", "path": ".knowledge/rule/production-readiness-checks.md", "source": "rule:production-readiness-checks", "target": "flow:tailwind-css-build", "target_category": "behavior", "target_type": "flow"}
 {"context": "body", "path": ".knowledge/rule/production-readiness-checks.md", "source": "rule:production-readiness-checks", "target": "flow:public-asset-build", "target_category": "behavior", "target_type": "flow"}
 {"context": "body", "path": ".knowledge/rule/production-readiness-checks.md", "source": "rule:production-readiness-checks", "target": "api:cli-build", "target_category": "interface", "target_type": "api"}
+{"context": "body", "path": ".knowledge/rule/production-readiness-checks.md", "source": "rule:production-readiness-checks", "target": "decision:cookie-session-storage", "target_category": "constraint", "target_type": "decision"}
+{"context": "body", "path": ".knowledge/rule/production-readiness-checks.md", "source": "rule:production-readiness-checks", "target": "policy:session-security", "target_category": "constraint", "target_type": "policy"}
 {"context": "body", "path": ".knowledge/rule/production-readiness-checks.md", "source": "rule:production-readiness-checks", "target": "data:route-table", "target_category": "structure", "target_type": "data"}
 {"context": "body", "path": ".knowledge/rule/project-integrity-checks.md", "source": "rule:project-integrity-checks", "target": "data:diagnostic-check", "target_category": "structure", "target_type": "data"}
 {"context": "body", "path": ".knowledge/rule/project-integrity-checks.md", "source": "rule:project-integrity-checks", "target": "data:project-config", "target_category": "structure", "target_type": "data"}
@@ -3768,6 +3782,9 @@
 {"context": "body", "path": ".knowledge/rule/tinygo-runtime-compatibility.md", "source": "rule:tinygo-runtime-compatibility", "target": "api:cli-dev", "target_category": "interface", "target_type": "api"}
 {"context": "body", "path": ".knowledge/rule/tinygo-runtime-compatibility.md", "source": "rule:tinygo-runtime-compatibility", "target": "requirement:live-html-rendering", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/rule/tinygo-runtime-compatibility.md", "source": "rule:tinygo-runtime-compatibility", "target": "system:tinybind", "target_category": "external", "target_type": "system"}
+{"context": "body", "path": ".knowledge/rule/tinygo-runtime-compatibility.md", "source": "rule:tinygo-runtime-compatibility", "target": "requirement:contrib-oidc", "target_category": "objective", "target_type": "requirement"}
+{"context": "body", "path": ".knowledge/rule/tinygo-runtime-compatibility.md", "source": "rule:tinygo-runtime-compatibility", "target": "requirement:contrib-jwt", "target_category": "objective", "target_type": "requirement"}
+{"context": "body", "path": ".knowledge/rule/tinygo-runtime-compatibility.md", "source": "rule:tinygo-runtime-compatibility", "target": "decision:force-tinygo-logic", "target_category": "constraint", "target_type": "decision"}
 {"context": "body", "path": ".knowledge/rule/tinygo-runtime-compatibility.md", "source": "rule:tinygo-runtime-compatibility", "target": "api:application-lifecycle", "target_category": "interface", "target_type": "api"}
 {"context": "body", "path": ".knowledge/rule/tinygo-runtime-compatibility.md", "source": "rule:tinygo-runtime-compatibility", "target": "concept:project-layout", "target_category": "concept", "target_type": "concept"}
 {"context": "body", "path": ".knowledge/system/dbtestify.md", "source": "system:dbtestify", "target": "requirement:test-data-seeding", "target_category": "objective", "target_type": "requirement"}

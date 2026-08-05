@@ -115,7 +115,7 @@ func (rt *runtime) handlePasskey(w http.ResponseWriter, r *http.Request, suffix 
 	}
 	// A ceremony changes state, so it is refused cross-origin. The JSON content
 	// type a browser must send is itself unreachable from a simple form post.
-	if !sameOrigin(r) {
+	if !rt.sameOrigin(r) {
 		pw.WriteProblem(w, r, pw.Forbidden())
 		return
 	}
@@ -223,6 +223,25 @@ type enroller struct {
 	first  bool
 }
 
+// binding is what a registration ceremony begun by this enroller is tied to.
+//
+// It is compared at finish against the enroller resolved there, which is a
+// different request and may be a different principal: the browser can log out,
+// log in as someone else, or redeem a ticket in another tab while the
+// authenticator is being touched. Without the comparison the ceremony adopts
+// whoever is authenticated at that moment, and one account's authenticator is
+// enrolled onto another's.
+//
+// The two paths are labelled apart so that a ticket-begun ceremony cannot be
+// finished by an ordinary session of the same account, and the reverse. The
+// value is not a secret; it is one side of an equality the server checks.
+func (e enroller) binding() []byte {
+	if e.first {
+		return []byte("ticket\x00" + e.ticket.AccountID + "\x00" + e.ticket.LoginID)
+	}
+	return []byte("account\x00" + e.accountID)
+}
+
 // resolveEnroller admits an authenticated session with recent proof, and
 // otherwise a restricted enrollment ticket. It never admits both at once: a
 // ticket is the entry point of an account that has no session yet.
@@ -276,6 +295,7 @@ func (rt *runtime) handlePasskeyRegisterBegin(w http.ResponseWriter, r *http.Req
 		RequireUserVerification: rt.config.Passkey.UserVerification == UserVerificationRequired,
 		ResidentKey:             rt.config.Passkey.Discoverable,
 		ExcludeCredentials:      descriptorsOf(existing),
+		Binding:                 who.binding(),
 	})
 	if err != nil {
 		pw.Logger(r.Context()).Log(r.Context(), pw.LevelError, "passkey registration could not start", pw.Err(err))
@@ -300,7 +320,10 @@ func (rt *runtime) handlePasskeyRegisterFinish(w http.ResponseWriter, r *http.Re
 	if !decodeCeremonyJSON(w, r, &response) {
 		return
 	}
-	result, err := rt.passkeyFlow.FinishRegistration(r.Context(), key, response)
+	// The binding is what ties this credential to the account that began the
+	// ceremony rather than the one authenticated now. A mismatch is refused
+	// like any other rejected ceremony.
+	result, err := rt.passkeyFlow.FinishRegistration(r.Context(), key, who.binding(), response)
 	if err != nil {
 		rt.refuseCeremony(w, r, "passkey registration rejected", err, nil)
 		return

@@ -12,6 +12,7 @@ import (
 	"github.com/shibukawa/popcornwave/contrib/oauth"
 	"github.com/shibukawa/popcornwave/contrib/oidc"
 	"github.com/shibukawa/popcornwave/internal/pathpattern"
+	"github.com/shibukawa/popcornwave/internal/requestorigin"
 	"github.com/shibukawa/popcornwave/pw"
 	"github.com/shibukawa/popcornwave/pwruntime"
 )
@@ -59,13 +60,39 @@ func (rt *runtime) authenticate(next http.Handler) http.Handler {
 	endpoints := rt.endpoints(next)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if data, ok := Session(r.Context()); ok {
-			r = r.WithContext(pwruntime.WithAuthentication(r.Context(), pwruntime.Authentication{
-				Authenticated:   true,
-				Subject:         data.AccountID,
-				Method:          data.Method,
-				Principal:       data,
-				AuthenticatedAt: data.AuthenticatedAt,
-			}))
+			// The account is re-read here, not only where the session was
+			// created: suspending an account is how a deployment answers a
+			// compromise, and the session it needs to reach is one that already
+			// exists. rt.accounts bounds how often that read happens.
+			switch rt.accounts.admit(r.Context(), data.AccountID) {
+			case accountEnded:
+				// The account may no longer act, so the session goes with it and
+				// the request continues as an anonymous one. Destroying it here
+				// means the browser stops carrying a session nothing will honour
+				// rather than presenting it until it expires.
+				if err := rt.manager.Destroy(w, r); err != nil {
+					pw.Logger(r.Context()).Log(r.Context(), pw.LevelError,
+						"session of an ended account could not be destroyed", pw.Err(err))
+				}
+			case accountUnknown:
+				// The credential was not judged. Refusing with 503 rather than
+				// 401 says the request may succeed on a retry and keeps a
+				// suspension from being conditional on the account store being
+				// reachable, which is the same trade policy:token-revocation
+				// settles the same way.
+				pw.Logger(r.Context()).Log(r.Context(), pw.LevelError,
+					"account behind a session could not be read", pw.String("account", data.AccountID))
+				pw.WriteProblem(w, r, pw.ServiceUnavailable())
+				return
+			default:
+				r = r.WithContext(pwruntime.WithAuthentication(r.Context(), pwruntime.Authentication{
+					Authenticated:   true,
+					Subject:         data.AccountID,
+					Method:          data.Method,
+					Principal:       data,
+					AuthenticatedAt: data.AuthenticatedAt,
+				}))
+			}
 		}
 		endpoints.ServeHTTP(w, r)
 	})
@@ -315,7 +342,7 @@ func (rt *runtime) handleLogout(w http.ResponseWriter, r *http.Request) {
 	if !allowMethod(w, r, http.MethodPost) {
 		return
 	}
-	if !sameOrigin(r) {
+	if !rt.sameOrigin(r) {
 		pw.WriteProblem(w, r, pw.Forbidden())
 		return
 	}
@@ -362,7 +389,7 @@ func (rt *runtime) handleForget(w http.ResponseWriter, r *http.Request) {
 	if !allowMethod(w, r, http.MethodPost) {
 		return
 	}
-	if !sameOrigin(r) {
+	if !rt.sameOrigin(r) {
 		pw.WriteProblem(w, r, pw.Forbidden())
 		return
 	}
@@ -614,20 +641,14 @@ func localReturnPath(value string) string {
 	return value
 }
 
-// sameOrigin requires an Origin header that matches the request host, falling
-// back to a strict Referer check only when Origin is absent.
-func sameOrigin(r *http.Request) bool {
-	host := r.Host
-	if origin := r.Header.Get("Origin"); origin != "" {
-		parsed, err := url.Parse(origin)
-		return err == nil && parsed.Host == host
-	}
-	referer := r.Header.Get("Referer")
-	if referer == "" {
-		return false
-	}
-	parsed, err := url.Parse(referer)
-	return err == nil && parsed.Host == host
+// sameOrigin requires a whole origin, scheme included, matching this
+// deployment's own or one it declared.
+//
+// The comparison is internal/requestorigin, the same one the CSRF middleware
+// makes. This package used to compare host names alone, which admitted an http
+// caller to an https deployment and supported no declared origin at all.
+func (rt *runtime) sameOrigin(r *http.Request) bool {
+	return requestorigin.Matches(r, rt.trustedOrigins)
 }
 
 func allowMethod(w http.ResponseWriter, r *http.Request, allowed ...string) bool {

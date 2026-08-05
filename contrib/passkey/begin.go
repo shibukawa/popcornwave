@@ -121,10 +121,14 @@ func (rp *RelyingParty) BeginRegistration(user User, options RegistrationOptions
 	if residentKey != "discouraged" && residentKey != "preferred" && residentKey != "required" {
 		return CreationOptions{}, CeremonyState{}, ErrInvalidConfig
 	}
+	if len(options.Binding) > maxCeremonyBindingBytes {
+		return CreationOptions{}, CeremonyState{}, ErrInvalidConfig
+	}
 	state := CeremonyState{
 		kind: registrationCeremony, challenge: challenge, expiresAt: rp.now().Add(rp.ceremonyTTL),
 		userHandle: append([]byte(nil), user.ID...), allowedCredentialIDs: excluded,
 		requireUserVerification: options.RequireUserVerification,
+		binding:                 append([]byte(nil), options.Binding...),
 	}
 	return CreationOptions{
 		Challenge: challenge,

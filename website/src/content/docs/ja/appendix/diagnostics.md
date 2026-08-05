@@ -434,3 +434,10 @@ sidebar:
 - **対象**: `dev` 以外のすべての環境
 - **読むもの**: プロジェクトのファイル
 - **直し方**: run pw add images, or install the encoders it pins
+
+### PW0506: the login session is stored where it cannot be revoked
+
+- **深刻度**: warning（`dev` では note）
+- **対象**: `dev` 以外のすべての環境
+- **読むもの**: マージ済み設定
+- **直し方**: set session.backend to rdb, redis, or dynamo where a logout must end a session

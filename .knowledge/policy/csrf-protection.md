@@ -44,10 +44,16 @@ validation:
   - require a validated session on a protected unsafe request, unless decision:anonymous-csrf-secret-storage is enabled for a deployment serving its own unsafe form to visitors without one
   - require constant-time token validation against a value recomputed from the incoming token, never against the stored secret directly
   - require same-origin Origin or trusted exact origin; use strict Referer fallback only when Origin is absent
+  - compare a whole origin, scheme included, through the one implementation named under origin_check
   - reject missing, multiple, malformed, expired-session, or mismatched tokens
   - refuse a request whose path cannot be matched unambiguously, since it could select a different routed target than the one the check decided about
   - the response never says which check failed; the reason reaches the log only, because naming it tells a caller which half to work on
   - return HTTP 403 through api:error-renderer without calling the application handler
+origin_check:
+  owner: the middlewares CSRF implementation, which reconstructs this request's origin as scheme and host, refuses a null Origin, requires a scheme on the Referer fallback, and consults the configured trusted origins
+  forwarded_headers: not trusted, so a deployment behind a scheme-rewriting proxy names its origin in TrustedOrigins rather than having the check read a value a caller can assert
+  single_implementation: internal/requestorigin, shared with the plugin/auth login, logout, passkey, and presence endpoints; the same reason pattern_grammar gives, applied to origin comparison, because a second copy is a second set of rules that drifts from this one
+  auth_trusted_origins: the passkey origin allowlist and the origin of the OIDC redirect URL, both of which the deployment already had to declare for another reason, so a TLS-terminating proxy needs no new setting and no header is inferred
 lifecycle:
   - create secret with the session, which for the shipped authentication mode means at login
   - rotate with session creation, login rotation, and privilege changes, writing the new cookie on the same response

@@ -435,3 +435,10 @@ The pre-launch checklist as something that runs. Silent while the diagnosed envi
 - **Applies to**: every environment except `dev`
 - **Reads**: project files
 - **Fix**: run pw add images, or install the encoders it pins
+
+### PW0506: the login session is stored where it cannot be revoked
+
+- **Severity**: warning, and note in `dev`
+- **Applies to**: every environment except `dev`
+- **Reads**: merged configuration
+- **Fix**: set session.backend to rdb, redis, or dynamo where a logout must end a session

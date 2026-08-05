@@ -10,6 +10,10 @@
 // in whatever backend session.backend selects, and single-use OAuth
 // correlation state stored by authstate/sqlite.
 //
+// session.backend = cookie warns outside dev rather than refusing: a login this
+// package can end on demand needs a record on the server, and a browser keeps
+// what it was given. In dev that is the right trade and nothing is said.
+//
 // This package imports no storage plugin. It asks pw for the configured
 // backend, so an application links the storage it configured and no more, and
 // a backend other than cookie needs its own blank import.
@@ -88,6 +92,17 @@ type runtime struct {
 	cookiePolicy pw.SessionCookieConfig
 	include      []pathpattern.Pattern
 	exclude      []pathpattern.Pattern
+	// accounts re-reads the account behind a live session, so that suspending
+	// or removing one ends the sessions it already has rather than only
+	// stopping the next login.
+	accounts *accountGate
+	// trustedOrigins are the origins this deployment has already declared
+	// elsewhere in its own configuration: the passkey origin allowlist and the
+	// origin of the OIDC redirect URL. They exist so that a deployment behind a
+	// TLS-terminating proxy, which reconstructs an http origin for an https
+	// browser, is not refused by its own login endpoints. Nothing is inferred
+	// from a forwarded header; see internal/requestorigin.
+	trustedOrigins map[string]bool
 	// passkeyFlow is nil unless the selected mode mounts api:passkey-endpoints.
 	passkeyFlow *passkey.SessionFlow
 	// credentials and bootstrap are the installed stores, or the framework
@@ -131,6 +146,32 @@ func activeRuntime() *runtime {
 // It runs at SlotAuthentication, after the framework has already resolved the
 // session at SlotSession. Storage is not this package's job: it reaches the
 // manager pw prepared and drives it.
+// unrevocableSessionBackend reports the warning a session backend that cannot
+// take a record back deserves, and the empty string when there is none.
+//
+// A login is the state whose revocability this package depends on: logout,
+// account suspension, and the account re-read all end a session by removing the
+// record behind it. The cookie backend has no record to remove, so a copy taken
+// beforehand keeps authenticating until its sealed expiry and each of those
+// acts becomes advisory.
+//
+// It is a warning rather than a refusal because the pairing is the right one in
+// development, where the point of that backend is a login that needs no
+// infrastructure at all, and the exposure it carries needs a browser someone
+// else is holding. Outside dev the deployment is told, at every startup and
+// again by pw doctor, and the judgement stays with the deployment.
+//
+// Dev says nothing, rather than saying it quietly: a warning printed on every
+// local run is one an operator learns to scroll past, and this has to still be
+// readable on the day it appears in a staging log.
+func unrevocableSessionBackend(backend, env string) string {
+	if backend != pw.SessionBackendCookie || env == pw.EnvDevelopment {
+		return ""
+	}
+	return "session.backend = cookie keeps the login in the browser, so logout and account suspension cannot end a " +
+		"session that was already issued; use rdb, redis, or dynamo where sessions must end on demand"
+}
+
 func setupAuthentication(ctx context.Context) (pw.Middleware, error) {
 	replaceRuntime(nil)
 
@@ -153,6 +194,12 @@ func setupAuthentication(ctx context.Context) (pw.Middleware, error) {
 	sessionConfig := pw.Config[pw.SessionConfig](ctx)
 	if !sessionConfig.Enabled {
 		return nil, errors.New("auth requires session.enabled = true")
+	}
+	if warning := unrevocableSessionBackend(sessionConfig.Backend, pw.Env()); warning != "" {
+		pw.Logger(ctx).Log(ctx, pw.LevelWarn, "sessions cannot be ended on demand",
+			pw.String("setting", "session.backend"),
+			pw.String("environment", pw.Env()),
+			pw.String("consequence", warning))
 	}
 	manager := pw.SessionManager()
 	if manager == nil {
@@ -180,15 +227,17 @@ func setupAuthentication(ctx context.Context) (pw.Middleware, error) {
 		return nil, err
 	}
 	instance := &runtime{
-		config:       config,
-		manager:      manager,
-		backend:      backend,
-		allowlist:    backend.Allowlist,
-		cookiePolicy: sessionConfig.Cookie,
-		include:      include,
-		exclude:      exclude,
-		stopPruning:  make(chan struct{}),
-		passkeyPaths: config.passkeyPaths(),
+		config:         config,
+		manager:        manager,
+		backend:        backend,
+		allowlist:      backend.Allowlist,
+		cookiePolicy:   sessionConfig.Cookie,
+		include:        include,
+		exclude:        exclude,
+		stopPruning:    make(chan struct{}),
+		passkeyPaths:   config.passkeyPaths(),
+		trustedOrigins: config.trustedOrigins(),
+		accounts:       newAccountGate(),
 	}
 	if instance.stateStore, err = openState(schemaCtx, instance, stateNamespace, oauth.TransactionCodec{}); err != nil {
 		return nil, err
