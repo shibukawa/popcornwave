@@ -20,6 +20,19 @@ const (
 type JWKSOptions struct {
 	MaxBytes int
 	MaxKeys  int
+	// AllowSymmetric keeps oct/HS256 entries. It is false by default, and a
+	// key set fetched over the network must leave it that way.
+	//
+	// An HMAC key is a shared secret, and a JWKS is a document published for
+	// anyone who wants to verify a token. A symmetric entry in one is therefore
+	// the verification secret handed to every reader: fetch the document, read
+	// k, and mint a token with any subject in it. There is no configuration
+	// under which that is what the publisher meant.
+	//
+	// The option exists rather than the entries simply being dropped because a
+	// key set built in-process — from a file, from a vault, from a test fixture —
+	// is not published, and an HMAC entry there is ordinary.
+	AllowSymmetric bool
 }
 
 type JWKS struct {
@@ -72,7 +85,7 @@ func ParseJWKS(data []byte, options JWKSOptions) (*JWKS, error) {
 			continue
 		}
 		switch {
-		case key.KeyType == "oct" && key.Algorithm == "HS256" && key.Secret != "":
+		case options.AllowSymmetric && key.KeyType == "oct" && key.Algorithm == "HS256" && key.Secret != "":
 		case key.KeyType == "RSA" && key.Algorithm == "RS256" && key.Modulus != "" && key.Exponent != "":
 		default:
 			continue

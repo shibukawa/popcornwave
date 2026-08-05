@@ -246,6 +246,7 @@ func registerSecurityConfigDefinition1() {
 			"security.headers.content_type_options":    "true",
 			"security.headers.frame_options":           "deny",
 			"security.headers.referrer_policy":         "strict-origin-when-cross-origin",
+			"security.headers.content_security_policy": "script-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'",
 			"security.headers.hsts.enabled":            "false",
 			"security.headers.hsts.max_age":            "0s",
 			"security.headers.hsts.include_subdomains": "false",
@@ -281,7 +282,7 @@ func registerSecurityConfigDefinition1() {
 			{Prefix: "security", Key: "headers.content_type_options", Kind: cliparser.KindBool},
 			{Prefix: "security", Key: "headers.frame_options"},
 			{Prefix: "security", Key: "headers.referrer_policy"},
-			{Prefix: "security", Key: "headers.content_security_policy", Env: "-"},
+			{Prefix: "security", Key: "headers.content_security_policy", Env: "-", Help: "Content-Security-Policy value; off sends none"},
 			{Prefix: "security", Key: "headers.content_security_policy_report_only", Env: "-"},
 			{Prefix: "security", Key: "headers.permissions_policy", Env: "-"},
 			{Prefix: "security", Key: "headers.hsts.enabled", Kind: cliparser.KindBool},
@@ -303,7 +304,7 @@ func registerSecurityConfigDefinition1() {
 			{Key: "headers.content_type_options", Kind: configbind.ScaffoldBool, Default: "true"},
 			{Key: "headers.frame_options", Kind: configbind.ScaffoldString, Default: "deny"},
 			{Key: "headers.referrer_policy", Kind: configbind.ScaffoldString, Default: "strict-origin-when-cross-origin"},
-			{Key: "headers.content_security_policy", Kind: configbind.ScaffoldString, Env: "-"},
+			{Key: "headers.content_security_policy", Kind: configbind.ScaffoldString, Default: "script-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'", Env: "-", Help: "Content-Security-Policy value; off sends none"},
 			{Key: "headers.content_security_policy_report_only", Kind: configbind.ScaffoldString, Env: "-"},
 			{Key: "headers.permissions_policy", Kind: configbind.ScaffoldString, Env: "-"},
 			{Key: "headers.hsts.enabled", Kind: configbind.ScaffoldBool, Default: "false"},
@@ -357,6 +358,8 @@ func applySecurityConfigDefinition1(dst any, o *configbind.Overlay) error {
 	}
 	if v, ok := o.GetString("security.headers.content_security_policy"); ok {
 		p.Headers.ContentSecurityPolicy = v
+	} else {
+		p.Headers.ContentSecurityPolicy = "script-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'"
 	}
 	if v, ok := o.GetString("security.headers.content_security_policy_report_only"); ok {
 		p.Headers.ContentSecurityPolicyReportOnly = v
@@ -759,6 +762,9 @@ func registerObservabilityConfigDefinition3() {
 			"observability.query.enabled":        "off",
 			"observability.query.slow_threshold": "0s",
 			"observability.query.bind_values":    "off",
+		},
+		Secrets: map[string]string{
+			"observability.otel.headers": "mask",
 		},
 		FlagMetas: []cliparser.FieldMeta{
 			{Prefix: "observability", Key: "minimum_level", Help: "severity floor: trace, debug, info, warn, error, or off"},

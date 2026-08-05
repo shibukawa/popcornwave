@@ -19,10 +19,30 @@ framed. And `strict-origin-when-cross-origin` sends a full referrer within your
 own site and only an origin outside it, which is what most applications would
 have picked.
 
-The two headers that actually shape a page — Content-Security-Policy and
-Permissions-Policy — are empty, because there is no default for them that is
-both safe and useful. A policy strict enough to be worth having is a policy
-written against the assets a specific page loads.
+Content-Security-Policy ships with a default too, and it is deliberately narrow:
+
+```
+script-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'
+```
+
+It restricts the four directives nearly every application can accept and leaves
+alone the ones it cannot. Images, fonts, styles, and connections are
+unrestricted, so a page that loads a logo from a CDN keeps working without
+anyone editing configuration.
+
+`script-src 'self'` is the one doing the work. It refuses inline event handlers,
+inline `<script>`, and `javascript:` URLs — together, the ways an HTML-injection
+sink turns into running code. It matters more here than in a framework without a
+browser runtime, because the [CSRF](/guides/architecture/security/) companion cookie is
+readable by script on purpose: script that runs on your origin can mint a valid
+token. The framework's own runtime is a same-origin module tag and needs nothing
+beyond `'self'`.
+
+If you load third-party script, you write your own policy. That is the
+conversation this default is for.
+
+Permissions-Policy is still empty, because a default for it would be a guess
+about features your application may not use at all.
 
 ## The keys
 
@@ -32,10 +52,15 @@ enabled = true
 content_type_options = true
 frame_options = "deny"
 referrer_policy = "strict-origin-when-cross-origin"
-content_security_policy = ""
+content_security_policy = "script-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'"
 content_security_policy_report_only = ""
 permissions_policy = ""
 ```
+
+Setting `content_security_policy` replaces the default outright rather than
+adding to it. Setting it to `"off"` sends no policy at all — an empty value means
+the default, so a project that genuinely wants no policy needs a way to say so
+that is not silence.
 
 `frame_options` takes `deny`, `sameorigin`, or `off`. `referrer_policy` takes
 `no-referrer`, `same-origin`, `strict-origin`, or

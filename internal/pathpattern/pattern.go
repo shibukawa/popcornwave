@@ -81,6 +81,14 @@ func (p Pattern) Match(path string) bool {
 	var segments []string
 	if trimmed != "" {
 		segments = strings.Split(trimmed, "/")
+		// A trailing slash names the same thing as its absence for the purpose
+		// of a policy decision, so it is dropped rather than counted. Counting
+		// it made /admin/delete/ a different length from the pattern
+		// /admin/delete, so the pattern did not match and an include failed
+		// open — the request went through unprotected instead of being refused.
+		if last := len(segments) - 1; segments[last] == "" {
+			segments = segments[:last]
+		}
 	}
 	if p.subtree {
 		if len(segments) < len(p.source) {
@@ -132,8 +140,20 @@ func CanonicalPath(r *http.Request) (string, bool) {
 	if raw := r.URL.RawPath; raw != "" && (strings.Contains(raw, "%2f") || strings.Contains(raw, "%2F")) {
 		return "", false
 	}
-	for _, segment := range strings.Split(strings.TrimPrefix(path, "/"), "/") {
+	segments := strings.Split(strings.TrimPrefix(path, "/"), "/")
+	for index, segment := range segments {
 		if segment == "." || segment == ".." {
+			return "", false
+		}
+		// An empty segment means the path carried "//" somewhere, and routers
+		// disagree about whether that is the same resource as the single-slash
+		// form. A policy cannot decide about a path whose target depends on who
+		// resolves it, so this is a refusal — the same answer dot segments and
+		// encoded separators get, and for the same reason.
+		//
+		// The last segment is exempt: it is empty for the ordinary directory
+		// form "/admin/", which Match normalizes rather than refusing.
+		if segment == "" && index != len(segments)-1 {
 			return "", false
 		}
 	}

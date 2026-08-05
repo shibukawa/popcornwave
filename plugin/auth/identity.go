@@ -280,12 +280,11 @@ type SessionData struct {
 	// StepUpAt records that a zero-window re-proof completed, which is the only
 	// thing that can satisfy a per-operation requirement.
 	//
-	// It lives in the session rather than in a cookie so it cannot be forged,
-	// and it is bounded by a short window rather than consumed exactly once,
-	// because consuming it would mean rotating the session inside an ordinary
-	// read. Two zero-window operations within that window therefore share one
-	// proof; a truly single-use admission needs a server-side record this
-	// package does not yet own.
+	// It lives in the session rather than in a cookie so it cannot be forged. It
+	// is spent by the guard that accepts it, under one lock with the read that
+	// accepted it, so two operations arriving together cannot share one proof —
+	// see zeroWindowAdmission. The short window is the backstop for a proof
+	// nobody spent, such as one the user abandoned, rather than the mechanism.
 	StepUpAt int64 `json:"step_up_at,omitempty"`
 }
 

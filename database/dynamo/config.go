@@ -32,9 +32,14 @@ type Config struct {
 	Endpoint string `toml:"endpoint" help:"Endpoint overrides the regional host, which is how a local emulator is reached"`
 	// AccessKeyID and its siblings are static credentials. All three are
 	// optional; empty selects the driver's environment credentials.
-	AccessKeyID     string `toml:"access_key_id" help:"AccessKeyID and its siblings are static credentials. All three are optional; empty selects the driver's environment credentials"`
-	SecretAccessKey string `toml:"secret_access_key"`
-	SessionToken    string `toml:"session_token"`
+	//
+	// All three are masked by tag. They were masked before only because their
+	// names happen to contain tokens the binder's name heuristic looks for,
+	// which is a coincidence rather than a decision: renaming a field would have
+	// silently started printing it.
+	AccessKeyID     string `secret:"mask" toml:"access_key_id" help:"AccessKeyID and its siblings are static credentials. All three are optional; empty selects the driver's environment credentials"`
+	SecretAccessKey string `secret:"mask" toml:"secret_access_key"`
+	SessionToken    string `secret:"mask" toml:"session_token"`
 	// TablePrefix is prepended to a declared table name.
 	TablePrefix string `toml:"table_prefix" help:"TablePrefix is prepended to a declared table name"`
 	// TableNames maps a declared name onto a deployed one, for a name no

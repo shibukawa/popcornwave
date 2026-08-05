@@ -2,8 +2,11 @@ package jwt
 
 import (
 	"context"
+	"crypto/rand"
+	"crypto/rsa"
 	"encoding/base64"
 	"errors"
+	"math/big"
 	"net/http"
 	"net/http/httptest"
 	"sync/atomic"
@@ -19,9 +22,18 @@ type keySetServer struct {
 	served  atomic.Int64
 }
 
+// newKeySetServer publishes an RSA key set. It is RSA rather than oct because a
+// fetched key set no longer keeps symmetric entries at all: a published document
+// cannot be a shared secret, so ParseJWKS drops them unless the caller says the
+// set is not published.
 func newKeySetServer(t *testing.T) *keySetServer {
 	t.Helper()
-	secret := base64.RawURLEncoding.EncodeToString([]byte("0123456789abcdef0123456789abcdef"))
+	key, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatalf("generate key: %v", err)
+	}
+	modulus := base64.RawURLEncoding.EncodeToString(key.PublicKey.N.Bytes())
+	exponent := base64.RawURLEncoding.EncodeToString(big.NewInt(int64(key.PublicKey.E)).Bytes())
 	server := &keySetServer{}
 	server.Server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if server.failing.Load() {
@@ -30,7 +42,7 @@ func newKeySetServer(t *testing.T) *keySetServer {
 		}
 		server.served.Add(1)
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"keys":[{"kty":"oct","kid":"one","use":"sig","alg":"HS256","k":"` + secret + `"}]}`))
+		_, _ = w.Write([]byte(`{"keys":[{"kty":"RSA","kid":"one","use":"sig","alg":"RS256","n":"` + modulus + `","e":"` + exponent + `"}]}`))
 	}))
 	t.Cleanup(server.Close)
 	return server
@@ -58,7 +70,7 @@ func TestCachedKeysSurviveAnOutageAndThenStop(t *testing.T) {
 	now := time.Unix(1_700_000_000, 0).UTC()
 	set := staleKeySet(t, server, &now, time.Hour)
 	ctx := context.Background()
-	header := Header{Algorithm: "HS256", KeyID: "one"}
+	header := Header{Algorithm: "RS256", KeyID: "one"}
 
 	if _, err := set.Resolve(ctx, header); err != nil {
 		t.Fatalf("first resolve: %v", err)
@@ -122,7 +134,7 @@ func TestUnknownKeyRefreshIsRateLimited(t *testing.T) {
 	set := staleKeySet(t, server, &now, time.Hour)
 	ctx := context.Background()
 
-	if _, err := set.Resolve(ctx, Header{Algorithm: "HS256", KeyID: "one"}); err != nil {
+	if _, err := set.Resolve(ctx, Header{Algorithm: "RS256", KeyID: "one"}); err != nil {
 		t.Fatalf("first resolve: %v", err)
 	}
 	before := server.served.Load()
@@ -130,7 +142,7 @@ func TestUnknownKeyRefreshIsRateLimited(t *testing.T) {
 	// A stream of forged kid values must not be amplified into traffic against
 	// the issuer: one refetch is allowed, and the cooldown covers the rest.
 	for range 20 {
-		if _, err := set.Resolve(ctx, Header{Algorithm: "HS256", KeyID: "forged"}); !errors.Is(err, ErrKeyNotFound) {
+		if _, err := set.Resolve(ctx, Header{Algorithm: "RS256", KeyID: "forged"}); !errors.Is(err, ErrKeyNotFound) {
 			t.Fatalf("resolve of an unknown kid = %v, want ErrKeyNotFound", err)
 		}
 	}

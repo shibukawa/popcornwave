@@ -461,6 +461,7 @@ func (rt *runtime) oidcClient(ctx context.Context) (*oidc.Client, error) {
 	defer cancel()
 	provider, err := oidc.Discover(discoveryCtx, rt.config.OIDC.Issuer, oidc.DiscoverOptions{
 		AllowLoopbackHTTP: rt.config.OIDC.AllowLoopbackHTTP,
+		EndpointHosts:     rt.config.OIDC.EndpointHosts,
 	})
 	if err != nil {
 		return nil, err

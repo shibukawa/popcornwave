@@ -29,14 +29,33 @@ const NeutralFileName = "config.toml"
 // Resolve reads Var from environ, or from the process environment when environ
 // is nil, and validates it as a config filename component.
 func Resolve(environ []string) (string, error) {
-	value := lookup(environ, Var)
-	if strings.TrimSpace(value) == "" {
-		return Default, nil
+	value, _, err := ResolveDeclared(environ)
+	return value, err
+}
+
+// ResolveDeclared is Resolve, and also reports whether the environment was named
+// rather than defaulted.
+//
+// The distinction exists because "dev" is two different facts wearing one name.
+// A deployment that sets APP_ENV=dev is asking for the development relaxations.
+// A deployment that sets nothing is not asking for anything — it forgot — and
+// answering "dev" to that is how a production service ends up logging every SQL
+// statement with its bind values and accepting a session cookie without Secure.
+//
+// Which is why the relaxations key off declared rather than off the token. The
+// token still defaults, because it also selects the config file and refusing to
+// start over a missing variable would be a poor trade for that. `pw dev` sets
+// the variable, so the ordinary development path declares it and keeps
+// everything it had.
+func ResolveDeclared(environ []string) (value string, declared bool, err error) {
+	raw := lookup(environ, Var)
+	if strings.TrimSpace(raw) == "" {
+		return Default, false, nil
 	}
-	if !Valid(value) {
-		return "", fmt.Errorf("popcornwave: invalid %s %q: use lowercase letters, digits, '-' or '_'", Var, value)
+	if !Valid(raw) {
+		return "", false, fmt.Errorf("popcornwave: invalid %s %q: use lowercase letters, digits, '-' or '_'", Var, raw)
 	}
-	return value, nil
+	return raw, true, nil
 }
 
 // Valid reports whether value is usable as a config filename component.

@@ -131,6 +131,24 @@ function swapElement(target, html) { globalThis.__swapped.push({ id: target.id, 
 function applyHTML(id, html) { globalThis.__swapped.push({ placeholder: id, html: html }); return true; }
 function startLive() { globalThis.__liveStarted(); }
 function setPreserveAttribute() {}
+function resolveNavigable(value, base) {
+	if (typeof value !== "string" || value === "") return null;
+	let resolved;
+	try {
+		resolved = new URL(value, base || document.baseURI);
+	} catch {
+		return null;
+	}
+	switch (resolved.protocol) {
+		case "http:":
+		case "https:":
+		case "mailto:":
+		case "tel:":
+			return resolved.href;
+		default:
+			return null;
+	}
+}
 `;
 
 globalThis.__swapped = swapped;
@@ -357,6 +375,22 @@ function fresh() {
 		response({ headers: { "Pw-Render": "action" }, json: { ops: [], navigate: "/orders/17" } }),
 	);
 	check(assigned === "https://example.test/orders/17", "the navigate directive left the page");
+}
+
+// location.assign runs a javascript: URL rather than navigating to it, so a
+// directive carrying one is a failure like any other: reload, and do not follow
+// it. The server refuses such a target too; this is the half that holds when a
+// record arrives from somewhere the server did not write it.
+for (const target of ["javascript:globalThis.__pwned = true", "data:text/html,<script>1</script>"]) {
+	const runtime = fresh();
+	const before = reloaded;
+	const outcome = await runtime.apply(
+		response({ headers: { "Pw-Render": "action" }, json: { ops: [], navigate: target } }),
+	);
+	check(assigned === null, "an unfollowable navigate target did not reach location.assign");
+	check(reloaded > before, "an unfollowable navigate target reloaded instead");
+	check(outcome.reason === "unsafe-navigate", "an unfollowable navigate target named its reason");
+	check(globalThis.__pwned === undefined, "the refused target never ran");
 }
 
 // The headers an application fetch must carry to ask for an action response.

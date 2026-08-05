@@ -41,6 +41,13 @@ func parseFrameworkAction(args []string) ([]string, error) {
 		case strings.HasPrefix(arg, "--generate-config="):
 			action = frameworkAction{kind: frameworkActionGenerateConfig, value: strings.TrimPrefix(arg, "--generate-config=")}
 		case arg == "--pw-print-dsn":
+			if !printDSNBuilt {
+				// Refusing by name rather than letting it fall through to the
+				// application's own arguments: a silent pass-through would make
+				// a toolchain that asked the wrong build look like a toolchain
+				// with a broken database configuration.
+				return nil, fmt.Errorf("popcornwave: --pw-print-dsn needs a build with -tags=pwdev; it prints the database password, so a release build does not carry it")
+			}
 			action = frameworkAction{kind: frameworkActionPrintDSN}
 		default:
 			filtered = append(filtered, arg)

@@ -75,10 +75,10 @@ type Provider struct {
 	// real provider keeps one and answers later requests from it; without one
 	// here, every authorization would look like a fresh authentication and a
 	// freshness requirement could never be seen to fail.
-	sessions    map[string]*providerSession
-	pending     map[string]*pendingAuthorization
-	codes       map[string]*issuedCode
-	tokens      map[string]*accessToken
+	sessions map[string]*providerSession
+	pending  map[string]*pendingAuthorization
+	codes    map[string]*issuedCode
+	tokens   map[string]*accessToken
 }
 
 type pendingAuthorization struct {
@@ -127,7 +127,23 @@ type accessToken struct {
 }
 
 // New builds a provider from a validated configuration.
+//
+// The environment lock is here rather than only in Start, because Handler is
+// exported and a provider built here serves the same endpoints whether or not
+// this package opened the listener. Gating only Start left the whole thing
+// reachable to anyone who mounted Handler on their own mux — which is a
+// documented way to use this package — and a plain `go build` of that
+// application published an OpenID Provider that issues a token for any subject
+// in the roster to anyone who asks.
+//
+// `pw build` refuses an application that imports this package, and that remains
+// the first line of defence. It is a toolchain check, though, and a Dockerfile
+// or CI job that calls `go build` directly never runs it. This one travels with
+// the code.
 func New(config Config, options Options) (*Provider, error) {
+	if err := requireDevelopmentEnvironment(); err != nil {
+		return nil, err
+	}
 	if err := config.validate(); err != nil {
 		return nil, err
 	}
@@ -471,16 +487,28 @@ func isLoopbackURL(parsed *url.URL) bool {
 	return address != nil && address.IsLoopback()
 }
 
-// requireDevelopmentEnvironment refuses to serve in a deployed environment.
-// The provider authenticates nobody, so a production process that reaches this
-// code has a defect, not a configuration problem.
+// requireDevelopmentEnvironment refuses to serve outside a declared development
+// environment. The provider authenticates nobody, so a deployed process that
+// reaches this code has a defect, not a configuration problem.
+//
+// It is an allowlist, and it used to be a denylist of "prod" and "production".
+// That refused two spellings and admitted every other one — "staging", "prd",
+// "live", "uat" — so a list of environments that must not run an unauthenticated
+// identity provider cannot be complete; the list of the ones that may is
+// complete by construction.
+//
+// An unset value passes, because the framework resolves an unset APP_ENV to
+// development and this package is not the place to disagree with it. What is
+// refused is a deployment that named an environment and named something other
+// than development.
 func requireDevelopmentEnvironment() error {
-	switch strings.ToLower(strings.TrimSpace(os.Getenv(environmentVariable))) {
-	case "prod", "production":
-		return fmt.Errorf("%w: %s selects a production environment; the development identity provider authenticates nobody",
-			ErrConfig, environmentVariable)
+	value := strings.ToLower(strings.TrimSpace(os.Getenv(environmentVariable)))
+	switch value {
+	case "", "dev", "development", "test", "local":
+		return nil
 	}
-	return nil
+	return fmt.Errorf("%w: %s is %q; the development identity provider authenticates nobody, so it runs only where the environment says development",
+		ErrConfig, environmentVariable, value)
 }
 
 func requireLoopbackAddr(addr string) error {

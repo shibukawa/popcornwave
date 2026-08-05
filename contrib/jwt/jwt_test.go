@@ -223,7 +223,7 @@ func TestJWKSSelectionAndAmbiguity(t *testing.T) {
 	key := []byte("0123456789abcdef0123456789abcdef")
 	encodedKey := base64.RawURLEncoding.EncodeToString(key)
 	document := []byte(`{"keys":[{"kty":"oct","kid":"one","use":"sig","alg":"HS256","k":"` + encodedKey + `"}]}`)
-	set, err := ParseJWKS(document, JWKSOptions{})
+	set, err := ParseJWKS(document, JWKSOptions{AllowSymmetric: true})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -237,7 +237,7 @@ func TestJWKSSelectionAndAmbiguity(t *testing.T) {
 	if _, err := set.ResolveKey(Header{Algorithm: "RS256", KeyID: "one"}); !errors.Is(err, ErrKeyNotFound) {
 		t.Fatalf("algorithm mismatch error = %v", err)
 	}
-	invalidSecret, err := ParseJWKS([]byte(`{"keys":[{"kty":"oct","kid":"bad","alg":"HS256","k":"not-base64!"}]}`), JWKSOptions{})
+	invalidSecret, err := ParseJWKS([]byte(`{"keys":[{"kty":"oct","kid":"bad","alg":"HS256","k":"not-base64!"}]}`), JWKSOptions{AllowSymmetric: true})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -245,7 +245,7 @@ func TestJWKSSelectionAndAmbiguity(t *testing.T) {
 		t.Fatalf("malformed secret error = %v", err)
 	}
 	shortSecret := base64.RawURLEncoding.EncodeToString(bytes.Repeat([]byte{'s'}, 31))
-	shortSet, err := ParseJWKS([]byte(`{"keys":[{"kty":"oct","kid":"short","alg":"HS256","k":"`+shortSecret+`"}]}`), JWKSOptions{})
+	shortSet, err := ParseJWKS([]byte(`{"keys":[{"kty":"oct","kid":"short","alg":"HS256","k":"`+shortSecret+`"}]}`), JWKSOptions{AllowSymmetric: true})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -255,7 +255,7 @@ func TestJWKSSelectionAndAmbiguity(t *testing.T) {
 	ambiguous := []byte(`{"keys":[` +
 		`{"kty":"oct","kid":"one","alg":"HS256","k":"` + encodedKey + `"},` +
 		`{"kty":"oct","kid":"one","alg":"HS256","k":"` + encodedKey + `"}]}`)
-	set, err = ParseJWKS(ambiguous, JWKSOptions{})
+	set, err = ParseJWKS(ambiguous, JWKSOptions{AllowSymmetric: true})
 	if err != nil {
 		t.Fatal(err)
 	}

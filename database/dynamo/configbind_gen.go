@@ -39,6 +39,11 @@ func registerConfigDefinition0() {
 			"middleware.dynamo.max_idle_conns": "4",
 			"middleware.dynamo.verify_schema":  "true",
 		},
+		Secrets: map[string]string{
+			"middleware.dynamo.access_key_id":     "mask",
+			"middleware.dynamo.secret_access_key": "mask",
+			"middleware.dynamo.session_token":     "mask",
+		},
 		FlagMetas: []cliparser.FieldMeta{
 			{Prefix: "middleware.dynamo", Key: "enabled", Help: "Enabled opens the client and installs the middleware", Kind: cliparser.KindBool},
 			{Prefix: "middleware.dynamo", Key: "region", Help: "Region names the AWS region. Empty falls back to the environment, and a region resolvable from neither is a startup error"},

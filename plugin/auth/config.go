@@ -354,6 +354,20 @@ type OIDCConfig struct {
 	ClientSecret string `secret:"mask" env:"AUTH_OIDC_CLIENT_SECRET"`
 	RedirectURL  string
 	Scopes       []string
+	// EndpointHosts restricts which hosts the issuer's discovery document may
+	// point its endpoints at. Empty accepts whatever the document names.
+	//
+	// The document decides where this deployment sends the authorization code
+	// and its client secret, and the only value checked against configuration is
+	// the issuer field the document reports about itself. Naming the hosts turns
+	// that into something the deployment asserts.
+	//
+	// It is empty by default because federated endpoints are ordinary rather than
+	// suspicious — Google's issuer is accounts.google.com while its token
+	// endpoint is oauth2.googleapis.com — so a same-origin rule would refuse a
+	// working provider. The issuer's own host never needs listing, and a host is
+	// matched exactly, without wildcards.
+	EndpointHosts []string `help:"hosts the discovery document may point endpoints at; empty accepts any"`
 	// IdentityClaim names the verified claim that identifies a local account.
 	// It defaults to "sub".
 	//

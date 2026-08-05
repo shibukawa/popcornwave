@@ -101,7 +101,16 @@ type Codec[T any] interface {
 }
 
 // deadline is the earliest authoritative expiry of the record.
+//
+// A zero field means "no such bound" rather than "the epoch", so the earliest of
+// the two is the earliest of those that are set. Reading ExpiresAt directly when
+// it was unset returned the zero time — which every caller reads as "no deadline"
+// — and silently discarded an idle bound that was configured and stamped. A
+// session bounded only by inactivity then had no bound at all.
 func (r Record[T]) deadline() time.Time {
+	if r.ExpiresAt.IsZero() {
+		return r.IdleExpiresAt
+	}
 	if !r.IdleExpiresAt.IsZero() && r.IdleExpiresAt.Before(r.ExpiresAt) {
 		return r.IdleExpiresAt
 	}

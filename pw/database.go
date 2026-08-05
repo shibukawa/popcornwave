@@ -28,7 +28,7 @@ func validateConfiguredRuntime() error {
 	// The cookie policy is the one rule here that reads the environment: the
 	// same value is deliberate on a loopback development machine and a defect
 	// anywhere else.
-	if err := validateSessionConfig(Config[SessionConfig](nil), Env()); err != nil {
+	if err := validateSessionConfig(Config[SessionConfig](nil), Env(), Development()); err != nil {
 		return err
 	}
 	return validateHTMLConfig(Config[HTMLConfig](nil))

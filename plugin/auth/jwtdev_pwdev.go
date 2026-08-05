@@ -29,18 +29,27 @@ const DevUnverifiedHeader = "X-Pw-Auth-Unverified"
 // checkDevRelaxation validates the environment lock at startup.
 //
 // The build lock is this file existing. The configuration lock is the field
-// itself. This is the third: a relaxation is refused outright in staging and
-// production rather than merely warned about, matching policy:devidp-safety,
-// because the pwdev binary is exactly the one that could reach a deployment by
-// accident.
+// itself. This is the third: a relaxation is refused outright anywhere but a
+// declared development environment, matching policy:devidp-safety, because the
+// pwdev binary is exactly the one that could reach a deployment by accident.
+//
+// It is an allowlist. It used to name the three environments it refused —
+// "stg", "prod", "production" — which meant that "staging", "prd", "live",
+// "uat", "canary", and every other spelling a deployment might use walked past
+// a lock built to stop exactly them. A list of the environments that must not
+// open this can never be complete; a list of the one that may is complete by
+// construction.
+//
+// An unset APP_ENV passes, because it resolves to development like everywhere
+// else in the framework. What no longer passes is a deployment that named an
+// environment and named something other than development.
 func checkDevRelaxation(config JWTConfig) error {
 	if !config.Dev.TrustUnverifiedTokens {
 		return nil
 	}
-	switch pw.Env() {
-	case pw.EnvStaging, pw.EnvProduction, "production":
-		return fmt.Errorf("auth.jwt.dev.trust_unverified_tokens refuses to start under %s=%q; it turns token verification off",
-			pw.EnvVar, pw.Env())
+	if !pw.Development() {
+		return fmt.Errorf("auth.jwt.dev.trust_unverified_tokens needs %s=%q; it is %q here, and the setting turns token verification off",
+			pw.EnvVar, pw.EnvDevelopment, pw.Env())
 	}
 	return nil
 }
@@ -121,16 +130,51 @@ func fillEmptySignature(compact string) string {
 	return compact
 }
 
-// loopbackRequest reports whether the request arrived from a loopback address.
+// loopbackRequest reports whether the request arrived directly from a loopback
+// address.
 //
 // It reads RemoteAddr only. A forwarded header is a claim made by whoever sent
 // the request, and this is the one check where believing that claim would hand
 // the relaxation to the network.
+//
+// RemoteAddr alone is not enough, though, and that is the second half of this.
+// Put nginx, Caddy, or `docker run -p` on the same host and every request in the
+// world arrives from 127.0.0.1: the address stops describing the client and
+// starts describing the proxy, turning a local-only relaxation into an
+// internet-facing one without anything in the configuration changing.
+//
+// Nothing at the network layer distinguishes those two cases, so this uses the
+// one artifact a proxy leaves behind: a forwarding header. Their presence is
+// read as "something relayed this", never as an address to trust. The direction
+// is safe — an attacker who adds one is refused, and an attacker who strips one
+// still has to get past a proxy that adds it back.
 func loopbackRequest(r *http.Request) bool {
+	if relayed(r) {
+		return false
+	}
 	host, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil {
 		host = r.RemoteAddr
 	}
 	address := net.ParseIP(host)
 	return address != nil && address.IsLoopback()
+}
+
+// forwardingHeaders are the headers a reverse proxy adds. Any of them means
+// RemoteAddr describes a relay rather than the caller.
+var forwardingHeaders = []string{
+	"Forwarded",
+	"X-Forwarded-For",
+	"X-Forwarded-Host",
+	"X-Forwarded-Proto",
+	"X-Real-Ip",
+}
+
+func relayed(r *http.Request) bool {
+	for _, name := range forwardingHeaders {
+		if r.Header.Get(name) != "" {
+			return true
+		}
+	}
+	return false
 }
