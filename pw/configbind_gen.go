@@ -471,6 +471,7 @@ func registerSessionConfigDefinition2() {
 			"session.keyring.previous_secrets",
 			"session.dynamo.table",
 			"session.dynamo.consistent_read",
+			"session.firestore.kind",
 		},
 		Defaults: map[string]string{
 			"session.enabled":                "false",
@@ -488,6 +489,7 @@ func registerSessionConfigDefinition2() {
 			"session.cookie_store.name":      "pw_session_data",
 			"session.dynamo.table":           "popcornwave_session",
 			"session.dynamo.consistent_read": "false",
+			"session.firestore.kind":         "popcornwave_session",
 		},
 		DependsOn: map[string][]string{
 			"session.backend":                  {"session.enabled"},
@@ -510,6 +512,7 @@ func registerSessionConfigDefinition2() {
 			"session.keyring.previous_secrets": {"session.enabled"},
 			"session.dynamo.table":             {"session.enabled"},
 			"session.dynamo.consistent_read":   {"session.enabled"},
+			"session.firestore.kind":           {"session.enabled"},
 		},
 		Secrets: map[string]string{
 			"session.rdb.dsn":                  "mask",
@@ -519,7 +522,7 @@ func registerSessionConfigDefinition2() {
 		},
 		FlagMetas: []cliparser.FieldMeta{
 			{Prefix: "session", Key: "enabled", Kind: cliparser.KindBool},
-			{Prefix: "session", Key: "backend", Help: "session storage backend: rdb, cookie, redis, or dynamo"},
+			{Prefix: "session", Key: "backend", Help: "session storage backend: rdb, cookie, redis, dynamo, or firestore"},
 			{Prefix: "session", Key: "retention", Help: "how long the store may hold one record; the session lifetime under [auth] narrows it"},
 			{Prefix: "session", Key: "cookie.name"},
 			{Prefix: "session", Key: "cookie.path"},
@@ -539,11 +542,12 @@ func registerSessionConfigDefinition2() {
 			{Prefix: "session", Key: "keyring.previous_secrets", Help: "retired secrets kept readable during a rotation", Kind: cliparser.KindArray},
 			{Prefix: "session", Key: "dynamo.table", Help: "declared session table name"},
 			{Prefix: "session", Key: "dynamo.consistent_read", Help: "read sessions with strong consistency", Kind: cliparser.KindBool},
+			{Prefix: "session", Key: "firestore.kind", Help: "session entity kind"},
 		},
 		Apply: applySessionConfigDefinition2,
 		Scaffold: []configbind.ScaffoldField{
 			{Key: "enabled", Kind: configbind.ScaffoldBool, Default: "false"},
-			{Key: "backend", Kind: configbind.ScaffoldString, Default: "rdb", Help: "session storage backend: rdb, cookie, redis, or dynamo"},
+			{Key: "backend", Kind: configbind.ScaffoldString, Default: "rdb", Help: "session storage backend: rdb, cookie, redis, dynamo, or firestore"},
 			{Key: "retention", Kind: configbind.ScaffoldDuration, Default: "720h", Help: "how long the store may hold one record; the session lifetime under [auth] narrows it"},
 			{Key: "cookie.name", Kind: configbind.ScaffoldString, Default: "pw_session"},
 			{Key: "cookie.path", Kind: configbind.ScaffoldString, Default: "/"},
@@ -563,6 +567,7 @@ func registerSessionConfigDefinition2() {
 			{Key: "keyring.previous_secrets", Kind: configbind.ScaffoldStringSlice, Help: "retired secrets kept readable during a rotation"},
 			{Key: "dynamo.table", Kind: configbind.ScaffoldString, Default: "popcornwave_session", Help: "declared session table name"},
 			{Key: "dynamo.consistent_read", Kind: configbind.ScaffoldBool, Default: "false", Help: "read sessions with strong consistency"},
+			{Key: "firestore.kind", Kind: configbind.ScaffoldString, Default: "popcornwave_session", Help: "session entity kind"},
 		},
 	})
 }
@@ -688,6 +693,11 @@ func applySessionConfigDefinition2(dst any, o *configbind.Overlay) error {
 		p.Dynamo.ConsistentRead = bb
 	} else {
 		p.Dynamo.ConsistentRead = false
+	}
+	if v, ok := o.GetString("session.firestore.kind"); ok {
+		p.Firestore.Kind = v
+	} else {
+		p.Firestore.Kind = "popcornwave_session"
 	}
 	return nil
 }

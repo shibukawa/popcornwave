@@ -159,6 +159,25 @@ func initWizardSteps(defaults initOptions) []wizardStep[initOptions] {
 				},
 			),
 		),
+		// The Google Cloud half of the same answer, on the same terms.
+		when(func(options initOptions) bool { return !servesLogin(options) || options.AuthStore != firestoreStore },
+			newChoiceStep(
+				"Firestore",
+				"The same kind of answer as DynamoDB, in Datastore mode on Google Cloud. The database it names "+
+					"must have been created in Datastore mode, which is chosen at creation and cannot be changed.",
+				yesNoCursor(defaults.Firestore),
+				wizardChoice[initOptions]{
+					name:        "Yes",
+					description: "[middleware.firestore], pointed at the local Datastore emulator",
+					apply:       func(target *initOptions) { target.Firestore = true },
+				},
+				wizardChoice[initOptions]{
+					name:        "No",
+					description: "no [middleware.firestore] section; pw add firestore enables it later",
+					apply:       func(target *initOptions) { target.Firestore = false },
+				},
+			),
+		),
 		when(func(options initOptions) bool { return servesLogin(options) },
 			newChoiceStep(
 				"Session storage",
@@ -184,6 +203,11 @@ func initWizardSteps(defaults initOptions) []wizardStep[initOptions] {
 					name:        "DynamoDB",
 					description: "one item per session through sessionstore/dynamo; revocable, expired by table TTL",
 					apply:       setSession(sessionDynamo),
+				},
+				wizardChoice[initOptions]{
+					name:        "Firestore",
+					description: "one entity per session through sessionstore/firestore; revocable, expired by a TTL policy",
+					apply:       setSession(sessionFirestore),
 				},
 			),
 		),
@@ -269,8 +293,12 @@ func authStoreChoices() []wizardChoice[initOptions] {
 	}
 	choices = append(choices, wizardChoice[initOptions]{
 		name:        "DynamoDB",
-		description: "typed records in DynamoDB; the login itself still needs a SQL database, asked next",
+		description: "the whole login in DynamoDB; no SQL database is scaffolded behind it",
 		apply:       setAuthStore(dynamoStore),
+	}, wizardChoice[initOptions]{
+		name:        "Firestore",
+		description: "the whole login in Firestore, in Datastore mode; no SQL database is scaffolded behind it",
+		apply:       setAuthStore(firestoreStore),
 	})
 	return choices
 }
@@ -280,21 +308,33 @@ func authStoreChoices() []wizardChoice[initOptions] {
 func setAuthStore(store string) func(*initOptions) {
 	return func(target *initOptions) {
 		target.AuthStore = store
-		if store == dynamoStore {
+		switch store {
+		case dynamoStore:
 			// DynamoDB carries the whole login, so no relational database is
 			// added behind the answer.
 			target.Dynamo = true
+			target.Firestore = false
 			target.Database = false
-			return
+		case firestoreStore:
+			// Firestore carries it on the same terms. Only one of the two can,
+			// because auth.backend names one store for all four of its kinds.
+			target.Firestore = true
+			target.Dynamo = false
+			target.Database = false
+		default:
+			target.Database = true
+			target.Engine = store
+			target.Dynamo = false
+			target.Firestore = false
 		}
-		target.Database = true
-		target.Engine = store
-		target.Dynamo = false
 	}
 }
 
 // authStoreCursor preselects the store a seeded answer already describes.
 func authStoreCursor(defaults initOptions) int {
+	if defaults.AuthStore == firestoreStore || (defaults.Firestore && defaults.AuthStore == "") {
+		return len(engineOrder) + 1
+	}
 	if defaults.AuthStore == dynamoStore || (defaults.Dynamo && defaults.AuthStore == "") {
 		return len(engineOrder)
 	}

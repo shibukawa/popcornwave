@@ -32,7 +32,7 @@ tiers:
     placement: session.Private
     client: neither reads nor changes
     mechanism: a sealed cookie while anonymous, and the backend the deployment selected from the login onward
-    backends: cookie, rdb, redis, dynamo
+    backends: cookie, rdb, redis, dynamo, firestore
     ceiling: the anonymous phase is bounded by the browser cookie budget, and an oversized write is refused rather than spilled
     default: yes
     fits: authorization facts, the plugin/auth slot, a cart an anonymous visitor starts and a logged-in user keeps
@@ -81,6 +81,14 @@ backend_selection:
     storage: requirement:dynamodb-session-store
     revocation: immediate
     expiry: table TTL, per decision:dynamodb-session-expiry
+  firestore:
+    import: _ "popcornwave/sessionstore/firestore"
+    storage: requirement:firestore-session-store
+    revocation: immediate
+    expiry: a field TTL policy, per decision:firestore-expiry-policy
+    reads: strongly consistent with no option to weigh, unlike dynamo
+    cost: a renewal is a read and a write rather than one conditional write, per decision:firestore-conditional-writes
+    mode: the database must have been created in Datastore mode, per decision:firestore-datastore-mode-only
 one_session:
   fact: every registered slot shares one token, whatever tier each one carries
   records: a session may hold a cookie-placed record and a server-placed record at once, which happens while it is anonymous and holds a session.ServerOnly slot
@@ -97,7 +105,7 @@ invariants:
   - policy:cookie-value-protection governs anything the browser carries
 acceptance:
   - a shared value survives a client edit as ordinary input, and every other tier rejects it
-  - the same handler compiles and passes against the cookie, rdb, redis, and dynamo server backends
+  - the same handler compiles and passes against the cookie, rdb, redis, dynamo, and firestore server backends
   - switching session.backend needs no migration of application code, only of stored records
   - a cookie-placed write beyond the browser budget is refused, naming the slot, instead of writing one the browser drops
   - a server-placed slot answers a logout by revoking the record, and a cookie-placed one states that it cannot

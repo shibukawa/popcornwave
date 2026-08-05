@@ -97,6 +97,11 @@ type generationScope struct {
 	// query declarations. It reads Go type declarations rather than a template
 	// language, which is why it is not part of generate.queries.
 	Dynamo []string
+	// Firestore lists the directories holding firestore-tagged types and
+	// .pw.firestore query declarations, on the same terms as Dynamo. The two
+	// are separate purposes because a project may have either store, and a
+	// directory listed for one is not a generation source for the other.
+	Firestore []string
 }
 
 // generatePurposes are the configuration keys of generationScope, in the order
@@ -116,6 +121,7 @@ var generatePurposes = []struct {
 	{key: "generate.config", target: func(s *generationScope) *[]string { return &s.Config }},
 	{key: "generate.pages", target: func(s *generationScope) *[]string { return &s.Pages }, optional: true},
 	{key: "generate.dynamo", target: func(s *generationScope) *[]string { return &s.Dynamo }, optional: true},
+	{key: "generate.firestore", target: func(s *generationScope) *[]string { return &s.Firestore }, optional: true},
 }
 
 // watchConfig widens or trims the pw dev walk. Unlike generation, the walk has a
@@ -183,7 +189,7 @@ func loadProjectConfig(root string) (projectConfig, error) {
 		"project.name", "project.kind", "project.main", "project.toolchain", "project.database",
 		"packages",
 		"generate.handlers", "generate.templates", "generate.queries", "generate.config", "generate.pages",
-		"generate.dynamo",
+		"generate.dynamo", "generate.firestore",
 		"dev.watch.includes", "dev.watch.excludes",
 		"seed.auto",
 		"dev.idp.enabled", "dev.idp.config", "dev.idp.port",

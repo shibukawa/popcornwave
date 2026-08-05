@@ -39,6 +39,14 @@ non_relational_stores:
   no_file: there is no migration file to publish, identify, or renumber, because decision:dynamodb-desired-state-migration has no version sequence
   detection: a capability is present when its table definition is registered, rather than when a file with its name stem exists
   unchanged: startup still verifies and never creates while serving, which is the same rule reached by a different route
+schemaless_stores:
+  applies_to: requirement:firestore-session-store, requirement:firestore-auth-stores, requirement:contrib-auth-state-firestore, and any later framework kind on a store that reports no schema
+  naming: unchanged; the popcornwave_ prefix names the kind, and no resolver maps it, per decision:firestore-namespace-isolation
+  creation: none anywhere; a kind exists on first write, per decision:firestore-no-schema-application
+  detection: a capability is present when its package is linked, which is the only signal left once nothing is registered and no file is published
+  what_startup_does_instead: the reachability and mode probe of decision:firestore-datastore-mode-only, which proves the database and not the shape
+  why_the_verification_half_disappears: nothing reports a kind, so there is no observed state to compare a desired one against; this rule's verify-only stance is not weakened here, it has no object
+  isolation_from_deployment_tooling: a deployment still configures the expiry policies decision:firestore-expiry-policy names, which is the one thing it must be told about these kinds
 startup:
   action: verify only
   missing_table: refuse to serve and name the missing table, the migration that creates it, and the command that applies it

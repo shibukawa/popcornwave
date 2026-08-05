@@ -39,6 +39,10 @@ const capabilityQueriesPurpose = "queries"
 // without the store never named it.
 const capabilityDynamoPurpose = "dynamo"
 
+// capabilityFirestorePurpose is the generate purpose the Firestore capability
+// opens, on the same terms.
+const capabilityFirestorePurpose = "firestore"
+
 // capabilityPageTreePurpose is the generate purpose the page tree capability
 // opens. Unlike the others it may be absent, because a project written before
 // page trees existed never named it.

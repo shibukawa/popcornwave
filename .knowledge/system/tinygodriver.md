@@ -18,6 +18,8 @@ packages:
   postgresql: github.com/shibukawa/tinygodriver/database/sql/pgxstdlib
   mysql: github.com/shibukawa/tinygodriver/database/sql/mysql
   dynamodb: github.com/shibukawa/tinygodriver/nosql/dynamodb
+  datastore: github.com/shibukawa/tinygodriver/nosql/datastore
+  google: github.com/shibukawa/tinygodriver/cloud/google
 roles:
   netdev: host TCP/IP Netdever registration for TinyGo
   https: net/http-compatible HTTPS client over the OS TLS stack, exposing the in-band upgrade seam the database drivers use
@@ -28,6 +30,8 @@ roles:
   postgresql: pgx stdlib driver, vendored with TLS rerouted for TinyGo, from v1.0.6
   mysql: MySQL and MariaDB driver forked from go-sql-driver for TinyGo, from v1.1.0
   dynamodb: DynamoDB JSON-protocol client written to build under TinyGo, from v1.1.3; detailed in system:tinygodriver-dynamodb
+  datastore: Firestore in Datastore mode over the Datastore v1 JSON API, from v1.1.4 and depended on from v1.1.6; detailed in system:tinygodriver-firestore
+  google: Google Cloud credentials and bearer tokens, with the RSA signing split out so a token-only or metadata-only build links none of it; what the datastore client authenticates with
 standard_go:
   netdev: no-op registration
   https: crypto/tls

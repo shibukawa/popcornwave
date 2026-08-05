@@ -58,6 +58,9 @@ const (
 	sessionCookie = "cookie"
 	sessionRedis  = "redis"
 	sessionDynamo = "dynamo"
+	// sessionFirestore keeps records in Firestore in Datastore mode, for the
+	// same relational-free project on Google Cloud that dynamo serves on AWS.
+	sessionFirestore = "firestore"
 )
 
 // usesOIDC reports whether a mode needs an OpenID Provider.
@@ -81,10 +84,13 @@ func sessionBackend(options initOptions) string {
 		return options.Session
 	}
 	if servesLogin(options) {
+		// The default follows the store the project actually has. A relational
+		// default here would name a pool nothing opens.
 		if !options.Database && options.Dynamo {
-			// The default follows the store the project actually has. A
-			// relational default here would name a pool nothing opens.
 			return sessionDynamo
+		}
+		if !options.Database && options.Firestore {
+			return sessionFirestore
 		}
 		return sessionRDB
 	}
@@ -130,6 +136,8 @@ func sessionBackendPlugin(backend, engine string) string {
 		return "github.com/shibukawa/popcornwave/sessionstore/redis"
 	case sessionDynamo:
 		return "github.com/shibukawa/popcornwave/sessionstore/dynamo"
+	case sessionFirestore:
+		return "github.com/shibukawa/popcornwave/sessionstore/firestore"
 	default:
 		return ""
 	}
@@ -162,6 +170,11 @@ const (
 	defaultRegisteredDir = "handlers"
 	defaultDiscoveredDir = "pages"
 	defaultTemplatesDir  = "templates"
+	// defaultFirestoreDir holds the firestore-tagged types and .pw.firestore
+	// queries of the Firestore store. It is separate from the DynamoDB
+	// directory because each is its own generate purpose, and a directory
+	// listed for one is not a generation source for the other.
+	defaultFirestoreDir = "entities"
 	// defaultDynamoDir holds the dynamo-tagged types and .pw.dynamo queries of
 	// requirement:dynamodb-store. It is its own purpose because a directory
 	// contributes only the artifact kinds whose purpose lists it.
@@ -177,6 +190,10 @@ const dynamoDevboxPackage = "dynamodb-local@latest"
 // requirement:dynamodb-store is a second kind of store rather than a fourth
 // dialect.
 const dynamoStore = "dynamo"
+
+// firestoreStore names Firestore where a store is being chosen rather than an
+// engine, on the same terms as dynamoStore.
+const firestoreStore = "firestore"
 
 // effectiveRouter reads an unset answer as the registered router: that is the
 // shape every project scaffolded before page trees existed has, and the one a
@@ -245,6 +262,10 @@ type initOptions struct {
 	// a fourth SQL engine, so it stands beside the Database answer instead of
 	// replacing it, and either, both, or neither is a valid project.
 	Dynamo bool
+	// Firestore adds the Firestore store, in Datastore mode. It stands beside
+	// the Database answer on the same terms as Dynamo, and the two are
+	// independent: a project may have either, both, or neither.
+	Firestore bool
 	// Yes skips the wizard and takes the flags with the defaults for everything
 	// they do not answer. It is the only way to run non-interactively in a
 	// terminal, because the project name alone no longer means the caller has
@@ -306,6 +327,10 @@ func parseInitArgs(args []string) (initOptions, error) {
 			options.Dynamo = true
 		case "--no-dynamo":
 			options.Dynamo = false
+		case "--firestore":
+			options.Firestore = true
+		case "--no-firestore":
+			options.Firestore = false
 		case "--redis":
 			options.Redis = true
 		case "--no-redis":
@@ -317,12 +342,12 @@ func parseInitArgs(args []string) (initOptions, error) {
 		default:
 			if backend, ok := strings.CutPrefix(arg, "--session="); ok {
 				switch backend {
-				case sessionRDB, sessionCookie, sessionRedis, sessionDynamo:
+				case sessionRDB, sessionCookie, sessionRedis, sessionDynamo, sessionFirestore:
 					options.Session = backend
 					sessionSelected = true
 				default:
-					return initOptions{}, fmt.Errorf("init: --session must be %s, %s, %s, or %s",
-						sessionRDB, sessionCookie, sessionRedis, sessionDynamo)
+					return initOptions{}, fmt.Errorf("init: --session must be %s, %s, %s, %s, or %s",
+						sessionRDB, sessionCookie, sessionRedis, sessionDynamo, sessionFirestore)
 				}
 				continue
 			}
@@ -372,11 +397,20 @@ func parseInitArgs(args []string) (initOptions, error) {
 		// environment there is nothing for it to do.
 		options.Redis = false
 	}
-	if !options.Database && servesLogin(options) && !options.Dynamo {
+	if !options.Database && servesLogin(options) && !options.Dynamo && !options.Firestore {
 		// The login keeps ceremony records, an admission allowlist, and any
-		// passkey credentials somewhere. DynamoDB can hold all of them; with
-		// neither store there is nowhere for them to go.
-		return initOptions{}, fmt.Errorf("init: --auth=%s needs a store for its login records; keep the database or add --dynamo", options.Auth)
+		// passkey credentials somewhere. Either non-relational store can hold
+		// all of them; with none there is nowhere for them to go.
+		return initOptions{}, fmt.Errorf(
+			"init: --auth=%s needs a store for its login records; keep the database, or add --dynamo or --firestore",
+			options.Auth)
+	}
+	if options.Dynamo && options.Firestore && servesLogin(options) && !options.Database {
+		// auth.backend names one store for all four of its kinds, so a project
+		// with both and no relational database has no defined winner. Asking is
+		// better than picking one and reporting the choice.
+		return initOptions{}, errors.New(
+			"init: --dynamo and --firestore both hold the login records; keep the database, or choose one store")
 	}
 	if !options.Database && engineSelected {
 		return initOptions{}, errors.New("init: --db selects the database engine; drop --no-database")
@@ -389,6 +423,9 @@ func parseInitArgs(args []string) (initOptions, error) {
 		// database. Following the store it does have beats scaffolding a
 		// session pool nothing opens.
 		options.Session = sessionDynamo
+	}
+	if !options.Database && !sessionSelected && options.Firestore && !options.Dynamo {
+		options.Session = sessionFirestore
 	}
 	options = normalizeSession(options)
 	return options, nil
@@ -571,6 +608,10 @@ func declinedCapabilities(options initOptions) []string {
 			if !options.Dynamo {
 				declined = append(declined, capability)
 			}
+		case capabilityFirestore:
+			if !options.Firestore {
+				declined = append(declined, capability)
+			}
 		case capabilityRedis:
 			if !options.Redis {
 				declined = append(declined, capability)
@@ -714,6 +755,9 @@ pages = [` + quotedList(scaffoldGenerationScope(options).Pages) + `]
 # The dynamo-tagged types and .pw.dynamo queries of the DynamoDB store, which is
 # its own purpose because it shares no source kind with the SQL path.
 dynamo = [` + quotedList(scaffoldGenerationScope(options).Dynamo) + `]
+# The firestore-tagged types and .pw.firestore queries of the Firestore store,
+# a purpose of its own for the same reason.
+firestore = [` + quotedList(scaffoldGenerationScope(options).Firestore) + `]
 
 # pw dev walks the module for rebuild inputs. Add what the walk misses, and
 # exclude a subtree that only makes the walk slower.
@@ -742,7 +786,7 @@ service_name = "` + name + `"
 # resolves to this in dev and to "json" everywhere else; it is written out here
 # so the format this file produces is visible rather than inferred.
 stdout_format = "plaintext"
-` + databaseRuntimeConfig(options) + dynamoRuntimeConfig(options) + sessionRuntimeConfig(options) + authRuntimeConfig(options) + securityRuntimeConfig(options),
+` + databaseRuntimeConfig(options) + dynamoRuntimeConfig(options) + firestoreRuntimeConfig(options) + sessionRuntimeConfig(options) + authRuntimeConfig(options) + securityRuntimeConfig(options),
 		"cmd/" + name + "/main.go": mainScaffold(options),
 		"templates/document.pw.html": `package templates
 
@@ -846,6 +890,10 @@ func PublicFS() fs.FS {
 	if options.Dynamo {
 		files[defaultDynamoDir+"/note.go"] = dynamoRecordScaffold()
 	}
+	if options.Firestore {
+		files[defaultFirestoreDir+"/note.go"] = firestoreEntityScaffold()
+		files[defaultFirestoreDir+"/notes.pw.firestore"] = firestoreQueryScaffold()
+	}
 	if options.Database {
 		files["queries/users.pw.sql"] = starterQuery()
 		files["migrations/00001_init.sql"] = engineFor(options.Engine).Schema
@@ -897,9 +945,10 @@ import _ "github.com/shibukawa/tinygodriver/netdev"
 			version = 3
 		}
 		if authBackend(options) == "rdb" {
-			// The DynamoDB backend has no migration file to write: its tables
-			// are the desired state pw migrate assembles from the definitions
-			// the imported packages register.
+			// A non-relational backend has no migration file to write. The
+			// DynamoDB tables are the desired state pw migrate assembles from
+			// the registered definitions, and a Firestore kind is created by
+			// the first write, so neither has one.
 			authMigration, err := auth.MigrationSQL(dialect)
 			if err != nil {
 				panic(err)
@@ -1000,6 +1049,85 @@ auto_migrate = true
 `
 }
 
+// firestoreRuntimeConfig is the middleware.firestore section. It is
+// independent of middleware.rdb and of middleware.dynamo: a project may have
+// any combination, because each is its own kind of store.
+func firestoreRuntimeConfig(options initOptions) string {
+	if !options.Firestore {
+		return ""
+	}
+	return firestoreRuntimeSection()
+}
+
+// firestoreRuntimeSection is what api:cli-init scaffolds and api:cli-add
+// appends, so both reach the same file state.
+//
+// No credential is configured. The endpoint points at the local emulator, which
+// ignores the Authorization header entirely, so a key here would be pretending
+// to exercise the token path. A deployment names its own credential source, and
+// on Cloud Run or GKE that is credentials = "metadata".
+func firestoreRuntimeSection() string {
+	return `
+# The Firestore store, in Datastore mode, independent of middleware.rdb. These
+# values point at the local Datastore emulator, which you start with
+#
+#   gcloud beta emulators datastore start --host-port=127.0.0.1:8081
+#
+# The database a deployment names must have been created in Datastore mode:
+# the mode is chosen at creation and cannot be changed afterwards.
+[middleware.firestore]
+enabled = true
+project_id = "demo-popcornwave"
+endpoint = "127.0.0.1:8081"
+`
+}
+
+// firestoreEntityScaffold is the starter bound entity.
+//
+// The key is lifted out of the properties, which is the one thing a reader
+// coming from the DynamoDB store has to unlearn: Datastore keeps identity
+// beside the entity rather than among it, so an identifier field carries no
+// property name.
+func firestoreEntityScaffold() string {
+	return `package entities
+
+import "time"
+
+// Note is stored in Firestore, in Datastore mode. Its kind is the Go type name,
+// which is why nothing here or in the declarations names one.
+//
+// ID is the key's name and is absent from the properties: Datastore stores a
+// key beside them, so writing it as a property too would store identity twice.
+//
+// ExpiresAt is written as an ordinary timestamp and produces one generated
+// fact: this kind's TTL policy targets "expires_at". Applying that policy is a
+// deployment step, because Datastore mode has no expiry on the wire.
+type Note struct {
+	ID        string    ` + "`firestore:\"-,name\"`" + `
+	Author    string    ` + "`firestore:\"author\"`" + `
+	Body      string    ` + "`firestore:\"body,noindex\"`" + `
+	CreatedAt time.Time ` + "`firestore:\"created_at\"`" + `
+	ExpiresAt time.Time ` + "`firestore:\"expires_at,ttl\"`" + `
+}
+`
+}
+
+// firestoreQueryScaffold is the starter access pattern.
+//
+// A declaration names no kind: the result type names the Go type, and that
+// type's generated Kind method is the kind, so a declaration cannot disagree
+// with the codec about what it is querying.
+func firestoreQueryScaffold() string {
+	return `// Access patterns for Note. Every property here is checked against the firestore
+// tags on the Go type, so a renamed tag fails generation rather than returning
+// an empty batch.
+
+export statement NotesByAuthor(author: string): firestore.many<Note> {
+  where author == {author}
+}
+`
+}
+
 // dynamoRecordScaffold is the starter typed record. Its table is created from
 // the generated definition rather than from a migration file, because the
 // DynamoDB schema is the set of registered tables and has no version sequence.
@@ -1046,8 +1174,13 @@ func LoadNote(ctx context.Context, id string, createdAt time.Time) (Note, error)
 // store the login was built on: a project with no relational database keeps
 // them in DynamoDB, and every other project keeps the relational default.
 func authBackend(options initOptions) string {
-	if servesLogin(options) && !options.Database && options.Dynamo {
-		return "dynamo"
+	if servesLogin(options) && !options.Database {
+		switch {
+		case options.Dynamo:
+			return "dynamo"
+		case options.Firestore:
+			return "firestore"
+		}
 	}
 	return "rdb"
 }
@@ -1063,13 +1196,13 @@ func sessionBackendImport(options initOptions) string {
 			"\" is served by this import; storage is opt-in.\n\t_ " + strconv.Quote(plugin)
 	}
 	if servesLogin(options) {
-		if authBackend(options) == "dynamo" {
-			// auth.backend = "dynamo" moves all four tables plugin/auth owns,
-			// so both halves are imported: the ceremony store and the
+		if backend := authBackend(options); backend != "rdb" {
+			// A non-relational auth.backend moves all four stores plugin/auth
+			// owns, so both halves are imported: the ceremony store and the
 			// account-side stores.
-			imports += "\n\t// auth.backend = \"dynamo\" is served by these two imports.\n\t_ " +
-				strconv.Quote("github.com/shibukawa/popcornwave/authstate/dynamo") +
-				"\n\t_ " + strconv.Quote("github.com/shibukawa/popcornwave/authstore/dynamo")
+			imports += "\n\t// auth.backend = \"" + backend + "\" is served by these two imports.\n\t_ " +
+				strconv.Quote("github.com/shibukawa/popcornwave/authstate/"+backend) +
+				"\n\t_ " + strconv.Quote("github.com/shibukawa/popcornwave/authstore/"+backend)
 		} else {
 			// The login ceremony records live in the database whichever backend
 			// holds the sessions, so their engine is imported for every login.
@@ -1102,6 +1235,20 @@ func databaseDriverImport(options initOptions) string {
 		return ""
 	}
 	return "\n\t// Registers the engine the configured DSN names.\n\t_ " + strconv.Quote(path)
+}
+
+// storeMiddlewareImport contributes the client a non-relational store needs.
+//
+// Only Firestore is written here. A DynamoDB project reaches database/dynamo
+// through the generated table registration, and this package generates nothing
+// for Firestore: a kind is created by the first write, so there is no
+// definition to register and nothing else would carry the import.
+func storeMiddlewareImport(options initOptions) string {
+	if !options.Firestore {
+		return ""
+	}
+	return "\n\t// Opens the Firestore client and installs it into every request.\n\t_ " +
+		strconv.Quote("github.com/shibukawa/popcornwave/database/firestore")
 }
 
 // authBootstrap installs the account resolver. That call is the whole
@@ -1997,7 +2144,7 @@ func mainScaffold(options initOptions) string {
 	return `package main
 
 import (
-` + imports + databaseDriverImport(options) + sessionBackendImport(options) + `
+` + imports + databaseDriverImport(options) + storeMiddlewareImport(options) + sessionBackendImport(options) + `
 )
 
 func main() {
@@ -2134,6 +2281,9 @@ func scaffoldGenerationScope(options initOptions) generationScope {
 	}
 	if options.Dynamo {
 		scope.Dynamo = []string{defaultDynamoDir}
+	}
+	if options.Firestore {
+		scope.Firestore = []string{defaultFirestoreDir}
 	}
 	return scope
 }

@@ -11,13 +11,14 @@ decided: user 2026-08-01
 question: how requirement:dynamodb-auth-backend is selected, given that plugin/auth opens four stores and today reads a database handle for all of them
 answer:
   key: auth.backend, a new field of data:authentication-runtime-config
-  values: rdb, the default and the current behavior, and dynamo
+  values: rdb, the default and the current behavior, dynamo, and firestore per requirement:firestore-auth-backend
   scope: authstate, allowlist, credential, and bootstrap at once, plus data:revoked-token-record, which requirement:jwt-only-api-authentication added after this was decided
   scope_growth: the revocation list arrived as a fifth store and is implemented against rdb only; it is named here rather than left out, because a store nobody listed is one the dynamo backend will silently not cover
   linking: decision:import-registered-session-plugins; importing the backend package registers its factory under the name, so a project links the backend it runs and no other
   missing_import: a startup error naming the import line to add, per rule:storage-package-layout
 one_key_for_four:
   reason: the four stores are one deployment's authentication state, and a project splitting them across two engines gains nothing and loses the shared unit of work of decision:dynamodb-auth-compensating-registration
+  sharper_on_firestore: there the shared unit of work is a real transaction across two of the stores, per decision:firestore-conditional-writes, so a split configuration would lose atomicity rather than only an ordering
   consequence: a mixed configuration is not expressible, which is the intent
   escape: an application that genuinely wants one store elsewhere installs it through api:auth-credential-store or api:auth-allowlist-store, which outrank the selected backend
 precedence:

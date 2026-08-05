@@ -95,6 +95,16 @@ dynamo:
   atomic_touch: the renewal is one conditional UpdateItem, so no read-then-write window exists
   read_consistency: decision:dynamodb-session-read-consistency
   shared_client: the process client installed by api:dynamo-package; there is no dedicated form
+firestore:
+  backend_name: firestore
+  session_plugin: popcornwave/sessionstore/firestore
+  status: designed, per requirement:firestore-session-store
+  owned_kind: popcornwave_session, which exists on first write and is neither created nor verified, per decision:firestore-no-schema-application
+  schema: none; there is no migration file, no version table, and no table definition
+  expiry_sweep: none, per decision:firestore-expiry-policy; a record is judged expired on read and removed by a field TTL policy the deployment applies
+  atomic_touch: no; a renewal is a read then a write carrying the update-time precondition, per decision:firestore-conditional-writes
+  read_consistency: strong by default, so decision:dynamodb-session-read-consistency has no counterpart and no key
+  shared_client: the process client installed by api:firestore-package; there is no dedicated form
 plugins: decision:import-registered-session-plugins
 extension: applications may supply another Store[T] without changing session middleware
 selection: a configured backend is resolved by name through api:session-backend-plugin

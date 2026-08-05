@@ -16,8 +16,9 @@ import (
 // Backend names. rdb is the default and the behavior every project had before
 // a second one existed.
 const (
-	BackendRDB    = "rdb"
-	BackendDynamo = "dynamo"
+	BackendRDB       = "rdb"
+	BackendDynamo    = "dynamo"
+	BackendFirestore = "firestore"
 )
 
 // Resources are what the framework has already opened by the time a backend is

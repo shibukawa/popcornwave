@@ -138,6 +138,8 @@ func planCapability(state projectState, options addOptions) (*capabilityPlan, er
 		return plan, planDatabase(state, options, plan)
 	case capabilityDynamo:
 		return plan, planDynamo(state, plan)
+	case capabilityFirestore:
+		return plan, planFirestore(state, plan)
 	case capabilityRedis:
 		return plan, planRedisValkey(state, plan)
 	case capabilityAuth:
@@ -261,6 +263,42 @@ func planDynamo(state projectState, plan *capabilityPlan) error {
 		plan.edits["devbox.json"] = devbox
 		plan.next = append(plan.next, "devbox shell")
 	}
+	return nil
+}
+
+// planFirestore installs the Firestore store: its configuration and the import
+// that opens the client.
+//
+// It writes no migration. A Datastore kind is created by the first write, so
+// there is no schema to add a file to.
+//
+// It adds no Devbox package either. The Datastore emulator is a Java process
+// inside the Cloud SDK rather than a standalone server, so the configuration
+// names the command to run instead of promising one pw dev starts.
+func planFirestore(state projectState, plan *capabilityPlan) error {
+	for _, name := range state.configFiles {
+		plan.appends[name] = firestoreRuntimeSection()
+	}
+	// The entities directory and the purpose that reads it are written
+	// together: generate.firestore has no default, so a directory no purpose
+	// lists is a directory nothing generates from.
+	plan.creates[defaultFirestoreDir+"/note.go"] = firestoreEntityScaffold()
+	plan.creates[defaultFirestoreDir+"/notes.pw.firestore"] = firestoreQueryScaffold()
+	edited, err := setGeneratePurpose(state, capabilityFirestorePurpose, []string{defaultFirestoreDir})
+	if err != nil {
+		return err
+	}
+	plan.edits["popcornwave.toml"] = edited
+	plan.generate = true
+	// The entry point is application-owned, so the import that installs the
+	// client middleware is printed rather than injected.
+	if err := planEntryPointEdit(state, plan,
+		[]blankImport{{"github.com/shibukawa/popcornwave/database/firestore", "installs the Firestore client middleware"}},
+		"", ""); err != nil {
+		return err
+	}
+	plan.next = append(plan.next,
+		"gcloud beta emulators datastore start --host-port=127.0.0.1:8081")
 	return nil
 }
 

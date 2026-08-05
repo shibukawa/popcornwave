@@ -309,6 +309,7 @@ func TestInitWizardCollectsAnswers(t *testing.T) {
 		pressKey(tea.KeyEnter), // Database: keep Yes
 		pressKey(tea.KeyEnter), // Database engine: keep SQLite
 		pressKey(tea.KeyEnter), // DynamoDB: keep No
+		pressKey(tea.KeyEnter), // Firestore: keep No
 		pressKey(tea.KeyEnter), // Devbox: keep Yes
 		pressKey(tea.KeyEnter), // Redis or Valkey: keep Yes
 		pressKey(tea.KeyEnter), // review
@@ -334,6 +335,7 @@ func TestInitWizardDigitShortcutSelectsTailwind(t *testing.T) {
 		typeText("1"),          // Database: Yes
 		typeText("1"),          // Database engine: SQLite
 		typeText("2"),          // DynamoDB: No
+		typeText("2"),          // Firestore: No
 		typeText("1"),          // Devbox: Yes
 		typeText("1"),          // Redis or Valkey: Yes
 		pressKey(tea.KeyEnter), // review
@@ -357,7 +359,7 @@ func TestInitWizardSeedsAnswersFromShortcutFlags(t *testing.T) {
 	// different set of answers would have reached instead.
 	want := []string{
 		"seeded", "Yes", "Both", "Yes", "OIDC", "DynamoDB",
-		"Yes", "SQLite", "Yes",
+		"Yes", "SQLite", "Yes", "No",
 		"Redis or Valkey", "Local emulator", "Yes", "Yes",
 	}
 	if len(steps) != len(want) {
@@ -420,6 +422,7 @@ func TestInitWizardReviewListsEveryStep(t *testing.T) {
 		pressKey(tea.KeyEnter),
 		pressKey(tea.KeyEnter),
 		pressKey(tea.KeyEnter),
+		pressKey(tea.KeyEnter),
 	)
 	view := model.View()
 	if !strings.Contains(view, "Review") {
@@ -440,13 +443,13 @@ func TestInitWizardReviewListsEveryStep(t *testing.T) {
 func TestRunInitWizardOverKeystrokes(t *testing.T) {
 	t.Chdir(t.TempDir())
 	// demo, enter, down, enter (TinyGo: No), enter (router), enter (Tailwind),
-	// enter (database), enter (engine), enter (DynamoDB), enter (auth),
-	// enter (devbox), enter (redis), enter (review).
+	// enter (database), enter (engine), enter (DynamoDB), enter (Firestore),
+	// enter (auth), enter (devbox), enter (redis), enter (review).
 	//
 	// One Enter per step, and the wizard waits for input it never gets when the
 	// count is short, so a missing keystroke here is a hung test rather than a
 	// failing one.
-	keystrokes := "demo\r\x1b[B\r\r\r\r\r\r\r\r\r\r"
+	keystrokes := "demo\r\x1b[B\r\r\r\r\r\r\r\r\r\r\r"
 	options, err := runInitWizard(defaultInitOptions(),
 		tea.WithInput(strings.NewReader(keystrokes)),
 		tea.WithOutput(io.Discard),

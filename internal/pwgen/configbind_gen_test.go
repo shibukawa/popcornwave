@@ -26,7 +26,7 @@ func TestConfigBindGenIsCurrent(t *testing.T) {
 	runner := generator.New(options)
 	// Every committed binding, so a struct tag edited in one of them cannot
 	// leave the generated file behind without this failing.
-	for _, dir := range []string{"../../pw", "../../plugin/auth", "../../database/dynamo"} {
+	for _, dir := range []string{"../../pw", "../../plugin/auth", "../../database/dynamo", "../../database/firestore"} {
 		if os.Getenv("PWGEN_WRITE") != "" {
 			if _, err := runner.GenerateConfigBind(dir, dir, ""); err != nil {
 				t.Fatalf("%s: %v", dir, err)

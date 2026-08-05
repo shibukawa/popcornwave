@@ -260,6 +260,7 @@ func TestInitWizardAsksForTheProviderOnlyForOIDC(t *testing.T) {
 		typeText("2"),          // Authentication: OIDC
 		typeText("1"),          // Store: SQLite
 		pressKey(tea.KeyEnter), // DynamoDB
+		pressKey(tea.KeyEnter), // Firestore
 	)
 	if model.reviewing() {
 		t.Fatal("choosing OIDC must ask where the session lives")
@@ -291,6 +292,7 @@ func TestInitWizardAsksForTheProviderForOIDCPasskey(t *testing.T) {
 		typeText("3"),          // Authentication: OIDC and passkey
 		typeText("1"),          // Store: SQLite
 		pressKey(tea.KeyEnter), // DynamoDB
+		pressKey(tea.KeyEnter), // Firestore
 		pressKey(tea.KeyEnter), // Session storage
 	)
 	if model.reviewing() {
@@ -312,6 +314,7 @@ func TestInitWizardSkipsTheProviderStepWithoutOIDC(t *testing.T) {
 		typeText("4"),          // Authentication: Passkey only
 		typeText("1"),          // Store: SQLite
 		pressKey(tea.KeyEnter), // DynamoDB
+		pressKey(tea.KeyEnter), // Firestore
 		pressKey(tea.KeyEnter), // Session storage
 	)
 	// The provider question is skipped; the environment questions still follow.
@@ -336,6 +339,7 @@ func TestInitWizardGoesBackPastASkippedStep(t *testing.T) {
 		pressKey(tea.KeyEnter), // Database
 		pressKey(tea.KeyEnter), // Database engine
 		pressKey(tea.KeyEnter), // DynamoDB
+		pressKey(tea.KeyEnter), // Firestore
 		pressKey(tea.KeyEnter), // Devbox
 		pressKey(tea.KeyEnter), // Redis or Valkey
 		pressKey(tea.KeyEsc),   // back from the review screen
@@ -636,6 +640,90 @@ func TestDynamoLoginScaffoldsTheDynamoAuthBackend(t *testing.T) {
 	}
 	if strings.Contains(imports, "authstate/sqlite") {
 		t.Fatalf("a relational ceremony store was imported anyway:\n%s", imports)
+	}
+}
+
+// The Firestore project is the same shape as the DynamoDB one: no rdb section,
+// and the four auth stores named as Firestore's.
+func TestFirestoreLoginScaffoldsTheFirestoreAuthBackend(t *testing.T) {
+	options := initOptions{
+		Name: "demo", Router: routerRegistered, Auth: authOIDC,
+		Firestore: true, Database: false, Session: sessionFirestore,
+	}
+	if backend := authBackend(options); backend != "firestore" {
+		t.Fatalf("auth backend = %q", backend)
+	}
+	config := authRuntimeConfig(options)
+	if !strings.Contains(config, `backend = "firestore"`) {
+		t.Fatalf("[auth] section does not name the backend:\n%s", config)
+	}
+	// Both halves are imported: the ceremony store and the account-side stores.
+	imports := sessionBackendImport(options)
+	for _, wanted := range []string{"authstate/firestore", "authstore/firestore"} {
+		if !strings.Contains(imports, wanted) {
+			t.Fatalf("imports do not carry %s:\n%s", wanted, imports)
+		}
+	}
+	if strings.Contains(imports, "authstate/sqlite") {
+		t.Fatalf("a relational ceremony store was imported anyway:\n%s", imports)
+	}
+	// Nothing is generated for Firestore, so the client middleware import has
+	// to be written by the scaffold rather than arriving with generated code.
+	if store := storeMiddlewareImport(options); !strings.Contains(store, "database/firestore") {
+		t.Fatalf("the client middleware is not imported: %q", store)
+	}
+}
+
+// The configuration points at the emulator and names no credential: the
+// emulator ignores the Authorization header, so a key here would be pretending
+// to exercise the token path.
+func TestTheFirestoreSectionScaffoldsForTheEmulator(t *testing.T) {
+	section := firestoreRuntimeConfig(initOptions{Firestore: true})
+	for _, want := range []string{"[middleware.firestore]", "127.0.0.1:8081", "Datastore mode", "gcloud beta emulators datastore start"} {
+		if !strings.Contains(section, want) {
+			t.Errorf("the section does not carry %q:\n%s", want, section)
+		}
+	}
+	for _, absent := range []string{"credentials_file", "secret", "auto_migrate", "verify_schema"} {
+		if strings.Contains(section, absent) {
+			t.Errorf("the section carries %q, which it should not", absent)
+		}
+	}
+	if firestoreRuntimeConfig(initOptions{}) != "" {
+		t.Error("a project without the store still got a section")
+	}
+}
+
+// A login with neither store has nowhere to keep its records, and both ways out
+// are named. Firestore is one of them.
+func TestAFirestoreOnlyLoginIsAccepted(t *testing.T) {
+	_, err := parseInitArgs([]string{"demo", "--auth=oidc", "--no-database"})
+	if err == nil || !strings.Contains(err.Error(), "--firestore") {
+		t.Fatalf("the refusal does not name --firestore: %v", err)
+	}
+	options, err := parseInitArgs([]string{"demo", "--auth=oidc", "--no-database", "--firestore"})
+	if err != nil {
+		t.Fatalf("a Firestore-only login = %v", err)
+	}
+	if backend := sessionBackend(options); backend != sessionFirestore {
+		t.Fatalf("session backend = %q", backend)
+	}
+	if backend := authBackend(options); backend != "firestore" {
+		t.Fatalf("auth backend = %q", backend)
+	}
+}
+
+// auth.backend names one store for all four of its kinds, so a project with
+// both non-relational stores and no database has no defined winner. Asking is
+// better than picking one.
+func TestTwoStoresAndNoDatabaseIsRefusedForALogin(t *testing.T) {
+	_, err := parseInitArgs([]string{"demo", "--auth=oidc", "--no-database", "--dynamo", "--firestore"})
+	if err == nil {
+		t.Fatal("a login with two stores and no database was accepted")
+	}
+	// Without a login there is nothing to choose between, so both stores stand.
+	if _, err := parseInitArgs([]string{"demo", "--auth=none", "--no-database", "--dynamo", "--firestore"}); err != nil {
+		t.Fatalf("two stores without a login = %v", err)
 	}
 }
 
