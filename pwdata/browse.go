@@ -58,8 +58,8 @@ type Page struct {
 const frameworkPrefix = "popcornwave_"
 
 // Tables lists what the connected database holds.
-func (s *Server) Tables(ctx context.Context) ([]Table, error) {
-	rows, err := s.db.QueryContext(ctx, s.dialect.tables)
+func (c *Connection) Tables(ctx context.Context) ([]Table, error) {
+	rows, err := c.db.QueryContext(ctx, c.dialect.tables)
 	if err != nil {
 		return nil, err
 	}
@@ -82,11 +82,11 @@ func (s *Server) Tables(ctx context.Context) ([]Table, error) {
 }
 
 // Columns describes one table.
-func (s *Server) Columns(ctx context.Context, table string) ([]Column, error) {
-	if err := s.knownTable(ctx, table); err != nil {
+func (c *Connection) Columns(ctx context.Context, table string) ([]Column, error) {
+	if err := c.knownTable(ctx, table); err != nil {
 		return nil, err
 	}
-	rows, err := s.db.QueryContext(ctx, s.dialect.columns, table)
+	rows, err := c.db.QueryContext(ctx, c.dialect.columns, table)
 	if err != nil {
 		return nil, err
 	}
@@ -110,8 +110,8 @@ func (s *Server) Columns(ctx context.Context, table string) ([]Column, error) {
 // so what a request carries is a selection rather than SQL. Ordering is by
 // primary key where there is one, because a page whose order changes between
 // reads shows the same row twice and never shows another.
-func (s *Server) Rows(ctx context.Context, table string, offset int) (Page, error) {
-	columns, err := s.Columns(ctx, table)
+func (c *Connection) Rows(ctx context.Context, table string, offset int) (Page, error) {
+	columns, err := c.Columns(ctx, table)
 	if err != nil {
 		return Page{}, err
 	}
@@ -119,16 +119,16 @@ func (s *Server) Rows(ctx context.Context, table string, offset int) (Page, erro
 		return Page{}, fmt.Errorf("table %q has no columns", table)
 	}
 	page := Page{Table: table, Columns: columns, Offset: offset, Limit: pageSize}
-	statement := "SELECT " + s.columnList(columns) + " FROM " + s.dialect.quote(table)
-	if order := s.primaryKeyOrder(columns); order != "" {
+	statement := "SELECT " + c.columnList(columns) + " FROM " + c.dialect.quote(table)
+	if order := c.primaryKeyOrder(columns); order != "" {
 		statement += " ORDER BY " + order
 		page.Ordered = true
 	}
 	// One extra row answers "is there another page" without a second count
 	// query, which on a large table costs more than the page itself.
-	statement += s.dialect.limitOffset(pageSize+1, offset)
+	statement += c.dialect.limitOffset(pageSize+1, offset)
 
-	rows, err := s.db.QueryContext(ctx, statement)
+	rows, err := c.db.QueryContext(ctx, statement)
 	if err != nil {
 		return Page{}, err
 	}
@@ -169,22 +169,22 @@ func renderRow(values []any) []*string {
 	return row
 }
 
-func (s *Server) columnList(columns []Column) string {
+func (c *Connection) columnList(columns []Column) string {
 	names := make([]string, len(columns))
 	for index, column := range columns {
-		names[index] = s.dialect.quote(column.Name)
+		names[index] = c.dialect.quote(column.Name)
 	}
 	return strings.Join(names, ", ")
 }
 
-func (s *Server) primaryKeyOrder(columns []Column) string {
+func (c *Connection) primaryKeyOrder(columns []Column) string {
 	keys := primaryKey(columns)
 	if len(keys) == 0 {
 		return ""
 	}
 	names := make([]string, len(keys))
 	for index, column := range keys {
-		names[index] = s.dialect.quote(column.Name)
+		names[index] = c.dialect.quote(column.Name)
 	}
 	return strings.Join(names, ", ")
 }
@@ -210,8 +210,8 @@ func primaryKey(columns []Column) []Column {
 // This is the guard that keeps a request a selection. Every identifier this
 // package puts into a statement has been through here first, so a name carrying
 // SQL is rejected rather than quoted and hoped about.
-func (s *Server) knownTable(ctx context.Context, table string) error {
-	tables, err := s.Tables(ctx)
+func (c *Connection) knownTable(ctx context.Context, table string) error {
+	tables, err := c.Tables(ctx)
 	if err != nil {
 		return err
 	}

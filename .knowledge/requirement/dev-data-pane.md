@@ -15,6 +15,20 @@ configuration: data:project-config dev.console.data
 halves:
   browsing: schema and rows, described here
   running: requirement:dev-query-runner, on the same pane and the same attachment, because running a statement and looking at what it changed is one activity
+connections:
+  addressed: one connection at a time, not one group
+  reason: selection inside a group is round robin under requirement:read-write-splitting, so a pane addressing the group could not say which replica answered, and whether this replica has caught up is the one question replicas raise
+  listed: every connection the application opened, by the label the runtime spells group#ordinal
+  default: a writable one, because the pane edits and a page opening on a replica would refuse the first edit for a reason the developer did not choose
+  all_replicas: still readable; the first connection is selected when none is writable
+  read_only: reading works, writing is refused with the reason, which is a fact about the connection rather than a rule the pane applies
+  driver: per connection, so the dialect is resolved there; nothing forbids two groups on two engines
+  single_database: a configuration declaring no connection set is one unnamed connection, so the page has no special case
+migration_version:
+  shows: the applied schema version and how many migrations are recorded, read from the system:goose bookkeeping table
+  absent_table: reported as nothing applied yet, rather than as a failure
+  display_only: applying and rolling back stay with api:cli-migrate, and api:cli-dev already rolls back and reseeds on its own when a migration source changes; a second actor deciding the same thing from a page would be one too many
+  question_answered: why the schema in front of the developer looks the way it does, which is the only migration question a data pane raises
 engines:
   first_class: requirement:contrib-sqlite, requirement:contrib-postgresql, requirement:contrib-mysql, per decision:server-sql-support-tier
   differences: identifier quoting, placeholder form, and where the catalog lives
@@ -59,5 +73,9 @@ acceptance:
   - a name the catalog does not report is refused rather than quoted into a statement
   - a rule:framework-owned-tables table is readable and marked
   - the pane reports the application as detached while it is down
+  - a project declaring a connection set lists every connection and defaults to a writable one
+  - a write through a read-only connection is refused with the reason and changes nothing
+  - two connections on different engines each answer through their own dialect
+  - the applied schema version is shown, and a database with no bookkeeping table says so
   - a binary produced by api:cli-build contains no part of the pane
 ```

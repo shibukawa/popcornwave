@@ -14,7 +14,7 @@ import (
 	"github.com/shibukawa/tinybind-go/sqlbind"
 )
 
-func open(t *testing.T) *Server {
+func open(t *testing.T) *Connection {
 	t.Helper()
 	db, err := sql.Open("sqlite", filepath.Join(t.TempDir(), "data.db"))
 	if err != nil {
@@ -33,7 +33,7 @@ func open(t *testing.T) *Server {
 			t.Fatalf("%s: %v", statement, err)
 		}
 	}
-	return New(db, "sqlite", "dev")
+	return NewSingle(db, "sqlite", "dev").Default()
 }
 
 func TestTablesAreListedAndFrameworkOnesMarked(t *testing.T) {
@@ -115,8 +115,8 @@ func TestUnknownTableIsRefused(t *testing.T) {
 }
 
 func TestUpdateRowWritesByPrimaryKey(t *testing.T) {
-	server := open(t)
-	affected, err := server.UpdateRow(context.Background(), RowEdit{
+	connection := open(t)
+	affected, err := connection.UpdateRow(context.Background(), RowEdit{
 		Table:  "memos",
 		Key:    map[string]string{"id": "1"},
 		Values: map[string]string{"title": "renamed"},
@@ -127,43 +127,43 @@ func TestUpdateRowWritesByPrimaryKey(t *testing.T) {
 	if affected != 1 {
 		t.Errorf("affected = %d, want 1", affected)
 	}
-	page, _ := server.Rows(context.Background(), "memos", 0)
+	page, _ := connection.Rows(context.Background(), "memos", 0)
 	if *page.Rows[0][1] != "renamed" {
 		t.Errorf("title = %q, want the new value", *page.Rows[0][1])
 	}
 }
 
 func TestUpdateCanSetAColumnToNull(t *testing.T) {
-	server := open(t)
-	if _, err := server.UpdateRow(context.Background(), RowEdit{
+	connection := open(t)
+	if _, err := connection.UpdateRow(context.Background(), RowEdit{
 		Table: "memos", Key: map[string]string{"id": "1"}, Nulls: []string{"body"},
 	}); err != nil {
 		t.Fatal(err)
 	}
-	page, _ := server.Rows(context.Background(), "memos", 0)
+	page, _ := connection.Rows(context.Background(), "memos", 0)
 	if page.Rows[0][2] != nil {
 		t.Errorf("body = %q, want NULL", *page.Rows[0][2])
 	}
 }
 
 func TestInsertAndDeleteRow(t *testing.T) {
-	server := open(t)
-	if _, err := server.InsertRow(context.Background(), RowEdit{
+	connection := open(t)
+	if _, err := connection.InsertRow(context.Background(), RowEdit{
 		Table:  "memos",
 		Values: map[string]string{"id": "3", "title": "third"},
 	}); err != nil {
 		t.Fatal(err)
 	}
-	page, _ := server.Rows(context.Background(), "memos", 0)
+	page, _ := connection.Rows(context.Background(), "memos", 0)
 	if len(page.Rows) != 3 {
 		t.Fatalf("rows = %d, want three after the insert", len(page.Rows))
 	}
-	if _, err := server.DeleteRow(context.Background(), RowEdit{
+	if _, err := connection.DeleteRow(context.Background(), RowEdit{
 		Table: "memos", Key: map[string]string{"id": "3"},
 	}); err != nil {
 		t.Fatal(err)
 	}
-	page, _ = server.Rows(context.Background(), "memos", 0)
+	page, _ = connection.Rows(context.Background(), "memos", 0)
 	if len(page.Rows) != 2 {
 		t.Errorf("rows = %d, want two after the delete", len(page.Rows))
 	}
@@ -249,13 +249,13 @@ func TestDeclaredQueryRunsTheGeneratedStatement(t *testing.T) {
 }
 
 func TestPagesRender(t *testing.T) {
-	server := open(t)
+	connection := open(t)
 	registry.Lock()
 	registry.queries = nil
 	registry.Unlock()
 	for _, path := range []string{"/", "/table/memos", "/table/tags", "/console", "/queries"} {
 		recorder := httptest.NewRecorder()
-		server.Handler().ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, path, nil))
+		serverFor(connection).Handler().ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, path, nil))
 		if recorder.Code != http.StatusOK {
 			t.Errorf("%s: status = %d", path, recorder.Code)
 			continue
@@ -267,7 +267,7 @@ func TestPagesRender(t *testing.T) {
 }
 
 func TestEditFormAppliesAnUpdate(t *testing.T) {
-	server := open(t)
+	connection := open(t)
 	form := url.Values{
 		"action":      {"update"},
 		"key.id":      {"1"},
@@ -277,11 +277,11 @@ func TestEditFormAppliesAnUpdate(t *testing.T) {
 	request := httptest.NewRequest(http.MethodPost, "/table/memos/row", strings.NewReader(form.Encode()))
 	request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	recorder := httptest.NewRecorder()
-	server.Handler().ServeHTTP(recorder, request)
+	serverFor(connection).Handler().ServeHTTP(recorder, request)
 	if recorder.Code != http.StatusSeeOther {
 		t.Fatalf("status = %d, want a redirect back to the table", recorder.Code)
 	}
-	page, _ := server.Rows(context.Background(), "memos", 0)
+	page, _ := connection.Rows(context.Background(), "memos", 0)
 	if *page.Rows[0][1] != "through the form" {
 		t.Errorf("title = %q, want the posted value", *page.Rows[0][1])
 	}
@@ -306,5 +306,92 @@ func TestDialectsDifferWhereTheyMust(t *testing.T) {
 		if d.tables == "" || d.columns == "" {
 			t.Errorf("%s has no catalog statements", engine.driver)
 		}
+	}
+}
+
+// serverFor wraps one connection the way the framework wraps the application's.
+func serverFor(connection *Connection) *Server {
+	return New([]Connection{*connection}, "dev")
+}
+
+func TestDefaultConnectionIsWritable(t *testing.T) {
+	writable := NewConnection("primary#0", "primary", "sqlite", false, nil)
+	replica := NewConnection("replica#0", "replica", "sqlite", true, nil)
+	// Declaration order puts the replica first on purpose: the default is
+	// chosen by what it can do, not by where it sits.
+	server := New([]Connection{replica, writable}, "dev")
+	if got := server.Default(); got.Label != "primary#0" {
+		t.Errorf("default = %q, want the writable connection", got.Label)
+	}
+	// A project whose connections are all replicas is still readable.
+	only := New([]Connection{replica}, "dev")
+	if got := only.Default(); got.Label != "replica#0" {
+		t.Errorf("default = %q, want the only connection", got.Label)
+	}
+}
+
+func TestLookupFallsBackToTheDefault(t *testing.T) {
+	server := New([]Connection{
+		NewConnection("primary#0", "primary", "sqlite", false, nil),
+		NewConnection("replica#0", "replica", "postgres", true, nil),
+	}, "dev")
+	if got := server.Lookup("replica#0"); got.Label != "replica#0" {
+		t.Errorf("lookup = %q, want the named connection", got.Label)
+	}
+	// A stale bookmark should land somewhere usable rather than error.
+	if got := server.Lookup("gone#3"); got.Label != "primary#0" {
+		t.Errorf("lookup = %q, want the default", got.Label)
+	}
+}
+
+// The driver is per connection, so two groups on two engines each get their own
+// dialect rather than sharing one resolved for the project.
+func TestDialectIsResolvedPerConnection(t *testing.T) {
+	postgres := NewConnection("reporting#0", "reporting", "postgres", true, nil)
+	sqlite := NewConnection("primary#0", "primary", "sqlite", false, nil)
+	if postgres.Engine() != "postgres" || sqlite.Engine() != "sqlite" {
+		t.Errorf("engines = %q and %q, want each connection's own", postgres.Engine(), sqlite.Engine())
+	}
+}
+
+func TestMigrationStateReadsTheAppliedVersion(t *testing.T) {
+	connection := open(t)
+	if state, err := connection.MigrationState(context.Background()); err != nil || state.Present {
+		t.Fatalf("state = %+v, err = %v; want absent before any migration", state, err)
+	}
+	for _, statement := range []string{
+		`CREATE TABLE goose_db_version (id INTEGER PRIMARY KEY, version_id INTEGER, is_applied BOOLEAN, tstamp TIMESTAMP)`,
+		`INSERT INTO goose_db_version (version_id, is_applied) VALUES (0, 1), (1, 1), (2, 1)`,
+	} {
+		if _, err := connection.db.Exec(statement); err != nil {
+			t.Fatal(err)
+		}
+	}
+	state, err := connection.MigrationState(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !state.Present || state.Version != 2 || state.Applied != 3 {
+		t.Errorf("state = %+v, want version 2 with three applied", state)
+	}
+}
+
+// Writing through a replica is refused with the reason, rather than left to the
+// engine to report in its own words.
+func TestWriteThroughAReadOnlyConnectionIsRefused(t *testing.T) {
+	connection := open(t)
+	replica := NewConnection("replica#0", "replica", "sqlite", true, connection.db)
+	server := New([]Connection{replica}, "dev")
+	form := url.Values{"action": {"update"}, "key.id": {"1"}, "value.title": {"x"}, "offset": {"0"}}
+	request := httptest.NewRequest(http.MethodPost, "/table/memos/row?c=replica#0", strings.NewReader(form.Encode()))
+	request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	recorder := httptest.NewRecorder()
+	server.Handler().ServeHTTP(recorder, request)
+	if location := recorder.Header().Get("Location"); !strings.Contains(location, "read-only") {
+		t.Errorf("location = %q, want the refusal explained", location)
+	}
+	page, _ := connection.Rows(context.Background(), "memos", 0)
+	if *page.Rows[0][1] != "first" {
+		t.Errorf("title = %q, want it unchanged", *page.Rows[0][1])
 	}
 }

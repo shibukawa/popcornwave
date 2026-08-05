@@ -22,6 +22,9 @@ type view struct {
 	Args        []string
 	Statement   string
 	Result      *Result
+	Connection  *Connection
+	Connections []Connection
+	Migration   *Migration
 	Error       string
 	Changed     string
 	// PrevOffset is the previous page's offset, clamped at zero. It is
@@ -31,9 +34,11 @@ type view struct {
 }
 
 func (s *Server) view(r *http.Request, section, title string) view {
+	connection := s.connection(r)
 	return view{
 		Section: section, Title: title,
-		Engine: s.dialect.name, Environment: s.environment,
+		Engine: connection.Engine(), Environment: s.environment,
+		Connection: connection, Connections: s.connections,
 		Queries: Queries(),
 		Error:   r.URL.Query().Get("error"),
 		Changed: r.URL.Query().Get("changed"),
@@ -96,10 +101,14 @@ const chrome = `<!doctype html>
 <aside>
 <strong>data</strong>
 <div class="env">{{.Engine}} · {{.Environment}}</div>
-<a href="/console"{{if eq .Section "console"}} class="here"{{end}}>statement console</a>
-<a href="/queries"{{if eq .Section "queries"}} class="here"{{end}}>declared queries</a>
+{{if gt (len .Connections) 1}}
+<div class="group">connection</div>
+{{range .Connections}}<a href="?c={{.Label}}"{{if eq $.Connection.Label .Label}} class="here"{{end}}>{{.Label}}{{if .ReadOnly}} <span class="fw">read-only</span>{{end}}</a>{{end}}
+{{end}}
+<a href="/console?c={{.Connection.Label}}"{{if eq .Section "console"}} class="here"{{end}}>statement console</a>
+<a href="/queries?c={{.Connection.Label}}"{{if eq .Section "queries"}} class="here"{{end}}>declared queries</a>
 <div class="group">tables</div>
-{{range .Tables}}<a href="/table/{{.Name}}"{{if eq $.Title .Name}} class="here"{{end}}>{{if .Framework}}<span class="fw">{{.Name}}</span>{{else}}{{.Name}}{{end}}</a>{{end}}
+{{range .Tables}}<a href="/table/{{.Name}}?c={{$.Connection.Label}}"{{if eq $.Title .Name}} class="here"{{end}}>{{if .Framework}}<span class="fw">{{.Name}}</span>{{else}}{{.Name}}{{end}}</a>{{end}}
 </aside>
 <main>
 {{if .Error}}<p class="bad">{{.Error}}</p>{{end}}
@@ -133,7 +142,10 @@ func page(body string) *template.Template {
 
 var tablesPage = page(`{{define "body"}}
 <h1>Tables</h1>
-<p class="sub">{{len .Tables}} in the {{.Engine}} database this application opened.</p>
+<p class="sub">{{len .Tables}} in the {{.Engine}} database this application opened, on <code>{{.Connection.Label}}</code>{{if .Connection.ReadOnly}} <span class="warn">(read-only replica)</span>{{end}}.</p>
+{{with .Migration}}
+<p class="sub">{{if .Present}}schema at version <code>{{.Version}}</code>, {{.Applied}} migration(s) applied{{else}}no migrations recorded on this database{{end}}</p>
+{{end}}
 <div class="wrap"><table class="grid">
 <tr><th>table</th><th>owner</th></tr>
 {{range .Tables}}<tr><td><a href="/table/{{.Name}}">{{.Name}}</a></td>
@@ -147,6 +159,7 @@ var tablePage = page(`{{define "body"}}
 <p class="sub">
 {{range $page.Columns}}<code>{{.Name}}</code> {{.Type}}{{if gt .PrimaryKey 0}} <span class="warn">pk</span>{{end}}{{if .NotNull}} not null{{end}} · {{end}}
 </p>
+{{if $.Connection.ReadOnly}}<p class="note warn">This connection is a read-only replica, so rows are shown but cannot be edited here.</p>{{end}}
 {{if not $page.Ordered}}<p class="note warn">This table has no primary key. Rows are paged by offset, their order is unspecified, and a single row cannot be edited here.</p>{{end}}
 
 <div class="wrap"><table class="grid">
@@ -154,8 +167,8 @@ var tablePage = page(`{{define "body"}}
 {{range $rowIndex, $row := $page.Rows}}
 <tr>
 <td>
-{{if $.Keys}}
-<form method="post" action="/table/{{$page.Table}}/row" id="row{{$rowIndex}}">
+{{if and $.Keys (not $.Connection.ReadOnly)}}
+<form method="post" action="/table/{{$page.Table}}/row?c={{$.Connection.Label}}" id="row{{$rowIndex}}">
 <input type="hidden" name="offset" value="{{str $page.Offset}}">
 {{range $index, $column := $page.Columns}}{{if gt $column.PrimaryKey 0}}
 <input type="hidden" name="key.{{$column.Name}}" value="{{with index $row $index}}{{.}}{{end}}">
@@ -177,15 +190,15 @@ var tablePage = page(`{{define "body"}}
 </table></div>
 
 <div class="bar">
-{{if gt $page.Offset 0}}<a class="page" href="/table/{{$page.Table}}?offset=0">first</a>
-<a class="page" href="/table/{{$page.Table}}?offset={{str $.PrevOffset}}">previous</a>{{end}}
-{{if $page.More}}<a class="page" href="/table/{{$page.Table}}?offset={{str (inc $page.Offset $page.Limit)}}">next {{str $page.Limit}}</a>{{end}}
+{{if gt $page.Offset 0}}<a class="page" href="/table/{{$page.Table}}?c={{$.Connection.Label}}&offset=0">first</a>
+<a class="page" href="/table/{{$page.Table}}?c={{$.Connection.Label}}&offset={{str $.PrevOffset}}">previous</a>{{end}}
+{{if $page.More}}<a class="page" href="/table/{{$page.Table}}?c={{$.Connection.Label}}&offset={{str (inc $page.Offset $page.Limit)}}">next {{str $page.Limit}}</a>{{end}}
 <span class="note">rows {{str (inc $page.Offset 1)}}–{{str (inc $page.Offset (len $page.Rows))}}</span>
 </div>
 
 {{if $.Keys}}
 <h1 style="font-size:1rem;margin-top:2rem">Insert a row</h1>
-<form method="post" action="/table/{{$page.Table}}/row">
+<form method="post" action="/table/{{$page.Table}}/row?c={{$.Connection.Label}}">
 <input type="hidden" name="offset" value="{{str $page.Offset}}">
 {{range $page.Columns}}
 <label>{{.Name}} <span class="note">{{.Type}}</span></label>
@@ -214,7 +227,7 @@ var queriesPage = page(`{{define "body"}}
 <div class="wrap"><table class="grid">
 <tr><th>query</th><th>package</th><th>parameters</th></tr>
 {{range .Queries}}<tr>
-<td><a href="/query/{{.Package}}/{{.Name}}">{{.Name}}</a>{{if not .Exported}} <span class="note">unexported</span>{{end}}</td>
+<td><a href="/query/{{.Package}}/{{.Name}}?c={{$.Connection.Label}}">{{.Name}}</a>{{if not .Exported}} <span class="note">unexported</span>{{end}}</td>
 <td>{{.Package}}</td>
 <td>{{range .Params}}<code>{{.Name}}</code> {{.Kind}} {{end}}{{if not .Params}}<span class="note">none</span>{{end}}</td>
 </tr>{{end}}

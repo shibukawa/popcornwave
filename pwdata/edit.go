@@ -3,6 +3,7 @@ package pwdata
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"strings"
 )
@@ -26,8 +27,8 @@ type RowEdit struct {
 }
 
 // UpdateRow writes one row addressed by its primary key.
-func (s *Server) UpdateRow(ctx context.Context, edit RowEdit) (int64, error) {
-	columns, err := s.Columns(ctx, edit.Table)
+func (c *Connection) UpdateRow(ctx context.Context, edit RowEdit) (int64, error) {
+	columns, err := c.Columns(ctx, edit.Table)
 	if err != nil {
 		return 0, err
 	}
@@ -35,27 +36,27 @@ func (s *Server) UpdateRow(ctx context.Context, edit RowEdit) (int64, error) {
 	if len(keys) == 0 {
 		return 0, errNoPrimaryKey
 	}
-	assignments, arguments, err := s.assignments(columns, edit)
+	assignments, arguments, err := c.assignments(columns, edit)
 	if err != nil {
 		return 0, err
 	}
 	if len(assignments) == 0 {
 		return 0, fmt.Errorf("nothing to change")
 	}
-	where, keyArguments, err := s.keyPredicate(keys, edit.Key, len(arguments))
+	where, keyArguments, err := c.keyPredicate(keys, edit.Key, len(arguments))
 	if err != nil {
 		return 0, err
 	}
-	statement := "UPDATE " + s.dialect.quote(edit.Table) +
+	statement := "UPDATE " + c.dialect.quote(edit.Table) +
 		" SET " + strings.Join(assignments, ", ") + " WHERE " + where
-	return s.affected(ctx, statement, append(arguments, keyArguments...))
+	return c.affected(ctx, statement, append(arguments, keyArguments...))
 }
 
 // InsertRow adds one row. Values not named are left to the column default,
 // which is the difference between an insert here and one that would overwrite
 // what the schema decided.
-func (s *Server) InsertRow(ctx context.Context, edit RowEdit) (int64, error) {
-	columns, err := s.Columns(ctx, edit.Table)
+func (c *Connection) InsertRow(ctx context.Context, edit RowEdit) (int64, error) {
+	columns, err := c.Columns(ctx, edit.Table)
 	if err != nil {
 		return 0, err
 	}
@@ -68,21 +69,21 @@ func (s *Server) InsertRow(ctx context.Context, edit RowEdit) (int64, error) {
 		if !ok && !null {
 			continue
 		}
-		names = append(names, s.dialect.quote(column.Name))
-		markers = append(markers, s.dialect.placeholder(len(arguments)+1))
+		names = append(names, c.dialect.quote(column.Name))
+		markers = append(markers, c.dialect.placeholder(len(arguments)+1))
 		arguments = append(arguments, nullable(value, null))
 	}
 	if len(names) == 0 {
 		return 0, fmt.Errorf("no values to insert")
 	}
-	statement := "INSERT INTO " + s.dialect.quote(edit.Table) +
+	statement := "INSERT INTO " + c.dialect.quote(edit.Table) +
 		" (" + strings.Join(names, ", ") + ") VALUES (" + strings.Join(markers, ", ") + ")"
-	return s.affected(ctx, statement, arguments)
+	return c.affected(ctx, statement, arguments)
 }
 
 // DeleteRow removes one row addressed by its primary key.
-func (s *Server) DeleteRow(ctx context.Context, edit RowEdit) (int64, error) {
-	columns, err := s.Columns(ctx, edit.Table)
+func (c *Connection) DeleteRow(ctx context.Context, edit RowEdit) (int64, error) {
+	columns, err := c.Columns(ctx, edit.Table)
 	if err != nil {
 		return 0, err
 	}
@@ -90,14 +91,14 @@ func (s *Server) DeleteRow(ctx context.Context, edit RowEdit) (int64, error) {
 	if len(keys) == 0 {
 		return 0, errNoPrimaryKey
 	}
-	where, arguments, err := s.keyPredicate(keys, edit.Key, 0)
+	where, arguments, err := c.keyPredicate(keys, edit.Key, 0)
 	if err != nil {
 		return 0, err
 	}
-	return s.affected(ctx, "DELETE FROM "+s.dialect.quote(edit.Table)+" WHERE "+where, arguments)
+	return c.affected(ctx, "DELETE FROM "+c.dialect.quote(edit.Table)+" WHERE "+where, arguments)
 }
 
-func (s *Server) assignments(columns []Column, edit RowEdit) ([]string, []any, error) {
+func (c *Connection) assignments(columns []Column, edit RowEdit) ([]string, []any, error) {
 	var assignments []string
 	var arguments []any
 	for _, column := range columns {
@@ -107,7 +108,7 @@ func (s *Server) assignments(columns []Column, edit RowEdit) ([]string, []any, e
 			continue
 		}
 		assignments = append(assignments,
-			s.dialect.quote(column.Name)+" = "+s.dialect.placeholder(len(arguments)+1))
+			c.dialect.quote(column.Name)+" = "+c.dialect.placeholder(len(arguments)+1))
 		arguments = append(arguments, nullable(value, null))
 	}
 	for name := range edit.Values {
@@ -121,7 +122,7 @@ func (s *Server) assignments(columns []Column, edit RowEdit) ([]string, []any, e
 // keyPredicate builds the WHERE clause addressing one row. Offset continues the
 // placeholder numbering the SET clause started, which only PostgreSQL cares
 // about but every dialect is given consistently.
-func (s *Server) keyPredicate(keys []Column, values map[string]string, offset int) (string, []any, error) {
+func (c *Connection) keyPredicate(keys []Column, values map[string]string, offset int) (string, []any, error) {
 	var predicates []string
 	var arguments []any
 	for _, column := range keys {
@@ -130,7 +131,7 @@ func (s *Server) keyPredicate(keys []Column, values map[string]string, offset in
 			return "", nil, fmt.Errorf("the key column %q was not supplied", column.Name)
 		}
 		predicates = append(predicates,
-			s.dialect.quote(column.Name)+" = "+s.dialect.placeholder(offset+len(arguments)+1))
+			c.dialect.quote(column.Name)+" = "+c.dialect.placeholder(offset+len(arguments)+1))
 		arguments = append(arguments, value)
 	}
 	return strings.Join(predicates, " AND "), arguments, nil
@@ -141,8 +142,8 @@ func (s *Server) keyPredicate(keys []Column, values map[string]string, offset in
 // An edit that matched no row is reported rather than treated as success: it
 // means the row moved or was already gone, and silently doing nothing is the
 // worst answer a data editor can give.
-func (s *Server) affected(ctx context.Context, statement string, arguments []any) (int64, error) {
-	result, err := s.db.ExecContext(ctx, statement, arguments...)
+func (c *Connection) affected(ctx context.Context, statement string, arguments []any) (int64, error) {
+	result, err := c.db.ExecContext(ctx, statement, arguments...)
 	if err != nil {
 		return 0, err
 	}
@@ -191,7 +192,7 @@ type Result struct {
 // mode api:cli-build cannot emit, and a developer who can edit rows can already
 // write any statement through the schema. Bounding what they may type would
 // therefore buy nothing; what is bounded is the number of rows that come back.
-func (s *Server) Exec(ctx context.Context, statement string) Result {
+func (c *Connection) Exec(ctx context.Context, statement string) Result {
 	result := Result{SQL: statement}
 	trimmed := strings.TrimSpace(statement)
 	if trimmed == "" {
@@ -199,9 +200,9 @@ func (s *Server) Exec(ctx context.Context, statement string) Result {
 		return result
 	}
 	if !returnsRows(trimmed) {
-		return s.execWithoutRows(ctx, trimmed)
+		return c.execWithoutRows(ctx, trimmed)
 	}
-	rows, err := s.db.QueryContext(ctx, trimmed)
+	rows, err := c.db.QueryContext(ctx, trimmed)
 	if err != nil {
 		result.Error = err.Error()
 		return result
@@ -259,9 +260,9 @@ func isWordByte(b byte) bool {
 	return b == '_' || (b >= '0' && b <= '9') || (b >= 'A' && b <= 'Z') || (b >= 'a' && b <= 'z')
 }
 
-func (s *Server) execWithoutRows(ctx context.Context, statement string) Result {
+func (c *Connection) execWithoutRows(ctx context.Context, statement string) Result {
 	result := Result{SQL: statement}
-	outcome, err := s.db.ExecContext(ctx, statement)
+	outcome, err := c.db.ExecContext(ctx, statement)
 	if err != nil {
 		result.Error = err.Error()
 		return result
@@ -305,3 +306,8 @@ func readResult(result Result, rows *sql.Rows) Result {
 	}
 	return result
 }
+
+// errReadOnlyConnection is what a write attempt through a replica reports.
+var errReadOnlyConnection = errors.New(
+	"this connection is a read-only replica, so it cannot be written through; " +
+		"select a writable connection to edit")

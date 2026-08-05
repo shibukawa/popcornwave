@@ -27,6 +27,16 @@ type dialect struct {
 	columns string
 	// limitOffset writes the paging clause.
 	limitOffset func(limit, offset int) string
+	// boolTrue is how the engine spells a true literal in a predicate. Only
+	// PostgreSQL refuses the integer form.
+	boolTrue string
+}
+
+func (d dialect) trueLiteral() string {
+	if d.boolTrue == "" {
+		return "1"
+	}
+	return d.boolTrue
 }
 
 func dialectFor(driver string) dialect {
@@ -110,6 +120,7 @@ var postgresDialect = dialect{
 		WHERE c.table_schema = current_schema() AND c.table_name = $1
 		ORDER BY c.ordinal_position`,
 	limitOffset: plainLimit,
+	boolTrue:    "true",
 }
 
 var mysqlDialect = dialect{

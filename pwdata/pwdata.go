@@ -14,7 +14,6 @@ package pwdata
 
 import (
 	"context"
-	"database/sql"
 	"sort"
 	"sync"
 
@@ -85,32 +84,12 @@ func lookupQuery(pkg, name string) (Query, bool) {
 	return Query{}, false
 }
 
-// Server is the pane: one database, one dialect, and the declared statements
-// the project generated.
-type Server struct {
-	db      *sql.DB
-	dialect dialect
-	// environment is the runtime environment the application is serving, shown
-	// so the page can never be mistaken for one pointed at something else.
-	environment string
-}
-
-// New builds a server over an already-open pool. The pool belongs to the
-// application; this borrows it and holds no transaction across a request.
-func New(db *sql.DB, driver, environment string) *Server {
-	return &Server{db: db, dialect: dialectFor(driver), environment: environment}
-}
-
-// Engine names the dialect in use, for the page to say which of the three
-// engines the answers came from.
-func (s *Server) Engine() string { return s.dialect.name }
-
 // RunQuery executes one declared statement with the supplied arguments.
 //
 // The statement text comes from the generated builder, so the pane runs what
 // the application would run rather than an imitation of it, and a query whose
 // SQL is assembled conditionally is assembled the same way here.
-func (s *Server) RunQuery(ctx context.Context, pkg, name string, args []string) Result {
+func (c *Connection) RunQuery(ctx context.Context, pkg, name string, args []string) Result {
 	query, ok := lookupQuery(pkg, name)
 	if !ok {
 		return Result{Error: "no declared query named " + pkg + "." + name}
@@ -124,9 +103,9 @@ func (s *Server) RunQuery(ctx context.Context, pkg, name string, args []string) 
 	// a declared write that ran through QueryContext would report no rows
 	// instead of what it changed.
 	if !returnsRows(statement.SQL) {
-		return s.runWithoutRows(ctx, statement)
+		return c.runWithoutRows(ctx, statement)
 	}
-	rows, err := s.db.QueryContext(ctx, statement.SQL, statement.Args...)
+	rows, err := c.db.QueryContext(ctx, statement.SQL, statement.Args...)
 	if err != nil {
 		result.Error = err.Error()
 		return result
@@ -135,9 +114,9 @@ func (s *Server) RunQuery(ctx context.Context, pkg, name string, args []string) 
 	return readResult(result, rows)
 }
 
-func (s *Server) runWithoutRows(ctx context.Context, statement sqlbind.Statement) Result {
+func (c *Connection) runWithoutRows(ctx context.Context, statement sqlbind.Statement) Result {
 	result := Result{SQL: statement.SQL}
-	outcome, err := s.db.ExecContext(ctx, statement.SQL, statement.Args...)
+	outcome, err := c.db.ExecContext(ctx, statement.SQL, statement.Args...)
 	if err != nil {
 		result.Error = err.Error()
 		return result

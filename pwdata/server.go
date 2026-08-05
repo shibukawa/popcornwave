@@ -27,8 +27,15 @@ func (s *Server) Handler() http.Handler {
 	return mux
 }
 
+// connection resolves which pool a request addresses. The label travels as a
+// query parameter so every link and form carries it, and an unknown one falls
+// back to the default rather than erroring on a stale bookmark.
+func (s *Server) connection(r *http.Request) *Connection {
+	return s.Lookup(r.URL.Query().Get("c"))
+}
+
 func (s *Server) apiTables(w http.ResponseWriter, r *http.Request) {
-	tables, err := s.Tables(r.Context())
+	tables, err := s.connection(r).Tables(r.Context())
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -38,9 +45,13 @@ func (s *Server) apiTables(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) pageTables(w http.ResponseWriter, r *http.Request) {
-	tables, err := s.Tables(r.Context())
+	connection := s.connection(r)
+	tables, err := connection.Tables(r.Context())
 	view := s.view(r, "tables", "tables")
 	view.Tables = tables
+	if state, stateErr := connection.MigrationState(r.Context()); stateErr == nil {
+		view.Migration = &state
+	}
 	view.Error = errorText(err)
 	s.render(w, tablesPage, view)
 }
@@ -52,7 +63,7 @@ func (s *Server) pageTable(w http.ResponseWriter, r *http.Request) {
 		offset = 0
 	}
 	view := s.view(r, "tables", name)
-	page, err := s.Rows(r.Context(), name, offset)
+	page, err := s.connection(r).Rows(r.Context(), name, offset)
 	view.Page = &page
 	view.Error = errorText(err)
 	view.Keys = primaryKey(page.Columns)
@@ -83,17 +94,22 @@ func (s *Server) editRow(w http.ResponseWriter, r *http.Request) {
 	for _, name := range edit.Nulls {
 		delete(edit.Values, name)
 	}
+	connection := s.connection(r)
 	var affected int64
 	var err error
-	switch r.FormValue("action") {
-	case "insert":
-		affected, err = s.InsertRow(r.Context(), edit)
-	case "delete":
-		affected, err = s.DeleteRow(r.Context(), edit)
+	switch {
+	case connection.ReadOnly:
+		// Not a rule the pane applies, but what the connection is. Saying so
+		// beats an engine error the developer has to translate.
+		err = errReadOnlyConnection
+	case r.FormValue("action") == "insert":
+		affected, err = connection.InsertRow(r.Context(), edit)
+	case r.FormValue("action") == "delete":
+		affected, err = connection.DeleteRow(r.Context(), edit)
 	default:
-		affected, err = s.UpdateRow(r.Context(), edit)
+		affected, err = connection.UpdateRow(r.Context(), edit)
 	}
-	target := "/table/" + name + "?offset=" + r.FormValue("offset")
+	target := "/table/" + name + "?c=" + connection.Label + "&offset=" + r.FormValue("offset")
 	if err != nil {
 		target += "&error=" + urlValue(err.Error())
 	} else {
@@ -108,7 +124,7 @@ func (s *Server) pageConsole(w http.ResponseWriter, r *http.Request) {
 		_ = r.ParseForm()
 		statement := r.FormValue("statement")
 		view.Statement = statement
-		result := s.Exec(r.Context(), statement)
+		result := s.connection(r).Exec(r.Context(), statement)
 		view.Result = &result
 	}
 	s.render(w, consolePage, view)
@@ -135,7 +151,7 @@ func (s *Server) pageQuery(w http.ResponseWriter, r *http.Request) {
 			args[index] = r.FormValue("arg." + param.Name)
 		}
 		view.Args = args
-		result := s.RunQuery(r.Context(), pkg, name, args)
+		result := s.connection(r).RunQuery(r.Context(), pkg, name, args)
 		view.Result = &result
 	}
 	s.render(w, queryPage, view)

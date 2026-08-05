@@ -2328,6 +2328,10 @@
 {"context": "body", "path": ".knowledge/requirement/dev-data-pane.md", "source": "requirement:dev-data-pane", "target": "decision:dev-application-attachment", "target_category": "constraint", "target_type": "decision"}
 {"context": "body", "path": ".knowledge/requirement/dev-data-pane.md", "source": "requirement:dev-data-pane", "target": "data:project-config", "target_category": "structure", "target_type": "data"}
 {"context": "body", "path": ".knowledge/requirement/dev-data-pane.md", "source": "requirement:dev-data-pane", "target": "requirement:dev-query-runner", "target_category": "objective", "target_type": "requirement"}
+{"context": "body", "path": ".knowledge/requirement/dev-data-pane.md", "source": "requirement:dev-data-pane", "target": "requirement:read-write-splitting", "target_category": "objective", "target_type": "requirement"}
+{"context": "body", "path": ".knowledge/requirement/dev-data-pane.md", "source": "requirement:dev-data-pane", "target": "system:goose", "target_category": "external", "target_type": "system"}
+{"context": "body", "path": ".knowledge/requirement/dev-data-pane.md", "source": "requirement:dev-data-pane", "target": "api:cli-migrate", "target_category": "interface", "target_type": "api"}
+{"context": "body", "path": ".knowledge/requirement/dev-data-pane.md", "source": "requirement:dev-data-pane", "target": "api:cli-dev", "target_category": "interface", "target_type": "api"}
 {"context": "body", "path": ".knowledge/requirement/dev-data-pane.md", "source": "requirement:dev-data-pane", "target": "requirement:contrib-sqlite", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/requirement/dev-data-pane.md", "source": "requirement:dev-data-pane", "target": "requirement:contrib-postgresql", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/requirement/dev-data-pane.md", "source": "requirement:dev-data-pane", "target": "requirement:contrib-mysql", "target_category": "objective", "target_type": "requirement"}

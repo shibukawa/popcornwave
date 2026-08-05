@@ -36,11 +36,39 @@ func startDevelopmentData(resources pwruntime.Resources) {
 		fmt.Fprintln(os.Stderr, "pw: development data pane:", err)
 		return
 	}
-	server := pwdata.New(resources.DB, resources.DBDriver, Env())
+	server := pwdata.New(developmentConnections(resources), Env())
 	go func() {
 		_ = (&http.Server{Handler: server.Handler()}).Serve(listener)
 	}()
 	announceDevelopmentData(console, listener.Addr().String())
+}
+
+// developmentConnections describes every pool the application opened.
+//
+// A configuration that declares a connection set gets one entry per connection
+// rather than one per group: selection inside a group is round robin, so a pane
+// addressing the group could not say which replica answered, and whether a
+// replica has caught up is the one question replicas raise.
+//
+// The driver travels with each connection, because nothing forbids two groups
+// on two engines and the dialect is resolved from it.
+func developmentConnections(resources pwruntime.Resources) []pwdata.Connection {
+	if resources.Connections == nil {
+		return []pwdata.Connection{
+			pwdata.NewConnection("default", "default", resources.DBDriver, false, resources.DB),
+		}
+	}
+	var connections []pwdata.Connection
+	for _, connection := range resources.Connections.Connections() {
+		connections = append(connections, pwdata.NewConnection(
+			connection.Label, connection.Group, connection.Driver, connection.ReadOnly, connection.DB))
+	}
+	if len(connections) == 0 {
+		return []pwdata.Connection{
+			pwdata.NewConnection("default", "default", resources.DBDriver, false, resources.DB),
+		}
+	}
+	return connections
 }
 
 // announceDevelopmentData tells the console the address to proxy to.
