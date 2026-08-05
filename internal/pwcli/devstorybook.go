@@ -11,6 +11,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"sync/atomic"
 
 	"github.com/shibukawa/popcornwave/pwstory"
@@ -70,7 +71,7 @@ func (s *devStorybook) handler() http.Handler {
 // harness that fails to build leaves the pane reporting its own absence and the
 // loop untouched, because a storybook is a reader of the project rather than a
 // part of it.
-func (s *devStorybook) start(root string, stdout, stderr io.Writer) {
+func (s *devStorybook) start(root string, styles []string, stdout, stderr io.Writer) {
 	if s == nil {
 		return
 	}
@@ -90,7 +91,11 @@ func (s *devStorybook) start(root string, stdout, stderr io.Writer) {
 		pwstory.AddressVar+"="+address,
 		// The shell a story renders inside links the project's stylesheet, so
 		// the harness serves the tree it lives in.
-		pwstory.PublicVar+"="+filepath.Join(root, "public"))
+		pwstory.PublicVar+"="+filepath.Join(root, "public"),
+		// A story rendered on its own has no document to link a stylesheet
+		// from, so the harness is told which to add. pw resolves them because
+		// it knows the configured output and the mount it is served at.
+		pwstory.StylesVar+"="+strings.Join(styles, " "))
 	ownProcessGroup(command)
 	if err := command.Start(); err != nil {
 		fmt.Fprintln(stderr, "pw dev: storybook:", err)

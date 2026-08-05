@@ -605,7 +605,7 @@ func TestTablePageOffersSchemaAndDataTabs(t *testing.T) {
 	recorder := httptest.NewRecorder()
 	serverFor(open(t)).Handler().ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/table/memos", nil))
 	body := recorder.Body.String()
-	for _, want := range []string{`data-panel="schema"`, `data-panel="data"`, `id="filter"`, `class="sortable"`, `id="save"`} {
+	for _, want := range []string{`data-panel="schema"`, `data-panel="data"`, `id="filter"`, `class="sortable"`, `id="save"`, `class="rowsave"`} {
 		if !strings.Contains(body, want) {
 			t.Errorf("the table page is missing %q", want)
 		}

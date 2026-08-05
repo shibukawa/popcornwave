@@ -144,8 +144,30 @@ func TestRawStoryCarriesOnlyTheTemplateOutput(t *testing.T) {
 	if strings.Contains(body, "storybook") {
 		t.Errorf("the raw story carried the harness chrome:\n%s", body)
 	}
-	if body != "<h1>Title</h1><p>Display Name</p>" {
-		t.Errorf("raw = %q, want only the template output", body)
+	// A fragment has nowhere to link a stylesheet, so it is wrapped in a bare
+	// document — one that adds a place for the project's own CSS and nothing
+	// else, so what is seen is the template under the project's styles.
+	if !strings.Contains(body, "<h1>Title</h1><p>Display Name</p>") {
+		t.Errorf("raw = %q, want the template output", body)
+	}
+	for _, opinion := range []string{"<style", "class=", "background"} {
+		if strings.Contains(body, opinion) {
+			t.Errorf("the wrapper brought its own %q:\n%s", opinion, body)
+		}
+	}
+}
+
+// The stylesheet is linked where the fragment has no document of its own.
+func TestStandaloneStoryLinksTheProjectStylesheet(t *testing.T) {
+	t.Setenv(StylesVar, "/public/generated/app.css")
+	if body := standaloneDocument("<h1>x</h1>"); !strings.Contains(body,
+		`<link rel="stylesheet" href="/public/generated/app.css">`) {
+		t.Errorf("body = %q, want the stylesheet linked", body)
+	}
+	// A project with no stylesheet links none, which is what its own pages do.
+	t.Setenv(StylesVar, "")
+	if body := standaloneDocument("<h1>x</h1>"); strings.Contains(body, "<link") {
+		t.Errorf("body = %q, want no stylesheet", body)
 	}
 }
 

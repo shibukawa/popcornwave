@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 
 	"github.com/shibukawa/popcornwave/internal/dbseed"
 	"github.com/shibukawa/popcornwave/internal/devconsole"
@@ -263,6 +264,30 @@ func tomlString(document minitoml.Document, key string) string {
 		return ""
 	}
 	return text
+}
+
+// storybookStyles is what a story rendered on its own should link.
+//
+// It is the Tailwind output resolved through the public mount, because that is
+// the stylesheet the scaffolded document shell links and therefore the one a
+// story is meant to be seen under. A project with Tailwind off links nothing,
+// which is also what its own pages do.
+func storybookStyles(config projectConfig, server developmentServer) []string {
+	if !config.Tailwind.Enabled || config.Tailwind.Output == "" {
+		return nil
+	}
+	mount := server.PublicMount
+	if mount == "" {
+		// The mount could not be read, so the scaffolded default is the best
+		// available guess and a wrong stylesheet URL costs an unstyled story
+		// rather than a wrong one.
+		mount = "/public"
+	}
+	rest, ok := strings.CutPrefix(config.Tailwind.Output, "public/")
+	if !ok {
+		return nil
+	}
+	return []string{strings.TrimSuffix(mount, "/") + "/" + rest}
 }
 
 // hasSeedDatasets reports whether the project has anything to seed from. A

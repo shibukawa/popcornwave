@@ -119,6 +119,8 @@ code { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:12.5px
 .panel[hidden] { display:none; }
 table.grid th.sortable { cursor:pointer; user-select:none; }
 table.grid th .dir { color:var(--muted); font-weight:400; margin-left:.2rem; }
+table.grid td.rowacts { white-space:nowrap; }
+table.grid td.rowacts button { padding:.05rem .35rem; font-size:11.5px; }
 table.grid tr.blank td { background:color-mix(in srgb, var(--card) 60%, transparent); }
 table.grid tr.blank input::placeholder { color:var(--muted); opacity:.6; }
 table.grid td.dirty input, table.grid input.dirty { background:color-mix(in srgb, var(--bad) 18%, transparent); }
@@ -221,7 +223,7 @@ var tablesPage = page(`{{define "body"}}
 
 var tablePage = page(`{{define "blankrow"}}
 <tr class="blank" data-new="1">
-<td><button class="act" data-act="clear" title="clear this new row">clr</button></td>
+<td class="rowacts"><button class="rowsave" data-act="save" title="insert this row" hidden>add</button><button class="act" data-act="clear" title="clear this new row">clr</button></td>
 {{range .Page.Columns}}<td data-column="{{.Name}}">
 <input value="" data-original="" placeholder="{{.Type}}{{if gt .PrimaryKey 0}} · pk{{end}}"></td>{{end}}
 </tr>
@@ -256,7 +258,7 @@ var tablePage = page(`{{define "blankrow"}}
 
 {{if and $.Keys (not $.Connection.ReadOnly)}}
 <div class="savebar">
-<button id="save" disabled>save</button>
+<button id="save" disabled>save all</button>
 <span class="note" id="dirtycount">no changes</span>
 </div>
 {{end}}

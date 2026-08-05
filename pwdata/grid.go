@@ -106,6 +106,10 @@ const gridScript = `
       for (const input of row.querySelectorAll("input")) {
         input.classList.toggle("dirty", input.value !== input.dataset.original);
       }
+      // A row that changed can be saved on its own, which is the shortest way
+      // from one edit to it being applied; save all is for a session of them.
+      const rowSave = row.querySelector("button.rowsave");
+      if (rowSave) rowSave.hidden = !marked || state.deleted;
       const button = row.querySelector("button.act");
       if (button) {
         if (state.isNew) {
@@ -128,6 +132,8 @@ const gridScript = `
     if (event.target.tagName === "INPUT") refresh();
   });
   body.addEventListener("click", event => {
+    const one = event.target.closest("button.rowsave");
+    if (one) { void send(collect([one.closest("tr")])); return; }
     const button = event.target.closest("button.act");
     if (!button) return;
     const row = button.closest("tr");
@@ -140,9 +146,12 @@ const gridScript = `
     refresh();
   });
 
-  save.addEventListener("click", async () => {
+  // collect turns rows into the batch the server applies. One row or all of
+  // them go through the same shape, so a single save and a save-all cannot
+  // disagree about what a change means.
+  const collect = subject => {
     const edits = [], deletes = [], inserts = [];
-    for (const row of rows()) {
+    for (const row of subject) {
       const state = rowState(row);
       if (!state.edited && !state.deleted) continue;
       const values = {};
@@ -160,19 +169,25 @@ const gridScript = `
       if (state.deleted) { deletes.push({ key }); continue; }
       edits.push({ key, values });
     }
+    return { edits, deletes, inserts };
+  };
+
+  const send = async batch => {
     save.disabled = true;
     const response = await fetch(table.dataset.endpoint, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ edits, deletes, inserts }),
+      body: JSON.stringify(batch),
     });
     if (response.ok) { location.reload(); return; }
     // A refused write leaves the page as it was, edits intact, so nothing is
     // lost to a message the developer then has to act on.
     count.textContent = await response.text();
     count.className = "bad";
-    save.disabled = false;
-  });
+    refresh();
+  };
+
+  save.addEventListener("click", () => void send(collect(rows())));
 
   refresh();
 })();

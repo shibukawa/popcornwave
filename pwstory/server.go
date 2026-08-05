@@ -27,6 +27,19 @@ const AddressVar = "PW_STORYBOOK_ADDR"
 // like a template bug rather than a missing mount.
 const PublicVar = "PW_STORYBOOK_PUBLIC"
 
+// StylesVar names the stylesheets a story should be rendered with, separated by
+// spaces.
+//
+// A story rendered on its own is a fragment: there is no document around it and
+// therefore nowhere for a stylesheet to be linked, so a Tailwind project saw
+// every story unstyled and the toggle to the shell was the only way to see the
+// real thing. Serving the public tree was necessary and not sufficient — the
+// link had to exist too.
+//
+// pw resolves these, because it knows both the configured Tailwind output and
+// the mount the public tree is served at, and the harness knows neither.
+const StylesVar = "PW_STORYBOOK_STYLES"
+
 // ListenAndServe runs the storybook. It is the whole body of the generated
 // main, so that the generated file stays a list of imports and one call.
 //
@@ -171,14 +184,21 @@ func raw(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	result := renderStoryWith(t, r.URL.Query().Get("shell") == "1", r.URL.Query().Get("params"))
+	shell := r.URL.Query().Get("shell") == "1"
+	result := renderStoryWith(t, shell, r.URL.Query().Get("params"))
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-store")
 	if result.Failed != "" {
 		http.Error(w, result.Failed, http.StatusInternalServerError)
 		return
 	}
-	_, _ = w.Write([]byte(result.Raw))
+	if shell {
+		// The shell is a whole document and links what it links; adding to it
+		// would be showing something other than what the application serves.
+		_, _ = w.Write([]byte(result.Raw))
+		return
+	}
+	_, _ = w.Write([]byte(standaloneDocument(result.Raw)))
 }
 
 // panePrefixHeader is how the console tells a pane where it is mounted. It
@@ -198,4 +218,27 @@ func writePage(w http.ResponseWriter, r *http.Request, page *template.Template, 
 	if err := page.Execute(w, data); err != nil {
 		fmt.Fprintf(w, "<p>storybook template error: %s</p>", template.HTMLEscapeString(err.Error()))
 	}
+}
+
+// standaloneDocument wraps a fragment so a story on its own is still styled.
+//
+// A story rendered on its own is a fragment: there is no document around it and
+// therefore nowhere for a stylesheet to be linked, so a Tailwind project saw
+// every story unstyled and the toggle into the shell was the only way to see
+// the real thing.
+//
+// The wrapper is a document and nothing more — no reset, no layout, no
+// background of its own — so what is seen is the fragment under the project's
+// own stylesheet rather than under this page's opinion of one.
+func standaloneDocument(fragment string) string {
+	var out strings.Builder
+	out.WriteString(`<!doctype html><html><head><meta charset="utf-8">`)
+	out.WriteString(`<meta name="viewport" content="width=device-width,initial-scale=1">`)
+	for _, href := range strings.Fields(os.Getenv(StylesVar)) {
+		out.WriteString(`<link rel="stylesheet" href="` + template.HTMLEscapeString(href) + `">`)
+	}
+	out.WriteString(`</head><body>`)
+	out.WriteString(fragment)
+	out.WriteString(`</body></html>`)
+	return out.String()
 }
