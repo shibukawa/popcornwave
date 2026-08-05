@@ -230,6 +230,10 @@ level=WARN msg="sql executed" sql="SELECT name FROM items WHERE name = $1"
 [クエリー診断](/ja/productivity/query-diagnostics/)を参照してください。
 
 
+ステートメントの種類、生成されるシグネチャ、`export` と名前の大小の規則、JOIN 行を
+まとめる `ScanRows`——言語の全体は[SQL テンプレート](/ja/reference/sql-templates/)に
+あります。
+
 スキーマと初期データは、ここまでのステートメントとは別の関心事です。開発支援の側に
 [データベースマイグレーション](/ja/productivity/migrations/)と
 [シードデータ](/ja/productivity/seed-data/)としてまとまっています。

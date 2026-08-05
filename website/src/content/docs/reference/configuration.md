@@ -2,7 +2,7 @@
 title: Application Configuration
 description: Every runtime configuration key of a running application, its default, and the TOML, environment, and command-line names it answers to.
 sidebar:
-  order: 2
+  order: 7
 ---
 
 These are the keys a *running application* reads: ports, pools, cookies,

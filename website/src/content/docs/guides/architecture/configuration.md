@@ -108,12 +108,15 @@ cannot find in the summary is therefore a question about its parent, not about
 your spelling.
 
 :::caution
-Supported field types are `string`, `bool`, `int`, `[]string`, and nested
-structs of those. Floats, maps, pointers, other slice types, and
-`time.Duration` are **not** bindable — declare them as `string` or `int` and
-convert after parsing. (The framework's own `[server]` durations work because
-those bindings are hand-written, not generated.)
+Supported field types are `string`, `bool`, `int`, `time.Duration`, `[]string`,
+nested structs of those, and a slice of a named struct filled from an array of
+tables. Floats, maps, pointers, and other slice element types are **not**
+bindable — declare them as `string` or `int` and convert after parsing.
 :::
+
+The full declaration surface — every tag, the duration syntax, the array-of-tables
+rules, and the TOML subset the loader reads — is
+[Configuration Declaration](/reference/configuration-declaration/).
 
 ## Adding your own settings
 
