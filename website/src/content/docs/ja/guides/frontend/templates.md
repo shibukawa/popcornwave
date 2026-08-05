@@ -111,6 +111,49 @@ enum Tone { Primary, Secondary }
 URL 属性には `string` ではなく `url` 型が必要です。`string` を渡すと生成エラーになります
 —— それが狙いです。
 
+ただし型は半分でしかありません。`url` であっても、ブラウザが「たどる」のではなく「実行する」
+スキームを名乗れるからです。`javascript:alert(1)` は HTML エスケープが触る文字を1つも含まない
+ので、エスケープしても何も変わらず、そのまま動きます。そこで URL を持つ属性はすべてスキームの
+allowlist と照合されます。`http`、`https`、`mailto`、`tel`、そして相対形式——相対 URL は
+ドキュメントが既に持つオリジンから出られないので常に通ります。それ以外は `#tb-blocked-url`
+として出力されます。
+
+```html
+<a href={user.website}>profile</a>
+```
+
+| `user.website` | 出力 |
+| --- | --- |
+| `https://example.com/u` | `href="https://example.com/u"` |
+| `/u/42` | `href="/u/42"` |
+| `javascript:alert(1)` | `href="#tb-blocked-url"` |
+| `data:text/html;base64,…` | `href="#tb-blocked-url"` |
+| `data:image/png;base64,…` | `href="data:image/png;base64,…"` |
+
+拒否された URL は削除ではなく置換されます。`href` が無いのは、テンプレートが最初から書かな
+かった場合と見分けがつかないからです。誤って拒否された URL が、それを見つける手がかりを何も
+残さないことになります。マーカーはフラグメントなので、たどっても現在のドキュメントに戻るだけ
+です。
+
+インラインの `data:` URL は画像については通ります。インライン画像は普通のオーサリングだから
+です。ただしメディアタイプの厳密なリストに限られます。`image/svg+xml` はそこに入っていません。
+SVG ドキュメントはスクリプトを持てるので、画像のメディアタイプを着たスクリプトの流し込み口だ
+からです。
+
+対象は `href` と `src` だけではなく、ブラウザが URL として解決する属性すべてです。
+`xlink:href`、`data`、`cite`、`background`、`poster`、それに廃止済みのプラグイン系属性も
+含みます。`srcset` と `ping` は複数の URL を持つので、1エントリずつ検査され、1つが弾かれても
+残りは捨てられません。
+
+別のスキームが必要なアプリケーションは、レンダリングする場所で一度だけ宣言します。
+
+```go
+pw.WriteHTML(w, r, page, htmlbind.WithURLSchemes("http", "https", "mailto", "tel", "ftp"))
+```
+
+このオプションはリストに追加するのではなく置き換えます。ページが使うスキームをすべて挙げて
+ください。インライン画像のリストは `htmlbind.WithDataURLMediaTypes` が同じように扱います。
+
 ## 合成とスロット
 
 `children: html` パラメータはタグの間に書かれた内容を受け取ります。
@@ -210,6 +253,9 @@ pw.WriteHTMLChain(w, r,
 ```html
 <p title={message}>{message}</p>
 ```
+
+エスケープはテキストと属性値に対する答えです。URL に対する答えではありません。そこでの危険は
+文字ではなくスキームだからです。何が起きるかは上の [URL 属性](#属性) を参照してください。
 
 信頼済みの内容には明示的な組み込み関数が必要です。
 

@@ -33,10 +33,15 @@ anyone editing configuration.
 `script-src 'self'` is the one doing the work. It refuses inline event handlers,
 inline `<script>`, and `javascript:` URLs — together, the ways an HTML-injection
 sink turns into running code. It matters more here than in a framework without a
-browser runtime, because the [CSRF](/guides/architecture/security/) companion cookie is
-readable by script on purpose: script that runs on your origin can mint a valid
-token. The framework's own runtime is a same-origin module tag and needs nothing
-beyond `'self'`.
+browser runtime, because the [CSRF](/guides/architecture/security/) companion
+cookie is readable by script on purpose: script that runs on your origin can mint
+a valid token. The framework's own runtime is a same-origin module tag and needs
+nothing beyond `'self'`.
+
+This is the second line rather than the first. Templates already refuse a
+`javascript:` URL where it is written, before any header is consulted — see [URL
+attributes](/guides/frontend/templates/#attributes). The header is what still
+holds when markup reaches the page some other way.
 
 If you load third-party script, you write your own policy. That is the
 conversation this default is for.

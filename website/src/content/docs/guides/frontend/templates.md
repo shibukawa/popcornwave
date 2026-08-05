@@ -116,6 +116,51 @@ Boolean attributes are emitted only when true:
 URL attributes require the `url` type, not `string`. Passing a `string` is a
 generation error — which is the point.
 
+The type is only half of it, because a `url` can still name a scheme the browser
+executes rather than follows. `javascript:alert(1)` contains none of the
+characters HTML escaping touches, so escaping it changes nothing and the result
+runs. Every URL-bearing attribute is therefore checked against a scheme
+allowlist — `http`, `https`, `mailto`, `tel`, plus any relative form, which
+cannot leave the origin the document already has. Anything else renders as
+`#tb-blocked-url`:
+
+```html
+<a href={user.website}>profile</a>
+```
+
+| `user.website` | rendered |
+| --- | --- |
+| `https://example.com/u` | `href="https://example.com/u"` |
+| `/u/42` | `href="/u/42"` |
+| `javascript:alert(1)` | `href="#tb-blocked-url"` |
+| `data:text/html;base64,…` | `href="#tb-blocked-url"` |
+| `data:image/png;base64,…` | `href="data:image/png;base64,…"` |
+
+A refused URL is replaced rather than dropped, because a missing `href` looks
+exactly like an attribute the template never wrote — and a URL rejected in error
+would then leave nothing to find it by. The marker is a fragment, so following
+it reaches the current document and nothing else.
+
+Inline `data:` URLs survive for images, since an inline image is ordinary
+authoring, but only for an exact list of media types. `image/svg+xml` is not on
+it: an SVG document carries script, so it is a script sink wearing an image's
+media type.
+
+The check covers the attributes a browser resolves, not just `href` and `src` —
+`xlink:href`, `data`, `cite`, `background`, `poster` and the obsolete plugin
+attributes among them. `srcset` and `ping` hold several URLs each, and are
+checked one entry at a time so a single bad candidate does not discard the rest.
+
+An application that needs another scheme says so once, where it renders:
+
+```go
+pw.WriteHTML(w, r, page, htmlbind.WithURLSchemes("http", "https", "mailto", "tel", "ftp"))
+```
+
+Passing the option replaces the list rather than adding to it, so name every
+scheme the page uses. `htmlbind.WithDataURLMediaTypes` does the same for the
+inline-image roster.
+
 ## Composition and slots
 
 A `children: html` parameter receives whatever appears between the tags:
@@ -214,6 +259,10 @@ another. Strings are escaped automatically for the position where they land:
 ```html
 <p title={message}>{message}</p>
 ```
+
+Escaping is the answer for text and attribute values. It is not the answer for a
+URL, where the danger is the scheme rather than the characters — see [URL
+attributes](#attributes) above for what happens there instead.
 
 Trusted content requires an explicit intrinsic:
 

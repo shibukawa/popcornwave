@@ -7,14 +7,20 @@ TinyBind is the generated binding, configuration, response, validation, streamin
 
 ```yaml
 module: github.com/shibukawa/tinybind-go
-pin: v0.3.5, moved from v0.2.10 by decision:tinybind-v03-adoption
+pin: v0.4.0, moved from v0.2.10 by decision:tinybind-v03-adoption
 html_template_baseline: v0.1.15
 html_async_baseline: v0.1.20
 html_live_baseline: v0.2.8, required by requirement:live-html-rendering; v0.2.7 introduced live boundaries and v0.2.8 answered the first of the integration requests raised against them
 html_update_baseline: v0.3.3; v0.3.0 added the htmlupdate package, v0.3.1 handed the asset and every name to the caller per requirement:tinybind-runtime-ownership, v0.3.2 carried head on the action response, and v0.3.3 closed every remaining seam of requirement:tinybind-update-composition-seams and made CSRF module native; adopted by decision:update-runtime-convergence
 route_tree_baseline: v0.2.6
-current: v0.3.5, which carries the reference-hook head contribution and concurrent conversion, renames the redraw handler to Options.Redraw, drops the module-owned protocol version, and carries the generator crash fix below and, from requirement:module-native-csrf, writes the token into every unsafe form itself
-newer_tag_not_taken: v0.3.4 exists and changes only that repository's knowledge catalog and its author documentation, so the pin stays where it is until a code change earns the bump
+current: v0.4.0, which implements the URL half of policy:template-escaping and rewrites the JSON decoder the generator emits
+url_scheme_baseline: v0.4.0, which is where policy:template-escaping's "validate scheme" rule stopped being a statement and started being code
+  was: Escape handled &<>"' and nothing else, so javascript: — which contains none of them — reached the attribute unchanged and ran; isURLAttribute named five attributes, so xlink:href, data, srcset, ping, and cite took plain strings and were never scheme-checked at all
+  now: URLAttr and URLListAttr apply a scheme allowlist before escaping, over every attribute a browser resolves; DefaultURLSchemes is http, https, mailto, and tel, relative forms always pass, and a refusal renders BlockedURL rather than dropping the attribute so a URL rejected in error leaves a trace
+  data_urls: DefaultDataURLMediaTypes admits inline raster images by exact media type and excludes image/svg+xml, which is a script sink wearing an image's media type
+  configurable: htmlbind.WithURLSchemes and htmlbind.WithDataURLMediaTypes, reachable through pw.HTMLOption; each replaces its list rather than extending it
+  verified: rendered through the real compiler and runtime on 2026-08-06 — javascript:, JaVaScRiPt:, vbscript:, data:text/html, and data:image/svg+xml all render BlockedURL, while http, https, mailto, relative, and data:image/png render unchanged
+json_decoder_break: v0.4.0 replaced jsonbind.RawJSONMap and httpbind.ReadJSONMap with a streaming jsonbind.Parser, so every committed *_pw_gen.go action decoder had to be regenerated
 public_wrappers:
   - api:request-binding
   - api:html-response

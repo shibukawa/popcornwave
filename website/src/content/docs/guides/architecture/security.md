@@ -42,16 +42,25 @@ configure; it falls out of where the stage is.
 
 ## What is on by default
 
-Three things protect a project that configured nothing.
+Four things protect a project that configured nothing.
 
-**Response headers.** `X-Content-Type-Options`, `X-Frame-Options`, and a
-referrer policy go out on every response. See [Security
-Headers](/guides/frontend/security-headers/) for the two you have to write
-yourself.
+**Response headers.** `X-Content-Type-Options`, `X-Frame-Options`, a referrer
+policy, and a narrow `Content-Security-Policy` go out on every response. The
+policy restricts scripts, plugins, the document base, and framing, and leaves
+images, fonts, styles, and connections alone so an ordinary page keeps working.
+See [Security Headers](/guides/frontend/security-headers/) for what it says and
+when to write your own.
 
 **Escaping.** A template inserts values through typed holes, and each one is
 escaped for the position it lands in. Producing raw markup takes an explicit
 intrinsic, so it is visible in review rather than implicit in a helper.
+
+**URL schemes.** Escaping is the wrong tool for a URL, because the danger is
+which scheme the browser executes rather than which characters it reads —
+`javascript:alert(1)` survives every escaper unchanged. So a URL-bearing
+attribute is checked against a scheme allowlist and renders `#tb-blocked-url`
+when it fails. See [URL
+attributes](/guides/frontend/templates/#attributes).
 
 **Opaque session tokens.** The browser holds 256 random bits. The store is keyed
 by a SHA-256 hash of that value, so a leaked database dump cannot be replayed as
