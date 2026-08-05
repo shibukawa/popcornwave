@@ -6,7 +6,7 @@ sidebar:
 ---
 
 ```sh
-pw add [devbox|database|dynamo|redis-valkey|auth|tailwind|images]
+pw add [registered|discovered|devbox|database|dynamo|redis-valkey|auth|tailwind|images]
 pw add <module-path>
 ```
 
@@ -29,6 +29,8 @@ pw add <module-path>
 
 | 機能 | 追加されるもの |
 | --- | --- |
+| `registered` | ハンドラのツリー、その mux、Go で書かれたルート登録が1つ |
+| `discovered` | ページツリー、そのレイアウト、それを読ませる `generate.pages` の項目 |
 | `devbox` | `devbox.json` と `devbox.lock`。このプロジェクトが既に使っているツールチェインを含む |
 | `database` | `[middleware.rdb]` セクション、マイグレーションディレクトリ、型付き SQL の例 |
 | `dynamo` | `[middleware.dynamo]` セクション、型付きレコード、ローカルの DynamoDB サーバー |

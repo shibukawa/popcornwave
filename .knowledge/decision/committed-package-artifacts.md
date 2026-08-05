@@ -21,7 +21,7 @@ consequences:
   authority: the source is still authoritative; the committed artifact is a build output that happens to be tracked
   staleness: a package whose commit is stale fails to compile in the consumer, which is the loudest available failure and is why no repair path is offered
 guards:
-  package_ci: api:cli-generate --check runs over the package and fails when a commit is stale
+  package_ci: api:cli-generate --check runs over the package and fails when a commit is stale, scaffolded by requirement:package-project-scaffold rather than left for the author to remember
   publish: the same check is the release gate, so a tag never carries an artifact its source does not produce
   consumer: nothing; the consumer trusts the artifact exactly as it trusts any other compiled dependency
 scaffolding:

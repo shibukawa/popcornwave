@@ -7,6 +7,10 @@ api:cli-init asks its questions in a terminal wizard while every answer stays re
 
 ```yaml
 status: accepted
+amended_by:
+  ordering: decision:preset-first-bootstrap, which puts the requirement:init-presets list in front of the question list, so a preset answers the capability questions and the project name is the only one still asked
+  navigation: decision:navigable-answer-hub, which replaces the first-to-last walk for the Manual preset with an editable list of every question
+  unchanged_here: the question list itself, the conditional-step rule, the seeding rule, and the shortcut-flag parity below, all of which a preset supplies answers to rather than replaces
 selection:
   wizard: every run that has a terminal, whether or not a project name was given
   name_argument: seeds the project name step rather than skipping the wizard, because the name is one answer out of ten and a caller who knows it still has not answered the store, authentication, or toolchain questions
@@ -26,6 +30,7 @@ question_model:
   keys: arrow or jk to move, digits to jump, enter to accept, esc to go back, ctrl+c to cancel
   extension_cost: one option field, one shortcut flag, one wizard step, and its scaffold branch
 questions:
+  - preset, per requirement:init-presets, which is the first screen and answers every question below it except the project name
   - project name
   - TinyGo support, defaulting to yes for decision:stdlib-servemux parity
   - router, defaulting to registered, per decision:page-router-scaffold-choice

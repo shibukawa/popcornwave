@@ -54,7 +54,7 @@ visibility:
 rules:
   - the relaxed result is an ordinary data:request-authentication, so handler code does not learn that it was relaxed and cannot come to depend on it
   - a token that fails to decode is refused here as it is anywhere; relaxation removes checks, it does not add tolerance for malformed input
-  - api:cli-init never scaffolds the field, which follows from decision:jwt-only-mode-not-scaffolded scaffolding none of this mode
+  - api:cli-init writes the field into config.dev.toml and no other environment file, for the api-server preset only, per requirement:api-server-scaffold; this replaces the earlier rule that it never scaffolds the field, which followed from decision:jwt-only-mode-not-scaffolded and which decision:jwt-only-preset-scaffolding amends
   - the framework never derives this setting from a header, a query parameter, or a request property
 non_goals:
   - a relaxation for staging, a demo deployment, or a CI environment reachable by anything but loopback
