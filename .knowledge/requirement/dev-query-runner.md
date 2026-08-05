@@ -23,6 +23,10 @@ declared:
   registration:
     shape: a pwdev-constrained file generated into the queries package, so an unexported builder registers from where it is reachable
     same_technique: decision:dev-harness-process, which does this for templates
+    no_harness: the queries package is already linked into the application, which is the process serving the pane, so registering at package initialisation is enough
+    naming: the statement name survives only in the internal builder generation emits; the callable builder's spelling follows from whether the statement was exported, and is confirmed present rather than assumed
+    arguments: a form field is text, so generation emits one converter call per parameter, named after the parameter, because a parse error without a field name is worse than the browser's own
+    unsupported_type: the statement is still listed and says why it cannot be run, rather than being absent from a list a developer is scanning for it
 statement_console:
   offered: yes
   supersedes: the earlier refusal, which held that a free text box was a different tool with a different risk
@@ -49,6 +53,8 @@ non_goals:
   - a query builder, a schema designer, or anything aimed at authoring rather than trying
 acceptance:
   - a declared statement with typed parameters is runnable without writing SQL
+  - a parameter that cannot be parsed names the field it came from
+  - a statement whose callable builder is absent generates nothing rather than a call that does not compile
   - an unexported declared statement appears in the pane
   - the SQL shown is the one the generated builder produced
   - a declared run emits the same data:query-record an application call would
