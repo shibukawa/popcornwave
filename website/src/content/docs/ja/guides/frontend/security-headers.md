@@ -34,6 +34,10 @@ script-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'
 作れてしまいます。フレームワーク自身のランタイムは同一オリジンの module タグなので、
 `'self'` だけで読み込めます。
 
+ただしこれは一次防御ではなく二次防御です。`javascript:` URL は、ヘッダを見るより前に、
+書かれた場所でテンプレートが拒否します（[URL 属性](/ja/guides/frontend/templates/#属性)）。
+ヘッダが効くのは、マークアップがそれ以外の経路でページに入った場合です。
+
 サードパーティのスクリプトを読み込む場合は、その配信元を明示したポリシーに
 置き換えてください。
 

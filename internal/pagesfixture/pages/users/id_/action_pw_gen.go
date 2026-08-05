@@ -3,7 +3,6 @@
 package id_
 
 import (
-	"encoding/json"
 	"io"
 	"net/http"
 
@@ -17,29 +16,54 @@ func init() {
 }
 
 func decoderenameRequestBytes(data []byte) (renameRequest, error) {
-	return decoderenameRequestJSON(json.RawMessage(data))
-}
-
-func decoderenameRequestJSON(raw json.RawMessage) (renameRequest, error) {
-	var out renameRequest
-	m, err := jsonbind.RawJSONMap(raw)
+	if jsonbind.IsBlank(data) {
+		var out renameRequest
+		return out, nil
+	}
+	p := jsonbind.NewParser(data)
+	out, err := decoderenameRequestJSON(p)
 	if err != nil {
 		return out, err
 	}
-	if raw, ok := m["name"]; ok {
-		v, err := jsonbind.DecodeJSONString(raw)
-		if err != nil {
-			return out, jsonbind.FieldError("name", "invalid string", err)
-		}
-		out.Name = v
+	if err := p.End(); err != nil {
+		return out, err
 	}
 	return out, nil
+}
+
+func decoderenameRequestJSON(p *jsonbind.Parser) (renameRequest, error) {
+	var out renameRequest
+	null, err := p.ObjectStart()
+	if err != nil || null {
+		return out, err
+	}
+	for n := 0; ; n++ {
+		key, ok, err := p.ObjectKey(n)
+		if err != nil {
+			return out, err
+		}
+		if !ok {
+			return out, nil
+		}
+		switch string(key) {
+		case "name":
+			v, err := p.String()
+			if err != nil {
+				return out, jsonbind.FieldError("name", "invalid string", err)
+			}
+			out.Name = v
+		default:
+			if err := p.SkipValue(); err != nil {
+				return out, err
+			}
+		}
+	}
 }
 
 func bindrenameRequest(r *http.Request) (renameRequest, error) {
 	var out renameRequest
 	var presentName bool
-	var jsonBody map[string]json.RawMessage
+	var jsonBody *jsonbind.Object
 	var formBody map[string]string
 	var bodyRead bool
 	readBody := func() error {
@@ -48,7 +72,7 @@ func bindrenameRequest(r *http.Request) (renameRequest, error) {
 		}
 		bodyRead = true
 		if httpbind.IsJSONRequest(r) {
-			m, err := httpbind.ReadJSONMap(r)
+			m, err := httpbind.ReadJSONObject(r)
 			if err != nil {
 				return err
 			}
@@ -80,7 +104,7 @@ func bindrenameRequest(r *http.Request) (renameRequest, error) {
 		if err := readBody(); err != nil {
 			return out, err
 		}
-		if raw, ok := jsonBody["name"]; ok {
+		if raw, ok := jsonBody.Get("name"); ok {
 			presentName = true
 			v, err := jsonbind.DecodeJSONString(raw)
 			if err != nil {
@@ -104,17 +128,27 @@ func bindrenameRequest(r *http.Request) (renameRequest, error) {
 	return out, nil
 }
 
-func encoderenameResponseMap(v renameResponse) map[string]any {
-	body := map[string]any{}
-	body["name"] = v.Name
-	return body
+func appendrenameResponseJSON(dst []byte, v renameResponse) []byte {
+	dst = append(dst, '{')
+	dst = append(dst, "\"name\":"...)
+	dst = jsonbind.AppendString(dst, v.Name)
+	return append(dst, '}')
 }
 
 func encoderenameResponse(w io.Writer, v renameResponse) error {
-	return json.NewEncoder(w).Encode(encoderenameResponseMap(v))
+	buf := jsonbind.GetBuffer()
+	*buf = appendrenameResponseJSON((*buf)[:0], v)
+	*buf = append(*buf, '\n')
+	_, err := w.Write(*buf)
+	jsonbind.PutBuffer(buf)
+	return err
 }
 
 func writerenameResponse(w http.ResponseWriter, r *http.Request, v renameResponse) error {
 	_ = r
-	return httpbind.WriteJSON(w, http.StatusOK, encoderenameResponseMap(v))
+	buf := jsonbind.GetBuffer()
+	*buf = appendrenameResponseJSON((*buf)[:0], v)
+	err := httpbind.WriteJSONBytes(w, http.StatusOK, *buf)
+	jsonbind.PutBuffer(buf)
+	return err
 }

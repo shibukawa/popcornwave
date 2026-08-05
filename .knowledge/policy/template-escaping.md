@@ -19,7 +19,9 @@ trusted_types:
   - JS
 rules:
   - trusted types require explicit constructors and are never inferred from string
-  - unsafe URL schemes are replaced or rejected
+  - unsafe URL schemes are replaced, not dropped, so a URL refused in error leaves a trace rather than looking like an attribute the template never wrote
+  - the scheme allowlist covers every attribute the browser resolves as a URL, including the multi-URL forms, and not only href and src
+  - an inline data URL is admitted by exact media type and never by an image/ prefix, because image/svg+xml carries script
   - dynamic tag names, attribute names, and script source are rejected
   - raw output helper is absent
   - helper return values retain declared trust type
