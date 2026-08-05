@@ -299,10 +299,8 @@ member:
 - { id: 3, name: Heidi }
 ```
 
-The key is `_operation`, singular. Writing `_operations` does not select
-anything — an unrecognised top-level key is read as a table name, so the parser
-reports a mapping where it wanted a list of rows, and the message says nothing
-about operations. The same trap applies to row tags, where the key is `_tag`.
+Both keys are singular — `_operation` here, and `_tag` on a row. A plural is
+read as a table name instead, so the parse error names neither.
 
 `upsert` and `delete` need the table's primary keys, and that lookup runs on the
 pool rather than on the transaction doing the seeding. A pool capped at one

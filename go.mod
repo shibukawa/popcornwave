@@ -11,7 +11,7 @@ require (
 	github.com/klauspost/compress v1.19.1
 	github.com/pressly/goose/v3 v3.27.3
 	github.com/redis/go-redis/v9 v9.17.3
-	github.com/shibukawa/dbtestify v0.3.0
+	github.com/shibukawa/dbtestify v0.4.1
 	github.com/shibukawa/localotelviewer v1.0.1
 	github.com/shibukawa/tinybind-go v0.3.5
 	github.com/shibukawa/tinygodriver v1.1.3
