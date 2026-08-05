@@ -20,6 +20,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /table/{name}/row", s.editRow)
 	mux.HandleFunc("GET /console", s.pageConsole)
 	mux.HandleFunc("POST /console", s.pageConsole)
+	mux.HandleFunc("GET /referenced/{table}", s.pageReferenced)
 	mux.HandleFunc("GET /queries", s.pageQueries)
 	mux.HandleFunc("GET /query/{package}/{name}", s.pageQuery)
 	mux.HandleFunc("POST /query/{package}/{name}", s.pageQuery)
@@ -45,14 +46,10 @@ func (s *Server) apiTables(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) pageTables(w http.ResponseWriter, r *http.Request) {
-	connection := s.connection(r)
-	tables, err := connection.Tables(r.Context())
 	view := s.view(r, "tables", "tables")
-	view.Tables = tables
-	if state, stateErr := connection.MigrationState(r.Context()); stateErr == nil {
+	if state, err := s.connection(r).MigrationState(r.Context()); err == nil {
 		view.Migration = &state
 	}
-	view.Error = errorText(err)
 	s.render(w, tablesPage, view)
 }
 
@@ -62,9 +59,11 @@ func (s *Server) pageTable(w http.ResponseWriter, r *http.Request) {
 	if offset < 0 {
 		offset = 0
 	}
+	connection := s.connection(r)
 	view := s.view(r, "tables", name)
-	page, err := s.connection(r).Rows(r.Context(), name, offset)
+	page, err := connection.Rows(r.Context(), name, offset)
 	view.Page = &page
+	view.ForeignKeys = connection.ForeignKeys(r.Context(), name)
 	view.Error = errorText(err)
 	view.Keys = primaryKey(page.Columns)
 	view.PrevOffset = max(0, offset-pageSize)
@@ -118,14 +117,39 @@ func (s *Server) editRow(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, target, http.StatusSeeOther)
 }
 
+// pageReferenced follows one foreign key. The column and table came from the
+// catalog and the value travels as a bind parameter, so this is a selection
+// rather than a filter the page composed.
+func (s *Server) pageReferenced(w http.ResponseWriter, r *http.Request) {
+	connection := s.connection(r)
+	table := r.PathValue("table")
+	column := r.URL.Query().Get("column")
+	value := r.URL.Query().Get("value")
+	view := s.view(r, "tables", table)
+	page, err := connection.Referenced(r.Context(), table, column, value)
+	view.Page = &page
+	view.Referenced = &ForeignKey{Column: column, Table: table, Target: column}
+	view.ReferencedValue = value
+	view.ForeignKeys = connection.ForeignKeys(r.Context(), table)
+	view.Error = errorText(err)
+	view.Keys = primaryKey(page.Columns)
+	s.render(w, tablePage, view)
+}
+
 func (s *Server) pageConsole(w http.ResponseWriter, r *http.Request) {
 	view := s.view(r, "console", "statement console")
 	if r.Method == http.MethodPost {
 		_ = r.ParseForm()
 		statement := r.FormValue("statement")
 		view.Statement = statement
-		result := s.connection(r).Exec(r.Context(), statement)
-		view.Result = &result
+		connection := s.connection(r)
+		if r.FormValue("action") == "explain" {
+			result := connection.Explain(r.Context(), statement)
+			view.Result = &result
+		} else {
+			result := connection.Exec(r.Context(), statement)
+			view.Result = &result
+		}
 	}
 	s.render(w, consolePage, view)
 }
@@ -151,8 +175,14 @@ func (s *Server) pageQuery(w http.ResponseWriter, r *http.Request) {
 			args[index] = r.FormValue("arg." + param.Name)
 		}
 		view.Args = args
-		result := s.connection(r).RunQuery(r.Context(), pkg, name, args)
-		view.Result = &result
+		connection := s.connection(r)
+		if r.FormValue("action") == "explain" {
+			result := connection.ExplainQuery(r.Context(), pkg, name, args)
+			view.Result = &result
+		} else {
+			result := connection.RunQuery(r.Context(), pkg, name, args)
+			view.Result = &result
+		}
 	}
 	s.render(w, queryPage, view)
 }

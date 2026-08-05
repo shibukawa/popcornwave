@@ -2318,6 +2318,7 @@
 {"context": "body", "path": ".knowledge/requirement/dev-console.md", "source": "requirement:dev-console", "target": "requirement:dev-api-reference", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/requirement/dev-console.md", "source": "requirement:dev-console", "target": "requirement:dev-error-overlay", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/requirement/dev-console.md", "source": "requirement:dev-console", "target": "data:dev-loop-state", "target_category": "structure", "target_type": "data"}
+{"context": "body", "path": ".knowledge/requirement/dev-console.md", "source": "requirement:dev-console", "target": "api:cli-seed", "target_category": "interface", "target_type": "api"}
 {"context": "body", "path": ".knowledge/requirement/dev-console.md", "source": "requirement:dev-console", "target": "concept:classic-web-style", "target_category": "concept", "target_type": "concept"}
 {"context": "body", "path": ".knowledge/requirement/dev-console.md", "source": "requirement:dev-console", "target": "decision:dev-harness-process", "target_category": "constraint", "target_type": "decision"}
 {"context": "body", "path": ".knowledge/requirement/dev-console.md", "source": "requirement:dev-console", "target": "data:release-artifact", "target_category": "structure", "target_type": "data"}
@@ -2359,6 +2360,8 @@
 {"context": "body", "path": ".knowledge/requirement/dev-query-runner.md", "source": "requirement:dev-query-runner", "target": "data:project-config", "target_category": "structure", "target_type": "data"}
 {"context": "body", "path": ".knowledge/requirement/dev-query-runner.md", "source": "requirement:dev-query-runner", "target": "requirement:template-storybook", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/requirement/dev-query-runner.md", "source": "requirement:dev-query-runner", "target": "decision:dev-harness-process", "target_category": "constraint", "target_type": "decision"}
+{"context": "body", "path": ".knowledge/requirement/dev-query-runner.md", "source": "requirement:dev-query-runner", "target": "rule:explain-dialect-support", "target_category": "constraint", "target_type": "rule"}
+{"context": "body", "path": ".knowledge/requirement/dev-query-runner.md", "source": "requirement:dev-query-runner", "target": "requirement:query-diagnostics", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/requirement/dev-query-runner.md", "source": "requirement:dev-query-runner", "target": "api:instrumented-sql-executor", "target_category": "interface", "target_type": "api"}
 {"context": "body", "path": ".knowledge/requirement/dev-query-runner.md", "source": "requirement:dev-query-runner", "target": "data:query-record", "target_category": "structure", "target_type": "data"}
 {"context": "body", "path": ".knowledge/requirement/dev-query-runner.md", "source": "requirement:dev-query-runner", "target": "flow:query-diagnostics", "target_category": "behavior", "target_type": "flow"}

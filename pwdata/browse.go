@@ -150,6 +150,24 @@ func (c *Connection) Rows(ctx context.Context, table string, offset int) (Page, 
 	return page, rows.Err()
 }
 
+// scanRows reads every remaining row of a bounded result.
+func scanRows(rows *sql.Rows, width int) ([][]*string, error) {
+	var out [][]*string
+	for rows.Next() {
+		values := make([]any, width)
+		for index := range values {
+			values[index] = new(sql.RawBytes)
+		}
+		if err := rows.Scan(values...); err != nil {
+			return out, err
+		}
+		out = append(out, renderRow(values))
+	}
+	return out, rows.Err()
+}
+
+func errUnknownColumn(name string) error { return fmt.Errorf("no column named %q", name) }
+
 // renderRow turns scanned bytes into displayable cells. A NULL stays nil, so
 // the page can tell it apart from an empty string — which is the distinction a
 // developer is usually looking at this table to check.

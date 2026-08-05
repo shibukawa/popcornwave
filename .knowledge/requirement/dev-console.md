@@ -36,6 +36,11 @@ panes:
     surface: the index shows the current data:dev-loop-state, so a page that was never opened still reports the failure
 index:
   content: the project name, the diagnosed environment, the application URL, and one entry per enabled pane
+  reseed:
+    offered: when the project has seed datasets and seed.auto is on
+    action: api:cli-seed, the same call the loop makes after a migration cycle empties the database, rather than a second implementation
+    why_here: seeding is clear-insert, so it is the way back from an editing session in requirement:dev-data-pane, and it is a pw-side action that needs no attachment
+    said_plainly: the button names what clear-insert does, because a control that empties tables should not read as a refresh
   disabled_pane: named as disabled with the configuration key that enables it, rather than hidden
 shell:
   form: one document per pane, navigated to by ordinary links from a nav the index and every pane repeat

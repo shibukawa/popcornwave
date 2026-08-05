@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strconv"
 
+	"github.com/shibukawa/popcornwave/internal/dbseed"
 	"github.com/shibukawa/popcornwave/internal/devconsole"
 	"github.com/shibukawa/popcornwave/internal/pwenv"
 	"github.com/shibukawa/tinybind-go/minitoml"
@@ -253,4 +254,12 @@ func tomlString(document minitoml.Document, key string) string {
 		return ""
 	}
 	return text
+}
+
+// hasSeedDatasets reports whether the project has anything to seed from. A
+// project with no datasets is an ordinary shape, so the console offers no
+// action rather than an action that would fail.
+func hasSeedDatasets(root string) bool {
+	info, err := os.Stat(filepath.Join(root, filepath.FromSlash(dbseed.DefaultDir)))
+	return err == nil && info.IsDir()
 }

@@ -79,6 +79,42 @@ type Console struct {
 	// an announcement has to carry. It is created before the console, because
 	// the pane that uses it is one of the panes the console is built with.
 	attach *Attachment
+	// reseed runs the project's seed datasets. It is held as a function rather
+	// than implemented here because seeding is already a pw subcommand, and
+	// policy:dev-console-boundary admits an action only where one exists.
+	reseed atomic.Pointer[func(context.Context) error]
+}
+
+// SetReseed installs the action behind the index's reseed button. Nothing is
+// offered until it is set, so a project with no datasets shows no button.
+func (c *Console) SetReseed(action func(context.Context) error) {
+	if c != nil && action != nil {
+		c.reseed.Store(&action)
+	}
+}
+
+// CanReseed reports whether the action is available, for the index to decide
+// whether to offer it.
+func (c *Console) CanReseed() bool { return c != nil && c.reseed.Load() != nil }
+
+// runReseed applies the seed datasets and returns to the index.
+//
+// Seeding is clear-insert, so this truncates the tables its datasets target.
+// That is what makes it the undo for an editing session, and why the button
+// says so rather than being labelled as a refresh.
+func (c *Console) runReseed(w http.ResponseWriter, r *http.Request) {
+	action := c.reseed.Load()
+	if action == nil {
+		http.Error(w, "this project has no seed datasets", http.StatusNotFound)
+		return
+	}
+	target := "/"
+	if err := (*action)(r.Context()); err != nil {
+		target += "?error=" + url.QueryEscape(err.Error())
+	} else {
+		target += "?seeded=1"
+	}
+	http.Redirect(w, r, target, http.StatusSeeOther)
 }
 
 // Attachment is the address the application published for a pane it serves
@@ -190,6 +226,7 @@ func (c *Console) routes() http.Handler {
 	mux.HandleFunc("GET /api/loop-state", c.loopState)
 	mux.HandleFunc("GET /api/loop-state/stream", c.loopStateStream)
 	mux.HandleFunc("POST /api/attach", c.announce)
+	mux.HandleFunc("POST /api/reseed", c.runReseed)
 	for _, pane := range c.panes {
 		if !pane.Enabled() {
 			continue

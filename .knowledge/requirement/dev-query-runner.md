@@ -37,6 +37,12 @@ statement_console:
     reason: SQLite accepts an UPDATE through the query call without complaint, so a fallback would report nothing for a write that already ran, and then run it a second time
     returns_rows: SELECT, WITH, VALUES, TABLE, SHOW, EXPLAIN, PRAGMA, DESCRIBE, and any statement with a RETURNING clause
     returning: matched as a word, so a column named for it does not change how its statement runs
+explain:
+  offered: on both halves, beside running
+  form: the plan-only prefix rule:explain-dialect-support names, which requirement:query-diagnostics already uses for a slow statement, so a plan read here and a plan attached to a record come from the same request
+  never_analyze: it would execute the statement a second time, which is wrong for a write and wasted on a read
+  declared: the plan is of the statement the generated builder produced with the supplied arguments, so it is the plan of what the application would run
+  unsupported_engine: reported as having no plan-only form, which loses the plan and nothing else
 instrumentation:
   path: the api:instrumented-sql-executor of the running application, so a declared run produces a data:query-record indistinguishable from one a request produced
   explain: a slow run attaches a plan through flow:query-diagnostics, unchanged
@@ -61,5 +67,6 @@ acceptance:
   - a written statement returning rows shows them; one that writes reports its affected count
   - a written UPDATE is executed exactly once and reports what it changed
   - a failing statement reports the engine's own error
+  - explaining a write reads its plan without executing it
   - a binary produced by api:cli-build contains no part of the pane
 ```

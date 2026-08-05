@@ -395,3 +395,130 @@ func TestWriteThroughAReadOnlyConnectionIsRefused(t *testing.T) {
 		t.Errorf("title = %q, want it unchanged", *page.Rows[0][1])
 	}
 }
+
+func TestExplainReadsAPlanWithoutRunningTheStatement(t *testing.T) {
+	connection := open(t)
+	result := connection.Explain(context.Background(), "UPDATE memos SET title = 'exploded'")
+	if result.Error != "" {
+		t.Fatalf("error = %s", result.Error)
+	}
+	if !result.Returned {
+		t.Errorf("result = %+v, want plan rows", result)
+	}
+	// ANALYZE is never used, so the statement whose plan was read did not run.
+	page, _ := connection.Rows(context.Background(), "memos", 0)
+	if *page.Rows[0][1] == "exploded" {
+		t.Error("explaining a write executed it")
+	}
+}
+
+func TestExplainOfADeclaredQueryUsesTheBuiltStatement(t *testing.T) {
+	registry.Lock()
+	registry.queries = nil
+	registry.Unlock()
+	RegisterQuery(Query{
+		Package: "queries", Name: "byID", Exported: true,
+		Params: []Param{{Name: "id", Kind: "int"}},
+		Build: func(args []string) (sqlbind.Statement, error) {
+			builder := sqlbind.NewBuilder(sqlbind.Question)
+			builder.WriteString("SELECT title FROM memos WHERE id = ")
+			builder.Arg(args[0])
+			return builder.Statement(), nil
+		},
+	})
+	result := open(t).ExplainQuery(context.Background(), "queries", "byID", []string{"1"})
+	if result.Error != "" {
+		t.Fatalf("error = %s", result.Error)
+	}
+	if !strings.Contains(result.SQL, "EXPLAIN") || !strings.Contains(result.SQL, "FROM memos") {
+		t.Errorf("SQL = %q, want the built statement explained", result.SQL)
+	}
+}
+
+// An engine with no plan-only form loses the plan and nothing else.
+func TestExplainOnAnEngineWithoutOneSaysSo(t *testing.T) {
+	if _, ok := explainPrefix("sqlite"); !ok {
+		t.Fatal("sqlite should have a plan form")
+	}
+	if _, ok := explainPrefix("cockroach"); ok {
+		t.Error("an unknown engine should have no plan form")
+	}
+}
+
+func TestForeignKeysAreDiscoveredAndFollowable(t *testing.T) {
+	connection := open(t)
+	for _, statement := range []string{
+		`CREATE TABLE notes (id INTEGER PRIMARY KEY, memo_id INTEGER REFERENCES memos(id), text TEXT)`,
+		`INSERT INTO notes (id, memo_id, text) VALUES (1, 2, 'about the second')`,
+	} {
+		if _, err := connection.db.Exec(statement); err != nil {
+			t.Fatal(err)
+		}
+	}
+	keys := connection.ForeignKeys(context.Background(), "notes")
+	key, ok := keys["memo_id"]
+	if !ok {
+		t.Fatalf("keys = %+v, want the reference from memo_id", keys)
+	}
+	if key.Table != "memos" || key.Target != "id" {
+		t.Errorf("key = %+v, want memos.id", key)
+	}
+	// Following it is a selection: the column and table came from the catalog
+	// and the value is a bind parameter.
+	page, err := connection.Referenced(context.Background(), key.Table, key.Target, "2")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(page.Rows) != 1 || *page.Rows[0][1] != "second" {
+		t.Fatalf("page = %+v, want the referenced row", page.Rows)
+	}
+}
+
+func TestFollowingAnUnknownColumnIsRefused(t *testing.T) {
+	_, err := open(t).Referenced(context.Background(), "memos", "nope", "1")
+	if err == nil || !strings.Contains(err.Error(), "no column named") {
+		t.Errorf("err = %v, want the column refused", err)
+	}
+}
+
+// A table with no references is not an error; the grid is simply not linked.
+func TestATableWithNoForeignKeysYieldsNone(t *testing.T) {
+	if keys := open(t).ForeignKeys(context.Background(), "memos"); len(keys) != 0 {
+		t.Errorf("keys = %+v, want none", keys)
+	}
+}
+
+// The sidebar repeats on every page, so the table list belongs to the shared
+// view. It was built by one handler once, which left every other page's sidebar
+// empty.
+func TestEveryPageListsTheTablesForItsSidebar(t *testing.T) {
+	connection := open(t)
+	server := serverFor(connection)
+	for _, path := range []string{"/", "/table/memos", "/console", "/queries"} {
+		recorder := httptest.NewRecorder()
+		server.Handler().ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, path, nil))
+		if body := recorder.Body.String(); !strings.Contains(body, "memos") {
+			t.Errorf("%s: the sidebar listed no tables:\n%s", path, body)
+		}
+	}
+}
+
+// The link is what makes an identifier navigable, so its absence is a defect
+// rather than a missing nicety.
+func TestTheGridLinksAForeignKey(t *testing.T) {
+	connection := open(t)
+	for _, statement := range []string{
+		`CREATE TABLE notes (id INTEGER PRIMARY KEY, memo_id INTEGER REFERENCES memos(id), text TEXT)`,
+		`INSERT INTO notes (id, memo_id, text) VALUES (1, 2, 'about the second')`,
+	} {
+		if _, err := connection.db.Exec(statement); err != nil {
+			t.Fatal(err)
+		}
+	}
+	recorder := httptest.NewRecorder()
+	serverFor(connection).Handler().ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/table/notes", nil))
+	body := recorder.Body.String()
+	if !strings.Contains(body, `/referenced/memos?`) || !strings.Contains(body, "value=2") {
+		t.Errorf("the grid did not link the foreign key:\n%s", body)
+	}
+}

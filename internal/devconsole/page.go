@@ -38,6 +38,8 @@ ul.panes a { font-weight:600; color:var(--fg); }
 ul.panes .why { color:var(--muted); }
 .muted { color:var(--muted); }
 .undetermined { color:var(--muted); font-style:italic; }
+form { margin:.4rem 0; display:flex; gap:.7rem; align-items:baseline; flex-wrap:wrap; }
+button { font:inherit; padding:.2rem .7rem; border:1px solid var(--line); background:var(--card); color:var(--fg); border-radius:4px; cursor:pointer; }
 code { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:12.5px; }
 `
 
@@ -113,6 +115,16 @@ var indexBody = template.Must(template.New("index").Parse(`
 {{end}}
 </div>
 
+{{if .Error}}<p class="state-failed">{{.Error}}</p>{{end}}
+{{if .Seeded}}<p class="state-healthy">the seed datasets were applied</p>{{end}}
+{{if .CanReseed}}
+<h2>Development data</h2>
+<form method="post" action="/api/reseed">
+<button>reseed</button>
+<span class="muted">applies the project's seed datasets. Seeding is clear-insert, so it empties the tables they target — which is what makes it the way back from an editing session.</span>
+</form>
+{{end}}
+
 <h2>Panes</h2>
 <ul class="panes">
 {{range .Panes}}<li>
@@ -129,6 +141,9 @@ type indexData struct {
 	StatusWord string
 	Ago        string
 	Panes      []Pane
+	CanReseed  bool
+	Seeded     bool
+	Error      string
 }
 
 func (c *Console) index(w http.ResponseWriter, r *http.Request) {
@@ -138,6 +153,9 @@ func (c *Console) index(w http.ResponseWriter, r *http.Request) {
 		State:      state,
 		StatusWord: statusWord(state.Status),
 		Panes:      c.panes,
+		CanReseed:  c.CanReseed(),
+		Seeded:     r.URL.Query().Get("seeded") != "",
+		Error:      r.URL.Query().Get("error"),
 	}
 	if !state.Since.IsZero() {
 		data.Ago = since(state.Since)

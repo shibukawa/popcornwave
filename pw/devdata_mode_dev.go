@@ -28,7 +28,16 @@ const DevAttachTokenVar = "PW_DEV_ATTACH_TOKEN"
 // and an application that runs without one is still an application.
 func startDevelopmentData(resources pwruntime.Resources) {
 	console := strings.TrimSpace(os.Getenv(DevConsoleURLVar))
-	if console == "" || resources.DB == nil {
+	if console == "" {
+		// No console is running, so there is nothing to announce to. This is
+		// the ordinary case for a pwdev binary started by hand.
+		return
+	}
+	if resources.DB == nil {
+		// A console is running and expecting a pane, so silence here would
+		// leave the developer looking at a pane that never attaches with
+		// nothing to explain it.
+		fmt.Fprintln(os.Stderr, "pw: development data pane: no database is configured, so there is nothing to serve")
 		return
 	}
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
@@ -85,9 +94,14 @@ func announceDevelopmentData(console, address string) {
 	request.Header.Set("X-Pw-Attach-Token", os.Getenv(DevAttachTokenVar))
 	response, err := http.DefaultClient.Do(request)
 	if err != nil {
-		// The console may not be running, which is ordinary: the developer can
-		// have disabled it, and the application does not depend on it.
+		fmt.Fprintln(os.Stderr, "pw: development data pane: could not announce to the console:", err)
 		return
 	}
-	_ = response.Body.Close()
+	defer response.Body.Close()
+	if response.StatusCode >= 300 {
+		// A refused announcement means the pane will never attach, and the
+		// console can only report that it is waiting. Saying why here is the
+		// only place the reason exists.
+		fmt.Fprintf(os.Stderr, "pw: development data pane: the console refused the announcement (%s)\n", response.Status)
+	}
 }

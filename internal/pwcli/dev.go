@@ -61,6 +61,12 @@ func runDev(ctx context.Context, args []string, stdout, stderr io.Writer) error 
 	attach := devconsole.NewAttachment(attachToken)
 	console := startDevConsole(root, config, telemetry, storybook, attach, stdout, stderr)
 	defer console.Close()
+	// The console offers the seed datasets as an action rather than
+	// implementing one: pw seed already exists, and this is the same call the
+	// loop makes after a migration cycle empties the database.
+	if config.Seed.Auto && hasSeedDatasets(root) {
+		console.SetReseed(func(ctx context.Context) error { return runSeed(ctx, nil, stdout, stderr) })
+	}
 
 	// Startup spends its time on services, generation, migration, and a build,
 	// and said nothing while it did. The region names the phase in progress and

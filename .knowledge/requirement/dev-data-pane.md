@@ -51,6 +51,11 @@ framework_tables:
   marked: yes, by the rule:framework-owned-tables prefix
   why_not_blocked: requirement:dev-query-runner accepts a statement, so the rows are reachable regardless and blocking them here would be theatre rather than a boundary
   why_marked: a row in one of these was written by code the developer did not write, and reading it as application data is the mistake worth preventing
+foreign_keys:
+  shown: a link on each referencing cell, to the row it points at
+  why: an identifier in a grid means nothing until the row behind it is one click away, which is the difference between reading data and reading a table
+  shape: the column and table come from the catalog and the value travels as a bind parameter, so following a link is a selection rather than the filter box this pane declines to offer
+  absent: a dialect with no statement for it, or a catalog that refuses the question, yields no links and a readable grid; losing the page over a missing affordance would be the wrong trade
 paging:
   order: the primary key where there is one
   no_key: paged by offset, with the order reported as unspecified rather than implying a stability the engine is not promising
@@ -72,6 +77,8 @@ acceptance:
   - a table with no primary key is paged, says its order is unspecified, and refuses a row edit with the reason
   - a name the catalog does not report is refused rather than quoted into a statement
   - a rule:framework-owned-tables table is readable and marked
+  - a referencing cell links to the row it points at, and the page says what it is showing
+  - every page lists the tables its sidebar repeats
   - the pane reports the application as detached while it is down
   - a project declaring a connection set lists every connection and defaults to a writable one
   - a write through a read-only connection is refused with the reason and changes nothing

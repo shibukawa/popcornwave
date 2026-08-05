@@ -24,23 +24,37 @@ type view struct {
 	Result      *Result
 	Connection  *Connection
 	Connections []Connection
-	Migration   *Migration
-	Error       string
-	Changed     string
+	ForeignKeys map[string]ForeignKey
+	// Referenced is set on a page reached by following a foreign key, so it can
+	// say what it is showing and offer the way back.
+	Referenced      *ForeignKey
+	ReferencedValue string
+	Migration       *Migration
+	Error           string
+	Changed         string
 	// PrevOffset is the previous page's offset, clamped at zero. It is
 	// computed here rather than in the template, where arithmetic reads worse
 	// than it works.
 	PrevOffset int
 }
 
+// view carries the sidebar as well as the page, because every page repeats it.
+// Listing the tables here rather than in one handler is what keeps the sidebar
+// from being empty everywhere except the page that happens to build it.
 func (s *Server) view(r *http.Request, section, title string) view {
 	connection := s.connection(r)
+	tables, err := connection.Tables(r.Context())
+	reported := r.URL.Query().Get("error")
+	if reported == "" {
+		reported = errorText(err)
+	}
 	return view{
+		Tables:  tables,
+		Error:   reported,
 		Section: section, Title: title,
 		Engine: connection.Engine(), Environment: s.environment,
 		Connection: connection, Connections: s.connections,
 		Queries: Queries(),
-		Error:   r.URL.Query().Get("error"),
 		Changed: r.URL.Query().Get("changed"),
 	}
 }
@@ -90,6 +104,8 @@ pre { background:var(--card); border:1px solid var(--line); border-radius:6px; p
 .ok { color:var(--ok); }
 .warn { color:var(--warn); }
 code { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:12.5px; }
+a.fk { text-decoration:none; color:var(--muted); margin-left:.25rem; }
+a.fk:hover { color:var(--fg); }
 label { font-size:12.5px; color:var(--muted); display:block; margin:.5rem 0 .1rem; }
 input.text { font:inherit; padding:.25rem .4rem; border:1px solid var(--line); border-radius:4px; background:var(--bg); color:var(--fg); min-width:18rem; }
 `
@@ -159,6 +175,7 @@ var tablePage = page(`{{define "body"}}
 <p class="sub">
 {{range $page.Columns}}<code>{{.Name}}</code> {{.Type}}{{if gt .PrimaryKey 0}} <span class="warn">pk</span>{{end}}{{if .NotNull}} not null{{end}} · {{end}}
 </p>
+{{with $.Referenced}}<p class="note">Showing rows of <code>{{.Table}}</code> where <code>{{.Target}}</code> is <code>{{$.ReferencedValue}}</code>, followed from a foreign key. <a href="/table/{{.Table}}?c={{$.Connection.Label}}">show the whole table</a></p>{{end}}
 {{if $.Connection.ReadOnly}}<p class="note warn">This connection is a read-only replica, so rows are shown but cannot be edited here.</p>{{end}}
 {{if not $page.Ordered}}<p class="note warn">This table has no primary key. Rows are paged by offset, their order is unspecified, and a single row cannot be edited here.</p>{{end}}
 
@@ -180,9 +197,11 @@ var tablePage = page(`{{define "body"}}
 </td>
 {{range $index, $column := $page.Columns}}
 {{$cell := index $row $index}}
+{{$fk := index $.ForeignKeys $column.Name}}
 <td{{if not $cell}} class="null"{{end}}>
-{{if $.Keys}}<input form="row{{$rowIndex}}" name="value.{{$column.Name}}" value="{{with $cell}}{{.}}{{end}}" placeholder="{{if not $cell}}NULL{{end}}">
+{{if and $.Keys (not $.Connection.ReadOnly)}}<input form="row{{$rowIndex}}" name="value.{{$column.Name}}" value="{{with $cell}}{{.}}{{end}}" placeholder="{{if not $cell}}NULL{{end}}">
 {{else}}{{if $cell}}{{$cell}}{{else}}NULL{{end}}{{end}}
+{{if and $fk.Table $cell}}<a class="fk" title="{{$fk.Table}}.{{$fk.Target}}" href="/referenced/{{$fk.Table}}?c={{$.Connection.Label}}&amp;column={{$fk.Target}}&amp;value={{$cell}}">&rarr;</a>{{end}}
 </td>
 {{end}}
 </tr>
@@ -214,8 +233,9 @@ var consolePage = page(`{{define "body"}}
 <p class="sub">Runs against the pool the application opened, on the {{.Engine}} database it is serving from.</p>
 <form method="post">
 <textarea name="statement" placeholder="select * from ...">{{.Statement}}</textarea>
-<div class="bar"><button>run</button>
-<span class="note">one statement per run · results are capped, writes are not</span></div>
+<div class="bar"><button name="action" value="run">run</button>
+<button name="action" value="explain">explain</button>
+<span class="note">one statement per run · results are capped, writes are not · explain reads the plan without running it</span></div>
 </form>
 {{template "result" .Result}}
 {{end}}`)
@@ -244,7 +264,9 @@ var queryPage = page(`{{define "body"}}
 <input class="text" name="arg.{{$param.Name}}" value="{{if $.Args}}{{index $.Args $index}}{{end}}">
 {{end}}
 {{if not $q.Params}}<p class="note">This query takes no parameters.</p>{{end}}
-<div class="bar"><button>run</button></div>
+<div class="bar"><button name="action" value="run">run</button>
+<button name="action" value="explain">explain</button>
+<span class="note">explain builds the same statement and reads its plan without running it</span></div>
 </form>
 {{template "result" .Result}}
 {{end}}`)

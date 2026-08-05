@@ -2,7 +2,9 @@ package devconsole
 
 import (
 	"bufio"
+	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"strings"
@@ -280,4 +282,56 @@ func readStreamEvent(t *testing.T, console *Console, during func()) State {
 	}
 	during()
 	return read()
+}
+
+// A project with no seed datasets is offered no action, rather than a button
+// that fails when pressed.
+func TestReseedIsOfferedOnlyWhenAvailable(t *testing.T) {
+	console := startConsole(t)
+	if console.CanReseed() {
+		t.Error("reseed was offered before any action was installed")
+	}
+	if _, body := get(t, console.URL()+"/"); strings.Contains(body, "reseed") {
+		t.Errorf("the index offered reseed with no action:\n%s", body)
+	}
+	console.SetReseed(func(context.Context) error { return nil })
+	if _, body := get(t, console.URL()+"/"); !strings.Contains(body, "reseed") {
+		t.Errorf("the index did not offer reseed:\n%s", body)
+	}
+}
+
+func TestReseedRunsTheActionAndReportsIt(t *testing.T) {
+	console := startConsole(t)
+	ran := false
+	console.SetReseed(func(context.Context) error { ran = true; return nil })
+
+	response, err := http.Post(console.URL()+"/api/reseed", "", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer response.Body.Close()
+	if !ran {
+		t.Error("the reseed action was not run")
+	}
+	if location := response.Request.URL.Query().Get("seeded"); location == "" {
+		// The client follows the redirect, so the landing URL carries the result.
+		t.Errorf("landed at %s, want the seeded marker", response.Request.URL)
+	}
+}
+
+// A failing reseed reports why on the index rather than leaving the developer
+// to check the terminal.
+func TestReseedReportsAFailure(t *testing.T) {
+	console := startConsole(t)
+	console.SetReseed(func(context.Context) error { return errors.New("dataset users.yaml: no such table") })
+
+	response, err := http.Post(console.URL()+"/api/reseed", "", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer response.Body.Close()
+	body, _ := io.ReadAll(response.Body)
+	if !strings.Contains(string(body), "no such table") {
+		t.Errorf("the failure was not reported:\n%s", body)
+	}
 }

@@ -30,6 +30,10 @@ type dialect struct {
 	// boolTrue is how the engine spells a true literal in a predicate. Only
 	// PostgreSQL refuses the integer form.
 	boolTrue string
+	// foreignKeys lists the references one table makes: the column here, the
+	// table referenced, and the column there. The statement takes the table
+	// name as its only argument.
+	foreignKeys string
 }
 
 func (d dialect) trueLiteral() string {
@@ -96,6 +100,7 @@ var sqliteDialect = dialect{
 		FROM pragma_table_info(?)
 		ORDER BY cid`,
 	limitOffset: plainLimit,
+	foreignKeys: `SELECT "from", "table", "to" FROM pragma_foreign_key_list(?)`,
 }
 
 var postgresDialect = dialect{
@@ -121,6 +126,12 @@ var postgresDialect = dialect{
 		ORDER BY c.ordinal_position`,
 	limitOffset: plainLimit,
 	boolTrue:    "true",
+	foreignKeys: `SELECT k.column_name, k.referenced_table_name, k.referenced_column_name
+		FROM information_schema.key_column_usage k
+		JOIN information_schema.table_constraints t
+			ON t.constraint_name = k.constraint_name AND t.table_schema = k.table_schema
+		WHERE t.constraint_type = 'FOREIGN KEY'
+			AND k.table_schema = current_schema() AND k.table_name = $1`,
 }
 
 var mysqlDialect = dialect{
@@ -139,4 +150,8 @@ var mysqlDialect = dialect{
 		WHERE table_schema = DATABASE() AND table_name = ?
 		ORDER BY ordinal_position`,
 	limitOffset: plainLimit,
+	foreignKeys: `SELECT column_name, referenced_table_name, referenced_column_name
+		FROM information_schema.key_column_usage
+		WHERE table_schema = DATABASE() AND table_name = ?
+			AND referenced_table_name IS NOT NULL`,
 }
