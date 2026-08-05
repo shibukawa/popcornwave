@@ -198,4 +198,4 @@ APP_ENV_LABEL=development ./myapp
 レコード1件です。おかげで「あの値は本当に効いたのか」に、ログを1行足さずに答えが
 出ます。各エントリはその値がどこから来たのかを示し、`secret` タグが表示・マスク・
 非表示のどれになるかを決めます。形式は `observability.boot_log` が選びます。
-[起動サマリ](/ja/productivity/startup-summary/)を参照してください。
+[設定サマリ](/ja/productivity/startup-summary/)を参照してください。

@@ -221,7 +221,7 @@ would ask a browser to remember a policy the connection could not vouch for.
 | `boot_log` | `"auto"` | startup summary: `auto`, `tree`, `record`, `off` |
 
 `auto` renders the tree on an interactive terminal and one structured record
-everywhere else. See [Startup Summary](/productivity/startup-summary/).
+everywhere else. See [Configuration Summary](/productivity/startup-summary/).
 
 ### `[observability.query]`
 
@@ -241,7 +241,7 @@ everywhere else. See [Startup Summary](/productivity/startup-summary/).
 without configuration and every other environment stays silent until someone
 opts in. `explain` and `reproduction` depend on `slow_threshold`, not on
 `enabled`: setting the threshold to zero switches off all three at once. See
-[Query Diagnostics](/productivity/query-diagnostics/).
+[Slow Query Diagnostics](/productivity/query-diagnostics/).
 
 ### `[observability.otel]`
 

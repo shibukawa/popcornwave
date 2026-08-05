@@ -1,5 +1,5 @@
 ---
-title: Query Diagnostics
+title: Slow Query Diagnostics
 description: Log every generated SQL statement, explain the slow ones, and get a snippet that reruns them by hand.
 sidebar:
   order: 5

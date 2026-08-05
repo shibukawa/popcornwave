@@ -214,7 +214,7 @@ HSTS が付くのは検証済みの HTTPS リクエストだけです。平文�
 | `boot_log` | `"auto"` | 起動サマリ。`auto`、`tree`、`record`、`off` |
 
 `auto` は対話的な端末ではツリーを、それ以外では構造化レコード1件を出します。
-[起動サマリ](/ja/productivity/startup-summary/)を参照してください。
+[設定サマリ](/ja/productivity/startup-summary/)を参照してください。
 
 ### `[observability.query]`
 
@@ -234,7 +234,7 @@ HSTS が付くのは検証済みの HTTPS リクエストだけです。平文�
 環境は誰かが明示的に有効化するまで黙ったままです。`explain` と `reproduction` が
 依存するのは `enabled` ではなく `slow_threshold` です。しきい値をゼロにすると、
 この3つが同時に止まります。
-[クエリ診断](/ja/productivity/query-diagnostics/)を参照してください。
+[スロークエリー診断](/ja/productivity/query-diagnostics/)を参照してください。
 
 ### `[observability.otel]`
 

@@ -232,7 +232,7 @@ level=WARN msg="sql executed" sql="SELECT name FROM items WHERE name = $1"
   reproduction=".parameter set $1 'alpha'\nSELECT name FROM items WHERE name = $1;"
 ```
 
-See [Query Diagnostics](/productivity/query-diagnostics/).
+See [Slow Query Diagnostics](/productivity/query-diagnostics/).
 
 Schema and starting rows are a separate concern from the statements above, and
 they live with the rest of the development tooling: [Database

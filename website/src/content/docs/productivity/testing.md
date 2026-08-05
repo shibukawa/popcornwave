@@ -126,7 +126,9 @@ member:
 ```
 
 The same files also drive `pw seed`. One fixture format therefore serves both
-the CLI and the test suite instead of drifting into two versions.
+the CLI and the test suite instead of drifting into two versions. See
+[Fixtures](#fixtures) for using that file as the expected state as well, and
+[Seed Data](/productivity/seed-data/) for the format itself.
 
 ### `WithTransaction`
 
@@ -169,10 +171,131 @@ copied configuration; it runs after `customize`, so it wins over a placeholder.
 `server.LoginAs(t, "guest")` switches user mid-test, and `server.IdPInfo()`
 returns the same values for a test that wires its client by hand.
 
+## Fixtures
+
+A dataset stops being seed data and becomes a **fixture** the moment a test
+treats it as a known state. The same file then works from both ends: loaded
+before the request as the starting state, and compared against the database
+afterwards as the expected one. `server.AssertDB` is that second end.
+
+```go
+func TestArchiveRemovesTheMember(t *testing.T) {
+	server := testutil.TestRun(t, Handlers(), nil,
+		testutil.WithMigrations("../migrations"),
+		testutil.WithSeed("initial"),
+	)
+
+	response, err := server.Client().Post(server.URL+"/members/2/archive", "", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer response.Body.Close()
+
+	server.AssertDB(t, "after_archive")
+}
+```
+
+Writing the expectation as a file rather than as a list of `SELECT` assertions
+is what makes the whole table part of the test. A handler that archives the
+right member and also clears somebody else's row fails here, because nothing in
+`after_archive.yaml` said that row could change — and that is precisely the bug
+a hand-written `SELECT` on member 2 would pass straight over.
+
+A mismatch goes through `Errorf` rather than `Fatalf`, so the test continues and
+one run reports every table that drifted instead of only the first:
+
+```
+Popcorn Wave database does not match:
+after_archive.yaml:
+Table: member
+- Expected
++ Actual
+id: 1
+  name: Frank
+id: 2
+- name: Grace
+```
+
+### Comparing part of a table
+
+By default a table must match the dataset exactly: a row in the database that
+the file does not mention is a failure. Columns are not held to that standard —
+one the file omits is ignored, which is how a serial `id` or a `created_at`
+stays out of the expectation.
+
+When extra *rows* are legitimate, name the strategy per table:
+
+```yaml
+_match:
+  member: exact          # the default
+  access_log_2026_*: sub # extra rows are fine, the listed ones must exist
+
+member:
+- { id: 1, name: Frank }
+```
+
+Prefer `exact` and reach for `sub` only where rows arrive from something the
+test does not control — an audit trail, an append-only log, a table another test
+in the same package also writes. `sub` on an ordinary table quietly stops
+catching the row you did not expect, which was the reason to compare tables in
+the first place.
+
+Values that cannot be written down literally have their own forms:
+
+| Value | Matches |
+| --- | --- |
+| `[null]` | a NULL, the same as writing `null` |
+| `[notnull]` | anything other than NULL |
+| `[any]` | any value |
+| `[currentdate, 2m]` | a timestamp within the given duration of now, defaulting to `1m` |
+| `[regexp, ^User .+ logged in$]` | a value whose text form matches the pattern |
+
+```yaml
+audit_log:
+- { id: 1, created_at: [currentdate, 2m], message: [regexp, "^User .+ logged in$"] }
+```
+
+That covers the columns which would otherwise force the assertion out of the
+file and into Go: a generated timestamp, a message with an embedded identifier.
+
+### Reseeding mid-test
+
+`server.Seed` applies a dataset to the running server, which resets state
+between the phases of one test:
+
+```go
+server.Seed(t, "initial")
+```
+
+Each table named in the file is truncated and re-inserted, so a dataset returns
+that table to exactly what it describes regardless of what the previous phase
+did to it. Tables the file does not mention are untouched.
+
+Under `WithTransaction` both helpers operate inside the test transaction. That
+is what makes them usable together: `AssertDB` sees writes the request has not
+committed, and rows `Seed` adds disappear with the rollback. Without it,
+`AssertDB` compares committed state only, and a request whose transaction is
+still open has not been compared at all.
+
+### Two things the dataset format does not do here
+
+A dataset may carry an `_operation` block, and dbtestify's own documentation
+describes it. Popcorn Wave parses that block and then ignores it — seeding is
+always clear-insert. A file asking for `insert` still truncates first, and the
+rows you expected to accumulate will not be there. Sequence the phases with
+separate datasets instead of trying to append with one.
+
+Row `_tag` filtering has the same shape of limitation. Tags parse, but neither
+`WithSeed` nor `Seed` exposes the include and exclude filters that would act on
+them, so every row in the file is applied. Split the rows across files when a
+test needs a subset.
+
 ## Asserting against the database
 
-HTTP assertions show what the client observed; database assertions often need
-the same runtime state that produced it. `server.Context()` carries the
+A fixture compares whole tables. When the check is narrower than that — one
+counter, one column, a value you want to compute in Go — read it directly
+instead. HTTP assertions show what the client observed; database assertions
+often need the same runtime state that produced it. `server.Context()` carries the
 resources installed on requests, including the `WithTransaction` transaction,
 so generated queries can prepare or inspect data within the transaction used by
 the handlers:

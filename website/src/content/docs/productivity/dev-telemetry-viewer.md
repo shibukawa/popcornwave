@@ -42,7 +42,7 @@ anywhere, because naming an endpoint is what turns export on — a configuration
 that says where to send traces has already said to send them. See
 [`[observability.otel]`](/reference/configuration/#observabilityotel) for the
 keys that do get configured, all of which still reach the
-[startup summary](/productivity/startup-summary/).
+[configuration summary](/productivity/startup-summary/).
 
 ## What you can see
 
