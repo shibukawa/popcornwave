@@ -41,6 +41,7 @@ ul.panes .why { color:var(--muted); }
 form { margin:.4rem 0; display:flex; gap:.7rem; align-items:baseline; flex-wrap:wrap; }
 button { font:inherit; padding:.2rem .7rem; border:1px solid var(--line); background:var(--card); color:var(--fg); border-radius:4px; cursor:pointer; }
 code { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:12.5px; }
+pre.report { max-height:none; white-space:pre; font-size:12.5px; line-height:1.45; }
 iframe.pane { width:100%; height:calc(100vh - 9rem); border:1px solid var(--line); border-radius:6px; background:var(--bg); display:block; margin:.6rem 0; }
 `
 

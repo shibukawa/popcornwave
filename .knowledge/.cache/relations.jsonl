@@ -1829,11 +1829,11 @@
 {"context": "body", "path": ".knowledge/policy/dev-console-boundary.md", "source": "policy:dev-console-boundary", "target": "requirement:dev-query-runner", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/policy/dev-console-boundary.md", "source": "policy:dev-console-boundary", "target": "api:instrumented-sql-executor", "target_category": "interface", "target_type": "api"}
 {"context": "body", "path": ".knowledge/policy/dev-console-boundary.md", "source": "policy:dev-console-boundary", "target": "decision:development-public-assets", "target_category": "constraint", "target_type": "decision"}
+{"context": "body", "path": ".knowledge/policy/dev-console-boundary.md", "source": "policy:dev-console-boundary", "target": "policy:startup-summary", "target_category": "constraint", "target_type": "policy"}
 {"context": "body", "path": ".knowledge/policy/dev-console-boundary.md", "source": "policy:dev-console-boundary", "target": "api:cli-seed", "target_category": "interface", "target_type": "api"}
 {"context": "body", "path": ".knowledge/policy/dev-console-boundary.md", "source": "policy:dev-console-boundary", "target": "decision:dev-console-self-sufficiency", "target_category": "constraint", "target_type": "decision"}
 {"context": "body", "path": ".knowledge/policy/dev-console-boundary.md", "source": "policy:dev-console-boundary", "target": "policy:query-log-safety", "target_category": "constraint", "target_type": "policy"}
 {"context": "body", "path": ".knowledge/policy/dev-console-boundary.md", "source": "policy:dev-console-boundary", "target": "policy:cookie-value-protection", "target_category": "constraint", "target_type": "policy"}
-{"context": "body", "path": ".knowledge/policy/dev-console-boundary.md", "source": "policy:dev-console-boundary", "target": "policy:startup-summary", "target_category": "constraint", "target_type": "policy"}
 {"context": "body", "path": ".knowledge/policy/devidp-safety.md", "source": "policy:devidp-safety", "target": "requirement:contrib-devidp", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/policy/devidp-safety.md", "source": "policy:devidp-safety", "target": "data:runtime-environment", "target_category": "structure", "target_type": "data"}
 {"context": "body", "path": ".knowledge/policy/devidp-safety.md", "source": "policy:devidp-safety", "target": "policy:oidc-security", "target_category": "constraint", "target_type": "policy"}
@@ -2314,6 +2314,8 @@
 {"context": "body", "path": ".knowledge/requirement/dev-console.md", "source": "requirement:dev-console", "target": "requirement:dev-data-pane", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/requirement/dev-console.md", "source": "requirement:dev-console", "target": "requirement:dev-query-runner", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/requirement/dev-console.md", "source": "requirement:dev-console", "target": "decision:dev-application-attachment", "target_category": "constraint", "target_type": "decision"}
+{"context": "body", "path": ".knowledge/requirement/dev-console.md", "source": "requirement:dev-console", "target": "api:cli-doctor", "target_category": "interface", "target_type": "api"}
+{"context": "body", "path": ".knowledge/requirement/dev-console.md", "source": "requirement:dev-console", "target": "policy:startup-summary", "target_category": "constraint", "target_type": "policy"}
 {"context": "body", "path": ".knowledge/requirement/dev-console.md", "source": "requirement:dev-console", "target": "requirement:dev-asset-inspector", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/requirement/dev-console.md", "source": "requirement:dev-console", "target": "requirement:dev-api-reference", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/requirement/dev-console.md", "source": "requirement:dev-console", "target": "requirement:dev-error-overlay", "target_category": "objective", "target_type": "requirement"}

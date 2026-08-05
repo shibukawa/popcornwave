@@ -29,6 +29,12 @@ panes:
     browsing: requirement:dev-data-pane
     running: requirement:dev-query-runner
     shared: one pane and one decision:dev-application-attachment; the console proxies it because the application serves it
+  doctor:
+    shows: the api:cli-doctor report for the environment the loop is running
+    form: the command's own output, unaltered, with a re-run control
+    why_not_reformatted: doctor orders findings by severity and names a remedy for each, and reflowing that into a table would lose the ordering it means; a second rendering would also be a second thing to keep true
+    answers: what a merged configuration view would have been asked for, with the masking policy:startup-summary already applies and the remedies a raw dump would carry none of
+    offline: the api:cli-doctor default is kept, so opening the page contacts nothing
   assets: requirement:dev-asset-inspector
   api: requirement:dev-api-reference
   loop_state:

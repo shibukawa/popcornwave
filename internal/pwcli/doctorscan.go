@@ -54,6 +54,11 @@ const generatedSuffix = "_pw_gen.go"
 var packageArtifacts = map[string]bool{
 	"popcornwave_bootstrap_pw_gen.go": true,
 	"tinybind_openapi_pw_gen.go":      true,
+	// The development registrations are generated from what a package already
+	// produced rather than from one source beside them, so a scan looking for
+	// that source finds none and would report every project carrying them.
+	storybookFileName:     true,
+	queryRegistryFileName: true,
 }
 
 func newProjectScan(root string, state projectState, configFiles map[string]string) *projectScan {
@@ -87,7 +92,10 @@ func (s *projectScan) scanGenerated() {
 		}
 		if entry.IsDir() {
 			switch entry.Name() {
-			case ".git", "node_modules", ".devbox", ".knowledge":
+			case ".git", "node_modules", ".devbox", ".knowledge", storybookDirectory:
+				// The storybook harness is a generated main in a directory of
+				// its own, with no source beside it and nothing for a
+				// diagnosis to say about it.
 				return filepath.SkipDir
 			}
 			return nil

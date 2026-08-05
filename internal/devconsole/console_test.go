@@ -7,6 +7,7 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 )
@@ -333,5 +334,36 @@ func TestReseedReportsAFailure(t *testing.T) {
 	body, _ := io.ReadAll(response.Body)
 	if !strings.Contains(string(body), "no such table") {
 		t.Errorf("the failure was not reported:\n%s", body)
+	}
+}
+
+// The pane shows what the command said rather than a second rendering of it,
+// so a command that exits nonzero still has its output read.
+func TestTextPaneShowsOutputEvenWhenTheCommandFails(t *testing.T) {
+	pane := TextPane("doctor", "what this environment would run",
+		func(context.Context) (string, error) {
+			return "findings:\n  error  the database is unreachable", errors.New("1 error")
+		})
+	recorder := httptest.NewRecorder()
+	pane.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/", nil))
+	body := recorder.Body.String()
+	if !strings.Contains(body, "the database is unreachable") {
+		t.Errorf("the output was replaced by the error:\n%s", body)
+	}
+	if !strings.Contains(body, "1 error") {
+		t.Errorf("the failure was not reported beside it:\n%s", body)
+	}
+}
+
+func TestTextPaneRendersTheOutputUnaltered(t *testing.T) {
+	pane := TextPane("doctor", "summary", func(context.Context) (string, error) {
+		return "features:\n  database   sqlite\n  sessions   off", nil
+	})
+	recorder := httptest.NewRecorder()
+	pane.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/", nil))
+	// The command's own layout is what it spent its effort on, so the pane
+	// preserves it rather than reflowing it into a table.
+	if body := recorder.Body.String(); !strings.Contains(body, "  database   sqlite\n") {
+		t.Errorf("the output was reflowed:\n%s", body)
 	}
 }

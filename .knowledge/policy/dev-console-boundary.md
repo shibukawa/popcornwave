@@ -54,6 +54,7 @@ application_side:
     - a pwdev difference changes how the application serves what it already serves, and adds no route
   refused:
     - a development route that answers with application state, such as a session list, a merged configuration dump, or a cache listing
+    - configuration_answered_elsewhere: the question a dump is asked for is answered by the api:cli-doctor pane, which merges the same layers, masks what policy:startup-summary masks, and names a remedy for what it finds
     - reason: a route is reachable by anything that can reach the port, so one build-mode mistake turns a convenience into a disclosure
     - alternative: the same fact is reported by static analysis when it is knowable from the project, and by telemetry when it is only knowable at runtime
     - escalation: a fact reachable by neither, and addressable only from inside the process, goes through decision:dev-application-attachment, which serves it on a loopback listener of its own rather than on the application's, so the refused route stays refused

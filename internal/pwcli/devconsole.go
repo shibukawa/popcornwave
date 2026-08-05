@@ -105,7 +105,7 @@ func devConsolePanes(root string, config projectConfig, server developmentServer
 		// is only addressable from inside the process that opened it.
 		data.Handler = attach.Handler("the data pane")
 	}
-	panes = append(panes, data)
+	panes = append(panes, data, doctorPane(root))
 	return append(panes, devconsole.Pane{
 		Slug:       "storybook",
 		Title:      "storybook",
