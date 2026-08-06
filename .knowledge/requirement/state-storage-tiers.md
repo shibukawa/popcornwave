@@ -42,14 +42,24 @@ tiers:
     mechanism: the configured server backend, always, including while anonymous; backend cookie is refused at startup
     argument: revocation, not confidentiality
     cost: an anonymous write creates a server record
-    fits: a credential, anything that must stop being valid on demand, and anything that can grow past the cookie budget while anonymous
+    fits: a stored secret the client must never hold even sealed, such as a refresh token taken at login, and anything that can grow past the cookie budget while anonymous
+    not: validity that must be re-checked per request, which is request_scope; a preference following the account across browsers, which belongs in the application database because a session names one browser and dies at logout
+  request_scope:
+    placement: session.RequestScope
+    client: nothing; the value never travels
+    mechanism: process memory of the request that wrote it; no cookie, no record, no keyring
+    lifetime: one request, fixed; every lifetime option is refused at registration
+    handling: derived from an authoritative source by middleware or a handler, read by later handlers in the same request, absent in the next
+    argument: freshness over cost; rebuilding every request is what makes staleness impossible
+    fits: the scope set a bearer token resolves to against the auth database, per-request authorization facts, a tenant plan read from the row of record
 choosing:
+  is_it_rebuilt_from_an_authoritative_source_every_request: request_scope
   can_the_front_end_change_it: shared
   can_the_front_end_read_it: read_only
   must_it_be_revocable_before_a_login_or_can_it_outgrow_a_cookie: server_only
   otherwise: private, whose anonymous phase costs the server nothing and whose backend the deployment picks
 backend_selection:
-  scope: which server backend the private and server_only tiers use; never whether a slot is server-placed
+  scope: which server backend the private and server_only tiers use; never whether a slot is server-placed, and never the request_scope tier, which no backend touches
   key: data:session-runtime-config backend
   cookie:
     storage: none; the sealed record rides in a second cookie bound to its token hash
@@ -93,7 +103,7 @@ one_session:
   fact: every registered slot shares one token, whatever tier each one carries
   records: a session may hold a cookie-placed record and a server-placed record at once, which happens while it is anonymous and holds a session.ServerOnly slot
   lifetime: one, supplied by decision:session-lifetime-owned-by-auth
-  destruction: a logout destroys every slot that did not declare session.OutlivesSession, per flow:session-lifecycle
+  destruction: a logout destroys every slot that did not declare session.OutlivesSession, per flow:session-lifecycle; a request_scope value survives it within its request, because the session stored nothing of it
   survival: state that must outlive a logout is not a slot, and uses api:cookie-jar directly
 invariants:
   - one Codec, one registration call, and one typed read across every tier and backend
@@ -105,6 +115,9 @@ invariants:
   - policy:cookie-value-protection governs anything the browser carries
 acceptance:
   - a shared value survives a client edit as ordinary input, and every other tier rejects it
+  - a request_scope value set in one request reads absent in the next, with no cookie written and no store touched
+  - a stored record key matching a request_scope slot never populates it
+  - a registry holding only shared and request_scope slots starts without a keyring
   - the same handler compiles and passes against the cookie, rdb, redis, dynamo, and firestore server backends
   - switching session.backend needs no migration of application code, only of stored records
   - a cookie-placed write beyond the browser budget is refused, naming the slot, instead of writing one the browser drops

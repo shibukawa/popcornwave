@@ -9,10 +9,11 @@ The [session declaration](/guides/backend/sessions/) defines what a piece of
 state means. Storage configuration decides where its bytes live, how expired
 records are removed, and what the backend costs to operate.
 
-Only two of the four placements leave anything to decide. `session.Shared` and
+Only two of the five placements leave anything to decide. `session.Shared` and
 `session.ReadOnly` are cookies by definition — a value the client reads has to
-travel to it. `session.Private` and `session.ServerOnly` are the ones that reach
-a store.
+travel to it — and `session.RequestScope` lives and dies in the memory of one
+request, never reaching storage at all. `session.Private` and
+`session.ServerOnly` are the ones that reach a store.
 
 What the browser holds never changes with the answer. The token cookie carries
 256 random bits and nothing else, and the store is keyed by the SHA-256 hash of
@@ -92,7 +93,8 @@ slot is sealed with AES-256-GCM. Both derive a purpose-separated subkey from
 `keyring.secret`, so a deployment configures one key rather than one per
 mechanism.
 
-It is required unless every declared slot is `session.Shared` — including on
+It is required unless every declared slot is `session.Shared` or
+`session.RequestScope` — including on
 `rdb`, `redis`, `dynamo`, and `firestore`, because the anonymous phase of a private slot is a
 sealed cookie whatever the backend is. `pw init` generates one into
 `config.dev.toml`; every other environment reads `SESSION_KEYRING_SECRET`, and

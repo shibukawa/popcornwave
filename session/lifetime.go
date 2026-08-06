@@ -32,6 +32,12 @@ type SlotOption func(*slot) error
 // should not.
 func ExpiresAfter(d time.Duration) SlotOption {
 	return func(entry *slot) error {
+		if entry.placement == RequestScope {
+			// The value already dies with the request, before any stated
+			// duration could pass; a lifetime here is a contradiction that
+			// usually means the placement was edited without its options.
+			return fmt.Errorf("%w: slot %q is session.RequestScope and cannot state a lifetime", ErrInvalidOptions, entry.key)
+		}
 		if d <= 0 {
 			return fmt.Errorf("%w: slot %q lifetime must be positive", ErrInvalidOptions, entry.key)
 		}
@@ -67,6 +73,11 @@ func OutlivesSession(d time.Duration) SlotOption {
 		if d > BrowserMax {
 			return fmt.Errorf("%w: slot %q lifetime exceeds session.BrowserMax", ErrInvalidOptions, entry.key)
 		}
+		if entry.placement == RequestScope {
+			return fmt.Errorf(
+				"%w: slot %q is session.RequestScope, which is never stored and cannot outlive its request",
+				ErrInvalidOptions, entry.key)
+		}
 		if !entry.placement.cookiePlaced() {
 			return fmt.Errorf(
 				"%w: slot %q is session.%s, which lives in the session record and is destroyed with it; "+
@@ -91,6 +102,11 @@ func OutlivesSession(d time.Duration) SlotOption {
 // time does and OutlivesSession states what a destroy does.
 func ResetOnRotate() SlotOption {
 	return func(entry *slot) error {
+		if entry.placement == RequestScope {
+			// The slot is not carried across a rotation because it is not
+			// carried at all; stating what a rotation does to it is noise.
+			return fmt.Errorf("%w: slot %q is session.RequestScope, which no rotation carries", ErrInvalidOptions, entry.key)
+		}
 		entry.resetOnRotate = true
 		return nil
 	}

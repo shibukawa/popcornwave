@@ -6,6 +6,7 @@ import (
 	"io"
 	"io/fs"
 	"net/http"
+	"sort"
 	"time"
 
 	"github.com/shibukawa/popcornwave/middlewares"
@@ -17,18 +18,42 @@ func buildRuntimeHandler(handler http.Handler, server ServerConfig, security Sec
 	if err != nil {
 		return nil, err
 	}
-	// Extensions see the same resources the request handler will, so a
-	// disabled or misconfigured capability fails during startup rather than on
-	// the first request.
-	//
-	// The documentation endpoints go underneath them, so the session and the
-	// authentication guard reach the OpenAPI document exactly as they reach an
-	// application route. The probes stay above, where nothing authenticates.
-	extended, err := applyExtensions(pwruntime.WithResources(context.Background(), resources), documentationEndpoints(handler, server))
-	if err != nil {
-		return nil, err
+	// Every frame — a framework middleware, an extension, a middleware the
+	// application registered — carries a slot on one number line, and the
+	// chain is composed by that number alone: ascending, smallest outermost.
+	// Only the track frame stays outside the line, because its metrics must
+	// observe every positioned step.
+	frames := []chainFrame{}
+	if tracing {
+		// Tracing wraps every positioned frame, so the request root span
+		// covers the whole chain and every record taken inside it correlates.
+		// It is omitted when nothing exports, because an unsampled span is
+		// pure cost.
+		frames = append(frames, chainFrame{slot: SlotTracing, name: "otel", middleware: middlewares.Otel()})
 	}
-	result := operationalEndpoints(extended, server, resources)
+	frames = append(frames, chainFrame{slot: SlotResources, name: "resources", middleware: middlewares.InjectResources(resources)})
+	if middleware.RequestID {
+		frames = append(frames, chainFrame{slot: SlotRequestID, name: "request_id", middleware: middlewares.RequestID()})
+	}
+	if middleware.AccessLog {
+		frames = append(frames, chainFrame{slot: SlotAccessLog, name: "access_log", middleware: middlewares.AccessLog()})
+	}
+	if middleware.Recovery {
+		frames = append(frames, chainFrame{slot: SlotRecover, name: "recover", middleware: middlewares.Recover(writePanicProblem)})
+	}
+	if security.Headers.Enabled {
+		headers, err := middlewares.SecurityHeaders(security.Headers, middlewares.WithTrustedProxies(trusted))
+		if err != nil {
+			return nil, err
+		}
+		frames = append(frames, chainFrame{slot: SlotSecurityHeaders, name: "security_headers", middleware: headers})
+	}
+	if middleware.RequestTimeout > 0 {
+		frames = append(frames, chainFrame{slot: SlotRequestTimeout, name: "request_timeout", middleware: middlewares.RequestTimeout(middleware.RequestTimeout)})
+	}
+	if server.MaxRequestBody > 0 {
+		frames = append(frames, chainFrame{slot: SlotMaxRequestBody, name: "max_request_body", middleware: middlewares.MaxRequestBody(server.MaxRequestBody)})
+	}
 	if server.Public.Enabled {
 		var embedded fs.FS
 		if len(publicFS) > 0 {
@@ -38,36 +63,34 @@ func buildRuntimeHandler(handler http.Handler, server ServerConfig, security Sec
 		if err != nil {
 			return nil, err
 		}
-		result = assets(result)
+		frames = append(frames, chainFrame{slot: SlotPublicAssets, name: "public_assets", middleware: assets})
 	}
-	if server.MaxRequestBody > 0 {
-		result = middlewares.MaxRequestBody(server.MaxRequestBody)(result)
+	// The probes stay above everything that authenticates, and the
+	// documentation endpoints go beneath the guard, so the session and the
+	// authentication reach the OpenAPI document exactly as they reach an
+	// application route. Both are handlers adapted to the middleware shape,
+	// which is why their slots refuse registration.
+	frames = append(frames, chainFrame{slot: SlotOperational, name: "operational", middleware: func(next http.Handler) http.Handler {
+		return operationalEndpoints(next, server, resources)
+	}})
+	frames = append(frames, chainFrame{slot: SlotAPIDoc, name: "apidoc", middleware: func(next http.Handler) http.Handler {
+		return documentationEndpoints(next, server)
+	}})
+	// Extensions see the same resources the request handler will, so a
+	// disabled or misconfigured capability fails during startup rather than on
+	// the first request.
+	extensions, err := extensionFrames(pwruntime.WithResources(context.Background(), resources))
+	if err != nil {
+		return nil, err
 	}
-	if middleware.RequestTimeout > 0 {
-		result = middlewares.RequestTimeout(middleware.RequestTimeout)(result)
-	}
-	if security.Headers.Enabled {
-		headers, err := middlewares.SecurityHeaders(security.Headers, middlewares.WithTrustedProxies(trusted))
-		if err != nil {
-			return nil, err
-		}
-		result = headers(result)
-	}
-	if middleware.Recovery {
-		result = middlewares.Recover(writePanicProblem)(result)
-	}
-	if middleware.AccessLog {
-		result = middlewares.AccessLog()(result)
-	}
-	if middleware.RequestID {
-		result = middlewares.RequestID()(result)
-	}
-	result = middlewares.InjectResources(resources)(result)
-	// Tracing wraps everything the framework installs, so the request root span
-	// covers the whole chain and every record taken inside it correlates. It is
-	// omitted when nothing exports, because an unsampled span is pure cost.
-	if tracing {
-		result = middlewares.Otel()(result)
+	frames = append(frames, extensions...)
+
+	// Equal slots keep their append order, framework frames first, so two
+	// middlewares registered at one number run in registration order.
+	sort.SliceStable(frames, func(i, j int) bool { return frames[i].slot < frames[j].slot })
+	result := handler
+	for index := len(frames) - 1; index >= 0; index-- {
+		result = frames[index].middleware(result)
 	}
 	return middlewares.Track(result), nil
 }

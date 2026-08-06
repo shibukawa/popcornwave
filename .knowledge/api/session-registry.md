@@ -13,7 +13,7 @@ registration:
   call: pw.RegisterSessionStore[T](key, placement, lifetime...)
   caller: main, after every package init, exactly as api:runtime-configuration requires of RegisterConfig
   reason: the registry must be complete before the first request decodes anything, and an init-time call cannot see the configuration that places it
-  key: the cookie name when the slot is cookie-placed, and the field name inside data:session-record when it is server-placed
+  key: the cookie name when the slot is cookie-placed, the field name inside data:session-record when it is server-placed, and a label naming nothing stored for session.RequestScope; one character set serves all three, so a placement edit never renames
   uniqueness: a duplicate Go type and a duplicate key are each a registration panic, not a silent replacement
   codec: session.JSONCodec[T] by default, overridable per slot
   bound: session.DefaultMaxCookieBytes for anything the browser carries; a server-placed value is bounded by its backend
@@ -41,7 +41,13 @@ placement:
     refuses: backend cookie, at startup, naming the slot
     reason: revocation; sealing hides a value from the client but decision:cookie-session-storage cannot take it back
     cost: an anonymous write creates a server record, which is what this value asks for
-    fits: a credential, and anything that must stop being valid on demand
+    fits: a stored secret the client must never hold even sealed, such as a refresh token taken at login, and state that outgrows the cookie budget; validity re-checked per request is session.RequestScope, and an account-wide preference is application data rather than session state
+  session.RequestScope:
+    client: nothing; the value never travels
+    where: process memory for one request; no cookie, no record, no backend, no keyring
+    reason: freshness; a value rebuilt from its authoritative source every request cannot be stale, so a revocation at the source is seen at the next request
+    write: a Set is visible to the rest of the request, issues no token, and writes no cookie; the next request starts empty
+    fits: the scope set a bearer token resolves to against the auth database, per-request authorization facts, a tenant plan read from the row of record
   selection: the value states both what the client may do and where the bytes go; the deployment is left only with which server backend
 lifetime:
   decision: decision:slot-lifetime-axis
@@ -50,6 +56,7 @@ lifetime:
   session.OutlivesSession: keeps the slot for a duration and exempts it from the destruction of the session; cookie-placed slots only
   session.BrowserMax: the longest a browser keeps a cookie, 400 days, which is what stating it indefinitely can mean
   rule: a slot may always state a shorter life; only a cookie-placed slot may outlive the session, because a record is destroyed with the session that holds it
+  request_scope: every lifetime option is refused, because the lifetime is the request and stating another one is a contradiction
   refusal: registration, not startup, because the placement is known where the lifetime is stated
 surface:
   - session.Load[T](context.Context) returns the request value and its presence
@@ -61,7 +68,7 @@ resolution:
   reason: this is the api:runtime-configuration Config[T] shape, and an application already knows it
   consequence: two packages wanting one slot share the type, which makes the sharing visible in the import graph
 issuance:
-  timing: lazy; the token and any record are created by the first Set, never by a bare read
+  timing: lazy; the token and any record are created by the first persistent Set, never by a bare read or a session.RequestScope Set
   effect: a visitor who writes nothing receives no cookie and occupies no storage
   anonymous: a session exists before any login, so a cart or a draft survives the login that follows
   cost: an anonymous session touches the server only where a session.ServerOnly slot was written, per decision:slot-declared-placement
@@ -75,7 +82,7 @@ session_lifetime:
   source: decision:session-lifetime-owned-by-auth, which bounds the session every slot hangs off
   cookie_placed: a slot that stated nothing carries the session lifetime as its cookie lifetime, which is what makes it die with the session rather than at the next browser close
 destruction:
-  logout: destroys every slot that did not declare session.OutlivesSession, whatever each one's placement, per flow:session-lifecycle
+  logout: destroys every slot that did not declare session.OutlivesSession, whatever each one's placement, per flow:session-lifecycle; a session.RequestScope value survives it within its request, because the session stored nothing of it to take back
   rotation: preserves every slot value and changes only the token and, for a private slot, the placement
   outside_the_session: state that must survive a logout uses api:cookie-jar directly, which is why policy:session-downgrade keeps its hint there
 rules:
@@ -87,6 +94,7 @@ rules:
   - two slots never read each other's value, even over one type-compatible layout, because the key is the registered type identity
   - a slot carrying a secret is never satisfied by session.Shared or session.ReadOnly
   - a slot that must be revocable declares session.ServerOnly rather than relying on the configured backend
+  - a value that must reflect its source of record on every request declares session.RequestScope rather than caching a copy in a stored tier
   - a write refused for exceeding the cookie budget names the slot and its budget
   - the framework registers the plugin/auth slot the same way an application registers its own, as session.Private
 supersedes:

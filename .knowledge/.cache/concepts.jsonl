@@ -318,6 +318,7 @@
 {"category": "constraint", "id": "policy:web-middleware", "path": ".knowledge/policy/web-middleware.md", "role": "supporting", "title": "Web Middleware Integration", "type": "policy"}
 {"category": "objective", "id": "requirement:action-response-update", "path": ".knowledge/requirement/action-response-update.md", "role": "primary", "title": "Action Response Update", "type": "requirement"}
 {"category": "objective", "id": "requirement:api-server-scaffold", "path": ".knowledge/requirement/api-server-scaffold.md", "role": "primary", "title": "API Server Preset Scaffold", "type": "requirement"}
+{"category": "objective", "id": "requirement:application-middleware-registration", "path": ".knowledge/requirement/application-middleware-registration.md", "role": "primary", "title": "Numbered Middleware Chain Registration", "type": "requirement"}
 {"category": "objective", "id": "requirement:application-user-experience", "path": ".knowledge/requirement/application-user-experience.md", "role": "primary", "title": "Popcorn Wave Application User Experience", "type": "requirement"}
 {"category": "objective", "id": "requirement:async-html-rendering", "path": ".knowledge/requirement/async-html-rendering.md", "role": "primary", "title": "Async HTML Rendering", "type": "requirement"}
 {"category": "objective", "id": "requirement:auth-security-remediation", "path": ".knowledge/requirement/auth-security-remediation.md", "role": "primary", "title": "Authentication Security Remediation", "type": "requirement"}

@@ -326,7 +326,8 @@ one keyring seals it too and `security.csrf` carries no secret of its own.
 
 `keyring.secret` protects what travels beside it: a `session.ReadOnly` slot is
 signed and a `session.Private` slot is sealed, both from that one secret. It is
-therefore required unless every registered slot is `session.Shared`, whatever
+therefore required unless every registered slot is `session.Shared` or
+`session.RequestScope`, whatever
 `backend` names — a private slot rides a sealed cookie while a visitor is still
 anonymous. `pw init` generates one into `config.dev.toml`; every other
 environment reads `SESSION_KEYRING_SECRET`.
