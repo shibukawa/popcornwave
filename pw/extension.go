@@ -13,30 +13,64 @@ import (
 // extensions.
 type Middleware = func(http.Handler) http.Handler
 
-// Slot orders framework extensions in the request chain. A smaller slot runs
-// earlier, so a guard always observes the session and authentication state
-// established before it.
+// Slot orders every frame of the request chain. A smaller slot runs earlier,
+// which is to say outermost, so a guard always observes the session and
+// authentication state established before it.
+//
+// Framework frames sit at multiples of ten, BASIC style, so a middleware can
+// be inserted between any two by picking a number in the gap:
+// pw.SlotAccessLog - 5 runs after the request ID is minted and before the
+// access log times the request.
 type Slot int
 
 const (
+	// SlotTracing opens the request root span. The frame is installed only
+	// when tracing has somewhere to export.
+	SlotTracing Slot = 10
+	// SlotResources injects the logger, configuration, and database clients
+	// into the request context. Every frame below reads them from there.
+	SlotResources Slot = 20
+	// SlotRequestID validates or mints the ID every log line carries.
+	SlotRequestID Slot = 30
+	// SlotAccessLog writes one structured line per request, with timing.
+	SlotAccessLog Slot = 40
+	// SlotRecover converts a panic below it into a negotiated error response.
+	SlotRecover Slot = 50
+	// SlotSecurityHeaders sets policy headers before anything writes.
+	SlotSecurityHeaders Slot = 60
+	// SlotRequestTimeout bounds the whole request.
+	SlotRequestTimeout Slot = 70
+	// SlotMaxRequestBody caps downstream reads of the request body.
+	SlotMaxRequestBody Slot = 80
+	// SlotPublicAssets serves the static tree before any dynamic work.
+	SlotPublicAssets Slot = 90
+	// SlotOperational answers the health and readiness probes and the
+	// framework assets, above everything that authenticates. It is a fixed
+	// frame: registering at this exact number is refused, because the frame is
+	// a handler rather than a middleware and nothing can share its position.
+	SlotOperational Slot = 100
 	// SlotStorage installs storage clients that later slots resolve from the
 	// request context. A session backend reads its store here, so this runs
 	// before SlotSession.
-	SlotStorage Slot = 5
+	SlotStorage Slot = 110
 	// SlotSession resolves stored session state.
-	SlotSession Slot = 10
+	SlotSession Slot = 120
 	// SlotAuthentication finalizes the request authentication result and owns
 	// its own login, callback, and logout paths.
-	SlotAuthentication Slot = 20
+	SlotAuthentication Slot = 130
 	// SlotCSRF rejects forged unsafe requests.
 	//
 	// It sits below SlotSession because the token it compares against comes
 	// from the resolved session, and below SlotAuthentication so a plugin's own
 	// endpoints — a login post, an OIDC callback — answer above it rather than
 	// needing a configured exclusion to reach their handlers.
-	SlotCSRF Slot = 25
+	SlotCSRF Slot = 140
 	// SlotGuard rejects unauthenticated requests to protected paths.
-	SlotGuard Slot = 30
+	SlotGuard Slot = 150
+	// SlotAPIDoc answers the OpenAPI document and its UI beneath the guard, so
+	// a map of the API surface costs what the routes it describes cost. It is
+	// a fixed frame exactly as SlotOperational is.
+	SlotAPIDoc Slot = 160
 )
 
 // Extension is one imported framework capability. Setup runs once during
@@ -76,35 +110,73 @@ func RegisterExtension(extension Extension) {
 	extensionState.registered = append(extensionState.registered, extension)
 }
 
-// applyExtensions wraps handler with every registered extension. The chain is
-// built inward-out so that the lowest slot ends up outermost.
-func applyExtensions(ctx context.Context, handler http.Handler) (http.Handler, error) {
+// RegisterMiddleware adds one application middleware to the request chain at
+// slot. A smaller slot runs earlier, so pw.SlotAccessLog - 5 observes the
+// request ID and appears in the access log's timing, and pw.SlotGuard + 1 runs
+// only for requests the guard admitted.
+//
+// Call it from main, before Run or Middlewares builds the chain, exactly as
+// RegisterSessionStore requires: the chain is composed once, and a middleware
+// registered after that joins nothing.
+//
+// The two fixed frames, SlotOperational and SlotAPIDoc, are handlers rather
+// than middleware and refuse registration at their exact number; register one
+// position to either side instead. A duplicate name and a nil middleware are
+// each a panic at registration rather than a silent gap in the chain.
+func RegisterMiddleware(slot Slot, name string, middleware Middleware) {
+	if middleware == nil {
+		panic("popcornwave: middleware " + name + " is nil")
+	}
+	if slot == SlotOperational || slot == SlotAPIDoc {
+		panic(fmt.Sprintf(
+			"popcornwave: middleware %s registered at fixed frame %d; pick a neighboring slot relative to pw.SlotOperational or pw.SlotAPIDoc",
+			name, slot))
+	}
+	captured := middleware
+	RegisterExtension(Extension{
+		Name: name,
+		Slot: slot,
+		Setup: func(context.Context) (Middleware, error) {
+			return captured, nil
+		},
+	})
+}
+
+// chainFrame is one positioned frame of the request chain: a framework
+// middleware, a registered application middleware, or one of the fixed
+// handler frames adapted to the middleware shape.
+type chainFrame struct {
+	slot       Slot
+	name       string
+	middleware Middleware
+}
+
+// extensionFrames runs every registered Setup and returns the resulting
+// frames. Setup runs in ascending slot order so an extension may depend on
+// state prepared by an earlier slot; composing the chain is the caller's job.
+func extensionFrames(ctx context.Context) ([]chainFrame, error) {
 	extensionState.Lock()
 	ordered := append([]Extension(nil), extensionState.registered...)
 	extensionState.Unlock()
 	sort.SliceStable(ordered, func(i, j int) bool { return ordered[i].Slot < ordered[j].Slot })
 
-	// Setup runs in slot order so an extension may depend on state prepared by
-	// an earlier slot. The chain is composed afterwards, in reverse, so the
-	// lowest slot ends up outermost.
-	middlewares := make([]Middleware, len(ordered))
-	for index, extension := range ordered {
+	frames := make([]chainFrame, 0, len(ordered))
+	for _, extension := range ordered {
 		middleware, err := extension.Setup(ctx)
 		if err != nil {
 			return nil, fmt.Errorf("popcornwave: %s: %w", extension.Name, err)
 		}
-		middlewares[index] = middleware
 		if extension.Close != nil {
 			registerCleanup(extension.Name, extension.Close)
 		}
-	}
-	result := handler
-	for index := len(middlewares) - 1; index >= 0; index-- {
-		if middlewares[index] != nil {
-			result = middlewares[index](result)
+		// A nil middleware installs nothing, which is how a disabled
+		// capability opts out.
+		if middleware == nil {
+			continue
 		}
+		frames = append(frames, chainFrame{slot: extension.Slot, name: extension.Name, middleware: middleware})
 	}
-	return result, nil
+	return frames, nil
 }
 
 // registerCleanup adds a shutdown hook that Run executes in reverse order.
