@@ -328,6 +328,7 @@
 {"category": "objective", "id": "requirement:cli-distribution", "path": ".knowledge/requirement/cli-distribution.md", "role": "primary", "title": "pw CLI Distribution", "type": "requirement"}
 {"category": "objective", "id": "requirement:component-asset-extraction", "path": ".knowledge/requirement/component-asset-extraction.md", "role": "primary", "title": "Component Asset Extraction", "type": "requirement"}
 {"category": "objective", "id": "requirement:component-package-distribution", "path": ".knowledge/requirement/component-package-distribution.md", "role": "primary", "title": "Component Package Distribution", "type": "requirement"}
+{"category": "objective", "id": "requirement:context-lookup-performance", "path": ".knowledge/requirement/context-lookup-performance.md", "role": "primary", "title": "Bounded Context Value Lookup", "type": "requirement"}
 {"category": "objective", "id": "requirement:contrib-acceptance", "path": ".knowledge/requirement/contrib-acceptance.md", "role": "primary", "title": "Contrib Acceptance Criteria", "type": "requirement"}
 {"category": "objective", "id": "requirement:contrib-auth-common", "path": ".knowledge/requirement/contrib-auth-common.md", "role": "primary", "title": "Authentication Security Primitives", "type": "requirement"}
 {"category": "objective", "id": "requirement:contrib-auth-state-dynamo", "path": ".knowledge/requirement/contrib-auth-state-dynamo.md", "role": "primary", "title": "DynamoDB Authentication State Store", "type": "requirement"}

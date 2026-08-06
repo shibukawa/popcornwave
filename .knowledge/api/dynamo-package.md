@@ -3,32 +3,33 @@ id: api:dynamo-package
 type: api
 title: database/dynamo Package
 ---
-Importing github.com/shibukawa/popcornwave/database/dynamo registers the DynamoDB configuration binding, opens the client, and installs it into every request context; the operations a handler calls are system:tinybind's, reached without naming the package.
+Importing github.com/shibukawa/popcornwave/database/dynamo registers the DynamoDB configuration binding and opens the client into process state; operations are system:tinybind's "On" entries taking the handle the package exposes, and generated queries resolve the same handle themselves.
 
 ```yaml
 import: github.com/shibukawa/popcornwave/database/dynamo
 import_style:
   form: a normal import, following decision:import-registered-session-plugins for the registration half
-  effect_of_importing: data:dynamodb-runtime-config appears in the configuration schema and the middleware registers itself from init
-  effect_of_not_importing: no configuration key, no middleware, no linked driver
+  effect_of_importing: data:dynamodb-runtime-config appears in the configuration schema and the extension registers itself from init
+  effect_of_not_importing: no configuration key, no linked driver
   boundary: this package registers nothing into the rule:rdb-dsn-resolution engine registry, because a DynamoDB endpoint is not an rdb DSN
-middleware:
-  installed_by: the init registration, as one more entry in the middleware chain
-  per_request: install the client into the request context with the system:tinybind client setter, carrying the rule:dynamodb-table-naming resolver as its option
-  effect: every dynamobind entry and every generated query function reads both from the context, so no handler passes a client or a deployed table name
-  missing_client: system:tinybind returns a named no-client error rather than panicking, so a handler that ran without the middleware fails as an ordinary error
+client_supply:
+  process_handle: setup builds one dynamobind Handle from the client and the rule:dynamodb-table-naming resolver, held as process state; no per-request middleware exists and no context node is installed, per requirement:context-lookup-performance
+  accessor: Handle(ctx) returns it reading no context on the common path; when the process holds no client, a handle installed with dynamobind WithClient or WithHandle is honoured, which is the unit-test seam
+  ensure_client: EnsureClient remains for code handing a context to something still calling context-form dynamobind entries
+  missing_client: system:tinybind returns a named no-client error rather than panicking, so a call that ran without the extension fails as an ordinary error
 surface:
+  - Handle(context.Context) (dynamobind.Handle, error)
+  - Client(context.Context) (*dynamodb.Client, error), for an operation dynamobind does not wrap
   - Migrate(context.Context, ...MigrateOption) (Result, error)
   - Plan(context.Context, ...MigrateOption) ([]TableChange, error)
   - RegisterTable(declared string, def func(name string) dynamodb.TableDefinition)
   - WithTableResolver(fn) as a startup option, for a deployment rule:dynamodb-table-naming configuration cannot express
 deliberately_absent:
-  client_accessor: system:tinybind already exposes a client-from-context escape hatch, so re-exporting it would be one name for one thing twice
-  table_accessor: superseded; the resolver runs inside the runtime entry, so no call site resolves a name
-  operation_wrappers: none, per decision:dynamodb-no-runtime-abstraction; the earlier plan to add them existed only to fill in a client and a table, and neither argument survives
+  table_accessor: the resolver runs inside the runtime entry via the handle, so no call site resolves a name
+  operation_wrappers: none, per decision:dynamodb-no-runtime-abstraction
 usage:
-  item: "dynamobind.Load[Reading](ctx, \"reading\", r.ItemKey())"
-  query: "records.ReadingsSince(ctx, sensor, from)"
+  item: "h, err := dynamo.Handle(ctx); dynamobind.LoadOn[Reading](ctx, h, \"reading\", r.ItemKey())"
+  query: "records.ReadingsSince(ctx, sensor, from), whose generated body resolves Handle through the DynamoHandleResolver generation option"
   parity: a declared query takes context and its parameters, exactly as a flow:sql-generation function does
   remaining_argument: an item operation still names a table, because it has no declaration to read one from; a declared query names neither
 lifecycle:
@@ -37,12 +38,12 @@ lifecycle:
   shutdown: Close the client through api:application-lifecycle, unless decision:dynamodb-observability-seam supplied the HTTP client, which the driver then leaves alone
 migration:
   entry: Migrate and Plan implement requirement:dynamodb-migration in process
-  names: resolved through the same rule:dynamodb-table-naming resolver, built from configuration rather than from a request, so the CLI and a handler address one table
+  names: resolved through the naming the process handle carries, built from configuration rather than from a request, so the CLI and a handler address one table
   parity: the same code path serves api:cli-migrate through decision:dynamodb-table-registry
 constraints:
   - no operation wrapper, error type, or option type of its own
   - no transaction surface; the driver has none
   - the client is fixed at startup and is neither replaced nor reopened per request
-  - a test or a second region installs a second context, not a second signature
+  - a test installs a handle on its own context, not a second signature
   - credentials and endpoint never reach a log, an error, or policy:startup-summary unredacted
 ```

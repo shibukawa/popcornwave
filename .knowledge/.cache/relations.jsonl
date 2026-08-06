@@ -378,6 +378,7 @@
 {"context": "body", "path": ".knowledge/api/dynamo-package.md", "source": "api:dynamo-package", "target": "data:dynamodb-runtime-config", "target_category": "structure", "target_type": "data"}
 {"context": "body", "path": ".knowledge/api/dynamo-package.md", "source": "api:dynamo-package", "target": "rule:rdb-dsn-resolution", "target_category": "constraint", "target_type": "rule"}
 {"context": "body", "path": ".knowledge/api/dynamo-package.md", "source": "api:dynamo-package", "target": "rule:dynamodb-table-naming", "target_category": "constraint", "target_type": "rule"}
+{"context": "body", "path": ".knowledge/api/dynamo-package.md", "source": "api:dynamo-package", "target": "requirement:context-lookup-performance", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/api/dynamo-package.md", "source": "api:dynamo-package", "target": "decision:dynamodb-no-runtime-abstraction", "target_category": "constraint", "target_type": "decision"}
 {"context": "body", "path": ".knowledge/api/dynamo-package.md", "source": "api:dynamo-package", "target": "flow:sql-generation", "target_category": "behavior", "target_type": "flow"}
 {"context": "body", "path": ".knowledge/api/dynamo-package.md", "source": "api:dynamo-package", "target": "api:application-lifecycle", "target_category": "interface", "target_type": "api"}
@@ -394,6 +395,7 @@
 {"context": "body", "path": ".knowledge/api/firestore-package.md", "source": "api:firestore-package", "target": "decision:import-registered-session-plugins", "target_category": "constraint", "target_type": "decision"}
 {"context": "body", "path": ".knowledge/api/firestore-package.md", "source": "api:firestore-package", "target": "data:firestore-runtime-config", "target_category": "structure", "target_type": "data"}
 {"context": "body", "path": ".knowledge/api/firestore-package.md", "source": "api:firestore-package", "target": "rule:rdb-dsn-resolution", "target_category": "constraint", "target_type": "rule"}
+{"context": "body", "path": ".knowledge/api/firestore-package.md", "source": "api:firestore-package", "target": "requirement:context-lookup-performance", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/api/firestore-package.md", "source": "api:firestore-package", "target": "decision:firestore-namespace-isolation", "target_category": "constraint", "target_type": "decision"}
 {"context": "body", "path": ".knowledge/api/firestore-package.md", "source": "api:firestore-package", "target": "decision:firestore-no-schema-application", "target_category": "constraint", "target_type": "decision"}
 {"context": "body", "path": ".knowledge/api/firestore-package.md", "source": "api:firestore-package", "target": "decision:dynamodb-table-registry", "target_category": "constraint", "target_type": "decision"}
@@ -1145,6 +1147,7 @@
 {"context": "body", "path": ".knowledge/data/request-context-capsule.md", "source": "data:request-context-capsule", "target": "api:logger", "target_category": "interface", "target_type": "api"}
 {"context": "body", "path": ".knowledge/data/request-context-capsule.md", "source": "data:request-context-capsule", "target": "data:session-record", "target_category": "structure", "target_type": "data"}
 {"context": "body", "path": ".knowledge/data/request-context-capsule.md", "source": "data:request-context-capsule", "target": "data:request-authentication", "target_category": "structure", "target_type": "data"}
+{"context": "body", "path": ".knowledge/data/request-context-capsule.md", "source": "data:request-context-capsule", "target": "requirement:context-lookup-performance", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/data/request-context-capsule.md", "source": "data:request-context-capsule", "target": "policy:csrf-protection", "target_category": "constraint", "target_type": "policy"}
 {"context": "body", "path": ".knowledge/data/request-context-capsule.md", "source": "data:request-context-capsule", "target": "api:transaction-runner", "target_category": "interface", "target_type": "api"}
 {"context": "body", "path": ".knowledge/data/revoked-token-record.md", "source": "data:revoked-token-record", "target": "policy:token-revocation", "target_category": "constraint", "target_type": "policy"}
@@ -2518,6 +2521,7 @@
 {"context": "body", "path": ".knowledge/policy/context-value-storage.md", "source": "policy:context-value-storage", "target": "api:logger", "target_category": "interface", "target_type": "api"}
 {"context": "body", "path": ".knowledge/policy/context-value-storage.md", "source": "policy:context-value-storage", "target": "data:request-authentication", "target_category": "structure", "target_type": "data"}
 {"context": "body", "path": ".knowledge/policy/context-value-storage.md", "source": "policy:context-value-storage", "target": "api:session-registry", "target_category": "interface", "target_type": "api"}
+{"context": "body", "path": ".knowledge/policy/context-value-storage.md", "source": "policy:context-value-storage", "target": "requirement:context-lookup-performance", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/policy/context-value-storage.md", "source": "policy:context-value-storage", "target": "api:request-context-accessors", "target_category": "interface", "target_type": "api"}
 {"context": "body", "path": ".knowledge/policy/context-value-storage.md", "source": "policy:context-value-storage", "target": "api:transaction-runner", "target_category": "interface", "target_type": "api"}
 {"context": "body", "path": ".knowledge/policy/cookie-value-protection.md", "source": "policy:cookie-value-protection", "target": "data:session-record", "target_category": "structure", "target_type": "data"}
@@ -2946,6 +2950,13 @@
 {"context": "body", "path": ".knowledge/requirement/component-package-distribution.md", "source": "requirement:component-package-distribution", "target": "rule:tinygo-runtime-compatibility", "target_category": "constraint", "target_type": "rule"}
 {"context": "body", "path": ".knowledge/requirement/component-package-distribution.md", "source": "requirement:component-package-distribution", "target": "requirement:incremental-project-capabilities", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/requirement/component-package-distribution.md", "source": "requirement:component-package-distribution", "target": "data:component-package-manifest", "target_category": "structure", "target_type": "data"}
+{"context": "body", "path": ".knowledge/requirement/context-lookup-performance.md", "source": "requirement:context-lookup-performance", "target": "policy:context-value-storage", "target_category": "constraint", "target_type": "policy"}
+{"context": "body", "path": ".knowledge/requirement/context-lookup-performance.md", "source": "requirement:context-lookup-performance", "target": "data:request-context-capsule", "target_category": "structure", "target_type": "data"}
+{"context": "body", "path": ".knowledge/requirement/context-lookup-performance.md", "source": "requirement:context-lookup-performance", "target": "decision:tinybind-sql-runtime", "target_category": "constraint", "target_type": "decision"}
+{"context": "body", "path": ".knowledge/requirement/context-lookup-performance.md", "source": "requirement:context-lookup-performance", "target": "api:dynamo-package", "target_category": "interface", "target_type": "api"}
+{"context": "body", "path": ".knowledge/requirement/context-lookup-performance.md", "source": "requirement:context-lookup-performance", "target": "api:firestore-package", "target_category": "interface", "target_type": "api"}
+{"context": "body", "path": ".knowledge/requirement/context-lookup-performance.md", "source": "requirement:context-lookup-performance", "target": "system:tinybind", "target_category": "external", "target_type": "system"}
+{"context": "body", "path": ".knowledge/requirement/context-lookup-performance.md", "source": "requirement:context-lookup-performance", "target": "api:request-context-accessors", "target_category": "interface", "target_type": "api"}
 {"context": "body", "path": ".knowledge/requirement/contrib-acceptance.md", "source": "requirement:contrib-acceptance", "target": "policy:contrib-compatibility", "target_category": "constraint", "target_type": "policy"}
 {"context": "body", "path": ".knowledge/requirement/contrib-acceptance.md", "source": "requirement:contrib-acceptance", "target": "requirement:contrib-sqlite", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/requirement/contrib-acceptance.md", "source": "requirement:contrib-acceptance", "target": "requirement:contrib-postgresql", "target_category": "objective", "target_type": "requirement"}
@@ -3099,6 +3110,7 @@
 {"context": "body", "path": ".knowledge/requirement/contrib-oidc.md", "source": "requirement:contrib-oidc", "target": "api:assurance-guard", "target_category": "interface", "target_type": "api"}
 {"context": "body", "path": ".knowledge/requirement/contrib-oidc.md", "source": "requirement:contrib-oidc", "target": "requirement:contrib-devidp", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/requirement/contrib-oidc.md", "source": "requirement:contrib-oidc", "target": "policy:oidc-security", "target_category": "constraint", "target_type": "policy"}
+{"context": "body", "path": ".knowledge/requirement/contrib-otel.md", "source": "requirement:contrib-otel", "target": "requirement:context-lookup-performance", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/requirement/contrib-otel.md", "source": "requirement:contrib-otel", "target": "flow:telemetry-export", "target_category": "behavior", "target_type": "flow"}
 {"context": "body", "path": ".knowledge/requirement/contrib-passkey-test.md", "source": "requirement:contrib-passkey-test", "target": "requirement:contrib-passkey", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/requirement/contrib-passkey-test.md", "source": "requirement:contrib-passkey-test", "target": "policy:contrib-compatibility", "target_category": "constraint", "target_type": "policy"}
@@ -4293,6 +4305,7 @@
 {"context": "body", "path": ".knowledge/rule/dynamodb-reproduction-format.md", "source": "rule:dynamodb-reproduction-format", "target": "requirement:query-diagnostics", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/rule/dynamodb-table-naming.md", "source": "rule:dynamodb-table-naming", "target": "system:tinybind", "target_category": "external", "target_type": "system"}
 {"context": "body", "path": ".knowledge/rule/dynamodb-table-naming.md", "source": "rule:dynamodb-table-naming", "target": "api:dynamo-package", "target_category": "interface", "target_type": "api"}
+{"context": "body", "path": ".knowledge/rule/dynamodb-table-naming.md", "source": "rule:dynamodb-table-naming", "target": "requirement:context-lookup-performance", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/rule/dynamodb-table-naming.md", "source": "rule:dynamodb-table-naming", "target": "requirement:dynamodb-typed-queries", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/rule/dynamodb-table-naming.md", "source": "rule:dynamodb-table-naming", "target": "decision:dynamodb-table-registry", "target_category": "constraint", "target_type": "decision"}
 {"context": "body", "path": ".knowledge/rule/dynamodb-table-naming.md", "source": "rule:dynamodb-table-naming", "target": "requirement:dynamodb-migration", "target_category": "objective", "target_type": "requirement"}
@@ -4490,14 +4503,13 @@
 {"context": "body", "path": ".knowledge/system/pw-cli.md", "source": "system:pw-cli", "target": "decision:host-tools-target-runtime", "target_category": "constraint", "target_type": "decision"}
 {"context": "body", "path": ".knowledge/system/pw-cli.md", "source": "system:pw-cli", "target": "requirement:cli-distribution", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/system/pw-cli.md", "source": "system:pw-cli", "target": "requirement:database-migration", "target_category": "objective", "target_type": "requirement"}
+{"context": "body", "path": ".knowledge/system/tinybind.md", "source": "system:tinybind", "target": "requirement:context-lookup-performance", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/system/tinybind.md", "source": "system:tinybind", "target": "decision:tinybind-v03-adoption", "target_category": "constraint", "target_type": "decision"}
 {"context": "body", "path": ".knowledge/system/tinybind.md", "source": "system:tinybind", "target": "requirement:live-html-rendering", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/system/tinybind.md", "source": "system:tinybind", "target": "requirement:tinybind-runtime-ownership", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/system/tinybind.md", "source": "system:tinybind", "target": "requirement:tinybind-update-composition-seams", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/system/tinybind.md", "source": "system:tinybind", "target": "decision:update-runtime-convergence", "target_category": "constraint", "target_type": "decision"}
 {"context": "body", "path": ".knowledge/system/tinybind.md", "source": "system:tinybind", "target": "policy:template-escaping", "target_category": "constraint", "target_type": "policy"}
-{"context": "body", "path": ".knowledge/system/tinybind.md", "source": "system:tinybind", "target": "data:text", "target_category": "structure", "target_type": "data"}
-{"context": "body", "path": ".knowledge/system/tinybind.md", "source": "system:tinybind", "target": "data:image", "target_category": "structure", "target_type": "data"}
 {"context": "body", "path": ".knowledge/system/tinybind.md", "source": "system:tinybind", "target": "api:request-binding", "target_category": "interface", "target_type": "api"}
 {"context": "body", "path": ".knowledge/system/tinybind.md", "source": "system:tinybind", "target": "api:html-response", "target_category": "interface", "target_type": "api"}
 {"context": "body", "path": ".knowledge/system/tinybind.md", "source": "system:tinybind", "target": "api:api-response", "target_category": "interface", "target_type": "api"}

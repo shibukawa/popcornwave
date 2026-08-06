@@ -206,27 +206,30 @@ carried or kept current.
 ## Item operations
 
 ```go
-Load[T](ctx, table, key, opts...) (T, error)
-Store(ctx, table, v, opts...) error
-Remove(ctx, table, v, opts...) error
-Update(ctx, table, v, expression, opts...) error
+h, err := dynamo.Handle(ctx)
 
-StoreReturning(ctx, table, v, opts...) (T, bool, error)
-RemoveReturning(ctx, table, v, opts...) (T, bool, error)
+LoadOn[T](ctx, h, table, key, opts...) (T, error)
+StoreOn(ctx, h, table, v, opts...) error
+RemoveOn(ctx, h, table, v, opts...) error
+UpdateOn(ctx, h, table, v, expression, opts...) error
 
-QueryPage[T](ctx, table, keyCond, opts...) (Page[T], error)
-ScanPage[T](ctx, table, opts...) (Page[T], error)
-Query[T](ctx, table, keyCond, opts...) iter.Seq2[T, error]
-Scan[T](ctx, table, opts...) iter.Seq2[T, error]
+StoreReturningOn(ctx, h, table, v, opts...) (T, bool, error)
+RemoveReturningOn(ctx, h, table, v, opts...) (T, bool, error)
 
-StoreAll(ctx, table, vs) (unprocessed []T, err error)
-LoadAll[T](ctx, table, keys, opts...) (items []T, unprocessed []dynamodb.Key, err error)
+QueryPageOn[T](ctx, h, table, keyCond, opts...) (Page[T], error)
+ScanPageOn[T](ctx, h, table, opts...) (Page[T], error)
+QueryOn[T](ctx, h, table, keyCond, opts...) iter.Seq2[T, error]
+ScanOn[T](ctx, h, table, opts...) iter.Seq2[T, error]
+
+StoreAllOn(ctx, h, table, vs) (unprocessed []T, err error)
+LoadAllOn[T](ctx, h, table, keys, opts...) (items []T, unprocessed []dynamodb.Key, err error)
 ```
 
 These take a table name because they have no declaration to read one from. The
-client comes from the request context, installed by the middleware, so a handler
-that reached one of these without it gets a named no-client error rather than a
-panic.
+handle is `database/dynamo`'s process client bound to the configured table
+naming; a call that runs with the section disabled gets a named no-client error
+rather than a panic. A declared query resolves the same handle itself, which is
+why only these direct entries take it.
 
 `Store` is `PutItem` and replaces the whole item. `Update` takes a DynamoDB
 update expression verbatim and supplies only the key, which is the part a struct

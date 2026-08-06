@@ -7,9 +7,9 @@ Source declares a table name; a resolver installed once maps it onto the deploye
 
 ```yaml
 mechanism:
-  owner: system:tinybind, which takes a resolver function as a client option and runs it inside every runtime entry
+  owner: system:tinybind, which takes a resolver function as a handle option and runs it inside every runtime entry
   signature: "func(ctx context.Context, declared string) string"
-  installed_by: the api:dynamo-package middleware, once per request context
+  installed_by: api:dynamo-package setup, once per process, as an option of the dynamobind Handle it builds; no per-request installation exists, per requirement:context-lookup-performance
   absent: the declared name is sent unchanged, so a deployment named as declared configures nothing
 declared_name:
   query: the table clause of a .pw.dynamo statement, required in every declaration, per requirement:dynamodb-typed-queries

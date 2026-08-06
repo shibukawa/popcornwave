@@ -25,6 +25,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/shibukawa/popcornwave/database/firestore"
 	"github.com/shibukawa/popcornwave/session"
 	"github.com/shibukawa/tinybind-go/firestorebind"
 	"github.com/shibukawa/tinygodriver/nosql/datastore"
@@ -230,7 +231,11 @@ func (store *Store) Put(ctx context.Context, keyHash string, record session.RawR
 		return fmt.Errorf("%w: session payload is %d bytes, over the Datastore entity limit of %d",
 			session.ErrCodec, size, datastore.MaxEntityBytes)
 	}
-	if _, err := firestorebind.Store(ctx, entity{
+	handle, err := firestore.Handle(ctx)
+	if err != nil {
+		return storeError(err)
+	}
+	if _, err := firestorebind.StoreOn(ctx, handle, entity{
 		kind:    store.kind,
 		keyHash: keyHash,
 		record:  record,
@@ -291,7 +296,11 @@ func (store *Store) Touch(ctx context.Context, keyHash string, lastSeenAt, idleE
 		loaded.record.IdleExpiresAt = idleExpiresAt.UTC()
 	}
 
-	if _, err := firestorebind.Store(ctx, *loaded); err != nil {
+	handle, err := firestore.Handle(ctx)
+	if err != nil {
+		return storeError(err)
+	}
+	if _, err := firestorebind.StoreOn(ctx, handle, *loaded); err != nil {
 		if errors.Is(err, datastore.ErrFailedPrecondition) {
 			// The entity moved under the read: rotated, deleted, or renewed by
 			// another request. Either way the contract says this renewal must
@@ -309,7 +318,11 @@ func (store *Store) Delete(ctx context.Context, keyHash string) error {
 	if keyHash == "" {
 		return fmt.Errorf("%w: empty key", session.ErrInvalidKey)
 	}
-	if err := firestorebind.Remove(ctx, entity{kind: store.kind, keyHash: keyHash}); err != nil {
+	handle, err := firestore.Handle(ctx)
+	if err != nil {
+		return storeError(err)
+	}
+	if err := firestorebind.RemoveOn(ctx, handle, entity{kind: store.kind, keyHash: keyHash}); err != nil {
 		return storeError(err)
 	}
 	return nil
@@ -318,7 +331,11 @@ func (store *Store) Delete(ctx context.Context, keyHash string) error {
 // load reads one entity and reports a miss as the contract's not-found.
 func (store *Store) load(ctx context.Context, keyHash string) (*entity, error) {
 	key := datastore.NameKey(store.kind, keyHash)
-	loaded, err := firestorebind.Load[entity](ctx, key)
+	handle, err := firestore.Handle(ctx)
+	if err != nil {
+		return nil, storeError(err)
+	}
+	loaded, err := firestorebind.LoadOn[entity](ctx, handle, key)
 	switch {
 	case errors.Is(err, datastore.ErrNoSuchEntity):
 		return nil, session.ErrNotFound

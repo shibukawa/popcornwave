@@ -83,6 +83,7 @@ type contextKey struct{}
 type contextValue struct {
 	spanContext SpanContext
 	tracer      *Tracer
+	span        *Span
 }
 
 // ContextWithSpanContext installs a propagation-only span context.
@@ -100,6 +101,18 @@ func SpanContextFromContext(ctx context.Context) SpanContext {
 	}
 	v, _ := ctx.Value(contextKey{}).(contextValue)
 	return v.spanContext
+}
+
+// SpanFromContext returns the span Start installed on ctx, or nil for a
+// context carrying no span or only an extracted remote span context. One
+// lookup reaches the innermost span; its ancestors are reached through
+// Parent without touching the context again.
+func SpanFromContext(ctx context.Context) *Span {
+	if ctx == nil {
+		return nil
+	}
+	v, _ := ctx.Value(contextKey{}).(contextValue)
+	return v.span
 }
 
 // Event is a timestamped span event.
@@ -215,7 +228,8 @@ func (t *Tracer) Start(ctx context.Context, name string, options ...StartOption)
 	for _, option := range options {
 		option(&cfg)
 	}
-	parent := SpanContextFromContext(ctx)
+	parentValue, _ := ctx.Value(contextKey{}).(contextValue)
+	parent := parentValue.spanContext
 	sc := SpanContext{traceFlags: 1}
 	if parent.IsValid() {
 		sc.traceID = parent.traceID
@@ -231,7 +245,7 @@ func (t *Tracer) Start(ctx context.Context, name string, options ...StartOption)
 	if allZero(sc.spanID[:]) {
 		sc.spanID[7] = 1
 	}
-	span := &Span{tracer: t, data: SpanData{
+	span := &Span{tracer: t, parent: parentValue.span, data: SpanData{
 		Name: name, SpanContext: sc, Kind: cfg.kind, StartTime: cfg.start,
 		Attributes: append([]otel.Attribute(nil), cfg.attributes...), ScopeName: t.name,
 		ResourceAttributes: append([]otel.Attribute(nil), t.provider.resource...),
@@ -239,7 +253,7 @@ func (t *Tracer) Start(ctx context.Context, name string, options ...StartOption)
 	if parent.IsValid() {
 		span.data.ParentSpanID = parent.SpanID()
 	}
-	ctx = context.WithValue(ctx, contextKey{}, contextValue{spanContext: sc, tracer: t})
+	ctx = context.WithValue(ctx, contextKey{}, contextValue{spanContext: sc, tracer: t, span: span})
 	return ctx, span
 }
 
@@ -257,8 +271,34 @@ func Start(ctx context.Context, name string, options ...StartOption) (context.Co
 type Span struct {
 	mu     sync.Mutex
 	tracer *Tracer
+	// parent is the local parent span, fixed at Start. It is nil for a root
+	// span and for a child of an extracted remote span context, which has no
+	// local Span value to point at.
+	parent *Span
 	data   SpanData
 	ended  bool
+}
+
+// Parent returns the local parent span, or nil for a root or a span whose
+// parent is remote. The chain is fixed at Start, so walking ancestors is a
+// pointer chase with no context traversal.
+func (s *Span) Parent() *Span {
+	if s == nil {
+		return nil
+	}
+	return s.parent
+}
+
+// Root follows Parent to the outermost local span, which for a request served
+// by pw is the request root span.
+func (s *Span) Root() *Span {
+	if s == nil {
+		return nil
+	}
+	for s.parent != nil {
+		s = s.parent
+	}
+	return s
 }
 
 func (s *Span) SpanContext() SpanContext { s.mu.Lock(); defer s.mu.Unlock(); return s.data.SpanContext }

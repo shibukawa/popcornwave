@@ -17,7 +17,9 @@ That it exists at all is the same story as
 build under TinyGo. So the client here is
 [`tinygodriver`](https://github.com/shibukawa/tinygodriver)'s, the typed layer
 over it is `tinybind`'s `dynamobind`, and both compile on both targets. The
-context client path costs about 37 KB on a `wasip1` build.
+client travels as a process handle rather than a context value — the context
+path costs about 37 KB on a `wasip1` build, and that is the cost the handle
+avoids.
 
 ## Turning it on
 
@@ -47,7 +49,7 @@ Keep them in `config.dev.toml`, never as a deployment default.
 
 | Key | Default | Meaning |
 | --- | --- | --- |
-| `enabled` | `false` | open the client and install the middleware |
+| `enabled` | `false` | open the client at startup and hold it as the process handle |
 | `region` | *(empty)* | falls back to the environment; resolvable from neither is a startup error |
 | `endpoint` | *(empty)* | empty selects the regional host; a value selects a local or compatible server |
 | `access_key_id` | *(empty)* | empty selects the driver's environment credentials |
@@ -97,22 +99,33 @@ reported once, by path, rather than silently skipped.
 
 ## Reading and writing one item
 
-The client comes from the request context, installed by the middleware, so
-nothing here takes a handle:
+The client and the configured table naming travel together as one handle,
+held by this package as process state. Nothing is stored in the request
+context, so a call site pays no context lookup:
 
 ```go
 func store(ctx context.Context, note Note) error {
-	return dynamobind.Store(ctx, "note", note)
+	h, err := dynamo.Handle(ctx)
+	if err != nil {
+		return err
+	}
+	return dynamobind.StoreOn(ctx, h, "note", note)
 }
 
 func load(ctx context.Context, id string, createdAt time.Time) (Note, error) {
-	return dynamobind.Load[Note](ctx, "note", Note{ID: id, CreatedAt: createdAt}.ItemKey())
+	h, err := dynamo.Handle(ctx)
+	if err != nil {
+		return Note{}, err
+	}
+	return dynamobind.LoadOn[Note](ctx, h, "note", Note{ID: id, CreatedAt: createdAt}.ItemKey())
 }
 ```
 
 An item operation names its table because it has no declaration to read one
-from. A handler that reached this without the middleware gets a named
-no-client error rather than a panic.
+from. A call that runs with the section disabled gets a named no-client error
+rather than a panic. A declared query never takes the handle — its generated
+body resolves the same one itself, which is why its call sites stay
+context-only.
 
 There are no wrappers around these calls. `database/dynamo` exports the
 configuration, the table registry, and the migrator, and nothing else. The

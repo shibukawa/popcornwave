@@ -20,6 +20,9 @@ fields:
   csrf_token: optional masked request token
 derived:
   sql_executor: transaction scope tx when present, otherwise database
+parent:
+  what: every derived capsule copy records the capsule it came from, nil at request start, exposed framework-side as Parent
+  why: one lookup reaches the innermost capsule and ancestry is a pointer chase, per requirement:context-lookup-performance
 lifecycle:
   - create once per request
   - framework middleware assembles fields before application handler dispatch

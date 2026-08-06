@@ -7,19 +7,19 @@ TinyBind is the generated binding, configuration, response, validation, streamin
 
 ```yaml
 module: github.com/shibukawa/tinybind-go
-pin: v0.4.0, moved from v0.2.10 by decision:tinybind-v03-adoption
+pin: v0.4.1, moved from v0.4.0 by requirement:context-lookup-performance for the handle resolvers and On entries; earlier moved from v0.2.10 by decision:tinybind-v03-adoption
 html_template_baseline: v0.1.15
 html_async_baseline: v0.1.20
 html_live_baseline: v0.2.8, required by requirement:live-html-rendering; v0.2.7 introduced live boundaries and v0.2.8 answered the first of the integration requests raised against them
 html_update_baseline: v0.3.3; v0.3.0 added the htmlupdate package, v0.3.1 handed the asset and every name to the caller per requirement:tinybind-runtime-ownership, v0.3.2 carried head on the action response, and v0.3.3 closed every remaining seam of requirement:tinybind-update-composition-seams and made CSRF module native; adopted by decision:update-runtime-convergence
 route_tree_baseline: v0.2.6
-current: v0.4.0, which implements the URL half of policy:template-escaping and rewrites the JSON decoder the generator emits
+current: v0.4.1, which adds the NoSQL handle supply modes; v0.4.0 implements the URL half of policy:template-escaping and rewrites the JSON decoder the generator emits
 url_scheme_baseline: v0.4.0, which is where policy:template-escaping's "validate scheme" rule stopped being a statement and started being code
   was: Escape handled &<>"' and nothing else, so javascript: — which contains none of them — reached the attribute unchanged and ran; isURLAttribute named five attributes, so xlink:href, data, srcset, ping, and cite took plain strings and were never scheme-checked at all
   now: URLAttr and URLListAttr apply a scheme allowlist before escaping, over every attribute a browser resolves; DefaultURLSchemes is http, https, mailto, and tel, relative forms always pass, and a refusal renders BlockedURL rather than dropping the attribute so a URL rejected in error leaves a trace
   data_urls: DefaultDataURLMediaTypes admits inline raster images by exact media type and excludes image/svg+xml, which is a script sink wearing an image's media type
   configurable: htmlbind.WithURLSchemes and htmlbind.WithDataURLMediaTypes, reachable through pw.HTMLOption; each replaces its list rather than extending it
-  verified: rendered through the real compiler and runtime on 2026-08-06 — javascript:, JaVaScRiPt:, vbscript:, data:text/html, and data:image/svg+xml all render BlockedURL, while http, https, mailto, relative, and data:image/png render unchanged
+  verified: rendered through the real compiler and runtime on 2026-08-06 — javascript:, JaVaScRiPt:, vbscript:, and data URLs of text/html and image/svg+xml all render BlockedURL, while http, https, mailto, relative, and a data URL of image/png render unchanged
 json_decoder_break: v0.4.0 replaced jsonbind.RawJSONMap and httpbind.ReadJSONMap with a streaming jsonbind.Parser, so every committed *_pw_gen.go action decoder had to be regenerated
 public_wrappers:
   - api:request-binding
@@ -131,7 +131,7 @@ generator:
     - dispatch is static, so no registry or init entry is emitted and an unused type links nothing
     - the operation helpers take a driver client argument and pass driver errors, retries, and page boundaries through untouched, which is why decision:dynamodb-no-runtime-abstraction wraps none of it
     - from v0.2.9 a query declaration file generates one named function per access pattern, consumed by requirement:dynamodb-typed-queries
-    - from v0.2.10 the client is carried in the context and set with a client setter, so no entry of the package takes one
+    - from v0.2.10 the client is carried in the context and set with a client setter; from v0.4.1 a parameter form ("On"-suffixed entries taking a Handle) and a DynamoHandleResolver generation option exist beside it, and Popcorn Wave uses those two per requirement:context-lookup-performance
     - the same setter takes an optional table resolver function, run inside every runtime entry, which is the seam rule:dynamodb-table-naming installs
     - a declaration carries a required table clause, so a generated query names neither a client nor a table
     - a missing client is a named error rather than a panic, so an entry reached without the middleware fails as an ordinary error
@@ -142,7 +142,7 @@ generator:
     - single-table design is a stated non-goal, so one struct owns one table
     - a version tag for optimistic locking and a ttl tag are proposed, the latter blocked on the driver
     - no update or condition expression is generated, and secondary index tags are deferred
-    - no generation option selects a framework resolver, unlike the SQL executor resolver, because resolution moved into the runtime and left no generated call site to redirect
+    - from v0.4.1 DynamoHandleResolver and FirestoreHandleResolver select a framework function answering the Handle, reopening the earlier no-resolver reading; parameter mode covers the library entries a generation option cannot touch
   formatter:
     - the templates/templatefmt package canonicalizes a template source, from v0.3.1, consumed by requirement:template-formatting
     - "Source and SourceAs are pure functions over a byte slice, so an embedder needs no filesystem, no process, and no project"

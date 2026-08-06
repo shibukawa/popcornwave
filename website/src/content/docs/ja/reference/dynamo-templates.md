@@ -194,26 +194,30 @@ var readingsSinceAttributeNames = map[string]string{"#k0": "sensor", "#k1": "at"
 ## アイテム操作
 
 ```go
-Load[T](ctx, table, key, opts...) (T, error)
-Store(ctx, table, v, opts...) error
-Remove(ctx, table, v, opts...) error
-Update(ctx, table, v, expression, opts...) error
+h, err := dynamo.Handle(ctx)
 
-StoreReturning(ctx, table, v, opts...) (T, bool, error)
-RemoveReturning(ctx, table, v, opts...) (T, bool, error)
+LoadOn[T](ctx, h, table, key, opts...) (T, error)
+StoreOn(ctx, h, table, v, opts...) error
+RemoveOn(ctx, h, table, v, opts...) error
+UpdateOn(ctx, h, table, v, expression, opts...) error
 
-QueryPage[T](ctx, table, keyCond, opts...) (Page[T], error)
-ScanPage[T](ctx, table, opts...) (Page[T], error)
-Query[T](ctx, table, keyCond, opts...) iter.Seq2[T, error]
-Scan[T](ctx, table, opts...) iter.Seq2[T, error]
+StoreReturningOn(ctx, h, table, v, opts...) (T, bool, error)
+RemoveReturningOn(ctx, h, table, v, opts...) (T, bool, error)
 
-StoreAll(ctx, table, vs) (unprocessed []T, err error)
-LoadAll[T](ctx, table, keys, opts...) (items []T, unprocessed []dynamodb.Key, err error)
+QueryPageOn[T](ctx, h, table, keyCond, opts...) (Page[T], error)
+ScanPageOn[T](ctx, h, table, opts...) (Page[T], error)
+QueryOn[T](ctx, h, table, keyCond, opts...) iter.Seq2[T, error]
+ScanOn[T](ctx, h, table, opts...) iter.Seq2[T, error]
+
+StoreAllOn(ctx, h, table, vs) (unprocessed []T, err error)
+LoadAllOn[T](ctx, h, table, keys, opts...) (items []T, unprocessed []dynamodb.Key, err error)
 ```
 
-これらがテーブル名を取るのは、読み取る宣言を持たないからです。クライアントはミドルウェアが
-入れたリクエストコンテキストから来るので、それを経ずにここへ到達したハンドラは panic では
-なく、クライアントが無いことを名指したエラーを受け取ります。
+これらがテーブル名を取るのは、読み取る宣言を持たないからです。ハンドルは
+`database/dynamo` のプロセスクライアントに設定済みのテーブル名解決を束ねたもので、
+セクションを有効にしないまま呼び出すと、panic ではなくクライアントが無いことを名指した
+エラーを受け取ります。宣言済みクエリは同じハンドルを自分で解決するので、ハンドルを
+受け取るのはこの直接操作だけです。
 
 `Store` は `PutItem` で、アイテム全体を置き換えます。`Update` は DynamoDB の更新式をそのまま
 受け取り、構造体タグが実際に与えられる部分であるキーだけを補います。`StoreReturning` と

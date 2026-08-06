@@ -1,9 +1,9 @@
 // Package firestore opens the application's Firestore client from
-// configuration and installs it into every request context.
+// configuration and keeps it as process state every operation reaches through
+// [Handle].
 //
-// Importing it registers the [middleware.firestore] binding and the middleware,
-// so a project that does not use Firestore gains no configuration key and links
-// no driver:
+// Importing it registers the [middleware.firestore] binding, so a project that
+// does not use Firestore gains no configuration key and links no driver:
 //
 //	import _ "github.com/shibukawa/popcornwave/database/firestore"
 //
@@ -12,10 +12,16 @@
 // database answers this API with the same status a missing composite index
 // produces and the two would otherwise be indistinguishable.
 //
-// It wraps no operation. A handler calls tinybind's firestorebind directly, and
-// everything it needs is already in the context:
+// It wraps no operation. A handler calls tinybind's firestorebind directly,
+// handing it the process handle. A generated .pw.firestore query resolves the
+// same handle itself, so its call sites stay context-only:
 //
-//	reading, err := firestorebind.Load[Reading](ctx, datastore.NameKey("Reading", id))
+//	h, err := firestore.Handle(ctx)
+//	reading, err := firestorebind.LoadOn[Reading](ctx, h, datastore.NameKey("Reading", id))
+//
+// The client is a deployment fact fixed for a process, so nothing is installed
+// into request contexts: no context.Value stands between a call site and the
+// client.
 //
 // A kind belongs to the type rather than to the deployment, so nothing here
 // maps a name. The namespace is the one isolation dimension, and it is a client
@@ -26,7 +32,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net/http"
 	"strings"
 	"sync"
 
@@ -63,6 +68,26 @@ var state struct {
 	sync.RWMutex
 	client *datastore.Client
 	source *google.CachedSource
+	handle firestorebind.Handle
+}
+
+// Handle returns the Datastore client bound to the tenancy of this deployment,
+// which is what the "On"-suffixed firestorebind entries take and what every
+// generated .pw.firestore query resolves through.
+//
+// The client is a deployment fact fixed for a process, so the common path
+// reads process state and walks no context chain. When the process holds no
+// client — a unit test building its own context, or a tool running without
+// this extension — a handle installed with firestorebind.WithClient or
+// WithHandle is honoured instead.
+func Handle(ctx context.Context) (firestorebind.Handle, error) {
+	state.RLock()
+	handle := state.handle
+	state.RUnlock()
+	if handle.Client() != nil {
+		return handle, nil
+	}
+	return firestorebind.HandleFromContext(ctx)
 }
 
 // tokenSource is a token supplied by the process, for credentials = "static".
@@ -83,42 +108,44 @@ func SetTokenSource(source google.TokenSource) {
 	tokenSource.Unlock()
 }
 
-// EnsureClient returns a context carrying the Datastore client, reporting false
-// when none can be reached.
+// EnsureClient returns a context on which firestorebind's context-form entries
+// resolve the process client, reporting false when none can be reached.
 //
-// It exists for a framework extension that runs after SlotStorage during
-// startup and wants to reach the store before serving. A setup context is not a
-// request context, so the client the middleware installs per request is not in
-// it yet; this finds the one the middleware opened instead. A context that
-// already carries a client is returned unchanged.
-//
-// A handler never needs it. A request context already carries the client.
+// A pw call site does not need it: Handle reads the process state directly, so
+// neither a request context nor a setup context carries a client node. It
+// remains for code handing a context to something that still calls the
+// context-form firestorebind entries. A context that already carries a client
+// is returned unchanged.
 func EnsureClient(ctx context.Context) (context.Context, bool) {
 	if _, err := firestorebind.ClientFromContext(ctx); err == nil {
 		return ctx, true
 	}
 	state.RLock()
-	client := state.client
+	handle := state.handle
 	state.RUnlock()
-	if client == nil {
+	if handle.Client() == nil {
 		return ctx, false
 	}
-	return firestorebind.WithClient(ctx, client), true
+	return firestorebind.WithHandle(ctx, handle), true
 }
 
 // Client returns the process client, for an operation firestorebind does not
 // wrap.
 //
-// A handler does not need it: every firestorebind entry reads the client from
-// the context itself. Reach for this only when calling the driver directly, and
-// pass keys through firestorebind.KeyFor when you do — the client applies no
-// namespace of its own.
+// Reach for this only when calling the driver directly, and pass keys through
+// firestorebind.KeyForOn when you do — the client applies no namespace of its
+// own. Everything firestorebind wraps takes the whole Handle instead.
 func Client(ctx context.Context) (*datastore.Client, error) {
-	return firestorebind.ClientFromContext(ctx)
+	handle, err := Handle(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return handle.Client(), nil
 }
 
-// setup opens the client, proves the database is reachable and in Datastore
-// mode, and returns the middleware that installs the client into each request.
+// setup opens the client and proves the database is reachable and in Datastore
+// mode. It returns no middleware: the request path reads the process handle
+// through Handle, so no context node is installed per request.
 func setup(ctx context.Context) (pw.Middleware, error) {
 	config := pw.Config[Config](ctx)
 	if err := config.validate(); err != nil {
@@ -144,14 +171,10 @@ func setup(ctx context.Context) (pw.Middleware, error) {
 	state.Lock()
 	state.client = client
 	state.source = source
+	state.handle = firestorebind.NewHandle(client)
 	state.Unlock()
 
-	return func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
-			ctx := firestorebind.WithClient(request.Context(), client)
-			next.ServeHTTP(writer, request.WithContext(ctx))
-		})
-	}, nil
+	return nil, nil
 }
 
 // open builds the client from configuration.
@@ -360,6 +383,7 @@ func closeRuntime(context.Context) error {
 	client, source := state.client, state.source
 	state.client = nil
 	state.source = nil
+	state.handle = firestorebind.Handle{}
 	state.Unlock()
 	if source != nil {
 		source.Invalidate()

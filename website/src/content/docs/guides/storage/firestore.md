@@ -92,7 +92,8 @@ and writes the codec, key builder, and `NotesByAuthor` function beside the
 sources. Renaming `author` in only one file is therefore a generation error,
 not a query that quietly returns no rows.
 
-The generated query reads the client from `context.Context`:
+The generated query resolves the process client itself, so its call sites
+stay context-only:
 
 ```go
 for note, err := range entities.NotesByAuthor(r.Context(), accountID) {
@@ -103,9 +104,12 @@ for note, err := range entities.NotesByAuthor(r.Context(), accountID) {
 }
 ```
 
-Use `firestorebind.Store`, `Insert`, `Load`, `Update`, and `Remove` for direct
-entity operations. The [Firestore declarations reference](/reference/firestore-templates/)
-lists the tags, query shapes, and generated signatures.
+For direct entity operations, take the process handle once with
+`firestore.Handle(ctx)` and use `firestorebind.StoreOn`, `InsertOn`, `LoadOn`,
+`UpdateOn`, and `RemoveOn`. The client is held as process state rather than a
+request context value, so nothing pays a context lookup per call. The
+[Firestore declarations reference](/reference/firestore-templates/) lists the
+tags, query shapes, and generated signatures.
 
 ## Deploy the policies the service owns
 
