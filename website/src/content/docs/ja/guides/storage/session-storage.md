@@ -9,9 +9,10 @@ sidebar:
 ストレージ設定で決めるのは、データの保存先、期限切れレコードの削除方法、各バックエンドの
 運用コストです。
 
-判断が残るのは 4 つの配置のうち 2 つだけです。`session.Shared` と `session.ReadOnly` は
-定義上クッキーで、クライアントが読む値はクライアントまで運ばれるしかありません。ストアに
-届くのは `session.Private` と `session.ServerOnly` です。
+判断が残るのは 5 つの配置のうち 2 つだけです。`session.Shared` と `session.ReadOnly` は
+定義上クッキーで、クライアントが読む値はクライアントまで運ばれるしかありません。
+`session.RequestScope` は 1 リクエストのメモリの中で生まれて消え、ストレージには一切
+届きません。ストアに届くのは `session.Private` と `session.ServerOnly` です。
 
 ブラウザが持つものは、その答えによって変わりません。トークンクッキーが運ぶのは 256 ビットの
 乱数だけで、ストアの鍵はその SHA-256 ハッシュです。バックエンドのダンプが漏れても、そのまま
@@ -85,7 +86,7 @@ session.ttl = "12h"     # 身元の証明がどれだけ有効か
 どちらも `keyring.secret` から用途分離した副鍵を導くので、デプロイが設定する鍵は仕組みごと
 ではなく1つです。
 
-全スロットが `session.Shared` でない限り必須です。`rdb`、`redis`、`dynamo`、`firestore` の
+全スロットが `session.Shared` か `session.RequestScope` でない限り必須です。`rdb`、`redis`、`dynamo`、`firestore` の
 どれでも変わりません。private なスロットの匿名区間は、バックエンドにかかわらず封をした
 クッキーだからです。
 `pw init` が `config.dev.toml` に生成し、それ以外の環境は `SESSION_KEYRING_SECRET` を

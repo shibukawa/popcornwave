@@ -35,7 +35,8 @@ type state struct {
 }
 
 // bucket is where one slot's bytes go right now. A cookie-placed slot has its
-// own cookie and is in neither record.
+// own cookie, and a RequestScope slot exists only in this request's memory, so
+// neither is in a record.
 type bucket int
 
 const (
@@ -46,7 +47,7 @@ const (
 
 func (s *state) bucketOf(entry *slot) bucket {
 	switch {
-	case entry.placement.cookiePlaced():
+	case !entry.placement.recordPlaced():
 		return bucketNone
 	case entry.placement == ServerOnly:
 		return bucketServer
@@ -170,6 +171,12 @@ func (s *state) set(entry *slot, value any) error {
 	if s.manager == nil {
 		return fmt.Errorf("%w: this session was installed by WithValue and is read-only", ErrInvalidOptions)
 	}
+	if entry.placement == RequestScope {
+		// Nothing leaves this request: no cookie, no token, no record. The
+		// value dies when the request does, which is the placement's promise.
+		s.values[entry.typ], s.present[entry.typ] = value, true
+		return nil
+	}
 	if entry.placement.cookiePlaced() {
 		jar, ok := s.manager.jars[entry.typ]
 		if !ok {
@@ -194,6 +201,11 @@ func (s *state) set(entry *slot, value any) error {
 func (s *state) clear(entry *slot) error {
 	if s.manager == nil {
 		return fmt.Errorf("%w: this session was installed by WithValue and is read-only", ErrInvalidOptions)
+	}
+	if entry.placement == RequestScope {
+		delete(s.values, entry.typ)
+		delete(s.present, entry.typ)
+		return nil
 	}
 	if entry.placement.cookiePlaced() {
 		if jar, ok := s.manager.jars[entry.typ]; ok {
@@ -333,8 +345,16 @@ func (s *state) destroy() error {
 		}
 	}
 	s.token = ""
-	s.values = map[reflect.Type]any{}
-	s.present = map[reflect.Type]bool{}
+	for _, entry := range s.manager.slots {
+		if entry.placement == RequestScope {
+			// The value was derived from this request rather than stored by the
+			// session, so the destruction of the session has nothing of its to
+			// take back.
+			continue
+		}
+		delete(s.values, entry.typ)
+		delete(s.present, entry.typ)
+	}
 	s.dirtyAnon, s.dirtyServer = false, false
 	s.record = Record[slotMap]{}
 	return failure
@@ -402,7 +422,10 @@ func (s *state) load() error {
 		}
 	}
 	for _, entry := range s.manager.slots {
-		if entry.placement.cookiePlaced() {
+		if !entry.placement.recordPlaced() {
+			// A cookie-placed slot has its own cookie, and a RequestScope slot
+			// starts every request empty; neither reads from the record, so a
+			// stale record key can never populate one.
 			continue
 		}
 		encoded, ok := values[entry.key]

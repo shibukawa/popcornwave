@@ -150,7 +150,7 @@ type SessionCookieStoreConfig struct {
 // whatever the backend is.
 //
 // It is therefore required unless every declared slot is session.Shared, which
-// is the only placement that protects nothing.
+// protects nothing, or session.RequestScope, which never leaves process memory.
 type SessionKeyringConfig struct {
 	// Secret is 32 or more random bytes in base64, generated with
 	// `openssl rand -base64 32`. Keep it out of the file itself outside

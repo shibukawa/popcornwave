@@ -205,8 +205,8 @@ func (r *Registry) freeze() []*slot {
 }
 
 // needsKeyring reports whether any registered slot cannot be served without a
-// keyring. Shared is the only placement that protects nothing, so a registry
-// holding nothing else needs no secret.
+// keyring. Shared protects nothing and RequestScope never leaves process
+// memory, so a registry holding nothing else needs no secret.
 func (r *Registry) needsKeyring() bool {
 	r.mu.RLock()
 	defer r.mu.RUnlock()

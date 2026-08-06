@@ -101,7 +101,7 @@ func NewManager(registry *Registry, backend RawStore, options Options) (*Manager
 		return nil, fmt.Errorf("%w: version", ErrInvalidOptions)
 	}
 	if registry.needsKeyring() && options.Keys == nil {
-		return nil, fmt.Errorf("%w: a slot other than Shared is registered, so a keyring is required", ErrInvalidOptions)
+		return nil, fmt.Errorf("%w: a slot other than Shared or RequestScope is registered, so a keyring is required", ErrInvalidOptions)
 	}
 	if backend == nil {
 		if key, ok := registry.hasServerOnly(); ok {
@@ -132,7 +132,7 @@ func NewManager(registry *Registry, backend RawStore, options Options) (*Manager
 	// trip that tells the next request where its Private slots live.
 	order := []string{promotedMarker}
 	for _, entry := range slots {
-		if !entry.placement.cookiePlaced() {
+		if entry.placement.recordPlaced() {
 			order = append(order, entry.key)
 		}
 	}

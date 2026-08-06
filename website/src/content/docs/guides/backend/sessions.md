@@ -22,6 +22,7 @@ pw.RegisterSessionStore[Density]("density", session.Shared)
 pw.RegisterSessionStore[Locale]("locale", session.ReadOnly)
 pw.RegisterSessionStore[Cart]("cart", session.Private)
 pw.RegisterSessionStore[Grants]("grants", session.ServerOnly)
+pw.RegisterSessionStore[TokenScopes]("scopes", session.RequestScope)
 ```
 
 The Go type is the key. A package reads its own state without importing the
@@ -39,20 +40,36 @@ The second argument is the whole of what a developer decides:
 | `session.ReadOnly` | read, not change | a signed cookie, necessarily |
 | `session.Private` | neither | a sealed cookie while anonymous, the configured backend afterwards |
 | `session.ServerOnly` | neither | the configured backend, always |
+| `session.RequestScope` | nothing; it never travels | process memory, for one request |
 
-Four rows, four questions, asked in this order:
+Five rows, five questions, asked in this order:
 
-- Should the front end be able to change it? `Shared`. A decoded value is
-  request input, and you validate it like a query parameter.
-- Should the front end be able to read it? `ReadOnly`. The payload stays
-  legible, so it carries no secret.
+- Is it rebuilt from an authoritative source on every request?
+  `RequestScope`. The scope set a bearer token resolves to against the
+  authentication database is the standing example: it is read fresh at the top
+  of each request precisely so a revocation there is seen on the next one, and
+  it is never persisted anywhere.
+- Should the front end be able to change it? `Shared`. A display-density
+  toggle, a dismissed notice, the last-used tab. A decoded value is request
+  input, and you validate it like a query parameter.
+- Should the front end be able to read it? `ReadOnly`. The locale or tenant
+  label the server chose and the client may display. The payload stays legible,
+  so it carries no secret.
 - Must it be revocable before anyone signs in, or can it grow past a cookie?
-  `ServerOnly`.
-- Otherwise `Private`, which is the default in every sense worth having.
+  `ServerOnly`. A stored secret the client must never hold even sealed — the
+  refresh token taken at login — or a draft that grows without bound.
+- Otherwise `Private`, which is the default in every sense worth having. The
+  cart an anonymous visitor starts and a signed-in user keeps is its shape.
 
-A value the client writes cannot live on the server, so the first two rows are
-cookies by definition rather than by configuration. Only the last two leave the
-deployment anything to decide.
+One thing none of the five rows covers: a preference that should follow the
+account across browsers. A session names one browser and dies at logout, so
+state that belongs to the user rather than the browser lives in the
+application's own database, keyed by the account.
+
+A value the client writes cannot live on the server, so the first two stored
+rows are cookies by definition rather than by configuration. Only `Private` and
+`ServerOnly` leave the deployment anything to decide, and `RequestScope` leaves
+nothing to anyone: no cookie, no record, no keyring.
 
 ## How long it lives
 
@@ -87,6 +104,41 @@ so its expiry is inside the authenticated payload and a stale value presented
 later is refused. A `Shared` value is plain and carries no stamp at all, so its
 duration is the `Max-Age` attribute alone — a promise to a client that can
 rewrite the value anyway.
+
+A `RequestScope` slot refuses all three options at registration. Its lifetime
+is the request, fixed; stating another one is a contradiction, and usually
+means a placement was edited without its options.
+
+## State that is never stored
+
+`RequestScope` is the placement for a value whose freshness matters more than
+what it costs to rebuild. Nothing about it reaches the browser or a store: a
+`Set` is visible to the rest of the same request, issues no token, and writes
+no cookie, and the next request starts empty.
+
+The shape it serves is a middleware deriving a fact from its source of record
+and handlers below reading it:
+
+```go
+// The auth middleware resolves the bearer token against the database once,
+// at the top of the request. Every handler below reads the result.
+scopes, err := lookupScopes(r.Context(), token)
+if err == nil {
+	if handle, ok := session.Value[TokenScopes](r.Context()); ok {
+		handle.Set(TokenScopes{Scopes: scopes})
+	}
+}
+```
+
+Because the value is rebuilt from the database on every request, revoking a
+scope there is seen on the very next request. There is no cached copy to
+invalidate, because there is no copy.
+
+That is also the boundary. If rebuilding is expensive and a bounded staleness
+is acceptable, `RequestScope` is the wrong tool — declare the slot
+`session.Private` with `session.ExpiresAfter` and you have a cache with a
+stated shelf life. Reach for `RequestScope` only when a stale read is the thing
+you cannot afford.
 
 ## What the browser receives, and when
 
@@ -151,7 +203,9 @@ is declared `ServerOnly` and pays for its row from the first write.
 `auth` logout destroys the session: every record is revoked and every cookie the
 session owns is expired — every slot except the ones that declared
 `OutlivesSession`. The anonymous cart goes with it. The display language does
-not.
+not. A `RequestScope` value is untouched within its request, because the
+session stored nothing of it to take back — and it is gone at the next request
+regardless.
 
 A cookie that belongs to no session at all still uses
 [`session.Jar`](/guides/backend/cookies/) directly. That is where the sign-in
