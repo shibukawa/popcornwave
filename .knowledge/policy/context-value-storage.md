@@ -21,6 +21,7 @@ not_bundled:
 individual_values:
   - active OpenTelemetry span context created by each nested Tracer.Start
   - values whose parent-child shadowing is their required behavior
+  - each such stored value carries a pointer to its parent value, so ancestors are reached by pointer chase after one lookup, per requirement:context-lookup-performance
 unchanged_context_mechanisms:
   - cancellation
   - deadline
@@ -30,5 +31,6 @@ rules:
   - do not expose the capsule as an application dependency container
   - add a field and api:request-context-accessors entry together
   - api:transaction-runner may derive one scoped child capsule for an explicit transaction
+  - generated code reads framework resources through configured resolver functions doing one capsule lookup; no library-owned context node, per requirement:context-lookup-performance
 rationale: context.Value lookup traverses the context chain, so independent flat values add cumulative lookup depth
 ```

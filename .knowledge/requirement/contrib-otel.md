@@ -18,7 +18,9 @@ trace_api:
   - Span.RecordError
   - Span.SetStatus
   - Span.End
+  - Span.Parent and Span.Root, a pointer chain fixed at Start so ancestor access walks no context, per requirement:context-lookup-performance; nil parent for a root or a remote extracted parent
   - SpanContextFromContext
+  - SpanFromContext returning the innermost local span
 log_api:
   - Logger.Emit(context, Record)
   - severity, body, timestamp, attributes, event name

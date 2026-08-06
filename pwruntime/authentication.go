@@ -36,7 +36,7 @@ func RequestAuthentication(ctx context.Context) Authentication {
 // preserving every other runtime resource already present on ctx. Only
 // framework authentication middleware calls it.
 func WithAuthentication(ctx context.Context, authentication Authentication) context.Context {
-	current := *resources(ctx)
+	current := derive(ctx)
 	current.Authentication = authentication
 	return WithResources(ctx, current)
 }

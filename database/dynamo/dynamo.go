@@ -1,28 +1,32 @@
 // Package dynamo opens the application's DynamoDB client from configuration and
-// installs it into every request context.
+// keeps it as process state every operation reaches through [Handle].
 //
-// Importing it registers the [middleware.dynamo] binding and the middleware, so
-// a project that does not use DynamoDB gains no configuration key and links no
-// driver:
+// Importing it registers the [middleware.dynamo] binding, so a project that
+// does not use DynamoDB gains no configuration key and links no driver:
 //
 //	import _ "github.com/shibukawa/popcornwave/database/dynamo"
 //
 // It wraps no operation. There is no database/sql here to hide three engines
-// behind, so a handler calls tinybind's dynamobind directly, and everything it
-// needs is already in the context:
+// behind, so a handler calls tinybind's dynamobind directly, handing it the
+// process handle. A generated .pw.dynamo query resolves the same handle
+// itself, so its call sites stay context-only:
 //
-//	reading, err := dynamobind.Load[Reading](ctx, "reading", key)
+//	h, err := dynamo.Handle(ctx)
+//	reading, err := dynamobind.LoadOn(ctx, h, "reading", key)
 //	for reading, err := range records.ReadingsSince(ctx, sensor, from) { ... }
 //
+// The client is a deployment fact fixed for a process, so nothing is installed
+// into request contexts: no context.Value stands between a call site and the
+// client.
+//
 // Table names in source are the declared ones. The deployed name comes from the
-// configured prefix or mapping, applied inside the runtime entry, so no call
-// site builds a deployed name.
+// configured prefix or mapping, carried by the handle and applied inside the
+// runtime entry, so no call site builds a deployed name.
 package dynamo
 
 import (
 	"context"
 	"fmt"
-	"net/http"
 	"sync"
 
 	"github.com/shibukawa/popcornwave/pw"
@@ -46,49 +50,64 @@ var state struct {
 	sync.RWMutex
 	client   *dynamodb.Client
 	resolver TableResolver
+	handle   dynamobind.Handle
 }
 
-// activeResolver returns the naming the middleware installed, for the migrator
-// running outside a request.
-func activeResolver() TableResolver {
+// Handle returns the DynamoDB client bound to the deployed table naming, which
+// is what the "On"-suffixed dynamobind entries take and what every generated
+// .pw.dynamo query resolves through.
+//
+// The client is a deployment fact fixed for a process, so the common path
+// reads process state and walks no context chain. When the process holds no
+// client — a unit test building its own context, or a tool running without
+// this extension — a handle installed with dynamobind.WithClient or WithHandle
+// is honoured instead.
+func Handle(ctx context.Context) (dynamobind.Handle, error) {
 	state.RLock()
-	defer state.RUnlock()
-	return state.resolver
+	handle := state.handle
+	state.RUnlock()
+	if handle.Client() != nil {
+		return handle, nil
+	}
+	return dynamobind.HandleFromContext(ctx)
 }
 
-// EnsureClient returns a context carrying the DynamoDB client, reporting false
-// when none can be reached.
+// EnsureClient returns a context on which dynamobind's context-form entries
+// resolve the process client, reporting false when none can be reached.
 //
-// It exists for a framework extension that runs after SlotStorage during
-// startup and wants to reach the store before serving. A setup context is not
-// a request context, so the client the middleware installs per request is not
-// in it yet; this finds the one the middleware opened instead. A context that
-// already carries a client is returned unchanged.
-//
-// A handler never needs it. A request context already carries the client.
+// A pw call site does not need it: Handle reads the process state directly, so
+// neither a request context nor a setup context carries a client node. It
+// remains for code handing a context to something that still calls the
+// context-form dynamobind entries. A context that already carries a client is
+// returned unchanged.
 func EnsureClient(ctx context.Context) (context.Context, bool) {
 	if _, err := dynamobind.ClientFromContext(ctx); err == nil {
 		return ctx, true
 	}
 	state.RLock()
-	client, resolver := state.client, state.resolver
+	handle := state.handle
 	state.RUnlock()
-	if client == nil {
+	if handle.Client() == nil {
 		return ctx, false
 	}
-	return dynamobind.WithClient(ctx, client, dynamobind.WithTableNames(resolver)), true
+	return dynamobind.WithHandle(ctx, handle), true
 }
 
 // Client returns the process client, for an operation dynamobind does not wrap.
 //
-// A handler does not need it: every dynamobind entry reads the client from the
-// context itself. Reach for this only when calling the driver directly.
+// Reach for this only when calling the driver directly; everything dynamobind
+// wraps takes the whole Handle instead, which also carries the table naming.
 func Client(ctx context.Context) (*dynamodb.Client, error) {
-	return dynamobind.ClientFromContext(ctx)
+	handle, err := Handle(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return handle.Client(), nil
 }
 
-// setup opens the client, verifies the schema, and returns the middleware that
-// installs both into each request.
+// setup opens the client and verifies the schema. It returns no middleware:
+// the request path reads the process handle through Handle, so no context node
+// is installed per request.
 func setup(ctx context.Context) (pw.Middleware, error) {
 	config := pw.Config[Config](ctx)
 	if err := config.validate(pw.Development()); err != nil {
@@ -111,29 +130,22 @@ func setup(ctx context.Context) (pw.Middleware, error) {
 	state.Lock()
 	state.client = client
 	state.resolver = resolver
+	state.handle = dynamobind.NewHandle(client, dynamobind.WithTableNames(resolver))
 	state.Unlock()
 
-	// The migrator and the verifier both run against a context carrying the
-	// client, so they take the same path a request does and cannot resolve a
-	// name differently from one.
-	installed := dynamobind.WithClient(ctx, client, dynamobind.WithTableNames(resolver))
+	// The migrator and the verifier read the same process handle a request
+	// does, so they cannot resolve a name differently from one.
 	if config.AutoMigrate {
-		if _, err := Migrate(installed); err != nil {
+		if _, err := Migrate(ctx); err != nil {
 			return nil, err
 		}
 	}
 	if config.VerifySchema {
-		if err := verify(installed, client, resolver); err != nil {
+		if err := verify(ctx, client, resolver); err != nil {
 			return nil, err
 		}
 	}
-
-	return func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
-			ctx := dynamobind.WithClient(request.Context(), client, dynamobind.WithTableNames(resolver))
-			next.ServeHTTP(writer, request.WithContext(ctx))
-		})
-	}, nil
+	return nil, nil
 }
 
 // open builds the client from configuration. Credentials fall back to the
@@ -171,6 +183,7 @@ func closeRuntime(context.Context) error {
 	client := state.client
 	state.client = nil
 	state.resolver = nil
+	state.handle = dynamobind.Handle{}
 	state.Unlock()
 	if client == nil {
 		return nil

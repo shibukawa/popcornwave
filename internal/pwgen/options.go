@@ -3,8 +3,10 @@ package pwgen
 import "github.com/shibukawa/tinybind-go/generator"
 
 const (
-	pwPackage        = "github.com/shibukawa/popcornwave/pw"
-	pwRuntimePackage = "github.com/shibukawa/popcornwave/pwruntime"
+	pwPackage          = "github.com/shibukawa/popcornwave/pw"
+	pwRuntimePackage   = "github.com/shibukawa/popcornwave/pwruntime"
+	pwDynamoPackage    = "github.com/shibukawa/popcornwave/database/dynamo"
+	pwFirestorePackage = "github.com/shibukawa/popcornwave/database/firestore"
 	// pwAttributePrefix mirrors pw.UpdateAttributePrefix. It is repeated rather
 	// than imported because this package is a host-side tool and pw is the
 	// runtime; a test asserts the two agree.
@@ -134,6 +136,18 @@ func Options(sqlDialect string) (generator.Options, error) {
 	options.SQLExecutorResolver = &generator.SymbolPattern{
 		PackagePath: pwRuntimePackage,
 		Name:        "SQLExecutor",
+	}
+	// Generated NoSQL queries resolve the process handle through the framework
+	// function instead of tinybind's own context key, so a request context
+	// carries no tinybind-owned node and a call site pays no context.Value
+	// walk, per the same seam SQLExecutorResolver uses.
+	options.DynamoHandleResolver = &generator.SymbolPattern{
+		PackagePath: pwDynamoPackage,
+		Name:        "Handle",
+	}
+	options.FirestoreHandleResolver = &generator.SymbolPattern{
+		PackagePath: pwFirestorePackage,
+		Name:        "Handle",
 	}
 	return options, nil
 }
