@@ -17,11 +17,13 @@ func TestHome(t *testing.T) {
 	server := testutil.TestRun(t, Handlers(), func(config *testutil.Config) {
 		testutil.Update[pw.MiddlewareConfig](config, func(middleware *pw.MiddlewareConfig) {
 			middleware.RDB = pw.RDBConfig{
-				Enabled:        true,
-				DSN:            "sqlite://:memory:",
-				ConnectTimeout: time.Second,
-				MaxOpenConns:   1,
-				MaxIdleConns:   1,
+				Enabled: true,
+				Connections: []pw.RDBConnectionConfig{{
+					DSN:            "sqlite://:memory:",
+					ConnectTimeout: time.Second,
+					MaxOpenConns:   1,
+					MaxIdleConns:   1,
+				}},
 			}
 		})
 	}, testutil.WithMigrations("../migrations"))
@@ -326,3 +328,12 @@ counter, err := queries.CurrentAccess(server.Context())
 ```
 
 生の SQL が必要な場合は `server.DB` がプールを直接公開しています。
+
+## テストにブラウザが必要になったら
+
+このページのすべては、Go の `http.Client` からアプリケーションを観測します。見えるのは
+レスポンスであって、ブラウザがそれをどう扱うかではありません。送信するダイアログ、
+ページに差し込まれるフラグメント、ユーザーが実際にクリックして通るログイン —— それらには
+本物のブラウザが必要で、そこでも同じシードデータセットが働きます。Playwright で
+アプリケーションを操作し、ブラウザテストからデータベースを入れ直す方法は
+[E2E テスト](/ja/productivity/e2e-testing/)を参照してください。

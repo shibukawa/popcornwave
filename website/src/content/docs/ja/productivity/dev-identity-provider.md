@@ -2,7 +2,7 @@
 title: 開発用の認証プロバイダ
 description: 本物の IdP を用意する前に、一覧から選ぶだけのユーザーで本物の OIDC フローを通す。
 sidebar:
-  order: 2
+  order: 3
 ---
 
 [`pw dev`](/ja/pw/project/dev/) はローカルの OpenID Provider を起動できます。本物の IdP を用意する前から

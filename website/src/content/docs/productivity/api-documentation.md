@@ -2,7 +2,7 @@
 title: API Documentation
 description: An OpenAPI 3.1 document assembled from the code you already wrote, and a browsable UI that reads it.
 sidebar:
-  order: 3
+  order: 4
 ---
 
 Most OpenAPI documents are written twice: once as handlers, once as a

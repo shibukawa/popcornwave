@@ -2,7 +2,7 @@
 title: Configuration Summary
 description: Check which configuration values actually took effect, and where each one came from, in one report per start.
 sidebar:
-  order: 4
+  order: 5
 ---
 
 Resolved configuration is reported **once**, not one record per key. What that

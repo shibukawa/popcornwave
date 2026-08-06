@@ -2,7 +2,7 @@
 title: Slow Query Diagnostics
 description: Log every generated SQL statement, explain the slow ones, and get a snippet that reruns them by hand.
 sidebar:
-  order: 5
+  order: 6
 ---
 
 A slow page usually has one slow statement inside it, and finding that statement

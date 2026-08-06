@@ -2,7 +2,7 @@
 title: Development Identity Provider
 description: Sign in through a real OIDC flow before a real provider exists, with a roster of users you pick from.
 sidebar:
-  order: 2
+  order: 3
 ---
 
 [`pw dev`](/pw/project/dev/) can run a local OpenID Provider so an OIDC login
