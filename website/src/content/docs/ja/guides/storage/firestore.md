@@ -90,7 +90,8 @@ export statement NotesByAuthor(author: string): firestore.many<Note> {
 `NotesByAuthor` 関数をソースの隣に生成します。片方のファイルだけで `author` を
 変更すると、空の結果が返り続けるのではなく生成エラーになります。
 
-生成されたクエリは `context.Context` からクライアントを取得します。
+生成されたクエリはプロセスのクライアントを自分で解決するので、呼び出し側は
+context だけで済みます。
 
 ```go
 for note, err := range entities.NotesByAuthor(r.Context(), accountID) {
@@ -101,8 +102,10 @@ for note, err := range entities.NotesByAuthor(r.Context(), accountID) {
 }
 ```
 
-エンティティを直接操作する場合は `firestorebind.Store`、`Insert`、`Load`、`Update`、
-`Remove` を使います。タグ、クエリの戻り値、生成されるシグネチャは
+エンティティを直接操作する場合は、まず `firestore.Handle(ctx)` でプロセスのハンドルを
+受け取り、`firestorebind.StoreOn`、`InsertOn`、`LoadOn`、`UpdateOn`、`RemoveOn` に
+渡します。クライアントはリクエストの context の値ではなくプロセス状態なので、呼び出し
+ごとに context を探索するコストはありません。タグ、クエリの戻り値、生成されるシグネチャは
 [Firestore 宣言リファレンス](/ja/reference/firestore-templates/)にまとめています。
 
 ## サービス側のポリシーをデプロイする

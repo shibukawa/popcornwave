@@ -2,7 +2,7 @@
 title: Development Telemetry Viewer
 description: pw dev runs a local OTLP receiver and browser UI, so traces, logs, and process health are readable without installing a collector.
 sidebar:
-  order: 6
+  order: 7
 ---
 
 Tracing is the kind of thing you enable once the operational stack exists. That

@@ -152,17 +152,19 @@ an index is required; without a deployed index, the service returns
 The generated entity satisfies the interfaces used by `firestorebind`:
 
 ```go
-key, err := firestorebind.Store(ctx, value)
-key, err = firestorebind.Insert(ctx, value)
-value, err = firestorebind.Load[Entity](ctx, key)
-err = firestorebind.Update(ctx, value)
-err = firestorebind.Remove(ctx, value)
+h, err := firestore.Handle(ctx)
+key, err := firestorebind.StoreOn(ctx, h, value)
+key, err = firestorebind.InsertOn(ctx, h, value)
+value, err = firestorebind.LoadOn[Entity](ctx, h, key)
+err = firestorebind.UpdateOn(ctx, h, value)
+err = firestorebind.RemoveOn(ctx, h, value)
 ```
 
 `Store` is an upsert, `Insert` requires the entity to be absent, and `Update`
 requires it to exist. An incomplete numeric key is allowed for `Insert`, which
-returns the server-allocated key. Transactions use `firestorebind.Run` and the
-corresponding operations on `*firestorebind.Tx`.
+returns the server-allocated key. `firestore.Handle` is
+`database/firestore`'s process handle accessor. Transactions use
+`firestorebind.RunOn` and the corresponding operations on `*firestorebind.Tx`.
 
 Driver errors remain visible. Use `firestorebind.AsError` for structured
 Datastore errors and `errors.Is` for the package's not-found and precondition

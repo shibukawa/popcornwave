@@ -1234,6 +1234,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/shibukawa/popcornwave/database/dynamo"
 	"github.com/shibukawa/tinybind-go/dynamobind"
 )
 
@@ -1254,14 +1255,23 @@ type Note struct {
 // so these two calls are what make EncodeItem, DecodeItem, and ItemKey appear
 // beside this file. Delete them and the generated code shrinks to match.
 //
-// The client comes from the request context, installed by the dynamo
-// middleware, so nothing here takes a handle.
+// dynamo.Handle returns the process client bound to the configured table
+// naming, so no context value stands between a call and the store. A declared
+// .pw.dynamo query resolves the same handle itself.
 func StoreNote(ctx context.Context, note Note) error {
-	return dynamobind.Store(ctx, "note", note)
+	h, err := dynamo.Handle(ctx)
+	if err != nil {
+		return err
+	}
+	return dynamobind.StoreOn(ctx, h, "note", note)
 }
 
 func LoadNote(ctx context.Context, id string, createdAt time.Time) (Note, error) {
-	return dynamobind.Load[Note](ctx, "note", Note{ID: id, CreatedAt: createdAt}.ItemKey())
+	h, err := dynamo.Handle(ctx)
+	if err != nil {
+		return Note{}, err
+	}
+	return dynamobind.LoadOn[Note](ctx, h, "note", Note{ID: id, CreatedAt: createdAt}.ItemKey())
 }
 `
 }

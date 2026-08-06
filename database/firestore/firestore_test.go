@@ -305,10 +305,12 @@ func TestEnsureClientFindsTheProcessClient(t *testing.T) {
 
 	state.Lock()
 	state.client = client
+	state.handle = firestorebind.NewHandle(client)
 	state.Unlock()
 	t.Cleanup(func() {
 		state.Lock()
 		state.client = nil
+		state.handle = firestorebind.Handle{}
 		state.Unlock()
 	})
 

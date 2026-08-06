@@ -18,11 +18,13 @@ func TestHome(t *testing.T) {
 	server := testutil.TestRun(t, Handlers(), func(config *testutil.Config) {
 		testutil.Update[pw.MiddlewareConfig](config, func(middleware *pw.MiddlewareConfig) {
 			middleware.RDB = pw.RDBConfig{
-				Enabled:        true,
-				DSN:            "sqlite://:memory:",
-				ConnectTimeout: time.Second,
-				MaxOpenConns:   1,
-				MaxIdleConns:   1,
+				Enabled: true,
+				Connections: []pw.RDBConnectionConfig{{
+					DSN:            "sqlite://:memory:",
+					ConnectTimeout: time.Second,
+					MaxOpenConns:   1,
+					MaxIdleConns:   1,
+				}},
 			}
 		})
 	}, testutil.WithMigrations("../migrations"))
@@ -333,3 +335,12 @@ counter, err := queries.CurrentAccess(server.Context())
 ```
 
 `server.DB` exposes the pool directly when you need raw SQL.
+
+## When the test needs a browser
+
+Everything on this page observes the application from a Go `http.Client`: it
+sees responses, not what a browser does with them. A dialog that submits, a
+fragment swapped into the page, a login the user actually clicks through —
+those need a real browser, and the same seed datasets serve there too.
+[E2E Testing](/productivity/e2e-testing/) covers driving the application with
+Playwright and reseeding the database from browser tests.

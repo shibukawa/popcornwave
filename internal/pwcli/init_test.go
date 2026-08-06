@@ -726,8 +726,16 @@ func TestDynamoScaffoldNamesTheRegisteredTable(t *testing.T) {
 		if !strings.Contains(source[call.Fun.Pos()-1:call.Fun.End()-1], "dynamobind.") {
 			return true
 		}
-		literal, ok := call.Args[1].(*ast.BasicLit)
-		if !ok || literal.Kind != token.STRING {
+		// The table is the first string literal: Args[1] in the context form
+		// and Args[2] in the handle-taking On form the scaffold now uses.
+		var literal *ast.BasicLit
+		for _, arg := range call.Args {
+			if candidate, ok := arg.(*ast.BasicLit); ok && candidate.Kind == token.STRING {
+				literal = candidate
+				break
+			}
+		}
+		if literal == nil {
 			return true
 		}
 		named++

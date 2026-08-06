@@ -79,15 +79,26 @@ func Migrate(ctx context.Context) (Result, error) {
 	return applyPlan(ctx, client, plan)
 }
 
-// planInputs resolves the client and the naming from the context the middleware
-// installed.
+// planInputs resolves the client and the naming from the process handle, or
+// from a handle a test installed on ctx.
 func planInputs(ctx context.Context) (*dynamodb.Client, TableResolver, error) {
-	client, err := dynamobind.ClientFromContext(ctx)
+	handle, err := Handle(ctx)
 	if err != nil {
 		return nil, nil, fmt.Errorf(
-			"popcornwave/database/dynamo: no client in context; import the package and enable middleware.dynamo: %w", err)
+			"popcornwave/database/dynamo: no client available; import the package and enable middleware.dynamo: %w", err)
 	}
-	return client, activeResolver(), nil
+	return handle.Client(), tableNaming(handle), nil
+}
+
+// tableNaming adapts the naming carried by handle to the TableResolver shape
+// the planner uses.
+func tableNaming(handle dynamobind.Handle) TableResolver {
+	return func(ctx context.Context, declared string) string {
+		if _, deployed, err := handle.Table(ctx, declared); err == nil {
+			return deployed
+		}
+		return declared
+	}
 }
 
 // planWith compares every registered table against the account.

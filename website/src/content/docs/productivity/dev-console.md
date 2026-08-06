@@ -2,7 +2,7 @@
 title: Development Console
 description: pw dev serves one browser console — project state, static assets, the database, declared queries, templates, doctor, and telemetry — so a development question is answered without leaving the loop.
 sidebar:
-  order: 9
+  order: 10
 ---
 
 A development loop asks a lot of small questions. Which migration is applied?

@@ -20,8 +20,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/shibukawa/popcornwave/database/dynamo"
 	"github.com/shibukawa/popcornwave/session"
-	"github.com/shibukawa/tinybind-go/dynamobind"
 	"github.com/shibukawa/tinygodriver/nosql/dynamodb"
 )
 
@@ -99,12 +99,19 @@ func NewStore(options Options) *Store {
 func (store *Store) now() time.Time { return store.nowFunc().UTC() }
 
 // resolve returns the client and the deployed table name. Resolution happens
-// inside tinybind, so this store never builds a deployed name itself.
+// through the process handle database/dynamo owns, so this store never builds
+// a deployed name itself and reads no context value.
 func (store *Store) resolve(ctx context.Context) (*dynamodb.Client, string, error) {
-	client, table, err := dynamobind.TableFromContext(ctx, store.table)
+	handle, err := dynamo.Handle(ctx)
 	if err != nil {
 		return nil, "", fmt.Errorf(
-			"%w: no DynamoDB client in context; import database/dynamo and enable middleware.dynamo",
+			"%w: no DynamoDB client available; import database/dynamo and enable middleware.dynamo",
+			session.ErrUnavailable)
+	}
+	client, table, err := handle.Table(ctx, store.table)
+	if err != nil {
+		return nil, "", fmt.Errorf(
+			"%w: no DynamoDB client available; import database/dynamo and enable middleware.dynamo",
 			session.ErrUnavailable)
 	}
 	return client, table, nil

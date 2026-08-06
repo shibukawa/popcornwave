@@ -25,7 +25,6 @@ import (
 
 	"github.com/shibukawa/popcornwave/authstate"
 	"github.com/shibukawa/popcornwave/database/dynamo"
-	"github.com/shibukawa/tinybind-go/dynamobind"
 	"github.com/shibukawa/tinygodriver/nosql/dynamodb"
 )
 
@@ -148,12 +147,19 @@ func NewRawStore(options Options) (*Store, error) {
 }
 
 // resolve returns the client and the deployed table name. Resolution happens
-// inside tinybind, so this store never builds a deployed name itself.
+// through the process handle database/dynamo owns, so this store never builds
+// a deployed name itself and reads no context value.
 func (s *Store) resolve(ctx context.Context) (*dynamodb.Client, string, error) {
-	client, table, err := dynamobind.TableFromContext(ctx, s.table)
+	handle, err := dynamo.Handle(ctx)
 	if err != nil {
 		return nil, "", fmt.Errorf(
-			"%w: no DynamoDB client in context; import database/dynamo and enable middleware.dynamo",
+			"%w: no DynamoDB client available; import database/dynamo and enable middleware.dynamo",
+			authstate.ErrUnavailable)
+	}
+	client, table, err := handle.Table(ctx, s.table)
+	if err != nil {
+		return nil, "", fmt.Errorf(
+			"%w: no DynamoDB client available; import database/dynamo and enable middleware.dynamo",
 			authstate.ErrUnavailable)
 	}
 	return client, table, nil

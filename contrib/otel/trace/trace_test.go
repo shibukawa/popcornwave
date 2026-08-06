@@ -74,3 +74,46 @@ func TestEmptySpanContextIDs(t *testing.T) {
 		t.Fatalf("SpanID = %q", got)
 	}
 }
+
+func TestSpanParentPointerChain(t *testing.T) {
+	tracer := NewProvider(&spanCollector{}).Tracer("test-scope")
+	ctx, root := tracer.Start(context.Background(), "root")
+	ctx, middle := Start(ctx, "middle")
+	ctx, leaf := Start(ctx, "leaf")
+	if got := SpanFromContext(ctx); got != leaf {
+		t.Fatal("SpanFromContext is not the innermost span")
+	}
+	if leaf.Parent() != middle || middle.Parent() != root {
+		t.Fatal("parent pointers do not follow the start order")
+	}
+	if root.Parent() != nil {
+		t.Fatal("root span has a parent")
+	}
+	if leaf.Root() != root || root.Root() != root {
+		t.Fatal("Root does not reach the outermost span")
+	}
+	if (*Span)(nil).Parent() != nil || (*Span)(nil).Root() != nil {
+		t.Fatal("nil span accessors are not nil-safe")
+	}
+}
+
+func TestSpanParentPointerAcrossRemoteParent(t *testing.T) {
+	remote, err := NewSpanContext("0af7651916cd43dd8448eb211c80319c", "b7ad6b7169203331", 1, "", true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx := ContextWithSpanContext(context.Background(), remote)
+	if SpanFromContext(ctx) != nil {
+		t.Fatal("a propagation-only context reports a local span")
+	}
+	ctx, child := Start(ctx, "child")
+	if child.Parent() != nil {
+		t.Fatal("a remote parent has no local span to point at")
+	}
+	if got := SpanFromContext(ctx); got != child {
+		t.Fatal("SpanFromContext is not the started span")
+	}
+	if got := child.SpanContext().TraceID(); got != remote.TraceID() {
+		t.Fatalf("trace ID = %q", got)
+	}
+}

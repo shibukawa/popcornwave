@@ -2,7 +2,7 @@
 title: Database Migrations
 description: The versioned record of schema change — file format, the development loop, deployment, and which database receives it.
 sidebar:
-  order: 7
+  order: 8
 ---
 
 One application has more than one database. There is the file on your laptop,

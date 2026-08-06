@@ -241,7 +241,11 @@ func (s *Store) Put(ctx context.Context, key string, payload []byte, expiresAt t
 	}
 
 	fresh := record{kind: s.kind, key: s.entityKey(key), payload: payload, expiresAt: expiresAt.UTC()}
-	_, err := firestorebind.Insert(ctx, fresh)
+	handle, err := firestore.Handle(ctx)
+	if err != nil {
+		return unavailable(ctx, err)
+	}
+	_, err = firestorebind.InsertOn(ctx, handle, fresh)
 	switch {
 	case err == nil:
 		return nil
@@ -251,7 +255,7 @@ func (s *Store) Put(ctx context.Context, key string, payload []byte, expiresAt t
 
 	// A key collision. Replace the record only when the one holding the key has
 	// already expired, which needs a read and a write that share a snapshot.
-	err = firestorebind.Run(ctx, func(tx *firestorebind.Tx) error {
+	err = firestorebind.RunOn(ctx, handle, func(tx *firestorebind.Tx) error {
 		existing, err := firestorebind.LoadTx[record](ctx, tx, fresh.EntityKey())
 		switch {
 		case errors.Is(err, datastore.ErrNoSuchEntity):
@@ -301,8 +305,12 @@ func (s *Store) Take(ctx context.Context, key string) ([]byte, error) {
 	}
 
 	entityKey := datastore.NameKey(s.kind, s.entityKey(key))
+	handle, err := firestore.Handle(ctx)
+	if err != nil {
+		return nil, unavailable(ctx, err)
+	}
 	var taken record
-	err := firestorebind.Run(ctx, func(tx *firestorebind.Tx) error {
+	err = firestorebind.RunOn(ctx, handle, func(tx *firestorebind.Tx) error {
 		// The closure reads and queues a delete and does nothing else, so the
 		// re-run a contention abort causes is safe by construction rather than
 		// by care.

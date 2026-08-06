@@ -46,6 +46,20 @@ type Resources struct {
 	// Authentication is the verified request authentication result, finalized
 	// by authentication middleware before handler dispatch.
 	Authentication Authentication
+	// parent is the capsule this one was derived from, nil for the capsule
+	// installed at request start. One context lookup reaches the innermost
+	// capsule; its ancestors are a pointer chase from here, never a second
+	// walk of the context chain.
+	parent *Resources
+}
+
+// Parent returns the capsule this one was derived from, or nil for the
+// request root capsule.
+func (r *Resources) Parent() *Resources {
+	if r == nil {
+		return nil
+	}
+	return r.parent
 }
 
 func WithResources(ctx context.Context, resources Resources) context.Context {
@@ -70,9 +84,19 @@ func WithResources(ctx context.Context, resources Resources) context.Context {
 // An unknown name is not rejected here. The returned context fails at its first
 // executor resolution, DB call, or Transaction with ErrUnknownConnectionGroup.
 func SelectDB(ctx context.Context, group string) context.Context {
-	current := *resources(ctx)
+	current := derive(ctx)
 	current.Group = group
 	return WithResources(ctx, current)
+}
+
+// derive copies the capsule of ctx and records the copied capsule as the
+// parent of the copy, so every derived capsule can walk its ancestry without
+// touching the context again.
+func derive(ctx context.Context) Resources {
+	current := resources(ctx)
+	child := *current
+	child.parent = current
+	return child
 }
 
 // effectiveGroup is the group a statement on ctx runs against.
@@ -145,7 +169,7 @@ func WithLogAttributes(ctx context.Context, attributes ...Attribute) context.Con
 	if len(attributes) == 0 {
 		return ctx
 	}
-	current := *resources(ctx)
+	current := derive(ctx)
 	current.LogAttributes = mergeAttributes(current.LogAttributes, attributes)
 	return WithResources(ctx, current)
 }
@@ -153,7 +177,7 @@ func WithLogAttributes(ctx context.Context, attributes ...Attribute) context.Con
 // WithLogBackend replaces only the emission policy, which is what a test needs
 // to capture records without rebuilding every other resource.
 func WithLogBackend(ctx context.Context, backend *LogBackend) context.Context {
-	current := *resources(ctx)
+	current := derive(ctx)
 	current.Log = backend
 	return WithResources(ctx, current)
 }
@@ -230,14 +254,12 @@ func activeScope(ctx context.Context) *TransactionScope {
 	return nil
 }
 
-// withScope installs scope as the request transaction state and as the
-// executor resolved by generated SQL code.
+// withScope installs scope as the request transaction state. Generated SQL
+// resolves the scope's executor from the capsule, so no second context node is
+// installed beside it: the sqlbind executor key stays an input seam for an
+// externally opened transaction, never an output of the framework.
 func withScope(ctx context.Context, scope *TransactionScope) context.Context {
-	current := *resources(ctx)
+	current := derive(ctx)
 	current.TxScope = scope
-	ctx = WithResources(ctx, current)
-	if executor := scope.executor(); executor != nil {
-		ctx = sqlbind.WithSQLExecutor(ctx, executor)
-	}
-	return ctx
+	return WithResources(ctx, current)
 }

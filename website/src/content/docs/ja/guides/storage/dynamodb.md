@@ -15,8 +15,9 @@ DynamoDB に置くプロジェクトは例外ではなく想定された形で�
 そもそもこれが存在できているのは、[オブジェクトストレージ](/ja/guides/storage/object-storage/)と
 同じ事情によります。`aws-sdk-go-v2` は TinyGo でビルドできません。だからここでのクライアントは
 [`tinygodriver`](https://github.com/shibukawa/tinygodriver) のもので、その上の型付きレイヤーは
-`tinybind` の `dynamobind` です。どちらも両方のターゲットでコンパイルできます。context 経由の
-クライアント経路は `wasip1` ビルドでおよそ 37 KB です。
+`tinybind` の `dynamobind` です。どちらも両方のターゲットでコンパイルできます。クライアントは
+context の値ではなくプロセスのハンドルとして持ち回ります。context 経由のクライアント経路は
+`wasip1` ビルドでおよそ 37 KB あり、ハンドルはそのコストを払わずに済む形です。
 
 ## 有効にする
 
@@ -45,7 +46,7 @@ auto_migrate = true
 
 | キー | 既定値 | 意味 |
 | --- | --- | --- |
-| `enabled` | `false` | クライアントを開き、ミドルウェアを入れる |
+| `enabled` | `false` | 起動時にクライアントを開き、プロセスのハンドルとして保持する |
 | `region` | *(空)* | 空なら環境変数。どちらからも決まらなければ起動エラー |
 | `endpoint` | *(空)* | 空ならリージョンのホスト。値を入れるとローカルや互換サーバー |
 | `access_key_id` | *(空)* | 空ならドライバが環境変数から取る |
@@ -90,22 +91,32 @@ type Note struct {
 
 ## アイテムを 1 つ読み書きする
 
-クライアントはミドルウェアがリクエストの context に入れたものなので、ここではハンドルを
-受け取りません。
+クライアントと設定済みのテーブル名解決は、1 つのハンドルにまとまってこのパッケージが
+プロセス状態として保持します。リクエストの context には何も入らないので、呼び出し側が
+context の探索コストを払うことはありません。
 
 ```go
 func store(ctx context.Context, note Note) error {
-	return dynamobind.Store(ctx, "note", note)
+	h, err := dynamo.Handle(ctx)
+	if err != nil {
+		return err
+	}
+	return dynamobind.StoreOn(ctx, h, "note", note)
 }
 
 func load(ctx context.Context, id string, createdAt time.Time) (Note, error) {
-	return dynamobind.Load[Note](ctx, "note", Note{ID: id, CreatedAt: createdAt}.ItemKey())
+	h, err := dynamo.Handle(ctx)
+	if err != nil {
+		return Note{}, err
+	}
+	return dynamobind.LoadOn[Note](ctx, h, "note", Note{ID: id, CreatedAt: createdAt}.ItemKey())
 }
 ```
 
-アイテム操作がテーブル名を取るのは、読み取るべき宣言を持たないからです。ミドルウェアを
-通さずにここへ来たハンドラは、panic ではなく「クライアントが無い」という名前付きのエラーを
-受け取ります。
+アイテム操作がテーブル名を取るのは、読み取るべき宣言を持たないからです。セクションを
+有効にしないまま呼び出すと、panic ではなく「クライアントが無い」という名前付きのエラーを
+受け取ります。宣言済みクエリはハンドルを取りません — 生成された本体が同じハンドルを
+自分で解決するからで、呼び出し側が context だけで済むのはそのためです。
 
 これらの呼び出しを包むラッパーはありません。`database/dynamo` が公開するのは設定、テーブル
 レジストリ、マイグレータだけです。リレーショナル側にラッパーがあるのは、3 つのエンジンを
