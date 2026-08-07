@@ -19,7 +19,9 @@ defaults:
 tinygo:
   invocation: none; the command builds with host go even for a project whose toolchain is TinyGo
   consequence: the rule:tinygo-runtime-compatibility scheduler constraint reaches an operator through documentation rather than through a flag this command passes
-  gap: a TinyGo build driven by this command would have to pass -scheduler=threads for a project on a server engine
+  resolution: decision:explicit-tinygo-compile-step keeps it that way; a TinyGo build is api:cli-prepare plus a tinygo build invocation the caller writes, and -scheduler=threads is enforced by the engine package's compile-time guard rather than passed by this command
+split: api:cli-prepare is every step above except the compiler, and this command is defined as that sequence plus go build, so the two cannot drift
+container: this command is the whole builder stage of rule:container-build-inputs, which is why its steps are ordered before any compiler rather than beside it
 failure:
   - preserve previous successful output
   - return compiler diagnostics and nonzero status

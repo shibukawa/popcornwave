@@ -13,42 +13,12 @@ func runBuild(ctx context.Context, args []string, stdout, stderr io.Writer) erro
 	if len(args) != 0 {
 		return fmt.Errorf("build: unexpected arguments")
 	}
-	// The kind is read before anything runs. Generation would succeed in a
-	// package and the link step would then fail on a missing entry point,
-	// which is a late error about the wrong thing.
-	root, err := projectRoot(".")
+	root, config, err := buildProject("build")
 	if err != nil {
-		return err
-	}
-	config, err := loadProjectConfig(root)
-	if err != nil {
-		return err
-	}
-	if err := refuseInPackage(config, "build"); err != nil {
 		return err
 	}
 	progress := newProgressRegion(stdout)
-	progress.Phase("generating")
-	if _, err := generateProject(ctx, false, stdout, false); err != nil {
-		progress.Done()
-		return err
-	}
-	if config.Tailwind.Enabled {
-		progress.Phase("building CSS")
-		config.Tailwind.Minify = true
-		if err := buildTailwind(ctx, root, config.Tailwind, stdout, stderr); err != nil {
-			progress.Done()
-			return err
-		}
-	}
-	progress.Phase("building assets")
-	report, err := buildDerivedAssets(root, config.Assets)
-	if err != nil {
-		progress.Done()
-		return err
-	}
-	reportDerivedAssets(stdout, report)
-	if err := rejectDevelopmentImports(ctx, root, config.Main); err != nil {
+	if err := prepareBuildInputs(ctx, root, config, progress, stdout, stderr); err != nil {
 		progress.Done()
 		return err
 	}
@@ -61,6 +31,73 @@ func runBuild(ctx context.Context, args []string, stdout, stderr io.Writer) erro
 		return fmt.Errorf("go build: %w", err)
 	}
 	return nil
+}
+
+// runPrepare is runBuild without its final compile step. A build the framework
+// does not drive — the tinygo invocation in Dockerfile.tinygo, a cross-compiled
+// go build with the operator's own flags, an image builder that owns the
+// compile step — needs the same tree and has no way to produce it, because
+// pw generate reaches only the first of the steps below.
+func runPrepare(ctx context.Context, args []string, stdout, stderr io.Writer) error {
+	if len(args) != 0 {
+		return fmt.Errorf("prepare: unexpected arguments")
+	}
+	root, config, err := buildProject("prepare")
+	if err != nil {
+		return err
+	}
+	progress := newProgressRegion(stdout)
+	err = prepareBuildInputs(ctx, root, config, progress, stdout, stderr)
+	progress.Done()
+	return err
+}
+
+// buildProject resolves the project the two commands above run in. The kind is
+// read before anything runs. Generation would succeed in a package and the
+// link step would then fail on a missing entry point, which is a late error
+// about the wrong thing.
+func buildProject(command string) (string, projectConfig, error) {
+	root, err := projectRoot(".")
+	if err != nil {
+		return "", projectConfig{}, err
+	}
+	config, err := loadProjectConfig(root)
+	if err != nil {
+		return "", projectConfig{}, err
+	}
+	if err := refuseInPackage(config, command); err != nil {
+		return "", projectConfig{}, err
+	}
+	return root, config, nil
+}
+
+// prepareBuildInputs writes everything a compiler needs that is not in version
+// control: the generated Go, the production stylesheet, and the derived asset
+// tree public.go embeds. It ends with the development-only import check, which
+// belongs here rather than beside the compiler because prepare hands the tree
+// to a compiler it does not run.
+//
+// config is taken by value: the Tailwind minify override below is this
+// sequence's, not the project's.
+func prepareBuildInputs(ctx context.Context, root string, config projectConfig, progress *progressRegion, stdout, stderr io.Writer) error {
+	progress.Phase("generating")
+	if _, err := generateProject(ctx, false, stdout, false); err != nil {
+		return err
+	}
+	if config.Tailwind.Enabled {
+		progress.Phase("building CSS")
+		config.Tailwind.Minify = true
+		if err := buildTailwind(ctx, root, config.Tailwind, stdout, stderr); err != nil {
+			return err
+		}
+	}
+	progress.Phase("building assets")
+	report, err := buildDerivedAssets(root, config.Assets)
+	if err != nil {
+		return err
+	}
+	reportDerivedAssets(stdout, report)
+	return rejectDevelopmentImports(ctx, root, config.Main)
 }
 
 // developmentOnlyPackages must never reach a built application. Each one is a

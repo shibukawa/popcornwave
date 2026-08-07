@@ -91,26 +91,21 @@ The probe is the binary the image already ships, so the instruction stays in
 exec form and never asks for a shell:
 
 ```dockerfile
-FROM golang:1.26 AS build
-WORKDIR /src
-COPY . .
-RUN CGO_ENABLED=0 go build -o /out/myapp ./cmd/myapp
-
-FROM gcr.io/distroless/static-debian12
-COPY --from=build /out/myapp /myapp
-COPY config.prod.toml /config.prod.toml
-ENV APP_ENV=prod
-EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=5s --start-period=5s \
-  CMD ["/myapp", "healthcheck"]
-ENTRYPOINT ["/myapp"]
+  CMD ["/app/myapp", "healthcheck"]
 ```
 
 Docker's `--timeout=5s` is its patience with the whole command; the probe's own
 default of `3s` finishes inside it, so the verdict is always the probe's exit
-code, never a kill. `config.prod.toml` must set `server.health` — a missing key
-fails the probe with a message naming it, so the misconfiguration surfaces on
-the first interval instead of never.
+code, never a kill. The environment's configuration must set `server.health` —
+a missing key fails the probe with a message naming it, so the misconfiguration
+surfaces on the first interval instead of never.
+
+`pw init` writes this line into the project's Dockerfile already, along with the
+`config.prod.toml` that sets the key.
+[Container Images](/guides/deployment/container-images/) walks through the rest
+of that file, including why a Popcorn Wave image cannot be built with `COPY` and
+`go build`.
 
 ### Compose
 

@@ -58,9 +58,15 @@ go run ./cmd/helloworld --app-env_label=hotfix --app-env_label_color="#0891b2"
 The example is a TinyGo project, so it also builds with that compiler:
 
 ```bash
-go run ../../cmd/pw generate
+go run ../../cmd/pw prepare
 tinygo build -o helloworld ./cmd/helloworld
 ```
+
+`pw prepare` rather than `pw generate`: this example enables Tailwind, and
+`pw generate` writes the generated Go without rebuilding
+`public/generated/app.css`. The binary still compiles, so the symptom of using
+the narrower command is a page served with a stale stylesheet rather than an
+error.
 
 [tinygohelper.go](tinygohelper.go) registers the host networking driver that
 TinyGo's `net` package requires. Without it the binary builds and then exits

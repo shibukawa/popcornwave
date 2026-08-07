@@ -42,6 +42,7 @@ Commands:
 | [`pw new`](/ja/pw/project/new/) | ハンドラ・ルート・テンプレートをまとめて追加する |
 | [`pw generate`](/ja/pw/project/generate/) | `.pw.html` と `.pw.sql` を Go にコンパイルする |
 | [`pw dev`](/ja/pw/project/dev/) | 監視、再生成、マイグレーション、再起動 |
+| [`pw prepare`](/ja/pw/project/prepare/) | ビルドに必要な一式を作り、コンパイラの手前で止まる |
 | [`pw build`](/ja/pw/project/build/) | リリース用バイナリを作る |
 | [`pw doctor`](/ja/pw/project/doctor/) | その環境で何が動き、どこが間違っているかを報告する |
 

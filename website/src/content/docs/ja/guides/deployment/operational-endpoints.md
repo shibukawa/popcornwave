@@ -89,26 +89,20 @@ HEALTHCHECK CMD ["/myapp", "healthcheck"]
 まま書けて、シェルを要求しません。
 
 ```dockerfile
-FROM golang:1.26 AS build
-WORKDIR /src
-COPY . .
-RUN CGO_ENABLED=0 go build -o /out/myapp ./cmd/myapp
-
-FROM gcr.io/distroless/static-debian12
-COPY --from=build /out/myapp /myapp
-COPY config.prod.toml /config.prod.toml
-ENV APP_ENV=prod
-EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=5s --start-period=5s \
-  CMD ["/myapp", "healthcheck"]
-ENTRYPOINT ["/myapp"]
+  CMD ["/app/myapp", "healthcheck"]
 ```
 
 Docker の `--timeout=5s` はコマンド全体を待つ時間です。プローブ自身の既定 `3s` は
 その内側で終わるので、判定はつねにプローブの終了コードであり、kill されることは
-ありません。`config.prod.toml` には `server.health` が必要です。キーが無ければ
+ありません。その環境の設定には `server.health` が必要です。キーが無ければ
 プローブはその名前を挙げて失敗するので、設定ミスは「永遠に気づかない」のではなく
 最初のインターバルで表面化します。
+
+`pw init` はこの行を含む Dockerfile を、キーを設定した `config.prod.toml` と
+一緒に書きます。そのファイルの残りの部分 — Popcorn Wave のイメージが `COPY` と
+`go build` では作れない理由を含めて — は
+[コンテナイメージ](/ja/guides/deployment/container-images/)にあります。
 
 ### Compose
 

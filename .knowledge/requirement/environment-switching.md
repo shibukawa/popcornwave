@@ -22,7 +22,13 @@ behavior:
 tooling:
   - api:cli-dev defaults the environment to dev and watches config.*.toml
   - api:cli-doctor names the environment to inspect with an option, which selects files to read and never reaches an application process
-  - api:cli-init scaffolds config.dev.toml in the project root
+  - api:cli-init scaffolds config.dev.toml and config.prod.toml in the project root
+scaffolded_production_file:
+  why_two_and_not_one: the promoted artifact reads a file named for its environment, so a project with only the development file has nothing for any environment it is deployed to, and the first deployment invents the file under time pressure
+  contents: the structure of the development file with the values a deployment differs on, chiefly data:observability-runtime-config stdout_format json against the plaintext development default
+  secrets: none; a value that must not be in version control is a named environment variable in a comment, per policy:container-runtime-image
+  endpoints: the server.health and server.readiness paths are set, because requirement:healthcheck-subcommand exits 1 on an unset key and a container probes with it
+  not_a_promise_of_completeness: a real deployment edits this file; the scaffold makes it exist and be correct about what it does say
   - requirement:built-in-config-generation writes the scaffold for the active environment
 acceptance:
   - APP_ENV=stg loads ./config.stg.toml when present

@@ -126,6 +126,8 @@ outputs:
   - public directory with non-served .keep sentinel and stable public.go embedding scaffold
   - tinygohelper.go netdev registration for rule:tinygo-runtime-compatibility, only when TinyGo is selected
   - .gitignore excluding **/*_pw_gen.go generated application build inputs
+  - config.prod.toml beside config.dev.toml, per requirement:environment-switching, carrying the same endpoint paths, data:observability-runtime-config stdout_format json, and no secret
+  - the requirement:container-image-scaffold files, which every answer set receives: Dockerfile and .dockerignore, plus Dockerfile.tinygo when TinyGo is selected
   - .vscode/settings.json hiding **/*_pw_gen.go
   - editor_configuration below
   - Devbox configuration with Valkey when selected, TinyGo when selected, and the selected requirement:database-engine-selection server package, only when the Devbox environment is selected

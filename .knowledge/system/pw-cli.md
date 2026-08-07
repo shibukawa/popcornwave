@@ -12,6 +12,7 @@ commands:
   - api:cli-generate
   - api:cli-dev
   - api:cli-build
+  - api:cli-prepare
   - api:cli-migrate
   - api:cli-seed
   - api:cli-doctor
