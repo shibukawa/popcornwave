@@ -3,6 +3,7 @@ package middlewares
 import (
 	"crypto/sha256"
 	"fmt"
+	"io"
 	"io/fs"
 	"mime"
 	"net/http"
@@ -154,17 +155,18 @@ func servePublicManifest(w http.ResponseWriter, r *http.Request, name string, em
 		w.WriteHeader(http.StatusNotModified)
 		return
 	}
-	body, err := fs.ReadFile(embedded, representation.Path)
+	body, err := embedded.Open(representation.Path)
 	if err != nil {
 		// The manifest and the tree ship together, so a missing file means the
 		// two came from different builds and no response would be honest.
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
-	header.Set("Content-Length", strconv.Itoa(len(body)))
+	defer body.Close()
+	header.Set("Content-Length", strconv.Itoa(representation.Length))
 	w.WriteHeader(http.StatusOK)
 	if r.Method == http.MethodGet {
-		_, _ = w.Write(body)
+		_, _ = io.Copy(w, body)
 	}
 }
 

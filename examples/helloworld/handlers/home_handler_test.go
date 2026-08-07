@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	_ "github.com/shibukawa/popcornwave/database/sqlite"
 	"github.com/shibukawa/popcornwave/pw"
 	"github.com/shibukawa/popcornwave/testutil"
 	_ "helloworld"

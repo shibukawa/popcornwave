@@ -434,8 +434,8 @@ func TestAddDatabasePerEngine(t *testing.T) {
 			t.Fatalf("starter migration executes a statement: %q", schema)
 		}
 	}
-	// The engine that pw does not link itself is imported by the entry point,
-	// and pw add plans that edit rather than describing it.
+	// The selected engine is imported by the entry point, and pw add plans that
+	// edit rather than carrying every driver in the framework.
 	if entry := plan.edits["cmd/fixture/main.go"]; !strings.Contains(entry, `_ "github.com/shibukawa/popcornwave/database/postgres"`) {
 		t.Fatalf("the entry point does not link the engine:\n%s", entry)
 	}
@@ -454,6 +454,9 @@ func TestAddDatabasePerEngine(t *testing.T) {
 		enginePlan, err := planCapability(state, addOptions{Capability: capabilityDatabase, Engine: engine})
 		if err != nil {
 			t.Fatal(err)
+		}
+		if entry := enginePlan.edits["cmd/fixture/main.go"]; !strings.Contains(entry, databaseEngines[engine].DriverImport) {
+			t.Fatalf("the %s entry point does not link its engine:\n%s", engine, entry)
 		}
 		if _, wrote := enginePlan.creates["queries/users.pw.sql"]; !wrote {
 			t.Fatalf("%s plan wrote no query example", engine)

@@ -248,7 +248,7 @@ func (t *Tracer) Start(ctx context.Context, name string, options ...StartOption)
 	span := &Span{tracer: t, parent: parentValue.span, data: SpanData{
 		Name: name, SpanContext: sc, Kind: cfg.kind, StartTime: cfg.start,
 		Attributes: append([]otel.Attribute(nil), cfg.attributes...), ScopeName: t.name,
-		ResourceAttributes: append([]otel.Attribute(nil), t.provider.resource...),
+		ResourceAttributes: t.provider.resource,
 	}}
 	if parent.IsValid() {
 		span.data.ParentSpanID = parent.SpanID()

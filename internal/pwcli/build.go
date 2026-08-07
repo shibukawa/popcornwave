@@ -53,7 +53,11 @@ func runBuild(ctx context.Context, args []string, stdout, stderr io.Writer) erro
 		return err
 	}
 	progress.Phase("compiling")
-	command := exec.CommandContext(ctx, "go", "build", config.Main)
+	// A pw build is the deployable artifact. Strip DWARF and the host linker
+	// symbol table, while retaining Go's pclntab so panic stacks still carry
+	// function names and line numbers. trimpath removes checkout-specific source
+	// prefixes and makes otherwise identical builds reproducible across machines.
+	command := exec.CommandContext(ctx, "go", "build", "-trimpath", "-ldflags=-s -w", config.Main)
 	command.Dir, command.Stdout, command.Stderr, command.Env = root, stdout, stderr, os.Environ()
 	err = command.Run()
 	progress.Done()

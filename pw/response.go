@@ -17,7 +17,6 @@ import (
 	"github.com/shibukawa/popcornwave/pwruntime"
 	tinybind "github.com/shibukawa/tinybind-go"
 	"github.com/shibukawa/tinybind-go/htmlbind"
-	"github.com/shibukawa/tinygodriver/compress/zstd"
 )
 
 // Problem is the application-facing RFC problem value.
@@ -480,7 +479,7 @@ func WriteHTMLFragment(w http.ResponseWriter, r *http.Request, fragment HTMLFrag
 func commitHTMLBody(w http.ResponseWriter, r *http.Request, body *bytes.Buffer) {
 	ctx := requestContext(r)
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	writer, closeWriter, err := prepareHTMLResponse(w, r)
+	writer, closeWriter, _, err := prepareHTMLResponse(w, r)
 	if err != nil {
 		WriteProblem(w, r, InternalServerError(err))
 		return
@@ -505,7 +504,7 @@ func streamHTMLChain(w http.ResponseWriter, r *http.Request, wrappers []HTMLWrap
 		chainRenderAttributes(wrappers, true, htmlbind.HasLiveBlock(wrappers, leaf), false)...)
 	defer render.end()
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	writer, closeWriter, err := prepareHTMLResponse(w, r)
+	writer, closeWriter, abortWriter, err := prepareHTMLResponse(w, r)
 	if err != nil {
 		render.failed(err)
 		WriteProblem(w, r, InternalServerError(err))
@@ -542,6 +541,7 @@ func streamHTMLChain(w http.ResponseWriter, r *http.Request, wrappers []HTMLWrap
 				// the encoder is dropped rather than closed, which is the whole
 				// reason it is safe to answer at all.
 				w.Header().Del("Content-Encoding")
+				abortWriter()
 				WriteProblem(w, r, InternalServerError(err))
 				return
 			}
@@ -677,21 +677,21 @@ func renderOptions(ctx context.Context, config HTMLConfig, bot bool, extra []HTM
 	return append(options, extra...)
 }
 
-func prepareHTMLResponse(w http.ResponseWriter, r *http.Request) (io.Writer, func() error, error) {
+func prepareHTMLResponse(w http.ResponseWriter, r *http.Request) (io.Writer, func() error, func(), error) {
 	if !Config[MiddlewareConfig](requestContext(r)).Compression {
-		return w, func() error { return nil }, nil
+		return w, func() error { return nil }, func() {}, nil
 	}
 	addVaryHeader(w.Header(), "Accept-Encoding")
 	if r == nil || !acceptsZstdEncoding(r.Header.Values("Accept-Encoding")) || w.Header().Get("Content-Encoding") != "" {
-		return w, func() error { return nil }, nil
+		return w, func() error { return nil }, func() {}, nil
 	}
-	w.Header().Set("Content-Encoding", zstd.ContentEncoding)
+	w.Header().Set("Content-Encoding", zstdContentEncoding)
 	w.Header().Del("Content-Length")
-	encoder, err := zstd.NewWriter(w, zstd.WithETag(false))
+	encoder, err := newResponseZstdEncoder(w)
 	if err != nil {
-		return w, func() error { return nil }, err
+		return w, func() error { return nil }, func() {}, err
 	}
-	return flushingEncoder{encoder: encoder, downstream: w}, encoder.Close, nil
+	return flushingEncoder{encoder: encoder, downstream: w}, encoder.Close, encoder.Abort, nil
 }
 
 // flushingEncoder chains one flush through both layers. zstd deliberately does
@@ -701,7 +701,7 @@ func prepareHTMLResponse(w http.ResponseWriter, r *http.Request) (io.Writer, fun
 // Flushing per boundary rather than per write is what keeps the ratio
 // reasonable: each flush ends a block, and a block ended early compresses worse.
 type flushingEncoder struct {
-	encoder    *zstd.Writer
+	encoder    responseZstdEncoder
 	downstream http.ResponseWriter
 }
 
@@ -720,7 +720,7 @@ func acceptsZstdEncoding(values []string) bool {
 	for _, value := range values {
 		for _, entry := range strings.Split(value, ",") {
 			parts := strings.Split(entry, ";")
-			if !strings.EqualFold(strings.TrimSpace(parts[0]), zstd.ContentEncoding) {
+			if !strings.EqualFold(strings.TrimSpace(parts[0]), zstdContentEncoding) {
 				continue
 			}
 			quality := 1.0
