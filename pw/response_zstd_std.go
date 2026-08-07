@@ -1,4 +1,4 @@
-//go:build !tinygo && !force_tinygo_logic
+//go:build !tinygo && !force_tinygo_logic && !pw_nozstd
 
 package pw
 
@@ -10,6 +10,8 @@ import (
 )
 
 const zstdContentEncoding = "zstd"
+
+const zstdResponseSupported = true
 
 type responseZstdEncoder interface {
 	io.Writer

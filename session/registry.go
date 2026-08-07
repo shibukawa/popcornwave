@@ -6,6 +6,7 @@ import (
 	"reflect"
 	"sort"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -25,6 +26,10 @@ type Registry struct {
 	byType map[reflect.Type]*slot
 	byKey  map[string]*slot
 	frozen bool
+
+	// snapshot is the immutable byType map published at freeze, so per-request
+	// lookups after that point take no lock.
+	snapshot atomic.Pointer[map[reflect.Type]*slot]
 }
 
 // NewRegistry returns an empty registry.
@@ -43,6 +48,11 @@ type slot struct {
 	placement Placement
 	typ       reflect.Type
 
+	// index is this slot's position in the frozen order, assigned at freeze. It
+	// is what lets a request keep its slot values in a slice instead of a map
+	// keyed by reflect.Type.
+	index int
+
 	// encode and decode move the typed value across the storage boundary. They
 	// close over the slot's codec.
 	encode func(any) ([]byte, error)
@@ -51,9 +61,6 @@ type slot struct {
 	// newCookie builds the per-slot browser cookie of a cookie-placed slot. It
 	// is nil for Private and ServerOnly, which share the session record.
 	newCookie func(JarOptions) (cookieSlot, error)
-
-	// zero is the value a reader sees when the slot is absent.
-	zero any
 
 	// expiry bounds this slot on its own, shorter than the session that carries
 	// it. Zero leaves it bounded by the session alone.
@@ -66,10 +73,11 @@ type slot struct {
 	resetOnRotate bool
 }
 
-// cookieSlot is the non-generic view of one cookie-placed slot's Jar.
+// cookieSlot is the non-generic view of one cookie-placed slot's Jar. load
+// takes the already-extracted cookie value, so the middleware parses the
+// Cookie header once for every jar-backed slot instead of once per slot.
 type cookieSlot interface {
-	name() string
-	load(*http.Request) (any, error)
+	load(value string) (any, error)
 	save(http.ResponseWriter, any) error
 	clear(http.ResponseWriter)
 }
@@ -77,14 +85,12 @@ type cookieSlot interface {
 // jarSlot adapts a typed Jar to cookieSlot.
 type jarSlot[T any] struct{ jar *Jar[T] }
 
-func (s jarSlot[T]) name() string { return s.jar.Name() }
-
-func (s jarSlot[T]) load(r *http.Request) (any, error) {
-	value, err := s.jar.Load(r)
+func (s jarSlot[T]) load(value string) (any, error) {
+	typed, err := s.jar.loadValue(value)
 	if err != nil {
 		return nil, err
 	}
-	return value, nil
+	return typed, nil
 }
 
 func (s jarSlot[T]) save(w http.ResponseWriter, value any) error {
@@ -144,7 +150,6 @@ func Register[T any](registry *Registry, key string, placement Placement, codec 
 		key:       key,
 		placement: placement,
 		typ:       typ,
-		zero:      *new(T),
 		encode: func(value any) ([]byte, error) {
 			typed, ok := value.(T)
 			if !ok {
@@ -184,6 +189,12 @@ func Register[T any](registry *Registry, key string, placement Placement, codec 
 
 // lookup returns the slot registered for T.
 func (r *Registry) lookup(typ reflect.Type) (*slot, bool) {
+	// After freeze the registry is immutable, so the published snapshot answers
+	// per-request lookups without touching the lock.
+	if snapshot := r.snapshot.Load(); snapshot != nil {
+		entry, ok := (*snapshot)[typ]
+		return entry, ok
+	}
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	entry, ok := r.byType[typ]
@@ -201,6 +212,16 @@ func (r *Registry) freeze() []*slot {
 		slots = append(slots, entry)
 	}
 	sort.Slice(slots, func(i, j int) bool { return slots[i].key < slots[j].key })
+	// The key order is deterministic, so a second freeze assigns the same
+	// indexes and an existing manager keeps reading the right elements.
+	for index, entry := range slots {
+		entry.index = index
+	}
+	frozen := make(map[reflect.Type]*slot, len(r.byType))
+	for typ, entry := range r.byType {
+		frozen[typ] = entry
+	}
+	r.snapshot.Store(&frozen)
 	return slots
 }
 

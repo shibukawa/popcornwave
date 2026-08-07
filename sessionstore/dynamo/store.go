@@ -117,17 +117,6 @@ func (store *Store) resolve(ctx context.Context) (*dynamodb.Client, string, erro
 	return client, table, nil
 }
 
-// The record's deadline is the earlier of its absolute and idle expiry, which
-// session.RawRecord already computes. It is stored as one attribute so that a
-// read, a condition, and TTL all consult the same value.
-func deadAt[T any](record session.RawRecord) time.Time {
-	dead := record.ExpiresAt
-	if !record.IdleExpiresAt.IsZero() && record.IdleExpiresAt.Before(dead) {
-		dead = record.IdleExpiresAt
-	}
-	return dead
-}
-
 // Put replaces one key. PutItem is atomic per item, so no condition is needed.
 func (store *Store) Put(ctx context.Context, keyHash string, record session.RawRecord) error {
 	if keyHash == "" {

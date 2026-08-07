@@ -71,7 +71,7 @@ func unwrapExecutor(executor sqlbind.SQLExecutor) sqlbind.SQLExecutor {
 // costs a fixed handful of attributes and lands in a trace beside the request
 // that issued it, without the per-statement record; a development run usually
 // wants both.
-func instrument(current *Resources, executor sqlbind.SQLExecutor, logger Logger) sqlbind.SQLExecutor {
+func instrument(current *Resources, connection *Connection, executor sqlbind.SQLExecutor, logger Logger) sqlbind.SQLExecutor {
 	config := current.Query
 	tracing := current.Trace
 	if tracing != nil && !tracing.Database {
@@ -82,11 +82,18 @@ func instrument(current *Resources, executor sqlbind.SQLExecutor, logger Logger)
 	}
 	inTx, depth := current.TxScope.state()
 	driver, label := current.DBDriver, ""
-	if connection, err := current.connection(); err == nil {
+	// The caller passes the connection when resolving the executor already
+	// resolved one, so the memo lock is not taken twice for the same answer.
+	if connection == nil {
+		if resolved, err := current.connection(); err == nil {
+			connection = resolved
+		}
+	}
+	if connection != nil {
 		driver = connection.Driver
 		// One connection needs no label: it would repeat on every record and
 		// name the only database there is.
-		if len(current.Connections.Connections()) > 1 {
+		if current.Connections.Count() > 1 {
 			label = connection.Label
 		}
 	}
@@ -270,7 +277,23 @@ func sqlOperation(query string) string {
 	if index := strings.IndexAny(word, " \t\r\n(;"); index >= 0 {
 		word = word[:index]
 	}
-	return sqlStatementKeywords[strings.ToLower(word)]
+	return sqlKeyword(word)
+}
+
+// sqlKeyword looks word up in the keyword table with the ASCII case folded in
+// place instead of through strings.ToLower, which would allocate per traced
+// statement. Only a letter folds to a letter under |0x20, so the fold cannot
+// turn a non-keyword into a keyword.
+func sqlKeyword(word string) string {
+	const longest = len("savepoint")
+	if len(word) > longest {
+		return ""
+	}
+	var folded [longest]byte
+	for i := 0; i < len(word); i++ {
+		folded[i] = word[i] | 0x20
+	}
+	return sqlStatementKeywords[string(folded[:len(word)])]
 }
 
 // record emits at most one log record for one execution. A wrapper built for
@@ -484,8 +507,32 @@ func displayValue(value any) string {
 		return strconv.FormatBool(typed)
 	case time.Time:
 		return typed.Format(time.RFC3339Nano)
-	case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64, float32, float64:
-		return fmt.Sprint(typed)
+	// strconv rather than fmt for the numeric kinds: this runs once per bind
+	// value on every recorded statement, and the text is identical.
+	case int:
+		return strconv.FormatInt(int64(typed), 10)
+	case int8:
+		return strconv.FormatInt(int64(typed), 10)
+	case int16:
+		return strconv.FormatInt(int64(typed), 10)
+	case int32:
+		return strconv.FormatInt(int64(typed), 10)
+	case int64:
+		return strconv.FormatInt(typed, 10)
+	case uint:
+		return strconv.FormatUint(uint64(typed), 10)
+	case uint8:
+		return strconv.FormatUint(uint64(typed), 10)
+	case uint16:
+		return strconv.FormatUint(uint64(typed), 10)
+	case uint32:
+		return strconv.FormatUint(uint64(typed), 10)
+	case uint64:
+		return strconv.FormatUint(typed, 10)
+	case float32:
+		return strconv.FormatFloat(float64(typed), 'g', -1, 32)
+	case float64:
+		return strconv.FormatFloat(typed, 'g', -1, 64)
 	default:
 		return fmt.Sprintf("<%T>", value)
 	}

@@ -85,7 +85,18 @@ func (c *Connection) Tables(ctx context.Context) ([]Table, error) {
 
 // Columns describes one table.
 func (c *Connection) Columns(ctx context.Context, table string) ([]Column, error) {
-	if err := c.knownTable(ctx, table); err != nil {
+	tables, err := c.Tables(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return c.columns(ctx, tables, table)
+}
+
+// columns is Columns with the catalog already in hand. Listing the tables is a
+// real query against the application's pool, so a request that needs several
+// checks fetches the list once and passes it down rather than asking again.
+func (c *Connection) columns(ctx context.Context, tables []Table, table string) ([]Column, error) {
+	if err := knownTable(tables, table); err != nil {
 		return nil, err
 	}
 	rows, err := c.queryRows(ctx, c.dialect.columns, table)
@@ -113,7 +124,16 @@ func (c *Connection) Columns(ctx context.Context, table string) ([]Column, error
 // primary key where there is one, because a page whose order changes between
 // reads shows the same row twice and never shows another.
 func (c *Connection) Rows(ctx context.Context, table string, offset int) (Page, error) {
-	columns, err := c.Columns(ctx, table)
+	tables, err := c.Tables(ctx)
+	if err != nil {
+		return Page{}, err
+	}
+	return c.rows(ctx, tables, table, offset)
+}
+
+// rows is Rows over an already-fetched catalog.
+func (c *Connection) rows(ctx context.Context, tables []Table, table string, offset int) (Page, error) {
+	columns, err := c.columns(ctx, tables, table)
 	if err != nil {
 		return Page{}, err
 	}
@@ -245,11 +265,7 @@ func primaryKey(columns []Column) []Column {
 // This is the guard that keeps a request a selection. Every identifier this
 // package puts into a statement has been through here first, so a name carrying
 // SQL is rejected rather than quoted and hoped about.
-func (c *Connection) knownTable(ctx context.Context, table string) error {
-	tables, err := c.Tables(ctx)
-	if err != nil {
-		return err
-	}
+func knownTable(tables []Table, table string) error {
 	for _, known := range tables {
 		if known.Name == table {
 			return nil

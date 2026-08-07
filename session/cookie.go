@@ -10,9 +10,11 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"hash"
 	"io"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -99,7 +101,7 @@ var cookieEncoding = base64.RawURLEncoding
 //
 // A secret is 32 or more random bytes and is never logged.
 type Keyring struct {
-	keys []cookieKey
+	keys []*cookieKey
 }
 
 // cookieKey is one secret expanded into its two purpose-separated subkeys. The
@@ -108,7 +110,28 @@ type Keyring struct {
 type cookieKey struct {
 	sign []byte
 	seal cipher.AEAD
+
+	// macs pools keyed HMAC states, so a sign or verify reuses the key
+	// schedule instead of paying hmac.New on every cookie.
+	macs sync.Pool
 }
+
+// mac computes the MAC of binding and body under this key's signing subkey.
+func (k *cookieKey) mac(binding, body string) []byte {
+	state, ok := k.macs.Get().(hash.Hash)
+	if !ok {
+		state = hmac.New(sha256.New, k.sign)
+	}
+	state.Reset()
+	io.WriteString(state, binding)
+	state.Write(macSeparator)
+	io.WriteString(state, body)
+	sum := state.Sum(nil)
+	k.macs.Put(state)
+	return sum
+}
+
+var macSeparator = []byte{0}
 
 // NewKeyring returns a keyring over raw secrets. The first secret is the
 // writing key and the rest are accepted for reading during a rotation.
@@ -119,7 +142,7 @@ func NewKeyring(secrets ...[]byte) (*Keyring, error) {
 	if len(secrets) > maxKeyringSecrets {
 		return nil, fmt.Errorf("%w: too many secrets", ErrInvalidKey)
 	}
-	keys := make([]cookieKey, 0, len(secrets))
+	keys := make([]*cookieKey, 0, len(secrets))
 	for _, secret := range secrets {
 		if len(secret) < cookieSecretBytes {
 			return nil, fmt.Errorf("%w: secret shorter than %d bytes", ErrInvalidKey, cookieSecretBytes)
@@ -132,7 +155,7 @@ func NewKeyring(secrets ...[]byte) (*Keyring, error) {
 		if err != nil {
 			return nil, fmt.Errorf("%w: aead", ErrInvalidKey)
 		}
-		keys = append(keys, cookieKey{sign: derive(secret, "popcornwave/cookie/sign/v1"), seal: seal})
+		keys = append(keys, &cookieKey{sign: derive(secret, "popcornwave/cookie/sign/v1"), seal: seal})
 	}
 	return &Keyring{keys: keys}, nil
 }
@@ -191,6 +214,11 @@ type cookieCodec struct {
 	keys   *Keyring
 	now    func() time.Time
 	random io.Reader
+
+	// bindingPrefix and valuePrefix are fixed once mode and name are known, so
+	// neither is rebuilt per cookie.
+	bindingPrefix string
+	valuePrefix   string
 }
 
 func newCookieCodec(mode CookieMode, name string, keys *Keyring, now func() time.Time, random io.Reader) (cookieCodec, error) {
@@ -209,13 +237,19 @@ func newCookieCodec(mode CookieMode, name string, keys *Keyring, now func() time
 	if random == nil {
 		random = rand.Reader
 	}
-	return cookieCodec{mode: mode, name: name, keys: keys, now: now, random: random}, nil
+	codec := cookieCodec{mode: mode, name: name, keys: keys, now: now, random: random}
+	codec.bindingPrefix = cookieVersion + "." + codec.tag() + "." + name + "\x00"
+	codec.valuePrefix = cookieVersion + "." + codec.tag() + "."
+	return codec, nil
 }
 
 // binding is the authenticated context of a value: format version, mode,
 // cookie name, and the caller's binding string.
-func (c cookieCodec) binding(tag, aad string) string {
-	return cookieVersion + "." + tag + "." + c.name + "\x00" + aad
+func (c cookieCodec) binding(aad string) string {
+	if aad == "" {
+		return c.bindingPrefix
+	}
+	return c.bindingPrefix + aad
 }
 
 // encode returns the cookie value carrying payload.
@@ -226,17 +260,17 @@ func (c cookieCodec) binding(tag, aad string) string {
 func (c cookieCodec) encode(payload []byte, expiresAt time.Time, aad string) (string, error) {
 	switch c.mode {
 	case CookiePlain:
-		return cookieVersion + "." + tagPlain + "." + cookieEncoding.EncodeToString(payload), nil
+		return c.valuePrefix + cookieEncoding.EncodeToString(payload), nil
 	case CookieSigned:
 		body := cookieEncoding.EncodeToString(withExpiry(payload, expiresAt))
-		mac := c.keys.sign(c.binding(tagSigned, aad), body)
-		return cookieVersion + "." + tagSigned + "." + body + "." + cookieEncoding.EncodeToString(mac), nil
+		mac := c.keys.sign(c.binding(aad), body)
+		return c.valuePrefix + body + "." + cookieEncoding.EncodeToString(mac), nil
 	case CookieSealed:
-		sealed, err := c.keys.seal(c.binding(tagSealed, aad), withExpiry(payload, expiresAt), c.random)
+		sealed, err := c.keys.seal(c.binding(aad), withExpiry(payload, expiresAt), c.random)
 		if err != nil {
 			return "", err
 		}
-		return cookieVersion + "." + tagSealed + "." + cookieEncoding.EncodeToString(sealed), nil
+		return c.valuePrefix + cookieEncoding.EncodeToString(sealed), nil
 	default:
 		return "", fmt.Errorf("%w: cookie mode", ErrInvalidOptions)
 	}
@@ -266,7 +300,7 @@ func (c cookieCodec) decode(value, aad string) ([]byte, error) {
 		if err != nil {
 			return nil, ErrCookieInvalid
 		}
-		if !c.keys.verify(c.binding(tagSigned, aad), body, mac) {
+		if !c.keys.verify(c.binding(aad), body, mac) {
 			return nil, ErrCookieInvalid
 		}
 		stamped, err := cookieEncoding.DecodeString(body)
@@ -279,7 +313,7 @@ func (c cookieCodec) decode(value, aad string) ([]byte, error) {
 		if err != nil {
 			return nil, ErrCookieInvalid
 		}
-		stamped, ok := c.keys.open(c.binding(tagSealed, aad), sealed)
+		stamped, ok := c.keys.open(c.binding(aad), sealed)
 		if !ok {
 			return nil, ErrCookieInvalid
 		}
@@ -336,37 +370,31 @@ func splitCookieValue(value string) (tag, rest string, ok bool) {
 
 // sign returns the MAC of body under the writing key.
 func (k *Keyring) sign(binding, body string) []byte {
-	return macOf(k.keys[0].sign, binding, body)
+	return k.keys[0].mac(binding, body)
 }
 
 // verify accepts a MAC produced by any key in the ring, which is what lets a
 // rotation keep reading values written under the previous secret.
 func (k *Keyring) verify(binding, body string, mac []byte) bool {
 	for _, key := range k.keys {
-		if hmac.Equal(macOf(key.sign, binding, body), mac) {
+		if hmac.Equal(key.mac(binding, body), mac) {
 			return true
 		}
 	}
 	return false
 }
 
-func macOf(key []byte, binding, body string) []byte {
-	mac := hmac.New(sha256.New, key)
-	mac.Write([]byte(binding))
-	mac.Write([]byte{0})
-	mac.Write([]byte(body))
-	return mac.Sum(nil)
-}
-
 // seal encrypts plaintext under the writing key, with binding as associated
 // data so the result decrypts only under the same name and binding.
 func (k *Keyring) seal(binding string, plaintext []byte, random io.Reader) ([]byte, error) {
-	nonce := make([]byte, nonceBytes)
-	if _, err := io.ReadFull(random, nonce); err != nil {
+	aead := k.keys[0].seal
+	out := make([]byte, nonceBytes, nonceBytes+len(plaintext)+aead.Overhead())
+	if _, err := io.ReadFull(random, out); err != nil {
 		return nil, fmt.Errorf("%w: nonce", ErrUnavailable)
 	}
-	sealed := k.keys[0].seal.Seal(nil, nonce, plaintext, []byte(binding))
-	return append(nonce, sealed...), nil
+	// Sealing in place after the nonce keeps the whole value in one
+	// allocation.
+	return aead.Seal(out, out[:nonceBytes], plaintext, []byte(binding)), nil
 }
 
 // open decrypts under any key in the ring.

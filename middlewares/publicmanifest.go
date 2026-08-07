@@ -124,39 +124,87 @@ func selectRepresentation(entry AssetEntry, accept []string, acceptEncoding []st
 			encoded, hasEncoded = candidate, true
 		}
 	}
-	quality := parseEncodingQuality(strings.Join(acceptEncoding, ","))
-	if hasEncoded && len(acceptEncoding) > 0 {
-		coding, set := quality[encoded.ContentEncoding]
-		if !set {
-			coding = quality["*"]
-		}
-		if coding > 0 {
-			return encoded, true
-		}
-	}
-	if !hasIdentity {
+	if len(acceptEncoding) > 0 {
+		quality := scanEncodingQuality(strings.Join(acceptEncoding, ","), encoded.ContentEncoding)
 		if hasEncoded {
+			coding := quality.coding
+			if !quality.codingSet {
+				coding = quality.wildcard
+			}
+			if coding > 0 {
+				return encoded, true
+			}
+		}
+		if !hasIdentity {
 			// A URL stored only in an encoded form cannot answer a client that
 			// refuses the coding, which is a build mistake rather than a
 			// negotiation outcome.
 			return AssetRepresentation{}, false
 		}
-		return AssetRepresentation{}, false
-	}
-	if len(acceptEncoding) > 0 {
-		identityQuality, set := quality["identity"]
-		if !set {
-			if wildcard, wildcardSet := quality["*"]; wildcardSet {
-				identityQuality = wildcard
-			} else {
-				identityQuality = 1
-			}
+		identityQuality := 1.0
+		if quality.identitySet {
+			identityQuality = quality.identity
+		} else if quality.wildcardSet {
+			identityQuality = quality.wildcard
 		}
 		if identityQuality <= 0 {
 			return AssetRepresentation{}, false
 		}
+		return identity, true
+	}
+	if !hasIdentity {
+		return AssetRepresentation{}, false
 	}
 	return identity, true
+}
+
+// encodingQuality holds the q-values for the only tokens a negotiation ever
+// asks about: the one content coding the asset stores, identity, and the
+// wildcard. Scanning for exactly these keeps the parse off the heap; a full
+// token-to-quality map was allocated per request and then read three times.
+type encodingQuality struct {
+	coding, identity, wildcard          float64
+	codingSet, identitySet, wildcardSet bool
+}
+
+// scanEncodingQuality reads an Accept-Encoding value for the named coding,
+// identity, and the wildcard. A duplicated token keeps its last q-value, as
+// the map it replaces did.
+func scanEncodingQuality(header, coding string) encodingQuality {
+	var result encodingQuality
+	for remainder := header; remainder != ""; {
+		var item string
+		item, remainder, _ = strings.Cut(remainder, ",")
+		token, parameters, _ := strings.Cut(item, ";")
+		token = strings.TrimSpace(token)
+		if token == "" {
+			continue
+		}
+		quality := 1.0
+		for parameters != "" {
+			var parameter string
+			parameter, parameters, _ = strings.Cut(parameters, ";")
+			name, value, found := strings.Cut(strings.TrimSpace(parameter), "=")
+			if !found || !strings.EqualFold(strings.TrimSpace(name), "q") {
+				continue
+			}
+			parsed, err := parseQuality(strings.TrimSpace(value))
+			if err != nil {
+				quality = 0
+			} else {
+				quality = parsed
+			}
+		}
+		switch {
+		case coding != "" && strings.EqualFold(token, coding):
+			result.coding, result.codingSet = quality, true
+		case strings.EqualFold(token, "identity"):
+			result.identity, result.identitySet = quality, true
+		case token == "*":
+			result.wildcard, result.wildcardSet = quality, true
+		}
+	}
+	return result
 }
 
 // acceptableByMediaType filters an entry to the representations the request

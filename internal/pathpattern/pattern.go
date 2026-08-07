@@ -73,43 +73,38 @@ func compileOne(value string) (Pattern, error) {
 	return Pattern{source: segments, subtree: subtree, original: value}, nil
 }
 
-// match reports whether path matches. path must already be the canonical
-// request path.
 // Match reports whether path matches. path must already be canonical.
+//
+// The path is walked segment by segment rather than split into a slice: a
+// policy runs this over every include and exclude pattern on every unsafe
+// request, so the match must not allocate.
 func (p Pattern) Match(path string) bool {
-	trimmed := strings.TrimPrefix(path, "/")
-	var segments []string
-	if trimmed != "" {
-		segments = strings.Split(trimmed, "/")
+	remainder := strings.TrimPrefix(path, "/")
+	exhausted := remainder == ""
+	if !exhausted {
 		// A trailing slash names the same thing as its absence for the purpose
 		// of a policy decision, so it is dropped rather than counted. Counting
 		// it made /admin/delete/ a different length from the pattern
 		// /admin/delete, so the pattern did not match and an include failed
 		// open — the request went through unprotected instead of being refused.
-		if last := len(segments) - 1; segments[last] == "" {
-			segments = segments[:last]
-		}
+		remainder = strings.TrimSuffix(remainder, "/")
 	}
-	if p.subtree {
-		if len(segments) < len(p.source) {
+	for _, expected := range p.source {
+		if exhausted {
 			return false
 		}
-	} else if len(segments) != len(p.source) {
-		return false
-	}
-	for index, expected := range p.source {
-		actual := segments[index]
+		var actual string
+		var more bool
+		actual, remainder, more = strings.Cut(remainder, "/")
+		exhausted = !more
 		if actual == "" {
 			return false
 		}
-		if expected == "*" {
-			continue
-		}
-		if expected != actual {
+		if expected != "*" && expected != actual {
 			return false
 		}
 	}
-	return true
+	return p.subtree || exhausted
 }
 
 // MatchAny reports whether any pattern matches path.

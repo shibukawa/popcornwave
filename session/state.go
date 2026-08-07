@@ -20,20 +20,88 @@ type stateKey struct{}
 // state is the session of one request: the token, where its records live, and
 // the decoded value of every registered slot.
 type state struct {
-	manager  *Manager
-	writer   http.ResponseWriter
-	request  *http.Request
-	token    string
-	record   Record[slotMap]
-	values   map[reflect.Type]any
-	present  map[reflect.Type]bool
+	manager *Manager
+	writer  http.ResponseWriter
+	request *http.Request
+	token   string
+	record  Record[slotMap]
+	// values and present are indexed by slot.index and allocated on the first
+	// value, so a request that carries no session state allocates neither.
+	values  []any
+	present []bool
+	// detached carries the values of a WithValue state, which has no manager
+	// and therefore no frozen slot order to index.
+	detached map[reflect.Type]any
 	promoted bool
+
+	// cookies is the parsed Cookie header, read once for the token and every
+	// jar-backed slot instead of once per lookup.
+	cookies       []*http.Cookie
+	cookiesParsed bool
+
+	// hash caches keyHash(token), which several record operations need in one
+	// request.
+	hash string
 
 	dirtyAnon    bool
 	dirtyServer  bool
 	failed       error
 	recordLoaded bool
 	recordErr    error
+}
+
+// slotValue returns the decoded value of one slot and whether the request
+// carries it.
+func (s *state) slotValue(entry *slot) (any, bool) {
+	if s.manager == nil {
+		value, ok := s.detached[entry.typ]
+		return value, ok
+	}
+	if s.present == nil || !s.present[entry.index] {
+		return nil, false
+	}
+	return s.values[entry.index], true
+}
+
+func (s *state) setSlotValue(entry *slot, value any) {
+	if s.values == nil {
+		s.values = make([]any, len(s.manager.slots))
+		s.present = make([]bool, len(s.manager.slots))
+	}
+	s.values[entry.index] = value
+	s.present[entry.index] = true
+}
+
+func (s *state) clearSlotValue(entry *slot) {
+	if s.present == nil {
+		return
+	}
+	s.values[entry.index] = nil
+	s.present[entry.index] = false
+}
+
+// cookie returns the value of one request cookie, parsing the Cookie header on
+// the first call. An empty value reads as absent, exactly as r.Cookie treats a
+// cookie the request does not carry.
+func (s *state) cookie(name string) (string, bool) {
+	if !s.cookiesParsed {
+		s.cookiesParsed = true
+		s.cookies = s.request.Cookies()
+	}
+	for _, cookie := range s.cookies {
+		if cookie.Name == name && cookie.Value != "" {
+			return cookie.Value, true
+		}
+	}
+	return "", false
+}
+
+// tokenHash returns keyHash(token), computed once per token.
+func (s *state) tokenHash() string {
+	if s.hash == "" && s.token != "" {
+		s.hash = keyHash(s.token)
+	}
+	return s.hash
 }
 
 // bucket is where one slot's bytes go right now. A cookie-placed slot has its
@@ -77,10 +145,11 @@ func (s *Slot[T]) Get() (T, bool) {
 	if s.state.manager != nil && s.entry.placement.recordPlaced() {
 		_ = s.state.resolveRecord()
 	}
-	if !s.state.present[s.entry.typ] {
+	held, ok := s.state.slotValue(s.entry)
+	if !ok {
 		return zero, false
 	}
-	value, ok := s.state.values[s.entry.typ].(T)
+	value, ok := held.(T)
 	if !ok {
 		return zero, false
 	}
@@ -141,22 +210,15 @@ func WithValue[T any](ctx context.Context, value T) context.Context {
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	next := &state{
-		values:  map[reflect.Type]any{},
-		present: map[reflect.Type]bool{},
-	}
+	next := &state{detached: map[reflect.Type]any{}}
 	if current, ok := ctx.Value(stateKey{}).(*state); ok && current != nil && current.manager == nil {
 		// Extend a detached state rather than shadowing it, so several values
 		// installed in sequence are all readable.
-		for typ, held := range current.values {
-			next.values[typ] = held
-		}
-		for typ, held := range current.present {
-			next.present[typ] = held
+		for typ, held := range current.detached {
+			next.detached[typ] = held
 		}
 	}
-	typ := reflect.TypeFor[T]()
-	next.values[typ], next.present[typ] = value, true
+	next.detached[reflect.TypeFor[T]()] = value
 	return context.WithValue(ctx, stateKey{}, next)
 }
 
@@ -181,7 +243,7 @@ func (s *state) set(entry *slot, value any) error {
 	if entry.placement == RequestScope {
 		// Nothing leaves this request: no cookie, no token, no record. The
 		// value dies when the request does, which is the placement's promise.
-		s.values[entry.typ], s.present[entry.typ] = value, true
+		s.setSlotValue(entry, value)
 		return nil
 	}
 	if entry.placement.cookiePlaced() {
@@ -192,7 +254,7 @@ func (s *state) set(entry *slot, value any) error {
 		if err := jar.save(s.writer, value); err != nil {
 			return err
 		}
-		s.values[entry.typ], s.present[entry.typ] = value, true
+		s.setSlotValue(entry, value)
 		return nil
 	}
 	if err := s.resolveRecord(); err != nil && !staleSessionError(err) {
@@ -201,7 +263,7 @@ func (s *state) set(entry *slot, value any) error {
 	if err := s.ensureToken(); err != nil {
 		return err
 	}
-	s.values[entry.typ], s.present[entry.typ] = value, true
+	s.setSlotValue(entry, value)
 	s.markDirty(s.bucketOf(entry))
 	// Flushing here rather than at commit keeps a refused oversized write an
 	// error the caller sees, instead of a silent loss after the handler ran.
@@ -213,26 +275,23 @@ func (s *state) clear(entry *slot) error {
 		return fmt.Errorf("%w: this session was installed by WithValue and is read-only", ErrInvalidOptions)
 	}
 	if entry.placement == RequestScope {
-		delete(s.values, entry.typ)
-		delete(s.present, entry.typ)
+		s.clearSlotValue(entry)
 		return nil
 	}
 	if entry.placement.cookiePlaced() {
 		if jar, ok := s.manager.jars[entry.typ]; ok {
 			jar.clear(s.writer)
 		}
-		delete(s.values, entry.typ)
-		delete(s.present, entry.typ)
+		s.clearSlotValue(entry)
 		return nil
 	}
 	if err := s.resolveRecord(); err != nil && !staleSessionError(err) {
 		return err
 	}
-	if !s.present[entry.typ] {
+	if _, ok := s.slotValue(entry); !ok {
 		return nil
 	}
-	delete(s.values, entry.typ)
-	delete(s.present, entry.typ)
+	s.clearSlotValue(entry)
 	if s.token == "" {
 		return nil
 	}
@@ -263,6 +322,7 @@ func (s *state) ensureToken() error {
 		return fmt.Errorf("%w: token", ErrUnavailable)
 	}
 	s.token = token
+	s.hash = ""
 	s.record = s.manager.newRecord(nil, s.manager.now())
 	s.manager.writeCookie(s.writer, token, s.manager.deadlineOf(s.record))
 	return nil
@@ -271,18 +331,23 @@ func (s *state) ensureToken() error {
 // collect encodes the slots of one bucket.
 func (s *state) collect(where bucket) (slotMap, error) {
 	values := slotMap{}
+	now := s.manager.now()
 	for _, entry := range s.manager.slots {
-		if s.bucketOf(entry) != where || !s.present[entry.typ] {
+		if s.bucketOf(entry) != where {
 			continue
 		}
-		encoded, err := entry.encode(s.values[entry.typ])
+		held, ok := s.slotValue(entry)
+		if !ok {
+			continue
+		}
+		encoded, err := entry.encode(held)
 		if err != nil {
 			return nil, fmt.Errorf("slot %q: %w", entry.key, err)
 		}
 		if entry.expiry > 0 {
 			// A slot may die before the session that carries it, so it carries
 			// its own deadline inside the record.
-			encoded = stampSlot(s.manager.now().Add(entry.expiry), encoded)
+			encoded = stampSlot(now.Add(entry.expiry), encoded)
 		}
 		values[entry.key] = encoded
 	}
@@ -326,9 +391,9 @@ func (s *state) put(where bucket, store Store[slotMap]) error {
 	if len(values) == 0 {
 		// Nothing left in this placement: drop the record rather than keeping an
 		// empty one alive.
-		return store.Delete(s.bindTo(store), keyHash(s.token))
+		return store.Delete(s.bindTo(store), s.tokenHash())
 	}
-	return store.Put(s.bindTo(store), keyHash(s.token), record)
+	return store.Put(s.bindTo(store), s.tokenHash(), record)
 }
 
 func (s *state) bindTo(store Store[slotMap]) context.Context {
@@ -339,7 +404,7 @@ func (s *state) bindTo(store Store[slotMap]) context.Context {
 func (s *state) destroy() error {
 	var failure error
 	if s.token != "" {
-		hash := keyHash(s.token)
+		hash := s.tokenHash()
 		for _, store := range s.manager.stores() {
 			if err := store.Delete(s.bindTo(store), hash); err != nil && failure == nil {
 				failure = err
@@ -358,6 +423,7 @@ func (s *state) destroy() error {
 		}
 	}
 	s.token = ""
+	s.hash = ""
 	for _, entry := range s.manager.slots {
 		if entry.placement == RequestScope {
 			// The value was derived from this request rather than stored by the
@@ -365,8 +431,7 @@ func (s *state) destroy() error {
 			// take back.
 			continue
 		}
-		delete(s.values, entry.typ)
-		delete(s.present, entry.typ)
+		s.clearSlotValue(entry)
 	}
 	s.dirtyAnon, s.dirtyServer = false, false
 	s.record = Record[slotMap]{}
@@ -395,28 +460,29 @@ func (m *Manager) stores() []Store[slotMap] {
 // slots. A promotion merges the first into the second, so a value found on the
 // server wins over a record cookie the browser may still be presenting.
 func (s *state) load() error {
-	token, ok := s.manager.requestToken(s.request)
-	if !ok {
+	token, ok := s.cookie(s.manager.cookie.Name)
+	if !ok || !validToken(token) {
 		return nil
 	}
 	s.token = token
-	hash := keyHash(token)
+	s.hash = ""
+	hash := s.tokenHash()
 
 	server, serverOK, err := s.read(s.manager.server, hash)
 	if err != nil {
-		s.token = ""
+		s.token, s.hash = "", ""
 		return err
 	}
 	anon, anonOK := Record[slotMap]{}, false
 	if s.manager.anon != nil && !s.manager.serverIsAnon {
 		anon, anonOK, err = s.read(s.manager.anon, hash)
 		if err != nil && !errors.Is(err, ErrExpired) {
-			s.token = ""
+			s.token, s.hash = "", ""
 			return err
 		}
 	}
 	if !serverOK && !anonOK {
-		s.token = ""
+		s.token, s.hash = "", ""
 		return ErrNotFound
 	}
 
@@ -457,7 +523,7 @@ func (s *state) load() error {
 			// One unreadable slot is cleared rather than failing the record.
 			continue
 		}
-		s.values[entry.typ], s.present[entry.typ] = value, true
+		s.setSlotValue(entry, value)
 	}
 	return nil
 }
@@ -489,9 +555,12 @@ func (s *state) loadCookieSlots() {
 		if !ok {
 			continue
 		}
-		switch value, err := jar.load(s.request); {
+		// The jar cookie is named after the slot key, and the shared parse
+		// spares one Cookie-header scan per slot.
+		raw, _ := s.cookie(entry.key)
+		switch value, err := jar.load(raw); {
 		case err == nil:
-			s.values[entry.typ], s.present[entry.typ] = value, true
+			s.setSlotValue(entry, value)
 		case !errors.Is(err, ErrCookieMissing):
 			jar.clear(s.writer)
 		}

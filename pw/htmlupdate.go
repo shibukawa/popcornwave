@@ -5,8 +5,11 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"reflect"
 	"runtime/debug"
+	"strings"
 	"sync"
+	"sync/atomic"
 
 	"github.com/shibukawa/popcornwave/internal/safeurl"
 	"github.com/shibukawa/popcornwave/pwruntime"
@@ -78,20 +81,70 @@ func UpdateBuildID() string {
 // Everything the module could decide for itself is decided here instead, so a
 // project reads one framework rather than one framework and its dependency.
 func updateOptions(config HTMLConfig) htmlupdate.Options {
-	return htmlupdate.Options{
-		Key:                 []byte(config.Update.ValidatorKey),
-		HeaderPrefix:        UpdateHeaderPrefix,
-		DataAttributePrefix: UpdateAttributePrefix,
-		GlobalName:          UpdateGlobalName,
-		PathPrefix:          updatePathPrefix,
-		BuildID:             updateBuildID(),
-		MaxManifestBytes:    config.Update.MaxManifestBytes,
-		CSRFHeaderName:      pwruntime.CSRFHeaderName,
-		// The merged asset of requirement:unified-update-runtime is this
-		// framework's, so the module serves none and emits no tag of its own.
-		CallerOwnsRuntime: true,
-		OnFailure:         writeUpdateFailure,
+	return updateEntry(config).options
+}
+
+// updateOptionsEntry is one resolved configuration, cached because it is a
+// pure function of the update section and rebuilt several times per rendered
+// page otherwise.
+type updateOptionsEntry struct {
+	config  HTMLUpdateConfig
+	options htmlupdate.Options
+	// configJSON is the marshaled token-free runtime configuration, and
+	// spliceable records whether appending a csrf member reproduces the
+	// module's own encoding. Checked once here, so a change of field order or
+	// tags upstream degrades to the per-render marshal instead of emitting a
+	// wrong document.
+	configJSON string
+	spliceable bool
+}
+
+var updateOptionsCache atomic.Pointer[updateOptionsEntry]
+
+func updateEntry(config HTMLConfig) *updateOptionsEntry {
+	if cached := updateOptionsCache.Load(); cached != nil && cached.config == config.Update {
+		return cached
 	}
+	entry := &updateOptionsEntry{
+		config: config.Update,
+		options: htmlupdate.Options{
+			Key:                 []byte(config.Update.ValidatorKey),
+			HeaderPrefix:        UpdateHeaderPrefix,
+			DataAttributePrefix: UpdateAttributePrefix,
+			GlobalName:          UpdateGlobalName,
+			PathPrefix:          updatePathPrefix,
+			BuildID:             updateBuildID(),
+			MaxManifestBytes:    config.Update.MaxManifestBytes,
+			CSRFHeaderName:      pwruntime.CSRFHeaderName,
+			// The merged asset of requirement:unified-update-runtime is this
+			// framework's, so the module serves none and emits no tag of its
+			// own.
+			CallerOwnsRuntime: true,
+			OnFailure:         writeUpdateFailure,
+		},
+	}
+	if encoded, err := json.Marshal(entry.options.RuntimeConfig()); err == nil {
+		entry.configJSON = string(encoded)
+		probe, err := json.Marshal(entry.options.RuntimeConfigFor("pw-splice-probe"))
+		entry.spliceable = err == nil && string(probe) == spliceCSRF(entry.configJSON, "pw-splice-probe")
+	}
+	updateOptionsCache.Store(entry)
+	return entry
+}
+
+// spliceCSRF appends the csrf member to the cached token-free configuration.
+func spliceCSRF(configJSON, token string) string {
+	encodedToken, err := json.Marshal(token)
+	if err != nil || len(configJSON) < 2 || configJSON[len(configJSON)-1] != '}' {
+		return ""
+	}
+	var b strings.Builder
+	b.Grow(len(configJSON) + len(`,"csrf":`) + len(encodedToken))
+	b.WriteString(configJSON[:len(configJSON)-1])
+	b.WriteString(`,"csrf":`)
+	b.Write(encodedToken)
+	b.WriteByte('}')
+	return b.String()
 }
 
 // updateHeadNodes contributes the runtime reference and its configuration.
@@ -109,14 +162,30 @@ func updateHeadNodes(config HTMLConfig, csrfToken string) []htmlbind.HeadNode {
 	if !config.Update.Enabled {
 		return nil
 	}
-	encoded, err := json.Marshal(updateOptions(config).RuntimeConfigFor(csrfToken))
-	if err != nil {
+	entry := updateEntry(config)
+	// The configuration is process-static and marshaled once; only the token
+	// varies per render, and it is spliced in rather than paying a reflective
+	// marshal of the whole struct on every page.
+	var content string
+	switch {
+	case entry.configJSON == "":
 		return nil
+	case csrfToken == "":
+		content = entry.configJSON
+	case entry.spliceable:
+		content = spliceCSRF(entry.configJSON, csrfToken)
+	}
+	if content == "" {
+		encoded, err := json.Marshal(entry.options.RuntimeConfigFor(csrfToken))
+		if err != nil {
+			return nil
+		}
+		content = string(encoded)
 	}
 	return []htmlbind.HeadNode{
 		htmlbind.HeadMeta(
 			htmlbind.HeadAttr{Name: "name", Value: updateConfigMetaName},
-			htmlbind.HeadAttr{Name: "content", Value: string(encoded)},
+			htmlbind.HeadAttr{Name: "content", Value: content},
 		),
 		htmlbind.HeadScript(
 			htmlbind.HeadAttr{Name: "src", Value: RuntimeScriptURL()},
@@ -188,18 +257,17 @@ func writeUpdateFailure(w http.ResponseWriter, r *http.Request, failure htmlupda
 // another build, or on a method a delta may not use, the caller keeps the
 // document path it was already on, so nothing about an ordinary request changes.
 func serveUpdate(w http.ResponseWriter, r *http.Request, wrappers []HTMLWrapper, leaf HTMLFragment,
-	config HTMLConfig, options []HTMLOption,
+	config HTMLConfig, options []HTMLOption, async, live bool,
 ) bool {
 	update := updateOptions(config)
 	if update.Negotiate(r).Mode != htmlupdate.ModeNavigation {
 		return false
 	}
-	async := htmlbind.HasAwaitBlock(wrappers, leaf)
 	// The delta is written by the module, which reports no boundary back here,
 	// so this render opens the one span it can measure honestly: the whole
 	// comparison and every region it decided to send.
 	ctx, render := startRenderTrace(requestContext(r), renderModeNavigate,
-		chainRenderAttributes(wrappers, async, htmlbind.HasLiveBlock(wrappers, leaf), false)...)
+		chainRenderAttributes(wrappers, async, live, false)...)
 	defer render.end()
 	// The module adds the Vary entries itself, so a cache that cannot tell a
 	// delta from a document never answers either with the other.
@@ -357,8 +425,51 @@ type ReloadablePage interface {
 // below the checks is what extends that to the handler's own.
 func Redraw[P ReloadablePage](w http.ResponseWriter, r *http.Request, page func(P) HTMLFragment) bool {
 	_ = page
-	var declared P
-	return RedrawComponents(w, r, declared.PwReloadables()...)
+	config := Config[HTMLConfig](requestContext(r))
+	if !config.Update.Enabled {
+		return false
+	}
+	options := updateOptions(config)
+	// The mode is tested before the registry is touched, because this call sits
+	// on the ordinary page path and runs on every request to it.
+	if options.Negotiate(r).Mode != htmlupdate.ModeRedraw {
+		return false
+	}
+	// The set is derived statically from the page type, so the registry — whose
+	// registration encodes each component's head to check its bound — is built
+	// once per page type rather than per redraw.
+	key := reflect.TypeFor[P]()
+	registry, ok := redrawRegistries.Load(key)
+	if !ok {
+		var declared P
+		built := &htmlupdate.Registry{}
+		for _, component := range declared.PwReloadables() {
+			if err := built.Register(component); err != nil {
+				writeRedrawRegistryFailure(w, r, err)
+				return true
+			}
+		}
+		registry, _ = redrawRegistries.LoadOrStore(key, built)
+	}
+	_, render := startRenderTrace(requestContext(r), renderModeRedraw, Int("pw.render.layers", 1))
+	defer render.end()
+	return options.Redraw(w, render.request(r), registry.(*htmlupdate.Registry))
+}
+
+// redrawRegistries caches the built registry of each page type handed to
+// Redraw. The set is bounded by the program's page types, so nothing evicts.
+var redrawRegistries sync.Map
+
+// writeRedrawRegistryFailure reports a set that cannot be registered: a
+// duplicate kind or an oversized head is a defect in what the handler named
+// rather than anything the request did.
+func writeRedrawRegistryFailure(w http.ResponseWriter, r *http.Request, err error) {
+	writeUpdateFailure(w, r, htmlupdate.Failure{
+		Kind:    htmlupdate.FailureRenderFailed,
+		Status:  http.StatusInternalServerError,
+		Message: "redraw registry",
+		Err:     err,
+	})
 }
 
 // RedrawComponents answers a redraw for the components named here.
@@ -389,12 +500,7 @@ func RedrawComponents(w http.ResponseWriter, r *http.Request, components ...html
 			// A duplicate kind or an oversized head is a defect in what this
 			// handler named rather than anything the request did, so it is
 			// reported through the failure path like any other refusal.
-			writeUpdateFailure(w, r, htmlupdate.Failure{
-				Kind:    htmlupdate.FailureRenderFailed,
-				Status:  http.StatusInternalServerError,
-				Message: "redraw registry",
-				Err:     err,
-			})
+			writeRedrawRegistryFailure(w, r, err)
 			return true
 		}
 	}

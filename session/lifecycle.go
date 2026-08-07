@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"reflect"
 )
 
 // UnavailableHandler responds to a request whose session backend could not be
@@ -24,13 +23,7 @@ func (m *Manager) Middleware(unavailable UnavailableHandler) func(http.Handler) 
 	}
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			current := &state{
-				manager: m,
-				writer:  w,
-				request: r,
-				values:  map[reflect.Type]any{},
-				present: map[reflect.Type]bool{},
-			}
+			current := &state{manager: m, writer: w, request: r}
 			if !m.lazyRecord {
 				switch err := current.resolveRecord(); {
 				case err == nil:
@@ -72,13 +65,7 @@ func (m *Manager) Attach(w http.ResponseWriter, r *http.Request) (*http.Request,
 	if _, ok := currentState(r.Context()); ok {
 		return r, nil
 	}
-	current := &state{
-		manager: m,
-		writer:  w,
-		request: r,
-		values:  map[reflect.Type]any{},
-		present: map[reflect.Type]bool{},
-	}
+	current := &state{manager: m, writer: w, request: r}
 	if !m.lazyRecord {
 		switch err := current.resolveRecord(); {
 		case err == nil:
@@ -115,13 +102,12 @@ func (m *Manager) Rotate(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 	previous := current.token
-	values, present := current.values, current.present
+	previousHash := current.tokenHash()
 	// A slot that declared ResetOnRotate is dropped rather than carried, so the
 	// replacement session mints its own.
 	for _, entry := range m.slots {
 		if entry.resetOnRotate {
-			delete(values, entry.typ)
-			delete(present, entry.typ)
+			current.clearSlotValue(entry)
 		}
 	}
 
@@ -129,16 +115,14 @@ func (m *Manager) Rotate(w http.ResponseWriter, r *http.Request) error {
 	// also expires the record cookie, which is the marker of an unpromoted
 	// session: clearing it is what makes the next request read from the server.
 	if previous != "" {
-		hash := keyHash(previous)
 		for _, store := range m.stores() {
-			if err := store.Delete(current.bindTo(store), hash); err != nil {
+			if err := store.Delete(current.bindTo(store), previousHash); err != nil {
 				return err
 			}
 		}
 	}
 
-	current.token = ""
-	current.values, current.present = values, present
+	current.token, current.hash = "", ""
 	current.promoted = true
 	current.dirtyAnon, current.dirtyServer = false, false
 	if err := current.ensureToken(); err != nil {

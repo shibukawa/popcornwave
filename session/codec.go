@@ -1,7 +1,6 @@
 package session
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 )
@@ -23,14 +22,12 @@ func (JSONCodec[T]) Encode(value T) ([]byte, error) {
 }
 
 func (JSONCodec[T]) Decode(encoded []byte) (T, error) {
-	var zero T
-	decoder := json.NewDecoder(bytes.NewReader(encoded))
+	// Unmarshal already rejects trailing non-whitespace bytes, without the
+	// decoder a trailing-bytes check used to allocate here.
 	var value T
-	if err := decoder.Decode(&value); err != nil {
+	if err := json.Unmarshal(encoded, &value); err != nil {
+		var zero T
 		return zero, fmt.Errorf("%w: decode payload", ErrCodec)
-	}
-	if decoder.More() {
-		return zero, fmt.Errorf("%w: trailing payload bytes", ErrCodec)
 	}
 	return value, nil
 }

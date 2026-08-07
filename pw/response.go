@@ -3,7 +3,6 @@ package pw
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -11,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/shibukawa/popcornwave/middlewares"
@@ -48,29 +48,27 @@ type HTMLWrapper = htmlbind.Wrapper
 // rather than replacing it.
 type HTMLOption = htmlbind.Option
 
-var documentState = struct {
-	sync.RWMutex
-	wrapper *HTMLWrapper
-}{}
+// documentState holds the registered document shell as a one-element chain.
+// Registration happens once at init, so per-request reads take no lock, and
+// the cached slice has no spare capacity: any append reallocates rather than
+// reaching a slice another request is rendering through.
+var documentState atomic.Pointer[[]HTMLWrapper]
 
 // RegisterHTMLDocument installs the generated application document shell.
 // It is intended for generated templates/document_pw_gen.go code.
 func RegisterHTMLDocument(wrapper HTMLWrapper) {
-	documentState.Lock()
-	defer documentState.Unlock()
-	if documentState.wrapper != nil {
+	chain := []HTMLWrapper{wrapper}
+	if !documentState.CompareAndSwap(nil, &chain) {
 		panic("popcornwave: HTML document is already registered")
 	}
-	documentState.wrapper = &wrapper
 }
 
 func registeredHTMLDocument() []HTMLWrapper {
-	documentState.RLock()
-	defer documentState.RUnlock()
-	if documentState.wrapper == nil {
+	chain := documentState.Load()
+	if chain == nil {
 		return nil
 	}
-	return []HTMLWrapper{*documentState.wrapper}
+	return *chain
 }
 
 func (p Problem) Error() string {
@@ -193,23 +191,55 @@ func writeProblemJSON(w http.ResponseWriter, r *http.Request, p Problem) {
 	addVaryHeader(w.Header(), "Accept")
 	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(p.Status)
-	payload := map[string]any{
-		"type": "about:blank", "title": p.Title, "status": p.Status,
-		"detail": p.Message, "code": p.Code,
-	}
+	// Built by hand like the root package's writeProblem: the document is flat
+	// and known, and this path must not fail.
+	var b strings.Builder
+	b.WriteString(`{"type":"about:blank","title":`)
+	b.WriteString(strconv.Quote(p.Title))
+	b.WriteString(`,"status":`)
+	b.WriteString(strconv.Itoa(p.Status))
+	b.WriteString(`,"detail":`)
+	b.WriteString(strconv.Quote(p.Message))
+	b.WriteString(`,"code":`)
+	b.WriteString(strconv.Quote(p.Code))
 	if len(p.Fields) > 0 {
-		fields := make([]map[string]string, 0, len(p.Fields))
-		for _, field := range p.Fields {
-			fields = append(fields, map[string]string{
-				"field": field.Field, "location": field.Location, "message": field.Message,
-			})
+		b.WriteString(`,"errors":[`)
+		for i, field := range p.Fields {
+			if i > 0 {
+				b.WriteByte(',')
+			}
+			b.WriteString(`{"field":`)
+			b.WriteString(strconv.Quote(field.Field))
+			b.WriteString(`,"location":`)
+			b.WriteString(strconv.Quote(field.Location))
+			b.WriteString(`,"message":`)
+			b.WriteString(strconv.Quote(field.Message))
+			b.WriteByte('}')
 		}
-		payload["errors"] = fields
+		b.WriteByte(']')
 	}
-	_ = json.NewEncoder(w).Encode(payload)
+	b.WriteString("}\n")
+	_, _ = io.WriteString(w, b.String())
 }
 
 func responseCommitted(w http.ResponseWriter) bool { return middlewares.Committed(w) }
+
+// htmlBodyPool recycles the page-sized buffers of the buffered render paths.
+// An outlier beyond the cap is dropped rather than kept alive for the life of
+// the pool.
+var htmlBodyPool = sync.Pool{New: func() any { return new(bytes.Buffer) }}
+
+const maxPooledBodyBytes = 1 << 20
+
+func getHTMLBody() *bytes.Buffer { return htmlBodyPool.Get().(*bytes.Buffer) }
+
+func putHTMLBody(body *bytes.Buffer) {
+	if body.Cap() > maxPooledBodyBytes {
+		return
+	}
+	body.Reset()
+	htmlBodyPool.Put(body)
+}
 
 func mapProblem(err error) Problem {
 	if err == nil {
@@ -281,6 +311,14 @@ func WriteHTMLChain(w http.ResponseWriter, r *http.Request, wrappers []HTMLWrapp
 	// The framework's options go first, so a caller passing its own still wins.
 	token := csrfRenderToken(requestContext(r))
 	options = append(documentRenderOptions(config, token), options...)
+	// The probes are properties of the composed chain, so they run once here
+	// and every branch below reads the same two answers. async is the cheapest
+	// of the three streaming gates and the only one that can rule streaming out
+	// entirely; live answers a different question, whether this screen keeps
+	// changing once the document is complete, and never changes which branch
+	// runs, because a live block implies an await block.
+	async := htmlbind.HasAwaitBlock(wrappers, leaf)
+	live := htmlbind.HasLiveBlock(wrappers, leaf)
 	// A page that can update answers three ways from one URL, and which one is
 	// decided before anything is written. An unrecognized mode resolves to the
 	// document, so a crawler, curl, and a browser without the runtime are
@@ -292,18 +330,10 @@ func WriteHTMLChain(w http.ResponseWriter, r *http.Request, wrappers []HTMLWrapp
 		if serveRegisteredRedraw(w, r, config) {
 			return
 		}
-		if serveUpdate(w, r, wrappers, leaf, config, options) {
+		if serveUpdate(w, r, wrappers, leaf, config, options, async, live) {
 			return
 		}
 	}
-	// The probe runs first because it is the cheapest of the three gates and the
-	// only one that can rule streaming out entirely, so a page that could never
-	// stream never classifies its client.
-	async := htmlbind.HasAwaitBlock(wrappers, leaf)
-	// A second probe answers a different question: whether this screen keeps
-	// changing once the document is complete. It never changes which branch
-	// runs, because a live block implies an await block.
-	live := htmlbind.HasLiveBlock(wrappers, leaf)
 	if liveModeRequested(r) {
 		// The handler, the layouts, and the binding that produced this chain have
 		// already run, which is what makes a reconnect need no continuation: the
@@ -327,7 +357,7 @@ func WriteHTMLChain(w http.ResponseWriter, r *http.Request, wrappers []HTMLWrapp
 		w.Header().Add("Vary", "User-Agent")
 	}
 	if async && config.Streaming && !bot {
-		streamHTMLChain(w, r, wrappers, leaf, config, options...)
+		streamHTMLChain(w, r, wrappers, leaf, config, live, options...)
 		return
 	}
 	// The whole render is the initial build on this branch, so it opens no child
@@ -338,8 +368,9 @@ func WriteHTMLChain(w http.ResponseWriter, r *http.Request, wrappers []HTMLWrapp
 	defer render.end()
 	ctx, cancel := boundedRenderContext(ctx, config, async, bot)
 	defer cancel()
-	var body bytes.Buffer
-	if err := htmlbind.RenderChain(&body, wrappers, leaf, renderOptions(ctx, config, false, options)...); err != nil {
+	body := getHTMLBody()
+	defer putHTMLBody(body)
+	if err := htmlbind.RenderChain(body, wrappers, leaf, renderOptions(ctx, config, false, options)...); err != nil {
 		render.failed(err)
 		// Nothing is committed on this branch, so the same failure the streaming
 		// branch can only patch into a 200 still carries its real status here.
@@ -354,7 +385,7 @@ func WriteHTMLChain(w http.ResponseWriter, r *http.Request, wrappers []HTMLWrapp
 		return
 	}
 	render.wrote(body.Len())
-	commitHTMLBody(w, r, &body)
+	commitHTMLBody(w, r, body)
 }
 
 // chainRenderAttributes describes the shape of one composed chain, which is
@@ -453,8 +484,9 @@ func WriteHTMLFragment(w http.ResponseWriter, r *http.Request, fragment HTMLFrag
 	defer render.end()
 	renderCtx, cancel := boundedRenderContext(traceCtx, config, async, false)
 	defer cancel()
-	var body bytes.Buffer
-	if err := htmlbind.Render(&body, fragment, renderOptions(renderCtx, config, false, nil)...); err != nil {
+	body := getHTMLBody()
+	defer putHTMLBody(body)
+	if err := htmlbind.Render(body, fragment, renderOptions(renderCtx, config, false, nil)...); err != nil {
 		render.failed(err)
 		// Nothing is committed yet, so every failure still carries its real
 		// status. It goes out as a problem response rather than as the HTML error
@@ -470,7 +502,7 @@ func WriteHTMLFragment(w http.ResponseWriter, r *http.Request, fragment HTMLFrag
 		return
 	}
 	render.wrote(body.Len())
-	commitHTMLBody(w, r, &body)
+	commitHTMLBody(w, r, body)
 }
 
 // commitHTMLBody sends a fully rendered body. Content-Length is declared only
@@ -499,9 +531,9 @@ func commitHTMLBody(w http.ResponseWriter, r *http.Request, body *bytes.Buffer) 
 // arrives before anything is written, because chain assembly and the check for
 // unset async values both run before the initial pass, so that failure can
 // still become a problem response.
-func streamHTMLChain(w http.ResponseWriter, r *http.Request, wrappers []HTMLWrapper, leaf HTMLFragment, config HTMLConfig, options ...HTMLOption) {
+func streamHTMLChain(w http.ResponseWriter, r *http.Request, wrappers []HTMLWrapper, leaf HTMLFragment, config HTMLConfig, live bool, options ...HTMLOption) {
 	ctx, render := startRenderTrace(requestContext(r), renderModeStream,
-		chainRenderAttributes(wrappers, true, htmlbind.HasLiveBlock(wrappers, leaf), false)...)
+		chainRenderAttributes(wrappers, true, live, false)...)
 	defer render.end()
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	writer, closeWriter, abortWriter, err := prepareHTMLResponse(w, r)
@@ -560,7 +592,7 @@ func streamHTMLChain(w http.ResponseWriter, r *http.Request, wrappers []HTMLWrap
 		}
 		htmlbind.Flush(writer)
 	}
-	if err := writeStreamEnd(writer, streamEndState(config, wrappers, leaf, failed)); err != nil {
+	if err := writeStreamEnd(writer, streamEndState(config, live, failed)); err != nil {
 		logger.Log(ctx, LevelError, "HTML stream end write failed", Err(err))
 	}
 	htmlbind.Flush(writer)
@@ -609,13 +641,13 @@ func writeStreamEnd(w io.Writer, state string) error {
 	return err
 }
 
-func streamEndState(config HTMLConfig, wrappers []HTMLWrapper, leaf HTMLFragment, failed bool) string {
+func streamEndState(config HTMLConfig, live, failed bool) string {
 	switch {
 	case failed:
 		// The committed fallbacks this response left behind are not going to be
 		// replaced by it, and the client is told so rather than left waiting.
 		return "failed"
-	case liveEnabled(config) && htmlbind.HasLiveBlock(wrappers, leaf):
+	case liveEnabled(config) && live:
 		return "live"
 	default:
 		return "final"
@@ -678,7 +710,7 @@ func renderOptions(ctx context.Context, config HTMLConfig, bot bool, extra []HTM
 }
 
 func prepareHTMLResponse(w http.ResponseWriter, r *http.Request) (io.Writer, func() error, func(), error) {
-	if !Config[MiddlewareConfig](requestContext(r)).Compression {
+	if !zstdResponseSupported || !Config[MiddlewareConfig](requestContext(r)).Compression {
 		return w, func() error { return nil }, func() {}, nil
 	}
 	addVaryHeader(w.Header(), "Accept-Encoding")
@@ -718,13 +750,15 @@ func (f flushingEncoder) Flush() {
 
 func acceptsZstdEncoding(values []string) bool {
 	for _, value := range values {
-		for _, entry := range strings.Split(value, ",") {
-			parts := strings.Split(entry, ";")
-			if !strings.EqualFold(strings.TrimSpace(parts[0]), zstdContentEncoding) {
+		// Cut loops rather than Split, so a header line parses without
+		// allocating.
+		for entry := range splitSeq(value, ',') {
+			coding, parameters, _ := strings.Cut(entry, ";")
+			if !strings.EqualFold(strings.TrimSpace(coding), zstdContentEncoding) {
 				continue
 			}
 			quality := 1.0
-			for _, parameter := range parts[1:] {
+			for parameter := range splitSeq(parameters, ';') {
 				name, raw, ok := strings.Cut(parameter, "=")
 				if !ok || !strings.EqualFold(strings.TrimSpace(name), "q") {
 					continue
@@ -744,9 +778,28 @@ func acceptsZstdEncoding(values []string) bool {
 	return false
 }
 
+// splitSeq yields the separator-delimited pieces of value without allocating.
+// Unlike strings.SplitSeq it never yields anything for an empty value, which
+// is what a header parse wants.
+func splitSeq(value string, separator byte) func(func(string) bool) {
+	return func(yield func(string) bool) {
+		for value != "" {
+			var piece string
+			if index := strings.IndexByte(value, separator); index >= 0 {
+				piece, value = value[:index], value[index+1:]
+			} else {
+				piece, value = value, ""
+			}
+			if !yield(piece) {
+				return
+			}
+		}
+	}
+}
+
 func addVaryHeader(header http.Header, value string) {
 	for _, line := range header.Values("Vary") {
-		for _, existing := range strings.Split(line, ",") {
+		for existing := range splitSeq(line, ',') {
 			existing = strings.TrimSpace(existing)
 			if existing == "*" || strings.EqualFold(existing, value) {
 				return

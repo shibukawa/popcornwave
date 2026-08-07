@@ -106,15 +106,27 @@ func (j *Jar[T]) Mode() CookieMode { return j.value.mode }
 // protected value past its embedded expiry, and ErrCodec for a payload the
 // codec cannot decode.
 func (j *Jar[T]) Load(r *http.Request) (T, error) {
-	var zero T
 	if r == nil {
+		var zero T
 		return zero, ErrCookieMissing
 	}
 	cookie, err := r.Cookie(j.cookie.Name)
-	if err != nil || cookie == nil || cookie.Value == "" {
+	if err != nil || cookie == nil {
+		var zero T
 		return zero, ErrCookieMissing
 	}
-	payload, err := j.value.decode(cookie.Value, "")
+	return j.loadValue(cookie.Value)
+}
+
+// loadValue decodes an already-extracted cookie value, for a caller that has
+// parsed the Cookie header itself. An empty value reads as a missing cookie,
+// exactly as Load treats it.
+func (j *Jar[T]) loadValue(value string) (T, error) {
+	var zero T
+	if value == "" {
+		return zero, ErrCookieMissing
+	}
+	payload, err := j.value.decode(value, "")
 	if err != nil {
 		return zero, err
 	}

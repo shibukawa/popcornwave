@@ -4,8 +4,8 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
-	"fmt"
 	"net/http"
+	"strconv"
 	"sync/atomic"
 	"time"
 
@@ -90,7 +90,13 @@ func ValidRequestID(value string) bool {
 
 // SequentialRequestID builds an ID from the clock and a process counter.
 func SequentialRequestID() string {
-	return fmt.Sprintf("%x-%x", time.Now().UnixNano(), requestSequence.Add(1))
+	// 16 hex digits cover the nanosecond clock until 2554 and the counter for
+	// far longer, so the buffer never grows.
+	buf := make([]byte, 0, 33)
+	buf = strconv.AppendUint(buf, uint64(time.Now().UnixNano()), 16)
+	buf = append(buf, '-')
+	buf = strconv.AppendUint(buf, requestSequence.Add(1), 16)
+	return string(buf)
 }
 
 // RandomRequestID builds an ID from 16 cryptographically random bytes.

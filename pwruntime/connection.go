@@ -88,6 +88,7 @@ type ConnectionSet struct {
 	groups       map[string][]*Connection
 	cursors      map[string]*atomic.Uint64
 	defaultGroup string
+	count        int
 	// collapsed answers every group name with the sole connection. It is what
 	// lets a single-database configuration, and a test, run code that selects a
 	// replica group without a dedicated branch.
@@ -135,6 +136,7 @@ func NewConnectionSet(defaultGroup string, connections []Connection) (*Connectio
 		return nil, fmt.Errorf("%w: %s", ErrUnknownConnectionGroup, defaultGroup)
 	}
 	set.defaultGroup = defaultGroup
+	set.count = len(connections)
 	set.collapsed = len(connections) == 1
 	return set, nil
 }
@@ -166,6 +168,16 @@ func (set *ConnectionSet) Connections() []*Connection {
 		all = append(all, set.groups[group]...)
 	}
 	return all
+}
+
+// Count reports how many connections are configured. It exists for callers
+// that need only the number, which Connections would answer with a fresh
+// slice per call.
+func (set *ConnectionSet) Count() int {
+	if set == nil {
+		return 0
+	}
+	return set.count
 }
 
 // Has reports whether group is configured. A collapsed set answers for every

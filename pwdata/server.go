@@ -53,7 +53,7 @@ func (s *Server) apiTables(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) pageTables(w http.ResponseWriter, r *http.Request) {
 	view := s.view(r, "tables", "tables")
-	if state, err := s.connection(r).MigrationState(r.Context()); err == nil {
+	if state, err := s.connection(r).migrationState(r.Context(), view.Tables); err == nil {
 		view.Migration = &state
 	}
 	s.render(w, tablesPage, view)
@@ -67,9 +67,11 @@ func (s *Server) pageTable(w http.ResponseWriter, r *http.Request) {
 	}
 	connection := s.connection(r)
 	view := s.view(r, "tables", name)
-	page, err := connection.Rows(r.Context(), name, offset)
+	// The sidebar already fetched the catalog; the row read and the foreign-key
+	// lookup work from the same list rather than querying it again.
+	page, err := connection.rows(r.Context(), view.Tables, name, offset)
 	view.Page = &page
-	view.ForeignKeys = connection.ForeignKeys(r.Context(), name)
+	view.ForeignKeys = connection.foreignKeys(r.Context(), view.Tables, name)
 	view.Error = errorText(err)
 	view.Keys = primaryKey(page.Columns)
 	view.PrevOffset = max(0, offset-pageSize)
@@ -132,11 +134,11 @@ func (s *Server) pageReferenced(w http.ResponseWriter, r *http.Request) {
 	column := r.URL.Query().Get("column")
 	value := r.URL.Query().Get("value")
 	view := s.view(r, "tables", table)
-	page, err := connection.Referenced(r.Context(), table, column, value)
+	page, err := connection.referenced(r.Context(), view.Tables, table, column, value)
 	view.Page = &page
 	view.Referenced = &ForeignKey{Column: column, Table: table, Target: column}
 	view.ReferencedValue = value
-	view.ForeignKeys = connection.ForeignKeys(r.Context(), table)
+	view.ForeignKeys = connection.foreignKeys(r.Context(), view.Tables, table)
 	view.Error = errorText(err)
 	view.Keys = primaryKey(page.Columns)
 	s.render(w, tablePage, view)

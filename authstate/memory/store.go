@@ -89,9 +89,18 @@ func (s *Store[T]) Put(ctx context.Context, key string, value T, expiresAt time.
 	if err := ctx.Err(); err != nil {
 		return err
 	}
-	s.removeExpired(now)
-	if _, exists := s.entries[key]; exists {
-		return authstate.ErrAlreadyExists
+	if item, exists := s.entries[key]; exists {
+		// An expired entry reads as absent, exactly as the per-Put sweep used
+		// to make it.
+		if item.expiresAt.After(now) {
+			return authstate.ErrAlreadyExists
+		}
+		delete(s.entries, key)
+	}
+	if len(s.entries) >= s.maxEntries {
+		// The sweep runs only when the limit is reached, so a login burst pays
+		// O(n) once instead of on every ceremony start.
+		s.removeExpired(now)
 	}
 	if len(s.entries) >= s.maxEntries {
 		return authstate.ErrLimitExceeded

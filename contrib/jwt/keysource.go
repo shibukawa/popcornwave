@@ -105,6 +105,9 @@ type RemoteKeySet struct {
 	keys        *JWKS
 	fetchedAt   time.Time
 	lastAttempt time.Time
+	// refreshing marks one in-flight background refresh, so a TTL expiry
+	// triggers a single fetch rather than one per concurrent verification.
+	refreshing bool
 }
 
 // NewRemoteKeySet validates the options and returns a key set that has not yet
@@ -187,32 +190,63 @@ func (set *RemoteKeySet) ResolverFor(ctx context.Context) KeyResolver {
 	})
 }
 
-// current returns a key set that is within its cache TTL, fetching one when
-// there is none or the cached one has aged out.
+// current returns a usable key set, blocking on the network only when there is
+// none at all.
 func (set *RemoteKeySet) current(ctx context.Context) (*JWKS, error) {
 	set.mu.Lock()
 	defer set.mu.Unlock()
 	now := set.options.Clock()
-	if set.keys != nil && now.Sub(set.fetchedAt) < set.options.CacheTTL {
-		return set.keys, nil
-	}
-	if err := set.fetchLocked(ctx, now); err != nil {
-		if set.keys != nil && now.Sub(set.fetchedAt) <= set.options.CacheTTL+set.options.MaxStaleAge {
-			// A refresh failure on a set that still parses is not a reason to
-			// stop verifying: the keys did not become untrustworthy because the
-			// issuer became unreachable.
+	if set.keys != nil {
+		age := now.Sub(set.fetchedAt)
+		if age < set.options.CacheTTL {
+			return set.keys, nil
+		}
+		if age <= set.options.CacheTTL+set.options.MaxStaleAge {
+			// A set past its TTL but inside the stale window keeps verifying:
+			// the keys did not become untrustworthy because the TTL elapsed or
+			// the issuer became unreachable. Serving it while one goroutine
+			// refreshes is what keeps every concurrent verification from
+			// queueing behind a network fetch.
 			//
 			// That holds for an outage, not forever. Past the stale window the
 			// cached set is dropped, because a key withdrawn from the published
 			// document is withdrawn whether or not this process can read the
 			// document that says so, and serving it until the outage ends is
 			// how a compromised key stays usable.
+			if !set.refreshing {
+				set.refreshing = true
+				set.lastAttempt = now
+				go set.refreshInBackground(set.keySetURI)
+			}
 			return set.keys, nil
 		}
 		set.keys = nil
+	}
+	// With nothing cached the caller has to wait. Holding the mutex across the
+	// fetch is deliberate here: it is what makes concurrent cold starts one
+	// fetch rather than one each.
+	if err := set.fetchLocked(ctx, now); err != nil {
 		return nil, err
 	}
 	return set.keys, nil
+}
+
+// refreshInBackground refetches the key set once, on its own bounded context:
+// the shared refresh must not die with whichever request happened to trigger
+// it. Failure is not reported to anyone, because the stale window already
+// decided the cached set stays in use, and past the window current stops
+// serving it regardless.
+func (set *RemoteKeySet) refreshInBackground(uri string) {
+	ctx, cancel := context.WithTimeout(context.Background(), set.options.RequestTimeout)
+	defer cancel()
+	keys, err := set.fetchKeys(ctx, uri)
+	set.mu.Lock()
+	set.refreshing = false
+	if err == nil {
+		set.keys = keys
+		set.fetchedAt = set.options.Clock()
+	}
+	set.mu.Unlock()
 }
 
 // refreshForUnknownKey performs the single rate-limited refetch an unknown kid
@@ -242,17 +276,23 @@ func (set *RemoteKeySet) fetchLocked(ctx context.Context, now time.Time) error {
 		}
 		set.keySetURI = uri
 	}
-	body, err := set.get(ctx, set.keySetURI)
-	if err != nil {
-		return err
-	}
-	keys, err := ParseJWKS(body, set.options.JWKS)
+	keys, err := set.fetchKeys(ctx, set.keySetURI)
 	if err != nil {
 		return err
 	}
 	set.keys = keys
 	set.fetchedAt = now
 	return nil
+}
+
+// fetchKeys performs the network round trip and the parse. It reads no mutable
+// state, so it runs with or without the mutex held.
+func (set *RemoteKeySet) fetchKeys(ctx context.Context, uri string) (*JWKS, error) {
+	body, err := set.get(ctx, uri)
+	if err != nil {
+		return nil, err
+	}
+	return ParseJWKS(body, set.options.JWKS)
 }
 
 // discover reads the metadata document and returns its trusted jwks_uri.

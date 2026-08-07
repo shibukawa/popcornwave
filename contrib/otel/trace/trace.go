@@ -245,9 +245,11 @@ func (t *Tracer) Start(ctx context.Context, name string, options ...StartOption)
 	if allZero(sc.spanID[:]) {
 		sc.spanID[7] = 1
 	}
+	// cfg.attributes is built fresh for this call (WithAttributes copies its
+	// input), so the span owns it without another copy.
 	span := &Span{tracer: t, parent: parentValue.span, data: SpanData{
 		Name: name, SpanContext: sc, Kind: cfg.kind, StartTime: cfg.start,
-		Attributes: append([]otel.Attribute(nil), cfg.attributes...), ScopeName: t.name,
+		Attributes: cfg.attributes, ScopeName: t.name,
 		ResourceAttributes: t.provider.resource,
 	}}
 	if parent.IsValid() {
@@ -349,9 +351,9 @@ func (s *Span) End() {
 	}
 	s.ended = true
 	s.data.EndTime = time.Now()
+	// ended is set, so SetAttributes and AddEvent can no longer append: the
+	// slices leave the lock without a defensive copy.
 	data := s.data
-	data.Attributes = append([]otel.Attribute(nil), data.Attributes...)
-	data.Events = append([]Event(nil), data.Events...)
 	s.mu.Unlock()
 	if s.tracer != nil && s.tracer.provider.processor != nil {
 		s.tracer.provider.processor.OnEnd(data)

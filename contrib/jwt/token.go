@@ -64,24 +64,26 @@ func Parse(compact string, options ParseOptions) (*Token, error) {
 	if len(compact) == 0 || len(compact) > options.MaxTokenBytes {
 		return nil, ErrLimitExceeded
 	}
-	segments := strings.Split(compact, ".")
-	if len(segments) != 3 || segments[0] == "" || segments[1] == "" || segments[2] == "" {
+	seg0, rest, ok := strings.Cut(compact, ".")
+	if !ok {
 		return nil, ErrMalformed
 	}
-	for _, segment := range segments {
-		if len(segment) > options.MaxSegmentBytes {
-			return nil, ErrLimitExceeded
-		}
+	seg1, seg2, ok := strings.Cut(rest, ".")
+	if !ok || seg0 == "" || seg1 == "" || seg2 == "" || strings.IndexByte(seg2, '.') >= 0 {
+		return nil, ErrMalformed
 	}
-	headerJSON, err := authn.DecodeBase64URL(segments[0], options.MaxSegmentBytes, options.MaxSegmentBytes)
+	if len(seg0) > options.MaxSegmentBytes || len(seg1) > options.MaxSegmentBytes || len(seg2) > options.MaxSegmentBytes {
+		return nil, ErrLimitExceeded
+	}
+	headerJSON, err := authn.DecodeBase64URL(seg0, options.MaxSegmentBytes, options.MaxSegmentBytes)
 	if err != nil {
 		return nil, classifyDecodeError(err)
 	}
-	claimsJSON, err := authn.DecodeBase64URL(segments[1], options.MaxSegmentBytes, options.MaxSegmentBytes)
+	claimsJSON, err := authn.DecodeBase64URL(seg1, options.MaxSegmentBytes, options.MaxSegmentBytes)
 	if err != nil {
 		return nil, classifyDecodeError(err)
 	}
-	signature, err := authn.DecodeBase64URL(segments[2], options.MaxSegmentBytes, options.MaxSegmentBytes)
+	signature, err := authn.DecodeBase64URL(seg2, options.MaxSegmentBytes, options.MaxSegmentBytes)
 	if err != nil {
 		return nil, classifyDecodeError(err)
 	}
@@ -108,7 +110,9 @@ func Parse(compact string, options ParseOptions) (*Token, error) {
 	}
 	return &Token{
 		Header: header, Claims: claims, Signature: signature,
-		signingInput: segments[0] + "." + segments[1],
+		// The signing input is the token up to the second dot, taken as a
+		// substring rather than reassembled.
+		signingInput: compact[:len(seg0)+1+len(seg1)],
 	}, nil
 }
 
