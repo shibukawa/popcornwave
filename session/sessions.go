@@ -259,26 +259,6 @@ func (m *Manager) bind(ctx context.Context, store Store[slotMap], w http.Respons
 	return binder.BindRequest(ctx, w, r)
 }
 
-func (m *Manager) requestToken(r *http.Request) (string, bool) {
-	cookie, err := r.Cookie(m.cookie.Name)
-	if err != nil || cookie == nil || !validToken(cookie.Value) {
-		return "", false
-	}
-	return cookie.Value, true
-}
-
-// recordStore picks where the record of this request lives. The presence of the
-// sealed record cookie is the marker: an anonymous session carries it, and a
-// promoted session does not, because the promotion expired it.
-func (m *Manager) recordStore(r *http.Request) (Store[slotMap], bool) {
-	if m.anonRaw != nil && r != nil {
-		if cookie, err := r.Cookie(m.anonRaw.CookieName()); err == nil && cookie != nil && cookie.Value != "" {
-			return m.anon, true
-		}
-	}
-	return m.server, false
-}
-
 func (m *Manager) writeCookie(w http.ResponseWriter, token string, expiresAt time.Time) {
 	cookie := &http.Cookie{
 		Name:     m.cookie.Name,

@@ -2,6 +2,7 @@ package petitweb
 
 import (
 	"fmt"
+	"io"
 	"net/http"
 	"strconv"
 	"strings"
@@ -128,7 +129,7 @@ func writeProblem(w http.ResponseWriter, page ErrorPage) {
 		b.WriteByte(']')
 	}
 	b.WriteByte('}')
-	_, _ = w.Write([]byte(b.String()))
+	_, _ = io.WriteString(w, b.String())
 }
 
 func acceptsHTML(r *http.Request) bool {

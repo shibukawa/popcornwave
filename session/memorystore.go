@@ -47,14 +47,18 @@ func (s *MemoryStore) Get(ctx context.Context, keyHash string) (RawRecord, error
 	if !validKeyHash(keyHash) {
 		return RawRecord{}, ErrInvalidKey
 	}
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	// Reads share the lock; only an expired record needs the write lock to
+	// delete itself.
+	s.mu.RLock()
 	record, ok := s.records[keyHash]
+	s.mu.RUnlock()
 	if !ok {
 		return RawRecord{}, ErrNotFound
 	}
 	if deadline := record.Deadline(); !deadline.IsZero() && !deadline.After(s.now()) {
+		s.mu.Lock()
 		delete(s.records, keyHash)
+		s.mu.Unlock()
 		return RawRecord{}, ErrExpired
 	}
 	record.Payload = append([]byte(nil), record.Payload...)

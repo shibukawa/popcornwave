@@ -41,7 +41,7 @@ func TestNoRenderHeaderStillServesTheDocument(t *testing.T) {
 	config := updateConfig()
 	recorder := httptest.NewRecorder()
 	request := httptest.NewRequest(http.MethodGet, "/search?q=go", nil)
-	if serveUpdate(recorder, request, nil, staticFragment(`<h1>hi</h1>`), config, nil) {
+	if serveUpdate(recorder, request, nil, staticFragment(`<h1>hi</h1>`), config, nil, false, false) {
 		t.Fatal("a request with no render header was answered as an update")
 	}
 }
@@ -52,7 +52,7 @@ func TestAnotherBuildIsAnsweredWithTheDocument(t *testing.T) {
 	config := updateConfig()
 	request := updateRequest(t, "navigation")
 	request.Header.Set("Pw-Build", "some-other-build")
-	if serveUpdate(httptest.NewRecorder(), request, nil, staticFragment(`<h1>hi</h1>`), config, nil) {
+	if serveUpdate(httptest.NewRecorder(), request, nil, staticFragment(`<h1>hi</h1>`), config, nil, false, false) {
 		t.Fatal("a request from another build was answered as an update")
 	}
 }
@@ -62,7 +62,7 @@ func TestAnotherBuildIsAnsweredWithTheDocument(t *testing.T) {
 // shared header costs, and this is the check that it is paid.
 func TestTheLiveTokenIsNotTakenAsAnUpdate(t *testing.T) {
 	config := updateConfig()
-	if serveUpdate(httptest.NewRecorder(), updateRequest(t, "live"), nil, staticFragment(`<h1>hi</h1>`), config, nil) {
+	if serveUpdate(httptest.NewRecorder(), updateRequest(t, "live"), nil, staticFragment(`<h1>hi</h1>`), config, nil, false, false) {
 		t.Fatal("the live token was answered as a navigation delta")
 	}
 }
@@ -310,7 +310,7 @@ func TestADuplicateRegistrationIsAStartupDiagnostic(t *testing.T) {
 func TestANavigationRequestIsAnsweredWithADelta(t *testing.T) {
 	recorder := httptest.NewRecorder()
 	request := updateRequest(t, "navigation")
-	if !serveUpdate(recorder, request, nil, staticFragment(`<h1>results</h1>`), updateConfig(), nil) {
+	if !serveUpdate(recorder, request, nil, staticFragment(`<h1>results</h1>`), updateConfig(), nil, false, false) {
 		t.Fatal("a navigation request was not answered as an update")
 	}
 	response := recorder.Result()

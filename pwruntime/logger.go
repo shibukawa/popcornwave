@@ -241,9 +241,17 @@ func (logger Logger) log(ctx context.Context, level Level, message string, attri
 
 // mergeAttributes appends call attributes to bound ones and resolves duplicate
 // keys deterministically: the later value wins, wherever it came from.
+//
+// When one side is empty the other is returned as is. Attribute slices are
+// treated as immutable once handed over — NewLogger already stores its
+// variadic without copying — so sharing costs nothing, and the common record
+// with only call attributes allocates nothing here.
 func mergeAttributes(bound, call []Attribute) []Attribute {
-	if len(bound) == 0 && len(call) == 0 {
-		return nil
+	if len(bound) == 0 {
+		return call
+	}
+	if len(call) == 0 {
+		return bound
 	}
 	merged := make([]Attribute, 0, len(bound)+len(call))
 	merged = append(merged, bound...)

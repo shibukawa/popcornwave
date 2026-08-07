@@ -140,8 +140,11 @@ func csrfHTMLRequest(r *http.Request) bool {
 	if strings.EqualFold(strings.TrimSpace(r.Header.Get("Sec-Fetch-Dest")), "document") {
 		return true
 	}
-	for _, mediaRange := range strings.Split(r.Header.Get("Accept"), ",") {
-		if strings.EqualFold(strings.TrimSpace(strings.SplitN(mediaRange, ";", 2)[0]), "text/html") {
+	for remainder := r.Header.Get("Accept"); remainder != ""; {
+		var mediaRange string
+		mediaRange, remainder, _ = strings.Cut(remainder, ",")
+		mediaType, _, _ := strings.Cut(mediaRange, ";")
+		if strings.EqualFold(strings.TrimSpace(mediaType), "text/html") {
 			return true
 		}
 	}

@@ -90,12 +90,25 @@ func isBotRequest(r *http.Request, config HTMLConfig) bool {
 // bots wearing a browser costume, and the prefix rule catches every CLI and
 // client library at once, including ones released after this list was written.
 func classifyUserAgent(agent string, extra []string) bool {
-	agent = strings.ToLower(strings.TrimSpace(agent))
+	agent = strings.TrimSpace(agent)
 	if agent == "" {
 		// A browser always sends one. An absent header is a script that never
 		// bothered to set it.
 		return true
 	}
+	// Every mainstream browser still claims Mozilla/5.0 for reasons that stopped
+	// being technical decades ago, and effectively no CLI or client library
+	// copies the habit. A scraper that does copy it is indistinguishable from a
+	// browser and gets treated as one, which is the ceiling of any header-based
+	// method rather than a gap in this list.
+	//
+	// It is tested first because an agent without the prefix is a bot whatever
+	// the token scan would say, so only Mozilla-claiming agents pay for the
+	// lowercase copy and the scan that catches bots wearing a browser costume.
+	if len(agent) < len("mozilla/") || !strings.EqualFold(agent[:len("mozilla/")], "mozilla/") {
+		return true
+	}
+	agent = strings.ToLower(agent)
 	for _, token := range botUserAgents {
 		if strings.Contains(agent, token) {
 			return true
@@ -106,12 +119,7 @@ func classifyUserAgent(agent string, extra []string) bool {
 			return true
 		}
 	}
-	// Every mainstream browser still claims Mozilla/5.0 for reasons that stopped
-	// being technical decades ago, and effectively no CLI or client library
-	// copies the habit. A scraper that does copy it is indistinguishable from a
-	// browser and gets treated as one, which is the ceiling of any header-based
-	// method rather than a gap in this list.
-	return !strings.HasPrefix(agent, "mozilla/")
+	return false
 }
 
 // normalizeBotUserAgents lowercases the configured additions once, so

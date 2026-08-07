@@ -227,41 +227,44 @@ func DBDriver(ctx context.Context) (string, bool) {
 // here instead of in generated code or in a wrapping driver.
 func SQLExecutor(ctx context.Context) (sqlbind.SQLExecutor, error) {
 	current := resources(ctx)
-	executor, err := baseSQLExecutor(ctx, current)
+	executor, connection, err := baseSQLExecutor(ctx, current)
 	if err != nil {
 		return nil, err
 	}
-	return instrument(current, executor, ReadLogger(ctx)), nil
+	return instrument(current, connection, executor, ReadLogger(ctx)), nil
 }
 
-func baseSQLExecutor(ctx context.Context, current *Resources) (sqlbind.SQLExecutor, error) {
+// baseSQLExecutor also returns the connection it resolved, when the chosen
+// path resolved one, so instrument does not take the memo lock a second time
+// for the same answer.
+func baseSQLExecutor(ctx context.Context, current *Resources) (sqlbind.SQLExecutor, *Connection, error) {
 	group := current.effectiveGroup()
 	if current.TxScope.Active() {
 		if current.Connections.Collapsed() || current.TxScope.Group() == group {
-			return readOnlyExecutor(current.TxScope.executor(), current.TxScope.ReadOnly()), nil
+			return readOnlyExecutor(current.TxScope.executor(), current.TxScope.ReadOnly()), nil, nil
 		}
 		// SelectDB named another group inside a transaction. The context
 		// executor installed by withScope belongs to that transaction, so it is
 		// deliberately skipped: these statements run outside it.
 		connection, err := current.connection()
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		if !connection.ReadOnly {
-			return nil, fmt.Errorf(
+			return nil, nil, fmt.Errorf(
 				"popcornwave: group %q is writable and cannot be selected inside a transaction on group %q",
 				group, current.TxScope.Group())
 		}
-		return readOnlyExecutor(connection.Executor(), true), nil
+		return readOnlyExecutor(connection.Executor(), true), connection, nil
 	}
 	if executor, err := sqlbind.SQLExecutorFromContext(ctx); err == nil {
-		return unwrapExecutor(executor), nil
+		return unwrapExecutor(executor), nil, nil
 	}
 	connection, err := current.connection()
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	return readOnlyExecutor(connection.Executor(), connection.ReadOnly), nil
+	return readOnlyExecutor(connection.Executor(), connection.ReadOnly), connection, nil
 }
 
 // activeScope returns the transaction scope holding an open transaction.

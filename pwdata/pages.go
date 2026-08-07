@@ -46,7 +46,9 @@ type view struct {
 
 // view carries the sidebar as well as the page, because every page repeats it.
 // Listing the tables here rather than in one handler is what keeps the sidebar
-// from being empty everywhere except the page that happens to build it.
+// from being empty everywhere except the page that happens to build it. This is
+// also the request's one catalog query: a handler that needs the table list
+// again reads view.Tables rather than asking the pool a second time.
 func (s *Server) view(r *http.Request, section, title string) view {
 	connection := s.connection(r)
 	tables, err := connection.Tables(r.Context())

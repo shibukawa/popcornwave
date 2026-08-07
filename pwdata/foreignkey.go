@@ -22,10 +22,19 @@ type ForeignKey struct {
 // without links, and losing the whole page over a missing affordance would be
 // the wrong trade.
 func (c *Connection) ForeignKeys(ctx context.Context, table string) map[string]ForeignKey {
+	tables, err := c.Tables(ctx)
+	if err != nil {
+		return nil
+	}
+	return c.foreignKeys(ctx, tables, table)
+}
+
+// foreignKeys is ForeignKeys over an already-fetched catalog.
+func (c *Connection) foreignKeys(ctx context.Context, tables []Table, table string) map[string]ForeignKey {
 	if c.dialect.foreignKeys == "" {
 		return nil
 	}
-	if err := c.knownTable(ctx, table); err != nil {
+	if err := knownTable(tables, table); err != nil {
 		return nil
 	}
 	rows, err := c.queryRows(ctx, c.dialect.foreignKeys, table)
@@ -51,7 +60,16 @@ func (c *Connection) ForeignKeys(ctx context.Context, table string) map[string]F
 // composed. That is what keeps this on the browsing side of the pane instead of
 // being the filter box requirement:dev-data-pane declines to offer.
 func (c *Connection) Referenced(ctx context.Context, table, column, value string) (Page, error) {
-	columns, err := c.Columns(ctx, table)
+	tables, err := c.Tables(ctx)
+	if err != nil {
+		return Page{}, err
+	}
+	return c.referenced(ctx, tables, table, column, value)
+}
+
+// referenced is Referenced over an already-fetched catalog.
+func (c *Connection) referenced(ctx context.Context, tables []Table, table, column, value string) (Page, error) {
+	columns, err := c.columns(ctx, tables, table)
 	if err != nil {
 		return Page{}, err
 	}

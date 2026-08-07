@@ -81,3 +81,26 @@ setting.
 If you need those knobs, the honest answer is that a reverse proxy or CDN in
 front of the application already has them, and it is the better place for this
 job. This switch exists for the deployment that has no such layer.
+
+## Removing the encoder from the binary
+
+`compression = false` stops the encoder from running. It does not stop it from
+being compiled in: the zstd encoder is linked into every build whether the
+switch is on or off, and it costs roughly 400 KB of binary. A runtime value
+cannot unlink code, which is why the switch has a build-time counterpart:
+
+```bash
+go build -tags pw_nozstd ./cmd/yourapp
+```
+
+With the tag, the encoder is never compiled and every response leaves
+unencoded, exactly as with `compression = false`. Setting `compression = true`
+in configuration then does nothing — the build has no encoder to turn on, and
+that is a silent no-op rather than a startup error, so decide at build time and
+keep the configuration consistent with it.
+
+Use the tag when both halves hold: binary size matters for your target — a
+container image pulled on every deploy, an edge runtime with a size budget —
+and compression is terminated at a CDN or reverse proxy anyway, so the encoder
+was dead weight. If the application serves compressed HTML to browsers itself,
+keep the default build. 400 KB is rarely worth losing the capability.

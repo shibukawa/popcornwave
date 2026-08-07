@@ -125,6 +125,11 @@ func (c *Connection) MigrationState(ctx context.Context) (Migration, error) {
 	if err != nil {
 		return Migration{}, err
 	}
+	return c.migrationState(ctx, tables)
+}
+
+// migrationState is MigrationState over an already-fetched catalog.
+func (c *Connection) migrationState(ctx context.Context, tables []Table) (Migration, error) {
 	present := false
 	for _, table := range tables {
 		if table.Name == gooseVersionTable {

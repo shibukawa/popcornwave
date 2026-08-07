@@ -81,8 +81,3 @@ func (p Placement) mode() CookieMode {
 	}
 	return CookieSigned
 }
-
-// needsKeyring reports whether a slot of this placement cannot be served
-// without a keyring. Shared protects nothing, and RequestScope never leaves
-// process memory, so neither needs a secret.
-func (p Placement) needsKeyring() bool { return p != Shared && p != RequestScope }

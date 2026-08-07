@@ -2,6 +2,7 @@ package middlewares
 
 import (
 	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"io/fs"
@@ -12,6 +13,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 )
 
 // localPublicRoot is the built tree, relative to the working directory. It is
@@ -61,6 +63,13 @@ func PublicAssets(config PublicAssetConfig, embedded fs.FS) (Middleware, error) 
 	if embedded == nil && !publicDevelopment {
 		return nil, fmt.Errorf("popcornwave: server.public.enabled requires a registered public filesystem")
 	}
+	// The embedded tree is immutable, so a name resolves to the same bytes,
+	// media type, and validator on every request. The local tree can change
+	// between requests, and ReadLocal consults it before the embedded one, so
+	// that mode keeps resolving fresh. Only names that resolve are cached,
+	// which bounds the cache by the tree rather than by what clients request.
+	memoize := !publicDevelopment && !config.ReadLocal
+	var resolvedAssets sync.Map
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if r.URL.Path == strings.TrimSuffix(mount, "/") {
@@ -92,31 +101,40 @@ func PublicAssets(config PublicAssetConfig, embedded fs.FS) (Middleware, error) 
 				servePublicManifest(w, r, name, embedded)
 				return
 			}
-			asset, ok := resolvePublicAsset(name, config, embedded)
-			if !ok {
-				http.NotFound(w, r)
-				return
+			var resolved *resolvedPublicAsset
+			if memoize {
+				if cached, ok := resolvedAssets.Load(name); ok {
+					resolved = cached.(*resolvedPublicAsset)
+				}
+			}
+			if resolved == nil {
+				asset, ok := resolvePublicAsset(name, config, embedded)
+				if !ok {
+					http.NotFound(w, r)
+					return
+				}
+				resolved = finishPublicAsset(asset)
+				if memoize {
+					resolvedAssets.Store(name, resolved)
+				}
 			}
 			if !publicDevelopment {
 				w.Header().Set("Vary", "Accept-Encoding")
 			}
-			representation, encoding, acceptable := selectPublicRepresentation(r, asset)
+			representation, encoding, acceptable := selectPublicRepresentation(r, resolved.asset)
 			if !acceptable {
 				http.Error(w, http.StatusText(http.StatusNotAcceptable), http.StatusNotAcceptable)
 				return
 			}
-			contentType := mime.TypeByExtension(path.Ext(asset.name))
-			if contentType == "" {
-				contentType = http.DetectContentType(asset.identity)
-			}
-			w.Header().Set("Content-Type", contentType)
+			w.Header().Set("Content-Type", resolved.contentType)
 			w.Header().Set("Content-Length", strconv.Itoa(len(representation)))
+			etag := resolved.identityTag
 			if encoding != "" {
 				w.Header().Set("Content-Encoding", encoding)
+				etag = resolved.zstdTag
 			}
-			sum := sha256.Sum256(representation)
-			w.Header().Set("ETag", fmt.Sprintf(`"%x"`, sum[:16]))
-			if r.Header.Get("If-None-Match") == w.Header().Get("ETag") {
+			w.Header().Set("ETag", etag)
+			if r.Header.Get("If-None-Match") == etag {
 				w.WriteHeader(http.StatusNotModified)
 				return
 			}
@@ -207,6 +225,33 @@ type publicAsset struct {
 	name     string
 	identity []byte
 	zstd     []byte
+}
+
+// resolvedPublicAsset carries one manifest-less asset with everything a
+// response derives from its bytes already computed, so a cached asset costs
+// no digest and no type sniff while a request waits.
+type resolvedPublicAsset struct {
+	asset       publicAsset
+	contentType string
+	identityTag string
+	zstdTag     string
+}
+
+func finishPublicAsset(asset publicAsset) *resolvedPublicAsset {
+	contentType := mime.TypeByExtension(path.Ext(asset.name))
+	if contentType == "" {
+		contentType = http.DetectContentType(asset.identity)
+	}
+	resolved := &resolvedPublicAsset{asset: asset, contentType: contentType, identityTag: publicAssetETag(asset.identity)}
+	if len(asset.zstd) > 0 {
+		resolved.zstdTag = publicAssetETag(asset.zstd)
+	}
+	return resolved
+}
+
+func publicAssetETag(body []byte) string {
+	sum := sha256.Sum256(body)
+	return `"` + hex.EncodeToString(sum[:16]) + `"`
 }
 
 func resolvePublicAsset(name string, config PublicAssetConfig, embedded fs.FS) (publicAsset, bool) {
@@ -304,53 +349,29 @@ func selectPublicRepresentation(r *http.Request, asset publicAsset) ([]byte, str
 		return asset.identity, "", true
 	}
 	values, present := r.Header["Accept-Encoding"]
-	if !present || strings.TrimSpace(strings.Join(values, ",")) == "" {
+	if !present {
 		return asset.identity, "", true
 	}
-	quality := parseEncodingQuality(strings.Join(values, ","))
-	zstdQuality, zstdSet := quality["zstd"]
-	if !zstdSet {
-		zstdQuality = quality["*"]
+	header := strings.Join(values, ",")
+	if strings.TrimSpace(header) == "" {
+		return asset.identity, "", true
+	}
+	quality := scanEncodingQuality(header, "zstd")
+	zstdQuality := quality.coding
+	if !quality.codingSet {
+		zstdQuality = quality.wildcard
 	}
 	if len(asset.zstd) > 0 && zstdQuality > 0 {
 		return asset.zstd, "zstd", true
 	}
-	identityQuality, identitySet := quality["identity"]
-	if !identitySet {
-		if wildcard, wildcardSet := quality["*"]; wildcardSet {
-			identityQuality = wildcard
-		} else {
-			identityQuality = 1
-		}
+	identityQuality := 1.0
+	if quality.identitySet {
+		identityQuality = quality.identity
+	} else if quality.wildcardSet {
+		identityQuality = quality.wildcard
 	}
 	if identityQuality > 0 {
 		return asset.identity, "", true
 	}
 	return nil, "", false
-}
-
-func parseEncodingQuality(header string) map[string]float64 {
-	result := make(map[string]float64)
-	for _, item := range strings.Split(header, ",") {
-		parts := strings.Split(item, ";")
-		token := strings.ToLower(strings.TrimSpace(parts[0]))
-		if token == "" {
-			continue
-		}
-		quality := 1.0
-		for _, parameter := range parts[1:] {
-			key, value, ok := strings.Cut(strings.TrimSpace(parameter), "=")
-			if !ok || !strings.EqualFold(strings.TrimSpace(key), "q") {
-				continue
-			}
-			parsed, err := strconv.ParseFloat(strings.TrimSpace(value), 64)
-			if err != nil || parsed < 0 || parsed > 1 {
-				quality = 0
-			} else {
-				quality = parsed
-			}
-		}
-		result[token] = quality
-	}
-	return result
 }

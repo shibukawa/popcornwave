@@ -8,7 +8,6 @@ import (
 	"math/big"
 	"net"
 	"net/http"
-	"runtime/debug"
 	"strconv"
 	"sync"
 	"time"
@@ -66,18 +65,7 @@ func liveModeRequested(r *http.Request) bool {
 // agree and a restart of the same binary does not evict anybody. A build with
 // no stamp reports nothing, which disables the check rather than inventing a
 // value that would differ per process and reload every client on every restart.
-var renderVersion = sync.OnceValue(func() string {
-	info, ok := debug.ReadBuildInfo()
-	if !ok {
-		return ""
-	}
-	for _, setting := range info.Settings {
-		if setting.Key == "vcs.revision" {
-			return setting.Value
-		}
-	}
-	return ""
-})
+var renderVersion = updateBuildID
 
 // serveLive answers a live mode request with the deliveries of one chain.
 //

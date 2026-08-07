@@ -156,32 +156,42 @@ func SecurityHeaders(config SecurityHeadersConfig, option ...SecurityHeadersOpti
 	for _, apply := range option {
 		apply(&options)
 	}
+	// None of these values depend on the request, so they are resolved once
+	// here; only HSTS keeps a per-request condition, and that is about the
+	// connection rather than the value.
+	frame := strings.ToUpper(config.FrameOptions)
+	sendFrame := frame == "DENY" || frame == "SAMEORIGIN"
+	csp, sendCSP := headerPolicy(config.ContentSecurityPolicy)
+	cspReport, sendCSPReport := headerPolicy(config.ContentSecurityPolicyReportOnly)
+	hsts := ""
+	if config.HSTS.Enabled {
+		hsts = "max-age=" + strconv.FormatInt(int64(config.HSTS.MaxAge/time.Second), 10)
+		if config.HSTS.IncludeSubdomains {
+			hsts += "; includeSubDomains"
+		}
+		if config.HSTS.Preload {
+			hsts += "; preload"
+		}
+	}
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			header := w.Header()
 			if config.ContentTypeOptions {
 				header.Set("X-Content-Type-Options", "nosniff")
 			}
-			if frame := strings.ToUpper(config.FrameOptions); frame == "DENY" || frame == "SAMEORIGIN" {
+			if sendFrame {
 				header.Set("X-Frame-Options", frame)
 			}
 			setOptionalHeader(header, "Referrer-Policy", config.ReferrerPolicy)
-			if policy, send := headerPolicy(config.ContentSecurityPolicy); send {
-				header.Set("Content-Security-Policy", policy)
+			if sendCSP {
+				header.Set("Content-Security-Policy", csp)
 			}
-			if policy, send := headerPolicy(config.ContentSecurityPolicyReportOnly); send {
-				header.Set("Content-Security-Policy-Report-Only", policy)
+			if sendCSPReport {
+				header.Set("Content-Security-Policy-Report-Only", cspReport)
 			}
 			setOptionalHeader(header, "Permissions-Policy", config.PermissionsPolicy)
-			if config.HSTS.Enabled && requestIsHTTPS(r, options.trustedProxies) {
-				value := "max-age=" + strconv.FormatInt(int64(config.HSTS.MaxAge/time.Second), 10)
-				if config.HSTS.IncludeSubdomains {
-					value += "; includeSubDomains"
-				}
-				if config.HSTS.Preload {
-					value += "; preload"
-				}
-				header.Set("Strict-Transport-Security", value)
+			if hsts != "" && requestIsHTTPS(r, options.trustedProxies) {
+				header.Set("Strict-Transport-Security", hsts)
 			}
 			next.ServeHTTP(w, r)
 		})
@@ -201,7 +211,8 @@ func requestIsHTTPS(r *http.Request, trusted []*net.IPNet) bool {
 	if !trustedRemote(r.RemoteAddr, trusted) {
 		return false
 	}
-	return strings.EqualFold(strings.TrimSpace(strings.Split(r.Header.Get("X-Forwarded-Proto"), ",")[0]), "https")
+	proto, _, _ := strings.Cut(r.Header.Get("X-Forwarded-Proto"), ",")
+	return strings.EqualFold(strings.TrimSpace(proto), "https")
 }
 
 func trustedRemote(remote string, trusted []*net.IPNet) bool {

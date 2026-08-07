@@ -51,6 +51,14 @@ type Store struct {
 	now             func() time.Time
 	maxPayloadBytes int
 	maxPruneBatch   int
+
+	// The five statements are fixed once table and dialect are known, so they
+	// are built and rebound here rather than per request.
+	upsertSQL string
+	getSQL    string
+	touchSQL  string
+	deleteSQL string
+	pruneSQL  string
 }
 
 // NewStore constructs a Store over db, which is a *sql.DB or the native
@@ -89,14 +97,28 @@ func NewStore(db sqlbind.SQLExecutor, options Options) (*Store, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Store{
+	store := &Store{
 		db:              db,
 		dialect:         dialect,
 		table:           table,
 		now:             now,
 		maxPayloadBytes: maxPayloadBytes,
 		maxPruneBatch:   maxPruneBatch,
-	}, nil
+	}
+	store.upsertSQL = store.rebind(dialect.Upsert(table))
+	store.getSQL = store.rebind(`
+		SELECT created_at_ms, authenticated_at_ms, last_seen_at_ms, expires_at_ms,
+			idle_expires_at_ms, method, version, payload
+		FROM ` + table + ` WHERE key_hash = ?`)
+	store.touchSQL = store.rebind(`
+		UPDATE ` + table + `
+		SET last_seen_at_ms = ?, idle_expires_at_ms = ?
+		WHERE key_hash = ? AND expires_at_ms > ?
+			AND (idle_expires_at_ms = 0 OR idle_expires_at_ms > ?)
+			AND ? <= expires_at_ms`)
+	store.deleteSQL = store.rebind(`DELETE FROM ` + table + ` WHERE key_hash = ?`)
+	store.pruneSQL = store.rebind(dialect.Prune(table))
+	return store, nil
 }
 
 // MigrationName is the stable name of the migration a project carries for this
@@ -183,7 +205,7 @@ func (s *Store) Put(ctx context.Context, keyHash string, record session.RawRecor
 	if len(payload) == 0 || len(payload) > s.maxPayloadBytes {
 		return fmt.Errorf("%w: payload size", session.ErrCodec)
 	}
-	_, err := s.db.ExecContext(ctx, s.rebind(s.dialect.Upsert(s.table)),
+	_, err := s.db.ExecContext(ctx, s.upsertSQL,
 		keyHash, milli(record.CreatedAt), milli(record.AuthenticatedAt), milli(record.LastSeenAt),
 		milli(record.ExpiresAt), milli(record.IdleExpiresAt), record.Method, record.Version, payload)
 	if err != nil {
@@ -210,10 +232,7 @@ func (s *Store) Get(ctx context.Context, keyHash string) (session.RawRecord, err
 	// sqlbind.Query rather than QueryRowContext, because only database/sql can
 	// construct the *sql.Row that method returns and this store also runs on
 	// native executors.
-	rows, err := sqlbind.Query(ctx, s.db, s.rebind(`
-		SELECT created_at_ms, authenticated_at_ms, last_seen_at_ms, expires_at_ms,
-			idle_expires_at_ms, method, version, payload
-		FROM `+s.table+` WHERE key_hash = ?`), keyHash)
+	rows, err := sqlbind.Query(ctx, s.db, s.getSQL, keyHash)
 	if err != nil {
 		return zero, unavailable(ctx)
 	}
@@ -257,12 +276,7 @@ func (s *Store) Touch(ctx context.Context, keyHash string, lastSeenAt, idleExpir
 		return session.ErrInvalidKey
 	}
 	now := milli(s.now())
-	result, err := s.db.ExecContext(ctx, s.rebind(`
-		UPDATE `+s.table+`
-		SET last_seen_at_ms = ?, idle_expires_at_ms = ?
-		WHERE key_hash = ? AND expires_at_ms > ?
-			AND (idle_expires_at_ms = 0 OR idle_expires_at_ms > ?)
-			AND ? <= expires_at_ms`),
+	result, err := s.db.ExecContext(ctx, s.touchSQL,
 		milli(lastSeenAt), milli(idleExpiresAt), keyHash, now, now, milli(idleExpiresAt))
 	if err != nil {
 		return unavailable(ctx)
@@ -287,7 +301,7 @@ func (s *Store) Delete(ctx context.Context, keyHash string) error {
 	if !validKeyHash(keyHash) {
 		return session.ErrInvalidKey
 	}
-	if _, err := s.db.ExecContext(ctx, s.rebind(`DELETE FROM `+s.table+` WHERE key_hash = ?`), keyHash); err != nil {
+	if _, err := s.db.ExecContext(ctx, s.deleteSQL, keyHash); err != nil {
 		return unavailable(ctx)
 	}
 	return nil
@@ -302,7 +316,7 @@ func (s *Store) Prune(ctx context.Context, before time.Time, limit int) (int64, 
 		return 0, err
 	}
 	cutoff := milli(before)
-	result, err := s.db.ExecContext(ctx, s.rebind(s.dialect.Prune(s.table)), cutoff, cutoff, limit)
+	result, err := s.db.ExecContext(ctx, s.pruneSQL, cutoff, cutoff, limit)
 	if err != nil {
 		return 0, unavailable(ctx)
 	}
