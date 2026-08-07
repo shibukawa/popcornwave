@@ -1,0 +1,29 @@
+package handlers
+
+// The row shape this page renders. The identical declaration in
+// queries/todos.pw.sql belongs to that package, and load() copies between them.
+//
+// The two URLs are fields rather than calls: a form action is a URL attribute,
+// so it takes a url and never a string, because an id pasted into a path as
+// text is how an injected value reaches an action.
+type Todo { id: int, title: string, done: bool, toggleURL: url, deleteURL: url }
+
+export component TodoPage(todos: Todo[], count: int): html {
+<div class="page">
+  <h1>Todo</h1>
+  <form method="post" action="/todos">
+    <input name="title" autocomplete="off" required>
+    <button type="submit">Add</button>
+  </form>
+  <ul>
+    {for todo in todos}
+    <li class="{todo.done ? 'done' : 'open'}">
+      <span class="title">{todo.title}</span>
+      <form method="post" action={todo.toggleURL}><button type="submit">toggle</button></form>
+      <form method="post" action={todo.deleteURL}><button type="submit">delete</button></form>
+    </li>
+    {/for}
+  </ul>
+  <p class="count">{count} items</p>
+</div>
+}

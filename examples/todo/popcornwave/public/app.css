@@ -1,0 +1,22 @@
+:root { color-scheme: light dark; --edge: #d8dce4; --muted: #5b6478; --accent: #4f46e5; }
+body { font: 16px/1.6 system-ui, sans-serif; margin: 0 auto; max-width: 46rem; padding: 3rem 1.5rem; }
+.page > * + * { margin-top: 2.5rem; }
+.eyebrow { color: var(--accent); font-size: .8rem; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; }
+.title { font-size: 2.25rem; letter-spacing: -.02em; margin: .25rem 0 0; }
+.lead { color: var(--muted); margin: .75rem 0 0; }
+.card { border: 1px solid var(--edge); border-radius: .75rem; padding: 1.5rem; }
+.card-heading { font-size: 1.05rem; margin: 0; }
+.card-list { color: var(--muted); margin: .75rem 0 0; padding-left: 1.25rem; }
+.card-list li + li { margin-top: .5rem; }
+.link { color: var(--accent); font-weight: 500; }
+.note { color: var(--muted); font-size: .875rem; }
+button, .button { border: 1px solid var(--edge); border-radius: .5rem; background: none; cursor: pointer; font: inherit; padding: .4rem .9rem; }
+@media (prefers-color-scheme: dark) { :root { --edge: #333a4a; --muted: #9aa3b8; --accent: #a5b4fc; } }
+
+.error { margin: 0 auto; max-width: 34rem; padding: 4rem 1.5rem; }
+.error-status { color: #9aa3b8; font-size: 3rem; font-weight: 700; line-height: 1; margin: 0; }
+.error-title { font-size: 1.5rem; margin: .5rem 0 0; }
+.error-detail { margin: 1rem 0 0; }
+.error-fields { margin: 1rem 0 0; padding-left: 1.25rem; }
+.error-fields:empty { display: none; }
+.error-code, .error-request { color: #5b6478; font-family: ui-monospace, monospace; font-size: .8rem; margin: 1.5rem 0 0; }
