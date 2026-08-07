@@ -12,7 +12,8 @@
 // bytes live. Shared is a plain cookie the front end reads and writes,
 // ReadOnly a signed one it may read, Private is sealed and moves from a cookie
 // to the configured backend at the login rotation, and ServerOnly is sealed and
-// always on the server because it must stay revocable.
+// always on the server because it must stay revocable. A host may deliberately
+// place anonymous Private state on its server too, as the dev memory backend does.
 //
 // The browser receives only a random token, issued lazily on the first write,
 // so a visitor who writes nothing receives no cookie and occupies no storage.

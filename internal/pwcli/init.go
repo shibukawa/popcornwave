@@ -39,7 +39,7 @@ const (
 	repositoryURL    = "https://github.com/shibukawa/popcornwave"
 )
 
-const initUsage = "usage: pw init [<project-name>] [--yes] [--router=registered|discovered|both] [--tailwind] [--no-tinygo] [--no-devbox] [--no-database] [--db=sqlite|postgres|mysql] [--dynamo] [--no-redis] [--auth=none|oidc|oidc-passkey|passkey] [--session=rdb|cookie|redis|dynamo] [--devidp]"
+const initUsage = "usage: pw init [<project-name>] [--yes] [--router=registered|discovered|both] [--tailwind] [--no-tinygo] [--no-devbox] [--no-database] [--db=sqlite|postgres|mysql] [--dynamo] [--no-redis] [--auth=none|oidc|oidc-passkey|passkey] [--session=dev-volatile|dev-persist|rdb|cookie|redis|dynamo] [--devidp]"
 
 // Authentication modes the wizard and the --auth flag select between. They map
 // onto the plugin/auth modes, with none meaning no [auth] configuration.
@@ -78,14 +78,16 @@ func servesBrowserLogin(options initOptions) bool {
 	return servesLogin(options) && options.Auth != authJWTOnly
 }
 
-// Session storage backends the wizard and the --session flag select between.
-// They are the api:session-backend-plugin names, and each one but cookie is
-// contributed to the binary by a blank import the scaffold writes.
+// Session storage backends and development intent modes selected by the wizard
+// and --session. General server backends are contributed by blank imports;
+// cookie and both development modes are built into pw.
 const (
-	sessionRDB    = "rdb"
-	sessionCookie = "cookie"
-	sessionRedis  = "redis"
-	sessionDynamo = "dynamo"
+	sessionRDB         = "rdb"
+	sessionCookie      = "cookie"
+	sessionDevVolatile = "dev-volatile"
+	sessionDevPersist  = "dev-persist"
+	sessionRedis       = "redis"
+	sessionDynamo      = "dynamo"
 	// sessionFirestore keeps records in Firestore in Datastore mode, for the
 	// same relational-free project on Google Cloud that dynamo serves on AWS.
 	sessionFirestore = "firestore"
@@ -123,6 +125,16 @@ func sessionBackend(options initOptions) string {
 		return sessionRDB
 	}
 	return sessionCookie
+}
+
+// developmentSessionBackend selects the backend written to config.dev.toml.
+// An explicit storage answer is respected; an unanswered scaffold starts with
+// process-local state so restarts discard records written by an older codec.
+func developmentSessionBackend(options initOptions) string {
+	if options.SessionExplicit {
+		return sessionBackend(options)
+	}
+	return sessionDevVolatile
 }
 
 // generatedKeyringSecret returns a fresh session keyring for the scaffolded
@@ -287,6 +299,9 @@ type initOptions struct {
 	// Session selects where login sessions are stored. It only applies to a
 	// project that scaffolds a login.
 	Session string
+	// SessionExplicit distinguishes an operator's storage answer from the
+	// deployment default already present in Session.
+	SessionExplicit bool
 	// AuthEmulator scaffolds the development identity provider instead of
 	// pointing the project at an external one. It only applies to an OIDC mode.
 	AuthEmulator bool
@@ -391,12 +406,13 @@ func parseInitArgs(args []string) (initOptions, error) {
 			}
 			if backend, ok := strings.CutPrefix(arg, "--session="); ok {
 				switch backend {
-				case sessionRDB, sessionCookie, sessionRedis, sessionDynamo, sessionFirestore:
+				case sessionDevVolatile, sessionDevPersist, sessionRDB, sessionCookie, sessionRedis, sessionDynamo, sessionFirestore:
 					options.Session = backend
+					options.SessionExplicit = true
 					sessionSelected = true
 				default:
-					return initOptions{}, fmt.Errorf("init: --session must be %s, %s, %s, %s, or %s",
-						sessionRDB, sessionCookie, sessionRedis, sessionDynamo, sessionFirestore)
+					return initOptions{}, fmt.Errorf("init: --session must be %s, %s, %s, %s, %s, %s, or %s",
+						sessionDevVolatile, sessionDevPersist, sessionRDB, sessionCookie, sessionRedis, sessionDynamo, sessionFirestore)
 				}
 				continue
 			}
@@ -1293,8 +1309,8 @@ func authBackend(options initOptions) string {
 
 // sessionBackendImport contributes the storage the configuration selects.
 // Session storage is opt-in by blank import, so an application links the one
-// backend it configured and nothing else. The cookie backend is built into pw
-// and needs no line here.
+// backend it configured and nothing else. Cookie and both development intent
+// modes are built into pw and need no line here.
 func sessionBackendImport(options initOptions) string {
 	imports := ""
 	if plugin := sessionBackendPlugin(sessionBackend(options), options.Engine); plugin != "" {
@@ -1997,18 +2013,12 @@ role = "member"
 // [auth] durations that would otherwise narrow it are not there.
 func sessionRuntimeConfig(options initOptions) string {
 	// The browser token is opaque in every backend; this selects where the
-	// record behind it lives. A backend other than cookie reaches the binary
-	// through the blank import in main.
-	return `
-[session]
-enabled = true
-backend = "` + sessionBackend(options) + `"
-cookie.name = "pw_session"
-# Loopback development only, because there is no TLS to require here. Every
-# other environment refuses to start with this false, so a deployment file
-# either sets it true or leaves it out.
-cookie.secure = false
-# One secret signs and seals everything the browser carries, whatever the
+	// record behind it lives. General server backends reach the binary through
+	// the blank import in main; cookie and development modes are built in.
+	backend := developmentSessionBackend(options)
+	keyring := ""
+	if backend != sessionDevVolatile {
+		keyring = `# One secret signs and seals everything the browser carries, whatever the
 # backend is: a session.ReadOnly slot is signed and a session.Private slot is
 # sealed, including while a visitor is still anonymous.
 #
@@ -2016,7 +2026,18 @@ cookie.secure = false
 # Every other environment reads SESSION_KEYRING_SECRET, and "pw doctor --env"
 # reports a literal here as an error for any environment but dev.
 keyring.secret = "` + generatedKeyringSecret() + `"
-` + sessionBackendConfig(options) + `
+`
+	}
+	return `
+[session]
+enabled = true
+backend = "` + backend + `"
+cookie.name = "pw_session"
+# Loopback development only, because there is no TLS to require here. Every
+# other environment refuses to start with this false, so a deployment file
+# either sets it true or leaves it out.
+cookie.secure = false
+` + keyring + sessionBackendConfig(backend) + `
 `
 }
 
@@ -2324,8 +2345,17 @@ func authDevelopmentOrigin(options initOptions) string {
 
 // sessionBackendConfig writes the keys of the selected backend and only those:
 // keys of a backend nothing opens would describe storage that is not there.
-func sessionBackendConfig(options initOptions) string {
-	switch sessionBackend(options) {
+func sessionBackendConfig(backend string) string {
+	switch backend {
+	case sessionDevVolatile:
+		return `# Development records stay in this process and disappear on restart.
+# Private slots are server-side from their first write, so no sealed record
+# cookie or development keyring is needed unless a ReadOnly slot is declared.
+`
+	case sessionDevPersist:
+		return `# Development records stay sealed in a browser cookie and survive
+# process restarts. The stable keyring above keeps issued records readable.
+`
 	case sessionCookie:
 		return `# The record stays sealed in a second cookie for the whole of a session, so
 # this deployment stores no sessions at all. It uses the same keyring.secret

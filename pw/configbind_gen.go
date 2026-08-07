@@ -525,7 +525,7 @@ func registerSessionConfigDefinition2() {
 		},
 		FlagMetas: []cliparser.FieldMeta{
 			{Prefix: "session", Key: "enabled", Kind: cliparser.KindBool},
-			{Prefix: "session", Key: "backend", Help: "session storage backend: rdb, cookie, redis, dynamo, or firestore"},
+			{Prefix: "session", Key: "backend", Help: "session storage backend: rdb, cookie, dev-volatile, dev-persist, redis, dynamo, or firestore"},
 			{Prefix: "session", Key: "retention", Help: "how long the store may hold one record; the session lifetime under [auth] narrows it"},
 			{Prefix: "session", Key: "cookie.name"},
 			{Prefix: "session", Key: "cookie.path"},
@@ -550,7 +550,7 @@ func registerSessionConfigDefinition2() {
 		Apply: applySessionConfigDefinition2,
 		Scaffold: []configbind.ScaffoldField{
 			{Key: "enabled", Kind: configbind.ScaffoldBool, Default: "false"},
-			{Key: "backend", Kind: configbind.ScaffoldString, Default: "rdb", Help: "session storage backend: rdb, cookie, redis, dynamo, or firestore"},
+			{Key: "backend", Kind: configbind.ScaffoldString, Default: "rdb", Help: "session storage backend: rdb, cookie, dev-volatile, dev-persist, redis, dynamo, or firestore"},
 			{Key: "retention", Kind: configbind.ScaffoldDuration, Default: "720h", Help: "how long the store may hold one record; the session lifetime under [auth] narrows it"},
 			{Key: "cookie.name", Kind: configbind.ScaffoldString, Default: "pw_session"},
 			{Key: "cookie.path", Kind: configbind.ScaffoldString, Default: "/"},

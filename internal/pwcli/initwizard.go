@@ -233,8 +233,18 @@ func applicationSteps(defaults initOptions) []wizardStep[initOptions] {
 			newChoiceStep(
 				"Session storage",
 				"Where a login session lives. Every choice reads the same in handlers; "+
-					"a backend other than cookie is added to the binary by a blank import the scaffold writes.",
-				sessionCursor(defaults.Session),
+					"general server backends are added by blank imports, while development modes are built in.",
+				sessionCursor(defaults),
+				wizardChoice[initOptions]{
+					name:        "Development, reset on restart",
+					description: "process-local and revocable; no sealed record cookie; accepted only in dev",
+					apply:       setSession(sessionDevVolatile),
+				},
+				wizardChoice[initOptions]{
+					name:        "Development, keep on restart",
+					description: "sealed browser record with a stable keyring; accepted only in dev",
+					apply:       setSession(sessionDevPersist),
+				},
 				wizardChoice[initOptions]{
 					name:        "Database",
 					description: "one row per session through sessionstore/sqlite; revocable, swept, carries a migration",
@@ -449,6 +459,7 @@ func setAuth(mode string) func(*initOptions) {
 func setSession(backend string) func(*initOptions) {
 	return func(target *initOptions) {
 		target.Session = backend
+		target.SessionExplicit = true
 		if backend == sessionRedis && target.Devbox {
 			target.Redis = true
 		}
@@ -456,14 +467,23 @@ func setSession(backend string) func(*initOptions) {
 }
 
 // sessionCursor maps a backend onto its position in the choice list.
-func sessionCursor(backend string) int {
-	switch backend {
-	case sessionCookie:
+func sessionCursor(options initOptions) int {
+	if !options.SessionExplicit {
+		return 0
+	}
+	switch options.Session {
+	case sessionDevPersist:
 		return 1
-	case sessionRedis:
+	case sessionRDB:
 		return 2
-	case sessionDynamo:
+	case sessionCookie:
 		return 3
+	case sessionRedis:
+		return 4
+	case sessionDynamo:
+		return 5
+	case sessionFirestore:
+		return 6
 	default:
 		return 0
 	}

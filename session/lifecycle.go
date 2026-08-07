@@ -31,18 +31,17 @@ func (m *Manager) Middleware(unavailable UnavailableHandler) func(http.Handler) 
 				values:  map[reflect.Type]any{},
 				present: map[reflect.Type]bool{},
 			}
-			switch err := current.load(); {
-			case err == nil:
-			case errors.Is(err, ErrNotFound),
-				errors.Is(err, ErrExpired),
-				errors.Is(err, ErrCodec),
-				errors.Is(err, ErrInvalidKey):
-				// Stale or unreadable browser state: clear it and continue with
-				// no session.
-				m.clearCookie(w)
-			default:
-				unavailable(w, r, err)
-				return
+			if !m.lazyRecord {
+				switch err := current.resolveRecord(); {
+				case err == nil:
+				case staleSessionError(err):
+					// Stale or unreadable browser state: clear it and continue with
+					// no session.
+					m.clearCookie(w)
+				default:
+					unavailable(w, r, err)
+					return
+				}
 			}
 			current.loadCookieSlots()
 
@@ -80,15 +79,14 @@ func (m *Manager) Attach(w http.ResponseWriter, r *http.Request) (*http.Request,
 		values:  map[reflect.Type]any{},
 		present: map[reflect.Type]bool{},
 	}
-	switch err := current.load(); {
-	case err == nil:
-	case errors.Is(err, ErrNotFound),
-		errors.Is(err, ErrExpired),
-		errors.Is(err, ErrCodec),
-		errors.Is(err, ErrInvalidKey):
-		m.clearCookie(w)
-	default:
-		return r, err
+	if !m.lazyRecord {
+		switch err := current.resolveRecord(); {
+		case err == nil:
+		case staleSessionError(err):
+			m.clearCookie(w)
+		default:
+			return r, err
+		}
 	}
 	current.loadCookieSlots()
 	return r.WithContext(context.WithValue(r.Context(), stateKey{}, current)), nil
@@ -112,6 +110,9 @@ func (m *Manager) Rotate(w http.ResponseWriter, r *http.Request) error {
 	}
 	if m.server == nil {
 		return errNoRecordStore
+	}
+	if err := current.resolveRecord(); err != nil && !staleSessionError(err) {
+		return err
 	}
 	previous := current.token
 	values, present := current.values, current.present
@@ -163,6 +164,9 @@ func (m *Manager) Destroy(w http.ResponseWriter, r *http.Request) error {
 		m.clearCookie(w)
 		return nil
 	}
+	if err := current.resolveRecord(); err != nil && !staleSessionError(err) {
+		return err
+	}
 	return current.destroy()
 }
 
@@ -180,5 +184,14 @@ func currentState(ctx context.Context) (*state, bool) {
 // authentication claim: an anonymous browser holding a cart has a session.
 func Present(ctx context.Context) bool {
 	current, ok := currentState(ctx)
-	return ok && current.token != ""
+	if !ok {
+		return false
+	}
+	_ = current.resolveRecord()
+	return current.token != ""
+}
+
+func staleSessionError(err error) bool {
+	return errors.Is(err, ErrNotFound) || errors.Is(err, ErrExpired) ||
+		errors.Is(err, ErrCodec) || errors.Is(err, ErrInvalidKey)
 }

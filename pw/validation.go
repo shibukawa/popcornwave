@@ -55,7 +55,13 @@ func validateRuntimeConfig(server ServerConfig, security SecurityConfig, middlew
 // variable therefore keeps this exception, and hears about it from the startup
 // warning rather than from a refusal.
 func validateSessionConfig(config SessionConfig, env string, development bool) error {
-	if !config.Enabled || config.Cookie.Secure {
+	if !config.Enabled {
+		return nil
+	}
+	if (config.Backend == SessionBackendDevVolatile || config.Backend == SessionBackendDevPersist) && !development {
+		return fmt.Errorf("session.backend = %q is available only when %s is %q", config.Backend, EnvVar, EnvDevelopment)
+	}
+	if config.Cookie.Secure {
 		return nil
 	}
 	sameSite, err := parseSessionSameSite(config.Cookie.SameSite)

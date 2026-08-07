@@ -204,14 +204,13 @@ func (r *Registry) freeze() []*slot {
 	return slots
 }
 
-// needsKeyring reports whether any registered slot cannot be served without a
-// keyring. Shared is the only placement that protects nothing, so a registry
-// holding nothing else needs no secret.
-func (r *Registry) needsKeyring() bool {
+// needsKeyring reports whether any registered slot still lives in a protected
+// browser cookie. Private needs one only while its anonymous phase is there.
+func (r *Registry) needsKeyring(serverSideAnonymous bool) bool {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	for _, entry := range r.byKey {
-		if entry.placement.needsKeyring() {
+		if entry.placement == ReadOnly || (!serverSideAnonymous && entry.placement == Private) {
 			return true
 		}
 	}

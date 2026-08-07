@@ -125,6 +125,29 @@ func TestCookieStoreCarriesASessionWithoutABackend(t *testing.T) {
 	}
 }
 
+func TestCookieStoreDefersRecordDecodeUntilSessionAccess(t *testing.T) {
+	c := &clock{now: time.Unix(1_700_000_000, 0)}
+	manager := cookieManager(t, testKeyring(t, 1), c.Now)
+	client := login(t, manager, newBrowser(), "account-1")
+
+	tampered := client.copy()
+	record := *tampered.cookies[DefaultDataCookieName]
+	record.Value = record.Value[:len(record.Value)-1] + "A"
+	tampered.cookies[DefaultDataCookieName] = &record
+
+	untouched := run(manager, tampered.list(), func(http.ResponseWriter, *http.Request) {})
+	if cleared := sessionCookie(t, untouched, DefaultCookieName); cleared != nil {
+		t.Fatalf("a route with no session access decoded or cleared the record: %#v", cleared)
+	}
+
+	observed := run(manager, tampered.list(), func(_ http.ResponseWriter, r *http.Request) {
+		_, _ = Load[payload](r.Context())
+	})
+	if cleared := sessionCookie(t, observed, DefaultCookieName); cleared == nil || cleared.MaxAge >= 0 {
+		t.Fatalf("first session access did not reject the tampered record: %#v", cleared)
+	}
+}
+
 func TestCookieStoreRejectsARecordFromAnotherSession(t *testing.T) {
 	c := &clock{now: time.Unix(1_700_000_000, 0)}
 	manager := cookieManager(t, testKeyring(t, 1), c.Now)

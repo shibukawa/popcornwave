@@ -114,6 +114,18 @@ func TestValidateSessionConfigJudgesTheCookieByEnvironment(t *testing.T) {
 	}
 }
 
+func TestValidateSessionConfigRestrictsDevelopmentIntentModes(t *testing.T) {
+	for _, backend := range []string{SessionBackendDevVolatile, SessionBackendDevPersist} {
+		config := SessionConfig{Enabled: true, Backend: backend, Cookie: SessionCookieConfig{Secure: true}}
+		if err := validateSessionConfig(config, EnvDevelopment, true); err != nil {
+			t.Fatalf("development refused %s: %v", backend, err)
+		}
+		if err := validateSessionConfig(config, EnvProduction, false); err == nil || !strings.Contains(err.Error(), "session.backend") {
+			t.Fatalf("production %s error = %v", backend, err)
+		}
+	}
+}
+
 func TestHTTPServerUsesConfiguredTimeouts(t *testing.T) {
 	server, _, _, _ := validRuntimeConfigs()
 	instance := newHTTPServer(server, http.NotFoundHandler())

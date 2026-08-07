@@ -2,6 +2,7 @@ package middlewares
 
 import (
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/shibukawa/popcornwave/internal/pathpattern"
@@ -87,10 +88,12 @@ func CSRF(config CSRFConfig, cookie session.CookieOptions, sameSite http.SameSit
 				next.ServeHTTP(w, r)
 				return
 			}
-			// Issuance runs before the method check, because a GET is what
-			// renders the form the token goes into.
-			r = secrets.ensure(w, r)
 			if safeMethod(r.Method) {
+				// Only an HTML response needs a token to render an unsafe form.
+				// API reads and asset requests stay session-free.
+				if csrfHTMLRequest(r) {
+					r = secrets.ensure(w, r)
+				}
 				next.ServeHTTP(w, r)
 				return
 			}
@@ -109,6 +112,7 @@ func CSRF(config CSRFConfig, cookie session.CookieOptions, sameSite http.SameSit
 				reject(w, r, err)
 				return
 			}
+			r = secrets.ensure(w, r)
 			secret, ok := pwruntime.CSRFSecret(r.Context())
 			if !ok {
 				// Nothing issued a secret, so there is nothing this request
@@ -126,6 +130,22 @@ func CSRF(config CSRFConfig, cookie session.CookieOptions, sameSite http.SameSit
 			next.ServeHTTP(w, r)
 		})
 	}, nil
+}
+
+// csrfHTMLRequest reports whether a safe request is expected to render HTML.
+// Browsers send either an HTML Accept value or a document navigation target.
+// A generic */* request does not justify allocating session state merely in
+// case the handler might render a form.
+func csrfHTMLRequest(r *http.Request) bool {
+	if strings.EqualFold(strings.TrimSpace(r.Header.Get("Sec-Fetch-Dest")), "document") {
+		return true
+	}
+	for _, mediaRange := range strings.Split(r.Header.Get("Accept"), ",") {
+		if strings.EqualFold(strings.TrimSpace(strings.SplitN(mediaRange, ";", 2)[0]), "text/html") {
+			return true
+		}
+	}
+	return false
 }
 
 func safeMethod(method string) bool {

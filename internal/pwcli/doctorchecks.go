@@ -197,6 +197,8 @@ func (r *checkRun) checkWiring() {
 	if r.Config.enabled("session.enabled") {
 		backend := r.Config.raw("session.backend")
 		switch pkg, known := sessionBackendPackages[backend]; {
+		case backend == "cookie" || backend == "dev-volatile" || backend == "dev-persist":
+			// Built into pw; no storage plugin import is required.
 		case known && !r.Graph.links(pkg):
 			r.report(pwcheck.MissingSessionPlugin,
 				"session.backend is "+backend+" and the application links no plugin registering it",

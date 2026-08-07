@@ -45,6 +45,49 @@ func TestCookieBackendNeedsNoImport(t *testing.T) {
 	}
 }
 
+func TestDevelopmentIntentBackendsAreBuiltInAndDevelopmentOnly(t *testing.T) {
+	setEnv(EnvDevelopment, true)
+	t.Cleanup(func() {
+		envState.Lock()
+		envState.known = false
+		envState.Unlock()
+	})
+	backend, err := OpenSessionBackend(t.Context(), testSessionConfig(SessionBackendDevVolatile), SessionResources{})
+	if err != nil {
+		t.Fatalf("dev-volatile backend: %v", err)
+	}
+	if _, ok := backend.Store.(*session.MemoryStore); !ok {
+		t.Fatalf("memory backend store = %T", backend.Store)
+	}
+	if backend.Close != nil || backend.Prune != nil {
+		t.Fatal("dev-volatile backend claimed an external resource")
+	}
+	persist := testSessionConfig(SessionBackendDevPersist)
+	if _, err := OpenSessionBackend(t.Context(), persist, SessionResources{}); err == nil || !strings.Contains(err.Error(), SessionBackendDevPersist) {
+		t.Fatalf("dev-persist missing keyring error = %v", err)
+	}
+	persist.Keyring.Secret = base64.StdEncoding.EncodeToString(make([]byte, 32))
+	kept, err := OpenSessionBackend(t.Context(), persist, SessionResources{})
+	if err != nil {
+		t.Fatalf("dev-persist backend: %v", err)
+	}
+	if _, ok := kept.Store.(session.RequestBinder); !ok {
+		t.Fatalf("dev-persist store = %T, want browser store", kept.Store)
+	}
+
+	setEnv(EnvProduction, true)
+	for _, name := range []string{SessionBackendDevVolatile, SessionBackendDevPersist} {
+		config := testSessionConfig(name)
+		config.Keyring = persist.Keyring
+		if _, err := OpenSessionBackend(t.Context(), config, SessionResources{}); err == nil || !strings.Contains(err.Error(), "APP_ENV=dev") {
+			t.Fatalf("production %s backend error = %v", name, err)
+		}
+	}
+	if _, err := OpenSessionBackend(t.Context(), testSessionConfig("memory"), SessionResources{}); err == nil || !strings.Contains(err.Error(), "not registered") {
+		t.Fatalf("legacy memory backend error = %v", err)
+	}
+}
+
 func TestUnimportedBackendNamesTheImport(t *testing.T) {
 	// Nothing here imports sessionstore/sqlite or sessionstore/redis, which
 	// is exactly the mistake this message exists for.

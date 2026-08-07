@@ -42,8 +42,8 @@ type csrfSecret struct {
 // ensure returns the request carrying a CSRF secret, minting one when the
 // browser has none.
 //
-// It runs on every request rather than only unsafe ones, because a GET is what
-// renders the form the token goes into.
+// It runs for protected unsafe requests and for safe requests that negotiate
+// HTML, because those are the requests that validate or render a form token.
 func (c *csrfSecret) ensure(w http.ResponseWriter, r *http.Request) *http.Request {
 	handle, ok := session.Value[CSRFSecret](r.Context())
 	if !ok {

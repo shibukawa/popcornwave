@@ -44,12 +44,18 @@ func csrfHandler(t *testing.T, manager *session.Manager, config CSRFConfig) http
 	})))
 }
 
+func htmlRequest(method, target string) *http.Request {
+	request := httptest.NewRequest(method, target, nil)
+	request.Header.Set("Accept", "text/html")
+	return request
+}
+
 // A visitor with no login gets a secret, and it costs no server record: the
 // slot rides the sealed cookie a Private slot uses while a session is anonymous.
 func TestAnAnonymousVisitorGetsASecretWithoutAServerRecord(t *testing.T) {
 	manager := csrfDeployment(t)
 	recorder := httptest.NewRecorder()
-	csrfHandler(t, manager, enabledCSRF()).ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/", nil))
+	csrfHandler(t, manager, enabledCSRF()).ServeHTTP(recorder, htmlRequest(http.MethodGet, "/"))
 
 	var runtime, sessionCookie *http.Cookie
 	for _, cookie := range recorder.Result().Cookies() {
@@ -71,6 +77,17 @@ func TestAnAnonymousVisitorGetsASecretWithoutAServerRecord(t *testing.T) {
 	}
 }
 
+func TestSafeAPIGetDoesNotCreateSessionOrCSRFCookies(t *testing.T) {
+	manager := csrfDeployment(t)
+	request := httptest.NewRequest(http.MethodGet, "/api/todos", nil)
+	request.Header.Set("Accept", "application/json")
+	recorder := httptest.NewRecorder()
+	csrfHandler(t, manager, enabledCSRF()).ServeHTTP(recorder, request)
+	if cookies := recorder.Result().Cookies(); len(cookies) != 0 {
+		t.Fatalf("safe API GET created browser state: %#v", cookies)
+	}
+}
+
 // The token the runtime reads verifies against the secret the slot holds, which
 // is the whole point of the pair.
 func TestAnAnonymousTokenVerifies(t *testing.T) {
@@ -78,7 +95,7 @@ func TestAnAnonymousTokenVerifies(t *testing.T) {
 	handler := csrfHandler(t, manager, enabledCSRF())
 
 	issue := httptest.NewRecorder()
-	handler.ServeHTTP(issue, httptest.NewRequest(http.MethodGet, "/", nil))
+	handler.ServeHTTP(issue, htmlRequest(http.MethodGet, "/"))
 
 	post := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(""))
 	post.Header.Set("Origin", "http://"+post.Host)
@@ -105,7 +122,7 @@ func TestAnUnsignedPostIsRefused(t *testing.T) {
 	handler := csrfHandler(t, manager, enabledCSRF())
 
 	issue := httptest.NewRecorder()
-	handler.ServeHTTP(issue, httptest.NewRequest(http.MethodGet, "/", nil))
+	handler.ServeHTTP(issue, htmlRequest(http.MethodGet, "/"))
 
 	post := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(""))
 	post.Header.Set("Origin", "http://"+post.Host)
@@ -126,7 +143,7 @@ func TestRotationInvalidatesATokenMintedBeforeIt(t *testing.T) {
 	handler := csrfHandler(t, manager, enabledCSRF())
 
 	issue := httptest.NewRecorder()
-	handler.ServeHTTP(issue, httptest.NewRequest(http.MethodGet, "/", nil))
+	handler.ServeHTTP(issue, htmlRequest(http.MethodGet, "/"))
 	var beforeToken string
 	carried := issue.Result().Cookies()
 	for _, cookie := range carried {

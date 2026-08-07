@@ -334,7 +334,7 @@ func TestInitWizardSeedsAnswersFromShortcutFlags(t *testing.T) {
 	steps := initWizardSteps(initOptions{
 		Name: "seeded", Router: routerBoth, TinyGo: true, Tailwind: true, Devbox: true,
 		Database: true, Engine: engineSQLite, Redis: true, Dynamo: true, Auth: authOIDC,
-		Session: sessionRedis, AuthEmulator: true,
+		Session: sessionRedis, SessionExplicit: true, AuthEmulator: true,
 	})
 	// Every step is listed, asked or not: the seeds have to reach the ones a
 	// different set of answers would have reached instead. The preset row
@@ -353,6 +353,20 @@ func TestInitWizardSeedsAnswersFromShortcutFlags(t *testing.T) {
 			t.Errorf("step %d (%s) value = %q, want %q", index, step.label(), step.value(), want[index])
 		}
 	}
+}
+
+func TestInitWizardDefaultsSessionIntentToVolatile(t *testing.T) {
+	options := defaultInitOptions()
+	options.Auth = authOIDC
+	for _, step := range initWizardSteps(options) {
+		if step.label() == "Session storage" {
+			if got := step.value(); got != "Development, reset on restart" {
+				t.Fatalf("default session choice = %q", got)
+			}
+			return
+		}
+	}
+	t.Fatal("session storage step was not shown")
 }
 
 func TestInitWizardRejectsUnusableName(t *testing.T) {

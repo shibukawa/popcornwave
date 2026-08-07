@@ -1,17 +1,105 @@
 package pw
 
 import (
+	"context"
+	"encoding/base64"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"testing"
 	"time"
 
+	"github.com/shibukawa/popcornwave/middlewares"
 	"github.com/shibukawa/popcornwave/session"
 	"github.com/shibukawa/popcornwave/sessionconfig"
 )
 
 type visitLocale struct {
 	Tag string `json:"tag"`
+}
+
+func replaceConfigForTest[T any](t *testing.T, value T) *T {
+	t.Helper()
+	key := reflect.TypeFor[T]()
+	configState.Lock()
+	previous, existed := configState.entries[key]
+	configState.entries[key] = configEntry{ptr: &value}
+	configState.Unlock()
+	t.Cleanup(func() {
+		configState.Lock()
+		if existed {
+			configState.entries[key] = previous
+		} else {
+			delete(configState.entries, key)
+		}
+		configState.Unlock()
+	})
+	return &value
+}
+
+func TestDevelopmentSessionModesResolveToOneIntendedStore(t *testing.T) {
+	restoreEnvState(t)
+	setEnv(EnvDevelopment, true)
+	t.Cleanup(func() { _ = closeSession(context.Background()) })
+	replaceConfigForTest(t, SecurityConfig{CSRF: CSRFConfig{Enabled: true}})
+	config := replaceConfigForTest(t, SessionConfig{
+		Enabled:     true,
+		Backend:     SessionBackendDevVolatile,
+		Retention:   time.Hour,
+		Cookie:      SessionCookieConfig{Name: "pw_session", Path: "/", SameSite: "lax"},
+		CookieStore: SessionCookieStoreConfig{Name: session.DefaultDataCookieName},
+	})
+
+	serve := func(t *testing.T, middleware Middleware) *httptest.ResponseRecorder {
+		t.Helper()
+		recorder := httptest.NewRecorder()
+		request := httptest.NewRequest(http.MethodGet, "/", nil)
+		middleware(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
+			handle, ok := session.Value[middlewares.CSRFSecret](r.Context())
+			if !ok {
+				t.Fatal("CSRF session slot was not registered")
+			}
+			if err := handle.Set(middlewares.CSRFSecret{Secret: "test"}); err != nil {
+				t.Fatal(err)
+			}
+		})).ServeHTTP(recorder, request)
+		return recorder
+	}
+
+	volatile, err := setupSession(context.Background())
+	if err != nil {
+		t.Fatalf("dev-volatile setup: %v", err)
+	}
+	volatileResponse := serve(t, volatile)
+	if cookieOfName(volatileResponse, session.DefaultCookieName) == nil {
+		t.Fatal("dev-volatile emitted no opaque session token")
+	}
+	if cookieOfName(volatileResponse, session.DefaultDataCookieName) != nil {
+		t.Fatal("dev-volatile emitted a sealed record cookie")
+	}
+
+	config.Backend = SessionBackendDevPersist
+	if _, err := setupSession(context.Background()); err == nil {
+		t.Fatal("dev-persist started without a stable keyring")
+	}
+	config.Keyring.Secret = base64.StdEncoding.EncodeToString(make([]byte, 32))
+	persist, err := setupSession(context.Background())
+	if err != nil {
+		t.Fatalf("dev-persist setup: %v", err)
+	}
+	persistResponse := serve(t, persist)
+	if cookieOfName(persistResponse, session.DefaultDataCookieName) == nil {
+		t.Fatal("dev-persist emitted no sealed record cookie")
+	}
+}
+
+func cookieOfName(recorder *httptest.ResponseRecorder, name string) *http.Cookie {
+	for _, cookie := range recorder.Result().Cookies() {
+		if cookie.Name == name {
+			return cookie
+		}
+	}
+	return nil
 }
 
 // Session storage does not depend on a login. An application that imports no

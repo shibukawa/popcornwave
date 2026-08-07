@@ -22,6 +22,10 @@ const (
 	// SessionBackendCookie keeps records in a sealed browser cookie. It needs
 	// no storage at all, and it cannot revoke a record it already wrote.
 	SessionBackendCookie = "cookie"
+	// SessionBackendDevVolatile discards process-local records on restart.
+	SessionBackendDevVolatile = "dev-volatile"
+	// SessionBackendDevPersist keeps development records in a sealed cookie.
+	SessionBackendDevPersist = "dev-persist"
 	// SessionBackendRedis keeps records in Redis or Valkey through
 	// sessionstore/redis, where the server owns expiry and no sweep runs.
 	SessionBackendRedis = "redis"
@@ -41,16 +45,18 @@ const (
 // identity stays good, so every session lifetime is declared under [auth].
 //
 // The session token is opaque in every backend; only SessionBackendCookie keeps
-// the record on the client for the whole of a session, and every backend seals
-// one into the browser while the session is still anonymous.
+// the record on the client for the whole session. Persistent server backends
+// seal Private state into the browser while anonymous; the development memory
+// backend keeps it server-side from the first write.
 type SessionConfig struct {
 	Enabled bool `default:"false"`
-	// Backend selects the storage plugin: rdb, cookie, redis, dynamo, or
-	// firestore. Every backend but cookie reaches the binary through its own
-	// blank import. It names which server backend a server-placed slot uses,
-	// never whether a slot is server-placed, which RegisterSessionStore states
-	// instead.
-	Backend string `default:"rdb" dependon:".enabled" help:"session storage backend: rdb, cookie, redis, dynamo, or firestore"`
+	// Backend selects the storage plugin or development intent: rdb, cookie,
+	// dev-volatile, dev-persist, redis, dynamo, or firestore. General server
+	// backends reach the binary through their own blank imports; cookie and both
+	// development intent modes are built in. It names which server backend a
+	// server-placed slot uses, never whether a slot is server-placed, which
+	// RegisterSessionStore states instead.
+	Backend string `default:"rdb" dependon:".enabled" help:"session storage backend: rdb, cookie, dev-volatile, dev-persist, redis, dynamo, or firestore"`
 	// Retention bounds how long the store may hold one record.
 	//
 	// It is not the session lifetime, which [auth] declares: an expiry states
@@ -146,18 +152,17 @@ type SessionCookieStoreConfig struct {
 // because a session.ReadOnly slot signs and a session.Private slot seals, and
 // session.Keyring derives a purpose-separated subkey per mode from it. A
 // deployment on rdb, redis, or dynamo needs it exactly as much as one on
-// cookie, because the anonymous phase of a private slot is a sealed cookie
-// whatever the backend is.
+// cookie, because the anonymous phase of a private slot is normally sealed.
+// The dev-volatile mode is the exception for Private and ServerOnly slots.
 //
-// It is therefore required unless every declared slot is session.Shared, which
-// is the only placement that protects nothing.
+// It is required whenever a declared slot is placed in a protected cookie.
 type SessionKeyringConfig struct {
 	// Secret is 32 or more random bytes in base64, generated with
 	// `openssl rand -base64 32`. Keep it out of the file itself outside
 	// development: write "${SESSION_KEYRING_SECRET}" or set the environment
-	// variable. `pw init` generates one into config.dev.toml so a scaffolded
-	// project runs without an authored secret, and `pw doctor` reports a
-	// literal in any other environment as an error.
+	// variable. An explicit development cookie backend gets a generated value;
+	// a dev-volatile registry with no ReadOnly slots needs none. `pw doctor`
+	// reports a literal in any other environment as an error.
 	Secret string `secret:"mask" env:"SESSION_KEYRING_SECRET" help:"base64 secret signing and sealing everything the browser carries"`
 	// PreviousSecrets keep values written before a rotation readable. They
 	// never write.

@@ -38,6 +38,10 @@ type Options struct {
 	// registered slot is Shared, which is the only placement protecting
 	// nothing.
 	Keys *Keyring
+	// ServerSideAnonymous places Private records in the configured backend
+	// before authentication as well as after it. It is used by the development
+	// memory backend to avoid persisting an unstable sealed-cookie format.
+	ServerSideAnonymous bool
 	// Version invalidates records written before an incompatible change.
 	Version int
 	// MaxBytes bounds a cookie name and encoded value together. It defaults to
@@ -68,6 +72,10 @@ type Manager struct {
 	// the two stores are one and promotion has nowhere to go. It is a flag
 	// rather than a comparison because a Store carries an uncomparable codec.
 	serverIsAnon bool
+	// lazyRecord defers decoding a browser-held record until a record-backed
+	// operation observes it. Remote backends remain eager so availability
+	// failures are still answered before the application handler runs.
+	lazyRecord bool
 
 	jars map[reflect.Type]cookieSlot
 
@@ -100,8 +108,8 @@ func NewManager(registry *Registry, backend RawStore, options Options) (*Manager
 	if options.Version < 0 {
 		return nil, fmt.Errorf("%w: version", ErrInvalidOptions)
 	}
-	if registry.needsKeyring() && options.Keys == nil {
-		return nil, fmt.Errorf("%w: a slot other than Shared is registered, so a keyring is required", ErrInvalidOptions)
+	if registry.needsKeyring(options.ServerSideAnonymous) && options.Keys == nil {
+		return nil, fmt.Errorf("%w: a browser-protected slot is registered, so a keyring is required", ErrInvalidOptions)
 	}
 	if backend == nil {
 		if key, ok := registry.hasServerOnly(); ok {
@@ -164,7 +172,11 @@ func NewManager(registry *Registry, backend RawStore, options Options) (*Manager
 		recordCookie.HTTPOnly = cookie.HTTPOnly
 		recordCookie.SameSite = cookie.SameSite
 	}
-	if options.Keys != nil {
+	if options.ServerSideAnonymous && backend != nil {
+		manager.server = Typed[slotMap](backend, codec)
+		manager.anon = manager.server
+		manager.serverIsAnon = true
+	} else if options.Keys != nil {
 		anon, err := NewCookieStore(CookieStoreOptions{
 			Keys:     options.Keys,
 			Cookie:   recordCookie,
@@ -179,6 +191,8 @@ func NewManager(registry *Registry, backend RawStore, options Options) (*Manager
 		manager.anon = Typed[slotMap](anon, codec)
 	}
 	switch {
+	case manager.server != nil:
+		// ServerSideAnonymous already selected the one store for both phases.
 	case backend != nil:
 		manager.server = Typed[slotMap](backend, codec)
 	case manager.anon != nil:
@@ -189,6 +203,8 @@ func NewManager(registry *Registry, backend RawStore, options Options) (*Manager
 		// never touch a record.
 		manager.server = nil
 	}
+	_, memoryBackend := backend.(*MemoryStore)
+	manager.lazyRecord = manager.serverIsAnon && (manager.anonRaw != nil || memoryBackend)
 
 	for _, entry := range slots {
 		if entry.newCookie == nil {

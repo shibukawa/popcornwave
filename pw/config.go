@@ -159,11 +159,13 @@ type HSTSConfig = middlewares.HSTSConfig
 // slot uses, never whether a slot is server-placed, which
 // RegisterSessionStore states instead.
 const (
-	SessionBackendRDB       = sessionconfig.SessionBackendRDB
-	SessionBackendCookie    = sessionconfig.SessionBackendCookie
-	SessionBackendRedis     = sessionconfig.SessionBackendRedis
-	SessionBackendDynamo    = sessionconfig.SessionBackendDynamo
-	SessionBackendFirestore = sessionconfig.SessionBackendFirestore
+	SessionBackendRDB         = sessionconfig.SessionBackendRDB
+	SessionBackendCookie      = sessionconfig.SessionBackendCookie
+	SessionBackendDevVolatile = sessionconfig.SessionBackendDevVolatile
+	SessionBackendDevPersist  = sessionconfig.SessionBackendDevPersist
+	SessionBackendRedis       = sessionconfig.SessionBackendRedis
+	SessionBackendDynamo      = sessionconfig.SessionBackendDynamo
+	SessionBackendFirestore   = sessionconfig.SessionBackendFirestore
 )
 
 // The [session] binding. Every type is a true alias of the one declared in

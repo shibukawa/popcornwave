@@ -281,6 +281,9 @@ func applyPreset(preset initPreset, options initOptions) initOptions {
 	if preset.apply != nil {
 		preset.apply(&applied)
 	}
+	if applied.Session != "" {
+		applied.SessionExplicit = true
+	}
 	return applied
 }
 

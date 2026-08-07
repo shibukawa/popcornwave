@@ -95,7 +95,7 @@ func TestScaffoldWiresTheFrameworkOwnedEndpoints(t *testing.T) {
 
 	config := files[pwenv.FileName(pwenv.Development)]
 	for _, expected := range []string{
-		"[session]", `backend = "rdb"`, "cookie.secure = false", `rdb.source = "middleware"`,
+		"[session]", `backend = "dev-volatile"`, "cookie.secure = false",
 		`post_login_path = "/"`, "protection.unauthenticated", `logout_scope = "reconfirm"`,
 	} {
 		if !strings.Contains(config, expected) {
@@ -366,8 +366,8 @@ func TestScaffoldedMigrationsApply(t *testing.T) {
 func TestTheScaffoldedKeyringIsGeneratedPerProject(t *testing.T) {
 	// The scaffold writes [session] alongside [auth] today, so this asks for an
 	// authentication mode to get one.
-	first := scaffoldFiles(initOptions{Name: "demo", Auth: authOIDC})["config.dev.toml"]
-	second := scaffoldFiles(initOptions{Name: "demo", Auth: authOIDC})["config.dev.toml"]
+	first := scaffoldFiles(initOptions{Name: "demo", Auth: authOIDC, Session: sessionCookie, SessionExplicit: true})["config.dev.toml"]
+	second := scaffoldFiles(initOptions{Name: "demo", Auth: authOIDC, Session: sessionCookie, SessionExplicit: true})["config.dev.toml"]
 	secretOf := func(config string) string {
 		for _, line := range strings.Split(config, "\n") {
 			if key, value, found := strings.Cut(strings.TrimSpace(line), "="); found &&
@@ -394,7 +394,7 @@ func TestTheScaffoldedKeyringIsGeneratedPerProject(t *testing.T) {
 }
 
 func TestScaffoldFollowsTheSessionBackendChoice(t *testing.T) {
-	rdbFiles := scaffoldFiles(initOptions{Name: "demo", Database: true, Auth: authOIDC, Session: sessionRDB})
+	rdbFiles := scaffoldFiles(initOptions{Name: "demo", Database: true, Auth: authOIDC, Session: sessionRDB, SessionExplicit: true})
 	if !strings.Contains(rdbFiles["cmd/demo/main.go"], `_ "github.com/shibukawa/popcornwave/sessionstore/sqlite"`) {
 		t.Errorf("rdb backend is not imported:\n%s", rdbFiles["cmd/demo/main.go"])
 	}
@@ -414,7 +414,7 @@ func TestScaffoldFollowsTheSessionBackendChoice(t *testing.T) {
 		t.Error("auth migration is not numbered after the session one")
 	}
 
-	cookieFiles := scaffoldFiles(initOptions{Name: "demo", Database: true, Auth: authOIDC, Session: sessionCookie})
+	cookieFiles := scaffoldFiles(initOptions{Name: "demo", Database: true, Auth: authOIDC, Session: sessionCookie, SessionExplicit: true})
 	if strings.Contains(cookieFiles["cmd/demo/main.go"], "sessionstore/") {
 		t.Errorf("the built-in cookie backend was imported:\n%s", cookieFiles["cmd/demo/main.go"])
 	}
@@ -432,7 +432,7 @@ func TestScaffoldFollowsTheSessionBackendChoice(t *testing.T) {
 		t.Errorf("auth migration was not renumbered: %v", migrationNames(cookieFiles))
 	}
 
-	redisFiles := scaffoldFiles(initOptions{Name: "demo", Database: true, Auth: authOIDC, Session: sessionRedis})
+	redisFiles := scaffoldFiles(initOptions{Name: "demo", Database: true, Auth: authOIDC, Session: sessionRedis, SessionExplicit: true})
 	if !strings.Contains(redisFiles["cmd/demo/main.go"], `_ "github.com/shibukawa/popcornwave/sessionstore/redis"`) {
 		t.Errorf("redis backend is not imported:\n%s", redisFiles["cmd/demo/main.go"])
 	}
@@ -499,7 +499,7 @@ func TestScaffoldImportsTheStoresOfTheSelectedEngine(t *testing.T) {
 	} {
 		t.Run(engine, func(t *testing.T) {
 			files := scaffoldFiles(initOptions{
-				Name: "demo", Database: true, Engine: engine, Auth: authOIDC, Session: sessionRDB,
+				Name: "demo", Database: true, Engine: engine, Auth: authOIDC, Session: sessionRDB, SessionExplicit: true,
 			})
 			main := files["cmd/demo/main.go"]
 			for _, path := range want {
@@ -582,7 +582,7 @@ func TestInitWizardAsksForNoEngineBehindADynamoLogin(t *testing.T) {
 func TestDynamoLoginScaffoldsTheDynamoAuthBackend(t *testing.T) {
 	options := initOptions{
 		Name: "demo", Router: routerRegistered, Auth: authOIDC, AuthStore: dynamoStore,
-		Dynamo: true, Database: false, Session: sessionDynamo,
+		Dynamo: true, Database: false, Session: sessionDynamo, SessionExplicit: true,
 	}
 	if backend := authBackend(options); backend != "dynamo" {
 		t.Fatalf("auth backend = %q", backend)
@@ -608,7 +608,7 @@ func TestDynamoLoginScaffoldsTheDynamoAuthBackend(t *testing.T) {
 func TestFirestoreLoginScaffoldsTheFirestoreAuthBackend(t *testing.T) {
 	options := initOptions{
 		Name: "demo", Router: routerRegistered, Auth: authOIDC,
-		Firestore: true, Database: false, Session: sessionFirestore,
+		Firestore: true, Database: false, Session: sessionFirestore, SessionExplicit: true,
 	}
 	if backend := authBackend(options); backend != "firestore" {
 		t.Fatalf("auth backend = %q", backend)
@@ -691,7 +691,7 @@ func TestTwoStoresAndNoDatabaseIsRefusedForALogin(t *testing.T) {
 func TestRelationalLoginKeepsTheRelationalBackend(t *testing.T) {
 	options := initOptions{
 		Name: "demo", Router: routerRegistered, Auth: authOIDC, AuthStore: engineSQLite,
-		Database: true, Engine: engineSQLite, Session: sessionRDB,
+		Database: true, Engine: engineSQLite, Session: sessionRDB, SessionExplicit: true,
 	}
 	if backend := authBackend(options); backend != "rdb" {
 		t.Fatalf("auth backend = %q", backend)
@@ -771,9 +771,9 @@ func TestSessionIsScaffoldedWithoutALogin(t *testing.T) {
 	if strings.Contains(config, "[auth]") {
 		t.Fatal("a project without a login got an auth section")
 	}
-	// Cookie is the coherent default there: no table, no migration, no import
-	// to hold state that fits in a sealed cookie.
-	if !strings.Contains(config, `backend = "cookie"`) {
+	// Development defaults to process-local memory: no table, migration,
+	// storage import, persisted codec, or sealed record cookie.
+	if !strings.Contains(config, `backend = "dev-volatile"`) {
 		t.Fatalf("session backend without a login:\n%s", config)
 	}
 	if strings.Contains(files["cmd/demo/main.go"], "sessionstore/") {
@@ -787,17 +787,51 @@ func TestSessionIsScaffoldedWithoutALogin(t *testing.T) {
 			t.Errorf("a cookie session scaffolded a table migration: %s", name)
 		}
 	}
-	// The keyring is still written, because a sealed slot needs one whatever
-	// the backend is.
-	if !strings.Contains(config, "keyring.secret = ") {
-		t.Error("no keyring was scaffolded for a session that seals")
+	if strings.Contains(config, "keyring.secret = ") {
+		t.Error("an all-memory development session scaffolded an unused keyring")
+	}
+}
+
+func TestUnansweredSessionDefaultsToMemoryOnlyInDevelopmentConfig(t *testing.T) {
+	options, err := parseInitArgs([]string{"--yes", "demo"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if options.SessionExplicit {
+		t.Fatal("the default session backend was marked as an operator answer")
+	}
+	if backend := developmentSessionBackend(options); backend != sessionDevVolatile {
+		t.Fatalf("development backend = %q", backend)
+	}
+	if backend := sessionBackend(options); backend != sessionRDB {
+		t.Fatalf("deployment backend = %q", backend)
+	}
+
+	explicit, err := parseInitArgs([]string{"--yes", "demo", "--session=rdb"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !explicit.SessionExplicit || developmentSessionBackend(explicit) != sessionRDB {
+		t.Fatalf("explicit backend was not preserved: %#v", explicit)
+	}
+
+	persist, err := parseInitArgs([]string{"--yes", "demo", "--session=dev-persist"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	config := scaffoldFiles(persist)["config.dev.toml"]
+	if !strings.Contains(config, `backend = "dev-persist"`) || !strings.Contains(config, "keyring.secret = ") {
+		t.Fatalf("dev-persist config:\n%s", config)
+	}
+	if _, err := parseInitArgs([]string{"--yes", "demo", "--session=memory"}); err == nil {
+		t.Fatal("the retired memory configuration name was accepted")
 	}
 }
 
 // Asking for a server backend without a login is honored, and it brings the
 // import with it rather than leaving a configuration nothing serves.
 func TestAServerBackendWithoutALoginBringsItsImport(t *testing.T) {
-	files := scaffoldFiles(initOptions{Name: "demo", Database: true, Session: sessionRDB})
+	files := scaffoldFiles(initOptions{Name: "demo", Database: true, Session: sessionRDB, SessionExplicit: true})
 	if !strings.Contains(files["config.dev.toml"], `backend = "rdb"`) {
 		t.Fatal("the selected backend was not scaffolded")
 	}

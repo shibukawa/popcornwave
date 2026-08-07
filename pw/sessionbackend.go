@@ -3,7 +3,6 @@ package pw
 import (
 	"context"
 	"database/sql"
-	"errors"
 	"fmt"
 	"net/http"
 	"sort"
@@ -53,8 +52,8 @@ var knownSessionBackendImports = map[string]string{
 //
 //	import _ "github.com/shibukawa/popcornwave/sessionstore/redis"
 //
-// The cookie backend is the exception. It stores records in the browser and
-// adds no dependency, so pw registers it here and it needs no import.
+// Cookie and the two development intent modes are built in. They add no
+// storage dependency, so pw registers them here and they need no import.
 //
 // A duplicate or empty name panics: two backends answering one configuration
 // value is a build mistake, not a runtime condition.
@@ -156,12 +155,39 @@ func parseSessionSameSite(value string) (http.SameSite, error) {
 
 func init() {
 	RegisterSessionBackend(SessionBackendCookie, openCookieSessionBackend)
+	RegisterSessionBackend(SessionBackendDevVolatile, openDevVolatileSessionBackend)
+	RegisterSessionBackend(SessionBackendDevPersist, openDevPersistSessionBackend)
+}
+
+func validateDevelopmentSessionMode(name string) error {
+	if (name == SessionBackendDevVolatile || name == SessionBackendDevPersist) && !Development() {
+		return fmt.Errorf("session.backend = %q is available only when APP_ENV=dev", name)
+	}
+	return nil
+}
+
+// openDevVolatileSessionBackend builds the process-local development backend.
+func openDevVolatileSessionBackend(_ context.Context, config SessionConfig, _ SessionResources) (session.Backend, error) {
+	if err := validateDevelopmentSessionMode(config.Backend); err != nil {
+		return session.Backend{}, err
+	}
+	return session.Backend{Store: session.NewMemoryStore(nil)}, nil
+}
+
+// openDevPersistSessionBackend exposes the cookie store under a name that
+// states its development restart behavior. setupSession uses its ordinary
+// cookie path so the manager constructs exactly one browser store.
+func openDevPersistSessionBackend(ctx context.Context, config SessionConfig, resources SessionResources) (session.Backend, error) {
+	if err := validateDevelopmentSessionMode(config.Backend); err != nil {
+		return session.Backend{}, err
+	}
+	return openCookieSessionBackend(ctx, config, resources)
 }
 
 // openCookieSessionBackend builds the built-in browser backend. It opens
 // nothing, so it hands back neither a Close nor a Prune.
 func openCookieSessionBackend(_ context.Context, config SessionConfig, _ SessionResources) (session.Backend, error) {
-	keys, err := sessionCookieKeyring(config.Keyring)
+	keys, err := sessionCookieKeyring(config.Backend, config.Keyring)
 	if err != nil {
 		return session.Backend{}, err
 	}
@@ -181,10 +207,13 @@ func openCookieSessionBackend(_ context.Context, config SessionConfig, _ Session
 
 // sessionCookieKeyring reads the secret that seals cookie-backed records. The
 // secret itself never reaches an error message or a log.
-func sessionCookieKeyring(config SessionKeyringConfig) (*session.Keyring, error) {
+func sessionCookieKeyring(backend string, config SessionKeyringConfig) (*session.Keyring, error) {
 	if strings.TrimSpace(config.Secret) == "" {
-		return nil, errors.New(
-			`session.backend = "cookie" requires session.keyring.secret; generate one with: openssl rand -base64 32`)
+		if backend == "" {
+			backend = SessionBackendCookie
+		}
+		return nil, fmt.Errorf(
+			"session.backend = %q requires session.keyring.secret; generate one with: openssl rand -base64 32", backend)
 	}
 	secrets := append([]string{config.Secret}, config.PreviousSecrets...)
 	keys, err := session.ParseKeyring(secrets...)

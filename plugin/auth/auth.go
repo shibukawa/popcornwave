@@ -15,8 +15,9 @@
 // what it was given. In dev that is the right trade and nothing is said.
 //
 // This package imports no storage plugin. It asks pw for the configured
-// backend, so an application links the storage it configured and no more, and
-// a backend other than cookie needs its own blank import.
+// backend, so an application links the storage it configured and no more.
+// General server backends need blank imports; cookie and both development
+// intent modes are built into pw.
 package auth
 
 import (

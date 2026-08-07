@@ -29,9 +29,11 @@ type state struct {
 	present  map[reflect.Type]bool
 	promoted bool
 
-	dirtyAnon   bool
-	dirtyServer bool
-	failed      error
+	dirtyAnon    bool
+	dirtyServer  bool
+	failed       error
+	recordLoaded bool
+	recordErr    error
 }
 
 // bucket is where one slot's bytes go right now. A cookie-placed slot has its
@@ -48,6 +50,8 @@ func (s *state) bucketOf(entry *slot) bucket {
 	switch {
 	case entry.placement.cookiePlaced():
 		return bucketNone
+	case s.manager.options.ServerSideAnonymous:
+		return bucketServer
 	case entry.placement == ServerOnly:
 		return bucketServer
 	case s.promoted:
@@ -68,6 +72,9 @@ func (s *Slot[T]) Get() (T, bool) {
 	var zero T
 	if s == nil || s.state == nil {
 		return zero, false
+	}
+	if s.state.manager != nil && !s.entry.placement.cookiePlaced() {
+		_ = s.state.resolveRecord()
 	}
 	if !s.state.present[s.entry.typ] {
 		return zero, false
@@ -181,6 +188,9 @@ func (s *state) set(entry *slot, value any) error {
 		s.values[entry.typ], s.present[entry.typ] = value, true
 		return nil
 	}
+	if err := s.resolveRecord(); err != nil && !staleSessionError(err) {
+		return err
+	}
 	if err := s.ensureToken(); err != nil {
 		return err
 	}
@@ -202,6 +212,9 @@ func (s *state) clear(entry *slot) error {
 		delete(s.values, entry.typ)
 		delete(s.present, entry.typ)
 		return nil
+	}
+	if err := s.resolveRecord(); err != nil && !staleSessionError(err) {
+		return err
 	}
 	if !s.present[entry.typ] {
 		return nil
@@ -424,6 +437,24 @@ func (s *state) load() error {
 		s.values[entry.typ], s.present[entry.typ] = value, true
 	}
 	return nil
+}
+
+// resolveRecord loads the record at most once. Cookie-backed deployments call
+// it from their first record operation; backend deployments call it before the
+// handler so an unavailable store still fails closed.
+func (s *state) resolveRecord() error {
+	if s.recordLoaded {
+		return s.recordErr
+	}
+	s.recordLoaded = true
+	s.recordErr = s.load()
+	if staleSessionError(s.recordErr) {
+		s.manager.clearCookie(s.writer)
+	}
+	if s.recordErr != nil && !staleSessionError(s.recordErr) {
+		s.failed = s.recordErr
+	}
+	return s.recordErr
 }
 
 // loadCookieSlots decodes each cookie-placed slot from its own cookie. A value

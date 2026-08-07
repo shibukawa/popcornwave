@@ -97,6 +97,9 @@ func setupSession(ctx context.Context) (Middleware, error) {
 	if !config.Enabled {
 		return nil, nil
 	}
+	if err := validateDevelopmentSessionMode(config.Backend); err != nil {
+		return nil, err
+	}
 	registry, err := newSessionRegistry()
 	if err != nil {
 		return nil, err
@@ -115,7 +118,8 @@ func setupSession(ctx context.Context) (Middleware, error) {
 	if err != nil {
 		return nil, err
 	}
-	if config.Backend != SessionBackendCookie && options.TTL <= 0 {
+	cookieMode := config.Backend == SessionBackendCookie || config.Backend == SessionBackendDevPersist
+	if !cookieMode && options.TTL <= 0 {
 		// A server record with no deadline is one the sweep has no cutoff for,
 		// and the store reads a zero expiry as already past.
 		return nil, errors.New(
@@ -124,7 +128,7 @@ func setupSession(ctx context.Context) (Middleware, error) {
 
 	var store session.RawStore
 	var backend session.Backend
-	if config.Backend != SessionBackendCookie {
+	if !cookieMode {
 		resources, err := sessionResources(ctx)
 		if err != nil {
 			return nil, err
@@ -135,9 +139,10 @@ func setupSession(ctx context.Context) (Middleware, error) {
 		}
 		store = backend.Store
 	}
-	// The cookie backend is not a server store: the manager seals a record into
-	// the browser for an anonymous session already, and selecting cookie means
-	// it never moves off there.
+	options.ServerSideAnonymous = config.Backend == SessionBackendDevVolatile
+	// Cookie and dev-persist are not server stores: the manager seals a record
+	// into the browser for an anonymous session already, and either selection
+	// means it never moves off there.
 	manager, err := session.NewManager(registry, store, options)
 	if err != nil {
 		return nil, err

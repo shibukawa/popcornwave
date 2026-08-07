@@ -149,7 +149,9 @@
 {"category": "constraint", "id": "decision:dev-harness-process", "path": ".knowledge/decision/dev-harness-process.md", "role": "supporting", "title": "Development Harness Process", "type": "decision"}
 {"category": "constraint", "id": "decision:dev-telemetry-viewer-adoption", "path": ".knowledge/decision/dev-telemetry-viewer-adoption.md", "role": "supporting", "title": "Development Telemetry Viewer Adoption", "type": "decision"}
 {"category": "constraint", "id": "decision:developer-loop-watch-scope", "path": ".knowledge/decision/developer-loop-watch-scope.md", "role": "supporting", "title": "Developer Loop Watch Scope", "type": "decision"}
+{"category": "constraint", "id": "decision:development-memory-session-backend", "path": ".knowledge/decision/development-memory-session-backend.md", "role": "supporting", "title": "Development Volatile Memory Session Store", "type": "decision"}
 {"category": "constraint", "id": "decision:development-public-assets", "path": ".knowledge/decision/development-public-assets.md", "role": "supporting", "title": "Development Public Assets", "type": "decision"}
+{"category": "constraint", "id": "decision:development-session-modes", "path": ".knowledge/decision/development-session-modes.md", "role": "supporting", "title": "Development Session Intent Modes", "type": "decision"}
 {"category": "constraint", "id": "decision:devidp-scope-reduction", "path": ".knowledge/decision/devidp-scope-reduction.md", "role": "supporting", "title": "Development IdP Scope Reduction", "type": "decision"}
 {"category": "constraint", "id": "decision:dual-router-coexistence", "path": ".knowledge/decision/dual-router-coexistence.md", "role": "supporting", "title": "Dual Router Coexistence", "type": "decision"}
 {"category": "constraint", "id": "decision:dynamodb-auth-compensating-registration", "path": ".knowledge/decision/dynamodb-auth-compensating-registration.md", "role": "supporting", "title": "Passkey-Only Registration Is A Compensating Sequence On DynamoDB", "type": "decision"}
@@ -187,6 +189,7 @@
 {"category": "constraint", "id": "decision:jwt-only-preset-scaffolding", "path": ".knowledge/decision/jwt-only-preset-scaffolding.md", "role": "supporting", "title": "JWT-Only Is Scaffolded By a Preset, Not By a Question", "type": "decision"}
 {"category": "constraint", "id": "decision:language-server-in-pw-cli", "path": ".knowledge/decision/language-server-in-pw-cli.md", "role": "supporting", "title": "Language Server Inside the pw CLI", "type": "decision"}
 {"category": "constraint", "id": "decision:layered-web-runtime", "path": ".knowledge/decision/layered-web-runtime.md", "role": "supporting", "title": "Layered Web Runtime", "type": "decision"}
+{"category": "constraint", "id": "decision:lazy-cookie-session-loading", "path": ".knowledge/decision/lazy-cookie-session-loading.md", "role": "supporting", "title": "Lazy Cookie Session Loading", "type": "decision"}
 {"category": "constraint", "id": "decision:live-delivery-transport", "path": ".knowledge/decision/live-delivery-transport.md", "role": "supporting", "title": "Live Deliveries On The Page Route", "type": "decision"}
 {"category": "constraint", "id": "decision:local-tls-proxy-boundary", "path": ".knowledge/decision/local-tls-proxy-boundary.md", "role": "supporting", "title": "Local TLS Proxy Boundary", "type": "decision"}
 {"category": "constraint", "id": "decision:migration-execution-split", "path": ".knowledge/decision/migration-execution-split.md", "role": "supporting", "title": "Migration Execution Split", "type": "decision"}
