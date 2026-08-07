@@ -58,8 +58,10 @@ listening on http://localhost:8080
 
 ## ログ中の秘密情報
 
-キー名に `secret`、`password`、`token`、`credential`、`dsn`、`private_key` を含むものは、
-どちらの形式でも `[REDACTED]` として記録されます。
+秘密の値はどちらの形式でもマスクされます。通常の値は `*****` になり、DSN は資格情報と
+クエリ文字列を除いた公開部分だけを残します。名前による判定の正確な規則と、明示的な
+`secret` の上書きは[起動サマリに出るもの](/ja/reference/configuration-declaration/#起動サマリに出るもの)
+にあります。
 
 値の取得元については[設定](/ja/guides/architecture/configuration/)を、同じ考え方を SQL に
 適用したものについては[スロークエリー診断](/ja/productivity/query-diagnostics/)を

@@ -1,6 +1,6 @@
 ---
 title: Why Popcorn Wave
-description: Raise productivity and build fast services without giving up the conventions Go developers already share.
+description: Make secure, fast, operable services the natural result of a productive Go workflow, without giving up the conventions Go developers already share.
 sidebar:
   order: 0
 ---
@@ -19,15 +19,51 @@ mean teaching the codebase a private request model.
 
 Keeping ordinary Go does not mean writing every mechanical layer by hand.
 `pw generate` turns templates, SQL, request binding, response types, and
-configuration declarations into typed Go. It also derives OpenAPI from the same
-sources. A changed query result or a missing template argument therefore fails
-during generation or compilation, before a request reaches production.
+configuration declarations into typed Go. A changed query result or a missing
+template argument therefore fails during generation or compilation, before a
+request reaches production.
 
 The command-line tools remove a different kind of repetition. `pw init` creates
 a runnable project, `pw dev` watches its inputs, and the generated project
 already has startup validation, operational endpoints, graceful shutdown,
-structured errors, and security headers. These features stay visible as Go and
-configuration rather than disappearing behind a separate application model.
+and structured errors. These features stay visible as Go and configuration
+rather than disappearing behind a separate application model.
+
+## A simple implementation should not be a bare one
+
+A short handler is attractive. A service that is short only because
+authentication, response policy, compression, observability, and configuration
+checks were left for later is not. Popcorn Wave keeps those concerns on the
+supported path, so a small application can gain them without growing a second
+framework around itself:
+
+- [Federated login and passkeys](/guides/backend/authentication/) provide both
+  external identity and phishing-resistant repeat login.
+- [Security response headers](/guides/frontend/security-headers/) establish
+  browser policy by default, while one switch enables negotiated
+  [zstd compression](/guides/frontend/compression/) when the application rather
+  than a proxy owns compression.
+- Static analysis turns the handlers, bindings, response calls, and comments
+  already in the code into [OpenAPI 3.1 documentation](/productivity/api-documentation/).
+- [OpenTelemetry integration](/guides/cross-layer/tracing/) exports structured
+  logs and traces, while framework spans make requests, renders, and database
+  statements visible without application-specific timers.
+- Typed [configuration](/guides/architecture/configuration/) accepts environment
+  variables, and [`pw doctor`](/pw/project/doctor/) resolves each named
+  environment and reports missing, conflicting, or unsafe settings before
+  deployment.
+
+Some of these mechanisms remain deliberate choices: compression is off when a
+proxy should own it, and federated login still needs a provider. What changes is
+the starting point. The straightforward implementation becomes naturally more
+secure, faster over the wire, observable, and easier to develop and operate.
+
+The JavaScript ecosystem has been relentless in its pursuit of productivity;
+the Go ecosystem has favored stability. Popcorn Wave is not trying to split the
+difference. Its aim is to keep Go's stable interfaces and predictable
+operations, close the gap, and eventually move beyond the productivity bar the
+JavaScript ecosystem has set. Generated checks, secure defaults, and integrated
+tooling make that the more productive way to build.
 
 ## The productive path is also a fast path
 

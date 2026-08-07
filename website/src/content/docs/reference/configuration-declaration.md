@@ -140,8 +140,8 @@ Three describe a key rather than naming it:
 | Tag | Effect |
 | --- | --- |
 | `secret:"mask"` / `"hide"` / `"show"` | how the value appears in the startup summary |
-| `falsy:"value"` | the value that counts as "not set" for anything depending on this key |
 | `dependon:"key"` / `dependon:".sibling"` | the key this one answers to; a leading dot is relative to the enclosing struct |
+| `falsy:"value"` | the value that counts as "not set" for anything depending on this key |
 
 `dependon` and `secret` may sit on a nested struct field, where they cover the
 whole subtree. `falsy` may not: it names one value, and a struct has none.
@@ -383,32 +383,123 @@ See [Custom Commands](/guides/architecture/custom-commands/).
 ## What the startup summary shows
 
 Resolved configuration is reported once at startup, each entry with the source
-its value won from. Two filters run before you see it.
+its value won from. On a terminal this is the configuration tree; in a container
+or a pipe it is the same data in a structured log record. `secret` controls
+disclosure, `dependon` filters inactive branches, and `falsy` helps that filter
+recognize non-boolean forms of “off.”
 
-**Disclosure.** A `secret` tag decides on its own: `hide` drops the entry,
-`mask` prints `*****`, and `show` prints the value. A field with no tag is
-masked when its key path contains `password`, `secret`, `token`, `apikey`,
-`api_key`, `credential`, `access_key`, `dsn`, or `private_key` — a DSN carries
-its password inline, so it belongs on that list. The match is a substring, so a
-name like `token_bucket_size` is masked too; `secret:"show"` is the way out.
+### `secret`: control what the startup log discloses
 
-**Dependency.** A field with a `dependon` tag disappears while its parent reads
-as empty, so a disabled subsystem reports one line instead of seven. The parent
-itself still appears — an empty parent is the reason its dependents vanished. A
-hidden parent hides its own dependents in turn, and a tag on a nested struct
-field covers the whole subtree, where a leaf's own parent must also be non-empty
-for it to print.
+Configuration often reaches a log collector, so a credential must not appear
+merely because the application printed its effective settings. Use `secret`
+for a sensitive field whose name does not trigger the automatic rule, to omit
+a field completely, or to undo an automatic false positive:
 
-None of this reaches the bound struct. A hidden field is still populated from
-its sources, its CLI option and help are unchanged, and scaffolds still list it.
-So a key you set and cannot find in the summary is a question about its parent,
-not about your spelling.
+```go
+type DeliveryConfig struct {
+	Password        string
+	SigningMaterial string `secret:"mask"`
+	TokenBucketSize int    `default:"128" secret:"show"`
+	InternalNote    string `secret:"hide"`
+}
+```
 
-### `falsy`
+Registered under `delivery`, the visible part of the startup tree is:
 
-"Empty" means the empty string or `false`. An `int` of `0`, an empty list, and a
-zero duration are deliberate settings rather than absent ones, so an option
-whose "off" is some other value needs `falsy` to name it:
+```text
+delivery
+├─ password           *****
+├─ signing_material   *****
+└─ token_bucket_size  128
+```
+
+`password` is masked automatically. `signing_material` does not look sensitive
+to the automatic rule, so `secret:"mask"` supplies the missing policy.
+`token_bucket_size` contains `token` but is not a secret, so `secret:"show"`
+undoes that conservative match. `internal_note` is absent because `hide`
+removes the whole entry; `mask` would retain the key and source while replacing
+only a non-empty value with `*****`.
+
+The exact automatic rule is case-insensitive substring matching against the
+full stable key path. A field with no `secret` tag is masked when that path
+contains any of:
+
+```text
+password  secret  apikey  api_key  credential  access_key  accesskey  token  dsn  private_key
+```
+
+A stable key ending in `.dsn` is the one display exception. It still counts as
+sensitive, but the startup summary and `pw doctor` retain the scheme, host,
+port, and database path while replacing user information with `*****` and
+dropping the query string. If the DSN cannot be parsed safely, the whole value
+is masked.
+
+An explicit `secret` tag always wins: `mask` masks, `hide` omits, and `show`
+prints the value. Use `show` only to correct a name such as
+`token_bucket_size`, never to expose a credential.
+
+### `dependon`: remove disabled branches from the summary
+
+An authentication switch illustrates the noise `dependon` removes. With
+authentication disabled, provider paths and credentials may still have
+defaults or values, but they do not describe anything the process will use:
+
+```go
+type AuthConfig struct {
+	Enabled bool       `default:"false"`
+	Mode    string     `default:"oidc_only" dependon:".enabled"`
+	OIDC    OIDCConfig `dependon:".enabled"`
+}
+
+type OIDCConfig struct {
+	Issuer       string
+	ClientID     string
+	ClientSecret string `secret:"mask"`
+}
+```
+
+When `auth.enabled` is `false`, the startup tree reports the decision and
+nothing underneath it:
+
+```text
+auth
+└─ enabled  false
+```
+
+Without `dependon`, the same disabled feature would also print `mode` and every
+OIDC setting. A leading dot names a sibling in the enclosing struct, so both
+tags above resolve to `auth.enabled`; an absolute key such as
+`dependon:"server.tls_enabled"` can cross a struct boundary. Putting the tag on
+the `OIDC` struct field applies it to every leaf in that subtree. Dependencies
+are transitive: one empty parent hides the dependent and anything that depends
+on it.
+
+This is a presentation filter, not a feature switch. Hidden fields are still
+bound from TOML, environment variables, and flags; their CLI options, help, and
+scaffolds remain. Application behavior must still read `Enabled` or its own
+equivalent.
+
+### `falsy`: teach `dependon` what “off” means
+
+`dependon` already treats a missing value, an empty string, and boolean `false`
+as off. A string enum often uses a non-empty choice such as `none` or `off`
+instead. `falsy` gives that choice the same meaning for display filtering:
+
+```go
+type ExportConfig struct {
+	Mode     string `default:"none" enum:"none,otlp,stdout" falsy:"none"`
+	Endpoint string `dependon:".mode"`
+	Headers  string `secret:"mask" dependon:".mode"`
+}
+```
+
+With `mode = "none"`, the summary shows `export.mode` and hides `endpoint` and
+`headers`. Without `falsy:"none"`, `none` is merely a non-empty string, so both
+dependents would remain visible.
+
+Numbers and durations need the same explicit decision because zero can be a
+real setting. Here zero disables slow-statement detection and therefore hides
+the `EXPLAIN` option:
 
 ```go
 type QueryConfig struct {
@@ -418,8 +509,7 @@ type QueryConfig struct {
 }
 ```
 
-That value then counts as empty for anything depending on the field, and it also
-fills the field in when nothing sets it:
+The falsy value also fills the field when nothing else sets it:
 
 - no `default` tag and no source sets the key — the field resolves to the falsy
   value;
@@ -428,8 +518,11 @@ fills the field in when nothing sets it:
 - a `default` tag is present — the default wins and `falsy` never substitutes.
 
 The comparison is by value rather than by text, so `0`, `0s`, and `0ms` all read
-as off. Without a `falsy` tag a number or a duration cannot be a parent at all:
-generation fails rather than guessing that zero means disabled.
+as off. `falsy` applies only to strings, integers, and durations: booleans
+already have `false`, while lists have no single value the generator can safely
+declare to be off. Without a `falsy` tag a number or a duration cannot be a
+`dependon` parent at all; generation fails rather than guessing that zero means
+disabled.
 
 See [Startup Summary](/productivity/startup-summary/).
 

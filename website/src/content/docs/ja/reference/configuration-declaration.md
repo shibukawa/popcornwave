@@ -134,8 +134,8 @@ listing = true
 | タグ | 効果 |
 | --- | --- |
 | `secret:"mask"` / `"hide"` / `"show"` | 起動サマリでの値の見え方 |
-| `falsy:"value"` | このキーに依存するものにとって「未設定」にあたる値 |
 | `dependon:"key"` / `dependon:".sibling"` | このキーが従うキー。先頭のドットは囲む構造体からの相対 |
+| `falsy:"value"` | このキーに依存するものにとって「未設定」にあたる値 |
 
 `dependon` と `secret` はネストした構造体のフィールドにも置け、そこでは部分木全体を覆います。
 `falsy` は置けません。値を1つ名指すタグであり、構造体は値を持たないからです。
@@ -361,30 +361,111 @@ options, ok := pw.Command[MigrateOptions]()
 
 ## 起動サマリに出るもの
 
-解決済みの設定は起動時に1度、値が勝ったソースとともに報告されます。目に入る前に2つの
-フィルタが走ります。
+解決済みの設定は起動時に1度、値が勝ったソースとともに報告されます。端末なら設定の木、
+コンテナやパイプなら同じ内容の構造化ログです。`secret` が開示を制御し、`dependon` が無効な
+枝を除き、`falsy` が boolean 以外の「オフ」をそのフィルタに教えます。
 
-**開示。** `secret` タグは単独で決めます。`hide` はエントリを落とし、`mask` は `*****` を、
-`show` は値を出します。タグの無いフィールドは、キーのパスに `password`、`secret`、`token`、
-`apikey`、`api_key`、`credential`、`access_key`、`dsn`、`private_key` のいずれかを含むとき
-マスクされます。DSN はパスワードを内側に持つので、この一覧に入ります。一致は部分文字列なので、
-`token_bucket_size` のような名前もマスクされます。逃げ道は `secret:"show"` です。
+### `secret`：起動ログにどこまで見せるか
 
-**依存。** `dependon` タグを持つフィールドは、その親が空と読める間は消えます。無効な
-サブシステムが7行ではなく1行で報告されるためです。親自身は出たままです——親が空であることが、
-依存側が消えた理由だからです。隠れた親は自分の依存側も隠し、ネストした構造体のフィールドに
-付けたタグは部分木全体を覆います。その中の葉は自分の親も持つので、印字されるには両方が空で
-ない必要があります。
+設定サマリはログコレクタまで届くことがあります。有効な設定を表示しただけで資格情報まで
+記録されてはいけません。名前から自動判定できない秘密を隠す場合、エントリ自体を落とす場合、
+または自動判定の誤検知を戻す場合に `secret` を使います。
 
-これはバインドされる構造体には一切届きません。隠れたフィールドもソースから値を得ており、
-CLI オプションと help も変わらず、ひな形にも出ます。だから設定したのにサマリに見つからない
-キーは、綴りではなく親についての問いです。
+```go
+type DeliveryConfig struct {
+	Password        string
+	SigningMaterial string `secret:"mask"`
+	TokenBucketSize int    `default:"128" secret:"show"`
+	InternalNote    string `secret:"hide"`
+}
+```
 
-### `falsy`
+`delivery` というプレフィックスで登録すると、起動時に見える部分は次のようになります。
 
-「空」が意味するのは空文字列と `false` です。`int` の `0`、空のリスト、ゼロの duration は
-不在ではなく意図した設定なので、「オフ」が別の値であるオプションにはそれを名指す `falsy` が
-要ります。
+```text
+delivery
+├─ password           *****
+├─ signing_material   *****
+└─ token_bucket_size  128
+```
+
+`password` は自動でマスクされます。`signing_material` は自動判定の対象外なので、
+`secret:"mask"` でポリシーを補います。`token_bucket_size` は名前に `token` を含みますが
+秘密ではないため、`secret:"show"` で保守的な判定を戻しています。`internal_note` は `hide` が
+エントリごと落とすので表示されません。`mask` ならキーと取得元は残り、空でない値だけが
+`*****` に置き換わります。
+
+自動判定の正確な規則は、**安定した設定キーパス全体を小文字化したうえでの部分文字列一致**です。
+`secret` タグの無いフィールドは、パスに次のいずれかを含むとマスクされます。
+
+```text
+password  secret  apikey  api_key  credential  access_key  accesskey  token  dsn  private_key
+```
+
+安定したキーが `.dsn` で終わる場合だけ、表示に例外があります。秘密として扱う点は同じですが、
+起動サマリと `pw doctor` はスキーム、ホスト、ポート、データベースのパスを残し、ユーザー情報を
+`*****` に置き換えてクエリ文字列を落とします。安全に解析できない DSN は値全体をマスクします。
+
+明示した `secret` タグが常に優先され、`mask` はマスク、`hide` は省略、`show` は値を表示します。
+`show` は `token_bucket_size` のような名前の誤検知を直すためのもので、資格情報を露出するための
+ものではありません。
+
+### `dependon`：無効な機能の枝をサマリから消す
+
+認証のスイッチを例にすると、`dependon` が消すノイズが見えます。認証が無効でもプロバイダの
+パスや資格情報には既定値や設定値が残り得ますが、実行中のプロセスが使わない値まで起動時に
+並べる必要はありません。
+
+```go
+type AuthConfig struct {
+	Enabled bool       `default:"false"`
+	Mode    string     `default:"oidc_only" dependon:".enabled"`
+	OIDC    OIDCConfig `dependon:".enabled"`
+}
+
+type OIDCConfig struct {
+	Issuer       string
+	ClientID     string
+	ClientSecret string `secret:"mask"`
+}
+```
+
+`auth.enabled` が `false` なら、起動サマリは判断そのものだけを表示します。
+
+```text
+auth
+└─ enabled  false
+```
+
+`dependon` がなければ、無効な認証について `mode` と OIDC の全設定も表示されます。先頭のドットは
+囲んでいる構造体の兄弟を指すので、上の2つはどちらも `auth.enabled` に解決されます。
+`dependon:"server.tls_enabled"` のような絶対キーなら、構造体の境界も越えられます。`OIDC` の
+構造体フィールドに付けたタグは、その部分木にあるすべての葉へ適用されます。依存は推移するため、
+途中の親が1つでも空なら、その下も表示されません。
+
+これは表示のフィルタであり、機能を無効にするスイッチではありません。隠れたフィールドにも
+TOML、環境変数、フラグから値がバインドされ、CLI オプション、help、ひな形も変わりません。
+アプリケーションの動作は、引き続き `Enabled` などの値を読んで決めます。
+
+### `falsy`：`dependon` に「オフ」の値を教える
+
+`dependon` は、値の不在、空文字列、boolean の `false` を最初からオフとして扱います。一方、
+文字列の enum では `none` や `off` のような空でない選択肢をオフにすることがあります。
+`falsy` は、その選択肢を表示上のオフとして教える補助です。
+
+```go
+type ExportConfig struct {
+	Mode     string `default:"none" enum:"none,otlp,stdout" falsy:"none"`
+	Endpoint string `dependon:".mode"`
+	Headers  string `secret:"mask" dependon:".mode"`
+}
+```
+
+`mode = "none"` なら、サマリには `export.mode` だけが残り、`endpoint` と `headers` は消えます。
+`falsy:"none"` がなければ、`none` は単なる空でない文字列なので、依存する2項目も表示されたままです。
+
+数値と duration にも明示的な判断が必要です。ゼロが有効な設定である場合もあるからです。次の例では、
+ゼロが遅いステートメントの検出を無効にし、それに伴って `EXPLAIN` の項目も隠します。
 
 ```go
 type QueryConfig struct {
@@ -394,16 +475,16 @@ type QueryConfig struct {
 }
 ```
 
-その値は、このフィールドに依存するものにとって空として数えられ、何も設定しなかったときには
-フィールドを埋めもします。
+falsy の値は、ほかに何も設定されなかったときにフィールドを埋める働きも持ちます。
 
 - `default` タグが無く、どのソースもキーを設定しない——フィールドは falsy の値になる。
 - あるソースがキーを `""` に設定する——falsy の値になり、そのソースを出どころとして保つ。
 - `default` タグがある——default が勝ち、`falsy` が代わりに入ることはない。
 
 比較はテキストではなく値なので、`0`・`0s`・`0ms` はどれもオフと読まれます。`falsy` タグが
-無ければ、数値や duration はそもそも親になれません。ゼロが無効を意味すると推測せず、生成が
-失敗します。
+使えるのは文字列、整数、duration だけです。boolean にはすでに `false` があり、リストには
+安全にオフと決められる単一の値がありません。`falsy` タグが無ければ、数値や duration は
+`dependon` の親になれません。ゼロが無効を意味すると推測せず、生成が失敗します。
 
 [起動サマリ](/ja/productivity/startup-summary/)を参照してください。
 

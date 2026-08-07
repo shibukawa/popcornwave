@@ -230,3 +230,84 @@ it when a large dependency tree makes the walk the slowest step of the loop.
 `pw dev` deliberately watches wider than generation: any Go source is a rebuild
 input, including files no purpose generates from. That is why its scope is
 trimmed with excludes rather than declared with includes.
+
+## The architecture Popcorn Wave is designed for
+
+More packages do not automatically create better separation. In a Go
+application built on `net/http` and `database/sql`, those packages already
+provide strong, shared boundaries understood by the compiler, tools, libraries,
+and other Go developers. Wrapping each of them in controllers, use cases,
+repositories, and local interfaces can reproduce boundaries that already exist
+without changing what the program does.
+
+Clean Architecture remains useful when a real dependency must be reversed or
+when separately owned code needs protection from change. Popcorn Wave rejects
+the mechanical version: every application gets every ring, whether or not the
+rings hold different knowledge. A layer must earn its place.
+
+### Put domain knowledge where the data lives
+
+Some design guidance inherited from enterprise Java treats the database as
+contaminating infrastructure and the domain as pure in-memory logic. That split
+is more than twenty years old, yet the older diagram is still reproduced as a
+rule long after its original constraints have changed.
+
+The database did not become less important. Its schema, keys, constraints,
+relationships, indexes, queries, and transaction boundaries encode what the
+application permits and what it can do efficiently. A transaction is not a
+storage detail when moving its boundary changes atomicity, concurrency, and
+failure behavior. Those are domain consequences.
+
+Hiding those properties behind a generic CRUD repository tends to make the
+important choices invisible. Code then fetches rows one at a time, joins them in
+memory, loads columns it does not need, or opens transactions at a boundary
+chosen for architectural symmetry rather than for the work. The result may look
+pure while doing more database work and providing weaker guarantees.
+
+Popcorn Wave therefore expects domain knowledge to reach the schema and SQL.
+Go code orchestrates the request, external systems, and the rules SQL cannot
+express clearly; it does not pretend the data model is outside the domain. This
+is why generated queries keep their SQL visible and why transaction ownership
+stays explicit in application code.
+
+### Organize packages by feature, not by layer
+
+A top level divided into `handlers`, `controllers`, `services`, `repositories`,
+and `models` scatters one change across generic packages. It also creates the
+same names repeatedly in editor tabs and completion results. Each boundary then
+invites another request type, domain type, persistence type, and mapper between
+them. The conversion code carries little new knowledge, but it lowers the
+semantic density of the source, adds code and sometimes binary weight, and
+consumes review time, human attention, and AI context alike.
+
+Modern Java applications are not uniformly organized by layer either. Even so,
+the layout keeps being reintroduced when diagrams from twenty-year-old books
+are treated as a required project template rather than as a response to the
+constraints of their time.
+
+Russ Cox made the narrower underlying point when objecting to a repository
+presented as a standard Go layout: the proposed structure was unusually
+complex, while Go repositories tend to be much simpler. See
+[“this is not a standard Go project layout”](https://github.com/golang-standards/project-layout/issues/117).
+Popcorn Wave takes that preference for simplicity seriously.
+
+The minimum layout for a small application is therefore shallow rather than
+layered. The `pw init` scaffold has one handler area and one query package
+because the application has only one feature area; it does not pre-create
+controller, service, and repository tiers. Keep the handler, its template, and
+its query code within a short path so one feature can be understood without
+touring the repository. When the application grows, split by features such as
+`admin`, `accounts`, or `billing`, as in the `webroot` tree above. Each feature
+remains internally shallow; a parent mux composes the feature packages. Move
+code upward only after more than one feature actually shares it.
+
+Not every layer is artificial. Configuration input, an external HTTP request,
+SQL, and HTML are genuine representation boundaries. Popcorn Wave supplies code
+generation there because translating across them adds type and protocol checks.
+It does not generate controller-to-service-to-repository glue or structure
+mappers whose only job is to preserve an otherwise empty ring.
+
+The goal is not the fewest possible packages. It is the fewest layers that carry
+no distinct knowledge. Keep Go's standard interfaces visible, keep database
+behavior explicit, and keep each feature coherent. Add a package when ownership
+or a feature boundary becomes real—not in anticipation of a diagram.

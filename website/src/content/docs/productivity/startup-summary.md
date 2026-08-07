@@ -59,8 +59,10 @@ the summary is emitted after initialization, without the `listening` line.
 
 ## Secrets in logs
 
-Keys containing `secret`, `password`, `token`, `credential`, `dsn`, or
-`private_key` appear as `[REDACTED]` in both formats.
+Sensitive values are masked in both formats. Ordinary values become `*****`;
+a DSN retains its public location while its credentials and query string are
+removed. The exact name-matching rule and the explicit `secret` overrides are
+documented under [what the startup summary shows](/reference/configuration-declaration/#what-the-startup-summary-shows).
 
 See [Configuration](/guides/architecture/configuration/) for where these values come from,
 and [Slow Query Diagnostics](/productivity/query-diagnostics/) for the same idea
