@@ -16,6 +16,13 @@ fields:
   boot_log: auto, tree, record, or off; selects policy:startup-summary output
   resource_attributes: data:log-attribute list
   query: data:query-diagnostics-config sub-binding for requirement:query-diagnostics
+  trace:
+    purpose: selects data:framework-span-set, the spans the framework opens inside a request
+    enabled: auto, on, or off; auto follows whether traces are exported, because a span nothing exports is pure cost, and on also installs the request root span so a project holding its own provider gets a complete tree
+    render: bool, default true; the response span with the initial build inside it
+    boundary: bool, default true, depending on render; one span per settled await boundary and per live delivery
+    database: bool, default true; a client span per executed statement
+    statement: bool, default true, depending on database; the statement text on that span, bounded by query.max_sql_length
   otel:
     enabled: bool, default false; the parent every other otel key depends on, and derived true from an endpoint at any source
     endpoint: URL, default empty
@@ -35,7 +42,7 @@ standard_environment:
   remaining_keys: bound to generated names, so otel.flush_interval reads OBSERVABILITY_OTEL_FLUSH_INTERVAL
 routing:
   otel_enabled: logs and traces use requirement:contrib-otel processors and OTLP export
-  otel_disabled: logs use stdout_format and trace export is disabled
+  otel_disabled: logs use stdout_format and trace export is disabled, and trace.enabled auto resolves to off with it
   development_viewer: requirement:dev-telemetry-viewer injects otel enabled and endpoint into the process api:cli-dev starts, and emits to stdout as well
 rules:
   - filter records below minimum_level before formatting, allocation-heavy encoding, or export
@@ -50,4 +57,6 @@ rules:
   - an endpoint from any source derives enabled true before the summary is captured, recorded at the place the endpoint came from
   - the derivation is why naming only an endpoint neither hides the address nor describes a process that does not exist
   - plaintext and JSON preserve the same message, severity, attributes, and available trace correlation
+  - a trace setting that opens nothing resolves to no policy at all, so the cost of the feature off is one nil comparison rather than several false branches
+  - bind values never reach a span whatever trace.statement says; policy:query-log-safety keeps row data on the record the span id correlates
 ```

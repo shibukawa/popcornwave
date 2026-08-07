@@ -199,8 +199,41 @@ type ObservabilityConfig struct {
 	BootLog string `default:"auto" help:"startup summary: auto, tree, record, or off"`
 	// Query configures the development query diagnostics.
 	Query QueryLogConfig `help:"Query configures the development query diagnostics"`
+	// Trace configures the spans the framework creates inside a request.
+	Trace TraceConfig `help:"Trace configures the spans the framework creates inside a request"`
 	// Otel configures OpenTelemetry export.
 	Otel OtelExportConfig `help:"Otel configures OpenTelemetry trace and log export"`
+}
+
+// TraceConfig selects the spans the framework opens inside a request.
+//
+// The request root span is not one of them: it belongs to the tracing
+// middleware and exists whenever export does, because a trace with no root is
+// not a trace. Everything here describes what the framework does inside that
+// root, and each key is a separate switch because the two halves answer
+// different questions — the render spans say where a response spent its time,
+// and the database spans say which statements it ran.
+type TraceConfig struct {
+	// Enabled is auto, on, or off. Auto resolves to on when trace export is
+	// configured and off otherwise, which is the honest default: a span nothing
+	// exports is pure cost. Off disables every key below it.
+	//
+	// On without an exporter is still meaningful — it installs the request root
+	// span too, so a project holding its own provider gets a complete tree.
+	Enabled string `default:"auto" falsy:"off" help:"open framework spans: auto, on, or off; auto follows trace export"`
+	// Render opens a span for one HTML response, with the initial build as its
+	// first child.
+	Render bool `default:"true" dependon:".enabled" help:"open a span per HTML response, with the initial build inside it"`
+	// Boundary opens a span per settled async boundary and per live delivery.
+	// It hangs off Render because a boundary span with no render span above it
+	// would attach each fragment straight to the request root.
+	Boundary bool `default:"true" dependon:".render" help:"open a span per settled async boundary and per live delivery"`
+	// Database opens a client span per executed statement.
+	Database bool `default:"true" dependon:".enabled" help:"open a client span per executed statement"`
+	// Statement puts the statement text on that span. Bind values never reach
+	// it whatever this says: they stay on the query record, which the span id
+	// correlates.
+	Statement bool `default:"true" dependon:".database" help:"put the statement text on the database span; bind values never reach a span"`
 }
 
 // OtelExportConfig configures OTLP/HTTP export of traces and logs.
@@ -497,10 +530,15 @@ func registeredConfig[T any]() (T, bool) {
 	return *ptr, true
 }
 
-func runtimeResources(backend *pwruntime.LogBackend) pwruntime.Resources {
+// runtimeResources builds the capsule every request is served with. exporting
+// says whether a span this process opens has anywhere to go, which is what the
+// automatic tracing setting reads.
+func runtimeResources(backend *pwruntime.LogBackend, exporting bool) pwruntime.Resources {
 	// Resolved before the lock because reading a registered binding takes the
 	// same read lock, and a waiting writer would deadlock the reacquisition.
-	query := resolveQueryDiagnostics(Config[ObservabilityConfig](nil), Development())
+	observability := Config[ObservabilityConfig](nil)
+	query := resolveQueryDiagnostics(observability, Development())
+	tracing := resolveTracing(observability, exporting)
 	configState.RLock()
 	defer configState.RUnlock()
 	configs := make(map[reflect.Type]any, len(configState.entries))
@@ -517,6 +555,7 @@ func runtimeResources(backend *pwruntime.LogBackend) pwruntime.Resources {
 		DBDriver:    configState.dbDriver,
 		Connections: configState.connections,
 		Query:       query,
+		Trace:       tracing,
 	}
 }
 

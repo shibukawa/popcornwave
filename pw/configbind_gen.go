@@ -725,6 +725,11 @@ func registerObservabilityConfigDefinition3() {
 			"observability.query.reproduction",
 			"observability.query.max_sql_length",
 			"observability.query.max_value_length",
+			"observability.trace.enabled",
+			"observability.trace.render",
+			"observability.trace.boundary",
+			"observability.trace.database",
+			"observability.trace.statement",
 			"observability.otel.enabled",
 			"observability.otel.endpoint",
 			"observability.otel.headers",
@@ -746,6 +751,11 @@ func registerObservabilityConfigDefinition3() {
 			"observability.query.reproduction":     "true",
 			"observability.query.max_sql_length":   "4096",
 			"observability.query.max_value_length": "256",
+			"observability.trace.enabled":          "auto",
+			"observability.trace.render":           "true",
+			"observability.trace.boundary":         "true",
+			"observability.trace.database":         "true",
+			"observability.trace.statement":        "true",
 			"observability.otel.enabled":           "false",
 			"observability.otel.request_timeout":   "10s",
 			"observability.otel.queue_size":        "2048",
@@ -761,6 +771,10 @@ func registerObservabilityConfigDefinition3() {
 			"observability.query.reproduction":     {"observability.query.slow_threshold"},
 			"observability.query.max_sql_length":   {"observability.query.enabled"},
 			"observability.query.max_value_length": {"observability.query.enabled"},
+			"observability.trace.render":           {"observability.trace.enabled"},
+			"observability.trace.boundary":         {"observability.trace.render"},
+			"observability.trace.database":         {"observability.trace.enabled"},
+			"observability.trace.statement":        {"observability.trace.database"},
 			"observability.otel.endpoint":          {"observability.otel.enabled"},
 			"observability.otel.headers":           {"observability.otel.enabled"},
 			"observability.otel.request_timeout":   {"observability.otel.enabled"},
@@ -772,6 +786,7 @@ func registerObservabilityConfigDefinition3() {
 			"observability.query.enabled":        "off",
 			"observability.query.slow_threshold": "0s",
 			"observability.query.bind_values":    "off",
+			"observability.trace.enabled":        "off",
 		},
 		Secrets: map[string]string{
 			"observability.otel.headers": "mask",
@@ -791,6 +806,11 @@ func registerObservabilityConfigDefinition3() {
 			{Prefix: "observability", Key: "query.reproduction", Help: "emit a paste-able rerun snippet for a slow statement", Kind: cliparser.KindBool},
 			{Prefix: "observability", Key: "query.max_sql_length", Help: "MaxSQLLength bounds the logged statement text"},
 			{Prefix: "observability", Key: "query.max_value_length", Help: "MaxValueLength bounds each logged argument value"},
+			{Prefix: "observability", Key: "trace.enabled", Help: "open framework spans: auto, on, or off; auto follows trace export"},
+			{Prefix: "observability", Key: "trace.render", Help: "open a span per HTML response, with the initial build inside it", Kind: cliparser.KindBool},
+			{Prefix: "observability", Key: "trace.boundary", Help: "open a span per settled async boundary and per live delivery", Kind: cliparser.KindBool},
+			{Prefix: "observability", Key: "trace.database", Help: "open a client span per executed statement", Kind: cliparser.KindBool},
+			{Prefix: "observability", Key: "trace.statement", Help: "put the statement text on the database span; bind values never reach a span", Kind: cliparser.KindBool},
 			{Prefix: "observability", Key: "otel.enabled", Help: "export traces and logs", Kind: cliparser.KindBool},
 			{Prefix: "observability", Key: "otel.endpoint", Env: "OTEL_EXPORTER_OTLP_ENDPOINT", Help: "OTLP/HTTP base URL; /v1/traces and /v1/logs are appended"},
 			{Prefix: "observability", Key: "otel.headers", Env: "OTEL_EXPORTER_OTLP_HEADERS", Help: "comma-separated key=value list; values are never logged"},
@@ -815,6 +835,11 @@ func registerObservabilityConfigDefinition3() {
 			{Key: "query.reproduction", Kind: configbind.ScaffoldBool, Default: "true", Help: "emit a paste-able rerun snippet for a slow statement"},
 			{Key: "query.max_sql_length", Kind: configbind.ScaffoldInt, Default: "4096", Help: "MaxSQLLength bounds the logged statement text"},
 			{Key: "query.max_value_length", Kind: configbind.ScaffoldInt, Default: "256", Help: "MaxValueLength bounds each logged argument value"},
+			{Key: "trace.enabled", Kind: configbind.ScaffoldString, Default: "auto", Help: "open framework spans: auto, on, or off; auto follows trace export"},
+			{Key: "trace.render", Kind: configbind.ScaffoldBool, Default: "true", Help: "open a span per HTML response, with the initial build inside it"},
+			{Key: "trace.boundary", Kind: configbind.ScaffoldBool, Default: "true", Help: "open a span per settled async boundary and per live delivery"},
+			{Key: "trace.database", Kind: configbind.ScaffoldBool, Default: "true", Help: "open a client span per executed statement"},
+			{Key: "trace.statement", Kind: configbind.ScaffoldBool, Default: "true", Help: "put the statement text on the database span; bind values never reach a span"},
 			{Key: "otel.enabled", Kind: configbind.ScaffoldBool, Default: "false", Help: "export traces and logs"},
 			{Key: "otel.endpoint", Kind: configbind.ScaffoldString, Env: "OTEL_EXPORTER_OTLP_ENDPOINT", Help: "OTLP/HTTP base URL; /v1/traces and /v1/logs are appended"},
 			{Key: "otel.headers", Kind: configbind.ScaffoldString, Env: "OTEL_EXPORTER_OTLP_HEADERS", Help: "comma-separated key=value list; values are never logged"},
@@ -916,6 +941,47 @@ func applyObservabilityConfigDefinition3(dst any, o *configbind.Overlay) error {
 		p.Query.MaxValueLength = int(n)
 	} else {
 		p.Query.MaxValueLength = 256
+	}
+	if v, ok := o.GetString("observability.trace.enabled"); ok {
+		p.Trace.Enabled = v
+	} else {
+		p.Trace.Enabled = "auto"
+	}
+	if v, ok := o.GetString("observability.trace.render"); ok {
+		bb, err := strconv.ParseBool(v)
+		if err != nil {
+			return fmt.Errorf("configbind: observability.trace.render: %w", err)
+		}
+		p.Trace.Render = bb
+	} else {
+		p.Trace.Render = true
+	}
+	if v, ok := o.GetString("observability.trace.boundary"); ok {
+		bb, err := strconv.ParseBool(v)
+		if err != nil {
+			return fmt.Errorf("configbind: observability.trace.boundary: %w", err)
+		}
+		p.Trace.Boundary = bb
+	} else {
+		p.Trace.Boundary = true
+	}
+	if v, ok := o.GetString("observability.trace.database"); ok {
+		bb, err := strconv.ParseBool(v)
+		if err != nil {
+			return fmt.Errorf("configbind: observability.trace.database: %w", err)
+		}
+		p.Trace.Database = bb
+	} else {
+		p.Trace.Database = true
+	}
+	if v, ok := o.GetString("observability.trace.statement"); ok {
+		bb, err := strconv.ParseBool(v)
+		if err != nil {
+			return fmt.Errorf("configbind: observability.trace.statement: %w", err)
+		}
+		p.Trace.Statement = bb
+	} else {
+		p.Trace.Statement = true
 	}
 	if v, ok := o.GetString("observability.otel.enabled"); ok {
 		bb, err := strconv.ParseBool(v)

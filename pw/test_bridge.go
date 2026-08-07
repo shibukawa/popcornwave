@@ -104,6 +104,9 @@ func prepareTestRuntime(handler http.Handler, configs pwtestbridge.Configs, opti
 		DBDriver: driver,
 		TxScope:  scope,
 		Query:    resolveQueryDiagnostics(testConfigValue[ObservabilityConfig](configs), Development()),
+		// A test bridge exports nothing, so auto resolves off here and a suite
+		// that wants the span tree names observability.trace.enabled on.
+		Trace: resolveTracing(testConfigValue[ObservabilityConfig](configs), false),
 	}
 	wrapped, err := buildRuntimeHandler(handler, server, security, middleware, resources, false)
 	if err != nil {

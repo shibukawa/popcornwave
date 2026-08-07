@@ -43,6 +43,8 @@ type Resources struct {
 	// Query enables development query diagnostics. A nil value leaves the
 	// resolved executor undecorated.
 	Query *QueryDiagnostics
+	// Trace enables the framework's own spans. A nil value creates none.
+	Trace *Tracing
 	// Authentication is the verified request authentication result, finalized
 	// by authentication middleware before handler dispatch.
 	Authentication Authentication

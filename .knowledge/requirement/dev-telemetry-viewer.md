@@ -17,7 +17,7 @@ responsibility:
   consequence: requirement:dev-console adds no log pane and no request profiler, because a second reader of the same records would be a second thing to keep correct
   instrumentation: a runtime fact a pane wants is added as a span or an attribute here, per policy:dev-console-boundary, rather than as an endpoint in the application
 signals:
-  traces: requirement:contrib-otel spans delivered by flow:telemetry-export
+  traces: requirement:contrib-otel spans delivered by flow:telemetry-export, which for a pw application is data:framework-span-set — the injected endpoint turns observability.trace auto on, so the render tree and the statements are there with no configuration
   logs: api:logger records routed by policy:log-emission
   metrics: the receiver accepts /v1/metrics, but requirement:contrib-otel emits none, so the view stays empty unless the application exports its own
   process: the viewer samples cpu, memory, threads, open files, and io of the process api:cli-dev started

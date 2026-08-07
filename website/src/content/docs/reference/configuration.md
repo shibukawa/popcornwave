@@ -264,6 +264,30 @@ opts in. `explain` and `reproduction` depend on `slow_threshold`, not on
 `enabled`: setting the threshold to zero switches off all three at once. See
 [Slow Query Diagnostics](/productivity/query-diagnostics/).
 
+### `[observability.trace]`
+
+| Key | Default | Meaning |
+| --- | --- | --- |
+| `enabled` | `"auto"` | open framework spans: `auto`, `on`, `off` — `auto` follows whether traces are exported |
+| `render` | `true` | a span per HTML response, with the initial build inside it |
+| `boundary` | `true` | a span per settled async boundary and per live delivery |
+| `database` | `true` | a client span per executed statement |
+| `statement` | `true` | the statement text on that span |
+
+`auto` reads the export switch rather than the environment, because a span
+nothing exports is pure cost. `on` also installs the request root span, so a
+project holding its own tracer provider gets a complete tree without configuring
+an endpoint here.
+
+`boundary` depends on `render` and `statement` depends on `database`, so
+switching a parent off switches its child off with it. `statement` is bounded by
+`observability.query.max_sql_length`, which bounds the same text on the query
+record.
+
+Bind values never reach a span, whatever `statement` says. They stay on the
+query record, which names the statement span rather than the request root. See
+[Request Tracing](/guides/cross-layer/tracing/).
+
 ### `[observability.otel]`
 
 | Key | Default | Meaning |

@@ -331,10 +331,17 @@ func WriteHTMLChain(w http.ResponseWriter, r *http.Request, wrappers []HTMLWrapp
 		streamHTMLChain(w, r, wrappers, leaf, config, options...)
 		return
 	}
-	ctx, cancel := boundedRenderContext(requestContext(r), config, async, bot)
+	// The whole render is the initial build on this branch, so it opens no child
+	// span: every await boundary settles in place before the first byte, and
+	// there is nothing after the pass for a second span to separate.
+	ctx, render := startRenderTrace(requestContext(r), renderModeBuffered,
+		chainRenderAttributes(wrappers, async, live, bot)...)
+	defer render.end()
+	ctx, cancel := boundedRenderContext(ctx, config, async, bot)
 	defer cancel()
 	var body bytes.Buffer
 	if err := htmlbind.RenderChain(&body, wrappers, leaf, renderOptions(ctx, config, false, options)...); err != nil {
+		render.failed(err)
 		// Nothing is committed on this branch, so the same failure the streaming
 		// branch can only patch into a 200 still carries its real status here.
 		var unrecovered *htmlbind.UnrecoveredError
@@ -347,7 +354,23 @@ func WriteHTMLChain(w http.ResponseWriter, r *http.Request, wrappers []HTMLWrapp
 		WriteProblem(w, r, InternalServerError(err))
 		return
 	}
+	render.wrote(body.Len())
 	commitHTMLBody(w, r, &body)
+}
+
+// chainRenderAttributes describes the shape of one composed chain, which is
+// what decides the branch this response took.
+//
+// Every value is a property of the templates rather than of the request, so
+// none of it can carry an instance key, a component input, or anything a user
+// supplied, which is what requirement:modern-observability asks of a dimension.
+func chainRenderAttributes(wrappers []HTMLWrapper, async, live, bot bool) []Attribute {
+	return []Attribute{
+		Int("pw.render.layers", renderLayers(wrappers)),
+		Bool("pw.render.async", async),
+		Bool("pw.render.live", live),
+		Bool("pw.render.bot", bot),
+	}
 }
 
 // documentRenderOptions is everything the framework contributes to a document
@@ -424,10 +447,16 @@ func WriteHTMLFragment(w http.ResponseWriter, r *http.Request, fragment HTMLFrag
 	}
 	// Nothing classifies the client here: one branch means one representation, so
 	// this response varies on nothing and stays cacheable.
-	renderCtx, cancel := boundedRenderContext(ctx, config, fragment.HasAwaitBlock(), false)
+	async := fragment.HasAwaitBlock()
+	traceCtx, render := startRenderTrace(ctx, renderModeFragment,
+		Int("pw.render.layers", 1), Bool("pw.render.async", async),
+		Bool("pw.render.live", false), Bool("pw.render.bot", false))
+	defer render.end()
+	renderCtx, cancel := boundedRenderContext(traceCtx, config, async, false)
 	defer cancel()
 	var body bytes.Buffer
 	if err := htmlbind.Render(&body, fragment, renderOptions(renderCtx, config, false, nil)...); err != nil {
+		render.failed(err)
 		// Nothing is committed yet, so every failure still carries its real
 		// status. It goes out as a problem response rather than as the HTML error
 		// page: an error document swapped into a region would replace that region
@@ -441,6 +470,7 @@ func WriteHTMLFragment(w http.ResponseWriter, r *http.Request, fragment HTMLFrag
 		WriteProblem(w, r, InternalServerError(err))
 		return
 	}
+	render.wrote(body.Len())
 	commitHTMLBody(w, r, &body)
 }
 
@@ -471,17 +501,25 @@ func commitHTMLBody(w http.ResponseWriter, r *http.Request, body *bytes.Buffer) 
 // unset async values both run before the initial pass, so that failure can
 // still become a problem response.
 func streamHTMLChain(w http.ResponseWriter, r *http.Request, wrappers []HTMLWrapper, leaf HTMLFragment, config HTMLConfig, options ...HTMLOption) {
-	ctx := requestContext(r)
+	ctx, render := startRenderTrace(requestContext(r), renderModeStream,
+		chainRenderAttributes(wrappers, true, htmlbind.HasLiveBlock(wrappers, leaf), false)...)
+	defer render.end()
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	writer, closeWriter, err := prepareHTMLResponse(w, r)
 	if err != nil {
+		render.failed(err)
 		WriteProblem(w, r, InternalServerError(err))
 		return
 	}
+	// The wrapper counts the response and turns htmlbind's own flush, the one
+	// that ends the initial pass, into the end of the initial build span.
+	writer = render.writer(writer)
+	render.initialBuild()
 	logger := Logger(ctx)
 	failed := false
 	for content, err := range htmlbind.RenderChainAsync(ctx, writer, wrappers, leaf, renderOptions(ctx, config, false, options)...) {
 		if err != nil {
+			render.failed(err)
 			// A boundary that failed with no recover clause is reported after the
 			// initial pass by construction, so the document is already committed
 			// and the page can only be repaired from the inside.
@@ -513,7 +551,9 @@ func streamHTMLChain(w http.ResponseWriter, r *http.Request, wrappers []HTMLWrap
 			failed = true
 			break
 		}
+		render.boundarySettled(content.BoundaryID, len(content.HTML))
 		if err := writeBoundaryCompletion(writer, content); err != nil {
+			render.failed(err)
 			logger.Log(ctx, LevelError, "HTML boundary write failed", Err(err))
 			failed = true
 			break

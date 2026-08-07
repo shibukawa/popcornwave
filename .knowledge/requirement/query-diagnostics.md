@@ -11,6 +11,7 @@ capabilities:
   query_log: one record per executed statement with duration and outcome
   slow_query_explain: plan-only EXPLAIN for statements over a threshold, logged with the record
   reproduction: paste-able parameterized rerun snippet for the same statement
+  span: the data:framework-span-set database span, which puts the same statement in the trace beside the render that ran it, and is configured separately because a deployment commonly wants it without a record per statement
 configuration: data:query-diagnostics-config
 record: data:query-record
 behavior: flow:query-diagnostics
@@ -29,7 +30,9 @@ coverage:
     unobserved: every rule:framework-owned-tables table, per policy:query-log-safety
     no_explain: DynamoDB has no plan to capture; the scanned count of a read is what answers the same question
 acceptance:
-  - a disabled configuration performs no timing and constructs no wrapper
+  - a disabled configuration performs no timing and constructs no wrapper, and neither does a run with the database span off as well
+  - a run with the span on and the record off still traces every statement and writes nothing
+  - a record names the statement span rather than the request root, so the trace leads to the values and the plan
   - a dev run logs every generated statement with SQL text, duration, outcome, driver, and transaction depth
   - an exec also reports its affected count; a query reports none, per data:query-record
   - a statement over the threshold logs at most one plan for that execution
