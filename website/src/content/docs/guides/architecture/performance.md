@@ -8,22 +8,21 @@ sidebar:
 Benchmark a Popcorn Wave service against a hand-written `net/http` one and the
 result depends almost entirely on one setting. On the todo pair in
 [`examples/todo`](https://github.com/shibukawa/popcornwave/tree/main/examples/todo)
-— one PostgreSQL table, same five routes — the framework is 18% behind with a
-cookie session and slightly *ahead* with a server-side one, on the same code.
+— one PostgreSQL table, same five routes — the framework is 8% behind with a
+cookie session and 9% *ahead* with a server-side one, on the same code.
 
 | Session backend | Throughput vs baseline | HTML p95 | `Set-Cookie` per response |
 | --- | --- | --- | --- |
-| `cookie` | −18% | 3.76–4.07 ms | 631 B |
-| `dev-volatile` | +2.7% | 2.80–2.99 ms | 299 B |
+| `cookie` | −8% | 2.90–3.21 ms | 631 B |
+| `dev-volatile` | +9% | 2.46–2.66 ms | 299 B |
 
-Baseline HTML p95 was 3.49–3.95 ms, so the server-side configuration is both at
-parity on throughput and about 20% quicker to first byte.
+Baseline HTML p95 was 3.15–3.39 ms, so the framework is quicker to first byte in
+both configurations, and about 22% quicker with a server-side session.
 
-Those figures come from one session on an otherwise idle machine. A later
-session on a busy one put the baseline at 11,400–11,700 instead of ~13,900, and
-reproduced the same two ratios — −14% on a cookie session, level on a
-server-side one. Read the ratios; the absolute numbers belong to the machine
-that produced them.
+Medians of five alternating passes on an otherwise idle machine. Read the
+ratios rather than the absolute rates, which belong to the machine that produced
+them: a session on a busy machine moved the baseline from ~14,900 to ~11,600
+requests per second and left both ratios recognisable.
 
 This page is in microseconds rather than percentages wherever it can be,
 because a percentage is only true for the workload it was measured on. "The
@@ -38,32 +37,40 @@ per request. Go 1.26.5, Apple M3, PostgreSQL 17 in Docker on the same machine.
 
 | Per request | CPU |
 | --- | --- |
-| Security headers | 0.2 µs |
-| Request ID, recovery, body limit, operational endpoints | 0.5 µs |
-| Session middleware, cookie backend | 1.5 µs |
-| CSRF check | 2.4 µs |
-| **Whole middleware chain** | **4.5 µs** |
-| One `SELECT` returning 50 rows | 49 µs |
-| Render and write the HTML page | 102 µs |
-| Encode and write the JSON response | 41 µs |
+| **Whole middleware chain** | **2.7 µs** |
+| — of which the CSRF check | 2.2 µs |
+| One `SELECT` returning 50 rows | 37 µs |
+| Render and write the HTML page | 95 µs |
+| Encode and write the JSON response | 30 µs |
+| **Whole request, Popcorn Wave** | **203 µs** |
+| **Whole request, the `net/http` baseline** | **221 µs** |
 
-The framework's entire per-request bookkeeping is **4.5 µs**. One database query
-on loopback, against a warm pool, is **49 µs** — eleven times more. A real query
-crossing a network to a real database is hundreds of microseconds to
-milliseconds, and against that the chain is not visible.
+The framework's entire per-request bookkeeping is **2.7 µs** — request ID,
+recovery, body limit, operational endpoints, session, security headers and CSRF
+together, of which CSRF is most of it. One database query on loopback, against a
+warm pool, is **37 µs**: fourteen times more. A real query crossing a network is
+hundreds of microseconds to milliseconds, and against that the chain is not
+visible.
 
-That is the honest shape of it: the framework's overhead is real, fixed, small,
-and does not grow with your application, while everything that does grow with
-your application is somewhere else.
+The last two rows are the ones worth sitting with. The framework does strictly
+more per request than the baseline — a session, a CSRF check, security headers,
+a request ID, none of which the hand-written service has — and still spends
+**less CPU** doing it, because the generated renderer beats `html/template` by
+more than the middleware costs. Overhead that is real, fixed and small can still
+be smaller than what it replaced.
 
-It also explains why a large win in one row can be a small win overall. A
-PostgreSQL connection now runs its request-time queries on the pgx-native pool
-rather than through `database/sql`, which the framework's own benchmark measured
-at **34.9 µs/op and 15 allocations down to 23.0 µs/op and 8** — a third off the
-query. At the HTTP level that same change moved the end-to-end ratio by only a
-few points, well inside run-to-run noise, because the query is one line of the
-table above and the request is the whole of it. Both statements are true, and
-the per-operation one is the one that would be quoted misleadingly.
+The query row is the one that moved most recently. A PostgreSQL connection now
+runs its request-time queries on the pgx-native pool rather than through
+`database/sql`, which the framework's own benchmark measured at **34.9 µs/op and
+15 allocations down to 23.0 µs/op and 8**. In this table the query row went from
+49 µs to 37 µs, and end to end it was worth about ten points: the cookie
+configuration went from 18% behind the baseline to 8%, and the server-side one
+from level to 9% ahead.
+
+Ten points from twelve microseconds off a 200 µs request is what the table
+predicts, and that is the useful part. A per-operation number tells you what a
+change is worth only once you know what share of the request that operation
+holds. Quoted alone, "a third off the query" would have promised more.
 
 ## What the cookie session actually costs
 
@@ -86,7 +93,7 @@ browser's cookie limit is 1.7 µs. A signed rather than sealed slot pays HMAC
 instead: 393 ns to sign, 410 ns to verify.
 
 Half a microsecond is one hundredth of a single loopback query, so the
-encryption cannot be what costs 18% at the top of this page. **The cookie's
+encryption cannot be what separates the two rows at the top of this page. **The cookie's
 price is bytes, not CPU.** A cookie-backed response carries 631 bytes of
 `Set-Cookie` headers against a server-side session's 299 — the record itself
 travels — and the browser sends all of it back on every subsequent request. That
@@ -123,13 +130,14 @@ work the framework exists to remove, so a benchmark that omits them is measuring
 the absence of features.
 
 **Throughput and latency answer different questions.** Even in the cookie
-configuration that is 18% behind on requests per second, HTML p95 is
-**3.76–4.07 ms against the baseline's 3.69–3.95** — effectively level — and with
-a server-side session it is 20% ahead. Per-request CPU tells the same story:
-**254 µs against 244 µs**, a 4% difference that stayed stable across passes
-where throughput swung 34%. Lower throughput at equal latency means the service
-is filling fewer cores, not that any request is slower. If what your users feel
-is latency, measure latency.
+configuration that is 8% behind on requests per second, HTML p95 is
+**2.90–3.21 ms against the baseline's 3.15–3.39** — ahead — and with a
+server-side session it is 22% ahead. Per-request CPU says the same and more:
+**203 µs against 221 µs**, so the cookie configuration is behind on throughput
+while spending less CPU per request. What it spends instead is network — 631
+bytes of `Set-Cookie` on every response, returned on every request. If what your
+users feel is latency, measure latency, and if it is throughput, look at bytes
+before you look at code.
 
 ## What to tune in production
 
@@ -138,7 +146,7 @@ Five settings, in the order they repay attention.
 ### The session backend, first
 
 It is the largest single lever, and the table at the top of this page is the
-evidence: same code, 18% apart. A cookie session puts the whole record on the
+evidence: same code, 17 points apart. A cookie session puts the whole record on the
 wire twice per request; a server-side one sends an identifier and keeps the
 record where the bytes cost nothing.
 

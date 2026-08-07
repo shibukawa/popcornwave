@@ -81,9 +81,9 @@ application code, five alternating passes each:
 
 | | requests/s | HTML p95 |
 | --- | --- | --- |
-| `net/http` + pgx | ~13,900 | 3.49–3.95 ms |
-| `popcornwave`, `cookie` | ~10,600 | 3.76–4.07 ms |
-| `popcornwave`, `dev-volatile` | ~14,300 | 2.80–2.99 ms |
+| `net/http` + pgx | ~14,700 | 3.15–3.39 ms |
+| `popcornwave`, `cookie` | ~13,700 | 2.90–3.21 ms |
+| `popcornwave`, `dev-volatile` | ~15,800 | 2.46–2.66 ms |
 
 A cookie session sends 631 bytes of `Set-Cookie` per response against 299, and
 the browser returns all of it on every request. The AES-GCM sealing measures
@@ -91,12 +91,14 @@ the browser returns all of it on every request. The AES-GCM sealing measures
 backend; `rdb`, `redis`, and `dynamo` are its production shapes and each adds a
 storage round trip in exchange for the bytes.
 
-Both ratios were re-confirmed after PostgreSQL requests moved to the pgx-native
-pool. That change is worth a third of a query per the framework's own benchmark
-and only a few points end to end, because the query is a minority of the
-request. A second session on a busier machine read −14% and level against a
-baseline of 11,400–11,700 rather than ~13,900, which is why the ratios rather
-than the absolute numbers are what these tables are for.
+Measured after PostgreSQL requests moved to the pgx-native pool, which was worth
+about ten points end to end: the cookie row was 18% behind the baseline before
+it and is 8% behind now, and `dev-volatile` went from level to 9% ahead. Per
+request the framework spends 203 µs of CPU against the baseline's 221.
+
+A session on a busier machine put the baseline at 11,400–11,700 rather than
+~14,700 and left both ratios recognisable, which is why these tables are for the
+ratios rather than the absolute rates.
 
 `k6/load.js` sends `Accept: text/html` on the page request because the framework
 issues a CSRF token only for a request that looks like a document. A generator
