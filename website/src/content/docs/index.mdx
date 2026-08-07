@@ -25,9 +25,7 @@ hero:
 
 import { Card, CardGrid } from '@astrojs/starlight/components';
 
-Popcorn Wave raises productivity and helps you build fast services without
-giving up the conventions Go developers already share. Start with the unit Go
-already gives you: one `http.Handler`. It binds a
+Start with the unit Go already gives you: one `http.Handler`. It binds a
 request, runs application logic, and writes a complete response through ordinary
 navigation and form semantics. The result remains a small, practical TinyGo
 target — without a component graph, patch protocol, hydration step, or browser
@@ -56,6 +54,57 @@ runtime.
 Need richer interactions later? An opt-in server-driven UI layer extends the
 same `net/http` foundation rather than replacing it. If an application does not
 import that layer, it does not pay for it.
+
+## The same todo app, measured twice
+
+[`examples/todo`](https://github.com/shibukawa/popcornwave/tree/main/examples/todo)
+holds one todo list written twice against one PostgreSQL table — once with
+`net/http`, `html/template`, `encoding/json` and `pgx`, once with Popcorn Wave.
+Same five routes, same rows, and the harness refuses to measure them if their
+JSON bodies disagree.
+
+Binary size, Go 1.26.5 and TinyGo 0.41.1 on darwin/arm64:
+
+| Build | `net/http` + pgx | Popcorn Wave |
+| --- | --- | --- |
+| host `go build` | 18.98 MB | 19.66 MB |
+| host `-ldflags="-s -w"` | 13.06 MB | 13.57 MB |
+| TinyGo native | does not build | 6.13 MB |
+| TinyGo native `-no-debug` | does not build | 6.13 MB |
+| TinyGo `wasip1` | does not build | does not build |
+
+The TinyGo rows are the point. `pgx` does not compile there at all — it reaches
+for `tls.Conn`, `tls.X509KeyPair` and `net.Resolver`, none of which TinyGo has —
+so the framework's rebuilt driver stack is what makes the column exist, and it
+more than halves the binary against a stripped host build.
+
+Neither service reaches `wasip1`, and for the framework that is a platform
+limit rather than missing work: the PostgreSQL engine requires TinyGo's threaded
+scheduler, because under the cooperative one a blocking socket call holds the
+runtime and a query outlives its context deadline in silence. WASI preview 1 has
+no threads, so the engine refuses to build there — by way of a deliberate
+compile error whose identifier names the fix.
+
+Throughput, k6 at 20 VUs against the same seeded 50 rows, five alternating
+passes. The framework result depends almost entirely on where the session lives:
+
+| | requests/s | HTML p95 |
+| --- | --- | --- |
+| `net/http` + pgx | ~13,900 | 3.49–3.95 ms |
+| Popcorn Wave, cookie session | ~10,600 | 3.76–4.07 ms |
+| Popcorn Wave, server-side session | ~14,300 | 2.80–2.99 ms |
+
+Same application code in both framework rows. A cookie session puts the whole
+record on the wire twice per request — 631 bytes of `Set-Cookie` against 299 —
+and that, not the AES-GCM sealing it, is what costs the throughput: the crypto
+itself measures 0.5 µs. Move the record server-side and the service is at
+parity on throughput and about 20% quicker to first byte.
+
+The framework's own per-request work is smaller than either number suggests:
+the whole middleware chain — session, CSRF, security headers, request ID —
+costs **4.5 µs**, against **49 µs** for one loopback database query.
+[Performance](/guides/architecture/performance/) has the full breakdown and the
+four other settings worth tuning.
 
 [Why Popcorn Wave](/start/why-popcorn-wave/) explains how that choice connects
 productivity, performance, and interoperability.
