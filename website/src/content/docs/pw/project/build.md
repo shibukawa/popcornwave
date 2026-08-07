@@ -53,12 +53,28 @@ GOOS=linux GOARCH=amd64 pw build
 ```
 
 The generated path uses no runtime reflection, so the same sources can target
-TinyGo. After generation, invoke that compiler directly:
+TinyGo. `pw build` always links with host `go`, so a TinyGo build runs the
+preparation steps and then invokes that compiler itself:
 
 ```sh
-pw generate
-tinygo build -o myapp ./cmd/myapp
+pw prepare
+tinygo build -scheduler=threads -o myapp ./cmd/myapp
 ```
+
+[`pw prepare`](/pw/project/prepare/) is this command without its final step. Use
+it rather than `pw generate`, which writes the generated Go but not
+`dist/public` — a directory `public.go` names in a `go:embed` directive, so the
+compiler fails on a tree that was never built.
+
+`-scheduler=threads` is required for any engine that speaks a network protocol.
+Under the cooperative scheduler a blocking socket call holds the whole runtime,
+so a driver's cancellation watcher never runs and a query outlives its context
+deadline without reporting one. The `database/postgres` and `database/mysql`
+packages refuse to compile without the flag rather than letting that happen at
+run time.
+
+[Container Images](/guides/deployment/container-images/) uses both commands in
+the two Dockerfiles `pw init` writes.
 
 TinyGo's `net` package has no networking implementation of its own; every socket
 passes through a Netdever registered by the program. Projects scaffolded with

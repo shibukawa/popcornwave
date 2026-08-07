@@ -9,7 +9,11 @@ The starter project keeps handlers, templates, SQL, and their generated Go files
 layout:
   popcornwave.toml: data:project-config
   config.dev.toml: policy:config-file-resolution project-local runtime configuration
+  config.prod.toml: requirement:environment-switching production configuration, carrying no secret
   config/: optional policy:config-file-resolution project-local runtime configuration directory
+  Dockerfile: requirement:container-image-scaffold host Go container recipe
+  Dockerfile.tinygo: the same recipe for the TinyGo toolchain, only in a TinyGo project, per decision:separate-tinygo-dockerfile
+  .dockerignore: keeps the host copy of generated Go, dist, and development configuration out of the build context
   go.mod: Go module definition
   go.sum: Go dependency checksums
   .gitignore: excludes **/*_pw_gen.go, public/**/*.zstd, and other build-only output
@@ -65,6 +69,7 @@ ownership:
     - config.{env}.toml or config/config.{env}.toml
     - go.mod
     - .gitignore
+    - Dockerfile, optional Dockerfile.tinygo, and .dockerignore
     - devbox.json
     - optional assets/app.css
     - optional assets/plugins/*.mjs

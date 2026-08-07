@@ -18,6 +18,11 @@ framework_traffic_is_not_recorded:
   decided_by: table identity, taken before rule:dynamodb-table-naming resolves a deployed name, so a prefix cannot hide a framework table from the exclusion
   what_is_still_visible: a framework store that fails or is slow surfaces as its own error and through ordinary operational metrics, which is where that question is asked anyway
   not_configurable: no setting turns it on, because there is no diagnosis it would serve
+span_and_record_split:
+  rule: the data:framework-span-set database span carries the statement shape and its timing; the values, the plan, and the rerun snippet stay on data:query-record
+  reason: a trace backend is retained longer and read more widely than a log, which is the same reasoning that redacts query string values on the request span
+  correlation: the record names the statement span rather than the request root, so a waterfall entry leads to the detail the span does not carry
+  not_configurable: no setting puts bind values on a span, because the record is already the place to read them
 values:
   - bind values are the only path by which application row data enters a framework SQL record
   - disabling them still yields SQL text, duration, outcome, and plan, which is enough for most diagnosis
@@ -25,7 +30,7 @@ values:
   - never emit the DSN, its credentials, or connection headers, matching the redaction data:middleware-runtime-config already requires
   - application code owns classification of its own column values, as in data:log-attribute
 cost:
-  - a disabled configuration does no timing, no allocation, and no wrapper construction
+  - a disabled configuration does no timing, no allocation, and no wrapper construction, and the executor is wrapped only when the query log or the database span wants it
   - an enabled configuration whose severity the logger rejects stops before formatting, so the cost is one timer and one severity check
   - EXPLAIN runs only above slow_threshold and at most once per observed execution
   - diagnostics hold no connection and keep no transaction open beyond the observed statement

@@ -16,6 +16,13 @@ var commandState = struct {
 
 // RegisterSubCommand registers typed CLI-only input.
 func RegisterSubCommand[T any](name, help string) {
+	if name == healthcheckCommandName {
+		// Refused at registration rather than shadowed at dispatch: the
+		// framework consumes this token before application commands are parsed,
+		// so a registration under it could never run and a HEALTHCHECK already
+		// written into a Dockerfile must keep meaning the probe.
+		panic("popcornwave: subcommand name \"" + healthcheckCommandName + "\" is reserved for the framework health probe")
+	}
 	selected := configbind.SubCommand[T](name, help)
 	if selected == nil {
 		return

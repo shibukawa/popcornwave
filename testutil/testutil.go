@@ -167,7 +167,7 @@ func (server *Server) Close() {
 // starts the application. Port -1 selects an available loopback port.
 func TestRun(t TestingT, handler http.Handler, customize func(*Config), options ...RunOption) *Server {
 	t.Helper()
-	snapshot, err := pwtestbridge.Snapshot()
+	snapshot, err := pw.SnapshotTestConfigs()
 	if err != nil {
 		t.Fatalf("copy Popcorn Wave configuration: %v", err)
 		return nil
@@ -238,7 +238,7 @@ func TestRun(t TestingT, handler http.Handler, customize func(*Config), options 
 		}
 		return installMigrations(context.Background(), db, dsn, settings.migration)
 	}
-	prepared, err := pwtestbridge.Prepare(handler, config.values, pwtestbridge.Options{
+	prepared, err := pw.PrepareTestRuntime(handler, config.values, pwtestbridge.Options{
 		Transaction: settings.transaction, PrepareDatabase: prepareDatabase,
 	})
 	if err != nil {

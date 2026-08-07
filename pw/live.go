@@ -106,6 +106,10 @@ func serveLive(w http.ResponseWriter, r *http.Request, wrappers []HTMLWrapper, l
 	}
 	defer release()
 
+	// The span opens once the response is admitted, so a refusal is one the
+	// request span reports and not a live stream that lasted no time.
+	ctx, render := startRenderTrace(ctx, renderModeLive,
+		chainRenderAttributes(wrappers, true, true, false)...)
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	watchdog := startLiveWatchdog(cancel, liveLifetime(config), config.LiveIdleTimeout)
@@ -114,8 +118,16 @@ func serveLive(w http.ResponseWriter, r *http.Request, wrappers []HTMLWrapper, l
 	committed := false
 	reason := liveCloseDone
 	boundaries := make(map[string]struct{})
-	for content, err := range htmlbind.RenderChainLive(ctx, io.Discard, wrappers, leaf, renderOptions(ctx, config, false, options)...) {
+	// The close reason is read at return rather than captured here, because
+	// every branch below decides it and only the last one is true.
+	defer func() { render.end(String("pw.live.close_reason", reason)) }()
+	// The chain renders into io.Discard, so the wrapper is here for the flush
+	// alone: it marks the same moment a document response commits, which is
+	// where every delivery interval below is measured from.
+	render.initialBuild()
+	for content, err := range htmlbind.RenderChainLive(ctx, render.commitWatcher(io.Discard), wrappers, leaf, renderOptions(ctx, config, false, options)...) {
 		if err != nil {
+			render.failed(err)
 			// A boundary that failed with no recover clause has nothing left to
 			// deliver, and reconnecting would only reproduce it, so this closes
 			// done however far the stream got.
@@ -162,6 +174,8 @@ func serveLive(w http.ResponseWriter, r *http.Request, wrappers []HTMLWrapper, l
 			logger.Log(ctx, LevelDebug, "live delivery write failed", Err(err))
 			return
 		}
+		render.wrote(len(content.HTML))
+		render.deliveredContent(content.BoundaryID, len(content.HTML))
 		watchdog.delivered()
 	}
 	if ctx.Err() != nil {

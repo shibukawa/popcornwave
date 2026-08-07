@@ -111,7 +111,7 @@ func (l *Logger) Emit(ctx context.Context, record Record) {
 	if record.ObservedTime.IsZero() {
 		record.ObservedTime = time.Now()
 	}
-	data := RecordData{Record: record, ScopeName: l.name, ResourceAttributes: append([]otel.Attribute(nil), provider.resource...)}
+	data := RecordData{Record: record, ScopeName: l.name, ResourceAttributes: provider.resource}
 	data.Attributes = append([]otel.Attribute(nil), record.Attributes...)
 	if sc := trace.SpanContextFromContext(ctx); sc.IsValid() {
 		data.TraceID, data.SpanID, data.TraceFlags = sc.TraceID(), sc.SpanID(), sc.TraceFlags()

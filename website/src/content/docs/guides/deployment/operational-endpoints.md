@@ -53,6 +53,121 @@ they reveal only status — never a DSN, a backend name, a stack trace, or a
 configuration value. A probe that leaks the shape of your infrastructure to an
 unauthenticated caller is a worse problem than the one it was added to detect.
 
+## Probing from a shell-less container
+
+Docker's `HEALTHCHECK` runs a command inside the container, and the command
+everyone reaches for is `curl`. A distroless or scratch image — the right way to
+ship a Go binary — has no curl and no shell to run it with, which leaves the
+instruction nothing to call. The application binary fills that role itself:
+
+```dockerfile
+HEALTHCHECK CMD ["/myapp", "healthcheck"]
+```
+
+The subcommand reads the same configuration sources as the server — the TOML
+file, the environment, `PORT` — so the port and the `health` path are never
+repeated in the Dockerfile. It issues one `GET` against the loopback and exits
+`0` on a `2xx` answer. Anything else — another status, a refused connection, a
+timeout — exits `1`, which Docker counts as unhealthy. Exit code `2` is never
+used; Docker reserves it.
+
+Two options adjust the probe. `--ready` targets the `readiness` path instead,
+which makes the verdict include the database pools — appropriate where a
+dependent service should wait for a database-ready instance, and too strict for
+a restart policy, where a database outage would turn into a restart loop.
+`--timeout` bounds the whole probe and defaults to `3s`, safely inside Docker's
+own 30-second default, so a hung listener is reported as unhealthy rather than
+the probe being killed and reported as nothing.
+
+The probe needs `server.health` (or `server.readiness` under `--ready`) set in
+the environment's configuration, and a fixed `server.port`; an unset path or
+port `0` fails with a message naming the key. The subcommand name is reserved —
+[`pw.RegisterSubCommand`](/guides/architecture/custom-commands/) panics at
+startup if an application claims `healthcheck` for itself.
+
+### Dockerfile
+
+The probe is the binary the image already ships, so the instruction stays in
+exec form and never asks for a shell:
+
+```dockerfile
+HEALTHCHECK --interval=30s --timeout=5s --start-period=5s \
+  CMD ["/app/myapp", "healthcheck"]
+```
+
+Docker's `--timeout=5s` is its patience with the whole command; the probe's own
+default of `3s` finishes inside it, so the verdict is always the probe's exit
+code, never a kill. The environment's configuration must set `server.health` —
+a missing key fails the probe with a message naming it, so the misconfiguration
+surfaces on the first interval instead of never.
+
+`pw init` writes this line into the project's Dockerfile already, along with the
+`config.prod.toml` that sets the key.
+[Container Images](/guides/deployment/container-images/) walks through the rest
+of that file, including why a Popcorn Wave image cannot be built with `COPY` and
+`go build`.
+
+### Compose
+
+Compose takes the same exec form in `healthcheck.test`, and this is where
+`--ready` earns its place: `depends_on` with `service_healthy` holds a
+dependent service back, and a gate that means "the databases behind it answer"
+is the readiness path, not liveness:
+
+```yaml
+services:
+  app:
+    image: myapp:latest
+    environment:
+      PORT: "8080"
+    healthcheck:
+      test: ["CMD", "/myapp", "healthcheck", "--ready"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+  importer:
+    image: myapp:latest
+    command: ["import", "/data/users.csv"]
+    depends_on:
+      app:
+        condition: service_healthy
+```
+
+A `healthcheck` declared here overrides the image's `HEALTHCHECK` line, so the
+image can keep the plain liveness probe for `docker run` while Compose asks the
+stricter question its dependency graph needs.
+
+### Kubernetes
+
+Kubernetes ignores `HEALTHCHECK` entirely and probes over HTTP from outside
+the container, so the subcommand stays out of the manifest — point the probes
+at the endpoints themselves:
+
+```yaml
+containers:
+  - name: app
+    image: myapp:latest
+    ports:
+      - containerPort: 8080
+    env:
+      - name: APP_ENV
+        value: prod
+    livenessProbe:
+      httpGet:
+        path: /healthz
+        port: 8080
+    readinessProbe:
+      httpGet:
+        path: /readyz
+        port: 8080
+```
+
+The split maps one to one: `livenessProbe` on `health` restarts the pod only
+when the process itself has stopped answering, and `readinessProbe` on
+`readiness` takes the pod out of the Service until its pools answer. An image
+that carries a `HEALTHCHECK` line does no harm here — it is simply never run.
+
 ## The OpenAPI endpoint
 
 ```toml

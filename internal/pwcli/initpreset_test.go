@@ -409,7 +409,7 @@ func TestAPageTreeWithALoginImportsTheHandlerPackage(t *testing.T) {
 // package is wrong twice over.
 func TestDevAndBuildDoNotApplyToAPackage(t *testing.T) {
 	pkg := projectConfig{Kind: kindPackage}
-	for _, command := range []string{"dev", "build"} {
+	for _, command := range []string{"dev", "build", "prepare"} {
 		err := refuseInPackage(pkg, command)
 		if err == nil {
 			t.Fatalf("%s: a package accepted a command that builds a binary", command)

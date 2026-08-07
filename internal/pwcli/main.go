@@ -34,6 +34,8 @@ func Main(args []string, stdout, stderr io.Writer) int {
 		err = runMigrate(ctx, args[1:], stdout, stderr)
 	case "seed":
 		err = runSeed(ctx, args[1:], stdout, stderr)
+	case "prepare":
+		err = runPrepare(ctx, args[1:], stdout, stderr)
 	case "build":
 		err = runBuild(ctx, args[1:], stdout, stderr)
 	case "dev":
@@ -75,6 +77,7 @@ var commandSummaries = []struct{ name, summary string }{
 	{"fmt", "format template sources into their canonical form"},
 	{"migrate", "inspect and apply database migrations"},
 	{"seed", "load seed datasets into the database"},
+	{"prepare", "generate and build assets, stopping before the compiler"},
 	{"build", "generate, build assets, and compile the project"},
 	{"dev", "watch, regenerate, rebuild, and restart"},
 	{"doctor", "report what a named environment will actually run"},

@@ -115,7 +115,7 @@ globalThis.location = {
 	},
 };
 globalThis.fetch = async (url, init) => {
-	requests.push({ url: url, headers: init.headers });
+	requests.push({ url: url, headers: init.headers, signal: init.signal });
 	if (!nextResponse) throw new Error("network");
 	const answer = nextResponse;
 	nextResponse = null;
@@ -419,11 +419,13 @@ for (const target of ["javascript:globalThis.__pwned = true", "data:text/html,<s
 		return { ops: [{ kind: "replace", id: "c1", html: "<p>old</p>" }] };
 	};
 	const first = runtime.navigate("/orders?page=1");
+	const firstSignal = requests[0].signal;
 	nextResponse = response({
 		headers: { "Pw-Render": "navigation", "Content-Type": "application/json" },
 		json: { ops: [{ kind: "replace", id: "c1", html: "<p>new</p>" }] },
 	});
 	await runtime.navigate("/orders?page=2");
+	check(firstSignal.aborted === true, "the superseded request was aborted");
 	releaseFirst();
 	const result = await first;
 	check(result.superseded === true, "the older request reported itself superseded");
@@ -431,6 +433,30 @@ for (const target of ["javascript:globalThis.__pwned = true", "data:text/html,<s
 		swapped.filter((entry) => entry.html === "<p>old</p>").length === 0,
 		"the superseded response was discarded unapplied",
 	);
+}
+
+// A successful navigation describes the current page, so validators belonging
+// only to the previous page are removed rather than accumulating forever.
+{
+	const runtime = fresh();
+	element("c1");
+	element("c2");
+	nextResponse = response({
+		headers: { "Pw-Render": "navigation", "Content-Type": "application/json" },
+		json: { ops: [], manifest: [{ id: "c1", frame: "f1" }] },
+	});
+	await runtime.navigate("/orders?page=1");
+	nextResponse = response({
+		headers: { "Pw-Render": "navigation", "Content-Type": "application/json" },
+		json: { ops: [], manifest: [{ id: "c2", frame: "f2" }] },
+	});
+	await runtime.navigate("/orders?page=2");
+	nextResponse = response({
+		headers: { "Pw-Render": "navigation", "Content-Type": "application/json" },
+		json: { ops: [], manifest: [] },
+	});
+	await runtime.navigate("/orders?page=3");
+	check(requests[2].headers["Pw-Manifest"] === "c2:f2", "the manifest contains only the current page");
 }
 
 // A target the page does not hold means this client is looking at something the

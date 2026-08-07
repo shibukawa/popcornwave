@@ -51,12 +51,27 @@ GOOS=linux GOARCH=amd64 pw build
 ```
 
 生成コードの経路は実行時リフレクションを使わないため、同じソースで TinyGo も
-ターゲットにできます。生成後、そのコンパイラを直接呼びます。
+ターゲットにできます。`pw build` は必ずホストの `go` でリンクするので、TinyGo の
+ビルドは準備手順を走らせてからそのコンパイラを自分で呼びます。
 
 ```sh
-pw generate
-tinygo build -o myapp ./cmd/myapp
+pw prepare
+tinygo build -scheduler=threads -o myapp ./cmd/myapp
 ```
+
+[`pw prepare`](/ja/pw/project/prepare/) はこのコマンドから最後の手順を引いた
+ものです。`pw generate` ではなくこちらを使ってください。生成 Go は書かれますが
+`dist/public` は作られず、`public.go` が `go:embed` で名指ししているため、
+一度も作られなかったツリーでコンパイラが失敗します。
+
+`-scheduler=threads` はネットワークプロトコルを話すエンジンには必須です。協調型
+スケジューラの下ではブロッキングなソケット呼び出しがランタイム全体を掴み、ドライバの
+キャンセル監視が動かないため、クエリはコンテキストのデッドラインを越えても何も
+報告しません。`database/postgres` と `database/mysql` は、実行時にそうなるかわりに、
+このフラグが無ければコンパイルを拒否します。
+
+`pw init` が書く 2 つの Dockerfile は、この両方のコマンドを使います。
+[コンテナイメージ](/ja/guides/deployment/container-images/)を参照してください。
 
 TinyGo の `net` パッケージは独自のネットワーク実装を持たず、すべてのソケットが
 プログラムの登録した Netdever を経由します。TinyGo サポートを有効にして作成した

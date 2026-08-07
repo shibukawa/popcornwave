@@ -2,7 +2,7 @@
 title: コンポーネントパッケージ
 description: 再利用できる機能を Go モジュールとして公開し、popcornwave.toml に名前を書くだけで導入する方法。
 sidebar:
-  order: 2
+  order: 3
 ---
 
 管理画面、専用テーブルを持つミドルウェア、スタイル付きのコンポーネント一式。

@@ -1,0 +1,83 @@
+---
+title: pw prepare
+description: ビルドに必要な一式を作り、コンパイラの手前で止まる。pw 以外がコンパイルを担当するビルドのために。
+sidebar:
+  order: 6.5
+---
+
+```sh
+pw prepare
+```
+
+`pw prepare` は [`pw build`](/ja/pw/project/build/) から最後の手順を引いたもの
+です。引数は取らず、バイナリも作りません。コンパイラが読める状態のツリーを残して
+止まります。
+
+## 何をするか
+
+1. [`pw generate`](/ja/pw/project/generate/) を実行する
+2. Tailwind が有効なら、スタイルシートを**最小化して**ビルドする
+3. [アセットツリー](/ja/guides/frontend/static-assets/)を `dist/public` に構築
+   する。圧縮サイドカーとマニフェストも含む
+4. `project.main` が開発専用パッケージに依存していれば拒否する
+
+`pw build` がリンクの前に行うのと同じ内容、同じ順序です。`pw build` が「この
+コマンド＋コンパイラ」として定義されているためで、両者がずれることはありません。
+
+4 番目がコンパイラの隣ではなくここにあるのには理由があります。このコマンドは
+自分が実行しないコンパイラにツリーを渡します。`contrib/devidp` — パスワードを
+確認せずにユーザーをサインインさせる開発用の IdP — を配布バイナリから締め出す
+検査は、渡したあとではなく渡す前に済んでいなければなりません。
+
+## どんなときに使うか
+
+コンパイルを他のものが担当するのでなければ `pw build` を使ってください。担当が
+移るのは次の 3 つの場合です。
+
+**TinyGo のビルド。** `pw build` は必ずホストの `go` でリンクするので、TinyGo の
+プロジェクトは準備してから自分のコンパイラを呼びます。
+
+```sh
+pw prepare
+tinygo build -scheduler=threads -o myapp ./cmd/myapp
+```
+
+**制御したい `go build`。** 変わったターゲットへのクロスコンパイル、`-ldflags` の
+指定、一つのツリーから複数のバイナリ。どれもコンパイラの行を自分で書く理由です。
+
+```sh
+pw prepare
+GOOS=linux GOARCH=arm64 go build -ldflags="-s -w" -o dist/myapp ./cmd/myapp
+```
+
+**`go build` を握るイメージビルダー。** ko や Cloud Native Buildpacks は自分で
+コンパイルし、生成は代行してくれません。作業ツリーでこれを先に実行してから、
+ビルダーを呼びます。
+
+## `pw generate` では足りない
+
+コンパイラに足りないのは生成された Go なのだから、`pw generate` で済むはずだと
+考えたくなります。足りません。しかも失敗の読み違えが起きやすい形で足りません。
+
+`pw generate` が書くのは `_pw_gen.go` だけです。`dist/public` は作りません。
+`public.go` はそのディレクトリを `go:embed` で名指ししているので、`pw generate`
+だけで準備したプロジェクトは、一度も作られなかったディレクトリでコンパイルに
+失敗します。Tailwind を使っていればスタイルシートも欠けますが、こちらはもっと
+静かに、もっと遅れて表面化します。ページがスタイル無しで描画されるだけです。
+
+`pw generate` は狭い役割のまま、エディタと CI の `--check` ゲートのために残り
+ます。コンパイラに食わせられるツリーが欲しいときは、こちらのコマンドです。
+
+## CI では
+
+生成コードが最新かを検証してから、準備してコンパイルします。
+
+```sh
+pw generate --check
+pw prepare
+go build ./cmd/myapp
+```
+
+[コンテナイメージ](/ja/guides/deployment/container-images/)ではこのコマンドを
+`Dockerfile.tinygo` の中で使っています。そもそも Popcorn Wave のビルドに
+ホストフェーズがある理由も、そちらにあります。

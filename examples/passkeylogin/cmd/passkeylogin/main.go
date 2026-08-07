@@ -6,6 +6,10 @@ import (
 
 	"github.com/shibukawa/popcornwave/pw"
 	"passkeylogin/handlers"
+
+	_ "github.com/shibukawa/popcornwave/authstate/sqlite"
+	_ "github.com/shibukawa/popcornwave/database/sqlite"
+	_ "github.com/shibukawa/popcornwave/sessionstore/sqlite"
 )
 
 func main() {

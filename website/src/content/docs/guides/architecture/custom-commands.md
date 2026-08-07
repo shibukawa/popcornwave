@@ -76,6 +76,12 @@ generated definitions register during package `init`, so `RegisterSubCommand`
 must run after every `init` and before `ParseConfig`. Registering after parsing
 panics.
 
+One name is taken: `healthcheck` belongs to the framework's
+[container health probe](/guides/deployment/operational-endpoints/#probing-from-a-shell-less-container),
+and registering it panics at startup. A Dockerfile that already says
+`HEALTHCHECK CMD ["/myapp", "healthcheck"]` must keep meaning the probe, so the
+collision fails fast instead of shadowing one or the other.
+
 The subcommand shares the server's parsed configuration. `pw.Config[T]`
 therefore returns the same values the server would use, including the DSN,
 without a second settings path to keep in sync.

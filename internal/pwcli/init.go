@@ -975,6 +975,10 @@ func PublicFS() fs.FS {
 `,
 		".vscode/extensions.json": editorExtensionsScaffold(options),
 		".editorconfig":           editorConfigScaffold(),
+		// The environment file for anywhere this project is deployed. Resolution
+		// takes the first readable candidate and stops, so it is a whole
+		// configuration rather than a diff on the development one.
+		pwenv.FileName(pwenv.Production): productionConfigScaffold(options),
 		// The binary pattern is anchored: a bare name would also ignore cmd/<name>/.
 		// devbox.d holds the service configuration devbox writes on first run,
 		// so pw dev leaves no change behind in a fresh checkout.
@@ -983,6 +987,9 @@ func PublicFS() fs.FS {
 			// fails on an absent directory, so a fresh clone has to carry one
 			// file that makes the tree exist before the first build.
 			"dist/cache/\ndist/derived/\ndist/manifest.json\ndist/public/*\n!dist/public/.keep\n*.db\n",
+	}
+	for path, source := range containerScaffoldFiles(options) {
+		files[path] = source
 	}
 	if routerHasRegistered(options.Router) {
 		for path, source := range registeredRouterScaffold(options, defaultRegisteredDir) {
@@ -1356,8 +1363,9 @@ func projectDatabaseConfig(options initOptions) string {
 }
 
 // databaseDriverImport links the selected engine into the application binary.
-// pw links SQLite itself, so only a server engine adds an import; without it
-// the pool refuses to open and names the import to add.
+// Every engine is opt-in, so an application that declares no relational
+// database carries no driver; without the selected import the pool refuses to
+// open and names the import to add.
 func databaseDriverImport(options initOptions) string {
 	if !options.Database {
 		return ""

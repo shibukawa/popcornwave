@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -109,7 +110,7 @@ func (e *Exporter) ExportSpans(ctx context.Context, spans []trace.SpanData) erro
 	if len(spans) == 0 {
 		return nil
 	}
-	resources := make([]resourceSpans, 0, len(spans))
+	resources := make([]resourceSpans, 0, 1)
 	for _, span := range spans {
 		encoded := otlpSpan{
 			TraceID: span.SpanContext.TraceID(), SpanID: span.SpanContext.SpanID(), ParentSpanID: span.ParentSpanID,
@@ -120,7 +121,16 @@ func (e *Exporter) ExportSpans(ctx context.Context, spans []trace.SpanData) erro
 		for _, event := range span.Events {
 			encoded.Events = append(encoded.Events, otlpEvent{Name: event.Name, TimeUnixNano: unixNano(event.Time), Attributes: attributes(event.Attributes)})
 		}
-		resources = append(resources, resourceSpans{Resource: resource{Attributes: attributes(span.ResourceAttributes)}, ScopeSpans: []scopeSpans{{Scope: scope{Name: span.ScopeName}, Spans: []otlpSpan{encoded}}}})
+		if len(resources) == 0 || resources[len(resources)-1].ScopeSpans[0].Scope.Name != span.ScopeName ||
+			!slices.Equal(resources[len(resources)-1].sourceAttributes, span.ResourceAttributes) {
+			resources = append(resources, resourceSpans{
+				Resource:         resource{Attributes: attributes(span.ResourceAttributes)},
+				ScopeSpans:       []scopeSpans{{Scope: scope{Name: span.ScopeName}}},
+				sourceAttributes: span.ResourceAttributes,
+			})
+		}
+		group := &resources[len(resources)-1].ScopeSpans[0]
+		group.Spans = append(group.Spans, encoded)
 	}
 	return e.send(ctx, e.tracesURL, traceRequest{ResourceSpans: resources})
 }
@@ -129,7 +139,7 @@ func (e *Exporter) ExportLogs(ctx context.Context, records []otellog.RecordData)
 	if len(records) == 0 {
 		return nil
 	}
-	resources := make([]resourceLogs, 0, len(records))
+	resources := make([]resourceLogs, 0, 1)
 	for _, record := range records {
 		encoded := logRecord{
 			TimeUnixNano: unixNano(record.Timestamp), ObservedTimeUnixNano: unixNano(record.ObservedTime),
@@ -137,7 +147,16 @@ func (e *Exporter) ExportLogs(ctx context.Context, records []otellog.RecordData)
 			Attributes: attributes(record.Attributes), TraceID: record.TraceID, SpanID: record.SpanID,
 			Flags: uint32(record.TraceFlags), EventName: record.EventName,
 		}
-		resources = append(resources, resourceLogs{Resource: resource{Attributes: attributes(record.ResourceAttributes)}, ScopeLogs: []scopeLogs{{Scope: scope{Name: record.ScopeName}, LogRecords: []logRecord{encoded}}}})
+		if len(resources) == 0 || resources[len(resources)-1].ScopeLogs[0].Scope.Name != record.ScopeName ||
+			!slices.Equal(resources[len(resources)-1].sourceAttributes, record.ResourceAttributes) {
+			resources = append(resources, resourceLogs{
+				Resource:         resource{Attributes: attributes(record.ResourceAttributes)},
+				ScopeLogs:        []scopeLogs{{Scope: scope{Name: record.ScopeName}}},
+				sourceAttributes: record.ResourceAttributes,
+			})
+		}
+		group := &resources[len(resources)-1].ScopeLogs[0]
+		group.LogRecords = append(group.LogRecords, encoded)
 	}
 	return e.send(ctx, e.logsURL, logRequest{ResourceLogs: resources})
 }
@@ -326,8 +345,9 @@ type scopeSpans struct {
 	Spans []otlpSpan `json:"spans"`
 }
 type resourceSpans struct {
-	Resource   resource     `json:"resource"`
-	ScopeSpans []scopeSpans `json:"scopeSpans"`
+	Resource         resource         `json:"resource"`
+	ScopeSpans       []scopeSpans     `json:"scopeSpans"`
+	sourceAttributes []otel.Attribute `json:"-"`
 }
 type traceRequest struct {
 	ResourceSpans []resourceSpans `json:"resourceSpans"`
@@ -350,8 +370,9 @@ type scopeLogs struct {
 	LogRecords []logRecord `json:"logRecords"`
 }
 type resourceLogs struct {
-	Resource  resource    `json:"resource"`
-	ScopeLogs []scopeLogs `json:"scopeLogs"`
+	Resource         resource         `json:"resource"`
+	ScopeLogs        []scopeLogs      `json:"scopeLogs"`
+	sourceAttributes []otel.Attribute `json:"-"`
 }
 type logRequest struct {
 	ResourceLogs []resourceLogs `json:"resourceLogs"`

@@ -62,7 +62,10 @@ func Otel(options ...OtelOption) Middleware {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			parent := (propagation.TraceContext{}).Extract(r.Context(), r.Header)
 			ctx, span := tracer.Start(parent, cfg.spanName(r), trace.WithSpanKind(trace.SpanKindServer), trace.WithAttributes(requestAttributes(r)...))
-			rw := &ResponseTracker{ResponseWriter: w}
+			rw, ok := w.(*ResponseTracker)
+			if !ok {
+				rw = &ResponseTracker{ResponseWriter: w}
+			}
 			defer func() {
 				panicked := recover()
 				if panicked != nil {

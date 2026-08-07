@@ -13,11 +13,13 @@ const (
 	frameworkActionNone frameworkActionKind = iota
 	frameworkActionGenerateConfig
 	frameworkActionPrintDSN
+	frameworkActionHealthcheck
 )
 
 type frameworkAction struct {
-	kind  frameworkActionKind
-	value string
+	kind        frameworkActionKind
+	value       string
+	healthcheck healthcheckOptions
 }
 
 var frameworkActionState = struct {
@@ -28,6 +30,20 @@ var frameworkActionState = struct {
 func parseFrameworkAction(args []string) ([]string, error) {
 	filtered := make([]string, 0, len(args))
 	var selected frameworkAction
+	// The healthcheck token is recognized only in the leading position, which is
+	// exactly how HEALTHCHECK CMD ["/app", "healthcheck"] invokes it. Anywhere
+	// else the word stays an ordinary argument value, so an application flag can
+	// still take "healthcheck" as its value.
+	if len(args) > 0 && args[0] == healthcheckCommandName {
+		action, err := parseHealthcheckArgs(args[1:])
+		if err != nil {
+			return nil, err
+		}
+		frameworkActionState.Lock()
+		frameworkActionState.action = action
+		frameworkActionState.Unlock()
+		return filtered, nil
+	}
 	for index := 0; index < len(args); index++ {
 		arg := args[index]
 		var action frameworkAction
@@ -77,6 +93,35 @@ func selectedFrameworkAction() frameworkAction {
 	return frameworkActionState.action
 }
 
+// refusePendingFrameworkAction returns an error naming a framework action the
+// caller cannot answer. A framework action invoked against a Middlewares
+// application would otherwise fall through into a normal server start — for
+// the healthcheck probe that means a competing bind attempt on every
+// HEALTHCHECK interval, misreported as the server's own health.
+func refusePendingFrameworkAction() error {
+	name := selectedFrameworkActionName()
+	if name == "" {
+		return nil
+	}
+	return fmt.Errorf("popcornwave: %s is answered inside pw.Run; an application that owns its server with pw.Middlewares does not carry it", name)
+}
+
+// selectedFrameworkActionName reports the selected action by its CLI spelling,
+// or "" when none is pending. Middlewares uses it to refuse an action it
+// cannot answer.
+func selectedFrameworkActionName() string {
+	switch selectedFrameworkAction().kind {
+	case frameworkActionGenerateConfig:
+		return "--generate-config"
+	case frameworkActionPrintDSN:
+		return "--pw-print-dsn"
+	case frameworkActionHealthcheck:
+		return healthcheckCommandName
+	default:
+		return ""
+	}
+}
+
 func runFrameworkAction() (bool, error) {
 	action := selectedFrameworkAction()
 	switch action.kind {
@@ -96,6 +141,8 @@ func runFrameworkAction() (bool, error) {
 		}
 		fmt.Fprintln(os.Stdout, dsn)
 		return true, nil
+	case frameworkActionHealthcheck:
+		return true, runHealthcheckProbe(action.healthcheck)
 	default:
 		return true, fmt.Errorf("popcornwave: unsupported framework action")
 	}

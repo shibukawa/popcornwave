@@ -462,6 +462,7 @@ func TestRunGenerateReportsStaleArtifactsOutsideSources(t *testing.T) {
 	writeTestFile(t, filepath.Join(root, "cmd", "fixture", "main.go"), "package main\n\nfunc main() {}\n")
 	writeTestFile(t, filepath.Join(root, "tinybind_openapi_pw_gen.go"), "package fixture\n")
 	writeTestFile(t, filepath.Join(root, "cmd", "fixture", "popcornwave_bootstrap_pw_gen.go"), "package main\n")
+	writeTestFile(t, filepath.Join(root, assetManifestFile), "package fixture\n")
 
 	previous, err := os.Getwd()
 	if err != nil {
@@ -481,6 +482,13 @@ func TestRunGenerateReportsStaleArtifactsOutsideSources(t *testing.T) {
 	}
 	if strings.Contains(output.String(), "popcornwave_bootstrap_pw_gen.go was generated outside") {
 		t.Fatalf("the bootstrap linker is written on purpose and must not be reported:\n%s", output.String())
+	}
+	// The asset manifest is written by the asset build, at the root, into the
+	// package public.go declares there. It belongs to no generate purpose and
+	// cannot, so reporting it made every rebuild after the first print a
+	// warning about a file the build had just written deliberately.
+	if strings.Contains(output.String(), assetManifestFile+" was generated outside") {
+		t.Fatalf("the asset manifest is written on purpose and must not be reported:\n%s", output.String())
 	}
 }
 

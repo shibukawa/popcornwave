@@ -54,7 +54,16 @@ func TestTheMergedRuntimeParses(t *testing.T) {
 // ownership work bought, and a regression would be an upgrade quietly putting a
 // second apply implementation back on the page.
 func TestTheRuntimeIsEntirelyThisFrameworks(t *testing.T) {
-	merged := mergedRuntimeScript()
+	var source strings.Builder
+	for _, name := range []string{"boundary.js", "update.js", "updateboot.js"} {
+		part, err := os.ReadFile(name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		source.Write(part)
+		source.WriteByte('\n')
+	}
+	merged := source.String()
 	// The dependency's own factory, its default header namespace, its default
 	// endpoint prefix, and its installed global. A comment naming the module is
 	// fine and expected; what must not be here is its code.

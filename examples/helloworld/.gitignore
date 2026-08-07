@@ -4,3 +4,5 @@ devbox.d/
 *_pw_gen.go
 public/**/*.zstd
 helloworld.db*
+# pw prepare and pw build write the derived asset tree here.
+dist/

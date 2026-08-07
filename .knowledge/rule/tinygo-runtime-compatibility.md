@@ -23,7 +23,19 @@ scheduler:
   symptom_when_missing: a query outlives its context deadline and returns a nil error, with nothing logged
   measured: a 5s server-side sleep under a 500ms deadline returned after the full 5s
   default: threads on desktop targets, so the constraint is an assertion rather than a change for most projects
-  applies_to: api:cli-build, api:cli-dev, and every TinyGo test target
+  applies_to: every tinygo invocation, which today means the Dockerfile.tinygo compile step of decision:explicit-tinygo-compile-step and the TinyGo test targets; api:cli-build and api:cli-dev compile with host go whatever the toolchain answer was, so the flag has nowhere to go in either
+  enforcement:
+    mechanism: a build-constrained guard file in each engine package that needs the flag, carrying one undefined identifier whose name is the instruction
+    constraint: "//go:build tinygo && !scheduler.threads"
+    lives_in: database/postgres/scheduler_tinygo.go and database/mysql/scheduler_tinygo.go, beside the package comment that already states the requirement
+    fires_exactly_when: the application links that engine, because the guard is keyed on the import graph rather than on a configuration value or a build command
+    diagnostic: "undefined: build_this_program_with_tinygo_scheduler_threads, with the file and line of the guard"
+    verified: TinyGo 0.41.1 darwin/arm64 on 2026-08-07, against a main package blank-importing database/postgres; -scheduler=tasks fails with that message, -scheduler=threads compiles the whole program clean, and host go build and go vet never select the file
+    tag_source: TinyGo defines a scheduler.threads build tag from the -scheduler value, which is what makes this expressible at all
+    rejected:
+      doctor_check: reading Dockerfile.tinygo for the flag; api:cli-dev runs no diagnostic, so it would fire only when someone chose to run api:cli-doctor, and it would miss every build invoked another way
+      documentation: the package comments already say it, and rule:tinygo-runtime-compatibility recorded the measured symptom precisely because saying it was not enough
+    residual: a project that builds with TinyGo and reaches a network engine through some other driver gets no guard, since the guard ships with the packages that carry the constraint
 wasm_panic_recovery:
   finding: TinyGo's wasm targets do not run a deferred recover at all, measured upstream against a plain function with no goroutine involved
   consequence: a panic in an async external or a requirement:live-html-rendering live source ends the program instead of becoming a boundary error the recover clause renders

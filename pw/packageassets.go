@@ -3,6 +3,7 @@ package pw
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"io"
 	"io/fs"
 	"mime"
 	"net/http"
@@ -24,20 +25,50 @@ const packageAssetPrefix = frameworkScriptPrefix + "pkg/"
 // packages embedding an identical file produce one URL and one entry, and a
 // changed file produces a different URL rather than a stale cache hit.
 type packageAsset struct {
-	bytes     []byte
+	source    fs.FS
+	path      string
+	size      int64
 	mediaType string
 }
 
-// packageAssetTable is built once from every registered package, because
-// registration completes during package initialization and cannot change
-// afterwards.
-var packageAssetTable = sync.OnceValue(buildPackageAssetTable)
+type packageAssetCatalog struct {
+	byKey  map[string]packageAsset
+	byName map[string]string
+}
+
+// packageAssetState normally builds once after package initialization. The
+// generation also preserves RegisterPackage's existing behavior for programs
+// and tests that register before their first asset lookup at a later point.
+var packageAssetState struct {
+	sync.Mutex
+	generation uint64
+	catalog    packageAssetCatalog
+}
+
+func packageAssets() packageAssetCatalog {
+	generation := packageGeneration.Load()
+	packageAssetState.Lock()
+	defer packageAssetState.Unlock()
+	if packageAssetState.catalog.byKey == nil || packageAssetState.generation != generation {
+		packageAssetState.catalog = buildPackageAssetCatalog()
+		packageAssetState.generation = generation
+	}
+	return packageAssetState.catalog
+}
 
 // buildPackageAssetTable maps the digest path segment plus name to the file.
-// Serving is table driven: nothing walks an fs.FS per request, and nothing reads
-// a filesystem at all, which is what a TinyGo target with no filesystem needs.
+// Serving is table driven: nothing walks or hashes an fs.FS per request. The
+// selected embedded file is opened only long enough to stream that response,
+// which avoids retaining a second copy of every asset in heap memory.
 func buildPackageAssetTable() map[string]packageAsset {
-	table := make(map[string]packageAsset)
+	return buildPackageAssetCatalog().byKey
+}
+
+func buildPackageAssetCatalog() packageAssetCatalog {
+	catalog := packageAssetCatalog{
+		byKey:  make(map[string]packageAsset),
+		byName: make(map[string]string),
+	}
 	for _, pkg := range Packages() {
 		if pkg.Assets == nil {
 			continue
@@ -46,22 +77,36 @@ func buildPackageAssetTable() map[string]packageAsset {
 			if err != nil || entry.IsDir() {
 				return nil
 			}
-			data, readErr := fs.ReadFile(pkg.Assets, name)
-			if readErr != nil {
+			file, openErr := pkg.Assets.Open(name)
+			if openErr != nil {
 				// A file the walk found and the read refuses is a broken embed
 				// rather than a request-time condition. Skipping keeps startup
 				// from failing over one asset, and the missing URL is what the
 				// package's own release check exists to catch.
 				return nil
 			}
-			table[packageAssetKey(data, path.Base(name))] = packageAsset{
-				bytes:     data,
-				mediaType: packageAssetMediaType(name),
+			key, hashErr := packageAssetKeyFromReader(file, path.Base(name))
+			closeErr := file.Close()
+			if hashErr != nil || closeErr != nil {
+				return nil
 			}
+			info, infoErr := entry.Info()
+			if infoErr != nil {
+				return nil
+			}
+			if _, exists := catalog.byKey[key]; !exists {
+				catalog.byKey[key] = packageAsset{
+					source:    pkg.Assets,
+					path:      name,
+					size:      info.Size(),
+					mediaType: packageAssetMediaType(name),
+				}
+			}
+			catalog.byName[packageAssetName(pkg.Module, name)] = key
 			return nil
 		})
 	}
-	return table
+	return catalog
 }
 
 // packageAssetKey is the path below the prefix: the content digest, then the
@@ -72,6 +117,16 @@ func packageAssetKey(data []byte, name string) string {
 	sum := sha256.Sum256(data)
 	return hex.EncodeToString(sum[:])[:16] + "/" + name
 }
+
+func packageAssetKeyFromReader(reader io.Reader, name string) (string, error) {
+	digest := sha256.New()
+	if _, err := io.Copy(digest, reader); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(digest.Sum(nil))[:16] + "/" + name, nil
+}
+
+func packageAssetName(module, name string) string { return module + "\x00" + name }
 
 // packageAssetMediaType answers from the file extension only. The bytes are
 // chosen at build time and never sniffed, so a package cannot make the framework
@@ -90,24 +145,18 @@ func packageAssetMediaType(name string) string {
 // prefix, and only the bytes decide the digest. This is the lookup an
 // application uses while a component cannot yet declare the asset it needs.
 func PackageAssetURL(module, name string) (string, bool) {
-	for _, pkg := range Packages() {
-		if pkg.Module != module || pkg.Assets == nil {
-			continue
-		}
-		data, err := fs.ReadFile(pkg.Assets, name)
-		if err != nil {
-			return "", false
-		}
-		return packageAssetPrefix + packageAssetKey(data, path.Base(name)), true
+	key, ok := packageAssets().byName[packageAssetName(module, name)]
+	if !ok {
+		return "", false
 	}
-	return "", false
+	return packageAssetPrefix + key, true
 }
 
 // servePackageAsset answers a package asset request and reports whether it
 // handled the request. It runs above serveReservedPath, which closes the
 // namespace below every handler that owns something inside it.
 func servePackageAsset(w http.ResponseWriter, r *http.Request) bool {
-	return servePackageAssetFrom(packageAssetTable(), w, r)
+	return servePackageAssetFrom(packageAssets().byKey, w, r)
 }
 
 func servePackageAssetFrom(table map[string]packageAsset, w http.ResponseWriter, r *http.Request) bool {
@@ -129,11 +178,18 @@ func servePackageAssetFrom(table map[string]packageAsset, w http.ResponseWriter,
 	// A digest segment never serves different bytes, so this is genuinely
 	// immutable rather than merely long-lived.
 	header.Set("Cache-Control", "public, max-age=31536000, immutable")
-	header.Set("Content-Length", strconv.Itoa(len(asset.bytes)))
+	header.Set("Content-Length", strconv.FormatInt(asset.size, 10))
 	if r.Method == http.MethodHead {
 		w.WriteHeader(http.StatusOK)
 		return true
 	}
-	_, _ = w.Write(asset.bytes)
+	file, err := asset.source.Open(asset.path)
+	if err != nil {
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		return true
+	}
+	defer file.Close()
+	w.WriteHeader(http.StatusOK)
+	_, _ = io.Copy(w, file)
 	return true
 }

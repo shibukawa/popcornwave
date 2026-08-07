@@ -59,15 +59,21 @@ fixed_paths:
   members:
     - the project.main directory, which receives the generated registration linker
     - the project-root public.go of requirement:public-asset-delivery
+    - the project-root asset manifest flow:public-asset-build writes into the package that public.go declares, which cannot move into a purpose because no generation run produces it
+    - the requirement:template-storybook harness directory, generated into a directory of its own
 outside_sources:
   reported:
     - .pw.html outside every generate.templates entry
     - .pw.html inside a generate.pages root under a name concept:page-tree does not reserve, which nothing compiles
     - .pw.sql outside every generate.queries entry
     - .pw.dynamo outside every generate.dynamo entry
-    - a policy:generated-artifacts file outside every purpose, which nothing regenerates or removes any more
+    - a policy:generated-artifacts file outside every purpose, which nothing regenerates or removes any more, except the fixed_paths above
   not_reported: Go sources, because ordinary Go code lives throughout a project; a call site outside its purpose simply has no generated binding
   behavior: warn and ignore
+  fixed_paths_are_exempt:
+    rule: a generated file at a fixed path is written deliberately by something other than a generation run, so it is never stale and is never reported
+    found_by: reporting the asset manifest printed a warning on every rebuild after the first, in every scaffolded project, about a file the same build had just written
+    bound: the exemption is the exact path, so a copy left anywhere else is still reported
   message: names the path and the purpose key that would include it
   rejected_alternative: failing the build, which would break a project that keeps deliberate samples or fixtures beside its code
 consumers:

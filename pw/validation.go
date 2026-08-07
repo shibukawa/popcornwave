@@ -35,7 +35,10 @@ func validateRuntimeConfig(server ServerConfig, security SecurityConfig, middlew
 	default:
 		return fmt.Errorf("observability.boot_log must be %s, %s, %s, or %s", BootLogAuto, BootLogTree, BootLogRecord, BootLogOff)
 	}
-	return validateQueryLogConfig(observability.Query)
+	if err := validateQueryLogConfig(observability.Query); err != nil {
+		return err
+	}
+	return validateTraceConfig(observability.Trace)
 }
 
 // validateSessionConfig enforces the browser cookie policy, which is diagnosed
@@ -97,7 +100,7 @@ func validateQueryLogConfig(config QueryLogConfig) error {
 		"observability.query.enabled":     config.Enabled,
 		"observability.query.bind_values": config.BindValues,
 	} {
-		if _, err := resolveQueryToggle(value, false); err != nil {
+		if _, err := resolveToggle(value, false); err != nil {
 			return fmt.Errorf("%s %w", key, err)
 		}
 	}
@@ -119,6 +122,15 @@ func validateQueryLogConfig(config QueryLogConfig) error {
 	}
 	if config.MaxValueLength < 0 {
 		return fmt.Errorf("observability.query.max_value_length must not be negative")
+	}
+	return nil
+}
+
+// validateTraceConfig rejects a toggle nobody can act on. The keys below it are
+// plain booleans the binding already checks.
+func validateTraceConfig(config TraceConfig) error {
+	if _, err := resolveToggle(config.Enabled, false); err != nil {
+		return fmt.Errorf("observability.trace.enabled %w", err)
 	}
 	return nil
 }

@@ -2,7 +2,7 @@
 title: Component Packages
 description: Publishing a reusable capability as a Go module, and installing one by naming it in popcornwave.toml.
 sidebar:
-  order: 2
+  order: 3
 ---
 
 Copying an admin console, a middleware with its own tables, or a styled
