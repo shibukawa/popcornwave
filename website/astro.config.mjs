@@ -64,6 +64,11 @@ export default defineConfig({
           translations: { ja: 'ガイド' },
           items: [
             {
+              label: 'Architecture',
+              translations: { ja: 'アーキテクチャ' },
+              items: [{ autogenerate: { directory: 'guides/architecture' } }],
+            },
+            {
               label: 'For Frontend',
               translations: { ja: 'フロントエンド' },
               items: [
@@ -91,11 +96,6 @@ export default defineConfig({
               label: 'Cross-layer Features',
               translations: { ja: 'レイヤー横断機能' },
               items: [{ autogenerate: { directory: 'guides/cross-layer' } }],
-            },
-            {
-              label: 'Architecture',
-              translations: { ja: 'アーキテクチャ' },
-              items: [{ autogenerate: { directory: 'guides/architecture' } }],
             },
             {
               label: 'Deployment',
