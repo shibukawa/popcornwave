@@ -502,6 +502,14 @@ func reportSourcesOutsideScope(root string, config projectConfig, stdout io.Writ
 			if strings.HasPrefix(filepath.ToSlash(relative), storybookDirectory+"/") {
 				return nil
 			}
+			// The asset manifest belongs to no purpose either, and cannot: it
+			// is written by the asset build rather than by a generation run,
+			// and it has to sit at the root because it is part of the package
+			// public.go declares there. Reporting it made every rebuild print
+			// a warning about a file the build had just written on purpose.
+			if relative == assetManifestFile {
+				return nil
+			}
 			stray = append(stray, strayReport{relative, fmt.Sprintf(
 				"pw: %s was generated outside every generate purpose and is now stale; delete it or list its directory", relative)})
 		}

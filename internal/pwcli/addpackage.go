@@ -115,4 +115,3 @@ func reportPackageInstall(manifest packageManifest, stdout io.Writer) {
 		fmt.Fprintf(stdout, "  its defaults apply as they are; override them under [%s] when you want to\n", manifest.ConfigSection)
 	}
 }
-
