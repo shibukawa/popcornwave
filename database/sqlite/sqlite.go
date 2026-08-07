@@ -1,7 +1,7 @@
 // Package sqlite registers the SQLite engine for a sqlite:// DSN.
 //
-// The framework already links it, so an application imports this package only
-// to be explicit about what its DSN selects.
+// Applications link it explicitly, normally through the blank import generated
+// by pw init or pw add database. A binary that uses no SQLite carries no driver.
 package sqlite
 
 import (

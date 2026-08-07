@@ -194,7 +194,7 @@ func planDatabase(state projectState, options addOptions, plan *capabilityPlan) 
 	}
 	plan.edits["popcornwave.toml"] = edited
 	// The entry point is application-owned, so the blank import that links the
-	// engine is printed rather than injected.
+	// selected engine is planned as an explicit edit.
 	if engine.DriverImport != "" {
 		if err := planEntryPointEdit(state, plan,
 			[]blankImport{{engine.DriverImport, "the engine the configured DSN names"}}, "", ""); err != nil {

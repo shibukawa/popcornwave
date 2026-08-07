@@ -11,14 +11,10 @@ import (
 	"github.com/shibukawa/popcornwave/pwruntime"
 )
 
-func init() {
-	pwtestbridge.Register(pwtestbridge.Hooks{
-		Snapshot: snapshotTestConfigs,
-		Prepare:  prepareTestRuntime,
-	})
-}
-
-func snapshotTestConfigs() (pwtestbridge.Configs, error) {
+// SnapshotTestConfigs copies the registered configuration for testutil. It is a
+// direct call rather than an init-registered hook so a production binary that
+// does not import testutil lets the linker discard this entire test seam.
+func SnapshotTestConfigs() (pwtestbridge.Configs, error) {
 	if err := ParseConfig(); err != nil {
 		return nil, err
 	}
@@ -34,7 +30,10 @@ func snapshotTestConfigs() (pwtestbridge.Configs, error) {
 	return configs, nil
 }
 
-func prepareTestRuntime(handler http.Handler, configs pwtestbridge.Configs, options pwtestbridge.Options) (pwtestbridge.Prepared, error) {
+// PrepareTestRuntime builds an isolated runtime for testutil. Production code
+// has no reference to it, so its database and reflection paths are dead code in
+// an application binary.
+func PrepareTestRuntime(handler http.Handler, configs pwtestbridge.Configs, options pwtestbridge.Options) (pwtestbridge.Prepared, error) {
 	if handler == nil {
 		return pwtestbridge.Prepared{}, fmt.Errorf("popcornwave: nil test handler")
 	}

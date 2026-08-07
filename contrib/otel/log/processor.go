@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -49,9 +50,9 @@ type BatchProcessor struct {
 	config   BatchConfig
 	queue    chan RecordData
 	done     chan struct{}
-	mu       sync.Mutex
+	mu       sync.RWMutex
 	closing  bool
-	dropped  uint64
+	dropped  atomic.Uint64
 	err      error
 }
 
@@ -73,25 +74,23 @@ func (p *BatchProcessor) OnEmit(record RecordData) {
 	if p == nil {
 		return
 	}
-	p.mu.Lock()
-	defer p.mu.Unlock()
+	p.mu.RLock()
+	defer p.mu.RUnlock()
 	if p.closing {
-		p.dropped++
+		p.dropped.Add(1)
 		return
 	}
 	select {
 	case p.queue <- record:
 	default:
-		p.dropped++
+		p.dropped.Add(1)
 	}
 }
 func (p *BatchProcessor) Dropped() uint64 {
 	if p == nil {
 		return 0
 	}
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	return p.dropped
+	return p.dropped.Load()
 }
 func (p *BatchProcessor) Error() error {
 	if p == nil {
@@ -131,7 +130,7 @@ func (p *BatchProcessor) run() {
 		if err := p.exporter.ExportLogs(context.Background(), batch); err != nil {
 			p.mu.Lock()
 			p.err = errors.Join(p.err, err)
-			p.dropped += uint64(len(batch))
+			p.dropped.Add(uint64(len(batch)))
 			p.mu.Unlock()
 		}
 		batch = batch[:0]
