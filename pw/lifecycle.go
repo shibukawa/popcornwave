@@ -33,6 +33,12 @@ func WithPublicFS(publicFS fs.FS) Option {
 // handler stack used by Run. The startup summary is emitted here because the
 // application owns the listener and the framework never learns its address.
 func Middlewares(handler http.Handler, option ...Option) (http.Handler, error) {
+	if err := ParseConfig(); err != nil {
+		return nil, err
+	}
+	if err := refusePendingFrameworkAction(); err != nil {
+		return nil, err
+	}
 	wrapped, err := buildMiddlewares(handler, option...)
 	if err != nil {
 		return nil, err

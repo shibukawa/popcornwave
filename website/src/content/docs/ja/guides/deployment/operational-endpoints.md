@@ -51,6 +51,126 @@ readiness = "/readyz"
 バックエンド名も、スタックトレースも、設定値も返しません。認証されていない相手にインフラの
 形を漏らすプローブは、それが検出するために追加された問題より悪い問題です。
 
+## シェルの無いコンテナからのプローブ
+
+Docker の `HEALTHCHECK` はコンテナ内でコマンドを実行します。そして誰もが手を伸ばす
+コマンドは `curl` です。ところが distroless や scratch のイメージ——Go バイナリの
+正しい配布形——には curl も、それを起動するシェルもありません。命令に呼ぶものが
+無いのです。その役はアプリケーションのバイナリ自身が務めます。
+
+```dockerfile
+HEALTHCHECK CMD ["/myapp", "healthcheck"]
+```
+
+このサブコマンドはサーバと同じ設定ソース——TOML ファイル、環境変数、`PORT`——を
+読みます。だからポートと `health` のパスを Dockerfile に書き直す必要はありません。
+ループバックに `GET` を 1 回発行し、`2xx` なら終了コード `0`。それ以外——別の
+ステータス、接続拒否、タイムアウト——は `1` で終了し、Docker はこれを unhealthy と
+数えます。終了コード `2` は使いません。Docker が予約しているからです。
+
+プローブを調整するオプションは 2 つです。`--ready` は代わりに `readiness` のパスを
+叩きます。判定にデータベースプールが含まれるようになるので、依存サービスに
+データベース接続済みのインスタンスを待たせたい場面には適切で、再起動ポリシーには
+厳しすぎます。データベースの障害が再起動ループに変わってしまうからです。`--timeout` は
+プローブ全体を制限し、既定は `3s`。Docker 自身の既定である 30 秒より十分内側なので、
+固まったリスナは「プローブごと殺されて何も報告されない」のではなく unhealthy として
+報告されます。
+
+プローブには、その環境の設定に `server.health`(`--ready` なら `server.readiness`)と
+固定の `server.port` が必要です。パスが未設定、あるいはポートが `0` なら、キーの名前を
+挙げたメッセージとともに失敗します。サブコマンド名は予約されています。アプリケーションが
+`healthcheck` を自分のものにしようとすると、
+[`pw.RegisterSubCommand`](/ja/guides/architecture/custom-commands/) は起動時に
+パニックします。
+
+### Dockerfile
+
+プローブはイメージがすでに載せているバイナリそのものです。だから命令は exec 形式の
+まま書けて、シェルを要求しません。
+
+```dockerfile
+FROM golang:1.26 AS build
+WORKDIR /src
+COPY . .
+RUN CGO_ENABLED=0 go build -o /out/myapp ./cmd/myapp
+
+FROM gcr.io/distroless/static-debian12
+COPY --from=build /out/myapp /myapp
+COPY config.prod.toml /config.prod.toml
+ENV APP_ENV=prod
+EXPOSE 8080
+HEALTHCHECK --interval=30s --timeout=5s --start-period=5s \
+  CMD ["/myapp", "healthcheck"]
+ENTRYPOINT ["/myapp"]
+```
+
+Docker の `--timeout=5s` はコマンド全体を待つ時間です。プローブ自身の既定 `3s` は
+その内側で終わるので、判定はつねにプローブの終了コードであり、kill されることは
+ありません。`config.prod.toml` には `server.health` が必要です。キーが無ければ
+プローブはその名前を挙げて失敗するので、設定ミスは「永遠に気づかない」のではなく
+最初のインターバルで表面化します。
+
+### Compose
+
+Compose の `healthcheck.test` にも同じ exec 形式を書きます。そして `--ready` が
+本領を発揮するのはここです。`depends_on` の `service_healthy` は依存サービスを
+待たせますが、「背後のデータベースが応答する」ことを意味すべきゲートは liveness では
+なく readiness のパスです。
+
+```yaml
+services:
+  app:
+    image: myapp:latest
+    environment:
+      PORT: "8080"
+    healthcheck:
+      test: ["CMD", "/myapp", "healthcheck", "--ready"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+  importer:
+    image: myapp:latest
+    command: ["import", "/data/users.csv"]
+    depends_on:
+      app:
+        condition: service_healthy
+```
+
+ここで宣言した `healthcheck` はイメージの `HEALTHCHECK` 行を上書きします。イメージは
+`docker run` 向けに素の liveness プローブを持ったまま、Compose は依存グラフが必要と
+する、より厳しい問いを投げられます。
+
+### Kubernetes
+
+Kubernetes は `HEALTHCHECK` を完全に無視し、コンテナの外側から HTTP でプローブ
+します。だからマニフェストにサブコマンドは登場しません。プローブをエンドポイント
+そのものに向けてください。
+
+```yaml
+containers:
+  - name: app
+    image: myapp:latest
+    ports:
+      - containerPort: 8080
+    env:
+      - name: APP_ENV
+        value: prod
+    livenessProbe:
+      httpGet:
+        path: /healthz
+        port: 8080
+    readinessProbe:
+      httpGet:
+        path: /readyz
+        port: 8080
+```
+
+対応は 1 対 1 です。`health` に向けた `livenessProbe` はプロセス自身が応答しなく
+なったときだけ Pod を再起動し、`readiness` に向けた `readinessProbe` はプールが
+応答するまで Pod を Service から外します。`HEALTHCHECK` 行を持つイメージをここで
+使っても害はありません。単に実行されないだけです。
+
 ## OpenAPI エンドポイント
 
 ```toml

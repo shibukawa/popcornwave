@@ -73,6 +73,12 @@ func main() {
 されるため、`RegisterSubCommand` はすべての `init` の後、`ParseConfig` の前に実行する
 必要があります。パース後の登録は panic します。
 
+ひとつだけ取られている名前があります。`healthcheck` はフレームワークの
+[コンテナヘルスプローブ](/ja/guides/deployment/operational-endpoints/#シェルの無いコンテナからのプローブ)の
+ものであり、登録すると起動時に panic します。すでに
+`HEALTHCHECK CMD ["/myapp", "healthcheck"]` と書かれた Dockerfile はプローブを意味し
+続けなければならないので、衝突はどちらかが覆い隠されるのではなく、すぐに失敗します。
+
 サブコマンドはサーバーのパース済み設定を共有します。そのため `pw.Config[T]` は、
 DSN を含めてサーバーと同じ値を返し、同期すべき 2 つ目の設定経路を作りません。
 
