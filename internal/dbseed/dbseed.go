@@ -15,6 +15,8 @@ import (
 	"strings"
 
 	"github.com/shibukawa/dbtestify"
+	"github.com/shibukawa/popcornwave/database"
+	"github.com/shibukawa/tinybind-go/sqlbind"
 )
 
 // DefaultDir is the dataset directory relative to the project root for the CLI
@@ -69,9 +71,87 @@ func Resolve(directory string, names []string) ([]string, error) {
 // Dialect is the SQL flavor a dataset is applied with.
 type Dialect = dbtestify.Dialect
 
-// Executor is the statement target datasets are applied through. Both *sql.DB
-// and *sql.Tx satisfy it, so a test can seed inside its own transaction.
+// Executor is the statement target datasets are applied through: dbtestify's
+// driver-agnostic execution interface since its v0.5.0. A database/sql handle
+// enters through FromSQL, the framework executor seam through FromRuntime.
 type Executor = dbtestify.Executor
+
+// FromSQL adapts a *sql.DB, *sql.Tx, or *sql.Conn to Executor. A *sql.DB is
+// remembered as a pool, so Seed can open its per-dataset transaction on it.
+func FromSQL(handle dbtestify.SQLHandle) Executor {
+	if db, ok := handle.(*sql.DB); ok {
+		return sqlPoolExecutor{Executor: dbtestify.FromSQL(db), db: db}
+	}
+	return dbtestify.FromSQL(handle)
+}
+
+// FromRuntime adapts a framework executor — the pool-level executor of a
+// connection or the executor of an open transaction scope — to Executor. A
+// native executor queries through its QueryRows; a database/sql handle goes
+// through FromSQL. A nil executor returns nil, which Apply and Assert report
+// as "no database to seed".
+func FromRuntime(executor sqlbind.SQLExecutor) Executor {
+	switch typed := executor.(type) {
+	case nil:
+		return nil
+	case sqlbind.RowsQuerier:
+		return runtimeExecutor{exec: executor, rows: typed}
+	case dbtestify.SQLHandle:
+		return FromSQL(typed)
+	default:
+		// sqlbind.SQLExecutor includes QueryContext, so every executor that is
+		// not a RowsQuerier is a SQLHandle; this arm is unreachable.
+		return nil
+	}
+}
+
+// sqlPoolExecutor keeps the *sql.DB visible through the Executor, because a
+// pool-backed Seed runs each dataset in a transaction dbtestify opens itself.
+type sqlPoolExecutor struct {
+	Executor
+	db *sql.DB
+}
+
+// runtimeExecutor bridges the sqlbind executor surface onto dbtestify's.
+type runtimeExecutor struct {
+	exec sqlbind.SQLExecutor
+	rows sqlbind.RowsQuerier
+}
+
+// beginNativeTx opens a transaction when the wrapped executor is a native
+// pool, which is what lets a pool-backed Apply keep its per-dataset
+// transaction semantics off database/sql.
+func (r runtimeExecutor) beginNativeTx(ctx context.Context) (database.NativeTx, bool, error) {
+	pool, ok := r.exec.(database.NativeDB)
+	if !ok {
+		return nil, false, nil
+	}
+	tx, err := pool.BeginTx(ctx, database.NativeTxOptions{})
+	if err != nil {
+		return nil, true, err
+	}
+	return tx, true, nil
+}
+
+func (r runtimeExecutor) Exec(ctx context.Context, query string, args ...any) (int64, error) {
+	result, err := r.exec.ExecContext(ctx, query, args...)
+	if err != nil {
+		return dbtestify.UnknownAffected, err
+	}
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return dbtestify.UnknownAffected, nil
+	}
+	return affected, nil
+}
+
+func (r runtimeExecutor) Query(ctx context.Context, query string, args ...any) (dbtestify.Rows, error) {
+	rows, err := r.rows.QueryRows(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	return rows, nil
+}
 
 // ResolveDialect derives the dialect from a driver://dsn configuration value.
 func ResolveDialect(dsn string) (Dialect, error) {
@@ -94,6 +174,14 @@ func ResolveDialect(dsn string) (Dialect, error) {
 // so the caller has to carry them across — its CLI and HTTP API do the same.
 // Omitting that step silently clear-inserts every table.
 func Apply(ctx context.Context, exec Executor, dialect Dialect, inTransaction bool, paths []string) error {
+	// dbtestify opens its per-dataset transaction only on a *sql.DB, so a
+	// native pool gets the equivalent here: one native transaction per
+	// dataset, committed on success.
+	if runtime, ok := exec.(runtimeExecutor); ok && !inTransaction {
+		if handled, err := runtime.applyInNativeTx(ctx, dialect, paths); handled {
+			return err
+		}
+	}
 	connector, err := connector(exec, dialect, inTransaction)
 	if err != nil {
 		return err
@@ -108,6 +196,48 @@ func Apply(ctx context.Context, exec Executor, dialect Dialect, inTransaction bo
 		}); err != nil {
 			return fmt.Errorf("seed %s: %w", filepath.Base(path), err)
 		}
+	}
+	return nil
+}
+
+// applyInNativeTx mirrors dbtestify's pool behavior for a native pool. It
+// reports false without error when the wrapped executor is no pool, in which
+// case the ordinary path serves the call.
+func (r runtimeExecutor) applyInNativeTx(ctx context.Context, dialect Dialect, paths []string) (bool, error) {
+	for _, path := range paths {
+		tx, native, err := r.beginNativeTx(ctx)
+		if !native {
+			return false, nil
+		}
+		if err != nil {
+			return true, err
+		}
+		if err := seedOne(ctx, FromRuntime(tx), dialect, true, path); err != nil {
+			_ = tx.Rollback(ctx)
+			return true, err
+		}
+		if err := tx.Commit(ctx); err != nil {
+			return true, fmt.Errorf("seed %s: %w", filepath.Base(path), err)
+		}
+	}
+	return true, nil
+}
+
+// seedOne applies a single dataset through an executor already positioned —
+// inside a transaction or on a pool — by the caller.
+func seedOne(ctx context.Context, exec Executor, dialect Dialect, inTransaction bool, path string) error {
+	connector, err := connector(exec, dialect, inTransaction)
+	if err != nil {
+		return err
+	}
+	dataset, err := parse(path)
+	if err != nil {
+		return err
+	}
+	if err := dbtestify.Seed(ctx, connector, dataset, dbtestify.SeedOpt{
+		Operations: dataset.Operation,
+	}); err != nil {
+		return fmt.Errorf("seed %s: %w", filepath.Base(path), err)
 	}
 	return nil
 }
@@ -151,13 +281,15 @@ func Assert(ctx context.Context, exec Executor, dialect Dialect, inTransaction b
 	return matched, report.String(), nil
 }
 
-// connector selects the dbtestify connector shape for exec.
+// connector selects the dbtestify connector shape for exec. A *sql.DB pool
+// keeps its pool-owning connector, which is what lets Seed open its own
+// per-dataset transaction there.
 func connector(exec Executor, dialect Dialect, inTransaction bool) (dbtestify.DBConnector, error) {
 	if exec == nil {
 		return nil, fmt.Errorf("no database to seed")
 	}
-	if tx, ok := exec.(*sql.Tx); ok {
-		return dbtestify.NewDBConnectorFromTx(tx, dialect)
+	if pool, ok := exec.(sqlPoolExecutor); ok && !inTransaction {
+		return dbtestify.NewDBConnectorFromDB(pool.db, dialect)
 	}
 	return dbtestify.NewDBConnectorFromExecutor(exec, dialect, inTransaction)
 }

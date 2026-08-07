@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"sync"
 
+	"github.com/shibukawa/popcornwave/database"
 	"github.com/shibukawa/tinybind-go/sqlbind"
 )
 
@@ -23,11 +24,14 @@ var ErrTransactionFailed = errors.New("popcornwave: transaction is no longer usa
 // connection group than the one already open.
 var ErrCrossGroupTransaction = errors.New("popcornwave: transaction cannot span two connection groups")
 
-// TransactionScope owns one *sql.Tx and the savepoint stack nested inside it.
-// The framework creates a scope; applications only observe it indirectly
-// through Transaction.
+// TransactionScope owns one open transaction and the savepoint stack nested
+// inside it. The transaction is a *sql.Tx on a database/sql connection and a
+// native transaction on one that bypasses it; the savepoint stack runs the
+// same statements on either. The framework creates a scope; applications only
+// observe it indirectly through Transaction.
 type TransactionScope struct {
 	db     *sql.DB
+	native database.NativeDB
 	driver string
 	// group is the connection group this scope belongs to for its whole life.
 	// A nested call cannot move it to another group.
@@ -36,10 +40,11 @@ type TransactionScope struct {
 	// transaction at depth 0.
 	readOnly bool
 
-	mu     sync.Mutex
-	tx     *sql.Tx
-	depth  int
-	failed bool
+	mu       sync.Mutex
+	tx       *sql.Tx
+	nativeTx database.NativeTx
+	depth    int
+	failed   bool
 }
 
 // NewTransactionScope prepares an inactive scope over db. Begin activates it.
@@ -53,11 +58,12 @@ func NewTransactionScope(db *sql.DB, driver string) *TransactionScope {
 // newConnectionScope prepares an inactive scope over one connection of the set,
 // carrying the group and read-only marking that connection was configured with.
 func newConnectionScope(connection *Connection) *TransactionScope {
-	if connection == nil || connection.DB == nil {
+	if connection == nil || (connection.DB == nil && connection.Native == nil) {
 		return nil
 	}
 	return &TransactionScope{
 		db:       connection.DB,
+		native:   connection.Native,
 		driver:   connection.Driver,
 		group:    connection.Group,
 		readOnly: connection.ReadOnly,
@@ -93,8 +99,23 @@ func (scope *TransactionScope) Begin(ctx context.Context, options *sql.TxOptions
 	}
 	scope.mu.Lock()
 	defer scope.mu.Unlock()
-	if scope.tx != nil {
+	if scope.tx != nil || scope.nativeTx != nil {
 		return errors.New("popcornwave: transaction scope is already active")
+	}
+	if scope.native != nil {
+		nativeOptions := database.NativeTxOptions{}
+		if options != nil {
+			if options.Isolation != sql.LevelDefault {
+				return fmt.Errorf("popcornwave: the native %s path supports no isolation override yet", scope.driver)
+			}
+			nativeOptions.ReadOnly = options.ReadOnly
+		}
+		tx, err := scope.native.BeginTx(ctx, nativeOptions)
+		if err != nil {
+			return err
+		}
+		scope.nativeTx = tx
+		return nil
 	}
 	tx, err := scope.db.BeginTx(ctx, options)
 	if err != nil {
@@ -111,24 +132,34 @@ func (scope *TransactionScope) Active() bool {
 	}
 	scope.mu.Lock()
 	defer scope.mu.Unlock()
-	return scope.tx != nil
+	return scope.tx != nil || scope.nativeTx != nil
 }
 
 // Commit commits the depth 0 transaction. A scope marked failed by a savepoint
 // operation is rolled back instead.
+//
+// The native commit is sent on the wire without a caller context, because the
+// owner that could carry one may already hold a cancelled context, and a
+// commit must not be abandoned by the cancellation that ended the request.
 func (scope *TransactionScope) Commit() error {
 	if scope == nil {
 		return errors.New("popcornwave: nil transaction scope")
 	}
 	scope.mu.Lock()
-	tx, failed := scope.tx, scope.failed
-	scope.tx = nil
+	tx, nativeTx, failed := scope.tx, scope.nativeTx, scope.failed
+	scope.tx, scope.nativeTx = nil, nil
 	scope.mu.Unlock()
-	if tx == nil {
+	if tx == nil && nativeTx == nil {
 		return errors.New("popcornwave: transaction scope is not active")
 	}
 	if failed {
+		if nativeTx != nil {
+			return errors.Join(ErrTransactionFailed, nativeTx.Rollback(context.Background()))
+		}
 		return errors.Join(ErrTransactionFailed, tx.Rollback())
+	}
+	if nativeTx != nil {
+		return nativeTx.Commit(context.Background())
 	}
 	return tx.Commit()
 }
@@ -140,9 +171,12 @@ func (scope *TransactionScope) Rollback() error {
 		return nil
 	}
 	scope.mu.Lock()
-	tx := scope.tx
-	scope.tx = nil
+	tx, nativeTx := scope.tx, scope.nativeTx
+	scope.tx, scope.nativeTx = nil, nil
 	scope.mu.Unlock()
+	if nativeTx != nil {
+		return nativeTx.Rollback(context.Background())
+	}
 	if tx == nil {
 		return nil
 	}
@@ -152,7 +186,8 @@ func (scope *TransactionScope) Rollback() error {
 	return nil
 }
 
-// Tx returns the depth 0 transaction, or nil when the scope is inactive.
+// Tx returns the depth 0 transaction, or nil when the scope is inactive or
+// runs on a native connection, whose transaction is no *sql.Tx.
 //
 // It exists for test tooling that must run statements inside the same
 // transaction as the requests under test, such as dataset seeding and database
@@ -166,6 +201,19 @@ func (scope *TransactionScope) Tx() *sql.Tx {
 	return scope.tx
 }
 
+// ActiveExecutor returns the statement surface of the open transaction — a
+// *sql.Tx or the native transaction — or nil when the scope is inactive.
+//
+// It exists beside Tx for test tooling that must run statements inside the
+// same transaction as the requests under test, whichever kind of pool backs
+// the connection. Application code uses Transaction instead.
+func (scope *TransactionScope) ActiveExecutor() sqlbind.SQLExecutor {
+	if scope == nil {
+		return nil
+	}
+	return scope.executor()
+}
+
 // state reports whether a transaction is open and how deep its savepoint stack
 // is, which is what a query record needs to place a statement.
 func (scope *TransactionScope) state() (bool, int) {
@@ -174,7 +222,7 @@ func (scope *TransactionScope) state() (bool, int) {
 	}
 	scope.mu.Lock()
 	defer scope.mu.Unlock()
-	return scope.tx != nil, scope.depth
+	return scope.tx != nil || scope.nativeTx != nil, scope.depth
 }
 
 func (scope *TransactionScope) executor() sqlbind.SQLExecutor {
@@ -183,6 +231,9 @@ func (scope *TransactionScope) executor() sqlbind.SQLExecutor {
 	}
 	scope.mu.Lock()
 	defer scope.mu.Unlock()
+	if scope.nativeTx != nil {
+		return scope.nativeTx
+	}
 	if scope.tx == nil {
 		return nil
 	}
@@ -284,17 +335,27 @@ func adoptExecutorTx(ctx context.Context) *TransactionScope {
 	if err != nil {
 		return nil
 	}
-	tx, ok := unwrapExecutor(executor).(*sql.Tx)
-	if !ok {
-		return nil
-	}
 	current := resources(ctx)
 	group := current.effectiveGroup()
 	driver := current.DBDriver
 	if connection, err := current.connection(); err == nil {
 		driver = connection.Driver
 	}
-	return &TransactionScope{tx: tx, driver: driver, group: group}
+	switch tx := unwrapExecutor(executor).(type) {
+	case *sql.Tx:
+		return &TransactionScope{tx: tx, driver: driver, group: group}
+	case database.NativeTx:
+		return &TransactionScope{nativeTx: tx, driver: driver, group: group}
+	default:
+		return nil
+	}
+}
+
+// savepointExecer is what the savepoint statements need from either
+// transaction kind: ExecContext, which both *sql.Tx and a native transaction
+// provide.
+type savepointExecer interface {
+	ExecContext(ctx context.Context, query string, args ...any) (sql.Result, error)
 }
 
 // nested wraps fn in a savepoint of an already active scope.
@@ -316,10 +377,16 @@ func (scope *TransactionScope) nested(ctx context.Context, fn func(context.Conte
 	return scope.release(ctx, tx, name)
 }
 
-func (scope *TransactionScope) push(ctx context.Context) (string, *sql.Tx, error) {
+func (scope *TransactionScope) push(ctx context.Context) (string, savepointExecer, error) {
 	scope.mu.Lock()
-	tx, failed, driver := scope.tx, scope.failed, scope.driver
-	if tx == nil {
+	failed, driver := scope.failed, scope.driver
+	var tx savepointExecer
+	switch {
+	case scope.nativeTx != nil:
+		tx = scope.nativeTx
+	case scope.tx != nil:
+		tx = scope.tx
+	default:
 		scope.mu.Unlock()
 		return "", nil, errors.New("popcornwave: transaction scope is not active")
 	}
@@ -350,7 +417,7 @@ func (scope *TransactionScope) pop() {
 	scope.mu.Unlock()
 }
 
-func (scope *TransactionScope) release(ctx context.Context, tx *sql.Tx, name string) error {
+func (scope *TransactionScope) release(ctx context.Context, tx savepointExecer, name string) error {
 	defer scope.pop()
 	if _, err := tx.ExecContext(ctx, "RELEASE SAVEPOINT "+name); err != nil {
 		scope.markFailed()
@@ -361,7 +428,7 @@ func (scope *TransactionScope) release(ctx context.Context, tx *sql.Tx, name str
 
 // rollbackTo undoes the savepoint work. A failure here means the transaction
 // state is unknown, so the scope is marked failed and can no longer commit.
-func (scope *TransactionScope) rollbackTo(ctx context.Context, tx *sql.Tx, name string) {
+func (scope *TransactionScope) rollbackTo(ctx context.Context, tx savepointExecer, name string) {
 	defer scope.pop()
 	rollbackCtx := ctx
 	if ctx.Err() != nil {

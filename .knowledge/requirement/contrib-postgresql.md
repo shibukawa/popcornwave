@@ -6,7 +6,8 @@ title: PostgreSQL Driver Consumption
 Popcorn Wave consumes the system:tinygodriver pgx-based PostgreSQL driver, whose handle comes from a connector rather than from a registered database/sql driver name.
 
 ```yaml
-package: github.com/shibukawa/tinygodriver/database/sql/pgxstdlib
+package: github.com/shibukawa/tinygodriver/database/pgx/stdlib, renamed from database/sql/pgxstdlib in v1.1.11
+native_surface: github.com/shibukawa/tinygodriver/database/pgx since v1.1.10 and database/pgx/pgxpool since v1.1.11, which stdlib now layers on; requirement:pgx-native-execution consumes them for the request-time query path
 support_tier: first_class
 backend:
   standard_go: upstream github.com/jackc/pgx/v5 stdlib, unmodified

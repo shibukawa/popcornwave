@@ -206,6 +206,13 @@ Raw access is there when a query does not fit the generated layer:
 db, ok := pw.DB(r.Context())
 ```
 
+On SQLite and MySQL that hands back the pool itself. On PostgreSQL `ok` is
+`false`: requests run on a native pgx pool with no `*sql.DB` behind them, which
+is what removes the `database/sql` locks from the query path. Generated
+statements and `pw.Transaction` behave identically on every engine — reach for
+them first, and see [Interoperability](/appendix/interoperability/) when a
+third-party library needs a handle of its own.
+
 ## Which connection ran it
 
 Nothing above names a database. A statement that says nothing about where it

@@ -3,7 +3,6 @@
 package pw
 
 import (
-	"database/sql"
 	"errors"
 	"fmt"
 	"io"
@@ -40,7 +39,7 @@ const developmentTestPrefix = "/_pw/test/"
 // untouched, and the reserved namespace answers 404 as if the endpoints had
 // never been built.
 func developmentTestEndpoints(next http.Handler, middleware MiddlewareConfig, resources pwruntime.Resources) http.Handler {
-	if !Development() || !middleware.RDB.Enabled || resources.DB == nil {
+	if !Development() || !middleware.RDB.Enabled {
 		return next
 	}
 	dsn, err := middleware.RDB.MigrationDSN()
@@ -53,7 +52,10 @@ func developmentTestEndpoints(next http.Handler, middleware MiddlewareConfig, re
 		fmt.Fprintln(os.Stderr, "pw: test data endpoints:", err)
 		return next
 	}
-	pool := migrationPool(middleware.RDB, resources)
+	pool := migrationExecutor(middleware.RDB, resources)
+	if pool == nil {
+		return next
+	}
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST "+developmentTestPrefix+"seed/{dataset...}", func(w http.ResponseWriter, r *http.Request) {
 		paths, ok := testDataset(w, r)
@@ -122,28 +124,41 @@ func testDataset(w http.ResponseWriter, r *http.Request) ([]string, bool) {
 	return paths, true
 }
 
-// migrationPool picks the pool seed data lands in: the migration group, where
-// the schema is — the same routing pw seed and the test helpers use. Resolution
-// failures fall back to the default pool rather than erroring, because the
-// configuration that could fail here has already survived startup validation.
-func migrationPool(config RDBConfig, resources pwruntime.Resources) *sql.DB {
+// migrationExecutor picks the pool seed data lands in: the migration group,
+// where the schema is — the same routing pw seed and the test helpers use.
+// The pool is handed over as a dbseed executor, so a native connection serves
+// these endpoints the same way a *sql.DB does. Resolution failures fall back
+// to the default pool rather than erroring, because the configuration that
+// could fail here has already survived startup validation.
+func migrationExecutor(config RDBConfig, resources pwruntime.Resources) dbseed.Executor {
+	fallback := func() dbseed.Executor {
+		if resources.DB != nil {
+			return dbseed.FromSQL(resources.DB)
+		}
+		for _, connection := range resources.Connections.Connections() {
+			if !connection.ReadOnly {
+				return dbseed.FromRuntime(connection.Executor())
+			}
+		}
+		return nil
+	}
 	if resources.Connections == nil {
-		return resources.DB
+		return fallback()
 	}
 	connections, err := resolveRDBConnections(config)
 	if err != nil {
-		return resources.DB
+		return fallback()
 	}
 	group, err := resolveMigrationGroup(config, connections)
 	if err != nil {
-		return resources.DB
+		return fallback()
 	}
 	for _, connection := range resources.Connections.Connections() {
 		if connection.Group == group && !connection.ReadOnly {
-			return connection.DB
+			return dbseed.FromRuntime(connection.Executor())
 		}
 	}
-	return resources.DB
+	return fallback()
 }
 
 // loopbackTestRequest admits only a caller on this machine. A forwarding

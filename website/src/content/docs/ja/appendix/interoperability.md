@@ -97,7 +97,7 @@ func createUser(w http.ResponseWriter, r *http.Request) {
 
 ### sqlx、GORM、素の `database/sql` でクエリを書く
 
-プールは `*sql.DB` で、リクエストの context から取れます。
+SQLite と MySQL では、プールは `*sql.DB` で、リクエストの context から取れます。
 
 ```go
 db, ok := pw.DB(r.Context())
@@ -107,6 +107,14 @@ if !ok {
 }
 users := sqlx.NewDb(db, driver) // または gorm.Open(postgres.New(postgres.Config{Conn: db}))
 ```
+
+PostgreSQL では `ok` は常に `false` です。フレームワークはリクエストを pgx のネイティブ
+プールで処理していて、貸し出せる `*sql.DB` が背後にありません。`*sql.DB` を要求する
+ライブラリには専用のプールを与えてください。起動時に一度、同じ DSN で
+`github.com/shibukawa/tinygodriver/database/pgx/stdlib` の `stdlib.Open` を呼び、
+ライフサイクルも自分で持ちます。生成されたステートメントとトランザクションを共有すべき
+書き込みは生成レイヤーの中に置いてください。2 つのプールが 1 つのトランザクションに
+参加することはできません。
 
 `pw.Transaction` はトランザクションを context に入れます。これは**生成された**ステートメントの
 ためのもので、だから明示的なハンドルが要りません。他のライブラリからはそれが見えないので、
@@ -131,6 +139,11 @@ err := pw.Transaction(r.Context(), func(ctx context.Context) error {
 
 代わりにプールから 2 本目のトランザクションを開いてはいけません。1 リクエスト内の
 2 つのトランザクションは、コミットとロールバックの境界を共有しません。
+
+`*sql.Tx` への型アサーションが成り立つのは SQLite と MySQL です。PostgreSQL で context に
+入っているのは pgx のネイティブトランザクションなので、具体的なハンドルが必要なコードは
+executor のインターフェイスに対してアサートすることになります。より良いのは生成レイヤーに
+とどまることで、そこではアサーション自体が不要です。
 
 ### 別のテンプレートエンジンを使う
 

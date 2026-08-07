@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/shibukawa/popcornwave/middlewares"
+	"github.com/shibukawa/popcornwave/pwruntime"
 	"github.com/shibukawa/popcornwave/session"
 	"github.com/shibukawa/popcornwave/sessionconfig"
 )
@@ -235,7 +236,7 @@ func writeSessionUnavailable(w http.ResponseWriter, r *http.Request, _ error) {
 // refuse a DynamoDB or Redis session for the absence of something it never
 // reads.
 func sessionResources(ctx context.Context) (SessionResources, error) {
-	if _, enabled := DB(ctx); !enabled {
+	if _, enabled := pwruntime.ConnectionExecutor(ctx); !enabled {
 		return SessionResources{}, nil
 	}
 	// The session record is written on every change, so it lives in the session
@@ -245,6 +246,7 @@ func sessionResources(ctx context.Context) (SessionResources, error) {
 		return SessionResources{}, err
 	}
 	db, _ := DB(sessionCtx)
+	executor, _ := pwruntime.ConnectionExecutor(sessionCtx)
 	driver, _ := DBDriver(sessionCtx)
-	return SessionResources{DB: db, DBDriver: driver}, nil
+	return SessionResources{DB: db, Executor: executor, DBDriver: driver}, nil
 }

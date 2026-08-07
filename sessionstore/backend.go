@@ -35,10 +35,16 @@ func open(ctx context.Context, config pw.SessionConfig, resources pw.SessionReso
 	if config.RDB.Source != "" && config.RDB.Source != "middleware" {
 		return session.Backend{}, fmt.Errorf("session.rdb.source %q is not implemented; use \"middleware\"", config.RDB.Source)
 	}
-	if resources.DB == nil {
+	// Executor is what the middleware hands over on every engine; DB keeps an
+	// embedding that predates it working unchanged.
+	executor := resources.Executor
+	if executor == nil && resources.DB != nil {
+		executor = resources.DB
+	}
+	if executor == nil {
 		return session.Backend{}, errors.New(`session.backend = "rdb" requires middleware.rdb.enabled = true`)
 	}
-	store, err := NewStore(resources.DB, Options{Dialect: resources.DBDriver, Table: config.RDB.Table})
+	store, err := NewStore(executor, Options{Dialect: resources.DBDriver, Table: config.RDB.Table})
 	if err != nil {
 		return session.Backend{}, err
 	}

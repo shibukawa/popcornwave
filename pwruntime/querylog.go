@@ -130,6 +130,17 @@ func (executor *instrumentedExecutor) QueryContext(ctx context.Context, query st
 	return rows, err
 }
 
+// QueryRows keeps the wrapper on the driver-agnostic dispatch path: without
+// it, sqlbind.Query would fall back to QueryContext, which on a native
+// executor is the UnimplementedQuerier stub. Dispatching through
+// sqlbind.Query here keeps one code path for both executor kinds.
+func (executor *instrumentedExecutor) QueryRows(ctx context.Context, query string, args ...any) (sqlbind.Rows, error) {
+	start := time.Now()
+	rows, err := sqlbind.Query(ctx, executor.inner, query, args...)
+	executor.record(ctx, "query", query, args, time.Since(start), -1, err)
+	return rows, err
+}
+
 // record emits at most one log record for one execution.
 func (executor *instrumentedExecutor) record(ctx context.Context, operation, query string, args []any, elapsed time.Duration, affected int64, callErr error) {
 	config := executor.config
@@ -215,7 +226,9 @@ func (executor *instrumentedExecutor) explain(ctx context.Context, query string,
 	if err := ctx.Err(); err != nil {
 		return "", err
 	}
-	rows, err := executor.inner.QueryContext(ctx, prefix+query, args...)
+	// sqlbind.Query rather than QueryContext, so the plan is captured on a
+	// native executor the same way the observed statement ran.
+	rows, err := sqlbind.Query(ctx, executor.inner, prefix+query, args...)
 	if err != nil {
 		return "", err
 	}
@@ -243,7 +256,7 @@ func SupportsExplain(driver string) bool {
 
 // scanPlan renders plan rows without interpreting them, because every dialect
 // shapes its own columns.
-func scanPlan(rows *sql.Rows) (string, error) {
+func scanPlan(rows sqlbind.Rows) (string, error) {
 	columns, err := rows.Columns()
 	if err != nil {
 		return "", err

@@ -2,10 +2,11 @@ package pwdata
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"fmt"
 	"strings"
+
+	"github.com/shibukawa/tinybind-go/sqlbind"
 )
 
 // RowEdit addresses one row and says what to do with it.
@@ -202,12 +203,12 @@ func (c *Connection) Exec(ctx context.Context, statement string) Result {
 	if !returnsRows(trimmed) {
 		return c.execWithoutRows(ctx, trimmed)
 	}
-	rows, err := c.db.QueryContext(ctx, trimmed)
+	rows, err := c.queryRows(ctx, trimmed)
 	if err != nil {
 		result.Error = err.Error()
 		return result
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	return readResult(result, rows)
 }
 
@@ -279,7 +280,7 @@ func (c *Connection) execWithoutRows(ctx context.Context, statement string) Resu
 // adds their own LIMIT, which is a thing they can already express.
 const resultLimit = 200
 
-func readResult(result Result, rows *sql.Rows) Result {
+func readResult(result Result, rows sqlbind.Rows) Result {
 	names, err := rows.Columns()
 	if err != nil {
 		result.Error = err.Error()
@@ -293,7 +294,7 @@ func readResult(result Result, rows *sql.Rows) Result {
 		}
 		values := make([]any, len(names))
 		for index := range values {
-			values[index] = new(sql.RawBytes)
+			values[index] = new(any)
 		}
 		if err := rows.Scan(values...); err != nil {
 			result.Error = err.Error()

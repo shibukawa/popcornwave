@@ -422,6 +422,7 @@
 {"category": "objective", "id": "requirement:package-schema-contribution", "path": ".knowledge/requirement/package-schema-contribution.md", "role": "primary", "title": "Package Schema Contribution", "type": "requirement"}
 {"category": "objective", "id": "requirement:page-request-context", "path": ".knowledge/requirement/page-request-context.md", "role": "primary", "title": "A Page Must Reach Its Request Context", "type": "requirement"}
 {"category": "objective", "id": "requirement:parallel-database-tests", "path": ".knowledge/requirement/parallel-database-tests.md", "role": "primary", "title": "Parallel Database Tests", "type": "requirement"}
+{"category": "objective", "id": "requirement:pgx-native-execution", "path": ".knowledge/requirement/pgx-native-execution.md", "role": "primary", "title": "pgx Native Execution Path", "type": "requirement"}
 {"category": "objective", "id": "requirement:presence-signal", "path": ".knowledge/requirement/presence-signal.md", "role": "primary", "title": "Human Presence Signal", "type": "requirement"}
 {"category": "objective", "id": "requirement:preset-customization-docs", "path": ".knowledge/requirement/preset-customization-docs.md", "role": "primary", "title": "Preset and Customization Documentation", "type": "requirement"}
 {"category": "objective", "id": "requirement:project-diagnostics", "path": ".knowledge/requirement/project-diagnostics.md", "role": "primary", "title": "Project Diagnostics", "type": "requirement"}

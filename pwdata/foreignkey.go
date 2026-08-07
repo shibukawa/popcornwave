@@ -28,11 +28,11 @@ func (c *Connection) ForeignKeys(ctx context.Context, table string) map[string]F
 	if err := c.knownTable(ctx, table); err != nil {
 		return nil
 	}
-	rows, err := c.db.QueryContext(ctx, c.dialect.foreignKeys, table)
+	rows, err := c.queryRows(ctx, c.dialect.foreignKeys, table)
 	if err != nil {
 		return nil
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	keys := map[string]ForeignKey{}
 	for rows.Next() {
 		var key ForeignKey
@@ -62,11 +62,11 @@ func (c *Connection) Referenced(ctx context.Context, table, column, value string
 	statement := "SELECT " + c.columnList(columns) + " FROM " + c.dialect.quote(table) +
 		" WHERE " + c.dialect.quote(column) + " = " + c.dialect.placeholder(1) +
 		c.dialect.limitOffset(pageSize, 0)
-	rows, err := c.db.QueryContext(ctx, statement, value)
+	rows, err := c.queryRows(ctx, statement, value)
 	if err != nil {
 		return Page{}, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	page.Rows, err = scanRows(rows, len(columns))
 	return page, err
 }

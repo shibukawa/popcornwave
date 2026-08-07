@@ -9,9 +9,9 @@ package postgres
 
 import (
 	"context"
-	"database/sql"
 
 	"github.com/shibukawa/popcornwave/sessionstore"
+	"github.com/shibukawa/tinybind-go/sqlbind"
 )
 
 // Dialect is the registered engine name, which is also what a postgres:// or
@@ -68,14 +68,14 @@ func prune(table string) string {
 		)`
 }
 
-func columns(ctx context.Context, db *sql.DB, table string) ([]string, error) {
-	rows, err := db.QueryContext(ctx, `
+func columns(ctx context.Context, db sqlbind.SQLExecutor, table string) ([]string, error) {
+	rows, err := sqlbind.Query(ctx, db, `
 		SELECT column_name FROM information_schema.columns
 		WHERE table_name = $1 AND table_schema = current_schema()
 		ORDER BY ordinal_position`, table)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	return sessionstore.ScanColumns(rows)
 }

@@ -9,9 +9,9 @@ package sqlite
 
 import (
 	"context"
-	"database/sql"
 
 	"github.com/shibukawa/popcornwave/sessionstore"
+	"github.com/shibukawa/tinybind-go/sqlbind"
 )
 
 // Dialect is the registered engine name, which is also what a sqlite:// DSN
@@ -70,12 +70,12 @@ func prune(table string) string {
 // columns reads the schema through PRAGMA, because SQLite carries no
 // information_schema. A missing table answers with no rows rather than an
 // error, which is what VerifySchema reads as "not migrated yet".
-func columns(ctx context.Context, db *sql.DB, table string) ([]string, error) {
-	rows, err := db.QueryContext(ctx, `PRAGMA table_info(`+table+`)`)
+func columns(ctx context.Context, db sqlbind.SQLExecutor, table string) ([]string, error) {
+	rows, err := sqlbind.Query(ctx, db, `PRAGMA table_info(`+table+`)`)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	var names []string
 	for rows.Next() {
 		var cid, notNull, primaryKey int

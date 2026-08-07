@@ -10,6 +10,7 @@ import (
 	"sync"
 
 	"github.com/shibukawa/popcornwave/session"
+	"github.com/shibukawa/tinybind-go/sqlbind"
 )
 
 // SessionResources are the framework resources a session backend may borrow.
@@ -17,10 +18,16 @@ import (
 // own.
 type SessionResources struct {
 	// DB is the pool of api:rdb-middleware, already pinned to the session
-	// connection group. It is nil when no database is configured.
+	// connection group. It is nil when no database is configured, and also on
+	// an engine that bypasses database/sql; Executor is the surface that
+	// exists on every connection.
 	DB *sql.DB
-	// DBDriver is the driver scheme of DB, for a backend whose SQL is dialect
-	// specific.
+	// Executor is the statement surface of the session connection group,
+	// whichever kind of pool backs it. It is nil when no database is
+	// configured.
+	Executor sqlbind.SQLExecutor
+	// DBDriver is the driver scheme of the connection, for a backend whose
+	// SQL is dialect specific.
 	DBDriver string
 }
 

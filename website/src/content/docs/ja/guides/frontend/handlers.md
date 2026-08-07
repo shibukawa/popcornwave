@@ -193,7 +193,7 @@ check: enum is not a check rule; use the struct tag enum:"asc,desc" instead
 | --- | --- |
 | `pw.Logger(ctx)` | リクエストスコープの `*slog.Logger` |
 | `pw.Config[T](ctx)` | 登録済みの設定構造体 |
-| `pw.DB(ctx)` | `(*sql.DB, bool)` |
+| `pw.DB(ctx)` | `(*sql.DB, bool)` — pgx ネイティブプールで動く PostgreSQL では `false` |
 | `pw.Transaction(ctx, fn)` | `fn` をトランザクション内で実行 |
 
 ```go

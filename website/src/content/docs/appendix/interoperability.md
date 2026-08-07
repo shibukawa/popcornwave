@@ -103,7 +103,8 @@ across forty.
 
 ### Queries with sqlx, GORM, or plain `database/sql`
 
-The pool is a `*sql.DB` and it is available from the request context:
+On SQLite and MySQL the pool is a `*sql.DB` and it is available from the
+request context:
 
 ```go
 db, ok := pw.DB(r.Context())
@@ -113,6 +114,14 @@ if !ok {
 }
 users := sqlx.NewDb(db, driver) // or gorm.Open(postgres.New(postgres.Config{Conn: db}))
 ```
+
+On PostgreSQL `ok` is always `false`: the framework serves requests through a
+native pgx pool, and there is no `*sql.DB` behind it to lend out. A library
+that requires one gets its own pool instead — open it once at startup with
+`stdlib.Open` from `github.com/shibukawa/tinygodriver/database/pgx/stdlib`,
+using the same DSN, and own its lifecycle yourself. Keep writes that must
+share a transaction with generated statements inside the generated layer; the
+two pools cannot join one transaction.
 
 `pw.Transaction` puts its transaction in the context for **generated**
 statements, which is why they need no explicit handle. Another library cannot
@@ -137,6 +146,11 @@ err := pw.Transaction(r.Context(), func(ctx context.Context) error {
 
 Do not replace this with a second transaction on the pool. Two transactions in
 one request have independent commit and rollback boundaries.
+
+The `*sql.Tx` assertion holds on SQLite and MySQL. On PostgreSQL the executor
+in the context is the native pgx transaction, so code that needs the concrete
+handle asserts against the executor interfaces instead — or better, stays in
+the generated layer, which never needs the assertion at all.
 
 ### Another template engine
 

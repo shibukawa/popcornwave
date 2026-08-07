@@ -2,7 +2,6 @@ package pw
 
 import (
 	"context"
-	"database/sql"
 	"io"
 	"io/fs"
 	"net/http"
@@ -204,20 +203,18 @@ func (headResponseWriter) Write(body []byte) (int, error) { return len(body), ni
 // answer makes the instance unready, because the default group is the one the
 // application reads from.
 func databasesReady(parent context.Context, resources pwruntime.Resources) bool {
-	pools := []*sql.DB{}
-	if connections := resources.Connections.Connections(); len(connections) > 0 {
-		for _, connection := range connections {
-			pools = append(pools, connection.DB)
-		}
-	} else if resources.DB != nil {
-		pools = append(pools, resources.DB)
-	}
 	ctx, cancel := context.WithTimeout(parent, time.Second)
 	defer cancel()
-	for _, pool := range pools {
-		if pool.PingContext(ctx) != nil {
-			return false
+	if connections := resources.Connections.Connections(); len(connections) > 0 {
+		for _, connection := range connections {
+			if connection.Ping(ctx) != nil {
+				return false
+			}
 		}
+		return true
+	}
+	if resources.DB != nil && resources.DB.PingContext(ctx) != nil {
+		return false
 	}
 	return true
 }

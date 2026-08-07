@@ -1,6 +1,7 @@
 package pwruntime
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -8,6 +9,7 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"github.com/shibukawa/popcornwave/database"
 	"github.com/shibukawa/tinybind-go/sqlbind"
 )
 
@@ -20,9 +22,15 @@ const DefaultConnectionGroup = "default"
 // depended on it rather than where the name was written.
 var ErrUnknownConnectionGroup = errors.New("popcornwave: unknown database connection group")
 
-// Connection is one configured pool of the connection set.
+// Connection is one configured pool of the connection set. Exactly one of DB
+// and Native is set: DB for an engine served through database/sql, Native for
+// one whose request-time path bypasses it.
 type Connection struct {
 	DB *sql.DB
+	// Native is the handle of an engine that bypasses database/sql. A caller
+	// that needs a *sql.DB finds none on such a connection; statements run
+	// through Executor and transactions through the scope.
+	Native database.NativeDB
 	// Driver is the resolved driver scheme, which decides savepoint support.
 	Driver string
 	// Group is the name this connection is addressed by.
@@ -32,6 +40,45 @@ type Connection struct {
 	// ReadOnly marks a replica. It selects a read-only transaction and, once
 	// the SQL runtime can classify statements, a read-only executor.
 	ReadOnly bool
+}
+
+// Executor is the pool-level statement surface of this connection, which is
+// what the executor seam stores when no transaction is active.
+func (connection *Connection) Executor() sqlbind.SQLExecutor {
+	if connection == nil {
+		return nil
+	}
+	if connection.Native != nil {
+		return connection.Native
+	}
+	if connection.DB == nil {
+		return nil
+	}
+	return connection.DB
+}
+
+// Close releases the pool, whichever kind it is.
+func (connection *Connection) Close() error {
+	if connection.Native != nil {
+		return connection.Native.Close()
+	}
+	return connection.DB.Close()
+}
+
+// TransactionScope prepares an inactive transaction scope over this
+// connection's pool, carrying its group and read-only marking. Begin
+// activates it. It exists for the test bridge, whose shared test transaction
+// must run on whichever kind of pool the connection holds.
+func (connection *Connection) TransactionScope() *TransactionScope {
+	return newConnectionScope(connection)
+}
+
+// Ping verifies the pool can reach its database.
+func (connection *Connection) Ping(ctx context.Context) error {
+	if connection.Native != nil {
+		return connection.Native.Ping(ctx)
+	}
+	return connection.DB.PingContext(ctx)
 }
 
 // ConnectionSet is the immutable set of connection groups owned by the
@@ -63,8 +110,11 @@ func NewConnectionSet(defaultGroup string, connections []Connection) (*Connectio
 		if entry.Group == "" {
 			entry.Group = DefaultConnectionGroup
 		}
-		if entry.DB == nil {
+		if entry.DB == nil && entry.Native == nil {
 			return nil, fmt.Errorf("popcornwave: connection group %q has a nil pool", entry.Group)
+		}
+		if entry.DB != nil && entry.Native != nil {
+			return nil, fmt.Errorf("popcornwave: connection group %q has both a sql and a native pool", entry.Group)
 		}
 		if _, seen := set.groups[entry.Group]; !seen {
 			set.order = append(set.order, entry.Group)
@@ -173,7 +223,7 @@ func (set *ConnectionSet) Close() error {
 	}
 	var errs []error
 	for _, connection := range set.Connections() {
-		if err := connection.DB.Close(); err != nil {
+		if err := connection.Close(); err != nil {
 			errs = append(errs, err)
 		}
 	}

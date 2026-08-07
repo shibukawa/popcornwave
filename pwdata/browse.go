@@ -2,10 +2,12 @@ package pwdata
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"fmt"
 	"strings"
+	"time"
+
+	"github.com/shibukawa/tinybind-go/sqlbind"
 )
 
 // pageSize bounds one read. A table viewer that fetched everything would hold
@@ -59,11 +61,11 @@ const frameworkPrefix = "popcornwave_"
 
 // Tables lists what the connected database holds.
 func (c *Connection) Tables(ctx context.Context) ([]Table, error) {
-	rows, err := c.db.QueryContext(ctx, c.dialect.tables)
+	rows, err := c.queryRows(ctx, c.dialect.tables)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	var tables []Table
 	for rows.Next() {
 		var name string
@@ -86,11 +88,11 @@ func (c *Connection) Columns(ctx context.Context, table string) ([]Column, error
 	if err := c.knownTable(ctx, table); err != nil {
 		return nil, err
 	}
-	rows, err := c.db.QueryContext(ctx, c.dialect.columns, table)
+	rows, err := c.queryRows(ctx, c.dialect.columns, table)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	var columns []Column
 	for rows.Next() {
 		var column Column
@@ -128,11 +130,11 @@ func (c *Connection) Rows(ctx context.Context, table string, offset int) (Page, 
 	// query, which on a large table costs more than the page itself.
 	statement += c.dialect.limitOffset(pageSize+1, offset)
 
-	rows, err := c.db.QueryContext(ctx, statement)
+	rows, err := c.queryRows(ctx, statement)
 	if err != nil {
 		return Page{}, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	for rows.Next() {
 		if len(page.Rows) == pageSize {
 			page.More = true
@@ -140,7 +142,7 @@ func (c *Connection) Rows(ctx context.Context, table string, offset int) (Page, 
 		}
 		values := make([]any, len(columns))
 		for index := range values {
-			values[index] = new(sql.RawBytes)
+			values[index] = new(any)
 		}
 		if err := rows.Scan(values...); err != nil {
 			return Page{}, err
@@ -151,12 +153,12 @@ func (c *Connection) Rows(ctx context.Context, table string, offset int) (Page, 
 }
 
 // scanRows reads every remaining row of a bounded result.
-func scanRows(rows *sql.Rows, width int) ([][]*string, error) {
+func scanRows(rows sqlbind.Rows, width int) ([][]*string, error) {
 	var out [][]*string
 	for rows.Next() {
 		values := make([]any, width)
 		for index := range values {
-			values[index] = new(sql.RawBytes)
+			values[index] = new(any)
 		}
 		if err := rows.Scan(values...); err != nil {
 			return out, err
@@ -168,23 +170,38 @@ func scanRows(rows *sql.Rows, width int) ([][]*string, error) {
 
 func errUnknownColumn(name string) error { return fmt.Errorf("no column named %q", name) }
 
-// renderRow turns scanned bytes into displayable cells. A NULL stays nil, so
+// renderRow turns scanned values into displayable cells. A NULL stays nil, so
 // the page can tell it apart from an empty string — which is the distinction a
-// developer is usually looking at this table to check.
+// developer is usually looking at this table to check. The scan target is any
+// rather than sql.RawBytes, because a native executor decodes into Go values
+// and RawBytes only exists inside database/sql.
 func renderRow(values []any) []*string {
 	row := make([]*string, len(values))
 	for index, value := range values {
-		raw := value.(*sql.RawBytes)
-		if *raw == nil {
+		cell := *(value.(*any))
+		if cell == nil {
 			continue
 		}
-		text := string(*raw)
+		text := renderCell(cell)
 		if len(text) > valueLimit {
 			text = text[:valueLimit] + "… (truncated)"
 		}
 		row[index] = &text
 	}
 	return row
+}
+
+func renderCell(cell any) string {
+	switch typed := cell.(type) {
+	case []byte:
+		return string(typed)
+	case string:
+		return typed
+	case time.Time:
+		return typed.Format(time.RFC3339Nano)
+	default:
+		return fmt.Sprint(typed)
+	}
 }
 
 func (c *Connection) columnList(columns []Column) string {

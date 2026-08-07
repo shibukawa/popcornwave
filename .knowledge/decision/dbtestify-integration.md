@@ -60,10 +60,14 @@ rejected:
 local_boundary:
   package: github.com/shibukawa/popcornwave/internal/dbseed
   role: the only place popcornwave imports dbtestify, shared by api:cli-seed and api:test-seed
-  surface: DefaultDir, Extension, Resolve, Dialect, Executor, ResolveDialect, Apply, Assert
-  executor_selection: a *sql.Tx becomes a transaction connector; anything else stays pool shaped
+  surface: DefaultDir, Extension, Resolve, Dialect, Executor, ResolveDialect, Apply, Assert, FromSQL, FromRuntime
+  executor_selection: >
+    FromSQL keeps a *sql.DB pool shaped so Seed opens its own per-dataset
+    transaction; FromRuntime adapts the framework executor seam, and for a
+    native pool outside a transaction Apply opens the per-dataset native
+    transaction itself, because dbtestify can only open its own on a *sql.DB
 added_dependencies:
-  direct: github.com/shibukawa/dbtestify v0.3.0
+  direct: github.com/shibukawa/dbtestify v0.5.0, moved from v0.3.0 by requirement:pgx-native-execution
   indirect: fatih/color, goccy/go-yaml, mattn/go-colorable
   absent: pgx, go-sql-driver/mysql, and any new CGo requirement
 ```

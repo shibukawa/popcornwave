@@ -15,7 +15,7 @@ imports:
   host_network_driver: github.com/shibukawa/tinygodriver/netdev
   zstd: github.com/shibukawa/tinygodriver/compress/zstd
   sqlite: github.com/shibukawa/tinygodriver/database/sql/sqlite
-  postgresql: github.com/shibukawa/tinygodriver/database/sql/pgxstdlib
+  postgresql: github.com/shibukawa/tinygodriver/database/pgx/stdlib for tooling, database/pgx/pgxpool for the requirement:pgx-native-execution runtime path
   mysql: github.com/shibukawa/tinygodriver/database/sql/mysql
 pinned_baseline:
   version: v1.1.0

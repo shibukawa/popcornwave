@@ -92,18 +92,19 @@ func (server *Server) AssertDB(t TestingT, files ...string) {
 }
 
 // executor selects the statement target for mid-test seeding and assertion.
-// Under WithTransaction that is the test transaction, so uncommitted request
-// writes are visible and seeded rows roll back with it.
+// Under WithTransaction that is the test transaction — a *sql.Tx or the
+// native one, whichever kind of pool backs the connection — so uncommitted
+// request writes are visible and seeded rows roll back with it.
 func (server *Server) executor() (dbseed.Executor, bool) {
 	if server.transaction {
-		if tx := server.scope.Tx(); tx != nil {
-			return tx, true
+		if executor := server.scope.ActiveExecutor(); executor != nil {
+			return dbseed.FromRuntime(executor), true
 		}
 	}
 	if server.DB == nil {
 		return nil, false
 	}
-	return server.DB, false
+	return dbseed.FromSQL(server.DB), false
 }
 
 func applySeed(config *Config, exec dbseed.Executor, inTransaction bool, directory string, files []string) error {

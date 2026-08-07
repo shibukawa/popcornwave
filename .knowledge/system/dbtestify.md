@@ -42,4 +42,8 @@ added_for_popcornwave:
   breaking:
     - v0.2.0 moved dbtestify.NewDBConnector to connect.NewDBConnector
     - v0.3.0 DBConnector operations take an Executor instead of a *sql.Tx
+    - v0.5.0 made Executor driver-agnostic — Exec returns (int64, error), Query
+      returns a Rows cursor interface — with FromSQL adapting database/sql
+      handles; requested by requirement:pgx-native-execution so seeding and
+      assertion run inside a native pgx transaction
 ```

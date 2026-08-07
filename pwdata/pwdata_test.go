@@ -363,7 +363,7 @@ func TestMigrationStateReadsTheAppliedVersion(t *testing.T) {
 		`CREATE TABLE goose_db_version (id INTEGER PRIMARY KEY, version_id INTEGER, is_applied BOOLEAN, tstamp TIMESTAMP)`,
 		`INSERT INTO goose_db_version (version_id, is_applied) VALUES (0, 1), (1, 1), (2, 1)`,
 	} {
-		if _, err := connection.db.Exec(statement); err != nil {
+		if _, err := connection.db.ExecContext(context.Background(), statement); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -451,7 +451,7 @@ func TestForeignKeysAreDiscoveredAndFollowable(t *testing.T) {
 		`CREATE TABLE notes (id INTEGER PRIMARY KEY, memo_id INTEGER REFERENCES memos(id), text TEXT)`,
 		`INSERT INTO notes (id, memo_id, text) VALUES (1, 2, 'about the second')`,
 	} {
-		if _, err := connection.db.Exec(statement); err != nil {
+		if _, err := connection.db.ExecContext(context.Background(), statement); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -511,7 +511,7 @@ func TestTheGridLinksAForeignKey(t *testing.T) {
 		`CREATE TABLE notes (id INTEGER PRIMARY KEY, memo_id INTEGER REFERENCES memos(id), text TEXT)`,
 		`INSERT INTO notes (id, memo_id, text) VALUES (1, 2, 'about the second')`,
 	} {
-		if _, err := connection.db.Exec(statement); err != nil {
+		if _, err := connection.db.ExecContext(context.Background(), statement); err != nil {
 			t.Fatal(err)
 		}
 	}

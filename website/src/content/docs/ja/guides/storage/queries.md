@@ -202,6 +202,13 @@ err := pw.Transaction(r.Context(), func(ctx context.Context) error {
 db, ok := pw.DB(r.Context())
 ```
 
+SQLite と MySQL では、これがプールそのものを返します。PostgreSQL では `ok` は `false`
+です。リクエストは pgx のネイティブプールで走っていて、その背後に `*sql.DB` は存在
+しません。`database/sql` のロックをクエリ経路から外すというのは、そういうことです。
+生成されたステートメントと `pw.Transaction` はどのエンジンでも同じに動くので、まず
+そちらを使ってください。サードパーティのライブラリが自前のハンドルを必要とする場合は
+[相互運用](/ja/appendix/interoperability/)にあります。
+
 ## どの接続で走るのか
 
 ここまでのどこにもデータベースは出てきません。どこで実行するかを言わないステートメントは

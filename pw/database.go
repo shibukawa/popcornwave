@@ -2,7 +2,6 @@ package pw
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"fmt"
 	"strconv"
@@ -205,25 +204,19 @@ func openRuntimeConnections(config RDBConfig) (*pwruntime.ConnectionSet, error) 
 	opened := make([]pwruntime.Connection, 0, len(connections))
 	closeOpened := func() {
 		for _, connection := range opened {
-			_ = connection.DB.Close()
+			_ = connection.Close()
 		}
 	}
 	ordinals := make(map[string]int, len(connections))
 	for _, connection := range connections {
 		ordinals[connection.Group]++
 		label := connection.Group + "#" + strconv.Itoa(ordinals[connection.Group])
-		db, driver, openErr := openRuntimeDatabase(connection, label)
+		runtimeConnection, openErr := openRuntimeDatabase(connection, label)
 		if openErr != nil {
 			closeOpened()
 			return nil, openErr
 		}
-		opened = append(opened, pwruntime.Connection{
-			DB:       db,
-			Driver:   driver,
-			Group:    connection.Group,
-			Label:    label,
-			ReadOnly: connection.ReadOnly,
-		})
+		opened = append(opened, runtimeConnection)
 	}
 	set, err := pwruntime.NewConnectionSet(defaultGroup, opened)
 	if err != nil {
@@ -233,26 +226,71 @@ func openRuntimeConnections(config RDBConfig) (*pwruntime.ConnectionSet, error) 
 	return set, nil
 }
 
-func openRuntimeDatabase(config RDBConnectionConfig, label string) (*sql.DB, string, error) {
+func openRuntimeDatabase(config RDBConnectionConfig, label string) (pwruntime.Connection, error) {
+	connection := pwruntime.Connection{
+		Group:    config.Group,
+		Label:    label,
+		ReadOnly: config.ReadOnly,
+	}
 	target, err := databaseTarget(config.DSN)
 	if err != nil {
-		return nil, "", fmt.Errorf("popcornwave: connection %s: %w", label, err)
+		return connection, fmt.Errorf("popcornwave: connection %s: %w", label, err)
+	}
+	connection.Driver = target.Dialect
+	ctx, cancel := context.WithTimeout(context.Background(), config.ConnectTimeout)
+	defer cancel()
+	if target.Native() {
+		// The bounds travel with the open call, because a native pool is
+		// configured at construction rather than adjusted afterwards.
+		native, err := target.OpenNative(ctx, database.PoolBounds{
+			MaxOpenConns:    config.MaxOpenConns,
+			MaxIdleConns:    config.MaxIdleConns,
+			ConnMaxLifetime: config.ConnMaxLifetime,
+			ConnMaxIdleTime: config.ConnMaxIdleTime,
+		})
+		if err != nil {
+			return connection, fmt.Errorf("popcornwave: open database %s: %w", label, err)
+		}
+		if err := native.Ping(ctx); err != nil {
+			_ = native.Close()
+			return connection, fmt.Errorf("popcornwave: connect database %s: %w", label, err)
+		}
+		connection.Native = native
+		return connection, nil
 	}
 	db, err := target.Open()
 	if err != nil {
-		return nil, "", fmt.Errorf("popcornwave: open database %s: %w", label, err)
+		return connection, fmt.Errorf("popcornwave: open database %s: %w", label, err)
 	}
 	db.SetMaxOpenConns(config.MaxOpenConns)
 	db.SetMaxIdleConns(config.MaxIdleConns)
 	db.SetConnMaxLifetime(config.ConnMaxLifetime)
 	db.SetConnMaxIdleTime(config.ConnMaxIdleTime)
-	ctx, cancel := context.WithTimeout(context.Background(), config.ConnectTimeout)
-	defer cancel()
 	if err := db.PingContext(ctx); err != nil {
 		_ = db.Close()
-		return nil, "", fmt.Errorf("popcornwave: connect database %s: %w", label, err)
+		return connection, fmt.Errorf("popcornwave: connect database %s: %w", label, err)
 	}
-	return db, target.Dialect, nil
+	connection.DB = db
+	return connection, nil
+}
+
+// reportDatabaseConnections names, once at startup, the execution path each
+// connection took. The choice is automatic — an engine with a native opener
+// always bypasses database/sql — so the log line is what makes the active
+// path observable rather than inferred.
+func reportDatabaseConnections(connections *pwruntime.ConnectionSet) {
+	for _, connection := range connections.Connections() {
+		path := "database/sql"
+		if connection.Native != nil {
+			path = "native"
+		}
+		processLogger().Info("popcornwave database connection",
+			String("connection", connection.Label),
+			String("driver", connection.Driver),
+			String("path", path),
+			Bool("read_only", connection.ReadOnly),
+		)
+	}
 }
 
 // databaseTarget resolves the configured DSN onto the engine that opens it.

@@ -15,7 +15,7 @@ packages:
   httprevproxy: github.com/shibukawa/tinygodriver/httprevproxy
   zstd: github.com/shibukawa/tinygodriver/compress/zstd
   sqlite: github.com/shibukawa/tinygodriver/database/sql/sqlite
-  postgresql: github.com/shibukawa/tinygodriver/database/sql/pgxstdlib
+  postgresql: github.com/shibukawa/tinygodriver/database/pgx/stdlib, renamed from database/sql/pgxstdlib in v1.1.11, plus database/pgx/pgxpool for the native pool
   mysql: github.com/shibukawa/tinygodriver/database/sql/mysql
   dynamodb: github.com/shibukawa/tinygodriver/nosql/dynamodb
   datastore: github.com/shibukawa/tinygodriver/nosql/datastore

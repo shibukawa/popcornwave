@@ -70,7 +70,7 @@ func developmentConnections(resources pwruntime.Resources) []pwdata.Connection {
 	var connections []pwdata.Connection
 	for _, connection := range resources.Connections.Connections() {
 		connections = append(connections, pwdata.NewConnection(
-			connection.Label, connection.Group, connection.Driver, connection.ReadOnly, connection.DB))
+			connection.Label, connection.Group, connection.Driver, connection.ReadOnly, connection.Executor()))
 	}
 	if len(connections) == 0 {
 		return []pwdata.Connection{

@@ -1,4 +1,4 @@
-// Package sessionstore keeps Popcorn Wave login sessions in a database/sql
+// Package sessionstore keeps Popcorn Wave login sessions in a relational
 // database. It owns its own table and never inspects application tables.
 //
 // The engine is not compiled in here. One of the sibling packages describes it
@@ -9,13 +9,13 @@ package sessionstore
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"fmt"
 	"strings"
 	"time"
 
 	"github.com/shibukawa/popcornwave/session"
+	"github.com/shibukawa/tinybind-go/sqlbind"
 )
 
 const (
@@ -42,10 +42,10 @@ type Options struct {
 	MaxPruneBatch   int
 }
 
-// Store is a database/sql backed session.RawStore. The caller owns db and must
+// Store is a relational session.RawStore. The caller owns db and must
 // call EnsureSchema, or carry the migration, before serving requests.
 type Store struct {
-	db              *sql.DB
+	db              sqlbind.SQLExecutor
 	dialect         Dialect
 	table           string
 	now             func() time.Time
@@ -53,10 +53,12 @@ type Store struct {
 	maxPruneBatch   int
 }
 
-// NewStore constructs a Store over db. db stays owned by the caller, because a
-// session store commonly shares the pool of the RDB middleware. Wrap the result
-// with session.Typed to give a Manager the payload type it stores.
-func NewStore(db *sql.DB, options Options) (*Store, error) {
+// NewStore constructs a Store over db, which is a *sql.DB or the native
+// executor of an engine that bypasses database/sql. db stays owned by the
+// caller, because a session store commonly shares the pool of the RDB
+// middleware. Wrap the result with session.Typed to give a Manager the payload
+// type it stores.
+func NewStore(db sqlbind.SQLExecutor, options Options) (*Store, error) {
 	if db == nil {
 		return nil, fmt.Errorf("%w: nil dependency", session.ErrInvalidOptions)
 	}
@@ -205,15 +207,24 @@ func (s *Store) Get(ctx context.Context, keyHash string) (session.RawRecord, err
 	var version int
 	var method string
 	var payload []byte
-	err := s.db.QueryRowContext(ctx, s.rebind(`
+	// sqlbind.Query rather than QueryRowContext, because only database/sql can
+	// construct the *sql.Row that method returns and this store also runs on
+	// native executors.
+	rows, err := sqlbind.Query(ctx, s.db, s.rebind(`
 		SELECT created_at_ms, authenticated_at_ms, last_seen_at_ms, expires_at_ms,
 			idle_expires_at_ms, method, version, payload
-		FROM `+s.table+` WHERE key_hash = ?`), keyHash).
-		Scan(&createdAt, &authenticatedAt, &lastSeenAt, &expiresAt, &idleExpiresAt, &method, &version, &payload)
-	if errors.Is(err, sql.ErrNoRows) {
+		FROM `+s.table+` WHERE key_hash = ?`), keyHash)
+	if err != nil {
+		return zero, unavailable(ctx)
+	}
+	defer func() { _ = rows.Close() }()
+	if !rows.Next() {
+		if err := rows.Err(); err != nil {
+			return zero, unavailable(ctx)
+		}
 		return zero, session.ErrNotFound
 	}
-	if err != nil {
+	if err := rows.Scan(&createdAt, &authenticatedAt, &lastSeenAt, &expiresAt, &idleExpiresAt, &method, &version, &payload); err != nil {
 		return zero, unavailable(ctx)
 	}
 	if expiresAt <= 0 || len(payload) == 0 || len(payload) > s.maxPayloadBytes {

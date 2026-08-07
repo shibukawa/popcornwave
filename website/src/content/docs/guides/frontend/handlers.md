@@ -200,7 +200,7 @@ reaches OpenAPI. That is
 | --- | --- |
 | `pw.Logger(ctx)` | request-scoped `*slog.Logger` |
 | `pw.Config[T](ctx)` | a registered configuration struct |
-| `pw.DB(ctx)` | `(*sql.DB, bool)` |
+| `pw.DB(ctx)` | `(*sql.DB, bool)` — `false` on PostgreSQL, which runs on a native pgx pool |
 | `pw.Transaction(ctx, fn)` | runs `fn` inside a transaction |
 
 ```go

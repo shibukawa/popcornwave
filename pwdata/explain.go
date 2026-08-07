@@ -23,7 +23,7 @@ func (c *Connection) Explain(ctx context.Context, statement string) Result {
 	if !ok {
 		return Result{Error: "this engine has no plan-only EXPLAIN form, so a plan cannot be read here"}
 	}
-	return c.query(ctx, prefix+trimmed, nil)
+	return c.collect(ctx, prefix+trimmed)
 }
 
 // ExplainQuery reads the plan of a declared statement, built with the arguments
@@ -41,18 +41,18 @@ func (c *Connection) ExplainQuery(ctx context.Context, pkg, name string, args []
 	if !ok {
 		return Result{Error: "this engine has no plan-only EXPLAIN form, so a plan cannot be read here"}
 	}
-	return c.query(ctx, prefix+statement.SQL, statement.Args)
+	return c.collect(ctx, prefix+statement.SQL, statement.Args...)
 }
 
-// query runs a statement that returns rows and collects them.
-func (c *Connection) query(ctx context.Context, statement string, args []any) Result {
+// collect runs a statement that returns rows and collects them.
+func (c *Connection) collect(ctx context.Context, statement string, args ...any) Result {
 	result := Result{SQL: statement}
-	rows, err := c.db.QueryContext(ctx, statement, args...)
+	rows, err := c.queryRows(ctx, statement, args...)
 	if err != nil {
 		result.Error = err.Error()
 		return result
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	return readResult(result, rows)
 }
 

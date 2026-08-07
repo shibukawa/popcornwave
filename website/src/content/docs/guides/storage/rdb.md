@@ -74,6 +74,16 @@ come from it. Keep the scheme in agreement with `project.database` in
 `popcornwave.toml`: one decides which driver runs the query, the other which
 syntax `pw generate` compiled it to.
 
+PostgreSQL serves requests through a native pgx pool rather than through
+`database/sql`, because the `sql.DB` layer costs a pool mutex and a per-call
+mutex on every statement. Nothing about queries, transactions, or
+configuration changes — the startup log names the path each connection took
+(`path=native` against `path=database/sql`) — but two consequences are worth
+knowing: `pw.DB` reports no `*sql.DB` on a PostgreSQL connection, and
+`max_idle_conns` does not apply there, because a pgx pool prunes idle
+connections by `conn_max_idle_time` rather than by count. Migrations and
+seeding still run on `database/sql`; the bypass covers the request path only.
+
 ## One connection
 
 | Key | Default | Meaning |

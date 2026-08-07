@@ -2,7 +2,6 @@ package sessionstore
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"sort"
 	"strconv"
@@ -10,6 +9,7 @@ import (
 	"sync"
 
 	"github.com/shibukawa/popcornwave/session"
+	"github.com/shibukawa/tinybind-go/sqlbind"
 )
 
 // Dialect is everything one database engine has to say differently about the
@@ -29,8 +29,9 @@ type Dialect struct {
 	// form that reads well elsewhere is not accepted by every engine.
 	Prune func(table string) string
 	// Columns lists the columns of table in declaration order, or none at all
-	// when the table does not exist.
-	Columns func(ctx context.Context, db *sql.DB, table string) ([]string, error)
+	// when the table does not exist. The executor is a *sql.DB or a native
+	// one, so an engine queries it through sqlbind.Query.
+	Columns func(ctx context.Context, db sqlbind.SQLExecutor, table string) ([]string, error)
 	// Rebind adapts ? placeholders to the engine's own numbering. A nil
 	// Rebind leaves a statement as written.
 	Rebind func(statement string) string
@@ -140,7 +141,7 @@ func NumberedPlaceholders(statement string) string {
 
 // ScanColumns reads one column name per row, which is the shape every engine's
 // catalog query is written to return.
-func ScanColumns(rows *sql.Rows) ([]string, error) {
+func ScanColumns(rows sqlbind.Rows) ([]string, error) {
 	var names []string
 	for rows.Next() {
 		var name string

@@ -32,10 +32,11 @@ func developmentTestFixture(t *testing.T) http.Handler {
 	}
 	t.Chdir(root)
 
-	db, _, err := openRuntimeDatabase(RDBConnectionConfig{DSN: "sqlite://:memory:", ConnectTimeout: time.Second, MaxOpenConns: 1, MaxIdleConns: 1}, "test")
+	connection, err := openRuntimeDatabase(RDBConnectionConfig{DSN: "sqlite://:memory:", ConnectTimeout: time.Second, MaxOpenConns: 1, MaxIdleConns: 1}, "test")
 	if err != nil {
 		t.Fatal(err)
 	}
+	db := connection.DB
 	t.Cleanup(func() { _ = db.Close() })
 	if _, err := db.Exec("CREATE TABLE member (id INTEGER PRIMARY KEY, name TEXT)"); err != nil {
 		t.Fatal(err)

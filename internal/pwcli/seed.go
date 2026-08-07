@@ -65,7 +65,7 @@ func runSeed(ctx context.Context, args []string, stdout, stderr io.Writer) error
 	defer target.Close()
 	for _, path := range paths {
 		fmt.Fprintln(stdout, "seeding", relativeTo(root, path))
-		if err := dbseed.Apply(ctx, target.DB, dialect, false, []string{path}); err != nil {
+		if err := dbseed.Apply(ctx, dbseed.FromSQL(target.DB), dialect, false, []string{path}); err != nil {
 			return redactDSN(fmt.Errorf("seed: %w", err), dsn)
 		}
 	}

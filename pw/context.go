@@ -37,6 +37,10 @@ func Authenticated(ctx context.Context) bool {
 }
 
 // DB returns the pool of the effective connection group.
+//
+// An engine that bypasses database/sql — PostgreSQL runs on its native pgx
+// pool — has no *sql.DB, so DB reports false there. Generated SQL, Exec, and
+// Transaction are the portable surfaces; they run on either kind of pool.
 func DB(ctx context.Context) (*sql.DB, bool) { return pwruntime.DB(ctx) }
 
 // DBDriver reports the driver scheme of the effective framework database pool.

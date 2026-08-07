@@ -10,6 +10,7 @@ source: each data:database-connection-set element dsn, in the form scheme://rest
 registry:
   package: github.com/shibukawa/popcornwave/database
   form: an engine package registers its dialect, schemes, opener, and handoff form from init, per decision:import-registered-session-plugins
+  native_opener: an engine may additionally register a native opener that bypasses database/sql; requirement:pgx-native-execution defines the capability and its selection
   linking:
     sqlite: linked by pw itself, because it is the scaffold default and needs no server
     server_engines: linked by an application blank import that api:cli-init scaffolds into the entry point

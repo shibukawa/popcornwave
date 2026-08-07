@@ -185,12 +185,29 @@ func WithLogBackend(ctx context.Context, backend *LogBackend) context.Context {
 // DB returns the pool of the effective group, which is the group pinned by
 // SelectDB, otherwise the group of an active transaction, otherwise the default
 // group.
+//
+// A connection whose engine bypasses database/sql has no *sql.DB, so DB
+// reports false for it rather than fabricating a handle; ConnectionExecutor
+// is the surface that exists on every connection.
 func DB(ctx context.Context) (*sql.DB, bool) {
 	connection, err := resources(ctx).connection()
 	if err != nil {
 		return nil, false
 	}
 	return connection.DB, connection.DB != nil
+}
+
+// ConnectionExecutor returns the pool-level statement surface of the effective
+// group, undecorated and outside any transaction. It exists for framework
+// storage that holds one executor for the process lifetime, such as the rdb
+// session backend; request statements resolve through SQLExecutor instead.
+func ConnectionExecutor(ctx context.Context) (sqlbind.SQLExecutor, bool) {
+	connection, err := resources(ctx).connection()
+	if err != nil {
+		return nil, false
+	}
+	executor := connection.Executor()
+	return executor, executor != nil
 }
 
 // DBDriver reports the driver scheme of the effective connection, which
@@ -233,7 +250,7 @@ func baseSQLExecutor(ctx context.Context, current *Resources) (sqlbind.SQLExecut
 				"popcornwave: group %q is writable and cannot be selected inside a transaction on group %q",
 				group, current.TxScope.Group())
 		}
-		return readOnlyExecutor(connection.DB, true), nil
+		return readOnlyExecutor(connection.Executor(), true), nil
 	}
 	if executor, err := sqlbind.SQLExecutorFromContext(ctx); err == nil {
 		return unwrapExecutor(executor), nil
@@ -242,7 +259,7 @@ func baseSQLExecutor(ctx context.Context, current *Resources) (sqlbind.SQLExecut
 	if err != nil {
 		return nil, err
 	}
-	return readOnlyExecutor(connection.DB, connection.ReadOnly), nil
+	return readOnlyExecutor(connection.Executor(), connection.ReadOnly), nil
 }
 
 // activeScope returns the transaction scope holding an open transaction.

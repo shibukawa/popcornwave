@@ -143,6 +143,10 @@ when the test finishes. Tests sharing one database stay independent and can run
 in parallel. Transactions the application itself starts nest into it as
 savepoints, which requires a driver with savepoint support.
 
+This works on every engine, including PostgreSQL's native pgx path: the test
+transaction is opened on whichever kind of pool the connection holds, and
+seeding and assertion run inside it either way.
+
 ### `WithIdentityProvider`
 
 ```go

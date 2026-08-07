@@ -2,6 +2,7 @@ package pw
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -77,13 +78,54 @@ func prepareTestRuntime(handler http.Handler, configs pwtestbridge.Configs, opti
 	var dbClose func() error
 	var db = (*sql.DB)(nil)
 	var driver string
+	var connections *pwruntime.ConnectionSet
+	var scope *pwruntime.TransactionScope
 	if middleware.RDB.Enabled {
-		var err error
-		db, driver, err = openRuntimeDatabase(testConnection, testConnection.Group)
+		connection, err := openRuntimeDatabase(testConnection, testConnection.Group)
 		if err != nil {
 			return pwtestbridge.Prepared{}, err
 		}
-		dbClose = db.Close
+		driver = connection.Driver
+		db = connection.DB
+		closers := []func() error{connection.Close}
+		if connection.Native != nil {
+			// Requests run natively, but schema preparation, seeding, and
+			// assertions are database/sql tooling, which the engine's *sql.DB
+			// opener still serves. That second handle is what the test side of
+			// the bridge sees as DB.
+			target, targetErr := databaseTarget(testConnection.DSN)
+			if targetErr == nil {
+				db, targetErr = target.Open()
+			}
+			if targetErr != nil {
+				_ = connection.Close()
+				return pwtestbridge.Prepared{}, fmt.Errorf("popcornwave: open tooling database: %w", targetErr)
+			}
+			closers = append(closers, db.Close)
+		}
+		set, err := pwruntime.NewConnectionSet("", []pwruntime.Connection{connection})
+		if err != nil {
+			for _, closer := range closers {
+				_ = closer()
+			}
+			return pwtestbridge.Prepared{}, err
+		}
+		connections = set
+		dbClose = func() error {
+			var errs []error
+			for _, closer := range closers {
+				if err := closer(); err != nil {
+					errs = append(errs, err)
+				}
+			}
+			return errors.Join(errs...)
+		}
+		if options.Transaction {
+			// The scope runs on the connection the requests use, whichever
+			// kind of pool backs it; the test side reaches the same
+			// transaction through TxScope.ActiveExecutor.
+			scope = connection.TransactionScope()
+		}
 	}
 	if options.PrepareDatabase != nil {
 		if err := options.PrepareDatabase(db); err != nil {
@@ -93,17 +135,17 @@ func prepareTestRuntime(handler http.Handler, configs pwtestbridge.Configs, opti
 			return pwtestbridge.Prepared{}, err
 		}
 	}
-	var scope *pwruntime.TransactionScope
-	if options.Transaction {
-		scope = pwruntime.NewTransactionScope(db, driver)
-	}
 	resources := pwruntime.Resources{
-		Configs:  map[reflect.Type]any(configs),
-		Log:      pwruntime.NewLogBackend(pwruntime.LevelInfo, pwruntime.NewSlogSink(slog.Default().Handler())),
-		DB:       db,
-		DBDriver: driver,
-		TxScope:  scope,
-		Query:    resolveQueryDiagnostics(testConfigValue[ObservabilityConfig](configs), Development()),
+		Configs: map[reflect.Type]any(configs),
+		Log:     pwruntime.NewLogBackend(pwruntime.LevelInfo, pwruntime.NewSlogSink(slog.Default().Handler())),
+		DB:      db,
+		// The single-connection set collapses every group name onto the one
+		// pool, exactly as the nil set did through the DB fallback, and it is
+		// what carries a native connection to the executor seam.
+		Connections: connections,
+		DBDriver:    driver,
+		TxScope:     scope,
+		Query:       resolveQueryDiagnostics(testConfigValue[ObservabilityConfig](configs), Development()),
 	}
 	wrapped, err := buildRuntimeHandler(handler, server, security, middleware, resources, false)
 	if err != nil {

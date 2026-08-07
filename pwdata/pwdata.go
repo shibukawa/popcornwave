@@ -105,12 +105,12 @@ func (c *Connection) RunQuery(ctx context.Context, pkg, name string, args []stri
 	if !returnsRows(statement.SQL) {
 		return c.runWithoutRows(ctx, statement)
 	}
-	rows, err := c.db.QueryContext(ctx, statement.SQL, statement.Args...)
+	rows, err := c.queryRows(ctx, statement.SQL, statement.Args...)
 	if err != nil {
 		result.Error = err.Error()
 		return result
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	return readResult(result, rows)
 }
 

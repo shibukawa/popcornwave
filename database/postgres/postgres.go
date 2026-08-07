@@ -11,7 +11,7 @@ package postgres
 
 import (
 	"github.com/shibukawa/popcornwave/database"
-	"github.com/shibukawa/tinygodriver/database/sql/pgxstdlib"
+	"github.com/shibukawa/tinygodriver/database/pgx/stdlib"
 )
 
 // Dialect is the canonical engine name this package registers.
@@ -24,9 +24,13 @@ func init() {
 		// The configured DSN is already a libpq URL, so it is handed over
 		// whole rather than stripped of its scheme.
 		KeepScheme: true,
-		// pgxstdlib registers no database/sql driver name: it builds the pool
+		// pgx/stdlib registers no database/sql driver name: it builds the pool
 		// from a pgx connector, which is why the registry resolves schemes to
-		// an opener instead of to a driver name.
-		Open: pgxstdlib.Open,
+		// an opener instead of to a driver name. Requests never run through it;
+		// it serves migration and seeding tooling, which need a *sql.DB.
+		Open: stdlib.Open,
+		// The request-time path bypasses database/sql entirely: a pgxpool has
+		// no pool mutex on the query path and no driver.Value boxing.
+		OpenNative: openNative,
 	})
 }

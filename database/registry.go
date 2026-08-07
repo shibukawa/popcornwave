@@ -11,21 +11,83 @@
 // DSN selects:
 //
 //	import _ "github.com/shibukawa/popcornwave/database/postgres"
+//
+// An engine may also register a native opener, which the request-time query
+// path uses instead of database/sql: the sql.DB pool mutex, the per-conn
+// mutex, and driver.Value boxing all disappear from that path. The *sql.DB
+// opener stays mandatory beside it, because migration and seeding tooling
+// runs on database/sql regardless of how requests are served.
 package database
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"fmt"
 	"sort"
 	"strings"
 	"sync"
+	"time"
+
+	"github.com/shibukawa/tinybind-go/sqlbind"
 )
 
 // OpenFunc opens a pool for one data source. It wraps sql.Open for an engine
 // that registers a driver name, and the engine's own constructor for one that
 // does not.
 type OpenFunc func(dataSource string) (*sql.DB, error)
+
+// PoolBounds carries the configured pool limits to a native opener. A native
+// pool is configured at construction rather than adjusted afterwards, which is
+// why the bounds travel with the open call instead of being applied to its
+// result the way sql.DB setters are.
+type PoolBounds struct {
+	MaxOpenConns int
+	// MaxIdleConns exists for symmetry with the sql.DB setter but has no
+	// equivalent on a native pool, which prunes idle connections by
+	// ConnMaxIdleTime instead. An engine that cannot express it ignores it.
+	MaxIdleConns    int
+	ConnMaxLifetime time.Duration
+	ConnMaxIdleTime time.Duration
+}
+
+// NativeExecutor is the statement surface of a native handle. It satisfies
+// sqlbind.SQLExecutor so the framework's executor seam can store it, and adds
+// the driver-agnostic query path sqlbind.Query dispatches to; the QueryContext
+// half of SQLExecutor is expected to be sqlbind.UnimplementedQuerier, because
+// a backend outside database/sql cannot construct a *sql.Rows.
+type NativeExecutor interface {
+	sqlbind.SQLExecutor
+	sqlbind.RowsQuerier
+}
+
+// NativeTxOptions selects how a native transaction begins.
+type NativeTxOptions struct {
+	ReadOnly bool
+}
+
+// NativeTx is one open transaction on a NativeDB. Commit and Rollback take a
+// context because the native protocol sends them on the wire, unlike sql.Tx
+// which bound its context at Begin.
+type NativeTx interface {
+	NativeExecutor
+	Commit(ctx context.Context) error
+	Rollback(ctx context.Context) error
+}
+
+// NativeDB is the request-time handle of an engine that bypasses database/sql.
+// It is framework-defined so the registry, and everything above it, never sees
+// a driver type.
+type NativeDB interface {
+	NativeExecutor
+	BeginTx(ctx context.Context, options NativeTxOptions) (NativeTx, error)
+	Ping(ctx context.Context) error
+	Close() error
+}
+
+// OpenNativeFunc opens a native pool for one data source with the configured
+// bounds already applied.
+type OpenNativeFunc func(ctx context.Context, dataSource string, bounds PoolBounds) (NativeDB, error)
 
 // Engine describes one database a project can be configured against.
 type Engine struct {
@@ -37,6 +99,10 @@ type Engine struct {
 	Schemes []string
 	// Open opens the pool for the resolved data source.
 	Open OpenFunc
+	// OpenNative, when set, opens the pool the request-time query path uses
+	// instead of database/sql. Open stays required beside it, because
+	// migration and seeding tooling runs on database/sql regardless.
+	OpenNative OpenNativeFunc
 	// KeepScheme hands Open the whole configured DSN instead of the part after
 	// the scheme, for an engine whose DSN is already a URL.
 	KeepScheme bool
@@ -80,6 +146,7 @@ type Target struct {
 	// DataSource is the part of the DSN the engine expects.
 	DataSource string
 	open       OpenFunc
+	openNative OpenNativeFunc
 }
 
 // Open opens the pool. The caller applies its own pool bounds and ping.
@@ -88,6 +155,20 @@ func (target Target) Open() (*sql.DB, error) {
 		return nil, errors.New("popcornwave: database target was not resolved")
 	}
 	return target.open(target.DataSource)
+}
+
+// Native reports whether the engine serves the request-time path natively.
+func (target Target) Native() bool {
+	return target.openNative != nil
+}
+
+// OpenNative opens the native pool with bounds applied. The caller still
+// pings, because a native pool connects lazily.
+func (target Target) OpenNative(ctx context.Context, bounds PoolBounds) (NativeDB, error) {
+	if target.openNative == nil {
+		return nil, errors.New("popcornwave: engine " + target.Dialect + " has no native opener")
+	}
+	return target.openNative(ctx, target.DataSource, bounds)
 }
 
 // Scheme splits the framework scheme://rest syntax. It validates the shape
@@ -117,7 +198,12 @@ func Resolve(configured string) (Target, error) {
 	if engine.KeepScheme {
 		dataSource = strings.TrimSpace(configured)
 	}
-	return Target{Dialect: engine.Dialect, DataSource: dataSource, open: engine.Open}, nil
+	return Target{
+		Dialect:    engine.Dialect,
+		DataSource: dataSource,
+		open:       engine.Open,
+		openNative: engine.OpenNative,
+	}, nil
 }
 
 // Dialect reports the canonical engine name for a DSN without opening it.
