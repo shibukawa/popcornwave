@@ -90,7 +90,14 @@ func buildMiddlewares(handler http.Handler, option ...Option) (http.Handler, err
 	// The data pane needs the pool, so it starts once the database is open and
 	// before the first request. It is a no-op outside the pwdev build mode.
 	startDevelopmentData(resources)
-	return buildRuntimeHandler(handler, server, security, middleware, resources, telemetry.tracing, options.publicFS)
+	wrapped, err := buildRuntimeHandler(handler, server, security, middleware, resources, telemetry.tracing, options.publicFS)
+	if err != nil {
+		return nil, err
+	}
+	// The seed and assert endpoints wrap the finished chain rather than joining
+	// it, so they exist only on the served application — the test bridge builds
+	// its chain without them — and only in the pwdev build mode.
+	return developmentTestEndpoints(wrapped, middleware, resources), nil
 }
 
 // Run owns parsing, framework initialization, serving, graceful shutdown, and

@@ -2,7 +2,7 @@
 title: Seed Data
 description: What seed data is, how a dataset file is written, and why the CLI and the test suite read the same files.
 sidebar:
-  order: 8
+  order: 9
 ---
 
 An empty schema runs, but it does not demonstrate anything. Open the application
@@ -86,6 +86,12 @@ starts; `WithSeedDir` moves the directory. Sharing the files is the point rather
 than a convenience: a fixture maintained separately from the seed drifts, and it
 drifts silently — the test keeps passing against a shape the development
 database no longer has.
+
+A browser suite is a third consumer of the same files: in the `pwdev` build the
+application serves a seed endpoint, and a Playwright test reseeds the database
+with one HTTP request between tests, as
+[E2E Testing](/productivity/e2e-testing/) shows. One format, three readers, no
+drift.
 
 A test also reads these files in the other direction. `server.AssertDB(t,
 "after_archive")` compares the database against a dataset and reports a per-table

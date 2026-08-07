@@ -140,7 +140,7 @@ func NewManager(registry *Registry, backend RawStore, options Options) (*Manager
 	// trip that tells the next request where its Private slots live.
 	order := []string{promotedMarker}
 	for _, entry := range slots {
-		if !entry.placement.cookiePlaced() {
+		if entry.placement.recordPlaced() {
 			order = append(order, entry.key)
 		}
 	}

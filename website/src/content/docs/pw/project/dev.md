@@ -136,6 +136,15 @@ port = 18081
 It is what the rest of the loop is read through, and none of it exists in a
 release build. See [Development Console](/productivity/dev-console/).
 
+## Test data endpoints
+
+The application `pw dev` builds carries the `pwdev` build tag, and in the
+development environment that binary serves `POST /_pw/test/seed/{dataset}` and
+`GET /_pw/test/assert/{dataset}` on its own listener, for loopback callers
+only. A browser test suite uses them to reset and verify the database through
+the same `testdata/seed` files `pw seed` reads. A release build carries no
+endpoint bytes. See [E2E Testing](/productivity/e2e-testing/).
+
 ## Stopping
 
 `Ctrl-C` cancels the whole loop, stopping the application, Tailwind watcher, and

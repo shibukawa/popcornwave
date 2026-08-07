@@ -156,6 +156,8 @@ type SessionCookieStoreConfig struct {
 // The dev-volatile mode is the exception for Private and ServerOnly slots.
 //
 // It is required whenever a declared slot is placed in a protected cookie.
+// session.Shared protects nothing; session.ServerOnly and session.RequestScope
+// never use such a cookie.
 type SessionKeyringConfig struct {
 	// Secret is 32 or more random bytes in base64, generated with
 	// `openssl rand -base64 32`. Keep it out of the file itself outside

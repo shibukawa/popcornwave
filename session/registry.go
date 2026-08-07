@@ -204,8 +204,10 @@ func (r *Registry) freeze() []*slot {
 	return slots
 }
 
-// needsKeyring reports whether any registered slot still lives in a protected
-// browser cookie. Private needs one only while its anonymous phase is there.
+// needsKeyring reports whether any registered slot lives in a protected
+// browser cookie. ReadOnly always does; Private does during its anonymous
+// phase unless the host deliberately places that phase on the server. Shared
+// protects nothing, while ServerOnly and RequestScope never need a cookie key.
 func (r *Registry) needsKeyring(serverSideAnonymous bool) bool {
 	r.mu.RLock()
 	defer r.mu.RUnlock()

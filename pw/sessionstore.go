@@ -29,10 +29,23 @@ var sessionSlots struct {
 // The placement states what the client may do with the value and where its
 // bytes live: session.Shared is a plain cookie the front end reads and writes,
 // session.ReadOnly a signed one it may read, session.Private is sealed and
-// moves from a cookie to the configured backend at the login rotation, and
+// moves from a cookie to the configured backend at the login rotation,
 // session.ServerOnly is sealed and always on the server because it must stay
-// revocable. The deployment is left with one choice, which server backend
-// session.backend names.
+// revocable, and session.RequestScope lives in process memory for one request
+// and is never persisted. The deployment is left with one choice, which server
+// backend session.backend names.
+//
+// One example per placement, in the same order: a display-density toggle the
+// front end flips is session.Shared; the locale the server chose and the front
+// end may read is session.ReadOnly; a cart an anonymous visitor starts and a
+// logged-in user keeps is session.Private; a stored secret the client must
+// never hold even sealed — the refresh token taken at login — or a draft that
+// outgrows the cookie budget is session.ServerOnly; and the scope set a bearer
+// token resolves to against the authentication database — read fresh on every
+// request precisely so a revocation is seen immediately — is
+// session.RequestScope. A preference that should follow the account across
+// browsers is not session state at all: a session names one browser and dies
+// at logout, so that belongs in the application's own database.
 //
 // How long the value lives is the second, independent question. Stating nothing
 // ties it to the session. session.ExpiresAfter ends it earlier, which is what a
@@ -91,7 +104,8 @@ func SessionRegistry(extra ...func(*session.Registry) error) (*session.Registry,
 // One secret serves both protections a slot can carry: session.ReadOnly signs
 // and session.Private seals, and session.Keyring derives a purpose-separated
 // subkey per mode. It is therefore required unless every declared slot is
-// session.Shared, which is the only placement that protects nothing.
+// session.Shared, which protects nothing, or session.RequestScope, which never
+// leaves process memory.
 //
 // The secret itself never reaches an error message or a log.
 func SessionKeyring(config SessionKeyringConfig) (*session.Keyring, error) {

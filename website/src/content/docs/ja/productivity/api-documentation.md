@@ -2,7 +2,7 @@
 title: API ドキュメント
 description: すでに書いたコードから組み立てられる OpenAPI 3.1 ドキュメントと、それを読む閲覧 UI。
 sidebar:
-  order: 3
+  order: 4
 ---
 
 OpenAPI ドキュメントはたいてい 2 回書かれます。1 回はハンドラとして、もう 1 回は

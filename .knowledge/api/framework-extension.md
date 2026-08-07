@@ -11,17 +11,22 @@ surface:
   - Extension fields are Name, Slot, Setup, and Close
   - Setup(context.Context) returns one middleware or nil
   - Close(context.Context) releases only resources the extension owns
+  - pw.RegisterMiddleware(slot, name, middleware) is the application surface over the same registry, per requirement:application-middleware-registration
 slots:
-  SlotSession: resolves stored session state
-  SlotAuthentication: finalizes data:request-authentication and owns its own login paths
-  SlotGuard: rejects unauthenticated requests to protected paths
+  line: every framework frame carries a Slot on one number line, tens taken by the framework, per requirement:application-middleware-registration
+  SlotStorage: 110, installs storage clients later slots resolve
+  SlotSession: 120, resolves stored session state
+  SlotAuthentication: 130, finalizes data:request-authentication and owns its own login paths
+  SlotCSRF: 140, rejects forged unsafe requests
+  SlotGuard: 150, rejects unauthenticated requests to protected paths
+  fixed: SlotOperational 100 and SlotAPIDoc 160 are handler frames and refuse registration at their exact number
 rules:
   - registration completes before ParseConfig
   - reject duplicate extension names
   - Setup runs once per framework initialization, after configuration parsing and database startup
   - Setup receives the same data:request-context-capsule resources handlers will see
   - Setup runs in ascending slot order so a later slot may read earlier prepared state
-  - the chain is composed so the lowest slot is outermost and every extension sits inside resource injection
+  - the chain is composed so the lowest slot is outermost; an extension using the provided constants sits inside resource injection at slot 20
   - a nil middleware installs nothing, which is how a disabled capability opts out
   - Setup failure is a startup error, never a first-request error
   - Close is registered once per name and runs in reverse order during shutdown
@@ -32,4 +37,5 @@ boundaries:
 consumers:
   - plugin/auth registers the session, authentication, and guard extensions
   - a concept:component-package contributing middleware or startup work uses this registry unchanged; api:package-registration adds identity and assets and duplicates nothing here
+  - an application inserting its own middleware uses pw.RegisterMiddleware from main, per requirement:application-middleware-registration
 ```

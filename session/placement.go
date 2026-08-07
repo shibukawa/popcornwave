@@ -31,6 +31,16 @@ const (
 	// cookie-placed record cannot be taken back. An anonymous write creates a
 	// server record, which is what this placement asks for.
 	ServerOnly
+
+	// RequestScope lives in process memory for one request and is never
+	// persisted: no cookie, no record, no backend. A middleware or handler
+	// derives it from an authoritative source and later handlers in the same
+	// request read it; the next request starts empty. It is for a value whose
+	// freshness matters more than its cost to rebuild — the scope set a bearer
+	// token resolves to against the authentication database is the standing
+	// example — so staleness is prevented by reconstruction rather than
+	// chased by invalidation.
+	RequestScope
 )
 
 // String implements fmt.Stringer.
@@ -44,18 +54,25 @@ func (p Placement) String() string {
 		return "private"
 	case ServerOnly:
 		return "server_only"
+	case RequestScope:
+		return "request_scope"
 	default:
 		return "unknown"
 	}
 }
 
 // valid reports whether p names a placement.
-func (p Placement) valid() bool { return p >= Shared && p <= ServerOnly }
+func (p Placement) valid() bool { return p >= Shared && p <= RequestScope }
 
 // cookiePlaced reports whether the slot always lives in its own browser cookie.
 // Private is not cookie-placed in this sense: it shares the session record,
 // which is a cookie only while the session is anonymous.
 func (p Placement) cookiePlaced() bool { return p == Shared || p == ReadOnly }
+
+// recordPlaced reports whether the slot's bytes live in the session record,
+// wherever that record currently is. RequestScope is in neither camp: its value
+// exists only in the memory of the request that wrote it.
+func (p Placement) recordPlaced() bool { return p == Private || p == ServerOnly }
 
 // mode is the cookie protection a cookie-placed slot carries.
 func (p Placement) mode() CookieMode {
@@ -66,5 +83,6 @@ func (p Placement) mode() CookieMode {
 }
 
 // needsKeyring reports whether a slot of this placement cannot be served
-// without a keyring. Shared is the only placement that protects nothing.
-func (p Placement) needsKeyring() bool { return p != Shared }
+// without a keyring. Shared protects nothing, and RequestScope never leaves
+// process memory, so neither needs a secret.
+func (p Placement) needsKeyring() bool { return p != Shared && p != RequestScope }

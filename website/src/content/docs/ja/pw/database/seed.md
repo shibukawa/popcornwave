@@ -64,7 +64,10 @@ server := testutil.TestRun(t, Handlers(), nil,
 )
 ```
 
-[テスト](/ja/productivity/testing/)を参照。
+[テスト](/ja/productivity/testing/)を参照。ブラウザスイートも同じファイルを、`pwdev`
+アプリケーションが提供するシードエンドポイント経由で読みます。このコマンドに戻るのは
+開発環境の外のデータベースを相手にするときだけです ——
+[E2E テスト](/ja/productivity/e2e-testing/)が両方の経路を説明しています。
 
 ## DSN の取得元
 

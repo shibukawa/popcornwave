@@ -319,7 +319,7 @@ CSRF の秘密もここの鍵ではありません。登録されたセッショ
 
 `keyring.secret` が守るのはトークンの隣を運ばれるものです。`session.ReadOnly` のスロットには
 署名、`session.Private` のスロットには封。どちらも同じ1つの秘密から導きます。だから
-`backend` が何であれ、全スロットが `session.Shared` でない限り必須です。private なスロットは
+`backend` が何であれ、全スロットが `session.Shared` か `session.RequestScope` でない限り必須です。private なスロットは
 訪問者が匿名のあいだ封をしたクッキーに載るからです。`pw init` が `config.dev.toml` に生成し、
 それ以外の環境は `SESSION_KEYRING_SECRET` を読みます。
 

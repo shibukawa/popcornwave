@@ -3,7 +3,7 @@ id: decision:slot-declared-placement
 type: decision
 title: Slot-Declared Placement and Anonymous Promotion
 ---
-Each registered slot declares where it lives rather than inheriting one deployment-wide backend, and a private slot rides a sealed cookie until the login that promotes it to the server, so a language preference stays a readable cookie, a credential stays revocable, and an anonymous visitor costs the server nothing.
+Each registered slot declares where it lives rather than inheriting one deployment-wide backend, and a private slot rides a sealed cookie until the login that promotes it to the server, so a language preference stays a readable cookie, a credential stays revocable, an anonymous visitor costs the server nothing, and a fact that must be fresh is rebuilt every request instead of stored.
 
 ```yaml
 status: accepted
@@ -15,7 +15,7 @@ supersedes:
     - an anonymous visitor who writes anything gets a server row, so bots and one-off visits accumulate rows that will never be logged in
     - a slot that must be revocable had no way to say so, and a deployment running backend cookie silently made it unrevocable
 values:
-  count: four, because a fifth asked an application developer to make a choice that has only one sensible answer
+  count: five; four place bytes somewhere, and session.RequestScope is the answer for a value that must not be placed at all
   session.Shared:
     placement: cookie, necessarily; a value the client writes cannot live on the server
     protection: policy:cookie-value-protection plain
@@ -32,9 +32,17 @@ values:
     refuses: backend cookie, at startup, naming the slot
     argument: revocation, not confidentiality; sealing already hides a value from the client, but decision:cookie-session-storage cannot take one back
     cost: an anonymous write creates a server record, which is exactly what this value is asking for
+  session.RequestScope:
+    placement: process memory of one request; no cookie, no record, no backend, no keyring
+    written_by: middleware or a handler, after deriving the value from an authoritative source; later handlers in the same request read it, and the next request starts empty
+    argument: freshness; a value rebuilt from the source of record every request cannot be stale, so a revocation there is seen at the next request rather than chased through cache invalidation
+    cost: the rebuild, once per request that needs it
+    refuses: session.ExpiresAfter, session.OutlivesSession, and session.ResetOnRotate at registration, because the lifetime is the request and nothing else
+    survives: Rotate and Destroy within its request, because the session stored nothing of it to take back
 distinction:
   private_vs_server_only: whether an anonymous write reaches the server, and therefore whether the value is revocable before a login
-  everything_else: identical; both are opaque, both are destroyed together, and neither is readable by the client
+  request_scope_vs_the_rest: whether any bytes exist after the response; the other four persist and differ in where, this one declines persistence
+  everything_else: identical; both sealed tiers are opaque, both are destroyed together, and neither is readable by the client
 promotion:
   what: a session.Private slot moving from its sealed cookie to the configured backend
   when: the login rotation, which policy:session-security already requires for fixation resistance
@@ -60,7 +68,7 @@ costs:
     opt_out: session.ServerOnly, declared per slot, because the deployment-wide answer was the thing this decision removed
   secret:
     correction: this is not a new requirement; session.ReadOnly already needed the keyring, because policy:cookie-value-protection signs with HMAC-SHA256 and session.Keyring serves the signed and sealed modes from one secret
-    rule: the keyring is required unless every registered slot is session.Shared, which is the only mode that protects nothing
+    rule: the keyring is required unless every registered slot is session.Shared, which protects nothing, or session.RequestScope, which never leaves the process
     added_by_this_decision: session.Private under a server backend, which previously needed no keyring and now needs one for its anonymous phase
     static: the framework cannot know whether a private slot will be written before a login, so the requirement is stated at registration rather than discovered at the first anonymous write
     development: generated rather than authored, per data:session-runtime-config development_generation, so the cost lands on deployment rather than on getting started

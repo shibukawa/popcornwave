@@ -65,7 +65,10 @@ server := testutil.TestRun(t, Handlers(), nil,
 )
 ```
 
-See [Testing](/productivity/testing/).
+See [Testing](/productivity/testing/). A browser suite reads the same files
+through the seed endpoint the `pwdev` application serves, falling back to this
+command only for a database outside the development environment —
+[E2E Testing](/productivity/e2e-testing/) covers both routes.
 
 ## Where the DSN comes from
 
