@@ -9,6 +9,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/shibukawa/popcornwave/contrib/otel"
+	"github.com/shibukawa/popcornwave/contrib/otel/trace"
 	"github.com/shibukawa/tinybind-go/sqlbind"
 )
 
@@ -61,11 +63,21 @@ func unwrapExecutor(executor sqlbind.SQLExecutor) sqlbind.SQLExecutor {
 	}
 }
 
-// instrument decorates executor when diagnostics are enabled. The wrapper is
-// built once per executor resolution rather than once per statement.
+// instrument decorates executor when diagnostics or database spans are
+// enabled. The wrapper is built once per executor resolution rather than once
+// per statement.
+//
+// The two settings are independent. A deployment commonly wants the span, which
+// costs a fixed handful of attributes and lands in a trace beside the request
+// that issued it, without the per-statement record; a development run usually
+// wants both.
 func instrument(current *Resources, executor sqlbind.SQLExecutor, logger Logger) sqlbind.SQLExecutor {
 	config := current.Query
-	if config == nil || executor == nil {
+	tracing := current.Trace
+	if tracing != nil && !tracing.Database {
+		tracing = nil
+	}
+	if executor == nil || (config == nil && tracing == nil) {
 		return executor
 	}
 	inTx, depth := current.TxScope.state()
@@ -81,6 +93,7 @@ func instrument(current *Resources, executor sqlbind.SQLExecutor, logger Logger)
 	return &instrumentedExecutor{
 		inner:      executor,
 		config:     config,
+		tracing:    tracing,
 		logger:     logger,
 		driver:     driver,
 		connection: label,
@@ -92,10 +105,13 @@ func instrument(current *Resources, executor sqlbind.SQLExecutor, logger Logger)
 // instrumentedExecutor observes one statement per call without changing what
 // the wrapped executor does with it.
 type instrumentedExecutor struct {
-	inner  sqlbind.SQLExecutor
+	inner sqlbind.SQLExecutor
+	// config is the query log setting, nil when only the span is wanted.
 	config *QueryDiagnostics
-	logger Logger
-	driver string
+	// tracing is the span setting, nil when only the record is wanted.
+	tracing *Tracing
+	logger  Logger
+	driver  string
 	// connection labels which pool ran the statement. Empty when only one is
 	// configured.
 	connection string
@@ -107,6 +123,7 @@ type instrumentedExecutor struct {
 func (executor *instrumentedExecutor) Unwrap() sqlbind.SQLExecutor { return executor.inner }
 
 func (executor *instrumentedExecutor) ExecContext(ctx context.Context, query string, args ...any) (sql.Result, error) {
+	spanCtx, span := executor.startSpan(ctx, "exec", query)
 	start := time.Now()
 	result, err := executor.inner.ExecContext(ctx, query, args...)
 	elapsed := time.Since(start)
@@ -116,23 +133,138 @@ func (executor *instrumentedExecutor) ExecContext(ctx context.Context, query str
 			affected = value
 		}
 	}
-	executor.record(ctx, "exec", query, args, elapsed, affected, err)
+	executor.endSpan(span, elapsed, affected, err)
+	executor.record(spanCtx, "exec", query, args, elapsed, affected, err)
 	return result, err
 }
 
 func (executor *instrumentedExecutor) QueryContext(ctx context.Context, query string, args ...any) (*sql.Rows, error) {
+	spanCtx, span := executor.startSpan(ctx, "query", query)
 	start := time.Now()
 	rows, err := executor.inner.QueryContext(ctx, query, args...)
 	// The executor contract returns a concrete *sql.Rows, so there is nothing to
 	// decorate: the row count and the scan time belong to the caller's loop and
 	// are deliberately outside this measurement.
-	executor.record(ctx, "query", query, args, time.Since(start), -1, err)
+	elapsed := time.Since(start)
+	executor.endSpan(span, elapsed, -1, err)
+	executor.record(spanCtx, "query", query, args, elapsed, -1, err)
 	return rows, err
 }
 
-// record emits at most one log record for one execution.
+// startSpan opens the client span of one statement, and returns the context
+// carrying it so the record below correlates with it rather than with the
+// request root.
+//
+// The observed call still runs on the caller's context. A span in the context
+// handed to a driver buys nothing — no driver here reads one — and passing the
+// original keeps the call unchanged when tracing is off and on.
+func (executor *instrumentedExecutor) startSpan(ctx context.Context, operation, query string) (context.Context, *trace.Span) {
+	if executor.tracing == nil {
+		return ctx, nil
+	}
+	statement := sqlOperation(query)
+	attributes := make([]otel.Attribute, 0, 6)
+	if executor.driver != "" {
+		attributes = append(attributes, otel.String("db.system.name", executor.driver))
+	}
+	if statement != "" {
+		attributes = append(attributes, otel.String("db.operation.name", statement))
+	}
+	if executor.tracing.Statement {
+		text, truncated := truncateText(query, executor.tracing.MaxSQLLength)
+		attributes = append(attributes, otel.String("db.query.text", text))
+		if truncated {
+			attributes = append(attributes, otel.Bool("pw.db.query_truncated", true))
+		}
+	}
+	if executor.connection != "" {
+		attributes = append(attributes, otel.String("pw.db.connection", executor.connection))
+	}
+	if executor.inTx {
+		attributes = append(attributes, otel.Int64("pw.db.tx_depth", int64(executor.depth)))
+	}
+	// A span name has to stay low cardinality, so it is the statement keyword
+	// rather than the statement: the text is an attribute, where a backend
+	// groups on it only if asked to.
+	name := statement
+	if name == "" {
+		name = operation
+	}
+	return trace.Start(ctx, name, trace.WithSpanKind(trace.SpanKindClient), trace.WithAttributes(attributes...))
+}
+
+// endSpan closes the statement span with its outcome.
+//
+// It runs before the record, so the diagnostics the record may add — an EXPLAIN
+// round trip above all — stay outside the duration of the statement they
+// describe.
+func (executor *instrumentedExecutor) endSpan(span *trace.Span, elapsed time.Duration, affected int64, callErr error) {
+	if span == nil {
+		return
+	}
+	if affected >= 0 {
+		span.SetAttributes(otel.Int64("pw.db.rows_affected", affected))
+	}
+	if config := executor.config; config != nil && config.SlowThreshold > 0 && elapsed >= config.SlowThreshold {
+		// The plan, the values, and the rerun snippet stay on the record. A
+		// trace is retained longer and read more widely than a log, and the flag
+		// is what a waterfall needs anyway: it says which span to open the
+		// correlated record for.
+		span.SetAttributes(otel.Bool("pw.db.slow", true))
+	}
+	if callErr != nil {
+		span.RecordError(callErr)
+		span.SetStatus(trace.StatusError, "")
+	}
+	span.End()
+}
+
+// sqlStatementKeywords are the leading words a statement span may be named
+// after. An allowlist rather than "the first token" is what bounds cardinality:
+// a generated statement always starts with one of these, and anything else
+// falls back to the executor operation rather than putting an unknown word into
+// a span name.
+var sqlStatementKeywords = map[string]string{
+	"select": "SELECT", "insert": "INSERT", "update": "UPDATE", "delete": "DELETE",
+	"with": "WITH", "merge": "MERGE", "replace": "REPLACE", "upsert": "UPSERT",
+	"create": "CREATE", "alter": "ALTER", "drop": "DROP", "truncate": "TRUNCATE",
+	"begin": "BEGIN", "commit": "COMMIT", "rollback": "ROLLBACK",
+	"savepoint": "SAVEPOINT", "release": "RELEASE",
+	"pragma": "PRAGMA", "explain": "EXPLAIN", "call": "CALL", "set": "SET",
+	"vacuum": "VACUUM", "analyze": "ANALYZE", "show": "SHOW",
+}
+
+// sqlOperation reads the leading keyword of a statement, or returns empty for
+// one that starts with anything else. Leading comments are skipped, because a
+// generated statement may carry one.
+func sqlOperation(query string) string {
+	for {
+		query = strings.TrimLeft(query, " \t\r\n")
+		rest, found := strings.CutPrefix(query, "--")
+		if found {
+			_, query, _ = strings.Cut(rest, "\n")
+			continue
+		}
+		rest, found = strings.CutPrefix(query, "/*")
+		if !found {
+			break
+		}
+		_, query, _ = strings.Cut(rest, "*/")
+	}
+	word := query
+	if index := strings.IndexAny(word, " \t\r\n(;"); index >= 0 {
+		word = word[:index]
+	}
+	return sqlStatementKeywords[strings.ToLower(word)]
+}
+
+// record emits at most one log record for one execution. A wrapper built for
+// the span alone writes none.
 func (executor *instrumentedExecutor) record(ctx context.Context, operation, query string, args []any, elapsed time.Duration, affected int64, callErr error) {
 	config := executor.config
+	if config == nil {
+		return
+	}
 	slow := config.SlowThreshold > 0 && elapsed >= config.SlowThreshold
 	level := config.Level
 	if slow {
@@ -141,6 +273,12 @@ func (executor *instrumentedExecutor) record(ctx context.Context, operation, que
 	if !executor.logger.Enabled(level) {
 		return
 	}
+	// The logger was bound when the executor was resolved, which was before the
+	// statement span existed. Rebinding correlates the record with that span
+	// instead of with the request root, which is what lets a waterfall entry
+	// lead to the values, the plan, and the rerun snippet the span does not
+	// carry. Without a statement span this is the correlation it already had.
+	logger := executor.logger.withTraceOf(ctx)
 
 	statement, statementTruncated := truncateText(query, config.MaxSQLLength)
 	attrs := []Attribute{
@@ -200,7 +338,7 @@ func (executor *instrumentedExecutor) record(ctx context.Context, operation, que
 		}
 	}
 
-	executor.logger.Log(ctx, level, queryMessage, attrs...)
+	logger.Log(ctx, level, queryMessage, attrs...)
 }
 
 // explain captures a plan-only EXPLAIN on the observed executor, so the plan

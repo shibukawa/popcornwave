@@ -86,17 +86,22 @@ func buildMiddlewares(handler http.Handler, option ...Option) (http.Handler, err
 	if err := validateOperationalEndpointCollisions(handler, server); err != nil {
 		return nil, err
 	}
-	telemetry, err := buildObservability(Config[ObservabilityConfig](nil), Env())
+	observability := Config[ObservabilityConfig](nil)
+	telemetry, err := buildObservability(observability, Env())
 	if err != nil {
 		return nil, err
 	}
-	resources := runtimeResources(telemetry.backend)
+	// A root span is created when export exists, and also when configuration
+	// asked for framework spans outright: the children below are only a trace if
+	// something roots them.
+	rootSpan := telemetry.tracing || traceForced(observability)
+	resources := runtimeResources(telemetry.backend, telemetry.tracing)
 	reportEnvironment()
 	reportQueryDiagnostics(resources.Query, Env(), Development(), resources.DBDriver)
 	// The data pane needs the pool, so it starts once the database is open and
 	// before the first request. It is a no-op outside the pwdev build mode.
 	startDevelopmentData(resources)
-	wrapped, err := buildRuntimeHandler(handler, server, security, middleware, resources, telemetry.tracing, options.publicFS)
+	wrapped, err := buildRuntimeHandler(handler, server, security, middleware, resources, rootSpan, options.publicFS)
 	if err != nil {
 		return nil, err
 	}

@@ -97,6 +97,7 @@
 {"category": "structure", "id": "data:dynamodb-runtime-config", "path": ".knowledge/data/dynamodb-runtime-config.md", "role": "supporting", "title": "DynamoDB Runtime Configuration", "type": "data"}
 {"category": "structure", "id": "data:external-identity", "path": ".knowledge/data/external-identity.md", "role": "supporting", "title": "External OIDC Identity", "type": "data"}
 {"category": "structure", "id": "data:firestore-runtime-config", "path": ".knowledge/data/firestore-runtime-config.md", "role": "supporting", "title": "Firestore Runtime Configuration", "type": "data"}
+{"category": "structure", "id": "data:framework-span-set", "path": ".knowledge/data/framework-span-set.md", "role": "supporting", "title": "Framework Span Set", "type": "data"}
 {"category": "structure", "id": "data:html-render-config", "path": ".knowledge/data/html-render-config.md", "role": "supporting", "title": "HTML Render Runtime Config", "type": "data"}
 {"category": "structure", "id": "data:loaded-configuration", "path": ".knowledge/data/loaded-configuration.md", "role": "supporting", "title": "Loaded Configuration", "type": "data"}
 {"category": "structure", "id": "data:log-attribute", "path": ".knowledge/data/log-attribute.md", "role": "supporting", "title": "Log Attribute", "type": "data"}

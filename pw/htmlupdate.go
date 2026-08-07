@@ -194,15 +194,26 @@ func serveUpdate(w http.ResponseWriter, r *http.Request, wrappers []HTMLWrapper,
 	if update.Negotiate(r).Mode != htmlupdate.ModeNavigation {
 		return false
 	}
+	async := htmlbind.HasAwaitBlock(wrappers, leaf)
+	// The delta is written by the module, which reports no boundary back here,
+	// so this render opens the one span it can measure honestly: the whole
+	// comparison and every region it decided to send.
+	ctx, render := startRenderTrace(requestContext(r), renderModeNavigate,
+		chainRenderAttributes(wrappers, async, htmlbind.HasLiveBlock(wrappers, leaf), false)...)
+	defer render.end()
 	// The module adds the Vary entries itself, so a cache that cannot tell a
 	// delta from a document never answers either with the other.
-	ctx, cancel := boundedRenderContext(requestContext(r), config, htmlbind.HasAwaitBlock(wrappers, leaf), false)
+	ctx, cancel := boundedRenderContext(ctx, config, async, false)
 	defer cancel()
 	// The streaming entry is the one that takes render options, and it is also
 	// the one that settles an await boundary rather than dropping it: a delta
 	// for a chain with a boundary has to resolve it like the document does.
+	// The request is passed unchanged: the module reads it for negotiation and
+	// headers, and the render context it hands to template work is the one
+	// above, which already carries the span.
 	if err := update.RenderStreamAsync(ctx, w, r, wrappers, leaf,
 		append(renderOptions(ctx, config, false, nil), options...)...); err != nil {
+		render.failed(err)
 		// A delta commits with its first record, so a failure after that can
 		// only travel in band; the module writes it there and returns it here
 		// for the log. Before the first record nothing is committed and the
@@ -387,7 +398,11 @@ func RedrawComponents(w http.ResponseWriter, r *http.Request, components ...html
 			return true
 		}
 	}
-	return options.Redraw(w, r, registry)
+	// The mode is already known here, so the span opens without negotiating a
+	// second time.
+	_, render := startRenderTrace(requestContext(r), renderModeRedraw, Int("pw.render.layers", 1))
+	defer render.end()
+	return options.Redraw(w, render.request(r), registry)
 }
 
 // serveRegisteredRedraw answers a redraw from the process-wide published set.
@@ -410,7 +425,17 @@ func serveRegisteredRedraw(w http.ResponseWriter, r *http.Request, config HTMLCo
 	if registry == nil {
 		return false
 	}
-	return updateOptions(config).Redraw(w, r, registry)
+	options := updateOptions(config)
+	// Redraw declines before it renders anything, and this call sits on the
+	// ordinary page path, so the mode is tested here rather than leaving a span
+	// open around a call that turned out to be a document request. The second
+	// negotiation is paid only while tracing is on.
+	if !renderTraced(requestContext(r)) || options.Negotiate(r).Mode != htmlupdate.ModeRedraw {
+		return options.Redraw(w, r, registry)
+	}
+	_, render := startRenderTrace(requestContext(r), renderModeRedraw, Int("pw.render.layers", 1))
+	defer render.end()
+	return options.Redraw(w, render.request(r), registry)
 }
 
 // WantsUpdate reports whether the caller can apply an update response.

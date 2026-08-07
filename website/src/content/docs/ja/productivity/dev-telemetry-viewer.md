@@ -45,9 +45,11 @@ pw dev:   traces and logs export to OTEL_EXPORTER_OTLP_ENDPOINT as service "myap
 ## 何が見えるのか
 
 **トレース。** すべてのリクエストには、フレームワークのミドルウェアチェイン全体を
-覆うルートスパンがあり、`pw.Tracer` で開いたスパンはその内側に入れ子になります。
-失敗した [await 境界](/ja/guides/cross-layer/async-rendering/)や記録されたエラーも一緒に
-届きます。
+覆うルートスパンがあり、そこに[リクエストトレーシング](/ja/guides/cross-layer/tracing/)の
+レンダー・境界・文のスパンがぶら下がります。注入されたエンドポイントがそれらも一緒に
+有効にするので、ページはシェルがコミットされた時刻、各 [await 境界](/ja/guides/cross-layer/async-rendering/)が
+フォールバックを表示し続けた時間、その内側で走った SQL を持つ木として届きます。
+`pw.StartSpan` で開いたスパンも同じ木に入り、記録されたエラーも一緒に届きます。
 
 **ログ。** [`pw.Logger`](/ja/reference/runtime/#ロギング) のレコードは、書かれた時点で
 有効だったスパンと関連づけられた状態でビューアに届きます。トレースとそのログ行が

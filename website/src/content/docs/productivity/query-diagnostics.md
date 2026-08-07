@@ -140,5 +140,18 @@ Test runs default to `dev`, so an application test that exercises generated
 queries logs them too. That is usually what you want from a failing test. To
 quiet it, set `enabled = "off"` in the configuration your tests load.
 
+## The same statement in a trace
+
+The seam these records come from also opens a span per statement, configured
+separately under `[observability.trace]`. The two are meant to be read together:
+the span puts the statement in the request tree beside the render that ran it,
+and the record — which names that span rather than the request root — carries
+the values, the plan, and the snippet the span deliberately leaves out.
+
+That split is why a deployment can take the span without the record. Timing
+every statement in staging costs a bounded handful of attributes; writing one
+log line per statement, with your users' values in it, is a different decision.
+See [Request Tracing](/guides/cross-layer/tracing/).
+
 See [Queries](/guides/storage/queries/) for the statements themselves and
 [Configuration](/guides/architecture/configuration/) for how these keys are resolved.

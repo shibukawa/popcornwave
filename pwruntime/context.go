@@ -43,6 +43,8 @@ type Resources struct {
 	// Query enables development query diagnostics. A nil value leaves the
 	// resolved executor undecorated.
 	Query *QueryDiagnostics
+	// Trace enables the framework's own spans. A nil value creates none.
+	Trace *Tracing
 	// Authentication is the verified request authentication result, finalized
 	// by authentication middleware before handler dispatch.
 	Authentication Authentication
@@ -72,7 +74,7 @@ func WithResources(ctx context.Context, resources Resources) context.Context {
 	// The memo is per request, not per process. InjectResources hands every
 	// request the same Resources value, whose memo is nil, so each request
 	// builds its own here and every child context inherits that one pointer.
-	if resources.picked == nil {
+	if resources.picked == nil && resources.Connections != nil {
 		resources.picked = newConnectionMemo()
 	}
 	return context.WithValue(ctx, contextKey{}, &resources)

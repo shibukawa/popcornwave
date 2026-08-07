@@ -5,6 +5,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"sync/atomic"
 )
 
 // Package is one linked component package. An imported package registers itself
@@ -26,9 +27,10 @@ type Package struct {
 	// package as a constant. It is evidence for a compatibility report rather
 	// than a constraint: go.mod already performed the resolution.
 	Version string
-	// Assets holds embedded browser files, or nil. They are read once when the
-	// asset mount is built, never per request and never from a filesystem, which
-	// is what lets a TinyGo target with no filesystem serve them at all.
+	// Assets holds embedded browser files, or nil. Their names, sizes, and hashes
+	// are cataloged once; requests then stream the selected file from this FS.
+	// Keeping the bytes embedded is what lets a TinyGo target serve them without
+	// an operating-system filesystem.
 	Assets fs.FS
 	// Migrations holds the package's own migration stream, or nil. The stream is
 	// applied before the application's, so a package's tables exist before
@@ -44,6 +46,8 @@ var packageState = struct {
 	sync.Mutex
 	registered []Package
 }{}
+
+var packageGeneration atomic.Uint64
 
 // RegisterPackage adds one component package to the framework. Imported packages
 // call it from an init function.
@@ -72,6 +76,7 @@ func RegisterPackage(pkg Package) {
 		}
 	}
 	packageState.registered = append(packageState.registered, pkg)
+	packageGeneration.Add(1)
 }
 
 // Packages returns the registered packages in module path order, which is how a

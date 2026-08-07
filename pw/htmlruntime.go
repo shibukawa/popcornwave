@@ -14,11 +14,10 @@ import (
 //go:embed boundary.js
 var boundarySource string
 
-//go:embed update.js
-var updateSource string
+//go:generate go run ../internal/runtimegen
 
-//go:embed updateboot.js
-var updateBootSource string
+//go:embed runtime.min.js
+var minifiedRuntimeSource string
 
 // boundaryRuntimeScript is the framework's own half of the browser runtime: it
 // applies streamed await boundaries and reads the live delivery stream.
@@ -59,7 +58,7 @@ var boundaryRuntimeScript = boundarySource
 // everything it can reach at that moment is declared inside it. update.js
 // installs nothing, and the bootstrap below builds the single instance.
 var mergedRuntimeScript = sync.OnceValue(func() string {
-	return boundarySource + "\n" + updateSource + "\n" + updateBootSource
+	return minifiedRuntimeSource
 })
 
 // frameworkScriptPrefix is reserved for framework-owned browser assets. It is a

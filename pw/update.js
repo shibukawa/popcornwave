@@ -37,12 +37,21 @@ export function createUpdateRuntime(config) {
 	const manifest = new Map();
 
 	// One ticket per target. A superseded response must not overwrite newer
-	// state, and the request that started later is the one that wins.
+	// state, and aborting it also stops spending bandwidth and parse work on a
+	// response that can no longer land.
 	const tickets = new Map();
 	function claim(target) {
-		const ticket = (tickets.get(target) || 0) + 1;
+		const previous = tickets.get(target);
+		if (previous) previous.controller.abort();
+		const ticket = { controller: new AbortController() };
 		tickets.set(target, ticket);
-		return () => tickets.get(target) === ticket;
+		return {
+			signal: ticket.controller.signal,
+			current: () => tickets.get(target) === ticket,
+			release: () => {
+				if (tickets.get(target) === ticket) tickets.delete(target);
+			},
+		};
 	}
 
 	const listeners = new Set();
@@ -134,6 +143,11 @@ export function createUpdateRuntime(config) {
 		}
 	}
 
+	function replaceManifest(entries) {
+		manifest.clear();
+		for (const entry of entries || []) recordValidator(entry);
+	}
+
 	function manifestValue() {
 		if (!manifest.size) return "";
 		const pairs = [];
@@ -146,16 +160,28 @@ export function createUpdateRuntime(config) {
 	async function go(url, push) {
 		const target = new URL(url, document.baseURI);
 		if (target.origin !== location.origin) return fall(target.href, "cross-origin");
-		const current = claim("navigation");
+		const request = claim("navigation");
+		try {
+			return await navigateClaimed(target, push, request);
+		} finally {
+			request.release();
+		}
+	}
+
+	async function navigateClaimed(target, push, request) {
+		const current = request.current;
 		emit("start", { url: target.href });
+		const validators = manifestValue();
 		let response;
 		try {
 			response = await fetch(target.href, {
-				headers: withCSRF(headers("navigation", manifestValue() ? { [manifestHeader]: manifestValue() } : null)),
+				headers: withCSRF(headers("navigation", validators ? { [manifestHeader]: validators } : null)),
 				credentials: "same-origin",
 				redirect: "error",
+				signal: request.signal,
 			});
 		} catch (error) {
+			if (!current()) return { applied: false, superseded: true };
 			return fall(target.href, "network");
 		}
 		if (!response.ok) return fall(target.href, "status");
@@ -201,7 +227,7 @@ export function createUpdateRuntime(config) {
 		for (const operation of body.ops || []) {
 			if (!applyOperation(operation)) return { fellBack: true, reason: "missing-target" };
 		}
-		for (const entry of body.manifest || []) recordValidator(entry);
+		replaceManifest(body.manifest);
 		return { navigate: body.navigate, live: body.live === true };
 	}
 
@@ -282,7 +308,7 @@ export function createUpdateRuntime(config) {
 			emit("failed", { error: ended.error });
 			return { navigate: navigate };
 		}
-		for (const entry of pending) recordValidator(entry);
+		replaceManifest(pending);
 		return { navigate: navigate, live: ended.reason === "live_pending" };
 	}
 
@@ -303,11 +329,20 @@ export function createUpdateRuntime(config) {
 		// carries no kind, and a page that changed under this client is a
 		// different question answered by the fallback below.
 		if (!kind) return { applied: false, reason: "not a reloadable component" };
-		const current = claim("redraw:" + elementId);
 		const url = new URL((options && options.url) || location.href, document.baseURI);
 		if (url.origin !== location.origin) return fall(url.href, "cross-origin");
 		url.search = "";
 		for (const name of Object.keys(params || {})) url.searchParams.set(name, String(params[name]));
+		const request = claim("redraw:" + elementId);
+		try {
+			return await redrawClaimed(elementId, kind, url, request);
+		} finally {
+			request.release();
+		}
+	}
+
+	async function redrawClaimed(elementId, kind, url, request) {
+		const current = request.current;
 		emit("start", { id: elementId });
 		let response;
 		try {
@@ -315,8 +350,10 @@ export function createUpdateRuntime(config) {
 				headers: withCSRF(headers("redraw", { [kindHeader]: kind, [instanceHeader]: elementId })),
 				credentials: "same-origin",
 				redirect: "error",
+				signal: request.signal,
 			});
 		} catch (error) {
+			if (!current()) return { applied: false, superseded: true };
 			return fall(location.href, "network");
 		}
 		// 404 means this deployment publishes no such kind, which makes the page

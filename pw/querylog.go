@@ -8,9 +8,10 @@ import (
 	"github.com/shibukawa/popcornwave/pwruntime"
 )
 
-// Query diagnostics toggles. Auto ties the setting to the runtime environment,
-// so a development run is instrumented without configuration and every other
-// environment stays silent until someone opts in.
+// Diagnostic toggles. Auto ties the setting to something the process already
+// knows, so a run that wants the ordinary answer configures nothing: query
+// diagnostics read the runtime environment, and framework spans read whether
+// anything exports them.
 const (
 	QueryToggleAuto = "auto"
 	QueryToggleOn   = "on"
@@ -36,7 +37,7 @@ const (
 // than the environment being "dev": a deployment that never set APP_ENV is not
 // asking for a log of every statement with its bind values.
 func resolveQueryDiagnostics(config ObservabilityConfig, development bool) *pwruntime.QueryDiagnostics {
-	enabled, err := resolveQueryToggle(config.Query.Enabled, development)
+	enabled, err := resolveToggle(config.Query.Enabled, development)
 	if err != nil || !enabled {
 		return nil
 	}
@@ -48,7 +49,7 @@ func resolveQueryDiagnostics(config ObservabilityConfig, development bool) *pwru
 	if err != nil {
 		return nil
 	}
-	bindValues, err := resolveQueryToggle(config.Query.BindValues, development)
+	bindValues, err := resolveToggle(config.Query.BindValues, development)
 	if err != nil {
 		return nil
 	}
@@ -102,10 +103,14 @@ func reportQueryDiagnostics(diagnostics *pwruntime.QueryDiagnostics, env string,
 	}
 }
 
-func resolveQueryToggle(value string, development bool) (bool, error) {
+// resolveToggle reads the auto/on/off vocabulary shared by every diagnostic
+// switch. auto is what the caller passes as the resolved automatic answer,
+// which differs per setting: the runtime environment for query diagnostics,
+// and whether anything exports traces for framework spans.
+func resolveToggle(value string, auto bool) (bool, error) {
 	switch strings.ToLower(strings.TrimSpace(value)) {
 	case "", QueryToggleAuto:
-		return development, nil
+		return auto, nil
 	case QueryToggleOn:
 		return true, nil
 	case QueryToggleOff:

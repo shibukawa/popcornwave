@@ -32,8 +32,8 @@ type databaseEngine struct {
 	// DevboxPackage is the development server, added to devbox.json the way
 	// Valkey is. An embedded engine names none.
 	DevboxPackage string
-	// DriverImport links the engine into the application binary. SQLite is
-	// already linked by pw, so only a server engine names one.
+	// DriverImport links the engine into the application binary. Every engine is
+	// opt-in, including SQLite, so a project with no RDB carries no driver bytes.
 	DriverImport string
 	// Schema is the starter migration, written for this dialect.
 	Schema string
@@ -50,10 +50,11 @@ type databaseEngine struct {
 
 var databaseEngines = map[string]databaseEngine{
 	engineSQLite: {
-		Label:   "SQLite",
-		Summary: "an embedded file database; nothing to run beside the application",
-		DSN:     func(project string) string { return "sqlite://" + project + ".db" },
-		Schema:  starterSchema("id INTEGER PRIMARY KEY", "name TEXT NOT NULL"),
+		Label:        "SQLite",
+		Summary:      "an embedded file database; nothing to run beside the application",
+		DSN:          func(project string) string { return "sqlite://" + project + ".db" },
+		DriverImport: "github.com/shibukawa/popcornwave/database/sqlite",
+		Schema:       starterSchema("id INTEGER PRIMARY KEY", "name TEXT NOT NULL"),
 
 		MaxOpenConns: 1,
 		MaxIdleConns: 1,

@@ -77,6 +77,12 @@ let running = false;
 // yields the same id-and-HTML pair for both.
 const applied = new Map();
 
+function pruneApplied() {
+	for (const [id, range] of applied) {
+		if (!range.end.isConnected) applied.delete(id);
+	}
+}
+
 function bracket(id, fragment, html) {
 	const start = document.createComment("tb:" + id);
 	const end = document.createComment("/tb:" + id);
@@ -102,6 +108,7 @@ function refill(range, fragment, html) {
 	for (const gone of outgoing) gone.remove();
 	range.end.parentNode.insertBefore(fragment, range.end);
 	range.html = html;
+	pruneApplied();
 }
 
 // The client state a server render cannot know about, carried from the outgoing
@@ -242,13 +249,14 @@ export function swapElement(target, html) {
 	holder.innerHTML = html;
 	carryClientState([target], holder.content);
 	target.replaceWith(holder.content);
+	pruneApplied();
 	return true;
 }
 
 export function applyBoundary(id, fragment, html) {
 	if (replaced) return false;
 	const range = applied.get(id);
-	if (range && !range.end.parentNode) {
+	if (range && !range.end.isConnected) {
 		// An enclosing live boundary re-rendered and took this range with it.
 		// The replacement subtree carries this boundary's placeholder again,
 		// under the same id, so the lookup below finds it.
@@ -279,6 +287,7 @@ export function replaceDocument(fragment) {
 	replaced = true;
 	stopLive();
 	document.body.replaceChildren(fragment);
+	applied.clear();
 }
 
 customElements.define("tb-apply", class extends HTMLElement {

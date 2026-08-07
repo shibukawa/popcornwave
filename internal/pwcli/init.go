@@ -1363,8 +1363,9 @@ func projectDatabaseConfig(options initOptions) string {
 }
 
 // databaseDriverImport links the selected engine into the application binary.
-// pw links SQLite itself, so only a server engine adds an import; without it
-// the pool refuses to open and names the import to add.
+// Every engine is opt-in, so an application that declares no relational
+// database carries no driver; without the selected import the pool refuses to
+// open and names the import to add.
 func databaseDriverImport(options initOptions) string {
 	if !options.Database {
 		return ""

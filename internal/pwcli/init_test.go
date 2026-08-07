@@ -79,6 +79,7 @@ func TestScaffoldPerEngine(t *testing.T) {
 			engine:         engineSQLite,
 			dsn:            `dsn = "sqlite://demo.db"`,
 			schemaFragment: "name TEXT NOT NULL",
+			driverImport:   "github.com/shibukawa/popcornwave/database/sqlite",
 			maxOpenConns:   "max_open_conns = 1",
 		},
 		{
@@ -115,11 +116,7 @@ func TestScaffoldPerEngine(t *testing.T) {
 				t.Fatalf("schema does not carry %q:\n%s", testcase.schemaFragment, schema)
 			}
 			main := files["cmd/demo/main.go"]
-			if testcase.driverImport == "" {
-				if strings.Contains(main, "popcornwave/database/") {
-					t.Fatalf("main links an engine pw already carries:\n%s", main)
-				}
-			} else if !strings.Contains(main, testcase.driverImport) {
+			if !strings.Contains(main, testcase.driverImport) {
 				t.Fatalf("main does not link %s:\n%s", testcase.driverImport, main)
 			}
 			devbox := files["devbox.json"]

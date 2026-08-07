@@ -9,10 +9,6 @@ import (
 	"strings"
 
 	"github.com/shibukawa/popcornwave/database"
-	// SQLite is the scaffold default and the only engine that needs no server,
-	// so it stays linked for every project. A project on another engine adds
-	// its own blank import, which is what api:cli-init scaffolds.
-	_ "github.com/shibukawa/popcornwave/database/sqlite"
 	"github.com/shibukawa/popcornwave/pwruntime"
 )
 
