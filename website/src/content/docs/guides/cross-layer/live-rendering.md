@@ -232,6 +232,22 @@ boundaries all run again, and their output is discarded. Capacity planning
 should count page executions per second rather than open connections, because
 that is what reaches the database.
 
+That execution re-renders every boundary on the page, not only the live ones,
+and most of them come out identical. Only the ones that differ are transferred:
+each delivery carries a validator of the bytes it put on screen, the browser
+returns them on its next connection, and a region whose validator still matches
+what the server just rendered is left alone. A streamed document hands the same
+validators to the connection it invites, so the first connection of a page view
+is as cheap as a later one. Nothing is stored on the server, and a validator
+that fails to arrive costs a delivery that was going to be sent anyway.
+
+Two instances can compare validators only if they share a key. Set
+`html.update.validator_key` and they do, whether or not you use partial updates.
+Without one each process keys its own, so a reconnect that returns to the same
+process transfers what changed and one that lands elsewhere transfers
+everything — which is what every reconnect did before. Traced responses report
+`pw.live.suppressed` and `pw.live.suppressed_bytes` when this is working.
+
 Rendering is per client. Ten screens watching one gauge cost ten renders per
 tick, because reconstructed inputs and authorization differ per client. Sharing
 one upstream across those subscriptions is the source's job — subscribe once

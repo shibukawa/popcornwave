@@ -3,6 +3,20 @@
 const modeHeader = "Pw-Response-Mode";
 const liveMode = "live";
 
+// The validator of the content each boundary is showing travels back to the
+// server on this header, and the server leaves alone every region whose
+// validator still matches what it just rendered.
+//
+// It is what makes a reconnect cost what changed rather than the whole page. A
+// live connection re-executes the page and re-renders every boundary on it,
+// including the ones that settled once and never change, so without this a
+// dropped connection or a lifetime rollover re-transfers the screen to say
+// nothing happened.
+//
+// The values are opaque and are never compared here. This side stores what
+// arrived and hands it back; only the server can say whether it still holds.
+const liveManifestHeader = "Pw-Live-Manifest";
+
 // The CSRF token travels in a cookie rather than in the page, and it is read
 // here at the moment a request is issued rather than once at load. That is the
 // whole difference: a value written into the document is fixed at render, so a
@@ -83,15 +97,47 @@ function pruneApplied() {
 	}
 }
 
-function bracket(id, fragment, html) {
+function bracket(id, fragment, html, digest) {
 	const start = document.createComment("tb:" + id);
 	const end = document.createComment("/tb:" + id);
 	const holder = document.createDocumentFragment();
 	holder.appendChild(start);
 	holder.appendChild(fragment);
 	holder.appendChild(end);
-	applied.set(id, { start: start, end: end, html: html });
+	applied.set(id, { start: start, end: end, html: html, digest: digest });
 	return holder;
+}
+
+// liveManifest is what this screen claims to be showing, as the pairs the next
+// connection carries.
+//
+// A range whose end marker has left the document is skipped: an enclosing
+// boundary re-rendered and took it along, so the content it names is not on
+// screen and claiming it would leave the region empty until something else
+// changed. A range with no validator is skipped for the same reason in reverse
+// — nothing here can compute one, so an unclaimed boundary is simply delivered.
+function liveManifest() {
+	const pairs = [];
+	for (const [id, range] of applied) {
+		if (range.digest && range.end.isConnected) pairs.push(id + ":" + range.digest);
+	}
+	return pairs.join(",");
+}
+
+// seedManifest takes the validators of what the document itself committed, off
+// the terminal marker.
+//
+// Without it the first connection of every page view re-transfers the whole
+// screen, because the document delivered its boundaries through the parser and
+// the connection that follows has no idea which bytes are already there.
+function seedManifest(value) {
+	if (!value) return;
+	for (const entry of value.split(",")) {
+		const cut = entry.indexOf(":");
+		if (cut <= 0) continue;
+		const range = applied.get(entry.slice(0, cut));
+		if (range) range.digest = entry.slice(cut + 1);
+	}
 }
 
 function refill(range, fragment, html) {
@@ -253,7 +299,7 @@ export function swapElement(target, html) {
 	return true;
 }
 
-export function applyBoundary(id, fragment, html) {
+export function applyBoundary(id, fragment, html, digest) {
 	if (replaced) return false;
 	const range = applied.get(id);
 	if (range && !range.end.isConnected) {
@@ -262,25 +308,32 @@ export function applyBoundary(id, fragment, html) {
 		// under the same id, so the lookup below finds it.
 		applied.delete(id);
 	} else if (range) {
-		// A reconnect re-executes the page, so every boundary it renders is
-		// delivered again, including the ones that settled once and have not
-		// changed. Re-inserting identical nodes would restart animations, drop
-		// focus and selection inside the region, and make a screen reader
-		// announce a log nobody added to, so an identical delivery is left alone.
-		if (html !== undefined && html === range.html) return true;
+		// The server suppresses an unchanged delivery, so this is the case it
+		// cannot: a reconnect to a process whose validator key differs, which
+		// renders the same bytes and cannot tell they are already here.
+		// Re-inserting identical nodes would restart animations, drop focus and
+		// selection inside the region, and make a screen reader announce a log
+		// nobody added to, so an identical delivery is left alone — and the new
+		// validator is taken, or this screen would keep claiming one the server
+		// no longer recognizes and keep being sent the same bytes.
+		if (html !== undefined && html === range.html) {
+			range.digest = digest;
+			return true;
+		}
 		refill(range, fragment, html);
+		range.digest = digest;
 		return true;
 	}
 	const placeholder = document.getElementById(id);
 	if (!placeholder) return false;
-	placeholder.replaceWith(bracket(id, fragment, html));
+	placeholder.replaceWith(bracket(id, fragment, html, digest));
 	return true;
 }
 
-export function applyHTML(id, html) {
+export function applyHTML(id, html, digest) {
 	const holder = document.createElement("template");
 	holder.innerHTML = html;
-	return applyBoundary(id, holder.content, html);
+	return applyBoundary(id, holder.content, html, digest);
 }
 
 export function replaceDocument(fragment) {
@@ -319,6 +372,9 @@ customElements.define("tb-stream-end", class extends HTMLElement {
 		documentComplete = true;
 		documentVersion = this.getAttribute("version") || "";
 		const state = this.getAttribute("state");
+		// The marker is the last markup of the document, so every tb-apply has
+		// already run and every range this names is in place.
+		seedManifest(this.getAttribute("manifest"));
 		this.remove();
 		// This document arrived whole, so a reload attempted for a truncated
 		// one is over and the next truncation is allowed to reload again.
@@ -423,8 +479,14 @@ async function connectOnce() {
 	connection = controller;
 	let opened = false;
 	try {
+		const headers = withCSRF({ [modeHeader]: liveMode });
+		// Built at connect time rather than kept as a running value, because
+		// what is on screen changes between connections: a navigation delta
+		// rewrote a region, an enclosing boundary took a nested one with it.
+		const manifest = liveManifest();
+		if (manifest) headers[liveManifestHeader] = manifest;
 		const response = await fetch(location.href, {
-			headers: withCSRF({ [modeHeader]: liveMode }),
+			headers: headers,
 			credentials: "same-origin",
 			cache: "no-store",
 			redirect: "error",
@@ -500,7 +562,7 @@ function handleRecord(record) {
 	}
 	if (record.control === "closed") return "closed";
 	if (typeof record.id === "string" && typeof record.html === "string") {
-		if (!applyHTML(record.id, record.html)) {
+		if (!applyHTML(record.id, record.html, typeof record.v === "string" ? record.v : undefined)) {
 			// The same page executed again produces the same ids, so an id this
 			// screen does not hold means the page's structure changed — a panel
 			// added to a dashboard somebody has been watching. Placing it

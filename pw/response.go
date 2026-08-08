@@ -548,6 +548,18 @@ func streamHTMLChain(w http.ResponseWriter, r *http.Request, wrappers []HTMLWrap
 	render.initialBuild()
 	logger := Logger(ctx)
 	failed := false
+	// A live connection follows this document and re-renders every boundary on
+	// it, including the ones that settled once. Handing that connection the
+	// validators of what this document committed is what keeps it from
+	// re-transferring the whole page to say nothing changed.
+	//
+	// The key is resolved once, and only for a response something will follow.
+	// A page that ends here computes no digest at all.
+	var digestKey []byte
+	var held []string
+	if liveEnabled(config) && live {
+		digestKey = liveDigestKey(config)
+	}
 	for content, err := range htmlbind.RenderChainAsync(ctx, writer, wrappers, leaf, renderOptions(ctx, config, false, options)...) {
 		if err != nil {
 			render.failed(err)
@@ -584,6 +596,9 @@ func streamHTMLChain(w http.ResponseWriter, r *http.Request, wrappers []HTMLWrap
 			break
 		}
 		render.boundarySettled(content.BoundaryID, len(content.HTML))
+		if digest := liveDigest(digestKey, content.HTML); digest != "" {
+			held = append(held, content.BoundaryID+":"+digest)
+		}
 		if err := writeBoundaryCompletion(writer, content); err != nil {
 			render.failed(err)
 			logger.Log(ctx, LevelError, "HTML boundary write failed", Err(err))
@@ -592,7 +607,7 @@ func streamHTMLChain(w http.ResponseWriter, r *http.Request, wrappers []HTMLWrap
 		}
 		htmlbind.Flush(writer)
 	}
-	if err := writeStreamEnd(writer, streamEndState(config, live, failed)); err != nil {
+	if err := writeStreamEnd(writer, streamEndState(config, live, failed), held); err != nil {
 		logger.Log(ctx, LevelError, "HTML stream end write failed", Err(err))
 	}
 	htmlbind.Flush(writer)
@@ -632,25 +647,43 @@ func writeBoundaryCompletion(w io.Writer, content htmlbind.Content) error {
 // The state is also what keeps a screen that will never change again from
 // paying for a live request, which costs a whole page execution to answer with
 // nothing.
-func writeStreamEnd(w io.Writer, state string) error {
+// The manifest attribute is what the live connection this marker invites starts
+// from, so the first connection of a page view costs no more than a later one.
+// It is written only on the live state: on a document nothing follows, it would
+// be bytes describing a conversation that is not going to happen. A failed
+// state carries none either, because the boundaries it committed are fallbacks
+// that a reconnect should replace rather than keep.
+func writeStreamEnd(w io.Writer, state string, held []string) error {
 	marker := `<tb-stream-end state="` + state + `"`
 	if version := renderVersion(); version != "" {
 		marker += ` version="` + htmlbind.Escape(version) + `"`
 	}
+	if state == streamEndLive && len(held) > 0 {
+		marker += ` manifest="` + htmlbind.Escape(strings.Join(held, ",")) + `"`
+	}
 	_, err := io.WriteString(w, marker+`></tb-stream-end>`)
 	return err
 }
+
+// Stream end states. They are named because writeStreamEnd branches on the live
+// one, and a marker whose attribute set depended on a bare string literal
+// somewhere else is how the two come apart.
+const (
+	streamEndLive   = "live"
+	streamEndFinal  = "final"
+	streamEndFailed = "failed"
+)
 
 func streamEndState(config HTMLConfig, live, failed bool) string {
 	switch {
 	case failed:
 		// The committed fallbacks this response left behind are not going to be
 		// replaced by it, and the client is told so rather than left waiting.
-		return "failed"
+		return streamEndFailed
 	case liveEnabled(config) && live:
-		return "live"
+		return streamEndLive
 	default:
-		return "final"
+		return streamEndFinal
 	}
 }
 

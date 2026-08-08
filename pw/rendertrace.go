@@ -60,6 +60,11 @@ type renderTrace struct {
 	delivered  map[string]time.Time
 	boundaries int
 	bytes      int64
+	// suppressed counts the deliveries this response did not write because the
+	// region was already showing them, and suppressedBytes is what they would
+	// have cost. Live only.
+	suppressed      int
+	suppressedBytes int64
 	// cache is what this response reused from the output cache. It is installed
 	// on the context rather than reached from here, because the store is
 	// consulted deep inside a generated plan and the only thing that reaches
@@ -189,6 +194,21 @@ func (render *renderTrace) deliveredContent(id string, size int) {
 	span.End()
 }
 
+// suppressedContent records one delivery this response did not send, because
+// the region was already showing those bytes.
+//
+// It is counted rather than ignored because the two numbers together are the
+// only way to read whether the suppression is working: deliveries alone cannot
+// distinguish a quiet page from one whose every delivery is being skipped, and
+// the bytes are what a reconnect would otherwise have cost.
+func (render *renderTrace) suppressedContent(size int) {
+	if render == nil {
+		return
+	}
+	render.suppressed++
+	render.suppressedBytes += int64(size)
+}
+
 // failed marks the response as having failed, whatever status reached the
 // client. A stream that broke after commit still answers 200, so the request
 // span cannot report this and the render span is where it is visible.
@@ -229,6 +249,11 @@ func (render *renderTrace) end(attributes ...Attribute) {
 		attributes = append(attributes,
 			Int64("pw.render.cache_hits", hits),
 			Int64("pw.render.cache_misses", misses))
+	}
+	if render.suppressed > 0 {
+		attributes = append(attributes,
+			Int("pw.live.suppressed", render.suppressed),
+			Int64("pw.live.suppressed_bytes", render.suppressedBytes))
 	}
 	render.span.SetAttributes(attributes...)
 	render.span.End()
