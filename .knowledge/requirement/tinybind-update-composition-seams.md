@@ -161,12 +161,12 @@ structured_render_output:
     slot_kinds_stay_upstream: the URL attribute check belongs in htmlbind/url.go and must not be re-implemented in a browser, so the module sends a checked value or nothing
     one_identity: CachePolicy.ID is already the component identity plus a plan fingerprint, which is exactly what a skeleton cache key needs; a third identity would be a third invalidation rule
     redraw_cache_store: Options.Redraw takes no htmlbind options, so a cached component redrawn alone runs uncached while the same component is cached on the page around it
-    update_flag_priority: requirement:partial-update-boundaries designs an explicit update flag and it is unimplemented, so a delta's granularity is still the page and its layouts
+    update_flag_priority: the module's explicit partial-update boundary requirement designs an update flag and it is unimplemented, so a delta's granularity is still the page and its layouts
   what_we_would_do_with_it:
     transfer: statics stop being retransmitted on both the live and the navigation wire
     application: the client assembles the subtree once and then sets textContent and attributes directly, with no parse, no range replacement, and no client state to carry across
     no_document_cost: slot positions come from the client having built them, so the initial document needs no marker and the first delivery after a page load lands the old way
-  not_asked_for: a wire format or a protocol version, which decision:caller-owned-wire-versioning puts on this side
+  not_asked_for: a wire format or a protocol version, which the module's caller-owned wire versioning decision puts on this side
   independent_of: requirement:live-mode-plan-slice, which stays the largest cost on the live path and is a separate piece of work
 
 carried_forward:
