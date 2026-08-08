@@ -379,33 +379,57 @@ func TestTheDocumentPathIsUnchangedByEnablingUpdates(t *testing.T) {
 	}
 }
 
-// A sequence is public, immutable, and a year long, and it is served from the
-// page's own URL. Without a Vary a cache stores it under that URL alone and
-// answers every later request for the page with a JSON body — which is not a
-// degraded page but no page at all, until the cache expires or is cleared.
-//
-// Found in a browser: after the runtime fetched one sequence, the page URL
-// started returning the sequence and every navigation fell back.
-func TestASequenceResponseVariesOnWhatSelectedIt(t *testing.T) {
+// The response headers of every update mode are this framework's, because the
+// wire is. These assert what each mode must carry whatever the module does or
+// stops doing, which is the point of owning them here.
+func TestUpdateResponseHeadersAreThisFrameworksToSet(t *testing.T) {
 	config := updateConfig()
-	request := httptest.NewRequest(http.MethodGet, "/orders", nil)
-	request.Header.Set("Pw-Render", "sequence")
-	request.Header.Set("Pw-Sequence-Address", "no-such-address")
-	request.Header.Set("Pw-Build", updateOptions(config).RuntimeConfig().Build)
+	build := updateOptions(config).RuntimeConfig().Build
 
-	recorder := httptest.NewRecorder()
-	if !serveSequence(recorder, request, config) {
+	sequence := httptest.NewRequest(http.MethodGet, "/orders", nil)
+	sequence.Header.Set("Pw-Render", "sequence")
+	sequence.Header.Set("Pw-Sequence-Address", "no-such-address")
+	sequence.Header.Set("Pw-Build", build)
+	sequenceOut := httptest.NewRecorder()
+	if !serveSequence(sequenceOut, sequence, config) {
 		t.Fatal("a sequence request was not answered by the sequence entry")
 	}
-	vary := strings.Join(recorder.Header().Values("Vary"), ", ")
-	for _, want := range []string{"Pw-Render", "Pw-Sequence-Address"} {
-		if !strings.Contains(vary, want) {
-			t.Errorf("Vary = %q, want it to name %s", vary, want)
+	// A sequence is public, immutable, and a year long, and it is served from
+	// the page's own URL. Without the Vary a cache stores it under that URL
+	// alone and answers every later request for the page with a JSON body —
+	// which is not a degraded page but no page at all, until the cache expires.
+	// Found in a browser: after one sequence was fetched the page stopped
+	// loading, and every navigation fell back.
+	assertVary(t, "sequence", sequenceOut, "Pw-Render", "Pw-Build", "Pw-Sequences", "Pw-Sequence-Address")
+	if control := sequenceOut.Header().Get("Cache-Control"); control != sequenceCacheControl {
+		t.Errorf("sequence Cache-Control = %q, want %q", control, sequenceCacheControl)
+	}
+
+	// A document is answered from the same URL and must not carry the redraw's
+	// headers in its Vary: varying on what it never reads fragments a cache for
+	// nothing, and the module adds them before it negotiates.
+	document := httptest.NewRecorder()
+	documentRequest := httptest.NewRequest(http.MethodGet, "/orders", nil)
+	documentRequest = documentRequest.WithContext(pwruntime.WithResources(documentRequest.Context(),
+		pwruntime.Resources{Configs: map[reflect.Type]any{reflect.TypeFor[HTMLConfig](): config}}))
+	WriteHTMLChain(document, documentRequest, nil, staticFragment(`<h1>hi</h1>`))
+	vary := strings.Join(document.Header().Values("Vary"), ", ")
+	for _, unwanted := range []string{"Pw-Kind", "Pw-Instance"} {
+		if strings.Contains(vary, unwanted) {
+			t.Errorf("a document varies on %s: %q", unwanted, vary)
 		}
 	}
-	// The cache policy is the module's and is right for what a sequence is. It
-	// is only safe beside the Vary above, so the two are asserted together.
-	if control := recorder.Header().Get("Cache-Control"); control != "" && !strings.Contains(control, "public") {
-		t.Errorf("Cache-Control = %q", control)
+	if !strings.Contains(vary, "Pw-Render") {
+		t.Errorf("a document does not vary on the render header: %q", vary)
+	}
+}
+
+func assertVary(t *testing.T, mode string, recorder *httptest.ResponseRecorder, want ...string) {
+	t.Helper()
+	vary := strings.Join(recorder.Header().Values("Vary"), ", ")
+	for _, name := range want {
+		if !strings.Contains(vary, name) {
+			t.Errorf("%s: Vary = %q, want it to name %s", mode, vary, name)
+		}
 	}
 }

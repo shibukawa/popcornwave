@@ -338,6 +338,11 @@ func WriteHTMLChain(w http.ResponseWriter, r *http.Request, wrappers []HTMLWrapp
 		if serveRegisteredRedraw(w, r, config) {
 			return
 		}
+		// Every mode below answers from this URL, and a document does too, so
+		// the Vary is set once for all of them rather than per branch. A cache
+		// that stored one under the URL alone would answer any of the others
+		// with it.
+		varyOnUpdateHeaders(w.Header())
 		if serveUpdate(w, r, wrappers, leaf, config, options, async, live) {
 			return
 		}
