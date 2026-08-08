@@ -44,10 +44,12 @@ library look identical to the reader, and only one of them can break.
 | Page-to-page continuity | view transitions | [Navigation](/guides/interactivity/navigation/) |
 | Navigation that feels instant | speculation rules | [Navigation](/guides/interactivity/navigation/) |
 | Filter, inline edit, live list | fragment swap | [Fragments and islands](/guides/interactivity/fragments/) |
+| Declarative server-fragment swaps | htmx | [Integrating htmx](/guides/interactivity/htmx/) |
 | Dialog whose contents come from the server | fragment swap into a `<dialog>` | [Fragments and islands](/guides/interactivity/fragments/) |
 | Region that is slow to produce | `await` boundary | [Async rendering](/guides/cross-layer/async-rendering/) |
 | Region that changes with nobody watching | live boundary | [Live rendering](/guides/cross-layer/live-rendering/) |
 | Client-only state, drag, canvas | a custom element | [Fragments and islands](/guides/interactivity/fragments/) |
+| Component-local client state | a React root inside one island | [Integrating React](/guides/interactivity/react/) |
 | Optimistic update, offline edit | — | not this framework |
 
 ## Who moves first

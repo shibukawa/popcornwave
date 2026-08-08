@@ -384,8 +384,9 @@ template that makes it one.
   with JavaScript disabled needs.
 - **The client runtime for actions.** The attribute is written; the framework
   module that acts on it is not.
-- **CSRF.** These are `POST` endpoints reachable with ambient credentials.
-  Until the middleware exists, wrap them yourself.
+- **CSRF client wiring.** The middleware exists, but it is disabled until the
+  application configures it. Custom action code must also copy the current
+  `pw_csrf` cookie into the `X-CSRF-Token` request header.
 - **Route groups without a URL segment.** The bracket spelling other frameworks
   use is not a legal import path element.
 - **Richer catch-all typing.** A catch-all binds as a string.
@@ -396,7 +397,8 @@ convention disagree, Go's rules win.
 The first three are worth reading as one condition. A page renders and a link
 navigates with no JavaScript at all, so a site built entirely from the template
 and typed rungs works today. Reach for a `server-action` and that stops being
-true: the attribute is written, and until the runtime and the CSRF middleware
-land, the click that fires it is yours to intercept and protect. That is the
+true: the attribute is written, and until the action runtime lands, the click
+that fires it is yours to intercept. Enable the existing CSRF middleware over
+the action paths and send its token from that client code. That is the
 boundary of the shape as it stands — not where pages end, but where they stop
 being self-sufficient.

@@ -43,10 +43,12 @@ Popcorn Wave はサーバーで描画し、ハイドレーション層、クラ�
 | ページ間の連続性 | ビュートランジション | [ナビゲーション](/ja/guides/interactivity/navigation/) |
 | 一瞬で切り替わる遷移 | Speculation Rules | [ナビゲーション](/ja/guides/interactivity/navigation/) |
 | 絞り込み、インライン編集、ライブなリスト | フラグメントの swap | [フラグメントと島](/ja/guides/interactivity/fragments/) |
+| 宣言的なサーバーフラグメントの swap | htmx | [htmx の統合](/ja/guides/interactivity/htmx/) |
 | 中身をサーバーが用意するダイアログ | `<dialog>` への swap | [フラグメントと島](/ja/guides/interactivity/fragments/) |
 | 生成に時間のかかる領域 | `await` 境界 | [非同期レンダリング](/ja/guides/cross-layer/async-rendering/) |
 | 誰も見ていなくても変わる領域 | live 境界 | [ライブレンダリング](/ja/guides/cross-layer/live-rendering/) |
 | クライアントだけの状態、ドラッグ、canvas | カスタム要素 | [フラグメントと島](/ja/guides/interactivity/fragments/) |
+| コンポーネント内に閉じたクライアント状態 | 島の中の React ルート | [React の統合](/ja/guides/interactivity/react/) |
 | 楽観的更新、オフライン編集 | —— | このフレームワークの領分ではありません |
 
 ## 先に動くのは誰か
