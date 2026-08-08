@@ -31,22 +31,25 @@ import { Card, CardGrid } from '@astrojs/starlight/components';
 ブラウザランタイムはいずれも含まれません。
 
 <CardGrid>
-  <Card title="標準ライブラリ優先" icon="seti:go">
-    ルーティングには `net/http` の `ServeMux` そのものを使います。パターン、
-    ワイルドカード、優先順位は同じで、ハンドラも素の `http.HandlerFunc` のままです。
+  <Card title="Go のエコシステムを尊重" icon="seti:go">
+    ルーティングは `net/http` の `ServeMux` そのもの。パターンもワイルドカードも
+    優先順位も同じで、ハンドラは素の `http.HandlerFunc` です。手元のミドルウェアも
+    `httptest` のテストも `http.Handler` も、そのまま動きます。
   </Card>
   <Card title="リフレクションではなく生成" icon="setting">
     `pw generate` がテンプレート、SQL、リクエストバインディング、OpenAPI を事前に
-    Go へコンパイルします。実行時リフレクションがないため、同じコードを
+    型付きの Go へコンパイルします。テンプレート引数の改名も、結果型と食い違った
+    SELECT も、ビルドエラーになります。実行時リフレクションがないため、同じコードを
     **TinyGo** でも実行できます。
   </Card>
   <Card title="1 コマンドで動くアプリ" icon="rocket">
     `pw init` がハンドラ、型付きページ、ドキュメントシェル、SQL、マイグレーション、
     エラーページ、Devbox まで含む完全なプロジェクトを作り、`pw dev` が監視します。
   </Card>
-  <Card title="運用機能を同梱" icon="approve-check">
-    起動時バリデーション、`/healthz`、`/readyz`、`/openapi.json`、グレースフルシャット
-    ダウン、リクエスト ID、アクセスログ、検証済みセキュリティヘッダ。
+  <Card title="最新の Web 標準がプリセット" icon="approve-check">
+    検証済みセキュリティヘッダと CSRF、WebAuthn パスキー、ネゴシエーション付きの
+    **zstd** 圧縮、SQL 1 文まで届く OpenTelemetry のトレース。どれも設定のスイッチ
+    ひとつで、自分で積み上げる依存関係ではありません。
   </Card>
 </CardGrid>
 
