@@ -1,0 +1,5 @@
+.devbox/
+devbox.d/
+/partial_update
+*_pw_gen.go
+public/**/*.zstd

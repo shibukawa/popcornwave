@@ -1,0 +1,26 @@
+# Development configuration, selected by APP_ENV=dev (the default).
+
+[observability]
+minimum_level = "debug"
+service_name = "partial_update"
+# Render spans report what each response cost, including the cache counters and,
+# on a live page, what the delivery suppression saved.
+trace.render = true
+
+[html]
+streaming = true
+async_timeout = "3s"
+
+# Partial updates are off by default, so this is the whole switch. The key is
+# required with it: an unkeyed digest of low-entropy content lets a guess be
+# confirmed by comparing digests, so startup refuses the combination rather than
+# serving one.
+[html.update]
+enabled = true
+validator_key = "dev-only-not-a-secret"
+
+[middleware]
+# Off, so what the network tab reports is the size of the response rather than
+# the size of its compressed form. Turn it on to see what a deployment actually
+# transfers.
+compression = false
