@@ -567,6 +567,12 @@ bytes:
 - one owning the document `head`, since the merged head depends on the chain;
 - one reaching an unsafe `<form>`, directly or through a component it calls.
 
+The store behind it is in-process and is on by default; `html.cache.enabled`
+turns it off and `html.cache.max_entries` bounds it, both in
+[Configuration](/reference/configuration/#html). A redraw renders its component
+through a different entry and does not consult the store, so a `@cache`
+component redrawn on its own runs its body every time.
+
 ## Hyphenated elements
 
 A hyphen is HTML's own custom-element marker, and the hyphenated element space is

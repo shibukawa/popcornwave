@@ -60,6 +60,11 @@ type renderTrace struct {
 	delivered  map[string]time.Time
 	boundaries int
 	bytes      int64
+	// cache is what this response reused from the output cache. It is installed
+	// on the context rather than reached from here, because the store is
+	// consulted deep inside a generated plan and the only thing that reaches
+	// there is the render context.
+	cache *renderCacheCounts
 }
 
 // renderTraced reports whether this request opens render spans.
@@ -89,11 +94,14 @@ func startRenderTrace(ctx context.Context, mode string, attributes ...Attribute)
 	attributes = append(attributes, String("pw.render.mode", mode))
 	spanCtx, span := trace.Start(ctx, renderSpanPrefix+mode, trace.WithAttributes(attributes...))
 	now := time.Now()
+	counts := &renderCacheCounts{}
+	spanCtx = withRenderCacheCounts(spanCtx, counts)
 	return spanCtx, &renderTrace{
 		ctx:       spanCtx,
 		span:      span,
 		committed: now,
 		boundary:  policy.Boundary,
+		cache:     counts,
 	}
 }
 
@@ -210,9 +218,19 @@ func (render *renderTrace) end(attributes ...Attribute) {
 	// A render that failed before its first flush never committed, so the
 	// initial build ran until the failure and ends here.
 	render.commit()
-	render.span.SetAttributes(append(attributes,
+	attributes = append(attributes,
 		Int64("pw.render.bytes", render.bytes),
-		Int("pw.render.boundaries", render.boundaries))...)
+		Int("pw.render.boundaries", render.boundaries))
+	// A response that consulted the cache reports both halves, because a hit
+	// count alone cannot distinguish a cache that is working from one nothing
+	// is eligible for. A response that consulted it not at all reports neither,
+	// rather than two zeros a dashboard would average over.
+	if hits, misses := render.cache.hits.Load(), render.cache.misses.Load(); hits+misses > 0 {
+		attributes = append(attributes,
+			Int64("pw.render.cache_hits", hits),
+			Int64("pw.render.cache_misses", misses))
+	}
+	render.span.SetAttributes(attributes...)
 	render.span.End()
 }
 

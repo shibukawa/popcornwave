@@ -541,6 +541,11 @@ export component Sidebar(userId: string, tone: Tone): html { … }
 - ドキュメントの `head` を持つもの。統合された head はパラメータではなく連鎖に依存します。
 - 直接またはそれが呼ぶコンポーネント経由で危険な `<form>` へ到達するもの。
 
+裏側のストアはプロセス内にあり、既定でオンです。`html.cache.enabled` で切り、
+`html.cache.max_entries` で上限を決めます。どちらも[設定](/ja/reference/configuration/#html)
+にあります。再描画はコンポーネントを別の入口から描画するためストアを参照しません。
+つまり単体で再描画された `@cache` コンポーネントは毎回本体を実行します。
+
 ## ハイフン付きの要素
 
 ハイフンは HTML 自身のカスタム要素の目印なので、ハイフン付き要素の空間は宣言された

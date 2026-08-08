@@ -704,6 +704,13 @@ func renderOptions(ctx context.Context, config HTMLConfig, bot bool, extra []HTM
 	if config.AsyncConcurrency > 0 {
 		options = append(options, htmlbind.WithConcurrencyLimit(config.AsyncConcurrency))
 	}
+	// The store reaches every render path that takes options, which is every one
+	// but a redraw: htmlupdate renders a registered component from its own
+	// entry and takes none, so a redrawn component runs uncached even where the
+	// same component is cached on the page around it.
+	if cache := renderCacheOption(ctx, config.Cache); cache != nil {
+		options = append(options, cache)
+	}
 	// Caller options come last so a later one wins, which is what makes them an
 	// extension of the configured set rather than a competing source of truth.
 	return append(options, extra...)
