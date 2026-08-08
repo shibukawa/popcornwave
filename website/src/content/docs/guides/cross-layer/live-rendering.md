@@ -255,6 +255,13 @@ inside `WatchMetrics` and fan out there, which is also where a circuit breaker
 belongs. A failing upstream contained there degrades honestly: the boundary
 keeps its last rendered content and the page stays correct.
 
+The connection opens on a head record carrying the chain's tags, so a delivery
+whose content reaches a component the document never carried installs its
+stylesheet before its markup lands. That is the same ordering a navigation delta
+holds, and it is why the two now speak one record grammar and are read by one
+reader: a delivery is an `await` record, which is exactly what it is — a
+boundary id and the markup filling it.
+
 Live responses are not compressed. Flushing every few seconds keeps the ratio
 poor, and a long-lived stream mixing personalized content with request-influenced
 values offers far more samples to a compression oracle than one document does.

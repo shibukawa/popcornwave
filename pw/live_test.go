@@ -200,7 +200,7 @@ func TestLiveModeStreamsEveryDelivery(t *testing.T) {
 	if len(lines) < 3 {
 		t.Fatalf("records = %v", lines)
 	}
-	if !strings.HasPrefix(lines[0], `{"control":"open"`) {
+	if !strings.HasPrefix(lines[0], `{"r":"head"`) {
 		t.Errorf("first record = %q, want the open record", lines[0])
 	}
 	// No document markup reaches the stream: the body is executed and discarded,
@@ -219,7 +219,7 @@ func TestLiveModeStreamsEveryDelivery(t *testing.T) {
 		t.Errorf("deliveries = %d, want 3 (one per value)", deliveries)
 	}
 	last := lines[len(lines)-1]
-	if !strings.Contains(last, `"control":"closed"`) || !strings.Contains(last, `"reason":"done"`) {
+	if !strings.Contains(last, `"r":"end"`) || !strings.Contains(last, `"reason":"done"`) {
 		t.Errorf("last record = %q, want a done close", last)
 	}
 }
@@ -255,7 +255,7 @@ func TestLiveResponseClosesAtItsLifetimeForRetry(t *testing.T) {
 	if !strings.Contains(last, `"reason":"retry"`) {
 		t.Fatalf("last record = %q, want a retry close", last)
 	}
-	if !strings.Contains(last, `"retry_after_ms":`) {
+	if !strings.Contains(last, `"retryMs":`) {
 		t.Errorf("a retry close carries no delay hint: %q", last)
 	}
 }
@@ -319,7 +319,7 @@ func TestLiveResponseStopsAtItsBoundaryBound(t *testing.T) {
 	if len(ids) != 1 {
 		t.Fatalf("served %d boundaries under a bound of 1: %v", len(ids), lines)
 	}
-	if last := lines[len(lines)-1]; !strings.Contains(last, `"control":"closed"`) {
+	if last := lines[len(lines)-1]; !strings.Contains(last, `"r":"end"`) {
 		t.Errorf("last record = %q, want a close", last)
 	}
 }
@@ -445,7 +445,7 @@ func TestLiveDeliveriesArriveWhileTheSourceIsStillProducing(t *testing.T) {
 	reader := bufio.NewReader(response.Body)
 	// The open record and the first delivery both arrive while the source is
 	// blocked, so reading them proves nothing waited for the stream to end.
-	for _, want := range []string{`"control":"open"`, `"id":"tb-1"`} {
+	for _, want := range []string{`"r":"head"`, `"id":"tb-1"`} {
 		line, err := reader.ReadString('\n')
 		if err != nil {
 			t.Fatalf("reading %s: %v", want, err)
@@ -569,12 +569,12 @@ func deliveredFragment(html string) string {
 }
 
 // deliveryRecords returns the delivery lines of a live response, dropping the
-// control records that frame them.
+// head and terminator records that frame them.
 func deliveryRecords(t *testing.T, body string) []string {
 	t.Helper()
 	deliveries := []string{}
 	for _, line := range recordLines(t, body) {
-		if !strings.Contains(line, `"control":`) {
+		if strings.Contains(line, `"r":"await"`) {
 			deliveries = append(deliveries, line)
 		}
 	}
@@ -663,10 +663,10 @@ func TestLiveManifestSuppressesWhatTheScreenAlreadyHolds(t *testing.T) {
 	}
 	// The stream still opens and still closes, because a client that received
 	// no records must still learn whether to come back.
-	if !strings.Contains(reconnect.Body.String(), `"control":"open"`) {
+	if !strings.Contains(reconnect.Body.String(), `"r":"head"`) {
 		t.Error("a fully suppressed response wrote no opening record")
 	}
-	if !strings.Contains(reconnect.Body.String(), `"control":"closed"`) {
+	if !strings.Contains(reconnect.Body.String(), `"r":"end"`) {
 		t.Error("a fully suppressed response wrote no terminal record")
 	}
 }
@@ -797,5 +797,60 @@ func TestBoundaryRuntimeCarriesTheManifestBothWays(t *testing.T) {
 		if !strings.Contains(boundaryRuntimeScript, fragment) {
 			t.Errorf("the runtime is missing %q", fragment)
 		}
+	}
+}
+
+// A live delivery whose content reaches a component the document never carried
+// needs that component's tags before its markup lands. The navigation delta has
+// said so since requirement:delta-head-sync; this path had no channel for it at
+// all until the stream moved onto the shared record grammar.
+func TestLiveHeadRecordCarriesTheChainsTags(t *testing.T) {
+	plan := livePlan(liveValues("one"), "<main>", "</main>")
+	plan.Head = []string{`<link rel="stylesheet" href="/live.css">`}
+	plan.HeadSources = []string{"LivePage"}
+
+	recorder := httptest.NewRecorder()
+	WriteHTML(recorder, liveRequest("/"), htmlbind.Bind(plan, struct{}{}))
+
+	lines := recordLines(t, recorder.Body.String())
+	if len(lines) == 0 {
+		t.Fatal("the live response wrote nothing")
+	}
+	if !strings.HasPrefix(lines[0], `{"r":"head"`) {
+		t.Fatalf("first record = %q, want the head record", lines[0])
+	}
+	if !strings.Contains(lines[0], "/live.css") {
+		t.Errorf("the head record carries no tags: %s", lines[0])
+	}
+}
+
+// A page contributing nothing to the head still opens on the head record, so a
+// client has one shape to recognize rather than two.
+func TestLiveHeadRecordOpensEvenWithNoTags(t *testing.T) {
+	recorder := httptest.NewRecorder()
+	WriteHTML(recorder, liveRequest("/"), livePage(liveValues("one")))
+
+	lines := recordLines(t, recorder.Body.String())
+	if !strings.HasPrefix(lines[0], `{"r":"head"`) {
+		t.Fatalf("first record = %q, want the head record", lines[0])
+	}
+	if strings.Contains(lines[0], `"head":`) {
+		t.Errorf("an empty head still travelled: %s", lines[0])
+	}
+}
+
+// Both stream shapes are the same framing, and reading them twice is how the
+// two come apart. One reader is what the shared apply core is for markup.
+func TestBoundaryRuntimeReadsRecordsThroughOneReader(t *testing.T) {
+	if !strings.Contains(boundaryRuntimeScript, "export async function* readRecords(") {
+		t.Error("the boundary half declares no shared record reader")
+	}
+	if !strings.Contains(boundaryRuntimeScript, "for await (const record of readRecords(response.body))") {
+		t.Error("the live half does not read through the shared reader")
+	}
+	// Two copies of the buffer-split-parse loop is the thing this removes, so a
+	// second one reappearing is what the assertion is really against.
+	if count := strings.Count(mergedRuntimeScript(), "getReader()"); count != 1 {
+		t.Errorf("the merged asset calls getReader %d times, want one shared reader", count)
 	}
 }

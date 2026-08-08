@@ -455,6 +455,36 @@ function clearReloadGuard() {
 	}
 }
 
+// readRecords yields the records of a newline-delimited stream.
+//
+// One reader, because both this framework's stream shapes are the same framing
+// and reading them twice is how the two come apart. A line that will not parse
+// ends the sequence: a stream whose framing is broken has no next record worth
+// guessing at, and a caller distinguishes that from a clean end by whether it
+// saw a terminator.
+export async function* readRecords(body) {
+	const reader = body.getReader();
+	const decoder = new TextDecoder();
+	let buffer = "";
+	for (;;) {
+		const chunk = await reader.read();
+		if (chunk.done) return;
+		buffer += decoder.decode(chunk.value, { stream: true });
+		let newline = buffer.indexOf("\n");
+		while (newline >= 0) {
+			const line = buffer.slice(0, newline);
+			buffer = buffer.slice(newline + 1);
+			newline = buffer.indexOf("\n");
+			if (!line.trim()) continue;
+			try {
+				yield JSON.parse(line);
+			} catch (error) {
+				return;
+			}
+		}
+	}
+}
+
 export function stopLive() {
 	running = false;
 	if (connection) {
@@ -506,42 +536,21 @@ async function connectOnce() {
 			signal: controller.signal,
 		});
 		if (!response.ok || !response.body) return { stop: false, retry: false };
-		const reader = response.body.getReader();
-		const decoder = new TextDecoder();
-		let buffer = "";
 		let closed = null;
-		for (;;) {
-			const chunk = await reader.read();
-			if (chunk.done) break;
-			buffer += decoder.decode(chunk.value, { stream: true });
-			let newline = buffer.indexOf("\n");
-			while (newline >= 0) {
-				const line = buffer.slice(0, newline);
-				buffer = buffer.slice(newline + 1);
-				newline = buffer.indexOf("\n");
-				if (!line) continue;
-				let record;
-				try {
-					record = JSON.parse(line);
-				} catch (error) {
-					console.error("Popcorn Wave: unreadable live record", error);
-					continue;
-				}
-				const outcome = handleRecord(record);
-				if (outcome === "opened") opened = true;
-				if (outcome === "stop") {
-					controller.abort();
-					return { stop: true, retry: false };
-				}
-				if (record.control === "closed") closed = record;
+		for await (const record of readRecords(response.body)) {
+			const outcome = handleRecord(record);
+			if (outcome === "stop") {
+				controller.abort();
+				return { stop: true, retry: false };
 			}
+			if (record.r === "end") closed = record;
 		}
 		if (closed && closed.reason === "done") return { stop: true, retry: false };
-		if (closed) return { stop: false, retry: true, retryAfter: closed.retry_after_ms };
+		if (closed) return { stop: false, retry: true, retryAfter: closed.retryMs };
 		// The stream ended with no terminal record, so it was cut off rather
 		// than finished. Reconnecting is safe: the page executes again and
 		// delivers the current state of every live region.
-		return { stop: false, retry: false, opened: opened };
+		return { stop: false, retry: false };
 	} catch (error) {
 		if (controller.signal.aborted) return { stop: true, retry: false };
 		return { stop: false, retry: false };
@@ -551,30 +560,24 @@ async function connectOnce() {
 }
 
 function handleRecord(record) {
-	if (record.control === "open") {
+	if (record.r === "head") {
 		// Boundary ids name positions in generated code. A deployment that
 		// changed that code addresses a document this screen is not showing, so
-		// applying anything from it would put content in the wrong place.
-		if (documentVersion && record.version && record.version !== documentVersion) {
+		// applying anything from it would put content in the wrong place. An
+		// unstamped build sends nothing here, which disables the check rather
+		// than reloading every screen whenever the server restarts.
+		if (documentVersion && record.build && record.build !== documentVersion) {
 			reloadOnce("the server was deployed while this page was open");
 			return "stop";
 		}
+		// A delivery whose content reaches a component the document never
+		// carried needs its tags before its markup, which is the same ordering
+		// the navigation delta makes normative.
+		installLiveHead(record.head);
 		return "opened";
 	}
-	if (record.control === "reload") {
-		reloadOnce("the server asked for a reload");
-		return "stop";
-	}
-	if (record.control === "navigate") {
-		const target = resolveNavigable(record.url);
-		if (target) {
-			stopLive();
-			location.assign(target);
-		}
-		return "stop";
-	}
-	if (record.control === "closed") return "closed";
-	if (typeof record.id === "string" && typeof record.html === "string") {
+	if (record.r === "await") {
+		if (typeof record.id !== "string" || typeof record.html !== "string") return "ignored";
 		if (!applyHTML(record.id, record.html, typeof record.v === "string" ? record.v : undefined)) {
 			// The same page executed again produces the same ids, so an id this
 			// screen does not hold means the page's structure changed — a panel
@@ -586,9 +589,44 @@ function handleRecord(record) {
 		}
 		return "applied";
 	}
+	if (record.r === "end") return "closed";
+	if (record.r === "reload") {
+		reloadOnce("the server asked for a reload");
+		return "stop";
+	}
+	if (record.r === "navigate") {
+		const target = resolveNavigable(record.url);
+		if (target) {
+			stopLive();
+			location.assign(target);
+		}
+		return "stop";
+	}
 	// An unknown record comes from a newer server. Ignoring it keeps an older
 	// client working instead of tearing down a connection it could still use.
 	return "ignored";
+}
+
+// installLiveHead adds the tags a delivery needs and nothing else.
+//
+// It is this half's own rather than the update runtime's, because the update
+// runtime is built from a configuration this half never sees. The rule it holds
+// is the one that matters: a tag already in the head is left alone, so a
+// reconnect that repeats the whole head installs nothing.
+function installLiveHead(tags) {
+	if (!tags || !tags.length) return;
+	for (const tag of tags) {
+		const holder = document.createElement("template");
+		holder.innerHTML = tag;
+		for (const node of Array.from(holder.content.children)) {
+			if (node.tagName === "TITLE") continue;
+			let present = false;
+			for (const existing of document.head.children) {
+				if (existing.outerHTML === node.outerHTML) present = true;
+			}
+			if (!present) document.head.appendChild(node);
+		}
+	}
 }
 
 function jitter(delay) {

@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/shibukawa/tinybind-go/htmlbind"
+	"github.com/shibukawa/tinybind-go/htmlbind/delta"
 )
 
 // ResponseModeHeader names what one route writes. Absent, the route answers the
@@ -134,6 +135,16 @@ func serveLive(w http.ResponseWriter, r *http.Request, wrappers []HTMLWrapper, l
 	// delivered any of them.
 	digestKey := liveDigestKey(config)
 	onScreen := parseLiveManifest(r.Header.Get(LiveManifestHeader), digestKey, liveManifestEntries(config))
+	// The head is known before the first delivery, so it rides the opening
+	// record rather than arriving after the markup that needs it. A chain whose
+	// head cannot be assembled is not a reason to refuse the stream: the tags a
+	// live delivery newly needs are the rare case, and the ones it usually needs
+	// are already on the page.
+	liveHead, err := delta.DeltaStreamHead(wrappers, leaf, renderOptions(ctx, config, false, options)...)
+	if err != nil {
+		logger.Log(ctx, LevelWarn, "live head could not be assembled", Err(err))
+		liveHead = nil
+	}
 	// The close reason is read at return rather than captured here, because
 	// every branch below decides it and only the last one is true.
 	defer func() { render.end(String("pw.live.close_reason", reason)) }()
@@ -166,8 +177,8 @@ func serveLive(w http.ResponseWriter, r *http.Request, wrappers []HTMLWrapper, l
 		}
 		if !committed {
 			writeLiveHeaders(w)
-			if err := writeLiveOpen(w); err != nil {
-				logger.Log(ctx, LevelError, "live open record write failed", Err(err))
+			if err := writeLiveHead(w, liveHead); err != nil {
+				logger.Log(ctx, LevelError, "live head record write failed", Err(err))
 				return
 			}
 			committed = true
@@ -392,31 +403,71 @@ func writeLiveHeaders(w http.ResponseWriter) {
 	htmlbind.Flush(w)
 }
 
-// writeLiveOpen names the generated version this stream belongs to, so a client
-// holding ids from another deployment reloads instead of applying deliveries to
-// a document that no longer matches them.
-func writeLiveOpen(w http.ResponseWriter) error {
-	record := []byte(`{"control":"open","version":`)
-	record = append(record, htmlbind.JSONString(renderVersion())...)
+// writeLiveHead opens the stream, on the record every other update response
+// opens with.
+//
+// It carries the head a delivery may need. That was the one thing this path did
+// not have: a navigation delta installs a newly reachable component's stylesheet
+// before its markup lands, and a live delivery whose content reached a component
+// the document never carried installed nothing and painted unstyled. The window
+// is narrow — a live region whose structure changes rather than its values — and
+// it is the exact failure requirement:delta-head-sync exists to prevent.
+//
+// The build is the render version rather than the update build identity, and the
+// difference is deliberate. An unstamped binary reports nothing here, which
+// disables the check; reporting the per-process identity instead would reload
+// every open screen on every restart, which is the herd decision:live-delivery-transport
+// spends its jitter avoiding. An update falls back the other way, because there
+// a wrong delta costs more than a re-transferred page.
+func writeLiveHead(w http.ResponseWriter, head []string) error {
+	record := []byte(`{"r":"head"`)
+	if version := renderVersion(); version != "" {
+		record = append(record, `,"build":`...)
+		record = append(record, htmlbind.JSONString(version)...)
+	}
+	if len(head) > 0 {
+		record = append(record, `,"head":[`...)
+		for index, tag := range head {
+			if index > 0 {
+				record = append(record, ',')
+			}
+			record = append(record, htmlbind.JSONString(tag)...)
+		}
+		record = append(record, ']')
+	}
 	return writeLiveRecord(w, append(record, '}'))
 }
 
 // writeLiveDelivery writes one delivery, carrying the validator the client
 // stores and returns on its next connection.
 //
-// The validator is spliced onto the module's own encoding rather than assembled
-// here, because that encoding escapes the fragment for a script context as well
-// as a JSON one and this framework has no business reproducing those rules. A
-// module that changed the record's shape would fail the splice and drop the
-// field, which costs the suppression and never a malformed record.
+// It is the await record, because that is what a delivery is: a boundary id
+// from the positional namespace and the markup that fills it, which is the same
+// operation a settled await boundary lands through on the navigation path. The
+// validator is this framework's own field beside the emitted shape, which is
+// what a caller owning its wire is expected to add.
 func writeLiveDelivery(w http.ResponseWriter, content htmlbind.Content, digest string) error {
-	record := content.AppendJSON(nil)
-	if digest != "" && len(record) > 1 && record[len(record)-1] == '}' {
-		record = append(record[:len(record)-1], `,"v":"`...)
-		record = append(record, digest...)
-		record = append(record, '"', '}')
+	record := []byte(`{"r":"await","id":`)
+	record = append(record, htmlbind.JSONString(content.BoundaryID)...)
+	record = append(record, `,"html":`...)
+	record = append(record, htmlbind.JSONString(string(content.HTML))...)
+	if digest != "" {
+		record = append(record, `,"v":`...)
+		record = append(record, htmlbind.JSONString(digest)...)
 	}
-	return writeLiveRecord(w, record)
+	return writeLiveRecord(w, append(record, '}'))
+}
+
+// writeLiveClose is always the last record. A clean transport close cannot say
+// whether the sources finished or a bound ended a healthy response, and the two
+// deserve opposite client behaviour.
+func writeLiveClose(w http.ResponseWriter, reason string, retryAfter time.Duration) error {
+	record := []byte(`{"r":"end","reason":"` + reason + `"`)
+	if retryAfter > 0 {
+		record = append(record, `,"retryMs":`...)
+		record = append(record, strconv.FormatInt(retryAfter.Milliseconds(), 10)...)
+	}
+	return writeLiveRecord(w, append(record, '}'))
 }
 
 // liveDigest is the validator of one delivery: what a screen holds, and what it
@@ -515,18 +566,6 @@ func parseLiveManifest(value string, key []byte, max int) map[string]string {
 		held[id] = digest
 	}
 	return held
-}
-
-// writeLiveClose is always the last record. A clean transport close cannot say
-// whether the sources finished or a bound ended a healthy response, and the two
-// deserve opposite client behaviour.
-func writeLiveClose(w http.ResponseWriter, reason string, retryAfter time.Duration) error {
-	record := []byte(`{"control":"closed","reason":"` + reason + `"`)
-	if retryAfter > 0 {
-		record = append(record, `,"retry_after_ms":`...)
-		record = append(record, strconv.FormatInt(retryAfter.Milliseconds(), 10)...)
-	}
-	return writeLiveRecord(w, append(record, '}'))
 }
 
 func writeLiveRecord(w io.Writer, record []byte) error {

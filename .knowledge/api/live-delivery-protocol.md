@@ -3,7 +3,7 @@ id: api:live-delivery-protocol
 type: api
 title: Live Delivery Wire Protocol
 ---
-The record envelope that carries a live boundary delivery after the document is complete, and the control records that say why a stream ended.
+The record envelope that carries a live boundary delivery after the document is complete, and the framing records that open a stream and say why it ended. Since 2026-08-09 it is the same grammar the navigation delta uses, so one reader serves both.
 
 ```yaml
 status: implemented
@@ -28,10 +28,13 @@ response:
   status: 200 once the route decides to serve live; a failure before that keeps its ordinary api:problem-response status, since nothing is committed
   content_type: one media type for the delivery stream, distinct from text/html
   headers: Vary on the mode header, Cache-Control no-store
-  framing: one JSON record per line, each written with htmlbind.Content.AppendJSON and terminated by a newline
+  framing: one JSON record per line, terminated by a newline, in the record grammar the navigation delta uses
 delivery_record:
-  shape: '{"id":"tb-1","html":"…","v":"…"}'
-  produced_by: htmlbind.Content.AppendJSON, which escapes the fragment for a script context as well as a JSON one; the validator is spliced onto that encoding rather than assembled here, so a module that changes the record's shape drops the field instead of emitting a malformed record
+  shape: an await record naming a boundary id, its markup, and the validator of those bytes
+  vocabulary_converged: 2026-08-09, onto the record grammar the navigation delta uses, so one grammar and one reader serve both streams; a delivery is the await record because that is what it is, a positional boundary id and the markup filling it, which is the same operation a settled await boundary lands through
+  written_here_rather_than_delegated: the module's live entry writes every completion, and this framework's suppression lives in its own loop over the deliveries; delegating would trade the suppression for the writer, and the wire is this side's to write anyway
+  escaping: the fragment is escaped with the module's own JSON string encoder, which is safe for a script context as well as a JSON one
+  validator_is_an_extension: the v field is this framework's own beside the emitted shape, which is what a caller owning its wire is expected to add
   meaning: replace the subtree of that boundary id with this HTML
   validator:
     what: a keyed digest of the delivered bytes, which the client stores and returns on its next connection
@@ -47,13 +50,15 @@ delivery_record:
     observability: pw.live.suppressed and pw.live.suppressed_bytes on the render span, because a delivery count alone cannot distinguish a quiet page from one whose every delivery is skipped
   no_script: no record carries script, so policy:security-response-headers still needs no nonce
 control_records:
-  open: '{"control":"open","version":"…"}', the first record, naming the generated build behind the ids; a client holding another build's ids reloads instead of applying anything
-  closed_done: '{"control":"closed","reason":"done"}'; every source ended, or the page had nothing live, so the client stops
-  closed_retry: '{"control":"closed","reason":"retry","retry_after_ms":2000}'; a policy:live-subscription-bounds lifetime, an idle bound, or a refusal ended it, and the client is expected back
+  head: the first record, carrying the build behind the ids and the chain's head tags; a client holding another build's ids reloads instead of applying anything
+  head_carries_tags: a delivery whose content reaches a component the document never carried needs that component's tags before its markup lands, which is the ordering the navigation delta makes normative and which this path had no channel for at all before the vocabulary converged
+  build_fallback_differs_from_an_update: an unstamped binary reports nothing here, which disables the check rather than reloading every open screen on every restart; an update falls back to the per-process identity instead, because there a wrong delta costs more than a re-transferred page
+  end_done: the terminator when every source ended, or the page had nothing live, so the client stops
+  end_retry: the terminator with a retry hint in milliseconds; a policy:live-subscription-bounds lifetime, an idle bound, or a refusal ended it, and the client is expected back
   reload: the generated version is incompatible with what the client holds
   navigate: the page returned a redirect, which must not be a 3xx a fetch would follow opaquely into a body
-  terminal: one of the closed records is always the last thing written
-  version_source: the build's own vcs.revision stamp, so two instances of one deployment agree and a restart evicts nobody; a build with no stamp sends an empty version, which disables the check rather than reloading every client on every restart
+  terminal: an end record is always the last thing written, and nothing after it is read
+  version_source: the build's own vcs.revision stamp, so two instances of one deployment agree and a restart evicts nobody; a build with no stamp sends none, which disables the check rather than reloading every client on every restart
   unknown_record: ignored rather than fatal, so an older client keeps a connection a newer server can still serve
 document_marker:
   why: no transport signal distinguishes a finished response from a truncated one, and a truncated HTML document still fires DOMContentLoaded and load with nothing surfaced to the page

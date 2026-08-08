@@ -150,6 +150,29 @@ function swapNode(target, fragment) {
 	globalThis.__swapped.push({ id: target.id, html: fragment.__html });
 	return globalThis.__swapOK;
 }
+// The shared record reader, which both stream shapes go through.
+async function* readRecords(body) {
+	const reader = body.getReader();
+	const decoder = new TextDecoder();
+	let buffer = "";
+	for (;;) {
+		const chunk = await reader.read();
+		if (chunk.done) return;
+		buffer += decoder.decode(chunk.value, { stream: true });
+		let newline = buffer.indexOf("\\n");
+		while (newline >= 0) {
+			const line = buffer.slice(0, newline);
+			buffer = buffer.slice(newline + 1);
+			newline = buffer.indexOf("\\n");
+			if (!line.trim()) continue;
+			try {
+				yield JSON.parse(line);
+			} catch (error) {
+				return;
+			}
+		}
+	}
+}
 function resolveNavigable(value, base) {
 	if (typeof value !== "string" || value === "") return null;
 	let resolved;

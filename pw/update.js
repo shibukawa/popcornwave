@@ -550,36 +550,14 @@ export function createUpdateRuntime(config) {
 	// response ends, which is what makes a slow region cost only itself.
 	async function consumeStream(response, current) {
 		if (!response.body || !response.body.getReader) return { fellBack: true, reason: "not-a-stream" };
-		const reader = response.body.getReader();
-		const decoder = new TextDecoder();
 		// Validators are held aside until the terminator arrives. A truncated
 		// stream must not leave this client claiming regions it never received,
 		// because the server would then omit them forever.
 		const pending = [];
-		let buffer = "";
 		let ended = null;
 		let navigate = null;
-		for (;;) {
-			let chunk;
-			try {
-				chunk = await reader.read();
-			} catch (error) {
-				return { fellBack: true, reason: "network" };
-			}
-			if (chunk.done) break;
-			buffer += decoder.decode(chunk.value, { stream: true });
-			let newline = buffer.indexOf("\n");
-			while (newline >= 0) {
-				const line = buffer.slice(0, newline);
-				buffer = buffer.slice(newline + 1);
-				newline = buffer.indexOf("\n");
-				if (!line.trim()) continue;
-				let record;
-				try {
-					record = JSON.parse(line);
-				} catch (error) {
-					return { fellBack: true, reason: "unreadable" };
-				}
+		try {
+			for await (const record of readRecords(response.body)) {
 				if (!current()) return { superseded: true };
 				if (record.r === "head") {
 					// The opening record repeats the build, so a server redeployed
@@ -621,13 +599,16 @@ export function createUpdateRuntime(config) {
 					continue;
 				}
 				if (record.r === "end") {
+					// The terminator is the last record by contract, so nothing
+					// after it is read rather than read and ignored.
 					ended = record;
-					continue;
+					break;
 				}
 				if (record.r === "navigate" && record.url) navigate = record.url;
 				// Anything else is from a newer server and is ignored.
 			}
-			if (ended) break;
+		} catch (error) {
+			return { fellBack: true, reason: "network" };
 		}
 		// A stream that ended with no terminator was cut off rather than finished.
 		if (!ended) return { fellBack: true, reason: "truncated" };
