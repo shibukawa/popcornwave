@@ -61,6 +61,19 @@ Every one of these falls back the same way. If the runtime is absent, if a proxy
 stripped the header, or if anything goes wrong at any point, the request becomes
 an ordinary navigation and the answer is the blue path.
 
+That is a stronger guarantee than it sounds, because the blue path is not a
+fallback anybody maintains. It is what a link, a GET form and the back button do
+by themselves. Turn JavaScript off and the search page still searches, the
+filter still filters, and the address bar still holds a URL you can send to
+someone — not because there is a second implementation for that case, but
+because there was never a first one to begin with.
+
+Which is also the standard the green path is held to. Every gesture the runtime
+takes over has to reach the destination the browser would have reached on its
+own, since a page where the two disagree is worse than a page that never loaded
+the runtime at all. Where the sections below say the runtime *declines* to
+intercept something, that is the rule being enforced.
+
 ## Nothing about the page changes
 
 Every layout and page of a rendered chain is already an update boundary. A
@@ -248,15 +261,65 @@ if (window.popcornwave) {
 }
 ```
 
+`update()` takes the *whole* query. Parameters you do not name are dropped, the
+same way submitting a GET form replaces the query rather than merging into it —
+read the ones you mean to keep off `location.search` and pass them back.
+
 Links and GET forms are intercepted by default, so a search form refines the page
 it is on with no script at all. Put `data-tb-ignore` on an element or an ancestor
 to hand one back to the browser. Non-GET submissions, modified clicks, `target`,
 `download` and cross-origin URLs are always the browser's, which is what keeps
 post-redirect-get working exactly as it did.
 
+A submit button speaks for the submission it triggers. `formmethod`, `formaction`
+and `formtarget` are read off the button before the runtime decides whether it
+owns the submission at all, so a `<button formmethod="post">` inside a GET form
+is a POST and leaves the page — and the pressed button's own `name` and `value`
+join the query, exactly as they join any other submission.
+
+A link that differs from the current URL only in its fragment is left alone
+entirely. The browser has the element and knows where to put it, and a round trip
+could only arrive at the same page.
+
 A region the server does not own — a map widget, a canvas, a video mid-playback —
 is marked `data-tb-preserve="chart"` and moved into the replacement rather than
 re-rendered.
+
+## Where the user is left
+
+Swapping a region instead of reparsing a document preserves everything by
+default, and that is not always what you want. A filter should leave the reader
+where they were reading. A link to another page should not.
+
+So the runtime splits on which one happened. A link or a GET form is arriving
+somewhere new: it starts at the top, or at the fragment it named, and moves focus
+to the page's `<main>` if the delta took away whatever had it. `update()` is the
+same page with different arguments, so the viewport does not move at all.
+
+Back and forward restore the position their entry recorded, after the regions
+have landed. The browser's own restoration is turned off — it runs before the
+content that makes the page that tall has arrived, and would scroll to somewhere
+that does not exist yet.
+
+Inside a replaced region a focused control keeps both its focus and its caret,
+and the caret is the part that matters. Values were always carried across; what
+made a search box that updates as you type unusable was the cursor jumping to the
+end of the text on every keystroke.
+
+For an input method the update waits. A delta landing on an unconfirmed
+composition would replace the control being composed into and commit or discard
+whatever was half-spelled — the ordinary case for Japanese or Chinese input in a
+search box. The response is held until the composition ends, and one that was
+superseded while it waited is discarded like any other.
+
+While a navigation or a redraw is open, the document root carries
+`data-tb-updating`. Style it and the progress indicator is done:
+
+```css
+[data-tb-updating] .results { opacity: 0.6; }
+```
+
+You never set it yourself, and it is gone the moment the request settles.
 
 ## What will bite you
 

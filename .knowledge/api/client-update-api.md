@@ -32,14 +32,16 @@ interception:
   links_and_get_forms: same-origin navigation is intercepted by default; a data attribute on an element or an ancestor returns it to the browser
   form_fields: become the query, so a search form refines the page it is on
   left_to_the_browser: non-GET submission, modified clicks, target, download, and cross-origin URLs, which is what keeps post-redirect-get working unchanged
+  contract: requirement:query-navigation-interception, which is where the submitter's overrides, a fragment-only target, and the harness coverage this surface lacks are settled
 events:
   kinds: start, applied, superseded, fell back, and redrawn
   payload: outcomes, never component arguments or validators
   safety: a failing subscriber cannot break the update it is watching
 history_and_focus:
   url: pushed after the response commits, so a failed delta leaves history untouched
-  scroll: restored on back and forward
-  focus: preserved, or moved to a documented landmark rather than silently lost
+  scroll: recorded on the entry being left, restored on back and forward, with the browser's own restoration taken over so it cannot race the delta
+  focus: the focused control is refocused with its selection, or focus moves to the main landmark
+  detail: requirement:update-navigation-continuity, which also owns the composition deferral, the announcement, and the busy marker
 security:
   origin: same-origin only
   csrf: an application fetch that mutates carries the policy:csrf-protection token; a redraw and a navigation are GETs and do not
@@ -49,7 +51,8 @@ errors:
   unknown_kind: the component changed since the page loaded, so a complete page load follows
   runtime_absent: no surface exists, which is why an author feature-detects
 authoring_attributes:
-  what: the preserve marker on a region the runtime must not replace, and the ignore marker returning a link or form to the browser
+  what: the preserve marker on a region the runtime must not replace, the ignore marker returning a link or form to the browser, and the busy marker the document root carries for the life of a navigation or a redraw
+  busy_is_read_not_written: an author styles it and never sets it, which is what makes a progress affordance CSS rather than a subscriber every application writes again
   naming: derived from this framework's data attribute prefix, so an application template writes no dependency name
 rules:
   - callers drive this API and never rewrite the runtime attributes a boundary carries

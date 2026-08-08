@@ -104,9 +104,10 @@ function refill(range, fragment, html) {
 	}
 	// A live boundary replaces content a user may have been typing into, so the
 	// same carrying-across an update does applies here.
-	carryClientState(outgoing, fragment);
+	const settle = carryClientState(outgoing, fragment);
 	for (const gone of outgoing) gone.remove();
 	range.end.parentNode.insertBefore(fragment, range.end);
+	settle();
 	range.html = html;
 	pruneApplied();
 }
@@ -175,7 +176,12 @@ export function setPreserveAttribute(name) {
 }
 
 // carryClientState moves preserved islands into the replacement and restores
-// form values the render did not mean to change.
+// the form state the render did not mean to change.
+//
+// It returns what has to happen after the replacement is in the document.
+// Focus is the reason: focusing a node that is still inside a fragment does
+// nothing at all, silently, so the one thing a user notices most is the one
+// thing that cannot be finished here.
 function carryClientState(outgoing, fragment) {
 	const live = new Map();
 	const values = new Map();
@@ -185,7 +191,38 @@ function carryClientState(outgoing, fragment) {
 		collectFormState(node, values);
 	}
 	if (live.size) restorePreserved(fragment, live);
-	if (values.size) restoreFormState(fragment, values);
+	if (!values.size) return settleNothing;
+	const focused = restoreFormState(fragment, values);
+	return focused ? () => placeFocus(focused) : settleNothing;
+}
+
+function settleNothing() {}
+
+// Only a text-like control has a selection. Reading one from a control that
+// does not throws rather than answering, so the probe is guarded rather than
+// the type being enumerated: which input types carry a selection has changed
+// before and is not worth a list here.
+function selectionOf(control) {
+	try {
+		if (control.selectionStart === null || control.selectionStart === undefined) return null;
+		return [control.selectionStart, control.selectionEnd, control.selectionDirection || "none"];
+	} catch {
+		return null;
+	}
+}
+
+function placeFocus(target) {
+	const control = target.control;
+	if (!control.isConnected || !control.focus) return;
+	// preventScroll because where the viewport belongs is a decision the update
+	// runtime has already made, and refocusing must not overrule it.
+	control.focus({ preventScroll: true });
+	if (!target.selection || !control.setSelectionRange) return;
+	try {
+		control.setSelectionRange(target.selection[0], target.selection[1], target.selection[2]);
+	} catch {
+		// A control whose type changed under the swap has no selection to set.
+	}
 }
 
 function collectPreserved(root, into) {
@@ -214,19 +251,32 @@ function collectFormState(root, into) {
 	for (const control of controls) {
 		const key = control.name || control.id;
 		if (!key) continue;
-		if (control.type === "checkbox" || control.type === "radio") {
-			if (control.checked !== control.defaultChecked) into.set(key, { checked: control.checked });
-			continue;
+		const held = {};
+		// Focus and the caret are carried whether or not the value moved. A user
+		// whose cursor is still in the search box has changed nothing about it,
+		// and that is exactly the case a region swap loses: a page that updates
+		// as it is typed puts the caret at the end of nowhere on every keystroke.
+		if (control === document.activeElement) {
+			held.focused = true;
+			held.selection = selectionOf(control);
 		}
-		// A file input's value cannot be set from script at all, so it is not
-		// restorable by value; it belongs in a preserved island or outside the
-		// region, which requirement:unified-update-runtime records as a gap.
-		if (control.type === "file") continue;
-		if (control.value !== control.defaultValue) into.set(key, { value: control.value });
+		if (control.type === "checkbox" || control.type === "radio") {
+			if (control.checked !== control.defaultChecked) held.checked = control.checked;
+		} else if (control.type === "file") {
+			// A file input's value cannot be set from script at all, so it is not
+			// restorable by value; it belongs in a preserved island or outside the
+			// region, which requirement:unified-update-runtime records as a gap.
+		} else if (control.value !== control.defaultValue) {
+			held.value = control.value;
+		}
+		if (held.focused || "checked" in held || "value" in held) into.set(key, held);
 	}
 }
 
+// Returns the control focus belongs on once the replacement has landed, or null.
+// There is at most one: a document has one active element.
 function restoreFormState(fragment, values) {
+	let focused = null;
 	const controls = fragment.querySelectorAll ? fragment.querySelectorAll("input, textarea, select") : [];
 	for (const control of controls) {
 		const held = values.get(control.name || control.id);
@@ -234,10 +284,12 @@ function restoreFormState(fragment, values) {
 		if ("checked" in held) {
 			// A changed default is the server asserting a new value, and it wins.
 			if (control.checked === control.defaultChecked) control.checked = held.checked;
-			continue;
+		} else if ("value" in held && control.value === control.defaultValue) {
+			control.value = held.value;
 		}
-		if (control.value === control.defaultValue) control.value = held.value;
+		if (held.focused && !focused) focused = { control: control, selection: held.selection };
 	}
+	return focused;
 }
 
 // swapElement replaces one addressed element with rendered markup, carrying the
@@ -247,8 +299,9 @@ export function swapElement(target, html) {
 	if (!target || !target.parentNode) return false;
 	const holder = document.createElement("template");
 	holder.innerHTML = html;
-	carryClientState([target], holder.content);
+	const settle = carryClientState([target], holder.content);
 	target.replaceWith(holder.content);
+	settle();
 	pruneApplied();
 	return true;
 }
