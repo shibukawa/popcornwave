@@ -120,9 +120,9 @@ max_open_conns = 20
 user, err := queries.CreateUser(pw.SelectDB(ctx, "writer"), name)
 
 // 書き込みトランザクション
-err := pw.Transaction(ctx, func(ctx context.Context) error {
+err := pw.Transaction(pw.SelectDB(ctx, "writer"), func(ctx context.Context) error {
 	return queries.RecordAudit(ctx, "user.created")
-}, pw.OnGroup("writer"))
+})
 ```
 
 書き込み直後の値を読むなど、レプリカの反映待ちを許容できない読み取りも `writer` へ

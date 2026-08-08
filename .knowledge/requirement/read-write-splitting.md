@@ -11,7 +11,7 @@ capabilities:
   grouped_connections: name several pools and address them as one group
   default_read: unpinned SQL uses default_group, balanced round robin across its connections
   explicit_selection: api:database-selection pins a group for one call or one handler
-  scoped_transaction: api:transaction-runner takes OnGroup and keeps the whole callback on that group
+  scoped_transaction: api:transaction-runner keeps the whole callback on the group its context selects
   readonly_marking: a readonly connection rejects a write statement instead of forwarding it
 configuration: data:database-connection-set
 decision: decision:grouped-database-connections
@@ -24,7 +24,7 @@ acceptance:
   - one request that reads twice from a group uses one connection for both statements
   - unpinned SQL resolves default_group; SelectDB with a group name resolves that group
   - unpinned SQL inside a writer transaction runs on the writer, not on default_group
-  - Transaction with OnGroup commits on that group, and a nested call on the same group opens a savepoint
+  - Transaction on a SelectDB context commits on that group, and a nested call on the same group opens a savepoint
   - a nested Transaction naming a different group fails and leaves the outer transaction usable
   - SelectDB to a readonly group inside a transaction reads outside it; to a writable group it fails
   - a write against a readonly connection fails as a framework error once the sqlbind resolver contract carries a statement access mode, per decision:grouped-database-connections

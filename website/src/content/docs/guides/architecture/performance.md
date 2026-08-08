@@ -130,9 +130,9 @@ SQL text. Write paths therefore need an explicit code change.
 user, err := queries.CreateUser(pw.SelectDB(ctx, "writer"), name)
 
 // A write transaction.
-err := pw.Transaction(ctx, func(ctx context.Context) error {
+err := pw.Transaction(pw.SelectDB(ctx, "writer"), func(ctx context.Context) error {
 	return queries.RecordAudit(ctx, "user.created")
-}, pw.OnGroup("writer"))
+})
 ```
 
 Reads that must observe a preceding write should also use `writer` rather than wait

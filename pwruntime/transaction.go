@@ -256,36 +256,17 @@ func SupportsSavepoint(driver string) bool {
 	return savepointDrivers[driver]
 }
 
-// TxOption customizes one Transaction call. It is variadic so an existing
-// two-argument call keeps compiling and keeps its meaning.
-type TxOption func(*txSettings)
-
-type txSettings struct {
-	group string
-}
-
-// OnGroup runs the transaction against a named connection group instead of the
-// effective group of the caller context.
-func OnGroup(group string) TxOption {
-	return func(settings *txSettings) { settings.group = group }
-}
-
 // Transaction executes fn with the active transaction stored in its context.
 // The outermost call begins a real transaction; a nested call opens a
 // savepoint, so an inner failure rolls back only the inner work and leaves the
 // outer transaction usable.
-func Transaction(ctx context.Context, fn func(context.Context) error, options ...TxOption) error {
+//
+// The transaction runs on the effective group of ctx, so SelectDB names a
+// connection group for a whole transaction exactly as it does for a single
+// statement, and nothing here can move a transaction to another group.
+func Transaction(ctx context.Context, fn func(context.Context) error) error {
 	if fn == nil {
 		return errors.New("popcornwave: nil transaction callback")
-	}
-	var settings txSettings
-	for _, option := range options {
-		if option != nil {
-			option(&settings)
-		}
-	}
-	if settings.group != "" {
-		ctx = SelectDB(ctx, settings.group)
 	}
 	current := resources(ctx)
 	group := current.effectiveGroup()

@@ -134,17 +134,17 @@ func TestSelectDBRoutesToTheNamedGroup(t *testing.T) {
 	equal(t, names(t, replica), nil)
 }
 
-func TestTransactionOnGroupKeepsUnpinnedStatementsOnThatGroup(t *testing.T) {
+func TestTransactionOnSelectedGroupKeepsUnpinnedStatementsOnThatGroup(t *testing.T) {
 	_, ctx := newGroupedDB(t, "replica",
 		Connection{Group: "replica", Label: "replica#1", ReadOnly: true},
 		Connection{Group: "writer", Label: "writer#1"},
 	)
-	err := Transaction(ctx, func(ctx context.Context) error {
+	err := Transaction(SelectDB(ctx, "writer"), func(ctx context.Context) error {
 		// No pin inside: the transaction group has to outrank default_group,
 		// otherwise this write would land on the replica.
 		insert(t, ctx, "in-writer-tx")
 		return nil
-	}, OnGroup("writer"))
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -157,18 +157,18 @@ func TestNestedTransactionRejectsAnotherGroup(t *testing.T) {
 		Connection{Group: "replica", Label: "replica#1", ReadOnly: true},
 		Connection{Group: "writer", Label: "writer#1"},
 	)
-	err := Transaction(ctx, func(ctx context.Context) error {
-		inner := Transaction(ctx, func(context.Context) error {
+	err := Transaction(SelectDB(ctx, "writer"), func(ctx context.Context) error {
+		inner := Transaction(SelectDB(ctx, "replica"), func(context.Context) error {
 			t.Fatal("the cross-group callback ran")
 			return nil
-		}, OnGroup("replica"))
+		})
 		if !errors.Is(inner, ErrCrossGroupTransaction) {
 			t.Fatalf("inner err = %v, want ErrCrossGroupTransaction", inner)
 		}
 		// The outer transaction stays usable after the rejection.
 		insert(t, ctx, "still-usable")
 		return nil
-	}, OnGroup("writer"))
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -182,7 +182,7 @@ func TestSelectDBInsideTransactionReadsReplicaAndRejectsWriter(t *testing.T) {
 		Connection{Group: "writer", Label: "writer#1"},
 		Connection{Group: "reporting", Label: "reporting#1"},
 	)
-	err := Transaction(ctx, func(ctx context.Context) error {
+	err := Transaction(SelectDB(ctx, "writer"), func(ctx context.Context) error {
 		// A readonly group is reachable: the read simply happens outside the
 		// transaction.
 		if _, err := SQLExecutor(SelectDB(ctx, "replica")); err != nil {
@@ -194,7 +194,7 @@ func TestSelectDBInsideTransactionReadsReplicaAndRejectsWriter(t *testing.T) {
 			t.Fatal("a writable group was selectable inside a transaction")
 		}
 		return nil
-	}, OnGroup("writer"))
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -224,7 +224,7 @@ func TestCollapsedSetAnswersEveryGroupName(t *testing.T) {
 	err := Transaction(SelectDB(ctx, "writer"), func(ctx context.Context) error {
 		insert(t, SelectDB(ctx, "replica"), "still-collapsed")
 		return nil
-	}, OnGroup("writer"))
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
