@@ -2,4 +2,8 @@
 devbox.d/
 /partial_update
 *_pw_gen.go
-public/**/*.zstd
+dist/cache/
+dist/derived/
+dist/manifest.json
+dist/public/*
+!dist/public/.keep

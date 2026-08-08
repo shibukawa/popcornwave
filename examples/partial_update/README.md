@@ -6,8 +6,17 @@ what leaves the server when you click.
 
 ```bash
 pw dev
-# or: APP_ENV=dev go run ./cmd/partial_update
 open http://localhost:8080/
+```
+
+`pw dev` is the whole command, and the reason is worth one sentence: the served
+static tree is derived from the authored one — hashed names, compressed variants
+— so `public.go` embeds `dist/public` rather than `public`, and a checkout that
+has never been built has nothing there to embed. Running the binary directly
+works after `pw build`:
+
+```bash
+pw build && APP_ENV=dev go run ./cmd/partial_update
 ```
 
 Open the network tab before you click anything. Compression is off in
