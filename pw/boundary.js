@@ -286,17 +286,30 @@ function restoreFormState(fragment, values) {
 	}
 }
 
-// swapElement replaces one addressed element with rendered markup, carrying the
-// client state across. It is what a delta operation, a redraw, and an action
-// response all land through, so a region arrives the same way whichever asked.
-export function swapElement(target, html) {
-	if (!target || !target.parentNode) return false;
+// parseFragment turns rendered markup into nodes. It is separate from the swap
+// below because a caller filling the holes of a decomposed fragment has to reach
+// inside it before it lands: a node moved into a hole after insertion is a node
+// moved twice, and a reparented iframe reloads on every move.
+export function parseFragment(html) {
 	const holder = document.createElement("template");
 	holder.innerHTML = html;
-	carryClientState([target], holder.content);
-	target.replaceWith(holder.content);
+	return holder.content;
+}
+
+// swapNode replaces one addressed element with prepared nodes, carrying the
+// client state across. It is what a delta operation, a redraw, and an action
+// response all land through, so a region arrives the same way whichever asked.
+export function swapNode(target, fragment) {
+	if (!target || !target.parentNode) return false;
+	carryClientState([target], fragment);
+	target.replaceWith(fragment);
 	pruneApplied();
 	return true;
+}
+
+// swapElement is swapNode for a caller holding markup rather than nodes.
+export function swapElement(target, html) {
+	return swapNode(target, parseFragment(html));
 }
 
 export function applyBoundary(id, fragment, html, digest) {

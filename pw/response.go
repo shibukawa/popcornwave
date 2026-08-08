@@ -324,7 +324,14 @@ func WriteHTMLChain(w http.ResponseWriter, r *http.Request, wrappers []HTMLWrapp
 	// document, so a crawler, curl, and a browser without the runtime are
 	// unaffected by any of this.
 	if config.Update.Enabled {
-		// A redraw is tested first because it answers with one component's
+		// A sequence is tested before anything that renders. It is the static
+		// half of a fragment, derived from the template rather than from this
+		// request, so answering it costs a map lookup and touches neither the
+		// chain nor the handler's data.
+		if serveSequence(w, r, config) {
+			return
+		}
+		// A redraw is tested next because it answers with one component's
 		// subtree and never touches this chain, so there is nothing about the
 		// page left to decide once it has been recognized.
 		if serveRegisteredRedraw(w, r, config) {

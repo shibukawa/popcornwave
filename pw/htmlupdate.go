@@ -511,6 +511,30 @@ func RedrawComponents(w http.ResponseWriter, r *http.Request, components ...html
 	return options.Redraw(w, render.request(r), registry)
 }
 
+// serveSequence answers a request for the static half of one fragment.
+//
+// It lives on the page's own URL for the same reason a redraw does: this
+// framework mounts no path of its own, and a request that arrives here has
+// already passed whatever guards the page. The difference is that a sequence
+// needs none of that — it derives from the template rather than from the
+// request, which is what makes it the one response on this wire that can be
+// public, immutable, and served from an edge.
+//
+// It is tested before the redraw and before the update modes because it renders
+// nothing. An address this process has never rendered is answered not-found, and
+// the client asks for the assembled form instead; a sequence is an optimization
+// over markup that is always available, never something a screen depends on.
+func serveSequence(w http.ResponseWriter, r *http.Request, config HTMLConfig) bool {
+	options := updateOptions(config)
+	if options.Negotiate(r).Mode != htmlupdate.ModeSequence {
+		return false
+	}
+	// No span: a sequence answers from a lookup table and reaches no template,
+	// no database, and no handler, so a render span around it would report a
+	// render that did not happen.
+	return options.Sequence(w, r)
+}
+
 // serveRegisteredRedraw answers a redraw from the process-wide published set.
 //
 // It is the page tree's half of the same capability. A generated route handler
@@ -577,8 +601,15 @@ func Replace(targetID string, fragment HTMLFragment) UpdateRegion {
 // are the validation errors — showing them is the point. That is the opposite
 // of a redraw, where a non-2xx means the render failed.
 func WriteUpdate(w http.ResponseWriter, r *http.Request, status int, regions ...UpdateRegion) {
-	config := Config[HTMLConfig](requestContext(r))
-	if err := updateOptions(config).WriteUpdateStatus(w, status, regions...); err != nil {
+	ctx := requestContext(r)
+	config := Config[HTMLConfig](ctx)
+	// The options are the ones every other render path gets. Until system:tinybind
+	// v0.4.4 this entry took none, and a region holding a form could not render
+	// at all: CSRFField refuses a render that supplied no token, so the
+	// documented way to answer a rejected submission — 422 carrying the form
+	// with its errors — answered 500 instead.
+	if err := updateOptions(config).WriteUpdateStatus(w, r, status, regions,
+		renderOptions(ctx, config, false, nil)...); err != nil {
 		// Nothing is written until every region rendered, so a failure here can
 		// still choose its own status.
 		WriteProblem(w, r, InternalServerError(err))

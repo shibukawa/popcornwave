@@ -11,6 +11,7 @@ import (
 
 	"github.com/shibukawa/popcornwave/pwruntime"
 	"github.com/shibukawa/tinybind-go/htmlbind"
+	"github.com/shibukawa/tinybind-go/htmlbind/delta"
 	"github.com/shibukawa/tinybind-go/htmlupdate"
 )
 
@@ -170,11 +171,42 @@ func redrawRequest(t *testing.T, kind, instance, query string) *http.Request {
 	}))
 }
 
+// cardParams is what generation would declare for a reloadable component: the
+// instance id is a parameter, because that is where the boundary reads it from.
+type cardParams struct {
+	ID   string
+	Page string
+}
+
+var cardOps = htmlbind.Builder[cardParams]{}
+
+// cardPlan is the shape generation emits for a reloadable component. Since
+// system:tinybind v0.4.4 the boundary is not optional here: a redraw answers with
+// the region the request named, so the component has to be addressable at that
+// id, and a registration assembled by hand that is not fails rather than
+// answering with a response holding no operations.
+var cardPlan = &htmlbind.Plan[cardParams]{
+	Boundary: &htmlbind.Boundary[cardParams]{
+		ComponentID: "pw.test.Card@v1",
+		Attr:        "data-" + UpdateAttributePrefix + "-id",
+		Instance:    func(p cardParams) string { return p.ID },
+		Input:       func(p cardParams) string { return delta.CanonString(p.Page) },
+	},
+	Ops: []htmlbind.Op[cardParams]{
+		cardOps.Static("<article"),
+		cardOps.Attr("id", func(p cardParams) (string, bool) { return htmlbind.Escape(p.ID), true }),
+		cardOps.BoundaryAttr(),
+		cardOps.Static(">page "),
+		cardOps.Text(func(p cardParams) string { return p.Page }),
+		cardOps.Static("</article>"),
+	},
+}
+
 func cardComponent(kind string) htmlupdate.Reloadable {
 	return htmlupdate.Reloadable{
 		KindID: kind,
 		Render: func(_ *http.Request, instanceID string, values url.Values) (htmlbind.Fragment, error) {
-			return staticFragment(`<article id="` + instanceID + `">page ` + values.Get("page") + `</article>`), nil
+			return htmlbind.Bind(cardPlan, cardParams{ID: instanceID, Page: values.Get("page")}), nil
 		},
 	}
 }

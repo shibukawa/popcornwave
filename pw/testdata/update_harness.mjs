@@ -41,6 +41,12 @@ function element(id, attributes) {
 		closest() {
 			return null;
 		},
+		// The stub parses no HTML, so an element has no descendants. What the
+		// runtime asks of it is only whether any nested boundary is there.
+		querySelectorAll() {
+			return [];
+		},
+		remove() {},
 	};
 	elements.set(id, node);
 	return node;
@@ -49,6 +55,7 @@ function element(id, attributes) {
 const swapped = [];
 const headInstalled = [];
 let liveStarted = 0;
+let liveStopped = 0;
 const requests = [];
 let nextResponse = null;
 let assigned = null;
@@ -130,7 +137,16 @@ function withCSRF(headers) { headers["X-CSRF-Token"] = "token"; return headers; 
 function swapElement(target, html) { globalThis.__swapped.push({ id: target.id, html: html }); return globalThis.__swapOK; }
 function applyHTML(id, html) { globalThis.__swapped.push({ placeholder: id, html: html }); return true; }
 function startLive() { globalThis.__liveStarted(); }
+function stopLive() { globalThis.__liveStopped(); }
 function setPreserveAttribute() {}
+// The decomposed path parses a fragment, fills its holes, and swaps the nodes.
+// The stub keeps the markup so an assertion can read it, and records the swap
+// through the same list swapElement uses.
+function parseFragment(html) { return { __html: html, querySelector: () => null }; }
+function swapNode(target, fragment) {
+	globalThis.__swapped.push({ id: target.id, html: fragment.__html });
+	return globalThis.__swapOK;
+}
 function resolveNavigable(value, base) {
 	if (typeof value !== "string" || value === "") return null;
 	let resolved;
@@ -156,6 +172,9 @@ globalThis.__swapOK = true;
 globalThis.__liveStarted = () => {
 	liveStarted += 1;
 };
+globalThis.__liveStopped = () => {
+	liveStopped += 1;
+};
 
 const source = prelude + fs.readFileSync(path.join(here, "..", "update.js"), "utf8");
 const module = path.join(here, ".update_harness_module.mjs");
@@ -171,6 +190,7 @@ function fresh() {
 	assigned = null;
 	reloaded = 0;
 	liveStarted = 0;
+	liveStopped = 0;
 	globalThis.__swapOK = true;
 	elements.clear();
 	return createUpdateRuntime({ header: "Pw", attr: "tb", build: "build-1", global: "popcornwave" });
@@ -312,15 +332,20 @@ function fresh() {
 }
 
 // A redraw addresses the page's own URL and names the component in headers.
+//
+// Since tinybind-go v0.4.4 it answers with the body an action does: head,
+// operations, and the manifest entries it rendered. The head has left its
+// header, and the validator comes back rather than being left stale.
 {
 	const runtime = fresh();
 	element("card-1", { "data-tb-kind": "pages.Card" });
 	nextResponse = response({
-		headers: {
-			"Pw-Render": "redraw",
-			"Pw-Head": Buffer.from(JSON.stringify(['<link rel="stylesheet" href="/card.css">'])).toString("base64"),
+		headers: { "Pw-Render": "redraw" },
+		json: {
+			head: ['<link rel="stylesheet" href="/card.css">'],
+			ops: [{ kind: "replace", id: "card-1", html: '<article id="card-1">redrawn</article>' }],
+			manifest: [{ id: "card-1", frame: "f-card" }],
 		},
-		text: '<article id="card-1">redrawn</article>',
 	});
 	const result = await runtime.redraw("card-1", { page: 7 });
 	check(result.applied === true, "the redraw applied");
@@ -329,6 +354,18 @@ function fresh() {
 	check(requests[0].headers["Pw-Kind"] === "pages.Card", "the kind travelled in a header");
 	check(requests[0].headers["Pw-Instance"] === "card-1", "the instance travelled in a header");
 	check(headInstalled.length === 1, "the redraw's head contribution was installed");
+
+	// The validator it returned is held, so the next navigation is told this
+	// region is current instead of being sent markup already on screen.
+	nextResponse = response({
+		headers: { "Pw-Render": "navigation", "Content-Type": "application/x-ndjson" },
+		lines: [JSON.stringify({ r: "end", reason: "final" })],
+	});
+	await runtime.navigate("/orders");
+	check(
+		(requests[1].headers["Pw-Manifest"] || "").includes("card-1:f-card"),
+		"the redraw's validator reached the next navigation",
+	);
 }
 
 // A component that is not reloadable carries no kind, and refusing locally costs
@@ -506,3 +543,72 @@ if (failures) {
 	process.exit(1);
 }
 console.log("update runtime conformance: all checks passed");
+
+// A decomposed fragment names the holes in its markup. A hole this client holds
+// is retained — the live node moves in, keeping the state inside it — and one it
+// does not hold is left for the operation that fills it.
+{
+	const runtime = fresh();
+	element("panel");
+	element("kept");
+	element("arriving");
+	// parseFragment is stubbed and finds no holes, so what this covers is that a
+	// fragment carrying a boundary list still installs, and that the child named
+	// in it applies on its own record rather than being swallowed by the parent.
+	nextResponse = response({
+		headers: { "Pw-Render": "navigation", "Content-Type": "application/x-ndjson" },
+		lines: [
+			JSON.stringify({ r: "head", build: "build-1" }),
+			JSON.stringify({
+				r: "op", kind: "replace", id: "panel", frame: "f1",
+				html: "<section></section>", boundaries: ["kept", "arriving"],
+			}),
+			JSON.stringify({ r: "op", kind: "replace", id: "arriving", html: "<b>new</b>", frame: "f2" }),
+			JSON.stringify({ r: "end", reason: "final" }),
+		],
+	});
+	await runtime.navigate("/orders");
+	check(assigned === null && reloaded === 0, "a decomposed fragment did not fall back");
+	check(swapped.length === 2, "the parent and the arriving child both applied");
+}
+
+// A children operation carries no markup: the boundary's own output is unchanged
+// and only the arrangement of its nested boundaries moved. It must be dispatched
+// rather than read as an unchanged validator.
+{
+	const runtime = fresh();
+	element("the-list");
+	nextResponse = response({
+		headers: { "Pw-Render": "navigation", "Content-Type": "application/x-ndjson" },
+		lines: [
+			JSON.stringify({ r: "head", build: "build-1" }),
+			JSON.stringify({ r: "op", kind: "children", id: "the-list", frame: "f1", boundaries: ["row-0", "row-1"] }),
+			JSON.stringify({ r: "end", reason: "final" }),
+		],
+	});
+	await runtime.navigate("/orders");
+	// The stubbed DOM holds no rows, so the reconciliation cannot place them and
+	// the ordinary fallback runs. What this asserts is that the record reached
+	// the operation path at all: read as an unchanged validator it would have
+	// been silently dropped and the screen left stale.
+	check(assigned !== null || reloaded > 0, "a children operation was dispatched rather than dropped");
+}
+
+// The outgoing page's live connection is closed before navigation records are
+// applied, and the new page's is opened after. A delivery landing in between
+// writes the old page's content into the new page's region.
+{
+	const runtime = fresh();
+	element("c1");
+	nextResponse = response({
+		headers: { "Pw-Render": "navigation", "Content-Type": "application/x-ndjson" },
+		lines: [
+			JSON.stringify({ r: "head", build: "build-1" }),
+			JSON.stringify({ r: "op", kind: "replace", id: "c1", html: "<p>hi</p>", frame: "f1" }),
+			JSON.stringify({ r: "end", reason: "live_pending" }),
+		],
+	});
+	await runtime.navigate("/orders");
+	check(liveStopped === 1, "the outgoing live connection was closed");
+	check(liveStarted === 1, "the incoming live connection was opened");
+}

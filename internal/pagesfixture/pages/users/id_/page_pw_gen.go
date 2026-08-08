@@ -19,7 +19,7 @@ var planPagePlan = &htmlbind.Plan[PageParams]{
 		planPageOps.Static(" <h1>"),
 		planPageOps.Text(func(p PageParams) string { return p.Name }),
 		planPageOps.Static("</h1> <p>page "),
-		planPageOps.Text(func(p PageParams) string { return htmlbind.FormatInt(p.Page) }),
+		planPageOps.Raw(func(p PageParams) string { return htmlbind.FormatInt(p.Page) }),
 		planPageOps.Static("</p> <button data-pw-action=\"/_action/00369cf962b6/Rename\" data-target=\"#name\">rename</button> "),
 	},
 }
