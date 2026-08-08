@@ -439,7 +439,11 @@ export function createUpdateRuntime(config) {
 					continue;
 				}
 				if (record.r === "op") {
-					pending.push({ id: record.id, frame: record.frame });
+					// The children validator travels on every operation record,
+					// including an unchanged one, so a manifest rebuilt from a
+					// stream returns both halves. Holding only the frame makes
+					// every list look reordered on the next request.
+					pending.push({ id: record.id, frame: record.frame, children: record.children });
 					// A record with no kind restates a validator and nothing else:
 					// the region is unchanged, so it is recorded and not applied.
 					// Every kind is dispatched, because a kind carrying no markup

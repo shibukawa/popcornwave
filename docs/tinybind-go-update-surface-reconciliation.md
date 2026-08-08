@@ -2,7 +2,7 @@
 
 **From:** Popcorn Wave (`github.com/shibukawa/popcornwave`)
 **Against:** the usage guide of 2026-08-09, and `github.com/shibukawa/tinybind-go` v0.4.4 as published
-**Status:** reconciliation. What the guide describes, what v0.4.4 does, and where the two differ.
+**Status:** §1 and §2 are fixed on `main` (`584af8e`) and verified here. See "Fixed on main" at the end. §3 and §4 stand, and one new item is added.
 
 ## Summary
 
@@ -112,8 +112,40 @@ We mention it because it is the thing a client implementer will get wrong: the w
 - **Walking sequences.** We send no `-Sequences` header, so we are served assembled markup and everything works. The remaining work is the fetch-and-cache by address and the tree walk. Staged deliberately: it is an optimisation over markup that is always available, and a wrong walk is silent.
 - **Moving our live delivery body onto this grammar.** Our live records carry a per-delivery validator that suppresses a re-sent unchanged boundary, and the module's live mode writes every completion. Converging costs us that suppression until a completion can carry a validator, which is the open item from the previous round.
 
+## Fixed on main, and verified
+
+`584af8e` on `main` closes §1 and §2. We re-ran the reproduction against it, and the record that was a bare validator restatement is now the operation:
+
+```
+{"r":"op","kind":"children","id":"the-list","frame":"lo0Siz…",
+ "boundaries":["row-0","row-1","row-2","row-3"],"children":"TXgVUu…"}
+{"r":"op","kind":"replace","id":"row-3","html":"…"}
+```
+
+Three things in that fix are worth naming back, because two of them we had not found.
+
+**The buffered path had the same defect**, and worse. `renderDelta` also dispatched by whether markup was present, so a children operation was written as a `replace` carrying no HTML — which does not fail to reorder a region, it **empties** it. We reported the streamed path because it is the one we use; the fix found the other half.
+
+**The record gained a `children` field**, on every operation including an unchanged one, so a manifest rebuilt from a stream returns both halves. That is the counterpart to the four-field manifest in §4 and it closes the loop: without it, a client that navigated through a stream would return frames only and make every list compare reordered — the same waste, arriving from the other direction.
+
+**`Unchanged` grew a parameter** rather than gaining an overload, so nothing can call it and silently drop the validator.
+
+We have taken all of it: the client records `children` from stream operation records, and its conformance harness covers a replaced boundary and an unchanged one both returning it.
+
+### One thing the fix does not carry: `parent`
+
+A stream operation record has `frame` and now `children`, and no `parent`. The buffered manifest array has all three.
+
+`disappeared` reads `known.Instances[].ParentID`: a boundary the client held that this render does not produce, whose parent it cannot name, forces a replacement of the outermost boundary. So a client whose manifest came from a stream falls back to a root replacement whenever a list **shrinks**, where one that came from a buffered response would not.
+
+It is the conservative direction — correct, and expensive exactly where the children operation is cheap. It is also the same shape as the `children` field you just added, which is why we mention it rather than filing it separately: a stream record carrying two of the three fields a manifest entry has is a client that rebuilds two thirds of its state.
+
 ## Two questions back
 
 **Should `Options.Render` take options, or should the guide say it does not?** Either resolves it. We would take the variadic, since the rule "pass the same ones everywhere" is worth having no exception to.
 
-**Is the sequence address header a rename or a prefix change?** The guide's table reads as the former. If it is, `Sequence` reads `<prefix>-Sequence` today and would need to read `<prefix>-Sequence-Address`.
+**Is the sequence address header a rename or a prefix change?** Answered by the fix: a rename, to `<prefix>-Sequence-Address`, with the reason stated in the source — a pair reading `-Sequences` and `-Sequence` is two headers a reader tells apart by counting characters.
+
+## One practical note
+
+**`v0.4.5` is not tagged.** `git ls-remote` lists tags to `v0.4.4`, and `main` is `584af8e`, which is where these fixes are. We are pinned to the pseudo-version of that commit so the work is not blocked; swapping to the tag is one line in `go.mod` once it is pushed.

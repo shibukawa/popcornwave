@@ -13,7 +13,7 @@ require (
 	github.com/redis/go-redis/v9 v9.17.3
 	github.com/shibukawa/dbtestify v0.5.0
 	github.com/shibukawa/localotelviewer v1.0.2
-	github.com/shibukawa/tinybind-go v0.4.4
+	github.com/shibukawa/tinybind-go v0.4.5-0.20260808154738-584af8e704f3
 	github.com/shibukawa/tinygodriver v1.1.11
 	golang.org/x/mod v0.38.0
 )

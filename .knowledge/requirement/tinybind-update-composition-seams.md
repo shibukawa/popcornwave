@@ -211,6 +211,16 @@ structured_render_output:
       also_diagnostic: it is what made the record above legible as a flattened children operation rather than an unchanged boundary
     values_interleave_more_than_interpolations: a value stream carries one entry per hole, per conditional, per loop, and per component call, and a boundary-opening call contributes the two halves of its placeholder attribute; Sequence.Reassemble is the reference to test a walk against rather than a reading of it
     not_implemented_here: walking sequences, which is opt-in and silent when wrong, and moving the live delivery body onto this grammar, which costs the per-delivery validator suppression until a completion can carry one
+  fixed_on_main:
+    commit: 584af8e, untagged; git ls-remote lists tags to v0.4.4, so this side is pinned to that commit's pseudo-version until the tag is pushed
+    children_dispatches_by_kind: a Children writer was added and both stream paths now branch on the operation kind, verified here by re-running the reproduction and seeing the operation arrive with its boundaries
+    the_buffered_path_had_it_worse: renderDelta dispatched the same way, so a children operation was written as a replace carrying no markup, which empties a region rather than failing to reorder it; this side reported the streamed path because it is the one it uses, and the fix found the other half
+    record_gained_a_children_field: on every operation record including an unchanged one, so a manifest rebuilt from a stream returns both halves rather than making every list compare reordered
+    sequence_address_header_renamed: to Sequence-Address, answering the question this side raised, on the ground that a pair reading Sequences and Sequence is two headers told apart by counting characters
+    still_open_upstream:
+      render_takes_no_options: unchanged, and it is the entry a page with no await boundary reaches first
+      stream_carries_no_parent: an operation record has frame and children and no parent, where a buffered manifest entry has all three; disappeared reads the known parent, so a client whose manifest came from a stream forces a root replacement whenever a list shrinks
+    taken_here: the client records the children validator from stream operation records, with a replaced and an unchanged boundary both covered in the conformance harness
   client_audit:
     prompted_by: reading this framework's four response shapes against each other while answering, which had not been done before
     reading: one transport wearing four costumes, and three of the differences are gaps rather than choices

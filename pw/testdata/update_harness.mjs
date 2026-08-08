@@ -582,7 +582,7 @@ console.log("update runtime conformance: all checks passed");
 		headers: { "Pw-Render": "navigation", "Content-Type": "application/x-ndjson" },
 		lines: [
 			JSON.stringify({ r: "head", build: "build-1" }),
-			JSON.stringify({ r: "op", kind: "children", id: "the-list", frame: "f1", boundaries: ["row-0", "row-1"] }),
+			JSON.stringify({ r: "op", kind: "children", id: "the-list", frame: "f1", children: "c1", boundaries: ["row-0", "row-1"] }),
 			JSON.stringify({ r: "end", reason: "final" }),
 		],
 	});
@@ -640,4 +640,30 @@ console.log("update runtime conformance: all checks passed");
 	check(sent.includes("panel:f-panel:c-panel"), "the children validator travelled");
 	check(sent.includes("row-0:f-row::panel"), "an entry with a parent and no children keeps the empty field");
 	check(sent.includes("flat:f-flat,") || sent.endsWith("flat:f-flat"), "a flat entry stays two fields");
+}
+
+// The children validator travels on a stream's operation records too, so a
+// manifest rebuilt from one returns both halves. Holding only the frame makes
+// every list look reordered on the next request.
+{
+	const runtime = fresh();
+	element("panel");
+	nextResponse = response({
+		headers: { "Pw-Render": "navigation", "Content-Type": "application/x-ndjson" },
+		lines: [
+			JSON.stringify({ r: "head", build: "build-1" }),
+			JSON.stringify({ r: "op", kind: "replace", id: "panel", html: "<section></section>", frame: "f-panel", children: "c-panel" }),
+			JSON.stringify({ r: "op", id: "quiet", frame: "f-quiet", children: "c-quiet" }),
+			JSON.stringify({ r: "end", reason: "final" }),
+		],
+	});
+	await runtime.navigate("/orders");
+	nextResponse = response({
+		headers: { "Pw-Render": "navigation", "Content-Type": "application/json" },
+		json: { ops: [] },
+	});
+	await runtime.navigate("/orders?page=2");
+	const sent = requests[1].headers["Pw-Manifest"];
+	check(sent.includes("panel:f-panel:c-panel"), "a replaced boundary's children validator was kept");
+	check(sent.includes("quiet:f-quiet:c-quiet"), "an unchanged boundary's children validator was kept");
 }
