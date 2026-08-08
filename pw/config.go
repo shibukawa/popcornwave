@@ -334,10 +334,11 @@ type RDBConfig struct {
 	// MigrationGroup receives migrations and seed data. Empty resolves to
 	// WriteGroup.
 	MigrationGroup string `dependon:".enabled" help:"connection group for migrations and seeds"`
-	// Connections is the array-of-tables form. An element has no CLI option, no
-	// environment variable, and no dependon, because its identity is its
-	// position in the file rather than a stable key.
-	Connections []RDBConnectionConfig `help:"connection set, one element per pool"`
+	// Connections is the array-of-tables form. An element takes no CLI option
+	// and no environment variable, because its identity is its position in the
+	// file rather than a stable key. The array itself has one, which is what
+	// lets a disabled pool drop the whole set from the startup summary.
+	Connections []RDBConnectionConfig `dependon:".enabled" help:"connection set, one element per pool"`
 }
 
 // RDBConnectionConfig is one pool of the connection set.

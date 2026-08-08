@@ -1066,6 +1066,7 @@ func registerMiddlewareConfigDefinition4() {
 			"middleware.rdb.default_group":   {"middleware.rdb.enabled"},
 			"middleware.rdb.write_group":     {"middleware.rdb.enabled"},
 			"middleware.rdb.migration_group": {"middleware.rdb.enabled"},
+			"middleware.rdb.connections":     {"middleware.rdb.enabled"},
 		},
 		Secrets: map[string]string{
 			"middleware.rdb.connections.dsn": "mask",
