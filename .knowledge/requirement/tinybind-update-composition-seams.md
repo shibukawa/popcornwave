@@ -144,6 +144,31 @@ fragment_head_from_a_parameter:
   why_it_matters_here: decision:fragment-head-rejection refuses a fragment response carrying head contributions, and this defect makes that check incomplete for exactly the cross-file composition case, so a slot-supplied component's styles are dropped rather than reported
   accepted_upstream: v0.3.2 filed it as its own requirement, plus a second one for what a fragment response owes a caller it cannot deliver to, rather than settling either in that release
   ask: unchanged; walk parameter-carried fragments when merging, or report them so a caller can refuse rather than lose them
+structured_render_output:
+  raised: 2026-08-08, after shipping the delivery validators of api:live-delivery-protocol
+  request_written: docs/tinybind-go-structured-render-request.md, against v0.4.2
+  what_forced_it:
+    suppression_is_the_easy_half: a validator per delivery removes the unchanged boundaries, which was the largest waste, and does nothing for a region that actually changes
+    every_wire_carries_assembled_bytes: a live delivery and a navigation delta both transfer a whole subtree, because assembled bytes are the only thing a caller can get
+    the_split_already_exists: Static ops are compile-time constants and Text and Attr are functions, and Plan.Exec concatenates them before any caller sees output
+    unreachable_from_here: staticOp and textOp are unexported and Op has one method that writes, so nothing in the public surface distinguishes them
+  the_escaping_multiplier:
+    found_while_writing_the_tests: Content.AppendJSON escapes for a script context, so every angle bracket costs six bytes
+    measured: a ten character fragment costs thirty bytes inside a record, because four of those characters are angle brackets
+    reading: markup is the expensive part of this wire by a wide margin, which makes a static and dynamic split worth more here than the raw sizes suggest
+  asks:
+    structured_output: statics, dynamics in plan order, a slot kind per dynamic, and a stable identity per template unit; nested for a component, a for body, and an if branch
+    slot_kinds_stay_upstream: the URL attribute check belongs in htmlbind/url.go and must not be re-implemented in a browser, so the module sends a checked value or nothing
+    one_identity: CachePolicy.ID is already the component identity plus a plan fingerprint, which is exactly what a skeleton cache key needs; a third identity would be a third invalidation rule
+    redraw_cache_store: Options.Redraw takes no htmlbind options, so a cached component redrawn alone runs uncached while the same component is cached on the page around it
+    update_flag_priority: requirement:partial-update-boundaries designs an explicit update flag and it is unimplemented, so a delta's granularity is still the page and its layouts
+  what_we_would_do_with_it:
+    transfer: statics stop being retransmitted on both the live and the navigation wire
+    application: the client assembles the subtree once and then sets textContent and attributes directly, with no parse, no range replacement, and no client state to carry across
+    no_document_cost: slot positions come from the client having built them, so the initial document needs no marker and the first delivery after a page load lands the old way
+  not_asked_for: a wire format or a protocol version, which decision:caller-owned-wire-versioning puts on this side
+  independent_of: requirement:live-mode-plan-slice, which stays the largest cost on the live path and is a separate piece of work
+
 carried_forward:
   live_mode_plan_slice: requirement:live-mode-plan-slice, since a live render still executes the whole composed chain and pays it per reconnect
   liveness_signal: requirement:live-boundary-liveness-signal, since nothing states which boundary is live and this framework keeps its own bookkeeping

@@ -19,7 +19,7 @@ request:
   body: none
   carries_no_server_state: no boundary ids the server issued as a handle, no revisions, no component arguments, and no continuation; the server still reconstructs by executing the page
   manifest_is_a_hint:
-    shape: 'tb-1:<validator>,tb-2:<validator>', the same pair form the update manifest uses, in its own header because boundary ids are positional and update instance ids are not
+    shape: a boundary id, a colon, its validator, and a comma between entries; the same pair form the update manifest uses, in its own header because boundary ids are positional and update instance ids are not
     trust: none needed; every value is compared against a validator this process computes from bytes it just rendered, so a forged entry can only match by being right
     malformed: skipped rather than refused, because a proxy that mangles a header must not become an outage
     bounded: at most html.live_max_boundaries entries are read, since a response cannot serve more boundaries than that
