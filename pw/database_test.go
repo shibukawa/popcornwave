@@ -21,7 +21,8 @@ func TestDatabaseTarget(t *testing.T) {
 
 // TestDatabaseTargetUnlinkedEngine asserts that an engine the framework ships
 // but this binary did not link reports the import to add, rather than looking
-// like an unknown database. pw links only SQLite by default.
+// like an unknown database. This test binary links SQLite explicitly in
+// database_engine_test.go, so PostgreSQL represents an omitted engine here.
 func TestDatabaseTargetUnlinkedEngine(t *testing.T) {
 	_, err := databaseTarget("postgres://user:secret@127.0.0.1:5432/app")
 	if err == nil {

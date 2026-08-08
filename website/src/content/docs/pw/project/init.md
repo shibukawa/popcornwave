@@ -93,7 +93,7 @@ it runs with nothing to start beside the application.
 | `postgres` | `postgres://<name>:<name>@127.0.0.1:5432/<name>?sslmode=disable` | `postgresql` in `devbox.json` |
 | `mysql` | `mysql://<name>:<name>@tcp(127.0.0.1:3306)/<name>` | `mysql80` in `devbox.json` |
 
-A server engine adds one blank import to `main.go`, which is what registers it:
+Every engine adds one blank import to `main.go`, which is what registers it:
 
 ```go
 import _ "github.com/shibukawa/popcornwave/database/postgres"

@@ -122,7 +122,7 @@ outputs:
   - .pw.sql query example, only when the database is selected
   - data:project-config project.database naming the selected engine, which api:cli-generate reads as its SQL dialect
   - migrations/00001_init.sql as migration version 1, in the dialect of the selected engine, with the data:migration-source scaffolded_version_1 comment-only body
-  - a rule:rdb-dsn-resolution engine blank import in main, only for an engine pw does not link itself
+  - the selected rule:rdb-dsn-resolution engine blank import in main whenever the database capability is selected
   - public directory with non-served .keep sentinel and stable public.go embedding scaffold
   - tinygohelper.go netdev registration for rule:tinygo-runtime-compatibility, only when TinyGo is selected
   - .gitignore excluding **/*_pw_gen.go generated application build inputs

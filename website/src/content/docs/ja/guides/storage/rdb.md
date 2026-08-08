@@ -47,12 +47,12 @@ TOML では `[[…]]` ヘッダー以降のキーがその要素のものにな�
 ## エンジン
 
 DSN のスキームがエンジンを選びます。`database/sql` のドライバ名ではありません——3 つの
-うち 1 つはドライバ名を登録しないからです。サーバーエンジンはブランクインポートで
-バイナリに入ります。
+うち 1 つはドライバ名を登録しないからです。どのエンジンもブランクインポートで
+バイナリに入り、アプリケーションは使わない SQL ドライバを持ちません。
 
 | スキーム | エンジン | インポート |
 | --- | --- | --- |
-| `sqlite://` | SQLite | すでにリンク済み |
+| `sqlite://` | SQLite | `_ "github.com/shibukaway/popcornwave/database/sqlite"` |
 | `postgres://`、`postgresql://` | PostgreSQL | `_ "github.com/shibukawa/popcornwave/database/postgres"` |
 | `mysql://` | MySQL、MariaDB | `_ "github.com/shibukawa/popcornwave/database/mysql"` |
 

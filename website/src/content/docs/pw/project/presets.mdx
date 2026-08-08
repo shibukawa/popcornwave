@@ -89,13 +89,16 @@ dsn = "mysql://myapp:myapp@tcp(127.0.0.1:3306)/myapp"
 </TabItem>
 </Tabs>
 
-**The driver import in `main.go`.** `pw` links SQLite itself; the two server
-engines arrive as a blank import.
+**The driver import in `main.go`.** Every engine is opt-in, including SQLite,
+so the binary carries only the driver it uses.
 
 <Tabs syncKey="engine">
 <TabItem label="SQLite">
 ```go
-// cmd/myapp/main.go — no import; pw links SQLite itself.
+// cmd/myapp/main.go
+import (
+	_ "github.com/shibukaway/popcornwave/database/sqlite"
+)
 ```
 </TabItem>
 <TabItem label="Postgres">

@@ -57,6 +57,36 @@ func findingsFor(report doctorReport, env string) map[string]doctorFinding {
 	return found
 }
 
+func TestDoctorRequiresTheSelectedSQLiteDriverImport(t *testing.T) {
+	config := environmentConfig{Env: "dev", Values: map[string]configValue{
+		"middleware.rdb.connections[0].dsn": {Raw: "sqlite://fixture.db"},
+	}}
+	unlinked := importGraph{packages: map[string]bool{"github.com/shibukawa/popcornwave/pw": true}}
+	run := checkRun{checkContext: checkContext{Env: "dev", Config: config, Graph: unlinked}}
+	run.checkWiring()
+	if len(run.findings) != 1 || run.findings[0].Check.ID != pwcheck.MissingSQLDriver {
+		t.Fatalf("findings = %#v, want the missing SQL driver", run.findings)
+	}
+	if !strings.Contains(run.findings[0].Evidence, sqliteDriverPackage) {
+		t.Fatalf("evidence = %q, want the import to add", run.findings[0].Evidence)
+	}
+	connections := resolveConnections(config, unlinked)
+	if len(connections) != 1 || connections[0].Driver != "sqlite (no driver linked)" {
+		t.Fatalf("connections = %#v", connections)
+	}
+	implementation := featureImplementation(doctorFeature{Name: "database", State: "on"}, unlinked, config)
+	if implementation != "sqlite (no driver linked)" {
+		t.Fatalf("implementation = %q", implementation)
+	}
+
+	linked := importGraph{packages: map[string]bool{sqliteDriverPackage: true}}
+	run = checkRun{checkContext: checkContext{Env: "dev", Config: config, Graph: linked}}
+	run.checkWiring()
+	if len(run.findings) != 0 {
+		t.Fatalf("linked SQLite findings = %#v", run.findings)
+	}
+}
+
 const deployedConfig = `[session]
 enabled = true
 backend = "rdb"

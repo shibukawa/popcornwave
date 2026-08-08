@@ -96,7 +96,7 @@ Valkey サーバーは Devbox のパッケージです。`--no-devbox` は Valke
 | `postgres` | `postgres://<name>:<name>@127.0.0.1:5432/<name>?sslmode=disable` | `devbox.json` の `postgresql` |
 | `mysql` | `mysql://<name>:<name>@tcp(127.0.0.1:3306)/<name>` | `devbox.json` の `mysql80` |
 
-サーバーエンジンを選ぶと `main.go` にブランクインポートが 1 行入ります。これが
+どのエンジンを選んでも `main.go` にブランクインポートが 1 行入ります。これが
 エンジンを登録します。
 
 ```go

@@ -220,9 +220,6 @@ func (r *checkRun) checkWiring() {
 			r.report(pwcheck.MissingSQLDriver,
 				"no known driver package answers the "+scheme+" scheme of connection "+connection.Label,
 				connection.Key)
-		case scheme == "sqlite" && r.Graph.links(frameworkPackage):
-			// pw links the sqlite driver itself, so a sqlite DSN is answered by
-			// the framework import every application already has.
 		case !r.Graph.links(pkg):
 			r.report(pwcheck.MissingSQLDriver,
 				"connection "+connection.Label+" uses the "+scheme+" scheme and the application links no driver for it",

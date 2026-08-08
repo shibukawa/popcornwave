@@ -85,12 +85,12 @@ func (e *listError) Error() string { return e.detail }
 // is not in this list and is not reported as missing: the checks only speak
 // about wiring they can name a remedy for.
 const (
-	frameworkPackage    = "github.com/shibukawa/popcornwave/pw"
-	authPluginPackage   = "github.com/shibukawa/popcornwave/plugin/auth"
-	rdbSessionPackage   = "github.com/shibukawa/popcornwave/sessionstore/sqlite"
-	devIdPPackagePrefix = "github.com/shibukawa/popcornwave/contrib/devidp"
-	sqliteDriverPackage = "github.com/shibukawa/tinygodriver/database/sql/sqlite"
-	mysqlDriverPackage  = "github.com/shibukawa/tinygodriver/database/sql/mysql"
+	authPluginPackage     = "github.com/shibukawa/popcornwave/plugin/auth"
+	rdbSessionPackage     = "github.com/shibukawa/popcornwave/sessionstore/sqlite"
+	devIdPPackagePrefix   = "github.com/shibukawa/popcornwave/contrib/devidp"
+	sqliteDriverPackage   = "github.com/shibukawa/popcornwave/database/sqlite"
+	postgresDriverPackage = "github.com/shibukawa/popcornwave/database/postgres"
+	mysqlDriverPackage    = "github.com/shibukawa/popcornwave/database/mysql"
 )
 
 // sessionBackendPackages maps a session.backend value to the plugin that
@@ -101,8 +101,11 @@ var sessionBackendPackages = map[string]string{
 
 // driverPackages maps a DSN scheme to the driver package that answers it.
 var driverPackages = map[string]string{
-	"sqlite": sqliteDriverPackage,
-	"mysql":  mysqlDriverPackage,
+	"sqlite":     sqliteDriverPackage,
+	"sqlite3":    sqliteDriverPackage,
+	"postgres":   postgresDriverPackage,
+	"postgresql": postgresDriverPackage,
+	"mysql":      mysqlDriverPackage,
 }
 
 // configPrefixOwners maps a configuration prefix to the package that must be

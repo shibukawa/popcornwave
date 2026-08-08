@@ -10,7 +10,7 @@ layout: rule:storage-package-layout
 examples:
   rdb_session_plugin: import _ "popcornwave/sessionstore/<engine>"
   auth_state_plugin: import _ "popcornwave/authstate/<engine>"
-  server_database_engine: import _ "popcornwave/database/postgres"
+  database_engine: import _ "popcornwave/database/<engine>"
   redis_session_plugin: import _ "popcornwave/sessionstore/redis"
   dynamo_session_plugin: import _ "popcornwave/sessionstore/dynamo"
 built_in_exception:
@@ -20,7 +20,7 @@ built_in_exception:
 boundaries:
   - sessionstore/sqlite registers the RDB session backend but no database engine
   - database engine packages register into rule:rdb-dsn-resolution independently from the session plugin
-  - pw links requirement:contrib-sqlite itself, because it is the scaffold default; a server engine is the application's own import
+  - every rule:rdb-dsn-resolution engine is the application's own import, including the scaffold-default SQLite engine
   - sessionstore/redis registers the Redis-compatible session backend and client integration
   - sessionstore/dynamo registers the DynamoDB session backend and its table definition, but not the client, which api:dynamo-package owns
   - core session packages import neither backend plugin

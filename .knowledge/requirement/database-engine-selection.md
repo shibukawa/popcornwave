@@ -41,7 +41,7 @@ common_to_every_engine:
   - the starter migration, written in the selected dialect
   - the starter .pw.sql example, generated for the selected dialect
   - the rule:framework-owned-tables migrations, in the dialect the owning package publishes for it
-  - a blank import of the rule:rdb-dsn-resolution engine package in the entry point, for an engine pw does not link itself
+  - a blank import of the selected rule:rdb-dsn-resolution engine package in the entry point
   - data:project-config project.toolchain unchanged, because the engine does not change the compiler
 generated_sql:
   recorded_in: data:project-config project.database, written by the same answer

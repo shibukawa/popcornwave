@@ -57,7 +57,7 @@ func resolveConnections(config environmentConfig, graph importGraph) []doctorCon
 	for _, connection := range configured {
 		scheme := connection.scheme()
 		driver := scheme
-		if pkg, known := driverPackages[scheme]; known && graph.available() && !graph.links(pkg) && scheme != "sqlite" {
+		if pkg, known := driverPackages[scheme]; known && graph.available() && !graph.links(pkg) {
 			driver = scheme + " (no driver linked)"
 		} else if !known {
 			driver = scheme + " (unknown scheme)"
@@ -93,6 +93,7 @@ func resolveRegistrations(graph importGraph) []string {
 		{authPluginPackage, "auth plugin"},
 		{rdbSessionPackage, "rdb session backend"},
 		{sqliteDriverPackage, "sqlite driver"},
+		{postgresDriverPackage, "postgres driver"},
 		{mysqlDriverPackage, "mysql driver"},
 	}
 	var linked []string
@@ -187,7 +188,7 @@ func featureImplementation(feature doctorFeature, graph importGraph, config envi
 		var drivers []string
 		for _, connection := range config.databaseDSNs() {
 			scheme := connection.scheme()
-			if pkg, ok := driverPackages[scheme]; ok && (graph.links(pkg) || scheme == "sqlite") {
+			if pkg, ok := driverPackages[scheme]; ok && graph.links(pkg) {
 				drivers = append(drivers, scheme)
 				continue
 			}

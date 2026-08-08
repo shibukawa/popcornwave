@@ -49,12 +49,12 @@ these four have to come before the first connection.
 ## Engines
 
 The DSN scheme selects the engine — not a `database/sql` driver name, because
-one of the three registers none — and a server engine reaches the binary
-through a blank import:
+one of the three registers none. Every engine reaches the binary through a
+blank import, so an application carries no unused SQL driver:
 
 | Scheme | Engine | Import |
 | --- | --- | --- |
-| `sqlite://` | SQLite | already linked |
+| `sqlite://` | SQLite | `_ "github.com/shibukawa/popcornwave/database/sqlite"` |
 | `postgres://`, `postgresql://` | PostgreSQL | `_ "github.com/shibukawa/popcornwave/database/postgres"` |
 | `mysql://` | MySQL, MariaDB | `_ "github.com/shibukawa/popcornwave/database/mysql"` |
 

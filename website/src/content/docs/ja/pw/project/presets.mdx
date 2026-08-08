@@ -86,13 +86,16 @@ dsn = "mysql://myapp:myapp@tcp(127.0.0.1:3306)/myapp"
 </TabItem>
 </Tabs>
 
-**`main.go` のドライバ import。** SQLite は `pw` 自身がリンクしていて、サーバー系の
-2 つはブランク import で入ります。
+**`main.go` のドライバ import。** SQLite を含むすべてのエンジンが明示的な選択です。
+使うドライバだけをブランク import するため、不要なドライバはバイナリに入りません。
 
 <Tabs syncKey="engine">
 <TabItem label="SQLite">
 ```go
-// cmd/myapp/main.go — import は不要。pw が SQLite をリンクしている。
+// cmd/myapp/main.go
+import (
+	_ "github.com/shibukaway/popcornwave/database/sqlite"
+)
 ```
 </TabItem>
 <TabItem label="Postgres">

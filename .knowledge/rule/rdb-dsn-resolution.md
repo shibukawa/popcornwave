@@ -12,8 +12,8 @@ registry:
   form: an engine package registers its dialect, schemes, opener, and handoff form from init, per decision:import-registered-session-plugins
   native_opener: an engine may additionally register a native opener that bypasses database/sql; requirement:pgx-native-execution defines the capability and its selection
   linking:
-    sqlite: linked by pw itself, because it is the scaffold default and needs no server
-    server_engines: linked by an application blank import that api:cli-init scaffolds into the entry point
+    application: every selected engine is linked by an application blank import that api:cli-init scaffolds into the entry point
+    effect: a binary with no relational database carries no SQL driver, and one engine does not pull in the other two
     pw_cli: links every engine, because one binary migrates and seeds any project
 schemes:
   - api:rdb-middleware startup

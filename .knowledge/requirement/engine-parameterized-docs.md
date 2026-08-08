@@ -12,7 +12,7 @@ what_varies:
   migration: the data:migration-source starter schema, whose DDL api:cli-init and api:cli-add write in the dialect of the selected engine
   query: the .pw.sql example and the placeholder syntax flow:sql-generation compiles it to
   configuration: the data:middleware-runtime-config rdb DSN, which rule:rdb-dsn-resolution resolves per engine
-  driver_import: the blank import a project needs for an engine pw does not link itself
+  driver_import: the selected engine's blank import; every engine is application-linked, including sqlite
   development_server: the Devbox package and the server the reader has to start, which sqlite does not have at all
   reason_it_varies: decision:server-sql-support-tier translates nothing between engines, so a chapter written in one dialect is wrong in the other two
 presentation:
