@@ -41,7 +41,7 @@ func events(w http.ResponseWriter, r *http.Request) {
 | 形式 | メディアタイプ | フレーミング |
 | --- | --- | --- |
 | Server-Sent Events | `text/event-stream` | `data: {…}` と空行 |
-| NDJSON | `application/x-ndjson`、`application/ndjson`、`application/jsonl` | 1 行 1 JSON オブジェクト |
+| NDJSON | `application/x-ndjson`, `application/ndjson`, `application/jsonl` | 1 行 1 JSON オブジェクト |
 | JSON 配列 | `application/json` | 1 つの `[…]` 文書。届いた順に要素を追記 |
 
 選択は 4 段階で、最初に答えが出たところで止まります。

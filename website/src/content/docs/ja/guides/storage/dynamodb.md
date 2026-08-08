@@ -146,7 +146,7 @@ for reading, err := range records.ReadingsSince(ctx, sensor, from) {
 
 | 結果型 | 戻り値 |
 | --- | --- |
-| `dynamo.page<T>` | リクエスト 1 回。`Count`、`ScannedCount`、`LastEvaluatedKey` を持つ `Page[T]` |
+| `dynamo.page<T>` | リクエスト 1 回。`Count`, `ScannedCount`, `LastEvaluatedKey` を持つ `Page[T]` |
 | `dynamo.many<T>` | 全ページを回すイテレータ |
 
 何回リクエストするかは書き手の判断のままにしてある、というのが両方ある理由です。

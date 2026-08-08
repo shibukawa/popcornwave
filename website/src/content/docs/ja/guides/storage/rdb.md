@@ -52,8 +52,8 @@ DSN のスキームがエンジンを選びます。`database/sql` のドライ�
 
 | スキーム | エンジン | インポート |
 | --- | --- | --- |
-| `sqlite://` | SQLite | `_ "github.com/shibukaway/popcornwave/database/sqlite"` |
-| `postgres://`、`postgresql://` | PostgreSQL | `_ "github.com/shibukawa/popcornwave/database/postgres"` |
+| `sqlite://` | SQLite | `_ "github.com/shibukawa/popcornwave/database/sqlite"` |
+| `postgres://`, `postgresql://` | PostgreSQL | `_ "github.com/shibukawa/popcornwave/database/postgres"` |
 | `mysql://` | MySQL、MariaDB | `_ "github.com/shibukawa/popcornwave/database/mysql"` |
 
 このインポートは `pw init` が書きます。無い場合、プールは開くのを拒否し、登録されていない

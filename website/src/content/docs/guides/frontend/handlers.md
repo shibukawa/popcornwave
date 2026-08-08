@@ -24,8 +24,10 @@ func Handlers() *pw.ServeMux { return mux }
 
 On ordinary Go builds, `pw.ServeMux` **is** `net/http`'s `ServeMux`: a type
 alias, not a wrapper. Its patterns, wildcards, and precedence are therefore the
-standard library's. TinyGo lacks the standard mux, so it receives a separate
-implementation with the same semantics.
+standard library's. TinyGo does have a `ServeMux`, but as of TinyGo 0.41 it
+predates the Go 1.22 pattern syntax — method prefixes and path parameters are
+not available — so TinyGo builds receive a separate implementation with the
+same semantics.
 
 Each handler file registers itself in `init`, so adding a route means adding a
 file rather than editing a central table:

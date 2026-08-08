@@ -101,17 +101,37 @@ func init() {
 というわけです。nil のミドルウェアを返せば何も設置されません。無効化された機能は
 そうやって抜けます。
 
-## RequestScope に流し込むミドルウェア
+## 自前のミドルウェアを作る
+
+`pw.RegisterMiddleware` はスロット・名前・素の `func(http.Handler) http.Handler` を
+受け取り、`pw.Run` と `pw.Middlewares` が組むチェーンのその位置に収まります。呼ぶのは
+`main` から、全パッケージの `init` の後、チェーンが組まれる前。`pw.RegisterSessionStore`
+と同じタイミングで、理由も同じです。チェーンは一度だけ組まれるので、後から登録しても
+どこにも入りません。
 
 小さなミドルウェアの一番おいしい使い道は、リクエストごとの事実を一度だけ導出して、
 下の全員に読ませることです。[`session.RequestScope`](/ja/guides/backend/sessions/) は
-まさにこのための配置で、代表例はリクエスト時刻です。
-
-書き込みのたびに `time.Now()` を呼ぶハンドラは、タイムスタンプをリクエスト内に
-撒き散らします。1回のフォーム送信で更新した3行が、ハンドラの処理時間ぶんずつずれた
-3つの `updated_at` を持つことになる。かわりに、瞬間を一度だけ捕まえます。
+まさにこのための配置で、代表例はリクエスト時刻です。書き込みのたびに `time.Now()` を
+呼ぶハンドラは、タイムスタンプをリクエスト内に撒き散らします。1回のフォーム送信で
+更新した3行が、ハンドラの処理時間ぶんずつずれた3つの `updated_at` を持つことになる。
+かわりに、瞬間を一度だけ捕まえます。型から登録までのプログラム全体はこうなります。
 
 ```go
+// cmd/myapp/main.go
+package main
+
+import (
+	"context"
+	"log"
+	"net/http"
+	"time"
+
+	"github.com/shibukawa/popcornwave/pw"
+	"github.com/shibukawa/popcornwave/session"
+
+	"myapp/handlers"
+)
+
 type RequestTime struct {
 	At time.Time `json:"at"`
 }
@@ -125,10 +145,16 @@ func withRequestTime(next http.Handler) http.Handler {
 	})
 }
 
-// main.go — このスロットはセッション状態に書き込むので、
-// 120 のセッション解決より下に置く。
-pw.RegisterSessionStore[RequestTime]("request_time", session.RequestScope)
-pw.RegisterMiddleware(pw.SlotSession+5, "request_time", withRequestTime)
+func main() {
+	// このミドルウェアはセッション状態に書き込むので、
+	// 120 のセッション解決より下に置く。
+	pw.RegisterSessionStore[RequestTime]("request_time", session.RequestScope)
+	pw.RegisterMiddleware(pw.SlotSession+5, "request_time", withRequestTime)
+
+	if err := pw.Run(context.Background(), handlers.Handlers()); err != nil {
+		log.Fatal(err)
+	}
+}
 ```
 
 以後、そのリクエストの書き込みは `session.Load[RequestTime]` を `updated_at` に使い、
@@ -137,27 +163,14 @@ pw.RegisterMiddleware(pw.SlotSession+5, "request_time", withRequestTime)
 フィーチャーフラグのスナップショット — 処理の途中でフラグの切り替えが見えてしまわない
 ように。
 
-## 自前のミドルウェアを登録する
-
-`pw.RegisterMiddleware` はスロット・名前・素の `func(http.Handler) http.Handler` を
-受け取り、`pw.Run` と `pw.Middlewares` が組むチェーンのその位置に収まります。呼ぶのは
-`main` から、全パッケージの `init` の後、チェーンが組まれる前。`pw.RegisterSessionStore`
-と同じタイミングで、理由も同じです。チェーンは一度だけ組まれるので、後から登録しても
-どこにも入りません。
-
-```go
-pw.RegisterMiddleware(pw.SlotAccessLog-5, "tenant-header", func(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// 30 のリクエスト ID は発行済み。40 のアクセスログがこの先を計時する。
-		next.ServeHTTP(w, r)
-	})
-})
-```
-
-番号は、そのミドルウェアが何を観測したいかで選びます。20 より上ではコンテキストに
-リソースが無い。50 より下なら panic は recover が受け止める。120 より下ならセッションは
-解決済み。150 より後ろにはガードが通したリクエストしか来ない。同じ番号の2つは登録順に
-走るので、順序に依存しない組なら相乗りで構いません。
+この例が開いたままにしている判断は番号だけで、それはミドルウェアが何を観測したいかで
+選びます。20 より上ではコンテキストにリソースが無い。50 より下なら panic は recover が
+受け止める。120 より下ならセッションは解決済み。150 より後ろにはガードが通した
+リクエストしか来ない。リクエスト時刻が `pw.SlotSession+5` にいるのは、120 より上には
+存在しないセッション状態へ書き込むからです。ヘッダを読むだけのミドルウェアなら
+ずっと上でいい — たとえば `pw.SlotAccessLog-5` なら、30 のリクエスト ID は発行済みで、
+40 のアクセスログがこの先を計時してくれます。同じ番号の2つは登録順に走るので、
+順序に依存しない組なら相乗りで構いません。
 
 登録を拒否する位置が2つあります。100 と 160、プローブと API ドキュメントです。これらは
 ミドルウェアではなくハンドラで、同じ位置を誰かと分け合えません。panic は移動先の基準に
