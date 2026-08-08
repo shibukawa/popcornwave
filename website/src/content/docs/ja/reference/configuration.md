@@ -170,6 +170,7 @@ Datastore mode で作成されている必要があります。
 | `bot_detection` | `true` | クローラや CLI クライアントには確定済みのドキュメントを描画する |
 | `bot_async_timeout` | `"5s"` | bot と判定したリクエストでの境界の上限 |
 | `bot_user_agents` | `[]` | 追加の `User-Agent` 部分文字列。大文字小文字を無視して照合する |
+| `scriptless_detection` | `true` | スクリプトを切ったブラウザに、noscript リダイレクト経由で確定済みのドキュメントを返す |
 | `live` | `true` | ドキュメント完成後もページを更新し続ける live 接続に応える |
 | `live_max_duration` | `"10m"` | live 接続1本の寿命。これを過ぎると閉じ、クライアントが再接続する |
 | `live_duration_jitter` | `20` | その寿命を接続ごとにばらつかせる割合（%） |

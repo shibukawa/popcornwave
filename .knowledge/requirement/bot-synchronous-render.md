@@ -14,7 +14,8 @@ problem:
     ai_crawler: ingests the loading state as the page
     preview_spider: falls back to loading text when it reads body content rather than head tags
     cli_and_library: receives template and tb-apply framing around placeholder text, which is neither the page nor an error
-  not_a_browser_problem: a scriptless browser is rare and degraded on purpose; for these clients it is the only mode they have
+  was_not_a_browser_problem: a scriptless browser was held to be rare and degraded on purpose, and this requirement served only the clients above
+  no_longer_excluded: decision:scriptless-browser-detection asks that browser through a noscript redirect and routes it onto this same buffered branch, so the branch now has two ways in and one behavior
 solution:
   claim: no new render path is required
   reason: decision:automatic-async-render-selection already documents that the buffered branch renders every await boundary correctly, blocking until each one settles

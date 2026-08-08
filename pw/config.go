@@ -67,6 +67,12 @@ type HTMLConfig struct {
 	// BotUserAgents extends the built-in catalog. Entries are appended and
 	// matched case-insensitively; they never replace a built-in token.
 	BotUserAgents []string `dependon:".bot_detection" help:"additional bot User-Agent substrings"`
+	// ScriptlessDetection asks a browser with scripting disabled to identify
+	// itself through a noscript redirect, so it receives the settled document
+	// rather than fallbacks nothing arrives to replace. It costs such a client
+	// one extra round trip on its first page and costs every other client
+	// nothing. False leaves that client on today's streamed response.
+	ScriptlessDetection bool `default:"true" help:"serve the settled document to a browser with scripting disabled, via a noscript redirect"`
 	// Update turns on partial updates: the mode negotiation, the redraw
 	// endpoint, and the runtime tag.
 	Update HTMLUpdateConfig `help:"Update turns on partial updates: the mode negotiation, the redraw endpoint, and the runtime tag"`
@@ -108,10 +114,11 @@ type HTMLConfig struct {
 // deadline because a link preview spider abandons a slow response within a few
 // seconds, and the buffered branch has no head start to offer it.
 var defaultHTMLConfig = HTMLConfig{
-	Streaming:          true,
-	AsyncTimeout:       3 * time.Second,
-	BotDetection:       true,
-	BotAsyncTimeout:    5 * time.Second,
+	Streaming:           true,
+	AsyncTimeout:        3 * time.Second,
+	BotDetection:        true,
+	BotAsyncTimeout:     5 * time.Second,
+	ScriptlessDetection: true,
 	Live:               true,
 	LiveMaxDuration:    10 * time.Minute,
 	LiveDurationJitter: 20,

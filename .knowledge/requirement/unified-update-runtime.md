@@ -17,7 +17,7 @@ as_built:
 composition:
   every_byte_is_this_frameworks: since 2026-08-04 the asset is boundary.js, update.js, and a bootstrap, with nothing from the dependency in it
   boundary_half: the apply core, the parser-path custom elements, the document end marker, truncation reload, and the live reader of api:live-delivery-protocol
-  update_half: mode negotiation, manifest bookkeeping, delta application, head installation, redraw, action apply, link and GET-form interception, history, scroll, supersession, form-state reconciliation, and preserved islands
+  update_half: mode negotiation, manifest bookkeeping, delta application, head installation, redraw, action apply, link and GET-form interception, history, scroll, route-level focus, the announcement, the busy marker, supersession, form-state reconciliation, and preserved islands
   shared_core:
     what: one function carries client state from the outgoing nodes into a replacement, and both halves call it
     covers: preserved islands, per-control form-state restoration against each control's own default, and the file input that cannot be restored by value at all
@@ -34,6 +34,7 @@ composition:
 conformance:
   harness: a node suite drives the update runtime against a stubbed page, covering the requests issued, the responses consumed, validator bookkeeping, supersession, head ordering, the terminator reasons, and every fallback path
   scope: the protocol half deliberately, since real DOM insertion is the browser's job and what this framework can be wrong about alone is the wire
+  interception_is_protocol: which URL and which method a gesture turns into is decided here rather than by the browser, so the harness dispatches clicks and submits, per requirement:query-navigation-interception
   run_by: a Go test that skips when node is absent, so the toolchain is not a build dependency of a Go library
   parse_guard: the merged asset is parsed as a module, because a load-time throw leaves a page with no updates, no boundaries, and nothing in the console saying why
 delivery:
@@ -52,10 +53,12 @@ bootstrap:
 client_state_preservation:
   unchanged_boundary: never touched, which is what makes focus, selection, and animation survive
   form_values: reconciled by comparing each control against its own default, so a user's typing survives an update that did not assert a new value, and a changed default wins
-  ime: an update is deferred while a composition is active
+  ime: an update is deferred while a composition is active, on every path that applies one, per requirement:update-navigation-continuity
+  caret: the focused control's selection is carried across a swap by the shared core, so a region that updates as it is typed keeps the cursor
   preserved_islands: a marked region has its live node moved into the replacement, for a third-party widget, a canvas, or a media element the server does not own
   file_input: not restorable by value at all, so it belongs in a preserved island or outside the region
   known_gap: a GET update cannot express clearing a form back to an unchanged default, because the markup is identical; post-redirect-get clears through an ordinary page load and is outside the rule
+  scripting_off: none of this is needed, because a link, a GET form, and back all work by themselves; the runtime is an optimization of behavior the markup already has, which is what makes the fallback the absence of a code path rather than one more of them
 failure_behavior:
   rule: every failure path performs the ordinary browser navigation to the same URL, so a user action is never lost
   no_javascript: links and forms work as they always have

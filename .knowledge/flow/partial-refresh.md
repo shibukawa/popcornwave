@@ -28,7 +28,8 @@ client:
   supersede: an older in-flight request for the same target is aborted, and a superseded response is discarded unapplied
   preserve: focus, selection, IME composition, form values, and preserved islands survive, per requirement:unified-update-runtime
   fall_back: any failure performs the ordinary browser navigation, so a user action is never lost
-  drive: api:client-update-api, or an intercepted link or GET form on the same path
+  drive: api:client-update-api, or an intercepted link or GET form on the same path, per requirement:query-navigation-interception
+  place: focus, scroll, composition, and a visible pending state around an applied delta, per requirement:update-navigation-continuity
 identity_and_freshness:
   boundary: data:component-boundary, whose instance identity and output validator are written by generation onto the boundary root element
   invalidation: the browser holds the validators and the server compares them, so nothing is kept per session and a restart loses nothing

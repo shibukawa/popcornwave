@@ -81,16 +81,69 @@ function response(spec) {
 	};
 }
 
+// Listeners are recorded rather than dropped, because interception is the path
+// every user of this feature takes and it is invisible to a Go assertion: which
+// URL and which method a gesture turns into is protocol, not DOM insertion.
+const listeners = new Map();
+function listen(store) {
+	return (name, handler) => {
+		if (!store.has(name)) store.set(name, []);
+		store.get(name).push(handler);
+	};
+}
+function dispatch(name, event) {
+	for (const handler of listeners.get(name) || []) handler(event);
+	return event;
+}
+
+const busy = new Set();
+const announced = [];
+const focused = [];
+let scrolledTo = null;
+
+const root = {
+	setAttribute: (name) => busy.add(name),
+	removeAttribute: (name) => busy.delete(name),
+};
+
+function landmark(id) {
+	return {
+		id: id,
+		attributes: {},
+		isConnected: true,
+		getAttribute() {
+			return null;
+		},
+		hasAttribute() {
+			return false;
+		},
+		setAttribute() {},
+		focus: () => focused.push(id),
+		scrollIntoView: () => {
+			scrolledTo = id;
+		},
+	};
+}
+
+let mainLandmark = landmark("main");
+
 globalThis.document = {
 	title: "",
 	baseURI: "https://example.test/orders",
 	cookie: "",
+	activeElement: null,
+	documentElement: root,
 	head: { children: [], appendChild: (node) => headInstalled.push(node) },
-	addEventListener() {},
+	addEventListener: listen(listeners),
 	getElementById: (id) => elements.get(id) || null,
-	querySelector: () => null,
+	querySelector: (selector) => (selector.startsWith("main") ? mainLandmark : null),
 	createElement: () => ({
 		content: {},
+		style: {},
+		setAttribute() {},
+		set textContent(value) {
+			announced.push(value);
+		},
 		set innerHTML(value) {
 			// Head installation is the only place the runtime parses a tag, and
 			// what matters is that it reached the head at all, in order.
@@ -98,11 +151,28 @@ globalThis.document = {
 		},
 	}),
 };
+globalThis.document.body = { appendChild() {} };
 
-globalThis.window = { addEventListener() {}, scrollX: 0, scrollY: 0, scrollTo() {} };
+const windowListeners = new Map();
+globalThis.window = {
+	addEventListener: listen(windowListeners),
+	scrollX: 0,
+	scrollY: 0,
+	scrollTo: (x, y) => {
+		scrolledTo = [x, y];
+	},
+};
 globalThis.history = {
-	pushState: (state, _title, url) => historyEntries.push({ push: true, url: url }),
-	replaceState: (state, _title, url) => historyEntries.push({ push: false, url: url }),
+	state: null,
+	scrollRestoration: "auto",
+	pushState(state, _title, url) {
+		this.state = state;
+		historyEntries.push({ push: true, url: url, state: state });
+	},
+	replaceState(state, _title, url) {
+		this.state = state;
+		historyEntries.push({ push: false, url: url, state: state });
+	},
 };
 globalThis.location = {
 	href: "https://example.test/orders",
@@ -131,6 +201,7 @@ function swapElement(target, html) { globalThis.__swapped.push({ id: target.id, 
 function applyHTML(id, html) { globalThis.__swapped.push({ placeholder: id, html: html }); return true; }
 function startLive() { globalThis.__liveStarted(); }
 function setPreserveAttribute() {}
+function compositionActive() { return globalThis.__composing; }
 function resolveNavigable(value, base) {
 	if (typeof value !== "string" || value === "") return null;
 	let resolved;
@@ -153,6 +224,7 @@ function resolveNavigable(value, base) {
 
 globalThis.__swapped = swapped;
 globalThis.__swapOK = true;
+globalThis.__composing = false;
 globalThis.__liveStarted = () => {
 	liveStarted += 1;
 };
@@ -168,12 +240,110 @@ function fresh() {
 	swapped.length = 0;
 	headInstalled.length = 0;
 	historyEntries.length = 0;
+	announced.length = 0;
+	focused.length = 0;
 	assigned = null;
 	reloaded = 0;
 	liveStarted = 0;
+	scrolledTo = null;
+	busy.clear();
+	listeners.clear();
+	windowListeners.clear();
+	mainLandmark = landmark("main");
 	globalThis.__swapOK = true;
+	globalThis.__composing = false;
+	globalThis.document.activeElement = null;
+	globalThis.history.state = null;
+	globalThis.location.href = "https://example.test/orders";
+	globalThis.document.title = "";
 	elements.clear();
 	return createUpdateRuntime({ header: "Pw", attr: "tb", build: "build-1", global: "popcornwave" });
+}
+
+// A gesture, as the browser would deliver it. Only what the runtime reads is
+// modelled: everything it declines to touch is the browser's, and the point of
+// most of the cases below is that it declined.
+function node(tag, attributes, ancestorMatches) {
+	return {
+		tagName: tag,
+		attributes: attributes || {},
+		get target() {
+			return this.attributes.target || "";
+		},
+		get method() {
+			return (this.attributes.method || "get").toLowerCase();
+		},
+		get name() {
+			return this.attributes.name || "";
+		},
+		get value() {
+			return this.attributes.value || "";
+		},
+		getAttribute(name) {
+			return name in this.attributes ? this.attributes[name] : null;
+		},
+		hasAttribute(name) {
+			return name in this.attributes;
+		},
+		closest(selector) {
+			if (selector === "a[href]" && tag === "A") return this;
+			return ancestorMatches && ancestorMatches.includes(selector) ? this : null;
+		},
+	};
+}
+
+function clickEvent(link, overrides) {
+	let prevented = false;
+	return Object.assign(
+		{
+			button: 0,
+			defaultPrevented: false,
+			target: link,
+			preventDefault() {
+				prevented = true;
+			},
+			get prevented() {
+				return prevented;
+			},
+		},
+		overrides || {},
+	);
+}
+
+function submitEvent(form, submitter) {
+	let prevented = false;
+	return {
+		defaultPrevented: false,
+		target: form,
+		submitter: submitter || null,
+		preventDefault() {
+			prevented = true;
+		},
+		get prevented() {
+			return prevented;
+		},
+	};
+}
+
+// FormData over the stub: the runtime only ever constructs one from a form and
+// reads it back through URLSearchParams, so the fields it declares are enough.
+globalThis.FormData = class {
+	constructor(form) {
+		this.entries = (form && form.fields ? form.fields : []).map((pair) => pair.slice());
+	}
+	append(name, value) {
+		this.entries.push([name, value]);
+	}
+	*[Symbol.iterator]() {
+		yield* this.entries;
+	}
+};
+
+function deltaResponse(id) {
+	return response({
+		headers: { "Pw-Render": "navigation", "Content-Type": "application/json" },
+		json: { ops: [{ kind: "replace", id: id, html: "<p>x</p>" }], manifest: [{ id: id, frame: "f1" }] },
+	});
 }
 
 // --- the cases --------------------------------------------------------------
@@ -192,7 +362,17 @@ function fresh() {
 	check(requests[0].headers["Pw-Render"] === "navigation", "render header names the mode");
 	check(requests[0].headers["Pw-Build"] === "build-1", "build header carried");
 	check(swapped.length === 1 && swapped[0].id === "c1", "the operation was applied");
-	check(historyEntries.length === 1 && historyEntries[0].push, "a navigation pushed a history entry");
+	// Two writes, and the order is the fix: the entry being left is updated with
+	// where the user actually was, and only then is the destination pushed.
+	// Recording the outgoing position onto the incoming entry — which is what
+	// this used to do — describes the page being arrived at.
+	check(historyEntries.length === 2, "a navigation wrote the entry it left and the one it pushed");
+	check(
+		historyEntries[0].push === false && historyEntries[0].url === "https://example.test/orders",
+		"the outgoing scroll was recorded on the entry being left",
+	);
+	check(historyEntries[1].push === true, "a navigation pushed a history entry");
+	check(history.scrollRestoration === "manual", "the browser's own scroll restoration was taken over");
 
 	// The validator it just learned is offered back on the next request, which is
 	// what lets the server omit an unchanged region.
@@ -499,6 +679,229 @@ for (const target of ["javascript:globalThis.__pwned = true", "data:text/html,<s
 	await runtime.update({ page: 4 });
 	check(historyEntries.length === 1 && historyEntries[0].push === false, "update replaced the history entry");
 	check(requests[0].url.includes("page=4"), "the parameter reached the request");
+	check(scrolledTo === null, "a refinement of the page on screen left the viewport alone");
+}
+
+// --- interception -----------------------------------------------------------
+//
+// Which URL and which method a gesture turns into is protocol, and it is the
+// one part of this runtime no Go assertion can reach. Everything below is a
+// case where the browser's own behavior is the specification: with this script
+// absent, every one of these does the right thing already, so a divergence here
+// is the feature being worse than not having it.
+
+// A GET form's fields become the whole query, which is how a search form
+// refines the page it is on rather than leaving it.
+{
+	const runtime = fresh();
+	element("results");
+	nextResponse = deltaResponse("results");
+	const form = node("FORM", { action: "/orders" });
+	form.fields = [["q", "boots"], ["sort", "newest"]];
+	const event = submitEvent(form);
+	dispatch("submit", event);
+	await new Promise((resolve) => setTimeout(resolve, 0));
+	check(event.prevented, "the GET form submission was intercepted");
+	check(requests.length === 1, "the form issued one update request");
+	check(requests[0].url === "https://example.test/orders?q=boots&sort=newest", "the fields became the query");
+	check(requests[0].headers["Pw-Render"] === "navigation", "the form asked for a navigation delta");
+}
+
+// The submitter's own overrides decide the method before this runtime decides
+// whether it owns the submission. A button declaring formmethod=post inside a
+// GET form is a POST, and reading only the form is how it became a GET.
+{
+	const runtime = fresh();
+	const form = node("FORM", { action: "/orders", method: "get" });
+	form.fields = [["q", "boots"]];
+	const event = submitEvent(form, node("BUTTON", { formmethod: "post" }));
+	dispatch("submit", event);
+	check(!event.prevented, "a formmethod=post submitter was left to the browser");
+	check(requests.length === 0, "no update request was issued for it");
+}
+
+// Same for the target and the action: an override that would send the
+// submission somewhere else is the browser's.
+{
+	const runtime = fresh();
+	const form = node("FORM", { action: "/orders" });
+	form.fields = [];
+	const targeted = submitEvent(form, node("BUTTON", { formtarget: "_blank" }));
+	dispatch("submit", targeted);
+	check(!targeted.prevented, "a formtarget submitter was left to the browser");
+
+	const elsewhere = submitEvent(form, node("BUTTON", { formaction: "/search" }));
+	nextResponse = response({
+		headers: { "Pw-Render": "navigation", "Content-Type": "application/json" },
+		json: { ops: [] },
+	});
+	dispatch("submit", elsewhere);
+	await new Promise((resolve) => setTimeout(resolve, 0));
+	check(requests.length === 1 && requests[0].url.startsWith("https://example.test/search"), "formaction chose the URL");
+}
+
+// The pressed button's own pair is part of the submission. The FormData
+// constructor leaves every submit button out, because which one was pressed is
+// not a property of the form.
+{
+	const runtime = fresh();
+	nextResponse = response({
+		headers: { "Pw-Render": "navigation", "Content-Type": "application/json" },
+		json: { ops: [] },
+	});
+	const form = node("FORM", { action: "/orders" });
+	form.fields = [["q", "boots"]];
+	dispatch("submit", submitEvent(form, node("BUTTON", { name: "view", value: "grid" })));
+	await new Promise((resolve) => setTimeout(resolve, 0));
+	check(requests[0].url === "https://example.test/orders?q=boots&view=grid", "the submitter's pair joined the query");
+}
+
+// A non-GET form is the browser's, which is what keeps post-redirect-get
+// working exactly as it did.
+{
+	const runtime = fresh();
+	const form = node("FORM", { action: "/orders", method: "post" });
+	form.fields = [];
+	const event = submitEvent(form);
+	dispatch("submit", event);
+	check(!event.prevented && requests.length === 0, "a POST form was left to the browser");
+}
+
+// The ignore marker hands a form back, and it is read from an ancestor as well
+// as from the element.
+{
+	const runtime = fresh();
+	const form = node("FORM", { action: "/orders" }, ["[data-tb-ignore]"]);
+	form.fields = [];
+	const event = submitEvent(form);
+	dispatch("submit", event);
+	check(!event.prevented && requests.length === 0, "an ignored form was left to the browser");
+}
+
+// A same-origin link is intercepted, and a modified click is not.
+{
+	const runtime = fresh();
+	element("c1");
+	nextResponse = deltaResponse("c1");
+	const link = node("A", { href: "/orders?page=3" });
+	const event = clickEvent(link);
+	dispatch("click", event);
+	await new Promise((resolve) => setTimeout(resolve, 0));
+	check(event.prevented && requests.length === 1, "a plain left click was intercepted");
+	check(requests[0].url === "https://example.test/orders?page=3", "the link's href was requested");
+
+	const modified = clickEvent(node("A", { href: "/orders?page=4" }), { metaKey: true });
+	dispatch("click", modified);
+	check(!modified.prevented, "a modified click was left to the browser");
+
+	const downloaded = clickEvent(node("A", { href: "/orders.csv", download: "" }));
+	dispatch("click", downloaded);
+	check(!downloaded.prevented, "a download link was left to the browser");
+}
+
+// A fragment on the document already loaded is the browser's entirely: it has
+// the element, and a round trip could only arrive at the same page.
+{
+	const runtime = fresh();
+	const event = clickEvent(node("A", { href: "#results" }));
+	dispatch("click", event);
+	check(!event.prevented, "an in-page fragment link was left to the browser");
+	check(requests.length === 0, "an in-page fragment link issued no request");
+}
+
+// A fragment on another document is a navigation, and it lands at its target
+// rather than at the top.
+{
+	const runtime = fresh();
+	element("c1");
+	nextResponse = deltaResponse("c1");
+	elements.set("section-3", landmark("section-3"));
+	globalThis.document.getElementById = (id) => elements.get(id) || null;
+	const event = clickEvent(node("A", { href: "/reports#section-3" }));
+	dispatch("click", event);
+	await new Promise((resolve) => setTimeout(resolve, 0));
+	check(event.prevented && requests.length === 1, "a cross-document fragment link was intercepted");
+	check(scrolledTo === "section-3", "the navigation landed at the fragment it named");
+}
+
+// --- continuity -------------------------------------------------------------
+
+// A pushed navigation is arriving somewhere new, so it starts where a document
+// load would have started it, tells a screen reader, and does not leave focus
+// on a node the delta removed.
+{
+	const runtime = fresh();
+	element("c1");
+	globalThis.document.title = "Reports";
+	nextResponse = deltaResponse("c1");
+	await runtime.navigate("/reports");
+	check(Array.isArray(scrolledTo) && scrolledTo[1] === 0, "a pushed navigation started at the top");
+	check(focused.includes("main"), "focus moved to the main landmark");
+	check(announced.includes("Reports"), "the new title was announced");
+}
+
+// Focus that survived the swap is left alone. Moving it would be the same bug
+// in the other direction.
+{
+	const runtime = fresh();
+	element("c1");
+	nextResponse = deltaResponse("c1");
+	globalThis.document.activeElement = { isConnected: true };
+	await runtime.navigate("/reports");
+	check(focused.length === 0, "surviving focus was not moved");
+}
+
+// A request in flight is marked on the document root, so a progress affordance
+// is CSS rather than a subscriber every application writes again.
+{
+	const runtime = fresh();
+	element("c1");
+	let duringRequest = false;
+	nextResponse = deltaResponse("c1");
+	const watched = globalThis.fetch;
+	globalThis.fetch = async (url, init) => {
+		duringRequest = busy.has("data-tb-updating");
+		return watched(url, init);
+	};
+	await runtime.navigate("/orders?page=2");
+	globalThis.fetch = watched;
+	check(duringRequest, "the document was marked busy while the request was open");
+	check(!busy.has("data-tb-updating"), "the marker was cleared when the request settled");
+}
+
+// An update landing mid composition would replace the control being composed
+// into, committing or discarding whatever the user was midway through
+// spelling. It is the ordinary case for a Japanese search box that updates as
+// it is typed.
+{
+	const runtime = fresh();
+	element("c1");
+	globalThis.__composing = true;
+	nextResponse = deltaResponse("c1");
+	const settled = runtime.navigate("/orders?q=%E3%81%8F%E3%81%A4");
+	await new Promise((resolve) => setTimeout(resolve, 0));
+	check(swapped.length === 0, "nothing was applied while a composition was open");
+	globalThis.__composing = false;
+	for (const handler of listeners.get("compositionend") || []) handler({});
+	await settled;
+	check(swapped.length === 1, "the delta applied once the composition ended");
+}
+
+// Back and forward restore what their entry recorded, and write no entry of
+// their own: the browser already moved, and writing here would overwrite the
+// position about to be read.
+{
+	const runtime = fresh();
+	element("c1");
+	nextResponse = deltaResponse("c1");
+	const back = windowListeners.get("popstate") || [];
+	check(back.length === 1, "the runtime listens for popstate");
+	// A listener's return value is nothing the browser reads, so the delta is
+	// waited for the way the page waits for it rather than by awaiting the call.
+	back[0]({ state: { pwScroll: [0, 640] } });
+	await new Promise((resolve) => setTimeout(resolve, 0));
+	check(historyEntries.length === 0, "a pop wrote no history entry");
+	check(Array.isArray(scrolledTo) && scrolledTo[1] === 640, "the recorded scroll was restored");
 }
 
 if (failures) {
