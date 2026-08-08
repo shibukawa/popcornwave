@@ -1,0 +1,176 @@
+[
+  {
+    "name": "empty",
+    "address": "mqLKWqq1Le0rGHEzj8SHuQ",
+    "nodes": [
+      "\u003csection",
+      0,
+      0,
+      "\u003e\u003ch3\u003e",
+      0,
+      "\u003c/h3\u003e",
+      {
+        "k": 2,
+        "t": [
+          "\u003cul\u003e",
+          {
+            "k": 3,
+            "t": [
+              "\u003cli\u003e",
+              0,
+              " ",
+              {
+                "k": 4,
+                "t": [
+                  "\u003ctb-boundary ",
+                  0,
+                  "=\"",
+                  0,
+                  "\" style=\"display:contents\"\u003e\u003c/tb-boundary\u003e"
+                ],
+                "e": [
+                  0
+                ]
+              },
+              "\u003c/li\u003e"
+            ]
+          },
+          "\u003c/ul\u003e"
+        ],
+        "e": [
+          "\u003cp\u003enothing yet\u003c/p\u003e"
+        ]
+      },
+      "\u003c/section\u003e"
+    ],
+    "values": [
+      " data-tb-id=\"panel\"",
+      "",
+      "Inbox",
+      "f"
+    ],
+    "want": "\u003csection data-tb-id=\"panel\"\u003e\u003ch3\u003eInbox\u003c/h3\u003e\u003cp\u003enothing yet\u003c/p\u003e\u003c/section\u003e"
+  },
+  {
+    "name": "one-row",
+    "address": "mqLKWqq1Le0rGHEzj8SHuQ",
+    "nodes": [
+      "\u003csection",
+      0,
+      0,
+      "\u003e\u003ch3\u003e",
+      0,
+      "\u003c/h3\u003e",
+      {
+        "k": 2,
+        "t": [
+          "\u003cul\u003e",
+          {
+            "k": 3,
+            "t": [
+              "\u003cli\u003e",
+              0,
+              " ",
+              {
+                "k": 4,
+                "t": [
+                  "\u003ctb-boundary ",
+                  0,
+                  "=\"",
+                  0,
+                  "\" style=\"display:contents\"\u003e\u003c/tb-boundary\u003e"
+                ],
+                "e": [
+                  0
+                ]
+              },
+              "\u003c/li\u003e"
+            ]
+          },
+          "\u003c/ul\u003e"
+        ],
+        "e": [
+          "\u003cp\u003enothing yet\u003c/p\u003e"
+        ]
+      },
+      "\u003c/section\u003e"
+    ],
+    "values": [
+      " data-tb-id=\"panel\"",
+      "",
+      "Inbox",
+      "t",
+      "1",
+      "first",
+      "b",
+      "data-tb-id",
+      "badge-0"
+    ],
+    "want": "\u003csection data-tb-id=\"panel\"\u003e\u003ch3\u003eInbox\u003c/h3\u003e\u003cul\u003e\u003cli\u003efirst \u003ctb-boundary data-tb-id=\"badge-0\" style=\"display:contents\"\u003e\u003c/tb-boundary\u003e\u003c/li\u003e\u003c/ul\u003e\u003c/section\u003e"
+  },
+  {
+    "name": "rows-and-attribute",
+    "address": "mqLKWqq1Le0rGHEzj8SHuQ",
+    "nodes": [
+      "\u003csection",
+      0,
+      0,
+      "\u003e\u003ch3\u003e",
+      0,
+      "\u003c/h3\u003e",
+      {
+        "k": 2,
+        "t": [
+          "\u003cul\u003e",
+          {
+            "k": 3,
+            "t": [
+              "\u003cli\u003e",
+              0,
+              " ",
+              {
+                "k": 4,
+                "t": [
+                  "\u003ctb-boundary ",
+                  0,
+                  "=\"",
+                  0,
+                  "\" style=\"display:contents\"\u003e\u003c/tb-boundary\u003e"
+                ],
+                "e": [
+                  0
+                ]
+              },
+              "\u003c/li\u003e"
+            ]
+          },
+          "\u003c/ul\u003e"
+        ],
+        "e": [
+          "\u003cp\u003enothing yet\u003c/p\u003e"
+        ]
+      },
+      "\u003c/section\u003e"
+    ],
+    "values": [
+      " data-tb-id=\"panel\"",
+      " title=\"say \u0026#34;hi\u0026#34;\"",
+      "In\u0026lt;box\u0026gt;",
+      "t",
+      "3",
+      "a",
+      "b",
+      "data-tb-id",
+      "badge-0",
+      "b",
+      "b",
+      "data-tb-id",
+      "badge-1",
+      "c",
+      "b",
+      "data-tb-id",
+      "badge-2"
+    ],
+    "want": "\u003csection data-tb-id=\"panel\" title=\"say \u0026#34;hi\u0026#34;\"\u003e\u003ch3\u003eIn\u0026lt;box\u0026gt;\u003c/h3\u003e\u003cul\u003e\u003cli\u003ea \u003ctb-boundary data-tb-id=\"badge-0\" style=\"display:contents\"\u003e\u003c/tb-boundary\u003e\u003c/li\u003e\u003cli\u003eb \u003ctb-boundary data-tb-id=\"badge-1\" style=\"display:contents\"\u003e\u003c/tb-boundary\u003e\u003c/li\u003e\u003cli\u003ec \u003ctb-boundary data-tb-id=\"badge-2\" style=\"display:contents\"\u003e\u003c/tb-boundary\u003e\u003c/li\u003e\u003c/ul\u003e\u003c/section\u003e"
+  }
+]

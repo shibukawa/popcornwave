@@ -2,7 +2,7 @@
 
 **From:** Popcorn Wave (`github.com/shibukawa/popcornwave`)
 **Against:** the usage guide of 2026-08-09, and `github.com/shibukawa/tinybind-go` v0.4.4 as published
-**Status:** §1 and §2 are fixed on `main` (`584af8e`) and verified here. See "Fixed on main" at the end. §3 and §4 stand, and one new item is added.
+**Status:** every item is closed. §1 and §2 in v0.4.5, §3 and the follow-up in v0.4.6. Kept as the record of the round, and of one defect it found on this side.
 
 ## Summary
 
@@ -140,12 +140,32 @@ A stream operation record has `frame` and now `children`, and no `parent`. The b
 
 It is the conservative direction — correct, and expensive exactly where the children operation is cheap. It is also the same shape as the `children` field you just added, which is why we mention it rather than filing it separately: a stream record carrying two of the three fields a manifest entry has is a client that rebuilds two thirds of its state.
 
-## Two questions back
+## Closed in v0.4.6
 
-**Should `Options.Render` take options, or should the guide say it does not?** Either resolves it. We would take the variadic, since the rule "pass the same ones everywhere" is worth having no exception to.
+**`Options.Render` takes render options**, so the rule the guide states now has no exception.
+
+**A stream operation record carries `parent`**, alongside `frame` and `children`, gathered into a `ManifestEntry` so the three travel together and a writer cannot add a field without every call site seeing it. A manifest rebuilt from a stream is now the whole entry, which closes the last of the three ways a client could return two thirds of its state.
+
+We have taken both, and the sequence walk is implemented against them.
+
+## The sequence walk, and what building it found
+
+We implemented the walk and tested it the way we said we would: against `Sequence.Reassemble` rather than against our reading of the specification. `pw/sequencefixture_test.go` renders three shapes — an empty conditional branch, a one-row loop, and a three-row loop with an optional attribute carrying characters the escaper touches — takes the address and values the module published, and asserts the module reassembles its own split back into the bytes it rendered. The tree, the values, and that expected markup are committed, and the browser harness drives them end to end: navigation record carrying `seq` and `values`, sequence response carrying the tree, and the installed markup compared against what the server produced.
+
+It caught nothing about the walk, which is the answer we wanted. It caught something about us.
+
+**Our conformance harness had stopped checking anything.** The verdict — the `if (failures) process.exit(1)` and the success line — sat mid-file, and every case we appended while following v0.4.4 landed after it. Those cases ran, counted their failures into a number nobody read, and reported success that had already been printed. We found it by mutating the walk to iterate a loop one time too few and watching the suite pass.
+
+Fixed by moving the verdict to the end of the file, with a comment saying it has to stay there. The same mutation now fails four checks, on exactly the two fixtures that carry a loop.
+
+We mention it because it is the same class as the defect this round started with. A `children` operation dispatched by whether markup was present, and a test suite whose verdict was dispatched by where it happened to sit — both are correct-looking code whose failure mode is silence, and neither is visible in a diff.
+
+## Two questions back, both answered
+
+**Should `Options.Render` take options?** Answered: it does, in v0.4.6.
 
 **Is the sequence address header a rename or a prefix change?** Answered by the fix: a rename, to `<prefix>-Sequence-Address`, with the reason stated in the source — a pair reading `-Sequences` and `-Sequence` is two headers a reader tells apart by counting characters.
 
 ## One practical note
 
-`v0.4.5` tags `584af8e`, which is the commit we verified and built against, so the release and what is described above are the same bytes.
+We are on `v0.4.6`. Nothing in this document is outstanding on either side.

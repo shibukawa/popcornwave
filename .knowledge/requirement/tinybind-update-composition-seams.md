@@ -221,6 +221,19 @@ structured_render_output:
       render_takes_no_options: unchanged, and it is the entry a page with no await boundary reaches first
       stream_carries_no_parent: an operation record has frame and children and no parent, where a buffered manifest entry has all three; disappeared reads the known parent, so a client whose manifest came from a stream forces a root replacement whenever a list shrinks
     taken_here: the client records the children validator from stream operation records, with a replaced and an unchanged boundary both covered in the conformance harness
+  closed_in_v0_4_6:
+    render_takes_options: the buffered entry now takes them, so the rule that every entry rendering a fragment takes the same options has no exception
+    stream_carries_the_whole_entry: frame, children, and parent gathered into a ManifestEntry so the three travel together and a writer cannot add one without every call site seeing it
+    sequence_walk_implemented:
+      tested_against_the_reference: pw/sequencefixture_test.go renders an empty conditional branch, a one-row loop, and a three-row loop with an optional attribute holding characters the escaper touches, then asserts the module reassembles its own split into the bytes it rendered; the tree, the values, and that markup are committed and the browser harness drives them end to end
+      why_a_round_trip: consuming the wrong number of values at one node puts every later value in the wrong place and still yields markup, so a reading of the specification cannot catch it
+      capability_header_always_sent: whether a fragment travels as an address and values is the server's choice per fragment, so no bookkeeping about held addresses travels
+      one_fetch_per_address: concurrent operations naming one address share a request, and a miss is cached because an address this deployment cannot describe will not start describing itself
+  the_harness_had_stopped_checking:
+    found_by: mutating the walk to iterate a loop one time too few and watching the suite pass
+    cause: the verdict, the failure exit and the success line, sat mid-file, and every case appended while following v0.4.4 landed after it; those cases ran, counted into a number nobody read, and reported a success already printed
+    fixed: the verdict moved to the end with a comment saying it has to stay there; the same mutation now fails four checks, on exactly the two fixtures carrying a loop
+    same_class_as_the_defect_that_started_the_round: an operation dispatched by whether markup was present, and a verdict dispatched by where it happened to sit, are both correct-looking code whose failure mode is silence and neither is visible in a diff
   client_audit:
     prompted_by: reading this framework's four response shapes against each other while answering, which had not been done before
     reading: one transport wearing four costumes, and three of the differences are gaps rather than choices

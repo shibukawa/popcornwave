@@ -23,6 +23,12 @@ export function createUpdateRuntime(config) {
 	const kindHeader = config.header + "-Kind";
 	const instanceHeader = config.header + "-Instance";
 	const liveHeader = config.header + "-Live";
+	// The capability header says this client can walk a sequence tree; the
+	// address header asks for one. They are two headers rather than one because
+	// a request that walks sequences and a request for a sequence are different
+	// requests — the first is a navigation, the second is its own mode.
+	const sequenceHeader = config.header + "-Sequences";
+	const sequenceAddressHeader = config.header + "-Sequence-Address";
 
 	const idAttr = "data-" + config.attr + "-id";
 	const kindAttr = "data-" + config.attr + "-kind";
@@ -93,8 +99,17 @@ export function createUpdateRuntime(config) {
 		return { applied: false, fellBack: true, reason: reason };
 	}
 
+	// Every request this client issues says it can walk a sequence, because it
+	// can. Whether a fragment then travels as an address and values or as markup
+	// is the server's choice per fragment: values are smaller on a large region
+	// and larger on a small one, so neither answer is wrong and no bookkeeping
+	// about which addresses this client holds needs to travel.
+	//
+	// A sequence request is the exception. Asking for a tree while claiming to
+	// walk one says nothing, and the mode already says what it is.
 	function headers(mode, extra) {
 		const set = { [renderHeader]: mode, [buildHeader]: config.build };
+		if (mode !== "sequence") set[sequenceHeader] = "1";
 		return Object.assign(set, extra || {});
 	}
 
@@ -177,15 +192,153 @@ export function createUpdateRuntime(config) {
 		return id.replace(/["\\]/g, "\\$&");
 	}
 
-	function applyOperation(operation) {
+	// A fragment's static half — its literal text — is identical in every render,
+	// so it stops travelling. An operation then carries the address of that half
+	// and the values that fill it, and this client rebuilds the markup.
+	//
+	// The address is a digest of the template's compiled shape, so a sequence is
+	// immutable and the response carrying it is public: it is the one thing on
+	// this wire that is not per user. That is also why it is fetched rather than
+	// pushed — riding inside a private response would forfeit exactly that, and
+	// re-send every sequence on every page load.
+	const sequences = new Map();
+	const sequenceRequests = new Map();
+
+	// sequenceNodes returns the tree an address names, fetching it once. Two
+	// operations naming one address share a single request rather than racing.
+	function sequenceNodes(address) {
+		if (sequences.has(address)) return Promise.resolve(sequences.get(address));
+		let pending = sequenceRequests.get(address);
+		if (!pending) {
+			pending = fetchSequence(address).then((nodes) => {
+				sequenceRequests.delete(address);
+				// A null is cached too. An address this deployment cannot describe
+				// will not start describing itself, and asking again on every
+				// operation would turn one miss into one request per record.
+				sequences.set(address, nodes);
+				return nodes;
+			});
+			sequenceRequests.set(address, pending);
+		}
+		return pending;
+	}
+
+	async function fetchSequence(address) {
+		let response;
+		try {
+			response = await fetch(location.href, {
+				headers: withCSRF(headers("sequence", { [sequenceAddressHeader]: address })),
+				credentials: "same-origin",
+				redirect: "error",
+			});
+		} catch (error) {
+			return null;
+		}
+		// 404 means this process has never rendered the plan behind the address,
+		// so it cannot describe it. That is not a failure to recover from here: a
+		// sequence is an optimization over markup that is always available, and
+		// the caller falls back to asking for the markup.
+		if (!response.ok || served(response) !== "sequence") return null;
+		try {
+			const body = await response.json();
+			return body && Array.isArray(body.nodes) ? body.nodes : null;
+		} catch (error) {
+			return null;
+		}
+	}
+
+	// materialize returns an operation's markup, whichever half it arrived as.
+	// Null means this client cannot rebuild it and the caller falls back.
+	async function materialize(operation) {
+		if (typeof operation.html === "string") return operation.html;
+		if (typeof operation.seq !== "string") return null;
+		const nodes = await sequenceNodes(operation.seq);
+		if (!nodes) return null;
+		return reassemble(nodes, operation.values || []);
+	}
+
+	// reassemble walks the tree and consumes the values, which is the whole of
+	// what a client does with a sequence.
+	//
+	// One value per hole, per conditional (which branch ran), per loop (how many
+	// times), and per component call (whether it opened a boundary). Consuming
+	// the wrong number at any node puts every later value in the wrong place, so
+	// a walk that does not end exactly at the end of the values is a mismatch and
+	// yields nothing rather than markup that is subtly wrong.
+	//
+	// Nothing is escaped here. The values were escaped by the render that
+	// produced them, which is the whole reason this client needs no escaping
+	// rules of its own — and must not apply any.
+	function reassemble(nodes, values) {
+		const out = [];
+		const consumed = walkSequence(nodes, values, 0, out);
+		if (consumed !== values.length) return null;
+		return out.join("");
+	}
+
+	// The node kinds, as the tree encodes them: a static run is a bare string, a
+	// hole is the number zero, and everything else is an object naming its kind.
+	const seqIf = 2;
+	const seqRepeat = 3;
+	const seqComponent = 4;
+
+	function walkSequence(nodes, values, index, out) {
+		for (const node of nodes) {
+			if (typeof node === "string") {
+				out.push(node);
+				continue;
+			}
+			if (node === 0) {
+				if (index >= values.length) return -1;
+				out.push(values[index++]);
+				continue;
+			}
+			if (index >= values.length) return -1;
+			const marker = values[index++];
+			let taken;
+			if (node.k === seqIf) {
+				if (marker !== "t" && marker !== "f") return -1;
+				taken = marker === "f" ? node.e || [] : node.t;
+			} else if (node.k === seqComponent) {
+				if (marker !== "b" && marker !== "i") return -1;
+				taken = marker === "i" ? node.e || [] : node.t;
+			} else if (node.k === seqRepeat) {
+				// The count is decimal digits, never a JavaScript number cast: an
+				// empty string casts to zero and a trailing character casts to NaN,
+				// and both would silently produce the wrong markup.
+				if (!/^\d+$/.test(marker)) return -1;
+				const count = parseInt(marker, 10);
+				for (let repeat = 0; repeat < count; repeat++) {
+					index = walkSequence(node.t, values, index, out);
+					if (index < 0) return -1;
+				}
+				continue;
+			} else {
+				// A node kind from a newer server. There is no safe guess about
+				// how many values it takes, so the walk stops.
+				return -1;
+			}
+			index = walkSequence(taken, values, index, out);
+			if (index < 0) return -1;
+		}
+		return index;
+	}
+
+	// applyOperation is async because a replacement may arrive as an address and
+	// its values rather than as markup, and resolving the address can cost one
+	// fetch. Every other kind decides without waiting.
+	async function applyOperation(operation) {
 		if (operation.kind === "children") return reconcileChildren(operation);
 		// An unrecognized kind comes from a newer server. Ignoring it keeps this
 		// client working rather than abandoning a stream it could still use.
 		if (operation.kind !== "replace") return true;
-		if (typeof operation.html !== "string") return true;
+		const html = await materialize(operation);
+		// An operation carrying neither markup nor a resolvable address describes
+		// a region this client cannot rebuild, so the caller falls back.
+		if (typeof html !== "string") return false;
 		const target = locate(operation.id);
 		if (!target) return false;
-		const fragment = parseFragment(operation.html);
+		const fragment = parseFragment(html);
 		fillHoles(fragment, operation.boundaries);
 		return swapNode(target, fragment);
 	}
@@ -387,7 +540,7 @@ export function createUpdateRuntime(config) {
 		if (!current()) return { superseded: true };
 		installHead(body.head);
 		for (const operation of body.ops || []) {
-			if (!applyOperation(operation)) return { fellBack: true, reason: "missing-target" };
+			if (!(await applyOperation(operation))) return { fellBack: true, reason: "missing-target" };
 		}
 		replaceManifest(body.manifest);
 		return { navigate: body.navigate, live: body.live === true };
@@ -439,18 +592,25 @@ export function createUpdateRuntime(config) {
 					continue;
 				}
 				if (record.r === "op") {
-					// The children validator travels on every operation record,
-					// including an unchanged one, so a manifest rebuilt from a
-					// stream returns both halves. Holding only the frame makes
-					// every list look reordered on the next request.
-					pending.push({ id: record.id, frame: record.frame, children: record.children });
+					// All three fields of a manifest entry travel on every
+					// operation record, including an unchanged one, because a
+					// client rebuilding its manifest from a stream has no other
+					// source for them and the next request is compared against
+					// all three: the frame decides whether a region is resent,
+					// the children digest whether a list looks reordered, and the
+					// parent whether a disappearing boundary can be narrowed to
+					// something smaller than replacing the outermost one.
+					pending.push({
+						id: record.id, frame: record.frame,
+						children: record.children, parent: record.parent,
+					});
 					// A record with no kind restates a validator and nothing else:
 					// the region is unchanged, so it is recorded and not applied.
 					// Every kind is dispatched, because a kind carrying no markup
 					// is not the same statement — a children operation says the
 					// arrangement moved while the markup stayed.
 					if (!record.kind) continue;
-					if (!applyOperation(record)) return { fellBack: true, reason: "missing-target" };
+					if (!(await applyOperation(record))) return { fellBack: true, reason: "missing-target" };
 					continue;
 				}
 				if (record.r === "await") {
@@ -544,7 +704,7 @@ export function createUpdateRuntime(config) {
 		if (!current()) return { applied: false, superseded: true };
 		installHead(body.head);
 		for (const operation of body.ops || []) {
-			if (!applyOperation(operation)) return fall(location.href, "missing-target");
+			if (!(await applyOperation(operation))) return fall(location.href, "missing-target");
 		}
 		recordManifest(body.manifest);
 		emit("redrawn", { id: elementId });
@@ -567,7 +727,7 @@ export function createUpdateRuntime(config) {
 			// A rewritten region drops its stored validator, or a later navigation
 			// could find that boundary unchanged and leave this markup in place.
 			manifest.delete(operation.id);
-			if (!applyOperation(operation)) return fall(location.href, "missing-target");
+			if (!(await applyOperation(operation))) return fall(location.href, "missing-target");
 		}
 		if (body.navigate) {
 			const destination = resolveNavigable(body.navigate);
