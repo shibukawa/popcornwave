@@ -352,6 +352,8 @@ scaffolded `auth.oidc.redirect_url` names it. The request is redirected to the
 provider's login screen, where two users are waiting. Pick **Member**, and the
 browser lands back on the memo page with the heading **Member's memos**.
 
+![the development identity provider offering Administrator and Member accounts and warning that no password is checked](../../../assets/screenshots/tutorial-login.png)
+
 Write a memo. Then sign out, sign in as **Administrator**, and the list is
 empty. Sign back in as **Member** and the memo is there.
 

@@ -247,6 +247,11 @@ func createMemo(w http.ResponseWriter, r *http.Request) {
 再起動します。メモを追加し、`Ctrl-C` で `pw dev` を止めて、もう一度起動してください。
 メモはそこにあります。
 
+`pw dev` コンソールの **data** ペインを開いて `memos` を選ぶと、保存された同じ行を
+直接確認できます。
+
+![id と body の列、保存された2行を表示する pw dev コンソールの memos テーブル](../../../../assets/screenshots/tutorial-database.png)
+
 `dev` では、生成されたステートメントは実行のたびに記録されます。
 
 ```json

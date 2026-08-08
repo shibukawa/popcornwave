@@ -381,6 +381,8 @@ other within five seconds. Neither `Load` nor the layout knows this is
 happening: a live source is called by generated code with the subscription's
 context, so there is no handle to build and nothing to pass through `Params`.
 
+![the archive page with a live count of two memos and the two persisted memo rows below it](../../../assets/screenshots/tutorial-page-tree.png)
+
 One cost is worth knowing before you reach for this. A delivery replaces the
 whole boundary subtree, so a live region wrapping a long list pays that list's
 length on every tick. Keep the boundary around the part that actually changes —

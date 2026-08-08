@@ -259,6 +259,11 @@ Save everything. `pw dev` regenerates `queries/memos_pw_gen.go`, rebuilds, and
 restarts. Add a memo, then stop `pw dev` with `Ctrl-C` and start it again: the
 memo is still there.
 
+Open the **data** pane in the `pw dev` console and select `memos` to inspect the
+same persisted rows directly:
+
+![the pw dev data pane showing the memos table with its id and body columns and two persisted rows](../../../assets/screenshots/tutorial-database.png)
+
 In `dev`, every generated statement is logged as it runs:
 
 ```json
