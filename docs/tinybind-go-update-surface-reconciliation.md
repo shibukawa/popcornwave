@@ -110,7 +110,7 @@ We mention it because it is the thing a client implementer will get wrong: the w
 ## What we have not implemented
 
 - **Walking sequences.** We send no `-Sequences` header, so we are served assembled markup and everything works. The remaining work is the fetch-and-cache by address and the tree walk. Staged deliberately: it is an optimisation over markup that is always available, and a wrong walk is silent.
-- **Moving our live delivery body onto this grammar.** Our live records carry a per-delivery validator that suppresses a re-sent unchanged boundary, and the module's live mode writes every completion. Converging costs us that suppression until a completion can carry a validator, which is the open item from the previous round.
+- Nothing. The live delivery body has since moved onto this grammar too — see below.
 
 ## Fixed on main, and verified
 
@@ -159,6 +159,18 @@ It caught nothing about the walk, which is the answer we wanted. It caught somet
 Fixed by moving the verdict to the end of the file, with a comment saying it has to stay there. The same mutation now fails four checks, on exactly the two fixtures that carry a loop.
 
 We mention it because it is the same class as the defect this round started with. A `children` operation dispatched by whether markup was present, and a test suite whose verdict was dispatched by where it happened to sit — both are correct-looking code whose failure mode is silence, and neither is visible in a diff.
+
+## The live stream, converged
+
+We moved it, and the way we moved it is worth stating because it answers the open item from the previous round rather than waiting on it.
+
+The blocker was that delegating to `RenderLiveStream` writes every completion, where our stream suppresses a delivery whose validator the client already returned. We did not delegate. We write the records ourselves, in your grammar: a delivery is an `await` record, the stream opens on a `head` record, and it ends on a terminator with `done` or `retry`. The validator stays as our own field beside the emitted shape, which is what a caller owning its wire is expected to add.
+
+So the question we asked — whether a completion can carry a validator — no longer blocks anything on our side. It would still be worth having if the module's live entry is ever the one a caller wants to use.
+
+Two things came out of it. **There is one reader:** both streams had their own copy of the same buffer-split-parse loop, and the merged asset now calls `getReader` exactly once, with a test that fails if a second one appears. And **the live path has a head channel** — the gap we reported against ourselves in §6.1 of the previous round. A delivery reaching a component the document never carried now installs its stylesheet before its markup lands.
+
+One difference we kept deliberately: the `build` on a live head record is the render version rather than the update build identity. An unstamped binary reports nothing and the check is disabled, where reporting a per-process identity would reload every open screen on every restart — the herd the live transport spends its jitter avoiding. An update falls back the other way, because there a wrong delta costs more than a re-transferred page.
 
 ## Two questions back, both answered
 
