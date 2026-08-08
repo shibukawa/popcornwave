@@ -254,6 +254,21 @@ structured_render_output:
       same_shape_as_the_children_dispatch: a rule applied on one path and not its sibling
     says_nothing_about_the_deferred_step: every figure is transfer, and applying a value to a node without reparsing is about what the browser does after the bytes arrive; measuring it needs time to a stable frame and a browser harness this side does not have
 
+  found_in_a_browser_2026_08_09:
+    how: opening examples/partial_update rather than running a test; neither the Go tests, which feed a manifest built from a previous response, nor the node harness, which stubs the DOM, could reach either defect
+    document_carried_no_instance_attributes:
+      what: pw rendered documents through RenderChain and RenderChainAsync, and only the collecting entry writes the attribute a delta operation addresses
+      effect: every operation missed its target and the runtime fell back to an ordinary navigation, so partial updates had never worked end to end in a browser while the configuration said they were on
+      fixed_here: collect when updates are enabled, which forces the buffered branch because the delta package exposes a collector for the buffered entry only; the module's own streaming entry buffers the document for the same reason
+      cost_stated: a page with an await boundary loses progressive delivery when a project turns updates on, which is the honest ordering against a feature that is off while looking on
+    sequence_response_carried_no_vary:
+      what: public, immutable, a year long, and served from the page's own URL, so a cache stored it under that URL alone and answered later requests for the page with a JSON body
+      effect: a browser that fetched one sequence stopped being able to load the page
+      fixed_here: the wire is this framework's, so setting the Vary belongs here rather than being a workaround
+      the_module_is_inconsistent_though: it writes Vary on Render, Redraw, and both streaming entries, and Render's documentation states the rule as always setting Vary and leaving every other response concern to the caller; the sequence entry is the exception and is also the only one setting a public year-long cache policy
+      the_narrow_ask: set both the cache policy and the Vary that makes it safe, or neither, rather than one of the pair
+    one_reason_for_two_failures: an unresolvable sequence address and a missing DOM target both reported missing-target, which named two failures with nothing in common; the sequence half now says so
+
   the_harness_had_stopped_checking:
     found_by: mutating the walk to iterate a loop one time too few and watching the suite pass
     cause: the verdict, the failure exit and the success line, sat mid-file, and every case appended while following v0.4.4 landed after it; those cases ran, counted into a number nobody read, and reported a success already printed

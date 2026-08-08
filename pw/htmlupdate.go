@@ -535,12 +535,20 @@ func serveSequence(w http.ResponseWriter, r *http.Request, config HTMLConfig) bo
 	// A sequence is public, immutable, and a year long, which is right for what
 	// it is and catastrophic without a Vary: it is served from the page's own
 	// URL, so a cache storing it under that URL alone answers every later
-	// request for the page with a JSON body. system:tinybind v0.4.6 sets the
-	// cache policy and no Vary, so a browser that fetched one sequence stops
-	// being able to load the page at all until its cache is cleared.
+	// request for the page with a JSON body. A browser that fetched one sequence
+	// stops being able to load the page at all until its cache is cleared.
 	//
-	// Added before delegating, because the module's entry sets its headers with
-	// Set and never touches Vary, so what is added here survives.
+	// It belongs here because the wire is this framework's, per
+	// decision:update-runtime-convergence and the module's own division. Worth
+	// knowing anyway: the module writes Vary on every other entry that owns a
+	// response — Render, Redraw, and both streaming entries — and Render's own
+	// documentation states the rule as always setting Vary and leaving every
+	// other response concern to the caller. The sequence entry is the one that
+	// does not, and it is also the only one setting a public year-long cache
+	// policy, which is what makes the omission easy to miss and expensive.
+	//
+	// Set before delegating: the module's entry writes its headers with Set and
+	// never touches Vary, so what is added here survives.
 	addVaryHeader(w.Header(), UpdateHeaderPrefix+"-Render")
 	addVaryHeader(w.Header(), UpdateHeaderPrefix+"-Sequence-Address")
 	// No span: a sequence answers from a lookup table and reaches no template,
