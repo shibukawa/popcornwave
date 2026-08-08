@@ -148,4 +148,4 @@ It is the conservative direction — correct, and expensive exactly where the ch
 
 ## One practical note
 
-**`v0.4.5` is not tagged.** `git ls-remote` lists tags to `v0.4.4`, and `main` is `584af8e`, which is where these fixes are. We are pinned to the pseudo-version of that commit so the work is not blocked; swapping to the tag is one line in `go.mod` once it is pushed.
+`v0.4.5` tags `584af8e`, which is the commit we verified and built against, so the release and what is described above are the same bytes.
