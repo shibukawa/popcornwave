@@ -193,6 +193,23 @@ structured_render_output:
     accepted_in_substance: a template edit invalidates a skeleton cache, an output cache, and a boundary validator together, which is the property that was asked for
     but_not_in_words: one derivation rule produces several addresses, since a component with a conditional or an optional attribute emits more than one skeleton; one identity read literally would suggest values that coincide, and they do not
   sequencing_accepted: render options, then the update flag, then the structured output; value was the wrong axis for the first two
+  client_audit:
+    prompted_by: reading this framework's four response shapes against each other while answering, which had not been done before
+    reading: one transport wearing four costumes, and three of the differences are gaps rather than choices
+    live_has_no_head_channel: a navigation delta writes a head record before any markup and the live stream has no equivalent, so a delivery reaching a component the document never carried paints unstyled; narrow, and the exact failure the module's delta head sync requirement exists to prevent
+    redraw_has_no_fallback: writeRedraw renders through htmlbind.Render, whose chain entry blocks an await boundary and emits it settled in place, so a redrawn component waits for its slowest binding where every other path paints a fallback first
+    redraw_head_header_retires: the base64 head header exists because a header is not a place to discover which characters a proxy passes; the reasoning stops applying once head travels in the body, and the ETag contract survives an envelope while curl readability does not
+    nested_live_returns_to_its_fallback:
+      rendered_not_reasoned: a live boundary inside a live boundary works today on one connection with positional ids, and every outer delivery carries the inner boundary's placeholder
+      effect: the inner region shows its loading state again on every parent re-render, so an outer region ticking faster than its inner one leaves the inner one mostly loading
+      why_it_matters_here: whole-region replacement is the cause, which makes it an argument for the structured output that has nothing to do with transfer size
+    slot_content_and_dom_moves:
+      how_a_slot_renders: flat, with no marker, so the caller's fragment becomes part of the enclosing component's own bytes and the frame validator covers it
+      what_survives_a_swap_today: elements marked with the preserve attribute, moved rather than recreated, and form values restored against each control's own default; neither is slot aware and the marker is author written
+      hard_limit: the preserve swap is node to node, so a slot rendering several top-level nodes cannot be preserved without a wrapper element the author never wrote
+      why_not_generalize_it: a reparented iframe reloads, so a mechanism built on DOM moves reloads the third-party embeds it exists to preserve
+      wanted_instead: a slot as a nested unit, since Plan.Slots already exposes the fragments a parameter struct carries; an unchanged slot becomes a record and a client holding slot positions performs no move at all
+      raised_as: a constraint on the unit design rather than a feature, because a unit being a component may already answer it
 
 carried_forward:
   live_mode_plan_slice: requirement:live-mode-plan-slice, since a live render still executes the whole composed chain and pays it per reconnect

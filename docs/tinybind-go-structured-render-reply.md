@@ -13,6 +13,8 @@ Your sequencing is accepted: render options, then the update flag, then the stru
 
 Your three questions are answered in Part 3. Short forms: the measurements are in Part 2 and support the emitter work; the element description is accepted with one question back; component-per-row is accepted, and we think it improves our templates rather than taxing them.
 
+Part 6 is new material rather than an answer. Auditing our four response shapes against each other turned up three gaps — the live stream has no head channel, a redraw has no fallback, and a nested live region flashes back to its loading state — plus one constraint on the unit design that we would rather raise before you emit anything.
+
 ## Part 1 — What we verified
 
 ### 1.1 Your two rendered claims reproduce exactly
@@ -144,8 +146,66 @@ We ranked by value and you are right that value was the wrong axis for the first
 
 On Ask 3, your three settling questions are the right three. We have no position on the exported-only rule. On the other two our reading matches yours: `reloadable` is client-addressed re-rendering and the update flag is participation in server-discovered deltas, one component should be able to be both, and `reloadable` should not imply the flag — a component that a page can redraw on demand is not necessarily one whose markup a navigation delta should compare. On the identity question, a flagged component taking the automatic positional identity is what our manifest already assumes, and an author-written id would be a second entry shape for us to carry.
 
+## Part 6 — Four findings from auditing our own client, and what they ask of the record grammar
+
+Writing the client half of this made us read our four response shapes side by side for the first time. They are one transport wearing four costumes, and three of the differences turn out to be gaps rather than choices.
+
+None of this changes an ask. It is offered as input to the record grammar, since the shape you emit and the shape we consume have to be decided once.
+
+### 6.1 The live stream has no head channel
+
+A navigation delta writes `{"r":"head"}` before any markup, and `requirement:delta-head-sync` exists because a region landing before its stylesheet paints unstyled. Our live stream has no such record and no equivalent. A live delivery whose content reaches a component the document never carried installs nothing, and flashes.
+
+The window is narrow — a live region whose *structure* changes rather than its values — but it is the exact failure the delta path added a field to prevent, and the live path never got it.
+
+**What it asks of the grammar:** that a head record may appear anywhere in a stream, not only first. Our `installHead` is already idempotent, deduplicating by `outerHTML`, so a repeated tag costs a comparison and nothing else.
+
+### 6.2 A redraw has no fallback
+
+`writeRedraw` renders through `htmlbind.Render`, and `RenderChain` documents what that means: *an await boundary reached on this path blocks and emits its settled subtree in place*.
+
+So a redrawn component holding an await boundary has no progressive delivery at all. The response waits for the slowest binding, where the document path and the navigation delta both paint a fallback and replace it. Nothing warns an author that moving a component behind a redraw silently costs them that.
+
+This is the strongest argument we have for the redraw body becoming a record stream rather than a bare subtree: it is not tidiness, it is a capability the path is missing. `{"r":"await"}` already means exactly the right thing.
+
+### 6.3 The redraw head header retires with it
+
+`Pw-Head` carries base64 of JSON, and the reason is written in your own source: a head tag may hold any character an attribute value may, and a header is not a place to discover which of those a proxy passes through. That reasoning is right, and it stops applying the moment the head travels in the body.
+
+We note the two properties the bare subtree was chosen for. The `ETag` and `304` contract survives an envelope unchanged — the digest covers whatever the response body is, and a 304 still carries no body, so a client applies nothing either way. `curl`-readability is genuinely lost, and we think `| jq` covers it, given that the other three shapes are already records.
+
+**The one real cost is bytes.** A redraw is the only path still sending raw markup, and the record envelope escapes it: we measured `<p>one</p>` at ten bytes as HTML and thirty inside a record. A redraw response is an ordinary one-shot response, so it compresses normally and the `<` runs compress well — the effective cost is far below three times. And it is temporary: once a redraw carries statics and dynamics, no markup crosses the wire at all and the objection disappears with it.
+
+### 6.4 A nested live boundary flashes back to its fallback
+
+We rendered this rather than reasoned about it. A live boundary whose delivered content contains another live boundary works today, on one connection, with positional ids:
+
+```
+{"id":"tb-1",  "html":"<section>outer1<tb-boundary id=\"tb-1-1\">…fallback…</tb-boundary></section>"}
+{"id":"tb-1",  "html":"<section>outer2<tb-boundary id=\"tb-1-1\">…fallback…</tb-boundary></section>"}
+{"id":"tb-1-1","html":"<b>innerA</b>"}
+```
+
+Every outer delivery carries the inner boundary's placeholder, so the inner region returns to its fallback each time its parent re-renders, until the inner source delivers again. On a dashboard whose outer region ticks faster than its inner one, the inner region spends most of its life showing a loading state.
+
+Whole-region replacement is the cause, so this is not a defect to fix in the transport. **It is an argument for the structured output that has nothing to do with bytes:** a parent re-render that changes only a value would touch only that value's text node, and the nested boundary's DOM would never be disturbed.
+
+### 6.5 Slot content, and why we would rather not solve it with DOM moves
+
+A slot renders flat. The caller's fragment is emitted at the `<slot/>` position with no marker, so it becomes part of the enclosing component's own bytes, and the frame validator covers it — only nested *boundaries* are excluded, and a slot argument is not one.
+
+That leaves whole-region replacement as the only thing a partial update can do to a region containing slot content. Our client carries two things across a swap: elements marked `data-tb-preserve`, which are moved rather than recreated, and form control values, restored by comparison against each control's own default. Neither is slot-aware, the marker is author-written, and `hole.replaceWith(kept)` is node-to-node — so a slot rendering several top-level nodes cannot be preserved at all without wrapping it in an element the author did not write.
+
+The obvious generalization is to make a slot position an automatic preserve marker and move the subtree across. We think that is the wrong direction, for a reason worth stating: **a reparented `<iframe>` reloads.** Every move costs that, so a mechanism built on moves is one that reloads third-party embeds whenever their surrounding region updates — and preserving embeds is what the mechanism exists for.
+
+**What we would rather have is a slot as a nested unit.** `Plan.Slots` already exposes the fragments a parameter struct carries, so the compiler can see them. As a nested unit, an unchanged slot is a record saying so, and a client holding slot positions leaves that DOM alone entirely: zero moves, no reload, no interrupted media. Solving it any other way first would leave two mechanisms doing one job.
+
+We raise it now because it is a constraint on the unit design rather than a separate feature. If a unit is a component and a slot argument is a component, the answer may already fall out of §2.1 — we would just like it to be deliberate rather than incidental.
+
 ## What we will do next
 
+- Merge our two NDJSON readers into one async iterator. We have two copies of the same buffer-split-parse loop, one per response shape, which is the duplication the shared apply core was created to avoid. It touches no wire and we will do it whether or not §6 lands.
+- Move our live, redraw, and action bodies onto the navigation record grammar, once §6 settles. The failure policies stay four — a truncated navigation falls back to ordinary navigation, a truncated redraw reloads, a truncated action must *not* retry because the mutation already happened, and a truncated live stream reconnects with backoff — so what unifies is the records and the reader, never the policy.
 - Land the client half of the structured output once the skeleton shape settles. Our runtime is ours and the wire format is ours, so nothing there needs you.
 - Rerun the measurements against the record shape you land on, and against more template shapes if you name them.
 - Report the URL and prefix divergences as fixed on our side once the variadic ships, rather than working around them now.
