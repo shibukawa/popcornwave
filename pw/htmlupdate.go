@@ -529,6 +529,20 @@ func serveSequence(w http.ResponseWriter, r *http.Request, config HTMLConfig) bo
 	if options.Negotiate(r).Mode != htmlupdate.ModeSequence {
 		return false
 	}
+	// The response varies on the two headers that selected it, and saying so is
+	// not hygiene here — it is what stops this response from replacing the page.
+	//
+	// A sequence is public, immutable, and a year long, which is right for what
+	// it is and catastrophic without a Vary: it is served from the page's own
+	// URL, so a cache storing it under that URL alone answers every later
+	// request for the page with a JSON body. system:tinybind v0.4.6 sets the
+	// cache policy and no Vary, so a browser that fetched one sequence stops
+	// being able to load the page at all until its cache is cleared.
+	//
+	// Added before delegating, because the module's entry sets its headers with
+	// Set and never touches Vary, so what is added here survives.
+	addVaryHeader(w.Header(), UpdateHeaderPrefix+"-Render")
+	addVaryHeader(w.Header(), UpdateHeaderPrefix+"-Sequence-Address")
 	// No span: a sequence answers from a lookup table and reaches no template,
 	// no database, and no handler, so a render span around it would report a
 	// render that did not happen.

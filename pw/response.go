@@ -17,6 +17,7 @@ import (
 	"github.com/shibukawa/popcornwave/pwruntime"
 	tinybind "github.com/shibukawa/tinybind-go"
 	"github.com/shibukawa/tinybind-go/htmlbind"
+	"github.com/shibukawa/tinybind-go/htmlbind/delta"
 )
 
 // Problem is the application-facing RFC problem value.
@@ -363,7 +364,17 @@ func WriteHTMLChain(w http.ResponseWriter, r *http.Request, wrappers []HTMLWrapp
 		// keeps a response that varies on nothing.
 		w.Header().Add("Vary", "User-Agent")
 	}
-	if async && config.Streaming && !bot {
+	// Updates force the buffered branch, and the reason is a gap rather than a
+	// choice: a document a delta will address has to carry its instance
+	// attributes, collecting them is what writes them, and system:tinybind
+	// exposes a collector for the buffered entry only. The module's own
+	// streaming entry buffers the document for the same reason.
+	//
+	// The cost is real — a page with an await boundary loses progressive
+	// delivery when a project turns updates on — and it is the honest ordering:
+	// without it every delta misses its targets and falls back to an ordinary
+	// navigation, so the feature is off while looking on.
+	if async && config.Streaming && !bot && !config.Update.Enabled {
 		streamHTMLChain(w, r, wrappers, leaf, config, live, options...)
 		return
 	}
@@ -377,7 +388,7 @@ func WriteHTMLChain(w http.ResponseWriter, r *http.Request, wrappers []HTMLWrapp
 	defer cancel()
 	body := getHTMLBody()
 	defer putHTMLBody(body)
-	if err := htmlbind.RenderChain(body, wrappers, leaf, renderOptions(ctx, config, false, options)...); err != nil {
+	if err := renderDocumentBody(ctx, body, wrappers, leaf, config, options); err != nil {
 		render.failed(err)
 		// Nothing is committed on this branch, so the same failure the streaming
 		// branch can only patch into a 200 still carries its real status here.
@@ -621,6 +632,28 @@ func streamHTMLChain(w http.ResponseWriter, r *http.Request, wrappers []HTMLWrap
 	if err := closeWriter(); err != nil {
 		logger.Log(ctx, LevelError, "HTML response close failed", Err(err))
 	}
+}
+
+// renderDocumentBody writes the document a client will hold, collecting the
+// instance attributes when this deployment answers updates.
+//
+// Collecting is what makes a later delta addressable: an operation names an
+// instance id, and a client finds it by the attribute on that boundary's root
+// element. A document rendered without them is a page every delta misses, and
+// the miss is silent — the runtime falls back to an ordinary navigation, so the
+// screen is right and the feature simply never happens.
+//
+// A project with updates off renders exactly what it always did, because the
+// attributes are the only difference and nothing would read them.
+func renderDocumentBody(ctx context.Context, body io.Writer, wrappers []HTMLWrapper, leaf HTMLFragment,
+	config HTMLConfig, options []HTMLOption,
+) error {
+	rendered := renderOptions(ctx, config, false, options)
+	if !config.Update.Enabled {
+		return htmlbind.RenderChain(body, wrappers, leaf, rendered...)
+	}
+	_, err := delta.CollectChain(body, []byte(config.Update.ValidatorKey), wrappers, leaf, rendered...)
+	return err
 }
 
 // writeBoundaryCompletion frames one settled boundary for the browser runtime

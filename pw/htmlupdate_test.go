@@ -378,3 +378,34 @@ func TestTheDocumentPathIsUnchangedByEnablingUpdates(t *testing.T) {
 		t.Fatalf("the document did not render:\n%s", off.Body.String())
 	}
 }
+
+// A sequence is public, immutable, and a year long, and it is served from the
+// page's own URL. Without a Vary a cache stores it under that URL alone and
+// answers every later request for the page with a JSON body — which is not a
+// degraded page but no page at all, until the cache expires or is cleared.
+//
+// Found in a browser: after the runtime fetched one sequence, the page URL
+// started returning the sequence and every navigation fell back.
+func TestASequenceResponseVariesOnWhatSelectedIt(t *testing.T) {
+	config := updateConfig()
+	request := httptest.NewRequest(http.MethodGet, "/orders", nil)
+	request.Header.Set("Pw-Render", "sequence")
+	request.Header.Set("Pw-Sequence-Address", "no-such-address")
+	request.Header.Set("Pw-Build", updateOptions(config).RuntimeConfig().Build)
+
+	recorder := httptest.NewRecorder()
+	if !serveSequence(recorder, request, config) {
+		t.Fatal("a sequence request was not answered by the sequence entry")
+	}
+	vary := strings.Join(recorder.Header().Values("Vary"), ", ")
+	for _, want := range []string{"Pw-Render", "Pw-Sequence-Address"} {
+		if !strings.Contains(vary, want) {
+			t.Errorf("Vary = %q, want it to name %s", vary, want)
+		}
+	}
+	// The cache policy is the module's and is right for what a sequence is. It
+	// is only safe beside the Vary above, so the two are asserted together.
+	if control := recorder.Header().Get("Cache-Control"); control != "" && !strings.Contains(control, "public") {
+		t.Errorf("Cache-Control = %q", control)
+	}
+}

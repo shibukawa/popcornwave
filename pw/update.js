@@ -253,8 +253,20 @@ export function createUpdateRuntime(config) {
 		if (typeof operation.html === "string") return operation.html;
 		if (typeof operation.seq !== "string") return null;
 		const nodes = await sequenceNodes(operation.seq);
-		if (!nodes) return null;
-		return reassemble(nodes, operation.values || []);
+		if (!nodes) {
+			// Named separately from a missing target, because the two failures
+			// look identical from the outside and have nothing in common: one is
+			// a page that moved under this client, the other is an address this
+			// deployment cannot describe.
+			console.warn("Popcorn Wave: no sequence for", operation.seq);
+			return null;
+		}
+		const html = reassemble(nodes, operation.values || []);
+		if (html === null) {
+			console.warn("Popcorn Wave: values do not fit sequence", operation.seq,
+				(operation.values || []).length);
+		}
+		return html;
 	}
 
 	// reassemble walks the tree and consumes the values, which is the whole of
