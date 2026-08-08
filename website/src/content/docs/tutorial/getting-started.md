@@ -140,6 +140,8 @@ Open <http://localhost:8080/>. The page says **Hello, World**. The scaffolded
 handler also reads a query parameter, so
 <http://localhost:8080/?name=Popcorn> greets you by name.
 
+![the generated memoapp landing page greeting Popcorn and listing the project's installed capabilities and next steps](../../../assets/screenshots/tutorial-getting-started.png)
+
 ## The files you will actually edit
 
 `pw init` wrote a couple of dozen files. Three of them matter today:

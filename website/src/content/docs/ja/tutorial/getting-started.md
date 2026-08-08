@@ -135,6 +135,8 @@ listening on http://localhost:8080
 雛形のハンドラはクエリパラメータも読むので、<http://localhost:8080/?name=Popcorn> なら
 名前入りの挨拶になります。
 
+![Popcorn への挨拶、導入済みの機能、次に行うことが表示された、生成直後の memoapp ランディングページ](../../../../assets/screenshots/tutorial-getting-started.png)
+
 ## 実際に編集するファイル
 
 `pw init` は20数個のファイルを書きました。今日触るのは3つです。

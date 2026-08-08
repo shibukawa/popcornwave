@@ -182,6 +182,8 @@ the reload re-reads the list instead.
 Save the files. `pw dev` regenerates, rebuilds, and restarts; type something
 into the box and press **Add**, and it appears in the list.
 
+![the memo form after two submissions, with a textarea, an Add button, and the two newest memos listed below](../../../assets/screenshots/tutorial-forms.png)
+
 ## 4. When it is rejected
 
 Press **Add** with the box empty. **Nothing happens.** The browser refuses to
