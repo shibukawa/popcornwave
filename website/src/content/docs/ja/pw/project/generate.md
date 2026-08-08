@@ -40,7 +40,7 @@ firestore = ["entities"]
 | `handlers` | Go 中のルート登録、`pw.Parse`、レスポンス呼び出し | リクエストバインディング、JSON コーデック、OpenAPI フラグメント |
 | `templates` | `.pw.html` | 型付きレンダラ。ドキュメントシェルとエラーページを探す場所でもある |
 | `queries` | `.pw.sql` | context ベースのクエリ関数 |
-| `config` | Go 中の `pw.RegisterConfig`、`pw.RegisterSubCommand` | 設定とサブコマンドのバインディング |
+| `config` | Go 中の `pw.RegisterConfig`, `pw.RegisterSubCommand` | 設定とサブコマンドのバインディング |
 | `pages` | ページツリーのルート | 探索型ルーティングのルート登録とページパラメータ |
 | `dynamo` | `dynamo` タグ付き Go 型と `.pw.dynamo` | レコードのコーデック、キー、型付き DynamoDB クエリ |
 | `firestore` | `firestore` タグ付き Go 型と `.pw.firestore` | エンティティのコーデック、キー、Datastore mode の型付きクエリ |

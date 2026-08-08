@@ -39,7 +39,7 @@ TOML のキーの `.` を `-` に置き換えて `--` を付けます。
 | `observability.service_name` | `OTEL_SERVICE_NAME` |
 | `observability.otel.endpoint` | `OTEL_EXPORTER_OTLP_ENDPOINT` |
 | `observability.otel.headers` | `OTEL_EXPORTER_OTLP_HEADERS` |
-| `auth.oidc.issuer`、`client_id`、`client_secret`、`redirect_url` | `AUTH_OIDC_*`。規則どおりの結果を、導出ではなく固定で指定している |
+| `auth.oidc.issuer`, `client_id`, `client_secret`, `redirect_url` | `AUTH_OIDC_*`。規則どおりの結果を、導出ではなく固定で指定している |
 
 環境変数を持たないキーも3つあります。
 `security.headers.content_security_policy`、その `_report_only` 版、
@@ -80,7 +80,7 @@ Popcorn Wave は次の順に読みます。
 | `health` | *(空)* | liveness エンドポイントのパス。例 `/healthz` |
 | `readiness` | *(空)* | readiness エンドポイントのパス。例 `/readyz` |
 | `openapi` | *(空)* | OpenAPI ドキュメントのパス。例 `/openapi.json` |
-| `api_doc` | *(空)* | API ドキュメント UI。`scalar`、`swagger`、または空 |
+| `api_doc` | *(空)* | API ドキュメント UI。`scalar`, `swagger`, または空 |
 | `api_doc_path` | `"/docs"` | その UI のマウント先 |
 | `public.enabled` | `true` | 埋め込み静的アセットを配信する |
 | `public.mount` | `"/public"` | そのマウント先 |
@@ -151,7 +151,7 @@ Datastore mode で作成されている必要があります。
 | `database` | *(空)* | 名前付きデータベース。空なら既定のデータベース |
 | `namespace` | *(空)* | プロセスが読み書きするすべてのキーに適用する namespace |
 | `endpoint` | *(空)* | サービスまたはエミュレータの接続先。空なら `DATASTORE_EMULATOR_HOST` |
-| `credentials` | `"service_account"` | `service_account`、`metadata`、`oauth2`、`static` |
+| `credentials` | `"service_account"` | `service_account`, `metadata`, `oauth2`, `static` |
 | `credentials_file` | *(空)* | サービスアカウント鍵。空なら `GOOGLE_APPLICATION_CREDENTIALS` |
 | `timeout` | `"10s"` | 1 リクエストの上限 |
 | `max_idle_conns` | `4` | クライアントが保持する idle HTTP 接続数 |
@@ -228,11 +228,11 @@ HSTS が付くのは検証済みの HTTPS リクエストだけです。平文�
 
 | キー | 既定値 | 意味 |
 | --- | --- | --- |
-| `minimum_level` | `"info"` | 重要度の下限。`trace`、`debug`、`info`、`warn`、`error`、`off` |
+| `minimum_level` | `"info"` | 重要度の下限。`trace`, `debug`, `info`, `warn`, `error`, `off` |
 | `stdout_format` | `"json"` | 端末でのレコード表現。`json` または `plaintext` |
 | `service_name` | *(空)* | `OTEL_SERVICE_NAME` からも読む |
 | `resource_attributes` | `[]` | サービス名とともに報告する追加の `key=value` |
-| `boot_log` | `"auto"` | 起動サマリ。`auto`、`tree`、`record`、`off` |
+| `boot_log` | `"auto"` | 起動サマリ。`auto`, `tree`, `record`, `off` |
 
 `auto` は対話的な端末ではツリーを、それ以外では構造化レコード1件を出します。
 [設定サマリ](/ja/productivity/startup-summary/)を参照してください。
@@ -241,11 +241,11 @@ HSTS が付くのは検証済みの HTTPS リクエストだけです。平文�
 
 | キー | 既定値 | 意味 |
 | --- | --- | --- |
-| `enabled` | `"auto"` | 生成された全ステートメントを記録する。`auto`、`on`、`off`。`auto` は `dev` で on |
+| `enabled` | `"auto"` | 生成された全ステートメントを記録する。`auto`, `on`, `off`。`auto` は `dev` で on |
 | `level` | `"info"` | 通常のステートメントレコードの重要度 |
 | `slow_threshold` | `"200ms"` | これを超えると slow 扱い。ゼロで slow 検出を無効化 |
 | `slow_level` | `"warn"` | slow なステートメントレコードの重要度 |
-| `bind_values` | `"auto"` | 引数の値を記録する。`auto`、`on`、`off` |
+| `bind_values` | `"auto"` | 引数の値を記録する。`auto`, `on`, `off` |
 | `explain` | `true` | slow なステートメントの EXPLAIN（プランのみ）を取得する |
 | `reproduction` | `true` | slow なステートメントの再実行スニペットを出す |
 | `max_sql_length` | `4096` | 記録するステートメント本文の上限 |
@@ -261,7 +261,7 @@ HSTS が付くのは検証済みの HTTPS リクエストだけです。平文�
 
 | キー | 既定値 | 意味 |
 | --- | --- | --- |
-| `enabled` | `"auto"` | フレームワークのスパンを開く: `auto`、`on`、`off`。`auto` はトレースを送出しているかどうかに従う |
+| `enabled` | `"auto"` | フレームワークのスパンを開く: `auto`, `on`, `off`。`auto` はトレースを送出しているかどうかに従う |
 | `render` | `true` | HTML レスポンスごとに1つ、初回ビルドを内側に持つスパン |
 | `boundary` | `true` | 確定した非同期境界ごと、ライブ配信ごとのスパン |
 | `database` | `true` | 実行された文ごとのクライアントスパン |
@@ -307,7 +307,7 @@ HSTS が付くのは検証済みの HTTPS リクエストだけです。平文�
 | キー | 既定値 | 意味 |
 | --- | --- | --- |
 | `enabled` | `false` | |
-| `backend` | `"rdb"` | サーバに置くスロットが使うバックエンド: `rdb`、`cookie`、`redis`、`dynamo`、`firestore` |
+| `backend` | `"rdb"` | サーバに置くスロットが使うバックエンド: `rdb`, `cookie`, `redis`, `dynamo`, `firestore` |
 | `retention` | `"720h"` | ストアがレコードを保持してよい期間。`[auth]` の寿命が短ければそちらが効く |
 | `cookie.name` | `"pw_session"` | |
 | `cookie.path` | `"/"` | |
@@ -357,7 +357,7 @@ CSRF の秘密もここの鍵ではありません。登録されたセッショ
 | キー | 既定値 | 意味 |
 | --- | --- | --- |
 | `enabled` | `false` | |
-| `backend` | `"rdb"` | ceremony、許可リスト、credential、bootstrap の保存先: `rdb`、`dynamo`、`firestore` |
+| `backend` | `"rdb"` | ceremony、許可リスト、credential、bootstrap の保存先: `rdb`, `dynamo`, `firestore` |
 | `mode` | `"oidc_only"` | ブラウザ用の各モードと、Bearer API 用の `jwt_only` |
 | `login_path` | `"/auth/login"` | プロバイダのフローを開始する |
 | `callback_path` | `"/auth/callback"` | 結果を検証してセッションを開始する |
@@ -380,7 +380,7 @@ CSRF の秘密もここの鍵ではありません。登録されたセッショ
 | `redirect_url` | *(空)* | `AUTH_OIDC_REDIRECT_URL` |
 | `scopes` | `[]` | |
 | `identity_claim` | `"sub"` | ローカルアカウントを識別する検証済みクレーム |
-| `admission` | `"authenticated"` | `authenticated`、`claim`、`registered`、`existing` |
+| `admission` | `"authenticated"` | `authenticated`, `claim`, `registered`, `existing` |
 | `auto_provision` | `true` | 未知の検証済み identity にリゾルバ経由でのアカウント作成を許す |
 | `claim.path` | *(空)* | 検証済みクレームへの JSON Pointer。`admission = "claim"` 用 |
 | `claim.values` | `[]` | 受け入れる値 |
@@ -414,7 +414,7 @@ CSRF の秘密もここの鍵ではありません。登録されたセッショ
 | `algorithms` | `[]` | **必須**。`["RS256"]` など RSA 検証アルゴリズムの許可リスト |
 | `required_token_type` | `"at+jwt"` | 要求する `typ`。空なら、型がないトークンを明示的に許可する |
 | `required_scopes` | `[]` | すべてのトークンに要求する scope |
-| `discovery` | `"oidc"` | 鍵の取得方法。`oidc`、`oauth`、`manual` |
+| `discovery` | `"oidc"` | 鍵の取得方法。`oidc`, `oauth`, `manual` |
 | `jwks_uri` | *(空)* | `manual` では**必須**。issuer と同一オリジンであること |
 | `leeway` | `"30s"` | 時計ずれの許容幅。上限 5 分 |
 | `max_token_lifetime` | *(空)* | **必須**。`exp - iat` の上限。最大 24 時間 |
@@ -422,13 +422,13 @@ CSRF の秘密もここの鍵ではありません。登録されたセッショ
 | `jwks_refresh_cooldown` | `"1m"` | 未知の `kid` による鍵の再取得を行う最短間隔 |
 | `allow_loopback_http` | `false` | 開発時に HTTP のループバック issuer を許可する |
 | `identity_claim` | `"sub"` | ローカルアカウントを識別する検証済みクレーム |
-| `admission` | *(空)* | **必須**。`authenticated`、`claim`、`registered`、`existing` |
+| `admission` | *(空)* | **必須**。`authenticated`, `claim`, `registered`, `existing` |
 | `auto_provision` | `false` | 未知の検証済み identity にアカウント作成を許可する |
 | `claim.path` | *(空)* | `admission = "claim"` で使う検証済みクレームへの JSON Pointer |
 | `claim.values` | `[]` | その位置で受け入れる値 |
 | `claim.match` | `"any"` | `any` または `all` |
 | `registered_claims` | `[]` | 許可リストと比較するクレーム。既定は `identity_claim` |
-| `revocation.mode` | *(空)* | **必須**。`off`、`token`、`subject`、`both` |
+| `revocation.mode` | *(空)* | **必須**。`off`, `token`, `subject`, `both` |
 | `revocation.on_unavailable` | `"refuse"` | 失効ストアが応答できないとき `refuse` または `admit` |
 | `revocation.max_propagation_delay` | `"0s"` | 失効結果のキャッシュ期間。ゼロならキャッシュしない |
 | `dev.trust_unverified_tokens` | `false` | `pw dev` かつ loopback 専用。staging と production では拒否 |

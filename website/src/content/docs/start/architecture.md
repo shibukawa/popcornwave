@@ -72,7 +72,8 @@ one stable API rather than four.
 `pw.NewServeMux` returns `*http.ServeMux` on ordinary Go builds — it is a type
 alias, not a wrapper. Patterns, wildcards, and precedence are exactly the
 standard library's. A separate implementation with the same semantics is
-compiled in only for TinyGo, which lacks the standard mux.
+compiled in only for TinyGo, whose own `ServeMux` does not yet support the
+Go 1.22 method and path-parameter patterns as of TinyGo 0.41.
 
 The same holds throughout: handlers are `http.HandlerFunc`, middleware is
 `func(http.Handler) http.Handler`, and `pw.Middlewares` hands back a plain

@@ -29,7 +29,7 @@ func RegisterConfig() { pw.RegisterConfig[AppConfig]("app") }
 | プレフィックスは文字列リテラル | 生成が静的に読む。計算した値ではバインディングが生成されない |
 | 呼び出しは `generate.config` が挙げるディレクトリに置く | そうでなければ何も生成されない |
 | 登録は全 `init` の後、パースの前 | 生成された定義は `init` で登録される。`ParseConfig` の後の登録は panic |
-| プレフィックスは1つの名前空間を共有する | 領域ごとに別名を——`app`、`billing`、`search` |
+| プレフィックスは1つの名前空間を共有する | 領域ごとに別名を——`app`, `billing`, `search` |
 | プレフィックスにはドットを含められる | `pw.RegisterConfig[CacheConfig]("middleware.cache")` |
 
 読み出しにエラー処理は要りません。

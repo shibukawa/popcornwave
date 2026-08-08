@@ -138,7 +138,7 @@ enabled = true
 
 | 圧縮する | しない |
 | --- | --- |
-| `.html`、`.css`、`.js`、`.mjs`、`.json`、`.map`、`.txt`、`.xml`、`.svg`、`.webmanifest`、その他の `text/*` | SVG 以外の画像、音声、動画、フォント、アーカイブ、WebAssembly——すでに圧縮されているもの |
+| `.html`, `.css`, `.js`, `.mjs`, `.json`, `.map`, `.txt`, `.xml`, `.svg`, `.webmanifest`, その他の `text/*` | SVG 以外の画像、音声、動画、フォント、アーカイブ、WebAssembly——すでに圧縮されているもの |
 
 `.zstd` のパスが URL になることはありません。隣のアセットの表現であり、そこへのリクエストは
 `404` です。圧縮版と非圧縮版は別々の検証子を持つので、片方を保存したキャッシュがもう片方を

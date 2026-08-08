@@ -69,12 +69,12 @@ WHERE id = {id}
 
 | テンプレートの型 | Go の型 |
 | --- | --- |
-| `string`、`decimal` | `string` |
+| `string`, `decimal` | `string` |
 | `bool` | `bool` |
 | `int` | `int` |
 | `float` | `float64` |
 | `bytes` | `[]byte` |
-| `datetime`、`date`、`time` | `time.Time` |
+| `datetime`, `date`, `time` | `time.Time` |
 | `url` | `url.URL` |
 | `T[]` | `[]T` |
 | `T?` | `*T` |

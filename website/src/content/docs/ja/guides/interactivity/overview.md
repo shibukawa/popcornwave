@@ -82,7 +82,7 @@ live 境界は向きを逆にします。Go のソースは言うことができ
 | 動いたもの | 誰が要求したか | 何を書くか | 場所 |
 | --- | --- | --- | --- |
 | 読み手 | 読み手 | swap、あるいは何も | このセクション |
-| ページの生成が遅い | 読み手が1回 | `async` パラメータ、`await`、`fallback` | [非同期レンダリング](/ja/guides/cross-layer/async-rendering/) |
+| ページの生成が遅い | 読み手が1回 | `async` パラメータ、`await`, `fallback` | [非同期レンダリング](/ja/guides/cross-layer/async-rendering/) |
 | データが独りでに | 誰も | `external live` のソースと同じ `await` 節 | [ライブレンダリング](/ja/guides/cross-layer/live-rendering/) |
 
 どちらもタダではなく、コストの落ちる先はフロントエンドの勘が向く場所とは違います。
