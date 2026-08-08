@@ -229,6 +229,20 @@ structured_render_output:
       why_a_round_trip: consuming the wrong number of values at one node puts every later value in the wrong place and still yields markup, so a reading of the specification cannot catch it
       capability_header_always_sent: whether a fragment travels as an address and values is the server's choice per fragment, so no bookkeeping about held addresses travels
       one_fetch_per_address: concurrent operations naming one address share a request, and a miss is cached because an address this deployment cannot describe will not start describing itself
+  measured_2026_08_09:
+    written_up: docs/tinybind-go-transfer-measurements.md
+    method: through pw.WriteHTMLChain, the entry every page is served from, so the bytes are the response rather than a reconstruction; the client manifest is rebuilt from a previous response's operation records exactly as the runtime does
+    shape: 25 result rows under a shared layout, an a-tag to a sibling route and a GET search form re-rendering the page it is on
+    values_beat_markup: 3.3x on the delta and 2.4x against the complete document, with about a kilobyte of trees fetched once per build
+    a_markup_delta_loses_to_its_document:
+      measured: 13614 bytes against a 9787 byte document, and the delta is correct and minimal — the layout is recognised unchanged and costs 89 bytes
+      cause: a record escapes every angle bracket, so the same fragment is 9295 bytes as HTML and 13001 on the wire
+      reading: a partial update that transfers less of the page and more bytes than a full page load is hard to defend on its own, which makes this a stronger argument for the split than the ratio was
+    escaping_multiplier_corrected: 1.40x on real markup, not the 3x this side reported from a fragment that was almost entirely angle brackets
+    break_even_is_a_page_shape: a delta wins where the changed region is a small part of the page and loses where it is most of it, so a dashboard panel wins and a search result list — the case a delta is most obviously for — loses
+    cold_client_pays_twice: a page load leaves this runtime holding no validators, so the first in-page navigation after arriving is answered with a complete document and only the second click onward is a delta; seeding the manifest from the document, as the live stream already does on its terminal marker, would fix it and is worth measuring against the navigation it saves
+    says_nothing_about_the_deferred_step: every figure is transfer, and applying a value to a node without reparsing is about what the browser does after the bytes arrive; measuring it needs time to a stable frame and a browser harness this side does not have
+
   the_harness_had_stopped_checking:
     found_by: mutating the walk to iterate a loop one time too few and watching the suite pass
     cause: the verdict, the failure exit and the success line, sat mid-file, and every case appended while following v0.4.4 landed after it; those cases ran, counted into a number nobody read, and reported a success already printed
