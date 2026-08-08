@@ -20,7 +20,7 @@ files:
   Dockerfile:
     always: yes
     toolchain: host Go, per decision:separate-tinygo-dockerfile
-    builder: the golang image matching the go directive of the scaffolded go.mod
+    builder: the golang image matching the go directive of the scaffolded go.mod, with the Debian release pinned in the tag so a new stable does not rebase the builder while policy:container-runtime-image still names the previous release
     builder_runs: api:cli-build, which is the whole host phase and the compiler in one command
     stages: a builder under rule:container-build-inputs, and a runtime stage under policy:container-runtime-image
   Dockerfile.tinygo:
