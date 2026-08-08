@@ -30,7 +30,7 @@ Dockerfile はそこを飛ばしています。
 ## 生成される Dockerfile
 
 ```dockerfile
-FROM golang:1.26 AS build
+FROM golang:1.26-trixie AS build
 WORKDIR /src
 
 COPY go.mod go.sum ./
@@ -43,7 +43,7 @@ COPY . .
 
 RUN CGO_ENABLED=0 pw build
 
-FROM gcr.io/distroless/static-debian12:nonroot
+FROM gcr.io/distroless/static-debian13:nonroot
 WORKDIR /app
 
 COPY --from=build /src/myapp /app/myapp
@@ -95,7 +95,7 @@ RUN GOBIN=/usr/local/bin go install \
 
 ### distroless、そして scratch ではない理由
 
-`gcr.io/distroless/static-debian12:nonroot` には CA 証明書、タイムゾーンデータ、
+`gcr.io/distroless/static-debian13:nonroot` には CA 証明書、タイムゾーンデータ、
 非特権ユーザーが入っていて、シェルが入っていません。scratch のほうが小さいですが、
 多くのアプリケーションでは誤りです。最初の外向き HTTPS — OIDC のディスカバリ
 ドキュメント、トークン交換、任意の API 呼び出し — が証明書プールを見つけられずに
@@ -105,6 +105,13 @@ TLS ハンドシェイクで落ち、しかもエラーは足りないファイ�
 `:nonroot` タグは uid 65532 で動きます。リスナが特権ポートではなく 8080 なので
 これで足ります。書き込み可能なファイルシステムも不要です。アセットはディスク
 からではなく埋め込みツリーから配信されます。
+
+両方のステージが Debian のリリース名を明示しています。ビルダーは
+`golang:1.26-trixie`、ランタイムは `static-debian13` です。素の `golang:1.26` は
+新しい Debian stable が出たその日にベースが載せ替わります。ビルド環境が自分では
+なく Debian のスケジュールで変わるということで、distroless 側が追いつくまで
+二つのステージが別のリリースに乗ることにもなります。Debian を上げるときは、
+二行を一緒に変えてください。
 
 ### `WORKDIR` と `APP_ENV` は飾りではない
 

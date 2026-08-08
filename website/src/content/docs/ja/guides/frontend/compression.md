@@ -22,7 +22,7 @@ HTML が、受け入れるクライアントに対して zstd で符号化され
 
 | 圧縮する | しない |
 | --- | --- |
-| `WriteHTML`、`WriteHTMLPage`、`WriteHTMLChain` | `WriteAPI` |
+| `WriteHTML`, `WriteHTMLPage`, `WriteHTMLChain` | `WriteAPI` |
 | `WriteHTMLFragment` | `WriteProblem` |
 | await 境界を持つページのストリーミング側 | [静的ファイル](/ja/guides/frontend/static-assets/)。事前圧縮されたサイドカーを自前で持っている |
 

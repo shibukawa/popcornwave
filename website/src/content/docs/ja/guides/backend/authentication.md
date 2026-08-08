@@ -94,8 +94,8 @@ issuer は `https` である必要があります。例外はループバック�
 | キー | 既定値 | 意味 |
 | --- | --- | --- |
 | `enabled` | `false` | true のときだけエンドポイントとガードが存在する |
-| `backend` | `"rdb"` | ceremony、許可リスト、credential、bootstrap の保存先: `rdb`、`dynamo`、`firestore` |
-| `mode` | `"oidc_only"` | `oidc_only`、`oidc_passkey`、`passkey_only`、API 向けの `jwt_only`（[モード](#モード)） |
+| `backend` | `"rdb"` | ceremony、許可リスト、credential、bootstrap の保存先: `rdb`, `dynamo`, `firestore` |
+| `mode` | `"oidc_only"` | `oidc_only`, `oidc_passkey`, `passkey_only`, API 向けの `jwt_only`（[モード](#モード)） |
 | `login_path` | `"/auth/login"` | プロバイダへの入口。ルート相対 |
 | `callback_path` | `"/auth/callback"` | プロバイダが戻ってくる先。ルート相対 |
 | `logout_path` | `"/auth/logout"` | ルート相対。`POST` のみ |

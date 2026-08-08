@@ -24,8 +24,8 @@ pw new [handler]
 | ステップ | 答えるもの |
 | --- | --- |
 | Package | ハンドラの置き場所。`generate.handlers` のディレクトリだけが並ぶ |
-| Method | `GET`、`POST`、`PUT`、`PATCH`、`DELETE` |
-| Path | Go 1.22 のパターン。`/tasks`、`/tasks/{id}`、サブツリーなら `/assets/` |
+| Method | `GET`, `POST`, `PUT`, `PATCH`, `DELETE` |
+| Path | Go 1.22 のパターン。`/tasks`, `/tasks/{id}`, サブツリーなら `/assets/` |
 | Name | 関数名とファイル名の語幹。空ならルートから導出したものを使う |
 | Response | HTML ページか、`pw.WriteAPI` による JSON か |
 | Request input | 型付き入力と、それを埋める `pw.Parse` 呼び出しを作るか |
