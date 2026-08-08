@@ -612,3 +612,32 @@ console.log("update runtime conformance: all checks passed");
 	check(liveStopped === 1, "the outgoing live connection was closed");
 	check(liveStarted === 1, "the incoming live connection was opened");
 }
+
+// A manifest entry is four fields. The children validator is what lets a list
+// that gained a row be answered by naming the new order, so holding only the
+// frame makes every parent's arrangement compare unequal.
+{
+	const runtime = fresh();
+	element("panel");
+	nextResponse = response({
+		headers: { "Pw-Render": "navigation", "Content-Type": "application/json" },
+		json: {
+			ops: [{ kind: "replace", id: "panel", html: "<section></section>" }],
+			manifest: [
+				{ id: "panel", frame: "f-panel", children: "c-panel" },
+				{ id: "row-0", frame: "f-row", parent: "panel" },
+				{ id: "flat", frame: "f-flat" },
+			],
+		},
+	});
+	await runtime.navigate("/orders");
+	nextResponse = response({
+		headers: { "Pw-Render": "navigation", "Content-Type": "application/json" },
+		json: { ops: [] },
+	});
+	await runtime.navigate("/orders?page=2");
+	const sent = requests[1].headers["Pw-Manifest"];
+	check(sent.includes("panel:f-panel:c-panel"), "the children validator travelled");
+	check(sent.includes("row-0:f-row::panel"), "an entry with a parent and no children keeps the empty field");
+	check(sent.includes("flat:f-flat,") || sent.endsWith("flat:f-flat"), "a flat entry stays two fields");
+}

@@ -193,6 +193,24 @@ structured_render_output:
     accepted_in_substance: a template edit invalidates a skeleton cache, an output cache, and a boundary validator together, which is the property that was asked for
     but_not_in_words: one derivation rule produces several addresses, since a component with a conditional or an optional attribute emits more than one skeleton; one identity read literally would suggest values that coincide, and they do not
   sequencing_accepted: render options, then the update flag, then the structured output; value was the wrong axis for the first two
+  shipped_upstream:
+    version: v0.4.4, against the usage guide of 2026-08-09
+    reconciliation_written: docs/tinybind-go-update-surface-reconciliation.md
+    what_arrived: render options on the update entries, the boundary decomposition with a hole per nested boundary and a boundaries list separating a hole to fill from one to retain, the children operation, the redraw body as ops and head and manifest, slot spans, and a sequence mode addressed by content hash and served public and immutable
+    ask_2_closed: WriteUpdateStatus takes the request and render options, so an action response supplies the CSRF token and the 500 on a form region is gone
+    children_never_reaches_a_stream:
+      what: renderStream dispatches on whether an operation carries markup rather than on its kind, so a children operation takes the unchanged branch and arrives as a bare validator restatement; DeltaStream has no writer for it either
+      reproduced: a three-row list gaining one row emits the list as an unchanged record and the new row as a replace with no hole anywhere on screen to place it
+      effect: the case the release calls its headline falls back to a full page load
+      scope: the streamed path only; the buffered operationBody copies both the kind and the boundaries, and this framework renders every navigation through the streaming entry
+    render_takes_no_options: the buffered entry is the exception to the guide's own rule, and it is the entry a page with no await boundary would reach first, so the component most likely to fail for want of a CSRF token is on the path that cannot be given one
+    sequence_address_header: the guide names it Sequence-Address and v0.4.4 reads Sequence, which is a rename rather than the prefix change the covering note describes
+    manifest_is_four_fields:
+      correction_to_us: this client held only the frame validator, where the wire carries id, frame, children, and parent
+      cost: with no children validator returned every parent's arrangement compares unequal, so the server restates a children operation on every navigation
+      also_diagnostic: it is what made the record above legible as a flattened children operation rather than an unchanged boundary
+    values_interleave_more_than_interpolations: a value stream carries one entry per hole, per conditional, per loop, and per component call, and a boundary-opening call contributes the two halves of its placeholder attribute; Sequence.Reassemble is the reference to test a walk against rather than a reading of it
+    not_implemented_here: walking sequences, which is opt-in and silent when wrong, and moving the live delivery body onto this grammar, which costs the per-delivery validator suppression until a completion can carry one
   client_audit:
     prompted_by: reading this framework's four response shapes against each other while answering, which had not been done before
     reading: one transport wearing four costumes, and three of the differences are gaps rather than choices

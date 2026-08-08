@@ -254,9 +254,19 @@ export function createUpdateRuntime(config) {
 		return found;
 	}
 
+	// A manifest entry is four fields, not two. The frame validator says whether
+	// a boundary's own markup changed; the children validator says whether the
+	// arrangement of the boundaries inside it did, which is what lets a list that
+	// gained a row be answered by naming the new order rather than by re-sending
+	// the list. Holding only the frame makes every parent's arrangement compare
+	// unequal, so the server restates one on every navigation.
 	function recordValidator(entry) {
 		if (entry && typeof entry.id === "string" && typeof entry.frame === "string") {
-			manifest.set(entry.id, entry.frame);
+			manifest.set(entry.id, {
+				frame: entry.frame,
+				children: typeof entry.children === "string" ? entry.children : "",
+				parent: typeof entry.parent === "string" ? entry.parent : "",
+			});
 		}
 	}
 
@@ -274,11 +284,21 @@ export function createUpdateRuntime(config) {
 		for (const entry of entries || []) recordValidator(entry);
 	}
 
+	// The trailing fields are written only when they carry something, which is
+	// what keeps a flat page's manifest the size it always was. The order and the
+	// omission rule are the server's encoder read backwards; a parent with no
+	// children validator still writes an empty field, because the two positions
+	// cannot be told apart otherwise.
 	function manifestValue() {
 		if (!manifest.size) return "";
-		const pairs = [];
-		for (const [id, frame] of manifest) pairs.push(id + ":" + frame);
-		return pairs.join(",");
+		const entries = [];
+		for (const [id, held] of manifest) {
+			let entry = id + ":" + held.frame;
+			if (held.children || held.parent) entry += ":" + held.children;
+			if (held.parent) entry += ":" + held.parent;
+			entries.push(entry);
+		}
+		return entries.join(",");
 	}
 
 	// A navigation or an update of the current route. Both are one request; only
