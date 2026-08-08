@@ -13,11 +13,6 @@ import (
 	"github.com/shibukawa/popcornwave/pwruntime"
 )
 
-// DevAttachTokenVar carries the per-run token pw dev generates. The console
-// accepts an announcement only when it matches, so an attachment is not taken
-// from anything that merely reached the port.
-const DevAttachTokenVar = "PW_DEV_ATTACH_TOKEN"
-
 // startDevelopmentData serves the data pane beside the application.
 //
 // It listens on a loopback address of its own rather than on the application's
@@ -81,27 +76,6 @@ func developmentConnections(resources pwruntime.Resources) []pwdata.Connection {
 }
 
 // announceDevelopmentData tells the console the address to proxy to.
-//
-// The application dials out; the console never dials in. That is what keeps the
-// pane off the application's own listener while still letting one page reach
-// it, and it is the direction the telemetry exporter already uses.
 func announceDevelopmentData(console, address string) {
-	request, err := http.NewRequest(http.MethodPost, console+"/api/attach", strings.NewReader(address))
-	if err != nil {
-		return
-	}
-	request.Header.Set("Content-Type", "text/plain")
-	request.Header.Set("X-Pw-Attach-Token", os.Getenv(DevAttachTokenVar))
-	response, err := http.DefaultClient.Do(request)
-	if err != nil {
-		fmt.Fprintln(os.Stderr, "pw: development data pane: could not announce to the console:", err)
-		return
-	}
-	defer response.Body.Close()
-	if response.StatusCode >= 300 {
-		// A refused announcement means the pane will never attach, and the
-		// console can only report that it is waiting. Saying why here is the
-		// only place the reason exists.
-		fmt.Fprintf(os.Stderr, "pw: development data pane: the console refused the announcement (%s)\n", response.Status)
-	}
+	announceToDevConsole(console, "/api/attach", address, "development data pane")
 }

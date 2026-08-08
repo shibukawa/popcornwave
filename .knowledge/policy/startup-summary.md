@@ -12,7 +12,7 @@ capture:
   secrets: policy:log-emission redaction applies before the value is stored, and a DSN takes the rule:dsn-redaction form rather than the whole mask
 emission:
   once: the first of Run or Middlewares to complete initialization emits it
-  run: emitted after the listener binds, so the reported address is the accepted one
+  run: emitted after the listener binds, so the reported address is the accepted one and not the configured one decision:development-port-shift may have moved off
   middlewares: emitted after initialization without a listening address
 selection:
   key: observability.boot_log

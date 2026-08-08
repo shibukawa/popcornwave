@@ -135,12 +135,17 @@ func Run(ctx context.Context, handler http.Handler, option ...Option) error {
 	server := newHTTPServer(serverConfig, wrapped)
 	// Binding here, instead of inside ListenAndServe, keeps the startup summary
 	// honest: it is written once the port is actually accepted, and it reports
-	// the resolved port even when the configuration asked for port 0.
-	listener, err := net.Listen("tcp", server.Addr)
+	// the resolved port even when the configuration asked for port 0 or a
+	// development run moved off a port it could not bind.
+	listener, err := listenApplication(serverConfig)
 	if err != nil {
 		return closeRuntimeResources(serverConfig.ShutdownTimeout, err)
 	}
-	emitBootReport(listenURL(listener))
+	address := listenURL(listener)
+	emitBootReport(address)
+	// The development console links the application, and the address it worked
+	// out from the project files is not always the one this process bound.
+	announceDevelopmentListener(address)
 	serve := func() error { return server.Serve(listener) }
 	serveErr := serveUntilContext(signalContext, server, serve, serverConfig.ShutdownTimeout)
 	return closeRuntimeResources(serverConfig.ShutdownTimeout, serveErr)

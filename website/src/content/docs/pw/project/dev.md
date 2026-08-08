@@ -47,6 +47,40 @@ includes = ["config.dev.toml", "assets/**/*.svg"]
 excludes = ["web/node_modules"]
 ```
 
+## The port
+
+The application binds `server.port`, and in development it does not insist on
+it. A port already taken — a second project open in another terminal, a process
+left behind by a loop that did not unwind — moves the run to the next free one
+rather than ending it:
+
+```
+WARN the configured port could not be bound, so this development run moved to the next free one
+     configured_port=8080 port=8081
+
+listening on http://localhost:8081
+```
+
+Both numbers are reported, and they mean different things: `server.port` in the
+configuration tree is what the file asked for, and the `listening` line at the
+end is the address that answers. The second one is where your browser goes. The
+console links what the application announced rather than what the project file
+says, so its application link follows the shift too.
+
+The search gives up ten ports along, and only a development run makes it.
+`APP_ENV=stg`, `APP_ENV=prod`, and every other named environment bind what they
+were configured with and fail if they cannot, because a health check, a reverse
+proxy, and an operator all go to the port the file names. An unset `APP_ENV`
+resolves to development, so a deployment that never set the variable shifts as
+well — which is why the warning names the environment, and why setting
+`APP_ENV` is what restores the strict bind.
+
+When development needs a fixed port anyway — an external OAuth provider with a
+registered callback, say — nothing shifts while the port is free, so the fix is
+to stop whatever holds it. [`pw doctor`](/pw/project/doctor/) reports a bound
+`server.port` before the loop starts, which is faster than reading it off a
+warning after the fact.
+
 ## Services
 
 The services declared in `devbox.json` — Valkey by default — run under the
@@ -148,6 +182,8 @@ endpoint bytes. See [E2E Testing](/productivity/e2e-testing/).
 ## Stopping
 
 `Ctrl-C` cancels the whole loop, stopping the application, Tailwind watcher, and
-Devbox services. If the application instead exits with an error, `pw dev`
-reports `application exited: …` and stops. It does not keep restarting a
-process that cannot stay up.
+Devbox services. That is the only thing that ends it. An application that exits
+on its own — a compile error, a panic, a clean return — is reported as
+`application exited: …` and the loop keeps watching, because a project spends
+most of the time between two working states in a state that does not run. The
+next change you save rebuilds and restarts it.

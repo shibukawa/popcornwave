@@ -42,6 +42,10 @@ panes:
     surface: the index shows the current data:dev-loop-state, so a page that was never opened still reports the failure
 index:
   content: the project name, the diagnosed environment, the application URL, and one entry per enabled pane
+  application_url:
+    announced: the address the application says it bound, per decision:dev-application-attachment, which is the only one that is not a guess
+    guessed: the best-effort read of the development configuration, used until the application has announced and correct whenever the configured port was free
+    why: an environment variable, a flag, or decision:development-port-shift outranks the file, and a link left on the configured port opens whatever else now holds it
   reseed:
     offered: when the project has seed datasets and seed.auto is on
     action: api:cli-seed, the same call the loop makes after a migration cycle empties the database, rather than a second implementation

@@ -93,14 +93,14 @@ func (c *Console) render(w http.ResponseWriter, slug, title string, body templat
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-store")
 	_ = layout.Execute(w, layoutData{Title: title, Slug: slug, Panes: c.nav(),
-		APIDocURL: c.project.APIDocURL, Body: body})
+		APIDocURL: c.projectView().APIDocURL, Body: body})
 }
 
 func (c *Console) renderFramed(w http.ResponseWriter, slug, title string, body template.HTML) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-store")
 	_ = layout.Execute(w, layoutData{Title: title, Slug: slug, Panes: c.nav(),
-		APIDocURL: c.project.APIDocURL, Body: body, Framed: true})
+		APIDocURL: c.projectView().APIDocURL, Body: body, Framed: true})
 }
 
 // renderPage writes one console page. Both the console's own pages and a pane
@@ -176,7 +176,7 @@ type indexData struct {
 func (c *Console) index(w http.ResponseWriter, r *http.Request) {
 	state := c.state.get()
 	data := indexData{
-		Project:    c.project,
+		Project:    c.projectView(),
 		State:      state,
 		StatusWord: statusWord(state.Status),
 		Panes:      c.panes,

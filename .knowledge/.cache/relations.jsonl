@@ -6,7 +6,10 @@
 {"context": "body", "path": ".knowledge/api/application-lifecycle.md", "source": "api:application-lifecycle", "target": "api:authentication-endpoints", "target_category": "interface", "target_type": "api"}
 {"context": "body", "path": ".knowledge/api/application-lifecycle.md", "source": "api:application-lifecycle", "target": "data:authentication-runtime-config", "target_category": "structure", "target_type": "data"}
 {"context": "body", "path": ".knowledge/api/application-lifecycle.md", "source": "api:application-lifecycle", "target": "api:public-asset-middleware", "target_category": "interface", "target_type": "api"}
+{"context": "body", "path": ".knowledge/api/application-lifecycle.md", "source": "api:application-lifecycle", "target": "decision:development-port-shift", "target_category": "constraint", "target_type": "decision"}
 {"context": "body", "path": ".knowledge/api/application-lifecycle.md", "source": "api:application-lifecycle", "target": "policy:startup-summary", "target_category": "constraint", "target_type": "policy"}
+{"context": "body", "path": ".knowledge/api/application-lifecycle.md", "source": "api:application-lifecycle", "target": "requirement:dev-console", "target_category": "objective", "target_type": "requirement"}
+{"context": "body", "path": ".knowledge/api/application-lifecycle.md", "source": "api:application-lifecycle", "target": "decision:dev-application-attachment", "target_category": "constraint", "target_type": "decision"}
 {"context": "body", "path": ".knowledge/api/assurance-guard.md", "source": "api:assurance-guard", "target": "api:passkey-endpoints", "target_category": "interface", "target_type": "api"}
 {"context": "body", "path": ".knowledge/api/assurance-guard.md", "source": "api:assurance-guard", "target": "policy:authenticated-path-protection", "target_category": "constraint", "target_type": "policy"}
 {"context": "body", "path": ".knowledge/api/assurance-guard.md", "source": "api:assurance-guard", "target": "concept:assurance-axes", "target_category": "concept", "target_type": "concept"}
@@ -122,6 +125,7 @@
 {"context": "body", "path": ".knowledge/api/cli-dev.md", "source": "api:cli-dev", "target": "decision:dev-harness-process", "target_category": "constraint", "target_type": "decision"}
 {"context": "body", "path": ".knowledge/api/cli-dev.md", "source": "api:cli-dev", "target": "flow:tailwind-css-build", "target_category": "behavior", "target_type": "flow"}
 {"context": "body", "path": ".knowledge/api/cli-dev.md", "source": "api:cli-dev", "target": "decision:development-public-assets", "target_category": "constraint", "target_type": "decision"}
+{"context": "body", "path": ".knowledge/api/cli-dev.md", "source": "api:cli-dev", "target": "decision:development-port-shift", "target_category": "constraint", "target_type": "decision"}
 {"context": "body", "path": ".knowledge/api/cli-dev.md", "source": "api:cli-dev", "target": "data:runtime-environment", "target_category": "structure", "target_type": "data"}
 {"context": "body", "path": ".knowledge/api/cli-dev.md", "source": "api:cli-dev", "target": "decision:developer-loop-watch-scope", "target_category": "constraint", "target_type": "decision"}
 {"context": "body", "path": ".knowledge/api/cli-dev.md", "source": "api:cli-dev", "target": "concept:page-tree", "target_category": "concept", "target_type": "concept"}
@@ -1462,6 +1466,7 @@
 {"context": "body", "path": ".knowledge/decision/dev-application-attachment.md", "source": "decision:dev-application-attachment", "target": "decision:dev-harness-process", "target_category": "constraint", "target_type": "decision"}
 {"context": "body", "path": ".knowledge/decision/dev-application-attachment.md", "source": "decision:dev-application-attachment", "target": "policy:dev-console-boundary", "target_category": "constraint", "target_type": "policy"}
 {"context": "body", "path": ".knowledge/decision/dev-application-attachment.md", "source": "decision:dev-application-attachment", "target": "requirement:contrib-devidp", "target_category": "objective", "target_type": "requirement"}
+{"context": "body", "path": ".knowledge/decision/dev-application-attachment.md", "source": "decision:dev-application-attachment", "target": "decision:development-port-shift", "target_category": "constraint", "target_type": "decision"}
 {"context": "body", "path": ".knowledge/decision/dev-application-attachment.md", "source": "decision:dev-application-attachment", "target": "requirement:dev-query-runner", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/decision/dev-application-attachment.md", "source": "decision:dev-application-attachment", "target": "api:cli-build", "target_category": "interface", "target_type": "api"}
 {"context": "body", "path": ".knowledge/decision/dev-application-attachment.md", "source": "decision:dev-application-attachment", "target": "api:cli-dev", "target_category": "interface", "target_type": "api"}
@@ -1570,6 +1575,15 @@
 {"context": "body", "path": ".knowledge/decision/development-memory-session-backend.md", "source": "decision:development-memory-session-backend", "target": "data:session-record", "target_category": "structure", "target_type": "data"}
 {"context": "body", "path": ".knowledge/decision/development-memory-session-backend.md", "source": "decision:development-memory-session-backend", "target": "flow:session-lifecycle", "target_category": "behavior", "target_type": "flow"}
 {"context": "body", "path": ".knowledge/decision/development-memory-session-backend.md", "source": "decision:development-memory-session-backend", "target": "policy:session-security", "target_category": "constraint", "target_type": "policy"}
+{"context": "body", "path": ".knowledge/decision/development-port-shift.md", "source": "decision:development-port-shift", "target": "data:server-runtime-config", "target_category": "structure", "target_type": "data"}
+{"context": "body", "path": ".knowledge/decision/development-port-shift.md", "source": "decision:development-port-shift", "target": "api:cli-dev", "target_category": "interface", "target_type": "api"}
+{"context": "body", "path": ".knowledge/decision/development-port-shift.md", "source": "decision:development-port-shift", "target": "data:runtime-environment", "target_category": "structure", "target_type": "data"}
+{"context": "body", "path": ".knowledge/decision/development-port-shift.md", "source": "decision:development-port-shift", "target": "policy:startup-summary", "target_category": "constraint", "target_type": "policy"}
+{"context": "body", "path": ".knowledge/decision/development-port-shift.md", "source": "decision:development-port-shift", "target": "decision:dev-application-attachment", "target_category": "constraint", "target_type": "decision"}
+{"context": "body", "path": ".knowledge/decision/development-port-shift.md", "source": "decision:development-port-shift", "target": "requirement:dev-console", "target_category": "objective", "target_type": "requirement"}
+{"context": "body", "path": ".knowledge/decision/development-port-shift.md", "source": "decision:development-port-shift", "target": "api:application-lifecycle", "target_category": "interface", "target_type": "api"}
+{"context": "body", "path": ".knowledge/decision/development-port-shift.md", "source": "decision:development-port-shift", "target": "requirement:dev-telemetry-viewer", "target_category": "objective", "target_type": "requirement"}
+{"context": "body", "path": ".knowledge/decision/development-port-shift.md", "source": "decision:development-port-shift", "target": "requirement:contrib-devidp", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/decision/development-public-assets.md", "source": "decision:development-public-assets", "target": "api:cli-dev", "target_category": "interface", "target_type": "api"}
 {"context": "body", "path": ".knowledge/decision/development-public-assets.md", "source": "decision:development-public-assets", "target": "policy:dev-console-boundary", "target_category": "constraint", "target_type": "policy"}
 {"context": "body", "path": ".knowledge/decision/development-public-assets.md", "source": "decision:development-public-assets", "target": "requirement:dev-error-overlay", "target_category": "objective", "target_type": "requirement"}
@@ -2868,6 +2882,7 @@
 {"context": "body", "path": ".knowledge/policy/startup-summary.md", "source": "policy:startup-summary", "target": "data:loaded-configuration", "target_category": "structure", "target_type": "data"}
 {"context": "body", "path": ".knowledge/policy/startup-summary.md", "source": "policy:startup-summary", "target": "policy:log-emission", "target_category": "constraint", "target_type": "policy"}
 {"context": "body", "path": ".knowledge/policy/startup-summary.md", "source": "policy:startup-summary", "target": "rule:dsn-redaction", "target_category": "constraint", "target_type": "rule"}
+{"context": "body", "path": ".knowledge/policy/startup-summary.md", "source": "policy:startup-summary", "target": "decision:development-port-shift", "target_category": "constraint", "target_type": "decision"}
 {"context": "body", "path": ".knowledge/policy/startup-summary.md", "source": "policy:startup-summary", "target": "api:logger", "target_category": "interface", "target_type": "api"}
 {"context": "body", "path": ".knowledge/policy/token-revocation.md", "source": "policy:token-revocation", "target": "policy:access-token-verification", "target_category": "constraint", "target_type": "policy"}
 {"context": "body", "path": ".knowledge/policy/token-revocation.md", "source": "policy:token-revocation", "target": "data:revoked-token-record", "target_category": "structure", "target_type": "data"}
@@ -3381,6 +3396,7 @@
 {"context": "body", "path": ".knowledge/requirement/dev-api-reference.md", "source": "requirement:dev-api-reference", "target": "policy:operational-endpoints", "target_category": "constraint", "target_type": "policy"}
 {"context": "body", "path": ".knowledge/requirement/dev-api-reference.md", "source": "requirement:dev-api-reference", "target": "data:server-runtime-config", "target_category": "structure", "target_type": "data"}
 {"context": "body", "path": ".knowledge/requirement/dev-api-reference.md", "source": "requirement:dev-api-reference", "target": "api:cli-init", "target_category": "interface", "target_type": "api"}
+{"context": "body", "path": ".knowledge/requirement/dev-api-reference.md", "source": "requirement:dev-api-reference", "target": "decision:development-port-shift", "target_category": "constraint", "target_type": "decision"}
 {"context": "body", "path": ".knowledge/requirement/dev-api-reference.md", "source": "requirement:dev-api-reference", "target": "policy:dev-console-boundary", "target_category": "constraint", "target_type": "policy"}
 {"context": "body", "path": ".knowledge/requirement/dev-api-reference.md", "source": "requirement:dev-api-reference", "target": "data:route-table", "target_category": "structure", "target_type": "data"}
 {"context": "body", "path": ".knowledge/requirement/dev-api-reference.md", "source": "requirement:dev-api-reference", "target": "api:cli-doctor", "target_category": "interface", "target_type": "api"}
@@ -3420,6 +3436,7 @@
 {"context": "body", "path": ".knowledge/requirement/dev-console.md", "source": "requirement:dev-console", "target": "requirement:dev-api-reference", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/requirement/dev-console.md", "source": "requirement:dev-console", "target": "requirement:dev-error-overlay", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/requirement/dev-console.md", "source": "requirement:dev-console", "target": "data:dev-loop-state", "target_category": "structure", "target_type": "data"}
+{"context": "body", "path": ".knowledge/requirement/dev-console.md", "source": "requirement:dev-console", "target": "decision:development-port-shift", "target_category": "constraint", "target_type": "decision"}
 {"context": "body", "path": ".knowledge/requirement/dev-console.md", "source": "requirement:dev-console", "target": "api:cli-seed", "target_category": "interface", "target_type": "api"}
 {"context": "body", "path": ".knowledge/requirement/dev-console.md", "source": "requirement:dev-console", "target": "concept:classic-web-style", "target_category": "concept", "target_type": "concept"}
 {"context": "body", "path": ".knowledge/requirement/dev-console.md", "source": "requirement:dev-console", "target": "decision:dev-harness-process", "target_category": "constraint", "target_type": "decision"}

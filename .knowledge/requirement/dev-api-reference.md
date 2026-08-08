@@ -22,7 +22,8 @@ path_resolution:
   rule: the link is built from the resolved api_doc_path and never from the default
   reason: the path is configuration, so a console that hardcoded /docs would send the developer to a 404 in every project that moved it
   source: the same best-effort read of the development configuration that resolves the application address for the index
-  precedence_limit: an environment variable or a flag outranks the file and is not consulted, so the resolved value can be wrong in a project that overrides it that way
+  precedence_limit: an environment variable or a flag outranks the file and is not consulted, so the resolved path can be wrong in a project that overrides it that way
+  origin: the announced application address once there is one, since the page is a path on the application's own origin and decision:development-port-shift can move it
   undetermined: an unreadable value is reported as undetermined rather than replaced by the default, per policy:dev-console-boundary
 states:
   configured: the index links the path, beside the application address it is relative to

@@ -20,14 +20,16 @@ run:
   - mount api:authentication-endpoints when data:authentication-runtime-config is enabled
   - construct api:public-asset-middleware for the selected build mode
   - attach framework resources to request contexts
-  - bind the configured listener, then emit policy:startup-summary with its address
+  - bind the configured listener under decision:development-port-shift, then emit policy:startup-summary with its address
   - start the configured HTTP server
   - gracefully stop acceptance and drain requests where supported
   - close resources in reverse initialization order
+  - announce the bound address to requirement:dev-console in the pwdev build mode, per decision:dev-application-attachment
 middlewares:
   - performs the same configuration, service, and middleware initialization
   - emits policy:startup-summary without a listening address
   - returns the final standard http.Handler without starting a listener
+  - binds nothing, so decision:development-port-shift does not apply and the application owns the outcome of its own bind
 platform:
   standard_go: signal.NotifyContext on os.Interrupt and SIGTERM drives graceful shutdown
   tinygo: no signal handler is installed; the caller's context is the only shutdown trigger
