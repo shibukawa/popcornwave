@@ -762,7 +762,6 @@
 {"context": "body", "path": ".knowledge/api/testutil-passkey.md", "source": "api:testutil-passkey", "target": "data:passkey-credential", "target_category": "structure", "target_type": "data"}
 {"context": "body", "path": ".knowledge/api/transaction-runner.md", "source": "api:transaction-runner", "target": "data:transaction-scope", "target_category": "structure", "target_type": "data"}
 {"context": "body", "path": ".knowledge/api/transaction-runner.md", "source": "api:transaction-runner", "target": "api:database-selection", "target_category": "interface", "target_type": "api"}
-{"context": "body", "path": ".knowledge/api/transaction-runner.md", "source": "api:transaction-runner", "target": "data:database-connection-set", "target_category": "structure", "target_type": "data"}
 {"context": "body", "path": ".knowledge/api/transaction-runner.md", "source": "api:transaction-runner", "target": "decision:savepoint-nested-transaction", "target_category": "constraint", "target_type": "decision"}
 {"context": "body", "path": ".knowledge/api/transaction-runner.md", "source": "api:transaction-runner", "target": "decision:grouped-database-connections", "target_category": "constraint", "target_type": "decision"}
 {"context": "body", "path": ".knowledge/api/transaction-runner.md", "source": "api:transaction-runner", "target": "rule:savepoint-dialect-support", "target_category": "constraint", "target_type": "rule"}

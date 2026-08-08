@@ -9,7 +9,6 @@ pw.SelectDB pins one data:database-connection-set group onto a context so genera
 surface:
   - SelectDB(context.Context, group string) context.Context
   - DB(context.Context) (*sql.DB, bool) returns the pool of the effective group
-  - OnGroup(group string) TxOption for api:transaction-runner
   - SelectWriteDB(context.Context) pins the resolved write group
   - SelectSessionDB(context.Context) pins the resolved session group
   - RDBConfig.MigrationDSN() reports the migration group DSN for tooling
@@ -41,6 +40,7 @@ escaping_a_transaction:
 rules:
   - selection never opens, commits, or rolls back a transaction, per decision:explicit-transaction-boundary
   - a pinned group survives into every child context, including one created by api:transaction-runner
+  - api:transaction-runner carries no group option, so one statement and one whole transaction name a group the same way
   - the round-robin cursor advances once per group per context chain, so repeated statements reuse one connection
   - callers cannot enumerate the set, read a cursor, or install a connection of their own
   - api:request-context-accessors exposes no group list, and the group name never reaches a log as a secret

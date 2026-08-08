@@ -170,12 +170,12 @@ clause instead of taking the process down.
 | `SelectDB(ctx, group) context.Context` | Pins a named connection group |
 | `SelectWriteDB(ctx) (context.Context, error)` | Pins the group framework-owned writes use |
 | `SelectSessionDB(ctx) (context.Context, error)` | Pins the group holding the session table |
-| `Transaction(ctx, fn, ...TxOption) error` | Runs `fn` in a transaction whose context the generated SQL uses |
-| `OnGroup(group) TxOption` | Runs that transaction against a named group |
+| `Transaction(ctx, fn) error` | Runs `fn` in a transaction whose context the generated SQL uses |
 
 A nested `Transaction` opens a savepoint rather than a second transaction, so
 its failure rolls back only its own work and leaves the outer one usable.
-Without `OnGroup`, a transaction runs on the effective group of its context —
+A transaction runs on the effective group of its context, so `SelectDB` names
+the group for a whole transaction exactly as it does for one statement — and
 unpinned SQL inside it stays there instead of falling back to the default group.
 
 `SelectDB` reports an unknown group name at the first statement that uses the

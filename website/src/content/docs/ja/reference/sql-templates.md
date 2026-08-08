@@ -337,8 +337,9 @@ err := pw.Transaction(r.Context(), func(ctx context.Context) error {
 ```
 
 どこで走るかを何も言わないステートメントは既定のグループへ行きます。`pw.SelectDB`、
-`pw.SelectWriteDB`、`pw.OnGroup` が1つを固定します。生成された関数がトポロジを知ることは
-無いので、開発用の SQLite ファイル1つがどのグループ名にも答えられます。
+`pw.SelectWriteDB` が1つを固定します。単一のステートメントでも `pw.Transaction` 全体でも
+同じです。生成された関数がトポロジを知ることは無いので、開発用の SQLite ファイル1つが
+どのグループ名にも答えられます。
 [リレーショナルデータベース](/ja/guides/storage/rdb/)と
 [ランタイム API](/ja/reference/runtime/)を参照してください。
 
