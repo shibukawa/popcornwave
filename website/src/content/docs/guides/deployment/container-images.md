@@ -30,7 +30,7 @@ change it rather than only run it.
 ## The scaffolded Dockerfile
 
 ```dockerfile
-FROM golang:1.26 AS build
+FROM golang:1.26-trixie AS build
 WORKDIR /src
 
 COPY go.mod go.sum ./
@@ -43,7 +43,7 @@ COPY . .
 
 RUN CGO_ENABLED=0 pw build
 
-FROM gcr.io/distroless/static-debian12:nonroot
+FROM gcr.io/distroless/static-debian13:nonroot
 WORKDIR /app
 
 COPY --from=build /src/myapp /app/myapp
@@ -95,7 +95,7 @@ to update, which is the only version pin in this file that maintains itself.
 
 ### distroless, and why not scratch
 
-`gcr.io/distroless/static-debian12:nonroot` ships CA certificates, time zone
+`gcr.io/distroless/static-debian13:nonroot` ships CA certificates, time zone
 data, an unprivileged user, and no shell. Scratch is smaller and wrong for most
 applications: the first outbound HTTPS request — an OIDC discovery document, a
 token exchange, any API call — fails at the TLS handshake for want of a
@@ -104,6 +104,13 @@ certificate pool, and the error names the peer rather than the missing file.
 The `:nonroot` tag runs as uid 65532, which works because the listener is on
 8080 rather than a privileged port. The image needs no writable filesystem
 either: assets are served from the embedded tree, not from disk.
+
+Both stages name their Debian release: `golang:1.26-trixie` in the builder,
+`static-debian13` in the runtime. A bare `golang:1.26` rebases onto each new
+Debian stable the day it releases, which changes your build environment on
+Debian's schedule rather than yours — and leaves the two stages on different
+releases until the distroless side catches up. When you move to a new Debian,
+change both lines together.
 
 ### `WORKDIR` and `APP_ENV` are load-bearing
 
