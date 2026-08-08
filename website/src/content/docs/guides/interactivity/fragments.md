@@ -313,10 +313,12 @@ function and generation fails at the template that referenced it, rather than
 the click failing at runtime.
 
 What acts on that attribute is yours today: the framework module that would
-intercept it does not exist yet, and neither does the CSRF middleware that
-should stand in front of a `POST` endpoint reachable with ambient credentials.
-An island that fires one owns both jobs. See
-[Discovered routing](/guides/cross-layer/discovered-routing/).
+intercept it does not exist yet. The CSRF middleware does exist, but it is off
+until the application enables it, and a custom client still has to copy the
+current `pw_csrf` cookie into the `X-CSRF-Token` request header. An island that
+fires the action owns that client-side job. See
+[Discovered routing](/guides/cross-layer/discovered-routing/) and
+[Integrating React](/guides/interactivity/react/#writing-back-to-the-server).
 
 Prefer light DOM. A shadow root buys encapsulation you rarely need here and
 costs you the page's stylesheet — Tailwind utilities and daisyUI classes on the

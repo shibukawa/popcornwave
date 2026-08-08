@@ -302,10 +302,11 @@ customElements.define('copy-button', CopyButton);
 実行時に失敗するのではなく、参照しているテンプレートで生成が失敗します。
 
 その属性に対して何をするかは、今日のところ自分の仕事です。それを横取りする
-フレームワークのモジュールはまだありませんし、ambient credential で届く `POST`
-エンドポイントの前に立つべき CSRF ミドルウェアもまだありません。これを撃つ島は
-両方を引き受けることになります。[探索型ルーティング](/ja/guides/cross-layer/discovered-routing/)を
-参照してください。
+フレームワークのモジュールはまだありません。CSRF ミドルウェアはすでにありますが、
+アプリケーションが有効にするまでは動かず、自作のクライアントは現在の `pw_csrf`
+クッキーを `X-CSRF-Token` ヘッダへ移す必要があります。アクションを撃つ島が引き受ける
+のは、このクライアント側の仕事です。[探索型ルーティング](/ja/guides/cross-layer/discovered-routing/)と
+[React の統合](/ja/guides/interactivity/react/#サーバーへ書き込む場合)を参照してください。
 
 light DOM を勧めます。shadow root はここではめったに要らないカプセル化を買う代わりに、
 ページのスタイルシートを失わせます。サーバーが描画した子要素に付いた Tailwind
