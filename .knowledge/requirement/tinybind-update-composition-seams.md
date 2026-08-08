@@ -168,6 +168,31 @@ structured_render_output:
     no_document_cost: slot positions come from the client having built them, so the initial document needs no marker and the first delivery after a page load lands the old way
   not_asked_for: a wire format or a protocol version, which the module's caller-owned wire versioning decision puts on this side
   independent_of: requirement:live-mode-plan-slice, which stays the largest cost on the live path and is a separate piece of work
+  answered: 2026-08-08, as a design proposal accepting all three asks; reply_written docs/tinybind-go-structured-render-reply.md
+  verification_round:
+    every_module_claim_held: read against v0.4.2 and rendered where renderable; the CSRF error text and the neutralized URL output match character for character
+    two_of_ours_withdrawn:
+      action_path_options: this catalog and the request both said the action path reaches htmlbind through an entry taking render options; WriteUpdate and WriteUpdateStatus take none, and the wrapper here passes none
+      example_attribution: examples/live_render is this project's, not the module's, and the request cited it as theirs
+  the_ask_2_finding_is_ours_too:
+    reproduced: pw.WriteUpdate with a region holding a form answers 500, where the guide documents 422 with the validation errors in the rewritten region
+    cause: htmlupdate renders every action region through htmlbind.Render with no options, so no CSRF token reaches CSRFField
+    no_downstream_fix: Update carries only a Fragment and the delta body types are unexported, so the only way to fix it here is to re-implement the action writer, which is the duplication the client ownership round removed
+    consequence: the option variadic is the fix rather than an improvement, and the documented pattern is unavailable until it ships
+    masked_here_by_luck: the sibling divergences do not bite this project, because no scheme allowlist is configured and the chosen attribute prefix is the module default
+  measured_for_them:
+    shape: the Room panel of examples/live_render, reproduced as a plan, on one new message arriving
+    result: a statics and dynamics record is 2.8x to 3.3x smaller than the delivery record today, from five rows to a hundred, and the ratio holds as the list grows
+    the_rejected_alternative_is_worse_than_argued: a positional byte diff of two consecutive renders would still send 86 to 99 percent of the fragment, because a prepended row shifts every byte after it; the case against inferring the split downstream is now a number rather than a principle
+    honest_scope: a computed projection on a reproduced shape rather than production traffic, and it assumes a record shape neither side has settled
+  answers_given:
+    component_per_row: accepted, and read here as an improvement rather than a cost, because a row written as a component call states its unit of update where a reader of the template can see it
+    element_description: accepted; the property needed is that a client can build the DOM and record slot positions without parsing HTML, and the open question returned is whether the first build assembles a string client side or the skeleton carries one
+    csrf_absent_stays_a_failure: yes, from the side eating the 500; an empty token submits, is rejected, and leaves nothing pointing at the cause
+  identity_precision:
+    accepted_in_substance: a template edit invalidates a skeleton cache, an output cache, and a boundary validator together, which is the property that was asked for
+    but_not_in_words: one derivation rule produces several addresses, since a component with a conditional or an optional attribute emits more than one skeleton; one identity read literally would suggest values that coincide, and they do not
+  sequencing_accepted: render options, then the update flag, then the structured output; value was the wrong axis for the first two
 
 carried_forward:
   live_mode_plan_slice: requirement:live-mode-plan-slice, since a live render still executes the whole composed chain and pays it per reconnect
