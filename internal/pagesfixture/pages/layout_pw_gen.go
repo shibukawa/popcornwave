@@ -4,6 +4,7 @@ package pages
 
 import (
 	"github.com/shibukawa/tinybind-go/htmlbind"
+	"github.com/shibukawa/tinybind-go/htmlbind/delta"
 )
 
 type LayoutParams struct {
@@ -16,7 +17,7 @@ var planLayoutOps = htmlbind.Builder[LayoutParams]{}
 // Slot arguments are excluded: their content belongs to the child boundary,
 // so a frame stays comparable when only its child changed.
 func planLayoutInput(p LayoutParams) string {
-	return htmlbind.CanonJoin()
+	return delta.CanonJoin()
 }
 
 var planLayoutBoundary = &htmlbind.Boundary[LayoutParams]{
