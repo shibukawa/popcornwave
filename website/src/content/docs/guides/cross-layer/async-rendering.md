@@ -259,6 +259,7 @@ async_concurrency = 0
 bot_detection = true
 bot_async_timeout = "5s"
 bot_user_agents = []
+scriptless_detection = true
 ```
 
 | Key | Meaning |
@@ -269,6 +270,7 @@ bot_user_agents = []
 | `bot_detection` | `false` streams to crawlers and CLI clients too — see [below](#crawlers-spiders-and-command-line-clients) |
 | `bot_async_timeout` | the boundary bound for a classified bot; `0` falls back to `async_timeout` |
 | `bot_user_agents` | extra `User-Agent` substrings to treat as bots, appended to the built-in list |
+| `scriptless_detection` | `false` leaves a browser with scripting disabled on the streamed response — see [below](#scripting-turned-off) |
 
 An expired boundary renders `recover` with `code: "timeout"`, or escalates if it
 has none. Whether the work itself stops is up to the function: one that takes a
@@ -309,16 +311,46 @@ response can claim `Cache-Control: immutable` honestly.
 No completion carries inline script, so `script-src 'self'` is enough — no
 nonce, no `unsafe-inline`.
 
-A client with JavaScript disabled receives the shell and every fallback, and
-nothing replaces them. Treat streamed sections as an enhancement over content
-that is already meaningful, not as the only way to reach it.
+A browser with JavaScript disabled is asked to say so and then served the
+settled document, so it reads the page rather than the fallbacks — see
+[Scripting turned off](#scripting-turned-off) below. Treat streamed sections as
+an enhancement over content that is already meaningful all the same: that is
+what makes the fallback worth writing, and what the one extra round trip buys
+back.
+
+## Scripting turned off
+
+A browser with scripting disabled sends an ordinary `User-Agent`. Nothing in the
+request says it will not run the runtime, so the classification below never sees
+it — and a script cannot ask it anything, because not running scripts is the
+whole point.
+
+`<noscript>` is the one HTML feature that fires precisely when scripting is off,
+so that is what asks. Popcorn Wave contributes a block to the head of a streamed
+page that redirects to **that same page** under a marker parameter, and the
+marked request renders buffered. The reader reaches the page they asked for,
+complete, one round trip later and at the same path. A cookie remembers the
+answer so only the first page of a visit pays for it.
+
+It is on by default and costs a scripted browser nothing — the block never
+fires for it, and no marker or cookie is ever set. Turn it off with
+`scriptless_detection = false` if the extra round trip is not worth it for your
+audience.
+
+Three details are worth knowing. A client that refuses cookies as well gets a
+correct page every time, at two requests per page, because the marker parameter
+alone selects the buffered branch — there is no loop. A non-GET response is
+never asked, since a meta refresh re-issues a GET and would discard the
+validation errors it had just rendered. And a browser that blocks automatic
+refresh lands back on the streamed response with its fallbacks, which is exactly
+where it was before any of this existed.
 
 ## Crawlers, spiders, and command-line clients
 
 The runtime is what turns a fallback into content, so a client that never runs
-it keeps every fallback. For a browser with JavaScript disabled that is a rare
-and knowingly degraded case. For Googlebot, an OGP spider, or `curl` it is the
-only mode they have — which makes the fallback the indexed text, the share card
+it keeps every fallback. Googlebot, an OGP spider and `curl` cannot be asked the
+way a browser can — they would follow the redirect or ignore it with equal
+indifference — which makes the fallback the indexed text, the share card
 description, and whatever lands in your terminal.
 
 Popcorn Wave recognises those clients by their `User-Agent` and hands them the

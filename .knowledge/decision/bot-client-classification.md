@@ -19,6 +19,7 @@ rejected_signals:
     why_not: bots send */* and so does fetch, while browsers and bots both send text/html on a navigation
   javascript_challenge:
     why_not: the defining property of the clients being served is that they run no script, so a script cannot ask them anything
+    does_not_cover: a noscript challenge, which activates precisely when scripting is off and is therefore a different question; decision:scriptless-browser-detection settles that one separately
   explicit_request_header_or_query_override:
     why_not: an unauthenticated switch on render behavior is a trust hole with no operator benefit; data:html-render-config already covers every real need
 test:

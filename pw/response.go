@@ -356,7 +356,26 @@ func WriteHTMLChain(w http.ResponseWriter, r *http.Request, wrappers []HTMLWrapp
 		// keeps a response that varies on nothing.
 		w.Header().Add("Vary", "User-Agent")
 	}
-	if async && config.Streaming && !bot {
+	// A browser with scripting disabled sends an ordinary User-Agent, so the
+	// classification above says browser and it keeps every fallback. Asking it
+	// is only worth doing where it would otherwise be wrong, which is exactly
+	// the branch below.
+	scriptless := false
+	if async && config.Streaming && !bot && config.ScriptlessDetection {
+		// A third representation of this URL, selected by the marker cookie
+		// rather than by the header above.
+		w.Header().Add("Vary", "Cookie")
+		buffered, handled := resolveScriptless(w, r)
+		switch {
+		case handled:
+			return
+		case buffered:
+			scriptless = true
+		case scriptlessSafeMethod(r):
+			options = append(options, htmlbind.WithHead(scriptlessProbeHead(r)))
+		}
+	}
+	if async && config.Streaming && !bot && !scriptless {
 		streamHTMLChain(w, r, wrappers, leaf, config, live, options...)
 		return
 	}
@@ -366,7 +385,10 @@ func WriteHTMLChain(w http.ResponseWriter, r *http.Request, wrappers []HTMLWrapp
 	ctx, render := startRenderTrace(requestContext(r), renderModeBuffered,
 		chainRenderAttributes(wrappers, async, live, bot)...)
 	defer render.end()
-	ctx, cancel := boundedRenderContext(ctx, config, async, bot)
+	// A scriptless client waits for every boundary before any byte, which is the
+	// same shape a classified bot waits in, so it takes the same longer bound
+	// rather than the streaming one it will never benefit from.
+	ctx, cancel := boundedRenderContext(ctx, config, async, bot || scriptless)
 	defer cancel()
 	body := getHTMLBody()
 	defer putHTMLBody(body)
