@@ -233,14 +233,25 @@ structured_render_output:
     written_up: docs/tinybind-go-transfer-measurements.md
     method: through pw.WriteHTMLChain, the entry every page is served from, so the bytes are the response rather than a reconstruction; the client manifest is rebuilt from a previous response's operation records exactly as the runtime does
     shape: 25 result rows under a shared layout, an a-tag to a sibling route and a GET search form re-rendering the page it is on
-    values_beat_markup: 3.3x on the delta and 2.4x against the complete document, with about a kilobyte of trees fetched once per build
-    a_markup_delta_loses_to_its_document:
-      measured: 13614 bytes against a 9787 byte document, and the delta is correct and minimal — the layout is recognised unchanged and costs 89 bytes
+    three_numbers_only_one_of_which_is_live:
+      document: what a browser with no runtime, a crawler, or curl receives
+      delta_as_markup: what a client that does not walk sequences receives, and what this runtime received until the walk landed; it is the before of before-and-after rather than a cost anyone pays
+      delta_as_values: what this runtime receives now, because it sets the sequences header on every request and the streamed path answers with values wherever a fragment has an address
+      why_it_matters: the first write-up presented markup and values as two current options, which turns the baseline into a claim about a configuration nobody runs
+    values_beat_markup: 3.3x against the same delta as markup and 2.4x against the complete document, with about a kilobyte of trees fetched once per build and cached immutably
+    the_baseline_loses_to_its_document:
+      measured: 13614 bytes against a 9787 byte document, while the delta is correct and minimal — the layout is recognised unchanged and costs 89 bytes
       cause: a record escapes every angle bracket, so the same fragment is 9295 bytes as HTML and 13001 on the wire
-      reading: a partial update that transfers less of the page and more bytes than a full page load is hard to defend on its own, which makes this a stronger argument for the split than the ratio was
+      reading: this is the reason to build the split rather than a defect to fix; without sequences a partial update on the pages partial updates are most obviously for transfers less of the page and more bytes than a full page load
     escaping_multiplier_corrected: 1.40x on real markup, not the 3x this side reported from a fragment that was almost entirely angle brackets
     break_even_is_a_page_shape: a delta wins where the changed region is a small part of the page and loses where it is most of it, so a dashboard panel wins and a search result list — the case a delta is most obviously for — loses
-    cold_client_pays_twice: a page load leaves this runtime holding no validators, so the first in-page navigation after arriving is answered with a complete document and only the second click onward is a delta; seeding the manifest from the document, as the live stream already does on its terminal marker, would fix it and is worth measuring against the navigation it saves
+    cold_client_pays_twice: current, and this side's to fix; a page load leaves this runtime holding no validators, so the first in-page navigation after arriving is answered with a complete document and only the second click onward is a delta, which halves the navigations every figure applies to; the live stream already seeds its manifest from the document marker and the same trick applies, once the seed is measured against the navigation it saves
+    heuristic_is_not_applied_on_the_stream:
+      what: valuesAreSmaller gates the choice in operationBody, which is the buffered path and the redraw, and renderStream does not call it
+      effect: the published promise that the split is never a loss holds on the buffered path and not on the streamed one, and every navigation this framework serves goes through the streamed one
+      the_module_names_the_inverting_shape_itself: a fragment of two elements costs more as an address plus its values than as the markup, and a list row is exactly that shape
+      not_measured_yet: the page above has a large changed fragment so values win there; a page whose row components are boundaries is where it would invert
+      same_shape_as_the_children_dispatch: a rule applied on one path and not its sibling
     says_nothing_about_the_deferred_step: every figure is transfer, and applying a value to a node without reparsing is about what the browser does after the bytes arrive; measuring it needs time to a stable frame and a browser harness this side does not have
 
   the_harness_had_stopped_checking:

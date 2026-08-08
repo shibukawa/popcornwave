@@ -18,10 +18,21 @@ import (
 // What a navigation costs, measured through the entry this framework actually
 // serves from rather than through the module's.
 //
-// The question is the one system:tinybind asked for: transfer size per response,
-// before and after, on a page shaped like a real one. Before is the complete
-// document a browser without the runtime receives. After is the delta, twice —
-// once carrying markup and once carrying an address and the values that fill it.
+// The question is the one system:tinybind asked for: transfer size before and
+// after, on a page shaped like a real one. Three rows, and only one of them is
+// what this runtime receives today:
+//
+//   - the complete document, which is what a browser with no runtime gets;
+//   - the delta carrying markup, which is what a client that does not walk
+//     sequences gets — and what this runtime got until the walk landed;
+//   - the delta carrying an address and the values filling it, which is what
+//     this runtime gets now, because it advertises the capability on every
+//     request and the streamed path answers with values wherever a fragment
+//     has a sequence.
+//
+// The middle row is the baseline of the comparison, not a live cost. Reading it
+// as one is how "a partial update transfers more bytes than a full page load"
+// becomes a claim about a configuration nobody runs.
 //
 // Run it with:
 //
@@ -289,9 +300,9 @@ func TestTransferCostOfANavigation(t *testing.T) {
 	_, documentBytes := serveMeasured("/invoices", "", false)
 
 	t.Logf("a page of 25 result rows under a shared layout")
-	t.Logf("%-26s %8s %8s   %s", "", "bytes", "vs doc", "")
-	t.Logf("%-26s %8d %8s   %s", "complete document", documentBytes, "1.00x",
-		"what a browser with no runtime receives")
+	t.Logf("%-30s %8s %8s   %s", "", "bytes", "vs doc", "")
+	t.Logf("%-30s %8d %8s   %s", "complete document", documentBytes, "1.00x",
+		"a browser with no runtime")
 
 	for _, one := range []struct{ name, target string }{
 		{"cross-page link", "/invoices"},
@@ -302,21 +313,21 @@ func TestTransferCostOfANavigation(t *testing.T) {
 		trees, count := sequenceBytes(t, values)
 		onWire, asHTML := fragmentBytes(markup)
 
-		t.Logf("%-26s %8d %7.2fx   %s", one.name+", markup", markupBytes,
+		t.Logf("%-30s %8d %7.2fx   %s", one.name+", as markup", markupBytes,
 			float64(documentBytes)/float64(markupBytes),
-			fmt.Sprintf("fragment %d B on the wire, %d B as HTML (%.2fx)",
+			fmt.Sprintf("baseline: a client that does not walk sequences; fragment %d B on the wire, %d B as HTML (%.2fx)",
 				onWire, asHTML, float64(onWire)/float64(asHTML)))
-		t.Logf("%-26s %8d %7.2fx   %s", one.name+", values", valueBytes,
+		t.Logf("%-30s %8d %7.2fx   %s", one.name+", as values", valueBytes,
 			float64(documentBytes)/float64(valueBytes),
-			fmt.Sprintf("%.2fx smaller than the same delta as markup", float64(markupBytes)/float64(valueBytes)))
-		t.Logf("%-26s %8d %8s   %s", one.name+", trees", trees, "-",
+			fmt.Sprintf("*** what this runtime receives; %.2fx the markup baseline", float64(markupBytes)/float64(valueBytes)))
+		t.Logf("%-30s %8d %8s   %s", one.name+", trees", trees, "-",
 			fmt.Sprintf("%d tree(s), fetched once per build and cached immutably", count))
 	}
 }
 
 // The result worth asserting, because it is the one that decides whether the
-// split is worth its complexity — and because the markup delta going the other
-// way is a property nobody would guess.
+// split is worth its complexity — and because the baseline going the other way
+// is a property nobody would guess.
 func TestValuesBeatMarkupAndMarkupLosesToTheDocument(t *testing.T) {
 	warm, _ := serveMeasured("/orders?q=one", "seed", false)
 	held := clientManifest(warm)
@@ -326,8 +337,9 @@ func TestValuesBeatMarkupAndMarkupLosesToTheDocument(t *testing.T) {
 
 	// A delta transferring one region of a page still loses to the whole page
 	// when the region is most of it, because a record escapes every angle
-	// bracket of the markup it carries. That is not a defect in the delta; it is
-	// what the encoding costs, and it is the case for sending values instead.
+	// bracket of the markup it carries. This is the baseline rather than what
+	// this runtime receives, and it is the case for sending values instead —
+	// not a defect anybody is living with.
 	if markupBytes <= documentBytes {
 		t.Logf("the markup delta is %d bytes against a %d byte document, which is "+
 			"smaller than when this was measured; the page shape may have changed",
@@ -343,9 +355,9 @@ func TestValuesBeatMarkupAndMarkupLosesToTheDocument(t *testing.T) {
 	}
 }
 
-// The cold client is the other half of the result, so it is asserted rather than
-// only printed: a page load leaves this runtime holding no validators, and its
-// first navigation is therefore answered in full.
+// The cold client is the other half of the result, and unlike the baseline above
+// it is what this runtime does today: a page load leaves it holding no
+// validators, so the first navigation after arriving is answered in full.
 func TestAColdClientHoldsNoValidators(t *testing.T) {
 	document, _ := serveMeasured("/orders?q=one", "", false)
 	if strings.Contains(document, `"r":"op"`) {
