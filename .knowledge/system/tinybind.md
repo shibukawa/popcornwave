@@ -7,13 +7,13 @@ TinyBind is the generated binding, configuration, response, validation, streamin
 
 ```yaml
 module: github.com/shibukawa/tinybind-go
-pin: v0.4.1, moved from v0.4.0 by requirement:context-lookup-performance for the handle resolvers and On entries; earlier moved from v0.2.10 by decision:tinybind-v03-adoption
+pin: v0.4.3, moved from v0.4.2 by delta_package_break; v0.4.2 came from v0.4.1 by requirement:pgx-native-execution for the sqlbind Rows cursor, v0.4.1 from v0.4.0 by requirement:context-lookup-performance for the handle resolvers and On entries, and v0.2.10 was left behind by decision:tinybind-v03-adoption
 html_template_baseline: v0.1.15
 html_async_baseline: v0.1.20
 html_live_baseline: v0.2.8, required by requirement:live-html-rendering; v0.2.7 introduced live boundaries and v0.2.8 answered the first of the integration requests raised against them
 html_update_baseline: v0.3.3; v0.3.0 added the htmlupdate package, v0.3.1 handed the asset and every name to the caller per requirement:tinybind-runtime-ownership, v0.3.2 carried head on the action response, and v0.3.3 closed every remaining seam of requirement:tinybind-update-composition-seams and made CSRF module native; adopted by decision:update-runtime-convergence
 route_tree_baseline: v0.2.6
-current: v0.4.1, which adds the NoSQL handle supply modes; v0.4.0 implements the URL half of policy:template-escaping and rewrites the JSON decoder the generator emits
+current: v0.4.3, which is a performance release across the module and pays for it with delta_package_break; v0.4.2 added the sqlbind Rows cursor, v0.4.1 added the NoSQL handle supply modes, and v0.4.0 implemented the URL half of policy:template-escaping and rewrote the JSON decoder the generator emits
 url_scheme_baseline: v0.4.0, which is where policy:template-escaping's "validate scheme" rule stopped being a statement and started being code
   was: Escape handled &<>"' and nothing else, so javascript: — which contains none of them — reached the attribute unchanged and ran; isURLAttribute named five attributes, so xlink:href, data, srcset, ping, and cite took plain strings and were never scheme-checked at all
   now: URLAttr and URLListAttr apply a scheme allowlist before escaping, over every attribute a browser resolves; DefaultURLSchemes is http, https, mailto, and tel, relative forms always pass, and a refusal renders BlockedURL rather than dropping the attribute so a URL rejected in error leaves a trace
@@ -21,6 +21,14 @@ url_scheme_baseline: v0.4.0, which is where policy:template-escaping's "validate
   configurable: htmlbind.WithURLSchemes and htmlbind.WithDataURLMediaTypes, reachable through pw.HTMLOption; each replaces its list rather than extending it
   verified: rendered through the real compiler and runtime on 2026-08-06 — javascript:, JaVaScRiPt:, vbscript:, and data URLs of text/html and image/svg+xml all render BlockedURL, while http, https, mailto, relative, and a data URL of image/png render unchanged
 json_decoder_break: v0.4.0 replaced jsonbind.RawJSONMap and httpbind.ReadJSONMap with a streaming jsonbind.Parser, so every committed *_pw_gen.go action decoder had to be regenerated
+delta_package_break:
+  what: v0.4.3 moved the update half of htmlbind into htmlbind/delta — Manifest, Instance, Delta, DeltaRecord, Operation, OpReplace, RenderDelta, RenderDeltaStream, DeltaStreamHead, and every Canon encoder
+  why: an application that only renders documents now links none of the hashing and encoding that authenticating a validator needs, which is what the split buys
+  htmlbind_keeps: a Collector interface as the observation seam, plus ChainHead and CollectChainAsync; htmlbind.CollectChain still exists but takes a Collector and returns []string, so a pre-v0.4.3 call compiles to a type error rather than an undefined symbol
+  htmlupdate: EncodeManifest and DecodeManifest now speak delta.Manifest
+  this_framework: no hand-written call site touched any moved symbol, so the whole cost was regeneration; committed *_pw_gen.go boundary encoders now import htmlbind/delta and call delta.CanonJoin
+  emitter_changes_riding_along: an escape-exempt value — bool, int, float, datetime, date, time — is emitted as Ops.Raw rather than Ops.Text, which renders byte-identically without the escaping scan; strings and decimals stay on Text, so policy:template-escaping is unmoved. Generated binders hoist httpbind.Queries once per request and read fields through httpbind.QueryLookup, and one httpbind.ReadBody replaces the IsJSONRequest, IsFormRequest, and IsMultipartRequest ladder
+  verified: regenerated on 2026-08-08 by go test ./internal/pwcli -run PagesFixture -update, with go build, go vet, and go test green, and examples/live_render compiled through TinyGo
 public_wrappers:
   - api:request-binding
   - api:html-response

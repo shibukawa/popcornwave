@@ -63,6 +63,7 @@ func decoderenameRequestJSON(p *jsonbind.Parser) (renameRequest, error) {
 func bindrenameRequest(r *http.Request) (renameRequest, error) {
 	var out renameRequest
 	var presentName bool
+	queryVals := httpbind.Queries(r)
 	var jsonBody *jsonbind.Object
 	var formBody map[string]string
 	var bodyRead bool
@@ -71,33 +72,11 @@ func bindrenameRequest(r *http.Request) (renameRequest, error) {
 			return nil
 		}
 		bodyRead = true
-		if httpbind.IsJSONRequest(r) {
-			m, err := httpbind.ReadJSONObject(r)
-			if err != nil {
-				return err
-			}
-			jsonBody = m
-			return nil
-		}
-		if httpbind.IsFormRequest(r) {
-			m, err := httpbind.ParseFormMap(r)
-			if err != nil {
-				return err
-			}
-			formBody = m
-			return nil
-		}
-		if httpbind.IsMultipartRequest(r) {
-			m, _, err := httpbind.ParseMultipartMap(r)
-			if err != nil {
-				return err
-			}
-			formBody = m
-			return nil
-		}
-		return nil
+		var err error
+		jsonBody, formBody, _, err = httpbind.ReadBody(r, true, false)
+		return err
 	}
-	if qv, ok := httpbind.QueryValue(r, "name"); ok {
+	if qv, ok := httpbind.QueryLookup(queryVals, "name"); ok {
 		presentName = true
 		out.Name = qv
 	} else {

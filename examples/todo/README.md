@@ -64,41 +64,62 @@ DB_DRIVER=pgxpool DB_POOL=25 go run .   # pgx's own pool
 DB_DRIVER=sqldb   DB_POOL=25 go run .   # database/sql + pgx/stdlib, as the framework does
 ```
 
-Best of five alternating passes, all at 25 connections:
+Two runs of five passes each, all at 25 connections. The two drivers cannot be
+read from their absolute rates, because they were measured in separate runs and
+the machine is not the same machine twice; each run's framework service, which
+does not change between them, is what normalises the pair:
 
-| | requests/s |
+| | `stdhttp` ÷ `popcornwave`, same run |
 | --- | --- |
-| `stdhttp` + pgxpool | 13,477 |
-| `stdhttp` + `database/sql` + pgx/stdlib | 13,026 |
+| `stdhttp` + pgxpool | 0.960 |
+| `stdhttp` + `database/sql` + pgx/stdlib | 0.934 |
 
-The database layer is worth 3 points. A CPU profile showing
-`database/sql.withLock` at 15% of samples suggests it should be worth far more,
-which is the point of running the control: a lock can hold CPU share without
-being what limits throughput.
+The database layer is worth 3 points, unchanged from when this control was first
+run. A CPU profile showing `database/sql.withLock` at 15% of samples suggests it
+should be worth far more, which is the point of running the control: a lock can
+hold CPU share without being what limits throughput.
 
 The larger lever is `session.backend` in `popcornwave/config.bench.toml`. Same
-application code, five alternating passes each:
+application code, five passes each:
 
-| | requests/s | HTML p95 |
-| --- | --- | --- |
-| `net/http` + pgx | ~14,700 | 3.15–3.39 ms |
-| `popcornwave`, `cookie` | ~13,700 | 2.90–3.21 ms |
-| `popcornwave`, `dev-volatile` | ~15,800 | 2.46–2.66 ms |
+| | requests/s | vs baseline | HTML p95 |
+| --- | --- | --- | --- |
+| `net/http` + pgx | ~15,500 | — | 2.92–3.11 ms |
+| `popcornwave`, `cookie` | ~16,000 | +4% | 2.32–2.47 ms |
+| `popcornwave`, `dev-volatile` | ~17,500 | +12% | 1.92–2.14 ms |
 
 A cookie session sends 631 bytes of `Set-Cookie` per response against 299, and
-the browser returns all of it on every request. The AES-GCM sealing measures
-0.5 µs, so the cost is bytes rather than crypto. `dev-volatile` is a development
-backend; `rdb`, `redis`, and `dynamo` are its production shapes and each adds a
-storage round trip in exchange for the bytes.
+the browser returns all of it on every request. Sealing and opening one measures
+0.45 µs for a 256-byte record and 0.73 µs for a 1 KB one, so the cost is bytes
+rather than crypto. `dev-volatile` is a development backend; `rdb`, `redis`, and
+`dynamo` are its production shapes and each adds a storage round trip in
+exchange for the bytes.
 
-Measured after PostgreSQL requests moved to the pgx-native pool, which was worth
-about ten points end to end: the cookie row was 18% behind the baseline before
-it and is 8% behind now, and `dev-volatile` went from level to 9% ahead. Per
-request the framework spends 203 µs of CPU against the baseline's 221.
+Per request the framework spends 166 µs of CPU against the baseline's 219. The
+gap is wider than the throughput rows suggest because the profile runs with
+mutex and block profiling on, which costs the framework more than the baseline —
+so 166 is an over-estimate of its own cost and the real distance is larger.
+
+### The order within a pass is worth about four points
+
+`load.sh` measures the baseline first and the framework second in every pass.
+Alternating passes was meant to keep a machine that gets busier partway through
+from moving only the second number, and it does — but it leaves the order inside
+a pass fixed, and on sustained load an M3 is measurably slower twenty seconds
+later than it was at the start of the pass. Whichever service goes second pays
+for that.
+
+Running the same cookie configuration with the order swapped puts the framework
+8% ahead of the baseline where the shipped order puts it 4% ahead. Neither is
+the answer; the difference between them is the bias, and about 5% is the honest
+midpoint. The ratio tables above keep the shipped order, which means every
+framework row in them is the conservative one.
 
 A session on a busier machine put the baseline at 11,400–11,700 rather than
-~14,700 and left both ratios recognisable, which is why these tables are for the
-ratios rather than the absolute rates.
+~15,500 and left both ratios recognisable, which is why these tables are for the
+ratios rather than the absolute rates. A run whose passes disagree with each
+other by more than a few points was measured against something else running on
+the machine and should be thrown away rather than averaged.
 
 `k6/load.js` sends `Accept: text/html` on the page request because the framework
 issues a CSRF token only for a request that looks like a document. A generator

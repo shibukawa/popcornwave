@@ -22,19 +22,27 @@ Go 1.26.5 and an Apple M3, with PostgreSQL 17 in Docker on the same machine.
 
 | Per request | CPU time |
 | --- | --- |
-| Whole middleware chain | 2.7 µs |
-| └ CSRF check | 2.2 µs |
-| One `SELECT` returning 50 rows | 37 µs |
-| Encode and write a JSON response | 30 µs |
-| Render and write an HTML response | 95 µs |
-| Whole request, Popcorn Wave | 203 µs |
-| Whole request, `net/http` comparison | 221 µs |
+| Whole middleware chain | 3.0 µs |
+| └ CSRF check | 2.1 µs |
+| One `SELECT` returning 50 rows | 39 µs |
+| Encode and write a JSON response | 36 µs |
+| Render and write an HTML response | 100 µs |
+| Whole request, Popcorn Wave | 166 µs |
+| Whole request, `net/http` comparison | 219 µs |
 
 The JSON and HTML rows describe different responses, so the table is not a sum.
 Its useful signal is the order of magnitude. The middleware chain takes a few
 microseconds, while a simple query takes tens and HTML rendering takes more. A
 database call across a real network may take hundreds of microseconds or several
 milliseconds.
+
+The last two rows differ by more than the per-layer rows explain, and the
+profile says where the rest goes: system calls. `html/template` writes a page
+out as it walks it, one value at a time through the response writer, and the
+comparison service spends three quarters of its CPU inside `write`. A generated
+component renders into a buffer and hands the finished document over in one
+call. Neither line appears in the table above, because it is not a layer — it is
+how the layer above it reaches the socket.
 
 Measure which layer dominates your application first. Removing a few microseconds
 of middleware only matters after that layer has proved to be the bottleneck.
@@ -57,10 +65,11 @@ slow queries without leaving all production SQL logging enabled.
 ### Session backend
 
 The `cookie` backend needs no external store, and its cryptographic work costs
-about 0.5 µs per request for a typical session. Its real scaling constraint is the
-wire: the response carries the whole session record, and the browser returns that
-record on the next request. Larger sessions therefore mean larger request and
-response headers.
+about 0.5 µs per request for a typical session — opening the incoming record and
+sealing the outgoing one measures 0.45 µs at 256 bytes and 0.73 µs at 1 KB. Its
+real scaling constraint is the wire: the response carries the whole session
+record, and the browser returns that record on the next request. Larger sessions
+therefore mean larger request and response headers.
 
 The `rdb`, `redis`, `dynamo`, and `firestore` backends leave only a small identifier
 in the browser. They reduce the bytes on the wire, but add a storage access to each
@@ -141,7 +150,7 @@ is not already doing that work; see
 [Response compression](/guides/frontend/compression/).
 
 CSRF is the most visible item in the middleware measurement, but it still costs
-only 2.2 µs in this benchmark. Exclude only APIs that use bearer authentication and
+only 2.1 µs in this benchmark. Exclude only APIs that use bearer authentication and
 cannot be called from a browser with cookies. Removing protection from a wider path
 is not a useful performance trade.
 
