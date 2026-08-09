@@ -170,11 +170,44 @@ func redrawRequest(t *testing.T, kind, instance, query string) *http.Request {
 	}))
 }
 
+// cardParams is what the generated component of a reloadable template takes:
+// the instance the caller named, and the input its markup is derived from.
+type cardParams struct {
+	ID   string
+	Page string
+}
+
+var cardOps = htmlbind.Builder[cardParams]{}
+
+// cardPlan is a reloadable component in the shape generation emits one.
+//
+// The boundary is what makes it addressable: it carries the instance the call
+// site named, and since tinybind v0.4.9 a redraw checks that the fragment it
+// bound reports the instance the request asked for. A plan without one renders
+// the same markup and answers a redraw with nothing to apply, which is the
+// mistake that check exists to name.
+var cardPlan = &htmlbind.Plan[cardParams]{
+	Boundary: &htmlbind.Boundary[cardParams]{
+		ComponentID: "Card@v1",
+		Attr:        "data-" + UpdateAttributePrefix + "-id",
+		Instance:    func(p cardParams) string { return p.ID },
+		Input:       func(p cardParams) string { return p.Page },
+	},
+	Ops: []htmlbind.Op[cardParams]{
+		cardOps.Static("<article"),
+		cardOps.Attr("id", func(p cardParams) (string, bool) { return htmlbind.Escape(p.ID), true }),
+		cardOps.BoundaryAttr(),
+		cardOps.Static(">page "),
+		cardOps.Text(func(p cardParams) string { return p.Page }),
+		cardOps.Static("</article>"),
+	},
+}
+
 func cardComponent(kind string) htmlupdate.Reloadable {
 	return htmlupdate.Reloadable{
 		KindID: kind,
 		Render: func(_ *http.Request, instanceID string, values url.Values) (htmlbind.Fragment, error) {
-			return staticFragment(`<article id="` + instanceID + `">page ` + values.Get("page") + `</article>`), nil
+			return htmlbind.Bind(cardPlan, cardParams{ID: instanceID, Page: values.Get("page")}), nil
 		},
 	}
 }

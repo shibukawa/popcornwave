@@ -120,7 +120,7 @@ func updateEntry(config HTMLConfig) *updateOptionsEntry {
 			// framework's, so the module serves none and emits no tag of its
 			// own.
 			CallerOwnsRuntime: true,
-			OnFailure:         writeUpdateFailure,
+			OnFailure:         logUpdateFailure,
 		},
 	}
 	if encoded, err := json.Marshal(entry.options.RuntimeConfig()); err == nil {
@@ -221,18 +221,24 @@ func validateUpdateConfig(config HTMLConfig) error {
 	return updateOptions(config).Validate()
 }
 
-// writeUpdateFailure routes a refused redraw into the framework error path.
+// logUpdateFailure records a refused redraw in the request log.
 //
-// The module would otherwise write plain text, which no application error page
-// and no request log would ever see. Version skew is the ordinary case here: a
-// page loaded before a deploy asks for a component whose markup has changed,
-// gets a 404, and reloads. It is recorded rather than treated as a fault.
+// The refusal would otherwise be invisible: the module answers the client with
+// a problem document and returns, and no request log would ever see why.
+// Version skew is the ordinary case here: a page loaded before a deploy asks
+// for a component whose markup has changed, gets a 404, and reloads. It is
+// recorded rather than treated as a fault.
 //
 // A stale build is no longer one of these. Since system:tinybind v0.3.5 a redraw
 // is answered at the page's own URL, so a request from another build is not
 // refused at all: the caller renders the page it was going to render, which
 // costs a reload instead of a refusal followed by one.
-func writeUpdateFailure(w http.ResponseWriter, r *http.Request, failure htmlupdate.Failure) {
+//
+// Since v0.4.9 this observes and writes nothing. The refusal travels back to
+// the call site inside the answer, as Response.Failure, and writeRedrawAnswer
+// sends it — which is the module's position that nothing is written until the
+// caller writes it.
+func logUpdateFailure(r *http.Request, failure htmlupdate.Failure) {
 	level := LevelWarn
 	if failure.Kind == htmlupdate.FailureUnknownComponent {
 		level = LevelInfo
@@ -240,10 +246,35 @@ func writeUpdateFailure(w http.ResponseWriter, r *http.Request, failure htmlupda
 	Logger(r.Context()).Log(r.Context(), level, "update request refused",
 		String("kind", failure.Kind.String()), String("component", failure.KindID),
 		String("instance", failure.InstanceID), Err(failure.Err))
+}
+
+// redrawCachePolicy keeps a redraw out of every shared cache and lets a private
+// one revalidate against the entity tag the answer carries.
+//
+// It was the module's default until v0.4.9 moved cache policy to the caller,
+// which is the right place for it: the module cannot know whether an answer is
+// per-account. This value preserves the behaviour projects already have.
+const redrawCachePolicy = "private, no-cache"
+
+// writeRedrawAnswer sends what Redraw decided.
+//
+// Both halves of this are the caller's since v0.4.9: the cache policy, and the
+// conditional answer. An unchanged redraw still costs a 304 rather than the
+// markup, and the validators the client already holds still travel with it.
+func writeRedrawAnswer(w http.ResponseWriter, r *http.Request, answer htmlupdate.Response) {
 	if responseCommitted(w) {
+		// Nothing is written before the answer is complete, so reaching here
+		// means something else already committed; a second header write would
+		// only produce a log line about a superfluous one.
 		return
 	}
-	htmlupdate.WriteFailure(w, failure)
+	w.Header().Set("Cache-Control", redrawCachePolicy)
+	if answer.NotModified(r) {
+		htmlupdate.ApplyTo(answer.Header, w)
+		w.WriteHeader(http.StatusNotModified)
+		return
+	}
+	_, _ = answer.WriteTo(w)
 }
 
 // serveUpdate answers a negotiated update request and reports whether it did.
@@ -269,8 +300,12 @@ func serveUpdate(w http.ResponseWriter, r *http.Request, wrappers []HTMLWrapper,
 	ctx, render := startRenderTrace(requestContext(r), renderModeNavigate,
 		chainRenderAttributes(wrappers, async, live, false)...)
 	defer render.end()
-	// The module adds the Vary entries itself, so a cache that cannot tell a
-	// delta from a document never answers either with the other.
+	// The content type, the echoed mode, and the Vary axes are the caller's
+	// since tinybind v0.4.9: a streaming entry commits with its first record and
+	// cannot set a header afterwards, so they are applied before it runs. Vary
+	// is what stops a cache handing a delta to a document request, and the
+	// records would then land on screen as JSON.
+	htmlupdate.ApplyTo(update.StreamHeaders(r, wrappers, leaf), w)
 	ctx, cancel := boundedRenderContext(ctx, config, async, false)
 	defer cancel()
 	// The streaming entry is the one that takes render options, and it is also
@@ -453,7 +488,12 @@ func Redraw[P ReloadablePage](w http.ResponseWriter, r *http.Request, page func(
 	}
 	_, render := startRenderTrace(requestContext(r), renderModeRedraw, Int("pw.render.layers", 1))
 	defer render.end()
-	return options.Redraw(w, render.request(r), registry.(*htmlupdate.Registry))
+	answer, served := options.Redraw(render.request(r), registry.(*htmlupdate.Registry))
+	if !served {
+		return false
+	}
+	writeRedrawAnswer(w, r, answer)
+	return true
 }
 
 // redrawRegistries caches the built registry of each page type handed to
@@ -464,12 +504,16 @@ var redrawRegistries sync.Map
 // duplicate kind or an oversized head is a defect in what the handler named
 // rather than anything the request did.
 func writeRedrawRegistryFailure(w http.ResponseWriter, r *http.Request, err error) {
-	writeUpdateFailure(w, r, htmlupdate.Failure{
+	failure := htmlupdate.Failure{
 		Kind:    htmlupdate.FailureRenderFailed,
 		Status:  http.StatusInternalServerError,
 		Message: "redraw registry",
 		Err:     err,
-	})
+	}
+	// This failure is ours rather than one the module refused, so both halves
+	// are here: the log line the hook would have written, and the answer.
+	logUpdateFailure(r, failure)
+	writeRedrawAnswer(w, r, htmlupdate.FailureResponse(failure))
 }
 
 // RedrawComponents answers a redraw for the components named here.
@@ -508,7 +552,12 @@ func RedrawComponents(w http.ResponseWriter, r *http.Request, components ...html
 	// second time.
 	_, render := startRenderTrace(requestContext(r), renderModeRedraw, Int("pw.render.layers", 1))
 	defer render.end()
-	return options.Redraw(w, render.request(r), registry)
+	answer, served := options.Redraw(render.request(r), registry)
+	if !served {
+		return false
+	}
+	writeRedrawAnswer(w, r, answer)
+	return true
 }
 
 // serveRegisteredRedraw answers a redraw from the process-wide published set.
@@ -537,11 +586,21 @@ func serveRegisteredRedraw(w http.ResponseWriter, r *http.Request, config HTMLCo
 	// open around a call that turned out to be a document request. The second
 	// negotiation is paid only while tracing is on.
 	if !renderTraced(requestContext(r)) || options.Negotiate(r).Mode != htmlupdate.ModeRedraw {
-		return options.Redraw(w, r, registry)
+		answer, served := options.Redraw(r, registry)
+		if !served {
+			return false
+		}
+		writeRedrawAnswer(w, r, answer)
+		return true
 	}
 	_, render := startRenderTrace(requestContext(r), renderModeRedraw, Int("pw.render.layers", 1))
 	defer render.end()
-	return options.Redraw(w, render.request(r), registry)
+	answer, served := options.Redraw(render.request(r), registry)
+	if !served {
+		return false
+	}
+	writeRedrawAnswer(w, r, answer)
+	return true
 }
 
 // WantsUpdate reports whether the caller can apply an update response.
@@ -578,11 +637,14 @@ func Replace(targetID string, fragment HTMLFragment) UpdateRegion {
 // of a redraw, where a non-2xx means the render failed.
 func WriteUpdate(w http.ResponseWriter, r *http.Request, status int, regions ...UpdateRegion) {
 	config := Config[HTMLConfig](requestContext(r))
-	if err := updateOptions(config).WriteUpdateStatus(w, status, regions...); err != nil {
+	answer, err := updateOptions(config).WriteUpdateStatus(r, status, regions)
+	if err != nil {
 		// Nothing is written until every region rendered, so a failure here can
 		// still choose its own status.
 		WriteProblem(w, r, InternalServerError(err))
+		return
 	}
+	_, _ = answer.WriteTo(w)
 }
 
 // WriteUpdateNavigate tells the browser to leave the page, which is how an
@@ -604,9 +666,12 @@ func WriteUpdateNavigate(w http.ResponseWriter, r *http.Request, url string) {
 		return
 	}
 	config := Config[HTMLConfig](requestContext(r))
-	if err := updateOptions(config).WriteNavigate(w, url); err != nil {
+	answer, err := updateOptions(config).WriteNavigate(url)
+	if err != nil {
 		WriteProblem(w, r, InternalServerError(err))
+		return
 	}
+	_, _ = answer.WriteTo(w)
 }
 
 // errUnsafeNavigation reports a navigation target this framework will not hand

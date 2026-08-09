@@ -96,8 +96,13 @@ func TestWriteHTMLStreamsAwaitBoundaries(t *testing.T) {
 	if fallback < 0 || completion < 0 || completion < fallback {
 		t.Fatalf("fallback then completion not found in order: %q", body)
 	}
-	if !strings.Contains(body, `<tb-boundary id="tb-1"`) {
-		t.Errorf("placeholder missing: %q", body)
+	// The placeholder is a comment pair bracketing the committed fallback, not
+	// an element: an unknown element is foster-parented out of a table by the
+	// HTML tree construction algorithm, so a boundary inside one settled in the
+	// wrong place. tinybind v0.4.9 changed the shape; the client adopts the
+	// pair the server wrote.
+	if !strings.Contains(body, `<!--tb:tb-1--><p>loading</p><!--/tb:tb-1-->`) {
+		t.Errorf("placeholder fence missing: %q", body)
 	}
 }
 

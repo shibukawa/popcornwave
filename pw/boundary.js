@@ -324,10 +324,74 @@ export function applyBoundary(id, fragment, html) {
 		refill(range, fragment, html);
 		return true;
 	}
+	// Since tinybind v0.4.9 the server writes the same comment pair this file
+	// used to create, bracketing the fallback where the boundary sits, so the
+	// first delivery adopts that pair instead of replacing a placeholder
+	// element. The shape changed because an unknown element is foster-parented
+	// out of a table by the HTML tree construction algorithm, which put every
+	// hole inside a table in the wrong place; a comment is kept where it was
+	// written.
+	const fence = adoptFence(id);
+	if (fence) {
+		refill(fence, fragment, html);
+		return true;
+	}
+	// An element carrying the id still settles. Nothing in this framework emits
+	// one today, but a boundary delivered into markup the application wrote is
+	// addressed the way the update half addresses a region.
 	const placeholder = document.getElementById(id);
 	if (!placeholder) return false;
 	placeholder.replaceWith(bracket(id, fragment, html));
 	return true;
+}
+
+// fenceOpen and fenceClose are the comment texts bracketing an unsettled
+// boundary. They are a contract with htmlbind's await markers, which are
+// spelled from the boundary prefix this framework configures.
+function fenceOpen(id) {
+	return "tb:" + id;
+}
+
+function fenceClose(id) {
+	return "/tb:" + id;
+}
+
+// adoptFence finds the server-written pair for id and registers it as this
+// boundary's range, so every later delivery refills between the same two
+// comments rather than searching again.
+//
+// The walk is the cost of the comment shape: a comment carries no attributes,
+// so it cannot be found by a selector. It runs once per boundary, on its first
+// delivery, and stops at the opening marker.
+function adoptFence(id) {
+	const open = fenceOpen(id);
+	const close = fenceClose(id);
+	const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_COMMENT);
+	let start = null;
+	while (walker.nextNode()) {
+		const text = walker.currentNode.data;
+		if (!start) {
+			if (text === open) start = walker.currentNode;
+			continue;
+		}
+		if (text === close) {
+			const range = { start: start, end: walker.currentNode, html: undefined };
+			applied.set(id, range);
+			return range;
+		}
+	}
+	return null;
+}
+
+// unsettledFence reports whether any boundary is still waiting for its content.
+// It is the streamed-document signal that the placeholder element used to give
+// by being queryable.
+function unsettledFence() {
+	const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_COMMENT);
+	while (walker.nextNode()) {
+		if (walker.currentNode.data.startsWith("tb:")) return true;
+	}
+	return false;
 }
 
 export function applyHTML(id, html) {
@@ -394,7 +458,7 @@ customElements.define("tb-stream-end", class extends HTMLElement {
 // rather than reloaded. Its boundaries — the placeholders still on screen, or
 // the ranges already applied — are what say this response was one that streams.
 function documentStreamed() {
-	return applied.size > 0 || document.querySelector("tb-boundary") !== null;
+	return applied.size > 0 || unsettledFence();
 }
 
 function checkDocumentEnd() {
