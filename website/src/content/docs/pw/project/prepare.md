@@ -6,12 +6,11 @@ sidebar:
 ---
 
 ```sh
-pw prepare
+pw prepare [--debug]
 ```
 
-`pw prepare` is [`pw build`](/pw/project/build/) without its final step. It takes
-no arguments, and it produces no binary — it leaves a tree that a compiler can
-read, and stops.
+`pw prepare` is [`pw build`](/pw/project/build/) without its final step. It
+produces no binary — it leaves a tree that a compiler can read, and stops.
 
 ## What it does
 
@@ -24,6 +23,12 @@ read, and stops.
 That is the same list `pw build` performs before it links, in the same order,
 because `pw build` is defined as this command plus the compiler. The two cannot
 drift apart.
+
+`--debug` keeps the source maps in the built tree, exactly as
+[`pw build --debug`](/pw/project/build/#debug-artifacts) does. The other half of
+that flag is not this command's to give: `-ldflags` belongs to the compiler line
+you write, so a debug artifact from here is `pw prepare --debug` followed by a
+`go build` you did not ask to strip.
 
 Step 4 belongs here rather than beside the compiler for a reason worth saying
 out loud: this command hands the tree to a compiler it does not run, so the

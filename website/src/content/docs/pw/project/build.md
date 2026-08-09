@@ -6,11 +6,12 @@ sidebar:
 ---
 
 ```sh
-pw build
+pw build [--debug]
 ```
 
-`pw build` turns the current project state into a release binary. It takes no
-arguments; its inputs come from `popcornwave.toml` and the environment.
+`pw build` turns the current project state into a release binary. `--debug` is
+its only option; everything else comes from `popcornwave.toml` and the
+environment.
 
 ## What it does
 
@@ -34,6 +35,32 @@ provider used by [`pw dev`](/pw/project/dev/), and it signs users in without
 checking a password. Linking that behavior into a deployable binary is a build
 defect, not a production setting, so `pw build` stops and names the importing
 package.
+
+## Debug artifacts
+
+```sh
+pw build --debug
+```
+
+`--debug` keeps the debug information a deployable artifact otherwise drops: the
+source map the script build emits, and the DWARF and symbol table that
+`-ldflags=-s -w` removes. Nothing else about the build changes.
+
+Reach for it when a shared test or CD deployment is being debugged by more than
+one person. Do not reach for it for staging, which exists to rehearse
+production — an artifact that differs from the production one rehearses nothing.
+
+Without it the map is absent, and the bundle carries no `sourceMappingURL`
+comment either, because a bundle naming a map the tree does not hold turns every
+devtools open into a request for a file that is not there. The two shapes give
+the bundle the same hashed name, so the URL a page loads does not depend on which
+one produced it. Panic stacks still carry function names and line numbers in both:
+`pw build` retains Go's pclntab either way.
+
+`--debug` brings back nothing from [`pw dev`](/pw/project/dev/). The error
+overlay, the launcher, and the development identity provider are absent from a
+`pw build` artifact of either shape, and step 4 above still refuses a build that
+imports one.
 
 ## Running the result
 

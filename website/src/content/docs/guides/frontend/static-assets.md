@@ -102,7 +102,7 @@ What each one does, and what follows the file:
 | Source | Becomes | The reference |
 | --- | --- | --- |
 | `img src` naming a `.png` or `.jpg` | WebP, lossless from a PNG and lossy from a JPEG | rewritten to the hashed name |
-| `script src` naming a `.ts` or `.tsx` | a bundled ES module, with a source map | rewritten to the hashed name |
+| `script src` naming a `.ts` or `.tsx` | a bundled ES module, with a source map in a debug build | rewritten to the hashed name |
 | a `.css` file | minified, with its `url()` references pointed at whatever they became | unchanged — the stylesheet keeps its own URL |
 | a `.js` file | minified, not bundled, so a module stays a module | unchanged |
 | anything else | copied | unchanged |
@@ -118,9 +118,16 @@ That way a page never loses an image to a conversion it did not know about.
 
 With the script build on, TypeScript is an input rather than a file the tree
 owes anyone, so a module an entry imported is not served either. No browser runs
-it, and the source map already carries its text, so a stack trace still names the
-authored line. The same retention rule applies: a `.ts` some Go code still names
-stays, and the build says why.
+it. The same retention rule applies: a `.ts` some Go code still names stays, and
+the build says why.
+
+The source map is the one output that depends on how the build was invoked.
+[`pw dev`](/pw/project/dev/) always writes it, and
+[`pw build --debug`](/pw/project/build/#debug-artifacts) keeps it in the artifact;
+a plain `pw build` writes neither the map nor the `sourceMappingURL` comment
+naming it. The map embeds the authored TypeScript, so shipping one serves your
+own sources to anyone who asks for them, and staging and production have no use
+for that.
 
 ### A built script needs `type="module"`
 
