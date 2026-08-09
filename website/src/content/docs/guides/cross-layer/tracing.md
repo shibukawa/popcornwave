@@ -74,6 +74,14 @@ which: `pw.render.bot` names the classification, and `pw.render.async` and
 The span also carries `pw.render.bytes`, the uncompressed size that reached the
 client, and `pw.render.boundaries`, the number of regions that settled.
 
+A response that consulted the [render cache](/guides/frontend/rendering-cache/)
+adds `pw.render.cache_hits` and `pw.render.cache_misses`; one that reached no
+store carries neither. Both halves are reported because a hit count alone cannot
+separate a cache that is working from one almost nothing reaches, and nothing
+else in the system reviews the TTL an author guessed. A component whose
+parameters differ on every call renders exactly as an uncached one would while
+still paying for a key and a buffer — this pair is what says so.
+
 ## Where the first paint ends
 
 Inside a streaming render, one child span covers the initial build: the document
