@@ -310,7 +310,7 @@ be output-cached, because a stored body would hand one session's token to the
 next visitor. The fix is to split what is cacheable from what carries the token:
 
 ```html
-@cache(ttl: "1m") component ProductList(rows: Product[]): html { … }
+@cache(ttl: "1m", scope: "public") component ProductList(rows: Product[]): html { … }
 component OrderForm(): html { <form method="post">…</form> }
 export component Page(rows: Product[]): html { <ProductList rows={rows} /><OrderForm /> }
 ```

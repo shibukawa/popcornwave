@@ -5,6 +5,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/shibukawa/popcornwave/pwruntime"
 	"github.com/shibukawa/tinybind-go/htmlbind"
 )
 
@@ -64,6 +65,32 @@ func renderCacheOption(ctx context.Context, config HTMLCacheConfig) htmlbind.Opt
 		store = countingCache{store: store, counts: counts}
 	}
 	return htmlbind.WithCache(store)
+}
+
+// renderCacheScopeOption supplies the value a component declared private has
+// its key prefixed with, or nil when this request has no identity to scope by.
+//
+// The value is the local account identifier every authentication method
+// resolves to before any handler runs. A session login, a passkey assertion,
+// and a bearer token all arrive here as the same string, so one person's
+// entries stay one person's however they signed in, and a deployment that adds
+// a second login method partitions nothing it already had.
+//
+// It is deliberately not the session token. That rotates — at login, after a
+// privilege change, on renewal — and a key built on it would miss on every
+// rotation while holding entries it could no longer reach, which is a cache
+// that grows without ever answering.
+//
+// An anonymous request supplies nothing rather than an empty string, and the
+// module stores nothing for a private component rendered without a scope. That
+// is the safe direction and the reason the option is absent instead of blank:
+// an entry under an empty scope is a shared entry wearing a private label.
+func renderCacheScopeOption(ctx context.Context) htmlbind.Option {
+	subject := pwruntime.RequestAuthentication(ctx).Subject
+	if subject == "" {
+		return nil
+	}
+	return htmlbind.WithCacheScope(subject)
 }
 
 // renderCacheCounts is what one response reused, reported on its render span.
