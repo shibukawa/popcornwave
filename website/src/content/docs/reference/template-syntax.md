@@ -547,31 +547,89 @@ rather than emitting an empty field.
 ## `@cache`
 
 ```html
-@cache(ttl: "5m")
-export component Sidebar(userId: string, tone: Tone): html { … }
+@cache(ttl: "5m", scope: "public")
+export component ProductList(rows: Product[]): html { … }
 ```
 
-The `ttl` argument is required and is parsed at generation time, so a malformed
-duration fails the build. The key covers the component's package and file, a
-fingerprint of its generated plan, and every declared parameter — and nothing
-else, so request identity, authorization, and locale have to arrive as
-parameters or the component must not be cached.
+The annotation takes two arguments, and which of them you write decides what it
+does. `ttl` asks for storage. `scope` says whose output this is. Writing neither
+is a generation error, because the annotation would then ask for nothing.
 
-Generation rejects a cached component that could not be replayed from stored
-bytes:
+### `ttl` — storing, or only declaring
+
+With a `ttl`, the component stores its rendered bytes and reuses them until the
+duration expires. It is parsed at generation time, so a malformed or
+non-positive duration fails the build.
+
+Without a `ttl`, the annotation declares scope and stores nothing. That form may
+sit anywhere — an ordinary component, a layout, the document shell — because
+every restriction listed below exists to protect stored bytes and this form has
+none. A `ttl` on a layout or a shell is a generation error for the mirror-image
+reason: the duration would describe an expiry that cannot happen.
+
+### `scope` — who the output belongs to
+
+`scope` takes `"private"` or `"public"`, and defaults to `"private"`.
+
+A private component's key is prefixed with the identity of the reader it was
+rendered for, so two readers never reach one entry. Popcorn Wave supplies that
+value from `pw.RequestAuthentication(ctx).Subject` — the local account
+identifier a session login, a passkey assertion, and a bearer token all resolve
+to before any handler runs. An anonymous request has none, and a storing private
+component rendered without one stores nothing rather than storing under a blank
+identity.
+
+A public component keys on its parameters alone: the component's package and
+file, a fingerprint of its generated plan, and every declared parameter.
+
+The same declaration decides what the response tells a cache, and there it has
+three states rather than two.
+
+| Declaration | Cache key | What the response reports |
+| --- | --- | --- |
+| none | parameters | private |
+| `scope: "private"` | reader identity + parameters | private, and refuses a `public` declared around it |
+| `scope: "public"` | parameters | shared, unless something else in the chain declares private |
+
+Undeclared reports private. That is a framework default rather than a property
+of the annotation: a page treated as shared that is actually per-reader serves
+one reader's markup to another, while a page treated as per-reader that is
+actually shared costs a cache miss. Those are not comparable, so a project that
+wants the shared answer writes it once, on its document shell.
+
+The middle row is the one worth writing deliberately. An undeclared component
+inherits whatever the chain asserts — otherwise nothing could ever be public —
+so `scope: "private"` is the only way to state what generation cannot see. A
+component calling an external Go function that reads the reader out of `ctx`
+looks shared to every check either side can write, and the annotation is what
+turns the author's knowledge into a fact the call graph carries.
+
+`@cache(scope: "public")` on a component whose call graph reaches a declared
+private one is a generation error at the annotation, naming the component that
+declared it. [Responses](/guides/frontend/responses/#cache-policy) covers what
+reaches the wire.
+
+### What a stored component may not do
+
+These apply to the storing form only. Generation rejects a component whose
+output could not be replayed from stored bytes:
 
 - one declaring an `html` parameter, since a slot argument is a bound
   continuation rather than a value;
 - one declaring an `async` parameter, or a record reaching an `async` field;
 - one reaching an `await` boundary, directly or through a component it calls;
 - one owning the document `head`, since the merged head depends on the chain;
-- one reaching an unsafe `<form>`, directly or through a component it calls.
+- one reaching an unsafe `<form>`, directly or through a component it calls;
+- one reaching a builtin element whose output comes from a provider, since a
+  stored body would serve one request's value to whoever asks next.
 
 The store behind it is in-process and is on by default; `html.cache.enabled`
 turns it off and `html.cache.max_entries` bounds it, both in
-[Configuration](/reference/configuration/#html). A redraw renders its component
-through a different entry and does not consult the store, so a `@cache`
-component redrawn on its own runs its body every time.
+[Configuration](/reference/configuration/#html). Private keys multiply what one
+process holds by the number of active readers, so an entry cap chosen for public
+keys is worth revisiting once anything is scoped. A redraw renders through the
+page's own options and reaches the same store, so a component cached on the page
+stays cached in the response that replaces it.
 
 ## Hyphenated elements
 
@@ -627,8 +685,10 @@ generation error rather than a dead element.
   value anywhere else
 - an `await` block with no `fallback`
 - a form control inside a live boundary's primary subtree
-- `@cache` on a component declaring `html` or `async`, reaching a boundary, an
-  unsafe form, or the document head
+- a storing `@cache` on a component declaring `html` or `async`, reaching a
+  boundary, an unsafe form, a per-request builtin element, or the document head
+- `@cache` carrying neither `ttl` nor `scope`, a `ttl` on a layout or shell, or
+  `scope: "public"` on a component reaching a declared private one
 - any hyphenated element
 
 A diagnostic carries the template position, and one raised inside `<script>` or

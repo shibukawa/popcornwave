@@ -150,7 +150,10 @@ type derivedReport struct {
 	converted []string
 	skipped   []string
 	retained  []string
-	written   int
+	// unserved names a file the served tree never owed anyone, which is a
+	// different statement from a source some conversion replaced.
+	unserved []string
+	written  int
 }
 
 // buildDerivedAssets turns the authored public tree and whatever the generation
@@ -247,6 +250,16 @@ func buildDerivedAssetsWithEncoder(root string, assets assetsConfig, encodeVaria
 				return err
 			}
 			report.converted = append(report.converted, slashed+" -> "+replacement)
+			if !retain {
+				return nil
+			}
+			report.retained = append(report.retained, slashed+" ("+reason+")")
+		} else if scriptBuildInput(slashed, assets) {
+			retain, reason, err := sourceMustBeRetained(root, slashed)
+			if err != nil {
+				return err
+			}
+			report.unserved = append(report.unserved, slashed)
 			if !retain {
 				return nil
 			}
@@ -374,6 +387,29 @@ func convertedSourceFor(produced, authored string) (string, bool) {
 		}
 	}
 	return "", false
+}
+
+// scriptBuildInput reports whether an authored file is one the script build
+// consumes rather than one the served tree owes anyone.
+//
+// No browser runs TypeScript, so with the script build on, a .ts or .tsx under
+// public is an input by definition. An entry is already recognized by the bundle
+// that replaced it; this is the module that entry imported, which no conversion
+// produces a file for and which was therefore copied out beside the bundle it
+// had been compiled into. The emitted source map carries its text, so a stack
+// trace still names the authored line.
+//
+// Without the script build nothing consumes it, and a file the build does not
+// understand is served as written, as everything else under public is.
+func scriptBuildInput(name string, assets assetsConfig) bool {
+	if !assets.Scripts {
+		return false
+	}
+	switch strings.ToLower(path.Ext(name)) {
+	case ".ts", ".tsx":
+		return true
+	}
+	return false
 }
 
 // contentHashOf reports the digest segment a produced name ends with, or the

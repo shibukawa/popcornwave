@@ -153,6 +153,12 @@ func writeHTMLProblem(w http.ResponseWriter, r *http.Request, wrappers []HTMLWra
 		return
 	}
 	addVaryHeader(w.Header(), "Accept")
+	// The error page renders through the failed page's own wrapper chain, so it
+	// carries whatever that shell carries — a signed-in reader's name in the
+	// header of a 500 is the ordinary case, not an unusual one. It reaches this
+	// writer instead of WriteHTMLChain, so the policy that chain decides has to
+	// be asked for here rather than inherited.
+	writeChainCachePolicy(w, r, wrappers, fragment)
 	var body bytes.Buffer
 	if err := htmlbind.RenderChain(&body, wrappers, fragment); err != nil {
 		// Never let an error page's own failure recurse into another one.
