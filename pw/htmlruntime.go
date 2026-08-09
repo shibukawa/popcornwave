@@ -129,7 +129,7 @@ func serveFrameworkScript(w http.ResponseWriter, r *http.Request) bool {
 		return true
 	}
 	header := w.Header()
-	header.Set("Content-Type", "text/javascript; charset=utf-8")
+	header.Set("Content-Type", frameworkAssetContentType(frameworkScriptName(r.URL.Path)))
 	// The revision segment never serves different bytes, so this is genuinely
 	// immutable rather than merely long-lived.
 	header.Set("Cache-Control", "public, max-age=31536000, immutable")
@@ -156,6 +156,21 @@ func serveReservedPath(w http.ResponseWriter, r *http.Request) bool {
 	}
 	http.NotFound(w, r)
 	return true
+}
+
+// frameworkAssetContentType picks a type from the name a module was registered
+// under.
+//
+// The set held nothing but JavaScript until the pwdev launcher brought its mark
+// along, and the name is the only thing to read it from: the bytes are held as
+// strings, and sniffing them would be guessing at what the file name already
+// states. The set is closed and this build wrote every name in it, so an
+// unrecognised one is a module rather than something to refuse.
+func frameworkAssetContentType(name string) string {
+	if strings.HasSuffix(name, ".webp") {
+		return "image/webp"
+	}
+	return "text/javascript; charset=utf-8"
 }
 
 // frameworkScriptName reads the module name out of a request path, or returns

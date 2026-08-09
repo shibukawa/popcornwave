@@ -79,7 +79,9 @@ lifetime:
   failure: report diagnostics and keep the loop alive, because an unobservable run is still a working one
 injection:
   variable: the resolved console URL, on the application process only, by the mechanism requirement:dev-telemetry-viewer already uses
-  consumer: requirement:dev-error-overlay, which needs an address the served page can reach
+  consumers:
+    - requirement:dev-error-overlay, which needs an address the served page can reach
+    - requirement:dev-console-launcher, which links to that address from the page itself
   rule: never exported to the developer shell
 harness:
   concept: decision:dev-harness-process

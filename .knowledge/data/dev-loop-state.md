@@ -24,5 +24,6 @@ rules:
 producer: api:cli-dev
 consumers:
   - requirement:dev-error-overlay through flow:dev-overlay-delivery
+  - requirement:dev-console-launcher, which reads status off the same stream and shows nothing else from the record
   - requirement:dev-console index
 ```
