@@ -48,13 +48,13 @@ npm install --save-dev typescript @types/react @types/react-dom
 enabled = true
 ```
 
-現時点で内蔵ビルドがエントリとして認識するのは `.ts` です。ページ側の `<script>` は
-ソースの `.ts` を指し、`type="module"` を付けます。
+ページ側の `<script>` は、書いたファイルをそのまま指し、`type="module"` を付けます。
+エントリの登録はこのタグだけです。別に一覧を持って同期を取る必要はありません。
 
 ```html
 export component TasksPage(initialCount: int): html {
 <head>
-  <script type="module" src="/public/islands/counter.ts"></script>
+  <script type="module" src="/public/islands/counter.tsx"></script>
 </head>
 <main>
   <h1>Tasks</h1>
@@ -65,8 +65,10 @@ export component TasksPage(initialCount: int): html {
 
 `pw build` はこの参照を見つけると、`react` と `react-dom` を含む ES module を
 バンドル・minify し、ソースマップと内容ハッシュ付きのファイルを作ります。生成された
-コードが指す URL も、そのハッシュ付き URL へ書き換わります。Node.js と
-`node_modules` はビルド時だけ必要で、アプリケーションバイナリと一緒には配りません。
+コードが指す URL も、そのハッシュ付き URL へ書き換わります。JSX の変換方法は
+`tsconfig.json` の `jsx` から読むので、ビルド側に同じ設定を書き写す必要はありません。
+Node.js と `node_modules` はビルド時だけ必要で、アプリケーションバイナリと一緒には
+配りません。
 
 この変換は TypeScript の構文を JavaScript に落としますが、型検査はしません。
 CI では `tsc --noEmit` を別に実行してください。
@@ -87,16 +89,15 @@ export component CounterIsland(initial: int): html {
 `<react-counter>` 自体は Popcorn Wave が所有します。その内側は、起動後に React が
 所有します。周囲の見出し、フォーム、一覧まで React のルートへ入れる必要はありません。
 
-## React コンポーネントとエントリを分ける
+## コンポーネントとライフサイクルをひとつにまとめる
 
-直接参照されるエントリは `.ts` に限られますが、そのエントリが import する `.tsx` は
-esbuild が同じバンドルへ取り込みます。したがって React コンポーネントは通常の JSX で
-書けます。
+コンポーネントと、それを載せるカスタム要素は同じファイルに置きます。そのコンポーネント
+がいつ存在するかを決めているのはカスタム要素のほうだからです。
 
 ```tsx
-// public/islands/counter-view.tsx
+// public/islands/counter.tsx
 import { useState } from 'react';
-import { createRoot } from 'react-dom/client';
+import { createRoot, type Root } from 'react-dom/client';
 
 type CounterProps = { initial: number };
 
@@ -109,27 +110,13 @@ function Counter({ initial }: CounterProps) {
   );
 }
 
-export function mountCounter(element: Element, initial: number) {
-  const root = createRoot(element);
-  root.render(<Counter initial={initial} />);
-  return root;
-}
-```
-
-`.pw.html` が参照する薄い `.ts` エントリは、カスタム要素のライフサイクルだけを
-受け持ちます。
-
-```ts
-// public/islands/counter.ts
-import { mountCounter } from './counter-view';
-
 class ReactCounterElement extends HTMLElement {
-  root: ReturnType<typeof mountCounter> | null = null;
+  root: Root | null = null;
 
   connectedCallback() {
     if (this.root) return;
-    const initial = Number(this.dataset.initial ?? '0');
-    this.root = mountCounter(this, initial);
+    this.root = createRoot(this);
+    this.root.render(<Counter initial={Number(this.dataset.initial ?? '0')} />);
   }
 
   disconnectedCallback() {
@@ -142,6 +129,10 @@ if (!customElements.get('react-counter')) {
   customElements.define('react-counter', ReactCounterElement);
 }
 ```
+
+分けるのは、複数の島が同じコンポーネントを共有するようになってからで十分です。エントリ
+からの import は esbuild が同じバンドルへ取り込むため、共有する `components/counter.tsx`
+を作ってもタグ側は変わりません。
 
 ページの解析中に要素が見つかれば `connectedCallback` が mount します。htmx などが
 フラグメントをあとから挿入した場合も同じです。逆に祖先ごと差し替えられると
@@ -184,7 +175,7 @@ Popcorn Wave はそれを提供していません。
 要素のライフサイクルが古いルートと新しいルートを入れ替えます。
 
 React の島を `pw.WriteHTMLFragment` から返すこと自体は問題ありません。ただし、
-フラグメントは `head` へ寄与できないため、`counter.ts` の `<script>` は最初のページが
+フラグメントは `head` へ寄与できないため、`counter.tsx` の `<script>` は最初のページが
 すでに読み込んでいなければなりません。島のコンポーネントから `<head>` を分けたのは
 そのためです。
 
@@ -201,26 +192,6 @@ React の島を `pw.WriteHTMLFragment` から返すこと自体は問題あり�
 [htmx の統合](/ja/guides/interactivity/htmx/#csrf-を有効にした書き込み)にあるクッキー読み取りは、
 `fetch` の `headers` にもそのまま使えます。
 
-## 追加したいビルドサポート
-
-いちばん小さく、効果の大きい追加は **`.tsx` をスクリプトのエントリとして認識すること**
-です。import された `.tsx` はすでに処理できるため、React を使う機能そのものが欠けて
-いるわけではありません。内部では esbuild を使っており、npm 依存の解決、バンドル、minify、
-ソースマップ、内容ハッシュまで揃っています。現在 `.ts` に限定されている入口を `.tsx`
-にも広げ、`type="module"` の検査と参照書き換えを同じように適用すれば、薄い `.ts`
-shim が不要になります。
-
-その次に有用なのは、任意の `pw add react` が次をまとめて用意することです。
-
-- `[assets.scripts]` と `.tsx` エントリ
-- `react` / `react-dom`、型パッケージ、`tsc --noEmit` のスクリプト
-- mount/unmount を担う小さなカスタム要素の雛形
-
-一方、Node.js のインストールや `npm install` を `pw build` が暗黙に行うべきでは
-ありません。ロックファイルとパッケージマネージャはアプリケーション側の供給網だからです。
-React SSR も「部分的に React を使う」ための前提ではなく、独立した大きな機能です。
-
-したがって優先順位は、まず `.tsx` エントリ、次に明示的な scaffold、SSR は実際に
-hydration を必要とするユースケースが出てから、となります。いまのビルドでも JSX を
-使った部分 mount は成立しますが、直接の `.tsx` 対応が入るとエントリのためだけの
-`.ts` shim を置かずに済みます。
+ハッシュ名やソースマップを含め、スクリプトビルドがファイルに対して何をするかは
+[静的アセット](/ja/guides/frontend/static-assets/)にまとめてあります。`public` 配下の
+ほかのファイルに起きる変換も同じページです。

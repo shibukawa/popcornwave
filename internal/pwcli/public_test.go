@@ -208,6 +208,32 @@ func TestBuildDerivedAssetsMinifiesAndRewritesCSS(t *testing.T) {
 	}
 }
 
+// TestBuildDerivedAssetsDropsAConvertedTSXEntry is the second half of building a
+// tsx entry: a source the bundle replaced must leave the served tree, or the
+// authored JSX ships beside the output it was compiled into.
+func TestBuildDerivedAssetsDropsAConvertedTSXEntry(t *testing.T) {
+	root := derivedFixture(t)
+	writeNestedTestFile(t, filepath.Join(root, "public", "islands", "counter.tsx"),
+		"export const label = <b>hi</b>;\n")
+	writeNestedTestFile(t, filepath.Join(root, filepath.FromSlash(derivedStageDir), "islands", "counter.js"),
+		"export const label=1;\n")
+
+	report, err := buildDerivedAssets(root, assetsConfig{Scripts: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	output := filepath.Join(root, filepath.FromSlash(derivedPublicDir))
+	if _, err := os.Stat(filepath.Join(output, "islands", "counter.tsx")); !os.IsNotExist(err) {
+		t.Errorf("the authored tsx entry still ships: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(output, "islands", "counter.js")); err != nil {
+		t.Errorf("the bundle is missing: %v", err)
+	}
+	if len(report.converted) != 1 || !strings.Contains(report.converted[0], "counter.tsx") {
+		t.Errorf("report.converted = %v", report.converted)
+	}
+}
+
 // TestBuildDerivedAssetsRetainsAReferencedSource covers the one case where
 // dropping a converted source would break a page: a reference the build cannot
 // rewrite, such as one written in Go.
