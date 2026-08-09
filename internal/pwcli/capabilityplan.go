@@ -90,7 +90,11 @@ func (p *capabilityPlan) changes(root string) ([]fileChange, error) {
 		} else if !os.IsNotExist(err) {
 			return nil, err
 		}
-		changes = append(changes, fileChange{path: target, source: []byte(p.creates[path])})
+		// Created sources are canonical from the start, on the same terms as
+		// the pw init scaffold. Appends and edits stay untouched: they land in
+		// files the application owns, and reformatting one is more change than
+		// this command was asked for.
+		changes = append(changes, fileChange{path: target, source: []byte(canonicalScaffoldSource(path, p.creates[path]))})
 	}
 	for _, path := range sortedKeys(p.appends) {
 		target := filepath.Join(root, filepath.FromSlash(path))

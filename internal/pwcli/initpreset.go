@@ -274,9 +274,13 @@ func presetNames() string {
 func applyPreset(preset initPreset, options initOptions) initOptions {
 	name := options.Name
 	yes := options.Yes
+	// The skill answer survives on the same terms as the name: it is about the
+	// machines this project is edited on, which no preset answers.
+	skillsAnswer := options.Skills
 	applied := defaultInitOptions()
 	applied.Name = name
 	applied.Yes = yes
+	applied.Skills = skillsAnswer
 	applied.Kind = preset.kind
 	if preset.apply != nil {
 		preset.apply(&applied)

@@ -24,17 +24,17 @@ func TestParseInitArgs(t *testing.T) {
 		args []string
 		want initOptions
 	}{
-		{name: "name only keeps the TinyGo default", args: []string{"demo"}, want: initOptions{Name: "demo", TinyGo: true, Database: true, Engine: engineSQLite, Redis: true, Devbox: true, Auth: authNone, Session: sessionRDB}},
-		{name: "shortcut flags", args: []string{"demo", "--tailwind", "--no-tinygo"}, want: initOptions{Name: "demo", Tailwind: true, Database: true, Engine: engineSQLite, Redis: true, Devbox: true, Auth: authNone, Session: sessionRDB}},
-		{name: "explicit tinygo", args: []string{"--tinygo", "demo"}, want: initOptions{Name: "demo", TinyGo: true, Database: true, Engine: engineSQLite, Redis: true, Devbox: true, Auth: authNone, Session: sessionRDB}},
-		{name: "no name requests the wizard", args: nil, want: initOptions{TinyGo: true, Database: true, Engine: engineSQLite, Redis: true, Devbox: true, Auth: authNone, Session: sessionRDB}},
-		{name: "the retired interactive flag is accepted and changes nothing", args: []string{"-i", "demo"}, want: initOptions{Name: "demo", TinyGo: true, Database: true, Engine: engineSQLite, Redis: true, Devbox: true, Auth: authNone, Session: sessionRDB}},
-		{name: "yes takes the flags as the whole answer", args: []string{"--yes", "demo"}, want: initOptions{Name: "demo", TinyGo: true, Database: true, Engine: engineSQLite, Redis: true, Devbox: true, Yes: true, Auth: authNone, Session: sessionRDB}},
-		{name: "oidc with the local emulator", args: []string{"demo", "--auth=oidc", "--devidp"}, want: initOptions{Name: "demo", TinyGo: true, Database: true, Engine: engineSQLite, Redis: true, Devbox: true, Auth: authOIDC, AuthEmulator: true, Session: sessionRDB}},
-		{name: "passkey drops a stray emulator flag", args: []string{"demo", "--auth=passkey", "--devidp"}, want: initOptions{Name: "demo", TinyGo: true, Database: true, Engine: engineSQLite, Redis: true, Devbox: true, Auth: authPasskey, Session: sessionRDB}},
-		{name: "engine shortcut", args: []string{"demo", "--db=postgres"}, want: initOptions{Name: "demo", TinyGo: true, Database: true, Engine: enginePostgres, Redis: true, Devbox: true, Auth: authNone, Session: sessionRDB}},
-		{name: "mysql engine shortcut", args: []string{"demo", "--db=mysql"}, want: initOptions{Name: "demo", TinyGo: true, Database: true, Engine: engineMySQL, Redis: true, Devbox: true, Auth: authNone, Session: sessionRDB}},
-		{name: "declined database keeps the default engine unapplied", args: []string{"demo", "--no-database"}, want: initOptions{Name: "demo", TinyGo: true, Engine: engineSQLite, Redis: true, Devbox: true, Auth: authNone, Session: sessionRDB}},
+		{name: "name only keeps the TinyGo default", args: []string{"demo"}, want: initOptions{Name: "demo", TinyGo: true, Database: true, Engine: engineSQLite, Redis: true, Devbox: true, Auth: authNone, Session: sessionRDB, Skills: skillsClaude}},
+		{name: "shortcut flags", args: []string{"demo", "--tailwind", "--no-tinygo"}, want: initOptions{Name: "demo", Tailwind: true, Database: true, Engine: engineSQLite, Redis: true, Devbox: true, Auth: authNone, Session: sessionRDB, Skills: skillsClaude}},
+		{name: "explicit tinygo", args: []string{"--tinygo", "demo"}, want: initOptions{Name: "demo", TinyGo: true, Database: true, Engine: engineSQLite, Redis: true, Devbox: true, Auth: authNone, Session: sessionRDB, Skills: skillsClaude}},
+		{name: "no name requests the wizard", args: nil, want: initOptions{TinyGo: true, Database: true, Engine: engineSQLite, Redis: true, Devbox: true, Auth: authNone, Session: sessionRDB, Skills: skillsClaude}},
+		{name: "the retired interactive flag is accepted and changes nothing", args: []string{"-i", "demo"}, want: initOptions{Name: "demo", TinyGo: true, Database: true, Engine: engineSQLite, Redis: true, Devbox: true, Auth: authNone, Session: sessionRDB, Skills: skillsClaude}},
+		{name: "yes takes the flags as the whole answer", args: []string{"--yes", "demo"}, want: initOptions{Name: "demo", TinyGo: true, Database: true, Engine: engineSQLite, Redis: true, Devbox: true, Yes: true, Auth: authNone, Session: sessionRDB, Skills: skillsClaude}},
+		{name: "oidc with the local emulator", args: []string{"demo", "--auth=oidc", "--devidp"}, want: initOptions{Name: "demo", TinyGo: true, Database: true, Engine: engineSQLite, Redis: true, Devbox: true, Auth: authOIDC, AuthEmulator: true, Session: sessionRDB, Skills: skillsClaude}},
+		{name: "passkey drops a stray emulator flag", args: []string{"demo", "--auth=passkey", "--devidp"}, want: initOptions{Name: "demo", TinyGo: true, Database: true, Engine: engineSQLite, Redis: true, Devbox: true, Auth: authPasskey, Session: sessionRDB, Skills: skillsClaude}},
+		{name: "engine shortcut", args: []string{"demo", "--db=postgres"}, want: initOptions{Name: "demo", TinyGo: true, Database: true, Engine: enginePostgres, Redis: true, Devbox: true, Auth: authNone, Session: sessionRDB, Skills: skillsClaude}},
+		{name: "mysql engine shortcut", args: []string{"demo", "--db=mysql"}, want: initOptions{Name: "demo", TinyGo: true, Database: true, Engine: engineMySQL, Redis: true, Devbox: true, Auth: authNone, Session: sessionRDB, Skills: skillsClaude}},
+		{name: "declined database keeps the default engine unapplied", args: []string{"demo", "--no-database"}, want: initOptions{Name: "demo", TinyGo: true, Engine: engineSQLite, Redis: true, Devbox: true, Auth: authNone, Session: sessionRDB, Skills: skillsClaude}},
 	} {
 		t.Run(testcase.name, func(t *testing.T) {
 			options, err := parseInitArgs(testcase.args)
@@ -306,7 +306,7 @@ func TestInitWizardCollectsAnswers(t *testing.T) {
 	}
 	options := wizardResult(model, defaultInitOptions())
 	options.Preset = ""
-	if options != (initOptions{Name: "demo", Router: routerRegistered, Devbox: true, Database: true, Engine: engineSQLite, Redis: true, Auth: authNone, Session: sessionRDB}) {
+	if options != (initOptions{Name: "demo", Router: routerRegistered, Devbox: true, Database: true, Engine: engineSQLite, Redis: true, Auth: authNone, Session: sessionRDB, Skills: skillsClaude}) {
 		t.Fatalf("options = %#v", options)
 	}
 }
@@ -322,7 +322,7 @@ func TestInitWizardDigitShortcutSelectsTailwind(t *testing.T) {
 	}
 	options := wizardResult(model, defaultInitOptions())
 	options.Preset = ""
-	if options != (initOptions{Name: "demo", Router: routerDiscovered, TinyGo: true, Tailwind: true, Devbox: true, Database: true, Engine: engineSQLite, Redis: true, Auth: authNone, Session: sessionRDB}) {
+	if options != (initOptions{Name: "demo", Router: routerDiscovered, TinyGo: true, Tailwind: true, Devbox: true, Database: true, Engine: engineSQLite, Redis: true, Auth: authNone, Session: sessionRDB, Skills: skillsClaude}) {
 		t.Fatalf("options = %#v", options)
 	}
 }
@@ -341,6 +341,7 @@ func TestInitWizardSeedsAnswersFromShortcutFlags(t *testing.T) {
 		"Yes", "Both", "Yes", "OIDC", "DynamoDB",
 		"Yes", "SQLite", "Yes", "No",
 		"Redis or Valkey", "Local emulator", "Yes", "Yes",
+		".claude",
 	}
 	if len(steps) != len(want) {
 		t.Fatalf("wizard has %d steps, want %d", len(steps), len(want))
@@ -510,7 +511,9 @@ func TestRunInitWizardOverKeystrokes(t *testing.T) {
 	}
 	// The first preset, answered through the real program rather than through
 	// the model directly.
-	want := applyPreset(initPresetCatalog[0], initOptions{Name: "demo"})
+	// The seed carries the same default answers parseInitArgs starts from,
+	// which is where the agent skill answer comes from in a real run.
+	want := applyPreset(initPresetCatalog[0], initOptions{Name: "demo", Skills: skillsClaude})
 	want.Preset = initPresetCatalog[0].name
 	if options != normalizeSession(want) {
 		t.Fatalf("options = %#v, want %#v", options, normalizeSession(want))
@@ -660,7 +663,9 @@ func TestScaffoldDocumentLoadsTheBoundaryRuntime(t *testing.T) {
 	if !strings.Contains(document, "external RuntimeScriptURL(): url") {
 		t.Errorf("document does not declare the runtime helper:\n%s", document)
 	}
-	if !strings.Contains(document, `<script type="module" src={RuntimeScriptURL()}></script>`) {
+	// The canonical spelling: scaffoldFiles formats every template source the
+	// way pw fmt would, which quotes the interpolated attribute.
+	if !strings.Contains(document, `<script type="module" src="{RuntimeScriptURL()}"></script>`) {
 		t.Errorf("document does not reference the runtime module:\n%s", document)
 	}
 
