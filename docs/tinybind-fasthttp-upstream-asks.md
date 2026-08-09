@@ -97,6 +97,43 @@ sentence in the framework-owner guide would save them the discovery.
 
 ---
 
+## 4. The stream API, unified — and a proposal for your side
+
+We have removed `NewStream` from `pw` outright rather than deprecating it, and
+`WriteStream` is now the only entry. Recording the shape here because you said
+the module would go the same way, and this is what it looks like carried through.
+
+```go
+// pw (net/http)                     // pwfast (fasthttp)
+func WriteStream[T any](             func WriteStream[T any](
+    w http.ResponseWriter,               r *fasthttp.RequestCtx,
+    r *http.Request,                     fn func(*Stream[T]) error,
+    fn func(*Stream[T]) error,       )
+)
+```
+
+Two things made the pair actually work, and both are worth copying:
+
+**The callback parameter must be one type, not two that match.** We had wrapped
+your `Stream[T]` to rename `Write` to `Send`. That reads fine on its own and it
+breaks the pair: the two handler bodies then differ by a method name, and a
+rewrite table that maps selectors one by one does not cover it. Both halves now
+alias `bindcore.Stream[T]`, so the body is the same text and only the signature
+line moves. **A wrapper that renames anything is a wrapper that breaks the
+transform** — that is the general rule, and it is not obvious until you try it.
+
+**Removing beats deprecating, here.** A deprecated `NewStream` that still
+compiles is a call site that silently has no fasthttp counterpart. Deleting it
+turns that into a build error at the one place that can fix it. Your own
+`NewStream` is deprecated rather than gone, and if you do remove it, this is the
+argument for it.
+
+We kept one thing on our side: the `406` for an unacceptable `Accept` is written
+through our problem path before your `WriteStream` is called, so a browser gets
+the application's error page. Everything after the stream opens is yours.
+
+---
+
 ## What is not an ask
 
 For the record, since earlier notes of ours got these wrong:

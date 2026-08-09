@@ -80,7 +80,7 @@ Besides declaration files, generation reads Go source for call sites:
 | --- | --- |
 | `pw.Parse[T]` | request binding for `T` |
 | `pw.WriteAPI[T]` | JSON encoding for `T` |
-| `pw.NewStream[T]` | stream encoding for `T` |
+| `pw.WriteStream[T]` | stream encoding for `T` |
 | `pw.RegisterConfig[T]` | configuration binding for `T` |
 | `pw.RegisterSubCommand[T]` | subcommand parsing for `T` |
 | `pw.BadRequest` and the other error constructors | the documented error responses |

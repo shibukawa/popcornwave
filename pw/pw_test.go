@@ -186,11 +186,38 @@ func TestUnsupportedStreamAcceptWrites406(t *testing.T) {
 	recorder := httptest.NewRecorder()
 	request := httptest.NewRequest(http.MethodGet, "/", nil)
 	request.Header.Set("Accept", "application/xml")
-	stream := NewStream[map[string]string](recorder, request)
-	if err := stream.Send(map[string]string{"value": "ignored"}); err == nil {
-		t.Fatal("Send returned nil after negotiation failure")
+	// The callback must not run at all: negotiation fails before anything is
+	// committed, which is the one stream failure that can still be a problem
+	// response rather than a report.
+	ran := false
+	WriteStream(recorder, request, func(s *Stream[map[string]string]) error {
+		ran = true
+		return nil
+	})
+	if ran {
+		t.Error("the callback ran after negotiation failed")
 	}
 	if recorder.Code != http.StatusNotAcceptable || !bytes.Contains(recorder.Body.Bytes(), []byte(`"code":"not_acceptable"`)) {
 		t.Fatalf("response = %d %q", recorder.Code, recorder.Body.String())
+	}
+}
+
+// The framing a stream carries is the runtime's responsibility now: the
+// callback returning is the close, so a JSON array document is terminated
+// whether or not the handler thought about it. That is the defect the
+// caller-held shape allowed and the reason this entry replaced it.
+func TestWriteStreamClosesTheFramingWithoutTheCallerAskingTo(t *testing.T) {
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "/", nil)
+	request.Header.Set("Accept", "application/json")
+	WriteStream(recorder, request, func(s *Stream[map[string]string]) error {
+		return s.Write(map[string]string{"value": "one"})
+	})
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("status = %d", recorder.Code)
+	}
+	body := recorder.Body.String()
+	if !strings.HasPrefix(body, "[") || !strings.HasSuffix(strings.TrimSpace(body), "]") {
+		t.Errorf("the array framing was not terminated: %q", body)
 	}
 }
