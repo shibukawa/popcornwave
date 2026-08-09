@@ -2,7 +2,7 @@
 title: Static Assets
 description: The public directory is what you write; a build turns it into the tree that ships, with a manifest that decides every cache header before a request arrives.
 sidebar:
-  order: 6
+  order: 7
 ---
 
 A project serves static files from the `public/` directory at its root. The

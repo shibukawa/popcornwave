@@ -10,7 +10,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/shibukawa/popcornwave/middlewares"
@@ -22,21 +21,19 @@ import (
 )
 
 // Problem is the application-facing RFC problem value.
-type Problem struct {
-	Status  int
-	Title   string
-	Code    string
-	Message string
-	Fields  []FieldError
-	Cause   error
-}
+//
+// It is declared in pwruntime and aliased here, so the value this package
+// builds is the value the other transport runtime inspects and unwraps. A
+// second declaration that agreed today would be a second chance to disagree
+// later, and the failure would be a silent errors.As that stops matching.
+type Problem = pwruntime.Problem
 
 // FieldError describes a single field-level validation failure.
-type FieldError = tinybind.FieldError
+type FieldError = pwruntime.FieldError
 
 // Field builds a field-level validation error for Validation.
 func Field(field, location, message string) FieldError {
-	return tinybind.Field(field, location, message)
+	return pwruntime.Field(field, location, message)
 }
 
 // HTMLFragment is a generated template with its parameters already bound.
@@ -50,104 +47,35 @@ type HTMLWrapper = htmlbind.Wrapper
 // rather than replacing it.
 type HTMLOption = htmlbind.Option
 
-// documentState holds the registered document shell as a one-element chain.
-// Registration happens once at init, so per-request reads take no lock, and
-// the cached slice has no spare capacity: any append reallocates rather than
-// reaching a slice another request is rendering through.
-var documentState atomic.Pointer[[]HTMLWrapper]
-
 // RegisterHTMLDocument installs the generated application document shell.
 // It is intended for generated templates/document_pw_gen.go code.
-func RegisterHTMLDocument(wrapper HTMLWrapper) {
-	chain := []HTMLWrapper{wrapper}
-	if !documentState.CompareAndSwap(nil, &chain) {
-		panic("popcornwave: HTML document is already registered")
-	}
-}
+//
+// The state is pwruntime's rather than this package's, because the other
+// transport runtime registers into the same place: generated registration is
+// emitted per build with its import rewritten, and two registries would leave
+// one build rendering pages with no document around them.
+func RegisterHTMLDocument(wrapper HTMLWrapper) { pwruntime.RegisterHTMLDocument(wrapper) }
 
-func registeredHTMLDocument() []HTMLWrapper {
-	chain := documentState.Load()
-	if chain == nil {
-		return nil
-	}
-	return *chain
-}
+func registeredHTMLDocument() []HTMLWrapper { return pwruntime.RegisteredHTMLDocument() }
 
-func (p Problem) Error() string {
-	if p.Message != "" {
-		return p.Message
-	}
-	if p.Title != "" {
-		return p.Title
-	}
-	return http.StatusText(p.Status)
-}
-
-func (p Problem) Unwrap() error { return p.Cause }
-
+// The constructors are pwruntime's, re-exported so an application keeps
+// naming them through pw and a rewritten call finds the same names on the
+// other runtime.
 func problem(status int, title string, value any) Problem {
-	p := Problem{Status: status, Title: title, Code: strings.ReplaceAll(strings.ToLower(title), " ", "_")}
-	switch value := value.(type) {
-	case nil:
-		p.Message = title
-	case Problem:
-		if value.Status == 0 {
-			value.Status = status
-		}
-		if value.Title == "" {
-			value.Title = title
-		}
-		return value
-	case error:
-		p.Message, p.Cause = value.Error(), value
-	case string:
-		p.Message = value
-	default:
-		p.Message = fmt.Sprint(value)
-	}
-	return p
+	return pwruntime.NewProblem(status, title, value)
 }
 
-func firstValue(values []any) any {
-	if len(values) == 0 {
-		return nil
-	}
-	return values[0]
-}
-
-func BadRequest(values ...any) Problem {
-	return problem(http.StatusBadRequest, "Bad Request", firstValue(values))
-}
-func Unauthorized(values ...any) Problem {
-	return problem(http.StatusUnauthorized, "Unauthorized", firstValue(values))
-}
-func Forbidden(values ...any) Problem {
-	return problem(http.StatusForbidden, "Forbidden", firstValue(values))
-}
-func NotFound(values ...any) Problem {
-	return problem(http.StatusNotFound, "Not Found", firstValue(values))
-}
-func Conflict(values ...any) Problem {
-	return problem(http.StatusConflict, "Conflict", firstValue(values))
-}
-func PayloadTooLarge(values ...any) Problem {
-	return problem(http.StatusRequestEntityTooLarge, "Payload Too Large", firstValue(values))
-}
-func ServiceUnavailable(values ...any) Problem {
-	return problem(http.StatusServiceUnavailable, "Service Unavailable", firstValue(values))
-}
-func InternalServerError(values ...any) Problem {
-	p := problem(http.StatusInternalServerError, "Internal Server Error", firstValue(values))
-	p.Code = "internal"
-	return p
-}
+func BadRequest(values ...any) Problem          { return pwruntime.BadRequest(values...) }
+func Unauthorized(values ...any) Problem        { return pwruntime.Unauthorized(values...) }
+func Forbidden(values ...any) Problem           { return pwruntime.Forbidden(values...) }
+func NotFound(values ...any) Problem            { return pwruntime.NotFound(values...) }
+func Conflict(values ...any) Problem            { return pwruntime.Conflict(values...) }
+func PayloadTooLarge(values ...any) Problem     { return pwruntime.PayloadTooLarge(values...) }
+func ServiceUnavailable(values ...any) Problem  { return pwruntime.ServiceUnavailable(values...) }
+func InternalServerError(values ...any) Problem { return pwruntime.InternalServerError(values...) }
 
 // Validation reports a 400 response carrying every detected field failure.
-func Validation(fields ...FieldError) Problem {
-	p := problem(http.StatusBadRequest, "Validation failed", nil)
-	p.Fields = append([]FieldError(nil), fields...)
-	return p
-}
+func Validation(fields ...FieldError) Problem { return pwruntime.Validation(fields...) }
 
 func WriteProblem(w http.ResponseWriter, r *http.Request, err error) {
 	if responseCommitted(w) {
@@ -421,6 +349,10 @@ func WriteHTMLChain(w http.ResponseWriter, r *http.Request, wrappers []HTMLWrapp
 	// decided before anything is written. An unrecognized mode resolves to the
 	// document, so a crawler, curl, and a browser without the runtime are
 	// unaffected by any of this.
+	//
+	// The two modes that answer without rendering this chain are tested first,
+	// on their own, so that the chain's declared axes below reach only the
+	// responses that actually depend on them.
 	if config.Update.Enabled {
 		// A sequence is tested before anything that renders. It is the static
 		// half of a fragment, derived from the template rather than from this
@@ -435,6 +367,12 @@ func WriteHTMLChain(w http.ResponseWriter, r *http.Request, wrappers []HTMLWrapp
 		if serveRegisteredRedraw(w, r, config) {
 			return
 		}
+	}
+	// Every branch from here renders this chain, so what its components declared
+	// applies to whichever one answers: a document, a delta, and a live delivery
+	// all depend on whatever a builtin element read to produce them.
+	varyOnDeclaredAxes(w.Header(), htmlbind.MergeVary(wrappers, leaf))
+	if config.Update.Enabled {
 		// A delta carries its own headers, computed for the mode it turned out
 		// to be and applied before the stream commits.
 		if serveUpdate(w, r, wrappers, leaf, config, options, async, live) {
@@ -457,6 +395,11 @@ func WriteHTMLChain(w http.ResponseWriter, r *http.Request, wrappers []HTMLWrapp
 	if nodes := updateHeadNodes(config, token); len(nodes) > 0 {
 		options = append(options, htmlbind.WithHead(nodes...))
 	}
+	// It is also the one response carrying no validator of its own, so its cache
+	// policy is decided here rather than inherited. Every branch above wrote its
+	// own on the way past: a sequence is immutable, a delta and a live stream are
+	// no-store, and a redraw is private against the entity tag it carries.
+	writeChainCachePolicy(w, r, wrappers, leaf)
 	if live && liveEnabled(config) {
 		// One URL now has a document representation and a delivery one. The
 		// delivery stream is no-store, so this exists to stop a cache from
@@ -625,7 +568,22 @@ func WriteHTMLFragment(w http.ResponseWriter, r *http.Request, fragment HTMLFrag
 		return
 	}
 	// Nothing classifies the client here: one branch means one representation, so
-	// this response varies on nothing and stays cacheable.
+	// this response adds no axis of its own.
+	//
+	// What the fragment declared is a different question and travels regardless.
+	// A component reading a cookie through a registered element depends on that
+	// cookie whether or not the framework chose between representations, and this
+	// path renders one component rather than a chain, so both accessors below ask
+	// the fragment instead of merging over wrappers that are not here.
+	varyOnDeclaredAxes(w.Header(), fragment.Vary())
+	// A swap target is markup for the screen it lands on, so it carries the same
+	// policy that screen does. There is no chain here to assert otherwise: a
+	// wrapper is what can declare a whole document shared, and a fragment answers
+	// with no wrapper at all, so an undeclared one is private like everything
+	// else undeclared.
+	if fragment.IsPrivate() {
+		w.Header().Set("Cache-Control", privateCacheControl)
+	}
 	async := fragment.HasAwaitBlock()
 	traceCtx, render := startChainRenderTrace(ctx, renderModeFragment, 1, async, false, false)
 	defer render.end()
@@ -985,6 +943,14 @@ func renderOptions(ctx context.Context, config HTMLConfig, bot bool, extra []HTM
 	if cache := renderCacheOption(ctx, config.Cache); cache != nil {
 		options = append(options, cache)
 	}
+	// The scope rides with the store because it is the other half of the same
+	// key. It goes on every path for the reason the store does: a component
+	// cached per reader on the page and cached shared in the response replacing
+	// it would serve one reader's region to another, and it is the redraw — the
+	// narrow response nobody inspects — that would do it.
+	if scope := renderCacheScopeOption(ctx); scope != nil {
+		options = append(options, scope)
+	}
 	// Caller options come last so a later one wins, which is what makes them an
 	// extension of the configured set rather than a competing source of truth.
 	return append(options, extra...)
@@ -1085,6 +1051,77 @@ func splitSeq(value string, separator byte) func(func(string) bool) {
 				return
 			}
 		}
+	}
+}
+
+// privateCacheControl is what a response says when the markup it carries
+// belongs to one reader.
+//
+// no-store rather than the no-cache a redraw uses, and what separates them is
+// what each response carries. A redraw carries an entity tag, so no-cache buys
+// the conditional request no-store would forbid. A document carries no
+// validator at all, so there is no 304 to protect and nothing left to weigh
+// against the shared machine, where no-store is what keeps a signed-in page off
+// the disk after the browser is closed.
+const privateCacheControl = "private, no-store"
+
+// writeChainCachePolicy says whether a shared cache may hold this response.
+//
+// The answer comes from the chain rather than from the request, because the
+// header is on the wire before the first body byte and a private component four
+// levels down renders long after that. Asking the templates is what makes it
+// available that early; asking the render would leave the answer to the
+// buffered branch and make a security-relevant header depend on whether
+// streaming happened to be on.
+//
+// Only the private answer is written. A chain declaring itself shared gets no
+// header from this framework at all, because freshness is a deployment's to
+// choose: a Cache-Control naming no lifetime would either invite heuristic
+// caching or invent a TTL nobody asked for. Saying nothing leaves that where it
+// belongs and keeps this to the one assertion it can make honestly.
+//
+// An undeclared chain is private, which is a framework default rather than a
+// property of the annotation. A page treated as shared that is per-reader
+// serves one reader's markup to another; a page treated as per-reader that is
+// shared costs a cache miss. Those are not comparable, so a project wanting the
+// shared answer writes it on its document shell, once.
+func writeChainCachePolicy(w http.ResponseWriter, r *http.Request, wrappers []HTMLWrapper, leaf HTMLFragment) {
+	if !htmlbind.IsPrivate(wrappers, leaf) {
+		return
+	}
+	w.Header().Set("Cache-Control", privateCacheControl)
+	// A chain whose outermost member asserted shared and came out private was
+	// assembled here rather than generated. The refusal that catches that
+	// combination walks a call graph, and a chain composed at run time never
+	// appeared in one, so this is the only place it can be reported. The source
+	// is the half that matters: the assertion is in the source and what shipped
+	// is not, and the answer alone does not say which component to change.
+	if len(wrappers) == 0 || wrappers[0].IsPrivate() {
+		return
+	}
+	if source := htmlbind.PrivateSource(wrappers, leaf); source != "" {
+		ctx := requestContext(r)
+		Logger(ctx).Log(ctx, LevelWarn, "chain declaring public rendered private",
+			String("declared_by", source))
+	}
+}
+
+// varyOnDeclaredAxes names the request properties a render depends on because
+// its components said so, rather than because this framework classified
+// anything.
+//
+// The axes are declared by whoever registered a builtin element, since only an
+// implementation knows what its provider reads, and generation folds them over
+// the call graph and through slot parameters. A component reading a cookie four
+// levels down therefore arrives here as one entry, which is the whole point:
+// the template says nothing a caller could otherwise see, so without this the
+// response would be stored under a key that ignores what produced it.
+//
+// A chain declaring none passes a nil slice and adds no header, which is most
+// of them.
+func varyOnDeclaredAxes(header http.Header, axes []string) {
+	for _, axis := range axes {
+		addVaryHeader(header, axis)
 	}
 }
 

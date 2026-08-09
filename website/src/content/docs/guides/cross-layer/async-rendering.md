@@ -434,9 +434,10 @@ entry that varies on nothing.
 - An `async` parameter may be read only inside an `await` binding.
 - An `await` block requires a `fallback` clause.
 - A `<slot>` may not appear inside an `await` block.
-- A `@cache` component cannot declare an `async` parameter, or reach a record
-  with one: stored bytes stand in for a fresh render, and a pending value
-  belongs to the one request that started it.
+- A **storing** `@cache` component cannot declare an `async` parameter, or reach
+  a record with one: stored bytes stand in for a fresh render, and a pending
+  value belongs to the one request that started it. The form carrying no `ttl`
+  stores nothing, so a page that awaits may still use it to declare its scope.
 
 Each of these is a generation error, so they surface from `pw generate` rather
 than at request time.

@@ -2,7 +2,7 @@
 title: Security Headers
 description: The default browser policies, how to replace them safely, and why HSTS waits for a verified HTTPS request.
 sidebar:
-  order: 8
+  order: 9
 ---
 
 Three security headers are on every response before you configure anything:

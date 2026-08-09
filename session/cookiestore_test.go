@@ -125,6 +125,28 @@ func TestCookieStoreCarriesASessionWithoutABackend(t *testing.T) {
 	}
 }
 
+// tamperLastByte changes the final character of a sealed cookie value, and
+// picks the replacement against the byte it is replacing.
+//
+// The obvious spelling — overwrite the last character with a fixed one — is a
+// no-op whenever the value already ends in that character. A sealed record is
+// base64 raw URL, so that is one run in sixty-four: the record stays valid, the
+// session resolves normally, no cookie is cleared, and the assertion reports
+// that a tampered record was accepted when nothing had been tampered with. It
+// is worse than a rare flake, because the odds depend on the payload: a sealed
+// length one byte past a multiple of three leaves the final character encoding
+// two bits, and the same line then passes only three runs in four.
+//
+// Both characters here are in the alphabet, so the value stays well formed and
+// the test still exercises seal verification rather than a decode error.
+func tamperLastByte(value string) string {
+	replacement := byte('A')
+	if value[len(value)-1] == replacement {
+		replacement = 'B'
+	}
+	return value[:len(value)-1] + string(replacement)
+}
+
 func TestCookieStoreDefersRecordDecodeUntilSessionAccess(t *testing.T) {
 	c := &clock{now: time.Unix(1_700_000_000, 0)}
 	manager := cookieManager(t, testKeyring(t, 1), c.Now)
@@ -132,7 +154,7 @@ func TestCookieStoreDefersRecordDecodeUntilSessionAccess(t *testing.T) {
 
 	tampered := client.copy()
 	record := *tampered.cookies[DefaultDataCookieName]
-	record.Value = record.Value[:len(record.Value)-1] + "A"
+	record.Value = tamperLastByte(record.Value)
 	tampered.cookies[DefaultDataCookieName] = &record
 
 	untouched := run(manager, tampered.list(), func(http.ResponseWriter, *http.Request) {})
