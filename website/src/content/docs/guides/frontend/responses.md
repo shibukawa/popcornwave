@@ -143,18 +143,18 @@ document, so a JSON endpoint is described without a separate annotation pass.
 ## Streams
 
 A response that arrives over time — tokens, log lines, queue events — is written
-with `pw.NewStream[T]` instead:
+with `pw.WriteStream[T]` instead:
 
 ```go
 func events(w http.ResponseWriter, r *http.Request) {
-	stream := pw.NewStream[ChatEvent](w, r)
-	defer stream.Close()
-
-	for event := range source {
-		if err := stream.Send(event); err != nil {
-			return
+	pw.WriteStream(w, r, func(stream *pw.Stream[ChatEvent]) error {
+		for event := range source {
+			if err := stream.Write(event); err != nil {
+				return err
+			}
 		}
-	}
+		return nil
+	})
 }
 ```
 

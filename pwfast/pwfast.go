@@ -71,6 +71,10 @@ func RegisterHTMLErrorPage(resolve pwruntime.HTMLErrorPage) {
 	pwruntime.RegisterHTMLErrorPage(resolve)
 }
 
+// Stream is the module's own typed event stream, the same declaration pw
+// aliases, so the value a callback receives is one type across the pair.
+type Stream[T any] = fasthttpbind.Stream[T]
+
 // Parse binds the request into the generated input type.
 func Parse[T any](r *fasthttp.RequestCtx) (T, error) { return fasthttpbind.Bind[T](r) }
 
@@ -156,7 +160,7 @@ func WriteProblem(r *fasthttp.RequestCtx, err error) {
 // stream the handler held would have nothing to write into. The callback
 // returning is the close, and an error from it is post-commit and reaches the
 // installed stream error handler.
-func WriteStream[T any](r *fasthttp.RequestCtx, fn func(*fasthttpbind.Stream[T]) error) {
+func WriteStream[T any](r *fasthttp.RequestCtx, fn func(*Stream[T]) error) {
 	fasthttpbind.WriteStream(r, fn)
 }
 

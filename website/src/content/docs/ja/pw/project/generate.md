@@ -79,7 +79,7 @@ Go のソースは報告しません。普通の Go コードはプロジェク�
 | --- | --- |
 | `pw.Parse[T]` | `T` のリクエストバインディング |
 | `pw.WriteAPI[T]` | `T` の JSON エンコーディング |
-| `pw.NewStream[T]` | `T` のストリームエンコーディング |
+| `pw.WriteStream[T]` | `T` のストリームエンコーディング |
 | `pw.RegisterConfig[T]` | `T` の設定バインディング |
 | `pw.RegisterSubCommand[T]` | `T` のサブコマンドのパース |
 | `pw.BadRequest` などのエラーコンストラクタ | ドキュメント化されるエラーレスポンス |

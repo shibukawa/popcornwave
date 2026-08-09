@@ -7,8 +7,16 @@ pw.Stream negotiates a typed event stream and runs the caller's send loop inside
 
 ```yaml
 surface:
-  - Stream[T](w, r, func(*StreamWriter[T]) error) error
-  - StreamWriter.Send(T) error, which writes one value and flushes it
+  - WriteStream[T](w, r, func(*Stream[T]) error)
+  - Stream.Write(T) error, which writes one value and flushes it
+  - SetStreamErrorHandler(func(error)), shared with the other runtime
+as_built_2026_08_09:
+  net_http: pw.WriteStream, with NewStream and the Stream wrapper removed rather than deprecated
+  fasthttp: pwfast.WriteStream, the same name and the same callback
+  one_type: pw.Stream and pwfast.Stream both alias the module's Stream, so the callback parameter is one type and a handler body is the same text on both
+  send_became_write: the wrapper renamed the module's Write to Send, and keeping that would have made the two bodies differ by a method name the rewrite table does not cover, which is the appearance of a shared shape without the substance
+  discovery: generation registers the new entry, and the module recognizes both names, so a call site is found either way
+  docs: the website teaches the callback form in both locales, and the always-close pitfall is gone because the runtime closes
 representations:
   - text/event-stream
   - application/x-ndjson

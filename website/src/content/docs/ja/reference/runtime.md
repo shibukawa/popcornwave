@@ -97,8 +97,9 @@ sidebar:
 | `WriteAPI[T](w, r, value)` | ネゴシエートした形式で型付きレスポンスを書く |
 | `WriteProblem(w, r, err)` | エラーを RFC の problem レスポンスへ写す |
 | `LifecycleHeaders(Lifecycle) (Middleware, error)` | RFC 9745 DeprecationとRFC 8594 Sunsetのミドルウェア |
-| `NewStream[T](w, r) *Stream[T]` | `Accept` から SSE、NDJSON、JSON 配列のいずれかを選び、ストリーミングを開始する |
-| `Stream.Send(value)`, `Stream.Close()` | 値を1つ書く。レスポンスを完結させる |
+| `WriteStream[T](w, r, fn)` | `Accept` から SSE、NDJSON、JSON 配列のいずれかを選び、`fn` をストリームに対して実行する |
+| `Stream.Write(value)` | 値を1つ書いて flush する。`fn` が戻るとランタイムが閉じる |
+| `SetStreamErrorHandler(fn)` | ステータス送信後に起きたストリームの失敗を受け取る |
 | `RegisterHTMLDocument(wrapper)` | アプリケーションのドキュメントシェルを差し込む（**generated**） |
 | `RegisterHTMLErrorPage(resolve)` | エラーページのリゾルバを差し込む。未登録なら最小限の組み込みページ |
 | `RuntimeScriptURL() string` | 境界ランタイムモジュールの絶対パス |

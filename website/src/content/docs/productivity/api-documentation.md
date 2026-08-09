@@ -111,7 +111,7 @@ Responses come from what the handler actually calls:
 | --- | --- |
 | `pw.WriteAPI` | `200` with the response schema |
 | `pw.WriteStatus` | one response per static status it is called with |
-| `pw.NewStream[T]` | `text/event-stream`, `application/x-ndjson`, and `application/json` |
+| `pw.WriteStream[T]` | `text/event-stream`, `application/x-ndjson`, and `application/json` |
 | `pw.BadRequest`, `NotFound`, `Conflict`, … | that status, as `application/problem+json` |
 | any `check` rule on the request | `400`, even without an explicit error call |
 

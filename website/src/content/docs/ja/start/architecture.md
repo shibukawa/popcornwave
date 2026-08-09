@@ -99,7 +99,7 @@ HTTP ハンドラが 1 つのリクエストをバインドし、アプリケー
 | `*.pw.html` | 型付きコンポーネント関数とパラメータ構造体 |
 | `*.pw.sql` | context を取る型付きクエリ関数 |
 | `pw.Parse[T]` の呼び出し箇所 | `T` のリクエストバインディング |
-| `pw.WriteAPI[T]` / `pw.NewStream[T]` の呼び出し箇所 | `T` のレスポンスエンコーディング |
+| `pw.WriteAPI[T]` / `pw.WriteStream[T]` の呼び出し箇所 | `T` のレスポンスエンコーディング |
 | `pw.RegisterConfig[T]` の呼び出し箇所 | `T` の設定バインディング |
 | 上記すべて | OpenAPI 3.1 フラグメント |
 

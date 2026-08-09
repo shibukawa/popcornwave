@@ -53,7 +53,7 @@ func Options(sqlDialect string) (generator.Options, error) {
 			generator.Argument("status", 2),
 		),
 		generator.StreamCreateCall(
-			generator.Function(pwPackage, "NewStream"),
+			generator.Function(pwPackage, "WriteStream"),
 			generator.GenericType("stream", 0),
 		),
 		generator.ConfigBindCall(

@@ -101,7 +101,7 @@ shorter than the machinery behind it:
 | `*.pw.html` | typed component functions and parameter structs |
 | `*.pw.sql` | typed, context-taking query functions |
 | `pw.Parse[T]` call sites | request binding for `T` |
-| `pw.WriteAPI[T]` / `pw.NewStream[T]` call sites | response encoding for `T` |
+| `pw.WriteAPI[T]` / `pw.WriteStream[T]` call sites | response encoding for `T` |
 | `pw.RegisterConfig[T]` call sites | configuration binding for `T` |
 | all of the above | an OpenAPI 3.1 fragment |
 

@@ -99,8 +99,9 @@ is.
 | `WriteAPI[T](w, r, value)` | Writes a typed response in the negotiated format |
 | `WriteProblem(w, r, err)` | Maps an error to an RFC problem response |
 | `LifecycleHeaders(Lifecycle) (Middleware, error)` | RFC 9745 Deprecation and RFC 8594 Sunset middleware |
-| `NewStream[T](w, r) *Stream[T]` | Opens a streamed response, negotiating SSE, NDJSON, or a JSON array from `Accept` |
-| `Stream.Send(value)`, `Stream.Close()` | Writes one value; finalizes the response |
+| `WriteStream[T](w, r, fn)` | Opens a streamed response, negotiating SSE, NDJSON, or a JSON array from `Accept`, and runs `fn` against it |
+| `Stream.Write(value)` | Writes and flushes one value; the runtime closes the stream when `fn` returns |
+| `SetStreamErrorHandler(fn)` | Receives a stream failure raised after the status was sent |
 | `RegisterHTMLDocument(wrapper)` | Installs the application document shell (**generated**) |
 | `RegisterHTMLErrorPage(resolve)` | Installs the error page resolver; without one, a minimal built-in page is used |
 | `RuntimeScriptURL() string` | The absolute path of the boundary runtime module |
