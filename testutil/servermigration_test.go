@@ -8,6 +8,8 @@ import (
 	"time"
 
 	"github.com/shibukawa/popcornwave/pw"
+	"github.com/shibukawa/popcornwave/pwruntime"
+	"github.com/shibukawa/tinybind-go/sqlbind"
 )
 
 // A server database is reachable by DSN, so WithMigrations applies its
@@ -28,14 +30,29 @@ func TestRunMigratesAServerDatabase(t *testing.T) {
 			if dsn == "" {
 				t.Skipf("set %s to run this engine", engine.env)
 			}
+			// The read goes through the request executor rather than pw.DB,
+			// which reports no pool on PostgreSQL: requests there run on a
+			// native pgx pool with no *sql.DB behind it. sqlbind.Query is the
+			// dispatch that serves both kinds of connection, so one handler
+			// covers every engine this test loops over.
 			handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				var count int
-				db, ok := pw.DB(r.Context())
-				if !ok {
-					http.Error(w, "no pool", http.StatusInternalServerError)
+				executor, err := pwruntime.SQLExecutor(r.Context())
+				if err != nil {
+					http.Error(w, err.Error(), http.StatusInternalServerError)
 					return
 				}
-				if err := db.QueryRowContext(r.Context(), "SELECT COUNT(*) FROM notes").Scan(&count); err != nil {
+				rows, err := sqlbind.Query(r.Context(), executor, "SELECT COUNT(*) FROM notes")
+				if err != nil {
+					http.Error(w, err.Error(), http.StatusInternalServerError)
+					return
+				}
+				defer func() { _ = rows.Close() }()
+				var count int
+				if !rows.Next() {
+					http.Error(w, "no count row", http.StatusInternalServerError)
+					return
+				}
+				if err := rows.Scan(&count); err != nil {
 					http.Error(w, err.Error(), http.StatusInternalServerError)
 					return
 				}
