@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/shibukawa/popcornwave/pwruntime"
 	"github.com/shibukawa/tinybind-go/fasthttpbind"
 	"github.com/shibukawa/tinybind-go/htmlbind"
 	"github.com/shibukawa/tinygodriver/fasthttp"
@@ -139,4 +140,64 @@ func TestWriteAPIWritesTheTypedValue(t *testing.T) {
 	if body != `{"name":"popcorn"}` {
 		t.Errorf("body = %q", body)
 	}
+}
+
+// The document shell is registered once, and both runtimes must find the same
+// registration: generated init calls whichever package it imports, so two
+// registries would leave one build rendering pages with nothing around them.
+func TestTheDocumentShellRegisteredThroughEitherRuntimeIsOneRegistration(t *testing.T) {
+	shell := documentWrapper(`<!doctype html><body>`, `</body>`)
+	previous := pwruntime.SwapHTMLDocument([]HTMLWrapper{shell})
+	t.Cleanup(func() { pwruntime.SwapHTMLDocument(previous) })
+
+	_, _, body := serve(t, func(r *fasthttp.RequestCtx) {
+		WriteHTML(r, staticFragment(`<main>hello</main>`))
+	}, "/")
+	if body != `<!doctype html><body><main>hello</main></body>` {
+		t.Errorf("WriteHTML did not render inside the registered shell: %q", body)
+	}
+}
+
+// WriteHTMLPage puts the document outermost and the caller's layouts inside it,
+// which is what generated page tree code depends on.
+func TestWriteHTMLPageKeepsTheDocumentOutermost(t *testing.T) {
+	previous := pwruntime.SwapHTMLDocument([]HTMLWrapper{documentWrapper(`<doc>`, `</doc>`)})
+	t.Cleanup(func() { pwruntime.SwapHTMLDocument(previous) })
+
+	_, _, body := serve(t, func(r *fasthttp.RequestCtx) {
+		WriteHTMLPage(r, []HTMLWrapper{documentWrapper(`<layout>`, `</layout>`)}, staticFragment(`<p>leaf</p>`))
+	}, "/")
+	if body != `<doc><layout><p>leaf</p></layout></doc>` {
+		t.Errorf("wrapper order is wrong: %q", body)
+	}
+}
+
+// The problem value is one type across the two runtimes. An earlier draft
+// aliased the module's two-field body under this name, and a handler building
+// one with a status would not have compiled.
+func TestTheProblemValueIsTheOneBothRuntimesShare(t *testing.T) {
+	var shared pwruntime.Problem = NotFound("missing")
+	if shared.Status != 404 || shared.Title != "Not Found" {
+		t.Errorf("constructor did not build the application-facing problem: %+v", shared)
+	}
+	// Assigning in both directions is what proves it is an alias rather than a
+	// second struct that happens to have the same fields.
+	var back Problem = shared
+	if back.Message != "missing" {
+		t.Errorf("problem did not round trip: %+v", back)
+	}
+}
+
+// documentWrapper builds a shell that renders its children between two strings.
+func documentWrapper(open, close string) HTMLWrapper {
+	type params struct{ Children HTMLFragment }
+	builder := htmlbind.Builder[params]{}
+	plan := &htmlbind.Plan[params]{Ops: []htmlbind.Op[params]{
+		builder.Static(open),
+		builder.Slot(func(p params) htmlbind.Fragment { return p.Children }, nil),
+		builder.Static(close),
+	}}
+	return htmlbind.BindWrapper(plan, params{}, func(p *params, children htmlbind.Fragment) {
+		p.Children = children
+	})
 }

@@ -1,6 +1,7 @@
 package pwfast
 
 import (
+	"github.com/shibukawa/popcornwave/pwruntime"
 	"github.com/shibukawa/tinybind-go/fasthttpbind"
 	"github.com/shibukawa/tinybind-go/htmlbind"
 	"github.com/shibukawa/tinygodriver/fasthttp"
@@ -16,15 +17,49 @@ type (
 	HTMLOption   = htmlbind.Option
 )
 
-// The error types are the module's shared leaf, aliased rather than
-// redeclared. Two definitions that agree today are two chances to disagree
-// later, and the failure is silent: an errors.As that stops matching, a problem
-// that no longer unwraps.
+// The application-facing problem is pwruntime's, the same declaration pw
+// aliases, so a problem built on one side is the value the other inspects and
+// unwraps. An earlier draft aliased the module's two-field problem body under
+// this name, which made one name mean two types.
+//
+// HTTPError stays the module's, because it is the module's own error and both
+// of its runtimes already alias one declaration of it.
 type (
-	Problem    = fasthttpbind.Problem
-	FieldError = fasthttpbind.FieldError
+	Problem    = pwruntime.Problem
+	FieldError = pwruntime.FieldError
 	HTTPError  = fasthttpbind.HTTPError
 )
+
+// The problem constructors are pwruntime's too, so a rewritten call finds the
+// same names building the same value.
+func Field(field, location, message string) FieldError {
+	return pwruntime.Field(field, location, message)
+}
+
+func BadRequest(values ...any) Problem      { return pwruntime.BadRequest(values...) }
+func Unauthorized(values ...any) Problem    { return pwruntime.Unauthorized(values...) }
+func Forbidden(values ...any) Problem       { return pwruntime.Forbidden(values...) }
+func NotFound(values ...any) Problem        { return pwruntime.NotFound(values...) }
+func Conflict(values ...any) Problem        { return pwruntime.Conflict(values...) }
+func PayloadTooLarge(values ...any) Problem { return pwruntime.PayloadTooLarge(values...) }
+func ServiceUnavailable(values ...any) Problem {
+	return pwruntime.ServiceUnavailable(values...)
+}
+func InternalServerError(values ...any) Problem {
+	return pwruntime.InternalServerError(values...)
+}
+
+// Validation reports a 400 response carrying every detected field failure.
+func Validation(fields ...FieldError) Problem { return pwruntime.Validation(fields...) }
+
+// RegisterHTMLDocument and RegisterHTMLErrorPage reach the same state pw's do,
+// which is the whole reason that state is in pwruntime: generated registration
+// calls whichever package it imports, and both must find one registry.
+func RegisterHTMLDocument(wrapper HTMLWrapper) { pwruntime.RegisterHTMLDocument(wrapper) }
+
+func RegisterHTMLErrorPage(resolve pwruntime.HTMLErrorPage) {
+	pwruntime.RegisterHTMLErrorPage(resolve)
+}
 
 // Parse binds the request into the generated input type.
 func Parse[T any](r *fasthttp.RequestCtx) (T, error) { return fasthttpbind.Bind[T](r) }

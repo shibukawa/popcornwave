@@ -6,35 +6,26 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
-	"sync"
 
+	"github.com/shibukawa/popcornwave/pwruntime"
 	"github.com/shibukawa/tinybind-go/htmlbind"
 )
 
 // HTMLErrorPage resolves the fragment shown in place of a page whose rendering
 // failed. It receives the mapped problem rather than the original error, so a
 // template can never render a cause the server meant to keep.
-type HTMLErrorPage func(Problem) HTMLFragment
-
-var errorPageState = struct {
-	sync.RWMutex
-	resolve HTMLErrorPage
-}{}
+//
+// It is declared in pwruntime for the reason the document shell is: generated
+// registration reaches whichever runtime it imports, and the resolver names no
+// transport, so one registration serves both.
+type HTMLErrorPage = pwruntime.HTMLErrorPage
 
 // RegisterHTMLErrorPage installs the application's error page resolver. It is
 // intended for generated templates code and for an application that wants its
 // own presentation; without one, a minimal built-in page is used.
-func RegisterHTMLErrorPage(resolve HTMLErrorPage) {
-	errorPageState.Lock()
-	defer errorPageState.Unlock()
-	errorPageState.resolve = resolve
-}
+func RegisterHTMLErrorPage(resolve HTMLErrorPage) { pwruntime.RegisterHTMLErrorPage(resolve) }
 
-func registeredHTMLErrorPage() HTMLErrorPage {
-	errorPageState.RLock()
-	defer errorPageState.RUnlock()
-	return errorPageState.resolve
-}
+func registeredHTMLErrorPage() HTMLErrorPage { return pwruntime.RegisteredHTMLErrorPage() }
 
 // writeDocumentEscalation replaces everything below the document shell with an
 // error page.

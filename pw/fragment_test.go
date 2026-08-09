@@ -105,11 +105,7 @@ func TestWriteHTMLFragmentSettlesBoundariesInPlace(t *testing.T) {
 // be the truth, and a swap library reads that status instead of inserting a body.
 func TestWriteHTMLFragmentAnswersUnrecoveredBoundaryWithAProblem(t *testing.T) {
 	previous := registeredHTMLErrorPage()
-	t.Cleanup(func() {
-		errorPageState.Lock()
-		defer errorPageState.Unlock()
-		errorPageState.resolve = previous
-	})
+	t.Cleanup(func() { RegisterHTMLErrorPage(previous) })
 	builder := htmlbind.Builder[Problem]{}
 	RegisterHTMLErrorPage(func(p Problem) HTMLFragment {
 		return htmlbind.Bind(&htmlbind.Plan[Problem]{Ops: []htmlbind.Op[Problem]{

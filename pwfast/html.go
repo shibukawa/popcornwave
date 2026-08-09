@@ -1,6 +1,7 @@
 package pwfast
 
 import (
+	"github.com/shibukawa/popcornwave/pwruntime"
 	"github.com/shibukawa/tinybind-go/htmlbind"
 	"github.com/shibukawa/tinygodriver/fasthttp"
 )
@@ -10,6 +11,20 @@ import (
 // entries render HTML by definition; what varies between them is the shell,
 // not the media type.
 const htmlContentType = "text/html; charset=utf-8"
+
+// WriteHTML renders one generated fragment inside the registered document
+// shell, which is the entry an ordinary handler calls.
+func WriteHTML(r *fasthttp.RequestCtx, leaf HTMLFragment) {
+	WriteHTMLChain(r, pwruntime.RegisteredHTMLDocument(), leaf)
+}
+
+// WriteHTMLPage renders a page inside its own wrapper chain and the registered
+// document shell, with the document outermost. It is what generated page tree
+// code calls: that code knows the ancestor layouts of a route and must not name
+// the document, which stays the framework's.
+func WriteHTMLPage(r *fasthttp.RequestCtx, wrappers []HTMLWrapper, leaf HTMLFragment, options ...HTMLOption) {
+	WriteHTMLChain(r, append(pwruntime.RegisteredHTMLDocument(), wrappers...), leaf, options...)
+}
 
 // WriteHTMLChain renders generated wrappers around one leaf.
 //

@@ -225,6 +225,7 @@
 {"category": "constraint", "id": "decision:server-sql-support-tier", "path": ".knowledge/decision/server-sql-support-tier.md", "role": "supporting", "title": "Server SQL Support Tier", "type": "decision"}
 {"category": "constraint", "id": "decision:session-lifetime-owned-by-auth", "path": ".knowledge/decision/session-lifetime-owned-by-auth.md", "role": "supporting", "title": "Session Lifetime Owned by Authentication", "type": "decision"}
 {"category": "constraint", "id": "decision:shared-check-catalog", "path": ".knowledge/decision/shared-check-catalog.md", "role": "supporting", "title": "Shared Check Catalog", "type": "decision"}
+{"category": "constraint", "id": "decision:shared-runtime-leaf", "path": ".knowledge/decision/shared-runtime-leaf.md", "role": "supporting", "title": "The Transport-Free Half Of pw Moves To pwruntime", "type": "decision"}
 {"category": "constraint", "id": "decision:slog-handler-log-backend", "path": ".knowledge/decision/slog-handler-log-backend.md", "role": "supporting", "title": "slog Handler as the Log Encoder", "type": "decision"}
 {"category": "constraint", "id": "decision:slot-declared-placement", "path": ".knowledge/decision/slot-declared-placement.md", "role": "supporting", "title": "Slot-Declared Placement and Anonymous Promotion", "type": "decision"}
 {"category": "constraint", "id": "decision:slot-lifetime-axis", "path": ".knowledge/decision/slot-lifetime-axis.md", "role": "supporting", "title": "Slot Lifetime as an Independent Axis", "type": "decision"}
@@ -285,6 +286,7 @@
 {"category": "behavior", "id": "flow:telemetry-export", "path": ".knowledge/flow/telemetry-export.md", "role": "primary", "title": "Telemetry Export Flow", "type": "flow"}
 {"category": "behavior", "id": "flow:template-generation", "path": ".knowledge/flow/template-generation.md", "role": "primary", "title": "HTML Template Generation Flow", "type": "flow"}
 {"category": "behavior", "id": "flow:test-transaction-isolation", "path": ".knowledge/flow/test-transaction-isolation.md", "role": "primary", "title": "Test Transaction Isolation", "type": "flow"}
+{"category": "constraint", "id": "policy:absent-rather-than-stubbed", "path": ".knowledge/policy/absent-rather-than-stubbed.md", "role": "supporting", "title": "A Gap Is An Absent Declaration, Not A Stub", "type": "policy"}
 {"category": "constraint", "id": "policy:access-token-verification", "path": ".knowledge/policy/access-token-verification.md", "role": "supporting", "title": "Access Token Verification Policy", "type": "policy"}
 {"category": "constraint", "id": "policy:account-linking", "path": ".knowledge/policy/account-linking.md", "role": "supporting", "title": "Account Linking Policy", "type": "policy"}
 {"category": "constraint", "id": "policy:account-recovery", "path": ".knowledge/policy/account-recovery.md", "role": "supporting", "title": "Account Recovery Policy", "type": "policy"}
@@ -458,6 +460,7 @@
 {"category": "objective", "id": "requirement:public-asset-delivery", "path": ".knowledge/requirement/public-asset-delivery.md", "role": "primary", "title": "Public Asset Delivery", "type": "requirement"}
 {"category": "objective", "id": "requirement:pw-call-registration", "path": ".knowledge/requirement/pw-call-registration.md", "role": "primary", "title": "Every pw Call Taking The Transport Is Registered", "type": "requirement"}
 {"category": "objective", "id": "requirement:pw-language-server", "path": ".knowledge/requirement/pw-language-server.md", "role": "primary", "title": "Popcorn Wave Language Server", "type": "requirement"}
+{"category": "objective", "id": "requirement:pwfast-update-surface", "path": ".knowledge/requirement/pwfast-update-surface.md", "role": "primary", "title": "The Update Surface On The Second Backend", "type": "requirement"}
 {"category": "objective", "id": "requirement:query-diagnostics", "path": ".knowledge/requirement/query-diagnostics.md", "role": "primary", "title": "Database Query Diagnostics", "type": "requirement"}
 {"category": "objective", "id": "requirement:query-navigation-interception", "path": ".knowledge/requirement/query-navigation-interception.md", "role": "primary", "title": "Query Navigation Interception", "type": "requirement"}
 {"category": "objective", "id": "requirement:read-write-splitting", "path": ".knowledge/requirement/read-write-splitting.md", "role": "primary", "title": "Read-Write Split Connections", "type": "requirement"}

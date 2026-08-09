@@ -619,7 +619,9 @@
 {"context": "body", "path": ".knowledge/api/public-asset-middleware.md", "source": "api:public-asset-middleware", "target": "policy:authenticated-path-protection", "target_category": "constraint", "target_type": "policy"}
 {"context": "body", "path": ".knowledge/api/pwfast-package.md", "source": "api:pwfast-package", "target": "decision:transport-source-transform", "target_category": "constraint", "target_type": "decision"}
 {"context": "body", "path": ".knowledge/api/pwfast-package.md", "source": "api:pwfast-package", "target": "requirement:pw-call-registration", "target_category": "objective", "target_type": "requirement"}
-{"context": "body", "path": ".knowledge/api/pwfast-package.md", "source": "api:pwfast-package", "target": "decision:transport-compatibility-fallback", "target_category": "constraint", "target_type": "decision"}
+{"context": "body", "path": ".knowledge/api/pwfast-package.md", "source": "api:pwfast-package", "target": "decision:shared-runtime-leaf", "target_category": "constraint", "target_type": "decision"}
+{"context": "body", "path": ".knowledge/api/pwfast-package.md", "source": "api:pwfast-package", "target": "requirement:pwfast-update-surface", "target_category": "objective", "target_type": "requirement"}
+{"context": "body", "path": ".knowledge/api/pwfast-package.md", "source": "api:pwfast-package", "target": "policy:absent-rather-than-stubbed", "target_category": "constraint", "target_type": "policy"}
 {"context": "body", "path": ".knowledge/api/pwfast-package.md", "source": "api:pwfast-package", "target": "api:redirect-response", "target_category": "interface", "target_type": "api"}
 {"context": "body", "path": ".knowledge/api/rdb-middleware.md", "source": "api:rdb-middleware", "target": "data:database-connection-set", "target_category": "structure", "target_type": "data"}
 {"context": "body", "path": ".knowledge/api/rdb-middleware.md", "source": "api:rdb-middleware", "target": "data:request-context-capsule", "target_category": "structure", "target_type": "data"}
@@ -2229,6 +2231,8 @@
 {"context": "body", "path": ".knowledge/decision/shared-check-catalog.md", "source": "decision:shared-check-catalog", "target": "rule:transport-handle-checks", "target_category": "constraint", "target_type": "rule"}
 {"context": "body", "path": ".knowledge/decision/shared-check-catalog.md", "source": "decision:shared-check-catalog", "target": "data:route-table", "target_category": "structure", "target_type": "data"}
 {"context": "body", "path": ".knowledge/decision/shared-check-catalog.md", "source": "decision:shared-check-catalog", "target": "decision:host-side-diagnostic-analysis", "target_category": "constraint", "target_type": "decision"}
+{"context": "body", "path": ".knowledge/decision/shared-runtime-leaf.md", "source": "decision:shared-runtime-leaf", "target": "api:pwfast-package", "target_category": "interface", "target_type": "api"}
+{"context": "body", "path": ".knowledge/decision/shared-runtime-leaf.md", "source": "decision:shared-runtime-leaf", "target": "concept:public-package-boundaries", "target_category": "concept", "target_type": "concept"}
 {"context": "body", "path": ".knowledge/decision/slog-handler-log-backend.md", "source": "decision:slog-handler-log-backend", "target": "api:logger", "target_category": "interface", "target_type": "api"}
 {"context": "body", "path": ".knowledge/decision/slog-handler-log-backend.md", "source": "decision:slog-handler-log-backend", "target": "requirement:contrib-otel", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/decision/slog-handler-log-backend.md", "source": "decision:slog-handler-log-backend", "target": "decision:tinygo-042-baseline", "target_category": "constraint", "target_type": "decision"}
@@ -2687,6 +2691,8 @@
 {"context": "body", "path": ".knowledge/flow/test-transaction-isolation.md", "source": "flow:test-transaction-isolation", "target": "api:transaction-runner", "target_category": "interface", "target_type": "api"}
 {"context": "body", "path": ".knowledge/flow/test-transaction-isolation.md", "source": "flow:test-transaction-isolation", "target": "decision:explicit-transaction-boundary", "target_category": "constraint", "target_type": "decision"}
 {"context": "body", "path": ".knowledge/flow/test-transaction-isolation.md", "source": "flow:test-transaction-isolation", "target": "rule:savepoint-dialect-support", "target_category": "constraint", "target_type": "rule"}
+{"context": "body", "path": ".knowledge/policy/absent-rather-than-stubbed.md", "source": "policy:absent-rather-than-stubbed", "target": "api:pwfast-package", "target_category": "interface", "target_type": "api"}
+{"context": "body", "path": ".knowledge/policy/absent-rather-than-stubbed.md", "source": "policy:absent-rather-than-stubbed", "target": "decision:transport-compatibility-fallback", "target_category": "constraint", "target_type": "decision"}
 {"context": "body", "path": ".knowledge/policy/access-token-verification.md", "source": "policy:access-token-verification", "target": "policy:jwt-security", "target_category": "constraint", "target_type": "policy"}
 {"context": "body", "path": ".knowledge/policy/access-token-verification.md", "source": "policy:access-token-verification", "target": "requirement:contrib-jwt", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/policy/access-token-verification.md", "source": "policy:access-token-verification", "target": "policy:authenticated-path-protection", "target_category": "constraint", "target_type": "policy"}
@@ -4507,6 +4513,10 @@
 {"context": "body", "path": ".knowledge/requirement/pw-language-server.md", "source": "requirement:pw-language-server", "target": "requirement:editor-navigation", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/requirement/pw-language-server.md", "source": "requirement:pw-language-server", "target": "requirement:editor-completion", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/requirement/pw-language-server.md", "source": "requirement:pw-language-server", "target": "policy:editor-tool-execution", "target_category": "constraint", "target_type": "policy"}
+{"context": "body", "path": ".knowledge/requirement/pwfast-update-surface.md", "source": "requirement:pwfast-update-surface", "target": "api:pwfast-package", "target_category": "interface", "target_type": "api"}
+{"context": "body", "path": ".knowledge/requirement/pwfast-update-surface.md", "source": "requirement:pwfast-update-surface", "target": "policy:absent-rather-than-stubbed", "target_category": "constraint", "target_type": "policy"}
+{"context": "body", "path": ".knowledge/requirement/pwfast-update-surface.md", "source": "requirement:pwfast-update-surface", "target": "requirement:action-response-update", "target_category": "objective", "target_type": "requirement"}
+{"context": "body", "path": ".knowledge/requirement/pwfast-update-surface.md", "source": "requirement:pwfast-update-surface", "target": "decision:live-delivery-transport", "target_category": "constraint", "target_type": "decision"}
 {"context": "body", "path": ".knowledge/requirement/query-diagnostics.md", "source": "requirement:query-diagnostics", "target": "actor:application-developer", "target_category": "behavior", "target_type": "actor"}
 {"context": "body", "path": ".knowledge/requirement/query-diagnostics.md", "source": "requirement:query-diagnostics", "target": "data:framework-span-set", "target_category": "structure", "target_type": "data"}
 {"context": "body", "path": ".knowledge/requirement/query-diagnostics.md", "source": "requirement:query-diagnostics", "target": "data:query-diagnostics-config", "target_category": "structure", "target_type": "data"}

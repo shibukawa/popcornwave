@@ -193,11 +193,7 @@ func renderScopedGreeting(t *testing.T, subject, body string) string {
 // signed-in reader's name is the ordinary case rather than an unusual one.
 func TestTheHTMLErrorPageCarriesTheChainsPolicy(t *testing.T) {
 	previous := registeredHTMLErrorPage()
-	t.Cleanup(func() {
-		errorPageState.Lock()
-		defer errorPageState.Unlock()
-		errorPageState.resolve = previous
-	})
+	t.Cleanup(func() { RegisterHTMLErrorPage(previous) })
 	RegisterHTMLErrorPage(func(p Problem) HTMLFragment {
 		return staticFragment(`<main>sorry</main>`)
 	})
