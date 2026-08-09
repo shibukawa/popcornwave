@@ -310,7 +310,7 @@ v0_4_7_the_module_stopped_writing_responses:
     what: the redraw response encodes its markup field unconditionally, so an operation that chose the address form arrives with an empty string next to the address
     effect: a client reading markup first replaces the region with nothing, reports the update applied, and emits its redrawn event; the row leaves the page with no error, no failed request, and nothing in the response that looks wrong
     fixed_here: the address wins where both are present, which is also right on its own terms — an empty string is a legitimate rendering, so it cannot be told from an absent field, and the address is the unambiguous half
-    same_family: a rule applied on one path and not its sibling, like the children dispatch and valuesAreSmaller before it
+    not_raised_upstream: deciding which half of an operation is authoritative is wire-format work this side owns, so the client rule is the fix rather than the interim workaround; the omitempty asymmetry between the streamed and buffered encodings is left alone deliberately
   the_hole_element_cannot_survive_a_table:
     what: the placeholder a decomposed fragment leaves is an unknown element, and an unknown element inside a table is foster-parented — the parser lifts it out of the tbody and inserts it before the table
     effect: every hole a table's rows leave sits outside the table, the rows filling them land loose on the page, and the list is left empty; the response is correct and the resulting DOM is valid, so nothing reports it
