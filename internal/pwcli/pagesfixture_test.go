@@ -1,8 +1,10 @@
 package pwcli
 
 import (
+	"bytes"
 	"context"
 	"flag"
+	"path"
 	"path/filepath"
 	"testing"
 
@@ -84,11 +86,57 @@ func planFixture(t *testing.T, root string, config projectConfig) ([]fileChange,
 	var changes []fileChange
 	for _, directory := range directories {
 		planned, err := planDirectory(context.Background(), runner, directory,
-			directoryPurposes(root, config.Generate, directory), pageArtifacts[directory])
+			directoryPurposes(root, config.Generate, directory), pageArtifacts[directory], config.FastHTTP)
 		if err != nil {
 			return nil, err
 		}
 		changes = append(changes, planned...)
 	}
 	return changes, nil
+}
+
+// A project declaring the fasthttp build gets its net/http-bearing generated
+// files constrained out of it, and only those.
+//
+// The page tree fixture is the case that proves the split is per file rather
+// than per kind: its route, registry, action, and page files name net/http, and
+// its compiled layout does not. The committed files carry no constraint, so
+// turning the option on plans exactly the net/http ones — which makes the set of
+// planned changes itself the assertion, and the absence of the layout the other
+// half of it.
+func TestFastHTTPBuildConstrainsOnlyTheGeneratedFilesNamingNetHTTP(t *testing.T) {
+	root, config := fixtureConfig(t)
+	config.FastHTTP = true
+	changes, err := planFixture(t, root, config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(changes) == 0 {
+		t.Fatal("turning the option on planned nothing, so this proves nothing")
+	}
+	planned := map[string]bool{}
+	for _, change := range changes {
+		if change.remove {
+			t.Errorf("%s was planned for removal; the option must not delete anything", change.path)
+			continue
+		}
+		planned[path.Base(filepath.ToSlash(change.path))] = true
+		if !bytes.Contains(change.source, []byte(`"net/http"`)) {
+			t.Errorf("%s does not import net/http yet the option planned a change to it", change.path)
+		}
+		if !bytes.HasPrefix(change.source, []byte(netHTTPConstraint)) {
+			t.Errorf("%s imports net/http and carries no build constraint", change.path)
+		}
+	}
+	// The compiled layout is generated from the same tree in the same run and
+	// names no transport, so a change to it would mean the constraint was
+	// applied to everything generation touches rather than read from the file.
+	if planned["layout_pw_gen.go"] {
+		t.Error("layout_pw_gen.go imports no net/http yet was constrained out of the fasthttp build")
+	}
+	// Nothing above would fail if the emitter stopped producing the route files
+	// altogether, so name one that must be there.
+	if !planned["route_pw_gen.go"] {
+		t.Errorf("expected the route decoder among the constrained files; got %v", planned)
+	}
 }

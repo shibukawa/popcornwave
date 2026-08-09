@@ -6,6 +6,10 @@ title: Transaction API
 pw.Transaction scopes database work through a child context so generated SQL functions automatically use the active transaction, and nests through savepoints.
 
 ```yaml
+shape:
+  direction: policy:request-scoped-accessor-shape gives this a pair, Transaction(r, ...) as the handler entry point and TransactionContext(ctx, ...) for a caller already holding one
+  why_both_are_used_here: a caller that pinned a group with api:database-selection holds a context and wants the transaction on that group, so the Context form is the ordinary one after a pin rather than a fallback
+  unchanged: the callback still receives the child context, so nothing below this surface moves
 surface:
   - Transaction(context.Context, func(context.Context) error) error
 state: data:transaction-scope

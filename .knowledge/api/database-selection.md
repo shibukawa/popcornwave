@@ -6,6 +6,11 @@ title: Database Group Selection
 pw.SelectDB pins one data:database-connection-set group onto a context so generated SQL and api:transaction-runner use that group instead of the default.
 
 ```yaml
+shape:
+  direction: policy:request-scoped-accessor-shape moves the first parameter from a context to the request, and the return stays context.Context
+  form: SelectDB(r, group) context.Context, alongside SelectDBContext(ctx, group) for a caller below the handler
+  unchanged: everything below about effective group, child contexts, transaction scope, and unknown groups, because the pin remains a property of the returned value
+  status: proposed
 surface:
   - SelectDB(context.Context, group string) context.Context
   - DB(context.Context) (*sql.DB, bool) returns the pool of the effective group

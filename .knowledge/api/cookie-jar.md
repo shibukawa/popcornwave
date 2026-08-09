@@ -13,6 +13,10 @@ relation_to_the_registry:
   example: the policy:session-downgrade hint, which exists precisely because the session it describes has ended
   guidance: prefer a registered slot; reach for a direct jar when the cookie has to survive api:session-manager Destroy
 tier_selection: requirement:state-storage-tiers
+replaces_http_setcookie:
+  rule: decision:transport-handle-containment leaves application code no direct http.SetCookie, and this surface is the answer that was already shipped
+  preference: a registered slot first, this jar for a cookie outside the session, per the guidance above
+  shape: Load takes the request and Save takes the writer, so both are already the base form policy:request-scoped-accessor-shape asks for
 surface:
   - session.NewJar[T](Codec[T], JarOptions) returns a jar; a nil codec uses session.JSONCodec[T]
   - Jar[T].Middleware() decodes the cookie once per request and publishes the handle

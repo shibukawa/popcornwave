@@ -15,4 +15,5 @@ reason:
   - system:tinybind public handlers use net/http types
   - WASI HTTP hosts require runtime-specific transport integration
 future_boundary: keep handler business logic separable from listener startup
+kept_by: requirement:alternate-http-backend-readiness, which generalizes this boundary to any non-net/http backend and gives it decision:transport-handle-containment as an enforced form
 ```

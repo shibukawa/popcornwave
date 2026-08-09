@@ -23,6 +23,12 @@ routes:
   unresolved-registration:
     trigger: a data:route-table unresolved entry
     severity: note
+  route-table-diverges-across-backends:
+    trigger: the data:route-table built for one backend build configuration differs from the one built for another
+    severity: error
+    reason: a handler in a file excluded by a build tag takes its registration with it, so the route is absent rather than broken, and nothing else in the toolchain reports a route that quietly stopped existing
+    also_covers: a pattern the decision:transport-source-transform absorption layer cannot express identically, per the api:serve-mux cannot_absorb list, which is a difference in meaning rather than in presence
+    scope: only when a project declares a second backend build; a single-backend project never runs it
     reason: rule:static-route-discovery already makes this incomplete OpenAPI; the report states it as a limit on every other route check
 pages:
   page-without-route:

@@ -67,7 +67,7 @@ acceptance:
   - the report contains no DSN credential, no token, no provider secret, and no expanded ${NAME} value
 non_goals:
   - a --fix option; the diagnosis stays read-only and remedies stay with api:cli-add, api:cli-generate, and api:cli-migrate
-  - linting application Go code, per the scope boundary
+  - linting application Go code, per the scope boundary; rule:transport-handle-checks is the one framework rule about handler source, and it ships as a go vet analyzer for exactly this reason
   - observing a live process; the diagnosis reads the project, and in-process collection is deferred with decision:host-side-diagnostic-analysis
   - replacing startup validation; api:application-lifecycle keeps failing before request acceptance
   - a runtime health surface, which stays with policy:operational-endpoints
