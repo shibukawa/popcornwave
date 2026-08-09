@@ -76,6 +76,56 @@ Template syntax, slots, escaping, and scoped styles are covered in
 surface — dialogs the server fills, toasts, and where a swap stops being the
 cheapest answer — see [Fragments and islands](/guides/interactivity/fragments/).
 
+### Cache policy
+
+Every HTML response says whether a shared cache may hold it, and the answer
+defaults to no:
+
+```
+Cache-Control: private, no-store
+```
+
+The answer comes from the templates rather than from the request, and it has to.
+`Cache-Control` is on the wire before the first body byte, while a per-reader
+component four levels down renders long after that. A signal computed during the
+render would therefore exist only on the buffered branch, and a page's cache
+policy would end up depending on whether streaming happened to be on.
+
+So the chain is asked before anything renders, and a chain where nothing declared
+a scope reports private. That is the answer a login-gated application gets
+without writing a line. Declaring the shared answer takes one annotation on the
+document shell, because a shell wraps everything below it:
+
+```html
+@cache(scope: "public")
+export component Document(children: html?): html { … }
+```
+
+A shared page then receives no `Cache-Control` from the framework at all.
+Freshness is a deployment's decision, and a header naming no lifetime would
+either invite heuristic caching or invent a lifetime nobody asked for, so the
+framework stops asserting rather than asserting something weaker. Set the
+lifetime at your CDN or in a middleware of your own.
+
+On the private side the directive is `no-store` rather than `no-cache`, because a
+document carries no entity tag. There is no conditional request to protect, and
+`no-store` is what keeps a signed-in page off the disk of a shared machine.
+
+The responses that are not documents keep the policy each one's shape requires. A
+navigation delta and a live delivery are `no-store`. A redraw is
+`private, no-cache`, which preserves the conditional request its entity tag
+exists for. A sequence — the static half of a fragment, derived from the template
+rather than from the reader — is `public, max-age=31536000, immutable`.
+
+Know this before putting a CDN in front of a public site: nothing is shared until
+a shell declares it, so a marketing page passes straight through the edge until
+you write the annotation. That is the intended direction rather than an
+oversight. Forgetting the annotation costs a cache miss; the mistake it prevents
+costs a reader somebody else's account page.
+
+[`@cache`](/reference/template-syntax/#cache) covers the annotation itself,
+including what a private scope does to a component's cache key.
+
 ## JSON
 
 ```go

@@ -302,7 +302,7 @@ pw.WriteHTMLChain(w, r,
 押し出す形になっています。
 
 ```html
-@cache(ttl: "1m") component ProductList(rows: Product[]): html { … }
+@cache(ttl: "1m", scope: "public") component ProductList(rows: Product[]): html { … }
 component OrderForm(): html { <form method="post">…</form> }
 export component Page(rows: Product[]): html { <ProductList rows={rows} /><OrderForm /> }
 ```

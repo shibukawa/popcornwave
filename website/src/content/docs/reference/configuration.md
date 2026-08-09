@@ -225,6 +225,11 @@ stale region. `cache.max_entries` bounds what one process holds — the key cove
 every declared parameter, so a component taking an arbitrary string has as many
 entries as it has callers.
 
+Raise that bound once anything is cached at `scope: "private"`. A private key
+carries the reader's identity as well as the parameters, so the entry count
+multiplies by the number of active readers, and a cap chosen when every key was
+shared will evict entries faster than they are reused.
+
 ## `[security]`
 
 | Key | Default | Meaning |
