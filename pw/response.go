@@ -338,14 +338,15 @@ func WriteHTMLChain(w http.ResponseWriter, r *http.Request, wrappers []HTMLWrapp
 		if serveRegisteredRedraw(w, r, config) {
 			return
 		}
-		// Every mode below answers from this URL, and a document does too, so
-		// the Vary is set once for all of them rather than per branch. A cache
-		// that stored one under the URL alone would answer any of the others
-		// with it.
-		varyOnUpdateHeaders(w.Header())
+		// A delta carries its own headers, computed for the mode it turned out
+		// to be and applied before the stream commits.
 		if serveUpdate(w, r, wrappers, leaf, config, options, async, live) {
 			return
 		}
+		// The document answers from the same URL as all three, so it says which
+		// request headers told it apart from them. A cache that stored it under
+		// the URL alone would answer any of them with a page.
+		varyOnUpdateHeaders(w.Header())
 	}
 	if liveModeRequested(r) {
 		// The handler, the layouts, and the binding that produced this chain have
@@ -782,10 +783,10 @@ func renderOptions(ctx context.Context, config HTMLConfig, bot bool, extra []HTM
 	if config.AsyncConcurrency > 0 {
 		options = append(options, htmlbind.WithConcurrencyLimit(config.AsyncConcurrency))
 	}
-	// The store reaches every render path that takes options, which is every one
-	// but a redraw: htmlupdate renders a registered component from its own
-	// entry and takes none, so a redrawn component runs uncached even where the
-	// same component is cached on the page around it.
+	// The store reaches every render path, the redraw included since
+	// system:tinybind v0.4.6 gave that entry options to pass. A component cached
+	// on the page and uncached in the response replacing it would be two renders
+	// of one thing, which is the difference nobody would think to look for.
 	if cache := renderCacheOption(ctx, config.Cache); cache != nil {
 		options = append(options, cache)
 	}

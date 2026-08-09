@@ -1,6 +1,7 @@
 package pw
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -120,7 +121,7 @@ func updateEntry(config HTMLConfig) *updateOptionsEntry {
 			// framework's, so the module serves none and emits no tag of its
 			// own.
 			CallerOwnsRuntime: true,
-			OnFailure:         writeUpdateFailure,
+			OnFailure:         observeUpdateFailure,
 		},
 	}
 	if encoded, err := json.Marshal(entry.options.RuntimeConfig()); err == nil {
@@ -221,29 +222,40 @@ func validateUpdateConfig(config HTMLConfig) error {
 	return updateOptions(config).Validate()
 }
 
-// writeUpdateFailure routes a refused redraw into the framework error path.
+// observeUpdateFailure records a refused update request.
 //
-// The module would otherwise write plain text, which no application error page
-// and no request log would ever see. Version skew is the ordinary case here: a
-// page loaded before a deploy asks for a component whose markup has changed,
-// gets a 404, and reloads. It is recorded rather than treated as a fault.
+// It only observes. Since system:tinybind v0.4.7 every entry returns the refusal
+// it computed rather than writing one, so the response travels back with the
+// answer and this hook exists for the log line — which is otherwise lost, since
+// a status alone cannot say whether a page was stale or a render failed.
+//
+// Version skew is the ordinary case here: a page loaded before a deploy asks for
+// a component whose markup has changed, gets a 404, and reloads. It is recorded
+// rather than treated as a fault.
 //
 // A stale build is no longer one of these. Since system:tinybind v0.3.5 a redraw
 // is answered at the page's own URL, so a request from another build is not
 // refused at all: the caller renders the page it was going to render, which
 // costs a reload instead of a refusal followed by one.
-func writeUpdateFailure(w http.ResponseWriter, r *http.Request, failure htmlupdate.Failure) {
+func observeUpdateFailure(r *http.Request, failure htmlupdate.Failure) {
 	level := LevelWarn
 	if failure.Kind == htmlupdate.FailureUnknownComponent {
 		level = LevelInfo
 	}
-	Logger(r.Context()).Log(r.Context(), level, "update request refused",
+	ctx := requestContext(r)
+	Logger(ctx).Log(ctx, level, "update request refused",
 		String("kind", failure.Kind.String()), String("component", failure.KindID),
 		String("instance", failure.InstanceID), Err(failure.Err))
-	if responseCommitted(w) {
-		return
-	}
-	htmlupdate.WriteFailure(w, failure)
+}
+
+// writeUpdateFailure reports a refusal this framework raised itself, in the
+// shape the module's own refusals arrive in.
+//
+// The module never saw these, so nothing has logged them yet and the hook is
+// called here rather than left to the entry that did not run.
+func writeUpdateFailure(w http.ResponseWriter, r *http.Request, failure htmlupdate.Failure) {
+	observeUpdateFailure(r, failure)
+	writeUpdateResponse(w, r, htmlupdate.FailureResponse(failure), "")
 }
 
 // serveUpdate answers a negotiated update request and reports whether it did.
@@ -269,8 +281,12 @@ func serveUpdate(w http.ResponseWriter, r *http.Request, wrappers []HTMLWrapper,
 	ctx, render := startRenderTrace(requestContext(r), renderModeNavigate,
 		chainRenderAttributes(wrappers, async, live, false)...)
 	defer render.end()
-	// The module adds the Vary entries itself, so a cache that cannot tell a
-	// delta from a document never answers either with the other.
+	// A stream commits with its first record, so everything the response has to
+	// carry goes on before the render starts: the axes that keep a cache from
+	// answering a document request with a delta, the framing, the mode echoed
+	// back, and the marker that tells a client this route delivers live.
+	applyUpdateHeaders(w, update.StreamHeaders(r, wrappers, leaf))
+	w.Header().Set("Cache-Control", updateCacheControl)
 	ctx, cancel := boundedRenderContext(ctx, config, async, false)
 	defer cancel()
 	// The streaming entry is the one that takes render options, and it is also
@@ -429,13 +445,16 @@ func Redraw[P ReloadablePage](w http.ResponseWriter, r *http.Request, page func(
 	if !config.Update.Enabled {
 		return false
 	}
+	// The axes go on whichever way this request turns out, because the page this
+	// handler is about to render otherwise leaves through a cache that would
+	// answer the next redraw with it.
+	varyOnUpdateHeaders(w.Header())
 	options := updateOptions(config)
 	// The mode is tested before the registry is touched, because this call sits
 	// on the ordinary page path and runs on every request to it.
 	if options.Negotiate(r).Mode != htmlupdate.ModeRedraw {
 		return false
 	}
-	varyOnUpdateHeaders(w.Header(), "Kind", "Instance")
 	// The set is derived statically from the page type, so the registry — whose
 	// registration encodes each component's head to check its bound — is built
 	// once per page type rather than per redraw.
@@ -452,9 +471,12 @@ func Redraw[P ReloadablePage](w http.ResponseWriter, r *http.Request, page func(
 		}
 		registry, _ = redrawRegistries.LoadOrStore(key, built)
 	}
-	_, render := startRenderTrace(requestContext(r), renderModeRedraw, Int("pw.render.layers", 1))
-	defer render.end()
-	return options.Redraw(w, render.request(r), registry.(*htmlupdate.Registry))
+	ctx, trace := startRenderTrace(requestContext(r), renderModeRedraw, Int("pw.render.layers", 1))
+	defer trace.end()
+	answer, _ := options.Redraw(trace.request(r), registry.(*htmlupdate.Registry),
+		redrawRenderOptions(ctx, config)...)
+	writeUpdateResponse(w, r, answer, redrawCacheControl)
+	return true
 }
 
 // redrawRegistries caches the built registry of each page type handed to
@@ -487,6 +509,7 @@ func RedrawComponents(w http.ResponseWriter, r *http.Request, components ...html
 	if !config.Update.Enabled {
 		return false
 	}
+	varyOnUpdateHeaders(w.Header())
 	options := updateOptions(config)
 	// The mode is tested before the registry is built, because this call sits on
 	// the ordinary page path and runs on every request to it. Registration
@@ -495,7 +518,6 @@ func RedrawComponents(w http.ResponseWriter, r *http.Request, components ...html
 	if options.Negotiate(r).Mode != htmlupdate.ModeRedraw {
 		return false
 	}
-	varyOnUpdateHeaders(w.Header(), "Kind", "Instance")
 	registry := &htmlupdate.Registry{}
 	for _, component := range components {
 		if err := registry.Register(component); err != nil {
@@ -508,43 +530,134 @@ func RedrawComponents(w http.ResponseWriter, r *http.Request, components ...html
 	}
 	// The mode is already known here, so the span opens without negotiating a
 	// second time.
-	_, render := startRenderTrace(requestContext(r), renderModeRedraw, Int("pw.render.layers", 1))
-	defer render.end()
-	return options.Redraw(w, render.request(r), registry)
+	ctx, trace := startRenderTrace(requestContext(r), renderModeRedraw, Int("pw.render.layers", 1))
+	defer trace.end()
+	answer, _ := options.Redraw(trace.request(r), registry, redrawRenderOptions(ctx, config)...)
+	writeUpdateResponse(w, r, answer, redrawCacheControl)
+	return true
 }
 
-// Update response headers.
+// Update response policy.
 //
-// The wire is this framework's, and a header is part of it, so every response
-// header an update path needs is set here rather than left to whoever writes
-// the body. system:tinybind still writes some of them, and its writes land on
-// the same values, so the responses look the same before and after it stops.
+// The wire is this framework's and so is every response on it. Since
+// system:tinybind v0.4.7 the module writes no header, no status, and no body it
+// was not asked for: it computes what only it can know — which request headers
+// an answer depends on, what its body is, which mode was served, what it digests
+// to — and hands that back. What a deployment decides arrives here.
 //
-// The one header that cannot move here is the redraw ETag, which digests the
-// body the module assembles. A caller cannot produce it without rendering the
-// component a second time.
+// The cache policy is the whole of what that leaves. These are the values the
+// module used to write, kept because they were right rather than because they
+// were inherited.
 const (
+	// An update body restates validators for one document under ambient
+	// credentials, so it is never shareable and never worth storing.
 	updateCacheControl = "no-store"
-	updateBodyType     = "application/json; charset=utf-8"
+	// A redraw renders per-user content, so it stays out of every shared cache.
+	// It is no-cache rather than no-store because no-store would forbid the
+	// conditional request its entity tag exists for: a browser that may not keep
+	// the bytes can never ask whether they changed.
+	redrawCacheControl = "private, no-cache"
 	// A sequence derives from the template rather than from the request, which
 	// is what makes it the one response here a shared cache may hold. It is
 	// addressed by a digest of its own content, so a template change produces a
 	// new address rather than a new body at the old one.
 	sequenceCacheControl = "public, max-age=31536000, immutable"
+	// updateSequenceMode is what a sequence response says it is. The client
+	// checks it, so it is part of the wire rather than a diagnostic.
+	updateSequenceMode = "sequence"
 )
 
-// varyOnUpdateHeaders names the request headers a response's body depends on.
+// varyOnUpdateHeaders names the request headers every response from a page's URL
+// depends on, whichever of them this request turns out to be.
 //
-// Every mode answers from the page's own URL, so a cache that stored one under
-// that URL alone would serve it where a document was expected. Vary is what
-// keeps one URL able to mean several things, and it is the header this
-// framework can least afford to leave to somebody else.
-func varyOnUpdateHeaders(header http.Header, extra ...string) {
+// It goes on before anything branches. A page, its deltas, its redraws, and its
+// sequences share one URL, so a cache that stored the page under that URL alone
+// would answer all four with it — and the page is the response most likely to be
+// storable, since it is the only one here that carries no per-request validator.
+//
+// The render header is what discriminates: every update request names its mode
+// there and a document names nothing, so these two axes are enough to keep the
+// page separate from all of it. The narrower axes a redraw and a sequence need on
+// top of these come from the module, which is what knows them.
+func varyOnUpdateHeaders(header http.Header) {
 	addVaryHeader(header, UpdateHeaderPrefix+"-Render")
 	addVaryHeader(header, UpdateHeaderPrefix+"-Build")
-	for _, name := range extra {
-		addVaryHeader(header, UpdateHeaderPrefix+"-"+name)
+}
+
+// applyUpdateHeaders puts a header set the module computed onto a response.
+//
+// It is not htmlupdate.ApplyTo, which adds every field: Vary goes through this
+// framework's own de-duplicating path, so an axis already named does not appear
+// twice, and everything else is set, so a second Content-Type cannot appear
+// beside the one a caller had already chosen.
+func applyUpdateHeaders(w http.ResponseWriter, header http.Header) {
+	target := w.Header()
+	for name, values := range header {
+		if http.CanonicalHeaderKey(name) == "Vary" {
+			for _, value := range values {
+				addVaryHeader(target, value)
+			}
+			continue
+		}
+		target.Del(name)
+		for _, value := range values {
+			target.Add(name, value)
+		}
 	}
+}
+
+// writeUpdateResponse sends an answer the module computed, under this
+// framework's cache policy.
+//
+// A refusal is never stored whatever the caller asked for, because its body says
+// why one request failed and nothing else may be answered with it.
+//
+// The conditional request is answered here for the same reason the policy is
+// written here: a 304 is a cache decision, and the module stopped making them.
+func writeUpdateResponse(w http.ResponseWriter, r *http.Request, answer htmlupdate.Response, cacheControl string) {
+	if responseCommitted(w) {
+		return
+	}
+	if answer.Failure != nil || cacheControl == "" {
+		cacheControl = updateCacheControl
+	}
+	w.Header().Set("Cache-Control", cacheControl)
+	// A refusal carries no axes of its own, and it answers from the page's URL
+	// like everything else here, so the shared ones go on unconditionally.
+	varyOnUpdateHeaders(w.Header())
+	applyUpdateHeaders(w, answer.Header)
+	if answer.NotModified(r) {
+		w.WriteHeader(http.StatusNotModified)
+		return
+	}
+	status := answer.Status
+	if status == 0 {
+		status = http.StatusOK
+	}
+	w.WriteHeader(status)
+	if _, err := w.Write(answer.Body); err != nil {
+		ctx := requestContext(r)
+		Logger(ctx).Log(ctx, LevelError, "update response write failed", Err(err))
+	}
+}
+
+// redrawRenderOptions is what a redrawn component is rendered with.
+//
+// It is the page's own set. A component that renders one way inside its page and
+// another in the response replacing it is a defect with no symptom until someone
+// compares them, and one holding an unsafe form does not render at all without a
+// token: htmlbind.Builder.CSRFField fails the render rather than emitting an
+// unprotected field.
+//
+// The document's head contribution is deliberately absent. The runtime tag and
+// its configuration are already in the page a redraw lands in, and a component's
+// own head tags travel in the response body for the client to install.
+func redrawRenderOptions(ctx context.Context, config HTMLConfig) []htmlbind.Option {
+	options := renderOptions(ctx, config, false, nil)
+	if token := csrfRenderToken(ctx); token != "" {
+		options = append(options, htmlbind.WithCSRFToken(token))
+	}
+	return options
 }
 
 // serveSequence answers a request for the static half of one fragment.
@@ -561,9 +674,28 @@ func varyOnUpdateHeaders(header http.Header, extra ...string) {
 // the client asks for the assembled form instead; a sequence is an optimization
 // over markup that is always available, never something a screen depends on.
 func serveSequence(w http.ResponseWriter, r *http.Request, config HTMLConfig) bool {
-	options := updateOptions(config)
-	if options.Negotiate(r).Mode != htmlupdate.ModeSequence {
+	// No span: a sequence answers from a lookup table and reaches no template,
+	// no database, and no handler, so a render span around it would report a
+	// render that did not happen.
+	answer, ok := updateOptions(config).Sequence(r)
+	if !ok {
 		return false
+	}
+	if answer.Failure == nil {
+		// A response has to claim the mode it is, because a client checks: ours
+		// discards a body whose echo disagrees, which is what makes a proxy
+		// substitution detectable rather than applied.
+		//
+		// system:tinybind v0.4.7 echoes "navigation" here. Its mode-to-token
+		// function has no sequence case and defaults to navigation, and routing
+		// the echo through that function is what moving the header out of the
+		// entry changed. Left alone the client discards every tree it asks for,
+		// falls back per operation, and every in-page navigation becomes a full
+		// document — the optimization off while looking on.
+		//
+		// It is corrected here rather than in the client because the header is
+		// this framework's to write and the client's rule is the right one.
+		answer.Header.Set(UpdateHeaderPrefix+"-Render", updateSequenceMode)
 	}
 	// The Vary is what stops this response from replacing the page. A sequence
 	// is public, immutable, and a year long — right for what it is, and
@@ -571,13 +703,8 @@ func serveSequence(w http.ResponseWriter, r *http.Request, config HTMLConfig) bo
 	// own URL: a cache storing it under that URL alone answers every later
 	// request for the page with a JSON body, and a browser that fetched one
 	// sequence stops being able to load the page until its cache is cleared.
-	varyOnUpdateHeaders(w.Header(), "Sequences", "Sequence-Address")
-	w.Header().Set("Content-Type", updateBodyType)
-	w.Header().Set("Cache-Control", sequenceCacheControl)
-	// No span: a sequence answers from a lookup table and reaches no template,
-	// no database, and no handler, so a render span around it would report a
-	// render that did not happen.
-	return options.Sequence(w, r)
+	writeUpdateResponse(w, r, answer, sequenceCacheControl)
+	return true
 }
 
 // serveRegisteredRedraw answers a redraw from the process-wide published set.
@@ -600,27 +727,27 @@ func serveRegisteredRedraw(w http.ResponseWriter, r *http.Request, config HTMLCo
 	if registry == nil {
 		return false
 	}
+	ctx := requestContext(r)
+	varyOnUpdateHeaders(w.Header())
 	options := updateOptions(config)
-	// The mode is decided here and the module's entry is not reached unless this
-	// is a redraw. Two things follow from that ordering.
-	//
-	// A span is not left open around a call that turned out to be a document
-	// request, which is why the test was here already. And a document does not
-	// come back varying on the kind and the instance: the module adds its Vary
-	// before it negotiates, so every request that reaches Redraw is stamped with
-	// headers a document never reads, which fragments a cache for nothing.
+	// The mode is decided here so no span is left open around a call that turned
+	// out to be a document request.
 	if options.Negotiate(r).Mode != htmlupdate.ModeRedraw {
 		return false
 	}
-	// A redraw is addressed by the component and the instance as well as by the
-	// mode. The ETag stays the module's: it digests the body the module writes.
-	varyOnUpdateHeaders(w.Header(), "Kind", "Instance")
-	if !renderTraced(requestContext(r)) {
-		return options.Redraw(w, r, registry)
+	// The component is rendered with the page's own options, and the ETag the
+	// answer carries is the module's: it digests the body the module assembled,
+	// which a caller cannot produce without rendering the component twice.
+	if !renderTraced(ctx) {
+		answer, _ := options.Redraw(r, registry, redrawRenderOptions(ctx, config)...)
+		writeUpdateResponse(w, r, answer, redrawCacheControl)
+		return true
 	}
-	_, render := startRenderTrace(requestContext(r), renderModeRedraw, Int("pw.render.layers", 1))
-	defer render.end()
-	return options.Redraw(w, render.request(r), registry)
+	ctx, trace := startRenderTrace(ctx, renderModeRedraw, Int("pw.render.layers", 1))
+	defer trace.end()
+	answer, _ := options.Redraw(trace.request(r), registry, redrawRenderOptions(ctx, config)...)
+	writeUpdateResponse(w, r, answer, redrawCacheControl)
+	return true
 }
 
 // WantsUpdate reports whether the caller can apply an update response.
@@ -663,16 +790,17 @@ func WriteUpdate(w http.ResponseWriter, r *http.Request, status int, regions ...
 	// at all: CSRFField refuses a render that supplied no token, so the
 	// documented way to answer a rejected submission — 422 carrying the form
 	// with its errors — answered 500 instead.
-	// An action response carries what one request changed, under ambient
-	// credentials, so it is never cacheable and never shared.
-	w.Header().Set("Cache-Control", updateCacheControl)
-	w.Header().Set("Content-Type", updateBodyType)
-	if err := updateOptions(config).WriteUpdateStatus(w, r, status, regions,
-		renderOptions(ctx, config, false, nil)...); err != nil {
+	answer, err := updateOptions(config).WriteUpdateStatus(r, status, regions,
+		renderOptions(ctx, config, false, nil)...)
+	if err != nil {
 		// Nothing is written until every region rendered, so a failure here can
 		// still choose its own status.
 		WriteProblem(w, r, InternalServerError(err))
+		return
 	}
+	// An action response carries what one request changed, under ambient
+	// credentials, so it is never cacheable and never shared.
+	writeUpdateResponse(w, r, answer, updateCacheControl)
 }
 
 // WriteUpdateNavigate tells the browser to leave the page, which is how an
@@ -694,9 +822,12 @@ func WriteUpdateNavigate(w http.ResponseWriter, r *http.Request, url string) {
 		return
 	}
 	config := Config[HTMLConfig](requestContext(r))
-	if err := updateOptions(config).WriteNavigate(w, url); err != nil {
+	answer, err := updateOptions(config).WriteNavigate(url)
+	if err != nil {
 		WriteProblem(w, r, InternalServerError(err))
+		return
 	}
+	writeUpdateResponse(w, r, answer, updateCacheControl)
 }
 
 // errUnsafeNavigation reports a navigation target this framework will not hand

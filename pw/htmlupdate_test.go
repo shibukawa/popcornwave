@@ -248,6 +248,119 @@ func TestRedrawComponentsAnswersAComponentTheHandlerNamed(t *testing.T) {
 	}
 }
 
+// A redrawn component renders with the page's own options, which is the whole
+// of what makes the two agree.
+//
+// The headline case is a form. htmlbind.Builder.CSRFField fails a render that
+// supplied no token rather than emitting an unprotected field, so a reloadable
+// component holding one answered 500 for as long as this framework passed the
+// redraw entry no options — which it did until system:tinybind v0.4.6 gave the
+// entry any to pass.
+func TestARedrawnComponentGetsThePagesRenderOptions(t *testing.T) {
+	secret, err := pwruntime.NewCSRFSecret(nil)
+	if err != nil {
+		t.Fatalf("NewCSRFSecret: %v", err)
+	}
+	request := redrawRequest(t, "fixture.form.Panel", "panel-1", "")
+	request = request.WithContext(pwruntime.WithCSRFSecret(request.Context(), secret))
+	recorder := httptest.NewRecorder()
+	if !RedrawComponents(recorder, request, formComponent("fixture.form.Panel")) {
+		t.Fatal("a redraw request was not answered")
+	}
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("a component holding a form answered %d: %s", recorder.Code, recorder.Body.String())
+	}
+	// The markup travels inside a JSON record, so it is read back the way the
+	// client reads it: a token that survives the encoding but not the decoding
+	// would reject the submission the redraw exists to enable.
+	var body struct {
+		Ops []struct {
+			HTML string `json:"html"`
+		} `json:"ops"`
+	}
+	if err := json.Unmarshal(recorder.Body.Bytes(), &body); err != nil {
+		t.Fatalf("the redraw body did not decode: %v\n%s", err, recorder.Body.String())
+	}
+	if len(body.Ops) == 0 {
+		t.Fatalf("the redraw carried no operations:\n%s", recorder.Body.String())
+	}
+	match := hiddenValue.FindStringSubmatch(body.Ops[0].HTML)
+	if match == nil {
+		t.Fatalf("the redrawn form carried no token:\n%s", body.Ops[0].HTML)
+	}
+	if !pwruntime.VerifyCSRFToken(secret, match[1]) {
+		t.Errorf("the redrawn token does not verify against the session secret")
+	}
+}
+
+// formComponent is a reloadable component holding an unsafe form, which is the
+// case that cannot render without the page's token.
+func formComponent(kind string) htmlupdate.Reloadable {
+	ops := htmlbind.Builder[cardParams]{}
+	plan := &htmlbind.Plan[cardParams]{
+		Boundary: &htmlbind.Boundary[cardParams]{
+			ComponentID: "pw.test.Form@v1",
+			Attr:        "data-" + UpdateAttributePrefix + "-id",
+			Instance:    func(p cardParams) string { return p.ID },
+			Input:       func(p cardParams) string { return delta.CanonString(p.Page) },
+		},
+		Ops: []htmlbind.Op[cardParams]{
+			ops.Static(`<form method="post" action="/orders"`),
+			ops.Attr("id", func(p cardParams) (string, bool) { return htmlbind.Escape(p.ID), true }),
+			ops.BoundaryAttr(),
+			ops.Static(`>`),
+			ops.CSRFField("_csrf"),
+			ops.Static(`<button>buy</button></form>`),
+		},
+	}
+	return htmlupdate.Reloadable{
+		KindID: kind,
+		Render: func(_ *http.Request, instanceID string, values url.Values) (htmlbind.Fragment, error) {
+			return htmlbind.Bind(plan, cardParams{ID: instanceID, Page: values.Get("page")}), nil
+		},
+	}
+}
+
+// A redraw is per-user content answered from the page's own URL, and since
+// system:tinybind v0.4.7 what it may be stored under is nobody's decision but
+// this framework's.
+//
+// no-store would be the lazy answer and the wrong one: the module still computes
+// an entity tag, and no-store forbids the conditional request that tag exists
+// for, so a browser that may not keep the bytes could never ask whether they
+// changed.
+func TestARedrawIsPrivateAndRevalidates(t *testing.T) {
+	first := httptest.NewRecorder()
+	if !RedrawComponents(first, redrawRequest(t, "fixture.card.Card", "card-1", "page=2"),
+		cardComponent("fixture.card.Card")) {
+		t.Fatal("a redraw request was not answered")
+	}
+	if control := first.Header().Get("Cache-Control"); control != redrawCacheControl {
+		t.Errorf("redraw Cache-Control = %q, want %q", control, redrawCacheControl)
+	}
+	assertVary(t, "redraw", first, "Pw-Render", "Pw-Build", "Pw-Kind", "Pw-Instance")
+	etag := first.Header().Get("ETag")
+	if etag == "" {
+		t.Fatal("a redraw carried no entity tag")
+	}
+
+	// And the answer to a client that already holds those bytes is this
+	// framework's too, because a 304 is a cache decision and the module stopped
+	// making them.
+	second := httptest.NewRecorder()
+	conditional := redrawRequest(t, "fixture.card.Card", "card-1", "page=2")
+	conditional.Header.Set("If-None-Match", etag)
+	if !RedrawComponents(second, conditional, cardComponent("fixture.card.Card")) {
+		t.Fatal("a conditional redraw request was not answered")
+	}
+	if second.Code != http.StatusNotModified {
+		t.Errorf("a redraw whose bytes the client holds = %d, want 304", second.Code)
+	}
+	if second.Body.Len() != 0 {
+		t.Errorf("a 304 carried a body: %s", second.Body.String())
+	}
+}
+
 // Naming the components is what bounds the surface. A page cannot be asked to
 // render one it never shows, even though the process publishes it elsewhere.
 func TestRedrawComponentsRefusesAComponentThisHandlerDidNotName(t *testing.T) {
@@ -384,15 +497,20 @@ func TestTheDocumentPathIsUnchangedByEnablingUpdates(t *testing.T) {
 // stops doing, which is the point of owning them here.
 func TestUpdateResponseHeadersAreThisFrameworksToSet(t *testing.T) {
 	config := updateConfig()
-	build := updateOptions(config).RuntimeConfig().Build
 
+	// The address has to be one this process rendered, because the policy under
+	// test is the one a served sequence carries and a refusal is deliberately
+	// not served under it.
+	address := aRenderedSequenceAddress(t)
 	sequence := httptest.NewRequest(http.MethodGet, "/orders", nil)
 	sequence.Header.Set("Pw-Render", "sequence")
-	sequence.Header.Set("Pw-Sequence-Address", "no-such-address")
-	sequence.Header.Set("Pw-Build", build)
+	sequence.Header.Set("Pw-Sequence-Address", address)
 	sequenceOut := httptest.NewRecorder()
-	if !serveSequence(sequenceOut, sequence, config) {
+	if !serveSequence(sequenceOut, sequence, measureConfig()) {
 		t.Fatal("a sequence request was not answered by the sequence entry")
+	}
+	if sequenceOut.Code != http.StatusOK {
+		t.Fatalf("a known sequence address was answered %d", sequenceOut.Code)
 	}
 	// A sequence is public, immutable, and a year long, and it is served from
 	// the page's own URL. Without the Vary a cache stores it under that URL
@@ -400,14 +518,50 @@ func TestUpdateResponseHeadersAreThisFrameworksToSet(t *testing.T) {
 	// which is not a degraded page but no page at all, until the cache expires.
 	// Found in a browser: after one sequence was fetched the page stopped
 	// loading, and every navigation fell back.
-	assertVary(t, "sequence", sequenceOut, "Pw-Render", "Pw-Build", "Pw-Sequences", "Pw-Sequence-Address")
+	//
+	// The address is an axis too, or one tree answers every request for another.
+	// The build is not: a sequence is addressed by a digest of its own content,
+	// so the same address across two builds is the same bytes, and holding it
+	// through a deploy is the point of the immutable policy.
+	assertVary(t, "sequence", sequenceOut, "Pw-Render", "Pw-Sequence-Address")
 	if control := sequenceOut.Header().Get("Cache-Control"); control != sequenceCacheControl {
 		t.Errorf("sequence Cache-Control = %q, want %q", control, sequenceCacheControl)
 	}
+	// And it says what it is. The client discards a body whose echo disagrees,
+	// so a sequence claiming to be a navigation is not a cosmetic mismatch: every
+	// tree is thrown away, every operation carrying values falls back, and every
+	// in-page navigation becomes a full document. system:tinybind v0.4.7 echoes
+	// the wrong one, which is why this is asserted rather than assumed.
+	if got := sequenceOut.Header().Get("Pw-Render"); got != updateSequenceMode {
+		t.Errorf("a sequence response says it is %q, want %q", got, updateSequenceMode)
+	}
+
+	// A refusal is answered under no policy at all. It says why one request
+	// failed, so nothing else may be answered with it, whatever the mode it was
+	// refused in would have been served under.
+	unknown := httptest.NewRequest(http.MethodGet, "/orders", nil)
+	unknown.Header.Set("Pw-Render", "sequence")
+	unknown.Header.Set("Pw-Sequence-Address", "no-such-address")
+	unknownOut := httptest.NewRecorder()
+	if !serveSequence(unknownOut, unknown, config) {
+		t.Fatal("an unknown sequence address was not answered by the sequence entry")
+	}
+	if unknownOut.Code != http.StatusNotFound {
+		t.Errorf("an unknown sequence address was answered %d, want 404", unknownOut.Code)
+	}
+	if control := unknownOut.Header().Get("Cache-Control"); control != updateCacheControl {
+		t.Errorf("a refused sequence Cache-Control = %q, want %q", control, updateCacheControl)
+	}
+	if got := unknownOut.Header().Get("Content-Type"); !strings.Contains(got, "problem+json") {
+		t.Errorf("a refused sequence Content-Type = %q, want problem details", got)
+	}
+	// Even a refusal answers from the page's URL, so it still says what told it
+	// apart from the page.
+	assertVary(t, "refused sequence", unknownOut, "Pw-Render", "Pw-Build")
 
 	// A document is answered from the same URL and must not carry the redraw's
 	// headers in its Vary: varying on what it never reads fragments a cache for
-	// nothing, and the module adds them before it negotiates.
+	// nothing, and the render header already tells the two apart.
 	document := httptest.NewRecorder()
 	documentRequest := httptest.NewRequest(http.MethodGet, "/orders", nil)
 	documentRequest = documentRequest.WithContext(pwruntime.WithResources(documentRequest.Context(),
@@ -422,6 +576,28 @@ func TestUpdateResponseHeadersAreThisFrameworksToSet(t *testing.T) {
 	if !strings.Contains(vary, "Pw-Render") {
 		t.Errorf("a document does not vary on the render header: %q", vary)
 	}
+}
+
+// aRenderedSequenceAddress drives a navigation that answers with values and
+// returns the address of the tree filling them.
+//
+// Nothing else can produce one: a sequence is registered by rendering the
+// template that owns it, so an address is a fact about what this process has
+// done rather than a string a test can invent.
+func aRenderedSequenceAddress(t *testing.T) string {
+	t.Helper()
+	warm, _ := serveMeasured("/orders?q=one", "seed", false)
+	delta, _ := serveMeasured("/orders?q=two", clientManifest(warm), true)
+	for _, line := range strings.Split(delta, "\n") {
+		var record struct {
+			Seq string `json:"seq"`
+		}
+		if json.Unmarshal([]byte(line), &record) == nil && record.Seq != "" {
+			return record.Seq
+		}
+	}
+	t.Fatal("no navigation record carried a sequence address")
+	return ""
 }
 
 func assertVary(t *testing.T, mode string, recorder *httptest.ResponseRecorder, want ...string) {
