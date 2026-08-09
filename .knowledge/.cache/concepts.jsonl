@@ -40,6 +40,7 @@
 {"category": "interface", "id": "api:live-delivery-protocol", "path": ".knowledge/api/live-delivery-protocol.md", "role": "primary", "title": "Live Delivery Wire Protocol", "type": "api"}
 {"category": "interface", "id": "api:logger", "path": ".knowledge/api/logger.md", "role": "primary", "title": "Context-Bound Logger API", "type": "api"}
 {"category": "interface", "id": "api:migration-runner", "path": ".knowledge/api/migration-runner.md", "role": "primary", "title": "Migration Runner", "type": "api"}
+{"category": "interface", "id": "api:native-connection-access", "path": ".knowledge/api/native-connection-access.md", "role": "primary", "title": "Native Connection Access", "type": "api"}
 {"category": "interface", "id": "api:package-registration", "path": ".knowledge/api/package-registration.md", "role": "primary", "title": "Package Registration", "type": "api"}
 {"category": "interface", "id": "api:page-action-endpoint", "path": ".knowledge/api/page-action-endpoint.md", "role": "primary", "title": "Page Action Endpoint", "type": "api"}
 {"category": "interface", "id": "api:page-registry", "path": ".knowledge/api/page-registry.md", "role": "primary", "title": "Page Registry", "type": "api"}
@@ -170,6 +171,7 @@
 {"category": "constraint", "id": "decision:dynamodb-session-expiry", "path": ".knowledge/decision/dynamodb-session-expiry.md", "role": "supporting", "title": "Expiry Is Decided On Read, Deletion Is Left To TTL", "type": "decision"}
 {"category": "constraint", "id": "decision:dynamodb-session-read-consistency", "path": ".knowledge/decision/dynamodb-session-read-consistency.md", "role": "supporting", "title": "Eventually Consistent Reads, With A Consistent Retry On A Miss", "type": "decision"}
 {"category": "constraint", "id": "decision:dynamodb-table-registry", "path": ".knowledge/decision/dynamodb-table-registry.md", "role": "supporting", "title": "Generated Table List In The Main Package", "type": "decision"}
+{"category": "constraint", "id": "decision:escape-hatch-transaction-scope", "path": ".knowledge/decision/escape-hatch-transaction-scope.md", "role": "supporting", "title": "The Escape Hatch Runs Inside The Open Transaction", "type": "decision"}
 {"category": "constraint", "id": "decision:executor-seam-instrumentation", "path": ".knowledge/decision/executor-seam-instrumentation.md", "role": "supporting", "title": "Executor Seam Instrumentation", "type": "decision"}
 {"category": "constraint", "id": "decision:explicit-generation-sources", "path": ".knowledge/decision/explicit-generation-sources.md", "role": "supporting", "title": "Explicit Generation Sources", "type": "decision"}
 {"category": "constraint", "id": "decision:explicit-tinygo-compile-step", "path": ".knowledge/decision/explicit-tinygo-compile-step.md", "role": "supporting", "title": "Explicit TinyGo Compile Step", "type": "decision"}
@@ -430,6 +432,7 @@
 {"category": "objective", "id": "requirement:modern-web-acceptance", "path": ".knowledge/requirement/modern-web-acceptance.md", "role": "primary", "title": "Modern Web Acceptance", "type": "requirement"}
 {"category": "objective", "id": "requirement:module-native-csrf", "path": ".knowledge/requirement/module-native-csrf.md", "role": "primary", "title": "Module Native CSRF", "type": "requirement"}
 {"category": "objective", "id": "requirement:mvp-acceptance", "path": ".knowledge/requirement/mvp-acceptance.md", "role": "primary", "title": "MVP Acceptance Criteria", "type": "requirement"}
+{"category": "objective", "id": "requirement:native-pgx-escape-hatch", "path": ".knowledge/requirement/native-pgx-escape-hatch.md", "role": "primary", "title": "Direct pgx Reach On A Native Connection", "type": "requirement"}
 {"category": "objective", "id": "requirement:navigation-delta-rendering", "path": ".knowledge/requirement/navigation-delta-rendering.md", "role": "primary", "title": "Navigation Delta Rendering", "type": "requirement"}
 {"category": "objective", "id": "requirement:nested-html-templates", "path": ".knowledge/requirement/nested-html-templates.md", "role": "primary", "title": "Nested HTML Templates", "type": "requirement"}
 {"category": "objective", "id": "requirement:package-asset-delivery", "path": ".knowledge/requirement/package-asset-delivery.md", "role": "primary", "title": "Package Asset Delivery", "type": "requirement"}
@@ -468,6 +471,7 @@
 {"category": "objective", "id": "requirement:unhandled-boundary-signal", "path": ".knowledge/requirement/unhandled-boundary-signal.md", "role": "primary", "title": "Unhandled Boundary Signal", "type": "requirement"}
 {"category": "objective", "id": "requirement:unified-update-runtime", "path": ".knowledge/requirement/unified-update-runtime.md", "role": "primary", "title": "Unified Update Runtime", "type": "requirement"}
 {"category": "objective", "id": "requirement:update-navigation-continuity", "path": ".knowledge/requirement/update-navigation-continuity.md", "role": "primary", "title": "Update Navigation Continuity", "type": "requirement"}
+{"category": "constraint", "id": "rule:batch-engine-capability", "path": ".knowledge/rule/batch-engine-capability.md", "role": "supporting", "title": "Batch Capability Per Engine", "type": "rule"}
 {"category": "constraint", "id": "rule:configuration-advisories", "path": ".knowledge/rule/configuration-advisories.md", "role": "supporting", "title": "Configuration Advisories", "type": "rule"}
 {"category": "constraint", "id": "rule:container-build-inputs", "path": ".knowledge/rule/container-build-inputs.md", "role": "supporting", "title": "Container Build Inputs", "type": "rule"}
 {"category": "constraint", "id": "rule:dsn-redaction", "path": ".knowledge/rule/dsn-redaction.md", "role": "supporting", "title": "DSN Redaction", "type": "rule"}
