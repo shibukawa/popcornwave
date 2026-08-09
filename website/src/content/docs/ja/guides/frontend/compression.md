@@ -2,7 +2,7 @@
 title: レスポンス圧縮
 description: レンダリングした HTML と JSON を符号化するスイッチひとつ。提供するコーディングと、ストリーミング時に払う代償。
 sidebar:
-  order: 7
+  order: 8
 ---
 
 ```toml

@@ -2,7 +2,7 @@
 title: Response Compression
 description: One switch that encodes rendered HTML and JSON, which codings it offers, and what it costs on a streamed page.
 sidebar:
-  order: 7
+  order: 8
 ---
 
 ```toml
