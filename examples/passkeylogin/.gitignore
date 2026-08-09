@@ -5,3 +5,11 @@ devbox.d/
 *_pw_gen.go
 public/**/*.zstd
 *.db
+# pw prepare and pw build write the derived asset tree here. The directory
+# itself is kept, because public.go embeds it and an embed of a missing
+# directory does not compile.
+dist/cache/
+dist/derived/
+dist/manifest.json
+dist/public/*
+!dist/public/.keep

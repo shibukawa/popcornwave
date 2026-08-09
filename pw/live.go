@@ -2,17 +2,22 @@ package pw
 
 import (
 	"context"
+	"crypto/hmac"
 	"crypto/rand"
+	"crypto/sha256"
+	"encoding/base64"
 	"errors"
 	"io"
 	"math/big"
 	"net"
 	"net/http"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/shibukawa/tinybind-go/htmlbind"
+	"github.com/shibukawa/tinybind-go/htmlbind/delta"
 )
 
 // ResponseModeHeader names what one route writes. Absent, the route answers the
@@ -29,6 +34,19 @@ const ResponseModeHeader = "Pw-Response-Mode"
 
 // LiveResponseMode is the token that selects a delivery stream.
 const LiveResponseMode = "live"
+
+// LiveManifestHeader carries the delivery validators a screen already holds, so
+// a reconnect transfers what changed rather than everything.
+//
+// It is the live namespace's counterpart to the update manifest and is a
+// separate header for the same reason the modes are separate: boundary ids are
+// positional and update instance ids are not, so one header carrying both would
+// be two id spaces a parser has to tell apart by shape.
+//
+// A hint and nothing more. The server executes the page either way, and a
+// dropped, truncated, or wrong entry costs a delivery that was already going to
+// be sent.
+const LiveManifestHeader = "Pw-Live-Manifest"
 
 // liveMediaType frames the stream as newline-delimited records. Past the
 // initial document no parser is reading, so the template-and-marker framing of
@@ -106,6 +124,27 @@ func serveLive(w http.ResponseWriter, r *http.Request, wrappers []HTMLWrapper, l
 	committed := false
 	reason := liveCloseDone
 	boundaries := make(map[string]struct{})
+	// onScreen is the validator of the content each boundary is showing: seeded
+	// from what the client claims, and updated by every delivery this response
+	// writes. It is what a reconnect exists to consult, and it also covers the
+	// ordinary case of a source that produces the same value twice.
+	//
+	// It is deliberately not the same map as boundaries above. That one bounds
+	// what this response serves, and seeding it from a request header would let
+	// a client name thirty-two boundaries and have the response close before it
+	// delivered any of them.
+	digestKey := liveDigestKey(config)
+	onScreen := parseLiveManifest(r.Header.Get(LiveManifestHeader), digestKey, liveManifestEntries(config))
+	// The head is known before the first delivery, so it rides the opening
+	// record rather than arriving after the markup that needs it. A chain whose
+	// head cannot be assembled is not a reason to refuse the stream: the tags a
+	// live delivery newly needs are the rare case, and the ones it usually needs
+	// are already on the page.
+	liveHead, err := delta.DeltaStreamHead(wrappers, leaf, renderOptions(ctx, config, false, options)...)
+	if err != nil {
+		logger.Log(ctx, LevelWarn, "live head could not be assembled", Err(err))
+		liveHead = nil
+	}
 	// scratch is the one record buffer of this response; every record below
 	// rebuilds into it and hands back the grown capacity.
 	var scratch []byte
@@ -142,8 +181,8 @@ func serveLive(w http.ResponseWriter, r *http.Request, wrappers []HTMLWrapper, l
 		if !committed {
 			writeLiveHeaders(w)
 			var writeErr error
-			if scratch, writeErr = writeLiveOpen(w, scratch); writeErr != nil {
-				logger.Log(ctx, LevelError, "live open record write failed", Err(writeErr))
+			if scratch, writeErr = writeLiveHead(w, scratch, liveHead); writeErr != nil {
+				logger.Log(ctx, LevelError, "live head record write failed", Err(writeErr))
 				return
 			}
 			committed = true
@@ -160,12 +199,29 @@ func serveLive(w http.ResponseWriter, r *http.Request, wrappers []HTMLWrapper, l
 			}
 			boundaries[content.BoundaryID] = struct{}{}
 		}
+		digest := liveDigest(digestKey, content.HTML)
+		if digest != "" && onScreen[content.BoundaryID] == digest {
+			// This region is already showing these bytes. The client would
+			// discard the record on arrival, so the only thing sending it buys
+			// is the bandwidth — which on a reconnect is the whole page's worth
+			// of boundaries, every one of them re-rendered and unchanged.
+			//
+			// The watchdog still counts it. The source produced a value, so the
+			// stream is not idle, and closing it would cost a page execution to
+			// learn the same thing again.
+			render.suppressedContent(len(content.HTML))
+			watchdog.delivered()
+			continue
+		}
 		var writeErr error
-		if scratch, writeErr = writeLiveDelivery(w, scratch, content); writeErr != nil {
+		if scratch, writeErr = writeLiveDelivery(w, scratch, content, digest); writeErr != nil {
 			// A write failure here is the client going away, which needs no
 			// record: there is nobody left to read it.
 			logger.Log(ctx, LevelDebug, "live delivery write failed", Err(writeErr))
 			return
+		}
+		if digest != "" {
+			onScreen[content.BoundaryID] = digest
 		}
 		render.wrote(len(content.HTML))
 		render.deliveredContent(content.BoundaryID, len(content.HTML))
@@ -343,6 +399,11 @@ func writeLiveHeaders(w http.ResponseWriter) {
 	header.Set("Cache-Control", "no-store")
 	header.Set("X-Content-Type-Options", "nosniff")
 	addVaryHeader(header, ResponseModeHeader)
+	// What this response omits depends on what the request claimed, so a cache
+	// that ignored the manifest could serve one screen's suppressions to
+	// another and leave regions empty. No-store already forbids storing it;
+	// this says why, to a cache that reads one header and not the other.
+	addVaryHeader(header, LiveManifestHeader)
 	w.WriteHeader(http.StatusOK)
 	htmlbind.Flush(w)
 }
@@ -352,31 +413,171 @@ func writeLiveHeaders(w http.ResponseWriter) {
 // delivery instead of building a fresh record per boundary. A nil scratch is
 // fine; the one-record paths pass it.
 
-// writeLiveOpen names the generated version this stream belongs to, so a client
-// holding ids from another deployment reloads instead of applying deliveries to
-// a document that no longer matches them.
-func writeLiveOpen(w http.ResponseWriter, scratch []byte) ([]byte, error) {
-	record := append(scratch[:0], `{"control":"open","version":`...)
-	record = append(record, htmlbind.JSONString(renderVersion())...)
+// writeLiveHead opens the stream, on the record every other update response
+// opens with.
+//
+// It carries the head a delivery may need. That was the one thing this path did
+// not have: a navigation delta installs a newly reachable component's stylesheet
+// before its markup lands, and a live delivery whose content reached a component
+// the document never carried installed nothing and painted unstyled. The window
+// is narrow — a live region whose structure changes rather than its values — and
+// it is the exact failure requirement:delta-head-sync exists to prevent.
+//
+// The build is the render version rather than the update build identity, and the
+// difference is deliberate. An unstamped binary reports nothing here, which
+// disables the check; reporting the per-process identity instead would reload
+// every open screen on every restart, which is the herd decision:live-delivery-transport
+// spends its jitter avoiding. An update falls back the other way, because there
+// a wrong delta costs more than a re-transferred page.
+func writeLiveHead(w http.ResponseWriter, scratch []byte, head []string) ([]byte, error) {
+	record := append(scratch[:0], `{"r":"head"`...)
+	if version := renderVersion(); version != "" {
+		record = append(record, `,"build":`...)
+		record = append(record, htmlbind.JSONString(version)...)
+	}
+	if len(head) > 0 {
+		record = append(record, `,"head":[`...)
+		for index, tag := range head {
+			if index > 0 {
+				record = append(record, ',')
+			}
+			record = append(record, htmlbind.JSONString(tag)...)
+		}
+		record = append(record, ']')
+	}
 	return writeLiveRecord(w, append(record, '}'))
 }
 
-func writeLiveDelivery(w http.ResponseWriter, scratch []byte, content htmlbind.Content) ([]byte, error) {
-	return writeLiveRecord(w, content.AppendJSON(scratch[:0]))
+// writeLiveDelivery writes one delivery, carrying the validator the client
+// stores and returns on its next connection.
+//
+// It is the await record, because that is what a delivery is: a boundary id
+// from the positional namespace and the markup that fills it, which is the same
+// operation a settled await boundary lands through on the navigation path. The
+// validator is this framework's own field beside the emitted shape, which is
+// what a caller owning its wire is expected to add.
+func writeLiveDelivery(w http.ResponseWriter, scratch []byte, content htmlbind.Content, digest string) ([]byte, error) {
+	record := append(scratch[:0], `{"r":"await","id":`...)
+	record = append(record, htmlbind.JSONString(content.BoundaryID)...)
+	record = append(record, `,"html":`...)
+	record = append(record, htmlbind.JSONString(string(content.HTML))...)
+	if digest != "" {
+		record = append(record, `,"v":`...)
+		record = append(record, htmlbind.JSONString(digest)...)
+	}
+	return writeLiveRecord(w, append(record, '}'))
 }
 
 // writeLiveClose is always the last record. A clean transport close cannot say
 // whether the sources finished or a bound ended a healthy response, and the two
 // deserve opposite client behaviour.
 func writeLiveClose(w http.ResponseWriter, scratch []byte, reason string, retryAfter time.Duration) ([]byte, error) {
-	record := append(scratch[:0], `{"control":"closed","reason":"`...)
+	record := append(scratch[:0], `{"r":"end","reason":"`...)
 	record = append(record, reason...)
 	record = append(record, '"')
 	if retryAfter > 0 {
-		record = append(record, `,"retry_after_ms":`...)
+		record = append(record, `,"retryMs":`...)
 		record = append(record, strconv.FormatInt(retryAfter.Milliseconds(), 10)...)
 	}
 	return writeLiveRecord(w, append(record, '}'))
+}
+
+// liveDigest is the validator of one delivery: what a screen holds, and what it
+// returns on its next connection so the server can leave it alone.
+//
+// Keyed, because it travels in a request header on every reconnect, and a
+// request header is the most widely logged thing between a browser and a
+// handler. An unkeyed digest there is a stable fingerprint of the region's
+// content, and a live region with few possible renderings — a status badge, a
+// queue depth, a seat count — is enumerable from a proxy log by anyone who can
+// render the same page. Keying costs one HMAC per delivery and takes the
+// fingerprint away.
+//
+// Truncated to twelve bytes. The digest decides only whether to skip a transfer
+// the client would have discarded, so the wrong answer costs one region one
+// stale rendering, and ninety-six bits is far past where that becomes the
+// system's most likely failure.
+func liveDigest(key, html []byte) string {
+	if key == nil {
+		return ""
+	}
+	mac := hmac.New(sha256.New, key)
+	mac.Write(html)
+	return base64.RawURLEncoding.EncodeToString(mac.Sum(nil)[:12])
+}
+
+// liveDigestKey keys the delivery validators, or reports nil where suppression
+// has to be off.
+//
+// The update validator key when a deployment configured one, because a
+// reconnect can land on any instance and only a shared key makes a validator
+// comparable across them. It is read whether or not updates are enabled: the
+// key is a secret this framework keys its digests with, and a deployment that
+// set one has already decided that.
+//
+// A per-process key otherwise. Suppression then works for a reconnect that
+// returns to the same process, and a reconnect that does not simply receives
+// every boundary — which is what every reconnect did before this existed. That
+// degradation is why the fallback is a random key rather than no key: an
+// unkeyed digest would work across the fleet and reintroduce exactly the
+// fingerprint the keying is for.
+func liveDigestKey(config HTMLConfig) []byte {
+	if key := config.Update.ValidatorKey; key != "" {
+		return []byte(key)
+	}
+	return processDigestKey()
+}
+
+// processDigestKey is this process's fallback key. A nil result turns
+// suppression off rather than falling back to an unkeyed digest.
+var processDigestKey = sync.OnceValue(func() []byte {
+	key := make([]byte, 32)
+	if _, err := rand.Read(key); err != nil {
+		return nil
+	}
+	return key
+})
+
+// liveManifestEntries bounds how many validators a request may claim. It is the
+// boundary bound, because a response cannot serve more boundaries than that and
+// a claim about a boundary this response will not reach is a claim about
+// nothing.
+func liveManifestEntries(config HTMLConfig) int {
+	if config.LiveMaxBoundaries > 0 {
+		return config.LiveMaxBoundaries
+	}
+	return defaultLiveManifestEntries
+}
+
+// defaultLiveManifestEntries bounds an unbounded configuration's parse. It is
+// not a limit on the response: past it the extra claims are dropped and their
+// boundaries are delivered, which is the ordinary answer to a hint that did not
+// arrive.
+const defaultLiveManifestEntries = 128
+
+// parseLiveManifest reads the id and validator pairs a screen claims to hold.
+//
+// Nothing here is trusted and nothing needs to be: every value is compared
+// against a validator this process computes from bytes it just rendered, so a
+// forged entry can only match by being right. A malformed entry is skipped
+// rather than failing the request, because the whole header is an optimization
+// and refusing it would turn a proxy that mangles headers into an outage.
+func parseLiveManifest(value string, key []byte, max int) map[string]string {
+	held := make(map[string]string)
+	if value == "" || key == nil {
+		return held
+	}
+	for entry := range strings.SplitSeq(value, ",") {
+		if len(held) >= max {
+			break
+		}
+		id, digest, ok := strings.Cut(strings.TrimSpace(entry), ":")
+		if !ok || id == "" || digest == "" {
+			continue
+		}
+		held[id] = digest
+	}
+	return held
 }
 
 func writeLiveRecord(w io.Writer, record []byte) ([]byte, error) {

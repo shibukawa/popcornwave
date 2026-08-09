@@ -41,6 +41,12 @@ function element(id, attributes) {
 		closest() {
 			return null;
 		},
+		// The stub parses no HTML, so an element has no descendants. What the
+		// runtime asks of it is only whether any nested boundary is there.
+		querySelectorAll() {
+			return [];
+		},
+		remove() {},
 	};
 	elements.set(id, node);
 	return node;
@@ -49,6 +55,7 @@ function element(id, attributes) {
 const swapped = [];
 const headInstalled = [];
 let liveStarted = 0;
+let liveStopped = 0;
 const requests = [];
 let nextResponse = null;
 let assigned = null;
@@ -184,11 +191,14 @@ globalThis.location = {
 		reloaded += 1;
 	},
 };
+// A sequence resolves through a second fetch, so a case needs more than one
+// answer queued. The single slot stays for every case that issues one request.
+const responseQueue = [];
 globalThis.fetch = async (url, init) => {
 	requests.push({ url: url, headers: init.headers, signal: init.signal });
-	if (!nextResponse) throw new Error("network");
-	const answer = nextResponse;
-	nextResponse = null;
+	const answer = responseQueue.length ? responseQueue.shift() : nextResponse;
+	if (!answer) throw new Error("network");
+	if (answer === nextResponse) nextResponse = null;
 	if (answer instanceof Error) throw answer;
 	return answer;
 };
@@ -200,7 +210,41 @@ function withCSRF(headers) { headers["X-CSRF-Token"] = "token"; return headers; 
 function swapElement(target, html) { globalThis.__swapped.push({ id: target.id, html: html }); return globalThis.__swapOK; }
 function applyHTML(id, html) { globalThis.__swapped.push({ placeholder: id, html: html }); return true; }
 function startLive() { globalThis.__liveStarted(); }
+function stopLive() { globalThis.__liveStopped(); }
 function setPreserveAttribute() {}
+// The decomposed path parses a fragment, fills its holes, and swaps the nodes.
+// The stub keeps the markup so an assertion can read it, and records the swap
+// through the same list swapElement uses.
+function parseFragment(html) {
+	return { __html: html, querySelector: () => null, querySelectorAll: () => [] };
+}
+function swapNode(target, fragment) {
+	globalThis.__swapped.push({ id: target.id, html: fragment.__html });
+	return globalThis.__swapOK;
+}
+// The shared record reader, which both stream shapes go through.
+async function* readRecords(body) {
+	const reader = body.getReader();
+	const decoder = new TextDecoder();
+	let buffer = "";
+	for (;;) {
+		const chunk = await reader.read();
+		if (chunk.done) return;
+		buffer += decoder.decode(chunk.value, { stream: true });
+		let newline = buffer.indexOf("\\n");
+		while (newline >= 0) {
+			const line = buffer.slice(0, newline);
+			buffer = buffer.slice(newline + 1);
+			newline = buffer.indexOf("\\n");
+			if (!line.trim()) continue;
+			try {
+				yield JSON.parse(line);
+			} catch (error) {
+				return;
+			}
+		}
+	}
+}
 function compositionActive() { return globalThis.__composing; }
 function resolveNavigable(value, base) {
 	if (typeof value !== "string" || value === "") return null;
@@ -228,6 +272,9 @@ globalThis.__composing = false;
 globalThis.__liveStarted = () => {
 	liveStarted += 1;
 };
+globalThis.__liveStopped = () => {
+	liveStopped += 1;
+};
 
 const source = prelude + fs.readFileSync(path.join(here, "..", "update.js"), "utf8");
 const module = path.join(here, ".update_harness_module.mjs");
@@ -245,6 +292,8 @@ function fresh() {
 	assigned = null;
 	reloaded = 0;
 	liveStarted = 0;
+	liveStopped = 0;
+	responseQueue.length = 0;
 	scrolledTo = null;
 	busy.clear();
 	listeners.clear();
@@ -492,15 +541,20 @@ function deltaResponse(id) {
 }
 
 // A redraw addresses the page's own URL and names the component in headers.
+//
+// Since tinybind-go v0.4.4 it answers with the body an action does: head,
+// operations, and the manifest entries it rendered. The head has left its
+// header, and the validator comes back rather than being left stale.
 {
 	const runtime = fresh();
 	element("card-1", { "data-tb-kind": "pages.Card" });
 	nextResponse = response({
-		headers: {
-			"Pw-Render": "redraw",
-			"Pw-Head": Buffer.from(JSON.stringify(['<link rel="stylesheet" href="/card.css">'])).toString("base64"),
+		headers: { "Pw-Render": "redraw" },
+		json: {
+			head: ['<link rel="stylesheet" href="/card.css">'],
+			ops: [{ kind: "replace", id: "card-1", html: '<article id="card-1">redrawn</article>' }],
+			manifest: [{ id: "card-1", frame: "f-card" }],
 		},
-		text: '<article id="card-1">redrawn</article>',
 	});
 	const result = await runtime.redraw("card-1", { page: 7 });
 	check(result.applied === true, "the redraw applied");
@@ -509,6 +563,18 @@ function deltaResponse(id) {
 	check(requests[0].headers["Pw-Kind"] === "pages.Card", "the kind travelled in a header");
 	check(requests[0].headers["Pw-Instance"] === "card-1", "the instance travelled in a header");
 	check(headInstalled.length === 1, "the redraw's head contribution was installed");
+
+	// The validator it returned is held, so the next navigation is told this
+	// region is current instead of being sent markup already on screen.
+	nextResponse = response({
+		headers: { "Pw-Render": "navigation", "Content-Type": "application/x-ndjson" },
+		lines: [JSON.stringify({ r: "end", reason: "final" })],
+	});
+	await runtime.navigate("/orders");
+	check(
+		(requests[1].headers["Pw-Manifest"] || "").includes("card-1:f-card"),
+		"the redraw's validator reached the next navigation",
+	);
 }
 
 // A component that is not reloadable carries no kind, and refusing locally costs
@@ -904,6 +970,296 @@ for (const target of ["javascript:globalThis.__pwned = true", "data:text/html,<s
 	check(Array.isArray(scrolledTo) && scrolledTo[1] === 640, "the recorded scroll was restored");
 }
 
+
+// A decomposed fragment names the holes in its markup. A hole this client holds
+// is retained — the live node moves in, keeping the state inside it — and one it
+// does not hold is left for the operation that fills it.
+{
+	const runtime = fresh();
+	element("panel");
+	element("kept");
+	element("arriving");
+	// parseFragment is stubbed and finds no holes, so what this covers is that a
+	// fragment carrying a boundary list still installs, and that the child named
+	// in it applies on its own record rather than being swallowed by the parent.
+	nextResponse = response({
+		headers: { "Pw-Render": "navigation", "Content-Type": "application/x-ndjson" },
+		lines: [
+			JSON.stringify({ r: "head", build: "build-1" }),
+			JSON.stringify({
+				r: "op", kind: "replace", id: "panel", frame: "f1",
+				html: "<section></section>", boundaries: ["kept", "arriving"],
+			}),
+			JSON.stringify({ r: "op", kind: "replace", id: "arriving", html: "<b>new</b>", frame: "f2" }),
+			JSON.stringify({ r: "end", reason: "final" }),
+		],
+	});
+	await runtime.navigate("/orders");
+	check(assigned === null && reloaded === 0, "a decomposed fragment did not fall back");
+	check(swapped.length === 2, "the parent and the arriving child both applied");
+}
+
+// An operation carrying an address is rebuilt from it even when a markup field
+// is also present and empty.
+//
+// The redraw response encodes its markup field unconditionally, so an operation
+// that chose values arrives with an empty string beside them. Reading the markup
+// first takes that empty string: the region is replaced with nothing, the client
+// reports the update applied, and the row leaves the page with no error and no
+// failed request. Found in a browser on a reloadable table row.
+{
+	const runtime = fresh();
+	element("row-1", { "data-tb-kind": "pages.OrderRow" });
+	responseQueue.push(
+		response({
+			headers: { "Pw-Render": "redraw", "Content-Type": "application/json" },
+			json: {
+				ops: [{ kind: "replace", id: "row-1", html: "", seq: "addr-1", values: ["Kettle"] }],
+				manifest: [{ id: "row-1", frame: "f1" }],
+			},
+		}),
+		response({
+			headers: { "Pw-Render": "sequence", "Content-Type": "application/json" },
+			json: { nodes: ["<td>", 0, "</td>"] },
+		}),
+	);
+	const outcome = await runtime.redraw("row-1", {});
+	check(outcome.applied === true, "a redraw carrying values applied");
+	check(swapped.length === 1 && swapped[0].html === "<td>Kettle</td>",
+		"the region was rebuilt from the address rather than blanked by the empty markup: " +
+			JSON.stringify(swapped));
+}
+
+// A children operation carries no markup: the boundary's own output is unchanged
+// and only the arrangement of its nested boundaries moved. It must be dispatched
+// rather than read as an unchanged validator.
+{
+	const runtime = fresh();
+	element("the-list");
+	nextResponse = response({
+		headers: { "Pw-Render": "navigation", "Content-Type": "application/x-ndjson" },
+		lines: [
+			JSON.stringify({ r: "head", build: "build-1" }),
+			JSON.stringify({ r: "op", kind: "children", id: "the-list", frame: "f1", children: "c1", boundaries: ["row-0", "row-1"] }),
+			JSON.stringify({ r: "end", reason: "final" }),
+		],
+	});
+	await runtime.navigate("/orders");
+	// The stubbed DOM holds no rows, so the reconciliation cannot place them and
+	// the ordinary fallback runs. What this asserts is that the record reached
+	// the operation path at all: read as an unchanged validator it would have
+	// been silently dropped and the screen left stale.
+	check(assigned !== null || reloaded > 0, "a children operation was dispatched rather than dropped");
+}
+
+// The outgoing page's live connection is closed before navigation records are
+// applied, and the new page's is opened after. A delivery landing in between
+// writes the old page's content into the new page's region.
+{
+	const runtime = fresh();
+	element("c1");
+	nextResponse = response({
+		headers: { "Pw-Render": "navigation", "Content-Type": "application/x-ndjson" },
+		lines: [
+			JSON.stringify({ r: "head", build: "build-1" }),
+			JSON.stringify({ r: "op", kind: "replace", id: "c1", html: "<p>hi</p>", frame: "f1" }),
+			JSON.stringify({ r: "end", reason: "live_pending" }),
+		],
+	});
+	await runtime.navigate("/orders");
+	check(liveStopped === 1, "the outgoing live connection was closed");
+	check(liveStarted === 1, "the incoming live connection was opened");
+}
+
+// A manifest entry is four fields. The children validator is what lets a list
+// that gained a row be answered by naming the new order, so holding only the
+// frame makes every parent's arrangement compare unequal.
+{
+	const runtime = fresh();
+	element("panel");
+	nextResponse = response({
+		headers: { "Pw-Render": "navigation", "Content-Type": "application/json" },
+		json: {
+			ops: [{ kind: "replace", id: "panel", html: "<section></section>" }],
+			manifest: [
+				{ id: "panel", frame: "f-panel", children: "c-panel" },
+				{ id: "row-0", frame: "f-row", parent: "panel" },
+				{ id: "flat", frame: "f-flat" },
+			],
+		},
+	});
+	await runtime.navigate("/orders");
+	nextResponse = response({
+		headers: { "Pw-Render": "navigation", "Content-Type": "application/json" },
+		json: { ops: [] },
+	});
+	await runtime.navigate("/orders?page=2");
+	const sent = requests[1].headers["Pw-Manifest"];
+	check(sent.includes("panel:f-panel:c-panel"), "the children validator travelled");
+	check(sent.includes("row-0:f-row::panel"), "an entry with a parent and no children keeps the empty field");
+	check(sent.includes("flat:f-flat,") || sent.endsWith("flat:f-flat"), "a flat entry stays two fields");
+}
+
+// The children validator travels on a stream's operation records too, so a
+// manifest rebuilt from one returns both halves. Holding only the frame makes
+// every list look reordered on the next request.
+{
+	const runtime = fresh();
+	element("panel");
+	nextResponse = response({
+		headers: { "Pw-Render": "navigation", "Content-Type": "application/x-ndjson" },
+		lines: [
+			JSON.stringify({ r: "head", build: "build-1" }),
+			JSON.stringify({ r: "op", kind: "replace", id: "panel", html: "<section></section>", frame: "f-panel", children: "c-panel" }),
+			JSON.stringify({ r: "op", id: "quiet", frame: "f-quiet", children: "c-quiet" }),
+			JSON.stringify({ r: "end", reason: "final" }),
+		],
+	});
+	await runtime.navigate("/orders");
+	nextResponse = response({
+		headers: { "Pw-Render": "navigation", "Content-Type": "application/json" },
+		json: { ops: [] },
+	});
+	await runtime.navigate("/orders?page=2");
+	const sent = requests[1].headers["Pw-Manifest"];
+	check(sent.includes("panel:f-panel:c-panel"), "a replaced boundary's children validator was kept");
+	check(sent.includes("quiet:f-quiet:c-quiet"), "an unchanged boundary's children validator was kept");
+}
+
+// The sequence walk, against the module's own reassembly.
+//
+// The fixtures are generated by pw/sequencefixture_test.go from real plans, and
+// their expected markup is what htmlbind.Sequence.Reassemble produced from the
+// same values. A walk that consumes the wrong number of values at any node puts
+// every later value in the wrong place and still yields markup, so nothing but
+// this round trip catches it.
+{
+	const fixtures = JSON.parse(fs.readFileSync(path.join(here, "sequence_fixtures.json"), "utf8"));
+	check(fixtures.length > 0, "the sequence fixtures are not empty");
+	for (const fixture of fixtures) {
+		const runtime = fresh();
+		element("panel");
+		responseQueue.push(
+			response({
+				headers: { "Pw-Render": "navigation", "Content-Type": "application/x-ndjson" },
+				lines: [
+					JSON.stringify({ r: "head", build: "build-1" }),
+					JSON.stringify({
+						r: "op", kind: "replace", id: "panel", frame: "f1",
+						seq: fixture.address, values: fixture.values,
+					}),
+					JSON.stringify({ r: "end", reason: "final" }),
+				],
+			}),
+			response({
+				headers: { "Pw-Render": "sequence" },
+				json: { addr: fixture.address, nodes: fixture.nodes },
+			}),
+		);
+		await runtime.navigate("/orders");
+		check(swapped.length === 1, fixture.name + ": the fragment was installed");
+		check(
+			swapped.length === 1 && swapped[0].html === fixture.want,
+			fixture.name + ": the walk reproduced the render\n  got  " +
+				(swapped[0] ? swapped[0].html : "(nothing)") + "\n  want " + fixture.want,
+		);
+		// The address was asked for on its own request, in its own mode.
+		const ask = requests[1];
+		check(ask && ask.headers["Pw-Render"] === "sequence", fixture.name + ": the sequence was its own mode");
+		check(
+			ask && ask.headers["Pw-Sequence-Address"] === fixture.address,
+			fixture.name + ": the address travelled on its header",
+		);
+		check(
+			requests[0].headers["Pw-Sequences"] === "1",
+			fixture.name + ": the navigation said it can walk sequences",
+		);
+	}
+}
+
+// One address is fetched once, however many operations name it.
+{
+	const runtime = fresh();
+	const fixtures = JSON.parse(fs.readFileSync(path.join(here, "sequence_fixtures.json"), "utf8"));
+	const fixture = fixtures[0];
+	element("panel");
+	responseQueue.push(
+		response({
+			headers: { "Pw-Render": "navigation", "Content-Type": "application/x-ndjson" },
+			lines: [
+				JSON.stringify({ r: "head", build: "build-1" }),
+				JSON.stringify({ r: "op", kind: "replace", id: "panel", frame: "f1", seq: fixture.address, values: fixture.values }),
+				JSON.stringify({ r: "end", reason: "final" }),
+			],
+		}),
+		response({ headers: { "Pw-Render": "sequence" }, json: { addr: fixture.address, nodes: fixture.nodes } }),
+		response({
+			headers: { "Pw-Render": "navigation", "Content-Type": "application/x-ndjson" },
+			lines: [
+				JSON.stringify({ r: "head", build: "build-1" }),
+				JSON.stringify({ r: "op", kind: "replace", id: "panel", frame: "f2", seq: fixture.address, values: fixture.values }),
+				JSON.stringify({ r: "end", reason: "final" }),
+			],
+		}),
+	);
+	await runtime.navigate("/orders");
+	element("panel");
+	await runtime.navigate("/orders?page=2");
+	check(requests.length === 3, "the second navigation reused the cached sequence");
+}
+
+// An address this deployment cannot describe is answered 404. A sequence is an
+// optimisation over markup that is always available, so the ordinary fallback
+// runs rather than the screen being left half written.
+{
+	const runtime = fresh();
+	element("panel");
+	responseQueue.push(
+		response({
+			headers: { "Pw-Render": "navigation", "Content-Type": "application/x-ndjson" },
+			lines: [
+				JSON.stringify({ r: "head", build: "build-1" }),
+				JSON.stringify({ r: "op", kind: "replace", id: "panel", frame: "f1", seq: "gone", values: ["x"] }),
+				JSON.stringify({ r: "end", reason: "final" }),
+			],
+		}),
+		response({ ok: false, status: 404, headers: {} }),
+	);
+	await runtime.navigate("/orders");
+	check(assigned !== null || reloaded > 0, "an unresolvable address fell back");
+	check(swapped.length === 0, "nothing was written from an unresolvable address");
+}
+
+// Values that do not fit the tree came from a different render or a different
+// build. Half-applying them would produce markup that is subtly wrong, so the
+// walk yields nothing and the caller falls back.
+{
+	const runtime = fresh();
+	const fixtures = JSON.parse(fs.readFileSync(path.join(here, "sequence_fixtures.json"), "utf8"));
+	const fixture = fixtures[fixtures.length - 1];
+	element("panel");
+	responseQueue.push(
+		response({
+			headers: { "Pw-Render": "navigation", "Content-Type": "application/x-ndjson" },
+			lines: [
+				JSON.stringify({ r: "head", build: "build-1" }),
+				JSON.stringify({
+					r: "op", kind: "replace", id: "panel", frame: "f1",
+					seq: fixture.address, values: fixture.values.slice(0, -1),
+				}),
+				JSON.stringify({ r: "end", reason: "final" }),
+			],
+		}),
+		response({ headers: { "Pw-Render": "sequence" }, json: { addr: fixture.address, nodes: fixture.nodes } }),
+	);
+	await runtime.navigate("/orders");
+	check(swapped.length === 0, "a short value stream wrote nothing");
+	check(assigned !== null || reloaded > 0, "a mismatched walk fell back");
+}
+
+// The verdict, which must stay the last thing in this file: a case appended
+// below it increments a count that has already been checked, and its failure is
+// reported after the success line has been printed.
 if (failures) {
 	console.error(failures + " check(s) failed");
 	process.exit(1);

@@ -1,0 +1,68 @@
+package pages
+
+type Order { id: string, title: string, owner: string, at: string }
+
+// SearchOrders is an ordinary synchronous function in page.go. Declaring it
+// here is what lets the table below look its own rows up, which is what makes
+// the table redrawable on its own.
+external SearchOrders(query: string): Order[]
+
+// The orders page. Its search form is a GET, so submitting it is a navigation
+// to this same route with a different query — the in-page update case — and it
+// works with the runtime disabled because it is an ordinary form.
+export component Page(query: string): html {
+  <section class="panel">
+    <form class="panel__search" method="get" action="/">
+      <label class="panel__label" for="q">Search orders</label>
+      <input class="panel__input" type="search" id="q" name="q" value="{query}">
+      <button class="panel__submit" type="submit">Search</button>
+    </form>
+    <OrderTable id="orders" query="{query}"/>
+  </section>
+}
+
+// The table is its own boundary, and that placement is the whole point: its own
+// markup — the frame, the header row, the holes where rows sit — is identical
+// for every query. So a search that changes which rows appear is answered by
+// naming the new arrangement rather than by re-sending the table, which is the
+// children operation.
+//
+// The search field is deliberately outside it. An input carrying the query is
+// markup that changes with the query, and a boundary containing it could never
+// compare equal.
+@reloadable
+export component OrderTable(id: string, query: string): html {
+  <table class="panel__table" id="{id}">
+    <thead>
+      <tr><th>Order</th><th>Owner</th><th>Placed</th><th></th></tr>
+    </thead>
+    <tbody>
+      {for order in SearchOrders(query)}
+        <OrderRow id="{order.id}" title="{order.title}" owner="{order.owner}" at="{order.at}"/>
+      {/for}
+    </tbody>
+  </table>
+}
+
+// A reloadable component is an update boundary wherever it renders, so each row
+// is its own fragment with its own id. Two things follow, and both are visible
+// in the network tab: the browser can ask for one row again without touching
+// the rest of the page, and a search that only reorders the rows leaves the
+// ones it keeps alone.
+//
+// Its parameters arrive from whoever issued the redraw, which is why a
+// component that loaded a record by identifier would have to check ownership
+// itself. This one formats values handed to it, which is the shape that is safe
+// to publish without a check.
+@reloadable
+export component OrderRow(id: string, title: string, owner: string, at: string): html {
+  <tr class="row" id="{id}">
+    <td class="row__cell"><a class="row__link" href="/">{title}</a></td>
+    <td class="row__cell">{owner}</td>
+    <td class="row__cell"><time datetime="{at}">{at}</time></td>
+    <td class="row__cell">
+      <button class="row__redraw" type="button"
+        data-redraw="{id}" data-title="{title}" data-owner="{owner}" data-at="{at}">redraw</button>
+    </td>
+  </tr>
+}

@@ -46,7 +46,10 @@ func TestDashboardDocumentInvitesALiveConnection(t *testing.T) {
 	// renders only once both have a value: the fetched title and the message
 	// list arrive together or not at all. An empty room is a value like any
 	// other, so the list may legitimately be empty here.
-	if strings.Contains(body, "#general") != strings.Contains(body, "<ul>") {
+	// The opening tag is matched without its ">" because the element carries
+	// classes: an assertion that reads a whole tag breaks on styling, which says
+	// nothing about the binding it is here to check.
+	if strings.Contains(body, "#general") != strings.Contains(body, "<ul") {
 		t.Errorf("the mixed clause rendered one binding without the other:\n%s", body)
 	}
 }
@@ -89,13 +92,17 @@ func TestDashboardStreamsDeliveriesOnTheSameURL(t *testing.T) {
 	if got := response.Header.Get("Cache-Control"); got != "no-store" {
 		t.Errorf("Cache-Control = %q, want no-store", got)
 	}
+	// A live stream opens on the same record grammar every other update mode
+	// uses: a head record first, then one record per delivery, then a terminator.
+	// It used to open with a control record of its own, which was one transport
+	// wearing two shapes.
 	reader := bufio.NewReader(response.Body)
 	open, err := reader.ReadString('\n')
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(open, `"control":"open"`) {
-		t.Fatalf("first record = %q", open)
+	if !strings.Contains(open, `"r":"head"`) {
+		t.Fatalf("first record = %q, want the head record", open)
 	}
 	// The first delivery is the room, which arrives as soon as both of its
 	// bindings have a value; the gauge follows a second later.
@@ -103,7 +110,8 @@ func TestDashboardStreamsDeliveriesOnTheSameURL(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(delivery, `"id":"tb-`) || !strings.Contains(delivery, `"html":`) {
+	if !strings.Contains(delivery, `"r":"await"`) || !strings.Contains(delivery, `"id":"tb-`) ||
+		!strings.Contains(delivery, `"html":`) {
 		t.Fatalf("second record = %q, want a delivery", delivery)
 	}
 	if strings.Contains(delivery, "This panel is here to be ignored") {

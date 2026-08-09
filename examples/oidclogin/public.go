@@ -7,7 +7,7 @@ import (
 	"github.com/shibukawa/popcornwave/middlewares"
 )
 
-//go:embed all:public
+//go:embed all:dist/public
 var embeddedPublic embed.FS
 
 func init() {
@@ -15,7 +15,7 @@ func init() {
 }
 
 func PublicFS() fs.FS {
-	result, err := fs.Sub(embeddedPublic, "public")
+	result, err := fs.Sub(embeddedPublic, "dist/public")
 	if err != nil {
 		panic(err)
 	}

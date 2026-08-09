@@ -39,7 +39,10 @@ func TestPasskeyWorksOnACookieBackedSession(t *testing.T) {
 			// is no storage plugin to link.
 			session.Backend = pw.SessionBackendCookie
 			session.CookieStore.Name = "pw_session_data"
-			session.CookieStore.Secret = base64.StdEncoding.EncodeToString(secret)
+			// The secret is the keyring's rather than this backend's: one key
+			// signs and seals everything the browser carries, so a deployment
+			// rotating it does not have to find every slot that took one.
+			session.Keyring.Secret = base64.StdEncoding.EncodeToString(secret)
 		})
 	})
 	_ = server
