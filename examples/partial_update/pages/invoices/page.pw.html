@@ -1,0 +1,25 @@
+package invoices
+
+type Invoice { number: string, customer: string, total: string }
+
+// The second route, under the same layout. Following the link to it transfers
+// this section and nothing else.
+export component Page(invoices: Invoice[]): html {
+  <section class="panel">
+    <h2 class="panel__title">Invoices</h2>
+    <table class="panel__table">
+      <thead>
+        <tr><th>Number</th><th>Customer</th><th>Total</th></tr>
+      </thead>
+      <tbody>
+        {for invoice in invoices}
+          <tr class="row">
+            <td class="row__cell">{invoice.number}</td>
+            <td class="row__cell">{invoice.customer}</td>
+            <td class="row__cell row__cell--total">{invoice.total}</td>
+          </tr>
+        {/for}
+      </tbody>
+    </table>
+  </section>
+}

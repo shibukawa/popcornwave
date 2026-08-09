@@ -1973,18 +1973,32 @@ export component Home(name: string, project: string, signedIn: bool, email: stri
 `
 }
 
-// devConsoleProjectConfig pins the development console port.
+// devConsoleProjectConfig pins the development console port and the corner its
+// launcher takes.
 //
-// This is the one development listener with a written-down number, and it is
-// written down for the opposite reason to dev.idp.port: nothing derives an
+// The port is the one development listener with a written-down number, and it
+// is written down for the opposite reason to dev.idp.port: nothing derives an
 // identity from it, but it is the address a developer bookmarks and returns to
 // all day, and a reserved port would hand out a new one every run.
+//
+// The corner is written down for a different reason again. Both keys work
+// perfectly well absent — the launcher is on by default and takes the bottom
+// left — but that is a default a developer meets by finding a button sitting
+// over their own layout, and an empty section tells them nothing about how to
+// move it. This is the one console setting the project itself has an opinion
+// about, so the scaffold states it where the answer is wanted.
 func devConsoleProjectConfig() string {
 	return `
 # The pw dev console: the telemetry viewer, the asset report, and whatever else
 # the loop can say about the project, on one loopback address.
 [dev.console]
 port = ` + strconv.Itoa(defaultConsolePort) + `
+
+# The floating link to that console, in a corner of every page pw dev serves.
+# Move it when your own layout wants this corner: ` + strings.Join(launcherCorners, ", ") + `.
+# Set enabled = false to serve no launcher at all.
+[dev.console.launcher]
+corner = "` + defaultLauncherCorner + `"
 `
 }
 

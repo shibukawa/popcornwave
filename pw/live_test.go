@@ -7,6 +7,7 @@ import (
 	"iter"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -199,7 +200,7 @@ func TestLiveModeStreamsEveryDelivery(t *testing.T) {
 	if len(lines) < 3 {
 		t.Fatalf("records = %v", lines)
 	}
-	if !strings.HasPrefix(lines[0], `{"control":"open"`) {
+	if !strings.HasPrefix(lines[0], `{"r":"head"`) {
 		t.Errorf("first record = %q, want the open record", lines[0])
 	}
 	// No document markup reaches the stream: the body is executed and discarded,
@@ -218,7 +219,7 @@ func TestLiveModeStreamsEveryDelivery(t *testing.T) {
 		t.Errorf("deliveries = %d, want 3 (one per value)", deliveries)
 	}
 	last := lines[len(lines)-1]
-	if !strings.Contains(last, `"control":"closed"`) || !strings.Contains(last, `"reason":"done"`) {
+	if !strings.Contains(last, `"r":"end"`) || !strings.Contains(last, `"reason":"done"`) {
 		t.Errorf("last record = %q, want a done close", last)
 	}
 }
@@ -254,7 +255,7 @@ func TestLiveResponseClosesAtItsLifetimeForRetry(t *testing.T) {
 	if !strings.Contains(last, `"reason":"retry"`) {
 		t.Fatalf("last record = %q, want a retry close", last)
 	}
-	if !strings.Contains(last, `"retry_after_ms":`) {
+	if !strings.Contains(last, `"retryMs":`) {
 		t.Errorf("a retry close carries no delay hint: %q", last)
 	}
 }
@@ -318,7 +319,7 @@ func TestLiveResponseStopsAtItsBoundaryBound(t *testing.T) {
 	if len(ids) != 1 {
 		t.Fatalf("served %d boundaries under a bound of 1: %v", len(ids), lines)
 	}
-	if last := lines[len(lines)-1]; !strings.Contains(last, `"control":"closed"`) {
+	if last := lines[len(lines)-1]; !strings.Contains(last, `"r":"end"`) {
 		t.Errorf("last record = %q, want a close", last)
 	}
 }
@@ -444,7 +445,7 @@ func TestLiveDeliveriesArriveWhileTheSourceIsStillProducing(t *testing.T) {
 	reader := bufio.NewReader(response.Body)
 	// The open record and the first delivery both arrive while the source is
 	// blocked, so reading them proves nothing waited for the stream to end.
-	for _, want := range []string{`"control":"open"`, `"id":"tb-1"`} {
+	for _, want := range []string{`"r":"head"`, `"id":"tb-1"`} {
 		line, err := reader.ReadString('\n')
 		if err != nil {
 			t.Fatalf("reading %s: %v", want, err)
@@ -531,5 +532,325 @@ func TestRuntimeScriptDeclaresItsStateBeforeDefiningElements(t *testing.T) {
 			line = line[:end]
 		}
 		t.Errorf("module state is declared after the first customElements.define: %q", line)
+	}
+}
+
+// documentManifest returns the validators a streamed document handed the live
+// connection it invites, as the marker spells them.
+func documentManifest(t *testing.T, body string) string {
+	t.Helper()
+	const attribute = ` manifest="`
+	start := strings.Index(body, attribute)
+	if start < 0 {
+		return ""
+	}
+	rest := body[start+len(attribute):]
+	end := strings.IndexByte(rest, '"')
+	if end < 0 {
+		t.Fatalf("the manifest attribute is unterminated:\n%s", body)
+	}
+	return rest[:end]
+}
+
+func liveRequestHolding(target, manifest string) *http.Request {
+	request := liveRequest(target)
+	if manifest != "" {
+		request.Header.Set(LiveManifestHeader, manifest)
+	}
+	return request
+}
+
+// deliveredFragment is one fragment as a record spells it. AppendJSON escapes
+// for a script context as well as a JSON one, so the markup in a record is not
+// the markup a template wrote and a test comparing the two would only prove
+// that.
+func deliveredFragment(html string) string {
+	return string(htmlbind.JSONString(html))
+}
+
+// deliveryRecords returns the delivery lines of a live response, dropping the
+// head and terminator records that frame them.
+func deliveryRecords(t *testing.T, body string) []string {
+	t.Helper()
+	deliveries := []string{}
+	for _, line := range recordLines(t, body) {
+		if strings.Contains(line, `"r":"await"`) {
+			deliveries = append(deliveries, line)
+		}
+	}
+	return deliveries
+}
+
+// A delivery carries the validator of what it just put on screen, because the
+// client cannot compute one and the next connection has to claim it.
+func TestLiveDeliveryCarriesItsValidator(t *testing.T) {
+	recorder := httptest.NewRecorder()
+	WriteHTML(recorder, liveRequest("/"), livePage(liveValues("one")))
+
+	deliveries := deliveryRecords(t, recorder.Body.String())
+	if len(deliveries) != 1 {
+		t.Fatalf("deliveries = %d, want 1:\n%s", len(deliveries), recorder.Body.String())
+	}
+	if !strings.Contains(deliveries[0], `"v":"`) {
+		t.Errorf("the delivery carries no validator: %s", deliveries[0])
+	}
+	if !strings.Contains(deliveries[0], `"html":`) {
+		t.Errorf("the validator replaced the fragment rather than joining it: %s", deliveries[0])
+	}
+}
+
+// A source that produces the same value twice costs one transfer. The client
+// would discard the second record on arrival, so sending it buys nothing but
+// the bandwidth.
+func TestLiveSuppressesARepeatedValue(t *testing.T) {
+	recorder := httptest.NewRecorder()
+	WriteHTML(recorder, liveRequest("/"), livePage(liveValues("one", "one", "two", "two")))
+
+	deliveries := deliveryRecords(t, recorder.Body.String())
+	if len(deliveries) != 2 {
+		t.Fatalf("deliveries = %d, want 2 — one per distinct value:\n%s",
+			len(deliveries), recorder.Body.String())
+	}
+	if !strings.Contains(deliveries[0], deliveredFragment("<p>one</p>")) ||
+		!strings.Contains(deliveries[1], deliveredFragment("<p>two</p>")) {
+		t.Errorf("the wrong deliveries survived:\n%s", strings.Join(deliveries, "\n"))
+	}
+}
+
+// A streamed document hands the connection it invites the validators of what it
+// committed, so the first connection of a page view costs no more than a later
+// one. Without it every page load re-transfers its own screen.
+func TestStreamedLiveDocumentCarriesItsManifest(t *testing.T) {
+	recorder := httptest.NewRecorder()
+	WriteHTML(recorder, browserRequest("/"), livePage(liveValues("first")))
+
+	body := recorder.Body.String()
+	manifest := documentManifest(t, body)
+	if manifest == "" {
+		t.Fatalf("a live document carries no manifest:\n%s", body)
+	}
+	if !strings.HasPrefix(manifest, "tb-1:") {
+		t.Errorf("manifest = %q, want the boundary it committed", manifest)
+	}
+}
+
+// A document nothing follows carries none. It would be bytes describing a
+// conversation that is not going to happen, on every page a project serves.
+func TestStreamedFinalDocumentCarriesNoManifest(t *testing.T) {
+	recorder := httptest.NewRecorder()
+	WriteHTML(recorder, browserRequest("/"), asyncPage(asyncPageParams{Body: Resolved("ready")}))
+
+	if manifest := documentManifest(t, recorder.Body.String()); manifest != "" {
+		t.Errorf("a final document carries a manifest: %q", manifest)
+	}
+}
+
+// The whole point, end to end: a screen that reconnects holding what the
+// document gave it is sent nothing it already has.
+func TestLiveManifestSuppressesWhatTheScreenAlreadyHolds(t *testing.T) {
+	document := httptest.NewRecorder()
+	WriteHTML(document, browserRequest("/"), livePage(liveValues("first")))
+	manifest := documentManifest(t, document.Body.String())
+	if manifest == "" {
+		t.Fatalf("the document handed the connection nothing:\n%s", document.Body.String())
+	}
+
+	reconnect := httptest.NewRecorder()
+	WriteHTML(reconnect, liveRequestHolding("/", manifest), livePage(liveValues("first")))
+
+	if deliveries := deliveryRecords(t, reconnect.Body.String()); len(deliveries) != 0 {
+		t.Errorf("a reconnect re-sent what the screen was showing:\n%s", strings.Join(deliveries, "\n"))
+	}
+	// The stream still opens and still closes, because a client that received
+	// no records must still learn whether to come back.
+	if !strings.Contains(reconnect.Body.String(), `"r":"head"`) {
+		t.Error("a fully suppressed response wrote no opening record")
+	}
+	if !strings.Contains(reconnect.Body.String(), `"r":"end"`) {
+		t.Error("a fully suppressed response wrote no terminal record")
+	}
+}
+
+// A claim that does not match is not a claim. The server rendered different
+// bytes, so the region is stale and the delivery goes out.
+func TestLiveManifestDeliversWhatChanged(t *testing.T) {
+	document := httptest.NewRecorder()
+	WriteHTML(document, browserRequest("/"), livePage(liveValues("first")))
+	manifest := documentManifest(t, document.Body.String())
+
+	reconnect := httptest.NewRecorder()
+	WriteHTML(reconnect, liveRequestHolding("/", manifest), livePage(liveValues("second")))
+
+	deliveries := deliveryRecords(t, reconnect.Body.String())
+	if len(deliveries) != 1 {
+		t.Fatalf("deliveries = %d, want 1:\n%s", len(deliveries), reconnect.Body.String())
+	}
+	if !strings.Contains(deliveries[0], deliveredFragment("<p>second</p>")) {
+		t.Errorf("the changed region was not delivered: %s", deliveries[0])
+	}
+}
+
+// The header is an optimization and every value in it is a claim. A forged or
+// mangled one can only cost a delivery that was going to be sent, so nothing
+// here refuses a request — a proxy that rewrites headers must not become an
+// outage.
+func TestLiveManifestToleratesRubbish(t *testing.T) {
+	for _, manifest := range []string{
+		"",
+		"tb-1",
+		":",
+		"tb-1:",
+		":deadbeef",
+		",,,",
+		"tb-1:not-the-digest",
+		strings.Repeat("tb-9:aaaaaaaaaaaaaaaa,", 500),
+	} {
+		recorder := httptest.NewRecorder()
+		WriteHTML(recorder, liveRequestHolding("/", manifest), livePage(liveValues("one")))
+
+		if recorder.Code != http.StatusOK {
+			t.Fatalf("manifest %q: status = %d", manifest, recorder.Code)
+		}
+		if deliveries := deliveryRecords(t, recorder.Body.String()); len(deliveries) != 1 {
+			t.Errorf("manifest %q: deliveries = %d, want the unclaimed boundary delivered",
+				manifest, len(deliveries))
+		}
+	}
+}
+
+// A claim bounded by what the response can serve. A request naming more
+// boundaries than a live response may ever open is claiming about nothing, and
+// parsing it in full is work an attacker chooses the size of.
+func TestLiveManifestParseIsBounded(t *testing.T) {
+	entries := []string{}
+	for index := 0; index < 200; index++ {
+		entries = append(entries, "tb-"+strconv.Itoa(index)+":aaaaaaaaaaaaaaaa")
+	}
+	held := parseLiveManifest(strings.Join(entries, ","), []byte("key"), 32)
+	if len(held) != 32 {
+		t.Errorf("held = %d entries, want the bound of 32", len(held))
+	}
+	if held := parseLiveManifest("tb-1:aaaa", nil, 32); len(held) != 0 {
+		t.Errorf("a process with no key parsed %d entries, want none", len(held))
+	}
+}
+
+// Suppression is off rather than unkeyed where no key exists, because an
+// unkeyed digest in a request header is a stable fingerprint of the region's
+// content and request headers are what gets logged.
+func TestLiveDigestIsAbsentWithoutAKey(t *testing.T) {
+	if digest := liveDigest(nil, []byte("<p>one</p>")); digest != "" {
+		t.Errorf("digest = %q with no key, want none", digest)
+	}
+	keyed := liveDigest([]byte("key"), []byte("<p>one</p>"))
+	if keyed == "" {
+		t.Fatal("a keyed digest is empty")
+	}
+	if same := liveDigest([]byte("other"), []byte("<p>one</p>")); same == keyed {
+		t.Error("two keys produced one digest")
+	}
+	if same := liveDigest([]byte("key"), []byte("<p>two</p>")); same == keyed {
+		t.Error("two renderings produced one digest")
+	}
+}
+
+// The configured update key wins, so a reconnect landing on another instance of
+// one deployment still compares. Without one the process key stands in, and the
+// suppression narrows to a reconnect that returns to the same process.
+func TestLiveDigestKeyPrefersTheConfiguredOne(t *testing.T) {
+	configured := liveDigestKey(HTMLConfig{Update: HTMLUpdateConfig{ValidatorKey: "shared"}})
+	if string(configured) != "shared" {
+		t.Errorf("key = %q, want the configured one", configured)
+	}
+	first := liveDigestKey(HTMLConfig{})
+	second := liveDigestKey(HTMLConfig{})
+	if len(first) == 0 {
+		t.Fatal("no fallback key")
+	}
+	if string(first) != string(second) {
+		t.Error("the fallback key differs between calls in one process")
+	}
+	if string(first) == "shared" {
+		t.Error("the fallback key is the configured one")
+	}
+}
+
+// The browser half is not exercised by the node harness, which stubs the apply
+// core it shares with the update runtime. These hold the two ends of the
+// manifest together instead: the header the server reads, the attribute the
+// marker writes, and the record field a delivery carries.
+func TestBoundaryRuntimeCarriesTheManifestBothWays(t *testing.T) {
+	for _, fragment := range []string{
+		// The name is a contract with LiveManifestHeader below, and a module
+		// script cannot read it off its own tag.
+		`const liveManifestHeader = "` + LiveManifestHeader + `";`,
+		// Sent on every connection, so a reconnect is told what is on screen.
+		"headers[liveManifestHeader] = manifest;",
+		// Seeded from the document, so the first connection of a page view is
+		// as cheap as a later one.
+		`seedManifest(this.getAttribute("manifest"));`,
+		// Only a range still in the document is claimed: an enclosing boundary
+		// re-rendered takes nested ones with it, and claiming those would leave
+		// them empty.
+		"if (range.digest && range.end.isConnected)",
+	} {
+		if !strings.Contains(boundaryRuntimeScript, fragment) {
+			t.Errorf("the runtime is missing %q", fragment)
+		}
+	}
+}
+
+// A live delivery whose content reaches a component the document never carried
+// needs that component's tags before its markup lands. The navigation delta has
+// said so since requirement:delta-head-sync; this path had no channel for it at
+// all until the stream moved onto the shared record grammar.
+func TestLiveHeadRecordCarriesTheChainsTags(t *testing.T) {
+	plan := livePlan(liveValues("one"), "<main>", "</main>")
+	plan.Head = []string{`<link rel="stylesheet" href="/live.css">`}
+	plan.HeadSources = []string{"LivePage"}
+
+	recorder := httptest.NewRecorder()
+	WriteHTML(recorder, liveRequest("/"), htmlbind.Bind(plan, struct{}{}))
+
+	lines := recordLines(t, recorder.Body.String())
+	if len(lines) == 0 {
+		t.Fatal("the live response wrote nothing")
+	}
+	if !strings.HasPrefix(lines[0], `{"r":"head"`) {
+		t.Fatalf("first record = %q, want the head record", lines[0])
+	}
+	if !strings.Contains(lines[0], "/live.css") {
+		t.Errorf("the head record carries no tags: %s", lines[0])
+	}
+}
+
+// A page contributing nothing to the head still opens on the head record, so a
+// client has one shape to recognize rather than two.
+func TestLiveHeadRecordOpensEvenWithNoTags(t *testing.T) {
+	recorder := httptest.NewRecorder()
+	WriteHTML(recorder, liveRequest("/"), livePage(liveValues("one")))
+
+	lines := recordLines(t, recorder.Body.String())
+	if !strings.HasPrefix(lines[0], `{"r":"head"`) {
+		t.Fatalf("first record = %q, want the head record", lines[0])
+	}
+	if strings.Contains(lines[0], `"head":`) {
+		t.Errorf("an empty head still travelled: %s", lines[0])
+	}
+}
+
+// Both stream shapes are the same framing, and reading them twice is how the
+// two come apart. One reader is what the shared apply core is for markup.
+func TestBoundaryRuntimeReadsRecordsThroughOneReader(t *testing.T) {
+	if !strings.Contains(boundaryRuntimeScript, "export async function* readRecords(") {
+		t.Error("the boundary half declares no shared record reader")
+	}
+	if !strings.Contains(boundaryRuntimeScript, "for await (const record of readRecords(response.body))") {
+		t.Error("the live half does not read through the shared reader")
+	}
+	// Two copies of the buffer-split-parse loop is the thing this removes, so a
+	// second one reappearing is what the assertion is really against.
+	if count := strings.Count(mergedRuntimeScript(), "getReader()"); count != 1 {
+		t.Errorf("the merged asset calls getReader %d times, want one shared reader", count)
 	}
 }

@@ -110,12 +110,23 @@ func (sink *OtelSink) Emit(ctx context.Context, record Record) {
 	if sink == nil || sink.logger == nil {
 		return
 	}
-	attributes := make([]Attribute, 0, len(record.Attributes))
-	for _, attribute := range record.Attributes {
-		if reserved(attribute.Key) {
+	// The common record carries no reserved key, and then the slice is shared
+	// as is — attribute slices are immutable once handed over — rather than
+	// copied per record. The copy happens only at the first reserved key.
+	attributes := record.Attributes
+	for index, attribute := range attributes {
+		if !reserved(attribute.Key) {
 			continue
 		}
-		attributes = append(attributes, attribute)
+		kept := make([]Attribute, index, len(attributes)-1)
+		copy(kept, attributes[:index])
+		for _, candidate := range attributes[index+1:] {
+			if !reserved(candidate.Key) {
+				kept = append(kept, candidate)
+			}
+		}
+		attributes = kept
+		break
 	}
 	sink.logger.Emit(correlatedContext(ctx, record), otellog.Record{
 		Timestamp:    record.Time,

@@ -61,11 +61,11 @@ func CSRFToken(secret string, random io.Reader) (string, error) {
 	if random == nil {
 		random = rand.Reader
 	}
-	pad := make([]byte, CSRFSecretBytes)
-	if _, err := io.ReadFull(random, pad); err != nil {
+	var pad [CSRFSecretBytes]byte
+	if _, err := io.ReadFull(random, pad[:]); err != nil {
 		return "", err
 	}
-	return encodeCSRFToken(pad, raw), nil
+	return encodeCSRFToken(pad[:], raw), nil
 }
 
 // ExpectedCSRFToken rebuilds the token a correct client would have sent, using
@@ -99,12 +99,14 @@ func VerifyCSRFToken(secret, presented string) bool {
 }
 
 func encodeCSRFToken(pad, secret []byte) string {
-	out := make([]byte, csrfTokenBytes)
-	copy(out, pad)
+	// A stack array rather than a make: the encoder copies out into the
+	// returned string, so nothing here needs to live past the call.
+	var out [csrfTokenBytes]byte
+	copy(out[:], pad)
 	for index := range secret {
 		out[CSRFSecretBytes+index] = pad[index] ^ secret[index]
 	}
-	return base64.RawURLEncoding.EncodeToString(out)
+	return base64.RawURLEncoding.EncodeToString(out[:])
 }
 
 func decodeCSRFSecret(secret string) ([]byte, bool) {

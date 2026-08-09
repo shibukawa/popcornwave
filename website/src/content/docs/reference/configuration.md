@@ -185,6 +185,8 @@ startup. See [Firestore](/guides/storage/firestore/).
 | `update.enabled` | `false` | answer navigation deltas, redraws, and action responses |
 | `update.validator_key` | — | secret keying the boundary digests; required when `update.enabled` is true |
 | `update.max_manifest_bytes` | `8192` | cap on the digest hint a request may carry |
+| `cache.enabled` | `true` | reuse the rendered output of `@cache` components |
+| `cache.max_entries` | `1024` | entries the in-process render cache holds; zero or less is unbounded |
 
 A template that opens an await boundary renders correctly under either
 `streaming` setting. The key decides only whether the fallbacks reach the
@@ -212,6 +214,16 @@ comparisons miss and the next response is a complete document. An oversized
 manifest is dropped rather than rejected, so a request past
 `update.max_manifest_bytes` costs a larger delta instead of an error. See
 [Partial Updates](/guides/cross-layer/partial-updates/) for what each path buys.
+
+`cache.enabled` is on where every other capability here is off, because the
+opt-in is the [`@cache`](/reference/template-syntax/#cache) annotation rather
+than this key: generation refuses one on a component whose stored bytes could
+not stand in for a fresh render, so a template carrying it has already been
+checked and has already asked. A project writing no annotation never reaches the
+store and pays nothing. Turn it off to rule the cache out while diagnosing a
+stale region. `cache.max_entries` bounds what one process holds — the key covers
+every declared parameter, so a component taking an arbitrary string has as many
+entries as it has callers.
 
 ## `[security]`
 

@@ -266,6 +266,48 @@ func TestScaffoldConfigLoadsBackForBothToolchains(t *testing.T) {
 	}
 }
 
+// The scaffolded console section states the launcher's corner, which is the one
+// console setting a project has an opinion about: the developer meets the
+// default by finding a button over their own layout, and an empty section would
+// not tell them how to move it.
+//
+// It is loaded rather than matched, because a key the scaffold spells wrong is
+// an unknown-key error on the first pw dev rather than something a substring
+// check would notice.
+func TestScaffoldedConfigCarriesTheLauncherCorner(t *testing.T) {
+	options := initOptions{Name: "fixture"}
+	project := scaffoldFiles(options)["popcornwave.toml"]
+	if !strings.Contains(project, "[dev.console.launcher]") {
+		t.Errorf("popcornwave.toml does not scaffold the launcher section:\n%s", project)
+	}
+	for _, corner := range launcherCorners {
+		if !strings.Contains(project, corner) {
+			t.Errorf("popcornwave.toml does not name the %q corner:\n%s", corner, project)
+		}
+	}
+
+	root := t.TempDir()
+	scope := scaffoldGenerationScope(options)
+	for _, sources := range [][]string{scope.Handlers, scope.Templates, scope.Queries, scope.Config} {
+		for _, source := range sources {
+			if err := os.MkdirAll(filepath.Join(root, filepath.FromSlash(source)), 0o755); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	writeTestFile(t, filepath.Join(root, "popcornwave.toml"), project)
+	config, err := loadProjectConfig(root)
+	if err != nil {
+		t.Fatalf("the scaffolded config does not load: %v", err)
+	}
+	if !config.Console.Launcher {
+		t.Error("the scaffolded config turned the launcher off")
+	}
+	if config.Console.LauncherCorner != defaultLauncherCorner {
+		t.Errorf("corner = %q, want %q", config.Console.LauncherCorner, defaultLauncherCorner)
+	}
+}
+
 // Route discovery has to cover both mux types, otherwise a host-only project
 // would silently generate no route metadata.
 func TestGeneratorDiscoversBothServeMuxTypes(t *testing.T) {

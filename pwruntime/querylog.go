@@ -5,8 +5,10 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"fmt"
+	"reflect"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/shibukawa/popcornwave/contrib/otel"
@@ -63,6 +65,36 @@ func unwrapExecutor(executor sqlbind.SQLExecutor) sqlbind.SQLExecutor {
 	}
 }
 
+// instrumentCache remembers the wrapper of the latest executor resolution.
+// Generated code resolves one executor per statement, and between two
+// statements of one request every wrapper input is normally identical, so the
+// cache turns a per-statement allocation into one per change of input. The
+// wrapper is immutable once built, which is what makes the racing stores of
+// two goroutines sharing a request harmless: either wrapper is correct.
+type instrumentCache struct {
+	latest atomic.Pointer[instrumentedExecutor]
+}
+
+func (cache *instrumentCache) load() *instrumentedExecutor {
+	if cache == nil {
+		return nil
+	}
+	return cache.latest.Load()
+}
+
+func (cache *instrumentCache) store(wrapper *instrumentedExecutor) {
+	if cache != nil {
+		cache.latest.Store(wrapper)
+	}
+}
+
+// sameExecutor compares two executors without panicking on an uncomparable
+// implementation, which the == operator alone would.
+func sameExecutor(a, b sqlbind.SQLExecutor) bool {
+	kind := reflect.TypeOf(a)
+	return kind == reflect.TypeOf(b) && kind.Comparable() && a == b
+}
+
 // instrument decorates executor when diagnostics or database spans are
 // enabled. The wrapper is built once per executor resolution rather than once
 // per statement.
@@ -80,7 +112,6 @@ func instrument(current *Resources, connection *Connection, executor sqlbind.SQL
 	if executor == nil || (config == nil && tracing == nil) {
 		return executor
 	}
-	inTx, depth := current.TxScope.state()
 	driver, label := current.DBDriver, ""
 	// The caller passes the connection when resolving the executor already
 	// resolved one, so the memo lock is not taken twice for the same answer.
@@ -97,20 +128,30 @@ func instrument(current *Resources, connection *Connection, executor sqlbind.SQL
 			label = connection.Label
 		}
 	}
-	return &instrumentedExecutor{
+	scope := current.TxScope
+	if cached := current.instrumented.load(); cached != nil &&
+		cached.config == config && cached.tracing == tracing &&
+		cached.driver == driver && cached.connection == label &&
+		cached.scope == scope &&
+		sameExecutor(cached.inner, executor) && cached.logger.equivalent(logger) {
+		return cached
+	}
+	wrapper := &instrumentedExecutor{
 		inner:      executor,
 		config:     config,
 		tracing:    tracing,
 		logger:     logger,
 		driver:     driver,
 		connection: label,
-		inTx:       inTx,
-		depth:      depth,
+		scope:      scope,
 	}
+	current.instrumented.store(wrapper)
+	return wrapper
 }
 
 // instrumentedExecutor observes one statement per call without changing what
-// the wrapped executor does with it.
+// the wrapped executor does with it. It is immutable after instrument builds
+// it; the cache above depends on that.
 type instrumentedExecutor struct {
 	inner sqlbind.SQLExecutor
 	// config is the query log setting, nil when only the span is wanted.
@@ -122,8 +163,9 @@ type instrumentedExecutor struct {
 	// connection labels which pool ran the statement. Empty when only one is
 	// configured.
 	connection string
-	inTx       bool
-	depth      int
+	// scope answers the transaction placement of each statement at execution
+	// time, so a cached wrapper never reports a stale savepoint depth.
+	scope *TransactionScope
 }
 
 // Unwrap returns the observed executor.
@@ -202,8 +244,8 @@ func (executor *instrumentedExecutor) startSpan(ctx context.Context, operation, 
 	if executor.connection != "" {
 		attributes = append(attributes, otel.String("pw.db.connection", executor.connection))
 	}
-	if executor.inTx {
-		attributes = append(attributes, otel.Int64("pw.db.tx_depth", int64(executor.depth)))
+	if inTx, depth := executor.scope.state(); inTx {
+		attributes = append(attributes, otel.Int64("pw.db.tx_depth", int64(depth)))
 	}
 	// A span name has to stay low cardinality, so it is the statement keyword
 	// rather than the statement: the text is an attribute, where a backend
@@ -319,11 +361,14 @@ func (executor *instrumentedExecutor) record(ctx context.Context, operation, que
 	logger := executor.logger.withTraceOf(ctx)
 
 	statement, statementTruncated := truncateText(query, config.MaxSQLLength)
-	attrs := []Attribute{
+	// Sized for every conditional append below, because the slice escapes into
+	// the record and each reallocation would escape with it.
+	attrs := make([]Attribute, 0, 16)
+	attrs = append(attrs,
 		String("sql", statement),
 		Duration("duration", elapsed),
 		String("operation", operation),
-	}
+	)
 	if statementTruncated {
 		attrs = append(attrs, Bool("sql_truncated", true))
 	}
@@ -333,8 +378,8 @@ func (executor *instrumentedExecutor) record(ctx context.Context, operation, que
 	if executor.connection != "" {
 		attrs = append(attrs, String("connection", executor.connection))
 	}
-	if executor.inTx {
-		attrs = append(attrs, Int("tx_depth", executor.depth))
+	if inTx, depth := executor.scope.state(); inTx {
+		attrs = append(attrs, Int("tx_depth", depth))
 	}
 	if affected >= 0 {
 		attrs = append(attrs, Int64("rows_affected", affected))

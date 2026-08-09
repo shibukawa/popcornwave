@@ -17,6 +17,7 @@ import (
 	"github.com/shibukawa/popcornwave/pwruntime"
 	tinybind "github.com/shibukawa/tinybind-go"
 	"github.com/shibukawa/tinybind-go/htmlbind"
+	"github.com/shibukawa/tinybind-go/htmlbind/delta"
 )
 
 // Problem is the application-facing RFC problem value.
@@ -350,15 +351,28 @@ func WriteHTMLChain(w http.ResponseWriter, r *http.Request, wrappers []HTMLWrapp
 	// document, so a crawler, curl, and a browser without the runtime are
 	// unaffected by any of this.
 	if config.Update.Enabled {
-		// A redraw is tested first because it answers with one component's
+		// A sequence is tested before anything that renders. It is the static
+		// half of a fragment, derived from the template rather than from this
+		// request, so answering it costs a map lookup and touches neither the
+		// chain nor the handler's data.
+		if serveSequence(w, r, config) {
+			return
+		}
+		// A redraw is tested next because it answers with one component's
 		// subtree and never touches this chain, so there is nothing about the
 		// page left to decide once it has been recognized.
 		if serveRegisteredRedraw(w, r, config) {
 			return
 		}
+		// A delta carries its own headers, computed for the mode it turned out
+		// to be and applied before the stream commits.
 		if serveUpdate(w, r, wrappers, leaf, config, options, async, live) {
 			return
 		}
+		// The document answers from the same URL as all three, so it says which
+		// request headers told it apart from them. A cache that stored it under
+		// the URL alone would answer any of them with a page.
+		varyOnUpdateHeaders(w.Header())
 	}
 	if liveModeRequested(r) {
 		// The handler, the layouts, and the binding that produced this chain have
@@ -382,12 +396,28 @@ func WriteHTMLChain(w http.ResponseWriter, r *http.Request, wrappers []HTMLWrapp
 		// keeps a response that varies on nothing.
 		w.Header().Add("Vary", "User-Agent")
 	}
+	// Updates force the buffered branch, and the reason is a gap rather than a
+	// choice: a document a delta will address has to carry its instance
+	// attributes, collecting them is what writes them, and system:tinybind
+	// exposes a collector for the buffered entry only. The module's own
+	// streaming entry buffers the document for the same reason.
+	//
+	// The cost is real — a page with an await boundary loses progressive
+	// delivery when a project turns updates on — and it is the honest ordering:
+	// without it every delta misses its targets and falls back to an ordinary
+	// navigation, so the feature is off while looking on.
+	//
+	// It is settled once, above the scriptless probe as well as the branch: a
+	// page that is going to be buffered anyway has nothing to learn from asking
+	// whether the browser runs script, and asking costs a Vary axis and a head
+	// contribution on every request.
+	streamable := async && config.Streaming && !bot && !config.Update.Enabled
 	// A browser with scripting disabled sends an ordinary User-Agent, so the
 	// classification above says browser and it keeps every fallback. Asking it
 	// is only worth doing where it would otherwise be wrong, which is exactly
 	// the branch below.
 	scriptless := false
-	if async && config.Streaming && !bot && config.ScriptlessDetection {
+	if streamable && config.ScriptlessDetection {
 		// A third representation of this URL, selected by the marker cookie
 		// rather than by the header above.
 		w.Header().Add("Vary", "Cookie")
@@ -401,15 +431,15 @@ func WriteHTMLChain(w http.ResponseWriter, r *http.Request, wrappers []HTMLWrapp
 			options = append(options, htmlbind.WithHead(scriptlessProbeHead(r)))
 		}
 	}
-	if async && config.Streaming && !bot && !scriptless {
+	if streamable && !scriptless {
 		streamHTMLChain(w, r, wrappers, leaf, config, live, options...)
 		return
 	}
 	// The whole render is the initial build on this branch, so it opens no child
 	// span: every await boundary settles in place before the first byte, and
 	// there is nothing after the pass for a second span to separate.
-	ctx, render := startRenderTrace(requestContext(r), renderModeBuffered,
-		chainRenderAttributes(wrappers, async, live, bot)...)
+	ctx, render := startChainRenderTrace(requestContext(r), renderModeBuffered,
+		renderLayers(wrappers), async, live, bot)
 	defer render.end()
 	// A scriptless client waits for every boundary before any byte, which is the
 	// same shape a classified bot waits in, so it takes the same longer bound
@@ -418,7 +448,7 @@ func WriteHTMLChain(w http.ResponseWriter, r *http.Request, wrappers []HTMLWrapp
 	defer cancel()
 	body := getHTMLBody()
 	defer putHTMLBody(body)
-	if err := htmlbind.RenderChain(body, wrappers, leaf, renderOptions(ctx, config, false, options)...); err != nil {
+	if err := renderDocumentBody(ctx, body, wrappers, leaf, config, options); err != nil {
 		render.failed(err)
 		// Nothing is committed on this branch, so the same failure the streaming
 		// branch can only patch into a 200 still carries its real status here.
@@ -434,21 +464,6 @@ func WriteHTMLChain(w http.ResponseWriter, r *http.Request, wrappers []HTMLWrapp
 	}
 	render.wrote(body.Len())
 	commitHTMLBody(w, r, body)
-}
-
-// chainRenderAttributes describes the shape of one composed chain, which is
-// what decides the branch this response took.
-//
-// Every value is a property of the templates rather than of the request, so
-// none of it can carry an instance key, a component input, or anything a user
-// supplied, which is what requirement:modern-observability asks of a dimension.
-func chainRenderAttributes(wrappers []HTMLWrapper, async, live, bot bool) []Attribute {
-	return []Attribute{
-		Int("pw.render.layers", renderLayers(wrappers)),
-		Bool("pw.render.async", async),
-		Bool("pw.render.live", live),
-		Bool("pw.render.bot", bot),
-	}
 }
 
 // documentRenderOptions is everything the framework contributes to a document
@@ -526,9 +541,7 @@ func WriteHTMLFragment(w http.ResponseWriter, r *http.Request, fragment HTMLFrag
 	// Nothing classifies the client here: one branch means one representation, so
 	// this response varies on nothing and stays cacheable.
 	async := fragment.HasAwaitBlock()
-	traceCtx, render := startRenderTrace(ctx, renderModeFragment,
-		Int("pw.render.layers", 1), Bool("pw.render.async", async),
-		Bool("pw.render.live", false), Bool("pw.render.bot", false))
+	traceCtx, render := startChainRenderTrace(ctx, renderModeFragment, 1, async, false, false)
 	defer render.end()
 	renderCtx, cancel := boundedRenderContext(traceCtx, config, async, false)
 	defer cancel()
@@ -580,8 +593,8 @@ func commitHTMLBody(w http.ResponseWriter, r *http.Request, body *bytes.Buffer) 
 // unset async values both run before the initial pass, so that failure can
 // still become a problem response.
 func streamHTMLChain(w http.ResponseWriter, r *http.Request, wrappers []HTMLWrapper, leaf HTMLFragment, config HTMLConfig, live bool, options ...HTMLOption) {
-	ctx, render := startRenderTrace(requestContext(r), renderModeStream,
-		chainRenderAttributes(wrappers, true, live, false)...)
+	ctx, render := startChainRenderTrace(requestContext(r), renderModeStream,
+		renderLayers(wrappers), true, live, false)
 	defer render.end()
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	writer, closeWriter, abortWriter, err := prepareHTMLResponse(w, r)
@@ -596,6 +609,18 @@ func streamHTMLChain(w http.ResponseWriter, r *http.Request, wrappers []HTMLWrap
 	render.initialBuild()
 	logger := Logger(ctx)
 	failed := false
+	// A live connection follows this document and re-renders every boundary on
+	// it, including the ones that settled once. Handing that connection the
+	// validators of what this document committed is what keeps it from
+	// re-transferring the whole page to say nothing changed.
+	//
+	// The key is resolved once, and only for a response something will follow.
+	// A page that ends here computes no digest at all.
+	var digestKey []byte
+	var held []string
+	if liveEnabled(config) && live {
+		digestKey = liveDigestKey(config)
+	}
 	for content, err := range htmlbind.RenderChainAsync(ctx, writer, wrappers, leaf, renderOptions(ctx, config, false, options)...) {
 		if err != nil {
 			render.failed(err)
@@ -632,6 +657,9 @@ func streamHTMLChain(w http.ResponseWriter, r *http.Request, wrappers []HTMLWrap
 			break
 		}
 		render.boundarySettled(content.BoundaryID, len(content.HTML))
+		if digest := liveDigest(digestKey, content.HTML); digest != "" {
+			held = append(held, content.BoundaryID+":"+digest)
+		}
 		if err := writeBoundaryCompletion(writer, content); err != nil {
 			render.failed(err)
 			logger.Log(ctx, LevelError, "HTML boundary write failed", Err(err))
@@ -640,13 +668,35 @@ func streamHTMLChain(w http.ResponseWriter, r *http.Request, wrappers []HTMLWrap
 		}
 		htmlbind.Flush(writer)
 	}
-	if err := writeStreamEnd(writer, streamEndState(config, live, failed)); err != nil {
+	if err := writeStreamEnd(writer, streamEndState(config, live, failed), held); err != nil {
 		logger.Log(ctx, LevelError, "HTML stream end write failed", Err(err))
 	}
 	htmlbind.Flush(writer)
 	if err := closeWriter(); err != nil {
 		logger.Log(ctx, LevelError, "HTML response close failed", Err(err))
 	}
+}
+
+// renderDocumentBody writes the document a client will hold, collecting the
+// instance attributes when this deployment answers updates.
+//
+// Collecting is what makes a later delta addressable: an operation names an
+// instance id, and a client finds it by the attribute on that boundary's root
+// element. A document rendered without them is a page every delta misses, and
+// the miss is silent — the runtime falls back to an ordinary navigation, so the
+// screen is right and the feature simply never happens.
+//
+// A project with updates off renders exactly what it always did, because the
+// attributes are the only difference and nothing would read them.
+func renderDocumentBody(ctx context.Context, body io.Writer, wrappers []HTMLWrapper, leaf HTMLFragment,
+	config HTMLConfig, options []HTMLOption,
+) error {
+	rendered := renderOptions(ctx, config, false, options)
+	if !config.Update.Enabled {
+		return htmlbind.RenderChain(body, wrappers, leaf, rendered...)
+	}
+	_, err := delta.CollectChain(body, []byte(config.Update.ValidatorKey), wrappers, leaf, rendered...)
+	return err
 }
 
 // writeBoundaryCompletion frames one settled boundary for the browser runtime
@@ -680,25 +730,43 @@ func writeBoundaryCompletion(w io.Writer, content htmlbind.Content) error {
 // The state is also what keeps a screen that will never change again from
 // paying for a live request, which costs a whole page execution to answer with
 // nothing.
-func writeStreamEnd(w io.Writer, state string) error {
+// The manifest attribute is what the live connection this marker invites starts
+// from, so the first connection of a page view costs no more than a later one.
+// It is written only on the live state: on a document nothing follows, it would
+// be bytes describing a conversation that is not going to happen. A failed
+// state carries none either, because the boundaries it committed are fallbacks
+// that a reconnect should replace rather than keep.
+func writeStreamEnd(w io.Writer, state string, held []string) error {
 	marker := `<tb-stream-end state="` + state + `"`
 	if version := renderVersion(); version != "" {
 		marker += ` version="` + htmlbind.Escape(version) + `"`
 	}
+	if state == streamEndLive && len(held) > 0 {
+		marker += ` manifest="` + htmlbind.Escape(strings.Join(held, ",")) + `"`
+	}
 	_, err := io.WriteString(w, marker+`></tb-stream-end>`)
 	return err
 }
+
+// Stream end states. They are named because writeStreamEnd branches on the live
+// one, and a marker whose attribute set depended on a bare string literal
+// somewhere else is how the two come apart.
+const (
+	streamEndLive   = "live"
+	streamEndFinal  = "final"
+	streamEndFailed = "failed"
+)
 
 func streamEndState(config HTMLConfig, live, failed bool) string {
 	switch {
 	case failed:
 		// The committed fallbacks this response left behind are not going to be
 		// replaced by it, and the client is told so rather than left waiting.
-		return "failed"
+		return streamEndFailed
 	case liveEnabled(config) && live:
-		return "live"
+		return streamEndLive
 	default:
-		return "final"
+		return streamEndFinal
 	}
 }
 
@@ -751,6 +819,13 @@ func renderOptions(ctx context.Context, config HTMLConfig, bot bool, extra []HTM
 	}
 	if config.AsyncConcurrency > 0 {
 		options = append(options, htmlbind.WithConcurrencyLimit(config.AsyncConcurrency))
+	}
+	// The store reaches every render path, the redraw included since
+	// system:tinybind v0.4.6 gave that entry options to pass. A component cached
+	// on the page and uncached in the response replacing it would be two renders
+	// of one thing, which is the difference nobody would think to look for.
+	if cache := renderCacheOption(ctx, config.Cache); cache != nil {
+		options = append(options, cache)
 	}
 	// Caller options come last so a later one wins, which is what makes them an
 	// extension of the configured set rather than a competing source of truth.

@@ -602,6 +602,33 @@ func TestRunGenerateIsIdempotent(t *testing.T) {
 	}
 }
 
+// A project generates from a clean checkout, where the packages its handlers
+// import do not exist yet.
+//
+// Generated Go is not committed, so a fresh clone holds declarations and no
+// output. Analysing a handler package type-checks it, which loads the query
+// package this same run is about to write — so the two halves have an order,
+// and the writing half has to reach disk before the analysing half looks. In
+// one alphabetical pass "handlers" came first, failed to load "queries", and
+// stopped the run before anything was written, which left running it again in
+// exactly the same position.
+func TestRunGenerateStartsFromNothingGenerated(t *testing.T) {
+	root := queryFixtureProject(t)
+	writeTestFile(t, filepath.Join(root, "handlers", "home.go"), `package handlers
+
+import "example.test/fixture/queries"
+
+var _ = queries.FindUser
+`)
+	t.Chdir(root)
+	if err := runGenerate(context.Background(), nil, &strings.Builder{}); err != nil {
+		t.Fatalf("a project with nothing generated could not be generated: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(root, "queries", "users_pw_gen.go")); err != nil {
+		t.Fatalf("the query package the handlers import was never written: %v", err)
+	}
+}
+
 // queryFixtureProject is a project holding both registries the development
 // panes read: a template beside a handler, and a declared statement.
 func queryFixtureProject(t *testing.T) string {

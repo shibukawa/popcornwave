@@ -108,7 +108,17 @@ func reservePort(t *testing.T) int {
 
 func fetch(t *testing.T, client *http.Client, target string) string {
 	t.Helper()
-	response, err := client.Get(target) //nolint:noctx // loopback test server
+	request, err := http.NewRequestWithContext(t.Context(), http.MethodGet, target, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// A browser says what it wants back, and the CSRF middleware reads it: only
+	// an HTML request is given a secret, because only an HTML response renders a
+	// form. Without this header the page renders with no token, and a template
+	// holding an unsafe form fails the render rather than shipping one
+	// unprotected.
+	request.Header.Set("Accept", "text/html,application/xhtml+xml")
+	response, err := client.Do(request)
 	if err != nil {
 		t.Fatal(err)
 	}

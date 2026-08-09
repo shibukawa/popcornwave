@@ -96,13 +96,20 @@ func TestWriteHTMLStreamsAwaitBoundaries(t *testing.T) {
 	if fallback < 0 || completion < 0 || completion < fallback {
 		t.Fatalf("fallback then completion not found in order: %q", body)
 	}
-	// The placeholder is a comment pair bracketing the committed fallback, not
-	// an element: an unknown element is foster-parented out of a table by the
-	// HTML tree construction algorithm, so a boundary inside one settled in the
-	// wrong place. tinybind v0.4.9 changed the shape; the client adopts the
-	// pair the server wrote.
+	// The fallback sits inside a pair of comment markers rather than inside a
+	// wrapper element, and that is a correctness property rather than a
+	// formatting one: an unknown element in table context is foster-parented out
+	// of the tbody, which separates a wrapper from the rows it was wrapping and
+	// leaves the fallback in the list forever. Comments are inserted where they
+	// were written, in a table and everywhere else.
 	if !strings.Contains(body, `<!--tb:tb-1--><p>loading</p><!--/tb:tb-1-->`) {
-		t.Errorf("placeholder fence missing: %q", body)
+		t.Errorf("the fallback is not fenced by its markers: %q", body)
+	}
+	// And nothing writes the element the parser moves. The runtime finds a
+	// boundary by walking to its markers, so a document still carrying the old
+	// spelling would leave every await boundary showing its fallback forever.
+	if strings.Contains(body, "<tb-boundary") {
+		t.Errorf("a boundary was written as an element: %q", body)
 	}
 }
 

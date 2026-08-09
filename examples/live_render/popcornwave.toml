@@ -11,3 +11,9 @@ config = ["cmd/live_render"]
 [dev.watch]
 includes = []
 excludes = []
+
+[assets.tailwind]
+enabled = true
+input = "assets/app.css"
+output = "public/generated/app.css"
+minify = true

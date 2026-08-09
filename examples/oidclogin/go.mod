@@ -2,7 +2,10 @@ module oidclogin
 
 go 1.26.0
 
-require github.com/shibukawa/popcornwave v0.0.0
+require (
+	github.com/shibukawa/popcornwave v0.0.0
+	github.com/shibukawa/tinybind-go v0.4.8
+)
 
 require (
 	filippo.io/edwards25519 v1.2.0 // indirect
@@ -26,7 +29,6 @@ require (
 	github.com/sethvargo/go-retry v0.4.0 // indirect
 	github.com/shibukawa/configdir v0.0.0-20170330084843-e180dbdc8da0 // indirect
 	github.com/shibukawa/dbtestify v0.5.0 // indirect
-	github.com/shibukawa/tinybind-go v0.4.3 // indirect
 	github.com/shibukawa/tinygodriver v1.1.12 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	golang.org/x/sync v0.22.0 // indirect
