@@ -107,6 +107,98 @@ SELECT id, name FROM users WHERE id = {id}
 // directly: what reaches pw is a plan flagged live and a boundary that keeps
 // delivering. This holds the generation half of that path, so a template a
 // project writes today produces what api:live-delivery-protocol serves.
+// TestPlanDirectoryPlacesProducedAssetsInTheDerivedDirectory drives the seam
+// between generation and the asset build, which nothing covered: the unit tests
+// on either side call buildScriptEntry and buildDerivedAssets directly, and no
+// project in this repository enables the script build.
+//
+// What that hid is that the artifact API returns produced files rather than
+// writing them, so every one was grouped with the Go artifacts and written as
+// app.<hash>.js_pw_gen.go — a Go file holding JavaScript, which the next run
+// refused to parse — while the bundle the rewritten reference named was never
+// written at all.
+func TestPlanDirectoryPlacesProducedAssetsInTheDerivedDirectory(t *testing.T) {
+	root := t.TempDir()
+	writeTestFile(t, filepath.Join(root, "go.mod"), "module fixture\n\ngo 1.26.0\n")
+	writeNestedTestFile(t, filepath.Join(root, "public", "js", "app.ts"),
+		"const greet = (name: string): string => `hi ${name}`;\nconsole.log(greet(\"world\"));\n")
+	writeTestFile(t, filepath.Join(root, "home.pw.html"), `package fixture
+
+export component Home(): html {
+<head>
+  <script type="module" src="/public/js/app.ts"></script>
+</head>
+<h1>hi</h1>
+}
+`)
+
+	options, err := pwgen.Options(sqlbind.DialectPostgreSQL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	derived := filepath.Join(root, "dist", "derived")
+	options.ReferenceHooks = assetReferenceHooks(root, assetsConfig{Scripts: true})
+	options.DerivedAssetDir = derived
+	options.ConversionCacheDir = filepath.Join(root, "dist", "cache")
+	runner := generator.New(options)
+
+	changes, err := planDirectory(context.Background(), runner, root, allPurposes, nil, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var paths []string
+	produced := map[string]bool{}
+	for _, change := range changes {
+		paths = append(paths, change.path)
+		if strings.HasPrefix(change.path, derived) {
+			produced[filepath.Base(change.path)] = true
+		}
+		// The bundle and its map are not Go, and nothing about them belongs in a
+		// package. A _pw_gen.go named after one is the defect itself.
+		if strings.HasSuffix(change.path, "_pw_gen.go") && strings.Contains(filepath.Base(change.path), "app.") {
+			t.Errorf("a produced asset was planned as Go: %s", change.path)
+		}
+	}
+	if len(produced) == 0 {
+		t.Fatalf("no produced asset was planned into %s: %v", derived, paths)
+	}
+	// The bundle is what the rewritten reference names, so its absence is a 404
+	// on every page that loads the script.
+	bundled := false
+	for name := range produced {
+		if strings.HasPrefix(name, "app.") && strings.HasSuffix(name, ".js") {
+			bundled = true
+		}
+	}
+	if !bundled {
+		t.Errorf("the bundle was not placed: %v", produced)
+	}
+	home := ""
+	for _, change := range changes {
+		if filepath.Base(change.path) == "home_pw_gen.go" {
+			home = string(change.source)
+		}
+	}
+	if !strings.Contains(home, "/public/js/app.") || strings.Contains(home, "app.ts") {
+		t.Errorf("the reference was not rewritten to the bundle:\n%s", home)
+	}
+
+	// Applying and re-planning must report nothing, or --check would call a tree
+	// it just built stale.
+	if err := applyFileChanges(changes); err != nil {
+		t.Fatal(err)
+	}
+	changes, err = planDirectory(context.Background(), runner, root, allPurposes, nil, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, change := range changes {
+		if strings.HasPrefix(change.path, derived) {
+			t.Errorf("a produced asset was replanned after it was written: %s", change.path)
+		}
+	}
+}
+
 func TestPlanDirectoryGeneratesLiveBoundaries(t *testing.T) {
 	directory := t.TempDir()
 	writeTestFile(t, filepath.Join(directory, "go.mod"), "module fixture\n\ngo 1.26.0\n")

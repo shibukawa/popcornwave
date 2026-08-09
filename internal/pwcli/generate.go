@@ -667,8 +667,14 @@ func planDirectory(ctx context.Context, runner *generator.Generator, directory s
 			grouped[target] = append(grouped[target], registration)
 		}
 	}
+	// A produced file is placed before anything is grouped, because it is not Go
+	// and the grouping below names every target it is handed a _pw_gen.go.
+	produced, err := planProducedAssets(runner.Options.DerivedAssetDir, purposes, artifacts)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", directory, err)
+	}
 	for _, artifact := range artifacts {
-		if !purposes.keeps(artifact.Kind) {
+		if !purposes.keeps(artifact.Kind) || artifact.Destination == generator.DestinationPublicAsset {
 			continue
 		}
 		target := filepath.Join(directory, artifact.OutputBase+"_pw_gen.go")
@@ -692,7 +698,7 @@ func planDirectory(ctx context.Context, runner *generator.Generator, directory s
 		}
 	}
 	expected := make(map[string]bool, len(grouped))
-	var changes []fileChange
+	changes := produced
 	for target, group := range grouped {
 		expected[target] = true
 		source, err := mergeArtifacts(group)
@@ -734,6 +740,51 @@ func planDirectory(ctx context.Context, runner *generator.Generator, directory s
 		if !expected[path] {
 			changes = append(changes, fileChange{path: path, remove: true})
 		}
+	}
+	return changes, nil
+}
+
+// planProducedAssets turns the files a conversion produced into writes into the
+// derived asset directory.
+//
+// The generator has two APIs and they divide this differently. The one that
+// writes files places these itself; the one this project uses returns artifacts,
+// and taking artifacts means taking the placement too. Nothing said so, and the
+// caller grouped them with the Go artifacts by output base: a bundle was written
+// as templates/js/app.<hash>.js_pw_gen.go, a Go file holding JavaScript that the
+// next run refused to parse, while the file the rewritten reference names was
+// never written at all. A page referencing a TypeScript entry served a script
+// URL that answered 404.
+//
+// The bytes are compared before a write is planned, exactly as a generated Go
+// file is, so a --check run on a tree that is already built reports nothing.
+func planProducedAssets(derivedDir string, purposes generationPurposes, artifacts []generator.Artifact) ([]fileChange, error) {
+	var changes []fileChange
+	planned := map[string]bool{}
+	for _, artifact := range artifacts {
+		if artifact.Destination != generator.DestinationPublicAsset || !purposes.keeps(artifact.Kind) {
+			continue
+		}
+		if derivedDir == "" {
+			// Discarding it would leave the rewritten reference naming nothing,
+			// which is the failure this function exists to have stopped.
+			return nil, fmt.Errorf("a conversion produced %s but no derived asset directory is set", artifact.OutputBase)
+		}
+		target := filepath.Join(derivedDir, filepath.FromSlash(artifact.OutputBase))
+		// One conversion is replayed for every occurrence of the value it
+		// converted, so the same file arrives once per reference.
+		if planned[target] {
+			continue
+		}
+		planned[target] = true
+		current, err := os.ReadFile(target)
+		if err == nil && bytes.Equal(current, artifact.Content) {
+			continue
+		}
+		if err != nil && !os.IsNotExist(err) {
+			return nil, err
+		}
+		changes = append(changes, fileChange{path: target, source: artifact.Content})
 	}
 	return changes, nil
 }
