@@ -127,16 +127,18 @@ func (c *Console) runReseed(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, target, http.StatusSeeOther)
 }
 
-// Attachment is the address the application published for a pane it serves
-// itself, plus the per-run token that guards it.
+// Attachment is what the application published about itself — the address of a
+// pane it serves and the URL it listens on — plus the per-run token that guards
+// both.
 //
 // The application dials out to announce; the console never dials in. That is
 // what keeps a development pane off the application's own listener while still
 // letting one page reach it, and it is the direction the telemetry exporter
 // already uses.
 type Attachment struct {
-	token   string
-	address atomic.Pointer[string]
+	token     string
+	address   atomic.Pointer[string]
+	listening atomic.Pointer[string]
 }
 
 // NewAttachment prepares one. An empty token accepts no announcement, which is
@@ -153,6 +155,18 @@ func (a *Attachment) Address() string {
 	}
 	if address := a.address.Load(); address != nil {
 		return *address
+	}
+	return ""
+}
+
+// Listening is the URL the application says it bound, or empty before it has
+// said so.
+func (a *Attachment) Listening() string {
+	if a == nil {
+		return ""
+	}
+	if listening := a.listening.Load(); listening != nil {
+		return *listening
 	}
 	return ""
 }
@@ -185,27 +199,61 @@ func (a *Attachment) Handler(what string) http.Handler {
 	}
 }
 
-// announce records the address the application published.
+// announce records the address of the pane the application serves itself.
 //
 // The body is an address and nothing else, so there is no shape for a request
 // to carry anything the console then has to decide about.
 func (c *Console) announce(w http.ResponseWriter, r *http.Request) {
-	if c.attach == nil || c.attach.token == "" || r.Header.Get("X-Pw-Attach-Token") != c.attach.token {
-		http.Error(w, "forbidden", http.StatusForbidden)
+	address, ok := c.announced(w, r)
+	if !ok {
 		return
 	}
-	body, err := io.ReadAll(io.LimitReader(r.Body, 256))
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-	address := strings.TrimSpace(string(body))
 	if _, _, err := net.SplitHostPort(address); err != nil {
 		http.Error(w, "not an address", http.StatusBadRequest)
 		return
 	}
 	c.attach.address.Store(&address)
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// announceListening records the URL the application says it bound.
+//
+// The console can otherwise only derive one by reading the project's
+// development configuration, which is a guess: an environment variable or a
+// flag outranks the file, and a development run shifts off a port it cannot
+// bind. The link on the index is worth nothing if it opens whatever else holds
+// the configured port, so the process that owns the listener gets to say.
+//
+// The body is one URL and nothing else, and it has to be an HTTP one: the value
+// is rendered into a link, and a scheme is the part of a URL that decides what
+// following it does.
+func (c *Console) announceListening(w http.ResponseWriter, r *http.Request) {
+	listening, ok := c.announced(w, r)
+	if !ok {
+		return
+	}
+	parsed, err := url.Parse(listening)
+	if err != nil || (parsed.Scheme != "http" && parsed.Scheme != "https") || parsed.Host == "" {
+		http.Error(w, "not an http URL", http.StatusBadRequest)
+		return
+	}
+	c.attach.listening.Store(&listening)
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// announced authenticates one announcement and returns its body. It writes the
+// refusal itself, so a caller that gets false has nothing left to do.
+func (c *Console) announced(w http.ResponseWriter, r *http.Request) (string, bool) {
+	if c.attach == nil || c.attach.token == "" || r.Header.Get("X-Pw-Attach-Token") != c.attach.token {
+		http.Error(w, "forbidden", http.StatusForbidden)
+		return "", false
+	}
+	body, err := io.ReadAll(io.LimitReader(r.Body, 256))
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return "", false
+	}
+	return strings.TrimSpace(string(body)), true
 }
 
 // New binds the console listener and serves the index and every pane on it.
@@ -236,6 +284,7 @@ func (c *Console) routes() http.Handler {
 	mux.HandleFunc("GET /api/loop-state", c.loopState)
 	mux.HandleFunc("GET /api/loop-state/stream", c.loopStateStream)
 	mux.HandleFunc("POST /api/attach", c.announce)
+	mux.HandleFunc("POST /api/listening", c.announceListening)
 	mux.HandleFunc("POST /api/reseed", c.runReseed)
 	for _, pane := range c.panes {
 		if !pane.Enabled() {
@@ -316,6 +365,42 @@ func (c *Console) nav() []navPane {
 }
 
 // URL is the one address api:cli-dev prints for the console.
+// projectView is what a page should say about the project now.
+//
+// The application's address is the one it announced when it has announced one,
+// because everything else here was read from a project file that an environment
+// variable, a flag, or a development port shift outranks. The documentation link
+// moves with it: that page is a path on the application's own origin, so a link
+// left behind on the configured port opens whatever else now holds it.
+func (c *Console) projectView() Project {
+	project := c.project
+	listening := c.attach.Listening()
+	if listening == "" {
+		return project
+	}
+	project.ApplicationURL, project.APIDocURL = listening, rehost(project.APIDocURL, listening)
+	return project
+}
+
+// rehost keeps a URL's path and moves it onto the origin the application
+// announced. An unreadable value is dropped rather than linked, because a link
+// that goes nowhere is worse than the sentence saying there is none.
+func rehost(link, origin string) string {
+	if link == "" {
+		return ""
+	}
+	target, err := url.Parse(link)
+	if err != nil {
+		return ""
+	}
+	base, err := url.Parse(origin)
+	if err != nil {
+		return ""
+	}
+	target.Scheme, target.Host = base.Scheme, base.Host
+	return target.String()
+}
+
 func (c *Console) URL() string {
 	if c == nil {
 		return ""

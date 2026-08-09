@@ -45,7 +45,42 @@ func initWizardSteps(defaults initOptions) []wizardStep[initOptions] {
 	for _, step := range applicationSteps(defaults) {
 		steps = append(steps, when(isApplication, step))
 	}
+	// Asked for both kinds and after everything else, because it describes the
+	// machines this project is edited on rather than the project itself — the
+	// same territory as the editor files every kind already gets.
+	steps = append(steps, newChoiceStep(
+		"AI coding agent",
+		"Places the bundled framework skill — template and query syntax, project anatomy, and the "+
+			"pw commands that check an edit — where your coding agent discovers it.",
+		skillsCursor(defaults.Skills),
+		wizardChoice[initOptions]{
+			name:        ".claude",
+			description: ".claude/skills/" + agentSkillDir + "/ — the directory Claude Code reads",
+			apply:       func(target *initOptions) { target.Skills = skillsClaude },
+		},
+		wizardChoice[initOptions]{
+			name:        ".agents",
+			description: ".agents/skills/" + agentSkillDir + "/ — the shared layout other coding agents read",
+			apply:       func(target *initOptions) { target.Skills = skillsAgents },
+		},
+		wizardChoice[initOptions]{
+			name:        "None",
+			description: "no agent files; copy skills/ from the framework repository later if one arrives",
+			apply:       func(target *initOptions) { target.Skills = skillsNone },
+		},
+	))
 	return steps
+}
+
+// skillsCursor preselects the agent directory a seeded answer names.
+func skillsCursor(value string) int {
+	switch value {
+	case skillsAgents:
+		return 1
+	case skillsNone:
+		return 2
+	}
+	return 0
 }
 
 // isApplication reports whether the capability questions apply to this project

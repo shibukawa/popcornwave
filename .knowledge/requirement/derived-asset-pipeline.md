@@ -63,7 +63,7 @@ upstream_requests:
       becomes_a_request_when: policy:asset-transform-matrix ever names an attribute on a component-supplied element as a reference site
       already_open_upstream: it is the first of the element-reference-hook open questions, so it would be a nudge rather than a new ask
 as_built:
-  build: pw build clears dist/public, walks the authored tree, copies or transforms each file, places what the hooks produced, writes the zstd sidecars, and emits the manifest last
+  build: pw build clears dist/public, walks the authored tree, copies or transforms each file, places what the hooks produced, writes the precompressed sidecars of policy:public-asset-precompression, and emits the manifest last
   staging: hooks write to dist/derived and the tree builder moves those files, so clearing the served tree never deletes what pw generate produced
   manifest: a generated Go table in the public.go package plus dist/manifest.json for tooling; the middleware reads it and computes no digest per request
   embed: the scaffold embeds dist/public, and a project still embedding the authored tree is refused with the two lines to change

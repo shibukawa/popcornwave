@@ -105,9 +105,15 @@ func listItems(w http.ResponseWriter, r *http.Request) {
 | --- | --- |
 | `pw.WriteAPI` | レスポンススキーマ付きの `200` |
 | `pw.WriteStatus` | 呼ばれた静的ステータスごとに 1 つ |
-| `pw.NewStream[T]` | `text/event-stream`、`application/x-ndjson`、`application/json` |
-| `pw.BadRequest`、`NotFound`、`Conflict` など | そのステータス、`application/problem+json` として |
+| `pw.NewStream[T]` | `text/event-stream`, `application/x-ndjson`, `application/json` |
+| `pw.BadRequest`, `NotFound`, `Conflict` など | そのステータス、`application/problem+json` として |
 | リクエストの `check` 規則 | エラー呼び出しがなくても `400` |
+
+`pw.WriteStatus(w, r, http.StatusCreated, value)` は、成功ステータスを明示する
+`pw.WriteAPI` です — `201` や `202`、そしてボディを書かない `204`。ステータスは
+リテラルか名前付き定数にしてください。実行時に計算されたステータスはスキャナに
+見えませんし、ハンドラが `WriteHeader` で手動設定したステータスがドキュメントに
+届くことはありません。
 
 パスパラメータは自動的に `required` になります。ボディのフィールドは、JSON・
 フォームエンコード・multipart を受け付けるリクエストボディになります。バインディングが
@@ -181,7 +187,7 @@ type item struct {
 | `check:"minlen"` / `check:"maxlen"` | `minLength` / `maxLength` |
 | `check:"len"` | `minLength` と `maxLength` の両方 |
 | `check:"pattern=…"` | `pattern` |
-| `check:"email"`、`uuid`、`date`、`time`、`datetime` | `format` |
+| `check:"email"`, `uuid`, `date`, `time`, `datetime` | `format` |
 | `enum:"a,b"` | `enum` |
 | `default:"…"` | `default` |
 

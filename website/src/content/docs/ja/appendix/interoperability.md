@@ -37,7 +37,7 @@ reflect ベースのライブラリを使うこともできます。
 | `middlewares` — リクエスト ID、リカバリ、ボディ上限、セキュリティヘッダ、タイムアウト、アクセスログ、アセット、OpenTelemetry | フレームワーク本体 |
 | `pw.Middlewares` — 設定、起動時検証、DB プール、拡張、運用エンドポイント、組み上がったスタック | フレームワーク本体 |
 | `pw.Run` | `pw.Middlewares` と `http.Server` のラッパー |
-| `pw generate`、`pw dev`、`pw build`、`pw migrate`、`pw seed` | 開発体験 |
+| `pw generate`, `pw dev`, `pw build`, `pw migrate`, `pw seed` | 開発体験 |
 | `pw.Parse[T]` | 差し替え可能なヘルパー |
 | `.pw.sql` ステートメント | 差し替え可能なヘルパー |
 | `.pw.html` コンポーネント | 差し替え可能なヘルパー |
@@ -115,6 +115,12 @@ PostgreSQL では `ok` は常に `false` です。フレームワークはリク
 ライフサイクルも自分で持ちます。生成されたステートメントとトランザクションを共有すべき
 書き込みは生成レイヤーの中に置いてください。2 つのプールが 1 つのトランザクションに
 参加することはできません。
+
+この 2 本目のプールは、`*sql.DB` でなければ困るコードのためのものです。pgx そのものが
+欲しいコード — バッチ、`CopyFrom`、`LISTEN`/`NOTIFY`、SQLSTATE を読む `*pgx.PgError` —
+は開く必要がありません。`postgres.WithConn` はフレームワークが既に使っている接続を
+そのまま渡し、`pw.Transaction` の中ではそのトランザクションが走っている接続を渡すので、
+作業は競合ではなく合流になります。[バッチ](/ja/guides/storage/batching/)を参照してください。
 
 `pw.Transaction` はトランザクションを context に入れます。これは**生成された**ステートメントの
 ためのもので、だから明示的なハンドルが要りません。他のライブラリからはそれが見えないので、
@@ -256,7 +262,7 @@ e.Use(echo.WrapMiddleware(middlewares.MaxRequestBody(10 << 20)))
 | --- | --- |
 | 暗黙のドキュメントシェル | `pw.WriteHTML` は登録済みのラッパーチェーンを解決する。`htmlbind.RenderChain` はチェーンを渡す必要がある |
 | 階層化された設定と `--generate-config` | `configbind` がやるのは構造体へのバインドまで。ファイルの探索順、環境の選択、スキャフォールドのマージはフレームワーク側 |
-| 運用エンドポイント（`server.health`、`server.readiness`、`server.openapi`） | 設定されたパスに `pw.Middlewares` がマウントする |
+| 運用エンドポイント（`server.health`, `server.readiness`, `server.openapi`） | 設定されたパスに `pw.Middlewares` がマウントする |
 | プロジェクト全体の OpenAPI マージ | `tinybind-gen` はパッケージごとにフラグメントを出す。決定的にマージするのは `pw generate` |
 | `pw dev`、マイグレーション、シード、Tailwind、開発用 IdP | ランタイムではなくツール |
 

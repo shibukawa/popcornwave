@@ -14,7 +14,7 @@ entry:
   representations:
     - path: file under dist/public
       media_type: Content-Type to send
-      content_encoding: empty or zstd
+      content_encoding: empty, br, zstd, or gzip, per policy:public-asset-precompression
       bytes: encoded length
       sha256: digest of the emitted bytes
       etag: quoted strong tag derived from that digest
@@ -27,7 +27,8 @@ rules:
   - a URL with no entry is 404 even when a file exists under dist/public, so serving is manifest-driven rather than filesystem-driven
   - an entry with no representation is a build error
   - each representation carries its own strong ETag, per policy:public-asset-negotiation
-  - the digest is over emitted bytes, so an identity and a zstd representation never share a tag
+  - the digest is over emitted bytes, so no two codings of one URL share a tag
+  - a URL carries the codings its file produced and no placeholder for one that was skipped, so the manifest states what exists rather than what was attempted
   - the middleware computes no digest and reads no file metadata per request, which removes the current per-request sha256 and read
   - the manifest is embedded with the tree it describes and is never fetched or reloaded
   - a media-type set larger than one enables policy:public-asset-media-negotiation for that URL only

@@ -1,0 +1,18 @@
+[project]
+name = "partial_update"
+main = "./cmd/partial_update"
+
+[generate]
+handlers = []
+templates = ["templates"]
+queries = []
+config = ["cmd/partial_update"]
+# One page tree root: every directory below it holding a page template is a
+# route, and the registration is generated. A layout and a page are chain
+# members, which is what makes them update boundaries without anybody declaring
+# one.
+pages = ["pages"]
+
+[dev.watch]
+includes = []
+excludes = []

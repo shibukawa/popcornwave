@@ -27,6 +27,28 @@ func TestReleaseBuildServesOnlyTheCoreModule(t *testing.T) {
 	if strings.Contains(core, "dev.js") || strings.Contains(core, "PW_DEV_CONSOLE_URL") {
 		t.Error("the release core names a development module")
 	}
+	if strings.Contains(core, "devmark.webp") || strings.Contains(core, "pw-dev-launcher") {
+		t.Error("the release core names the launcher or its mark")
+	}
+}
+
+// The set is JavaScript alone in a release build, so the only content type the
+// handler can reach for is the one every module in it takes.
+func TestAReleaseSetIsJavaScriptAlone(t *testing.T) {
+	for name := range frameworkScripts() {
+		if got := frameworkAssetContentType(name); got != "text/javascript; charset=utf-8" {
+			t.Errorf("%s: Content-Type = %q, want JavaScript", name, got)
+		}
+	}
+}
+
+// The mark is embedded under the pwdev constraint, so a release build has no
+// bytes for it and 404s the name rather than serving something.
+func TestTheMarkIsNotServedByAReleaseBuild(t *testing.T) {
+	path := frameworkScriptPrefix + scriptRevision() + "/devmark.webp"
+	if serveFrameworkScript(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, path, nil)) {
+		t.Error("a release build served the launcher mark")
+	}
 }
 
 // A name outside the set is declined here rather than answered, because the

@@ -39,8 +39,11 @@ func Authenticated(ctx context.Context) bool {
 // DB returns the pool of the effective connection group.
 //
 // An engine that bypasses database/sql — PostgreSQL runs on its native pgx
-// pool — has no *sql.DB, so DB reports false there. Generated SQL, Exec, and
-// Transaction are the portable surfaces; they run on either kind of pool.
+// pool — has no *sql.DB, so DB reports false there. Generated SQL and
+// Transaction are the portable surfaces; they run on either kind of pool. A
+// raw statement that must run on both resolves the request executor through
+// pwruntime.SQLExecutor and reads through sqlbind.Query, which dispatches to
+// whichever cursor the connection provides.
 func DB(ctx context.Context) (*sql.DB, bool) { return pwruntime.DB(ctx) }
 
 // DBDriver reports the driver scheme of the effective framework database pool.
@@ -57,22 +60,16 @@ func SelectDB(ctx context.Context, group string) context.Context {
 	return pwruntime.SelectDB(ctx, group)
 }
 
-// TxOption customizes one Transaction call.
-type TxOption = pwruntime.TxOption
-
-// OnGroup runs a transaction against a named connection group.
-func OnGroup(group string) TxOption { return pwruntime.OnGroup(group) }
-
 // Transaction runs fn inside a database transaction and passes it a context
 // whose generated SQL functions use that transaction. A nested call opens a
 // savepoint instead of a new transaction, so its failure rolls back only its
 // own work and the outer transaction stays usable.
 //
-// Without OnGroup the transaction runs on the effective group of ctx, so
-// unpinned SQL inside it stays on that group rather than falling back to the
-// default one:
+// The transaction runs on the effective group of ctx, which SelectDB pins for a
+// transaction and for a single statement alike, and unpinned SQL inside it
+// stays on that group rather than falling back to the default one:
 //
-//	pw.Transaction(ctx, func(ctx context.Context) error { ... }, pw.OnGroup("writer"))
-func Transaction(ctx context.Context, fn func(context.Context) error, options ...TxOption) error {
-	return pwruntime.Transaction(ctx, fn, options...)
+//	pw.Transaction(pw.SelectDB(ctx, "writer"), func(ctx context.Context) error { ... })
+func Transaction(ctx context.Context, fn func(context.Context) error) error {
+	return pwruntime.Transaction(ctx, fn)
 }

@@ -70,11 +70,11 @@ dynamo:"<属性名>[,<オプション>...]"
 | Go の型 | 属性 | 備考 |
 | --- | --- | --- |
 | `string` | `S` | 空文字列も値であり、保存される |
-| `int`…`int64`、`uint`…`uint64` | `N` | `strconv` 経由。`float64` は通さない |
-| `float32`、`float64` | `N` | |
+| `int`…`int64`, `uint`…`uint64` | `N` | `strconv` 経由。`float64` は通さない |
+| `float32`, `float64` | `N` | |
 | `bool` | `BOOL` | |
 | `[]byte` | `B` | |
-| `time.Time` | RFC 3339 nano の `S`、`unixtime` なら `N` | |
+| `time.Time` | RFC 3339 nano の `S`, `unixtime` なら `N` | |
 | `[]T` | `L`、セットオプション付きなら `SS`／`NS`／`BS` | |
 | `map[string]T` | `M` | 文字列でないキーは生成エラー |
 | ネストした構造体 | `M` | 同じパッケージで宣言されている必要がある |
@@ -146,7 +146,7 @@ statement readingsForSensor(sensor: Sensor): dynamo.many<Reading> {
 | 書き方 | 送られるもの |
 | --- | --- |
 | `at = {p}` | `=` |
-| `at < {p}`、`at <= {p}`、`at > {p}`、`at >= {p}` | その比較 |
+| `at < {p}`, `at <= {p}`, `at > {p}`, `at >= {p}` | その比較 |
 | `at between {lo} and {hi}` | `BETWEEN` |
 | `begins_with(at, {p})` | `begins_with`。文字列のソートキーのみ |
 

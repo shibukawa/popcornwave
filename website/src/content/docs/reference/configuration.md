@@ -107,7 +107,8 @@ startup, before either can shadow the other. `api_doc` additionally requires
 | `recovery` | `true` | recover a panicking handler into a 500 |
 | `request_id` | `true` | assign and propagate a request correlation ID |
 | `access_log` | `true` | one record per request |
-| `compression` | `false` | zstd-encode HTML for clients that accept it |
+| `compression` | `false` | encode rendered HTML and JSON for clients that accept it |
+| `compression_codings` | `["zstd", "gzip"]` | codings to offer, best first; one left out is not offered at all |
 | `request_timeout` | `"0s"` | per-request deadline; zero leaves none |
 | `rdb.enabled` | `false` | open the framework-owned database pool |
 | `rdb.default_group` | *(empty)* | connection group for statements that pin none |
@@ -115,8 +116,15 @@ startup, before either can shadow the other. `api_doc` additionally requires
 | `rdb.migration_group` | *(empty)* | connection group for migrations and seeds |
 
 With `compression` enabled, `Vary: Accept-Encoding` is set either way — a cache
-that saw one representation must not serve it to a client that asked for the
-other.
+that saw one representation must not serve it to a client that asked for
+another.
+
+`compression_codings` is the order the server prefers, not the client's
+`q`-values, which only say what can be read. An unknown name is a startup error;
+a known one whose encoder a build tag removed is skipped, and named in the
+startup log. Turn compression off with `compression = false` rather than an
+empty list. The encoder levels are deliberately not configurable — see
+[Response Compression](/guides/frontend/compression/).
 
 Every database is configured with the connection set below, one table per pool:
 a single database is one table, and a reader-writer topology is several. The
@@ -185,6 +193,8 @@ startup. See [Firestore](/guides/storage/firestore/).
 | `update.enabled` | `false` | answer navigation deltas, redraws, and action responses |
 | `update.validator_key` | — | secret keying the boundary digests; required when `update.enabled` is true |
 | `update.max_manifest_bytes` | `8192` | cap on the digest hint a request may carry |
+| `cache.enabled` | `true` | reuse the rendered output of `@cache` components |
+| `cache.max_entries` | `1024` | entries the in-process render cache holds; zero or less is unbounded |
 
 A template that opens an await boundary renders correctly under either
 `streaming` setting. The key decides only whether the fallbacks reach the
@@ -212,6 +222,16 @@ comparisons miss and the next response is a complete document. An oversized
 manifest is dropped rather than rejected, so a request past
 `update.max_manifest_bytes` costs a larger delta instead of an error. See
 [Partial Updates](/guides/cross-layer/partial-updates/) for what each path buys.
+
+`cache.enabled` is on where every other capability here is off, because the
+opt-in is the [`@cache`](/reference/template-syntax/#cache) annotation rather
+than this key: generation refuses one on a component whose stored bytes could
+not stand in for a fresh render, so a template carrying it has already been
+checked and has already asked. A project writing no annotation never reaches the
+store and pays nothing. Turn it off to rule the cache out while diagnosing a
+stale region. `cache.max_entries` bounds what one process holds — the key covers
+every declared parameter, so a component taking an arbitrary string has as many
+entries as it has callers.
 
 ## `[security]`
 

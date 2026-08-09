@@ -1047,6 +1047,7 @@ func registerMiddlewareConfigDefinition4() {
 			"middleware.request_id",
 			"middleware.access_log",
 			"middleware.compression",
+			"middleware.compression_codings",
 			"middleware.request_timeout",
 			"middleware.rdb.enabled",
 			"middleware.rdb.default_group",
@@ -1055,17 +1056,20 @@ func registerMiddlewareConfigDefinition4() {
 			"middleware.rdb.connections",
 		},
 		Defaults: map[string]string{
-			"middleware.recovery":        "true",
-			"middleware.request_id":      "true",
-			"middleware.access_log":      "true",
-			"middleware.compression":     "false",
-			"middleware.request_timeout": "0s",
-			"middleware.rdb.enabled":     "false",
+			"middleware.recovery":            "true",
+			"middleware.request_id":          "true",
+			"middleware.access_log":          "true",
+			"middleware.compression":         "false",
+			"middleware.compression_codings": "zstd,gzip",
+			"middleware.request_timeout":     "0s",
+			"middleware.rdb.enabled":         "false",
 		},
 		DependsOn: map[string][]string{
+			"middleware.compression_codings": {"middleware.compression"},
 			"middleware.rdb.default_group":   {"middleware.rdb.enabled"},
 			"middleware.rdb.write_group":     {"middleware.rdb.enabled"},
 			"middleware.rdb.migration_group": {"middleware.rdb.enabled"},
+			"middleware.rdb.connections":     {"middleware.rdb.enabled"},
 		},
 		Secrets: map[string]string{
 			"middleware.rdb.connections.dsn": "mask",
@@ -1075,6 +1079,7 @@ func registerMiddlewareConfigDefinition4() {
 			{Prefix: "middleware", Key: "request_id", Kind: cliparser.KindBool},
 			{Prefix: "middleware", Key: "access_log", Kind: cliparser.KindBool},
 			{Prefix: "middleware", Key: "compression", Kind: cliparser.KindBool},
+			{Prefix: "middleware", Key: "compression_codings", Help: "content codings for dynamic responses, best first", Kind: cliparser.KindArray},
 			{Prefix: "middleware", Key: "request_timeout"},
 			{Prefix: "middleware", Key: "rdb.enabled", Kind: cliparser.KindBool},
 			{Prefix: "middleware", Key: "rdb.default_group", Help: "connection group for statements that pin none"},
@@ -1087,6 +1092,7 @@ func registerMiddlewareConfigDefinition4() {
 			{Key: "request_id", Kind: configbind.ScaffoldBool, Default: "true"},
 			{Key: "access_log", Kind: configbind.ScaffoldBool, Default: "true"},
 			{Key: "compression", Kind: configbind.ScaffoldBool, Default: "false"},
+			{Key: "compression_codings", Kind: configbind.ScaffoldStringSlice, Default: "zstd,gzip", Help: "content codings for dynamic responses, best first"},
 			{Key: "request_timeout", Kind: configbind.ScaffoldDuration, Default: "0s"},
 			{Key: "rdb.enabled", Kind: configbind.ScaffoldBool, Default: "false"},
 			{Key: "rdb.default_group", Kind: configbind.ScaffoldString, Help: "connection group for statements that pin none"},
@@ -1146,6 +1152,9 @@ func applyMiddlewareConfigDefinition4(dst any, o *configbind.Overlay) error {
 		p.Compression = bb
 	} else {
 		p.Compression = false
+	}
+	if v, ok := o.GetMulti("middleware.compression_codings"); ok {
+		p.CompressionCodings = v
 	}
 	if v, ok := o.GetString("middleware.request_timeout"); ok {
 		d, err := time.ParseDuration(v)
@@ -1267,6 +1276,8 @@ func registerHTMLConfigDefinition5() {
 			"html.live_idle_timeout",
 			"html.live_max_boundaries",
 			"html.live_max_responses",
+			"html.cache.enabled",
+			"html.cache.max_entries",
 		},
 		Defaults: map[string]string{
 			"html.streaming":                 "true",
@@ -1283,6 +1294,8 @@ func registerHTMLConfigDefinition5() {
 			"html.live_idle_timeout":         "5m0s",
 			"html.live_max_boundaries":       "32",
 			"html.live_max_responses":        "4",
+			"html.cache.enabled":             "true",
+			"html.cache.max_entries":         "1024",
 		},
 		DependsOn: map[string][]string{
 			"html.bot_async_timeout":         {"html.bot_detection"},
@@ -1295,6 +1308,7 @@ func registerHTMLConfigDefinition5() {
 			"html.live_idle_timeout":         {"html.live"},
 			"html.live_max_boundaries":       {"html.live"},
 			"html.live_max_responses":        {"html.live"},
+			"html.cache.max_entries":         {"html.cache.enabled"},
 		},
 		Secrets: map[string]string{
 			"html.update.validator_key": "mask",
@@ -1316,6 +1330,8 @@ func registerHTMLConfigDefinition5() {
 			{Prefix: "html", Key: "live_idle_timeout", Help: "close a live response after this long with no delivery"},
 			{Prefix: "html", Key: "live_max_boundaries", Help: "maximum boundaries one live response may serve"},
 			{Prefix: "html", Key: "live_max_responses", Help: "maximum concurrent live responses per client"},
+			{Prefix: "html", Key: "cache.enabled", Help: "reuse the rendered output of components declared with the cache annotation", Kind: cliparser.KindBool},
+			{Prefix: "html", Key: "cache.max_entries", Help: "maximum entries the in-process render cache holds"},
 		},
 		Apply: applyHTMLConfigDefinition5,
 		Scaffold: []configbind.ScaffoldField{
@@ -1335,6 +1351,8 @@ func registerHTMLConfigDefinition5() {
 			{Key: "live_idle_timeout", Kind: configbind.ScaffoldDuration, Default: "5m0s", Help: "close a live response after this long with no delivery"},
 			{Key: "live_max_boundaries", Kind: configbind.ScaffoldInt, Default: "32", Help: "maximum boundaries one live response may serve"},
 			{Key: "live_max_responses", Kind: configbind.ScaffoldInt, Default: "4", Help: "maximum concurrent live responses per client"},
+			{Key: "cache.enabled", Kind: configbind.ScaffoldBool, Default: "true", Help: "reuse the rendered output of components declared with the cache annotation"},
+			{Key: "cache.max_entries", Kind: configbind.ScaffoldInt, Default: "1024", Help: "maximum entries the in-process render cache holds"},
 		},
 	})
 }
@@ -1475,6 +1493,24 @@ func applyHTMLConfigDefinition5(dst any, o *configbind.Overlay) error {
 		p.LiveMaxResponses = int(n)
 	} else {
 		p.LiveMaxResponses = 4
+	}
+	if v, ok := o.GetString("html.cache.enabled"); ok {
+		bb, err := strconv.ParseBool(v)
+		if err != nil {
+			return fmt.Errorf("configbind: html.cache.enabled: %w", err)
+		}
+		p.Cache.Enabled = bb
+	} else {
+		p.Cache.Enabled = true
+	}
+	if v, ok := o.GetString("html.cache.max_entries"); ok {
+		n, err := strconv.ParseInt(v, 10, 0)
+		if err != nil {
+			return fmt.Errorf("configbind: html.cache.max_entries: %w", err)
+		}
+		p.Cache.MaxEntries = int(n)
+	} else {
+		p.Cache.MaxEntries = 1024
 	}
 	return nil
 }

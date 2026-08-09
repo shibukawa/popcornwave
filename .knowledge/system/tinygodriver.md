@@ -17,6 +17,7 @@ packages:
   sqlite: github.com/shibukawa/tinygodriver/database/sql/sqlite
   postgresql: github.com/shibukawa/tinygodriver/database/pgx/stdlib, renamed from database/sql/pgxstdlib in v1.1.11, plus database/pgx/pgxpool for the native pool
   mysql: github.com/shibukawa/tinygodriver/database/sql/mysql
+  sqlbatch: github.com/shibukawa/tinygodriver/database/sql/sqlbatch
   dynamodb: github.com/shibukawa/tinygodriver/nosql/dynamodb
   datastore: github.com/shibukawa/tinygodriver/nosql/datastore
   google: github.com/shibukawa/tinygodriver/cloud/google
@@ -29,6 +30,7 @@ roles:
   sqlite: portable database/sql SQLite facade selecting a host or TinyGo backend
   postgresql: pgx stdlib driver, vendored with TLS rerouted for TinyGo, from v1.0.6
   mysql: MySQL and MariaDB driver forked from go-sql-driver for TinyGo, from v1.1.0
+  sqlbatch: batched statement execution over a *sql.DB, one queue shape with a transport each driver package registers for itself; reached directly by a caller rather than wrapped, per rule:batch-engine-capability
   dynamodb: DynamoDB JSON-protocol client written to build under TinyGo, from v1.1.3; detailed in system:tinygodriver-dynamodb
   datastore: Firestore in Datastore mode over the Datastore v1 JSON API, from v1.1.4 and depended on from v1.1.9; detailed in system:tinygodriver-firestore
   google: Google Cloud credentials and bearer tokens, with the RSA signing split out so a token-only or metadata-only build links none of it; what the datastore client authenticates with

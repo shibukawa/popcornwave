@@ -6,7 +6,7 @@ sidebar:
 ---
 
 ```sh
-pw init <project-name> [--preset=<name>] [--yes] [--tailwind] [--no-tinygo] [--no-devbox] [--no-database] [--db=<engine>] [--dynamo] [--firestore] [--no-redis] [--router=<kind>] [--auth=<mode>] [--session=<backend>] [--devidp]
+pw init <project-name> [--preset=<name>] [--yes] [--tailwind] [--no-tinygo] [--no-devbox] [--no-database] [--db=<engine>] [--dynamo] [--firestore] [--no-redis] [--router=<kind>] [--auth=<mode>] [--session=<backend>] [--devidp] [--skills=<dir>]
 ```
 
 新しいディレクトリに、動作する完全なプロジェクトを作ります。端末で実行すると
@@ -60,14 +60,15 @@ enter を押すとその質問が開き、答えると一覧に戻ります。�
 | `--no-tinygo` | TinyGo ではなくホストの Go を対象にする |
 | `--no-devbox` | `devbox.json` を作らない。mise、Docker Compose、Nix、Homebrew、Scoop など自分の環境を使う |
 | `--no-database` | rdb 設定・マイグレーション・SQL の例を作らない |
-| `--db=<engine>` | `sqlite`（既定）、`postgres`、`mysql` |
+| `--db=<engine>` | `sqlite`（既定）, `postgres`, `mysql` |
 | `--dynamo` | DynamoDB ストアを追加する。設定・型付きレコード・ローカルサーバー |
 | `--firestore` | Datastore mode の Firestore を追加する。設定・型付きエンティティ・クエリ宣言 |
 | `--no-redis` | `devbox.json` に Valkey 開発サーバーを入れない |
-| `--router=<kind>` | `registered`（既定）、`discovered`、`both`。[探索型ルーティング](/ja/guides/cross-layer/discovered-routing/#コマンド)を参照 |
-| `--auth=<mode>` | `none`（既定）、`oidc`、`oidc-passkey`、`passkey` |
-| `--session=<backend>` | ログインを作る場合のセッションの置き場所: `rdb`（既定）、`cookie`、`redis`、`dynamo`、`firestore` |
+| `--router=<kind>` | `registered`（既定）, `discovered`, `both`。[探索型ルーティング](/ja/guides/cross-layer/discovered-routing/#コマンド)を参照 |
+| `--auth=<mode>` | `none`（既定）, `oidc`, `oidc-passkey`, `passkey` |
+| `--session=<backend>` | ログインを作る場合のセッションの置き場所: `rdb`（既定）, `cookie`, `redis`, `dynamo`, `firestore` |
 | `--devidp` | OIDC を選んだ場合に、ローカルの認証プロバイダを組み込む |
+| `--skills=<dir>` | 同梱のエージェントスキルの置き場所: `claude`（既定）, `agents`, `none`。[エージェントスキル](#エージェントスキル)を参照 |
 
 `--tailwind`、`--no-database`、`--dynamo`、`--firestore`、`--no-redis`、`--auth` はいずれも、
 あとから [`pw add`](/ja/pw/project/add/) で追加できる機能の選択です。断っても失うものは
@@ -123,7 +124,7 @@ database = "postgres"   # sqlite、postgres、mysql
 
 | エンジン | プレースホルダ |
 | --- | --- |
-| `postgres` | `$1`、`$2`、… |
+| `postgres` | `$1`, `$2`, … |
 | `mysql` | `?` |
 | `sqlite` | `?` |
 
@@ -239,6 +240,29 @@ export SESSION_KEYRING_SECRET=$(openssl rand -base64 32)
 
 失効・サイズ・期限を誰が守るかという観点での比較は[クッキー](/ja/guides/backend/cookies/)にあります。
 
+## エージェントスキル
+
+`pw` にはスキルが同梱されています。AI コーディングエージェントが `.pw.html`
+テンプレートや `.pw.sql` クエリ、設定に手を入れる前に読み込むガイドラインで、
+テンプレートとクエリの構文、プロジェクトの構造、編集を検査する `pw` コマンド群の
+リファレンスを含みます。`--skills` は、そのコピーをどのエージェントディレクトリに
+置くかを決めます。
+
+| 答え | 書き出されるもの |
+| --- | --- |
+| `claude`（既定） | `.claude/skills/popcornwave/` — Claude Code が発見するディレクトリ |
+| `agents` | `.agents/skills/popcornwave/` — 他のコーディングエージェントが読む共通レイアウト |
+| `none` | 何も置かない |
+
+コピーは Markdown だけで、ランタイムには何のコストもかかりません。置くのが既定なのは
+そのためです。この答えはプロジェクトそのものではなく、プロジェクトを編集するマシンに
+ついての答えなので、プリセットは決して決めません。エージェントで編集しない
+プロジェクトは `--skills=none` を渡すか、`.vscode/` を消すのと同じ感覚であとから
+ディレクトリごと削除してください。ファイルはプロジェクトを作った `pw` バイナリから
+来ており、あとから更新するコマンドはありません。フレームワークを更新して新しい
+ガイドラインが欲しくなったら、リポジトリの `skills/popcornwave-skill/` から現行の
+ツリーをコピーしてください。
+
 ## 検証
 
 プロジェクト名に使えるのは英数字、`-`、`_` です。`.` と `..` は拒否されます。作成先は
@@ -266,6 +290,7 @@ myapp/
 ├── migrations/00001_init.sql  初期スキーマ、goose 形式（データベース選択時）
 ├── public/.keep               空ツリーの番兵。配信されない
 ├── public.go                  public/ を埋め込んで登録する
+├── .claude/skills/popcornwave/  同梱のエージェントスキル（--skills で移動または省略）
 ├── .vscode/settings.json      **/*_pw_gen.go を隠す
 └── .gitignore                 *_pw_gen.go などのビルド生成物を除外
 ```

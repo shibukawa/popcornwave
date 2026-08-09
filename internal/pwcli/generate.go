@@ -110,7 +110,27 @@ func generateProject(ctx context.Context, check bool, stdout io.Writer, listPath
 	}
 	runner := generator.New(options)
 	var changes []fileChange
-	for _, directory := range directories {
+	writes, analyses := splitByAnalysis(root, config.Generate, directories)
+	for _, directory := range writes {
+		planned, err := planDirectory(ctx, runner, directory, directoryPurposes(root, config.Generate, directory), pageArtifacts[directory], config.FastHTTP)
+		if err != nil {
+			return 0, err
+		}
+		changes = append(changes, planned...)
+	}
+	// What the analysis half is about to type-check has to be on disk, not in
+	// this slice: loading a handler package reads the query package from the
+	// file system, and a plan nobody has written is invisible to it.
+	//
+	// Check mode writes nothing and plans both halves against the tree as it
+	// stands, which is the right answer there: a tree missing its generated
+	// files is stale, and saying so is what check mode is for.
+	if !check && len(analyses) > 0 && len(changes) > 0 {
+		if err := applyFileChanges(changes); err != nil {
+			return 0, err
+		}
+	}
+	for _, directory := range analyses {
 		planned, err := planDirectory(ctx, runner, directory, directoryPurposes(root, config.Generate, directory), pageArtifacts[directory], config.FastHTTP)
 		if err != nil {
 			return 0, err
@@ -440,6 +460,32 @@ func packageDirectories(root string, scope generationScope) ([]string, error) {
 	}
 	sort.Strings(out)
 	return out, nil
+}
+
+// splitByAnalysis divides the directories into the ones whose generation only
+// writes Go and the ones whose generation also type-checks it.
+//
+// The order between the two halves is what makes a clean checkout generate at
+// all. A handler package imports the query package this run is about to
+// produce, and analysing the handlers loads that import — so with one pass in
+// alphabetical order, "handlers" is planned before "queries", finds a package
+// holding no Go files, and fails. The run stops there, "queries" is never
+// reached, and running it again changes nothing, because nothing was written.
+// Only a working tree that still holds output from an earlier generation gets
+// past it, which is why this survives on a machine that has built the project
+// once and not on a fresh clone.
+func splitByAnalysis(root string, scope generationScope, directories []string) (writes, analyses []string) {
+	for _, directory := range directories {
+		purposes := directoryPurposes(root, scope, directory)
+		// The data-access purposes read their own declaration files and emit Go
+		// without loading any, so they are the half that can always run first.
+		if purposes.handlers || purposes.pages || purposes.config {
+			analyses = append(analyses, directory)
+			continue
+		}
+		writes = append(writes, directory)
+	}
+	return writes, analyses
 }
 
 // strayReport is one source the purpose that owns its kind does not list.

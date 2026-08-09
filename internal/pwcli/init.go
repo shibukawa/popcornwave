@@ -39,7 +39,7 @@ const (
 	repositoryURL    = "https://github.com/shibukawa/popcornwave"
 )
 
-const initUsage = "usage: pw init [<project-name>] [--yes] [--router=registered|discovered|both] [--tailwind] [--no-tinygo] [--no-devbox] [--no-database] [--db=sqlite|postgres|mysql] [--dynamo] [--no-redis] [--auth=none|oidc|oidc-passkey|passkey] [--session=dev-volatile|dev-persist|rdb|cookie|redis|dynamo] [--devidp]"
+const initUsage = "usage: pw init [<project-name>] [--yes] [--router=registered|discovered|both] [--tailwind] [--no-tinygo] [--no-devbox] [--no-database] [--db=sqlite|postgres|mysql] [--dynamo] [--no-redis] [--auth=none|oidc|oidc-passkey|passkey] [--session=dev-volatile|dev-persist|rdb|cookie|redis|dynamo] [--devidp] [--skills=claude|agents|none]"
 
 // Authentication modes the wizard and the --auth flag select between. They map
 // onto the plugin/auth modes, with none meaning no [auth] configuration.
@@ -325,6 +325,11 @@ type initOptions struct {
 	// the Database answer on the same terms as Dynamo, and the two are
 	// independent: a project may have either, both, or neither.
 	Firestore bool
+	// Skills selects the agent directory the bundled framework skill is placed
+	// in, or none. It answers a question about the machines this project is
+	// edited on rather than about the project shape, which is why a preset
+	// leaves it alone the way it leaves the name alone.
+	Skills string
 	// Yes skips the wizard and takes the flags with the defaults for everything
 	// they do not answer. It is the only way to run non-interactively in a
 	// terminal, because the project name alone no longer means the caller has
@@ -346,6 +351,9 @@ func defaultInitOptions() initOptions {
 		Redis:    true,
 		Auth:     authNone,
 		Session:  sessionRDB,
+		// The skill costs a directory of markdown and nothing at runtime, and
+		// a project edited by no agent deletes it the way it deletes .vscode/.
+		Skills: skillsClaude,
 	}
 }
 
@@ -436,6 +444,14 @@ func parseInitArgs(args []string) (initOptions, error) {
 						routerRegistered, routerDiscovered, routerBoth)
 				}
 				options.Router = router
+				continue
+			}
+			if value, ok := strings.CutPrefix(arg, "--skills="); ok {
+				if !validSkills(value) {
+					return initOptions{}, fmt.Errorf("init: --skills must be %s, %s, or %s",
+						skillsClaude, skillsAgents, skillsNone)
+				}
+				options.Skills = value
 				continue
 			}
 			if mode, ok := strings.CutPrefix(arg, "--auth="); ok {
@@ -807,7 +823,10 @@ func scaffoldFiles(options initOptions) map[string]string {
 		// there is no entry point, no document shell, no environment file, and
 		// no capability to configure, so this shares the editor files and
 		// nothing else.
-		return packageScaffoldFiles(options)
+		files := packageScaffoldFiles(options)
+		mergeAgentSkillFiles(files, options)
+		canonicalScaffoldSources(files)
+		return files
 	}
 	name := options.Name
 	moduleExtra := frameworkModuleDirective()
@@ -1081,6 +1100,8 @@ import _ "github.com/shibukawa/tinygodriver/netdev"
 			files[fmt.Sprintf("migrations/0000%d_%s.sql", version, auth.MigrationName)] = authMigration
 		}
 	}
+	mergeAgentSkillFiles(files, options)
+	canonicalScaffoldSources(files)
 	return files
 }
 
@@ -1970,18 +1991,32 @@ export component Home(name: string, project: string, signedIn: bool, email: stri
 `
 }
 
-// devConsoleProjectConfig pins the development console port.
+// devConsoleProjectConfig pins the development console port and the corner its
+// launcher takes.
 //
-// This is the one development listener with a written-down number, and it is
-// written down for the opposite reason to dev.idp.port: nothing derives an
+// The port is the one development listener with a written-down number, and it
+// is written down for the opposite reason to dev.idp.port: nothing derives an
 // identity from it, but it is the address a developer bookmarks and returns to
 // all day, and a reserved port would hand out a new one every run.
+//
+// The corner is written down for a different reason again. Both keys work
+// perfectly well absent — the launcher is on by default and takes the bottom
+// left — but that is a default a developer meets by finding a button sitting
+// over their own layout, and an empty section tells them nothing about how to
+// move it. This is the one console setting the project itself has an opinion
+// about, so the scaffold states it where the answer is wanted.
 func devConsoleProjectConfig() string {
 	return `
 # The pw dev console: the telemetry viewer, the asset report, and whatever else
 # the loop can say about the project, on one loopback address.
 [dev.console]
 port = ` + strconv.Itoa(defaultConsolePort) + `
+
+# The floating link to that console, in a corner of every page pw dev serves.
+# Move it when your own layout wants this corner: ` + strings.Join(launcherCorners, ", ") + `.
+# Set enabled = false to serve no launcher at all.
+[dev.console.launcher]
+corner = "` + defaultLauncherCorner + `"
 `
 }
 

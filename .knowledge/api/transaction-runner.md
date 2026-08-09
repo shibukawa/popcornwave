@@ -11,14 +11,17 @@ shape:
   why_both_are_used_here: a caller that pinned a group with api:database-selection holds a context and wants the transaction on that group, so the Context form is the ordinary one after a pin rather than a fallback
   unchanged: the callback still receives the child context, so nothing below this surface moves
 surface:
-  - Transaction(context.Context, func(context.Context) error, ...TxOption) error
-  - OnGroup(group string) TxOption
+  - Transaction(context.Context, func(context.Context) error) error
 state: data:transaction-scope
 group:
-  default: the effective group of the caller context, per api:database-selection
-  explicit: OnGroup names a data:database-connection-set group for this call and its children
-  form: a variadic option, so an existing two-argument call keeps compiling and keeps its meaning
+  source: the effective group of the caller context, per api:database-selection
+  explicit: SelectDB on the context handed here, which is the call a single statement already uses
+  form: the runner takes no group option, so a group has one spelling and no option-beats-context precedence to document
   readonly: a group whose selected connection is readonly begins a read-only transaction, and sqlbind rejects a write inside it
+option_placement:
+  here: only what exists because a transaction exists, such as an isolation level or a retry policy
+  api:database-selection: anything that also governs a statement outside a transaction, which is why the group lives there
+  form_when_added: a variadic option after the callback, so a two-argument call keeps compiling
 depth_0:
   - resolve the group, then its memoized connection
   - begin *sql.Tx on that connection with the caller context
@@ -30,7 +33,7 @@ depth_0:
 nested:
   model: decision:savepoint-nested-transaction
   - detect the active scope instead of beginning a transaction
-  - fail when OnGroup names a group other than the active scope group, per decision:grouped-database-connections
+  - fail when the caller context selects a group other than the active scope group, per decision:grouped-database-connections
   - fail when rule:savepoint-dialect-support marks the driver unsupported
   - fail when the scope is already marked failed
   - open SAVEPOINT pw_sp_{depth} and call the function with a child context at that depth

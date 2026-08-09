@@ -115,6 +115,12 @@ Responses come from what the handler actually calls:
 | `pw.BadRequest`, `NotFound`, `Conflict`, … | that status, as `application/problem+json` |
 | any `check` rule on the request | `400`, even without an explicit error call |
 
+`pw.WriteStatus(w, r, http.StatusCreated, value)` is `pw.WriteAPI` with the
+success status made explicit — `201`, `202`, or `204`, which writes no body.
+Keep the status a literal or a named constant: a status computed at runtime is
+one the scanner cannot see, and a status a handler sets by hand through
+`WriteHeader` never reaches the document at all.
+
 Path parameters are `required` automatically. Body fields become a request body
 accepting JSON, form-encoded, and multipart — the same three formats the binding
 accepts.

@@ -102,6 +102,8 @@ type HTMLConfig struct {
 	// LiveMaxResponses bounds concurrent live responses per client, so reopening
 	// cannot multiply subscriptions. Zero or less is unbounded.
 	LiveMaxResponses int `default:"4" dependon:".live" help:"maximum concurrent live responses per client"`
+	// Cache supplies the store behind the template's cache annotation.
+	Cache HTMLCacheConfig `help:"Cache supplies the store behind the template's cache annotation"`
 }
 
 // defaultHTMLConfig seeds the effective configuration for a runtime that never
@@ -119,12 +121,13 @@ var defaultHTMLConfig = HTMLConfig{
 	BotDetection:        true,
 	BotAsyncTimeout:     5 * time.Second,
 	ScriptlessDetection: true,
-	Live:               true,
-	LiveMaxDuration:    10 * time.Minute,
-	LiveDurationJitter: 20,
-	LiveIdleTimeout:    5 * time.Minute,
-	LiveMaxBoundaries:  32,
-	LiveMaxResponses:   4,
+	Live:                true,
+	LiveMaxDuration:     10 * time.Minute,
+	LiveDurationJitter:  20,
+	LiveIdleTimeout:     5 * time.Minute,
+	LiveMaxBoundaries:   32,
+	LiveMaxResponses:    4,
+	Cache:               HTMLCacheConfig{Enabled: true, MaxEntries: 1024},
 }
 
 // HTMLUpdateConfig controls partial updates.
@@ -142,6 +145,27 @@ type HTMLUpdateConfig struct {
 	// one is dropped rather than rejected, so the response is a larger delta
 	// instead of an error.
 	MaxManifestBytes int `default:"8192" dependon:".enabled" help:"cap on the update manifest request header"`
+}
+
+// HTMLCacheConfig controls the output cache a component asks for with the
+// template's cache annotation.
+//
+// On by default, which is the opposite of every other capability here. The
+// opt-in is the annotation: generation refuses one on a component whose stored
+// bytes could not stand in for a fresh render, so a template carrying it has
+// already been checked and has already asked. A project writing none never
+// reaches the store, because no plan carries a policy to consult it with.
+//
+// The setting is here to bound what the process holds and to be the escape
+// hatch for an operator who suspects a stale region, not to be the switch that
+// makes the annotation mean something.
+type HTMLCacheConfig struct {
+	Enabled bool `default:"true" help:"reuse the rendered output of components declared with the cache annotation"`
+	// MaxEntries bounds the in-process store. Zero or less is unbounded, which
+	// is right only where every cached component has a bounded parameter space:
+	// the key covers every declared parameter, so one taking an arbitrary
+	// string has as many entries as it has callers.
+	MaxEntries int `default:"1024" dependon:".enabled" help:"maximum entries the in-process render cache holds"`
 }
 
 // PublicConfig controls the framework-owned static asset endpoint.
@@ -309,12 +333,24 @@ type QueryLogConfig struct {
 
 // MiddlewareConfig selects the framework's basic HTTP middleware.
 type MiddlewareConfig struct {
-	Recovery       bool          `default:"true"`
-	RequestID      bool          `default:"true"`
-	AccessLog      bool          `default:"true"`
-	Compression    bool          `default:"false"`
-	RequestTimeout time.Duration `default:"0s"`
-	RDB            RDBConfig
+	Recovery    bool `default:"true"`
+	RequestID   bool `default:"true"`
+	AccessLog   bool `default:"true"`
+	Compression bool `default:"false"`
+	// CompressionCodings orders the content codings a dynamic response may be
+	// encoded with, best first. A coding left out is not offered even to a
+	// client asking for it, so the one field expresses removal as well as
+	// order; turning compression off entirely is Compression rather than an
+	// empty list.
+	//
+	// Which coding to prefer depends on the client mix and the CPU budget in
+	// front of the application, which is the one input the framework cannot
+	// see. The encoder levels are not configurable for the opposite reason:
+	// they answer to a measured throughput cliff that does not move between
+	// deployments.
+	CompressionCodings []string      `default:"zstd,gzip" dependon:".compression" help:"content codings for dynamic responses, best first"`
+	RequestTimeout     time.Duration `default:"0s"`
+	RDB                RDBConfig
 }
 
 // RDBConfig controls the framework-owned database pools.
@@ -334,10 +370,11 @@ type RDBConfig struct {
 	// MigrationGroup receives migrations and seed data. Empty resolves to
 	// WriteGroup.
 	MigrationGroup string `dependon:".enabled" help:"connection group for migrations and seeds"`
-	// Connections is the array-of-tables form. An element has no CLI option, no
-	// environment variable, and no dependon, because its identity is its
-	// position in the file rather than a stable key.
-	Connections []RDBConnectionConfig `help:"connection set, one element per pool"`
+	// Connections is the array-of-tables form. An element takes no CLI option
+	// and no environment variable, because its identity is its position in the
+	// file rather than a stable key. The array itself has one, which is what
+	// lets a disabled pool drop the whole set from the startup summary.
+	Connections []RDBConnectionConfig `dependon:".enabled" help:"connection set, one element per pool"`
 }
 
 // RDBConnectionConfig is one pool of the connection set.

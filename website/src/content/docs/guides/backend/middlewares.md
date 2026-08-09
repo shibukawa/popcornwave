@@ -104,19 +104,40 @@ and receives the same resources handlers see — so a misconfigured extension
 fails the boot, not the first request. Returning a nil middleware installs
 nothing, which is how a disabled capability opts out.
 
-## Middleware that feeds RequestScope
+## Writing your own middleware
+
+`pw.RegisterMiddleware` takes a slot, a name, and a plain
+`func(http.Handler) http.Handler`, and the chain that `pw.Run` and
+`pw.Middlewares` build includes it at that position. Call it from `main`,
+after every package `init` has run and before the chain is built — the same
+timing `pw.RegisterSessionStore` asks for, and for the same reason: the chain
+is composed once, and a middleware registered later joins nothing.
 
 The most useful thing a small middleware can do is derive a per-request fact
 once and let everything below read it. The
 [`session.RequestScope`](/guides/backend/sessions/) placement exists for
-exactly this, and the request clock is the standing example.
-
-Handlers that call `time.Now()` at each write scatter timestamps across the
-request: three rows updated by one form submission carry three different
-`updated_at` values, drifting by however long the handler took between writes.
-Capture the moment once instead:
+exactly this, and the request clock is the standing example. Handlers that
+call `time.Now()` at each write scatter timestamps across the request: three
+rows updated by one form submission carry three different `updated_at` values,
+drifting by however long the handler took between writes. Capture the moment
+once instead — here is the whole program, from the type to the registration:
 
 ```go
+// cmd/myapp/main.go
+package main
+
+import (
+	"context"
+	"log"
+	"net/http"
+	"time"
+
+	"github.com/shibukawa/popcornwave/pw"
+	"github.com/shibukawa/popcornwave/session"
+
+	"myapp/handlers"
+)
+
 type RequestTime struct {
 	At time.Time `json:"at"`
 }
@@ -130,10 +151,16 @@ func withRequestTime(next http.Handler) http.Handler {
 	})
 }
 
-// main.go — the slot writes into session state, so it sits below the
-// session resolution at 120.
-pw.RegisterSessionStore[RequestTime]("request_time", session.RequestScope)
-pw.RegisterMiddleware(pw.SlotSession+5, "request_time", withRequestTime)
+func main() {
+	// The middleware writes into session state, so it sits below the
+	// session resolution at 120.
+	pw.RegisterSessionStore[RequestTime]("request_time", session.RequestScope)
+	pw.RegisterMiddleware(pw.SlotSession+5, "request_time", withRequestTime)
+
+	if err := pw.Run(context.Background(), handlers.Handlers()); err != nil {
+		log.Fatal(err)
+	}
+}
 ```
 
 Every write in the request then reads `session.Load[RequestTime]` for its
@@ -142,29 +169,16 @@ fact that is true for exactly one request — the scope set a bearer token
 resolves to, a feature-flag snapshot taken at the top so the request cannot see
 a flag flip halfway through.
 
-## Registering your own middleware
-
-`pw.RegisterMiddleware` takes a slot, a name, and a plain
-`func(http.Handler) http.Handler`, and the chain that `pw.Run` and
-`pw.Middlewares` build includes it at that position. Call it from `main`,
-after every package `init` has run and before the chain is built — the same
-timing `pw.RegisterSessionStore` asks for, and for the same reason: the chain
-is composed once, and a middleware registered later joins nothing.
-
-```go
-pw.RegisterMiddleware(pw.SlotAccessLog-5, "tenant-header", func(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// The request ID at 30 is minted; the access log at 40 will time us.
-		next.ServeHTTP(w, r)
-	})
-})
-```
-
-Pick the number by what the middleware needs to observe. Below 20 there are no
-resources in the context; below 50 a panic is answered by recover; below 120
-the session is resolved; after 150 only requests the guard admitted arrive.
-Two middlewares at one number run in registration order, so a shared slot is
-fine when the pair is order-independent.
+The one decision the example leaves open is the number, and you pick it by
+what the middleware needs to observe. Below 20 there are no resources in the
+context; below 50 a panic is answered by recover; below 120 the session is
+resolved; after 150 only requests the guard admitted arrive. The request clock
+sits at `pw.SlotSession+5` because it writes into session state, which does
+not exist above 120. A middleware that only reads headers can sit much
+higher — at `pw.SlotAccessLog-5`, say, where the request ID at 30 is already
+minted and the access log at 40 will time it. Two middlewares at one number
+run in registration order, so a shared slot is fine when the pair is
+order-independent.
 
 Two positions refuse registration: 100 and 160, the probes and the API
 documentation. They are handlers rather than middleware — nothing can share

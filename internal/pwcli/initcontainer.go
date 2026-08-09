@@ -11,7 +11,7 @@ import (
 // first outbound TLS handshake for want of a certificate pool, and anything
 // with a package manager is a larger attack surface than a static Go binary
 // needs. The nonroot tag runs as uid 65532.
-const containerRuntimeBase = "gcr.io/distroless/static-debian12:nonroot"
+const containerRuntimeBase = "gcr.io/distroless/static-debian13:nonroot"
 
 // The builder image of Dockerfile.tinygo. It carries a host Go toolchain as
 // well, which the generation phase needs whatever compiles the application.
@@ -55,7 +55,11 @@ func dockerfileScaffold(options initOptions) string {
 # then compile — rather than invoking the compiler itself. A Dockerfile that
 # skipped that step would fail on undefined symbols whose sources are here.
 
-FROM golang:1.26 AS build
+# The Debian release is pinned alongside the Go version: a bare golang tag
+# rebases onto each new stable Debian the day it releases, and the runtime
+# stage below names its Debian release explicitly, so an unpinned builder
+# would let the two drift apart on someone else's schedule.
+FROM golang:1.26-trixie AS build
 WORKDIR /src
 
 # The module files come first so the download layer survives a source edit.
@@ -133,7 +137,7 @@ RUN pw prepare
 RUN tinygo build -scheduler=threads -o /out/` + name + ` ./cmd/` + name + `
 
 # If the binary turns out to be dynamically linked for your target, this is the
-# line to change: gcr.io/distroless/base-debian12:nonroot carries a libc.
+# line to change: gcr.io/distroless/base-debian13:nonroot carries a libc.
 FROM ` + containerRuntimeBase + `
 WORKDIR /app
 

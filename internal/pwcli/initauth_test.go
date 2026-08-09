@@ -108,10 +108,10 @@ func TestScaffoldWiresTheFrameworkOwnedEndpoints(t *testing.T) {
 		t.Fatalf("home handler does not read the session:\n%s", handler)
 	}
 	template := files["handlers/home.pw.html"]
-	if !strings.Contains(template, `<form method="post" action={logoutPath}>`) {
+	if !strings.Contains(template, `<form method="post" action="{logoutPath}">`) {
 		t.Fatalf("logout must be a POST form:\n%s", template)
 	}
-	if !strings.Contains(template, `href={loginPath}>Sign in</a>`) {
+	if !strings.Contains(template, `href="{loginPath}">Sign in</a>`) {
 		t.Fatalf("no login link:\n%s", template)
 	}
 }

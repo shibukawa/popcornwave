@@ -59,6 +59,13 @@ unparsable_source:
 check_mode:
   writes: none
   failure: generated content differs or is missing
+  both_halves_together: check mode plans the analysing half against the tree as it stands rather than against what this run would write, because it may write nothing; a tree missing its generated files is stale, which is the answer check mode exists to give
+two_pass_ordering:
+  halves: the directories whose generation only writes Go, then the ones whose generation also type-checks it — the generate.handlers, generate.pages, and generate.config purposes
+  between_them: the first half's output is written to disk before the second half is planned
+  why: analysing a handler package loads the query package the same run produces, and a plan nobody has written is invisible to packages.Load
+  what_it_fixes: a clean checkout, where generated Go is absent because it is not committed; in one lexical pass handlers preceded queries, failed to load them, and stopped the run before anything was written, so running it again changed nothing
+  survived_because: a working tree that had generated once already held the output, so only a fresh clone hit it
 behavior:
   - read a source only where the purpose that owns its kind lists its directory
   - walk each generate.pages root once, reporting every discovery problem in that walk rather than only the first
@@ -68,9 +75,9 @@ behavior:
   - keep, per directory, only the artifacts whose purpose lists that directory
   - warn once per .pw.html, .pw.sql, or stale generated file found outside its purpose, naming the path and the key
   - use system:tinybind route and call analysis behind the pw API
-  - process sources and packages in stable lexical order
+  - process sources and packages in stable lexical order within each half of two_pass_ordering
   - stop on parse or generation error
   - format generated Go source
-  - replace destination files atomically after all generation succeeds
+  - replace destination files atomically after all generation succeeds, except the first half of two_pass_ordering, which lands before the second is planned because that half reads it from disk
   - emit {source-base}_pw_gen.go beside each source
 ```

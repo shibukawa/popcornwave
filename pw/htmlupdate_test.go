@@ -11,6 +11,7 @@ import (
 
 	"github.com/shibukawa/popcornwave/pwruntime"
 	"github.com/shibukawa/tinybind-go/htmlbind"
+	"github.com/shibukawa/tinybind-go/htmlbind/delta"
 	"github.com/shibukawa/tinybind-go/htmlupdate"
 )
 
@@ -72,8 +73,8 @@ func TestUpdatesOffLeaveEveryRequestOnTheDocumentPath(t *testing.T) {
 	if config.Update.Enabled {
 		t.Fatal("updates default to on")
 	}
-	if len(documentRenderOptions(config, "")) != 0 {
-		t.Error("a project with updates off pays for the runtime tag")
+	if len(chainRenderOptions(config, "")) != 0 {
+		t.Error("a project with updates off pays for the update render options")
 	}
 }
 
@@ -170,35 +171,44 @@ func redrawRequest(t *testing.T, kind, instance, query string) *http.Request {
 	}))
 }
 
+// cardParams is what generation would declare for a reloadable component: the
+// instance id is a parameter, because that is where the boundary reads it from.
+type cardParams struct {
+	ID   string
+	Page string
+}
+
+var cardOps = htmlbind.Builder[cardParams]{}
+
+// cardPlan is the shape generation emits for a reloadable component. Since
+// system:tinybind v0.4.4 the boundary is not optional here: a redraw answers with
+// the region the request named, so the component has to be addressable at that
+// id, and a registration assembled by hand that is not fails rather than
+// answering with a response holding no operations.
+var cardPlan = &htmlbind.Plan[cardParams]{
+	Boundary: &htmlbind.Boundary[cardParams]{
+		ComponentID: "pw.test.Card@v1",
+		Attr:        "data-" + UpdateAttributePrefix + "-id",
+		Instance:    func(p cardParams) string { return p.ID },
+		Input:       func(p cardParams) string { return delta.CanonString(p.Page) },
+	},
+	Ops: []htmlbind.Op[cardParams]{
+		cardOps.Static("<article"),
+		cardOps.Attr("id", func(p cardParams) (string, bool) { return htmlbind.Escape(p.ID), true }),
+		cardOps.BoundaryAttr(),
+		cardOps.Static(">page "),
+		cardOps.Text(func(p cardParams) string { return p.Page }),
+		cardOps.Static("</article>"),
+	},
+}
+
 func cardComponent(kind string) htmlupdate.Reloadable {
 	return htmlupdate.Reloadable{
 		KindID: kind,
 		Render: func(_ *http.Request, instanceID string, values url.Values) (htmlbind.Fragment, error) {
-			return reloadableFragment(kind, instanceID,
-				`<article id="`+instanceID+`">page `+values.Get("page")+`</article>`), nil
+			return htmlbind.Bind(cardPlan, cardParams{ID: instanceID, Page: values.Get("page")}), nil
 		},
 	}
-}
-
-// reloadableFragment is what generated code produces for a reloadable
-// component: a plan declaring its own update boundary, so the fragment is
-// addressable at the instance the request named.
-//
-// A plain fragment is not. Since system:tinybind v0.4.10 a redraw checks that
-// the component it bound answers at the requested id, because a registration
-// assembled by hand can get it wrong and the failure would otherwise be a
-// response carrying no operations.
-func reloadableFragment(componentID, instanceID, markup string) HTMLFragment {
-	builder := htmlbind.Builder[struct{}]{}
-	return htmlbind.Bind(&htmlbind.Plan[struct{}]{
-		Ops: []htmlbind.Op[struct{}]{builder.Static(markup)},
-		Boundary: &htmlbind.Boundary[struct{}]{
-			ComponentID: componentID,
-			Attr:        "data-" + UpdateAttributePrefix + "-boundary",
-			Input:       func(struct{}) string { return "" },
-			Instance:    func(struct{}) string { return instanceID },
-		},
-	}, struct{}{})
 }
 
 // withEmptyReloadableRegistry isolates one test from the process-wide set a
@@ -235,6 +245,119 @@ func TestRedrawComponentsAnswersAComponentTheHandlerNamed(t *testing.T) {
 	}
 	if body := recorder.Body.String(); !strings.Contains(body, "page 2") {
 		t.Errorf("the redraw did not render the component: %s", body)
+	}
+}
+
+// A redrawn component renders with the page's own options, which is the whole
+// of what makes the two agree.
+//
+// The headline case is a form. htmlbind.Builder.CSRFField fails a render that
+// supplied no token rather than emitting an unprotected field, so a reloadable
+// component holding one answered 500 for as long as this framework passed the
+// redraw entry no options — which it did until system:tinybind v0.4.6 gave the
+// entry any to pass.
+func TestARedrawnComponentGetsThePagesRenderOptions(t *testing.T) {
+	secret, err := pwruntime.NewCSRFSecret(nil)
+	if err != nil {
+		t.Fatalf("NewCSRFSecret: %v", err)
+	}
+	request := redrawRequest(t, "fixture.form.Panel", "panel-1", "")
+	request = request.WithContext(pwruntime.WithCSRFSecret(request.Context(), secret))
+	recorder := httptest.NewRecorder()
+	if !RedrawComponents(recorder, request, formComponent("fixture.form.Panel")) {
+		t.Fatal("a redraw request was not answered")
+	}
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("a component holding a form answered %d: %s", recorder.Code, recorder.Body.String())
+	}
+	// The markup travels inside a JSON record, so it is read back the way the
+	// client reads it: a token that survives the encoding but not the decoding
+	// would reject the submission the redraw exists to enable.
+	var body struct {
+		Ops []struct {
+			HTML string `json:"html"`
+		} `json:"ops"`
+	}
+	if err := json.Unmarshal(recorder.Body.Bytes(), &body); err != nil {
+		t.Fatalf("the redraw body did not decode: %v\n%s", err, recorder.Body.String())
+	}
+	if len(body.Ops) == 0 {
+		t.Fatalf("the redraw carried no operations:\n%s", recorder.Body.String())
+	}
+	match := hiddenValue.FindStringSubmatch(body.Ops[0].HTML)
+	if match == nil {
+		t.Fatalf("the redrawn form carried no token:\n%s", body.Ops[0].HTML)
+	}
+	if !pwruntime.VerifyCSRFToken(secret, match[1]) {
+		t.Errorf("the redrawn token does not verify against the session secret")
+	}
+}
+
+// formComponent is a reloadable component holding an unsafe form, which is the
+// case that cannot render without the page's token.
+func formComponent(kind string) htmlupdate.Reloadable {
+	ops := htmlbind.Builder[cardParams]{}
+	plan := &htmlbind.Plan[cardParams]{
+		Boundary: &htmlbind.Boundary[cardParams]{
+			ComponentID: "pw.test.Form@v1",
+			Attr:        "data-" + UpdateAttributePrefix + "-id",
+			Instance:    func(p cardParams) string { return p.ID },
+			Input:       func(p cardParams) string { return delta.CanonString(p.Page) },
+		},
+		Ops: []htmlbind.Op[cardParams]{
+			ops.Static(`<form method="post" action="/orders"`),
+			ops.Attr("id", func(p cardParams) (string, bool) { return htmlbind.Escape(p.ID), true }),
+			ops.BoundaryAttr(),
+			ops.Static(`>`),
+			ops.CSRFField("_csrf"),
+			ops.Static(`<button>buy</button></form>`),
+		},
+	}
+	return htmlupdate.Reloadable{
+		KindID: kind,
+		Render: func(_ *http.Request, instanceID string, values url.Values) (htmlbind.Fragment, error) {
+			return htmlbind.Bind(plan, cardParams{ID: instanceID, Page: values.Get("page")}), nil
+		},
+	}
+}
+
+// A redraw is per-user content answered from the page's own URL, and since
+// system:tinybind v0.4.7 what it may be stored under is nobody's decision but
+// this framework's.
+//
+// no-store would be the lazy answer and the wrong one: the module still computes
+// an entity tag, and no-store forbids the conditional request that tag exists
+// for, so a browser that may not keep the bytes could never ask whether they
+// changed.
+func TestARedrawIsPrivateAndRevalidates(t *testing.T) {
+	first := httptest.NewRecorder()
+	if !RedrawComponents(first, redrawRequest(t, "fixture.card.Card", "card-1", "page=2"),
+		cardComponent("fixture.card.Card")) {
+		t.Fatal("a redraw request was not answered")
+	}
+	if control := first.Header().Get("Cache-Control"); control != redrawCacheControl {
+		t.Errorf("redraw Cache-Control = %q, want %q", control, redrawCacheControl)
+	}
+	assertVary(t, "redraw", first, "Pw-Render", "Pw-Build", "Pw-Kind", "Pw-Instance")
+	etag := first.Header().Get("ETag")
+	if etag == "" {
+		t.Fatal("a redraw carried no entity tag")
+	}
+
+	// And the answer to a client that already holds those bytes is this
+	// framework's too, because a 304 is a cache decision and the module stopped
+	// making them.
+	second := httptest.NewRecorder()
+	conditional := redrawRequest(t, "fixture.card.Card", "card-1", "page=2")
+	conditional.Header.Set("If-None-Match", etag)
+	if !RedrawComponents(second, conditional, cardComponent("fixture.card.Card")) {
+		t.Fatal("a conditional redraw request was not answered")
+	}
+	if second.Code != http.StatusNotModified {
+		t.Errorf("a redraw whose bytes the client holds = %d, want 304", second.Code)
+	}
+	if second.Body.Len() != 0 {
+		t.Errorf("a 304 carried a body: %s", second.Body.String())
 	}
 }
 
@@ -369,6 +492,125 @@ func TestTheDocumentPathIsUnchangedByEnablingUpdates(t *testing.T) {
 	}
 }
 
+// The response headers of every update mode are this framework's, because the
+// wire is. These assert what each mode must carry whatever the module does or
+// stops doing, which is the point of owning them here.
+func TestUpdateResponseHeadersAreThisFrameworksToSet(t *testing.T) {
+	config := updateConfig()
+
+	// The address has to be one this process rendered, because the policy under
+	// test is the one a served sequence carries and a refusal is deliberately
+	// not served under it.
+	address := aRenderedSequenceAddress(t)
+	sequence := httptest.NewRequest(http.MethodGet, "/orders", nil)
+	sequence.Header.Set("Pw-Render", "sequence")
+	sequence.Header.Set("Pw-Sequence-Address", address)
+	sequenceOut := httptest.NewRecorder()
+	if !serveSequence(sequenceOut, sequence, measureConfig()) {
+		t.Fatal("a sequence request was not answered by the sequence entry")
+	}
+	if sequenceOut.Code != http.StatusOK {
+		t.Fatalf("a known sequence address was answered %d", sequenceOut.Code)
+	}
+	// A sequence is public, immutable, and a year long, and it is served from
+	// the page's own URL. Without the Vary a cache stores it under that URL
+	// alone and answers every later request for the page with a JSON body —
+	// which is not a degraded page but no page at all, until the cache expires.
+	// Found in a browser: after one sequence was fetched the page stopped
+	// loading, and every navigation fell back.
+	//
+	// The address is an axis too, or one tree answers every request for another.
+	// The build is not: a sequence is addressed by a digest of its own content,
+	// so the same address across two builds is the same bytes, and holding it
+	// through a deploy is the point of the immutable policy.
+	assertVary(t, "sequence", sequenceOut, "Pw-Render", "Pw-Sequence-Address")
+	if control := sequenceOut.Header().Get("Cache-Control"); control != sequenceCacheControl {
+		t.Errorf("sequence Cache-Control = %q, want %q", control, sequenceCacheControl)
+	}
+	// And it says what it is. The client discards a body whose echo disagrees,
+	// so a sequence claiming to be a navigation is not a cosmetic mismatch: every
+	// tree is thrown away, every operation carrying values falls back, and every
+	// in-page navigation becomes a full document. system:tinybind v0.4.7 echoed
+	// the wrong one and v0.4.8 made the mode switch exhaustive, so this asserts
+	// the value rather than that the two sides still agree.
+	if got := sequenceOut.Header().Get("Pw-Render"); got != updateSequenceMode {
+		t.Errorf("a sequence response says it is %q, want %q", got, updateSequenceMode)
+	}
+
+	// A refusal is answered under no policy at all. It says why one request
+	// failed, so nothing else may be answered with it, whatever the mode it was
+	// refused in would have been served under.
+	unknown := httptest.NewRequest(http.MethodGet, "/orders", nil)
+	unknown.Header.Set("Pw-Render", "sequence")
+	unknown.Header.Set("Pw-Sequence-Address", "no-such-address")
+	unknownOut := httptest.NewRecorder()
+	if !serveSequence(unknownOut, unknown, config) {
+		t.Fatal("an unknown sequence address was not answered by the sequence entry")
+	}
+	if unknownOut.Code != http.StatusNotFound {
+		t.Errorf("an unknown sequence address was answered %d, want 404", unknownOut.Code)
+	}
+	if control := unknownOut.Header().Get("Cache-Control"); control != updateCacheControl {
+		t.Errorf("a refused sequence Cache-Control = %q, want %q", control, updateCacheControl)
+	}
+	if got := unknownOut.Header().Get("Content-Type"); !strings.Contains(got, "problem+json") {
+		t.Errorf("a refused sequence Content-Type = %q, want problem details", got)
+	}
+	// Even a refusal answers from the page's URL, so it still says what told it
+	// apart from the page.
+	assertVary(t, "refused sequence", unknownOut, "Pw-Render", "Pw-Build")
+
+	// A document is answered from the same URL and must not carry the redraw's
+	// headers in its Vary: varying on what it never reads fragments a cache for
+	// nothing, and the render header already tells the two apart.
+	document := httptest.NewRecorder()
+	documentRequest := httptest.NewRequest(http.MethodGet, "/orders", nil)
+	documentRequest = documentRequest.WithContext(pwruntime.WithResources(documentRequest.Context(),
+		pwruntime.Resources{Configs: map[reflect.Type]any{reflect.TypeFor[HTMLConfig](): config}}))
+	WriteHTMLChain(document, documentRequest, nil, staticFragment(`<h1>hi</h1>`))
+	vary := strings.Join(document.Header().Values("Vary"), ", ")
+	for _, unwanted := range []string{"Pw-Kind", "Pw-Instance"} {
+		if strings.Contains(vary, unwanted) {
+			t.Errorf("a document varies on %s: %q", unwanted, vary)
+		}
+	}
+	if !strings.Contains(vary, "Pw-Render") {
+		t.Errorf("a document does not vary on the render header: %q", vary)
+	}
+}
+
+// aRenderedSequenceAddress drives a navigation that answers with values and
+// returns the address of the tree filling them.
+//
+// Nothing else can produce one: a sequence is registered by rendering the
+// template that owns it, so an address is a fact about what this process has
+// done rather than a string a test can invent.
+func aRenderedSequenceAddress(t *testing.T) string {
+	t.Helper()
+	warm, _ := serveMeasured("/orders?q=one", "seed", false)
+	delta, _ := serveMeasured("/orders?q=two", clientManifest(warm), true)
+	for _, line := range strings.Split(delta, "\n") {
+		var record struct {
+			Seq string `json:"seq"`
+		}
+		if json.Unmarshal([]byte(line), &record) == nil && record.Seq != "" {
+			return record.Seq
+		}
+	}
+	t.Fatal("no navigation record carried a sequence address")
+	return ""
+}
+
+func assertVary(t *testing.T, mode string, recorder *httptest.ResponseRecorder, want ...string) {
+	t.Helper()
+	vary := strings.Join(recorder.Header().Values("Vary"), ", ")
+	for _, name := range want {
+		if !strings.Contains(vary, name) {
+			t.Errorf("%s: Vary = %q, want it to name %s", mode, vary, name)
+		}
+	}
+}
+
 // markupFor renders one chain the way a browser asking for nothing would
 // receive it, under the config given.
 func markupFor(t *testing.T, config HTMLConfig) string {
@@ -415,10 +657,10 @@ func TestAClientThatRunsNoScriptSubmitsTheSameMarkupEitherWay(t *testing.T) {
 			t.Errorf("the markup depends on script through %q:\n%s", forbidden, on)
 		}
 	}
-	// The runtime is contributed to the head, so the comparison above was
-	// between a page that has updates and a page that does not, rather than
-	// between two pages that both have nothing.
-	if len(documentRenderOptions(updateConfig(), "token")) == 0 {
+	// Updates really are on for this render, so the comparison above was between
+	// a page that has them and a page that does not, rather than between two
+	// pages that both have nothing.
+	if len(chainRenderOptions(updateConfig(), "token")) == 0 {
 		t.Error("updates contributed no render options, so this compared the wrong two things")
 	}
 }

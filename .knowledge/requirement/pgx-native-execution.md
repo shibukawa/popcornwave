@@ -143,5 +143,8 @@ non_goals:
   - exposing pgx types in the framework public API; the escape hatch stays
     the requirement:contrib-postgresql Raw path
   - moving migration or seeding off database/sql
-  - widening the framework surface with Batch, CopyFrom, or LISTEN/NOTIFY
+  - widening the framework surface with Batch, CopyFrom, or LISTEN/NOTIFY;
+    still true, but this list assumed the escape hatch below stayed reachable
+    and the bypass is what removed it, which requirement:native-pgx-escape-hatch
+    repairs without widening anything
 ```

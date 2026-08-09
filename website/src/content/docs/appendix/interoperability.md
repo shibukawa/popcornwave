@@ -123,6 +123,13 @@ using the same DSN, and own its lifecycle yourself. Keep writes that must
 share a transaction with generated statements inside the generated layer; the
 two pools cannot join one transaction.
 
+That second pool is for code that insists on a `*sql.DB`. Code that wants pgx
+itself — a batch, `CopyFrom`, `LISTEN`/`NOTIFY`, or `*pgx.PgError` for SQLSTATE
+— should not open one. `postgres.WithConn` hands over the connection the
+framework is already using, and inside `pw.Transaction` it hands over the one
+that transaction is running on, so the work joins it instead of racing it. See
+[Batching](/guides/storage/batching/).
+
 `pw.Transaction` puts its transaction in the context for **generated**
 statements, which is why they need no explicit handle. Another library cannot
 see it, so reach for the transaction itself when one request has to mix both:

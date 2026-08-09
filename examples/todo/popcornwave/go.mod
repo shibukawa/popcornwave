@@ -4,8 +4,8 @@ go 1.26.0
 
 require (
 	github.com/shibukawa/popcornwave v0.0.0
-	github.com/shibukawa/tinybind-go v0.4.2
-	github.com/shibukawa/tinygodriver v1.1.11
+	github.com/shibukawa/tinybind-go v0.4.8
+	github.com/shibukawa/tinygodriver v1.1.12
 )
 
 require (
@@ -25,4 +25,4 @@ require (
 	golang.org/x/text v0.40.0 // indirect
 )
 
-replace github.com/shibukawa/popcornwave => /Users/shibukawayoshiki/develop/petitweb-go/.claude/worktrees/docs-popcorn-wave-intro-b20711
+replace github.com/shibukawa/popcornwave => ../../../

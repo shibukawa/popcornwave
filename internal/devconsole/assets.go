@@ -38,14 +38,19 @@ type assetEntry struct {
 	Path string
 	URL  string
 	Size int64
-	// Eligible reports whether a release build would write a .zstd sidecar.
+	// Eligible reports whether a release build would write sidecars.
 	Eligible bool
-	// Sidecar state. Present is whether one exists now; Stale is whether it is
-	// older than its source. The developer loop never writes one, so an absent
+	// Sidecar state. Present is whether any exists now; Stale is whether one is
+	// older than its source. The developer loop never writes them, so an absent
 	// sidecar is the normal state and not a finding.
+	//
+	// SidecarSize is the smallest coding found, because that is what a current
+	// browser receives. SidecarCodings names what was found, in preference
+	// order, so a partial set is visible rather than averaged away.
 	SidecarPresent bool
 	SidecarSize    int64
 	SidecarStale   bool
+	SidecarCodings []string
 	// Orphan marks a sidecar whose source is gone or is no longer eligible.
 	// A release build would delete it; nothing in the loop will.
 	Orphan bool
@@ -126,9 +131,33 @@ func scanAssets(source AssetSource) assetReport {
 	return report
 }
 
+// sidecarSuffixes are the precompressed forms a release build writes, in the
+// order a response prefers them. The pane recognizes all of them so a file with
+// three siblings reads as one asset rather than as three orphans.
+var sidecarSuffixes = [...]struct{ suffix, token string }{
+	{suffix: ".br", token: "br"},
+	{suffix: ".zstd", token: "zstd"},
+	{suffix: ".gz", token: "gzip"},
+}
+
+func sidecarSuffixFor(name string) (suffix string, token string, ok bool) {
+	for _, entry := range sidecarSuffixes {
+		if strings.HasSuffix(name, entry.suffix) {
+			return entry.suffix, entry.token, true
+		}
+	}
+	return "", "", false
+}
+
+// observedSidecar is what the pane found beside one source for one coding.
+type observedSidecar struct {
+	token string
+	info  os.FileInfo
+}
+
 func walkPublic(publicRoot string, source AssetSource, limits []string) ([]assetEntry, []string) {
 	sources := map[string]assetEntry{}
-	sidecars := map[string]os.FileInfo{}
+	sidecars := map[string][]observedSidecar{}
 	err := filepath.WalkDir(publicRoot, func(name string, entry os.DirEntry, walkErr error) error {
 		if walkErr != nil {
 			return walkErr
@@ -147,8 +176,9 @@ func walkPublic(publicRoot string, source AssetSource, limits []string) ([]asset
 			return nil
 		}
 		relative := relative(publicRoot, name)
-		if strings.HasSuffix(name, ".zstd") {
-			sidecars[strings.TrimSuffix(relative, ".zstd")] = info
+		if suffix, token, isSidecar := sidecarSuffixFor(name); isSidecar {
+			owner := strings.TrimSuffix(relative, suffix)
+			sidecars[owner] = append(sidecars[owner], observedSidecar{token: token, info: info})
 			return nil
 		}
 		// The empty-tree sentinel is embedded and never served, so it is not
@@ -169,11 +199,21 @@ func walkPublic(publicRoot string, source AssetSource, limits []string) ([]asset
 	result := make([]assetEntry, 0, len(sources)+len(sidecars))
 	for path, entry := range sources {
 		entry.URL = assetURL(source.Mount, path)
-		if info, ok := sidecars[path]; ok {
+		if found, ok := sidecars[path]; ok {
 			entry.SidecarPresent = true
-			entry.SidecarSize = info.Size()
-			if sourceInfo, err := os.Stat(filepath.Join(publicRoot, filepath.FromSlash(path))); err == nil {
-				entry.SidecarStale = info.ModTime().Before(sourceInfo.ModTime())
+			sourceInfo, sourceErr := os.Stat(filepath.Join(publicRoot, filepath.FromSlash(path)))
+			// The reported size is the smallest coding, because that is what a
+			// current browser receives; the codings list says what else exists.
+			// A single stale sibling makes the set stale: the build writes them
+			// together, so one older than the source means none of them match.
+			for _, sidecar := range found {
+				entry.SidecarCodings = append(entry.SidecarCodings, sidecar.token)
+				if entry.SidecarSize == 0 || sidecar.info.Size() < entry.SidecarSize {
+					entry.SidecarSize = sidecar.info.Size()
+				}
+				if sourceErr == nil && sidecar.info.ModTime().Before(sourceInfo.ModTime()) {
+					entry.SidecarStale = true
+				}
 			}
 			if !entry.Eligible {
 				// A sidecar beside an ineligible source is one the build would
@@ -185,8 +225,17 @@ func walkPublic(publicRoot string, source AssetSource, limits []string) ([]asset
 		}
 		result = append(result, entry)
 	}
-	for path := range sidecars {
-		result = append(result, assetEntry{Path: path + ".zstd", Orphan: true, SidecarPresent: true})
+	for path, found := range sidecars {
+		for _, sidecar := range found {
+			suffix := sidecar.token
+			for _, known := range sidecarSuffixes {
+				if known.token == sidecar.token {
+					suffix = known.suffix
+					break
+				}
+			}
+			result = append(result, assetEntry{Path: path + suffix, Orphan: true, SidecarPresent: true, SidecarCodings: []string{sidecar.token}})
+		}
 	}
 	sort.Slice(result, func(i, j int) bool { return result[i].Path < result[j].Path })
 	return result, limits
@@ -245,6 +294,15 @@ func (e assetEntry) SidecarBytes() string {
 	return humanBytes(e.SidecarSize)
 }
 
+// Codings names the sidecars found, so a file carrying two of three reads as
+// incomplete rather than as compressed.
+func (e assetEntry) Codings() string {
+	if len(e.SidecarCodings) == 0 {
+		return ""
+	}
+	return strings.Join(e.SidecarCodings, " ")
+}
+
 func (r assetReport) TotalBytes() string { return humanBytes(r.TotalSize) }
 
 func humanBytes(size int64) string {
@@ -264,7 +322,7 @@ var assetBody = template.Must(template.New("assets").Parse(`
 
 <div class="card">
 <div><strong>now</strong> · files are read from the project directly, identity encoding only, and no sidecar is written or served</div>
-<div><strong>release</strong> · <code>pw build</code> writes a <code>.zstd</code> beside every eligible file and serves it by negotiation</div>
+<div><strong>release</strong> · <code>pw build</code> writes <code>.br</code>, <code>.zstd</code> and <code>.gz</code> beside every eligible file and picks one by negotiation</div>
 </div>
 
 {{if .Missing}}
@@ -277,7 +335,7 @@ var assetBody = template.Must(template.New("assets").Parse(`
 <td><code>{{.Path}}</code></td>
 <td>{{if .URL}}<code>{{.URL}}</code>{{else}}<span class="undetermined">—</span>{{end}}</td>
 <td class="num">{{.Bytes}}</td>
-<td class="num">{{if .SidecarPresent}}{{.SidecarBytes}} <span class="muted">{{.Ratio}}</span>{{else if .Eligible}}<span class="muted">on build</span>{{else}}<span class="muted">—</span>{{end}}</td>
+<td class="num">{{if .SidecarPresent}}{{.SidecarBytes}} <span class="muted">{{.Ratio}}</span> <span class="muted">{{.Codings}}</span>{{else if .Eligible}}<span class="muted">on build</span>{{else}}<span class="muted">—</span>{{end}}</td>
 <td>{{if .Orphan}}<span class="state-failed">stale sidecar, a build would remove it</span>
 {{else if .SidecarStale}}<span class="state-failed">sidecar older than source</span>
 {{else if .Eligible}}<span class="muted">compressible</span>

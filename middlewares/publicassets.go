@@ -47,7 +47,7 @@ func NormalizePublicMount(value string) (string, error) {
 // PublicAssets serves the application's static assets under config.Mount and
 // forwards every other request downstream. Assets come from the embedded
 // filesystem, optionally overlaid by a local public directory, and are
-// negotiated against precompressed zstd sidecars.
+// negotiated against the precompressed sidecars the build produced.
 //
 // A nil embedded filesystem falls back to the one a generated public.go
 // registered with RegisterPublicFS. Outside the pwdev build mode, serving
@@ -121,7 +121,7 @@ func PublicAssets(config PublicAssetConfig, embedded fs.FS) (Middleware, error) 
 			if !publicDevelopment {
 				w.Header().Set("Vary", "Accept-Encoding")
 			}
-			representation, encoding, acceptable := selectPublicRepresentation(r, resolved.asset)
+			representation, rank, acceptable := selectPublicRepresentation(r, resolved.asset)
 			if !acceptable {
 				http.Error(w, http.StatusText(http.StatusNotAcceptable), http.StatusNotAcceptable)
 				return
@@ -129,9 +129,9 @@ func PublicAssets(config PublicAssetConfig, embedded fs.FS) (Middleware, error) 
 			w.Header().Set("Content-Type", resolved.contentType)
 			w.Header().Set("Content-Length", strconv.Itoa(len(representation)))
 			etag := resolved.identityTag
-			if encoding != "" {
-				w.Header().Set("Content-Encoding", encoding)
-				etag = resolved.zstdTag
+			if rank >= 0 {
+				w.Header().Set("Content-Encoding", staticContentCodings[rank].token)
+				etag = resolved.encodedTags[rank]
 			}
 			w.Header().Set("ETag", etag)
 			if r.Header.Get("If-None-Match") == etag {
@@ -210,12 +210,19 @@ func publicAssetName(name string) (string, bool) {
 	if name == "" || strings.ContainsAny(name, "\\\x00") || !fs.ValidPath(name) || path.Clean(name) != name {
 		return "", false
 	}
-	for _, segment := range strings.Split(name, "/") {
+	// A hand-rolled walk rather than strings.Split, because this runs on every
+	// static asset request and the split slice was its only allocation.
+	for rest := name; ; {
+		segment, tail, found := strings.Cut(rest, "/")
 		if segment == "" || strings.HasPrefix(segment, ".") {
 			return "", false
 		}
+		if !found {
+			break
+		}
+		rest = tail
 	}
-	if strings.HasSuffix(name, ".zstd") {
+	if hasStaticCodingSuffix(name) {
 		return "", false
 	}
 	return name, true
@@ -224,7 +231,10 @@ func publicAssetName(name string) (string, bool) {
 type publicAsset struct {
 	name     string
 	identity []byte
-	zstd     []byte
+	// encoded holds one precompressed sidecar per staticContentCodings rank,
+	// nil where the build produced none. A missing coding is ordinary: an
+	// encode that came out no smaller than its source is skipped.
+	encoded [maxStaticCodings][]byte
 }
 
 // resolvedPublicAsset carries one manifest-less asset with everything a
@@ -234,7 +244,10 @@ type resolvedPublicAsset struct {
 	asset       publicAsset
 	contentType string
 	identityTag string
-	zstdTag     string
+	// encodedTags parallels publicAsset.encoded. Two representations of one URL
+	// never share a validator, because a cache holding one must not answer a
+	// request that asked for another.
+	encodedTags [maxStaticCodings]string
 }
 
 func finishPublicAsset(asset publicAsset) *resolvedPublicAsset {
@@ -243,8 +256,10 @@ func finishPublicAsset(asset publicAsset) *resolvedPublicAsset {
 		contentType = http.DetectContentType(asset.identity)
 	}
 	resolved := &resolvedPublicAsset{asset: asset, contentType: contentType, identityTag: publicAssetETag(asset.identity)}
-	if len(asset.zstd) > 0 {
-		resolved.zstdTag = publicAssetETag(asset.zstd)
+	for rank, body := range asset.encoded {
+		if len(body) > 0 {
+			resolved.encodedTags[rank] = publicAssetETag(body)
+		}
 	}
 	return resolved
 }
@@ -307,9 +322,13 @@ func readLocalPublicAsset(name string) (publicAsset, bool, bool) {
 	}
 	asset := publicAsset{name: name, identity: identity}
 	if !publicDevelopment {
-		sidecarInfo, sidecarErr := os.Lstat(current + ".zstd")
-		if sidecarErr == nil && sidecarInfo.Mode().IsRegular() && sidecarInfo.Mode()&os.ModeSymlink == 0 {
-			asset.zstd, _ = os.ReadFile(current + ".zstd")
+		for rank := range staticContentCodings {
+			sidecar := current + staticContentCodings[rank].suffix
+			sidecarInfo, sidecarErr := os.Lstat(sidecar)
+			if sidecarErr != nil || !sidecarInfo.Mode().IsRegular() || sidecarInfo.Mode()&os.ModeSymlink != 0 {
+				continue
+			}
+			asset.encoded[rank], _ = os.ReadFile(sidecar)
 		}
 	}
 	return asset, true, false
@@ -338,40 +357,41 @@ func readEmbeddedPublicAsset(embedded fs.FS, name string) (publicAsset, bool) {
 		return publicAsset{}, false
 	}
 	asset := publicAsset{name: name, identity: identity}
-	if sidecar, sidecarErr := fs.ReadFile(embedded, name+".zstd"); sidecarErr == nil {
-		asset.zstd = sidecar
+	for rank := range staticContentCodings {
+		if sidecar, sidecarErr := fs.ReadFile(embedded, name+staticContentCodings[rank].suffix); sidecarErr == nil {
+			asset.encoded[rank] = sidecar
+		}
 	}
 	return asset, true
 }
 
-func selectPublicRepresentation(r *http.Request, asset publicAsset) ([]byte, string, bool) {
+// selectPublicRepresentation picks the smallest stored form the client will
+// take, or the identity bytes. The order is staticContentCodings, not the
+// client's q-values, which state what can be read rather than what is worth
+// sending.
+//
+// The returned rank indexes staticContentCodings, or is -1 for identity, so the
+// caller reads the matching validator without matching on the token again.
+func selectPublicRepresentation(r *http.Request, asset publicAsset) ([]byte, int, bool) {
 	if publicDevelopment {
-		return asset.identity, "", true
+		return asset.identity, -1, true
 	}
 	values, present := r.Header["Accept-Encoding"]
 	if !present {
-		return asset.identity, "", true
+		return asset.identity, -1, true
 	}
 	header := strings.Join(values, ",")
 	if strings.TrimSpace(header) == "" {
-		return asset.identity, "", true
+		return asset.identity, -1, true
 	}
-	quality := scanEncodingQuality(header, "zstd")
-	zstdQuality := quality.coding
-	if !quality.codingSet {
-		zstdQuality = quality.wildcard
+	quality := scanEncodingQuality(header)
+	for rank := range staticContentCodings {
+		if len(asset.encoded[rank]) > 0 && quality.acceptsCoding(rank) > 0 {
+			return asset.encoded[rank], rank, true
+		}
 	}
-	if len(asset.zstd) > 0 && zstdQuality > 0 {
-		return asset.zstd, "zstd", true
+	if quality.acceptsIdentity() > 0 {
+		return asset.identity, -1, true
 	}
-	identityQuality := 1.0
-	if quality.identitySet {
-		identityQuality = quality.identity
-	} else if quality.wildcardSet {
-		identityQuality = quality.wildcard
-	}
-	if identityQuality > 0 {
-		return asset.identity, "", true
-	}
-	return nil, "", false
+	return nil, -1, false
 }

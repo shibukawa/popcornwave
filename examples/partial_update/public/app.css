@@ -1,0 +1,27 @@
+/* Deliberately plain. The point of the page is the network tab, not the paint. */
+:root { color-scheme: light dark; --line: color-mix(in srgb, currentColor 18%, transparent); }
+body { margin: 0; font: 16px/1.5 system-ui, sans-serif; }
+.shell { max-width: 60rem; margin: 0 auto; padding: 1.5rem 1rem 3rem; }
+.shell__head { display: flex; align-items: baseline; gap: 1.5rem; flex-wrap: wrap;
+  border-bottom: 1px solid var(--line); padding-bottom: .75rem; }
+.shell__title { font-size: 1.25rem; margin: 0; }
+.shell__nav { display: flex; gap: 1rem; }
+.shell__link { text-decoration: none; }
+.shell__link:hover { text-decoration: underline; }
+.shell__main { padding-top: 1.5rem; }
+.shell__foot { margin-top: 2.5rem; padding-top: .75rem; border-top: 1px solid var(--line);
+  font-size: .875rem; opacity: .7; }
+.panel__title { font-size: 1rem; margin: 0 0 1rem; }
+.panel__search { display: flex; gap: .5rem; align-items: end; margin-bottom: 1.25rem; flex-wrap: wrap; }
+.panel__label { display: block; font-size: .875rem; opacity: .8; }
+.panel__input, .panel__submit, .row__redraw { font: inherit; padding: .35rem .6rem;
+  border: 1px solid var(--line); border-radius: .25rem; background: transparent; color: inherit; }
+.panel__submit, .row__redraw { cursor: pointer; }
+.row__redraw { font-size: .8125rem; padding: .2rem .5rem; }
+.panel__table { width: 100%; border-collapse: collapse; }
+.panel__table th { text-align: left; font-size: .8125rem; opacity: .7; font-weight: 600;
+  border-bottom: 1px solid var(--line); padding: .4rem .5rem; }
+.row__cell { padding: .45rem .5rem; border-bottom: 1px solid var(--line); vertical-align: baseline; }
+.row__cell--total { text-align: right; font-variant-numeric: tabular-nums; }
+.row--redrawn { animation: flash 1.2s ease-out; }
+@keyframes flash { from { background: color-mix(in srgb, currentColor 14%, transparent); } to { background: transparent; } }

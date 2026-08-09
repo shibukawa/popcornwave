@@ -7,6 +7,7 @@ system:tinygodriver selects an optimized host encoder or bounded TinyGo encoder 
 
 ```yaml
 package: github.com/shibukawa/tinygodriver/compress/zstd
+role: the zstd half of policy:response-content-encoding, beside requirement:response-gzip-encoder; the two share one writer interface and one negotiation path
 public_api:
   - NewWriter(io.Writer, options) returns Writer
   - "Writer.Flush() error emits buffered input as complete blocks without ending the frame, for decision:streaming-response-compression"
@@ -23,7 +24,10 @@ implementation_selection:
   host_go:
     condition: "!tinygo && !force_tinygo_logic"
     backend: github.com/klauspost/compress/zstd
-    settings: default level, concurrency 1, 128 KiB window, lower memory, frame checksum disabled
+    settings: concurrency 1, 128 KiB window, lower memory, frame checksum disabled
+    level:
+      dynamic: SpeedFastest, because a response body is encoded while a request waits
+      static: maximum, since policy:public-asset-precompression pays build CPU and not request latency
   tinygodriver:
     condition: "tinygo || force_tinygo_logic"
     backend: bounded internal encoder
@@ -31,6 +35,13 @@ implementation_selection:
 invariants:
   - public API and lifecycle errors match across backends
   - enabled SHA-256 and ETag cover the backend's emitted encoded representation
+  - NewWriter emits nothing; the frame header waits for the first Write, per lazy_frame_header
+lazy_frame_header:
+  rule: constructing an encoder writes zero bytes to its destination
+  why: the destination is an http.ResponseWriter, so a byte written at construction commits the response, and a render that then fails pre-commit can no longer be replaced by api:problem-response
+  symptom: a streamed page whose chain fails validation answered 200 with a 6-byte truncated frame instead of a 500 problem document
+  fixed: system:tinygodriver v1.2.2, which gates the header behind a wroteHeader flag
+  applies_to: every backend of policy:response-content-encoding, not this package alone; the klauspost and standard library encoders already satisfied it, which is why the defect appeared on one target only
 encoder_required:
   - standard frames
   - flush at block boundaries without ending the frame

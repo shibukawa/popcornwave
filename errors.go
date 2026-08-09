@@ -141,11 +141,11 @@ func acceptsHTML(r *http.Request) bool {
 		return false
 	}
 	var htmlQ, jsonQ float64 = -1, -1
-	for _, item := range strings.Split(accept, ",") {
-		parts := strings.Split(item, ";")
-		media := strings.TrimSpace(strings.ToLower(parts[0]))
+	for item := range splitSeq(accept, ',') {
+		media, parameters, _ := strings.Cut(item, ";")
+		media = strings.TrimSpace(strings.ToLower(media))
 		q := 1.0
-		for _, parameter := range parts[1:] {
+		for parameter := range splitSeq(parameters, ';') {
 			key, value, ok := strings.Cut(strings.TrimSpace(parameter), "=")
 			if ok && strings.EqualFold(key, "q") {
 				parsed, parseErr := strconv.ParseFloat(value, 64)
@@ -172,6 +172,25 @@ func acceptsHTML(r *http.Request) bool {
 		}
 	}
 	return htmlQ > 0 && htmlQ >= jsonQ
+}
+
+// splitSeq yields the separator-delimited pieces of value without allocating.
+// Unlike strings.SplitSeq it never yields anything for an empty value, which
+// is what a header parse wants.
+func splitSeq(value string, separator byte) func(func(string) bool) {
+	return func(yield func(string) bool) {
+		for value != "" {
+			var piece string
+			if index := strings.IndexByte(value, separator); index >= 0 {
+				piece, value = value[:index], value[index+1:]
+			} else {
+				piece, value = value, ""
+			}
+			if !yield(piece) {
+				return
+			}
+		}
+	}
 }
 
 type commitGuard struct {

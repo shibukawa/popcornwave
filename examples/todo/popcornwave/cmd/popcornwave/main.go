@@ -4,8 +4,8 @@ import (
 	"context"
 	"log"
 
-	"todo-popcornwave/handlers"
 	"github.com/shibukawa/popcornwave/pw"
+	"todo-popcornwave/handlers"
 	// Registers the engine the configured DSN names.
 	_ "github.com/shibukawa/popcornwave/database/postgres"
 )

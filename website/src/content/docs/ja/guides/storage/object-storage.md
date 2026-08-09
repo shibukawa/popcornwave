@@ -285,10 +285,10 @@ default 節は意図的です。`ErrAccessDenied`、`ErrBadCredentials`、接続
 | `ErrNoSuchKey` | 存在しないオブジェクト、および 404 全般 |
 | `ErrNoSuchBucket` | 存在しないバケット |
 | `ErrAccessDenied` | 拒否されたリクエスト、および 403 全般 |
-| `ErrBucketExists`、`ErrBucketNotEmpty` | `CreateBucket`、`DeleteBucket` |
+| `ErrBucketExists`, `ErrBucketNotEmpty` | `CreateBucket`, `DeleteBucket` |
 | `ErrInvalidRange` | オブジェクトの範囲外のレンジ |
 | `ErrBadCredentials` | 署名またはキーの拒否 |
-| `ErrNoCredentials`、`ErrNoRegion` | `s3.New`。リクエストの前 |
+| `ErrNoCredentials`, `ErrNoRegion` | `s3.New`。リクエストの前 |
 | `ErrTooManyRedirect` | エンドポイントの設定ミス |
 
 センチネルの背後にある詳細は `*s3.Error` が運びます。ステータス、コード、メッセージ、

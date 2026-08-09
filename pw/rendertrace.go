@@ -60,6 +60,16 @@ type renderTrace struct {
 	delivered  map[string]time.Time
 	boundaries int
 	bytes      int64
+	// suppressed counts the deliveries this response did not write because the
+	// region was already showing them, and suppressedBytes is what they would
+	// have cost. Live only.
+	suppressed      int
+	suppressedBytes int64
+	// cache is what this response reused from the output cache. It is installed
+	// on the context rather than reached from here, because the store is
+	// consulted deep inside a generated plan and the only thing that reaches
+	// there is the render context.
+	cache *renderCacheCounts
 }
 
 // renderTraced reports whether this request opens render spans.
@@ -86,14 +96,45 @@ func startRenderTrace(ctx context.Context, mode string, attributes ...Attribute)
 	if policy == nil {
 		return ctx, nil
 	}
-	attributes = append(attributes, String("pw.render.mode", mode))
+	merged := make([]Attribute, 0, len(attributes)+1)
+	merged = append(merged, attributes...)
+	merged = append(merged, String("pw.render.mode", mode))
+	return newRenderTrace(ctx, policy, mode, merged)
+}
+
+// startChainRenderTrace is startRenderTrace for a composed chain, whose four
+// shape attributes every branch shares. Building them here, after the policy
+// check, keeps an untraced response from assembling attributes nothing reads,
+// and sizes the slice for the mode attribute in one allocation.
+//
+// Every value is a property of the templates rather than of the request, so
+// none of it can carry an instance key, a component input, or anything a user
+// supplied, which is what requirement:modern-observability asks of a dimension.
+func startChainRenderTrace(ctx context.Context, mode string, layers int, async, live, bot bool) (context.Context, *renderTrace) {
+	policy := renderPolicy(ctx)
+	if policy == nil {
+		return ctx, nil
+	}
+	return newRenderTrace(ctx, policy, mode, []Attribute{
+		Int("pw.render.layers", layers),
+		Bool("pw.render.async", async),
+		Bool("pw.render.live", live),
+		Bool("pw.render.bot", bot),
+		String("pw.render.mode", mode),
+	})
+}
+
+func newRenderTrace(ctx context.Context, policy *pwruntime.Tracing, mode string, attributes []Attribute) (context.Context, *renderTrace) {
 	spanCtx, span := trace.Start(ctx, renderSpanPrefix+mode, trace.WithAttributes(attributes...))
 	now := time.Now()
+	counts := &renderCacheCounts{}
+	spanCtx = withRenderCacheCounts(spanCtx, counts)
 	return spanCtx, &renderTrace{
 		ctx:       spanCtx,
 		span:      span,
 		committed: now,
 		boundary:  policy.Boundary,
+		cache:     counts,
 	}
 }
 
@@ -181,6 +222,21 @@ func (render *renderTrace) deliveredContent(id string, size int) {
 	span.End()
 }
 
+// suppressedContent records one delivery this response did not send, because
+// the region was already showing those bytes.
+//
+// It is counted rather than ignored because the two numbers together are the
+// only way to read whether the suppression is working: deliveries alone cannot
+// distinguish a quiet page from one whose every delivery is being skipped, and
+// the bytes are what a reconnect would otherwise have cost.
+func (render *renderTrace) suppressedContent(size int) {
+	if render == nil {
+		return
+	}
+	render.suppressed++
+	render.suppressedBytes += int64(size)
+}
+
 // failed marks the response as having failed, whatever status reached the
 // client. A stream that broke after commit still answers 200, so the request
 // span cannot report this and the render span is where it is visible.
@@ -210,9 +266,24 @@ func (render *renderTrace) end(attributes ...Attribute) {
 	// A render that failed before its first flush never committed, so the
 	// initial build ran until the failure and ends here.
 	render.commit()
-	render.span.SetAttributes(append(attributes,
+	attributes = append(attributes,
 		Int64("pw.render.bytes", render.bytes),
-		Int("pw.render.boundaries", render.boundaries))...)
+		Int("pw.render.boundaries", render.boundaries))
+	// A response that consulted the cache reports both halves, because a hit
+	// count alone cannot distinguish a cache that is working from one nothing
+	// is eligible for. A response that consulted it not at all reports neither,
+	// rather than two zeros a dashboard would average over.
+	if hits, misses := render.cache.hits.Load(), render.cache.misses.Load(); hits+misses > 0 {
+		attributes = append(attributes,
+			Int64("pw.render.cache_hits", hits),
+			Int64("pw.render.cache_misses", misses))
+	}
+	if render.suppressed > 0 {
+		attributes = append(attributes,
+			Int("pw.live.suppressed", render.suppressed),
+			Int64("pw.live.suppressed_bytes", render.suppressedBytes))
+	}
+	render.span.SetAttributes(attributes...)
 	render.span.End()
 }
 

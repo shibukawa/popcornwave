@@ -20,10 +20,13 @@ decision:
   serves: the application, under the reserved pwdev build mode of policy:dev-console-boundary
   listener: a loopback listener of its own, never the application's own listener
   announcement:
-    direction: outbound, one request from the application to the console at startup
-    carries: the address and nothing else, so there is no shape for it to carry anything the console must then decide about
+    direction: outbound, from the application to the console at startup
+    carries: one address per request and nothing else, so there is no shape for it to carry anything the console must then decide about
     credential: a token generated per run from crypto/rand and injected the way requirement:contrib-devidp injects its client secret
     refused: an announcement without the token, so an address is not taken from anything that merely reached the port
+    kinds:
+      pane: the loopback address the console proxies the pane to
+      listening: the URL the application bound, which decision:development-port-shift can move off the configured port and which no file the console reads can be trusted for; refused unless it is an http URL, since the console renders it as a link
   reaching: requirement:dev-console proxies the pane, so the developer sees one URL and the application's dev listener is never an address anyone types
 revision:
   was: the application dialling out and answering over that connection, with an enumerated closed set of requests

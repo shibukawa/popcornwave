@@ -250,6 +250,95 @@ func TestIndexNamesTheKeyWhenTheAPIDocumentationIsOff(t *testing.T) {
 	}
 }
 
+// startAttachedConsole runs a console that has an address to guess from and a
+// token to check announcements against.
+func startAttachedConsole(t *testing.T, token string) *Console {
+	t.Helper()
+	console, err := New("127.0.0.1:0", Project{
+		Name: "app", Environment: "dev",
+		ApplicationURL: "http://localhost:8080",
+		APIDocURL:      "http://localhost:8080/docs",
+		APIDocKey:      "server.api_doc",
+	}, nil, NewAttachment(token))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(console.Close)
+	return console
+}
+
+func announce(t *testing.T, console *Console, token, body string) int {
+	t.Helper()
+	request, err := http.NewRequest(http.MethodPost, console.URL()+"/api/listening", strings.NewReader(body))
+	if err != nil {
+		t.Fatal(err)
+	}
+	request.Header.Set("X-Pw-Attach-Token", token)
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		t.Fatalf("announce: %v", err)
+	}
+	defer response.Body.Close()
+	return response.StatusCode
+}
+
+// The address read from the project files is a guess, and a development run that
+// could not bind the configured port makes it the wrong one. The link has to
+// follow the process rather than the file, or it opens whatever else took 8080.
+func TestTheIndexPrefersTheAddressTheApplicationAnnounced(t *testing.T) {
+	console := startAttachedConsole(t, "secret")
+	if status := announce(t, console, "secret", "http://localhost:8081"); status != http.StatusNoContent {
+		t.Fatalf("status = %d, want 204", status)
+	}
+	_, body := get(t, console.URL()+"/")
+	if !strings.Contains(body, `href="http://localhost:8081"`) {
+		t.Errorf("the index never linked the announced address:\n%s", body)
+	}
+	if strings.Contains(body, "localhost:8080") {
+		t.Errorf("the index still shows the address it guessed:\n%s", body)
+	}
+	// The documentation is a path on the application's own origin, so it moves
+	// with it.
+	if !strings.Contains(body, "http://localhost:8081/docs") {
+		t.Errorf("the documentation link stayed on the configured port:\n%s", body)
+	}
+}
+
+// Before the application says anything the console still has its guess, which is
+// right whenever the port was free.
+func TestTheIndexFallsBackToTheConfiguredAddress(t *testing.T) {
+	console := startAttachedConsole(t, "secret")
+	_, body := get(t, console.URL()+"/")
+	if !strings.Contains(body, "http://localhost:8080") {
+		t.Errorf("the index dropped the address it could work out:\n%s", body)
+	}
+}
+
+// The announcement moves where a developer's browser is sent, so reaching the
+// port is not enough to make one.
+func TestAnAnnouncementWithoutTheTokenIsRefused(t *testing.T) {
+	console := startAttachedConsole(t, "secret")
+	if status := announce(t, console, "guessed", "http://localhost:9999"); status != http.StatusForbidden {
+		t.Fatalf("status = %d, want 403", status)
+	}
+	if console.attach.Listening() != "" {
+		t.Errorf("an unauthenticated announcement was recorded: %s", console.attach.Listening())
+	}
+}
+
+// The value is rendered into a link, and a scheme is the part of a URL that
+// decides what following it does.
+func TestOnlyAnHTTPURLIsAccepted(t *testing.T) {
+	for _, body := range []string{"javascript:alert(1)", "localhost:8081", "", "file:///etc/passwd"} {
+		t.Run(body, func(t *testing.T) {
+			console := startAttachedConsole(t, "secret")
+			if status := announce(t, console, "secret", body); status != http.StatusBadRequest {
+				t.Fatalf("status = %d for %q, want 400", status, body)
+			}
+		})
+	}
+}
+
 // readStreamEvent opens the stream, runs during if given, and returns the last
 // state the stream delivered.
 func readStreamEvent(t *testing.T, console *Console, during func()) State {

@@ -42,12 +42,12 @@ context が運ぶのはキャンセルだけではありません。通常のリ
 
 | テンプレートの型 | Go の型 |
 | --- | --- |
-| `string`、`decimal` | `string` |
+| `string`, `decimal` | `string` |
 | `bool` | `bool` |
 | `int` | `int` |
 | `float` | `float64` |
 | `bytes` | `[]byte` |
-| `datetime`、`date`、`time` | `time.Time` |
+| `datetime`, `date`, `time` | `time.Time` |
 | `url` | `url.URL` |
 
 `T[]` はスライス、`T?` はオプショナルです。
@@ -213,7 +213,7 @@ SQLite と MySQL では、これがプールそのものを返します。Postgr
 
 ここまでのどこにもデータベースは出てきません。どこで実行するかを言わないステートメントは
 既定の接続グループへ行きます。書き込みや、リーダー・ライター構成に対するトランザクションが
-グループを固定する手段が `pw.SelectDB` と `pw.OnGroup` です。どちらも接続そのものと一緒に
+グループを固定する手段が `pw.SelectDB` です。接続そのものと一緒に
 [リレーショナルデータベース](/ja/guides/storage/rdb/)にあります。`[middleware.rdb]` セクション、
 DSN のスキーム、エンジンごとに必要なインポートもそちらです。
 

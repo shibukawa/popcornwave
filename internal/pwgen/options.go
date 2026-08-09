@@ -47,6 +47,11 @@ func Options(sqlDialect string) (generator.Options, error) {
 			generator.Function(pwPackage, "WriteAPI"),
 			generator.GenericType("response", 0),
 		),
+		generator.ResponseWriteStatusCall(
+			generator.Function(pwPackage, "WriteStatus"),
+			generator.GenericType("response", 0),
+			generator.Argument("status", 2),
+		),
 		generator.StreamCreateCall(
 			generator.Function(pwPackage, "NewStream"),
 			generator.GenericType("stream", 0),
