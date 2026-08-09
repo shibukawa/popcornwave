@@ -9,6 +9,8 @@ sidebar:
 OIDC ログインを試せます。ログインは一覧からユーザーを選ぶだけで、パスワードは
 検証しません。だからこそ開発以外では決して動きません。
 
+![Administrator と Member のアカウントが並び、パスワードを検証しないことを示す開発用 IdP のログイン画面](../../../../assets/screenshots/tutorial-login.png)
+
 ```toml
 [dev.idp]
 enabled = true

@@ -10,6 +10,8 @@ works before any real identity provider exists. It signs you in by letting you
 pick a user from a list — no password is checked, which is why it never runs
 outside development.
 
+![the development identity provider offering Administrator and Member accounts and warning that no password is checked](../../../assets/screenshots/tutorial-login.png)
+
 ```toml
 [dev.idp]
 enabled = true

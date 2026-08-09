@@ -20,6 +20,8 @@ opened by another process at all.
 pw dev: console http://127.0.0.1:18081
 ```
 
+![the pw dev launcher expanded on hover, showing the console link and the control that hides it for the tab](../../../assets/screenshots/dev-console-launcher.png)
+
 Everything below is on that page, pointed at the project already running.
 Nothing was configured to make it so.
 
@@ -152,30 +154,6 @@ count, and no timing panel on the application's own pages: those belong to
 [the telemetry viewer](/productivity/dev-telemetry-viewer/), where they outlive
 the build that failed.
 
-The button takes the bottom left, because the bottom right is where applications
-put their own floating controls. When it is in the way anyway — a sticky footer,
-a widget of your own — move it rather than working around it. `pw init` writes
-the corner into `popcornwave.toml` so it is there to edit:
-
-```toml
-[dev.console.launcher]
-corner = "top-right"
-```
-
-The four corners are `bottom-left`, `bottom-right`, `top-left` and `top-right`,
-and anything else is a configuration error naming them, so a typo is not quietly
-read as the default. The loop picks the new corner up on its next restart, which
-editing the file already causes.
-
-For the two minutes you spend clicking whatever it happens to sit over, hovering
-it reveals a control that hides it until the tab closes. A project that wants it
-gone for good sets `dev.console.launcher.enabled` to `false`.
-
-Turning off the overlay and the launcher together is what makes a development
-page byte-identical to a production one: with neither attached, nothing is
-served for the browser to load. Turning off one leaves the other working, which
-is why they are two settings and not one.
-
 ## Static assets
 
 The assets pane lists what the application serves statically, where each file
@@ -217,6 +195,30 @@ console off.
 | `dev.console.launcher.enabled` | the floating link to the console on those pages |
 | `dev.console.launcher.corner` | which corner it takes; the default is `bottom-left` |
 | `dev.otel.enabled` | `false` removes the telemetry pane |
+
+The launcher takes the bottom left, because the bottom right is where
+applications put their own floating controls. When it is in the way anyway — a
+sticky footer, a widget of your own — move it rather than working around it.
+`pw init` writes the corner into `popcornwave.toml` so it is there to edit:
+
+```toml
+[dev.console.launcher]
+corner = "top-right"
+```
+
+The four corners are `bottom-left`, `bottom-right`, `top-left` and `top-right`,
+and anything else is a configuration error naming them, so a typo is not quietly
+read as the default. The loop picks the new corner up on its next restart, which
+editing the file already causes.
+
+For the two minutes you spend clicking whatever it happens to sit over, hovering
+it reveals a control that hides it until the tab closes. A project that wants it
+gone for good sets `dev.console.launcher.enabled` to `false`.
+
+Turning off the overlay and the launcher together is what makes a development
+page byte-identical to a production one: with neither attached, nothing is
+served for the browser to load. Turning off one leaves the other working, which
+is why they are two settings and not one.
 
 The port is fixed rather than reserved, unlike every other development listener
 here. A surface you bookmark and come back to all day cannot move on each run.
