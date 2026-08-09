@@ -10,7 +10,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/shibukawa/popcornwave/middlewares"
@@ -22,21 +21,19 @@ import (
 )
 
 // Problem is the application-facing RFC problem value.
-type Problem struct {
-	Status  int
-	Title   string
-	Code    string
-	Message string
-	Fields  []FieldError
-	Cause   error
-}
+//
+// It is declared in pwruntime and aliased here, so the value this package
+// builds is the value the other transport runtime inspects and unwraps. A
+// second declaration that agreed today would be a second chance to disagree
+// later, and the failure would be a silent errors.As that stops matching.
+type Problem = pwruntime.Problem
 
 // FieldError describes a single field-level validation failure.
-type FieldError = tinybind.FieldError
+type FieldError = pwruntime.FieldError
 
 // Field builds a field-level validation error for Validation.
 func Field(field, location, message string) FieldError {
-	return tinybind.Field(field, location, message)
+	return pwruntime.Field(field, location, message)
 }
 
 // HTMLFragment is a generated template with its parameters already bound.
@@ -50,104 +47,35 @@ type HTMLWrapper = htmlbind.Wrapper
 // rather than replacing it.
 type HTMLOption = htmlbind.Option
 
-// documentState holds the registered document shell as a one-element chain.
-// Registration happens once at init, so per-request reads take no lock, and
-// the cached slice has no spare capacity: any append reallocates rather than
-// reaching a slice another request is rendering through.
-var documentState atomic.Pointer[[]HTMLWrapper]
-
 // RegisterHTMLDocument installs the generated application document shell.
 // It is intended for generated templates/document_pw_gen.go code.
-func RegisterHTMLDocument(wrapper HTMLWrapper) {
-	chain := []HTMLWrapper{wrapper}
-	if !documentState.CompareAndSwap(nil, &chain) {
-		panic("popcornwave: HTML document is already registered")
-	}
-}
+//
+// The state is pwruntime's rather than this package's, because the other
+// transport runtime registers into the same place: generated registration is
+// emitted per build with its import rewritten, and two registries would leave
+// one build rendering pages with no document around them.
+func RegisterHTMLDocument(wrapper HTMLWrapper) { pwruntime.RegisterHTMLDocument(wrapper) }
 
-func registeredHTMLDocument() []HTMLWrapper {
-	chain := documentState.Load()
-	if chain == nil {
-		return nil
-	}
-	return *chain
-}
+func registeredHTMLDocument() []HTMLWrapper { return pwruntime.RegisteredHTMLDocument() }
 
-func (p Problem) Error() string {
-	if p.Message != "" {
-		return p.Message
-	}
-	if p.Title != "" {
-		return p.Title
-	}
-	return http.StatusText(p.Status)
-}
-
-func (p Problem) Unwrap() error { return p.Cause }
-
+// The constructors are pwruntime's, re-exported so an application keeps
+// naming them through pw and a rewritten call finds the same names on the
+// other runtime.
 func problem(status int, title string, value any) Problem {
-	p := Problem{Status: status, Title: title, Code: strings.ReplaceAll(strings.ToLower(title), " ", "_")}
-	switch value := value.(type) {
-	case nil:
-		p.Message = title
-	case Problem:
-		if value.Status == 0 {
-			value.Status = status
-		}
-		if value.Title == "" {
-			value.Title = title
-		}
-		return value
-	case error:
-		p.Message, p.Cause = value.Error(), value
-	case string:
-		p.Message = value
-	default:
-		p.Message = fmt.Sprint(value)
-	}
-	return p
+	return pwruntime.NewProblem(status, title, value)
 }
 
-func firstValue(values []any) any {
-	if len(values) == 0 {
-		return nil
-	}
-	return values[0]
-}
-
-func BadRequest(values ...any) Problem {
-	return problem(http.StatusBadRequest, "Bad Request", firstValue(values))
-}
-func Unauthorized(values ...any) Problem {
-	return problem(http.StatusUnauthorized, "Unauthorized", firstValue(values))
-}
-func Forbidden(values ...any) Problem {
-	return problem(http.StatusForbidden, "Forbidden", firstValue(values))
-}
-func NotFound(values ...any) Problem {
-	return problem(http.StatusNotFound, "Not Found", firstValue(values))
-}
-func Conflict(values ...any) Problem {
-	return problem(http.StatusConflict, "Conflict", firstValue(values))
-}
-func PayloadTooLarge(values ...any) Problem {
-	return problem(http.StatusRequestEntityTooLarge, "Payload Too Large", firstValue(values))
-}
-func ServiceUnavailable(values ...any) Problem {
-	return problem(http.StatusServiceUnavailable, "Service Unavailable", firstValue(values))
-}
-func InternalServerError(values ...any) Problem {
-	p := problem(http.StatusInternalServerError, "Internal Server Error", firstValue(values))
-	p.Code = "internal"
-	return p
-}
+func BadRequest(values ...any) Problem          { return pwruntime.BadRequest(values...) }
+func Unauthorized(values ...any) Problem        { return pwruntime.Unauthorized(values...) }
+func Forbidden(values ...any) Problem           { return pwruntime.Forbidden(values...) }
+func NotFound(values ...any) Problem            { return pwruntime.NotFound(values...) }
+func Conflict(values ...any) Problem            { return pwruntime.Conflict(values...) }
+func PayloadTooLarge(values ...any) Problem     { return pwruntime.PayloadTooLarge(values...) }
+func ServiceUnavailable(values ...any) Problem  { return pwruntime.ServiceUnavailable(values...) }
+func InternalServerError(values ...any) Problem { return pwruntime.InternalServerError(values...) }
 
 // Validation reports a 400 response carrying every detected field failure.
-func Validation(fields ...FieldError) Problem {
-	p := problem(http.StatusBadRequest, "Validation failed", nil)
-	p.Fields = append([]FieldError(nil), fields...)
-	return p
-}
+func Validation(fields ...FieldError) Problem { return pwruntime.Validation(fields...) }
 
 func WriteProblem(w http.ResponseWriter, r *http.Request, err error) {
 	if responseCommitted(w) {

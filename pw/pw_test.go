@@ -133,9 +133,9 @@ func TestWriteHTMLUsesRegisteredDocument(t *testing.T) {
 	document := htmlbind.BindWrapper(documentPlan, documentParams{}, func(params *documentParams, children htmlbind.Fragment) {
 		params.Children = children
 	})
-	previous := documentState.Swap(&[]HTMLWrapper{document})
+	previous := pwruntime.SwapHTMLDocument([]HTMLWrapper{document})
 	t.Cleanup(func() {
-		documentState.Store(previous)
+		pwruntime.SwapHTMLDocument(previous)
 	})
 
 	pageBuilder := htmlbind.Builder[struct{}]{}
