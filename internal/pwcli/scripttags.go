@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
+	"path"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -89,8 +90,20 @@ func classicScriptTags(source, name string) []string {
 
 // buildableEntry reports whether a src is one the script hook will rewrite, so
 // the check and the transform agree on what a built entry is.
+//
+// Both TypeScript extensions are entries. The build picks its loader from the
+// extension and reads the project's tsconfig for the JSX transform, so a tsx
+// entry needs nothing downstream that a ts entry did not already need; this
+// gate was the whole difference.
 func buildableEntry(value string) bool {
-	return localReference(value) && strings.HasSuffix(strings.ToLower(assetTreePath(value)), ".ts")
+	if !localReference(value) {
+		return false
+	}
+	switch strings.ToLower(path.Ext(assetTreePath(value))) {
+	case ".ts", ".tsx":
+		return true
+	}
+	return false
 }
 
 // tagAttribute reads one attribute out of a tag, accepting the quoting styles a

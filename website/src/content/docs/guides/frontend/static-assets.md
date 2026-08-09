@@ -102,7 +102,7 @@ What each one does, and what follows the file:
 | Source | Becomes | The reference |
 | --- | --- | --- |
 | `img src` naming a `.png` or `.jpg` | WebP, lossless from a PNG and lossy from a JPEG | rewritten to the hashed name |
-| `script src` naming a `.ts` | a bundled ES module, with a source map | rewritten to the hashed name |
+| `script src` naming a `.ts` or `.tsx` | a bundled ES module, with a source map | rewritten to the hashed name |
 | a `.css` file | minified, with its `url()` references pointed at whatever they became | unchanged — the stylesheet keeps its own URL |
 | a `.js` file | minified, not bundled, so a module stays a module | unchanged |
 | anything else | copied | unchanged |

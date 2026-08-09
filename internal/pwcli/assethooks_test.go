@@ -141,6 +141,42 @@ func TestImageReferenceHookRefusesAMissingFile(t *testing.T) {
 	}
 }
 
+// TestScriptReferenceHookBuildsTSX is the case that made tsx an entry: the JSX
+// transform is decided by the project's tsconfig, which the build reads on its
+// own, so the entry needs no wrapper file to reach it.
+//
+// The factory is named locally rather than imported, because what is under test
+// is that a tsx entry compiles at all — a tsx file read as TypeScript is a parse
+// error — and not how a package resolves.
+func TestScriptReferenceHookBuildsTSX(t *testing.T) {
+	root := t.TempDir()
+	writeNestedTestFile(t, filepath.Join(root, "tsconfig.json"),
+		"{\"compilerOptions\":{\"jsx\":\"react\",\"jsxFactory\":\"h\"}}\n")
+	writeNestedTestFile(t, filepath.Join(root, "public", "islands", "counter.tsx"),
+		"const h = (tag: string, props: unknown, ...children: unknown[]) => ({ tag, props, children });\n"+
+			"export const view = (count: number) => <button type=\"button\">Count: {count}</button>;\n")
+
+	result, err := buildScriptEntry(root, "/public/islands/counter.tsx")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !hashedURL.MatchString(result.Value) || !strings.HasPrefix(result.Value, "/public/islands/counter.") {
+		t.Errorf("value = %q", result.Value)
+	}
+	if !strings.HasSuffix(result.Value, ".js") {
+		t.Errorf("a tsx entry did not produce a js URL: %q", result.Value)
+	}
+	var bundle string
+	for _, file := range result.Files {
+		if path.Ext(file.Name) == ".js" {
+			bundle = string(file.Content)
+		}
+	}
+	if !strings.Contains(bundle, `"button"`) {
+		t.Errorf("the JSX element did not reach the bundle: %s", bundle)
+	}
+}
+
 // TestScriptReferenceHookContributesHead is the driving case for the upstream
 // head contribution: a TypeScript entry importing a stylesheet produces a file
 // that no rewritten attribute can name, so the conversion has to declare its

@@ -363,7 +363,7 @@ func convertedSourceFor(produced, authored string) (string, bool) {
 	case ".webp":
 		candidates = []string{".png", ".jpg", ".jpeg"}
 	case ".js":
-		candidates = []string{".ts"}
+		candidates = []string{".ts", ".tsx"}
 	default:
 		return "", false
 	}
@@ -455,7 +455,7 @@ func sourceMustBeRetained(root, relative string) (bool, string, error) {
 // reference.
 func scannableSource(name string) bool {
 	switch strings.ToLower(filepath.Ext(name)) {
-	case ".go", ".html", ".htm", ".js", ".mjs", ".ts", ".css", ".json", ".md", ".txt", ".xml", ".toml", ".yaml", ".yml":
+	case ".go", ".html", ".htm", ".js", ".mjs", ".ts", ".tsx", ".css", ".json", ".md", ".txt", ".xml", ".toml", ".yaml", ".yml":
 		return true
 	}
 	return strings.HasSuffix(name, ".pw.html")

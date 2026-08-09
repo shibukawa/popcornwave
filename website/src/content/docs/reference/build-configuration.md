@@ -214,7 +214,7 @@ its authored tree and serves exactly what it served before any of this existed.
 | `assets.images.quality` | `75` | the lossy setting a JPEG source is re-encoded at; a PNG stays lossless and ignores it |
 | `assets.images.avif` | `false` | add an AVIF representation of every served image, chosen from `Accept` |
 | `assets.css.minify` | `false` | minify stylesheets in place |
-| `assets.scripts.enabled` | `false` | build a `.ts` entry point, and minify an authored `.js` |
+| `assets.scripts.enabled` | `false` | build a `.ts` or `.tsx` entry point, and minify an authored `.js` |
 
 `assets.images` needs encoders on the host, which is why
 [`pw add images`](/pw/project/add/) writes the key and the Devbox packages
