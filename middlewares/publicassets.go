@@ -210,10 +210,17 @@ func publicAssetName(name string) (string, bool) {
 	if name == "" || strings.ContainsAny(name, "\\\x00") || !fs.ValidPath(name) || path.Clean(name) != name {
 		return "", false
 	}
-	for _, segment := range strings.Split(name, "/") {
+	// A hand-rolled walk rather than strings.Split, because this runs on every
+	// static asset request and the split slice was its only allocation.
+	for rest := name; ; {
+		segment, tail, found := strings.Cut(rest, "/")
 		if segment == "" || strings.HasPrefix(segment, ".") {
 			return "", false
 		}
+		if !found {
+			break
+		}
+		rest = tail
 	}
 	if strings.HasSuffix(name, ".zstd") {
 		return "", false

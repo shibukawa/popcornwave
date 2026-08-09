@@ -117,11 +117,11 @@ func acceptsHTML(r *http.Request) bool {
 		return false
 	}
 	htmlQuality, jsonQuality := -1.0, -1.0
-	for _, entry := range strings.Split(r.Header.Get("Accept"), ",") {
-		parts := strings.Split(entry, ";")
-		media := strings.TrimSpace(strings.ToLower(parts[0]))
+	for entry := range splitSeq(r.Header.Get("Accept"), ',') {
+		media, parameters, _ := strings.Cut(entry, ";")
+		media = strings.TrimSpace(strings.ToLower(media))
 		quality := 1.0
-		for _, parameter := range parts[1:] {
+		for parameter := range splitSeq(parameters, ';') {
 			name, value, found := strings.Cut(strings.TrimSpace(parameter), "=")
 			if !found || strings.TrimSpace(name) != "q" {
 				continue

@@ -38,6 +38,13 @@ type Resources struct {
 	Group string
 	// picked memoizes the round-robin choice per group for one request.
 	picked *connectionMemo
+	// single is the sole connection of a configuration without a connection
+	// set, built once in WithResources so that statement resolution does not
+	// allocate one per call.
+	single *Connection
+	// instrumented caches the latest statement wrapper, shared down the
+	// capsule chain; instrument revalidates every input before a hit.
+	instrumented *instrumentCache
 	// TxScope is the active transaction scope, installed by the framework only.
 	TxScope *TransactionScope
 	// Query enables development query diagnostics. A nil value leaves the
@@ -76,6 +83,15 @@ func WithResources(ctx context.Context, resources Resources) context.Context {
 	// builds its own here and every child context inherits that one pointer.
 	if resources.picked == nil && resources.Connections != nil {
 		resources.picked = newConnectionMemo()
+	}
+	// The group and label stay empty: without a connection set there is no
+	// second group to compare against and no second label to log, so nothing
+	// observes them.
+	if resources.single == nil && resources.Connections == nil && resources.DB != nil {
+		resources.single = &Connection{DB: resources.DB, Driver: resources.DBDriver}
+	}
+	if resources.instrumented == nil && (resources.Query != nil || (resources.Trace != nil && resources.Trace.Database)) {
+		resources.instrumented = &instrumentCache{}
 	}
 	return context.WithValue(ctx, contextKey{}, &resources)
 }
@@ -117,14 +133,18 @@ func (r *Resources) effectiveGroup() string {
 
 // connection resolves the pool backing the effective group.
 func (r *Resources) connection() (*Connection, error) {
-	group := r.effectiveGroup()
 	if r.Connections == nil {
+		if r.single != nil {
+			return r.single, nil
+		}
 		if r.DB == nil {
 			return nil, errors.New("popcornwave: database is not available in context")
 		}
-		return &Connection{DB: r.DB, Driver: r.DBDriver, Group: group, Label: group}, nil
+		// A capsule that never passed WithResources, which only a test can
+		// assemble; the request path always has the memoized connection above.
+		return &Connection{DB: r.DB, Driver: r.DBDriver}, nil
 	}
-	return r.picked.resolve(r.Connections, group)
+	return r.picked.resolve(r.Connections, r.effectiveGroup())
 }
 
 func resources(ctx context.Context) *Resources {
