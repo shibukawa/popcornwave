@@ -192,6 +192,20 @@ func (logger Logger) With(attributes ...Attribute) Logger {
 	return logger
 }
 
+// equivalent reports whether other would emit exactly what this logger emits:
+// same backend, same bound attribute slice, same span correlation. It exists
+// for the statement wrapper cache, which must rebuild its wrapper whenever the
+// logger it captured would differ. Attribute slices compare by identity, which
+// is exact for the capsule-held slice both loggers are bound from.
+func (logger Logger) equivalent(other Logger) bool {
+	return logger.backend == other.backend &&
+		logger.traceID == other.traceID &&
+		logger.spanID == other.spanID &&
+		logger.traceFlags == other.traceFlags &&
+		len(logger.attributes) == len(other.attributes) &&
+		(len(logger.attributes) == 0 || &logger.attributes[0] == &other.attributes[0])
+}
+
 // TraceID reports the trace this logger is correlated with, if any.
 func (logger Logger) TraceID() string { return logger.traceID }
 

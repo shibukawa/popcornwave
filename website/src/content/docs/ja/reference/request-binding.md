@@ -38,7 +38,7 @@ input, err := pw.Parse[showUserInput](r)
 | `path:"id"` | パスのワイルドカード | `GET /users/{id}` のようなパターンから |
 | `header:"Authorization"` | リクエストヘッダ1つ | |
 | `cookie:"session"` | クッキー1つ | |
-| `method:"method"` | HTTP メソッド | ワイヤ名は使われず、フィールドは `GET`、`POST` などを受け取る |
+| `method:"method"` | HTTP メソッド | ワイヤ名は使われず、フィールドは `GET`, `POST` などを受け取る |
 
 明示的なワイヤ名が無ければ、フィールド名が lower camel case になります。`DisplayName` は
 `displayName` をバインドします。
@@ -57,9 +57,9 @@ input, err := pw.Parse[showUserInput](r)
 
 | 種別 | 型 |
 | --- | --- |
-| スカラ | `string`、`int`、`int64`、`bool`、`float64` |
+| スカラ | `string`, `int`, `int64`, `bool`, `float64` |
 | ファイル | マルチパートボディでの `httpbind.File` |
-| 複合 | 名前付き構造体、ネストした無名構造体、`[]scalar`、`[]struct`、`map[string]scalar`、`map[string]struct` |
+| 複合 | 名前付き構造体、ネストした無名構造体、`[]scalar`, `[]struct`, `map[string]scalar`, `map[string]struct` |
 | rest | `payload:"*"` の後ろの `map[string]any` または `map[string]json.RawMessage` |
 
 ネストは JSON が前提です。JSON ボディは構造体をオブジェクトへ、スライスを配列へ、マップを
@@ -141,13 +141,13 @@ type listInput struct {
 | ルール | 書き方 | 対象 |
 | --- | --- | --- |
 | `required` | 単独 | すべてのフィールド種別 |
-| `min`、`max` | `min=1` | `int`、`int64`、`float64` |
-| `minlen`、`maxlen`、`len` | `minlen=3` | `string` |
+| `min`, `max` | `min=1` | `int`, `int64`, `float64` |
+| `minlen`, `maxlen`, `len` | `minlen=3` | `string` |
 | `pattern` | `pattern=^[A-Z]{3}$` | `string` |
 | `email` | 単独 | `string` |
 | `uuid` | 単独 | `string` |
-| `date` | 単独 | `string`、`YYYY-MM-DD` |
-| `time` | 単独 | `string`、`HH:MM:SS` |
+| `date` | 単独 | `string`, `YYYY-MM-DD` |
+| `time` | 単独 | `string`, `HH:MM:SS` |
 | `datetime` | 単独 | `string`、RFC 3339 |
 
 ルールの区切りはカンマです。だから `pattern` はタグの最後のトークンでなければなりません。
@@ -236,11 +236,11 @@ if err != nil {
 | タグ | OpenAPI |
 | --- | --- |
 | `check:"required"` | `required`、またはパラメータの必須指定 |
-| `check:"min"`、`check:"max"` | `minimum`、`maximum` |
-| `check:"minlen"`、`check:"maxlen"` | `minLength`、`maxLength` |
+| `check:"min"`, `check:"max"` | `minimum`, `maximum` |
+| `check:"minlen"`, `check:"maxlen"` | `minLength`, `maxLength` |
 | `check:"len"` | `minLength` と `maxLength` の両方 |
 | `check:"pattern"` | `pattern` |
-| `check:"email"`、`"uuid"`、`"date"`、`"time"`、`"datetime"` | `format` |
+| `check:"email"`, `"uuid"`, `"date"`, `"time"`, `"datetime"` | `format` |
 | `enum` | `enum` |
 | `default` | `default` |
 

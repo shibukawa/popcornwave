@@ -7,11 +7,11 @@ The runtime stage of a Popcorn Wave image carries the application binary, its en
 
 ```yaml
 base:
-  selected: gcr.io/distroless/static-debian12:nonroot
+  selected: gcr.io/distroless/static-debian13:nonroot
   provides: CA certificates for requirement:contrib-oidc discovery and any outbound HTTPS, tzdata, /etc/passwd entries, and no shell
   requires: a statically linked binary, so CGO_ENABLED=0 for host Go
   scratch_rejected: an OIDC or OAuth login fails at the TLS handshake with no certificate pool, and the failure names the peer rather than the missing file
-  cc_variant: gcr.io/distroless/base-debian12 is the fallback for a binary the selected toolchain does not link statically
+  cc_variant: gcr.io/distroless/base-debian13 is the fallback for a binary the selected toolchain does not link statically
 user:
   runs_as: nonroot, uid 65532
   port: the data:server-runtime-config port stays above 1024 so the unprivileged user can bind it

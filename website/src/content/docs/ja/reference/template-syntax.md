@@ -57,12 +57,12 @@ export component Card(user: User): html { … }
 
 | テンプレートの型 | Go の型 |
 | --- | --- |
-| `string`、`decimal` | `string` |
+| `string`, `decimal` | `string` |
 | `bool` | `bool` |
 | `int` | `int` |
 | `float` | `float64` |
 | `bytes` | `[]byte` |
-| `datetime`、`date`、`time` | `time.Time` |
+| `datetime`, `date`, `time` | `time.Time` |
 | `url` | `url.URL` |
 | `html` | `pw.HTMLFragment` |
 | `error` | `pw.AsyncError`。`recover` 句が束縛する値 |
@@ -125,20 +125,20 @@ func Profile(params ProfileParams) pw.HTMLFragment
 | 識別子 | `{name}` |
 | メンバアクセス | `{user.profile.name}` |
 | インデックス | `{items[0]}` |
-| リテラル | `{"text"}`、`{42}`、`{true}`、`{null}` |
+| リテラル | `{"text"}`, `{42}`, `{true}`, `{null}` |
 | 呼び出し | `{Decorate(value, tone)}` |
-| 単項 | `{not active}`、`{!active}`、`{-count}` |
+| 単項 | `{not active}`, `{!active}`, `{-count}` |
 | 条件 | `{active ? 'on' : 'off'}` |
 
 | 演算子 | 被演算子 | 結果 |
 | --- | --- | --- |
-| `and`、`&&`、`or`、`\|\|` | どちらもオプショナルでない `bool` | `bool` |
-| `==`、`!=` | 代入互換で比較可能な2つの値 | `bool` |
-| `<`、`<=`、`>`、`>=` | 数値2つ | `bool` |
+| `and`, `&&`, `or`, `\|\|` | どちらもオプショナルでない `bool` | `bool` |
+| `==`, `!=` | 代入互換で比較可能な2つの値 | `bool` |
+| `<`, `<=`, `>`, `>=` | 数値2つ | `bool` |
 | `+` | `string` 2つ、または同じ型の数値2つ | その型 |
-| `-`、`*`、`/`、`%` | 同じ型の数値2つ | その型 |
-| `not`、`!` | `bool` | `bool` |
-| 単項の `+`、`-` | 数値 | その型 |
+| `-`, `*`, `/`, `%` | 同じ型の数値2つ | その型 |
+| `not`, `!` | `bool` | `bool` |
+| 単項の `+`, `-` | 数値 | その型 |
 
 真偽値への暗黙変換も、型の暗黙変換もありません。演算にとって `int` と `float` は別の型
 であり、オプショナルな値は `bool` ではなく、`null` はオプショナルとしか比較できません。
@@ -182,7 +182,7 @@ func Profile(params ProfileParams) pw.HTMLFragment
 | オプショナル | `string?` が値**全体**を与える場合、nil なら属性ごと省かれる |
 | 混在 | 1つの属性の中でオプショナルな値と静的テキストを混ぜると生成エラー |
 | 真偽値 | 式が真のときだけ出力される。裸の属性は書いたまま出る |
-| URL | `href`、`src` などは `url` を要求し、`string` は受け付けない |
+| URL | `href`, `src` などは `url` を要求し、`string` は受け付けない |
 
 一番よく驚かれるのが最後の行で、これは意図したものです。`href` の中の `string` は
 `javascript:` のペイロードがページに届く経路であり、`url.URL` はすでに解析を通った値です。
@@ -258,8 +258,8 @@ export component Card(label: string): html {
 
 | 規則 | 内容 |
 | --- | --- |
-| 使えるタグ | `link`、`meta`、`style`、`script`、`title`、`noscript` |
-| 入れ子 | 要素を持てるのは `noscript` だけで、中身は `link`、`style`、`meta` のみ |
+| 使えるタグ | `link`, `meta`, `style`, `script`, `title`, `noscript` |
+| 入れ子 | 要素を持てるのは `noscript` だけで、中身は `link`, `style`, `meta` のみ |
 | 内容 | 静的なマークアップだけ。統合された head は body の最初のバイトより前に書かれるので、リクエストのデータに依存できない |
 | 本文 | ここの `style` と `script` の本文は生テキストで、波括弧の規則は適用されない |
 | 重複排除 | 同一のタグは1回だけ出力される。単位はコンポーネントではなくタグ |
@@ -441,7 +441,7 @@ async の結果は、それを待つ境界の中にしか存在しません。�
 | --- | --- | --- |
 | `{await a = f(), b = g()}` | はい | 束縛が見えるのは主部分木の中だけ |
 | `{fallback}` | **はい** | 束縛は見えない |
-| `{recover name}` | いいえ | `name` は `error`。`code`、`message`、`retryable`、`timeout` を持つ |
+| `{recover name}` | いいえ | `name` は `error`。`code`, `message`, `retryable`, `timeout` を持つ |
 
 `await` の後ろの束縛は同時に始まるので、1つの句にある遅い呼び出し2つは、合計ではなく
 遅いほうの時間で済みます。`fallback` が必須なのは、それが最初にレスポンスへ確定するもの

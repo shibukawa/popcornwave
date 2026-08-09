@@ -16,7 +16,7 @@ steps:
   - build and start the decision:dev-harness-process binary when a pane needing it is enabled, and rebuild it with the project so a template edit reaches the storybook the way it reaches the application
   - start flow:tailwind-css-build watch mode when enabled
   - enable decision:development-public-assets
-  - build and run data:project-config project.main
+  - build and run data:project-config project.main, which binds its port under decision:development-port-shift
   - default data:runtime-environment to dev when APP_ENV is unset
   - watch every Go source for rebuild, plus .pw.html, .pw.sql, popcornwave.toml, config.*.toml, and config/config.*.toml, per decision:developer-loop-watch-scope
   - regenerate only from the data:project-config generate purposes, because api:cli-generate reads nothing else
@@ -94,6 +94,7 @@ console:
   state: every phase transition publishes data:dev-loop-state, which reaches an open page through flow:dev-overlay-delivery
   build_mode: the application is built with the pwdev tag, which selects decision:development-public-assets, the overlay module of decision:dev-browser-runtime-scope, and decision:dev-application-attachment
   attachment: an attachment token is generated per run and injected beside the console URL, the way requirement:contrib-devidp injects its client secret
+  application_url: announced by the application over that attachment rather than read out of the project, because the loop reads the development configuration best effort and decision:development-port-shift outranks it
   default: enabled
 telemetry_viewer:
   requirement: requirement:dev-telemetry-viewer

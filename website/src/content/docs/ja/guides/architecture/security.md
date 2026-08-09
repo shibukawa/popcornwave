@@ -231,7 +231,7 @@ import していると失敗するので、事故でリリース成果物に混�
 | 設定 | `dev` 以外での代償 |
 | --- | --- |
 | `security.csrf.enabled = false` | unsafe なリクエストの origin もトークンも検査されない |
-| `security.headers.enabled = false`、`hsts.enabled = false` | ブラウザが適用するレスポンスポリシーが弱くなる |
+| `security.headers.enabled = false`, `hsts.enabled = false` | ブラウザが適用するレスポンスポリシーが弱くなる |
 | `observability.query.enabled` | SQL 文が診断レコードに載る |
 | `observability.query.bind_values` | 行の値も載る。アプリのデータがフレームワークの SQL レコードに入る唯一の経路 |
 | `observability.minimum_level = trace` / `debug` | 配備されたプロセスで冗長なログが出る |

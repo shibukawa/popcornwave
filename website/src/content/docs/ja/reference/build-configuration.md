@@ -28,7 +28,7 @@ sidebar:
 | `kind` | `"application"` | `application` はバイナリを作る。`package` は Go モジュールとして公開する |
 | `main` | *(application では必須)* | [`pw build`](/ja/pw/project/build/) がコンパイルするパッケージ。例 `"./cmd/myapp"` |
 | `toolchain` | `"tinygo"` | ソースがどのコンパイラ向けに作られたか。`tinygo` または `go` |
-| `database` | `"sqlite"` | `.pw.sql` がどの方言で生成されるか。`sqlite`、`postgres`、`mysql` |
+| `database` | `"sqlite"` | `.pw.sql` がどの方言で生成されるか。`sqlite`, `postgres`, `mysql` |
 
 `toolchain`、`database`、`kind` は、これ以外の値を拒否します。そしてどの既定値も、好みでは
 なく歴史です。キーが存在しなかった頃のプロジェクトは TinyGo でしかありえず、SQLite でしか
@@ -261,7 +261,7 @@ engines = ["sqlite"]
 | `import` | モジュールルートと異なる場合に、アプリケーションがリンクするパッケージパス。ルートに Go が無いのに省略すると `PW0144` |
 | `requires.capabilities` | パッケージが必要とするプロジェクト機能。`database` など |
 | `requires.engines` | 対応する SQL エンジン。空なら SQL に触れない |
-| `generated_with.pw`、`generated_with.tinybind` | コミット済み生成物を作ったバージョン |
+| `generated_with.pw`, `generated_with.tinybind` | コミット済み生成物を作ったバージョン |
 | `config.section` | パッケージが登録する実行時設定のセクション |
 | `migrations.dir` | マイグレーションストリーム。モジュールルートからの相対 |
 | `migrations.stem` | *(`dir` があれば必須)* ストリームのバージョンテーブルとパッケージのテーブルを命名する |

@@ -60,13 +60,13 @@ enter を押すとその質問が開き、答えると一覧に戻ります。�
 | `--no-tinygo` | TinyGo ではなくホストの Go を対象にする |
 | `--no-devbox` | `devbox.json` を作らない。mise、Docker Compose、Nix、Homebrew、Scoop など自分の環境を使う |
 | `--no-database` | rdb 設定・マイグレーション・SQL の例を作らない |
-| `--db=<engine>` | `sqlite`（既定）、`postgres`、`mysql` |
+| `--db=<engine>` | `sqlite`（既定）, `postgres`, `mysql` |
 | `--dynamo` | DynamoDB ストアを追加する。設定・型付きレコード・ローカルサーバー |
 | `--firestore` | Datastore mode の Firestore を追加する。設定・型付きエンティティ・クエリ宣言 |
 | `--no-redis` | `devbox.json` に Valkey 開発サーバーを入れない |
-| `--router=<kind>` | `registered`（既定）、`discovered`、`both`。[探索型ルーティング](/ja/guides/cross-layer/discovered-routing/#コマンド)を参照 |
-| `--auth=<mode>` | `none`（既定）、`oidc`、`oidc-passkey`、`passkey` |
-| `--session=<backend>` | ログインを作る場合のセッションの置き場所: `rdb`（既定）、`cookie`、`redis`、`dynamo`、`firestore` |
+| `--router=<kind>` | `registered`（既定）, `discovered`, `both`。[探索型ルーティング](/ja/guides/cross-layer/discovered-routing/#コマンド)を参照 |
+| `--auth=<mode>` | `none`（既定）, `oidc`, `oidc-passkey`, `passkey` |
+| `--session=<backend>` | ログインを作る場合のセッションの置き場所: `rdb`（既定）, `cookie`, `redis`, `dynamo`, `firestore` |
 | `--devidp` | OIDC を選んだ場合に、ローカルの認証プロバイダを組み込む |
 
 `--tailwind`、`--no-database`、`--dynamo`、`--firestore`、`--no-redis`、`--auth` はいずれも、
@@ -123,7 +123,7 @@ database = "postgres"   # sqlite、postgres、mysql
 
 | エンジン | プレースホルダ |
 | --- | --- |
-| `postgres` | `$1`、`$2`、… |
+| `postgres` | `$1`, `$2`, … |
 | `mysql` | `?` |
 | `sqlite` | `?` |
 

@@ -1066,6 +1066,7 @@ func registerMiddlewareConfigDefinition4() {
 			"middleware.rdb.default_group":   {"middleware.rdb.enabled"},
 			"middleware.rdb.write_group":     {"middleware.rdb.enabled"},
 			"middleware.rdb.migration_group": {"middleware.rdb.enabled"},
+			"middleware.rdb.connections":     {"middleware.rdb.enabled"},
 		},
 		Secrets: map[string]string{
 			"middleware.rdb.connections.dsn": "mask",
@@ -1257,6 +1258,7 @@ func registerHTMLConfigDefinition5() {
 			"html.bot_detection",
 			"html.bot_async_timeout",
 			"html.bot_user_agents",
+			"html.scriptless_detection",
 			"html.update.enabled",
 			"html.update.validator_key",
 			"html.update.max_manifest_bytes",
@@ -1275,6 +1277,7 @@ func registerHTMLConfigDefinition5() {
 			"html.async_concurrency":         "0",
 			"html.bot_detection":             "true",
 			"html.bot_async_timeout":         "5s",
+			"html.scriptless_detection":      "true",
 			"html.update.enabled":            "false",
 			"html.update.max_manifest_bytes": "8192",
 			"html.live":                      "true",
@@ -1309,6 +1312,7 @@ func registerHTMLConfigDefinition5() {
 			{Prefix: "html", Key: "bot_detection", Help: "render the settled document for crawlers and CLI clients", Kind: cliparser.KindBool},
 			{Prefix: "html", Key: "bot_async_timeout", Help: "await boundary bound for a classified bot request"},
 			{Prefix: "html", Key: "bot_user_agents", Help: "additional bot User-Agent substrings", Kind: cliparser.KindArray},
+			{Prefix: "html", Key: "scriptless_detection", Help: "serve the settled document to a browser with scripting disabled, via a noscript redirect", Kind: cliparser.KindBool},
 			{Prefix: "html", Key: "update.enabled", Help: "answer navigation deltas, redraws, and action responses", Kind: cliparser.KindBool},
 			{Prefix: "html", Key: "update.validator_key", Env: "HTML_UPDATE_VALIDATOR_KEY", Help: "base64 or raw secret keying update validators"},
 			{Prefix: "html", Key: "update.max_manifest_bytes", Help: "cap on the update manifest request header"},
@@ -1329,6 +1333,7 @@ func registerHTMLConfigDefinition5() {
 			{Key: "bot_detection", Kind: configbind.ScaffoldBool, Default: "true", Help: "render the settled document for crawlers and CLI clients"},
 			{Key: "bot_async_timeout", Kind: configbind.ScaffoldDuration, Default: "5s", Help: "await boundary bound for a classified bot request"},
 			{Key: "bot_user_agents", Kind: configbind.ScaffoldStringSlice, Help: "additional bot User-Agent substrings"},
+			{Key: "scriptless_detection", Kind: configbind.ScaffoldBool, Default: "true", Help: "serve the settled document to a browser with scripting disabled, via a noscript redirect"},
 			{Key: "update.enabled", Kind: configbind.ScaffoldBool, Default: "false", Help: "answer navigation deltas, redraws, and action responses"},
 			{Key: "update.validator_key", Kind: configbind.ScaffoldString, Env: "HTML_UPDATE_VALIDATOR_KEY", Help: "base64 or raw secret keying update validators"},
 			{Key: "update.max_manifest_bytes", Kind: configbind.ScaffoldInt, Default: "8192", Help: "cap on the update manifest request header"},
@@ -1396,6 +1401,15 @@ func applyHTMLConfigDefinition5(dst any, o *configbind.Overlay) error {
 	}
 	if v, ok := o.GetMulti("html.bot_user_agents"); ok {
 		p.BotUserAgents = v
+	}
+	if v, ok := o.GetString("html.scriptless_detection"); ok {
+		bb, err := strconv.ParseBool(v)
+		if err != nil {
+			return fmt.Errorf("configbind: html.scriptless_detection: %w", err)
+		}
+		p.ScriptlessDetection = bb
+	} else {
+		p.ScriptlessDetection = true
 	}
 	if v, ok := o.GetString("html.update.enabled"); ok {
 		bb, err := strconv.ParseBool(v)

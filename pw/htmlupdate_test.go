@@ -610,3 +610,57 @@ func assertVary(t *testing.T, mode string, recorder *httptest.ResponseRecorder, 
 		}
 	}
 }
+
+// markupFor renders one chain the way a browser asking for nothing would
+// receive it, under the config given.
+func markupFor(t *testing.T, config HTMLConfig) string {
+	t.Helper()
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "/search?q=go", nil)
+	ctx := pwruntime.WithResources(request.Context(), pwruntime.Resources{
+		Configs: map[reflect.Type]any{reflect.TypeFor[HTMLConfig](): config},
+	})
+	WriteHTMLChain(recorder, request.WithContext(ctx), nil,
+		staticFragment(`<form method="get" action="/search"><input name="q" value="go"><button name="view" value="grid">Search</button></form>`))
+	return recorder.Body.String()
+}
+
+// The whole design rests on the document path being the one every client can
+// take, and a browser with scripting turned off is the plainest such client: it
+// never loads the runtime, so a link is a link and a GET form writes its own
+// query exactly as it did before any of this existed.
+//
+// That makes the fallback not a code path but the absence of one, and this is
+// what says so: enabling updates may add to the head, and may change nothing in
+// the markup a client renders and submits. The head contribution itself — an
+// inert meta and a module script, with no inline script anywhere — is
+// characterized by TestTheRuntimeIsContributedRatherThanScaffolded.
+func TestAClientThatRunsNoScriptSubmitsTheSameMarkupEitherWay(t *testing.T) {
+	off := markupFor(t, defaultHTMLConfig)
+	on := markupFor(t, updateConfig())
+
+	if on != off {
+		t.Errorf("enabling updates changed the markup a no-script client renders:\n on: %s\noff: %s", on, off)
+	}
+	// Named rather than left to the comparison above, because the two could
+	// agree by both being wrong.
+	for _, want := range []string{`method="get"`, `action="/search"`, `name="q"`, `name="view" value="grid"`} {
+		if !strings.Contains(on, want) {
+			t.Errorf("the GET form lost %s:\n%s", want, on)
+		}
+	}
+	// Nothing the runtime needs may be load-bearing for a client that will never
+	// run it: no inline handler may be what performs the submission, and no
+	// attribute may gate it.
+	for _, forbidden := range []string{"<script", "onsubmit", "onclick", "hidden"} {
+		if strings.Contains(on, forbidden) {
+			t.Errorf("the markup depends on script through %q:\n%s", forbidden, on)
+		}
+	}
+	// The runtime is contributed to the head, so the comparison above was
+	// between a page that has updates and a page that does not, rather than
+	// between two pages that both have nothing.
+	if len(documentRenderOptions(updateConfig(), "token")) == 0 {
+		t.Error("updates contributed no render options, so this compared the wrong two things")
+	}
+}

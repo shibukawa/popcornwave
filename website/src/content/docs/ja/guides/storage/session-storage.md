@@ -54,7 +54,7 @@ import _ "github.com/shibukawa/popcornwave/sessionstore/sqlite"
 | `cookie.domain` | *(空)* | 空ならホスト限定。こちらが安全側 |
 | `cookie.secure` | `true` | 無効にしてよいのはループバックの開発時だけ |
 | `cookie.http_only` | `true` | |
-| `cookie.same_site` | `"lax"` | `strict`、`lax`、`none`。`secure` 無しの `none` は起動時に拒否 |
+| `cookie.same_site` | `"lax"` | `strict`, `lax`, `none`。`secure` 無しの `none` は起動時に拒否 |
 | `keyring.secret` | *(空)* | ブラウザが運ぶもの全部に署名し封をする |
 | `keyring.previous_secrets` | `[]` | 引退した秘密鍵。読み出しには通る |
 

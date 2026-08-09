@@ -175,6 +175,7 @@ startup. See [Firestore](/guides/storage/firestore/).
 | `bot_detection` | `true` | render the settled document for crawlers and CLI clients |
 | `bot_async_timeout` | `"5s"` | boundary bound on a classified bot request |
 | `bot_user_agents` | `[]` | additional `User-Agent` substrings, matched case-insensitively |
+| `scriptless_detection` | `true` | serve the settled document to a browser with scripting disabled, via a noscript redirect |
 | `live` | `true` | answer the live connection that keeps a page updating after its document is complete |
 | `live_max_duration` | `"10m"` | lifetime of one live connection before it closes and the client reconnects |
 | `live_duration_jitter` | `20` | percentage that lifetime is spread by, per connection |

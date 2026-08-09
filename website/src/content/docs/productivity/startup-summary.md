@@ -33,6 +33,11 @@ listening on http://localhost:8080
 Only values that came from somewhere other than the built-in defaults are
 marked: `← file`, `← env`, or `← flag`.
 
+The last line is the address the listener accepted, which is not always the
+`server.port` above it: a development run moves off a port it cannot bind, and
+the summary keeps both — what was configured, and what answers. See
+[`pw dev`](/pw/project/dev/#the-port).
+
 Everywhere else — a pipe, a container, a log collector — the same facts become
 one structured record instead, so a JSON handler or an OpenTelemetry bridge
 ships a single event rather than sixty:

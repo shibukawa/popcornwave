@@ -10,7 +10,7 @@ application_read:
   default: default_group
   explicit: api:database-selection
 application_write:
-  rule: wrap it in api:transaction-runner with OnGroup, or pin the group first
+  rule: pin the group with api:database-selection, then issue the statement or hand that context to api:transaction-runner
   unpinned: runs on default_group and fails when that group is readonly
 framework_write:
   resolution_order:

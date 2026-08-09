@@ -356,9 +356,9 @@ err := pw.Transaction(r.Context(), func(ctx context.Context) error {
 ```
 
 A statement that says nothing about where it runs goes to the default group;
-`pw.SelectDB`, `pw.SelectWriteDB`, and `pw.OnGroup` pin one. A generated
-function never learns the topology, which is why one development SQLite file can
-answer every group name. See
+`pw.SelectDB` and `pw.SelectWriteDB` pin one, for a single statement and for a
+whole `pw.Transaction` alike. A generated function never learns the topology,
+which is why one development SQLite file can answer every group name. See
 [Relational databases](/guides/storage/rdb/) and
 [Runtime API](/reference/runtime/#database).
 

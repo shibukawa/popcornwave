@@ -60,8 +60,8 @@ ID string `firestore:"external_id,name"`
 | Go の型 | Datastore の値 |
 | --- | --- |
 | `string` とその名前付き型 | string |
-| `int`〜`int64`、`uint8`、`uint16`、`uint32` | integer |
-| `float32`、`float64` | double |
+| `int`〜`int64`, `uint8`, `uint16`, `uint32` | integer |
+| `float32`, `float64` | double |
 | `bool` | boolean |
 | `[]byte` | blob |
 | `time.Time` | timestamp。マイクロ秒精度で保存 |

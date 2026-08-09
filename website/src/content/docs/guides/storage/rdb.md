@@ -150,10 +150,14 @@ its group explicitly:
 user, err := queries.CreateUser(pw.SelectDB(ctx, "writer"), name)
 
 // A whole transaction — unpinned statements inside it stay on the writer.
-err := pw.Transaction(ctx, func(ctx context.Context) error {
+err := pw.Transaction(pw.SelectDB(ctx, "writer"), func(ctx context.Context) error {
 	return queries.RecordAudit(ctx, "user.created")
-}, pw.OnGroup("writer"))
+})
 ```
+
+`pw.SelectDB` is the only thing that pins a group, for one statement and for a
+whole transaction alike. There is no transaction-only spelling of it, so nothing
+here can disagree about which group won.
 
 One transaction never spans two groups: a nested `pw.Transaction` naming a
 different group returns `ErrCrossGroupTransaction` and leaves the outer one

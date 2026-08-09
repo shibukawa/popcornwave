@@ -32,22 +32,25 @@ target — without a component graph, patch protocol, hydration step, or browser
 runtime.
 
 <CardGrid>
-  <Card title="Standard library first" icon="seti:go">
-    Routing uses `net/http`'s own `ServeMux`: the same patterns, wildcards, and
-    precedence. Handlers remain plain `http.HandlerFunc`.
+  <Card title="Go's ecosystem, respected" icon="seti:go">
+    Routing is `net/http`'s own `ServeMux` — same patterns, wildcards, and
+    precedence — and handlers stay plain `http.HandlerFunc`, so the middleware,
+    `httptest` tests, and `http.Handler`s you already have keep working.
   </Card>
   <Card title="Generated, not reflected" icon="setting">
-    `pw generate` compiles templates, SQL, request binding, and OpenAPI into Go
-    ahead of time. With no runtime reflection, the same code runs on
-    **TinyGo**.
+    `pw generate` compiles templates, SQL, request binding, and OpenAPI into
+    typed Go ahead of time, so a renamed template argument or a SELECT that no
+    longer matches its result type is a build error. With no runtime
+    reflection, the same code runs on **TinyGo**.
   </Card>
   <Card title="One command to a running app" icon="rocket">
     `pw init` scaffolds a complete project — handler, typed page, document
     shell, SQL, migration, error pages, Devbox — and `pw dev` watches it.
   </Card>
-  <Card title="Operations included" icon="approve-check">
-    Startup validation, `/healthz`, `/readyz`, `/openapi.json`, graceful
-    shutdown, request IDs, access logs, and validated security headers.
+  <Card title="Modern web standards, preset" icon="approve-check">
+    Validated security headers and CSRF, WebAuthn passkeys, negotiated **zstd**
+    compression, and OpenTelemetry traces reaching each SQL statement — every
+    one a switch in configuration rather than a stack to assemble.
   </Card>
 </CardGrid>
 

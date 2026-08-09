@@ -96,7 +96,35 @@ func startRenderTrace(ctx context.Context, mode string, attributes ...Attribute)
 	if policy == nil {
 		return ctx, nil
 	}
-	attributes = append(attributes, String("pw.render.mode", mode))
+	merged := make([]Attribute, 0, len(attributes)+1)
+	merged = append(merged, attributes...)
+	merged = append(merged, String("pw.render.mode", mode))
+	return newRenderTrace(ctx, policy, mode, merged)
+}
+
+// startChainRenderTrace is startRenderTrace for a composed chain, whose four
+// shape attributes every branch shares. Building them here, after the policy
+// check, keeps an untraced response from assembling attributes nothing reads,
+// and sizes the slice for the mode attribute in one allocation.
+//
+// Every value is a property of the templates rather than of the request, so
+// none of it can carry an instance key, a component input, or anything a user
+// supplied, which is what requirement:modern-observability asks of a dimension.
+func startChainRenderTrace(ctx context.Context, mode string, layers int, async, live, bot bool) (context.Context, *renderTrace) {
+	policy := renderPolicy(ctx)
+	if policy == nil {
+		return ctx, nil
+	}
+	return newRenderTrace(ctx, policy, mode, []Attribute{
+		Int("pw.render.layers", layers),
+		Bool("pw.render.async", async),
+		Bool("pw.render.live", live),
+		Bool("pw.render.bot", bot),
+		String("pw.render.mode", mode),
+	})
+}
+
+func newRenderTrace(ctx context.Context, policy *pwruntime.Tracing, mode string, attributes []Attribute) (context.Context, *renderTrace) {
 	spanCtx, span := trace.Start(ctx, renderSpanPrefix+mode, trace.WithAttributes(attributes...))
 	now := time.Now()
 	counts := &renderCacheCounts{}

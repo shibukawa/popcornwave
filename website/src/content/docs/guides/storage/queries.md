@@ -217,8 +217,8 @@ third-party library needs a handle of its own.
 
 Nothing above names a database. A statement that says nothing about where it
 runs goes to the default connection group; a write, or a whole transaction
-against a reader-writer cluster, pins one with `pw.SelectDB` and `pw.OnGroup`.
-Those live with the connections themselves, in
+against a reader-writer cluster, pins one with `pw.SelectDB`. That lives with
+the connections themselves, in
 [Relational databases](/guides/storage/rdb/), along with the `[middleware.rdb]`
 section, the DSN schemes, and the import each engine needs.
 

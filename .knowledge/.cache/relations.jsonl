@@ -6,7 +6,10 @@
 {"context": "body", "path": ".knowledge/api/application-lifecycle.md", "source": "api:application-lifecycle", "target": "api:authentication-endpoints", "target_category": "interface", "target_type": "api"}
 {"context": "body", "path": ".knowledge/api/application-lifecycle.md", "source": "api:application-lifecycle", "target": "data:authentication-runtime-config", "target_category": "structure", "target_type": "data"}
 {"context": "body", "path": ".knowledge/api/application-lifecycle.md", "source": "api:application-lifecycle", "target": "api:public-asset-middleware", "target_category": "interface", "target_type": "api"}
+{"context": "body", "path": ".knowledge/api/application-lifecycle.md", "source": "api:application-lifecycle", "target": "decision:development-port-shift", "target_category": "constraint", "target_type": "decision"}
 {"context": "body", "path": ".knowledge/api/application-lifecycle.md", "source": "api:application-lifecycle", "target": "policy:startup-summary", "target_category": "constraint", "target_type": "policy"}
+{"context": "body", "path": ".knowledge/api/application-lifecycle.md", "source": "api:application-lifecycle", "target": "requirement:dev-console", "target_category": "objective", "target_type": "requirement"}
+{"context": "body", "path": ".knowledge/api/application-lifecycle.md", "source": "api:application-lifecycle", "target": "decision:dev-application-attachment", "target_category": "constraint", "target_type": "decision"}
 {"context": "body", "path": ".knowledge/api/assurance-guard.md", "source": "api:assurance-guard", "target": "api:passkey-endpoints", "target_category": "interface", "target_type": "api"}
 {"context": "body", "path": ".knowledge/api/assurance-guard.md", "source": "api:assurance-guard", "target": "policy:authenticated-path-protection", "target_category": "constraint", "target_type": "policy"}
 {"context": "body", "path": ".knowledge/api/assurance-guard.md", "source": "api:assurance-guard", "target": "concept:assurance-axes", "target_category": "concept", "target_type": "concept"}
@@ -122,6 +125,7 @@
 {"context": "body", "path": ".knowledge/api/cli-dev.md", "source": "api:cli-dev", "target": "decision:dev-harness-process", "target_category": "constraint", "target_type": "decision"}
 {"context": "body", "path": ".knowledge/api/cli-dev.md", "source": "api:cli-dev", "target": "flow:tailwind-css-build", "target_category": "behavior", "target_type": "flow"}
 {"context": "body", "path": ".knowledge/api/cli-dev.md", "source": "api:cli-dev", "target": "decision:development-public-assets", "target_category": "constraint", "target_type": "decision"}
+{"context": "body", "path": ".knowledge/api/cli-dev.md", "source": "api:cli-dev", "target": "decision:development-port-shift", "target_category": "constraint", "target_type": "decision"}
 {"context": "body", "path": ".knowledge/api/cli-dev.md", "source": "api:cli-dev", "target": "data:runtime-environment", "target_category": "structure", "target_type": "data"}
 {"context": "body", "path": ".knowledge/api/cli-dev.md", "source": "api:cli-dev", "target": "decision:developer-loop-watch-scope", "target_category": "constraint", "target_type": "decision"}
 {"context": "body", "path": ".knowledge/api/cli-dev.md", "source": "api:cli-dev", "target": "concept:page-tree", "target_category": "concept", "target_type": "concept"}
@@ -363,6 +367,8 @@
 {"context": "body", "path": ".knowledge/api/client-update-api.md", "source": "api:client-update-api", "target": "system:tinybind", "target_category": "external", "target_type": "system"}
 {"context": "body", "path": ".knowledge/api/client-update-api.md", "source": "api:client-update-api", "target": "requirement:action-response-update", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/api/client-update-api.md", "source": "api:client-update-api", "target": "requirement:reloadable-component-endpoint", "target_category": "objective", "target_type": "requirement"}
+{"context": "body", "path": ".knowledge/api/client-update-api.md", "source": "api:client-update-api", "target": "requirement:query-navigation-interception", "target_category": "objective", "target_type": "requirement"}
+{"context": "body", "path": ".knowledge/api/client-update-api.md", "source": "api:client-update-api", "target": "requirement:update-navigation-continuity", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/api/client-update-api.md", "source": "api:client-update-api", "target": "policy:csrf-protection", "target_category": "constraint", "target_type": "policy"}
 {"context": "body", "path": ".knowledge/api/client-update-api.md", "source": "api:client-update-api", "target": "policy:cookie-value-protection", "target_category": "constraint", "target_type": "policy"}
 {"context": "body", "path": ".knowledge/api/cookie-jar.md", "source": "api:cookie-jar", "target": "policy:cookie-value-protection", "target_category": "constraint", "target_type": "policy"}
@@ -764,7 +770,6 @@
 {"context": "body", "path": ".knowledge/api/testutil-passkey.md", "source": "api:testutil-passkey", "target": "data:passkey-credential", "target_category": "structure", "target_type": "data"}
 {"context": "body", "path": ".knowledge/api/transaction-runner.md", "source": "api:transaction-runner", "target": "data:transaction-scope", "target_category": "structure", "target_type": "data"}
 {"context": "body", "path": ".knowledge/api/transaction-runner.md", "source": "api:transaction-runner", "target": "api:database-selection", "target_category": "interface", "target_type": "api"}
-{"context": "body", "path": ".knowledge/api/transaction-runner.md", "source": "api:transaction-runner", "target": "data:database-connection-set", "target_category": "structure", "target_type": "data"}
 {"context": "body", "path": ".knowledge/api/transaction-runner.md", "source": "api:transaction-runner", "target": "decision:savepoint-nested-transaction", "target_category": "constraint", "target_type": "decision"}
 {"context": "body", "path": ".knowledge/api/transaction-runner.md", "source": "api:transaction-runner", "target": "decision:grouped-database-connections", "target_category": "constraint", "target_type": "decision"}
 {"context": "body", "path": ".knowledge/api/transaction-runner.md", "source": "api:transaction-runner", "target": "rule:savepoint-dialect-support", "target_category": "constraint", "target_type": "rule"}
@@ -1343,6 +1348,7 @@
 {"context": "body", "path": ".knowledge/decision/automatic-async-render-selection.md", "source": "decision:automatic-async-render-selection", "target": "api:logger", "target_category": "interface", "target_type": "api"}
 {"context": "body", "path": ".knowledge/decision/automatic-async-render-selection.md", "source": "decision:automatic-async-render-selection", "target": "decision:streaming-response-compression", "target_category": "constraint", "target_type": "decision"}
 {"context": "body", "path": ".knowledge/decision/bot-client-classification.md", "source": "decision:bot-client-classification", "target": "requirement:bot-synchronous-render", "target_category": "objective", "target_type": "requirement"}
+{"context": "body", "path": ".knowledge/decision/bot-client-classification.md", "source": "decision:bot-client-classification", "target": "decision:scriptless-browser-detection", "target_category": "constraint", "target_type": "decision"}
 {"context": "body", "path": ".knowledge/decision/bot-client-classification.md", "source": "decision:bot-client-classification", "target": "data:html-render-config", "target_category": "structure", "target_type": "data"}
 {"context": "body", "path": ".knowledge/decision/bot-client-classification.md", "source": "decision:bot-client-classification", "target": "data:bot-user-agent-catalog", "target_category": "structure", "target_type": "data"}
 {"context": "body", "path": ".knowledge/decision/bot-client-classification.md", "source": "decision:bot-client-classification", "target": "decision:unhandled-boundary-escalation", "target_category": "constraint", "target_type": "decision"}
@@ -1462,6 +1468,7 @@
 {"context": "body", "path": ".knowledge/decision/dev-application-attachment.md", "source": "decision:dev-application-attachment", "target": "decision:dev-harness-process", "target_category": "constraint", "target_type": "decision"}
 {"context": "body", "path": ".knowledge/decision/dev-application-attachment.md", "source": "decision:dev-application-attachment", "target": "policy:dev-console-boundary", "target_category": "constraint", "target_type": "policy"}
 {"context": "body", "path": ".knowledge/decision/dev-application-attachment.md", "source": "decision:dev-application-attachment", "target": "requirement:contrib-devidp", "target_category": "objective", "target_type": "requirement"}
+{"context": "body", "path": ".knowledge/decision/dev-application-attachment.md", "source": "decision:dev-application-attachment", "target": "decision:development-port-shift", "target_category": "constraint", "target_type": "decision"}
 {"context": "body", "path": ".knowledge/decision/dev-application-attachment.md", "source": "decision:dev-application-attachment", "target": "requirement:dev-query-runner", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/decision/dev-application-attachment.md", "source": "decision:dev-application-attachment", "target": "api:cli-build", "target_category": "interface", "target_type": "api"}
 {"context": "body", "path": ".knowledge/decision/dev-application-attachment.md", "source": "decision:dev-application-attachment", "target": "api:cli-dev", "target_category": "interface", "target_type": "api"}
@@ -1570,6 +1577,15 @@
 {"context": "body", "path": ".knowledge/decision/development-memory-session-backend.md", "source": "decision:development-memory-session-backend", "target": "data:session-record", "target_category": "structure", "target_type": "data"}
 {"context": "body", "path": ".knowledge/decision/development-memory-session-backend.md", "source": "decision:development-memory-session-backend", "target": "flow:session-lifecycle", "target_category": "behavior", "target_type": "flow"}
 {"context": "body", "path": ".knowledge/decision/development-memory-session-backend.md", "source": "decision:development-memory-session-backend", "target": "policy:session-security", "target_category": "constraint", "target_type": "policy"}
+{"context": "body", "path": ".knowledge/decision/development-port-shift.md", "source": "decision:development-port-shift", "target": "data:server-runtime-config", "target_category": "structure", "target_type": "data"}
+{"context": "body", "path": ".knowledge/decision/development-port-shift.md", "source": "decision:development-port-shift", "target": "api:cli-dev", "target_category": "interface", "target_type": "api"}
+{"context": "body", "path": ".knowledge/decision/development-port-shift.md", "source": "decision:development-port-shift", "target": "data:runtime-environment", "target_category": "structure", "target_type": "data"}
+{"context": "body", "path": ".knowledge/decision/development-port-shift.md", "source": "decision:development-port-shift", "target": "policy:startup-summary", "target_category": "constraint", "target_type": "policy"}
+{"context": "body", "path": ".knowledge/decision/development-port-shift.md", "source": "decision:development-port-shift", "target": "decision:dev-application-attachment", "target_category": "constraint", "target_type": "decision"}
+{"context": "body", "path": ".knowledge/decision/development-port-shift.md", "source": "decision:development-port-shift", "target": "requirement:dev-console", "target_category": "objective", "target_type": "requirement"}
+{"context": "body", "path": ".knowledge/decision/development-port-shift.md", "source": "decision:development-port-shift", "target": "api:application-lifecycle", "target_category": "interface", "target_type": "api"}
+{"context": "body", "path": ".knowledge/decision/development-port-shift.md", "source": "decision:development-port-shift", "target": "requirement:dev-telemetry-viewer", "target_category": "objective", "target_type": "requirement"}
+{"context": "body", "path": ".knowledge/decision/development-port-shift.md", "source": "decision:development-port-shift", "target": "requirement:contrib-devidp", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/decision/development-public-assets.md", "source": "decision:development-public-assets", "target": "api:cli-dev", "target_category": "interface", "target_type": "api"}
 {"context": "body", "path": ".knowledge/decision/development-public-assets.md", "source": "decision:development-public-assets", "target": "policy:dev-console-boundary", "target_category": "constraint", "target_type": "policy"}
 {"context": "body", "path": ".knowledge/decision/development-public-assets.md", "source": "decision:development-public-assets", "target": "requirement:dev-error-overlay", "target_category": "objective", "target_type": "requirement"}
@@ -2080,6 +2096,12 @@
 {"context": "body", "path": ".knowledge/decision/savepoint-nested-transaction.md", "source": "decision:savepoint-nested-transaction", "target": "api:transaction-runner", "target_category": "interface", "target_type": "api"}
 {"context": "body", "path": ".knowledge/decision/savepoint-nested-transaction.md", "source": "decision:savepoint-nested-transaction", "target": "data:transaction-scope", "target_category": "structure", "target_type": "data"}
 {"context": "body", "path": ".knowledge/decision/savepoint-nested-transaction.md", "source": "decision:savepoint-nested-transaction", "target": "rule:savepoint-dialect-support", "target_category": "constraint", "target_type": "rule"}
+{"context": "body", "path": ".knowledge/decision/scriptless-browser-detection.md", "source": "decision:scriptless-browser-detection", "target": "decision:runtime-tag-injection", "target_category": "constraint", "target_type": "decision"}
+{"context": "body", "path": ".knowledge/decision/scriptless-browser-detection.md", "source": "decision:scriptless-browser-detection", "target": "requirement:async-html-rendering", "target_category": "objective", "target_type": "requirement"}
+{"context": "body", "path": ".knowledge/decision/scriptless-browser-detection.md", "source": "decision:scriptless-browser-detection", "target": "requirement:live-html-rendering", "target_category": "objective", "target_type": "requirement"}
+{"context": "body", "path": ".knowledge/decision/scriptless-browser-detection.md", "source": "decision:scriptless-browser-detection", "target": "requirement:query-navigation-interception", "target_category": "objective", "target_type": "requirement"}
+{"context": "body", "path": ".knowledge/decision/scriptless-browser-detection.md", "source": "decision:scriptless-browser-detection", "target": "decision:bot-client-classification", "target_category": "constraint", "target_type": "decision"}
+{"context": "body", "path": ".knowledge/decision/scriptless-browser-detection.md", "source": "decision:scriptless-browser-detection", "target": "requirement:bot-synchronous-render", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/decision/separate-tinygo-dockerfile.md", "source": "decision:separate-tinygo-dockerfile", "target": "requirement:container-image-scaffold", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/decision/separate-tinygo-dockerfile.md", "source": "decision:separate-tinygo-dockerfile", "target": "rule:tinygo-container-operations", "target_category": "constraint", "target_type": "rule"}
 {"context": "body", "path": ".knowledge/decision/separate-tinygo-dockerfile.md", "source": "decision:separate-tinygo-dockerfile", "target": "api:cli-build", "target_category": "interface", "target_type": "api"}
@@ -2421,6 +2443,8 @@
 {"context": "body", "path": ".knowledge/flow/partial-refresh.md", "source": "flow:partial-refresh", "target": "api:html-boundary-protocol", "target_category": "interface", "target_type": "api"}
 {"context": "body", "path": ".knowledge/flow/partial-refresh.md", "source": "flow:partial-refresh", "target": "requirement:unified-update-runtime", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/flow/partial-refresh.md", "source": "flow:partial-refresh", "target": "api:client-update-api", "target_category": "interface", "target_type": "api"}
+{"context": "body", "path": ".knowledge/flow/partial-refresh.md", "source": "flow:partial-refresh", "target": "requirement:query-navigation-interception", "target_category": "objective", "target_type": "requirement"}
+{"context": "body", "path": ".knowledge/flow/partial-refresh.md", "source": "flow:partial-refresh", "target": "requirement:update-navigation-continuity", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/flow/partial-refresh.md", "source": "flow:partial-refresh", "target": "data:component-boundary", "target_category": "structure", "target_type": "data"}
 {"context": "body", "path": ".knowledge/flow/partial-refresh.md", "source": "flow:partial-refresh", "target": "requirement:html-fragment-rendering", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/flow/passkey-enrollment.md", "source": "flow:passkey-enrollment", "target": "data:user-account", "target_category": "structure", "target_type": "data"}
@@ -2860,6 +2884,7 @@
 {"context": "body", "path": ".knowledge/policy/startup-summary.md", "source": "policy:startup-summary", "target": "data:loaded-configuration", "target_category": "structure", "target_type": "data"}
 {"context": "body", "path": ".knowledge/policy/startup-summary.md", "source": "policy:startup-summary", "target": "policy:log-emission", "target_category": "constraint", "target_type": "policy"}
 {"context": "body", "path": ".knowledge/policy/startup-summary.md", "source": "policy:startup-summary", "target": "rule:dsn-redaction", "target_category": "constraint", "target_type": "rule"}
+{"context": "body", "path": ".knowledge/policy/startup-summary.md", "source": "policy:startup-summary", "target": "decision:development-port-shift", "target_category": "constraint", "target_type": "decision"}
 {"context": "body", "path": ".knowledge/policy/startup-summary.md", "source": "policy:startup-summary", "target": "api:logger", "target_category": "interface", "target_type": "api"}
 {"context": "body", "path": ".knowledge/policy/token-revocation.md", "source": "policy:token-revocation", "target": "policy:access-token-verification", "target_category": "constraint", "target_type": "policy"}
 {"context": "body", "path": ".knowledge/policy/token-revocation.md", "source": "policy:token-revocation", "target": "data:revoked-token-record", "target_category": "structure", "target_type": "data"}
@@ -2977,6 +3002,7 @@
 {"context": "body", "path": ".knowledge/requirement/auth-security-remediation.md", "source": "requirement:auth-security-remediation", "target": "system:tinygodriver", "target_category": "external", "target_type": "system"}
 {"context": "body", "path": ".knowledge/requirement/bot-synchronous-render.md", "source": "requirement:bot-synchronous-render", "target": "requirement:async-html-rendering", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/requirement/bot-synchronous-render.md", "source": "requirement:bot-synchronous-render", "target": "requirement:external-boundary-runtime", "target_category": "objective", "target_type": "requirement"}
+{"context": "body", "path": ".knowledge/requirement/bot-synchronous-render.md", "source": "requirement:bot-synchronous-render", "target": "decision:scriptless-browser-detection", "target_category": "constraint", "target_type": "decision"}
 {"context": "body", "path": ".knowledge/requirement/bot-synchronous-render.md", "source": "requirement:bot-synchronous-render", "target": "decision:automatic-async-render-selection", "target_category": "constraint", "target_type": "decision"}
 {"context": "body", "path": ".knowledge/requirement/bot-synchronous-render.md", "source": "requirement:bot-synchronous-render", "target": "decision:bot-client-classification", "target_category": "constraint", "target_type": "decision"}
 {"context": "body", "path": ".knowledge/requirement/bot-synchronous-render.md", "source": "requirement:bot-synchronous-render", "target": "requirement:live-html-rendering", "target_category": "objective", "target_type": "requirement"}
@@ -3074,8 +3100,8 @@
 {"context": "body", "path": ".knowledge/requirement/container-image-scaffold.md", "source": "requirement:container-image-scaffold", "target": "api:cli-doctor", "target_category": "interface", "target_type": "api"}
 {"context": "body", "path": ".knowledge/requirement/container-image-scaffold.md", "source": "requirement:container-image-scaffold", "target": "requirement:container-deployment-docs", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/requirement/container-image-scaffold.md", "source": "requirement:container-image-scaffold", "target": "decision:separate-tinygo-dockerfile", "target_category": "constraint", "target_type": "decision"}
-{"context": "body", "path": ".knowledge/requirement/container-image-scaffold.md", "source": "requirement:container-image-scaffold", "target": "api:cli-build", "target_category": "interface", "target_type": "api"}
 {"context": "body", "path": ".knowledge/requirement/container-image-scaffold.md", "source": "requirement:container-image-scaffold", "target": "policy:container-runtime-image", "target_category": "constraint", "target_type": "policy"}
+{"context": "body", "path": ".knowledge/requirement/container-image-scaffold.md", "source": "requirement:container-image-scaffold", "target": "api:cli-build", "target_category": "interface", "target_type": "api"}
 {"context": "body", "path": ".knowledge/requirement/container-image-scaffold.md", "source": "requirement:container-image-scaffold", "target": "rule:tinygo-container-operations", "target_category": "constraint", "target_type": "rule"}
 {"context": "body", "path": ".knowledge/requirement/container-image-scaffold.md", "source": "requirement:container-image-scaffold", "target": "decision:tinygo-042-baseline", "target_category": "constraint", "target_type": "decision"}
 {"context": "body", "path": ".knowledge/requirement/container-image-scaffold.md", "source": "requirement:container-image-scaffold", "target": "api:cli-prepare", "target_category": "interface", "target_type": "api"}
@@ -3372,6 +3398,7 @@
 {"context": "body", "path": ".knowledge/requirement/dev-api-reference.md", "source": "requirement:dev-api-reference", "target": "policy:operational-endpoints", "target_category": "constraint", "target_type": "policy"}
 {"context": "body", "path": ".knowledge/requirement/dev-api-reference.md", "source": "requirement:dev-api-reference", "target": "data:server-runtime-config", "target_category": "structure", "target_type": "data"}
 {"context": "body", "path": ".knowledge/requirement/dev-api-reference.md", "source": "requirement:dev-api-reference", "target": "api:cli-init", "target_category": "interface", "target_type": "api"}
+{"context": "body", "path": ".knowledge/requirement/dev-api-reference.md", "source": "requirement:dev-api-reference", "target": "decision:development-port-shift", "target_category": "constraint", "target_type": "decision"}
 {"context": "body", "path": ".knowledge/requirement/dev-api-reference.md", "source": "requirement:dev-api-reference", "target": "policy:dev-console-boundary", "target_category": "constraint", "target_type": "policy"}
 {"context": "body", "path": ".knowledge/requirement/dev-api-reference.md", "source": "requirement:dev-api-reference", "target": "data:route-table", "target_category": "structure", "target_type": "data"}
 {"context": "body", "path": ".knowledge/requirement/dev-api-reference.md", "source": "requirement:dev-api-reference", "target": "api:cli-doctor", "target_category": "interface", "target_type": "api"}
@@ -3411,6 +3438,7 @@
 {"context": "body", "path": ".knowledge/requirement/dev-console.md", "source": "requirement:dev-console", "target": "requirement:dev-api-reference", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/requirement/dev-console.md", "source": "requirement:dev-console", "target": "requirement:dev-error-overlay", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/requirement/dev-console.md", "source": "requirement:dev-console", "target": "data:dev-loop-state", "target_category": "structure", "target_type": "data"}
+{"context": "body", "path": ".knowledge/requirement/dev-console.md", "source": "requirement:dev-console", "target": "decision:development-port-shift", "target_category": "constraint", "target_type": "decision"}
 {"context": "body", "path": ".knowledge/requirement/dev-console.md", "source": "requirement:dev-console", "target": "api:cli-seed", "target_category": "interface", "target_type": "api"}
 {"context": "body", "path": ".knowledge/requirement/dev-console.md", "source": "requirement:dev-console", "target": "concept:classic-web-style", "target_category": "concept", "target_type": "concept"}
 {"context": "body", "path": ".knowledge/requirement/dev-console.md", "source": "requirement:dev-console", "target": "decision:dev-harness-process", "target_category": "constraint", "target_type": "decision"}
@@ -4251,6 +4279,11 @@
 {"context": "body", "path": ".knowledge/requirement/query-diagnostics.md", "source": "requirement:query-diagnostics", "target": "rule:framework-owned-tables", "target_category": "constraint", "target_type": "rule"}
 {"context": "body", "path": ".knowledge/requirement/query-diagnostics.md", "source": "requirement:query-diagnostics", "target": "rule:query-reproduction-format", "target_category": "constraint", "target_type": "rule"}
 {"context": "body", "path": ".knowledge/requirement/query-diagnostics.md", "source": "requirement:query-diagnostics", "target": "rule:explain-dialect-support", "target_category": "constraint", "target_type": "rule"}
+{"context": "body", "path": ".knowledge/requirement/query-navigation-interception.md", "source": "requirement:query-navigation-interception", "target": "decision:update-runtime-convergence", "target_category": "constraint", "target_type": "decision"}
+{"context": "body", "path": ".knowledge/requirement/query-navigation-interception.md", "source": "requirement:query-navigation-interception", "target": "requirement:navigation-delta-rendering", "target_category": "objective", "target_type": "requirement"}
+{"context": "body", "path": ".knowledge/requirement/query-navigation-interception.md", "source": "requirement:query-navigation-interception", "target": "requirement:unified-update-runtime", "target_category": "objective", "target_type": "requirement"}
+{"context": "body", "path": ".knowledge/requirement/query-navigation-interception.md", "source": "requirement:query-navigation-interception", "target": "api:client-update-api", "target_category": "interface", "target_type": "api"}
+{"context": "body", "path": ".knowledge/requirement/query-navigation-interception.md", "source": "requirement:query-navigation-interception", "target": "flow:partial-refresh", "target_category": "behavior", "target_type": "flow"}
 {"context": "body", "path": ".knowledge/requirement/read-write-splitting.md", "source": "requirement:read-write-splitting", "target": "actor:application-developer", "target_category": "behavior", "target_type": "actor"}
 {"context": "body", "path": ".knowledge/requirement/read-write-splitting.md", "source": "requirement:read-write-splitting", "target": "api:database-selection", "target_category": "interface", "target_type": "api"}
 {"context": "body", "path": ".knowledge/requirement/read-write-splitting.md", "source": "requirement:read-write-splitting", "target": "api:transaction-runner", "target_category": "interface", "target_type": "api"}
@@ -4444,12 +4477,18 @@
 {"context": "body", "path": ".knowledge/requirement/unified-update-runtime.md", "source": "requirement:unified-update-runtime", "target": "requirement:external-boundary-runtime", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/requirement/unified-update-runtime.md", "source": "requirement:unified-update-runtime", "target": "api:live-delivery-protocol", "target_category": "interface", "target_type": "api"}
 {"context": "body", "path": ".knowledge/requirement/unified-update-runtime.md", "source": "requirement:unified-update-runtime", "target": "system:tinybind", "target_category": "external", "target_type": "system"}
+{"context": "body", "path": ".knowledge/requirement/unified-update-runtime.md", "source": "requirement:unified-update-runtime", "target": "requirement:query-navigation-interception", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/requirement/unified-update-runtime.md", "source": "requirement:unified-update-runtime", "target": "requirement:framework-script-assets", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/requirement/unified-update-runtime.md", "source": "requirement:unified-update-runtime", "target": "policy:security-response-headers", "target_category": "constraint", "target_type": "policy"}
 {"context": "body", "path": ".knowledge/requirement/unified-update-runtime.md", "source": "requirement:unified-update-runtime", "target": "decision:runtime-tag-injection", "target_category": "constraint", "target_type": "decision"}
 {"context": "body", "path": ".knowledge/requirement/unified-update-runtime.md", "source": "requirement:unified-update-runtime", "target": "requirement:module-native-csrf", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/requirement/unified-update-runtime.md", "source": "requirement:unified-update-runtime", "target": "decision:automatic-async-render-selection", "target_category": "constraint", "target_type": "decision"}
 {"context": "body", "path": ".knowledge/requirement/unified-update-runtime.md", "source": "requirement:unified-update-runtime", "target": "decision:fragment-head-rejection", "target_category": "constraint", "target_type": "decision"}
+{"context": "body", "path": ".knowledge/requirement/unified-update-runtime.md", "source": "requirement:unified-update-runtime", "target": "requirement:update-navigation-continuity", "target_category": "objective", "target_type": "requirement"}
+{"context": "body", "path": ".knowledge/requirement/update-navigation-continuity.md", "source": "requirement:update-navigation-continuity", "target": "decision:update-runtime-convergence", "target_category": "constraint", "target_type": "decision"}
+{"context": "body", "path": ".knowledge/requirement/update-navigation-continuity.md", "source": "requirement:update-navigation-continuity", "target": "requirement:query-navigation-interception", "target_category": "objective", "target_type": "requirement"}
+{"context": "body", "path": ".knowledge/requirement/update-navigation-continuity.md", "source": "requirement:update-navigation-continuity", "target": "requirement:navigation-delta-rendering", "target_category": "objective", "target_type": "requirement"}
+{"context": "body", "path": ".knowledge/requirement/update-navigation-continuity.md", "source": "requirement:update-navigation-continuity", "target": "requirement:unified-update-runtime", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/rule/configuration-advisories.md", "source": "rule:configuration-advisories", "target": "data:diagnostic-report", "target_category": "structure", "target_type": "data"}
 {"context": "body", "path": ".knowledge/rule/configuration-advisories.md", "source": "rule:configuration-advisories", "target": "data:runtime-environment", "target_category": "structure", "target_type": "data"}
 {"context": "body", "path": ".knowledge/rule/configuration-advisories.md", "source": "rule:configuration-advisories", "target": "policy:devidp-safety", "target_category": "constraint", "target_type": "policy"}
@@ -4733,6 +4772,7 @@
 {"context": "body", "path": ".knowledge/system/pw-cli.md", "source": "system:pw-cli", "target": "decision:host-tools-target-runtime", "target_category": "constraint", "target_type": "decision"}
 {"context": "body", "path": ".knowledge/system/pw-cli.md", "source": "system:pw-cli", "target": "requirement:cli-distribution", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/system/pw-cli.md", "source": "system:pw-cli", "target": "requirement:database-migration", "target_category": "objective", "target_type": "requirement"}
+{"context": "body", "path": ".knowledge/system/tinybind.md", "source": "system:tinybind", "target": "requirement:pgx-native-execution", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/system/tinybind.md", "source": "system:tinybind", "target": "requirement:context-lookup-performance", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/system/tinybind.md", "source": "system:tinybind", "target": "decision:tinybind-v03-adoption", "target_category": "constraint", "target_type": "decision"}
 {"context": "body", "path": ".knowledge/system/tinybind.md", "source": "system:tinybind", "target": "requirement:live-html-rendering", "target_category": "objective", "target_type": "requirement"}

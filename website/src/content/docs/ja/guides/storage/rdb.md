@@ -52,8 +52,8 @@ DSN のスキームがエンジンを選びます。`database/sql` のドライ�
 
 | スキーム | エンジン | インポート |
 | --- | --- | --- |
-| `sqlite://` | SQLite | `_ "github.com/shibukaway/popcornwave/database/sqlite"` |
-| `postgres://`、`postgresql://` | PostgreSQL | `_ "github.com/shibukawa/popcornwave/database/postgres"` |
+| `sqlite://` | SQLite | `_ "github.com/shibukawa/popcornwave/database/sqlite"` |
+| `postgres://`, `postgresql://` | PostgreSQL | `_ "github.com/shibukawa/popcornwave/database/postgres"` |
 | `mysql://` | MySQL、MariaDB | `_ "github.com/shibukawa/popcornwave/database/mysql"` |
 
 このインポートは `pw init` が書きます。無い場合、プールは開くのを拒否し、登録されていない
@@ -142,10 +142,14 @@ readonly = true
 user, err := queries.CreateUser(pw.SelectDB(ctx, "writer"), name)
 
 // トランザクション全体。中でグループを指定しないステートメントも writer に残ります
-err := pw.Transaction(ctx, func(ctx context.Context) error {
+err := pw.Transaction(pw.SelectDB(ctx, "writer"), func(ctx context.Context) error {
 	return queries.RecordAudit(ctx, "user.created")
-}, pw.OnGroup("writer"))
+})
 ```
+
+グループを固定するのは `pw.SelectDB` だけです。単一のステートメントでもトランザクション
+全体でも同じ書き方で、トランザクション専用の書き方は存在しません。どちらのグループが
+勝ったのかを考える場面がそもそも無いということです。
 
 1 つのトランザクションが 2 つのグループにまたがることはありません。別のグループを指定した
 ネストした `pw.Transaction` は `ErrCrossGroupTransaction` を返し、外側はそのまま使えます。

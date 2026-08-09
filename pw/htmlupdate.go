@@ -278,8 +278,8 @@ func serveUpdate(w http.ResponseWriter, r *http.Request, wrappers []HTMLWrapper,
 	// The delta is written by the module, which reports no boundary back here,
 	// so this render opens the one span it can measure honestly: the whole
 	// comparison and every region it decided to send.
-	ctx, render := startRenderTrace(requestContext(r), renderModeNavigate,
-		chainRenderAttributes(wrappers, async, live, false)...)
+	ctx, render := startChainRenderTrace(requestContext(r), renderModeNavigate,
+		renderLayers(wrappers), async, live, false)
 	defer render.end()
 	// A stream commits with its first record, so everything the response has to
 	// carry goes on before the render starts: the axes that keep a cache from

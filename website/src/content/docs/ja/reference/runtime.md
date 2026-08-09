@@ -46,12 +46,12 @@ sidebar:
 | `RegisterConfig[T](prefix)` | 設定構造体を1つ、TOML の prefix に登録する（**generated**） |
 | `Config[T](ctx) T` | 解析済みの構造体を返す。リクエスト外では `nil` を渡してよい |
 | `Env() string` | 解決済みの実行環境トークン |
-| `EnvVar`、`DefaultEnv` | `APP_ENV` と、未設定時に使われるトークン |
-| `EnvDevelopment`、`EnvStaging`、`EnvProduction` | よく使うトークン。他の小文字トークンも有効 |
+| `EnvVar`, `DefaultEnv` | `APP_ENV` と、未設定時に使われるトークン |
+| `EnvDevelopment`, `EnvStaging`, `EnvProduction` | よく使うトークン。他の小文字トークンも有効 |
 | `RegisterSubCommand[T](name, help)` | CLI 専用の型付き入力を登録する |
 | `Command[T]() (T, bool)` | `ParseConfig` 後の、選択・解析済みサブコマンド |
-| `ScaffoldTOML()`、`ScaffoldEnv()` | 登録済みの全 prefix から設定のひな形を生成する |
-| `WriteScaffoldTOML(w)`、`WriteScaffoldEnv(w)` | 同じひな形を writer へ書き出す |
+| `ScaffoldTOML()`, `ScaffoldEnv()` | 登録済みの全 prefix から設定のひな形を生成する |
+| `WriteScaffoldTOML(w)`, `WriteScaffoldEnv(w)` | 同じひな形を writer へ書き出す |
 
 `Config` は失敗せず、エラーも返しません。登録済みだが未解析の prefix は宣言された
 既定値を、未登録の型はゼロ値を返します。設定を読むハンドラはレスポンスの経路上に
@@ -97,7 +97,7 @@ sidebar:
 | `WriteAPI[T](w, r, value)` | ネゴシエートした形式で型付きレスポンスを書く |
 | `WriteProblem(w, r, err)` | エラーを RFC の problem レスポンスへ写す |
 | `NewStream[T](w, r) *Stream[T]` | `Accept` から SSE、NDJSON、JSON 配列のいずれかを選び、ストリーミングを開始する |
-| `Stream.Send(value)`、`Stream.Close()` | 値を1つ書く。レスポンスを完結させる |
+| `Stream.Send(value)`, `Stream.Close()` | 値を1つ書く。レスポンスを完結させる |
 | `RegisterHTMLDocument(wrapper)` | アプリケーションのドキュメントシェルを差し込む（**generated**） |
 | `RegisterHTMLErrorPage(resolve)` | エラーページのリゾルバを差し込む。未登録なら最小限の組み込みページ |
 | `RuntimeScriptURL() string` | 境界ランタイムモジュールの絶対パス |
@@ -119,8 +119,8 @@ await 境界を開けるチェーンはストリーミングし、開けない�
 
 | シンボル | 役割 |
 | --- | --- |
-| `Problem` | アプリケーション向けの problem 値。`Status`、`Title`、`Code`、`Message`、`Fields`、`Cause` |
-| `BadRequest`、`Unauthorized`、`Forbidden`、`NotFound`、`Conflict`、`PayloadTooLarge`、`InternalServerError`、`ServiceUnavailable` | よく使うステータスのコンストラクタ |
+| `Problem` | アプリケーション向けの problem 値。`Status`, `Title`, `Code`, `Message`, `Fields`, `Cause` |
+| `BadRequest`, `Unauthorized`, `Forbidden`, `NotFound`, `Conflict`, `PayloadTooLarge`, `InternalServerError`, `ServiceUnavailable` | よく使うステータスのコンストラクタ |
 | `Validation(...FieldError) Problem` | 検出したフィールド失敗をすべて載せた 400 |
 | `Field(field, location, message) FieldError` | フィールド単位の失敗1件 |
 | `HTMLErrorPage` | `func(Problem) HTMLFragment`。`RegisterHTMLErrorPage` が受け取る形 |
@@ -167,13 +167,13 @@ panic はハンドルのエラーになり、プロセスを落とさずに境�
 | `SelectDB(ctx, group) context.Context` | 名前付き接続グループを固定する |
 | `SelectWriteDB(ctx) (context.Context, error)` | フレームワークの書き込みが使うグループを固定する |
 | `SelectSessionDB(ctx) (context.Context, error)` | セッションテーブルを持つグループを固定する |
-| `Transaction(ctx, fn, ...TxOption) error` | 生成 SQL がそのトランザクションを使うコンテキストで `fn` を実行する |
-| `OnGroup(group) TxOption` | そのトランザクションを名前付きグループで実行する |
+| `Transaction(ctx, fn) error` | 生成 SQL がそのトランザクションを使うコンテキストで `fn` を実行する |
 
 `Transaction` のネストは、2つめのトランザクションではなくセーブポイントを開きます。
 内側の失敗がロールバックするのは内側の作業だけで、外側はそのまま使えます。
-`OnGroup` を付けない場合、トランザクションはコンテキストの有効グループで走ります。
-内部の未固定な SQL は既定グループへ戻らず、そのグループに留まります。
+トランザクションはコンテキストの有効グループで走ります。単一のステートメントと同じく
+`SelectDB` がトランザクション全体のグループを決め、内部の未固定な SQL は既定グループへ
+戻らず、そのグループに留まります。
 
 `SelectDB` が知らないグループ名を報告するのは、返されたコンテキストを使う最初の
 ステートメントであって、呼び出しの時点ではありません。`SelectWriteDB` はレプリカを
@@ -187,9 +187,9 @@ panic はハンドルのエラーになり、プロセスを落とさずに境�
 | `Logger(ctx) Log` | リクエスト、その固定属性、有効なスパンに結びついたロガー |
 | `Log` | コンテキストに結びついたロガーの型 |
 | `WithLogAttributes(ctx, ...Attribute) context.Context` | 返したコンテキストから取るすべてのレコードに属性を足す |
-| `String`、`Int`、`Int64`、`Float64`、`Bool`、`Duration`、`Err` | 属性のコンストラクタ |
+| `String`, `Int`, `Int64`, `Float64`, `Bool`, `Duration`, `Err` | 属性のコンストラクタ |
 | `Attribute` | スカラーのキーと値の組。スパン属性と同じ型 |
-| `Level`、`LevelTrace`〜`LevelOff` | 重要度。`slog` が名前を持たない trace が debug の1段下にある |
+| `Level`, `LevelTrace`〜`LevelOff` | 重要度。`slog` が名前を持たない trace が debug の1段下にある |
 
 `Logger` が呼び出せないものを返すことはないので、ハンドラ側に nil チェックは要り
 ません。子スパンの中で取り直せば、レコードがそのスパンに紐づきます。
@@ -212,9 +212,9 @@ pw.Logger(ctx).Info("loaded", pw.Int("rows", n))
 | --- | --- |
 | `StartSpan(ctx, name, ...Attribute) (context.Context, *Span)` | 有効なスパンの子を開く |
 | `StartSpanKind(ctx, name, kind, ...Attribute)` | internal でない処理向けの同等物 |
-| `Span`、`SpanKind`、`SpanKindInternal`〜`SpanKindConsumer` | スパンの型と種別 |
-| `StatusUnset`、`StatusOK`、`StatusError` | スパンのステータスコード |
-| `TraceID(ctx) string`、`SpanID(ctx) string` | 現在の識別子。トレース外では空文字列 |
+| `Span`, `SpanKind`, `SpanKindInternal`〜`SpanKindConsumer` | スパンの型と種別 |
+| `StatusUnset`, `StatusOK`, `StatusError` | スパンのステータスコード |
+| `TraceID(ctx) string`, `SpanID(ctx) string` | 現在の識別子。トレース外では空文字列 |
 | `Traced(ctx) bool` | 有効なスパンコンテキストを持つかどうか |
 
 トレース外、あるいはトレーシングが無効なとき、`StartSpan` は何も記録せず終了コストも
@@ -244,8 +244,8 @@ pw.Logger(ctx).Info("loaded", pw.Int("rows", n))
 | シンボル | 役割 |
 | --- | --- |
 | `RegisterExtension(Extension)` | フレームワークのチェーンに機能を1つ追加する |
-| `Extension` | `Name`、`Slot`、`Setup`、`Close` |
-| `Slot`、`SlotSession`、`SlotAuthentication`、`SlotGuard` | リクエストチェーン上の位置。小さいほど先に走る |
+| `Extension` | `Name`, `Slot`, `Setup`, `Close` |
+| `Slot`, `SlotSession`, `SlotAuthentication`, `SlotGuard` | リクエストチェーン上の位置。小さいほど先に走る |
 | `Middleware` | `func(http.Handler) http.Handler` |
 
 インポートされたパッケージが `init` から `RegisterExtension` を呼ぶため、設定と

@@ -47,7 +47,15 @@ export function createUpdateRuntime(config) {
 	// which is the one place the two shapes differ: a template's contents do not
 	// render, and a fallback that does not render is not a fallback.
 	const placeholderElement = "template";
+	const busyAttr = "data-" + config.attr + "-updating";
 	setPreserveAttribute("data-" + config.attr + "-preserve");
+
+	// The browser's own scroll restoration runs at popstate, against the document
+	// still on screen, before the delta that makes the page that tall has arrived.
+	// Taking it over is what lets the position be restored after the content is.
+	if (typeof history === "object" && "scrollRestoration" in history) {
+		history.scrollRestoration = "manual";
+	}
 
 	// The validators this client holds, keyed by instance id. They are a hint the
 	// server uses to omit unchanged regions, and nothing else: an oversized
@@ -98,6 +106,72 @@ export function createUpdateRuntime(config) {
 				console.error("Popcorn Wave: update subscriber failed", error);
 			}
 		}
+	}
+
+	// A request in flight is marked on the document root rather than reported only
+	// through the events above, so a progress affordance is CSS an author writes
+	// once instead of a subscriber every application writes again. It is additive:
+	// nothing depends on the marker ever appearing, which is what keeps a page
+	// that never runs this script from needing a rule about it.
+	let inFlight = 0;
+	function markBusy(busy) {
+		const root = document.documentElement;
+		if (!root || !root.setAttribute) return;
+		inFlight += busy ? 1 : -1;
+		if (inFlight === 1 && busy) root.setAttribute(busyAttr, "");
+		else if (inFlight <= 0) {
+			inFlight = 0;
+			root.removeAttribute(busyAttr);
+		}
+	}
+
+	// A document load announces itself; a delta has to say so. The region is
+	// created at construction rather than at the moment there is something to
+	// announce, because a live region inserted and filled in the same task is not
+	// reliably read at all.
+	let announcer = null;
+	function installAnnouncer() {
+		if (!document.body || !document.createElement) return;
+		const region = document.createElement("div");
+		if (!region.setAttribute || !region.style) return;
+		region.setAttribute("aria-live", "polite");
+		region.setAttribute("aria-atomic", "true");
+		// Set through the CSSOM rather than as a style attribute, so a policy
+		// forbidding inline style still gets a region that is out of the way.
+		region.style.position = "absolute";
+		region.style.width = "1px";
+		region.style.height = "1px";
+		region.style.overflow = "hidden";
+		region.style.clip = "rect(0 0 0 0)";
+		region.style.whiteSpace = "nowrap";
+		document.body.appendChild(region);
+		announcer = region;
+	}
+
+	function announce(text) {
+		// A full document replacement takes the body's children with it, and the
+		// region is one of them. Re-installing costs a check and is the difference
+		// between announcing once and announcing until the first such replacement.
+		if (announcer && announcer.isConnected === false) {
+			announcer = null;
+			installAnnouncer();
+		}
+		if (announcer && text) announcer.textContent = text;
+	}
+
+	// An update landing mid composition replaces the control being composed into,
+	// which commits or discards whatever the user was midway through spelling. It
+	// is the ordinary case for a Japanese or Chinese search box that updates as it
+	// is typed, and it is the reason the boundary half exposes the probe at all.
+	//
+	// Deferring never resurrects stale markup: every caller re-checks its ticket
+	// after waiting, so a response superseded while a composition was open is
+	// discarded exactly as one superseded at any other moment is.
+	function afterComposition() {
+		if (!compositionActive()) return null;
+		return new Promise((resolve) => {
+			document.addEventListener("compositionend", () => resolve(), { once: true });
+		});
 	}
 
 	// fall performs the navigation the browser would have performed. Every
@@ -492,20 +566,32 @@ export function createUpdateRuntime(config) {
 		return entries.join(",");
 	}
 
-	// A navigation or an update of the current route. Both are one request; only
-	// what happens to the history entry afterwards differs.
-	async function go(url, push) {
+	// A navigation, a refinement of the current route, and a back or forward are
+	// one request. What differs is only what happens to the history entry and to
+	// the viewport afterwards, and naming the three keeps that from being decided
+	// by a boolean that means something different at each call site.
+	//
+	//	push    a link or a GET form: a new entry, and a new page to be at the top of
+	//	replace the same page with different arguments: the entry and the viewport stay
+	//	pop     back or forward: the browser already moved, so nothing is written
+	async function go(url, mode) {
 		const target = new URL(url, document.baseURI);
 		if (target.origin !== location.origin) return fall(target.href, "cross-origin");
+		// Recorded before anything is swapped. After the delta lands the page is a
+		// different height and the position the user was at may already have
+		// clamped, so reading it afterwards describes somewhere they never were.
+		if (mode === "push") rememberScroll();
 		const request = claim("navigation");
+		markBusy(true);
 		try {
-			return await navigateClaimed(target, push, request);
+			return await navigateClaimed(target, mode, request);
 		} finally {
+			markBusy(false);
 			request.release();
 		}
 	}
 
-	async function navigateClaimed(target, push, request) {
+	async function navigateClaimed(target, mode, request) {
 		const current = request.current;
 		emit("start", { url: target.href });
 		const validators = manifestValue();
@@ -531,7 +617,16 @@ export function createUpdateRuntime(config) {
 		// The order below is the contract, and every step of it is about the page
 		// being left rather than the one arriving.
 		//
-		// The outgoing page's live connection goes first: it is executing that
+		// An open composition goes first, because waiting for it yields: every
+		// decision after this point has to be made against the page as it is
+		// once the user has finished spelling, not as it was when the response
+		// arrived.
+		const composition = afterComposition();
+		if (composition) {
+			await composition;
+			if (!current()) return { applied: false, superseded: true };
+		}
+		// The outgoing page's live connection goes next: it is executing that
 		// page on the server and delivering to boundary ids this response is
 		// about to reuse, so a delivery landing between here and the last record
 		// writes the old page's content into the new page's region.
@@ -558,11 +653,12 @@ export function createUpdateRuntime(config) {
 
 		// History moves only after the response committed, so a delta that failed
 		// leaves the address bar describing what is actually on screen.
-		commitHistory(target, push);
-		// And the new page's connection opens last, after every record landed.
-		// Opening it earlier would have it deliver into regions this response had
-		// not written yet, which is the same collision as the outgoing one in the
-		// other direction.
+		commitHistory(target, mode);
+		settlePlace(target, mode);
+		// And the new page's connection opens last, after every record landed and
+		// after the viewport settled. Opening it earlier would have it deliver
+		// into regions this response had not written yet, which is the same
+		// collision as the outgoing one in the other direction.
 		if (outcome.live || response.headers.get(liveHeader) === "1") startLive();
 		emit("applied", { url: target.href });
 		return { applied: true };
@@ -660,10 +756,65 @@ export function createUpdateRuntime(config) {
 		return { navigate: navigate, live: ended.reason === "live_pending" };
 	}
 
-	function commitHistory(target, push) {
-		const state = { pwScroll: [window.scrollX, window.scrollY] };
-		if (push) history.pushState(state, "", target.href);
-		else history.replaceState(state, "", target.href);
+	function scrollState() {
+		return { pwScroll: [window.scrollX, window.scrollY] };
+	}
+
+	// The entry being left records where the user actually was. Writing that
+	// position into the entry being pushed — which is what this used to do —
+	// describes the page they are arriving at, so back restored the scroll of the
+	// page it came from and the entry a session opened on held nothing at all.
+	function rememberScroll() {
+		history.replaceState(scrollState(), "", location.href);
+	}
+
+	function commitHistory(target, mode) {
+		// A pop already moved the browser. Writing an entry here would overwrite
+		// the position that is about to be restored from it.
+		if (mode === "pop") return;
+		if (mode === "push") history.pushState(scrollState(), "", target.href);
+		else history.replaceState(scrollState(), "", target.href);
+	}
+
+	// Where the user is left, once the regions have landed.
+	//
+	// A pushed navigation is arriving somewhere new, so it starts where a document
+	// load would have started it: at the top, or at the fragment it named. A
+	// replaced one is the same page with different arguments — a filter, a sort, a
+	// page number — so moving the viewport would throw away the place the user was
+	// reading. A pop restores what its entry recorded, and does it in the popstate
+	// handler because only that has the entry.
+	function settlePlace(target, mode) {
+		if (mode !== "push") return;
+		const anchor = target.hash ? locateAnchor(target.hash.slice(1)) : null;
+		if (anchor && anchor.scrollIntoView) anchor.scrollIntoView();
+		else if (window.scrollTo) window.scrollTo(0, 0);
+		settleFocus(anchor);
+		// The title is installed by the head records before this runs, so what is
+		// read out is the page the user arrived at rather than the one they left.
+		announce(document.title);
+	}
+
+	function locateAnchor(name) {
+		if (!name) return null;
+		return document.getElementById(name);
+	}
+
+	// Focus that was on a node the delta removed is now on the body, where a
+	// keyboard is at the top of nothing. Sending it to the landmark the page
+	// already has is the documented destination; a page with no main gets the
+	// body, which is what a document load would have given it anyway.
+	function settleFocus(anchor) {
+		const active = document.activeElement;
+		if (active && active !== document.body && active.isConnected) return;
+		const landing = anchor || (document.querySelector ? document.querySelector("main, [role=main]") : null);
+		if (!landing || !landing.focus) return;
+		// A landmark is not focusable by default, and making it programmatically
+		// focusable must not put it in the tab order.
+		if (landing.hasAttribute && !landing.hasAttribute("tabindex")) {
+			landing.setAttribute("tabindex", "-1");
+		}
+		landing.focus({ preventScroll: true });
 	}
 
 	// A redraw re-renders one registered component with the values the browser
@@ -682,9 +833,11 @@ export function createUpdateRuntime(config) {
 		url.search = "";
 		for (const name of Object.keys(params || {})) url.searchParams.set(name, String(params[name]));
 		const request = claim("redraw:" + elementId);
+		markBusy(true);
 		try {
 			return await redrawClaimed(elementId, kind, url, request);
 		} finally {
+			markBusy(false);
 			request.release();
 		}
 	}
@@ -721,6 +874,15 @@ export function createUpdateRuntime(config) {
 			return fall(location.href, "unreadable");
 		}
 		if (!current()) return { applied: false, superseded: true };
+		// An open composition is waited out before anything lands, and the wait
+		// yields: applyOperation locates its target again on the other side, so
+		// a region replaced in the meantime is found or reported missing rather
+		// than written over a stale node.
+		const composition = afterComposition();
+		if (composition) {
+			await composition;
+			if (!current()) return { applied: false, superseded: true };
+		}
 		installHead(body.head);
 		for (const operation of body.ops || []) {
 			if (!(await applyOperation(operation))) return fall(location.href, "missing-target");
@@ -741,6 +903,8 @@ export function createUpdateRuntime(config) {
 		} catch (error) {
 			return fall(location.href, "unreadable");
 		}
+		const composition = afterComposition();
+		if (composition) await composition;
 		installHead(body.head);
 		for (const operation of body.ops || []) {
 			// A rewritten region drops its stored validator, or a later navigation
@@ -778,43 +942,79 @@ export function createUpdateRuntime(config) {
 			if (link.closest("[" + ignoreAttr + "]")) return;
 			const url = new URL(link.getAttribute("href"), document.baseURI);
 			if (url.origin !== location.origin) return;
+			// A fragment on the document already loaded is the browser's. It has
+			// the element, it knows where to put it, and a round trip could only
+			// arrive at the same page — while leaving it alone is also what keeps
+			// the scroll, the :target styling, and back out of a deep link working
+			// the way they do on every other page.
+			if (sameDocument(url) && url.hash !== new URL(location.href).hash) return;
 			event.preventDefault();
-			go(url.href, true);
+			go(url.href, "push");
 		});
 		document.addEventListener("submit", (event) => {
 			if (event.defaultPrevented) return;
 			const form = event.target;
-			if (!form || (form.method || "get").toLowerCase() !== "get") return;
-			if (form.target || form.closest("[" + ignoreAttr + "]")) return;
-			const url = new URL(form.getAttribute("action") || location.href, document.baseURI);
+			if (!form || !form.getAttribute) return;
+			if (form.closest && form.closest("[" + ignoreAttr + "]")) return;
+			// The submitter's own overrides decide the method, the action and the
+			// target before this runtime decides whether it owns the submission at
+			// all. Reading only the form is how a button declaring formmethod=post
+			// inside a GET form used to be intercepted and re-sent as a GET.
+			const submitter = event.submitter;
+			if ((attributeOf(submitter, "formmethod") || form.method || "get").toLowerCase() !== "get") return;
+			if (attributeOf(submitter, "formtarget") || form.target) return;
+			const action = attributeOf(submitter, "formaction") || form.getAttribute("action") || location.href;
+			const url = new URL(action, document.baseURI);
 			if (url.origin !== location.origin) return;
 			event.preventDefault();
 			// A search form's fields become the query, which is how a form refines
-			// the page it is on rather than leaving it.
-			url.search = new URLSearchParams(new FormData(form)).toString();
-			go(url.href, true);
+			// the page it is on rather than leaving it. The submitter's own pair
+			// belongs in that query and is added by hand: the FormData constructor
+			// leaves every submit button out, because which one was pressed is not
+			// a property of the form.
+			const fields = new FormData(form);
+			if (submitter && submitter.name) fields.append(submitter.name, submitter.value);
+			url.search = new URLSearchParams(fields).toString();
+			go(url.href, "push");
 		});
 		window.addEventListener("popstate", (event) => {
 			const scroll = event.state && event.state.pwScroll;
-			go(location.href, false).then(() => {
-				if (scroll) window.scrollTo(scroll[0], scroll[1]);
+			go(location.href, "pop").then(() => {
+				// Restored after the delta, because the position only exists once
+				// the content that makes the page that tall is back on it.
+				if (scroll && window.scrollTo) window.scrollTo(scroll[0], scroll[1]);
 			});
 		});
 	}
 
+	function attributeOf(node, name) {
+		return node && node.getAttribute ? node.getAttribute(name) : null;
+	}
+
+	function sameDocument(url) {
+		const here = new URL(location.href);
+		return url.pathname === here.pathname && url.search === here.search;
+	}
+
 	intercept();
+	installAnnouncer();
 
 	return {
 		// Re-render the current route with different search parameters, replacing
-		// the history entry rather than stacking one.
+		// the history entry rather than stacking one, and leaving the viewport
+		// where it is because this is the page already on screen.
+		//
+		// The parameters given are the whole query: what is not named is dropped,
+		// which is what a GET form submission does by specification and is why
+		// this matches it rather than merging.
 		update(params) {
 			const url = new URL(location.href);
 			url.search = "";
 			for (const name of Object.keys(params || {})) url.searchParams.set(name, String(params[name]));
-			return go(url.href, false);
+			return go(url.href, "replace");
 		},
 		navigate(url) {
-			return go(url, true);
+			return go(url, "push");
 		},
 		redraw: redraw,
 		apply: apply,
