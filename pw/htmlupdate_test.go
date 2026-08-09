@@ -73,8 +73,8 @@ func TestUpdatesOffLeaveEveryRequestOnTheDocumentPath(t *testing.T) {
 	if config.Update.Enabled {
 		t.Fatal("updates default to on")
 	}
-	if len(documentRenderOptions(config, "")) != 0 {
-		t.Error("a project with updates off pays for the runtime tag")
+	if len(chainRenderOptions(config, "")) != 0 {
+		t.Error("a project with updates off pays for the update render options")
 	}
 }
 
@@ -657,10 +657,10 @@ func TestAClientThatRunsNoScriptSubmitsTheSameMarkupEitherWay(t *testing.T) {
 			t.Errorf("the markup depends on script through %q:\n%s", forbidden, on)
 		}
 	}
-	// The runtime is contributed to the head, so the comparison above was
-	// between a page that has updates and a page that does not, rather than
-	// between two pages that both have nothing.
-	if len(documentRenderOptions(updateConfig(), "token")) == 0 {
+	// Updates really are on for this render, so the comparison above was between
+	// a page that has them and a page that does not, rather than between two
+	// pages that both have nothing.
+	if len(chainRenderOptions(updateConfig(), "token")) == 0 {
 		t.Error("updates contributed no render options, so this compared the wrong two things")
 	}
 }

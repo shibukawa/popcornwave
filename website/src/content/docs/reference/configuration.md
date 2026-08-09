@@ -107,7 +107,8 @@ startup, before either can shadow the other. `api_doc` additionally requires
 | `recovery` | `true` | recover a panicking handler into a 500 |
 | `request_id` | `true` | assign and propagate a request correlation ID |
 | `access_log` | `true` | one record per request |
-| `compression` | `false` | zstd-encode HTML for clients that accept it |
+| `compression` | `false` | encode rendered HTML and JSON for clients that accept it |
+| `compression_codings` | `["zstd", "gzip"]` | codings to offer, best first; one left out is not offered at all |
 | `request_timeout` | `"0s"` | per-request deadline; zero leaves none |
 | `rdb.enabled` | `false` | open the framework-owned database pool |
 | `rdb.default_group` | *(empty)* | connection group for statements that pin none |
@@ -115,8 +116,15 @@ startup, before either can shadow the other. `api_doc` additionally requires
 | `rdb.migration_group` | *(empty)* | connection group for migrations and seeds |
 
 With `compression` enabled, `Vary: Accept-Encoding` is set either way — a cache
-that saw one representation must not serve it to a client that asked for the
-other.
+that saw one representation must not serve it to a client that asked for
+another.
+
+`compression_codings` is the order the server prefers, not the client's
+`q`-values, which only say what can be read. An unknown name is a startup error;
+a known one whose encoder a build tag removed is skipped, and named in the
+startup log. Turn compression off with `compression = false` rather than an
+empty list. The encoder levels are deliberately not configurable — see
+[Response Compression](/guides/frontend/compression/).
 
 Every database is configured with the connection set below, one table per pool:
 a single database is one table, and a reader-writer topology is several. The

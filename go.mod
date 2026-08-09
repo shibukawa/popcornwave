@@ -3,6 +3,7 @@ module github.com/shibukawa/popcornwave
 go 1.26.0
 
 require (
+	github.com/andybalholm/brotli v1.2.2
 	github.com/charmbracelet/bubbles v1.0.0
 	github.com/charmbracelet/bubbletea v1.3.10
 	github.com/charmbracelet/lipgloss v1.1.0
@@ -14,7 +15,7 @@ require (
 	github.com/shibukawa/dbtestify v0.5.0
 	github.com/shibukawa/localotelviewer v1.0.2
 	github.com/shibukawa/tinybind-go v0.4.9
-	github.com/shibukawa/tinygodriver v1.2.1
+	github.com/shibukawa/tinygodriver v1.2.2
 	golang.org/x/mod v0.38.0
 )
 

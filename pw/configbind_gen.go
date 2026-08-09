@@ -1047,6 +1047,7 @@ func registerMiddlewareConfigDefinition4() {
 			"middleware.request_id",
 			"middleware.access_log",
 			"middleware.compression",
+			"middleware.compression_codings",
 			"middleware.request_timeout",
 			"middleware.rdb.enabled",
 			"middleware.rdb.default_group",
@@ -1055,14 +1056,16 @@ func registerMiddlewareConfigDefinition4() {
 			"middleware.rdb.connections",
 		},
 		Defaults: map[string]string{
-			"middleware.recovery":        "true",
-			"middleware.request_id":      "true",
-			"middleware.access_log":      "true",
-			"middleware.compression":     "false",
-			"middleware.request_timeout": "0s",
-			"middleware.rdb.enabled":     "false",
+			"middleware.recovery":            "true",
+			"middleware.request_id":          "true",
+			"middleware.access_log":          "true",
+			"middleware.compression":         "false",
+			"middleware.compression_codings": "zstd,gzip",
+			"middleware.request_timeout":     "0s",
+			"middleware.rdb.enabled":         "false",
 		},
 		DependsOn: map[string][]string{
+			"middleware.compression_codings": {"middleware.compression"},
 			"middleware.rdb.default_group":   {"middleware.rdb.enabled"},
 			"middleware.rdb.write_group":     {"middleware.rdb.enabled"},
 			"middleware.rdb.migration_group": {"middleware.rdb.enabled"},
@@ -1076,6 +1079,7 @@ func registerMiddlewareConfigDefinition4() {
 			{Prefix: "middleware", Key: "request_id", Kind: cliparser.KindBool},
 			{Prefix: "middleware", Key: "access_log", Kind: cliparser.KindBool},
 			{Prefix: "middleware", Key: "compression", Kind: cliparser.KindBool},
+			{Prefix: "middleware", Key: "compression_codings", Help: "content codings for dynamic responses, best first", Kind: cliparser.KindArray},
 			{Prefix: "middleware", Key: "request_timeout"},
 			{Prefix: "middleware", Key: "rdb.enabled", Kind: cliparser.KindBool},
 			{Prefix: "middleware", Key: "rdb.default_group", Help: "connection group for statements that pin none"},
@@ -1088,6 +1092,7 @@ func registerMiddlewareConfigDefinition4() {
 			{Key: "request_id", Kind: configbind.ScaffoldBool, Default: "true"},
 			{Key: "access_log", Kind: configbind.ScaffoldBool, Default: "true"},
 			{Key: "compression", Kind: configbind.ScaffoldBool, Default: "false"},
+			{Key: "compression_codings", Kind: configbind.ScaffoldStringSlice, Default: "zstd,gzip", Help: "content codings for dynamic responses, best first"},
 			{Key: "request_timeout", Kind: configbind.ScaffoldDuration, Default: "0s"},
 			{Key: "rdb.enabled", Kind: configbind.ScaffoldBool, Default: "false"},
 			{Key: "rdb.default_group", Kind: configbind.ScaffoldString, Help: "connection group for statements that pin none"},
@@ -1147,6 +1152,9 @@ func applyMiddlewareConfigDefinition4(dst any, o *configbind.Overlay) error {
 		p.Compression = bb
 	} else {
 		p.Compression = false
+	}
+	if v, ok := o.GetMulti("middleware.compression_codings"); ok {
+		p.CompressionCodings = v
 	}
 	if v, ok := o.GetString("middleware.request_timeout"); ok {
 		d, err := time.ParseDuration(v)

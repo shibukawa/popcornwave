@@ -159,6 +159,16 @@ func spliceCSRF(configJSON, token string) string {
 //
 // The configuration travels as an inert escaped meta rather than as attributes
 // on the tag, because the runtime is a module script and cannot read its own.
+//
+// Only a document render asks for these. A delta and a live delivery are
+// answers to a request the runtime issued, so the tags they would carry are
+// tags the page already has, and both of the ways that went wrong were real:
+// the pair cost 624 bytes on the head record of every navigation, a quarter of
+// an encoded delta; and because the token is freshly masked per render, the meta
+// differed every time, so the client's install step could not recognize it as
+// one it already had and appended another to document.head on every click. A
+// component's own head tags are unaffected — they come from the templates, and
+// a delta still installs the ones the document never carried.
 func updateHeadNodes(config HTMLConfig, csrfToken string) []htmlbind.HeadNode {
 	if !config.Update.Enabled {
 		return nil
@@ -287,6 +297,13 @@ func serveUpdate(w http.ResponseWriter, r *http.Request, wrappers []HTMLWrapper,
 	// back, and the marker that tells a client this route delivers live.
 	applyUpdateHeaders(w, update.StreamHeaders(r, wrappers, leaf))
 	w.Header().Set("Cache-Control", updateCacheControl)
+	// The delta is negotiated for a content coding like any other body. It was
+	// the one response on this wire that was not, and the asymmetry inverted the
+	// comparison the whole feature rests on: the document it replaces travels
+	// encoded, so an unencoded delta of a quarter the source bytes still arrived
+	// several times larger than the page. A record stream is JSON carrying
+	// markup, which is the most compressible thing this framework sends.
+	target, finish := encodedBodyWriter(w, r)
 	ctx, cancel := boundedRenderContext(ctx, config, async, false)
 	defer cancel()
 	// The streaming entry is the one that takes render options, and it is also
@@ -295,7 +312,7 @@ func serveUpdate(w http.ResponseWriter, r *http.Request, wrappers []HTMLWrapper,
 	// The request is passed unchanged: the module reads it for negotiation and
 	// headers, and the render context it hands to template work is the one
 	// above, which already carries the span.
-	if err := update.RenderStreamAsync(ctx, w, r, wrappers, leaf,
+	if err := update.RenderStreamAsync(ctx, target, r, wrappers, leaf,
 		append(renderOptions(ctx, config, false, nil), options...)...); err != nil {
 		render.failed(err)
 		// A delta commits with its first record, so a failure after that can
@@ -303,11 +320,18 @@ func serveUpdate(w http.ResponseWriter, r *http.Request, wrappers []HTMLWrapper,
 		// for the log. Before the first record nothing is committed and the
 		// ordinary problem path still applies.
 		if responseCommitted(w) {
+			finish(true)
 			Logger(ctx).Log(ctx, LevelError, "update delta failed after commit", Err(err))
 			return true
 		}
+		// Nothing reached the client, so the frame is discarded and the coding
+		// header with it: the problem document replacing this body is written
+		// unencoded.
+		finish(false)
 		WriteProblem(w, r, InternalServerError(err))
+		return true
 	}
+	finish(true)
 	return true
 }
 
@@ -635,12 +659,34 @@ func writeUpdateResponse(w http.ResponseWriter, r *http.Request, answer htmlupda
 	if status == 0 {
 		status = http.StatusOK
 	}
-	w.WriteHeader(status)
-	if _, err := w.Write(answer.Body); err != nil {
+	// Unlike the delta stream, this body is already assembled, so whether a
+	// coding is worth opening is a question that can be answered rather than
+	// assumed. A refusal is excluded for the reason a problem document is: it
+	// says why one request failed and is too small for any coding to shrink.
+	target := w
+	finish := func(bool) {}
+	if answer.Failure == nil && len(answer.Body) >= minEncodedBodyBytes {
+		target, finish = encodedBodyWriter(w, r)
+	}
+	target.WriteHeader(status)
+	if _, err := target.Write(answer.Body); err != nil {
+		finish(false)
 		ctx := requestContext(r)
 		Logger(ctx).Log(ctx, LevelError, "update response write failed", Err(err))
+		return
 	}
+	finish(true)
 }
+
+// minEncodedBodyBytes is the size below which a known-length body is sent as it
+// stands.
+//
+// Every coding has a frame, and a dictionary built from a few hundred bytes has
+// nothing to say, so a small body comes out larger than it went in. The
+// streaming paths cannot apply this — their length is unknown when the frame has
+// to be opened — but a sequence tree, a redraw, and an action response are all
+// assembled first, and the smallest of them is the one this protects.
+const minEncodedBodyBytes = 512
 
 // redrawRenderOptions is what a redrawn component is rendered with.
 //

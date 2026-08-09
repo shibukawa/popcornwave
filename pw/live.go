@@ -122,6 +122,17 @@ func serveLive(w http.ResponseWriter, r *http.Request, wrappers []HTMLWrapper, l
 	defer watchdog.stop()
 
 	committed := false
+	// target is where every record of this response is written, and it becomes
+	// an encoding writer at the moment the response commits rather than here: a
+	// stream that ends before its first delivery writes only a close record, and
+	// opening a frame around that costs bytes instead of saving them.
+	//
+	// A reconnect is what makes the coding worth its encoder: the manifest
+	// suppresses the boundaries whose bytes the client still holds, and
+	// everything left is a boundary that has to be re-transferred whole.
+	target := http.ResponseWriter(w)
+	finishEncoding := func(bool) {}
+	defer func() { finishEncoding(true) }()
 	reason := liveCloseDone
 	boundaries := make(map[string]struct{})
 	// onScreen is the validator of the content each boundary is showing: seeded
@@ -179,9 +190,13 @@ func serveLive(w http.ResponseWriter, r *http.Request, wrappers []HTMLWrapper, l
 			break
 		}
 		if !committed {
+			// Negotiated before the headers are written, because that is what
+			// sets Content-Encoding and Vary, and writeLiveHeaders is what
+			// commits them.
+			target, finishEncoding = encodedBodyWriter(w, r)
 			writeLiveHeaders(w)
 			var writeErr error
-			if scratch, writeErr = writeLiveHead(w, scratch, liveHead); writeErr != nil {
+			if scratch, writeErr = writeLiveHead(target, scratch, liveHead); writeErr != nil {
 				logger.Log(ctx, LevelError, "live head record write failed", Err(writeErr))
 				return
 			}
@@ -214,7 +229,7 @@ func serveLive(w http.ResponseWriter, r *http.Request, wrappers []HTMLWrapper, l
 			continue
 		}
 		var writeErr error
-		if scratch, writeErr = writeLiveDelivery(w, scratch, content, digest); writeErr != nil {
+		if scratch, writeErr = writeLiveDelivery(target, scratch, content, digest); writeErr != nil {
 			// A write failure here is the client going away, which needs no
 			// record: there is nobody left to read it.
 			logger.Log(ctx, LevelDebug, "live delivery write failed", Err(writeErr))
@@ -238,13 +253,15 @@ func serveLive(w http.ResponseWriter, r *http.Request, wrappers []HTMLWrapper, l
 		reason = liveCloseRetry
 	}
 	if !committed {
+		// A stream that delivered nothing writes one close record, which is
+		// smaller than any frame that could hold it, so it goes out as it is.
 		writeLiveHeaders(w)
 	}
 	hint := time.Duration(0)
 	if reason == liveCloseRetry {
 		hint = liveRetryHint
 	}
-	if _, err := writeLiveClose(w, scratch, reason, hint); err != nil {
+	if _, err := writeLiveClose(target, scratch, reason, hint); err != nil {
 		logger.Log(ctx, LevelDebug, "live close record write failed", Err(err))
 	}
 }

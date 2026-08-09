@@ -19,8 +19,8 @@ arguments; its inputs come from `popcornwave.toml` and the environment.
    overrides `assets.tailwind.minify`, so a release is never accidentally
    unminified;
 3. builds the [asset tree](/guides/frontend/static-assets/) into `dist/public`:
-   it converts what the project asked to convert, writes the compressed `*.zstd`
-   sidecars, and emits the manifest that decides every cache header;
+   it converts what the project asked to convert, writes the `*.br`, `*.zstd`
+   and `*.gz` sidecars, and emits the manifest that decides every cache header;
 4. rejects the build if `project.main` depends on a development-only package;
 5. runs `go build` on `project.main` from `popcornwave.toml`.
 

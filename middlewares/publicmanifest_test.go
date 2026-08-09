@@ -25,15 +25,51 @@ func manifestFixture(t *testing.T) fstest.MapFS {
 		}},
 		{URL: "app.css", CacheControl: "public, no-cache", Representations: []AssetRepresentation{
 			{Path: "app.css", MediaType: "text/css; charset=utf-8", Length: 4, ETag: `"css"`},
+			{Path: "app.css.br", MediaType: "text/css; charset=utf-8", ContentEncoding: "br", Length: 2, ETag: `"cssb"`},
 			{Path: "app.css.zstd", MediaType: "text/css; charset=utf-8", ContentEncoding: "zstd", Length: 3, ETag: `"cssz"`},
+			{Path: "app.css.gz", MediaType: "text/css; charset=utf-8", ContentEncoding: "gzip", Length: 3, ETag: `"cssg"`},
 		}},
 	})
 	return fstest.MapFS{
 		"img/logo.webp.avif": {Data: []byte("avif")},
 		"img/logo.webp":      {Data: []byte("webp")},
 		"app.css":            {Data: []byte("body")},
+		"app.css.br":         {Data: []byte("br")},
 		"app.css.zstd":       {Data: []byte("bdy")},
+		"app.css.gz":         {Data: []byte("gzp")},
 		"unlisted.txt":       {Data: []byte("hidden")},
+	}
+}
+
+// TestManifestNegotiatesEveryStoredCoding covers the manifest half of the same
+// rule the handler path has: the build's order decides, and each representation
+// answers with the validator of its own bytes so a cache holding one cannot
+// answer a request for another.
+func TestManifestNegotiatesEveryStoredCoding(t *testing.T) {
+	for _, testCase := range []struct {
+		name, acceptEncoding, body, encoding, etag string
+	}{
+		{name: "brotli leads", acceptEncoding: "gzip, zstd, br", body: "br", encoding: "br", etag: `"cssb"`},
+		{name: "header order does not decide", acceptEncoding: "gzip;q=0.9, br;q=0.1", body: "br", encoding: "br", etag: `"cssb"`},
+		{name: "zstd when brotli is refused", acceptEncoding: "br;q=0, gzip, zstd", body: "bdy", encoding: "zstd", etag: `"cssz"`},
+		{name: "gzip only", acceptEncoding: "gzip, deflate", body: "gzp", encoding: "gzip", etag: `"cssg"`},
+		{name: "identity when nothing is taken", acceptEncoding: "deflate", body: "body", encoding: "", etag: `"css"`},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			tree := manifestFixture(t)
+			response := manifestRequest(t, tree, "/public/app.css", map[string]string{
+				"Accept-Encoding": testCase.acceptEncoding,
+			})
+			if response.Body.String() != testCase.body {
+				t.Errorf("body = %q, want %q", response.Body.String(), testCase.body)
+			}
+			if got := response.Header().Get("Content-Encoding"); got != testCase.encoding {
+				t.Errorf("Content-Encoding = %q, want %q", got, testCase.encoding)
+			}
+			if got := response.Header().Get("ETag"); got != testCase.etag {
+				t.Errorf("ETag = %q, want %q", got, testCase.etag)
+			}
+		})
 	}
 }
 

@@ -18,6 +18,7 @@ import (
 	tinybind "github.com/shibukawa/tinybind-go"
 	"github.com/shibukawa/tinybind-go/htmlbind"
 	"github.com/shibukawa/tinybind-go/htmlbind/delta"
+	"github.com/shibukawa/tinybind-go/htmlupdate"
 )
 
 // Problem is the application-facing RFC problem value.
@@ -270,8 +271,72 @@ func mapProblem(err error) Problem {
 }
 
 func WriteAPI[T any](w http.ResponseWriter, r *http.Request, value T) {
-	if err := tinybind.Write(w, r, value); err != nil {
+	target, finish := encodedBodyWriter(w, r)
+	if err := tinybind.Write(target, r, value); err != nil {
+		finish(false)
 		WriteProblem(w, r, err)
+		return
+	}
+	finish(true)
+}
+
+// encodedBodyWriter wraps w so a serialized document is encoded on its way out.
+//
+// The returned finish either commits the frame or discards it. A serializer
+// that failed before committing has to leave the headers as if nothing had been
+// negotiated, or the problem document replacing the body would be labelled with
+// a coding it is not in.
+//
+// It serves the API writers and the update wire alike. Both hand back a body
+// they did not render into a buffer this function can measure — a serialized
+// document on one side, a record stream on the other — so both need the frame
+// opened before the first byte and closed by whoever knows the write finished.
+//
+// The problem writers themselves stay uncompressed. Their documents are a few
+// hundred bytes built by hand on a path that must not fail, so an encoder there
+// would add a way to fail in exchange for no bytes worth saving.
+func encodedBodyWriter(w http.ResponseWriter, r *http.Request) (http.ResponseWriter, func(bool)) {
+	encoder, err := prepareResponseEncoder(w, r)
+	if err != nil {
+		Logger(requestContext(r)).Log(requestContext(r), LevelError, "response encoder unavailable", Err(err))
+	}
+	if encoder == nil {
+		return w, func(bool) {}
+	}
+	return &encodedResponseWriter{ResponseWriter: w, encoder: encoder}, func(committed bool) {
+		if !committed {
+			encoder.Abort()
+			if !responseCommitted(w) {
+				w.Header().Del("Content-Encoding")
+			}
+			return
+		}
+		if closeErr := encoder.Close(); closeErr != nil {
+			Logger(requestContext(r)).Log(requestContext(r), LevelError, "response encoder close failed", Err(closeErr))
+		}
+	}
+}
+
+// encodedResponseWriter is the ResponseWriter half of what flushingEncoder does
+// for the render paths. The API writers need a ResponseWriter rather than an
+// io.Writer because they set their own content type and status.
+type encodedResponseWriter struct {
+	http.ResponseWriter
+	encoder responseEncoder
+}
+
+func (e *encodedResponseWriter) Write(p []byte) (int, error) { return e.encoder.Write(p) }
+
+// Unwrap keeps the wrapper chain walkable, so commit detection and every other
+// probe still reach the writer this one stands in front of.
+func (e *encodedResponseWriter) Unwrap() http.ResponseWriter { return e.ResponseWriter }
+
+func (e *encodedResponseWriter) Flush() {
+	if err := e.encoder.Flush(); err != nil {
+		return
+	}
+	if flusher, ok := e.ResponseWriter.(http.Flusher); ok {
+		flusher.Flush()
 	}
 }
 
@@ -336,8 +401,14 @@ func WriteHTMLChain(w http.ResponseWriter, r *http.Request, wrappers []HTMLWrapp
 	// document and shares only the option builder below, so it is untouched.
 	//
 	// The framework's options go first, so a caller passing its own still wins.
+	//
+	// The runtime's own head tags are deliberately not among them here. Every
+	// render below needs the token and the boundary prefix; only the branches
+	// that produce a document need a tag installing a runtime the other branches
+	// are already being driven by. What that separation is worth is written at
+	// updateHeadNodes.
 	token := csrfRenderToken(requestContext(r))
-	options = append(documentRenderOptions(config, token), options...)
+	options = append(chainRenderOptions(config, token), options...)
 	// The probes are properties of the composed chain, so they run once here
 	// and every branch below reads the same two answers. async is the cheapest
 	// of the three streaming gates and the only one that can rule streaming out
@@ -380,6 +451,11 @@ func WriteHTMLChain(w http.ResponseWriter, r *http.Request, wrappers []HTMLWrapp
 		// reconstruction path is the render path.
 		serveLive(w, r, wrappers, leaf, config, options...)
 		return
+	}
+	// From here every branch produces a document, which is the one response that
+	// has to carry the runtime it will then be driven by.
+	if nodes := updateHeadNodes(config, token); len(nodes) > 0 {
+		options = append(options, htmlbind.WithHead(nodes...))
 	}
 	if live && liveEnabled(config) {
 		// One URL now has a document representation and a delivery one. The
@@ -448,7 +524,8 @@ func WriteHTMLChain(w http.ResponseWriter, r *http.Request, wrappers []HTMLWrapp
 	defer cancel()
 	body := getHTMLBody()
 	defer putHTMLBody(body)
-	if err := renderDocumentBody(ctx, body, wrappers, leaf, config, options); err != nil {
+	manifest, err := renderDocumentBody(ctx, body, wrappers, leaf, config, options)
+	if err != nil {
 		render.failed(err)
 		// Nothing is committed on this branch, so the same failure the streaming
 		// branch can only patch into a 200 still carries its real status here.
@@ -462,18 +539,30 @@ func WriteHTMLChain(w http.ResponseWriter, r *http.Request, wrappers []HTMLWrapp
 		WriteProblem(w, r, InternalServerError(err))
 		return
 	}
+	// Written after the document rather than into it, for the reason the streamed
+	// marker is: the validators describe boundaries the head was written long
+	// before. A failed render never reaches here, so no client is seeded with a
+	// manifest for a page that was replaced by an error document.
+	if err := writeDocumentManifest(body, config, manifest); err != nil {
+		Logger(requestContext(r)).Log(requestContext(r), LevelError,
+			"document manifest write failed", Err(err))
+	}
 	render.wrote(body.Len())
 	commitHTMLBody(w, r, body)
 }
 
-// documentRenderOptions is everything the framework contributes to a document
-// render: the CSRF token every unsafe form carries, the boundary prefix, and
-// the head nodes that load the client runtime.
+// chainRenderOptions is what the framework contributes to every render of a
+// page chain, whichever representation it turns out to be: the CSRF token every
+// unsafe form carries, and the boundary prefix a delta addresses regions by.
+//
+// The head nodes are not here. They are added by the document branches of
+// WriteHTMLChain, because a delta and a live stream are answers to a client that
+// is already running the runtime those nodes install.
 //
 // It is deliberately not part of the option builder the fragment path shares.
 // A fragment response renders no document, so it has no head to merge into and
 // decision:fragment-head-rejection refuses one that tries.
-func documentRenderOptions(config HTMLConfig, csrfToken string) []HTMLOption {
+func chainRenderOptions(config HTMLConfig, csrfToken string) []HTMLOption {
 	options := make([]HTMLOption, 0, 3)
 	if csrfToken != "" {
 		options = append(options, htmlbind.WithCSRFToken(csrfToken))
@@ -482,9 +571,6 @@ func documentRenderOptions(config HTMLConfig, csrfToken string) []HTMLOption {
 		// One prefix names the generated attributes, the placeholder element,
 		// and the boundary ids, so a document does not hold two spellings.
 		options = append(options, htmlbind.WithBoundaryPrefix(UpdateAttributePrefix))
-		if nodes := updateHeadNodes(config, csrfToken); len(nodes) > 0 {
-			options = append(options, htmlbind.WithHead(nodes...))
-		}
 	}
 	return options
 }
@@ -688,16 +774,88 @@ func streamHTMLChain(w http.ResponseWriter, r *http.Request, wrappers []HTMLWrap
 //
 // A project with updates off renders exactly what it always did, because the
 // attributes are the only difference and nothing would read them.
+//
+// The manifest it returns describes the document it just wrote, and the caller
+// seeds the client with it. Collecting already computes it; discarding it was
+// what made the first navigation of every page view cost a whole page.
 func renderDocumentBody(ctx context.Context, body io.Writer, wrappers []HTMLWrapper, leaf HTMLFragment,
 	config HTMLConfig, options []HTMLOption,
-) error {
+) (delta.Manifest, error) {
 	rendered := renderOptions(ctx, config, false, options)
 	if !config.Update.Enabled {
-		return htmlbind.RenderChain(body, wrappers, leaf, rendered...)
+		return delta.Manifest{}, htmlbind.RenderChain(body, wrappers, leaf, rendered...)
 	}
-	_, err := delta.CollectChain(body, []byte(config.Update.ValidatorKey), wrappers, leaf, rendered...)
+	// The validator tag has to be the one every delta is computed under, or the
+	// digests collected here name the same regions in a different alphabet and
+	// nothing ever compares equal. The module seeds it from the build identity so
+	// two builds cannot produce comparable digests, and it applies that inside
+	// its own entries; this path collects directly, so it applies it here.
+	//
+	// It is the effective identity rather than the stamp. An unstamped binary has
+	// no vcs.revision and the module stands its own per-process value in, so
+	// reading the stamp here would tag one side of the comparison with an empty
+	// string and the other with that value.
+	//
+	// Nothing noticed while the manifest was being discarded. It is what a seeded
+	// client compares against, so it is load-bearing now.
+	rendered = append(rendered, htmlbind.WithValidatorTag(updateOptions(config).RuntimeConfig().Build))
+	return delta.CollectChain(body, []byte(config.Update.ValidatorKey), wrappers, leaf, rendered...)
+}
+
+// writeDocumentManifest seeds the client with the validators of the document it
+// arrived in.
+//
+// Without it a page load leaves the runtime holding nothing, so its first
+// request carries no manifest and is answered with every region of the page.
+// The validators are already computed by the collect pass that wrote the
+// document; all this adds is the bytes to carry them.
+//
+// What that trade is worth depends on the page, and not by a little. An entry
+// costs about fifty bytes and buys skipping whatever its boundary turns out to
+// hold. A stable region that is pure markup is nearly free to re-send already,
+// because the sequence split sends its values and not its markup, so seeding
+// loses by roughly the marker's own size; a stable region carrying data — a
+// folder list with counts, a header naming the signed-in user — is not, and on
+// a page measured with one, seeding saved about eight times what the marker
+// cost. The loss is bounded by the marker and the win is not, which is what
+// makes it worth writing unconditionally.
+//
+// It is an inert element after the document rather than a meta in the head,
+// because the head is written before the boundaries it would describe. The
+// runtime reads it at construction and removes it.
+//
+// A manifest is only valid for the DOM it was produced against, and this one
+// describes exactly the document it is written into, which is the case
+// decision:manifest-state-ownership calls the safe one.
+func writeDocumentManifest(w io.Writer, config HTMLConfig, manifest delta.Manifest) error {
+	if len(manifest.Instances) == 0 {
+		return nil
+	}
+	encoded := htmlupdate.EncodeManifest(manifest)
+	// A manifest over the bound is ignored by the endpoint that reads it rather
+	// than truncated, so writing one costs bytes in the document and buys
+	// nothing at all. Seeding nothing leaves the client where it was before this
+	// existed, which is the honest way to be over a limit.
+	if encoded == "" || len(encoded) > maxManifestBytes(config) {
+		return nil
+	}
+	_, err := io.WriteString(w, `<`+documentManifestElement+` value="`+htmlbind.Escape(encoded)+`"></`+documentManifestElement+`>`)
 	return err
 }
+
+// maxManifestBytes is the bound the update endpoint applies to a manifest
+// header, read here so the document never seeds more than a request can carry.
+func maxManifestBytes(config HTMLConfig) int {
+	if config.Update.MaxManifestBytes > 0 {
+		return config.Update.MaxManifestBytes
+	}
+	return htmlupdate.DefaultMaxManifestBytes
+}
+
+// documentManifestElement is the marker's name. It carries the boundary prefix
+// like every other element this framework emits, so a document holds one
+// spelling rather than two.
+const documentManifestElement = UpdateAttributePrefix + "-manifest"
 
 // writeBoundaryCompletion frames one settled boundary for the browser runtime
 // in pw.RuntimeScriptURL. htmlbind yields the bare fragment and the id of the
@@ -832,31 +990,71 @@ func renderOptions(ctx context.Context, config HTMLConfig, bot bool, extra []HTM
 	return append(options, extra...)
 }
 
+// prepareHTMLResponse negotiates a content coding and hands back the writer the
+// render should use, plus the two ways that writer ends: Close commits the
+// frame, Abort discards one that was never committed so a problem response can
+// take its place.
+//
+// The identity answer is not a failure. A client naming no coding this build
+// can produce receives the bytes it asked for, and everything downstream is
+// written the same way either way.
 func prepareHTMLResponse(w http.ResponseWriter, r *http.Request) (io.Writer, func() error, func(), error) {
-	if !zstdResponseSupported || !Config[MiddlewareConfig](requestContext(r)).Compression {
-		return w, func() error { return nil }, func() {}, nil
-	}
-	addVaryHeader(w.Header(), "Accept-Encoding")
-	if r == nil || !acceptsZstdEncoding(r.Header.Values("Accept-Encoding")) || w.Header().Get("Content-Encoding") != "" {
-		return w, func() error { return nil }, func() {}, nil
-	}
-	w.Header().Set("Content-Encoding", zstdContentEncoding)
-	w.Header().Del("Content-Length")
-	encoder, err := newResponseZstdEncoder(w)
+	encoder, err := prepareResponseEncoder(w, r)
 	if err != nil {
-		return w, func() error { return nil }, func() {}, err
+		return w, noCloseWriter, noAbortWriter, err
+	}
+	if encoder == nil {
+		return w, noCloseWriter, noAbortWriter, nil
 	}
 	return flushingEncoder{encoder: encoder, downstream: w}, encoder.Close, encoder.Abort, nil
 }
 
-// flushingEncoder chains one flush through both layers. zstd deliberately does
-// not flush its destination, and a completion sitting in either the encoder or
-// the server's buffer defeats the point of having sent it early.
+// prepareResponseEncoder sets the negotiated headers and returns the encoder to
+// write through, or nil when the response is to be sent as it stands.
+//
+// Vary is added whether or not a body ends up encoded, because the header is a
+// statement about how this URL is negotiated rather than about what one
+// response happened to be: a cache holding the identity form must not answer a
+// request that asked for a coding.
+func prepareResponseEncoder(w http.ResponseWriter, r *http.Request) (responseEncoder, error) {
+	config := Config[MiddlewareConfig](requestContext(r))
+	if len(availableResponseCodings) == 0 || !config.Compression {
+		return nil, nil
+	}
+	addVaryHeader(w.Header(), "Accept-Encoding")
+	if r == nil || w.Header().Get("Content-Encoding") != "" {
+		return nil, nil
+	}
+	var scratch [maxResponseCodings]responseCoding
+	order := orderedResponseCodings(config.CompressionCodings, &scratch)
+	coding, ok := negotiateResponseCoding(r.Header.Values("Accept-Encoding"), order)
+	if !ok {
+		return nil, nil
+	}
+	w.Header().Set("Content-Encoding", coding.token)
+	w.Header().Del("Content-Length")
+	encoder, err := coding.newEncoder(w)
+	if err != nil {
+		// The headers are already set for a coding that will not be produced,
+		// so they have to come back off before the caller writes plain bytes.
+		w.Header().Del("Content-Encoding")
+		return nil, err
+	}
+	return encoder, nil
+}
+
+func noCloseWriter() error { return nil }
+
+func noAbortWriter() {}
+
+// flushingEncoder chains one flush through both layers. An encoder deliberately
+// does not flush its destination, and a completion sitting in either the
+// encoder or the server's buffer defeats the point of having sent it early.
 //
 // Flushing per boundary rather than per write is what keeps the ratio
 // reasonable: each flush ends a block, and a block ended early compresses worse.
 type flushingEncoder struct {
-	encoder    responseZstdEncoder
+	encoder    responseEncoder
 	downstream http.ResponseWriter
 }
 
@@ -869,36 +1067,6 @@ func (f flushingEncoder) Flush() {
 	if flusher, ok := f.downstream.(http.Flusher); ok {
 		flusher.Flush()
 	}
-}
-
-func acceptsZstdEncoding(values []string) bool {
-	for _, value := range values {
-		// Cut loops rather than Split, so a header line parses without
-		// allocating.
-		for entry := range splitSeq(value, ',') {
-			coding, parameters, _ := strings.Cut(entry, ";")
-			if !strings.EqualFold(strings.TrimSpace(coding), zstdContentEncoding) {
-				continue
-			}
-			quality := 1.0
-			for parameter := range splitSeq(parameters, ';') {
-				name, raw, ok := strings.Cut(parameter, "=")
-				if !ok || !strings.EqualFold(strings.TrimSpace(name), "q") {
-					continue
-				}
-				parsed, parseErr := strconv.ParseFloat(strings.TrimSpace(raw), 64)
-				if parseErr != nil || parsed < 0 || parsed > 1 {
-					quality = 0
-				} else {
-					quality = parsed
-				}
-			}
-			if quality > 0 {
-				return true
-			}
-		}
-	}
-	return false
 }
 
 // splitSeq yields the separator-delimited pieces of value without allocating.

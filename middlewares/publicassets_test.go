@@ -16,9 +16,13 @@ func TestPublicAssetHandlerEmbeddedAndNegotiation(t *testing.T) {
 		t.Skip("development mode intentionally ignores embedded assets")
 	}
 	embedded := fstest.MapFS{
-		"app.css":         {Data: []byte("body{}")},
-		"app.css.zstd":    {Data: []byte("encoded")},
-		"docs/index.html": {Data: []byte("<h1>docs</h1>")},
+		"app.css":          {Data: []byte("body{}")},
+		"app.css.br":       {Data: []byte("brotli")},
+		"app.css.zstd":     {Data: []byte("encoded")},
+		"app.css.gz":       {Data: []byte("gzipped")},
+		"only-gzip.css":    {Data: []byte("body{}")},
+		"only-gzip.css.gz": {Data: []byte("gzipped")},
+		"docs/index.html":  {Data: []byte("<h1>docs</h1>")},
 	}
 	middleware, err := PublicAssets(PublicAssetConfig{Enabled: true, Mount: "/public"}, embedded)
 	if err != nil {
@@ -32,13 +36,24 @@ func TestPublicAssetHandlerEmbeddedAndNegotiation(t *testing.T) {
 		body, contentEncoding          string
 	}{
 		{name: "identity", method: http.MethodGet, target: "/public/app.css", status: 200, body: "body{}"},
-		{name: "zstd", method: http.MethodGet, target: "/public/app.css", encoding: "gzip, zstd", status: 200, body: "encoded", contentEncoding: "zstd"},
-		{name: "wildcard", method: http.MethodGet, target: "/public/app.css", encoding: "*;q=0.5", status: 200, body: "encoded", contentEncoding: "zstd"},
-		{name: "zstd disabled", method: http.MethodGet, target: "/public/app.css", encoding: "zstd;q=0", status: 200, body: "body{}"},
-		{name: "not acceptable", method: http.MethodGet, target: "/public/app.css", encoding: "identity;q=0, zstd;q=0", status: 406},
+		// The build order is ratio, so brotli wins whenever the client takes it,
+		// whatever order the header listed.
+		{name: "brotli leads", method: http.MethodGet, target: "/public/app.css", encoding: "gzip, zstd, br", status: 200, body: "brotli", contentEncoding: "br"},
+		{name: "header order does not decide", method: http.MethodGet, target: "/public/app.css", encoding: "br;q=0.1, gzip;q=0.9", status: 200, body: "brotli", contentEncoding: "br"},
+		{name: "zstd when brotli is refused", method: http.MethodGet, target: "/public/app.css", encoding: "br;q=0, gzip, zstd", status: 200, body: "encoded", contentEncoding: "zstd"},
+		{name: "gzip is the last coding", method: http.MethodGet, target: "/public/app.css", encoding: "gzip, deflate", status: 200, body: "gzipped", contentEncoding: "gzip"},
+		{name: "wildcard takes the leader", method: http.MethodGet, target: "/public/app.css", encoding: "*;q=0.5", status: 200, body: "brotli", contentEncoding: "br"},
+		{name: "all codings disabled", method: http.MethodGet, target: "/public/app.css", encoding: "br;q=0, zstd;q=0, gzip;q=0", status: 200, body: "body{}"},
+		{name: "not acceptable", method: http.MethodGet, target: "/public/app.css", encoding: "identity;q=0, *;q=0", status: 406},
 		{name: "head", method: http.MethodHead, target: "/public/app.css", encoding: "zstd", status: 200, contentEncoding: "zstd"},
+		// A missing coding is ordinary: an encode that saved nothing is skipped,
+		// and the negotiation falls through rather than failing.
+		{name: "only the coding that exists", method: http.MethodGet, target: "/public/only-gzip.css", encoding: "br, zstd, gzip", status: 200, body: "gzipped", contentEncoding: "gzip"},
+		{name: "no stored coding is acceptable", method: http.MethodGet, target: "/public/only-gzip.css", encoding: "br, zstd", status: 200, body: "body{}"},
 		{name: "index", method: http.MethodGet, target: "/public/docs", status: 200, body: "<h1>docs</h1>"},
-		{name: "sidecar hidden", method: http.MethodGet, target: "/public/app.css.zstd", status: 404},
+		{name: "zstd sidecar hidden", method: http.MethodGet, target: "/public/app.css.zstd", status: 404},
+		{name: "brotli sidecar hidden", method: http.MethodGet, target: "/public/app.css.br", status: 404},
+		{name: "gzip sidecar hidden", method: http.MethodGet, target: "/public/app.css.gz", status: 404},
 		{name: "dot hidden", method: http.MethodGet, target: "/public/.keep", status: 404},
 		{name: "method", method: http.MethodPost, target: "/public/app.css", status: 405},
 	}
@@ -138,8 +153,15 @@ func TestPublicAssetLocalOverlayIsLayerConsistent(t *testing.T) {
 		"fallback.txt": {Data: []byte("fallback")},
 	}
 	asset, ok := resolvePublicAsset("app.css", PublicAssetConfig{ReadLocal: true}, embedded)
-	if !ok || string(asset.identity) != "local" || asset.zstd != nil {
+	if !ok || string(asset.identity) != "local" {
 		t.Fatalf("local asset = %#v, %v", asset, ok)
+	}
+	// A local override answers with its own bytes, so the embedded tree's
+	// sidecars must not be mixed in: they encode a different file.
+	for rank, body := range asset.encoded {
+		if body != nil {
+			t.Fatalf("local asset carried an embedded %s sidecar", staticContentCodings[rank].token)
+		}
 	}
 	asset, ok = resolvePublicAsset("fallback.txt", PublicAssetConfig{ReadLocal: true}, embedded)
 	if !ok || string(asset.identity) != "fallback" {

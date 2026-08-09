@@ -1,6 +1,7 @@
 package pwcli
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"errors"
 	"fmt"
@@ -12,6 +13,8 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/andybalholm/brotli"
+	"github.com/klauspost/compress/gzip"
 	"github.com/klauspost/compress/zstd"
 )
 
@@ -38,6 +41,92 @@ const (
 	representationPreferenceFirst   = 0
 	representationPreferenceDefault = 1
 )
+
+// sidecarCoding is one precompressed form the build writes beside a file.
+//
+// The order is the order a response prefers, and it is pure ratio: every one of
+// these is encoded here, so preferring the smallest costs a request nothing.
+// That is the whole reason brotli appears at all — at these levels it beats the
+// others by a margin no per-request encoder could pay for, and it never has to
+// run while a request waits.
+type sidecarCoding struct {
+	token  string
+	suffix string
+	encode func([]byte) ([]byte, error)
+}
+
+func derivedSidecarCodings() ([]sidecarCoding, error) {
+	zstdEncoder, err := zstd.NewWriter(nil,
+		zstd.WithEncoderLevel(zstd.SpeedBestCompression),
+		zstd.WithEncoderConcurrency(1),
+		zstd.WithEncoderCRC(false),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("public assets: create zstd encoder: %w", err)
+	}
+	return []sidecarCoding{
+		{token: "br", suffix: ".br", encode: encodeBrotli},
+		{token: "zstd", suffix: ".zstd", encode: func(source []byte) ([]byte, error) {
+			return zstdEncoder.EncodeAll(source, nil), nil
+		}},
+		{token: "gzip", suffix: ".gz", encode: encodeGzip},
+	}, nil
+}
+
+func encodeBrotli(source []byte) ([]byte, error) {
+	var buffer bytes.Buffer
+	writer := brotli.NewWriterLevel(&buffer, brotli.BestCompression)
+	if _, err := writer.Write(source); err != nil {
+		return nil, err
+	}
+	if err := writer.Close(); err != nil {
+		return nil, err
+	}
+	return buffer.Bytes(), nil
+}
+
+func encodeGzip(source []byte) ([]byte, error) {
+	var buffer bytes.Buffer
+	writer, err := gzip.NewWriterLevel(&buffer, gzip.BestCompression)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := writer.Write(source); err != nil {
+		return nil, err
+	}
+	if err := writer.Close(); err != nil {
+		return nil, err
+	}
+	return buffer.Bytes(), nil
+}
+
+// sidecarTokens maps a produced suffix to its coding token, in the same order.
+// The walks that only recognize a produced file read this rather than build an
+// encoder to ask.
+var sidecarTokens = [...]struct{ suffix, token string }{
+	{suffix: ".br", token: "br"},
+	{suffix: ".zstd", token: "zstd"},
+	{suffix: ".gz", token: "gzip"},
+}
+
+// sidecarTokenFor reports the URL a produced sidecar is a representation of and
+// the coding it carries, or false for a path that is an asset rather than a
+// sidecar. The suffix is not the token: gzip is stored as .gz.
+func sidecarTokenFor(name string) (url string, token string, ok bool) {
+	for _, entry := range sidecarTokens {
+		if strings.HasSuffix(name, entry.suffix) {
+			return strings.TrimSuffix(name, entry.suffix), entry.token, true
+		}
+	}
+	return "", "", false
+}
+
+// hasSidecarSuffix reports whether a path names a generated sidecar of any
+// coding.
+func hasSidecarSuffix(name string) bool {
+	_, _, found := sidecarTokenFor(name)
+	return found
+}
 
 // derivedAsset is one file in the built tree, with the metadata the manifest
 // needs. Everything here is decided by the build, never at request time.
@@ -147,7 +236,7 @@ func buildDerivedAssetsWithEncoder(root string, assets assetsConfig, encodeVaria
 			return err
 		}
 		slashed := filepath.ToSlash(relative)
-		if strings.HasSuffix(slashed, ".zstd") {
+		if hasSidecarSuffix(slashed) {
 			// A sidecar in the authored tree is left over from the build this
 			// one replaces; the served tree gets its own.
 			return nil
@@ -476,21 +565,22 @@ func losslessLabel(lossless bool) string {
 
 // writeDerivedSidecars compresses the finished bytes. Compressing before a
 // conversion would compress bytes nobody serves, which is why this runs last.
+// writeDerivedSidecars compresses the finished bytes once per coding.
+//
+// A coding whose result is no smaller than its source is skipped rather than
+// written: a sidecar that saves nothing costs a file in the embed and a
+// representation in the manifest for no reason, and the negotiation falls
+// through to the next coding on its own.
 func writeDerivedSidecars(output string) error {
-	encoder, err := zstd.NewWriter(nil,
-		zstd.WithEncoderLevel(zstd.SpeedDefault),
-		zstd.WithEncoderConcurrency(1),
-		zstd.WithEncoderCRC(false),
-	)
+	codings, err := derivedSidecarCodings()
 	if err != nil {
-		return fmt.Errorf("public assets: create zstd encoder: %w", err)
+		return err
 	}
-	defer encoder.Close()
 	return filepath.WalkDir(output, func(name string, entry fs.DirEntry, walkErr error) error {
 		if walkErr != nil || entry.IsDir() {
 			return walkErr
 		}
-		if strings.HasSuffix(name, ".zstd") || entry.Name() == ".keep" {
+		if hasSidecarSuffix(name) || entry.Name() == ".keep" {
 			return nil
 		}
 		if !publicAssetCompressible(name) {
@@ -500,7 +590,19 @@ func writeDerivedSidecars(output string) error {
 		if err != nil {
 			return err
 		}
-		return writeScaffoldFile(name+".zstd", encoder.EncodeAll(source, nil))
+		for _, coding := range codings {
+			encoded, encodeErr := coding.encode(source)
+			if encodeErr != nil {
+				return fmt.Errorf("public assets: encode %s as %s: %w", name, coding.token, encodeErr)
+			}
+			if len(encoded) >= len(source) {
+				continue
+			}
+			if writeErr := writeScaffoldFile(name+coding.suffix, encoded); writeErr != nil {
+				return writeErr
+			}
+		}
+		return nil
 	})
 }
 
@@ -526,8 +628,8 @@ func collectDerivedAssets(output string, immutable map[string]bool) ([]derivedAs
 			return err
 		}
 		url, encoding := slashed, ""
-		if strings.HasSuffix(slashed, ".zstd") {
-			url, encoding = strings.TrimSuffix(slashed, ".zstd"), "zstd"
+		if source, token, isSidecar := sidecarTokenFor(slashed); isSidecar {
+			url, encoding = source, token
 		}
 		// A media sibling is a second representation of one URL, never a URL of
 		// its own: nothing may link it, and a cache must not learn about it
