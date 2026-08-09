@@ -1,0 +1,146 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="660" viewBox="0 0 900 660"
+     style="background: transparent; color-scheme: light dark;" role="img">
+  <style>
+    .d {
+      --gray:  light-dark(#8a94a6, #676f7f);
+      --blue:  light-dark(#4c8bf5, #4a80dc);
+      --green: light-dark(#3fa46a, #358c5a);
+      --amber: light-dark(#c0872a, #a8791f);
+    }
+    .d rect, .d path, .d line { stroke-width: 1.5; }
+    .d text {
+      font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+      font-size: 12px;
+    }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 11px; }
+    .kind { font-size: 10.5px; font-style: italic; }
+    .flow { stroke: var(--gray); fill: none; }
+    .flow-head { fill: var(--gray); stroke: none; }
+    .made { stroke: var(--amber); fill: none; stroke-dasharray: 5 4; }
+    .made-head { fill: var(--amber); stroke: none; }
+
+    .src  { stroke: var(--green); fill: light-dark(rgba(63, 164, 106, 0.10), rgba(63, 164, 106, 0.14)); }
+    .gen  { stroke: var(--gray);  fill: light-dark(rgba(138, 148, 166, 0.12), rgba(138, 148, 166, 0.16)); }
+    .fw   { stroke: var(--amber); fill: light-dark(rgba(192, 135, 42, 0.12), rgba(192, 135, 42, 0.16)); }
+    .std  { stroke: var(--blue);  fill: light-dark(rgba(76, 139, 245, 0.10), rgba(76, 139, 245, 0.14)); }
+    .chrome { stroke: var(--gray); fill: none; }
+
+    .t-src { fill: var(--green); }
+    .t-gen { fill: var(--gray); }
+    .t-fw  { fill: var(--amber); }
+    .t-std { fill: var(--blue); }
+    .t-edge { fill: var(--gray); font-size: 11px; }
+  </style>
+  <g class="d">
+
+    <!-- what you write, at the top -->
+    <rect class="src" x="200" y="30" width="153" height="72" rx="8"/>
+    <text class="kind t-src" x="277" y="54" text-anchor="middle">you write</text>
+    <text class="t-src" x="277" y="74" text-anchor="middle">request struct</text>
+    <text class="mono t-src" x="277" y="92" text-anchor="middle">Input + tags</text>
+
+    <rect class="src" x="371" y="30" width="153" height="72" rx="8"/>
+    <text class="kind t-src" x="448" y="54" text-anchor="middle">you write</text>
+    <text class="t-src" x="448" y="74" text-anchor="middle">SQL query</text>
+    <text class="mono t-src" x="448" y="92" text-anchor="middle">*.pw.sql</text>
+
+    <rect class="src" x="542" y="30" width="153" height="72" rx="8"/>
+    <text class="kind t-src" x="619" y="54" text-anchor="middle">you write</text>
+    <text class="t-src" x="619" y="74" text-anchor="middle">HTML template</text>
+    <text class="mono t-src" x="619" y="92" text-anchor="middle">*.pw.html</text>
+
+    <!-- pw generate turns each source into Go, one column down -->
+    <path class="made" d="M 277 102 L 277 168"/>
+    <path class="made-head" d="M 277 174 L 273 166 L 281 166 Z"/>
+    <path class="made" d="M 448 102 L 448 168"/>
+    <path class="made-head" d="M 448 174 L 444 166 L 452 166 Z"/>
+    <path class="made" d="M 619 102 L 619 168"/>
+    <path class="made-head" d="M 619 174 L 615 166 L 623 166 Z"/>
+
+    <!-- what the handler calls -->
+    <rect class="gen" x="200" y="176" width="153" height="72" rx="8"/>
+    <text class="kind t-gen" x="277" y="200" text-anchor="middle">generated</text>
+    <text class="t-gen" x="277" y="220" text-anchor="middle">request binder</text>
+    <text class="mono t-gen" x="277" y="238" text-anchor="middle">pw.Parse[Input]</text>
+
+    <rect class="gen" x="371" y="176" width="153" height="72" rx="8"/>
+    <text class="kind t-gen" x="448" y="200" text-anchor="middle">generated</text>
+    <text class="t-gen" x="448" y="220" text-anchor="middle">query function</text>
+    <text class="mono t-gen" x="448" y="238" text-anchor="middle">ListItems(ctx)</text>
+
+    <rect class="gen" x="542" y="176" width="153" height="72" rx="8"/>
+    <text class="kind t-gen" x="619" y="200" text-anchor="middle">generated</text>
+    <text class="t-gen" x="619" y="220" text-anchor="middle">component function</text>
+    <text class="mono t-gen" x="619" y="238" text-anchor="middle">ItemList(params)</text>
+
+    <rect class="fw" x="713" y="176" width="153" height="72" rx="8"/>
+    <text class="kind t-fw" x="790" y="200" text-anchor="middle">the framework's</text>
+    <text class="t-fw" x="790" y="220" text-anchor="middle">response runtime</text>
+    <text class="mono t-fw" x="790" y="238" text-anchor="middle">pw.WriteHTML</text>
+
+    <!-- the handler calls all four, left to right -->
+    <path class="flow" d="M 277 300 L 277 256"/>
+    <path class="flow-head" d="M 277 248 L 273 256 L 281 256 Z"/>
+    <path class="flow" d="M 448 300 L 448 256"/>
+    <path class="flow-head" d="M 448 248 L 444 256 L 452 256 Z"/>
+    <path class="flow" d="M 619 300 L 619 256"/>
+    <path class="flow-head" d="M 619 248 L 615 256 L 623 256 Z"/>
+    <path class="flow" d="M 790 300 L 790 256"/>
+    <path class="flow-head" d="M 790 248 L 786 256 L 794 256 Z"/>
+
+    <!-- your handler, and everything the request passed to reach it -->
+    <rect class="src" x="200" y="300" width="666" height="48" rx="6"/>
+    <text class="kind t-src" x="533" y="320" text-anchor="middle">you write</text>
+    <text class="t-src" x="533" y="338" text-anchor="middle">your handler — <tspan class="mono">func(w http.ResponseWriter, r *http.Request)</tspan></text>
+
+    <path class="flow" d="M 277 372 L 277 356"/>
+    <path class="flow-head" d="M 277 348 L 273 356 L 281 356 Z"/>
+
+    <rect class="std" x="200" y="372" width="666" height="40" rx="6"/>
+    <text class="t-std" x="533" y="397" text-anchor="middle"><tspan class="mono">http.ServeMux</tspan> — <tspan class="mono">pw.ServeMux</tspan> is a type alias for it</text>
+
+    <path class="flow" d="M 277 436 L 277 420"/>
+    <path class="flow-head" d="M 277 412 L 273 420 L 281 420 Z"/>
+
+    <rect class="fw" x="200" y="436" width="666" height="40" rx="6"/>
+    <text class="t-fw" x="533" y="461" text-anchor="middle">the framework's middlewares — ordinary <tspan class="mono">func(http.Handler) http.Handler</tspan></text>
+
+    <path class="flow" d="M 277 500 L 277 484"/>
+    <path class="flow-head" d="M 277 476 L 273 484 L 281 484 Z"/>
+
+    <rect class="std" x="200" y="500" width="666" height="40" rx="6"/>
+    <text class="mono t-std" x="533" y="525" text-anchor="middle">http.Server</text>
+
+    <!-- the browser, and the two edges it sees -->
+    <rect class="chrome" x="10" y="420" width="140" height="180" rx="8"/>
+    <path class="chrome" d="M 10 456 L 150 456"/>
+    <rect class="chrome" x="22" y="429" width="116" height="18" rx="9"/>
+    <text class="t-gen" x="80" y="500" text-anchor="middle">browser</text>
+
+    <text class="t-edge" x="172" y="512" text-anchor="middle">request</text>
+    <path class="flow" d="M 150 520 L 190 520"/>
+    <path class="flow-head" d="M 198 520 L 190 516 L 190 524 Z"/>
+
+    <path class="flow" d="M 866 212 L 884 212 L 884 570 L 160 570"/>
+    <path class="flow-head" d="M 152 570 L 160 566 L 160 574 Z"/>
+    <text class="t-edge" x="520" y="562" text-anchor="middle">one complete response</text>
+
+    <!-- legend -->
+    <rect class="src" x="14" y="622" width="22" height="13" rx="3"/>
+    <text class="t-gen" x="44" y="633">you write it</text>
+
+    <path class="made" d="M 190 628 L 206 628"/>
+    <path class="made-head" d="M 212 628 L 204 624 L 204 632 Z"/>
+    <text class="t-gen" x="220" y="633">pw generate writes it</text>
+
+    <rect class="gen" x="366" y="622" width="22" height="13" rx="3"/>
+    <text class="t-gen" x="396" y="633">generated code</text>
+
+    <rect class="fw" x="518" y="622" width="22" height="13" rx="3"/>
+    <text class="t-gen" x="548" y="633">framework code</text>
+
+    <rect class="std" x="670" y="622" width="22" height="13" rx="3"/>
+    <text class="t-gen" x="700" y="633">Go standard library</text>
+  </g>
+</svg>
