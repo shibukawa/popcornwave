@@ -6,6 +6,10 @@ title: Request Context Accessors
 Users retrieve individual framework resources without observing data:request-context-capsule or its context key.
 
 ```yaml
+shape:
+  today: every accessor below takes context.Context first, so a handler writes r.Context() at each call
+  direction: policy:request-scoped-accessor-shape adds a base form taking the request handle and renames these with a Context suffix
+  status: proposed, not yet applied to this surface
 surface:
   - pw.Config[T](context.Context) returns one immutable typed binding
   - pw.Logger(context.Context) returns api:logger bound to the current trace and request

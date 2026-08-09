@@ -31,4 +31,8 @@ configuration:
 application:
   - api:application-lifecycle Run applies the configured stack
   - api:application-lifecycle Middlewares returns the same wrapped handler
+portability:
+  framework_set: the concerns listed above are the set decision:backend-specific-middleware ports in full, one implementation per backend behind one build-tagged name
+  application_middleware: backend-specific source with no portability promise, and the wrapping seam stays legal under decision:transport-handle-containment
+  unchanged_here: the configured order, data:middleware-runtime-config, and startup validation, which describe the stack rather than its implementation
 ```

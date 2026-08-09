@@ -96,7 +96,11 @@ func TestWriteHTMLStreamsAwaitBoundaries(t *testing.T) {
 	if fallback < 0 || completion < 0 || completion < fallback {
 		t.Fatalf("fallback then completion not found in order: %q", body)
 	}
-	if !strings.Contains(body, `<tb-boundary id="tb-1"`) {
+	// The placeholder is a comment pair rather than an element: since
+	// system:tinybind v0.4.10 a boundary is marked by delimiters the browser
+	// leaves in place, so the fallback sits in the document's own flow instead
+	// of inside a custom element the page never styled.
+	if !strings.Contains(body, `<!--tb:tb-1-->`) || !strings.Contains(body, `<!--/tb:tb-1-->`) {
 		t.Errorf("placeholder missing: %q", body)
 	}
 }

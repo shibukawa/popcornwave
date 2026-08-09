@@ -336,9 +336,12 @@ func TestInitWizardSeedsAnswersFromShortcutFlags(t *testing.T) {
 	// Every step is listed, asked or not: the seeds have to reach the ones a
 	// different set of answers would have reached instead. The preset row
 	// leads, and the two name rows are the one question asked two ways.
+	// The "No" after the TinyGo answer is the fasthttp build, which these seeds
+	// leave unset: it is asked beside the toolchain because it is the same kind
+	// of question, and it is off unless a project says otherwise.
 	want := []string{
 		"Web site with login", "seeded", "seeded",
-		"Yes", "Both", "Yes", "OIDC", "DynamoDB",
+		"Yes", "No", "Both", "Yes", "OIDC", "DynamoDB",
 		"Yes", "SQLite", "Yes", "No",
 		"Redis or Valkey", "Local emulator", "Yes", "Yes",
 	}
@@ -757,5 +760,70 @@ func TestDynamoScaffoldNamesTheRegisteredTable(t *testing.T) {
 	})
 	if named == 0 {
 		t.Fatal("the dynamo scaffold makes no item call, so nothing directs the codec")
+	}
+}
+
+// The wizard answer reaches popcornwave.toml, and the scaffold it produces is
+// the same one either way: taking the second build adds a declaration, not a
+// different project.
+func TestScaffoldRecordsTheFastHTTPBuildOnlyWhenItWasTaken(t *testing.T) {
+	plain := scaffoldFiles(initOptions{Name: "fixture", Devbox: true})
+	if strings.Contains(plain["popcornwave.toml"], "fasthttp") {
+		t.Errorf("popcornwave.toml answers a question the project never took:\n%s", plain["popcornwave.toml"])
+	}
+
+	taken := scaffoldFiles(initOptions{Name: "fixture", Devbox: true, FastHTTP: true})
+	if !strings.Contains(taken["popcornwave.toml"], "fasthttp = true") {
+		t.Errorf("popcornwave.toml does not record the fasthttp build:\n%s", taken["popcornwave.toml"])
+	}
+	// The key belongs to [project], beside the toolchain it sits next to in the
+	// wizard, rather than to whichever section happened to follow it.
+	project, _, found := strings.Cut(taken["popcornwave.toml"], "\n[generate]")
+	if !found || !strings.Contains(project, "fasthttp = true") {
+		t.Errorf("fasthttp is not in the [project] section:\n%s", taken["popcornwave.toml"])
+	}
+	// Everything else is untouched: the answer changes generation, and a
+	// scaffold that also changed would make it a project mode instead.
+	for name, source := range taken {
+		if name == "popcornwave.toml" {
+			continue
+		}
+		if plain[name] != source {
+			t.Errorf("taking the fasthttp build changed %s, which should be identical", name)
+		}
+	}
+}
+
+// The written key is one loadProjectConfig accepts and reads back, which the
+// unknown-key rejection makes a real risk rather than a formality.
+func TestProjectConfigRoundTripsTheFastHTTPBuild(t *testing.T) {
+	for _, testcase := range []struct {
+		name  string
+		files map[string]string
+		want  bool
+	}{
+		{name: "taken", files: scaffoldFiles(initOptions{Name: "fixture", Devbox: true, FastHTTP: true}), want: true},
+		{name: "absent", files: scaffoldFiles(initOptions{Name: "fixture", Devbox: true}), want: false},
+	} {
+		t.Run(testcase.name, func(t *testing.T) {
+			// The whole scaffold, because the loader validates that every
+			// declared generate directory exists; a lone toml fails on the
+			// first one and never reaches the key under test.
+			root := t.TempDir()
+			for name, source := range testcase.files {
+				target := filepath.Join(root, filepath.FromSlash(name))
+				if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
+					t.Fatal(err)
+				}
+				writeTestFile(t, target, source)
+			}
+			config, err := loadProjectConfig(root)
+			if err != nil {
+				t.Fatalf("scaffolded popcornwave.toml does not load: %v", err)
+			}
+			if config.FastHTTP != testcase.want {
+				t.Errorf("project.fasthttp read as %v, want %v", config.FastHTTP, testcase.want)
+			}
+		})
 	}
 }

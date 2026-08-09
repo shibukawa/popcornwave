@@ -1,8 +1,10 @@
 package pwcli
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"go/build/constraint"
 	"go/parser"
 	"go/token"
 	"os"
@@ -47,7 +49,7 @@ SELECT id, name FROM users WHERE id = {id}
 		t.Fatal(err)
 	}
 	runner := generator.New(options)
-	changes, err := planDirectory(context.Background(), runner, directory, allPurposes, nil)
+	changes, err := planDirectory(context.Background(), runner, directory, allPurposes, nil, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -75,7 +77,7 @@ SELECT id, name FROM users WHERE id = {id}
 	if err := applyFileChanges(changes); err != nil {
 		t.Fatal(err)
 	}
-	changes, err = planDirectory(context.Background(), runner, directory, allPurposes, nil)
+	changes, err = planDirectory(context.Background(), runner, directory, allPurposes, nil, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -85,7 +87,7 @@ SELECT id, name FROM users WHERE id = {id}
 
 	stale := filepath.Join(directory, "obsolete_pw_gen.go")
 	writeTestFile(t, stale, "package fixture\n")
-	changes, err = planDirectory(context.Background(), runner, directory, allPurposes, nil)
+	changes, err = planDirectory(context.Background(), runner, directory, allPurposes, nil, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -130,7 +132,7 @@ export component Gauge(id: string): html {
 	if err != nil {
 		t.Fatal(err)
 	}
-	changes, err := planDirectory(context.Background(), generator.New(options), directory, allPurposes, nil)
+	changes, err := planDirectory(context.Background(), generator.New(options), directory, allPurposes, nil, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -200,7 +202,7 @@ export component Document(children: html?): html {
 	if err != nil {
 		t.Fatal(err)
 	}
-	changes, err := planDirectory(context.Background(), generator.New(options), directory, allPurposes, nil)
+	changes, err := planDirectory(context.Background(), generator.New(options), directory, allPurposes, nil, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -237,7 +239,7 @@ export component Plain(label: string): html {
 	if err != nil {
 		t.Fatal(err)
 	}
-	changes, err := planDirectory(context.Background(), generator.New(options), directory, allPurposes, nil)
+	changes, err := planDirectory(context.Background(), generator.New(options), directory, allPurposes, nil, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -287,7 +289,7 @@ export component Plain(label: string): html {
 	if err != nil {
 		t.Fatal(err)
 	}
-	changes, err := planDirectory(context.Background(), generator.New(options), directory, allPurposes, nil)
+	changes, err := planDirectory(context.Background(), generator.New(options), directory, allPurposes, nil, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -329,7 +331,7 @@ export component Plain(label: string): html {
 	if err != nil {
 		t.Fatal(err)
 	}
-	changes, err := planDirectory(context.Background(), generator.New(options), directory, allPurposes, nil)
+	changes, err := planDirectory(context.Background(), generator.New(options), directory, allPurposes, nil, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -718,7 +720,7 @@ func TestPlanDirectoryGeneratesDynamoArtifacts(t *testing.T) {
 		t.Fatal(err)
 	}
 	purposes := generationPurposes{handlers: true, dynamo: true}
-	changes, err := planDirectory(context.Background(), generator.New(options), directory, purposes, nil)
+	changes, err := planDirectory(context.Background(), generator.New(options), directory, purposes, nil, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -755,7 +757,7 @@ func TestPlanDirectoryLeavesDynamoSourcesUnreadWithoutThePurpose(t *testing.T) {
 		t.Fatal(err)
 	}
 	changes, err := planDirectory(context.Background(), generator.New(options), directory,
-		generationPurposes{handlers: true}, nil)
+		generationPurposes{handlers: true}, nil, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -775,7 +777,7 @@ func TestPlanDirectoryRegistersTheGeneratedTable(t *testing.T) {
 		t.Fatal(err)
 	}
 	changes, err := planDirectory(context.Background(), generator.New(options), directory,
-		generationPurposes{handlers: true, dynamo: true}, nil)
+		generationPurposes{handlers: true, dynamo: true}, nil, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -916,7 +918,7 @@ func TestPlanDirectoryGeneratesFirestoreArtifacts(t *testing.T) {
 	// A records directory is a Firestore directory and nothing else, which is
 	// what the scaffold writes and what lets the whole codec be emitted.
 	purposes := generationPurposes{firestore: true}
-	changes, err := planDirectory(context.Background(), generator.New(options), directory, purposes, nil)
+	changes, err := planDirectory(context.Background(), generator.New(options), directory, purposes, nil, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -960,7 +962,7 @@ func TestGeneratedFirestoreKindsRegisterThemselves(t *testing.T) {
 		t.Fatal(err)
 	}
 	changes, err := planDirectory(context.Background(), generator.New(options), directory,
-		generationPurposes{firestore: true}, nil)
+		generationPurposes{firestore: true}, nil, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -993,7 +995,7 @@ func TestPlanDirectoryLeavesFirestoreSourcesUnreadWithoutThePurpose(t *testing.T
 		t.Fatal(err)
 	}
 	changes, err := planDirectory(context.Background(), generator.New(options), directory,
-		generationPurposes{handlers: true, dynamo: true}, nil)
+		generationPurposes{handlers: true, dynamo: true}, nil, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1001,5 +1003,164 @@ func TestPlanDirectoryLeavesFirestoreSourcesUnreadWithoutThePurpose(t *testing.T
 		if strings.Contains(string(change.source), "ReadingsBySensor") {
 			t.Fatalf("an unlisted declaration was generated from:\n%s", change.source)
 		}
+	}
+}
+
+// constrainNetHTTP decides per file and is safe to run over its own output. The
+// build constraint it writes has to be one the toolchain recognizes, which is a
+// question about placement and the blank line after it rather than about the
+// text, so the assertion goes through go/build/constraint rather than comparing
+// strings.
+func TestConstrainNetHTTPMarksOnlyTransportFilesAndOnlyOnce(t *testing.T) {
+	transport := []byte("// Code generated by Popcorn Wave via TinyBind; DO NOT EDIT.\n\npackage fixture\n\nimport \"net/http\"\n\nfunc h(w http.ResponseWriter, r *http.Request) {}\n")
+	plain := []byte("// Code generated by Popcorn Wave via TinyBind; DO NOT EDIT.\n\npackage fixture\n\nimport \"strconv\"\n\nvar _ = strconv.Itoa\n")
+
+	// A project that declared no second build gets its bytes back untouched,
+	// whatever the file imports.
+	for _, source := range [][]byte{transport, plain} {
+		got, err := constrainNetHTTP(source, false)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !bytes.Equal(got, source) {
+			t.Error("a project without the fasthttp build had its generated source rewritten")
+		}
+	}
+
+	marked, err := constrainNetHTTP(transport, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.HasPrefix(marked, []byte(netHTTPConstraint)) {
+		t.Fatalf("net/http file was not constrained:\n%s", marked)
+	}
+	// Idempotence is what makes pw generate --check meaningful: the file on disk
+	// already carries the constraint, and planning must produce those same bytes
+	// rather than stacking a second one onto them.
+	again, err := constrainNetHTTP(marked, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(again, marked) {
+		t.Error("constraining an already-constrained file changed it")
+	}
+
+	untouched, err := constrainNetHTTP(plain, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(untouched, plain) {
+		t.Error("a generated file importing no net/http was constrained out of the fasthttp build")
+	}
+
+	// The result must still be Go, and its first line must be a build
+	// constraint the toolchain reads rather than a comment that looks like one.
+	if _, err := parser.ParseFile(token.NewFileSet(), "marked.go", marked, parser.AllErrors); err != nil {
+		t.Fatalf("constrained source no longer parses: %v", err)
+	}
+	first, _, _ := bytes.Cut(marked, []byte("\n"))
+	if !constraint.IsGoBuild(string(first)) {
+		t.Fatalf("first line is not a build constraint: %q", first)
+	}
+	expression, err := constraint.Parse(string(first))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if expression.Eval(func(tag string) bool { return tag == "fasthttp" }) {
+		t.Error("the constraint admits the file into the fasthttp build")
+	}
+	if !expression.Eval(func(string) bool { return false }) {
+		t.Error("the constraint excludes the file from an ordinary net/http build")
+	}
+}
+
+// The generator emits the constraint itself once a backend is selected, and it
+// writes it below the generated-code header rather than above it. Adding a
+// second one produces a file with two //go:build lines, which does not compile,
+// so this framework defers to whatever is already there.
+func TestAConstraintTheGeneratorAlreadyEmittedIsNotDuplicated(t *testing.T) {
+	// The upstream layout: header first, constraint second. A check for a
+	// leading constraint passes this and then breaks the file.
+	upstream := []byte("// Code generated by tinybind; DO NOT EDIT.\n\n//go:build !fasthttp\n\npackage fixture\n\nimport \"net/http\"\n\nfunc h(w http.ResponseWriter, r *http.Request) {}\n")
+	got, err := constrainNetHTTP(upstream, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(got, upstream) {
+		t.Errorf("the source was rewritten:\n%s", got)
+	}
+	if n := bytes.Count(got, []byte("//go:build")); n != 1 {
+		t.Errorf("file carries %d build constraints, want 1:\n%s", n, got)
+	}
+	// The same is true of the tag for the other side of the pair, which a
+	// leading-prefix check would also have missed.
+	including := bytes.Replace(upstream, []byte("!fasthttp"), []byte("fasthttp"), 1)
+	got, err = constrainNetHTTP(including, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(got, including) {
+		t.Errorf("a file constrained to the other build was rewritten:\n%s", got)
+	}
+}
+
+// buildConstraint reads the header and stops at the package clause, so
+// something further down that looks like a constraint is not mistaken for one.
+func TestBuildConstraintReadsOnlyTheHeader(t *testing.T) {
+	body := []byte("// Code generated; DO NOT EDIT.\n\npackage fixture\n\n// //go:build fasthttp\nconst s = \"//go:build fasthttp\"\n")
+	if found, ok := buildConstraint(body); ok {
+		t.Errorf("found a constraint in the body: %q", found)
+	}
+	header := []byte("//go:build !fasthttp\n\npackage fixture\n")
+	found, ok := buildConstraint(header)
+	if !ok || found != "//go:build !fasthttp" {
+		t.Errorf("buildConstraint = %q, %v", found, ok)
+	}
+}
+
+// Merging rebuilds a file from its declarations, which loses the header the
+// artifacts arrived with. A constraint in that header has to survive, or a file
+// the other backend supplies for itself lands in both builds.
+func TestMergingCarriesTheConstraintTheArtifactsArrivedWith(t *testing.T) {
+	artifacts := []generator.Artifact{
+		{PackageName: "fixture", Content: []byte("// Code generated by tinybind; DO NOT EDIT.\n\n//go:build !fasthttp\n\npackage fixture\n\nimport \"net/http\"\n\nfunc a(w http.ResponseWriter) {}\n")},
+		{PackageName: "fixture", Content: []byte("// Code generated by tinybind; DO NOT EDIT.\n\n//go:build !fasthttp\n\npackage fixture\n\nfunc b() {}\n")},
+	}
+	merged, err := mergeArtifacts(artifacts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	found, ok := buildConstraint(merged)
+	if !ok || found != "//go:build !fasthttp" {
+		t.Fatalf("merged file lost its constraint (%q, %v):\n%s", found, ok, merged)
+	}
+	if n := bytes.Count(merged, []byte("//go:build")); n != 1 {
+		t.Errorf("merged file carries %d constraints, want 1:\n%s", n, merged)
+	}
+	if _, err := parser.ParseFile(token.NewFileSet(), "merged.go", merged, parser.AllErrors); err != nil {
+		t.Fatalf("merged file does not parse: %v\n%s", err, merged)
+	}
+	// And constraining it again is a no-op, so the write-if-changed comparison
+	// stays stable rather than rewriting the file on every run.
+	again, err := constrainNetHTTP(merged, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(again, merged) {
+		t.Error("constraining an already-constrained merge changed it")
+	}
+}
+
+// Two artifacts constrained to different builds do not belong in one file, and
+// silently picking one would produce a file that is wrong under the other tag.
+func TestMergingArtifactsWithDisagreeingConstraintsIsRefused(t *testing.T) {
+	artifacts := []generator.Artifact{
+		{PackageName: "fixture", Content: []byte("//go:build !fasthttp\n\npackage fixture\n\nfunc a() {}\n")},
+		{PackageName: "fixture", Content: []byte("//go:build fasthttp\n\npackage fixture\n\nfunc b() {}\n")},
+	}
+	if _, err := mergeArtifacts(artifacts); err == nil {
+		t.Fatal("artifacts for two different builds were merged into one file")
+	} else if !strings.Contains(err.Error(), "build constraint") {
+		t.Errorf("the error does not name the cause: %v", err)
 	}
 }

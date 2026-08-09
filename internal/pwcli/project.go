@@ -191,7 +191,14 @@ type projectConfig struct {
 	// decides which compiler reads it, the other which dialect it is written
 	// in. The runtime engine still comes from the rdb DSN scheme, which must
 	// agree with this.
-	Database  string
+	Database string
+	// FastHTTP declares that this project is built for the fasthttp backend as
+	// well as for net/http. It adds a build rather than selecting one: the
+	// net/http source stays the source an author writes, and the second build
+	// is derived from it. What it changes here is generation, which puts a
+	// !fasthttp constraint on every file it emits that imports net/http, so the
+	// two builds do not both define the same symbols.
+	FastHTTP  bool
 	Generate  generationScope
 	Watch     watchConfig
 	IdP       idpConfig
@@ -225,6 +232,7 @@ func loadProjectConfig(root string) (projectConfig, error) {
 	}
 	known := []string{
 		"project.name", "project.kind", "project.main", "project.toolchain", "project.database",
+		"project.fasthttp",
 		"packages",
 		"generate.handlers", "generate.templates", "generate.queries", "generate.config", "generate.pages",
 		"generate.dynamo", "generate.firestore",
@@ -287,6 +295,12 @@ func loadProjectConfig(root string) (projectConfig, error) {
 	}
 	if !validEngine(config.Database) {
 		return projectConfig{}, fmt.Errorf("popcornwave.toml: project.database must be %s", engineNames())
+	}
+	if value, ok := document.Get("project.fasthttp"); ok {
+		config.FastHTTP, err = value.AsBool()
+		if err != nil {
+			return projectConfig{}, fmt.Errorf("popcornwave.toml: project.fasthttp: %w", err)
+		}
 	}
 	config.Generate, err = generationSources(document, root)
 	if err != nil {

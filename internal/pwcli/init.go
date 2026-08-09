@@ -277,6 +277,12 @@ type initOptions struct {
 	Router   string
 	TinyGo   bool
 	Tailwind bool
+	// FastHTTP declares the fasthttp backend as a second build target. It adds
+	// a build rather than replacing one, so a project taking it still writes
+	// net/http handlers and still runs on net/http; what it buys is that
+	// generation constrains its net/http output, which is what a second build
+	// needs in order to supply its own.
+	FastHTTP bool
 	// Images installs the build-time image conversion and the encoders it
 	// runs. It is separate from the other asset answers because it is the only
 	// one whose usefulness depends on host tools.
@@ -853,7 +859,7 @@ func scaffoldFiles(options initOptions) map[string]string {
 name = "` + name + `"
 main = "./cmd/` + name + `"
 toolchain = "` + projectToolchain(options) + `"
-` + projectDatabaseConfig(options) + `
+` + projectDatabaseConfig(options) + projectFastHTTPConfig(options) + `
 # Each purpose reads only the directories it lists, and nothing else. A source
 # directory is invisible to that purpose until it appears here.
 [generate]
@@ -1360,6 +1366,18 @@ func projectDatabaseConfig(options initOptions) string {
 		return ""
 	}
 	return "database = \"" + options.Engine + "\"\n"
+}
+
+// projectFastHTTPConfig records the second backend. The key is written only
+// when it was taken: an absent key and a false one mean the same thing, and a
+// project that never answered the question should not carry an answer to it.
+func projectFastHTTPConfig(options initOptions) string {
+	if !options.FastHTTP {
+		return ""
+	}
+	return "# Build for fasthttp as well as net/http. Generated files importing\n" +
+		"# net/http carry a !fasthttp constraint, so the second build supplies its own.\n" +
+		"fasthttp = true\n"
 }
 
 // databaseDriverImport links the selected engine into the application binary.

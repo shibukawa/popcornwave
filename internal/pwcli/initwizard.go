@@ -73,6 +73,28 @@ func applicationSteps(defaults initOptions) []wizardStep[initOptions] {
 				apply:       func(target *initOptions) { target.TinyGo = false },
 			},
 		),
+		// Asked next to the toolchain because it is the same kind of answer: a
+		// build-time property of the source tree that everything below inherits.
+		// It is not a router question — both routers work either way — and it is
+		// not exclusive with the toolchain, so it gets its own step rather than a
+		// fourth option on one of theirs.
+		newChoiceStep(
+			"fasthttp backend",
+			"Builds this project for fasthttp in addition to net/http. Handlers stay net/http; "+
+				"generated files importing net/http gain a !fasthttp constraint so the second build "+
+				"can supply its own. Take it only if that second build is planned.",
+			yesNoCursor(defaults.FastHTTP),
+			wizardChoice[initOptions]{
+				name:        "Yes",
+				description: "project.fasthttp = true, and generated net/http files are constrained to !fasthttp",
+				apply:       func(target *initOptions) { target.FastHTTP = true },
+			},
+			wizardChoice[initOptions]{
+				name:        "No",
+				description: "net/http only, and generated files carry no build constraint",
+				apply:       func(target *initOptions) { target.FastHTTP = false },
+			},
+		),
 		newChoiceStep(
 			"Router",
 			"Which routers this project starts with. They coexist on one mux, pw add installs "+

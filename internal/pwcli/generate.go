@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"go/ast"
+	"go/build/constraint"
 	"go/format"
 	"go/parser"
 	"go/token"
@@ -110,7 +111,7 @@ func generateProject(ctx context.Context, check bool, stdout io.Writer, listPath
 	runner := generator.New(options)
 	var changes []fileChange
 	for _, directory := range directories {
-		planned, err := planDirectory(ctx, runner, directory, directoryPurposes(root, config.Generate, directory), pageArtifacts[directory])
+		planned, err := planDirectory(ctx, runner, directory, directoryPurposes(root, config.Generate, directory), pageArtifacts[directory], config.FastHTTP)
 		if err != nil {
 			return 0, err
 		}
@@ -252,6 +253,10 @@ import (
 	}
 	generated.WriteString(")\n")
 	source, err := format.Source([]byte(generated.String()))
+	if err != nil {
+		return nil, err
+	}
+	source, err = constrainNetHTTP(source, config.FastHTTP)
 	if err != nil {
 		return nil, err
 	}
@@ -558,7 +563,7 @@ const disabledTemplatePattern = "*.not-a-generation-source"
 // one directory has one staleness sweep, and so a component and a binder that
 // derive the same base name merge into one file rather than deleting each
 // other.
-func planDirectory(ctx context.Context, runner *generator.Generator, directory string, purposes generationPurposes, extra []generator.Artifact) ([]fileChange, error) {
+func planDirectory(ctx context.Context, runner *generator.Generator, directory string, purposes generationPurposes, extra []generator.Artifact, fastHTTP bool) ([]fileChange, error) {
 	goSources, err := hasGoSources(directory)
 	if err != nil {
 		return nil, err
@@ -645,6 +650,13 @@ func planDirectory(ctx context.Context, runner *generator.Generator, directory s
 	for target, group := range grouped {
 		expected[target] = true
 		source, err := mergeArtifacts(group)
+		if err != nil {
+			return nil, err
+		}
+		// Before the comparison below, not after: the file on disk carries the
+		// constraint, so a source without it would read as changed on every run
+		// and --check would call a freshly generated project stale.
+		source, err = constrainNetHTTP(source, fastHTTP)
 		if err != nil {
 			return nil, err
 		}
@@ -1070,6 +1082,72 @@ func hasGoSources(directory string) (bool, error) {
 	return false, nil
 }
 
+// netHTTPConstraint excludes a generated file from the fasthttp build. It is
+// written above the generated-code header rather than below it, which is where
+// a reader looks for a build constraint, and the blank line after it is what
+// keeps it a constraint instead of an ordinary comment.
+const netHTTPConstraint = "//go:build !fasthttp\n\n"
+
+// constrainNetHTTP marks a generated file as belonging to the net/http build
+// when the project declares a fasthttp build too.
+//
+// The condition is the file's own imports rather than its kind: a generated
+// file naming net/http is one the other build has to supply for itself, and one
+// that does not is shared by both. Deciding it per file is what keeps the
+// constraint off the binders, config, and SQL that have no transport in them.
+//
+// A project that declared no second build gets its source back untouched, so
+// nothing changes for it, per policy:generated-artifacts making output a
+// function of declared configuration.
+func constrainNetHTTP(source []byte, fastHTTP bool) ([]byte, error) {
+	if !fastHTTP {
+		return source, nil
+	}
+	// Whatever the generator already decided wins, wherever in the header it
+	// put it. From system:tinybind v0.4.9 a run with a backend selected emits
+	// the constraint itself, one line below the generated-code header rather
+	// than above it; a check for a leading constraint would miss that and add a
+	// second, and a file carrying two //go:build lines does not compile.
+	//
+	// Deferring rather than reconciling is the point: once the transform is
+	// wired the generator owns this entirely, and this function becomes dead
+	// code to delete rather than a second opinion to keep in agreement.
+	if _, ok := buildConstraint(source); ok {
+		return source, nil
+	}
+	file, err := parser.ParseFile(token.NewFileSet(), "generated.go", source, parser.ImportsOnly)
+	if err != nil {
+		return nil, fmt.Errorf("popcornwave: read generated imports: %w", err)
+	}
+	for _, item := range file.Imports {
+		if item.Path.Value != `"net/http"` {
+			continue
+		}
+		return append([]byte(netHTTPConstraint), source...), nil
+	}
+	return source, nil
+}
+
+// buildConstraint returns the //go:build expression a generated file carries,
+// and whether it carries one at all.
+//
+// Only the header is read, which is the whole of where a constraint may legally
+// appear: the first line at or after the package clause ends the search, so a
+// string or comment further down that happens to look like one is not mistaken
+// for it.
+func buildConstraint(source []byte) (string, bool) {
+	for line := range bytes.Lines(source) {
+		text := strings.TrimSpace(string(line))
+		if strings.HasPrefix(text, "package ") {
+			return "", false
+		}
+		if constraint.IsGoBuild(text) {
+			return text, true
+		}
+	}
+	return "", false
+}
+
 func mergeArtifacts(artifacts []generator.Artifact) ([]byte, error) {
 	if len(artifacts) == 0 {
 		return nil, fmt.Errorf("popcornwave: no artifacts to merge")
@@ -1078,6 +1156,26 @@ func mergeArtifacts(artifacts []generator.Artifact) ([]byte, error) {
 		return artifacts[0].Content, nil
 	}
 	packageName := artifacts[0].PackageName
+	// A merged file is rebuilt from declarations, which loses the header the
+	// artifacts arrived with. That header may carry a build constraint the
+	// generator put there, so it is collected before the rebuild and written
+	// back afterwards; dropping it would put a file the other backend supplies
+	// for itself into both builds.
+	//
+	// Disagreement is refused rather than resolved. Two artifacts constrained
+	// to different builds do not belong in one file, and merging them would
+	// produce a file that compiles under one tag and is wrong under the other.
+	constrained := ""
+	for _, artifact := range artifacts {
+		found, ok := buildConstraint(artifact.Content)
+		if !ok {
+			continue
+		}
+		if constrained != "" && constrained != found {
+			return nil, fmt.Errorf("popcornwave: artifacts merged into one file disagree on their build constraint: %q and %q", constrained, found)
+		}
+		constrained = found
+	}
 	fset := token.NewFileSet()
 	imports := make(map[string]*ast.ImportSpec)
 	var declarations []ast.Decl
@@ -1124,6 +1222,9 @@ func mergeArtifacts(artifacts []generator.Artifact) ([]byte, error) {
 	file := &ast.File{Name: ast.NewIdent(packageName), Decls: declarations}
 	var output bytes.Buffer
 	output.WriteString("// Code generated by Popcorn Wave via TinyBind; DO NOT EDIT.\n\n")
+	if constrained != "" {
+		output.WriteString(constrained + "\n\n")
+	}
 	if err := format.Node(&output, fset, file); err != nil {
 		return nil, err
 	}

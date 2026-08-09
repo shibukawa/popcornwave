@@ -5,6 +5,7 @@ package pages
 import (
 	"github.com/shibukawa/popcornwave/pw"
 	"github.com/shibukawa/tinybind-go/htmlbind"
+	"github.com/shibukawa/tinybind-go/htmlbind/delta"
 	"github.com/shibukawa/tinybind-go/htmlupdate"
 	"net/http"
 	"net/url"
@@ -37,15 +38,16 @@ var planCardOps = htmlbind.Builder[CardParams]{}
 // Slot arguments are excluded: their content belongs to the child boundary,
 // so a frame stays comparable when only its child changed.
 func planCardInput(p CardParams) string {
-	return htmlbind.CanonJoin(
-		htmlbind.CanonString[string](p.Id),
-		htmlbind.CanonInt(p.Page),
+	return delta.CanonJoin(
+		delta.CanonString[string](p.Id),
+		delta.CanonInt(p.Page),
 	)
 }
 
 var planCardBoundary = &htmlbind.Boundary[CardParams]{
 	ComponentID: "pages.page.Card",
 	Attr:        "data-tb-id",
+	Instance:    func(p CardParams) string { return p.Id },
 	Input:       planCardInput,
 }
 
@@ -74,7 +76,7 @@ var planCardPlan = &htmlbind.Plan[CardParams]{
 		planCardOps.Attr("id", func(p CardParams) (string, bool) { return htmlbind.Escape(p.Id), true }),
 		planCardOps.Attr("data-tb-kind", func(CardParams) (string, bool) { return CardKind, true }),
 		planCardOps.Static(">card page "),
-		planCardOps.Text(func(p CardParams) string { return htmlbind.FormatInt(p.Page) }),
+		planCardOps.Raw(func(p CardParams) string { return htmlbind.FormatInt(p.Page) }),
 		planCardOps.Static("</article> "),
 	},
 }

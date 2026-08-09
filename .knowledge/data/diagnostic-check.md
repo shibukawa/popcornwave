@@ -15,13 +15,14 @@ identity:
     PW03xx: rule:storage-checks
     PW04xx: rule:configuration-advisories, including wiring, secrets, and the identity provider
     PW05xx: rule:production-readiness-checks
+    PW06xx: rule:transport-handle-checks, the first range whose runner is an analyzer rather than api:cli-doctor
 fields:
   id: the PW identifier
   title: the one-line form that appears in the report, such as "session secret is set from config file"
   severity: error, warning, or note, resolved per diagnosed token by the owning catalog
   scope: the data:runtime-environment tokens the check applies to
-  inputs: which of merged configuration, import graph, project files, data:route-table, process environment, or network the check needs
-  phase: startup, doctor, or both, per decision:shared-check-catalog
+  inputs: which of merged configuration, import graph, project files, data:route-table, typed application Go syntax, process environment, or network the check needs
+  phase: startup, doctor, vet, or a combination, per decision:shared-check-catalog
   remedy: the command, import line, or key that resolves it
   docs: one page per identifier
 documentation:

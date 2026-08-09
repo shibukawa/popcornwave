@@ -174,9 +174,31 @@ func cardComponent(kind string) htmlupdate.Reloadable {
 	return htmlupdate.Reloadable{
 		KindID: kind,
 		Render: func(_ *http.Request, instanceID string, values url.Values) (htmlbind.Fragment, error) {
-			return staticFragment(`<article id="` + instanceID + `">page ` + values.Get("page") + `</article>`), nil
+			return reloadableFragment(kind, instanceID,
+				`<article id="`+instanceID+`">page `+values.Get("page")+`</article>`), nil
 		},
 	}
+}
+
+// reloadableFragment is what generated code produces for a reloadable
+// component: a plan declaring its own update boundary, so the fragment is
+// addressable at the instance the request named.
+//
+// A plain fragment is not. Since system:tinybind v0.4.10 a redraw checks that
+// the component it bound answers at the requested id, because a registration
+// assembled by hand can get it wrong and the failure would otherwise be a
+// response carrying no operations.
+func reloadableFragment(componentID, instanceID, markup string) HTMLFragment {
+	builder := htmlbind.Builder[struct{}]{}
+	return htmlbind.Bind(&htmlbind.Plan[struct{}]{
+		Ops: []htmlbind.Op[struct{}]{builder.Static(markup)},
+		Boundary: &htmlbind.Boundary[struct{}]{
+			ComponentID: componentID,
+			Attr:        "data-" + UpdateAttributePrefix + "-boundary",
+			Input:       func(struct{}) string { return "" },
+			Instance:    func(struct{}) string { return instanceID },
+		},
+	}, struct{}{})
 }
 
 // withEmptyReloadableRegistry isolates one test from the process-wide set a
