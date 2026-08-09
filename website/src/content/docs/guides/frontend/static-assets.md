@@ -116,6 +116,12 @@ build can see has been rewritten. When one it cannot rewrite remains — a path 
 a `meta` tag, a URL a script builds — the source is kept and the build says so.
 That way a page never loses an image to a conversion it did not know about.
 
+With the script build on, TypeScript is an input rather than a file the tree
+owes anyone, so a module an entry imported is not served either. No browser runs
+it, and the source map already carries its text, so a stack trace still names the
+authored line. The same retention rule applies: a `.ts` some Go code still names
+stays, and the build says why.
+
 ### A built script needs `type="module"`
 
 The build emits a module, and a module under a classic `<script src>` is a

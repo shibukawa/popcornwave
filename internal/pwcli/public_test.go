@@ -234,6 +234,81 @@ func TestBuildDerivedAssetsDropsAConvertedTSXEntry(t *testing.T) {
 	}
 }
 
+// TestBuildDerivedAssetsDoesNotServeABundledModule covers the file no conversion
+// produces an output for: a module an entry imported. Nothing maps it back to a
+// replacement, so before this it was copied out beside the bundle it had been
+// compiled into, where a browser could read the source but never run it.
+func TestBuildDerivedAssetsDoesNotServeABundledModule(t *testing.T) {
+	root := derivedFixture(t)
+	writeNestedTestFile(t, filepath.Join(root, "public", "islands", "counter.tsx"),
+		"import './view';\n")
+	writeNestedTestFile(t, filepath.Join(root, "public", "islands", "view.tsx"),
+		"export const view = 1;\n")
+	writeNestedTestFile(t, filepath.Join(root, filepath.FromSlash(derivedStageDir), "islands", "counter.js"),
+		"const view=1;\n")
+
+	report, err := buildDerivedAssets(root, assetsConfig{Scripts: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	output := filepath.Join(root, filepath.FromSlash(derivedPublicDir))
+	if _, err := os.Stat(filepath.Join(output, "islands", "view.tsx")); !os.IsNotExist(err) {
+		t.Errorf("an imported module still ships: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(output, "islands", "counter.js")); err != nil {
+		t.Errorf("the bundle is missing: %v", err)
+	}
+	// The entry is a conversion, and stays reported as one.
+	if len(report.unserved) != 1 || !strings.Contains(report.unserved[0], "view.tsx") {
+		t.Errorf("report.unserved = %v", report.unserved)
+	}
+	if len(report.converted) != 1 || !strings.Contains(report.converted[0], "counter.tsx") {
+		t.Errorf("report.converted = %v", report.converted)
+	}
+}
+
+// TestBuildDerivedAssetsServesTypeScriptWithoutTheScriptBuild is the other half
+// of that rule. With no script build nothing consumes the file, and a file the
+// build does not understand is served as written.
+func TestBuildDerivedAssetsServesTypeScriptWithoutTheScriptBuild(t *testing.T) {
+	root := derivedFixture(t)
+	writeNestedTestFile(t, filepath.Join(root, "public", "js", "app.ts"), "export const x = 1;\n")
+
+	report, err := buildDerivedAssets(root, assetsConfig{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	output := filepath.Join(root, filepath.FromSlash(derivedPublicDir))
+	if _, err := os.Stat(filepath.Join(output, "js", "app.ts")); err != nil {
+		t.Errorf("a file no build consumed was dropped: %v", err)
+	}
+	if len(report.unserved) != 0 {
+		t.Errorf("report.unserved = %v", report.unserved)
+	}
+}
+
+// TestBuildDerivedAssetsRetainsAReferencedModule puts the new branch behind the
+// same safety valve the conversions use: a reference the build cannot rewrite
+// keeps the file, because dropping it would break a page the build cannot see.
+func TestBuildDerivedAssetsRetainsAReferencedModule(t *testing.T) {
+	root := derivedFixture(t)
+	writeNestedTestFile(t, filepath.Join(root, "public", "js", "worker.ts"), "self.onmessage = () => {};\n")
+	writeNestedTestFile(t, filepath.Join(root, "handlers", "page.go"),
+		"package handlers\n\nconst workerURL = \"/public/js/worker.ts\"\n")
+
+	report, err := buildDerivedAssets(root, assetsConfig{Scripts: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	output := filepath.Join(root, filepath.FromSlash(derivedPublicDir))
+	if _, err := os.Stat(filepath.Join(output, "js", "worker.ts")); err != nil {
+		t.Errorf("a source something still names was dropped: %v", err)
+	}
+	if len(report.retained) != 1 || !strings.Contains(report.retained[0], "handlers/page.go") {
+		t.Errorf("report.retained = %v", report.retained)
+	}
+}
+
 // TestBuildDerivedAssetsRetainsAReferencedSource covers the one case where
 // dropping a converted source would break a page: a reference the build cannot
 // rewrite, such as one written in Go.

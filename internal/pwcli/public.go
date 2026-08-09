@@ -48,4 +48,7 @@ func reportDerivedAssets(stdout io.Writer, report derivedReport) {
 	for _, line := range report.retained {
 		fmt.Fprintf(stdout, "asset: source retained %s\n", line)
 	}
+	for _, line := range report.unserved {
+		fmt.Fprintf(stdout, "asset: not served %s (TypeScript is a build input)\n", line)
+	}
 }
