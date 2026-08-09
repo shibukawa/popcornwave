@@ -41,7 +41,7 @@ request_attributes:
   effect: every record taken from the context afterwards carries them without a handler passing them along
 implementation:
   backend: decision:slog-handler-log-backend
-  sinks: one stdout sink, one OTLP sink, or both under policy:log-emission
+  sinks: stdout, OTLP, and requirement:local-jsonl-log-capture available only under api:cli-dev, selected by policy:log-emission
   otel: adapt calls to requirement:contrib-otel Logger.Emit with the captured span restored on the context
   stdout: apply policy:log-emission
 ```

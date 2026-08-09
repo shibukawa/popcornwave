@@ -67,6 +67,11 @@ func buildObservability(config ObservabilityConfig, env string) (*observability,
 		}
 		sinks = append(sinks, pwruntime.NewSlogSink(handler))
 	}
+	fileSink, fileCloser := developmentLogSink(config, minimum, env, os.Stderr)
+	if fileSink != nil {
+		sinks = append(sinks, fileSink)
+		registerCleanup("development log", func(context.Context) error { return fileCloser.Close() })
+	}
 	resolved.backend = pwruntime.NewLogBackend(minimum, sinks...)
 	setProcessBackend(resolved.backend)
 	return resolved, nil

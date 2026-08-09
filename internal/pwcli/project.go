@@ -15,6 +15,7 @@ const (
 	defaultTailwindOutput = "public/generated/app.css"
 	defaultMigrationDir   = "migrations"
 	defaultIdPConfig      = "devidp.toml"
+	defaultDevLogDir      = ".log"
 	// defaultIdPPort is what the scaffold pins the development provider to. A
 	// reserved port would move on every run, and the issuer it appears in is
 	// part of the account identity the scaffolded resolver derives.
@@ -97,6 +98,14 @@ type otelConfig struct {
 	Enabled bool
 	Port    int
 	Max     int
+}
+
+// devLogsConfig selects the structured local record file pw dev asks the
+// application process to append. It is tooling configuration, not runtime
+// observability configuration: deployed processes never see the selected path.
+type devLogsConfig struct {
+	Enabled   bool
+	Directory string
 }
 
 // consoleConfig selects the development console `pw dev` serves beside the
@@ -225,6 +234,7 @@ type projectConfig struct {
 	Watch     watchConfig
 	IdP       idpConfig
 	Otel      otelConfig
+	Logs      devLogsConfig
 	Console   consoleConfig
 	Migration migrationConfig
 	Seed      seedConfig
@@ -262,6 +272,7 @@ func loadProjectConfig(root string) (projectConfig, error) {
 		"seed.auto",
 		"dev.idp.enabled", "dev.idp.config", "dev.idp.port",
 		"dev.otel.enabled", "dev.otel.port", "dev.otel.max",
+		"dev.logs.enabled", "dev.logs.directory",
 		"dev.console.enabled", "dev.console.port", "dev.console.assets.enabled",
 		"dev.console.overlay.enabled", "dev.console.overlay.reload",
 		"dev.console.launcher.enabled", "dev.console.launcher.corner",
@@ -389,6 +400,25 @@ func loadProjectConfig(root string) (projectConfig, error) {
 		}
 		config.Otel.Max = int(max)
 	}
+	config.Logs.Enabled = true
+	if value, ok := document.Get("dev.logs.enabled"); ok {
+		config.Logs.Enabled, err = value.AsBool()
+		if err != nil {
+			return projectConfig{}, fmt.Errorf("popcornwave.toml: dev.logs.enabled: %w", err)
+		}
+	}
+	config.Logs.Directory, err = optionalScalar(document, "dev.logs.directory")
+	if err != nil {
+		return projectConfig{}, err
+	}
+	if config.Logs.Directory == "" {
+		config.Logs.Directory = defaultDevLogDir
+	}
+	logDirectory := filepath.Clean(filepath.FromSlash(config.Logs.Directory))
+	if filepath.IsAbs(logDirectory) || logDirectory == "." || logDirectory == ".." || strings.HasPrefix(logDirectory, ".."+string(filepath.Separator)) {
+		return projectConfig{}, fmt.Errorf("popcornwave.toml: dev.logs.directory must be a relative directory within the project")
+	}
+	config.Logs.Directory = filepath.ToSlash(logDirectory)
 	config.Console.Enabled = true
 	config.Console.Assets = true
 	config.Console.Overlay = true

@@ -20,7 +20,8 @@ defines the loop.
 4. builds the Tailwind stylesheet and starts its watcher, if Tailwind is enabled;
 5. starts the development identity provider, if `dev.idp.enabled` is `true`;
 6. starts the telemetry viewer, unless `dev.otel.enabled` is `false`;
-7. builds and runs `project.main`.
+7. prepares local JSONL capture, unless `dev.logs.enabled` is `false`;
+8. builds and runs `project.main`.
 
 After startup, it polls watched files twice a second. A change repeats only the
 steps affected by that file rather than rebuilding the entire environment.
@@ -149,6 +150,24 @@ enabled = true
 It starts nothing when `OTEL_EXPORTER_OTLP_ENDPOINT` is already set, leaving your
 own collector in charge. See
 [Development Telemetry Viewer](/productivity/dev-telemetry-viewer/).
+
+## Local structured logs
+
+Application logs still appear as readable terminal text. Independently of the
+viewer, `pw dev` also captures the structured form in `.log/pw-dev-*.jsonl`.
+One invocation owns one file across application rebuilds, and the file appears
+only after the first record.
+
+```toml
+[dev.logs]
+enabled = true
+directory = ".log"
+```
+
+The directory is relative to the project and is not cleaned automatically.
+Disable this switch to retain only the terminal and configured OTLP outputs.
+See [Telemetry](/guides/architecture/telemetry/) for the schema and DuckDB
+queries.
 
 ## The console
 

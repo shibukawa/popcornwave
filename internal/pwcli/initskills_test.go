@@ -71,6 +71,10 @@ func TestScaffoldPlacesAgentSkill(t *testing.T) {
 			if _, ok := files[reference]; !ok {
 				t.Fatalf("%s is missing", reference)
 			}
+			telemetry := testcase.root + "/skills/" + agentSkillDir + "/references/telemetry.md"
+			if _, ok := files[telemetry]; !ok {
+				t.Fatalf("%s is missing", telemetry)
+			}
 		})
 	}
 }

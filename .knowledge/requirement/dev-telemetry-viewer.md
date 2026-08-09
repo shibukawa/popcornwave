@@ -61,7 +61,7 @@ lifetime:
   restart: the viewer keeps its listener, its port, and everything captured across regeneration, migration, rebuild, and restart
   process_sampling: rebound to the new process on every restart, because the previous pid is gone by then
   stop: with the developer loop
-  retention: bounded in memory by dev.otel.max, discarded at shutdown, and never written into the project
+  retention: viewer state is bounded in memory by dev.otel.max and discarded at shutdown; requirement:local-jsonl-log-capture separately persists log records only
 packaging:
   go: linked from the system:localotelviewer viewer package
   ui: a committed build of the upstream React component, embedded so that data:release-artifact stays a pure-Go cross-compile with no Node toolchain
@@ -86,7 +86,7 @@ acceptance:
   - a viewer that cannot listen reports the failure and leaves the loop running
   - a binary produced by api:cli-build contains no viewer code
 non_goals:
-  - persistence across pw dev runs
+  - persistence of the viewer snapshot, traces, metrics, or process samples across pw dev runs; requirement:local-jsonl-log-capture persists logs separately
   - any viewer surface in api:cli-build, api:test-run, or a deployed environment
   - metric instrumentation, which requirement:contrib-otel excludes
   - search, sampling, or filtering beyond what system:localotelviewer provides
