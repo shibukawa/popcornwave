@@ -120,7 +120,7 @@ func TestBoundaryRuntimeSendsTheTokenItReadsFromTheCookie(t *testing.T) {
 		// Every request this runtime issues goes through one helper, so a call
 		// site cannot omit the header by being written without it.
 		"function withCSRF(headers) {",
-		`headers: withCSRF({ [modeHeader]: liveMode }),`,
+		`const headers = withCSRF({ [modeHeader]: liveMode });`,
 	} {
 		if !strings.Contains(boundaryRuntimeScript, fragment) {
 			t.Errorf("the runtime is missing %q", fragment)

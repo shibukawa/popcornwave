@@ -47,6 +47,7 @@ application_side:
   present_uses:
     - decision:development-public-assets
     - requirement:dev-error-overlay
+    - requirement:dev-console-launcher, admitted by decision:dev-launcher-admission because it navigates rather than answers
     - decision:dev-application-attachment
   rules:
     - a pwdev-only file carries the build constraint, so api:cli-build cannot emit it

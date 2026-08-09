@@ -30,7 +30,9 @@ development_class_rules:
   - not bound by the ladder, because the ladder governs what an application spends on its users and the console has one user who is the developer
   - free to use an ordinary bundler and third-party components, since it is never delivered to anyone but the developer
 in_application_exception:
-  what: one dev module the framework serves under pwdev, which requirement:dev-error-overlay needs because it must run inside the application's own pages
+  what: one dev module the framework serves under pwdev, which requirement:dev-error-overlay and requirement:dev-console-launcher need because both must run inside the application's own pages
+  still_one: a second behavior did not earn a second module; they share a console address and a stream, and splitting them would open two
+  and_one_asset: the module references data:dev-launcher-mark, so the pwdev set is no longer only JavaScript and the asset handler picks a content type by extension
   how: the requirement:framework-script-assets core dynamically imports it, exactly as it imports any other capability module
   why_not_head_injection: decision:implicit-document-shell states that no framework code injects into the head, and this keeps that true
   why_not_a_scaffold_tag: a dev-only tag in a committed templates/document.pw.html would ship to production in every project that forgot to remove it

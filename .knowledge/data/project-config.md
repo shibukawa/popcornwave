@@ -32,6 +32,9 @@ schema:
       overlay:
         enabled: true
         reload: true
+      launcher:
+        enabled: true
+        corner: bottom-left, and one of bottom-left, bottom-right, top-left, top-right
       storybook:
         enabled: true
       queries:
@@ -105,6 +108,11 @@ rules:
   - dev.console.enabled false disables every pane, including the requirement:dev-telemetry-viewer page, while dev.otel.enabled still governs whether records are received at all
   - a dev.console pane key disables one pane and nothing else, and a missing pane key means enabled
   - dev.console.overlay.reload only reloads a page requirement:dev-error-overlay is already attached to, and never restarts anything
+  - dev.console.launcher.enabled serves requirement:dev-console-launcher, and it is independent of dev.console.overlay.enabled because a developer who wants the way in does not necessarily want a sheet over the page
+  - dev.console.launcher.enabled and dev.console.overlay.enabled both false inject no console address into the application, which is what makes a served page byte-identical to a production render
+  - dev.console.launcher.corner names one of the four corners and rejects any other value, as project.toolchain and project.database reject theirs; a silent fallback would leave a typo looking like a default the project chose
+  - a missing dev.console.launcher.corner means bottom-left, which is the corner applications are least likely to have taken for themselves
+  - dev.console.launcher.corner is read by the application process at startup, like the console address it travels with, so a changed corner arrives with the restart the edited file already causes
   - dev.console.storybook.enabled false builds and starts no decision:dev-harness-process binary, because nothing else needs it
   - dev.console.data.enabled serves the requirement:dev-data-pane browser and editor, and dev.console.queries.enabled the requirement:dev-query-runner halves on the same pane
   - both false leave the application serving no pane, so it announces nothing and decision:dev-application-attachment does not arise

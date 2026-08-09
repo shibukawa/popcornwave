@@ -102,7 +102,7 @@ protection.unauthenticated = "redirect" # or "unauthorized" for a 401
 identity_claim = "employee_number" # verified claim that identifies an account
 admission = "authenticated"   # every identity this issuer verifies may enter
 auto_provision = true         # ... and may create a local account
-provider_logout = true        # sign out of the provider as well
+logout_scope = "global"       # sign out of the provider as well
 allow_loopback_http = true    # the development provider speaks plain HTTP
 ```
 

@@ -1,0 +1,16 @@
+package templates
+
+external RuntimeScriptURL(): url
+
+export component Document(children: html?): html {
+  <!doctype html>
+  <html lang="en">
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1">
+      <title>Partial Updates · Popcorn Wave</title>
+      <link rel="stylesheet" href="/public/app.css">
+      <script type="module" src="{RuntimeScriptURL()}"></script>
+      <script defer src="/public/redraw.js"></script></head>
+    <body><slot/></body></html>
+}

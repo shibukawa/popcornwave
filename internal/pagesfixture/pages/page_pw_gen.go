@@ -47,6 +47,7 @@ func planCardInput(p CardParams) string {
 var planCardBoundary = &htmlbind.Boundary[CardParams]{
 	ComponentID: "pages.page.Card",
 	Attr:        "data-tb-id",
+	Instance:    func(p CardParams) string { return p.Id },
 	Input:       planCardInput,
 }
 

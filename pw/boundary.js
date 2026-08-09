@@ -3,6 +3,20 @@
 const modeHeader = "Pw-Response-Mode";
 const liveMode = "live";
 
+// The validator of the content each boundary is showing travels back to the
+// server on this header, and the server leaves alone every region whose
+// validator still matches what it just rendered.
+//
+// It is what makes a reconnect cost what changed rather than the whole page. A
+// live connection re-executes the page and re-renders every boundary on it,
+// including the ones that settled once and never change, so without this a
+// dropped connection or a lifetime rollover re-transfers the screen to say
+// nothing happened.
+//
+// The values are opaque and are never compared here. This side stores what
+// arrived and hands it back; only the server can say whether it still holds.
+const liveManifestHeader = "Pw-Live-Manifest";
+
 // The CSRF token travels in a cookie rather than in the page, and it is read
 // here at the moment a request is issued rather than once at load. That is the
 // whole difference: a value written into the document is fixed at render, so a
@@ -83,15 +97,75 @@ function pruneApplied() {
 	}
 }
 
-function bracket(id, fragment, html) {
-	const start = document.createComment("tb:" + id);
-	const end = document.createComment("/tb:" + id);
-	const holder = document.createDocumentFragment();
-	holder.appendChild(start);
-	holder.appendChild(fragment);
-	holder.appendChild(end);
-	applied.set(id, { start: start, end: end, html: html });
-	return holder;
+// The comment pair bracketing one boundary's content. Since system:tinybind
+// v0.4.8 a progressive render writes the same pair around an await boundary's
+// fallback, so the spelling is a contract with the server rather than a private
+// choice, and a range this client creates and one the document arrived with are
+// the same thing.
+function openMarker(id) {
+	return "tb:" + id;
+}
+
+function closeMarker(id) {
+	return "/tb:" + id;
+}
+
+// findFence returns the pair the document was written with, for a boundary this
+// client has not settled yet.
+//
+// A comment carries no id and no selector reaches it, so this walks. The walk is
+// over comment nodes only, and it runs once per boundary — the range is kept in
+// applied afterwards, and every later delivery to the same boundary refills it
+// without searching again.
+//
+// The open marker is remembered rather than matched pairwise, because boundaries
+// nest: an outer fence opens, an inner one opens and closes inside it, and the
+// outer one closes last. Taking the nearest open before the matching close is
+// what pairs them correctly, and the ids differ, so only markers naming this
+// boundary are ever considered.
+function findFence(id) {
+	const open = openMarker(id);
+	const close = closeMarker(id);
+	const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_COMMENT);
+	let start = null;
+	while (walker.nextNode()) {
+		const comment = walker.currentNode;
+		if (comment.data === open) start = comment;
+		else if (comment.data === close && start) return { start: start, end: comment };
+	}
+	return null;
+}
+
+// liveManifest is what this screen claims to be showing, as the pairs the next
+// connection carries.
+//
+// A range whose end marker has left the document is skipped: an enclosing
+// boundary re-rendered and took it along, so the content it names is not on
+// screen and claiming it would leave the region empty until something else
+// changed. A range with no validator is skipped for the same reason in reverse
+// — nothing here can compute one, so an unclaimed boundary is simply delivered.
+function liveManifest() {
+	const pairs = [];
+	for (const [id, range] of applied) {
+		if (range.digest && range.end.isConnected) pairs.push(id + ":" + range.digest);
+	}
+	return pairs.join(",");
+}
+
+// seedManifest takes the validators of what the document itself committed, off
+// the terminal marker.
+//
+// Without it the first connection of every page view re-transfers the whole
+// screen, because the document delivered its boundaries through the parser and
+// the connection that follows has no idea which bytes are already there.
+function seedManifest(value) {
+	if (!value) return;
+	for (const entry of value.split(",")) {
+		const cut = entry.indexOf(":");
+		if (cut <= 0) continue;
+		const range = applied.get(entry.slice(0, cut));
+		if (range) range.digest = entry.slice(cut + 1);
+	}
 }
 
 function refill(range, fragment, html) {
@@ -292,21 +366,38 @@ function restoreFormState(fragment, values) {
 	return focused;
 }
 
-// swapElement replaces one addressed element with rendered markup, carrying the
-// client state across. It is what a delta operation, a redraw, and an action
-// response all land through, so a region arrives the same way whichever asked.
-export function swapElement(target, html) {
-	if (!target || !target.parentNode) return false;
+// parseFragment turns rendered markup into nodes. It is separate from the swap
+// below because a caller filling the holes of a decomposed fragment has to reach
+// inside it before it lands: a node moved into a hole after insertion is a node
+// moved twice, and a reparented iframe reloads on every move.
+export function parseFragment(html) {
 	const holder = document.createElement("template");
 	holder.innerHTML = html;
-	const settle = carryClientState([target], holder.content);
-	target.replaceWith(holder.content);
+	return holder.content;
+}
+
+// swapNode replaces one addressed element with prepared nodes, carrying the
+// client state across. It is what a delta operation, a redraw, and an action
+// response all land through, so a region arrives the same way whichever asked.
+//
+// The carry is in two halves: what has to move before the nodes land — a
+// preserved island, a control's value — and what can only be restored once they
+// are in the document, which is focus and the caret.
+export function swapNode(target, fragment) {
+	if (!target || !target.parentNode) return false;
+	const settle = carryClientState([target], fragment);
+	target.replaceWith(fragment);
 	settle();
 	pruneApplied();
 	return true;
 }
 
-export function applyBoundary(id, fragment, html) {
+// swapElement is swapNode for a caller holding markup rather than nodes.
+export function swapElement(target, html) {
+	return swapNode(target, parseFragment(html));
+}
+
+export function applyBoundary(id, fragment, html, digest) {
 	if (replaced) return false;
 	const range = applied.get(id);
 	if (range && !range.end.isConnected) {
@@ -315,25 +406,42 @@ export function applyBoundary(id, fragment, html) {
 		// under the same id, so the lookup below finds it.
 		applied.delete(id);
 	} else if (range) {
-		// A reconnect re-executes the page, so every boundary it renders is
-		// delivered again, including the ones that settled once and have not
-		// changed. Re-inserting identical nodes would restart animations, drop
-		// focus and selection inside the region, and make a screen reader
-		// announce a log nobody added to, so an identical delivery is left alone.
-		if (html !== undefined && html === range.html) return true;
+		// The server suppresses an unchanged delivery, so this is the case it
+		// cannot: a reconnect to a process whose validator key differs, which
+		// renders the same bytes and cannot tell they are already here.
+		// Re-inserting identical nodes would restart animations, drop focus and
+		// selection inside the region, and make a screen reader announce a log
+		// nobody added to, so an identical delivery is left alone — and the new
+		// validator is taken, or this screen would keep claiming one the server
+		// no longer recognizes and keep being sent the same bytes.
+		if (html !== undefined && html === range.html) {
+			range.digest = digest;
+			return true;
+		}
 		refill(range, fragment, html);
+		range.digest = digest;
 		return true;
 	}
-	const placeholder = document.getElementById(id);
-	if (!placeholder) return false;
-	placeholder.replaceWith(bracket(id, fragment, html));
+	// Not settled yet, so the range is the one the document arrived with: the
+	// fence around this boundary's fallback.
+	//
+	// The markers stay. A settled boundary would not need them again, but a live
+	// one is re-rendered for as long as its subscription lives, and nothing on
+	// the wire says which this is — the same fence and the same id-and-HTML pair
+	// serve both. Keeping them costs two comment nodes and is what lets the
+	// second delivery find the region the first one wrote.
+	const fence = findFence(id);
+	if (!fence) return false;
+	const opened = { start: fence.start, end: fence.end, html: html, digest: digest };
+	applied.set(id, opened);
+	refill(opened, fragment, html);
 	return true;
 }
 
-export function applyHTML(id, html) {
+export function applyHTML(id, html, digest) {
 	const holder = document.createElement("template");
 	holder.innerHTML = html;
-	return applyBoundary(id, holder.content, html);
+	return applyBoundary(id, holder.content, html, digest);
 }
 
 export function replaceDocument(fragment) {
@@ -372,6 +480,9 @@ customElements.define("tb-stream-end", class extends HTMLElement {
 		documentComplete = true;
 		documentVersion = this.getAttribute("version") || "";
 		const state = this.getAttribute("state");
+		// The marker is the last markup of the document, so every tb-apply has
+		// already run and every range this names is in place.
+		seedManifest(this.getAttribute("manifest"));
 		this.remove();
 		// This document arrived whole, so a reload attempted for a truncated
 		// one is over and the next truncation is allowed to reload again.
@@ -394,7 +505,23 @@ customElements.define("tb-stream-end", class extends HTMLElement {
 // rather than reloaded. Its boundaries — the placeholders still on screen, or
 // the ranges already applied — are what say this response was one that streams.
 function documentStreamed() {
-	return applied.size > 0 || document.querySelector("tb-boundary") !== null;
+	return applied.size > 0 || anyFence();
+}
+
+// anyFence reports whether this document was written with boundary markers at
+// all, settled or not.
+//
+// The markers outlive settling now — a live boundary needs its range for every
+// delivery after the first — so their presence says the response was one that
+// streams rather than that something is still pending. That is the question
+// being asked: a document that streamed nothing carries no terminal marker
+// either, and reloading it would be reloading a page that arrived whole.
+function anyFence() {
+	const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_COMMENT);
+	while (walker.nextNode()) {
+		if (walker.currentNode.data.startsWith("tb:")) return true;
+	}
+	return false;
 }
 
 function checkDocumentEnd() {
@@ -439,6 +566,36 @@ function clearReloadGuard() {
 	}
 }
 
+// readRecords yields the records of a newline-delimited stream.
+//
+// One reader, because both this framework's stream shapes are the same framing
+// and reading them twice is how the two come apart. A line that will not parse
+// ends the sequence: a stream whose framing is broken has no next record worth
+// guessing at, and a caller distinguishes that from a clean end by whether it
+// saw a terminator.
+export async function* readRecords(body) {
+	const reader = body.getReader();
+	const decoder = new TextDecoder();
+	let buffer = "";
+	for (;;) {
+		const chunk = await reader.read();
+		if (chunk.done) return;
+		buffer += decoder.decode(chunk.value, { stream: true });
+		let newline = buffer.indexOf("\n");
+		while (newline >= 0) {
+			const line = buffer.slice(0, newline);
+			buffer = buffer.slice(newline + 1);
+			newline = buffer.indexOf("\n");
+			if (!line.trim()) continue;
+			try {
+				yield JSON.parse(line);
+			} catch (error) {
+				return;
+			}
+		}
+	}
+}
+
 export function stopLive() {
 	running = false;
 	if (connection) {
@@ -476,50 +633,35 @@ async function connectOnce() {
 	connection = controller;
 	let opened = false;
 	try {
+		const headers = withCSRF({ [modeHeader]: liveMode });
+		// Built at connect time rather than kept as a running value, because
+		// what is on screen changes between connections: a navigation delta
+		// rewrote a region, an enclosing boundary took a nested one with it.
+		const manifest = liveManifest();
+		if (manifest) headers[liveManifestHeader] = manifest;
 		const response = await fetch(location.href, {
-			headers: withCSRF({ [modeHeader]: liveMode }),
+			headers: headers,
 			credentials: "same-origin",
 			cache: "no-store",
 			redirect: "error",
 			signal: controller.signal,
 		});
 		if (!response.ok || !response.body) return { stop: false, retry: false };
-		const reader = response.body.getReader();
-		const decoder = new TextDecoder();
-		let buffer = "";
 		let closed = null;
-		for (;;) {
-			const chunk = await reader.read();
-			if (chunk.done) break;
-			buffer += decoder.decode(chunk.value, { stream: true });
-			let newline = buffer.indexOf("\n");
-			while (newline >= 0) {
-				const line = buffer.slice(0, newline);
-				buffer = buffer.slice(newline + 1);
-				newline = buffer.indexOf("\n");
-				if (!line) continue;
-				let record;
-				try {
-					record = JSON.parse(line);
-				} catch (error) {
-					console.error("Popcorn Wave: unreadable live record", error);
-					continue;
-				}
-				const outcome = handleRecord(record);
-				if (outcome === "opened") opened = true;
-				if (outcome === "stop") {
-					controller.abort();
-					return { stop: true, retry: false };
-				}
-				if (record.control === "closed") closed = record;
+		for await (const record of readRecords(response.body)) {
+			const outcome = handleRecord(record);
+			if (outcome === "stop") {
+				controller.abort();
+				return { stop: true, retry: false };
 			}
+			if (record.r === "end") closed = record;
 		}
 		if (closed && closed.reason === "done") return { stop: true, retry: false };
-		if (closed) return { stop: false, retry: true, retryAfter: closed.retry_after_ms };
+		if (closed) return { stop: false, retry: true, retryAfter: closed.retryMs };
 		// The stream ended with no terminal record, so it was cut off rather
 		// than finished. Reconnecting is safe: the page executes again and
 		// delivers the current state of every live region.
-		return { stop: false, retry: false, opened: opened };
+		return { stop: false, retry: false };
 	} catch (error) {
 		if (controller.signal.aborted) return { stop: true, retry: false };
 		return { stop: false, retry: false };
@@ -529,31 +671,25 @@ async function connectOnce() {
 }
 
 function handleRecord(record) {
-	if (record.control === "open") {
+	if (record.r === "head") {
 		// Boundary ids name positions in generated code. A deployment that
 		// changed that code addresses a document this screen is not showing, so
-		// applying anything from it would put content in the wrong place.
-		if (documentVersion && record.version && record.version !== documentVersion) {
+		// applying anything from it would put content in the wrong place. An
+		// unstamped build sends nothing here, which disables the check rather
+		// than reloading every screen whenever the server restarts.
+		if (documentVersion && record.build && record.build !== documentVersion) {
 			reloadOnce("the server was deployed while this page was open");
 			return "stop";
 		}
+		// A delivery whose content reaches a component the document never
+		// carried needs its tags before its markup, which is the same ordering
+		// the navigation delta makes normative.
+		installLiveHead(record.head);
 		return "opened";
 	}
-	if (record.control === "reload") {
-		reloadOnce("the server asked for a reload");
-		return "stop";
-	}
-	if (record.control === "navigate") {
-		const target = resolveNavigable(record.url);
-		if (target) {
-			stopLive();
-			location.assign(target);
-		}
-		return "stop";
-	}
-	if (record.control === "closed") return "closed";
-	if (typeof record.id === "string" && typeof record.html === "string") {
-		if (!applyHTML(record.id, record.html)) {
+	if (record.r === "await") {
+		if (typeof record.id !== "string" || typeof record.html !== "string") return "ignored";
+		if (!applyHTML(record.id, record.html, typeof record.v === "string" ? record.v : undefined)) {
 			// The same page executed again produces the same ids, so an id this
 			// screen does not hold means the page's structure changed — a panel
 			// added to a dashboard somebody has been watching. Placing it
@@ -564,9 +700,44 @@ function handleRecord(record) {
 		}
 		return "applied";
 	}
+	if (record.r === "end") return "closed";
+	if (record.r === "reload") {
+		reloadOnce("the server asked for a reload");
+		return "stop";
+	}
+	if (record.r === "navigate") {
+		const target = resolveNavigable(record.url);
+		if (target) {
+			stopLive();
+			location.assign(target);
+		}
+		return "stop";
+	}
 	// An unknown record comes from a newer server. Ignoring it keeps an older
 	// client working instead of tearing down a connection it could still use.
 	return "ignored";
+}
+
+// installLiveHead adds the tags a delivery needs and nothing else.
+//
+// It is this half's own rather than the update runtime's, because the update
+// runtime is built from a configuration this half never sees. The rule it holds
+// is the one that matters: a tag already in the head is left alone, so a
+// reconnect that repeats the whole head installs nothing.
+function installLiveHead(tags) {
+	if (!tags || !tags.length) return;
+	for (const tag of tags) {
+		const holder = document.createElement("template");
+		holder.innerHTML = tag;
+		for (const node of Array.from(holder.content.children)) {
+			if (node.tagName === "TITLE") continue;
+			let present = false;
+			for (const existing of document.head.children) {
+				if (existing.outerHTML === node.outerHTML) present = true;
+			}
+			if (!present) document.head.appendChild(node);
+		}
+	}
 }
 
 function jitter(delay) {

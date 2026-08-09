@@ -102,6 +102,8 @@ type HTMLConfig struct {
 	// LiveMaxResponses bounds concurrent live responses per client, so reopening
 	// cannot multiply subscriptions. Zero or less is unbounded.
 	LiveMaxResponses int `default:"4" dependon:".live" help:"maximum concurrent live responses per client"`
+	// Cache supplies the store behind the template's cache annotation.
+	Cache HTMLCacheConfig `help:"Cache supplies the store behind the template's cache annotation"`
 }
 
 // defaultHTMLConfig seeds the effective configuration for a runtime that never
@@ -125,6 +127,7 @@ var defaultHTMLConfig = HTMLConfig{
 	LiveIdleTimeout:     5 * time.Minute,
 	LiveMaxBoundaries:   32,
 	LiveMaxResponses:    4,
+	Cache:               HTMLCacheConfig{Enabled: true, MaxEntries: 1024},
 }
 
 // HTMLUpdateConfig controls partial updates.
@@ -142,6 +145,27 @@ type HTMLUpdateConfig struct {
 	// one is dropped rather than rejected, so the response is a larger delta
 	// instead of an error.
 	MaxManifestBytes int `default:"8192" dependon:".enabled" help:"cap on the update manifest request header"`
+}
+
+// HTMLCacheConfig controls the output cache a component asks for with the
+// template's cache annotation.
+//
+// On by default, which is the opposite of every other capability here. The
+// opt-in is the annotation: generation refuses one on a component whose stored
+// bytes could not stand in for a fresh render, so a template carrying it has
+// already been checked and has already asked. A project writing none never
+// reaches the store, because no plan carries a policy to consult it with.
+//
+// The setting is here to bound what the process holds and to be the escape
+// hatch for an operator who suspects a stale region, not to be the switch that
+// makes the annotation mean something.
+type HTMLCacheConfig struct {
+	Enabled bool `default:"true" help:"reuse the rendered output of components declared with the cache annotation"`
+	// MaxEntries bounds the in-process store. Zero or less is unbounded, which
+	// is right only where every cached component has a bounded parameter space:
+	// the key covers every declared parameter, so one taking an arbitrary
+	// string has as many entries as it has callers.
+	MaxEntries int `default:"1024" dependon:".enabled" help:"maximum entries the in-process render cache holds"`
 }
 
 // PublicConfig controls the framework-owned static asset endpoint.

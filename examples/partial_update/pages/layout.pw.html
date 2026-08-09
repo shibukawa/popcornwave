@@ -1,0 +1,21 @@
+package pages
+
+// The layout is a chain member, so it is an update boundary and nobody declared
+// one. That is the whole point of the example: click between the two links and
+// this markup is never transferred again — the response restates its validator
+// in about ninety bytes and says nothing else about it.
+export component Layout(children: html): html {
+  <div class="shell">
+    <header class="shell__head">
+      <h1 class="shell__title">Partial updates</h1>
+      <nav class="shell__nav">
+        <a class="shell__link" href="/">Orders</a>
+        <a class="shell__link" href="/invoices">Invoices</a>
+      </nav>
+    </header>
+    <main class="shell__main"><slot required/></main>
+    <footer class="shell__foot">
+      Open the network tab. Every navigation below is one request.
+    </footer>
+  </div>
+}

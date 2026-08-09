@@ -1276,6 +1276,8 @@ func registerHTMLConfigDefinition5() {
 			"html.live_idle_timeout",
 			"html.live_max_boundaries",
 			"html.live_max_responses",
+			"html.cache.enabled",
+			"html.cache.max_entries",
 		},
 		Defaults: map[string]string{
 			"html.streaming":                 "true",
@@ -1292,6 +1294,8 @@ func registerHTMLConfigDefinition5() {
 			"html.live_idle_timeout":         "5m0s",
 			"html.live_max_boundaries":       "32",
 			"html.live_max_responses":        "4",
+			"html.cache.enabled":             "true",
+			"html.cache.max_entries":         "1024",
 		},
 		DependsOn: map[string][]string{
 			"html.bot_async_timeout":         {"html.bot_detection"},
@@ -1304,6 +1308,7 @@ func registerHTMLConfigDefinition5() {
 			"html.live_idle_timeout":         {"html.live"},
 			"html.live_max_boundaries":       {"html.live"},
 			"html.live_max_responses":        {"html.live"},
+			"html.cache.max_entries":         {"html.cache.enabled"},
 		},
 		Secrets: map[string]string{
 			"html.update.validator_key": "mask",
@@ -1325,6 +1330,8 @@ func registerHTMLConfigDefinition5() {
 			{Prefix: "html", Key: "live_idle_timeout", Help: "close a live response after this long with no delivery"},
 			{Prefix: "html", Key: "live_max_boundaries", Help: "maximum boundaries one live response may serve"},
 			{Prefix: "html", Key: "live_max_responses", Help: "maximum concurrent live responses per client"},
+			{Prefix: "html", Key: "cache.enabled", Help: "reuse the rendered output of components declared with the cache annotation", Kind: cliparser.KindBool},
+			{Prefix: "html", Key: "cache.max_entries", Help: "maximum entries the in-process render cache holds"},
 		},
 		Apply: applyHTMLConfigDefinition5,
 		Scaffold: []configbind.ScaffoldField{
@@ -1344,6 +1351,8 @@ func registerHTMLConfigDefinition5() {
 			{Key: "live_idle_timeout", Kind: configbind.ScaffoldDuration, Default: "5m0s", Help: "close a live response after this long with no delivery"},
 			{Key: "live_max_boundaries", Kind: configbind.ScaffoldInt, Default: "32", Help: "maximum boundaries one live response may serve"},
 			{Key: "live_max_responses", Kind: configbind.ScaffoldInt, Default: "4", Help: "maximum concurrent live responses per client"},
+			{Key: "cache.enabled", Kind: configbind.ScaffoldBool, Default: "true", Help: "reuse the rendered output of components declared with the cache annotation"},
+			{Key: "cache.max_entries", Kind: configbind.ScaffoldInt, Default: "1024", Help: "maximum entries the in-process render cache holds"},
 		},
 	})
 }
@@ -1484,6 +1493,24 @@ func applyHTMLConfigDefinition5(dst any, o *configbind.Overlay) error {
 		p.LiveMaxResponses = int(n)
 	} else {
 		p.LiveMaxResponses = 4
+	}
+	if v, ok := o.GetString("html.cache.enabled"); ok {
+		bb, err := strconv.ParseBool(v)
+		if err != nil {
+			return fmt.Errorf("configbind: html.cache.enabled: %w", err)
+		}
+		p.Cache.Enabled = bb
+	} else {
+		p.Cache.Enabled = true
+	}
+	if v, ok := o.GetString("html.cache.max_entries"); ok {
+		n, err := strconv.ParseInt(v, 10, 0)
+		if err != nil {
+			return fmt.Errorf("configbind: html.cache.max_entries: %w", err)
+		}
+		p.Cache.MaxEntries = int(n)
+	} else {
+		p.Cache.MaxEntries = 1024
 	}
 	return nil
 }

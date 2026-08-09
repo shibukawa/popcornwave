@@ -144,6 +144,197 @@ fragment_head_from_a_parameter:
   why_it_matters_here: decision:fragment-head-rejection refuses a fragment response carrying head contributions, and this defect makes that check incomplete for exactly the cross-file composition case, so a slot-supplied component's styles are dropped rather than reported
   accepted_upstream: v0.3.2 filed it as its own requirement, plus a second one for what a fragment response owes a caller it cannot deliver to, rather than settling either in that release
   ask: unchanged; walk parameter-carried fragments when merging, or report them so a caller can refuse rather than lose them
+structured_render_output:
+  raised: 2026-08-08, after shipping the delivery validators of api:live-delivery-protocol
+  request_written: docs/tinybind-go-structured-render-request.md, against v0.4.2
+  what_forced_it:
+    suppression_is_the_easy_half: a validator per delivery removes the unchanged boundaries, which was the largest waste, and does nothing for a region that actually changes
+    every_wire_carries_assembled_bytes: a live delivery and a navigation delta both transfer a whole subtree, because assembled bytes are the only thing a caller can get
+    the_split_already_exists: Static ops are compile-time constants and Text and Attr are functions, and Plan.Exec concatenates them before any caller sees output
+    unreachable_from_here: staticOp and textOp are unexported and Op has one method that writes, so nothing in the public surface distinguishes them
+  the_escaping_multiplier:
+    found_while_writing_the_tests: Content.AppendJSON escapes for a script context, so every angle bracket costs six bytes
+    measured: a ten character fragment costs thirty bytes inside a record, because four of those characters are angle brackets
+    reading: markup is the expensive part of this wire by a wide margin, which makes a static and dynamic split worth more here than the raw sizes suggest
+  asks:
+    structured_output: statics, dynamics in plan order, a slot kind per dynamic, and a stable identity per template unit; nested for a component, a for body, and an if branch
+    slot_kinds_stay_upstream: the URL attribute check belongs in htmlbind/url.go and must not be re-implemented in a browser, so the module sends a checked value or nothing
+    one_identity: CachePolicy.ID is already the component identity plus a plan fingerprint, which is exactly what a skeleton cache key needs; a third identity would be a third invalidation rule
+    redraw_cache_store: Options.Redraw takes no htmlbind options, so a cached component redrawn alone runs uncached while the same component is cached on the page around it
+    update_flag_priority: the module's explicit partial-update boundary requirement designs an update flag and it is unimplemented, so a delta's granularity is still the page and its layouts
+  what_we_would_do_with_it:
+    transfer: statics stop being retransmitted on both the live and the navigation wire
+    application: the client assembles the subtree once and then sets textContent and attributes directly, with no parse, no range replacement, and no client state to carry across
+    no_document_cost: slot positions come from the client having built them, so the initial document needs no marker and the first delivery after a page load lands the old way
+  not_asked_for: a wire format or a protocol version, which the module's caller-owned wire versioning decision puts on this side
+  independent_of: requirement:live-mode-plan-slice, which stays the largest cost on the live path and is a separate piece of work
+  answered: 2026-08-08, as a design proposal accepting all three asks; reply_written docs/tinybind-go-structured-render-reply.md
+  verification_round:
+    every_module_claim_held: read against v0.4.2 and rendered where renderable; the CSRF error text and the neutralized URL output match character for character
+    two_of_ours_withdrawn:
+      action_path_options: this catalog and the request both said the action path reaches htmlbind through an entry taking render options; WriteUpdate and WriteUpdateStatus take none, and the wrapper here passes none
+      example_attribution: examples/live_render is this project's, not the module's, and the request cited it as theirs
+  the_ask_2_finding_is_ours_too:
+    reproduced: pw.WriteUpdate with a region holding a form answers 500, where the guide documents 422 with the validation errors in the rewritten region
+    cause: htmlupdate renders every action region through htmlbind.Render with no options, so no CSRF token reaches CSRFField
+    no_downstream_fix: Update carries only a Fragment and the delta body types are unexported, so the only way to fix it here is to re-implement the action writer, which is the duplication the client ownership round removed
+    consequence: the option variadic is the fix rather than an improvement, and the documented pattern is unavailable until it ships
+    masked_here_by_luck: the sibling divergences do not bite this project, because no scheme allowlist is configured and the chosen attribute prefix is the module default
+  measured_for_them:
+    shape: the Room panel of examples/live_render, reproduced as a plan, on one new message arriving
+    result: a statics and dynamics record is 2.8x to 3.3x smaller than the delivery record today, from five rows to a hundred, and the ratio holds as the list grows
+    the_rejected_alternative_is_worse_than_argued: a positional byte diff of two consecutive renders would still send 86 to 99 percent of the fragment, because a prepended row shifts every byte after it; the case against inferring the split downstream is now a number rather than a principle
+    honest_scope: a computed projection on a reproduced shape rather than production traffic, and it assumes a record shape neither side has settled
+  answers_given:
+    component_per_row: accepted, and read here as an improvement rather than a cost, because a row written as a component call states its unit of update where a reader of the template can see it
+    element_description: accepted; the property needed is that a client can build the DOM and record slot positions without parsing HTML, and the open question returned is whether the first build assembles a string client side or the skeleton carries one
+    csrf_absent_stays_a_failure: yes, from the side eating the 500; an empty token submits, is rejected, and leaves nothing pointing at the cause
+  identity_precision:
+    accepted_in_substance: a template edit invalidates a skeleton cache, an output cache, and a boundary validator together, which is the property that was asked for
+    but_not_in_words: one derivation rule produces several addresses, since a component with a conditional or an optional attribute emits more than one skeleton; one identity read literally would suggest values that coincide, and they do not
+  sequencing_accepted: render options, then the update flag, then the structured output; value was the wrong axis for the first two
+  shipped_upstream:
+    version: v0.4.4, against the usage guide of 2026-08-09
+    reconciliation_written: docs/tinybind-go-update-surface-reconciliation.md
+    what_arrived: render options on the update entries, the boundary decomposition with a hole per nested boundary and a boundaries list separating a hole to fill from one to retain, the children operation, the redraw body as ops and head and manifest, slot spans, and a sequence mode addressed by content hash and served public and immutable
+    ask_2_closed: WriteUpdateStatus takes the request and render options, so an action response supplies the CSRF token and the 500 on a form region is gone
+    children_never_reaches_a_stream:
+      what: renderStream dispatches on whether an operation carries markup rather than on its kind, so a children operation takes the unchanged branch and arrives as a bare validator restatement; DeltaStream has no writer for it either
+      reproduced: a three-row list gaining one row emits the list as an unchanged record and the new row as a replace with no hole anywhere on screen to place it
+      effect: the case the release calls its headline falls back to a full page load
+      scope: the streamed path only; the buffered operationBody copies both the kind and the boundaries, and this framework renders every navigation through the streaming entry
+    render_takes_no_options: the buffered entry is the exception to the guide's own rule, and it is the entry a page with no await boundary would reach first, so the component most likely to fail for want of a CSRF token is on the path that cannot be given one
+    sequence_address_header: the guide names it Sequence-Address and v0.4.4 reads Sequence, which is a rename rather than the prefix change the covering note describes
+    manifest_is_four_fields:
+      correction_to_us: this client held only the frame validator, where the wire carries id, frame, children, and parent
+      cost: with no children validator returned every parent's arrangement compares unequal, so the server restates a children operation on every navigation
+      also_diagnostic: it is what made the record above legible as a flattened children operation rather than an unchanged boundary
+    values_interleave_more_than_interpolations: a value stream carries one entry per hole, per conditional, per loop, and per component call, and a boundary-opening call contributes the two halves of its placeholder attribute; Sequence.Reassemble is the reference to test a walk against rather than a reading of it
+    not_implemented_here: walking sequences, which is opt-in and silent when wrong, and moving the live delivery body onto this grammar, which costs the per-delivery validator suppression until a completion can carry one
+  fixed_on_main:
+    commit: 584af8e, untagged; git ls-remote lists tags to v0.4.4, so this side is pinned to that commit's pseudo-version until the tag is pushed
+    children_dispatches_by_kind: a Children writer was added and both stream paths now branch on the operation kind, verified here by re-running the reproduction and seeing the operation arrive with its boundaries
+    the_buffered_path_had_it_worse: renderDelta dispatched the same way, so a children operation was written as a replace carrying no markup, which empties a region rather than failing to reorder it; this side reported the streamed path because it is the one it uses, and the fix found the other half
+    record_gained_a_children_field: on every operation record including an unchanged one, so a manifest rebuilt from a stream returns both halves rather than making every list compare reordered
+    sequence_address_header_renamed: to Sequence-Address, answering the question this side raised, on the ground that a pair reading Sequences and Sequence is two headers told apart by counting characters
+    still_open_upstream:
+      render_takes_no_options: unchanged, and it is the entry a page with no await boundary reaches first
+      stream_carries_no_parent: an operation record has frame and children and no parent, where a buffered manifest entry has all three; disappeared reads the known parent, so a client whose manifest came from a stream forces a root replacement whenever a list shrinks
+    taken_here: the client records the children validator from stream operation records, with a replaced and an unchanged boundary both covered in the conformance harness
+  closed_in_v0_4_6:
+    render_takes_options: the buffered entry now takes them, so the rule that every entry rendering a fragment takes the same options has no exception
+    stream_carries_the_whole_entry: frame, children, and parent gathered into a ManifestEntry so the three travel together and a writer cannot add one without every call site seeing it
+    sequence_walk_implemented:
+      tested_against_the_reference: pw/sequencefixture_test.go renders an empty conditional branch, a one-row loop, and a three-row loop with an optional attribute holding characters the escaper touches, then asserts the module reassembles its own split into the bytes it rendered; the tree, the values, and that markup are committed and the browser harness drives them end to end
+      why_a_round_trip: consuming the wrong number of values at one node puts every later value in the wrong place and still yields markup, so a reading of the specification cannot catch it
+      capability_header_always_sent: whether a fragment travels as an address and values is the server's choice per fragment, so no bookkeeping about held addresses travels
+      one_fetch_per_address: concurrent operations naming one address share a request, and a miss is cached because an address this deployment cannot describe will not start describing itself
+  measured_2026_08_09:
+    written_up: docs/tinybind-go-transfer-measurements.md
+    method: through pw.WriteHTMLChain, the entry every page is served from, so the bytes are the response rather than a reconstruction; the client manifest is rebuilt from a previous response's operation records exactly as the runtime does
+    shape: 25 result rows under a shared layout, an a-tag to a sibling route and a GET search form re-rendering the page it is on
+    three_numbers_only_one_of_which_is_live:
+      document: what a browser with no runtime, a crawler, or curl receives
+      delta_as_markup: what a client that does not walk sequences receives, and what this runtime received until the walk landed; it is the before of before-and-after rather than a cost anyone pays
+      delta_as_values: what this runtime receives now, because it sets the sequences header on every request and the streamed path answers with values wherever a fragment has an address
+      why_it_matters: the first write-up presented markup and values as two current options, which turns the baseline into a claim about a configuration nobody runs
+    values_beat_markup: 3.3x against the same delta as markup and 2.4x against the complete document, with about a kilobyte of trees fetched once per build and cached immutably
+    the_baseline_loses_to_its_document:
+      measured: 13614 bytes against a 9787 byte document, while the delta is correct and minimal — the layout is recognised unchanged and costs 89 bytes
+      cause: a record escapes every angle bracket, so the same fragment is 9295 bytes as HTML and 13001 on the wire
+      reading: this is the reason to build the split rather than a defect to fix; without sequences a partial update on the pages partial updates are most obviously for transfers less of the page and more bytes than a full page load
+    escaping_multiplier_corrected: 1.40x on real markup, not the 3x this side reported from a fragment that was almost entirely angle brackets
+    break_even_is_a_page_shape: a delta wins where the changed region is a small part of the page and loses where it is most of it, so a dashboard panel wins and a search result list — the case a delta is most obviously for — loses
+    cold_client_pays_twice: current, and this side's to fix; a page load leaves this runtime holding no validators, so the first in-page navigation after arriving is answered with a complete document and only the second click onward is a delta, which halves the navigations every figure applies to; the live stream already seeds its manifest from the document marker and the same trick applies, once the seed is measured against the navigation it saves
+    heuristic_is_not_applied_on_the_stream:
+      what: valuesAreSmaller gates the choice in operationBody, which is the buffered path and the redraw, and renderStream does not call it
+      effect: the published promise that the split is never a loss holds on the buffered path and not on the streamed one, and every navigation this framework serves goes through the streamed one
+      the_module_names_the_inverting_shape_itself: a fragment of two elements costs more as an address plus its values than as the markup, and a list row is exactly that shape
+      not_measured_yet: the page above has a large changed fragment so values win there; a page whose row components are boundaries is where it would invert
+      same_shape_as_the_children_dispatch: a rule applied on one path and not its sibling
+    says_nothing_about_the_deferred_step: every figure is transfer, and applying a value to a node without reparsing is about what the browser does after the bytes arrive; measuring it needs time to a stable frame and a browser harness this side does not have
+
+  found_in_a_browser_2026_08_09:
+    how: opening examples/partial_update rather than running a test; neither the Go tests, which feed a manifest built from a previous response, nor the node harness, which stubs the DOM, could reach either defect
+    document_carried_no_instance_attributes:
+      what: pw rendered documents through RenderChain and RenderChainAsync, and only the collecting entry writes the attribute a delta operation addresses
+      effect: every operation missed its target and the runtime fell back to an ordinary navigation, so partial updates had never worked end to end in a browser while the configuration said they were on
+      fixed_here: collect when updates are enabled, which forces the buffered branch because the delta package exposes a collector for the buffered entry only; the module's own streaming entry buffers the document for the same reason
+      cost_stated: a page with an await boundary loses progressive delivery when a project turns updates on, which is the honest ordering against a feature that is off while looking on
+    sequence_response_carried_no_vary:
+      what: public, immutable, a year long, and served from the page's own URL, so a cache stored it under that URL alone and answered later requests for the page with a JSON body
+      effect: a browser that fetched one sequence stopped being able to load the page
+      fixed_here: the wire is this framework's, so setting the Vary belongs here rather than being a workaround
+      the_module_is_inconsistent_though: it writes Vary on Render, Redraw, and both streaming entries, and Render's documentation states the rule as always setting Vary and leaving every other response concern to the caller; the sequence entry is the exception and is also the only one setting a public year-long cache policy
+      the_narrow_ask: set both the cache policy and the Vary that makes it safe, or neither, rather than one of the pair
+    one_reason_for_two_failures: an unresolvable sequence address and a missing DOM target both reported missing-target, which named two failures with nothing in common; the sequence half now says so
+
+  the_harness_had_stopped_checking:
+    found_by: mutating the walk to iterate a loop one time too few and watching the suite pass
+    cause: the verdict, the failure exit and the success line, sat mid-file, and every case appended while following v0.4.4 landed after it; those cases ran, counted into a number nobody read, and reported a success already printed
+    fixed: the verdict moved to the end with a comment saying it has to stay there; the same mutation now fails four checks, on exactly the two fixtures carrying a loop
+    same_class_as_the_defect_that_started_the_round: an operation dispatched by whether markup was present, and a verdict dispatched by where it happened to sit, are both correct-looking code whose failure mode is silence and neither is visible in a diff
+  client_audit:
+    prompted_by: reading this framework's four response shapes against each other while answering, which had not been done before
+    reading: one transport wearing four costumes, and three of the differences are gaps rather than choices
+    live_has_no_head_channel: a navigation delta writes a head record before any markup and the live stream has no equivalent, so a delivery reaching a component the document never carried paints unstyled; narrow, and the exact failure the module's delta head sync requirement exists to prevent
+    redraw_has_no_fallback: writeRedraw renders through htmlbind.Render, whose chain entry blocks an await boundary and emits it settled in place, so a redrawn component waits for its slowest binding where every other path paints a fallback first
+    redraw_head_header_retires: the base64 head header exists because a header is not a place to discover which characters a proxy passes; the reasoning stops applying once head travels in the body, and the ETag contract survives an envelope while curl readability does not
+    nested_live_returns_to_its_fallback:
+      rendered_not_reasoned: a live boundary inside a live boundary works today on one connection with positional ids, and every outer delivery carries the inner boundary's placeholder
+      effect: the inner region shows its loading state again on every parent re-render, so an outer region ticking faster than its inner one leaves the inner one mostly loading
+      why_it_matters_here: whole-region replacement is the cause, which makes it an argument for the structured output that has nothing to do with transfer size
+    slot_content_and_dom_moves:
+      how_a_slot_renders: flat, with no marker, so the caller's fragment becomes part of the enclosing component's own bytes and the frame validator covers it
+      what_survives_a_swap_today: elements marked with the preserve attribute, moved rather than recreated, and form values restored against each control's own default; neither is slot aware and the marker is author written
+      hard_limit: the preserve swap is node to node, so a slot rendering several top-level nodes cannot be preserved without a wrapper element the author never wrote
+      why_not_generalize_it: a reparented iframe reloads, so a mechanism built on DOM moves reloads the third-party embeds it exists to preserve
+      wanted_instead: a slot as a nested unit, since Plan.Slots already exposes the fragments a parameter struct carries; an unchanged slot becomes a record and a client holding slot positions performs no move at all
+      raised_as: a constraint on the unit design rather than a feature, because a unit being a component may already answer it
+
+v0_4_7_the_module_stopped_writing_responses:
+  what_landed: every entry that answered now returns a Response — status, header, body, and the failure if it is one — and the streaming entries take their headers from an accessor applied before the render; the failure hook observes rather than writes
+  answers: the position this side took, that the wire is the caller's and a header is part of it
+  taken_here: the cache policy of all four shapes, the conditional request, the refusal body, and the axes a document declares before a handler branches
+  one_header_cannot_move: the redraw entity tag, which digests the body the module assembles, so a caller cannot produce it without rendering the component twice
+  a_narrower_reading_of_the_vary_axes:
+    the_module_asks_for: the redraw axes on a page response too, so a cache that learned the page cannot answer a redraw from it
+    this_side_declares: the render and build axes before the branch and the narrow ones only on the redraw itself
+    why: every update request names its mode on the render header and a document names none, so the render axis already separates the page from all three; kind and instance separate one redraw from another, and every redraw response carries them
+  found_by_probing_the_running_example: three defects, none reachable from a test that agreed with itself about what a response should contain
+  sequence_response_claimed_the_wrong_mode:
+    what: routing the mode echo through a shared token function whose switch has no sequence case, so a sequence answered as a navigation
+    effect: a client checking the echo — which is where proxy substitution is detected — discards every tree it asks for, every operation carrying values falls back, and every in-page navigation becomes a complete document
+    fixed_here: the echo is set on the answer before it is sent, because the header is this framework's
+  redraw_carries_an_empty_markup_field_beside_its_values:
+    what: the redraw response encodes its markup field unconditionally, so an operation that chose the address form arrives with an empty string next to the address
+    effect: a client reading markup first replaces the region with nothing, reports the update applied, and emits its redrawn event; the row leaves the page with no error, no failed request, and nothing in the response that looks wrong
+    fixed_here: the address wins where both are present, which is also right on its own terms — an empty string is a legitimate rendering, so it cannot be told from an absent field, and the address is the unambiguous half
+    not_raised_upstream: deciding which half of an operation is authoritative is wire-format work this side owns, so the client rule is the fix rather than the interim workaround; the omitempty asymmetry between the streamed and buffered encodings is left alone deliberately
+  the_hole_element_cannot_survive_a_table:
+    what: the placeholder a decomposed fragment leaves is an unknown element, and an unknown element inside a table is foster-parented — the parser lifts it out of the tbody and inserts it before the table
+    effect: every hole a table's rows leave sits outside the table, the rows filling them land loose on the page, and the list is left empty; the response is correct and the resulting DOM is valid, so nothing reports it
+    fixed_here: holes are rewritten to template elements before parsing and the spelling is restored through the DOM afterwards, since insertion is not parsing and nothing is foster-parented
+    the_ask: a placeholder the parser keeps where it was written — a template element or a comment both qualify — because a reloadable row is the shape the children operation exists for
+    wider_than_the_delta: a progressive render writes the same element for an await boundary, so an await boundary inside a table has the same problem in the streamed document
+
+v0_4_8_answered_the_round:
+  status: all three raised items closed, plus one this side did not find
+  the_hole_split_into_two_shapes:
+    delta_hole: a template element, which is what this side asked for; the rewrite-before-parse and restore-after is deleted, since the server writes the template
+    await_marker: a comment fence around the fallback, because a template's contents do not render and a fallback that does not render is not a fallback — the objection this side did not think of
+    why_they_had_to_split: a hole is one node to replace and an await is a range around visible content; no single shape is both, since nothing the parser keeps in a table renders its contents
+    taken_here: applyBoundary walks to the fence instead of looking up a placeholder element, and the markers are kept rather than removed after settling, because a live boundary refills the same range for as long as its subscription lives
+    verified_in_a_browser: an await boundary inside a tbody, served through the framework; the markers stay in the tbody, the fallback row is replaced in place, and nothing lands loose in the body
+  sequence_echo: the default arm removed and the switch made exhaustive, so a missing case is a panic at the first test rather than a response that lies; the correction on this side is deleted
+  values_are_smaller: one predicate both paths call, so the rule cannot be on one and not the other again
+  refusal_vary_found_upstream: FailureResponse carried no Vary at all, and a heuristically cacheable 404 could then answer a document request from the same URL; upstream now adds the negotiated mode's axes
+  the_vary_placement_disagreement:
+    outcome: this side was right that the render axis already separates a page from a redraw, and upstream's stated reason did not hold
+    but_the_placement_was_load_bearing_anyway: declaring the shared axes before the branch was covering the refusal that carried none, which neither side had noticed
+    kept: right answer, wrong reason, and worth remembering as a case where the advice survived its argument
+  costs_of_the_round: every sequence address and frame validator changed, so the first request after a deploy is a complete document; committed fixtures regenerated
+
 carried_forward:
   live_mode_plan_slice: requirement:live-mode-plan-slice, since a live render still executes the whole composed chain and pays it per reconnect
   liveness_signal: requirement:live-boundary-liveness-signal, since nothing states which boundary is live and this framework keeps its own bookkeeping

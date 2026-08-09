@@ -264,7 +264,7 @@ func TestOverlayInjectionFollowsTheConfiguration(t *testing.T) {
 	}
 	t.Cleanup(console.Close)
 
-	on := strings.Join(consoleEnviron(console, true, true, "tok", nil), " ")
+	on := strings.Join(consoleEnviron(console, config.Console, "tok", nil), " ")
 	if !strings.Contains(on, envDevConsoleURL+"="+console.URL()) {
 		t.Errorf("environ = %q, want the console address", on)
 	}
@@ -277,18 +277,65 @@ func TestOverlayInjectionFollowsTheConfiguration(t *testing.T) {
 	if strings.Contains(on, envDevConsoleReload) {
 		t.Errorf("environ = %q, want no reload variable when reload is on", on)
 	}
-	if noReload := strings.Join(consoleEnviron(console, true, false, "tok", nil), " "); !strings.Contains(noReload, envDevConsoleReload+"=0") {
-		t.Errorf("environ = %q, want reload turned off", noReload)
+	noReload := config.Console
+	noReload.Reload = false
+	if got := strings.Join(consoleEnviron(console, noReload, "tok", nil), " "); !strings.Contains(got, envDevConsoleReload+"=0") {
+		t.Errorf("environ = %q, want reload turned off", got)
 	}
 	// The address stays injected with the overlay off, because the data pane
 	// announces to the same console. What turns the overlay off is its own
 	// variable, so one pane cannot switch another back on.
-	off := strings.Join(consoleEnviron(console, false, true, "tok", nil), " ")
+	noOverlay := config.Console
+	noOverlay.Overlay = false
+	off := strings.Join(consoleEnviron(console, noOverlay, "tok", nil), " ")
 	if !strings.Contains(off, envDevConsoleURL+"=") {
 		t.Errorf("environ = %q, want the address still injected", off)
 	}
 	if !strings.Contains(off, envDevConsoleOverlay+"=0") {
 		t.Errorf("environ = %q, want the overlay turned off by its own variable", off)
+	}
+}
+
+// The launcher travels as a switch and a corner, and the corner only travels
+// with a launcher that is on: a project that turned it off is not handed a
+// placement for something the application will not serve.
+func TestLauncherInjectionFollowsTheConfiguration(t *testing.T) {
+	root := writeProject(t, map[string]string{"popcornwave.toml": consoleProject})
+	config, _ := loadProjectConfig(root)
+	stdout, stderr := &bytes.Buffer{}, &bytes.Buffer{}
+	console := startDevConsole(root, config, nil, nil, nil, stdout, stderr)
+	if console == nil {
+		t.Fatalf("the console did not start:\n%s", stderr)
+	}
+	t.Cleanup(console.Close)
+
+	on := strings.Join(consoleEnviron(console, config.Console, "tok", nil), " ")
+	if strings.Contains(on, envDevConsoleLauncher+"=") {
+		t.Errorf("environ = %q, want no launcher variable when the launcher is on", on)
+	}
+	if !strings.Contains(on, envDevConsoleLauncherCorner+"="+defaultLauncherCorner) {
+		t.Errorf("environ = %q, want the default corner", on)
+	}
+
+	moved := config.Console
+	moved.LauncherCorner = "top-right"
+	if got := strings.Join(consoleEnviron(console, moved, "tok", nil), " "); !strings.Contains(got, envDevConsoleLauncherCorner+"=top-right") {
+		t.Errorf("environ = %q, want the configured corner", got)
+	}
+
+	off := config.Console
+	off.Launcher = false
+	got := strings.Join(consoleEnviron(console, off, "tok", nil), " ")
+	if !strings.Contains(got, envDevConsoleLauncher+"=0") {
+		t.Errorf("environ = %q, want the launcher turned off", got)
+	}
+	if strings.Contains(got, envDevConsoleLauncherCorner) {
+		t.Errorf("environ = %q, want no corner for a launcher that is off", got)
+	}
+	// The address is still injected: the data pane announces to the same
+	// console whatever the page-side halves are set to.
+	if !strings.Contains(got, envDevConsoleURL+"=") {
+		t.Errorf("environ = %q, want the address still injected", got)
 	}
 }
 
@@ -310,6 +357,60 @@ func TestOverlaySwitchesDefaultOnAndParse(t *testing.T) {
 	}
 	if config.Console.Overlay || config.Console.Reload {
 		t.Errorf("overlay=%v reload=%v, want both off", config.Console.Overlay, config.Console.Reload)
+	}
+}
+
+func TestLauncherSwitchesDefaultOnAndParse(t *testing.T) {
+	root := writeProject(t, map[string]string{"popcornwave.toml": consoleProject})
+	config, err := loadProjectConfig(root)
+	if err != nil {
+		t.Fatalf("load: %v", err)
+	}
+	if !config.Console.Launcher {
+		t.Error("the launcher was not on by default")
+	}
+	if config.Console.LauncherCorner != defaultLauncherCorner {
+		t.Errorf("corner = %q, want %q by default", config.Console.LauncherCorner, defaultLauncherCorner)
+	}
+	for _, corner := range launcherCorners {
+		root = writeProject(t, map[string]string{
+			"popcornwave.toml": consoleProject + "\n[dev.console.launcher]\ncorner = \"" + corner + "\"\n",
+		})
+		config, err = loadProjectConfig(root)
+		if err != nil {
+			t.Fatalf("load %s: %v", corner, err)
+		}
+		if config.Console.LauncherCorner != corner {
+			t.Errorf("corner = %q, want %q", config.Console.LauncherCorner, corner)
+		}
+	}
+	root = writeProject(t, map[string]string{
+		"popcornwave.toml": consoleProject + "\n[dev.console.launcher]\nenabled = false\n",
+	})
+	config, err = loadProjectConfig(root)
+	if err != nil {
+		t.Fatalf("load: %v", err)
+	}
+	if config.Console.Launcher {
+		t.Error("the launcher was not turned off")
+	}
+}
+
+// A corner that is not one of the four is an error naming them, rather than a
+// silent fallback that would leave a typo reading as a corner the project
+// chose. project.toolchain and project.database reject theirs the same way.
+func TestAnUnknownLauncherCornerIsAnError(t *testing.T) {
+	root := writeProject(t, map[string]string{
+		"popcornwave.toml": consoleProject + "\n[dev.console.launcher]\ncorner = \"middle\"\n",
+	})
+	_, err := loadProjectConfig(root)
+	if err == nil {
+		t.Fatal("an unknown corner loaded without an error")
+	}
+	for _, corner := range launcherCorners {
+		if !strings.Contains(err.Error(), corner) {
+			t.Errorf("error = %q, want it to name %q", err, corner)
+		}
 	}
 }
 

@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"bytes"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -152,11 +153,26 @@ func passkeyServer(t *testing.T, port int, origin string, overrides ...func(*tes
 				}},
 			}
 		})
+		testutil.Update[pw.SecurityConfig](config, func(security *pw.SecurityConfig) {
+			// The pages carry a logout form, and a rendered form needs the
+			// token: the template emits a hidden field and the render fails
+			// rather than shipping an unprotected one.
+			security.CSRF.Enabled = true
+			// The include list is spelled out because this config is built in
+			// code: the default lives in a struct tag the file decoder parses,
+			// and nothing parsed it on this path.
+			security.CSRF.Include = []string{"/**"}
+		})
 		testutil.Update[pw.SessionConfig](config, func(session *pw.SessionConfig) {
 			session.Enabled = true
 			session.Backend = "rdb"
-			session.TTL = time.Hour
+			session.Retention = time.Hour
 			session.Cookie.Secure = false
+			// Authentication registers a browser-protected slot, so the session
+			// manager refuses to start without a keyring. A fixed value is right
+			// here and only here: a test that generated one per run would still
+			// pass while a project with no secret configured could not start.
+			session.Keyring.Secret = base64.StdEncoding.EncodeToString(make([]byte, 32))
 		})
 		testutil.Update[auth.Config](config, func(settings *auth.Config) {
 			settings.Enabled = true
@@ -178,6 +194,10 @@ func passkeyServer(t *testing.T, port int, origin string, overrides ...func(*tes
 			settings.OIDC.Admission = auth.AdmissionAuthenticated
 			settings.OIDC.AutoProvision = true
 			settings.OIDC.AllowLoopbackHTTP = true
+			// A logout ends the provider session too, which is what config.dev.toml
+			// configures and what the assertion below checks: the default is
+			// reconfirm, which leaves the provider signed in and never hops to it.
+			settings.OIDC.LogoutScope = auth.LogoutScopeGlobal
 		})
 		for _, override := range overrides {
 			override(config)

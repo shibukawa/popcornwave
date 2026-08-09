@@ -125,10 +125,12 @@ func devConsolePanes(root string, config projectConfig, server developmentServer
 // pw.DevConsoleReloadVar, which are declared in the pwdev half of the framework
 // and so cannot be referenced from a host build.
 const (
-	envDevConsoleURL     = "PW_DEV_CONSOLE_URL"
-	envDevConsoleReload  = "PW_DEV_CONSOLE_RELOAD"
-	envDevAttachToken    = "PW_DEV_ATTACH_TOKEN"
-	envDevConsoleOverlay = "PW_DEV_CONSOLE_OVERLAY"
+	envDevConsoleURL            = "PW_DEV_CONSOLE_URL"
+	envDevConsoleReload         = "PW_DEV_CONSOLE_RELOAD"
+	envDevAttachToken           = "PW_DEV_ATTACH_TOKEN"
+	envDevConsoleOverlay        = "PW_DEV_CONSOLE_OVERLAY"
+	envDevConsoleLauncher       = "PW_DEV_CONSOLE_LAUNCHER"
+	envDevConsoleLauncherCorner = "PW_DEV_CONSOLE_LAUNCHER_CORNER"
 )
 
 // randomToken is the per-run secret the application presents when it announces
@@ -150,28 +152,35 @@ func randomToken() (string, error) {
 // is: pw dev resolves the address at startup, and a project that wrote it down
 // would be committing a development port.
 //
-// A disabled overlay injects nothing at all. That is what makes the page the
-// application serves byte-identical to a production render: with no address to
-// reach, the framework serves no development module and the core carries no
-// import of one, so there is nothing to turn off in the browser.
-func consoleEnviron(console *devconsole.Console, overlay, reload bool, attachToken string, base []string) []string {
+// Turning off everything that runs inside a page injects nothing to run. That
+// is what makes the page the application serves byte-identical to a production
+// render: with both the overlay and the launcher off, the framework serves no
+// development module and the core carries no import of one, so there is nothing
+// to turn off in the browser.
+func consoleEnviron(console *devconsole.Console, settings consoleConfig, attachToken string, base []string) []string {
 	if console == nil {
 		return base
 	}
 	if value, ok := os.LookupEnv(envDevConsoleURL); ok && value != "" {
 		return base
 	}
-	// The address is what the data pane announces to and what the overlay
-	// subscribes to, so it is injected whenever the console is running. The
-	// overlay switch decides only whether a page loads the module.
+	// The address is what the data pane announces to and what the overlay and
+	// the launcher subscribe to, so it is injected whenever the console is
+	// running. Their switches decide only what a page loads.
 	base = append(base, envDevConsoleURL+"="+console.URL(), envDevAttachToken+"="+attachToken)
-	if !overlay {
+	if !settings.Overlay {
 		base = append(base, envDevConsoleOverlay+"=0")
 	}
-	if !reload {
+	if !settings.Reload {
 		base = append(base, envDevConsoleReload+"=0")
 	}
-	return base
+	if !settings.Launcher {
+		return append(base, envDevConsoleLauncher+"=0")
+	}
+	// The corner travels only with a launcher that is on, so a project that
+	// turned it off does not hand the application a placement for something it
+	// will not serve.
+	return append(base, envDevConsoleLauncherCorner+"="+settings.LauncherCorner)
 }
 
 // developmentEnvironment is the APP_ENV the loop runs the application under,
