@@ -324,6 +324,10 @@ func WriteHTMLChain(w http.ResponseWriter, r *http.Request, wrappers []HTMLWrapp
 	// decided before anything is written. An unrecognized mode resolves to the
 	// document, so a crawler, curl, and a browser without the runtime are
 	// unaffected by any of this.
+	//
+	// The two modes that answer without rendering this chain are tested first,
+	// on their own, so that the chain's declared axes below reach only the
+	// responses that actually depend on them.
 	if config.Update.Enabled {
 		// A sequence is tested before anything that renders. It is the static
 		// half of a fragment, derived from the template rather than from this
@@ -338,6 +342,12 @@ func WriteHTMLChain(w http.ResponseWriter, r *http.Request, wrappers []HTMLWrapp
 		if serveRegisteredRedraw(w, r, config) {
 			return
 		}
+	}
+	// Every branch from here renders this chain, so what its components declared
+	// applies to whichever one answers: a document, a delta, and a live delivery
+	// all depend on whatever a builtin element read to produce them.
+	varyOnDeclaredAxes(w.Header(), htmlbind.MergeVary(wrappers, leaf))
+	if config.Update.Enabled {
 		// A delta carries its own headers, computed for the mode it turned out
 		// to be and applied before the stream commits.
 		if serveUpdate(w, r, wrappers, leaf, config, options, async, live) {
@@ -513,7 +523,14 @@ func WriteHTMLFragment(w http.ResponseWriter, r *http.Request, fragment HTMLFrag
 		return
 	}
 	// Nothing classifies the client here: one branch means one representation, so
-	// this response varies on nothing and stays cacheable.
+	// this response adds no axis of its own and stays cacheable.
+	//
+	// What the fragment declared is a different question and travels regardless.
+	// A component reading a cookie through a registered element depends on that
+	// cookie whether or not the framework chose between representations, and this
+	// path renders one component rather than a chain, so it asks the fragment
+	// instead of merging over wrappers that are not here.
+	varyOnDeclaredAxes(w.Header(), fragment.Vary())
 	async := fragment.HasAwaitBlock()
 	traceCtx, render := startChainRenderTrace(ctx, renderModeFragment, 1, async, false, false)
 	defer render.end()
@@ -891,6 +908,25 @@ func splitSeq(value string, separator byte) func(func(string) bool) {
 				return
 			}
 		}
+	}
+}
+
+// varyOnDeclaredAxes names the request properties a render depends on because
+// its components said so, rather than because this framework classified
+// anything.
+//
+// The axes are declared by whoever registered a builtin element, since only an
+// implementation knows what its provider reads, and generation folds them over
+// the call graph and through slot parameters. A component reading a cookie four
+// levels down therefore arrives here as one entry, which is the whole point:
+// the template says nothing a caller could otherwise see, so without this the
+// response would be stored under a key that ignores what produced it.
+//
+// A chain declaring none passes a nil slice and adds no header, which is most
+// of them.
+func varyOnDeclaredAxes(header http.Header, axes []string) {
+	for _, axis := range axes {
+		addVaryHeader(header, axis)
 	}
 }
 
