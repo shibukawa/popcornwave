@@ -472,6 +472,105 @@ func TestBuildDerivedAssetsShipsWhatIsStaged(t *testing.T) {
 	}
 }
 
+// TestBuildDerivedAssetsDropsASourceATemplateReferences is the case the
+// retention scan used to get backwards. A template is an input: it goes on
+// naming the file its author wrote, and the rewrite lands in the generated Go
+// beside it. Reading that occurrence as a reference the build could not reach
+// retained every asset any template referenced, so the conversion shipped both
+// files and saved nothing.
+func TestBuildDerivedAssetsDropsASourceATemplateReferences(t *testing.T) {
+	root := derivedFixture(t)
+	writeTestFile(t, filepath.Join(root, "public", "logo.png"), "png")
+	writeNestedTestFile(t, filepath.Join(root, filepath.FromSlash(derivedStageDir), "logo.webp"), "webp")
+	writeNestedTestFile(t, filepath.Join(root, "templates", "home.pw.html"),
+		"package templates\n\nexport component Home(): html {\n<img src=\"/public/logo.png\" alt=\"\">\n}\n")
+
+	report, err := buildDerivedAssets(root, assetsConfig{Images: true, ImageQuality: defaultImageQuality})
+	if err != nil {
+		t.Fatal(err)
+	}
+	output := filepath.Join(root, filepath.FromSlash(derivedPublicDir))
+	if _, err := os.Stat(filepath.Join(output, "logo.png")); !os.IsNotExist(err) {
+		t.Errorf("the converted source still ships: %v", err)
+	}
+	if len(report.retained) != 0 {
+		t.Errorf("report.retained = %v", report.retained)
+	}
+}
+
+// TestBuildDerivedAssetsRetainsASourceOnlyATagNobodyRewritesNames is the other
+// half, and the reason the scan cannot simply skip templates. A meta tag is the
+// case retention was built for, and it lives in a template like anything else.
+func TestBuildDerivedAssetsRetainsASourceOnlyATagNobodyRewritesNames(t *testing.T) {
+	root := derivedFixture(t)
+	writeTestFile(t, filepath.Join(root, "public", "logo.png"), "png")
+	writeNestedTestFile(t, filepath.Join(root, filepath.FromSlash(derivedStageDir), "logo.webp"), "webp")
+	writeNestedTestFile(t, filepath.Join(root, "templates", "home.pw.html"),
+		"package templates\n\nexport component Home(): html {\n"+
+			"<meta property=\"og:image\" content=\"/public/logo.png\">\n}\n")
+
+	report, err := buildDerivedAssets(root, assetsConfig{Images: true, ImageQuality: defaultImageQuality})
+	if err != nil {
+		t.Fatal(err)
+	}
+	output := filepath.Join(root, filepath.FromSlash(derivedPublicDir))
+	if _, err := os.Stat(filepath.Join(output, "logo.png")); err != nil {
+		t.Errorf("a source only a meta tag names was dropped: %v", err)
+	}
+	if len(report.retained) != 1 || !strings.Contains(report.retained[0], "home.pw.html") {
+		t.Errorf("report.retained = %v", report.retained)
+	}
+}
+
+// TestBuildDerivedAssetsIgnoresItsOwnManifest closes the loop the scan could not
+// leave. The manifest names every served URL, so a source retained once appeared
+// in the next build's manifest and kept itself retained forever.
+func TestBuildDerivedAssetsIgnoresItsOwnManifest(t *testing.T) {
+	root := derivedFixture(t)
+	writeTestFile(t, filepath.Join(root, "public", "logo.png"), "png")
+	writeNestedTestFile(t, filepath.Join(root, filepath.FromSlash(derivedStageDir), "logo.webp"), "webp")
+	// What a previous build left behind, naming the source it had retained.
+	writeTestFile(t, filepath.Join(root, assetManifestFile),
+		"package fixture\n\nvar assets = []string{\"logo.png\"}\n")
+
+	report, err := buildDerivedAssets(root, assetsConfig{Images: true, ImageQuality: defaultImageQuality})
+	if err != nil {
+		t.Fatal(err)
+	}
+	output := filepath.Join(root, filepath.FromSlash(derivedPublicDir))
+	if _, err := os.Stat(filepath.Join(output, "logo.png")); !os.IsNotExist(err) {
+		t.Errorf("the build retained a source because of its own output: %v", err)
+	}
+	if len(report.retained) != 0 {
+		t.Errorf("report.retained = %v", report.retained)
+	}
+}
+
+// TestOwnedReferenceCountReadsWholeElementNames guards the tag match against the
+// prefix it replaced, and against counting a position no hook owns.
+func TestOwnedReferenceCountReadsWholeElementNames(t *testing.T) {
+	sites := []referenceSite{{element: "img", attribute: "src"}, {element: "script", attribute: "src"}}
+	for _, testcase := range []struct {
+		source string
+		want   int
+	}{
+		{`<img src="/public/logo.png">`, 1},
+		{`<IMG SRC="/public/logo.png">`, 1},
+		{`<img src='/public/logo.png'><img src="/public/logo.png">`, 2},
+		// A tag whose name merely starts with one a hook owns.
+		{`<imgx src="/public/logo.png">`, 0},
+		// A position no hook claims, which is what retention is for.
+		{`<meta content="/public/logo.png">`, 0},
+		{`<a href="/public/logo.png">`, 0},
+		// A different file at an owned position says nothing about this one.
+		{`<img src="/public/other.png">`, 0},
+	} {
+		if got := ownedReferenceCount(testcase.source, "logo.png", sites); got != testcase.want {
+			t.Errorf("ownedReferenceCount(%q) = %d, want %d", testcase.source, got, testcase.want)
+		}
+	}
+}
+
 // TestBuildDerivedAssetsDropsSourceMapsAndTheirComment is the deployable shape.
 // Dropping the file alone would leave the bundle naming one that is not there,
 // so the two go together or neither does.

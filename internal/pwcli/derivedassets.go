@@ -248,7 +248,7 @@ func buildDerivedAssetsWithEncoder(root string, assets assetsConfig, encodeVaria
 			return nil
 		}
 		if replacement, ok := converted[slashed]; ok {
-			retain, reason, err := sourceMustBeRetained(root, slashed)
+			retain, reason, err := sourceMustBeRetained(root, slashed, assets)
 			if err != nil {
 				return err
 			}
@@ -258,7 +258,7 @@ func buildDerivedAssetsWithEncoder(root string, assets assetsConfig, encodeVaria
 			}
 			report.retained = append(report.retained, slashed+" ("+reason+")")
 		} else if scriptBuildInput(slashed, assets) {
-			retain, reason, err := sourceMustBeRetained(root, slashed)
+			retain, reason, err := sourceMustBeRetained(root, slashed, assets)
 			if err != nil {
 				return err
 			}
@@ -485,8 +485,9 @@ func publicURLRewrites(converted map[string]string) map[string]string {
 // reference the build cannot rewrite. Keeping a converted source costs bytes;
 // dropping one that a script or a meta tag still names costs a broken page, so
 // the scan errs toward keeping it and says so.
-func sourceMustBeRetained(root, relative string) (bool, string, error) {
+func sourceMustBeRetained(root, relative string, assets assetsConfig) (bool, string, error) {
 	needle := relative
+	sites := rewrittenReferenceSites(root, assets)
 	var found string
 	err := filepath.WalkDir(root, func(name string, entry fs.DirEntry, walkErr error) error {
 		if walkErr != nil {
@@ -502,11 +503,23 @@ func sourceMustBeRetained(root, relative string) (bool, string, error) {
 		if found != "" || !scannableSource(entry.Name()) {
 			return nil
 		}
+		// This build's own output is not evidence about what a developer wrote.
+		// The manifest names every served URL, so a source retained by one build
+		// appears in the next build's manifest and would keep itself retained
+		// forever; generated Go carries the rewritten reference anyway, and the
+		// authored file it came from is scanned on its own.
+		if strings.HasSuffix(entry.Name(), "_pw_gen.go") {
+			return nil
+		}
 		content, err := os.ReadFile(name)
 		if err != nil {
 			return nil
 		}
 		if !strings.Contains(string(content), needle) {
+			return nil
+		}
+		if strings.HasSuffix(entry.Name(), ".pw.html") &&
+			ownedReferenceCount(string(content), needle, sites) >= strings.Count(string(content), needle) {
 			return nil
 		}
 		// A rewritten reference no longer names the source, so an occurrence
@@ -525,6 +538,74 @@ func sourceMustBeRetained(root, relative string) (bool, string, error) {
 		return false, "", nil
 	}
 	return true, "still named by " + found, nil
+}
+
+// referenceSite is one element and attribute a conversion rewrites.
+type referenceSite struct{ element, attribute string }
+
+// rewrittenReferenceSites reads the positions the hooks own off the hooks
+// themselves, so the retention scan and the transforms cannot drift apart about
+// what a rewritten reference is.
+//
+// A disabled conversion contributes no site, which is right: with nothing
+// converting an image, no img src occurrence is a reference anything reached.
+func rewrittenReferenceSites(root string, assets assetsConfig) []referenceSite {
+	hooks := assetReferenceHooks(root, assets)
+	sites := make([]referenceSite, 0, len(hooks))
+	for _, hook := range hooks {
+		sites = append(sites, referenceSite{element: hook.Element, attribute: hook.Attribute})
+	}
+	return sites
+}
+
+// ownedReferenceCount counts the occurrences of a source that sit in an
+// attribute a conversion rewrites.
+//
+// The retention scan reads a surviving occurrence as proof the build could not
+// reach it, and for a stylesheet that holds: its url() is rewritten in the bytes
+// that ship, so what is left is what was missed. A template is not that. The
+// authored .pw.html is an input, the rewrite lands in the generated Go beside
+// it, and the template goes on naming the file its author wrote. Every asset any
+// template referenced was therefore retained, and the build shipped both the png
+// and the webp it had just made.
+//
+// Only the owned positions are discounted. A meta tag, a link href, or a path a
+// script builds still counts, which is the case retention exists for, and the
+// count errs toward retaining: an occurrence this cannot account for keeps the
+// file.
+func ownedReferenceCount(source, needle string, sites []referenceSite) int {
+	if len(sites) == 0 {
+		return 0
+	}
+	count, rest := 0, source
+	for {
+		start := strings.IndexByte(rest, '<')
+		if start < 0 {
+			return count
+		}
+		end := strings.IndexByte(rest[start:], '>')
+		if end < 0 {
+			return count
+		}
+		end += start
+		tag := rest[start : end+1]
+		for _, site := range sites {
+			if tagIsElement(tag, site.element) && assetTreePath(tagAttribute(tag, site.attribute)) == needle {
+				count++
+			}
+		}
+		rest = rest[end+1:]
+	}
+}
+
+// tagIsElement reports whether a tag opens the named element, so that "<script"
+// is not read out of "<scripted" and a closing tag names nothing.
+func tagIsElement(tag, element string) bool {
+	if !strings.HasPrefix(strings.ToLower(tag), "<"+element) {
+		return false
+	}
+	rest := tag[1+len(element):]
+	return rest == "" || isTagSpace(rest[0]) || rest[0] == '>' || rest[0] == '/'
 }
 
 // scannableSource lists the file kinds a reference can hide in. A binary is
