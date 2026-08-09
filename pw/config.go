@@ -121,13 +121,13 @@ var defaultHTMLConfig = HTMLConfig{
 	BotDetection:        true,
 	BotAsyncTimeout:     5 * time.Second,
 	ScriptlessDetection: true,
-	Live:               true,
-	LiveMaxDuration:    10 * time.Minute,
-	LiveDurationJitter: 20,
-	LiveIdleTimeout:    5 * time.Minute,
-	LiveMaxBoundaries:  32,
-	LiveMaxResponses:   4,
-	Cache:              HTMLCacheConfig{Enabled: true, MaxEntries: 1024},
+	Live:                true,
+	LiveMaxDuration:     10 * time.Minute,
+	LiveDurationJitter:  20,
+	LiveIdleTimeout:     5 * time.Minute,
+	LiveMaxBoundaries:   32,
+	LiveMaxResponses:    4,
+	Cache:               HTMLCacheConfig{Enabled: true, MaxEntries: 1024},
 }
 
 // HTMLUpdateConfig controls partial updates.
