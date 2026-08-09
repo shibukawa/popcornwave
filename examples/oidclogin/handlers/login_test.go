@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"encoding/base64"
 	"fmt"
 	"io"
 	"net"
@@ -48,11 +49,26 @@ func TestLoginProvisionsAnAccountAndSignsOut(t *testing.T) {
 				}},
 			}
 		})
+		testutil.Update[pw.SecurityConfig](config, func(security *pw.SecurityConfig) {
+			// The pages carry a logout form, and a rendered form needs the
+			// token: the template emits a hidden field and the render fails
+			// rather than shipping an unprotected one.
+			security.CSRF.Enabled = true
+			// The include list is spelled out because this config is built in
+			// code: the default lives in a struct tag the file decoder parses,
+			// and nothing parsed it on this path.
+			security.CSRF.Include = []string{"/**"}
+		})
 		testutil.Update[pw.SessionConfig](config, func(session *pw.SessionConfig) {
 			session.Enabled = true
 			session.Backend = "rdb"
 			session.Retention = time.Hour
 			session.Cookie.Secure = false
+			// Authentication registers a browser-protected slot, so the session
+			// manager refuses to start without a keyring. A fixed value is right
+			// here and only here: a test that generated one per run would still
+			// pass while a project with no secret configured could not start.
+			session.Keyring.Secret = base64.StdEncoding.EncodeToString(make([]byte, 32))
 		})
 		testutil.Update[auth.Config](config, func(settings *auth.Config) {
 			settings.Enabled = true
@@ -65,7 +81,7 @@ func TestLoginProvisionsAnAccountAndSignsOut(t *testing.T) {
 			settings.OIDC.IdentityClaim = "employee_number"
 			settings.OIDC.Admission = "authenticated"
 			settings.OIDC.AutoProvision = true
-			settings.OIDC.ProviderLogout = true
+			settings.OIDC.LogoutScope = auth.LogoutScopeGlobal
 			settings.OIDC.AllowLoopbackHTTP = true
 		})
 	}, testutil.WithMigrations("../migrations"), testutil.WithIdentityProvider(
@@ -156,7 +172,17 @@ func reservePort(t *testing.T) int {
 
 func fetch(t *testing.T, client *http.Client, target string) string {
 	t.Helper()
-	response, err := client.Get(target) //nolint:noctx // loopback test server
+	request, err := http.NewRequestWithContext(t.Context(), http.MethodGet, target, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// A browser says what it wants back, and the CSRF middleware reads it: only
+	// an HTML request is given a secret, because only an HTML response renders a
+	// form. Without this header the page renders with no token, and a template
+	// holding an unsafe form fails the render rather than shipping one
+	// unprotected.
+	request.Header.Set("Accept", "text/html,application/xhtml+xml")
+	response, err := client.Do(request)
 	if err != nil {
 		t.Fatal(err)
 	}

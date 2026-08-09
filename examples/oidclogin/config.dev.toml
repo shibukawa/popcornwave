@@ -27,6 +27,15 @@ cookie.name = "pw_session"
 # Loopback development only. Keep secure = true everywhere else.
 cookie.secure = false
 cookie.same_site = "lax"
+# One secret signs and seals everything the browser carries, whatever the
+# backend is: a session.ReadOnly slot is signed and a session.Private slot is
+# sealed, including while a visitor is still anonymous. Authentication registers
+# such a slot, so this project does not start without one.
+#
+# This value belongs to development only. Every other environment reads
+# SESSION_KEYRING_SECRET, and "pw doctor --env" reports a literal here as an
+# error for any environment but dev.
+keyring.secret = "teAl0D8gj0CeAqIlB5aKJfATJ9osTqvNIM9n4gcV79A="
 rdb.source = "middleware"
 
 [auth]
@@ -58,4 +67,12 @@ auto_provision = true
 allow_loopback_http = true
 # Sign out of the provider as well. Without it the provider stays signed in and
 # the next login returns the same user without asking.
-provider_logout = true
+logout_scope = "global"
+
+# Both pages carry a form that logs out, which is an unsafe route, so the check
+# covers something. A rendered form also needs the token now: a template with
+# method="post" emits a hidden field, and the render fails rather than shipping
+# an unprotected form.
+[security]
+csrf.enabled = true
+csrf.include = ["/**"]
