@@ -136,18 +136,18 @@ pw.WriteAPI(w, r, user)
 ## ストリーム
 
 トークン、ログ行、キューのイベントのように時間をかけて届くレスポンスは、代わりに
-`pw.NewStream[T]` で書きます。
+`pw.WriteStream[T]` で書きます。
 
 ```go
 func events(w http.ResponseWriter, r *http.Request) {
-	stream := pw.NewStream[ChatEvent](w, r)
-	defer stream.Close()
-
-	for event := range source {
-		if err := stream.Send(event); err != nil {
-			return
+	pw.WriteStream(w, r, func(stream *pw.Stream[ChatEvent]) error {
+		for event := range source {
+			if err := stream.Write(event); err != nil {
+				return err
+			}
 		}
-	}
+		return nil
+	})
 }
 ```
 

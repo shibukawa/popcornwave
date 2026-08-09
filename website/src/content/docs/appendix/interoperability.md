@@ -45,7 +45,7 @@ the TinyGo target for that build.
 | `pw.Parse[T]` | replaceable helper |
 | `.pw.sql` statements | replaceable helper |
 | `.pw.html` components | replaceable helper |
-| `pw.WriteAPI` / `WriteHTML` / `NewStream` / `WriteProblem` | replaceable helper |
+| `pw.WriteAPI` / `WriteHTML` / `WriteStream` / `WriteProblem` | replaceable helper |
 
 The helpers reduce four common jobs to a small amount of code and feed the
 generated OpenAPI document. Those benefits do not turn them into runtime

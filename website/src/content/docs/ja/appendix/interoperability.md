@@ -41,7 +41,7 @@ reflect ベースのライブラリを使うこともできます。
 | `pw.Parse[T]` | 差し替え可能なヘルパー |
 | `.pw.sql` ステートメント | 差し替え可能なヘルパー |
 | `.pw.html` コンポーネント | 差し替え可能なヘルパー |
-| `pw.WriteAPI` / `WriteHTML` / `NewStream` / `WriteProblem` | 差し替え可能なヘルパー |
+| `pw.WriteAPI` / `WriteHTML` / `WriteStream` / `WriteProblem` | 差し替え可能なヘルパー |
 
 ヘルパーは、よくある 4 つの仕事を少ないコードで片付け、生成される OpenAPI
 ドキュメントの入力にもなります。しかし、その利点がランタイムの契約になるわけではありません。
