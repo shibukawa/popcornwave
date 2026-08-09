@@ -51,7 +51,7 @@ func TestLoginProvisionsAnAccountAndSignsOut(t *testing.T) {
 		testutil.Update[pw.SessionConfig](config, func(session *pw.SessionConfig) {
 			session.Enabled = true
 			session.Backend = "rdb"
-			session.TTL = time.Hour
+			session.Retention = time.Hour
 			session.Cookie.Secure = false
 		})
 		testutil.Update[auth.Config](config, func(settings *auth.Config) {

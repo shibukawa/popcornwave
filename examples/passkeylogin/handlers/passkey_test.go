@@ -155,7 +155,7 @@ func passkeyServer(t *testing.T, port int, origin string, overrides ...func(*tes
 		testutil.Update[pw.SessionConfig](config, func(session *pw.SessionConfig) {
 			session.Enabled = true
 			session.Backend = "rdb"
-			session.TTL = time.Hour
+			session.Retention = time.Hour
 			session.Cookie.Secure = false
 		})
 		testutil.Update[auth.Config](config, func(settings *auth.Config) {
