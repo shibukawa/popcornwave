@@ -182,11 +182,30 @@ pw.WriteProblem(w, r, pw.NotFound("no such user"))
 | `pw.BadRequest` | 400 |
 | `pw.Forbidden` | 403 |
 | `pw.NotFound` | 404 |
+| `pw.TooManyRequests` | 429 |
 | `pw.InternalServerError` | 500 |
 
-いずれも `error`、`string`、別の `pw.Problem`、あるいは引数なしを受け付けます。これらの
-呼び出し箇所も生成器に読まれるため、エンドポイントが返しうるエラーレスポンスが
-OpenAPI の記述に現れます。
+いずれも`error`、`string`、別の`pw.Problem`、あるいは引数なしを受け付けます。生成器が
+対応するコンストラクタの呼び出しは、エンドポイントのOpenAPI記述にも現れます。ただし、
+TinyBind v0.5.0は新しい429ヘルパーをまだ推論しないため、実行時レスポンスは完成していても、
+生成されたOpenAPIには429が入りません。
+
+割り当て済みのリクエスト量を超えた場合は、`pw.RateLimited`で同じ429 Problemに再試行情報を
+付けられます。
+
+```go
+pw.WriteProblem(w, r, pw.RateLimited(pw.RateLimit{
+	Limit:      100,
+	Remaining:  0,
+	Reset:      resetAt,
+	RetryAfter: 30 * time.Second,
+}, "request quota exceeded"))
+```
+
+レスポンスには`Retry-After`、`X-RateLimit-Limit`、`X-RateLimit-Remaining`、
+`X-RateLimit-Reset`が付きます。`X-RateLimit-*`は互換用の慣用名であり、標準HTTP
+フィールドではありません。標準の再試行通知は`Retry-After`です。メタデータを持たない
+`pw.TooManyRequests()`を含め、429レスポンスには常に`Cache-Control: no-store`が付きます。
 
 コンストラクタのないステータスは値を直接組み立てます。
 
@@ -228,11 +247,8 @@ if err := service.Register(r.Context(), input); err != nil {
 
 ### HTML のエラーページ
 
-スキャフォールドされたプロジェクトには `templates/400.pw.html`、`404.pw.html`、
-`500.pw.html` が含まれます。これらは他のページと同じように生成される通常の
-コンポーネントです。
-
-ただし、ステータスと結びつける部分は今のところ手作業です。`pw.WriteProblem` は常に
-`application/problem+json` を返し、`pw.WriteHTML` はステータスコードを取らないため
-200 を返します。これらのテンプレートを 4xx や 5xx のステータスで使いたい場合は、
-アプリケーション側でその経路を組み立てることになります。
+スキャフォールドされたプロジェクトには、`templates/429.pw.html`を含む400から500までの
+ステータステンプレートが用意されます。どれも他のページと同じ通常のコンポーネントです。
+生成済みのエラーリゾルバは、`Accept`がHTMLを優先すると対応するテンプレートを選び、API
+クライアントには同じProblemを`application/problem+json`で返します。どちらの表現でも
+ステータスとレスポンスメタデータは変わりません。

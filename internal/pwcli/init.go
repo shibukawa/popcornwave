@@ -963,6 +963,7 @@ func RuntimeScriptURL() *url.URL { return &url.URL{Path: pw.RuntimeScriptURL()} 
 		"templates/404.pw.html": errorTemplate("templates", "Error404", "Not Found"),
 		"templates/409.pw.html": errorTemplate("templates", "Error409", "Conflict"),
 		"templates/413.pw.html": errorTemplate("templates", "Error413", "Payload Too Large"),
+		"templates/429.pw.html": errorTemplate("templates", "Error429", "Too Many Requests"),
 		"templates/500.pw.html": errorTemplate("templates", "Error500", "Internal Server Error"),
 		"public.go": `package publicassets
 
@@ -2849,6 +2850,9 @@ func init() {
 				Detail: problem.Message, Code: problem.Code, Fields: fields})
 		case 413:
 			return Error413(Error413Params{Status: problem.Status, Title: problem.Title,
+				Detail: problem.Message, Code: problem.Code, Fields: fields})
+		case 429:
+			return Error429(Error429Params{Status: problem.Status, Title: problem.Title,
 				Detail: problem.Message, Code: problem.Code, Fields: fields})
 		default:
 			return Error500(Error500Params{Status: problem.Status, Title: problem.Title,

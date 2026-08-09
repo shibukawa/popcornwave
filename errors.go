@@ -1,6 +1,7 @@
 package petitweb
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -19,6 +20,7 @@ type ErrorPage struct {
 	Code      string
 	RequestID string
 	fields    []httpbind.FieldError
+	problem   pwruntime.Problem
 }
 
 // ErrorRenderer writes a complete HTML error response.
@@ -37,6 +39,7 @@ func (h ErrorHandler) WriteError(w http.ResponseWriter, r *http.Request, err err
 		return
 	}
 	page := errorPage(r, err)
+	_ = pwruntime.ApplyProblemHeaders(w.Header(), page.problem)
 	if h.Renderer != nil && acceptsHTML(r) {
 		guard := &commitGuard{ResponseWriter: w}
 		if renderErr := h.Renderer(guard, r, page); renderErr == nil {
@@ -50,6 +53,7 @@ func (h ErrorHandler) WriteError(w http.ResponseWriter, r *http.Request, err err
 			if guard.committed {
 				return
 			}
+			clearProblemHeaders(w.Header())
 			page = ErrorPage{Status: http.StatusInternalServerError, Title: "Internal Server Error", Detail: "internal error", Code: "internal", RequestID: page.RequestID}
 		}
 	}
@@ -67,6 +71,31 @@ func errorPage(r *http.Request, err error) ErrorPage {
 		if requestID, ok := ReadRequestID(r.Context()); ok {
 			page.RequestID = requestID
 		}
+	}
+	var problem pwruntime.Problem
+	if errors.As(err, &problem) {
+		if problem.Status == 0 {
+			problem.Status = http.StatusInternalServerError
+		}
+		if problem.Title == "" {
+			problem.Title = http.StatusText(problem.Status)
+		}
+		page.Status = problem.Status
+		page.Title = problem.Title
+		page.Detail = problem.Message
+		page.Code = problem.Code
+		page.fields = append([]httpbind.FieldError(nil), problem.Fields...)
+		page.problem = problem
+		if page.Status >= 500 {
+			page.Title = http.StatusText(page.Status)
+			page.Detail = "internal error"
+			page.Code = "internal"
+			page.fields = nil
+		}
+		if page.Status < 400 || page.Status > 599 {
+			return ErrorPage{Status: http.StatusInternalServerError, Title: "Internal Server Error", Detail: "internal error", Code: "internal", RequestID: page.RequestID}
+		}
+		return page
 	}
 	if mapped, ok := httpbind.AsHTTPError(err); ok {
 		page.Status = mapped.Status
@@ -94,6 +123,12 @@ func errorPage(r *http.Request, err error) ErrorPage {
 		page = ErrorPage{Status: http.StatusInternalServerError, Title: "Internal Server Error", Detail: "internal error", Code: "internal", RequestID: page.RequestID}
 	}
 	return page
+}
+
+func clearProblemHeaders(header http.Header) {
+	for _, name := range []string{"Cache-Control", "Retry-After", "X-RateLimit-Limit", "X-RateLimit-Remaining", "X-RateLimit-Reset"} {
+		header.Del(name)
+	}
 }
 
 func writeProblem(w http.ResponseWriter, page ErrorPage) {

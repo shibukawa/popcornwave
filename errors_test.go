@@ -6,8 +6,10 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	petitweb "github.com/shibukawa/popcornwave"
+	"github.com/shibukawa/popcornwave/pwruntime"
 	httpbind "github.com/shibukawa/tinybind-go"
 )
 
@@ -24,6 +26,25 @@ func TestWriteErrorNegotiatesHTML(t *testing.T) {
 	app.WriteError(recorder, request, httpbind.NotFound(httpbind.Problem{Code: "missing", Message: "Not here"}))
 	if recorder.Code != http.StatusNotFound || recorder.Body.String() != "<h1>Not Found</h1>" {
 		t.Fatalf("response = %d %q", recorder.Code, recorder.Body.String())
+	}
+}
+
+func TestWriteErrorCarriesRateLimitHeaders(t *testing.T) {
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "/limited", nil)
+	petitweb.WriteError(recorder, request, pwruntime.RateLimited(pwruntime.RateLimit{
+		Limit: 20, Remaining: 0, Reset: time.Unix(1_800_000_000, 0), RetryAfter: time.Minute,
+	}, nil))
+	if recorder.Code != http.StatusTooManyRequests {
+		t.Fatalf("status = %d", recorder.Code)
+	}
+	for name, want := range map[string]string{
+		"Cache-Control": "no-store", "Retry-After": "60", "X-RateLimit-Limit": "20",
+		"X-RateLimit-Remaining": "0", "X-RateLimit-Reset": "1800000000",
+	} {
+		if got := recorder.Header().Get(name); got != want {
+			t.Errorf("%s = %q, want %q", name, got, want)
+		}
 	}
 }
 

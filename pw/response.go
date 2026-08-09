@@ -31,6 +31,10 @@ type Problem = pwruntime.Problem
 // FieldError describes a single field-level validation failure.
 type FieldError = pwruntime.FieldError
 
+// RateLimit describes the compatibility quota fields and standard retry hint
+// emitted by RateLimited.
+type RateLimit = pwruntime.RateLimit
+
 // Field builds a field-level validation error for Validation.
 func Field(field, location, message string) FieldError {
 	return pwruntime.Field(field, location, message)
@@ -65,12 +69,16 @@ func problem(status int, title string, value any) Problem {
 	return pwruntime.NewProblem(status, title, value)
 }
 
-func BadRequest(values ...any) Problem          { return pwruntime.BadRequest(values...) }
-func Unauthorized(values ...any) Problem        { return pwruntime.Unauthorized(values...) }
-func Forbidden(values ...any) Problem           { return pwruntime.Forbidden(values...) }
-func NotFound(values ...any) Problem            { return pwruntime.NotFound(values...) }
-func Conflict(values ...any) Problem            { return pwruntime.Conflict(values...) }
-func PayloadTooLarge(values ...any) Problem     { return pwruntime.PayloadTooLarge(values...) }
+func BadRequest(values ...any) Problem      { return pwruntime.BadRequest(values...) }
+func Unauthorized(values ...any) Problem    { return pwruntime.Unauthorized(values...) }
+func Forbidden(values ...any) Problem       { return pwruntime.Forbidden(values...) }
+func NotFound(values ...any) Problem        { return pwruntime.NotFound(values...) }
+func Conflict(values ...any) Problem        { return pwruntime.Conflict(values...) }
+func PayloadTooLarge(values ...any) Problem { return pwruntime.PayloadTooLarge(values...) }
+func TooManyRequests(values ...any) Problem { return pwruntime.TooManyRequests(values...) }
+func RateLimited(rate RateLimit, values ...any) Problem {
+	return pwruntime.RateLimited(rate, values...)
+}
 func ServiceUnavailable(values ...any) Problem  { return pwruntime.ServiceUnavailable(values...) }
 func InternalServerError(values ...any) Problem { return pwruntime.InternalServerError(values...) }
 
@@ -87,6 +95,9 @@ func WriteProblem(w http.ResponseWriter, r *http.Request, err error) {
 		Logger(requestContext(r)).Log(requestContext(r), LevelError, "request failed", Err(err))
 	}
 	p = sanitizedProblem(p)
+	if err := pwruntime.ApplyProblemHeaders(w.Header(), p); err != nil {
+		Logger(requestContext(r)).Log(requestContext(r), LevelError, "invalid rate limit response metadata", Err(err))
+	}
 	// One handler answers a browser form post and an API client on the same
 	// route. Which representation this failure takes is the client's to say, so
 	// it is read from Accept rather than branched on by the caller.

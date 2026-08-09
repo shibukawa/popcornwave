@@ -19,6 +19,8 @@ application_errors:
     - pw.NotFound
     - pw.Conflict
     - pw.PayloadTooLarge
+    - pw.TooManyRequests
+    - pw.RateLimited
     - pw.InternalServerError
     - pw.Validation
 response:
@@ -31,5 +33,5 @@ response:
 security:
   - hide internal causes for 5xx responses
   - use stable machine-readable problem codes
-  - HTML negotiation uses the generated 400, 401, 403, 404, 409, 413, and 500 templates when possible
+  - HTML negotiation uses the generated 400, 401, 403, 404, 409, 413, 429, and 500 templates when possible
 ```

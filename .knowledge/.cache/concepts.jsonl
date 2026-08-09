@@ -345,6 +345,7 @@
 {"category": "constraint", "id": "policy:web-middleware", "path": ".knowledge/policy/web-middleware.md", "role": "supporting", "title": "Web Middleware Integration", "type": "policy"}
 {"category": "objective", "id": "requirement:action-response-update", "path": ".knowledge/requirement/action-response-update.md", "role": "primary", "title": "Action Response Update", "type": "requirement"}
 {"category": "objective", "id": "requirement:alternate-http-backend-readiness", "path": ".knowledge/requirement/alternate-http-backend-readiness.md", "role": "primary", "title": "Readiness For A Non-net/http Backend", "type": "requirement"}
+{"category": "objective", "id": "requirement:api-lifecycle-response-headers", "path": ".knowledge/requirement/api-lifecycle-response-headers.md", "role": "primary", "title": "API Lifecycle Response Headers", "type": "requirement"}
 {"category": "objective", "id": "requirement:api-server-scaffold", "path": ".knowledge/requirement/api-server-scaffold.md", "role": "primary", "title": "API Server Preset Scaffold", "type": "requirement"}
 {"category": "objective", "id": "requirement:application-middleware-registration", "path": ".knowledge/requirement/application-middleware-registration.md", "role": "primary", "title": "Numbered Middleware Chain Registration", "type": "requirement"}
 {"category": "objective", "id": "requirement:application-user-experience", "path": ".knowledge/requirement/application-user-experience.md", "role": "primary", "title": "Popcorn Wave Application User Experience", "type": "requirement"}
@@ -465,6 +466,7 @@
 {"category": "objective", "id": "requirement:pwfast-update-surface", "path": ".knowledge/requirement/pwfast-update-surface.md", "role": "primary", "title": "The Update Surface On The Second Backend", "type": "requirement"}
 {"category": "objective", "id": "requirement:query-diagnostics", "path": ".knowledge/requirement/query-diagnostics.md", "role": "primary", "title": "Database Query Diagnostics", "type": "requirement"}
 {"category": "objective", "id": "requirement:query-navigation-interception", "path": ".knowledge/requirement/query-navigation-interception.md", "role": "primary", "title": "Query Navigation Interception", "type": "requirement"}
+{"category": "objective", "id": "requirement:rate-limit-problem-responses", "path": ".knowledge/requirement/rate-limit-problem-responses.md", "role": "primary", "title": "Rate Limit Problem Responses", "type": "requirement"}
 {"category": "objective", "id": "requirement:read-write-splitting", "path": ".knowledge/requirement/read-write-splitting.md", "role": "primary", "title": "Read-Write Split Connections", "type": "requirement"}
 {"category": "objective", "id": "requirement:reloadable-component-endpoint", "path": ".knowledge/requirement/reloadable-component-endpoint.md", "role": "primary", "title": "Reloadable Component Endpoint", "type": "requirement"}
 {"category": "objective", "id": "requirement:response-gzip-encoder", "path": ".knowledge/requirement/response-gzip-encoder.md", "role": "primary", "title": "Gzip Response Encoder", "type": "requirement"}
@@ -488,6 +490,7 @@
 {"category": "objective", "id": "requirement:unhandled-boundary-signal", "path": ".knowledge/requirement/unhandled-boundary-signal.md", "role": "primary", "title": "Unhandled Boundary Signal", "type": "requirement"}
 {"category": "objective", "id": "requirement:unified-update-runtime", "path": ".knowledge/requirement/unified-update-runtime.md", "role": "primary", "title": "Unified Update Runtime", "type": "requirement"}
 {"category": "objective", "id": "requirement:update-navigation-continuity", "path": ".knowledge/requirement/update-navigation-continuity.md", "role": "primary", "title": "Update Navigation Continuity", "type": "requirement"}
+{"category": "objective", "id": "requirement:web-standards-overview", "path": ".knowledge/requirement/web-standards-overview.md", "role": "primary", "title": "Web Standards Architecture Overview", "type": "requirement"}
 {"category": "constraint", "id": "rule:batch-engine-capability", "path": ".knowledge/rule/batch-engine-capability.md", "role": "supporting", "title": "Batch Capability Per Engine", "type": "rule"}
 {"category": "constraint", "id": "rule:configuration-advisories", "path": ".knowledge/rule/configuration-advisories.md", "role": "supporting", "title": "Configuration Advisories", "type": "rule"}
 {"category": "constraint", "id": "rule:container-build-inputs", "path": ".knowledge/rule/container-build-inputs.md", "role": "supporting", "title": "Container Build Inputs", "type": "rule"}

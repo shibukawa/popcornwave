@@ -7,7 +7,9 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"reflect"
+	"strings"
 	"testing"
+	"time"
 
 	tinybind "github.com/shibukawa/tinybind-go"
 	"github.com/shibukawa/tinybind-go/jsonbind"
@@ -25,12 +27,74 @@ func TestProblemConstructorsCoverTinyBindStatuses(t *testing.T) {
 		{NotFound(), http.StatusNotFound, "not_found"},
 		{Conflict(), http.StatusConflict, "conflict"},
 		{PayloadTooLarge(), http.StatusRequestEntityTooLarge, "payload_too_large"},
+		{TooManyRequests(), http.StatusTooManyRequests, "rate_limit_exceeded"},
 		{InternalServerError(), http.StatusInternalServerError, "internal"},
 		{Validation(), http.StatusBadRequest, "validation_failed"},
 	} {
 		if tc.problem.Status != tc.status || tc.problem.Code != tc.code {
 			t.Errorf("problem = %d %q, want %d %q", tc.problem.Status, tc.problem.Code, tc.status, tc.code)
 		}
+	}
+}
+
+func TestWriteProblemCarriesRateLimitHeaders(t *testing.T) {
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "/limited", nil)
+	reset := time.Unix(1_800_000_000, 0)
+	WriteProblem(recorder, request, RateLimited(RateLimit{
+		Limit: 100, Remaining: 0, Reset: reset, RetryAfter: 1500 * time.Millisecond,
+	}, "slow down"))
+
+	if recorder.Code != http.StatusTooManyRequests {
+		t.Fatalf("status = %d", recorder.Code)
+	}
+	want := map[string]string{
+		"Cache-Control":         "no-store",
+		"Retry-After":           "2",
+		"X-RateLimit-Limit":     "100",
+		"X-RateLimit-Remaining": "0",
+		"X-RateLimit-Reset":     "1800000000",
+	}
+	for name, value := range want {
+		if got := recorder.Header().Get(name); got != value {
+			t.Errorf("%s = %q, want %q", name, got, value)
+		}
+	}
+	if !strings.Contains(recorder.Body.String(), `"code":"rate_limit_exceeded"`) {
+		t.Fatalf("body = %q", recorder.Body.String())
+	}
+}
+
+func TestWriteProblemOmitsInvalidRateLimitMetadata(t *testing.T) {
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "/limited", nil)
+	WriteProblem(recorder, request, RateLimited(RateLimit{Limit: 1, Remaining: 2}, nil))
+
+	if recorder.Code != http.StatusTooManyRequests || recorder.Header().Get("Cache-Control") != "no-store" {
+		t.Fatalf("response = %d headers=%v", recorder.Code, recorder.Header())
+	}
+	for _, name := range []string{"Retry-After", "X-RateLimit-Limit", "X-RateLimit-Remaining", "X-RateLimit-Reset"} {
+		if got := recorder.Header().Get(name); got != "" {
+			t.Errorf("%s = %q, want omitted", name, got)
+		}
+	}
+}
+
+func TestWriteProblemHTMLPreservesRateLimitHeaders(t *testing.T) {
+	previous := registeredHTMLErrorPage()
+	RegisterHTMLErrorPage(func(Problem) HTMLFragment { return staticFragment("<h1>Too Many Requests</h1>") })
+	t.Cleanup(func() { RegisterHTMLErrorPage(previous) })
+
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "/limited", nil)
+	request.Header.Set("Accept", "text/html")
+	WriteProblem(recorder, request, RateLimited(RateLimit{Limit: 10, Remaining: 0}, nil))
+
+	if recorder.Code != http.StatusTooManyRequests || recorder.Header().Get("X-RateLimit-Limit") != "10" {
+		t.Fatalf("response = %d headers=%v", recorder.Code, recorder.Header())
+	}
+	if got := recorder.Header().Get("Content-Type"); got != "text/html; charset=utf-8" {
+		t.Fatalf("Content-Type = %q", got)
 	}
 }
 

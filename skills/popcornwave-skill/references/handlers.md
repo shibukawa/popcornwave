@@ -174,7 +174,7 @@ The client negotiates SSE, NDJSON, or a JSON array via `Accept`; the handler ser
 pw.WriteProblem(w, r, pw.NotFound("no such user"))
 ```
 
-Writes RFC 9457 `application/problem+json`. Constructors: `pw.BadRequest`, `Unauthorized`, `Forbidden`, `NotFound`, `Conflict`, `PayloadTooLarge`, `InternalServerError`, `ServiceUnavailable` — each accepts an `error`, a `string`, another `pw.Problem`, or nothing. For other statuses build `pw.Problem{Status:, Title:, Code:, Message:}` directly.
+Writes RFC 9457 `application/problem+json`. Constructors: `pw.BadRequest`, `Unauthorized`, `Forbidden`, `NotFound`, `Conflict`, `PayloadTooLarge`, `TooManyRequests`, `InternalServerError`, `ServiceUnavailable` — each accepts an `error`, a `string`, another `pw.Problem`, or nothing. `pw.RateLimited(pw.RateLimit{...}, value)` adds `Retry-After` and `X-RateLimit-*` metadata to a 429. For other statuses build `pw.Problem{Status:, Title:, Code:, Message:}` directly.
 
 `WriteProblem` maps any `error`: a `pw.Problem` (even `%w`-wrapped) is used as-is; a binding/validation error keeps its status and field detail; anything else becomes a 500. So a handler can forward a service error directly: `pw.WriteProblem(w, r, err)`.
 
@@ -182,7 +182,7 @@ Two safety behaviours: 5xx details never leak (logged in full, reported as `inte
 
 ### HTML error pages
 
-Scaffolded projects carry `templates/400.pw.html`, `404.pw.html`, `500.pw.html` — ordinary components. `pw.WriteProblem` always answers problem JSON and `pw.WriteHTML` always answers 200, so serving one of these templates under an error status is application code you write yourself. `pw.RegisterHTMLErrorPage(resolve)` installs a `func(Problem) HTMLFragment` resolver; it receives the mapped `Problem`, never the original error, so a template cannot leak a server-side cause.
+Scaffolded projects carry status templates including `templates/400.pw.html`, `429.pw.html`, and `500.pw.html`. `pw.RegisterHTMLErrorPage(resolve)` installs the generated `func(Problem) HTMLFragment` resolver; `pw.WriteProblem` uses it when `Accept` prefers HTML and writes problem JSON otherwise. The resolver receives the mapped `Problem`, never the original error, so a template cannot leak a server-side cause.
 
 ## Request-scoped accessors
 

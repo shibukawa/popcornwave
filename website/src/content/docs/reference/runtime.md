@@ -98,6 +98,7 @@ is.
 | `WriteHTMLFragment(w, r, fragment)` | Renders one template as the entire response — no shell, no merged head |
 | `WriteAPI[T](w, r, value)` | Writes a typed response in the negotiated format |
 | `WriteProblem(w, r, err)` | Maps an error to an RFC problem response |
+| `LifecycleHeaders(Lifecycle) (Middleware, error)` | RFC 9745 Deprecation and RFC 8594 Sunset middleware |
 | `NewStream[T](w, r) *Stream[T]` | Opens a streamed response, negotiating SSE, NDJSON, or a JSON array from `Accept` |
 | `Stream.Send(value)`, `Stream.Close()` | Writes one value; finalizes the response |
 | `RegisterHTMLDocument(wrapper)` | Installs the application document shell (**generated**) |
@@ -121,8 +122,9 @@ error rather than a silent drop: there is no head here to receive it.
 
 | Symbol | What it does |
 | --- | --- |
-| `Problem` | The application-facing problem value: `Status`, `Title`, `Code`, `Message`, `Fields`, `Cause` |
-| `BadRequest`, `Unauthorized`, `Forbidden`, `NotFound`, `Conflict`, `PayloadTooLarge`, `InternalServerError`, `ServiceUnavailable` | Constructors for the common statuses |
+| `Problem` | The application-facing problem value: `Status`, `Title`, `Code`, `Message`, `Fields`, `Cause`, `RateLimit` |
+| `BadRequest`, `Unauthorized`, `Forbidden`, `NotFound`, `Conflict`, `PayloadTooLarge`, `TooManyRequests`, `InternalServerError`, `ServiceUnavailable` | Constructors for the common statuses |
+| `RateLimited(RateLimit, ...any) Problem` | A 429 with `Retry-After` and `X-RateLimit-*` metadata |
 | `Validation(...FieldError) Problem` | A 400 carrying every detected field failure |
 | `Field(field, location, message) FieldError` | One field-level failure |
 | `HTMLErrorPage` | `func(Problem) HTMLFragment` — the shape `RegisterHTMLErrorPage` accepts |

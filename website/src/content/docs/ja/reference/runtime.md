@@ -96,6 +96,7 @@ sidebar:
 | `WriteHTMLFragment(w, r, fragment)` | テンプレート1つをレスポンス全体として描画する。シェルなし、head のマージなし |
 | `WriteAPI[T](w, r, value)` | ネゴシエートした形式で型付きレスポンスを書く |
 | `WriteProblem(w, r, err)` | エラーを RFC の problem レスポンスへ写す |
+| `LifecycleHeaders(Lifecycle) (Middleware, error)` | RFC 9745 DeprecationとRFC 8594 Sunsetのミドルウェア |
 | `NewStream[T](w, r) *Stream[T]` | `Accept` から SSE、NDJSON、JSON 配列のいずれかを選び、ストリーミングを開始する |
 | `Stream.Send(value)`, `Stream.Close()` | 値を1つ書く。レスポンスを完結させる |
 | `RegisterHTMLDocument(wrapper)` | アプリケーションのドキュメントシェルを差し込む（**generated**） |
@@ -119,8 +120,9 @@ await 境界を開けるチェーンはストリーミングし、開けない�
 
 | シンボル | 役割 |
 | --- | --- |
-| `Problem` | アプリケーション向けの problem 値。`Status`, `Title`, `Code`, `Message`, `Fields`, `Cause` |
-| `BadRequest`, `Unauthorized`, `Forbidden`, `NotFound`, `Conflict`, `PayloadTooLarge`, `InternalServerError`, `ServiceUnavailable` | よく使うステータスのコンストラクタ |
+| `Problem` | アプリケーション向けの problem 値。`Status`, `Title`, `Code`, `Message`, `Fields`, `Cause`, `RateLimit` |
+| `BadRequest`, `Unauthorized`, `Forbidden`, `NotFound`, `Conflict`, `PayloadTooLarge`, `TooManyRequests`, `InternalServerError`, `ServiceUnavailable` | よく使うステータスのコンストラクタ |
+| `RateLimited(RateLimit, ...any) Problem` | `Retry-After`と`X-RateLimit-*`メタデータを持つ429 |
 | `Validation(...FieldError) Problem` | 検出したフィールド失敗をすべて載せた 400 |
 | `Field(field, location, message) FieldError` | フィールド単位の失敗1件 |
 | `HTMLErrorPage` | `func(Problem) HTMLFragment`。`RegisterHTMLErrorPage` が受け取る形 |

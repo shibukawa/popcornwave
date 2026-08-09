@@ -1,6 +1,11 @@
 package pwfast
 
 import (
+	"errors"
+	"net/http"
+	"strconv"
+	"strings"
+
 	"github.com/shibukawa/popcornwave/pwruntime"
 	"github.com/shibukawa/tinybind-go/fasthttpbind"
 	"github.com/shibukawa/tinybind-go/htmlbind"
@@ -27,6 +32,7 @@ type (
 type (
 	Problem    = pwruntime.Problem
 	FieldError = pwruntime.FieldError
+	RateLimit  = pwruntime.RateLimit
 	HTTPError  = fasthttpbind.HTTPError
 )
 
@@ -42,6 +48,10 @@ func Forbidden(values ...any) Problem       { return pwruntime.Forbidden(values.
 func NotFound(values ...any) Problem        { return pwruntime.NotFound(values...) }
 func Conflict(values ...any) Problem        { return pwruntime.Conflict(values...) }
 func PayloadTooLarge(values ...any) Problem { return pwruntime.PayloadTooLarge(values...) }
+func TooManyRequests(values ...any) Problem { return pwruntime.TooManyRequests(values...) }
+func RateLimited(rate RateLimit, values ...any) Problem {
+	return pwruntime.RateLimited(rate, values...)
+}
 func ServiceUnavailable(values ...any) Problem {
 	return pwruntime.ServiceUnavailable(values...)
 }
@@ -86,6 +96,56 @@ func WriteAPIStatus[T any](r *fasthttp.RequestCtx, status int, value T) {
 // same shared-leaf move the document shell needs. The problem body itself is
 // byte-identical across the two halves, which is the part a client parses.
 func WriteProblem(r *fasthttp.RequestCtx, err error) {
+	var problem Problem
+	if errors.As(err, &problem) {
+		if problem.Status < 400 || problem.Status > 599 {
+			problem = InternalServerError(err)
+		}
+		if problem.Title == "" {
+			problem.Title = http.StatusText(problem.Status)
+		}
+		if problem.Status >= 500 {
+			problem.Message = "internal error"
+			problem.Code = "internal"
+			problem.Fields = nil
+		}
+		headers, _ := pwruntime.ProblemHeaders(problem)
+		for name, values := range headers {
+			for _, value := range values {
+				r.Response.Header.Add(name, value)
+			}
+		}
+		r.Response.Header.SetContentType("application/problem+json")
+		r.SetStatusCode(problem.Status)
+		var body strings.Builder
+		body.WriteString(`{"type":"about:blank","title":`)
+		body.WriteString(strconv.Quote(problem.Title))
+		body.WriteString(`,"status":`)
+		body.WriteString(strconv.Itoa(problem.Status))
+		body.WriteString(`,"detail":`)
+		body.WriteString(strconv.Quote(problem.Message))
+		body.WriteString(`,"code":`)
+		body.WriteString(strconv.Quote(problem.Code))
+		if len(problem.Fields) > 0 {
+			body.WriteString(`,"errors":[`)
+			for index, field := range problem.Fields {
+				if index > 0 {
+					body.WriteByte(',')
+				}
+				body.WriteString(`{"field":`)
+				body.WriteString(strconv.Quote(field.Field))
+				body.WriteString(`,"location":`)
+				body.WriteString(strconv.Quote(field.Location))
+				body.WriteString(`,"message":`)
+				body.WriteString(strconv.Quote(field.Message))
+				body.WriteByte('}')
+			}
+			body.WriteByte(']')
+		}
+		body.WriteString("}\n")
+		r.Response.SetBodyString(body.String())
+		return
+	}
 	fasthttpbind.WriteError(r, err)
 }
 

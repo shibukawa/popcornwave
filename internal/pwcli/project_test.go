@@ -154,6 +154,7 @@ func TestScaffoldFilesWithTailwind(t *testing.T) {
 		"templates/404.pw.html",
 		"templates/409.pw.html",
 		"templates/413.pw.html",
+		"templates/429.pw.html",
 		"templates/500.pw.html",
 		"migrations/00001_init.sql",
 		".vscode/settings.json",

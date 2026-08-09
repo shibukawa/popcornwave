@@ -15,6 +15,8 @@ surface:
   - NotFound(...) Problem
   - Conflict(...) Problem
   - PayloadTooLarge(...) Problem
+  - TooManyRequests(...) Problem
+  - RateLimited(RateLimit, ...) Problem
   - InternalServerError(...) Problem
   - Validation(fields ...FieldError) Problem
   - WriteProblem(http.ResponseWriter, *http.Request, error)
@@ -37,6 +39,7 @@ html:
     404: templates/404.pw.html
     409: templates/409.pw.html
     413: templates/413.pw.html
+    429: templates/429.pw.html
     500: templates/500.pw.html
 detail_by_environment:
   axis: data:runtime-environment, not the status and not the client

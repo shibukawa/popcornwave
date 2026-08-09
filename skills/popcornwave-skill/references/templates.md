@@ -296,7 +296,7 @@ export component Sidebar(userId: string, tone: Tone): html { … }
 
 ## Error templates
 
-Scaffolded projects carry `templates/400.pw.html`, `404.pw.html`, and `500.pw.html` — ordinary components taking the status, title, detail, and field failures as parameters. `pw.WriteProblem` serves them to clients whose `Accept` prefers HTML (problem JSON otherwise); in `dev` they show everything the problem carries, elsewhere only status, title, and request id. For an async boundary that fails with no `recover`, register the whole-page replacement once:
+Scaffolded projects carry status templates including `templates/400.pw.html`, `429.pw.html`, and `500.pw.html` — ordinary components taking the status, title, detail, and field failures as parameters. `pw.WriteProblem` serves them to clients whose `Accept` prefers HTML (problem JSON otherwise); in `dev` they show everything the problem carries, elsewhere only status, title, and request id. For an async boundary that fails with no `recover`, register the whole-page replacement once:
 
 ```go
 pw.RegisterHTMLErrorPage(func(problem pw.Problem) pw.HTMLFragment {

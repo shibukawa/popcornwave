@@ -189,11 +189,31 @@ pw.WriteProblem(w, r, pw.NotFound("no such user"))
 | `pw.BadRequest` | 400 |
 | `pw.Forbidden` | 403 |
 | `pw.NotFound` | 404 |
+| `pw.TooManyRequests` | 429 |
 | `pw.InternalServerError` | 500 |
 
 Each accepts an `error`, a `string`, another `pw.Problem`, or nothing at all.
-These call sites are also read by the generator, so the error responses an
-endpoint can produce appear in its OpenAPI description.
+Constructor call sites supported by the generator appear in the endpoint's
+OpenAPI description. TinyBind v0.5.0 does not yet infer the new 429 helpers, so
+their runtime response is complete while generated OpenAPI omits that status.
+
+For an enforced quota, `pw.RateLimited` attaches retry metadata to the same 429
+problem:
+
+```go
+pw.WriteProblem(w, r, pw.RateLimited(pw.RateLimit{
+	Limit:      100,
+	Remaining:  0,
+	Reset:      resetAt,
+	RetryAfter: 30 * time.Second,
+}, "request quota exceeded"))
+```
+
+The response carries `Retry-After`, `X-RateLimit-Limit`,
+`X-RateLimit-Remaining`, and `X-RateLimit-Reset`. The `X-RateLimit-*` names are
+compatibility conventions rather than standard HTTP fields; `Retry-After` is
+the standard retry signal. A 429 response always carries `Cache-Control:
+no-store`, including a bare `pw.TooManyRequests()`.
 
 For a status without a constructor, build the value directly:
 
@@ -236,10 +256,9 @@ payload.
 
 ### HTML error pages
 
-Scaffolded projects carry `templates/400.pw.html`, `404.pw.html`, and
-`500.pw.html`. They are ordinary components, generated like any other page.
-
-Connecting them to a status is still manual work. `pw.WriteProblem` always
-answers with `application/problem+json`, while `pw.WriteHTML` accepts no status
-code and therefore answers 200. An application that wants one of these templates
-under a 4xx or 5xx status has to build that path itself.
+Scaffolded projects carry status templates from `templates/400.pw.html` through
+`templates/500.pw.html`, including `templates/429.pw.html`. They are ordinary
+components, generated like any other page. The generated error resolver selects
+one when `Accept` prefers HTML; the same problem answers as
+`application/problem+json` for API clients. Status and response metadata remain
+the same on both branches.

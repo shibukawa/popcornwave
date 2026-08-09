@@ -17,6 +17,9 @@ type SecurityHeadersConfig = middlewares.SecurityHeadersConfig
 // HSTSConfig controls Strict-Transport-Security on direct HTTPS requests.
 type HSTSConfig = middlewares.HSTSConfig
 
+// Lifecycle describes an API resource's deprecation and sunset dates.
+type Lifecycle = middlewares.Lifecycle
+
 // DefaultSecurityHeaders returns the classic mode defaults.
 func DefaultSecurityHeaders() SecurityHeadersConfig { return middlewares.DefaultSecurityHeaders() }
 
@@ -53,6 +56,16 @@ func MaxRequestBody(bytes int64) Middleware {
 // Strict-Transport-Security is limited to direct HTTPS connections.
 func SecurityHeaders(config SecurityHeadersConfig) (Middleware, error) {
 	middleware, err := middlewares.SecurityHeaders(config)
+	if err != nil {
+		return nil, err
+	}
+	return Middleware(middleware), nil
+}
+
+// LifecycleHeaders announces an API resource's lifecycle without changing its
+// response status or behavior.
+func LifecycleHeaders(lifecycle Lifecycle) (Middleware, error) {
+	middleware, err := middlewares.LifecycleHeaders(lifecycle)
 	if err != nil {
 		return nil, err
 	}
