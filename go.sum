@@ -177,8 +177,6 @@ github.com/shibukawa/dbtestify v0.5.0 h1:Fay1k+5iQVtLqUPbepMU/j2SZtD8RG15LG2XIX8
 github.com/shibukawa/dbtestify v0.5.0/go.mod h1:ZYHV3hcW8E6456hg3DUByd5y3WlW2kV34awn7V6AAqs=
 github.com/shibukawa/localotelviewer v1.0.2 h1:bwIj/Wy/fiW0eTC4S9a1eDUx8IYtjmOGFU0nafVLrfo=
 github.com/shibukawa/localotelviewer v1.0.2/go.mod h1:4uHkRUebfefDmDaY1xgu4ZRpe+TVxbdDerJrFXImD4o=
-github.com/shibukawa/tinybind-go v0.4.7 h1:LlSwIal6m+lb9feZ84JmxH1wKCglt7UPE8FYbYB2WW0=
-github.com/shibukawa/tinybind-go v0.4.7/go.mod h1:Rb8OOYLlEt2EiGQ5BuXqNC3PYnErXCdqsDCzt+5wpkc=
 github.com/shibukawa/tinybind-go v0.4.8 h1:dwakMTRW7D4XhTKB9MzL21wHc0bmcQ9AaPv3s4LhhE0=
 github.com/shibukawa/tinybind-go v0.4.8/go.mod h1:9r6v7dD4pPFlkOYz2LLX0Iv+/AjQFYisUx5hbNumBvM=
 github.com/shibukawa/tinygodriver v1.1.11 h1:jusqHM+v3j3UDqonALN3HfhlIQruQyGs1tevMbot1/s=
