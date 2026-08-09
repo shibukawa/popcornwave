@@ -134,16 +134,78 @@ function landmark(id) {
 
 let mainLandmark = landmark("main");
 
+// The head elements this document holds, and the parser that produces one.
+//
+// Head installation is the only place the runtime parses a tag, so the parse is
+// as much of one as the runtime reads: the element name, and the attributes it
+// identifies a tag by. Anything more would be a second HTML parser in a file
+// that exists to avoid needing a browser.
+const headChildren = [];
+
+// The document's seeded manifest, when the case under test has one. seedManifest
+// consumes it, so removal is modelled too: a marker left behind would describe a
+// DOM that the first delta has already changed.
+let seededManifest = null;
+
+function seedMarker(value) {
+	seededManifest = {
+		tagName: "TB-MANIFEST",
+		getAttribute: (name) => (name === "value" ? value : null),
+		remove() {
+			seededManifest = null;
+		},
+	};
+}
+
+function headNode(markup) {
+	const name = /^<\s*([a-zA-Z-]+)/.exec(markup);
+	const attributes = {};
+	for (const [, attribute, value] of markup.matchAll(/([a-zA-Z-]+)\s*=\s*"([^"]*)"/g)) {
+		attributes[attribute] = value;
+	}
+	const node = {
+		tagName: (name ? name[1] : "link").toUpperCase(),
+		outerHTML: markup,
+		textContent: "",
+		attributes: attributes,
+		getAttribute: (attribute) =>
+			Object.prototype.hasOwnProperty.call(attributes, attribute) ? attributes[attribute] : null,
+		replaceWith(replacement) {
+			const at = headChildren.indexOf(node);
+			if (at >= 0) headChildren[at] = replacement;
+			headInstalled.push(replacement);
+		},
+	};
+	return node;
+}
+
 globalThis.document = {
 	title: "",
 	baseURI: "https://example.test/orders",
 	cookie: "",
 	activeElement: null,
 	documentElement: root,
-	head: { children: [], appendChild: (node) => headInstalled.push(node) },
+	// The head is a live list rather than a write-only sink. What the runtime
+	// does when a tag is already installed is a decision with two wrong answers
+	// — install it twice, or drop one that should have replaced its predecessor
+	// — and neither is visible to a stub that only counts appends.
+	head: {
+		children: headChildren,
+		appendChild(node) {
+			headChildren.push(node);
+			headInstalled.push(node);
+		},
+	},
 	addEventListener: listen(listeners),
 	getElementById: (id) => elements.get(id) || null,
-	querySelector: (selector) => (selector.startsWith("main") ? mainLandmark : null),
+	querySelector: (selector) => {
+		if (selector.startsWith("main")) return mainLandmark;
+		// The inert element a document seeds its validators through. It is set up
+		// per case rather than always present, because a page load that seeds
+		// nothing is the other half of what this covers.
+		if (selector === "tb-manifest") return seededManifest;
+		return null;
+	},
 	createElement: () => ({
 		content: {},
 		style: {},
@@ -152,9 +214,7 @@ globalThis.document = {
 			announced.push(value);
 		},
 		set innerHTML(value) {
-			// Head installation is the only place the runtime parses a tag, and
-			// what matters is that it reached the head at all, in order.
-			this.content = { children: [{ tagName: "LINK", outerHTML: value, textContent: "" }] };
+			this.content = { children: [headNode(value)] };
 		},
 	}),
 };
@@ -282,10 +342,16 @@ fs.writeFileSync(module, source);
 const { createUpdateRuntime } = await import("file://" + module);
 fs.unlinkSync(module);
 
-function fresh() {
+// fresh builds a runtime against a clean document. The seed, when given, is the
+// manifest the document it loads into carries, which the runtime reads at
+// construction — so it has to be in place before the runtime is built rather
+// than set on one that already exists.
+function fresh(seed) {
 	requests.length = 0;
 	swapped.length = 0;
 	headInstalled.length = 0;
+	headChildren.length = 0;
+	seededManifest = null;
 	historyEntries.length = 0;
 	announced.length = 0;
 	focused.length = 0;
@@ -306,6 +372,7 @@ function fresh() {
 	globalThis.location.href = "https://example.test/orders";
 	globalThis.document.title = "";
 	elements.clear();
+	if (seed) seedMarker(seed);
 	return createUpdateRuntime({ header: "Pw", attr: "tb", build: "build-1", global: "popcornwave" });
 }
 
@@ -433,6 +500,39 @@ function deltaResponse(id) {
 	check(requests[1].headers["Pw-Manifest"] === "c1:f1", "the manifest carries what this client holds");
 }
 
+// The validators a page load leaves behind.
+//
+// Without them the first navigation after arriving carries no hints and is
+// answered with every region of the page — the click a reader is most likely to
+// make, answered the most expensively this wire can.
+{
+	const runtime = fresh("c1:f1:ch1,c2:f2::c1");
+	element("c1");
+	nextResponse = response({
+		headers: { "Pw-Render": "navigation", "Content-Type": "application/json" },
+		json: { ops: [] },
+	});
+	await runtime.navigate("/orders?page=2");
+	check(
+		requests[0].headers["Pw-Manifest"] === "c1:f1:ch1,c2:f2::c1",
+		"the first navigation of a page view offers what the document seeded",
+	);
+	check(seededManifest === null, "the marker was consumed, so it cannot outlive the DOM it describes");
+}
+
+// A page load that seeds nothing leaves the client exactly where it was before
+// the marker existed, rather than sending an empty header.
+{
+	const runtime = fresh();
+	element("c1");
+	nextResponse = response({
+		headers: { "Pw-Render": "navigation", "Content-Type": "application/json" },
+		json: { ops: [] },
+	});
+	await runtime.navigate("/orders?page=2");
+	check(requests[0].headers["Pw-Manifest"] === undefined, "an unseeded client sends no manifest");
+}
+
 // A proxy or a shared cache may answer a delta request with the document body.
 // Applying that as a delta is how a page fills with markup that means nothing.
 {
@@ -467,6 +567,49 @@ function deltaResponse(id) {
 	globalThis.__swapped = swapped;
 	check(headInstalled.length === before + 1, "the head tag was installed");
 	check(order[0] === "swap" && headInstalled.length > 0, "head installation preceded the swap");
+}
+
+// What a second navigation does with tags the head already holds.
+//
+// The head is the one part of a page nothing ever removes from, so a delta that
+// installs unconditionally leaks an element per click for as long as the tab is
+// open. Identical markup used to be the only test, which caught a stylesheet and
+// missed everything carrying a token, a nonce, or a timestamp.
+{
+	const runtime = fresh();
+	element("c1");
+	const stylesheet = '<link rel="stylesheet" href="/a.css">';
+	nextResponse = response({
+		headers: { "Pw-Render": "navigation", "Content-Type": "application/json" },
+		json: {
+			head: [stylesheet, '<meta name="description" content="first">'],
+			ops: [{ kind: "replace", id: "c1", html: "<p>x</p>" }],
+		},
+	});
+	await runtime.navigate("/orders");
+	check(headChildren.length === 2, "the first navigation installed both tags");
+
+	element("c1");
+	nextResponse = response({
+		headers: { "Pw-Render": "navigation", "Content-Type": "application/json" },
+		json: {
+			// The same stylesheet, and a description whose content changed —
+			// which is what a per-render token looks like from here.
+			head: [stylesheet, '<meta name="description" content="second">'],
+			ops: [{ kind: "replace", id: "c1", html: "<p>y</p>" }],
+		},
+	});
+	await runtime.navigate("/invoices");
+	check(headChildren.length === 2, "the second navigation added nothing to the head");
+	check(
+		headChildren.filter((node) => node.tagName === "LINK").length === 1,
+		"the stylesheet the page already loaded was left alone",
+	);
+	const description = headChildren.find((node) => node.tagName === "META");
+	check(
+		description && description.getAttribute("content") === "second",
+		"a named meta describes the page that arrived, not the one that left",
+	);
 }
 
 // A streamed delta applies as it is written, and its terminator says what to do.

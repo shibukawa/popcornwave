@@ -1,8 +1,10 @@
 package pw
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"reflect"
@@ -13,6 +15,9 @@ import (
 	"github.com/shibukawa/popcornwave/pwruntime"
 	"github.com/shibukawa/tinybind-go/htmlbind"
 	"github.com/shibukawa/tinybind-go/htmlbind/delta"
+
+	kgzip "github.com/klauspost/compress/gzip"
+	kzstd "github.com/klauspost/compress/zstd"
 )
 
 // What a navigation costs, measured through the entry this framework actually
@@ -179,16 +184,37 @@ func measureConfig() HTMLConfig {
 	return config
 }
 
-func measureRequest(target string) *http.Request {
+// measureRequest builds a request in one of the two configurations worth
+// measuring: encoded, which is what a deployment serving real traffic runs, and
+// not, which is the framework default and the only way to read the records.
+func measureRequest(target string, encoded bool) *http.Request {
 	request := browserRequest(target)
+	configs := map[reflect.Type]any{reflect.TypeFor[HTMLConfig](): measureConfig()}
+	if encoded {
+		configs[reflect.TypeFor[MiddlewareConfig]()] = MiddlewareConfig{Compression: true}
+		request.Header.Set("Accept-Encoding", "zstd, gzip")
+	}
 	return request.WithContext(pwruntime.WithResources(request.Context(), pwruntime.Resources{
-		Configs: map[reflect.Type]any{reflect.TypeFor[HTMLConfig](): measureConfig()},
+		Configs: configs,
 	}))
 }
 
-// serveMeasured renders one request and returns the bytes a client receives.
+// serveMeasured renders one request and returns the body a client reads.
 func serveMeasured(target, manifest string, sequences bool) (string, int) {
-	request := measureRequest(target)
+	body, wire, _ := serveMeasuredCoded(target, manifest, sequences, false)
+	return body, wire
+}
+
+// serveMeasuredCoded returns the decoded body and the bytes that crossed the
+// wire, which are the same number only when nothing was encoded.
+//
+// Keeping them apart is the point of this file. Reading the body is how the
+// record shape is inspected; the transfer size is what the comparison is about;
+// and a measurement that conflates the two reported the delta beating a document
+// it did not beat, for as long as the delta was the one response here that was
+// never negotiated for a coding.
+func serveMeasuredCoded(target, manifest string, sequences, encoded bool) (string, int, string) {
+	request := measureRequest(target, encoded)
 	if manifest != "" {
 		request.Header.Set("Pw-Render", "navigation")
 		request.Header.Set("Pw-Build", UpdateBuildID())
@@ -200,7 +226,33 @@ func serveMeasured(target, manifest string, sequences bool) (string, int) {
 	recorder := httptest.NewRecorder()
 	wrappers, leaf := measureChainFor(target)
 	WriteHTMLChain(recorder, request, wrappers, leaf)
-	return recorder.Body.String(), recorder.Body.Len()
+	wire := recorder.Body.Len()
+	switch coding := recorder.Header().Get("Content-Encoding"); coding {
+	case "":
+		return recorder.Body.String(), wire, ""
+	case "zstd":
+		decoder, err := kzstd.NewReader(nil)
+		if err != nil {
+			panic(err)
+		}
+		defer decoder.Close()
+		decoded, err := decoder.DecodeAll(recorder.Body.Bytes(), nil)
+		if err != nil {
+			panic(err)
+		}
+		return string(decoded), wire, coding
+	default:
+		reader, err := kgzip.NewReader(bytes.NewReader(recorder.Body.Bytes()))
+		if err != nil {
+			panic(err)
+		}
+		defer reader.Close()
+		decoded, err := io.ReadAll(reader)
+		if err != nil {
+			panic(err)
+		}
+		return string(decoded), wire, coding
+	}
 }
 
 // measureChainFor is the route table of this measurement: two pages sharing one
@@ -325,6 +377,47 @@ func TestTransferCostOfANavigation(t *testing.T) {
 	}
 }
 
+// What the same page costs once both representations are negotiated for a
+// content coding, which is the comparison a deployment actually makes.
+//
+// It is a separate test because the numbers above answer a different question.
+// Uncompressed bytes say what the record encoding costs and where it goes;
+// these say whether asking for a delta is worth doing, and for a while the two
+// disagreed — the document travelled encoded and the delta did not, so a delta
+// carrying a quarter of the source bytes arrived several times larger than the
+// page it replaced.
+func TestTransferCostOnAnEncodedWire(t *testing.T) {
+	warm, _, _ := serveMeasuredCoded("/orders?q=one", "seed", true, true)
+	held := clientManifest(warm)
+	if held == "" {
+		t.Fatal("the warming navigation returned no manifest")
+	}
+	_, documentBytes, documentCoding := serveMeasuredCoded("/invoices", "", false, true)
+	if documentCoding == "" {
+		t.Fatal("the document was not encoded, so there is nothing to compare against")
+	}
+
+	t.Logf("a page of 25 result rows under a shared layout, %s on the wire", documentCoding)
+	t.Logf("%-30s %8s %8s", "", "bytes", "vs doc")
+	t.Logf("%-30s %8d %8s", "complete document", documentBytes, "1.00x")
+
+	for _, one := range []struct{ name, target string }{
+		{"cross-page link", "/invoices"},
+		{"same-page search", "/orders?q=two"},
+	} {
+		_, valueBytes, coding := serveMeasuredCoded(one.target, held, true, true)
+		if coding == "" {
+			t.Errorf("%s was answered unencoded while the document it replaces was not", one.name)
+		}
+		t.Logf("%-30s %8d %7.2fx", one.name+", as values", valueBytes,
+			float64(documentBytes)/float64(valueBytes))
+		if valueBytes >= documentBytes {
+			t.Errorf("%s cost %d bytes against a %d byte document, so asking for a "+
+				"delta transfers more than reloading the page", one.name, valueBytes, documentBytes)
+		}
+	}
+}
+
 // The result worth asserting, because it is the one that decides whether the
 // split is worth its complexity — and because the baseline going the other way
 // is a property nobody would guess.
@@ -355,18 +448,44 @@ func TestValuesBeatMarkupAndMarkupLosesToTheDocument(t *testing.T) {
 	}
 }
 
-// The cold client is the other half of the result, and unlike the baseline above
-// it is what this runtime does today: a page load leaves it holding no
-// validators, so the first navigation after arriving is answered in full.
-func TestAColdClientHoldsNoValidators(t *testing.T) {
+// The other half of the result: what a client holds after a page load, before
+// it has made any request of its own.
+//
+// It used to hold nothing, so the first navigation after arriving was answered
+// with every region of the page. The document now seeds it with the validators
+// of the boundaries it just committed, which the collect pass had already
+// computed and this path had been discarding.
+func TestADocumentSeedsTheClientItLoads(t *testing.T) {
 	document, _ := serveMeasured("/orders?q=one", "", false)
 	if strings.Contains(document, `"r":"op"`) {
 		t.Fatal("a request with no render header was answered as a delta")
 	}
-	// Nothing in the document carries the manifest a delta would compare
-	// against, which is what makes the first navigation after a page load cost
-	// a whole page.
-	if strings.Contains(document, "Pw-Manifest") {
-		t.Error("the document carries a manifest this runtime does not read")
+	marker := documentManifestElement
+	index := strings.Index(document, "<"+marker+" value=\"")
+	if index < 0 {
+		t.Fatalf("the document seeds no manifest, so its first navigation costs every region")
 	}
+	// It is the last thing in the document, after every boundary it describes.
+	if !strings.HasSuffix(document, "></"+marker+">") {
+		t.Error("the marker is not the last thing written, so it can precede a boundary it names")
+	}
+	seeded := document[index+len("<"+marker+" value=\""):]
+	seeded = seeded[:strings.IndexByte(seeded, '"')]
+	// What it seeds has to be what the client would have sent after a delta, or
+	// the first navigation compares against a manifest in another spelling.
+	if seeded != clientManifest(mustWarmDelta(t)) {
+		t.Errorf("the document seeds %q, and a delta leaves the client holding %q",
+			seeded, clientManifest(mustWarmDelta(t)))
+	}
+}
+
+// mustWarmDelta is the delta a client gets when it holds nothing, which leaves
+// it holding every validator of the page.
+func mustWarmDelta(t *testing.T) string {
+	t.Helper()
+	body, _ := serveMeasured("/orders?q=one", "seed", false)
+	if body == "" {
+		t.Fatal("the warming navigation returned nothing")
+	}
+	return body
 }

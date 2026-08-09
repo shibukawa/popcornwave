@@ -28,6 +28,11 @@ response:
   status: 200 once the route decides to serve live; a failure before that keeps its ordinary api:problem-response status, since nothing is committed
   content_type: one media type for the delivery stream, distinct from text/html
   headers: Vary on the mode header, Cache-Control no-store
+  content_coding:
+    what: negotiated per policy:response-content-encoding, and opened at the first delivery rather than with the headers, so a stream that ends before delivering anything writes its close record unframed
+    worth: a reconnect, where the manifest suppresses the boundaries whose bytes the client still holds and everything left is a boundary re-transferred whole
+    cost_is_unlike_the_other_paths: an encoder here is held for the life of the connection rather than the life of a request, so its buffers scale with concurrent live responses rather than with concurrent requests; a steady trickle of small deliveries also compresses poorly, because each flush ends a block
+    revisit_if: a deployment holding many idle live connections finds the encoders rather than the subscriptions are what bounds it, at which point the coding belongs behind its own switch or a smaller window
   framing: one JSON record per line, terminated by a newline, in the record grammar the navigation delta uses
 delivery_record:
   shape: an await record naming a boundary id, its markup, and the validator of those bytes

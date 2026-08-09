@@ -37,6 +37,17 @@ response:
   status: the page's real status; a delta is never a way to hide one
   headers: Vary on the render header, Cache-Control no-store, and the served mode echoed back so a proxy-substituted body is detectable
   streaming: the streamed record form, so a region applies as it is written rather than when the response ends, matching decision:automatic-async-render-selection on the document path
+  content_coding: negotiated like any other body, per policy:response-content-encoding; a record stream is JSON carrying markup, which is the most compressible thing this framework writes, and leaving it unencoded while the document it replaces was encoded inverted the comparison this whole requirement rests on
+  no_runtime_head: the head record carries a first-appearing component's tags and not the runtime's own, because a delta answers a request the runtime issued and those tags are already on the page; carrying them cost 624 bytes per navigation and, since the token in them is freshly masked per render, appended another meta to the document head on every click
+document_seeding:
+  what: a document carries the validators of the boundaries it committed, in an inert element written after the body
+  why: without it a page view starts blank, so the first navigation after arriving carries no hints and is answered with every region of the page — the click a reader is most likely to make, answered the most expensively this wire can
+  already_computed: the collect pass that writes the document produces the manifest and used to discard it, so this adds the bytes to carry it and no work
+  what_it_is_worth: an entry costs about fifty bytes and buys skipping whatever its boundary holds. A stable region that is pure markup is nearly free to re-send already, because the sequence split sends its values rather than its markup, so seeding loses by roughly the marker's own size; a stable region carrying data — a folder list with counts, a header naming the signed-in user — is not, and on a page measured with one it saved 769 bytes against a marker costing about a hundred. The loss is bounded by the marker and the win is not
+  bounded: a manifest over api:html-update-options MaxManifestBytes is ignored by the endpoint that reads it rather than truncated, so a document over the bound seeds nothing rather than bytes nobody will use
+  validator_tag: the document collect has to run under the same build-seeded validator tag the delta does, or the two describe the same regions in a different alphabet and nothing ever compares equal; it is the effective identity rather than the vcs stamp, because an unstamped binary has none and the module stands its own per-process value in
+  consumed: the runtime reads the element at construction and removes it, because a manifest is valid only for the DOM it was produced against and the first delta makes the page a different one
+  where: the buffered branch only, which is the one updates force; a streamed document holds unsettled boundaries whose validators do not exist yet
 fallback:
   triggers: unknown mode, a protocol version the server does not speak, a truncated or stripped header, a different build, a network failure, or a body that is not a delta
   behavior: the ordinary complete document, or on the client an ordinary browser navigation; a user action is never lost
@@ -53,7 +64,9 @@ limits:
   - update state lives in the browser, so nothing needs session affinity and a restart loses nothing
   - this is not a client-side framework; no component state in the browser, no virtual DOM, no client routing table
 acceptance:
-  - a request without the render header is byte-identical to what the page serves today
+  - a request without the render header serves the page it always did, plus the seeded manifest element when updates are on
+  - a delta costs fewer bytes on the wire than the document it replaces, compared under the coding both are negotiated for
+  - the validators a document seeds are the ones a delta would have left the client holding
   - a search-parameter change transfers the page region and not the layout
   - the same URL serves a document to a crawler and a delta to the runtime with no cache cross-contamination
   - a request carrying another build identity receives a complete document

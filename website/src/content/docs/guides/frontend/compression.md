@@ -25,8 +25,9 @@ The switch applies to what the application renders while a request waits:
 | --- | --- |
 | `WriteHTML`, `WriteHTMLPage`, `WriteHTMLChain` | `WriteProblem` |
 | `WriteHTMLFragment` | [static assets](/guides/frontend/static-assets/), which carry their own precompressed sidecars |
-| `WriteAPI` | |
+| `WriteAPI` | update refusals, for the same reason as `WriteProblem` |
 | the streamed branch of a page with await boundaries | |
+| [partial updates](/guides/cross-layer/partial-updates/) and [live regions](/guides/cross-layer/live-rendering/) | |
 
 A response that already has a `Content-Encoding` is left as it is. Nothing
 encodes twice.
@@ -35,6 +36,18 @@ encodes twice.
 bytes built by hand on a path that must not fail, and every coding makes a body
 that small *larger* — the frame header alone outweighs anything there is to
 save. An encoder there would add a way to fail in exchange for nothing.
+
+The same reasoning gives the update responses a floor rather than an exemption.
+A redraw, an action response, and a sequence tree are assembled before they are
+written, so their length is known, and one under 512 bytes goes out as it
+stands. The streamed responses cannot apply the floor — their length is not
+known when the frame has to be opened — so they encode from the first byte.
+
+If you serve partial updates and something in front of the application is doing
+the compressing, check that it covers `application/x-ndjson` and
+`application/json` and not only `text/html`. A proxy compressing pages but not
+deltas leaves the delta larger than the page it replaces, which reverses the
+point of asking for one.
 
 ## Which codings
 

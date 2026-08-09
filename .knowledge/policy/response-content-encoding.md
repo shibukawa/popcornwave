@@ -11,10 +11,20 @@ scope:
     - api:html-response, both the buffered and the streaming branch
     - api:html-fragment-response
     - api:api-response
+    - requirement:navigation-delta-rendering, the streamed record body
+    - api:live-delivery-protocol, from its first delivery rather than from its headers
+    - requirement:reloadable-component-endpoint and requirement:action-response-update, whose bodies are assembled before they are written
+    - the sequence tree of requirement:navigation-delta-rendering, which is the most compressible body on this wire and the one an edge holds longest
   never:
     - api:problem-response, whose document is a few hundred hand-built bytes on a path that must not fail; every coding makes a body that size larger, so an encoder there buys a failure mode and no bytes. An HTML error page still encodes, because it goes out through api:html-response
+    - an update refusal, for the same reason and by the same rule: it says why one request failed and nothing else may be answered with it
     - api:public-asset-middleware, which answers from build-time representations per policy:public-asset-negotiation and performs no runtime encoding
     - requirement:package-asset-delivery, whose bytes are served as stored
+  the_update_wire_was_the_gap:
+    what: every update response wrote to the raw ResponseWriter while the document it replaces went through this negotiation
+    cost: measured at 4156 bytes against an encoded 879 byte document on a page of 25 rows, so asking for a delta transferred nearly five times what reloading the page did
+    why_it_hid: the comparison in the transfer measurement read unencoded bytes on both sides, where the delta wins by 2.4x; the asymmetry only exists once a coding is on, which is exactly the configuration a deployment serving traffic runs
+    also_true_behind_a_proxy: a reverse proxy compressing text/html by default does not compress application/x-ndjson, so delegating the coding did not close it either
 codings:
   offered: whatever data:compression-runtime-config lists, from the set zstd and gzip
   default_order: zstd, then gzip
@@ -46,6 +56,12 @@ streaming:
   - both codings flush per settled boundary and never per Write, per decision:streaming-response-compression
   - a flush ends a block, so a streamed page compresses worse than the same page buffered, for either coding
   - the per-boundary length oracle described by decision:streaming-response-compression is a property of chunked encoding and not of the coding, so it applies unchanged to gzip
+minimum_size:
+  rule: a body whose length is known before the frame opens is sent as it stands below 512 bytes
+  why: every coding has a frame and a dictionary built from a few hundred bytes has nothing to say, so a small body comes out larger than it went in
+  where_it_applies: the assembled update bodies only — a sequence tree, a redraw, an action response
+  where_it_cannot: every streaming writer, whose length is unknown at the moment the frame has to be opened; a live stream that ends before its first delivery is covered instead by opening no frame until it commits
+  not_configurable: it answers a property of the formats rather than of a deployment
 configuration:
   surface: the two fields of data:compression-runtime-config, on and the coding order
   not_configurable: encoder level, minimum size, and content-type lists
