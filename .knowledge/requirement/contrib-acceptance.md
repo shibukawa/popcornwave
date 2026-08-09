@@ -82,6 +82,13 @@ package_gates:
     - decision:local-tls-proxy-boundary passes certificate, hostname, unavailable upstream, and credential-redaction fixtures
   requirement:contrib-jwt:
     - RFC and adversarial algorithm-confusion vectors pass
+  requirement:contrib-websocket:
+    - one echo fixture completes handshake, text and binary round trip, ping and pong, and close, and passes unchanged against each supported backend's upgrader
+    - a cross-origin upgrade is refused without the application configuring anything, and the refusal is a 403 rather than a dropped connection
+    - an upgrade carrying no Origin header is admitted only where the framework's request-origin resolution admits it, so the library's own default is never what decides
+    - a malformed handshake, an oversized frame, and an oversized control message each fail within configured limits
+    - the callback closing over the request rather than over read values is caught by rule:transport-handle-checks rather than by review
+    - the TinyGo matrix is either passing or carries an explicit exemption decision; an unstated exemption fails this gate
   requirement:contrib-oauth:
     - Authorization Code plus S256 PKCE succeeds against two independent servers or conformance fixtures
     - negative vectors cover state, expiry, replay, callback errors, redirect URI, PKCE, and oversized token responses
