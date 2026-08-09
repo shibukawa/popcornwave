@@ -274,6 +274,32 @@ func WriteAPI[T any](w http.ResponseWriter, r *http.Request, value T) {
 	}
 }
 
+// WriteStatus is WriteAPI with the success status made explicit: 201 for a
+// creation, 202 for an accepted job, 204 for no content — which writes no
+// body. The status must be a literal or a named constant at the call site,
+// because the generated OpenAPI document lists one response per static status
+// the handler calls this with, and a status computed at runtime is one the
+// scanner cannot see.
+//
+// A 204 writes no body, which the library entry point already implements.
+//
+// Unlike WriteAPI, this cannot answer a failure with a problem document. The
+// status and the content type are written before the value is encoded, so
+// every error it can return arrives after the response committed — a 204
+// writes no body and cannot fail at all — and a problem written over it would
+// leave a 2xx carrying an error document. It is logged instead.
+//
+// What reaches here is a type whose encoder generation never emitted, which
+// means the call site never reached pw generate. That is a build mistake, and
+// the log names it as one.
+func WriteStatus[T any](w http.ResponseWriter, r *http.Request, status int, value T) {
+	if err := tinybind.WriteStatus(w, r, status, value); err != nil {
+		ctx := r.Context()
+		Logger(ctx).Log(ctx, LevelError, "write status failed after the response committed",
+			Int("status", status), Err(err))
+	}
+}
+
 // WriteHTML renders one generated HTML fragment.
 func WriteHTML(w http.ResponseWriter, r *http.Request, leaf HTMLFragment) {
 	WriteHTMLChain(w, r, registeredHTMLDocument(), leaf)

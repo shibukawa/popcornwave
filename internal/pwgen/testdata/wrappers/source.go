@@ -22,12 +22,21 @@ type ImportCommand struct {
 	Path string `arg:"required" help:"input path"`
 }
 
+type createRequest struct {
+	Name string `json:"name"`
+}
+
+type created struct {
+	ID int `json:"id"`
+}
+
 var mux = pw.NewServeMux()
 
 func init() {
 	pw.RegisterConfig[AppConfig]("app")
 	pw.RegisterSubCommand[ImportCommand]("import", "import data")
 	mux.HandleFunc("GET /items/{id}", item)
+	mux.HandleFunc("POST /items", create)
 }
 
 func item(w http.ResponseWriter, r *http.Request) {
@@ -37,4 +46,14 @@ func item(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	pw.WriteAPI(w, r, response{ID: input.ID})
+}
+
+func create(w http.ResponseWriter, r *http.Request) {
+	input, err := pw.Parse[createRequest](r)
+	if err != nil {
+		pw.WriteProblem(w, r, pw.BadRequest(err))
+		return
+	}
+	_ = input
+	pw.WriteStatus(w, r, http.StatusCreated, created{ID: 1})
 }
