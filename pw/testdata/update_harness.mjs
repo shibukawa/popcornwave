@@ -53,10 +53,6 @@ function element(id, attributes) {
 }
 
 const swapped = [];
-// The markup handed to the parser, which is not the markup the server sent: a
-// decomposed fragment's holes are rewritten first, and that rewrite is the point
-// of the case that reads this.
-const parsed = [];
 const headInstalled = [];
 let liveStarted = 0;
 let liveStopped = 0;
@@ -150,13 +146,7 @@ function setPreserveAttribute() {}
 // The stub keeps the markup so an assertion can read it, and records the swap
 // through the same list swapElement uses.
 function parseFragment(html) {
-	globalThis.__parsed.push(html);
-	// A hole reaches here spelled as a template, and the runtime puts the
-	// placeholder spelling back through the DOM once the parse is done. This stub
-	// models no DOM, so the restoration happens here instead: what a case reads
-	// as the applied markup is then what would be on screen.
-	const restored = html.replace(/<template( [^>]*data-tb-id="[^"]*"[^>]*)><\\/template>/gi, "<tb-boundary$1></tb-boundary>");
-	return { __html: restored, querySelector: () => null, querySelectorAll: () => [] };
+	return { __html: html, querySelector: () => null, querySelectorAll: () => [] };
 }
 function swapNode(target, fragment) {
 	globalThis.__swapped.push({ id: target.id, html: fragment.__html });
@@ -206,7 +196,6 @@ function resolveNavigable(value, base) {
 `;
 
 globalThis.__swapped = swapped;
-globalThis.__parsed = parsed;
 globalThis.__swapOK = true;
 globalThis.__liveStarted = () => {
 	liveStarted += 1;
@@ -224,7 +213,6 @@ fs.unlinkSync(module);
 function fresh() {
 	requests.length = 0;
 	swapped.length = 0;
-	parsed.length = 0;
 	headInstalled.length = 0;
 	historyEntries.length = 0;
 	assigned = null;
@@ -637,43 +625,6 @@ for (const target of ["javascript:globalThis.__pwned = true", "data:text/html,<s
 	check(swapped.length === 1 && swapped[0].html === "<td>Kettle</td>",
 		"the region was rebuilt from the address rather than blanked by the empty markup: " +
 			JSON.stringify(swapped));
-}
-
-// A hole reaches the parser as a template rather than as the placeholder the
-// server wrote, because the parser will not keep the placeholder where it was
-// written.
-//
-// An unknown element inside a table is foster-parented: the HTML parser lifts it
-// out of the tbody and inserts it before the table. The rows filling those holes
-// then land outside the list with the list left empty, and nothing about it is
-// visible in the response, which is correct, or in the resulting DOM, which is
-// valid. A template is the one placeholder the parser leaves alone.
-//
-// Foster parenting itself needs a real parser and is verified in a browser. What
-// this pins is the substitution, which is the part that lives in this file and
-// the part that would be silently lost.
-{
-	const runtime = fresh();
-	element("orders");
-	element("row-1");
-	nextResponse = response({
-		headers: { "Pw-Render": "navigation", "Content-Type": "application/x-ndjson" },
-		lines: [
-			JSON.stringify({ r: "head", build: "build-1" }),
-			JSON.stringify({
-				r: "op", kind: "replace", id: "orders", frame: "f1",
-				html: '<table><tbody><tb-boundary data-tb-id="row-1" style="display:contents"></tb-boundary></tbody></table>',
-				boundaries: ["row-1"],
-			}),
-			JSON.stringify({ r: "end", reason: "final" }),
-		],
-	});
-	await runtime.navigate("/orders");
-	const markup = parsed.join("");
-	check(markup.includes('<template data-tb-id="row-1" style="display:contents"></template>'),
-		"a hole reached the parser as a template");
-	check(!markup.includes("<tb-boundary"),
-		"no hole reached the parser in the spelling the parser moves");
 }
 
 // A children operation carries no markup: the boundary's own output is unchanged

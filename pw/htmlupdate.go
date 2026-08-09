@@ -563,7 +563,8 @@ const (
 	// new address rather than a new body at the old one.
 	sequenceCacheControl = "public, max-age=31536000, immutable"
 	// updateSequenceMode is what a sequence response says it is. The client
-	// checks it, so it is part of the wire rather than a diagnostic.
+	// checks the echo, so it is part of the wire rather than a diagnostic, and
+	// this names it here so a test asserts the value rather than the agreement.
 	updateSequenceMode = "sequence"
 )
 
@@ -680,22 +681,6 @@ func serveSequence(w http.ResponseWriter, r *http.Request, config HTMLConfig) bo
 	answer, ok := updateOptions(config).Sequence(r)
 	if !ok {
 		return false
-	}
-	if answer.Failure == nil {
-		// A response has to claim the mode it is, because a client checks: ours
-		// discards a body whose echo disagrees, which is what makes a proxy
-		// substitution detectable rather than applied.
-		//
-		// system:tinybind v0.4.7 echoes "navigation" here. Its mode-to-token
-		// function has no sequence case and defaults to navigation, and routing
-		// the echo through that function is what moving the header out of the
-		// entry changed. Left alone the client discards every tree it asks for,
-		// falls back per operation, and every in-page navigation becomes a full
-		// document — the optimization off while looking on.
-		//
-		// It is corrected here rather than in the client because the header is
-		// this framework's to write and the client's rule is the right one.
-		answer.Header.Set(UpdateHeaderPrefix+"-Render", updateSequenceMode)
 	}
 	// The Vary is what stops this response from replacing the page. A sequence
 	// is public, immutable, and a year long — right for what it is, and

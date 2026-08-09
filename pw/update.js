@@ -34,47 +34,20 @@ export function createUpdateRuntime(config) {
 	const kindAttr = "data-" + config.attr + "-kind";
 	const ignoreAttr = "data-" + config.attr + "-ignore";
 	// The placeholder a decomposed fragment leaves where a nested boundary sits.
-	// It is the element a progressive render already writes for an await
-	// boundary, so this client recognizes one shape rather than two.
-	const placeholderElement = config.attr + "-boundary";
+	//
+	// It is a template because a template is the one element the HTML parser
+	// leaves where it was written. An unknown element inside a table is
+	// foster-parented — lifted out of the tbody and inserted before the table —
+	// so a list's holes would sit outside the list and the rows filling them
+	// would land loose on the page. It renders nothing, which is what a hole must
+	// do until it is filled, and it carries attributes, so the id is on it and
+	// every lookup here finds it the same way it finds a boundary.
+	//
+	// A progressive render's await boundary is a comment fence rather than this,
+	// which is the one place the two shapes differ: a template's contents do not
+	// render, and a fallback that does not render is not a fallback.
+	const placeholderElement = "template";
 	setPreserveAttribute("data-" + config.attr + "-preserve");
-
-	// parseDecomposed parses a fragment whose nested boundaries are holes.
-	//
-	// The holes cannot be parsed as written. A placeholder is an unknown element,
-	// and the HTML parser foster-parents an unknown element out of a table: it
-	// takes the node out of the tbody it was written in and inserts it before the
-	// table. Every hole a table's rows leave then sits outside the table, so the
-	// rows filling them land on the page with the list left empty — which is not a
-	// degraded list but no list at all, and it is silent, because the markup the
-	// server sent was correct and the DOM that resulted is valid.
-	//
-	// A template element is the one placeholder the parser leaves where it was
-	// written, in table context and everywhere else, and it holds attributes, so
-	// the id survives the substitution and every later lookup finds the hole. It
-	// renders nothing, which is what a hole must do until it is filled.
-	//
-	// The substitution does not outlive the parse. A hole this client fills is
-	// gone; a hole left for a later operation gets the spelling back, so one
-	// shape reaches the screen and the DOM matches what the server described.
-	// Putting it back is safe where writing it was not, because inserting a node
-	// through the DOM is not parsing and nothing is foster-parented.
-	//
-	// This is a rewrite of what system:tinybind writes rather than a spelling
-	// this framework chose, and it is here because the parse is this client's.
-	// A boundary inside a table is not exotic: a reloadable row is the shape the
-	// children operation exists for.
-	const holePattern = new RegExp("<" + placeholderElement + "(\\s[^>]*)?></" + placeholderElement + ">", "gi");
-	function parseDecomposed(html, boundaries) {
-		const fragment = parseFragment(html.replace(holePattern, "<template$1></template>"));
-		fillHoles(fragment, boundaries);
-		for (const stand of fragment.querySelectorAll("template[" + idAttr + "]")) {
-			const hole = document.createElement(placeholderElement);
-			for (const attribute of stand.attributes) hole.setAttribute(attribute.name, attribute.value);
-			stand.replaceWith(hole);
-		}
-		return fragment;
-	}
 
 	// The validators this client holds, keyed by instance id. They are a hint the
 	// server uses to omit unchanged regions, and nothing else: an oversized
@@ -404,7 +377,9 @@ export function createUpdateRuntime(config) {
 		if (typeof html !== "string") return false;
 		const target = locate(operation.id);
 		if (!target) return false;
-		return swapNode(target, parseDecomposed(html, operation.boundaries));
+		const fragment = parseFragment(html);
+		fillHoles(fragment, operation.boundaries);
+		return swapNode(target, fragment);
 	}
 
 	// A children operation says a boundary's own markup is unchanged and its
@@ -447,7 +422,6 @@ export function createUpdateRuntime(config) {
 				// is what keeps the order the server stated.
 				node = document.createElement(placeholderElement);
 				node.setAttribute(idAttr, id);
-				node.setAttribute("style", "display:contents");
 			}
 			// insertBefore moves a node that is already in the document, so a
 			// reorder costs one move per element and no re-render.

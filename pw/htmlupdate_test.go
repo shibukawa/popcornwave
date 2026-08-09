@@ -530,8 +530,9 @@ func TestUpdateResponseHeadersAreThisFrameworksToSet(t *testing.T) {
 	// And it says what it is. The client discards a body whose echo disagrees,
 	// so a sequence claiming to be a navigation is not a cosmetic mismatch: every
 	// tree is thrown away, every operation carrying values falls back, and every
-	// in-page navigation becomes a full document. system:tinybind v0.4.7 echoes
-	// the wrong one, which is why this is asserted rather than assumed.
+	// in-page navigation becomes a full document. system:tinybind v0.4.7 echoed
+	// the wrong one and v0.4.8 made the mode switch exhaustive, so this asserts
+	// the value rather than that the two sides still agree.
 	if got := sequenceOut.Header().Get("Pw-Render"); got != updateSequenceMode {
 		t.Errorf("a sequence response says it is %q, want %q", got, updateSequenceMode)
 	}

@@ -318,6 +318,23 @@ v0_4_7_the_module_stopped_writing_responses:
     the_ask: a placeholder the parser keeps where it was written — a template element or a comment both qualify — because a reloadable row is the shape the children operation exists for
     wider_than_the_delta: a progressive render writes the same element for an await boundary, so an await boundary inside a table has the same problem in the streamed document
 
+v0_4_8_answered_the_round:
+  status: all three raised items closed, plus one this side did not find
+  the_hole_split_into_two_shapes:
+    delta_hole: a template element, which is what this side asked for; the rewrite-before-parse and restore-after is deleted, since the server writes the template
+    await_marker: a comment fence around the fallback, because a template's contents do not render and a fallback that does not render is not a fallback — the objection this side did not think of
+    why_they_had_to_split: a hole is one node to replace and an await is a range around visible content; no single shape is both, since nothing the parser keeps in a table renders its contents
+    taken_here: applyBoundary walks to the fence instead of looking up a placeholder element, and the markers are kept rather than removed after settling, because a live boundary refills the same range for as long as its subscription lives
+    verified_in_a_browser: an await boundary inside a tbody, served through the framework; the markers stay in the tbody, the fallback row is replaced in place, and nothing lands loose in the body
+  sequence_echo: the default arm removed and the switch made exhaustive, so a missing case is a panic at the first test rather than a response that lies; the correction on this side is deleted
+  values_are_smaller: one predicate both paths call, so the rule cannot be on one and not the other again
+  refusal_vary_found_upstream: FailureResponse carried no Vary at all, and a heuristically cacheable 404 could then answer a document request from the same URL; upstream now adds the negotiated mode's axes
+  the_vary_placement_disagreement:
+    outcome: this side was right that the render axis already separates a page from a redraw, and upstream's stated reason did not hold
+    but_the_placement_was_load_bearing_anyway: declaring the shared axes before the branch was covering the refusal that carried none, which neither side had noticed
+    kept: right answer, wrong reason, and worth remembering as a case where the advice survived its argument
+  costs_of_the_round: every sequence address and frame validator changed, so the first request after a deploy is a complete document; committed fixtures regenerated
+
 carried_forward:
   live_mode_plan_slice: requirement:live-mode-plan-slice, since a live render still executes the whole composed chain and pays it per reconnect
   liveness_signal: requirement:live-boundary-liveness-signal, since nothing states which boundary is live and this framework keeps its own bookkeeping

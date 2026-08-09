@@ -3,6 +3,7 @@
 **From:** Popcorn Wave (`github.com/shibukawa/popcornwave`)
 **Against:** `github.com/shibukawa/tinybind-go` v0.4.7
 **Reports:** what the header split cost, and what an unmodified v0.4.7 does to a client that follows the guide
+**Answered:** v0.4.8 — all three closed, and a fourth found while closing them. Kept for the record of the round; see the notes below each item for what shipped.
 
 The split is right and we have taken the whole of what it hands over: the cache policy of all four shapes, the conditional request, the refusal body, and the Vary axes. Nothing below is an argument against it.
 
@@ -37,6 +38,8 @@ Pw-Render: navigation
 **We corrected it on the answer**, because the header is ours to write now.
 
 **The ask:** a sequence case in `modeName`, or the literal set on the response the way `action` still does it.
+
+> **v0.4.8:** the `default` arm is gone and the switch is exhaustive — a mode with no name panics. Unreachable while `Negotiate` resolves the unknown to a document, which is the point: the next mode added fails at the first test instead of shipping a response that lies. Our correction is deleted.
 
 ## 2. A hole inside a table leaves the table
 
@@ -80,6 +83,8 @@ The placeholder is outside the table and its fallback row is inside it. A client
 
 `<template>` is the smaller change: it stays an element, so `querySelector` and every existing lookup are unaffected, and it needs no `display:contents` because a template never renders. A comment is cheaper on the wire and would need the client to walk siblings instead of querying. Either would also fix the streamed await case, which today has no workaround at all — a caller cannot rewrite a document the browser is parsing as it arrives.
 
+> **v0.4.8:** both, and the reason they had to split is one we missed. A `<template>` keeps its place in a table but does not render its contents, and a fallback that does not render is not a fallback. So the delta hole is a `<template>` and the await marker is a comment fence around the fallback — one node to replace, and one range around visible content, which no single shape can be. Our rewrite-before-parse is deleted; settling now walks to the fence.
+
 ## 3. Still open from v0.4.6: `valuesAreSmaller` is not applied on the streamed path
 
 Unchanged in v0.4.7:
@@ -98,6 +103,8 @@ We are still reporting the asymmetry rather than a number. It does not bite the 
 
 This is the same shape as the `children` dispatch before it: a rule applied on one path and not on its sibling.
 
+> **v0.4.8:** one predicate both paths call, so the rule cannot be on one and not the other again.
+
 ## One place we read the guide and chose differently
 
 The migration note asks for `RedrawHeaders` before the branch, so a page response declares the redraw axes too. We declare `Pw-Render` and `Pw-Build` before the branch and leave `Pw-Kind` and `Pw-Instance` to the redraw response itself.
@@ -105,6 +112,8 @@ The migration note asks for `RedrawHeaders` before the branch, so a page respons
 The reasoning: every update request names its mode on the render header and a document names none, so a page response varying on `Pw-Render` already cannot be handed to a redraw request — the stored response's own Vary is what a cache matches on, and `Pw-Render` mismatches. Kind and instance separate one redraw from another, and every redraw response carries both. A document varying on headers it never reads fragments a cache for nothing.
 
 If there is a case we are missing — a cache that matches on a union rather than on each stored response's own Vary — we would rather be told than be right by accident.
+
+> **v0.4.8:** the reading holds and the guide's reason did not. But the placement was carrying something neither side had noticed: `FailureResponse` had no `Vary` at all, so a heuristically cacheable 404 could answer a document request from the same URL, and declaring the shared axes before the branch was covering it. Refusals now carry the negotiated mode's axes. Right answer, wrong reason, and the advice outlived its argument.
 
 ## What did not move, and one that cannot
 

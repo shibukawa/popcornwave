@@ -97,15 +97,43 @@ function pruneApplied() {
 	}
 }
 
-function bracket(id, fragment, html, digest) {
-	const start = document.createComment("tb:" + id);
-	const end = document.createComment("/tb:" + id);
-	const holder = document.createDocumentFragment();
-	holder.appendChild(start);
-	holder.appendChild(fragment);
-	holder.appendChild(end);
-	applied.set(id, { start: start, end: end, html: html, digest: digest });
-	return holder;
+// The comment pair bracketing one boundary's content. Since system:tinybind
+// v0.4.8 a progressive render writes the same pair around an await boundary's
+// fallback, so the spelling is a contract with the server rather than a private
+// choice, and a range this client creates and one the document arrived with are
+// the same thing.
+function openMarker(id) {
+	return "tb:" + id;
+}
+
+function closeMarker(id) {
+	return "/tb:" + id;
+}
+
+// findFence returns the pair the document was written with, for a boundary this
+// client has not settled yet.
+//
+// A comment carries no id and no selector reaches it, so this walks. The walk is
+// over comment nodes only, and it runs once per boundary — the range is kept in
+// applied afterwards, and every later delivery to the same boundary refills it
+// without searching again.
+//
+// The open marker is remembered rather than matched pairwise, because boundaries
+// nest: an outer fence opens, an inner one opens and closes inside it, and the
+// outer one closes last. Taking the nearest open before the matching close is
+// what pairs them correctly, and the ids differ, so only markers naming this
+// boundary are ever considered.
+function findFence(id) {
+	const open = openMarker(id);
+	const close = closeMarker(id);
+	const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_COMMENT);
+	let start = null;
+	while (walker.nextNode()) {
+		const comment = walker.currentNode;
+		if (comment.data === open) start = comment;
+		else if (comment.data === close && start) return { start: start, end: comment };
+	}
+	return null;
 }
 
 // liveManifest is what this screen claims to be showing, as the pairs the next
@@ -337,9 +365,19 @@ export function applyBoundary(id, fragment, html, digest) {
 		range.digest = digest;
 		return true;
 	}
-	const placeholder = document.getElementById(id);
-	if (!placeholder) return false;
-	placeholder.replaceWith(bracket(id, fragment, html, digest));
+	// Not settled yet, so the range is the one the document arrived with: the
+	// fence around this boundary's fallback.
+	//
+	// The markers stay. A settled boundary would not need them again, but a live
+	// one is re-rendered for as long as its subscription lives, and nothing on
+	// the wire says which this is — the same fence and the same id-and-HTML pair
+	// serve both. Keeping them costs two comment nodes and is what lets the
+	// second delivery find the region the first one wrote.
+	const fence = findFence(id);
+	if (!fence) return false;
+	const opened = { start: fence.start, end: fence.end, html: html, digest: digest };
+	applied.set(id, opened);
+	refill(opened, fragment, html);
 	return true;
 }
 
@@ -410,7 +448,23 @@ customElements.define("tb-stream-end", class extends HTMLElement {
 // rather than reloaded. Its boundaries — the placeholders still on screen, or
 // the ranges already applied — are what say this response was one that streams.
 function documentStreamed() {
-	return applied.size > 0 || document.querySelector("tb-boundary") !== null;
+	return applied.size > 0 || anyFence();
+}
+
+// anyFence reports whether this document was written with boundary markers at
+// all, settled or not.
+//
+// The markers outlive settling now — a live boundary needs its range for every
+// delivery after the first — so their presence says the response was one that
+// streams rather than that something is still pending. That is the question
+// being asked: a document that streamed nothing carries no terminal marker
+// either, and reloading it would be reloading a page that arrived whole.
+function anyFence() {
+	const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_COMMENT);
+	while (walker.nextNode()) {
+		if (walker.currentNode.data.startsWith("tb:")) return true;
+	}
+	return false;
 }
 
 function checkDocumentEnd() {
