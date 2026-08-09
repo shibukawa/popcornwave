@@ -14,12 +14,13 @@ require (
 	github.com/shibukawa/dbtestify v0.5.0
 	github.com/shibukawa/localotelviewer v1.0.2
 	github.com/shibukawa/tinybind-go v0.4.3
-	github.com/shibukawa/tinygodriver v1.1.12
+	github.com/shibukawa/tinygodriver v1.2.2
 	golang.org/x/mod v0.38.0
 )
 
 require (
 	filippo.io/edwards25519 v1.2.0 // indirect
+	github.com/andybalholm/brotli v1.2.2 // indirect
 	github.com/atotto/clipboard v0.1.4 // indirect
 	github.com/aymanbagabas/go-osc52/v2 v2.0.1 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect

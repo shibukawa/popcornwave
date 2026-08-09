@@ -18,7 +18,7 @@ behavior:
   - render through htmlbind.Render into a buffer, so no wrapper participates and every await boundary settles in place
   - bound the render with a context deadline from html.async_timeout in data:html-render-config, per bound_delivery in policy:async-render-bounds
   - set Content-Type text/html; charset=utf-8
-  - set Content-Length and apply configured compression exactly like the buffered branch of decision:automatic-async-render-selection
+  - set Content-Length and apply configured compression exactly like the buffered branch of decision:automatic-async-render-selection, per policy:response-content-encoding
   - report boundary errors through api:logger with the same errors reporter as the page path
 status:
   written: implicit 200 on the first write, like api:html-response

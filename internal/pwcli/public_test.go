@@ -1,14 +1,18 @@
 package pwcli
 
 import (
+	"bytes"
 	"encoding/json"
 	"go/parser"
 	"go/token"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
+	"github.com/andybalholm/brotli"
+	"github.com/klauspost/compress/gzip"
 	"github.com/klauspost/compress/zstd"
 )
 
@@ -33,9 +37,22 @@ func derivedFixture(t *testing.T) string {
 	return root
 }
 
+// compressibleCSS is long enough that every coding beats the source. A short
+// document does not: frame overhead alone exceeds what there is to save, and
+// TestBuildDerivedAssetsSkipsUnprofitableCodings covers that side.
+const compressibleCSS = `body { color: red }
+.a { color: red }
+.b { color: red }
+.c { color: red }
+.d { color: red }
+.e { color: red }
+.f { color: red }
+.g { color: red }
+`
+
 func TestBuildDerivedAssets(t *testing.T) {
 	root := derivedFixture(t)
-	writeTestFile(t, filepath.Join(root, "public", "app.css"), "body { color: red }\n")
+	writeTestFile(t, filepath.Join(root, "public", "app.css"), compressibleCSS)
 	writeTestFile(t, filepath.Join(root, "public", "image.png"), "png")
 	writeTestFile(t, filepath.Join(root, "public", "stale.txt.zstd"), "stale")
 
@@ -43,21 +60,31 @@ func TestBuildDerivedAssets(t *testing.T) {
 		t.Fatal(err)
 	}
 	output := filepath.Join(root, filepath.FromSlash(derivedPublicDir))
-	encoded, err := os.ReadFile(filepath.Join(output, "app.css.zstd"))
-	if err != nil {
-		t.Fatal(err)
+	// One sidecar per coding, each decoding back to the same source.
+	for _, sidecar := range []struct {
+		suffix string
+		decode func([]byte) ([]byte, error)
+	}{
+		{suffix: ".br", decode: decodeTestBrotli},
+		{suffix: ".zstd", decode: decodeTestZstd},
+		{suffix: ".gz", decode: decodeTestGzip},
+	} {
+		encoded, err := os.ReadFile(filepath.Join(output, "app.css"+sidecar.suffix))
+		if err != nil {
+			t.Fatalf("%s sidecar: %v", sidecar.suffix, err)
+		}
+		if len(encoded) >= len(compressibleCSS) {
+			t.Errorf("%s sidecar is not smaller than its source: %d >= %d", sidecar.suffix, len(encoded), len(compressibleCSS))
+		}
+		decoded, err := sidecar.decode(encoded)
+		if err != nil || string(decoded) != compressibleCSS {
+			t.Errorf("%s decoded = %q, %v", sidecar.suffix, decoded, err)
+		}
 	}
-	decoder, err := zstd.NewReader(nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer decoder.Close()
-	decoded, err := decoder.DecodeAll(encoded, nil)
-	if err != nil || string(decoded) != "body { color: red }\n" {
-		t.Fatalf("decoded = %q, %v", decoded, err)
-	}
-	if _, err := os.Stat(filepath.Join(output, "image.png.zstd")); !os.IsNotExist(err) {
-		t.Fatalf("binary sidecar exists: %v", err)
+	for _, suffix := range []string{".br", ".zstd", ".gz"} {
+		if _, err := os.Stat(filepath.Join(output, "image.png"+suffix)); !os.IsNotExist(err) {
+			t.Errorf("binary %s sidecar exists: %v", suffix, err)
+		}
 	}
 	// A sidecar in the authored tree belongs to the build this one replaces.
 	if _, err := os.Stat(filepath.Join(output, "stale.txt.zstd")); !os.IsNotExist(err) {
@@ -71,7 +98,9 @@ func TestBuildDerivedAssets(t *testing.T) {
 		"package fixture",
 		"middlewares.RegisterPublicManifest",
 		`{URL: "app.css"`,
+		`ContentEncoding: "br"`,
 		`ContentEncoding: "zstd"`,
+		`ContentEncoding: "gzip"`,
 		`{URL: "image.png"`,
 	} {
 		if !strings.Contains(string(manifest), fragment) {
@@ -81,6 +110,49 @@ func TestBuildDerivedAssets(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(root, filepath.FromSlash(assetManifestJSON))); err != nil {
 		t.Fatalf("json manifest: %v", err)
 	}
+}
+
+// TestBuildDerivedAssetsSkipsUnprofitableCodings covers the other half of the
+// rule: an encode that comes out no smaller than its source is not written, so
+// the embed carries no file that could only ever lose a negotiation.
+func TestBuildDerivedAssetsSkipsUnprofitableCodings(t *testing.T) {
+	root := derivedFixture(t)
+	writeTestFile(t, filepath.Join(root, "public", "tiny.txt"), "a\n")
+
+	if _, err := buildDerivedAssets(root, assetsConfig{}); err != nil {
+		t.Fatal(err)
+	}
+	output := filepath.Join(root, filepath.FromSlash(derivedPublicDir))
+	if _, err := os.Stat(filepath.Join(output, "tiny.txt")); err != nil {
+		t.Fatalf("source is missing: %v", err)
+	}
+	for _, suffix := range []string{".br", ".zstd", ".gz"} {
+		if _, err := os.Stat(filepath.Join(output, "tiny.txt"+suffix)); !os.IsNotExist(err) {
+			t.Errorf("%s sidecar was written for a file it cannot shrink: %v", suffix, err)
+		}
+	}
+}
+
+func decodeTestZstd(encoded []byte) ([]byte, error) {
+	decoder, err := zstd.NewReader(nil)
+	if err != nil {
+		return nil, err
+	}
+	defer decoder.Close()
+	return decoder.DecodeAll(encoded, nil)
+}
+
+func decodeTestGzip(encoded []byte) ([]byte, error) {
+	reader, err := gzip.NewReader(bytes.NewReader(encoded))
+	if err != nil {
+		return nil, err
+	}
+	defer reader.Close()
+	return io.ReadAll(reader)
+}
+
+func decodeTestBrotli(encoded []byte) ([]byte, error) {
+	return io.ReadAll(brotli.NewReader(bytes.NewReader(encoded)))
 }
 
 // TestBuildDerivedAssetsRefusesAnOldEmbed covers the migration: the scaffolded

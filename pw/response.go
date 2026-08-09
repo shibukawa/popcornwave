@@ -269,8 +269,67 @@ func mapProblem(err error) Problem {
 }
 
 func WriteAPI[T any](w http.ResponseWriter, r *http.Request, value T) {
-	if err := tinybind.Write(w, r, value); err != nil {
+	target, finish := encodedAPIWriter(w, r)
+	if err := tinybind.Write(target, r, value); err != nil {
+		finish(false)
 		WriteProblem(w, r, err)
+		return
+	}
+	finish(true)
+}
+
+// encodedAPIWriter wraps w so a serialized document is encoded on its way out.
+//
+// The returned finish either commits the frame or discards it. A serializer
+// that failed before committing has to leave the headers as if nothing had been
+// negotiated, or the problem document replacing the body would be labelled with
+// a coding it is not in.
+//
+// The problem writers themselves stay uncompressed. Their documents are a few
+// hundred bytes built by hand on a path that must not fail, so an encoder there
+// would add a way to fail in exchange for no bytes worth saving.
+func encodedAPIWriter(w http.ResponseWriter, r *http.Request) (http.ResponseWriter, func(bool)) {
+	encoder, err := prepareResponseEncoder(w, r)
+	if err != nil {
+		Logger(requestContext(r)).Log(requestContext(r), LevelError, "response encoder unavailable", Err(err))
+	}
+	if encoder == nil {
+		return w, func(bool) {}
+	}
+	return &encodedResponseWriter{ResponseWriter: w, encoder: encoder}, func(committed bool) {
+		if !committed {
+			encoder.Abort()
+			if !responseCommitted(w) {
+				w.Header().Del("Content-Encoding")
+			}
+			return
+		}
+		if closeErr := encoder.Close(); closeErr != nil {
+			Logger(requestContext(r)).Log(requestContext(r), LevelError, "response encoder close failed", Err(closeErr))
+		}
+	}
+}
+
+// encodedResponseWriter is the ResponseWriter half of what flushingEncoder does
+// for the render paths. The API writers need a ResponseWriter rather than an
+// io.Writer because they set their own content type and status.
+type encodedResponseWriter struct {
+	http.ResponseWriter
+	encoder responseEncoder
+}
+
+func (e *encodedResponseWriter) Write(p []byte) (int, error) { return e.encoder.Write(p) }
+
+// Unwrap keeps the wrapper chain walkable, so commit detection and every other
+// probe still reach the writer this one stands in front of.
+func (e *encodedResponseWriter) Unwrap() http.ResponseWriter { return e.ResponseWriter }
+
+func (e *encodedResponseWriter) Flush() {
+	if err := e.encoder.Flush(); err != nil {
+		return
+	}
+	if flusher, ok := e.ResponseWriter.(http.Flusher); ok {
+		flusher.Flush()
 	}
 }
 
@@ -714,31 +773,71 @@ func renderOptions(ctx context.Context, config HTMLConfig, bot bool, extra []HTM
 	return append(options, extra...)
 }
 
+// prepareHTMLResponse negotiates a content coding and hands back the writer the
+// render should use, plus the two ways that writer ends: Close commits the
+// frame, Abort discards one that was never committed so a problem response can
+// take its place.
+//
+// The identity answer is not a failure. A client naming no coding this build
+// can produce receives the bytes it asked for, and everything downstream is
+// written the same way either way.
 func prepareHTMLResponse(w http.ResponseWriter, r *http.Request) (io.Writer, func() error, func(), error) {
-	if !zstdResponseSupported || !Config[MiddlewareConfig](requestContext(r)).Compression {
-		return w, func() error { return nil }, func() {}, nil
-	}
-	addVaryHeader(w.Header(), "Accept-Encoding")
-	if r == nil || !acceptsZstdEncoding(r.Header.Values("Accept-Encoding")) || w.Header().Get("Content-Encoding") != "" {
-		return w, func() error { return nil }, func() {}, nil
-	}
-	w.Header().Set("Content-Encoding", zstdContentEncoding)
-	w.Header().Del("Content-Length")
-	encoder, err := newResponseZstdEncoder(w)
+	encoder, err := prepareResponseEncoder(w, r)
 	if err != nil {
-		return w, func() error { return nil }, func() {}, err
+		return w, noCloseWriter, noAbortWriter, err
+	}
+	if encoder == nil {
+		return w, noCloseWriter, noAbortWriter, nil
 	}
 	return flushingEncoder{encoder: encoder, downstream: w}, encoder.Close, encoder.Abort, nil
 }
 
-// flushingEncoder chains one flush through both layers. zstd deliberately does
-// not flush its destination, and a completion sitting in either the encoder or
-// the server's buffer defeats the point of having sent it early.
+// prepareResponseEncoder sets the negotiated headers and returns the encoder to
+// write through, or nil when the response is to be sent as it stands.
+//
+// Vary is added whether or not a body ends up encoded, because the header is a
+// statement about how this URL is negotiated rather than about what one
+// response happened to be: a cache holding the identity form must not answer a
+// request that asked for a coding.
+func prepareResponseEncoder(w http.ResponseWriter, r *http.Request) (responseEncoder, error) {
+	config := Config[MiddlewareConfig](requestContext(r))
+	if len(availableResponseCodings) == 0 || !config.Compression {
+		return nil, nil
+	}
+	addVaryHeader(w.Header(), "Accept-Encoding")
+	if r == nil || w.Header().Get("Content-Encoding") != "" {
+		return nil, nil
+	}
+	var scratch [maxResponseCodings]responseCoding
+	order := orderedResponseCodings(config.CompressionCodings, &scratch)
+	coding, ok := negotiateResponseCoding(r.Header.Values("Accept-Encoding"), order)
+	if !ok {
+		return nil, nil
+	}
+	w.Header().Set("Content-Encoding", coding.token)
+	w.Header().Del("Content-Length")
+	encoder, err := coding.newEncoder(w)
+	if err != nil {
+		// The headers are already set for a coding that will not be produced,
+		// so they have to come back off before the caller writes plain bytes.
+		w.Header().Del("Content-Encoding")
+		return nil, err
+	}
+	return encoder, nil
+}
+
+func noCloseWriter() error { return nil }
+
+func noAbortWriter() {}
+
+// flushingEncoder chains one flush through both layers. An encoder deliberately
+// does not flush its destination, and a completion sitting in either the
+// encoder or the server's buffer defeats the point of having sent it early.
 //
 // Flushing per boundary rather than per write is what keeps the ratio
 // reasonable: each flush ends a block, and a block ended early compresses worse.
 type flushingEncoder struct {
-	encoder    responseZstdEncoder
+	encoder    responseEncoder
 	downstream http.ResponseWriter
 }
 
@@ -751,36 +850,6 @@ func (f flushingEncoder) Flush() {
 	if flusher, ok := f.downstream.(http.Flusher); ok {
 		flusher.Flush()
 	}
-}
-
-func acceptsZstdEncoding(values []string) bool {
-	for _, value := range values {
-		// Cut loops rather than Split, so a header line parses without
-		// allocating.
-		for entry := range splitSeq(value, ',') {
-			coding, parameters, _ := strings.Cut(entry, ";")
-			if !strings.EqualFold(strings.TrimSpace(coding), zstdContentEncoding) {
-				continue
-			}
-			quality := 1.0
-			for parameter := range splitSeq(parameters, ';') {
-				name, raw, ok := strings.Cut(parameter, "=")
-				if !ok || !strings.EqualFold(strings.TrimSpace(name), "q") {
-					continue
-				}
-				parsed, parseErr := strconv.ParseFloat(strings.TrimSpace(raw), 64)
-				if parseErr != nil || parsed < 0 || parsed > 1 {
-					quality = 0
-				} else {
-					quality = parsed
-				}
-			}
-			if quality > 0 {
-				return true
-			}
-		}
-	}
-	return false
 }
 
 // splitSeq yields the separator-delimited pieces of value without allocating.

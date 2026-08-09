@@ -6,7 +6,7 @@ title: Derived Public Tree
 The authored public directory stops being the served tree; a build-produced dist/public tree, plus the metadata describing it, becomes the only thing embedded and served.
 
 ```yaml
-today: requirement:public-asset-delivery embeds and serves the authored tree, and flow:public-asset-build only adds .zstd siblings beside its files
+today: requirement:public-asset-delivery embeds and serves the authored tree, and flow:public-asset-build only adds precompressed siblings beside its files
 why_it_stops_working:
   conversion_drops_a_source: a png converted to webp, a css minified in place, and a ts compiled to js all leave the authored file with no reason to ship, and an overlay or an in-place write cannot express a deletion
   one_url_many_representations: an additional avif exists for the same URL and is chosen per request, which the authored tree has no place to hold
