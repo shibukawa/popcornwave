@@ -307,6 +307,11 @@ func TestBuildDerivedAssetsRetainsAReferencedModule(t *testing.T) {
 	if len(report.retained) != 1 || !strings.Contains(report.retained[0], "handlers/page.go") {
 		t.Errorf("report.retained = %v", report.retained)
 	}
+	// Retained and not-served are two different artifacts. Reporting both for one
+	// file would describe a build that did not happen.
+	if len(report.unserved) != 0 {
+		t.Errorf("a file that ships was also reported as not served: %v", report.unserved)
+	}
 }
 
 // TestBuildDerivedAssetsRetainsAReferencedSource covers the one case where
@@ -464,6 +469,96 @@ func TestBuildDerivedAssetsShipsWhatIsStaged(t *testing.T) {
 	}
 	if !strings.Contains(string(manifest), `{URL: "js/orphan.js"`) {
 		t.Errorf("manifest missing the staged file:\n%s", manifest)
+	}
+}
+
+// TestBuildDerivedAssetsDropsSourceMapsAndTheirComment is the deployable shape.
+// Dropping the file alone would leave the bundle naming one that is not there,
+// so the two go together or neither does.
+func TestBuildDerivedAssetsDropsSourceMapsAndTheirComment(t *testing.T) {
+	root := derivedFixture(t)
+	writeNestedTestFile(t, filepath.Join(root, filepath.FromSlash(derivedStageDir), "js", "app.abcdef012345.js"),
+		"console.log(1)\n//# sourceMappingURL=app.abcdef012345.js.map\n")
+	writeNestedTestFile(t, filepath.Join(root, filepath.FromSlash(derivedStageDir), "js", "app.abcdef012345.js.map"),
+		`{"version":3,"sourcesContent":["console.log(1)"]}`)
+
+	report, err := buildDerivedAssets(root, assetsConfig{Scripts: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	output := filepath.Join(root, filepath.FromSlash(derivedPublicDir))
+	if _, err := os.Stat(filepath.Join(output, "js", "app.abcdef012345.js.map")); !os.IsNotExist(err) {
+		t.Errorf("the map still ships: %v", err)
+	}
+	bundle, err := os.ReadFile(filepath.Join(output, "js", "app.abcdef012345.js"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(bundle), "sourceMappingURL") {
+		t.Errorf("the bundle still names a map that is not there: %s", bundle)
+	}
+	manifest, err := os.ReadFile(filepath.Join(root, assetManifestFile))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(manifest), ".js.map") {
+		t.Errorf("the manifest declares a URL the tree does not hold:\n%s", manifest)
+	}
+	if len(report.unserved) != 1 || !strings.Contains(report.unserved[0], ".js.map") {
+		t.Errorf("report.unserved = %v", report.unserved)
+	}
+}
+
+// TestBuildDerivedAssetsKeepsSourceMapsForADebugArtifact is the other shape, and
+// the reason the decision is not simply "never ship a map".
+func TestBuildDerivedAssetsKeepsSourceMapsForADebugArtifact(t *testing.T) {
+	root := derivedFixture(t)
+	writeNestedTestFile(t, filepath.Join(root, filepath.FromSlash(derivedStageDir), "js", "app.abcdef012345.js"),
+		"console.log(1)\n//# sourceMappingURL=app.abcdef012345.js.map\n")
+	writeNestedTestFile(t, filepath.Join(root, filepath.FromSlash(derivedStageDir), "js", "app.abcdef012345.js.map"),
+		`{"version":3,"sourcesContent":["console.log(1)"]}`)
+
+	report, err := buildDerivedAssets(root, assetsConfig{Scripts: true, SourceMaps: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	output := filepath.Join(root, filepath.FromSlash(derivedPublicDir))
+	if _, err := os.Stat(filepath.Join(output, "js", "app.abcdef012345.js.map")); err != nil {
+		t.Errorf("a debug artifact lost its map: %v", err)
+	}
+	bundle, err := os.ReadFile(filepath.Join(output, "js", "app.abcdef012345.js"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(bundle), "sourceMappingURL") {
+		t.Errorf("the bundle no longer names its map: %s", bundle)
+	}
+	if len(report.unserved) != 0 {
+		t.Errorf("report.unserved = %v", report.unserved)
+	}
+}
+
+// TestDroppingSourceMapsLeavesTheBundleName pins why this decision can live in
+// the tree build at all: the digest is taken over the body without the comment,
+// so removing the comment cannot invalidate the name the reference was rewritten
+// to, and the two artifact shapes generate identical Go.
+func TestDroppingSourceMapsLeavesTheBundleName(t *testing.T) {
+	body := "console.log(1)\n"
+	commented := body + "//# sourceMappingURL=app.js.map\n"
+	name := hashedName("js/app.js", []byte(body))
+
+	produced := map[string][]byte{name: []byte(commented), name + ".map": []byte("{}")}
+	dropSourceMaps(produced)
+
+	if _, ok := produced[name+".map"]; ok {
+		t.Error("the map survived")
+	}
+	if got := string(produced[name]); got != body {
+		t.Errorf("body = %q, want %q", got, body)
+	}
+	// The name the reference was rewritten to still describes the bytes behind it.
+	if again := hashedName("js/app.js", produced[name]); again != name {
+		t.Errorf("the bundle name moved: %q -> %q", name, again)
 	}
 }
 

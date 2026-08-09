@@ -207,6 +207,9 @@ func buildDerivedAssetsWithEncoder(root string, assets assetsConfig, encodeVaria
 	if err != nil {
 		return report, err
 	}
+	if !assets.SourceMaps {
+		report.unserved = append(report.unserved, dropSourceMaps(produced)...)
+	}
 	// A conversion is recognized by its output existing, so nothing has to be
 	// threaded back from the generator to know which sources were replaced.
 	converted := map[string]string{}
@@ -259,10 +262,12 @@ func buildDerivedAssetsWithEncoder(root string, assets assetsConfig, encodeVaria
 			if err != nil {
 				return err
 			}
-			report.unserved = append(report.unserved, slashed)
 			if !retain {
+				report.unserved = append(report.unserved, slashed+" (TypeScript is a build input)")
 				return nil
 			}
+			// Reported only as retained. A file that ships is not one the build
+			// declined to serve, and saying both would describe two artifacts.
 			report.retained = append(report.retained, slashed+" ("+reason+")")
 		}
 		source, err := os.ReadFile(name)
@@ -387,6 +392,42 @@ func convertedSourceFor(produced, authored string) (string, bool) {
 		}
 	}
 	return "", false
+}
+
+// dropSourceMaps takes the emitted maps out of the produced set and takes the
+// comment naming each one out of the bundle it was written into. It reports
+// what it dropped, sorted, so the build says so rather than quietly shipping a
+// different artifact than the last invocation did.
+//
+// It runs here rather than in the conversion because the map is decided by how
+// the build was invoked, and a conversion is memoized against its inputs and
+// replayed. Deciding it here also keeps generation identical between the two
+// artifact shapes: the bundle digest is taken over the body without its comment,
+// so removing the comment leaves the name, the rewritten reference, and every
+// byte of generated Go exactly where they were.
+//
+// The comment has to go with the file. A bundle still naming a map the tree does
+// not hold turns every devtools open into a request for a file that is not
+// there, which is a worse artifact than the one this is removing.
+func dropSourceMaps(produced map[string][]byte) []string {
+	var dropped []string
+	for name := range produced {
+		if path.Ext(name) != ".map" {
+			continue
+		}
+		dropped = append(dropped, name+" (this artifact carries no source map)")
+		delete(produced, name)
+	}
+	for name, content := range produced {
+		if path.Ext(name) != ".js" {
+			continue
+		}
+		if body, comment := splitSourceMapComment(string(content)); comment != "" {
+			produced[name] = []byte(body)
+		}
+	}
+	sort.Strings(dropped)
+	return dropped
 }
 
 // scriptBuildInput reports whether an authored file is one the script build

@@ -33,6 +33,10 @@ func runDev(ctx context.Context, args []string, stdout, stderr io.Writer) error 
 	if err := refuseInPackage(config, "dev"); err != nil {
 		return err
 	}
+	// The development loop always keeps the source maps. Nothing here is
+	// deployed, and a browser stack trace that names the authored TypeScript is
+	// the reason the script build emits a map at all.
+	config.Assets.SourceMaps = true
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	// The viewer and the console start before anything the loop reports on, so

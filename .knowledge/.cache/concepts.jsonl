@@ -72,6 +72,7 @@
 {"category": "interface", "id": "api:typed-stream", "path": ".knowledge/api/typed-stream.md", "role": "primary", "title": "Typed Stream API", "type": "api"}
 {"category": "concept", "id": "concept:application-entry-point", "path": ".knowledge/concept/application-entry-point.md", "role": "supporting", "title": "Application Entry Point", "type": "concept"}
 {"category": "concept", "id": "concept:assurance-axes", "path": ".knowledge/concept/assurance-axes.md", "role": "supporting", "title": "Assurance Strength and Freshness", "type": "concept"}
+{"category": "concept", "id": "concept:build-artifact-shapes", "path": ".knowledge/concept/build-artifact-shapes.md", "role": "supporting", "title": "Build Artifact Shapes", "type": "concept"}
 {"category": "concept", "id": "concept:classic-web-style", "path": ".knowledge/concept/classic-web-style.md", "role": "supporting", "title": "Classic Web Style", "type": "concept"}
 {"category": "concept", "id": "concept:client-component", "path": ".knowledge/concept/client-component.md", "role": "supporting", "title": "Client Component", "type": "concept"}
 {"category": "concept", "id": "concept:component-package", "path": ".knowledge/concept/component-package.md", "role": "supporting", "title": "Component Package", "type": "concept"}
@@ -388,6 +389,7 @@
 {"category": "objective", "id": "requirement:daisyui-integration", "path": ".knowledge/requirement/daisyui-integration.md", "role": "primary", "title": "daisyUI Integration", "type": "requirement"}
 {"category": "objective", "id": "requirement:database-engine-selection", "path": ".knowledge/requirement/database-engine-selection.md", "role": "primary", "title": "Database Engine Selection", "type": "requirement"}
 {"category": "objective", "id": "requirement:database-migration", "path": ".knowledge/requirement/database-migration.md", "role": "primary", "title": "Versioned Database Migration", "type": "requirement"}
+{"category": "objective", "id": "requirement:deployed-debug-information", "path": ".knowledge/requirement/deployed-debug-information.md", "role": "primary", "title": "Debug Information In A Deployed Artifact", "type": "requirement"}
 {"category": "objective", "id": "requirement:derived-asset-pipeline", "path": ".knowledge/requirement/derived-asset-pipeline.md", "role": "primary", "title": "Derived Asset Pipeline", "type": "requirement"}
 {"category": "objective", "id": "requirement:dev-api-reference", "path": ".knowledge/requirement/dev-api-reference.md", "role": "primary", "title": "Development API Reference", "type": "requirement"}
 {"category": "objective", "id": "requirement:dev-asset-inspector", "path": ".knowledge/requirement/dev-asset-inspector.md", "role": "primary", "title": "Development Asset Inspector", "type": "requirement"}

@@ -9,16 +9,20 @@ import (
 	"strings"
 )
 
+// buildUsage names the one option the two build commands share.
+var buildUsage = "usage: pw build [--debug]  |  pw prepare [--debug]"
+
 func runBuild(ctx context.Context, args []string, stdout, stderr io.Writer) error {
-	if len(args) != 0 {
-		return fmt.Errorf("build: unexpected arguments")
+	debug, err := debugFlag("build", args)
+	if err != nil {
+		return err
 	}
 	root, config, err := buildProject("build")
 	if err != nil {
 		return err
 	}
 	progress := newProgressRegion(stdout)
-	if err := prepareBuildInputs(ctx, root, config, progress, stdout, stderr); err != nil {
+	if err := prepareBuildInputs(ctx, root, config, debug, progress, stdout, stderr); err != nil {
 		progress.Done()
 		return err
 	}
@@ -26,8 +30,13 @@ func runBuild(ctx context.Context, args []string, stdout, stderr io.Writer) erro
 	// A pw build is the deployable artifact. Strip DWARF and the host linker
 	// symbol table, while retaining Go's pclntab so panic stacks still carry
 	// function names and line numbers. trimpath removes checkout-specific source
-	// prefixes and makes otherwise identical builds reproducible across machines.
-	command := exec.CommandContext(ctx, "go", "build", "-trimpath", "-ldflags=-s -w", config.Main)
+	// prefixes and makes otherwise identical builds reproducible across machines,
+	// which is why it is passed either way: it removes no debug information.
+	build := []string{"build", "-trimpath"}
+	if !debug {
+		build = append(build, "-ldflags=-s -w")
+	}
+	command := exec.CommandContext(ctx, "go", append(build, config.Main)...)
 	command.Dir, command.Stdout, command.Stderr, command.Env = root, stdout, stderr, os.Environ()
 	err = command.Run()
 	progress.Done()
@@ -43,17 +52,39 @@ func runBuild(ctx context.Context, args []string, stdout, stderr io.Writer) erro
 // compile step — needs the same tree and has no way to produce it, because
 // pw generate reaches only the first of the steps below.
 func runPrepare(ctx context.Context, args []string, stdout, stderr io.Writer) error {
-	if len(args) != 0 {
-		return fmt.Errorf("prepare: unexpected arguments")
+	debug, err := debugFlag("prepare", args)
+	if err != nil {
+		return err
 	}
 	root, config, err := buildProject("prepare")
 	if err != nil {
 		return err
 	}
 	progress := newProgressRegion(stdout)
-	err = prepareBuildInputs(ctx, root, config, progress, stdout, stderr)
+	err = prepareBuildInputs(ctx, root, config, debug, progress, stdout, stderr)
 	progress.Done()
 	return err
+}
+
+// debugFlag reads the one option these two commands take.
+//
+// It is on prepare as well as on build, and that is the point rather than a
+// convenience: prepare exists for a compile this project does not run — the
+// TinyGo Dockerfile, a cross-compiled go build, an image builder owning the
+// final step — so those are deployments, and a flag only build understood would
+// miss the path most likely to become production. What prepare cannot carry is
+// the linker half, which belongs to the compile its caller owns.
+func debugFlag(command string, args []string) (bool, error) {
+	debug := false
+	for _, arg := range args {
+		switch arg {
+		case "--debug":
+			debug = true
+		default:
+			return false, fmt.Errorf("%s: unexpected argument %q; the only option is --debug", command, arg)
+		}
+	}
+	return debug, nil
 }
 
 // buildProject resolves the project the two commands above run in. The kind is
@@ -82,8 +113,11 @@ func buildProject(command string) (string, projectConfig, error) {
 // to a compiler it does not run.
 //
 // config is taken by value: the Tailwind minify override below is this
-// sequence's, not the project's.
-func prepareBuildInputs(ctx context.Context, root string, config projectConfig, progress *progressRegion, stdout, stderr io.Writer) error {
+// sequence's, not the project's, and the source map decision is the same shape.
+// It is a property of how the build was invoked, so it is written onto the
+// config here rather than read from a file that has no way to say which
+// invocation it meant.
+func prepareBuildInputs(ctx context.Context, root string, config projectConfig, debug bool, progress *progressRegion, stdout, stderr io.Writer) error {
 	progress.Phase("generating")
 	if _, err := generateProject(ctx, false, stdout, false); err != nil {
 		return err
@@ -96,6 +130,7 @@ func prepareBuildInputs(ctx context.Context, root string, config projectConfig, 
 		}
 	}
 	progress.Phase("building assets")
+	config.Assets.SourceMaps = debug
 	report, err := buildDerivedAssets(root, config.Assets)
 	if err != nil {
 		return err

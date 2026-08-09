@@ -29,6 +29,12 @@ type assetsConfig struct {
 	// authored javascript file in place. The second one moves no URL, so it
 	// belongs to the tree walk exactly as the stylesheet minify does.
 	Scripts bool
+	// SourceMaps keeps the map the script build emits, and the comment naming
+	// it, in the served tree. It is a property of the build invocation rather
+	// than of the project: pw dev sets it, and pw build sets it only when asked
+	// for a debug artifact, because a map carries the authored TypeScript and a
+	// deployment has no use for shipping its own sources.
+	SourceMaps bool
 }
 
 // transformAuthoredFile is the tree-walk half of the pipeline: work that needs

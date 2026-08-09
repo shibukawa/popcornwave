@@ -37,8 +37,30 @@ func TestPrepareIsRegisteredInTheCommandList(t *testing.T) {
 	}
 }
 
-// Neither command takes an argument. Accepting one silently would let a caller
-// believe a package, an output path, or a flag was honoured.
+// --debug is the one option either command takes, and it has to be on both.
+// prepare hands its tree to a compiler this project does not run, which is the
+// container path, so a debug artifact built that way would otherwise be
+// unreachable.
+func TestDebugFlagIsTheOnlyOption(t *testing.T) {
+	for _, command := range []string{"build", "prepare"} {
+		debug, err := debugFlag(command, nil)
+		if err != nil || debug {
+			t.Errorf("%s with no argument: debug = %v, err = %v", command, debug, err)
+		}
+		debug, err = debugFlag(command, []string{"--debug"})
+		if err != nil || !debug {
+			t.Errorf("%s --debug: debug = %v, err = %v", command, debug, err)
+		}
+		// A near miss is refused rather than ignored, because a pipeline that
+		// meant to ask for a debug artifact and did not would ship the other one.
+		if _, err := debugFlag(command, []string{"-debug"}); err == nil {
+			t.Errorf("%s accepted -debug", command)
+		}
+	}
+}
+
+// Neither command takes a positional argument. Accepting one silently would let
+// a caller believe a package or an output path was honoured.
 func TestBuildAndPrepareRejectArguments(t *testing.T) {
 	ctx := context.Background()
 	var out, errOut bytes.Buffer
