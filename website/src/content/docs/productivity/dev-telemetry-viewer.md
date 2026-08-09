@@ -22,6 +22,8 @@ pw dev:   traces and logs export to OTEL_EXPORTER_OTLP_ENDPOINT as service "myap
 Open that address. It is on by default, so this is the state of a project that
 has configured nothing.
 
+![the telemetry viewer showing recent traces and logs alongside process memory and thread counts](../../../assets/screenshots/dev-console-telemetry.png)
+
 ## How the application finds it
 
 `pw dev` reserves a port, then passes three environment variables to the process

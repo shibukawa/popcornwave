@@ -22,6 +22,8 @@ pw dev:   traces and logs export to OTEL_EXPORTER_OTLP_ENDPOINT as service "myap
 この URL を開いてください。既定で有効なので、これは何も設定していないプロジェクトの
 状態です。
 
+![最近のトレースとログ、プロセスのメモリやスレッド数を表示するテレメトリビューア](../../../../assets/screenshots/dev-console-telemetry.png)
+
 ## アプリケーションはどうやって見つけるのか
 
 `pw dev` はポートを確保し、起動するプロセスに 3 つの環境変数を渡します。
