@@ -2,6 +2,9 @@
 result
 result-*
 
+# structured application logs written by pw dev
+.log/
+
 # telemetry viewer UI dependencies and incremental state; the build output under
 # web/ is committed
 internal/otelui/webui/node_modules

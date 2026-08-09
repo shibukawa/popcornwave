@@ -188,6 +188,10 @@ config = ["cmd/myapp"]
 includes = []
 excludes = []
 
+[dev.logs]
+enabled = true
+directory = ".log"
+
 [migration]
 dir = "migrations"
 auto = true
@@ -211,6 +215,8 @@ minify = true
 | `generate.config` | — | 必須。設定登録のために読むディレクトリ |
 | `dev.watch.includes` | `[]` | `pw dev` が追加で監視する相対 glob パターン |
 | `dev.watch.excludes` | `[]` | `pw dev` が走査時にスキップするサブツリー |
+| `dev.logs.enabled` | `true` | `pw dev` のアプリケーションログをローカルJSONLへ保存する |
+| `dev.logs.directory` | `.log` | プロジェクトルートからの相対保存先 |
 | `migration.dir` | `migrations` | プロジェクトからの相対パス |
 | `migration.auto` | `true` | `pw dev` 起動時に未適用のマイグレーションを適用する |
 | `assets.tailwind.*` | 無効 | [スタイリング](/ja/guides/frontend/styling/)を参照 |
@@ -227,6 +233,10 @@ minify = true
 `pw dev` は生成よりも意図的に広く監視します。どの用途も生成に使わないファイルを
 含め、Go のソースはすべて再ビルドの入力だからです。だからこそ範囲は includes で
 宣言するのではなく excludes で削ります。
+
+`dev.logs` が属するのは `config.dev.toml` ではなく、こちらです。デプロイされる
+アプリケーションではなく、ローカルの開発プロセスを制御するからです。ファイルのライフ
+サイクルとスキーマは[テレメトリ](/ja/guides/architecture/telemetry/)を参照してください。
 
 ## Popcorn Wave が想定するアーキテクチャ
 

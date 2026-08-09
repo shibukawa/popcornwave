@@ -12,17 +12,18 @@ import (
 // Reserved record fields. A user attribute may not take one of these names,
 // because a consumer reading a stream has to be able to trust them.
 const (
-	FieldTimestamp  = "timestamp"
-	FieldSeverity   = "severity"
-	FieldMessage    = "message"
-	FieldTraceID    = "trace_id"
-	FieldSpanID     = "span_id"
-	FieldTraceFlags = "trace_flags"
+	FieldTimestamp   = "timestamp"
+	FieldSeverity    = "severity"
+	FieldMessage     = "message"
+	FieldServiceName = "service_name"
+	FieldTraceID     = "trace_id"
+	FieldSpanID      = "span_id"
+	FieldTraceFlags  = "trace_flags"
 )
 
 func reserved(key string) bool {
 	switch key {
-	case FieldTimestamp, FieldSeverity, FieldMessage, FieldTraceID, FieldSpanID, FieldTraceFlags:
+	case FieldTimestamp, FieldSeverity, FieldMessage, FieldServiceName, FieldTraceID, FieldSpanID, FieldTraceFlags:
 		return true
 	default:
 		return false

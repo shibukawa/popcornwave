@@ -12,6 +12,12 @@ import (
 // Var names the environment variable that selects the runtime environment.
 const Var = "APP_ENV"
 
+// DevLogFileVar names the private handoff from pw dev to the application
+// process. The value is an absolute JSONL path selected once per developer-loop
+// invocation; it is not a runtime configuration key and is never exported to
+// the developer's shell.
+const DevLogFileVar = "PW_DEV_LOG_FILE"
+
 // Well-known runtime environments. Any other lowercase token is also accepted.
 const (
 	Development = "dev"

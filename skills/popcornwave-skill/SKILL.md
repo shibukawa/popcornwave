@@ -6,7 +6,8 @@ description: >
   queries, handlers, pages, popcornwave.toml, or config.*.toml; when adding
   routes, database access, sessions, or auth; or when running, building,
   checking, or debugging a project with the pw command (pw dev, pw generate,
-  pw build, pw doctor, pw migrate, pw fmt).
+  pw build, pw doctor, pw migrate, pw fmt); or when investigating structured
+  development logs in .log with DuckDB.
 ---
 
 # Popcorn Wave
@@ -90,6 +91,7 @@ development. `pw migrate status` shows where you are.
 | `.pw.sql` queries, migrations, seed data | [references/sql.md](references/sql.md) |
 | DynamoDB and Firestore stores | [references/dynamo-firestore.md](references/dynamo-firestore.md) |
 | `popcornwave.toml`, `config.<env>.toml`, config declarations | [references/config.md](references/config.md) |
+| Local JSONL logs, trace correlation, and DuckDB analysis | [references/telemetry.md](references/telemetry.md) |
 | pw dev, testing, e2e, API docs, diagnostics | [references/workflow.md](references/workflow.md) |
 
 ## pw command summary

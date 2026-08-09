@@ -901,6 +901,12 @@ firestore = [` + quotedList(scaffoldGenerationScope(options).Firestore) + `]
 [dev.watch]
 includes = []
 excludes = []
+
+# pw dev keeps the terminal readable and also writes structured application
+# records here for local analysis. One JSONL file is created per pw dev run.
+[dev.logs]
+enabled = true
+directory = ".log"
 ` + devConsoleProjectConfig() + devIdPProjectConfig(options) + configTailwind + configImages,
 		pwenv.FileName(pwenv.Development): `# Development runtime configuration.
 # APP_ENV selects this file; add config.stg.toml and config.prod.toml as needed.
@@ -1008,7 +1014,7 @@ func PublicFS() fs.FS {
 		// The binary pattern is anchored: a bare name would also ignore cmd/<name>/.
 		// devbox.d holds the service configuration devbox writes on first run,
 		// so pw dev leaves no change behind in a fresh checkout.
-		".gitignore": ".devbox/\ndevbox.d/\n/" + name + "\n*_pw_gen.go\n" +
+		".gitignore": ".devbox/\ndevbox.d/\n.log/\n/" + name + "\n*_pw_gen.go\n" +
 			// Everything under dist is built, except the sentinel: go:embed
 			// fails on an absent directory, so a fresh clone has to carry one
 			// file that makes the tree exist before the first build.

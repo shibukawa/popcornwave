@@ -16,6 +16,10 @@ routing_exception:
   scope: requirement:dev-telemetry-viewer under api:cli-dev only
   rule: emit to both OTLP and stdout, because the developer loop stream is the primary surface and the viewer is the correlated one
   unchanged: every other environment routes exclusively
+development_file_sink:
+  scope: requirement:local-jsonl-log-capture under api:cli-dev only
+  rule: tee the structured record before stdout formatting, independently of the OTLP routing choice
+  failure: a local file failure disables only that sink
 json:
   - one record per line
   - stable top-level reserved field names

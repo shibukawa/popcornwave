@@ -6,7 +6,7 @@ title: pw init
 pw init creates a runnable Popcorn Wave project with a shared document shell, representative handler, typed page template, SQL query, error pages, Devbox environment, and generated-artifact conventions.
 
 ```yaml
-usage: pw init [myapp] [--preset=<name>] [--yes] [--router=registered|discovered|both] [--tailwind|--no-tailwind] [--tinygo|--no-tinygo] [--devbox|--no-devbox] [--database|--no-database] [--db=sqlite|postgres|mysql] [--dynamo|--no-dynamo] [--redis|--no-redis] [--auth=none|oidc|oidc-passkey|passkey] [--session=rdb|cookie|redis|dynamo] [--devidp|--no-devidp]
+usage: pw init [myapp] [--preset=<name>] [--yes] [--router=registered|discovered|both] [--tailwind|--no-tailwind] [--tinygo|--no-tinygo] [--devbox|--no-devbox] [--database|--no-database] [--db=sqlite|postgres|mysql] [--dynamo|--no-dynamo] [--redis|--no-redis] [--auth=none|oidc|oidc-passkey|passkey] [--session=rdb|cookie|redis|dynamo] [--devidp|--no-devidp] [--skills=claude|agents|none]
 mode: decision:interactive-project-bootstrap, opening on the preset step of decision:preset-first-bootstrap
 catalog: the capability questions are the requirement:incremental-project-capabilities catalog api:cli-add installs into an existing project
 inputs:
@@ -45,6 +45,16 @@ questions:
     yes: devbox.json and devbox.lock pinning the toolchain and the services
     no: the operator keeps their own setup, such as mise, Docker Compose, Nix, Homebrew, or Scoop; the Valkey question is skipped with it
     consequence: without it nothing pins the decision:tailwind-host-toolchain version, so api:cli-init and api:cli-build name the requirement, the standalone CLI at version 4 or later, rather than the Devbox package identifier that only nixpkgs understands
+  agent_skill:
+    asked_last: it selects a discovery adapter for the machines editing the project rather than an application capability
+    default: claude
+    choices:
+      claude: .claude/skills/popcornwave/
+      agents: .agents/skills/popcornwave/
+      none: no generated copy
+    source: decision:canonical-popcornwave-skill-source
+    preset: never answered by a project preset
+    shortcut: --skills
   database:
     default: yes
     yes: data:middleware-runtime-config rdb section, the migrations directory, and the .pw.sql and migration examples
@@ -126,10 +136,12 @@ outputs:
   - the selected rule:rdb-dsn-resolution engine blank import in main whenever the database capability is selected
   - public directory with non-served .keep sentinel and stable public.go embedding scaffold
   - tinygohelper.go netdev registration for rule:tinygo-runtime-compatibility, only when TinyGo is selected
-  - .gitignore excluding **/*_pw_gen.go generated application build inputs
+  - .gitignore excluding **/*_pw_gen.go generated application build inputs and the requirement:local-jsonl-log-capture .log/ directory
+  - data:project-config dev.logs enabled at .log
   - config.prod.toml beside config.dev.toml, per requirement:environment-switching, carrying the same endpoint paths, data:observability-runtime-config stdout_format json, and no secret
   - the requirement:container-image-scaffold files, which every answer set receives: Dockerfile and .dockerignore, plus Dockerfile.tinygo when TinyGo is selected
   - .vscode/settings.json hiding **/*_pw_gen.go
+  - one generated copy of decision:canonical-popcornwave-skill-source at the selected agent discovery path, including requirement:agent-log-analysis-skill, unless --skills=none
   - editor_configuration below
   - Devbox configuration with Valkey when selected, TinyGo when selected, and the selected requirement:database-engine-selection server package, only when the Devbox environment is selected
   - data:authentication-runtime-config section for the selected authentication mode

@@ -191,6 +191,10 @@ config = ["cmd/myapp"]
 includes = []
 excludes = []
 
+[dev.logs]
+enabled = true
+directory = ".log"
+
 [migration]
 dir = "migrations"
 auto = true
@@ -214,6 +218,8 @@ minify = true
 | `generate.config` | — | required; directories read for config registration |
 | `dev.watch.includes` | `[]` | extra relative glob patterns for `pw dev` |
 | `dev.watch.excludes` | `[]` | subtrees `pw dev` skips while walking |
+| `dev.logs.enabled` | `true` | capture `pw dev` application logs as local JSONL |
+| `dev.logs.directory` | `.log` | capture directory, relative to the project root |
 | `migration.dir` | `migrations` | migration directory, relative to the project |
 | `migration.auto` | `true` | apply pending migrations when `pw dev` starts |
 | `assets.tailwind.*` | disabled | see [Styling](/guides/frontend/styling/) |
@@ -230,6 +236,10 @@ it when a large dependency tree makes the walk the slowest step of the loop.
 `pw dev` deliberately watches wider than generation: any Go source is a rebuild
 input, including files no purpose generates from. That is why its scope is
 trimmed with excludes rather than declared with includes.
+
+`dev.logs` belongs here rather than in `config.dev.toml`: it controls the local
+developer process, not the deployed application. See
+[Telemetry](/guides/architecture/telemetry/) for the file lifecycle and schema.
 
 ## The architecture Popcorn Wave is designed for
 

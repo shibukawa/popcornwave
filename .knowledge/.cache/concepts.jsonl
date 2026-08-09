@@ -105,6 +105,7 @@
 {"category": "structure", "id": "data:framework-span-set", "path": ".knowledge/data/framework-span-set.md", "role": "supporting", "title": "Framework Span Set", "type": "data"}
 {"category": "structure", "id": "data:html-render-config", "path": ".knowledge/data/html-render-config.md", "role": "supporting", "title": "HTML Render Runtime Config", "type": "data"}
 {"category": "structure", "id": "data:loaded-configuration", "path": ".knowledge/data/loaded-configuration.md", "role": "supporting", "title": "Loaded Configuration", "type": "data"}
+{"category": "structure", "id": "data:local-jsonl-log-record", "path": ".knowledge/data/local-jsonl-log-record.md", "role": "supporting", "title": "Local JSONL Log Record", "type": "data"}
 {"category": "structure", "id": "data:log-attribute", "path": ".knowledge/data/log-attribute.md", "role": "supporting", "title": "Log Attribute", "type": "data"}
 {"category": "structure", "id": "data:middleware-runtime-config", "path": ".knowledge/data/middleware-runtime-config.md", "role": "supporting", "title": "Middleware Runtime Config", "type": "data"}
 {"category": "structure", "id": "data:migration-snapshot", "path": ".knowledge/data/migration-snapshot.md", "role": "supporting", "title": "Migration Snapshot", "type": "data"}
@@ -143,6 +144,7 @@
 {"category": "constraint", "id": "decision:bot-client-classification", "path": ".knowledge/decision/bot-client-classification.md", "role": "supporting", "title": "Bot Client Classification", "type": "decision"}
 {"category": "constraint", "id": "decision:browser-suite-seeding", "path": ".knowledge/decision/browser-suite-seeding.md", "role": "supporting", "title": "Browser Suite Seeding Route", "type": "decision"}
 {"category": "constraint", "id": "decision:buffered-fragment-delivery", "path": ".knowledge/decision/buffered-fragment-delivery.md", "role": "supporting", "title": "Buffered Fragment Delivery", "type": "decision"}
+{"category": "constraint", "id": "decision:canonical-popcornwave-skill-source", "path": ".knowledge/decision/canonical-popcornwave-skill-source.md", "role": "supporting", "title": "Canonical Popcorn Wave Skill Source", "type": "decision"}
 {"category": "constraint", "id": "decision:cli-release-pipeline", "path": ".knowledge/decision/cli-release-pipeline.md", "role": "supporting", "title": "Hand-written CLI Release Pipeline", "type": "decision"}
 {"category": "constraint", "id": "decision:committed-package-artifacts", "path": ".knowledge/decision/committed-package-artifacts.md", "role": "supporting", "title": "Committed Package Artifacts", "type": "decision"}
 {"category": "constraint", "id": "decision:config-driven-database", "path": ".knowledge/decision/config-driven-database.md", "role": "supporting", "title": "Config-driven Database Lifecycle", "type": "decision"}
@@ -344,6 +346,7 @@
 {"category": "constraint", "id": "policy:validation-errors", "path": ".knowledge/policy/validation-errors.md", "role": "supporting", "title": "Validation and Error Policy", "type": "policy"}
 {"category": "constraint", "id": "policy:web-middleware", "path": ".knowledge/policy/web-middleware.md", "role": "supporting", "title": "Web Middleware Integration", "type": "policy"}
 {"category": "objective", "id": "requirement:action-response-update", "path": ".knowledge/requirement/action-response-update.md", "role": "primary", "title": "Action Response Update", "type": "requirement"}
+{"category": "objective", "id": "requirement:agent-log-analysis-skill", "path": ".knowledge/requirement/agent-log-analysis-skill.md", "role": "primary", "title": "Agent Log Analysis Skill", "type": "requirement"}
 {"category": "objective", "id": "requirement:alternate-http-backend-readiness", "path": ".knowledge/requirement/alternate-http-backend-readiness.md", "role": "primary", "title": "Readiness For A Non-net/http Backend", "type": "requirement"}
 {"category": "objective", "id": "requirement:api-lifecycle-response-headers", "path": ".knowledge/requirement/api-lifecycle-response-headers.md", "role": "primary", "title": "API Lifecycle Response Headers", "type": "requirement"}
 {"category": "objective", "id": "requirement:api-server-scaffold", "path": ".knowledge/requirement/api-server-scaffold.md", "role": "primary", "title": "API Server Preset Scaffold", "type": "requirement"}
@@ -443,6 +446,7 @@
 {"category": "objective", "id": "requirement:live-error-report-off-lock", "path": ".knowledge/requirement/live-error-report-off-lock.md", "role": "primary", "title": "Report A Live Failure Without Holding The Boundary", "type": "requirement"}
 {"category": "objective", "id": "requirement:live-html-rendering", "path": ".knowledge/requirement/live-html-rendering.md", "role": "primary", "title": "Live HTML Rendering", "type": "requirement"}
 {"category": "objective", "id": "requirement:live-mode-plan-slice", "path": ".knowledge/requirement/live-mode-plan-slice.md", "role": "primary", "title": "Execute Only What A Live Response Transfers", "type": "requirement"}
+{"category": "objective", "id": "requirement:local-jsonl-log-capture", "path": ".knowledge/requirement/local-jsonl-log-capture.md", "role": "primary", "title": "Local JSONL Log Capture", "type": "requirement"}
 {"category": "objective", "id": "requirement:modern-observability", "path": ".knowledge/requirement/modern-observability.md", "role": "primary", "title": "Modern UI Observability", "type": "requirement"}
 {"category": "objective", "id": "requirement:modern-web-acceptance", "path": ".knowledge/requirement/modern-web-acceptance.md", "role": "primary", "title": "Modern Web Acceptance", "type": "requirement"}
 {"category": "objective", "id": "requirement:module-native-csrf", "path": ".knowledge/requirement/module-native-csrf.md", "role": "primary", "title": "Module Native CSRF", "type": "requirement"}
@@ -475,6 +479,7 @@
 {"category": "objective", "id": "requirement:state-storage-tiers", "path": ".knowledge/requirement/state-storage-tiers.md", "role": "primary", "title": "Browser State Storage Tiers", "type": "requirement"}
 {"category": "objective", "id": "requirement:tailwind-css-integration", "path": ".knowledge/requirement/tailwind-css-integration.md", "role": "primary", "title": "Tailwind CSS Integration", "type": "requirement"}
 {"category": "objective", "id": "requirement:tailwind-plugin-integration", "path": ".knowledge/requirement/tailwind-plugin-integration.md", "role": "primary", "title": "Tailwind Plugin Integration", "type": "requirement"}
+{"category": "objective", "id": "requirement:telemetry-architecture-guide", "path": ".knowledge/requirement/telemetry-architecture-guide.md", "role": "primary", "title": "Telemetry Architecture Guide", "type": "requirement"}
 {"category": "objective", "id": "requirement:template-formatting", "path": ".knowledge/requirement/template-formatting.md", "role": "primary", "title": "Canonical Template Source Formatting", "type": "requirement"}
 {"category": "objective", "id": "requirement:template-storybook", "path": ".knowledge/requirement/template-storybook.md", "role": "primary", "title": "Template Storybook", "type": "requirement"}
 {"category": "objective", "id": "requirement:template-syntax-highlighting", "path": ".knowledge/requirement/template-syntax-highlighting.md", "role": "primary", "title": "Template Syntax Highlighting", "type": "requirement"}

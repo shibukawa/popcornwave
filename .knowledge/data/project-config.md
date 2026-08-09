@@ -26,6 +26,9 @@ schema:
       enabled: true
       port: 0 for an automatically reserved loopback port, which is the OTLP receiver rather than the viewer page
       max: 0 for the system:localotelviewer retention default
+    logs:
+      enabled: true
+      directory: .log, relative to the file and used by requirement:local-jsonl-log-capture
     console:
       enabled: true
       port: 18081, a fixed loopback port scaffolded by api:cli-init as dev.idp.port is, placed beside the 18080 the identity provider already takes
@@ -103,6 +106,9 @@ rules:
   - dev.otel only affects api:cli-dev and configures requirement:dev-telemetry-viewer
   - dev.otel.port defaults to an automatically reserved port because api:cli-dev injects the resolved endpoint, as it does for dev.idp
   - dev.otel.max bounds retained records per signal and zero keeps the viewer default
+  - dev.logs only affects api:cli-dev and configures requirement:local-jsonl-log-capture
+  - dev.logs.directory must be a relative directory within the project; it cannot name the project root or escape it
+  - a missing dev.logs block keeps local JSONL capture enabled at .log, so existing projects acquire the developer convenience without runtime behavior changing
   - dev.console only affects api:cli-dev and configures requirement:dev-console
   - dev.console.port is fixed rather than reserved, because a console is bookmarked and returned to, and a reserved port would move every run
   - dev.console.enabled false disables every pane, including the requirement:dev-telemetry-viewer page, while dev.otel.enabled still governs whether records are received at all

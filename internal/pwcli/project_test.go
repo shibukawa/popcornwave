@@ -74,6 +74,42 @@ excludes = ["./web/node_modules/"]
 	}
 }
 
+func TestLoadProjectConfigDevLogs(t *testing.T) {
+	for _, testcase := range []struct {
+		name      string
+		section   string
+		enabled   bool
+		directory string
+	}{
+		{name: "defaults", enabled: true, directory: defaultDevLogDir},
+		{name: "configured", section: "\n[dev.logs]\nenabled = false\ndirectory = \"tmp/logs\"\n", directory: "tmp/logs"},
+	} {
+		t.Run(testcase.name, func(t *testing.T) {
+			root := t.TempDir()
+			writeProjectFixture(t, root, "[project]\nname = \"fixture\"\nmain = \".\"\n"+testcase.section)
+			config, err := loadProjectConfig(root)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if config.Logs.Enabled != testcase.enabled || config.Logs.Directory != testcase.directory {
+				t.Fatalf("logs = %#v", config.Logs)
+			}
+		})
+	}
+}
+
+func TestLoadProjectConfigRejectsDevLogDirectoryOutsideProject(t *testing.T) {
+	for _, directory := range []string{".", "..", "../shared", "/tmp/logs"} {
+		t.Run(strings.ReplaceAll(directory, "/", "_"), func(t *testing.T) {
+			root := t.TempDir()
+			writeProjectFixture(t, root, "[project]\nname = \"fixture\"\nmain = \".\"\n\n[dev.logs]\ndirectory = \""+directory+"\"\n")
+			if _, err := loadProjectConfig(root); err == nil || !strings.Contains(err.Error(), "dev.logs.directory") {
+				t.Fatalf("err = %v", err)
+			}
+		})
+	}
+}
+
 func TestLoadProjectConfigToolchain(t *testing.T) {
 	for _, testcase := range []struct {
 		name  string
@@ -181,6 +217,12 @@ func TestScaffoldFilesWithTailwind(t *testing.T) {
 	}
 	if !strings.Contains(files[".gitignore"], "\n*_pw_gen.go\n") {
 		t.Fatal(".gitignore does not exclude generated Go files")
+	}
+	if !strings.Contains(files[".gitignore"], "\n.log/\n") {
+		t.Fatal(".gitignore does not exclude local JSONL logs")
+	}
+	if !strings.Contains(files["popcornwave.toml"], "[dev.logs]\nenabled = true\ndirectory = \".log\"") {
+		t.Fatal("project scaffold does not state local log defaults")
 	}
 	for name, want := range map[string]string{
 		"popcornwave.toml":           "[dev.watch]\nincludes = []\nexcludes = []",

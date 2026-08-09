@@ -20,7 +20,8 @@ pw dev
 4. Tailwind が有効なら、スタイルシートをビルドしてウォッチャを起動する
 5. `dev.idp.enabled` が `true` なら、開発用の認証プロバイダを起動する
 6. `dev.otel.enabled` が `false` でなければ、テレメトリビューアを起動する
-7. `project.main` をビルドして実行する
+7. `dev.logs.enabled` が `false` でなければ、ローカルJSONL保存を準備する
+8. `project.main` をビルドして実行する
 
 起動後は 0.5 秒ごとに監視対象を確認します。変更があれば、環境全体ではなく、その
 ファイルに関係するステップだけを繰り返します。
@@ -144,6 +145,22 @@ enabled = true
 `OTEL_EXPORTER_OTLP_ENDPOINT` がすでに設定されていれば何も起動せず、自前のコレクタに
 任せます。[開発用テレメトリビューア](/ja/productivity/dev-telemetry-viewer/)を参照して
 ください。
+
+## ローカル構造化ログ
+
+アプリケーションログは読みやすいテキストとしてターミナルへ出続けます。ビューアとは
+独立して、`pw dev` は構造化形式も `.log/pw-dev-*.jsonl` へ保存します。一回の起動が
+再ビルドをまたいで一つのファイルを所有し、ファイルは最初のレコードで初めて現れます。
+
+```toml
+[dev.logs]
+enabled = true
+directory = ".log"
+```
+
+ディレクトリはプロジェクトからの相対パスで、自動削除されません。このスイッチを無効に
+すると、ターミナルと設定済みOTLP出力だけを残せます。スキーマとDuckDBクエリは
+[テレメトリ](/ja/guides/architecture/telemetry/)を参照してください。
 
 ## コンソール
 
