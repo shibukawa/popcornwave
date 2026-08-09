@@ -39,6 +39,43 @@ export function createUpdateRuntime(config) {
 	const placeholderElement = config.attr + "-boundary";
 	setPreserveAttribute("data-" + config.attr + "-preserve");
 
+	// parseDecomposed parses a fragment whose nested boundaries are holes.
+	//
+	// The holes cannot be parsed as written. A placeholder is an unknown element,
+	// and the HTML parser foster-parents an unknown element out of a table: it
+	// takes the node out of the tbody it was written in and inserts it before the
+	// table. Every hole a table's rows leave then sits outside the table, so the
+	// rows filling them land on the page with the list left empty — which is not a
+	// degraded list but no list at all, and it is silent, because the markup the
+	// server sent was correct and the DOM that resulted is valid.
+	//
+	// A template element is the one placeholder the parser leaves where it was
+	// written, in table context and everywhere else, and it holds attributes, so
+	// the id survives the substitution and every later lookup finds the hole. It
+	// renders nothing, which is what a hole must do until it is filled.
+	//
+	// The substitution does not outlive the parse. A hole this client fills is
+	// gone; a hole left for a later operation gets the spelling back, so one
+	// shape reaches the screen and the DOM matches what the server described.
+	// Putting it back is safe where writing it was not, because inserting a node
+	// through the DOM is not parsing and nothing is foster-parented.
+	//
+	// This is a rewrite of what system:tinybind writes rather than a spelling
+	// this framework chose, and it is here because the parse is this client's.
+	// A boundary inside a table is not exotic: a reloadable row is the shape the
+	// children operation exists for.
+	const holePattern = new RegExp("<" + placeholderElement + "(\\s[^>]*)?></" + placeholderElement + ">", "gi");
+	function parseDecomposed(html, boundaries) {
+		const fragment = parseFragment(html.replace(holePattern, "<template$1></template>"));
+		fillHoles(fragment, boundaries);
+		for (const stand of fragment.querySelectorAll("template[" + idAttr + "]")) {
+			const hole = document.createElement(placeholderElement);
+			for (const attribute of stand.attributes) hole.setAttribute(attribute.name, attribute.value);
+			stand.replaceWith(hole);
+		}
+		return fragment;
+	}
+
 	// The validators this client holds, keyed by instance id. They are a hint the
 	// server uses to omit unchanged regions, and nothing else: an oversized
 	// manifest is dropped rather than rejected, so a delta is never assumed
@@ -249,9 +286,25 @@ export function createUpdateRuntime(config) {
 
 	// materialize returns an operation's markup, whichever half it arrived as.
 	// Null means this client cannot rebuild it and the caller falls back.
+	//
+	// The address wins where both are present, and that ordering is load-bearing
+	// rather than arbitrary. An operation is supposed to carry one form or the
+	// other, but the redraw response encodes its markup field unconditionally, so
+	// choosing values leaves an empty string beside them. Reading the markup first
+	// takes that empty string and blanks the region: the runtime reports the
+	// redraw applied, the row leaves the page, and nothing anywhere says why.
+	//
+	// Preferring the address is also right on its own terms. An empty string is
+	// a legitimate rendering — a region that now shows nothing — so it cannot be
+	// told from an absent one, and the address is the unambiguous half.
 	async function materialize(operation) {
-		if (typeof operation.html === "string") return operation.html;
-		if (typeof operation.seq !== "string") return null;
+		if (typeof operation.seq !== "string") {
+			return typeof operation.html === "string" ? operation.html : null;
+		}
+		// Markup beside an address is the recovery when the address cannot be
+		// resolved, which costs a swap this client already has the bytes for
+		// instead of the whole page.
+		const carried = operation.html ? operation.html : null;
 		const nodes = await sequenceNodes(operation.seq);
 		if (!nodes) {
 			// Named separately from a missing target, because the two failures
@@ -259,12 +312,13 @@ export function createUpdateRuntime(config) {
 			// a page that moved under this client, the other is an address this
 			// deployment cannot describe.
 			console.warn("Popcorn Wave: no sequence for", operation.seq);
-			return null;
+			return carried;
 		}
 		const html = reassemble(nodes, operation.values || []);
 		if (html === null) {
 			console.warn("Popcorn Wave: values do not fit sequence", operation.seq,
 				(operation.values || []).length);
+			return carried;
 		}
 		return html;
 	}
@@ -350,9 +404,7 @@ export function createUpdateRuntime(config) {
 		if (typeof html !== "string") return false;
 		const target = locate(operation.id);
 		if (!target) return false;
-		const fragment = parseFragment(html);
-		fillHoles(fragment, operation.boundaries);
-		return swapNode(target, fragment);
+		return swapNode(target, parseDecomposed(html, operation.boundaries));
 	}
 
 	// A children operation says a boundary's own markup is unchanged and its

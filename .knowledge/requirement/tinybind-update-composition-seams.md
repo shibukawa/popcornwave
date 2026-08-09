@@ -292,6 +292,32 @@ structured_render_output:
       wanted_instead: a slot as a nested unit, since Plan.Slots already exposes the fragments a parameter struct carries; an unchanged slot becomes a record and a client holding slot positions performs no move at all
       raised_as: a constraint on the unit design rather than a feature, because a unit being a component may already answer it
 
+v0_4_7_the_module_stopped_writing_responses:
+  what_landed: every entry that answered now returns a Response — status, header, body, and the failure if it is one — and the streaming entries take their headers from an accessor applied before the render; the failure hook observes rather than writes
+  answers: the position this side took, that the wire is the caller's and a header is part of it
+  taken_here: the cache policy of all four shapes, the conditional request, the refusal body, and the axes a document declares before a handler branches
+  one_header_cannot_move: the redraw entity tag, which digests the body the module assembles, so a caller cannot produce it without rendering the component twice
+  a_narrower_reading_of_the_vary_axes:
+    the_module_asks_for: the redraw axes on a page response too, so a cache that learned the page cannot answer a redraw from it
+    this_side_declares: the render and build axes before the branch and the narrow ones only on the redraw itself
+    why: every update request names its mode on the render header and a document names none, so the render axis already separates the page from all three; kind and instance separate one redraw from another, and every redraw response carries them
+  found_by_probing_the_running_example: three defects, none reachable from a test that agreed with itself about what a response should contain
+  sequence_response_claimed_the_wrong_mode:
+    what: routing the mode echo through a shared token function whose switch has no sequence case, so a sequence answered as a navigation
+    effect: a client checking the echo — which is where proxy substitution is detected — discards every tree it asks for, every operation carrying values falls back, and every in-page navigation becomes a complete document
+    fixed_here: the echo is set on the answer before it is sent, because the header is this framework's
+  redraw_carries_an_empty_markup_field_beside_its_values:
+    what: the redraw response encodes its markup field unconditionally, so an operation that chose the address form arrives with an empty string next to the address
+    effect: a client reading markup first replaces the region with nothing, reports the update applied, and emits its redrawn event; the row leaves the page with no error, no failed request, and nothing in the response that looks wrong
+    fixed_here: the address wins where both are present, which is also right on its own terms — an empty string is a legitimate rendering, so it cannot be told from an absent field, and the address is the unambiguous half
+    same_family: a rule applied on one path and not its sibling, like the children dispatch and valuesAreSmaller before it
+  the_hole_element_cannot_survive_a_table:
+    what: the placeholder a decomposed fragment leaves is an unknown element, and an unknown element inside a table is foster-parented — the parser lifts it out of the tbody and inserts it before the table
+    effect: every hole a table's rows leave sits outside the table, the rows filling them land loose on the page, and the list is left empty; the response is correct and the resulting DOM is valid, so nothing reports it
+    fixed_here: holes are rewritten to template elements before parsing and the spelling is restored through the DOM afterwards, since insertion is not parsing and nothing is foster-parented
+    the_ask: a placeholder the parser keeps where it was written — a template element or a comment both qualify — because a reloadable row is the shape the children operation exists for
+    wider_than_the_delta: a progressive render writes the same element for an await boundary, so an await boundary inside a table has the same problem in the streamed document
+
 carried_forward:
   live_mode_plan_slice: requirement:live-mode-plan-slice, since a live render still executes the whole composed chain and pays it per reconnect
   liveness_signal: requirement:live-boundary-liveness-signal, since nothing states which boundary is live and this framework keeps its own bookkeeping
