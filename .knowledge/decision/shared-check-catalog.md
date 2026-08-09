@@ -21,9 +21,14 @@ decision:
   doctor:
     runs: every check whose inputs it can build from the project
     behavior: collect all, rank, and report
+  vet:
+    runs: checks declaring typed application Go syntax as an input, which is rule:transport-handle-checks today
+    form: a go/analysis analyzer, so the runner is go vet or a linter rather than this framework's CLI
+    behavior: report positions in application source; startup and doctor skip these checks for lack of the input
 input_asymmetry:
   startup_only: the deployment's environment variables, CLI arguments, live connections, and the actual registrations
   doctor_only: project files, the import graph, data:route-table, generated artifacts, other environments' configuration files
+  vet_only: the typed syntax of application Go packages, which decision:host-side-diagnostic-analysis keeps out of doctor
   shared: the merged configuration values the check reads
   consequence: a check is not expected to run everywhere; its declared inputs decide, and each runner reports what it skipped
 rules:

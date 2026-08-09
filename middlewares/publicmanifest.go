@@ -109,45 +109,46 @@ func selectRepresentation(entry AssetEntry, accept []string, acceptEncoding []st
 	if len(candidates) == 0 {
 		return AssetRepresentation{}, false
 	}
-	identity, encoded := AssetRepresentation{}, AssetRepresentation{}
-	hasIdentity, hasEncoded := false, false
+	identity, hasIdentity := AssetRepresentation{}, false
+	var encoded [maxStaticCodings]AssetRepresentation
+	var hasEncoded [maxStaticCodings]bool
 	chosen := candidates[0].MediaType
 	for _, candidate := range candidates {
 		if candidate.MediaType != chosen {
 			continue
 		}
 		if candidate.ContentEncoding == "" {
-			identity, hasIdentity = candidate, true
+			if !hasIdentity {
+				identity, hasIdentity = candidate, true
+			}
 			continue
 		}
-		if !hasEncoded {
-			encoded, hasEncoded = candidate, true
+		// A coding this build does not negotiate is skipped rather than
+		// refused: the manifest describes what exists, and what to offer is
+		// this middleware's judgment.
+		rank := staticCodingRank(candidate.ContentEncoding)
+		if rank < 0 || hasEncoded[rank] {
+			continue
 		}
+		encoded[rank], hasEncoded[rank] = candidate, true
 	}
 	if len(acceptEncoding) > 0 {
-		quality := scanEncodingQuality(strings.Join(acceptEncoding, ","), encoded.ContentEncoding)
-		if hasEncoded {
-			coding := quality.coding
-			if !quality.codingSet {
-				coding = quality.wildcard
-			}
-			if coding > 0 {
-				return encoded, true
+		quality := scanEncodingQuality(strings.Join(acceptEncoding, ","))
+		// The order is the build's, not the client's q-values: which of two
+		// acceptable representations is worth sending is a statement about the
+		// bytes, and the header only says what can be read.
+		for rank := range encoded {
+			if hasEncoded[rank] && quality.acceptsCoding(rank) > 0 {
+				return encoded[rank], true
 			}
 		}
 		if !hasIdentity {
-			// A URL stored only in an encoded form cannot answer a client that
-			// refuses the coding, which is a build mistake rather than a
+			// A URL stored only in encoded forms cannot answer a client that
+			// refuses all of them, which is a build mistake rather than a
 			// negotiation outcome.
 			return AssetRepresentation{}, false
 		}
-		identityQuality := 1.0
-		if quality.identitySet {
-			identityQuality = quality.identity
-		} else if quality.wildcardSet {
-			identityQuality = quality.wildcard
-		}
-		if identityQuality <= 0 {
+		if quality.acceptsIdentity() <= 0 {
 			return AssetRepresentation{}, false
 		}
 		return identity, true
@@ -159,18 +160,51 @@ func selectRepresentation(entry AssetEntry, accept []string, acceptEncoding []st
 }
 
 // encodingQuality holds the q-values for the only tokens a negotiation ever
-// asks about: the one content coding the asset stores, identity, and the
-// wildcard. Scanning for exactly these keeps the parse off the heap; a full
+// asks about: the codings this middleware serves, identity, and the wildcard.
+// Scanning for exactly these keeps the parse off the heap; a full
 // token-to-quality map was allocated per request and then read three times.
 type encodingQuality struct {
-	coding, identity, wildcard          float64
-	codingSet, identitySet, wildcardSet bool
+	coding             [maxStaticCodings]float64
+	codingSet          [maxStaticCodings]bool
+	identity, wildcard float64
+	identitySet        bool
+	wildcardSet        bool
 }
 
-// scanEncodingQuality reads an Accept-Encoding value for the named coding,
-// identity, and the wildcard. A duplicated token keeps its last q-value, as
-// the map it replaces did.
-func scanEncodingQuality(header, coding string) encodingQuality {
+// acceptsCoding reports the effective q-value for one coding rank, falling back
+// to the wildcard the client stated and to zero when it stated neither. A
+// coding nobody mentioned is not acceptable, which is what keeps an encoded
+// body away from a client that only said gzip.
+func (q encodingQuality) acceptsCoding(rank int) float64 {
+	if q.codingSet[rank] {
+		return q.coding[rank]
+	}
+	if q.wildcardSet {
+		return q.wildcard
+	}
+	return 0
+}
+
+// acceptsIdentity defaults to acceptable, because a client that names no
+// coding at all is asking for the bytes as they are.
+func (q encodingQuality) acceptsIdentity() float64 {
+	if q.identitySet {
+		return q.identity
+	}
+	if q.wildcardSet {
+		return q.wildcard
+	}
+	return 1
+}
+
+// scanEncodingQuality reads an Accept-Encoding value for every coding this
+// middleware serves, identity, and the wildcard. A duplicated token keeps its
+// last q-value, as the map it replaces did.
+//
+// It scans for the whole coding set rather than for one named coding, because
+// an asset now stores several and the alternative was a pass per representation
+// over the same header.
+func scanEncodingQuality(header string) encodingQuality {
 	var result encodingQuality
 	for remainder := header; remainder != ""; {
 		var item string
@@ -196,12 +230,14 @@ func scanEncodingQuality(header, coding string) encodingQuality {
 			}
 		}
 		switch {
-		case coding != "" && strings.EqualFold(token, coding):
-			result.coding, result.codingSet = quality, true
 		case strings.EqualFold(token, "identity"):
 			result.identity, result.identitySet = quality, true
 		case token == "*":
 			result.wildcard, result.wildcardSet = quality, true
+		default:
+			if rank := staticCodingRank(token); rank >= 0 {
+				result.coding[rank], result.codingSet[rank] = quality, true
+			}
 		}
 	}
 	return result

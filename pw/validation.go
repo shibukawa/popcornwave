@@ -22,6 +22,9 @@ func validateRuntimeConfig(server ServerConfig, security SecurityConfig, middlew
 	if middleware.RequestTimeout < 0 {
 		return fmt.Errorf("middleware.request_timeout must not be negative")
 	}
+	if err := validateCompressionCodings(middleware); err != nil {
+		return err
+	}
 	if err := validateRDBConfig(middleware.RDB); err != nil {
 		return err
 	}
@@ -39,6 +42,26 @@ func validateRuntimeConfig(server ServerConfig, security SecurityConfig, middlew
 		return err
 	}
 	return validateTraceConfig(observability.Trace)
+}
+
+// validateCompressionCodings refuses a coding this framework does not know.
+//
+// A token that names a real coding but one this build cannot encode is not
+// refused here: which encoders are linked is a build-time decision, and it has
+// to win over the configuration rather than turn a working file into a startup
+// failure on a smaller target. Those are dropped when a response negotiates,
+// and reported by compressionCodingsUnavailable.
+//
+// An empty list is not a way to disable compression, because middleware.
+// compression already is one and two spellings of off would be one too many.
+// It resolves to the framework's own order instead.
+func validateCompressionCodings(config MiddlewareConfig) error {
+	for token := range codingTokens(config.CompressionCodings) {
+		if !knownResponseCoding(token) {
+			return fmt.Errorf("middleware.compression_codings does not accept %q; the dynamic codings are %s and %s", token, zstdContentEncoding, gzipContentEncoding)
+		}
+	}
+	return nil
 }
 
 // validateSessionConfig enforces the browser cookie policy, which is diagnosed

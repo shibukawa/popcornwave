@@ -24,7 +24,7 @@ the document.
 The whole chain is rendered into a buffer and validated **before** anything is
 committed. A template failure can therefore become a clean 500 instead of
 leaving a half-written page. If compression is enabled and the client accepts
-it, the same buffered body is zstd-encoded on the way out.
+it, the same buffered body is encoded on the way out.
 
 For explicit control over the wrapper chain — one page inside a different shell
 — use `pw.WriteHTMLChain`:

@@ -97,6 +97,7 @@ func buildMiddlewares(handler http.Handler, option ...Option) (http.Handler, err
 	rootSpan := telemetry.tracing || traceForced(observability)
 	resources := runtimeResources(telemetry.backend, telemetry.tracing)
 	reportEnvironment()
+	reportCompressionCodings(middleware)
 	reportDatabaseConnections(resources.Connections)
 	reportQueryDiagnostics(resources.Query, Env(), Development(), resources.DBDriver)
 	// The data pane needs the pool, so it starts once the database is open and

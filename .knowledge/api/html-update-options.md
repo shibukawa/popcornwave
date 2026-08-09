@@ -72,7 +72,7 @@ surface:
   Negotiate: what a request asked for, resolved before route execution
   WantsUpdate: whether the caller can apply an action response, which is the one branch point of requirement:action-response-update
   WriteUpdate and WriteUpdateStatus: the changed regions, with the handler's real status
-  WriteNavigate: a directive replacing the region list when the action changed where the user belongs
+  WriteNavigate: a directive replacing the region list when the action changed where the user belongs, selected on the caller's behalf by api:redirect-response
   ScriptTag: the element loading the merged runtime, emitted by pw rather than by the upstream helper
 rules:
   - pw tests its own modes before delegating, per the ordering rule of decision:update-runtime-convergence

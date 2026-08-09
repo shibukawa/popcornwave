@@ -37,6 +37,20 @@ const (
 	toolchainGo     = "go"
 )
 
+// The corners dev.console.launcher.corner accepts, listed in the order an error
+// message names them.
+//
+// These repeat the names the framework declares, because those live in its
+// pwdev half and this is a host build that cannot reference it. The variable
+// names below consoleEnviron are duplicated for the same reason.
+//
+// defaultLauncherCorner is the bottom left because the bottom right is where
+// applications put their own floating controls, and the framework taking it
+// would collide with the work the launcher exists to help with.
+const defaultLauncherCorner = "bottom-left"
+
+var launcherCorners = []string{"bottom-left", "bottom-right", "top-left", "top-right"}
+
 // Project kinds recorded by project.kind. An application builds a binary; a
 // package is published as a Go module and imported by one. Every project written
 // before the key existed is an application, because it was the only kind there
@@ -106,6 +120,14 @@ type consoleConfig struct {
 	// Reload reloads a page whose application has been replaced. It only
 	// applies where the overlay is already attached.
 	Reload bool
+	// Launcher puts a floating link to the console in a corner of the pages
+	// the application serves. It is independent of Overlay: a developer who
+	// wants the way in does not necessarily want a sheet over the page.
+	Launcher bool
+	// LauncherCorner places it. A corner is a value that travels with the
+	// project rather than drag state held per browser, which is why the
+	// collision it answers is settled here and not in the page.
+	LauncherCorner string
 	// Data serves the table browser, the row editor, the statement console,
 	// and the declared query runner. It is the one pane the application serves
 	// itself, because the development database is only addressable from inside
@@ -191,7 +213,14 @@ type projectConfig struct {
 	// decides which compiler reads it, the other which dialect it is written
 	// in. The runtime engine still comes from the rdb DSN scheme, which must
 	// agree with this.
-	Database  string
+	Database string
+	// FastHTTP declares that this project is built for the fasthttp backend as
+	// well as for net/http. It adds a build rather than selecting one: the
+	// net/http source stays the source an author writes, and the second build
+	// is derived from it. What it changes here is generation, which puts a
+	// !fasthttp constraint on every file it emits that imports net/http, so the
+	// two builds do not both define the same symbols.
+	FastHTTP  bool
 	Generate  generationScope
 	Watch     watchConfig
 	IdP       idpConfig
@@ -225,6 +254,7 @@ func loadProjectConfig(root string) (projectConfig, error) {
 	}
 	known := []string{
 		"project.name", "project.kind", "project.main", "project.toolchain", "project.database",
+		"project.fasthttp",
 		"packages",
 		"generate.handlers", "generate.templates", "generate.queries", "generate.config", "generate.pages",
 		"generate.dynamo", "generate.firestore",
@@ -234,6 +264,7 @@ func loadProjectConfig(root string) (projectConfig, error) {
 		"dev.otel.enabled", "dev.otel.port", "dev.otel.max",
 		"dev.console.enabled", "dev.console.port", "dev.console.assets.enabled",
 		"dev.console.overlay.enabled", "dev.console.overlay.reload",
+		"dev.console.launcher.enabled", "dev.console.launcher.corner",
 		"dev.console.storybook.enabled", "dev.console.data.enabled",
 		"migration.dir", "migration.auto",
 		"assets.tailwind.enabled", "assets.tailwind.input",
@@ -287,6 +318,12 @@ func loadProjectConfig(root string) (projectConfig, error) {
 	}
 	if !validEngine(config.Database) {
 		return projectConfig{}, fmt.Errorf("popcornwave.toml: project.database must be %s", engineNames())
+	}
+	if value, ok := document.Get("project.fasthttp"); ok {
+		config.FastHTTP, err = value.AsBool()
+		if err != nil {
+			return projectConfig{}, fmt.Errorf("popcornwave.toml: project.fasthttp: %w", err)
+		}
 	}
 	config.Generate, err = generationSources(document, root)
 	if err != nil {
@@ -356,6 +393,8 @@ func loadProjectConfig(root string) (projectConfig, error) {
 	config.Console.Assets = true
 	config.Console.Overlay = true
 	config.Console.Reload = true
+	config.Console.Launcher = true
+	config.Console.LauncherCorner = defaultLauncherCorner
 	config.Console.Storybook = true
 	config.Console.Data = true
 	config.Console.Port = defaultConsolePort
@@ -382,6 +421,27 @@ func loadProjectConfig(root string) (projectConfig, error) {
 		if err != nil {
 			return projectConfig{}, fmt.Errorf("popcornwave.toml: dev.console.overlay.reload: %w", err)
 		}
+	}
+	if value, ok := document.Get("dev.console.launcher.enabled"); ok {
+		config.Console.Launcher, err = value.AsBool()
+		if err != nil {
+			return projectConfig{}, fmt.Errorf("popcornwave.toml: dev.console.launcher.enabled: %w", err)
+		}
+	}
+	if value, ok := document.Get("dev.console.launcher.corner"); ok {
+		corner, err := value.AsString()
+		if err != nil {
+			return projectConfig{}, fmt.Errorf("popcornwave.toml: dev.console.launcher.corner: %w", err)
+		}
+		if !slices.Contains(launcherCorners, corner) {
+			// Named rather than defaulted, so a typo does not read as a corner
+			// the project chose. project.toolchain and project.database reject
+			// an unknown value for the same reason.
+			return projectConfig{}, fmt.Errorf(
+				"popcornwave.toml: dev.console.launcher.corner: %q is not one of %s",
+				corner, strings.Join(launcherCorners, ", "))
+		}
+		config.Console.LauncherCorner = corner
 	}
 	if value, ok := document.Get("dev.console.storybook.enabled"); ok {
 		config.Console.Storybook, err = value.AsBool()

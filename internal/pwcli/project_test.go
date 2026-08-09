@@ -193,7 +193,7 @@ func TestScaffoldFilesWithTailwind(t *testing.T) {
 	if _, err := parser.ParseFile(token.NewFileSet(), "handlers/index.go", files["handlers/index.go"], parser.AllErrors); err != nil {
 		t.Fatalf("Tailwind handler scaffold is invalid Go: %v\n%s", err, files["handlers/index.go"])
 	}
-	if !strings.Contains(files["templates/document.pw.html"], "<slot />") {
+	if !strings.Contains(files["templates/document.pw.html"], "<slot/>") {
 		t.Fatal("document scaffold is missing its body slot")
 	}
 	if strings.Contains(files["handlers/home.pw.html"], "<!doctype") {

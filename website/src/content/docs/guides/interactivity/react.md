@@ -50,13 +50,13 @@ Commit `package-lock.json`, then enable script conversion:
 enabled = true
 ```
 
-The built-in pipeline currently recognises `.ts`, but not `.tsx`, as a script
-entry. Point a module script at the authored `.ts` file:
+Point a module script at the authored file. The tag is the whole registration:
+there is no separate entry list to keep in step with it.
 
 ```html
 export component TasksPage(initialCount: int): html {
 <head>
-  <script type="module" src="/public/islands/counter.ts"></script>
+  <script type="module" src="/public/islands/counter.tsx"></script>
 </head>
 <main>
   <h1>Tasks</h1>
@@ -67,9 +67,10 @@ export component TasksPage(initialCount: int): html {
 
 When `pw build` sees this reference, it bundles and minifies the entry together
 with `react` and `react-dom`, writes a source map, gives the bundle a content
-hash, and rewrites the generated script URL to that immutable file. Node.js and
-`node_modules` remain build inputs; they are not deployed beside the
-application binary.
+hash, and rewrites the generated script URL to that immutable file. The JSX
+transform comes from the `jsx` setting in `tsconfig.json`, which the build reads
+itself. Node.js and `node_modules` remain build inputs; they are not deployed
+beside the application binary.
 
 The transform removes TypeScript syntax but does not type-check it. Run
 `tsc --noEmit` separately in CI.
@@ -91,16 +92,15 @@ Popcorn Wave owns the `<react-counter>` element and its placement. React owns
 the element's children after mounting. The headings, forms, and lists around it
 do not need to enter a React root.
 
-## Separate the React component from its entry
+## Keep the component and its lifecycle together
 
-The directly referenced entry has to be `.ts`, but esbuild follows imports from
-that entry and already includes `.tsx` modules in the same bundle. The React
-component can therefore use ordinary JSX:
+The component and the custom element that owns it belong together, because the
+custom element is the only thing that decides when the component exists:
 
 ```tsx
-// public/islands/counter-view.tsx
+// public/islands/counter.tsx
 import { useState } from 'react';
-import { createRoot } from 'react-dom/client';
+import { createRoot, type Root } from 'react-dom/client';
 
 type CounterProps = { initial: number };
 
@@ -113,27 +113,13 @@ function Counter({ initial }: CounterProps) {
   );
 }
 
-export function mountCounter(element: Element, initial: number) {
-  const root = createRoot(element);
-  root.render(<Counter initial={initial} />);
-  return root;
-}
-```
-
-The thin `.ts` entry referenced by `.pw.html` owns only the custom-element
-lifecycle:
-
-```ts
-// public/islands/counter.ts
-import { mountCounter } from './counter-view';
-
 class ReactCounterElement extends HTMLElement {
-  root: ReturnType<typeof mountCounter> | null = null;
+  root: Root | null = null;
 
   connectedCallback() {
     if (this.root) return;
-    const initial = Number(this.dataset.initial ?? '0');
-    this.root = mountCounter(this, initial);
+    this.root = createRoot(this);
+    this.root.render(<Counter initial={Number(this.dataset.initial ?? '0')} />);
   }
 
   disconnectedCallback() {
@@ -146,6 +132,10 @@ if (!customElements.get('react-counter')) {
   customElements.define('react-counter', ReactCounterElement);
 }
 ```
+
+Splitting this across files is worth it when several islands share a component,
+not before. The bundler follows imports from the entry, so a shared
+`components/counter.tsx` reaches the same bundle without any change to the tag.
 
 An element in the initial page mounts through `connectedCallback`. The same
 element inserted later by htmx or another swap library follows that path too.
@@ -191,7 +181,7 @@ initial server data, return a fragment containing the whole island. Its custom
 element lifecycle replaces the old root with the new one.
 
 `pw.WriteHTMLFragment` may return the island markup, but a fragment cannot
-contribute to the head. The initial page must already have loaded `counter.ts`.
+contribute to the head. The initial page must already have loaded `counter.tsx`.
 That is why the script contribution lives on `TasksPage`, not on
 `CounterIsland` itself.
 
@@ -209,25 +199,6 @@ open. The cookie helper in
 [Integrating htmx](/guides/interactivity/htmx/#unsafe-requests-and-csrf) can be
 used directly in a `fetch` headers object.
 
-## Build support worth adding
-
-The smallest high-value addition is to recognise **`.tsx` as a built script
-entry**. Imported `.tsx` files already work, so React itself is not blocked.
-The pipeline also already resolves npm imports, bundles, minifies, writes source
-maps, and hashes output. Extending the entry gate to `.tsx`, with the same
-module-tag check and reference rewriting, would remove the thin `.ts` shim.
-
-After that, an optional `pw add react` could scaffold:
-
-- `[assets.scripts]` and a `.tsx` entry;
-- `react`, `react-dom`, type packages, and a `tsc --noEmit` script;
-- a small custom-element wrapper that owns mount and unmount.
-
-`pw build` should not silently install Node.js packages. The package manager
-and lockfile are application supply-chain decisions. React SSR is also not a
-prerequisite for partial React; it is a separate, much larger feature.
-
-The useful order is therefore `.tsx` entry support first, an explicit scaffold
-second, and SSR only in response to a real hydration use case. JSX-based partial
-mounting already works; direct `.tsx` support would remove an entry file that
-exists only to satisfy the current gate.
+[Static assets](/guides/frontend/static-assets/) covers the rest of what the
+script build does to the file: hashing, source maps, and the conversions that
+apply to everything else under `public`.

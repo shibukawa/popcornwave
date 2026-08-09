@@ -121,13 +121,13 @@ var defaultHTMLConfig = HTMLConfig{
 	BotDetection:        true,
 	BotAsyncTimeout:     5 * time.Second,
 	ScriptlessDetection: true,
-	Live:               true,
-	LiveMaxDuration:    10 * time.Minute,
-	LiveDurationJitter: 20,
-	LiveIdleTimeout:    5 * time.Minute,
-	LiveMaxBoundaries:  32,
-	LiveMaxResponses:   4,
-	Cache:              HTMLCacheConfig{Enabled: true, MaxEntries: 1024},
+	Live:                true,
+	LiveMaxDuration:     10 * time.Minute,
+	LiveDurationJitter:  20,
+	LiveIdleTimeout:     5 * time.Minute,
+	LiveMaxBoundaries:   32,
+	LiveMaxResponses:    4,
+	Cache:               HTMLCacheConfig{Enabled: true, MaxEntries: 1024},
 }
 
 // HTMLUpdateConfig controls partial updates.
@@ -333,12 +333,24 @@ type QueryLogConfig struct {
 
 // MiddlewareConfig selects the framework's basic HTTP middleware.
 type MiddlewareConfig struct {
-	Recovery       bool          `default:"true"`
-	RequestID      bool          `default:"true"`
-	AccessLog      bool          `default:"true"`
-	Compression    bool          `default:"false"`
-	RequestTimeout time.Duration `default:"0s"`
-	RDB            RDBConfig
+	Recovery    bool `default:"true"`
+	RequestID   bool `default:"true"`
+	AccessLog   bool `default:"true"`
+	Compression bool `default:"false"`
+	// CompressionCodings orders the content codings a dynamic response may be
+	// encoded with, best first. A coding left out is not offered even to a
+	// client asking for it, so the one field expresses removal as well as
+	// order; turning compression off entirely is Compression rather than an
+	// empty list.
+	//
+	// Which coding to prefer depends on the client mix and the CPU budget in
+	// front of the application, which is the one input the framework cannot
+	// see. The encoder levels are not configurable for the opposite reason:
+	// they answer to a measured throughput cliff that does not move between
+	// deployments.
+	CompressionCodings []string      `default:"zstd,gzip" dependon:".compression" help:"content codings for dynamic responses, best first"`
+	RequestTimeout     time.Duration `default:"0s"`
+	RDB                RDBConfig
 }
 
 // RDBConfig controls the framework-owned database pools.

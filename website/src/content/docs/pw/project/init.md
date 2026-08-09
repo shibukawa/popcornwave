@@ -6,7 +6,7 @@ sidebar:
 ---
 
 ```sh
-pw init <project-name> [--preset=<name>] [--yes] [--tailwind] [--no-tinygo] [--no-devbox] [--no-database] [--db=<engine>] [--dynamo] [--firestore] [--no-redis] [--router=<kind>] [--auth=<mode>] [--session=<backend>] [--devidp]
+pw init <project-name> [--preset=<name>] [--yes] [--tailwind] [--no-tinygo] [--no-devbox] [--no-database] [--db=<engine>] [--dynamo] [--firestore] [--no-redis] [--router=<kind>] [--auth=<mode>] [--session=<backend>] [--devidp] [--skills=<dir>]
 ```
 
 The command creates a complete, runnable project in a new directory. In a
@@ -68,6 +68,7 @@ these answers afterwards.
 | `--auth=<mode>` | `none` (default), `oidc`, `oidc-passkey`, or `passkey` |
 | `--session=<backend>` | with a login, where sessions live: `rdb` (default), `cookie`, `redis`, `dynamo`, or `firestore` |
 | `--devidp` | with an OIDC mode, wire up the local identity provider |
+| `--skills=<dir>` | where the bundled agent skill lands: `claude` (default), `agents`, or `none`; see [The agent skill](#the-agent-skill) |
 
 `--tailwind`, `--no-database`, `--dynamo`, `--firestore`, `--no-redis`, and `--auth` all select
 capabilities [`pw add`](/pw/project/add/) can install later, so declining one
@@ -243,6 +244,28 @@ export SESSION_KEYRING_SECRET=$(openssl rand -base64 32)
 [Cookies](/guides/backend/cookies/) compares the three in terms of revocation, size, and
 who enforces expiry.
 
+## The agent skill
+
+`pw` bundles a skill: the guideline an AI coding agent loads before it edits
+`.pw.html` templates, `.pw.sql` queries, or configuration, with references for
+the template and query syntax, the project anatomy, and the `pw` commands that
+check an edit. `--skills` decides which agent directory a copy lands in:
+
+| Answer | What it writes |
+| --- | --- |
+| `claude` (default) | `.claude/skills/popcornwave/` — the directory Claude Code discovers |
+| `agents` | `.agents/skills/popcornwave/` — the shared layout other coding agents read |
+| `none` | nothing |
+
+The copy is Markdown and costs nothing at runtime, which is why placing it is
+the default. It answers for the machines the project is edited on rather than
+for the project itself, so a preset never decides it, and a project nobody
+edits with an agent passes `--skills=none` — or deletes the directory later,
+the way it deletes `.vscode/`. The files come from the `pw` binary that created
+the project; there is no command that refreshes them afterwards, so after a
+framework upgrade copy the current tree from the repository's
+`skills/popcornwave-skill/` if you want the newer guideline.
+
 ## Validation
 
 The project name accepts letters, digits, `-`, and `_`; `.` and `..` are
@@ -272,6 +295,7 @@ myapp/
 │                              table only for --session=rdb
 ├── public/.keep               empty-tree sentinel; never served
 ├── public.go                  embeds public/ and registers it
+├── .claude/skills/popcornwave/  the bundled agent skill (--skills moves or drops it)
 ├── .vscode/settings.json      hides **/*_pw_gen.go
 └── .gitignore                 excludes *_pw_gen.go and other build output
 ```

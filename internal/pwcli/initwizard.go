@@ -45,7 +45,42 @@ func initWizardSteps(defaults initOptions) []wizardStep[initOptions] {
 	for _, step := range applicationSteps(defaults) {
 		steps = append(steps, when(isApplication, step))
 	}
+	// Asked for both kinds and after everything else, because it describes the
+	// machines this project is edited on rather than the project itself — the
+	// same territory as the editor files every kind already gets.
+	steps = append(steps, newChoiceStep(
+		"AI coding agent",
+		"Places the bundled framework skill — template and query syntax, project anatomy, and the "+
+			"pw commands that check an edit — where your coding agent discovers it.",
+		skillsCursor(defaults.Skills),
+		wizardChoice[initOptions]{
+			name:        ".claude",
+			description: ".claude/skills/" + agentSkillDir + "/ — the directory Claude Code reads",
+			apply:       func(target *initOptions) { target.Skills = skillsClaude },
+		},
+		wizardChoice[initOptions]{
+			name:        ".agents",
+			description: ".agents/skills/" + agentSkillDir + "/ — the shared layout other coding agents read",
+			apply:       func(target *initOptions) { target.Skills = skillsAgents },
+		},
+		wizardChoice[initOptions]{
+			name:        "None",
+			description: "no agent files; copy skills/ from the framework repository later if one arrives",
+			apply:       func(target *initOptions) { target.Skills = skillsNone },
+		},
+	))
 	return steps
+}
+
+// skillsCursor preselects the agent directory a seeded answer names.
+func skillsCursor(value string) int {
+	switch value {
+	case skillsAgents:
+		return 1
+	case skillsNone:
+		return 2
+	}
+	return 0
 }
 
 // isApplication reports whether the capability questions apply to this project
@@ -71,6 +106,28 @@ func applicationSteps(defaults initOptions) []wizardStep[initOptions] {
 				name:        "No",
 				description: "net/http.ServeMux routing, host Go toolchain only",
 				apply:       func(target *initOptions) { target.TinyGo = false },
+			},
+		),
+		// Asked next to the toolchain because it is the same kind of answer: a
+		// build-time property of the source tree that everything below inherits.
+		// It is not a router question — both routers work either way — and it is
+		// not exclusive with the toolchain, so it gets its own step rather than a
+		// fourth option on one of theirs.
+		newChoiceStep(
+			"fasthttp backend",
+			"Builds this project for fasthttp in addition to net/http. Handlers stay net/http; "+
+				"generated files importing net/http gain a !fasthttp constraint so the second build "+
+				"can supply its own. Take it only if that second build is planned.",
+			yesNoCursor(defaults.FastHTTP),
+			wizardChoice[initOptions]{
+				name:        "Yes",
+				description: "project.fasthttp = true, and generated net/http files are constrained to !fasthttp",
+				apply:       func(target *initOptions) { target.FastHTTP = true },
+			},
+			wizardChoice[initOptions]{
+				name:        "No",
+				description: "net/http only, and generated files carry no build constraint",
+				apply:       func(target *initOptions) { target.FastHTTP = false },
 			},
 		),
 		newChoiceStep(

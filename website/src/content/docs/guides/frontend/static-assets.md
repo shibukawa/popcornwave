@@ -102,7 +102,7 @@ What each one does, and what follows the file:
 | Source | Becomes | The reference |
 | --- | --- | --- |
 | `img src` naming a `.png` or `.jpg` | WebP, lossless from a PNG and lossy from a JPEG | rewritten to the hashed name |
-| `script src` naming a `.ts` | a bundled ES module, with a source map | rewritten to the hashed name |
+| `script src` naming a `.ts` or `.tsx` | a bundled ES module, with a source map | rewritten to the hashed name |
 | a `.css` file | minified, with its `url()` references pointed at whatever they became | unchanged — the stylesheet keeps its own URL |
 | a `.js` file | minified, not bundled, so a module stays a module | unchanged |
 | anything else | copied | unchanged |
@@ -115,6 +115,12 @@ The authored source is dropped from the shipped tree once every reference the
 build can see has been rewritten. When one it cannot rewrite remains — a path in
 a `meta` tag, a URL a script builds — the source is kept and the build says so.
 That way a page never loses an image to a conversion it did not know about.
+
+With the script build on, TypeScript is an input rather than a file the tree
+owes anyone, so a module an entry imported is not served either. No browser runs
+it, and the source map already carries its text, so a stack trace still names the
+authored line. The same retention rule applies: a `.ts` some Go code still names
+stays, and the build says why.
 
 ### A built script needs `type="module"`
 
@@ -141,18 +147,29 @@ alone.
 
 ## Precompression
 
-The build writes a `.zstd` sibling next to every compressible file after the
-conversions, so what is compressed is what actually ships. Serving then costs no
-CPU at all: the encoded bytes already exist.
+The build writes a `.br`, a `.zstd` and a `.gz` sibling next to every
+compressible file after the conversions, so what is compressed is what actually
+ships. Serving then costs no CPU at all: the encoded bytes already exist.
 
 | Compressed | Left alone |
 | --- | --- |
 | `.html`, `.css`, `.js`, `.mjs`, `.json`, `.map`, `.txt`, `.xml`, `.svg`, `.webmanifest`, and any other `text/*` | images other than SVG, audio, video, fonts, archives, WebAssembly — anything already compressed |
 
-A `.zstd` path is never a URL. It is a representation of the asset beside it,
-and a request for one is a `404`. The compressed and uncompressed forms carry
-different validators, so a cache that stored one cannot serve it to a client
-that asked for the other.
+All three run at their maximum level, which is affordable here for the reason it
+is not on [a rendered response](/guides/frontend/compression/): the cost lands on
+the build rather than on a request. Brotli exists only here, and only because of
+that — at maximum it comes out roughly fifteen percent smaller than zstd and
+seventeen percent smaller than gzip, a margin that appears at levels far too slow
+to encode while a client waits.
+
+A coding whose output is not smaller than its source is skipped rather than
+written, so a short file may have fewer than three siblings, or none. That is
+ordinary: negotiation falls through to the next coding, and the identity bytes
+always answer.
+
+A sidecar path is never a URL. It is a representation of the asset beside it, and
+a request for one is a `404`. Each form carries its own validator, so a cache that
+stored one cannot serve it to a client that asked for another.
 
 ## What a request gets
 
@@ -160,7 +177,7 @@ that asked for the other.
 | --- | --- |
 | Methods | `GET` and `HEAD`; anything else is `405` with `Allow` |
 | Mount without the trailing slash | `308` redirect to the mount, query string preserved |
-| Encoding | `zstd` when `Accept-Encoding` allows it with a non-zero q-value *and* a sidecar exists |
+| Encoding | the first of `br`, `zstd`, `gzip` that `Accept-Encoding` allows with a non-zero q-value *and* has a sidecar; identity otherwise. The order is the build's, smallest first, not the client's q-values |
 | Media type | the preferred representation the request accepts; the fallback otherwise |
 | `Vary` | `Accept-Encoding`, plus `Accept` where a URL has more than one media type |
 | `ETag` | strong, from the build, per representation |
@@ -181,7 +198,7 @@ absolute:
 - symbolic links are refused — the local root, anything below it, and any
   non-regular file. The build refuses to walk one too, rather than embedding
   whatever it points at
-- a `.zstd` suffix in the request path is rejected outright
+- a `.br`, `.zstd` or `.gz` suffix in the request path is rejected outright
 
 ## During development
 
@@ -225,7 +242,11 @@ available no matter how this endpoint is configured. See
 ## Not the same as response compression
 
 The sidecars above are static files, compressed once at build time. Compressing
-an HTML response the application just rendered is a separate switch with
-separate trade-offs — see
-[Response Compression](/guides/frontend/compression/). That middleware never
-recompresses what this handler served.
+a response the application just rendered is a separate switch with separate
+trade-offs — see [Response Compression](/guides/frontend/compression/). That
+middleware never recompresses what this handler served.
+
+The two also offer different codings, and for the same reason the levels differ:
+a rendered response is encoded while a client waits, so it offers only `zstd` and
+`gzip` and runs them shallow. Brotli and the maximum levels stay here, where
+nobody is waiting on them.

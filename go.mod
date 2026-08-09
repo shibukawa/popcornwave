@@ -3,6 +3,7 @@ module github.com/shibukawa/popcornwave
 go 1.26.0
 
 require (
+	github.com/andybalholm/brotli v1.2.2
 	github.com/charmbracelet/bubbles v1.0.0
 	github.com/charmbracelet/bubbletea v1.3.10
 	github.com/charmbracelet/lipgloss v1.1.0
@@ -14,7 +15,7 @@ require (
 	github.com/shibukawa/dbtestify v0.5.0
 	github.com/shibukawa/localotelviewer v1.0.2
 	github.com/shibukawa/tinybind-go v0.4.11
-	github.com/shibukawa/tinygodriver v1.2.1
+	github.com/shibukawa/tinygodriver v1.2.2
 	golang.org/x/mod v0.38.0
 )
 
@@ -63,6 +64,7 @@ require (
 	github.com/shirou/gopsutil/v4 v4.26.6 // indirect
 	github.com/tklauser/go-sysconf v0.3.16 // indirect
 	github.com/tklauser/numcpus v0.11.0 // indirect
+	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/xo/terminfo v0.0.0-20220910002029-abceb7e1c41e // indirect
 	github.com/yusufpapurcu/wmi v1.2.4 // indirect
 	go.opentelemetry.io/proto/otlp v1.7.1 // indirect

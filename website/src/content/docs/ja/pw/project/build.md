@@ -19,8 +19,8 @@ pw build
    `assets.tailwind.minify` を上書きするので、リリースが誤って非 minify になることは
    ない
 3. [アセットツリー](/ja/guides/frontend/static-assets/)を `dist/public` に構築する。
-   プロジェクトが指定した変換を行い、圧縮済み `*.zstd` サイドカーを書き、キャッシュ
-   ヘッダを決めるマニフェストを出力する
+   プロジェクトが指定した変換を行い、`*.br`, `*.zstd`, `*.gz` サイドカーを書き、
+   キャッシュヘッダを決めるマニフェストを出力する
 4. `project.main` が開発専用パッケージに依存していればビルドを拒否する
 5. `popcornwave.toml` の `project.main` に対して `go build` を実行する
 

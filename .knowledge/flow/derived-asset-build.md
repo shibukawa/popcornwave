@@ -20,7 +20,7 @@ steps:
   - copy or transform each into dist/public, preserving its relative path
   - place every produced file into the same tree and fail on a name two producers claim
   - drop the authored bytes of any source whose conversion succeeded
-  - write .zstd sidecars for eligible results, per policy:public-asset-precompression
+  - write .br, .zstd, and .gz sidecars for eligible results, per policy:public-asset-precompression
   - digest every emitted representation and write data:public-asset-manifest
   - verify the scaffolded public.go embeds dist/public and that the tree is non-empty
   - compile only after the tree and the manifest are complete

@@ -12,18 +12,11 @@ const zstdContentEncoding = zstd.ContentEncoding
 
 const zstdResponseSupported = true
 
-type responseZstdEncoder interface {
-	io.Writer
-	Flush() error
-	Close() error
-	Abort()
-}
-
 type tinyGoResponseZstdEncoder struct {
 	*zstd.Writer
 }
 
-func newResponseZstdEncoder(w io.Writer) (responseZstdEncoder, error) {
+func newResponseZstdEncoder(w io.Writer) (responseEncoder, error) {
 	encoder, err := zstd.NewWriter(w, zstd.WithETag(false))
 	if err != nil {
 		return nil, err

@@ -54,6 +54,45 @@ func TestScriptModuleTagIgnoresWhatItDoesNotBuild(t *testing.T) {
 	}
 }
 
+// TestScriptModuleTagCoversTSX keeps the scan on the same definition of an entry
+// as the hook. A tsx entry emits a module exactly as a ts one does, so a classic
+// tag on it loses the script just as silently.
+func TestScriptModuleTagCoversTSX(t *testing.T) {
+	root := t.TempDir()
+	writeNestedTestFile(t, filepath.Join(root, "pages", "island.pw.html"),
+		"<script src=\"/public/islands/counter.tsx\"></script>\n")
+
+	err := verifyScriptModuleTags(root)
+	if err == nil {
+		t.Fatal("a classic tag on a tsx entry was accepted")
+	}
+	if !strings.Contains(err.Error(), "counter.tsx") {
+		t.Errorf("error does not name the entry: %v", err)
+	}
+}
+
+// TestBuildableEntryReadsTheWholeExtension guards the gate against the suffix
+// match it replaced: ".tsx" does not end in ".ts", and a name merely ending in
+// those letters is not an entry at all.
+func TestBuildableEntryReadsTheWholeExtension(t *testing.T) {
+	for _, testcase := range []struct {
+		value string
+		want  bool
+	}{
+		{"/public/js/app.ts", true},
+		{"/public/islands/counter.tsx", true},
+		{"/public/js/app.TSX", true},
+		{"/public/js/vendor.js", false},
+		// A name whose last segment only reads like the extension.
+		{"/public/js/robots.txt", false},
+		{"https://cdn.example.com/app.tsx", false},
+	} {
+		if got := buildableEntry(testcase.value); got != testcase.want {
+			t.Errorf("buildableEntry(%q) = %v, want %v", testcase.value, got, testcase.want)
+		}
+	}
+}
+
 func TestTagAttributeReadsTheQuotingStyles(t *testing.T) {
 	for _, testcase := range []struct {
 		tag       string

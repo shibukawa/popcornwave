@@ -21,4 +21,5 @@ boundaries:
   - no custom handler invocation abstraction
   - no reflection-based automatic handler invocation
   - low-level TinyBind packages remain importable by deliberate application choice
+  - w and r stay visible in the signature and stop at this surface, per decision:transport-handle-containment
 ```

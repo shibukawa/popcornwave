@@ -47,6 +47,9 @@ export function createUpdateRuntime(config) {
 	// which is the one place the two shapes differ: a template's contents do not
 	// render, and a fallback that does not render is not a fallback.
 	const placeholderElement = "template";
+	// The inert element a document carries its own validators in, named from the
+	// same prefix as every other element this framework emits.
+	const manifestElement = config.attr + "-manifest";
 	const busyAttr = "data-" + config.attr + "-updating";
 	setPreserveAttribute("data-" + config.attr + "-preserve");
 
@@ -221,18 +224,54 @@ export function createUpdateRuntime(config) {
 					document.title = node.textContent || "";
 					continue;
 				}
-				if (alreadyInHead(node)) continue;
-				document.head.appendChild(node);
+				const existing = headCounterpart(node);
+				if (!existing) {
+					document.head.appendChild(node);
+				} else if (node.tagName === "META") {
+					// A named meta describes the page rather than loading
+					// something, so the arriving one is the current answer and
+					// the one on screen is the previous page's. Replacing is the
+					// same call the title above makes, for the same reason.
+					existing.replaceWith(node);
+				}
+				// A link or a script naming what the page already loaded is left
+				// exactly as it is: re-inserting it would fetch and re-execute.
 			}
 		}
 	}
 
-	function alreadyInHead(node) {
-		const markup = node.outerHTML;
+	// headCounterpart finds the tag already in the head that this one is another
+	// spelling of, or null when nothing there names the same thing.
+	//
+	// Identical markup used to be the test, and it let a tag whose content varies
+	// per render accumulate without bound: the runtime's own configuration meta
+	// carries a freshly masked CSRF token, so no two renders spelled it the same
+	// way and every navigation appended another copy. That meta no longer travels
+	// on a delta at all, but the shape of the mistake is not specific to it —
+	// a nonce, a timestamp, or a page's own description would each repeat it, and
+	// the head is the one part of the page nothing ever removes from.
+	//
+	// What names a tag is its element and the one attribute that identifies it:
+	// a link is its href, a script is its src, a meta is its name. A tag with
+	// none of those is compared by markup, which is what an inline style block
+	// has to be compared by.
+	const headIdentityAttribute = { LINK: "href", SCRIPT: "src", META: "name" };
+
+	function headCounterpart(node) {
+		const attribute = headIdentityAttribute[node.tagName];
+		const identity = attribute ? node.getAttribute(attribute) : "";
+		// Walked rather than selected. An attribute value reaching a selector
+		// would have to be escaped as a CSS string, whose rules are not JSON's,
+		// and the head is a few dozen elements.
 		for (const existing of document.head.children) {
-			if (existing.outerHTML === markup) return true;
+			if (existing.tagName !== node.tagName) continue;
+			if (identity) {
+				if (existing.getAttribute(attribute) === identity) return existing;
+				continue;
+			}
+			if (existing.outerHTML === node.outerHTML) return existing;
 		}
-		return false;
+		return null;
 	}
 
 	// A boundary is addressed by the framework attribute first and by the
@@ -547,6 +586,30 @@ export function createUpdateRuntime(config) {
 	// validator the last navigation established.
 	function recordManifest(entries) {
 		for (const entry of entries || []) recordValidator(entry);
+	}
+
+	// seedManifest reads the validators of the document this runtime loaded into.
+	//
+	// Without it every page view starts blank, so the first navigation after
+	// arriving — the click a reader is most likely to make — carries no hints and
+	// is answered with every region of the page. The marker is written by the
+	// document that produced these boundaries, which is the one DOM its
+	// validators are valid for.
+	//
+	// It is consumed rather than left: it describes the document as it was
+	// delivered, and after the first delta the page is no longer that document.
+	function seedManifest() {
+		const marker = document.querySelector(manifestElement);
+		if (!marker) return;
+		const encoded = marker.getAttribute("value") || "";
+		marker.remove();
+		// The server's encoder read backwards, which is the same parse the
+		// header form takes because it is the same encoding.
+		for (const entry of encoded.split(",")) {
+			const [id, frame, children, parent] = entry.split(":");
+			if (!id || !frame) continue;
+			manifest.set(id, { frame: frame, children: children || "", parent: parent || "" });
+		}
 	}
 
 	// The trailing fields are written only when they carry something, which is
@@ -998,6 +1061,7 @@ export function createUpdateRuntime(config) {
 
 	intercept();
 	installAnnouncer();
+	seedManifest();
 
 	return {
 		// Re-render the current route with different search parameters, replacing

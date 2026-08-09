@@ -207,7 +207,7 @@ enabled = true
 | `assets.images.quality` | `75` | JPEG ソースを再エンコードする際の品質。PNG は可逆のままで、この値を見ない |
 | `assets.images.avif` | `false` | 配信する画像に AVIF 表現を追加し、`Accept` で選ばせる |
 | `assets.css.minify` | `false` | スタイルシートをその場で minify する |
-| `assets.scripts.enabled` | `false` | `.ts` エントリをビルドし、authored な `.js` を minify する |
+| `assets.scripts.enabled` | `false` | `.ts` / `.tsx` エントリをビルドし、authored な `.js` を minify する |
 
 `assets.images` はホスト側のエンコーダを必要とします。[`pw add images`](/ja/pw/project/add/)
 がキーと Devbox パッケージを同時に書くのはそのためです。ツール無しで有効にしてもエラーには

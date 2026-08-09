@@ -26,7 +26,12 @@ tls:
   client_certs: sslcert and sslkey are rejected rather than ignored
   platforms: decision:server-sql-support-tier platform_bounds
 cancellation: context cancellation issues a PostgreSQL CancelRequest over a second connection, installed by default on both backends so behavior does not differ by compiler
-escape_hatch: sql.Conn.Raw yields the pgx stdlib connection and then the pgx connection, keeping Batch, CopyFrom, and LISTEN/NOTIFY reachable without widening the framework surface
+escape_hatch:
+  database_sql: sql.Conn.Raw yields the pgx stdlib connection and then the pgx connection, keeping Batch, CopyFrom, and LISTEN/NOTIFY reachable without widening the framework surface
+  native: >
+    Raw needs a *sql.DB, which requirement:pgx-native-execution removed from the
+    request path, so this hatch now covers only the migration and seeding
+    handles; requirement:native-pgx-escape-hatch restores it for a request
 inherited: type coverage, prepared statements, transactions, column metadata, and SQLSTATE errors come from pgx on both paths
 popcorn_wave_scope:
   - pin the tested system:tinygodriver version per requirement:tinygodriver-adoption

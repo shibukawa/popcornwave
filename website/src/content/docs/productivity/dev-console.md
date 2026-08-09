@@ -131,15 +131,50 @@ so a trace list reads as the requests it came from.
 
 ## The overlay
 
-One part of the console is not on the console. When a step of the loop fails —
-generation, a migration, the build — the failure is put over the pages the
-application serves, so a broken build is visible in the tab already open rather
-than only in the terminal behind it. A page whose application has since been
-replaced reloads itself.
+Two parts of the console are not on the console. The first shows up when a step
+of the loop fails — generation, a migration, the build. The failure is put over
+the pages the application serves, so a broken build is visible in the tab
+already open rather than only in the terminal behind it. A page whose
+application has since been replaced reloads itself.
 
-Both are off in a single setting, and turning them off is what makes a
-development page byte-identical to a production one: with the overlay detached,
-nothing is served for the browser to load.
+## The launcher
+
+The second is the way in. The console's address is printed once at startup and
+is well out of sight by the time you want it, several rebuilds later, so a small
+floating button sits in a corner of every page the application serves and opens
+the console index in a tab of its own. Clicking it again returns to that tab
+instead of opening another. While the loop is between two working applications
+the button carries a ring, which is the only thing on a stale page that says it
+is stale.
+
+It is a link and a status and nothing more. There is no request list, no query
+count, and no timing panel on the application's own pages: those belong to
+[the telemetry viewer](/productivity/dev-telemetry-viewer/), where they outlive
+the build that failed.
+
+The button takes the bottom left, because the bottom right is where applications
+put their own floating controls. When it is in the way anyway — a sticky footer,
+a widget of your own — move it rather than working around it. `pw init` writes
+the corner into `popcornwave.toml` so it is there to edit:
+
+```toml
+[dev.console.launcher]
+corner = "top-right"
+```
+
+The four corners are `bottom-left`, `bottom-right`, `top-left` and `top-right`,
+and anything else is a configuration error naming them, so a typo is not quietly
+read as the default. The loop picks the new corner up on its next restart, which
+editing the file already causes.
+
+For the two minutes you spend clicking whatever it happens to sit over, hovering
+it reveals a control that hides it until the tab closes. A project that wants it
+gone for good sets `dev.console.launcher.enabled` to `false`.
+
+Turning off the overlay and the launcher together is what makes a development
+page byte-identical to a production one: with neither attached, nothing is
+served for the browser to load. Turning off one leaves the other working, which
+is why they are two settings and not one.
 
 ## Static assets
 
@@ -179,6 +214,8 @@ console off.
 | `dev.console.storybook.enabled` | the template storybook |
 | `dev.console.overlay.enabled` | the failure overlay on the application's pages |
 | `dev.console.overlay.reload` | reload a page whose application was replaced |
+| `dev.console.launcher.enabled` | the floating link to the console on those pages |
+| `dev.console.launcher.corner` | which corner it takes; the default is `bottom-left` |
 | `dev.otel.enabled` | `false` removes the telemetry pane |
 
 The port is fixed rather than reserved, unlike every other development listener

@@ -13,13 +13,12 @@ const zstdContentEncoding = "zstd"
 
 const zstdResponseSupported = true
 
-type responseZstdEncoder interface {
-	io.Writer
-	Flush() error
-	Close() error
-	Abort()
-}
-
+// The dynamic path encodes at SpeedFastest rather than SpeedDefault. A
+// response body is compressed while a request waits, so the level is a
+// throughput budget: fastest puts zstd within a tenth of gzip level 1 on
+// throughput and keeps it ahead on ratio, which is the whole reason it leads
+// the preference order. The public asset build spends the deep levels instead,
+// where the cost is a build and not a request.
 var responseZstdPool sync.Pool
 
 type pooledResponseZstdEncoder struct {
@@ -27,14 +26,14 @@ type pooledResponseZstdEncoder struct {
 	released bool
 }
 
-func newResponseZstdEncoder(w io.Writer) (responseZstdEncoder, error) {
+func newResponseZstdEncoder(w io.Writer) (responseEncoder, error) {
 	if pooled := responseZstdPool.Get(); pooled != nil {
 		encoder := pooled.(*kzstd.Encoder)
 		encoder.Reset(w)
 		return &pooledResponseZstdEncoder{encoder: encoder}, nil
 	}
 	encoder, err := kzstd.NewWriter(w,
-		kzstd.WithEncoderLevel(kzstd.SpeedDefault),
+		kzstd.WithEncoderLevel(kzstd.SpeedFastest),
 		kzstd.WithEncoderConcurrency(1),
 		kzstd.WithWindowSize(128<<10),
 		kzstd.WithLowerEncoderMem(true),

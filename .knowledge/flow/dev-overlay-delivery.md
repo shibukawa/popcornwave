@@ -13,6 +13,7 @@ steps:
   - a page subscribed under a failed record renders the overlay above the document
   - a page subscribed under a healthy record whose build identity differs from its own reloads once
   - a healthy record matching the page's own build identity clears any overlay and does nothing else
+  - requirement:dev-console-launcher takes its status from the same records, on the same stream, and subscribes nothing of its own
 subscription:
   loaded_by: the requirement:framework-script-assets core, which dynamically imports the dev module under pwdev per decision:dev-browser-runtime-scope
   address: the console URL, baked into the module bytes the framework serves, because api:cli-dev already injects that URL into the application process

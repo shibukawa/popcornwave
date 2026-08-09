@@ -115,7 +115,7 @@ func TestFragmentCarriesTheAxesItsComponentDeclared(t *testing.T) {
 func TestSequenceDoesNotCarryTheChainsAxes(t *testing.T) {
 	address := aRenderedSequenceAddress(t)
 
-	request := measureRequest("/orders")
+	request := measureRequest("/orders", false)
 	request.Header.Set("Pw-Render", "sequence")
 	request.Header.Set("Pw-Sequence-Address", address)
 	recorder := httptest.NewRecorder()

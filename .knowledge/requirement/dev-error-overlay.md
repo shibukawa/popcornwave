@@ -14,8 +14,9 @@ state: data:dev-loop-state
 behavior: flow:dev-overlay-delivery
 runtime_class: decision:dev-browser-runtime-scope development class, delivered by the in-application exception it describes
 delivery:
-  switch: a disabled overlay injects no console address, so the framework serves no development module and the core carries no import of one
-  consequence: turning it off is what makes the served page byte-identical to a production render, rather than something the browser decides not to show
+  module: shared with requirement:dev-console-launcher, which needs the same console address and the same stream
+  switch: a disabled overlay leaves the launcher its module; the address is injected while either wants it, and neither does when both are off, which is when the framework serves no development module and the core carries no import of one
+  consequence: turning both off is what makes the served page byte-identical to a production render, rather than something the browser decides not to show
   isolation: the overlay is rendered into a shadow root, so the application's stylesheet cannot restyle it and it cannot restyle the application
   text: the diagnostic is written as text rather than markup, so a diagnostic quoting the developer's own HTML is read rather than run
 shows:
@@ -45,6 +46,7 @@ reload:
   restraint: never reload while the loop is failing, because it would replace a readable diagnostic with a connection error
 non_goals:
   - a debug toolbar, a query list, or a timing panel on the application page; requirement:dev-telemetry-viewer answers those in requirement:dev-console
+  - clarified: requirement:dev-console-launcher is a link and a status, not an answer, which is the distinction decision:dev-launcher-admission draws and the reason the toolbar stays refused
   - preserving scroll position or form state across a reload
   - any presence in an api:cli-build artifact
 acceptance:
@@ -53,5 +55,5 @@ acceptance:
   - a fixed error clears the overlay and reloads the page once
   - the overlay stays visible while the application process is down
   - a build produced by api:cli-build serves no overlay module and no stream reference
-  - dev.console.overlay false leaves every served page byte-identical to a production render
+  - dev.console.overlay false serves no overlay, and leaves every served page byte-identical to a production render once requirement:dev-console-launcher is off too, since either one alone still wants the module
 ```

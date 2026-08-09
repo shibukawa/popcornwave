@@ -11,7 +11,9 @@ surface:
 behavior:
   - negotiate an accepted representation
   - set response headers
-  - apply configured compression
+  - apply configured compression, per policy:response-content-encoding, by wrapping the response writer before the registered writer sets its own type and status
+  - keep the wrapper chain walkable through Unwrap, so commit detection still reaches the writer underneath
+  - discard an uncommitted frame and take the Content-Encoding header back off when serialization fails, so the api:problem-response body replacing it is not labelled with a coding it is not in
   - use generated optimized JSON codecs
   - log and trace serialization failures
   - use api:problem-response for safe errors when possible

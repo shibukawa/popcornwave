@@ -1,0 +1,38 @@
+---
+id: api:redirect-response
+type: api
+title: Redirect Response
+---
+pw.Redirect sends a browser to another location, choosing between a Location response and the api:html-update-options navigate directive so an action handler stops writing that branch by hand.
+
+```yaml
+package: github.com/shibukawa/popcornwave/pw
+replaces: http.Redirect in application code, per decision:transport-handle-containment
+surface:
+  - pw.Redirect(w, r, url string, status int)
+  - pw.RedirectSeeOther(w, r, url string), the post-action form that fixes 303
+what_the_stdlib_already_does:
+  body: http.Redirect writes a body only for GET, and only when the caller set no Content-Type; it is '<a href="...">See Other</a>.' and nothing more
+  no_body: HEAD gets the header only because HTTP forbids the body, and POST gets none either, so the redirect-after-post case sends headers alone
+  reason: RFC 7231 notes the short body exists for user agents that do not understand the status, which is why it is a bare link rather than a message
+  absolute: it resolves a relative target against the request path before sending it
+what_pw_adds:
+  update_branch:
+    condition: pw.WantsUpdate(r)
+    action: emit the navigate directive of api:html-update-options rather than a Location response
+    reason: an update request is a fetch, so a 303 is followed by the fetch and its target applied as a region set for the wrong page; requirement:action-response-update calls WantsUpdate the one branch point, and this is the branch an action handler writes today
+  navigable_target: the target is refused unless safeurl allows it, on both branches, so a request-derived return path cannot become script execution the way api:html-update-options already refuses it
+  body:
+    content: a short escaped document naming the destination as a link, with a line saying the page is moving
+    methods: GET and POST; never HEAD, and never when the caller already set Content-Type
+    not_a_template: it is not rendered through api:html-response or api:error-renderer, because the body is seen only when the browser does not follow the redirect, and a themed render would be paid on every redirect to be discarded on almost all of them
+    escaping: the destination is escaped as text and as an attribute, per policy:template-escaping
+  caching: a target derived from request state carries Cache-Control no-store, which is what pw scriptless redirect handling already does for its own
+status_codes:
+  after_action: 303, so a reload does not repost, which is the case examples and scaffolds use
+  explicit: any other code is the caller's, and the surface does not guess one
+rules:
+  - the surface writes the response and returns nothing; a handler that must inspect the outcome had a different problem
+  - a redirect after a session change orders itself after the session write, because the response is committed here
+  - the update branch and the Location branch send the same destination, so one handler cannot mean two places
+```

@@ -1,14 +1,18 @@
 package pwcli
 
 import (
+	"bytes"
 	"encoding/json"
 	"go/parser"
 	"go/token"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
+	"github.com/andybalholm/brotli"
+	"github.com/klauspost/compress/gzip"
 	"github.com/klauspost/compress/zstd"
 )
 
@@ -33,9 +37,22 @@ func derivedFixture(t *testing.T) string {
 	return root
 }
 
+// compressibleCSS is long enough that every coding beats the source. A short
+// document does not: frame overhead alone exceeds what there is to save, and
+// TestBuildDerivedAssetsSkipsUnprofitableCodings covers that side.
+const compressibleCSS = `body { color: red }
+.a { color: red }
+.b { color: red }
+.c { color: red }
+.d { color: red }
+.e { color: red }
+.f { color: red }
+.g { color: red }
+`
+
 func TestBuildDerivedAssets(t *testing.T) {
 	root := derivedFixture(t)
-	writeTestFile(t, filepath.Join(root, "public", "app.css"), "body { color: red }\n")
+	writeTestFile(t, filepath.Join(root, "public", "app.css"), compressibleCSS)
 	writeTestFile(t, filepath.Join(root, "public", "image.png"), "png")
 	writeTestFile(t, filepath.Join(root, "public", "stale.txt.zstd"), "stale")
 
@@ -43,21 +60,31 @@ func TestBuildDerivedAssets(t *testing.T) {
 		t.Fatal(err)
 	}
 	output := filepath.Join(root, filepath.FromSlash(derivedPublicDir))
-	encoded, err := os.ReadFile(filepath.Join(output, "app.css.zstd"))
-	if err != nil {
-		t.Fatal(err)
+	// One sidecar per coding, each decoding back to the same source.
+	for _, sidecar := range []struct {
+		suffix string
+		decode func([]byte) ([]byte, error)
+	}{
+		{suffix: ".br", decode: decodeTestBrotli},
+		{suffix: ".zstd", decode: decodeTestZstd},
+		{suffix: ".gz", decode: decodeTestGzip},
+	} {
+		encoded, err := os.ReadFile(filepath.Join(output, "app.css"+sidecar.suffix))
+		if err != nil {
+			t.Fatalf("%s sidecar: %v", sidecar.suffix, err)
+		}
+		if len(encoded) >= len(compressibleCSS) {
+			t.Errorf("%s sidecar is not smaller than its source: %d >= %d", sidecar.suffix, len(encoded), len(compressibleCSS))
+		}
+		decoded, err := sidecar.decode(encoded)
+		if err != nil || string(decoded) != compressibleCSS {
+			t.Errorf("%s decoded = %q, %v", sidecar.suffix, decoded, err)
+		}
 	}
-	decoder, err := zstd.NewReader(nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer decoder.Close()
-	decoded, err := decoder.DecodeAll(encoded, nil)
-	if err != nil || string(decoded) != "body { color: red }\n" {
-		t.Fatalf("decoded = %q, %v", decoded, err)
-	}
-	if _, err := os.Stat(filepath.Join(output, "image.png.zstd")); !os.IsNotExist(err) {
-		t.Fatalf("binary sidecar exists: %v", err)
+	for _, suffix := range []string{".br", ".zstd", ".gz"} {
+		if _, err := os.Stat(filepath.Join(output, "image.png"+suffix)); !os.IsNotExist(err) {
+			t.Errorf("binary %s sidecar exists: %v", suffix, err)
+		}
 	}
 	// A sidecar in the authored tree belongs to the build this one replaces.
 	if _, err := os.Stat(filepath.Join(output, "stale.txt.zstd")); !os.IsNotExist(err) {
@@ -71,7 +98,9 @@ func TestBuildDerivedAssets(t *testing.T) {
 		"package fixture",
 		"middlewares.RegisterPublicManifest",
 		`{URL: "app.css"`,
+		`ContentEncoding: "br"`,
 		`ContentEncoding: "zstd"`,
+		`ContentEncoding: "gzip"`,
 		`{URL: "image.png"`,
 	} {
 		if !strings.Contains(string(manifest), fragment) {
@@ -81,6 +110,49 @@ func TestBuildDerivedAssets(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(root, filepath.FromSlash(assetManifestJSON))); err != nil {
 		t.Fatalf("json manifest: %v", err)
 	}
+}
+
+// TestBuildDerivedAssetsSkipsUnprofitableCodings covers the other half of the
+// rule: an encode that comes out no smaller than its source is not written, so
+// the embed carries no file that could only ever lose a negotiation.
+func TestBuildDerivedAssetsSkipsUnprofitableCodings(t *testing.T) {
+	root := derivedFixture(t)
+	writeTestFile(t, filepath.Join(root, "public", "tiny.txt"), "a\n")
+
+	if _, err := buildDerivedAssets(root, assetsConfig{}); err != nil {
+		t.Fatal(err)
+	}
+	output := filepath.Join(root, filepath.FromSlash(derivedPublicDir))
+	if _, err := os.Stat(filepath.Join(output, "tiny.txt")); err != nil {
+		t.Fatalf("source is missing: %v", err)
+	}
+	for _, suffix := range []string{".br", ".zstd", ".gz"} {
+		if _, err := os.Stat(filepath.Join(output, "tiny.txt"+suffix)); !os.IsNotExist(err) {
+			t.Errorf("%s sidecar was written for a file it cannot shrink: %v", suffix, err)
+		}
+	}
+}
+
+func decodeTestZstd(encoded []byte) ([]byte, error) {
+	decoder, err := zstd.NewReader(nil)
+	if err != nil {
+		return nil, err
+	}
+	defer decoder.Close()
+	return decoder.DecodeAll(encoded, nil)
+}
+
+func decodeTestGzip(encoded []byte) ([]byte, error) {
+	reader, err := gzip.NewReader(bytes.NewReader(encoded))
+	if err != nil {
+		return nil, err
+	}
+	defer reader.Close()
+	return io.ReadAll(reader)
+}
+
+func decodeTestBrotli(encoded []byte) ([]byte, error) {
+	return io.ReadAll(brotli.NewReader(bytes.NewReader(encoded)))
 }
 
 // TestBuildDerivedAssetsRefusesAnOldEmbed covers the migration: the scaffolded
@@ -133,6 +205,107 @@ func TestBuildDerivedAssetsMinifiesAndRewritesCSS(t *testing.T) {
 	}
 	if len(report.converted) != 1 {
 		t.Errorf("report.converted = %v", report.converted)
+	}
+}
+
+// TestBuildDerivedAssetsDropsAConvertedTSXEntry is the second half of building a
+// tsx entry: a source the bundle replaced must leave the served tree, or the
+// authored JSX ships beside the output it was compiled into.
+func TestBuildDerivedAssetsDropsAConvertedTSXEntry(t *testing.T) {
+	root := derivedFixture(t)
+	writeNestedTestFile(t, filepath.Join(root, "public", "islands", "counter.tsx"),
+		"export const label = <b>hi</b>;\n")
+	writeNestedTestFile(t, filepath.Join(root, filepath.FromSlash(derivedStageDir), "islands", "counter.js"),
+		"export const label=1;\n")
+
+	report, err := buildDerivedAssets(root, assetsConfig{Scripts: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	output := filepath.Join(root, filepath.FromSlash(derivedPublicDir))
+	if _, err := os.Stat(filepath.Join(output, "islands", "counter.tsx")); !os.IsNotExist(err) {
+		t.Errorf("the authored tsx entry still ships: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(output, "islands", "counter.js")); err != nil {
+		t.Errorf("the bundle is missing: %v", err)
+	}
+	if len(report.converted) != 1 || !strings.Contains(report.converted[0], "counter.tsx") {
+		t.Errorf("report.converted = %v", report.converted)
+	}
+}
+
+// TestBuildDerivedAssetsDoesNotServeABundledModule covers the file no conversion
+// produces an output for: a module an entry imported. Nothing maps it back to a
+// replacement, so before this it was copied out beside the bundle it had been
+// compiled into, where a browser could read the source but never run it.
+func TestBuildDerivedAssetsDoesNotServeABundledModule(t *testing.T) {
+	root := derivedFixture(t)
+	writeNestedTestFile(t, filepath.Join(root, "public", "islands", "counter.tsx"),
+		"import './view';\n")
+	writeNestedTestFile(t, filepath.Join(root, "public", "islands", "view.tsx"),
+		"export const view = 1;\n")
+	writeNestedTestFile(t, filepath.Join(root, filepath.FromSlash(derivedStageDir), "islands", "counter.js"),
+		"const view=1;\n")
+
+	report, err := buildDerivedAssets(root, assetsConfig{Scripts: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	output := filepath.Join(root, filepath.FromSlash(derivedPublicDir))
+	if _, err := os.Stat(filepath.Join(output, "islands", "view.tsx")); !os.IsNotExist(err) {
+		t.Errorf("an imported module still ships: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(output, "islands", "counter.js")); err != nil {
+		t.Errorf("the bundle is missing: %v", err)
+	}
+	// The entry is a conversion, and stays reported as one.
+	if len(report.unserved) != 1 || !strings.Contains(report.unserved[0], "view.tsx") {
+		t.Errorf("report.unserved = %v", report.unserved)
+	}
+	if len(report.converted) != 1 || !strings.Contains(report.converted[0], "counter.tsx") {
+		t.Errorf("report.converted = %v", report.converted)
+	}
+}
+
+// TestBuildDerivedAssetsServesTypeScriptWithoutTheScriptBuild is the other half
+// of that rule. With no script build nothing consumes the file, and a file the
+// build does not understand is served as written.
+func TestBuildDerivedAssetsServesTypeScriptWithoutTheScriptBuild(t *testing.T) {
+	root := derivedFixture(t)
+	writeNestedTestFile(t, filepath.Join(root, "public", "js", "app.ts"), "export const x = 1;\n")
+
+	report, err := buildDerivedAssets(root, assetsConfig{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	output := filepath.Join(root, filepath.FromSlash(derivedPublicDir))
+	if _, err := os.Stat(filepath.Join(output, "js", "app.ts")); err != nil {
+		t.Errorf("a file no build consumed was dropped: %v", err)
+	}
+	if len(report.unserved) != 0 {
+		t.Errorf("report.unserved = %v", report.unserved)
+	}
+}
+
+// TestBuildDerivedAssetsRetainsAReferencedModule puts the new branch behind the
+// same safety valve the conversions use: a reference the build cannot rewrite
+// keeps the file, because dropping it would break a page the build cannot see.
+func TestBuildDerivedAssetsRetainsAReferencedModule(t *testing.T) {
+	root := derivedFixture(t)
+	writeNestedTestFile(t, filepath.Join(root, "public", "js", "worker.ts"), "self.onmessage = () => {};\n")
+	writeNestedTestFile(t, filepath.Join(root, "handlers", "page.go"),
+		"package handlers\n\nconst workerURL = \"/public/js/worker.ts\"\n")
+
+	report, err := buildDerivedAssets(root, assetsConfig{Scripts: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	output := filepath.Join(root, filepath.FromSlash(derivedPublicDir))
+	if _, err := os.Stat(filepath.Join(output, "js", "worker.ts")); err != nil {
+		t.Errorf("a source something still names was dropped: %v", err)
+	}
+	if len(report.retained) != 1 || !strings.Contains(report.retained[0], "handlers/page.go") {
+		t.Errorf("report.retained = %v", report.retained)
 	}
 }
 
