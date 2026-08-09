@@ -82,22 +82,22 @@ func serveLive(w http.ResponseWriter, r *http.Request, wrappers []HTMLWrapper, l
 	// have asked: the document marker told it so.
 	if !liveEnabled(config) || !htmlbind.HasLiveBlock(wrappers, leaf) {
 		writeLiveHeaders(w)
-		writeLiveClose(w, liveCloseDone, 0)
+		writeLiveClose(w, nil, liveCloseDone, 0)
 		return
 	}
 	release, admitted := admitLiveResponse(r, config)
 	if !admitted {
 		logger.Log(ctx, LevelWarn, "live response refused: too many for this client")
 		writeLiveHeaders(w)
-		writeLiveClose(w, liveCloseRetry, liveRetryHint)
+		writeLiveClose(w, nil, liveCloseRetry, liveRetryHint)
 		return
 	}
 	defer release()
 
 	// The span opens once the response is admitted, so a refusal is one the
 	// request span reports and not a live stream that lasted no time.
-	ctx, render := startRenderTrace(ctx, renderModeLive,
-		chainRenderAttributes(wrappers, true, true, false)...)
+	ctx, render := startChainRenderTrace(ctx, renderModeLive,
+		renderLayers(wrappers), true, true, false)
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	watchdog := startLiveWatchdog(cancel, liveLifetime(config), config.LiveIdleTimeout)
@@ -106,6 +106,9 @@ func serveLive(w http.ResponseWriter, r *http.Request, wrappers []HTMLWrapper, l
 	committed := false
 	reason := liveCloseDone
 	boundaries := make(map[string]struct{})
+	// scratch is the one record buffer of this response; every record below
+	// rebuilds into it and hands back the grown capacity.
+	var scratch []byte
 	// The close reason is read at return rather than captured here, because
 	// every branch below decides it and only the last one is true.
 	defer func() { render.end(String("pw.live.close_reason", reason)) }()
@@ -138,8 +141,9 @@ func serveLive(w http.ResponseWriter, r *http.Request, wrappers []HTMLWrapper, l
 		}
 		if !committed {
 			writeLiveHeaders(w)
-			if err := writeLiveOpen(w); err != nil {
-				logger.Log(ctx, LevelError, "live open record write failed", Err(err))
+			var writeErr error
+			if scratch, writeErr = writeLiveOpen(w, scratch); writeErr != nil {
+				logger.Log(ctx, LevelError, "live open record write failed", Err(writeErr))
 				return
 			}
 			committed = true
@@ -156,10 +160,11 @@ func serveLive(w http.ResponseWriter, r *http.Request, wrappers []HTMLWrapper, l
 			}
 			boundaries[content.BoundaryID] = struct{}{}
 		}
-		if err := writeLiveDelivery(w, content); err != nil {
+		var writeErr error
+		if scratch, writeErr = writeLiveDelivery(w, scratch, content); writeErr != nil {
 			// A write failure here is the client going away, which needs no
 			// record: there is nobody left to read it.
-			logger.Log(ctx, LevelDebug, "live delivery write failed", Err(err))
+			logger.Log(ctx, LevelDebug, "live delivery write failed", Err(writeErr))
 			return
 		}
 		render.wrote(len(content.HTML))
@@ -183,7 +188,7 @@ func serveLive(w http.ResponseWriter, r *http.Request, wrappers []HTMLWrapper, l
 	if reason == liveCloseRetry {
 		hint = liveRetryHint
 	}
-	if err := writeLiveClose(w, reason, hint); err != nil {
+	if _, err := writeLiveClose(w, scratch, reason, hint); err != nil {
 		logger.Log(ctx, LevelDebug, "live close record write failed", Err(err))
 	}
 }
@@ -342,24 +347,31 @@ func writeLiveHeaders(w http.ResponseWriter) {
 	htmlbind.Flush(w)
 }
 
+// The record writers below build into the caller's scratch buffer and return
+// it grown, so one live response reuses a single allocation across every
+// delivery instead of building a fresh record per boundary. A nil scratch is
+// fine; the one-record paths pass it.
+
 // writeLiveOpen names the generated version this stream belongs to, so a client
 // holding ids from another deployment reloads instead of applying deliveries to
 // a document that no longer matches them.
-func writeLiveOpen(w http.ResponseWriter) error {
-	record := []byte(`{"control":"open","version":`)
+func writeLiveOpen(w http.ResponseWriter, scratch []byte) ([]byte, error) {
+	record := append(scratch[:0], `{"control":"open","version":`...)
 	record = append(record, htmlbind.JSONString(renderVersion())...)
 	return writeLiveRecord(w, append(record, '}'))
 }
 
-func writeLiveDelivery(w http.ResponseWriter, content htmlbind.Content) error {
-	return writeLiveRecord(w, content.AppendJSON(nil))
+func writeLiveDelivery(w http.ResponseWriter, scratch []byte, content htmlbind.Content) ([]byte, error) {
+	return writeLiveRecord(w, content.AppendJSON(scratch[:0]))
 }
 
 // writeLiveClose is always the last record. A clean transport close cannot say
 // whether the sources finished or a bound ended a healthy response, and the two
 // deserve opposite client behaviour.
-func writeLiveClose(w http.ResponseWriter, reason string, retryAfter time.Duration) error {
-	record := []byte(`{"control":"closed","reason":"` + reason + `"`)
+func writeLiveClose(w http.ResponseWriter, scratch []byte, reason string, retryAfter time.Duration) ([]byte, error) {
+	record := append(scratch[:0], `{"control":"closed","reason":"`...)
+	record = append(record, reason...)
+	record = append(record, '"')
 	if retryAfter > 0 {
 		record = append(record, `,"retry_after_ms":`...)
 		record = append(record, strconv.FormatInt(retryAfter.Milliseconds(), 10)...)
@@ -367,10 +379,11 @@ func writeLiveClose(w http.ResponseWriter, reason string, retryAfter time.Durati
 	return writeLiveRecord(w, append(record, '}'))
 }
 
-func writeLiveRecord(w io.Writer, record []byte) error {
-	if _, err := w.Write(append(record, '\n')); err != nil {
-		return err
+func writeLiveRecord(w io.Writer, record []byte) ([]byte, error) {
+	record = append(record, '\n')
+	if _, err := w.Write(record); err != nil {
+		return record, err
 	}
 	htmlbind.Flush(w)
-	return nil
+	return record, nil
 }

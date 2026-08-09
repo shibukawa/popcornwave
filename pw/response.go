@@ -382,8 +382,8 @@ func WriteHTMLChain(w http.ResponseWriter, r *http.Request, wrappers []HTMLWrapp
 	// The whole render is the initial build on this branch, so it opens no child
 	// span: every await boundary settles in place before the first byte, and
 	// there is nothing after the pass for a second span to separate.
-	ctx, render := startRenderTrace(requestContext(r), renderModeBuffered,
-		chainRenderAttributes(wrappers, async, live, bot)...)
+	ctx, render := startChainRenderTrace(requestContext(r), renderModeBuffered,
+		renderLayers(wrappers), async, live, bot)
 	defer render.end()
 	// A scriptless client waits for every boundary before any byte, which is the
 	// same shape a classified bot waits in, so it takes the same longer bound
@@ -408,21 +408,6 @@ func WriteHTMLChain(w http.ResponseWriter, r *http.Request, wrappers []HTMLWrapp
 	}
 	render.wrote(body.Len())
 	commitHTMLBody(w, r, body)
-}
-
-// chainRenderAttributes describes the shape of one composed chain, which is
-// what decides the branch this response took.
-//
-// Every value is a property of the templates rather than of the request, so
-// none of it can carry an instance key, a component input, or anything a user
-// supplied, which is what requirement:modern-observability asks of a dimension.
-func chainRenderAttributes(wrappers []HTMLWrapper, async, live, bot bool) []Attribute {
-	return []Attribute{
-		Int("pw.render.layers", renderLayers(wrappers)),
-		Bool("pw.render.async", async),
-		Bool("pw.render.live", live),
-		Bool("pw.render.bot", bot),
-	}
 }
 
 // documentRenderOptions is everything the framework contributes to a document
@@ -500,9 +485,7 @@ func WriteHTMLFragment(w http.ResponseWriter, r *http.Request, fragment HTMLFrag
 	// Nothing classifies the client here: one branch means one representation, so
 	// this response varies on nothing and stays cacheable.
 	async := fragment.HasAwaitBlock()
-	traceCtx, render := startRenderTrace(ctx, renderModeFragment,
-		Int("pw.render.layers", 1), Bool("pw.render.async", async),
-		Bool("pw.render.live", false), Bool("pw.render.bot", false))
+	traceCtx, render := startChainRenderTrace(ctx, renderModeFragment, 1, async, false, false)
 	defer render.end()
 	renderCtx, cancel := boundedRenderContext(traceCtx, config, async, false)
 	defer cancel()
@@ -554,8 +537,8 @@ func commitHTMLBody(w http.ResponseWriter, r *http.Request, body *bytes.Buffer) 
 // unset async values both run before the initial pass, so that failure can
 // still become a problem response.
 func streamHTMLChain(w http.ResponseWriter, r *http.Request, wrappers []HTMLWrapper, leaf HTMLFragment, config HTMLConfig, live bool, options ...HTMLOption) {
-	ctx, render := startRenderTrace(requestContext(r), renderModeStream,
-		chainRenderAttributes(wrappers, true, live, false)...)
+	ctx, render := startChainRenderTrace(requestContext(r), renderModeStream,
+		renderLayers(wrappers), true, live, false)
 	defer render.end()
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	writer, closeWriter, abortWriter, err := prepareHTMLResponse(w, r)

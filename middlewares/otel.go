@@ -101,7 +101,10 @@ func StartSpan(ctx context.Context, name string, attributes ...otel.Attribute) (
 }
 
 func requestAttributes(r *http.Request) []otel.Attribute {
-	attributes := []otel.Attribute{otel.String("http.request.method", r.Method), otel.String("url.path", r.URL.Path)}
+	// Sized for every append below, because the slice is retained by the span
+	// until export and a reallocation here would be one more escaped slice.
+	attributes := make([]otel.Attribute, 0, 6)
+	attributes = append(attributes, otel.String("http.request.method", r.Method), otel.String("url.path", r.URL.Path))
 	scheme := r.URL.Scheme
 	if scheme == "" {
 		if r.TLS == nil {
