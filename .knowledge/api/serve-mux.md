@@ -12,7 +12,11 @@ surface:
   - ServeMux.HandleFunc(pattern string, handler func(http.ResponseWriter, *http.Request))
 compatibility:
   patterns: Go 1.22 method and path patterns
-  path_parameters: Request.PathValue behavior, and pw.PathValue(r, name) as the accessor form a backend can redirect, per policy:request-scoped-accessor-shape
+  path_parameters:
+    behavior: Request.PathValue
+    accessor: the module's own, httpbind.PathValue and fasthttpbind.PathValue, which carry the same name and take the transport first, so a rewrite moves the qualifier and nothing else
+    not_ours: this framework declares no PathValue and should not; an earlier draft of this concept specified pw.PathValue(r, name) before the module had one, and a second spelling of the same read would be a name the transform has to know about for no gain
+    still_open: routetree emits the decoder that performs the read, and it emits net/http only, so the second build has no decoder for a parameterised route until that emitter takes a transport
   host_go: delegates or aliases to net/http ServeMux behavior
   tinygo: uses system:tinygodriver compatible implementation
   other_backend:

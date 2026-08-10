@@ -3,8 +3,27 @@
 Surveyed against **tinybind-go v0.5.1** on 2026-08-10, by diffing the exported
 surface of every package against v0.5.0.
 
-**Everything this page used to ask for has shipped.** What follows is the record
-of what landed and the one thing left, which is ours rather than yours.
+**Everything this page used to ask for has shipped.** One new ask has appeared
+since, and it is small.
+
+---
+
+## The one open ask: `routetree` emits net/http only
+
+`routetree.EmitDecoder(route, inputs)` takes no transport, and the code it emits
+reads `r.PathValue(…)` and `r.URL.Query()` off the request directly. There is no
+option to emit the other shape, so the second build has no decoder for any
+parameterised route.
+
+The accessors it would need already exist and are already right:
+`httpbind.PathValue` and `fasthttpbind.PathValue` carry the same name and take
+the transport first, which is exactly the shape a rewrite wants. So this is a
+transport option on the emitter and three substitutions in what it writes, not a
+design question.
+
+We are not asking for a rewrite of generated output. Generated files are outputs
+rather than transform inputs — they are emitted per backend — so the emitter
+choosing its transport is the whole fix.
 
 ---
 
@@ -108,6 +127,16 @@ For the record, since earlier versions of this page got these wrong:
 ## Call registration, on our side
 
 Every `pw` function taking a writer or a request needs a registered call
-pattern, or our users get build errors they cannot fix. That work is ours and it
-is tracked. The `-transport-report` run over our examples and scaffolds is how
-we will know it is complete.
+pattern, or our users get build errors they cannot fix. That work is ours.
+
+An earlier version of this page said the `-transport-report` run over our
+examples is how we would know it was complete. That was wrong, and worth
+recording because the reasoning is tempting. The report is green when nothing is
+refused, and registering a call is exactly what stops it being refused — so
+registration alone turns the report green whether or not anything exists to
+receive the rewrite. Seven of ours had nothing, and the report said so by saying
+nothing.
+
+What the report proves is that no occurrence is refused. Proving the rewrite
+compiles takes a second check, against the receiving package, which we now
+have.
