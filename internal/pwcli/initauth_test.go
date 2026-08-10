@@ -862,3 +862,61 @@ func TestAServerBackendWithoutALoginBringsItsImport(t *testing.T) {
 		t.Errorf("the rdb backend was configured without its import:\n%s", files["cmd/demo/main.go"])
 	}
 }
+
+// A login the scaffold configures and no page offers is a project nobody can
+// sign in to. With no registered router there is no handler page to carry the
+// controls, so the page tree root carries them — and it said so either way,
+// because the landing sections name the login the project took.
+func TestADiscoveredOnlyLoginIsReachableFromItsStarterPage(t *testing.T) {
+	files := scaffoldFiles(initOptions{Name: "demo", Router: routerDiscovered, Auth: authOIDC})
+	page := files["pages/page.pw.html"]
+	for _, want := range []string{"Account", "{if signedIn}", `href="{loginPath}"`, `action="{logoutPath}"`} {
+		if !strings.Contains(page, want) {
+			t.Errorf("the page tree root does not carry %q:\n%s", want, page)
+		}
+	}
+	// The session is on the request context, which the rungs below the handler
+	// one cannot see, so the root takes that rung and composes its own chain.
+	load, ok := files["pages/page.go"]
+	if !ok {
+		t.Fatal("the page tree root has no page.go, so nothing reads the session")
+	}
+	for _, want := range []string{
+		"func Load(w http.ResponseWriter, r *http.Request)",
+		"auth.User(r.Context())",
+		"BindLayout(LayoutParams{})",
+		"pwpage.Render(w, r, wrappers, Page(params))",
+	} {
+		if !strings.Contains(load, want) {
+			t.Errorf("pages/page.go is missing %q:\n%s", want, load)
+		}
+	}
+}
+
+// With a registered router the controls are on its page, so a second copy on
+// the page tree root would be two account sections to tell apart.
+func TestOnlyOneStarterPageCarriesTheAccountSection(t *testing.T) {
+	for _, router := range []string{routerBoth, routerRegistered} {
+		files := scaffoldFiles(initOptions{Name: "demo", Router: router, Auth: authOIDC})
+		if page, ok := files["pages/page.pw.html"]; ok && strings.Contains(page, "Account") {
+			t.Errorf("router %q put the account section on both starter pages:\n%s", router, page)
+		}
+		if _, ok := files["pages/page.go"]; ok {
+			t.Errorf("router %q raised the page tree root a rung it does not need", router)
+		}
+		if !strings.Contains(files["handlers/home.pw.html"], "Account") {
+			t.Errorf("router %q left the handler page without the account section", router)
+		}
+	}
+}
+
+// A login with no browser flow has nothing to offer on a page.
+func TestABearerProjectScaffoldsNoAccountSection(t *testing.T) {
+	files := scaffoldFiles(initOptions{Name: "demo", Router: routerDiscovered, Auth: authJWTOnly})
+	if page := files["pages/page.pw.html"]; strings.Contains(page, "Account") {
+		t.Errorf("a bearer project got sign-in controls:\n%s", page)
+	}
+	if _, ok := files["pages/page.go"]; ok {
+		t.Error("a bearer project raised the page tree root a rung")
+	}
+}

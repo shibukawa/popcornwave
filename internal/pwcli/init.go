@@ -2029,9 +2029,25 @@ export component Home(name: string, project: string): html {
 	}
 	return `package handlers
 
-export component Home(name: string, project: string, signedIn: bool, email: string, loginPath: url, logoutPath: url, passkey: bool, providerLogin: bool, bootstrap: bool): html {
+export component Home(name: string, project: string, ` + accountParams + `): html {
 <div` + style.Page + `>
-` + registeredHomeHeader(options, style) + `  <section` + style.Section + `>
+` + registeredHomeHeader(options, style) + accountSection(style) + registeredHomeSections(options, style) + `</div>
+}
+`
+}
+
+// accountParams are what a starter page needs in order to show the way in and
+// the way out. They are a shared string because both routers scaffold this
+// section, and a parameter list that disagreed with the section below it would
+// fail generation with a message about counts rather than about the login.
+const accountParams = "signedIn: bool, email: string, loginPath: url, logoutPath: url, passkey: bool, providerLogin: bool, bootstrap: bool"
+
+// accountSection is the sign-in and sign-out surface, which the framework
+// serves and the starter page only points at. Whichever page is at the root
+// carries it: it is the one part of a scaffolded login a project cannot be left
+// without, because there is otherwise no way to reach the login at all.
+func accountSection(style landingStyle) string {
+	return `  <section` + style.Section + `>
     <h2` + style.Heading + `>Account</h2>
     {if signedIn}
       <p>Signed in as {email}</p>
@@ -2067,9 +2083,32 @@ export component Home(name: string, project: string, signedIn: bool, email: stri
       <script type="module" src="/public/passkey.js"></script>
     {/if}
   </section>
-` + registeredHomeSections(options, style) + `</div>
-}
 `
+}
+
+// discoveredRootCarriesAccount reports whether the page tree root is the page a
+// login has to be reachable from.
+//
+// It is, when the project took no registered router: there is no handler page
+// then, and the account section lives on whichever starter page is at the root.
+// Without this a scaffolded login had no way in at all — the tree root said the
+// framework served sign-in controls below it, and below it was nothing.
+func discoveredRootCarriesAccount(options initOptions) bool {
+	return servesBrowserLogin(options) && !routerHasRegistered(options.Router)
+}
+
+func discoveredRootParams(options initOptions) string {
+	if !discoveredRootCarriesAccount(options) {
+		return ""
+	}
+	return accountParams
+}
+
+func discoveredAccountSection(options initOptions, style landingStyle) string {
+	if !discoveredRootCarriesAccount(options) {
+		return ""
+	}
+	return accountSection(style)
 }
 
 // devConsoleProjectConfig pins the development console port and the corner its
@@ -2689,7 +2728,7 @@ func pageTreeScaffold(options initOptions, root string) map[string]string {
 	// follows the directory rather than the other way round.
 	pkg := goPackageIdentifier(root)
 	style := landingStyleFor(options)
-	return map[string]string{
+	files := map[string]string{
 		// A layout must declare children as html: that shape is what makes the
 		// template compiler emit the wrapper the generated chain calls.
 		root + "/" + pwgen.LayoutFile: `package ` + pkg + `
@@ -2702,14 +2741,14 @@ export component Layout(children: html): html {
 		// which serves GET /.
 		root + "/" + pwgen.PageFile: `package ` + pkg + `
 
-export component Page(): html {
+export component Page(` + discoveredRootParams(options) + `): html {
 <div` + style.Page + `>
   <header>
     <p` + style.Eyebrow + `>Popcorn Wave</p>
     <h1` + style.Title + `>` + options.Name + `</h1>
     <p` + style.Lead + `>A directory holding a page template is a route, so <a` + style.Link + ` href="/greet/world">/greet/world</a> is served by the directory beside this one.` + discoveredCounterpartLink(options, style) + `</p>
   </header>
-` + landingSections(options, style, root+"/"+pwgen.PageFile) + `</div>
+` + discoveredAccountSection(options, style) + landingSections(options, style, root+"/"+pwgen.PageFile) + `</div>
 }
 `,
 		// One trailing underscore marks a dynamic segment, so this directory
@@ -2732,6 +2771,62 @@ func Load(name string) (string, error) {
 }
 `,
 	}
+	if discoveredRootCarriesAccount(options) {
+		files[root+"/page.go"] = discoveredRootLoadScaffold(options, pkg)
+	}
+	return files
+}
+
+// discoveredRootLoadScaffold puts the tree root on the handler rung, which is
+// the rung a page takes when it needs the request itself.
+//
+// The session is on the request context, and the rung below this one receives
+// the route's inputs rather than the request — a typed Load is handed path and
+// query values, and an external the template calls is handed its arguments. So
+// a page that reads who is signed in is a handler-rung page, and this is the
+// smallest one that does.
+//
+// It composes its own chain for a reason that is structural rather than a
+// missing convenience: a leaf imports the root for its ancestor layouts, so the
+// root cannot import a composer from below it, and the generated registry is
+// where composition lives. A handwritten Load therefore assembles the wrappers
+// the registry would have assembled, which for the root is its own layout.
+func discoveredRootLoadScaffold(options initOptions, pkg string) string {
+	return `package ` + pkg + `
+
+import (
+	"net/http"
+	"net/url"
+
+	"github.com/shibukawa/popcornwave/plugin/auth"
+	"github.com/shibukawa/popcornwave/pw"
+	"github.com/shibukawa/popcornwave/pwpage"
+)
+
+// Load renders the starter landing page, signed in or not.
+//
+// A page with no page.go beside it is generated whole, and one with a typed
+// Load is handed its route inputs. This one is handed the request, because the
+// session is on its context and neither of those rungs can see it.
+func Load(w http.ResponseWriter, r *http.Request) {
+	// The framework resolved the session before this handler ran.
+	user, signedIn := auth.User(r.Context())
+	params := PageParams{
+		SignedIn:      signedIn,
+		Email:         user.Email,
+		LoginPath:     url.URL{Path: "/auth/login"},
+		LogoutPath:    url.URL{Path: "/auth/logout"},
+		Passkey:       ` + passkeyLiteral(usesPasskey(options.Auth)) + `,
+		ProviderLogin: ` + passkeyLiteral(usesOIDC(options.Auth)) + `,
+		Bootstrap:     ` + passkeyLiteral(options.Auth == authPasskey) + `,
+	}
+	// The ancestor layouts of this route, outermost first. The root has one.
+	wrappers := []pwpage.Wrapper{BindLayout(LayoutParams{})}
+	if err := pwpage.Render(w, r, wrappers, Page(params)); err != nil {
+		pw.WriteProblem(w, r, err)
+	}
+}
+`
 }
 
 func muxScaffold(options initOptions) string {
