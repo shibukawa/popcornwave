@@ -52,6 +52,14 @@ type UpdateSettings struct {
 	// deployment did not choose.
 	AsyncTimeout     time.Duration
 	AsyncConcurrency int
+	// The live bounds, which the delivery loop reads on either transport. They
+	// travel here for the reason the async bounds do: the loop is shared, so
+	// the values it consults have to be.
+	LiveMaxResponses   int
+	LiveMaxBoundaries  int
+	LiveMaxDuration    time.Duration
+	LiveDurationJitter int
+	LiveIdleTimeout    time.Duration
 }
 
 // RenderOptions is the option set a streamed answer renders with, built from

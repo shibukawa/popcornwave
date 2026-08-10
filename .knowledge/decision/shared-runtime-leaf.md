@@ -19,6 +19,7 @@ what_moves:
     found_2026_08_09: it is pw's own struct and not an alias, while the module's problem is a two-field body the error constructors carry, so the two are different types with different fields rather than two spellings of one
     defect_it_caused: api:pwfast-package aliased the module's problem under the name pw uses for its own, which is a name meaning two things; it fails to compile rather than misbehaving, but it is wrong and this move is the fix
   document_shell: the registered wrapper chain, which stores htmlbind wrappers and names no transport
+  live_protocol_2026_08_10: the close reasons, the media type, the lifetime jitter and watchdog, the per-client admission count, the keyed delivery digest, the manifest parse, and the record writers, which together are the live wire; two runtimes each writing their own would be two chances to disagree on the one response nobody watches, because it is open while a screen sits idle and nobody reloads a page that looks right
   error_page: the resolver, which is a function from the problem value to a fragment and names no transport either
   observation: every item on this list is already transport-free, which is why the move is a relocation rather than a port
   as_built:

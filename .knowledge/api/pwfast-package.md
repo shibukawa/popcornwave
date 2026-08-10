@@ -23,7 +23,7 @@ implemented:
   registration: RegisterHTMLDocument and RegisterHTMLErrorPage, reaching the one registry of decision:shared-runtime-leaf
   stream: WriteStream and SetStreamErrorHandler
   update: WantsUpdate, WriteUpdate, WriteUpdateNavigate, Redraw, RedrawComponents, Replace, and RegisterReloadable
-  streaming: ServeUpdate for a streamed navigation, over the same module entry the net/http half calls
+  streaming: ServeUpdate for a streamed navigation over the same module entry the net/http half calls, and ServeLive over the shared protocol of decision:shared-runtime-leaf
   render_bounds: the async timeout and concurrency travel with the published settings, so a boundary is settled on the terms the deployment chose rather than on a default this half invented
   update_configuration:
     problem: every entry needs composed options built from this framework's own config type, which is bound by generated configbind code inside pw and cannot be named from here
@@ -38,12 +38,12 @@ buffered_render:
   fact: the chain renders into a buffer and commits after it succeeds, where the net/http half can stream
   why: committing first would trade a problem response for a half-written page, and the streaming path needs the flusher the deferred htmlupdate port holds
   cost: time to first byte, not bytes
-live_withdrawn_2026_08_10:
-  shipped_then_removed: a first cut called the module's live entry, which compiles and answers the request
-  why_it_was_wrong: the net/http half does not use that entry either; it runs its own loop over the chain renderer and layers on admission control per client, a lifetime and idle watchdog, digest suppression seeded from the client manifest so a reconnect re-sends only what changed, a bound on boundaries, and the render telemetry
-  consequence_if_kept: this half would answer the same requests with a poorer stream, and nothing would have reported the difference
-  policy: policy:absent-rather-than-stubbed reaches this too, since a declaration that behaves differently hides a gap the same way one that does nothing would
-  convergence_runs_the_other_way: the transport-free majority of that loop belongs in decision:shared-runtime-leaf, leaving each runtime the headers, the write, and the flush, so both halves run the richer implementation rather than one running a thinner one
+live_converged_2026_08_10:
+  first_cut_withdrawn: it called the module's live entry, which has none of the admission bound, watchdog, digest suppression, boundary bound, or close reasons the net/http half layers on, so it would have served a poorer stream with nothing to report the difference
+  then_done_the_other_way: the protocol moved into the leaf, and both halves now read one set of decisions rather than two readings of the same document
+  what_moved: the close reasons and media type, the lifetime jitter and watchdog, the per-client admission count, the keyed delivery digest and its per-process fallback, the manifest parse, and the four record writers
+  what_each_runtime_keeps: setting response headers, obtaining a writer that flushes, naming the client for admission, and answering a pre-commit failure
+  one_real_difference: the fasthttp body writer runs after the handler returned, so the loop reads nothing from the request value and is bounded by the watchdog rather than the request context; a client going away is noticed on the next write, which is the signal the other half falls back to once a record fails
 absent_and_why:
   everything_absent_here: is absent rather than stubbed, per policy:absent-rather-than-stubbed
   redirect: api:redirect-response has no net/http half yet either, so there is nothing here to mirror
