@@ -91,13 +91,24 @@ func (p Proxies) Trusts(address string) bool {
 // Otherwise X-Forwarded-Proto is read, and only when the peer is one of this
 // deployment's declared proxies.
 func (p Proxies) Scheme(r *http.Request) string {
-	if r.TLS != nil {
+	return p.SchemeOf(r.TLS != nil, r.RemoteAddr, r.Header.Get("X-Forwarded-Proto"))
+}
+
+// SchemeOf is Scheme over the three facts it actually reads, for a caller whose
+// request is not a *http.Request.
+//
+// The rule is the reason this is one function rather than two: a forwarded
+// header is only evidence, and only from a declared peer, because anybody can
+// send one. A second transport reimplementing that would be a fourth answer to
+// the question this package exists to answer once.
+func (p Proxies) SchemeOf(tls bool, remoteAddress, forwardedProto string) string {
+	if tls {
 		return "https"
 	}
-	if !p.Trusts(r.RemoteAddr) {
+	if !p.Trusts(remoteAddress) {
 		return "http"
 	}
-	proto, _, _ := strings.Cut(r.Header.Get("X-Forwarded-Proto"), ",")
+	proto, _, _ := strings.Cut(forwardedProto, ",")
 	if strings.EqualFold(strings.TrimSpace(proto), "https") {
 		return "https"
 	}
