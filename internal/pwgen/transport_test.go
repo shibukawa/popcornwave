@@ -1,6 +1,7 @@
 package pwgen_test
 
 import (
+	"io/fs"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -72,6 +73,86 @@ func TestAuthoredHandlersCanBeRewrittenForTheSecondTransport(t *testing.T) {
 		t.Fatal("no package held a transport-taking function, so this proves nothing")
 	}
 	t.Logf("analyzed %d packages holding handlers", analyzed)
+}
+
+// The examples are the real audience, and they are analyzed when they can be.
+//
+// Each is its own module whose query and template packages exist only after pw
+// generate, and generated files are not committed, so a fresh checkout cannot
+// load them. That makes this opportunistic rather than required: an example
+// that loads is analyzed and any refusal fails, and one that does not is
+// reported as skipped rather than passed over in silence.
+//
+// todo/stdhttp is excluded on purpose. It is the plain net/http comparison this
+// repository keeps beside the framework one, it calls none of the pw surface,
+// and a refusal there would be correct.
+func TestTheExamplesCanBeRewrittenWhereTheyCanBeLoaded(t *testing.T) {
+	options, err := pwgen.Options(sqlbind.DialectSQLite)
+	if err != nil {
+		t.Fatal(err)
+	}
+	transform := generator.DefaultTransformOptions()
+	transform.Calls = options.Calls.Set
+
+	root, err := filepath.Abs(filepath.Join("..", "..", "examples"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var modules []string
+	err = filepath.WalkDir(root, func(path string, entry fs.DirEntry, err error) error {
+		switch {
+		case err != nil:
+			return err
+		case entry.IsDir(), entry.Name() != "go.mod":
+			return nil
+		}
+		if module := filepath.Dir(path); filepath.Base(module) != "stdhttp" {
+			modules = append(modules, module)
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	analyzed, skipped := 0, 0
+	for _, module := range modules {
+		loaded, err := packages.Load(&packages.Config{
+			Mode: packages.NeedName | packages.NeedFiles | packages.NeedSyntax |
+				packages.NeedTypes | packages.NeedTypesInfo | packages.NeedDeps | packages.NeedImports,
+			Dir: module,
+		}, "./...")
+		if err != nil {
+			skipped++
+			continue
+		}
+		for _, pkg := range loaded {
+			if len(pkg.Errors) > 0 || pkg.TypesInfo == nil {
+				skipped++
+				continue
+			}
+			plan, err := generator.AnalyzeTransform(pkg, transform)
+			if err != nil {
+				t.Errorf("%s: %v", pkg.PkgPath, err)
+				continue
+			}
+			if len(plan.Admitted) == 0 && len(plan.Refusals) == 0 {
+				continue
+			}
+			analyzed++
+			for _, refusal := range plan.Refusals {
+				// A generated file is emitted per backend rather than rewritten,
+				// so a refusal in one is not a finding about this application:
+				// the fasthttp build generates its own.
+				if strings.HasSuffix(refusal.Position.Filename, "_pw_gen.go") {
+					continue
+				}
+				t.Errorf("%s cannot be rewritten:\n%s", pkg.PkgPath, refusal.Error())
+			}
+		}
+	}
+	t.Logf("analyzed %d example packages holding handlers, skipped %d that could not be loaded "+
+		"(run pw generate in each example to include them)", analyzed, skipped)
 }
 
 // A pw entry taking the transport with no registered pattern is the omission

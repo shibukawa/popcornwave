@@ -86,12 +86,12 @@ func createTask(w http.ResponseWriter, r *http.Request) {
 		// this form url-encoded, and binding has already parsed that body, so
 		// reading it again costs nothing.
 		form := FormState{
-			Title:    r.PostFormValue("title"),
-			Owner:    r.PostFormValue("owner"),
-			Priority: knownPriority(r.PostFormValue("priority")),
+			Title:    pw.FormValue(r, "title"),
+			Owner:    pw.FormValue(r, "owner"),
+			Priority: knownPriority(pw.FormValue(r, "priority")),
 		}
 		applyFieldErrors(&form, fields)
-		writePanel(w, r, form, r.FormValue("q"), "")
+		writePanel(w, r, form, pw.FormValue(r, "q"), "")
 		return
 	}
 	added := tasks.add(input.Title, input.Owner, input.Priority)
