@@ -29,11 +29,20 @@ compatibility:
       subtree: a pattern ending in a slash becomes the exact path plus a catch-all registration
       no_catch_all_spelling: a target declaring none rejects such a route by name rather than inventing one
       path_values: the router stores them where pw.PathValue reads them, so a handler using the accessor needs no rewrite
-      behavior_flags: RedirectTrailingSlash, RedirectFixedPath, HandleMethodNotAllowed, and HandleOPTIONS are set to reproduce Go 1.22 behavior rather than left at the router's defaults
+      exact_terminator:
+        resolved: absorbed, by dropping it; an earlier version of this concept listed it as untranslatable and that was wrong
+        why: the marker exists in Go to opt out of subtree matching, and a trie is exact already, so it has no counterpart because it needs none
+        why_it_mattered: generated page trees register 'GET /{$}' for the root, so this is the first route of every project rather than an exotic case
+      wildcard_values:
+        checked: a catch-all yields the remaining segments without a leading slash on both, and the empty string for the directory itself
+        method: measured against net/http rather than assumed, because the router's own documentation describes the upstream httprouter behaviour and not the fork's
+      behavior_flags:
+        set: RedirectTrailingSlash, RedirectFixedPath, HandleMethodNotAllowed, and HandleOPTIONS are set to reproduce Go 1.22 behavior rather than left at the router's defaults
+        redirect_fixed_path: off, because the flag both cleans a path, which Go also does, and then retries case-insensitively, which Go never does; leaving it on would let /Admin reach a handler registered for /admin, and a route table an authorization check is written on top of has to be as case-sensitive as it reads
+        handle_options: off, because Go does not answer OPTIONS by itself
     cannot_absorb:
       precedence: Go 1.22 resolves overlapping patterns by specificity where a trie rejects them, and reproducing that would mean matching before dispatch, which gives up the reason to use the trie
-      host_patterns: Go 1.22 matches on host, and the router does not
-      exact_terminator: the Go 1.22 marker forcing an exact match has no counterpart
+      host_patterns: Go 1.22 matches on host, and the router does not; refused at registration, naming the pattern, the way net/http refuses one it cannot parse
     consequence: a route table using only method, path, and named parameters translates; one relying on the three above needs a per-backend source, per decision:transport-source-transform
 example: 'mux.HandleFunc("GET /users/{id}", showUser)'
 scope:
