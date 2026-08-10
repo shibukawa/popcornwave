@@ -920,3 +920,27 @@ func TestABearerProjectScaffoldsNoAccountSection(t *testing.T) {
 		t.Error("a bearer project raised the page tree root a rung")
 	}
 }
+
+// A DynamoDB project has to compile from the files pw init wrote. The codec is
+// emitted for the directions a package is discovered to use, and discovery
+// matches the context-form entries — so a scaffold calling only the handle-form
+// ones declared a type whose EncodeItem and ItemKey no generation would ever
+// produce, and the project it created did not build.
+func TestScaffoldedDynamoRecordUsesDiscoverableCalls(t *testing.T) {
+	files := scaffoldFiles(initOptions{Name: "demo", Dynamo: true})
+	record, ok := files["records/note.go"]
+	if !ok {
+		t.Fatal("no dynamo record was scaffolded")
+	}
+	for _, want := range []string{`dynamobind.Store(ctx, "note", note)`, "dynamobind.Load[Note](ctx,", "dynamo.EnsureClient(ctx)"} {
+		if !strings.Contains(record, want) {
+			t.Errorf("records/note.go does not carry %q:\n%s", want, record)
+		}
+	}
+	// The declaration the Firestore scaffold has always had, and this one had
+	// not: it is a use of its result type, so it is what the read side is
+	// emitted for once a project declares an access pattern.
+	if _, ok := files["records/notes.pw.dynamo"]; !ok {
+		t.Error("the dynamo scaffold declares no access pattern, unlike the firestore one")
+	}
+}

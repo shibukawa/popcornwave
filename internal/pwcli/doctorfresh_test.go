@@ -98,3 +98,29 @@ func TestDoctorReportsTheBuiltInSessionBackendsAsBuiltIn(t *testing.T) {
 		}
 	}
 }
+
+// A store declaration is a generation source like a template or a query, and
+// its output sits beside it under the same stem. Left out of the source kinds
+// the scan knows, the file that serves a declared access pattern is reported as
+// one whose source was deleted.
+func TestDoctorPairsStoreOutputWithItsDeclaration(t *testing.T) {
+	root := t.TempDir()
+	for stem, source := range map[string]string{
+		"notes":   "notes.pw.dynamo",
+		"entries": "entries.pw.firestore",
+	} {
+		writeTestFile(t, filepath.Join(root, source), "// declaration\n")
+		writeTestFile(t, filepath.Join(root, stem+generatedSuffix), "package records\n")
+	}
+	scan := &projectScan{root: root, gitTracked: map[string]bool{}, configFileModes: map[string]os.FileMode{}, devboxVersions: map[string]string{}}
+	scan.scanGenerated()
+
+	if len(scan.generated) == 0 {
+		t.Fatal("the scan found no generated files")
+	}
+	for _, generated := range scan.generated {
+		if generated.Orphan {
+			t.Errorf("%s is reported as having outlived its source", generated.Path)
+		}
+	}
+}
