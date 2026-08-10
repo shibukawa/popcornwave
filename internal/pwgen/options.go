@@ -175,6 +175,12 @@ func Options(sqlDialect string) (generator.Options, error) {
 		patterns = append(patterns, generator.TransportCall(
 			generator.Function(pwPackage, transport.name), options...))
 	}
+	// The page runtime's one render entry. A handler-rung page composes its own
+	// chain and calls it, which is the rung the scaffold itself writes, so a
+	// pattern for it is what keeps a page tree analyzable at all.
+	patterns = append(patterns, generator.TransportCall(
+		generator.Function(pwPagePackage, "Render"),
+		generator.WriterArgument(0), generator.RequestArgument(1)))
 	if err := registry.Register(patterns...); err != nil {
 		return generator.Options{}, err
 	}
