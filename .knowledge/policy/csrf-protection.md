@@ -51,7 +51,9 @@ validation:
   - return HTTP 403 through api:error-renderer without calling the application handler
 origin_check:
   owner: the middlewares CSRF implementation, which reconstructs this request's origin as scheme and host, refuses a null Origin, requires a scheme on the Referer fallback, and consults the configured trusted origins
-  forwarded_headers: not trusted, so a deployment behind a scheme-rewriting proxy names its origin in TrustedOrigins rather than having the check read a value a caller can assert
+  forwarded_headers:
+    for_this_comparison: still not trusted; a deployment behind a scheme-rewriting proxy names its origin in TrustedOrigins rather than having the check accept a value a caller can assert, because a declared origin is an answer the deployment already owed
+    for_the_self_origin: decision:forwarded-header-trust governs the scheme this request reconstructs for itself, which is a different question and has no declared answer; requirement:proxied-request-identity is why the two are now stated apart
   single_implementation: internal/requestorigin, shared with the plugin/auth login, logout, passkey, and presence endpoints; the same reason pattern_grammar gives, applied to origin comparison, because a second copy is a second set of rules that drifts from this one
   auth_trusted_origins: the passkey origin allowlist and the origin of the OIDC redirect URL, both of which the deployment already had to declare for another reason, so a TLS-terminating proxy needs no new setting and no header is inferred
 lifecycle:

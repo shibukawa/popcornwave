@@ -57,7 +57,7 @@ required:
   - a presence report refreshes idle expiry only, and never beyond the absolute expiry of policy:session-security
   - an absence report ends the session, or downgrades it under policy:session-downgrade, without waiting for the idle timeout
   - a live connection stops counting as activity, so reconnection and presence become different facts
-  - the endpoint is bounded and rate-limited, and accepts one bit per tick with no room for a description of the input
+  - the endpoint is bounded by the identity bucket of requirement:rate-limit-enforcement rather than by a rule of its own, so the tick interval is part of what sizes that limit, and accepts one bit per tick with no room for a description of the input
   - a client that sends nothing degrades to today's request-driven behavior rather than to an unbounded session
 non_goals:
   - behavioral biometrics, keystroke dynamics, or anything identifying a person from how they interact, which the one-bit wire cannot express

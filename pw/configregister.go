@@ -8,6 +8,7 @@ package pw
 func init() {
 	RegisterConfig[ServerConfig]("server")
 	RegisterConfig[SecurityConfig]("security")
+	RegisterConfig[RateLimitConfig]("ratelimit")
 	RegisterConfig[SessionConfig]("session")
 	RegisterConfig[ObservabilityConfig]("observability")
 	RegisterConfig[MiddlewareConfig]("middleware")

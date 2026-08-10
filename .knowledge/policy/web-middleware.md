@@ -11,10 +11,10 @@ concerns:
   - panic recovery
   - authentication, authorization, sessions, and CSRF
   - CORS and compression
-  - request size, timeout, and rate limits
+  - request size, timeout, and rate limits, the last of which is requirement:rate-limit-enforcement and is only partly a middleware
   - caching
   - metrics and minimal OpenTelemetry propagation and export
-  - trusted proxy and forwarded-header handling
+  - trusted proxy and forwarded-header handling, resolved once through requirement:proxied-request-identity rather than per consumer
 ordering:
   - canonicalize and reject malformed request targets
   - apply policy:security-response-headers

@@ -174,6 +174,56 @@ secret_material:
       intent: a check that the configuration can hold a verifying key alongside a signing key, so a rotation does not require downtime
       blocked_on: no framework binding expresses a key set today, and the schema decision comes before the check
       note: doctor cannot check a shape the configuration cannot express, which is why this is listed rather than written
+proxy:
+  basis:
+    normal: decision:local-tls-proxy-boundary terminates TLS upstream, so a deployment reaching this framework over plain http is the designed arrangement and never a finding on its own
+    what_doctor_sees: the configuration; whether a proxy actually sits in front is a runtime observation, which is why one member of this group is a startup check reading the first request instead
+    subject: requirement:proxied-request-identity, whose every failure mode is a value nobody set
+    determinacy: decision:ingress-tls-termination makes the boundary a declared fact, so these checks test a configured value rather than guessing which shape they are looking at; before that decision lands, every severity here is one step weaker than written, because a directly served deployment could not be told apart from a proxied one
+    no_suppression: this group carries no per-advisory off switch, per the no_advisory_off_switch clause of decision:ingress-tls-termination; a declared boundary is what silences these, because it stays true when the deployment changes and a mute does not
+  trusted-proxies-unset:
+    trigger: server.trusted_proxies empty while security headers.enabled and hsts.enabled
+    scope: dev_only
+    severity: warning
+    reason: decision:forwarded-header-trust treats an ungated header as absent, so HSTS is silently never emitted behind a TLS-terminating proxy, and the missing header is the one nobody notices
+    remedy: the proxy network in server.trusted_proxies
+    bound: doctor cannot tell a proxied deployment from a directly served one, so this fires on configuration alone and is a warning rather than an error
+  forwarded-header-from-untrusted-peer:
+    trigger: a request carrying X-Forwarded-Proto or X-Forwarded-For from a peer outside server.trusted_proxies
+    phase: startup, because no configuration shows it and the first request does
+    scope: dev_only
+    severity: warning
+    reason: the deployment is behind a proxy its configuration does not declare, so every value of requirement:proxied-request-identity is degraded at once
+    once: reported on the first such request and not again, since a per-request advisory is a log flood rather than a finding
+    remedy: the observed peer address, named, so the remedy is a value to paste rather than a network to work out
+  csrf-trusted-origins-unset:
+    trigger: security csrf.enabled with an empty csrf.trusted_origins and no declared server.tls
+    scope: dev_only
+    severity: error
+    reason: policy:csrf-protection matches against a declared origin, and a deployment terminating no TLS of its own reconstructs http while the browser reports https, so every unsafe request is refused
+    remedy: the deployment's own https origin
+    not_owed_by_auth: api:authentication-endpoints derives its origins from the passkey allowlist and the OIDC redirect URL, so one deployment configures this and needs nothing there; the advisory says so, because the asymmetry reads as an oversight otherwise
+    why_error_rather_than_warning: the trigger names the declared boundary of decision:ingress-tls-termination, so this is not a guess about deployment shape; it is a configuration whose every unsafe request is already refused
+    before_that_decision: warning, because without a declared boundary a directly served deployment cannot be told from a proxied one
+  rate-limit-no-process-ceiling:
+    trigger: data:rate-limit-runtime-config enabled with process zero
+    scope: dev_only
+    severity: warning
+    reason: the per-address bucket cannot see a distributed flood, since such a flood keeps every source under it by construction, so a zero ceiling leaves that case to the edge alone
+    remedy: a ceiling sized against what this deployment can serve, which is why it defaults to zero rather than to a guess
+    not_an_error: a deployment whose edge already sheds volumetric load has made a defensible choice, and doctor cannot see that rule
+  rate-limit-store-in-process:
+    trigger: requirement:rate-limit-enforcement enabled with the in-process counter store
+    scope: dev_only
+    severity: warning
+    reason: N replicas each enforce the configured limit, so the effective limit is N times what the deployment declared; the configuration is correct on one replica and wrong on the shape decision:local-tls-proxy-boundary assumes
+    remedy: a shared counter backend, requirement:contrib-redis-valkey being the first
+  live-bound-unenforceable-behind-proxy:
+    trigger: html.live_max_responses positive while server.trusted_proxies is empty
+    scope: dev_only
+    severity: warning
+    reason: the client_key of policy:live-subscription-bounds falls back to the remote address, which behind a proxy is one bucket per proxy node, so the bound refuses ordinary visitors instead of bounding one
+    remedy: the proxy network in server.trusted_proxies, which is the same remedy as trusted-proxies-unset and is reported once
 identity_provider:
   basis:
     dev: requirement:contrib-devidp is a legitimate dev issuer that api:cli-dev injects, so an empty auth oidc section in config.dev.toml is correct rather than missing

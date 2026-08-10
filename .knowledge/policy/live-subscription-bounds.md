@@ -12,7 +12,11 @@ extends: policy:async-render-bounds
 client_key:
   rule: an authenticated subject where there is one, and the remote address otherwise
   why_not_the_session: no session identifier reaches a response path, and grouping every anonymous visitor into one bucket would refuse the second one
-  known_weakness: clients behind one NAT or proxy share a bucket, so the anonymous bound is per address rather than per browser
+  known_weakness: clients behind one NAT share a bucket, so the anonymous bound is per address rather than per browser
+  understated:
+    fact: a proxy is not the corner case this weakness named; decision:local-tls-proxy-boundary makes a deployed listener see the proxy on every request, so the bound is one bucket per proxy node for every anonymous visitor
+    effect: the fifth concurrent anonymous visitor of a proxied deployment is refused at the default of four, which bounds nothing and refuses ordinary traffic
+    resolution: the client address of requirement:proxied-request-identity, which is the first consumer this policy owes that resolution
 new_shape:
   fact: every other render is bounded by a request; a live connection is bounded by how long a browser tab stays open
   per_client_cost: one subscription is a goroutine, a source, and one rendered subtree per delivery, multiplied by the live boundaries on the screen
@@ -71,5 +75,5 @@ configuration: data:html-render-config
 open_questions:
   - default values for every bound, and whether any of them belongs on the render rather than in configuration
   - whether a per-boundary interval floor is declared in the template or configured per deployment
-  - whether process-wide admission control belongs here or in policy:web-middleware
+  - resolved: process-wide admission control is the process_wide scope of requirement:rate-limit-enforcement, not this policy; what stays here is the per-response bound, and the shedding valve is one layer out
 ```

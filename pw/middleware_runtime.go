@@ -31,6 +31,11 @@ func buildRuntimeHandler(handler http.Handler, server ServerConfig, security Sec
 		frames = append(frames, chainFrame{slot: SlotTracing, name: "otel", middleware: middlewares.Otel()})
 	}
 	frames = append(frames, chainFrame{slot: SlotResources, name: "resources", middleware: middlewares.InjectResources(resources)})
+	// Always installed, because the value it records is what every downstream
+	// bound counts against, and an unresolved one silently counts the proxy.
+	// With no networks declared it records the peer, which is what those
+	// callers read directly before this frame existed.
+	frames = append(frames, chainFrame{slot: SlotClientAddress, name: "client_address", middleware: middlewares.ResolveClientAddress(trusted)})
 	if middleware.RequestID {
 		frames = append(frames, chainFrame{slot: SlotRequestID, name: "request_id", middleware: middlewares.RequestID()})
 	}

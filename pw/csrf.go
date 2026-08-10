@@ -33,13 +33,20 @@ func setupCSRF(ctx context.Context) (Middleware, error) {
 	if err != nil {
 		return nil, err
 	}
+	// The origin this check compares against is reconstructed from the
+	// request, and a deployment whose TLS terminates upstream reconstructs
+	// http for an https browser unless the proxy set says otherwise.
+	trusted, err := compileTrustedProxies(Config[ServerConfig](ctx).TrustedProxies)
+	if err != nil {
+		return nil, err
+	}
 	// The anonymous cookie follows the session cookie's own policy, so one
 	// deployment decision covers both rather than two that can disagree.
 	return middlewares.CSRF(config.CSRF, session.CookieOptions{
 		Path:   sessionConfig.Cookie.Path,
 		Domain: sessionConfig.Cookie.Domain,
 		Secure: sessionConfig.Cookie.Secure,
-	}, sameSite, writeCSRFProblem)
+	}, sameSite, writeCSRFProblem, trusted)
 }
 
 // writeCSRFProblem answers a refused request through the framework error path,

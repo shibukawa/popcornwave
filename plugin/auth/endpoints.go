@@ -12,7 +12,6 @@ import (
 	"github.com/shibukawa/popcornwave/contrib/oauth"
 	"github.com/shibukawa/popcornwave/contrib/oidc"
 	"github.com/shibukawa/popcornwave/internal/pathpattern"
-	"github.com/shibukawa/popcornwave/internal/requestorigin"
 	"github.com/shibukawa/popcornwave/pw"
 	"github.com/shibukawa/popcornwave/pwruntime"
 )
@@ -437,15 +436,16 @@ func (rt *runtime) endSessionURL(r *http.Request) string {
 
 // postLogoutRedirectURI is the absolute form of the local landing path, because
 // a provider needs a full URL to return the browser to.
+//
+// The scheme comes from the same resolution the origin comparison uses. This
+// function used to read X-Forwarded-Proto with no trusted-proxy gate, which
+// made it the one caller in the tree that answered "is this https" from a value
+// any client could assert.
 func (rt *runtime) postLogoutRedirectURI(r *http.Request) string {
 	if r.Host == "" {
 		return ""
 	}
-	scheme := "http"
-	if r.TLS != nil || strings.EqualFold(r.Header.Get("X-Forwarded-Proto"), "https") {
-		scheme = "https"
-	}
-	return (&url.URL{Scheme: scheme, Host: r.Host, Path: "/"}).String()
+	return (&url.URL{Scheme: rt.proxies.Scheme(r), Host: r.Host, Path: "/"}).String()
 }
 
 // oidcClient discovers the provider on first use and caches the client.
@@ -649,7 +649,7 @@ func localReturnPath(value string) string {
 // makes. This package used to compare host names alone, which admitted an http
 // caller to an https deployment and supported no declared origin at all.
 func (rt *runtime) sameOrigin(r *http.Request) bool {
-	return requestorigin.Matches(r, rt.trustedOrigins)
+	return rt.proxies.Matches(r, rt.trustedOrigins)
 }
 
 func allowMethod(w http.ResponseWriter, r *http.Request, allowed ...string) bool {

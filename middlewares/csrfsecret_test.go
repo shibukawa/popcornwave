@@ -35,7 +35,7 @@ func csrfDeployment(t *testing.T) *session.Manager {
 
 func csrfHandler(t *testing.T, manager *session.Manager, config CSRFConfig) http.Handler {
 	t.Helper()
-	check, err := CSRF(config, session.CookieOptions{Path: "/"}, http.SameSiteLaxMode, nil)
+	check, err := CSRF(config, session.CookieOptions{Path: "/"}, http.SameSiteLaxMode, nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

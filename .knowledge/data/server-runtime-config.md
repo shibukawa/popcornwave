@@ -14,7 +14,7 @@ fields:
   idle_timeout: duration
   shutdown_timeout: duration
   max_request_body: bytes
-  trusted_proxies: address or network list
+  trusted_proxies: address or network list; the trust gate of decision:forwarded-header-trust, read by every consumer of requirement:proxied-request-identity rather than by one middleware
   health.enabled: bool
   health.path: absolute path
   readiness.enabled: bool

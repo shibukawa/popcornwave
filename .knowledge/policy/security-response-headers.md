@@ -17,7 +17,7 @@ managed:
 rules:
   - set configured headers before downstream response commitment
   - apply to api:error-renderer and policy:operational-endpoints responses
-  - emit HSTS only for an effective HTTPS request after trusted-proxy evaluation
+  - emit HSTS only for an effective HTTPS request, resolved through requirement:proxied-request-identity under decision:forwarded-header-trust rather than by this middleware's own copy of the evaluation
   - HSTS preload requires includeSubDomains and at least 31536000 seconds max-age
   - enforced and report-only CSP values may coexist
   - reject carriage return, line feed, and invalid field values at startup
