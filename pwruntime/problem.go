@@ -195,3 +195,57 @@ func Validation(fields ...FieldError) Problem {
 	p.Fields = append([]FieldError(nil), fields...)
 	return p
 }
+
+// SanitizeProblem drops what a 5xx must never carry out of the process.
+//
+// Applying it twice changes nothing, which is what makes it safe to put at each
+// writer rather than at one entry point: a boundary that failed with no recover
+// clause reaches a writer directly, and every path that can answer with a
+// server error has to lose the cause on the way out.
+func SanitizeProblem(problem Problem) Problem {
+	if problem.Status < 500 {
+		return problem
+	}
+	problem.Message = "internal error"
+	problem.Code = "internal"
+	problem.Fields = nil
+	return problem
+}
+
+// AppendProblemJSON appends the RFC problem document to dst.
+//
+// It is here because it was written by hand in each runtime, and the two copies
+// were one response body described twice — which is the shape of thing that
+// stays identical until the day it does not, with nothing to say which client
+// saw which. It is built by hand rather than marshalled because the document is
+// flat and known, and this path must not fail: it is what answers when
+// everything else already has.
+//
+// The caller sanitizes and sets the headers; this writes the body alone.
+func AppendProblemJSON(dst []byte, problem Problem) []byte {
+	dst = append(dst, `{"type":"about:blank","title":`...)
+	dst = strconv.AppendQuote(dst, problem.Title)
+	dst = append(dst, `,"status":`...)
+	dst = strconv.AppendInt(dst, int64(problem.Status), 10)
+	dst = append(dst, `,"detail":`...)
+	dst = strconv.AppendQuote(dst, problem.Message)
+	dst = append(dst, `,"code":`...)
+	dst = strconv.AppendQuote(dst, problem.Code)
+	if len(problem.Fields) > 0 {
+		dst = append(dst, `,"errors":[`...)
+		for index, field := range problem.Fields {
+			if index > 0 {
+				dst = append(dst, ',')
+			}
+			dst = append(dst, `{"field":`...)
+			dst = strconv.AppendQuote(dst, field.Field)
+			dst = append(dst, `,"location":`...)
+			dst = strconv.AppendQuote(dst, field.Location)
+			dst = append(dst, `,"message":`...)
+			dst = strconv.AppendQuote(dst, field.Message)
+			dst = append(dst, '}')
+		}
+		dst = append(dst, ']')
+	}
+	return append(dst, "}\n"...)
+}

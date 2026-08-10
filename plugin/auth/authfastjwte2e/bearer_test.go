@@ -2,6 +2,7 @@ package authfastjwte2e
 
 import (
 	"net/http"
+	"os/exec"
 	"strings"
 	"testing"
 	"time"
@@ -150,5 +151,25 @@ func TestTheSchemeIsMatchedCaseInsensitively(t *testing.T) {
 
 	if response.StatusCode != http.StatusOK {
 		t.Fatalf("a lowercase scheme answered %d: %s", response.StatusCode, body)
+	}
+}
+
+// The binary these tests run in links no net/http runtime.
+//
+// It is the claim the layer moves were for, and it is asserted here rather than
+// only in pwconfig because this is the binary that proves the whole stack: the
+// settings, the bearer runtime, the chain, and the responses above are all
+// served by a build that never linked pw. A dependency arrives by any path, so
+// the graph is what is checked and not the import list.
+func TestTheBinaryLinksNoNetHTTPRuntime(t *testing.T) {
+	output, err := exec.Command("go", "list", "-deps",
+		"github.com/shibukawa/popcornwave/plugin/auth/authfastjwte2e").CombinedOutput()
+	if err != nil {
+		t.Fatalf("go list: %v\n%s", err, output)
+	}
+	for _, line := range strings.Split(string(output), "\n") {
+		if strings.TrimSpace(line) == "github.com/shibukawa/popcornwave/pw" {
+			t.Fatal("this package depends on the net/http runtime, so the fixture proves nothing")
+		}
 	}
 }

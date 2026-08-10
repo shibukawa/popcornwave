@@ -98,11 +98,16 @@ prerequisites:
     stacking: pwdatabase over pwconfig, pwsession over both, pwobservability over pwconfig, and no edge back; asserted rather than intended, because a cycle here is a startup order nobody could state
     application_surface_unchanged: every moved type is a true alias and every moved entry point a thin wrapper
     proved_by: go list -deps over all four, plus internal/fastonly, which parses a configuration file and serves one fasthttp request in a build whose graph contains no pw
-  what_is_left_2026_08_11:
-    fact: plugin/auth still links pw, and so does authfast through it
-    why: two files, and both are genuinely the net/http runtime's — the extension registration in auth.go and the net/http Exchange in httpexchange.go, which reaches pw.WriteProblem and pw.Redirect
-    not_a_layer: the four are done; what remains is a package split, moving the transport-free core to plugin/auth/authcore so plugin/auth becomes its net/http half and authfast its other one
-    size: 266 exported declarations would become aliases, which is why it is named rather than folded into the layer work
+  plugin_freed_2026_08_11:
+    was: plugin/auth linked pw for two things, and authfast through it — the extension registration in auth.go and the net/http Exchange in httpexchange.go, which reached pw.WriteProblem and pw.Redirect
+    the_split_that_was_not_needed: the plan was plugin/auth/authcore plus 144 aliases in plugin/auth, keeping the documented blank import; what made it unnecessary is that the two things are small and neither needs the runtime, only net/http
+    answer: pwextension, a leaf holding the net/http extension registry and the two responses a plugin writes, published by whichever runtime is linked
+    net_http_is_not_a_runtime: the leaf names net/http, which is a protocol library; what is worth not linking is the framework built on it
+    no_counterpart_on_the_second_transport: pwfast.Middlewares takes its frames as arguments and reads no registry, so this registry is the net/http chain's and a plugin hands the other transport a frame directly
+    honest_defaults: with no runtime published, Problem writes the document without the error page and Redirect falls back to net/http's helper; the status, headers and body are all still there and only the presentation a browser would have preferred is not
+    fell_out_of_it: the problem document was built by hand in both runtimes and is now pwruntime.AppendProblemJSON, so one response body is described once
+    cost: no aliases, no package split, and the documented import line is unchanged
+    proved_by: authfastjwte2e, which starts through pwconfig, plugin/auth and pwfast with no pw in its graph and asserts that, and go list -deps over plugin/auth and authfast
   open_here:
     superseded_note: the four entries below were the open list; all four are answered in settled_2026_08_10 above and are kept here for the reasoning rather than as questions
     test_seam:

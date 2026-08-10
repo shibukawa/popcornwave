@@ -46,8 +46,8 @@ import (
 	"github.com/shibukawa/popcornwave/contrib/passkey"
 	"github.com/shibukawa/popcornwave/internal/pathpattern"
 	"github.com/shibukawa/popcornwave/internal/requestorigin"
-	"github.com/shibukawa/popcornwave/pw"
 	"github.com/shibukawa/popcornwave/pwconfig"
+	"github.com/shibukawa/popcornwave/pwextension"
 	"github.com/shibukawa/popcornwave/pwruntime"
 	"github.com/shibukawa/popcornwave/session"
 	"github.com/shibukawa/popcornwave/sessionconfig"
@@ -77,15 +77,15 @@ const stateNamespace = "auth-oidc"
 
 func init() {
 	registerSessionSlot()
-	pw.RegisterExtension(pw.Extension{
+	pwextension.Register(pwextension.Extension{
 		Name:  "auth.endpoints",
-		Slot:  pw.SlotAuthentication,
+		Slot:  pwruntime.SlotAuthentication,
 		Setup: setupAuthentication,
 		Close: closeRuntime,
 	})
-	pw.RegisterExtension(pw.Extension{
+	pwextension.Register(pwextension.Extension{
 		Name:  "auth.guard",
-		Slot:  pw.SlotGuard,
+		Slot:  pwruntime.SlotGuard,
 		Setup: setupGuard,
 	})
 }
@@ -206,7 +206,7 @@ type Step func(x Exchange, next func())
 
 // setupAuthentication is the net/http extension's Setup. It wraps the neutral
 // step in this transport's middleware shape and nothing else.
-func setupAuthentication(ctx context.Context) (pw.Middleware, error) {
+func setupAuthentication(ctx context.Context) (pwextension.Middleware, error) {
 	step, err := Setup(ctx)
 	if err != nil || step == nil {
 		return nil, err
@@ -376,7 +376,7 @@ func (rt *runtime) prune() {
 	}
 }
 
-func setupGuard(context.Context) (pw.Middleware, error) {
+func setupGuard(context.Context) (pwextension.Middleware, error) {
 	instance := activeRuntime()
 	if instance == nil || len(instance.include) == 0 {
 		return nil, nil

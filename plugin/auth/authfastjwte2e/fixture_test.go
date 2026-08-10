@@ -1,6 +1,7 @@
 package authfastjwte2e
 
 import (
+	"context"
 	"crypto"
 	"crypto/rand"
 	"crypto/rsa"
@@ -20,8 +21,9 @@ import (
 
 	"github.com/shibukawa/popcornwave/plugin/auth"
 	"github.com/shibukawa/popcornwave/plugin/auth/authfast"
-	"github.com/shibukawa/popcornwave/pw"
+	"github.com/shibukawa/popcornwave/pwconfig"
 	"github.com/shibukawa/popcornwave/pwfast"
+	"github.com/shibukawa/popcornwave/pwruntime"
 	"github.com/shibukawa/tinybind-go/configbind"
 	"github.com/shibukawa/tinygodriver/fasthttp"
 )
@@ -66,7 +68,7 @@ func build() (*deployment, error) {
 	if err != nil {
 		return nil, err
 	}
-	pw.SetConfigLoadOptions(configbind.LoadOptions{
+	pwconfig.SetLoadOptions(configbind.LoadOptions{
 		Vendor:             "popcornwave-authfastjwt-e2e",
 		Tool:               "authfastjwt-e2e",
 		ExplicitConfigPath: configPath,
@@ -74,13 +76,20 @@ func build() (*deployment, error) {
 		Environ:            []string{"APP_ENV=dev"},
 	})
 
-	// Framework startup, which is what binds the configuration and installs the
-	// bearer runtime. Nothing serves on this handler; the fasthttp chain below
-	// reads the runtime it produced.
-	if _, err := pw.Middlewares(http.NotFoundHandler()); err != nil {
-		return nil, fmt.Errorf("framework initialization: %w", err)
+	// Startup, without the net/http runtime. This binary links none of it: the
+	// settings come from pwconfig, the bearer runtime from plugin/auth, and the
+	// chain from pwfast — which is the claim the whole layer move was for, run
+	// rather than asserted. TestTheBinaryLinksNoNetHTTPRuntime checks the graph.
+	if err := pwconfig.Parse(); err != nil {
+		return nil, fmt.Errorf("configuration: %w", err)
 	}
-	handler, err := pwfast.Middlewares(application(), authfast.Installed().Apply(pwfast.RuntimeOptions{}))
+	ctx := pwruntime.WithResources(context.Background(),
+		pwruntime.Resources{Configs: pwconfig.Snapshot()})
+	options, err := authfast.Setup(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("authentication: %w", err)
+	}
+	handler, err := pwfast.Middlewares(application(), options.Apply(pwfast.RuntimeOptions{}))
 	if err != nil {
 		return nil, fmt.Errorf("fasthttp chain: %w", err)
 	}

@@ -21,6 +21,8 @@ const (
 	databasePackage = "github.com/shibukawa/popcornwave/pwdatabase"
 	sessionPackage  = "github.com/shibukawa/popcornwave/pwsession"
 	observePackage  = "github.com/shibukawa/popcornwave/pwobservability"
+	authPackage     = "github.com/shibukawa/popcornwave/plugin/auth"
+	authFastPackage = "github.com/shibukawa/popcornwave/plugin/auth/authfast"
 	fastPackage     = "github.com/shibukawa/popcornwave/pwfast"
 	configPackage   = "github.com/shibukawa/popcornwave/pwconfig"
 	runtimePackage  = "github.com/shibukawa/popcornwave/pwruntime"
@@ -81,6 +83,32 @@ func TestTheSecondTransportReachesTheFirstOnlyThroughTheSharedLeaves(t *testing.
 	}
 	if dependsOn(t, fastPackage, configPackage) {
 		t.Errorf("%s depends on %s; it should read through %s", fastPackage, configPackage, runtimePackage)
+	}
+}
+
+// The authentication plugin reaches no transport runtime either, and neither
+// does its fasthttp half.
+//
+// It is the case the layer work was for. plugin/auth is transport-free almost
+// everywhere — it reads settings, opens stores, verifies tokens, decides — and
+// two lines of it were not: registering a frame of the net/http chain, and
+// writing a problem over net/http. Those two put the whole runtime into every
+// build that imported the plugin, including one serving on the other transport
+// that would never call either. pwextension is where they went.
+func TestTheAuthenticationPluginReachesNoTransportRuntime(t *testing.T) {
+	for _, layer := range []string{authPackage, authFastPackage} {
+		if dependsOn(t, layer, pwPackage) {
+			t.Errorf("%s depends on %s", layer, pwPackage)
+		}
+	}
+	// The net/http half is still net/http-shaped, and that is not the same
+	// thing: what is worth not linking is the framework built on the protocol
+	// library, not the library.
+	if !dependsOn(t, authPackage, "net/http") {
+		t.Errorf("%s no longer speaks net/http, which its own half is written in", authPackage)
+	}
+	if dependsOn(t, authFastPackage, fastPackage) != true {
+		t.Errorf("%s does not depend on %s", authFastPackage, fastPackage)
 	}
 }
 
