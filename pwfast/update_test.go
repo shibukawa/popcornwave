@@ -128,3 +128,86 @@ func TestUpdateEntriesAreInertWithoutSettings(t *testing.T) {
 		t.Errorf("body = %q", body)
 	}
 }
+
+// A navigation request is answered with a delta rather than a document. This is
+// the end the whole update path exists for, on this transport.
+func TestServeUpdateAnswersANavigationWithADelta(t *testing.T) {
+	withUpdateSettings(t)
+	leaf := staticFragment(`<h1 id="results">results</h1>`)
+	status, header, body := serveWith(t, func(r *fasthttp.RequestCtx) {
+		if !ServeUpdate(r, nil, leaf) {
+			t.Error("a navigation request was not answered as an update")
+			return
+		}
+	}, map[string]string{"Pw-Render": "navigation", "Pw-Build": "test-build"})
+
+	if status != fasthttp.StatusOK {
+		t.Fatalf("status = %d: %s", status, body)
+	}
+	// A delta is a record stream, not a document. A cache that handed one to a
+	// document request would put records on screen.
+	if strings.Contains(strings.ToLower(header), "text/html") {
+		t.Errorf("a delta was sent as a document:\n%s", header)
+	}
+	// Both representations of one URL vary on what selected them, and neither
+	// may be stored by a shared cache.
+	if !strings.Contains(header, "Vary") {
+		t.Errorf("the delta declares no Vary axes:\n%s", header)
+	}
+	if !strings.Contains(strings.ToLower(header), "no-store") {
+		t.Errorf("the delta is missing its cache policy:\n%s", header)
+	}
+	if body == "" {
+		t.Error("the delta carried no records")
+	}
+}
+
+// An ordinary request must fall through, or every page would answer with
+// records to a client that asked for markup.
+func TestServeUpdateDeclinesADocumentRequest(t *testing.T) {
+	withUpdateSettings(t)
+	_, _, body := serveWith(t, func(r *fasthttp.RequestCtx) {
+		if ServeUpdate(r, nil, staticFragment(`<p>x</p>`)) {
+			t.Error("a document request was answered as an update")
+			return
+		}
+		_, _ = r.WriteString("document")
+	}, nil)
+	if body != "document" {
+		t.Errorf("body = %q", body)
+	}
+}
+
+// The live entry answers only a live request, and declines everything else so
+// a page keeps its ordinary response.
+func TestServeLiveAnswersOnlyALiveRequest(t *testing.T) {
+	withUpdateSettings(t)
+	_, _, body := serveWith(t, func(r *fasthttp.RequestCtx) {
+		if ServeLive(r, nil, staticFragment(`<p>x</p>`)) {
+			t.Error("an ordinary request was answered as a live stream")
+			return
+		}
+		_, _ = r.WriteString("document")
+	}, nil)
+	if body != "document" {
+		t.Errorf("body = %q", body)
+	}
+}
+
+// A chain with no live boundary still terminates rather than holding the
+// connection: the client asked because the document said it could, and an
+// answer that never ends is worse than one that closes immediately.
+func TestServeLiveTerminatesAChainWithNoBoundary(t *testing.T) {
+	withUpdateSettings(t)
+	status, header, _ := serveWith(t, func(r *fasthttp.RequestCtx) {
+		if !ServeLive(r, nil, staticFragment(`<p>static</p>`)) {
+			t.Error("a live request was not answered")
+		}
+	}, map[string]string{"Pw-Render": "live", "Pw-Build": "test-build"})
+	if status != fasthttp.StatusOK {
+		t.Errorf("status = %d", status)
+	}
+	if !strings.Contains(strings.ToLower(header), "no-store") {
+		t.Errorf("a live response is missing its cache policy:\n%s", header)
+	}
+}

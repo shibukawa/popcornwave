@@ -30,13 +30,22 @@
 // settings file is not a transport concern, and this package has no reader of
 // its own.
 //
-// # What is not here yet
+// # Streaming, and where the two halves differ
 //
-// Live boundary delivery, which needs the streaming render entries wired to
-// this transport's body writer. Everything they depend on exists upstream; the
-// wiring is not written here yet.
+// ServeUpdate and ServeLive answer a streamed navigation and a live
+// subscription. Both call the module's own entries, and the delta path is the
+// same entry the net/http half calls, so the two transports send the same
+// records rather than two implementations that agree.
+//
+// The live path is the one place that is not yet true. The net/http half
+// predates the module having a live entry and keeps a loop of its own over the
+// chain renderer, where this half calls the module. What a client receives is
+// the same protocol either way; what differs is which code produces it, and
+// two hand-written live loops would be two chances to disagree about framing,
+// digests and close reasons on the one response nobody watches. Moving the
+// other half onto the module entry is what closes that, and it is tracked.
 //
 // Nothing that is missing is stubbed. A declaration that compiled and did
-// nothing would hide the gap where an absent one is a build error naming the
+// nothing would hide a gap where an absent one is a build error naming the
 // symbol, which is what the refusal contract does everywhere else.
 package pwfast

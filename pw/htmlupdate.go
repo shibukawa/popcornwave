@@ -137,6 +137,8 @@ func updateEntry(config HTMLConfig) *updateOptionsEntry {
 		MaxManifestBytes:    config.Update.MaxManifestBytes,
 		CSRFHeaderName:      pwruntime.CSRFHeaderName,
 		CallerOwnsRuntime:   true,
+		AsyncTimeout:        config.AsyncTimeout,
+		AsyncConcurrency:    config.AsyncConcurrency,
 	})
 	if encoded, err := json.Marshal(entry.options.RuntimeConfig()); err == nil {
 		entry.configJSON = string(encoded)

@@ -58,8 +58,11 @@ resolved as a transport-free value, and the other half reads it. A settings file
 is not a transport concern, so the transport that read it and the transport that
 serves the request need not be the same one.
 
-Live boundary delivery is the one piece not wired here yet. Everything it needs
-exists on your side; the work is ours.
+Live boundary delivery is wired too, through your `RenderLiveStream`. One
+difference is left and it is ours: our net/http half predates you having a live
+entry and still runs a loop of its own over the chain renderer, so the two
+transports produce the same records from different code. Moving that half onto
+your entry is what closes it.
 
 ---
 
