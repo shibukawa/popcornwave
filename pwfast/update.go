@@ -263,40 +263,23 @@ func ServeUpdate(r *fasthttp.RequestCtx, wrappers []HTMLWrapper, leaf HTMLFragme
 	return true
 }
 
-// ServeLive answers a live mode request with the deliveries of one chain, and
-// reports whether it did.
+// Live delivery is deliberately absent, and this is where it would go.
 //
-// The subscription is held open by the module's own live entry rather than by a
-// loop here. That is deliberate: the net/http half predates the module having
-// one and keeps its own, and two hand-written live loops would be two chances to
-// disagree about framing, digests, and close reasons — on the one response
-// nobody watches. Converging them is tracked; until it happens this half calls
-// the module and the other does not, which is a difference in implementation
-// and not in what a client receives.
-func ServeLive(r *fasthttp.RequestCtx, wrappers []HTMLWrapper, leaf HTMLFragment, options ...HTMLOption) bool {
-	settings, ok := pwruntime.ResolvedUpdateSettings()
-	if !ok || !settings.Enabled {
-		return false
-	}
-	update, ok := updateOptions()
-	if !ok {
-		return false
-	}
-	if update.Negotiate(r).Mode != fasthttpupdate.ModeLive {
-		return false
-	}
-	applyHeader(r, update.LiveHeaders(r, wrappers, leaf))
-	r.Response.Header.Set("Cache-Control", updateCacheControl)
-	ctx, cancel := boundedRenderContext(r, settings)
-	defer cancel()
-	render := append(settings.RenderOptions(ctx), options...)
-	if err := update.RenderLiveStream(ctx, r, wrappers, leaf, render...); err != nil {
-		pwruntime.ReadLogger(ctx).Log(ctx, pwruntime.LevelError,
-			"live stream failed", pwruntime.Err(err))
-	}
-	return true
-}
-
+// A first cut called the module's own live entry, which compiles and is wrong:
+// the net/http half does not use that entry. It runs its own loop over the
+// chain renderer and layers on what makes live usable — admission control per
+// client, a lifetime and idle watchdog, digest suppression seeded from the
+// client's manifest so a reconnect re-sends only what changed, a bound on
+// boundaries, and the render telemetry. None of that exists in the module
+// entry, so this half would have answered the same requests with a poorer
+// stream and no way for anyone to notice.
+//
+// The convergence runs the other way: the transport-free majority of that loop
+// — the digests, the manifest, the watchdog, the admission, the records, the
+// close reasons — belongs in the shared leaf, leaving each runtime the headers,
+// the write, and the flush. Both halves then run the richer implementation
+// rather than one running a thinner one.
+//
 // boundedRenderContext applies the configured boundary bound to a render.
 //
 // A streamed answer settles its await boundaries as it goes, and without this a

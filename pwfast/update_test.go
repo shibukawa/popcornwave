@@ -177,37 +177,3 @@ func TestServeUpdateDeclinesADocumentRequest(t *testing.T) {
 		t.Errorf("body = %q", body)
 	}
 }
-
-// The live entry answers only a live request, and declines everything else so
-// a page keeps its ordinary response.
-func TestServeLiveAnswersOnlyALiveRequest(t *testing.T) {
-	withUpdateSettings(t)
-	_, _, body := serveWith(t, func(r *fasthttp.RequestCtx) {
-		if ServeLive(r, nil, staticFragment(`<p>x</p>`)) {
-			t.Error("an ordinary request was answered as a live stream")
-			return
-		}
-		_, _ = r.WriteString("document")
-	}, nil)
-	if body != "document" {
-		t.Errorf("body = %q", body)
-	}
-}
-
-// A chain with no live boundary still terminates rather than holding the
-// connection: the client asked because the document said it could, and an
-// answer that never ends is worse than one that closes immediately.
-func TestServeLiveTerminatesAChainWithNoBoundary(t *testing.T) {
-	withUpdateSettings(t)
-	status, header, _ := serveWith(t, func(r *fasthttp.RequestCtx) {
-		if !ServeLive(r, nil, staticFragment(`<p>static</p>`)) {
-			t.Error("a live request was not answered")
-		}
-	}, map[string]string{"Pw-Render": "live", "Pw-Build": "test-build"})
-	if status != fasthttp.StatusOK {
-		t.Errorf("status = %d", status)
-	}
-	if !strings.Contains(strings.ToLower(header), "no-store") {
-		t.Errorf("a live response is missing its cache policy:\n%s", header)
-	}
-}
