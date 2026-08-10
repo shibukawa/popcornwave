@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/shibukawa/popcornwave/pwruntime"
+	"github.com/shibukawa/popcornwave/session"
 	httpbind "github.com/shibukawa/tinybind-go"
 	"github.com/shibukawa/tinygodriver/fasthttp"
 	"github.com/shibukawa/tinygodriver/fasthttp/fasthttputil"
@@ -280,5 +281,47 @@ func TestNoDocumentationConfigurationAddsNoFrame(t *testing.T) {
 	}
 	if _, _, body := serve(t, handler, "/openapi.json"); body != "application" {
 		t.Errorf("a documentation endpoint answered where none was configured: %q", body)
+	}
+}
+
+// The session and CSRF frames reach the chain from configuration and options
+// rather than being wired by hand, which is what a real deployment does.
+func TestTheChainInstallsSessionAndCSRFWhenConfigured(t *testing.T) {
+	publishChainSettings(t, pwruntime.ChainSettings{
+		CSRF: pwruntime.CSRFConfig{Enabled: true, Include: []string{"/**"},
+			FormField: "_csrf", Header: pwruntime.CSRFHeaderName, CookieName: pwruntime.CSRFCookieName},
+	})
+	registry := session.NewRegistry()
+	if err := session.Register[CSRFSecret](registry, CSRFSecretSlot,
+		session.Private, nil, session.ResetOnRotate()); err != nil {
+		t.Fatal(err)
+	}
+	keys, err := session.NewKeyring(make([]byte, 32))
+	if err != nil {
+		t.Fatal(err)
+	}
+	cookie := session.CookieOptions{Name: "pwsession", Path: "/", HTTPOnly: true}
+	manager, err := session.NewManager(registry, nil, session.Options{Cookie: cookie, Keys: keys})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	handler, err := Middlewares(func(r *fasthttp.RequestCtx) {
+		_, _ = r.WriteString("handled")
+	}, RuntimeOptions{Session: manager, SessionCookie: cookie})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// A cross-site post reaches the CSRF frame, which means both frames are in
+	// the chain and in the right order — the check needs the session above it.
+	if status, _, _ := serveRequest(t, handler, "POST", "/act",
+		"Origin: https://attacker.example\r\nContent-Length: 0\r\n", ""); status != fasthttp.StatusForbidden {
+		t.Errorf("a cross-site post answered %d, want 403", status)
+	}
+	// A safe HTML request is served and given the companion cookie.
+	if _, header, body := serveRaw(t, handler, "/form", "Accept: text/html\r\n"); body != "handled" ||
+		!strings.Contains(header, pwruntime.CSRFCookieName) {
+		t.Errorf("a page load answered %q:\n%s", body, header)
 	}
 }

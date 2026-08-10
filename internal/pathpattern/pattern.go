@@ -126,13 +126,24 @@ func CanonicalPath(r *http.Request) (string, bool) {
 	if r == nil || r.URL == nil {
 		return "", false
 	}
-	path := r.URL.Path
+	// net/http percent-decodes URL.Path, so an encoded separator is only
+	// visible in the raw form.
+	return CanonicalPathOf(r.URL.Path, r.URL.RawPath)
+}
+
+// CanonicalPathOf is CanonicalPath over the decoded path and the raw one, for a
+// caller whose request is not a *http.Request.
+//
+// Both are wanted because the refusals need both: an encoded separator is
+// invisible once decoded, and dot segments are what the decoded form shows. A
+// transport that keeps only one of the two passes it as decoded and the other
+// empty, which loses the encoded-separator refusal and is why this takes the
+// pair rather than guessing.
+func CanonicalPathOf(path, raw string) (string, bool) {
 	if path == "" || !strings.HasPrefix(path, "/") {
 		return "", false
 	}
-	// net/http percent-decodes URL.Path, so an encoded separator is only
-	// visible in the raw form.
-	if raw := r.URL.RawPath; raw != "" && (strings.Contains(raw, "%2f") || strings.Contains(raw, "%2F")) {
+	if raw != "" && (strings.Contains(raw, "%2f") || strings.Contains(raw, "%2F")) {
 		return "", false
 	}
 	segments := strings.Split(strings.TrimPrefix(path, "/"), "/")
@@ -153,4 +164,17 @@ func CanonicalPath(r *http.Request) (string, bool) {
 		}
 	}
 	return path, true
+}
+
+// Protected reports whether a path falls inside a policy's scope.
+//
+// Exclude wins over include, and that precedence is the reason this is one
+// function rather than two calls at each site: reversing it would silently
+// widen a policy an operator wrote to narrow one, and the two orders look
+// identical in a diff.
+func Protected(include, exclude []Pattern, path string) bool {
+	if MatchAny(exclude, path) {
+		return false
+	}
+	return MatchAny(include, path)
 }

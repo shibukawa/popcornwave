@@ -4,11 +4,13 @@ import (
 	"context"
 	"errors"
 	"net"
+	"net/http"
 	"sync"
 
 	"github.com/shibukawa/popcornwave/internal/apidoc"
 	"github.com/shibukawa/popcornwave/internal/requestorigin"
 	"github.com/shibukawa/popcornwave/pwruntime"
+	"github.com/shibukawa/popcornwave/session"
 	"github.com/shibukawa/tinygodriver/fasthttp"
 )
 
@@ -104,6 +106,19 @@ type RuntimeOptions struct {
 	// TrustedProxies are the networks whose forwarding headers this deployment
 	// reads.
 	TrustedProxies []*net.IPNet
+	// Tracing installs the request root span. It is a runtime option rather
+	// than a setting because whether a span has anywhere to go is decided by
+	// the exporter this process built, not by a configuration key.
+	Tracing bool
+	// Session is the manager the session frame resolves through, or nil where a
+	// deployment disabled session storage. It is supplied rather than built
+	// here because building one is startup work — a registry, a keyring, a
+	// backend — and startup belongs to whichever runtime binds configuration.
+	Session *session.Manager
+	// SessionCookie and SessionSameSite describe the cookie the CSRF companion
+	// is issued beside, so the two travel with the same policy.
+	SessionCookie   session.CookieOptions
+	SessionSameSite http.SameSite
 	// Extra frames are installed alongside the framework's, positioned by their
 	// own slots.
 	Extra []Frame
@@ -121,11 +136,11 @@ type RuntimeOptions struct {
 //
 // # What is not here yet
 //
-// The session, CSRF, authentication and guard frames, the public asset frame,
-// and the extension chain. Each is
-// absent rather than stubbed, so a build that needs one fails to name it rather
-// than serving requests with a frame that silently does nothing — which for the
-// session and CSRF frames would be a security control that looks installed.
+// The authentication and guard frames, the public asset frame, and the
+// extension chain. Each is absent rather than stubbed, so a
+// build that needs one fails to name it rather than serving requests with a
+// frame that silently does nothing — which for a guard would be an
+// authorization check that looks installed.
 func Middlewares(handler fasthttp.RequestHandler, options RuntimeOptions) (fasthttp.RequestHandler, error) {
 	if handler == nil {
 		return nil, errors.New("popcornwave: nil handler")
@@ -172,10 +187,31 @@ func Middlewares(handler fasthttp.RequestHandler, options RuntimeOptions) (fasth
 	if settings.MaxRequestBody > 0 {
 		frames = append(frames, Frame{Slot: SlotMaxRequestBody, Name: "max_request_body", Middleware: MaxRequestBody(settings.MaxRequestBody)})
 	}
+	if options.Session != nil {
+		frames = append(frames, Frame{Slot: SlotSession, Name: "session",
+			Middleware: Session(options.Session, nil)})
+	}
+	if settings.CSRF.Enabled {
+		// The check is built even when the session frame is absent, and refuses
+		// rather than passing: with no session there is nothing a request could
+		// present that would be valid, and letting it through would be the one
+		// failure direction this check must not have.
+		check, err := CSRF(settings.CSRF, options.SessionCookie, options.SessionSameSite, nil, trusted)
+		if err != nil {
+			return nil, err
+		}
+		frames = append(frames, Frame{Slot: SlotCSRF, Name: "csrf", Middleware: check})
+	}
 	frames = append(frames, Frame{Slot: SlotOperational, Name: "operational",
 		Middleware: OperationalEndpoints(settings.Health, settings.Readiness, options.Resources)})
 	frames = append(frames, Frame{Slot: SlotAPIDoc, Name: "apidoc",
 		Middleware: DocumentationEndpoints(settings.OpenAPI, settings.APIDoc, settings.APIDocPath)})
+	if options.Tracing {
+		// Outermost of everything positioned, so the request root span covers
+		// the whole chain and every record taken inside it correlates. It is
+		// opt-in because an unsampled span with nowhere to export is pure cost.
+		frames = append(frames, Frame{Slot: SlotTracing, Name: "otel", Middleware: Otel()})
+	}
 	frames = append(frames, options.Extra...)
 	return Compose(handler, frames...), nil
 }

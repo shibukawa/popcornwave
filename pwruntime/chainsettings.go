@@ -43,6 +43,10 @@ type ChainSettings struct {
 	OpenAPI    string
 	APIDoc     string
 	APIDocPath string
+	// CSRF is the cross-site check's configuration, carried whole because the
+	// check reads most of it: the scope patterns, the token names, the cookie
+	// name and the lifetime.
+	CSRF CSRFConfig
 }
 
 var chainSettingsState atomic.Pointer[ChainSettings]

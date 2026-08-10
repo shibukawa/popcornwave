@@ -10,6 +10,7 @@ import (
 	"github.com/shibukawa/popcornwave/contrib/otel"
 	"github.com/shibukawa/popcornwave/contrib/otel/propagation"
 	"github.com/shibukawa/popcornwave/contrib/otel/trace"
+	"github.com/shibukawa/popcornwave/internal/spanattr"
 )
 
 type otelConfig struct {
@@ -131,40 +132,6 @@ func requestAttributes(r *http.Request) []otel.Attribute {
 	return attributes
 }
 
-// queryValueMask replaces every query parameter value in an exported span.
-const queryValueMask = "REDACTED"
-
-// redactedQuery keeps the shape of a query string and drops its values.
-//
-// A trace backend is retained longer and read more widely than the application
-// database, and a query string is where a password-reset token, an OAuth code,
-// and a presigned signature all travel. Exporting it verbatim published them.
-//
-// The names survive because they are what the attribute is for: knowing that a
-// request carried "page" and "token" is the whole diagnostic value, and the
-// values were never part of it. The access log settled the same question the
-// same way — it records the path and not the query — and the two agreeing is
-// worth as much as either answer.
-func redactedQuery(raw string) string {
-	var out strings.Builder
-	out.Grow(len(raw))
-	for remainder := raw; remainder != ""; {
-		var pair string
-		pair, remainder, _ = strings.Cut(remainder, "&")
-		if pair == "" {
-			continue
-		}
-		if out.Len() > 0 {
-			out.WriteByte('&')
-		}
-		name, _, hasValue := strings.Cut(pair, "=")
-		out.WriteString(name)
-		if hasValue {
-			// A valueless parameter is a flag rather than a carrier, so it keeps
-			// its exact shape and gains no "=".
-			out.WriteByte('=')
-			out.WriteString(queryValueMask)
-		}
-	}
-	return out.String()
-}
+// redactedQuery keeps the shape of a query string and drops its values,
+// through the shared redaction so both transports publish the same thing.
+func redactedQuery(raw string) string { return spanattr.RedactQuery(raw) }
