@@ -17,8 +17,8 @@ example: 'mux.HandleFunc("POST /users/{id}", updateUser)'
 discovery: rule:static-route-discovery
 scaffold_choice:
   owner: decision:interactive-project-bootstrap
-  tinygo: api:cli-init scaffolds api:serve-mux, which is the default
-  host_only: api:cli-init scaffolds net/http.ServeMux directly and records project.toolchain as go
+  host_only: api:cli-init scaffolds net/http.ServeMux directly and records project.toolchain as go, which is the default
+  tinygo: api:cli-init scaffolds api:serve-mux, taken by --tinygo or the wizard answer
   invariant: api:cli-generate discovers both mux types, so generated artifacts are identical
 non_goals:
   - local ServeMux compatibility package

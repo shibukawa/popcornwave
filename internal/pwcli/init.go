@@ -39,7 +39,7 @@ const (
 	repositoryURL    = "https://github.com/shibukawa/popcornwave"
 )
 
-const initUsage = "usage: pw init [<project-name>] [--yes] [--router=registered|discovered|both] [--tailwind] [--no-tinygo] [--no-devbox] [--no-database] [--db=sqlite|postgres|mysql] [--dynamo] [--no-redis] [--auth=none|oidc|oidc-passkey|passkey] [--session=dev-volatile|dev-persist|rdb|cookie|redis|dynamo] [--devidp] [--skills=claude|agents|none]"
+const initUsage = "usage: pw init [<project-name>] [--yes] [--router=registered|discovered|both] [--tailwind] [--tinygo] [--no-devbox] [--no-database] [--db=sqlite|postgres|mysql] [--dynamo] [--no-redis] [--auth=none|oidc|oidc-passkey|passkey] [--session=dev-volatile|dev-persist|rdb|cookie|redis|dynamo] [--devidp] [--skills=claude|agents|none]"
 
 // Authentication modes the wizard and the --auth flag select between. They map
 // onto the plugin/auth modes, with none meaning no [auth] configuration.
@@ -337,14 +337,22 @@ type initOptions struct {
 	Yes bool
 }
 
-// defaultInitOptions keeps TinyGo compatible routing as the scaffold default so
-// the shortcut form matches decision:stdlib-servemux.
+// defaultInitOptions answers for the project most people are starting. Every
+// answer here is one pw add can revisit, except the toolchain, which is why
+// that one defaults to the reversible direction.
 func defaultInitOptions() initOptions {
 	return initOptions{
 		// Router is left unset rather than defaulted: effectiveRouter reads that
 		// as the registered tree, which keeps the rule in one place and a
 		// scripted run on the shape it has always produced.
-		TinyGo:   true,
+		//
+		// TinyGo is left unset for a related reason and a stronger one. The
+		// routing is compatible either way — decision:stdlib-servemux is what a
+		// host project registers on too — so the answer buys a smaller binary
+		// and a wasm target rather than a different application. What it costs
+		// is a toolchain in devbox.json that a project not building for it never
+		// runs, and the one answer pw add cannot revisit later. A default nobody
+		// can undo has to be the one that assumes less.
 		Devbox:   true,
 		Database: true,
 		Engine:   engineSQLite,
@@ -382,6 +390,10 @@ func parseInitArgs(args []string) (initOptions, error) {
 		case "--tinygo":
 			options.TinyGo = true
 		case "--no-tinygo":
+			// The answer this used to change is now the default, so it selects
+			// nothing. It stays accepted, and out of the usage line, because a
+			// script that passes it means what it says and refusing it would
+			// break that script over a word it got right.
 			options.TinyGo = false
 		case "-y", "--yes":
 			options.Yes = true
@@ -1658,6 +1670,7 @@ func IssueFirstPasskey(ctx context.Context, loginID, accountID string) (string, 
 // the signed-in user; the login itself belongs to the framework.
 func homeHandlerScaffold(options initOptions) string {
 	project := strconv.Quote(options.Name)
+	pattern, _ := registeredHomeRoute(options)
 	if !servesBrowserLogin(options) {
 		return `package handlers
 
@@ -1674,7 +1687,7 @@ type homeInput struct {
 	Name string ` + "`query:\"name\" default:\"World\"`" + `
 }
 
-func init() { mux.HandleFunc("GET /{$}", home) }
+func init() { mux.HandleFunc("` + pattern + `", home) }
 
 // The comment below is not decoration. pw generate reads a handler's godoc into
 // the OpenAPI document this project serves: the first sentence becomes the
@@ -1709,7 +1722,7 @@ import (
 	"github.com/shibukawa/popcornwave/pw"
 )
 
-func init() { mux.HandleFunc("GET /{$}", home) }
+func init() { mux.HandleFunc("` + pattern + `", home) }
 
 // The comment below is not decoration. pw generate reads a handler's godoc into
 // the OpenAPI document this project serves: the first sentence becomes the
@@ -1853,7 +1866,7 @@ func landingSections(options initOptions, style landingStyle, self string) strin
 	var body strings.Builder
 	fmt.Fprintf(&body, "  <section%s>\n    <h2%s>What this project has</h2>\n    <ul%s>\n",
 		style.Section, style.Heading, style.List)
-	for _, item := range landingIncluded(options) {
+	for _, item := range landingIncluded(options, style) {
 		fmt.Fprintf(&body, "      <li>%s</li>\n", item)
 	}
 	body.WriteString("    </ul>\n  </section>\n")
@@ -1878,7 +1891,7 @@ func landingSections(options initOptions, style landingStyle, self string) strin
 
 // landingIncluded describes the project as it was scaffolded, one line per
 // answer that wrote something.
-func landingIncluded(options initOptions) []string {
+func landingIncluded(options initOptions, style landingStyle) []string {
 	var items []string
 	if routerHasRegistered(options.Router) {
 		items = append(items, "Routes written in Go on <code>"+muxTypeName(options)+"</code>, registered from <code>"+defaultRegisteredDir+"/</code>")
@@ -1893,7 +1906,13 @@ func landingIncluded(options initOptions) []string {
 		items = append(items, "A DynamoDB store, with typed records in <code>"+defaultDynamoDir+"/</code>")
 	}
 	if servesBrowserLogin(options) {
-		items = append(items, "Authentication, with the sign-in controls below served by the framework")
+		// The controls are on the starter handler's page, which is this one
+		// unless a page tree took the root from it.
+		if _, path := registeredHomeRoute(options); path == "/" {
+			items = append(items, "Authentication, with the sign-in controls below served by the framework")
+		} else {
+			items = append(items, `Authentication, with the sign-in controls on <a`+style.Link+` href="`+path+`">`+path+`</a> served by the framework`)
+		}
 	}
 	if options.Tailwind {
 		items = append(items, "Tailwind CSS, compiled from <code>assets/app.css</code>")
@@ -1922,6 +1941,65 @@ func landingNextSteps(options initOptions, self string) []string {
 	return steps
 }
 
+// registeredHomeRoute is the pattern the starter handler registers, and the path
+// that reaches it.
+//
+// Both routers register on one mux, and the standard library panics on a
+// duplicate pattern rather than letting one of them win. So a project that took
+// both cannot have two starter routes claiming the root, and the page tree is
+// the one that keeps it: a directory holding a page template is a route by
+// existing, and moving that one means scaffolding the root under a directory
+// whose name the reader has to look past. The handler takes a path of its own,
+// and the two starter pages link to each other, so the difference between the
+// routers is something a browser can show rather than something to read about.
+func registeredHomeRoute(options initOptions) (pattern, path string) {
+	if effectiveRouter(options.Router) == routerBoth {
+		return "GET /hello", "/hello"
+	}
+	return "GET /{$}", "/"
+}
+
+// registeredHomeHeader is the top of the starter handler's page. Alone it is the
+// project's landing page; beside a page tree it is the other end of a pair, so
+// it says which router put it there and links back to the one that did not.
+func registeredHomeHeader(options initOptions, style landingStyle) string {
+	if effectiveRouter(options.Router) != routerBoth {
+		return `  <header>
+    <p` + style.Eyebrow + `>Popcorn Wave</p>
+    <h1` + style.Title + `>{project}</h1>
+    <p` + style.Lead + `>Hello, {name}. This page is yours to delete; nothing in the framework reads it.</p>
+  </header>
+`
+	}
+	return `  <header>
+    <p` + style.Eyebrow + `>{project}</p>
+    <h1` + style.Title + `>Hello, {name}</h1>
+    <p` + style.Lead + `>A Go function registered itself for <code>GET /hello</code> in <code>handlers/home_handler.go</code>, and the greeting comes from <code>?name=</code>. The <a` + style.Link + ` href="/">landing page</a> is a directory instead.</p>
+  </header>
+`
+}
+
+// registeredHomeSections is what follows that header. Beside a page tree there
+// is nothing to add: the landing sections belong to whichever starter page is at
+// the root, and two copies of them is what a reader would have to tell apart.
+func registeredHomeSections(options initOptions, style landingStyle) string {
+	if effectiveRouter(options.Router) == routerBoth {
+		return ""
+	}
+	return landingSections(options, style, defaultRegisteredDir+"/home.pw.html")
+}
+
+// discoveredCounterpartLink is the other half of that pair, on the page tree's
+// side. It is a sentence rather than a list item because the paragraph it joins
+// is already about where a route comes from.
+func discoveredCounterpartLink(options initOptions, style landingStyle) string {
+	pattern, path := registeredHomeRoute(options)
+	if path == "/" {
+		return ""
+	}
+	return ` A Go function took <a` + style.Link + ` href="` + path + `">` + pattern[len("GET "):] + `</a> instead, from <code>` + defaultRegisteredDir + `/</code>.`
+}
+
 // muxTypeName names the router type this project's handlers register on.
 func muxTypeName(options initOptions) string {
 	if options.TinyGo {
@@ -1939,12 +2017,7 @@ func homeTemplateScaffold(options initOptions) string {
 
 export component Home(name: string, project: string): html {
 <div` + style.Page + `>
-  <header>
-    <p` + style.Eyebrow + `>Popcorn Wave</p>
-    <h1` + style.Title + `>{project}</h1>
-    <p` + style.Lead + `>Hello, {name}. This page is yours to delete; nothing in the framework reads it.</p>
-  </header>
-` + landingSections(options, style, "handlers/home.pw.html") + `</div>
+` + registeredHomeHeader(options, style) + registeredHomeSections(options, style) + `</div>
 }
 `
 	}
@@ -1952,12 +2025,7 @@ export component Home(name: string, project: string): html {
 
 export component Home(name: string, project: string, signedIn: bool, email: string, loginPath: url, logoutPath: url, passkey: bool, providerLogin: bool, bootstrap: bool): html {
 <div` + style.Page + `>
-  <header>
-    <p` + style.Eyebrow + `>Popcorn Wave</p>
-    <h1` + style.Title + `>{project}</h1>
-    <p` + style.Lead + `>Hello, {name}. This page is yours to delete; nothing in the framework reads it.</p>
-  </header>
-  <section` + style.Section + `>
+` + registeredHomeHeader(options, style) + `  <section` + style.Section + `>
     <h2` + style.Heading + `>Account</h2>
     {if signedIn}
       <p>Signed in as {email}</p>
@@ -1993,7 +2061,7 @@ export component Home(name: string, project: string, signedIn: bool, email: stri
       <script type="module" src="/public/passkey.js"></script>
     {/if}
   </section>
-` + landingSections(options, style, "handlers/home.pw.html") + `</div>
+` + registeredHomeSections(options, style) + `</div>
 }
 `
 }
@@ -2168,10 +2236,17 @@ protection.unauthenticated = "redirect"
 
 // securityRuntimeConfig writes the [security] section.
 //
-// The check is scaffolded off, with the patterns that turn it on written out
-// and commented. A project without a session has nothing to bind a token to, so
-// switching it on before there is one would refuse every post; leaving the
-// shape here means turning it on later is uncommenting rather than looking up.
+// It exists for a browser login and for nothing else: a project with no session
+// has nothing to bind a token to, so the section would only describe a check
+// that could not pass.
+//
+// Which is also why the check is scaffolded on. CSRF stays off until the paths
+// it covers are named — a check installed over nothing reads as protection that
+// is not there — but a login names one on the way in: the sign-out control is a
+// form, because the endpoint accepts POST only. And a generated form refuses to
+// render without a token rather than emit an unprotected one, so a scaffold
+// shipping that form with no secret behind it is a home page that returns 500
+// the moment somebody signs in.
 func securityRuntimeConfig(options initOptions) string {
 	if !servesBrowserLogin(options) {
 		// No session, so no token. The section would only describe a check that
@@ -2187,12 +2262,12 @@ func securityRuntimeConfig(options initOptions) string {
 enabled = false
 # validator_key = "${HTML_UPDATE_VALIDATOR_KEY}"
 
-# CSRF is off until the paths it covers are named, because a check installed
-# over nothing reads as protection that is not there. Turn it on once the
-# application has an unsafe route, and keep the include list as narrow as the
-# routes that mutate.
+# This login ships an unsafe route already: the sign-out control posts. The
+# token that form carries comes from here, and a form rendered without one is
+# refused rather than served unprotected — so this stays on for as long as the
+# login does. Keep the include list as narrow as the routes that mutate.
 [security]
-csrf.enabled = false
+csrf.enabled = true
 csrf.include = ["/**"]
 `
 	if hasDiscoveredPages(options) {
@@ -2401,14 +2476,20 @@ allow_loopback_http = ` + loopback + `
 `
 }
 
-// authDevelopmentOrigin is the origin the browser uses in development. A
-// passkey mode must be reached by name rather than by address, because the RP
-// ID is a domain and the origin has to sit inside it.
+// authDevelopmentOrigin is the origin the browser uses in development.
+//
+// It is the name rather than the address for every mode, and the reason is the
+// same one that makes it mandatory under a passkey: an origin is not an
+// address. A login begun at one origin and returning to another returns to a
+// different cookie jar, so the state the callback verifies is a cookie the
+// browser does not send — the redirect arrives and is refused, having proved
+// nothing. localhost is what pw dev prints and what a developer therefore
+// opens, so it is the one this has to be.
+//
+// Both names reach the same machine, and RFC 6761 makes localhost loopback by
+// reservation rather than by resolution, so the loopback allowance covers it.
 func authDevelopmentOrigin(options initOptions) string {
-	if usesPasskey(options.Auth) {
-		return "http://localhost:8080"
-	}
-	return "http://127.0.0.1:8080"
+	return "http://localhost:8080"
 }
 
 // sessionBackendConfig writes the keys of the selected backend and only those:
@@ -2620,7 +2701,7 @@ export component Page(): html {
   <header>
     <p` + style.Eyebrow + `>Popcorn Wave</p>
     <h1` + style.Title + `>` + options.Name + `</h1>
-    <p` + style.Lead + `>A directory holding a page template is a route, so <a` + style.Link + ` href="/greet/world">/greet/world</a> is served by the directory beside this one.</p>
+    <p` + style.Lead + `>A directory holding a page template is a route, so <a` + style.Link + ` href="/greet/world">/greet/world</a> is served by the directory beside this one.` + discoveredCounterpartLink(options, style) + `</p>
   </header>
 ` + landingSections(options, style, root+"/"+pwgen.PageFile) + `</div>
 }

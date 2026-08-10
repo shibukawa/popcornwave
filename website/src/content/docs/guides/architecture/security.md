@@ -73,14 +73,19 @@ a cookie.
 installed over nothing reads as protection that is not there, and `csrf.include
 = []` would be a worse lie than `csrf.enabled = false`.
 
-`pw init` writes the shape and leaves it off:
+A browser login names one on the way in, so `pw init` writes the shape and turns
+it on — the scaffolded sign-out control is a form, and a generated form is
+refused rather than rendered without a token:
 
 ```toml
 [security]
-csrf.enabled = false
+csrf.enabled = true
 csrf.include = ["/**"]
 csrf.exclude = []
 ```
+
+Without a login there is no session to bind a token to, and `pw init` writes no
+`[security]` section at all.
 
 **Path protection** is the same shape. `protection.include = []` means every
 path is public, and a project opts routes in rather than out.
@@ -259,8 +264,9 @@ off, so the judgement stays with the deployment.
 | `server.public.read_local = true` | Assets are served from disk rather than the built tree |
 | `session.backend = cookie` with `auth.enabled` | A logout cannot end a session already issued — see below |
 
-`csrf.enabled` is the one to look at first. It is off by default, so a project
-that never turned it on is in this row without having chosen to be.
+`csrf.enabled` is the one to look at first. The framework default is off, so a
+project that scaffolded without a login and never turned it on is in this row
+without having chosen to be.
 
 ### Different with no setting at all
 
