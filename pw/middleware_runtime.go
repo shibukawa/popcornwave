@@ -27,6 +27,9 @@ func buildRuntimeHandler(handler http.Handler, server ServerConfig, security Sec
 		TrustedProxies:  server.TrustedProxies,
 		Health:          server.Health,
 		Readiness:       server.Readiness,
+		OpenAPI:         server.OpenAPI,
+		APIDoc:          server.APIDoc,
+		APIDocPath:      server.APIDocPath,
 	})
 	// Every frame — a framework middleware, an extension, a middleware the
 	// application registered — carries a slot on one number line, and the

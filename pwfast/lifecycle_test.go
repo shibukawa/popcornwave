@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/shibukawa/popcornwave/pwruntime"
+	httpbind "github.com/shibukawa/tinybind-go"
 	"github.com/shibukawa/tinygodriver/fasthttp"
 	"github.com/shibukawa/tinygodriver/fasthttp/fasthttputil"
 )
@@ -197,5 +198,87 @@ func TestAnEmptyProbePathInstallsNothing(t *testing.T) {
 	}
 	if _, _, body := serve(t, handler, "/healthz"); body != "application" {
 		t.Errorf("a disabled probe still answered: %q", body)
+	}
+}
+
+func TestTheDocumentationEndpointsAnswerWhereConfigured(t *testing.T) {
+	// The document is assembled from what an application registered, so a
+	// binary that registered nothing has none to serve and both transports
+	// answer 500 for it.
+	if err := httpbind.SetOpenAPIInfo(httpbind.OpenAPIInfo{Title: "bench", Version: "1"}); err != nil {
+		t.Fatal(err)
+	}
+	httpbind.RegisterOpenAPIFragmentString("pwfast-test",
+		`{"paths":{"/ping":{"get":{"responses":{"200":{"description":"ok"}}}}}}`)
+	t.Cleanup(httpbind.ResetOpenAPIFragments)
+	publishChainSettings(t, pwruntime.ChainSettings{
+		OpenAPI: "/openapi.json", APIDoc: "scalar", APIDocPath: "/docs",
+	})
+	handler, err := Middlewares(func(r *fasthttp.RequestCtx) {
+		_, _ = r.WriteString("application")
+	}, RuntimeOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	status, header, body := serve(t, handler, "/openapi.json")
+	if status != fasthttp.StatusOK {
+		t.Errorf("the document answered %d: %s", status, body)
+	}
+	if !strings.Contains(header, "application/json") {
+		t.Errorf("the document was not JSON:\n%s", header)
+	}
+
+	status, header, body = serve(t, handler, "/docs")
+	if status != fasthttp.StatusOK || !strings.Contains(body, "<!DOCTYPE html>") {
+		t.Errorf("the UI answered %d %q", status, body[:min(len(body), 60)])
+	}
+	if !strings.Contains(header, "text/html") {
+		t.Errorf("the UI was not HTML:\n%s", header)
+	}
+	if _, _, body := serve(t, handler, "/"); body != "application" {
+		t.Errorf("an ordinary path was taken by a documentation endpoint: %q", body)
+	}
+}
+
+// The page needs a policy the application's own does not grant, and the
+// replacement must be scoped to this page rather than widening the configured
+// one into every response.
+func TestTheDocumentationPageReplacesOnlyAnExistingPolicy(t *testing.T) {
+	publishChainSettings(t, pwruntime.ChainSettings{
+		APIDoc: "scalar", APIDocPath: "/docs",
+		SecurityHeaders: pwruntime.DefaultSecurityHeaders(),
+	})
+	handler, err := Middlewares(func(*fasthttp.RequestCtx) {}, RuntimeOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, header, _ := serve(t, handler, "/docs")
+	if !strings.Contains(header, "cdn.jsdelivr.net") {
+		t.Errorf("the page's own policy did not replace the application's:\n%s", header)
+	}
+
+	// With no configured policy there is nothing to replace, and the page must
+	// not introduce one.
+	publishChainSettings(t, pwruntime.ChainSettings{APIDoc: "scalar", APIDocPath: "/docs"})
+	handler, err = Middlewares(func(*fasthttp.RequestCtx) {}, RuntimeOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, header, _ := serve(t, handler, "/docs"); strings.Contains(header, "Content-Security-Policy") {
+		t.Errorf("a policy appeared where the application configured none:\n%s", header)
+	}
+}
+
+func TestNoDocumentationConfigurationAddsNoFrame(t *testing.T) {
+	publishChainSettings(t, pwruntime.ChainSettings{})
+	handler, err := Middlewares(func(r *fasthttp.RequestCtx) {
+		_, _ = r.WriteString("application")
+	}, RuntimeOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, _, body := serve(t, handler, "/openapi.json"); body != "application" {
+		t.Errorf("a documentation endpoint answered where none was configured: %q", body)
 	}
 }

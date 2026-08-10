@@ -37,6 +37,12 @@ type ChainSettings struct {
 	// a deployment turned one off.
 	Health    string
 	Readiness string
+	// OpenAPI, APIDoc and APIDocPath are the document path, the UI kind, and
+	// the path that UI is read at. All three empty means the chain answers no
+	// documentation at all, which is the common case.
+	OpenAPI    string
+	APIDoc     string
+	APIDocPath string
 }
 
 var chainSettingsState atomic.Pointer[ChainSettings]

@@ -6,6 +6,7 @@ import (
 	"net"
 	"sync"
 
+	"github.com/shibukawa/popcornwave/internal/apidoc"
 	"github.com/shibukawa/popcornwave/internal/requestorigin"
 	"github.com/shibukawa/popcornwave/pwruntime"
 	"github.com/shibukawa/tinygodriver/fasthttp"
@@ -121,7 +122,7 @@ type RuntimeOptions struct {
 // # What is not here yet
 //
 // The session, CSRF, authentication and guard frames, the public asset frame,
-// the documentation endpoints, and the extension chain. Each is
+// and the extension chain. Each is
 // absent rather than stubbed, so a build that needs one fails to name it rather
 // than serving requests with a frame that silently does nothing — which for the
 // session and CSRF frames would be a security control that looks installed.
@@ -173,6 +174,8 @@ func Middlewares(handler fasthttp.RequestHandler, options RuntimeOptions) (fasth
 	}
 	frames = append(frames, Frame{Slot: SlotOperational, Name: "operational",
 		Middleware: OperationalEndpoints(settings.Health, settings.Readiness, options.Resources)})
+	frames = append(frames, Frame{Slot: SlotAPIDoc, Name: "apidoc",
+		Middleware: DocumentationEndpoints(settings.OpenAPI, settings.APIDoc, settings.APIDocPath)})
 	frames = append(frames, options.Extra...)
 	return Compose(handler, frames...), nil
 }
@@ -270,12 +273,10 @@ func OperationalEndpoints(health, readiness string, resources pwruntime.Resource
 // method is one an arbitrary caller can POST to, and the reply says nothing but
 // costs a database round trip on the readiness path.
 func writeOperationalStatus(r *fasthttp.RequestCtx, healthy bool) {
-	method := string(r.Method())
-	if method != fasthttp.MethodGet && method != fasthttp.MethodHead {
-		r.Response.Header.Set("Allow", "GET, HEAD")
-		r.SetStatusCode(fasthttp.StatusMethodNotAllowed)
+	if !operationalMethod(r) {
 		return
 	}
+	method := string(r.Method())
 	r.Response.Header.Set("Cache-Control", "no-store")
 	r.Response.Header.SetContentType("text/plain; charset=utf-8")
 	status, body := fasthttp.StatusOK, "ok\n"
@@ -286,4 +287,79 @@ func writeOperationalStatus(r *fasthttp.RequestCtx, healthy bool) {
 	if method != fasthttp.MethodHead {
 		_, _ = r.WriteString(body)
 	}
+}
+
+// DocumentationEndpoints answers the OpenAPI document and the UI over it.
+//
+// Unlike the probes it belongs beneath whatever protects the routes it
+// describes: an API description is a map of the whole application surface, so
+// reaching it costs a session where the configuration says so. That is why its
+// slot is below the guard rather than beside the operational frame, and why
+// this returns a frame rather than being folded into the one above it.
+//
+// A configuration naming neither returns the handler unchanged, so the common
+// case adds nothing to the chain.
+func DocumentationEndpoints(openAPIPath, docKind, docPath string) Middleware {
+	page, hasPage := apidoc.Build(docKind, openAPIPath)
+	return func(next fasthttp.RequestHandler) fasthttp.RequestHandler {
+		if openAPIPath == "" && !hasPage {
+			return next
+		}
+		return func(r *fasthttp.RequestCtx) {
+			switch path := string(r.Path()); {
+			case openAPIPath != "" && path == openAPIPath:
+				if !operationalMethod(r) {
+					return
+				}
+				if string(r.Method()) == fasthttp.MethodHead {
+					// The document is assembled either way, because its length
+					// is the answer a HEAD is asking for.
+					OpenAPIJSON(r)
+					r.Response.ResetBody()
+					return
+				}
+				OpenAPIJSON(r)
+			case hasPage && docPath != "" && path == docPath:
+				if !operationalMethod(r) {
+					return
+				}
+				writeAPIDocPage(r, page)
+			default:
+				next(r)
+			}
+		}
+	}
+}
+
+// writeAPIDocPage sends the composed page under the policy it needs.
+//
+// The policy replaces the application's rather than widening it, and only where
+// one is already set: the security header frame wraps this endpoint, so the
+// configured policy is on the response while it is still uncommitted, and
+// widening the configured value instead would carry the CDN and inline
+// allowances into every response the application sends.
+func writeAPIDocPage(r *fasthttp.RequestCtx, page apidoc.Page) {
+	if page.CSP != "" {
+		for _, name := range apidoc.RelaxedPolicyNames {
+			if len(r.Response.Header.Peek(name)) > 0 {
+				r.Response.Header.Set(name, page.CSP)
+			}
+		}
+	}
+	r.Response.Header.SetContentType("text/html; charset=utf-8")
+	r.SetStatusCode(fasthttp.StatusOK)
+	if string(r.Method()) != fasthttp.MethodHead {
+		_, _ = r.WriteString(page.HTML)
+	}
+}
+
+// operationalMethod refuses a method these endpoints do not answer, reporting
+// whether the caller may continue.
+func operationalMethod(r *fasthttp.RequestCtx) bool {
+	if method := string(r.Method()); method == fasthttp.MethodGet || method == fasthttp.MethodHead {
+		return true
+	}
+	r.Response.Header.Set("Allow", "GET, HEAD")
+	r.SetStatusCode(fasthttp.StatusMethodNotAllowed)
+	return false
 }
