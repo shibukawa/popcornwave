@@ -1,8 +1,10 @@
 package pwfast
 
 import (
+	"context"
 	"net"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -119,4 +121,83 @@ func TestMaxRequestBodyWithNoLimitAddsNothing(t *testing.T) {
 	if _, _, body := serveForm(t, handler, "/", "a=123456789012345"); body != "accepted" {
 		t.Errorf("a disabled limit still refused: %q", body)
 	}
+}
+
+// InjectResources is what makes the request-scoped accessors answer at all, so
+// the assertion is that a value put on the chain reaches a reader downstream.
+func TestInjectResourcesReachesTheDownstreamReaders(t *testing.T) {
+	captured := &captureSink{}
+	resources := pwruntime.Resources{Log: pwruntime.NewLogBackend(pwruntime.LevelInfo, captured)}
+
+	handler := Chain(func(r *fasthttp.RequestCtx) {
+		pwruntime.ReadLogger(r).Log(r, pwruntime.LevelInfo, "from the handler")
+	}, InjectResources(resources))
+	serve(t, handler, "/")
+
+	if !captured.sawMessage("from the handler") {
+		t.Error("the injected logger did not reach the handler")
+	}
+}
+
+func TestAccessLogRecordsTheCompletedRequest(t *testing.T) {
+	captured := &captureSink{}
+	resources := pwruntime.Resources{Log: pwruntime.NewLogBackend(pwruntime.LevelInfo, captured)}
+
+	handler := Chain(func(r *fasthttp.RequestCtx) {
+		r.SetStatusCode(fasthttp.StatusTeapot)
+		_, _ = r.WriteString("body")
+	}, InjectResources(resources), AccessLog())
+	serve(t, handler, "/orders")
+
+	if !captured.sawMessage("request completed") {
+		t.Fatal("no completion record was written")
+	}
+}
+
+func TestRequestTimeoutPassesThroughWhenDisabled(t *testing.T) {
+	handler := Chain(func(r *fasthttp.RequestCtx) { _, _ = r.WriteString("served") }, RequestTimeout(0))
+	if _, _, body := serve(t, handler, "/"); body != "served" {
+		t.Errorf("a disabled timeout changed the response: %q", body)
+	}
+}
+
+func TestRequestTimeoutAnswers408WhenTheHandlerOverruns(t *testing.T) {
+	release := make(chan struct{})
+	t.Cleanup(func() { close(release) })
+	handler := Chain(func(r *fasthttp.RequestCtx) {
+		<-release
+		_, _ = r.WriteString("too late")
+	}, RequestTimeout(50*time.Millisecond))
+
+	status, _, body := serve(t, handler, "/")
+	if status != fasthttp.StatusRequestTimeout {
+		t.Errorf("status = %d, want 408", status)
+	}
+	if strings.Contains(body, "too late") {
+		t.Errorf("the overrunning handler's body was sent: %q", body)
+	}
+}
+
+// captureSink collects records so a test can assert one was written without
+// reaching into the logger.
+type captureSink struct {
+	mu       sync.Mutex
+	messages []string
+}
+
+func (s *captureSink) Emit(_ context.Context, record pwruntime.Record) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.messages = append(s.messages, record.Message)
+}
+
+func (s *captureSink) sawMessage(want string) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for _, message := range s.messages {
+		if message == want {
+			return true
+		}
+	}
+	return false
 }

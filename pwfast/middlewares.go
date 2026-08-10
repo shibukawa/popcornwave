@@ -3,6 +3,7 @@ package pwfast
 import (
 	"fmt"
 	"net"
+	"time"
 
 	"github.com/shibukawa/popcornwave/pwruntime"
 	"github.com/shibukawa/tinygodriver/fasthttp"
@@ -77,6 +78,72 @@ func requestIsHTTPS(r *fasthttp.RequestCtx, trusted []*net.IPNet) bool {
 		return false
 	}
 	return pwruntime.ForwardedProtoIsHTTPS(string(r.Request.Header.Peek("X-Forwarded-Proto")))
+}
+
+// InjectResources publishes the process runtime resources — the loaded
+// configuration, the logger, the database pool — on every request.
+//
+// The other half derives a context carrying them and hands it to the next
+// handler; this one writes them into the request value. Everything downstream
+// reads them the same way, because the request value answers Value from the
+// store this writes to.
+func InjectResources(resources pwruntime.Resources) Middleware {
+	return func(next fasthttp.RequestHandler) fasthttp.RequestHandler {
+		return func(r *fasthttp.RequestCtx) {
+			pwruntime.StoreResources(r, resources)
+			next(r)
+		}
+	}
+}
+
+// AccessLog writes one completion record per request.
+//
+// The status and the size are read off the response rather than out of a
+// tracking writer. That is not a shortcut: this transport buffers the response,
+// so both are simply there once the handler returns, where the other half has
+// to wrap the writer to observe them at all.
+func AccessLog() Middleware {
+	return func(next fasthttp.RequestHandler) fasthttp.RequestHandler {
+		return func(r *fasthttp.RequestCtx) {
+			start := time.Now()
+			next(r)
+			pwruntime.ReadLogger(r).Log(r, pwruntime.LevelInfo, "request completed",
+				pwruntime.String("method", string(r.Method())),
+				pwruntime.String("path", string(r.Path())),
+				pwruntime.Int("status", r.Response.StatusCode()),
+				pwruntime.Int64("bytes", int64(len(r.Response.Body()))),
+				pwruntime.Duration("duration", time.Since(start)),
+			)
+		}
+	}
+}
+
+// RequestTimeout bounds how long a request may take. A timeout of zero or less
+// returns a pass-through middleware.
+//
+// This is the one frame whose meaning genuinely differs between the transports,
+// and the difference is worth stating rather than smoothing over.
+//
+// The other half installs a deadline on the request context. Everything the
+// handler does with that context — a query, an outbound call, an await boundary
+// — observes it and stops, and the handler itself returns.
+//
+// Here the request value is the context, and a frame cannot give it a deadline
+// it did not have. So the bound is the transport's own: the response is
+// answered with 408 when the handler has not returned in time, and the handler
+// goroutine keeps running until it finishes on its own. The request is bounded
+// from the client's side, not from the handler's.
+//
+// A handler that needs its own work cancelled derives a context from the
+// request and passes that down, which is portable and reads the same on both.
+func RequestTimeout(timeout time.Duration) Middleware {
+	return func(next fasthttp.RequestHandler) fasthttp.RequestHandler {
+		if timeout <= 0 {
+			return next
+		}
+		return fasthttp.TimeoutHandler(next, timeout,
+			fasthttp.StatusMessage(fasthttp.StatusRequestTimeout))
+	}
 }
 
 // PanicHandler writes the response for a panic recovered by Recover.
