@@ -23,7 +23,7 @@ implemented:
   registration: RegisterHTMLDocument and RegisterHTMLErrorPage, reaching the one registry of decision:shared-runtime-leaf
   stream: WriteStream and SetStreamErrorHandler
   update: WantsUpdate, WriteUpdate, WriteUpdateNavigate, Redraw, RedrawComponents, Replace, and RegisterReloadable
-  streaming: ServeUpdate for a streamed navigation and ServeLive for a live subscription, both over the module's own entries
+  streaming: ServeUpdate for a streamed navigation, over the same module entry the net/http half calls
   render_bounds: the async timeout and concurrency travel with the published settings, so a boundary is settled on the terms the deployment chose rather than on a default this half invented
   update_configuration:
     problem: every entry needs composed options built from this framework's own config type, which is bound by generated configbind code inside pw and cannot be named from here
@@ -38,11 +38,12 @@ buffered_render:
   fact: the chain renders into a buffer and commits after it succeeds, where the net/http half can stream
   why: committing first would trade a problem response for a half-written page, and the streaming path needs the flusher the deferred htmlupdate port holds
   cost: time to first byte, not bytes
-live_is_wired_but_not_yet_converged:
-  fact: this half calls the module's live entry; the net/http half keeps its own loop over the chain renderer, written before the module had one
-  same_protocol: what a client receives is the same either way, since both frame deliveries as the records api:live-delivery-protocol describes
-  the_risk: two hand-written live loops would be two chances to disagree about framing, digests, and close reasons, on the one response nobody watches
-  closing_it: move the net/http half onto the module entry, which is the same convergence decision:live-delivery-transport would then record as settled upstream rather than here
+live_withdrawn_2026_08_10:
+  shipped_then_removed: a first cut called the module's live entry, which compiles and answers the request
+  why_it_was_wrong: the net/http half does not use that entry either; it runs its own loop over the chain renderer and layers on admission control per client, a lifetime and idle watchdog, digest suppression seeded from the client manifest so a reconnect re-sends only what changed, a bound on boundaries, and the render telemetry
+  consequence_if_kept: this half would answer the same requests with a poorer stream, and nothing would have reported the difference
+  policy: policy:absent-rather-than-stubbed reaches this too, since a declaration that behaves differently hides a gap the same way one that does nothing would
+  convergence_runs_the_other_way: the transport-free majority of that loop belongs in decision:shared-runtime-leaf, leaving each runtime the headers, the write, and the flush, so both halves run the richer implementation rather than one running a thinner one
 absent_and_why:
   everything_absent_here: is absent rather than stubbed, per policy:absent-rather-than-stubbed
   redirect: api:redirect-response has no net/http half yet either, so there is nothing here to mirror

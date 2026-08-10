@@ -58,11 +58,14 @@ resolved as a transport-free value, and the other half reads it. A settings file
 is not a transport concern, so the transport that read it and the transport that
 serves the request need not be the same one.
 
-Live boundary delivery is wired too, through your `RenderLiveStream`. One
-difference is left and it is ours: our net/http half predates you having a live
-entry and still runs a loop of its own over the chain renderer, so the two
-transports produce the same records from different code. Moving that half onto
-your entry is what closes it.
+Live boundary delivery is not wired, and the reason is worth recording because
+we got it wrong once. We tried calling `RenderLiveStream` and withdrew it: our
+net/http half does not use that entry either. It runs its own loop over the
+chain renderer and layers on admission control, a watchdog, digest suppression
+seeded from the client manifest, a boundary bound and render telemetry — none of
+which your entry has, so the fasthttp half would have served a poorer stream
+with nothing to report the difference. The fix is ours and runs the other way:
+share our loop between our two halves.
 
 ---
 

@@ -30,20 +30,16 @@
 // settings file is not a transport concern, and this package has no reader of
 // its own.
 //
-// # Streaming, and where the two halves differ
+// # Streaming
 //
-// ServeUpdate and ServeLive answer a streamed navigation and a live
-// subscription. Both call the module's own entries, and the delta path is the
-// same entry the net/http half calls, so the two transports send the same
-// records rather than two implementations that agree.
+// ServeUpdate answers a streamed navigation. It calls the same module entry
+// the net/http half calls, so the two transports send the same records from
+// one implementation rather than two that agree.
 //
-// The live path is the one place that is not yet true. The net/http half
-// predates the module having a live entry and keeps a loop of its own over the
-// chain renderer, where this half calls the module. What a client receives is
-// the same protocol either way; what differs is which code produces it, and
-// two hand-written live loops would be two chances to disagree about framing,
-// digests and close reasons on the one response nobody watches. Moving the
-// other half onto the module entry is what closes that, and it is tracked.
+// Live delivery is absent, and update.go says where it would go and why the
+// obvious version of it was withdrawn: the net/http half does not use the
+// module's live entry either, and matching it would have meant shipping a
+// poorer stream here than there.
 //
 // Nothing that is missing is stubbed. A declaration that compiled and did
 // nothing would hide a gap where an absent one is a build error naming the
