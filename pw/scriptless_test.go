@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/shibukawa/popcornwave/pwconfig"
 	"github.com/shibukawa/popcornwave/pwruntime"
 	"github.com/shibukawa/tinybind-go/htmlbind"
 )
@@ -23,7 +24,7 @@ func scriptlessRequest(t *testing.T, target string, cookie bool) *http.Request {
 		request.AddCookie(&http.Cookie{Name: scriptlessCookieName, Value: "1"})
 	}
 	ctx := pwruntime.WithResources(request.Context(), pwruntime.Resources{
-		Configs: map[reflect.Type]any{reflect.TypeFor[HTMLConfig](): defaultHTMLConfig},
+		Configs: map[reflect.Type]any{reflect.TypeFor[HTMLConfig](): pwconfig.DefaultHTMLConfig()},
 	})
 	return request.WithContext(ctx)
 }
@@ -248,7 +249,7 @@ func TestAScriptedBrowserStillStreams(t *testing.T) {
 // Turning it off returns the streamed response to exactly what it was, which is
 // what the key is for.
 func TestDetectionOffAsksNothing(t *testing.T) {
-	config := defaultHTMLConfig
+	config := pwconfig.DefaultHTMLConfig()
 	config.ScriptlessDetection = false
 	recorder := httptest.NewRecorder()
 	request := httptest.NewRequest(http.MethodGet, "/search", nil)

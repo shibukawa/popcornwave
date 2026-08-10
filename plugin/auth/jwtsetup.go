@@ -9,6 +9,8 @@ import (
 
 	"github.com/shibukawa/popcornwave/internal/pathpattern"
 	"github.com/shibukawa/popcornwave/pw"
+	"github.com/shibukawa/popcornwave/pwconfig"
+	"github.com/shibukawa/popcornwave/pwruntime"
 )
 
 // setupBearer builds the ModeJWTOnly runtime.
@@ -51,7 +53,7 @@ func setupBearer(ctx context.Context, config Config) (Step, error) {
 		}
 		instance.allowlist = resolveAllowlistStore(db)
 		if config.JWT.Revocation.enabled() {
-			driver, _ := pw.DBDriver(ctx)
+			driver, _ := pwruntime.DBDriver(ctx)
 			instance.revocations = newRevocationStore(db, driver, config.JWT)
 		}
 	}
@@ -65,7 +67,7 @@ func setupBearer(ctx context.Context, config Config) (Step, error) {
 	// on the Authorization header would be a bypass in any deployment that also
 	// authenticates by cookie, and refusing the pair here costs a deployment
 	// that has no browser nothing.
-	if csrf := pw.Config[pw.SecurityConfig](ctx).CSRF; csrf.Enabled {
+	if csrf := pwruntime.ResolveConfig[pwconfig.SecurityConfig](ctx).CSRF; csrf.Enabled {
 		return nil, fmt.Errorf("auth.mode %q creates no session, so security.csrf.enabled = true has no secret to check against; a bearer API does not need it, because its authority is a header no browser attaches on its own",
 			ModeJWTOnly)
 	}
@@ -90,7 +92,7 @@ func bearerDatabase(ctx context.Context, config Config) (*sql.DB, error) {
 	if !config.JWT.readsAStore() {
 		return nil, nil
 	}
-	db, ok := pw.DB(ctx)
+	db, ok := pwruntime.DB(ctx)
 	if !ok {
 		return nil, errors.New("auth.mode \"jwt_only\" requires middleware.rdb.enabled = true for the registered allowlist or the revocation list")
 	}
@@ -130,7 +132,7 @@ func warnDevRelaxation(ctx context.Context, config JWTConfig) {
 	pw.Logger(ctx).Log(ctx, pw.LevelWarn,
 		"bearer tokens are NOT being verified",
 		pw.String("setting", "auth.jwt.dev.trust_unverified_tokens"),
-		pw.String("environment", pw.Env()),
+		pw.String("environment", pwconfig.Env()),
 		pw.String("reachable_from", "loopback only"),
 		pw.String("issuer", config.Issuer))
 }

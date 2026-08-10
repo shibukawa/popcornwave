@@ -204,9 +204,9 @@ func newHTTPServer(config ServerConfig, handler http.Handler) *http.Server {
 }
 
 func closeRuntimeResources(timeout time.Duration, err error) error {
-	configState.RLock()
-	cleanups := append([]*runtimeCleanup(nil), configState.cleanups...)
-	configState.RUnlock()
+	runtimeState.RLock()
+	cleanups := append([]*runtimeCleanup(nil), runtimeState.cleanups...)
+	runtimeState.RUnlock()
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 	return errors.Join(err, runRuntimeCleanups(ctx, cleanups))

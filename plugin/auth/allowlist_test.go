@@ -9,7 +9,6 @@ import (
 	"testing"
 
 	"github.com/shibukawa/popcornwave/contrib/jwt"
-
 	_ "github.com/shibukawa/tinygodriver/database/sql/sqlite"
 )
 

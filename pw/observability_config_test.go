@@ -3,11 +3,11 @@ package pw
 import (
 	"os"
 	"path/filepath"
-	"reflect"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/shibukawa/popcornwave/pwconfig"
 	"github.com/shibukawa/tinybind-go/configbind"
 )
 
@@ -16,15 +16,9 @@ import (
 // afterwards so the rest of the package still sees its own configuration.
 func loadObservability(t *testing.T, toml string, environ ...string) ObservabilityConfig {
 	t.Helper()
-	configState.RLock()
-	entry, ok := configState.entries[reflect.TypeFor[ObservabilityConfig]()]
-	configState.RUnlock()
+	bound, ok := pwconfig.Bound[ObservabilityConfig]()
 	if !ok {
 		t.Fatal("ObservabilityConfig is not registered")
-	}
-	bound, ok := entry.ptr.(*ObservabilityConfig)
-	if !ok {
-		t.Fatalf("binding = %T, want *ObservabilityConfig", entry.ptr)
 	}
 	previous := *bound
 	t.Cleanup(func() { *bound = previous })
@@ -59,7 +53,7 @@ func loadResult(t *testing.T, toml string, environ ...string) *configbind.LoadRe
 		t.Fatalf("load: %v", err)
 	}
 	observability := ObservabilityConfig{}
-	deriveExportEnabled(result, &observability)
+	pwconfig.DeriveExportEnabled(result, &observability)
 	return result
 }
 

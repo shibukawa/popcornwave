@@ -10,6 +10,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/shibukawa/popcornwave/pwconfig"
 	"github.com/shibukawa/popcornwave/pwruntime"
 	"github.com/shibukawa/tinybind-go/htmlbind"
 	"github.com/shibukawa/tinybind-go/htmlbind/delta"
@@ -17,7 +18,7 @@ import (
 )
 
 func updateConfig() HTMLConfig {
-	config := defaultHTMLConfig
+	config := pwconfig.DefaultHTMLConfig()
 	config.Update = HTMLUpdateConfig{Enabled: true, ValidatorKey: "test-validator-key", MaxManifestBytes: 8 << 10}
 	return config
 }
@@ -70,7 +71,7 @@ func TestTheLiveTokenIsNotTakenAsAnUpdate(t *testing.T) {
 }
 
 func TestUpdatesOffLeaveEveryRequestOnTheDocumentPath(t *testing.T) {
-	config := defaultHTMLConfig
+	config := pwconfig.DefaultHTMLConfig()
 	if config.Update.Enabled {
 		t.Fatal("updates default to on")
 	}
@@ -152,7 +153,7 @@ func TestUpdatesRequireAValidatorKey(t *testing.T) {
 	if err := validateUpdateConfig(updateConfig()); err != nil {
 		t.Fatalf("a keyed configuration was refused: %v", err)
 	}
-	off := defaultHTMLConfig
+	off := pwconfig.DefaultHTMLConfig()
 	if err := validateUpdateConfig(off); err != nil {
 		t.Fatalf("updates off were refused: %v", err)
 	}
@@ -626,7 +627,7 @@ func markupFor(t *testing.T, config HTMLConfig) string {
 // inert meta and a module script, with no inline script anywhere — is
 // characterized by TestTheRuntimeIsContributedRatherThanScaffolded.
 func TestAClientThatRunsNoScriptSubmitsTheSameMarkupEitherWay(t *testing.T) {
-	off := markupFor(t, defaultHTMLConfig)
+	off := markupFor(t, pwconfig.DefaultHTMLConfig())
 	on := markupFor(t, updateConfig())
 
 	if on != off {

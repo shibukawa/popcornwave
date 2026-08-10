@@ -14,6 +14,7 @@ import (
 	"strings"
 
 	"github.com/shibukawa/popcornwave/internal/dbseed"
+	"github.com/shibukawa/popcornwave/pwconfig"
 	"github.com/shibukawa/popcornwave/pwruntime"
 )
 
@@ -145,11 +146,11 @@ func migrationExecutor(config RDBConfig, resources pwruntime.Resources) dbseed.E
 	if resources.Connections == nil {
 		return fallback()
 	}
-	connections, err := resolveRDBConnections(config)
+	connections, err := pwconfig.ResolveConnections(config)
 	if err != nil {
 		return fallback()
 	}
-	group, err := resolveMigrationGroup(config, connections)
+	group, err := pwconfig.ResolveMigrationGroup(config, connections)
 	if err != nil {
 		return fallback()
 	}

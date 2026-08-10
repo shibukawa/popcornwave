@@ -9,6 +9,7 @@ import (
 	"reflect"
 
 	"github.com/shibukawa/popcornwave/internal/pwtestbridge"
+	"github.com/shibukawa/popcornwave/pwconfig"
 	"github.com/shibukawa/popcornwave/pwruntime"
 )
 
@@ -19,14 +20,9 @@ func SnapshotTestConfigs() (pwtestbridge.Configs, error) {
 	if err := ParseConfig(); err != nil {
 		return nil, err
 	}
-	configState.RLock()
-	defer configState.RUnlock()
-	configs := make(pwtestbridge.Configs, len(configState.entries))
-	for typ, entry := range configState.entries {
-		value := reflect.ValueOf(entry.ptr)
-		if value.Kind() == reflect.Pointer && !value.IsNil() {
-			configs[typ] = value.Elem().Interface()
-		}
+	configs := make(pwtestbridge.Configs)
+	for typ, value := range pwconfig.Snapshot() {
+		configs[typ] = value
 	}
 	return configs, nil
 }
@@ -66,7 +62,7 @@ func PrepareTestRuntime(handler http.Handler, configs pwtestbridge.Configs, opti
 		if !middleware.RDB.Enabled {
 			return pwtestbridge.Prepared{}, fmt.Errorf("popcornwave: test transaction requires middleware.rdb.enabled")
 		}
-		target, err := databaseTarget(testConnection.DSN)
+		target, err := pwconfig.Target(testConnection.DSN)
 		if err != nil {
 			return pwtestbridge.Prepared{}, err
 		}
@@ -92,7 +88,7 @@ func PrepareTestRuntime(handler http.Handler, configs pwtestbridge.Configs, opti
 			// assertions are database/sql tooling, which the engine's *sql.DB
 			// opener still serves. That second handle is what the test side of
 			// the bridge sees as DB.
-			target, targetErr := databaseTarget(testConnection.DSN)
+			target, targetErr := pwconfig.Target(testConnection.DSN)
 			if targetErr == nil {
 				db, targetErr = target.Open()
 			}
@@ -172,11 +168,11 @@ func PrepareTestRuntime(handler http.Handler, configs pwtestbridge.Configs, opti
 // testDatabaseConnection picks the one connection a test runs against: the
 // migration group, where the schema and the seed data are.
 func testDatabaseConnection(config RDBConfig) (RDBConnectionConfig, error) {
-	connections, err := resolveRDBConnections(config)
+	connections, err := pwconfig.ResolveConnections(config)
 	if err != nil {
 		return RDBConnectionConfig{}, err
 	}
-	group, err := resolveMigrationGroup(config, connections)
+	group, err := pwconfig.ResolveMigrationGroup(config, connections)
 	if err != nil {
 		return RDBConnectionConfig{}, err
 	}

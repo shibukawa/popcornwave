@@ -156,12 +156,12 @@ func extensionFrames(ctx context.Context) ([]chainFrame, error) {
 // Repeated framework initialization, which tests perform, keeps one hook per
 // extension name.
 func registerCleanup(name string, fn func(context.Context) error) {
-	configState.Lock()
-	defer configState.Unlock()
-	for _, existing := range configState.cleanups {
+	runtimeState.Lock()
+	defer runtimeState.Unlock()
+	for _, existing := range runtimeState.cleanups {
 		if existing.name == name {
 			return
 		}
 	}
-	configState.cleanups = append(configState.cleanups, &runtimeCleanup{name: name, fn: fn})
+	runtimeState.cleanups = append(runtimeState.cleanups, &runtimeCleanup{name: name, fn: fn})
 }

@@ -11,6 +11,7 @@ import (
 
 	"github.com/shibukawa/popcornwave/internal/requestorigin"
 	"github.com/shibukawa/popcornwave/middlewares"
+	"github.com/shibukawa/popcornwave/pwconfig"
 )
 
 func validateRuntimeConfig(server ServerConfig, security SecurityConfig, middleware MiddlewareConfig, observability ObservabilityConfig) error {
@@ -163,7 +164,7 @@ func validateRDBConfig(config RDBConfig) error {
 	if !config.Enabled {
 		return nil
 	}
-	connections, err := resolveRDBConnections(config)
+	connections, err := pwconfig.ResolveConnections(config)
 	if err != nil {
 		return err
 	}
@@ -174,7 +175,7 @@ func validateRDBConfig(config RDBConfig) error {
 		if err := validateGroupName(connection.Group, key); err != nil {
 			return err
 		}
-		target, err := databaseTarget(connection.DSN)
+		target, err := pwconfig.Target(connection.DSN)
 		if err != nil {
 			return fmt.Errorf("%s.dsn: %w", key, err)
 		}
@@ -195,13 +196,13 @@ func validateRDBConfig(config RDBConfig) error {
 			return fmt.Errorf("%s: sqlite://:memory: cannot share a group, because each such DSN is a separate database", connectionKey(index))
 		}
 	}
-	if _, err := resolveDefaultGroup(config, connections); err != nil {
+	if _, err := pwconfig.ResolveDefaultGroup(config, connections); err != nil {
 		return err
 	}
-	if _, err := resolveWriteGroup(config, connections); err != nil {
+	if _, err := pwconfig.ResolveWriteGroup(config, connections); err != nil {
 		return err
 	}
-	if _, err := resolveMigrationGroup(config, connections); err != nil {
+	if _, err := pwconfig.ResolveMigrationGroup(config, connections); err != nil {
 		return err
 	}
 	return nil

@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/shibukawa/popcornwave/pwconfig"
 	"github.com/shibukawa/popcornwave/pwruntime"
 	"github.com/shibukawa/tinybind-go/htmlbind"
 )
@@ -173,7 +174,7 @@ func renderScopedGreeting(t *testing.T, subject, body string) string {
 	}
 
 	request := httptest.NewRequest(http.MethodGet, "/greeting", nil)
-	ctx := withTestHTMLConfig(request.Context(), defaultHTMLConfig)
+	ctx := withTestHTMLConfig(request.Context(), pwconfig.DefaultHTMLConfig())
 	if subject != "" {
 		ctx = pwruntime.WithAuthentication(ctx, pwruntime.Authentication{
 			Authenticated: true, Subject: subject, Method: "test",

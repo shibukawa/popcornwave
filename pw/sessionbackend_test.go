@@ -46,12 +46,7 @@ func TestCookieBackendNeedsNoImport(t *testing.T) {
 }
 
 func TestDevelopmentIntentBackendsAreBuiltInAndDevelopmentOnly(t *testing.T) {
-	setEnv(EnvDevelopment, true)
-	t.Cleanup(func() {
-		envState.Lock()
-		envState.known = false
-		envState.Unlock()
-	})
+	swapEnvForTest(t, EnvDevelopment, true)
 	backend, err := OpenSessionBackend(t.Context(), testSessionConfig(SessionBackendDevVolatile), SessionResources{})
 	if err != nil {
 		t.Fatalf("dev-volatile backend: %v", err)
@@ -75,7 +70,7 @@ func TestDevelopmentIntentBackendsAreBuiltInAndDevelopmentOnly(t *testing.T) {
 		t.Fatalf("dev-persist store = %T, want browser store", kept.Store)
 	}
 
-	setEnv(EnvProduction, true)
+	swapEnvForTest(t, EnvProduction, true)
 	for _, name := range []string{SessionBackendDevVolatile, SessionBackendDevPersist} {
 		config := testSessionConfig(name)
 		config.Keyring = persist.Keyring

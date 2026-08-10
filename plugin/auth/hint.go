@@ -5,8 +5,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/shibukawa/popcornwave/pw"
 	"github.com/shibukawa/popcornwave/session"
+	"github.com/shibukawa/popcornwave/sessionconfig"
 )
 
 // SignInHint is what the login screen may show about the last person who used
@@ -35,7 +35,7 @@ type SignInHint struct {
 
 // hintJar builds the sealed cookie the hint rides in, or nil when the
 // deployment leaves the hint off.
-func hintJar(config HintConfig, policy pw.SessionCookieConfig) (*session.Jar[SignInHint], error) {
+func hintJar(config HintConfig, policy sessionconfig.SessionCookieConfig) (*session.Jar[SignInHint], error) {
 	if !config.Enabled || config.TTL == 0 {
 		return nil, nil
 	}

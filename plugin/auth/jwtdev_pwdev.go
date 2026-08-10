@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/shibukawa/popcornwave/contrib/jwt"
-	"github.com/shibukawa/popcornwave/pw"
+	"github.com/shibukawa/popcornwave/pwconfig"
 	"github.com/shibukawa/popcornwave/pwruntime"
 )
 
@@ -47,9 +47,9 @@ func checkDevRelaxation(config JWTConfig) error {
 	if !config.Dev.TrustUnverifiedTokens {
 		return nil
 	}
-	if !pw.Development() {
+	if !pwconfig.Development() {
 		return fmt.Errorf("auth.jwt.dev.trust_unverified_tokens needs %s=%q; it is %q here, and the setting turns token verification off",
-			pw.EnvVar, pw.EnvDevelopment, pw.Env())
+			pwconfig.EnvVar, pwconfig.EnvDevelopment, pwconfig.Env())
 	}
 	return nil
 }

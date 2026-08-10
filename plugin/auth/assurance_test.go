@@ -2,12 +2,12 @@ package auth
 
 import (
 	"net/http"
-
-	"github.com/shibukawa/popcornwave/session"
 	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/shibukawa/popcornwave/session"
 )
 
 func TestNamedPolicyResolvesItsWindow(t *testing.T) {

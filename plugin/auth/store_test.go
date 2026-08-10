@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/shibukawa/popcornwave/pw"
+	"github.com/shibukawa/popcornwave/sessionconfig"
 	_ "github.com/shibukawa/tinygodriver/database/sql/sqlite"
 )
 
@@ -121,18 +121,18 @@ func TestAuthWarnsAboutASessionBackendThatCannotRevoke(t *testing.T) {
 	// cookie backend has none, so logout and account suspension both become
 	// advisory. That is worth saying outside dev, and worth staying quiet about
 	// inside it, where a login needing no infrastructure is the point.
-	warning := unrevocableSessionBackend(pw.SessionBackendCookie, false)
+	warning := unrevocableSessionBackend(sessionconfig.SessionBackendCookie, false)
 	if warning == "" {
 		t.Fatal("the cookie session backend produced no warning outside dev")
 	}
 	if !strings.Contains(warning, "session.backend = cookie") {
 		t.Fatalf("the warning does not name the setting: %q", warning)
 	}
-	if got := unrevocableSessionBackend(pw.SessionBackendCookie, true); got != "" {
+	if got := unrevocableSessionBackend(sessionconfig.SessionBackendCookie, true); got != "" {
 		t.Fatalf("dev produced a warning: %q", got)
 	}
 	// A backend that can revoke is silent everywhere.
-	for _, backend := range []string{pw.SessionBackendRDB, "redis", "dynamo", ""} {
+	for _, backend := range []string{sessionconfig.SessionBackendRDB, "redis", "dynamo", ""} {
 		for _, development := range []bool{true, false} {
 			if got := unrevocableSessionBackend(backend, development); got != "" {
 				t.Fatalf("unrevocableSessionBackend(%q, %t) = %q", backend, development, got)

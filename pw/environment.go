@@ -2,48 +2,28 @@ package pw
 
 import (
 	"strings"
-	"sync"
 
-	"github.com/shibukawa/popcornwave/internal/pwenv"
+	"github.com/shibukawa/popcornwave/pwconfig"
 )
 
 // EnvVar names the environment variable that selects the runtime environment.
-const EnvVar = pwenv.Var
+const EnvVar = pwconfig.EnvVar
 
 // Well-known runtime environments. Any other lowercase token is also accepted.
 const (
-	EnvDevelopment = pwenv.Development
-	EnvStaging     = pwenv.Staging
-	EnvProduction  = pwenv.Production
+	EnvDevelopment = pwconfig.EnvDevelopment
+	EnvStaging     = pwconfig.EnvStaging
+	EnvProduction  = pwconfig.EnvProduction
 )
 
 // DefaultEnv is used when EnvVar is unset or empty.
-const DefaultEnv = pwenv.Default
-
-var envState struct {
-	sync.RWMutex
-	value    string
-	declared bool
-	known    bool
-}
+const DefaultEnv = pwconfig.DefaultEnv
 
 // Env returns the resolved runtime environment token.
 //
 // The value comes from APP_ENV and falls back to DefaultEnv. An invalid token
 // resolves to DefaultEnv here and fails ParseConfig before requests are served.
-func Env() string {
-	envState.RLock()
-	value, known := envState.value, envState.known
-	envState.RUnlock()
-	if known && value != "" {
-		return value
-	}
-	resolved, err := pwenv.Resolve(nil)
-	if err != nil {
-		return DefaultEnv
-	}
-	return resolved
-}
+func Env() string { return pwconfig.Env() }
 
 // Development reports whether the development relaxations apply.
 //
@@ -58,9 +38,7 @@ func Env() string {
 // variable gets development behaviour. That is a real exposure — query records
 // carry bind values there, and the session cookie may travel without Secure — so
 // it is not silent: see EnvironmentDeclared and the startup warning it drives.
-func Development() bool {
-	return Env() == EnvDevelopment
-}
+func Development() bool { return pwconfig.Development() }
 
 // EnvironmentDeclared reports whether APP_ENV named this process's environment,
 // as opposed to the process defaulting to development because nothing set it.
@@ -68,24 +46,7 @@ func Development() bool {
 // It exists for the startup warning. Nothing decides a relaxation on it: the
 // decision is Development, and this only says whether anyone asked for the
 // answer that came back.
-func EnvironmentDeclared() bool {
-	envState.RLock()
-	declared, known := envState.declared, envState.known
-	envState.RUnlock()
-	if known {
-		return declared
-	}
-	_, declared, err := pwenv.ResolveDeclared(nil)
-	return err == nil && declared
-}
-
-func setEnv(value string, declared bool) {
-	envState.Lock()
-	envState.value = value
-	envState.declared = declared
-	envState.known = true
-	envState.Unlock()
-}
+func EnvironmentDeclared() bool { return pwconfig.EnvironmentDeclared() }
 
 // reportEnvironment says at startup that nobody named this process's
 // environment, and what that silence bought.

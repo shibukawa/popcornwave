@@ -4,6 +4,7 @@ import "github.com/shibukawa/tinybind-go/generator"
 
 const (
 	pwPackage          = "github.com/shibukawa/popcornwave/pw"
+	pwConfigPackage    = "github.com/shibukawa/popcornwave/pwconfig"
 	pwRuntimePackage   = "github.com/shibukawa/popcornwave/pwruntime"
 	pwDynamoPackage    = "github.com/shibukawa/popcornwave/database/dynamo"
 	pwFirestorePackage = "github.com/shibukawa/popcornwave/database/firestore"
@@ -65,6 +66,15 @@ func Options(sqlDialect string) (generator.Options, error) {
 		),
 		generator.ConfigBindCall(
 			generator.Function(pwPackage, "RegisterConfig"),
+			generator.GenericType("config", 0),
+			generator.Argument("prefix", 0),
+		),
+		// The framework's own bindings register through the shared package
+		// rather than through pw, because a settings file is not a transport
+		// concern and the runtime that binds it need not be the one that
+		// serves. An application still writes pw.RegisterConfig above.
+		generator.ConfigBindCall(
+			generator.Function(pwConfigPackage, "Register"),
 			generator.GenericType("config", 0),
 			generator.Argument("prefix", 0),
 		),

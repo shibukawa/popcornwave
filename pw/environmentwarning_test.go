@@ -28,9 +28,8 @@ func captureProcessLog(t *testing.T) *bytes.Buffer {
 // bind values and whether a session cookie may travel without Secure — so a
 // process that landed there because nobody said otherwise has to say so.
 func TestAnUnnamedEnvironmentIsAnnouncedAtStartup(t *testing.T) {
-	restoreEnvState(t)
 	recorded := captureProcessLog(t)
-	setEnv(DefaultEnv, false)
+	swapEnvForTest(t, DefaultEnv, false)
 
 	reportEnvironment()
 
@@ -55,9 +54,8 @@ func TestAnUnnamedEnvironmentIsAnnouncedAtStartup(t *testing.T) {
 func TestANamedEnvironmentIsSilent(t *testing.T) {
 	for _, environment := range []string{EnvDevelopment, EnvStaging, EnvProduction, "live"} {
 		t.Run(environment, func(t *testing.T) {
-			restoreEnvState(t)
 			recorded := captureProcessLog(t)
-			setEnv(environment, true)
+			swapEnvForTest(t, environment, true)
 
 			reportEnvironment()
 

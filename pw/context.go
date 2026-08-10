@@ -3,30 +3,12 @@ package pw
 import (
 	"context"
 	"database/sql"
-	"reflect"
 
 	"github.com/shibukawa/popcornwave/pwruntime"
 )
 
 func Config[T any](ctx context.Context) T {
 	return pwruntime.ResolveConfig[T](ctx)
-}
-
-// The resolved configuration is published for the other runtime, which binds
-// none of its own. It is an init rather than a step inside ParseConfig because
-// the closure reads the registry when it is called rather than capturing it, so
-// publishing it before anything is parsed is both correct and one less ordering
-// constraint.
-func init() {
-	pwruntime.PublishConfigLookup(func(target reflect.Type) (any, bool) {
-		configState.RLock()
-		defer configState.RUnlock()
-		entry, ok := configState.entries[target]
-		if !ok {
-			return nil, false
-		}
-		return entry.ptr, true
-	})
 }
 
 // Authentication is the verified authentication result recorded by

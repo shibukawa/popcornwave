@@ -1,4 +1,4 @@
-package pw
+package pwconfig
 
 import (
 	"reflect"

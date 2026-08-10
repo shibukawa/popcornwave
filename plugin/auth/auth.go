@@ -18,6 +18,18 @@
 // backend, so an application links the storage it configured and no more.
 // General server backends need blank imports; cookie and both development
 // intent modes are built into pw.
+//
+// # What it reads through pw and what it no longer does
+//
+// The settings and the environment come from popcornwave/pwconfig, and the
+// request state from popcornwave/pwruntime, so the decisions in this package
+// are reachable from a build serving on either transport — which is what
+// popcornwave/plugin/auth/authfast then does.
+//
+// What is still pw's is what is genuinely the net/http runtime's: the extension
+// registry this registers into, the session manager it drives, and the
+// connection group a session's storage is pinned to. Each is a layer of its
+// own, and each has to move before this package can be linked without pw.
 package auth
 
 import (
@@ -34,7 +46,10 @@ import (
 	"github.com/shibukawa/popcornwave/internal/pathpattern"
 	"github.com/shibukawa/popcornwave/internal/requestorigin"
 	"github.com/shibukawa/popcornwave/pw"
+	"github.com/shibukawa/popcornwave/pwconfig"
+	"github.com/shibukawa/popcornwave/pwruntime"
 	"github.com/shibukawa/popcornwave/session"
+	"github.com/shibukawa/popcornwave/sessionconfig"
 )
 
 // Authentication method names recorded on a session and reported by
@@ -91,7 +106,7 @@ type runtime struct {
 	// it on. It carries no authority; see SignInHint.
 	hint         *session.Jar[SignInHint]
 	allowlist    AllowlistStore
-	cookiePolicy pw.SessionCookieConfig
+	cookiePolicy sessionconfig.SessionCookieConfig
 	include      []pathpattern.Pattern
 	exclude      []pathpattern.Pattern
 	// accounts re-reads the account behind a live session, so that suspending
@@ -174,7 +189,7 @@ func activeRuntime() *runtime {
 // deployment that never set APP_ENV lands on "dev" by default, and that is
 // exactly the deployment that should hear this.
 func unrevocableSessionBackend(backend string, development bool) string {
-	if backend != pw.SessionBackendCookie || development {
+	if backend != sessionconfig.SessionBackendCookie || development {
 		return ""
 	}
 	return "session.backend = cookie keeps the login in the browser, so logout and account suspension cannot end a " +
@@ -228,7 +243,7 @@ func Endpoints() Step {
 func Setup(ctx context.Context) (Step, error) {
 	replaceRuntime(nil)
 
-	config := pw.Config[Config](ctx)
+	config := pwruntime.ResolveConfig[Config](ctx)
 	if !config.Enabled {
 		return nil, nil
 	}
@@ -244,14 +259,14 @@ func Setup(ctx context.Context) (Step, error) {
 		// mode opens. It branches before all of it.
 		return setupBearer(ctx, config)
 	}
-	sessionConfig := pw.Config[pw.SessionConfig](ctx)
+	sessionConfig := pwruntime.ResolveConfig[sessionconfig.SessionConfig](ctx)
 	if !sessionConfig.Enabled {
 		return nil, errors.New("auth requires session.enabled = true")
 	}
-	if warning := unrevocableSessionBackend(sessionConfig.Backend, pw.Development()); warning != "" {
+	if warning := unrevocableSessionBackend(sessionConfig.Backend, pwconfig.Development()); warning != "" {
 		pw.Logger(ctx).Log(ctx, pw.LevelWarn, "sessions cannot be ended on demand",
 			pw.String("setting", "session.backend"),
-			pw.String("environment", pw.Env()),
+			pw.String("environment", pwconfig.Env()),
 			pw.String("consequence", warning))
 	}
 	manager := pw.SessionManager()
@@ -282,7 +297,7 @@ func Setup(ctx context.Context) (Step, error) {
 	// The declared origins below stay the strong half of the comparison; this
 	// only resolves what this deployment calls itself, which behind a
 	// TLS-terminating proxy is not what r.TLS says.
-	proxies, err := requestorigin.Compile(pw.Config[pw.ServerConfig](ctx).TrustedProxies)
+	proxies, err := requestorigin.Compile(pwruntime.ResolveConfig[pwconfig.ServerConfig](ctx).TrustedProxies)
 	if err != nil {
 		return nil, fmt.Errorf("server.trusted_proxies %w", err)
 	}

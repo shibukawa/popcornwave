@@ -78,7 +78,16 @@ prerequisites:
     fasthttp_half: popcornwave/plugin/auth/authfast, about two hundred lines, of which the exchange is most
     all_three_modes_serve: oidc, passkey and jwt_only, each covered by an end-to-end binary against a real provider and a real database
     agreement_test: both listeners are asked the same question over one runtime and the answers are compared, which found a real divergence in Redirect
-    still_mixed: authfast links plugin/auth and therefore pw, because configuration binding has not moved; that is the staging this document already blessed, and the configuration layer is what closes it
+    still_mixed: authfast links plugin/auth and therefore pw, because the session manager and the extension registry have not moved; the configuration layer, which this entry named as the blocker, is done — see configuration_layer_moved_2026_08_11
+  configuration_layer_moved_2026_08_11:
+    first_of_four: pw_in_the_second_binary lists configuration binding, session, the database layer and observability as what has to reach a shared package; this is the first
+    package: pwconfig, holding the registry, the load, the framework's own bindings and their generated definitions, the environment the load resolves against, and the connection group resolution
+    the_earlier_reading_was_wrong: pwruntime's configlookup argued that moving the registry would drag registration, defaults, the environment overlay, scaffold emission and the boot report with it, so the read was published instead; only two of those are runtime-shaped, and both are hooks now
+    what_stayed_a_hook: the argument filter that takes framework subcommands off the command line, and the callback the startup summary reads
+    chain_settings_followed: the reduction into pwruntime.ChainSettings moved too, so a parse publishes what a chain builder needs; without that a pw-free build parsed a file and then had pwfast.Middlewares refuse for want of settings
+    application_surface_unchanged: every type is a true alias and every entry point a thin wrapper, so no application, scaffold or document changed
+    proved_by: internal/fastonly, a real package that parses a configuration file and serves one fasthttp request through a chain composed from what it read, whose dependency graph is asserted to contain no pw
+    what_is_left: session, the database pools and the extension registry; plugin/auth still links pw for exactly those three
   open_here:
     superseded_note: the four entries below were the open list; all four are answered in settled_2026_08_10 above and are kept here for the reasoning rather than as questions
     test_seam:

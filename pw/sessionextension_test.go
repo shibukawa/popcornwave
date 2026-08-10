@@ -5,7 +5,6 @@ import (
 	"encoding/base64"
 	"net/http"
 	"net/http/httptest"
-	"reflect"
 	"testing"
 	"time"
 
@@ -20,26 +19,11 @@ type visitLocale struct {
 
 func replaceConfigForTest[T any](t *testing.T, value T) *T {
 	t.Helper()
-	key := reflect.TypeFor[T]()
-	configState.Lock()
-	previous, existed := configState.entries[key]
-	configState.entries[key] = configEntry{ptr: &value}
-	configState.Unlock()
-	t.Cleanup(func() {
-		configState.Lock()
-		if existed {
-			configState.entries[key] = previous
-		} else {
-			delete(configState.entries, key)
-		}
-		configState.Unlock()
-	})
-	return &value
+	return swapConfigForTest(t, value)
 }
 
 func TestDevelopmentSessionModesResolveToOneIntendedStore(t *testing.T) {
-	restoreEnvState(t)
-	setEnv(EnvDevelopment, true)
+	swapEnvForTest(t, EnvDevelopment, true)
 	t.Cleanup(func() { _ = closeSession(context.Background()) })
 	replaceConfigForTest(t, SecurityConfig{CSRF: CSRFConfig{Enabled: true}})
 	config := replaceConfigForTest(t, SessionConfig{

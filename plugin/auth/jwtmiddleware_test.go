@@ -12,7 +12,6 @@ import (
 
 	"github.com/shibukawa/popcornwave/internal/pathpattern"
 	"github.com/shibukawa/popcornwave/pw"
-
 	_ "github.com/shibukawa/tinygodriver/database/sql/sqlite"
 )
 

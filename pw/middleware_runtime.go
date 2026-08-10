@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	"github.com/shibukawa/popcornwave/middlewares"
+	"github.com/shibukawa/popcornwave/pwconfig"
 	"github.com/shibukawa/popcornwave/pwruntime"
 )
 
@@ -16,23 +17,11 @@ func buildRuntimeHandler(handler http.Handler, server ServerConfig, security Sec
 		return nil, err
 	}
 	// Published for the other runtime, which binds no configuration of its own
-	// and would otherwise compose a chain out of zero values.
-	pwruntime.PublishChainSettings(pwruntime.ChainSettings{
-		RequestID:       middleware.RequestID,
-		AccessLog:       middleware.AccessLog,
-		Recovery:        middleware.Recovery,
-		RequestTimeout:  middleware.RequestTimeout,
-		MaxRequestBody:  server.MaxRequestBody,
-		SecurityHeaders: security.Headers,
-		TrustedProxies:  server.TrustedProxies,
-		Health:          server.Health,
-		Readiness:       server.Readiness,
-		OpenAPI:         server.OpenAPI,
-		APIDoc:          server.APIDoc,
-		APIDocPath:      server.APIDocPath,
-		CSRF:            security.CSRF,
-		Public:          server.Public,
-	})
+	// and would otherwise compose a chain out of zero values. The reduction is
+	// pwconfig's, so the two transports build from one reading of the settings;
+	// what this call adds is that it publishes the configuration this chain was
+	// actually handed, which a test may have injected.
+	pwruntime.PublishChainSettings(pwconfig.ChainSettings(server, security, middleware))
 	// Every frame — a framework middleware, an extension, a middleware the
 	// application registered — carries a slot on one number line, and the
 	// chain is composed by that number alone: ascending, smallest outermost.

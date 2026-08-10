@@ -14,6 +14,7 @@ import (
 	"github.com/shibukawa/popcornwave/contrib/otel/exporter/otlphttp"
 	otellog "github.com/shibukawa/popcornwave/contrib/otel/log"
 	"github.com/shibukawa/popcornwave/contrib/otel/trace"
+	"github.com/shibukawa/popcornwave/pwconfig"
 	"github.com/shibukawa/popcornwave/pwruntime"
 )
 
@@ -218,7 +219,7 @@ func resourceAttributes(config ObservabilityConfig) []otel.Attribute {
 		service = strings.TrimSpace(os.Getenv("OTEL_SERVICE_NAME"))
 	}
 	if service == "" {
-		service = executableName()
+		service = pwconfig.ExecutableName()
 	}
 	attributes := []otel.Attribute{otel.String("service.name", service)}
 	for _, entry := range config.ResourceAttributes {

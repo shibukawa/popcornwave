@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/shibukawa/popcornwave/pw"
+	"github.com/shibukawa/popcornwave/sessionconfig"
 )
 
 func hintSecret() string {
@@ -24,7 +24,7 @@ func enabledHint() HintConfig {
 // The hint carries no authority. It is sealed so its contents never reach the
 // client, which is what lets it hold a login identifier at all.
 func TestTheHintRoundTripsSealed(t *testing.T) {
-	jar, err := hintJar(enabledHint(), pw.SessionCookieConfig{})
+	jar, err := hintJar(enabledHint(), sessionconfig.SessionCookieConfig{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -52,7 +52,7 @@ func TestTheHintRoundTripsSealed(t *testing.T) {
 // the other providers a deployment offers, so a multi-issuer login screen can
 // only skip its picker from local memory.
 func TestTheHintRemembersTheIssuer(t *testing.T) {
-	jar, _ := hintJar(enabledHint(), pw.SessionCookieConfig{})
+	jar, _ := hintJar(enabledHint(), sessionconfig.SessionCookieConfig{})
 	rt := &runtime{hint: jar, config: Config{Assurance: AssuranceConfig{Hint: enabledHint()}}}
 	recorder := httptest.NewRecorder()
 	rt.rememberSignIn(HTTPExchange(recorder, httptest.NewRequest("GET", "/", nil)), SessionData{Issuer: "https://accounts.google.com"})
@@ -71,7 +71,7 @@ func TestTheHintRemembersTheIssuer(t *testing.T) {
 func TestAnIdleHintIsDiscardedRatherThanShown(t *testing.T) {
 	config := enabledHint()
 	config.IdleTimeout = time.Hour
-	jar, _ := hintJar(config, pw.SessionCookieConfig{})
+	jar, _ := hintJar(config, sessionconfig.SessionCookieConfig{})
 	rt := &runtime{hint: jar, config: Config{Assurance: AssuranceConfig{Hint: config}}}
 
 	recorder := httptest.NewRecorder()
@@ -95,12 +95,12 @@ func TestAnIdleHintIsDiscardedRatherThanShown(t *testing.T) {
 // Turning the hint off, or giving it no lifetime at all, is a valid answer and
 // produces no jar.
 func TestNoHintIsKeptWhenItIsOffOrHasNoLifetime(t *testing.T) {
-	if jar, err := hintJar(HintConfig{}, pw.SessionCookieConfig{}); err != nil || jar != nil {
+	if jar, err := hintJar(HintConfig{}, sessionconfig.SessionCookieConfig{}); err != nil || jar != nil {
 		t.Fatalf("disabled hint = %v, %v", jar, err)
 	}
 	config := enabledHint()
 	config.TTL = 0
-	if jar, err := hintJar(config, pw.SessionCookieConfig{}); err != nil || jar != nil {
+	if jar, err := hintJar(config, sessionconfig.SessionCookieConfig{}); err != nil || jar != nil {
 		t.Fatalf("zero-lifetime hint = %v, %v", jar, err)
 	}
 }

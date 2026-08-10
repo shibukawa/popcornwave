@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/shibukawa/popcornwave/pw"
+	"github.com/shibukawa/popcornwave/pwconfig"
 )
 
 func TestDevBuildCarriesTheRelaxation(t *testing.T) {
@@ -107,17 +107,17 @@ func TestDevRelaxationRefusesToStartOutsideDevelopment(t *testing.T) {
 	config := validJWTConfig().JWT
 	config.Dev.TrustUnverifiedTokens = true
 
-	for _, environment := range []string{pw.EnvStaging, pw.EnvProduction, "production"} {
+	for _, environment := range []string{pwconfig.EnvStaging, pwconfig.EnvProduction, "production"} {
 		t.Run(environment, func(t *testing.T) {
-			t.Setenv(pw.EnvVar, environment)
+			t.Setenv(pwconfig.EnvVar, environment)
 			if err := checkDevRelaxation(config); err == nil {
-				t.Fatalf("the relaxation started under %s=%s", pw.EnvVar, environment)
+				t.Fatalf("the relaxation started under %s=%s", pwconfig.EnvVar, environment)
 			}
 		})
 	}
 
 	t.Run("dev", func(t *testing.T) {
-		t.Setenv(pw.EnvVar, pw.EnvDevelopment)
+		t.Setenv(pwconfig.EnvVar, pwconfig.EnvDevelopment)
 		if err := checkDevRelaxation(config); err != nil {
 			t.Fatalf("the relaxation was refused under development: %v", err)
 		}
@@ -171,6 +171,6 @@ func TestDevRelaxationMarksTheResponse(t *testing.T) {
 func TestMain(m *testing.M) {
 	// The environment lock reads APP_ENV, and an inherited staging value would
 	// otherwise make every relaxed case here fail for the wrong reason.
-	_ = os.Setenv(pw.EnvVar, pw.EnvDevelopment)
+	_ = os.Setenv(pwconfig.EnvVar, pwconfig.EnvDevelopment)
 	os.Exit(m.Run())
 }
