@@ -169,10 +169,7 @@ func safeMethod(method string) bool {
 }
 
 func protectedPath(include, exclude []pathpattern.Pattern, path string) bool {
-	if pathpattern.MatchAny(exclude, path) {
-		return false
-	}
-	return pathpattern.MatchAny(include, path)
+	return pathpattern.Protected(include, exclude, path)
 }
 
 // checkOrigin refuses a request whose origin is neither this host nor one the
