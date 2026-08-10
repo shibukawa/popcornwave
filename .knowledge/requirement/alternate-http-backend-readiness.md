@@ -108,6 +108,18 @@ prerequisites:
     fell_out_of_it: the problem document was built by hand in both runtimes and is now pwruntime.AppendProblemJSON, so one response body is described once
     cost: no aliases, no package split, and the documented import line is unchanged
     proved_by: authfastjwte2e, which starts through pwconfig, plugin/auth and pwfast with no pw in its graph and asserts that, and go list -deps over plugin/auth and authfast
+  generator_wired_2026_08_11:
+    was: the critical path; every runtime piece existed and nothing produced the second build, so project.fasthttp only added a build constraint and an application could not be built for fasthttp at all
+    now: pw generate emits it — the derived handlers, the second transport's page tree, and the constraint on the first transport's half
+    derived_handlers: the upstream analysis and rewrite, run by this framework rather than as part of the artifact run, and filtered to authored source
+    why_filtered: the generator reads every file of the loaded package, and in a project laid out this way that includes the last run's output; a generated page decoder would then be emitted by the fasthttp page emitter and rewritten from the net/http one at the same time, and a generated binder is refused outright for capturing the request in a closure
+    the_rule: generated code is output rather than input, which is what discovery already follows through GeneratedHeaders
+    page_tree: emitted twice and compared, so what gets a second copy is decided by the bytes rather than by a list of file names kept in agreement with an emitter this framework does not own
+    what_differs: the route decoder and the registry, which read the request and install on a router; the compiled components come out identical and are written once for both builds
+    ordering: the second tree is a later step than the per-directory stages, because a server action is discovered by its signature and the fasthttp-shaped one is the derived handler this run had not written yet
+    refusals: a build error naming the occurrence, its chain and the upstream remedy, plus one sentence upstream cannot say — a refusal naming a pw call is requirement:pw-call-registration rather than an application defect
+    still_missing: the fasthttp binder registry, which is one upstream ordering defect away; see requirement:tinybind-alternate-backend-support, and pw generate names the packages it affects at the end of every run
+    also_still_missing: an entry point and a pw build target for the second binary, rate limiting on pwfast, and the two storage plugins that link pw
   open_here:
     superseded_note: the four entries below were the open list; all four are answered in settled_2026_08_10 above and are kept here for the reasoning rather than as questions
     test_seam:

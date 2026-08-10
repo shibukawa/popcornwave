@@ -280,8 +280,8 @@ type initOptions struct {
 	// FastHTTP declares the fasthttp backend as a second build target. It adds
 	// a build rather than replacing one, so a project taking it still writes
 	// net/http handlers and still runs on net/http; what it buys is that
-	// generation constrains its net/http output, which is what a second build
-	// needs in order to supply its own.
+	// generation constrains its net/http output and derives the second build's
+	// handlers and page tree from it.
 	FastHTTP bool
 	// Images installs the build-time image conversion and the encoders it
 	// runs. It is separate from the other asset answers because it is the only
@@ -1422,7 +1422,8 @@ func projectFastHTTPConfig(options initOptions) string {
 		return ""
 	}
 	return "# Build for fasthttp as well as net/http. Generated files importing\n" +
-		"# net/http carry a !fasthttp constraint, so the second build supplies its own.\n" +
+		"# net/http carry a !fasthttp constraint, and pw generate derives the second\n" +
+		"# build's handlers and page tree from the net/http source.\n" +
 		"fasthttp = true\n"
 }
 

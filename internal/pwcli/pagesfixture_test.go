@@ -4,8 +4,10 @@ import (
 	"bytes"
 	"context"
 	"flag"
+	"io"
 	"path"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/shibukawa/popcornwave/internal/pwgen"
@@ -83,27 +85,34 @@ func planFixture(t *testing.T, root string, config projectConfig) ([]fileChange,
 	if err != nil {
 		return nil, err
 	}
+	second := secondBuild{warnings: io.Discard}
+	if config.FastHTTP {
+		transform := pwgen.FastTransform(options.Calls.Set)
+		second.transform = &transform
+	}
 	var changes []fileChange
 	for _, directory := range directories {
 		planned, err := planDirectory(context.Background(), runner, directory,
-			directoryPurposes(root, config.Generate, directory), pageArtifacts[directory], config.FastHTTP)
+			directoryPurposes(root, config.Generate, directory), pageArtifacts[directory], second)
 		if err != nil {
 			return nil, err
 		}
 		changes = append(changes, planned...)
 	}
-	return changes, nil
+	// Plan-only, which is check mode.
+	return planSecondBuildPages(root, config, true, changes)
 }
 
-// A project declaring the fasthttp build gets its net/http-bearing generated
-// files constrained out of it, and only those.
+// A project declaring the fasthttp build gets two things and nothing else: its
+// net/http-bearing generated files constrained out of that build, and the
+// handlers it has to supply for itself derived into it.
 //
-// The page tree fixture is the case that proves the split is per file rather
+// The page tree fixture is the case that proves the first is per file rather
 // than per kind: its route, registry, action, and page files name net/http, and
 // its compiled layout does not. The committed files carry no constraint, so
-// turning the option on plans exactly the net/http ones — which makes the set of
-// planned changes itself the assertion, and the absence of the layout the other
-// half of it.
+// turning the option on plans exactly the net/http ones plus the derived
+// handlers — which makes the set of planned changes itself the assertion, and
+// the absence of the layout the other half of it.
 func TestFastHTTPBuildConstrainsOnlyTheGeneratedFilesNamingNetHTTP(t *testing.T) {
 	root, config := fixtureConfig(t)
 	config.FastHTTP = true
@@ -120,11 +129,24 @@ func TestFastHTTPBuildConstrainsOnlyTheGeneratedFilesNamingNetHTTP(t *testing.T)
 			t.Errorf("%s was planned for removal; the option must not delete anything", change.path)
 			continue
 		}
-		planned[path.Base(filepath.ToSlash(change.path))] = true
+		name := path.Base(filepath.ToSlash(change.path))
+		planned[name] = true
+		// Read the whole header rather than the first line: the generator writes
+		// its own constraint below the generated-code header, and this framework
+		// writes its above one.
+		constraint, _ := buildConstraint(change.source)
+		if constraint == strings.TrimSpace(fastHTTPConstraint) {
+			// The derived half. It is generated for the second build rather than
+			// constrained out of it, so the rule below does not apply.
+			if bytes.Contains(change.source, []byte(`"net/http"`)) {
+				t.Errorf("%s is generated for the fasthttp build and names net/http", change.path)
+			}
+			continue
+		}
 		if !bytes.Contains(change.source, []byte(`"net/http"`)) {
 			t.Errorf("%s does not import net/http yet the option planned a change to it", change.path)
 		}
-		if !bytes.HasPrefix(change.source, []byte(netHTTPConstraint)) {
+		if constraint != strings.TrimSpace(netHTTPConstraint) {
 			t.Errorf("%s imports net/http and carries no build constraint", change.path)
 		}
 	}
@@ -135,8 +157,11 @@ func TestFastHTTPBuildConstrainsOnlyTheGeneratedFilesNamingNetHTTP(t *testing.T)
 		t.Error("layout_pw_gen.go imports no net/http yet was constrained out of the fasthttp build")
 	}
 	// Nothing above would fail if the emitter stopped producing the route files
-	// altogether, so name one that must be there.
+	// altogether, so name one of each half that must be there.
 	if !planned["route_pw_gen.go"] {
 		t.Errorf("expected the route decoder among the constrained files; got %v", planned)
+	}
+	if !planned["transport_pw_gen.go"] {
+		t.Errorf("the fixture's server action was not derived for the second build; got %v", planned)
 	}
 }

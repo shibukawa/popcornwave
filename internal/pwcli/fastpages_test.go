@@ -1,7 +1,9 @@
 package pwcli
 
 import (
+	"bytes"
 	"path/filepath"
+	"sort"
 	"strings"
 	"testing"
 
@@ -133,6 +135,74 @@ func TestBothEmittersProduceATreeFromOneFixture(t *testing.T) {
 			t.Errorf("the second transport is missing %s", name)
 		}
 	}
+}
+
+// A page tree is not transport-shaped throughout, so only the part that is gets
+// a second copy. The compiled components render into an io.Writer and name
+// nothing about the request; the route decoder and the registry read the request
+// and install on a router.
+//
+// What decides it is the bytes rather than a list of names: this asserts the
+// outcome, and planFastPageTrees reaches it by emitting the whole tree twice and
+// keeping what differed.
+func TestTheSecondTransportsPageTreeIsOnlyTheFilesThatDiffer(t *testing.T) {
+	root, _ := fixtureConfig(t)
+	config := projectConfig{Generate: generationScope{Pages: []string{"fastpages"}}, FastHTTP: true}
+	changes, err := planFastPageTrees(root, config, config.FastHTTP, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	planned := map[string][]byte{}
+	for _, change := range changes {
+		if change.remove {
+			t.Errorf("%s was planned for removal; nothing of this tree is generated yet", change.path)
+			continue
+		}
+		planned[filepath.Base(change.path)] = change.source
+	}
+	for _, name := range []string{"route_fast_pw_gen.go", "routes_fast_pw_gen.go"} {
+		source, ok := planned[name]
+		if !ok {
+			t.Errorf("%s was not planned; got %v", name, plannedNames(planned))
+			continue
+		}
+		if constraint, _ := buildConstraint(source); constraint != strings.TrimSpace(fastHTTPConstraint) {
+			t.Errorf("%s is not constrained to the fasthttp build:\n%s", name, source)
+		}
+		if bytes.Contains(source, []byte(`"net/http"`)) {
+			t.Errorf("%s names the first transport:\n%s", name, source)
+		}
+	}
+	// A component both emitters produce identically belongs to both builds, so a
+	// second copy of it would be a second declaration under the fasthttp tag.
+	for _, name := range []string{"layout_fast_pw_gen.go", "page_fast_pw_gen.go"} {
+		if _, ok := planned[name]; ok {
+			t.Errorf("%s was copied for the second transport although both emitters produce it identically", name)
+		}
+	}
+}
+
+// A project that declared no second build gets none of this, which is what
+// keeps the option free to not take.
+func TestNoSecondPageTreeWithoutTheDeclaration(t *testing.T) {
+	root, _ := fixtureConfig(t)
+	config := projectConfig{Generate: generationScope{Pages: []string{"fastpages"}}}
+	changes, err := planFastPageTrees(root, config, config.FastHTTP, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(changes) > 0 {
+		t.Errorf("a project without the declaration planned %d files", len(changes))
+	}
+}
+
+func plannedNames(planned map[string][]byte) []string {
+	names := make([]string, 0, len(planned))
+	for name := range planned {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return names
 }
 
 // emittedNames lists what a generation run produced, for a failure message.

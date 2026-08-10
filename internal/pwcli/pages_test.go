@@ -52,7 +52,7 @@ func Load(id string) (string, error) { return id, nil }
 	return root
 }
 
-func generateIn(t *testing.T, root string) string {
+func generateIn(t *testing.T, root string, args ...string) string {
 	t.Helper()
 	previous, err := os.Getwd()
 	if err != nil {
@@ -64,8 +64,8 @@ func generateIn(t *testing.T, root string) string {
 	defer os.Chdir(previous)
 
 	var output strings.Builder
-	if err := runGenerate(context.Background(), nil, &output); err != nil {
-		t.Fatalf("generate: %v\n%s", err, output.String())
+	if err := runGenerate(context.Background(), args, &output); err != nil {
+		t.Fatalf("generate %v: %v\n%s", args, err, output.String())
 	}
 	return output.String()
 }

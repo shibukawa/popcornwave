@@ -115,13 +115,14 @@ func applicationSteps(defaults initOptions) []wizardStep[initOptions] {
 		// fourth option on one of theirs.
 		newChoiceStep(
 			"fasthttp backend",
-			"Builds this project for fasthttp in addition to net/http. Handlers stay net/http; "+
-				"generated files importing net/http gain a !fasthttp constraint so the second build "+
-				"can supply its own. Take it only if that second build is planned.",
+			"Builds this project for fasthttp in addition to net/http. Handlers stay net/http and "+
+				"generation derives the fasthttp copy from them, so a handler is written once. "+
+				"A transport handler has to sit in a file of its own for that to work. "+
+				"Take it only if that second build is planned.",
 			yesNoCursor(defaults.FastHTTP),
 			wizardChoice[initOptions]{
 				name:        "Yes",
-				description: "project.fasthttp = true, and generated net/http files are constrained to !fasthttp",
+				description: "project.fasthttp = true, and generation emits both builds",
 				apply:       func(target *initOptions) { target.FastHTTP = true },
 			},
 			wizardChoice[initOptions]{
