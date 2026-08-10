@@ -121,7 +121,7 @@ type RuntimeOptions struct {
 // # What is not here yet
 //
 // The session, CSRF, authentication and guard frames, the public asset frame,
-// the operational and documentation endpoints, and the extension chain. Each is
+// the documentation endpoints, and the extension chain. Each is
 // absent rather than stubbed, so a build that needs one fails to name it rather
 // than serving requests with a frame that silently does nothing — which for the
 // session and CSRF frames would be a security control that looks installed.
@@ -171,6 +171,8 @@ func Middlewares(handler fasthttp.RequestHandler, options RuntimeOptions) (fasth
 	if settings.MaxRequestBody > 0 {
 		frames = append(frames, Frame{Slot: SlotMaxRequestBody, Name: "max_request_body", Middleware: MaxRequestBody(settings.MaxRequestBody)})
 	}
+	frames = append(frames, Frame{Slot: SlotOperational, Name: "operational",
+		Middleware: OperationalEndpoints(settings.Health, settings.Readiness, options.Resources)})
 	frames = append(frames, options.Extra...)
 	return Compose(handler, frames...), nil
 }
@@ -232,4 +234,56 @@ func compileTrustedProxies(values []string) ([]*net.IPNet, error) {
 		return nil, err
 	}
 	return proxies.Networks(), nil
+}
+
+// OperationalEndpoints answers the liveness and readiness probes above
+// everything that authenticates.
+//
+// The probes reveal only status and are reachable by anything that can reach
+// the port, which is what a liveness probe needs and what keeps a dependency
+// outage from turning into a restart loop. Readiness is the shared probe, so
+// the same process reports the same readiness whichever transport asked.
+//
+// A path left empty installs nothing for it, which is how a deployment turns
+// one off.
+func OperationalEndpoints(health, readiness string, resources pwruntime.Resources) Middleware {
+	return func(next fasthttp.RequestHandler) fasthttp.RequestHandler {
+		if health == "" && readiness == "" {
+			return next
+		}
+		return func(r *fasthttp.RequestCtx) {
+			switch path := string(r.Path()); {
+			case health != "" && path == health:
+				writeOperationalStatus(r, true)
+			case readiness != "" && path == readiness:
+				writeOperationalStatus(r, pwruntime.DatabasesReady(r, resources))
+			default:
+				next(r)
+			}
+		}
+	}
+}
+
+// writeOperationalStatus answers a probe.
+//
+// Only GET and HEAD are answered, because a probe endpoint that accepts any
+// method is one an arbitrary caller can POST to, and the reply says nothing but
+// costs a database round trip on the readiness path.
+func writeOperationalStatus(r *fasthttp.RequestCtx, healthy bool) {
+	method := string(r.Method())
+	if method != fasthttp.MethodGet && method != fasthttp.MethodHead {
+		r.Response.Header.Set("Allow", "GET, HEAD")
+		r.SetStatusCode(fasthttp.StatusMethodNotAllowed)
+		return
+	}
+	r.Response.Header.Set("Cache-Control", "no-store")
+	r.Response.Header.SetContentType("text/plain; charset=utf-8")
+	status, body := fasthttp.StatusOK, "ok\n"
+	if !healthy {
+		status, body = fasthttp.StatusServiceUnavailable, "unavailable\n"
+	}
+	r.SetStatusCode(status)
+	if method != fasthttp.MethodHead {
+		_, _ = r.WriteString(body)
+	}
 }

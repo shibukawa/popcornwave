@@ -143,3 +143,59 @@ func TestResolveClientAddressRecordsThePeer(t *testing.T) {
 		t.Errorf("client address = %q, want the forwarded caller", body)
 	}
 }
+
+func TestTheProbesAnswerAboveTheApplication(t *testing.T) {
+	publishChainSettings(t, pwruntime.ChainSettings{Health: "/healthz", Readiness: "/readyz"})
+	handler, err := Middlewares(func(r *fasthttp.RequestCtx) {
+		_, _ = r.WriteString("application")
+	}, RuntimeOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	status, header, body := serve(t, handler, "/healthz")
+	if status != fasthttp.StatusOK || body != "ok\n" {
+		t.Errorf("liveness answered %d %q", status, body)
+	}
+	if !strings.Contains(header, "Cache-Control: no-store") {
+		t.Errorf("a probe answer was cacheable:\n%s", header)
+	}
+	// No connections configured means ready, which is the same answer the other
+	// transport gives for the same process.
+	if status, _, body := serve(t, handler, "/readyz"); status != fasthttp.StatusOK || body != "ok\n" {
+		t.Errorf("readiness answered %d %q", status, body)
+	}
+	if _, _, body := serve(t, handler, "/"); body != "application" {
+		t.Errorf("an ordinary path was taken by a probe: %q", body)
+	}
+}
+
+// A probe that accepts any method is one an arbitrary caller can POST to, and
+// on the readiness path that costs a database round trip per request.
+func TestAProbeRefusesAMethodItDoesNotAnswer(t *testing.T) {
+	publishChainSettings(t, pwruntime.ChainSettings{Health: "/healthz"})
+	handler, err := Middlewares(func(*fasthttp.RequestCtx) {}, RuntimeOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	status, header, _ := serveForm(t, handler, "/healthz", "x=1")
+	if status != fasthttp.StatusMethodNotAllowed {
+		t.Errorf("status = %d, want 405", status)
+	}
+	if !strings.Contains(header, "Allow:") {
+		t.Errorf("405 carried no Allow header:\n%s", header)
+	}
+}
+
+func TestAnEmptyProbePathInstallsNothing(t *testing.T) {
+	publishChainSettings(t, pwruntime.ChainSettings{})
+	handler, err := Middlewares(func(r *fasthttp.RequestCtx) {
+		_, _ = r.WriteString("application")
+	}, RuntimeOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, _, body := serve(t, handler, "/healthz"); body != "application" {
+		t.Errorf("a disabled probe still answered: %q", body)
+	}
+}

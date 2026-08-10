@@ -5,7 +5,6 @@ import (
 	"io"
 	"io/fs"
 	"net/http"
-	"time"
 
 	"github.com/shibukawa/popcornwave/middlewares"
 	"github.com/shibukawa/popcornwave/pwruntime"
@@ -26,6 +25,8 @@ func buildRuntimeHandler(handler http.Handler, server ServerConfig, security Sec
 		MaxRequestBody:  server.MaxRequestBody,
 		SecurityHeaders: security.Headers,
 		TrustedProxies:  server.TrustedProxies,
+		Health:          server.Health,
+		Readiness:       server.Readiness,
 	})
 	// Every frame — a framework middleware, an extension, a middleware the
 	// application registered — carries a slot on one number line, and the
@@ -218,19 +219,8 @@ func (headResponseWriter) Write(body []byte) (int, error) { return len(body), ni
 // databasesReady pings every configured connection. A replica that cannot
 // answer makes the instance unready, because the default group is the one the
 // application reads from.
+// databasesReady answers from the shared probe, so the two transports report
+// the same readiness for the same process.
 func databasesReady(parent context.Context, resources pwruntime.Resources) bool {
-	ctx, cancel := context.WithTimeout(parent, time.Second)
-	defer cancel()
-	if connections := resources.Connections.Connections(); len(connections) > 0 {
-		for _, connection := range connections {
-			if connection.Ping(ctx) != nil {
-				return false
-			}
-		}
-		return true
-	}
-	if resources.DB != nil && resources.DB.PingContext(ctx) != nil {
-		return false
-	}
-	return true
+	return pwruntime.DatabasesReady(parent, resources)
 }
