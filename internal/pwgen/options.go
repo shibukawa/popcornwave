@@ -155,6 +155,11 @@ func Options(sqlDialect string) (generator.Options, error) {
 		{name: "RedirectSeeOther", writer: 0, request: 1},
 		{name: "WantsUpdate", writer: -1, request: 0},
 		{name: "QueryValue", writer: -1, request: 0},
+		// The reads a generated route decoder makes. They are functions rather
+		// than the request's own methods precisely so the decoder names no
+		// transport, and that only holds if the rewrite knows them.
+		{name: "Queries", writer: -1, request: 0},
+		{name: "PathValue", writer: -1, request: 0},
 		{name: "FormValue", writer: -1, request: 0},
 		{name: "IsBot", writer: -1, request: 0},
 		{name: "OpenAPIJSON", writer: 0, request: 1},

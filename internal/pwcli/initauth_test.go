@@ -922,17 +922,19 @@ func TestABearerProjectScaffoldsNoAccountSection(t *testing.T) {
 }
 
 // A DynamoDB project has to compile from the files pw init wrote. The codec is
-// emitted for the directions a package is discovered to use, and discovery
-// matches the context-form entries — so a scaffold calling only the handle-form
-// ones declared a type whose EncodeItem and ItemKey no generation would ever
-// produce, and the project it created did not build.
-func TestScaffoldedDynamoRecordUsesDiscoverableCalls(t *testing.T) {
+// emitted for the directions a package is discovered to use, so a store
+// scaffold has to call something. Both stores declare a type and then read and
+// write it, because a type nothing touches is a type with no codec — and a
+// scaffold whose calls are not the discovered ones ships a project that cannot
+// build, which is what the handle-form entries did before tinybind v0.5.4
+// registered them.
+func TestScaffoldedStoresCallWhatGenerationDiscovers(t *testing.T) {
 	files := scaffoldFiles(initOptions{Name: "demo", Dynamo: true})
 	record, ok := files["records/note.go"]
 	if !ok {
 		t.Fatal("no dynamo record was scaffolded")
 	}
-	for _, want := range []string{`dynamobind.Store(ctx, "note", note)`, "dynamobind.Load[Note](ctx,", "dynamo.EnsureClient(ctx)"} {
+	for _, want := range []string{`dynamobind.StoreOn(ctx, h, "note", note)`, "dynamobind.LoadOn[Note](ctx, h,", "dynamo.Handle(ctx)"} {
 		if !strings.Contains(record, want) {
 			t.Errorf("records/note.go does not carry %q:\n%s", want, record)
 		}
@@ -942,5 +944,17 @@ func TestScaffoldedDynamoRecordUsesDiscoverableCalls(t *testing.T) {
 	// emitted for once a project declares an access pattern.
 	if _, ok := files["records/notes.pw.dynamo"]; !ok {
 		t.Error("the dynamo scaffold declares no access pattern, unlike the firestore one")
+	}
+
+	// The Firestore scaffold declared an entity and never touched it, so it had
+	// no codec either — it simply compiled, because nothing called for one.
+	entity, ok := scaffoldFiles(initOptions{Name: "demo", Firestore: true})["entities/note.go"]
+	if !ok {
+		t.Fatal("no firestore entity was scaffolded")
+	}
+	for _, want := range []string{"firestorebind.StoreOn(ctx, h, note)", "firestorebind.LoadOn[Note](ctx, h,", "firestore.Handle(ctx)"} {
+		if !strings.Contains(entity, want) {
+			t.Errorf("entities/note.go does not carry %q:\n%s", want, entity)
+		}
 	}
 }

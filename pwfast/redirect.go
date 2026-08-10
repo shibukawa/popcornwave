@@ -128,6 +128,35 @@ func QueryValue(r *fasthttp.RequestCtx, key string) (string, bool) {
 	return fasthttpbind.QueryValue(r, key)
 }
 
+// Queries is the request's parsed query string, read once so that a decoder
+// binding several parameters parses it once rather than per parameter.
+//
+// The type is this transport's own, which is exactly why the read is a function
+// on both: a generated decoder names neither url.Values nor fasthttp.Args, so
+// one decoder compiles against either. Pair it with [QueryLookup]; a handler
+// wanting a single value takes [QueryValue] instead.
+func Queries(r *fasthttp.RequestCtx) *fasthttp.Args {
+	return fasthttpbind.Queries(r)
+}
+
+// QueryLookup reads one parameter out of what Queries returned, and reports
+// whether it was present. An absent parameter and an empty one are different
+// answers, which is what a decoder needs to tell a missing value from a blank.
+func QueryLookup(q *fasthttp.Args, key string) (string, bool) {
+	return fasthttpbind.QueryLookup(q, key)
+}
+
+// PathValue reads one route segment, and is empty for a segment the pattern
+// does not name.
+//
+// The router stores them as user values on the request context, which is where
+// this reads. That is the whole reason the read is a function rather than the
+// method the other transport has: one generated route decoder compiles against
+// both, because neither spelling of the lookup appears in it.
+func PathValue(r *fasthttp.RequestCtx, key string) string {
+	return fasthttpbind.PathValue(r, key)
+}
+
 // FormValue reads one submitted form field, on the same terms as QueryValue.
 func FormValue(r *fasthttp.RequestCtx, key string) string {
 	values, err := fasthttpbind.ParseFormMap(r)

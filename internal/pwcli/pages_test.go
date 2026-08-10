@@ -125,8 +125,11 @@ func TestRunGeneratePageTreeCallsTypedLoad(t *testing.T) {
 	if !strings.Contains(registry, "Load(route.ID)") {
 		t.Errorf("typed Load is not called with its route input:\n%s", registry)
 	}
+	// Through the framework rather than the request's own method: the second
+	// transport has no *http.Request, and one generated decoder has to compile
+	// against both.
 	decoder := readTestFile(t, filepath.Join(root, "pages", "users", "id_", "route_pw_gen.go"))
-	if !strings.Contains(decoder, `r.PathValue("id")`) {
+	if !strings.Contains(decoder, `pw.PathValue(r, "id")`) {
 		t.Errorf("decoder does not read the dynamic segment:\n%s", decoder)
 	}
 }

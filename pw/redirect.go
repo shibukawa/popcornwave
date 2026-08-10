@@ -2,6 +2,7 @@ package pw
 
 import (
 	"net/http"
+	"net/url"
 
 	"github.com/shibukawa/popcornwave/internal/safeurl"
 	tinybind "github.com/shibukawa/tinybind-go"
@@ -51,6 +52,35 @@ func RedirectSeeOther(w http.ResponseWriter, r *http.Request, url string) {
 // which is the read no second transport can follow.
 func QueryValue(r *http.Request, key string) (string, bool) {
 	return tinybind.QueryValue(r, key)
+}
+
+// Queries is the request's parsed query string, read once so that a decoder
+// binding several parameters parses it once rather than per parameter.
+//
+// It is a function, like PathValue and for the same reason: the other transport
+// parses a query into a type of its own, and a generated decoder that reached
+// into the request itself would compile against only one of them. Pair it with
+// [QueryLookup]; a handler wanting a single value takes [QueryValue] instead.
+func Queries(r *http.Request) url.Values {
+	return tinybind.Queries(r)
+}
+
+// QueryLookup reads one parameter out of what Queries returned, and reports
+// whether it was present. An absent parameter and an empty one are different
+// answers, which is what a decoder needs to tell a missing value from a blank.
+func QueryLookup(q url.Values, key string) (string, bool) {
+	return tinybind.QueryLookup(q, key)
+}
+
+// PathValue reads one route segment, and is empty for a segment the pattern
+// does not name.
+//
+// It is here rather than left to the request's own method for the reason
+// QueryValue is: a second transport has no *http.Request to call a method on,
+// and route values reach it by a different route entirely. A generated route
+// decoder calls this, so the same decoder compiles against either.
+func PathValue(r *http.Request, key string) string {
+	return tinybind.PathValue(r, key)
 }
 
 // FormValue reads one submitted form field, on the same terms as QueryValue.
