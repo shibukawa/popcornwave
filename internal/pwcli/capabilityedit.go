@@ -233,10 +233,17 @@ avif = false
 }
 
 // tailwindEntryScaffold writes the CSS entry point. Tailwind scans the sources
-// named here, so the entry follows the template purpose: those are exactly the
-// directories that can contain a class name.
+// named here, so the entry names every purpose that reads templates: those are
+// exactly the directories that can contain a class name, and a page tree is one
+// of them even though it is a purpose of its own rather than a template
+// directory.
+//
+// Naming them is belt and braces — Tailwind's own detection walks the project
+// and finds these anyway — but the entry is a file the project owns and edits,
+// and one that lists two of the three directories reads like the third was
+// decided against.
 func tailwindEntryScaffold(scope generationScope) string {
-	sources := scope.Templates
+	sources := append(append([]string{}, scope.Templates...), scope.Pages...)
 	if len(sources) == 0 {
 		sources = []string{"handlers", "templates"}
 	}
