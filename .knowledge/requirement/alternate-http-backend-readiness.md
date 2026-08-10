@@ -46,7 +46,28 @@ prerequisites:
     grammar: named parameters carry over verbatim in both directions, and only the catch-all spelling is rewritten
     no_catch_all: a target declaring no catch-all spelling rejects such a route by name rather than inventing one
     matching_semantics: still the risk a transform cannot rewrite, so rule:route-and-template-checks comparing data:route-table across both builds is unchanged by any of this
+  settled_2026_08_10:
+    build_tag_axes:
+      answer: independent axes, so the backend is not pinned to the TinyGo target
+      but: TinyGo plus fasthttp is tier two, compiled and kept compiling but excluded from performance comparison, because that combination is both larger and no faster today
+      primary_target: host Go, which the measured 1.44x difference in CPU per request gives its own reason for, independent of anything TinyGo needs
+      consequence: the paired files gain a third variant only where the backend genuinely reaches them, and the tier-two rule keeps the fourth quadrant a compile check rather than a supported configuration
+    pw_in_the_second_binary:
+      answer: absent, a clean split
+      consequence: everything transport-free that pw owns has to reach a shared package before the second build can start at all, which is configuration binding, session, the database layer, and observability
+      why_not_the_cheap_one: a mixed binary needs no moving and carries the whole net/http stack it never serves with, which gives up the binary size the split is for and leaves two homes for every later decision
+      staging: the mixed shape works today and is a legitimate intermediate, so the move is per layer rather than all at once; what the answer settles is the destination, which is what decides where a thing is put when it is touched
+    test_seam:
+      answer: built first, before more porting
+      shape: pwtest holds the neutral request and response, and each transport supplies one Exchange with the same name and signature, so a test moves between them by changing its import
+      counted: 86 test files drive handlers through httptest here, 66 of them by building a request and reading a recorder, which is the population that would otherwise have been written twice
+      real_server: both halves run a real server over an in-memory pipe rather than a recorder, because half of what is worth testing is decided by the transport and a hand-built request value tests the entry against the test's idea of it
+    dev_tooling_scope:
+      answer: out of scope, as proposed
+      covers: the development console, the identity provider, the telemetry viewer, and the storybook
+      why: each is a host-side tool standing up its own server rather than part of the application serving path
   open_here:
+    superseded_note: the four entries below were the open list; all four are answered in settled_2026_08_10 above and are kept here for the reasoning rather than as questions
     test_seam:
       fact: 77 files in this repository drive handlers through httptest, and the other backend tests through an in-memory listener instead
       risk: without a backend-neutral seam in the test utilities first, every one of those tests is written twice
