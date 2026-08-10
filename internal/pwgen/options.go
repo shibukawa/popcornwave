@@ -157,6 +157,9 @@ func Options(sqlDialect string) (generator.Options, error) {
 		{name: "QueryValue", writer: -1, request: 0},
 		{name: "FormValue", writer: -1, request: 0},
 		{name: "IsBot", writer: -1, request: 0},
+		// The mode arrives in a header, so a page asking about it through the
+		// framework is a page either transport can serve.
+		{name: "WantsLive", writer: -1, request: 0},
 		{name: "OpenAPIJSON", writer: 0, request: 1},
 		// The two accessors a generated route decoder reads through. They take
 		// the request and no writer, and they exist so a decoder never reaches

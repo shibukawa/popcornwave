@@ -1263,7 +1263,13 @@ endpoint = "127.0.0.1:8081"
 func firestoreEntityScaffold() string {
 	return `package entities
 
-import "time"
+import (
+	"context"
+	"time"
+
+	"github.com/shibukawa/popcornwave/database/firestore"
+	"github.com/shibukawa/tinybind-go/firestorebind"
+)
 
 // Note is stored in Firestore, in Datastore mode. Its kind is the Go type name,
 // which is why nothing here or in the declarations names one.
@@ -1280,6 +1286,30 @@ type Note struct {
 	Body      string    ` + "`firestore:\"body,noindex\"`" + `
 	CreatedAt time.Time ` + "`firestore:\"created_at\"`" + `
 	ExpiresAt time.Time ` + "`firestore:\"expires_at,ttl\"`" + `
+}
+
+// The generator emits a codec only for the directions something actually uses,
+// so these two calls are what make EncodeEntity, DecodeEntity, and EntityKey
+// appear beside this file. Delete them and the generated code shrinks to match.
+//
+// firestore.Handle returns the process client bound to the configured
+// namespace, so no context value stands between a call and the store. A
+// declared .pw.firestore query resolves the same handle itself.
+func StoreNote(ctx context.Context, note Note) error {
+	h, err := firestore.Handle(ctx)
+	if err != nil {
+		return err
+	}
+	_, err = firestorebind.StoreOn(ctx, h, note)
+	return err
+}
+
+func LoadNote(ctx context.Context, id string) (Note, error) {
+	h, err := firestore.Handle(ctx)
+	if err != nil {
+		return Note{}, err
+	}
+	return firestorebind.LoadOn[Note](ctx, h, Note{ID: id}.EntityKey())
 }
 `
 }
@@ -1331,27 +1361,23 @@ type Note struct {
 // so these two calls are what make EncodeItem, DecodeItem, and ItemKey appear
 // beside this file. Delete them and the generated code shrinks to match.
 //
-// Discovery matches the context-form entries, which read the client from the
-// context rather than taking it. dynamo.EnsureClient is what puts the process
-// handle there — one call, at the edge of the package, rather than a value
-// travelling in request contexts. The handle-form entries beside these
-// (StoreOn, LoadOn) take it as an argument and are the ones to reach for once
-// the codec exists; a package that calls only those is a package the generator
-// sees no use in, and its codec is never emitted.
+// dynamo.Handle returns the process client bound to the configured table
+// naming, so no context value stands between a call and the store. A declared
+// .pw.dynamo query resolves the same handle itself.
 func StoreNote(ctx context.Context, note Note) error {
-	ctx, ok := dynamo.EnsureClient(ctx)
-	if !ok {
-		return dynamobind.ErrNoClient
+	h, err := dynamo.Handle(ctx)
+	if err != nil {
+		return err
 	}
-	return dynamobind.Store(ctx, "note", note)
+	return dynamobind.StoreOn(ctx, h, "note", note)
 }
 
 func LoadNote(ctx context.Context, id string, createdAt time.Time) (Note, error) {
-	ctx, ok := dynamo.EnsureClient(ctx)
-	if !ok {
-		return Note{}, dynamobind.ErrNoClient
+	h, err := dynamo.Handle(ctx)
+	if err != nil {
+		return Note{}, err
 	}
-	return dynamobind.Load[Note](ctx, "note", Note{ID: id, CreatedAt: createdAt}.ItemKey())
+	return dynamobind.LoadOn[Note](ctx, h, "note", Note{ID: id, CreatedAt: createdAt}.ItemKey())
 }
 `
 }

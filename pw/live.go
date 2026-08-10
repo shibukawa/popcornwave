@@ -62,6 +62,19 @@ const (
 	liveCloseRetry = "retry"
 )
 
+// WantsLive reports whether this request asked for deliveries instead of a
+// document, which is what a page renders differently for: the first answer of a
+// live screen carries what a delivery will replace, and the document answer
+// carries what a bookmark or a crawler must see.
+//
+// It is exported for the same reason [WantsUpdate] is. The mode arrives in a
+// header, and a page reading that header itself is a page the second transport
+// cannot serve — fasthttp has no *http.Request to read it from. One predicate
+// on both is what keeps a page portable.
+func WantsLive(r *http.Request) bool {
+	return liveModeRequested(r)
+}
+
 // liveModeRequested reports whether this request asked for deliveries instead
 // of a document. An unknown mode token is not an error: it answers the document,
 // so an older client meeting a newer server stays functional.
