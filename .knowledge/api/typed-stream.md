@@ -12,6 +12,7 @@ surface:
   - SetStreamErrorHandler(func(error)), shared with the other runtime
 as_built_2026_08_09:
   net_http: pw.WriteStream, with NewStream and the Stream wrapper removed rather than deprecated
+  upstream_followed_2026_08_10: tinybind-go v0.5.1 removed its own NewStream outright, so the deprecation window closed the way this framework argued it should; the delta stream got the same treatment, with OpenStream and OpenLiveStream replaced by callback entries on both transports
   fasthttp: pwfast.WriteStream, the same name and the same callback
   one_type: pw.Stream and pwfast.Stream both alias the module's Stream, so the callback parameter is one type and a handler body is the same text on both
   send_became_write: the wrapper renamed the module's Write to Send, and keeping that would have made the two bodies differ by a method name the rewrite table does not cover, which is the appearance of a shared shape without the substance

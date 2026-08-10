@@ -2,17 +2,11 @@ package pw
 
 import (
 	"context"
-	"crypto/hmac"
 	"crypto/rand"
-	"crypto/sha256"
-	"encoding/base64"
 	"errors"
 	"io"
 	"math/big"
 	"net/http"
-	"strconv"
-	"strings"
-	"sync"
 	"time"
 
 	"github.com/shibukawa/popcornwave/pwruntime"
@@ -119,7 +113,7 @@ func serveLive(w http.ResponseWriter, r *http.Request, wrappers []HTMLWrapper, l
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	watchdog := startLiveWatchdog(cancel, liveLifetime(config), config.LiveIdleTimeout)
-	defer watchdog.stop()
+	defer watchdog.Stop()
 
 	committed := false
 	// target is where every record of this response is written, and it becomes
@@ -225,7 +219,7 @@ func serveLive(w http.ResponseWriter, r *http.Request, wrappers []HTMLWrapper, l
 			// stream is not idle, and closing it would cost a page execution to
 			// learn the same thing again.
 			render.suppressedContent(len(content.HTML))
-			watchdog.delivered()
+			watchdog.Delivered()
 			continue
 		}
 		var writeErr error
@@ -240,7 +234,7 @@ func serveLive(w http.ResponseWriter, r *http.Request, wrappers []HTMLWrapper, l
 		}
 		render.wrote(len(content.HTML))
 		render.deliveredContent(content.BoundaryID, len(content.HTML))
-		watchdog.delivered()
+		watchdog.Delivered()
 	}
 	if ctx.Err() != nil {
 		if requestContext(r).Err() != nil {
@@ -297,102 +291,17 @@ func liveLifetime(config HTMLConfig) time.Duration {
 	return time.Duration(int64(config.LiveMaxDuration) - span + offset.Int64())
 }
 
-// liveWatchdog closes a response that has run long enough or delivered nothing
-// for long enough. Both bounds cancel the render context, which breaks every
-// pull loop and lets each source observe the cancellation through the context
-// decision:live-external-signature makes mandatory.
-type liveWatchdog struct {
-	stopOnce sync.Once
-	done     chan struct{}
-	activity chan struct{}
-}
-
-func startLiveWatchdog(cancel context.CancelFunc, lifetime, idle time.Duration) *liveWatchdog {
-	watchdog := &liveWatchdog{done: make(chan struct{}), activity: make(chan struct{}, 1)}
-	if lifetime <= 0 && idle <= 0 {
-		return watchdog
-	}
-	go func() {
-		var deadline <-chan time.Time
-		if lifetime > 0 {
-			timer := time.NewTimer(lifetime)
-			defer timer.Stop()
-			deadline = timer.C
-		}
-		idleTimer := &time.Timer{}
-		var idleC <-chan time.Time
-		if idle > 0 {
-			idleTimer = time.NewTimer(idle)
-			defer idleTimer.Stop()
-			idleC = idleTimer.C
-		}
-		for {
-			select {
-			case <-watchdog.done:
-				return
-			case <-deadline:
-				cancel()
-				return
-			case <-idleC:
-				cancel()
-				return
-			case <-watchdog.activity:
-				if idle > 0 {
-					if !idleTimer.Stop() {
-						select {
-						case <-idleTimer.C:
-						default:
-						}
-					}
-					idleTimer.Reset(idle)
-				}
-			}
-		}
-	}()
-	return watchdog
-}
-
-func (d *liveWatchdog) delivered() {
-	select {
-	case d.activity <- struct{}{}:
-	default:
-	}
-}
-
-func (d *liveWatchdog) stop() { d.stopOnce.Do(func() { close(d.done) }) }
-
-// liveAdmission counts open live responses per client, because a bound on one
-// response buys nothing against a client that opens ten. The key is the
-// authenticated subject where there is one, and the remote address otherwise:
-// an anonymous screen is still one browser, and grouping every anonymous client
-// together would refuse the second visitor of the day.
-var liveAdmission = struct {
-	sync.Mutex
-	open map[string]int
-}{open: map[string]int{}}
-
+// admitLiveResponse takes one slot for this request's client. The count and its
+// bound are pwruntime's; what belongs here is naming the client, which is the
+// one part that reads the transport.
 func admitLiveResponse(r *http.Request, config HTMLConfig) (func(), bool) {
-	if config.LiveMaxResponses <= 0 {
-		return func() {}, true
-	}
-	key := liveClientKey(r)
-	liveAdmission.Lock()
-	defer liveAdmission.Unlock()
-	if liveAdmission.open[key] >= config.LiveMaxResponses {
-		return func() {}, false
-	}
-	liveAdmission.open[key]++
-	return func() {
-		liveAdmission.Lock()
-		defer liveAdmission.Unlock()
-		if liveAdmission.open[key] <= 1 {
-			delete(liveAdmission.open, key)
-			return
-		}
-		liveAdmission.open[key]--
-	}, true
+	return pwruntime.AdmitLive(liveClientKey(r), config.LiveMaxResponses)
 }
 
+// liveClientKey names the client a bound is counted against: the authenticated
+// subject where there is one, and the remote address otherwise, because an
+// anonymous screen is still one browser and grouping every anonymous client
+// together would refuse the second visitor of the day.
 func liveClientKey(r *http.Request) string {
 	if r == nil {
 		return ""
@@ -424,183 +333,35 @@ func writeLiveHeaders(w http.ResponseWriter) {
 	htmlbind.Flush(w)
 }
 
-// The record writers below build into the caller's scratch buffer and return
-// it grown, so one live response reuses a single allocation across every
-// delivery instead of building a fresh record per boundary. A nil scratch is
-// fine; the one-record paths pass it.
+// The record writers, the digests, the manifest parse and the watchdog are
+// pwruntime's, so the other transport runtime writes the same wire from the
+// same code rather than from a second reading of the same protocol.
+var (
+	writeLiveDelivery = pwruntime.WriteLiveDelivery
+	writeLiveClose    = pwruntime.WriteLiveClose
+	writeLiveRecord   = pwruntime.WriteLiveRecord
+	startLiveWatchdog = pwruntime.StartLiveWatchdog
+	parseLiveManifest = pwruntime.ParseLiveManifest
+	liveDigest        = pwruntime.LiveDigest
+)
 
-// writeLiveHead opens the stream, on the record every other update response
-// opens with.
-//
-// It carries the head a delivery may need. That was the one thing this path did
-// not have: a navigation delta installs a newly reachable component's stylesheet
-// before its markup lands, and a live delivery whose content reached a component
-// the document never carried installed nothing and painted unstyled. The window
-// is narrow — a live region whose structure changes rather than its values — and
-// it is the exact failure requirement:delta-head-sync exists to prevent.
-//
-// The build is the render version rather than the update build identity, and the
-// difference is deliberate. An unstamped binary reports nothing here, which
-// disables the check; reporting the per-process identity instead would reload
-// every open screen on every restart, which is the herd decision:live-delivery-transport
-// spends its jitter avoiding. An update falls back the other way, because there
-// a wrong delta costs more than a re-transferred page.
-func writeLiveHead(w http.ResponseWriter, scratch []byte, head []string) ([]byte, error) {
-	record := append(scratch[:0], `{"r":"head"`...)
-	if version := renderVersion(); version != "" {
-		record = append(record, `,"build":`...)
-		record = append(record, htmlbind.JSONString(version)...)
-	}
-	if len(head) > 0 {
-		record = append(record, `,"head":[`...)
-		for index, tag := range head {
-			if index > 0 {
-				record = append(record, ',')
-			}
-			record = append(record, htmlbind.JSONString(tag)...)
-		}
-		record = append(record, ']')
-	}
-	return writeLiveRecord(w, append(record, '}'))
+// writeLiveHead passes this build's render version, which is the one value the
+// opening record carries that the leaf cannot know.
+func writeLiveHead(w io.Writer, scratch []byte, head []string) ([]byte, error) {
+	return pwruntime.WriteLiveHead(w, scratch, renderVersion(), head)
 }
 
-// writeLiveDelivery writes one delivery, carrying the validator the client
-// stores and returns on its next connection.
-//
-// It is the await record, because that is what a delivery is: a boundary id
-// from the positional namespace and the markup that fills it, which is the same
-// operation a settled await boundary lands through on the navigation path. The
-// validator is this framework's own field beside the emitted shape, which is
-// what a caller owning its wire is expected to add.
-func writeLiveDelivery(w http.ResponseWriter, scratch []byte, content htmlbind.Content, digest string) ([]byte, error) {
-	record := append(scratch[:0], `{"r":"await","id":`...)
-	record = append(record, htmlbind.JSONString(content.BoundaryID)...)
-	record = append(record, `,"html":`...)
-	record = append(record, htmlbind.JSONString(string(content.HTML))...)
-	if digest != "" {
-		record = append(record, `,"v":`...)
-		record = append(record, htmlbind.JSONString(digest)...)
-	}
-	return writeLiveRecord(w, append(record, '}'))
-}
-
-// writeLiveClose is always the last record. A clean transport close cannot say
-// whether the sources finished or a bound ended a healthy response, and the two
-// deserve opposite client behaviour.
-func writeLiveClose(w http.ResponseWriter, scratch []byte, reason string, retryAfter time.Duration) ([]byte, error) {
-	record := append(scratch[:0], `{"r":"end","reason":"`...)
-	record = append(record, reason...)
-	record = append(record, '"')
-	if retryAfter > 0 {
-		record = append(record, `,"retryMs":`...)
-		record = append(record, strconv.FormatInt(retryAfter.Milliseconds(), 10)...)
-	}
-	return writeLiveRecord(w, append(record, '}'))
-}
-
-// liveDigest is the validator of one delivery: what a screen holds, and what it
-// returns on its next connection so the server can leave it alone.
-//
-// Keyed, because it travels in a request header on every reconnect, and a
-// request header is the most widely logged thing between a browser and a
-// handler. An unkeyed digest there is a stable fingerprint of the region's
-// content, and a live region with few possible renderings — a status badge, a
-// queue depth, a seat count — is enumerable from a proxy log by anyone who can
-// render the same page. Keying costs one HMAC per delivery and takes the
-// fingerprint away.
-//
-// Truncated to twelve bytes. The digest decides only whether to skip a transfer
-// the client would have discarded, so the wrong answer costs one region one
-// stale rendering, and ninety-six bits is far past where that becomes the
-// system's most likely failure.
-func liveDigest(key, html []byte) string {
-	if key == nil {
-		return ""
-	}
-	mac := hmac.New(sha256.New, key)
-	mac.Write(html)
-	return base64.RawURLEncoding.EncodeToString(mac.Sum(nil)[:12])
-}
-
-// liveDigestKey keys the delivery validators, or reports nil where suppression
-// has to be off.
-//
-// The update validator key when a deployment configured one, because a
-// reconnect can land on any instance and only a shared key makes a validator
-// comparable across them. It is read whether or not updates are enabled: the
-// key is a secret this framework keys its digests with, and a deployment that
-// set one has already decided that.
-//
-// A per-process key otherwise. Suppression then works for a reconnect that
-// returns to the same process, and a reconnect that does not simply receives
-// every boundary — which is what every reconnect did before this existed. That
-// degradation is why the fallback is a random key rather than no key: an
-// unkeyed digest would work across the fleet and reintroduce exactly the
-// fingerprint the keying is for.
+// liveDigestKey reads the configured validator key, and the leaf supplies the
+// per-process fallback that keeps suppression working where nothing is set.
 func liveDigestKey(config HTMLConfig) []byte {
-	if key := config.Update.ValidatorKey; key != "" {
-		return []byte(key)
-	}
-	return processDigestKey()
+	return pwruntime.LiveDigestKey(config.Update.ValidatorKey)
 }
 
-// processDigestKey is this process's fallback key. A nil result turns
-// suppression off rather than falling back to an unkeyed digest.
-var processDigestKey = sync.OnceValue(func() []byte {
-	key := make([]byte, 32)
-	if _, err := rand.Read(key); err != nil {
-		return nil
-	}
-	return key
-})
-
-// liveManifestEntries bounds how many validators a request may claim. It is the
-// boundary bound, because a response cannot serve more boundaries than that and
-// a claim about a boundary this response will not reach is a claim about
-// nothing.
+// liveManifestEntries bounds the parse at the response's own boundary bound,
+// since a claim about a boundary this response will not serve buys nothing.
 func liveManifestEntries(config HTMLConfig) int {
 	if config.LiveMaxBoundaries > 0 {
 		return config.LiveMaxBoundaries
 	}
-	return defaultLiveManifestEntries
-}
-
-// defaultLiveManifestEntries bounds an unbounded configuration's parse. It is
-// not a limit on the response: past it the extra claims are dropped and their
-// boundaries are delivered, which is the ordinary answer to a hint that did not
-// arrive.
-const defaultLiveManifestEntries = 128
-
-// parseLiveManifest reads the id and validator pairs a screen claims to hold.
-//
-// Nothing here is trusted and nothing needs to be: every value is compared
-// against a validator this process computes from bytes it just rendered, so a
-// forged entry can only match by being right. A malformed entry is skipped
-// rather than failing the request, because the whole header is an optimization
-// and refusing it would turn a proxy that mangles headers into an outage.
-func parseLiveManifest(value string, key []byte, max int) map[string]string {
-	held := make(map[string]string)
-	if value == "" || key == nil {
-		return held
-	}
-	for entry := range strings.SplitSeq(value, ",") {
-		if len(held) >= max {
-			break
-		}
-		id, digest, ok := strings.Cut(strings.TrimSpace(entry), ":")
-		if !ok || id == "" || digest == "" {
-			continue
-		}
-		held[id] = digest
-	}
-	return held
-}
-
-func writeLiveRecord(w io.Writer, record []byte) ([]byte, error) {
-	record = append(record, '\n')
-	if _, err := w.Write(record); err != nil {
-		return record, err
-	}
-	htmlbind.Flush(w)
-	return record, nil
+	return pwruntime.DefaultLiveManifestEntries
 }

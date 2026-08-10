@@ -16,19 +16,41 @@
 // files are tagged; a library behind a tag is invisible to go vet, go test and
 // gopls in an untagged run, and both surfaces are worth covering in one.
 //
-// # What is not here yet
+// # Shared state, not a second copy
 //
-// The partial-update surface — WantsUpdate, WriteUpdate, WriteUpdateNavigate,
-// Redraw, RedrawComponents — and live boundary delivery. These are not omitted
-// by choice: the upstream htmlupdate runtime holds an http.Flusher and reads
-// *http.Request throughout, and its port is deferred upstream. A handler
-// calling one of them is refused by the transform with a message naming it,
-// which is the honest outcome; a stub here that compiled and did nothing would
-// not be.
+// The document shell, the error page, the reloadable components, the problem
+// value and the resolved update configuration all live in pwruntime, and both
+// runtimes reach that one copy. This is not tidiness: generated registration
+// runs from init and calls whichever package it imports, so two registries
+// would leave one build rendering pages with no document around them and
+// answering no redraw at all.
 //
-// WriteHTML and WriteHTMLPage are also absent, for a different and smaller
-// reason: both apply the registered document shell, and that registry is
-// private to pw. Moving it to a leaf both packages can read is the next step,
-// and it is the same move upstream made for the error types. WriteHTMLChain
-// takes its wrappers explicitly and needs none of it, so it is here.
+// The update configuration travels the same way. Whichever runtime read the
+// configuration file publishes what it resolved, and this half reads it — a
+// settings file is not a transport concern, and this package has no reader of
+// its own.
+//
+// # Streaming
+//
+// ServeUpdate answers a streamed navigation. It calls the same module entry
+// the net/http half calls, so the two transports send the same records from
+// one implementation rather than two that agree.
+//
+// ServeLive holds a live subscription open. Every decision it makes — the
+// admission bound, the watchdog, the digest suppression seeded from the
+// client's manifest, the record framing, the close reasons — is pwruntime's,
+// and the net/http half now reads the same ones. A first cut called the
+// module's live entry instead and was withdrawn: that entry has none of those,
+// so it would have served a poorer stream here than there with nothing to
+// report the difference.
+//
+// One thing genuinely differs. The body writer runs after the handler has
+// returned, so nothing may be read from the request value inside the loop and
+// the render is bounded by the watchdog rather than by the request context. A
+// client that goes away is noticed on the next write, which is the signal the
+// other half falls back to once a record fails.
+//
+// Nothing that is missing is stubbed. A declaration that compiled and did
+// nothing would hide a gap where an absent one is a build error naming the
+// symbol, which is what the refusal contract does everywhere else.
 package pwfast

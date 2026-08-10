@@ -6,6 +6,11 @@ title: Redirect Response
 pw.Redirect sends a browser to another location, choosing between a Location response and the api:html-update-options navigate directive so an action handler stops writing that branch by hand.
 
 ```yaml
+status: implemented 2026-08-10
+as_built:
+  surface: pw.Redirect and pw.RedirectSeeOther, plus pw.QueryValue and pw.FormValue for the one-value reads a handler would otherwise take from the request itself
+  found_it_the_hard_way: the transport report over the examples refused todo/popcornwave three times for http.Redirect and htmx_fragment four times for direct form and query reads, which is the same finding this concept opened with and the first evidence that it was real rather than argued
+  body: the stdlib body is kept for the branch that reaches it, since a browser that follows the redirect never sees it and paying a template render on every redirect to discard it is the trade this concept already rejected
 package: github.com/shibukawa/popcornwave/pw
 replaces: http.Redirect in application code, per decision:transport-handle-containment
 surface:

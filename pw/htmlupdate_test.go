@@ -1,6 +1,7 @@
 package pw
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -205,7 +206,7 @@ var cardPlan = &htmlbind.Plan[cardParams]{
 func cardComponent(kind string) htmlupdate.Reloadable {
 	return htmlupdate.Reloadable{
 		KindID: kind,
-		Render: func(_ *http.Request, instanceID string, values url.Values) (htmlbind.Fragment, error) {
+		Render: func(_ context.Context, instanceID string, values url.Values) (htmlbind.Fragment, error) {
 			return htmlbind.Bind(cardPlan, cardParams{ID: instanceID, Page: values.Get("page")}), nil
 		},
 	}
@@ -217,19 +218,8 @@ func cardComponent(kind string) htmlupdate.Reloadable {
 // back what it found.
 func withEmptyReloadableRegistry(t *testing.T) {
 	t.Helper()
-	reloadableState.Lock()
-	saved := struct {
-		registry *htmlupdate.Registry
-		count    int
-		failure  error
-	}{reloadableState.registry, reloadableState.count, reloadableState.failure}
-	reloadableState.registry, reloadableState.count, reloadableState.failure = &htmlupdate.Registry{}, 0, nil
-	reloadableState.Unlock()
-	t.Cleanup(func() {
-		reloadableState.Lock()
-		defer reloadableState.Unlock()
-		reloadableState.registry, reloadableState.count, reloadableState.failure = saved.registry, saved.count, saved.failure
-	})
+	registry, count, failure := pwruntime.ResetReloadableForTest()
+	t.Cleanup(func() { pwruntime.RestoreReloadableForTest(registry, count, failure) })
 }
 
 // The escape hatch behind Redraw: a handler that publishes a set of its own
@@ -315,7 +305,7 @@ func formComponent(kind string) htmlupdate.Reloadable {
 	}
 	return htmlupdate.Reloadable{
 		KindID: kind,
-		Render: func(_ *http.Request, instanceID string, values url.Values) (htmlbind.Fragment, error) {
+		Render: func(_ context.Context, instanceID string, values url.Values) (htmlbind.Fragment, error) {
 			return htmlbind.Bind(plan, cardParams{ID: instanceID, Page: values.Get("page")}), nil
 		},
 	}

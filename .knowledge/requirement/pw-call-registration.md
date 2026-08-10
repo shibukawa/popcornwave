@@ -6,8 +6,15 @@ title: Every pw Call Taking The Transport Is Registered
 The upstream rewriter recognizes only calls it was told about, so every pw function taking a writer or a request must be declared as a call pattern with its transport slots, or an application using it cannot build for fasthttp and cannot fix that itself.
 
 ```yaml
-status: proposed
-surveyed: 2026-08-09, against tinybind-go v0.4.10
+status: implemented 2026-08-10, against tinybind-go v0.5.1
+as_built:
+  slots: the four calls that already carried a model gained their writer and request positions
+  transport_only: twelve entries naming no model gained a pattern of their own, which is the shape the module's own error writer needed first
+  guard: a test reads pw's exported set and fails on any entry taking the transport with no pattern, so the omission is caught where it is made rather than remembered
+  verification: the module's analysis runs over authored handler code in this repository and must report no refusal; removing one pattern makes it fail, and the refusal propagates from the shared helper to its callers exactly as the eligibility rule says
+  examples_now_included: every example builds again and is analyzed, and all nine report nothing; a refusal in a generated file is filtered, since one is emitted per backend rather than rewritten
+  what_the_run_found: three http.Redirect calls and four direct request reads in the examples, each closed by adding the pw surface the design had specified and never built
+  target_note: the always-available fixture is authored handler code rather than a generated package, because a generated file is emitted per backend rather than rewritten; the examples would be better and are not buildable without generation
 why_it_is_load_bearing:
   mechanism: the upstream eligibility rule admits a transport value only where it is an argument to a recognized call; anything else refuses the function and, per decision:transport-compatibility-fallback, refusal is a build error
   consequence: an unregistered pw call looks to the rewriter exactly like an untraceable third-party logger, and every handler calling it is refused

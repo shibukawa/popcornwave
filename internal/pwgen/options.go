@@ -42,19 +42,26 @@ func Options(sqlDialect string) (generator.Options, error) {
 		generator.RequestBindCall(
 			generator.Function(pwPackage, "Parse"),
 			generator.GenericType("request", 0),
+			generator.RequestArgument(0),
 		),
 		generator.ResponseWriteCall(
 			generator.Function(pwPackage, "WriteAPI"),
 			generator.GenericType("response", 0),
+			generator.WriterArgument(0),
+			generator.RequestArgument(1),
 		),
 		generator.ResponseWriteStatusCall(
 			generator.Function(pwPackage, "WriteStatus"),
 			generator.GenericType("response", 0),
 			generator.Argument("status", 2),
+			generator.WriterArgument(0),
+			generator.RequestArgument(1),
 		),
 		generator.StreamCreateCall(
 			generator.Function(pwPackage, "WriteStream"),
 			generator.GenericType("stream", 0),
+			generator.WriterArgument(0),
+			generator.RequestArgument(1),
 		),
 		generator.ConfigBindCall(
 			generator.Function(pwPackage, "RegisterConfig"),
@@ -113,6 +120,51 @@ func Options(sqlDialect string) (generator.Options, error) {
 			generator.Constant("status", 500),
 			generator.Constant("error_name", "InternalServerError"),
 		),
+	}
+	// Every remaining pw entry that takes the transport and names no model the
+	// generator binds or encodes. Without a pattern each of these looks to the
+	// rewriter exactly like an untraceable third-party call, and every handler
+	// making one is refused with a remedy only this framework can supply — which
+	// is the difference between a second backend an application can adopt and
+	// one it cannot.
+	//
+	// The module's own WriteError needed this shape first, and found it by
+	// refusing every handler that reported an error.
+	for _, transport := range []struct {
+		name    string
+		writer  int
+		request int
+	}{
+		// Response writers. The fragment they take is already bound, so there is
+		// no model here for the generator to know about — only the two arguments
+		// that collapse.
+		{name: "WriteProblem", writer: 0, request: 1},
+		{name: "WriteHTML", writer: 0, request: 1},
+		{name: "WriteHTMLPage", writer: 0, request: 1},
+		{name: "WriteHTMLChain", writer: 0, request: 1},
+		{name: "WriteHTMLFragment", writer: 0, request: 1},
+		// The update surface, whose entries answer with records rather than a
+		// value of a declared type.
+		{name: "WriteUpdate", writer: 0, request: 1},
+		{name: "WriteUpdateNavigate", writer: 0, request: 1},
+		{name: "Redraw", writer: 0, request: 1},
+		{name: "RedrawComponents", writer: 0, request: 1},
+		// Predicates and the specification endpoint, which read the request and
+		// write nothing a type describes.
+		{name: "Redirect", writer: 0, request: 1},
+		{name: "RedirectSeeOther", writer: 0, request: 1},
+		{name: "WantsUpdate", writer: -1, request: 0},
+		{name: "QueryValue", writer: -1, request: 0},
+		{name: "FormValue", writer: -1, request: 0},
+		{name: "IsBot", writer: -1, request: 0},
+		{name: "OpenAPIJSON", writer: 0, request: 1},
+	} {
+		options := []generator.CallPatternOption{generator.RequestArgument(transport.request)}
+		if transport.writer >= 0 {
+			options = append(options, generator.WriterArgument(transport.writer))
+		}
+		patterns = append(patterns, generator.TransportCall(
+			generator.Function(pwPackage, transport.name), options...))
 	}
 	if err := registry.Register(patterns...); err != nil {
 		return generator.Options{}, err
