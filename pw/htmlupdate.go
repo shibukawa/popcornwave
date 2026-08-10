@@ -139,6 +139,11 @@ func updateEntry(config HTMLConfig) *updateOptionsEntry {
 		CallerOwnsRuntime:   true,
 		AsyncTimeout:        config.AsyncTimeout,
 		AsyncConcurrency:    config.AsyncConcurrency,
+		LiveMaxResponses:    config.LiveMaxResponses,
+		LiveMaxBoundaries:   config.LiveMaxBoundaries,
+		LiveMaxDuration:     config.LiveMaxDuration,
+		LiveDurationJitter:  config.LiveDurationJitter,
+		LiveIdleTimeout:     config.LiveIdleTimeout,
 	})
 	if encoded, err := json.Marshal(entry.options.RuntimeConfig()); err == nil {
 		entry.configJSON = string(encoded)

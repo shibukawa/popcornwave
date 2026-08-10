@@ -58,14 +58,16 @@ resolved as a transport-free value, and the other half reads it. A settings file
 is not a transport concern, so the transport that read it and the transport that
 serves the request need not be the same one.
 
-Live boundary delivery is not wired, and the reason is worth recording because
-we got it wrong once. We tried calling `RenderLiveStream` and withdrew it: our
-net/http half does not use that entry either. It runs its own loop over the
-chain renderer and layers on admission control, a watchdog, digest suppression
-seeded from the client manifest, a boundary bound and render telemetry — none of
-which your entry has, so the fasthttp half would have served a poorer stream
-with nothing to report the difference. The fix is ours and runs the other way:
-share our loop between our two halves.
+Live boundary delivery is wired, and not through `RenderLiveStream`. We tried
+that and withdrew it: our net/http half does not use it either, because it
+layers on admission control, a watchdog, digest suppression seeded from the
+client manifest, a boundary bound and render telemetry that your entry has no
+equivalent for. Calling it would have served a poorer stream on one transport
+than the other with nothing to report the difference. So we moved our own
+protocol — close reasons, watchdog, admission, keyed digest, manifest parse,
+record writers — into a leaf both our halves read, which is the same move you
+made for the error types and then for the update types. Nothing is needed from
+you for it.
 
 ---
 

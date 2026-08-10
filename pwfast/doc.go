@@ -36,10 +36,19 @@
 // the net/http half calls, so the two transports send the same records from
 // one implementation rather than two that agree.
 //
-// Live delivery is absent, and update.go says where it would go and why the
-// obvious version of it was withdrawn: the net/http half does not use the
-// module's live entry either, and matching it would have meant shipping a
-// poorer stream here than there.
+// ServeLive holds a live subscription open. Every decision it makes — the
+// admission bound, the watchdog, the digest suppression seeded from the
+// client's manifest, the record framing, the close reasons — is pwruntime's,
+// and the net/http half now reads the same ones. A first cut called the
+// module's live entry instead and was withdrawn: that entry has none of those,
+// so it would have served a poorer stream here than there with nothing to
+// report the difference.
+//
+// One thing genuinely differs. The body writer runs after the handler has
+// returned, so nothing may be read from the request value inside the loop and
+// the render is bounded by the watchdog rather than by the request context. A
+// client that goes away is noticed on the next write, which is the signal the
+// other half falls back to once a record fails.
 //
 // Nothing that is missing is stubbed. A declaration that compiled and did
 // nothing would hide a gap where an absent one is a build error naming the

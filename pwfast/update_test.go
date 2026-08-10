@@ -177,3 +177,46 @@ func TestServeUpdateDeclinesADocumentRequest(t *testing.T) {
 		t.Errorf("body = %q", body)
 	}
 }
+
+// A live request reaches the shared protocol: the stream opens with the head
+// record and ends with a close record naming why it ended. Both come from
+// pwruntime, which is what keeps the two transports on one wire.
+func TestServeLiveWritesTheSharedRecordProtocol(t *testing.T) {
+	withUpdateSettings(t)
+	status, header, body := serveWith(t, func(r *fasthttp.RequestCtx) {
+		if !ServeLive(r, nil, staticFragment(`<p>static</p>`)) {
+			t.Error("a live request was not answered")
+		}
+	}, map[string]string{"Pw-Render": "live", "Pw-Build": "test-build"})
+
+	if status != fasthttp.StatusOK {
+		t.Fatalf("status = %d: %s", status, body)
+	}
+	if !strings.Contains(strings.ToLower(header), "no-store") {
+		t.Errorf("a delivery stream must never be stored:\n%s", header)
+	}
+	if !strings.Contains(strings.ToLower(header), "x-ndjson") {
+		t.Errorf("the stream is not framed as records:\n%s", header)
+	}
+	// A chain with no live boundary still terminates: the client asked because
+	// the document said it could, and an answer that never ends is worse than
+	// one that closes at once.
+	if !strings.Contains(body, `"r":"end"`) || !strings.Contains(body, `"reason":"done"`) {
+		t.Errorf("the stream did not close cleanly: %q", body)
+	}
+}
+
+// An ordinary request must not be taken for a live one.
+func TestServeLiveDeclinesAnOrdinaryRequest(t *testing.T) {
+	withUpdateSettings(t)
+	_, _, body := serveWith(t, func(r *fasthttp.RequestCtx) {
+		if ServeLive(r, nil, staticFragment(`<p>x</p>`)) {
+			t.Error("an ordinary request was answered as a live stream")
+			return
+		}
+		_, _ = r.WriteString("document")
+	}, nil)
+	if body != "document" {
+		t.Errorf("body = %q", body)
+	}
+}
