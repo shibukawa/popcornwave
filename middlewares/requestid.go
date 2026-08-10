@@ -2,20 +2,14 @@ package middlewares
 
 import (
 	"context"
-	"crypto/rand"
-	"encoding/hex"
 	"net/http"
-	"strconv"
-	"sync/atomic"
-	"time"
 
+	"github.com/shibukawa/popcornwave/internal/requestid"
 	"github.com/shibukawa/popcornwave/pwruntime"
 )
 
 // DefaultRequestIDHeader carries the request correlation ID in both directions.
-const DefaultRequestIDHeader = "X-Request-ID"
-
-var requestSequence atomic.Uint64
+const DefaultRequestIDHeader = requestid.DefaultHeader
 
 type requestIDConfig struct {
 	header   string
@@ -76,37 +70,13 @@ func RequestID(options ...RequestIDOption) Middleware {
 }
 
 // ValidRequestID reports whether a client supplied ID is safe to echo back.
-func ValidRequestID(value string) bool {
-	if value == "" || len(value) > 128 {
-		return false
-	}
-	for _, r := range value {
-		if r < 0x21 || r > 0x7e {
-			return false
-		}
-	}
-	return true
-}
+func ValidRequestID(value string) bool { return requestid.Valid(value) }
 
 // SequentialRequestID builds an ID from the clock and a process counter.
-func SequentialRequestID() string {
-	// 16 hex digits cover the nanosecond clock until 2554 and the counter for
-	// far longer, so the buffer never grows.
-	buf := make([]byte, 0, 33)
-	buf = strconv.AppendUint(buf, uint64(time.Now().UnixNano()), 16)
-	buf = append(buf, '-')
-	buf = strconv.AppendUint(buf, requestSequence.Add(1), 16)
-	return string(buf)
-}
+func SequentialRequestID() string { return requestid.Sequential() }
 
 // RandomRequestID builds an ID from 16 cryptographically random bytes.
-func RandomRequestID() string {
-	var bytes [16]byte
-	if _, err := rand.Read(bytes[:]); err != nil {
-		return "popcornwave-request"
-	}
-	return hex.EncodeToString(bytes[:])
-}
+func RandomRequestID() string { return requestid.Random() }
 
 // bindRequestIDLogger records the correlation ID as a stable request
 // attribute, so every record taken from the request afterwards carries it

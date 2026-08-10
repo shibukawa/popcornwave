@@ -71,10 +71,55 @@ func (r *Resources) Parent() *Resources {
 	return r.parent
 }
 
+// A ValueStore is a request value that carries its own state instead of being
+// replaced by a derived copy for each frame of the chain.
+//
+// net/http middleware derives a context and hands it to the next handler, so a
+// frame changes what the rest of the chain sees by returning something new.
+// fasthttp has one request value, which is itself the context, and a frame
+// changes what the chain sees by writing into it. Only the write side differs:
+// that value answers Value from the same store, so every reader in this package
+// works on both transports unchanged.
+//
+// It is declared structurally rather than by naming the type, so this leaf
+// stays free of the fasthttp fork the way it stays free of anything else a
+// net/http project should not have to build.
+type ValueStore interface {
+	context.Context
+	SetUserValue(key, value any)
+}
+
+// StoreResources writes the request resources into a value store, which is
+// WithResources for a transport that cannot derive.
+func StoreResources(store ValueStore, resources Resources) {
+	store.SetUserValue(contextKey{}, prepareResources(resources))
+}
+
+// StoreLogAttributes is WithLogAttributes for a value store.
+func StoreLogAttributes(store ValueStore, attributes ...Attribute) {
+	if len(attributes) == 0 {
+		return
+	}
+	current := derive(store)
+	current.LogAttributes = mergeAttributes(current.LogAttributes, attributes)
+	StoreResources(store, current)
+}
+
+// DeriveResources copies the capsule a request carries, so a caller can change
+// one field and store it back.
+func DeriveResources(ctx context.Context) Resources { return derive(ctx) }
+
 func WithResources(ctx context.Context, resources Resources) context.Context {
 	if ctx == nil {
 		ctx = context.Background()
 	}
+	return context.WithValue(ctx, contextKey{}, prepareResources(resources))
+}
+
+// prepareResources fills the per-request caches a capsule needs before anything
+// reads it. Both ways of installing one go through it, so a request served by
+// either transport carries the same thing.
+func prepareResources(resources Resources) *Resources {
 	if resources.Log == nil {
 		resources.Log = fallbackBackend()
 	}
@@ -93,7 +138,7 @@ func WithResources(ctx context.Context, resources Resources) context.Context {
 	if resources.instrumented == nil && (resources.Query != nil || (resources.Trace != nil && resources.Trace.Database)) {
 		resources.instrumented = &instrumentCache{}
 	}
-	return context.WithValue(ctx, contextKey{}, &resources)
+	return &resources
 }
 
 // SelectDB pins group onto ctx so generated SQL and Transaction use it instead
