@@ -1,0 +1,122 @@
+package pwfast
+
+import (
+	"net"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/shibukawa/popcornwave/pwruntime"
+	"github.com/shibukawa/tinygodriver/fasthttp"
+)
+
+func TestSecurityHeadersSendsTheResolvedSet(t *testing.T) {
+	middleware, err := SecurityHeaders(DefaultSecurityHeaders())
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, header, _ := serve(t, Chain(func(*fasthttp.RequestCtx) {}, middleware), "/")
+
+	for _, want := range []string{
+		"X-Content-Type-Options: nosniff",
+		"X-Frame-Options: DENY",
+		"Referrer-Policy: strict-origin-when-cross-origin",
+		"Content-Security-Policy: script-src 'self'",
+	} {
+		if !strings.Contains(header, want) {
+			t.Errorf("missing %q in:\n%s", want, header)
+		}
+	}
+}
+
+// The header set is the shared leaf's arithmetic, so the two transports cannot
+// disagree about it. This asserts that rather than asserting a list twice.
+func TestTheHeaderSetIsTheOneTheSharedLeafResolved(t *testing.T) {
+	config := DefaultSecurityHeaders()
+	resolved, err := pwruntime.ResolveSecurityHeaders(config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	middleware, err := SecurityHeaders(config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, header, _ := serve(t, Chain(func(*fasthttp.RequestCtx) {}, middleware), "/")
+	for _, entry := range resolved.Always {
+		if !strings.Contains(header, entry.Name+": "+entry.Value) {
+			t.Errorf("resolved %s was not sent:\n%s", entry.Name, header)
+		}
+	}
+}
+
+func TestAnInvalidSecurityConfigurationIsAnErrorBeforeServing(t *testing.T) {
+	if _, err := SecurityHeaders(SecurityHeadersConfig{FrameOptions: "sometimes"}); err == nil {
+		t.Fatal("an unsupported frame_options was accepted")
+	}
+}
+
+// HSTS must not be turned on by a header anybody can send. Without a trusted
+// proxy list, a forwarded claim of HTTPS counts for nothing.
+func TestHSTSIgnoresAForwardedClaimFromAnUntrustedPeer(t *testing.T) {
+	config := DefaultSecurityHeaders()
+	config.HSTS = HSTSConfig{Enabled: true, MaxAge: 365 * 24 * time.Hour}
+	middleware, err := SecurityHeaders(config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	handler := Chain(func(*fasthttp.RequestCtx) {}, middleware)
+
+	_, header, _ := serveRaw(t, handler, "/", "X-Forwarded-Proto: https\r\n")
+	if strings.Contains(header, "Strict-Transport-Security") {
+		t.Errorf("HSTS was sent on an untrusted forwarded claim:\n%s", header)
+	}
+
+	// The in-memory connection reports 0.0.0.0, so trusting everything is what
+	// makes the positive case reachable here.
+	_, everything, _ := net.ParseCIDR("0.0.0.0/0")
+	trusting, err := SecurityHeaders(config, WithTrustedProxies([]*net.IPNet{everything}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, header, _ = serveRaw(t, Chain(func(*fasthttp.RequestCtx) {}, trusting), "/", "X-Forwarded-Proto: https\r\n")
+	if !strings.Contains(header, "Strict-Transport-Security: max-age=31536000") {
+		t.Errorf("HSTS was not sent for a trusted forwarded claim:\n%s", header)
+	}
+}
+
+func TestRecoverAnswers500AndDiscardsThePartialBody(t *testing.T) {
+	handler := Chain(func(r *fasthttp.RequestCtx) {
+		_, _ = r.WriteString("half a page")
+		panic("handler exploded")
+	}, Recover(nil))
+
+	status, _, body := serve(t, handler, "/")
+	if status != fasthttp.StatusInternalServerError {
+		t.Errorf("status = %d, want 500", status)
+	}
+	// This transport buffers, so the partial body is still discardable. Sending
+	// it under a 500 would be a response describing one thing and carrying
+	// another.
+	if strings.Contains(body, "half a page") {
+		t.Errorf("the partial body survived the panic: %q", body)
+	}
+}
+
+func TestMaxRequestBodyRefusesAnOversizedBody(t *testing.T) {
+	handler := Chain(func(r *fasthttp.RequestCtx) { _, _ = r.WriteString("accepted") }, MaxRequestBody(8))
+
+	if _, _, body := serveForm(t, handler, "/", "a=1"); body != "accepted" {
+		t.Errorf("a small body was refused: %q", body)
+	}
+	status, _, _ := serveForm(t, handler, "/", "a=123456789012345")
+	if status != fasthttp.StatusRequestEntityTooLarge {
+		t.Errorf("status = %d, want 413", status)
+	}
+}
+
+func TestMaxRequestBodyWithNoLimitAddsNothing(t *testing.T) {
+	handler := Chain(func(r *fasthttp.RequestCtx) { _, _ = r.WriteString("accepted") }, MaxRequestBody(0))
+	if _, _, body := serveForm(t, handler, "/", "a=123456789012345"); body != "accepted" {
+		t.Errorf("a disabled limit still refused: %q", body)
+	}
+}
