@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"net/http"
 	"reflect"
 	"runtime/debug"
@@ -124,6 +123,21 @@ func updateEntry(config HTMLConfig) *updateOptionsEntry {
 			OnFailure:         observeUpdateFailure,
 		},
 	}
+	// Published for the other runtime, which resolves no configuration of its
+	// own: the transport that read the file and the transport that serves the
+	// request need not be the same one.
+	pwruntime.PublishUpdateSettings(pwruntime.UpdateSettings{
+		Enabled:             config.Update.Enabled,
+		ValidatorKey:        config.Update.ValidatorKey,
+		HeaderPrefix:        UpdateHeaderPrefix,
+		DataAttributePrefix: UpdateAttributePrefix,
+		GlobalName:          UpdateGlobalName,
+		PathPrefix:          updatePathPrefix,
+		BuildID:             updateBuildID(),
+		MaxManifestBytes:    config.Update.MaxManifestBytes,
+		CSRFHeaderName:      pwruntime.CSRFHeaderName,
+		CallerOwnsRuntime:   true,
+	})
 	if encoded, err := json.Marshal(entry.options.RuntimeConfig()); err == nil {
 		entry.configJSON = string(encoded)
 		probe, err := json.Marshal(entry.options.RuntimeConfigFor("pw-splice-probe"))
@@ -253,13 +267,7 @@ func validateUpdateConfig(config HTMLConfig) error {
 // refused at all: the caller renders the page it was going to render, which
 // costs a reload instead of a refusal followed by one.
 func observeUpdateFailure(ctx context.Context, failure htmlupdate.Failure) {
-	level := LevelWarn
-	if failure.Kind == htmlupdate.FailureUnknownComponent {
-		level = LevelInfo
-	}
-	Logger(ctx).Log(ctx, level, "update request refused",
-		String("kind", failure.Kind.String()), String("component", failure.KindID),
-		String("instance", failure.InstanceID), Err(failure.Err))
+	pwruntime.LogUpdateRefusal(ctx, failure)
 }
 
 // writeUpdateFailure reports a refusal this framework raised itself, in the
@@ -346,12 +354,6 @@ func serveUpdate(w http.ResponseWriter, r *http.Request, wrappers []HTMLWrapper,
 // anyone can supply: a component that only formats values handed to it is safe,
 // while one that loads a record by identifier must check ownership itself.
 // Registration is the review point, so it is a deliberate call.
-var reloadableState = struct {
-	sync.Mutex
-	registry *htmlupdate.Registry
-	count    int
-	failure  error
-}{registry: &htmlupdate.Registry{}}
 
 // RegisterReloadable publishes one generated component as a redraw endpoint.
 //
@@ -366,19 +368,7 @@ var reloadableState = struct {
 // logging exists to say which component collided, so startup reports it instead.
 // A project registering by hand still gets it here and can decide for itself.
 func RegisterReloadable(components ...htmlupdate.Reloadable) error {
-	reloadableState.Lock()
-	defer reloadableState.Unlock()
-	for _, component := range components {
-		if err := reloadableState.registry.Register(component); err != nil {
-			err = fmt.Errorf("popcornwave: reloadable component: %w", err)
-			if reloadableState.failure == nil {
-				reloadableState.failure = err
-			}
-			return err
-		}
-		reloadableState.count++
-	}
-	return nil
+	return pwruntime.RegisterReloadable(components...)
 }
 
 // validateReloadableRegistration reports a registration that failed before main
@@ -390,20 +380,13 @@ func RegisterReloadable(components ...htmlupdate.Reloadable) error {
 // on every deployment that ever turns updates on. Refusing here is the whole
 // point of returning an error from a call an init cannot handle.
 func validateReloadableRegistration() error {
-	reloadableState.Lock()
-	defer reloadableState.Unlock()
-	return reloadableState.failure
+	return pwruntime.ReloadableRegistrationFailure()
 }
 
 // reloadableRegistry is the set the redraw endpoint serves, or nil when a
 // project publishes none.
 func reloadableRegistry() *htmlupdate.Registry {
-	reloadableState.Lock()
-	defer reloadableState.Unlock()
-	if reloadableState.count == 0 {
-		return nil
-	}
-	return reloadableState.registry
+	return pwruntime.ReloadableRegistry()
 }
 
 // Redraw answers a redraw request for the components named here, and reports

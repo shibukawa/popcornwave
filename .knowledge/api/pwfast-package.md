@@ -8,7 +8,7 @@ pwfast is the pw surface over a fasthttp request, the second half decision:trans
 ```yaml
 package: github.com/shibukawa/popcornwave/pwfast
 serves: requirement:pw-call-registration, whose second-package clause this is
-status: implemented 2026-08-09, against tinybind-go v0.5.0
+status: implemented 2026-08-10, against tinybind-go v0.5.1
 shape:
   names: identical to the pw counterpart, so a rewritten call selector is unchanged and only the import line moves
   parameter: the request value first, named r, matching what the upstream emitter prints for this transport
@@ -22,6 +22,12 @@ implemented:
   problem_constructors: the pwruntime set, re-exported so a rewritten call finds the same names
   registration: RegisterHTMLDocument and RegisterHTMLErrorPage, reaching the one registry of decision:shared-runtime-leaf
   stream: WriteStream and SetStreamErrorHandler
+  update: WantsUpdate, WriteUpdate, WriteUpdateNavigate, Redraw, RedrawComponents, Replace, and RegisterReloadable
+  update_configuration:
+    problem: every entry needs composed options built from this framework's own config type, which is bound by generated configbind code inside pw and cannot be named from here
+    solved_by: the resolving runtime publishes what it resolved as a transport-free settings value in pwruntime, and this half reads it
+    why_that_is_right: a settings file is not a transport concern, so the transport that read it and the transport that serves the request need not be the same one
+    disabled: absent settings mean nothing enabled updates, and every entry treats that as not-an-update rather than as an error
   shared_types: the composition types are htmlbind's, aliased rather than redeclared
   problem_alias_was_wrong:
     found: 2026-08-09; a first draft aliased the module's two-field problem body under the name pw gives its own richer application-facing struct, so one name meant two types
@@ -31,10 +37,9 @@ buffered_render:
   why: committing first would trade a problem response for a half-written page, and the streaming path needs the flusher the deferred htmlupdate port holds
   cost: time to first byte, not bytes
 absent_and_why:
-  update_surface:
-    what: WantsUpdate, WriteUpdate, WriteUpdateNavigate, Redraw, RedrawComponents, and live delivery
-    plan: requirement:pwfast-update-surface, which splits it into what needs nothing, what needs a request reader, and what is genuinely blocked; the first two are larger than the third
-    reason_first_given: the runtime holds a flusher and reads the net/http request throughout, which is true of the streaming half and no longer of the rest
+  live_delivery:
+    what: the streaming render entries wired to this transport's body writer
+    blocked_by: nothing upstream; fasthttpupdate supplies them, and the wiring here is unwritten
   everything_absent_here: is absent rather than stubbed, per policy:absent-rather-than-stubbed
   redirect: api:redirect-response has no net/http half yet either, so there is nothing here to mirror
 dependency_cost:

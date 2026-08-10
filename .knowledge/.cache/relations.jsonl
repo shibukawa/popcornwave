@@ -625,7 +625,6 @@
 {"context": "body", "path": ".knowledge/api/pwfast-package.md", "source": "api:pwfast-package", "target": "decision:transport-source-transform", "target_category": "constraint", "target_type": "decision"}
 {"context": "body", "path": ".knowledge/api/pwfast-package.md", "source": "api:pwfast-package", "target": "requirement:pw-call-registration", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/api/pwfast-package.md", "source": "api:pwfast-package", "target": "decision:shared-runtime-leaf", "target_category": "constraint", "target_type": "decision"}
-{"context": "body", "path": ".knowledge/api/pwfast-package.md", "source": "api:pwfast-package", "target": "requirement:pwfast-update-surface", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/api/pwfast-package.md", "source": "api:pwfast-package", "target": "policy:absent-rather-than-stubbed", "target_category": "constraint", "target_type": "policy"}
 {"context": "body", "path": ".knowledge/api/pwfast-package.md", "source": "api:pwfast-package", "target": "api:redirect-response", "target_category": "interface", "target_type": "api"}
 {"context": "body", "path": ".knowledge/api/rdb-middleware.md", "source": "api:rdb-middleware", "target": "data:database-connection-set", "target_category": "structure", "target_type": "data"}
@@ -4563,6 +4562,7 @@
 {"context": "body", "path": ".knowledge/requirement/pw-language-server.md", "source": "requirement:pw-language-server", "target": "requirement:editor-completion", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/requirement/pw-language-server.md", "source": "requirement:pw-language-server", "target": "policy:editor-tool-execution", "target_category": "constraint", "target_type": "policy"}
 {"context": "body", "path": ".knowledge/requirement/pwfast-update-surface.md", "source": "requirement:pwfast-update-surface", "target": "api:pwfast-package", "target_category": "interface", "target_type": "api"}
+{"context": "body", "path": ".knowledge/requirement/pwfast-update-surface.md", "source": "requirement:pwfast-update-surface", "target": "decision:backend-build-tag-mode", "target_category": "constraint", "target_type": "decision"}
 {"context": "body", "path": ".knowledge/requirement/pwfast-update-surface.md", "source": "requirement:pwfast-update-surface", "target": "policy:absent-rather-than-stubbed", "target_category": "constraint", "target_type": "policy"}
 {"context": "body", "path": ".knowledge/requirement/pwfast-update-surface.md", "source": "requirement:pwfast-update-surface", "target": "decision:live-delivery-transport", "target_category": "constraint", "target_type": "decision"}
 {"context": "body", "path": ".knowledge/requirement/query-diagnostics.md", "source": "requirement:query-diagnostics", "target": "actor:application-developer", "target_category": "behavior", "target_type": "actor"}
