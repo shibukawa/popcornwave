@@ -4,7 +4,9 @@ import (
 	"bytes"
 	"context"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -106,5 +108,38 @@ func assertFileContent(t *testing.T, path, want string) {
 	}
 	if string(content) != want {
 		t.Fatalf("%s = %q, want %q", path, content, want)
+	}
+}
+
+// os/exec reports a tool killed before it ran as "signal: killed" and nothing
+// else, and the tool wrote nothing to go with it. That names an outcome and no
+// cause, which is a line a developer cannot act on — so the message says what
+// ends a process that way and what to look at.
+func TestAToolKilledBeforeItRanSaysWhatThatMeans(t *testing.T) {
+	err := exec.Command("sh", "-c", "kill -9 $$").Run()
+	if err == nil {
+		t.Fatal("the fixture process was expected to die by signal")
+	}
+	explained := explainSignalledTool("tailwindcss", err)
+	if !strings.Contains(explained.Error(), err.Error()) {
+		t.Errorf("the original failure was dropped: %v", explained)
+	}
+	if explained.Error() == err.Error() {
+		t.Fatalf("a signalled tool was reported with no more than %q", err)
+	}
+	if runtime.GOOS == "darwin" && !strings.Contains(explained.Error(), "codesign --verify") {
+		t.Errorf("the check a developer would run next is not named:\n%v", explained)
+	}
+}
+
+// An ordinary non-zero exit is the tool's own diagnosis, and it printed one.
+// Adding a sentence about signals there would explain the wrong thing.
+func TestAToolThatExitedNonZeroIsReportedAsItIs(t *testing.T) {
+	err := exec.Command("sh", "-c", "exit 3").Run()
+	if err == nil {
+		t.Fatal("the fixture process was expected to fail")
+	}
+	if explained := explainSignalledTool("tailwindcss", err); explained.Error() != err.Error() {
+		t.Errorf("an ordinary failure was rewritten: %v", explained)
 	}
 }
