@@ -145,6 +145,13 @@ func updateEntry(config HTMLConfig) *updateOptionsEntry {
 		LiveDurationJitter:  config.LiveDurationJitter,
 		LiveIdleTimeout:     config.LiveIdleTimeout,
 	})
+	// Bot detection travels with them. It is not an update concern, but this is
+	// where a resolved HTMLConfig arrives, and the other runtime needs the same
+	// two values to answer IsBot the way this one does.
+	pwruntime.PublishBotSettings(pwruntime.BotSettings{
+		Enabled:    config.BotDetection,
+		UserAgents: config.BotUserAgents,
+	})
 	if encoded, err := json.Marshal(entry.options.RuntimeConfig()); err == nil {
 		entry.configJSON = string(encoded)
 		probe, err := json.Marshal(entry.options.RuntimeConfigFor("pw-splice-probe"))

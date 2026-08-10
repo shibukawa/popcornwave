@@ -179,6 +179,70 @@ func TestEveryTransportTakingPwEntryHasAPattern(t *testing.T) {
 	}
 }
 
+// TestEveryRegisteredCallHasSomewhereToLand checks the other half of the
+// contract: a registered pattern says a call may be rewritten, and the rewrite
+// only moves the qualifier, so pwfast must declare the same name.
+//
+// The pattern test above proves a pw entry is not refused. It cannot prove the
+// rewrite compiles, and for seven entries it did not: Redirect, RedirectSeeOther,
+// QueryValue, FormValue, IsBot and OpenAPIJSON had no counterpart at all, and
+// WriteStatus had one under a better name, which is the same defect wearing a
+// disguise. Registration turned a refusal that named the occurrence into a build
+// error in generated output, which is a worse failure than the one the refusal
+// contract exists to give.
+func TestEveryRegisteredCallHasSomewhereToLand(t *testing.T) {
+	options, err := pwgen.Options(sqlbind.DialectSQLite)
+	if err != nil {
+		t.Fatal(err)
+	}
+	landing := exportedNames(t, filepath.Join("..", "..", "pwfast"))
+	if len(landing) == 0 {
+		t.Skip("pwfast could not be loaded, so this proves nothing")
+	}
+	for _, pattern := range options.Calls.Set {
+		function := pattern.Target.Function
+		if function == nil || function.PackagePath != "github.com/shibukawa/popcornwave/pw" {
+			continue
+		}
+		// Only a call with declared transport slots is one the transform
+		// rewrites. The config and sub-command registrations are also patterns
+		// and carry no slots, because they take no transport and the second
+		// build calls them exactly as the first one does.
+		if !pattern.Transport.Declared() {
+			continue
+		}
+		if !landing[function.Name] {
+			t.Errorf("pw.%s is registered as rewritable and pwfast declares no %s; "+
+				"a handler calling it would be rewritten into code that does not compile",
+				function.Name, function.Name)
+		}
+	}
+}
+
+// exportedNames loads one package and returns the set of names it exports.
+func exportedNames(t *testing.T, relative string) map[string]bool {
+	t.Helper()
+	dir, err := filepath.Abs(relative)
+	if err != nil {
+		t.Fatal(err)
+	}
+	loaded, err := packages.Load(&packages.Config{
+		Mode: packages.NeedName | packages.NeedTypes,
+		Dir:  dir,
+	}, ".")
+	if err != nil || len(loaded) == 0 || loaded[0].Types == nil {
+		return nil
+	}
+	names := map[string]bool{}
+	scope := loaded[0].Types.Scope()
+	for _, name := range scope.Names() {
+		if object := scope.Lookup(name); object.Exported() {
+			names[name] = true
+		}
+	}
+	return names
+}
+
 // pwEntriesTakingTheTransport reads pw's exported functions and returns those
 // whose signature names a writer or a request.
 func pwEntriesTakingTheTransport(t *testing.T) []string {

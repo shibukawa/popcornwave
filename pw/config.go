@@ -568,21 +568,6 @@ func executableName() string {
 	return name
 }
 
-func registeredConfig[T any]() (T, bool) {
-	var zero T
-	configState.RLock()
-	entry, ok := configState.entries[reflect.TypeFor[T]()]
-	configState.RUnlock()
-	if !ok {
-		return zero, false
-	}
-	ptr, ok := entry.ptr.(*T)
-	if !ok || ptr == nil {
-		return zero, false
-	}
-	return *ptr, true
-}
-
 // runtimeResources builds the capsule every request is served with. exporting
 // says whether a span this process opens has anywhere to go, which is what the
 // automatic tracing setting reads.

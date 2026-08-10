@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/shibukawa/popcornwave/pwruntime"
+	httpbind "github.com/shibukawa/tinybind-go"
 	"github.com/shibukawa/tinybind-go/fasthttpbind"
 	"github.com/shibukawa/tinybind-go/htmlbind"
 	"github.com/shibukawa/tinygodriver/fasthttp"
@@ -86,11 +87,34 @@ func WriteAPI[T any](r *fasthttp.RequestCtx, value T) {
 	}
 }
 
-// WriteAPIStatus is WriteAPI with the status the handler chose.
-func WriteAPIStatus[T any](r *fasthttp.RequestCtx, status int, value T) {
+// WriteStatus is WriteAPI with the status the handler chose.
+//
+// The name is pw's, not a description of what it does. An earlier draft called
+// it WriteAPIStatus, which reads better and does not work: a rewritten call
+// keeps its selector and only moves its qualifier, so pw.WriteStatus becomes
+// pwfast.WriteStatus and a better name here is simply a missing symbol there.
+func WriteStatus[T any](r *fasthttp.RequestCtx, status int, value T) {
 	if err := fasthttpbind.WriteStatus(r, status, value); err != nil {
 		WriteProblem(r, err)
 	}
+}
+
+// OpenAPIJSON serves the assembled document.
+//
+// It reassembles per request where the net/http half is served from the
+// module's cache, because that cache is keyed on a registration counter the
+// module does not export and there is no way to observe an invalidation from
+// out here. The endpoint is a documentation route rather than a hot one, so the
+// cost buys correctness against a fragment registered after the first read.
+func OpenAPIJSON(r *fasthttp.RequestCtx) {
+	document, err := httpbind.AssembleOpenAPI()
+	if err != nil {
+		WriteProblem(r, InternalServerError(err))
+		return
+	}
+	r.Response.Header.SetContentType("application/json; charset=utf-8")
+	r.SetStatusCode(fasthttp.StatusOK)
+	_, _ = r.Write(document)
 }
 
 // WriteProblem answers with the problem document describing err.
