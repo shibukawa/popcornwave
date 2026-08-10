@@ -3,6 +3,7 @@ package pwfast
 import (
 	"context"
 	"errors"
+	"io/fs"
 	"net"
 	"net/http"
 	"sync"
@@ -110,6 +111,10 @@ type RuntimeOptions struct {
 	// than a setting because whether a span has anywhere to go is decided by
 	// the exporter this process built, not by a configuration key.
 	Tracing bool
+	// PublicFS is the embedded public tree. It is supplied rather than read
+	// from configuration because an embed is a compile-time fact of the
+	// application binary rather than something a settings file can name.
+	PublicFS fs.FS
 	// Session is the manager the session frame resolves through, or nil where a
 	// deployment disabled session storage. It is supplied rather than built
 	// here because building one is startup work — a registry, a keyring, a
@@ -136,8 +141,7 @@ type RuntimeOptions struct {
 //
 // # What is not here yet
 //
-// The authentication and guard frames, the public asset frame, and the
-// extension chain. Each is absent rather than stubbed, so a
+// The authentication and guard frames and the extension chain. Each is absent rather than stubbed, so a
 // build that needs one fails to name it rather than serving requests with a
 // frame that silently does nothing — which for a guard would be an
 // authorization check that looks installed.
@@ -186,6 +190,13 @@ func Middlewares(handler fasthttp.RequestHandler, options RuntimeOptions) (fasth
 	}
 	if settings.MaxRequestBody > 0 {
 		frames = append(frames, Frame{Slot: SlotMaxRequestBody, Name: "max_request_body", Middleware: MaxRequestBody(settings.MaxRequestBody)})
+	}
+	if options.PublicFS != nil && settings.Public.Enabled {
+		assets, err := PublicAssets(settings.Public, options.PublicFS)
+		if err != nil {
+			return nil, err
+		}
+		frames = append(frames, Frame{Slot: SlotPublicAssets, Name: "public_assets", Middleware: assets})
 	}
 	if options.Session != nil {
 		frames = append(frames, Frame{Slot: SlotSession, Name: "session",
