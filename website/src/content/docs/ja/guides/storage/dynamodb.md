@@ -92,32 +92,26 @@ type Note struct {
 ## アイテムを 1 つ読み書きする
 
 クライアントと設定済みのテーブル名解決は、1 つのハンドルにまとまってこのパッケージが
-プロセス状態として保持します。`EnsureClient` が、アイテム操作の探す場所にそれを置きます。
-リクエストごとの context が運ぶ値としてではなく、パッケージの入口で一度だけです。
+プロセス状態として保持します。リクエストの context には何も入らないので、呼び出し側が
+context の探索コストを払うことはありません。
 
 ```go
 func store(ctx context.Context, note Note) error {
-	ctx, ok := dynamo.EnsureClient(ctx)
-	if !ok {
-		return dynamobind.ErrNoClient
+	h, err := dynamo.Handle(ctx)
+	if err != nil {
+		return err
 	}
-	return dynamobind.Store(ctx, "note", note)
+	return dynamobind.StoreOn(ctx, h, "note", note)
 }
 
 func load(ctx context.Context, id string, createdAt time.Time) (Note, error) {
-	ctx, ok := dynamo.EnsureClient(ctx)
-	if !ok {
-		return Note{}, dynamobind.ErrNoClient
+	h, err := dynamo.Handle(ctx)
+	if err != nil {
+		return Note{}, err
 	}
-	return dynamobind.Load[Note](ctx, "note", Note{ID: id, CreatedAt: createdAt}.ItemKey())
+	return dynamobind.LoadOn[Note](ctx, h, "note", Note{ID: id, CreatedAt: createdAt}.ItemKey())
 }
 ```
-
-**生成が探すのはこの呼び出しです。** 検出は `Store` や `Load` を名前で照合するので、
-隣にあるハンドル引数版 — ハンドルを引数に取る `StoreOn`、`LoadOn` — しか呼んでいない
-パッケージは、生成側から見て「使っていない」パッケージであり、その呼び出しが必要とする
-コーデックは出力されません。ハンドルを既に持っていてコーデックも存在する場所ではハンドル版を
-使い、出発点はこちらにしてください。
 
 アイテム操作がテーブル名を取るのは、読み取るべき宣言を持たないからです。セクションを
 有効にしないまま呼び出すと、panic ではなく「クライアントが無い」という名前付きのエラーを
