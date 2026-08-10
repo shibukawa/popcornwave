@@ -106,6 +106,10 @@ type RuntimeOptions struct {
 	// TrustedProxies are the networks whose forwarding headers this deployment
 	// reads.
 	TrustedProxies []*net.IPNet
+	// Tracing installs the request root span. It is a runtime option rather
+	// than a setting because whether a span has anywhere to go is decided by
+	// the exporter this process built, not by a configuration key.
+	Tracing bool
 	// Session is the manager the session frame resolves through, or nil where a
 	// deployment disabled session storage. It is supplied rather than built
 	// here because building one is startup work — a registry, a keyring, a
@@ -132,8 +136,8 @@ type RuntimeOptions struct {
 //
 // # What is not here yet
 //
-// The authentication and guard frames, the public asset frame, the tracing
-// frame, and the extension chain. Each is absent rather than stubbed, so a
+// The authentication and guard frames, the public asset frame, and the
+// extension chain. Each is absent rather than stubbed, so a
 // build that needs one fails to name it rather than serving requests with a
 // frame that silently does nothing — which for a guard would be an
 // authorization check that looks installed.
@@ -202,6 +206,12 @@ func Middlewares(handler fasthttp.RequestHandler, options RuntimeOptions) (fasth
 		Middleware: OperationalEndpoints(settings.Health, settings.Readiness, options.Resources)})
 	frames = append(frames, Frame{Slot: SlotAPIDoc, Name: "apidoc",
 		Middleware: DocumentationEndpoints(settings.OpenAPI, settings.APIDoc, settings.APIDocPath)})
+	if options.Tracing {
+		// Outermost of everything positioned, so the request root span covers
+		// the whole chain and every record taken inside it correlates. It is
+		// opt-in because an unsampled span with nowhere to export is pure cost.
+		frames = append(frames, Frame{Slot: SlotTracing, Name: "otel", Middleware: Otel()})
+	}
 	frames = append(frames, options.Extra...)
 	return Compose(handler, frames...), nil
 }
