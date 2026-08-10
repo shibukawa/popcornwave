@@ -16,7 +16,7 @@ import (
 )
 
 // CSRFConfig is the shared configuration, so one setting protects both builds.
-type CSRFConfig = middlewares.CSRFConfig
+type CSRFConfig = pwruntime.CSRFConfig
 
 // CSRFSecret is the per-session secret the check validates against, the same
 // slot type the other half registers.
