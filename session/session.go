@@ -29,7 +29,6 @@ package session
 import (
 	"context"
 	"errors"
-	"net/http"
 	"time"
 )
 
@@ -91,7 +90,7 @@ type Store[T any] interface {
 // keeps one Manager, one Options, and one handler working over a cookie, an
 // RDB, or a Redis store.
 type RequestBinder interface {
-	BindRequest(ctx context.Context, w http.ResponseWriter, r *http.Request) context.Context
+	BindRequest(ctx context.Context, carrier Carrier) context.Context
 }
 
 // Codec serializes the typed payload of a record for durable stores. Record
