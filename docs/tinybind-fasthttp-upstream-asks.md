@@ -1,29 +1,97 @@
 # What Popcorn Wave needs from tinybind-go for a fasthttp build
 
 Surveyed against **tinybind-go v0.5.1** on 2026-08-10, by diffing the exported
-surface of every package against v0.5.0.
+surface of every package.
 
-**Everything this page used to ask for has shipped.** One new ask has appeared
-since, and it is small.
+**Everything this page used to ask for has shipped**, and the record of that is
+below. Two asks are open. The first — `routetree` emitting only net/http — is
+now the single largest thing between this framework and a runnable second
+backend, and it appeared on this page only after we built enough of our own side
+to reach it. The second is a convenience we have already worked around.
 
 ---
 
-## The one open ask: `routetree` emits net/http only
+## Open asks
 
-`routetree.EmitDecoder(route, inputs)` takes no transport, and the code it emits
-reads `r.PathValue(…)` and `r.URL.Query()` off the request directly. There is no
-option to emit the other shape, so the second build has no decoder for any
-parameterised route.
+Two, found by diffing every exported surface rather than from memory. The first
+is the one that matters.
+
+### 1. `routetree` emits net/http only, and it is the whole page tree
+
+`routetree` names `net/http` in `emit.go`, `pagefunc.go` and `registry.go`, and
+there is no option anywhere to emit the other shape. Three separate things come
+out net/http-only:
+
+- **The decoder.** `EmitDecoder(route, inputs)` writes `r.PathValue(…)` and
+  `r.URL.Query()` — reads off the request value itself.
+- **The registration.** `emit.go` writes `mux.HandleFunc(pattern, func(w
+  http.ResponseWriter, r *http.Request){…})`, against a one-method `Router`
+  interface whose method signature names both halves.
+- **The accepted page function.** `pagefunc.go` accepts `func(http.ResponseWriter,
+  *http.Request)` as one of the two legal shapes for a page func.
+
+So a fasthttp build of a project with a page tree has no routes and no decoders
+at all, which is the single largest thing standing between this framework and a
+runnable second backend.
 
 The accessors it would need already exist and are already right:
 `httpbind.PathValue` and `fasthttpbind.PathValue` carry the same name and take
-the transport first, which is exactly the shape a rewrite wants. So this is a
-transport option on the emitter and three substitutions in what it writes, not a
-design question.
+the transport first, which is exactly the shape a rewrite wants. Query reads
+have the same pair. So for the decoder this is a transport option and a
+substitution table, not a design question.
 
-We are not asking for a rewrite of generated output. Generated files are outputs
-rather than transform inputs — they are emitted per backend — so the emitter
+Registration needs one decision from you rather than from us: what the emitted
+`Router` interface is on the other side. Ours is
+`HandleFunc(pattern string, handler func(*fasthttp.RequestCtx))`, and
+`pwfast.ServeMux` satisfies it today — it translates Go 1.22 patterns onto the
+vendored trie router, including the `{$}` your emitter writes for the root of
+every page tree.
+
+We are **not** asking you to rewrite generated output. Generated files are
+outputs rather than transform inputs, emitted per backend, so the emitter
 choosing its transport is the whole fix.
+
+### 2. The assembled OpenAPI document has no cached public read
+
+`AssembleOpenAPI()` is exported and transport-free, and five of the seven
+OpenAPI entries take no transport at all, so almost none of this surface needed
+porting. The two that do are `OpenAPIJSON(w, r)` and `SwaggerUI(specURL)
+http.Handler`; we use only the first.
+
+We serve it on the second transport by calling `AssembleOpenAPI()` per request,
+because `cachedOpenAPI` is unexported and there is no way to observe a fragment
+registration from outside the module. It is a documentation endpoint, so the
+cost is acceptable and this is working today.
+
+The ask, if you want it: one transport-free cached read — say
+`OpenAPIDocument() ([]byte, error)` — which serves any framework on any
+transport and makes `OpenAPIJSON` a thin caller of it. Low priority; we are not
+blocked.
+
+---
+
+## Confirmed complete, by measurement
+
+Both diffs were taken against v0.5.1 by comparing exported sets, not by reading
+release notes.
+
+- **`htmlupdate` against `fasthttpupdate`** — identical, entry for entry.
+- **`httpbind` against `fasthttpbind`** — 71 against 64, and every one of the
+  seven is the OpenAPI surface above. Nothing else is missing in either
+  direction.
+
+---
+
+## One report, not an ask, for `tinygodriver`
+
+`fasthttprouter`'s package documentation describes the catch-all value as
+carrying a leading slash — `/files/LICENSE` giving `filepath="/LICENSE"`. The
+fork does not do that, and neither does `net/http`: both yield `LICENSE`, and
+the empty string for the directory itself.
+
+The behaviour is right; the comment is inherited from upstream httprouter, where
+it was accurate. We wrote a test from the comment and it failed against both
+implementations, which is how we found it.
 
 ---
 
