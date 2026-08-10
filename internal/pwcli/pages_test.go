@@ -147,6 +147,30 @@ func TestRunGeneratePageTreeIsStable(t *testing.T) {
 	}
 }
 
+// The shape a scaffolded project has on its first day: a page tree, and a main
+// that mounts it by calling the Register this generation is about to write. The
+// tree holds templates and no Go at all until then, so a run that analyses the
+// main first loads a package that does not exist and stops — having written
+// nothing, which leaves the next run the same tree and the same failure. This
+// is the first pw dev of a new project, not some later clean checkout.
+func TestRunGenerateWritesAPageTreeBeforeTheMainThatImportsIt(t *testing.T) {
+	root := writePageTreeFixture(t)
+	writeTestFile(t, filepath.Join(root, "popcornwave.toml"),
+		"[project]\nname = \"fixture\"\nmain = \"./cmd/fixture\"\n\n[generate]\n"+
+			"handlers = []\ntemplates = []\nqueries = []\nconfig = [\"cmd/fixture\"]\npages = [\"pages\"]\n")
+	writeTestFile(t, filepath.Join(root, "cmd", "fixture", "main.go"), `package main
+
+import "example.test/fixture/pages"
+
+func main() { _ = pages.Routes }
+`)
+	generateIn(t, root)
+
+	if _, err := os.Stat(filepath.Join(root, "pages", "routes_pw_gen.go")); err != nil {
+		t.Fatalf("the page package the main imports was never written: %v", err)
+	}
+}
+
 // A page tree root is not a handler directory, so no page route reaches the
 // OpenAPI document. The registrations are in the generated registry, and
 // discovery is told to skip what this command wrote.
