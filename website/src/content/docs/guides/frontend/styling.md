@@ -55,7 +55,7 @@ message if it is missing. Add it to `devbox.json`:
 ```json
 {
   "$schema": "https://raw.githubusercontent.com/jetify-com/devbox/0.14.2/.schema/devbox.schema.json",
-  "packages": ["go@latest", "valkey@latest", "tailwindcss_4@4.1.18"],
+  "packages": ["go@latest", "git@latest", "valkey@latest", "tailwindcss_4@4.1.18"],
   "shell": {"init_hook": ["echo 'Popcorn Wave development environment'"]}
 }
 ```

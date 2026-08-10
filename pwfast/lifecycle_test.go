@@ -8,6 +8,8 @@ import (
 	"time"
 
 	"github.com/shibukawa/popcornwave/pwruntime"
+	"github.com/shibukawa/popcornwave/session"
+	httpbind "github.com/shibukawa/tinybind-go"
 	"github.com/shibukawa/tinygodriver/fasthttp"
 	"github.com/shibukawa/tinygodriver/fasthttp/fasthttputil"
 )
@@ -141,5 +143,185 @@ func TestResolveClientAddressRecordsThePeer(t *testing.T) {
 	_, _, body := serveRaw(t, handler, "/", "X-Forwarded-For: 203.0.113.9\r\n")
 	if body != "203.0.113.9" {
 		t.Errorf("client address = %q, want the forwarded caller", body)
+	}
+}
+
+func TestTheProbesAnswerAboveTheApplication(t *testing.T) {
+	publishChainSettings(t, pwruntime.ChainSettings{Health: "/healthz", Readiness: "/readyz"})
+	handler, err := Middlewares(func(r *fasthttp.RequestCtx) {
+		_, _ = r.WriteString("application")
+	}, RuntimeOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	status, header, body := serve(t, handler, "/healthz")
+	if status != fasthttp.StatusOK || body != "ok\n" {
+		t.Errorf("liveness answered %d %q", status, body)
+	}
+	if !strings.Contains(header, "Cache-Control: no-store") {
+		t.Errorf("a probe answer was cacheable:\n%s", header)
+	}
+	// No connections configured means ready, which is the same answer the other
+	// transport gives for the same process.
+	if status, _, body := serve(t, handler, "/readyz"); status != fasthttp.StatusOK || body != "ok\n" {
+		t.Errorf("readiness answered %d %q", status, body)
+	}
+	if _, _, body := serve(t, handler, "/"); body != "application" {
+		t.Errorf("an ordinary path was taken by a probe: %q", body)
+	}
+}
+
+// A probe that accepts any method is one an arbitrary caller can POST to, and
+// on the readiness path that costs a database round trip per request.
+func TestAProbeRefusesAMethodItDoesNotAnswer(t *testing.T) {
+	publishChainSettings(t, pwruntime.ChainSettings{Health: "/healthz"})
+	handler, err := Middlewares(func(*fasthttp.RequestCtx) {}, RuntimeOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	status, header, _ := serveForm(t, handler, "/healthz", "x=1")
+	if status != fasthttp.StatusMethodNotAllowed {
+		t.Errorf("status = %d, want 405", status)
+	}
+	if !strings.Contains(header, "Allow:") {
+		t.Errorf("405 carried no Allow header:\n%s", header)
+	}
+}
+
+func TestAnEmptyProbePathInstallsNothing(t *testing.T) {
+	publishChainSettings(t, pwruntime.ChainSettings{})
+	handler, err := Middlewares(func(r *fasthttp.RequestCtx) {
+		_, _ = r.WriteString("application")
+	}, RuntimeOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, _, body := serve(t, handler, "/healthz"); body != "application" {
+		t.Errorf("a disabled probe still answered: %q", body)
+	}
+}
+
+func TestTheDocumentationEndpointsAnswerWhereConfigured(t *testing.T) {
+	// The document is assembled from what an application registered, so a
+	// binary that registered nothing has none to serve and both transports
+	// answer 500 for it.
+	if err := httpbind.SetOpenAPIInfo(httpbind.OpenAPIInfo{Title: "bench", Version: "1"}); err != nil {
+		t.Fatal(err)
+	}
+	httpbind.RegisterOpenAPIFragmentString("pwfast-test",
+		`{"paths":{"/ping":{"get":{"responses":{"200":{"description":"ok"}}}}}}`)
+	t.Cleanup(httpbind.ResetOpenAPIFragments)
+	publishChainSettings(t, pwruntime.ChainSettings{
+		OpenAPI: "/openapi.json", APIDoc: "scalar", APIDocPath: "/docs",
+	})
+	handler, err := Middlewares(func(r *fasthttp.RequestCtx) {
+		_, _ = r.WriteString("application")
+	}, RuntimeOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	status, header, body := serve(t, handler, "/openapi.json")
+	if status != fasthttp.StatusOK {
+		t.Errorf("the document answered %d: %s", status, body)
+	}
+	if !strings.Contains(header, "application/json") {
+		t.Errorf("the document was not JSON:\n%s", header)
+	}
+
+	status, header, body = serve(t, handler, "/docs")
+	if status != fasthttp.StatusOK || !strings.Contains(body, "<!DOCTYPE html>") {
+		t.Errorf("the UI answered %d %q", status, body[:min(len(body), 60)])
+	}
+	if !strings.Contains(header, "text/html") {
+		t.Errorf("the UI was not HTML:\n%s", header)
+	}
+	if _, _, body := serve(t, handler, "/"); body != "application" {
+		t.Errorf("an ordinary path was taken by a documentation endpoint: %q", body)
+	}
+}
+
+// The page needs a policy the application's own does not grant, and the
+// replacement must be scoped to this page rather than widening the configured
+// one into every response.
+func TestTheDocumentationPageReplacesOnlyAnExistingPolicy(t *testing.T) {
+	publishChainSettings(t, pwruntime.ChainSettings{
+		APIDoc: "scalar", APIDocPath: "/docs",
+		SecurityHeaders: pwruntime.DefaultSecurityHeaders(),
+	})
+	handler, err := Middlewares(func(*fasthttp.RequestCtx) {}, RuntimeOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, header, _ := serve(t, handler, "/docs")
+	if !strings.Contains(header, "cdn.jsdelivr.net") {
+		t.Errorf("the page's own policy did not replace the application's:\n%s", header)
+	}
+
+	// With no configured policy there is nothing to replace, and the page must
+	// not introduce one.
+	publishChainSettings(t, pwruntime.ChainSettings{APIDoc: "scalar", APIDocPath: "/docs"})
+	handler, err = Middlewares(func(*fasthttp.RequestCtx) {}, RuntimeOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, header, _ := serve(t, handler, "/docs"); strings.Contains(header, "Content-Security-Policy") {
+		t.Errorf("a policy appeared where the application configured none:\n%s", header)
+	}
+}
+
+func TestNoDocumentationConfigurationAddsNoFrame(t *testing.T) {
+	publishChainSettings(t, pwruntime.ChainSettings{})
+	handler, err := Middlewares(func(r *fasthttp.RequestCtx) {
+		_, _ = r.WriteString("application")
+	}, RuntimeOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, _, body := serve(t, handler, "/openapi.json"); body != "application" {
+		t.Errorf("a documentation endpoint answered where none was configured: %q", body)
+	}
+}
+
+// The session and CSRF frames reach the chain from configuration and options
+// rather than being wired by hand, which is what a real deployment does.
+func TestTheChainInstallsSessionAndCSRFWhenConfigured(t *testing.T) {
+	publishChainSettings(t, pwruntime.ChainSettings{
+		CSRF: pwruntime.CSRFConfig{Enabled: true, Include: []string{"/**"},
+			FormField: "_csrf", Header: pwruntime.CSRFHeaderName, CookieName: pwruntime.CSRFCookieName},
+	})
+	registry := session.NewRegistry()
+	if err := session.Register[CSRFSecret](registry, CSRFSecretSlot,
+		session.Private, nil, session.ResetOnRotate()); err != nil {
+		t.Fatal(err)
+	}
+	keys, err := session.NewKeyring(make([]byte, 32))
+	if err != nil {
+		t.Fatal(err)
+	}
+	cookie := session.CookieOptions{Name: "pwsession", Path: "/", HTTPOnly: true}
+	manager, err := session.NewManager(registry, nil, session.Options{Cookie: cookie, Keys: keys})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	handler, err := Middlewares(func(r *fasthttp.RequestCtx) {
+		_, _ = r.WriteString("handled")
+	}, RuntimeOptions{Session: manager, SessionCookie: cookie})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// A cross-site post reaches the CSRF frame, which means both frames are in
+	// the chain and in the right order — the check needs the session above it.
+	if status, _, _ := serveRequest(t, handler, "POST", "/act",
+		"Origin: https://attacker.example\r\nContent-Length: 0\r\n", ""); status != fasthttp.StatusForbidden {
+		t.Errorf("a cross-site post answered %d, want 403", status)
+	}
+	// A safe HTML request is served and given the companion cookie.
+	if _, header, body := serveRaw(t, handler, "/form", "Accept: text/html\r\n"); body != "handled" ||
+		!strings.Contains(header, pwruntime.CSRFCookieName) {
+		t.Errorf("a page load answered %q:\n%s", body, header)
 	}
 }

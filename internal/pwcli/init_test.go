@@ -24,17 +24,17 @@ func TestParseInitArgs(t *testing.T) {
 		args []string
 		want initOptions
 	}{
-		{name: "name only keeps the TinyGo default", args: []string{"demo"}, want: initOptions{Name: "demo", TinyGo: true, Database: true, Engine: engineSQLite, Redis: true, Devbox: true, Auth: authNone, Session: sessionRDB, Skills: skillsClaude}},
+		{name: "name only takes the defaults, and the toolchain is the host one", args: []string{"demo"}, want: initOptions{Name: "demo", Database: true, Engine: engineSQLite, Redis: true, Devbox: true, Auth: authNone, Session: sessionRDB, Skills: skillsClaude}},
 		{name: "shortcut flags", args: []string{"demo", "--tailwind", "--no-tinygo"}, want: initOptions{Name: "demo", Tailwind: true, Database: true, Engine: engineSQLite, Redis: true, Devbox: true, Auth: authNone, Session: sessionRDB, Skills: skillsClaude}},
 		{name: "explicit tinygo", args: []string{"--tinygo", "demo"}, want: initOptions{Name: "demo", TinyGo: true, Database: true, Engine: engineSQLite, Redis: true, Devbox: true, Auth: authNone, Session: sessionRDB, Skills: skillsClaude}},
-		{name: "no name requests the wizard", args: nil, want: initOptions{TinyGo: true, Database: true, Engine: engineSQLite, Redis: true, Devbox: true, Auth: authNone, Session: sessionRDB, Skills: skillsClaude}},
-		{name: "the retired interactive flag is accepted and changes nothing", args: []string{"-i", "demo"}, want: initOptions{Name: "demo", TinyGo: true, Database: true, Engine: engineSQLite, Redis: true, Devbox: true, Auth: authNone, Session: sessionRDB, Skills: skillsClaude}},
-		{name: "yes takes the flags as the whole answer", args: []string{"--yes", "demo"}, want: initOptions{Name: "demo", TinyGo: true, Database: true, Engine: engineSQLite, Redis: true, Devbox: true, Yes: true, Auth: authNone, Session: sessionRDB, Skills: skillsClaude}},
-		{name: "oidc with the local emulator", args: []string{"demo", "--auth=oidc", "--devidp"}, want: initOptions{Name: "demo", TinyGo: true, Database: true, Engine: engineSQLite, Redis: true, Devbox: true, Auth: authOIDC, AuthEmulator: true, Session: sessionRDB, Skills: skillsClaude}},
-		{name: "passkey drops a stray emulator flag", args: []string{"demo", "--auth=passkey", "--devidp"}, want: initOptions{Name: "demo", TinyGo: true, Database: true, Engine: engineSQLite, Redis: true, Devbox: true, Auth: authPasskey, Session: sessionRDB, Skills: skillsClaude}},
-		{name: "engine shortcut", args: []string{"demo", "--db=postgres"}, want: initOptions{Name: "demo", TinyGo: true, Database: true, Engine: enginePostgres, Redis: true, Devbox: true, Auth: authNone, Session: sessionRDB, Skills: skillsClaude}},
-		{name: "mysql engine shortcut", args: []string{"demo", "--db=mysql"}, want: initOptions{Name: "demo", TinyGo: true, Database: true, Engine: engineMySQL, Redis: true, Devbox: true, Auth: authNone, Session: sessionRDB, Skills: skillsClaude}},
-		{name: "declined database keeps the default engine unapplied", args: []string{"demo", "--no-database"}, want: initOptions{Name: "demo", TinyGo: true, Engine: engineSQLite, Redis: true, Devbox: true, Auth: authNone, Session: sessionRDB, Skills: skillsClaude}},
+		{name: "no name requests the wizard", args: nil, want: initOptions{Database: true, Engine: engineSQLite, Redis: true, Devbox: true, Auth: authNone, Session: sessionRDB, Skills: skillsClaude}},
+		{name: "the retired interactive flag is accepted and changes nothing", args: []string{"-i", "demo"}, want: initOptions{Name: "demo", Database: true, Engine: engineSQLite, Redis: true, Devbox: true, Auth: authNone, Session: sessionRDB, Skills: skillsClaude}},
+		{name: "yes takes the flags as the whole answer", args: []string{"--yes", "demo"}, want: initOptions{Name: "demo", Database: true, Engine: engineSQLite, Redis: true, Devbox: true, Yes: true, Auth: authNone, Session: sessionRDB, Skills: skillsClaude}},
+		{name: "oidc with the local emulator", args: []string{"demo", "--auth=oidc", "--devidp"}, want: initOptions{Name: "demo", Database: true, Engine: engineSQLite, Redis: true, Devbox: true, Auth: authOIDC, AuthEmulator: true, Session: sessionRDB, Skills: skillsClaude}},
+		{name: "passkey drops a stray emulator flag", args: []string{"demo", "--auth=passkey", "--devidp"}, want: initOptions{Name: "demo", Database: true, Engine: engineSQLite, Redis: true, Devbox: true, Auth: authPasskey, Session: sessionRDB, Skills: skillsClaude}},
+		{name: "engine shortcut", args: []string{"demo", "--db=postgres"}, want: initOptions{Name: "demo", Database: true, Engine: enginePostgres, Redis: true, Devbox: true, Auth: authNone, Session: sessionRDB, Skills: skillsClaude}},
+		{name: "mysql engine shortcut", args: []string{"demo", "--db=mysql"}, want: initOptions{Name: "demo", Database: true, Engine: engineMySQL, Redis: true, Devbox: true, Auth: authNone, Session: sessionRDB, Skills: skillsClaude}},
+		{name: "declined database keeps the default engine unapplied", args: []string{"demo", "--no-database"}, want: initOptions{Name: "demo", Engine: engineSQLite, Redis: true, Devbox: true, Auth: authNone, Session: sessionRDB, Skills: skillsClaude}},
 	} {
 		t.Run(testcase.name, func(t *testing.T) {
 			options, err := parseInitArgs(testcase.args)
@@ -176,6 +176,53 @@ func TestMainInitWithoutTerminalNeedsAName(t *testing.T) {
 	}
 }
 
+// Both routers register on one mux, and the standard library panics on a
+// duplicate pattern rather than letting one of them win. So the two starter
+// routes a both-router project scaffolds cannot both claim the root, and a
+// project that takes both would otherwise die on its first pw dev — before
+// serving anything, with a panic naming a generated file.
+//
+// The page tree keeps the root, because a directory holding a page template is
+// a route by existing. The handler is what moves.
+func TestScaffoldFilesGiveEachRouterItsOwnStarterRoute(t *testing.T) {
+	files := scaffoldFiles(initOptions{Name: "fixture", Router: routerBoth, Devbox: true, Auth: authNone})
+	handler := files["handlers/home_handler.go"]
+	if strings.Contains(handler, `"GET /{$}"`) {
+		t.Errorf("the handler claims the root the page tree already serves:\n%s", handler)
+	}
+	if !strings.Contains(handler, `"GET /hello"`) {
+		t.Errorf("the handler registers no starter route of its own:\n%s", handler)
+	}
+	// Each starter page names the other, so which router served a page is
+	// something the browser shows rather than something to read about.
+	if page := files["pages/page.pw.html"]; !strings.Contains(page, `href="/hello"`) {
+		t.Errorf("the page tree landing page does not link to the registered route:\n%s", page)
+	}
+	if home := files["handlers/home.pw.html"]; !strings.Contains(home, `href="/"`) {
+		t.Errorf("the registered page does not link back to the landing page:\n%s", home)
+	}
+	// One landing page, not two: the sections belong to whichever starter page
+	// is at the root.
+	if home := files["handlers/home.pw.html"]; strings.Contains(home, "What this project has") {
+		t.Errorf("both starter pages carry the landing sections:\n%s", home)
+	}
+}
+
+// A project with one router keeps its starter route on the root, which is where
+// a reader who just ran pw dev looks first.
+func TestScaffoldFilesKeepTheRootWithOneRouter(t *testing.T) {
+	for _, router := range []string{routerRegistered, ""} {
+		files := scaffoldFiles(initOptions{Name: "fixture", Router: router, Devbox: true, Auth: authNone})
+		handler := files["handlers/home_handler.go"]
+		if !strings.Contains(handler, `"GET /{$}"`) {
+			t.Errorf("router %q moved its only starter route off the root:\n%s", router, handler)
+		}
+		if !strings.Contains(files["handlers/home.pw.html"], "What this project has") {
+			t.Errorf("router %q left its only landing page without the landing sections", router)
+		}
+	}
+}
+
 func TestScaffoldFilesWithoutTinyGoUsesStandardServeMux(t *testing.T) {
 	files := scaffoldFiles(initOptions{Name: "fixture", Devbox: true})
 	index := files["handlers/index.go"]
@@ -202,6 +249,23 @@ func TestScaffoldFilesWithoutTinyGoUsesStandardServeMux(t *testing.T) {
 	}
 	if !strings.Contains(files["cmd/fixture/main.go"], "pw.Run(context.Background(), handlers.Handlers())") {
 		t.Errorf("entry point scaffold changed:\n%s", files["cmd/fixture/main.go"])
+	}
+}
+
+// The Go toolchain resolves a module by running the version control system
+// that publishes it, so a shell pinning Go and nothing else fails go get and
+// go install on a missing executable rather than on anything about the module.
+// The environment is a closed one, so a git on the host is not one this shell
+// can reach.
+func TestScaffoldPinsGitBesideGo(t *testing.T) {
+	for _, options := range []initOptions{
+		{Name: "fixture", Devbox: true},
+		{Name: "fixture", Devbox: true, Database: true, Engine: enginePostgres, Tailwind: true},
+	} {
+		devbox := scaffoldFiles(options)["devbox.json"]
+		if !strings.Contains(devbox, `"git@latest"`) {
+			t.Errorf("devbox.json pins no git, so go get cannot run in it:\n%s", devbox)
+		}
 	}
 }
 
@@ -341,14 +405,14 @@ func TestInitWizardCollectsAnswers(t *testing.T) {
 	model := startWizard(t, presetManual, "demo", defaultInitOptions())
 	// Every other answer is left at the default the list shows, which is what
 	// a Manual run that only wanted to change one thing does.
-	model = answerHubRow(t, model, "TinyGo support", 2) // No
+	model = answerHubRow(t, model, "TinyGo support", 1) // Yes
 	model = confirmHub(t, model)
 	if !model.confirmed {
 		t.Fatalf("wizard did not confirm: on %q", currentStep(model))
 	}
 	options := wizardResult(model, defaultInitOptions())
 	options.Preset = ""
-	if options != (initOptions{Name: "demo", Router: routerRegistered, Devbox: true, Database: true, Engine: engineSQLite, Redis: true, Auth: authNone, Session: sessionRDB, Skills: skillsClaude}) {
+	if options != (initOptions{Name: "demo", Router: routerRegistered, TinyGo: true, Devbox: true, Database: true, Engine: engineSQLite, Redis: true, Auth: authNone, Session: sessionRDB, Skills: skillsClaude}) {
 		t.Fatalf("options = %#v", options)
 	}
 }
@@ -364,7 +428,7 @@ func TestInitWizardDigitShortcutSelectsTailwind(t *testing.T) {
 	}
 	options := wizardResult(model, defaultInitOptions())
 	options.Preset = ""
-	if options != (initOptions{Name: "demo", Router: routerDiscovered, TinyGo: true, Tailwind: true, Devbox: true, Database: true, Engine: engineSQLite, Redis: true, Auth: authNone, Session: sessionRDB, Skills: skillsClaude}) {
+	if options != (initOptions{Name: "demo", Router: routerDiscovered, Tailwind: true, Devbox: true, Database: true, Engine: engineSQLite, Redis: true, Auth: authNone, Session: sessionRDB, Skills: skillsClaude}) {
 		t.Fatalf("options = %#v", options)
 	}
 }

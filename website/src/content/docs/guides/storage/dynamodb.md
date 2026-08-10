@@ -99,27 +99,35 @@ reported once, by path, rather than silently skipped.
 
 ## Reading and writing one item
 
-The client and the configured table naming travel together as one handle,
-held by this package as process state. Nothing is stored in the request
-context, so a call site pays no context lookup:
+The client and the configured table naming travel together as one handle, held
+by this package as process state. `EnsureClient` puts it where the item entries
+look for it — once, at the edge of the package, rather than as a value every
+request context carries:
 
 ```go
 func store(ctx context.Context, note Note) error {
-	h, err := dynamo.Handle(ctx)
-	if err != nil {
-		return err
+	ctx, ok := dynamo.EnsureClient(ctx)
+	if !ok {
+		return dynamobind.ErrNoClient
 	}
-	return dynamobind.StoreOn(ctx, h, "note", note)
+	return dynamobind.Store(ctx, "note", note)
 }
 
 func load(ctx context.Context, id string, createdAt time.Time) (Note, error) {
-	h, err := dynamo.Handle(ctx)
-	if err != nil {
-		return Note{}, err
+	ctx, ok := dynamo.EnsureClient(ctx)
+	if !ok {
+		return Note{}, dynamobind.ErrNoClient
 	}
-	return dynamobind.LoadOn[Note](ctx, h, "note", Note{ID: id, CreatedAt: createdAt}.ItemKey())
+	return dynamobind.Load[Note](ctx, "note", Note{ID: id, CreatedAt: createdAt}.ItemKey())
 }
 ```
+
+**These are the calls generation looks for.** Discovery matches `Store`, `Load`
+and the rest by name, so a package that calls only the handle-form twins beside
+them — `StoreOn`, `LoadOn`, which take the handle as an argument — is a package
+the generator sees no use in, and the codec those calls need is never emitted.
+Reach for the handle form where you already hold a handle and the codec exists;
+start from these.
 
 An item operation names its table because it has no declaration to read one
 from. A call that runs with the section disabled gets a named no-client error

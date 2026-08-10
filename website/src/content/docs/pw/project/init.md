@@ -6,7 +6,7 @@ sidebar:
 ---
 
 ```sh
-pw init <project-name> [--preset=<name>] [--yes] [--tailwind] [--no-tinygo] [--no-devbox] [--no-database] [--db=<engine>] [--dynamo] [--firestore] [--no-redis] [--router=<kind>] [--auth=<mode>] [--session=<backend>] [--devidp] [--skills=<dir>]
+pw init <project-name> [--preset=<name>] [--yes] [--tailwind] [--tinygo] [--no-devbox] [--no-database] [--db=<engine>] [--dynamo] [--firestore] [--no-redis] [--router=<kind>] [--auth=<mode>] [--session=<backend>] [--devidp] [--skills=<dir>]
 ```
 
 The command creates a complete, runnable project in a new directory. In a
@@ -30,10 +30,12 @@ question left except the project name.
 | `package` | a module published for other projects to import | a different project kind — see [Component packages](/guides/deployment/package/) |
 | `manual` | anything the six above do not describe | nothing; every answer is yours |
 
-Every preset answers TinyGo and Devbox the same way — yes to both — because
-neither changes what the project contains. `--preset=<name>` gives the same
-answers without the terminal, and it is refused beside any flag that answers a
-question it already answered, since neither would obviously win.
+Every preset answers TinyGo and Devbox the same way — no to the first, yes to
+the second — because neither changes what the project contains. TinyGo is still
+reachable from a preset: open that row on the review screen below.
+`--preset=<name>` gives the same answers without the terminal, and it is refused
+beside any flag that answers a question it already answered, since neither would
+obviously win.
 
 **The review screen is the list of what a preset chose, and every row on it is
 editable.** Press enter on a row to reopen that question and land back on the
@@ -57,7 +59,7 @@ these answers afterwards.
 | `--preset=<name>` | answer every question below at once; see [Presets](#presets) |
 | `--yes` | take the flags and the defaults without asking |
 | `--tailwind` | also scaffold the Tailwind CSS toolchain |
-| `--no-tinygo` | target host Go instead of TinyGo |
+| `--tinygo` | also target TinyGo: `pw.ServeMux` routing, the toolchain in `devbox.json`, and a second Dockerfile |
 | `--no-devbox` | no `devbox.json`; keep your own setup — mise, Docker Compose, Nix, Homebrew, Scoop |
 | `--no-database` | no rdb configuration, no migrations, and no SQL example |
 | `--db=<engine>` | `sqlite` (default), `postgres`, or `mysql` |
@@ -76,8 +78,10 @@ costs nothing permanent. A browser login needs one server store for ceremony
 and account-side records. With `--no-database`, add either `--dynamo` or
 `--firestore`; without one of those, an `--auth` mode is rejected.
 
-`--no-tinygo` is the answer `pw add` cannot revisit — see
-[Changing the toolchain](#changing-the-toolchain).
+`--tinygo` is the answer `pw add` cannot revisit — see
+[Changing the toolchain](#changing-the-toolchain). That is why the default is
+host Go: it is the direction that assumes less, and the routing is the same
+either way.
 
 ## Choosing the database
 
@@ -134,10 +138,10 @@ read as `sqlite`, which is the only engine that existed then.
 ## Changing the toolchain
 
 The selected compiler is recorded as `project.toolchain` in `popcornwave.toml`,
-and it decides which mux type the handler packages use: TinyGo projects route
-through `pw.ServeMux` so one import works on both toolchains, host-only projects
-keep `http.ServeMux`. Generation discovers either, so the difference is confined
-to the scaffold.
+and it decides which mux type the handler packages use: a host-only project —
+the default — keeps `http.ServeMux`, and a TinyGo project routes through
+`pw.ServeMux` so one import works on both toolchains. Generation discovers
+either, so the difference is confined to the scaffold.
 
 There is no command for switching afterwards, because the change reaches source
 you own. Doing it by hand is four edits:

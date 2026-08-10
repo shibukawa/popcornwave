@@ -251,15 +251,15 @@ func (m *Manager) CookieName() string { return m.cookie.Name }
 // bind hands the request and response to a store that keeps its records in the
 // browser. A backend store implements no binder and receives the context
 // unchanged.
-func (m *Manager) bind(ctx context.Context, store Store[slotMap], w http.ResponseWriter, r *http.Request) context.Context {
+func (m *Manager) bind(ctx context.Context, store Store[slotMap], carrier Carrier) context.Context {
 	binder, ok := store.(RequestBinder)
 	if !ok {
 		return ctx
 	}
-	return binder.BindRequest(ctx, w, r)
+	return binder.BindRequest(ctx, carrier)
 }
 
-func (m *Manager) writeCookie(w http.ResponseWriter, token string, expiresAt time.Time) {
+func (m *Manager) writeCookie(carrier Carrier, token string, expiresAt time.Time) {
 	cookie := &http.Cookie{
 		Name:     m.cookie.Name,
 		Value:    token,
@@ -273,11 +273,11 @@ func (m *Manager) writeCookie(w http.ResponseWriter, token string, expiresAt tim
 		cookie.Expires = expiresAt
 		cookie.MaxAge = int(expiresAt.Sub(m.now()).Seconds())
 	}
-	http.SetCookie(w, cookie)
+	carrier.SetCookie(cookie)
 }
 
-func (m *Manager) clearCookie(w http.ResponseWriter) {
-	http.SetCookie(w, &http.Cookie{
+func (m *Manager) clearCookie(carrier Carrier) {
+	carrier.SetCookie(&http.Cookie{
 		Name:     m.cookie.Name,
 		Value:    "",
 		Path:     m.cookie.Path,

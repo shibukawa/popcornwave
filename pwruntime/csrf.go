@@ -146,3 +146,13 @@ func CSRFSecret(ctx context.Context) (string, bool) {
 	secret, ok := ctx.Value(csrfSecretKey{}).(string)
 	return secret, ok && secret != ""
 }
+
+// StoreCSRFSecret records the request's CSRF secret on a request value that
+// carries its own state, which is WithCSRFSecret for a transport that cannot
+// derive a context.
+func StoreCSRFSecret(store ValueStore, secret string) {
+	if secret == "" {
+		return
+	}
+	store.SetUserValue(csrfSecretKey{}, secret)
+}

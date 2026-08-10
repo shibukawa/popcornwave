@@ -115,8 +115,9 @@ import _ "github.com/shibukawa/tinygodriver/netdev"
 2026/01/01 00:00:00 Netdev not set
 ```
 
-`--no-tinygo` で作成したプロジェクトにはこのファイルはありません。TinyGo に
-切り替えるときは手動で追加してください。
+このファイルが付くのは `--tinygo`、またはウィザードで TinyGo を選んで作成した
+プロジェクトだけで、既定では付きません。TinyGo に切り替えるときは手動で追加して
+ください。
 
 ## CI での使い方
 

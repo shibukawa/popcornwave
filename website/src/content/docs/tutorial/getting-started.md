@@ -38,7 +38,7 @@ Answer this way for the tutorial:
 | Question | Answer | Why |
 |---|---|---|
 | Project name | `memoapp` | |
-| TinyGo support | Yes | the default |
+| TinyGo support | No | the default; nothing in this tutorial needs it |
 | Router | Registered | the default |
 | Tailwind CSS | **No** | chapter 2 adds it with `pw add` |
 | Authentication | None | chapter 4 adds it with `pw add` |
@@ -253,22 +253,23 @@ schema and parameter descriptions. The end of chapter 2 shows where that lands.
 // handlers/index.go
 package handlers
 
-import "github.com/shibukawa/popcornwave/pw"
+import "net/http"
 
-var mux = pw.NewServeMux()
+var mux = http.NewServeMux()
 
-func Handlers() *pw.ServeMux { return mux }
+func Handlers() *http.ServeMux { return mux }
 ```
 
 Each handler file registers its own route in `init`, so adding a route means
 adding a file rather than editing a table that every feature has to touch.
 
-`pw.NewServeMux` is not a framework router. On host Go, `pw.ServeMux` is a type
-alias for `net/http.ServeMux` — it is that type rather than a wrapper around it.
-Only a TinyGo build swaps in a compatible implementation of the same pattern
-syntax. Covering both targets from one import is the whole job of this type, and
-a project that declined TinyGo at `pw init` gets a scaffold writing
-`http.NewServeMux` directly.
+That is the standard library router, not a framework one — there is no
+Popcorn Wave type in this file at all. A project that took TinyGo at `pw init`
+gets `pw.ServeMux` here instead, which on host Go is a type alias for this same
+`net/http.ServeMux` rather than a wrapper around it; only a TinyGo build swaps
+in a compatible implementation of the same pattern syntax. Covering both targets
+from one import is that type's whole job, and a host-only project has no reason
+to pay for it.
 
 So the patterns you register are Go 1.22 patterns — `"GET /users/{id}"` — and
 `r.PathValue` behaves the way it does anywhere else. Route matching, method

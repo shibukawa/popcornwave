@@ -1,6 +1,7 @@
 package pwruntime
 
 import (
+	"context"
 	"sync/atomic"
 	"time"
 )
@@ -32,6 +33,23 @@ type ChainSettings struct {
 	// because that is what the configuration carries and parsing them is the
 	// caller's, which already has to report a bad one against a config key.
 	TrustedProxies []string
+	// Health and Readiness are the paths the two probes answer on, empty when
+	// a deployment turned one off.
+	Health    string
+	Readiness string
+	// OpenAPI, APIDoc and APIDocPath are the document path, the UI kind, and
+	// the path that UI is read at. All three empty means the chain answers no
+	// documentation at all, which is the common case.
+	OpenAPI    string
+	APIDoc     string
+	APIDocPath string
+	// CSRF is the cross-site check's configuration, carried whole because the
+	// check reads most of it: the scope patterns, the token names, the cookie
+	// name and the lifetime.
+	CSRF CSRFConfig
+	// Public is the static asset configuration. The tree itself is not here
+	// because an embed is a fact of the binary rather than of a settings file.
+	Public PublicAssetSettings
 }
 
 var chainSettingsState atomic.Pointer[ChainSettings]
@@ -55,4 +73,31 @@ func ResolvedChainSettings() (ChainSettings, bool) {
 		return *settings, true
 	}
 	return ChainSettings{}, false
+}
+
+// DatabasesReady reports whether every configured connection answers.
+//
+// It is here rather than in either runtime because readiness is a fact about
+// the process rather than about the request that asked: the same probe on
+// either transport must give the same answer, and a second implementation could
+// disagree about the timeout or about which connections count.
+//
+// The bound is one second. A readiness probe that hangs is worse than one that
+// answers unavailable, because an orchestrator waiting on it cannot tell a slow
+// database from a wedged process.
+func DatabasesReady(parent context.Context, resources Resources) bool {
+	ctx, cancel := context.WithTimeout(parent, time.Second)
+	defer cancel()
+	if connections := resources.Connections.Connections(); len(connections) > 0 {
+		for _, connection := range connections {
+			if connection.Ping(ctx) != nil {
+				return false
+			}
+		}
+		return true
+	}
+	if resources.DB != nil && resources.DB.PingContext(ctx) != nil {
+		return false
+	}
+	return true
 }

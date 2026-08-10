@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net/http"
 	"reflect"
 	"time"
 )
@@ -21,8 +20,7 @@ type stateKey struct{}
 // the decoded value of every registered slot.
 type state struct {
 	manager *Manager
-	writer  http.ResponseWriter
-	request *http.Request
+	carrier Carrier
 	token   string
 	record  Record[slotMap]
 	// values and present are indexed by slot.index and allocated on the first
@@ -33,11 +31,6 @@ type state struct {
 	// and therefore no frozen slot order to index.
 	detached map[reflect.Type]any
 	promoted bool
-
-	// cookies is the parsed Cookie header, read once for the token and every
-	// jar-backed slot instead of once per lookup.
-	cookies       []*http.Cookie
-	cookiesParsed bool
 
 	// hash caches keyHash(token), which several record operations need in one
 	// request.
@@ -80,18 +73,14 @@ func (s *state) clearSlotValue(entry *slot) {
 	s.present[entry.index] = false
 }
 
-// cookie returns the value of one request cookie, parsing the Cookie header on
-// the first call. An empty value reads as absent, exactly as r.Cookie treats a
-// cookie the request does not carry.
+// cookie returns the value of one request cookie. An empty value reads as
+// absent, exactly as r.Cookie treats a cookie the request does not carry.
+//
+// The carrier parses the Cookie header once, which is what keeps the token and
+// every jar-backed slot from re-parsing it per lookup.
 func (s *state) cookie(name string) (string, bool) {
-	if !s.cookiesParsed {
-		s.cookiesParsed = true
-		s.cookies = s.request.Cookies()
-	}
-	for _, cookie := range s.cookies {
-		if cookie.Name == name && cookie.Value != "" {
-			return cookie.Value, true
-		}
+	if found := lookupCookie(s.carrier.Cookies(), name); found != nil && found.Value != "" {
+		return found.Value, true
 	}
 	return "", false
 }
@@ -251,7 +240,7 @@ func (s *state) set(entry *slot, value any) error {
 		if !ok {
 			return fmt.Errorf("%w: slot %q has no cookie", ErrInvalidOptions, entry.key)
 		}
-		if err := jar.save(s.writer, value); err != nil {
+		if err := jar.save(s.carrier, value); err != nil {
 			return err
 		}
 		s.setSlotValue(entry, value)
@@ -280,7 +269,7 @@ func (s *state) clear(entry *slot) error {
 	}
 	if entry.placement.cookiePlaced() {
 		if jar, ok := s.manager.jars[entry.typ]; ok {
-			jar.clear(s.writer)
+			jar.clear(s.carrier)
 		}
 		s.clearSlotValue(entry)
 		return nil
@@ -324,7 +313,7 @@ func (s *state) ensureToken() error {
 	s.token = token
 	s.hash = ""
 	s.record = s.manager.newRecord(nil, s.manager.now())
-	s.manager.writeCookie(s.writer, token, s.manager.deadlineOf(s.record))
+	s.manager.writeCookie(s.carrier, token, s.manager.deadlineOf(s.record))
 	return nil
 }
 
@@ -397,7 +386,7 @@ func (s *state) put(where bucket, store Store[slotMap]) error {
 }
 
 func (s *state) bindTo(store Store[slotMap]) context.Context {
-	return s.manager.bind(s.request.Context(), store, s.writer, s.request)
+	return s.manager.bind(s.carrier.Context(), store, s.carrier)
 }
 
 // destroy revokes every record and expires every cookie this session owns.
@@ -411,7 +400,7 @@ func (s *state) destroy() error {
 			}
 		}
 	}
-	s.manager.clearCookie(s.writer)
+	s.manager.clearCookie(s.carrier)
 	for _, entry := range s.manager.slots {
 		if entry.outlives {
 			// The slot belongs to the browser rather than to whoever was signed
@@ -419,7 +408,7 @@ func (s *state) destroy() error {
 			continue
 		}
 		if jar, ok := s.manager.jars[entry.typ]; ok {
-			jar.clear(s.writer)
+			jar.clear(s.carrier)
 		}
 	}
 	s.token = ""
@@ -538,7 +527,7 @@ func (s *state) resolveRecord() error {
 	s.recordLoaded = true
 	s.recordErr = s.load()
 	if staleSessionError(s.recordErr) {
-		s.manager.clearCookie(s.writer)
+		s.manager.clearCookie(s.carrier)
 	}
 	if s.recordErr != nil && !staleSessionError(s.recordErr) {
 		s.failed = s.recordErr
@@ -562,7 +551,7 @@ func (s *state) loadCookieSlots() {
 		case err == nil:
 			s.setSlotValue(entry, value)
 		case !errors.Is(err, ErrCookieMissing):
-			jar.clear(s.writer)
+			jar.clear(s.carrier)
 		}
 	}
 }
@@ -618,6 +607,6 @@ func (s *state) renew(store Store[slotMap], ctx context.Context, hash string, re
 	}
 	record.LastSeenAt = now
 	record.IdleExpiresAt = idleExpiresAt
-	s.manager.writeCookie(s.writer, s.token, s.manager.deadlineOf(record))
+	s.manager.writeCookie(s.carrier, s.token, s.manager.deadlineOf(record))
 	return record, true
 }

@@ -2,7 +2,6 @@ package session
 
 import (
 	"fmt"
-	"net/http"
 	"reflect"
 	"sort"
 	"sync"
@@ -78,8 +77,8 @@ type slot struct {
 // Cookie header once for every jar-backed slot instead of once per slot.
 type cookieSlot interface {
 	load(value string) (any, error)
-	save(http.ResponseWriter, any) error
-	clear(http.ResponseWriter)
+	save(Carrier, any) error
+	clear(Carrier)
 }
 
 // jarSlot adapts a typed Jar to cookieSlot.
@@ -93,15 +92,15 @@ func (s jarSlot[T]) load(value string) (any, error) {
 	return typed, nil
 }
 
-func (s jarSlot[T]) save(w http.ResponseWriter, value any) error {
+func (s jarSlot[T]) save(carrier Carrier, value any) error {
 	typed, ok := value.(T)
 	if !ok {
 		return fmt.Errorf("%w: slot value type", ErrCodec)
 	}
-	return s.jar.Save(w, typed)
+	return s.jar.SaveTo(carrier, typed)
 }
 
-func (s jarSlot[T]) clear(w http.ResponseWriter) { s.jar.Clear(w) }
+func (s jarSlot[T]) clear(carrier Carrier) { s.jar.ClearFrom(carrier) }
 
 // Register declares one piece of per-browser state.
 //

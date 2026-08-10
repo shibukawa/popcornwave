@@ -126,7 +126,11 @@ func TestRunGeneratePageTreeCallsTypedLoad(t *testing.T) {
 		t.Errorf("typed Load is not called with its route input:\n%s", registry)
 	}
 	decoder := readTestFile(t, filepath.Join(root, "pages", "users", "id_", "route_pw_gen.go"))
-	if !strings.Contains(decoder, `r.PathValue("id")`) {
+	// Through the framework accessor rather than off the request value. That
+	// read is one no second transport can follow — fasthttp has no path routing
+	// of its own, so there is no method on its request to call — and routing
+	// both through pw is what lets one decoder template serve either.
+	if !strings.Contains(decoder, `pw.PathValue(r, "id")`) {
 		t.Errorf("decoder does not read the dynamic segment:\n%s", decoder)
 	}
 }
@@ -144,6 +148,30 @@ func TestRunGeneratePageTreeIsStable(t *testing.T) {
 	}
 	if readTestFile(t, filepath.Join(root, "pages", "routes_pw_gen.go")) != first {
 		t.Error("regeneration changed the registry of an unchanged tree")
+	}
+}
+
+// The shape a scaffolded project has on its first day: a page tree, and a main
+// that mounts it by calling the Register this generation is about to write. The
+// tree holds templates and no Go at all until then, so a run that analyses the
+// main first loads a package that does not exist and stops — having written
+// nothing, which leaves the next run the same tree and the same failure. This
+// is the first pw dev of a new project, not some later clean checkout.
+func TestRunGenerateWritesAPageTreeBeforeTheMainThatImportsIt(t *testing.T) {
+	root := writePageTreeFixture(t)
+	writeTestFile(t, filepath.Join(root, "popcornwave.toml"),
+		"[project]\nname = \"fixture\"\nmain = \"./cmd/fixture\"\n\n[generate]\n"+
+			"handlers = []\ntemplates = []\nqueries = []\nconfig = [\"cmd/fixture\"]\npages = [\"pages\"]\n")
+	writeTestFile(t, filepath.Join(root, "cmd", "fixture", "main.go"), `package main
+
+import "example.test/fixture/pages"
+
+func main() { _ = pages.Routes }
+`)
+	generateIn(t, root)
+
+	if _, err := os.Stat(filepath.Join(root, "pages", "routes_pw_gen.go")); err != nil {
+		t.Fatalf("the page package the main imports was never written: %v", err)
 	}
 }
 
