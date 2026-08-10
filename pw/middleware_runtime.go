@@ -5,7 +5,6 @@ import (
 	"io"
 	"io/fs"
 	"net/http"
-	"sort"
 	"time"
 
 	"github.com/shibukawa/popcornwave/middlewares"
@@ -17,6 +16,17 @@ func buildRuntimeHandler(handler http.Handler, server ServerConfig, security Sec
 	if err != nil {
 		return nil, err
 	}
+	// Published for the other runtime, which binds no configuration of its own
+	// and would otherwise compose a chain out of zero values.
+	pwruntime.PublishChainSettings(pwruntime.ChainSettings{
+		RequestID:       middleware.RequestID,
+		AccessLog:       middleware.AccessLog,
+		Recovery:        middleware.Recovery,
+		RequestTimeout:  middleware.RequestTimeout,
+		MaxRequestBody:  server.MaxRequestBody,
+		SecurityHeaders: security.Headers,
+		TrustedProxies:  server.TrustedProxies,
+	})
 	// Every frame — a framework middleware, an extension, a middleware the
 	// application registered — carries a slot on one number line, and the
 	// chain is composed by that number alone: ascending, smallest outermost.
@@ -89,14 +99,15 @@ func buildRuntimeHandler(handler http.Handler, server ServerConfig, security Sec
 	}
 	frames = append(frames, extensions...)
 
-	// Equal slots keep their append order, framework frames first, so two
-	// middlewares registered at one number run in registration order.
-	sort.SliceStable(frames, func(i, j int) bool { return frames[i].slot < frames[j].slot })
-	result := handler
-	for index := len(frames) - 1; index >= 0; index-- {
-		result = frames[index].middleware(result)
+	// Composed by the shared leaf, so this chain and the other transport's run
+	// in one order rather than in two orders that happen to agree.
+	composed := make([]pwruntime.Frame[http.Handler], 0, len(frames))
+	for _, frame := range frames {
+		composed = append(composed, pwruntime.Frame[http.Handler]{
+			Slot: frame.slot, Name: frame.name, Middleware: frame.middleware,
+		})
 	}
-	return middlewares.Track(result), nil
+	return middlewares.Track(pwruntime.Compose(handler, composed)), nil
 }
 
 func writePanicProblem(w http.ResponseWriter, r *http.Request, err error) {

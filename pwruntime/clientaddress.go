@@ -42,3 +42,17 @@ func ClientAddress(ctx context.Context, r *http.Request) string {
 	}
 	return strings.Trim(host, "[]")
 }
+
+// StoreClientAddress records the resolved caller on a request value that
+// carries its own state, which is WithClientAddress for a transport that
+// cannot derive a context.
+//
+// An empty address is not stored, the same as the deriving form: the absence of
+// a resolved address and a resolution to the empty string would otherwise be
+// indistinguishable to every reader.
+func StoreClientAddress(store ValueStore, address string) {
+	if address == "" {
+		return
+	}
+	store.SetUserValue(clientAddressKey{}, address)
+}

@@ -48,3 +48,16 @@ func RequestAuthentication(ctx context.Context) Authentication {
 func Authenticated(ctx context.Context) bool {
 	return pwruntime.RequestAuthentication(ctx).Authenticated
 }
+
+// ClientAddress returns the caller the chain resolved, which is what every
+// downstream bound counts against.
+//
+// It takes no request beside the context, unlike the other half's reader. That
+// one falls back to the peer address when no frame recorded one, because a
+// net/http handler can be reached without the chain around it; here the request
+// value is the context, so a missing value means the frame did not run and
+// saying so is better than substituting the peer, which is the proxy whenever
+// there is one.
+func ClientAddress(ctx context.Context) string {
+	return pwruntime.ClientAddress(ctx, nil)
+}
