@@ -36,7 +36,7 @@ session_effect:
 failure:
   - a failed or abandoned re-proof leaves the original session at its previous assurance
   - the guarded operation is not performed, and its staged intent is discarded on expiry
-  - repeated failures are rate-limited per session and per account
+  - repeated failures are rate-limited per session and per account, through the failure_counting surface of requirement:rate-limit-enforcement rather than a middleware, because what is counted is an outcome no middleware has seen yet
 rules:
   - re-proof never provisions an account, never links an identity, and never changes an admission decision
   - policy:oidc-admission still evaluates, so an identity that lost admission fails re-proof instead of refreshing it

@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/shibukawa/popcornwave/internal/requestorigin"
 	"github.com/shibukawa/popcornwave/middlewares"
 )
 
@@ -438,26 +439,13 @@ func hasControl(value string) bool {
 	return false
 }
 
+// compileTrustedProxies resolves the declared proxy set, naming the key the
+// values came from. The compilation itself is internal/requestorigin, which is
+// also what reads the headers this trust set gates.
 func compileTrustedProxies(values []string) ([]*net.IPNet, error) {
-	networks := make([]*net.IPNet, 0, len(values))
-	for _, value := range values {
-		value = strings.TrimSpace(value)
-		if value == "" {
-			return nil, fmt.Errorf("server.trusted_proxies contains an empty value")
-		}
-		if ip := net.ParseIP(value); ip != nil {
-			bits := 128
-			if ip.To4() != nil {
-				ip, bits = ip.To4(), 32
-			}
-			networks = append(networks, &net.IPNet{IP: ip, Mask: net.CIDRMask(bits, bits)})
-			continue
-		}
-		_, network, err := net.ParseCIDR(value)
-		if err != nil {
-			return nil, fmt.Errorf("server.trusted_proxies %q: %w", value, err)
-		}
-		networks = append(networks, network)
+	proxies, err := requestorigin.Compile(values)
+	if err != nil {
+		return nil, fmt.Errorf("server.trusted_proxies %w", err)
 	}
-	return networks, nil
+	return proxies.Networks(), nil
 }

@@ -31,6 +31,8 @@ what_this_package_owns:
     hazard: the upgrade request carries cookies, so an unchecked upgrade is cross-site WebSocket hijacking, which is the policy:csrf-protection hazard on a request that never reaches CSRF middleware
     library_default: same-origin when Origin is present, and accept when it is absent, which is correct for a non-browser client and is not a decision to leave at its default by accident
     owned: CheckOrigin is wired to this framework's request-origin resolution, including trusted-proxy handling, rather than left nil
+    that_resolution_is: requirement:proxied-request-identity, which did not exist when this was written and is the precondition rather than a detail; under decision:local-tls-proxy-boundary the self-origin reconstructs as http while the browser reports https, so an unresolved seam here rejects every browser upgrade
+    why_it_blocks_this_package: every other consumer of that resolution survives a wrong answer with a configuration workaround, and the workaround for a rejected upgrade is a permissive CheckOrigin, which is the hijacking hazard named above
     shape: the two upgraders take their own backend's request type here, so this is the second thing that must be supplied per build
   lifetime: the callback runs after the handler returns on a backend that registers it, so the callback closes over what it needs and never over w or r, per rule:transport-handle-checks PW0602
   close: the connection is closed when the callback returns

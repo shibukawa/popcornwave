@@ -180,6 +180,15 @@ type SecurityConfig struct {
 // CSRFConfig controls the synchronizer-token check on unsafe browser requests.
 type CSRFConfig = middlewares.CSRFConfig
 
+// RateLimitConfig bounds how often one caller, and the process as a whole, may
+// arrive within a window. It is its own binding rather than a member of
+// SecurityConfig, because a backend selection carrying a DSN does not belong
+// beside a list of response headers.
+type RateLimitConfig = middlewares.RateLimitConfig
+
+// RateLimitRedisConfig addresses the shared counter server.
+type RateLimitRedisConfig = middlewares.RateLimitRedisConfig
+
 // SecurityHeadersConfig controls browser-facing response headers.
 type SecurityHeadersConfig = middlewares.SecurityHeadersConfig
 

@@ -23,6 +23,7 @@ package auth
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"sync"
 	"time"
@@ -32,6 +33,7 @@ import (
 	"github.com/shibukawa/popcornwave/contrib/oidc"
 	"github.com/shibukawa/popcornwave/contrib/passkey"
 	"github.com/shibukawa/popcornwave/internal/pathpattern"
+	"github.com/shibukawa/popcornwave/internal/requestorigin"
 	"github.com/shibukawa/popcornwave/pw"
 	"github.com/shibukawa/popcornwave/session"
 )
@@ -101,9 +103,12 @@ type runtime struct {
 	// elsewhere in its own configuration: the passkey origin allowlist and the
 	// origin of the OIDC redirect URL. They exist so that a deployment behind a
 	// TLS-terminating proxy, which reconstructs an http origin for an https
-	// browser, is not refused by its own login endpoints. Nothing is inferred
-	// from a forwarded header; see internal/requestorigin.
+	// browser, is not refused by its own login endpoints.
 	trustedOrigins map[string]bool
+	// proxies is the declared peer set whose X-Forwarded-Proto is read when
+	// reconstructing this deployment's own origin. It resolves what this
+	// deployment calls itself and never widens what trustedOrigins accepts.
+	proxies requestorigin.Proxies
 	// passkeyFlow is nil unless the selected mode mounts api:passkey-endpoints.
 	passkeyFlow *passkey.SessionFlow
 	// credentials and bootstrap are the installed stores, or the framework
@@ -231,6 +236,13 @@ func setupAuthentication(ctx context.Context) (pw.Middleware, error) {
 	if err != nil {
 		return nil, err
 	}
+	// The declared origins below stay the strong half of the comparison; this
+	// only resolves what this deployment calls itself, which behind a
+	// TLS-terminating proxy is not what r.TLS says.
+	proxies, err := requestorigin.Compile(pw.Config[pw.ServerConfig](ctx).TrustedProxies)
+	if err != nil {
+		return nil, fmt.Errorf("server.trusted_proxies %w", err)
+	}
 	instance := &runtime{
 		config:         config,
 		manager:        manager,
@@ -242,6 +254,7 @@ func setupAuthentication(ctx context.Context) (pw.Middleware, error) {
 		stopPruning:    make(chan struct{}),
 		passkeyPaths:   config.passkeyPaths(),
 		trustedOrigins: config.trustedOrigins(),
+		proxies:        proxies,
 		accounts:       newAccountGate(),
 	}
 	if instance.stateStore, err = openState(schemaCtx, instance, stateNamespace, oauth.TransactionCodec{}); err != nil {

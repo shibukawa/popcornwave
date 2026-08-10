@@ -30,12 +30,25 @@ const (
 	// SlotResources injects the logger, configuration, and database clients
 	// into the request context. Every frame below reads them from there.
 	SlotResources Slot = 20
+	// SlotClientAddress resolves the caller's own address against the declared
+	// proxy networks, so everything below counts one client rather than one
+	// relay. It sits above the access log because a record naming the proxy
+	// for every request is a record that names nothing.
+	SlotClientAddress Slot = 25
 	// SlotRequestID validates or mints the ID every log line carries.
 	SlotRequestID Slot = 30
 	// SlotAccessLog writes one structured line per request, with timing.
 	SlotAccessLog Slot = 40
 	// SlotRecover converts a panic below it into a negotiated error response.
 	SlotRecover Slot = 50
+	// SlotRateLimitProcess refuses arrivals above the total ceiling.
+	//
+	// It sits below SlotAccessLog and SlotRecover, so a refusal is still one
+	// logged line rather than a silent drop, and above everything that costs
+	// storage or a session, because a valve is worth less the further in it
+	// sits. It is also the only layer that sees a flood spread across many
+	// addresses, each staying under its own bucket by construction.
+	SlotRateLimitProcess Slot = 55
 	// SlotSecurityHeaders sets policy headers before anything writes.
 	SlotSecurityHeaders Slot = 60
 	// SlotRequestTimeout bounds the whole request.
@@ -58,6 +71,13 @@ const (
 	// SlotAuthentication finalizes the request authentication result and owns
 	// its own login, callback, and logout paths.
 	SlotAuthentication Slot = 130
+	// SlotRateLimit refuses a caller over its own allowance.
+	//
+	// It sits below SlotAuthentication because one bucket keyed on
+	// subject-or-address cannot know which of the two it is until the subject
+	// is resolved, and above SlotCSRF so a flood does not pay for token
+	// verification on its way to being refused.
+	SlotRateLimit Slot = 135
 	// SlotCSRF rejects forged unsafe requests.
 	//
 	// It sits below SlotSession because the token it compares against comes

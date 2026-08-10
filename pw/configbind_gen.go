@@ -14,10 +14,11 @@ import (
 func init() {
 	registerServerConfigDefinition0()
 	registerSecurityConfigDefinition1()
-	registerSessionConfigDefinition2()
-	registerObservabilityConfigDefinition3()
-	registerMiddlewareConfigDefinition4()
-	registerHTMLConfigDefinition5()
+	registerRateLimitConfigDefinition2()
+	registerSessionConfigDefinition3()
+	registerObservabilityConfigDefinition4()
+	registerMiddlewareConfigDefinition5()
+	registerHTMLConfigDefinition6()
 }
 
 func registerServerConfigDefinition0() {
@@ -448,7 +449,147 @@ func applySecurityConfigDefinition1(dst any, o *configbind.Overlay) error {
 	return nil
 }
 
-func registerSessionConfigDefinition2() {
+func registerRateLimitConfigDefinition2() {
+	configbind.Register[RateLimitConfig](configbind.Definition{
+		TypeName: "github.com/shibukawa/popcornwave/pw.RateLimitConfig",
+		Prefix:   "ratelimit",
+		Doc:      "RateLimitConfig bounds how often one caller, and the process as a whole, may arrive within a window. It is its own binding rather than a member of SecurityConfig, because a backend selection carrying a DSN does not belong beside a list of response headers",
+		KnownKeys: []string{
+			"ratelimit.enabled",
+			"ratelimit.backend",
+			"ratelimit.window",
+			"ratelimit.per_subject",
+			"ratelimit.per_address",
+			"ratelimit.process",
+			"ratelimit.redis.dsn",
+			"ratelimit.redis.key_prefix",
+			"ratelimit.redis.connect_timeout",
+		},
+		Defaults: map[string]string{
+			"ratelimit.enabled":               "false",
+			"ratelimit.backend":               "memory",
+			"ratelimit.window":                "1m",
+			"ratelimit.per_subject":           "600",
+			"ratelimit.per_address":           "300",
+			"ratelimit.process":               "0",
+			"ratelimit.redis.key_prefix":      "pw:ratelimit:",
+			"ratelimit.redis.connect_timeout": "5s",
+		},
+		DependsOn: map[string][]string{
+			"ratelimit.backend":               {"ratelimit.enabled"},
+			"ratelimit.window":                {"ratelimit.enabled"},
+			"ratelimit.per_subject":           {"ratelimit.enabled"},
+			"ratelimit.per_address":           {"ratelimit.enabled"},
+			"ratelimit.process":               {"ratelimit.enabled"},
+			"ratelimit.redis.dsn":             {"ratelimit.enabled"},
+			"ratelimit.redis.key_prefix":      {"ratelimit.enabled"},
+			"ratelimit.redis.connect_timeout": {"ratelimit.enabled"},
+		},
+		Secrets: map[string]string{
+			"ratelimit.redis.dsn": "mask",
+		},
+		FlagMetas: []cliparser.FieldMeta{
+			{Prefix: "ratelimit", Key: "enabled", Kind: cliparser.KindBool},
+			{Prefix: "ratelimit", Key: "backend", Help: "counter storage: memory or redis"},
+			{Prefix: "ratelimit", Key: "window", Help: "period every count is measured over"},
+			{Prefix: "ratelimit", Key: "per_subject", Help: "requests one authenticated subject may make in a window; zero disables"},
+			{Prefix: "ratelimit", Key: "per_address", Help: "requests one caller with no session may make in a window"},
+			{Prefix: "ratelimit", Key: "process", Help: "total arrivals allowed in a window, unkeyed; zero leaves only the identity buckets"},
+			{Prefix: "ratelimit", Key: "redis.dsn", Env: "RATELIMIT_REDIS_DSN", Help: "redis:// or rediss:// counter server"},
+			{Prefix: "ratelimit", Key: "redis.key_prefix", Help: "key space this limiter owns"},
+			{Prefix: "ratelimit", Key: "redis.connect_timeout", Help: "bounds the startup ping and per-command deadlines"},
+		},
+		Apply: applyRateLimitConfigDefinition2,
+		Scaffold: []configbind.ScaffoldField{
+			{Key: "enabled", Kind: configbind.ScaffoldBool, Default: "false"},
+			{Key: "backend", Kind: configbind.ScaffoldString, Default: "memory", Help: "counter storage: memory or redis"},
+			{Key: "window", Kind: configbind.ScaffoldDuration, Default: "1m", Help: "period every count is measured over"},
+			{Key: "per_subject", Kind: configbind.ScaffoldInt, Default: "600", Help: "requests one authenticated subject may make in a window; zero disables"},
+			{Key: "per_address", Kind: configbind.ScaffoldInt, Default: "300", Help: "requests one caller with no session may make in a window"},
+			{Key: "process", Kind: configbind.ScaffoldInt, Default: "0", Help: "total arrivals allowed in a window, unkeyed; zero leaves only the identity buckets"},
+			{Key: "redis.dsn", Kind: configbind.ScaffoldString, Env: "RATELIMIT_REDIS_DSN", Help: "redis:// or rediss:// counter server"},
+			{Key: "redis.key_prefix", Kind: configbind.ScaffoldString, Default: "pw:ratelimit:", Help: "key space this limiter owns"},
+			{Key: "redis.connect_timeout", Kind: configbind.ScaffoldDuration, Default: "5s", Help: "bounds the startup ping and per-command deadlines"},
+		},
+	})
+}
+
+func applyRateLimitConfigDefinition2(dst any, o *configbind.Overlay) error {
+	p, ok := dst.(*RateLimitConfig)
+	if !ok || p == nil {
+		return fmt.Errorf("configbind: apply RateLimitConfig: bad destination")
+	}
+	if v, ok := o.GetString("ratelimit.enabled"); ok {
+		bb, err := strconv.ParseBool(v)
+		if err != nil {
+			return fmt.Errorf("configbind: ratelimit.enabled: %w", err)
+		}
+		p.Enabled = bb
+	} else {
+		p.Enabled = false
+	}
+	if v, ok := o.GetString("ratelimit.backend"); ok {
+		p.Backend = v
+	} else {
+		p.Backend = "memory"
+	}
+	if v, ok := o.GetString("ratelimit.window"); ok {
+		d, err := time.ParseDuration(v)
+		if err != nil {
+			return fmt.Errorf("configbind: ratelimit.window: %w", err)
+		}
+		p.Window = d
+	} else {
+		p.Window = 60000000000 // 1m0s
+	}
+	if v, ok := o.GetString("ratelimit.per_subject"); ok {
+		n, err := strconv.ParseInt(v, 10, 0)
+		if err != nil {
+			return fmt.Errorf("configbind: ratelimit.per_subject: %w", err)
+		}
+		p.PerSubject = int(n)
+	} else {
+		p.PerSubject = 600
+	}
+	if v, ok := o.GetString("ratelimit.per_address"); ok {
+		n, err := strconv.ParseInt(v, 10, 0)
+		if err != nil {
+			return fmt.Errorf("configbind: ratelimit.per_address: %w", err)
+		}
+		p.PerAddress = int(n)
+	} else {
+		p.PerAddress = 300
+	}
+	if v, ok := o.GetString("ratelimit.process"); ok {
+		n, err := strconv.ParseInt(v, 10, 0)
+		if err != nil {
+			return fmt.Errorf("configbind: ratelimit.process: %w", err)
+		}
+		p.Process = int(n)
+	} else {
+		p.Process = 0
+	}
+	if v, ok := o.GetString("ratelimit.redis.dsn"); ok {
+		p.Redis.DSN = v
+	}
+	if v, ok := o.GetString("ratelimit.redis.key_prefix"); ok {
+		p.Redis.KeyPrefix = v
+	} else {
+		p.Redis.KeyPrefix = "pw:ratelimit:"
+	}
+	if v, ok := o.GetString("ratelimit.redis.connect_timeout"); ok {
+		d, err := time.ParseDuration(v)
+		if err != nil {
+			return fmt.Errorf("configbind: ratelimit.redis.connect_timeout: %w", err)
+		}
+		p.Redis.ConnectTimeout = d
+	} else {
+		p.Redis.ConnectTimeout = 5000000000 // 5s
+	}
+	return nil
+}
+
+func registerSessionConfigDefinition3() {
 	configbind.Register[SessionConfig](configbind.Definition{
 		TypeName: "github.com/shibukawa/popcornwave/pw.SessionConfig",
 		Prefix:   "session",
@@ -547,7 +688,7 @@ func registerSessionConfigDefinition2() {
 			{Prefix: "session", Key: "dynamo.consistent_read", Help: "read sessions with strong consistency", Kind: cliparser.KindBool},
 			{Prefix: "session", Key: "firestore.kind", Help: "session entity kind"},
 		},
-		Apply: applySessionConfigDefinition2,
+		Apply: applySessionConfigDefinition3,
 		Scaffold: []configbind.ScaffoldField{
 			{Key: "enabled", Kind: configbind.ScaffoldBool, Default: "false"},
 			{Key: "backend", Kind: configbind.ScaffoldString, Default: "rdb", Help: "session storage backend: rdb, cookie, dev-volatile, dev-persist, redis, dynamo, or firestore"},
@@ -575,7 +716,7 @@ func registerSessionConfigDefinition2() {
 	})
 }
 
-func applySessionConfigDefinition2(dst any, o *configbind.Overlay) error {
+func applySessionConfigDefinition3(dst any, o *configbind.Overlay) error {
 	p, ok := dst.(*SessionConfig)
 	if !ok || p == nil {
 		return fmt.Errorf("configbind: apply SessionConfig: bad destination")
@@ -705,7 +846,7 @@ func applySessionConfigDefinition2(dst any, o *configbind.Overlay) error {
 	return nil
 }
 
-func registerObservabilityConfigDefinition3() {
+func registerObservabilityConfigDefinition4() {
 	configbind.Register[ObservabilityConfig](configbind.Definition{
 		TypeName: "github.com/shibukawa/popcornwave/pw.ObservabilityConfig",
 		Prefix:   "observability",
@@ -819,7 +960,7 @@ func registerObservabilityConfigDefinition3() {
 			{Prefix: "observability", Key: "otel.max_export_size", Help: "bounds one exported batch"},
 			{Prefix: "observability", Key: "otel.flush_interval", Help: "how often a partial batch is sent"},
 		},
-		Apply: applyObservabilityConfigDefinition3,
+		Apply: applyObservabilityConfigDefinition4,
 		Scaffold: []configbind.ScaffoldField{
 			{Key: "minimum_level", Kind: configbind.ScaffoldString, Default: "info", Help: "severity floor: trace, debug, info, warn, error, or off"},
 			{Key: "stdout_format", Kind: configbind.ScaffoldString, Default: "json", Help: "terminal record encoding: json or plaintext"},
@@ -851,7 +992,7 @@ func registerObservabilityConfigDefinition3() {
 	})
 }
 
-func applyObservabilityConfigDefinition3(dst any, o *configbind.Overlay) error {
+func applyObservabilityConfigDefinition4(dst any, o *configbind.Overlay) error {
 	p, ok := dst.(*ObservabilityConfig)
 	if !ok || p == nil {
 		return fmt.Errorf("configbind: apply ObservabilityConfig: bad destination")
@@ -1037,7 +1178,7 @@ func applyObservabilityConfigDefinition3(dst any, o *configbind.Overlay) error {
 	return nil
 }
 
-func registerMiddlewareConfigDefinition4() {
+func registerMiddlewareConfigDefinition5() {
 	configbind.Register[MiddlewareConfig](configbind.Definition{
 		TypeName: "github.com/shibukawa/popcornwave/pw.MiddlewareConfig",
 		Prefix:   "middleware",
@@ -1086,7 +1227,7 @@ func registerMiddlewareConfigDefinition4() {
 			{Prefix: "middleware", Key: "rdb.write_group", Help: "connection group for framework-owned writes"},
 			{Prefix: "middleware", Key: "rdb.migration_group", Help: "connection group for migrations and seeds"},
 		},
-		Apply: applyMiddlewareConfigDefinition4,
+		Apply: applyMiddlewareConfigDefinition5,
 		Scaffold: []configbind.ScaffoldField{
 			{Key: "recovery", Kind: configbind.ScaffoldBool, Default: "true"},
 			{Key: "request_id", Kind: configbind.ScaffoldBool, Default: "true"},
@@ -1112,7 +1253,7 @@ func registerMiddlewareConfigDefinition4() {
 	})
 }
 
-func applyMiddlewareConfigDefinition4(dst any, o *configbind.Overlay) error {
+func applyMiddlewareConfigDefinition5(dst any, o *configbind.Overlay) error {
 	p, ok := dst.(*MiddlewareConfig)
 	if !ok || p == nil {
 		return fmt.Errorf("configbind: apply MiddlewareConfig: bad destination")
@@ -1254,7 +1395,7 @@ func applyMiddlewareConfigDefinition4(dst any, o *configbind.Overlay) error {
 	return nil
 }
 
-func registerHTMLConfigDefinition5() {
+func registerHTMLConfigDefinition6() {
 	configbind.Register[HTMLConfig](configbind.Definition{
 		TypeName: "github.com/shibukawa/popcornwave/pw.HTMLConfig",
 		Prefix:   "html",
@@ -1333,7 +1474,7 @@ func registerHTMLConfigDefinition5() {
 			{Prefix: "html", Key: "cache.enabled", Help: "reuse the rendered output of components declared with the cache annotation", Kind: cliparser.KindBool},
 			{Prefix: "html", Key: "cache.max_entries", Help: "maximum entries the in-process render cache holds"},
 		},
-		Apply: applyHTMLConfigDefinition5,
+		Apply: applyHTMLConfigDefinition6,
 		Scaffold: []configbind.ScaffoldField{
 			{Key: "streaming", Kind: configbind.ScaffoldBool, Default: "true", Help: "Streaming false forces the buffered branch even when a chain can open a boundary, which is the escape hatch for a proxy that buffers responses"},
 			{Key: "async_timeout", Kind: configbind.ScaffoldDuration, Default: "3s", Help: "AsyncTimeout bounds one await boundary. Zero leaves the request context as the only deadline"},
@@ -1357,7 +1498,7 @@ func registerHTMLConfigDefinition5() {
 	})
 }
 
-func applyHTMLConfigDefinition5(dst any, o *configbind.Overlay) error {
+func applyHTMLConfigDefinition6(dst any, o *configbind.Overlay) error {
 	p, ok := dst.(*HTMLConfig)
 	if !ok || p == nil {
 		return fmt.Errorf("configbind: apply HTMLConfig: bad destination")

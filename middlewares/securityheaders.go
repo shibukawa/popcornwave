@@ -7,6 +7,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/shibukawa/popcornwave/internal/requestorigin"
 )
 
 // SecurityHeadersConfig contains browser security response headers.
@@ -156,6 +158,7 @@ func SecurityHeaders(config SecurityHeadersConfig, option ...SecurityHeadersOpti
 	for _, apply := range option {
 		apply(&options)
 	}
+	proxies := requestorigin.FromNetworks(options.trustedProxies)
 	// None of these values depend on the request, so they are resolved once
 	// here; only HSTS keeps a per-request condition, and that is about the
 	// connection rather than the value.
@@ -190,7 +193,7 @@ func SecurityHeaders(config SecurityHeadersConfig, option ...SecurityHeadersOpti
 				header.Set("Content-Security-Policy-Report-Only", cspReport)
 			}
 			setOptionalHeader(header, "Permissions-Policy", config.PermissionsPolicy)
-			if hsts != "" && requestIsHTTPS(r, options.trustedProxies) {
+			if hsts != "" && proxies.IsHTTPS(r) {
 				header.Set("Strict-Transport-Security", hsts)
 			}
 			next.ServeHTTP(w, r)
@@ -204,30 +207,6 @@ func setOptionalHeader(header http.Header, name, value string) {
 	}
 }
 
-func requestIsHTTPS(r *http.Request, trusted []*net.IPNet) bool {
-	if r.TLS != nil {
-		return true
-	}
-	if !trustedRemote(r.RemoteAddr, trusted) {
-		return false
-	}
-	proto, _, _ := strings.Cut(r.Header.Get("X-Forwarded-Proto"), ",")
-	return strings.EqualFold(strings.TrimSpace(proto), "https")
-}
-
-func trustedRemote(remote string, trusted []*net.IPNet) bool {
-	host, _, err := net.SplitHostPort(remote)
-	if err != nil {
-		host = remote
-	}
-	ip := net.ParseIP(strings.Trim(host, "[]"))
-	if ip == nil {
-		return false
-	}
-	for _, network := range trusted {
-		if network.Contains(ip) {
-			return true
-		}
-	}
-	return false
-}
+// The scheme resolution this middleware used to hold now lives in
+// internal/requestorigin, so the CSRF check, the authentication endpoints, and
+// this one all answer "did the client reach us over TLS" the same way.
