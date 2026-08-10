@@ -93,10 +93,18 @@ const (
 	mysqlDriverPackage    = "github.com/shibukawa/popcornwave/database/mysql"
 )
 
-// sessionBackendPackages maps a session.backend value to the plugin that
-// registers it.
-var sessionBackendPackages = map[string]string{
-	"rdb": rdbSessionPackage,
+// sessionBackendPackage names the plugin that registers a backend, or "" for a
+// backend no plugin in this list owns.
+//
+// It answers from the same table pw init scaffolds the import from, which is
+// what keeps the two from drifting: a map of its own listed rdb and nothing
+// else, so every project that took redis, DynamoDB or Firestore was told its
+// backend was unregistered while its main package was importing the plugin. The
+// engine matters for the same reason it does at scaffold time — a SQL store is
+// one package per engine, and no engine reads another's DDL — so a Postgres
+// project was told to link the SQLite one.
+func sessionBackendPackage(backend, engine string) string {
+	return sessionBackendPlugin(backend, engine)
 }
 
 // driverPackages maps a DSN scheme to the driver package that answers it.
