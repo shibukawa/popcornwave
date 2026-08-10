@@ -3,13 +3,16 @@ package pwcli
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"sync"
+	"syscall"
 )
 
 var (
@@ -83,7 +86,7 @@ func buildTailwind(ctx context.Context, root string, config tailwindConfig, stdo
 	command.Stderr = newPrefixWriter(stderr, "tailwind: ")
 	command.Env = os.Environ()
 	if err := command.Run(); err != nil {
-		return fmt.Errorf("tailwindcss: %w", err)
+		return fmt.Errorf("tailwindcss: %w", explainSignalledTool("tailwindcss", err))
 	}
 	if err := os.Chmod(tempPath, 0o644); err != nil {
 		return fmt.Errorf("prepare Tailwind output: %w", err)
@@ -92,6 +95,40 @@ func buildTailwind(ctx context.Context, root string, config tailwindConfig, stdo
 		return fmt.Errorf("replace Tailwind output: %w", err)
 	}
 	return nil
+}
+
+// explainSignalledTool says what a death by signal means, because the error
+// os/exec produces does not. "signal: killed" names an outcome and no cause,
+// and the tool printed nothing to go with it — not because it failed quietly
+// but because it never ran. A developer reading that line has nowhere to go.
+//
+// On macOS the usual cause is the one the exit status cannot carry. Every arm64
+// binary is signed, the kernel validates it at exec, and one that does not
+// validate is killed rather than refused with a message. A tool whose installed
+// build was modified after signing therefore dies here on every invocation,
+// having written nothing — and the project it happened in is not at fault, so
+// the remedy is to look at the executable rather than at the configuration.
+func explainSignalledTool(name string, err error) error {
+	var exit *exec.ExitError
+	if !errors.As(err, &exit) {
+		return err
+	}
+	status, ok := exit.Sys().(syscall.WaitStatus)
+	if !ok || !status.Signaled() {
+		return err
+	}
+	if runtime.GOOS != "darwin" || status.Signal() != syscall.SIGKILL {
+		return fmt.Errorf("%w: it was ended by a signal rather than exiting, so it produced no diagnosis of its own", err)
+	}
+	path, lookErr := exec.LookPath(name)
+	if lookErr != nil {
+		path = name
+	}
+	return fmt.Errorf(`%w: killed before it ran, which on macOS is how the kernel refuses a code signature that does not validate
+  the executable is %s
+  check it with codesign --verify --verbose, and if that path is a wrapper script, check the binary it execs
+  a signature that does not validate is a fault in that build rather than in this project; install %s from elsewhere`,
+		err, path, name)
 }
 
 func startTailwindWatch(ctx context.Context, root string, config tailwindConfig, stdout, stderr io.Writer) (*exec.Cmd, <-chan error, error) {
