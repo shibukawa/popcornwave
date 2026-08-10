@@ -3,6 +3,7 @@ package pwfast
 import (
 	"bufio"
 	"io"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -31,6 +32,20 @@ func serve(t *testing.T, handler fasthttp.RequestHandler, target string) (status
 // serveRaw is serve with extra request headers, already CRLF-terminated.
 func serveRaw(t *testing.T, handler fasthttp.RequestHandler, target, extraHeaders string) (status int, header, body string) {
 	t.Helper()
+	return serveRequest(t, handler, "GET", target, extraHeaders, "")
+}
+
+// serveForm posts one urlencoded body, which is the shape the form readers are
+// for.
+func serveForm(t *testing.T, handler fasthttp.RequestHandler, target, form string) (status int, header, body string) {
+	t.Helper()
+	return serveRequest(t, handler, "POST", target,
+		"Content-Type: application/x-www-form-urlencoded\r\nContent-Length: "+strconv.Itoa(len(form))+"\r\n", form)
+}
+
+// serveRequest runs one request of any shape through a real fasthttp server.
+func serveRequest(t *testing.T, handler fasthttp.RequestHandler, method, target, extraHeaders, requestBody string) (status int, header, body string) {
+	t.Helper()
 	listener := fasthttputil.NewInmemoryListener()
 	server := &fasthttp.Server{Handler: handler}
 	done := make(chan struct{})
@@ -52,7 +67,8 @@ func serveRaw(t *testing.T, handler fasthttp.RequestHandler, target, extraHeader
 		t.Fatal(err)
 	}
 	defer func() { _ = conn.Close() }()
-	if _, err := conn.Write([]byte("GET " + target + " HTTP/1.1\r\nHost: example.test\r\n" + extraHeaders + "Connection: close\r\n\r\n")); err != nil {
+	request := method + " " + target + " HTTP/1.1\r\nHost: example.test\r\n" + extraHeaders + "Connection: close\r\n\r\n" + requestBody
+	if _, err := conn.Write([]byte(request)); err != nil {
 		t.Fatal(err)
 	}
 	if err := conn.SetReadDeadline(time.Now().Add(2 * time.Second)); err != nil {
