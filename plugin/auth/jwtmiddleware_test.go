@@ -56,7 +56,7 @@ func bearerRuntime(t *testing.T, issuer *testIssuer, adjust func(*Config)) *runt
 // the order an application sees them in.
 func serve(rt *runtime, request *http.Request) *httptest.ResponseRecorder {
 	reached := false
-	handler := rt.authenticateBearer(rt.guard(http.HandlerFunc(
+	handler := httpFrame(rt.serveBearer)(httpFrame(rt.guard)(http.HandlerFunc(
 		func(w http.ResponseWriter, r *http.Request) {
 			reached = true
 			if identity, ok := Bearer(r.Context()); ok {
@@ -219,7 +219,7 @@ func TestPublishedIdentityCarriesNoTokenBody(t *testing.T) {
 	token := issuer.mint(t, map[string]any{"typ": "at+jwt"}, issuer.standardClaims())
 
 	var published BearerIdentity
-	handler := rt.authenticateBearer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := httpFrame(rt.serveBearer)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		published, _ = Bearer(r.Context())
 	}))
 	handler.ServeHTTP(httptest.NewRecorder(), bearerRequest(token))

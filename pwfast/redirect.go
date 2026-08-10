@@ -43,15 +43,41 @@ func Redirect(r *fasthttp.RequestCtx, url string, status int) {
 	// makes the two transports send the same header.
 	location := redirectLocation(string(r.Path()), url)
 	r.Response.Header.Set("Location", location)
-	r.SetStatusCode(status)
 	// The short body is what a user agent that does not understand the status
-	// falls back to, and http.Redirect writes it under the same conditions:
-	// GET only, and only when the caller named no content type of its own.
-	if string(r.Method()) == fasthttp.MethodGet && len(r.Response.Header.ContentType()) == 0 {
+	// falls back to, and http.Redirect writes it under the same conditions: the
+	// content type on GET and HEAD, the body on GET, and each only when the
+	// caller named no content type of its own.
+	untyped := untypedResponse(r)
+	method := string(r.Method())
+	if untyped && (method == fasthttp.MethodGet || method == fasthttp.MethodHead) {
 		r.Response.Header.SetContentType("text/html; charset=utf-8")
-		_, _ = r.WriteString("<a href=\"" + html.EscapeString(location) + "\">" +
-			fasthttp.StatusMessage(status) + "</a>.\n")
 	}
+	r.SetStatusCode(status)
+	if untyped && method == fasthttp.MethodGet {
+		// Two newlines, which looks like a typo and is not: http.Redirect ends
+		// the markup with one and then writes it through Fprintln, which adds
+		// the second. The point of this half is that a handler redirecting sends
+		// the same bytes whichever transport carried it, and that includes the
+		// bytes nobody meant.
+		_, _ = r.WriteString("<a href=\"" + html.EscapeString(location) + "\">" +
+			fasthttp.StatusMessage(status) + "</a>.\n\n")
+	}
+}
+
+// defaultContentType is what this transport reports for a response nobody set a
+// type on.
+//
+// It has to be compared against, because the question http.Redirect asks —
+// whether the caller named a type of its own — has no direct answer here: the
+// header reads back as this default rather than as absent, so a check for an
+// empty one is never true and the fallback body was never written. A caller
+// that set this exact value deliberately and then redirected gets the body it
+// would have got on the other transport, which is the direction to be wrong in.
+const defaultContentType = "text/plain; charset=utf-8"
+
+func untypedResponse(r *fasthttp.RequestCtx) bool {
+	current := r.Response.Header.ContentType()
+	return len(current) == 0 || string(current) == defaultContentType
 }
 
 // redirectLocation resolves a target the way http.Redirect does, so a handler

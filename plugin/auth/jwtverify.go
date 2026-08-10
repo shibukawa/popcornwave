@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"net/http"
 	"strings"
 	"time"
 
@@ -71,8 +70,8 @@ func newBearerVerifier(config JWTConfig) (*bearerVerifier, error) {
 // is bounded before anything decodes it. A second Authorization header is
 // refused rather than merged: which one a proxy forwards is not this
 // application's decision to guess.
-func (v *bearerVerifier) bearerCredential(r *http.Request) (string, error) {
-	values := r.Header.Values("Authorization")
+func (v *bearerVerifier) bearerCredential(x Exchange) (string, error) {
+	values := x.HeaderValues("Authorization")
 	switch len(values) {
 	case 0:
 		return "", ErrNoCredential

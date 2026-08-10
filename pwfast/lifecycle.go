@@ -143,13 +143,19 @@ type RuntimeOptions struct {
 // it once, on whichever runtime owns startup, and what this assembles is the
 // request path.
 //
-// # What is not here yet
+// # The authentication frames
 //
-// The authentication frames — the login, callback and logout endpoints of an
-// identity provider — and no extension registry. Each is absent rather than stubbed, so a
-// build that needs one fails to name it rather than serving requests with a
-// frame that silently does nothing — which for a guard would be an
-// authorization check that looks installed.
+// They are not here, and their absence is now a choice rather than a gap.
+// popcornwave/plugin/auth/authfast supplies them, as frames positioned by their
+// own slots and a guard policy this takes as an argument, because there is no
+// extension registry on this transport: a chain assembled from arguments cannot
+// silently gain a frame because something was imported, and every frame it does
+// gain is one the application named.
+//
+// What is still absent is absent rather than stubbed, so a build that needs one
+// fails to name it rather than serving requests with a frame that silently does
+// nothing — which for a guard would be an authorization check that looks
+// installed.
 func Middlewares(handler fasthttp.RequestHandler, options RuntimeOptions) (fasthttp.RequestHandler, error) {
 	if handler == nil {
 		return nil, errors.New("popcornwave: nil handler")

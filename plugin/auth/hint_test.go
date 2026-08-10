@@ -31,7 +31,7 @@ func TestTheHintRoundTripsSealed(t *testing.T) {
 	rt := &runtime{hint: jar, config: Config{Assurance: AssuranceConfig{Hint: enabledHint()}}}
 
 	recorder := httptest.NewRecorder()
-	rt.rememberSignIn(recorder, SessionData{DisplayName: "Ada", Email: "ada@example.com", Issuer: "https://issuer.example"})
+	rt.rememberSignIn(HTTPExchange(recorder, httptest.NewRequest("GET", "/", nil)), SessionData{DisplayName: "Ada", Email: "ada@example.com", Issuer: "https://issuer.example"})
 	cookies := recorder.Result().Cookies()
 	if len(cookies) != 1 {
 		t.Fatalf("cookies = %d, want 1", len(cookies))
@@ -42,7 +42,7 @@ func TestTheHintRoundTripsSealed(t *testing.T) {
 
 	request := httptest.NewRequest("GET", "/", nil)
 	request.AddCookie(cookies[0])
-	got, ok := rt.readSignInHint(httptest.NewRecorder(), request)
+	got, ok := rt.readSignInHint(HTTPExchange(httptest.NewRecorder(), request))
 	if !ok || got.DisplayName != "Ada" || got.Issuer != "https://issuer.example" {
 		t.Fatalf("hint = %+v, %v", got, ok)
 	}
@@ -55,12 +55,12 @@ func TestTheHintRemembersTheIssuer(t *testing.T) {
 	jar, _ := hintJar(enabledHint(), pw.SessionCookieConfig{})
 	rt := &runtime{hint: jar, config: Config{Assurance: AssuranceConfig{Hint: enabledHint()}}}
 	recorder := httptest.NewRecorder()
-	rt.rememberSignIn(recorder, SessionData{Issuer: "https://accounts.google.com"})
+	rt.rememberSignIn(HTTPExchange(recorder, httptest.NewRequest("GET", "/", nil)), SessionData{Issuer: "https://accounts.google.com"})
 	request := httptest.NewRequest("GET", "/", nil)
 	for _, cookie := range recorder.Result().Cookies() {
 		request.AddCookie(cookie)
 	}
-	got, ok := rt.readSignInHint(httptest.NewRecorder(), request)
+	got, ok := rt.readSignInHint(HTTPExchange(httptest.NewRecorder(), request))
 	if !ok || got.Issuer != "https://accounts.google.com" {
 		t.Fatalf("issuer = %q, %v", got.Issuer, ok)
 	}
@@ -75,7 +75,7 @@ func TestAnIdleHintIsDiscardedRatherThanShown(t *testing.T) {
 	rt := &runtime{hint: jar, config: Config{Assurance: AssuranceConfig{Hint: config}}}
 
 	recorder := httptest.NewRecorder()
-	rt.rememberSignIn(recorder, SessionData{DisplayName: "Ada"})
+	rt.rememberSignIn(HTTPExchange(recorder, httptest.NewRequest("GET", "/", nil)), SessionData{DisplayName: "Ada"})
 	request := httptest.NewRequest("GET", "/", nil)
 	for _, cookie := range recorder.Result().Cookies() {
 		request.AddCookie(cookie)
@@ -84,7 +84,7 @@ func TestAnIdleHintIsDiscardedRatherThanShown(t *testing.T) {
 	// one the cookie carries, so only the inactivity rule can reject it.
 	rt.config.Assurance.Hint.IdleTimeout = time.Nanosecond
 	clearing := httptest.NewRecorder()
-	if _, ok := rt.readSignInHint(clearing, request); ok {
+	if _, ok := rt.readSignInHint(HTTPExchange(clearing, request)); ok {
 		t.Fatal("an idle hint was shown")
 	}
 	if len(clearing.Result().Cookies()) == 0 {

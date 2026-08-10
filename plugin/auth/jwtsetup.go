@@ -17,7 +17,7 @@ import (
 // no callback to correlate, no session to establish, and therefore no session
 // backend and no correlation table. What it needs is a key set, an admission
 // rule, and — only when the deployment asked for one — a revocation store.
-func setupBearer(ctx context.Context, config Config) (pw.Middleware, error) {
+func setupBearer(ctx context.Context, config Config) (Step, error) {
 	verifier, err := newBearerVerifier(config.JWT)
 	if err != nil {
 		return nil, err
@@ -81,7 +81,7 @@ func setupBearer(ctx context.Context, config Config) (pw.Middleware, error) {
 	go instance.pruneBearer()
 	replaceRuntime(instance)
 	warnDevRelaxation(ctx, config.JWT)
-	return instance.authenticateBearer, nil
+	return instance.serveBearer, nil
 }
 
 // bearerDatabase returns the database this configuration reads, or nil when it

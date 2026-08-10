@@ -89,7 +89,9 @@ func CSRF(config CSRFConfig, cookie session.CookieOptions, sameSite http.SameSit
 				next(r)
 				return
 			}
-			path, ok := pathpattern.CanonicalPathOf(string(r.Path()), string(r.RequestURI()))
+			// rawPath, not the whole request target: an encoded slash in a
+			// query value is not an ambiguous path. See its doc comment.
+			path, ok := pathpattern.CanonicalPathOf(string(r.Path()), rawPath(r))
 			if !ok {
 				// A path that cannot be matched unambiguously could select a
 				// different routed target than the one this decided about.

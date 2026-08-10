@@ -44,7 +44,7 @@ func TestLogoutScopeEscalatesButNeverDowngrades(t *testing.T) {
 			}
 			request := httptest.NewRequest("POST", "/auth/logout", strings.NewReader(body))
 			request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-			if got := rt.logoutScope(request); got != testCase.want {
+			if got := rt.logoutScope(HTTPExchange(httptest.NewRecorder(), request)); got != testCase.want {
 				t.Fatalf("logoutScope = %q, want %q", got, testCase.want)
 			}
 		})

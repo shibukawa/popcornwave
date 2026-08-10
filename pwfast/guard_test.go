@@ -116,3 +116,25 @@ func TestTheChainInstallsTheGuardWhenAPolicyIsGiven(t *testing.T) {
 		t.Errorf("an unprotected path was refused: %q", body)
 	}
 }
+
+// The canonical path check reads the undecoded path, and only the path.
+//
+// It used to be handed the whole request target, so a query parameter carrying
+// an encoded slash — which is what a return path looks like — refused a request
+// whose path was ordinary. A login redirect carries exactly that parameter, so
+// this is the shape of request the guard sends a browser away with.
+func TestTheGuardReadsTheUndecodedPath(t *testing.T) {
+	handler := Guard(GuardPolicy{
+		Protected: func(path string) bool { return strings.HasPrefix(path, "/admin") },
+	})(func(r *fasthttp.RequestCtx) { r.SetStatusCode(fasthttp.StatusOK) })
+
+	// An encoded separator is refused: it decodes to a path this decided about
+	// and a router may resolve somewhere else.
+	if status, _, _ := serve(t, handler, "/a%2Fb"); status != fasthttp.StatusBadRequest {
+		t.Errorf("an encoded separator was not refused: status = %d", status)
+	}
+	// One in a query value is not a path at all, and used to be refused anyway.
+	if status, _, _ := serve(t, handler, "/open?next=%2Fdashboard"); status != fasthttp.StatusOK {
+		t.Errorf("an encoded slash in the query refused the request: status = %d", status)
+	}
+}

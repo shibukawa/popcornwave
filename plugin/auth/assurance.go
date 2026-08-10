@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	pw "github.com/shibukawa/popcornwave/pw"
+	"github.com/shibukawa/popcornwave/pwruntime"
 	"github.com/shibukawa/popcornwave/session"
 )
 
@@ -24,7 +24,7 @@ import (
 type Requirement interface {
 	// resolve returns the window for one request. The bool reports whether the
 	// requirement could be resolved at all.
-	resolve(*http.Request, Config) (window, bool)
+	resolve(Exchange, Config) (window, bool)
 }
 
 // window is a resolved requirement: how old a proof may be, and whether a
@@ -77,19 +77,25 @@ func Dynamic(compute func(*http.Request) time.Duration) Requirement {
 	return dynamicRequirement{compute: compute}
 }
 
+// DynamicOn is Dynamic over the transport seam, for a deployment whose requests
+// are not *http.Request.
+func DynamicOn(compute func(Exchange) time.Duration) Requirement {
+	return dynamicRequirement{over: compute}
+}
+
 // Default is the window of auth.recent_auth_max_age, which is also what the
 // passkey enrollment guard has always used.
 func Default() Requirement { return defaultRequirement{} }
 
 type literalRequirement struct{ window window }
 
-func (r literalRequirement) resolve(*http.Request, Config) (window, bool) {
+func (r literalRequirement) resolve(Exchange, Config) (window, bool) {
 	return r.window, true
 }
 
 type namedRequirement string
 
-func (r namedRequirement) resolve(_ *http.Request, config Config) (window, bool) {
+func (r namedRequirement) resolve(_ Exchange, config Config) (window, bool) {
 	for _, policy := range config.Assurance.Policy {
 		if policy.Name == string(r) {
 			return window{maxAge: policy.MaxAge, confirmed: policy.Confirm}, true
@@ -99,14 +105,34 @@ func (r namedRequirement) resolve(_ *http.Request, config Config) (window, bool)
 }
 
 type dynamicRequirement struct {
+	// compute is the net/http form and over is the transport-neutral one.
+	// Exactly one is set.
 	compute func(*http.Request) time.Duration
+	over    func(Exchange) time.Duration
 }
 
-func (r dynamicRequirement) resolve(request *http.Request, _ Config) (window, bool) {
-	if r.compute == nil {
+// resolve calls whichever form the caller supplied.
+//
+// A requirement written against *http.Request cannot be evaluated on a request
+// that is not one, so it reports unresolved there rather than substituting a
+// window nobody asked for. The guard answers 503 and logs which requirement
+// could not be resolved, which is the honest reading: the deployment named a
+// rule this transport cannot apply, and admitting on that basis would open the
+// guard the rule exists to close.
+func (r dynamicRequirement) resolve(x Exchange, _ Config) (window, bool) {
+	var value time.Duration
+	switch {
+	case r.over != nil:
+		value = r.over(x)
+	case r.compute != nil:
+		request, ok := x.(*httpExchange)
+		if !ok {
+			return window{}, false
+		}
+		value = r.compute(request.request)
+	default:
 		return window{}, false
 	}
-	value := r.compute(request)
 	if value < 0 {
 		return window{}, false
 	}
@@ -115,7 +141,7 @@ func (r dynamicRequirement) resolve(request *http.Request, _ Config) (window, bo
 
 type defaultRequirement struct{}
 
-func (defaultRequirement) resolve(_ *http.Request, config Config) (window, bool) {
+func (defaultRequirement) resolve(_ Exchange, config Config) (window, bool) {
 	return window{maxAge: config.RecentAuthMaxAge}, true
 }
 
@@ -134,7 +160,7 @@ var ErrNoAssurance = errors.New("auth: assurance is unavailable")
 // the more generous window so a user who reads, fills a long form, and submits
 // does not lose the input to a guard the read had just satisfied.
 func Ensure(handler http.HandlerFunc, requirement Requirement) http.HandlerFunc {
-	return guard(handler, requirement, false)
+	return httpAssuranceGuard(handler, requirement, false)
 }
 
 // EnsureAPI wraps an API route: an unmet requirement answers 401 with a problem
@@ -146,7 +172,7 @@ func Ensure(handler http.HandlerFunc, requirement Requirement) http.HandlerFunc 
 // login page instead of an error; answering a page with 401 is merely ugly. A
 // route that forgot to pass an option would take the silent failure.
 func EnsureAPI(handler http.HandlerFunc, requirement Requirement) http.HandlerFunc {
-	return guard(handler, requirement, true)
+	return httpAssuranceGuard(handler, requirement, true)
 }
 
 // zeroWindowAdmission serializes reading a zero-window proof and spending it.
@@ -168,37 +194,49 @@ func EnsureAPI(handler http.HandlerFunc, requirement Requirement) http.HandlerFu
 // two fetches — lands in one process anyway.
 var zeroWindowAdmission sync.Mutex
 
-func guard(handler http.HandlerFunc, requirement Requirement, api bool) http.HandlerFunc {
+func httpAssuranceGuard(handler http.HandlerFunc, requirement Requirement, api bool) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		ok, err := admitAssurance(r, requirement)
-		if err != nil {
-			pw.Logger(r.Context()).Log(r.Context(), pw.LevelError, "assurance check failed", pw.Err(err))
-			pw.WriteProblem(w, r, pw.ServiceUnavailable())
-			return
-		}
-		if ok {
+		exchange := HTTPExchange(w, r)
+		if AdmitAssurance(exchange, requirement, api) {
 			handler(w, r)
-			return
 		}
-		challenge(w, r, requirement, api)
 	}
+}
+
+// AdmitAssurance evaluates the requirement and, when it is unmet, writes the
+// response that starts the step-up. It reports whether the handler may run.
+//
+// It is exported because the frame that wraps a handler is each transport's
+// own, while what the requirement means is this package's.
+func AdmitAssurance(x Exchange, requirement Requirement, api bool) bool {
+	ok, err := admitAssurance(x, requirement)
+	if err != nil {
+		logger(x).Log(x.Context(), pwruntime.LevelError, "assurance check failed", pwruntime.Err(err))
+		x.Problem(pwruntime.ServiceUnavailable())
+		return false
+	}
+	if ok {
+		return true
+	}
+	challenge(x, requirement, api)
+	return false
 }
 
 // admitAssurance reports whether the requirement is met, spending a zero-window
 // proof in the same breath so that it admits one operation and no other.
-func admitAssurance(r *http.Request, requirement Requirement) (bool, error) {
-	if !zeroWindowRequirement(r, requirement) {
+func admitAssurance(x Exchange, requirement Requirement) (bool, error) {
+	if !zeroWindowRequirement(x, requirement) {
 		// Every other window is satisfied by elapsed time, which nothing can
 		// spend and no two requests can race over.
-		return satisfied(r, requirement)
+		return satisfied(x, requirement)
 	}
 	zeroWindowAdmission.Lock()
 	defer zeroWindowAdmission.Unlock()
-	ok, err := satisfied(r, requirement)
+	ok, err := satisfied(x, requirement)
 	if err != nil || !ok {
 		return false, err
 	}
-	if err := consumeAdmission(r, requirement); err != nil {
+	if err := consumeAdmission(x, requirement); err != nil {
 		// The proof could not be spent, so it is not known to be spent, and
 		// admitting on that basis is how one confirmation authorizes two
 		// operations. Refusing costs the user a second confirmation.
@@ -209,12 +247,12 @@ func admitAssurance(r *http.Request, requirement Requirement) (bool, error) {
 
 // zeroWindowRequirement reports whether this requirement rests on a stored proof
 // rather than on elapsed time.
-func zeroWindowRequirement(r *http.Request, requirement Requirement) bool {
+func zeroWindowRequirement(x Exchange, requirement Requirement) bool {
 	instance := activeRuntime()
 	if instance == nil {
 		return false
 	}
-	want, resolved := requirement.resolve(r, instance.config)
+	want, resolved := requirement.resolve(x, instance.config)
 	return resolved && want.maxAge == 0
 }
 
@@ -223,14 +261,24 @@ func zeroWindowRequirement(r *http.Request, requirement Requirement) bool {
 // such as a payment amount. It is split from Challenge because a function that
 // both returns a decision and writes a response hides control flow.
 func IsRecent(r *http.Request, requirement Requirement) bool {
-	ok, err := satisfied(r, requirement)
+	return IsRecentOn(HTTPExchange(nil, r), requirement)
+}
+
+// IsRecentOn is IsRecent over the transport seam.
+func IsRecentOn(x Exchange, requirement Requirement) bool {
+	ok, err := satisfied(x, requirement)
 	return err == nil && ok
 }
 
 // Challenge writes the response an unmet requirement produces and starts the
 // step-up. Pass api = true from a route whose caller is not a browser.
 func Challenge(w http.ResponseWriter, r *http.Request, requirement Requirement, api bool) {
-	challenge(w, r, requirement, api)
+	challenge(HTTPExchange(w, r), requirement, api)
+}
+
+// ChallengeOn is Challenge over the transport seam.
+func ChallengeOn(x Exchange, requirement Requirement, api bool) {
+	challenge(x, requirement, api)
 }
 
 // LastProvedAt reports when the identity of the request was last actually
@@ -245,19 +293,19 @@ func LastProvedAt(ctx context.Context) (time.Time, bool) {
 }
 
 // satisfied evaluates the requirement against the request's session.
-func satisfied(r *http.Request, requirement Requirement) (bool, error) {
+func satisfied(x Exchange, requirement Requirement) (bool, error) {
 	instance := activeRuntime()
 	if instance == nil {
 		return false, ErrNoAssurance
 	}
-	view, ok := Session(r.Context())
+	view, ok := Session(x.Context())
 	if !ok {
 		// An anonymous request is a login problem rather than an assurance
 		// problem, and the path guard answers it first. Reaching here means the
 		// route is unguarded, so the challenge sends the user to log in.
 		return false, nil
 	}
-	want, resolved := requirement.resolve(r, instance.config)
+	want, resolved := requirement.resolve(x, instance.config)
 	if !resolved {
 		return false, fmt.Errorf("%w: requirement could not be resolved", ErrNoAssurance)
 	}
@@ -299,18 +347,18 @@ func confirmedWithin(data SessionData, maxAge time.Duration) bool {
 // It runs only where the guard admits. A handler that calls IsRecent and
 // Challenge itself keeps the time-bounded behavior, because IsRecent writes
 // nothing by contract and owns its own denial.
-func consumeAdmission(r *http.Request, requirement Requirement) error {
+func consumeAdmission(x Exchange, requirement Requirement) error {
 	instance := activeRuntime()
 	if instance == nil {
 		return nil
 	}
-	want, resolved := requirement.resolve(r, instance.config)
+	want, resolved := requirement.resolve(x, instance.config)
 	if !resolved || want.maxAge != 0 {
 		// Only a zero window rests on the admission; every other window is
 		// satisfied by elapsed time, which nothing can spend.
 		return nil
 	}
-	handle, ok := session.Value[SessionData](r.Context())
+	handle, ok := session.Value[SessionData](x.Context())
 	if !ok {
 		return nil
 	}
@@ -347,21 +395,21 @@ func stepUpAdmitted(data SessionData) bool {
 // insufficient_user_authentication. The Bearer challenge header of that
 // specification is not emitted here: these routes authenticate with a cookie
 // and are not in the Bearer scheme.
-func challenge(w http.ResponseWriter, r *http.Request, requirement Requirement, api bool) {
+func challenge(x Exchange, requirement Requirement, api bool) {
 	instance := activeRuntime()
 	if instance == nil {
-		pw.WriteProblem(w, r, pw.ServiceUnavailable())
+		x.Problem(pwruntime.ServiceUnavailable())
 		return
 	}
-	want, resolved := requirement.resolve(r, instance.config)
+	want, resolved := requirement.resolve(x, instance.config)
 	if !resolved {
-		pw.Logger(r.Context()).Log(r.Context(), pw.LevelError, "assurance requirement could not be resolved")
-		pw.WriteProblem(w, r, pw.ServiceUnavailable())
+		logger(x).Log(x.Context(), pwruntime.LevelError, "assurance requirement could not be resolved")
+		x.Problem(pwruntime.ServiceUnavailable())
 		return
 	}
 	if api {
-		pw.WriteProblem(w, r, pw.Unauthorized())
+		x.Problem(pwruntime.Unauthorized())
 		return
 	}
-	instance.redirect(w, r, instance.stepUpPath(r, want.maxAge))
+	instance.redirect(x, instance.stepUpPath(x, want.maxAge))
 }

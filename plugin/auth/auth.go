@@ -24,7 +24,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net/http"
 	"sync"
 	"time"
 
@@ -182,7 +181,51 @@ func unrevocableSessionBackend(backend string, development bool) string {
 		"session that was already issued; use rdb, redis, or dynamo where sessions must end on demand"
 }
 
+// A Step is the transport-free authentication frame.
+//
+// It finalizes the request authentication, serves the login endpoints, and
+// calls next for every request neither of those answered. Each transport wraps
+// one in its own middleware shape, which is the whole of what differs.
+type Step func(x Exchange, next func())
+
+// setupAuthentication is the net/http extension's Setup. It wraps the neutral
+// step in this transport's middleware shape and nothing else.
 func setupAuthentication(ctx context.Context) (pw.Middleware, error) {
+	step, err := Setup(ctx)
+	if err != nil || step == nil {
+		return nil, err
+	}
+	return httpFrame(step), nil
+}
+
+// Endpoints returns the authentication step of the runtime this process already
+// installed, or nil when auth is disabled or no setup has run.
+//
+// It is how a second transport serves the same login as the first without a
+// second startup. Calling Setup again would open a second set of stores, start
+// a second expiry sweep, and leave the first runtime's serving closures pointed
+// at storage nothing sweeps; reading what is installed shares one runtime, which
+// is what a deployment serving two transports actually has.
+func Endpoints() Step {
+	instance := activeRuntime()
+	if instance == nil {
+		return nil
+	}
+	if instance.config.usesJWT() {
+		return instance.serveBearer
+	}
+	return instance.serve
+}
+
+// Setup validates the configuration, opens the state this package owns, and
+// returns the authentication step, or nil when auth is disabled.
+//
+// An application normally never calls it: importing this package registers the
+// framework extension that does. It is exported for a transport that assembles
+// its own chain rather than reading the extension registry, which is what the
+// fasthttp half does. Calling it twice replaces the runtime, so one process
+// calls it once.
+func Setup(ctx context.Context) (Step, error) {
 	replaceRuntime(nil)
 
 	config := pw.Config[Config](ctx)
@@ -273,7 +316,7 @@ func setupAuthentication(ctx context.Context) (pw.Middleware, error) {
 	// pruner and the goroutine idles.
 	go instance.prune()
 	replaceRuntime(instance)
-	return instance.authenticate, nil
+	return instance.serve, nil
 }
 
 // replaceRuntime installs instance and releases the runtime it replaces.
@@ -322,7 +365,7 @@ func setupGuard(context.Context) (pw.Middleware, error) {
 	if instance == nil || len(instance.include) == 0 {
 		return nil, nil
 	}
-	return instance.guard, nil
+	return httpFrame(instance.guard), nil
 }
 
 // closeRuntime stops the expiry sweep and closes an owned backend client
@@ -331,9 +374,4 @@ func setupGuard(context.Context) (pw.Middleware, error) {
 func closeRuntime(context.Context) error {
 	replaceRuntime(nil)
 	return nil
-}
-
-func writeUnavailable(w http.ResponseWriter, r *http.Request, err error) {
-	pw.Logger(r.Context()).Log(r.Context(), pw.LevelError, "session backend unavailable", pw.Err(err))
-	pw.WriteProblem(w, r, pw.ServiceUnavailable())
 }

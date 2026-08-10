@@ -66,6 +66,19 @@ prerequisites:
       answer: out of scope, as proposed
       covers: the development console, the identity provider, the telemetry viewer, and the storybook
       why: each is a host-side tool standing up its own server rather than part of the application serving path
+  identity_endpoints_2026_08_11:
+    was: the largest single item left, and the one this document called too security-sensitive to rush
+    answer: not a port; plugin/auth grew auth.Exchange, a transport seam, and every endpoint body was rewritten against it, so both transports drive one implementation of the login
+    what_the_seam_carries: the request line, one query parameter, one form field, one header and all of one header, a bounded body, the three connection facts the origin rules read, and the four response operations
+    why_not_two_ports: decision:backend-specific-middleware says port the framework middleware set per backend, and this is the boundary where that stops paying; a middleware frame is a few rules, and a login is the accumulated judgement of three protocols
+    supporting_moves:
+      session: Manager.AttachTo, RotateOn and DestroyOn, plus Jar.LoadFrom
+      pwruntime: StoreAuthentication, the write half of the reader that was already portable
+      guard: auth.Rules, the resolved protection policy as a value, which pwfast.GuardPolicy already had the shape for
+    fasthttp_half: popcornwave/plugin/auth/authfast, about two hundred lines, of which the exchange is most
+    all_three_modes_serve: oidc, passkey and jwt_only, each covered by an end-to-end binary against a real provider and a real database
+    agreement_test: both listeners are asked the same question over one runtime and the answers are compared, which found a real divergence in Redirect
+    still_mixed: authfast links plugin/auth and therefore pw, because configuration binding has not moved; that is the staging this document already blessed, and the configuration layer is what closes it
   open_here:
     superseded_note: the four entries below were the open list; all four are answered in settled_2026_08_10 above and are kept here for the reasoning rather than as questions
     test_seam:

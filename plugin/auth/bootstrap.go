@@ -15,7 +15,7 @@ import (
 	"time"
 
 	"github.com/shibukawa/popcornwave/authstate"
-	"github.com/shibukawa/popcornwave/pw"
+	"github.com/shibukawa/popcornwave/pwruntime"
 )
 
 // enrollmentStateNamespace isolates enrollment tickets from the OIDC and
@@ -169,59 +169,59 @@ type bootstrapRequest struct {
 // enrollment ticket. It never creates a normal session: the caller has proved
 // possession of an issued secret, which authorizes one enrollment and nothing
 // else.
-func (rt *runtime) handleBootstrap(w http.ResponseWriter, r *http.Request) {
+func (rt *runtime) handleBootstrap(x Exchange) {
 	var request bootstrapRequest
-	if !decodeCeremonyJSON(w, r, &request) {
+	if !decodeCeremonyJSON(x, &request) {
 		return
 	}
 	if request.LoginID == "" || request.Secret == "" {
-		rt.refuseBootstrap(w, r, "empty bootstrap request")
+		rt.refuseBootstrap(x, "empty bootstrap request")
 		return
 	}
 
 	// The attempt is spent before the secret is checked, so a guess costs a
 	// budget entry whether or not it was close.
-	if _, err := rt.bootstrap.RecordAttempt(r.Context(), request.LoginID); err != nil {
-		rt.refuseBootstrap(w, r, "bootstrap attempt refused")
+	if _, err := rt.bootstrap.RecordAttempt(x.Context(), request.LoginID); err != nil {
+		rt.refuseBootstrap(x, "bootstrap attempt refused")
 		return
 	}
-	credential, err := rt.bootstrap.Find(r.Context(), request.LoginID)
+	credential, err := rt.bootstrap.Find(x.Context(), request.LoginID)
 	if err != nil {
-		rt.refuseBootstrap(w, r, "unknown bootstrap credential")
+		rt.refuseBootstrap(x, "unknown bootstrap credential")
 		return
 	}
 	expected := BootstrapSecretDigest(request.LoginID, request.Secret)
 	if subtle.ConstantTimeCompare(expected, credential.SecretDigest) != 1 {
-		rt.refuseBootstrap(w, r, "bootstrap secret mismatch")
+		rt.refuseBootstrap(x, "bootstrap secret mismatch")
 		return
 	}
 	if time.Now().After(credential.ExpiresAt) {
-		rt.refuseBootstrap(w, r, "expired bootstrap credential")
+		rt.refuseBootstrap(x, "expired bootstrap credential")
 		return
 	}
 
-	key, err := rt.putEnrollmentTicket(r.Context(), enrollmentTicket{
+	key, err := rt.putEnrollmentTicket(x.Context(), enrollmentTicket{
 		AccountID: credential.AccountID,
 		LoginID:   credential.LoginID,
 		Purpose:   credential.Purpose,
 	})
 	if err != nil {
-		pw.Logger(r.Context()).Log(r.Context(), pw.LevelError, "enrollment ticket could not be stored", pw.Err(err))
-		pw.WriteProblem(w, r, pw.ServiceUnavailable())
+		logger(x).Log(x.Context(), pwruntime.LevelError, "enrollment ticket could not be stored", pwruntime.Err(err))
+		x.Problem(pwruntime.ServiceUnavailable())
 		return
 	}
-	rt.writeEnrollmentCookie(w, key)
-	writeCeremonyJSON(w, r, map[string]string{"next": rt.ceremonyCookiePath() + registerBeginSuffix})
+	rt.writeEnrollmentCookie(x, key)
+	writeCeremonyJSON(x, map[string]string{"next": rt.ceremonyCookiePath() + registerBeginSuffix})
 }
 
 // refuseBootstrap answers every redemption failure identically, so a caller
 // cannot tell an unknown login ID from a wrong secret, an expired credential,
 // or an exhausted attempt budget.
-func (rt *runtime) refuseBootstrap(w http.ResponseWriter, r *http.Request, reason string) {
+func (rt *runtime) refuseBootstrap(x Exchange, reason string) {
 	// The reason is recorded without the login ID or the secret, so an audit
 	// trail exists without a credential in the log.
-	pw.Logger(r.Context()).Log(r.Context(), pw.LevelWarn, "bootstrap redemption refused", pw.String("reason", reason))
-	pw.WriteProblem(w, r, pw.Forbidden())
+	logger(x).Log(x.Context(), pwruntime.LevelWarn, "bootstrap redemption refused", pwruntime.String("reason", reason))
+	x.Problem(pwruntime.Forbidden())
 }
 
 func (rt *runtime) putEnrollmentTicket(ctx context.Context, ticket enrollmentTicket) (string, error) {
@@ -241,13 +241,13 @@ func (rt *runtime) putEnrollmentTicket(ctx context.Context, ticket enrollmentTic
 
 // readEnrollmentTicket consumes the ticket cookie and its record. A ticket is
 // single use, so an abandoned enrollment cannot be resumed later.
-func (rt *runtime) takeEnrollmentTicket(w http.ResponseWriter, r *http.Request) (enrollmentTicket, bool) {
-	cookie, err := r.Cookie(rt.enrollmentCookieName())
-	if err != nil || cookie == nil || cookie.Value == "" {
+func (rt *runtime) takeEnrollmentTicket(x Exchange) (enrollmentTicket, bool) {
+	value, present := requestCookie(x, rt.enrollmentCookieName())
+	if !present {
 		return enrollmentTicket{}, false
 	}
-	ticket, err := rt.enrollment.Take(r.Context(), cookie.Value)
-	rt.clearEnrollmentCookie(w)
+	ticket, err := rt.enrollment.Take(x.Context(), value)
+	rt.clearEnrollmentCookie(x)
 	if err != nil {
 		return enrollmentTicket{}, false
 	}
@@ -260,17 +260,17 @@ func (rt *runtime) takeEnrollmentTicket(w http.ResponseWriter, r *http.Request) 
 //
 // Rotation is the safer shape anyway: whatever key the browser held before this
 // request is dead, exactly as a rotated session token is.
-func (rt *runtime) rotateEnrollmentTicket(w http.ResponseWriter, r *http.Request) (enrollmentTicket, bool) {
-	ticket, ok := rt.takeEnrollmentTicket(w, r)
+func (rt *runtime) rotateEnrollmentTicket(x Exchange) (enrollmentTicket, bool) {
+	ticket, ok := rt.takeEnrollmentTicket(x)
 	if !ok {
 		return enrollmentTicket{}, false
 	}
-	key, err := rt.putEnrollmentTicket(r.Context(), ticket)
+	key, err := rt.putEnrollmentTicket(x.Context(), ticket)
 	if err != nil {
-		pw.Logger(r.Context()).Log(r.Context(), pw.LevelError, "enrollment ticket could not be reissued", pw.Err(err))
+		logger(x).Log(x.Context(), pwruntime.LevelError, "enrollment ticket could not be reissued", pwruntime.Err(err))
 		return enrollmentTicket{}, false
 	}
-	rt.writeEnrollmentCookie(w, key)
+	rt.writeEnrollmentCookie(x, key)
 	return ticket, true
 }
 
@@ -278,12 +278,12 @@ func (rt *runtime) enrollmentCookieName() string {
 	return rt.manager.CookieName() + enrollmentCookieSuffix
 }
 
-func (rt *runtime) writeEnrollmentCookie(w http.ResponseWriter, key string) {
+func (rt *runtime) writeEnrollmentCookie(x Exchange, key string) {
 	maxAge := int(rt.config.Bootstrap.EnrollmentTTL.Seconds())
 	if maxAge <= 0 {
 		maxAge = 600
 	}
-	http.SetCookie(w, &http.Cookie{
+	x.SetCookie(&http.Cookie{
 		Name:     rt.enrollmentCookieName(),
 		Value:    key,
 		Path:     rt.ceremonyCookiePath(),
@@ -294,8 +294,8 @@ func (rt *runtime) writeEnrollmentCookie(w http.ResponseWriter, key string) {
 	})
 }
 
-func (rt *runtime) clearEnrollmentCookie(w http.ResponseWriter) {
-	http.SetCookie(w, &http.Cookie{
+func (rt *runtime) clearEnrollmentCookie(x Exchange) {
+	x.SetCookie(&http.Cookie{
 		Name:     rt.enrollmentCookieName(),
 		Value:    "",
 		Path:     rt.ceremonyCookiePath(),
@@ -309,7 +309,7 @@ func (rt *runtime) clearEnrollmentCookie(w http.ResponseWriter) {
 // completeBootstrapEnrollment persists the first credential, activates the
 // account, and consumes the bootstrap credential as one transaction, then
 // replaces the restricted ticket with a normal session.
-func (rt *runtime) completeBootstrapEnrollment(w http.ResponseWriter, r *http.Request, ticket enrollmentTicket, credential Credential) bool {
+func (rt *runtime) completeBootstrapEnrollment(x Exchange, ticket enrollmentTicket, credential Credential) bool {
 	activator := accountActivator()
 	activate := func(ctx context.Context) error {
 		if activator == nil {
@@ -329,9 +329,9 @@ func (rt *runtime) completeBootstrapEnrollment(w http.ResponseWriter, r *http.Re
 		// A store with no transactions orders the three writes itself, so it
 		// is handed them apart rather than bundled into one callback it could
 		// not sequence.
-		err = sequenced.SaveFirstCredential(r.Context(), credential, spend, activate)
+		err = sequenced.SaveFirstCredential(x.Context(), credential, spend, activate)
 	} else {
-		err = rt.credentials.Save(r.Context(), credential, func(txCtx context.Context) error {
+		err = rt.credentials.Save(x.Context(), credential, func(txCtx context.Context) error {
 			if err := activate(txCtx); err != nil {
 				return err
 			}
@@ -341,26 +341,26 @@ func (rt *runtime) completeBootstrapEnrollment(w http.ResponseWriter, r *http.Re
 	if err != nil {
 		// A partially applied enrollment would leave an account that looks
 		// enrolled but cannot log in, so the whole unit fails.
-		pw.Logger(r.Context()).Log(r.Context(), pw.LevelError, "first passkey enrollment failed", pw.Err(err))
-		pw.WriteProblem(w, r, pw.ServiceUnavailable())
+		logger(x).Log(x.Context(), pwruntime.LevelError, "first passkey enrollment failed", pwruntime.Err(err))
+		x.Problem(pwruntime.ServiceUnavailable())
 		return false
 	}
 
-	account, err := lookupAccount(r.Context(), ticket.AccountID)
+	account, err := lookupAccount(x.Context(), ticket.AccountID)
 	if err != nil || account.Suspended {
 		if err != nil && !errors.Is(err, ErrAccessDenied) {
-			pw.Logger(r.Context()).Log(r.Context(), pw.LevelError, "account lookup failed", pw.Err(err))
+			logger(x).Log(x.Context(), pwruntime.LevelError, "account lookup failed", pwruntime.Err(err))
 		}
-		pw.WriteProblem(w, r, pw.Forbidden())
+		x.Problem(pwruntime.Forbidden())
 		return false
 	}
-	if err := rt.establish(w, r, SessionData{
+	if err := rt.establish(x, SessionData{
 		AccountID:   account.ID,
 		DisplayName: account.DisplayName,
 		Email:       account.Email,
 	}, MethodPasskey); err != nil {
-		pw.Logger(r.Context()).Log(r.Context(), pw.LevelError, "session creation failed", pw.Err(err))
-		pw.WriteProblem(w, r, pw.ServiceUnavailable())
+		logger(x).Log(x.Context(), pwruntime.LevelError, "session creation failed", pwruntime.Err(err))
+		x.Problem(pwruntime.ServiceUnavailable())
 		return false
 	}
 	return true

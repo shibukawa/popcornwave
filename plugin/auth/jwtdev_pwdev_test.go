@@ -50,7 +50,7 @@ func TestDevRelaxationAdmitsAnUnsignedTokenFromLoopback(t *testing.T) {
 	verifier := testVerifier(t, issuer, func(c *JWTConfig) { c.Dev.TrustUnverifiedTokens = true })
 	token := unsignedToken(t, map[string]any{"sub": "developer"})
 
-	identity, ok := verifier.devAdmits(devRequest(t, token, "127.0.0.1:54321"))
+	identity, ok := verifier.devAdmits(HTTPExchange(httptest.NewRecorder(), devRequest(t, token, "127.0.0.1:54321")))
 	if !ok {
 		t.Fatal("an unsigned token was refused under the development relaxation")
 	}
@@ -71,7 +71,7 @@ func TestDevRelaxationRefusesANonLoopbackRequest(t *testing.T) {
 	verifier := testVerifier(t, issuer, func(c *JWTConfig) { c.Dev.TrustUnverifiedTokens = true })
 	token := unsignedToken(t, map[string]any{"sub": "developer"})
 
-	if _, ok := verifier.devAdmits(devRequest(t, token, "192.168.1.20:54321")); ok {
+	if _, ok := verifier.devAdmits(HTTPExchange(httptest.NewRecorder(), devRequest(t, token, "192.168.1.20:54321"))); ok {
 		t.Fatal("the relaxation was reachable from the network")
 	}
 }
@@ -85,7 +85,7 @@ func TestDevRelaxationIgnoresForwardedHeaders(t *testing.T) {
 
 	request := devRequest(t, token, "192.168.1.20:54321")
 	request.Header.Set("X-Forwarded-For", "127.0.0.1")
-	if _, ok := verifier.devAdmits(request); ok {
+	if _, ok := verifier.devAdmits(HTTPExchange(httptest.NewRecorder(), request)); ok {
 		t.Fatal("a forwarded header opened the loopback lock")
 	}
 }
@@ -97,7 +97,7 @@ func TestDevRelaxationRequiresTheConfigurationField(t *testing.T) {
 	verifier := testVerifier(t, issuer, nil)
 	token := unsignedToken(t, map[string]any{"sub": "developer"})
 
-	if _, ok := verifier.devAdmits(devRequest(t, token, "127.0.0.1:54321")); ok {
+	if _, ok := verifier.devAdmits(HTTPExchange(httptest.NewRecorder(), devRequest(t, token, "127.0.0.1:54321"))); ok {
 		t.Fatal("the relaxation ran without being configured")
 	}
 }
@@ -136,7 +136,7 @@ func TestDevRelaxationStillRefusesGarbage(t *testing.T) {
 		"oversized":   "a." + strings.Repeat("x", 9000) + ".",
 	} {
 		t.Run(name, func(t *testing.T) {
-			if _, ok := verifier.devAdmits(devRequest(t, token, "127.0.0.1:1")); ok {
+			if _, ok := verifier.devAdmits(HTTPExchange(httptest.NewRecorder(), devRequest(t, token, "127.0.0.1:1"))); ok {
 				t.Fatalf("%s was admitted", name)
 			}
 		})
@@ -153,7 +153,7 @@ func TestDevRelaxationIgnoresExpiry(t *testing.T) {
 		"exp": time.Now().Add(-time.Hour).Unix(),
 	})
 
-	if _, ok := verifier.devAdmits(devRequest(t, token, "127.0.0.1:1")); !ok {
+	if _, ok := verifier.devAdmits(HTTPExchange(httptest.NewRecorder(), devRequest(t, token, "127.0.0.1:1"))); !ok {
 		t.Fatal("an expired token was refused, but time is one of the relaxed checks")
 	}
 }
@@ -162,7 +162,7 @@ func TestDevRelaxationIgnoresExpiry(t *testing.T) {
 // believed was verifying is not.
 func TestDevRelaxationMarksTheResponse(t *testing.T) {
 	recorder := httptest.NewRecorder()
-	markDevResponse(recorder)
+	markDevResponse(HTTPExchange(recorder, httptest.NewRequest("GET", "/", nil)))
 	if recorder.Header().Get(DevUnverifiedHeader) == "" {
 		t.Fatalf("a relaxed response carried no %s header", DevUnverifiedHeader)
 	}

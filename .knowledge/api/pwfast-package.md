@@ -62,10 +62,16 @@ chain_completed_2026_08_10:
     recover: this half recovers more completely, because the response is buffered and a failed handler's partial body is still discardable
     uri_normalisation: fasthttp normalises the request URI before a handler sees it, so a dot-segment path never reaches the asset check and misses the mount instead
     header_case: the two canonicalise header names differently, Etag against ETag, which is why the shared test seam reads them case-insensitively
+identity_endpoints_2026_08_11:
+  where: popcornwave/plugin/auth/authfast, not here, because they belong to the plugin that owns the decisions rather than to the transport runtime
+  what_moved_instead: plugin/auth grew auth.Exchange, a transport seam, and every endpoint body was rewritten against it; both transports now drive one implementation of the login
+  this_half_supplies: pwfast.GuardPolicy, which RuntimeOptions already took, plus the Extra frame slot the authentication step is positioned in
+  no_second_login: two implementations of when a transaction cookie is consumed, or of which failures answer 403 rather than 400, would be two chances to leave a hole in one of them
+  covered: authfaste2e drives the OIDC round trip and the passkey ceremonies against a real provider and a real database, and authfastjwte2e drives the bearer mode; an agreement test asks both listeners the same question and compares status, body and headers
+  found_by_the_agreement_test: Redirect wrote no fallback body here, because this transport reports a default content type where net/http reports none, so the check for an unset one was never true
 absent_and_why:
   everything_absent_here: is absent rather than stubbed, per policy:absent-rather-than-stubbed
-  identity_endpoints: the login, callback and logout endpoints of an authentication provider, with the OIDC, passkey and JWT flows behind them; the guard that consumes their result is present and takes its policy from outside
-  extension_registry: none, because nothing exists to register and an empty one would be scaffolding pretending to be a seam; the Extra frames of RuntimeOptions are the seam, positioned by the same slot numbers
+  extension_registry: none, because pwfast.Middlewares takes what it needs as arguments; a chain assembled from arguments cannot silently gain a frame because something was imported, and the Extra frames of RuntimeOptions are the seam, positioned by the same slot numbers
   websocket: requirement:contrib-websocket is unstarted because the fork carries no websocket package, so it waits on a dependency decision rather than on work
 dependency_cost:
   added: the fasthttp fork brings a brotli encoder and a byte buffer pool into the module graph

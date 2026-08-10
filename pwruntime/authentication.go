@@ -40,3 +40,15 @@ func WithAuthentication(ctx context.Context, authentication Authentication) cont
 	current.Authentication = authentication
 	return WithResources(ctx, current)
 }
+
+// StoreAuthentication is WithAuthentication for a transport that cannot derive.
+//
+// It is the write half of the pair described on ValueStore: the reader above is
+// already portable, because a request value that answers Value from its own
+// store reaches this capsule the same way a derived context does. Only the
+// installation differs, and this is it.
+func StoreAuthentication(store ValueStore, authentication Authentication) {
+	current := derive(store)
+	current.Authentication = authentication
+	StoreResources(store, current)
+}

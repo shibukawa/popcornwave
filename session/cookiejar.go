@@ -110,8 +110,18 @@ func (j *Jar[T]) Load(r *http.Request) (T, error) {
 		var zero T
 		return zero, ErrCookieMissing
 	}
-	cookie, err := r.Cookie(j.cookie.Name)
-	if err != nil || cookie == nil {
+	return j.LoadFrom(HTTPCarrier(nil, r))
+}
+
+// LoadFrom is Load over a carrier, so a transport that spells cookies
+// differently reads the same jar.
+func (j *Jar[T]) LoadFrom(carrier Carrier) (T, error) {
+	if !readable(carrier) {
+		var zero T
+		return zero, ErrCookieMissing
+	}
+	cookie := lookupCookie(carrier.Cookies(), j.cookie.Name)
+	if cookie == nil {
 		var zero T
 		return zero, ErrCookieMissing
 	}

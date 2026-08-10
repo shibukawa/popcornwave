@@ -5,12 +5,12 @@ package auth
 import (
 	"fmt"
 	"net"
-	"net/http"
 	"strings"
 	"time"
 
 	"github.com/shibukawa/popcornwave/contrib/jwt"
 	"github.com/shibukawa/popcornwave/pw"
+	"github.com/shibukawa/popcornwave/pwruntime"
 )
 
 // devRelaxationBuilt reports whether this binary contains the development
@@ -67,16 +67,16 @@ func checkDevRelaxation(config JWTConfig) error {
 // the identity claim, admission, revocation, and the parser bounds — a
 // developer exercises the real organization rule and the real revocation path,
 // and a decoder is still a decoder.
-func (v *bearerVerifier) devAdmits(r *http.Request) (Identity, bool) {
+func (v *bearerVerifier) devAdmits(x Exchange) (Identity, bool) {
 	if !v.config.Dev.TrustUnverifiedTokens {
 		return Identity{}, false
 	}
-	if !loopbackRequest(r) {
+	if !loopbackRequest(x) {
 		// No opt-out, matching the listen rule of policy:devidp-safety. A device
 		// on the network that needs a signed token has requirement:contrib-devidp.
 		return Identity{}, false
 	}
-	compact, err := v.bearerCredential(r)
+	compact, err := v.bearerCredential(x)
 	if err != nil {
 		return Identity{}, false
 	}
@@ -102,17 +102,17 @@ func (v *bearerVerifier) devAdmits(r *http.Request) (Identity, bool) {
 	if token.Claims.ExpiresAt != nil {
 		identity.ExpiresAt = time.Unix(*token.Claims.ExpiresAt, 0).UTC()
 	}
-	pw.Logger(r.Context()).Log(r.Context(), pw.LevelWarn,
+	logger(x).Log(x.Context(), pwruntime.LevelWarn,
 		"bearer token admitted without verification",
-		pw.String("subject", identity.Key),
-		pw.String("setting", "auth.jwt.dev.trust_unverified_tokens"))
+		pwruntime.String("subject", identity.Key),
+		pwruntime.String("setting", "auth.jwt.dev.trust_unverified_tokens"))
 	return identity, true
 }
 
 // markDevResponse tells the client that the identity behind this response was
 // never verified.
-func markDevResponse(w http.ResponseWriter) {
-	w.Header().Set(DevUnverifiedHeader, "true")
+func markDevResponse(x Exchange) {
+	x.SetHeader(DevUnverifiedHeader, "true")
 }
 
 // fillEmptySignature gives a signature-less token a placeholder signature so
@@ -148,13 +148,13 @@ func fillEmptySignature(compact string) string {
 // read as "something relayed this", never as an address to trust. The direction
 // is safe — an attacker who adds one is refused, and an attacker who strips one
 // still has to get past a proxy that adds it back.
-func loopbackRequest(r *http.Request) bool {
-	if relayed(r) {
+func loopbackRequest(x Exchange) bool {
+	if relayed(x) {
 		return false
 	}
-	host, _, err := net.SplitHostPort(r.RemoteAddr)
+	host, _, err := net.SplitHostPort(x.RemoteAddress())
 	if err != nil {
-		host = r.RemoteAddr
+		host = x.RemoteAddress()
 	}
 	address := net.ParseIP(host)
 	return address != nil && address.IsLoopback()
@@ -170,9 +170,9 @@ var forwardingHeaders = []string{
 	"X-Real-Ip",
 }
 
-func relayed(r *http.Request) bool {
+func relayed(x Exchange) bool {
 	for _, name := range forwardingHeaders {
-		if r.Header.Get(name) != "" {
+		if x.Header(name) != "" {
 			return true
 		}
 	}

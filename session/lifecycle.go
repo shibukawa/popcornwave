@@ -114,21 +114,38 @@ func (m *Manager) Attach(w http.ResponseWriter, r *http.Request) (*http.Request,
 	if w == nil || r == nil {
 		return r, fmt.Errorf("%w: nil request", ErrInvalidOptions)
 	}
-	if _, ok := currentState(r.Context()); ok {
-		return r, nil
+	resolved, err := m.AttachTo(HTTPCarrier(w, r))
+	if err != nil {
+		return r, err
 	}
-	current := &state{manager: m, carrier: HTTPCarrier(w, r)}
+	return r.WithContext(resolved.Attach(r.Context())), nil
+}
+
+// AttachTo is Attach over a carrier: it returns the session already attached to
+// the carrier's context, and otherwise resolves one.
+//
+// The caller publishes the result, through Attach for a transport that derives
+// a context and through StoreOn for one that writes into its request value.
+// Which of those it is, is the only part that differs.
+func (m *Manager) AttachTo(carrier Carrier) (Resolved, error) {
+	if !readable(carrier) || !writable(carrier) {
+		return Resolved{}, fmt.Errorf("%w: nil request", ErrInvalidOptions)
+	}
+	if existing, ok := currentState(carrier.Context()); ok {
+		return Resolved{state: existing}, nil
+	}
+	current := &state{manager: m, carrier: carrier}
 	if !m.lazyRecord {
 		switch err := current.resolveRecord(); {
 		case err == nil:
 		case staleSessionError(err):
 			m.clearCookie(current.carrier)
 		default:
-			return r, err
+			return Resolved{}, err
 		}
 	}
 	current.loadCookieSlots()
-	return r.WithContext(context.WithValue(r.Context(), stateKey{}, current)), nil
+	return Resolved{state: current}, nil
 }
 
 // Rotate revokes the record the request carries and issues a replacement under
@@ -143,7 +160,17 @@ func (m *Manager) Attach(w http.ResponseWriter, r *http.Request) (*http.Request,
 // A deployment running the cookie backend promotes nothing, because the
 // destination is where the value already is.
 func (m *Manager) Rotate(w http.ResponseWriter, r *http.Request) error {
-	current, ok := currentState(r.Context())
+	return m.RotateOn(r.Context())
+}
+
+// RotateOn is Rotate over the context the session was attached to.
+//
+// The response writer Rotate takes is not read: the cookies of a rotation go to
+// the carrier the session was resolved with, which is fixed when the session is
+// attached rather than when it turns. So the context is the whole input, and a
+// transport whose request value is its context passes that.
+func (m *Manager) RotateOn(ctx context.Context) error {
+	current, ok := currentState(ctx)
 	if !ok {
 		return fmt.Errorf("%w: no session middleware on request", ErrInvalidOptions)
 	}
@@ -195,9 +222,17 @@ func (m *Manager) Rotate(w http.ResponseWriter, r *http.Request) error {
 // A cookie a deployment wants to survive this is a Jar cookie and not a
 // registered slot, which is why a sign-in hint lives outside the session.
 func (m *Manager) Destroy(w http.ResponseWriter, r *http.Request) error {
-	current, ok := currentState(r.Context())
+	return m.DestroyOn(r.Context())
+}
+
+// DestroyOn is Destroy over the context the session was attached to, on the
+// same terms as RotateOn.
+func (m *Manager) DestroyOn(ctx context.Context) error {
+	current, ok := currentState(ctx)
 	if !ok {
-		m.clearCookie(current.carrier)
+		// No session was attached, so there is no record to revoke and no
+		// carrier to expire a cookie on. This used to read current.carrier for
+		// the clear, which dereferences the nil the lookup just reported.
 		return nil
 	}
 	if err := current.resolveRecord(); err != nil && !staleSessionError(err) {

@@ -5,6 +5,17 @@ import (
 	"github.com/shibukawa/tinygodriver/fasthttp"
 )
 
+// rawPath is the request path as it arrived, before this transport normalized
+// and percent-decoded it. It is the second argument every path-scoped policy
+// passes to the shared canonical check.
+//
+// It is PathOriginal rather than RequestURI, which is what these frames used
+// to pass. RequestURI is the whole request target, query string included, so
+// "/admin?next=%2Fdashboard" — an ordinary request with an encoded slash in a
+// parameter, which is what a return path looks like — was refused as if its
+// path were ambiguous. The check is about the path, so it reads the path.
+func rawPath(r *fasthttp.RequestCtx) string { return string(r.URI().PathOriginal()) }
+
 // GuardPolicy is what a guard needs to decide, in a form that names no
 // transport and no identity provider.
 //
@@ -43,7 +54,7 @@ func Guard(policy GuardPolicy) Middleware {
 			return next
 		}
 		return func(r *fasthttp.RequestCtx) {
-			path, ok := pathpattern.CanonicalPathOf(string(r.Path()), string(r.RequestURI()))
+			path, ok := pathpattern.CanonicalPathOf(string(r.Path()), rawPath(r))
 			if !ok {
 				WriteProblem(r, BadRequest())
 				return
