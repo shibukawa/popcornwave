@@ -124,6 +124,10 @@ type RuntimeOptions struct {
 	// is issued beside, so the two travel with the same policy.
 	SessionCookie   session.CookieOptions
 	SessionSameSite http.SameSite
+	// Guard is the authorization policy. It is supplied rather than derived
+	// because deciding which paths are protected belongs to an authentication
+	// plugin, and this half applies what that plugin resolved.
+	Guard GuardPolicy
 	// Extra frames are installed alongside the framework's, positioned by their
 	// own slots.
 	Extra []Frame
@@ -141,7 +145,8 @@ type RuntimeOptions struct {
 //
 // # What is not here yet
 //
-// The authentication and guard frames and the extension chain. Each is absent rather than stubbed, so a
+// The authentication frames — the login, callback and logout endpoints of an
+// identity provider — and no extension registry. Each is absent rather than stubbed, so a
 // build that needs one fails to name it rather than serving requests with a
 // frame that silently does nothing — which for a guard would be an
 // authorization check that looks installed.
@@ -217,6 +222,9 @@ func Middlewares(handler fasthttp.RequestHandler, options RuntimeOptions) (fasth
 		Middleware: OperationalEndpoints(settings.Health, settings.Readiness, options.Resources)})
 	frames = append(frames, Frame{Slot: SlotAPIDoc, Name: "apidoc",
 		Middleware: DocumentationEndpoints(settings.OpenAPI, settings.APIDoc, settings.APIDocPath)})
+	if options.Guard.Protected != nil {
+		frames = append(frames, Frame{Slot: SlotGuard, Name: "guard", Middleware: Guard(options.Guard)})
+	}
 	if options.Tracing {
 		// Outermost of everything positioned, so the request root span covers
 		// the whole chain and every record taken inside it correlates. It is
