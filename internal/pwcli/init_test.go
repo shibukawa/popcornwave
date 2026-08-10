@@ -252,6 +252,23 @@ func TestScaffoldFilesWithoutTinyGoUsesStandardServeMux(t *testing.T) {
 	}
 }
 
+// The Go toolchain resolves a module by running the version control system
+// that publishes it, so a shell pinning Go and nothing else fails go get and
+// go install on a missing executable rather than on anything about the module.
+// The environment is a closed one, so a git on the host is not one this shell
+// can reach.
+func TestScaffoldPinsGitBesideGo(t *testing.T) {
+	for _, options := range []initOptions{
+		{Name: "fixture", Devbox: true},
+		{Name: "fixture", Devbox: true, Database: true, Engine: enginePostgres, Tailwind: true},
+	} {
+		devbox := scaffoldFiles(options)["devbox.json"]
+		if !strings.Contains(devbox, `"git@latest"`) {
+			t.Errorf("devbox.json pins no git, so go get cannot run in it:\n%s", devbox)
+		}
+	}
+}
+
 func TestScaffoldFilesWithTinyGoUsesPwServeMux(t *testing.T) {
 	files := scaffoldFiles(initOptions{Name: "fixture", TinyGo: true, Devbox: true})
 	index := files["handlers/index.go"]

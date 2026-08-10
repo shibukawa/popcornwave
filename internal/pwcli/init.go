@@ -842,7 +842,13 @@ func scaffoldFiles(options initOptions) map[string]string {
 	}
 	name := options.Name
 	moduleExtra := frameworkModuleDirective()
-	devboxPackages := []string{"go@latest"}
+	// git is here because the Go toolchain shells out to it. go get and go
+	// install resolve a module by running the version control system that
+	// publishes it, so in a shell that pins Go and nothing else they fail on a
+	// missing executable rather than on anything about the module. The
+	// environment is a closed one — that is what pinning is for — so a git on
+	// the host is not a git this shell can reach.
+	devboxPackages := []string{"go@latest", "git@latest"}
 	if options.Database {
 		if server := engineFor(options.Engine).DevboxPackage; server != "" {
 			devboxPackages = append(devboxPackages, server)
