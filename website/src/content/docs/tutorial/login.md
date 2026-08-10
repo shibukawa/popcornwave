@@ -347,8 +347,11 @@ The issuer and the client credentials are injected into the application process
 as environment variables, so nothing about the provider is written into a
 committed configuration file.
 
-Open <http://127.0.0.1:8080/> — that host, not `localhost`, because the
-scaffolded `auth.oidc.redirect_url` names it. The request is redirected to the
+Open <http://localhost:8080/> — the host `pw dev` printed, and the one the
+scaffolded `auth.oidc.redirect_url` names. Both matter and they are the same
+fact: a login begun at one origin returns to another origin's cookies, so the
+callback would arrive holding nothing to check and be refused. The request is
+redirected to the
 provider's login screen, where two users are waiting. Pick **Member**, and the
 browser lands back on the memo page with the heading **Member's memos**.
 

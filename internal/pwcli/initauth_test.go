@@ -520,20 +520,43 @@ func TestScaffoldImportsTheStoresOfTheSelectedEngine(t *testing.T) {
 	}
 }
 
-// A project with a session gets the CSRF shape written out and switched off.
-// Turning it on later should be uncommenting rather than looking the keys up.
-func TestScaffoldWritesTheCSRFSectionOffByDefault(t *testing.T) {
+// A browser login arrives with an unsafe route already written: the sign-out
+// control posts. So the question CSRF is off until somebody answers is answered
+// by the scaffold itself, and a generated form refuses to render without a
+// token rather than emit an unprotected one — which made the scaffolded home
+// page return 500 the moment anybody signed in.
+func TestScaffoldTurnsCSRFOnForABrowserLogin(t *testing.T) {
 	config := scaffoldFiles(initOptions{Name: "demo", Auth: authOIDC})[pwenv.FileName(pwenv.Development)]
 	if !strings.Contains(config, "[security]") {
 		t.Fatalf("no security section:\n%s", config)
 	}
-	if !strings.Contains(config, "csrf.enabled = false") {
-		t.Errorf("CSRF is not scaffolded off:\n%s", config)
+	if !strings.Contains(config, "csrf.enabled = true") {
+		t.Errorf("a project whose starter page posts has CSRF off:\n%s", config)
 	}
 	// The anonymous path is a comment, so a project that needs it finds the
 	// keys rather than the documentation.
 	if !strings.Contains(config, "# csrf.anonymous.enabled = true") {
 		t.Errorf("the anonymous path is not shown:\n%s", config)
+	}
+}
+
+// A login begun at one origin and returning to another returns to a different
+// cookie jar, so the state the callback verifies is a cookie the browser never
+// sends: the redirect arrives and is refused. pw dev prints localhost, which is
+// therefore what a developer opens and what the callback has to come back to.
+func TestScaffoldedLoginReturnsToTheOriginDevServesFrom(t *testing.T) {
+	for _, mode := range []string{authOIDC, authOIDCPasskey, authPasskey} {
+		config := scaffoldFiles(initOptions{Name: "demo", Auth: mode})[pwenv.FileName(pwenv.Development)]
+		for _, key := range []string{"redirect_url", "issuer"} {
+			for _, line := range strings.Split(config, "\n") {
+				if !strings.HasPrefix(strings.TrimSpace(line), key+" =") {
+					continue
+				}
+				if strings.Contains(line, "127.0.0.1:8080") {
+					t.Errorf("%s returns the browser to an address pw dev does not serve from: %s", mode, line)
+				}
+			}
+		}
 	}
 }
 

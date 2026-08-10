@@ -89,21 +89,14 @@ func runDev(ctx context.Context, args []string, stdout, stderr io.Writer) error 
 		report.Failed(err)
 		return err
 	}
-	report.Phase("building assets")
-	if assets, err := buildDerivedAssets(root, config.Assets); err != nil {
-		// The loop survives an unbuildable state, here as everywhere else: the
-		// next change is what fixes it.
-		fmt.Fprintln(stderr, "pw dev:", err)
-		report.Failed(err)
-	} else {
-		reportDerivedAssets(stdout, assets)
-	}
-	storybook.start(root, storybookStyles(config, readDevelopmentServer(root)), stdout, stderr)
-	report.Phase("applying migrations")
-	if err := runDevMigrations(ctx, root, config, stdout, stderr); err != nil {
-		report.Failed(err)
-		return err
-	}
+	// The stylesheet is an input to the served tree rather than something served
+	// beside it: the asset build clears dist/public and fills it from public/,
+	// so a stylesheet written after that build is a file the run never serves.
+	// It is the scaffolded placeholder that gets copied instead, and the first
+	// page of a new project arrives with a stylesheet defining nothing it uses.
+	//
+	// pw build has always had this order. Only the loop had it the other way
+	// round, which is why the project it happened to is a new one.
 	var tailwind *exec.Cmd
 	var tailwindExited <-chan error
 	if config.Tailwind.Enabled {
@@ -120,6 +113,21 @@ func runDev(ctx context.Context, args []string, stdout, stderr io.Writer) error 
 			return err
 		}
 		defer func() { stopCommand(tailwind, tailwindExited) }()
+	}
+	report.Phase("building assets")
+	if assets, err := buildDerivedAssets(root, config.Assets); err != nil {
+		// The loop survives an unbuildable state, here as everywhere else: the
+		// next change is what fixes it.
+		fmt.Fprintln(stderr, "pw dev:", err)
+		report.Failed(err)
+	} else {
+		reportDerivedAssets(stdout, assets)
+	}
+	storybook.start(root, storybookStyles(config, readDevelopmentServer(root)), stdout, stderr)
+	report.Phase("applying migrations")
+	if err := runDevMigrations(ctx, root, config, stdout, stderr); err != nil {
+		report.Failed(err)
+		return err
 	}
 	var idp *devIdentityProvider
 	if config.IdP.Enabled {
@@ -358,8 +366,22 @@ func startDevboxServices(ctx context.Context, root string, stdout, stderr io.Wri
 		// Interrupting devbox does not reach the process-compose it spawned, so
 		// the services would outlive the developer loop that started them.
 		stop := exec.Command("devbox", "services", "stop")
-		stop.Dir, stop.Stdout, stop.Stderr, stop.Env = root, stdout, stderr, os.Environ()
-		if err := stop.Run(); err != nil {
+		stop.Dir, stop.Env = root, os.Environ()
+		// Collected rather than streamed, because the one failure here that is
+		// not a failure has to be recognised before it is printed. A loop that
+		// ends before the services finish coming up — a generation error on the
+		// first run is enough — has nothing to stop, and devbox says so with an
+		// error of its own. Both that error and a line naming the shutdown would
+		// land under the message that actually ended the run, and read like the
+		// cause of it.
+		output, err := stop.CombinedOutput()
+		if err != nil && bytes.Contains(output, []byte("Process manager is not running")) {
+			return
+		}
+		if len(output) > 0 {
+			fmt.Fprint(stdout, string(output))
+		}
+		if err != nil {
 			fmt.Fprintln(stderr, "pw dev: stop Devbox services:", err)
 		}
 	}

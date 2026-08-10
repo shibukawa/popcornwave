@@ -38,7 +38,7 @@ pw init memoapp
 | 質問 | 回答 | 理由 |
 |---|---|---|
 | Project name | `memoapp` | |
-| TinyGo support | Yes | 既定のまま |
+| TinyGo support | No | 既定のまま。このチュートリアルでは使いません |
 | Router | Registered | 既定のまま |
 | Tailwind CSS | **No** | 2章で `pw add` で入れます |
 | Authentication | None | 4章で `pw add` で入れます |
@@ -246,22 +246,22 @@ godoc は飾りではありません。`pw generate` はハンドラのコメン
 // handlers/index.go
 package handlers
 
-import "github.com/shibukawa/popcornwave/pw"
+import "net/http"
 
-var mux = pw.NewServeMux()
+var mux = http.NewServeMux()
 
-func Handlers() *pw.ServeMux { return mux }
+func Handlers() *http.ServeMux { return mux }
 ```
 
 各ハンドラファイルが `init` で自分のルートを登録します。ルートを増やすことは
 ファイルを増やすことであって、機能を足すたびに全員が触る表を編集することではありません。
 
-`pw.NewServeMux` はフレームワーク独自のルーターではありません。ホストの Go では
-`pw.ServeMux` は `net/http.ServeMux` の型エイリアスで、包んでいるのではなく
-そのものです。TinyGo でビルドしたときだけ、同じパターン構文を実装した互換実装に
-入れ替わります。`import` を1つ書き換えずに両方のターゲットへ出せることがこの型の
-役目で、`pw init` で TinyGo を断ったプロジェクトの雛形は `http.NewServeMux` を
-直接書きます。
+標準ライブラリのルーターそのもので、このファイルにフレームワークの型は1つも
+出てきません。`pw init` で TinyGo を選んだプロジェクトはここが `pw.ServeMux` に
+なります。ホストの Go ではそれもこの `net/http.ServeMux` の型エイリアスで、
+包んでいるのではなくそのものです。TinyGo でビルドしたときだけ、同じパターン構文を
+実装した互換実装に入れ替わります。`import` を1つ書き換えずに両方のターゲットへ
+出せることがこの型の役目で、ホストだけを狙うプロジェクトが払う理由はありません。
 
 登録するパターンは Go 1.22 のもの、つまり `"GET /users/{id}"` のままで、
 `r.PathValue` も標準どおりに動きます。持っているのはルートとメソッドのマッチと
