@@ -45,8 +45,15 @@ settled_by_the_transform:
   question_was: whether framework middleware is transformed rather than hand-written twice
   answer: application middleware is transformed on the same terms as a handler; framework middleware stays a supplied pair, because it is the layer defining the tagged types rather than a user of them
   still_true: a middleware calling next.ServeHTTP calls an interface method where the other backend's next is a plain function, which is exactly why the type is what carries the tag
+value_propagation_measured_2026_08_10:
+  the_worry: a net/http frame changes what the rest of the chain sees by deriving a context and handing it on, and the other transport has one request value a frame cannot derive, so the recording half of every frame looked untranslatable
+  what_was_measured: RequestCtx.Value answers from the same user-value store SetUserValue writes to, so a value written in place is read by an ordinary ctx.Value lookup
+  consequence: every reader in the shared leaf already works on both transports, and only the write side needed anything; that is one function rather than a second copy of each reader
+  shape: the writer is typed by a structural interface naming context.Context and SetUserValue, so the leaf still names no type from the fasthttp fork
+  first_frame: RequestID, whose shared half is the rule for what a client-supplied identifier may contain -- shared because it is a security check, the value arriving from the client and leaving in a response header, so a second copy of the rule would be a second chance to get it wrong
 consequences:
   - an application middleware is reported by rule:transport-handle-checks on the same terms as a handler, because the transform treats them the same and a separate entry would imply a remedy that differs
+  - a frame's portable part is what it decides rather than how it wraps, and the wrapping is the only part written twice
   - a project intending to port keeps its own middleware analyzable, which the report makes concrete instead of leaving to taste
   - the framework middleware set is still work this framework pays once, but the tagged-type arrangement makes it smaller than the estimate this decision first carried
 ```
