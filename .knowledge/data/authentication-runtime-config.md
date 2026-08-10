@@ -128,6 +128,10 @@ binding_implemented:
 planned:
   testing: decision:test-authentication-seams
   assurance: data:session-assurance-state adds the auth.assurance prefix, and recent_auth_max_age becomes its default rather than a passkey-only field
+  failure_thresholds:
+    keys: how many failed attempts one account or one session may accumulate, and the period they are counted over
+    why_here: policy:reauthentication requires the bound and only this plugin knows what a failure is; the counter it is evaluated against comes from data:rate-limit-runtime-config, which declares no threshold of its own
+    shape: a long period and a small count, unlike the arrival rate that binding declares, which is why the two are not one key group
 deferred:
   - policy:csrf-protection, until then api:passkey-endpoints relies on same-origin and a required JSON content type
 loopback_development:

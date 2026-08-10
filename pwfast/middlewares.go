@@ -5,6 +5,7 @@ import (
 	"net"
 	"time"
 
+	"github.com/shibukawa/popcornwave/internal/requestorigin"
 	"github.com/shibukawa/popcornwave/pwruntime"
 	"github.com/shibukawa/tinygodriver/fasthttp"
 )
@@ -48,12 +49,13 @@ func SecurityHeaders(config SecurityHeadersConfig, option ...SecurityHeadersOpti
 	for _, apply := range option {
 		apply(&options)
 	}
+	proxies := requestorigin.FromNetworks(options.trustedProxies)
 	return func(next fasthttp.RequestHandler) fasthttp.RequestHandler {
 		return func(r *fasthttp.RequestCtx) {
 			for _, entry := range resolved.Always {
 				r.Response.Header.Set(entry.Name, entry.Value)
 			}
-			if resolved.HSTS != "" && requestIsHTTPS(r, options.trustedProxies) {
+			if resolved.HSTS != "" && requestIsHTTPS(r, proxies) {
 				r.Response.Header.Set("Strict-Transport-Security", resolved.HSTS)
 			}
 			next(r)
@@ -63,21 +65,18 @@ func SecurityHeaders(config SecurityHeadersConfig, option ...SecurityHeadersOpti
 
 // requestIsHTTPS reports whether the client's own hop was HTTPS.
 //
-// A direct TLS connection is proof. A forwarded header is only evidence, and
-// only from an address the deployment said it forwards through — anybody can
-// send the header, so believing it from an untrusted peer would let a client
-// turn HSTS on for a host it does not control.
-//
-// The address arrives already parsed on this transport, which is the only
-// difference from the other half.
-func requestIsHTTPS(r *fasthttp.RequestCtx, trusted []*net.IPNet) bool {
-	if r.IsTLS() {
-		return true
-	}
-	if !pwruntime.TrustedProxy(r.RemoteIP(), trusted) {
-		return false
-	}
-	return pwruntime.ForwardedProtoIsHTTPS(string(r.Request.Header.Peek("X-Forwarded-Proto")))
+// The rule is internal/requestorigin's, which is where every caller that asks
+// this question answers it: a direct TLS connection is proof, and a forwarded
+// header is evidence only from a declared peer, because anybody can send one.
+// What this supplies is the three facts, read off this transport.
+func requestIsHTTPS(r *fasthttp.RequestCtx, proxies requestorigin.Proxies) bool {
+	// RemoteIP rather than RemoteAddr: this transport's RemoteAddr is whatever
+	// net.Addr the listener produced, which for a non-TCP listener is a name
+	// rather than an address, and an unparseable peer is never trusted. RemoteIP
+	// is already the parsed address, and reports the unspecified address when
+	// there is none — which no sane proxy network contains.
+	return proxies.SchemeOf(r.IsTLS(), r.RemoteIP().String(),
+		string(r.Request.Header.Peek("X-Forwarded-Proto"))) == "https"
 }
 
 // InjectResources publishes the process runtime resources — the loaded

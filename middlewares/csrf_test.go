@@ -2,6 +2,7 @@ package middlewares
 
 import (
 	"crypto/tls"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -16,7 +17,7 @@ const testOrigin = "https://app.example"
 
 func csrfChain(t *testing.T, config CSRFConfig) http.Handler {
 	t.Helper()
-	middleware, err := CSRF(config, session.CookieOptions{Path: "/"}, http.SameSiteLaxMode, nil)
+	middleware, err := CSRF(config, session.CookieOptions{Path: "/"}, http.SameSiteLaxMode, nil, nil)
 	if err != nil {
 		t.Fatalf("CSRF: %v", err)
 	}
@@ -199,7 +200,84 @@ func TestCSRFDisabledPassesEverything(t *testing.T) {
 func TestCSRFRejectsAMalformedPatternAtSetup(t *testing.T) {
 	config := enabledCSRF()
 	config.Include = []string{"no-leading-slash"}
-	if _, err := CSRF(config, session.CookieOptions{Path: "/"}, http.SameSiteLaxMode, nil); err == nil {
+	if _, err := CSRF(config, session.CookieOptions{Path: "/"}, http.SameSiteLaxMode, nil, nil); err == nil {
 		t.Fatal("a malformed include pattern was accepted")
 	}
+}
+
+// TestCSRFBehindATerminatingProxy is the case a deployed application actually
+// runs: TLS ends at the proxy, so r.TLS is nil and the request reconstructs an
+// http origin while the browser reports https.
+//
+// Both ways out are exercised here, because a deployment has exactly these two
+// and gets no check at all if it has neither.
+func TestCSRFBehindATerminatingProxy(t *testing.T) {
+	secret, token := newSecret(t)
+	// What the proxy actually forwards: no TLS, its own peer address, and the
+	// scheme the browser used carried in a header.
+	proxied := func() *http.Request {
+		r := postForm(t, "/orders", token)
+		r.TLS = nil
+		r.RemoteAddr = "10.0.0.7:44100"
+		r.Header.Set("X-Forwarded-Proto", "https")
+		return withSecret(t, r, secret)
+	}
+
+	t.Run("refused when neither the proxy nor the origin is declared", func(t *testing.T) {
+		response := httptest.NewRecorder()
+		csrfChain(t, enabledCSRF()).ServeHTTP(response, proxied())
+		if response.Code != http.StatusForbidden {
+			t.Fatalf("status = %d, want the origin comparison to fail closed", response.Code)
+		}
+	})
+
+	t.Run("admitted through a declared origin", func(t *testing.T) {
+		config := enabledCSRF()
+		config.TrustedOrigins = []string{testOrigin}
+		response := httptest.NewRecorder()
+		csrfChain(t, config).ServeHTTP(response, proxied())
+		if response.Code != http.StatusNoContent {
+			t.Fatalf("status = %d, want a declared origin to be admitted", response.Code)
+		}
+	})
+
+	t.Run("admitted through a declared proxy", func(t *testing.T) {
+		_, network, err := net.ParseCIDR("10.0.0.0/8")
+		if err != nil {
+			t.Fatal(err)
+		}
+		middleware, err := CSRF(enabledCSRF(), session.CookieOptions{Path: "/"},
+			http.SameSiteLaxMode, nil, []*net.IPNet{network})
+		if err != nil {
+			t.Fatalf("CSRF: %v", err)
+		}
+		response := httptest.NewRecorder()
+		middleware(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			w.WriteHeader(http.StatusNoContent)
+		})).ServeHTTP(response, proxied())
+		if response.Code != http.StatusNoContent {
+			t.Fatalf("status = %d, want the resolved origin to match", response.Code)
+		}
+	})
+
+	t.Run("an undeclared peer cannot assert the scheme", func(t *testing.T) {
+		_, network, err := net.ParseCIDR("10.0.0.0/8")
+		if err != nil {
+			t.Fatal(err)
+		}
+		middleware, err := CSRF(enabledCSRF(), session.CookieOptions{Path: "/"},
+			http.SameSiteLaxMode, nil, []*net.IPNet{network})
+		if err != nil {
+			t.Fatalf("CSRF: %v", err)
+		}
+		request := proxied()
+		request.RemoteAddr = "203.0.113.9:44100"
+		response := httptest.NewRecorder()
+		middleware(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			w.WriteHeader(http.StatusNoContent)
+		})).ServeHTTP(response, request)
+		if response.Code != http.StatusForbidden {
+			t.Fatalf("status = %d, want a header from outside the trust set ignored", response.Code)
+		}
+	})
 }

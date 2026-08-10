@@ -1,6 +1,7 @@
 package middlewares
 
 import (
+	"net"
 	"net/http"
 	"strings"
 	"time"
@@ -55,7 +56,13 @@ type CSRFRejection func(w http.ResponseWriter, r *http.Request, reason error)
 //
 // A safe method is never checked: policy:csrf-protection covers what changes
 // state, and a GET that changes state is a defect the token would only hide.
-func CSRF(config CSRFConfig, cookie session.CookieOptions, sameSite http.SameSite, reject CSRFRejection) (Middleware, error) {
+//
+// trustedProxies are the peer networks whose X-Forwarded-Proto is read when
+// reconstructing this deployment's own origin. Without them a deployment whose
+// TLS terminates upstream reconstructs an http origin for an https browser and
+// refuses every unsafe request. The declared TrustedOrigins remain the stronger
+// half of the comparison either way.
+func CSRF(config CSRFConfig, cookie session.CookieOptions, sameSite http.SameSite, reject CSRFRejection, trustedProxies []*net.IPNet) (Middleware, error) {
 	if reject == nil {
 		reject = writeCSRFStatus
 	}
@@ -72,6 +79,7 @@ func CSRF(config CSRFConfig, cookie session.CookieOptions, sameSite http.SameSit
 	// the two from disagreeing.
 	options := htmlupdate.Options{CSRFFieldName: config.FormField, CSRFHeaderName: config.Header}
 	trusted := requestorigin.Set(config.TrustedOrigins...)
+	proxies := requestorigin.FromNetworks(trustedProxies)
 	ttl := config.TTL
 	if ttl <= 0 {
 		ttl = 12 * time.Hour
@@ -108,7 +116,7 @@ func CSRF(config CSRFConfig, cookie session.CookieOptions, sameSite http.SameSit
 				next.ServeHTTP(w, r)
 				return
 			}
-			if err := checkOrigin(r, trusted); err != nil {
+			if err := checkOrigin(proxies, r, trusted); err != nil {
 				reject(w, r, err)
 				return
 			}
@@ -173,8 +181,8 @@ func protectedPath(include, exclude []pathpattern.Pattern, path string) bool {
 // The comparison itself is requestorigin.Matches, shared with the
 // authentication endpoints so the two cannot drift; this keeps only the error
 // this middleware answers with.
-func checkOrigin(r *http.Request, trusted map[string]bool) error {
-	if requestorigin.Matches(r, trusted) {
+func checkOrigin(proxies requestorigin.Proxies, r *http.Request, trusted map[string]bool) error {
+	if proxies.Matches(r, trusted) {
 		return nil
 	}
 	return errCSRFOrigin

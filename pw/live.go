@@ -6,7 +6,6 @@ import (
 	"errors"
 	"io"
 	"math/big"
-	"net"
 	"net/http"
 	"time"
 
@@ -310,11 +309,10 @@ func liveClientKey(r *http.Request) string {
 	if authentication := RequestAuthentication(requestContext(r)); authentication.Authenticated && authentication.Subject != "" {
 		return "subject:" + authentication.Subject
 	}
-	host, _, err := net.SplitHostPort(r.RemoteAddr)
-	if err != nil {
-		host = r.RemoteAddr
-	}
-	return "remote:" + host
+	// The resolved caller rather than r.RemoteAddr: behind a terminating proxy
+	// that address is the proxy, which would collapse every anonymous visitor
+	// into one bucket and refuse the fifth of them at the shipped default.
+	return "remote:" + pwruntime.ClientAddress(requestContext(r), r)
 }
 
 // writeLiveHeaders commits the response. A delivery stream is never shareable,

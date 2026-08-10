@@ -3,8 +3,8 @@ package middlewares
 import (
 	"net"
 	"net/http"
-	"strings"
 
+	"github.com/shibukawa/popcornwave/internal/requestorigin"
 	"github.com/shibukawa/popcornwave/pwruntime"
 )
 
@@ -38,6 +38,11 @@ func WithTrustedProxies(networks []*net.IPNet) SecurityHeadersOption {
 }
 
 // SecurityHeaders sets policy headers before downstream response commitment.
+//
+// The header set is resolved once, by the shared leaf, so a misconfiguration is
+// an error before the port is bound and both transports send the same headers
+// rather than two computations that agree. The scheme question is answered by
+// internal/requestorigin, which is where every caller that asks it answers it.
 func SecurityHeaders(config SecurityHeadersConfig, option ...SecurityHeadersOption) (Middleware, error) {
 	resolved, err := pwruntime.ResolveSecurityHeaders(config)
 	if err != nil {
@@ -47,41 +52,17 @@ func SecurityHeaders(config SecurityHeadersConfig, option ...SecurityHeadersOpti
 	for _, apply := range option {
 		apply(&options)
 	}
+	proxies := requestorigin.FromNetworks(options.trustedProxies)
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			header := w.Header()
 			for _, entry := range resolved.Always {
 				header.Set(entry.Name, entry.Value)
 			}
-			if resolved.HSTS != "" && requestIsHTTPS(r, options.trustedProxies) {
+			if resolved.HSTS != "" && proxies.IsHTTPS(r) {
 				header.Set("Strict-Transport-Security", resolved.HSTS)
 			}
 			next.ServeHTTP(w, r)
 		})
 	}, nil
-}
-
-// requestIsHTTPS reports whether the client's own hop was HTTPS.
-//
-// A direct TLS connection is proof. A forwarded header is only evidence, and
-// only from an address the deployment said it forwards through — anybody can
-// send the header, so believing it from an untrusted peer would let a client
-// turn HSTS on for a host it does not control.
-func requestIsHTTPS(r *http.Request, trusted []*net.IPNet) bool {
-	if r.TLS != nil {
-		return true
-	}
-	if !pwruntime.TrustedProxy(remoteIP(r.RemoteAddr), trusted) {
-		return false
-	}
-	return pwruntime.ForwardedProtoIsHTTPS(r.Header.Get("X-Forwarded-Proto"))
-}
-
-// remoteIP parses the address net/http keeps as host:port.
-func remoteIP(remote string) net.IP {
-	host, _, err := net.SplitHostPort(remote)
-	if err != nil {
-		host = remote
-	}
-	return net.ParseIP(strings.Trim(host, "[]"))
 }

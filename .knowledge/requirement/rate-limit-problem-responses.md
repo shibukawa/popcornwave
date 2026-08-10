@@ -29,7 +29,7 @@ rules:
   - expose no limiter key, account identifier, internal counter, or policy implementation
   - omission of compatibility metadata remains valid when only a 429 problem is known
   - invalid compatibility metadata is omitted while the safe 429 and no-store policy remain
-  - this response contract does not choose client identity, counting scope, storage, or limiting algorithm
+  - this response contract does not choose client identity, counting scope, storage, or limiting algorithm; requirement:rate-limit-enforcement is where those four are chosen, and the Remaining and Reset fields above already narrow the last one to a window counter
 documentation: requirement:web-standards-overview
 acceptance:
   - JSON and HTML negotiation both preserve status and headers

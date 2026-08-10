@@ -117,6 +117,7 @@
 {"category": "structure", "id": "data:public-asset-manifest", "path": ".knowledge/data/public-asset-manifest.md", "role": "supporting", "title": "Public Asset Manifest", "type": "data"}
 {"category": "structure", "id": "data:query-diagnostics-config", "path": ".knowledge/data/query-diagnostics-config.md", "role": "supporting", "title": "Query Diagnostics Config", "type": "data"}
 {"category": "structure", "id": "data:query-record", "path": ".knowledge/data/query-record.md", "role": "supporting", "title": "Query Record", "type": "data"}
+{"category": "structure", "id": "data:rate-limit-runtime-config", "path": ".knowledge/data/rate-limit-runtime-config.md", "role": "supporting", "title": "Rate Limit Runtime Config", "type": "data"}
 {"category": "structure", "id": "data:release-artifact", "path": ".knowledge/data/release-artifact.md", "role": "supporting", "title": "Release Artifact Set", "type": "data"}
 {"category": "structure", "id": "data:request-authentication", "path": ".knowledge/data/request-authentication.md", "role": "supporting", "title": "Request Authentication", "type": "data"}
 {"category": "structure", "id": "data:request-context-capsule", "path": ".knowledge/data/request-context-capsule.md", "role": "supporting", "title": "Request Context Capsule", "type": "data"}
@@ -191,6 +192,7 @@
 {"category": "constraint", "id": "decision:firestore-no-schema-application", "path": ".knowledge/decision/firestore-no-schema-application.md", "role": "supporting", "title": "There Is No Schema To Apply, So There Is No Migration Step", "type": "decision"}
 {"category": "constraint", "id": "decision:force-tinygo-logic", "path": ".knowledge/decision/force-tinygo-logic.md", "role": "supporting", "title": "Forced TinyGo Logic Build Tag", "type": "decision"}
 {"category": "constraint", "id": "decision:formatter-delivery", "path": ".knowledge/decision/formatter-delivery.md", "role": "supporting", "title": "Formatter Delivery to the Editor", "type": "decision"}
+{"category": "constraint", "id": "decision:forwarded-header-trust", "path": ".knowledge/decision/forwarded-header-trust.md", "role": "supporting", "title": "A Forwarded Header Is Read Only Behind A Declared Proxy", "type": "decision"}
 {"category": "constraint", "id": "decision:fragment-head-rejection", "path": ".knowledge/decision/fragment-head-rejection.md", "role": "supporting", "title": "Fragment Head Rejection", "type": "decision"}
 {"category": "constraint", "id": "decision:framework-owned-session-extension", "path": ".knowledge/decision/framework-owned-session-extension.md", "role": "supporting", "title": "The Framework Installs the Session", "type": "decision"}
 {"category": "constraint", "id": "decision:goose-migration-engine", "path": ".knowledge/decision/goose-migration-engine.md", "role": "supporting", "title": "Statically Linked goose Engine", "type": "decision"}
@@ -201,6 +203,7 @@
 {"category": "constraint", "id": "decision:implicit-document-shell", "path": ".knowledge/decision/implicit-document-shell.md", "role": "supporting", "title": "Implicit Document Shell", "type": "decision"}
 {"category": "constraint", "id": "decision:import-registered-session-plugins", "path": ".knowledge/decision/import-registered-session-plugins.md", "role": "supporting", "title": "Import-Registered Session Plugins", "type": "decision"}
 {"category": "constraint", "id": "decision:independent-runtime-config-bindings", "path": ".knowledge/decision/independent-runtime-config-bindings.md", "role": "supporting", "title": "Independent Runtime Config Bindings", "type": "decision"}
+{"category": "constraint", "id": "decision:ingress-tls-termination", "path": ".knowledge/decision/ingress-tls-termination.md", "role": "supporting", "title": "Ingress TLS Is Declared, Not Inferred", "type": "decision"}
 {"category": "constraint", "id": "decision:interactive-project-bootstrap", "path": ".knowledge/decision/interactive-project-bootstrap.md", "role": "supporting", "title": "Interactive Project Bootstrap", "type": "decision"}
 {"category": "constraint", "id": "decision:jwt-only-mode-not-scaffolded", "path": ".knowledge/decision/jwt-only-mode-not-scaffolded.md", "role": "supporting", "title": "JWT-Only Mode Is Configured, Never Scaffolded", "type": "decision"}
 {"category": "constraint", "id": "decision:jwt-only-preset-scaffolding", "path": ".knowledge/decision/jwt-only-preset-scaffolding.md", "role": "supporting", "title": "JWT-Only Is Scaffolded By a Preset, Not By a Question", "type": "decision"}
@@ -464,12 +467,14 @@
 {"category": "objective", "id": "requirement:presence-signal", "path": ".knowledge/requirement/presence-signal.md", "role": "primary", "title": "Human Presence Signal", "type": "requirement"}
 {"category": "objective", "id": "requirement:preset-customization-docs", "path": ".knowledge/requirement/preset-customization-docs.md", "role": "primary", "title": "Preset and Customization Documentation", "type": "requirement"}
 {"category": "objective", "id": "requirement:project-diagnostics", "path": ".knowledge/requirement/project-diagnostics.md", "role": "primary", "title": "Project Diagnostics", "type": "requirement"}
+{"category": "objective", "id": "requirement:proxied-request-identity", "path": ".knowledge/requirement/proxied-request-identity.md", "role": "primary", "title": "Proxied Request Identity", "type": "requirement"}
 {"category": "objective", "id": "requirement:public-asset-delivery", "path": ".knowledge/requirement/public-asset-delivery.md", "role": "primary", "title": "Public Asset Delivery", "type": "requirement"}
 {"category": "objective", "id": "requirement:pw-call-registration", "path": ".knowledge/requirement/pw-call-registration.md", "role": "primary", "title": "Every pw Call Taking The Transport Is Registered", "type": "requirement"}
 {"category": "objective", "id": "requirement:pw-language-server", "path": ".knowledge/requirement/pw-language-server.md", "role": "primary", "title": "Popcorn Wave Language Server", "type": "requirement"}
 {"category": "objective", "id": "requirement:pwfast-update-surface", "path": ".knowledge/requirement/pwfast-update-surface.md", "role": "primary", "title": "The Update Surface On The Second Backend", "type": "requirement"}
 {"category": "objective", "id": "requirement:query-diagnostics", "path": ".knowledge/requirement/query-diagnostics.md", "role": "primary", "title": "Database Query Diagnostics", "type": "requirement"}
 {"category": "objective", "id": "requirement:query-navigation-interception", "path": ".knowledge/requirement/query-navigation-interception.md", "role": "primary", "title": "Query Navigation Interception", "type": "requirement"}
+{"category": "objective", "id": "requirement:rate-limit-enforcement", "path": ".knowledge/requirement/rate-limit-enforcement.md", "role": "primary", "title": "Rate Limit Enforcement", "type": "requirement"}
 {"category": "objective", "id": "requirement:rate-limit-problem-responses", "path": ".knowledge/requirement/rate-limit-problem-responses.md", "role": "primary", "title": "Rate Limit Problem Responses", "type": "requirement"}
 {"category": "objective", "id": "requirement:read-write-splitting", "path": ".knowledge/requirement/read-write-splitting.md", "role": "primary", "title": "Read-Write Split Connections", "type": "requirement"}
 {"category": "objective", "id": "requirement:reloadable-component-endpoint", "path": ".knowledge/requirement/reloadable-component-endpoint.md", "role": "primary", "title": "Reloadable Component Endpoint", "type": "requirement"}

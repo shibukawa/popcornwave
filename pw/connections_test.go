@@ -15,7 +15,7 @@ import (
 // now, so the tests below exercise the code that actually runs.
 func applyRDBConnections(overlay *configbind.Overlay) ([]RDBConnectionConfig, error) {
 	var config MiddlewareConfig
-	if err := applyMiddlewareConfigDefinition4(&config, overlay); err != nil {
+	if err := applyMiddlewareConfigDefinition5(&config, overlay); err != nil {
 		return nil, err
 	}
 	return config.RDB.Connections, nil

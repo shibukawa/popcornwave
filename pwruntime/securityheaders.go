@@ -2,7 +2,6 @@ package pwruntime
 
 import (
 	"fmt"
-	"net"
 	"strconv"
 	"strings"
 	"time"
@@ -193,33 +192,4 @@ func ResolveSecurityHeaders(config SecurityHeadersConfig) (ResolvedSecurityHeade
 		}
 	}
 	return resolved, nil
-}
-
-// TrustedProxy reports whether an address belongs to one of the networks a
-// deployment forwards through.
-//
-// It takes the parsed address rather than the transport's spelling of it,
-// because that is the only part that differs: one transport keeps a host:port
-// string and the other hands over the address already parsed.
-func TrustedProxy(remote net.IP, trusted []*net.IPNet) bool {
-	if remote == nil {
-		return false
-	}
-	for _, network := range trusted {
-		if network.Contains(remote) {
-			return true
-		}
-	}
-	return false
-}
-
-// ForwardedProtoIsHTTPS reads an X-Forwarded-Proto value, which may list more
-// than one hop, and reports whether the client's own hop was HTTPS.
-//
-// Only the first entry is the client's. A caller must satisfy itself that the
-// header came from a trusted proxy before believing this at all, because
-// anybody can send it.
-func ForwardedProtoIsHTTPS(value string) bool {
-	first, _, _ := strings.Cut(value, ",")
-	return strings.EqualFold(strings.TrimSpace(first), "https")
 }
