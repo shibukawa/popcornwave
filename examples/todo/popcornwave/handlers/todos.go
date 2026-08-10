@@ -101,7 +101,7 @@ func create(w http.ResponseWriter, r *http.Request) {
 		pw.WriteProblem(w, r, pw.InternalServerError(err))
 		return
 	}
-	http.Redirect(w, r, "/", http.StatusSeeOther)
+	pw.RedirectSeeOther(w, r, "/")
 }
 
 // toggle flips one item between open and done.
@@ -115,7 +115,7 @@ func toggle(w http.ResponseWriter, r *http.Request) {
 		pw.WriteProblem(w, r, pw.InternalServerError(err))
 		return
 	}
-	http.Redirect(w, r, "/", http.StatusSeeOther)
+	pw.RedirectSeeOther(w, r, "/")
 }
 
 // remove deletes one item.
@@ -129,5 +129,5 @@ func remove(w http.ResponseWriter, r *http.Request) {
 		pw.WriteProblem(w, r, pw.InternalServerError(err))
 		return
 	}
-	http.Redirect(w, r, "/", http.StatusSeeOther)
+	pw.RedirectSeeOther(w, r, "/")
 }

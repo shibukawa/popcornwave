@@ -151,7 +151,11 @@ func Options(sqlDialect string) (generator.Options, error) {
 		{name: "RedrawComponents", writer: 0, request: 1},
 		// Predicates and the specification endpoint, which read the request and
 		// write nothing a type describes.
+		{name: "Redirect", writer: 0, request: 1},
+		{name: "RedirectSeeOther", writer: 0, request: 1},
 		{name: "WantsUpdate", writer: -1, request: 0},
+		{name: "QueryValue", writer: -1, request: 0},
+		{name: "FormValue", writer: -1, request: 0},
 		{name: "IsBot", writer: -1, request: 0},
 		{name: "OpenAPIJSON", writer: 0, request: 1},
 	} {

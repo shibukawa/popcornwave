@@ -27,7 +27,7 @@ func index(w http.ResponseWriter, r *http.Request) {
 // made ordinary use log errors that looked like a malfunction.
 func profile(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	failing := r.URL.Query().Get("fail")
+	failing, _ := pw.QueryValue(r, "fail")
 
 	pw.WriteHTML(w, r, Home(HomeParams{
 		// An ordinary value renders in the first pass, so the page has something
