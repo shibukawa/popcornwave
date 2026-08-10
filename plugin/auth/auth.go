@@ -36,6 +36,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/shibukawa/popcornwave/pwsession"
 	"sync"
 	"time"
 
@@ -264,12 +265,12 @@ func Setup(ctx context.Context) (Step, error) {
 		return nil, errors.New("auth requires session.enabled = true")
 	}
 	if warning := unrevocableSessionBackend(sessionConfig.Backend, pwconfig.Development()); warning != "" {
-		pw.Logger(ctx).Log(ctx, pw.LevelWarn, "sessions cannot be ended on demand",
-			pw.String("setting", "session.backend"),
-			pw.String("environment", pwconfig.Env()),
-			pw.String("consequence", warning))
+		pwruntime.ReadLogger(ctx).Log(ctx, pwruntime.LevelWarn, "sessions cannot be ended on demand",
+			pwruntime.String("setting", "session.backend"),
+			pwruntime.String("environment", pwconfig.Env()),
+			pwruntime.String("consequence", warning))
 	}
-	manager := pw.SessionManager()
+	manager := pwsession.Manager()
 	if manager == nil {
 		return nil, errors.New("auth requires session.enabled = true")
 	}

@@ -12,6 +12,8 @@ import (
 	"github.com/shibukawa/popcornwave/internal/requestorigin"
 	"github.com/shibukawa/popcornwave/middlewares"
 	"github.com/shibukawa/popcornwave/pwconfig"
+	"github.com/shibukawa/popcornwave/pwobservability"
+	"github.com/shibukawa/popcornwave/pwsession"
 )
 
 func validateRuntimeConfig(server ServerConfig, security SecurityConfig, middleware MiddlewareConfig, observability ObservabilityConfig) error {
@@ -92,7 +94,7 @@ func validateSessionConfig(config SessionConfig, env string, development bool) e
 	if config.Cookie.Secure {
 		return nil
 	}
-	sameSite, err := parseSessionSameSite(config.Cookie.SameSite)
+	sameSite, err := pwsession.ParseSameSite(config.Cookie.SameSite)
 	if err != nil {
 		return err
 	}
@@ -133,7 +135,7 @@ func validateQueryLogConfig(config QueryLogConfig) error {
 		"observability.query.level":      config.Level,
 		"observability.query.slow_level": config.SlowLevel,
 	} {
-		if _, err := parseQueryLevel(value); err != nil {
+		if _, err := pwobservability.ParseQueryLevel(value); err != nil {
 			return fmt.Errorf("%s %w", key, err)
 		}
 	}

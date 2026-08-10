@@ -4,13 +4,13 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"github.com/shibukawa/popcornwave/pwdatabase"
 	"sort"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/shibukawa/popcornwave/authstate"
-	"github.com/shibukawa/popcornwave/pw"
 	"github.com/shibukawa/popcornwave/pwruntime"
 )
 
@@ -213,7 +213,7 @@ func backendResources(ctx context.Context) (Resources, error) {
 	}
 	// The auth tables are written on every login, so they live in the session
 	// group rather than in the default group, which is normally a replica.
-	sessionCtx, err := pw.SelectSessionDB(ctx)
+	sessionCtx, err := pwdatabase.SelectSessionDB(ctx)
 	if err != nil {
 		return Resources{}, err
 	}

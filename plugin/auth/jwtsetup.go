@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/shibukawa/popcornwave/internal/pathpattern"
-	"github.com/shibukawa/popcornwave/pw"
 	"github.com/shibukawa/popcornwave/pwconfig"
 	"github.com/shibukawa/popcornwave/pwruntime"
 )
@@ -129,12 +128,12 @@ func warnDevRelaxation(ctx context.Context, config JWTConfig) {
 	if !devRelaxationBuilt || !config.Dev.TrustUnverifiedTokens {
 		return
 	}
-	pw.Logger(ctx).Log(ctx, pw.LevelWarn,
+	pwruntime.ReadLogger(ctx).Log(ctx, pwruntime.LevelWarn,
 		"bearer tokens are NOT being verified",
-		pw.String("setting", "auth.jwt.dev.trust_unverified_tokens"),
-		pw.String("environment", pwconfig.Env()),
-		pw.String("reachable_from", "loopback only"),
-		pw.String("issuer", config.Issuer))
+		pwruntime.String("setting", "auth.jwt.dev.trust_unverified_tokens"),
+		pwruntime.String("environment", pwconfig.Env()),
+		pwruntime.String("reachable_from", "loopback only"),
+		pwruntime.String("issuer", config.Issuer))
 }
 
 // RevokeToken withdraws one access token by its jti, for the running
@@ -223,7 +222,7 @@ func BearerClaims(ctx context.Context) (Claims, bool) {
 // different things: a session has an account summary that outlives the request,
 // and a bearer request has a token that does not.
 func Bearer(ctx context.Context) (BearerIdentity, bool) {
-	identity, ok := pw.RequestAuthentication(ctx).Principal.(BearerIdentity)
+	identity, ok := pwruntime.RequestAuthentication(ctx).Principal.(BearerIdentity)
 	return identity, ok
 }
 

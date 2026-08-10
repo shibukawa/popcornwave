@@ -5,6 +5,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/shibukawa/popcornwave/pwdatabase"
 )
 
 // writer and replica are the two shapes of a configured pool these tests build
@@ -147,7 +149,7 @@ func TestOpenRuntimeConnectionsOpensEveryPool(t *testing.T) {
 			replica("sqlite://" + filepath.Join(dir, "replica-2.db")),
 		},
 	}
-	set, err := openRuntimeConnections(config)
+	set, err := pwdatabase.Open(config)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -174,7 +176,7 @@ func TestOpenRuntimeConnectionsOpensEveryPool(t *testing.T) {
 	broken := config
 	broken.Connections = append(append([]RDBConnectionConfig{}, config.Connections...),
 		RDBConnectionConfig{Group: "writer", DSN: "nosuchdriver://host/db", ConnectTimeout: time.Second})
-	if _, err := openRuntimeConnections(broken); err == nil {
+	if _, err := pwdatabase.Open(broken); err == nil {
 		t.Fatal("an unregistered driver was accepted")
 	}
 }

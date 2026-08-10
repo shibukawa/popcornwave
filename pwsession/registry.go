@@ -1,4 +1,4 @@
-package pw
+package pwsession
 
 import (
 	"fmt"
@@ -6,24 +6,25 @@ import (
 	"sync"
 
 	"github.com/shibukawa/popcornwave/session"
+	"github.com/shibukawa/popcornwave/sessionconfig"
 )
 
-// sessionSlots holds the declared session storage of this process.
+// slotState holds the declared session storage of this process.
 //
 // A registration is kept as a closure rather than applied immediately, because
 // a session.Registry freezes when its manager is built and framework
 // initialization may run more than once in one process, most obviously in
 // tests. Replaying the closures gives every initialization a fresh registry
 // carrying the same declarations.
-var sessionSlots struct {
+var slotState struct {
 	sync.Mutex
 	register []func(*session.Registry) error
 }
 
-// RegisterSessionStore declares one piece of per-browser state, as a Go type
+// RegisterStore declares one piece of per-browser state, as a Go type
 // with a placement, and is the only place either is stated.
 //
-//	pw.RegisterSessionStore[Cart]("cart", session.Private)
+//	pw.RegisterStore[Cart]("cart", session.Private)
 //	cart, ok := session.Load[Cart](ctx)
 //
 // The placement states what the client may do with the value and where its
@@ -59,21 +60,21 @@ var sessionSlots struct {
 // request decodes anything.
 //
 // A duplicate Go type and a duplicate key are each a panic at startup rather
-// than a silent replacement, on the same grounds as RegisterSessionBackend.
-func RegisterSessionStore[T any](key string, placement session.Placement, options ...session.SlotOption) {
-	sessionSlots.Lock()
-	defer sessionSlots.Unlock()
-	sessionSlots.register = append(sessionSlots.register, func(registry *session.Registry) error {
+// than a silent replacement, on the same grounds as RegisterBackend.
+func RegisterStore[T any](key string, placement session.Placement, options ...session.SlotOption) {
+	slotState.Lock()
+	defer slotState.Unlock()
+	slotState.register = append(slotState.register, func(registry *session.Registry) error {
 		return session.Register[T](registry, key, placement, nil, options...)
 	})
 }
 
-// newSessionRegistry replays every declaration into a fresh registry.
-func newSessionRegistry() (*session.Registry, error) {
-	sessionSlots.Lock()
-	defer sessionSlots.Unlock()
+// newRegistry replays every declaration into a fresh registry.
+func newRegistry() (*session.Registry, error) {
+	slotState.Lock()
+	defer slotState.Unlock()
 	registry := session.NewRegistry()
-	for _, register := range sessionSlots.register {
+	for _, register := range slotState.register {
 		if err := register(registry); err != nil {
 			return nil, err
 		}
@@ -81,13 +82,13 @@ func newSessionRegistry() (*session.Registry, error) {
 	return registry, nil
 }
 
-// SessionRegistry builds the registry of everything declared through
-// RegisterSessionStore, plus the slots the caller adds.
+// NewRegistry builds the registry of everything declared through
+// RegisterStore, plus the slots the caller adds.
 //
 // The framework half of a login is one such slot, so plugin/auth passes its own
 // declaration here rather than being privileged in storage.
-func SessionRegistry(extra ...func(*session.Registry) error) (*session.Registry, error) {
-	registry, err := newSessionRegistry()
+func NewRegistry(extra ...func(*session.Registry) error) (*session.Registry, error) {
+	registry, err := newRegistry()
 	if err != nil {
 		return nil, err
 	}
@@ -99,7 +100,7 @@ func SessionRegistry(extra ...func(*session.Registry) error) (*session.Registry,
 	return registry, nil
 }
 
-// SessionKeyring reads the secret that protects everything the browser carries.
+// Keyring reads the secret that protects everything the browser carries.
 //
 // One secret serves both protections a slot can carry: session.ReadOnly signs
 // and session.Private seals, and session.Keyring derives a purpose-separated
@@ -108,7 +109,7 @@ func SessionRegistry(extra ...func(*session.Registry) error) (*session.Registry,
 // leaves process memory.
 //
 // The secret itself never reaches an error message or a log.
-func SessionKeyring(config SessionKeyringConfig) (*session.Keyring, error) {
+func Keyring(config sessionconfig.SessionKeyringConfig) (*session.Keyring, error) {
 	if strings.TrimSpace(config.Secret) == "" {
 		return nil, nil
 	}

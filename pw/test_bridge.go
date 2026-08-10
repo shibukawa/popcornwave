@@ -10,6 +10,7 @@ import (
 
 	"github.com/shibukawa/popcornwave/internal/pwtestbridge"
 	"github.com/shibukawa/popcornwave/pwconfig"
+	"github.com/shibukawa/popcornwave/pwdatabase"
 	"github.com/shibukawa/popcornwave/pwruntime"
 )
 
@@ -76,7 +77,7 @@ func PrepareTestRuntime(handler http.Handler, configs pwtestbridge.Configs, opti
 	var connections *pwruntime.ConnectionSet
 	var scope *pwruntime.TransactionScope
 	if middleware.RDB.Enabled {
-		connection, err := openRuntimeDatabase(testConnection, testConnection.Group)
+		connection, err := pwdatabase.OpenOne(testConnection, testConnection.Group)
 		if err != nil {
 			return pwtestbridge.Prepared{}, err
 		}

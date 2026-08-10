@@ -94,8 +94,8 @@ func buildMiddlewares(handler http.Handler, option ...Option) (http.Handler, err
 	// A root span is created when export exists, and also when configuration
 	// asked for framework spans outright: the children below are only a trace if
 	// something roots them.
-	rootSpan := telemetry.tracing || traceForced(observability)
-	resources := runtimeResources(telemetry.backend, telemetry.tracing)
+	rootSpan := telemetry.Tracing() || traceForced(observability)
+	resources := runtimeResources(telemetry.Backend(), telemetry.Tracing())
 	reportEnvironment()
 	reportCompressionCodings(middleware)
 	reportDatabaseConnections(resources.Connections)

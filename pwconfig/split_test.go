@@ -18,20 +18,50 @@ import (
 
 const (
 	pwPackage       = "github.com/shibukawa/popcornwave/pw"
+	databasePackage = "github.com/shibukawa/popcornwave/pwdatabase"
+	sessionPackage  = "github.com/shibukawa/popcornwave/pwsession"
+	observePackage  = "github.com/shibukawa/popcornwave/pwobservability"
 	fastPackage     = "github.com/shibukawa/popcornwave/pwfast"
 	configPackage   = "github.com/shibukawa/popcornwave/pwconfig"
 	runtimePackage  = "github.com/shibukawa/popcornwave/pwruntime"
 	fastOnlyPackage = "github.com/shibukawa/popcornwave/internal/fastonly"
 )
 
-// TestTheConfigurationLayerReachesNoTransport is the containment this package
-// exists for. It is not a style rule: pwfast reads the settings this publishes,
-// so a dependency here in the other direction would put the whole net/http
-// stack in every build that wanted a configuration file.
-func TestTheConfigurationLayerReachesNoTransport(t *testing.T) {
-	for _, forbidden := range []string{pwPackage, fastPackage} {
-		if dependsOn(t, configPackage, forbidden) {
-			t.Errorf("%s depends on %s", configPackage, forbidden)
+// TestNoSharedLayerReachesATransport is the containment these packages exist
+// for. It is not a style rule: pwfast reads what they publish, so a dependency
+// in the other direction would put the whole net/http stack in every build that
+// wanted a configuration file, a database pool, or a session.
+//
+// requirement:alternate-http-backend-readiness names the four —  configuration
+// binding, the database layer, session, and observability — so all four are
+// asserted here rather than each in its own package: what matters is that the
+// set holds, and a caller adding a fifth should have one place to add it.
+func TestNoSharedLayerReachesATransport(t *testing.T) {
+	for _, layer := range []string{configPackage, databasePackage, sessionPackage, observePackage} {
+		for _, forbidden := range []string{pwPackage, fastPackage} {
+			if dependsOn(t, layer, forbidden) {
+				t.Errorf("%s depends on %s", layer, forbidden)
+			}
+		}
+	}
+}
+
+// The layers stack one way, and the direction is the point: what a settings
+// file asked for is decided before anything is opened, and what was opened is
+// decided before a session is stored in it. A cycle would be a startup order
+// nobody could state.
+func TestTheSharedLayersStackOneWay(t *testing.T) {
+	for _, edge := range []struct{ from, to string }{
+		{databasePackage, configPackage},
+		{sessionPackage, configPackage},
+		{sessionPackage, databasePackage},
+		{observePackage, configPackage},
+	} {
+		if !dependsOn(t, edge.from, edge.to) {
+			t.Errorf("%s no longer depends on %s", edge.from, edge.to)
+		}
+		if dependsOn(t, edge.to, edge.from) {
+			t.Errorf("%s depends back on %s", edge.to, edge.from)
 		}
 	}
 }

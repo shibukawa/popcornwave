@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/shibukawa/popcornwave/pwobservability"
 	"github.com/shibukawa/popcornwave/pwruntime"
 )
 
@@ -13,14 +14,10 @@ import (
 // about itself at startup, and puts the previous one back afterwards.
 func captureProcessLog(t *testing.T) *bytes.Buffer {
 	t.Helper()
-	processBackend.RLock()
-	previous := processBackend.backend
-	processBackend.RUnlock()
-	t.Cleanup(func() { setProcessBackend(previous) })
-
 	var recorded bytes.Buffer
 	handler := slog.NewTextHandler(&recorded, &slog.HandlerOptions{Level: slog.LevelDebug})
-	setProcessBackend(pwruntime.NewLogBackend(pwruntime.LevelDebug, pwruntime.NewSlogSink(handler)))
+	t.Cleanup(pwobservability.SwapProcessBackend(
+		pwruntime.NewLogBackend(pwruntime.LevelDebug, pwruntime.NewSlogSink(handler))))
 	return &recorded
 }
 

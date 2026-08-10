@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/shibukawa/popcornwave/contrib/otel/trace"
+	"github.com/shibukawa/popcornwave/pwobservability"
 	"github.com/shibukawa/popcornwave/pwruntime"
 	"github.com/shibukawa/tinybind-go/htmlbind"
 )
@@ -361,7 +362,7 @@ func TestResolveTracingTakesTheQueryTextBound(t *testing.T) {
 		t.Fatalf("MaxSQLLength = %v, want the query diagnostics bound", policy)
 	}
 	config.Query.MaxSQLLength = 0
-	if policy := resolveTracing(config, false); policy.MaxSQLLength != defaultQueryMaxSQLLength {
+	if policy := resolveTracing(config, false); policy.MaxSQLLength != pwobservability.DefaultMaxSQLLength {
 		t.Errorf("MaxSQLLength = %d, want the default", policy.MaxSQLLength)
 	}
 }

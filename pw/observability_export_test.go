@@ -58,12 +58,12 @@ func TestObservabilityExportsSpansAndCorrelatedLogs(t *testing.T) {
 	}
 
 	ctx, span := StartSpan(t.Context(), "load-user", String("db.system.name", "sqlite"))
-	pwruntime.NewLogger(ctx, resolved.backend).Info("user loaded", Int("rows", 3))
+	pwruntime.NewLogger(ctx, resolved.Backend()).Info("user loaded", Int("rows", 3))
 	span.End()
 
 	// Shutdown flushes both providers, so the assertions do not race the batch
 	// interval.
-	if err := resolved.shutdown(t.Context()); err != nil {
+	if err := resolved.Shutdown(t.Context()); err != nil {
 		t.Fatalf("shutdown: %v", err)
 	}
 
@@ -103,8 +103,8 @@ func TestProductionExportLeavesStdoutAlone(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { _ = resolved.shutdown(t.Context()) })
-	if resolved.sinkCount() != 1 {
-		t.Fatalf("sinks = %d, want the collector alone", resolved.sinkCount())
+	t.Cleanup(func() { _ = resolved.Shutdown(t.Context()) })
+	if resolved.SinkCount() != 1 {
+		t.Fatalf("sinks = %d, want the collector alone", resolved.SinkCount())
 	}
 }

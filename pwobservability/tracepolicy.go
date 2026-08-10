@@ -1,10 +1,11 @@
-package pw
+package pwobservability
 
 import (
+	"github.com/shibukawa/popcornwave/pwconfig"
 	"github.com/shibukawa/popcornwave/pwruntime"
 )
 
-// resolveTracing turns configuration into the runtime span policy, or nil when
+// TracingPolicy turns configuration into the runtime span policy, or nil when
 // the framework should open no span of its own.
 //
 // exporting is the automatic answer: whether this process has somewhere to send
@@ -15,8 +16,8 @@ import (
 //
 // An invalid value resolves to nil here; validateTraceConfig reports it before
 // any request is served, exactly as query diagnostics do.
-func resolveTracing(config ObservabilityConfig, exporting bool) *pwruntime.Tracing {
-	enabled, err := resolveToggle(config.Trace.Enabled, exporting)
+func TracingPolicy(config pwconfig.ObservabilityConfig, exporting bool) *pwruntime.Tracing {
+	enabled, err := ResolveToggle(config.Trace.Enabled, exporting)
 	if err != nil || !enabled {
 		return nil
 	}
@@ -38,7 +39,7 @@ func resolveTracing(config ObservabilityConfig, exporting bool) *pwruntime.Traci
 	}
 }
 
-// traceForced reports whether configuration asked for framework spans outright
+// TraceForced reports whether configuration asked for framework spans outright
 // rather than through auto.
 //
 // It is what installs the request root span in a process that exports nothing.
@@ -46,7 +47,7 @@ func resolveTracing(config ObservabilityConfig, exporting bool) *pwruntime.Traci
 // parent between them and no server span above, which is a set of disconnected
 // roots rather than a trace. A project reaching this state is one holding its
 // own provider, and it wants the whole tree.
-func traceForced(config ObservabilityConfig) bool {
-	enabled, err := resolveToggle(config.Trace.Enabled, false)
+func TraceForced(config pwconfig.ObservabilityConfig) bool {
+	enabled, err := ResolveToggle(config.Trace.Enabled, false)
 	return err == nil && enabled
 }

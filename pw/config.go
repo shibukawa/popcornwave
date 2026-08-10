@@ -2,11 +2,11 @@ package pw
 
 import (
 	"context"
-	"database/sql"
 	"sync"
 
 	"github.com/shibukawa/popcornwave/middlewares"
 	"github.com/shibukawa/popcornwave/pwconfig"
+	"github.com/shibukawa/popcornwave/pwdatabase"
 	"github.com/shibukawa/popcornwave/pwruntime"
 	"github.com/shibukawa/popcornwave/sessionconfig"
 	"github.com/shibukawa/tinybind-go/configbind"
@@ -136,17 +136,12 @@ func (cleanup *runtimeCleanup) run(ctx context.Context) error {
 	return cleanup.err
 }
 
-// runtimeState is what startup opened, as distinct from what it read. The
-// settings live in pwconfig; these are the pools and the closers this process
-// now owns because of them.
+// runtimeState is what startup left this runtime to release. The settings live
+// in pwconfig and the pools in pwdatabase; what is left here is the ordered
+// list of closers, which is the one part of shutdown that is this runtime's.
 var runtimeState = struct {
 	sync.RWMutex
-	// db and dbDriver mirror the default group's connection for callers that
-	// predate the connection set.
-	db          *sql.DB
-	dbDriver    string
-	connections *pwruntime.ConnectionSet
-	cleanups    []*runtimeCleanup
+	cleanups []*runtimeCleanup
 }{}
 
 // runtimeResources builds the capsule every request is served with. exporting
@@ -156,15 +151,13 @@ func runtimeResources(backend *pwruntime.LogBackend, exporting bool) pwruntime.R
 	observability := Config[ObservabilityConfig](nil)
 	query := resolveQueryDiagnostics(observability, Development())
 	tracing := resolveTracing(observability, exporting)
-	configs := pwconfig.Snapshot()
-	runtimeState.RLock()
-	defer runtimeState.RUnlock()
+	db, driver := pwdatabase.Default()
 	return pwruntime.Resources{
-		Configs:     configs,
+		Configs:     pwconfig.Snapshot(),
 		Log:         backend,
-		DB:          runtimeState.db,
-		DBDriver:    runtimeState.dbDriver,
-		Connections: runtimeState.connections,
+		DB:          db,
+		DBDriver:    driver,
+		Connections: pwdatabase.Connections(),
 		Query:       query,
 		Trace:       tracing,
 	}

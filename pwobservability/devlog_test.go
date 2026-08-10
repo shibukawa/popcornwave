@@ -1,4 +1,4 @@
-package pw
+package pwobservability
 
 import (
 	"bytes"
@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/shibukawa/popcornwave/internal/pwenv"
+	"github.com/shibukawa/popcornwave/pwconfig"
 	"github.com/shibukawa/popcornwave/pwruntime"
 )
 
@@ -18,7 +19,7 @@ func TestDevelopmentLogSinkCreatesCanonicalJSONLLazily(t *testing.T) {
 	path := filepath.Join(t.TempDir(), ".log", "run.jsonl")
 	t.Setenv(pwenv.DevLogFileVar, path)
 	var diagnostic bytes.Buffer
-	sink, closer := developmentLogSink(ObservabilityConfig{ServiceName: "catalog"}, LevelDebug, EnvDevelopment, &diagnostic)
+	sink, closer := developmentSink(pwconfig.ObservabilityConfig{ServiceName: "catalog"}, pwruntime.LevelDebug, pwconfig.EnvDevelopment, &diagnostic)
 	if sink == nil || closer == nil {
 		t.Fatal("development path did not install a file sink")
 	}
@@ -91,7 +92,7 @@ func TestDevelopmentLogSinkDisablesAfterOneFilesystemFailure(t *testing.T) {
 	}
 	t.Setenv(pwenv.DevLogFileVar, filepath.Join(parent, "run.jsonl"))
 	var diagnostic bytes.Buffer
-	sink, closer := developmentLogSink(ObservabilityConfig{}, LevelInfo, EnvDevelopment, &diagnostic)
+	sink, closer := developmentSink(pwconfig.ObservabilityConfig{}, pwruntime.LevelInfo, pwconfig.EnvDevelopment, &diagnostic)
 	defer closer.Close()
 	record := pwruntime.Record{Time: time.Now(), Level: pwruntime.LevelInfo, Message: "kept in terminal"}
 	sink.Emit(context.Background(), record)
@@ -103,11 +104,11 @@ func TestDevelopmentLogSinkDisablesAfterOneFilesystemFailure(t *testing.T) {
 
 func TestDevelopmentLogSinkRequiresPwDevHandoff(t *testing.T) {
 	t.Setenv(pwenv.DevLogFileVar, "")
-	if sink, closer := developmentLogSink(ObservabilityConfig{}, LevelInfo, EnvDevelopment, os.Stderr); sink != nil || closer != nil {
+	if sink, closer := developmentSink(pwconfig.ObservabilityConfig{}, pwruntime.LevelInfo, pwconfig.EnvDevelopment, os.Stderr); sink != nil || closer != nil {
 		t.Fatal("development without an injected path installed a file sink")
 	}
 	t.Setenv(pwenv.DevLogFileVar, filepath.Join(t.TempDir(), "run.jsonl"))
-	if sink, closer := developmentLogSink(ObservabilityConfig{}, LevelInfo, EnvProduction, os.Stderr); sink != nil || closer != nil {
+	if sink, closer := developmentSink(pwconfig.ObservabilityConfig{}, pwruntime.LevelInfo, pwconfig.EnvProduction, os.Stderr); sink != nil || closer != nil {
 		t.Fatal("production accepted the private development path")
 	}
 }

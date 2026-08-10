@@ -3,10 +3,10 @@ package auth
 import (
 	"context"
 	"errors"
+	"github.com/shibukawa/popcornwave/pwsession"
 	"net/http"
 	"time"
 
-	"github.com/shibukawa/popcornwave/pw"
 	"github.com/shibukawa/popcornwave/session"
 )
 
@@ -28,7 +28,7 @@ const sessionSlotKey = "pw_auth"
 // is left alone. Nothing is written here before a login in any case: establish
 // is the only writer, so the anonymous phase stores nothing.
 func registerSessionSlot() {
-	pw.RegisterSessionStore[SessionData](sessionSlotKey, session.Private)
+	pwsession.RegisterStore[SessionData](sessionSlotKey, session.Private)
 }
 
 // Session returns the validated login session of the request.

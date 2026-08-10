@@ -1,4 +1,4 @@
-package pw
+package pwsession
 
 import (
 	"context"
@@ -9,14 +9,16 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/shibukawa/popcornwave/pwconfig"
 	"github.com/shibukawa/popcornwave/session"
+	"github.com/shibukawa/popcornwave/sessionconfig"
 	"github.com/shibukawa/tinybind-go/sqlbind"
 )
 
-// SessionResources are the framework resources a session backend may borrow.
+// Resources are the framework resources a session backend may borrow.
 // A backend closes nothing it finds here: what it did not open, it does not
 // own.
-type SessionResources struct {
+type Resources struct {
 	// DB is the pool of api:rdb-middleware, already pinned to the session
 	// connection group. It is nil when no database is configured, and also on
 	// an engine that bypasses database/sql; Executor is the surface that
@@ -31,30 +33,30 @@ type SessionResources struct {
 	DBDriver string
 }
 
-// SessionBackendFactory opens one storage backend from configuration. It reads
+// BackendFactory opens one storage backend from configuration. It reads
 // only the keys of its own backend, opens and validates its own dependencies,
 // and returns them with the store so the host can release them later.
 //
 // Registration is a package init; opening happens here, at startup.
-type SessionBackendFactory func(context.Context, SessionConfig, SessionResources) (session.Backend, error)
+type BackendFactory func(context.Context, sessionconfig.SessionConfig, Resources) (session.Backend, error)
 
-var sessionBackends struct {
+var backendState struct {
 	sync.RWMutex
-	factories map[string]SessionBackendFactory
+	factories map[string]BackendFactory
 }
 
-// knownSessionBackendImports maps a backend nobody registered to the import
+// knownBackendImports maps a backend nobody registered to the import
 // that would. A missing storage plugin is the one configuration mistake whose
 // fix is a single line, so the startup error prints that line instead of a
 // list of names.
-var knownSessionBackendImports = map[string]string{
-	SessionBackendRDB:       "github.com/shibukawa/popcornwave/sessionstore/sqlite",
-	SessionBackendRedis:     "github.com/shibukawa/popcornwave/sessionstore/redis",
-	SessionBackendDynamo:    "github.com/shibukawa/popcornwave/sessionstore/dynamo",
-	SessionBackendFirestore: "github.com/shibukawa/popcornwave/sessionstore/firestore",
+var knownBackendImports = map[string]string{
+	sessionconfig.SessionBackendRDB:       "github.com/shibukawa/popcornwave/sessionstore/sqlite",
+	sessionconfig.SessionBackendRedis:     "github.com/shibukawa/popcornwave/sessionstore/redis",
+	sessionconfig.SessionBackendDynamo:    "github.com/shibukawa/popcornwave/sessionstore/dynamo",
+	sessionconfig.SessionBackendFirestore: "github.com/shibukawa/popcornwave/sessionstore/firestore",
 }
 
-// RegisterSessionBackend registers factory under name. A storage plugin calls
+// RegisterBackend registers factory under name. A storage plugin calls
 // it from init, so a blank import is what puts a backend in a binary:
 //
 //	import _ "github.com/shibukawa/popcornwave/sessionstore/redis"
@@ -64,49 +66,49 @@ var knownSessionBackendImports = map[string]string{
 //
 // A duplicate or empty name panics: two backends answering one configuration
 // value is a build mistake, not a runtime condition.
-func RegisterSessionBackend(name string, factory SessionBackendFactory) {
+func RegisterBackend(name string, factory BackendFactory) {
 	if name == "" || factory == nil {
 		panic("pw: session backend needs a name and a factory")
 	}
-	sessionBackends.Lock()
-	defer sessionBackends.Unlock()
-	if sessionBackends.factories == nil {
-		sessionBackends.factories = make(map[string]SessionBackendFactory)
+	backendState.Lock()
+	defer backendState.Unlock()
+	if backendState.factories == nil {
+		backendState.factories = make(map[string]BackendFactory)
 	}
-	if _, taken := sessionBackends.factories[name]; taken {
+	if _, taken := backendState.factories[name]; taken {
 		panic(fmt.Sprintf("pw: session backend %q is already registered", name))
 	}
-	sessionBackends.factories[name] = factory
+	backendState.factories[name] = factory
 }
 
-// SessionBackends lists the registered backend names in order. It is what the
+// Backends lists the registered backend names in order. It is what the
 // startup summary and error messages report.
-func SessionBackends() []string {
-	sessionBackends.RLock()
-	defer sessionBackends.RUnlock()
-	names := make([]string, 0, len(sessionBackends.factories))
-	for name := range sessionBackends.factories {
+func Backends() []string {
+	backendState.RLock()
+	defer backendState.RUnlock()
+	names := make([]string, 0, len(backendState.factories))
+	for name := range backendState.factories {
 		names = append(names, name)
 	}
 	sort.Strings(names)
 	return names
 }
 
-// OpenSessionBackend opens the backend named by config.Backend.
+// OpenBackend opens the backend named by config.Backend.
 //
 // A host calls this instead of importing a storage plugin, so adding a backend
 // changes no host and links nothing into an application that did not ask for
 // it.
-func OpenSessionBackend(ctx context.Context, config SessionConfig, resources SessionResources) (session.Backend, error) {
+func OpenBackend(ctx context.Context, config sessionconfig.SessionConfig, resources Resources) (session.Backend, error) {
 	name := strings.TrimSpace(config.Backend)
 	if name == "" {
-		name = SessionBackendCookie
+		name = sessionconfig.SessionBackendCookie
 	}
-	sessionBackends.RLock()
-	factory, ok := sessionBackends.factories[name]
-	sessionBackends.RUnlock()
+	backendState.RLock()
+	factory, ok := backendState.factories[name]
+	backendState.RUnlock()
 	if !ok {
-		return session.Backend{}, missingSessionBackend(name)
+		return session.Backend{}, missingBackend(name)
 	}
 	backend, err := factory(ctx, config, resources)
 	if err != nil {
@@ -118,22 +120,22 @@ func OpenSessionBackend(ctx context.Context, config SessionConfig, resources Ses
 	return backend, nil
 }
 
-// missingSessionBackend explains an unregistered backend in terms of what the
+// missingBackend explains an unregistered backend in terms of what the
 // application can do about it.
-func missingSessionBackend(name string) error {
-	if path, known := knownSessionBackendImports[name]; known {
+func missingBackend(name string) error {
+	if path, known := knownBackendImports[name]; known {
 		return fmt.Errorf(
 			"session.backend = %q needs its plugin; add to the application: import _ %q", name, path)
 	}
 	return fmt.Errorf("session.backend = %q is not registered; registered backends: %s",
-		name, strings.Join(SessionBackends(), ", "))
+		name, strings.Join(Backends(), ", "))
 }
 
-// SessionCookiePolicy resolves the validated browser cookie policy of the
+// CookiePolicy resolves the validated browser cookie policy of the
 // session middleware. The cookie backend and the session manager share it, so
 // both halves of a session travel under one policy.
-func SessionCookiePolicy(config SessionConfig) (session.CookieOptions, error) {
-	sameSite, err := parseSessionSameSite(config.Cookie.SameSite)
+func CookiePolicy(config sessionconfig.SessionConfig) (session.CookieOptions, error) {
+	sameSite, err := parseSameSite(config.Cookie.SameSite)
 	if err != nil {
 		return session.CookieOptions{}, err
 	}
@@ -147,7 +149,12 @@ func SessionCookiePolicy(config SessionConfig) (session.CookieOptions, error) {
 	}, nil
 }
 
-func parseSessionSameSite(value string) (http.SameSite, error) {
+// ParseSameSite reads the configured attribute, which the startup validation
+// also needs: "none" without Secure is a cookie no browser accepts, and that is
+// refused before a port is bound rather than at the first response.
+func ParseSameSite(value string) (http.SameSite, error) { return parseSameSite(value) }
+
+func parseSameSite(value string) (http.SameSite, error) {
 	switch strings.ToLower(strings.TrimSpace(value)) {
 	case "", "lax":
 		return http.SameSiteLaxMode, nil
@@ -161,44 +168,44 @@ func parseSessionSameSite(value string) (http.SameSite, error) {
 }
 
 func init() {
-	RegisterSessionBackend(SessionBackendCookie, openCookieSessionBackend)
-	RegisterSessionBackend(SessionBackendDevVolatile, openDevVolatileSessionBackend)
-	RegisterSessionBackend(SessionBackendDevPersist, openDevPersistSessionBackend)
+	RegisterBackend(sessionconfig.SessionBackendCookie, openCookieBackend)
+	RegisterBackend(sessionconfig.SessionBackendDevVolatile, openDevVolatileBackend)
+	RegisterBackend(sessionconfig.SessionBackendDevPersist, openDevPersistBackend)
 }
 
-func validateDevelopmentSessionMode(name string) error {
-	if (name == SessionBackendDevVolatile || name == SessionBackendDevPersist) && !Development() {
+func ValidateDevelopmentMode(name string) error {
+	if (name == sessionconfig.SessionBackendDevVolatile || name == sessionconfig.SessionBackendDevPersist) && !pwconfig.Development() {
 		return fmt.Errorf("session.backend = %q is available only when APP_ENV=dev", name)
 	}
 	return nil
 }
 
-// openDevVolatileSessionBackend builds the process-local development backend.
-func openDevVolatileSessionBackend(_ context.Context, config SessionConfig, _ SessionResources) (session.Backend, error) {
-	if err := validateDevelopmentSessionMode(config.Backend); err != nil {
+// openDevVolatileBackend builds the process-local development backend.
+func openDevVolatileBackend(_ context.Context, config sessionconfig.SessionConfig, _ Resources) (session.Backend, error) {
+	if err := ValidateDevelopmentMode(config.Backend); err != nil {
 		return session.Backend{}, err
 	}
 	return session.Backend{Store: session.NewMemoryStore(nil)}, nil
 }
 
-// openDevPersistSessionBackend exposes the cookie store under a name that
+// openDevPersistBackend exposes the cookie store under a name that
 // states its development restart behavior. setupSession uses its ordinary
 // cookie path so the manager constructs exactly one browser store.
-func openDevPersistSessionBackend(ctx context.Context, config SessionConfig, resources SessionResources) (session.Backend, error) {
-	if err := validateDevelopmentSessionMode(config.Backend); err != nil {
+func openDevPersistBackend(ctx context.Context, config sessionconfig.SessionConfig, resources Resources) (session.Backend, error) {
+	if err := ValidateDevelopmentMode(config.Backend); err != nil {
 		return session.Backend{}, err
 	}
-	return openCookieSessionBackend(ctx, config, resources)
+	return openCookieBackend(ctx, config, resources)
 }
 
-// openCookieSessionBackend builds the built-in browser backend. It opens
+// openCookieBackend builds the built-in browser backend. It opens
 // nothing, so it hands back neither a Close nor a Prune.
-func openCookieSessionBackend(_ context.Context, config SessionConfig, _ SessionResources) (session.Backend, error) {
-	keys, err := sessionCookieKeyring(config.Backend, config.Keyring)
+func openCookieBackend(_ context.Context, config sessionconfig.SessionConfig, _ Resources) (session.Backend, error) {
+	keys, err := cookieKeyring(config.Backend, config.Keyring)
 	if err != nil {
 		return session.Backend{}, err
 	}
-	policy, err := SessionCookiePolicy(config)
+	policy, err := CookiePolicy(config)
 	if err != nil {
 		return session.Backend{}, err
 	}
@@ -212,12 +219,12 @@ func openCookieSessionBackend(_ context.Context, config SessionConfig, _ Session
 	return session.Backend{Store: store}, nil
 }
 
-// sessionCookieKeyring reads the secret that seals cookie-backed records. The
+// cookieKeyring reads the secret that seals cookie-backed records. The
 // secret itself never reaches an error message or a log.
-func sessionCookieKeyring(backend string, config SessionKeyringConfig) (*session.Keyring, error) {
+func cookieKeyring(backend string, config sessionconfig.SessionKeyringConfig) (*session.Keyring, error) {
 	if strings.TrimSpace(config.Secret) == "" {
 		if backend == "" {
-			backend = SessionBackendCookie
+			backend = sessionconfig.SessionBackendCookie
 		}
 		return nil, fmt.Errorf(
 			"session.backend = %q requires session.keyring.secret; generate one with: openssl rand -base64 32", backend)

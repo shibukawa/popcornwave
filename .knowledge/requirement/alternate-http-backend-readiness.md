@@ -87,7 +87,22 @@ prerequisites:
     chain_settings_followed: the reduction into pwruntime.ChainSettings moved too, so a parse publishes what a chain builder needs; without that a pw-free build parsed a file and then had pwfast.Middlewares refuse for want of settings
     application_surface_unchanged: every type is a true alias and every entry point a thin wrapper, so no application, scaffold or document changed
     proved_by: internal/fastonly, a real package that parses a configuration file and serves one fasthttp request through a chain composed from what it read, whose dependency graph is asserted to contain no pw
-    what_is_left: session, the database pools and the extension registry; plugin/auth still links pw for exactly those three
+    what_is_left: nothing of the four; see all_four_layers_moved_2026_08_11
+  all_four_layers_moved_2026_08_11:
+    layers:
+      pwconfig: the registry, the load, the framework's own bindings, the environment, and the connection group resolution
+      pwdatabase: opening the configured pools, the group selectors, and the pool lifetime
+      pwsession: the slot registry, the backend registry and its factories, the keyring, the cookie policy, the lifetime arithmetic, and the expiry sweep
+      pwobservability: the log backend, the OTLP exporters, the query diagnostics, and the span policy
+    what_each_runtime_kept: one frame per layer, and nothing else — manager.Middleware against pwfast.Session, the startup summary that reads what was resolved, and the shutdown order, which is a property of the chain that was built rather than of any layer
+    stacking: pwdatabase over pwconfig, pwsession over both, pwobservability over pwconfig, and no edge back; asserted rather than intended, because a cycle here is a startup order nobody could state
+    application_surface_unchanged: every moved type is a true alias and every moved entry point a thin wrapper
+    proved_by: go list -deps over all four, plus internal/fastonly, which parses a configuration file and serves one fasthttp request in a build whose graph contains no pw
+  what_is_left_2026_08_11:
+    fact: plugin/auth still links pw, and so does authfast through it
+    why: two files, and both are genuinely the net/http runtime's — the extension registration in auth.go and the net/http Exchange in httpexchange.go, which reaches pw.WriteProblem and pw.Redirect
+    not_a_layer: the four are done; what remains is a package split, moving the transport-free core to plugin/auth/authcore so plugin/auth becomes its net/http half and authfast its other one
+    size: 266 exported declarations would become aliases, which is why it is named rather than folded into the layer work
   open_here:
     superseded_note: the four entries below were the open list; all four are answered in settled_2026_08_10 above and are kept here for the reasoning rather than as questions
     test_seam:

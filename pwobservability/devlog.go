@@ -1,4 +1,4 @@
-package pw
+package pwobservability
 
 import (
 	"fmt"
@@ -10,15 +10,16 @@ import (
 	"sync"
 
 	"github.com/shibukawa/popcornwave/internal/pwenv"
+	"github.com/shibukawa/popcornwave/pwconfig"
 	"github.com/shibukawa/popcornwave/pwruntime"
 )
 
-// developmentLogSink returns the pw-dev-only JSONL destination. The path is
+// developmentSink returns the pw-dev-only JSONL destination. The path is
 // injected by the parent CLI rather than read from application configuration,
 // so a deployed process never starts writing a local file by accident.
-func developmentLogSink(config ObservabilityConfig, minimum Level, env string, diagnostic io.Writer) (pwruntime.Sink, io.Closer) {
+func developmentSink(config pwconfig.ObservabilityConfig, minimum pwruntime.Level, env string, diagnostic io.Writer) (pwruntime.Sink, io.Closer) {
 	path := strings.TrimSpace(os.Getenv(pwenv.DevLogFileVar))
-	if env != EnvDevelopment || path == "" {
+	if env != pwconfig.EnvDevelopment || path == "" {
 		return nil, nil
 	}
 	writer := &developmentLogWriter{path: path, diagnostic: diagnostic}
