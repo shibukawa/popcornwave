@@ -239,6 +239,11 @@ func validateUpdateConfig(config HTMLConfig) error {
 // answer and this hook exists for the log line — which is otherwise lost, since
 // a status alone cannot say whether a page was stale or a render failed.
 //
+// Since v0.5.1 it receives the context rather than the request: the module reads
+// nothing transport-shaped to call it, so it stopped asking for something
+// transport-shaped to call it with. That is the same move that made the update
+// entries portable, applied to the hook.
+//
 // Version skew is the ordinary case here: a page loaded before a deploy asks for
 // a component whose markup has changed, gets a 404, and reloads. It is recorded
 // rather than treated as a fault.
@@ -247,12 +252,11 @@ func validateUpdateConfig(config HTMLConfig) error {
 // is answered at the page's own URL, so a request from another build is not
 // refused at all: the caller renders the page it was going to render, which
 // costs a reload instead of a refusal followed by one.
-func observeUpdateFailure(r *http.Request, failure htmlupdate.Failure) {
+func observeUpdateFailure(ctx context.Context, failure htmlupdate.Failure) {
 	level := LevelWarn
 	if failure.Kind == htmlupdate.FailureUnknownComponent {
 		level = LevelInfo
 	}
-	ctx := requestContext(r)
 	Logger(ctx).Log(ctx, level, "update request refused",
 		String("kind", failure.Kind.String()), String("component", failure.KindID),
 		String("instance", failure.InstanceID), Err(failure.Err))
@@ -264,7 +268,7 @@ func observeUpdateFailure(r *http.Request, failure htmlupdate.Failure) {
 // The module never saw these, so nothing has logged them yet and the hook is
 // called here rather than left to the entry that did not run.
 func writeUpdateFailure(w http.ResponseWriter, r *http.Request, failure htmlupdate.Failure) {
-	observeUpdateFailure(r, failure)
+	observeUpdateFailure(requestContext(r), failure)
 	writeUpdateResponse(w, r, htmlupdate.FailureResponse(failure), "")
 }
 

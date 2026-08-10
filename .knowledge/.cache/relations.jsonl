@@ -4564,7 +4564,6 @@
 {"context": "body", "path": ".knowledge/requirement/pw-language-server.md", "source": "requirement:pw-language-server", "target": "policy:editor-tool-execution", "target_category": "constraint", "target_type": "policy"}
 {"context": "body", "path": ".knowledge/requirement/pwfast-update-surface.md", "source": "requirement:pwfast-update-surface", "target": "api:pwfast-package", "target_category": "interface", "target_type": "api"}
 {"context": "body", "path": ".knowledge/requirement/pwfast-update-surface.md", "source": "requirement:pwfast-update-surface", "target": "policy:absent-rather-than-stubbed", "target_category": "constraint", "target_type": "policy"}
-{"context": "body", "path": ".knowledge/requirement/pwfast-update-surface.md", "source": "requirement:pwfast-update-surface", "target": "requirement:action-response-update", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/requirement/pwfast-update-surface.md", "source": "requirement:pwfast-update-surface", "target": "decision:live-delivery-transport", "target_category": "constraint", "target_type": "decision"}
 {"context": "body", "path": ".knowledge/requirement/query-diagnostics.md", "source": "requirement:query-diagnostics", "target": "actor:application-developer", "target_category": "behavior", "target_type": "actor"}
 {"context": "body", "path": ".knowledge/requirement/query-diagnostics.md", "source": "requirement:query-diagnostics", "target": "data:framework-span-set", "target_category": "structure", "target_type": "data"}

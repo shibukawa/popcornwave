@@ -3,11 +3,11 @@
 package pages
 
 import (
+	"context"
 	"github.com/shibukawa/popcornwave/pw"
 	"github.com/shibukawa/tinybind-go/htmlbind"
 	"github.com/shibukawa/tinybind-go/htmlbind/delta"
 	"github.com/shibukawa/tinybind-go/htmlupdate"
-	"net/http"
 	"net/url"
 )
 
@@ -57,7 +57,7 @@ const CardKind = "pages.page.Card"
 
 var CardReloadable = htmlupdate.Reloadable{
 	KindID: CardKind,
-	Render: func(r *http.Request, instanceID string, values url.Values) (htmlbind.Fragment, error) {
+	Render: func(_ context.Context, instanceID string, values url.Values) (htmlbind.Fragment, error) {
 		var params CardParams
 		params.Id = instanceID
 		if err := htmlupdate.QueryInt(values, "page", &params.Page); err != nil {
