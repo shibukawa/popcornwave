@@ -263,23 +263,6 @@ func ServeUpdate(r *fasthttp.RequestCtx, wrappers []HTMLWrapper, leaf HTMLFragme
 	return true
 }
 
-// Live delivery is deliberately absent, and this is where it would go.
-//
-// A first cut called the module's own live entry, which compiles and is wrong:
-// the net/http half does not use that entry. It runs its own loop over the
-// chain renderer and layers on what makes live usable — admission control per
-// client, a lifetime and idle watchdog, digest suppression seeded from the
-// client's manifest so a reconnect re-sends only what changed, a bound on
-// boundaries, and the render telemetry. None of that exists in the module
-// entry, so this half would have answered the same requests with a poorer
-// stream and no way for anyone to notice.
-//
-// The convergence runs the other way: the transport-free majority of that loop
-// — the digests, the manifest, the watchdog, the admission, the records, the
-// close reasons — belongs in the shared leaf, leaving each runtime the headers,
-// the write, and the flush. Both halves then run the richer implementation
-// rather than one running a thinner one.
-//
 // boundedRenderContext applies the configured boundary bound to a render.
 //
 // A streamed answer settles its await boundaries as it goes, and without this a
