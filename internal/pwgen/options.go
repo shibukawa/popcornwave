@@ -158,6 +158,12 @@ func Options(sqlDialect string) (generator.Options, error) {
 		{name: "FormValue", writer: -1, request: 0},
 		{name: "IsBot", writer: -1, request: 0},
 		{name: "OpenAPIJSON", writer: 0, request: 1},
+		// The two accessors a generated route decoder reads through. They take
+		// the request and no writer, and they exist so a decoder never reaches
+		// into the request value itself — which is the read no second transport
+		// can follow.
+		{name: "PathValue", writer: -1, request: 0},
+		{name: "Queries", writer: -1, request: 0},
 	} {
 		options := []generator.CallPatternOption{generator.RequestArgument(transport.request)}
 		if transport.writer >= 0 {

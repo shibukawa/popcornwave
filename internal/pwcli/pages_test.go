@@ -126,7 +126,11 @@ func TestRunGeneratePageTreeCallsTypedLoad(t *testing.T) {
 		t.Errorf("typed Load is not called with its route input:\n%s", registry)
 	}
 	decoder := readTestFile(t, filepath.Join(root, "pages", "users", "id_", "route_pw_gen.go"))
-	if !strings.Contains(decoder, `r.PathValue("id")`) {
+	// Through the framework accessor rather than off the request value. That
+	// read is one no second transport can follow — fasthttp has no path routing
+	// of its own, so there is no method on its request to call — and routing
+	// both through pw is what lets one decoder template serve either.
+	if !strings.Contains(decoder, `pw.PathValue(r, "id")`) {
 		t.Errorf("decoder does not read the dynamic segment:\n%s", decoder)
 	}
 }

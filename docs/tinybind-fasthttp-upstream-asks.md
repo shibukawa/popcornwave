@@ -1,84 +1,67 @@
 # What Popcorn Wave needs from tinybind-go for a fasthttp build
 
-Surveyed against **tinybind-go v0.5.1** on 2026-08-10, by diffing the exported
+Surveyed against **tinybind-go v0.5.2** on 2026-08-10, by diffing the exported
 surface of every package.
 
-**Everything this page used to ask for has shipped**, and the record of that is
-below. Two asks are open. The first — `routetree` emitting only net/http — is
-now the single largest thing between this framework and a runnable second
-backend, and it appeared on this page only after we built enough of our own side
-to reach it. The second is a convenience we have already worked around.
+**Nothing is open.** Everything this page asked for has shipped, the last of it
+in v0.5.2, and the record of what landed is below.
 
 ---
 
-## Open asks
+## Nothing open
 
-Two, found by diffing every exported surface rather than from memory. The first
-is the one that matters.
+Both asks shipped in **v0.5.2**, and the first one shipped larger than it was
+asked for.
 
-### 1. `routetree` emits net/http only, and it is the whole page tree
+### `routetree` now emits either transport
 
-`routetree` names `net/http` in `emit.go`, `pagefunc.go` and `registry.go`, and
-there is no option anywhere to emit the other shape. Three separate things come
-out net/http-only:
+We asked for a transport option on the decoder emitter. What landed is a
+configuration surface for the whole tree:
 
-- **The decoder.** `EmitDecoder(route, inputs)` writes `r.PathValue(…)` and
-  `r.URL.Query()` — reads off the request value itself.
-- **The registration.** `emit.go` writes `mux.HandleFunc(pattern, func(w
-  http.ResponseWriter, r *http.Request){…})`, against a one-method `Router`
-  interface whose method signature names both halves.
-- **The accepted page function.** `pagefunc.go` accepts `func(http.ResponseWriter,
-  *http.Request)` as one of the two legal shapes for a page func.
+- **`Symbols`** names every identity the templates call — the router type and
+  its package, the request type, the handler parameter list, the identifiers a
+  handler body uses, the error constructors, and the three request accessors a
+  decoder reads through.
+- **`Symbols.RequestIsContext`** records that the request value is itself a
+  context, so a decoder reaches the context without a `.Context()` call.
+- **`Symbols.CatchAllSuffix` and `RootPattern`** carry the two spellings a trie
+  router does not share with Go 1.22. Their documentation makes the point we
+  would have had to learn: neither has an "unsupported" value, because both
+  default to a working router and an unset field could not be told from a router
+  that needs no rewrite. Getting them wrong does not fail — the router reads
+  `{rest...}` as a parameter named `rest...` and installs the route somewhere
+  else.
+- **`HandlerShape`**, which we had not thought to ask for. A recognizer keyed on
+  net/http reads a fasthttp handler as a malformed typed page and reports a
+  signature error for a declaration that is correct.
 
-So a fasthttp build of a project with a page tree has no routes and no decoders
-at all, which is the single largest thing standing between this framework and a
-runnable second backend.
+Our side is one more emitter configuration — `pwgen.FastPageEmitter` — and no
+second template. A test generates one fixture tree with both and compares.
 
-The accessors it would need already exist and are already right:
-`httpbind.PathValue` and `fasthttpbind.PathValue` carry the same name and take
-the transport first, which is exactly the shape a rewrite wants. Query reads
-have the same pair. So for the decoder this is a transport option and a
-substitution table, not a design question.
+### The decoder now reads through the framework
 
-Registration needs one decision from you rather than from us: what the emitted
-`Router` interface is on the other side. Ours is
-`HandleFunc(pattern string, handler func(*fasthttp.RequestCtx))`, and
-`pwfast.ServeMux` satisfies it today — it translates Go 1.22 patterns onto the
-vendored trie router, including the `{$}` your emitter writes for the root of
-every page tree.
+Not asked for, and better than what was. The emitted decoder calls
+`pw.PathValue(r, …)`, `pw.Queries(r)` and `pw.QueryLookup(query, …)` on **both**
+transports rather than `r.PathValue` and `r.URL.Query()`. That removes the last
+place generated code reached into the request value, which is the read the
+containment rule exists to forbid — so the generated output now satisfies the
+rule it was previously exempt from by being generated.
 
-We are **not** asking you to rewrite generated output. Generated files are
-outputs rather than transform inputs, emitted per backend, so the emitter
-choosing its transport is the whole fix.
-
-### 2. The assembled OpenAPI document has no cached public read
-
-`AssembleOpenAPI()` is exported and transport-free, and five of the seven
-OpenAPI entries take no transport at all, so almost none of this surface needed
-porting. The two that do are `OpenAPIJSON(w, r)` and `SwaggerUI(specURL)
-http.Handler`; we use only the first.
-
-We serve it on the second transport by calling `AssembleOpenAPI()` per request,
-because `cachedOpenAPI` is unexported and there is no way to observe a fragment
-registration from outside the module. It is a documentation endpoint, so the
-cost is acceptable and this is working today.
-
-The ask, if you want it: one transport-free cached read — say
-`OpenAPIDocument() ([]byte, error)` — which serves any framework on any
-transport and makes `OpenAPIJSON` a thin caller of it. Low priority; we are not
-blocked.
+It cost us three new `pw` entries and two call-pattern registrations. Our own
+registration test caught the missing patterns.
 
 ---
 
 ## Confirmed complete, by measurement
 
-Both diffs were taken against v0.5.1 by comparing exported sets, not by reading
-release notes.
+Both diffs were taken by comparing exported sets, not by reading release notes.
 
 - **`htmlupdate` against `fasthttpupdate`** — identical, entry for entry.
 - **`httpbind` against `fasthttpbind`** — 71 against 64, and every one of the
-  seven is the OpenAPI surface above. Nothing else is missing in either
-  direction.
+  seven is the OpenAPI surface. Five of those take no transport and needed no
+  port; of the two that do we use one, and serve it by assembling the document
+  per request because the module's cache is unexported. It is a documentation
+  endpoint, so that is acceptable and we are not blocked.
 
 ---
 
