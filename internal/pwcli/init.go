@@ -1058,6 +1058,7 @@ func PublicFS() fs.FS {
 	files["public/app.css"] = applicationStylesheet(options)
 	if options.Dynamo {
 		files[defaultDynamoDir+"/note.go"] = dynamoRecordScaffold()
+		files[defaultDynamoDir+"/notes.pw.dynamo"] = dynamoQueryScaffold()
 	}
 	if options.Firestore {
 		files[defaultFirestoreDir+"/note.go"] = firestoreEntityScaffold()
@@ -1330,23 +1331,46 @@ type Note struct {
 // so these two calls are what make EncodeItem, DecodeItem, and ItemKey appear
 // beside this file. Delete them and the generated code shrinks to match.
 //
-// dynamo.Handle returns the process client bound to the configured table
-// naming, so no context value stands between a call and the store. A declared
-// .pw.dynamo query resolves the same handle itself.
+// Discovery matches the context-form entries, which read the client from the
+// context rather than taking it. dynamo.EnsureClient is what puts the process
+// handle there — one call, at the edge of the package, rather than a value
+// travelling in request contexts. The handle-form entries beside these
+// (StoreOn, LoadOn) take it as an argument and are the ones to reach for once
+// the codec exists; a package that calls only those is a package the generator
+// sees no use in, and its codec is never emitted.
 func StoreNote(ctx context.Context, note Note) error {
-	h, err := dynamo.Handle(ctx)
-	if err != nil {
-		return err
+	ctx, ok := dynamo.EnsureClient(ctx)
+	if !ok {
+		return dynamobind.ErrNoClient
 	}
-	return dynamobind.StoreOn(ctx, h, "note", note)
+	return dynamobind.Store(ctx, "note", note)
 }
 
 func LoadNote(ctx context.Context, id string, createdAt time.Time) (Note, error) {
-	h, err := dynamo.Handle(ctx)
-	if err != nil {
-		return Note{}, err
+	ctx, ok := dynamo.EnsureClient(ctx)
+	if !ok {
+		return Note{}, dynamobind.ErrNoClient
 	}
-	return dynamobind.LoadOn[Note](ctx, h, "note", Note{ID: id, CreatedAt: createdAt}.ItemKey())
+	return dynamobind.Load[Note](ctx, "note", Note{ID: id, CreatedAt: createdAt}.ItemKey())
+}
+`
+}
+
+// dynamoQueryScaffold is the starter access pattern, which the Firestore
+// scaffold has had and this one had not.
+//
+// It is not decoration beside the type: a declaration is a use of its result
+// type, so it is what makes the read side of the codec exist for a package that
+// declares one. Its call site names neither the table nor the client, which is
+// the whole point of declaring it.
+func dynamoQueryScaffold() string {
+	return `// Access patterns for Note. Every attribute here is checked against the dynamo
+// tags on the Go type, so a renamed tag fails generation rather than returning
+// an empty page.
+
+export statement NotesSince(id: string, from: time.Time): dynamo.many<Note> {
+  table note
+  key id = {id} and created_at > {from}
 }
 `
 }

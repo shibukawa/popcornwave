@@ -7,17 +7,23 @@
 //	import _ "github.com/shibukawa/popcornwave/database/dynamo"
 //
 // It wraps no operation. There is no database/sql here to hide three engines
-// behind, so a handler calls tinybind's dynamobind directly, handing it the
-// process handle. A generated .pw.dynamo query resolves the same handle
-// itself, so its call sites stay context-only:
+// behind, so a handler calls tinybind's dynamobind directly. A generated
+// .pw.dynamo query resolves the handle itself, so its call sites take nothing
+// but the context:
 //
-//	h, err := dynamo.Handle(ctx)
-//	reading, err := dynamobind.LoadOn(ctx, h, "reading", key)
+//	ctx, ok := dynamo.EnsureClient(ctx)
+//	reading, err := dynamobind.Load[Reading](ctx, "reading", key)
 //	for reading, err := range records.ReadingsSince(ctx, sensor, from) { ... }
 //
+// Those are the item entries generation discovers, by name, and the codec they
+// need is emitted for the directions a package is found to use — so a package
+// calling only the handle-form twins ([dynamobind.LoadOn] and the rest) is one
+// the generator sees no use in, and its codec never appears. [Handle] and the
+// handle form remain for a caller already holding one.
+//
 // The client is a deployment fact fixed for a process, so nothing is installed
-// into request contexts: no context.Value stands between a call site and the
-// client.
+// into request contexts by the framework: EnsureClient puts it on one context
+// at the edge of a store package rather than on every request's.
 //
 // Table names in source are the declared ones. The deployed name comes from the
 // configured prefix or mapping, carried by the handle and applied inside the
@@ -75,10 +81,11 @@ func Handle(ctx context.Context) (dynamobind.Handle, error) {
 // EnsureClient returns a context on which dynamobind's context-form entries
 // resolve the process client, reporting false when none can be reached.
 //
-// A pw call site does not need it: Handle reads the process state directly, so
-// neither a request context nor a setup context carries a client node. It
-// remains for code handing a context to something that still calls the
-// context-form dynamobind entries. A context that already carries a client is
+// A store package calls it once, at the entry points that reach the item
+// operations, because those entries are the ones generation discovers and they
+// read the client from the context. Nothing is installed into request contexts
+// by doing so: this is a context a package builds for its own call, not one the
+// framework hands every handler. A context that already carries a client is
 // returned unchanged.
 func EnsureClient(ctx context.Context) (context.Context, bool) {
 	if _, err := dynamobind.ClientFromContext(ctx); err == nil {
