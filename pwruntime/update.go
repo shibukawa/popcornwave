@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"sync"
 	"sync/atomic"
+	"time"
 
+	"github.com/shibukawa/tinybind-go/htmlbind"
 	"github.com/shibukawa/tinybind-go/htmlupdate"
 )
 
@@ -43,6 +45,35 @@ type UpdateSettings struct {
 	MaxManifestBytes    int
 	CSRFHeaderName      string
 	CallerOwnsRuntime   bool
+	// AsyncTimeout bounds one await boundary and AsyncConcurrency bounds the
+	// boundary work running at once. They travel with the update settings
+	// because a streamed answer renders the same chain a document does, and a
+	// runtime that could not read them would settle boundaries on terms the
+	// deployment did not choose.
+	AsyncTimeout     time.Duration
+	AsyncConcurrency int
+}
+
+// RenderOptions is the option set a streamed answer renders with, built from
+// the published settings so both runtimes bound a boundary the same way.
+//
+// It is the shared subset rather than everything pw assembles: the cache store
+// and its scope are resolved from the request context by whichever runtime owns
+// that resolution, and a caller adds them after these.
+func (s UpdateSettings) RenderOptions(ctx context.Context) []htmlbind.Option {
+	options := []htmlbind.Option{
+		htmlbind.WithContext(ctx),
+		htmlbind.WithErrorReporter(func(err error) {
+			ReadLogger(ctx).Log(ctx, LevelError, "await boundary failed", Err(err))
+		}),
+	}
+	if s.AsyncTimeout > 0 {
+		options = append(options, htmlbind.WithAsyncTimeout(s.AsyncTimeout))
+	}
+	if s.AsyncConcurrency > 0 {
+		options = append(options, htmlbind.WithConcurrencyLimit(s.AsyncConcurrency))
+	}
+	return options
 }
 
 var updateSettingsState atomic.Pointer[UpdateSettings]

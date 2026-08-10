@@ -6,7 +6,7 @@ title: The Update Surface On The Second Backend
 The partial-update surface is missing from api:pwfast-package, and it is not one gap: after the response refactor most of it needs only a way to read a request, and only the streaming half needs the flusher inversion upstream defers.
 
 ```yaml
-status: implemented 2026-08-10, apart from live delivery
+status: implemented 2026-08-10, including streamed navigation and live
 surveyed: 2026-08-10, against tinybind-go v0.5.1
 delivered_in_v0_5_1:
   package: fasthttpupdate, the update surface mirrored over the fasthttp request value
@@ -37,7 +37,8 @@ three_groups:
     how_upstream_did_it: both, in fact, with an internal request reader behind a mirrored package, so the shared core is written once and each side spells its own parameter
   genuinely_blocked:
     entries: the streaming ones, which each wrote through the response as they went while the delta stream held a flusher
-    still_unwired_here: live delivery, whose upstream half exists and whose wiring in api:pwfast-package is the one piece left
+    wired_2026_08_10: api:pwfast-package answers both a streamed navigation and a live subscription through the module's entries
+    remaining_difference: the net/http half keeps its own live loop, written before the module had one, so the two produce the same records from different code; converging them is the last item and is about drift rather than capability
     resolved: the shape changed rather than the flusher, so the entries are callbacks and both backends run them; live delivery is available on the second backend, which this concept expected to be the last thing to arrive
     correction: this group was called genuinely blocked, and it was blocked only for as long as the shape was taken as fixed
     upstream_position: deferred with the live boundary and the update endpoint, and recorded there as needing reimplementation rather than adaptation

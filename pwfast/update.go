@@ -1,6 +1,7 @@
 package pwfast
 
 import (
+	"context"
 	"errors"
 	"net/http"
 
@@ -189,15 +190,25 @@ func answerRedraw(r *fasthttp.RequestCtx, options fasthttpupdate.Options, regist
 // what lets this half exist: the value carries a status, a header set, and a
 // body, and none of the three names a transport. Only this function does.
 func writeUpdateResponse(r *fasthttp.RequestCtx, response fasthttpupdate.Response) {
-	for name, values := range response.Header {
-		for _, value := range values {
-			r.Response.Header.Add(name, value)
-		}
-	}
+	applyHeader(r, response.Header)
 	if response.Status != 0 {
 		r.SetStatusCode(response.Status)
 	}
 	_, _ = r.Write(response.Body)
+}
+
+// applyHeader copies a composed header set onto the response.
+//
+// The header type is net/http's on both sides because the module composes it,
+// and it is an ordinary map rather than a transport: nothing here reads a
+// request or writes a body. Only the destination differs, which is the whole
+// reason a second copier exists.
+func applyHeader(r *fasthttp.RequestCtx, header http.Header) {
+	for name, values := range header {
+		for _, value := range values {
+			r.Response.Header.Add(name, value)
+		}
+	}
 }
 
 // errUnsafeNavigation reports a navigation target this framework will not hand
@@ -208,3 +219,96 @@ var errUnsafeNavigation = errors.New("popcornwave: navigation target is not a UR
 // errUpdatesDisabled reports an update entry called by a project that never
 // enabled the feature, which is a wiring mistake rather than a request one.
 var errUpdatesDisabled = errors.New("popcornwave: partial updates are not enabled; set html.update.enabled")
+
+// ServeUpdate answers a negotiated streamed navigation with the delta of one
+// chain, and reports whether it did.
+//
+// The module owns the comparison and the framing; what this supplies is the
+// headers a stream must carry before its first record, and the request value it
+// writes into. Both come from the same entry pw calls, so the two transports
+// send the same records rather than two implementations that agree.
+func ServeUpdate(r *fasthttp.RequestCtx, wrappers []HTMLWrapper, leaf HTMLFragment, options ...HTMLOption) bool {
+	settings, ok := pwruntime.ResolvedUpdateSettings()
+	if !ok || !settings.Enabled {
+		return false
+	}
+	update, ok := updateOptions()
+	if !ok {
+		return false
+	}
+	if update.Negotiate(r).Mode != fasthttpupdate.ModeNavigation {
+		return false
+	}
+	// A stream commits with its first record, so everything the response has to
+	// carry goes on before the render starts: the axes that keep a cache from
+	// answering a document request with a delta, the framing, and the mode
+	// echoed back.
+	applyHeader(r, update.StreamHeaders(r, wrappers, leaf))
+	r.Response.Header.Set("Cache-Control", updateCacheControl)
+	ctx, cancel := boundedRenderContext(r, settings)
+	defer cancel()
+	render := append(settings.RenderOptions(ctx), options...)
+	if err := update.RenderStreamAsync(ctx, r, wrappers, leaf, render...); err != nil {
+		// A delta commits with its first record, so a failure after that can
+		// only travel in band; the module writes it there and returns it here
+		// for the log. Before the first record nothing is committed and the
+		// ordinary problem path still applies.
+		if r.Response.Header.StatusCode() != 0 && len(r.Response.Body()) > 0 {
+			pwruntime.ReadLogger(ctx).Log(ctx, pwruntime.LevelError,
+				"update stream failed after commit", pwruntime.Err(err))
+			return true
+		}
+		WriteProblem(r, InternalServerError(err))
+	}
+	return true
+}
+
+// ServeLive answers a live mode request with the deliveries of one chain, and
+// reports whether it did.
+//
+// The subscription is held open by the module's own live entry rather than by a
+// loop here. That is deliberate: the net/http half predates the module having
+// one and keeps its own, and two hand-written live loops would be two chances to
+// disagree about framing, digests, and close reasons — on the one response
+// nobody watches. Converging them is tracked; until it happens this half calls
+// the module and the other does not, which is a difference in implementation
+// and not in what a client receives.
+func ServeLive(r *fasthttp.RequestCtx, wrappers []HTMLWrapper, leaf HTMLFragment, options ...HTMLOption) bool {
+	settings, ok := pwruntime.ResolvedUpdateSettings()
+	if !ok || !settings.Enabled {
+		return false
+	}
+	update, ok := updateOptions()
+	if !ok {
+		return false
+	}
+	if update.Negotiate(r).Mode != fasthttpupdate.ModeLive {
+		return false
+	}
+	applyHeader(r, update.LiveHeaders(r, wrappers, leaf))
+	r.Response.Header.Set("Cache-Control", updateCacheControl)
+	ctx, cancel := boundedRenderContext(r, settings)
+	defer cancel()
+	render := append(settings.RenderOptions(ctx), options...)
+	if err := update.RenderLiveStream(ctx, r, wrappers, leaf, render...); err != nil {
+		pwruntime.ReadLogger(ctx).Log(ctx, pwruntime.LevelError,
+			"live stream failed", pwruntime.Err(err))
+	}
+	return true
+}
+
+// boundedRenderContext applies the configured boundary bound to a render.
+//
+// A streamed answer settles its await boundaries as it goes, and without this a
+// chain whose source never answers would hold the response open until the
+// request context ended, which is the stall the timeout exists to prevent.
+func boundedRenderContext(r *fasthttp.RequestCtx, settings pwruntime.UpdateSettings) (context.Context, context.CancelFunc) {
+	if settings.AsyncTimeout <= 0 {
+		return r, func() {}
+	}
+	return context.WithTimeout(r, settings.AsyncTimeout)
+}
+
+// updateCacheControl keeps a delta and a live delivery out of every cache. A
+// shared cache holding one would answer another reader's page with it.
+const updateCacheControl = "private, no-store"
