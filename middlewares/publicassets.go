@@ -13,6 +13,8 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+
+	"github.com/shibukawa/popcornwave/pwruntime"
 	"sync"
 )
 
@@ -21,12 +23,9 @@ import (
 // it is the only tree whose file names match the URLs the pages carry.
 const localPublicRoot = "dist/public"
 
-// PublicAssetConfig controls the framework-owned static asset endpoint.
-type PublicAssetConfig struct {
-	Enabled   bool   `default:"true"`
-	Mount     string `default:"/public" dependon:".enabled"`
-	ReadLocal bool   `default:"false" dependon:".enabled"`
-}
+// PublicAssetConfig is the shared leaf's, aliased so there is one declaration
+// and one set of binder tags.
+type PublicAssetConfig = pwruntime.PublicAssetSettings
 
 // NormalizePublicMount validates a mount point and returns it with a trailing
 // slash. Its errors name the runtime configuration key they come from.
@@ -373,11 +372,16 @@ func readEmbeddedPublicAsset(embedded fs.FS, name string) (publicAsset, bool) {
 // The returned rank indexes staticContentCodings, or is -1 for identity, so the
 // caller reads the matching validator without matching on the token again.
 func selectPublicRepresentation(r *http.Request, asset publicAsset) ([]byte, int, bool) {
+	return selectRepresentationFor(r.Header["Accept-Encoding"], asset)
+}
+
+// selectRepresentationFor is selectPublicRepresentation over the header values
+// it reads, which is all it reads.
+func selectRepresentationFor(values []string, asset publicAsset) ([]byte, int, bool) {
 	if publicDevelopment {
 		return asset.identity, -1, true
 	}
-	values, present := r.Header["Accept-Encoding"]
-	if !present {
+	if len(values) == 0 {
 		return asset.identity, -1, true
 	}
 	header := strings.Join(values, ",")
@@ -394,4 +398,84 @@ func selectPublicRepresentation(r *http.Request, asset publicAsset) ([]byte, int
 		return asset.identity, -1, true
 	}
 	return nil, -1, false
+}
+
+// The exported names below are the transport-free half of static asset
+// serving, for the second transport's own middleware.
+//
+// They are exported rather than moved because everything they touch is already
+// pure: the manifest and the coding negotiation name no transport at all, and
+// what is left here is which header to read and where to write bytes. Moving
+// eight hundred lines of asset handling to share four functions would be a
+// large change to security-relevant code for no behavioural gain — but the path
+// check in particular has to be shared, because two implementations of "which
+// names may be served" are two chances to serve one that must not be.
+//
+// When the clean split reaches this layer, the pure half moves to a shared leaf
+// and these become aliases.
+
+// PublicAsset is one resolved asset: its bytes and every precompressed
+// representation the build produced.
+type PublicAsset = publicAsset
+
+// ResolvedPublicAsset is a PublicAsset with its media type and validators
+// computed.
+type ResolvedPublicAsset = resolvedPublicAsset
+
+// PublicAssetName validates a request path as an asset name, refusing anything
+// that could escape the tree or name a precompressed sidecar directly.
+func PublicAssetName(name string) (string, bool) { return publicAssetName(name) }
+
+// ResolvePublicAsset reads one asset from the local tree or the embedded one.
+func ResolvePublicAsset(name string, config PublicAssetConfig, embedded fs.FS) (PublicAsset, bool) {
+	return resolvePublicAsset(name, config, embedded)
+}
+
+// FinishPublicAsset computes the media type and the validators of an asset.
+func FinishPublicAsset(asset PublicAsset) *ResolvedPublicAsset { return finishPublicAsset(asset) }
+
+// PublicRepresentation chooses what to send for one Accept-Encoding value,
+// returning the body, the coding rank, and whether anything was acceptable.
+func PublicRepresentation(acceptEncoding []string, asset PublicAsset) ([]byte, int, bool) {
+	return selectRepresentationFor(acceptEncoding, asset)
+}
+
+// PublicCodingToken names the content coding of a rank returned by
+// PublicRepresentation.
+func PublicCodingToken(rank int) string { return staticContentCodings[rank].token }
+
+// PublicManifestEntry returns the manifest entry for a name, when a build
+// produced one.
+func PublicManifestEntry(name string) (AssetEntry, bool) { return manifestEntry(name) }
+
+// PublicManifestRegistered reports whether a build produced a manifest, which
+// is what lets the request path read bytes and nothing else.
+func PublicManifestRegistered() bool { return !publicDevelopment && manifestRegistered() }
+
+// PublicManifestRepresentation chooses what to send for a manifest entry.
+func PublicManifestRepresentation(entry AssetEntry, accept, acceptEncoding []string) (AssetRepresentation, bool) {
+	return selectRepresentation(entry, accept, acceptEncoding)
+}
+
+// PublicVary names the headers that can change the answer for an entry.
+func PublicVary(entry AssetEntry) string { return varyForEntry(entry) }
+
+// PublicDevelopment reports whether this build serves assets in development
+// mode, where nothing is negotiated and nothing is cached.
+func PublicDevelopment() bool { return publicDevelopment }
+
+// Asset returns the underlying representations, so a second transport can
+// negotiate over them.
+func (r *resolvedPublicAsset) Asset() publicAsset { return r.asset }
+
+// ContentType is the media type this asset is sent as.
+func (r *resolvedPublicAsset) ContentType() string { return r.contentType }
+
+// ETag is the validator for one coding rank, or for the identity
+// representation when rank is negative.
+func (r *resolvedPublicAsset) ETag(rank int) string {
+	if rank >= 0 {
+		return r.encodedTags[rank]
+	}
+	return r.identityTag
 }

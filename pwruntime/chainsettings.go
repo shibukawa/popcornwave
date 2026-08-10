@@ -47,6 +47,9 @@ type ChainSettings struct {
 	// check reads most of it: the scope patterns, the token names, the cookie
 	// name and the lifetime.
 	CSRF CSRFConfig
+	// Public is the static asset configuration. The tree itself is not here
+	// because an embed is a fact of the binary rather than of a settings file.
+	Public PublicAssetSettings
 }
 
 var chainSettingsState atomic.Pointer[ChainSettings]
