@@ -218,19 +218,8 @@ func cardComponent(kind string) htmlupdate.Reloadable {
 // back what it found.
 func withEmptyReloadableRegistry(t *testing.T) {
 	t.Helper()
-	reloadableState.Lock()
-	saved := struct {
-		registry *htmlupdate.Registry
-		count    int
-		failure  error
-	}{reloadableState.registry, reloadableState.count, reloadableState.failure}
-	reloadableState.registry, reloadableState.count, reloadableState.failure = &htmlupdate.Registry{}, 0, nil
-	reloadableState.Unlock()
-	t.Cleanup(func() {
-		reloadableState.Lock()
-		defer reloadableState.Unlock()
-		reloadableState.registry, reloadableState.count, reloadableState.failure = saved.registry, saved.count, saved.failure
-	})
+	registry, count, failure := pwruntime.ResetReloadableForTest()
+	t.Cleanup(func() { pwruntime.RestoreReloadableForTest(registry, count, failure) })
 }
 
 // The escape hatch behind Redraw: a handler that publishes a set of its own

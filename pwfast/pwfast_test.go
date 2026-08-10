@@ -25,6 +25,12 @@ import (
 // test's idea of the transport instead of the transport.
 func serve(t *testing.T, handler fasthttp.RequestHandler, target string) (status int, header, body string) {
 	t.Helper()
+	return serveRaw(t, handler, target, "")
+}
+
+// serveRaw is serve with extra request headers, already CRLF-terminated.
+func serveRaw(t *testing.T, handler fasthttp.RequestHandler, target, extraHeaders string) (status int, header, body string) {
+	t.Helper()
 	listener := fasthttputil.NewInmemoryListener()
 	server := &fasthttp.Server{Handler: handler}
 	done := make(chan struct{})
@@ -46,7 +52,7 @@ func serve(t *testing.T, handler fasthttp.RequestHandler, target string) (status
 		t.Fatal(err)
 	}
 	defer func() { _ = conn.Close() }()
-	if _, err := conn.Write([]byte("GET " + target + " HTTP/1.1\r\nHost: example.test\r\nConnection: close\r\n\r\n")); err != nil {
+	if _, err := conn.Write([]byte("GET " + target + " HTTP/1.1\r\nHost: example.test\r\n" + extraHeaders + "Connection: close\r\n\r\n")); err != nil {
 		t.Fatal(err)
 	}
 	if err := conn.SetReadDeadline(time.Now().Add(2 * time.Second)); err != nil {

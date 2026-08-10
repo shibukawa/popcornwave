@@ -48,16 +48,18 @@ Our side followed all of these; nothing here is outstanding.
 
 ## What is left, and it is ours
 
-`pwfast` still has no update surface, and the reason is now entirely local.
+`pwfast` now has the update surface — `WantsUpdate`, `WriteUpdate`,
+`WriteUpdateNavigate`, `Redraw`, `RedrawComponents` — over `fasthttpupdate`.
 
-Every update entry needs a composed `Options`, which this framework builds from
-its own `HTMLConfig` — and that type is bound by generated configbind code
-inside `pw`. Reaching it from the second runtime means moving the configuration
-binding into the shared leaf, which touches our generation pipeline and is
-larger than the entries it unblocks.
+The local blocker we had recorded, that every entry needs options composed from
+a config type bound inside `pw`, is solved without moving the configuration
+binding: whichever runtime read the configuration file publishes what it
+resolved as a transport-free value, and the other half reads it. A settings file
+is not a transport concern, so the transport that read it and the transport that
+serves the request need not be the same one.
 
-Nothing is required of you for it. Recorded here so the dependency is not
-mistaken for one of yours.
+Live boundary delivery is the one piece not wired here yet. Everything it needs
+exists on your side; the work is ours.
 
 ---
 

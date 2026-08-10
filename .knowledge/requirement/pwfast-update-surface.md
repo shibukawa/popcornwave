@@ -6,7 +6,7 @@ title: The Update Surface On The Second Backend
 The partial-update surface is missing from api:pwfast-package, and it is not one gap: after the response refactor most of it needs only a way to read a request, and only the streaming half needs the flusher inversion upstream defers.
 
 ```yaml
-status: upstream half delivered 2026-08-10; the remainder is local
+status: implemented 2026-08-10, apart from live delivery
 surveyed: 2026-08-10, against tinybind-go v0.5.1
 delivered_in_v0_5_1:
   package: fasthttpupdate, the update surface mirrored over the fasthttp request value
@@ -28,7 +28,8 @@ three_groups:
       what: every update entry needs the composed htmlupdate options, which are built from HTMLConfig, and that type is bound by the generated configbind code inside pw
       size: moving it means regenerating the configuration binding into the leaf, which is larger than the entry it would unblock and touches the generation pipeline
       consequence: this group is not upstream-blocked but is not free either
-      now_the_only_blocker: with the upstream half delivered, this is the whole of what stands between pwfast and the update surface
+      resolved_2026_08_10: not by moving the configuration binding, which would have touched the generation pipeline, but by publishing what the resolving runtime resolved as a transport-free value both halves read
+      why_publishing_is_enough: both runtimes are linked in one build, per decision:backend-build-tag-mode tagging application files rather than libraries, so whichever one reads the configuration file can hand the result to the other
       not_stubbed_meanwhile: per policy:absent-rather-than-stubbed, so the entry is absent rather than present and non-functional
   needs_only_a_request_reader:
     entries: WantsUpdate, Negotiate, Redraw, WriteUpdate, WriteUpdateStatus, Sequence, CSRFToken, VerifyCSRF, and the four header builders
@@ -36,6 +37,7 @@ three_groups:
     how_upstream_did_it: both, in fact, with an internal request reader behind a mirrored package, so the shared core is written once and each side spells its own parameter
   genuinely_blocked:
     entries: the streaming ones, which each wrote through the response as they went while the delta stream held a flusher
+    still_unwired_here: live delivery, whose upstream half exists and whose wiring in api:pwfast-package is the one piece left
     resolved: the shape changed rather than the flusher, so the entries are callbacks and both backends run them; live delivery is available on the second backend, which this concept expected to be the last thing to arrive
     correction: this group was called genuinely blocked, and it was blocked only for as long as the shape was taken as fixed
     upstream_position: deferred with the live boundary and the update endpoint, and recorded there as needing reimplementation rather than adaptation

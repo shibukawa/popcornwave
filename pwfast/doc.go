@@ -16,19 +16,27 @@
 // files are tagged; a library behind a tag is invisible to go vet, go test and
 // gopls in an untagged run, and both surfaces are worth covering in one.
 //
+// # Shared state, not a second copy
+//
+// The document shell, the error page, the reloadable components, the problem
+// value and the resolved update configuration all live in pwruntime, and both
+// runtimes reach that one copy. This is not tidiness: generated registration
+// runs from init and calls whichever package it imports, so two registries
+// would leave one build rendering pages with no document around them and
+// answering no redraw at all.
+//
+// The update configuration travels the same way. Whichever runtime read the
+// configuration file publishes what it resolved, and this half reads it — a
+// settings file is not a transport concern, and this package has no reader of
+// its own.
+//
 // # What is not here yet
 //
-// The partial-update surface — WantsUpdate, WriteUpdate, WriteUpdateNavigate,
-// Redraw, RedrawComponents — and live boundary delivery. These are not omitted
-// by choice: the upstream htmlupdate runtime holds an http.Flusher and reads
-// *http.Request throughout, and its port is deferred upstream. A handler
-// calling one of them is refused by the transform with a message naming it,
-// which is the honest outcome; a stub here that compiled and did nothing would
-// not be.
+// Live boundary delivery, which needs the streaming render entries wired to
+// this transport's body writer. Everything they depend on exists upstream; the
+// wiring is not written here yet.
 //
-// WriteHTML and WriteHTMLPage are also absent, for a different and smaller
-// reason: both apply the registered document shell, and that registry is
-// private to pw. Moving it to a leaf both packages can read is the next step,
-// and it is the same move upstream made for the error types. WriteHTMLChain
-// takes its wrappers explicitly and needs none of it, so it is here.
+// Nothing that is missing is stubbed. A declaration that compiled and did
+// nothing would hide the gap where an absent one is a build error naming the
+// symbol, which is what the refusal contract does everywhere else.
 package pwfast
