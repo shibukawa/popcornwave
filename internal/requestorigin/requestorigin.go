@@ -140,11 +140,23 @@ func (p Proxies) Of(r *http.Request) string {
 // and returns the peer, because a chain that cannot be parsed cannot be
 // trusted partway.
 func (p Proxies) ClientAddress(r *http.Request) string {
-	peer := remoteHost(r.RemoteAddr)
-	if !p.Trusts(r.RemoteAddr) {
+	return p.ClientAddressOf(r.RemoteAddr, r.Header.Values("X-Forwarded-For"))
+}
+
+// ClientAddressOf is ClientAddress over the two facts it reads, for a caller
+// whose request is not a *http.Request.
+//
+// The walk backwards through the forwarded chain is the part worth having once:
+// it stops at the first hop this deployment does not trust, which is the last
+// address a trusted peer vouched for, and it gives up entirely on an
+// unparseable hop rather than accepting a later one. A second transport
+// reimplementing that would be a second answer to who the caller is, and every
+// rate limit and live bound counts against it.
+func (p Proxies) ClientAddressOf(remoteAddress string, forwarded []string) string {
+	peer := remoteHost(remoteAddress)
+	if !p.Trusts(remoteAddress) {
 		return peer
 	}
-	forwarded := r.Header.Values("X-Forwarded-For")
 	if len(forwarded) == 0 {
 		return peer
 	}
