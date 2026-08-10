@@ -2,7 +2,7 @@
 title: Web Standards
 description: The HTTP, security, authentication, error, API, and caching standards Popcorn Wave puts on the wire.
 sidebar:
-  order: 7
+  order: 3
 ---
 
 A framework can claim to be “standards based” while leaving the consequential
@@ -10,7 +10,10 @@ choices to every application. Popcorn Wave takes the narrower position: this
 page lists behavior the framework actually emits or enforces, and links to the
 guide that owns each detail. An RFC number means a published specification;
 `X-RateLimit-*` is called out separately because compatibility is useful, but
-does not turn a convention into a standard.
+does not turn a convention into a standard. Publication is not the only test that
+matters either. A specification one browser engine ships is a different
+proposition from one they all ship, and the last section covers a case where that
+difference decided against the feature.
 
 ## Security headers and browser boundaries
 
@@ -103,3 +106,47 @@ application handlers.
 - [Middlewares](/guides/backend/middlewares/)
 - [Operational endpoints](/guides/deployment/operational-endpoints/)
 - [Reverse proxies](/guides/deployment/reverse-proxy/)
+
+## Client hints, and why they stay out
+
+`Accept-CH` looks like the right way to render a page the reader already wants.
+The server advertises the hints it cares about, the browser sends
+`Sec-CH-Prefers-Color-Scheme` on the next request, and a reader who prefers dark
+gets a dark first paint with no script and no flash. Popcorn Wave sends no
+`Accept-CH` and reads no `Sec-CH-*` request header, because the mechanism has one
+engine behind it.
+
+| Header | Chromium | Firefox | Safari |
+| --- | --- | --- | --- |
+| `Sec-CH-Prefers-Color-Scheme` | 93 | — | — |
+| `Sec-CH-Prefers-Reduced-Motion` | 108 | — | — |
+| `Sec-CH-Viewport-Width` | 97 | — | — |
+| `Critical-CH` | 91 | — | — |
+
+Every one of these is still marked experimental, and `Critical-CH` — the header
+that makes a browser retry the first navigation so the hints arrive in time — is
+not on the standards track at all. An application built on them renders correctly
+in Chrome and Edge and falls back to a guess everywhere else. A framework helper
+would not close that gap; it would only make the narrow path look like the
+supported one.
+
+The alternatives are also better, which is what settles it. `prefers-color-scheme`
+in CSS answers the operating-system preference before first paint, in every
+browser, with no round trip and no cache cost. That leaves the hint improving one
+case — an explicit override the reader chose on this site — and a cookie carries
+that choice everywhere while the hint carries it in one engine. Layout that
+depends on viewport width is worse still. The width changes when the reader
+rotates the phone, with no new navigation to correct it, so a server-side
+decision goes stale while it is still on screen; container queries and `srcset`
+decide per element and stay correct.
+
+Caching closes the argument. A response that varies on the reader's color scheme
+has two representations, which is affordable. One that varies on viewport width
+has a representation per distinct window size, which is not — a shared cache
+would miss on nearly every request, and the page would lose more to that than the
+hint ever returned.
+
+None of this is enforced. A handler can read the header itself and set `Vary` to
+match, and an application that has measured the flash and accepts the cache cost
+is free to do exactly that. It is a choice the application owns, with reasoning
+the framework declines to make on its behalf.
