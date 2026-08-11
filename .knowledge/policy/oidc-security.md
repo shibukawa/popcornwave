@@ -9,7 +9,7 @@ OIDC network discovery and browser state are validated against explicit trust an
 issuer:
   - HTTPS required except explicit loopback development mode
   - discovered issuer must exactly equal configured issuer
-  - authorization, token, JWKS, and UserInfo URLs must use HTTPS
+  - authorization, device authorization, token, JWKS, and UserInfo URLs must use HTTPS
 http:
   - outbound transport follows policy:outbound-transport-security
   - redirects disabled by default for discovery and JWKS
@@ -19,6 +19,10 @@ browser:
   - policy:oauth-security state and PKCE rules apply
   - nonce generated from crypto/rand and stored with OAuth correlation data
   - state, nonce, and verifier expire and are atomically consumed once
+device:
+  - policy:device-authorization-security applies
+  - the typed device completion path has no browser transaction and therefore does not require a nonce claim
+  - issuer, audience, azp, signature, time, and subject checks remain identical to browser completion
 tokens:
   - requirement:contrib-jwt policy applied
   - never log authorization code, tokens, verifier, nonce, or client secret

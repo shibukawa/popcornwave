@@ -57,11 +57,23 @@ sidebar:
 1回だけ許可する期限付きの資格情報です。OIDCの先にあるプロバイダが利用者をどう認証するかは
 プロバイダの責務であり、アプリケーションがそのパスワードを受け取ることはありません。
 
-OIDCログインが実装するのはAuthorization Code Flowだけです。Resource Owner Password
-Credentials GrantとClient Credentials Grantには対応しません。認可コードの横取りだけで
-ログインを完了できないよう、PKCEはS256で常に有効になり、無効化する設定はありません。
-さらに`state`を単回限りの認証トランザクションへ結び付け、`nonce`を必須にして、返された
-ID Tokenがそのブラウザで開始したログインに対応することまで検証します。
+OIDCクライアントは2つの経路に対応します。ブラウザログインにはAuthorization Code Flowを
+使います。認可コードの横取りだけでログインを完了できないよう、PKCEはS256で常に有効になり、
+無効化する設定はありません。さらに`state`を単回限りの認証トランザクションへ結び付け、
+`nonce`を必須にして、返されたID Tokenがそのブラウザで開始したログインに対応することまで
+検証します。TinyGoの組み込み機器など、ブラウザや入力手段に制約があるクライアントには
+[RFC 8628 Device Authorization Grant](https://www.rfc-editor.org/rfc/rfc8628.html)を使えます。
+機器はuser codeとverification URIを表示し、利用者が別のブラウザで承認するまでtokenを
+pollします。OIDCラッパーは`openid`を要求し、返されたID Tokenのissuer、audience、署名、
+有効期間、subjectを同じ基準で検証します。
+
+Resource Owner Password Credentials Grant（Password Grant）には対応しません。
+[現在のOAuth 2.0 Security Best Current Practice（RFC 9700 2.4節）](https://www.rfc-editor.org/rfc/rfc9700.html#section-2.4)が、
+利用者のパスワードをclientへ渡してしまい、多段階の認証にも適合しないことから
+**MUST NOT**と定めているためです。[Client Credentials Grant](https://www.rfc-editor.org/rfc/rfc6749.html#section-4.4)も
+意図的に対象外です。これはend-userのidentityを伴わず、client自身を認可する
+machine-to-machineまたはバッチ処理向けで、利用者のログインとsessionを扱う本システムの
+認証境界には適しません。Device Authorization Grantとは別の方式です。
 
 JWTモードも「署名が合えば通す」だけではありません。許可したアルゴリズムと取得した鍵で
 署名を検証してから、`iss`、`aud`、`exp`、`iat`、`sub`、アクセストークンの種別、最大有効
@@ -76,8 +88,9 @@ JWTモードも「署名が合えば通す」だけではありません。許�
 起動できます。実行ごとに一時クライアントを登録し、issuer、client ID、client secretを
 アプリケーションへ注入するので、本番コードにデバッグ用ログインや認証を迂回する分岐を
 追加せず、Authorization Code、PKCE、`state`、`nonce`、ID Token検証を含む同じ経路を
-試せます。簡易IdP自身はパスワードを検証せず、一覧から開発用ユーザーを選びます。開発以外
-では起動せず、通常のビルド成果物へ混入することも拒否されます。
+試せます。公開client、user code、polling、ブラウザでの明示的な承認を含むDevice
+Authorizationも実装しています。簡易IdP自身はパスワードを検証せず、一覧から開発用ユーザーを
+選びます。開発以外では起動せず、通常のビルド成果物へ混入することも拒否されます。
 
 JWTには、ローカルから手書きのトークンでAPIを試すための開発専用緩和があります。有効に
 すると署名、issuer、audience、token type、時刻、アルゴリズム許可リストの検証をまとめて

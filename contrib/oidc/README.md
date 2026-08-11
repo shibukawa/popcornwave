@@ -2,8 +2,9 @@
 
 `oidc` is an OpenID Connect relying-party client over `contrib/oauth`. It
 validates discovery metadata, retrieves and bounds a JWKS cache, performs
-Authorization Code + S256 PKCE, and verifies RS256 ID Tokens including issuer,
-audience, `iat`, `exp`, `azp`, and nonce.
+Authorization Code + S256 PKCE and RFC 8628 Device Authorization, and verifies
+RS256 ID Tokens including issuer, audience, `iat`, `exp`, and `azp`. Browser
+callbacks additionally require nonce correlation.
 
 `Provider` and `Client` may be used concurrently. The JWKS cache is protected
 internally; the application-owned `authstate.Store` must provide the same
@@ -23,6 +24,17 @@ state := parsed.Query().Get("state")
 tokens, err := client.HandleCallback(ctx, key, oidc.Callback{State: state, Code: code})
 ```
 
+Device Flow uses the discovered `device_authorization_endpoint`:
+
+```go
+device, err := oidc.NewDeviceClient(provider, oidc.DeviceConfig{
+	ClientID: "device-client",
+}, oidc.DeviceOptions{})
+authorization, err := device.Begin(ctx, oidc.DeviceBeginOptions{Scopes: []string{"profile"}})
+// Display authorization.VerificationURI and authorization.UserCode.
+tokens, idToken, err := device.Poll(ctx, authorization)
+```
+
 The example uses `urlpkg` as an alias for Go's `net/url` package.
 
 Discovery, JWKS, and UserInfo responses are bounded, requests default to a
@@ -33,7 +45,7 @@ inspection copies of the issuer and every discovered endpoint; URL mutations
 are ignored. The cache
 permits one refresh for an unknown key ID, serializes concurrent refreshes, and
 retains a last-valid set only through its configured stale limit. Provider
-implementation, public clients without a configured client secret, dynamic
+implementation, public clients outside Device Flow, dynamic
 registration, implicit/hybrid flow, JWE, and `private_key_jwt` are intentionally
 excluded.
 
@@ -56,6 +68,11 @@ then binds the ID Token nonce to the atomically consumed OAuth transaction.
 Code that verifies a token outside that flow must retain its own
 correlation value and call `VerifyIDTokenWithNonce`; `VerifyIDToken` alone only
 checks that a nonce claim is present.
+
+The typed Device Flow completion path accepts an absent nonce because RFC 8628
+has no browser transaction to bind. Signature, issuer, audience, `azp`, time,
+and subject validation remain mandatory; other verification entry points do
+not receive this exception.
 
 The repository runs protocol-shaped fixtures for independent providers,
 including JWKS rotation and UserInfo subject binding. This does not claim a
