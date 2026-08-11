@@ -88,6 +88,7 @@
 {"category": "structure", "id": "data:auth-state-record", "path": ".knowledge/data/auth-state-record.md", "role": "supporting", "title": "Authentication State Record", "type": "data"}
 {"category": "structure", "id": "data:authentication-runtime-config", "path": ".knowledge/data/authentication-runtime-config.md", "role": "supporting", "title": "Authentication Runtime Config", "type": "data"}
 {"category": "structure", "id": "data:bot-user-agent-catalog", "path": ".knowledge/data/bot-user-agent-catalog.md", "role": "supporting", "title": "Bot User Agent Catalog", "type": "data"}
+{"category": "structure", "id": "data:browser-report-record", "path": ".knowledge/data/browser-report-record.md", "role": "supporting", "title": "Browser Report Record", "type": "data"}
 {"category": "structure", "id": "data:component-boundary", "path": ".knowledge/data/component-boundary.md", "role": "supporting", "title": "Component Boundary Metadata", "type": "data"}
 {"category": "structure", "id": "data:component-package-manifest", "path": ".knowledge/data/component-package-manifest.md", "role": "supporting", "title": "Component Package Manifest", "type": "data"}
 {"category": "structure", "id": "data:compression-runtime-config", "path": ".knowledge/data/compression-runtime-config.md", "role": "supporting", "title": "Compression Runtime Config", "type": "data"}
@@ -141,6 +142,7 @@
 {"category": "constraint", "id": "decision:authentication-bootstrap-strategy", "path": ".knowledge/decision/authentication-bootstrap-strategy.md", "role": "supporting", "title": "Authentication Bootstrap Strategy", "type": "decision"}
 {"category": "constraint", "id": "decision:automatic-async-render-selection", "path": ".knowledge/decision/automatic-async-render-selection.md", "role": "supporting", "title": "Automatic Async Render Selection", "type": "decision"}
 {"category": "constraint", "id": "decision:backend-analysis-ownership", "path": ".knowledge/decision/backend-analysis-ownership.md", "role": "supporting", "title": "The Analysis Engine Is Upstream, The Vocabulary Is Here", "type": "decision"}
+{"category": "constraint", "id": "decision:backend-build-tag-mode", "path": ".knowledge/decision/backend-build-tag-mode.md", "role": "supporting", "title": "The Backend Tag Selects Application Files, Not The Runtime Packages", "type": "decision"}
 {"category": "constraint", "id": "decision:backend-specific-middleware", "path": ".knowledge/decision/backend-specific-middleware.md", "role": "supporting", "title": "Middleware Is Written Once Per Backend", "type": "decision"}
 {"category": "constraint", "id": "decision:bot-client-classification", "path": ".knowledge/decision/bot-client-classification.md", "role": "supporting", "title": "Bot Client Classification", "type": "decision"}
 {"category": "constraint", "id": "decision:browser-suite-seeding", "path": ".knowledge/decision/browser-suite-seeding.md", "role": "supporting", "title": "Browser Suite Seeding Route", "type": "decision"}
@@ -222,6 +224,7 @@
 {"category": "constraint", "id": "decision:passkey-test-authenticator", "path": ".knowledge/decision/passkey-test-authenticator.md", "role": "supporting", "title": "Passkey Test Authenticator Strategy", "type": "decision"}
 {"category": "constraint", "id": "decision:post-init-scaffold-wizard", "path": ".knowledge/decision/post-init-scaffold-wizard.md", "role": "supporting", "title": "Post-init Scaffold Wizard", "type": "decision"}
 {"category": "constraint", "id": "decision:preset-first-bootstrap", "path": ".knowledge/decision/preset-first-bootstrap.md", "role": "supporting", "title": "Preset First, Questions Behind It", "type": "decision"}
+{"category": "constraint", "id": "decision:report-endpoint-above-the-session", "path": ".knowledge/decision/report-endpoint-above-the-session.md", "role": "supporting", "title": "The Report Endpoint Is Answered Above The Session", "type": "decision"}
 {"category": "constraint", "id": "decision:response-content-codings", "path": ".knowledge/decision/response-content-codings.md", "role": "supporting", "title": "Response Content Codings", "type": "decision"}
 {"category": "constraint", "id": "decision:root-pw-api", "path": ".knowledge/decision/root-pw-api.md", "role": "supporting", "title": "Root pw API", "type": "decision"}
 {"category": "constraint", "id": "decision:runtime-tag-injection", "path": ".knowledge/decision/runtime-tag-injection.md", "role": "supporting", "title": "Runtime Tag Injection", "type": "decision"}
@@ -358,6 +361,7 @@
 {"category": "objective", "id": "requirement:async-html-rendering", "path": ".knowledge/requirement/async-html-rendering.md", "role": "primary", "title": "Async HTML Rendering", "type": "requirement"}
 {"category": "objective", "id": "requirement:auth-security-remediation", "path": ".knowledge/requirement/auth-security-remediation.md", "role": "primary", "title": "Authentication Security Remediation", "type": "requirement"}
 {"category": "objective", "id": "requirement:bot-synchronous-render", "path": ".knowledge/requirement/bot-synchronous-render.md", "role": "primary", "title": "Bot Synchronous Render", "type": "requirement"}
+{"category": "objective", "id": "requirement:browser-report-ingest", "path": ".knowledge/requirement/browser-report-ingest.md", "role": "primary", "title": "Browser Report Ingest", "type": "requirement"}
 {"category": "objective", "id": "requirement:built-in-config-generation", "path": ".knowledge/requirement/built-in-config-generation.md", "role": "primary", "title": "Built-in Config Generation", "type": "requirement"}
 {"category": "objective", "id": "requirement:classic-rendering", "path": ".knowledge/requirement/classic-rendering.md", "role": "primary", "title": "Classic Rendering", "type": "requirement"}
 {"category": "objective", "id": "requirement:classic-web-acceptance", "path": ".knowledge/requirement/classic-web-acceptance.md", "role": "primary", "title": "Classic Web Acceptance", "type": "requirement"}
@@ -457,6 +461,7 @@
 {"category": "objective", "id": "requirement:native-pgx-escape-hatch", "path": ".knowledge/requirement/native-pgx-escape-hatch.md", "role": "primary", "title": "Direct pgx Reach On A Native Connection", "type": "requirement"}
 {"category": "objective", "id": "requirement:navigation-delta-rendering", "path": ".knowledge/requirement/navigation-delta-rendering.md", "role": "primary", "title": "Navigation Delta Rendering", "type": "requirement"}
 {"category": "objective", "id": "requirement:nested-html-templates", "path": ".knowledge/requirement/nested-html-templates.md", "role": "primary", "title": "Nested HTML Templates", "type": "requirement"}
+{"category": "objective", "id": "requirement:network-error-logging", "path": ".knowledge/requirement/network-error-logging.md", "role": "primary", "title": "Network Error Logging", "type": "requirement"}
 {"category": "objective", "id": "requirement:package-asset-delivery", "path": ".knowledge/requirement/package-asset-delivery.md", "role": "primary", "title": "Package Asset Delivery", "type": "requirement"}
 {"category": "objective", "id": "requirement:package-component-assets", "path": ".knowledge/requirement/package-component-assets.md", "role": "primary", "title": "A Distributed Component Must Carry Its Own Assets", "type": "requirement"}
 {"category": "objective", "id": "requirement:package-project-scaffold", "path": ".knowledge/requirement/package-project-scaffold.md", "role": "primary", "title": "Package Preset Scaffold", "type": "requirement"}
