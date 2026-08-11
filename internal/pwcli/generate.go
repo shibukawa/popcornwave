@@ -433,13 +433,15 @@ func (p generationPurposes) keeps(kind generator.ArtifactKind) bool {
 		// living in a page tree and needs both for the same reason.
 		return p.handlers || p.pages
 	case generator.ArtifactTransportRoutes:
-		// Declined. The generator offers a route registration for the second
-		// transport, installing on the router its transform target names; the
-		// registration a project here needs is the page tree's own, which
-		// installs on pwfastpage.Router and is emitted beside the tree. Taking
-		// both would mean two registries and a dependency on a router no
-		// application built on this framework imports.
-		return false
+		// The routes an application registers itself. The authored wiring that
+		// registers them — a mux built in an init, a HandleFunc per handler —
+		// is net/http-shaped and excluded from the second build, so without
+		// this that build compiles and serves nothing.
+		//
+		// A page tree is not this: it brings its own registry, emitted beside
+		// the tree onto pwfastpage.Router. The two coexist for the same reason
+		// they do on the first transport.
+		return p.handlers
 	case generator.ArtifactOpenAPI:
 		return p.handlers
 	case generator.ArtifactHTMLTemplate:

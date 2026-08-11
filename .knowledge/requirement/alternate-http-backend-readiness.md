@@ -120,7 +120,29 @@ prerequisites:
     ordering: the second tree is a later step than the per-directory stages, because a server action is discovered by its signature and the fasthttp-shaped one is the derived handler this run had not written yet
     refusals: a build error naming the occurrence, its chain and the upstream remedy, plus one sentence upstream cannot say — a refusal naming a pw call is requirement:pw-call-registration rather than an application defect
     compiled_rather_than_inspected: internal/fastfixture is one authored package whose generated halves are committed and whose both tag configurations are built; every other test here asserts something about the source that was produced, and this is what would catch two halves that each look right and do not fit
-    still_missing: an entry point and a pw build target for the second binary, rate limiting on pwfast, and the two storage plugins that link pw
+    route_registration: the routes an application registers itself are emitted onto pwfast.RouteInstaller, from the same table the authored wiring declares; the authored wiring is net/http-shaped and the tag excludes it, so without this the second build compiled and served nothing
+    catch_all_spelling: the emitter is told Go's own suffix, which reads like a no-op and is not — it leaves a pattern exactly as the net/http source spelled it, so the one translation to this transport's router happens inside pwfast where the subtree and the {$} marker are translated too
+  entry_point_2026_08_11:
+    was: every layer had a shared home and nothing sequenced them, so a deployment hand-wrote the parse, the pool, the observability, the session manager, the limiter's counter and the chain in an order only this repository knew
+    now: pwfast.Start does that and returns the shutdown that releases it, and pwfast.Run owns the port around it
+    where_it_lives: pwfast rather than beside it, because pwfast.Run is what pw.Run rewrites to and an import rewrite maps one package onto one package
+    what_that_cost: pwfast reaches pwconfig, which the layering test used to forbid; the property that clause protected is intact and still proven, since Middlewares composes from published settings alone and a test seam, an end-to-end fixture and internal/fastonly all build a chain with nothing parsed
+    plugins: WithRuntimeOptions, which is the shape an authentication plugin's Apply already has; there is still no frame registry on this transport, and pwextension.SetupProcess runs the startup half of every registered extension so a storage plugin's blank import means the same thing in both builds
+    build_target: pw build and pw prepare take --target fasthttp, which adds the tag to the compile and to the development-import check; a target the project never declared is refused rather than compiled into undefined symbols
+  rate_limiting_2026_08_11:
+    was: pw installs two frames and pwfast installed neither, so a fasthttp deployment ran with ratelimit.enabled = true and no limiter — a control that looks installed
+    moved: pwratelimit holds the counter, the store registry, and the Limiter that decides the bucket, the count, the exemption and the admission; both transports drive that one Limiter and supply only the canonical path, the caller's address and how a 429 is written
+    configuration: pwruntime, beside CSRFConfig and SecurityHeadersConfig, which is where a setting both transports build a frame from already lives
+    counter_is_startup: supplied rather than opened in the frame, like the session manager, because the Redis backend dials a server and refuses to start against one it cannot reach; enabled with no counter is refused
+  storage_plugins_2026_08_11:
+    was: database/dynamo and database/firestore linked pw for their registration and nothing else
+    fact_that_made_it_cheap: both install no middleware at all, because the request path reads a process handle rather than a context node
+    now: registered through pwextension, started by pwextension.SetupProcess, and an extension that does return a frame is refused there by name rather than dropped
+  still_missing:
+    scaffold: api:cli-init writes one entry point and one set of handler files, both net/http-shaped; a project declaring the second build needs main_fasthttp.go beside main.go, the mux wiring tagged, and every handler file split from the declarations both builds need
+    why_not_yet: a scaffolded project is its own module, so this repository cannot compile one under either tag; shipping an entry point beside handler files that still mix a handler with its request type would produce a project that does not build, which is worse than producing none
+    websocket: requirement:contrib-websocket, blocked on a dependency decision rather than on work here
+    dev_tooling: out of scope, per dev_tooling_scope above
   open_here:
     superseded_note: the four entries below were the open list; all four are answered in settled_2026_08_10 above and are kept here for the reasoning rather than as questions
     test_seam:

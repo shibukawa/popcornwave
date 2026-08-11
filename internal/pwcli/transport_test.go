@@ -133,14 +133,20 @@ func TestGeneratedSourceIsNotDerivedASecondTime(t *testing.T) {
 	}
 }
 
-// The generator offers a route registration for the second transport too, on
-// the router its transform target names. A page tree here installs on
-// pwfastpage.Router and brings its own registry, so taking both would mean two
-// registries and a dependency on a router no application built on this
-// framework imports.
-func TestTheGeneratorsOwnRouteRegistrationIsDeclined(t *testing.T) {
-	if (generationPurposes{handlers: true, pages: true, templates: true}).keeps(generator.ArtifactTransportRoutes) {
-		t.Error("the second transport's route registration was kept")
+// Each of the second build's three halves goes where the purpose that produces
+// it does.
+//
+// The route registration is the one worth stating: an application's own routes
+// are registered by authored wiring the build tag excludes — a mux built in an
+// init, a HandleFunc per handler — so without it that build compiles and serves
+// nothing. It belongs to the handlers purpose alone, because a page tree brings
+// its own registry rather than declaring routes on a mux.
+func TestEachHalfOfTheSecondBuildFollowsItsPurpose(t *testing.T) {
+	if !(generationPurposes{handlers: true}).keeps(generator.ArtifactTransportRoutes) {
+		t.Error("a handlers directory got no route registration for the second transport")
+	}
+	if (generationPurposes{pages: true, templates: true}).keeps(generator.ArtifactTransportRoutes) {
+		t.Error("a page tree got a second route registration beside the one it emits itself")
 	}
 	for _, kind := range []generator.ArtifactKind{
 		generator.ArtifactTransport, generator.ArtifactTransportBinding,

@@ -10,7 +10,7 @@ import (
 )
 
 // Greet is the authored handler, and the only one written here. Its fasthttp
-// counterpart is generated from it.
+// counterpart is generated from it, and so is the registration below.
 func Greet(ctx *fasthttp.RequestCtx) {
 	ask, err := pw.Parse[Greeting](ctx)
 	if err != nil {

@@ -118,3 +118,34 @@ func TestBothBuildsAreRepresentedInTheFixture(t *testing.T) {
 		t.Error("no generated file is constrained to the fasthttp build, so the second build is empty")
 	}
 }
+
+// The two builds must serve the same addresses, or one transport's deployment
+// answers a route the other's does not and nothing says so.
+//
+// No transform can check this in general — rule:route-and-template-checks is
+// where that belongs — but the one case a fixture can hold is the one that
+// would break first: the generated registration is emitted from the same route
+// table the authored wiring declares, so a route in one and not the other means
+// the emitter stopped reading it.
+func TestBothBuildsRegisterTheSameRoutes(t *testing.T) {
+	root, _ := fastFixtureConfig(t)
+	authored := readGenerated(t, filepath.Join(root, "wiring.go"))
+	derived := readGenerated(t, filepath.Join(root, "tinybind_routes_pw_gen.go"))
+
+	// The authored side spells the pattern as one string and the generated side
+	// as a method and a path, which is what each router takes.
+	if !strings.Contains(authored, `mux.HandleFunc("GET /greet", Greet)`) {
+		t.Fatalf("the fixture no longer registers the route it is here to check:\n%s", authored)
+	}
+	if !strings.Contains(derived, `r.Handle("GET", "/greet", Greet)`) {
+		t.Errorf("the second build does not register the authored route:\n%s", derived)
+	}
+	// One registration per route, so a handler is not installed twice under one
+	// address by a second emitter nobody noticed.
+	if got := strings.Count(derived, "r.Handle("); got != 1 {
+		t.Errorf("the generated registration installs %d routes, want 1:\n%s", got, derived)
+	}
+	if constraint, _ := buildConstraint([]byte(derived)); constraint != strings.TrimSpace(fastHTTPConstraint) {
+		t.Errorf("the generated registration carries %q", constraint)
+	}
+}

@@ -156,3 +156,33 @@ func rewriteCatchAll(path string) string {
 		path = path[close+1:]
 	}
 }
+
+// RouteInstaller is what generated route registration installs on.
+//
+// It exists because the two transports register a route differently and the
+// generated file has to name one shape. The other half's routes are registered
+// by authored wiring the build tag excludes — a mux built in an init, a
+// HandleFunc per handler — and this build has to get them from somewhere. What
+// it gets is one function per package, emitted from the same route table the
+// other half declares, so the two serve the same addresses.
+//
+// The method and the path arrive apart because that is how the generated call
+// spells them. Everything else about the pattern is Go 1.22's, unchanged, and
+// is translated here rather than by the generator: a catch-all, a subtree and
+// the {$} marker then mean on this transport exactly what they mean on the
+// other, decided in one place.
+type RouteInstaller interface {
+	Handle(method, path string, handler fasthttp.RequestHandler)
+}
+
+// Routes adapts a mux to what generated route registration installs on:
+//
+//	mux := pwfast.NewServeMux()
+//	handlers.RegisterRoutes(pwfast.Routes(mux))
+func Routes(mux *ServeMux) RouteInstaller { return muxRoutes{mux: mux} }
+
+type muxRoutes struct{ mux *ServeMux }
+
+func (m muxRoutes) Handle(method, path string, handler fasthttp.RequestHandler) {
+	m.mux.Handle(strings.TrimSpace(method+" "+path), handler)
+}

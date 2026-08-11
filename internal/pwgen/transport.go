@@ -16,11 +16,17 @@ import "github.com/shibukawa/tinybind-go/generator"
 // registration so that the two can never disagree: a pw entry gains a pattern
 // once, and both the analysis and the rewrite see the same set.
 //
-// The router target is left at upstream's default and nothing reads it. This
-// framework emits its own route registration from the page tree, onto
-// pwfastpage.Router, which pwfast.ServeMux satisfies; the target only names the
-// router upstream's own route emitter would install on, and that emitter is not
-// run here. Normalization requires a valid one, so it is left valid.
+// The router target names this framework's own installer rather than upstream's
+// default, which is a vendored trie router an application here never imports.
+// Two kinds of route reach the second build and neither goes through that:
+// a page tree brings its own registry, on pwfastpage.Router, and the handlers
+// an application registers itself are emitted onto pwfast.RouteInstaller.
+//
+// The catch-all suffix is Go's own, which reads like a no-op and is not. It
+// tells the emitter to leave {rest...} exactly as the net/http source spelled
+// it, so the one translation from Go 1.22 patterns to this transport's router
+// happens inside pwfast where the subtree and the {$} marker are translated
+// too — rather than half here and half there.
 func FastTransform(calls []generator.CallPattern) generator.TransformOptions {
 	transform := generator.DefaultTransformOptions()
 	transform.Calls = calls
@@ -36,5 +42,12 @@ func FastTransform(calls []generator.CallPattern) generator.TransformOptions {
 	transform.ImportRewrites[pwPackage] = pwFastPackage
 	transform.ImportRewrites[pwPagePackage] = pwFastPagePackage
 
+	transform.Router = generator.RouterTarget{
+		Import:         pwFastPackage,
+		Qualifier:      "pwfast",
+		Type:           "pwfast.RouteInstaller",
+		RegisterFunc:   "RegisterRoutes",
+		CatchAllSuffix: "...",
+	}
 	return transform
 }
