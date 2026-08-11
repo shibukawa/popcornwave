@@ -1,3 +1,3 @@
-// Package oidc implements a bounded OpenID Connect relying-party client over
-// the OAuth Authorization Code flow.
+// Package oidc implements bounded OpenID Connect relying-party clients over
+// OAuth Authorization Code and Device Authorization flows.
 package oidc

@@ -3,8 +3,8 @@
 `devidp` is a development-only OpenID Provider. It authenticates by letting a
 developer pick a user from a TOML roster; no credential is ever checked. It
 exists so `contrib/oidc` has an in-repo counterparty: discovery, JWKS, RS256 ID
-Tokens, Authorization Code with mandatory S256 PKCE, UserInfo, and RP-initiated
-logout.
+Tokens, Authorization Code with mandatory S256 PKCE, Device Authorization,
+UserInfo, and RP-initiated logout.
 
 **Never link this package into an application binary.** `pw build` fails a
 project that imports it.
@@ -18,6 +18,9 @@ defer server.Close()
 
 credentials, err := server.RegisterClient(devidp.ClientSpec{LoopbackRedirects: true})
 // server.Issuer(), credentials.ID, and credentials.Secret configure the client.
+
+deviceCredentials, err := server.RegisterPublicDeviceClient(devidp.PublicDeviceClientSpec{})
+// Device clients receive an ID only. No embedded client secret is created.
 ```
 
 `Start` binds loopback only and derives the issuer from the resolved port, so
@@ -49,6 +52,9 @@ employee_id = 42
 [clients.myapp]              # optional; a running tool registers its own
 secret = "development-secret"
 redirect_uris = ["http://127.0.0.1:8080/auth/callback"]
+
+[clients.mydevice]
+grants = ["device_code"]
 ```
 
 Unknown keys and tables are errors. `iss`, `sub`, `aud`, `exp`, `iat`, `nbf`,
@@ -83,8 +89,8 @@ target is accepted (a loopback address, `localhost`, or a name under
 this provider removes it from. Non-local targets are still refused, so it cannot
 become an open redirect for anything off the machine.
 
-Refresh tokens, device and client credentials grants, EntraID compatibility,
-public clients, dynamic registration, implicit and hybrid flows, consent, and
+Refresh tokens, client credentials grants, EntraID compatibility, public
+clients outside Device Flow, dynamic registration, implicit and hybrid flows, consent, and
 any form of credential storage are intentionally excluded. Authorization codes,
 access tokens, and the signing key live in memory only and are destroyed by
 `Close`.

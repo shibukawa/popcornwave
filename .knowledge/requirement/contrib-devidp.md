@@ -28,6 +28,7 @@ public_api:
   - Provider.Handler() returns an http.Handler for the issuer base path
   - Provider.Issuer() and Provider.Endpoint(path) return absolute URLs
   - Provider.RegisterClient(spec) returns generated client credentials for a tool-owned ephemeral client
+  - Provider.RegisterPublicDeviceClient(spec) returns a generated client id without a secret
   - Provider.SetLoginUser(subject) and Provider.LoginUser() control automatic login
   - Provider.Users() returns the roster in login-screen order
   - Provider.Reload(config) swaps roster and scopes while the issuer, clients, and signing key survive
@@ -40,11 +41,16 @@ endpoints:
   - GET /userinfo
   - GET and POST /end_session
   - GET and POST /login serving ui:devidp-login
+  - POST /device_authorization
+  - GET and POST /device serving ui:devidp-device-verification
 configuration: data:devidp-config
-flow: flow:devidp-user-selection
+flows:
+  - flow:devidp-user-selection
+  - flow:oidc-device-authorization
 required:
-  - Authorization Code grant only, with S256 PKCE mandatory for every client
-  - client_secret_basic and client_secret_post token authentication, because requirement:contrib-oauth defers public clients
+  - Authorization Code with S256 PKCE and RFC 8628 device authorization grants
+  - client_secret_basic and client_secret_post token authentication for authorization-code and confidential device clients
+  - registered device clients may be public and authenticate with client_id only
   - RS256 signing with the key published at the JWKS endpoint
   - discovery advertises only implemented grants, response types, scopes, claims, and the S256 challenge method
   - discovery issuer exactly equals the configured issuer so policy:oidc-security issuer checks pass
@@ -66,15 +72,18 @@ required:
   - state is returned unchanged to the post-logout URI
   - bounded request parsing, bounded pending-authorization count, and expiry sweeping
   - standard OAuth and OIDC error responses for every rejection
+  - discovery advertises device_authorization_endpoint and the device-code grant
+  - device state, approval, denial, polling, and token issuance follow flow:oidc-device-authorization
+  - user-code guessing and polling are bounded by policy:device-authorization-security
   - policy:devidp-safety guardrails
 deferred:
   - local certificate authority and TLS termination
   - reverse proxy, static hosting, and mock APIs
-  - device authorization and client credentials grants
+  - client credentials grant
   - EntraID v1 and v2 compatibility modes
   - refresh tokens and back-channel or front-channel logout notification
   - developer console and MCP surfaces
-  - public clients, private_key_jwt, and DPoP
+  - public clients outside device authorization, private_key_jwt, and DPoP
   - passwords, MFA, consent screens, and account registration
   - dynamic client registration
   - implicit and hybrid flows
@@ -95,4 +104,5 @@ standards:
   discovery: https://openid.net/specs/openid-connect-discovery-1_0.html
   pkce: https://www.rfc-editor.org/rfc/rfc7636
   rp_initiated_logout: https://openid.net/specs/openid-connect-rpinitiated-1_0.html
+  device_grant: https://www.rfc-editor.org/rfc/rfc8628
 ```

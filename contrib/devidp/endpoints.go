@@ -26,6 +26,9 @@ func (p *Provider) routes() http.Handler {
 	mux.HandleFunc("GET "+base+"/login", p.handleLoginPage)
 	mux.HandleFunc("POST "+base+"/login", p.handleLoginSubmit)
 	mux.HandleFunc("POST "+base+"/token", p.handleToken)
+	mux.HandleFunc("POST "+base+"/device_authorization", p.handleDeviceAuthorization)
+	mux.HandleFunc("GET "+base+"/device", p.handleDevicePage)
+	mux.HandleFunc("POST "+base+"/device", p.handleDeviceSubmit)
 	mux.HandleFunc("GET "+base+"/end_session", p.handleEndSession)
 	mux.HandleFunc("POST "+base+"/end_session", p.handleEndSession)
 	mux.HandleFunc("GET "+base+"/userinfo", p.handleUserInfo)
@@ -43,16 +46,17 @@ func (p *Provider) handleDiscovery(w http.ResponseWriter, r *http.Request) {
 		"issuer":                                p.issuer,
 		"authorization_endpoint":                p.endpoint("/authorize"),
 		"token_endpoint":                        p.endpoint("/token"),
+		"device_authorization_endpoint":         p.endpoint("/device_authorization"),
 		"userinfo_endpoint":                     p.endpoint("/userinfo"),
 		"end_session_endpoint":                  p.endpoint("/end_session"),
 		"jwks_uri":                              p.endpoint("/jwks.json"),
 		"response_types_supported":              []string{"code"},
 		"response_modes_supported":              []string{"query"},
-		"grant_types_supported":                 []string{"authorization_code"},
+		"grant_types_supported":                 []string{"authorization_code", deviceGrantURN},
 		"subject_types_supported":               []string{"public"},
 		"id_token_signing_alg_values_supported": []string{"RS256"},
 		"scopes_supported":                      scopes,
-		"token_endpoint_auth_methods_supported": []string{"client_secret_basic", "client_secret_post"},
+		"token_endpoint_auth_methods_supported": []string{"none", "client_secret_basic", "client_secret_post"},
 		"code_challenge_methods_supported":      []string{"S256"},
 		"claims_supported":                      p.claimNames(),
 	})
@@ -91,7 +95,7 @@ func (p *Provider) handleAuthorize(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	client := p.client(r.Form.Get("client_id"))
-	if client == nil {
+	if client == nil || !supportsGrant(client, GrantAuthorizationCode) {
 		p.renderError(w, http.StatusBadRequest, "Unknown client_id. Register the client before starting a login.")
 		return
 	}
@@ -323,6 +327,10 @@ func (p *Provider) handleToken(w http.ResponseWriter, r *http.Request) {
 		writeTokenError(w, http.StatusBadRequest, "invalid_request", "the token request could not be parsed")
 		return
 	}
+	if r.Form.Get("grant_type") == deviceGrantURN {
+		p.handleDeviceToken(w, r)
+		return
+	}
 	clientID, secret, ok := clientCredentials(r)
 	if !ok {
 		w.Header().Set("WWW-Authenticate", `Basic realm="devidp"`)
@@ -330,7 +338,7 @@ func (p *Provider) handleToken(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	client := p.client(clientID)
-	if client == nil || !authn.EqualSecret(client.Secret, secret) {
+	if client == nil || !supportsGrant(client, GrantAuthorizationCode) || !authn.EqualSecret(client.Secret, secret) {
 		w.Header().Set("WWW-Authenticate", `Basic realm="devidp"`)
 		writeTokenError(w, http.StatusUnauthorized, "invalid_client", "client authentication failed")
 		return
@@ -383,6 +391,54 @@ func (p *Provider) handleToken(w http.ResponseWriter, r *http.Request) {
 		"id_token":     idToken,
 		"scope":        strings.Join(code.scopes, " "),
 	})
+}
+
+func (p *Provider) handleDeviceToken(w http.ResponseWriter, r *http.Request) {
+	if !singleFormValues(r.Form, "grant_type", "device_code", "client_id", "client_secret") {
+		writeTokenError(w, http.StatusBadRequest, "invalid_request", "device token parameters must not be repeated")
+		return
+	}
+	client := p.authenticateDeviceClient(r)
+	if client == nil || !supportsGrant(client, GrantDeviceCode) {
+		w.Header().Set("WWW-Authenticate", `Basic realm="devidp"`)
+		writeTokenError(w, http.StatusUnauthorized, "invalid_client", "device client authentication failed")
+		return
+	}
+	result, code := p.pollDevice(client, r.Form.Get("device_code"))
+	switch result {
+	case pollPending:
+		writeTokenError(w, http.StatusBadRequest, "authorization_pending", "the user has not completed authorization")
+		return
+	case pollSlowDown:
+		writeTokenError(w, http.StatusBadRequest, "slow_down", "polling is too frequent")
+		return
+	case pollDenied:
+		writeTokenError(w, http.StatusBadRequest, "access_denied", "the user denied authorization")
+		return
+	case pollUnknown:
+		writeTokenError(w, http.StatusBadRequest, "expired_token", "the device authorization is unknown or expired")
+		return
+	}
+	user := p.user(code.subject)
+	if user == nil {
+		writeTokenError(w, http.StatusBadRequest, "expired_token", "the selected user is no longer available")
+		return
+	}
+	now := p.now()
+	idToken, err := p.idToken(code, user, now)
+	if err != nil {
+		writeTokenError(w, http.StatusInternalServerError, "server_error", "the provider could not sign an ID Token")
+		return
+	}
+	access, err := p.issueAccessToken(code, now)
+	if err != nil {
+		writeTokenError(w, http.StatusInternalServerError, "server_error", "the provider could not issue an access token")
+		return
+	}
+	w.Header().Set("Cache-Control", "no-store")
+	w.Header().Set("Pragma", "no-cache")
+	writeJSON(w, http.StatusOK, map[string]any{"access_token": access, "token_type": "Bearer",
+		"expires_in": int(p.tokenTTL / time.Second), "id_token": idToken, "scope": strings.Join(code.scopes, " ")})
 }
 
 // handleEndSession implements RP-initiated logout. A relying party that only

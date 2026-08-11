@@ -112,6 +112,14 @@ func TestParseConfigRejectsBadRosters(t *testing.T) {
 			source:   "[users.admin]\n[clients.myapp]\nsecret = \"s\"\n",
 			contains: "clients.myapp.redirect_uris is required",
 		},
+		"device-only redirect uris": {
+			source:   "[users.admin]\n[clients.device]\ngrants = [\"device_code\"]\nredirect_uris = [\"http://127.0.0.1/cb\"]\n",
+			contains: "redirect_uris requires authorization_code",
+		},
+		"unknown client grant": {
+			source:   "[users.admin]\n[clients.device]\ngrants = [\"client_credentials\"]\n",
+			contains: "is unsupported",
+		},
 		"relative redirect uri": {
 			source:   "[users.admin]\n[clients.myapp]\nsecret = \"s\"\nredirect_uris = [\"/callback\"]\n",
 			contains: "must be an absolute URL",
@@ -143,6 +151,17 @@ func TestParseConfigRejectsBadRosters(t *testing.T) {
 				t.Fatalf("error %q does not contain %q", err, testCase.contains)
 			}
 		})
+	}
+}
+
+func TestParseConfigAcceptsPublicDeviceClient(t *testing.T) {
+	config, err := devidp.ParseConfig([]byte("[users.admin]\n[clients.device]\ngrants = [\"device_code\"]\nvalid_scopes = [\"profile\"]\n"), t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(config.Clients) != 1 || config.Clients[0].Secret != "" || len(config.Clients[0].RedirectURIs) != 0 ||
+		len(config.Clients[0].GrantTypes) != 1 || config.Clients[0].GrantTypes[0] != devidp.GrantDeviceCode {
+		t.Fatalf("device client = %#v", config.Clients)
 	}
 }
 
