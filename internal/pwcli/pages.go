@@ -12,6 +12,7 @@ import (
 	"github.com/shibukawa/popcornwave/internal/pwgen"
 	"github.com/shibukawa/tinybind-go/generator"
 	"github.com/shibukawa/tinybind-go/routetree"
+	templatehtmlbind "github.com/shibukawa/tinybind-go/templates/htmlbind"
 	"golang.org/x/mod/modfile"
 )
 
@@ -29,6 +30,14 @@ var reservedPageTemplates = map[string]bool{
 //
 // Nothing is written here. The artifacts join the plan of the directory they
 // land in, so one directory keeps one staleness sweep and one atomic write.
+//
+// A tree's extracted assets come back beside its Go, in their own list, because
+// an asset has no path this package can compute: a compiled component belongs
+// beside its template and an asset belongs wherever PublicURLBase is served
+// from. They are grouped under the root rather than under a template's own
+// directory for the same reason — the URL they were compiled against is one
+// place, not one per page. The tree root is what they are grouped under,
+// because that is a directory whose purposes admit them.
 func planPageTrees(root string, config projectConfig) (map[string][]generator.Artifact, error) {
 	if len(config.Generate.Pages) == 0 {
 		return nil, nil
@@ -48,17 +57,47 @@ func planPageTrees(root string, config projectConfig) (map[string][]generator.Ar
 		if err != nil {
 			return nil, err
 		}
-		files, err := routetree.Generate(routetree.GenerateOptions{
+		// GenerateTree rather than Generate: the latter is documented as the
+		// variant that discards the extracted assets, and a page declaring a
+		// script block through it produced a reference to a file that answered
+		// 404. The URL base travels too, or every tree asset would be compiled
+		// against the module default regardless of where this writes them.
+		result, err := routetree.GenerateTree(routetree.GenerateOptions{
 			Config:          pwgen.PageConfig(treeRoot, importBase),
 			Emitter:         emitter,
 			ComponentSuffix: pwgen.PageComponentSuffix,
 			DecoderOutput:   pwgen.PageDecoderOutput,
 			RegistryOutput:  pwgen.PageRegistryOutput,
+			PublicURLBase:   generator.DefaultPublicURLBase,
+			// Threaded rather than left to the default. Both paths happen to use
+			// the module default today, which is why one document has held one
+			// spelling; passing it is what keeps that true if this framework ever
+			// brands the prefix, instead of a page tree quietly taking the
+			// default while a registered-router template took the brand.
+			DataAttributePrefix: pwgen.AttributePrefix(),
 		})
 		if err != nil {
 			return nil, fmt.Errorf("%s: %w", relative, err)
 		}
-		for _, file := range files {
+		treeRootAbs, err := filepath.Abs(treeRoot)
+		if err != nil {
+			return nil, err
+		}
+		for _, asset := range result.Assets {
+			// Under the tree root rather than the project root: an artifact is
+			// filtered by the purposes of the directory it is planned into, and
+			// the project root is not a page directory, so anything grouped there
+			// is dropped without a word.
+			planned[treeRootAbs] = append(planned[treeRootAbs], generator.Artifact{
+				Kind:        assetArtifactKind(asset),
+				Destination: generator.DestinationPublicAsset,
+				OutputBase:  asset.Base,
+				Extension:   asset.Extension,
+				Content:     asset.Content,
+				PublicPath:  asset.URL,
+			})
+		}
+		for _, file := range result.Files {
 			artifact, err := pageArtifact(file)
 			if err != nil {
 				return nil, err
@@ -182,4 +221,15 @@ func treeImportPath(module, moduleDir, treeRoot string) (string, error) {
 		return "", fmt.Errorf("page tree root %s is outside the module at %s", treeRoot, moduleDir)
 	}
 	return module + "/" + relative, nil
+}
+
+// assetArtifactKind classifies one extracted asset the way the flat path does,
+// so a stylesheet and a script reach the same purpose filter and the same
+// write. The two paths produce the same htmlbind.Asset, and this is the one
+// place the tree has to say which kind it is holding.
+func assetArtifactKind(asset templatehtmlbind.Asset) generator.ArtifactKind {
+	if asset.Kind == templatehtmlbind.AssetScript {
+		return generator.ArtifactScript
+	}
+	return generator.ArtifactStylesheet
 }

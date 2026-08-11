@@ -55,8 +55,13 @@ type UpdateSettings struct {
 	// The live bounds, which the delivery loop reads on either transport. They
 	// travel here for the reason the async bounds do: the loop is shared, so
 	// the values it consults have to be.
-	LiveMaxResponses   int
-	LiveMaxBoundaries  int
+	LiveMaxResponses  int
+	LiveMaxBoundaries int
+	// LiveMaxSignalBytes bounds the signal payloads one response may write. It
+	// travels here because a signal is written by both loops, and a budget one
+	// backend enforced and the other did not would be a bound an application
+	// escapes by changing transports.
+	LiveMaxSignalBytes int
 	LiveMaxDuration    time.Duration
 	LiveDurationJitter int
 	LiveIdleTimeout    time.Duration

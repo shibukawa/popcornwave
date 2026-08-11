@@ -11,12 +11,14 @@ const (
 	// than imported because this package is a host-side tool and pw is the
 	// runtime; a test asserts the two agree.
 	//
-	// It is the module's own default rather than this framework's brand, and
-	// that is deliberate: system:tinybind routetree does not thread the prefix
-	// into the templates it compiles, so a page tree would keep the default
-	// while a registered-router template took the brand, and one document would
-	// hold both spellings. One agreed spelling is worth more than the brand
-	// until the option reaches both paths.
+	// It is the module's own default rather than this framework's brand. The
+	// original reason was that system:tinybind routetree did not thread the
+	// prefix into the templates it compiled, so branding it would have given a
+	// page tree the default while a registered-router template took the brand.
+	// v0.5.6 closed that and both paths now pass this value, so branding is a
+	// decision that can be taken rather than one the toolchain refuses — it
+	// would rewrite every generated marker and every document, which is why it
+	// is not taken here in passing.
 	pwAttributePrefix = "tb"
 )
 
@@ -157,6 +159,13 @@ func Options(sqlDialect string) (generator.Options, error) {
 		{name: "QueryValue", writer: -1, request: 0},
 		{name: "FormValue", writer: -1, request: 0},
 		{name: "IsBot", writer: -1, request: 0},
+		// The route decoder inputs. These are the one group generation emits
+		// itself rather than an application calling by hand, so an unregistered
+		// one refuses every page with a dynamic segment or a query parameter —
+		// which is most of them. QueryLookup takes what Queries returned and
+		// never the transport, so it needs no pattern and collapses with nothing.
+		{name: "Queries", writer: -1, request: 0},
+		{name: "PathValue", writer: -1, request: 0},
 		{name: "OpenAPIJSON", writer: 0, request: 1},
 	} {
 		options := []generator.CallPatternOption{generator.RequestArgument(transport.request)}
@@ -208,3 +217,12 @@ func Options(sqlDialect string) (generator.Options, error) {
 	}
 	return options, nil
 }
+
+// AttributePrefix is the data attribute prefix generation compiles into every
+// boundary marker, so a caller that compiles templates through another entry
+// point spells them the same way.
+//
+// It is the module default rather than this framework's brand, because a page
+// tree and a registered-router template must produce one spelling in one
+// document; that is settled in the catalog and this is only where it is read.
+func AttributePrefix() string { return pwAttributePrefix }

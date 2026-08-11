@@ -4,8 +4,11 @@ import (
 	"bytes"
 	"context"
 	"flag"
+	"os"
 	"path"
 	"path/filepath"
+	"regexp"
+	"strings"
 	"testing"
 
 	"github.com/shibukawa/popcornwave/internal/pwgen"
@@ -78,7 +81,7 @@ func planFixture(t *testing.T, root string, config projectConfig) ([]fileChange,
 	if err != nil {
 		return nil, err
 	}
-	runner := generator.New(options)
+	runner := generator.New(withExtractedAssetDirs(options, root))
 	directories, err = withPageDirectories(directories, pageArtifacts)
 	if err != nil {
 		return nil, err
@@ -138,5 +141,44 @@ func TestFastHTTPBuildConstrainsOnlyTheGeneratedFilesNamingNetHTTP(t *testing.T)
 	// altogether, so name one that must be there.
 	if !planned["route_pw_gen.go"] {
 		t.Errorf("expected the route decoder among the constrained files; got %v", planned)
+	}
+}
+
+// A page tree's own templates extract assets like any other, and the tree run
+// returns them in a list of its own. Losing them writes a page that references a
+// module answering 404, and losing them into the Go grouping is worse: it names
+// the file _pw_gen.go and the next run refuses to parse JavaScript as Go.
+//
+// Both happened while wiring this, which is why the reference and the file on
+// disk are checked against each other rather than either alone.
+func TestPageTreeWritesItsExtractedScript(t *testing.T) {
+	root, _ := fixtureConfig(t)
+	component, err := os.ReadFile(filepath.Join(root, "pages", "users", "id_", "page_pw_gen.go"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	reference := regexp.MustCompile(`URL: "([^"]+\.js)"`).FindSubmatch(component)
+	if reference == nil {
+		t.Skip("the fixture page declares no component script block")
+	}
+	url := string(reference[1])
+
+	// The URL the page will serve, resolved to where this project writes it.
+	if !strings.HasPrefix(url, generator.DefaultPublicURLBase+"/") {
+		t.Fatalf("asset URL %q is not under the public base the project serves", url)
+	}
+	name := path.Base(url)
+	written := filepath.Join(root, filepath.FromSlash(extractedAssetDir), name)
+	if _, err := os.Stat(written); err != nil {
+		t.Fatalf("the page references %s and no file was written for it: %v", url, err)
+	}
+
+	// And nothing put JavaScript into a Go file on the way.
+	strays, err := filepath.Glob(filepath.Join(root, "*script*_pw_gen.go"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(strays) > 0 {
+		t.Errorf("an extracted script was written as Go: %v", strays)
 	}
 }

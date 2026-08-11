@@ -89,6 +89,7 @@ func generateProject(ctx context.Context, check bool, stdout io.Writer, listPath
 			return 0, err
 		}
 	}
+	options = withExtractedAssetDirs(options, root)
 	if hooks := assetReferenceHooks(root, config.Assets); len(hooks) > 0 {
 		staging := filepath.Join(root, filepath.FromSlash(derivedStageDir))
 		if !check {
@@ -176,6 +177,28 @@ func generateProject(ctx context.Context, check bool, stdout io.Writer, listPath
 		}
 	}
 	return len(paths), nil
+}
+
+// withExtractedAssetDirs points the generator at where this project writes the
+// style and script blocks a component declares, and at the URL they are
+// referenced by.
+//
+// The URL is the generator's own default, which is this layout's public/generated
+// tree under the default public mount, so a reference resolves with nothing
+// configured. The directory is made absolute because generation runs per
+// directory and the write happens far from the root.
+//
+// Both are set because the generator requires it: neither is derived from the
+// other, so configuring one alone would leave the other on a default that no
+// longer matches it.
+//
+// It is a function rather than two lines at the one call site because the
+// fixture regeneration builds its own runner, and a setting present in only one
+// of them is a fixture that stops driving the path it claims to drive.
+func withExtractedAssetDirs(options generator.Options, root string) generator.Options {
+	options.PublicDir = filepath.Join(root, filepath.FromSlash(extractedAssetDir))
+	options.PublicURLBase = generator.DefaultPublicURLBase
+	return options
 }
 
 func planBootstrapLink(root string, config projectConfig, declared []resolvedPackage, changes []fileChange) ([]fileChange, error) {
@@ -431,6 +454,18 @@ func (p generationPurposes) keeps(kind generator.ArtifactKind) bool {
 		// to the purpose that reads templates. Dropping it here would write the
 		// rewritten reference and discard the file it names.
 		return p.templates || p.pages
+	case generator.ArtifactStylesheet, generator.ArtifactScript:
+		// A component's extracted style and script blocks, for the same reason
+		// and with the same failure: the generated component records the asset
+		// URL either way, so dropping the bytes here serves a page that
+		// references a stylesheet and a module which both answer 404.
+		//
+		// They were missing rather than excluded. Extraction needs no
+		// configuration — the generator defaults write under public/generated,
+		// which is where this framework's public tree already looks — so the
+		// only thing between a declared block and a working asset was this
+		// switch not naming its kind.
+		return p.templates || p.pages
 	default:
 		return false
 	}
@@ -668,7 +703,17 @@ func planDirectory(ctx context.Context, runner *generator.Generator, directory s
 	}
 
 	grouped := make(map[string][]generator.Artifact)
+	// A page tree hands its output in as somebody else's, and not all of it is
+	// Go: a template declaring a script block returns the extracted file too.
+	// Grouping that with the rest would name it a _pw_gen.go and write
+	// JavaScript into a Go file, which is the shape planProducedAssets exists to
+	// have stopped.
+	var extraAssets []generator.Artifact
 	for _, artifact := range extra {
+		if artifact.Destination == generator.DestinationPublicAsset {
+			extraAssets = append(extraAssets, artifact)
+			continue
+		}
 		target := filepath.Join(directory, artifact.OutputBase+"_pw_gen.go")
 		grouped[target] = append(grouped[target], artifact)
 		// A page tree's own templates are compiled by the tree run rather than
@@ -680,7 +725,8 @@ func planDirectory(ctx context.Context, runner *generator.Generator, directory s
 	}
 	// A produced file is placed before anything is grouped, because it is not Go
 	// and the grouping below names every target it is handed a _pw_gen.go.
-	produced, err := planProducedAssets(runner.Options.DerivedAssetDir, purposes, artifacts)
+	produced, err := planProducedAssets(runner.Options.DerivedAssetDir, runner.Options.PublicDir, purposes,
+		append(append([]generator.Artifact(nil), artifacts...), extraAssets...))
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", directory, err)
 	}
@@ -769,19 +815,31 @@ func planDirectory(ctx context.Context, runner *generator.Generator, directory s
 //
 // The bytes are compared before a write is planned, exactly as a generated Go
 // file is, so a --check run on a tree that is already built reports nothing.
-func planProducedAssets(derivedDir string, purposes generationPurposes, artifacts []generator.Artifact) ([]fileChange, error) {
+func planProducedAssets(derivedDir, publicDir string, purposes generationPurposes, artifacts []generator.Artifact) ([]fileChange, error) {
 	var changes []fileChange
 	planned := map[string]bool{}
 	for _, artifact := range artifacts {
 		if artifact.Destination != generator.DestinationPublicAsset || !purposes.keeps(artifact.Kind) {
 			continue
 		}
-		if derivedDir == "" {
+		// Two shapes reach here and they differ in both halves. A conversion
+		// owns its own naming, so its output base carries the extension already
+		// and it is staged outside the served tree. An extracted block is named
+		// by the generator as a base and an extension, and it belongs in the
+		// public tree its URL was computed against.
+		directory, name := derivedDir, filepath.FromSlash(artifact.OutputBase)
+		if artifact.Kind == generator.ArtifactStylesheet || artifact.Kind == generator.ArtifactScript {
+			directory = publicDir
+			if artifact.Extension != "" {
+				name += "." + artifact.Extension
+			}
+		}
+		if directory == "" {
 			// Discarding it would leave the rewritten reference naming nothing,
 			// which is the failure this function exists to have stopped.
-			return nil, fmt.Errorf("a conversion produced %s but no derived asset directory is set", artifact.OutputBase)
+			return nil, fmt.Errorf("a conversion produced %s but no output directory is set", artifact.OutputBase)
 		}
-		target := filepath.Join(derivedDir, filepath.FromSlash(artifact.OutputBase))
+		target := filepath.Join(directory, name)
 		// One conversion is replayed for every occurrence of the value it
 		// converted, so the same file arrives once per reference.
 		if planned[target] {

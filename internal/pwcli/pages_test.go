@@ -126,8 +126,16 @@ func TestRunGeneratePageTreeCallsTypedLoad(t *testing.T) {
 		t.Errorf("typed Load is not called with its route input:\n%s", registry)
 	}
 	decoder := readTestFile(t, filepath.Join(root, "pages", "users", "id_", "route_pw_gen.go"))
-	if !strings.Contains(decoder, `r.PathValue("id")`) {
+	// Through the pw accessor rather than off the request: a method on the
+	// concrete net/http type is a call the fasthttp source transform cannot
+	// rewrite, so a decoder spelled r.PathValue would refuse the handler around
+	// it. Asserting the spelling is what keeps that regression visible here
+	// rather than in a fasthttp build nobody runs by default.
+	if !strings.Contains(decoder, `pw.PathValue(r, "id")`) {
 		t.Errorf("decoder does not read the dynamic segment:\n%s", decoder)
+	}
+	if strings.Contains(decoder, `r.PathValue(`) && !strings.Contains(decoder, `pw.PathValue(r,`) {
+		t.Errorf("decoder reads the path off the request directly:\n%s", decoder)
 	}
 }
 

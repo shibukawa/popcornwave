@@ -6,6 +6,8 @@ import (
 	"math/rand/v2"
 	"sync"
 	"time"
+
+	"github.com/shibukawa/popcornwave/pw"
 )
 
 // LoadRoomTitle is an ordinary async external: it answers once, and the
@@ -73,6 +75,25 @@ func WatchMessages(ctx context.Context, name string) iter.Seq2[[]Message, error]
 				return
 			case <-changed:
 				if !yield(rooms.snapshot(name), nil) {
+					return
+				}
+				// And a signal saying one arrived.
+				//
+				// The delivery above cannot say this. It carries the whole list,
+				// so a reader who was away for a minute gets the current room
+				// and no notion of how much of it is new — which is the same
+				// property that makes a reconnect cheap. Arrival is a different
+				// fact from state, and it is the one the panel reacts to.
+				//
+				// It is yielded in the error slot and is not an error. The
+				// runtime classifies it first, so nothing renders, no recover
+				// subtree appears, and this subscription keeps running.
+				//
+				// No payload, deliberately. The handler needs to know that a
+				// message arrived and nothing else, so this lets the server say
+				// when and never what — which is the narrowest thing a
+				// registered name can be given.
+				if !yield(nil, pw.NamedSignal("app.message")) {
 					return
 				}
 			}

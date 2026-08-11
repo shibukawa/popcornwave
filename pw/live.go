@@ -129,6 +129,9 @@ func serveLive(w http.ResponseWriter, r *http.Request, wrappers []HTMLWrapper, l
 	defer func() { finishEncoding(true) }()
 	reason := liveCloseDone
 	boundaries := make(map[string]struct{})
+	// signalBytes is what this response has spent on payloads, which is the one
+	// budget an application writes to directly.
+	signalBytes := 0
 	// onScreen is the validator of the content each boundary is showing: seeded
 	// from what the client claims, and updated by every delivery this response
 	// writes. It is what a reconnect exists to consult, and it also covers the
@@ -162,6 +165,67 @@ func serveLive(w http.ResponseWriter, r *http.Request, wrappers []HTMLWrapper, l
 	render.initialBuild()
 	for content, err := range htmlbind.RenderChainLive(ctx, render.commitWatcher(io.Discard), wrappers, leaf, renderOptions(ctx, config, false, options)...) {
 		if err != nil {
+			// Classified before anything treats this as a failure, which is the
+			// whole of the change v0.5.3 asks of a caller. A signal travels the
+			// error slot the way fs.SkipDir does — it is not a fault, it ends
+			// nothing, and the branches below keep the behaviour they had.
+			//
+			// Getting this wrong is silent: the loop would end on the first
+			// signal, the response would close with no terminal record, and the
+			// client would read that as truncation and reconnect. A working
+			// signal would look like a flaky connection.
+			if signal, ok := htmlbind.AsSignal(err); ok {
+				// This framework's own namespace carries the lifecycle names its
+				// client runtime dispatches, and a handler trusts one because
+				// application data has no route to it. A source reaching into it
+				// is refused here rather than at construction: the module owns
+				// the fault field, so a wrapper could not say why, and a wrapper
+				// is not a chokepoint anyway — this loop is.
+				if ReservedSignalName(signal.Name()) {
+					logger.Log(ctx, LevelError, "live signal refused",
+						String("signal", signal.Name()), Err(ErrReservedSignalName))
+					continue
+				}
+				if !committed {
+					// A signal before the first delivery still commits the
+					// response. There is nothing to render, but the client is
+					// reading records and this is one, and holding it back would
+					// mean holding it forever on a page whose sources are quiet.
+					target, finishEncoding = encodedBodyWriter(w, r)
+					writeLiveHeaders(w)
+					var headErr error
+					if scratch, headErr = writeLiveHead(target, scratch, liveHead); headErr != nil {
+						logger.Log(ctx, LevelError, "live head record write failed", Err(headErr))
+						return
+					}
+					committed = true
+				}
+				// A payload is the one size on this wire an application chooses
+				// directly, on a connection that lives as long as a tab and with
+				// no render behind it to pace the writes. Closing for retry beats
+				// dropping records: the reconnect re-executes the page and the
+				// source produces the current state again, where a dropped
+				// instruction is simply gone.
+				signalBytes += len(signal.Payload())
+				if config.LiveMaxSignalBytes > 0 && signalBytes > config.LiveMaxSignalBytes {
+					logger.Log(ctx, LevelError, "live response exceeded its signal byte bound",
+						String("signal", signal.Name()), Int("bound", config.LiveMaxSignalBytes))
+					reason = liveCloseRetry
+					break
+				}
+				var signalErr error
+				if scratch, signalErr = writeLiveSignal(target, scratch, signal); signalErr != nil {
+					logger.Log(ctx, LevelDebug, "live signal write failed", Err(signalErr))
+					return
+				}
+				render.wrote(len(signal.Payload()))
+				render.signalled(signal.Name(), len(signal.Payload()))
+				// A signal is activity. The source produced something, so the
+				// stream is not idle, and a screen driven entirely by signals
+				// must not be closed as though nothing were happening.
+				watchdog.Delivered()
+				continue
+			}
 			render.failed(err)
 			// A boundary that failed with no recover clause has nothing left to
 			// deliver, and reconnecting would only reproduce it, so this closes
@@ -338,6 +402,7 @@ func writeLiveHeaders(w http.ResponseWriter) {
 // same code rather than from a second reading of the same protocol.
 var (
 	writeLiveDelivery = pwruntime.WriteLiveDelivery
+	writeLiveSignal   = pwruntime.WriteLiveSignal
 	writeLiveClose    = pwruntime.WriteLiveClose
 	writeLiveRecord   = pwruntime.WriteLiveRecord
 	startLiveWatchdog = pwruntime.StartLiveWatchdog

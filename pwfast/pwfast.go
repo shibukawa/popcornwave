@@ -79,6 +79,31 @@ type Stream[T any] = fasthttpbind.Stream[T]
 // Parse binds the request into the generated input type.
 func Parse[T any](r *fasthttp.RequestCtx) (T, error) { return fasthttpbind.Bind[T](r) }
 
+// The route decoder inputs, under the names pw uses and with the transport in
+// the same position, so a decoder rewritten onto this package is the same text
+// with one selector changed. Registering the call pattern says which argument to
+// drop; it does not produce the function it is dropped from, which is what these
+// are.
+//
+// The query type differs from pw's on purpose: fasthttp parses into its own Args
+// rather than into url.Values, and a generated decoder only ever passes what
+// Queries returned straight back to QueryLookup, so the pair travels together
+// and nothing names the type.
+
+// Queries returns the parsed query arguments. A generated decoder calls this
+// once and resolves each field with QueryLookup.
+func Queries(r *fasthttp.RequestCtx) *fasthttp.Args { return fasthttpbind.Queries(r) }
+
+// QueryLookup returns the first value for key from pre-parsed query values. A
+// key present with an empty value reports ("", true), matching net/http.
+func QueryLookup(q *fasthttp.Args, key string) (string, bool) {
+	return fasthttpbind.QueryLookup(q, key)
+}
+
+// PathValue returns the routed path value for key. fasthttp has no routing of
+// its own, so it comes from whatever the router stored as a user value.
+func PathValue(r *fasthttp.RequestCtx, key string) string { return fasthttpbind.PathValue(r, key) }
+
 // WriteAPI writes one typed API response, or the problem that describes why it
 // could not.
 func WriteAPI[T any](r *fasthttp.RequestCtx, value T) {

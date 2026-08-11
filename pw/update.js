@@ -23,6 +23,16 @@ export function createUpdateRuntime(config) {
 	const kindHeader = config.header + "-Kind";
 	const instanceHeader = config.header + "-Instance";
 	const liveHeader = config.header + "-Live";
+	// The scope chain of the composition a navigation delta arrives at. Built
+	// from the configured prefix like every other header here, so a deployment
+	// that renamed the prefix and a client that did not is impossible rather
+	// than silent.
+	const scopeChainHeader = config.header + "-Scopes";
+	// The marker the render writes on a scoped component's root element. Built
+	// from the same configured prefix as every other attribute here, and handed
+	// to the boundary half, which owns the scan but is loaded before any
+	// configuration exists.
+	setScopeMarkerAttribute("data-" + config.attr + "-component");
 	// The capability header says this client can walk a sequence tree; the
 	// address header asks for one. They are two headers rather than one because
 	// a request that walks sequences and a request for a sequence are different
@@ -710,10 +720,26 @@ export function createUpdateRuntime(config) {
 			// like any other here, so it takes the ordinary path: reload, and
 			// name the reason for whoever is watching the events.
 			if (!destination) return fall(location.href, "unsafe-navigate");
+			// The weakest of the lifecycle names, and kept for the reason the
+			// specification gives: the page is about to go away, so a handler has
+			// little time to act, but logging one is cheap and its absence is
+			// invisible. Fired before the assignment, because after it there is
+			// no page left to fire on.
+			dispatchSignal(signalDirectiveReceived, { directive: "navigate", url: destination });
 			location.assign(destination);
 			return { applied: false, navigated: true };
 		}
 
+		// The scope chain of the page just applied. It runs after every operation
+		// landed, so a setup reading the DOM sees the page it belongs to rather
+		// than the one being replaced, and before the live connection opens, so a
+		// setup registering a signal handler is in the table when the first
+		// record arrives.
+		//
+		// A response carrying no chain header means a composition with no scoped
+		// script, which releases everything currently mounted rather than leaving
+		// the outgoing page's scripts running over the incoming page.
+		applyScopeCatalog(parseScopeCatalog(response.headers.get(scopeChainHeader)));
 		// History moves only after the response committed, so a delta that failed
 		// leaves the address bar describing what is actually on screen.
 		commitHistory(target, mode);
@@ -724,6 +750,11 @@ export function createUpdateRuntime(config) {
 		// collision as the outgoing one in the other direction.
 		if (outcome.live || response.headers.get(liveHeader) === "1") startLive();
 		emit("applied", { url: target.href });
+		// The lifecycle name, after the delta is in the DOM and the scopes of the
+		// page it belongs to are mounted. An analytics or scroll-restoration
+		// handler wants the URL now displayed, which is why that is what it
+		// carries rather than the one it left.
+		dispatchSignal(signalNavigationApplied, { url: target.href });
 		return { applied: true };
 	}
 
@@ -793,6 +824,15 @@ export function createUpdateRuntime(config) {
 					// installed, which is a different namespace from an instance
 					// id and lands through the boundary half of this asset.
 					applyHTML(record.id, record.html);
+					continue;
+				}
+				if (record.r === "signal") {
+					// The delta stream and the live stream are one record grammar
+					// written by one encoder upstream, so a signal can arrive on
+					// either. Dispatched here rather than collected, because the
+					// order a source emitted its signals in relative to its
+					// deliveries is the only ordering guaranteed at all.
+					if (typeof record.name === "string") dispatchSignal(record.name, record.data);
 					continue;
 				}
 				if (record.r === "end") {
@@ -1087,6 +1127,22 @@ export function createUpdateRuntime(config) {
 			listeners.add(listener);
 			return () => listeners.delete(listener);
 		},
+		// The signal table, from the half above. It is published here because
+		// this object is the one an application reaches, and it is one table
+		// rather than a second surface beside subscribe: a handler cares what
+		// happened rather than which side noticed, and the reserved prefix is
+		// what keeps the framework's own lifecycle names out of reach.
+		//
+		// subscribe stays what it is — the outcome of an update this caller
+		// asked for, reported back to the caller that asked.
+		registerEvent: registerEvent,
+		unregisterEvent: unregisterEvent,
+		activeScope: activeScope,
+		// definePage separates a page's evaluation, which happens once, from its
+		// activation, which happens every time it is entered. It is the shape a
+		// page script wants, because an ES module cannot be re-evaluated on a
+		// return visit and this needs it not to be.
+		definePage: definePage,
 		// The attribute names are exposed because an application writing a
 		// preserve marker from script needs the same name its templates use, and
 		// guessing it from a prefix it did not choose is how the two drift.

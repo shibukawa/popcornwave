@@ -21,8 +21,16 @@ func TestReleaseBuildServesOnlyTheCoreModule(t *testing.T) {
 	if !ok {
 		t.Fatalf("scripts = %v, want the core module", keysOf(scripts))
 	}
-	if strings.Contains(core, "import(") {
-		t.Error("the release core carries a dynamic import")
+	// A dynamic import of a literal path, which is the shape the development
+	// import takes and the only shape that can name a module the release set does
+	// not contain. The check used to be for any dynamic import at all, which held
+	// only while the development console was the sole reason to have one; the page
+	// module loader of requirement:client-signal-registry imports a URL an
+	// application's own markup names, and that is a variable rather than a
+	// literal. Narrowed rather than removed, because what this protects is that a
+	// deployed binary cannot be talked into loading a development module.
+	if strings.Contains(core, `import("`) {
+		t.Error("the release core carries a dynamic import of a literal path")
 	}
 	if strings.Contains(core, "dev.js") || strings.Contains(core, "PW_DEV_CONSOLE_URL") {
 		t.Error("the release core names a development module")

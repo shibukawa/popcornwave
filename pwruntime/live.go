@@ -287,6 +287,59 @@ func WriteLiveDelivery(w io.Writer, scratch []byte, content htmlbind.Content, di
 	return WriteLiveRecord(w, append(record, '}'))
 }
 
+// ReservedSignalPrefix is this framework's signal namespace.
+//
+// Every layer that produces signals reserves a prefix: the module holds tb.,
+// this framework holds pw., and an application uses what is left. The module
+// cannot hold this one, because a signal constructor is called at a yield site
+// inside a source and is not render-scoped, so it can reach no configured value.
+//
+// What it protects is trust. The lifecycle names this framework's client runtime
+// dispatches — a boundary settled, a live response opened, a delivery applied —
+// arrive under this prefix, and a handler believes them precisely because
+// application data has no route into the namespace. A source able to emit
+// pw.delivery_applied could make a screen believe a render landed that never did.
+//
+// It lives here rather than beside either live loop because both of them enforce
+// it, and a prefix one backend reserved and the other did not would be a
+// namespace an application could reach through the second one.
+const ReservedSignalPrefix = "pw."
+
+// ReservedSignalName reports a name this framework refuses to put on the wire.
+//
+// The module refuses its own prefix inside its constructors, where a bad name
+// becomes a value that faults when the runtime reads it. This one is enforced
+// where a signal is written instead, for two reasons: a constructor cannot carry
+// a message of its own, since the fault field is the module's and unexported;
+// and a constructor is not a chokepoint at all, because an application calling
+// the module's constructor directly bypasses any wrapper this framework offers.
+// A live loop is the only path a signal reaches a client through.
+func ReservedSignalName(name string) bool {
+	return strings.HasPrefix(name, ReservedSignalPrefix)
+}
+
+// WriteLiveSignal writes one signal: a name the client looks up in the table it
+// registered while the page loaded, and the payload the source encoded.
+//
+// It carries no boundary id, no validator and no revision, because a signal
+// addresses no region. It is dispatched rather than applied, so the suppression
+// and manifest bookkeeping every delivery goes through has nothing to say about
+// it, and a client that skips a malformed one desynchronizes nothing.
+//
+// The name is escaped rather than written through: it reaches a client as a
+// lookup key, and the payload is appended exactly as the generated encoder
+// produced it, which htmlbind already escaped for a script context as well as a
+// JSON one.
+func WriteLiveSignal(w io.Writer, scratch []byte, signal htmlbind.Signal) ([]byte, error) {
+	record := append(scratch[:0], `{"r":"signal","name":`...)
+	record = append(record, htmlbind.JSONString(signal.Name())...)
+	if payload := signal.Payload(); len(payload) > 0 {
+		record = append(record, `,"data":`...)
+		record = append(record, payload...)
+	}
+	return WriteLiveRecord(w, append(record, '}'))
+}
+
 // WriteLiveClose is always the last record.
 func WriteLiveClose(w io.Writer, scratch []byte, reason string, retryAfter time.Duration) ([]byte, error) {
 	record := append(scratch[:0], `{"r":"end","reason":"`...)

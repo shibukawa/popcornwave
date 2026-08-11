@@ -1283,3 +1283,63 @@ func TestMergingArtifactsWithDisagreeingConstraintsIsRefused(t *testing.T) {
 		t.Errorf("the error does not name the cause: %v", err)
 	}
 }
+
+// A component declaring a script block produces both the reference and the file
+// it names. The generated component records the asset URL either way, so
+// dropping the bytes serves a page whose module answers 404 — which is the
+// failure planProducedAssets already existed to have stopped for a conversion,
+// reached by a second route.
+func TestComponentScriptBlockWritesItsExtractedFile(t *testing.T) {
+	directory := t.TempDir()
+	writeTestFile(t, filepath.Join(directory, "go.mod"), "module fixture\n\ngo 1.25\n")
+	writeTestFile(t, filepath.Join(directory, "counter.pw.html"), `package fixture
+
+export component Counter(label: string): html {
+<script component>
+export function setup(el) {
+	return () => {};
+}
+</script>
+<div>{label}</div>
+}
+`)
+
+	options, err := pwgen.Options(sqlbind.DialectPostgreSQL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	runner := generator.New(withExtractedAssetDirs(options, directory))
+	changes, err := planDirectory(context.Background(), runner, directory, allPurposes, nil, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var script string
+	for _, change := range changes {
+		if strings.HasSuffix(change.path, ".js") {
+			script = change.path
+		}
+	}
+	if script == "" {
+		var paths []string
+		for _, change := range changes {
+			paths = append(paths, filepath.Base(change.path))
+		}
+		t.Fatalf("no extracted script was planned; planned %v", paths)
+	}
+	// Under the public tree the reference resolves against, not beside the Go.
+	wanted := filepath.Join(directory, filepath.FromSlash(extractedAssetDir))
+	if filepath.Dir(script) != wanted {
+		t.Errorf("script written to %s, want it under %s", filepath.Dir(script), wanted)
+	}
+
+	generated, ok := changesByBase(changes)["counter_pw_gen.go"]
+	if !ok {
+		t.Fatal("no component was generated")
+	}
+	// The reference and the file agree, which is the whole point: the URL the
+	// component records must be the file that was written.
+	if !strings.Contains(string(generated.source), filepath.Base(script)) {
+		t.Errorf("the component references no file named %s:\n%s", filepath.Base(script), generated.source)
+	}
+}

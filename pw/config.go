@@ -102,6 +102,19 @@ type HTMLConfig struct {
 	// LiveMaxResponses bounds concurrent live responses per client, so reopening
 	// cannot multiply subscriptions. Zero or less is unbounded.
 	LiveMaxResponses int `default:"4" dependon:".live" help:"maximum concurrent live responses per client"`
+	// LiveMaxSignalBytes bounds the signal payloads one live response may write.
+	//
+	// A signal is the one thing on this wire whose size an application chooses
+	// directly: a delivery is bounded by what a boundary renders, where a
+	// payload is a struct an author names and the module transfers verbatim. On
+	// a connection that lives as long as a browser tab, an emitter in a loop is
+	// an unbounded write with no render behind it to slow it down.
+	//
+	// Reaching it closes the response with a retry rather than dropping records,
+	// because a screen missing an instruction it was sent is worse than one that
+	// reconnects: the reconnect re-executes the page and the source produces the
+	// current state again. Zero or less is unbounded.
+	LiveMaxSignalBytes int `default:"262144" dependon:".live" help:"maximum total signal payload bytes one live response may write"`
 	// Cache supplies the store behind the template's cache annotation.
 	Cache HTMLCacheConfig `help:"Cache supplies the store behind the template's cache annotation"`
 }
@@ -127,6 +140,7 @@ var defaultHTMLConfig = HTMLConfig{
 	LiveIdleTimeout:     5 * time.Minute,
 	LiveMaxBoundaries:   32,
 	LiveMaxResponses:    4,
+	LiveMaxSignalBytes:  256 * 1024,
 	Cache:               HTMLCacheConfig{Enabled: true, MaxEntries: 1024},
 }
 

@@ -521,17 +521,27 @@ func TestRuntimeScriptDeclaresItsStateBeforeDefiningElements(t *testing.T) {
 	if firstDefine < 0 {
 		t.Fatal("the runtime script defines no custom element")
 	}
-	for offset := firstDefine; ; {
-		index := strings.Index(boundaryRuntimeScript[offset:], "\nlet ")
-		if index < 0 {
-			return
+	// Both binding forms, because both sit in the temporal dead zone until their
+	// initializer runs. Checking only let left the hole a const registry declared
+	// below the definitions fell straight through, and the symptom would have
+	// been a load-time throw with a page that applies its boundaries and then
+	// never updates.
+	//
+	// Function declarations are exempt: they hoist initialized, so a callback
+	// reaching one that appears later in the module still finds it.
+	for _, form := range []string{"\nlet ", "\nconst "} {
+		for offset := firstDefine; ; {
+			index := strings.Index(boundaryRuntimeScript[offset:], form)
+			if index < 0 {
+				break
+			}
+			offset += index + 1
+			line := boundaryRuntimeScript[offset:]
+			if end := strings.IndexByte(line, '\n'); end >= 0 {
+				line = line[:end]
+			}
+			t.Errorf("module state is declared after the first customElements.define: %q", line)
 		}
-		offset += index + 1
-		line := boundaryRuntimeScript[offset:]
-		if end := strings.IndexByte(line, '\n'); end >= 0 {
-			line = line[:end]
-		}
-		t.Errorf("module state is declared after the first customElements.define: %q", line)
 	}
 }
 
