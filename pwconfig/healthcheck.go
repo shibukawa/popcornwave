@@ -1,4 +1,4 @@
-package pw
+package pwconfig
 
 import (
 	"bufio"
@@ -71,7 +71,7 @@ func parseHealthcheckArgs(args []string) (frameworkAction, error) {
 // endpoint rules it never includes configuration detail beyond the key an
 // operator must set.
 func runHealthcheckProbe(options healthcheckOptions) error {
-	server := Config[ServerConfig](nil)
+	server := Value[ServerConfig]()
 	path, key := server.Health, "server.health"
 	if options.ready {
 		path, key = server.Readiness, "server.readiness"

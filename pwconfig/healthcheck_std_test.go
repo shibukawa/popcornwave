@@ -1,6 +1,6 @@
 //go:build !tinygo
 
-package pw
+package pwconfig
 
 import (
 	"net"

@@ -163,6 +163,13 @@ func start(ctx context.Context, handler fasthttp.RequestHandler, options startOp
 	if err := pwconfig.Parse(); err != nil {
 		return nil, err
 	}
+	// An action the caller cannot answer is refused rather than left pending.
+	// A caller that owns its own listener gets a chain back from here, and a
+	// health probe falling through into one would bind a second time on every
+	// HEALTHCHECK interval and report that as the server's own health.
+	if err := pwconfig.RefusePendingFrameworkAction(); err != nil {
+		return nil, err
+	}
 
 	// The pool first, because the session backend and anything a plugin opens
 	// may read it, and because a deployment that cannot reach its database
@@ -274,6 +281,16 @@ func runtimeResources(observability *pwobservability.Resolved) pwruntime.Resourc
 // that the startup line reports the port that was actually accepted — which is
 // the one an operator opens when the configuration asked for port 0.
 func Run(ctx context.Context, handler fasthttp.RequestHandler, option ...Option) error {
+	// The command line first. --generate-config, the health probe and whatever
+	// subcommands the application registered are answered here rather than by
+	// starting a server, and they are the same words the other build answers
+	// because the parsing is the shared layer's.
+	if err := pwconfig.Parse(); err != nil {
+		return err
+	}
+	if handled, err := pwconfig.RunFrameworkAction(); handled {
+		return err
+	}
 	chain, shutdown, err := Start(ctx, handler, option...)
 	if err != nil {
 		return err

@@ -1,6 +1,6 @@
 //go:build !pwdev
 
-package pw
+package pwconfig
 
 // printDSNBuilt reports whether this binary carries --pw-print-dsn.
 //

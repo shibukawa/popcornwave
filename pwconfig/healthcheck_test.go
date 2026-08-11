@@ -1,4 +1,4 @@
-package pw
+package pwconfig
 
 import (
 	"strings"
@@ -19,7 +19,7 @@ func stashFrameworkAction(t *testing.T) {
 func TestParseFrameworkActionSelectsLeadingHealthcheck(t *testing.T) {
 	stashFrameworkAction(t)
 
-	args, err := parseFrameworkAction([]string{"healthcheck", "--ready", "--timeout=1s"})
+	args, err := ParseFrameworkAction([]string{"healthcheck", "--ready", "--timeout=1s"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -40,7 +40,7 @@ func TestParseFrameworkActionSelectsLeadingHealthcheck(t *testing.T) {
 func TestParseFrameworkActionHealthcheckDefaults(t *testing.T) {
 	stashFrameworkAction(t)
 
-	if _, err := parseFrameworkAction([]string{"healthcheck"}); err != nil {
+	if _, err := ParseFrameworkAction([]string{"healthcheck"}); err != nil {
 		t.Fatal(err)
 	}
 	action := selectedFrameworkAction()
@@ -52,7 +52,7 @@ func TestParseFrameworkActionHealthcheckDefaults(t *testing.T) {
 func TestParseFrameworkActionIgnoresNonLeadingHealthcheck(t *testing.T) {
 	stashFrameworkAction(t)
 
-	args, err := parseFrameworkAction([]string{"--name", "healthcheck"})
+	args, err := ParseFrameworkAction([]string{"--name", "healthcheck"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -110,14 +110,14 @@ func TestRefusePendingFrameworkActionNamesTheAction(t *testing.T) {
 	frameworkActionState.Lock()
 	frameworkActionState.action = frameworkAction{kind: frameworkActionHealthcheck}
 	frameworkActionState.Unlock()
-	if err := refusePendingFrameworkAction(); err == nil || !strings.Contains(err.Error(), "healthcheck") {
+	if err := RefusePendingFrameworkAction(); err == nil || !strings.Contains(err.Error(), "healthcheck") {
 		t.Fatalf("err = %v", err)
 	}
 
 	frameworkActionState.Lock()
 	frameworkActionState.action = frameworkAction{}
 	frameworkActionState.Unlock()
-	if err := refusePendingFrameworkAction(); err != nil {
+	if err := RefusePendingFrameworkAction(); err != nil {
 		t.Fatal(err)
 	}
 }

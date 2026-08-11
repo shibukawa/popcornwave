@@ -1,4 +1,4 @@
-package pw
+package pwconfig
 
 import (
 	"reflect"
@@ -13,7 +13,7 @@ func TestParseFrameworkActionRemovesConfigGenerationOption(t *testing.T) {
 		frameworkActionState.Unlock()
 	})
 
-	args, err := parseFrameworkAction([]string{"--port", "9090", "--generate-config=toml"})
+	args, err := ParseFrameworkAction([]string{"--port", "9090", "--generate-config=toml"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -26,7 +26,7 @@ func TestParseFrameworkActionRemovesConfigGenerationOption(t *testing.T) {
 }
 
 func TestParseFrameworkActionRejectsInvalidConfigFormat(t *testing.T) {
-	if _, err := parseFrameworkAction([]string{"--generate-config", "json"}); err == nil {
+	if _, err := ParseFrameworkAction([]string{"--generate-config", "json"}); err == nil {
 		t.Fatal("invalid config format was accepted")
 	}
 }

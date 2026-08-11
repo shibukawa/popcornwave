@@ -90,6 +90,16 @@ func Options(sqlDialect string) (generator.Options, error) {
 			generator.Argument("name", 0),
 			generator.Argument("help", 1),
 		),
+		// The portable spelling, for the same reason pwconfig.Register is
+		// registered above: a subcommand is a fact about the command line
+		// rather than about a transport, so the file declaring one is compiled
+		// by both builds and must not name either runtime.
+		generator.ConfigSubCommandCall(
+			generator.Function(pwConfigPackage, "RegisterSubCommand"),
+			generator.GenericType("config", 0),
+			generator.Argument("name", 0),
+			generator.Argument("help", 1),
+		),
 		generator.ErrorResponseCall(
 			generator.Function(pwPackage, "BadRequest"),
 			generator.Constant("status", 400),

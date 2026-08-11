@@ -175,10 +175,16 @@ prerequisites:
     what_each_transport_keeps: reading a path off a request and writing the response, plus closing the reserved namespace so an unclaimed path there never reaches application routing
     build_modes_still_differ: the development set adds a module and an import and therefore lands on a different revision, which is published rather than branched on — a deployed build publishes nothing and both transports land on one revision
     proved_by: both binaries of examples/live_render name /_pw/15d90b93c185664b/popcornwave-runtime.js and serve the same 20310 bytes at it, and a stale revision answers 404 on each
+  command_line_2026_08_11:
+    was: the second build took no command line at all — every flag was an unknown flag, --generate-config did nothing, the health probe was unreachable, and an application's own subcommand could not be named
+    why: the argument filter that lifts the framework's words off the line was a pw hook, and a build without pw installed none
+    moved: pwconfig, which already owns the line through Hooks.Args — the framework actions, the health probe, and the subcommand registry
+    the_filter_is_no_longer_optional: a nil Args hook used to mean no filtering; it now means the framework's own words are still taken off the line, so a build that installs no hook still answers them and a runtime sets one only to add
+    application_subcommands: registered through pwconfig, and the generator recognizes that spelling as well as the pw one — a subcommand's declaring file is compiled by both builds, so naming a runtime there would put it in only one
+    proved_by: both binaries of examples/helloworld answer "seed --count 42 --table orders" identically, take its declared defaults identically, list it identically for an unknown command, and give the same answer for --generate-config, an unknown flag, a config flag, and the health probe
   still_missing:
     websocket: requirement:contrib-websocket, blocked on a dependency decision rather than on work here
     dev_tooling: out of scope, per dev_tooling_scope above
-    framework_actions: the second build takes no command line at all — the argument filter that lifts framework subcommands off it is a pw hook, so --help and the config flags are unknown there
   open_here:
     superseded_note: the four entries below were the open list; all four are answered in settled_2026_08_10 above and are kept here for the reasoning rather than as questions
     test_seam:

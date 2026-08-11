@@ -43,6 +43,10 @@ type Hooks struct {
 	// Args filters the command arguments before the load, which is how a
 	// runtime takes its own subcommands off the line before configbind sees
 	// them. Returning an error fails the parse.
+	//
+	// A nil hook does not mean no filtering: the framework's own arguments are
+	// this package's and are taken off the line regardless, through
+	// ParseFrameworkAction. A runtime sets this only to add to that.
 	Args func([]string) ([]string, error)
 	// Loaded receives the load result, which is what a startup summary reads.
 	// It runs only on a successful load.
@@ -114,14 +118,19 @@ func Parse() error {
 		return envErr
 	}
 	setEnv(env, declared)
-	if filter := configState.hooks.Args; filter != nil {
-		var actionErr error
-		if options.Args, actionErr = filter(commandArgs(options.Args)); actionErr != nil {
-			configState.parseErr = actionErr
-			return actionErr
-		}
-	} else {
-		options.Args = commandArgs(options.Args)
+	// The framework's own arguments are this package's, so they are filtered off
+	// the line whether or not a runtime installed a hook. A runtime that wants
+	// to add to that installs one; a build that installs none still answers
+	// --generate-config and the health probe, which is what makes the two
+	// builds of one application understand the same words.
+	filter := configState.hooks.Args
+	if filter == nil {
+		filter = ParseFrameworkAction
+	}
+	var actionErr error
+	if options.Args, actionErr = filter(commandArgs(options.Args)); actionErr != nil {
+		configState.parseErr = actionErr
+		return actionErr
 	}
 	result, err := configbind.Load(options)
 	configState.parseErr = err
