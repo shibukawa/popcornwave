@@ -157,6 +157,29 @@ HTML is private and `no-store` unless its document shell declares a public
 scope. Fingerprinted assets use validators and immutable caching; navigation
 deltas and live delivery use `no-store`, and 429 responses are never stored.
 
+### Representations follow the HTTP fields
+
+The useful wire format depends on the caller, not just on the operation. JSON
+is convenient from JavaScript, while an HTML form that works without
+JavaScript—and a `curl` command someone can type without assembling a JSON
+document—naturally use form encoding. Popcorn Wave therefore does not require a
+separate handler for each kind of client. The same request struct accepts
+`application/json`, `application/x-www-form-urlencoded`, and
+`multipart/form-data`; the request's `Content-Type` says how to decode it.
+
+The response side follows the complementary rule. `Accept` chooses among the
+representations a response supports: a typed stream, for example, can leave the
+same handler as SSE, NDJSON, or a JSON array. Problem Details similarly
+negotiates between a safe HTML page and JSON. Applications can add ordinary
+media types such as `application/ld+json` without inventing a parallel RPC
+transport. The framework reads `Content-Type`, `Accept`, and the related HTTP
+fields at the boundary so application code can describe the value and let the
+wire representation fit its surroundings.
+
+- [Request body binding](/guides/frontend/handlers/#request-bodies)
+- [JSON and other responses](/guides/frontend/responses/)
+- [Negotiated streams](/guides/frontend/streams/)
+
 ### Images negotiate through `Accept`
 
 One image URL does not imply that every client can decode the same bytes. With

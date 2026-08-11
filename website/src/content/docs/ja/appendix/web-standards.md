@@ -140,6 +140,26 @@ HTMLは、ドキュメントシェルが公開スコープを宣言しない限�
 プリント付きアセットはvalidatorとimmutableキャッシュを使い、ナビゲーション差分とライブ配信は
 `no-store`を使います。429レスポンスも保存されません。
 
+### 表現形式はHTTPフィールドに従う
+
+同じ操作でも、扱いやすい通信形式は呼び出し元によって変わります。JavaScriptから送るならJSONが
+簡単です。一方、JavaScriptなしでも動くHTMLフォームや、JSON文書を組み立てず手早く入力したい
+`curl`ではフォーム形式が自然です。そこでPopcorn Waveは、クライアントの種類ごとに別のハンドラを
+要求しません。同じリクエスト構造体で`application/json`、
+`application/x-www-form-urlencoded`、`multipart/form-data`を受け、リクエストの
+`Content-Type`に従ってデコードします。
+
+レスポンスでは、これと対になる`Accept`が、提供できる表現から形式を選びます。たとえば同じ型付き
+ストリームを、ハンドラを分けずにSSE、NDJSON、JSON配列として返せます。Problem Detailsも、安全な
+HTMLページとJSONのどちらを返すかをネゴシエーションします。`application/ld+json`のような通常の
+メディアタイプも、別のRPCトランスポートを増やさずアプリケーションから追加できます。フレームワークが
+境界で`Content-Type`、`Accept`、関連するHTTPフィールドを読み、アプリケーションコードは値を記述し、
+通信表現は周囲に合わせる設計です。
+
+- [リクエストボディのバインディング](/ja/guides/frontend/handlers/#リクエストボディ)
+- [JSONなどのレスポンス](/ja/guides/frontend/responses/)
+- [ネゴシエーションするストリーム](/ja/guides/frontend/streams/)
+
 ### 画像は`Accept`で選ぶ
 
 同じ画像URLでも、クライアントが扱える形式は同じとは限りません。画像変換を有効にすると、

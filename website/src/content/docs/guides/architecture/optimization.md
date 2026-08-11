@@ -69,50 +69,71 @@ The three differ in *when the server knows something the browser does not*, and
 that is the only question you need to pick between them.
 
 <figure>
-<svg viewBox="0 0 700 250" role="img" aria-label="Three timelines. Async rendering is one response whose deliveries arrive at three different times. Partial updates are two separate requests where the second response is much smaller than the first. Live rendering is one connection held open, written to three times when the server has something to say.">
+<svg viewBox="0 0 700 240" role="img" aria-label="Three example timelines on a shared axis from zero to four seconds. Async rendering makes one request and receives the shell at 0.1 seconds, then two regions at 0.9 and 1.5 seconds. Partial updates make requests at zero and 2.2 seconds, receiving a full page at 0.5 seconds and a small delta at 2.5 seconds. Live rendering opens one connection and receives updates at 1, 2.4, and 3.6 seconds.">
   <g fill="currentColor" font-family="inherit">
-    <text x="0" y="34" font-size="12" opacity="0.75">Async rendering</text>
-    <text x="0" y="50" font-size="11" opacity="0.5">still working on it</text>
-    <text x="0" y="114" font-size="12" opacity="0.75">Partial updates</text>
-    <text x="0" y="130" font-size="11" opacity="0.5">asked again</text>
-    <text x="0" y="194" font-size="12" opacity="0.75">Live rendering</text>
-    <text x="0" y="210" font-size="11" opacity="0.5">nobody asked</text>
+    <text x="0" y="36" font-size="12" opacity="0.8">Async rendering</text>
+    <text x="0" y="52" font-size="11" opacity="0.5">one response</text>
+    <text x="0" y="96" font-size="12" opacity="0.8">Partial updates</text>
+    <text x="0" y="112" font-size="11" opacity="0.5">two requests</text>
+    <text x="0" y="156" font-size="12" opacity="0.8">Live rendering</text>
+    <text x="0" y="172" font-size="11" opacity="0.5">one open connection</text>
   </g>
-
+  <g stroke="currentColor" stroke-width="1.5" opacity="0.2">
+    <line x1="150" y1="40" x2="650" y2="40"/>
+    <line x1="150" y1="100" x2="650" y2="100"/>
+    <line x1="150" y1="160" x2="650" y2="160"/>
+  </g>
+  <g stroke="currentColor" stroke-width="1" stroke-dasharray="3 3" opacity="0.55">
+    <line x1="150" y1="22" x2="150" y2="52"/>
+    <line x1="150" y1="82" x2="150" y2="112"/>
+    <line x1="425" y1="82" x2="425" y2="112"/>
+    <line x1="150" y1="142" x2="150" y2="172"/>
+  </g>
   <g fill="currentColor">
-    <rect x="190" y="24" width="14" height="18" rx="2"/>
-    <rect x="204" y="24" width="196" height="18" rx="2" opacity="0.16"/>
-    <rect x="400" y="24" width="14" height="18" rx="2"/>
-    <rect x="414" y="24" width="186" height="18" rx="2" opacity="0.16"/>
-    <rect x="600" y="24" width="14" height="18" rx="2"/>
-
-    <rect x="190" y="104" width="150" height="18" rx="2"/>
-    <rect x="450" y="104" width="26" height="18" rx="2"/>
-
-    <rect x="190" y="184" width="470" height="18" rx="2" opacity="0.16"/>
-    <rect x="270" y="184" width="12" height="18" rx="2"/>
-    <rect x="410" y="184" width="12" height="18" rx="2"/>
-    <rect x="570" y="184" width="12" height="18" rx="2"/>
+    <rect x="158" y="33" width="10" height="14" rx="2"/>
+    <rect x="257" y="33" width="10" height="14" rx="2"/>
+    <rect x="333" y="33" width="10" height="14" rx="2"/>
+    <rect x="207" y="93" width="42" height="14" rx="2"/>
+    <rect x="457" y="93" width="12" height="14" rx="2"/>
+    <rect x="150" y="153" width="450" height="14" rx="3" opacity="0.14"/>
+    <rect x="270" y="153" width="10" height="14" rx="2"/>
+    <rect x="445" y="153" width="10" height="14" rx="2"/>
+    <rect x="595" y="153" width="10" height="14" rx="2"/>
   </g>
-
-  <g stroke="currentColor" stroke-width="1" opacity="0.5">
-    <line x1="184" y1="18" x2="184" y2="48"/>
-    <line x1="184" y1="98" x2="184" y2="128"/>
-    <line x1="444" y1="98" x2="444" y2="128"/>
-    <line x1="184" y1="178" x2="184" y2="208"/>
+  <g fill="currentColor" font-family="inherit" font-size="10" opacity="0.65" text-anchor="middle">
+    <text x="163" y="20">shell</text>
+    <text x="262" y="20">region</text>
+    <text x="338" y="20">region</text>
+    <text x="228" y="80">full page</text>
+    <text x="463" y="80">delta</text>
+    <text x="275" y="140">update</text>
+    <text x="450" y="140">update</text>
+    <text x="600" y="140">update</text>
   </g>
-
-  <g fill="currentColor" font-family="inherit" font-size="11" opacity="0.6">
-    <text x="190" y="66">one response, three deliveries — the shell leaves before the slow work finishes</text>
-    <text x="190" y="146">the whole page, then a second answer carrying only the region that moved</text>
-    <text x="190" y="226">one connection, written to when the server has something and not before</text>
+  <line x1="150" y1="194" x2="650" y2="194" stroke="currentColor" stroke-width="1" opacity="0.4"/>
+  <g stroke="currentColor" stroke-width="1" opacity="0.4">
+    <line x1="150" y1="194" x2="150" y2="200"/>
+    <line x1="275" y1="194" x2="275" y2="200"/>
+    <line x1="400" y1="194" x2="400" y2="200"/>
+    <line x1="525" y1="194" x2="525" y2="200"/>
+    <line x1="650" y1="194" x2="650" y2="200"/>
   </g>
+  <g fill="currentColor" font-family="inherit" font-size="11" opacity="0.65" text-anchor="middle">
+    <text x="150" y="216">0</text>
+    <text x="275" y="216">1s</text>
+    <text x="400" y="216">2s</text>
+    <text x="525" y="216">3s</text>
+    <text x="650" y="216">4s</text>
+  </g>
+  <text x="650" y="234" fill="currentColor" font-family="inherit" font-size="10" text-anchor="end" opacity="0.5">illustrative time →</text>
 </svg>
 </figure>
 
-Reading the ticks on the left of each row: a vertical line is the browser
-asking. Async rendering asks once. Partial updates ask again, and get much less
-back. Live rendering asks once and then stops asking, which is the point.
+The times are illustrative, but the events are the distinction. A dashed tick
+is the browser asking. Async rendering asks once and receives one response in
+parts. Partial updates ask again and receive a much smaller second answer. Live
+rendering asks once, keeps the pale connection open, and receives a mark only
+when the server has something new.
 
 The rule for choosing between the second and the third is about the URL, not
 about the mechanism. **State that can live in the URL belongs there** — a sort
