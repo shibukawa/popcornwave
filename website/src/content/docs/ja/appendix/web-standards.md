@@ -36,7 +36,7 @@ sidebar:
 - [セキュリティレスポンスヘッダー](/ja/guides/frontend/security-headers/)
 - [テンプレート構文と切り出されるファイル](/ja/reference/template-syntax/#切り出されるファイル)
 - [CSRFとデプロイ時のセキュリティ](/ja/guides/architecture/security/)
-- [Cookieの保護](/ja/guides/backend/cookies/)
+- [セッション状態とクッキーの直接利用](/ja/guides/backend/sessions/#クッキーを直接使う)
 
 ## 認証
 

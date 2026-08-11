@@ -1,6 +1,6 @@
 ---
-title: Optimization
-description: Three mechanisms that cut what a page transfers and what a reader waits for, and exactly how much of each one survives with JavaScript turned off.
+title: Incremental HTML updates
+description: Three ways to deliver HTML progressively, after navigation, or when server state changes—and exactly how much survives with JavaScript turned off.
 sidebar:
   order: 6
 ---
@@ -154,22 +154,18 @@ finished markup is written into the same response and takes the fallback's
 place.
 
 <figure>
-<svg viewBox="0 0 700 250" role="img" aria-label="The contents of one streamed HTTP response, in order: the status line, head and shell; two placeholder divs holding fallbacks; then two template elements carrying the settled markup, arriving at 0.9 and 1.5 seconds; then an end marker.">
+<svg viewBox="0 0 700 265" role="img" aria-label="The contents of one streamed HTTP response, in order: the status line, head and shell; two placeholder divs holding fallbacks; then two template elements carrying the settled markup, arriving at 0.9 and 1.5 seconds; then an end marker.">
   <rect x="20" y="14" width="480" height="200" rx="8" fill="none" stroke="currentColor" stroke-width="1.5" opacity="0.45"/>
   <text x="34" y="34" fill="currentColor" font-family="inherit" font-size="11" opacity="0.6">one HTTP response</text>
   <g fill="currentColor" font-family="inherit" font-size="12">
     <rect x="38" y="44" width="444" height="26" rx="3" opacity="0.16"/>
     <text x="50" y="62" opacity="0.85">200 · &lt;head&gt; · the shell that does not wait</text>
-
     <rect x="38" y="78" width="444" height="24" rx="3" opacity="0.08"/>
     <text x="50" y="95" opacity="0.6">&lt;div id="orders"&gt; loading… &lt;/div&gt;</text>
-
     <rect x="38" y="106" width="444" height="24" rx="3" opacity="0.08"/>
     <text x="50" y="123" opacity="0.6">&lt;div id="recs"&gt; loading… &lt;/div&gt;</text>
-
     <rect x="38" y="140" width="444" height="26" rx="3" opacity="0.16"/>
     <text x="50" y="158" opacity="0.85">&lt;template for="orders"&gt; … &lt;/template&gt;</text>
-
     <rect x="38" y="174" width="444" height="26" rx="3" opacity="0.16"/>
     <text x="50" y="192" opacity="0.85">&lt;template for="recs"&gt; … &lt;/template&gt;</text>
   </g>
@@ -178,7 +174,10 @@ place.
     <text x="516" y="158">0.9 s</text>
     <text x="516" y="192">1.5 s</text>
   </g>
-  <text x="20" y="238" fill="currentColor" font-family="inherit" font-size="11" opacity="0.6">The two dependencies run concurrently, so the response ends at 1.5 s rather than 2.4 s — but it became readable at 20 ms.</text>
+  <g fill="currentColor" font-family="inherit" font-size="11" opacity="0.6">
+    <text x="20" y="238">The two dependencies run concurrently, so the response ends at 1.5 s rather than 2.4 s.</text>
+    <text x="20" y="254">But it became readable at 20 ms.</text>
+  </g>
 </svg>
 </figure>
 
@@ -226,15 +225,16 @@ requests — it is that almost all of them find nothing.
     <rect x="496" y="24" width="10" height="18" rx="2" opacity="0.16"/>
     <rect x="556" y="24" width="10" height="18" rx="2"/>
     <rect x="616" y="24" width="10" height="18" rx="2" opacity="0.16"/>
-
     <rect x="196" y="104" width="460" height="18" rx="2" opacity="0.16"/>
     <rect x="256" y="104" width="10" height="18" rx="2"/>
     <rect x="436" y="104" width="10" height="18" rx="2"/>
     <rect x="556" y="104" width="10" height="18" rx="2"/>
   </g>
   <g fill="currentColor" font-family="inherit" font-size="11" opacity="0.6">
-    <text x="190" y="66">eight requests, five of which found nothing — and the update still waited for the next tick</text>
-    <text x="190" y="146">one connection, written the moment there is something; nothing travels in between</text>
+    <text x="190" y="66">eight requests, five of which found nothing</text>
+    <text x="190" y="82">the update still waited for the next tick</text>
+    <text x="190" y="146">one connection, written the moment there is something</text>
+    <text x="190" y="162">nothing travels in between</text>
   </g>
 </svg>
 </figure>
@@ -261,20 +261,16 @@ what keeps the mechanism cheap.
 <svg viewBox="0 0 700 250" role="img" aria-label="A nested diagram of one page. The document shell is not a boundary. Inside it the layout is a boundary, containing a navigation component that is not one, and the search page, which is a boundary and is the only part that changed. Inside the page, a five-hundred-row result list is an ordinary component and is not addressed separately.">
   <rect x="20" y="20" width="660" height="180" rx="8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-dasharray="5 4" opacity="0.4"/>
   <text x="36" y="40" fill="currentColor" font-family="inherit" font-size="11" opacity="0.55">the document shell — never a boundary, because a delta reuses the one on screen</text>
-
   <rect x="40" y="52" width="620" height="132" rx="8" fill="none" stroke="currentColor" stroke-width="1.5" opacity="0.6"/>
   <text x="56" y="72" fill="currentColor" font-family="inherit" font-size="12" opacity="0.75">layout.pw.html — a boundary</text>
-
   <rect x="60" y="86" width="160" height="80" rx="6" fill="none" stroke="currentColor" stroke-width="1.5" stroke-dasharray="5 4" opacity="0.35"/>
   <text x="74" y="110" fill="currentColor" font-family="inherit" font-size="11" opacity="0.5">site navigation</text>
   <text x="74" y="128" fill="currentColor" font-family="inherit" font-size="11" opacity="0.5">an ordinary</text>
   <text x="74" y="144" fill="currentColor" font-family="inherit" font-size="11" opacity="0.5">component</text>
-
   <rect x="240" y="86" width="400" height="80" rx="6" fill="currentColor" fill-opacity="0.1" stroke="currentColor" stroke-width="2"/>
   <text x="256" y="110" fill="currentColor" font-family="inherit" font-size="12" opacity="0.9">search.pw.html — a boundary, and the only one that changed</text>
   <rect x="256" y="122" width="368" height="32" rx="4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-dasharray="5 4" opacity="0.35"/>
   <text x="270" y="143" fill="currentColor" font-family="inherit" font-size="11" opacity="0.5">a 500-row result list — one component, not 500 addresses</text>
-
   <text x="20" y="226" fill="currentColor" font-family="inherit" font-size="11" opacity="0.6">Only the outermost changed boundary travels. Everything above it matched the digests the request carried, and everything inside it came along.</text>
   <text x="20" y="242" fill="currentColor" font-family="inherit" font-size="11" opacity="0.6">Making every component a boundary would put five hundred entries in every request, which is why an ordinary component is not one.</text>
 </svg>
@@ -306,15 +302,12 @@ gracefully" would cost somebody an afternoon.
     <path d="M140 101 L188 101"/><path d="M188 101 l-8 -4 l0 8 z" fill="currentColor" stroke="none"/>
     <path d="M140 165 L188 165"/><path d="M188 165 l-8 -4 l0 8 z" fill="currentColor" stroke="none"/>
   </g>
-
   <rect x="200" y="18" width="480" height="40" rx="6" fill="currentColor" fill-opacity="0.1" stroke="currentColor" stroke-width="2"/>
   <text x="216" y="35" fill="currentColor" font-family="inherit" font-size="11" opacity="0.9">the settled document, at the same path</text>
   <text x="216" y="51" fill="currentColor" font-family="inherit" font-size="11" opacity="0.6">one extra round trip on the first page, and the progressive delivery</text>
-
   <rect x="200" y="82" width="480" height="40" rx="6" fill="none" stroke="currentColor" stroke-width="1.5" opacity="0.5"/>
   <text x="216" y="99" fill="currentColor" font-family="inherit" font-size="11" opacity="0.7">a real snapshot, and then it stops</text>
   <text x="216" y="115" fill="currentColor" font-family="inherit" font-size="11" opacity="0.55">no non-script way for a server to push exists, so the updating is what is lost</text>
-
   <rect x="200" y="146" width="480" height="40" rx="6" fill="currentColor" fill-opacity="0.1" stroke="currentColor" stroke-width="2"/>
   <text x="216" y="163" fill="currentColor" font-family="inherit" font-size="11" opacity="0.9">nothing at all is lost</text>
   <text x="216" y="179" fill="currentColor" font-family="inherit" font-size="11" opacity="0.6">links navigate, GET forms submit, back works — this is the path that was always there</text>

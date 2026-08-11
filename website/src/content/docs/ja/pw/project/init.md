@@ -242,7 +242,8 @@ import _ "github.com/shibukawa/popcornwave/sessionstore/redis"
 export SESSION_KEYRING_SECRET=$(openssl rand -base64 32)
 ```
 
-失効・サイズ・期限を誰が守るかという観点での比較は[クッキー](/ja/guides/backend/cookies/)にあります。
+失効・サイズ・期限を誰が守るかという観点での比較は
+[セッションストレージ](/ja/guides/storage/session-storage/)にあります。
 
 ## エージェントスキル
 

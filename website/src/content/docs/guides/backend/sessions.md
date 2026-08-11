@@ -207,10 +207,10 @@ not. A `RequestScope` value is untouched within its request, because the
 session stored nothing of it to take back — and it is gone at the next request
 regardless.
 
-A cookie that belongs to no session at all still uses
-[`session.Jar`](/guides/backend/cookies/) directly. That is where the sign-in
-hint lives, because it needs its own keyring and describes a session that has
-already ended.
+A cookie that belongs to no session at all can still use `session.Jar`
+directly. That exceptional path is covered [at the end of this page](#using-cookies-directly).
+The sign-in hint is one example: it describes a session that has already ended
+and therefore cannot share that session's lifetime.
 
 ## When things go wrong
 
@@ -234,3 +234,44 @@ Everything above is what a handler sees. Where a server-placed slot actually
 lands, what bounds it, what each backend costs, and the one keyring that signs
 and seals it are all one deployment decision, and they live in
 [session storage](/guides/storage/session-storage/).
+
+## Using cookies directly
+
+For new application state, prefer `pw.RegisterSessionStore`. It gives the value
+a typed home, applies the session lifetime and logout rules, and lets the
+placement state whether the browser may read or change it. Creating a cookie jar
+directly does not add a more capable version of that model; it opts out of it.
+
+Use `session.Jar` directly only when the cookie must be independent of the
+session lifecycle. The usual cases are keeping an existing cookie format while
+older code or clients are still in use, or interoperating with a protocol that
+already defines its own cookie. The sign-in hint used by `plugin/auth` is a
+framework example.
+
+```go
+type LegacyPreference struct {
+	Density string `json:"density"`
+}
+
+preferences, err := session.NewJar[LegacyPreference](nil, session.JarOptions{
+	Mode:   session.CookiePlain,
+	Cookie: session.CookieOptions{Name: "legacy_density", Secure: true, HTTPOnly: true},
+	MaxAge: 30 * 24 * time.Hour,
+})
+if err != nil {
+	return err
+}
+
+handler = preferences.Middleware()(handler)
+```
+
+The middleware makes `Read`, `Value().Set`, and `Clear` available through the
+request context. Choose `CookiePlain`, `CookieSigned`, or `CookieSealed` to match
+the contract of the cookie you must preserve. A plain value is client input and
+must be validated. Writes still have to happen before the response body, and a
+cookie is still limited to roughly 3.8 KB.
+
+If no existing contract requires a standalone cookie, declare the value as
+`session.Shared`, `session.ReadOnly`, or `session.Private` instead. Those
+placements cover the same client-access decisions while keeping the value under
+the session's lifecycle.
