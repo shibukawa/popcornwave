@@ -79,8 +79,9 @@ pw add auth
 `config.dev.toml` の `session.backend = "rdb"` が選ぶのは**どこに置くか**だけです。
 **その置き場所を実際にバイナリへ入れるのは import の方**です。ストレージがオプトインで、
 アプリケーションが持つのは設定したバックエンドだけ、というのはこのためです。クッキーに
-置くプロジェクトはストアを1つもリンクしません（[クッキー](/ja/guides/backend/cookies/)、
-`pw init --session` で最初から選べます）。
+置くプロジェクトはストアを1つもリンクしません。cookie は
+[セッションストレージ](/ja/guides/storage/session-storage/)で比較するバックエンドの1つで、
+`pw init --session` から最初に選べます。
 
 設定と import が食い違うと、起動時にこう言われます。
 

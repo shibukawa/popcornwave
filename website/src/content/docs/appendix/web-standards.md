@@ -41,7 +41,7 @@ path. Generated Go provides the fast path while the narrow CSP remains intact.
 - [Security response headers](/guides/frontend/security-headers/)
 - [Template syntax and extracted files](/reference/template-syntax/#extracted-files)
 - [CSRF and deployment security](/guides/architecture/security/)
-- [Cookie protection](/guides/backend/cookies/)
+- [Session state and direct cookies](/guides/backend/sessions/#using-cookies-directly)
 
 ## Authentication
 

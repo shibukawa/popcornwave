@@ -245,8 +245,8 @@ an error.
 export SESSION_KEYRING_SECRET=$(openssl rand -base64 32)
 ```
 
-[Cookies](/guides/backend/cookies/) compares the three in terms of revocation, size, and
-who enforces expiry.
+[Session storage](/guides/storage/session-storage/) compares the backends in
+terms of revocation, size, and who enforces expiry.
 
 ## The agent skill
 

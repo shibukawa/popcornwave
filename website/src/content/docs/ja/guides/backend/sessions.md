@@ -184,9 +184,9 @@ bot と一度きりの訪問がセッションテーブルに一切届かない�
 表示言語は残ります。`RequestScope` の値はそのリクエスト内では手つかずです。セッションは
 何も預かっていないので、取り返すものが無い。どのみち次のリクエストには残りませんが。
 
-そもそもどのセッションにも属さないクッキーは、[`session.Jar`](/ja/guides/backend/cookies/) を
-直接使います。サインインヒントがそこに住んでいるのは、独自の keyring を持ち、かつ既に
-終わったセッションについて語るものだからです。
+そもそもどのセッションにも属さないクッキーでは、`session.Jar` を直接使うこともできます。
+この例外的な経路は[このページの末尾](#クッキーを直接使う)で扱います。サインインヒントが
+その一例で、すでに終わったセッションについて語るため、そのセッションと寿命を共有できません。
 
 ## うまくいかないとき
 
@@ -207,3 +207,41 @@ bot と一度きりの訪問がセッションテーブルに一切届かない�
 ここまでがハンドラから見える範囲です。サーバに置くスロットが実際にどこへ着地し、何が
 それを縛り、各バックエンドに何がかかり、署名と封をする鍵がどれか。これらはまとめて1つの
 デプロイ判断で、[セッションストレージ](/ja/guides/storage/session-storage/)にあります。
+
+## クッキーを直接使う
+
+新しいアプリケーション状態には `pw.RegisterSessionStore` を使ってください。値の置き場所を
+型で決め、セッションの寿命とログアウト規則を適用し、ブラウザに読み書きをどこまで許すかも
+配置で表せます。クッキーの Jar を直接作るのは、このモデルの高機能版ではなく、モデルから
+外れる選択です。
+
+`session.Jar` を直接使うのは、そのクッキーをセッションのライフサイクルから独立させる必要が
+ある場合だけです。典型的なのは、古いコードやクライアントが残るあいだ既存のクッキー形式を
+維持する場合と、独自のクッキーを定義済みのプロトコルと相互運用する場合です。`plugin/auth` の
+サインインヒントは、フレームワーク内の一例です。
+
+```go
+type LegacyPreference struct {
+	Density string `json:"density"`
+}
+
+preferences, err := session.NewJar[LegacyPreference](nil, session.JarOptions{
+	Mode:   session.CookiePlain,
+	Cookie: session.CookieOptions{Name: "legacy_density", Secure: true, HTTPOnly: true},
+	MaxAge: 30 * 24 * time.Hour,
+})
+if err != nil {
+	return err
+}
+
+handler = preferences.Middleware()(handler)
+```
+
+ミドルウェアを通すと、リクエストコンテキストから `Read`、`Value().Set`、`Clear` を使えます。
+維持すべきクッキーの契約に合わせて `CookiePlain`、`CookieSigned`、`CookieSealed` を選びます。
+plain の値はクライアント入力なので検証が必要です。書き込みはレスポンスボディより前に行い、
+容量はおよそ 3.8 KB に収める必要があります。
+
+独立したクッキーを必要とする既存の契約が無ければ、代わりに `session.Shared`、
+`session.ReadOnly`、`session.Private` のどれかを宣言してください。同じクライアントアクセスの
+判断を表しつつ、値をセッションのライフサイクル下に置けます。

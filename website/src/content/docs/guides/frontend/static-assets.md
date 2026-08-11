@@ -61,7 +61,7 @@ else you want to serve — a user upload, a generated report — is an ordinary
 route, and [object storage](/guides/storage/object-storage/) is usually the
 better home for it.
 
-## Two cache policies, decided by the name
+## Two cache policies, decided at build time
 
 A file that keeps the name you wrote gets `public, no-cache` and a strong
 `ETag`. The browser revalidates and an unchanged asset costs a `304` with no
@@ -99,9 +99,17 @@ enabled = true
 
 What each one does, and what follows the file:
 
+:::note
+The file extension selects the conversion pipeline; it is not meant to be the
+only proof of what the file contains. A planned build check will also inspect
+the file signature (its magic/header bytes) and reject malformed files or
+content that does not match the extension before conversion. Until that check
+lands, the encoder may be the first component to report malformed image input.
+:::
+
 | Source | Becomes | The reference |
 | --- | --- | --- |
-| `img src` naming a `.png` or `.jpg` | WebP, lossless from a PNG and lossy from a JPEG | rewritten to the hashed name |
+| `img src` whose URL has a `.png`, `.jpg`, or `.jpeg` extension | WebP, lossless from a PNG and lossy from a JPEG; with `avif = true`, an AVIF representation as well | rewritten to the hashed URL; `Accept` chooses between AVIF and WebP when both exist |
 | `script src` naming a `.ts` or `.tsx` | a bundled ES module, with a source map in a debug build | rewritten to the hashed name |
 | a `.css` file | minified, with its `url()` references pointed at whatever they became | unchanged — the stylesheet keeps its own URL |
 | a `.js` file | minified, not bundled, so a module stays a module | unchanged |
