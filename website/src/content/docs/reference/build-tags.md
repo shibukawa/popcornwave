@@ -33,15 +33,14 @@ re-exports.
 |---|---|---|
 | `fasthttp` | The second build. `pwfast` replaces `pw`, and the binary links no `pw` at all. Requires `project.fasthttp = true` in `popcornwave.toml`. | `pw build --target fasthttp` |
 | `pwdev` | The development halves: dev console, storybook, dev data, `--pw-print-dsn`. | `pw dev`, `pw storybook` and `pw migrate` pass `-tags=pwdev` to `go run` |
-| `pw_nozstd` | Removes the zstd response encoder, worth about 247 KB. | You |
-| `pw_nogzip` | Removes the gzip response encoder. | You |
 | `force_tinygo_logic` | Compiles the TinyGo code path under host Go, so it can be tested without TinyGo. Defined by tinygodriver; Popcorn Wave follows the convention in its own compression and migration splits. | You, in tests |
 | `tinybind_no_openapi` | Keeps the generated OpenAPI fragments out of the build. Defined by tinybind-go, and appears in files `pw generate` writes. | You |
 
-Both codec tags exist for the same deployment: something in front of the
-application already compresses, so the encoder is code that is linked and never
-runs. Turning one off does not misreport the result — the build stops offering
-that coding rather than advertising one it cannot produce.
+`pw_nozstd` and `pw_nogzip` were removed in favour of `middleware.compression`.
+They dropped a response encoder back when zstd meant linking a decoder ten times
+its size; the encoder is its own package now and the pair costs 387 KB, which is
+less than the question was worth. Passing either is not an error — it selects
+nothing.
 
 ## tinygodriver
 
@@ -69,6 +68,7 @@ These appear in constraints you will read, and you never pass them.
 |---|---|
 | `tinygo` | TinyGo |
 | `gc` | The gc compiler — **and TinyGo** |
+| `scheduler.threads` | TinyGo, derived from `-scheduler=threads` |
 | `wasip2`, `illumos` | `GOOS` |
 | `appengine` | Nothing current. Still honoured by `klauspost/compress` and the websocket fork as a pure-Go switch |
 
@@ -77,27 +77,51 @@ so a dependency whose pure-Go fallback is guarded on `!gc` — a constraint writ
 for compilers that do not claim to be gc — selects its assembly under TinyGo and
 fails to link.
 
-## TinyGo and fasthttp together
+## `-scheduler=threads` under TinyGo
 
-A TinyGo build of the fasthttp target needs `fasthttp_nozstd`, and nothing passes
-it for you yet:
+This one is not a `-tags` value. TinyGo derives the `scheduler.threads` build tag
+from its own `-scheduler` flag, which is what lets the framework make its absence
+a compile error:
 
 ```bash
-tinygo build -tags "fasthttp fasthttp_nozstd" -o app ./cmd/app
+tinygo build -scheduler=threads -o app ./cmd/app
 ```
 
-Without it the linker cannot resolve `klauspost/compress/zstd`'s arm64 assembly,
-by the `gc` mechanism above. Both missing symbols decode; the net/http build
-links because it only encodes and TinyGo's dead-code elimination drops the rest.
+**Every database engine that speaks a network protocol requires it.** Under the
+cooperative scheduler a blocking socket call holds the whole runtime, so the
+driver's cancellation watcher never runs — a 5s server-side sleep under a 500ms
+deadline returned after the full 5s, with a nil error and nothing logged.
 
-`-tags noasm` also links, by swapping klauspost's assembly for its pure-Go
-fallback, but it keeps zstd and costs about 2.5 MiB more. Prefer
-`fasthttp_nozstd`.
+`database/postgres` and `database/mysql` therefore refuse to compile without it.
+The guard is keyed on the import graph, so it fires for exactly the programs that
+link the engine, however the build was invoked, and the diagnostic is the name of
+an identifier that does not exist:
 
-One thing to know before you drop it: `middleware.compression_codings` defaults
-to `zstd,gzip`. A build without zstd serves those clients identity instead, which
-is correct but is not what the setting says — narrow the default if it matters to
-you.
+```
+undefined: build_this_program_with_tinygo_scheduler_threads
+```
+
+`pw build` does not drive TinyGo, so nothing passes the flag on your behalf at the
+command line. The `Dockerfile.tinygo` that `pw init` writes already carries it.
+
+## TinyGo and fasthttp together
+
+Nothing beyond the target tag, as of tinygodriver v1.2.4:
+
+```bash
+tinygo build -tags fasthttp -scheduler=threads -o app ./cmd/app
+```
+
+Before v1.2.4 this needed `fasthttp_nozstd` as well, and without it the linker
+could not resolve `klauspost/compress/zstd`'s arm64 assembly by the `gc`
+mechanism above. Both unresolved symbols decoded — the net/http build always
+linked, because it only encodes and dead-code elimination dropped the rest. The
+fasthttp fork now encodes through tinygodriver's own zstd under TinyGo, so there
+is no klauspost assembly left to reach.
+
+`fasthttp_nozstd` still works and now saves about 40 KB, so there is little
+reason to pass it. Drop `-scheduler=threads` only if the binary links no
+network database driver; see the section above.
 
 For what each build target costs at run time and on disk, see
 [Build targets](/guides/architecture/performance/).

@@ -232,6 +232,7 @@
 {"category": "constraint", "id": "decision:propagation-header-access", "path": ".knowledge/decision/propagation-header-access.md", "role": "supporting", "title": "One Trace Context Validator, Two Header Types", "type": "decision"}
 {"category": "constraint", "id": "decision:report-endpoint-above-the-session", "path": ".knowledge/decision/report-endpoint-above-the-session.md", "role": "supporting", "title": "The Report Endpoint Is Answered Above The Session", "type": "decision"}
 {"category": "constraint", "id": "decision:response-content-codings", "path": ".knowledge/decision/response-content-codings.md", "role": "supporting", "title": "Response Content Codings", "type": "decision"}
+{"category": "constraint", "id": "decision:response-encoders-are-unconditional", "path": ".knowledge/decision/response-encoders-are-unconditional.md", "role": "supporting", "title": "Every Build Carries Both Response Encoders", "type": "decision"}
 {"category": "constraint", "id": "decision:root-pw-api", "path": ".knowledge/decision/root-pw-api.md", "role": "supporting", "title": "Root pw API", "type": "decision"}
 {"category": "constraint", "id": "decision:runtime-tag-injection", "path": ".knowledge/decision/runtime-tag-injection.md", "role": "supporting", "title": "Runtime Tag Injection", "type": "decision"}
 {"category": "constraint", "id": "decision:savepoint-nested-transaction", "path": ".knowledge/decision/savepoint-nested-transaction.md", "role": "supporting", "title": "Savepoint-Backed Nested Transaction", "type": "decision"}
@@ -259,7 +260,7 @@
 {"category": "constraint", "id": "decision:tinybind-sql-runtime", "path": ".knowledge/decision/tinybind-sql-runtime.md", "role": "supporting", "title": "TinyBind SQL Plan Runtime", "type": "decision"}
 {"category": "constraint", "id": "decision:tinybind-v03-adoption", "path": ".knowledge/decision/tinybind-v03-adoption.md", "role": "supporting", "title": "Adopting TinyBind v0.3", "type": "decision"}
 {"category": "constraint", "id": "decision:tinygo-042-baseline", "path": ".knowledge/decision/tinygo-042-baseline.md", "role": "supporting", "title": "TinyGo 0.42 Baseline", "type": "decision"}
-{"category": "constraint", "id": "decision:tinygo-fasthttp-needs-nozstd", "path": ".knowledge/decision/tinygo-fasthttp-needs-nozstd.md", "role": "supporting", "title": "TinyGo Builds fasthttp Only With fasthttp_nozstd", "type": "decision"}
+{"category": "constraint", "id": "decision:tinygo-fasthttp-needs-nozstd", "path": ".knowledge/decision/tinygo-fasthttp-needs-nozstd.md", "role": "supporting", "title": "TinyGo Builds fasthttp, And Briefly Needed fasthttp_nozstd", "type": "decision"}
 {"category": "constraint", "id": "decision:tinygo-storage-direction", "path": ".knowledge/decision/tinygo-storage-direction.md", "role": "supporting", "title": "TinyGo Storage Direction", "type": "decision"}
 {"category": "constraint", "id": "decision:transport-compatibility-fallback", "path": ".knowledge/decision/transport-compatibility-fallback.md", "role": "supporting", "title": "Superseded — There Is No Compatibility Fallback", "type": "decision"}
 {"category": "constraint", "id": "decision:transport-handle-containment", "path": ".knowledge/decision/transport-handle-containment.md", "role": "supporting", "title": "Transport Handles Stay Inside The Framework Surface", "type": "decision"}

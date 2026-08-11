@@ -1,4 +1,4 @@
-//go:build (tinygo || force_tinygo_logic) && !pw_nogzip
+//go:build tinygo || force_tinygo_logic
 
 package pw
 
@@ -8,8 +8,6 @@ import (
 )
 
 const gzipContentEncoding = "gzip"
-
-const gzipResponseSupported = true
 
 // gzipResponseLevel is 1 here for a stronger reason than on the host: the
 // standard library uses its fast encoder for level 1 alone, so level 2 is

@@ -15,7 +15,7 @@ require (
 	github.com/shibukawa/dbtestify v0.5.0
 	github.com/shibukawa/localotelviewer v1.0.2
 	github.com/shibukawa/tinybind-go v0.5.7
-	github.com/shibukawa/tinygodriver v1.2.3
+	github.com/shibukawa/tinygodriver v1.2.4
 	golang.org/x/mod v0.38.0
 	golang.org/x/tools v0.48.0
 )

@@ -1,4 +1,4 @@
-//go:build (tinygo || force_tinygo_logic) && !pw_nozstd
+//go:build tinygo || force_tinygo_logic
 
 package pw
 
@@ -9,8 +9,6 @@ import (
 )
 
 const zstdContentEncoding = zstd.ContentEncoding
-
-const zstdResponseSupported = true
 
 type tinyGoResponseZstdEncoder struct {
 	*zstd.Writer

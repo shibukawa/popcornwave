@@ -21,12 +21,14 @@ Popcorn Wave は Go のプロジェクトとしてはビルドタグをかなり
 |---|---|---|
 | `fasthttp` | 第二のビルド。`pwfast` が `pw` を置き換え、バイナリは `pw` を一切リンクしません。`popcornwave.toml` の `project.fasthttp = true` が前提です。 | `pw build --target fasthttp` |
 | `pwdev` | 開発側の半分。dev コンソール、storybook、dev data、`--pw-print-dsn`。 | `pw dev`、`pw storybook`、`pw migrate` が `go run` に `-tags=pwdev` を渡します |
-| `pw_nozstd` | zstd のレスポンスエンコーダを外します。約 247 KB。 | あなた |
-| `pw_nogzip` | gzip のレスポンスエンコーダを外します。 | あなた |
 | `force_tinygo_logic` | TinyGo 用のコードパスをホスト Go でコンパイルし、TinyGo 無しでテストできるようにします。定義は tinygodriver 側で、Popcorn Wave も圧縮とマイグレーションの分岐でこの規約に従っています。 | あなた（テスト時） |
 | `tinybind_no_openapi` | 生成された OpenAPI 断片をビルドから外します。定義は tinybind-go 側で、`pw generate` が書くファイルに付いてきます。 | あなた |
 
-圧縮の2つは同じ配置のために在ります。アプリケーションの手前で既に何かが圧縮しているなら、エンコーダはリンクされて一度も走らないコードです。切っても結果を偽ることはありません。出せない coding を広告するのではなく、その coding を提示しなくなります。
+`pw_nozstd` と `pw_nogzip` は削除し、`middleware.compression` に一本化しました。
+レスポンスエンコーダを落とすタグでしたが、それが要ったのは zstd を持つことが
+エンコーダの10倍あるデコーダをリンクすることだった頃の話です。いまはエンコーダが
+独立したパッケージになり、2つ合わせて 387 KB。問いより小さい数字になりました。
+渡してもエラーにはなりません。何も選ばないだけです。
 
 ## tinygodriver
 
@@ -54,23 +56,40 @@ Popcorn Wave は Go のプロジェクトとしてはビルドタグをかなり
 |---|---|
 | `tinygo` | TinyGo |
 | `gc` | gc コンパイラ、**そして TinyGo** |
+| `scheduler.threads` | TinyGo が `-scheduler=threads` から導出します |
 | `wasip2`、`illumos` | `GOOS` |
 | `appengine` | 現役のものは無し。`klauspost/compress` と websocket フォークが純 Go 側のスイッチとして今も見ています |
 
 知っておく価値があるのは `gc` です。TinyGo もこれを立てます。なので、純 Go のフォールバックが `!gc` で守られている依存——「gc を名乗らないコンパイラ」向けに書かれた制約——は、TinyGo でアセンブリの側が選ばれ、リンクに失敗します。
 
-## TinyGo と fasthttp を同時に使う
+## TinyGo の `-scheduler=threads`
 
-TinyGo で fasthttp ターゲットをビルドするには `fasthttp_nozstd` が要ります。今のところ誰も代わりに渡してくれません。
+これは `-tags` に渡す値ではありません。TinyGo が自分の `-scheduler` フラグから `scheduler.threads` というビルドタグを導出していて、そのおかげでフレームワーク側は「付け忘れ」をコンパイルエラーにできます。
 
 ```bash
-tinygo build -tags "fasthttp fasthttp_nozstd" -o app ./cmd/app
+tinygo build -scheduler=threads -o app ./cmd/app
 ```
 
-付けないと、`klauspost/compress/zstd` の arm64 アセンブリをリンカが解決できません。上の `gc` の話がそのまま効いています。解決できない2つのシンボルはどちらもデコード側で、net/http ビルドが通るのはエンコードしかせず、TinyGo の DCE が残りを落とすからです。
+**ネットワークプロトコルを話すデータベースエンジンは、例外なくこれを要求します。** 協調スケジューラの下ではブロッキングするソケット呼び出しがランタイム全体を握ってしまい、ドライバのキャンセル監視が走りません。500ms のデッドラインの下でサーバ側 5s の sleep を投げたら、5秒まるごと待ってから nil エラーで返ってきました。ログにも何も出ません。
 
-`-tags noasm` でも通ります。klauspost のアセンブリを純 Go の実装に差し替えるからですが、zstd 自体は残るので約 2.5 MiB 余計に払います。`fasthttp_nozstd` を選んでください。
+なので `database/postgres` と `database/mysql` は、これ無しではコンパイルを拒否します。判定は import グラフに紐づいているので、そのエンジンをリンクするプログラムだけで、どうビルドを起動したかによらず発火します。診断は、存在しない識別子の名前そのものです。
 
-落とす前に1つ。`middleware.compression_codings` の既定は `zstd,gzip` です。zstd の無いビルドはそうしたクライアントに identity を返します。動作としては正しいのですが、設定が言っていることとは違うので、気になるなら既定を狭めてください。
+```
+undefined: build_this_program_with_tinygo_scheduler_threads
+```
+
+`pw build` は TinyGo を駆動しないので、コマンドラインで代わりに渡してくれるものはありません。`pw init` が書く `Dockerfile.tinygo` には最初から入っています。
+
+## TinyGo と fasthttp を同時に使う
+
+tinygodriver v1.2.4 以降、ターゲットのタグ以外に要るものはありません。
+
+```bash
+tinygo build -tags fasthttp -scheduler=threads -o app ./cmd/app
+```
+
+v1.2.4 より前は `fasthttp_nozstd` も要りました。付けないと `klauspost/compress/zstd` の arm64 アセンブリをリンカが解決できず、上の `gc` の話がそのまま効いていたためです。解決できなかった2つのシンボルはどちらもデコード側で、net/http ビルドがずっと通っていたのはエンコードしかせず、DCE が残りを落としていたからでした。いまは fasthttp フォークが TinyGo の下で tinygodriver 自身の zstd を通してエンコードするので、到達すべき klauspost のアセンブリがそもそも残っていません。
+
+`fasthttp_nozstd` は今も効きますが、節約は約 40 KB です。渡す理由はほとんどありません。`-scheduler=threads` の方は、ネットワーク越しのデータベースドライバをリンクしないバイナリでのみ外せます。前節を見てください。
 
 ビルドターゲットごとの実行時コストとバイナリサイズは [ビルドターゲット](/ja/guides/architecture/performance/) にあります。
