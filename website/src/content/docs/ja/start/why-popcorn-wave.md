@@ -38,11 +38,11 @@ Go の書き方を保つことと、機械的なコードをすべて手で書�
   アイデンティティと、フィッシングに強い再ログイン手段を提供します。
 - [セキュリティレスポンスヘッダ](/ja/guides/frontend/security-headers/)は既定でブラウザの
   ポリシーを定めます。圧縮をプロキシではなくアプリケーションが担当するなら、スイッチ
-  ひとつでネゴシエーション付きの[レスポンス圧縮](/ja/guides/frontend/compression/)を
+  ひとつでネゴシエーション付きの[レスポンス圧縮](/ja/guides/backend/compression/)を
   有効にできます。
 - 静的コード解析が、すでに書いたハンドラ、バインディング、レスポンス呼び出し、コメント
   から [OpenAPI 3.1 ドキュメント](/ja/productivity/api-documentation/)を生成します。
-- [OpenTelemetry 連携](/ja/guides/cross-layer/tracing/)が構造化ログとトレースを送出し、
+- [OpenTelemetry 連携](/ja/guides/architecture/telemetry/#リクエストトレースを読む)が構造化ログとトレースを送出し、
   フレームワークのスパンが、アプリケーション固有のタイマーを書かずに、リクエスト、
   レンダリング、データベース処理を見えるようにします。
 - 型付きの[設定](/ja/guides/architecture/configuration/)は環境変数を受け取り、

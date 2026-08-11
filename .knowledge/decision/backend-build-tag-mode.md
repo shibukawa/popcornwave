@@ -10,7 +10,7 @@ status: as-built, read against the tree 2026-08-10
 serves: requirement:alternate-http-backend-readiness
 verified_in_the_tree:
   no_backend_constraint: no //go:build line in pw, pwfast, pwruntime, or middlewares names a transport
-  what_the_constraints_there_do_name: pwdev for the development runtime, tinygo and force_tinygo_logic for the compiler, pw_nogzip and pw_nozstd for the codecs; every one of them is an axis orthogonal to the transport
+  what_the_constraints_there_do_name: pwdev for the development runtime, tinygo and force_tinygo_logic for the compiler, and once pw_nogzip and pw_nozstd for the codecs; every one of them is an axis orthogonal to the transport, and the codec pair was retired by decision:response-encoders-are-unconditional
   sibling_shape: pwfast imports pwruntime and internal/requestorigin and does not import pw, and pw does not import pwfast, so neither drags the other in and both rest on the leaf of decision:shared-runtime-leaf
   where_the_tag_does_land: generated artifacts, per the tagging clause of decision:transport-source-transform, which emits the excluding constraint on net/http output and the including one on rewritten output
 linked_is_not_serving:

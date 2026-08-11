@@ -232,6 +232,7 @@
 {"category": "constraint", "id": "decision:propagation-header-access", "path": ".knowledge/decision/propagation-header-access.md", "role": "supporting", "title": "One Trace Context Validator, Two Header Types", "type": "decision"}
 {"category": "constraint", "id": "decision:report-endpoint-above-the-session", "path": ".knowledge/decision/report-endpoint-above-the-session.md", "role": "supporting", "title": "The Report Endpoint Is Answered Above The Session", "type": "decision"}
 {"category": "constraint", "id": "decision:response-content-codings", "path": ".knowledge/decision/response-content-codings.md", "role": "supporting", "title": "Response Content Codings", "type": "decision"}
+{"category": "constraint", "id": "decision:response-encoders-are-unconditional", "path": ".knowledge/decision/response-encoders-are-unconditional.md", "role": "supporting", "title": "Every Build Carries Both Response Encoders", "type": "decision"}
 {"category": "constraint", "id": "decision:root-pw-api", "path": ".knowledge/decision/root-pw-api.md", "role": "supporting", "title": "Root pw API", "type": "decision"}
 {"category": "constraint", "id": "decision:runtime-tag-injection", "path": ".knowledge/decision/runtime-tag-injection.md", "role": "supporting", "title": "Runtime Tag Injection", "type": "decision"}
 {"category": "constraint", "id": "decision:savepoint-nested-transaction", "path": ".knowledge/decision/savepoint-nested-transaction.md", "role": "supporting", "title": "Savepoint-Backed Nested Transaction", "type": "decision"}
@@ -259,6 +260,7 @@
 {"category": "constraint", "id": "decision:tinybind-sql-runtime", "path": ".knowledge/decision/tinybind-sql-runtime.md", "role": "supporting", "title": "TinyBind SQL Plan Runtime", "type": "decision"}
 {"category": "constraint", "id": "decision:tinybind-v03-adoption", "path": ".knowledge/decision/tinybind-v03-adoption.md", "role": "supporting", "title": "Adopting TinyBind v0.3", "type": "decision"}
 {"category": "constraint", "id": "decision:tinygo-042-baseline", "path": ".knowledge/decision/tinygo-042-baseline.md", "role": "supporting", "title": "TinyGo 0.42 Baseline", "type": "decision"}
+{"category": "constraint", "id": "decision:tinygo-fasthttp-needs-nozstd", "path": ".knowledge/decision/tinygo-fasthttp-needs-nozstd.md", "role": "supporting", "title": "TinyGo Builds fasthttp, And Briefly Needed fasthttp_nozstd", "type": "decision"}
 {"category": "constraint", "id": "decision:tinygo-storage-direction", "path": ".knowledge/decision/tinygo-storage-direction.md", "role": "supporting", "title": "TinyGo Storage Direction", "type": "decision"}
 {"category": "constraint", "id": "decision:transport-compatibility-fallback", "path": ".knowledge/decision/transport-compatibility-fallback.md", "role": "supporting", "title": "Superseded — There Is No Compatibility Fallback", "type": "decision"}
 {"category": "constraint", "id": "decision:transport-handle-containment", "path": ".knowledge/decision/transport-handle-containment.md", "role": "supporting", "title": "Transport Handles Stay Inside The Framework Surface", "type": "decision"}
@@ -381,6 +383,7 @@
 {"category": "objective", "id": "requirement:classic-rendering", "path": ".knowledge/requirement/classic-rendering.md", "role": "primary", "title": "Classic Rendering", "type": "requirement"}
 {"category": "objective", "id": "requirement:classic-web-acceptance", "path": ".knowledge/requirement/classic-web-acceptance.md", "role": "primary", "title": "Classic Web Acceptance", "type": "requirement"}
 {"category": "objective", "id": "requirement:cli-distribution", "path": ".knowledge/requirement/cli-distribution.md", "role": "primary", "title": "pw CLI Distribution", "type": "requirement"}
+{"category": "objective", "id": "requirement:client-signal-registry", "path": ".knowledge/requirement/client-signal-registry.md", "role": "primary", "title": "Client Signal Registry", "type": "requirement"}
 {"category": "objective", "id": "requirement:cloudflare-workers-hosting", "path": ".knowledge/requirement/cloudflare-workers-hosting.md", "role": "primary", "title": "Cloudflare Workers Hosting", "type": "requirement"}
 {"category": "objective", "id": "requirement:component-asset-extraction", "path": ".knowledge/requirement/component-asset-extraction.md", "role": "primary", "title": "Component Asset Extraction", "type": "requirement"}
 {"category": "objective", "id": "requirement:component-package-distribution", "path": ".knowledge/requirement/component-package-distribution.md", "role": "primary", "title": "Component Package Distribution", "type": "requirement"}
@@ -486,6 +489,7 @@
 {"category": "objective", "id": "requirement:package-project-scaffold", "path": ".knowledge/requirement/package-project-scaffold.md", "role": "primary", "title": "Package Preset Scaffold", "type": "requirement"}
 {"category": "objective", "id": "requirement:package-schema-contribution", "path": ".knowledge/requirement/package-schema-contribution.md", "role": "primary", "title": "Package Schema Contribution", "type": "requirement"}
 {"category": "objective", "id": "requirement:page-request-context", "path": ".knowledge/requirement/page-request-context.md", "role": "primary", "title": "A Page Must Reach Its Request Context", "type": "requirement"}
+{"category": "objective", "id": "requirement:page-scope-emission", "path": ".knowledge/requirement/page-scope-emission.md", "role": "primary", "title": "Page Scope Emission", "type": "requirement"}
 {"category": "objective", "id": "requirement:parallel-database-tests", "path": ".knowledge/requirement/parallel-database-tests.md", "role": "primary", "title": "Parallel Database Tests", "type": "requirement"}
 {"category": "objective", "id": "requirement:pgx-native-execution", "path": ".knowledge/requirement/pgx-native-execution.md", "role": "primary", "title": "pgx Native Execution Path", "type": "requirement"}
 {"category": "objective", "id": "requirement:presence-signal", "path": ".knowledge/requirement/presence-signal.md", "role": "primary", "title": "Human Presence Signal", "type": "requirement"}
@@ -503,10 +507,12 @@
 {"category": "objective", "id": "requirement:read-write-splitting", "path": ".knowledge/requirement/read-write-splitting.md", "role": "primary", "title": "Read-Write Split Connections", "type": "requirement"}
 {"category": "objective", "id": "requirement:reloadable-component-endpoint", "path": ".knowledge/requirement/reloadable-component-endpoint.md", "role": "primary", "title": "Reloadable Component Endpoint", "type": "requirement"}
 {"category": "objective", "id": "requirement:response-gzip-encoder", "path": ".knowledge/requirement/response-gzip-encoder.md", "role": "primary", "title": "Gzip Response Encoder", "type": "requirement"}
+{"category": "objective", "id": "requirement:second-build-feature-parity", "path": ".knowledge/requirement/second-build-feature-parity.md", "role": "primary", "title": "Feature Parity For The fasthttp Second Build", "type": "requirement"}
 {"category": "objective", "id": "requirement:serverless-http-hosting", "path": ".knowledge/requirement/serverless-http-hosting.md", "role": "primary", "title": "Serverless HTTP Hosting", "type": "requirement"}
 {"category": "objective", "id": "requirement:serverless-source-entrypoints", "path": ".knowledge/requirement/serverless-source-entrypoints.md", "role": "primary", "title": "Serverless Source Entrypoints", "type": "requirement"}
 {"category": "objective", "id": "requirement:session-assurance-levels", "path": ".knowledge/requirement/session-assurance-levels.md", "role": "primary", "title": "Graded Session Assurance", "type": "requirement"}
 {"category": "objective", "id": "requirement:shared-web-runtime", "path": ".knowledge/requirement/shared-web-runtime.md", "role": "primary", "title": "Shared Web Runtime", "type": "requirement"}
+{"category": "objective", "id": "requirement:signal-forwarding-seam", "path": ".knowledge/requirement/signal-forwarding-seam.md", "role": "primary", "title": "Signal Forwarding Seam", "type": "requirement"}
 {"category": "objective", "id": "requirement:state-storage-tiers", "path": ".knowledge/requirement/state-storage-tiers.md", "role": "primary", "title": "Browser State Storage Tiers", "type": "requirement"}
 {"category": "objective", "id": "requirement:tailwind-css-integration", "path": ".knowledge/requirement/tailwind-css-integration.md", "role": "primary", "title": "Tailwind CSS Integration", "type": "requirement"}
 {"category": "objective", "id": "requirement:tailwind-plugin-integration", "path": ".knowledge/requirement/tailwind-plugin-integration.md", "role": "primary", "title": "Tailwind Plugin Integration", "type": "requirement"}
@@ -519,6 +525,7 @@
 {"category": "objective", "id": "requirement:tinybind-runtime-ownership", "path": ".knowledge/requirement/tinybind-runtime-ownership.md", "role": "primary", "title": "TinyBind Runtime Ownership Seams", "type": "requirement"}
 {"category": "objective", "id": "requirement:tinybind-update-composition-seams", "path": ".knowledge/requirement/tinybind-update-composition-seams.md", "role": "primary", "title": "TinyBind Update Composition Seams", "type": "requirement"}
 {"category": "objective", "id": "requirement:tinygodriver-adoption", "path": ".knowledge/requirement/tinygodriver-adoption.md", "role": "primary", "title": "tinygodriver Adoption", "type": "requirement"}
+{"category": "objective", "id": "requirement:tinygodriver-encode-only-zstd", "path": ".knowledge/requirement/tinygodriver-encode-only-zstd.md", "role": "primary", "title": "What The fasthttp Build Would Ask Of tinygodriver", "type": "requirement"}
 {"category": "objective", "id": "requirement:tutorial-capability-growth", "path": ".knowledge/requirement/tutorial-capability-growth.md", "role": "primary", "title": "Tutorial Capability Growth", "type": "requirement"}
 {"category": "objective", "id": "requirement:tutorial-continuity", "path": ".knowledge/requirement/tutorial-continuity.md", "role": "primary", "title": "Tutorial Continuity", "type": "requirement"}
 {"category": "objective", "id": "requirement:tutorial-page-tree-chapter", "path": ".knowledge/requirement/tutorial-page-tree-chapter.md", "role": "primary", "title": "Tutorial Page Tree Chapter", "type": "requirement"}
@@ -529,6 +536,7 @@
 {"category": "objective", "id": "requirement:user-preference-rendering", "path": ".knowledge/requirement/user-preference-rendering.md", "role": "primary", "title": "User Preference Rendering", "type": "requirement"}
 {"category": "objective", "id": "requirement:web-standards-overview", "path": ".knowledge/requirement/web-standards-overview.md", "role": "primary", "title": "Web Standards Architecture Overview", "type": "requirement"}
 {"category": "constraint", "id": "rule:batch-engine-capability", "path": ".knowledge/rule/batch-engine-capability.md", "role": "supporting", "title": "Batch Capability Per Engine", "type": "rule"}
+{"category": "constraint", "id": "rule:client-event-authoring", "path": ".knowledge/rule/client-event-authoring.md", "role": "supporting", "title": "Signal Authoring Rules", "type": "rule"}
 {"category": "constraint", "id": "rule:configuration-advisories", "path": ".knowledge/rule/configuration-advisories.md", "role": "supporting", "title": "Configuration Advisories", "type": "rule"}
 {"category": "constraint", "id": "rule:container-build-inputs", "path": ".knowledge/rule/container-build-inputs.md", "role": "supporting", "title": "Container Build Inputs", "type": "rule"}
 {"category": "constraint", "id": "rule:dsn-redaction", "path": ".knowledge/rule/dsn-redaction.md", "role": "supporting", "title": "DSN Redaction", "type": "rule"}
@@ -545,6 +553,7 @@
 {"category": "constraint", "id": "rule:rdb-dsn-resolution", "path": ".knowledge/rule/rdb-dsn-resolution.md", "role": "supporting", "title": "RDB DSN Scheme Resolution", "type": "rule"}
 {"category": "constraint", "id": "rule:route-and-template-checks", "path": ".knowledge/rule/route-and-template-checks.md", "role": "supporting", "title": "Route and Template Checks", "type": "rule"}
 {"category": "constraint", "id": "rule:savepoint-dialect-support", "path": ".knowledge/rule/savepoint-dialect-support.md", "role": "supporting", "title": "Savepoint Dialect Support", "type": "rule"}
+{"category": "constraint", "id": "rule:shared-code-names-a-leaf", "path": ".knowledge/rule/shared-code-names-a-leaf.md", "role": "supporting", "title": "Code Compiled Into Both Builds Names A Shared Leaf", "type": "rule"}
 {"category": "constraint", "id": "rule:static-route-discovery", "path": ".knowledge/rule/static-route-discovery.md", "role": "supporting", "title": "Static Route Discovery", "type": "rule"}
 {"category": "constraint", "id": "rule:storage-checks", "path": ".knowledge/rule/storage-checks.md", "role": "supporting", "title": "Storage Checks", "type": "rule"}
 {"category": "constraint", "id": "rule:storage-package-layout", "path": ".knowledge/rule/storage-package-layout.md", "role": "supporting", "title": "Storage Package Layout", "type": "rule"}

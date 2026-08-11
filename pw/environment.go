@@ -62,29 +62,23 @@ func EnvironmentDeclared() bool { return pwconfig.EnvironmentDeclared() }
 // case it is trying to help — the developer who just cloned the project and ran
 // it — and because a deployment that reads its own startup log has everything it
 // needs here: the variable to set, and what setting it changes.
-// reportCompressionCodings says so when compression is on and a coding it was
-// told to use is not in this binary. The setting is otherwise a silent no-op:
-// the build tag has to win over the file, but an operator who wrote the file
-// should not have to guess that it did.
+// reportCompressionCodings says so when compression is on and the list names a
+// coding this framework does not encode. Naming one is otherwise a silent
+// no-op: the coding is skipped and the rest of the list still negotiates, so an
+// operator who wrote brotli into the file would never learn that nothing came
+// of it.
 func reportCompressionCodings(config MiddlewareConfig) {
 	if !config.Compression {
-		return
-	}
-	if len(availableResponseCodings) == 0 {
-		processLogger().Warn("middleware.compression is enabled but this build has no dynamic encoder",
-			String("effect", "every dynamic response is sent unencoded"),
-			String("action", "drop the pw_nozstd and pw_nogzip build tags, or set middleware.compression to false"),
-		)
 		return
 	}
 	missing := unavailableResponseCodings(config.CompressionCodings)
 	if len(missing) == 0 {
 		return
 	}
-	processLogger().Warn("middleware.compression_codings names a coding this build cannot produce",
+	processLogger().Warn("middleware.compression_codings names a coding this framework cannot produce",
 		String("codings", strings.Join(missing, ",")),
 		String("effect", "the named codings are skipped and the rest of the list still negotiates"),
-		String("action", "drop the build tag that removed the encoder, or remove the coding from the list"),
+		String("action", "remove the coding from the list; zstd and gzip are the two that encode"),
 	)
 }
 

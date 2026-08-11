@@ -1,6 +1,6 @@
 ---
 title: Batching
-description: Cutting the cost of many statements — a transaction on SQLite, a pipelined pgx batch on PostgreSQL, and what MySQL charges in return.
+description: Cutting the cost of many statements — a transaction on SQLite, pgx Batch and COPY on PostgreSQL, and what MySQL charges in return.
 sidebar:
   order: 2
 ---
@@ -98,6 +98,55 @@ A group that is not PostgreSQL returns an error naming the engine it found
 instead, so a handler written against pgx fails loudly on a SQLite deployment
 rather than subtly.
 
+### PostgreSQL COPY: one table, many rows
+
+A batch removes round trips, but PostgreSQL still parses and executes every
+queued `INSERT`. When all the rows have the same destination and column shape,
+the next step is COPY. pgx's `CopyFrom` sends the equivalent of
+`COPY items (name, price_cents) FROM STDIN BINARY` and streams the row values
+over PostgreSQL's copy protocol:
+
+```go
+rows := make([][]any, len(items))
+for i, item := range items {
+	rows[i] = []any{item.Name, item.PriceCents}
+}
+
+var copied int64
+err := postgres.WithConn(ctx, func(conn *pgx.Conn) error {
+	var err error
+	copied, err = conn.CopyFrom(
+		ctx,
+		pgx.Identifier{"items"},
+		[]string{"name", "price_cents"},
+		pgx.CopyFromRows(rows),
+	)
+	return err
+})
+if err != nil {
+	return err
+}
+pw.Logger(ctx).Info("copied items", pw.Int64("rows", copied))
+```
+
+`pgx.Identifier` quotes the table name as an identifier; the strings in the
+column list are column identifiers, not values interpolated into SQL. For an
+input that should not first become one large `[][]any`, implement
+`pgx.CopyFromSource` or use `CopyFromSlice` or `CopyFromFunc` to produce rows
+incrementally.
+
+COPY is the bulk-ingest path, not a more expressive INSERT. It has no per-row
+`RETURNING` and no `ON CONFLICT`. Omit columns that should take their defaults;
+for upserts or row-by-row reconciliation, COPY into a staging table and follow
+it with `INSERT ... ON CONFLICT` in the same `pw.Transaction`. A copy failure
+then rolls back with the transaction, just like a batch invoked through the
+same `WithConn` callback.
+
+Do not replace `STDIN` with a file path for an uploaded file. `COPY FROM
+'/path'` reads the database server's filesystem and requires server-side
+privileges; `\copy` is a psql command, not SQL an application can send. Parse
+and validate the upload in the application, then feed its rows to `CopyFrom`.
+
 ### Nothing here reaches the query log
 
 Generated statements are logged with their duration, their plan, and a
@@ -148,11 +197,18 @@ available everywhere.
 
 ## When not to batch
 
-If the statements are inserts into one table, `INSERT INTO items (name) VALUES
-($1), ($2), ($3)` beats every option on this page. It parses once instead of N
-times, it is one round trip on every engine including MySQL, it needs no
-escape hatch and no DSN change, and `.pw.sql` slice expansion writes it for
-you. Reach for a batch when the statements genuinely differ.
+If the statements are inserts into one table, do not queue one `INSERT` per
+row. For a modest set, `INSERT INTO items (name) VALUES ($1), ($2), ($3)` parses
+once, works on every engine including MySQL, needs no escape hatch or DSN
+change, and `.pw.sql` slice expansion writes it for you. On PostgreSQL, use
+`CopyFrom` when the homogeneous input is large enough that bulk ingestion
+matters. Reach for a batch when the statements genuinely differ.
+
+| Shape of the work | PostgreSQL choice |
+| --- | --- |
+| a modest number of rows, or `RETURNING` / `ON CONFLICT` is needed | multi-row `INSERT` |
+| many rows with one table and column shape | `CopyFrom` |
+| different statements whose replies matter | `Batch` inside a transaction when needed |
 
 Two more cases rule it out. Inside a PostgreSQL batch the server may parse
 every queued statement before running any of them, so a `CREATE TABLE`
@@ -169,9 +225,8 @@ order and atomicity. Consistency of view is the transaction's job, and its
 isolation level cannot be set on the implicit one a bare batch runs in — queue
 the batch inside `pw.Transaction` when you need a stronger level.
 
-`WithConn` serves more than batches. `CopyFrom` for bulk ingest, `LISTEN` and
-`NOTIFY`, and `errors.As` against `*pgx.PgError` for SQLSTATE all live behind
-the same callback. See
+`WithConn` serves more than batches. `LISTEN` and `NOTIFY`, and `errors.As`
+against `*pgx.PgError` for SQLSTATE all live behind the same callback. See
 [Interoperability](/appendix/interoperability/) for the rest of what a
 PostgreSQL deployment can reach, and
 [Queries](/guides/storage/queries/) for the generated layer these examples step

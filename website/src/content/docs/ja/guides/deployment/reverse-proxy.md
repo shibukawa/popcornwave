@@ -203,7 +203,7 @@ live_max_responses = 0   # ここでは無制限にする
 
 レスポンス圧縮が既定で無効なのは、手前で既に圧縮していることが多く、ボディを 2 回
 符号化しても誰の得にもならないからです。プロキシが圧縮していないのでなければ、
-[`middleware.compression`](/ja/guides/frontend/compression/) は無効のままにしてください。
+[`middleware.compression`](/ja/guides/backend/compression/) は無効のままにしてください。
 
 ボディ上限は両側で効き、小さいほうが勝ちます。`server.max_request_body` の既定が 10 MiB、
 nginx の `client_max_body_size` の既定が 1 MiB なので、アップロードがプロキシに拒否され、

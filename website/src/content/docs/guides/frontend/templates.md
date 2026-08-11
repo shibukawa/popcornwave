@@ -345,6 +345,11 @@ unchanged; that distinction lets Tailwind utilities coexist with scoped rules.
 Use `:global(...)` to opt a selector out. A bare element selector fails
 generation and must be qualified with a class.
 
+The same declaration can keep instance-local JavaScript beside its markup in a
+`<script component>` block. Its `setup` and teardown behavior, including what
+happens during partial and live replacement, is covered in [Component
+scripts](/guides/interactivity/component-scripts/).
+
 ## External functions
 
 Display-specific conversions are declared in the template and implemented in Go:

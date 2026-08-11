@@ -62,6 +62,6 @@ consequences:
   - both dynamic codings now sit near 30 percent, zstd at 30.0 and gzip at 30.8, so the coding a client gets barely changes the bytes and the order is close to a free choice
   - the shallower zstd regresses ratio from 28.7 to 30.0 for clients already being served, which is accepted deliberately: the dynamic path is a throughput budget, and the deep levels live on the static path where they cost nothing
   - zstd stays worth its 247 KB, since it is both the better ratio and the newer format the default should be pointing at
-  - pw_nozstd keeps its meaning and pw_nogzip joins it, one tag per coding, so an existing build line is not redefined and a target wanting neither passes both
+  - both codings were once removable per tag; decision:response-encoders-are-unconditional records why that stopped being worth its own axis
 verification: a request advertising only gzip receives a gzip body, a request advertising zstd still receives zstd, and no served binary links a brotli symbol
 ```

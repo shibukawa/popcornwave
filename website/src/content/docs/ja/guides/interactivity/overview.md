@@ -48,6 +48,7 @@ Popcorn Wave はサーバーで描画し、ハイドレーション層、クラ�
 | 生成に時間のかかる領域 | `await` 境界 | [非同期レンダリング](/ja/guides/cross-layer/async-rendering/) |
 | 誰も見ていなくても変わる領域 | live 境界 | [ライブレンダリング](/ja/guides/cross-layer/live-rendering/) |
 | クライアントだけの状態、ドラッグ、canvas | カスタム要素 | [フラグメントと島](/ja/guides/interactivity/fragments/) |
+| 自動解放されるインスタンス固有の JavaScript | コンポーネントスクリプト | [コンポーネントスクリプト](/ja/guides/interactivity/component-scripts/) |
 | コンポーネント内に閉じたクライアント状態 | 島の中の React ルート | [React の統合](/ja/guides/interactivity/react/) |
 | 楽観的更新、オフライン編集 | —— | このフレームワークの領分ではありません |
 

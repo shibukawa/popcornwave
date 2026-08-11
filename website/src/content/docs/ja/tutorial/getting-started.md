@@ -348,5 +348,5 @@ handlers/home_handler.go:21:37: unknown field Name in struct literal of type Hom
 人に向かって自分を説明しなければならないバリデーションです。
 
 - [2. フォームとバリデーション](/ja/tutorial/forms/) — 次の章。
-- [アーキテクチャ](/ja/start/architecture/) — いま動かしたものの背後にあるモデル。
+- [プロジェクト構成と設計原則](/ja/guides/architecture/project-structure/) — いま動かしたツール、パッケージ、ハンドラのモデル。
 - [pw コマンド](/ja/pw/overview/) — サブコマンドの全体。

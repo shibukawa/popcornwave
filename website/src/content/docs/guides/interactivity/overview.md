@@ -49,6 +49,7 @@ library look identical to the reader, and only one of them can break.
 | Region that is slow to produce | `await` boundary | [Async rendering](/guides/cross-layer/async-rendering/) |
 | Region that changes with nobody watching | live boundary | [Live rendering](/guides/cross-layer/live-rendering/) |
 | Client-only state, drag, canvas | a custom element | [Fragments and islands](/guides/interactivity/fragments/) |
+| Instance-local JavaScript with automatic teardown | a component script | [Component scripts](/guides/interactivity/component-scripts/) |
 | Component-local client state | a React root inside one island | [Integrating React](/guides/interactivity/react/) |
 | Optimistic update, offline edit | — | not this framework |
 

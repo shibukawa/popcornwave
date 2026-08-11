@@ -30,6 +30,15 @@ const (
 	// separate from the served tree so that tree can be cleared without
 	// deleting files pw generate wrote in an earlier step.
 	derivedStageDir = "dist/derived"
+	// extractedAssetDir receives the style and script blocks a component
+	// declares, which the generator extracts to content-hashed files.
+	//
+	// It is inside the authored public tree rather than beside the staged
+	// conversions, because these are referenced by a URL the generator computed
+	// at generation time and are as much a source of the served tree as an
+	// authored file is. It is also where flow:tailwind-css-build already writes,
+	// so nothing new has to be embedded or served.
+	extractedAssetDir = "public/generated"
 	// conversionCacheDir keeps conversion outcomes across runs, including the
 	// decision to decline one. Deleting it costs time and nothing else.
 	conversionCacheDir = "dist/cache"

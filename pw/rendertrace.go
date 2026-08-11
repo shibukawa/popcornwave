@@ -23,6 +23,7 @@ const (
 	initialSpanName    = "render initial"
 	boundarySpanName   = "render boundary"
 	deliverySpanName   = "live delivery"
+	signalEventName    = "live signal"
 	renderModeBuffered = "buffered"
 	renderModeStream   = "stream"
 	renderModeLive     = "live"
@@ -65,6 +66,12 @@ type renderTrace struct {
 	// have cost. Live only.
 	suppressed      int
 	suppressedBytes int64
+	// signals counts the signals this response forwarded, and signalBytes their
+	// payloads. Live only. They are counted because a screen driven entirely by
+	// signals renders nothing, so every delivery number stays at zero and the
+	// response is otherwise indistinguishable from one that did nothing at all.
+	signals     int
+	signalBytes int64
 	// cache is what this response reused from the output cache. It is installed
 	// on the context rather than reached from here, because the store is
 	// consulted deep inside a generated plan and the only thing that reaches
@@ -237,6 +244,24 @@ func (render *renderTrace) suppressedContent(size int) {
 	render.suppressedBytes += int64(size)
 }
 
+// signalled records one signal this response forwarded.
+//
+// It opens no span. A signal has no duration and holds no region, so the
+// interval a delivery span measures — how long that content was on screen — has
+// no meaning here; the name is an attribute on a zero-length event instead.
+func (render *renderTrace) signalled(name string, size int) {
+	if render == nil {
+		return
+	}
+	render.signals++
+	render.signalBytes += int64(size)
+	if !render.boundary {
+		return
+	}
+	render.span.AddEvent(signalEventName,
+		String("pw.signal.name", name), Int("pw.signal.bytes", size))
+}
+
 // failed marks the response as having failed, whatever status reached the
 // client. A stream that broke after commit still answers 200, so the request
 // span cannot report this and the render span is where it is visible.
@@ -282,6 +307,11 @@ func (render *renderTrace) end(attributes ...Attribute) {
 		attributes = append(attributes,
 			Int("pw.live.suppressed", render.suppressed),
 			Int64("pw.live.suppressed_bytes", render.suppressedBytes))
+	}
+	if render.signals > 0 {
+		attributes = append(attributes,
+			Int("pw.live.signals", render.signals),
+			Int64("pw.live.signal_bytes", render.signalBytes))
 	}
 	render.span.SetAttributes(attributes...)
 	render.span.End()

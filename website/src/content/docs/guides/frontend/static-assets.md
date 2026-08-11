@@ -61,7 +61,7 @@ else you want to serve — a user upload, a generated report — is an ordinary
 route, and [object storage](/guides/storage/object-storage/) is usually the
 better home for it.
 
-## Two cache policies, decided by the name
+## Two cache policies, decided at build time
 
 A file that keeps the name you wrote gets `public, no-cache` and a strong
 `ETag`. The browser revalidates and an unchanged asset costs a `304` with no
@@ -99,9 +99,17 @@ enabled = true
 
 What each one does, and what follows the file:
 
+:::note
+The file extension selects the conversion pipeline; it is not meant to be the
+only proof of what the file contains. A planned build check will also inspect
+the file signature (its magic/header bytes) and reject malformed files or
+content that does not match the extension before conversion. Until that check
+lands, the encoder may be the first component to report malformed image input.
+:::
+
 | Source | Becomes | The reference |
 | --- | --- | --- |
-| `img src` naming a `.png` or `.jpg` | WebP, lossless from a PNG and lossy from a JPEG | rewritten to the hashed name |
+| `img src` whose URL has a `.png`, `.jpg`, or `.jpeg` extension | WebP, lossless from a PNG and lossy from a JPEG; with `avif = true`, an AVIF representation as well | rewritten to the hashed URL; `Accept` chooses between AVIF and WebP when both exist |
 | `script src` naming a `.ts` or `.tsx` | a bundled ES module, with a source map in a debug build | rewritten to the hashed name |
 | a `.css` file | minified, with its `url()` references pointed at whatever they became | unchanged — the stylesheet keeps its own URL |
 | a `.js` file | minified, not bundled, so a module stays a module | unchanged |
@@ -302,7 +310,7 @@ ships. Serving then costs no CPU at all: the encoded bytes already exist.
 | `.html`, `.css`, `.js`, `.mjs`, `.json`, `.map`, `.txt`, `.xml`, `.svg`, `.webmanifest`, and any other `text/*` | images other than SVG, audio, video, fonts, archives, WebAssembly — anything already compressed |
 
 All three run at their maximum level, which is affordable here for the reason it
-is not on [a rendered response](/guides/frontend/compression/): the cost lands on
+is not on [a rendered response](/guides/backend/compression/): the cost lands on
 the build rather than on a request. Brotli exists only here, and only because of
 that — at maximum it comes out roughly fifteen percent smaller than zstd and
 seventeen percent smaller than gzip, a margin that appears at levels far too slow
@@ -396,7 +404,7 @@ available no matter how this endpoint is configured. See
 
 The sidecars above are static files, compressed once at build time. Compressing
 a response the application just rendered is a separate switch with separate
-trade-offs — see [Response Compression](/guides/frontend/compression/). That
+trade-offs — see [Response Compression](/guides/backend/compression/). That
 middleware never recompresses what this handler served.
 
 The two also offer different codings, and for the same reason the levels differ:

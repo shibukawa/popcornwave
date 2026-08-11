@@ -14,6 +14,7 @@ import (
 	"github.com/shibukawa/popcornwave/internal/pwgen"
 	"github.com/shibukawa/tinybind-go/generator"
 	"github.com/shibukawa/tinybind-go/routetree"
+	templatehtmlbind "github.com/shibukawa/tinybind-go/templates/htmlbind"
 	"golang.org/x/mod/modfile"
 )
 
@@ -31,6 +32,14 @@ var reservedPageTemplates = map[string]bool{
 //
 // Nothing is written here. The artifacts join the plan of the directory they
 // land in, so one directory keeps one staleness sweep and one atomic write.
+//
+// A tree's extracted assets come back beside its Go, in their own list, because
+// an asset has no path this package can compute: a compiled component belongs
+// beside its template and an asset belongs wherever PublicURLBase is served
+// from. They are grouped under the root rather than under a template's own
+// directory for the same reason — the URL they were compiled against is one
+// place, not one per page. The tree root is what they are grouped under,
+// because that is a directory whose purposes admit them.
 func planPageTrees(root string, config projectConfig) (map[string][]generator.Artifact, error) {
 	if len(config.Generate.Pages) == 0 {
 		return nil, nil
@@ -50,11 +59,29 @@ func planPageTrees(root string, config projectConfig) (map[string][]generator.Ar
 		if err != nil {
 			return nil, err
 		}
-		files, err := generatePageTree(treeRoot, importBase, emitter)
+		result, err := generatePageTree(treeRoot, importBase, emitter)
 		if err != nil {
 			return nil, fmt.Errorf("%s: %w", relative, err)
 		}
-		for _, file := range files {
+		treeRootAbs, err := filepath.Abs(treeRoot)
+		if err != nil {
+			return nil, err
+		}
+		for _, asset := range result.Assets {
+			// Under the tree root rather than the project root: an artifact is
+			// filtered by the purposes of the directory it is planned into, and
+			// the project root is not a page directory, so anything grouped there
+			// is dropped without a word.
+			planned[treeRootAbs] = append(planned[treeRootAbs], generator.Artifact{
+				Kind:        assetArtifactKind(asset),
+				Destination: generator.DestinationPublicAsset,
+				OutputBase:  asset.Base,
+				Extension:   asset.Extension,
+				Content:     asset.Content,
+				PublicPath:  asset.URL,
+			})
+		}
+		for _, file := range result.Files {
 			artifact, err := pageArtifact(file)
 			if err != nil {
 				return nil, err
@@ -69,13 +96,25 @@ func planPageTrees(root string, config projectConfig) (map[string][]generator.Ar
 	return planned, nil
 }
 
-func generatePageTree(treeRoot, importBase string, emitter *routetree.Emitter) ([]routetree.Generated, error) {
-	return routetree.Generate(routetree.GenerateOptions{
-		Config:          pwgen.PageConfig(treeRoot, importBase),
-		Emitter:         emitter,
-		ComponentSuffix: pwgen.PageComponentSuffix,
-		DecoderOutput:   pwgen.PageDecoderOutput,
-		RegistryOutput:  pwgen.PageRegistryOutput,
+// GenerateTree rather than Generate: the latter is documented as the variant
+// that discards the extracted assets, and a page declaring a script block
+// through it produced a reference to a file that answered 404.
+//
+// Two options travel that the tree used to take by omission. The URL base, or
+// every tree asset is compiled against the module default regardless of where
+// this writes them. And the attribute prefix — both paths happen to use the
+// module default today, which is why one document has held one spelling, and
+// passing it is what keeps that true if this framework ever brands the prefix
+// rather than leaving a page tree quietly on the default.
+func generatePageTree(treeRoot, importBase string, emitter *routetree.Emitter) (routetree.Result, error) {
+	return routetree.GenerateTree(routetree.GenerateOptions{
+		Config:              pwgen.PageConfig(treeRoot, importBase),
+		Emitter:             emitter,
+		ComponentSuffix:     pwgen.PageComponentSuffix,
+		DecoderOutput:       pwgen.PageDecoderOutput,
+		RegistryOutput:      pwgen.PageRegistryOutput,
+		PublicURLBase:       generator.DefaultPublicURLBase,
+		DataAttributePrefix: pwgen.AttributePrefix(),
 	})
 }
 
@@ -186,9 +225,12 @@ func deriveTreeFor(treeRoot, importBase string) ([]routetree.Generated, error) {
 	if err != nil {
 		return nil, err
 	}
-	out := make([]routetree.Generated, 0, len(files))
-	for _, file := range files {
-		if same(shared, file) {
+	// The Go only. A tree's extracted assets are transport-independent — one
+	// file, one URL, compiled from one template — so the second build reuses
+	// what the first already planned rather than writing them twice.
+	out := make([]routetree.Generated, 0, len(files.Files))
+	for _, file := range files.Files {
+		if same(shared.Files, file) {
 			continue
 		}
 		out = append(out, routetree.Generated{
@@ -367,4 +409,15 @@ func treeImportPath(module, moduleDir, treeRoot string) (string, error) {
 		return "", fmt.Errorf("page tree root %s is outside the module at %s", treeRoot, moduleDir)
 	}
 	return module + "/" + relative, nil
+}
+
+// assetArtifactKind classifies one extracted asset the way the flat path does,
+// so a stylesheet and a script reach the same purpose filter and the same
+// write. The two paths produce the same htmlbind.Asset, and this is the one
+// place the tree has to say which kind it is holding.
+func assetArtifactKind(asset templatehtmlbind.Asset) generator.ArtifactKind {
+	if asset.Kind == templatehtmlbind.AssetScript {
+		return generator.ArtifactScript
+	}
+	return generator.ArtifactStylesheet
 }

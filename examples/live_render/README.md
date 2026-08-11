@@ -75,5 +75,45 @@ Same URL, same route, same handler — the mode is a header, and the page
 executing again is how a live binding gets its arguments back after a
 disconnect.
 
-The guide is
-[Live Rendering](https://shibukawa.github.io/popcornwave/guides/cross-layer/live-rendering/).
+## The badge and the flash
+
+Two things on this page are not deliveries.
+
+`WatchMessages` yields the whole current list, so a delivery cannot say *a
+message just arrived* — a reader who was away gets the current room and no
+notion of how much of it is new. So the source also emits a **signal**, in the
+error slot and classified before anything treats it as an error:
+
+```go
+if !yield(nil, pwruntime.NamedSignal("app.message")) {
+	return
+}
+```
+
+No payload: the handler needs to know that something arrived and nothing else,
+which lets the server say when and never what.
+
+`pwruntime` rather than `pw`, because this example builds for fasthttp too and
+the file holding the source carries no build tag. They are the same function.
+
+`handlers/dashboard.pw.html` opens with a `<script component>` block that
+receives it. The same block registers two names the runtime dispatches itself —
+`pw.live_opened` and `pw.live_closed` — and that is what the badge shows. The
+markup renders `connecting…`; only the script says otherwise, so the badge
+reports the connection's actual state rather than a claim, and a reader with no
+JavaScript keeps the honest one.
+
+The block is extracted to `public/generated/dashboard.script.<hash>.js` at
+generation time, so `pw prepare` (or `pw dev`, or `pw build`) has to have run
+before the page can load it — the served tree is `dist/public`, derived from the
+authored one.
+
+**Watch it work.** Leave the page open. The badge turns `live` when the
+connection opens, the room flashes as each message arrives, and stopping the
+server turns the badge to `reconnecting…` without the rest of the page moving.
+
+The guides are
+[Live Rendering](https://shibukawa.github.io/popcornwave/guides/cross-layer/live-rendering/),
+[Signals](https://shibukawa.github.io/popcornwave/guides/cross-layer/signals/),
+and
+[Component scripts](https://shibukawa.github.io/popcornwave/guides/interactivity/component-scripts/).
