@@ -1,19 +1,11 @@
-// Package spanattr holds the parts of request span construction that are the
-// same whichever transport served the request.
-//
-// Only one thing is in here so far, and it is the one that matters: what a span
-// is allowed to say about a query string. A trace backend is retained longer
-// and read more widely than the application database, so getting this wrong on
-// one transport and right on the other would publish secrets from half a
-// deployment.
-package spanattr
+package otel
 
 import "strings"
 
 // QueryValueMask replaces every query parameter value in an exported span.
 const QueryValueMask = "REDACTED"
 
-// redactedQuery keeps the shape of a query string and drops its values.
+// RedactedQuery keeps the shape of a query string and drops its values.
 //
 // A trace backend is retained longer and read more widely than the application
 // database, and a query string is where a password-reset token, an OAuth code,
@@ -24,7 +16,11 @@ const QueryValueMask = "REDACTED"
 // values were never part of it. The access log settled the same question the
 // same way — it records the path and not the query — and the two agreeing is
 // worth as much as either answer.
-func RedactQuery(raw string) string {
+//
+// It lives here rather than beside the server middleware because the outbound
+// transport asks the same question about the URL it is about to request, and a
+// second copy of this rule would be a second chance to answer it differently.
+func RedactedQuery(raw string) string {
 	var out strings.Builder
 	out.Grow(len(raw))
 	for remainder := raw; remainder != ""; {

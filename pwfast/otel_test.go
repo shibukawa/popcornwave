@@ -1,6 +1,7 @@
 package pwfast
 
 import (
+	gocontext "context"
 	"strings"
 	"testing"
 
@@ -70,3 +71,92 @@ func requestAttributesOf(t *testing.T, target string) []otelAttribute {
 // otelAttribute names the attribute type locally so the helper above reads
 // without repeating the import path.
 type otelAttribute = otel.Attribute
+
+type spanCollector struct{ spans []trace.SpanData }
+
+func (c *spanCollector) OnEnd(span trace.SpanData)      { c.spans = append(c.spans, span) }
+func (*spanCollector) Shutdown(gocontext.Context) error { return nil }
+
+const remoteParent = "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01"
+
+// The refusals belong to the shared validator, so this transport must reject
+// exactly what the other one rejects.
+//
+// Two traceparents is the case that decides whether the reading is honest. The
+// header is read with PeekAll for this: Peek returns the first value, which
+// would hand the validator one field and get a parent accepted here that the
+// other transport refuses.
+func TestTheRefusalsMatchTheOtherTransport(t *testing.T) {
+	for name, header := range map[string]string{
+		"two traceparents": "traceparent: " + remoteParent + "\r\ntraceparent: " + remoteParent + "\r\n",
+		"uppercase hex":    "traceparent: 00-4BF92F3577B34DA6A3CE929D0E0E4736-00f067aa0ba902b7-01\r\n",
+		"version ff":       "traceparent: ff-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01\r\n",
+		"zero span id":     "traceparent: 00-4bf92f3577b34da6a3ce929d0e0e4736-0000000000000000-01\r\n",
+	} {
+		t.Run(name, func(t *testing.T) {
+			collector := &spanCollector{}
+			handler := Compose(func(*fasthttp.RequestCtx) {},
+				Frame{Slot: SlotTracing, Middleware: Otel(WithTracerProvider(trace.NewProvider(collector)))})
+			serveRaw(t, handler, "/orders", header)
+
+			if len(collector.spans) != 1 {
+				t.Fatalf("completed spans = %d", len(collector.spans))
+			}
+			if parent := collector.spans[0].ParentSpanID; parent != "" {
+				t.Errorf("parent = %q, want the request refused a parent and rooted its own trace", parent)
+			}
+		})
+	}
+}
+
+// A separate tracestate line survives the reading, which Peek would also have
+// truncated.
+func TestTracestateIsCarried(t *testing.T) {
+	var seen trace.SpanContext
+	handler := Compose(func(r *fasthttp.RequestCtx) { seen = trace.SpanContextFromContext(r) },
+		Frame{Slot: SlotTracing, Middleware: Otel()})
+	serveRaw(t, handler, "/orders", "traceparent: "+remoteParent+"\r\ntracestate: a=1\r\ntracestate: b=2\r\n")
+
+	if seen.TraceState() != "a=1,b=2" {
+		t.Errorf("tracestate = %q, want both lines joined", seen.TraceState())
+	}
+}
+
+// A child opened from the request parents onto the request span, without the
+// handler ever being handed a derived context.
+func TestAChildSpanParentsOntoTheRequestSpan(t *testing.T) {
+	collector := &spanCollector{}
+	handler := Compose(func(r *fasthttp.RequestCtx) {
+		_, child := trace.Start(r, "load-order")
+		child.End()
+	}, Frame{Slot: SlotTracing, Middleware: Otel(WithTracerProvider(trace.NewProvider(collector)))})
+	serve(t, handler, "/orders")
+
+	if len(collector.spans) != 2 {
+		t.Fatalf("completed spans = %d, want the child and the request span", len(collector.spans))
+	}
+	child, request := collector.spans[0], collector.spans[1]
+	if child.ParentSpanID != request.SpanContext.SpanID() {
+		t.Errorf("child parent = %q, want the request span %q", child.ParentSpanID, request.SpanContext.SpanID())
+	}
+}
+
+// A failed request is the one most worth having in a trace, so the span ends
+// rather than leaking and it says the request failed.
+func TestTheSpanEndsOnAPanic(t *testing.T) {
+	collector := &spanCollector{}
+	handler := Compose(func(*fasthttp.RequestCtx) { panic("handler failed") },
+		Frame{Slot: SlotRecover, Middleware: Recover(nil)},
+		Frame{Slot: SlotTracing, Middleware: Otel(WithTracerProvider(trace.NewProvider(collector)))})
+	status, _, _ := serveRaw(t, handler, "/orders", "")
+
+	if status != fasthttp.StatusInternalServerError {
+		t.Fatalf("status = %d", status)
+	}
+	if len(collector.spans) != 1 {
+		t.Fatalf("completed spans = %d, want the span ended rather than leaked", len(collector.spans))
+	}
+	if collector.spans[0].Status != trace.StatusError {
+		t.Errorf("status = %v, want error", collector.spans[0].Status)
+	}
+}

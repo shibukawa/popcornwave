@@ -1,4 +1,4 @@
-package middlewares
+package otel
 
 import "testing"
 
@@ -20,8 +20,8 @@ func TestQueryValuesDoNotReachATrace(t *testing.T) {
 		{"", ""},
 		{"&&", ""},
 	} {
-		if got := redactedQuery(testCase.raw); got != testCase.want {
-			t.Errorf("redactedQuery(%q) = %q, want %q", testCase.raw, got, testCase.want)
+		if got := RedactedQuery(testCase.raw); got != testCase.want {
+			t.Errorf("RedactedQuery(%q) = %q, want %q", testCase.raw, got, testCase.want)
 		}
 	}
 }
@@ -29,7 +29,7 @@ func TestQueryValuesDoNotReachATrace(t *testing.T) {
 // The names survive, because knowing which parameters a request carried is the
 // whole reason the attribute exists.
 func TestQueryParameterNamesSurvive(t *testing.T) {
-	got := redactedQuery("next=%2Fadmin&id_token_hint=eyJhbGciOi")
+	got := RedactedQuery("next=%2Fadmin&id_token_hint=eyJhbGciOi")
 	want := "next=REDACTED&id_token_hint=REDACTED"
 	if got != want {
 		t.Errorf("redactedQuery = %q, want %q", got, want)

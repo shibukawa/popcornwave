@@ -203,3 +203,16 @@ func Queries(r *fasthttp.RequestCtx) *fasthttp.Args { return r.QueryArgs() }
 func QueryLookup(query *fasthttp.Args, key string) (string, bool) {
 	return fasthttpbind.QueryLookup(query, key)
 }
+
+// WantsLive reports whether this request asked for deliveries instead of a
+// document, which is what a page renders differently for.
+//
+// It is the counterpart of the net/http half's predicate, and the reason both
+// exist is this one: the mode arrives in a header, and a page that read the
+// header itself would be a page only one transport could serve.
+func WantsLive(r *fasthttp.RequestCtx) bool {
+	if r == nil {
+		return false
+	}
+	return string(r.Request.Header.Peek(ResponseModeHeader)) == LiveResponseMode
+}

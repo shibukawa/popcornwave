@@ -64,6 +64,7 @@ func New(config Config) (*Exporter, error) {
 	if config.Client == nil {
 		config.Client = http.DefaultClient
 	}
+	config.Client = untraced(config.Client)
 	if config.Headers == nil {
 		config.Headers = make(http.Header)
 	}

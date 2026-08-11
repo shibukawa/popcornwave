@@ -23,10 +23,12 @@ import (
 // Bounds on in-memory state. Every value is small because the provider serves
 // one developer or one test at a time.
 const (
-	maxPendingAuthorizations = 256
-	maxIssuedCodes           = 256
-	maxAccessTokens          = 512
-	secretBytes              = 32
+	maxPendingAuthorizations   = 256
+	maxIssuedCodes             = 256
+	maxAccessTokens            = 512
+	maxPendingDevices          = 256
+	maxPendingDevicesPerClient = 32
+	secretBytes                = 32
 
 	// environmentVariable is the framework runtime environment selector. It is
 	// read directly so this package depends on nothing outside contrib.
@@ -75,10 +77,13 @@ type Provider struct {
 	// real provider keeps one and answers later requests from it; without one
 	// here, every authorization would look like a fresh authentication and a
 	// freshness requirement could never be seen to fail.
-	sessions map[string]*providerSession
-	pending  map[string]*pendingAuthorization
-	codes    map[string]*issuedCode
-	tokens   map[string]*accessToken
+	sessions             map[string]*providerSession
+	pending              map[string]*pendingAuthorization
+	codes                map[string]*issuedCode
+	tokens               map[string]*accessToken
+	devicesByCode        map[string]*pendingDevice
+	devicesByUserCode    map[string]*pendingDevice
+	verificationAttempts map[string]*verificationAttempt
 }
 
 type pendingAuthorization struct {
@@ -154,22 +159,25 @@ func New(config Config, options Options) (*Provider, error) {
 		return nil, err
 	}
 	provider := &Provider{
-		issuer:      strings.TrimSuffix(config.Issuer, "/"),
-		tokenTTL:    config.TokenTTL,
-		codeTTL:     config.CodeTTL,
-		key:         config.SigningKey,
-		now:         options.Now,
-		random:      options.Random,
-		logf:        options.Logf,
-		users:       append([]User(nil), config.Users...),
-		bySubject:   map[string]*User{},
-		extraScopes: append([]string(nil), config.ValidScopes...),
-		scopes:      supportedScopes(config),
-		clients:     map[string]*Client{},
-		sessions:    map[string]*providerSession{},
-		pending:     map[string]*pendingAuthorization{},
-		codes:       map[string]*issuedCode{},
-		tokens:      map[string]*accessToken{},
+		issuer:               strings.TrimSuffix(config.Issuer, "/"),
+		tokenTTL:             config.TokenTTL,
+		codeTTL:              config.CodeTTL,
+		key:                  config.SigningKey,
+		now:                  options.Now,
+		random:               options.Random,
+		logf:                 options.Logf,
+		users:                append([]User(nil), config.Users...),
+		bySubject:            map[string]*User{},
+		extraScopes:          append([]string(nil), config.ValidScopes...),
+		scopes:               supportedScopes(config),
+		clients:              map[string]*Client{},
+		sessions:             map[string]*providerSession{},
+		pending:              map[string]*pendingAuthorization{},
+		codes:                map[string]*issuedCode{},
+		tokens:               map[string]*accessToken{},
+		devicesByCode:        map[string]*pendingDevice{},
+		devicesByUserCode:    map[string]*pendingDevice{},
+		verificationAttempts: map[string]*verificationAttempt{},
 	}
 	if provider.now == nil {
 		provider.now = time.Now
@@ -230,6 +238,11 @@ type ClientSpec struct {
 	ValidScopes       []string
 }
 
+type PublicDeviceClientSpec struct {
+	ID          string
+	ValidScopes []string
+}
+
 // Credentials are the generated secrets for a registered client.
 type Credentials struct {
 	ID     string
@@ -265,12 +278,41 @@ func (p *Provider) RegisterClient(spec ClientSpec) (Credentials, error) {
 		RedirectURIs:      append([]string(nil), spec.RedirectURIs...),
 		ValidScopes:       append([]string(nil), spec.ValidScopes...),
 		LoopbackRedirects: spec.LoopbackRedirects,
+		GrantTypes:        []string{GrantAuthorizationCode},
 	}
 	if err := validateClient(client); err != nil {
 		return Credentials{}, err
 	}
 	p.clients[id] = client
 	return Credentials{ID: id, Secret: secret}, nil
+}
+
+// RegisterPublicDeviceClient adds an ephemeral RFC 8628 public client. It
+// returns no secret because a value embedded in a constrained device cannot
+// authenticate that device.
+func (p *Provider) RegisterPublicDeviceClient(spec PublicDeviceClientSpec) (Credentials, error) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if p.closed {
+		return Credentials{}, ErrClosed
+	}
+	id := spec.ID
+	if id == "" {
+		generated, err := authn.GenerateSecret(p.random, 8)
+		if err != nil {
+			return Credentials{}, fmt.Errorf("devidp: generate client id: %w", err)
+		}
+		id = "pw-device-" + generated
+	}
+	if _, exists := p.clients[id]; exists {
+		return Credentials{}, fmt.Errorf("%w: duplicate client %q", ErrConfig, id)
+	}
+	client := &Client{ID: id, ValidScopes: append([]string(nil), spec.ValidScopes...), GrantTypes: []string{GrantDeviceCode}}
+	if err := validateClient(client); err != nil {
+		return Credentials{}, err
+	}
+	p.clients[id] = client
+	return Credentials{ID: id}, nil
 }
 
 // Reload replaces the roster and scope set in place. Registered clients, the
@@ -341,6 +383,9 @@ func (p *Provider) Close() error {
 	p.pending = map[string]*pendingAuthorization{}
 	p.codes = map[string]*issuedCode{}
 	p.tokens = map[string]*accessToken{}
+	p.devicesByCode = map[string]*pendingDevice{}
+	p.devicesByUserCode = map[string]*pendingDevice{}
+	p.verificationAttempts = map[string]*verificationAttempt{}
 	p.clients = map[string]*Client{}
 	p.key = nil
 	return nil

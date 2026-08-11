@@ -23,12 +23,14 @@ ephemeral_clients:
   - clients declared in data:devidp-config keep exact redirect URI matching with no relaxation
   - the post-logout redirect is exempt from registration for every client, but must stay local, and each acceptance is logged
   - injected credentials are masked wherever configuration provenance is logged
+  - a public device client receives only a generated client id and is limited to the device-code grant
 keys_and_tokens:
   - the signing key is generated per process from crypto/rand unless an explicit development key path is configured
   - a configured key path is a development fixture and is never written into generated project output
   - token, code, and key material are held in memory only and are destroyed by Provider.Close
   - token lifetime has a hard upper bound regardless of configuration
   - never log codes, verifiers, access tokens, ID Tokens, or client secrets
+  - device codes and pending device approvals follow the same memory-only destruction rule
 build:
   - api:cli-build fails when the application under build imports contrib/devidp
   - api:cli-init never scaffolds a contrib/devidp import into application source

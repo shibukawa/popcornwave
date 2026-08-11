@@ -1,6 +1,7 @@
 package oauth
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"io"
@@ -21,11 +22,14 @@ var (
 	ErrMalformed       = errors.New("oauth: malformed response")
 	ErrLimitExceeded   = errors.New("oauth: response limit exceeded")
 	ErrHTTP            = errors.New("oauth: HTTP request failed")
+	ErrAccessDenied    = errors.New("oauth: device authorization denied")
+	ErrExpired         = errors.New("oauth: device authorization expired")
 )
 
 const (
 	AuthBasic               = "client_secret_basic"
 	AuthPost                = "client_secret_post"
+	AuthNone                = "none"
 	defaultStateTTL         = 5 * time.Minute
 	maxStateTTL             = 30 * time.Minute
 	defaultMaxResponseBytes = 64 << 10
@@ -35,6 +39,8 @@ const (
 	maxClientValueBytes     = 4096
 	maxTokenValueBytes      = 16 << 10
 )
+
+const DeviceGrantType = "urn:ietf:params:oauth:grant-type:device_code"
 
 // Config describes a registered OAuth client. Endpoint URLs are validated at
 // construction and must be HTTPS, except explicitly enabled loopback HTTP.
@@ -106,6 +112,65 @@ type TokenSet struct {
 	ExpiresIn    *int64
 	Raw          map[string]json.RawMessage
 }
+
+// DeviceConfig describes an RFC 8628 client. Public clients use AuthNone and
+// carry no ClientSecret; confidential clients use AuthBasic or AuthPost.
+type DeviceConfig struct {
+	DeviceAuthorizationEndpoint string
+	TokenEndpoint               string
+	ClientID                    string
+	ClientSecret                string
+	AuthMethod                  string
+	AllowLoopbackHTTP           bool
+	EndpointValidator           func(*url.URL) error
+}
+
+// DeviceOptions controls bounded I/O and polling. Wait is primarily a test
+// seam; nil uses a context-aware timer.
+type DeviceOptions struct {
+	HTTPClient       *http.Client
+	Clock            func() time.Time
+	Wait             func(context.Context, time.Duration) error
+	MaxResponseBytes int
+	RequestTimeout   time.Duration
+}
+
+type DeviceBeginOptions struct {
+	Scopes []string
+}
+
+// DeviceAuthorization contains both user-facing instructions and the opaque
+// device credential. Do not log or display DeviceCode.
+type DeviceAuthorization struct {
+	deviceCode              string
+	UserCode                string
+	VerificationURI         string
+	VerificationURIComplete string
+	ExpiresIn               int64
+	Interval                int64
+	ExpiresAt               time.Time
+}
+
+// DeviceClient is safe for concurrent use. A DeviceAuthorization value must
+// still be polled by only one goroutine.
+type DeviceClient struct {
+	config         DeviceConfig
+	clock          func() time.Time
+	wait           func(context.Context, time.Duration) error
+	maxResponse    int
+	requestTimeout time.Duration
+	httpClient     *http.Client
+}
+
+// DeviceError reports a safe OAuth error code without retaining a response
+// description that might contain provider or request details.
+type DeviceError struct {
+	Code       string
+	StatusCode int
+}
+
+func (e *DeviceError) Error() string { return ErrToken.Error() }
+func (e *DeviceError) Unwrap() error { return ErrToken }
 
 // Client is safe for concurrent use when its StateStore implementation is
 // safe for concurrent use.

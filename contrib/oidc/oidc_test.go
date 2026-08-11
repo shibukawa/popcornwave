@@ -214,6 +214,62 @@ func TestDiscoveryAuthorizationAndNonceBoundIDToken(t *testing.T) {
 	}
 }
 
+func TestDeviceAuthorizationDiscoversEndpointAndAcceptsNonceLessIDToken(t *testing.T) {
+	now := time.Unix(1_700_000_000, 0)
+	issuer := "https://issuer.example"
+	key, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatal(err)
+	}
+	transport := oidcTransport{handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case "/.well-known/openid-configuration":
+			_, _ = io.WriteString(w, `{"issuer":"https://issuer.example","authorization_endpoint":"https://issuer.example/authorize","device_authorization_endpoint":"https://issuer.example/device","token_endpoint":"https://issuer.example/token","jwks_uri":"https://issuer.example/keys"}`)
+		case "/keys":
+			_, _ = io.WriteString(w, jwksJSON(key))
+		case "/device":
+			_ = r.ParseForm()
+			if r.Form.Get("scope") != "openid profile" || r.Form.Get("client_id") != "client" {
+				t.Errorf("device form = %v", r.Form)
+			}
+			_, _ = io.WriteString(w, `{"device_code":"device-secret","user_code":"BCDF-GHJK","verification_uri":"https://issuer.example/verify","expires_in":600,"interval":5}`)
+		case "/token":
+			_, _ = io.WriteString(w, `{"access_token":"access","token_type":"Bearer","id_token":"`+signedIDToken(t, key, issuer, "", now)+`"}`)
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	})}
+	provider, err := Discover(t.Context(), issuer, DiscoverOptions{HTTPClient: &http.Client{Transport: transport}, Clock: func() time.Time { return now }})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if provider.DeviceAuthorizationEndpoint() != issuer+"/device" {
+		t.Fatalf("device endpoint = %q", provider.DeviceAuthorizationEndpoint())
+	}
+	client, err := NewDeviceClient(provider, DeviceConfig{ClientID: "client"}, DeviceOptions{
+		Clock: func() time.Time { return now },
+		OAuth: oauth.DeviceOptions{HTTPClient: &http.Client{Transport: transport}, Clock: func() time.Time { return now }, Wait: func(_ context.Context, duration time.Duration) error {
+			now = now.Add(duration)
+			return nil
+		}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	authorization, err := client.Begin(t.Context(), DeviceBeginOptions{Scopes: []string{"profile"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	set, token, err := client.Poll(t.Context(), authorization)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if set.AccessToken != "access" || token.Claims.Subject != "user" || token.Nonce != "" {
+		t.Fatalf("set=%#v token=%#v", set, token)
+	}
+}
+
 func TestOIDCClientRejectsUnboundedTokenOptions(t *testing.T) {
 	provider := &Provider{authorizationEndpoint: "https://issuer.example/a", tokenEndpoint: "https://issuer.example/t", options: providerOptions{}}
 	for _, options := range []Options{{MaxTokenBytes: maxMaxTokenBytes + 1}, {MaxSegmentBytes: maxMaxSegmentBytes + 1}} {
@@ -715,7 +771,11 @@ func signedIDTokenNamed(t *testing.T, key *rsa.PrivateKey, keyID, issuer, nonce 
 	t.Helper()
 	encode := base64.RawURLEncoding.EncodeToString
 	header, _ := json.Marshal(map[string]string{"alg": "RS256", "typ": "JWT", "kid": keyID})
-	claims, _ := json.Marshal(map[string]any{"iss": issuer, "sub": "user", "aud": "client", "exp": now.Add(time.Hour).Unix(), "iat": now.Unix(), "nonce": nonce})
+	claimValues := map[string]any{"iss": issuer, "sub": "user", "aud": "client", "exp": now.Add(time.Hour).Unix(), "iat": now.Unix()}
+	if nonce != "" {
+		claimValues["nonce"] = nonce
+	}
+	claims, _ := json.Marshal(claimValues)
 	input := encode(header) + "." + encode(claims)
 	digest := sha256.Sum256([]byte(input))
 	signature, err := rsa.SignPKCS1v15(rand.Reader, key, crypto.SHA256, digest[:])

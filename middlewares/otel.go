@@ -10,7 +10,6 @@ import (
 	"github.com/shibukawa/popcornwave/contrib/otel"
 	"github.com/shibukawa/popcornwave/contrib/otel/propagation"
 	"github.com/shibukawa/popcornwave/contrib/otel/trace"
-	"github.com/shibukawa/popcornwave/internal/spanattr"
 )
 
 type otelConfig struct {
@@ -116,7 +115,7 @@ func requestAttributes(r *http.Request) []otel.Attribute {
 	}
 	attributes = append(attributes, otel.String("url.scheme", scheme))
 	if r.URL.RawQuery != "" {
-		attributes = append(attributes, otel.String("url.query", redactedQuery(r.URL.RawQuery)))
+		attributes = append(attributes, otel.String("url.query", otel.RedactedQuery(r.URL.RawQuery)))
 	}
 	host, port, err := net.SplitHostPort(r.Host)
 	if err != nil {
@@ -131,7 +130,3 @@ func requestAttributes(r *http.Request) []otel.Attribute {
 	}
 	return attributes
 }
-
-// redactedQuery keeps the shape of a query string and drops its values,
-// through the shared redaction so both transports publish the same thing.
-func redactedQuery(raw string) string { return spanattr.RedactQuery(raw) }

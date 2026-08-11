@@ -67,50 +67,70 @@ sidebar:
 選ぶのに必要な問いもこれ1つです。
 
 <figure>
-<svg viewBox="0 0 700 250" role="img" aria-label="3本のタイムライン。非同期レンダリングは1つのレスポンスの中で3回に分けて届く。部分更新は2回のリクエストで、2回目のレスポンスは1回目よりずっと小さい。ライブレンダリングは1本の接続を開いたままにして、サーバに言うことがあるときだけ3回書き込む。">
+<svg viewBox="0 0 700 240" role="img" aria-label="0秒から4秒までの共通軸に載せた3つの例示タイムライン。非同期レンダリングは1回リクエストし、0.1秒でシェル、0.9秒と1.5秒で領域を受け取る。部分更新は0秒と2.2秒にリクエストし、0.5秒でページ全体、2.5秒で小さな差分を受け取る。ライブレンダリングは接続を1本開き、1秒、2.4秒、3.6秒に更新を受け取る。">
   <g fill="currentColor" font-family="inherit">
-    <text x="0" y="34" font-size="12" opacity="0.75">非同期レンダリング</text>
-    <text x="0" y="50" font-size="11" opacity="0.5">まだ作業中</text>
-    <text x="0" y="114" font-size="12" opacity="0.75">部分更新</text>
-    <text x="0" y="130" font-size="11" opacity="0.5">もう一度訊かれた</text>
-    <text x="0" y="194" font-size="12" opacity="0.75">ライブレンダリング</text>
-    <text x="0" y="210" font-size="11" opacity="0.5">誰も訊いていない</text>
+    <text x="0" y="36" font-size="12" opacity="0.8">非同期レンダリング</text>
+    <text x="0" y="52" font-size="11" opacity="0.5">1レスポンス</text>
+    <text x="0" y="96" font-size="12" opacity="0.8">部分更新</text>
+    <text x="0" y="112" font-size="11" opacity="0.5">2リクエスト</text>
+    <text x="0" y="156" font-size="12" opacity="0.8">ライブレンダリング</text>
+    <text x="0" y="172" font-size="11" opacity="0.5">開いた接続1本</text>
   </g>
-
+  <g stroke="currentColor" stroke-width="1.5" opacity="0.2">
+    <line x1="150" y1="40" x2="650" y2="40"/>
+    <line x1="150" y1="100" x2="650" y2="100"/>
+    <line x1="150" y1="160" x2="650" y2="160"/>
+  </g>
+  <g stroke="currentColor" stroke-width="1" stroke-dasharray="3 3" opacity="0.55">
+    <line x1="150" y1="22" x2="150" y2="52"/>
+    <line x1="150" y1="82" x2="150" y2="112"/>
+    <line x1="425" y1="82" x2="425" y2="112"/>
+    <line x1="150" y1="142" x2="150" y2="172"/>
+  </g>
   <g fill="currentColor">
-    <rect x="190" y="24" width="14" height="18" rx="2"/>
-    <rect x="204" y="24" width="196" height="18" rx="2" opacity="0.16"/>
-    <rect x="400" y="24" width="14" height="18" rx="2"/>
-    <rect x="414" y="24" width="186" height="18" rx="2" opacity="0.16"/>
-    <rect x="600" y="24" width="14" height="18" rx="2"/>
-
-    <rect x="190" y="104" width="150" height="18" rx="2"/>
-    <rect x="450" y="104" width="26" height="18" rx="2"/>
-
-    <rect x="190" y="184" width="470" height="18" rx="2" opacity="0.16"/>
-    <rect x="270" y="184" width="12" height="18" rx="2"/>
-    <rect x="410" y="184" width="12" height="18" rx="2"/>
-    <rect x="570" y="184" width="12" height="18" rx="2"/>
+    <rect x="158" y="33" width="10" height="14" rx="2"/>
+    <rect x="257" y="33" width="10" height="14" rx="2"/>
+    <rect x="333" y="33" width="10" height="14" rx="2"/>
+    <rect x="207" y="93" width="42" height="14" rx="2"/>
+    <rect x="457" y="93" width="12" height="14" rx="2"/>
+    <rect x="150" y="153" width="450" height="14" rx="3" opacity="0.14"/>
+    <rect x="270" y="153" width="10" height="14" rx="2"/>
+    <rect x="445" y="153" width="10" height="14" rx="2"/>
+    <rect x="595" y="153" width="10" height="14" rx="2"/>
   </g>
-
-  <g stroke="currentColor" stroke-width="1" opacity="0.5">
-    <line x1="184" y1="18" x2="184" y2="48"/>
-    <line x1="184" y1="98" x2="184" y2="128"/>
-    <line x1="444" y1="98" x2="444" y2="128"/>
-    <line x1="184" y1="178" x2="184" y2="208"/>
+  <g fill="currentColor" font-family="inherit" font-size="10" opacity="0.65" text-anchor="middle">
+    <text x="163" y="20">シェル</text>
+    <text x="262" y="20">領域</text>
+    <text x="338" y="20">領域</text>
+    <text x="228" y="80">全ページ</text>
+    <text x="463" y="80">差分</text>
+    <text x="275" y="140">更新</text>
+    <text x="450" y="140">更新</text>
+    <text x="600" y="140">更新</text>
   </g>
-
-  <g fill="currentColor" font-family="inherit" font-size="11" opacity="0.6">
-    <text x="190" y="66">1本のレスポンスで3回配信 — 遅い処理が終わる前にシェルが出ていく</text>
-    <text x="190" y="146">まずページ全体、次は動いた領域だけを載せた2回目の答え</text>
-    <text x="190" y="226">1本の接続、サーバに言うことがあるときだけ書き込まれる</text>
+  <line x1="150" y1="194" x2="650" y2="194" stroke="currentColor" stroke-width="1" opacity="0.4"/>
+  <g stroke="currentColor" stroke-width="1" opacity="0.4">
+    <line x1="150" y1="194" x2="150" y2="200"/>
+    <line x1="275" y1="194" x2="275" y2="200"/>
+    <line x1="400" y1="194" x2="400" y2="200"/>
+    <line x1="525" y1="194" x2="525" y2="200"/>
+    <line x1="650" y1="194" x2="650" y2="200"/>
   </g>
+  <g fill="currentColor" font-family="inherit" font-size="11" opacity="0.65" text-anchor="middle">
+    <text x="150" y="216">0</text>
+    <text x="275" y="216">1秒</text>
+    <text x="400" y="216">2秒</text>
+    <text x="525" y="216">3秒</text>
+    <text x="650" y="216">4秒</text>
+  </g>
+  <text x="650" y="234" fill="currentColor" font-family="inherit" font-size="10" text-anchor="end" opacity="0.5">例示時間 →</text>
 </svg>
 </figure>
 
-各行の左端の縦線がブラウザから訊いた瞬間です。非同期レンダリングは1回訊きます。
-部分更新はもう一度訊いて、ずっと少ない量を受け取ります。ライブレンダリングは1回
-訊いたあと訊くのをやめます。それが狙いです。
+時刻は説明用の例ですが、出来事の違いは実際のものです。破線はブラウザが訊いた時点です。
+非同期レンダリングは1回訊き、1つのレスポンスを分割して受け取ります。部分更新はもう一度
+訊き、2回目にはずっと小さい応答を受け取ります。ライブレンダリングは1回訊き、薄い線で
+示した接続を開いたまま、サーバに新しい情報が生まれたときだけ印の位置で受け取ります。
 
 2番目と3番目の選び分けは、仕組みの話ではなく URL の話です。**URL に置ける状態は
 URL に置く** —— 並び順、ページ番号、絞り込み。そうすればページは共有でき、戻る

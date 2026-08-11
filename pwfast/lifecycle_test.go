@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/shibukawa/popcornwave/contrib/otel/trace"
 	"github.com/shibukawa/popcornwave/pwruntime"
 	"github.com/shibukawa/popcornwave/session"
 	httpbind "github.com/shibukawa/tinybind-go"
@@ -64,6 +65,48 @@ func TestMiddlewaresInstallsTheConfiguredFrames(t *testing.T) {
 	}
 	if !strings.Contains(header, "X-Frame-Options: DENY") {
 		t.Errorf("the security header frame was not installed:\n%s", header)
+	}
+}
+
+// Tracing is a runtime option rather than a published setting, because whether
+// a span has anywhere to go is decided by the exporter this process built. The
+// chain has to honour that switch in both directions.
+func TestMiddlewaresInstallsTheTracingFrame(t *testing.T) {
+	collector := &spanCollector{}
+	previous := trace.DefaultProvider()
+	trace.SetDefaultProvider(trace.NewProvider(collector))
+	t.Cleanup(func() { trace.SetDefaultProvider(previous) })
+
+	publishChainSettings(t, pwruntime.ChainSettings{})
+	handler, err := Middlewares(func(*fasthttp.RequestCtx) {}, RuntimeOptions{Tracing: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	serveRaw(t, handler, "/orders", "traceparent: "+remoteParent+"\r\n")
+
+	if len(collector.spans) != 1 {
+		t.Fatalf("completed spans = %d, want the request root span", len(collector.spans))
+	}
+	if got := collector.spans[0].SpanContext.TraceID(); got != "4bf92f3577b34da6a3ce929d0e0e4736" {
+		t.Errorf("trace ID = %q, want the caller's trace continued", got)
+	}
+}
+
+func TestTracingIsAbsentWhenNothingExports(t *testing.T) {
+	collector := &spanCollector{}
+	previous := trace.DefaultProvider()
+	trace.SetDefaultProvider(trace.NewProvider(collector))
+	t.Cleanup(func() { trace.SetDefaultProvider(previous) })
+
+	publishChainSettings(t, pwruntime.ChainSettings{})
+	handler, err := Middlewares(func(*fasthttp.RequestCtx) {}, RuntimeOptions{Tracing: false})
+	if err != nil {
+		t.Fatal(err)
+	}
+	serveRaw(t, handler, "/orders", "traceparent: "+remoteParent+"\r\n")
+
+	if len(collector.spans) != 0 {
+		t.Errorf("completed spans = %d, want no span opened at all", len(collector.spans))
 	}
 }
 

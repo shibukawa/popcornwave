@@ -1061,6 +1061,7 @@ func PublicFS() fs.FS {
 	files["public/app.css"] = applicationStylesheet(options)
 	if options.Dynamo {
 		files[defaultDynamoDir+"/note.go"] = dynamoRecordScaffold()
+		files[defaultDynamoDir+"/notes.pw.dynamo"] = dynamoQueryScaffold()
 	}
 	if options.Firestore {
 		files[defaultFirestoreDir+"/note.go"] = firestoreEntityScaffold()
@@ -1265,7 +1266,13 @@ endpoint = "127.0.0.1:8081"
 func firestoreEntityScaffold() string {
 	return `package entities
 
-import "time"
+import (
+	"context"
+	"time"
+
+	"github.com/shibukawa/popcornwave/database/firestore"
+	"github.com/shibukawa/tinybind-go/firestorebind"
+)
 
 // Note is stored in Firestore, in Datastore mode. Its kind is the Go type name,
 // which is why nothing here or in the declarations names one.
@@ -1282,6 +1289,30 @@ type Note struct {
 	Body      string    ` + "`firestore:\"body,noindex\"`" + `
 	CreatedAt time.Time ` + "`firestore:\"created_at\"`" + `
 	ExpiresAt time.Time ` + "`firestore:\"expires_at,ttl\"`" + `
+}
+
+// The generator emits a codec only for the directions something actually uses,
+// so these two calls are what make EncodeEntity, DecodeEntity, and EntityKey
+// appear beside this file. Delete them and the generated code shrinks to match.
+//
+// firestore.Handle returns the process client bound to the configured
+// namespace, so no context value stands between a call and the store. A
+// declared .pw.firestore query resolves the same handle itself.
+func StoreNote(ctx context.Context, note Note) error {
+	h, err := firestore.Handle(ctx)
+	if err != nil {
+		return err
+	}
+	_, err = firestorebind.StoreOn(ctx, h, note)
+	return err
+}
+
+func LoadNote(ctx context.Context, id string) (Note, error) {
+	h, err := firestore.Handle(ctx)
+	if err != nil {
+		return Note{}, err
+	}
+	return firestorebind.LoadOn[Note](ctx, h, Note{ID: id}.EntityKey())
 }
 `
 }
@@ -1350,6 +1381,25 @@ func LoadNote(ctx context.Context, id string, createdAt time.Time) (Note, error)
 		return Note{}, err
 	}
 	return dynamobind.LoadOn[Note](ctx, h, "note", Note{ID: id, CreatedAt: createdAt}.ItemKey())
+}
+`
+}
+
+// dynamoQueryScaffold is the starter access pattern, which the Firestore
+// scaffold has had and this one had not.
+//
+// It is not decoration beside the type: a declaration is a use of its result
+// type, so it is what makes the read side of the codec exist for a package that
+// declares one. Its call site names neither the table nor the client, which is
+// the whole point of declaring it.
+func dynamoQueryScaffold() string {
+	return `// Access patterns for Note. Every attribute here is checked against the dynamo
+// tags on the Go type, so a renamed tag fails generation rather than returning
+// an empty page.
+
+export statement NotesSince(id: string, from: time.Time): dynamo.many<Note> {
+  table note
+  key id = {id} and created_at > {from}
 }
 `
 }

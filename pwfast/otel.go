@@ -2,14 +2,13 @@ package pwfast
 
 import (
 	"net"
-	"net/http"
 	"strconv"
 	"strings"
 
 	"github.com/shibukawa/popcornwave/contrib/otel"
 	"github.com/shibukawa/popcornwave/contrib/otel/propagation"
 	"github.com/shibukawa/popcornwave/contrib/otel/trace"
-	"github.com/shibukawa/popcornwave/internal/spanattr"
+
 	"github.com/shibukawa/tinygodriver/fasthttp"
 )
 
@@ -63,7 +62,7 @@ func Otel(options ...OtelOption) Middleware {
 	tracer := config.provider.Tracer("github.com/shibukawa/popcornwave/pwfast")
 	return func(next fasthttp.RequestHandler) fasthttp.RequestHandler {
 		return func(r *fasthttp.RequestCtx) {
-			parent := (propagation.TraceContext{}).Extract(r, traceHeader(r))
+			parent := trace.ContextWithSpanContext(r, extractedParent(&r.Request.Header))
 			ctx, span := tracer.Start(parent, config.spanName(r),
 				trace.WithSpanKind(trace.SpanKindServer),
 				trace.WithAttributes(requestAttributes(r)...))
@@ -98,20 +97,38 @@ func Otel(options ...OtelOption) Middleware {
 	}
 }
 
-// traceHeader lifts the two headers W3C Trace Context propagation reads into
-// the map the extractor takes.
+// extractedParent reads the trace context fields off this transport's header
+// and hands them to the shared validator.
 //
-// Only those two are copied. The extractor takes an http.Header, which is a
-// plain map rather than a transport, and copying the whole header set to hand
-// over two entries would allocate a map per request for nothing.
-func traceHeader(r *fasthttp.RequestCtx) http.Header {
-	header := make(http.Header, 2)
-	for _, name := range []string{"traceparent", "tracestate"} {
-		if value := r.Request.Header.Peek(name); len(value) > 0 {
-			header.Set(name, string(value))
+// It reads with PeekAll rather than Peek, and that is the whole reason it takes
+// this shape instead of copying the two fields into an http.Header. Peek returns
+// the first value, so a request carrying two traceparent fields would arrive at
+// the validator as one and be accepted — while the same request on the other
+// transport is refused a parent, because more than one traceparent names more
+// than one parent and the specification picks no winner. A rule enforced on one
+// transport and not the other is the divergence sharing the validator was meant
+// to prevent, and it hides in the reading rather than in the rule.
+//
+// The strings are built after the presence check, so a request from an untraced
+// caller costs the lookups and no allocation.
+func extractedParent(header *fasthttp.RequestHeader) trace.SpanContext {
+	raw := header.PeekAll("traceparent")
+	if len(raw) == 0 {
+		return trace.SpanContext{}
+	}
+	traceparents := make([]string, len(raw))
+	for i, value := range raw {
+		traceparents[i] = string(value)
+	}
+	var tracestates []string
+	if states := header.PeekAll("tracestate"); len(states) > 0 {
+		tracestates = make([]string, len(states))
+		for i, value := range states {
+			tracestates[i] = string(value)
 		}
 	}
-	return header
+	sc, _ := propagation.SpanContextFromFields(traceparents, tracestates)
+	return sc
 }
 
 // requestAttributes describes the request on its span, following the same
@@ -133,7 +150,7 @@ func requestAttributes(r *fasthttp.RequestCtx) []otel.Attribute {
 		// is retained longer and read more widely than the application
 		// database, and a query string is where a password-reset token, an
 		// OAuth code and a presigned signature all travel.
-		attributes = append(attributes, otel.String("url.query", spanattr.RedactQuery(query)))
+		attributes = append(attributes, otel.String("url.query", otel.RedactedQuery(query)))
 	}
 	host, port, err := net.SplitHostPort(string(r.Host()))
 	if err != nil {
