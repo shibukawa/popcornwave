@@ -11,6 +11,47 @@ external live WatchThroughput(): Sample
 external live WatchMessages(room: string): Message[]
 
 export component Dashboard(room: string): html {
+<script component>
+  // Runs once per rendered instance of this component, with that instance's own
+  // element. What it returns runs when the instance goes away — which never
+  // happens on this page, because nothing replaces the dashboard. Returning it
+  // anyway is the habit worth having: the same component inside a region a
+  // partial update swaps would be released, and a listener left behind is a
+  // leak nobody notices.
+  export function setup(el, scope) {
+    const room = el.querySelector("[data-room]");
+    const status = el.querySelector("[data-status]");
+
+    // The server-authored signal. The delivery that arrives with it already
+    // repainted the list; this is the arrival, which the list cannot express.
+    scope.on("app.message", () => {
+      room.animate(
+        [{ backgroundColor: "rgba(16,185,129,0.14)" }, { backgroundColor: "transparent" }],
+        { duration: 900, easing: "ease-out" },
+      );
+    });
+
+    // Two names the runtime dispatches itself, under its reserved prefix. No
+    // source emits these and nothing crosses the wire for them: the browser is
+    // the party that observes a connection opening and closing.
+    // The badge is rendered as "connecting…" and only this says otherwise, so
+    // what it shows is the connection's actual state rather than a claim the
+    // markup makes on its behalf. A reader with no JavaScript keeps the honest
+    // one.
+    scope.on("pw.live_opened", (event) => {
+      status.textContent = event.reconnect ? "reconnected" : "live";
+      status.dataset.state = "live";
+    });
+    scope.on("pw.live_closed", (event) => {
+      status.textContent = event.reason === "done" ? "finished" : "reconnecting…";
+      status.dataset.state = "stale";
+    });
+
+    // Registered through the scope rather than through the global, so releasing
+    // them is not something this file has to remember.
+    return () => {};
+  }
+</script>
   <main class="mx-auto w-full max-w-3xl px-6 py-12 sm:py-16">
     <header class="mb-10">
       <p class="mb-3 inline-flex items-center gap-2 rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-medium tracking-wide text-emerald-700 uppercase dark:text-emerald-400">
@@ -18,7 +59,7 @@ export component Dashboard(room: string): html {
           <span class="absolute inline-flex size-full animate-ping rounded-full bg-emerald-500 opacity-75"></span>
           <span class="relative inline-flex size-2 rounded-full bg-emerald-500"></span>
         </span>
-        live
+        <span data-status data-state="pending">connecting…</span>
       </p>
       <h1 class="text-3xl font-semibold tracking-tight text-slate-900 sm:text-4xl dark:text-slate-50">Live rendering</h1>
       <p class="mt-4 text-slate-600 dark:text-slate-400">
@@ -57,7 +98,7 @@ export component Dashboard(room: string): html {
       </p>
     </section>
 
-    <section class="rounded-xl border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-900" role="log">
+    <section data-room class="rounded-xl border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-900" role="log">
       <h2 class="mb-3 text-xs font-semibold tracking-widest text-slate-500 uppercase dark:text-slate-400">Room</h2>
       {await title = LoadRoomTitle(room), messages = WatchMessages(room)}
         <h3 class="mb-3 font-medium text-slate-900 dark:text-slate-50">{title}</h3>

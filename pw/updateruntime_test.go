@@ -35,6 +35,28 @@ func TestUpdateRuntimeConformance(t *testing.T) {
 	}
 }
 
+// The signal registry is the boundary half's own bookkeeping: which names
+// resolve, which page scopes are on screen, and what a pw-page element's connect
+// and disconnect reactions do to both.
+//
+// It needs its own harness because the update one stubs the boundary half out.
+// None of it is visible to a Go assertion, and all of it is what an author would
+// otherwise discover from a bug report — a handler that stopped firing after a
+// navigation, or one that fired on the wrong page.
+func TestSignalRegistryConformance(t *testing.T) {
+	node, err := exec.LookPath("node")
+	if err != nil {
+		t.Skip("node is not installed, so the signal registry is unchecked here")
+	}
+	output, err := exec.Command(node, "testdata/signal_harness.mjs").CombinedOutput()
+	if err != nil {
+		t.Fatalf("the signal registry does not conform:\n%s", output)
+	}
+	if !strings.Contains(string(output), "all checks passed") {
+		t.Fatalf("the harness did not report success:\n%s", output)
+	}
+}
+
 // The merged asset is one module, and a module that throws at load leaves a page
 // with no updates, no boundaries, and nothing in the console pointing at why.
 // Parsing it is the cheapest possible guard against that.

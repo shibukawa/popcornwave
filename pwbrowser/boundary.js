@@ -75,6 +75,12 @@ let documentVersion = "";
 // first connection.
 let connection = null;
 let running = false;
+// liveConnections counts the responses this screen has opened, so the first one
+// is distinguishable from a reconnect. Declared here with the rest of the
+// module-level state, above the first customElements.define, because defining an
+// element upgrades the ones the parser already inserted synchronously inside the
+// define call and a callback reading a binding declared further down throws.
+let liveConnections = 0;
 
 // applied remembers where each boundary's content sits, as the pair of comment
 // nodes that bracket it, plus the HTML currently between them.
@@ -169,6 +175,7 @@ function seedManifest(value) {
 }
 
 function refill(range, fragment, html) {
+	releaseScopesInRange(range);
 	let node = range.start.nextSibling;
 	const outgoing = [];
 	while (node && node !== range.end) {
@@ -184,6 +191,9 @@ function refill(range, fragment, html) {
 	settle();
 	range.html = html;
 	pruneApplied();
+	// The replacement is between the fences now, so anything scoped inside it is
+	// startable.
+	mountScopesIn(range.end.parentNode || document.body);
 }
 
 // The client state a server render cannot know about, carried from the outgoing
@@ -385,10 +395,22 @@ export function parseFragment(html) {
 // are in the document, which is focus and the caret.
 export function swapNode(target, fragment) {
 	if (!target || !target.parentNode) return false;
+	// Before the replacement lands, because the subtree about to go is still the
+	// one every scoped setup inside it ran against. Afterwards the teardown would
+	// be working on nodes that are already detached.
+	//
+	// It lives in the shared swap rather than at each call site for the reason
+	// the client-state core does: a delta, a redraw, an action response, and a
+	// live refill all destroy a region, and a release missing from one of them is
+	// a leak nobody would find.
+	releaseScopesIn(target);
 	const settle = carryClientState([target], fragment);
 	target.replaceWith(fragment);
 	settle();
 	pruneApplied();
+	// And after, so what arrived is started. The fragment is in the document by
+	// now, which is what a setup reading the DOM needs.
+	mountScopesIn(target.parentNode || document.body);
 	return true;
 }
 
@@ -416,11 +438,11 @@ export function applyBoundary(id, fragment, html, digest) {
 		// no longer recognizes and keep being sent the same bytes.
 		if (html !== undefined && html === range.html) {
 			range.digest = digest;
-			return true;
+			return "unchanged";
 		}
 		refill(range, fragment, html);
 		range.digest = digest;
-		return true;
+		return "changed";
 	}
 	// Not settled yet, so the range is the one the document arrived with: the
 	// fence around this boundary's fallback.
@@ -435,7 +457,12 @@ export function applyBoundary(id, fragment, html, digest) {
 	const opened = { start: fence.start, end: fence.end, html: html, digest: digest };
 	applied.set(id, opened);
 	refill(opened, fragment, html);
-	return true;
+	// A settled boundary arriving is what a handler waiting on this region has
+	// been waiting for, and the runtime is the party that observes it. It fires
+	// here rather than at the call site so the parser path and the record path
+	// report it once between them.
+	dispatchSignal(signalBoundarySettled, { id: id });
+	return "changed";
 }
 
 export function applyHTML(id, html, digest) {
@@ -450,6 +477,488 @@ export function replaceDocument(fragment) {
 	document.body.replaceChildren(fragment);
 	applied.clear();
 }
+
+// The signal registry: one table of named callbacks the page registered, which
+// both the server and this runtime dispatch into.
+//
+// A name is a lookup key and never code. Nothing here resolves a name against
+// anything but this table — no eval, no dynamic import, no property lookup on a
+// global — because the flexibility is meant to come from the payload varying
+// rather than from the instruction varying. What the client can be told to do is
+// fixed at build time and is exactly what this map holds, which is what lets a
+// page keep script-src as a fixed allowlist.
+//
+// One table for both producers on purpose. A handler cares what happened, not
+// which side noticed, and two registries would make every handler pick a side
+// and would put the reserved names somewhere an author could shadow them.
+const signalHandlers = new Map();
+
+// activeScopes is which page scopes are on screen right now.
+//
+// A registration is owned by the scope that was current when it ran, and the
+// scope is a hash a <pw-page> element carries. The element's own connect and
+// disconnect reactions are the whole lifecycle: entering a page activates its
+// hash, leaving deactivates it, and the platform decides when rather than any
+// route matching here.
+//
+// This is what makes a return visit work. A page's module is evaluated once per
+// URL and never again — an ES module has no second evaluation, and the head
+// installer deliberately does not re-insert a script it already loaded — so
+// re-registering on arrival is not something the platform offers. Nothing has to
+// re-run: the registration never went away, and its scope becomes reachable
+// again when the element reconnects.
+const activeScopes = new Set();
+
+// pageDefinitions holds the lifecycle a page declared for itself, by hash, and
+// pageState what is currently open for one: how many elements carry the hash,
+// and what its enter handler registered.
+//
+// Counting rather than a boolean because a delta may insert the replacement
+// before removing the outgoing element, so a page can briefly have two of them
+// on screen. Entering twice would run setup twice for a page the user never
+// left.
+const pageDefinitions = new Map();
+const pageState = new Map();
+
+// definePage declares what happens when a page is entered and left.
+//
+// It is the shape that answers the problem a page's script cannot solve on its
+// own: an ES module is evaluated once per URL, so a page's setup cannot re-run
+// on a return visit. Declaring it here separates the evaluation, which happens
+// once, from the activation, which happens every time — and the element carrying
+// the hash is what says when.
+//
+// Registrations made through the handle are released on leave. An author may
+// also release one early with the function it returns, and may register outside
+// the handle for something that should outlive the page. What is deliberately
+// not left to the author is the ordinary case: a forgotten cleanup would
+// re-register on every revisit and the symptom would be a handler firing twice,
+// which is the kind of wrong that still looks like it works.
+export function definePage(hash, lifecycle) {
+	if (typeof hash !== "string" || !hash || !lifecycle) return () => {};
+	pageDefinitions.set(hash, lifecycle);
+	// The element is upgraded while the document parses and a page's own module
+	// is deferred, so by the time this runs the page it describes is usually
+	// already on screen — with its scope open and its enter never run, because
+	// there was no definition to run. Catching up here is what stops that
+	// ordinary ordering from meaning enter never fires at all.
+	if (!activeScopes.has(hash)) return releaseDefinition(hash, lifecycle);
+	const open = pageState.get(hash);
+	if (!open) {
+		enterPage(hash, 0);
+	} else if (!open.entered) {
+		open.entered = true;
+		runEnter(lifecycle, open.handle, hash);
+	}
+	return releaseDefinition(hash, lifecycle);
+}
+
+function releaseDefinition(hash, lifecycle) {
+	return () => {
+		if (pageDefinitions.get(hash) === lifecycle) pageDefinitions.delete(hash);
+	};
+}
+
+// The scope catalog: declaration identity to module URL, from the wire.
+//
+// A catalog and never a mount list. What mounts is decided by the DOM, because
+// the render writes the declaring component onto every rendered instance and an
+// asset set reports what a composition *could* need — including a component
+// below a slot that never rendered.
+const scopeCatalog = new Map();
+
+// mounted maps a live element to what its setup returned, so a teardown is found
+// from the node about to be destroyed. A WeakMap because the key is the only
+// thing keeping the entry reachable: a node dropped without passing through the
+// apply loop takes its entry with it rather than leaking one per render.
+const mounted = new WeakMap();
+
+// scopeMarkerAttribute is the attribute the render writes on a scoped
+// component's root element. The update half sets it from the configured prefix;
+// the default is the module's own, which is what this framework uses today.
+let scopeMarkerAttribute = "data-tb-component";
+
+export function setScopeMarkerAttribute(name) {
+	if (typeof name === "string" && name) scopeMarkerAttribute = name;
+}
+
+// applyScopeCatalog records what the wire said and starts whatever is on screen.
+export function applyScopeCatalog(entries) {
+	for (const entry of Array.isArray(entries) ? entries : []) {
+		scopeCatalog.set(entry.owner, entry.url);
+	}
+	mountScopesIn(document.body);
+}
+
+function scopeMarkers(root) {
+	if (!root) return [];
+	const found = [];
+	// The root itself counts: a delta's replacement is the component's own
+	// element, so the marker is on the node handed in rather than under it.
+	if (root.getAttribute && root.getAttribute(scopeMarkerAttribute)) found.push(root);
+	if (root.querySelectorAll) {
+		for (const element of root.querySelectorAll("[" + scopeMarkerAttribute + "]")) {
+			found.push(element);
+		}
+	}
+	return found;
+}
+
+// mountScopesIn starts every scoped script inside root that is not started yet.
+//
+// Document order, so an ancestor's setup runs before a descendant's — the same
+// outermost-first rule a composition chain would have given, falling out of the
+// tree walk instead of out of an ordering on the wire.
+export function mountScopesIn(root) {
+	for (const element of scopeMarkers(root)) {
+		if (mounted.has(element)) continue;
+		const url = scopeCatalog.get(element.getAttribute(scopeMarkerAttribute));
+		if (!url) continue;
+		// Claimed before the import resolves, so a second scan during the await
+		// does not start the same element twice.
+		mounted.set(element, null);
+		loadScopeModule(url, element);
+	}
+}
+
+// releaseScopesIn tears down every scoped script inside root.
+//
+// It runs before the incoming markup lands, which is why it takes a region
+// rather than a list: the subtree about to be replaced is still the one every
+// setup inside it ran against, and afterwards a teardown would be working on
+// nodes that are already detached.
+export function releaseScopesIn(root) {
+	for (const element of scopeMarkers(root)) {
+		if (!mounted.has(element)) continue;
+		const teardown = mounted.get(element);
+		mounted.delete(element);
+		if (typeof teardown !== "function") continue;
+		try {
+			teardown();
+		} catch (error) {
+			// A failing teardown must not stop the swap it is making room for.
+			console.error("Popcorn Wave: scope teardown failed", error);
+		}
+	}
+}
+
+// releaseScopesInRange is releaseScopesIn for a live boundary's
+// comment-bracketed region, which has no single element to hand in.
+export function releaseScopesInRange(range) {
+	if (!range || !range.start) return;
+	let node = range.start.nextSibling;
+	while (node && node !== range.end) {
+		releaseScopesIn(node);
+		node = node.nextSibling;
+	}
+}
+
+// elementScope is what a scoped setup registers through. Everything taken from
+// it is released when its instance is, so the ordinary case needs no cleanup and
+// an author who wants one still writes it in the returned teardown.
+function elementScope() {
+	const releases = [];
+	return {
+		on(name, handler) {
+			const release = registerEvent(name, handler);
+			releases.push(release);
+			return release;
+		},
+		releaseAll() {
+			for (const release of releases) release();
+			releases.length = 0;
+		},
+	};
+}
+
+const scopeModules = new Map();
+
+// loadScopeModule imports a declaration's module once and runs its setup for one
+// element.
+//
+// The module is evaluated once per URL, as an ES module always is; what runs per
+// instance is the function it exported. That distinction is the feature.
+function loadScopeModule(source, element) {
+	let url;
+	try {
+		url = new URL(source, document.baseURI);
+	} catch (error) {
+		console.error("Popcorn Wave: scope module URL is unusable", source);
+		mounted.delete(element);
+		return;
+	}
+	// Same-origin only. The URL is the server's own, so this is not a guard
+	// against the application — it is what keeps a templating mistake or an
+	// injected value from becoming a script host of somebody else's choosing.
+	if (url.origin !== location.origin) {
+		console.error("Popcorn Wave: refusing a cross-origin scope module", url.href);
+		mounted.delete(element);
+		return;
+	}
+	let pending = scopeModules.get(url.href);
+	if (!pending) {
+		pending = import(url.href);
+		scopeModules.set(url.href, pending);
+	}
+	pending.then((module) => {
+		const setup = module && module.setup;
+		if (typeof setup !== "function") {
+			console.error("Popcorn Wave: scope module exports no setup function", url.href);
+			mounted.delete(element);
+			return;
+		}
+		// The element may have been released while the import was in flight, in
+		// which case it is no longer claimed and must not be started.
+		if (!mounted.has(element)) return;
+		// The element first, because that is what a setup is almost always for
+		// and what upstream's own example shows. The scope second, so a handler
+		// registered through it is released with the instance rather than left
+		// for the author to remember — a forgotten cleanup now leaks once per
+		// destroyed instance, which is worse than the per-visit leak the page
+		// handle was guarding against.
+		const scope = elementScope();
+		try {
+			const teardown = setup(element, scope);
+			mounted.set(element, () => {
+				scope.releaseAll();
+				if (typeof teardown === "function") teardown();
+			});
+		} catch (error) {
+			scope.releaseAll();
+			console.error("Popcorn Wave: scope setup failed", url.href, error);
+			mounted.set(element, null);
+		}
+	}, (error) => {
+		console.error("Popcorn Wave: scope module failed to load", url.href, error);
+		mounted.delete(element);
+	});
+}
+
+// parseScopeCatalog reads the owner and URL pairs off the wire.
+//
+// The grammar is the manifest's: comma between entries, colon within one. A
+// malformed entry is skipped rather than failing the parse — a dropped entry
+// costs one declaration its lifecycle, where a refused catalog costs every one.
+export function parseScopeCatalog(value) {
+	const entries = [];
+	if (!value) return entries;
+	for (const entry of value.split(",")) {
+		const separator = entry.indexOf(":");
+		if (separator <= 0) continue;
+		const owner = entry.slice(0, separator);
+		const url = entry.slice(separator + 1);
+		if (!owner || !url) continue;
+		entries.push({ owner: owner, url: url });
+	}
+	return entries;
+}
+
+function pageHandle(hash) {
+	const releases = [];
+	return {
+		hash: hash,
+		// on is registerEvent bound to this page, and what it returns is released
+		// on leave whether or not the caller keeps it.
+		on(name, handler) {
+			const release = registerEvent(hash, name, handler);
+			releases.push(release);
+			return release;
+		},
+		releaseAll() {
+			for (const release of releases) release();
+			releases.length = 0;
+		},
+	};
+}
+
+function enterPage(hash, count) {
+	const definition = pageDefinitions.get(hash);
+	const handle = pageHandle(hash);
+	// entered records whether a definition's enter has run for this opening. A
+	// page whose element connected before its module was evaluated opens with
+	// none, and definePage is what catches it up.
+	pageState.set(hash, { handle: handle, count: count, entered: !!definition });
+	if (definition) runEnter(definition, handle, hash);
+}
+
+function runEnter(definition, handle, hash) {
+	if (typeof definition.enter !== "function") return;
+	try {
+		definition.enter(handle);
+	} catch (error) {
+		// A page whose setup threw is still on screen, and the rest of the
+		// runtime has to keep working over it.
+		console.error("Popcorn Wave: page enter failed", hash, error);
+	}
+}
+
+function leavePage(hash) {
+	const state = pageState.get(hash);
+	if (!state) return;
+	pageState.delete(hash);
+	const definition = pageDefinitions.get(hash);
+	if (definition && typeof definition.leave === "function") {
+		try {
+			definition.leave(state.handle);
+		} catch (error) {
+			console.error("Popcorn Wave: page leave failed", hash, error);
+		}
+	}
+	// After the author's own cleanup, so a leave handler can still reach what its
+	// enter registered.
+	state.handle.releaseAll();
+}
+
+// The framework's own signal namespace. A lifecycle name arrives under it, and a
+// handler trusts one because application data has no route into it: both live
+// loops refuse a source that emits one. The Go side names the same prefix.
+const reservedSignalPrefix = "pw.";
+
+// The marker attribute and the delta field carrying the scope chain. The Go side
+// names the same one.
+const scopeChainAttribute = "scopes";
+
+// The lifecycle suffixes, taken verbatim from the wire contract so one moment
+// reads the same across both catalogs rather than being renamed here.
+const signalDocumentCommitted = reservedSignalPrefix + "document_committed";
+const signalDocumentTruncated = reservedSignalPrefix + "document_truncated";
+const signalBoundarySettled = reservedSignalPrefix + "boundary_settled";
+const signalLiveOpened = reservedSignalPrefix + "live_opened";
+const signalLiveClosed = reservedSignalPrefix + "live_closed";
+const signalDeliveryApplied = reservedSignalPrefix + "delivery_applied";
+// The last two of the specified set. They fire on the update half's paths rather
+// than this one's, and are declared here with the rest so one file holds the
+// whole vocabulary.
+const signalNavigationApplied = reservedSignalPrefix + "navigation_applied";
+const signalDirectiveReceived = reservedSignalPrefix + "directive_received";
+
+// registerEvent publishes one entry of the table.
+//
+// The scope is a page hash, or omitted for a handler that belongs to no one page
+// — a shell script's, which stays reachable everywhere. Several handlers may
+// share a name, because two independent widgets can care about one thing;
+// registration order is not a contract.
+export function registerEvent(scope, name, handler) {
+	if (typeof scope === "function" || typeof name === "function") {
+		// registerEvent(name, handler), the unscoped form.
+		handler = name;
+		name = scope;
+		scope = null;
+	}
+	if (typeof name !== "string" || typeof handler !== "function") return () => {};
+	const entry = { scope: scope || null, handler: handler };
+	let entries = signalHandlers.get(name);
+	if (!entries) {
+		entries = new Set();
+		signalHandlers.set(name, entries);
+	}
+	entries.add(entry);
+	return () => {
+		entries.delete(entry);
+		if (!entries.size) signalHandlers.delete(name);
+	};
+}
+
+// unregisterEvent removes one handler by name, for an author holding the
+// function rather than the release the registration returned.
+//
+// It exists because the pair reads as a pair: an author who called
+// registerEvent in a page's enter expects to be able to undo it by name in the
+// same page's leave. Registrations made through the page handle are released
+// anyway, so this is the explicit form rather than the necessary one.
+export function unregisterEvent(scope, name, handler) {
+	if (typeof scope === "function" || typeof name === "function") {
+		handler = name;
+		name = scope;
+		scope = null;
+	}
+	const entries = signalHandlers.get(name);
+	if (!entries) return false;
+	let removed = false;
+	for (const entry of Array.from(entries)) {
+		if (handler && entry.handler !== handler) continue;
+		if (scope && entry.scope !== scope) continue;
+		entries.delete(entry);
+		removed = true;
+	}
+	if (!entries.size) signalHandlers.delete(name);
+	return removed;
+}
+
+// activeScope reports whether a page hash is on screen, which is what tells an
+// author whether a handler they registered is live right now.
+export function activeScope(hash) {
+	return typeof hash === "string" && activeScopes.has(hash);
+}
+
+// dispatchSignal calls every handler registered for name whose scope is on
+// screen. An unregistered name does nothing: an unpublished name is a capability
+// the page did not grant, and this is the default-deny of that model rather than
+// leniency — it also happens to make a deploy that adds a name ahead of the
+// client an ordinary event rather than a broken screen.
+export function dispatchSignal(name, payload) {
+	const entries = signalHandlers.get(name);
+	if (!entries) return false;
+	let dispatched = false;
+	// Copied before iterating: a handler that registers or unregisters inside its
+	// own callback is doing something legitimate, and must not mutate the set
+	// being walked.
+	for (const entry of Array.from(entries)) {
+		if (entry.scope !== null && !activeScopes.has(entry.scope)) continue;
+		dispatched = true;
+		try {
+			entry.handler(payload);
+		} catch (error) {
+			// A notification must not stop what it was told about. A bug in a
+			// toast handler cannot be allowed to stop deliveries from landing.
+			console.error("Popcorn Wave: signal handler failed", name, error);
+		}
+	}
+	return dispatched;
+}
+
+// pw-page carries the hash of the template that rendered it, and its own connect
+// and disconnect reactions are the page scope's whole lifecycle.
+//
+// It is inert: no script, no styling, no layout. A delta that swaps the region
+// holding it disconnects the outgoing one and connects the incoming one, so the
+// reset happens without anything here matching a URL against a route.
+//
+// Nesting is meaningful rather than a conflict. A layout's element and its
+// page's element are both connected, so a layout-scoped handler stays reachable
+// across the pages that share it while a page-scoped one does not.
+customElements.define("pw-page", class extends HTMLElement {
+	connectedCallback() {
+		const hash = this.getAttribute("hash");
+		if (!hash) return;
+		activeScopes.add(hash);
+		const state = pageState.get(hash);
+		if (state) {
+			// Already open. A delta can insert the replacement before removing the
+			// outgoing element, so a page can briefly carry two, and running enter
+			// again would be setting up a page the user never left.
+			state.count++;
+			return;
+		}
+		enterPage(hash, 1);
+	}
+
+	disconnectedCallback() {
+		const hash = this.getAttribute("hash");
+		if (!hash) return;
+		const state = pageState.get(hash);
+		if (state && --state.count > 0) return;
+		// The count is authoritative, but a page entered by definePage before any
+		// element connected starts at zero, so the document is what settles it.
+		if (document.querySelector('pw-page[hash="' + hash.replace(/["\\]/g, "\\$&") + '"]')) return;
+		// The page is left before its scope closes, not after. A leave handler
+		// that dispatches or unregisters is working on the page it is leaving, and
+		// closing the scope first would hand it a table its own handlers had
+		// already dropped out of.
+		leavePage(hash);
+		activeScopes.delete(hash);
+	}
+});
 
 customElements.define("tb-apply", class extends HTMLElement {
 	connectedCallback() {
@@ -483,6 +992,11 @@ customElements.define("tb-stream-end", class extends HTMLElement {
 		// The marker is the last markup of the document, so every tb-apply has
 		// already run and every range this names is in place.
 		seedManifest(this.getAttribute("manifest"));
+		// The composition's scoped scripts, outermost first. Applied before the
+		// marker is removed and before any live connection opens, so a setup
+		// that registers a signal handler is in the table by the time the first
+		// record can arrive.
+		applyScopeCatalog(parseScopeCatalog(this.getAttribute(scopeChainAttribute)));
 		this.remove();
 		// This document arrived whole, so a reload attempted for a truncated
 		// one is over and the next truncation is allowed to reload again.
@@ -490,6 +1004,13 @@ customElements.define("tb-stream-end", class extends HTMLElement {
 		// final means nothing more is coming and live means the screen keeps
 		// changing. Asking either way would cost a whole page execution on the
 		// server for a page that has nothing to deliver.
+		// Fired after the marker has been consumed and the manifest seeded, so a
+		// handler that needed the whole page sees the state the document ended in
+		// rather than one mid-assembly. The three marker states arrive under one
+		// name, so a handler tells a finished static page from one about to go
+		// live and from one that ended on an unrecovered failure without a name
+		// per outcome.
+		dispatchSignal(signalDocumentCommitted, { reason: state || "" });
 		if (state === "live") startLive();
 	}
 });
@@ -527,6 +1048,10 @@ function anyFence() {
 function checkDocumentEnd() {
 	if (document.readyState !== "complete") return;
 	if (documentComplete || !documentStreamed()) return;
+	// Announced before the reload rather than after: this is the one lifecycle
+	// name that describes an absence, so there is nothing to fire after, and the
+	// reload is about to take the page away.
+	dispatchSignal(signalDocumentTruncated, {});
 	reloadOnce("the document was truncated");
 }
 
@@ -656,11 +1181,21 @@ async function connectOnce() {
 			}
 			if (record.r === "end") closed = record;
 		}
-		if (closed && closed.reason === "done") return { stop: true, retry: false };
-		if (closed) return { stop: false, retry: true, retryAfter: closed.retryMs };
+		// Every ending reports, including the one with no record at all: a handler
+		// telling a user the screen is stale needs done and truncation apart, and
+		// only this side can tell them apart without reimplementing the backoff.
+		if (closed && closed.reason === "done") {
+			dispatchSignal(signalLiveClosed, { reason: "done" });
+			return { stop: true, retry: false };
+		}
+		if (closed) {
+			dispatchSignal(signalLiveClosed, { reason: "retry", retryMs: closed.retryMs });
+			return { stop: false, retry: true, retryAfter: closed.retryMs };
+		}
 		// The stream ended with no terminal record, so it was cut off rather
 		// than finished. Reconnecting is safe: the page executes again and
 		// delivers the current state of every live region.
+		dispatchSignal(signalLiveClosed, { reason: "truncated" });
 		return { stop: false, retry: false };
 	} catch (error) {
 		if (controller.signal.aborted) return { stop: true, retry: false };
@@ -685,11 +1220,33 @@ function handleRecord(record) {
 		// carried needs its tags before its markup, which is the same ordering
 		// the navigation delta makes normative.
 		installLiveHead(record.head);
+		// The response began yielding. Whether this was a first subscribe or a
+		// reconnect is what a handler showing a staleness indicator needs, and it
+		// is knowable here and nowhere else on the client.
+		dispatchSignal(signalLiveOpened, { reconnect: liveConnections > 0 });
+		liveConnections++;
 		return "opened";
 	}
 	if (record.r === "await") {
 		if (typeof record.id !== "string" || typeof record.html !== "string") return "ignored";
-		if (!applyHTML(record.id, record.html, typeof record.v === "string" ? record.v : undefined)) {
+		const changed = applyHTML(record.id, record.html, typeof record.v === "string" ? record.v : undefined);
+		if (changed) {
+			// After the nodes are in the document, never before: the whole use is
+			// a handler reading or decorating what just arrived, and firing first
+			// would hand it the previous DOM.
+			//
+			// The changed flag is this framework's own beside the specified
+			// fields, and it is legal because the client is what observed it. The
+			// server suppresses a delivery whose validator matches and this side
+			// leaves an identical one alone, so an arrival is not a change, and a
+			// handler that flashes a region wants to know which this was.
+			dispatchSignal(signalDeliveryApplied, {
+				id: record.id,
+				v: typeof record.v === "string" ? record.v : undefined,
+				changed: changed === "changed",
+			});
+		}
+		if (!changed) {
 			// The same page executed again produces the same ids, so an id this
 			// screen does not hold means the page's structure changed — a panel
 			// added to a dashboard somebody has been watching. Placing it
@@ -700,14 +1257,24 @@ function handleRecord(record) {
 		}
 		return "applied";
 	}
+	if (record.r === "signal") {
+		// Dispatched rather than applied: a signal addresses no region, carries no
+		// validator and advances nothing, so a name this page never registered is
+		// skipped and the stream carries on. A malformed one desynchronizes
+		// nothing, which is why it is dropped rather than treated as a fault.
+		if (typeof record.name === "string") dispatchSignal(record.name, record.data);
+		return "signalled";
+	}
 	if (record.r === "end") return "closed";
 	if (record.r === "reload") {
+		dispatchSignal(signalDirectiveReceived, { directive: "reload" });
 		reloadOnce("the server asked for a reload");
 		return "stop";
 	}
 	if (record.r === "navigate") {
 		const target = resolveNavigable(record.url);
 		if (target) {
+			dispatchSignal(signalDirectiveReceived, { directive: "navigate", url: target });
 			stopLive();
 			location.assign(target);
 		}

@@ -4,6 +4,7 @@ package id_
 
 import (
 	"github.com/shibukawa/tinybind-go/htmlbind"
+	"github.com/shibukawa/tinybind-go/htmlbind/delta"
 )
 
 type PageParams struct {
@@ -13,14 +14,35 @@ type PageParams struct {
 
 var planPageOps = htmlbind.Builder[PageParams]{}
 
+// planPageInput canonically encodes the declared inputs of Page.
+// Slot arguments are excluded: their content belongs to the child boundary,
+// so a frame stays comparable when only its child changed.
+func planPageInput(p PageParams) string {
+	return delta.CanonJoin(
+		delta.CanonString[string](p.Name),
+		delta.CanonInt(p.Page),
+	)
+}
+
+var planPageBoundary = &htmlbind.Boundary[PageParams]{
+	ComponentID: "id_.page.Page",
+	Attr:        "data-tb-id",
+	Input:       planPageInput,
+}
+
 var planPagePlan = &htmlbind.Plan[PageParams]{
-	Head: nil,
+	Head:        []string{"<script src=\"/public/generated/page.script.2a4fcb1640d1.js\" type=\"module\"></script>"},
+	HeadSources: []string{""},
+	Assets:      []htmlbind.Asset{{ID: "page.script.2a4fcb1640d1", Type: "text/javascript", URL: "/public/generated/page.script.2a4fcb1640d1.js", Scope: "id_.page.Page"}},
+	Boundary:    planPageBoundary,
 	Ops: []htmlbind.Op[PageParams]{
-		planPageOps.Static(" <h1>"),
+		planPageOps.Static("  <section"),
+		planPageOps.BoundaryAttr(),
+		planPageOps.Static(" data-tb-component=\"id_.page.Page\"> <h1>"),
 		planPageOps.Text(func(p PageParams) string { return p.Name }),
 		planPageOps.Static("</h1> <p>page "),
 		planPageOps.Raw(func(p PageParams) string { return htmlbind.FormatInt(p.Page) }),
-		planPageOps.Static("</p> <button data-pw-action=\"/_action/00369cf962b6/Rename\" data-target=\"#name\">rename</button> "),
+		planPageOps.Static("</p> <button data-pw-action=\"/_action/00369cf962b6/Rename\" data-target=\"#name\">rename</button> </section> "),
 	},
 }
 
