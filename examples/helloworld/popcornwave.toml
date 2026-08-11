@@ -3,6 +3,9 @@ name = "helloworld"
 main = "./cmd/helloworld"
 database = "sqlite"
 
+# Build for fasthttp as well as net/http.
+fasthttp = true
+
 # Each purpose reads only the directories it lists, and nothing else. A source
 # directory is invisible to that purpose until it appears here.
 [generate]

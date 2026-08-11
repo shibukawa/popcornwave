@@ -875,12 +875,16 @@ func documentRegistrationArtifact(packageName string) generator.Artifact {
 		Kind:        generator.ArtifactHTMLTemplate,
 		OutputBase:  "document",
 		PackageName: packageName,
+		// The shared leaf rather than either runtime. The registry is one
+		// process-wide table both transports read, so a file naming pw here
+		// would put the net/http runtime into the second build and register
+		// the document in the half that is not serving.
 		Content: []byte("package " + packageName + `
 
-import "github.com/shibukawa/popcornwave/pw"
+import "github.com/shibukawa/popcornwave/pwruntime"
 
 func init() {
-	pw.RegisterHTMLDocument(BindDocument(DocumentParams{}))
+	pwruntime.RegisterHTMLDocument(BindDocument(DocumentParams{}))
 }
 `),
 	}
@@ -926,7 +930,9 @@ func reloadableRegistrationArtifact(artifact generator.Artifact) (generator.Arti
 	}
 	sets := reloadableSets(artifact)
 	var body strings.Builder
-	body.WriteString("package " + artifact.PackageName + "\n\nimport (\n\t\"github.com/shibukawa/popcornwave/pw\"\n")
+	// The shared leaf rather than either runtime, for the same reason the
+	// document registration names it: one registry, read by both.
+	body.WriteString("package " + artifact.PackageName + "\n\nimport (\n\t\"github.com/shibukawa/popcornwave/pwruntime\"\n")
 	if len(sets) > 0 {
 		body.WriteString("\t\"github.com/shibukawa/tinybind-go/htmlupdate\"\n")
 	}
@@ -934,7 +940,7 @@ func reloadableRegistrationArtifact(artifact generator.Artifact) (generator.Arti
 	for _, set := range sets {
 		fmt.Fprintf(&body, `
 // PwReloadables is every reloadable component %s can render, itself included
-// when it is one. It is what pw.Redraw reads, so a handler names the page and
+// when it is one. It is what Redraw reads, so a handler names the page and
 // never a list that could fall out of step with the markup.
 func (%s) PwReloadables() []htmlupdate.Reloadable {
 	return []htmlupdate.Reloadable{%s}
@@ -943,7 +949,7 @@ func (%s) PwReloadables() []htmlupdate.Reloadable {
 	}
 	fmt.Fprintf(&body, `
 func init() {
-	_ = pw.RegisterReloadable(%s)
+	_ = pwruntime.RegisterReloadable(%s)
 }
 `, strings.Join(names, ", "))
 	return generator.Artifact{

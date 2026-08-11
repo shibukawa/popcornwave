@@ -313,11 +313,16 @@ func closingContext(timeout time.Duration) context.Context {
 
 func newServer(config pwconfig.ServerConfig, handler fasthttp.RequestHandler) *fasthttp.Server {
 	return &fasthttp.Server{
-		Handler:            handler,
-		ReadTimeout:        config.ReadTimeout,
-		WriteTimeout:       config.WriteTimeout,
-		IdleTimeout:        config.IdleTimeout,
-		MaxRequestBodySize: int(config.MaxRequestBody),
+		Handler: handler,
+		// The other transport announces nothing, so neither does this one. A
+		// Server header names the transport to anybody who asks, and two builds
+		// of one application should not be told apart by a response they both
+		// intend to be the same.
+		NoDefaultServerHeader: true,
+		ReadTimeout:           config.ReadTimeout,
+		WriteTimeout:          config.WriteTimeout,
+		IdleTimeout:           config.IdleTimeout,
+		MaxRequestBodySize:    int(config.MaxRequestBody),
 	}
 }
 

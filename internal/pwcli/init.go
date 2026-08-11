@@ -2999,7 +2999,9 @@ func editorExtensionsScaffold(options initOptions) string {
 func errorRegistrationScaffold() string {
 	return `package templates
 
-import "github.com/shibukawa/popcornwave/pw"
+// The shared leaf rather than a runtime: this file belongs to both builds, and
+// the error page registry is one process-wide table either of them reads.
+import "github.com/shibukawa/popcornwave/pwruntime"
 
 // The framework renders one of these when a request fails and the client would
 // rather have a page than a problem document. It also renders one in place of a
@@ -3009,7 +3011,7 @@ import "github.com/shibukawa/popcornwave/pw"
 // status and the title only, so nothing here has to decide what is safe to
 // show. Add a status to the switch and the framework starts using it.
 func init() {
-	pw.RegisterHTMLErrorPage(func(problem pw.Problem) pw.HTMLFragment {
+	pwruntime.RegisterHTMLErrorPage(func(problem pwruntime.Problem) pwruntime.HTMLFragment {
 		fields := make([]string, 0, len(problem.Fields))
 		for _, field := range problem.Fields {
 			fields = append(fields, field.Field+": "+field.Message)

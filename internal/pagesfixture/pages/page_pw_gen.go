@@ -4,7 +4,7 @@ package pages
 
 import (
 	"context"
-	"github.com/shibukawa/popcornwave/pw"
+	"github.com/shibukawa/popcornwave/pwruntime"
 	"github.com/shibukawa/tinybind-go/htmlbind"
 	"github.com/shibukawa/tinybind-go/htmlbind/delta"
 	"github.com/shibukawa/tinybind-go/htmlupdate"
@@ -85,19 +85,19 @@ var planCardPlan = &htmlbind.Plan[CardParams]{
 func Card(params CardParams) htmlbind.Fragment { return htmlbind.Bind(planCardPlan, params) }
 
 // PwReloadables is every reloadable component Card can render, itself included
-// when it is one. It is what pw.Redraw reads, so a handler names the page and
+// when it is one. It is what Redraw reads, so a handler names the page and
 // never a list that could fall out of step with the markup.
 func (CardParams) PwReloadables() []htmlupdate.Reloadable {
 	return []htmlupdate.Reloadable{CardReloadable}
 }
 
 // PwReloadables is every reloadable component Page can render, itself included
-// when it is one. It is what pw.Redraw reads, so a handler names the page and
+// when it is one. It is what Redraw reads, so a handler names the page and
 // never a list that could fall out of step with the markup.
 func (PageParams) PwReloadables() []htmlupdate.Reloadable {
 	return []htmlupdate.Reloadable{CardReloadable}
 }
 
 func init() {
-	_ = pw.RegisterReloadable(CardReloadable)
+	_ = pwruntime.RegisterReloadable(CardReloadable)
 }

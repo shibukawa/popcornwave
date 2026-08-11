@@ -1,6 +1,8 @@
 package handlers
 
-import "github.com/shibukawa/popcornwave/pw"
+// The shared configuration layer rather than a runtime: this file belongs to
+// both builds, and binding a setting is not a transport concern.
+import "github.com/shibukawa/popcornwave/pwconfig"
 
 // AppConfig is an application-owned configuration binding. Its values come from
 // the [app] table of config.{APP_ENV}.toml, from APP_ENV_LABEL and
@@ -13,4 +15,4 @@ type AppConfig struct {
 // RegisterConfig binds AppConfig to the "app" prefix. Call it from main: the
 // generated definition registers during package init, so the binding itself
 // must be created after all init functions have run.
-func RegisterConfig() { pw.RegisterConfig[AppConfig]("app") }
+func RegisterConfig() { pwconfig.Register[AppConfig]("app") }
