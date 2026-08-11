@@ -1,7 +1,14 @@
 package id_
 
 export component Page(name: string, page: int): html {
-  <h1>{name}</h1>
-  <p>page {page}</p>
-  <button server-action="Rename" data-target="#name">rename</button>
+<script component>
+  export function setup(el) {
+    return () => {};
+  }
+</script>
+  <section>
+    <h1>{name}</h1>
+    <p>page {page}</p>
+    <button server-action="Rename" data-target="#name">rename</button>
+  </section>
 }

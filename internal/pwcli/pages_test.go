@@ -130,8 +130,14 @@ func TestRunGeneratePageTreeCallsTypedLoad(t *testing.T) {
 	// read is one no second transport can follow — fasthttp has no path routing
 	// of its own, so there is no method on its request to call — and routing
 	// both through pw is what lets one decoder template serve either.
+	//
+	// The spelling is asserted because a regression to r.PathValue compiles and
+	// passes everything except a fasthttp build, which nobody runs by default.
 	if !strings.Contains(decoder, `pw.PathValue(r, "id")`) {
 		t.Errorf("decoder does not read the dynamic segment:\n%s", decoder)
+	}
+	if strings.Contains(decoder, `r.PathValue(`) && !strings.Contains(decoder, `pw.PathValue(r,`) {
+		t.Errorf("decoder reads the path off the request directly:\n%s", decoder)
 	}
 }
 

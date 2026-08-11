@@ -31,7 +31,7 @@ func verifyScriptModuleTags(root string) error {
 		}
 		if entry.IsDir() {
 			switch entry.Name() {
-			case ".git", "dist", "node_modules", ".devbox":
+			case ".git", ".pw", "dist", "node_modules", ".devbox":
 				return filepath.SkipDir
 			}
 			return nil

@@ -53,6 +53,8 @@ function element(id, attributes) {
 }
 
 const swapped = [];
+globalThis.__scopeChains = [];
+globalThis.__signals = [];
 const headInstalled = [];
 let liveStarted = 0;
 let liveStopped = 0;
@@ -272,6 +274,35 @@ function applyHTML(id, html) { globalThis.__swapped.push({ placeholder: id, html
 function startLive() { globalThis.__liveStarted(); }
 function stopLive() { globalThis.__liveStopped(); }
 function setPreserveAttribute() {}
+// The signal table lives in the boundary half and is published on this object.
+// Its own behaviour is covered by signal_harness.mjs, which loads that half for
+// real; here it only has to exist, because the update runtime republishes it.
+function registerEvent() { return () => {}; }
+// The signal table and the lifecycle vocabulary live in the boundary half; their
+// own behaviour is covered by signal_harness.mjs. Here the update paths only
+// have to reach them, and what they dispatched is recorded so the moments this
+// half is the only observer of can be asserted.
+function dispatchSignal(name, payload) { globalThis.__signals.push({ name: name, payload: payload }); return true; }
+const signalNavigationApplied = "pw.navigation_applied";
+const signalDirectiveReceived = "pw.directive_received";
+// The scope chain lives in the boundary half. Its own diffing is covered by
+// signal_harness.mjs, which loads that half for real; here the navigation path
+// only has to be able to hand it what the response carried.
+function applyScopeCatalog(entries) { globalThis.__scopeChains.push(entries); }
+function setScopeMarkerAttribute() {}
+function parseScopeCatalog(value) {
+	const chain = [];
+	if (!value) return chain;
+	for (const entry of value.split(",")) {
+		const at = entry.indexOf(":");
+		if (at <= 0) continue;
+		chain.push({ owner: entry.slice(0, at), url: entry.slice(at + 1) });
+	}
+	return chain;
+}
+function unregisterEvent() { return false; }
+function activeScope() { return false; }
+function definePage() { return () => {}; }
 // The decomposed path parses a fragment, fills its holes, and swaps the nodes.
 // The stub keeps the markup so an assertion can read it, and records the swap
 // through the same list swapElement uses.
@@ -1398,6 +1429,84 @@ for (const target of ["javascript:globalThis.__pwned = true", "data:text/html,<s
 	await runtime.navigate("/orders");
 	check(swapped.length === 0, "a short value stream wrote nothing");
 	check(assigned !== null || reloaded > 0, "a mismatched walk fell back");
+}
+
+
+// The two lifecycle moments only this half can observe. Both are specified
+// upstream and neither has a wire form: the client is the party that sees a
+// delta land and a directive arrive.
+{
+	const runtime = fresh();
+	globalThis.__signals.length = 0;
+	element("c1");
+	nextResponse = response({
+		headers: {
+			"Pw-Render": "navigation",
+			"Content-Type": "application/json",
+			"Pw-Scopes": "Layout:/l.js,PageB:/b.js",
+		},
+		json: { ops: [{ kind: "replace", id: "c1", html: "<p>b</p>" }], manifest: [{ id: "c1", frame: "f1" }] },
+	});
+	await runtime.navigate("/orders/b");
+
+	const applied = globalThis.__signals.filter((s) => s.name === "pw.navigation_applied");
+	check(applied.length === 1, "an applied navigation fires its lifecycle name once");
+	check(
+		applied.length === 1 && applied[0].payload.url === "https://example.test/orders/b",
+		"it carries the URL now displayed rather than the one left",
+	);
+	// The chain travels beside it, on the header this framework owns because the
+	// delta body is the module's.
+	const chains = globalThis.__scopeChains;
+	const last = chains[chains.length - 1];
+	check(
+		last && last.length === 2 && last[0].owner === "Layout" && last[1].owner === "PageB",
+		"the scope chain of the arriving page is applied, outermost first",
+	);
+}
+
+// A navigate directive is the weakest of the set: the page is about to go away,
+// so it fires before the assignment or it never fires at all.
+{
+	const runtime = fresh();
+	globalThis.__signals.length = 0;
+	nextResponse = response({
+		headers: { "Pw-Render": "navigation", "Content-Type": "application/json" },
+		json: { ops: [], navigate: "https://example.test/elsewhere" },
+	});
+	await runtime.navigate("/orders?page=3");
+
+	const directives = globalThis.__signals.filter((s) => s.name === "pw.directive_received");
+	check(directives.length === 1, "a navigate directive fires its lifecycle name");
+	check(
+		directives.length === 1 && directives[0].payload.directive === "navigate",
+		"it says which directive it was",
+	);
+	check(assigned === "https://example.test/elsewhere", "and the browser still left");
+}
+
+// A signal riding the delta stream dispatches. The two streams are one record
+// grammar written by one encoder upstream, so a client reading only the live one
+// would drop what the other carries.
+{
+	const runtime = fresh();
+	globalThis.__signals.length = 0;
+	element("c1");
+	nextResponse = response({
+		headers: { "Pw-Render": "navigation", "Content-Type": "application/x-ndjson" },
+		lines: [
+			JSON.stringify({ r: "head", build: "build-1" }),
+			JSON.stringify({ r: "signal", name: "app.toast", data: { text: "saved" } }),
+			JSON.stringify({ r: "op", kind: "replace", id: "c1", html: "<p>x</p>", frame: "f1" }),
+			JSON.stringify({ r: "end", reason: "final" }),
+		],
+	});
+	await runtime.navigate("/orders?page=4");
+
+	const toast = globalThis.__signals.filter((s) => s.name === "app.toast");
+	check(toast.length === 1, "a signal record on a delta stream is dispatched");
+	check(toast.length === 1 && toast[0].payload.text === "saved", "with its payload");
+	check(swapped.length === 1, "and the operations still applied");
 }
 
 // The verdict, which must stay the last thing in this file: a case appended

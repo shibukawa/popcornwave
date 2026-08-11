@@ -114,7 +114,9 @@ the template holds no state between deliveries.
 
 A source whose values are individually meaningful — one event that must be seen
 — is the wrong shape here, precisely because a fast source coalesces. Yield the
-accumulated state instead.
+accumulated state instead, and send the event as a
+[signal](/guides/cross-layer/signals/), which is the channel that exists for
+exactly this and is never coalesced.
 
 ## What the first response does
 

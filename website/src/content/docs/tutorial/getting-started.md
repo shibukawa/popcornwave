@@ -360,5 +360,5 @@ Chapter 2 turns that page into something worth submitting: a form, a POST
 handler, and a validation rule that has to report itself to a person.
 
 - [2. Forms and validation](/tutorial/forms/) — the next chapter.
-- [Architecture](/start/architecture/) — the model behind what you just ran.
+- [Project structure and principles](/guides/architecture/project-structure/) — the tool, package, and handler model behind what you just ran.
 - [pw command](/pw/overview/) — every subcommand in full.

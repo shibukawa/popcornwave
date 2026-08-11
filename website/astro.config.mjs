@@ -12,6 +12,12 @@ const base = '/popcornwave';
 export default defineConfig({
   site: 'https://shibukawa.github.io',
   base,
+  redirects: {
+    '/guides/backend/cookies': `${base}/guides/backend/sessions/#using-cookies-directly`,
+    '/ja/guides/backend/cookies': `${base}/ja/guides/backend/sessions/#クッキーを直接使う`,
+    '/start/architecture': `${base}/guides/architecture/project-structure/`,
+    '/ja/start/architecture': `${base}/ja/guides/architecture/project-structure/`,
+  },
   markdown: {
     // Lets content link with plain `/guides/testing/` instead of repeating `base`.
     processor: satteri({ hastPlugins: [satteriBaseLinks({ base })] }),

@@ -118,9 +118,42 @@ func runLiveStream(w *bufio.Writer, wrappers []HTMLWrapper, leaf HTMLFragment,
 	}
 	reason := pwruntime.LiveCloseDone
 	boundaries := map[string]struct{}{}
+	signalBytes := 0
 	render := append(settings.RenderOptions(ctx), options...)
 	for content, err := range htmlbind.RenderChainLive(ctx, io.Discard, wrappers, leaf, render...) {
 		if err != nil {
+			// Classified ahead of every failure branch, exactly as the net/http
+			// half does. A signal travels the error slot the way fs.SkipDir
+			// does: it is not a fault and it ends nothing.
+			//
+			// This loop is a second reading of the same protocol, which is the
+			// thing pwruntime exists to prevent, so the two must agree — a
+			// backend that ended its stream on the first signal would answer a
+			// different wire from the same page.
+			if signal, ok := htmlbind.AsSignal(err); ok {
+				if pwruntime.ReservedSignalName(signal.Name()) {
+					// This framework's namespace carries the lifecycle names its
+					// client runtime dispatches, and a handler trusts one because
+					// application data has no route to it.
+					continue
+				}
+				// The same budget the other half enforces, for the same reason: a
+				// payload is the one size an application chooses directly, on a
+				// connection that lives as long as a tab.
+				signalBytes += len(signal.Payload())
+				if settings.LiveMaxSignalBytes > 0 && signalBytes > settings.LiveMaxSignalBytes {
+					reason = pwruntime.LiveCloseRetry
+					break
+				}
+				var signalErr error
+				if scratch, signalErr = pwruntime.WriteLiveSignal(w, scratch, signal); signalErr != nil {
+					return
+				}
+				// A signal is activity: the source produced something, and a
+				// screen driven entirely by signals must not close as idle.
+				watchdog.Delivered()
+				continue
+			}
 			var unrecovered *htmlbind.UnrecoveredError
 			if errors.As(err, &unrecovered) {
 				// A boundary that failed with no recover clause has nothing

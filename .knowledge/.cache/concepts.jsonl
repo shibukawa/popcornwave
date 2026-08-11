@@ -239,6 +239,8 @@
 {"category": "constraint", "id": "decision:separate-tinygo-dockerfile", "path": ".knowledge/decision/separate-tinygo-dockerfile.md", "role": "supporting", "title": "Separate TinyGo Dockerfile", "type": "decision"}
 {"category": "constraint", "id": "decision:server-sql-support-tier", "path": ".knowledge/decision/server-sql-support-tier.md", "role": "supporting", "title": "Server SQL Support Tier", "type": "decision"}
 {"category": "constraint", "id": "decision:server-timing-transport", "path": ".knowledge/decision/server-timing-transport.md", "role": "supporting", "title": "Server-Timing Travels As A Header, Not A Trailer", "type": "decision"}
+{"category": "constraint", "id": "decision:serverless-http-adapter-boundary", "path": ".knowledge/decision/serverless-http-adapter-boundary.md", "role": "supporting", "title": "Serverless HTTP Adapter Boundary", "type": "decision"}
+{"category": "constraint", "id": "decision:serverless-target-scope", "path": ".knowledge/decision/serverless-target-scope.md", "role": "supporting", "title": "Initial Serverless Target Scope", "type": "decision"}
 {"category": "constraint", "id": "decision:session-lifetime-owned-by-auth", "path": ".knowledge/decision/session-lifetime-owned-by-auth.md", "role": "supporting", "title": "Session Lifetime Owned by Authentication", "type": "decision"}
 {"category": "constraint", "id": "decision:shared-check-catalog", "path": ".knowledge/decision/shared-check-catalog.md", "role": "supporting", "title": "Shared Check Catalog", "type": "decision"}
 {"category": "constraint", "id": "decision:shared-runtime-leaf", "path": ".knowledge/decision/shared-runtime-leaf.md", "role": "supporting", "title": "The Transport-Free Half Of pw Moves To pwruntime", "type": "decision"}
@@ -376,6 +378,8 @@
 {"category": "objective", "id": "requirement:classic-rendering", "path": ".knowledge/requirement/classic-rendering.md", "role": "primary", "title": "Classic Rendering", "type": "requirement"}
 {"category": "objective", "id": "requirement:classic-web-acceptance", "path": ".knowledge/requirement/classic-web-acceptance.md", "role": "primary", "title": "Classic Web Acceptance", "type": "requirement"}
 {"category": "objective", "id": "requirement:cli-distribution", "path": ".knowledge/requirement/cli-distribution.md", "role": "primary", "title": "pw CLI Distribution", "type": "requirement"}
+{"category": "objective", "id": "requirement:client-signal-registry", "path": ".knowledge/requirement/client-signal-registry.md", "role": "primary", "title": "Client Signal Registry", "type": "requirement"}
+{"category": "objective", "id": "requirement:cloudflare-workers-hosting", "path": ".knowledge/requirement/cloudflare-workers-hosting.md", "role": "primary", "title": "Cloudflare Workers Hosting", "type": "requirement"}
 {"category": "objective", "id": "requirement:component-asset-extraction", "path": ".knowledge/requirement/component-asset-extraction.md", "role": "primary", "title": "Component Asset Extraction", "type": "requirement"}
 {"category": "objective", "id": "requirement:component-package-distribution", "path": ".knowledge/requirement/component-package-distribution.md", "role": "primary", "title": "Component Package Distribution", "type": "requirement"}
 {"category": "objective", "id": "requirement:container-deployment-docs", "path": ".knowledge/requirement/container-deployment-docs.md", "role": "primary", "title": "Container Deployment Documentation", "type": "requirement"}
@@ -479,6 +483,7 @@
 {"category": "objective", "id": "requirement:package-project-scaffold", "path": ".knowledge/requirement/package-project-scaffold.md", "role": "primary", "title": "Package Preset Scaffold", "type": "requirement"}
 {"category": "objective", "id": "requirement:package-schema-contribution", "path": ".knowledge/requirement/package-schema-contribution.md", "role": "primary", "title": "Package Schema Contribution", "type": "requirement"}
 {"category": "objective", "id": "requirement:page-request-context", "path": ".knowledge/requirement/page-request-context.md", "role": "primary", "title": "A Page Must Reach Its Request Context", "type": "requirement"}
+{"category": "objective", "id": "requirement:page-scope-emission", "path": ".knowledge/requirement/page-scope-emission.md", "role": "primary", "title": "Page Scope Emission", "type": "requirement"}
 {"category": "objective", "id": "requirement:parallel-database-tests", "path": ".knowledge/requirement/parallel-database-tests.md", "role": "primary", "title": "Parallel Database Tests", "type": "requirement"}
 {"category": "objective", "id": "requirement:pgx-native-execution", "path": ".knowledge/requirement/pgx-native-execution.md", "role": "primary", "title": "pgx Native Execution Path", "type": "requirement"}
 {"category": "objective", "id": "requirement:presence-signal", "path": ".knowledge/requirement/presence-signal.md", "role": "primary", "title": "Human Presence Signal", "type": "requirement"}
@@ -496,8 +501,11 @@
 {"category": "objective", "id": "requirement:read-write-splitting", "path": ".knowledge/requirement/read-write-splitting.md", "role": "primary", "title": "Read-Write Split Connections", "type": "requirement"}
 {"category": "objective", "id": "requirement:reloadable-component-endpoint", "path": ".knowledge/requirement/reloadable-component-endpoint.md", "role": "primary", "title": "Reloadable Component Endpoint", "type": "requirement"}
 {"category": "objective", "id": "requirement:response-gzip-encoder", "path": ".knowledge/requirement/response-gzip-encoder.md", "role": "primary", "title": "Gzip Response Encoder", "type": "requirement"}
+{"category": "objective", "id": "requirement:serverless-http-hosting", "path": ".knowledge/requirement/serverless-http-hosting.md", "role": "primary", "title": "Serverless HTTP Hosting", "type": "requirement"}
+{"category": "objective", "id": "requirement:serverless-source-entrypoints", "path": ".knowledge/requirement/serverless-source-entrypoints.md", "role": "primary", "title": "Serverless Source Entrypoints", "type": "requirement"}
 {"category": "objective", "id": "requirement:session-assurance-levels", "path": ".knowledge/requirement/session-assurance-levels.md", "role": "primary", "title": "Graded Session Assurance", "type": "requirement"}
 {"category": "objective", "id": "requirement:shared-web-runtime", "path": ".knowledge/requirement/shared-web-runtime.md", "role": "primary", "title": "Shared Web Runtime", "type": "requirement"}
+{"category": "objective", "id": "requirement:signal-forwarding-seam", "path": ".knowledge/requirement/signal-forwarding-seam.md", "role": "primary", "title": "Signal Forwarding Seam", "type": "requirement"}
 {"category": "objective", "id": "requirement:state-storage-tiers", "path": ".knowledge/requirement/state-storage-tiers.md", "role": "primary", "title": "Browser State Storage Tiers", "type": "requirement"}
 {"category": "objective", "id": "requirement:tailwind-css-integration", "path": ".knowledge/requirement/tailwind-css-integration.md", "role": "primary", "title": "Tailwind CSS Integration", "type": "requirement"}
 {"category": "objective", "id": "requirement:tailwind-plugin-integration", "path": ".knowledge/requirement/tailwind-plugin-integration.md", "role": "primary", "title": "Tailwind Plugin Integration", "type": "requirement"}
@@ -520,6 +528,7 @@
 {"category": "objective", "id": "requirement:user-preference-rendering", "path": ".knowledge/requirement/user-preference-rendering.md", "role": "primary", "title": "User Preference Rendering", "type": "requirement"}
 {"category": "objective", "id": "requirement:web-standards-overview", "path": ".knowledge/requirement/web-standards-overview.md", "role": "primary", "title": "Web Standards Architecture Overview", "type": "requirement"}
 {"category": "constraint", "id": "rule:batch-engine-capability", "path": ".knowledge/rule/batch-engine-capability.md", "role": "supporting", "title": "Batch Capability Per Engine", "type": "rule"}
+{"category": "constraint", "id": "rule:client-event-authoring", "path": ".knowledge/rule/client-event-authoring.md", "role": "supporting", "title": "Signal Authoring Rules", "type": "rule"}
 {"category": "constraint", "id": "rule:configuration-advisories", "path": ".knowledge/rule/configuration-advisories.md", "role": "supporting", "title": "Configuration Advisories", "type": "rule"}
 {"category": "constraint", "id": "rule:container-build-inputs", "path": ".knowledge/rule/container-build-inputs.md", "role": "supporting", "title": "Container Build Inputs", "type": "rule"}
 {"category": "constraint", "id": "rule:dsn-redaction", "path": ".knowledge/rule/dsn-redaction.md", "role": "supporting", "title": "DSN Redaction", "type": "rule"}

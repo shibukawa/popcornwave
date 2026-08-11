@@ -703,7 +703,7 @@ func streamHTMLChain(w http.ResponseWriter, r *http.Request, wrappers []HTMLWrap
 		}
 		htmlbind.Flush(writer)
 	}
-	if err := writeStreamEnd(writer, streamEndState(config, live, failed), held); err != nil {
+	if err := writeStreamEnd(writer, streamEndState(config, live, failed), held, encodeScopeChain(scopeCatalog(wrappers, leaf))); err != nil {
 		logger.Log(ctx, LevelError, "HTML stream end write failed", Err(err))
 	}
 	htmlbind.Flush(writer)
@@ -843,13 +843,19 @@ func writeBoundaryCompletion(w io.Writer, content htmlbind.Content) error {
 // be bytes describing a conversation that is not going to happen. A failed
 // state carries none either, because the boundaries it committed are fallbacks
 // that a reconnect should replace rather than keep.
-func writeStreamEnd(w io.Writer, state string, held []string) error {
+func writeStreamEnd(w io.Writer, state string, held []string, scopes string) error {
 	marker := `<tb-stream-end state="` + state + `"`
 	if version := renderVersion(); version != "" {
 		marker += ` version="` + htmlbind.Escape(version) + `"`
 	}
 	if state == streamEndLive && len(held) > 0 {
 		marker += ` manifest="` + htmlbind.Escape(strings.Join(held, ",")) + `"`
+	}
+	// The scope chain rides every state, unlike the manifest. A final document
+	// changes no further and still has scripts to start: the whole point of a
+	// lifecycle is that it runs on a page that is merely on screen.
+	if scopes != "" {
+		marker += ` ` + scopeChainAttribute + `="` + htmlbind.Escape(scopes) + `"`
 	}
 	_, err := io.WriteString(w, marker+`></tb-stream-end>`)
 	return err

@@ -1,17 +1,19 @@
 ---
 title: pw build
-description: Produce a release binary with generated code, minified CSS, and the built asset tree.
+description: Produce a native or provider-targeted release artifact with generated code and built assets.
 sidebar:
   order: 6
 ---
 
 ```sh
-pw build [--debug]
+pw build [--debug] [--backend nethttp|fasthttp]
+         [--target lambda|azure-functions|google-cloud-run-functions|vercel-go]
 ```
 
-`pw build` turns the current project state into a release binary. `--debug` is
-its only option; everything else comes from `popcornwave.toml` and the
-environment.
+`pw build` turns the current project state into a release artifact. With no
+target it produces the ordinary binary. `--backend` selects the HTTP
+implementation and defaults to `nethttp`; `--target` selects provider
+packaging.
 
 ## What it does
 
@@ -29,6 +31,12 @@ The binary lands in the project root, named after the main package. The
 scaffolded `.gitignore` already excludes it, along with everything under
 `dist/` — the built tree, the conversion cache, and the manifest are all build
 output.
+
+With `--target`, the result instead lands under
+`.pw/build/<target>/<backend>/`. Lambda and Azure Functions receive a Linux
+binary plus provider metadata; Google Cloud Run functions and Vercel Go receive
+a locally compiled, vendored source tree. See [Serverless Hosting](/guides/deployment/serverless/)
+for each artifact contract.
 
 Today, `contrib/devidp` is the only development-only package. It is the identity
 provider used by [`pw dev`](/pw/project/dev/), and it signs users in without

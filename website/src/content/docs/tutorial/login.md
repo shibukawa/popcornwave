@@ -82,9 +82,9 @@ round trip out to the provider and back, and is consumed when it returns.
 `session.backend = "rdb"` in `config.dev.toml` chooses only **where** they go.
 **What puts that somewhere into the binary is the import.** That is what "storage
 is opt-in" means: an application links the backend it configured and no other, and
-a project keeping sessions in a cookie links no store at all — see
-[Cookies](/guides/backend/cookies/), which `pw init --session` offers from the
-start.
+a project keeping sessions in a cookie links no store at all. The cookie option
+is one of the backends compared in [session storage](/guides/storage/session-storage/),
+and `pw init --session` offers it from the start.
 
 When the configuration and the imports disagree, startup says so:
 

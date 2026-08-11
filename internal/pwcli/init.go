@@ -1032,7 +1032,7 @@ func PublicFS() fs.FS {
 		// The binary pattern is anchored: a bare name would also ignore cmd/<name>/.
 		// devbox.d holds the service configuration devbox writes on first run,
 		// so pw dev leaves no change behind in a fresh checkout.
-		".gitignore": ".devbox/\ndevbox.d/\n.log/\n/" + name + "\n*_pw_gen.go\n" +
+		".gitignore": ".devbox/\ndevbox.d/\n.log/\n.pw/\n/" + name + "\n*_pw_gen.go\n" +
 			// Everything under dist is built, except the sentinel: go:embed
 			// fails on an absent directory, so a fresh clone has to carry one
 			// file that makes the tree exist before the first build.

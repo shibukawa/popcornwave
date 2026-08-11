@@ -1,0 +1,4 @@
+.pw/
+*_pw_gen.go
+dist/public/*
+!dist/public/.keep

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/fs"
 	"net"
+	"os"
 	"os/signal"
 	"strconv"
 	"syscall"
@@ -296,6 +297,11 @@ func Run(ctx context.Context, handler fasthttp.RequestHandler, option ...Option)
 		return err
 	}
 	config := pwconfig.Value[pwconfig.ServerConfig]()
+	port, err := pwconfig.HostingPort(config.Port, os.LookupEnv)
+	if err != nil {
+		return errors.Join(err, shutdown(closingContext(config.ShutdownTimeout)))
+	}
+	config.Port = port
 
 	signalContext, stopSignals := signal.NotifyContext(ctx, syscall.SIGINT, syscall.SIGTERM)
 	defer stopSignals()

@@ -1,6 +1,6 @@
 ---
-title: 最適化
-description: ページの転送量と待ち時間を削る3つの仕組みと、JavaScript を切ったときにそれぞれどこまで残るのか。
+title: 段階的な HTML 更新
+description: HTML を段階的に届ける、画面遷移後に更新する、サーバ状態の変化に合わせて更新する3つの方法と、JavaScript を切ったときにどこまで残るのか。
 sidebar:
   order: 6
 ---
@@ -148,22 +148,18 @@ URL に置く** —— 並び順、ページ番号、絞り込み。そうすれ
 に書き込まれてフォールバックと入れ替わります。
 
 <figure>
-<svg viewBox="0 0 700 250" role="img" aria-label="1本のストリーミングレスポンスの中身を順に並べた図。ステータス行とヘッドとシェル、フォールバックを持つ2つのプレースホルダ div、そして0.9秒と1.5秒に届く2つの template 要素。">
+<svg viewBox="0 0 700 265" role="img" aria-label="1本のストリーミングレスポンスの中身を順に並べた図。ステータス行とヘッドとシェル、フォールバックを持つ2つのプレースホルダ div、そして0.9秒と1.5秒に届く2つの template 要素。">
   <rect x="20" y="14" width="480" height="200" rx="8" fill="none" stroke="currentColor" stroke-width="1.5" opacity="0.45"/>
   <text x="34" y="34" fill="currentColor" font-family="inherit" font-size="11" opacity="0.6">1本の HTTP レスポンス</text>
   <g fill="currentColor" font-family="inherit" font-size="12">
     <rect x="38" y="44" width="444" height="26" rx="3" opacity="0.16"/>
     <text x="50" y="62" opacity="0.85">200 · &lt;head&gt; · 待たなくていいシェル</text>
-
     <rect x="38" y="78" width="444" height="24" rx="3" opacity="0.08"/>
     <text x="50" y="95" opacity="0.6">&lt;div id="orders"&gt; loading… &lt;/div&gt;</text>
-
     <rect x="38" y="106" width="444" height="24" rx="3" opacity="0.08"/>
     <text x="50" y="123" opacity="0.6">&lt;div id="recs"&gt; loading… &lt;/div&gt;</text>
-
     <rect x="38" y="140" width="444" height="26" rx="3" opacity="0.16"/>
     <text x="50" y="158" opacity="0.85">&lt;template for="orders"&gt; … &lt;/template&gt;</text>
-
     <rect x="38" y="174" width="444" height="26" rx="3" opacity="0.16"/>
     <text x="50" y="192" opacity="0.85">&lt;template for="recs"&gt; … &lt;/template&gt;</text>
   </g>
@@ -172,7 +168,10 @@ URL に置く** —— 並び順、ページ番号、絞り込み。そうすれ
     <text x="516" y="158">0.9 s</text>
     <text x="516" y="192">1.5 s</text>
   </g>
-  <text x="20" y="238" fill="currentColor" font-family="inherit" font-size="11" opacity="0.6">2つの依存は並行に走るのでレスポンスの終わりは2.4秒ではなく1.5秒。だが読めるようになったのは20ミリ秒の時点だ。</text>
+  <g fill="currentColor" font-family="inherit" font-size="11" opacity="0.6">
+    <text x="20" y="238">2つの依存は並行に走るので、レスポンスの終わりは2.4秒ではなく1.5秒。</text>
+    <text x="20" y="254">それでも、読めるようになったのは20ミリ秒の時点だ。</text>
+  </g>
 </svg>
 </figure>
 
@@ -219,15 +218,16 @@ URL に置く** —— 並び順、ページ番号、絞り込み。そうすれ
     <rect x="496" y="24" width="10" height="18" rx="2" opacity="0.16"/>
     <rect x="556" y="24" width="10" height="18" rx="2"/>
     <rect x="616" y="24" width="10" height="18" rx="2" opacity="0.16"/>
-
     <rect x="196" y="104" width="460" height="18" rx="2" opacity="0.16"/>
     <rect x="256" y="104" width="10" height="18" rx="2"/>
     <rect x="436" y="104" width="10" height="18" rx="2"/>
     <rect x="556" y="104" width="10" height="18" rx="2"/>
   </g>
   <g fill="currentColor" font-family="inherit" font-size="11" opacity="0.6">
-    <text x="190" y="66">8回のリクエストのうち5回は空振り — しかも更新は次の周期まで待たされた</text>
-    <text x="190" y="146">1本の接続、何かあった瞬間に書き込まれる。その間は何も流れない</text>
+    <text x="190" y="66">8回のリクエストのうち5回は空振り</text>
+    <text x="190" y="82">しかも更新は次の周期まで待たされた</text>
+    <text x="190" y="146">1本の接続へ、何かあった瞬間に書き込まれる</text>
+    <text x="190" y="162">その間は何も流れない</text>
   </g>
 </svg>
 </figure>
@@ -253,20 +253,16 @@ URL に置く** —— 並び順、ページ番号、絞り込み。そうすれ
 <svg viewBox="0 0 700 250" role="img" aria-label="1ページの入れ子構造。ドキュメントシェルは境界ではない。その中のレイアウトは境界で、境界ではないナビゲーションコンポーネントと、唯一変わった境界である検索ページを含む。ページの中の500行の結果一覧は普通のコンポーネントで、個別には指定されない。">
   <rect x="20" y="20" width="660" height="180" rx="8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-dasharray="5 4" opacity="0.4"/>
   <text x="36" y="40" fill="currentColor" font-family="inherit" font-size="11" opacity="0.55">ドキュメントシェル — 差分は画面上のものを再利用するので、決して境界にならない</text>
-
   <rect x="40" y="52" width="620" height="132" rx="8" fill="none" stroke="currentColor" stroke-width="1.5" opacity="0.6"/>
   <text x="56" y="72" fill="currentColor" font-family="inherit" font-size="12" opacity="0.75">layout.pw.html — 境界</text>
-
   <rect x="60" y="86" width="160" height="80" rx="6" fill="none" stroke="currentColor" stroke-width="1.5" stroke-dasharray="5 4" opacity="0.35"/>
   <text x="74" y="110" fill="currentColor" font-family="inherit" font-size="11" opacity="0.5">サイトナビ</text>
   <text x="74" y="128" fill="currentColor" font-family="inherit" font-size="11" opacity="0.5">普通の</text>
   <text x="74" y="144" fill="currentColor" font-family="inherit" font-size="11" opacity="0.5">コンポーネント</text>
-
   <rect x="240" y="86" width="400" height="80" rx="6" fill="currentColor" fill-opacity="0.1" stroke="currentColor" stroke-width="2"/>
   <text x="256" y="110" fill="currentColor" font-family="inherit" font-size="12" opacity="0.9">search.pw.html — 境界、そして唯一変わったもの</text>
   <rect x="256" y="122" width="368" height="32" rx="4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-dasharray="5 4" opacity="0.35"/>
   <text x="270" y="143" fill="currentColor" font-family="inherit" font-size="11" opacity="0.5">500行の結果一覧 — コンポーネント1つであって500個の宛先ではない</text>
-
   <text x="20" y="226" fill="currentColor" font-family="inherit" font-size="11" opacity="0.6">送られるのは変わった境界のうち最も外側だけ。その上はリクエストが運んだダイジェストと一致し、その中身は一緒に付いてくる。</text>
   <text x="20" y="242" fill="currentColor" font-family="inherit" font-size="11" opacity="0.6">全コンポーネントを境界にすれば毎回のリクエストに500件が載る。普通のコンポーネントが境界でないのはそのためだ。</text>
 </svg>
@@ -297,15 +293,12 @@ JavaScript を1行も書かずに、いま開いているページを絞り込�
     <path d="M140 101 L188 101"/><path d="M188 101 l-8 -4 l0 8 z" fill="currentColor" stroke="none"/>
     <path d="M140 165 L188 165"/><path d="M188 165 l-8 -4 l0 8 z" fill="currentColor" stroke="none"/>
   </g>
-
   <rect x="200" y="18" width="480" height="40" rx="6" fill="currentColor" fill-opacity="0.1" stroke="currentColor" stroke-width="2"/>
   <text x="216" y="35" fill="currentColor" font-family="inherit" font-size="11" opacity="0.9">確定済みのドキュメント、同じパスで</text>
   <text x="216" y="51" fill="currentColor" font-family="inherit" font-size="11" opacity="0.6">1ページ目の1往復と、progressive delivery を手放す</text>
-
   <rect x="200" y="82" width="480" height="40" rx="6" fill="none" stroke="currentColor" stroke-width="1.5" opacity="0.5"/>
   <text x="216" y="99" fill="currentColor" font-family="inherit" font-size="11" opacity="0.7">本物のスナップショット、そこで止まる</text>
   <text x="216" y="115" fill="currentColor" font-family="inherit" font-size="11" opacity="0.55">スクリプト無しでサーバから押し込む手段は無いので、失われるのは更新のほう</text>
-
   <rect x="200" y="146" width="480" height="40" rx="6" fill="currentColor" fill-opacity="0.1" stroke="currentColor" stroke-width="2"/>
   <text x="216" y="163" fill="currentColor" font-family="inherit" font-size="11" opacity="0.9">失うものは何も無い</text>
   <text x="216" y="179" fill="currentColor" font-family="inherit" font-size="11" opacity="0.6">リンクは辿れ、GET フォームは送信でき、戻るも効く — 最初からあった道だ</text>

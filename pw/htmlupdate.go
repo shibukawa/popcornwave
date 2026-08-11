@@ -113,6 +113,7 @@ func updateEntry(config HTMLConfig) *updateOptionsEntry {
 		AsyncConcurrency:    config.AsyncConcurrency,
 		LiveMaxResponses:    config.LiveMaxResponses,
 		LiveMaxBoundaries:   config.LiveMaxBoundaries,
+		LiveMaxSignalBytes:  config.LiveMaxSignalBytes,
 		LiveMaxDuration:     config.LiveMaxDuration,
 		LiveDurationJitter:  config.LiveDurationJitter,
 		LiveIdleTimeout:     config.LiveIdleTimeout,
@@ -295,6 +296,17 @@ func serveUpdate(w http.ResponseWriter, r *http.Request, wrappers []HTMLWrapper,
 	// back, and the marker that tells a client this route delivers live.
 	applyUpdateHeaders(w, update.StreamHeaders(r, wrappers, leaf))
 	w.Header().Set("Cache-Control", updateCacheControl)
+	// The scope chain of the composition this navigation arrives at. It travels
+	// as a header rather than as a record because the delta body is the module's
+	// to write and carries no field this framework can add; a header is the half
+	// of this response that is still ours.
+	//
+	// It is written before the render for the same reason every other header
+	// here is: a stream commits with its first record, and the chain is known
+	// from the composition rather than from anything the render produces.
+	if scopes := encodeScopeChain(scopeCatalog(wrappers, leaf)); scopes != "" {
+		w.Header().Set(ScopeChainHeader, scopes)
+	}
 	// The delta is negotiated for a content coding like any other body. It was
 	// the one response on this wire that was not, and the asymmetry inverted the
 	// comparison the whole feature rests on: the document it replaces travels
