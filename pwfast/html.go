@@ -37,6 +37,18 @@ func WriteHTMLPage(r *fasthttp.RequestCtx, wrappers []HTMLWrapper, leaf HTMLFrag
 // byte and changes no bytes. Streaming is what the deferred htmlupdate port
 // unlocks, since the boundary delivery path holds a flusher.
 func WriteHTMLChain(r *fasthttp.RequestCtx, wrappers []HTMLWrapper, leaf HTMLFragment, options ...HTMLOption) {
+	// A live subscription arrives on the route's own URL, told apart from a page
+	// request by the headers it carries — so this is where it is answered,
+	// exactly as it is on the other transport. ServeLive reads that negotiation
+	// itself and reports whether it took the request, which keeps the condition
+	// in one place rather than in every caller.
+	//
+	// The handler, the layouts and the binding that produced this chain have
+	// already run, which is what makes a reconnect need no continuation: the
+	// reconstruction path is the render path.
+	if ServeLive(r, wrappers, leaf, options...) {
+		return
+	}
 	var body []byte
 	buffer := bytesWriter{buf: &body}
 	if err := htmlbind.RenderChain(&buffer, wrappers, leaf, options...); err != nil {

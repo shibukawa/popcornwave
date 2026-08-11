@@ -1,6 +1,7 @@
 [project]
 name = "live_render"
 main = "./cmd/live_render"
+fasthttp = true
 
 [generate]
 handlers = ["handlers"]

@@ -98,19 +98,30 @@ func InjectResources(resources pwruntime.Resources) Middleware {
 // AccessLog writes one completion record per request.
 //
 // The status and the size are read off the response rather than out of a
-// tracking writer. That is not a shortcut: this transport buffers the response,
-// so both are simply there once the handler returns, where the other half has
-// to wrap the writer to observe them at all.
+// tracking writer. That is not a shortcut: this transport buffers an ordinary
+// response, so both are simply there once the handler returns, where the other
+// half has to wrap the writer to observe them at all.
+//
+// A streamed response is the exception, and reading its size is not merely
+// wrong there but fatal: Response.Body on a body stream drains the stream into
+// memory to answer, so a live subscription — which by design does not end until
+// its watchdog closes it — would be consumed here and never reach the client at
+// all. The record says the size is unknown instead, which is the truth at the
+// moment the handler returned.
 func AccessLog() Middleware {
 	return func(next fasthttp.RequestHandler) fasthttp.RequestHandler {
 		return func(r *fasthttp.RequestCtx) {
 			start := time.Now()
 			next(r)
+			size := int64(-1)
+			if !r.Response.IsBodyStream() {
+				size = int64(len(r.Response.Body()))
+			}
 			pwruntime.ReadLogger(r).Log(r, pwruntime.LevelInfo, "request completed",
 				pwruntime.String("method", string(r.Method())),
 				pwruntime.String("path", string(r.Path())),
 				pwruntime.Int("status", r.Response.StatusCode()),
-				pwruntime.Int64("bytes", int64(len(r.Response.Body()))),
+				pwruntime.Int64("bytes", size),
 				pwruntime.Duration("duration", time.Since(start)),
 			)
 		}

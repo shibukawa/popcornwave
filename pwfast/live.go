@@ -7,7 +7,6 @@ import (
 	"io"
 
 	"github.com/shibukawa/popcornwave/pwruntime"
-	"github.com/shibukawa/tinybind-go/fasthttpupdate"
 	"github.com/shibukawa/tinybind-go/htmlbind"
 	"github.com/shibukawa/tinybind-go/htmlbind/delta"
 	"github.com/shibukawa/tinygodriver/fasthttp"
@@ -34,11 +33,13 @@ const LiveManifestHeader = "Pw-Live-Manifest"
 // is the same signal the other half falls back to once a record fails.
 func ServeLive(r *fasthttp.RequestCtx, wrappers []HTMLWrapper, leaf HTMLFragment, options ...HTMLOption) bool {
 	settings, ok := pwruntime.ResolvedUpdateSettings()
-	if !ok || !settings.Enabled {
+	if !ok || !settings.Live {
+		// The live switch, not the update one. They are separate settings
+		// answering separate requests, and reading the wrong one made every
+		// subscription fall through to a document.
 		return false
 	}
-	update, ok := updateOptions()
-	if !ok || update.Negotiate(r).Mode != fasthttpupdate.ModeLive {
+	if !liveModeRequested(r) {
 		return false
 	}
 
@@ -82,7 +83,15 @@ func ServeLive(r *fasthttp.RequestCtx, wrappers []HTMLWrapper, leaf HTMLFragment
 }
 
 // runLiveStream is the loop, over the shared protocol.
-func runLiveStream(w io.Writer, wrappers []HTMLWrapper, leaf HTMLFragment,
+// runLiveStream writes the deliveries of one chain until the source is done or
+// the watchdog closes it.
+//
+// The writer is buffered, which is this transport's shape rather than a choice:
+// a body stream writer is handed a bufio.Writer. So every record is flushed the
+// moment it is written. A live stream that filled a buffer and sent nothing
+// would hold a connection open, log deliveries, and show a reader a page that
+// never changes — which is what it did before the flushes were here.
+func runLiveStream(w *bufio.Writer, wrappers []HTMLWrapper, leaf HTMLFragment,
 	settings pwruntime.UpdateSettings, digestKey []byte, onScreen map[string]string,
 	maxBoundaries int, head []string, options []HTMLOption,
 ) {
@@ -95,7 +104,7 @@ func runLiveStream(w io.Writer, wrappers []HTMLWrapper, leaf HTMLFragment,
 
 	var scratch []byte
 	scratch, err := pwruntime.WriteLiveHead(w, scratch, settings.BuildID, head)
-	if err != nil {
+	if err != nil || w.Flush() != nil {
 		return
 	}
 	reason := pwruntime.LiveCloseDone
@@ -132,6 +141,9 @@ func runLiveStream(w io.Writer, wrappers []HTMLWrapper, leaf HTMLFragment,
 			// left to send a close record to.
 			return
 		}
+		if w.Flush() != nil {
+			return
+		}
 		if digest != "" {
 			onScreen[content.BoundaryID] = digest
 		}
@@ -147,6 +159,9 @@ func runLiveStream(w io.Writer, wrappers []HTMLWrapper, leaf HTMLFragment,
 		hint = 0
 	}
 	_, _ = pwruntime.WriteLiveClose(w, scratch, reason, hint)
+	// The close record is the one a client acts on — it says whether to
+	// reconnect — so it is flushed like every other.
+	_ = w.Flush()
 }
 
 // writeLiveHeaders commits the response. A delivery stream is never shareable,
@@ -174,4 +189,19 @@ func manifestEntries(settings pwruntime.UpdateSettings) int {
 		return settings.LiveMaxBoundaries
 	}
 	return pwruntime.DefaultLiveManifestEntries
+}
+
+// liveModeRequested reports whether this request asked for deliveries instead
+// of a document.
+//
+// It reads the header the client sends, which is this framework's own rather
+// than the update module's mode token: the browser runtime this framework ships
+// sets Pw-Response-Mode, and the other transport reads exactly that. Reading
+// the module's header instead recognized no subscription at all, and a request
+// nobody recognized was answered with a page.
+//
+// An unknown value is not an error: it answers the document, so an older client
+// meeting a newer server stays functional.
+func liveModeRequested(r *fasthttp.RequestCtx) bool {
+	return string(r.Request.Header.Peek(pwruntime.ResponseModeHeader)) == pwruntime.LiveResponseMode
 }

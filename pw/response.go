@@ -182,32 +182,12 @@ func putHTMLBody(body *bytes.Buffer) {
 	htmlBodyPool.Put(body)
 }
 
-func mapProblem(err error) Problem {
-	if err == nil {
-		return InternalServerError(errors.New("nil error"))
-	}
-	var p Problem
-	if errors.As(err, &p) {
-		if p.Status == 0 {
-			p.Status = http.StatusInternalServerError
-		}
-		if p.Title == "" {
-			p.Title = http.StatusText(p.Status)
-		}
-		return p
-	}
-	if mapped, ok := tinybind.AsHTTPError(err); ok {
-		message := mapped.Problem.Message
-		if message == "" {
-			message = mapped.Title
-		}
-		return Problem{
-			Status: mapped.Status, Title: mapped.Title, Code: mapped.Problem.Code,
-			Message: message, Fields: append([]FieldError(nil), mapped.Fields...), Cause: err,
-		}
-	}
-	return InternalServerError(err)
-}
+// mapProblem turns any error into the problem a response describes.
+//
+// The mapping is the shared leaf's, because it is about errors rather than
+// about a transport: two builds of one application answering one failure with
+// two different statuses is exactly what one rule prevents.
+func mapProblem(err error) Problem { return pwruntime.MapProblem(err) }
 
 func WriteAPI[T any](w http.ResponseWriter, r *http.Request, value T) {
 	target, finish := encodedBodyWriter(w, r)

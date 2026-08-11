@@ -5,7 +5,6 @@ import (
 	"io"
 	"net/http"
 	"strconv"
-	"strings"
 
 	"github.com/shibukawa/popcornwave/pwruntime"
 	"github.com/shibukawa/tinybind-go/htmlbind"
@@ -100,35 +99,16 @@ func publicProblem(problem Problem) Problem {
 }
 
 // acceptsHTML reports whether the client would rather have a page than a
-// document. An absent, empty, or unreadable Accept is not a preference, so it
-// takes the API representation, which is also what a client that sent no
-// opinion at all is most likely to be.
+// document, from the header this transport carries it in.
+//
+// The rule is the shared leaf's, because it is a rule about a header rather
+// than about a transport, and the two builds of one application must not
+// disagree about which representation a browser asked for.
 func acceptsHTML(r *http.Request) bool {
 	if r == nil {
 		return false
 	}
-	htmlQuality, jsonQuality := -1.0, -1.0
-	for entry := range splitSeq(r.Header.Get("Accept"), ',') {
-		media, parameters, _ := strings.Cut(entry, ";")
-		media = strings.TrimSpace(strings.ToLower(media))
-		quality := 1.0
-		for parameter := range splitSeq(parameters, ';') {
-			name, value, found := strings.Cut(strings.TrimSpace(parameter), "=")
-			if !found || strings.TrimSpace(name) != "q" {
-				continue
-			}
-			if parsed, err := strconv.ParseFloat(strings.TrimSpace(value), 64); err == nil {
-				quality = parsed
-			}
-		}
-		switch media {
-		case "text/html", "application/xhtml+xml":
-			htmlQuality = max(htmlQuality, quality)
-		case "application/json", "application/problem+json":
-			jsonQuality = max(jsonQuality, quality)
-		}
-	}
-	return htmlQuality > 0 && htmlQuality >= jsonQuality
+	return pwruntime.AcceptsHTML(r.Header.Get("Accept"))
 }
 
 // writeHTMLProblem answers an uncommitted HTML request with the error page and

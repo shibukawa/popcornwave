@@ -1,7 +1,6 @@
 package pwfast
 
 import (
-	"errors"
 	"net/http"
 	"strconv"
 	"strings"
@@ -117,64 +116,70 @@ func OpenAPIJSON(r *fasthttp.RequestCtx) {
 	_, _ = r.Write(document)
 }
 
-// WriteProblem answers with the problem document describing err.
+// WriteProblem answers with the problem document describing err, or with the
+// application's error page when the client would rather have one.
 //
-// The net/http half also negotiates an HTML error page from Accept, which this
-// one does not yet: that page is registered in pw, and reaching it needs the
-// same shared-leaf move the document shell needs. The problem body itself is
-// byte-identical across the two halves, which is the part a client parses.
+// One handler answers a browser form post and an API client on the same route,
+// so which representation a failure takes is the client's to say. It is read
+// from Accept by the shared rule both transports use, and the page it reaches
+// is the one registered in the shared registry — so an application registers
+// its error pages once and both builds serve them.
 func WriteProblem(r *fasthttp.RequestCtx, err error) {
-	var problem Problem
-	if errors.As(err, &problem) {
-		if problem.Status < 400 || problem.Status > 599 {
-			problem = InternalServerError(err)
+	// Every error becomes a problem, through the shared mapping, so a failure
+	// this package cannot classify still reaches the negotiation below rather
+	// than falling out of it into the binding layer's own writer — which is
+	// what used to keep an application's error page from ever being reached by
+	// an unrecovered render.
+	problem := pwruntime.MapProblem(err)
+	if problem.Status < 400 || problem.Status > 599 {
+		problem = InternalServerError(err)
+	}
+	if problem.Title == "" {
+		problem.Title = http.StatusText(problem.Status)
+	}
+	if problem.Status >= 500 {
+		problem.Message = "internal error"
+		problem.Code = "internal"
+		problem.Fields = nil
+	}
+	headers, _ := pwruntime.ProblemHeaders(problem)
+	for name, values := range headers {
+		for _, value := range values {
+			r.Response.Header.Add(name, value)
 		}
-		if problem.Title == "" {
-			problem.Title = http.StatusText(problem.Status)
-		}
-		if problem.Status >= 500 {
-			problem.Message = "internal error"
-			problem.Code = "internal"
-			problem.Fields = nil
-		}
-		headers, _ := pwruntime.ProblemHeaders(problem)
-		for name, values := range headers {
-			for _, value := range values {
-				r.Response.Header.Add(name, value)
-			}
-		}
-		r.Response.Header.SetContentType("application/problem+json")
-		r.SetStatusCode(problem.Status)
-		var body strings.Builder
-		body.WriteString(`{"type":"about:blank","title":`)
-		body.WriteString(strconv.Quote(problem.Title))
-		body.WriteString(`,"status":`)
-		body.WriteString(strconv.Itoa(problem.Status))
-		body.WriteString(`,"detail":`)
-		body.WriteString(strconv.Quote(problem.Message))
-		body.WriteString(`,"code":`)
-		body.WriteString(strconv.Quote(problem.Code))
-		if len(problem.Fields) > 0 {
-			body.WriteString(`,"errors":[`)
-			for index, field := range problem.Fields {
-				if index > 0 {
-					body.WriteByte(',')
-				}
-				body.WriteString(`{"field":`)
-				body.WriteString(strconv.Quote(field.Field))
-				body.WriteString(`,"location":`)
-				body.WriteString(strconv.Quote(field.Location))
-				body.WriteString(`,"message":`)
-				body.WriteString(strconv.Quote(field.Message))
-				body.WriteByte('}')
-			}
-			body.WriteByte(']')
-		}
-		body.WriteString("}\n")
-		r.Response.SetBodyString(body.String())
+	}
+	if writeHTMLProblem(r, problem) {
 		return
 	}
-	fasthttpbind.WriteError(r, err)
+	r.Response.Header.SetContentType("application/problem+json")
+	r.SetStatusCode(problem.Status)
+	var body strings.Builder
+	body.WriteString(`{"type":"about:blank","title":`)
+	body.WriteString(strconv.Quote(problem.Title))
+	body.WriteString(`,"status":`)
+	body.WriteString(strconv.Itoa(problem.Status))
+	body.WriteString(`,"detail":`)
+	body.WriteString(strconv.Quote(problem.Message))
+	body.WriteString(`,"code":`)
+	body.WriteString(strconv.Quote(problem.Code))
+	if len(problem.Fields) > 0 {
+		body.WriteString(`,"errors":[`)
+		for index, field := range problem.Fields {
+			if index > 0 {
+				body.WriteByte(',')
+			}
+			body.WriteString(`{"field":`)
+			body.WriteString(strconv.Quote(field.Field))
+			body.WriteString(`,"location":`)
+			body.WriteString(strconv.Quote(field.Location))
+			body.WriteString(`,"message":`)
+			body.WriteString(strconv.Quote(field.Message))
+			body.WriteByte('}')
+		}
+		body.WriteByte(']')
+	}
+	body.WriteString("}\n")
+	r.Response.SetBodyString(body.String())
 }
 
 // WriteStream answers with a typed event stream, running fn to produce it.

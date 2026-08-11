@@ -24,10 +24,10 @@ import (
 // and binding could drift from the one already generated and already tested. A
 // custom header also cannot be set by a simple cross-origin form or link, which
 // is the class of request policy:csrf-protection worries about.
-const ResponseModeHeader = "Pw-Response-Mode"
+const ResponseModeHeader = pwruntime.ResponseModeHeader
 
 // LiveResponseMode is the token that selects a delivery stream.
-const LiveResponseMode = "live"
+const LiveResponseMode = pwruntime.LiveResponseMode
 
 // LiveManifestHeader carries the delivery validators a screen already holds, so
 // a reconnect transfers what changed rather than everything.

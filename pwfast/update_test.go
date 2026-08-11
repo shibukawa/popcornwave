@@ -15,7 +15,11 @@ func withUpdateSettings(t *testing.T) {
 	t.Helper()
 	previous, had := pwruntime.ResolvedUpdateSettings()
 	pwruntime.PublishUpdateSettings(pwruntime.UpdateSettings{
-		Enabled:             true,
+		Enabled: true,
+		// The subscription's own switch. It is separate from the one above
+		// because it answers a separate request, and a project that asked only
+		// for live rendering leaves that one off.
+		Live:                true,
 		ValidatorKey:        "test-validator-key-that-is-long-enough",
 		HeaderPrefix:        "Pw",
 		DataAttributePrefix: "tb",
@@ -187,7 +191,11 @@ func TestServeLiveWritesTheSharedRecordProtocol(t *testing.T) {
 		if !ServeLive(r, nil, staticFragment(`<p>static</p>`)) {
 			t.Error("a live request was not answered")
 		}
-	}, map[string]string{"Pw-Render": "live", "Pw-Build": "test-build"})
+		// The header the browser runtime this framework ships actually sends,
+		// which is this framework's own rather than the update module's mode
+		// token. Asserting the module's spelling here is what let the two
+		// transports read two different headers without a test noticing.
+	}, map[string]string{pwruntime.ResponseModeHeader: pwruntime.LiveResponseMode, "Pw-Build": "test-build"})
 
 	if status != fasthttp.StatusOK {
 		t.Fatalf("status = %d: %s", status, body)

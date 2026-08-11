@@ -1,12 +1,11 @@
+//go:build !fasthttp
+
 package handlers
 
 import (
-	"context"
 	"net/http"
-	"time"
 
 	"github.com/shibukawa/popcornwave/pw"
-	httpbind "github.com/shibukawa/tinybind-go"
 )
 
 func init() {
@@ -31,14 +30,6 @@ func home(w http.ResponseWriter, r *http.Request) {
 	}))
 }
 
-type listInput struct {
-	// input reads the query string and falls back to the body, which is what
-	// makes this handler indifferent to where htmx put the value: a GET carries
-	// it in the URL, and a DELETE does so only depending on the client's
-	// configuration.
-	Query string `input:"q" check:"maxlen=40"`
-}
-
 // listTasks answers the filter box. The response is the list region and nothing
 // else, so htmx replaces #task-list and leaves the rest of the page — including
 // the text being typed into the filter — untouched.
@@ -53,13 +44,6 @@ func listTasks(w http.ResponseWriter, r *http.Request) {
 		Tasks:      matched,
 		EmptyLabel: emptyLabel(input.Query, len(matched)),
 	}))
-}
-
-type createInput struct {
-	Title    string `payload:"title" check:"required,maxlen=60"`
-	Owner    string `payload:"owner" check:"required,maxlen=24"`
-	Priority string `payload:"priority" enum:"low,normal,high" default:"normal"`
-	Query    string `input:"q" check:"maxlen=40"`
 }
 
 // createTask is the write, and the one place where the status contract of a
@@ -110,11 +94,6 @@ func writePanel(w http.ResponseWriter, r *http.Request, form FormState, query, n
 	}))
 }
 
-type removeInput struct {
-	ID    string `path:"id"`
-	Query string `input:"q" check:"maxlen=40"`
-}
-
 // removeTask answers with the list region, so one response repairs the whole
 // region rather than deleting a row the browser happens to be looking at. A row
 // that is already gone is a 404: htmx leaves the list alone, which is the
@@ -152,71 +131,4 @@ func taskSummary(w http.ResponseWriter, r *http.Request) {
 // log, so the framework answers 500 with a problem document instead.
 func brokenFragment(w http.ResponseWriter, r *http.Request) {
 	pw.WriteHTMLFragment(w, r, StyledBadge(StyledBadgeParams{Label: "styled by a scoped block"}))
-}
-
-func summarize(ctx context.Context) (Summary, error) {
-	if err := sleep(ctx, 600*time.Millisecond); err != nil {
-		return Summary{}, err
-	}
-	total, high := tasks.counts()
-	return Summary{Total: total, High: high, Took: "600ms"}, nil
-}
-
-// validationFields reports the field-level failures behind a pw.Parse error.
-// The distinction matters: those are worth showing next to an input, and
-// anything else is not.
-func validationFields(err error) ([]pw.FieldError, bool) {
-	mapped, ok := httpbind.AsHTTPError(err)
-	if !ok || len(mapped.Fields) == 0 {
-		return nil, false
-	}
-	return mapped.Fields, true
-}
-
-func applyFieldErrors(form *FormState, fields []pw.FieldError) {
-	for _, field := range fields {
-		switch field.Field {
-		case "title":
-			form.TitleError = field.Message
-		case "owner":
-			form.OwnerError = field.Message
-		default:
-			// priority and q are set by the page rather than typed, so a failure
-			// there means the request did not come from this form.
-			form.FormError = field.Field + " " + field.Message
-		}
-	}
-}
-
-// knownPriority keeps the select on a value it actually offers. Anything else
-// did not come from this form, and the rejection is already reported above it.
-func knownPriority(value string) string {
-	switch value {
-	case "low", "normal", "high":
-		return value
-	default:
-		return "normal"
-	}
-}
-
-func emptyLabel(query string, matched int) string {
-	switch {
-	case matched > 0:
-		return ""
-	case query != "":
-		return "Nothing matches “" + query + "”."
-	default:
-		return "No tasks yet."
-	}
-}
-
-func sleep(ctx context.Context, d time.Duration) error {
-	timer := time.NewTimer(d)
-	defer timer.Stop()
-	select {
-	case <-timer.C:
-		return nil
-	case <-ctx.Done():
-		return ctx.Err()
-	}
 }

@@ -155,7 +155,21 @@ prerequisites:
       server_banner: fasthttp announced itself in a header the other transport does not send
     why_only_a_real_application_found_them: each is a file an application owns or a header a browser reads, and every test here drove a handler or an artifact rather than a built binary
     migration_it_documents: declare project.fasthttp, run pw generate, tag the authored files typed by one transport, and add the second entry point — which is what api:cli-init now scaffolds for a new project
+  complex_features_2026_08_11:
+    driven: async_render, live_render, partial_update and htmx_fragment, each built both ways and the interesting request actually made
+    async: works, and the derivation reads well — pw.Go survives with its context, and a handler whose parameter name collided gets a fresh one with the original rebound; a page with two pending values renders identically to the first transport's
+    async_needed: pwfast had no Go, Resolved or Failed at all, so every derived handler that started work called a function that did not exist
+    live: works — the same NDJSON record protocol, head record and deliveries addressed by boundary id, streamed
+    what_live_needed_first:
+      published_settings: nothing published the update settings in a build without pw, so the whole surface was inert — no live, no redraw, no partial update; the reduction is pwconfig's now, published by Parse beside the chain settings
+      the_wrong_switch: ServeLive gated on update.enabled, which is a different setting answering a different request; live is gated by html.live and streaming, so a project asking only for live got none
+      the_wrong_header: it read the update module's mode token, and the browser runtime this framework ships sends Pw-Response-Mode; the constants are shared now, since they are the wire between one client and either half
+      unflushed_records: the loop wrote into the bufio.Writer a body stream writer is handed and never flushed, so a subscription held a connection open and delivered nothing
+      the_access_log_drained_it: Response.Body on a body stream materializes the stream to answer, so logging the size consumed a subscription that by design does not end — the request never completed and no byte reached the client
+    a_test_agreed_with_the_bug: the live protocol test published update.enabled and sent the module's header, so implementation and test matched each other and both disagreed with the client; it asserts the shipped contract now
+    error_pages: pwfast answered every failure with a problem document, so a browser never saw the application's error page; it negotiates on Accept through the shared rule and renders the registered page through the document shell, exactly as the other half does
   still_missing:
+    browser_runtime_asset: the second build serves no /_pw runtime script — it answers 404 — and pw.RuntimeScriptURL has no counterpart, so a page renders with a script tag pointing at nothing and nothing client-side is driven; the server halves of live and update work, and the client cannot reach them
     websocket: requirement:contrib-websocket, blocked on a dependency decision rather than on work here
     dev_tooling: out of scope, per dev_tooling_scope above
     framework_actions: the second build takes no command line at all — the argument filter that lifts framework subcommands off it is a pw hook, so --help and the config flags are unknown there

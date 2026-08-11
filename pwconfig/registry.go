@@ -99,6 +99,7 @@ func Parse() error {
 	defer func() {
 		if publish {
 			PublishChainSettings()
+			PublishUpdateSettings()
 		}
 	}()
 	configState.Lock()
