@@ -23,19 +23,86 @@ The security middleware owns CSP, HSTS, `X-Content-Type-Options`,
 combines a session-bound token with an origin check; cookie policy controls
 `Secure`, `HttpOnly`, `SameSite`, signing, and encryption.
 
+At first, `script-src 'self'` appears to conflict with JavaScript written
+directly in a template. Generation removes that conflict. A `<script>` with an
+inline body in a `.pw.html` component never reaches the response in that form.
+The generator extracts each component script into a content-hashed JavaScript
+file and puts a `<script src="…">` reference in the merged head, preserving
+authored attributes such as `defer`, `async`, and `type`. The browser executes a
+same-origin external script, so the policy needs neither a nonce nor
+`'unsafe-inline'`.
+
+Fast template rendering does not reopen the policy through `'unsafe-eval'`.
+`pw generate` compiles template expressions and control flow into `_pw_gen.go`,
+and the server executes functions compiled by Go. No runtime template
+interpreter, browser-side template compiler, or `eval` enters the rendering
+path. Generated Go provides the fast path while the narrow CSP remains intact.
+
 - [Security response headers](/guides/frontend/security-headers/)
+- [Template syntax and extracted files](/reference/template-syntax/#extracted-files)
 - [CSRF and deployment security](/guides/architecture/security/)
 - [Cookie protection](/guides/backend/cookies/)
 
 ## Authentication
 
-Browser authentication uses OpenID Connect and WebAuthn passkeys. API-only
-applications can verify Bearer JWTs, while session and assurance policy keeps
-the resulting identity available through one request contract.
+Enabling authentication does not settle which trust model an application uses.
+Popcorn Wave keeps browser login separate from Bearer API authentication and
+offers five configurations:
+
+| Configuration | Setting | Boundary | Authentication mechanism |
+| --- | --- | --- | --- |
+| OIDC | `oidc_only` | Browser | Login always goes through an OpenID Provider |
+| OIDC + passkey | `oidc_passkey` | Browser | OIDC establishes the account; WebAuthn passkeys handle routine login |
+| Passkey | `passkey_only` | Browser | An administrator-issued, one-time credential bootstraps the first passkey |
+| JWT | `jwt_only` | API | Every request carries a Bearer access token; there is no login page or session |
+| None | `auth.enabled = false` | Public application or custom authentication | No authentication endpoints or guard are installed |
+
+Passwords are not a sixth mode. The framework has no endpoint or store for
+accepting, comparing, or resetting them, so it does not create a target for
+credential-stuffing attacks. Even the secret used to bootstrap a passkey-only
+account is a short-lived, single-use enrollment credential rather than a
+reusable password. An OIDC provider may authenticate its users however it
+chooses, but the application never receives the provider password.
+
+OIDC login implements only the Authorization Code Flow. It does not implement
+the Resource Owner Password Credentials Grant or Client Credentials Grant.
+S256 PKCE is mandatory, with no setting that can disable it, so intercepting an
+authorization code is not enough to complete a login. The client also binds
+`state` to a single-use transaction and requires `nonce`, then verifies that the
+returned ID Token belongs to the login that this browser started.
+
+JWT mode does more than verify a signature. It verifies the signature against
+an allowlisted algorithm and discovered key, then checks `iss`, `aud`, `exp`,
+`iat`, `sub`, the access-token type, maximum lifetime, and every required scope.
+Configurations that need `jti` or revocation checks get those checks as well.
+Issuer, audience, algorithms, maximum lifetime, admission, and revocation mode
+have no permissive defaults; omitting one prevents startup. Every rejection
+produces the same `401`, so the response does not expose which check failed.
+
+### Development keeps the same authentication boundary
+
+`pw dev` can start a small loopback IdP that speaks the same OIDC protocol as a
+production OpenID Provider. It registers an ephemeral client and injects the
+issuer, client ID, and client secret into the application. The application can
+therefore exercise Authorization Code, PKCE, `state`, `nonce`, and ID Token
+verification without adding a debug login or an authentication bypass to
+production code. The development IdP itself checks no password; the developer
+selects a fixture user from a list. It refuses to run outside development, and
+the normal build also refuses to include it in a release artifact.
+
+JWT mode has a separate development relaxation for hand-written local tokens.
+It disables signature, issuer, audience, token-type, time, and algorithm
+allowlist checks as one unit. Four locks must all be open: the development build,
+the development environment, the explicit setting, and a loopback request that
+did not pass through a proxy. Identity-claim extraction, admission, revocation,
+syntax, and token-size limits remain active. A response admitted this way carries
+`X-Pw-Auth-Unverified: true`, while a production binary refuses to start if it
+sees the relaxation setting instead of silently ignoring it.
 
 - [Authentication](/guides/backend/authentication/)
 - [Authentication design](/guides/backend/authentication-design/)
 - [Sessions](/guides/backend/sessions/)
+- [Development identity provider](/productivity/dev-identity-provider/)
 
 ## Error responses and rate limits
 
@@ -88,9 +155,49 @@ behind the same path guard as application routes.
 
 HTML is private and `no-store` unless its document shell declares a public
 scope. Fingerprinted assets use validators and immutable caching; navigation
-deltas and live delivery use `no-store`. Content encoding and precompressed
-asset selection maintain the corresponding `Vary` fields, while 429 responses
-are never stored.
+deltas and live delivery use `no-store`, and 429 responses are never stored.
+
+### Images negotiate through `Accept`
+
+One image URL does not imply that every client can decode the same bytes. With
+image conversion enabled, the build converts PNG and JPEG sources referenced by
+`img src` to WebP. Enabling `assets.images.avif = true` adds an AVIF
+representation from the same source, leaving WebP and AVIF behind one URL. If a
+conversion is larger than its source, the build declines it and retains the
+original PNG or JPEG instead.
+
+WebP is Baseline Widely Available and now makes a practical browser fallback.
+AVIF support arrived later, so older browsers, WebViews, and non-browser clients
+may still lack it. Popcorn Wave does not guess from the User-Agent. It returns
+AVIF when the request's `Accept` field permits `image/avif` and that
+representation exists; otherwise it falls back to WebP. Only a URL with both
+representations carries `Vary: Accept`, keeping shared caches from mixing the
+two. If the build declined the WebP conversion, the retained PNG or JPEG is the
+fallback instead.
+
+### Static assets compress deeply at build time
+
+With the corresponding asset transforms enabled, the build minifies CSS and
+authored JavaScript under `public`. A TypeScript or TSX entry named by
+`script src` goes through esbuild, which bundles its dependencies into an ES
+module and emits a minified, content-hashed file. After those transformations,
+the build precompresses the bytes that will actually ship—HTML, CSS, JavaScript,
+JSON, SVG, and other compressible formats—at the maximum Brotli, zstd, and gzip
+levels. The resulting `.br`, `.zstd`, and `.gz` sidecars spend CPU during the
+build. Serving them spends none on compression.
+
+For each request, `Accept-Encoding` selects the smallest available sidecar that
+the client permits, with identity as the final fallback. Each representation
+has its own ETag, and `Vary: Accept-Encoding` keeps caches from confusing them.
+
+### Dynamic responses compress shallow and fast
+
+A client is waiting while a handler produces HTML, JSON, navigation deltas, or
+live output. With response compression enabled, eligible responses negotiate
+zstd or gzip through `Accept-Encoding`, then run zstd at its fastest setting or
+gzip at level 1. Brotli and maximum levels stay out of the request path because
+saving a few more bytes is not worth delaying the response. Static compression
+optimizes transfer size; dynamic compression protects throughput.
 
 - [Rendering cache](/guides/frontend/rendering-cache/)
 - [Static assets](/guides/frontend/static-assets/)
@@ -107,6 +214,40 @@ application handlers.
 - [Middlewares](/guides/backend/middlewares/)
 - [Operational endpoints](/guides/deployment/operational-endpoints/)
 - [Reverse proxies](/guides/deployment/reverse-proxy/)
+
+## Why HTTPS termination stays out
+
+A public web application needs HTTPS. Even so, Popcorn Wave deliberately does
+not load certificates and private keys or terminate inbound TLS inside the
+application. TinyGo's `crypto/tls` support makes parity with a conventional Go
+HTTPS server difficult, but the compiler is only part of the reason.
+
+The missing piece is the inbound HTTPS server, not outbound HTTPS. Applications
+can call OIDC providers and external APIs securely in either build. Host Go uses
+the standard `net/http` and `crypto/tls` packages. TinyGo switches to
+`tinygodriver/https`: Network.framework supplies TLS on macOS, Schannel supplies
+it on Windows, and a vendored mbedTLS implementation supplies it on Linux.
+Outbound traffic does not fall back to cleartext.
+
+Terminating TLS in the application would also make certificate issuance,
+renewal, revocation, private-key protection, and cipher-policy updates part of
+the application's operating surface. The terminating process would then be the
+first component to absorb TLS handshakes, connection floods, and other attack
+traffic. A CDN or managed load balancer can manage the certificate lifecycle and
+mitigate DDoS traffic at a much larger network edge. Popcorn Wave has not
+discarded HTTPS; it has moved termination to the layer better equipped to own it.
+
+In production, terminate HTTPS at a CDN or load balancer and prevent direct
+public access to the application's origin port. If traffic from the CDN to the
+origin crosses an untrusted network, place a TLS proxy on the application host
+or private network and keep HTTPS up to that proxy. Only the final, tightly
+bounded hop to the application should use HTTP.
+
+When local development also needs HTTPS, put nginx, Caddy, Traefik, or a similar
+proxy in front of the application. Let that layer own certificates and TLS
+configuration, and forward `Host` and `X-Forwarded-Proto` correctly. The
+[reverse-proxy guide](/guides/deployment/reverse-proxy/) covers trusted-proxy
+ranges, HSTS, and the public origins used for CSRF checks.
 
 ## Client hints, and why they stay out
 
