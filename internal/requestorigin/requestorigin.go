@@ -123,11 +123,16 @@ func (p Proxies) IsHTTPS(r *http.Request) bool { return p.Scheme(r) == "https" }
 // It returns the empty string for a request carrying no Host, which never
 // matches anything.
 func (p Proxies) Of(r *http.Request) string {
-	host := r.Host
+	return p.OriginOf(r.Host, p.Scheme(r))
+}
+
+// OriginOf assembles the origin from a host and an already-resolved scheme, for
+// a caller whose request is not a *http.Request.
+func (p Proxies) OriginOf(host, scheme string) string {
 	if host == "" {
 		return ""
 	}
-	return p.Scheme(r) + "://" + strings.TrimSuffix(host, ":")
+	return scheme + "://" + strings.TrimSuffix(host, ":")
 }
 
 // ClientAddress is the address of the caller rather than of the relay in
@@ -201,11 +206,22 @@ func (p Proxies) ClientAddressOf(remoteAddress string, forwarded []string) strin
 // resolves what this deployment calls itself, and never makes an origin nobody
 // declared acceptable.
 func (p Proxies) Matches(r *http.Request, trusted map[string]bool) bool {
-	self := p.Of(r)
-	if origin := r.Header.Get("Origin"); origin != "" && origin != "null" {
+	return MatchesOrigin(p.Of(r), r.Header.Get("Origin"), r.Header.Get("Referer"), trusted)
+}
+
+// MatchesOrigin decides whether a request came from somewhere this deployment
+// accepts, given the origin it serves as and the two headers a browser sends.
+//
+// Origin is preferred and Referer is the fallback, and a request carrying
+// neither is refused rather than allowed. That is the whole cross-site
+// judgement, so it is one function: a second implementation could differ on the
+// "null" origin, which a sandboxed frame and a privacy-stripped navigation both
+// send, and treating that as same-origin would accept exactly the requests this
+// check exists to refuse.
+func MatchesOrigin(self, origin, referer string, trusted map[string]bool) bool {
+	if origin != "" && origin != "null" {
 		return origin == self || trusted[origin]
 	}
-	referer := r.Header.Get("Referer")
 	if referer == "" {
 		return false
 	}
@@ -213,8 +229,8 @@ func (p Proxies) Matches(r *http.Request, trusted map[string]bool) bool {
 	if err != nil || parsed.Scheme == "" || parsed.Host == "" {
 		return false
 	}
-	origin := parsed.Scheme + "://" + parsed.Host
-	return origin == self || trusted[origin]
+	from := parsed.Scheme + "://" + parsed.Host
+	return from == self || trusted[from]
 }
 
 // Of resolves the origin for a deployment that declared no proxy.

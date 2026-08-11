@@ -159,7 +159,11 @@ func (r *checkRun) checkProject() {
 	}
 	if r.State.config.Tailwind.Enabled {
 		reasons := []string{}
-		if _, ok := r.Scan.devboxVersions["tailwindcss"]; !ok && r.State.devbox != "" {
+		// Matched by prefix, because the pin carries the major version in the
+		// package name: what pw add writes is tailwindcss_4, and asking for the
+		// bare name told every project that took the scaffold's own answer that
+		// its toolchain was missing.
+		if !r.Scan.devboxPins("tailwindcss") && r.State.devbox != "" {
 			reasons = append(reasons, "devbox pins no tailwindcss")
 		}
 		if input := r.State.config.Tailwind.Input; input != "" {
@@ -196,14 +200,15 @@ func (r *checkRun) checkWiring() {
 	}
 	if r.Config.enabled("session.enabled") {
 		backend := r.Config.raw("session.backend")
-		switch pkg, known := sessionBackendPackages[backend]; {
+		pkg := sessionBackendPackage(backend, r.State.config.Database)
+		switch {
 		case backend == "cookie" || backend == "dev-volatile" || backend == "dev-persist":
 			// Built into pw; no storage plugin import is required.
-		case known && !r.Graph.links(pkg):
+		case pkg != "" && !r.Graph.links(pkg):
 			r.report(pwcheck.MissingSessionPlugin,
 				"session.backend is "+backend+" and the application links no plugin registering it",
 				"add: import _ \""+pkg+"\"")
-		case !known && backend != "":
+		case pkg == "" && backend != "":
 			r.report(pwcheck.MissingSessionPlugin,
 				"session.backend is "+backend+", which no linked plugin registers",
 				"session.backend")

@@ -216,8 +216,10 @@ therefore lives in the registry, every generated import points down the tree, an
 no upward edge exists.
 
 That constraint reaches the handler rung. A handwritten `Load` cannot call a
-composer above itself, so a handler-rung page composes its own chain through the
-`Render` generated beside it:
+composer above itself, so a handler-rung page composes its own chain: the
+`BindLayout` generated for each ancestor layout, outermost first, and
+`pwpage.Render` around the leaf. It is the same chain the registry assembles for
+the rungs below, written out.
 
 ```go
 func Load(w http.ResponseWriter, r *http.Request) {
@@ -226,11 +228,17 @@ func Load(w http.ResponseWriter, r *http.Request) {
 		pw.WriteProblem(w, r, err)
 		return
 	}
-	if err := Render(w, r, route, PageParams{}); err != nil {
+	_ = route
+	wrappers := []pwpage.Wrapper{BindLayout(LayoutParams{})}
+	if err := pwpage.Render(w, r, wrappers, Page(PageParams{})); err != nil {
 		pw.WriteProblem(w, r, err)
 	}
 }
 ```
+
+`BindLayout` is generated into the package that holds the layout, so a page
+deeper in the tree names its ancestors' — `pages.BindLayout(...)` for the root's,
+then each one below it.
 
 For a rung whose reason to exist is owning the response, that is the right side
 of the trade.

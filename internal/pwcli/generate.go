@@ -110,32 +110,29 @@ func generateProject(ctx context.Context, check bool, stdout io.Writer, listPath
 	}
 	runner := generator.New(options)
 	var changes []fileChange
-	writes, analyses := splitByAnalysis(root, config.Generate, directories)
-	for _, directory := range writes {
-		planned, err := planDirectory(ctx, runner, directory, directoryPurposes(root, config.Generate, directory), pageArtifacts[directory], config.FastHTTP)
-		if err != nil {
-			return 0, err
+	for index, stage := range splitByAnalysis(root, config.Generate, directories) {
+		if len(stage) == 0 {
+			continue
 		}
-		changes = append(changes, planned...)
-	}
-	// What the analysis half is about to type-check has to be on disk, not in
-	// this slice: loading a handler package reads the query package from the
-	// file system, and a plan nobody has written is invisible to it.
-	//
-	// Check mode writes nothing and plans both halves against the tree as it
-	// stands, which is the right answer there: a tree missing its generated
-	// files is stale, and saying so is what check mode is for.
-	if !check && len(analyses) > 0 && len(changes) > 0 {
-		if err := applyFileChanges(changes); err != nil {
-			return 0, err
+		// What a stage is about to type-check has to be on disk, not in this
+		// slice: loading a handler package reads the query package from the file
+		// system, and a plan nobody has written is invisible to it.
+		//
+		// Check mode writes nothing and plans every stage against the tree as it
+		// stands, which is the right answer there: a tree missing its generated
+		// files is stale, and saying so is what check mode is for.
+		if index > 0 && !check && len(changes) > 0 {
+			if err := applyFileChanges(changes); err != nil {
+				return 0, err
+			}
 		}
-	}
-	for _, directory := range analyses {
-		planned, err := planDirectory(ctx, runner, directory, directoryPurposes(root, config.Generate, directory), pageArtifacts[directory], config.FastHTTP)
-		if err != nil {
-			return 0, err
+		for _, directory := range stage {
+			planned, err := planDirectory(ctx, runner, directory, directoryPurposes(root, config.Generate, directory), pageArtifacts[directory], config.FastHTTP)
+			if err != nil {
+				return 0, err
+			}
+			changes = append(changes, planned...)
 		}
-		changes = append(changes, planned...)
 	}
 	// Declaring a package is what links it, so the declarations are resolved
 	// before the bootstrap is planned. A declaration the module graph cannot
@@ -462,30 +459,44 @@ func packageDirectories(root string, scope generationScope) ([]string, error) {
 	return out, nil
 }
 
-// splitByAnalysis divides the directories into the ones whose generation only
-// writes Go and the ones whose generation also type-checks it.
+// splitByAnalysis divides the directories into the stages a run generates in.
+// Each stage is written to disk before the next one is planned, because a later
+// stage type-checks Go an earlier one produced.
 //
-// The order between the two halves is what makes a clean checkout generate at
-// all. A handler package imports the query package this run is about to
-// produce, and analysing the handlers loads that import — so with one pass in
-// alphabetical order, "handlers" is planned before "queries", finds a package
-// holding no Go files, and fails. The run stops there, "queries" is never
-// reached, and running it again changes nothing, because nothing was written.
-// Only a working tree that still holds output from an earlier generation gets
-// past it, which is why this survives on a machine that has built the project
-// once and not on a fresh clone.
-func splitByAnalysis(root string, scope generationScope, directories []string) (writes, analyses []string) {
+// That order is what makes a clean checkout generate at all. A handler package
+// imports the query package this run is about to produce, and analysing the
+// handlers loads that import — so with one pass in alphabetical order,
+// "handlers" is planned before "queries", finds a package holding no Go files,
+// and fails. The run stops there, "queries" is never reached, and running it
+// again changes nothing, because nothing was written. Only a working tree that
+// still holds output from an earlier generation gets past it, which is why this
+// survives on a machine that has built the project once and not on a fresh
+// clone.
+//
+// A page tree is the same relationship one level up, and the one that reaches a
+// project on its first day: a tree root holds templates and no Go at all, and
+// the Register that mounts it is generated. The main package calls that
+// Register, so analysing it loads a page package nothing has written yet. A
+// scaffolded project is exactly this shape, so the failure lands on the first
+// pw dev rather than on some later clean checkout.
+func splitByAnalysis(root string, scope generationScope, directories []string) [][]string {
+	var writes, pages, analyses []string
 	for _, directory := range directories {
 		purposes := directoryPurposes(root, scope, directory)
-		// The data-access purposes read their own declaration files and emit Go
-		// without loading any, so they are the half that can always run first.
-		if purposes.handlers || purposes.pages || purposes.config {
+		switch {
+		// A page tree publishes a package its callers import, so it is planned
+		// before them and after the declaration purposes a page handler reads.
+		case purposes.pages:
+			pages = append(pages, directory)
+		case purposes.handlers || purposes.config:
 			analyses = append(analyses, directory)
-			continue
+		// The data-access purposes read their own declaration files and emit Go
+		// without loading any, so they are the stage that can always run first.
+		default:
+			writes = append(writes, directory)
 		}
-		writes = append(writes, directory)
 	}
-	return writes, analyses
+	return [][]string{writes, pages, analyses}
 }
 
 // strayReport is one source the purpose that owns its kind does not list.

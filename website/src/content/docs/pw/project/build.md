@@ -122,8 +122,9 @@ it a TinyGo binary compiles fine and then exits at startup:
 2026/01/01 00:00:00 Netdev not set
 ```
 
-Projects created with `--no-tinygo` do not get the file; add it by hand before
-switching a project to TinyGo.
+Only a project created with `--tinygo`, or with that wizard answer, gets the
+file — it is not the default. Add it by hand before switching a project to
+TinyGo.
 
 ## In CI
 

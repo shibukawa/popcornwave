@@ -157,7 +157,16 @@ func Options(sqlDialect string) (generator.Options, error) {
 		{name: "QueryValue", writer: -1, request: 0},
 		{name: "FormValue", writer: -1, request: 0},
 		{name: "IsBot", writer: -1, request: 0},
+		// The mode arrives in a header, so a page asking about it through the
+		// framework is a page either transport can serve.
+		{name: "WantsLive", writer: -1, request: 0},
 		{name: "OpenAPIJSON", writer: 0, request: 1},
+		// The two accessors a generated route decoder reads through. They take
+		// the request and no writer, and they exist so a decoder never reaches
+		// into the request value itself — which is the read no second transport
+		// can follow.
+		{name: "PathValue", writer: -1, request: 0},
+		{name: "Queries", writer: -1, request: 0},
 	} {
 		options := []generator.CallPatternOption{generator.RequestArgument(transport.request)}
 		if transport.writer >= 0 {
@@ -166,6 +175,12 @@ func Options(sqlDialect string) (generator.Options, error) {
 		patterns = append(patterns, generator.TransportCall(
 			generator.Function(pwPackage, transport.name), options...))
 	}
+	// The page runtime's one render entry. A handler-rung page composes its own
+	// chain and calls it, which is the rung the scaffold itself writes, so a
+	// pattern for it is what keeps a page tree analyzable at all.
+	patterns = append(patterns, generator.TransportCall(
+		generator.Function(pwPagePackage, "Render"),
+		generator.WriterArgument(0), generator.RequestArgument(1)))
 	if err := registry.Register(patterns...); err != nil {
 		return generator.Options{}, err
 	}

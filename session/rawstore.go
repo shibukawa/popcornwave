@@ -2,7 +2,6 @@ package session
 
 import (
 	"context"
-	"net/http"
 	"time"
 )
 
@@ -133,12 +132,12 @@ func (s typedStore[T]) Delete(ctx context.Context, keyHash string) error {
 
 // BindRequest forwards the binding of a store that keeps its records in the
 // browser. Wrapping such a store must not hide it from the Manager.
-func (s typedStore[T]) BindRequest(ctx context.Context, w http.ResponseWriter, r *http.Request) context.Context {
+func (s typedStore[T]) BindRequest(ctx context.Context, carrier Carrier) context.Context {
 	binder, ok := s.raw.(RequestBinder)
 	if !ok {
 		return ctx
 	}
-	return binder.BindRequest(ctx, w, r)
+	return binder.BindRequest(ctx, carrier)
 }
 
 var _ RequestBinder = typedStore[string]{}

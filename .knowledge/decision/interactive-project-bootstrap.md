@@ -32,7 +32,7 @@ question_model:
 questions:
   - preset, per requirement:init-presets, which is the first screen and answers every question below it except the project name
   - project name
-  - TinyGo support, defaulting to yes for decision:stdlib-servemux parity
+  - TinyGo support, defaulting to no because it is the one answer pw add cannot revisit, and decision:stdlib-servemux routing is the same either way
   - router, defaulting to registered, per decision:page-router-scaffold-choice
   - Tailwind CSS
   - authentication mode, defaulting to none, asked before the stores because it is the answer that decides whether a store is optional at all

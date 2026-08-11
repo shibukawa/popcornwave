@@ -394,3 +394,26 @@ func fillID(destination []byte) {
 		destination[len(destination)-1] = 1
 	}
 }
+
+// ValueStore is a request value that carries its own state instead of being
+// replaced by a derived copy, which is how a transport without derivable
+// contexts publishes request state.
+type ValueStore interface {
+	SetUserValue(key, value any)
+}
+
+// StoreContext copies the active span of ctx onto a request value.
+//
+// It exists because a span reaches its readers through the context, and a
+// transport whose request value is the context cannot be handed a derived one.
+// Copying the value rather than exporting the key keeps the key unexported: an
+// exported span key is one any code can write, and a written span is one the
+// exporter believes.
+func StoreContext(store ValueStore, ctx context.Context) {
+	if store == nil || ctx == nil {
+		return
+	}
+	if value, ok := ctx.Value(contextKey{}).(contextValue); ok {
+		store.SetUserValue(contextKey{}, value)
+	}
+}

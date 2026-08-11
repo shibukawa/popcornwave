@@ -95,3 +95,77 @@ func PageConfig(root, importBase string) routetree.Config {
 		DocumentFile: DocumentFile,
 	}
 }
+
+const (
+	pwFastPackage     = "github.com/shibukawa/popcornwave/pwfast"
+	pwFastPagePackage = "github.com/shibukawa/popcornwave/pwfastpage"
+	fastHTTPPackage   = "github.com/shibukawa/tinygodriver/fasthttp"
+)
+
+// fastPageRenderBlock is the render call on the second transport.
+//
+// One value carries the response and the request, so where the net/http block
+// writes two leading arguments this writes one. The rest is identical, which is
+// the point: the same chain, the same leaf, the same options.
+const fastPageRenderBlock = `{{ .Symbols.RuntimeAlias }}.Render({{ .Request }}, {{ .Chain }}, {{ .Leaf }}{{ with .Options }}, {{ . }}...{{ end }})`
+
+// FastPageEmitter returns the emitter that writes a page tree for the second
+// transport.
+//
+// It is a second configuration rather than a second template set. Everything
+// that differs is a symbol: which package supplies the router, the error
+// constructors and the request accessors; how a handler's parameters are
+// spelled; and the two pattern spellings a trie router does not share with Go
+// 1.22. The templates are upstream's, unchanged.
+func FastPageEmitter() (*routetree.Emitter, error) {
+	emitter := routetree.NewEmitter()
+
+	emitter.Symbols.RuntimeImport = pwFastPagePackage
+	emitter.Symbols.RuntimeAlias = "pwfastpage"
+	emitter.Symbols.MuxImport = ""
+	emitter.Symbols.MuxAlias = ""
+	emitter.Symbols.MuxType = "pwfastpage.Router"
+	emitter.Symbols.MuxConstructor = ""
+
+	// The request accessors and the error constructors are both pwfast's, so
+	// one alias serves the decoder and the failure path.
+	emitter.Symbols.ErrorImport = pwFastPackage
+	emitter.Symbols.ErrorAlias = "pwfast"
+	emitter.Symbols.WriteError = "WriteProblem"
+
+	// The transport itself is named only for the handler's parameter type.
+	emitter.Symbols.HTTPImport = fastHTTPPackage
+	emitter.Symbols.HTTPAlias = "fasthttp"
+	emitter.Symbols.RequestType = "*fasthttp.RequestCtx"
+	emitter.Symbols.HandlerParams = "r *fasthttp.RequestCtx"
+	// One value carries both halves, so the writer and the request are the same
+	// identifier. That is what collapses the leading arguments of a runtime
+	// call rather than a rule about how many to write.
+	emitter.Symbols.Writer = "r"
+	emitter.Symbols.Request = "r"
+	// The request value is itself a context, so a generated decoder reaches the
+	// context without a .Context() call.
+	emitter.Symbols.RequestIsContext = true
+
+	// The two spellings a trie router does not share with Go 1.22. Getting
+	// these wrong does not fail: the router reads "{rest...}" as a parameter
+	// named "rest..." and "{$}" as one named "$", and installs the route
+	// somewhere else without complaining.
+	emitter.Symbols.CatchAllSuffix = ":*"
+	emitter.Symbols.RootPattern = "/"
+
+	// A page function written against this transport takes one parameter, and a
+	// recognizer keyed on net/http would read it as a malformed typed page and
+	// report a signature error for a declaration that is correct.
+	emitter.HandlerShape = routetree.FastHTTPHandlerShape(fastHTTPPackage)
+
+	emitter.GeneratedHeader = PageGeneratedHeader
+	emitter.RenderWriterType = "io.Writer"
+	emitter.RenderRequestParam = "r"
+	emitter.ActionAttr = PageActionAttr
+
+	if err := emitter.Parse(routetree.TemplateRender, fastPageRenderBlock); err != nil {
+		return nil, err
+	}
+	return emitter, nil
+}

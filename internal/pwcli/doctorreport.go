@@ -140,7 +140,7 @@ func resolveFeatures(config environmentConfig, graph importGraph, state projectS
 
 	if graph.available() {
 		for index := range features {
-			features[index].Implementation = featureImplementation(features[index], graph, config)
+			features[index].Implementation = featureImplementation(features[index], graph, config, state.config.Database)
 		}
 	}
 	return features
@@ -165,14 +165,20 @@ func booleanFeature(config environmentConfig, name, key, detailKey string) docto
 
 // featureImplementation names what stands behind an enabled feature, or reports
 // that configuration selects something the binary does not link.
-func featureImplementation(feature doctorFeature, graph importGraph, config environmentConfig) string {
+func featureImplementation(feature doctorFeature, graph importGraph, config environmentConfig, engine string) string {
 	if feature.State != "on" {
 		return ""
 	}
 	switch feature.Name {
 	case "session":
 		backend := config.raw("session.backend")
-		if pkg, ok := sessionBackendPackages[backend]; ok {
+		// The development and cookie backends are pw itself, so naming no plugin
+		// is the correct answer rather than a missing one. Reported as an absence
+		// it read like a fault on the default a scaffolded project starts with.
+		if backend == "cookie" || backend == "dev-volatile" || backend == "dev-persist" {
+			return "built into pw"
+		}
+		if pkg := sessionBackendPackage(backend, engine); pkg != "" {
 			if graph.links(pkg) {
 				return pkg
 			}

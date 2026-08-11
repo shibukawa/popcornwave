@@ -23,27 +23,79 @@ func (m *Manager) Middleware(unavailable UnavailableHandler) func(http.Handler) 
 	}
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			current := &state{manager: m, writer: w, request: r}
-			if !m.lazyRecord {
-				switch err := current.resolveRecord(); {
-				case err == nil:
-				case staleSessionError(err):
-					// Stale or unreadable browser state: clear it and continue with
-					// no session.
-					m.clearCookie(w)
-				default:
-					unavailable(w, r, err)
-					return
-				}
+			resolved, err := m.Resolve(HTTPCarrier(w, r))
+			if err != nil {
+				unavailable(w, r, err)
+				return
 			}
-			current.loadCookieSlots()
-
-			// The session is storage. Whether the browser holding it is a
-			// signed-in account is settled at SlotAuthentication by whatever
-			// owns the login, which reads its own slot.
-			next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), stateKey{}, current)))
+			next.ServeHTTP(w, r.WithContext(resolved.Attach(r.Context())))
 		})
 	}
+}
+
+// Resolved is a session resolved against one request, ready to be published
+// wherever that transport publishes request state.
+type Resolved struct{ state *state }
+
+// ValueStore is a request value that carries its own state instead of being
+// replaced by a derived copy, which is how the second transport publishes
+// request state.
+type ValueStore interface {
+	SetUserValue(key, value any)
+}
+
+// StoreOn records this session on a request value that carries its own state.
+//
+// It exists because the key is this package's and should stay that way: a
+// transport publishing the session would otherwise need the key exported, and
+// an exported key is one any code can write, which for a session means any code
+// can present one.
+func (r Resolved) StoreOn(store ValueStore) {
+	if r.state == nil || store == nil {
+		return
+	}
+	store.SetUserValue(stateKey{}, r.state)
+}
+
+// Attach returns ctx carrying this session.
+func (r Resolved) Attach(ctx context.Context) context.Context {
+	if r.state == nil {
+		return ctx
+	}
+	return context.WithValue(ctx, stateKey{}, r.state)
+}
+
+// Resolve reads the session a carrier presents, and reports the failure that
+// should be answered rather than continued through.
+//
+// It is the whole of what Middleware does apart from wiring, and it exists
+// separately so a second transport carries a session without a second copy of
+// any of this. The rules a copy would have had to reproduce are the ones worth
+// not reproducing: when a token rotates, which cookie is cleared on a stale
+// record, and the difference between browser state that is merely stale and a
+// backend that is down.
+//
+// Stale or unreadable browser state is cleared and the request continues with
+// no session, because a client holding an expired cookie has not done anything
+// wrong. A backend failure returns an error, because continuing would serve the
+// request as anonymous and a reader could not tell that apart from a signed-out
+// visitor.
+func (m *Manager) Resolve(carrier Carrier) (Resolved, error) {
+	current := &state{manager: m, carrier: carrier}
+	if !m.lazyRecord {
+		switch err := current.resolveRecord(); {
+		case err == nil:
+		case staleSessionError(err):
+			m.clearCookie(current.carrier)
+		default:
+			return Resolved{}, err
+		}
+	}
+	current.loadCookieSlots()
+	// The session is storage. Whether the browser holding it is a signed-in
+	// account is settled at SlotAuthentication by whatever owns the login,
+	// which reads its own slot.
+	return Resolved{state: current}, nil
 }
 
 func defaultUnavailable(w http.ResponseWriter, _ *http.Request, _ error) {
@@ -65,12 +117,12 @@ func (m *Manager) Attach(w http.ResponseWriter, r *http.Request) (*http.Request,
 	if _, ok := currentState(r.Context()); ok {
 		return r, nil
 	}
-	current := &state{manager: m, writer: w, request: r}
+	current := &state{manager: m, carrier: HTTPCarrier(w, r)}
 	if !m.lazyRecord {
 		switch err := current.resolveRecord(); {
 		case err == nil:
 		case staleSessionError(err):
-			m.clearCookie(w)
+			m.clearCookie(current.carrier)
 		default:
 			return r, err
 		}
@@ -145,7 +197,7 @@ func (m *Manager) Rotate(w http.ResponseWriter, r *http.Request) error {
 func (m *Manager) Destroy(w http.ResponseWriter, r *http.Request) error {
 	current, ok := currentState(r.Context())
 	if !ok {
-		m.clearCookie(w)
+		m.clearCookie(current.carrier)
 		return nil
 	}
 	if err := current.resolveRecord(); err != nil && !staleSessionError(err) {
