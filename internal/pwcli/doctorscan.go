@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+
+	"github.com/shibukawa/popcornwave/internal/pwgen"
 )
 
 // projectScan is the file-level view of the project: what was generated, what
@@ -60,6 +62,12 @@ var packageArtifacts = map[string]bool{
 	storybookFileName:     true,
 	queryRegistryFileName: true,
 	queryLinkFileName:     true,
+	// A page tree route is a directory, so these two come from the directory
+	// rather than from a file inside it. Both are written into every route
+	// package a tree holds, which is what made their absence here a diagnosis
+	// that every discovered-routing project failed on the day it was created.
+	pwgen.PageDecoderOutput:  true,
+	pwgen.PageRegistryOutput: true,
 }
 
 func newProjectScan(root string, state projectState, configFiles map[string]string) *projectScan {
@@ -107,7 +115,15 @@ func (s *projectScan) scanGenerated() {
 		relative := s.relative(path)
 		stem := strings.TrimSuffix(path, generatedSuffix)
 		file := generatedFile{Path: relative, Orphan: true}
-		for suffix, kind := range map[string]string{".pw.html": "template", ".pw.sql": "query"} {
+		// Every source kind pw generate reads. A kind missing from this list is
+		// one whose output has no source the scan can find, so the diagnosis
+		// tells a project to delete the file that serves it.
+		for suffix, kind := range map[string]string{
+			".pw.html":      "template",
+			".pw.sql":       "query",
+			".pw.dynamo":    "query",
+			".pw.firestore": "query",
+		} {
 			candidate := stem + suffix
 			info, statErr := os.Stat(candidate)
 			if statErr != nil {
@@ -219,6 +235,19 @@ func (s *projectScan) scanDevbox(devbox string) {
 		}
 		s.devboxVersions[name] = version
 	}
+}
+
+// devboxPins reports whether a package of this name is pinned. The name is a
+// prefix, because a devbox package may carry a major version in its name —
+// tailwindcss_4 is the one this asks about — and a project pinning that is
+// pinning the tool the question is about.
+func (s *projectScan) devboxPins(name string) bool {
+	for pinned := range s.devboxVersions {
+		if pinned == name || strings.HasPrefix(pinned, name+"_") {
+			return true
+		}
+	}
+	return false
 }
 
 func (s *projectScan) relative(path string) string {

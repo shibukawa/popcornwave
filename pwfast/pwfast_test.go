@@ -79,6 +79,11 @@ func serveRequest(t *testing.T, handler fasthttp.RequestHandler, method, target,
 		t.Fatal(err)
 	}
 	response := fasthttp.Response{}
+	// A HEAD response declares a length and carries no body, so the reader has
+	// to be told not to wait for one.
+	if method == "HEAD" {
+		response.SkipBody = true
+	}
 	if err := response.Read(bufio.NewReader(strings.NewReader(string(raw)))); err != nil {
 		t.Fatalf("unreadable response: %v\n%s", err, raw)
 	}

@@ -191,4 +191,15 @@ func (p *Provider) sweepLocked() {
 			delete(p.tokens, key)
 		}
 	}
+	for key, device := range p.devicesByCode {
+		if !now.Before(device.expiresAt) {
+			delete(p.devicesByCode, key)
+			delete(p.devicesByUserCode, device.userCode)
+		}
+	}
+	for source, attempts := range p.verificationAttempts {
+		if now.Sub(attempts.startedAt) >= time.Minute {
+			delete(p.verificationAttempts, source)
+		}
+	}
 }

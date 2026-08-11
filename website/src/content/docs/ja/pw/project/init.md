@@ -6,7 +6,7 @@ sidebar:
 ---
 
 ```sh
-pw init <project-name> [--preset=<name>] [--yes] [--tailwind] [--no-tinygo] [--no-devbox] [--no-database] [--db=<engine>] [--dynamo] [--firestore] [--no-redis] [--router=<kind>] [--auth=<mode>] [--session=<backend>] [--devidp] [--skills=<dir>]
+pw init <project-name> [--preset=<name>] [--yes] [--tailwind] [--tinygo] [--no-devbox] [--no-database] [--db=<engine>] [--dynamo] [--firestore] [--no-redis] [--router=<kind>] [--auth=<mode>] [--session=<backend>] [--devidp] [--skills=<dir>]
 ```
 
 新しいディレクトリに、動作する完全なプロジェクトを作ります。端末で実行すると
@@ -31,10 +31,12 @@ pw init <project-name> [--preset=<name>] [--yes] [--tailwind] [--no-tinygo] [--n
 | `package` | 他のプロジェクトが import するモジュール | プロジェクトの種類が違う。[コンポーネントパッケージ](/ja/guides/deployment/package/)を参照 |
 | `manual` | 上の 6 つのどれでもないもの | 何も決めない。すべて自分で答える |
 
-TinyGo と Devbox はどのプリセットも同じ答え、つまりどちらも「はい」です。この 2 つは
-プロジェクトの中身を変えないので、プリセットを区別する材料になりません。端末なしで
-同じ答えを与えるなら `--preset=<name>` を使います。プリセットがすでに答えた質問に
-答えるオプションを併記すると拒否されます。どちらを優先すべきか、決める根拠がないためです。
+TinyGo と Devbox はどのプリセットも同じ答え、つまり TinyGo は「いいえ」、Devbox は
+「はい」です。この 2 つはプロジェクトの中身を変えないので、プリセットを区別する材料に
+なりません。プリセットから TinyGo を選ぶこともできます。下の確認画面でその行を開いて
+ください。端末なしで同じ答えを与えるなら `--preset=<name>` を使います。プリセットが
+すでに答えた質問に答えるオプションを併記すると拒否されます。どちらを優先すべきか、
+決める根拠がないためです。
 
 **確認画面はプリセットが選んだ内容の一覧で、その行はすべて編集できます。** 行の上で
 enter を押すとその質問が開き、答えると一覧に戻ります。プリセットは出発点であって、
@@ -57,7 +59,7 @@ enter を押すとその質問が開き、答えると一覧に戻ります。�
 | `--preset=<name>` | 以下の質問すべてに一度に答える。[プリセット](#プリセット)を参照 |
 | `--yes` | 質問せず、オプションと既定値で作る |
 | `--tailwind` | Tailwind CSS のツールチェインも一緒にスキャフォールドする |
-| `--no-tinygo` | TinyGo ではなくホストの Go を対象にする |
+| `--tinygo` | TinyGo も対象にする。`pw.ServeMux` によるルーティング、`devbox.json` のツールチェイン、2 つめの Dockerfile が付く |
 | `--no-devbox` | `devbox.json` を作らない。mise、Docker Compose、Nix、Homebrew、Scoop など自分の環境を使う |
 | `--no-database` | rdb 設定・マイグレーション・SQL の例を作らない |
 | `--db=<engine>` | `sqlite`（既定）, `postgres`, `mysql` |
@@ -79,8 +81,9 @@ Valkey サーバーは Devbox のパッケージです。`--no-devbox` は Valke
 答えても何も適用されない質問はウィザードに
 現れません。
 
-`--no-tinygo` だけは `pw add` で後から変えられません。
-[ツールチェインを変更する](#ツールチェインを変更する)を参照してください。
+`--tinygo` だけは `pw add` で後から変えられません。
+[ツールチェインを変更する](#ツールチェインを変更する)を参照してください。既定がホストの
+Go なのはそのためです。前提を置かない側であり、ルーティングはどちらでも同じだからです。
 
 ## データベースを選ぶ
 
@@ -137,9 +140,10 @@ database = "postgres"   # sqlite、postgres、mysql
 ## ツールチェインを変更する
 
 選んだコンパイラは `popcornwave.toml` の `project.toolchain` に記録され、ハンドラ
-パッケージが使う mux の型を決めます。TinyGo プロジェクトは両方のツールチェインで同じ
-import が通るよう `pw.ServeMux` を経由し、ホスト専用のプロジェクトは `http.ServeMux`
-のままです。生成はどちらも検出するので、違いはスキャフォールドの中に閉じています。
+パッケージが使う mux の型を決めます。既定であるホスト専用のプロジェクトは
+`http.ServeMux` のままで、TinyGo プロジェクトは両方のツールチェインで同じ import が
+通るよう `pw.ServeMux` を経由します。生成はどちらも検出するので、違いはスキャフォールド
+の中に閉じています。
 
 あとから切り替えるコマンドはありません。変更があなたの所有するソースに及ぶからです。
 手作業で行う場合は 4 か所です。

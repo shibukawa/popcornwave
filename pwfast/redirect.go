@@ -156,3 +156,37 @@ func IsBot(r *fasthttp.RequestCtx) bool {
 	}
 	return botdetect.Classify(string(r.Request.Header.UserAgent()), settings.UserAgents)
 }
+
+// PathValue reads one path parameter, which the router stored when it matched.
+//
+// It is here rather than being a method on the request value because this
+// transport has no path routing of its own: the value comes from whatever
+// router ran, and a generated decoder calling one function works with any of
+// them. The net/http half has the same entry for the same reason.
+func PathValue(r *fasthttp.RequestCtx, key string) string {
+	return fasthttpbind.PathValue(r, key)
+}
+
+// Queries returns the parsed query, for a decoder reading several
+// parameters from one request.
+func Queries(r *fasthttp.RequestCtx) *fasthttp.Args { return r.QueryArgs() }
+
+// QueryLookup reads one parameter from a parsed query, reporting whether it was
+// present. Presence and emptiness are different answers: a flag parameter
+// arrives with no value at all.
+func QueryLookup(query *fasthttp.Args, key string) (string, bool) {
+	return fasthttpbind.QueryLookup(query, key)
+}
+
+// WantsLive reports whether this request asked for deliveries instead of a
+// document, which is what a page renders differently for.
+//
+// It is the counterpart of the net/http half's predicate, and the reason both
+// exist is this one: the mode arrives in a header, and a page that read the
+// header itself would be a page only one transport could serve.
+func WantsLive(r *fasthttp.RequestCtx) bool {
+	if r == nil {
+		return false
+	}
+	return string(r.Request.Header.Peek(ResponseModeHeader)) == LiveResponseMode
+}

@@ -70,6 +70,7 @@
 {"category": "interface", "id": "api:transaction-runner", "path": ".knowledge/api/transaction-runner.md", "role": "primary", "title": "Transaction API", "type": "api"}
 {"category": "interface", "id": "api:typed-external-function", "path": ".knowledge/api/typed-external-function.md", "role": "primary", "title": "Typed External Function", "type": "api"}
 {"category": "interface", "id": "api:typed-stream", "path": ".knowledge/api/typed-stream.md", "role": "primary", "title": "Typed Stream API", "type": "api"}
+{"category": "interface", "id": "api:user-preference-accessors", "path": ".knowledge/api/user-preference-accessors.md", "role": "primary", "title": "User Preference Accessors", "type": "api"}
 {"category": "concept", "id": "concept:application-entry-point", "path": ".knowledge/concept/application-entry-point.md", "role": "supporting", "title": "Application Entry Point", "type": "concept"}
 {"category": "concept", "id": "concept:assurance-axes", "path": ".knowledge/concept/assurance-axes.md", "role": "supporting", "title": "Assurance Strength and Freshness", "type": "concept"}
 {"category": "concept", "id": "concept:build-artifact-shapes", "path": ".knowledge/concept/build-artifact-shapes.md", "role": "supporting", "title": "Build Artifact Shapes", "type": "concept"}
@@ -88,6 +89,7 @@
 {"category": "structure", "id": "data:auth-state-record", "path": ".knowledge/data/auth-state-record.md", "role": "supporting", "title": "Authentication State Record", "type": "data"}
 {"category": "structure", "id": "data:authentication-runtime-config", "path": ".knowledge/data/authentication-runtime-config.md", "role": "supporting", "title": "Authentication Runtime Config", "type": "data"}
 {"category": "structure", "id": "data:bot-user-agent-catalog", "path": ".knowledge/data/bot-user-agent-catalog.md", "role": "supporting", "title": "Bot User Agent Catalog", "type": "data"}
+{"category": "structure", "id": "data:browser-report-record", "path": ".knowledge/data/browser-report-record.md", "role": "supporting", "title": "Browser Report Record", "type": "data"}
 {"category": "structure", "id": "data:component-boundary", "path": ".knowledge/data/component-boundary.md", "role": "supporting", "title": "Component Boundary Metadata", "type": "data"}
 {"category": "structure", "id": "data:component-package-manifest", "path": ".knowledge/data/component-package-manifest.md", "role": "supporting", "title": "Component Package Manifest", "type": "data"}
 {"category": "structure", "id": "data:compression-runtime-config", "path": ".knowledge/data/compression-runtime-config.md", "role": "supporting", "title": "Compression Runtime Config", "type": "data"}
@@ -95,6 +97,7 @@
 {"category": "structure", "id": "data:database-driver-contract", "path": ".knowledge/data/database-driver-contract.md", "role": "supporting", "title": "Database Driver Contract", "type": "data"}
 {"category": "structure", "id": "data:dev-launcher-mark", "path": ".knowledge/data/dev-launcher-mark.md", "role": "supporting", "title": "Development Launcher Mark", "type": "data"}
 {"category": "structure", "id": "data:dev-loop-state", "path": ".knowledge/data/dev-loop-state.md", "role": "supporting", "title": "Developer Loop State", "type": "data"}
+{"category": "structure", "id": "data:device-authorization", "path": ".knowledge/data/device-authorization.md", "role": "supporting", "title": "Device Authorization", "type": "data"}
 {"category": "structure", "id": "data:devidp-config", "path": ".knowledge/data/devidp-config.md", "role": "supporting", "title": "Development IdP Configuration", "type": "data"}
 {"category": "structure", "id": "data:diagnostic-check", "path": ".knowledge/data/diagnostic-check.md", "role": "supporting", "title": "Diagnostic Check", "type": "data"}
 {"category": "structure", "id": "data:diagnostic-report", "path": ".knowledge/data/diagnostic-report.md", "role": "supporting", "title": "Diagnostic Report", "type": "data"}
@@ -113,6 +116,7 @@
 {"category": "structure", "id": "data:observability-runtime-config", "path": ".knowledge/data/observability-runtime-config.md", "role": "supporting", "title": "Observability Runtime Config", "type": "data"}
 {"category": "structure", "id": "data:page-route-table", "path": ".knowledge/data/page-route-table.md", "role": "supporting", "title": "Page Route Table", "type": "data"}
 {"category": "structure", "id": "data:passkey-credential", "path": ".knowledge/data/passkey-credential.md", "role": "supporting", "title": "Passkey Credential", "type": "data"}
+{"category": "structure", "id": "data:preference-hint-config", "path": ".knowledge/data/preference-hint-config.md", "role": "supporting", "title": "Preference Hint Runtime Config", "type": "data"}
 {"category": "structure", "id": "data:project-config", "path": ".knowledge/data/project-config.md", "role": "supporting", "title": "Project Configuration", "type": "data"}
 {"category": "structure", "id": "data:public-asset-manifest", "path": ".knowledge/data/public-asset-manifest.md", "role": "supporting", "title": "Public Asset Manifest", "type": "data"}
 {"category": "structure", "id": "data:query-diagnostics-config", "path": ".knowledge/data/query-diagnostics-config.md", "role": "supporting", "title": "Query Diagnostics Config", "type": "data"}
@@ -141,6 +145,7 @@
 {"category": "constraint", "id": "decision:authentication-bootstrap-strategy", "path": ".knowledge/decision/authentication-bootstrap-strategy.md", "role": "supporting", "title": "Authentication Bootstrap Strategy", "type": "decision"}
 {"category": "constraint", "id": "decision:automatic-async-render-selection", "path": ".knowledge/decision/automatic-async-render-selection.md", "role": "supporting", "title": "Automatic Async Render Selection", "type": "decision"}
 {"category": "constraint", "id": "decision:backend-analysis-ownership", "path": ".knowledge/decision/backend-analysis-ownership.md", "role": "supporting", "title": "The Analysis Engine Is Upstream, The Vocabulary Is Here", "type": "decision"}
+{"category": "constraint", "id": "decision:backend-build-tag-mode", "path": ".knowledge/decision/backend-build-tag-mode.md", "role": "supporting", "title": "The Backend Tag Selects Application Files, Not The Runtime Packages", "type": "decision"}
 {"category": "constraint", "id": "decision:backend-specific-middleware", "path": ".knowledge/decision/backend-specific-middleware.md", "role": "supporting", "title": "Middleware Is Written Once Per Backend", "type": "decision"}
 {"category": "constraint", "id": "decision:bot-client-classification", "path": ".knowledge/decision/bot-client-classification.md", "role": "supporting", "title": "Bot Client Classification", "type": "decision"}
 {"category": "constraint", "id": "decision:browser-suite-seeding", "path": ".knowledge/decision/browser-suite-seeding.md", "role": "supporting", "title": "Browser Suite Seeding Route", "type": "decision"}
@@ -222,8 +227,10 @@
 {"category": "constraint", "id": "decision:passkey-first-authentication", "path": ".knowledge/decision/passkey-first-authentication.md", "role": "supporting", "title": "Passkey-First Authentication Priority", "type": "decision"}
 {"category": "constraint", "id": "decision:passkey-test-authenticator", "path": ".knowledge/decision/passkey-test-authenticator.md", "role": "supporting", "title": "Passkey Test Authenticator Strategy", "type": "decision"}
 {"category": "constraint", "id": "decision:post-init-scaffold-wizard", "path": ".knowledge/decision/post-init-scaffold-wizard.md", "role": "supporting", "title": "Post-init Scaffold Wizard", "type": "decision"}
+{"category": "constraint", "id": "decision:preference-signal-precedence", "path": ".knowledge/decision/preference-signal-precedence.md", "role": "supporting", "title": "Preference Signal Precedence", "type": "decision"}
 {"category": "constraint", "id": "decision:preset-first-bootstrap", "path": ".knowledge/decision/preset-first-bootstrap.md", "role": "supporting", "title": "Preset First, Questions Behind It", "type": "decision"}
 {"category": "constraint", "id": "decision:propagation-header-access", "path": ".knowledge/decision/propagation-header-access.md", "role": "supporting", "title": "One Trace Context Validator, Two Header Types", "type": "decision"}
+{"category": "constraint", "id": "decision:report-endpoint-above-the-session", "path": ".knowledge/decision/report-endpoint-above-the-session.md", "role": "supporting", "title": "The Report Endpoint Is Answered Above The Session", "type": "decision"}
 {"category": "constraint", "id": "decision:response-content-codings", "path": ".knowledge/decision/response-content-codings.md", "role": "supporting", "title": "Response Content Codings", "type": "decision"}
 {"category": "constraint", "id": "decision:root-pw-api", "path": ".knowledge/decision/root-pw-api.md", "role": "supporting", "title": "Root pw API", "type": "decision"}
 {"category": "constraint", "id": "decision:runtime-tag-injection", "path": ".knowledge/decision/runtime-tag-injection.md", "role": "supporting", "title": "Runtime Tag Injection", "type": "decision"}
@@ -231,6 +238,7 @@
 {"category": "constraint", "id": "decision:scriptless-browser-detection", "path": ".knowledge/decision/scriptless-browser-detection.md", "role": "supporting", "title": "Scriptless Browser Detection", "type": "decision"}
 {"category": "constraint", "id": "decision:separate-tinygo-dockerfile", "path": ".knowledge/decision/separate-tinygo-dockerfile.md", "role": "supporting", "title": "Separate TinyGo Dockerfile", "type": "decision"}
 {"category": "constraint", "id": "decision:server-sql-support-tier", "path": ".knowledge/decision/server-sql-support-tier.md", "role": "supporting", "title": "Server SQL Support Tier", "type": "decision"}
+{"category": "constraint", "id": "decision:server-timing-transport", "path": ".knowledge/decision/server-timing-transport.md", "role": "supporting", "title": "Server-Timing Travels As A Header, Not A Trailer", "type": "decision"}
 {"category": "constraint", "id": "decision:session-lifetime-owned-by-auth", "path": ".knowledge/decision/session-lifetime-owned-by-auth.md", "role": "supporting", "title": "Session Lifetime Owned by Authentication", "type": "decision"}
 {"category": "constraint", "id": "decision:shared-check-catalog", "path": ".knowledge/decision/shared-check-catalog.md", "role": "supporting", "title": "Shared Check Catalog", "type": "decision"}
 {"category": "constraint", "id": "decision:shared-runtime-leaf", "path": ".knowledge/decision/shared-runtime-leaf.md", "role": "supporting", "title": "The Transport-Free Half Of pw Moves To pwruntime", "type": "decision"}
@@ -277,6 +285,7 @@
 {"category": "behavior", "id": "flow:live-boundary-delivery", "path": ".knowledge/flow/live-boundary-delivery.md", "role": "primary", "title": "Live Boundary Delivery", "type": "flow"}
 {"category": "behavior", "id": "flow:oidc-account-login", "path": ".knowledge/flow/oidc-account-login.md", "role": "primary", "title": "OIDC Account Login", "type": "flow"}
 {"category": "behavior", "id": "flow:oidc-auth-code", "path": ".knowledge/flow/oidc-auth-code.md", "role": "primary", "title": "OIDC Authorization Code Flow", "type": "flow"}
+{"category": "behavior", "id": "flow:oidc-device-authorization", "path": ".knowledge/flow/oidc-device-authorization.md", "role": "primary", "title": "OIDC Device Authorization Flow", "type": "flow"}
 {"category": "behavior", "id": "flow:page-route-generation", "path": ".knowledge/flow/page-route-generation.md", "role": "primary", "title": "Page Route Generation", "type": "flow"}
 {"category": "behavior", "id": "flow:partial-refresh", "path": ".knowledge/flow/partial-refresh.md", "role": "primary", "title": "Boundary Partial Refresh", "type": "flow"}
 {"category": "behavior", "id": "flow:passkey-enrollment", "path": ".knowledge/flow/passkey-enrollment.md", "role": "primary", "title": "Passkey Enrollment", "type": "flow"}
@@ -313,6 +322,7 @@
 {"category": "constraint", "id": "policy:csrf-protection", "path": ".knowledge/policy/csrf-protection.md", "role": "supporting", "title": "CSRF Protection", "type": "policy"}
 {"category": "constraint", "id": "policy:dev-console-boundary", "path": ".knowledge/policy/dev-console-boundary.md", "role": "supporting", "title": "Development Console Boundary", "type": "policy"}
 {"category": "constraint", "id": "policy:dev-token-relaxation", "path": ".knowledge/policy/dev-token-relaxation.md", "role": "supporting", "title": "Development Token Relaxation Policy", "type": "policy"}
+{"category": "constraint", "id": "policy:device-authorization-security", "path": ".knowledge/policy/device-authorization-security.md", "role": "supporting", "title": "Device Authorization Security Policy", "type": "policy"}
 {"category": "constraint", "id": "policy:devidp-safety", "path": ".knowledge/policy/devidp-safety.md", "role": "supporting", "title": "Development IdP Safety Policy", "type": "policy"}
 {"category": "constraint", "id": "policy:dynamodb-migration-safety", "path": ".knowledge/policy/dynamodb-migration-safety.md", "role": "supporting", "title": "DynamoDB Migration Safety", "type": "policy"}
 {"category": "constraint", "id": "policy:editor-tool-execution", "path": ".knowledge/policy/editor-tool-execution.md", "role": "supporting", "title": "Editor Tool Execution Safety", "type": "policy"}
@@ -329,6 +339,7 @@
 {"category": "constraint", "id": "policy:outbound-transport-security", "path": ".knowledge/policy/outbound-transport-security.md", "role": "supporting", "title": "Outbound Transport Security Policy", "type": "policy"}
 {"category": "constraint", "id": "policy:package-compatibility", "path": ".knowledge/policy/package-compatibility.md", "role": "supporting", "title": "Package Compatibility", "type": "policy"}
 {"category": "constraint", "id": "policy:passkey-security", "path": ".knowledge/policy/passkey-security.md", "role": "supporting", "title": "Passkey Security Policy", "type": "policy"}
+{"category": "constraint", "id": "policy:preference-vary-correctness", "path": ".knowledge/policy/preference-vary-correctness.md", "role": "supporting", "title": "Preference Vary Correctness", "type": "policy"}
 {"category": "constraint", "id": "policy:provider-session-scope", "path": ".knowledge/policy/provider-session-scope.md", "role": "supporting", "title": "Provider Session Scope of Logout", "type": "policy"}
 {"category": "constraint", "id": "policy:public-asset-media-negotiation", "path": ".knowledge/policy/public-asset-media-negotiation.md", "role": "supporting", "title": "Public Asset Media Negotiation", "type": "policy"}
 {"category": "constraint", "id": "policy:public-asset-negotiation", "path": ".knowledge/policy/public-asset-negotiation.md", "role": "supporting", "title": "Public Asset Negotiation", "type": "policy"}
@@ -360,6 +371,7 @@
 {"category": "objective", "id": "requirement:async-html-rendering", "path": ".knowledge/requirement/async-html-rendering.md", "role": "primary", "title": "Async HTML Rendering", "type": "requirement"}
 {"category": "objective", "id": "requirement:auth-security-remediation", "path": ".knowledge/requirement/auth-security-remediation.md", "role": "primary", "title": "Authentication Security Remediation", "type": "requirement"}
 {"category": "objective", "id": "requirement:bot-synchronous-render", "path": ".knowledge/requirement/bot-synchronous-render.md", "role": "primary", "title": "Bot Synchronous Render", "type": "requirement"}
+{"category": "objective", "id": "requirement:browser-report-ingest", "path": ".knowledge/requirement/browser-report-ingest.md", "role": "primary", "title": "Browser Report Ingest", "type": "requirement"}
 {"category": "objective", "id": "requirement:built-in-config-generation", "path": ".knowledge/requirement/built-in-config-generation.md", "role": "primary", "title": "Built-in Config Generation", "type": "requirement"}
 {"category": "objective", "id": "requirement:classic-rendering", "path": ".knowledge/requirement/classic-rendering.md", "role": "primary", "title": "Classic Rendering", "type": "requirement"}
 {"category": "objective", "id": "requirement:classic-web-acceptance", "path": ".knowledge/requirement/classic-web-acceptance.md", "role": "primary", "title": "Classic Web Acceptance", "type": "requirement"}
@@ -409,6 +421,7 @@
 {"category": "objective", "id": "requirement:dev-data-pane", "path": ".knowledge/requirement/dev-data-pane.md", "role": "primary", "title": "Development Data Pane", "type": "requirement"}
 {"category": "objective", "id": "requirement:dev-error-overlay", "path": ".knowledge/requirement/dev-error-overlay.md", "role": "primary", "title": "Development Error Overlay", "type": "requirement"}
 {"category": "objective", "id": "requirement:dev-query-runner", "path": ".knowledge/requirement/dev-query-runner.md", "role": "primary", "title": "Development Query Runner", "type": "requirement"}
+{"category": "objective", "id": "requirement:dev-request-timing-surface", "path": ".knowledge/requirement/dev-request-timing-surface.md", "role": "primary", "title": "Per-Request Timing In The Browser", "type": "requirement"}
 {"category": "objective", "id": "requirement:dev-telemetry-viewer", "path": ".knowledge/requirement/dev-telemetry-viewer.md", "role": "primary", "title": "Development Telemetry Viewer", "type": "requirement"}
 {"category": "objective", "id": "requirement:discovered-page-routing", "path": ".knowledge/requirement/discovered-page-routing.md", "role": "primary", "title": "Discovered Page Routing", "type": "requirement"}
 {"category": "objective", "id": "requirement:dockerless-image-builders", "path": ".knowledge/requirement/dockerless-image-builders.md", "role": "primary", "title": "Dockerless Image Builders", "type": "requirement"}
@@ -459,6 +472,8 @@
 {"category": "objective", "id": "requirement:native-pgx-escape-hatch", "path": ".knowledge/requirement/native-pgx-escape-hatch.md", "role": "primary", "title": "Direct pgx Reach On A Native Connection", "type": "requirement"}
 {"category": "objective", "id": "requirement:navigation-delta-rendering", "path": ".knowledge/requirement/navigation-delta-rendering.md", "role": "primary", "title": "Navigation Delta Rendering", "type": "requirement"}
 {"category": "objective", "id": "requirement:nested-html-templates", "path": ".knowledge/requirement/nested-html-templates.md", "role": "primary", "title": "Nested HTML Templates", "type": "requirement"}
+{"category": "objective", "id": "requirement:network-error-logging", "path": ".knowledge/requirement/network-error-logging.md", "role": "primary", "title": "Network Error Logging", "type": "requirement"}
+{"category": "objective", "id": "requirement:oidc-device-authorization", "path": ".knowledge/requirement/oidc-device-authorization.md", "role": "primary", "title": "OIDC Device Authorization", "type": "requirement"}
 {"category": "objective", "id": "requirement:package-asset-delivery", "path": ".knowledge/requirement/package-asset-delivery.md", "role": "primary", "title": "Package Asset Delivery", "type": "requirement"}
 {"category": "objective", "id": "requirement:package-component-assets", "path": ".knowledge/requirement/package-component-assets.md", "role": "primary", "title": "A Distributed Component Must Carry Its Own Assets", "type": "requirement"}
 {"category": "objective", "id": "requirement:package-project-scaffold", "path": ".knowledge/requirement/package-project-scaffold.md", "role": "primary", "title": "Package Preset Scaffold", "type": "requirement"}
@@ -502,6 +517,7 @@
 {"category": "objective", "id": "requirement:unhandled-boundary-signal", "path": ".knowledge/requirement/unhandled-boundary-signal.md", "role": "primary", "title": "Unhandled Boundary Signal", "type": "requirement"}
 {"category": "objective", "id": "requirement:unified-update-runtime", "path": ".knowledge/requirement/unified-update-runtime.md", "role": "primary", "title": "Unified Update Runtime", "type": "requirement"}
 {"category": "objective", "id": "requirement:update-navigation-continuity", "path": ".knowledge/requirement/update-navigation-continuity.md", "role": "primary", "title": "Update Navigation Continuity", "type": "requirement"}
+{"category": "objective", "id": "requirement:user-preference-rendering", "path": ".knowledge/requirement/user-preference-rendering.md", "role": "primary", "title": "User Preference Rendering", "type": "requirement"}
 {"category": "objective", "id": "requirement:web-standards-overview", "path": ".knowledge/requirement/web-standards-overview.md", "role": "primary", "title": "Web Standards Architecture Overview", "type": "requirement"}
 {"category": "constraint", "id": "rule:batch-engine-capability", "path": ".knowledge/rule/batch-engine-capability.md", "role": "supporting", "title": "Batch Capability Per Engine", "type": "rule"}
 {"category": "constraint", "id": "rule:configuration-advisories", "path": ".knowledge/rule/configuration-advisories.md", "role": "supporting", "title": "Configuration Advisories", "type": "rule"}
@@ -538,6 +554,7 @@
 {"category": "external", "id": "system:tinygodriver-firestore", "path": ".knowledge/system/tinygodriver-firestore.md", "role": "supporting", "title": "tinygodriver Firestore Datastore Client", "type": "system"}
 {"category": "external", "id": "system:tinygodriver", "path": ".knowledge/system/tinygodriver.md", "role": "supporting", "title": "tinygodriver", "type": "system"}
 {"category": "external", "id": "system:vscode", "path": ".knowledge/system/vscode.md", "role": "supporting", "title": "Visual Studio Code", "type": "system"}
+{"category": "interface", "id": "ui:devidp-device-verification", "path": ".knowledge/ui/devidp-device-verification.md", "role": "primary", "title": "Development Device Verification Screen", "type": "ui"}
 {"category": "interface", "id": "ui:devidp-login", "path": ".knowledge/ui/devidp-login.md", "role": "primary", "title": "Development IdP Login Screen", "type": "ui"}
 {"category": "interface", "id": "ui:init-preset-hub", "path": ".knowledge/ui/init-preset-hub.md", "role": "primary", "title": "pw init Preset and Answer Hub", "type": "ui"}
 {"category": "interface", "id": "ui:starter-landing-page", "path": ".knowledge/ui/starter-landing-page.md", "role": "primary", "title": "Starter Landing Page", "type": "ui"}

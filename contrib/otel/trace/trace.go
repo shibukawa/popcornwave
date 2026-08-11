@@ -94,26 +94,6 @@ func ContextWithSpanContext(ctx context.Context, sc SpanContext) context.Context
 	return context.WithValue(ctx, contextKey{}, contextValue{spanContext: sc})
 }
 
-// ValueStore is a request value that records values in place, for a transport
-// whose request is its own context and so cannot derive one per frame.
-type ValueStore interface {
-	context.Context
-	SetUserValue(key, value any)
-}
-
-// StoreSpan records span on a value store, which is what Tracer.Start returns a
-// context for on a transport that can derive one.
-//
-// Everything downstream reads it the same way, because the request value answers
-// Value out of the store this writes to, so SpanContextFromContext and
-// SpanFromContext need no second form.
-func StoreSpan(store ValueStore, span *Span) {
-	if span == nil {
-		return
-	}
-	store.SetUserValue(contextKey{}, contextValue{spanContext: span.SpanContext(), tracer: span.tracer, span: span})
-}
-
 // SpanContextFromContext returns the active or extracted span context.
 func SpanContextFromContext(ctx context.Context) SpanContext {
 	if ctx == nil {
@@ -412,5 +392,28 @@ func fillID(destination []byte) {
 	}
 	if allZero(destination) {
 		destination[len(destination)-1] = 1
+	}
+}
+
+// ValueStore is a request value that carries its own state instead of being
+// replaced by a derived copy, which is how a transport without derivable
+// contexts publishes request state.
+type ValueStore interface {
+	SetUserValue(key, value any)
+}
+
+// StoreContext copies the active span of ctx onto a request value.
+//
+// It exists because a span reaches its readers through the context, and a
+// transport whose request value is the context cannot be handed a derived one.
+// Copying the value rather than exporting the key keeps the key unexported: an
+// exported span key is one any code can write, and a written span is one the
+// exporter believes.
+func StoreContext(store ValueStore, ctx context.Context) {
+	if store == nil || ctx == nil {
+		return
+	}
+	if value, ok := ctx.Value(contextKey{}).(contextValue); ok {
+		store.SetUserValue(contextKey{}, value)
 	}
 }

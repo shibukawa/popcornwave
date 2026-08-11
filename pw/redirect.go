@@ -2,6 +2,7 @@ package pw
 
 import (
 	"net/http"
+	"net/url"
 
 	"github.com/shibukawa/popcornwave/internal/safeurl"
 	tinybind "github.com/shibukawa/tinybind-go"
@@ -60,4 +61,33 @@ func FormValue(r *http.Request, key string) string {
 		return ""
 	}
 	return values[key]
+}
+
+// PathValue reads one path parameter the router stored when it matched.
+//
+// It exists rather than a handler calling r.PathValue because that read is one
+// no second transport can follow: fasthttp has no path routing of its own, so
+// its path values come from whatever router ran and there is no method on the
+// request to call. Routing both through the framework is what lets one
+// generated decoder serve either.
+func PathValue(r *http.Request, key string) string { return tinybind.PathValue(r, key) }
+
+// Queries returns the parsed query, for a decoder reading several parameters
+// from one request.
+func Queries(r *http.Request) url.Values {
+	if r == nil || r.URL == nil {
+		return nil
+	}
+	return r.URL.Query()
+}
+
+// QueryLookup reads one parameter from a parsed query, reporting whether it was
+// present. Presence and emptiness are different answers: a flag parameter
+// arrives with no value at all.
+func QueryLookup(query url.Values, key string) (string, bool) {
+	values, ok := query[key]
+	if !ok || len(values) == 0 {
+		return "", false
+	}
+	return values[0], true
 }

@@ -74,7 +74,7 @@ func TestDoctorRequiresTheSelectedSQLiteDriverImport(t *testing.T) {
 	if len(connections) != 1 || connections[0].Driver != "sqlite (no driver linked)" {
 		t.Fatalf("connections = %#v", connections)
 	}
-	implementation := featureImplementation(doctorFeature{Name: "database", State: "on"}, unlinked, config)
+	implementation := featureImplementation(doctorFeature{Name: "database", State: "on"}, unlinked, config, engineSQLite)
 	if implementation != "sqlite (no driver linked)" {
 		t.Fatalf("implementation = %q", implementation)
 	}

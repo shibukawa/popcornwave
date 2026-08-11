@@ -8,6 +8,7 @@ import (
 	"github.com/shibukawa/popcornwave/contrib/otel"
 	"github.com/shibukawa/popcornwave/contrib/otel/propagation"
 	"github.com/shibukawa/popcornwave/contrib/otel/trace"
+
 	"github.com/shibukawa/tinygodriver/fasthttp"
 )
 
@@ -19,12 +20,12 @@ type otelConfig struct {
 // OtelOption configures Otel.
 type OtelOption func(*otelConfig)
 
-// WithTracerProvider selects the provider the request spans are created by.
+// WithTracerProvider replaces the provider spans are created from.
 func WithTracerProvider(provider *trace.Provider) OtelOption {
 	return func(c *otelConfig) { c.provider = provider }
 }
 
-// WithSpanName replaces the default span name.
+// WithSpanName replaces how a request span is named.
 func WithSpanName(format func(*fasthttp.RequestCtx) string) OtelOption {
 	return func(c *otelConfig) {
 		if format != nil {
@@ -33,9 +34,9 @@ func WithSpanName(format func(*fasthttp.RequestCtx) string) OtelOption {
 	}
 }
 
-// defaultSpanName names a request span "METHOD /path", which is the other
-// half's default and the same reasoning: a list where every entry reads GET is
-// a list that cannot be read.
+// defaultSpanName names a request span "METHOD /path", which is what the other
+// transport names it. The method alone makes a trace list unusable: every entry
+// reads GET and the one thing distinguishing them is not shown.
 func defaultSpanName(r *fasthttp.RequestCtx) string {
 	path := string(r.Path())
 	if path == "" {
@@ -44,51 +45,44 @@ func defaultSpanName(r *fasthttp.RequestCtx) string {
 	return string(r.Method()) + " " + path
 }
 
-// Otel extracts W3C Trace Context, opens a server span, and records it on the
-// request. With no options it uses trace.DefaultProvider.
+// Otel extracts W3C Trace Context, creates a server span, and installs it on
+// the request. With no options it uses trace.DefaultProvider.
 //
-// The deciding is the shared one and only the reading and recording are this
-// transport's, which is the split decision:propagation-header-access describes:
-// the version, hex, and tracestate grammar rules live in one function both
-// halves call, because a divergence there is a parent silently dropped on one
-// transport and accepted on the other, where a divergence in the header calls
-// below is a compile error.
-//
-// The other half derives a context per frame and hands it down. Here the request
-// value is the context, so the span is written into it in place and everything
-// downstream — SpanContextFromContext, SpanFromContext, a child span — reads it
-// unchanged, because the request value answers Value out of the store this
-// writes to.
+// The span is opened outside every positioned frame, so a request root span
+// covers the whole chain and every record taken inside it correlates. That is
+// why its slot is the smallest one.
 func Otel(options ...OtelOption) Middleware {
-	cfg := otelConfig{provider: trace.DefaultProvider(), spanName: defaultSpanName}
+	config := otelConfig{provider: trace.DefaultProvider(), spanName: defaultSpanName}
 	for _, option := range options {
-		option(&cfg)
+		option(&config)
 	}
-	if cfg.provider == nil {
-		cfg.provider = trace.DefaultProvider()
+	if config.provider == nil {
+		config.provider = trace.DefaultProvider()
 	}
-	tracer := cfg.provider.Tracer("github.com/shibukawa/popcornwave/pwfast")
+	tracer := config.provider.Tracer("github.com/shibukawa/popcornwave/pwfast")
 	return func(next fasthttp.RequestHandler) fasthttp.RequestHandler {
 		return func(r *fasthttp.RequestCtx) {
 			parent := trace.ContextWithSpanContext(r, extractedParent(&r.Request.Header))
-			_, span := tracer.Start(parent, cfg.spanName(r),
-				trace.WithSpanKind(trace.SpanKindServer), trace.WithAttributes(requestAttributes(r)...))
-			trace.StoreSpan(r, span)
+			ctx, span := tracer.Start(parent, config.spanName(r),
+				trace.WithSpanKind(trace.SpanKindServer),
+				trace.WithAttributes(requestAttributes(r)...))
+			// The derived context carries the span, and this transport cannot
+			// hand a derived context to the next handler — so the span is
+			// written onto the request value, where every reader looks.
+			trace.StoreContext(r, ctx)
 			defer func() {
 				panicked := recover()
 				if panicked != nil {
+					// The status is recorded before re-panicking, because the
+					// recover frame above this one will answer 500 and the span
+					// would otherwise close saying 200.
+					r.SetStatusCode(fasthttp.StatusInternalServerError)
 					span.SetStatus(trace.StatusError, "panic")
 					if err, ok := panicked.(error); ok {
 						span.RecordError(err)
 					}
 				}
 				status := r.Response.StatusCode()
-				if panicked != nil {
-					// Recover has not run yet — this frame is inside it — so the
-					// status the response carries is whatever the failed handler
-					// left, and the 500 the client will see is the true one.
-					status = fasthttp.StatusInternalServerError
-				}
 				span.SetAttributes(otel.Int64("http.response.status_code", int64(status)))
 				if status >= 500 {
 					span.SetStatus(trace.StatusError, fasthttp.StatusMessage(status))
@@ -103,20 +97,25 @@ func Otel(options ...OtelOption) Middleware {
 	}
 }
 
-// extractedParent reads the trace context fields off this transport's header.
+// extractedParent reads the trace context fields off this transport's header
+// and hands them to the shared validator.
 //
-// The strings are built after the presence check rather than before it, so a
-// request carrying no traceparent — every request of an untraced caller — costs
-// the two lookups and no allocation.
+// It reads with PeekAll rather than Peek, and that is the whole reason it takes
+// this shape instead of copying the two fields into an http.Header. Peek returns
+// the first value, so a request carrying two traceparent fields would arrive at
+// the validator as one and be accepted — while the same request on the other
+// transport is refused a parent, because more than one traceparent names more
+// than one parent and the specification picks no winner. A rule enforced on one
+// transport and not the other is the divergence sharing the validator was meant
+// to prevent, and it hides in the reading rather than in the rule.
+//
+// The strings are built after the presence check, so a request from an untraced
+// caller costs the lookups and no allocation.
 func extractedParent(header *fasthttp.RequestHeader) trace.SpanContext {
 	raw := header.PeekAll("traceparent")
 	if len(raw) == 0 {
 		return trace.SpanContext{}
 	}
-	// PeekAll rather than Peek, because more than one traceparent names more
-	// than one parent and the spec picks no winner; the shared validator refuses
-	// the request a parent instead of taking an arbitrary one, and it can only
-	// do that if every value reaches it.
 	traceparents := make([]string, len(raw))
 	for i, value := range raw {
 		traceparents[i] = string(value)
@@ -132,6 +131,8 @@ func extractedParent(header *fasthttp.RequestHeader) trace.SpanContext {
 	return sc
 }
 
+// requestAttributes describes the request on its span, following the same
+// semantic conventions the other transport follows.
 func requestAttributes(r *fasthttp.RequestCtx) []otel.Attribute {
 	// Sized for every append below, because the slice is retained by the span
 	// until export and a reallocation here would be one more escaped slice.
@@ -139,22 +140,21 @@ func requestAttributes(r *fasthttp.RequestCtx) []otel.Attribute {
 	attributes = append(attributes,
 		otel.String("http.request.method", string(r.Method())),
 		otel.String("url.path", string(r.Path())))
-	scheme := string(r.URI().Scheme())
-	if scheme == "" {
-		if r.IsTLS() {
-			scheme = "https"
-		} else {
-			scheme = "http"
-		}
+	scheme := "http"
+	if r.IsTLS() {
+		scheme = "https"
 	}
 	attributes = append(attributes, otel.String("url.scheme", scheme))
-	if query := r.URI().QueryString(); len(query) > 0 {
-		attributes = append(attributes, otel.String("url.query", otel.RedactedQuery(string(query))))
+	if query := string(r.URI().QueryString()); query != "" {
+		// The values are dropped through the shared redaction. A trace backend
+		// is retained longer and read more widely than the application
+		// database, and a query string is where a password-reset token, an
+		// OAuth code and a presigned signature all travel.
+		attributes = append(attributes, otel.String("url.query", otel.RedactedQuery(query)))
 	}
 	host, port, err := net.SplitHostPort(string(r.Host()))
 	if err != nil {
-		host = string(r.Host())
-		port = ""
+		host, port = string(r.Host()), ""
 	}
 	if host != "" {
 		attributes = append(attributes, otel.String("server.address", strings.Trim(host, "[]")))

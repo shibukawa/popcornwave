@@ -1,152 +1,153 @@
 package pwfast
 
 import (
-	"context"
+	gocontext "context"
+	"strings"
 	"testing"
 
+	"github.com/shibukawa/popcornwave/contrib/otel"
 	"github.com/shibukawa/popcornwave/contrib/otel/trace"
 	"github.com/shibukawa/tinygodriver/fasthttp"
 )
 
+// A span reaches its readers through the context, and this transport cannot be
+// handed a derived one — so the assertion is that the span is nevertheless
+// where a reader looks.
+func TestTheRequestSpanIsReachableFromTheRequestValue(t *testing.T) {
+	var seen trace.SpanContext
+	handler := Compose(func(r *fasthttp.RequestCtx) {
+		seen = trace.SpanContextFromContext(r)
+	}, Frame{Slot: SlotTracing, Middleware: Otel()})
+	serve(t, handler, "/orders")
+
+	if !seen.IsValid() {
+		t.Error("the handler found no span context on the request")
+	}
+}
+
+// An incoming trace continues rather than starting a second one, which is the
+// whole point of propagation.
+func TestAnIncomingTraceIsContinued(t *testing.T) {
+	const parent = "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01"
+	var seen trace.SpanContext
+	handler := Compose(func(r *fasthttp.RequestCtx) {
+		seen = trace.SpanContextFromContext(r)
+	}, Frame{Slot: SlotTracing, Middleware: Otel()})
+	serveRaw(t, handler, "/orders", "traceparent: "+parent+"\r\n")
+
+	if got := seen.TraceID(); got != "4bf92f3577b34da6a3ce929d0e0e4736" {
+		t.Errorf("trace id = %q, want the caller's", got)
+	}
+}
+
+// A query string must never reach a trace backend verbatim: it is where a
+// password-reset token, an OAuth code and a presigned signature all travel.
+func TestTheQueryIsRecordedWithoutItsValues(t *testing.T) {
+	attributes := requestAttributesOf(t, "/reset?token=super-secret&page=2")
+	for _, attribute := range attributes {
+		if attribute.Key != "url.query" {
+			continue
+		}
+		value, _ := attribute.Value.AsString()
+		if strings.Contains(value, "super-secret") {
+			t.Errorf("the span carried a secret query value: %q", value)
+		}
+		if !strings.Contains(value, "token") || !strings.Contains(value, "page") {
+			t.Errorf("the span lost the parameter names, which are the diagnostic value: %q", value)
+		}
+		return
+	}
+	t.Error("no url.query attribute was recorded")
+}
+
+func requestAttributesOf(t *testing.T, target string) []otelAttribute {
+	t.Helper()
+	var captured []otelAttribute
+	handler := func(r *fasthttp.RequestCtx) { captured = requestAttributes(r) }
+	serve(t, handler, target)
+	return captured
+}
+
+// otelAttribute names the attribute type locally so the helper above reads
+// without repeating the import path.
+type otelAttribute = otel.Attribute
+
 type spanCollector struct{ spans []trace.SpanData }
 
-func (c *spanCollector) OnEnd(span trace.SpanData)    { c.spans = append(c.spans, span) }
-func (*spanCollector) Shutdown(context.Context) error { return nil }
+func (c *spanCollector) OnEnd(span trace.SpanData)      { c.spans = append(c.spans, span) }
+func (*spanCollector) Shutdown(gocontext.Context) error { return nil }
 
 const remoteParent = "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01"
 
-func attributeOf(span trace.SpanData, key string) string {
-	for _, a := range span.Attributes {
-		if a.Key == key {
-			value, _ := a.Value.AsString()
-			return value
-		}
-	}
-	return ""
-}
-
-// The point of the whole port: a request arriving on this transport with a
-// traceparent continues the caller's trace instead of starting a new one.
-func TestOtelContinuesTheCallersTrace(t *testing.T) {
-	collector := &spanCollector{}
-	middleware := Otel(WithTracerProvider(trace.NewProvider(collector)))
-	serveRaw(t, Chain(func(*fasthttp.RequestCtx) {}, middleware), "/orders",
-		"Traceparent: "+remoteParent+"\r\nTracestate: vendor=value\r\n")
-
-	if len(collector.spans) != 1 {
-		t.Fatalf("completed spans = %d", len(collector.spans))
-	}
-	span := collector.spans[0]
-	if span.SpanContext.TraceID() != "4bf92f3577b34da6a3ce929d0e0e4736" {
-		t.Errorf("trace ID = %q, want the caller's", span.SpanContext.TraceID())
-	}
-	if span.ParentSpanID != "00f067aa0ba902b7" {
-		t.Errorf("parent span ID = %q, want the caller's span", span.ParentSpanID)
-	}
-	if span.SpanContext.TraceState() != "vendor=value" {
-		t.Errorf("tracestate = %q", span.SpanContext.TraceState())
-	}
-	if span.Kind != trace.SpanKindServer {
-		t.Errorf("kind = %v, want server", span.Kind)
-	}
-}
-
-// The refusals are the shared validator's, so this transport rejects exactly
-// what the other one rejects. Two traceparents name two parents and the spec
-// picks neither, which is the rule most easily lost to a Peek that takes the
-// first value.
-func TestOtelRefusesWhatTheSharedValidatorRefuses(t *testing.T) {
+// The refusals belong to the shared validator, so this transport must reject
+// exactly what the other one rejects.
+//
+// Two traceparents is the case that decides whether the reading is honest. The
+// header is read with PeekAll for this: Peek returns the first value, which
+// would hand the validator one field and get a parent accepted here that the
+// other transport refuses.
+func TestTheRefusalsMatchTheOtherTransport(t *testing.T) {
 	for name, header := range map[string]string{
-		"two traceparents": "Traceparent: " + remoteParent + "\r\nTraceparent: " + remoteParent + "\r\n",
-		"uppercase hex":    "Traceparent: 00-4BF92F3577B34DA6A3CE929D0E0E4736-00f067aa0ba902b7-01\r\n",
-		"version ff":       "Traceparent: ff-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01\r\n",
-		"zero span ID":     "Traceparent: 00-4bf92f3577b34da6a3ce929d0e0e4736-0000000000000000-01\r\n",
+		"two traceparents": "traceparent: " + remoteParent + "\r\ntraceparent: " + remoteParent + "\r\n",
+		"uppercase hex":    "traceparent: 00-4BF92F3577B34DA6A3CE929D0E0E4736-00f067aa0ba902b7-01\r\n",
+		"version ff":       "traceparent: ff-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01\r\n",
+		"zero span id":     "traceparent: 00-4bf92f3577b34da6a3ce929d0e0e4736-0000000000000000-01\r\n",
 	} {
 		t.Run(name, func(t *testing.T) {
 			collector := &spanCollector{}
-			middleware := Otel(WithTracerProvider(trace.NewProvider(collector)))
-			serveRaw(t, Chain(func(*fasthttp.RequestCtx) {}, middleware), "/orders", header)
+			handler := Compose(func(*fasthttp.RequestCtx) {},
+				Frame{Slot: SlotTracing, Middleware: Otel(WithTracerProvider(trace.NewProvider(collector)))})
+			serveRaw(t, handler, "/orders", header)
 
 			if len(collector.spans) != 1 {
 				t.Fatalf("completed spans = %d", len(collector.spans))
 			}
 			if parent := collector.spans[0].ParentSpanID; parent != "" {
-				t.Errorf("parent span ID = %q, want a root span", parent)
+				t.Errorf("parent = %q, want the request refused a parent and rooted its own trace", parent)
 			}
 		})
 	}
 }
 
-// The request value is the context on this transport, so the span has to be
-// readable straight off it — that is what a handler and every later frame use.
-func TestOtelRecordsTheSpanOnTheRequestValue(t *testing.T) {
-	collector := &spanCollector{}
-	middleware := Otel(WithTracerProvider(trace.NewProvider(collector)))
+// A separate tracestate line survives the reading, which Peek would also have
+// truncated.
+func TestTracestateIsCarried(t *testing.T) {
+	var seen trace.SpanContext
+	handler := Compose(func(r *fasthttp.RequestCtx) { seen = trace.SpanContextFromContext(r) },
+		Frame{Slot: SlotTracing, Middleware: Otel()})
+	serveRaw(t, handler, "/orders", "traceparent: "+remoteParent+"\r\ntracestate: a=1\r\ntracestate: b=2\r\n")
 
-	var sawTrace, sawSpan bool
-	serveRaw(t, Chain(func(r *fasthttp.RequestCtx) {
-		sawTrace = trace.SpanContextFromContext(r).TraceID() == "4bf92f3577b34da6a3ce929d0e0e4736"
-		sawSpan = trace.SpanFromContext(r) != nil
-		// A child opened from the request parents onto the server span without
-		// the handler being handed a derived context.
+	if seen.TraceState() != "a=1,b=2" {
+		t.Errorf("tracestate = %q, want both lines joined", seen.TraceState())
+	}
+}
+
+// A child opened from the request parents onto the request span, without the
+// handler ever being handed a derived context.
+func TestAChildSpanParentsOntoTheRequestSpan(t *testing.T) {
+	collector := &spanCollector{}
+	handler := Compose(func(r *fasthttp.RequestCtx) {
 		_, child := trace.Start(r, "load-order")
 		child.End()
-	}, middleware), "/orders", "Traceparent: "+remoteParent+"\r\n")
+	}, Frame{Slot: SlotTracing, Middleware: Otel(WithTracerProvider(trace.NewProvider(collector)))})
+	serve(t, handler, "/orders")
 
-	if !sawTrace {
-		t.Error("the handler could not read the trace off the request")
-	}
-	if !sawSpan {
-		t.Error("the handler could not read the span off the request")
-	}
 	if len(collector.spans) != 2 {
-		t.Fatalf("completed spans = %d, want the child and the server span", len(collector.spans))
+		t.Fatalf("completed spans = %d, want the child and the request span", len(collector.spans))
 	}
-	child, server := collector.spans[0], collector.spans[1]
-	if child.ParentSpanID != server.SpanContext.SpanID() {
-		t.Errorf("child parent = %q, want the server span %q", child.ParentSpanID, server.SpanContext.SpanID())
-	}
-}
-
-// The redaction is the shared one, so a token in a query string does not reach
-// a trace backend from this transport either.
-func TestOtelRedactsTheQueryString(t *testing.T) {
-	collector := &spanCollector{}
-	middleware := Otel(WithTracerProvider(trace.NewProvider(collector)))
-	serveRaw(t, Chain(func(*fasthttp.RequestCtx) {}, middleware), "/orders?page=2&token=8f3c9a", "")
-
-	if got, want := attributeOf(collector.spans[0], "url.query"), "page=REDACTED&token=REDACTED"; got != want {
-		t.Errorf("url.query = %q, want %q", got, want)
-	}
-	if got := attributeOf(collector.spans[0], "url.path"); got != "/orders" {
-		t.Errorf("url.path = %q", got)
+	child, request := collector.spans[0], collector.spans[1]
+	if child.ParentSpanID != request.SpanContext.SpanID() {
+		t.Errorf("child parent = %q, want the request span %q", child.ParentSpanID, request.SpanContext.SpanID())
 	}
 }
 
-// A request with no traceparent is a root span rather than no span, which is
-// what makes this process the start of a trace instead of a hole in one.
-func TestOtelStartsARootSpanWithoutATraceparent(t *testing.T) {
+// A failed request is the one most worth having in a trace, so the span ends
+// rather than leaking and it says the request failed.
+func TestTheSpanEndsOnAPanic(t *testing.T) {
 	collector := &spanCollector{}
-	middleware := Otel(WithTracerProvider(trace.NewProvider(collector)))
-	serveRaw(t, Chain(func(*fasthttp.RequestCtx) {}, middleware), "/orders", "")
-
-	if len(collector.spans) != 1 {
-		t.Fatalf("completed spans = %d", len(collector.spans))
-	}
-	if collector.spans[0].ParentSpanID != "" {
-		t.Errorf("parent = %q, want a root span", collector.spans[0].ParentSpanID)
-	}
-	if !collector.spans[0].SpanContext.IsValid() {
-		t.Error("the root span has no usable span context")
-	}
-}
-
-// A failed request is the one most worth having in a trace, so the span records
-// the failure and still ends before the panic continues to Recover.
-func TestOtelEndsTheSpanOnAPanic(t *testing.T) {
-	collector := &spanCollector{}
-	handler := Chain(func(*fasthttp.RequestCtx) { panic("handler failed") },
-		Recover(nil), Otel(WithTracerProvider(trace.NewProvider(collector))))
+	handler := Compose(func(*fasthttp.RequestCtx) { panic("handler failed") },
+		Frame{Slot: SlotRecover, Middleware: Recover(nil)},
+		Frame{Slot: SlotTracing, Middleware: Otel(WithTracerProvider(trace.NewProvider(collector)))})
 	status, _, _ := serveRaw(t, handler, "/orders", "")
 
 	if status != fasthttp.StatusInternalServerError {

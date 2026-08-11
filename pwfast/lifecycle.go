@@ -3,11 +3,15 @@ package pwfast
 import (
 	"context"
 	"errors"
+	"io/fs"
 	"net"
+	"net/http"
 	"sync"
 
+	"github.com/shibukawa/popcornwave/internal/apidoc"
 	"github.com/shibukawa/popcornwave/internal/requestorigin"
 	"github.com/shibukawa/popcornwave/pwruntime"
+	"github.com/shibukawa/popcornwave/session"
 	"github.com/shibukawa/tinygodriver/fasthttp"
 )
 
@@ -103,6 +107,27 @@ type RuntimeOptions struct {
 	// TrustedProxies are the networks whose forwarding headers this deployment
 	// reads.
 	TrustedProxies []*net.IPNet
+	// Tracing installs the request root span. It is a runtime option rather
+	// than a setting because whether a span has anywhere to go is decided by
+	// the exporter this process built, not by a configuration key.
+	Tracing bool
+	// PublicFS is the embedded public tree. It is supplied rather than read
+	// from configuration because an embed is a compile-time fact of the
+	// application binary rather than something a settings file can name.
+	PublicFS fs.FS
+	// Session is the manager the session frame resolves through, or nil where a
+	// deployment disabled session storage. It is supplied rather than built
+	// here because building one is startup work — a registry, a keyring, a
+	// backend — and startup belongs to whichever runtime binds configuration.
+	Session *session.Manager
+	// SessionCookie and SessionSameSite describe the cookie the CSRF companion
+	// is issued beside, so the two travel with the same policy.
+	SessionCookie   session.CookieOptions
+	SessionSameSite http.SameSite
+	// Guard is the authorization policy. It is supplied rather than derived
+	// because deciding which paths are protected belongs to an authentication
+	// plugin, and this half applies what that plugin resolved.
+	Guard GuardPolicy
 	// Extra frames are installed alongside the framework's, positioned by their
 	// own slots.
 	Extra []Frame
@@ -120,11 +145,11 @@ type RuntimeOptions struct {
 //
 // # What is not here yet
 //
-// The session, CSRF, authentication and guard frames, the public asset frame,
-// the operational and documentation endpoints, and the extension chain. Each is
-// absent rather than stubbed, so a build that needs one fails to name it rather
-// than serving requests with a frame that silently does nothing — which for the
-// session and CSRF frames would be a security control that looks installed.
+// The authentication frames — the login, callback and logout endpoints of an
+// identity provider — and no extension registry. Each is absent rather than stubbed, so a
+// build that needs one fails to name it rather than serving requests with a
+// frame that silently does nothing — which for a guard would be an
+// authorization check that looks installed.
 func Middlewares(handler fasthttp.RequestHandler, options RuntimeOptions) (fasthttp.RequestHandler, error) {
 	if handler == nil {
 		return nil, errors.New("popcornwave: nil handler")
@@ -149,13 +174,6 @@ func Middlewares(handler fasthttp.RequestHandler, options RuntimeOptions) (fasth
 		{Slot: SlotResources, Name: "resources", Middleware: InjectResources(options.Resources)},
 		{Slot: SlotClientAddress, Name: "client_address", Middleware: ResolveClientAddress(trusted)},
 	}
-	if settings.Tracing {
-		// Tracing wraps every positioned frame, so the request root span covers
-		// the whole chain and every record taken inside it correlates. It is
-		// omitted when nothing exports, for the same reason as on the other
-		// half: an unsampled span is pure cost.
-		frames = append(frames, Frame{Slot: SlotTracing, Name: "otel", Middleware: Otel()})
-	}
 	if settings.RequestID {
 		frames = append(frames, Frame{Slot: SlotRequestID, Name: "request_id", Middleware: RequestID()})
 	}
@@ -177,6 +195,41 @@ func Middlewares(handler fasthttp.RequestHandler, options RuntimeOptions) (fasth
 	}
 	if settings.MaxRequestBody > 0 {
 		frames = append(frames, Frame{Slot: SlotMaxRequestBody, Name: "max_request_body", Middleware: MaxRequestBody(settings.MaxRequestBody)})
+	}
+	if options.PublicFS != nil && settings.Public.Enabled {
+		assets, err := PublicAssets(settings.Public, options.PublicFS)
+		if err != nil {
+			return nil, err
+		}
+		frames = append(frames, Frame{Slot: SlotPublicAssets, Name: "public_assets", Middleware: assets})
+	}
+	if options.Session != nil {
+		frames = append(frames, Frame{Slot: SlotSession, Name: "session",
+			Middleware: Session(options.Session, nil)})
+	}
+	if settings.CSRF.Enabled {
+		// The check is built even when the session frame is absent, and refuses
+		// rather than passing: with no session there is nothing a request could
+		// present that would be valid, and letting it through would be the one
+		// failure direction this check must not have.
+		check, err := CSRF(settings.CSRF, options.SessionCookie, options.SessionSameSite, nil, trusted)
+		if err != nil {
+			return nil, err
+		}
+		frames = append(frames, Frame{Slot: SlotCSRF, Name: "csrf", Middleware: check})
+	}
+	frames = append(frames, Frame{Slot: SlotOperational, Name: "operational",
+		Middleware: OperationalEndpoints(settings.Health, settings.Readiness, options.Resources)})
+	frames = append(frames, Frame{Slot: SlotAPIDoc, Name: "apidoc",
+		Middleware: DocumentationEndpoints(settings.OpenAPI, settings.APIDoc, settings.APIDocPath)})
+	if options.Guard.Protected != nil {
+		frames = append(frames, Frame{Slot: SlotGuard, Name: "guard", Middleware: Guard(options.Guard)})
+	}
+	if options.Tracing {
+		// Outermost of everything positioned, so the request root span covers
+		// the whole chain and every record taken inside it correlates. It is
+		// opt-in because an unsampled span with nowhere to export is pure cost.
+		frames = append(frames, Frame{Slot: SlotTracing, Name: "otel", Middleware: Otel()})
 	}
 	frames = append(frames, options.Extra...)
 	return Compose(handler, frames...), nil
@@ -239,4 +292,129 @@ func compileTrustedProxies(values []string) ([]*net.IPNet, error) {
 		return nil, err
 	}
 	return proxies.Networks(), nil
+}
+
+// OperationalEndpoints answers the liveness and readiness probes above
+// everything that authenticates.
+//
+// The probes reveal only status and are reachable by anything that can reach
+// the port, which is what a liveness probe needs and what keeps a dependency
+// outage from turning into a restart loop. Readiness is the shared probe, so
+// the same process reports the same readiness whichever transport asked.
+//
+// A path left empty installs nothing for it, which is how a deployment turns
+// one off.
+func OperationalEndpoints(health, readiness string, resources pwruntime.Resources) Middleware {
+	return func(next fasthttp.RequestHandler) fasthttp.RequestHandler {
+		if health == "" && readiness == "" {
+			return next
+		}
+		return func(r *fasthttp.RequestCtx) {
+			switch path := string(r.Path()); {
+			case health != "" && path == health:
+				writeOperationalStatus(r, true)
+			case readiness != "" && path == readiness:
+				writeOperationalStatus(r, pwruntime.DatabasesReady(r, resources))
+			default:
+				next(r)
+			}
+		}
+	}
+}
+
+// writeOperationalStatus answers a probe.
+//
+// Only GET and HEAD are answered, because a probe endpoint that accepts any
+// method is one an arbitrary caller can POST to, and the reply says nothing but
+// costs a database round trip on the readiness path.
+func writeOperationalStatus(r *fasthttp.RequestCtx, healthy bool) {
+	if !operationalMethod(r) {
+		return
+	}
+	method := string(r.Method())
+	r.Response.Header.Set("Cache-Control", "no-store")
+	r.Response.Header.SetContentType("text/plain; charset=utf-8")
+	status, body := fasthttp.StatusOK, "ok\n"
+	if !healthy {
+		status, body = fasthttp.StatusServiceUnavailable, "unavailable\n"
+	}
+	r.SetStatusCode(status)
+	if method != fasthttp.MethodHead {
+		_, _ = r.WriteString(body)
+	}
+}
+
+// DocumentationEndpoints answers the OpenAPI document and the UI over it.
+//
+// Unlike the probes it belongs beneath whatever protects the routes it
+// describes: an API description is a map of the whole application surface, so
+// reaching it costs a session where the configuration says so. That is why its
+// slot is below the guard rather than beside the operational frame, and why
+// this returns a frame rather than being folded into the one above it.
+//
+// A configuration naming neither returns the handler unchanged, so the common
+// case adds nothing to the chain.
+func DocumentationEndpoints(openAPIPath, docKind, docPath string) Middleware {
+	page, hasPage := apidoc.Build(docKind, openAPIPath)
+	return func(next fasthttp.RequestHandler) fasthttp.RequestHandler {
+		if openAPIPath == "" && !hasPage {
+			return next
+		}
+		return func(r *fasthttp.RequestCtx) {
+			switch path := string(r.Path()); {
+			case openAPIPath != "" && path == openAPIPath:
+				if !operationalMethod(r) {
+					return
+				}
+				if string(r.Method()) == fasthttp.MethodHead {
+					// The document is assembled either way, because its length
+					// is the answer a HEAD is asking for.
+					OpenAPIJSON(r)
+					r.Response.ResetBody()
+					return
+				}
+				OpenAPIJSON(r)
+			case hasPage && docPath != "" && path == docPath:
+				if !operationalMethod(r) {
+					return
+				}
+				writeAPIDocPage(r, page)
+			default:
+				next(r)
+			}
+		}
+	}
+}
+
+// writeAPIDocPage sends the composed page under the policy it needs.
+//
+// The policy replaces the application's rather than widening it, and only where
+// one is already set: the security header frame wraps this endpoint, so the
+// configured policy is on the response while it is still uncommitted, and
+// widening the configured value instead would carry the CDN and inline
+// allowances into every response the application sends.
+func writeAPIDocPage(r *fasthttp.RequestCtx, page apidoc.Page) {
+	if page.CSP != "" {
+		for _, name := range apidoc.RelaxedPolicyNames {
+			if len(r.Response.Header.Peek(name)) > 0 {
+				r.Response.Header.Set(name, page.CSP)
+			}
+		}
+	}
+	r.Response.Header.SetContentType("text/html; charset=utf-8")
+	r.SetStatusCode(fasthttp.StatusOK)
+	if string(r.Method()) != fasthttp.MethodHead {
+		_, _ = r.WriteString(page.HTML)
+	}
+}
+
+// operationalMethod refuses a method these endpoints do not answer, reporting
+// whether the caller may continue.
+func operationalMethod(r *fasthttp.RequestCtx) bool {
+	if method := string(r.Method()); method == fasthttp.MethodGet || method == fasthttp.MethodHead {
+		return true
+	}
+	r.Response.Header.Set("Allow", "GET, HEAD")
+	r.SetStatusCode(fasthttp.StatusMethodNotAllowed)
+	return false
 }

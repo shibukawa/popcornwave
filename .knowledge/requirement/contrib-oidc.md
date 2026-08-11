@@ -17,7 +17,13 @@ public_api:
   - Client.UserInfoWithSubject(context, accessToken, expectedSubject) optional
   - Provider.EndSessionEndpoint() reports the discovered RP-initiated logout endpoint
   - Client.EndSessionURL(options) builds a logout request, or an empty string when the provider advertises none
-flow: flow:oidc-auth-code
+  - Provider.DeviceAuthorizationEndpoint() reports the validated discovered endpoint
+  - NewDeviceClient(provider, config, options) returns the requirement:oidc-device-authorization client
+  - DeviceClient.Begin(context, options) returns data:device-authorization with openid scope
+  - DeviceClient.Poll(context, authorization) returns TokenSet and verified IDToken
+flows:
+  - flow:oidc-auth-code
+  - flow:oidc-device-authorization
 required:
   - discovery metadata validation
   - caller-configurable endpoint host/IP trust policy
@@ -36,6 +42,9 @@ required:
   - token exchange accepts only the Bearer token type used by the OIDC UserInfo flow
   - exact redirect URI supplied by application
   - end_session_endpoint is validated like every other discovered endpoint
+  - device_authorization_endpoint is optional discovery metadata and is validated like every other discovered endpoint
+  - the device client refuses construction when discovery advertises no device authorization endpoint
+  - device completion verifies the ID Token without requiring a nonce; no other verification entry point gains that exemption
   - id_token_hint, post_logout_redirect_uri, and state are bounded and rejected when malformed
 assurance:
   status: implemented
@@ -59,7 +68,7 @@ assurance:
     effect: plugin/auth reads the already-verified claims and no longer verifies the same token twice
 deferred:
   - OpenID Provider implementation beyond the development-only requirement:contrib-devidp
-  - public clients without a configured client secret
+  - public clients outside the typed device authorization surface
   - dynamic client registration
   - implicit and hybrid flows
   - JWE ID Tokens

@@ -17,6 +17,15 @@ import (
 // reconnect re-sends only what changed.
 const LiveManifestHeader = "Pw-Live-Manifest"
 
+// ResponseModeHeader selects deliveries over a document, and LiveResponseMode
+// is the token that does it. They are declared here rather than imported from
+// the other half for the reason LiveManifestHeader is: the two transports share
+// a wire, not a package.
+const ResponseModeHeader = "Pw-Response-Mode"
+
+// LiveResponseMode is the token that selects a delivery stream.
+const LiveResponseMode = "live"
+
 // ServeLive answers a live mode request with the deliveries of one chain, and
 // reports whether it did.
 //

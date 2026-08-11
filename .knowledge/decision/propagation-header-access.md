@@ -51,6 +51,13 @@ consequences:
   - the pwfast Otel middleware is a small port rather than a second propagation implementation
   - decision:outbound-trace-propagation gets the same treatment for free, since its fasthttp wrapper would inject through the same core
   - the existing propagation tests cover both transports, because they exercise the validator that both call
-  - trace.StoreSpan was added for the same reason the reading was split: the other half derives a context per frame and this transport's request value is its context, so the span is written into it in place and SpanContextFromContext, SpanFromContext, and a child span all read it unchanged
-  - the OpenTelemetry root span switch of data:middleware-runtime-config reaches this transport through the published chain settings, so a deployment that exports gets a root span on either half and one that does not opens no span on either
+  - trace.StoreContext carries the span onto the request value for the same reason the reading was split: the other half derives a context per frame and this transport's request value is its context, so SpanContextFromContext, SpanFromContext, and a child span all read it unchanged
+  - the root span switch is the RuntimeOptions.Tracing of api:pwfast-package rather than a published setting, because whether a span has anywhere to go is decided by the exporter the process built rather than by a configuration key
+confirmed_by_an_independent_implementation:
+  what_happened: a second effort added the pwfast middleware at the same time, sharing the validator by copying the two fields into an http.Header and calling the existing Extract
+  which_this_decision_had_considered: the copy_into_an_http_Header_at_the_fasthttp_edge entry above, rejected on the map allocation
+  what_the_allocation_argument_missed: the copy read with Peek, which returns the first value, so a request carrying two traceparent fields reached the shared validator as one field and was given a parent — while the same request on net/http is refused one
+  why_that_is_the_whole_point: the validator was shared and the rule still diverged, because the rule it enforces is about how many fields arrived and the reading decided that before the validator saw anything
+  sharper_than_the_original_reasoning: this decision argued the reading is the safe half to duplicate since a divergence there is a compile error; a reading that silently drops values is the exception, and PeekAll versus Peek is the specific shape of it
+  settled: the merged middleware reads with PeekAll, and the refusals are asserted by name in the pwfast tests so the two transports refuse the same requests
 ```
