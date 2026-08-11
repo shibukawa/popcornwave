@@ -232,6 +232,7 @@
 {"category": "constraint", "id": "decision:scriptless-browser-detection", "path": ".knowledge/decision/scriptless-browser-detection.md", "role": "supporting", "title": "Scriptless Browser Detection", "type": "decision"}
 {"category": "constraint", "id": "decision:separate-tinygo-dockerfile", "path": ".knowledge/decision/separate-tinygo-dockerfile.md", "role": "supporting", "title": "Separate TinyGo Dockerfile", "type": "decision"}
 {"category": "constraint", "id": "decision:server-sql-support-tier", "path": ".knowledge/decision/server-sql-support-tier.md", "role": "supporting", "title": "Server SQL Support Tier", "type": "decision"}
+{"category": "constraint", "id": "decision:server-timing-transport", "path": ".knowledge/decision/server-timing-transport.md", "role": "supporting", "title": "Server-Timing Travels As A Header, Not A Trailer", "type": "decision"}
 {"category": "constraint", "id": "decision:session-lifetime-owned-by-auth", "path": ".knowledge/decision/session-lifetime-owned-by-auth.md", "role": "supporting", "title": "Session Lifetime Owned by Authentication", "type": "decision"}
 {"category": "constraint", "id": "decision:shared-check-catalog", "path": ".knowledge/decision/shared-check-catalog.md", "role": "supporting", "title": "Shared Check Catalog", "type": "decision"}
 {"category": "constraint", "id": "decision:shared-runtime-leaf", "path": ".knowledge/decision/shared-runtime-leaf.md", "role": "supporting", "title": "The Transport-Free Half Of pw Moves To pwruntime", "type": "decision"}
@@ -411,6 +412,7 @@
 {"category": "objective", "id": "requirement:dev-data-pane", "path": ".knowledge/requirement/dev-data-pane.md", "role": "primary", "title": "Development Data Pane", "type": "requirement"}
 {"category": "objective", "id": "requirement:dev-error-overlay", "path": ".knowledge/requirement/dev-error-overlay.md", "role": "primary", "title": "Development Error Overlay", "type": "requirement"}
 {"category": "objective", "id": "requirement:dev-query-runner", "path": ".knowledge/requirement/dev-query-runner.md", "role": "primary", "title": "Development Query Runner", "type": "requirement"}
+{"category": "objective", "id": "requirement:dev-request-timing-surface", "path": ".knowledge/requirement/dev-request-timing-surface.md", "role": "primary", "title": "Per-Request Timing In The Browser", "type": "requirement"}
 {"category": "objective", "id": "requirement:dev-telemetry-viewer", "path": ".knowledge/requirement/dev-telemetry-viewer.md", "role": "primary", "title": "Development Telemetry Viewer", "type": "requirement"}
 {"category": "objective", "id": "requirement:discovered-page-routing", "path": ".knowledge/requirement/discovered-page-routing.md", "role": "primary", "title": "Discovered Page Routing", "type": "requirement"}
 {"category": "objective", "id": "requirement:dockerless-image-builders", "path": ".knowledge/requirement/dockerless-image-builders.md", "role": "primary", "title": "Dockerless Image Builders", "type": "requirement"}

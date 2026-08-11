@@ -12,8 +12,9 @@ guide that owns each detail. An RFC number means a published specification;
 `X-RateLimit-*` is called out separately because compatibility is useful, but
 does not turn a convention into a standard. Publication is not the only test that
 matters either. A specification one browser engine ships is a different
-proposition from one they all ship, and the last section covers a case where that
-difference decided against the feature.
+proposition from one they all ship, and one that every server can send but no
+browser will read is a different proposition again. The last two sections cover
+features declined on those grounds.
 
 ## Security headers and browser boundaries
 
@@ -150,3 +151,53 @@ None of this is enforced. A handler can read the header itself and set `Vary` to
 match, and an application that has measured the flash and accepts the cache cost
 is free to do exactly that. It is a choice the application owns, with reasoning
 the framework declines to make on its behalf.
+
+## Server-Timing trailers, and why they stay out
+
+`pw dev` already measures the work behind a response. Tracing opens a span for
+the render, one for each settled boundary, and one per statement, so the
+breakdown of a slow page exists before anyone goes looking for it. Returning it
+on the same response is the obvious next step, and HTTP has the mechanism for it:
+`Trailer: Server-Timing` carries fields that are known only after the body, which
+on a streamed page is most of what is worth knowing. DevTools would show them
+beside the request. Popcorn Wave sends no trailer, because on the connection
+`pw dev` serves, nothing reads one.
+
+| | Chromium | Firefox | Safari |
+| --- | --- | --- | --- |
+| `Server-Timing` as a response header | ✓ | ✓ | ✓ |
+| `Server-Timing` as a trailer | — | HTTPS only | — |
+| any trailer, read from `fetch()` | — | — | — |
+
+Firefox is the only engine that has ever exposed a trailer in any form. It
+restricted that support to HTTPS, and it advertises trailer support only over
+HTTP/2, which it speaks only to `https://` origins. Chromium has declined
+trailers repeatedly, on the grounds that too much of a browser interposes on
+network requests for the change to stay contained. `pw dev` binds a cleartext
+HTTP/1.1 port. Chrome therefore ignores the trailer, Firefox refuses it for not
+being HTTPS, and the panel the developer opened it for stays empty.
+
+The third row is why nothing routes around that. `fetch()` cannot read trailers
+at all; DevTools can, and only for `Server-Timing`, as a special case wired into
+the network panel. No script on the page and no pane in the dev console can pick
+a trailer up and render it. One consumer remains, and two engines out of three
+never populate it.
+
+Forcing chunked encoding in development was the other half of the idea, and it
+falls with the trailer it existed to carry. It would have cost something on its
+own account. A development server that frames its responses differently from the
+deployed one stops rehearsing it, and this framework has already paid for that
+once: a boundary-marker bug that never appeared in development surfaced in
+production as soon as a proxy, a TLS record, or a compressing encoder split the
+bytes where development never had.
+
+None of the timing is lost, which is what settles it. Those spans are in the
+[development telemetry viewer](/productivity/dev-telemetry-viewer/) as a tree,
+correlated with the log records and statements from the same request — including
+everything that happened after the response committed. That is the part no
+response header can carry, and the part the trailer was proposed for.
+
+Nothing here is enforced either. A handler can set `Server-Timing` as an ordinary
+response header and get a time-to-first-byte breakdown in every browser's
+DevTools, and it can write a trailer beside it. What it cannot do is expect the
+trailer to be read.
