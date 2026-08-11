@@ -347,7 +347,7 @@ func walkSources(root string, sources []string, visit func(path string, entry fs
 			}
 			if entry.IsDir() {
 				switch entry.Name() {
-				case ".git", "vendor", "node_modules", ".devbox":
+				case ".git", ".pw", "vendor", "node_modules", ".devbox":
 					return filepath.SkipDir
 				}
 				return nil
@@ -550,7 +550,7 @@ func reportSourcesOutsideScope(root string, config projectConfig, stdout io.Writ
 		}
 		if entry.IsDir() {
 			switch entry.Name() {
-			case ".git", "vendor", "node_modules", ".devbox":
+			case ".git", ".pw", "vendor", "node_modules", ".devbox":
 				return filepath.SkipDir
 			}
 			return nil

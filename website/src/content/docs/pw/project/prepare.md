@@ -6,11 +6,13 @@ sidebar:
 ---
 
 ```sh
-pw prepare [--debug]
+pw prepare [--debug] [--backend nethttp|fasthttp]
 ```
 
 `pw prepare` is [`pw build`](/pw/project/build/) without its final step. It
 produces no binary — it leaves a tree that a compiler can read, and stops.
+`--backend` selects the build tags used by the dependency safety check. Provider
+`--target` packaging belongs to `pw build` and is not accepted here.
 
 ## What it does
 

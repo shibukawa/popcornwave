@@ -6,11 +6,13 @@ sidebar:
 ---
 
 ```sh
-pw prepare [--debug]
+pw prepare [--debug] [--backend nethttp|fasthttp]
 ```
 
 `pw prepare` は [`pw build`](/ja/pw/project/build/) から最後の手順を引いたもの
 です。バイナリは作りません。コンパイラが読める状態のツリーを残して止まります。
+`--backend` は dependency safety check に使う build tag を選びます。provider の
+`--target` packaging は `pw build` の役割で、このコマンドでは受け付けません。
 
 ## 何をするか
 

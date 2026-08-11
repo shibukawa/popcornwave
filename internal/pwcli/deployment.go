@@ -1,0 +1,453 @@
+package pwcli
+
+import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"fmt"
+	"go/ast"
+	"go/build"
+	"go/format"
+	"go/parser"
+	"go/token"
+	"io"
+	"io/fs"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"strconv"
+	"strings"
+
+	"golang.org/x/mod/modfile"
+)
+
+const functionsFrameworkVersion = "v1.9.2"
+const lambdaWebAdapterVersion = "1.0.1"
+
+type deploymentManifest struct {
+	Target     string `json:"target"`
+	Backend    string `json:"backend"`
+	Artifact   string `json:"artifact"`
+	Entrypoint string `json:"entrypoint,omitempty"`
+}
+
+func buildDeployment(ctx context.Context, root string, config projectConfig, options buildOptions, progress *progressRegion, stdout, stderr io.Writer) error {
+	stage := filepath.Join(root, ".pw", "build", options.target, options.backend)
+	if err := os.RemoveAll(stage); err != nil {
+		return fmt.Errorf("clear deployment staging: %w", err)
+	}
+	if err := os.MkdirAll(stage, 0o755); err != nil {
+		return fmt.Errorf("create deployment staging: %w", err)
+	}
+
+	var manifest deploymentManifest
+	var err error
+	switch options.target {
+	case targetLambda, targetAzureFunctions:
+		progress.Phase("compiling Linux application")
+		manifest, err = buildProcessDeployment(ctx, root, stage, config, options, stdout, stderr)
+	case targetGoogleCloudRunFunctions, targetVercelGo:
+		progress.Phase("staging function source")
+		manifest, err = buildSourceDeployment(ctx, root, stage, config, options, stdout, stderr)
+	default:
+		err = fmt.Errorf("unsupported deployment target %q", options.target)
+	}
+	if err != nil {
+		return err
+	}
+	encoded, err := json.MarshalIndent(manifest, "", "  ")
+	if err != nil {
+		return err
+	}
+	encoded = append(encoded, '\n')
+	if err := os.WriteFile(filepath.Join(stage, "deployment.json"), encoded, 0o644); err != nil {
+		return fmt.Errorf("write deployment manifest: %w", err)
+	}
+	fmt.Fprintf(stdout, "deployment: %s\n", stage)
+	return nil
+}
+
+func buildProcessDeployment(ctx context.Context, root, stage string, config projectConfig, options buildOptions, stdout, stderr io.Writer) (deploymentManifest, error) {
+	binary := "bootstrap"
+	if options.target == targetAzureFunctions {
+		binary = "handler"
+	}
+	arguments := []string{"build", "-trimpath", "-o", filepath.Join(stage, binary)}
+	if !options.debug {
+		arguments = append(arguments, "-ldflags=-s -w")
+	}
+	arguments = append(arguments, options.tags()...)
+	arguments = append(arguments, config.Main)
+	command := exec.CommandContext(ctx, "go", arguments...)
+	command.Dir, command.Stdout, command.Stderr = root, stdout, stderr
+	command.Env = append(os.Environ(), "GOOS=linux", "GOARCH=amd64", "CGO_ENABLED=0")
+	if err := command.Run(); err != nil {
+		return deploymentManifest{}, fmt.Errorf("go build deployment: %w", err)
+	}
+	productionConfig := filepath.Join(root, "config.prod.toml")
+	info, err := os.Stat(productionConfig)
+	if err != nil {
+		return deploymentManifest{}, fmt.Errorf("deployment requires config.prod.toml: %w", err)
+	}
+	if err := copyDeploymentFile(productionConfig, filepath.Join(stage, "config.prod.toml"), info.Mode()); err != nil {
+		return deploymentManifest{}, err
+	}
+
+	manifest := deploymentManifest{Target: options.target, Backend: options.backend, Artifact: binary}
+	switch options.target {
+	case targetLambda:
+		dockerfile := "FROM public.ecr.aws/awsguru/aws-lambda-adapter:" + lambdaWebAdapterVersion + " AS adapter\n" +
+			"FROM gcr.io/distroless/static-debian12:nonroot\n" +
+			"COPY --from=adapter /lambda-adapter /opt/extensions/lambda-adapter\n" +
+			"COPY --chown=nonroot:nonroot bootstrap config.prod.toml /\n" +
+			"ENV APP_ENV=prod PORT=8080\nUSER nonroot\nENTRYPOINT [\"/bootstrap\"]\n"
+		if err := os.WriteFile(filepath.Join(stage, "Dockerfile"), []byte(dockerfile), 0o644); err != nil {
+			return deploymentManifest{}, err
+		}
+	case targetAzureFunctions:
+		host := "{\n  \"version\": \"2.0\",\n  \"customHandler\": {\n    \"description\": {\n      \"defaultExecutablePath\": \"run.sh\"\n    },\n    \"enableProxyingHttpRequest\": true\n  },\n  \"extensions\": {\n    \"http\": {\n      \"routePrefix\": \"\"\n    }\n  }\n}\n"
+		startup := "#!/bin/sh\nexport APP_ENV=\"${APP_ENV:-prod}\"\nexec ./handler\n"
+		function := "{\n  \"bindings\": [\n    {\n      \"type\": \"httpTrigger\",\n      \"direction\": \"in\",\n      \"name\": \"req\",\n      \"authLevel\": \"anonymous\",\n      \"route\": \"{*route}\",\n      \"methods\": [\"get\", \"head\", \"post\", \"put\", \"patch\", \"delete\", \"options\"]\n    },\n    {\n      \"type\": \"http\",\n      \"direction\": \"out\",\n      \"name\": \"res\"\n    }\n  ]\n}\n"
+		if err := os.WriteFile(filepath.Join(stage, "host.json"), []byte(host), 0o644); err != nil {
+			return deploymentManifest{}, err
+		}
+		if err := os.WriteFile(filepath.Join(stage, "run.sh"), []byte(startup), 0o755); err != nil {
+			return deploymentManifest{}, err
+		}
+		if err := os.MkdirAll(filepath.Join(stage, "http"), 0o755); err != nil {
+			return deploymentManifest{}, err
+		}
+		if err := os.WriteFile(filepath.Join(stage, "http", "function.json"), []byte(function), 0o644); err != nil {
+			return deploymentManifest{}, err
+		}
+	}
+	return manifest, nil
+}
+
+func buildSourceDeployment(ctx context.Context, root, stage string, config projectConfig, options buildOptions, stdout, stderr io.Writer) (deploymentManifest, error) {
+	applicationRoot := filepath.Join(stage, "app")
+	if err := copyProjectForFunction(root, applicationRoot); err != nil {
+		return deploymentManifest{}, err
+	}
+	modulePath, goVersion, err := normalizeApplicationModule(root, filepath.Join(applicationRoot, "go.mod"))
+	if err != nil {
+		return deploymentManifest{}, err
+	}
+	if err := writeFunctionModule(stage, modulePath, goVersion, filepath.Join(applicationRoot, "go.mod"), options.target == targetGoogleCloudRunFunctions); err != nil {
+		return deploymentManifest{}, err
+	}
+	for _, name := range []string{"go.sum", "config.prod.toml"} {
+		source := filepath.Join(applicationRoot, name)
+		if info, err := os.Stat(source); err == nil {
+			if err := copyDeploymentFile(source, filepath.Join(stage, name), info.Mode()); err != nil {
+				return deploymentManifest{}, err
+			}
+		} else if name == "config.prod.toml" {
+			return deploymentManifest{}, fmt.Errorf("deployment requires config.prod.toml: %w", err)
+		}
+	}
+	packageDir, packageName := stage, "function"
+	entrypoint := "PopcornWave"
+	if options.target == targetVercelGo {
+		packageDir, packageName = filepath.Join(stage, "api"), "handler"
+		entrypoint = "Handler"
+		if err := os.MkdirAll(packageDir, 0o755); err != nil {
+			return deploymentManifest{}, err
+		}
+	}
+	if err := copyTransformedMain(root, packageDir, packageName, config.Main, options.backend); err != nil {
+		return deploymentManifest{}, err
+	}
+	wrapper, err := format.Source([]byte(sourceFunctionWrapper(packageName, options.target, options.backend)))
+	if err != nil {
+		return deploymentManifest{}, fmt.Errorf("format generated function entrypoint: %w", err)
+	}
+	if err := os.WriteFile(filepath.Join(packageDir, "popcornwave_serverless.go"), wrapper, 0o644); err != nil {
+		return deploymentManifest{}, err
+	}
+	if options.target == targetVercelGo {
+		flags := "-mod=vendor"
+		if options.backend == backendFastHTTP {
+			flags += " -tags fasthttp"
+		}
+		vercel := "{\n  \"$schema\": \"https://openapi.vercel.sh/vercel.json\",\n  \"build\": {\n    \"env\": {\n      \"GO_BUILD_FLAGS\": " + fmt.Sprintf("%q", flags) + "\n    }\n  }\n}\n"
+		if err := os.WriteFile(filepath.Join(stage, "vercel.json"), []byte(vercel), 0o644); err != nil {
+			return deploymentManifest{}, err
+		}
+	}
+	tidy := exec.CommandContext(ctx, "go", "mod", "tidy")
+	tidy.Dir, tidy.Stdout, tidy.Stderr, tidy.Env = stage, stdout, stderr, os.Environ()
+	if err := tidy.Run(); err != nil {
+		return deploymentManifest{}, fmt.Errorf("resolve staged function module: %w", err)
+	}
+	vendor := exec.CommandContext(ctx, "go", "mod", "vendor")
+	vendor.Dir, vendor.Stdout, vendor.Stderr, vendor.Env = stage, stdout, stderr, os.Environ()
+	if err := vendor.Run(); err != nil {
+		return deploymentManifest{}, fmt.Errorf("vendor staged function module: %w", err)
+	}
+
+	progressArgs := []string{"test", "-mod=vendor"}
+	progressArgs = append(progressArgs, options.tags()...)
+	if options.target == targetGoogleCloudRunFunctions {
+		progressArgs = append(progressArgs, ".")
+	} else {
+		progressArgs = append(progressArgs, "./api")
+	}
+	command := exec.CommandContext(ctx, "go", progressArgs...)
+	command.Dir, command.Stdout, command.Stderr = stage, stdout, stderr
+	command.Env = os.Environ()
+	if err := command.Run(); err != nil {
+		return deploymentManifest{}, fmt.Errorf("compile staged function: %w", err)
+	}
+	return deploymentManifest{Target: options.target, Backend: options.backend, Artifact: ".", Entrypoint: entrypoint}, nil
+}
+
+func copyProjectForFunction(root, stage string) error {
+	return filepath.WalkDir(root, func(path string, entry fs.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		relative, err := filepath.Rel(root, path)
+		if err != nil || relative == "." {
+			return err
+		}
+		first := strings.Split(relative, string(filepath.Separator))[0]
+		if entry.IsDir() && (first == ".git" || first == ".pw" || first == ".devbox" || first == ".log" || first == "node_modules" || first == "cmd") {
+			return filepath.SkipDir
+		}
+		if entry.IsDir() {
+			return os.MkdirAll(filepath.Join(stage, relative), 0o755)
+		}
+		base := filepath.Base(relative)
+		if strings.HasSuffix(relative, ".db") || strings.HasSuffix(relative, "_test.go") ||
+			strings.HasPrefix(base, ".env") ||
+			(strings.HasPrefix(base, "config.") && strings.HasSuffix(base, ".toml") && base != "config.prod.toml") ||
+			base == "devidp.toml" || base == "local.settings.json" {
+			return nil
+		}
+		info, err := entry.Info()
+		if err != nil {
+			return err
+		}
+		return copyDeploymentFile(path, filepath.Join(stage, relative), info.Mode())
+	})
+}
+
+func copyDeploymentFile(source, destination string, mode fs.FileMode) error {
+	if !mode.IsRegular() {
+		return nil
+	}
+	input, err := os.Open(source)
+	if err != nil {
+		return err
+	}
+	defer input.Close()
+	if err := os.MkdirAll(filepath.Dir(destination), 0o755); err != nil {
+		return err
+	}
+	output, err := os.OpenFile(destination, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, mode.Perm())
+	if err != nil {
+		return err
+	}
+	_, copyErr := io.Copy(output, input)
+	closeErr := output.Close()
+	if copyErr != nil {
+		return copyErr
+	}
+	return closeErr
+}
+
+func copyTransformedMain(root, destination, packageName, mainPackage, backend string) error {
+	directory := filepath.Join(root, filepath.FromSlash(strings.TrimPrefix(mainPackage, "./")))
+	context := build.Default
+	if backend == backendFastHTTP {
+		context.BuildTags = []string{backendFastHTTP}
+	}
+	entries, err := os.ReadDir(directory)
+	if err != nil {
+		return fmt.Errorf("read main package: %w", err)
+	}
+	foundMain, foundRun := false, false
+	for _, entry := range entries {
+		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".go") || strings.HasSuffix(entry.Name(), "_test.go") {
+			continue
+		}
+		matches, err := context.MatchFile(directory, entry.Name())
+		if err != nil || !matches {
+			continue
+		}
+		path := filepath.Join(directory, entry.Name())
+		set := token.NewFileSet()
+		file, err := parser.ParseFile(set, path, nil, parser.ParseComments)
+		if err != nil {
+			return err
+		}
+		file.Name.Name = packageName
+		runtimePath, runtimeName := "github.com/shibukawa/popcornwave/pw", "pw"
+		if backend == backendFastHTTP {
+			runtimePath, runtimeName = "github.com/shibukawa/popcornwave/pwfast", "pwfast"
+		}
+		for _, imported := range file.Imports {
+			path, err := strconv.Unquote(imported.Path.Value)
+			if err != nil || path != runtimePath {
+				continue
+			}
+			if imported.Name != nil && imported.Name.Name != "_" && imported.Name.Name != "." {
+				runtimeName = imported.Name.Name
+			}
+		}
+		for _, declaration := range file.Decls {
+			if function, ok := declaration.(*ast.FuncDecl); ok && function.Recv == nil && function.Name.Name == "main" {
+				function.Name.Name = "initializeApplication"
+				foundMain = true
+			}
+		}
+		ast.Inspect(file, func(node ast.Node) bool {
+			call, ok := node.(*ast.CallExpr)
+			if !ok {
+				return true
+			}
+			selector, ok := call.Fun.(*ast.SelectorExpr)
+			if !ok || selector.Sel.Name != "Run" {
+				return true
+			}
+			identifier, ok := selector.X.(*ast.Ident)
+			if !ok || identifier.Name != runtimeName {
+				return true
+			}
+			call.Args = append([]ast.Expr{call.Fun}, call.Args...)
+			call.Fun = ast.NewIdent("captureApplication")
+			foundRun = true
+			return true
+		})
+		var formatted bytes.Buffer
+		if err := format.Node(&formatted, set, file); err != nil {
+			return err
+		}
+		if err := os.WriteFile(filepath.Join(destination, entry.Name()), formatted.Bytes(), 0o644); err != nil {
+			return err
+		}
+	}
+	if !foundMain || !foundRun {
+		return fmt.Errorf("%s must contain one main function that starts the selected backend with Run", mainPackage)
+	}
+	return nil
+}
+
+func sourceFunctionWrapper(packageName, target, backend string) string {
+	frameworkImport, registration := "", ""
+	if target == targetGoogleCloudRunFunctions {
+		frameworkImport = "\n\t\"github.com/GoogleCloudPlatform/functions-framework-go/functions\""
+		registration = "\nfunc init() { functions.HTTP(\"PopcornWave\", Handler) }\n"
+	}
+	capture := `func captureApplication(_ func(context.Context, http.Handler, ...pw.Option) error, ctx context.Context, handler http.Handler, options ...pw.Option) error {
+	wrapped, err := pw.Middlewares(handler, options...)
+	if err == nil { applicationHandler = wrapped }
+	return err
+}`
+	backendImports := "\n\t\"github.com/shibukawa/popcornwave/pw\""
+	if backend == backendFastHTTP {
+		backendImports = "\n\t\"github.com/shibukawa/popcornwave/pwfast\"\n\t\"github.com/shibukawa/tinygodriver/fasthttp\""
+		capture = `func captureApplication(_ func(context.Context, fasthttp.RequestHandler, ...pwfast.Option) error, ctx context.Context, handler fasthttp.RequestHandler, options ...pwfast.Option) error {
+	wrapped, _, err := pwfast.Start(ctx, handler, options...)
+	if err == nil { applicationHandler = pwfast.NetHTTPHandler(wrapped) }
+	return err
+}`
+	}
+	return "// Code generated by pw build --target=" + target + ". DO NOT EDIT.\n\npackage " + packageName + `
+
+import (
+	"context"
+	"net/http"
+	"os"
+	"sync"` + frameworkImport + backendImports + `
+)
+
+var (
+	applicationOnce sync.Once
+	applicationHandler http.Handler
+)
+
+` + capture + `
+
+func Handler(w http.ResponseWriter, r *http.Request) {
+	applicationOnce.Do(func() {
+		if os.Getenv("APP_ENV") == "" { _ = os.Setenv("APP_ENV", "prod") }
+		initializeApplication()
+	})
+	if applicationHandler == nil {
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+	applicationHandler.ServeHTTP(w, r)
+}
+` + registration
+}
+
+func normalizeApplicationModule(root, path string) (string, string, error) {
+	source, err := os.ReadFile(path)
+	if err != nil {
+		return "", "", err
+	}
+	module, err := modfile.Parse(path, source, nil)
+	if err != nil {
+		return "", "", err
+	}
+	if module.Module == nil {
+		return "", "", fmt.Errorf("go.mod has no module directive")
+	}
+	for _, replacement := range append([]*modfile.Replace(nil), module.Replace...) {
+		if replacement.New.Version != "" || filepath.IsAbs(replacement.New.Path) {
+			continue
+		}
+		absolute, err := filepath.Abs(filepath.Join(root, filepath.FromSlash(replacement.New.Path)))
+		if err != nil {
+			return "", "", err
+		}
+		if err := module.AddReplace(replacement.Old.Path, replacement.Old.Version, filepath.ToSlash(absolute), ""); err != nil {
+			return "", "", err
+		}
+	}
+	formatted, err := module.Format()
+	if err != nil {
+		return "", "", err
+	}
+	if err := os.WriteFile(path, formatted, 0o644); err != nil {
+		return "", "", err
+	}
+	goVersion := "1.26.0"
+	if module.Go != nil && module.Go.Version != "" {
+		goVersion = module.Go.Version
+	}
+	return module.Module.Mod.Path, goVersion, nil
+}
+
+func writeFunctionModule(stage, applicationModule, goVersion, applicationGoMod string, withFunctionsFramework bool) error {
+	source := "module " + applicationModule + "/popcornwave-serverless\n\ngo " + goVersion + "\n\nrequire " + applicationModule + " v0.0.0\n"
+	if withFunctionsFramework {
+		source += "require github.com/GoogleCloudPlatform/functions-framework-go " + functionsFrameworkVersion + "\n"
+	}
+	source += "\nreplace " + applicationModule + " => ./app\n"
+	module, err := modfile.Parse("go.mod", []byte(source), nil)
+	if err != nil {
+		return err
+	}
+	applicationSource, err := os.ReadFile(applicationGoMod)
+	if err != nil {
+		return err
+	}
+	application, err := modfile.Parse(applicationGoMod, applicationSource, nil)
+	if err != nil {
+		return err
+	}
+	for _, replacement := range application.Replace {
+		if err := module.AddReplace(replacement.Old.Path, replacement.Old.Version, replacement.New.Path, replacement.New.Version); err != nil {
+			return err
+		}
+	}
+	formatted, err := module.Format()
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(filepath.Join(stage, "go.mod"), formatted, 0o644)
+}

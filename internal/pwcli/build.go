@@ -9,8 +9,8 @@ import (
 	"strings"
 )
 
-// buildUsage names the options the two build commands share.
-var buildUsage = "usage: pw build [--debug] [--target fasthttp]  |  pw prepare [--debug] [--target fasthttp]"
+// buildUsage shows the shared backend axis and build's deployment axis.
+var buildUsage = "usage: pw build [--debug] [--backend nethttp|fasthttp] [--target lambda|azure-functions|google-cloud-run-functions|vercel-go]  |  pw prepare [--debug] [--backend nethttp|fasthttp]"
 
 func runBuild(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 	options, err := buildFlags("build", args)
@@ -27,6 +27,11 @@ func runBuild(ctx context.Context, args []string, stdout, stderr io.Writer) erro
 	debug := options.debug
 	progress := newProgressRegion(stdout)
 	if err := prepareBuildInputs(ctx, root, config, options, progress, stdout, stderr); err != nil {
+		progress.Done()
+		return err
+	}
+	if options.target != "" {
+		err := buildDeployment(ctx, root, config, options, progress, stdout, stderr)
 		progress.Done()
 		return err
 	}
@@ -74,46 +79,55 @@ func runPrepare(ctx context.Context, args []string, stdout, stderr io.Writer) er
 	return err
 }
 
-// fastHTTPTarget is what --target names to build the second transport's half.
-// It is the build tag itself rather than a separate word, because that is what
-// a reader will see in every generated file's constraint and in any go build
-// they run by hand.
-const fastHTTPTarget = "fasthttp"
+const (
+	backendNetHTTP  = "nethttp"
+	backendFastHTTP = "fasthttp"
 
-// buildOptions are how a build was invoked, as opposed to what the project
-// declares. Both commands read the same set.
+	targetLambda                  = "lambda"
+	targetAzureFunctions          = "azure-functions"
+	targetGoogleCloudRunFunctions = "google-cloud-run-functions"
+	targetVercelGo                = "vercel-go"
+)
+
+var deploymentTargets = map[string]bool{
+	targetLambda:                  true,
+	targetAzureFunctions:          true,
+	targetGoogleCloudRunFunctions: true,
+	targetVercelGo:                true,
+}
+
+// buildOptions are how a build was invoked. Backend selects the HTTP
+// implementation; target selects provider packaging and is build-only.
 type buildOptions struct {
-	debug bool
-	// target selects the transport. Empty builds net/http, which is the
-	// authored source and the default whatever a project declares: a project
-	// that added the second build did not stop serving on the first.
-	target string
+	debug   bool
+	backend string
+	target  string
 }
 
 // tags is what the compiler is told. A net/http build passes none, so its
 // command line is byte for byte what it was before the second target existed.
 func (o buildOptions) tags() []string {
-	if o.target == "" {
+	if o.backend != backendFastHTTP {
 		return nil
 	}
-	return []string{"-tags", o.target}
+	return []string{"-tags", backendFastHTTP}
 }
 
-// check refuses a target the project did not declare.
+// check refuses a backend the project did not declare.
 //
 // Building for fasthttp without project.fasthttp = true would compile the
 // authored net/http source with everything it needs tagged out — a package
 // with no handlers, no binders and no route registration, which fails as a
 // pile of undefined symbols rather than as the one thing that is wrong.
 func (o buildOptions) check(config projectConfig) error {
-	if o.target == fastHTTPTarget && !config.FastHTTP {
-		return fmt.Errorf("--target %s needs project.fasthttp = true in popcornwave.toml; "+
-			"without it nothing generates the half that build compiles", fastHTTPTarget)
+	if o.backend == backendFastHTTP && !config.FastHTTP {
+		return fmt.Errorf("--backend %s needs project.fasthttp = true in popcornwave.toml; "+
+			"without it nothing generates the half that build compiles", backendFastHTTP)
 	}
 	return nil
 }
 
-// debugFlag reads the one option these two commands take.
+// buildFlags reads the build and prepare option set.
 //
 // It is on prepare as well as on build, and that is the point rather than a
 // convenience: prepare exists for a compile this project does not run — the
@@ -122,15 +136,23 @@ func (o buildOptions) check(config projectConfig) error {
 // miss the path most likely to become production. What prepare cannot carry is
 // the linker half, which belongs to the compile its caller owns.
 func buildFlags(command string, args []string) (buildOptions, error) {
-	options := buildOptions{}
+	options := buildOptions{backend: backendNetHTTP}
 	for index := 0; index < len(args); index++ {
 		switch arg := args[index]; {
 		case arg == "--debug":
 			options.debug = true
+		case arg == "--backend":
+			index++
+			if index >= len(args) {
+				return buildOptions{}, fmt.Errorf("%s: --backend needs a value", command)
+			}
+			options.backend = args[index]
+		case strings.HasPrefix(arg, "--backend="):
+			options.backend = strings.TrimPrefix(arg, "--backend=")
 		case arg == "--target":
 			index++
 			if index >= len(args) {
-				return buildOptions{}, fmt.Errorf("%s: --target needs a value; the only one is %s", command, fastHTTPTarget)
+				return buildOptions{}, fmt.Errorf("%s: --target needs a value", command)
 			}
 			options.target = args[index]
 		case strings.HasPrefix(arg, "--target="):
@@ -138,10 +160,15 @@ func buildFlags(command string, args []string) (buildOptions, error) {
 		default:
 			return buildOptions{}, fmt.Errorf("%s: unexpected argument %q; %s", command, arg, buildUsage)
 		}
-		if options.target != "" && options.target != fastHTTPTarget {
-			return buildOptions{}, fmt.Errorf("%s: --target %q is not a target; the only one is %s",
-				command, options.target, fastHTTPTarget)
+		if options.backend != backendNetHTTP && options.backend != backendFastHTTP {
+			return buildOptions{}, fmt.Errorf("%s: --backend %q is not a backend", command, options.backend)
 		}
+		if options.target != "" && !deploymentTargets[options.target] {
+			return buildOptions{}, fmt.Errorf("%s: --target %q is not a target", command, options.target)
+		}
+	}
+	if command == "prepare" && options.target != "" {
+		return buildOptions{}, fmt.Errorf("prepare: --target is available only on pw build")
 	}
 	return options, nil
 }
