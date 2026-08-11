@@ -336,6 +336,11 @@ export component Card(label: string): html {
 はセレクタをスコープ対象から外します。裸の要素セレクタは生成に失敗するため、クラスで
 修飾してください。
 
+同じ宣言の `<script component>` ブロックに、インスタンス固有の JavaScript も
+マークアップの隣へ置けます。部分更新や live 更新での差し替えを含む `setup` と teardown の
+振る舞いは[コンポーネントスクリプト](/ja/guides/interactivity/component-scripts/)を参照して
+ください。
+
 ## 外部関数
 
 表示専用の変換はテンプレートで宣言し、Go で実装します。

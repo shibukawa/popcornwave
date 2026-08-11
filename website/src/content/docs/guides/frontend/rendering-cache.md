@@ -91,12 +91,24 @@ the declaration sits on the document shell, which the next section explains.
 
 `scope` takes `"private"` or `"public"`, and omitting it means `"private"`.
 
-That default runs opposite to almost everything else the framework leaves off
-until asked, and the asymmetry is the reason. A component treated as shared that
-is actually per-reader serves one reader's markup to the next one. A component
-treated as per-reader that is actually shared costs a cache miss. Those two
-mistakes are not comparable, so the side you land on by forgetting is the slow
-one rather than the wrong one.
+The default is a security boundary. A recurring cache incident starts with a
+page such as `/account`, whose URL is the same for every signed-in reader while
+its HTML contains a name, orders, permissions, or another reader-specific
+value. If that output is declared public, the component cache can replay one
+reader's markup to another. When the document response is public, a CDN or
+reverse proxy may also store that page by URL and expose the first cached
+reader's screen to everyone who follows. Authentication still ran for the first
+request; the shared cache is precisely what lets later requests bypass the
+distinction.
+
+For that reason Popcorn Wave makes the forgotten declaration land on the safe
+side. Treat a component as private until you can show that its output, for the
+same declared parameters, is safe for **any** reader to receive. Promote only
+those components to `public`: a common catalogue, public article, shared icon,
+or other markup that contains no account, tenant, authorization result, or
+hidden request-context value. A public component accidentally left private
+costs cache hits and memory. A private component accidentally made public can
+disclose a person's screen. Those failures are not comparable.
 
 A private component's key is prefixed with the identity of the reader it
 rendered for, so two readers never reach one entry. That value is
@@ -176,7 +188,7 @@ WARN chain declaring public rendered private declared_by=pages/account.pw.html:P
 every call computes a key and renders into a buffer to store an entry no one
 reads. Nothing about the response looks wrong, which is why the render span
 carries both halves — `pw.render.cache_hits` and `pw.render.cache_misses`, in
-[Tracing](/guides/cross-layer/tracing/). A private component on a page most
+[Tracing](/guides/architecture/telemetry/#reading-a-request-trace). A private component on a page most
 visitors see signed out reports the same shape, for the different reason that
 anonymous renders store nothing.
 

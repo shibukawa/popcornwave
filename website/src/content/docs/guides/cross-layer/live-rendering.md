@@ -315,16 +315,3 @@ comment nodes carrying the boundary id. That is the address a later delivery
 replaces. Comments are inert, invisible to CSS and layout, and bracket a range
 rather than wrap it, so a delivery of several top-level elements still needs no
 container you never wrote.
-
-## Not there yet
-
-Two things are designed and not built, both upstream in the template runtime.
-
-A delivery whose rendered output is unchanged is still sent; the browser
-compares it against what that region already shows and leaves the nodes alone,
-so nothing repaints, but the bytes travel. Once boundary-level diffing exists,
-an appended chat message becomes an insert rather than a whole list.
-
-A per-boundary minimum interval — a floor on how often one region may re-render,
-independent of how fast its source produces — is still an open question about
-where such pacing should be declared.

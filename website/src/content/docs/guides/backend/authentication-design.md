@@ -79,6 +79,52 @@ The common end of a session on a shared terminal is not a sign-out but abandonme
 
 No identity provider, or none you may reach. Use `passkey_only` with admission `registered` and `auth.registration.policy = "administrator"`. The bootstrap credential an administrator issues is itself the account-opening ceremony.
 
+### Keyboardless and input-constrained devices
+
+A TinyGo device with no keyboard cannot follow the browser login path: it cannot
+safely collect a password, complete passkey UI, or receive an authorization-code
+redirect. This is a different axis from `auth.mode`. The mode chooses how a
+human enters the web application; an input-constrained device uses the [RFC 8628
+Device Authorization Grant](/appendix/web-standards/#authentication) as an OIDC
+public client.
+
+The device asks the provider for an authorization, displays the short user code
+and verification URI (or a QR code for `VerificationURIComplete`), and polls
+while the person approves on a separate phone or computer:
+
+```go
+device, err := oidc.NewDeviceClient(provider, oidc.DeviceConfig{
+    ClientID: "display-controller",
+}, oidc.DeviceOptions{})
+if err != nil {
+    return err
+}
+
+authorization, err := device.Begin(ctx, oidc.DeviceBeginOptions{
+    Scopes: []string{"display.read"},
+})
+if err != nil {
+    return err
+}
+show(authorization.VerificationURI, authorization.UserCode)
+
+tokens, identity, err := device.Poll(ctx, authorization)
+```
+
+Register it as a public client and do not embed a client secret in firmware. The
+library follows the provider's polling interval and `slow_down` responses; use a
+cancelable context so leaving the screen, restarting provisioning, or shutting
+down the device stops the poll. `DeviceCode` is deliberately not exposed: never
+log or display that bearer credential.
+
+Approval returns tokens to the device, not a browser session and not a passkey.
+Decide separately which API accepts the access token, which scopes the device
+needs, how refresh or reprovisioning works, and where tokens can be stored on
+that hardware. Prefer short-lived, least-privilege tokens when secure persistent
+storage is unavailable. The [development identity
+provider](/productivity/dev-identity-provider/) implements the same public-client,
+user-code, approval, and polling path for local tests.
+
 ## After the login
 
 Everything so far concerned signing in. Once that is done, the simple design gives a session two states: valid or not.

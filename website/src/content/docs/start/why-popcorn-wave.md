@@ -41,11 +41,11 @@ framework around itself:
   external identity and phishing-resistant repeat login.
 - [Security response headers](/guides/frontend/security-headers/) establish
   browser policy by default, while one switch enables negotiated
-  [response compression](/guides/frontend/compression/) when the application
+  [response compression](/guides/backend/compression/) when the application
   rather than a proxy owns compression.
 - Static analysis turns the handlers, bindings, response calls, and comments
   already in the code into [OpenAPI 3.1 documentation](/productivity/api-documentation/).
-- [OpenTelemetry integration](/guides/cross-layer/tracing/) exports structured
+- [OpenTelemetry integration](/guides/architecture/telemetry/#reading-a-request-trace) exports structured
   logs and traces, while framework spans make requests, renders, and database
   statements visible without application-specific timers.
 - Typed [configuration](/guides/architecture/configuration/) accepts environment

@@ -35,13 +35,19 @@ func WatchJob(ctx context.Context, id string) iter.Seq2[Job, error] {
 ```
 
 ```js
-// ページ自身のスクリプト。置き場所はコンポーネントスクリプトを参照。
+// コンポーネントの <script component> ブロックに置く。
 export function setup(el, scope) {
 	scope.on("app.finished", (event) => {
 		window.popcornwave.navigate(event.url);
 	});
 }
 ```
+
+クライアント側は[コンポーネントスクリプト](/ja/guides/interactivity/component-scripts/)に
+置きます。`setup` は描画されたインスタンスごとに走り、スコープ付きの登録はその
+インスタンスが差し替えられると解放されます。部分更新や live 更新が、ひとつの
+ドキュメント訪問中に同じコンポーネントを複数回作り得るため、シグナルのハンドラでは
+特に重要です。
 
 ## なぜエラーの側なのか
 
@@ -190,5 +196,5 @@ scope.on("app.finished", (event) => window.popcornwave.navigate(event.url));
 固定されていて、それはテーブルが持っているものそのものです。ペイロードの中身で
 分岐するハンドラは、1つの登録で全部を公開したことになります。
 
-クライアント側の形 — スクリプトをどこに置き、`setup` がいつ走り、何が解放するか —
-は[コンポーネントスクリプト](/ja/guides/interactivity/component-scripts/)にあります。
+クライアント側のライフサイクルと解放規則は
+[コンポーネントスクリプト](/ja/guides/interactivity/component-scripts/)にあります。

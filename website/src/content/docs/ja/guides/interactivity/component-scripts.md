@@ -15,6 +15,11 @@ sidebar:
 **描画されたインスタンスごと**に走り、返したものはそのインスタンスが消えるときに
 走ります。
 
+このブロックは[テンプレートコンポーネント](/ja/guides/frontend/templates/)の一部で、
+ライフサイクルは[部分更新](/ja/guides/cross-layer/partial-updates/)による DOM の更新にも
+追従します。依存を持つ完全な例は [React の統合](/ja/guides/interactivity/react/)にあり、
+同じフックから React ルートを mount・unmount しています。
+
 ```html
 package shop
 
@@ -123,11 +128,10 @@ export function setup(el, scope) {
 }
 ```
 
-`scope.on` は[`registerEvent`](/ja/guides/cross-layer/signals/)をこのインスタンスに
-束ねたものです。`window.popcornwave.registerEvent` を直接呼んでもよく、その場合
-解放は自分で覚えることになります。コンポーネントより長生きさせたいハンドラには
-妥当な取引で、それ以外には悪い取引です。後始末を忘れると、いまは**破棄された
-インスタンスごとに**漏れます。症状はハンドラが2回発火し、やがて20回発火することです。
+`scope.on` はこのインスタンス用の[シグナル](/ja/guides/cross-layer/signals/)テーブルへ
+ハンドラを登録します。ランタイムは `setup` が返した teardown を呼ぶ前に、スコープ経由の
+登録をすべて解放します。コンポーネントのハンドラはこのスコープ付きの面に置いてください。
+破棄済みインスタンスのコールバックが残り、2回、やがて20回と発火する漏れを防げます。
 
 ## コスト
 

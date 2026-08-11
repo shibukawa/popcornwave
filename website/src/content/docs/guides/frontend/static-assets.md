@@ -171,7 +171,7 @@ ships. Serving then costs no CPU at all: the encoded bytes already exist.
 | `.html`, `.css`, `.js`, `.mjs`, `.json`, `.map`, `.txt`, `.xml`, `.svg`, `.webmanifest`, and any other `text/*` | images other than SVG, audio, video, fonts, archives, WebAssembly — anything already compressed |
 
 All three run at their maximum level, which is affordable here for the reason it
-is not on [a rendered response](/guides/frontend/compression/): the cost lands on
+is not on [a rendered response](/guides/backend/compression/): the cost lands on
 the build rather than on a request. Brotli exists only here, and only because of
 that — at maximum it comes out roughly fifteen percent smaller than zstd and
 seventeen percent smaller than gzip, a margin that appears at levels far too slow
@@ -258,7 +258,7 @@ available no matter how this endpoint is configured. See
 
 The sidecars above are static files, compressed once at build time. Compressing
 a response the application just rendered is a separate switch with separate
-trade-offs — see [Response Compression](/guides/frontend/compression/). That
+trade-offs — see [Response Compression](/guides/backend/compression/). That
 middleware never recompresses what this handler served.
 
 The two also offer different codings, and for the same reason the levels differ:

@@ -210,7 +210,7 @@ Brotliと最大圧縮を使わないのは、数バイトを追加で減らす�
 
 - [レンダリングキャッシュ](/ja/guides/frontend/rendering-cache/)
 - [静的アセット](/ja/guides/frontend/static-assets/)
-- [圧縮](/ja/guides/frontend/compression/)
+- [圧縮](/ja/guides/backend/compression/)
 - [レスポンス](/ja/guides/frontend/responses/)
 
 ## トレースコンテキスト
@@ -227,8 +227,7 @@ W3C Trace Context は RFC ではなく Recommendation ですが、フレーム�
 処理されます。文法に通らない `tracestate` は単体で捨てられ、親は残ります。これは仕様が
 求めている振る舞いで、トレースはつながったまま、失われるのはベンダーデータだけです。
 
-- [リクエストトレーシング](/ja/guides/cross-layer/tracing/#別のサービスを呼ぶ)
-- [テレメトリ](/ja/guides/architecture/telemetry/#サービスをまたぐトレース)
+- [テレメトリとサービスをまたぐトレース](/ja/guides/architecture/telemetry/#サービスをまたぐトレース)
 
 ## 運用HTTP
 

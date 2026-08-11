@@ -242,7 +242,7 @@ optimizes transfer size; dynamic compression protects throughput.
 
 - [Rendering cache](/guides/frontend/rendering-cache/)
 - [Static assets](/guides/frontend/static-assets/)
-- [Compression](/guides/frontend/compression/)
+- [Compression](/guides/backend/compression/)
 - [Responses](/guides/frontend/responses/)
 
 ## Trace context
@@ -261,8 +261,7 @@ trace and is still served normally. A `tracestate` that fails the grammar is
 dropped on its own and the parent survives, which is what the specification
 asks for: the trace still joins up and only the vendor data is lost.
 
-- [Request tracing](/guides/cross-layer/tracing/#calling-another-service)
-- [Telemetry](/guides/architecture/telemetry/#traces-that-cross-services)
+- [Telemetry and cross-service traces](/guides/architecture/telemetry/#traces-that-cross-services)
 
 ## Operational HTTP
 

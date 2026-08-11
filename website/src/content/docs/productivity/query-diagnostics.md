@@ -151,7 +151,7 @@ the values, the plan, and the snippet the span deliberately leaves out.
 That split is why a deployment can take the span without the record. Timing
 every statement in staging costs a bounded handful of attributes; writing one
 log line per statement, with your users' values in it, is a different decision.
-See [Request Tracing](/guides/cross-layer/tracing/).
+See [Request Tracing](/guides/architecture/telemetry/#reading-a-request-trace).
 
 See [Queries](/guides/storage/queries/) for the statements themselves and
 [Configuration](/guides/architecture/configuration/) for how these keys are resolved.

@@ -205,7 +205,7 @@ application instances, and verify that the database can accept the resulting tot
 
 Response compression is off by default. Enable it only when a CDN or reverse proxy
 is not already doing that work; see
-[Response compression](/guides/frontend/compression/).
+[Response compression](/guides/backend/compression/).
 
 CSRF is the most visible item in the middleware measurement, but it still costs
 only 2.1 µs in this benchmark. Exclude only APIs that use bearer authentication and
