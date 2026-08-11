@@ -37,6 +37,10 @@ sizes:
   tinygo_fasthttp_nozstd: 5.55 MiB
   tinygo_fasthttp_noasm: 8.04 MiB
   no_debug: changes nothing measurable in any of the three
+  after_v1_2_4:
+    tinygo_fasthttp_no_extra_tag: 5.6 MiB, so fasthttp costs 1.4 MiB over net/http under TinyGo
+    direction_reverses_by_compiler: under host Go fasthttp is the marginally smaller build; under TinyGo it is the larger one
+    why: the fasthttp build is additive rather than a substitution — net/http is still linked because the fork imports it, and brotli, zlib, the router, the websocket upgrader and a SOCKS proxy dialer sit on top; host Go's linker discards most of that
 tags:
   fasthttp_nozstd:
     effect: drops the zstd dependency; tinygodriver's own tag, documented in its fasthttp/PATCHES.md section 6

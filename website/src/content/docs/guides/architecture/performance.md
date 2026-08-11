@@ -28,8 +28,8 @@ all. TinyGo is the third, and it is chosen for size rather than speed.
 | --- | --- | --- |
 | `go build` | 15.8 MiB | 15.5 MiB |
 | `go build -ldflags="-s -w"` | 9.9 MiB | 9.6 MiB |
-| `tinygo build` | 4.2 MiB | does not link |
-| `tinygo build -no-debug` | 4.2 MiB | does not link |
+| `tinygo build` | 4.2 MiB | 5.6 MiB |
+| `tinygo build -no-debug` | 4.2 MiB | 5.6 MiB |
 
 Those are [`examples/helloworld`](https://github.com/shibukawa/popcornwave/tree/main/examples/helloworld)
 on an Apple M3, and the subject matters: it embeds SQLite, which is most of what
@@ -38,10 +38,22 @@ two columns, so a smaller binary is not a reason to switch. TinyGo is, at less
 than half the stripped host build — and `-no-debug` changes nothing on this
 target, so do not expect a saving from it.
 
-The fourth cell is honest rather than pending. TinyGo cannot link the fasthttp
-build because `klauspost/compress` reaches for hand-written arm64 assembly that
-its linker does not resolve, and that combination is a compile check rather than
-a supported configuration.
+Read the bottom row against the one above it rather than across. Under host Go
+fasthttp is marginally the smaller of the two; under TinyGo it is 1.4 MiB
+*larger*. The reason is that the fasthttp build is additive rather than a
+substitution: `net/http` is still linked, because the fork imports it, and on
+top of that come brotli, zlib, the router, the websocket upgrader and a SOCKS
+proxy dialer. Host Go's linker discards most of that and TinyGo's keeps more of
+it.
+
+So the two reasons to leave the default point in opposite directions on this
+table, and taking both at once buys the smallest per-request cost at the largest
+TinyGo binary.
+
+TinyGo needs `-scheduler=threads` if the binary links a network database driver,
+and until tinygodriver v1.2.4 it also could not link fasthttp at all — a zstd
+decoder reached for arm64 assembly its linker does not resolve. Both are
+[build tags](/reference/build-tags/) rather than anything this page decides.
 
 ### What it costs at request time
 
@@ -62,8 +74,9 @@ real difference, and it is what the pooled request value buys.
 Read the last two rows for the decision. A loopback socket costs both sides the
 same and takes the ratio from 2× to about 10%; one database query takes it to
 noise. Serving the whole `helloworld` page — a template render and a SQLite
-write — the three builds land at 335 µs, 344 µs and 369 µs, which is one
-measurement of the same thing three times.
+write — host Go on net/http, host Go on fasthttp and TinyGo on net/http land at
+335 µs, 344 µs and 369 µs, which is one measurement of the same thing three
+times.
 
 So switch for the allocation profile under a load that is genuinely
 transport-bound, or for what TinyGo does to the image. Do not switch expecting a
