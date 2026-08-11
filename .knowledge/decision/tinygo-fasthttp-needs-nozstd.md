@@ -17,7 +17,15 @@ failure_without_the_tag:
     - zstd.sequenceDecs_decodeSync_safe_arm64 from zstd/seqdec_arm64.go
   cause: hand-written arm64 assembly TinyGo's linker does not resolve, selected by the constraint "(amd64 || arm64) && !appengine && !noasm && gc"
   importer: tinygodriver/fasthttp imports klauspost/compress/zstd unconditionally
-  why_net_http_escapes: pw imports zstd too and TinyGo links it, so the assembly is reached only on the fasthttp path
+  why_the_gc_escape_does_not_fire:
+    fact: TinyGo sets the gc build tag, verified by compiling a file pair guarded on gc and !gc under both compilers
+    effect: klauspost's pure-Go half is "(!amd64 && !arm64) || appengine || !gc || noasm", so the escape written for other compilers never selects under TinyGo and only noasm is left
+  why_net_http_escapes:
+    both_symbols_are_decoder_side: buildDtable_asm and sequenceDecs_decodeSync_safe_arm64 decode; nothing in the encoder is missing
+    pw_only_encodes: a server compresses responses, so TinyGo's dead-code elimination drops the decoder and the assembly with it
+    pw_already_swaps_the_package: pw/response_zstd_tinygo.go is built under "(tinygo || force_tinygo_logic) && !pw_nozstd" and uses tinygodriver/compress/zstd, while pw/response_zstd_std.go uses klauspost
+    the_fork_decodes_too: BodyUnzstd, writeUnzstd and the FS pre-compressed .zst read reach the decoder, which is what retains the assembly
+  therefore: this is not a fasthttp problem or a size problem; it is the decode half of one dependency reached under a compiler that cannot link it
 sizes:
   tinygo_net_http: 4.19 MiB
   tinygo_fasthttp_nozstd: 5.55 MiB
@@ -30,6 +38,8 @@ tags:
   noasm:
     effect: klauspost's tag, swaps the assembly for its pure-Go fallback and keeps zstd
     correct_choice: no, it links but pays 2.49 MiB for a codec the build then still advertises
+    cannot_be_made_automatic_by_a_library: build tags are set by the build invocation, so no module can inject one into a dependency it imports; only klauspost adding !tinygo to the asm constraint, or the build tool passing the flag, can make TinyGo imply it
+    right_layer_instead: the importer declines the package under tinygo, per requirement:tinygodriver-encode-only-zstd
 verified_running: the fasthttp_nozstd binary serves, logs transport=fasthttp, and answers a request through the middleware chain; a client offering only zstd is served identity rather than failing
 open_work_on_this_side:
   build_command: api:cli-build does not pass fasthttp_nozstd for a TinyGo fasthttp target, so the documented failure is what a user meets first

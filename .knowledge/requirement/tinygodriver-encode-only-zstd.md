@@ -3,7 +3,7 @@ id: requirement:tinygodriver-encode-only-zstd
 type: requirement
 title: What The fasthttp Build Would Ask Of tinygodriver
 ---
-Nothing tinygodriver ships is missing for the fasthttp build to work under TinyGo today. One addition would pay: an encode-only zstd, so a server emits zstd for 0.08 MB instead of paying 2.40 MB or dropping the codec.
+A TinyGo build should need no extra tag. tinygodriver's fasthttp fork should select its zstd half on tinygo the way its own convention already says, and the encode-only path that makes that work is one pw already runs.
 
 ```yaml
 status: proposed
@@ -14,8 +14,16 @@ already_provided_nothing_to_add:
   fasthttp_nozstd: the tag that makes the TinyGo build link, already present and already measured there
   fasthttprouter: vendored, and popcornwave already imports it
   fasthttpwebsocket: a fasthttp/websocket fork whose server half needed no patches, which is the library requirement:contrib-websocket would build on when that work starts
-the_one_addition:
+first_ask_tag_the_split_on_tinygo:
+  change: zstd.go takes "!fasthttp_nozstd && !tinygo" and zstd_disabled.go takes "fasthttp_nozstd || tinygo"
+  effect: a TinyGo build links with no tag at all, which is what a user expects and what they meet a linker error instead of today
+  it_is_the_repository_own_convention: tinygodriver's build-tag-selection rule, in its own catalog, already states std_path "!tinygo && !force_tinygo_logic" against native_path "(tinygo || force_tinygo_logic)", and names compress/zstd among its precedents
+  precedent_in_this_repository: pw/response_zstd_tinygo.go and pw/response_zstd_std.go split on exactly that pair for exactly this dependency, which is why TinyGo links the net/http build today
+  why_a_silent_drop_is_defensible_here: under TinyGo the current default does not build at all, so the choice is not zstd against no zstd but working against broken; a user who wants the codec can still pass noasm and pay 2.49 MiB
+  not_absorbable_any_other_way: no module can force -tags noasm onto a dependency, so the importer declining the package is the only fix available below the build tool
+the_second_ask:
   name: encode-only zstd for the fasthttp fork
+  relation: this is what turns the first ask from "TinyGo loses zstd" into "TinyGo emits zstd for 0.08 MB"
   today_the_choice_is_binary:
     klauspost: 2.40 MB of TinyGo binary, encode and decode
     fasthttp_nozstd: 0 MB, no zstd at all, and a client offering only zstd is served identity
@@ -25,6 +33,8 @@ the_one_addition:
   what_blocks_it:
     - compress/zstd excludes decoding, so BodyUnzstd, AppendUnzstdBytes and the FS pre-compressed .zst read have nothing to call
     - it offers no Reset and no compression levels, which are what fasthttp's per-level encoder pools are built on
+  the_decode_half_already_has_a_landing_place: zstd_disabled.go returns ErrZstdUnsupported from everything whose signature carries an error, so an encode-only build is that file with its writers replaced rather than a new design
+  and_the_decoder_is_the_whole_problem: both symbols TinyGo cannot link are decoder-side, per decision:tinygo-fasthttp-needs-nozstd, so dropping decode is not a side effect of this ask but the point of it
   recorded_upstream: tinygodriver fasthttp/PATCHES.md already names this as coherent to want and explicitly not what the tag does today, so this is a shared conclusion rather than a new proposal
 smaller_asks:
   discoverability: the tag is documented in PATCHES.md, which is not where someone building a popcornwave app looks; naming it in the fasthttp README's TinyGo section would have saved the wrong conclusion recorded in decision:tinygo-fasthttp-needs-nozstd
