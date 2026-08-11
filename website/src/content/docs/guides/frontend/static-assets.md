@@ -99,13 +99,10 @@ enabled = true
 
 What each one does, and what follows the file:
 
-:::note
-The file extension selects the conversion pipeline; it is not meant to be the
-only proof of what the file contains. A planned build check will also inspect
-the file signature (its magic/header bytes) and reject malformed files or
-content that does not match the extension before conversion. Until that check
-lands, the encoder may be the first component to report malformed image input.
-:::
+The extension selects the pipeline, and it is not the only proof of what the
+file holds: the build checks the bytes against it first and refuses a file that
+disagrees, before any encoder sees it. See [A file has to be what it says it
+is](#a-file-has-to-be-what-it-says-it-is).
 
 | Source | Becomes | The reference |
 | --- | --- | --- |
