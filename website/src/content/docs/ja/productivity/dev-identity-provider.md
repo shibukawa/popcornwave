@@ -48,10 +48,21 @@ email = "guest@example.com"
 ユーザー定義ファイルを編集すると、その場でリロードされます。issuer と、動作中の
 アプリケーションが既に持っている資格情報はそのまま有効なので、再起動は不要です。
 
-このプロバイダが実装するのは、S256 PKCE 必須の認可コードフロー、discovery、JWKS、
-RS256 の ID Token、UserInfo です。リフレッシュトークン、ログアウト、デバイス
-フロー、client credentials、同意画面は意図的にありません。これを import した
-アプリケーションは `pw build` が拒否します。詳細は
+このプロバイダが実装するのは、S256 PKCE必須のAuthorization Code Flow、RFC 8628の
+Device Authorization、discovery、JWKS、RS256のID Token、UserInfo、RP-Initiated Logoutです。
+device専用の公開clientは、client secretを組み込まずに同じユーザー定義ファイルへ追加できます。
+
+```toml
+[clients.sensor]
+grants = ["device_code"]
+valid_scopes = ["telemetry"]
+```
+
+deviceはuser codeとverification URIを受け取り、開発者がブラウザで要求を許可または拒否して
+ユーザーを選ぶまでpollします。リフレッシュトークン、Client Credentials Grant、同意画面は
+意図的にありません。Client Credentialsはend-userを伴わずclient自身として動く用途であり、
+Device Authorizationの代わりにはなりません。これをimportしたアプリケーションは`pw build`が
+拒否します。詳細は
 [`contrib/devidp`](https://github.com/shibukawa/popcornwave/tree/main/contrib/devidp)
 を参照してください。
 

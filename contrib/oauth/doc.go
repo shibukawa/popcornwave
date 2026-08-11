@@ -1,4 +1,4 @@
-// Package oauth implements a bounded OAuth 2.0 Authorization Code client
-// with S256 PKCE. It is a relying-party client only; it does not implement an
+// Package oauth implements bounded OAuth 2.0 Authorization Code with S256
+// PKCE and RFC 8628 Device Authorization clients. It does not implement an
 // authorization server.
 package oauth

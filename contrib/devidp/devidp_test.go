@@ -1,12 +1,14 @@
 package devidp_test
 
 import (
+	"context"
 	"encoding/json"
 	"io"
 	"net/http"
 	"net/url"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/shibukawa/popcornwave/authstate/memory"
 	"github.com/shibukawa/popcornwave/contrib/devidp"
@@ -526,6 +528,7 @@ func TestDiscoveryAdvertisesOnlyImplementedBehavior(t *testing.T) {
 		ChallengeMethods       []string `json:"code_challenge_methods_supported"`
 		SigningAlgorithms      []string `json:"id_token_signing_alg_values_supported"`
 		TokenEndpointAuthTypes []string `json:"token_endpoint_auth_methods_supported"`
+		DeviceEndpoint         string   `json:"device_authorization_endpoint"`
 	}
 	if err := json.Unmarshal([]byte(readAll(t, response)), &document); err != nil {
 		t.Fatalf("decode discovery: %v", err)
@@ -533,12 +536,118 @@ func TestDiscoveryAdvertisesOnlyImplementedBehavior(t *testing.T) {
 	if document.Issuer != server.Issuer() {
 		t.Fatalf("issuer = %q, want %q", document.Issuer, server.Issuer())
 	}
-	assertOnly(t, "grant_types_supported", document.GrantTypes, "authorization_code")
+	if len(document.GrantTypes) != 2 || document.GrantTypes[0] != "authorization_code" || document.GrantTypes[1] != oauth.DeviceGrantType {
+		t.Fatalf("grant_types_supported = %v", document.GrantTypes)
+	}
 	assertOnly(t, "response_types_supported", document.ResponseTypes, "code")
 	assertOnly(t, "code_challenge_methods_supported", document.ChallengeMethods, "S256")
 	assertOnly(t, "id_token_signing_alg_values_supported", document.SigningAlgorithms, "RS256")
-	if len(document.TokenEndpointAuthTypes) != 2 {
+	if len(document.TokenEndpointAuthTypes) != 3 || document.TokenEndpointAuthTypes[0] != oauth.AuthNone {
 		t.Fatalf("token_endpoint_auth_methods_supported = %v", document.TokenEndpointAuthTypes)
+	}
+	if document.DeviceEndpoint != server.Issuer()+"/device_authorization" {
+		t.Fatalf("device_authorization_endpoint = %q", document.DeviceEndpoint)
+	}
+}
+
+func TestPublicDeviceAuthorizationFlow(t *testing.T) {
+	now := time.Unix(1_700_000_000, 0)
+	server := startProvider(t, devidp.Options{Now: func() time.Time { return now }})
+	credentials, err := server.RegisterPublicDeviceClient(devidp.PublicDeviceClientSpec{ValidScopes: []string{"admin"}})
+	if err != nil {
+		t.Fatalf("register public device client: %v", err)
+	}
+	if credentials.ID == "" || credentials.Secret != "" {
+		t.Fatalf("public credentials = %#v", credentials)
+	}
+	provider, err := oidc.Discover(t.Context(), server.Issuer(), oidc.DiscoverOptions{AllowLoopbackHTTP: true, Clock: func() time.Time { return now }})
+	if err != nil {
+		t.Fatalf("discover: %v", err)
+	}
+	client, err := oidc.NewDeviceClient(provider, oidc.DeviceConfig{ClientID: credentials.ID, AllowLoopbackHTTP: true}, oidc.DeviceOptions{
+		Clock: func() time.Time { return now },
+		OAuth: oauth.DeviceOptions{Clock: func() time.Time { return now }, Wait: func(_ context.Context, duration time.Duration) error {
+			now = now.Add(duration)
+			return nil
+		}},
+	})
+	if err != nil {
+		t.Fatalf("new device client: %v", err)
+	}
+	authorization, err := client.Begin(t.Context(), oidc.DeviceBeginOptions{Scopes: []string{"profile", "email", "admin"}})
+	if err != nil {
+		t.Fatalf("begin device authorization: %v", err)
+	}
+	if authorization.UserCode == "" || authorization.VerificationURIComplete == "" {
+		t.Fatalf("authorization = %#v", authorization)
+	}
+	page := readAll(t, browse(t, http.MethodGet, authorization.VerificationURIComplete, nil))
+	csrf := hiddenValue(t, page, "csrf")
+	userCode := hiddenValue(t, page, "user_code")
+	response := browse(t, http.MethodPost, server.Issuer()+"/device", url.Values{
+		"user_code": {userCode}, "csrf": {csrf}, "subject": {"admin"},
+	})
+	if response.StatusCode != http.StatusOK || !strings.Contains(readAll(t, response), "device is authorized") {
+		t.Fatalf("approval status = %d", response.StatusCode)
+	}
+	tokens, idToken, err := client.Poll(t.Context(), authorization)
+	if err != nil {
+		t.Fatalf("poll device token: %v", err)
+	}
+	if tokens.AccessToken == "" || idToken.Claims.Subject != "admin" || idToken.Nonce != "" {
+		t.Fatalf("tokens=%#v id_token=%#v", tokens, idToken)
+	}
+}
+
+func TestDevicePollingSlowDownDenialAndReplay(t *testing.T) {
+	now := time.Unix(1_700_000_000, 0)
+	server := startProvider(t, devidp.Options{Now: func() time.Time { return now }})
+	credentials, err := server.RegisterPublicDeviceClient(devidp.PublicDeviceClientSpec{ID: "public-device"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	begin := browse(t, http.MethodPost, server.Issuer()+"/device_authorization", url.Values{
+		"client_id": {credentials.ID}, "scope": {"openid profile"},
+	})
+	var authorization struct {
+		DeviceCode              string `json:"device_code"`
+		VerificationURIComplete string `json:"verification_uri_complete"`
+	}
+	if err := json.Unmarshal([]byte(readAll(t, begin)), &authorization); err != nil {
+		t.Fatal(err)
+	}
+	poll := func() string {
+		response := browse(t, http.MethodPost, server.Issuer()+"/token", url.Values{
+			"client_id": {credentials.ID}, "grant_type": {oauth.DeviceGrantType}, "device_code": {authorization.DeviceCode},
+		})
+		var result struct {
+			Error string `json:"error"`
+		}
+		if err := json.Unmarshal([]byte(readAll(t, response)), &result); err != nil {
+			t.Fatal(err)
+		}
+		return result.Error
+	}
+	if got := poll(); got != "slow_down" {
+		t.Fatalf("early poll = %q", got)
+	}
+	now = now.Add(10 * time.Second)
+	if got := poll(); got != "authorization_pending" {
+		t.Fatalf("pending poll = %q", got)
+	}
+	page := readAll(t, browse(t, http.MethodGet, authorization.VerificationURIComplete, nil))
+	response := browse(t, http.MethodPost, server.Issuer()+"/device", url.Values{
+		"user_code": {hiddenValue(t, page, "user_code")}, "csrf": {hiddenValue(t, page, "csrf")}, "deny": {"1"},
+	})
+	if response.StatusCode != http.StatusOK {
+		t.Fatalf("deny status = %d", response.StatusCode)
+	}
+	now = now.Add(10 * time.Second)
+	if got := poll(); got != "access_denied" {
+		t.Fatalf("denied poll = %q", got)
+	}
+	if got := poll(); got != "expired_token" {
+		t.Fatalf("replay poll = %q", got)
 	}
 }
 

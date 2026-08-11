@@ -34,6 +34,11 @@ var (
 // standardScopes are always granted to a client that asks for them.
 var standardScopes = []string{"openid", "profile", "email"}
 
+const (
+	GrantAuthorizationCode = "authorization_code"
+	GrantDeviceCode        = "device_code"
+)
+
 // reservedClaims are produced by the provider and cannot be set by a roster.
 var reservedClaims = []string{
 	"iss", "sub", "aud", "exp", "iat", "nbf", "auth_time", "nonce", "azp", "at_hash",
@@ -54,6 +59,7 @@ type Client struct {
 	Secret       string
 	RedirectURIs []string
 	ValidScopes  []string
+	GrantTypes   []string
 	// LoopbackRedirects accepts any loopback redirect URI instead of matching
 	// RedirectURIs exactly. Only a client registered by the running tool may
 	// set it; see RegisterClient.
@@ -258,6 +264,8 @@ func assignClient(clients map[string]*Client, path string, value minitoml.Value)
 		client.RedirectURIs, err = value.AsStringSlice()
 	case "valid_scopes":
 		client.ValidScopes, err = value.AsStringSlice()
+	case "grants":
+		client.GrantTypes, err = value.AsStringSlice()
 	default:
 		return fmt.Errorf("%w: unknown key clients.%s", ErrConfig, path)
 	}
@@ -334,11 +342,22 @@ func validateClient(client *Client) error {
 	if client.ID == "" {
 		return fmt.Errorf("%w: a client needs an id", ErrConfig)
 	}
-	if client.Secret == "" {
-		return fmt.Errorf("%w: clients.%s.secret is required", ErrConfig, client.ID)
+	if len(client.GrantTypes) == 0 {
+		client.GrantTypes = []string{GrantAuthorizationCode}
 	}
-	if !client.LoopbackRedirects && len(client.RedirectURIs) == 0 {
+	for _, grant := range client.GrantTypes {
+		if grant != GrantAuthorizationCode && grant != GrantDeviceCode {
+			return fmt.Errorf("%w: clients.%s.grants %q is unsupported", ErrConfig, client.ID, grant)
+		}
+	}
+	if contains(client.GrantTypes, GrantAuthorizationCode) && client.Secret == "" {
+		return fmt.Errorf("%w: clients.%s.secret is required for authorization_code", ErrConfig, client.ID)
+	}
+	if contains(client.GrantTypes, GrantAuthorizationCode) && !client.LoopbackRedirects && len(client.RedirectURIs) == 0 {
 		return fmt.Errorf("%w: clients.%s.redirect_uris is required", ErrConfig, client.ID)
+	}
+	if !contains(client.GrantTypes, GrantAuthorizationCode) && len(client.RedirectURIs) > 0 {
+		return fmt.Errorf("%w: clients.%s.redirect_uris requires authorization_code", ErrConfig, client.ID)
 	}
 	for _, redirect := range client.RedirectURIs {
 		if err := validateRedirectURI(redirect); err != nil {

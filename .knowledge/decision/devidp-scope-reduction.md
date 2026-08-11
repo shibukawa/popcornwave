@@ -11,12 +11,13 @@ keep:
   - password-free user selection login
   - declarative user roster with extra claims and extra scopes
   - Authorization Code with S256 PKCE
+  - device authorization for browserless TinyGo client development
   - discovery, JWKS, and RS256 ID Tokens
   - UserInfo
 drop:
   - local certificate authority and TLS termination, because decision:local-tls-proxy-boundary already owns local TLS
   - reverse proxy, static hosting, and OpenAPI mocks, because api:cli-dev already runs the local service set
-  - device authorization and client credentials grants, because requirement:contrib-oauth implements neither
+  - client credentials grant, because no application consumer requires machine identity
   - EntraID v1 and v2 compatibility modes, because no framework consumer targets MSAL
   - refresh tokens and RP-initiated logout, because requirement:contrib-oauth defers refresh scheduling
   - developer console and MCP surfaces, because they are operator tools rather than protocol surfaces

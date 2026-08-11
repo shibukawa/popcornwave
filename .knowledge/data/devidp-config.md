@@ -18,8 +18,9 @@ schema:
   clients:
     presence: optional; api:cli-dev and api:testutil-idp register their own ephemeral client instead
     "<client_id>":
-      secret: required non-empty string
-      redirect_uris: required non-empty list of exact absolute URLs
+      grants: optional list of authorization_code and device_code; default authorization_code
+      secret: required non-empty string for authorization_code; optional for device_code-only public clients
+      redirect_uris: required non-empty list of exact absolute URLs for authorization_code; forbidden for device_code-only clients
       valid_scopes: optional per-client scope restriction
   users:
     "<key>":
@@ -36,7 +37,9 @@ rules:
   - the file is development tooling input and never a runtime configbind source
   - relative paths resolve from the config file directory
   - duplicate subjects across roster entries are errors
-  - a declared client with an empty secret or an empty redirect_uris list is an error
+  - a client enabling authorization_code requires a secret and non-empty redirect_uris
+  - a device_code-only client may omit its secret and must omit redirect_uris
+  - a client enabling both grants remains confidential and uses its secret for both endpoints
   - a file with no clients table is valid, because the running tool supplies the client
   - the file declares identities and scopes only; issuer, port, and client wiring belong to the tool that starts the provider
   - a scope requested by a client but absent from idp.valid_scopes and the user extra_scopes is dropped, not an error

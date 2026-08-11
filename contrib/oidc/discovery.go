@@ -116,10 +116,25 @@ func Discover(ctx context.Context, issuer string, options DiscoverOptions) (*Pro
 			return nil, ErrDiscovery
 		}
 	}
+	if document.DeviceAuthorizationEndpoint != "" {
+		provider.deviceAuthorizationEndpoint, err = provider.endpoint(document.DeviceAuthorizationEndpoint)
+		if err != nil {
+			return nil, ErrDiscovery
+		}
+	}
 	if err := provider.refresh(ctx); err != nil {
 		return nil, err
 	}
 	return provider, nil
+}
+
+// DeviceAuthorizationEndpoint returns the discovered RFC 8628 endpoint, or
+// an empty string when the provider does not advertise Device Flow.
+func (p *Provider) DeviceAuthorizationEndpoint() string {
+	if p == nil {
+		return ""
+	}
+	return p.deviceAuthorizationEndpoint
 }
 
 // EndSessionEndpoint returns the discovered RP-initiated logout endpoint, or

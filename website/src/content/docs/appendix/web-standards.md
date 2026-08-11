@@ -64,12 +64,28 @@ account is a short-lived, single-use enrollment credential rather than a
 reusable password. An OIDC provider may authenticate its users however it
 chooses, but the application never receives the provider password.
 
-OIDC login implements only the Authorization Code Flow. It does not implement
-the Resource Owner Password Credentials Grant or Client Credentials Grant.
-S256 PKCE is mandatory, with no setting that can disable it, so intercepting an
-authorization code is not enough to complete a login. The client also binds
-`state` to a single-use transaction and requires `nonce`, then verifies that the
-returned ID Token belongs to the login that this browser started.
+The OIDC client supports two paths. Browser login uses the Authorization Code
+Flow. S256 PKCE is mandatory, with no setting that can disable it, so
+intercepting an authorization code is not enough to complete a login. The
+client also binds `state` to a single-use transaction and requires `nonce`, then
+verifies that the returned ID Token belongs to the login that this browser
+started. Browserless or input-constrained clients, including TinyGo devices,
+can instead use the [RFC 8628 Device Authorization
+Grant](https://www.rfc-editor.org/rfc/rfc8628.html): the device displays a user
+code and verification URI, the user approves it in a browser, and the device
+polls for tokens. The OIDC wrapper requests `openid` and applies the same issuer,
+audience, signature, lifetime, and subject checks to the returned ID Token.
+
+The Resource Owner Password Credentials Grant, often called the Password
+Grant, is not supported. The [current OAuth 2.0 Security Best Current Practice
+(RFC 9700, section 2.4)](https://www.rfc-editor.org/rfc/rfc9700.html#section-2.4)
+says it **MUST NOT** be used because it exposes the user's password to the
+client and does not fit modern multi-step authentication. The [Client
+Credentials Grant](https://www.rfc-editor.org/rfc/rfc6749.html#section-4.4) is
+also intentionally out of scope: it authorizes a client acting on its own
+behalf, with no end-user identity, and is suited to machine-to-machine or batch
+work rather than this system's user login and session boundary. It is distinct
+from the Device Authorization Grant.
 
 JWT mode does more than verify a signature. It verifies the signature against
 an allowlisted algorithm and discovered key, then checks `iss`, `aud`, `exp`,
@@ -86,9 +102,11 @@ production OpenID Provider. It registers an ephemeral client and injects the
 issuer, client ID, and client secret into the application. The application can
 therefore exercise Authorization Code, PKCE, `state`, `nonce`, and ID Token
 verification without adding a debug login or an authentication bypass to
-production code. The development IdP itself checks no password; the developer
-selects a fixture user from a list. It refuses to run outside development, and
-the normal build also refuses to include it in a release artifact.
+production code. It also implements Device Authorization with public clients,
+user codes, polling, and explicit browser approval. The development IdP itself
+checks no password; the developer selects a fixture user from a list. It refuses
+to run outside development, and the normal build also refuses to include it in
+a release artifact.
 
 JWT mode has a separate development relaxation for hand-written local tokens.
 It disables signature, issuer, audience, token-type, time, and algorithm
