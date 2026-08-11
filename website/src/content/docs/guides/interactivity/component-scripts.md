@@ -15,6 +15,12 @@ A component script fixes both halves. It lives beside the markup it belongs to,
 its `setup` runs **per rendered instance**, and whatever it returns runs when
 that instance goes away.
 
+The block is part of a [template component](/guides/frontend/templates/), while
+its lifecycle follows the DOM updates described in [Partial
+updates](/guides/cross-layer/partial-updates/). For a complete dependency-heavy
+example, [Integrating React](/guides/interactivity/react/) mounts and unmounts a
+React root through this same hook.
+
 ```html
 package shop
 
@@ -126,12 +132,11 @@ export function setup(el, scope) {
 }
 ```
 
-`scope.on` is [`registerEvent`](/guides/cross-layer/signals/) bound to this
-instance. You can call `window.popcornwave.registerEvent` directly instead, and
-then releasing it is yours to remember — which is a fair trade for a handler
-that should outlive the component, and a bad one otherwise. A forgotten cleanup
-now leaks once per destroyed instance, and the symptom is a handler firing twice
-before it is firing twenty times.
+`scope.on` registers the handler in the [signal](/guides/cross-layer/signals/)
+table for this instance. The runtime releases every registration made through
+the scope before it runs the teardown returned by `setup`. Keep component
+handlers on this scoped surface: it prevents a destroyed instance from leaving
+behind a callback that fires twice, then eventually twenty times.
 
 ## What it costs
 

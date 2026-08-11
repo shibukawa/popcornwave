@@ -10,7 +10,9 @@ sidebar:
 
 難しいのは mount そのものではありません。サーバーフラグメントがその要素をあとで
 差し替えるとき、古い React ルートを誰が片づけ、新しいルートを誰が起動するかです。
-カスタム要素を境界にすると、その 2 つをブラウザのライフサイクルへ載せられます。
+カスタム要素でも実現できますが、Popcorn Wave にはすでに必要なライフサイクルがあります。
+[コンポーネントスクリプト](/ja/guides/interactivity/component-scripts/)は描画された
+インスタンスごとに `setup` を走らせ、差し替え前にその teardown を呼びます。
 
 ## 依存とスクリプトビルド
 
@@ -48,8 +50,9 @@ npm install --save-dev typescript @types/react @types/react-dom
 enabled = true
 ```
 
-ページ側の `<script>` は、書いたファイルをそのまま指し、`type="module"` を付けます。
-エントリの登録はこのタグだけです。別に一覧を持って同期を取る必要はありません。
+書いた React のエントリを module script から参照します。最初のドキュメントがbundleを
+読み込み、下にある島のコンポーネントスクリプトがインスタンスごとのmountとteardownを
+所有します。
 
 ```html
 export component TasksPage(initialCount: int): html {
@@ -63,45 +66,41 @@ export component TasksPage(initialCount: int): html {
 }
 ```
 
-`pw build` はこの参照を見つけると、`react` と `react-dom` を含む ES module を
-バンドル・minify し、ソースマップと内容ハッシュ付きのファイルを作ります。生成された
-コードが指す URL も、そのハッシュ付き URL へ書き換わります。JSX の変換方法は
-`tsconfig.json` の `jsx` から読むので、ビルド側に同じ設定を書き写す必要はありません。
-Node.js と `node_modules` はビルド時だけ必要で、アプリケーションバイナリと一緒には
-配りません。
+ビルドはエントリを `react` と `react-dom` ごとバンドル・minifyし、ソースマップと
+内容ハッシュ付きのファイルを作ってscript URLを書き換えます。JSX変換は
+`tsconfig.json` から読みます。Node.js と `node_modules` はビルド時だけ必要で、
+アプリケーションバイナリと一緒には配りません。
 
 この変換は TypeScript の構文を JavaScript に落としますが、型検査はしません。
 CI では `tsc --noEmit` を別に実行してください。
 
-## サーバー側に mount 点を置く
+## サーバーマークアップの隣にライフサイクルを置く
 
 島は React がなくても内容を読める HTML にします。ここでは、スクリプトが動くまで
 現在値を表示し、操作できないことだけを `disabled` で正直に示します。
 
 ```html
 export component CounterIsland(initial: int): html {
-<react-counter data-initial={initial}>
+<script component>
+export function setup(el) {
+  return window.mountCounter(el, Number(el.dataset.initial ?? "0"));
+}
+</script>
+<section class="counter" data-initial={initial}>
   <button type="button" disabled>Count: {initial}</button>
-</react-counter>
+</section>
 }
 ```
 
-`<react-counter>` 自体は Popcorn Wave が所有します。その内側は、起動後に React が
-所有します。周囲の見出し、フォーム、一覧まで React のルートへ入れる必要はありません。
-
-## コンポーネントとライフサイクルをひとつにまとめる
-
-コンポーネントと、それを載せるカスタム要素は同じファイルに置きます。そのコンポーネント
-がいつ存在するかを決めているのはカスタム要素のほうだからです。
+bundle側は、アプリケーション自身のmount関数を提供します。戻り値はコンポーネント
+スクリプトを経由してランタイムへ渡すcleanupです。
 
 ```tsx
 // public/islands/counter.tsx
-import { useState } from 'react';
-import { createRoot, type Root } from 'react-dom/client';
+import { useState } from "react";
+import { createRoot } from "react-dom/client";
 
-type CounterProps = { initial: number };
-
-function Counter({ initial }: CounterProps) {
+function Counter({ initial }: { initial: number }) {
   const [count, setCount] = useState(initial);
   return (
     <button type="button" onClick={() => setCount((value) => value + 1)}>
@@ -110,34 +109,34 @@ function Counter({ initial }: CounterProps) {
   );
 }
 
-class ReactCounterElement extends HTMLElement {
-  root: Root | null = null;
-
-  connectedCallback() {
-    if (this.root) return;
-    this.root = createRoot(this);
-    this.root.render(<Counter initial={Number(this.dataset.initial ?? '0')} />);
-  }
-
-  disconnectedCallback() {
-    this.root?.unmount();
-    this.root = null;
+declare global {
+  interface Window {
+    mountCounter(el: HTMLElement, initial: number): () => void;
   }
 }
 
-if (!customElements.get('react-counter')) {
-  customElements.define('react-counter', ReactCounterElement);
-}
+window.mountCounter = (el: HTMLElement, initial: number) => {
+  const root = createRoot(el);
+  root.render(<Counter initial={initial} />);
+  return () => root.unmount();
+};
 ```
 
-分けるのは、複数の島が同じコンポーネントを共有するようになってからで十分です。エントリ
-からの import は esbuild が同じバンドルへ取り込むため、共有する `components/counter.tsx`
-を作ってもタグ側は変わりません。
+`mountCounter` はPopcorn WaveのAPIではなく、asset buildがURLを所有するbundleを
+生成済みコンポーネントモジュールから呼ぶためだけのアプリケーション側の橋です。
 
-ページの解析中に要素が見つかれば `connectedCallback` が mount します。htmx などが
-フラグメントをあとから挿入した場合も同じです。逆に祖先ごと差し替えられると
-`disconnectedCallback` が走り、購読やイベントを含む React ツリーを unmount します。
-ページ読み込み時と swap 後で、別々の初期化コードを持つ必要がありません。
+`<section>` 自体は Popcorn Wave が所有します。その内側は、`setup` の起動後に React が
+所有します。周囲の見出し、フォーム、一覧まで React のルートへ入れる必要はありません。
+
+ランタイムは最初のページでも、部分更新や live 更新で挿入されたインスタンスでも
+`setup` を呼びます。祖先を差し替える前には戻り値を呼び、React ツリーを unmount して
+effect、購読、イベントを解放します。この
+[コンポーネントスクリプトのライフサイクル](/ja/guides/interactivity/component-scripts/#解放は差し替えの前に走る)
+が、サーバー側の DOM ライフサイクルと一致します。
+
+複数の島で React コンポーネントを共有するなら、別の TypeScript ファイルへ分けて
+`counter.tsx` から import します。mount 点と teardown を所有するのはテンプレート宣言
+なので、`setup` はそこに残します。
 
 light DOM を使っていることにも意味があります。React が作るボタンはページの
 スタイルシート、Tailwind のユーティリティ、テーマをそのまま受け取ります。shadow DOM
@@ -165,19 +164,18 @@ Popcorn Wave はそれを提供していません。
 
 | 操作 | 所有者 |
 | --- | --- |
-| `<react-counter>` の配置、`data-initial` | Popcorn Wave のテンプレート |
-| `<react-counter>` の子ノード | React |
+| `.counter` の配置、`data-initial` | Popcorn Wave のテンプレート |
+| `setup` 後の `.counter` の子ノード | React |
 | 島の外にある一覧やフォームの差し替え | htmx またはアプリケーションの swap コード |
 | 島を含む領域全体の再描画 | サーバー。古い島は unmount、新しい島は mount |
 
-`hx-target` を `<react-counter>` の中のボタンや React が作った子要素へ向けないでください。
-サーバーから初期値を取り直したい場合は、島を丸ごと含むフラグメントを返します。カスタム
-要素のライフサイクルが古いルートと新しいルートを入れ替えます。
+`hx-target` を `.counter` の中のボタンや React が作った子要素へ向けないでください。
+サーバーから初期値を取り直したい場合は、島を丸ごと含むフラグメントを返します。
+コンポーネントスクリプトの teardown が古いルートと新しいルートを入れ替えます。
 
-React の島を `pw.WriteHTMLFragment` から返すこと自体は問題ありません。ただし、
-フラグメントは `head` へ寄与できないため、`counter.tsx` の `<script>` は最初のページが
-すでに読み込んでいなければなりません。島のコンポーネントから `<head>` を分けたのは
-そのためです。
+React の島を `pw.WriteHTMLFragment` から返すこと自体は問題ありませんが、フラグメントは
+React bundleをheadへ追加できません。最初のページがすでに `counter.tsx` を読み込んでいる
+必要があり、後から来るインスタンスはそれを再利用して各自の `setup` を走らせます。
 
 ## サーバーへ書き込む場合
 

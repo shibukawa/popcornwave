@@ -11,7 +11,9 @@ only the children of one element.
 
 Mounting is the easy half. If a server fragment later replaces that element,
 something must clean up the old React root and start the new one. A custom
-element puts both operations on the browser's own connection lifecycle.
+element can do that, but Popcorn Wave already has the lifecycle needed here:
+a [component script](/guides/interactivity/component-scripts/) runs `setup` for
+each rendered instance and runs its teardown before that instance is replaced.
 
 ## Dependencies and the script build
 
@@ -24,8 +26,7 @@ npm install --save-dev typescript @types/react @types/react-dom
 ```
 
 Use a project-root `tsconfig.json` for both type-checking and the JSX transform.
-Merge these keys into an existing configuration when the project already has
-one:
+Merge these keys into an existing configuration when the project already has one:
 
 ```json
 {
@@ -50,8 +51,8 @@ Commit `package-lock.json`, then enable script conversion:
 enabled = true
 ```
 
-Point a module script at the authored file. The tag is the whole registration:
-there is no separate entry list to keep in step with it.
+Point a module script at the authored React entry. The initial document loads
+the bundle; the island's component script below owns each mount and teardown.
 
 ```html
 export component TasksPage(initialCount: int): html {
@@ -65,46 +66,41 @@ export component TasksPage(initialCount: int): html {
 }
 ```
 
-When `pw build` sees this reference, it bundles and minifies the entry together
-with `react` and `react-dom`, writes a source map, gives the bundle a content
-hash, and rewrites the generated script URL to that immutable file. The JSX
-transform comes from the `jsx` setting in `tsconfig.json`, which the build reads
-itself. Node.js and `node_modules` remain build inputs; they are not deployed
-beside the application binary.
+The build bundles and minifies the entry together with `react` and `react-dom`,
+writes a source map, gives the result a content hash, and rewrites the script
+URL. The JSX transform comes from `tsconfig.json`. Node.js and `node_modules`
+remain build inputs; they are not deployed beside the application binary.
 
 The transform removes TypeScript syntax but does not type-check it. Run
 `tsc --noEmit` separately in CI.
 
-## Put a mount point in the server markup
+## Put the lifecycle beside the server markup
 
 Give the island useful fallback HTML. Until the script runs, this one shows the
 current value and honestly leaves its control disabled:
 
 ```html
 export component CounterIsland(initial: int): html {
-<react-counter data-initial={initial}>
+<script component>
+export function setup(el) {
+  return window.mountCounter(el, Number(el.dataset.initial ?? "0"));
+}
+</script>
+<section class="counter" data-initial={initial}>
   <button type="button" disabled>Count: {initial}</button>
-</react-counter>
+</section>
 }
 ```
 
-Popcorn Wave owns the `<react-counter>` element and its placement. React owns
-the element's children after mounting. The headings, forms, and lists around it
-do not need to enter a React root.
-
-## Keep the component and its lifecycle together
-
-The component and the custom element that owns it belong together, because the
-custom element is the only thing that decides when the component exists:
+The bundled entry provides that application-owned mount function. It returns
+the cleanup that the component script hands back to the runtime:
 
 ```tsx
 // public/islands/counter.tsx
-import { useState } from 'react';
-import { createRoot, type Root } from 'react-dom/client';
+import { useState } from "react";
+import { createRoot } from "react-dom/client";
 
-type CounterProps = { initial: number };
-
-function Counter({ initial }: CounterProps) {
+function Counter({ initial }: { initial: number }) {
   const [count, setCount] = useState(initial);
   return (
     <button type="button" onClick={() => setCount((value) => value + 1)}>
@@ -113,35 +109,36 @@ function Counter({ initial }: CounterProps) {
   );
 }
 
-class ReactCounterElement extends HTMLElement {
-  root: Root | null = null;
-
-  connectedCallback() {
-    if (this.root) return;
-    this.root = createRoot(this);
-    this.root.render(<Counter initial={Number(this.dataset.initial ?? '0')} />);
-  }
-
-  disconnectedCallback() {
-    this.root?.unmount();
-    this.root = null;
+declare global {
+  interface Window {
+    mountCounter(el: HTMLElement, initial: number): () => void;
   }
 }
 
-if (!customElements.get('react-counter')) {
-  customElements.define('react-counter', ReactCounterElement);
-}
+window.mountCounter = (el: HTMLElement, initial: number) => {
+  const root = createRoot(el);
+  root.render(<Counter initial={initial} />);
+  return () => root.unmount();
+};
 ```
 
-Splitting this across files is worth it when several islands share a component,
-not before. The bundler follows imports from the entry, so a shared
-`components/counter.tsx` reaches the same bundle without any change to the tag.
+`mountCounter` is an application bridge, not a Popcorn Wave API; its only job is
+to let the generated component module call the bundle whose URL the asset build
+owns.
 
-An element in the initial page mounts through `connectedCallback`. The same
-element inserted later by htmx or another swap library follows that path too.
-When an ancestor is replaced, `disconnectedCallback` unmounts the React tree
-and releases its effects, subscriptions, and handlers. There is no separate
-"after swap" initializer to keep in sync.
+Popcorn Wave owns the `<section>` element and its placement. React owns the
+element's children after `setup` mounts the root. The headings, forms, and lists
+around it do not need to enter a React root.
+
+The runtime calls `setup` on the initial page and on an instance inserted by a
+partial or live update. Before an ancestor is replaced, it calls the returned
+function, which unmounts the React tree and releases effects, subscriptions,
+and handlers. The [component-script lifecycle](/guides/interactivity/component-scripts/#release-happens-before-the-replacement-lands)
+therefore stays aligned with the server's DOM lifecycle.
+
+Splitting the React component into another TypeScript file is useful when
+several islands share it. Import that module from `counter.tsx`; keep `setup` in
+the template declaration, because it owns the mount point and its teardown.
 
 This deliberately uses light DOM. The button React creates inherits the page's
 stylesheet, Tailwind utilities, and theme. A shadow root would require the
@@ -171,19 +168,18 @@ division:
 
 | Operation | Owner |
 | --- | --- |
-| placing `<react-counter>` and writing `data-initial` | the Popcorn Wave template |
-| children of `<react-counter>` | React |
+| placing `.counter` and writing `data-initial` | the Popcorn Wave template |
+| children of `.counter` after `setup` | React |
 | swapping lists or forms outside the island | htmx or application swap code |
 | re-rendering a region containing the whole island | the server; the old island unmounts and the new one mounts |
 
 Do not point `hx-target` at a button or another child React created. To refresh
-initial server data, return a fragment containing the whole island. Its custom
-element lifecycle replaces the old root with the new one.
+initial server data, return a fragment containing the whole island. The
+component-script teardown replaces the old root with the new one.
 
-`pw.WriteHTMLFragment` may return the island markup, but a fragment cannot
-contribute to the head. The initial page must already have loaded `counter.tsx`.
-That is why the script contribution lives on `TasksPage`, not on
-`CounterIsland` itself.
+`pw.WriteHTMLFragment` may return the island markup, but a fragment cannot add
+the React bundle to the head. The initial page must already have loaded
+`counter.tsx`; later island instances reuse it and run their own `setup`.
 
 ## Writing back to the server
 

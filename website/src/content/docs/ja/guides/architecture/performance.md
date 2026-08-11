@@ -196,7 +196,7 @@ err := pw.Transaction(pw.SelectDB(ctx, "writer"), func(ctx context.Context) erro
 ### 圧縮と CSRF
 
 レスポンス圧縮は既定で無効です。CDN やリバースプロキシが圧縮していない場合だけ、
-[レスポンス圧縮](/ja/guides/frontend/compression/)を参考に有効化します。
+[レスポンス圧縮](/ja/guides/backend/compression/)を参考に有効化します。
 
 CSRF チェックはミドルウェアの中では目立つ処理ですが、上の計測でも 2.1 µs です。
 ベアラートークンで認証し、ブラウザからクッキー付きで呼ばれない API だけを除外対象に

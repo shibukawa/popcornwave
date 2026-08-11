@@ -17,6 +17,10 @@ export default defineConfig({
     '/ja/guides/backend/cookies': `${base}/ja/guides/backend/sessions/#クッキーを直接使う`,
     '/start/architecture': `${base}/guides/architecture/project-structure/`,
     '/ja/start/architecture': `${base}/ja/guides/architecture/project-structure/`,
+    '/guides/frontend/compression': `${base}/guides/backend/compression/`,
+    '/ja/guides/frontend/compression': `${base}/ja/guides/backend/compression/`,
+    '/guides/cross-layer/tracing': `${base}/guides/architecture/telemetry/#reading-a-request-trace`,
+    '/ja/guides/cross-layer/tracing': `${base}/ja/guides/architecture/telemetry/#リクエストトレースを読む`,
   },
   markdown: {
     // Lets content link with plain `/guides/testing/` instead of repeating `base`.

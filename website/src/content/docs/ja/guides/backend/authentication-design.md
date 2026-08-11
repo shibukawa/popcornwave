@@ -78,6 +78,50 @@ sidebar:
 
 IdP がない、あるいは外部に出せない。`passkey_only` に admission `registered`、`auth.registration.policy = "administrator"`。管理者が発行したブートストラップ資格情報が、そのままアカウント開設の儀式になります。
 
+### キーボードのないデバイス
+
+キーボードを持たない TinyGo デバイスは、ブラウザ向けログイン経路をたどれません。
+パスワードを安全に入力できず、パスキーのUIも出せず、認可コードのリダイレクトも
+受け取れないためです。これは `auth.mode` とは別の軸です。mode は人がWebアプリへ入る
+方法を選び、入力に制約のあるデバイスはOIDCの公開クライアントとして
+[RFC 8628 Device Authorization Grant](/ja/appendix/web-standards/#認証)を使います。
+
+デバイスはプロバイダへ認可を要求し、短いuser codeとverification URI
+（または `VerificationURIComplete` のQRコード）を表示します。利用者は別のスマートフォンや
+PCで承認し、その間デバイスがpollします。
+
+```go
+device, err := oidc.NewDeviceClient(provider, oidc.DeviceConfig{
+    ClientID: "display-controller",
+}, oidc.DeviceOptions{})
+if err != nil {
+    return err
+}
+
+authorization, err := device.Begin(ctx, oidc.DeviceBeginOptions{
+    Scopes: []string{"display.read"},
+})
+if err != nil {
+    return err
+}
+show(authorization.VerificationURI, authorization.UserCode)
+
+tokens, identity, err := device.Poll(ctx, authorization)
+```
+
+公開クライアントとして登録し、ファームウェアへclient secretを埋め込まないでください。
+ライブラリはプロバイダのpoll間隔と `slow_down` 応答に従います。画面を離れる、設定を
+やり直す、デバイスを終了するときにpollを止められるよう、キャンセル可能なcontextを
+使います。`DeviceCode` は意図的に公開されません。このbearer資格情報をログや画面へ
+出してはいけません。
+
+承認でデバイスが得るのはtokenであり、ブラウザセッションでもパスキーでもありません。
+どのAPIがaccess tokenを受け取るか、必要なscope、refreshまたは再設定の方法、その
+ハードウェアでtokenをどこへ保存できるかは別に決めます。安全な永続ストレージがないなら、
+短命で最小権限のtokenを優先します。
+[開発用IdP](/ja/productivity/dev-identity-provider/)は、公開クライアント、user code、承認、
+pollingまで同じ経路をローカルテスト用に実装しています。
+
 ## ログインが終わったあと
 
 ここまではログインの話でした。ログインが終わったあと、セッションは有効か無効かの2状態しか持っていない、というのが素朴な設計です。

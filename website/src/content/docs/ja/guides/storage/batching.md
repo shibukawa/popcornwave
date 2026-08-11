@@ -1,6 +1,6 @@
 ---
 title: バッチ
-description: 大量のステートメントのコストを削る — SQLite ではトランザクション、PostgreSQL では pgx のパイプライン、そして MySQL が代わりに要求するもの。
+description: 大量のステートメントのコストを削る — SQLite ではトランザクション、PostgreSQL では pgx の Batch と COPY、そして MySQL が代わりに要求するもの。
 sidebar:
   order: 2
 ---
@@ -95,6 +95,54 @@ PostgreSQL でないグループを渡すと、見つけたエンジンの名前
 pgx 向けに書かれたハンドラが SQLite のデプロイで静かに壊れるのではなく、はっきり
 失敗するということです。
 
+### PostgreSQL COPY — 1つのテーブルへ大量に入れる
+
+バッチは往復を減らします。しかし PostgreSQL は、キューに積まれた `INSERT` を依然として
+1文ずつパースし、実行します。行の投入先と列構成がすべて同じなら、その先に COPY が
+あります。pgx の `CopyFrom` は、`COPY items (name, price_cents) FROM STDIN BINARY` に
+相当する処理を組み立て、PostgreSQL の copy プロトコルで行の値を流します。
+
+```go
+rows := make([][]any, len(items))
+for i, item := range items {
+	rows[i] = []any{item.Name, item.PriceCents}
+}
+
+var copied int64
+err := postgres.WithConn(ctx, func(conn *pgx.Conn) error {
+	var err error
+	copied, err = conn.CopyFrom(
+		ctx,
+		pgx.Identifier{"items"},
+		[]string{"name", "price_cents"},
+		pgx.CopyFromRows(rows),
+	)
+	return err
+})
+if err != nil {
+	return err
+}
+pw.Logger(ctx).Info("copied items", pw.Int64("rows", copied))
+```
+
+`pgx.Identifier` はテーブル名を識別子としてクォートします。列リストの文字列も値を SQL
+へ埋め込むものではなく、列の識別子です。入力全体を大きな `[][]any` にしてから渡したく
+ない場合は、`pgx.CopyFromSource` を実装するか、`CopyFromSlice` または `CopyFromFunc` で
+行を順に生成できます。
+
+COPY は大量投入の経路であって、INSERT より多機能な文ではありません。行ごとの
+`RETURNING` も `ON CONFLICT` もありません。デフォルト値を使う列は列リストから外します。
+upsert や行単位の照合が必要なら、ステージングテーブルへ COPY したあと、同じ
+`pw.Transaction` の中で `INSERT ... ON CONFLICT` を実行します。COPY が失敗すれば、同じ
+`WithConn` コールバックから呼んだバッチと同様に、トランザクションと一緒にロールバック
+されます。
+
+アップロードされたファイルに対して、`STDIN` をファイルパスへ置き換えてはいけません。
+`COPY FROM '/path'` が読むのはデータベースサーバー側のファイルシステムで、サーバー側の
+権限も必要です。`\copy` は psql のコマンドであり、アプリケーションが送れる SQL では
+ありません。アップロードはアプリケーションで解析・検証し、その行を `CopyFrom` へ
+渡します。
+
 ### ここでの作業はクエリログに載らない
 
 生成されたステートメントは、所要時間と実行計画と貼り付け可能な再実行コードつきで
@@ -144,11 +192,17 @@ prepare できないため、ドライバは引数をサーバ側でバインド
 
 ## バッチにしない方がいいとき
 
-ステートメントが 1 つのテーブルへの INSERT なら、
-`INSERT INTO items (name) VALUES ($1), ($2), ($3)` がこのページのどの選択肢にも勝ちます。
-パースは N 回ではなく 1 回、往復は MySQL を含むどのエンジンでも 1 回、逃げ道も DSN の
-変更も不要で、しかも `.pw.sql` のスライス展開が書いてくれます。バッチを使うのは、
-ステートメントが本当に異なるときです。
+ステートメントが 1 つのテーブルへの INSERT なら、1 行につき 1 文をキューへ積むのは
+やめます。件数がそれほど多くなければ、`INSERT INTO items (name) VALUES ($1), ($2), ($3)`
+はパースが 1 回で、MySQL を含む全エンジンで使え、逃げ道も DSN の変更も不要です。
+`.pw.sql` のスライス展開もこの形を書けます。PostgreSQL で同じ形の入力が多く、大量投入の
+性能が問題になるなら `CopyFrom`。文が本当に異なるときに、バッチを選びます。
+
+| 処理の形 | PostgreSQL での選択 |
+| --- | --- |
+| 行数がそれほど多くない、または `RETURNING` / `ON CONFLICT` が必要 | 複数行 `INSERT` |
+| 1つのテーブルと列構成へ大量の行を投入 | `CopyFrom` |
+| 結果を受け取りたい異なるステートメントの束 | 必要に応じてトランザクション内の `Batch` |
 
 除外される場面がもう 2 つあります。PostgreSQL のバッチでは、サーバがどれも実行しない
 うちにキュー全体をパースすることがあります。`CREATE TABLE` に続けてそのテーブルへの
@@ -164,8 +218,8 @@ SQLite と MySQL は囲んでいるトランザクションで 1 つを共有し
 トランザクションには分離レベルを設定できません。強い分離が要るなら、バッチを
 `pw.Transaction` の中に置いてください。
 
-`WithConn` が届くのはバッチだけではありません。大量投入の `CopyFrom`、`LISTEN` と
-`NOTIFY`、SQLSTATE を読むための `*pgx.PgError` への `errors.As` も、同じコールバックの
-先にあります。PostgreSQL のデプロイが届く範囲の残りは
+`WithConn` が届くのはバッチだけではありません。`LISTEN` と `NOTIFY`、SQLSTATE を読む
+ための `*pgx.PgError` への `errors.As` も、同じコールバックの先にあります。
+PostgreSQL のデプロイが届く範囲の残りは
 [相互運用](/ja/appendix/interoperability/)に、ここでの例が外へ出た生成レイヤーは
 [クエリ](/ja/guides/storage/queries/)にあります。

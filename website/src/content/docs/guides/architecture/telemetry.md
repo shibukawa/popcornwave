@@ -53,6 +53,71 @@ Do not put passwords, tokens, session values, or unnecessary personal data in
 messages or attributes. Structured storage makes accidental secrets easier to
 search, not safer to keep.
 
+## Reading a request trace
+
+A duration says that a request was slow; a span tree says where it waited. The
+framework opens the request, render, boundary, and generated-database spans, so
+the common path needs no application timers:
+
+```
+GET /orders                                      842ms
+└─ render stream                                 838ms
+   ├─ render initial                              41ms
+   │  └─ SELECT                                   33ms
+   ├─ render boundary  (tb-1)                    797ms
+   └─ render boundary  (tb-2)                    120ms
+```
+
+Here the shell was fast and `tb-1` kept its fallback visible for most of a
+second. The development telemetry viewer shows this tree automatically. Outside
+that loop, naming an OTLP endpoint enables the default `auto` policy:
+
+```toml
+[observability.trace]
+enabled = "auto"   # on when traces are exported, off otherwise
+render = true
+boundary = true
+database = true
+statement = true
+```
+
+Use `enabled = "on"` with an application-owned tracer provider, or `"off"` when
+you have measured the span cost on a hot route. `boundary = false` is the first
+detail to remove from a page with many small or frequently delivered regions.
+`statement = false` keeps database timing but omits SQL text; bind values are
+never added to spans.
+
+### The render branch
+
+The render span name identifies the response path:
+
+| Name | Response path |
+| --- | --- |
+| `render buffered` | a complete document built before the first byte |
+| `render stream` | an [async-rendered](/guides/cross-layer/async-rendering/) document |
+| `render live` | a [live](/guides/cross-layer/live-rendering/) delivery stream |
+| `render navigate` | a [navigation delta](/guides/cross-layer/partial-updates/) |
+| `render redraw` | one component answering for itself |
+| `render fragment` | a fragment for an external swap library |
+
+The span carries `pw.render.bytes` before response compression and
+`pw.render.boundaries`. A response that consulted the [render
+cache](/guides/frontend/rendering-cache/) also carries
+`pw.render.cache_hits` and `pw.render.cache_misses`.
+
+In a streamed document, `render initial` ends at the flush that commits the
+shell and fallbacks. Each boundary span starts there and ends when its fragment
+is written, so its duration is how long the visitor saw the fallback, including
+time queued behind `html.async_concurrency`. Open a custom
+[`pw.StartSpan`](/reference/runtime/#tracing) inside the work when you need to
+separate queue time from execution time.
+
+Generated `.pw.sql` calls appear beneath the active render or application span.
+They carry the parameterized statement and standard database attributes, never
+bind values. Slow statements add `pw.db.slow`; the correlated [query
+diagnostic](/productivity/query-diagnostics/) contains the values, plan, and
+rerun snippet under the same trace identifiers.
+
 ## Traces that cross services
 
 Inside one process, correlation is the pair of identifiers the context already
@@ -66,8 +131,21 @@ the tree is whichever service the request actually entered first. Writing them
 takes an instrumented client, because the header has to be produced by whatever
 opened the client span — the callee adopts the span the header names, and a
 header written anywhere else attributes the callee's work to the wrong parent.
-[Request tracing](/guides/cross-layer/tracing/#calling-another-service) has the
-client and the reasoning.
+
+```go
+import "github.com/shibukawa/popcornwave/contrib/otel/otelhttp"
+
+client := otelhttp.NewClient(http.DefaultClient)
+request, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
+if err != nil {
+    return err
+}
+response, err := client.Do(request)
+```
+
+Pass the request context; replacing it with `context.Background()` breaks the
+parent relationship. `otelhttp.NewTransport` provides the same instrumentation
+for a custom client without modifying the transport you pass in.
 
 This is what makes the `trace_id` in a local JSONL record worth carrying to the
 collector. The one-trace query further down returns the records *this* service
@@ -77,6 +155,11 @@ recorded for the same request.
 One client is deliberately excluded: the one the OTLP exporter posts through.
 Tracing an export makes the export open a span, whose export opens another, so
 the exporter removes the instrumentation from the client it is given.
+
+Framework spans stop at framework work. Open custom spans around cache calls or
+other handler work with [`pw.StartSpan`](/reference/runtime/#tracing). Session,
+authentication, and migration statements issued internally do not produce
+database spans, matching their exclusion from query diagnostics.
 
 ## Development destinations
 

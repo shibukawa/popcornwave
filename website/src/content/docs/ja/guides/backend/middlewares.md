@@ -51,7 +51,7 @@ liveness チェックは成功するように — 依存先の障害は readines
 
 圧縮はこれらの隣で設定しますが(`middleware.compression`)、チェーンのフレームでは
 ありません。適用されるのはレスポンスを書く場所です。いつ有効にすべきかは
-[圧縮のガイド](/ja/guides/frontend/compression/)にあります。
+[圧縮のガイド](/ja/guides/backend/compression/)にあります。
 
 ## 拡張スロット
 

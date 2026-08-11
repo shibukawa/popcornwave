@@ -1,124 +1,184 @@
 ---
 title: Partial Updates
-description: Answer a page request with only the regions that changed, so a filter, a redraw, or a form submission costs the region rather than the whole document.
+description: Let links, forms, and JavaScript requests refresh only the server-rendered regions whose markup changed.
 sidebar:
   order: 4
 ---
 
-A search page is a function of its request. Change the sort order and the server
-renders the layout, the navigation, the footer and the results — and the browser
-throws away four of those five and paints the one that moved. It already had the
-rest.
+A search page already contains its header, navigation, filter form, and footer.
+Change `?sort=price`, however, and an ordinary navigation downloads and parses
+all of them again. Only the results needed to move.
 
-Partial updates close that gap. The same URL answers a complete document to
-anything that asks for one, and to a page that already holds the layout it
-answers only the regions whose markup actually changed.
+Partial updates keep the ordinary page and change the response. A browser asking
+for a document still receives the whole document. A page that already holds the
+shell sends a manifest of its rendered regions, and the server answers with only
+the regions whose markup differs. The URL, handler, and templates stay the same.
 
-Turn it on in `popcornwave.toml`:
+That makes the first experiment unusually small. Enable the feature, then click
+a same-origin link or submit a GET form:
 
 ```toml
+# popcornwave.toml
 [html]
 [html.update]
 enabled = true
 validator_key = "${HTML_UPDATE_VALIDATOR_KEY}"
 ```
 
-It is off by default because a page that reloads acceptably does not need this,
-and the feature is not free: it adds a browser runtime to every document, a
-secret to deploy, and a rule that every re-render must be free of side effects.
-Reach for it when a screen is refreshed often enough that the reload is the
-thing people notice.
+```html
+<nav>
+  <a href="/orders?sort=newest">Newest</a>
+  <a href="/orders?sort=price">Lowest price</a>
+</nav>
 
-## What the server sends, and who applies it
+<form method="get" action="/orders">
+  <input name="q" type="search" value={query}>
+  <button type="submit">Search</button>
+</form>
+```
 
-The difference is not that one response is smaller. It is that they are
-different kinds of thing, and something different turns each into a page.
+No click handler is needed. The link remains a link, the form remains a form,
+and both still work when JavaScript is unavailable. With the runtime present,
+the browser keeps the current document and applies the changed regions.
 
-![Two flows through one handler. In blue, the browser requests the page, the handler renders the whole chain, and the browser paints a new page — the runtime is never involved. In green, the runtime intercepts a link, sends the same request with the render and manifest headers, the same handler compares each region against the digests it carried, answers with instructions to replace one region and nothing else, and the runtime swaps that region into the live DOM](../../../../assets/diagrams/partial-update-sequence.svg)
+## Four ways to start an update
 
-Read the blue path first. It is a request with no update header, and it is the
-one every client can take: the response is a **document**, and the browser's own
-parser is what replaces the page. No JavaScript takes part, which is why the
-runtime lifeline is untouched.
+The visible result may be the same, but the initiator determines which API owns
+the request.
 
-The green path is the same URL and the same handler. What changed is the
-headers, and what comes back is not a page but **instructions** — one region
-named, its new markup beside it, and nothing said about the layout, the
-navigation or the footer, because the digests for those matched what the request
-already held.
+| Initiator | How it starts | Typical use | Enhancement |
+| --- | --- | --- | --- |
+| `<a href>` | same-origin navigation | another page, sort link, pagination | automatic |
+| `<form method="get">` | query-string navigation | search and filtering | automatic |
+| `<form method="post">` | mutation | create, rename, validation | a component script submits with update headers and applies the response |
+| JavaScript | `update`, `navigate`, `redraw`, or `fetch` | local controls and custom interaction | explicit |
 
-That last part is what the runtime is for. It swaps the named region into the
-DOM that is already on screen, so everything around it stays exactly as it was:
-focus, scroll position, an open dropdown, half-typed text. A reparsed document
-could preserve none of that.
+Links and GET forms are intercepted because the browser's fallback has the same
+meaning as the enhanced request. POST is different. The runtime does not
+silently take ownership of every unsafe form; the application opts in where it
+can also decide loading, error, and CSRF behavior.
 
-A redraw is the same green path aimed at one component rather than a whole
-route. The request names it with `Pw-Kind` and `Pw-Instance`, and the response
-is that component's markup with no envelope at all — which is why the endpoint
-stays readable with `curl`.
-
-Every one of these falls back the same way. If the runtime is absent, if a proxy
-stripped the header, or if anything goes wrong at any point, the request becomes
-an ordinary navigation and the answer is the blue path.
-
-That is a stronger guarantee than it sounds, because the blue path is not a
-fallback anybody maintains. It is what a link, a GET form and the back button do
-by themselves. Turn JavaScript off and the search page still searches, the
-filter still filters, and the address bar still holds a URL you can send to
-someone — not because there is a second implementation for that case, but
-because there was never a first one to begin with.
-
-Which is also the standard the green path is held to. Every gesture the runtime
-takes over has to reach the destination the browser would have reached on its
-own, since a page where the two disagree is worse than a page that never loaded
-the runtime at all. Where the sections below say the runtime *declines* to
-intercept something, that is the rule being enforced.
-
-## Nothing about the page changes
-
-Every layout and page of a rendered chain is already an update boundary. A
-`.pw.html` chain compiles to `_pw_gen.go` carrying an identity on each boundary
-root and a digest of what it rendered, so a request that arrives holding the old
-digests can be answered with the difference.
-
-That means the handler is unchanged, the templates are unchanged, and a request
-that asks for nothing gets the bytes it always got. A crawler, `curl`, and a
-browser that never ran the script are unaffected by all of this.
-
-An ordinary component is deliberately *not* a boundary. A five-hundred-row list
-would otherwise put five hundred entries in every request.
-
-## Three paths, and the rule that picks one
-
-The three differ in who holds the input that changed.
-
-**Navigation** owns inputs the server derives from the request — a search
-parameter, a route. The runtime intercepts a same-origin link or a GET form,
-re-requests the page's own URL, and the server sends back the boundaries whose
-markup differs. Nothing is written on either side; this is what `enabled = true`
-buys on its own.
-
-**Redraw** owns inputs the browser holds, for a region whose state should not
-appear in a shareable URL. The component is declared reloadable and re-rendered
-alone, with no page execution.
-
-**Action** owns a mutation. The handler performs it and answers the same request
-with the regions it changed, so one round trip both acts and refreshes.
-
-The rule for choosing is about the URL, not about the mechanism: **state that
-can live in the URL belongs there.** A sort order, a page number, and a filter
-all make the page shareable, bookmarkable and back-navigable, and navigation
-handles them with no code. Reach for a redraw when putting the state in the URL
-would be wrong — a widget's local expansion, a panel that polls. There is no
-third option for "re-run the handler with one argument patched", because that
-could not reach the data fetch that produced the component's other inputs.
-
-## A reloadable component
-
-Annotate the component and give it an id its caller writes:
+This component script enhances a POST form while preserving its ordinary
+submission when updates are disabled:
 
 ```html
-<!-- templates/card.pw.html -->
+export component RenameForm(orderID: string): html {
+<script component>
+  export function setup(form) {
+    if (!window.popcornwave) return;
+
+    async function submit(event) {
+      event.preventDefault();
+      const response = await fetch(form.action, {
+        method: "POST",
+        headers: window.popcornwave.updateHeaders(),
+        credentials: "same-origin",
+        body: new FormData(form),
+      });
+      await window.popcornwave.apply(response);
+    }
+
+    form.addEventListener("submit", submit);
+    return () => form.removeEventListener("submit", submit);
+  }
+</script>
+<form method="post" action="/orders/rename">
+  <input type="hidden" name="order_id" value={orderID}>
+  <input name="name" required>
+  <button type="submit">Rename</button>
+</form>
+}
+```
+
+`updateHeaders()` marks the request as an action update and includes the current
+CSRF header when configured. `apply()` accepts the regions returned by the
+handler, including validation regions carried by a 4xx response. The lifecycle
+belongs to the [component script](/guides/interactivity/component-scripts/), so
+replacing the form does not leave a duplicate submit listener behind.
+
+JavaScript can also initiate each path directly:
+
+```js
+if (window.popcornwave) {
+  await window.popcornwave.update({ sort: "newest" });
+  await window.popcornwave.navigate("/orders/17");
+  await window.popcornwave.redraw("card-17", { orderID: 17 });
+}
+```
+
+`update()` replaces the whole query string, just as a GET form does. Read and
+pass back any parameters that should survive.
+
+## One route, two kinds of response
+
+The optimization does not introduce a second page implementation. It adds a
+second representation of the same render.
+
+![Two flows through one handler. In blue, the browser requests the page, the handler renders the whole chain, and the browser paints a new page. In green, the runtime adds the render and manifest headers, the same handler compares each region with the digest already held by the browser, returns replacement instructions, and the runtime applies them to the live DOM.](../../../../assets/diagrams/partial-update-sequence.svg)
+
+Without update headers, the response is a document. The browser parses it and
+replaces the page. Crawlers, `curl`, disabled JavaScript, and a proxy that strips
+the enhancement headers all take this path.
+
+With update headers, the request carries the current region manifest. The server
+renders the same route, compares each boundary digest, and returns replacement
+instructions plus new markup only where the digest changed. The runtime applies
+those instructions to the DOM already on screen.
+
+The distinction explains both the speed and the resilience. Unchanged markup
+does not cross the network or get reparsed, while the complete-document path
+remains the fallback rather than becoming a separate implementation to maintain.
+
+## How much smaller is the response?
+
+The useful estimate is based on changed markup, not the number of components.
+Let `D` be the uncompressed document body, `R` the markup of changed regions,
+and `O` the small update envelope and manifest. A reload transfers `D`; a
+partial response transfers roughly `R + O`.
+
+The following numbers are illustrative, not a benchmark. Assume a rendered
+document of 50 KiB: 34 KiB of shell and navigation, 14 KiB of results, and a
+2 KiB order summary. HTTP headers and compression are excluded.
+
+| What changed | Full document | Approximate partial body | Markup avoided |
+| --- | ---: | ---: | ---: |
+| results after sorting | 50 KiB | 14 KiB + `O` | about 72% |
+| one order summary | 50 KiB | 2 KiB + `O` | about 96% |
+| results and summary | 50 KiB | 16 KiB + `O` | about 68% |
+| no boundary markup | 50 KiB | `O` only | nearly 100% |
+
+Compression changes the bytes on the wire, and small responses make `O` more
+visible. The direction remains useful: a smaller boundary saves more transfer
+and DOM work when it changes independently.
+
+There is an important limit. Navigation still renders the page chain so the
+server can compare digests; a smaller response does not automatically mean
+less server CPU. A targeted redraw can skip unrelated data loading, which is
+where the server-side saving appears.
+
+## Boundaries are the unit of comparison
+
+A boundary answers one question: if this rendered unit changed, what is the
+smallest region the server can replace safely?
+
+Layouts and pages in a `.pw.html` render chain are boundaries automatically.
+Generation writes an identity on each boundary root and computes a digest for
+its rendered markup. An ordinary nested component is deliberately not a
+boundary. If every row in a 500-row table were one, every navigation request
+would carry 500 manifest entries before anything changed.
+
+Start with the automatic page and layout boundaries. Add a finer boundary only
+when all three statements are true:
+
+1. The region changes independently often enough to matter.
+2. It has one stable root that can be replaced without taking neighboring UI.
+3. Its inputs can be reconstructed safely for a direct redraw.
+
+The third condition is stricter than it first appears. URL state such as a sort,
+filter, or page number should stay in the URL and use navigation. Browser-local
+state that should not be shared may justify a reloadable component.
+
+```html
 package templates
 
 @reloadable
@@ -129,238 +189,174 @@ export component OrderCard(id: string, orderID: int): html {
 }
 ```
 
-Generation refuses anything it cannot serve from a URL. The component must be
-exported and render exactly one root element, the `id` parameter is required,
-and every other parameter must be a type a query string carries
-deterministically — a record, a slice and `html` are errors rather than
-warnings, because you asked for the endpoint.
+A reloadable component must be exported, have exactly one root, and declare the
+`id` its caller writes. Every other argument must have a deterministic query
+representation. Records, slices, and `html` are rejected at generation because
+a redraw request could not reconstruct them from a URL.
 
-Nothing else is written. Generation folds each component's call graph down to
-the reloadable components its markup can contain and puts that set on the page's
-own parameters, so a handler names the page and never a list that could fall out
-of step with the template. A page under a page tree needs no handler code at
-all — the render entry answers the redraw.
+This produces a practical hierarchy:
 
-## Paying less for a redraw
+- The **layout boundary** protects the document shell shared by several pages.
+- The **page boundary** replaces route-specific content.
+- A **reloadable component boundary** is reserved for an independently redrawn
+  region with URL-serializable inputs.
+- Ordinary components remain implementation detail inside their nearest
+  boundary.
 
-A redraw answered inside the page render costs whatever the handler did to build
-that page — the query behind the list, the fetch behind the header — none of
-which the redraw needed. Answer it earlier to skip all of that:
+Smaller is not always better. Boundary count enlarges the manifest, and a
+boundary that renders a clock or random value never matches. Put continuously
+changing data in [Live Rendering](/guides/cross-layer/live-rendering/) or let the
+browser format it.
+
+## Navigation, redraw, and action
+
+The three response paths differ by where the changed input lives.
+
+### Navigation: the request owns the state
+
+A same-origin link or GET form changes a route or query. The runtime requests
+that URL, the handler renders normally, and the server returns changed
+boundaries. This is the default path and needs no application JavaScript.
+
+State that can live in the URL belongs here. Search terms, sorting, filters, and
+pagination then remain shareable, bookmarkable, and compatible with back and
+forward navigation.
+
+### Redraw: the browser owns the state
+
+`redraw(id, parameters)` asks one reloadable component to render again without
+executing the whole page. A classic handler can answer redraws before unrelated
+queries run:
 
 ```go
-package handlers
-
-import (
-	"net/http"
-
-	"github.com/shibukawa/popcornwave/pw"
-	"myapp/templates"
-)
-
 func Orders(w http.ResponseWriter, r *http.Request) {
-	if !pw.Authenticated(r.Context()) {
-		pw.WriteProblem(w, r, pw.Unauthorized())
-		return
-	}
-	if pw.Redraw(w, r, templates.OrdersPage) {
-		return
-	}
-	orders, err := loadOrders(r.Context())
-	if err != nil {
-		pw.WriteProblem(w, r, err)
-		return
-	}
-	pw.WriteHTMLPage(w, r, nil, templates.OrdersPage(templates.OrdersPageParams{Orders: orders}))
+    if !pw.Authenticated(r.Context()) {
+        pw.WriteProblem(w, r, pw.Unauthorized())
+        return
+    }
+    if pw.Redraw(w, r, templates.OrdersPage) {
+        return
+    }
+
+    orders, err := loadOrders(r.Context())
+    if err != nil {
+        pw.WriteProblem(w, r, err)
+        return
+    }
+    pw.WriteHTMLPage(w, r, nil,
+        templates.OrdersPage(templates.OrdersPageParams{Orders: orders}))
 }
 ```
 
-The page is *named*, not called, so nothing builds its parameters and the data
-behind them is never fetched.
+The page is named, not called. Place `pw.Redraw` below authorization and above
+expensive page data loading. That preserves the page's security boundary while
+skipping work the component does not need.
 
-The capability is the same either way. What the line buys is the query it jumps
-over, and a narrower surface: the set comes from one page's markup rather than
-from everything the deployment publishes, so this URL cannot be asked for a
-component this page never shows. A page whose markup reaches no reloadable
-component does not compile here at all, which is the honest answer — there is
-nothing on it to redraw.
+Redraw arguments come from the requester. A component loading `orderID=17` must
+check that the current subject may read order 17, exactly as a handler would.
+Naming the page limits which component types the URL serves; it does not
+authorize their arguments.
 
-Where it sits matters as much as that it is there. Above the data load, so the
-redraw skips it; below the authorization check, so a request this handler would
-refuse never reaches a component.
+### Action: the handler owns a mutation
 
-Both forms are answered **at the page's own URL**, which is what makes the redraw
-inherit whatever guards the page. A reserved path would have needed a second
-protection rule kept in step with the first, and nothing forces two such rules to
-agree.
-
-## Answering a mutation
-
-Here is the handler before any of this. It renames, then redirects, which is
-post-redirect-get and is what a form submission has always done:
+An action mutates once and then chooses the response representation. Keep the
+mutation above the branch so enhanced and ordinary clients cannot drift:
 
 ```go
 func Rename(w http.ResponseWriter, r *http.Request) {
-	order, err := renameOrder(r)
-	if err != nil {
-		pw.WriteProblem(w, r, err)
-		return
-	}
-	http.Redirect(w, r, "/orders", http.StatusSeeOther)
+    order, err := renameOrder(r)
+    if err != nil {
+        pw.WriteProblem(w, r, err)
+        return
+    }
+
+    if !pw.WantsUpdate(r) {
+        http.Redirect(w, r, "/orders", http.StatusSeeOther)
+        return
+    }
+    pw.WriteUpdate(w, r, http.StatusOK,
+        pw.Replace("order-summary",
+            templates.Summary(templates.SummaryParams{Order: order})))
 }
 ```
 
-The update version adds a branch and changes nothing above it:
+The ordinary POST takes post-redirect-get. The enhanced POST carries update
+headers and receives the changed regions in the same round trip. A 4xx action
+response may still carry validation regions; `apply()` applies them because
+showing the rejection is the intended result. If the mutation changes the
+user's destination, use `pw.WriteUpdateNavigate(w, r, "/orders/17")`.
 
-```go
-func Rename(w http.ResponseWriter, r *http.Request) {
-	order, err := renameOrder(r)
-	if err != nil {
-		pw.WriteProblem(w, r, err)
-		return
-	}
+Rendering may be superseded and discarded after the server produced it.
+Therefore navigation and redraw rendering must be free of side effects.
+Mutations belong in action handlers.
 
-	// Everything above is unchanged, and everything below is the update path.
-	// A client that cannot apply regions never reaches it.
-	if !pw.WantsUpdate(r) {
-		http.Redirect(w, r, "/orders", http.StatusSeeOther)
-		return
-	}
-	pw.WriteUpdate(w, r, http.StatusOK,
-		pw.Replace("order-summary", templates.Summary(templates.SummaryParams{Order: order})))
-}
+## What remains in place
+
+Keeping the document means keeping state around the changed boundary: scroll
+position, open controls, selection, and text the user has not submitted. Within
+a replaced region, matching controls preserve their current value; a focused
+control also preserves focus and caret position.
+
+Navigation and `update()` intentionally differ. A link or GET form moves to a
+new history entry, scrolls to the top or named fragment, and restores focus when
+the old target disappears. `update()` changes the current route's arguments and
+keeps the viewport where it is. Back and forward restore saved scroll positions
+after the new regions land.
+
+An update waits for IME composition to finish rather than replacing the control
+under an unconfirmed Japanese or Chinese conversion. If a newer response
+overtakes it during that wait, the older response is discarded.
+
+Some DOM is not owned by the server at all. Preserve a map, canvas, or playing
+video across a replacement with a stable key:
+
+```html
+<div data-tb-preserve="chart"><canvas></canvas></div>
 ```
 
-The mutation stays where it was, above the branch, so it runs exactly once for
-either kind of client. One predicate is what keeps the two paths from drifting:
-an ordinary form submission and a client without the runtime take the redirect,
-and a page that can apply regions takes the regions.
-
-The status is the handler's own, and the browser applies the regions whatever it
-says. A rejected submission returns 4xx and the regions it carries *are* the
-validation errors — showing them is the point. That is the opposite of a redraw,
-where a non-2xx means the render failed and the page reloads.
-
-When the action changed where the user belongs, say so rather than guessing which
-regions to rewrite: `pw.WriteUpdateNavigate(w, r, "/orders/17")`.
-
-## From the browser
-
-The runtime installs one namespaced object, and an author feature-detects it
-because a page may load with updates disabled:
-
-```js
-if (window.popcornwave) {
-	await window.popcornwave.update({ sort: "newest" });      // this route, new parameters
-	await window.popcornwave.redraw("card-17", { orderID: 17 });
-	const response = await fetch("/orders/rename", {
-		method: "POST",
-		headers: window.popcornwave.updateHeaders(),
-		body: form,
-	});
-	await window.popcornwave.apply(response);
-}
-```
-
-`update()` takes the *whole* query. Parameters you do not name are dropped, the
-same way submitting a GET form replaces the query rather than merging into it —
-read the ones you mean to keep off `location.search` and pass them back.
-
-Links and GET forms are intercepted by default, so a search form refines the page
-it is on with no script at all. Put `data-tb-ignore` on an element or an ancestor
-to hand one back to the browser. Non-GET submissions, modified clicks, `target`,
-`download` and cross-origin URLs are always the browser's, which is what keeps
-post-redirect-get working exactly as it did.
-
-A submit button speaks for the submission it triggers. `formmethod`, `formaction`
-and `formtarget` are read off the button before the runtime decides whether it
-owns the submission at all, so a `<button formmethod="post">` inside a GET form
-is a POST and leaves the page — and the pressed button's own `name` and `value`
-join the query, exactly as they join any other submission.
-
-A link that differs from the current URL only in its fragment is left alone
-entirely. The browser has the element and knows where to put it, and a round trip
-could only arrive at the same page.
-
-A region the server does not own — a map widget, a canvas, a video mid-playback —
-is marked `data-tb-preserve="chart"` and moved into the replacement rather than
-re-rendered.
-
-## Where the user is left
-
-Swapping a region instead of reparsing a document preserves everything by
-default, and that is not always what you want. A filter should leave the reader
-where they were reading. A link to another page should not.
-
-So the runtime splits on which one happened. A link or a GET form is arriving
-somewhere new: it starts at the top, or at the fragment it named, and moves focus
-to the page's `<main>` if the delta took away whatever had it. `update()` is the
-same page with different arguments, so the viewport does not move at all.
-
-Back and forward restore the position their entry recorded, after the regions
-have landed. The browser's own restoration is turned off — it runs before the
-content that makes the page that tall has arrived, and would scroll to somewhere
-that does not exist yet.
-
-Inside a replaced region a focused control keeps both its focus and its caret,
-and the caret is the part that matters. Values were always carried across; what
-made a search box that updates as you type unusable was the cursor jumping to the
-end of the text on every keystroke.
-
-For an input method the update waits. A delta landing on an unconfirmed
-composition would replace the control being composed into and commit or discard
-whatever was half-spelled — the ordinary case for Japanese or Chinese input in a
-search box. The response is held until the composition ends, and one that was
-superseded while it waited is discarded like any other.
-
-While a navigation or a redraw is open, the document root carries
-`data-tb-updating`. Style it and the progress indicator is done:
+While navigation or redraw is pending, the document root carries
+`data-tb-updating`:
 
 ```css
 [data-tb-updating] .results { opacity: 0.6; }
 ```
 
-You never set it yourself, and it is gone the moment the request settles.
+## When another method fits better
 
-## What will bite you
+Partial updates are strongest when server-rendered pages remain the source of
+truth and request-driven changes repeatedly replace a minority of the document.
+The comparison changes when either half of that statement stops being true.
 
-**A missing validator key fails startup.** The digests are keyed, because an
-unkeyed digest of low-entropy content lets somebody confirm a guess by comparing
-digests. Startup refuses `enabled = true` with no key rather than serving unkeyed
-ones. Rotating the key is not a break — comparisons miss and the next response is
-a complete document.
+| Situation | Better fit | Why |
+| --- | --- | --- |
+| the page reloads quickly and rarely | ordinary navigation | no runtime, manifest, or validator secret |
+| the application chooses one fragment endpoint and target | [fragments](/guides/interactivity/fragments/) or [htmx](/guides/interactivity/htmx/) | explicit swap ownership without page-boundary negotiation |
+| the server learns new data without a request | [Live Rendering](/guides/cross-layer/live-rendering/) | the server can deliver repeatedly over an open connection |
+| state is entirely local to one widget | a [component script](/guides/interactivity/component-scripts/) or React island | no server round trip is needed |
+| most of the screen is long-lived client state | a client-rendered architecture | repeated server reconciliation is no longer the simpler owner |
+| a POST must always use ordinary browser semantics | post-redirect-get | refresh, history, and failure behavior stay native |
 
-**A re-render may be discarded after the server produced it.** A superseded
-response is dropped unapplied, so rendering must be free of side effects.
-Mutations belong in an action response.
+The runtime also declines modified clicks, `target`, `download`, cross-origin
+URLs, fragment-only links, and non-GET forms. Add `data-tb-ignore` to an element
+or ancestor when an otherwise eligible link or GET form should remain native.
 
-**A redraw's arguments come from whoever asked.** Everything but the instance id
-arrives from the caller, so a component that loads a record by identifier must
-check ownership itself, exactly as a handler does. Naming components in
-`pw.Redraw` bounds *which* components a URL will answer for; it does not vouch
-for their arguments.
+## Before enabling it broadly
 
-**A boundary that embeds the clock never matches.** A region rendering
-"updated 3 seconds ago" differs on every render and is re-sent every time. Push
-that into a live boundary or into the browser.
+- Deploy a strong `html.update.validator_key`. Startup refuses an enabled
+  configuration without one; rotating it merely causes comparisons to miss and
+  the next response to fall back to a complete document.
+- Keep renders side-effect free because superseded responses are discarded.
+- Authorize every redraw argument as untrusted request input.
+- Avoid volatile markup inside broad boundaries.
+- Test the same link and form with JavaScript disabled. The destination and
+  mutation must remain correct before enhancement.
+- Measure both transfer and server work. Navigation saves response and DOM work;
+  an early redraw can also skip server queries.
 
-**A GET update cannot clear a form back to its default.** The markup is
-identical, so nothing tells the runtime to discard what the user typed — which is
-the same rule that protects their typing everywhere else. Post-redirect-get
-clears through an ordinary page load.
+For a first trial, choose a result page with a GET filter, enable updates, and
+watch the response while switching sort order. The address bar and back button
+still behave normally. The network response now contains the results boundary,
+not another copy of the page that was already on screen.
 
-## When to stay away
-
-Use [Fragments and islands](/guides/interactivity/fragments/) instead when the
-application wants to own the swapping: `pw.WriteHTMLFragment` renders one
-template with no negotiation, no boundary identity and no ordering guarantee, and
-a swap library decides what happens to it. That is the right shape for a dialog
-whose contents come from a route the application chose.
-
-Use [Live Rendering](/guides/cross-layer/live-rendering/) when the *server* is
-what learns something new. Partial updates answer a request; a live boundary
-keeps delivering without one.
-
-And do not reach for either on a page that reloads in a hundred milliseconds. The
-document path is the one every client can take.
-
-Every key, with its default, is in [Configuration](/reference/configuration/).
+Every configuration key and default is listed in
+[Configuration](/reference/configuration/).

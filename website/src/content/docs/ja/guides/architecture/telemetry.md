@@ -50,6 +50,67 @@ func showAccount(w http.ResponseWriter, r *http.Request) {
 パスワード、トークン、セッション値、不要な個人情報をメッセージや属性に入れないでください。
 構造化保存は、誤って入れた秘密を安全にするのではなく、検索しやすくします。
 
+## リクエストトレースを読む
+
+所要時間はリクエストが遅かったことを示し、スパンの木はどこで待ったかを示します。
+フレームワークがリクエスト、レンダー、境界、生成済みDB呼び出しのスパンを開くため、
+通常の経路へアプリケーション独自のタイマーを足す必要はありません。
+
+```
+GET /orders                                      842ms
+└─ render stream                                 838ms
+   ├─ render initial                              41ms
+   │  └─ SELECT                                   33ms
+   ├─ render boundary  (tb-1)                    797ms
+   └─ render boundary  (tb-2)                    120ms
+```
+
+この例ではシェルは速く、`tb-1` が1秒近くフォールバックを表示しています。開発
+テレメトリビューアはこの木を自動で表示します。それ以外では、OTLPエンドポイントを
+設定すると既定の `auto` 方針が有効になります。
+
+```toml
+[observability.trace]
+enabled = "auto"   # トレースを送出するときは on、それ以外は off
+render = true
+boundary = true
+database = true
+statement = true
+```
+
+アプリケーションが独自のトレーサープロバイダを持つなら `enabled = "on"`、ホットな経路で
+スパンのコストを実測して避けたいなら `"off"` にします。小さな領域や頻繁な配信が多い
+ページで最初に落とす詳細は `boundary = false` です。`statement = false` はDBの時間を残して
+SQL本文を外します。bind値がスパンへ載ることはありません。
+
+### レンダーの分岐
+
+レンダースパンの名前がレスポンスの経路を示します。
+
+| 名前 | レスポンスの経路 |
+| --- | --- |
+| `render buffered` | 最初の1バイトより前に完成したドキュメント |
+| `render stream` | [非同期レンダリング](/ja/guides/cross-layer/async-rendering/)したドキュメント |
+| `render live` | [live](/ja/guides/cross-layer/live-rendering/)配信ストリーム |
+| `render navigate` | [ナビゲーション差分](/ja/guides/cross-layer/partial-updates/) |
+| `render redraw` | ひとつのコンポーネント自身による応答 |
+| `render fragment` | 外部swapライブラリ向けのフラグメント |
+
+スパンはレスポンス圧縮前の `pw.render.bytes` と `pw.render.boundaries` を持ちます。
+[レンダリングキャッシュ](/ja/guides/frontend/rendering-cache/)へ問い合わせたレスポンスには
+`pw.render.cache_hits` と `pw.render.cache_misses` も入ります。
+
+ストリームするドキュメントでは、`render initial` はシェルとフォールバックをコミットする
+flushで終わります。各境界スパンはそこからフラグメントを書き終えるまでなので、その長さは
+`html.async_concurrency` の後ろで待った時間を含め、訪問者がフォールバックを見た時間です。
+処理内で独自の [`pw.StartSpan`](/ja/reference/runtime/#トレーシング) を開けば、順番待ちと
+実行時間を分けられます。
+
+生成された `.pw.sql` 呼び出しは、実行中のレンダーまたはアプリケーションスパンの下に
+現れます。パラメータ化された文と標準DB属性を持ちますが、bind値は持ちません。遅い文には
+`pw.db.slow` が付き、関連する[クエリ診断](/ja/productivity/query-diagnostics/)から同じ
+トレース識別子で値、plan、再実行用スニペットを読めます。
+
 ## サービスをまたぐトレース
 
 ひとつのプロセスの中では、関連付けはコンテキストがすでに運んでいる識別子の組です。
@@ -61,8 +122,22 @@ func showAccount(w http.ResponseWriter, r *http.Request) {
 なるのはリクエストが最初に入ったサービスです。書く側には計装済みのクライアントが要ります。
 ヘッダーを作るのはクライアントスパンを開いた当人でなければならないからです——呼ばれた側
 が親として採用するのはヘッダーが名指したスパンで、別の場所で書けば呼ばれた側の仕事は
-間違った親にぶら下がります。クライアントと理由は
-[リクエストトレーシング](/ja/guides/cross-layer/tracing/#別のサービスを呼ぶ)にあります。
+間違った親にぶら下がります。
+
+```go
+import "github.com/shibukawa/popcornwave/contrib/otel/otelhttp"
+
+client := otelhttp.NewClient(http.DefaultClient)
+request, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
+if err != nil {
+    return err
+}
+response, err := client.Do(request)
+```
+
+リクエストのコンテキストを渡してください。`context.Background()` に置き換えると親子関係が
+切れます。独自クライアントには `otelhttp.NewTransport` を使え、渡したtransport自体は
+変更しません。
 
 ローカルの JSONL レコードに載った `trace_id` をコレクタまで持っていく価値があるのは、
 これがあるからです。下にあるトレース1本のクエリが返すのは *このサービスが* 書いた
@@ -72,6 +147,11 @@ func showAccount(w http.ResponseWriter, r *http.Request) {
 ひとつだけ意図的に除外されるクライアントがあります。OTLP エクスポータが POST に使うものです。
 エクスポートをトレースすると、エクスポートがスパンを開き、そのエクスポートがまたスパンを
 開くので、エクスポータは渡されたクライアントから計装を外します。
+
+フレームワークのスパンが覆うのはフレームワークの処理までです。キャッシュ呼び出しなど
+ハンドラ固有の処理は [`pw.StartSpan`](/ja/reference/runtime/#トレーシング) で囲みます。
+セッション、認証、マイグレーションのために内部で発行する文は、クエリ診断から除外されるのと
+同じくDBスパンを作りません。
 
 ## 開発環境の出力先
 

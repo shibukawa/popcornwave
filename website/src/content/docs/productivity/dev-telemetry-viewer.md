@@ -50,7 +50,7 @@ keys that do get configured, all of which still reach the
 
 **Traces.** Every request has a root span covering the whole framework
 middleware chain, and the render, boundary, and statement spans of [request
-tracing](/guides/cross-layer/tracing/) hang off it — the injected endpoint turns
+tracing](/guides/architecture/telemetry/#reading-a-request-trace) hang off it — the injected endpoint turns
 those on with it, so a page arrives as a tree showing when the shell committed,
 how long each [await boundary](/guides/cross-layer/async-rendering/) held its
 fallback, and which SQL ran inside it. Spans you open with `pw.StartSpan` nest

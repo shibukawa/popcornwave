@@ -36,13 +36,19 @@ func WatchJob(ctx context.Context, id string) iter.Seq2[Job, error] {
 ```
 
 ```js
-// The page's own script. See Component scripts for where this lives.
+// This lives in the component's <script component> block.
 export function setup(el, scope) {
 	scope.on("app.finished", (event) => {
 		window.popcornwave.navigate(event.url);
 	});
 }
 ```
+
+The client half belongs in a [component
+script](/guides/interactivity/component-scripts/): `setup` runs for each
+rendered instance, and the scoped registration is removed when that instance is
+replaced. This matters especially for a signal handler because partial and live
+updates may create the same component more than once during one document visit.
 
 ## Why the error slot
 
@@ -201,6 +207,5 @@ is fixed at build time and is exactly what its table holds. A handler that
 dispatches on something in the payload has turned one registration into all of
 them.
 
-For the shape of the client half — where a script lives, when its `setup` runs,
-and what releases it — see
-[Component scripts](/guides/interactivity/component-scripts/).
+The client-side lifecycle and teardown rules are covered in [Component
+scripts](/guides/interactivity/component-scripts/).

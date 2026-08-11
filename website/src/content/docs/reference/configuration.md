@@ -124,7 +124,7 @@ another.
 a known one whose encoder a build tag removed is skipped, and named in the
 startup log. Turn compression off with `compression = false` rather than an
 empty list. The encoder levels are deliberately not configurable — see
-[Response Compression](/guides/frontend/compression/).
+[Response Compression](/guides/backend/compression/).
 
 Every database is configured with the connection set below, one table per pool:
 a single database is one table, and a reader-writer topology is several. The
@@ -312,7 +312,7 @@ record.
 
 Bind values never reach a span, whatever `statement` says. They stay on the
 query record, which names the statement span rather than the request root. See
-[Request Tracing](/guides/cross-layer/tracing/).
+[Request Tracing](/guides/architecture/telemetry/#reading-a-request-trace).
 
 ### `[observability.otel]`
 

@@ -53,7 +53,7 @@ protection as the routes it describes.
 
 Compression is configured beside these (`middleware.compression`) but is not a
 frame in the chain: it is applied where the response is written. The
-[compression guide](/guides/frontend/compression/) covers when to turn it on.
+[compression guide](/guides/backend/compression/) covers when to turn it on.
 
 ## The extension slots
 

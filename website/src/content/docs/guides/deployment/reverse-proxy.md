@@ -215,7 +215,7 @@ endpoints away, which is the whole intent.
 
 Response compression is off by default because something in front usually does
 it, and encoding a body twice benefits nobody. Leave
-[`middleware.compression`](/guides/frontend/compression/) off unless the proxy
+[`middleware.compression`](/guides/backend/compression/) off unless the proxy
 is not compressing.
 
 Body limits apply on both sides and the smaller one wins.

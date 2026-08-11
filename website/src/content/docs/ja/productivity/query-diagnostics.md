@@ -142,7 +142,7 @@ max_value_length = 256
 この分け方があるから、デプロイ先ではスパンだけを取るという選択ができます。
 ステージングで全文の時間を測るコストは、有限個の属性です。ユーザーの値を含んだ
 ログ行を文ごとに1行書くのは、別の判断です。
-[リクエストトレーシング](/ja/guides/cross-layer/tracing/)を参照してください。
+[リクエストトレーシング](/ja/guides/architecture/telemetry/#リクエストトレースを読む)を参照してください。
 
 ステートメント自体については[クエリ](/ja/guides/storage/queries/)を、
 これらのキーの解決順序については[設定](/ja/guides/architecture/configuration/)を参照してください。
