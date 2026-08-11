@@ -1,6 +1,10 @@
 package pw
 
-import _ "embed"
+import (
+	"os"
+	"path/filepath"
+	"sync"
+)
 
 // boundaryRuntimeScript is the framework's own half of the browser runtime: it
 // applies streamed await boundaries and reads the live delivery stream.
@@ -18,10 +22,19 @@ import _ "embed"
 // TLS record, or a compressing encoder split the bytes.
 //
 // It lives in boundary.js rather than in a Go string literal so a formatter, a
-// linter, and an editor can all read it. The embed lives in a test file
-// because the served asset is runtime.min.js, which runtimegen builds from
-// boundary.js: only the tests read the unminified source, and embedding it
-// here keeps its bytes out of every user binary.
+// linter, and an editor can all read it, and that file lives in
+// popcornwave/pwbrowser beside the asset it is minified into — both transports
+// serve that asset, so its source belongs where the asset does rather than in
+// either runtime.
 //
-//go:embed boundary.js
-var boundaryRuntimeScript string
+// It is read from disk rather than embedded, because an embed cannot reach
+// outside its own package and a copy here would be a second source of truth for
+// bytes that ship once. Only tests read the unminified source; what a binary
+// carries is runtime.min.js, which runtimegen builds from it.
+var boundaryRuntimeScript = sync.OnceValue(func() string {
+	source, err := os.ReadFile(filepath.Join("..", "pwbrowser", "boundary.js"))
+	if err != nil {
+		panic("pw: reading the browser runtime source: " + err.Error())
+	}
+	return string(source)
+})()

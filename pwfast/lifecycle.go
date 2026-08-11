@@ -257,6 +257,11 @@ func Middlewares(handler fasthttp.RequestHandler, options RuntimeOptions) (fasth
 	}
 	frames = append(frames, Frame{Slot: SlotOperational, Name: "operational",
 		Middleware: OperationalEndpoints(settings.Health, settings.Readiness, options.Resources)})
+	// The framework's own browser assets, at the same slot the probes answer
+	// from and above every application route: the prefix is reserved, so it is
+	// answered and closed before anything else sees it.
+	frames = append(frames, Frame{Slot: SlotOperational, Name: "framework_assets",
+		Middleware: FrameworkAssets()})
 	frames = append(frames, Frame{Slot: SlotAPIDoc, Name: "apidoc",
 		Middleware: DocumentationEndpoints(settings.OpenAPI, settings.APIDoc, settings.APIDocPath)})
 	if options.Guard.Protected != nil {

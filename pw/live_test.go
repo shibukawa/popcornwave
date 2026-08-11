@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"errors"
+	"github.com/shibukawa/popcornwave/pwbrowser"
 	"iter"
 	"net/http"
 	"net/http/httptest"
@@ -851,7 +852,7 @@ func TestBoundaryRuntimeReadsRecordsThroughOneReader(t *testing.T) {
 	}
 	// Two copies of the buffer-split-parse loop is the thing this removes, so a
 	// second one reappearing is what the assertion is really against.
-	if count := strings.Count(mergedRuntimeScript(), "getReader()"); count != 1 {
+	if count := strings.Count(pwbrowser.RuntimeSource(), "getReader()"); count != 1 {
 		t.Errorf("the merged asset calls getReader %d times, want one shared reader", count)
 	}
 }

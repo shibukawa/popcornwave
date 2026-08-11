@@ -1,8 +1,10 @@
 package pw
 
 import (
+	"github.com/shibukawa/popcornwave/pwbrowser"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -42,7 +44,7 @@ func TestTheMergedRuntimeParses(t *testing.T) {
 		t.Skip("node is not installed, so the merged asset is unchecked here")
 	}
 	script := t.TempDir() + "/merged.mjs"
-	if err := os.WriteFile(script, []byte(mergedRuntimeScript()), 0o600); err != nil {
+	if err := os.WriteFile(script, []byte(pwbrowser.RuntimeSource()), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	if output, err := exec.Command(node, "--check", script).CombinedOutput(); err != nil {
@@ -55,8 +57,10 @@ func TestTheMergedRuntimeParses(t *testing.T) {
 // second apply implementation back on the page.
 func TestTheRuntimeIsEntirelyThisFrameworks(t *testing.T) {
 	var source strings.Builder
+	// The sources live beside the asset they are minified into, which is the
+	// shared leaf both transports serve it from.
 	for _, name := range []string{"boundary.js", "update.js", "updateboot.js"} {
-		part, err := os.ReadFile(name)
+		part, err := os.ReadFile(filepath.Join("..", "pwbrowser", name))
 		if err != nil {
 			t.Fatal(err)
 		}

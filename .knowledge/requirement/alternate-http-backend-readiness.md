@@ -168,8 +168,14 @@ prerequisites:
       the_access_log_drained_it: Response.Body on a body stream materializes the stream to answer, so logging the size consumed a subscription that by design does not end — the request never completed and no byte reached the client
     a_test_agreed_with_the_bug: the live protocol test published update.enabled and sent the module's header, so implementation and test matched each other and both disagreed with the client; it asserts the shipped contract now
     error_pages: pwfast answered every failure with a problem document, so a browser never saw the application's error page; it negotiates on Accept through the shared rule and renders the registered page through the document shell, exactly as the other half does
+  browser_runtime_2026_08_11:
+    was: the second build served no /_pw script at all, so a page rendered with a script tag pointing at a 404 — both server halves of the update surface worked and nothing client-side could reach them
+    moved: pwbrowser, holding the embedded asset, the module set, the revision the URL carries, which paths the set claims, and the cache policy; the unminified sources moved beside it, since they are the source of the thing it serves
+    why_a_leaf_rather_than_a_copy: a document naming the runtime is rendered by whichever half is running and an application's template names that URL once, so two runtimes each embedding their own copy would be two revisions of one asset and a page rendered by one build would load a script the other does not serve
+    what_each_transport_keeps: reading a path off a request and writing the response, plus closing the reserved namespace so an unclaimed path there never reaches application routing
+    build_modes_still_differ: the development set adds a module and an import and therefore lands on a different revision, which is published rather than branched on — a deployed build publishes nothing and both transports land on one revision
+    proved_by: both binaries of examples/live_render name /_pw/15d90b93c185664b/popcornwave-runtime.js and serve the same 20310 bytes at it, and a stale revision answers 404 on each
   still_missing:
-    browser_runtime_asset: the second build serves no /_pw runtime script — it answers 404 — and pw.RuntimeScriptURL has no counterpart, so a page renders with a script tag pointing at nothing and nothing client-side is driven; the server halves of live and update work, and the client cannot reach them
     websocket: requirement:contrib-websocket, blocked on a dependency decision rather than on work here
     dev_tooling: out of scope, per dev_tooling_scope above
     framework_actions: the second build takes no command line at all — the argument filter that lifts framework subcommands off it is a pw hook, so --help and the config flags are unknown there

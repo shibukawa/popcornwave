@@ -3,6 +3,7 @@
 package pw
 
 import (
+	"github.com/shibukawa/popcornwave/pwbrowser"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -13,11 +14,11 @@ import (
 // module in it and the core has no import of one, so there is no run-time
 // condition a deployed binary could be talked into taking.
 func TestReleaseBuildServesOnlyTheCoreModule(t *testing.T) {
-	scripts := frameworkScripts()
+	scripts := pwbrowser.Scripts()
 	if len(scripts) != 1 {
 		t.Fatalf("scripts = %v, want only the core", keysOf(scripts))
 	}
-	core, ok := scripts[boundaryRuntimeName]
+	core, ok := scripts[pwbrowser.RuntimeName]
 	if !ok {
 		t.Fatalf("scripts = %v, want the core module", keysOf(scripts))
 	}
@@ -35,8 +36,8 @@ func TestReleaseBuildServesOnlyTheCoreModule(t *testing.T) {
 // The set is JavaScript alone in a release build, so the only content type the
 // handler can reach for is the one every module in it takes.
 func TestAReleaseSetIsJavaScriptAlone(t *testing.T) {
-	for name := range frameworkScripts() {
-		if got := frameworkAssetContentType(name); got != "text/javascript; charset=utf-8" {
+	for name := range pwbrowser.Scripts() {
+		if got := pwbrowser.ContentType(name); got != "text/javascript; charset=utf-8" {
 			t.Errorf("%s: Content-Type = %q, want JavaScript", name, got)
 		}
 	}
@@ -45,7 +46,7 @@ func TestAReleaseSetIsJavaScriptAlone(t *testing.T) {
 // The mark is embedded under the pwdev constraint, so a release build has no
 // bytes for it and 404s the name rather than serving something.
 func TestTheMarkIsNotServedByAReleaseBuild(t *testing.T) {
-	path := frameworkScriptPrefix + scriptRevision() + "/devmark.webp"
+	path := frameworkScriptPrefix + pwbrowser.Revision() + "/devmark.webp"
 	if serveFrameworkScript(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, path, nil)) {
 		t.Error("a release build served the launcher mark")
 	}
@@ -58,9 +59,9 @@ func TestTheMarkIsNotServedByAReleaseBuild(t *testing.T) {
 // still never reaches the application.
 func TestUnknownFrameworkScriptIsNotFound(t *testing.T) {
 	for _, path := range []string{
-		frameworkScriptPrefix + scriptRevision() + "/dev.js",
-		frameworkScriptPrefix + "0000000000000000/" + boundaryRuntimeName,
-		frameworkScriptPrefix + scriptRevision() + "/nested/thing.js",
+		frameworkScriptPrefix + pwbrowser.Revision() + "/dev.js",
+		frameworkScriptPrefix + "0000000000000000/" + pwbrowser.RuntimeName,
+		frameworkScriptPrefix + pwbrowser.Revision() + "/nested/thing.js",
 	} {
 		request := httptest.NewRequest(http.MethodGet, path, nil)
 		if serveFrameworkScript(httptest.NewRecorder(), request) {

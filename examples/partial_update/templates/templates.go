@@ -3,7 +3,7 @@ package templates
 import (
 	"net/url"
 
-	"github.com/shibukawa/popcornwave/pw"
+	"github.com/shibukawa/popcornwave/pwbrowser"
 )
 
 // RuntimeScriptURL backs the external declaration in document.pw.html.
@@ -15,4 +15,4 @@ import (
 //
 // A url attribute takes a url.URL rather than a string, so a path can never be
 // assembled out of unvalidated text by accident.
-func RuntimeScriptURL() *url.URL { return &url.URL{Path: pw.RuntimeScriptURL()} }
+func RuntimeScriptURL() *url.URL { return &url.URL{Path: pwbrowser.RuntimeScriptURL()} }
