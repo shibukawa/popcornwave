@@ -215,6 +215,7 @@
 {"category": "constraint", "id": "decision:migration-execution-split", "path": ".knowledge/decision/migration-execution-split.md", "role": "supporting", "title": "Migration Execution Split", "type": "decision"}
 {"category": "constraint", "id": "decision:navigable-answer-hub", "path": ".knowledge/decision/navigable-answer-hub.md", "role": "supporting", "title": "Manual Bootstrap Edits an Answer Hub", "type": "decision"}
 {"category": "constraint", "id": "decision:nix-flake-packaging", "path": ".knowledge/decision/nix-flake-packaging.md", "role": "supporting", "title": "In-repository Nix Flake Packaging", "type": "decision"}
+{"category": "constraint", "id": "decision:outbound-trace-propagation", "path": ".knowledge/decision/outbound-trace-propagation.md", "role": "supporting", "title": "traceparent Is Injected By Whatever Opened The Client Span", "type": "decision"}
 {"category": "constraint", "id": "decision:package-contract-split", "path": ".knowledge/decision/package-contract-split.md", "role": "supporting", "title": "Package Contract Split", "type": "decision"}
 {"category": "constraint", "id": "decision:page-render-binding", "path": ".knowledge/decision/page-render-binding.md", "role": "supporting", "title": "Page Render Binding", "type": "decision"}
 {"category": "constraint", "id": "decision:page-router-scaffold-choice", "path": ".knowledge/decision/page-router-scaffold-choice.md", "role": "supporting", "title": "Page Router Scaffold Choice", "type": "decision"}
@@ -222,6 +223,7 @@
 {"category": "constraint", "id": "decision:passkey-test-authenticator", "path": ".knowledge/decision/passkey-test-authenticator.md", "role": "supporting", "title": "Passkey Test Authenticator Strategy", "type": "decision"}
 {"category": "constraint", "id": "decision:post-init-scaffold-wizard", "path": ".knowledge/decision/post-init-scaffold-wizard.md", "role": "supporting", "title": "Post-init Scaffold Wizard", "type": "decision"}
 {"category": "constraint", "id": "decision:preset-first-bootstrap", "path": ".knowledge/decision/preset-first-bootstrap.md", "role": "supporting", "title": "Preset First, Questions Behind It", "type": "decision"}
+{"category": "constraint", "id": "decision:propagation-header-access", "path": ".knowledge/decision/propagation-header-access.md", "role": "supporting", "title": "One Trace Context Validator, Two Header Types", "type": "decision"}
 {"category": "constraint", "id": "decision:response-content-codings", "path": ".knowledge/decision/response-content-codings.md", "role": "supporting", "title": "Response Content Codings", "type": "decision"}
 {"category": "constraint", "id": "decision:root-pw-api", "path": ".knowledge/decision/root-pw-api.md", "role": "supporting", "title": "Root pw API", "type": "decision"}
 {"category": "constraint", "id": "decision:runtime-tag-injection", "path": ".knowledge/decision/runtime-tag-injection.md", "role": "supporting", "title": "Runtime Tag Injection", "type": "decision"}

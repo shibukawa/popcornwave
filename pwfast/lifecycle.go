@@ -149,6 +149,13 @@ func Middlewares(handler fasthttp.RequestHandler, options RuntimeOptions) (fasth
 		{Slot: SlotResources, Name: "resources", Middleware: InjectResources(options.Resources)},
 		{Slot: SlotClientAddress, Name: "client_address", Middleware: ResolveClientAddress(trusted)},
 	}
+	if settings.Tracing {
+		// Tracing wraps every positioned frame, so the request root span covers
+		// the whole chain and every record taken inside it correlates. It is
+		// omitted when nothing exports, for the same reason as on the other
+		// half: an unsampled span is pure cost.
+		frames = append(frames, Frame{Slot: SlotTracing, Name: "otel", Middleware: Otel()})
+	}
 	if settings.RequestID {
 		frames = append(frames, Frame{Slot: SlotRequestID, Name: "request_id", Middleware: RequestID()})
 	}

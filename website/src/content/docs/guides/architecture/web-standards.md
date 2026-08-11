@@ -93,6 +93,24 @@ are never stored.
 - [Compression](/guides/frontend/compression/)
 - [Responses](/guides/frontend/responses/)
 
+## Trace context
+
+W3C Trace Context is a Recommendation rather than an RFC, and the framework is
+on both sides of it: `traceparent` and `tracestate` are read off every incoming
+request and written onto every request made through an instrumented client, so
+a trace continues across a service boundary instead of restarting at it.
+
+The parsing is strict, and what it costs when a header is bad is the point.
+A `traceparent` that is malformed, that uses the forbidden `ff` version, that
+spells its identifiers in uppercase, or that arrives more than once leaves the
+request with no parent — it becomes the root of a new trace and is still served
+normally. A `tracestate` that fails the grammar is dropped on its own, keeping
+the parent, which is what the specification asks for: the trace still joins up
+and only the vendor data is lost.
+
+- [Request tracing](/guides/cross-layer/tracing/#calling-another-service)
+- [Telemetry](/guides/architecture/telemetry/#traces-that-cross-services)
+
 ## Operational HTTP
 
 Health, readiness, OpenAPI, and API-documentation endpoints have distinct

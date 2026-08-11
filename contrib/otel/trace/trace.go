@@ -94,6 +94,26 @@ func ContextWithSpanContext(ctx context.Context, sc SpanContext) context.Context
 	return context.WithValue(ctx, contextKey{}, contextValue{spanContext: sc})
 }
 
+// ValueStore is a request value that records values in place, for a transport
+// whose request is its own context and so cannot derive one per frame.
+type ValueStore interface {
+	context.Context
+	SetUserValue(key, value any)
+}
+
+// StoreSpan records span on a value store, which is what Tracer.Start returns a
+// context for on a transport that can derive one.
+//
+// Everything downstream reads it the same way, because the request value answers
+// Value out of the store this writes to, so SpanContextFromContext and
+// SpanFromContext need no second form.
+func StoreSpan(store ValueStore, span *Span) {
+	if span == nil {
+		return
+	}
+	store.SetUserValue(contextKey{}, contextValue{spanContext: span.SpanContext(), tracer: span.tracer, span: span})
+}
+
 // SpanContextFromContext returns the active or extracted span context.
 func SpanContextFromContext(ctx context.Context) SpanContext {
 	if ctx == nil {

@@ -22,6 +22,7 @@ func buildRuntimeHandler(handler http.Handler, server ServerConfig, security Sec
 		RequestID:       middleware.RequestID,
 		AccessLog:       middleware.AccessLog,
 		Recovery:        middleware.Recovery,
+		Tracing:         tracing,
 		RequestTimeout:  middleware.RequestTimeout,
 		MaxRequestBody:  server.MaxRequestBody,
 		SecurityHeaders: security.Headers,

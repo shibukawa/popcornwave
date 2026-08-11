@@ -10,49 +10,85 @@ import (
 	"github.com/shibukawa/popcornwave/contrib/otel/trace"
 )
 
-// TraceContext extracts and injects traceparent and tracestate HTTP fields.
-type TraceContext struct{}
-
-func (TraceContext) Extract(ctx context.Context, header http.Header) context.Context {
-	parents := header.Values("traceparent")
-	if len(parents) != 1 {
-		return ctx
+// SpanContextFromFields builds a remote span context from the raw traceparent
+// and tracestate field values a request carried, reporting whether one was
+// found. The tracestate values are the separate header lines, which it joins.
+//
+// It takes values rather than a header because this is the half of the package
+// that must not exist twice. The version, hex, length, and tracestate grammar
+// checks below are where two implementations drifting apart stays invisible
+// until one transport silently drops a parent the other accepts; the reading
+// that produces these strings is five calls, where a divergence is a compile
+// error. Each transport spells the reading its own way and shares this, per
+// decision:propagation-header-access.
+func SpanContextFromFields(traceparents, tracestates []string) (trace.SpanContext, bool) {
+	// Two traceparents are unresolvable rather than merely malformed: the spec
+	// names no winner, so the request has no parent instead of an arbitrary one.
+	if len(traceparents) != 1 {
+		return trace.SpanContext{}, false
 	}
-	parent := parents[0]
+	parent := traceparents[0]
 	if len(parent) < 55 || parent[2] != '-' || parent[35] != '-' || parent[52] != '-' || parent[:2] == "ff" {
-		return ctx
+		return trace.SpanContext{}, false
 	}
+	// Version 00 is exactly this long. A later version may append fields, and
+	// the delimiter is what says the extra bytes are fields rather than a
+	// corrupted ID, so a future sender stays readable and a mangled one does not.
 	if parent[:2] == "00" && len(parent) != 55 {
-		return ctx
+		return trace.SpanContext{}, false
 	}
 	if len(parent) > 55 && parent[55] != '-' {
-		return ctx
+		return trace.SpanContext{}, false
 	}
 	if !lowerHex(parent[:2]) || !lowerHex(parent[3:35]) || !lowerHex(parent[36:52]) || !lowerHex(parent[53:55]) {
-		return ctx
+		return trace.SpanContext{}, false
 	}
 	flags := fromHex(parent[53])<<4 | fromHex(parent[54])
-	state := strings.Join(header.Values("tracestate"), ",")
+	// An unparseable tracestate costs the tracestate and not the parent, which
+	// is what the spec asks for: the trace still joins up, and only the vendor
+	// data nobody here reads is dropped.
+	state := strings.Join(tracestates, ",")
 	if !validTraceState(state) {
 		state = ""
 	}
 	sc, err := trace.NewSpanContext(parent[3:35], parent[36:52], flags, state, true)
 	if err != nil {
+		return trace.SpanContext{}, false
+	}
+	return sc, true
+}
+
+// Fields renders sc as the traceparent and tracestate field values to send,
+// reporting whether there is anything to send. An empty tracestate means the
+// caller removes the field rather than sending it blank.
+func Fields(sc trace.SpanContext) (traceparent, tracestate string, ok bool) {
+	if !sc.IsValid() {
+		return "", "", false
+	}
+	return fmt.Sprintf("00-%s-%s-%02x", sc.TraceID(), sc.SpanID(), sc.TraceFlags()), sc.TraceState(), true
+}
+
+// TraceContext extracts and injects traceparent and tracestate HTTP fields.
+type TraceContext struct{}
+
+func (TraceContext) Extract(ctx context.Context, header http.Header) context.Context {
+	sc, ok := SpanContextFromFields(header.Values("traceparent"), header.Values("tracestate"))
+	if !ok {
 		return ctx
 	}
 	return trace.ContextWithSpanContext(ctx, sc)
 }
 
 func (TraceContext) Inject(ctx context.Context, header http.Header) {
-	sc := trace.SpanContextFromContext(ctx)
-	if !sc.IsValid() {
+	traceparent, tracestate, ok := Fields(trace.SpanContextFromContext(ctx))
+	if !ok {
 		return
 	}
-	header.Set("traceparent", fmt.Sprintf("00-%s-%s-%02x", sc.TraceID(), sc.SpanID(), sc.TraceFlags()))
-	if sc.TraceState() == "" {
+	header.Set("traceparent", traceparent)
+	if tracestate == "" {
 		header.Del("tracestate")
 	} else {
-		header.Set("tracestate", sc.TraceState())
+		header.Set("tracestate", tracestate)
 	}
 }
 

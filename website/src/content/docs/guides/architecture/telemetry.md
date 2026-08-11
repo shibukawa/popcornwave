@@ -53,6 +53,31 @@ Do not put passwords, tokens, session values, or unnecessary personal data in
 messages or attributes. Structured storage makes accidental secrets easier to
 search, not safer to keep.
 
+## Traces that cross services
+
+Inside one process, correlation is the pair of identifiers the context already
+carries. Across a service boundary there is no shared context, so the
+identifiers travel on the wire instead, as the W3C Trace Context `traceparent`
+and `tracestate` fields.
+
+Reading them is automatic. A request arriving with a `traceparent` continues the
+caller's trace rather than starting one, on either HTTP backend, so the root of
+the tree is whichever service the request actually entered first. Writing them
+takes an instrumented client, because the header has to be produced by whatever
+opened the client span — the callee adopts the span the header names, and a
+header written anywhere else attributes the callee's work to the wrong parent.
+[Request tracing](/guides/cross-layer/tracing/#calling-another-service) has the
+client and the reasoning.
+
+This is what makes the `trace_id` in a local JSONL record worth carrying to the
+collector. The one-trace query further down returns the records *this* service
+wrote; the same ID in the collector returns the spans every other service
+recorded for the same request.
+
+One client is deliberately excluded: the one the OTLP exporter posts through.
+Tracing an export makes the export open a span, whose export opens another, so
+the exporter removes the instrumentation from the client it is given.
+
 ## Development destinations
 
 During `pw dev`, application records remain visible as readable text in the

@@ -21,6 +21,11 @@ type ChainSettings struct {
 	RequestID bool
 	AccessLog bool
 	Recovery  bool
+	// Tracing installs the frame that opens the request root span. It is the
+	// resolved answer rather than the configured one: the frame is omitted
+	// when nothing exports, because an unsampled span is pure cost, and only
+	// the runtime that built the providers knows whether anything does.
+	Tracing bool
 	// RequestTimeout and MaxRequestBody install their frames when positive.
 	RequestTimeout time.Duration
 	MaxRequestBody int64
