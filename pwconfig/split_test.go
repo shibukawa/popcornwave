@@ -75,14 +75,25 @@ func TestTheSecondTransportReachesTheFirstOnlyThroughTheSharedLeaves(t *testing.
 	if dependsOn(t, fastPackage, pwPackage) {
 		t.Errorf("%s depends on %s", fastPackage, pwPackage)
 	}
-	// It reaches the shared leaf instead, which is where the settings arrive:
-	// this package publishes what it resolved and pwruntime carries it, so the
-	// second transport reads a configuration file it never has to bind.
+	// It reaches the shared leaf, which is where the settings a chain is built
+	// from arrive: this package publishes what it resolved and pwruntime carries
+	// it.
 	if !dependsOn(t, fastPackage, runtimePackage) {
 		t.Errorf("%s no longer depends on %s", fastPackage, runtimePackage)
 	}
-	if dependsOn(t, fastPackage, configPackage) {
-		t.Errorf("%s depends on %s; it should read through %s", fastPackage, configPackage, runtimePackage)
+	// It reaches this package too, and that is the lifecycle rather than the
+	// chain. pwfast owns startup for its transport the way pw owns it for the
+	// other — parsing the settings, opening the pool, building the session
+	// manager — because pwfast.Run is what pw.Run rewrites to, and an import
+	// rewrite maps one package onto one package.
+	//
+	// What that does not weaken is the property this clause used to assert:
+	// pwfast.Middlewares still composes from published settings alone, which
+	// lifecycle_test proves by publishing a reduction by hand and building a
+	// chain with nothing parsed. A test seam, an end-to-end fixture and
+	// internal/fastonly all rely on it.
+	if !dependsOn(t, fastPackage, configPackage) {
+		t.Errorf("%s no longer depends on %s, so it cannot own its own startup", fastPackage, configPackage)
 	}
 }
 

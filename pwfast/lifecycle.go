@@ -281,12 +281,15 @@ func writePanicProblem(r *fasthttp.RequestCtx, err error) {
 	WriteProblem(r, InternalServerError(err))
 }
 
-// Run serves handler until ctx is cancelled, then shuts down.
+// ListenAndServe builds the chain, binds address, and serves until ctx is
+// cancelled.
 //
-// The listener is this function's, unlike pw.Run, which also owns configuration
-// parsing and the framework actions. Startup belongs to whichever runtime binds
-// the configuration; this owns the port.
-func Run(ctx context.Context, address string, handler fasthttp.RequestHandler, options RuntimeOptions) error {
+// It owns the port and nothing else. Startup — parsing the configuration,
+// opening the pool, building the session manager — belongs to whichever runtime
+// does it, and a caller that wants this transport to do all of it calls Run
+// instead. This is the entry for a caller that has already done startup its own
+// way, which is what a test and an embedding application both need.
+func ListenAndServe(ctx context.Context, address string, handler fasthttp.RequestHandler, options RuntimeOptions) error {
 	if ctx == nil {
 		return errors.New("popcornwave: nil context")
 	}

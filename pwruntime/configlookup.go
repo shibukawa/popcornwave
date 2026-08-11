@@ -21,8 +21,17 @@ var configLookup atomic.Pointer[func(reflect.Type) (any, bool)]
 
 // PublishConfigLookup records how to read the resolved configuration. Whichever
 // runtime owns configuration parsing calls it once.
-func PublishConfigLookup(lookup func(reflect.Type) (any, bool)) {
-	configLookup.Store(&lookup)
+//
+// It returns whatever was published before, so a caller installing one
+// temporarily can put that back rather than leaving nothing behind. Publishing
+// nil is how a caller takes its own lookup away, and a process left with none
+// answers every binding with its zero value.
+func PublishConfigLookup(lookup func(reflect.Type) (any, bool)) func(reflect.Type) (any, bool) {
+	previous := configLookup.Swap(&lookup)
+	if previous == nil {
+		return nil
+	}
+	return *previous
 }
 
 // RegisteredConfig returns the resolved value for T, and whether one was
@@ -30,7 +39,10 @@ func PublishConfigLookup(lookup func(reflect.Type) (any, bool)) {
 func RegisteredConfig[T any]() (T, bool) {
 	var zero T
 	lookup := configLookup.Load()
-	if lookup == nil {
+	// Both halves: nothing has published, or something published nil to take
+	// its lookup back. The second is how a test undoes one, and storing a
+	// pointer to a nil function makes the pointer check alone pass.
+	if lookup == nil || *lookup == nil {
 		return zero, false
 	}
 	value, ok := (*lookup)(reflect.TypeFor[T]())
