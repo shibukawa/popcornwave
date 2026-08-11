@@ -14,6 +14,8 @@ managed:
   csp_report_only: Content-Security-Policy-Report-Only optional value
   permissions: Permissions-Policy optional value
   hsts: Strict-Transport-Security configured directives
+  reporting_endpoints: Reporting-Endpoints naming one endpoint called default, emitted when requirement:browser-report-ingest is enabled
+  nel: NEL policy object naming that same endpoint, emitted when requirement:network-error-logging is enabled
 rules:
   - set configured headers before downstream response commitment
   - apply to api:error-renderer and policy:operational-endpoints responses
@@ -22,6 +24,7 @@ rules:
   - enforced and report-only CSP values may coexist
   - reject carriage return, line feed, and invalid field values at startup
   - omit obsolete X-XSS-Protection
+  - append report-to and report-uri to both CSP values while requirement:browser-report-ingest is enabled, and leave a policy that already names either exactly as the author wrote it
 boundaries:
   - application authors own CSP sources, nonces, hashes, and Permissions-Policy capabilities
   - CORS remains a separate middleware concern
