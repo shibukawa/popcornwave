@@ -363,3 +363,15 @@ func WriteLiveRecord(w io.Writer, record []byte) ([]byte, error) {
 	htmlbind.Flush(w)
 	return record, nil
 }
+
+// ResponseModeHeader is how a client asks for something other than a document
+// on a route's own URL, and LiveResponseMode is the one value that does.
+//
+// They are here rather than on either runtime because they are the wire between
+// the browser runtime this framework ships and whichever half is serving. Two
+// transports reading two different headers is a client that works against one
+// build of an application and not the other, which is what happened.
+const (
+	ResponseModeHeader = "Pw-Response-Mode"
+	LiveResponseMode   = "live"
+)

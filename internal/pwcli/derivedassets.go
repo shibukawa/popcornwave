@@ -504,7 +504,7 @@ func sourceMustBeRetained(root, relative string, assets assetsConfig) (bool, str
 		}
 		if entry.IsDir() {
 			switch entry.Name() {
-			case ".git", "dist", "node_modules", "public", ".devbox":
+			case ".git", ".pw", "dist", "node_modules", "public", ".devbox":
 				return filepath.SkipDir
 			}
 			return nil

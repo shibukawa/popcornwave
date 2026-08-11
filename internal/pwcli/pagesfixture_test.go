@@ -81,11 +81,15 @@ func planFixture(t *testing.T, root string, config projectConfig) ([]fileChange,
 	if err != nil {
 		return nil, err
 	}
-	runner := generator.New(withExtractedAssetDirs(options, root))
 	directories, err = withPageDirectories(directories, pageArtifacts)
 	if err != nil {
 		return nil, err
 	}
+	if config.FastHTTP {
+		transform := pwgen.FastTransform(options.Calls.Set)
+		options.Transform = &transform
+	}
+	runner := generator.New(withExtractedAssetDirs(options, root))
 	var changes []fileChange
 	for _, directory := range directories {
 		planned, err := planDirectory(context.Background(), runner, directory,
@@ -95,18 +99,20 @@ func planFixture(t *testing.T, root string, config projectConfig) ([]fileChange,
 		}
 		changes = append(changes, planned...)
 	}
-	return changes, nil
+	// Plan-only, which is check mode.
+	return planSecondBuildPages(root, config, true, changes)
 }
 
-// A project declaring the fasthttp build gets its net/http-bearing generated
-// files constrained out of it, and only those.
+// A project declaring the fasthttp build gets two things and nothing else: its
+// net/http-bearing generated files constrained out of that build, and the
+// handlers it has to supply for itself derived into it.
 //
-// The page tree fixture is the case that proves the split is per file rather
+// The page tree fixture is the case that proves the first is per file rather
 // than per kind: its route, registry, action, and page files name net/http, and
 // its compiled layout does not. The committed files carry no constraint, so
-// turning the option on plans exactly the net/http ones — which makes the set of
-// planned changes itself the assertion, and the absence of the layout the other
-// half of it.
+// turning the option on plans exactly the net/http ones plus the derived
+// handlers — which makes the set of planned changes itself the assertion, and
+// the absence of the layout the other half of it.
 func TestFastHTTPBuildConstrainsOnlyTheGeneratedFilesNamingNetHTTP(t *testing.T) {
 	root, config := fixtureConfig(t)
 	config.FastHTTP = true
@@ -123,11 +129,30 @@ func TestFastHTTPBuildConstrainsOnlyTheGeneratedFilesNamingNetHTTP(t *testing.T)
 			t.Errorf("%s was planned for removal; the option must not delete anything", change.path)
 			continue
 		}
-		planned[path.Base(filepath.ToSlash(change.path))] = true
+		name := path.Base(filepath.ToSlash(change.path))
+		planned[name] = true
+		// Read the whole header rather than the first line: the generator writes
+		// its own constraint below the generated-code header, and this framework
+		// writes its above one.
+		constraint, _ := buildConstraint(change.source)
+		if constraint == strings.TrimSpace(fastHTTPConstraint) {
+			// The derived half. It is generated for the second build rather than
+			// constrained out of it, so the rule below does not apply.
+			//
+			// net/http is not the test here: a derived binder names it for the
+			// status constants and is still fasthttp-only code. What must not
+			// survive is the first transport's runtime and its value types.
+			for _, first := range []string{`"github.com/shibukawa/popcornwave/pw"`, "http.ResponseWriter", "*http.Request"} {
+				if bytes.Contains(change.source, []byte(first)) {
+					t.Errorf("%s is generated for the fasthttp build and names %s", change.path, first)
+				}
+			}
+			continue
+		}
 		if !bytes.Contains(change.source, []byte(`"net/http"`)) {
 			t.Errorf("%s does not import net/http yet the option planned a change to it", change.path)
 		}
-		if !bytes.HasPrefix(change.source, []byte(netHTTPConstraint)) {
+		if constraint != strings.TrimSpace(netHTTPConstraint) {
 			t.Errorf("%s imports net/http and carries no build constraint", change.path)
 		}
 	}
@@ -138,9 +163,18 @@ func TestFastHTTPBuildConstrainsOnlyTheGeneratedFilesNamingNetHTTP(t *testing.T)
 		t.Error("layout_pw_gen.go imports no net/http yet was constrained out of the fasthttp build")
 	}
 	// Nothing above would fail if the emitter stopped producing the route files
-	// altogether, so name one that must be there.
+	// altogether, so name one of each half that must be there.
 	if !planned["route_pw_gen.go"] {
 		t.Errorf("expected the route decoder among the constrained files; got %v", planned)
+	}
+	for _, name := range []string{"tinybind_transport_pw_gen.go", "tinybind_fasthttp_pw_gen.go"} {
+		if !planned[name] {
+			t.Errorf("%s is missing, so the second build has no %s; got %v", name,
+				map[string]string{
+					"tinybind_transport_pw_gen.go": "derived server action",
+					"tinybind_fasthttp_pw_gen.go":  "binders to serve it",
+				}[name], planned)
+		}
 	}
 }
 

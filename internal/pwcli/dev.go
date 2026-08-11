@@ -422,7 +422,7 @@ func snapshotWatchFiles(root string, excludes []string, extra ...string) (watchS
 		}
 		if entry.IsDir() {
 			switch entry.Name() {
-			case ".git", ".devbox", "vendor", "node_modules":
+			case ".git", ".pw", ".devbox", "vendor", "node_modules":
 				return filepath.SkipDir
 			}
 			// dist holds what this loop produces, so watching it would make

@@ -1,16 +1,18 @@
 ---
 title: pw build
-description: 生成コード、minify 済み CSS、準備済みアセットを含むリリースバイナリを作る。
+description: 生成コードと準備済みアセットを含む通常または provider 向けリリース成果物を作る。
 sidebar:
   order: 6
 ---
 
 ```sh
-pw build [--debug]
+pw build [--debug] [--backend nethttp|fasthttp]
+         [--target lambda|azure-functions|google-cloud-run-functions|vercel-go]
 ```
 
-現在のプロジェクト状態をリリース用バイナリにします。オプションは `--debug` だけで、
-それ以外の入力は `popcornwave.toml` と環境から得ます。
+現在のプロジェクト状態をリリース成果物にします。target を省略すると通常のバイナリを
+生成します。`--backend` は HTTP 実装を選び、既定値は `nethttp` です。`--target` は
+provider packaging を選びます。
 
 ## 実行内容
 
@@ -27,6 +29,11 @@ pw build [--debug]
 バイナリは main パッケージ名でプロジェクトルートに置かれます。スキャフォールドされた
 `.gitignore` はこれと、`dist/` 配下すべてを除外済みです。ビルド済みツリーも変換キャッシュも
 マニフェストも、すべてビルド成果物です。
+
+`--target` を指定した場合は `.pw/build/<target>/<backend>/` に生成します。Lambda と
+Azure Functions は Linux binary と provider metadata、Google Cloud Run functions と
+Vercel Go はローカル compile 済みの vendored source tree です。各成果物の契約は
+[サーバーレスホスティング](/ja/guides/deployment/serverless/)を参照してください。
 
 現時点で開発専用パッケージは `contrib/devidp` だけです。これは
 [`pw dev`](/ja/pw/project/dev/) が使う認証プロバイダで、パスワードを検証せずに

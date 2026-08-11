@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/shibukawa/popcornwave/pwobservability"
 	"github.com/shibukawa/popcornwave/pwruntime"
 )
 
@@ -13,14 +14,10 @@ import (
 // about itself at startup, and puts the previous one back afterwards.
 func captureProcessLog(t *testing.T) *bytes.Buffer {
 	t.Helper()
-	processBackend.RLock()
-	previous := processBackend.backend
-	processBackend.RUnlock()
-	t.Cleanup(func() { setProcessBackend(previous) })
-
 	var recorded bytes.Buffer
 	handler := slog.NewTextHandler(&recorded, &slog.HandlerOptions{Level: slog.LevelDebug})
-	setProcessBackend(pwruntime.NewLogBackend(pwruntime.LevelDebug, pwruntime.NewSlogSink(handler)))
+	t.Cleanup(pwobservability.SwapProcessBackend(
+		pwruntime.NewLogBackend(pwruntime.LevelDebug, pwruntime.NewSlogSink(handler))))
 	return &recorded
 }
 
@@ -28,9 +25,8 @@ func captureProcessLog(t *testing.T) *bytes.Buffer {
 // bind values and whether a session cookie may travel without Secure — so a
 // process that landed there because nobody said otherwise has to say so.
 func TestAnUnnamedEnvironmentIsAnnouncedAtStartup(t *testing.T) {
-	restoreEnvState(t)
 	recorded := captureProcessLog(t)
-	setEnv(DefaultEnv, false)
+	swapEnvForTest(t, DefaultEnv, false)
 
 	reportEnvironment()
 
@@ -55,9 +51,8 @@ func TestAnUnnamedEnvironmentIsAnnouncedAtStartup(t *testing.T) {
 func TestANamedEnvironmentIsSilent(t *testing.T) {
 	for _, environment := range []string{EnvDevelopment, EnvStaging, EnvProduction, "live"} {
 		t.Run(environment, func(t *testing.T) {
-			restoreEnvState(t)
 			recorded := captureProcessLog(t)
-			setEnv(environment, true)
+			swapEnvForTest(t, environment, true)
 
 			reportEnvironment()
 

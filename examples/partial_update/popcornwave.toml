@@ -1,6 +1,7 @@
 [project]
 name = "partial_update"
 main = "./cmd/partial_update"
+fasthttp = true
 
 [generate]
 handlers = []

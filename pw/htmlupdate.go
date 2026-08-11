@@ -6,7 +6,6 @@ import (
 	"errors"
 	"net/http"
 	"reflect"
-	"runtime/debug"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -19,50 +18,23 @@ import (
 
 // Update protocol names.
 //
-// These are fixed rather than configured. They are contracts between this
-// framework and the runtime it ships — the header namespace, the attribute
-// prefix, the installed name, and the endpoint prefix all reach the browser as
-// one configuration object, and a deployment changing one would be describing a
-// framework it is not running.
+// These are the framework's contracts with the runtime it ships to the browser
+// — the header namespace, the attribute prefix, the installed name — and they
+// are the shared leaf's, so both transports describe one document.
 const (
 	// UpdateHeaderPrefix yields Pw-Render, Pw-Manifest, and Pw-Build.
-	UpdateHeaderPrefix = "Pw"
+	UpdateHeaderPrefix = pwruntime.UpdateHeaderPrefix
 	// UpdateAttributePrefix names the boundary attributes generation writes and
-	// the placeholder element the render option spells, so one document holds
-	// one spelling rather than two.
-	//
-	// It is the module's default rather than this framework's brand because
-	// routetree compiles a page tree's templates without the prefix option, so
-	// branding it here would split a document's naming in exactly the way the
-	// option exists to prevent. internal/pwgen names the same value.
-	UpdateAttributePrefix = "tb"
+	// the placeholder element the render option spells.
+	UpdateAttributePrefix = pwruntime.UpdateAttributePrefix
 	// UpdateGlobalName is the browser namespace api:client-update-api installs.
-	UpdateGlobalName = "popcornwave"
+	UpdateGlobalName = pwruntime.UpdateGlobalName
 )
 
-// updateBuildID identifies the binary that rendered a page.
-//
-// It answers the same question the live delivery stream's version does: was the
-// page asking rendered by this build? A page from another one holds client
-// state this binary cannot vouch for — a template it does not have, a runtime
-// that renders differently — and none of that is visible in a validator.
-//
-// The two differ on an unstamped binary, and the difference is deliberate. Live
-// delivery reports nothing there, which disables its check rather than inventing
-// a value that would differ per process and reload every client on every
-// restart. An update falls back to the module's per-process identity instead,
-// which costs a complete document after a restart and never a wrong delta. A
-// frozen screen is worse than a re-transferred page.
-var updateBuildID = sync.OnceValue(func() string {
-	if info, ok := debug.ReadBuildInfo(); ok {
-		for _, setting := range info.Settings {
-			if setting.Key == "vcs.revision" {
-				return setting.Value
-			}
-		}
-	}
-	return ""
-})
+// updateBuildID identifies the binary that rendered a page. It is the shared
+// leaf's, because a page rendered by one transport and updated by the other is
+// the same page and has to answer the same question.
+var updateBuildID = pwruntime.UpdateBuildID
 
 // UpdateBuildID is the identity a rendered page carries and every update
 // request is checked against, so a page from another build is answered with a
@@ -240,7 +212,7 @@ const updateConfigMetaName = "pw-runtime"
 
 // updatePathPrefix is the reserved namespace every framework endpoint lives
 // under, so one routing, caching, and access rule covers the whole surface.
-const updatePathPrefix = "/_pw"
+const updatePathPrefix = pwruntime.UpdatePathPrefix
 
 // ErrUpdateKeyMissing reports updates enabled with nothing to key validators
 // with.

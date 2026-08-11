@@ -1,20 +1,21 @@
 package pw
 
 import (
-	"reflect"
 	"strings"
 	"testing"
+
+	"github.com/shibukawa/popcornwave/pwconfig"
 )
 
 func TestDatabaseTarget(t *testing.T) {
-	target, err := databaseTarget("sqlite://app.db")
+	target, err := pwconfig.Target("sqlite://app.db")
 	if err != nil {
 		t.Fatal(err)
 	}
 	if target.Dialect != "sqlite" || target.DataSource != "app.db" {
 		t.Fatalf("target = %q, %q", target.Dialect, target.DataSource)
 	}
-	if _, err := databaseTarget("app.db"); err == nil {
+	if _, err := pwconfig.Target("app.db"); err == nil {
 		t.Fatal("DSN without scheme was accepted")
 	}
 }
@@ -24,7 +25,7 @@ func TestDatabaseTarget(t *testing.T) {
 // like an unknown database. This test binary links SQLite explicitly in
 // database_engine_test.go, so PostgreSQL represents an omitted engine here.
 func TestDatabaseTargetUnlinkedEngine(t *testing.T) {
-	_, err := databaseTarget("postgres://user:secret@127.0.0.1:5432/app")
+	_, err := pwconfig.Target("postgres://user:secret@127.0.0.1:5432/app")
 	if err == nil {
 		t.Fatal("an unlinked engine was accepted")
 	}
@@ -74,19 +75,5 @@ func TestConfiguredDatabaseDSNRejectsMalformedDSN(t *testing.T) {
 // the DSN accessor can be tested without parsing a project configuration.
 func replaceMiddlewareConfig(t *testing.T, rdb RDBConfig) {
 	t.Helper()
-	key := reflect.TypeFor[MiddlewareConfig]()
-	value := MiddlewareConfig{RDB: rdb}
-	configState.Lock()
-	previous, existed := configState.entries[key]
-	configState.entries[key] = configEntry{prefix: "middleware", ptr: &value}
-	configState.Unlock()
-	t.Cleanup(func() {
-		configState.Lock()
-		if existed {
-			configState.entries[key] = previous
-		} else {
-			delete(configState.entries, key)
-		}
-		configState.Unlock()
-	})
+	swapConfigForTest(t, MiddlewareConfig{RDB: rdb})
 }

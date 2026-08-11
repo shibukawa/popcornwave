@@ -8,11 +8,10 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/shibukawa/popcornwave/pwruntime"
-	"github.com/shibukawa/tinybind-go/htmlbind"
-
 	kgzip "github.com/klauspost/compress/gzip"
 	kzstd "github.com/klauspost/compress/zstd"
+	"github.com/shibukawa/popcornwave/pwruntime"
+	"github.com/shibukawa/tinybind-go/htmlbind"
 )
 
 func compressedRequest(t *testing.T, acceptEncoding string, codings ...string) *http.Request {

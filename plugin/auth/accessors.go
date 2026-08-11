@@ -3,10 +3,10 @@ package auth
 import (
 	"context"
 	"errors"
+	"github.com/shibukawa/popcornwave/pwsession"
 	"net/http"
 	"time"
 
-	"github.com/shibukawa/popcornwave/pw"
 	"github.com/shibukawa/popcornwave/session"
 )
 
@@ -28,7 +28,7 @@ const sessionSlotKey = "pw_auth"
 // is left alone. Nothing is written here before a login in any case: establish
 // is the only writer, so the anonymous phase stores nothing.
 func registerSessionSlot() {
-	pw.RegisterSessionStore[SessionData](sessionSlotKey, session.Private)
+	pwsession.RegisterStore[SessionData](sessionSlotKey, session.Private)
 }
 
 // Session returns the validated login session of the request.
@@ -53,6 +53,12 @@ func Session(ctx context.Context) (SessionData, bool) {
 // pw.RequestAuthentication(ctx).Method. Use MethodOIDC, MethodPasskey, or an
 // application-defined name.
 func EstablishSession(w http.ResponseWriter, r *http.Request, data SessionData, method string) error {
+	return EstablishSessionOn(HTTPExchange(w, r), data, method)
+}
+
+// EstablishSessionOn is EstablishSession over the transport seam, for an
+// application serving on a transport whose request is not a *http.Request.
+func EstablishSessionOn(x Exchange, data SessionData, method string) error {
 	rt := activeRuntime()
 	if rt == nil {
 		return errors.New("auth: no authentication runtime; is auth.enabled set?")
@@ -60,7 +66,7 @@ func EstablishSession(w http.ResponseWriter, r *http.Request, data SessionData, 
 	if data.AccountID == "" {
 		return errors.New("auth: a session needs an account identifier")
 	}
-	return rt.establish(w, r, data, method)
+	return rt.establish(x, data, method)
 }
 
 // establish writes the login slot and rotates the session.
@@ -69,7 +75,7 @@ func EstablishSession(w http.ResponseWriter, r *http.Request, data SessionData, 
 // rode a sealed cookie while the browser was anonymous lands on the configured
 // backend here, so anything the visitor accumulated before signing in survives
 // the sign-in.
-func (rt *runtime) establish(w http.ResponseWriter, r *http.Request, data SessionData, method string) error {
+func (rt *runtime) establish(x Exchange, data SessionData, method string) error {
 	if method == "" {
 		method = MethodOIDC
 	}
@@ -77,27 +83,26 @@ func (rt *runtime) establish(w http.ResponseWriter, r *http.Request, data Sessio
 	if data.AuthenticatedAt.IsZero() {
 		data.AuthenticatedAt = time.Now().UTC()
 	}
-	// A login normally arrives through the session middleware. Attach covers
+	// A login normally arrives through the session middleware. Attaching covers
 	// the callers that legitimately have nothing above them, such as the test
 	// seam, and is a no-op when the middleware already ran.
-	r, err := rt.manager.Attach(w, r)
-	if err != nil {
+	if err := rt.attachSession(x); err != nil {
 		return err
 	}
-	handle, ok := session.Value[SessionData](r.Context())
+	handle, ok := session.Value[SessionData](x.Context())
 	if !ok {
 		return errors.New("auth: the session package has no slot for the login")
 	}
 	if err := handle.Set(data); err != nil {
 		return err
 	}
-	return rt.manager.Rotate(w, r)
+	return rt.manager.RotateOn(x.Context())
 }
 
 // endSession destroys the whole session: every record is revoked and every
 // cookie it owns is expired, whatever placement each slot carries.
-func (rt *runtime) endSession(w http.ResponseWriter, r *http.Request) error {
-	return rt.manager.Destroy(w, r)
+func (rt *runtime) endSession(x Exchange) error {
+	return rt.manager.DestroyOn(x.Context())
 }
 
 // User returns the stored account summary of the request. Handlers use it to

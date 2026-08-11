@@ -10,6 +10,7 @@ packages:
   trace: contrib/otel/trace
   log: contrib/otel/log
   propagation: contrib/otel/propagation
+  outbound_http: contrib/otel/otelhttp
   exporter: contrib/otel/exporter/otlphttp
 trace_api:
   - Provider.Tracer(name)
@@ -33,6 +34,9 @@ attributes:
     - float64
 propagation:
   required: W3C traceparent and tracestate HTTP extract and inject
+  extract: the server middleware, on every transport, sharing one validator per decision:propagation-header-access
+  inject: whatever opened the client span, per decision:outbound-trace-propagation
+  never_injected_for: the exporter's own client, which would make exporting a span open a span
 export:
   - flow:telemetry-export
   - synchronous processor for tests

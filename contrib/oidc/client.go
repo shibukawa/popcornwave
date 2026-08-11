@@ -96,6 +96,112 @@ func NewClient(provider *Provider, config Config, options Options) (*Client, err
 	return &Client{provider: provider, clientID: config.ClientID, allowLoopbackHTTP: config.AllowLoopbackHTTP, oauth: client, random: random, clock: clock, allowedAlgorithms: algorithms, leeway: options.Leeway, maxTokenBytes: maxTokenBytes, maxSegmentBytes: maxSegmentBytes}, nil
 }
 
+// NewDeviceClient creates an OIDC profile over RFC 8628. Unlike NewClient it
+// needs no redirect URI or browser correlation store and permits public
+// clients without an embedded secret.
+func NewDeviceClient(provider *Provider, config DeviceConfig, options DeviceOptions) (*DeviceClient, error) {
+	if provider == nil || provider.deviceAuthorizationEndpoint == "" || config.ClientID == "" {
+		return nil, ErrInvalidConfig
+	}
+	if options.Leeway < 0 || options.Leeway > 10*time.Minute ||
+		options.MaxTokenBytes < 0 || options.MaxTokenBytes > maxMaxTokenBytes ||
+		options.MaxSegmentBytes < 0 || options.MaxSegmentBytes > maxMaxSegmentBytes {
+		return nil, ErrInvalidOptions
+	}
+	clock := options.Clock
+	if clock == nil {
+		clock = time.Now
+	}
+	algorithms := append([]string(nil), options.AllowedAlgorithms...)
+	if len(algorithms) == 0 {
+		algorithms = []string{"RS256"}
+	}
+	for _, algorithm := range algorithms {
+		if algorithm != "RS256" {
+			return nil, ErrInvalidOptions
+		}
+	}
+	maxTokenBytes := options.MaxTokenBytes
+	if maxTokenBytes == 0 {
+		maxTokenBytes = defaultMaxTokenBytes
+	}
+	maxSegmentBytes := options.MaxSegmentBytes
+	if maxSegmentBytes == 0 {
+		maxSegmentBytes = defaultMaxSegmentBytes
+	}
+	oauthOptions := options.OAuth
+	if oauthOptions.Clock == nil {
+		oauthOptions.Clock = clock
+	}
+	if oauthOptions.HTTPClient == nil {
+		oauthOptions.HTTPClient = provider.options.httpClient
+	}
+	deviceOAuth, err := oauth.NewDeviceClient(oauth.DeviceConfig{
+		DeviceAuthorizationEndpoint: provider.deviceAuthorizationEndpoint,
+		TokenEndpoint:               provider.tokenEndpoint,
+		ClientID:                    config.ClientID, ClientSecret: config.ClientSecret,
+		AuthMethod: config.AuthMethod, AllowLoopbackHTTP: config.AllowLoopbackHTTP,
+		EndpointValidator: func(endpoint *urlpkg.URL) error {
+			candidate := *endpoint
+			candidate.RawQuery = ""
+			candidate.Fragment = ""
+			_, err := provider.endpoint(candidate.String())
+			return err
+		},
+	}, oauthOptions)
+	if err != nil {
+		return nil, err
+	}
+	verifier := &Client{provider: provider, clientID: config.ClientID, allowLoopbackHTTP: config.AllowLoopbackHTTP,
+		clock: clock, allowedAlgorithms: algorithms, leeway: options.Leeway,
+		maxTokenBytes: maxTokenBytes, maxSegmentBytes: maxSegmentBytes}
+	return &DeviceClient{oauth: deviceOAuth, verifier: verifier}, nil
+}
+
+func (c *DeviceClient) Begin(ctx context.Context, options DeviceBeginOptions) (DeviceAuthorization, error) {
+	if c == nil || c.oauth == nil {
+		return DeviceAuthorization{}, ErrInvalidOptions
+	}
+	scopes := append([]string(nil), options.Scopes...)
+	hasOpenID := false
+	for _, scope := range scopes {
+		if scope == "openid" {
+			hasOpenID = true
+			break
+		}
+	}
+	if !hasOpenID {
+		scopes = append([]string{"openid"}, scopes...)
+	}
+	return c.oauth.Begin(ctx, oauth.DeviceBeginOptions{Scopes: scopes})
+}
+
+func (c *DeviceClient) Poll(ctx context.Context, authorization DeviceAuthorization) (TokenSet, IDToken, error) {
+	if c == nil || c.oauth == nil || c.verifier == nil {
+		return TokenSet{}, IDToken{}, ErrInvalidOptions
+	}
+	set, err := c.oauth.Poll(ctx, authorization)
+	if err != nil {
+		return TokenSet{}, IDToken{}, err
+	}
+	if !strings.EqualFold(set.TokenType, "Bearer") {
+		return TokenSet{}, IDToken{}, ErrIDToken
+	}
+	raw, ok := set.Raw["id_token"]
+	if !ok {
+		return TokenSet{}, IDToken{}, ErrIDToken
+	}
+	var compact string
+	if json.Unmarshal(raw, &compact) != nil || compact == "" {
+		return TokenSet{}, IDToken{}, ErrIDToken
+	}
+	verified, err := c.verifier.verifyIDTokenMode(ctx, compact, "", false)
+	if err != nil {
+		return TokenSet{}, IDToken{}, err
+	}
+	return set, verified, nil
+}
+
 // BeginAuthorization generates and stores the OIDC nonce in the OAuth
 // transaction. The returned key is opaque and must be supplied to callback.
 func (c *Client) BeginAuthorization(ctx context.Context, options BeginOptions) (string, string, error) {
@@ -225,6 +331,10 @@ func (c *Client) VerifyIDTokenWithNonce(ctx context.Context, raw, expectedNonce 
 }
 
 func (c *Client) verifyIDToken(ctx context.Context, raw, expectedNonce string) (IDToken, error) {
+	return c.verifyIDTokenMode(ctx, raw, expectedNonce, true)
+}
+
+func (c *Client) verifyIDTokenMode(ctx context.Context, raw, expectedNonce string, requireNonce bool) (IDToken, error) {
 	if c == nil || ctx == nil || raw == "" {
 		return IDToken{}, ErrIDToken
 	}
@@ -240,8 +350,13 @@ func (c *Client) verifyIDToken(ctx context.Context, raw, expectedNonce string) (
 		return IDToken{}, ErrIDToken
 	}
 	nonce, ok := claims.String("nonce")
-	if !ok || nonce == "" {
+	if requireNonce && (!ok || nonce == "") {
 		return IDToken{}, ErrNonce
+	}
+	if !requireNonce {
+		if _, present := claims.Value("nonce"); present && (!ok || nonce == "") {
+			return IDToken{}, ErrNonce
+		}
 	}
 	if expectedNonce != "" && !authn.EqualSecret(expectedNonce, nonce) {
 		return IDToken{}, ErrNonce

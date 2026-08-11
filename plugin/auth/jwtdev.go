@@ -4,7 +4,6 @@ package auth
 
 import (
 	"errors"
-	"net/http"
 )
 
 // devRelaxationBuilt reports whether this binary contains the development
@@ -30,10 +29,10 @@ func checkDevRelaxation(config JWTConfig) error {
 
 // devAdmits is the relaxed path. In this build there is none, so every caller
 // falls through to ordinary verification.
-func (v *bearerVerifier) devAdmits(*http.Request) (Identity, bool) {
+func (v *bearerVerifier) devAdmits(Exchange) (Identity, bool) {
 	return Identity{}, false
 }
 
 // markDevResponse is a no-op here, because no response in this build was
 // admitted without verification.
-func markDevResponse(http.ResponseWriter) {}
+func markDevResponse(Exchange) {}

@@ -110,8 +110,18 @@ func (j *Jar[T]) Load(r *http.Request) (T, error) {
 		var zero T
 		return zero, ErrCookieMissing
 	}
-	cookie, err := r.Cookie(j.cookie.Name)
-	if err != nil || cookie == nil {
+	return j.LoadFrom(HTTPCarrier(nil, r))
+}
+
+// LoadFrom is Load over a carrier, so a transport that spells cookies
+// differently reads the same jar.
+func (j *Jar[T]) LoadFrom(carrier Carrier) (T, error) {
+	if !readable(carrier) {
+		var zero T
+		return zero, ErrCookieMissing
+	}
+	cookie := lookupCookie(carrier.Cookies(), j.cookie.Name)
+	if cookie == nil {
 		var zero T
 		return zero, ErrCookieMissing
 	}
@@ -136,7 +146,14 @@ func (j *Jar[T]) loadValue(value string) (T, error) {
 // Save encodes value and writes the cookie. It must run before the response
 // body is committed, like any other header write.
 func (j *Jar[T]) Save(w http.ResponseWriter, value T) error {
-	if w == nil {
+	return j.SaveTo(HTTPCarrier(w, nil), value)
+}
+
+// SaveTo is Save over a carrier, for a transport whose response is not an
+// http.ResponseWriter. Save keeps the net/http shape because it is the one an
+// application already calls.
+func (j *Jar[T]) SaveTo(carrier Carrier, value T) error {
+	if !writable(carrier) {
 		return fmt.Errorf("%w: nil response writer", ErrInvalidOptions)
 	}
 	payload, err := j.codec.Encode(value)
@@ -154,18 +171,21 @@ func (j *Jar[T]) Save(w http.ResponseWriter, value T) error {
 	if len(j.cookie.Name)+len(encoded) > j.maxBytes {
 		return fmt.Errorf("%w: %d bytes", ErrCookieTooLarge, len(encoded))
 	}
-	http.SetCookie(w, j.newCookie(encoded, expiresAt))
+	carrier.SetCookie(j.newCookie(encoded, expiresAt))
 	return nil
 }
 
 // Clear expires the cookie in the browser.
-func (j *Jar[T]) Clear(w http.ResponseWriter) {
-	if w == nil {
+func (j *Jar[T]) Clear(w http.ResponseWriter) { j.ClearFrom(HTTPCarrier(w, nil)) }
+
+// ClearFrom is Clear over a carrier.
+func (j *Jar[T]) ClearFrom(carrier Carrier) {
+	if !writable(carrier) {
 		return
 	}
 	cookie := j.newCookie("", time.Time{})
 	cookie.MaxAge = -1
-	http.SetCookie(w, cookie)
+	carrier.SetCookie(cookie)
 }
 
 func (j *Jar[T]) newCookie(value string, expiresAt time.Time) *http.Cookie {
@@ -194,7 +214,7 @@ type jarKey struct{ jar any }
 // cost nothing and a write is visible to later handlers immediately.
 type JarValue[T any] struct {
 	jar     *Jar[T]
-	writer  http.ResponseWriter
+	carrier Carrier
 	data    T
 	present bool
 }
@@ -213,7 +233,7 @@ func (v *JarValue[T]) Set(value T) error {
 	if v == nil {
 		return fmt.Errorf("%w: no cookie jar on request", ErrInvalidOptions)
 	}
-	if err := v.jar.Save(v.writer, value); err != nil {
+	if err := v.jar.SaveTo(v.carrier, value); err != nil {
 		return err
 	}
 	v.data, v.present = value, true
@@ -226,7 +246,7 @@ func (v *JarValue[T]) Clear() {
 		return
 	}
 	var zero T
-	v.jar.Clear(v.writer)
+	v.jar.ClearFrom(v.carrier)
 	v.data, v.present = zero, false
 }
 
@@ -239,12 +259,13 @@ func (v *JarValue[T]) Clear() {
 func (j *Jar[T]) Middleware() func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			handle := &JarValue[T]{jar: j, writer: w}
+			carrier := HTTPCarrier(w, r)
+			handle := &JarValue[T]{jar: j, carrier: carrier}
 			switch data, err := j.Load(r); {
 			case err == nil:
 				handle.data, handle.present = data, true
 			case !errors.Is(err, ErrCookieMissing):
-				j.Clear(w)
+				j.ClearFrom(carrier)
 			}
 			next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), jarKey{j}, handle)))
 		})

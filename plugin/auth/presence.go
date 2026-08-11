@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/shibukawa/popcornwave/pw"
+	"github.com/shibukawa/popcornwave/pwruntime"
 )
 
 // presenceReport is the whole of what a browser sends: whether any input
@@ -47,25 +47,30 @@ func (rt *runtime) presencePath() string { return rt.config.LogoutPath + "/prese
 //
 // The server stays authoritative for every lifetime. This is an input to a
 // bound it already enforces, never a lifetime of its own.
-func (rt *runtime) handlePresence(w http.ResponseWriter, r *http.Request) {
-	if !allowMethod(w, r, http.MethodPost) {
+func (rt *runtime) handlePresence(x Exchange) {
+	if !allowMethod(x, http.MethodPost) {
 		return
 	}
-	if !rt.sameOrigin(r) {
-		pw.WriteProblem(w, r, pw.Forbidden())
+	if !rt.sameOrigin(x) {
+		x.Problem(pwruntime.Forbidden())
 		return
 	}
-	view, ok := Session(r.Context())
+	view, ok := Session(x.Context())
 	if !ok {
 		// Nothing to keep alive and nothing to end. An anonymous browser
 		// reporting presence is answered without saying whether a session
 		// existed.
-		w.WriteHeader(http.StatusNoContent)
+		x.Write(http.StatusNoContent, nil)
+		return
+	}
+	body, err := x.Body(maxPresenceBodyBytes)
+	if err != nil {
+		x.Problem(pwruntime.BadRequest())
 		return
 	}
 	var report presenceReport
-	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, maxPresenceBodyBytes)).Decode(&report); err != nil {
-		pw.WriteProblem(w, r, pw.BadRequest())
+	if err := json.Unmarshal(body, &report); err != nil {
+		x.Problem(pwruntime.BadRequest())
 		return
 	}
 	config := rt.config.Assurance.Presence
@@ -77,8 +82,8 @@ func (rt *runtime) handlePresence(w http.ResponseWriter, r *http.Request) {
 		absent = true
 	}
 	if absent {
-		rt.endForAbsence(w, r)
-		w.WriteHeader(http.StatusNoContent)
+		rt.endForAbsence(x)
+		x.Write(http.StatusNoContent, nil)
 		return
 	}
 	_ = view
@@ -86,14 +91,14 @@ func (rt *runtime) handlePresence(w http.ResponseWriter, r *http.Request) {
 	// refreshed idle expiry through the session middleware, within the absolute
 	// bound that middleware also enforces. Reporting presence therefore cannot
 	// extend a session further than an ordinary request would.
-	w.WriteHeader(http.StatusNoContent)
+	x.Write(http.StatusNoContent, nil)
 }
 
 // endForAbsence ends the session of a browser that reported nobody at it. The
 // hint follows the deployment's own rule: expiry may leave one, and this is an
 // expiry rather than a sign-out.
-func (rt *runtime) endForAbsence(w http.ResponseWriter, r *http.Request) {
-	if err := rt.endSession(w, r); err != nil {
-		pw.Logger(r.Context()).Log(r.Context(), pw.LevelWarn, "ending an absent session failed", pw.Err(err))
+func (rt *runtime) endForAbsence(x Exchange) {
+	if err := rt.endSession(x); err != nil {
+		logger(x).Log(x.Context(), pwruntime.LevelWarn, "ending an absent session failed", pwruntime.Err(err))
 	}
 }

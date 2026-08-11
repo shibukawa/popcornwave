@@ -226,9 +226,14 @@ type projectConfig struct {
 	// FastHTTP declares that this project is built for the fasthttp backend as
 	// well as for net/http. It adds a build rather than selecting one: the
 	// net/http source stays the source an author writes, and the second build
-	// is derived from it. What it changes here is generation, which puts a
-	// !fasthttp constraint on every file it emits that imports net/http, so the
-	// two builds do not both define the same symbols.
+	// is derived from it.
+	//
+	// What it changes is generation, in three ways. Every emitted file that
+	// imports net/http gains a !fasthttp constraint, so the two builds do not
+	// both define the same symbols. Every authored handler is derived into one
+	// taking the fasthttp request, constrained to that build. And every page
+	// tree gains a second copy of the files that read the request, beside the
+	// compiled components both builds share.
 	FastHTTP  bool
 	Generate  generationScope
 	Watch     watchConfig

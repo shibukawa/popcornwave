@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/shibukawa/popcornwave/pwconfig"
 	"github.com/shibukawa/tinybind-go/htmlbind"
 )
 
@@ -290,7 +291,7 @@ func TestLiveSignalsAreBoundedPerResponse(t *testing.T) {
 	big := signalPayload{Room: strings.Repeat("x", 100)}
 	// Sized so the first payload fits and the second does not, which is what
 	// makes this a budget that accumulates rather than a per-record cap.
-	config := defaultHTMLConfig
+	config := pwconfig.DefaultHTMLConfig()
 	config.LiveMaxSignalBytes = len(big.AppendJSON(nil)) + 1
 
 	request := liveRequest("/")
@@ -316,7 +317,7 @@ func TestLiveSignalsAreBoundedPerResponse(t *testing.T) {
 // through once: the bound is a cap on bytes written, so the record that would
 // exceed it is the one not written.
 func TestLiveSignalOverTheWholeBoundWritesNothing(t *testing.T) {
-	config := defaultHTMLConfig
+	config := pwconfig.DefaultHTMLConfig()
 	config.LiveMaxSignalBytes = 8
 
 	request := liveRequest("/")
@@ -339,7 +340,7 @@ func TestLiveSignalOverTheWholeBoundWritesNothing(t *testing.T) {
 // An unbounded configuration is still expressible, since a deployment whose
 // sources are known quiet has nothing to bound.
 func TestLiveSignalBoundIsOptional(t *testing.T) {
-	config := defaultHTMLConfig
+	config := pwconfig.DefaultHTMLConfig()
 	config.LiveMaxSignalBytes = 0
 
 	request := liveRequest("/")

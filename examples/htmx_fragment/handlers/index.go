@@ -1,3 +1,5 @@
+//go:build !fasthttp
+
 package handlers
 
 import "github.com/shibukawa/popcornwave/pw"

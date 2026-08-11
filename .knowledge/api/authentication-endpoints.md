@@ -69,4 +69,29 @@ guard:
   paths: auth.protection.include requires a session, everything else stays public
   unauthenticated: redirect through the login and return, or answer 401
 security: policy:oauth-security and policy:oidc-security through requirement:contrib-oidc
+transport_seam_2026_08_11:
+  type: auth.Exchange, everything these endpoints need from the transport carrying one request
+  precedent: session.Carrier, one layer up and for the same reason; a session touched three operations, and these touch a query, a form field, a body, a cookie, a redirect and a problem
+  why_an_interface_rather_than_a_second_port: what would be duplicated is a login, and two implementations of when a transaction cookie is consumed, or of which failures answer 403 rather than 400, are two chances to leave a hole in one of them
+  currency: net/http's cookie and header vocabulary, exactly as Carrier's is, because http.Cookie describes a cookie rather than implementing one
+  halves:
+    net_http: auth.HTTPExchange, and the extension registration is unchanged
+    fasthttp: popcornwave/plugin/auth/authfast, which supplies the exchange, the frame, and the pwfast.GuardPolicy the chain installs
+  entry_points:
+    setup: auth.Setup for a runtime that owns startup; authfast.Setup wraps it
+    installed: auth.Endpoints and authfast.Installed for a process whose startup already ran on the other runtime, so one runtime serves two listeners rather than two runtimes serving one application
+  what_moved_out_of_the_endpoints:
+    session: Manager gained AttachTo, RotateOn and DestroyOn, which take a carrier or the context the session was attached to; the response writer Rotate and Destroy took was never read
+    jar: LoadFrom beside SaveTo and ClearFrom
+    authentication: pwruntime.StoreAuthentication beside WithAuthentication, the write half for a transport that cannot derive
+    guard: auth.Rules, the resolved protection policy as a value, because the frame that applies it is each transport's own
+    assurance: the Requirement interface resolves against an Exchange; Dynamic keeps its net/http shape and DynamicOn is the neutral one, and a net/http-shaped requirement reports unresolved on another transport rather than admitting
+  fixed_on_the_way:
+    destroy_nil_deref: Destroy read current.carrier on the nil the state lookup had just reported, so a destroy with no session middleware panicked instead of returning
+    redirect_body: the fasthttp Redirect wrote no fallback body, because that transport reports a default content type where net/http reports none; found by the cross-transport agreement test
+  still_shared_with_pw: configuration binding has not moved to a shared package, so authfast links plugin/auth and therefore pw; requirement:alternate-http-backend-readiness calls that a legitimate intermediate and names the configuration layer as what closes it
+  verification:
+    authfaste2e: the OIDC round trip, the passkey ceremonies, the guard, logout, forget and presence, over fasthttp against a real provider and a real database
+    authfastjwte2e: the bearer mode, in a second binary because a mode is a setting and configuration is parsed once per process
+    agreement: both listeners are asked the same question and status, body and headers are compared
 ```

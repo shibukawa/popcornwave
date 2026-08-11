@@ -35,7 +35,15 @@ type (
 // Copying the fields twice is cheaper than a conversion whose correctness would
 // depend on two struct declarations staying identical.
 type UpdateSettings struct {
-	Enabled             bool
+	// Enabled is the update surface: navigation deltas, redraws, and action
+	// responses. It gates those and nothing else.
+	Enabled bool
+	// Live is the subscription that keeps a page updating after its document is
+	// complete. It is a separate switch because it answers a separate request,
+	// and gating it on the one above would turn a project that asked only for
+	// live rendering into one that got none — which is how the second transport
+	// answered a subscription with a whole document.
+	Live                bool
 	ValidatorKey        string
 	HeaderPrefix        string
 	DataAttributePrefix string

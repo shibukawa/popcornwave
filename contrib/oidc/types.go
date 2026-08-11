@@ -83,19 +83,20 @@ type DiscoverOptions struct {
 
 // Provider contains validated discovery metadata and a bounded JWKS cache.
 type Provider struct {
-	issuer                string
-	authorizationEndpoint string
-	tokenEndpoint         string
-	jwksURI               string
-	userInfoEndpoint      string
-	endSessionEndpoint    string
-	options               providerOptions
-	mu                    sync.RWMutex
-	refreshMu             sync.Mutex
-	keys                  *jwt.JWKS
-	fetchedAt             time.Time
-	cacheExpiresAt        time.Time
-	staleExpiresAt        time.Time
+	issuer                      string
+	authorizationEndpoint       string
+	tokenEndpoint               string
+	jwksURI                     string
+	userInfoEndpoint            string
+	endSessionEndpoint          string
+	deviceAuthorizationEndpoint string
+	options                     providerOptions
+	mu                          sync.RWMutex
+	refreshMu                   sync.Mutex
+	keys                        *jwt.JWKS
+	fetchedAt                   time.Time
+	cacheExpiresAt              time.Time
+	staleExpiresAt              time.Time
 }
 
 type providerOptions struct {
@@ -121,6 +122,33 @@ type Config struct {
 	AuthMethod        string
 	AllowLoopbackHTTP bool
 }
+
+type DeviceConfig struct {
+	ClientID          string
+	ClientSecret      string
+	AuthMethod        string
+	AllowLoopbackHTTP bool
+}
+
+type DeviceOptions struct {
+	OAuth             oauth.DeviceOptions
+	Clock             func() time.Time
+	AllowedAlgorithms []string
+	Leeway            time.Duration
+	MaxTokenBytes     int
+	MaxSegmentBytes   int
+}
+
+type DeviceClient struct {
+	oauth    *oauth.DeviceClient
+	verifier *Client
+}
+
+type DeviceBeginOptions struct {
+	Scopes []string
+}
+
+type DeviceAuthorization = oauth.DeviceAuthorization
 
 type Options struct {
 	OAuth             oauth.Options
@@ -204,12 +232,13 @@ type IDToken struct {
 }
 
 type discoveryDocument struct {
-	Issuer                string `json:"issuer"`
-	AuthorizationEndpoint string `json:"authorization_endpoint"`
-	TokenEndpoint         string `json:"token_endpoint"`
-	JWKSURI               string `json:"jwks_uri"`
-	UserInfoEndpoint      string `json:"userinfo_endpoint"`
-	EndSessionEndpoint    string `json:"end_session_endpoint"`
+	Issuer                      string `json:"issuer"`
+	AuthorizationEndpoint       string `json:"authorization_endpoint"`
+	TokenEndpoint               string `json:"token_endpoint"`
+	JWKSURI                     string `json:"jwks_uri"`
+	UserInfoEndpoint            string `json:"userinfo_endpoint"`
+	EndSessionEndpoint          string `json:"end_session_endpoint"`
+	DeviceAuthorizationEndpoint string `json:"device_authorization_endpoint"`
 }
 
 // EndSessionOptions builds an RP-initiated logout request.

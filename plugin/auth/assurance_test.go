@@ -2,12 +2,12 @@ package auth
 
 import (
 	"net/http"
-
-	"github.com/shibukawa/popcornwave/session"
 	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/shibukawa/popcornwave/session"
 )
 
 func TestNamedPolicyResolvesItsWindow(t *testing.T) {
@@ -18,12 +18,12 @@ func TestNamedPolicyResolvesItsWindow(t *testing.T) {
 	}}
 	request := httptest.NewRequest("GET", "/admin", nil)
 	for name, want := range map[string]time.Duration{"admin": 15 * time.Minute, "danger": 0} {
-		got, ok := Policy(name).resolve(request, config)
+		got, ok := Policy(name).resolve(HTTPExchange(nil, request), config)
 		if !ok || got.maxAge != want {
 			t.Fatalf("policy %q = %v, %v; want %v", name, got, ok, want)
 		}
 	}
-	if _, ok := Policy("absent").resolve(request, config); ok {
+	if _, ok := Policy("absent").resolve(HTTPExchange(nil, request), config); ok {
 		t.Fatal("an undefined policy resolved")
 	}
 }
@@ -56,7 +56,7 @@ func TestAnUndefinedPolicyNameIsRefusedAtStartup(t *testing.T) {
 func TestDefaultRequirementReadsRecentAuthMaxAge(t *testing.T) {
 	config := baseConfig(ModeOIDCOnly)
 	config.RecentAuthMaxAge = 90 * time.Second
-	got, ok := Default().resolve(httptest.NewRequest("GET", "/", nil), config)
+	got, ok := Default().resolve(HTTPExchange(nil, httptest.NewRequest("GET", "/", nil)), config)
 	if !ok || got.maxAge != 90*time.Second {
 		t.Fatalf("default = %v, %v", got, ok)
 	}
@@ -74,14 +74,14 @@ func TestDynamicRequirementComputesItsWindow(t *testing.T) {
 		midnight := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
 		return now.Sub(midnight)
 	}
-	got, ok := Dynamic(sinceMidnight).resolve(request, config)
+	got, ok := Dynamic(sinceMidnight).resolve(HTTPExchange(nil, request), config)
 	if !ok || got.maxAge != 9*time.Hour+30*time.Minute {
 		t.Fatalf("dynamic window = %v, %v", got, ok)
 	}
-	if _, ok := Dynamic(nil).resolve(request, config); ok {
+	if _, ok := Dynamic(nil).resolve(HTTPExchange(nil, request), config); ok {
 		t.Fatal("a nil resolver produced a window")
 	}
-	if _, ok := Dynamic(func(*http.Request) time.Duration { return -time.Second }).resolve(request, config); ok {
+	if _, ok := Dynamic(func(*http.Request) time.Duration { return -time.Second }).resolve(HTTPExchange(nil, request), config); ok {
 		t.Fatal("a negative window was accepted")
 	}
 }
@@ -120,8 +120,8 @@ func TestAZeroConfirmationWindowMeansThisAttempt(t *testing.T) {
 func TestConfirmedAndMaxAgeDifferOnlyOnWhoMayProve(t *testing.T) {
 	config := baseConfig(ModeOIDCOnly)
 	request := httptest.NewRequest("GET", "/", nil)
-	plain, _ := MaxAge(15*time.Minute).resolve(request, config)
-	strict, _ := Confirmed(15*time.Minute).resolve(request, config)
+	plain, _ := MaxAge(15*time.Minute).resolve(HTTPExchange(nil, request), config)
+	strict, _ := Confirmed(15*time.Minute).resolve(HTTPExchange(nil, request), config)
 	if plain.maxAge != strict.maxAge {
 		t.Fatalf("windows differ: %v and %v", plain.maxAge, strict.maxAge)
 	}
@@ -139,10 +139,10 @@ func TestANamedPolicyCanDemandAConfirmation(t *testing.T) {
 		{Name: "transfer", MaxAge: 5 * time.Minute, Confirm: true},
 	}}
 	request := httptest.NewRequest("GET", "/", nil)
-	if got, _ := Policy("admin").resolve(request, config); got.confirmed {
+	if got, _ := Policy("admin").resolve(HTTPExchange(nil, request), config); got.confirmed {
 		t.Fatal("admin demanded a confirmation it did not declare")
 	}
-	got, ok := Policy("transfer").resolve(request, config)
+	got, ok := Policy("transfer").resolve(HTTPExchange(nil, request), config)
 	if !ok || !got.confirmed || got.maxAge != 5*time.Minute {
 		t.Fatalf("transfer = %+v, %v", got, ok)
 	}

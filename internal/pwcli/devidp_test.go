@@ -191,7 +191,7 @@ func TestDevIdentityProviderReloadsAnEditedRoster(t *testing.T) {
 }
 
 func TestRejectDevelopmentImportsIgnoresAnUnlistableGraph(t *testing.T) {
-	if err := rejectDevelopmentImports(context.Background(), t.TempDir(), "./cmd/missing"); err != nil {
+	if err := rejectDevelopmentImports(context.Background(), t.TempDir(), "./cmd/missing", buildOptions{}); err != nil {
 		t.Fatalf("expected the build to report its own diagnostics, got %v", err)
 	}
 }

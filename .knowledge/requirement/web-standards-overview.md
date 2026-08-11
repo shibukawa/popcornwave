@@ -3,7 +3,7 @@ id: requirement:web-standards-overview
 type: requirement
 title: Web Standards Architecture Overview
 ---
-`website/src/content/docs/guides/architecture/web-standards.md` and its Japanese peer are the headline index of Web standards and interoperable conventions adopted by the framework.
+`website/src/content/docs/appendix/web-standards.md` and its Japanese peer are the headline index of Web standards and interoperable conventions adopted by the framework.
 
 ```yaml
 audience: application developers evaluating or configuring framework HTTP behavior
@@ -20,12 +20,21 @@ sections:
       - policy:csrf-protection
       - policy:cookie-value-protection
   authentication:
-    headline: OIDC, WebAuthn passkeys, Bearer JWT verification, sessions, and assurance challenges
+    headline: OIDC Authorization Code and Device Authorization, WebAuthn passkeys, Bearer JWT verification, sessions, and assurance challenges
     links:
       - requirement:contrib-oidc
+      - requirement:oidc-device-authorization
       - requirement:contrib-passkey
       - requirement:jwt-only-api-authentication
       - requirement:session-assurance-levels
+    grant_boundary:
+      supported:
+        - Authorization Code Flow with mandatory S256 PKCE, state, and nonce
+        - RFC 8628 Device Authorization Grant for browserless or input-constrained clients
+      unsupported:
+        - Resource Owner Password Credentials Grant because OAuth 2.0 Security BCP says it MUST NOT be used
+        - Client Credentials Grant because it represents a client without an end-user and belongs to machine-to-machine or batch workloads
+      distinction: Client Credentials Grant is not Device Authorization Grant
   error_responses:
     headline: negotiated RFC problem details, field validation failures, safe HTML pages, and HTTP 429
     links:
@@ -64,6 +73,7 @@ sections:
 acceptance:
   - every headline links to at least one maintained detail page
   - RFC numbers and standards status are visible where they affect interoperability
+  - OIDC flow support and intentionally unsupported OAuth grants are explicit
   - the index contains no duplicated configuration reference
   - navigation exposes the page under Architecture
 ```

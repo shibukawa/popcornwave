@@ -168,13 +168,64 @@ A setting that opens nothing resolves to no policy at all, so switching the
 parent off costs one comparison per response and per statement — no wrapped
 writer, no wrapped executor, no span object anywhere.
 
+## Calling another service
+
+A trace that ends at your process boundary answers half the question. The
+handler took 800ms and 780 of them went into one outbound call — the service on
+the other end has its own trace of that same work, and nothing joins the two.
+
+W3C Trace Context is the header that joins them, and the inbound half needs
+nothing from you. A request that arrives carrying a `traceparent` continues the
+caller's trace rather than starting a new one, which is why `GET /orders` sits
+at the root of the tree above only when the caller sent none.
+
+The outbound half needs a client that writes the header:
+
+```go
+import "github.com/shibukawa/popcornwave/contrib/otel/otelhttp"
+
+client := otelhttp.NewClient(http.DefaultClient)
+
+request, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
+if err != nil {
+    return err
+}
+response, err := client.Do(request)
+```
+
+Pass the request context. It is what carries the span, and a
+`context.Background()` in its place sends a header naming a trace nobody is in.
+`otelhttp.NewTransport` is the same wrapper for a client you build yourself; it
+copies the client rather than modifying the one you hand it.
+
+One wrapper opens the client span *and* writes the header, and that is not
+tidiness. The header names the span the callee adopts as its parent. Write it
+anywhere other than where the client span was opened and it names the span above
+instead — the callee's work comes back as a sibling of the call that caused it,
+and the tree says the handler reached the remote service directly while the call
+that did it sits alongside, timing the same work twice.
+
+What the span carries follows the same rule as everything else on this page:
+method, host, path, status, and a query string with its values replaced. A
+failed call records why it failed — the refused connection, the expired
+certificate — and not the URL it failed on, because a transport error prints
+that URL in full, query string included.
+
+Give this client to your own calls and not to the exporter. Exporting through a
+traced client does not merely add noise, it does not settle: the export opens a
+span, ending that span queues a record, and flushing the queue exports again.
+The exporter removes the instrumentation from any client it is handed for that
+reason, so passing your shared client is harmless rather than fatal — but the
+frame is only found at the head of the chain, so an instrumented client buried
+under another wrapper is a stall you would have to diagnose.
+
 ## Where it stops
 
-Framework spans cover framework work. The handler's own calls — an HTTP request
-to another service, a cache lookup, work started with
-[`pw.Go`](/guides/cross-layer/async-rendering/) before the render began — are
-yours to open, with [`pw.StartSpan`](/reference/runtime/#tracing), and they nest
-under whichever span is active when you call it.
+Framework spans cover framework work. The handler's own calls — a cache lookup,
+work started with [`pw.Go`](/guides/cross-layer/async-rendering/) before the
+render began — are yours to open, with
+[`pw.StartSpan`](/reference/runtime/#tracing), and they nest under whichever span
+is active when you call it.
 
 Two gaps are worth knowing about rather than discovering. Statements the
 framework issues for itself — session, auth, and migration SQL — go straight to

@@ -48,7 +48,7 @@ func TestProductionBuildAdmitsNothingUnverified(t *testing.T) {
 	request.RemoteAddr = "127.0.0.1:54321"
 	request.Header.Set("Authorization", "Bearer "+issuer.mint(t, nil, issuer.standardClaims()))
 
-	if _, ok := verifier.devAdmits(request); ok {
+	if _, ok := verifier.devAdmits(HTTPExchange(httptest.NewRecorder(), request)); ok {
 		t.Fatal("a production build admitted a token without verifying it")
 	}
 }

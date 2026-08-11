@@ -4,6 +4,7 @@ result-*
 
 # structured application logs written by pw dev
 .log/
+.pw/
 
 # telemetry viewer UI dependencies and incremental state; the build output under
 # web/ is committed

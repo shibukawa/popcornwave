@@ -1,6 +1,7 @@
 [project]
 name = "async_render"
 main = "./cmd/async_render"
+fasthttp = true
 
 # Each purpose reads only the directories it lists, and nothing else. A source
 # directory is invisible to that purpose until it appears here.

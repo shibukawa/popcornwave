@@ -4,13 +4,14 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"github.com/shibukawa/popcornwave/pwdatabase"
 	"sort"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/shibukawa/popcornwave/authstate"
-	"github.com/shibukawa/popcornwave/pw"
+	"github.com/shibukawa/popcornwave/pwruntime"
 )
 
 // Backend names. rdb is the default and the behavior every project had before
@@ -207,20 +208,20 @@ var errAuthNeedsRDB = fmt.Errorf(
 // relational middleware gets an empty set rather than an error, because whether
 // that is a problem is the selected backend's question to answer.
 func backendResources(ctx context.Context) (Resources, error) {
-	if _, enabled := pw.DB(ctx); !enabled {
+	if _, enabled := pwruntime.DB(ctx); !enabled {
 		return Resources{}, nil
 	}
 	// The auth tables are written on every login, so they live in the session
 	// group rather than in the default group, which is normally a replica.
-	sessionCtx, err := pw.SelectSessionDB(ctx)
+	sessionCtx, err := pwdatabase.SelectSessionDB(ctx)
 	if err != nil {
 		return Resources{}, err
 	}
-	db, present := pw.DB(sessionCtx)
+	db, present := pwruntime.DB(sessionCtx)
 	if !present {
 		return Resources{}, nil
 	}
-	driver, _ := pw.DBDriver(sessionCtx)
+	driver, _ := pwruntime.DBDriver(sessionCtx)
 	return Resources{DB: db, DBDriver: driver}, nil
 }
 

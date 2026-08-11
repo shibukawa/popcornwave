@@ -367,7 +367,7 @@ globalThis.__liveStopped = () => {
 	liveStopped += 1;
 };
 
-const source = prelude + fs.readFileSync(path.join(here, "..", "update.js"), "utf8");
+const source = prelude + fs.readFileSync(path.join(here, "..", "..", "pwbrowser", "update.js"), "utf8");
 const module = path.join(here, ".update_harness_module.mjs");
 fs.writeFileSync(module, source);
 const { createUpdateRuntime } = await import("file://" + module);

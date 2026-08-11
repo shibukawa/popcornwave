@@ -207,7 +207,9 @@ pages/
 どこにも存在しません。
 
 この制約はハンドラの段まで届きます。手書きの `Load` は自分より上の composer を呼べない
-ので、ハンドラ段のページは隣に生成された `Render` で自分のチェーンを組みます。
+ので、ハンドラ段のページは自分でチェーンを組みます。祖先のレイアウトごとに生成された
+`BindLayout` を外側から順に並べ、葉を `pwpage.Render` で包みます。下の段でレジストリが
+組み立てているものを、そのまま書き下したものです。
 
 ```go
 func Load(w http.ResponseWriter, r *http.Request) {
@@ -216,11 +218,16 @@ func Load(w http.ResponseWriter, r *http.Request) {
 		pw.WriteProblem(w, r, err)
 		return
 	}
-	if err := Render(w, r, route, PageParams{}); err != nil {
+	_ = route
+	wrappers := []pwpage.Wrapper{BindLayout(LayoutParams{})}
+	if err := pwpage.Render(w, r, wrappers, Page(PageParams{})); err != nil {
 		pw.WriteProblem(w, r, err)
 	}
 }
 ```
+
+`BindLayout` はレイアウトを持つパッケージに生成されるので、木の深いところにあるページは
+祖先のものを名前で呼びます。ルートのぶんは `pages.BindLayout(...)`、以下同様です。
 
 レスポンスを所有することが存在理由の段にとっては、これは正しい側の取引です。
 

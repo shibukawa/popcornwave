@@ -50,10 +50,23 @@ printed.
 Editing the roster reloads it in place: the issuer and the credentials the
 running application already holds stay valid, so no restart is needed.
 
-The provider implements Authorization Code with mandatory S256 PKCE, discovery,
-JWKS, RS256 ID Tokens, and UserInfo. Refresh tokens, logout, device and client
-credentials grants, and consent screens are deliberately absent. `pw build`
-refuses to build an application that imports it. See
+The provider implements Authorization Code with mandatory S256 PKCE and RFC
+8628 Device Authorization, as well as discovery, JWKS, RS256 ID Tokens,
+UserInfo, and RP-initiated logout. A device-only public client can be added to
+the same roster without embedding a client secret:
+
+```toml
+[clients.sensor]
+grants = ["device_code"]
+valid_scopes = ["telemetry"]
+```
+
+The device receives a user code and verification URI, then polls while the
+developer approves or denies the request in a browser and selects a roster
+user. Refresh tokens, the Client Credentials Grant, and consent screens are
+deliberately absent. Client Credentials is for a client acting on its own
+behalf, without an end-user, so it is not a substitute for Device Authorization.
+`pw build` refuses to build an application that imports the provider. See
 [`contrib/devidp`](https://github.com/shibukawa/popcornwave/tree/main/contrib/devidp).
 
 For tests, `testutil.WithIdentityProvider` starts the same provider and

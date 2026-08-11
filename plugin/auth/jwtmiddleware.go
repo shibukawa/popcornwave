@@ -2,11 +2,9 @@ package auth
 
 import (
 	"errors"
-	"net/http"
 	"strings"
 	"time"
 
-	"github.com/shibukawa/popcornwave/pw"
 	"github.com/shibukawa/popcornwave/pwruntime"
 )
 
@@ -16,32 +14,30 @@ import (
 // own credential, so there is nothing to correlate across requests and nothing
 // to set a cookie for. Every request is authenticated from scratch, which is
 // also why revocation exists — there is no session to destroy.
-func (rt *runtime) authenticateBearer(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		identity, relaxed, err := rt.resolveBearer(r)
-		switch {
-		case errors.Is(err, ErrNoCredential):
-			// An anonymous request is not a failure. The guard decides whether
-			// this path needed a credential; an unprotected one serves without.
-			next.ServeHTTP(w, r)
-			return
-		case err != nil:
-			rt.refuseBearer(w, r, err)
-			return
-		}
-		if relaxed {
-			markDevResponse(w)
-		}
-		r = r.WithContext(pwruntime.WithAuthentication(r.Context(), pwruntime.Authentication{
-			Authenticated:   true,
-			Subject:         identity.AccountID,
-			Method:          MethodBearer,
-			Principal:       identity,
-			AuthenticatedAt: identity.IssuedAt,
-			ExpiresAt:       identity.ExpiresAt,
-		}))
-		next.ServeHTTP(w, r)
+func (rt *runtime) serveBearer(x Exchange, next func()) {
+	identity, relaxed, err := rt.resolveBearer(x)
+	switch {
+	case errors.Is(err, ErrNoCredential):
+		// An anonymous request is not a failure. The guard decides whether this
+		// path needed a credential; an unprotected one serves without.
+		next()
+		return
+	case err != nil:
+		rt.refuseBearer(x, err)
+		return
+	}
+	if relaxed {
+		markDevResponse(x)
+	}
+	x.RecordAuthentication(pwruntime.Authentication{
+		Authenticated:   true,
+		Subject:         identity.AccountID,
+		Method:          MethodBearer,
+		Principal:       identity,
+		AuthenticatedAt: identity.IssuedAt,
+		ExpiresAt:       identity.ExpiresAt,
 	})
+	next()
 }
 
 // BearerIdentity is what a handler reads about the caller behind a bearer
@@ -67,16 +63,16 @@ type BearerIdentity struct {
 // The order is the point: nothing reaches an allowlist lookup or a revocation
 // store until the signature has proved the issuer minted the token, so an
 // unauthenticated caller cannot turn either into a query it controls.
-func (rt *runtime) resolveBearer(r *http.Request) (BearerIdentity, bool, error) {
+func (rt *runtime) resolveBearer(x Exchange) (BearerIdentity, bool, error) {
 	verifier := rt.bearer
 	if verifier == nil {
 		return BearerIdentity{}, false, ErrInvalidToken
 	}
-	ctx := r.Context()
+	ctx := x.Context()
 
-	identity, relaxed := verifier.devAdmits(r)
+	identity, relaxed := verifier.devAdmits(x)
 	if !relaxed {
-		compact, err := verifier.bearerCredential(r)
+		compact, err := verifier.bearerCredential(x)
 		if err != nil {
 			return BearerIdentity{}, false, err
 		}
@@ -95,7 +91,7 @@ func (rt *runtime) resolveBearer(r *http.Request) (BearerIdentity, bool, error) 
 		}
 		// The store could not answer. That is an unknown rather than a "not
 		// revoked", so the deployment's fail-closed setting decides.
-		pw.Logger(ctx).Log(ctx, pw.LevelError, "revocation lookup failed", pw.Err(err))
+		pwruntime.ReadLogger(ctx).Log(ctx, pwruntime.LevelError, "revocation lookup failed", pwruntime.Err(err))
 		if refusal := rt.revocations.onUnavailable(); refusal != nil {
 			return BearerIdentity{}, false, refusal
 		}
@@ -115,14 +111,14 @@ func (rt *runtime) resolveBearer(r *http.Request) (BearerIdentity, bool, error) 
 // that the credential was not accepted and never which check rejected it,
 // because the difference between "wrong audience", "expired", and "revoked" is
 // an oracle for probing what this deployment trusts.
-func (rt *runtime) refuseBearer(w http.ResponseWriter, r *http.Request, err error) {
-	pw.Logger(r.Context()).Log(r.Context(), pw.LevelInfo, "bearer token refused", pw.Err(err))
-	w.Header().Set("Cache-Control", "no-store")
+func (rt *runtime) refuseBearer(x Exchange, err error) {
+	logger(x).Log(x.Context(), pwruntime.LevelInfo, "bearer token refused", pwruntime.Err(err))
+	x.SetHeader("Cache-Control", "no-store")
 	// RFC 6750 asks a protected resource to name the scheme it accepts. The
 	// realm is the audience, which the caller already has to know to have asked
 	// for a token, so naming it discloses nothing.
-	w.Header().Set("WWW-Authenticate", `Bearer realm="`+rt.bearerRealm()+`", error="invalid_token"`)
-	pw.WriteProblem(w, r, pw.Unauthorized())
+	x.SetHeader("WWW-Authenticate", `Bearer realm="`+rt.bearerRealm()+`", error="invalid_token"`)
+	x.Problem(pwruntime.Unauthorized())
 }
 
 func (rt *runtime) bearerRealm() string {

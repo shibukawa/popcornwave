@@ -115,7 +115,15 @@ func (s *projectScan) scanGenerated() {
 		relative := s.relative(path)
 		stem := strings.TrimSuffix(path, generatedSuffix)
 		file := generatedFile{Path: relative, Orphan: true}
-		for suffix, kind := range map[string]string{".pw.html": "template", ".pw.sql": "query"} {
+		// Every source kind pw generate reads. A kind missing from this list is
+		// one whose output has no source the scan can find, so the diagnosis
+		// tells a project to delete the file that serves it.
+		for suffix, kind := range map[string]string{
+			".pw.html":      "template",
+			".pw.sql":       "query",
+			".pw.dynamo":    "query",
+			".pw.firestore": "query",
+		} {
 			candidate := stem + suffix
 			info, statErr := os.Stat(candidate)
 			if statErr != nil {

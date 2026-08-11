@@ -27,13 +27,16 @@ func TestConfigReadsThePublishedResolutionThroughTheRequest(t *testing.T) {
 	}
 
 	resolved := &benchConfig{Name: "published", Limit: 7}
-	pwruntime.PublishConfigLookup(func(target reflect.Type) (any, bool) {
+	previous := pwruntime.PublishConfigLookup(func(target reflect.Type) (any, bool) {
 		if target == reflect.TypeFor[benchConfig]() {
 			return resolved, true
 		}
 		return nil, false
 	})
-	t.Cleanup(func() { pwruntime.PublishConfigLookup(nil) })
+	// Restored rather than cleared: the process lookup belongs to whichever
+	// runtime parsed the configuration, and leaving none behind would answer
+	// every binding in every later test with its zero value.
+	t.Cleanup(func() { pwruntime.PublishConfigLookup(previous) })
 
 	_, _, body := serve(t, func(r *fasthttp.RequestCtx) {
 		config := Config[benchConfig](r)

@@ -3,12 +3,16 @@ package pwfast
 import (
 	"context"
 	"errors"
+	"io/fs"
 	"net"
+	"net/http"
+	"strings"
 	"sync"
 
 	"github.com/shibukawa/popcornwave/internal/apidoc"
 	"github.com/shibukawa/popcornwave/internal/requestorigin"
 	"github.com/shibukawa/popcornwave/pwruntime"
+	"github.com/shibukawa/popcornwave/session"
 	"github.com/shibukawa/tinygodriver/fasthttp"
 )
 
@@ -104,6 +108,36 @@ type RuntimeOptions struct {
 	// TrustedProxies are the networks whose forwarding headers this deployment
 	// reads.
 	TrustedProxies []*net.IPNet
+	// Tracing installs the request root span. It is a runtime option rather
+	// than a setting because whether a span has anywhere to go is decided by
+	// the exporter this process built, not by a configuration key.
+	Tracing bool
+	// PublicFS is the embedded public tree. It is supplied rather than read
+	// from configuration because an embed is a compile-time fact of the
+	// application binary rather than something a settings file can name.
+	PublicFS fs.FS
+	// Session is the manager the session frame resolves through, or nil where a
+	// deployment disabled session storage. It is supplied rather than built
+	// here because building one is startup work — a registry, a keyring, a
+	// backend — and startup belongs to whichever runtime binds configuration.
+	Session *session.Manager
+	// SessionCookie and SessionSameSite describe the cookie the CSRF companion
+	// is issued beside, so the two travel with the same policy.
+	SessionCookie   session.CookieOptions
+	SessionSameSite http.SameSite
+	// Guard is the authorization policy. It is supplied rather than derived
+	// because deciding which paths are protected belongs to an authentication
+	// plugin, and this half applies what that plugin resolved.
+	Guard GuardPolicy
+	// RateLimitCounter is the storage the limiter counts in, or nil where a
+	// deployment left the limiter off. Like the session manager it is supplied
+	// rather than opened here, because opening it is startup work: a Redis
+	// counter dials a server and refuses to start against one it cannot reach.
+	//
+	// A configuration that enables the limiter and supplies no counter is
+	// refused rather than served without one, per policy:absent-rather-than-stubbed:
+	// a limiter that admits everything is a control that looks installed.
+	RateLimitCounter RateLimitCounter
 	// Extra frames are installed alongside the framework's, positioned by their
 	// own slots.
 	Extra []Frame
@@ -119,13 +153,19 @@ type RuntimeOptions struct {
 // it once, on whichever runtime owns startup, and what this assembles is the
 // request path.
 //
-// # What is not here yet
+// # The authentication frames
 //
-// The session, CSRF, authentication and guard frames, the public asset frame,
-// and the extension chain. Each is
-// absent rather than stubbed, so a build that needs one fails to name it rather
-// than serving requests with a frame that silently does nothing — which for the
-// session and CSRF frames would be a security control that looks installed.
+// They are not here, and their absence is now a choice rather than a gap.
+// popcornwave/plugin/auth/authfast supplies them, as frames positioned by their
+// own slots and a guard policy this takes as an argument, because there is no
+// extension registry on this transport: a chain assembled from arguments cannot
+// silently gain a frame because something was imported, and every frame it does
+// gain is one the application named.
+//
+// What is still absent is absent rather than stubbed, so a build that needs one
+// fails to name it rather than serving requests with a frame that silently does
+// nothing — which for a guard would be an authorization check that looks
+// installed.
 func Middlewares(handler fasthttp.RequestHandler, options RuntimeOptions) (fasthttp.RequestHandler, error) {
 	if handler == nil {
 		return nil, errors.New("popcornwave: nil handler")
@@ -172,10 +212,67 @@ func Middlewares(handler fasthttp.RequestHandler, options RuntimeOptions) (fasth
 	if settings.MaxRequestBody > 0 {
 		frames = append(frames, Frame{Slot: SlotMaxRequestBody, Name: "max_request_body", Middleware: MaxRequestBody(settings.MaxRequestBody)})
 	}
+	if options.PublicFS != nil && settings.Public.Enabled {
+		assets, err := PublicAssets(settings.Public, options.PublicFS)
+		if err != nil {
+			return nil, err
+		}
+		frames = append(frames, Frame{Slot: SlotPublicAssets, Name: "public_assets", Middleware: assets})
+	}
+	if options.Session != nil {
+		frames = append(frames, Frame{Slot: SlotSession, Name: "session",
+			Middleware: Session(options.Session, nil)})
+	}
+	if settings.RateLimit.Enabled {
+		limits := settings.RateLimit
+		exempt := rateLimitExemptions(settings)
+		deps := RateLimitDeps{Counter: options.RateLimitCounter, Exempt: exempt,
+			Degraded: logRateLimitDegraded}
+		if settings.RateLimit.Process > 0 {
+			// The ceiling belongs in the outer stack where a refusal has cost
+			// least; the identity bucket below authentication where the subject
+			// exists. Neither can be the other's slot.
+			ceiling, err := ProcessRateLimiter(limits, deps)
+			if err != nil {
+				return nil, err
+			}
+			frames = append(frames, Frame{Slot: SlotRateLimitProcess, Name: "ratelimit.process", Middleware: ceiling})
+		}
+		limiter, err := RateLimiter(limits, deps)
+		if err != nil {
+			return nil, err
+		}
+		frames = append(frames, Frame{Slot: SlotRateLimit, Name: "ratelimit", Middleware: limiter})
+	}
+	if settings.CSRF.Enabled {
+		// The check is built even when the session frame is absent, and refuses
+		// rather than passing: with no session there is nothing a request could
+		// present that would be valid, and letting it through would be the one
+		// failure direction this check must not have.
+		check, err := CSRF(settings.CSRF, options.SessionCookie, options.SessionSameSite, nil, trusted)
+		if err != nil {
+			return nil, err
+		}
+		frames = append(frames, Frame{Slot: SlotCSRF, Name: "csrf", Middleware: check})
+	}
 	frames = append(frames, Frame{Slot: SlotOperational, Name: "operational",
 		Middleware: OperationalEndpoints(settings.Health, settings.Readiness, options.Resources)})
+	// The framework's own browser assets, at the same slot the probes answer
+	// from and above every application route: the prefix is reserved, so it is
+	// answered and closed before anything else sees it.
+	frames = append(frames, Frame{Slot: SlotOperational, Name: "framework_assets",
+		Middleware: FrameworkAssets()})
 	frames = append(frames, Frame{Slot: SlotAPIDoc, Name: "apidoc",
 		Middleware: DocumentationEndpoints(settings.OpenAPI, settings.APIDoc, settings.APIDocPath)})
+	if options.Guard.Protected != nil {
+		frames = append(frames, Frame{Slot: SlotGuard, Name: "guard", Middleware: Guard(options.Guard)})
+	}
+	if options.Tracing {
+		// Outermost of everything positioned, so the request root span covers
+		// the whole chain and every record taken inside it correlates. It is
+		// opt-in because an unsampled span with nowhere to export is pure cost.
+		frames = append(frames, Frame{Slot: SlotTracing, Name: "otel", Middleware: Otel()})
+	}
 	frames = append(frames, options.Extra...)
 	return Compose(handler, frames...), nil
 }
@@ -189,12 +286,15 @@ func writePanicProblem(r *fasthttp.RequestCtx, err error) {
 	WriteProblem(r, InternalServerError(err))
 }
 
-// Run serves handler until ctx is cancelled, then shuts down.
+// ListenAndServe builds the chain, binds address, and serves until ctx is
+// cancelled.
 //
-// The listener is this function's, unlike pw.Run, which also owns configuration
-// parsing and the framework actions. Startup belongs to whichever runtime binds
-// the configuration; this owns the port.
-func Run(ctx context.Context, address string, handler fasthttp.RequestHandler, options RuntimeOptions) error {
+// It owns the port and nothing else. Startup — parsing the configuration,
+// opening the pool, building the session manager — belongs to whichever runtime
+// does it, and a caller that wants this transport to do all of it calls Run
+// instead. This is the entry for a caller that has already done startup its own
+// way, which is what a test and an embedding application both need.
+func ListenAndServe(ctx context.Context, address string, handler fasthttp.RequestHandler, options RuntimeOptions) error {
 	if ctx == nil {
 		return errors.New("popcornwave: nil context")
 	}
@@ -362,4 +462,41 @@ func operationalMethod(r *fasthttp.RequestCtx) bool {
 	r.Response.Header.Set("Allow", "GET, HEAD")
 	r.SetStatusCode(fasthttp.StatusMethodNotAllowed)
 	return false
+}
+
+// rateLimitExemptions are the endpoints the framework itself owns and routes.
+//
+// They are not a deployment setting. A readiness probe arrives from the proxy
+// on the same address as every anonymous caller and would exhaust that bucket
+// by itself, and one page view fetches many assets; counting either turns the
+// limit into an outage on the first deploy.
+//
+// The list is derived from the same settings the frames that serve those
+// endpoints are built from, so a probe moved to another path is exempt at its
+// new one without anything else being told.
+func rateLimitExemptions(settings pwruntime.ChainSettings) []string {
+	exempt := make([]string, 0, 6)
+	for _, path := range []string{settings.Health, settings.Readiness, settings.OpenAPI, settings.APIDoc} {
+		if path = strings.TrimSpace(path); path != "" && strings.HasPrefix(path, "/") {
+			exempt = append(exempt, path)
+		}
+	}
+	if settings.APIDoc != "" && settings.APIDocPath != "" && strings.HasPrefix(settings.APIDocPath, "/") {
+		exempt = append(exempt, settings.APIDocPath, strings.TrimSuffix(settings.APIDocPath, "/")+"/**")
+	}
+	if settings.Public.Enabled && strings.HasPrefix(settings.Public.Mount, "/") {
+		exempt = append(exempt, strings.TrimSuffix(settings.Public.Mount, "/")+"/**")
+	}
+	return exempt
+}
+
+// logRateLimitDegraded records an admission made without a working store.
+//
+// The request was admitted on purpose: the edge still has its own limits, and
+// refusing here would convert a store incident into an outage of every limited
+// route at once. Silently not limiting is the state worth knowing about.
+func logRateLimitDegraded(r *fasthttp.RequestCtx, err error) {
+	pwruntime.ReadLogger(r).Log(r, pwruntime.LevelError,
+		"rate limit admitted a request without counting it",
+		pwruntime.String("error", err.Error()), pwruntime.String("path", string(r.Path())))
 }

@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"testing"
@@ -893,16 +894,81 @@ func TestScaffoldRecordsTheFastHTTPBuildOnlyWhenItWasTaken(t *testing.T) {
 	if !found || !strings.Contains(project, "fasthttp = true") {
 		t.Errorf("fasthttp is not in the [project] section:\n%s", taken["popcornwave.toml"])
 	}
-	// Everything else is untouched: the answer changes generation, and a
-	// scaffold that also changed would make it a project mode instead.
+	// Two things the answer adds, and nothing else. Everything a second build
+	// needs is generated except these: an entry point, which is the one file an
+	// application owns outright, and a build tag on an authored file, which is
+	// a fact about that file's contents rather than about generation.
+	entryPoint := "cmd/fixture/main_fasthttp.go"
+	if _, ok := taken[entryPoint]; !ok {
+		t.Errorf("the second build got no entry point; got %v", scaffoldNames(taken))
+	}
+	if _, ok := plain[entryPoint]; ok {
+		t.Error("a project that never took the second build got its entry point")
+	}
 	for name, source := range taken {
-		if name == "popcornwave.toml" {
+		if name == "popcornwave.toml" || name == entryPoint {
 			continue
 		}
-		if plain[name] != source {
-			t.Errorf("taking the fasthttp build changed %s, which should be identical", name)
+		if plain[name] == source {
+			continue
+		}
+		// The only admissible difference is the constraint, so the file without
+		// it must be what the other project got, byte for byte.
+		if strings.TrimPrefix(source, "//go:build !fasthttp\n\n") != plain[name] {
+			t.Errorf("taking the fasthttp build changed %s beyond its build constraint", name)
+		}
+		if !strings.HasPrefix(source, "//go:build !fasthttp") {
+			t.Errorf("%s differs and carries no build constraint", name)
 		}
 	}
+}
+
+// A file the tag excludes must hold nothing the other build needs, because a
+// tag excludes a whole file rather than a declaration. That is the file
+// granularity decision:transport-source-transform requires, and the scaffold
+// has to produce it or the framework teaches the shape its own transform
+// rejects.
+func TestTheScaffoldSeparatesTransportHandlersFromSharedDeclarations(t *testing.T) {
+	files := scaffoldFiles(initOptions{Name: "fixture", FastHTTP: true})
+	constrained := 0
+	for name, source := range files {
+		if !strings.HasPrefix(source, "//go:build !fasthttp") {
+			continue
+		}
+		constrained++
+		// A type, const or var in an excluded file is a declaration the derived
+		// half would have to redeclare, and the derived half declares only
+		// functions.
+		for _, declaration := range []string{"\ntype ", "\nconst ", "\nvar "} {
+			if strings.Contains(source, declaration) && !strings.Contains(name, "index.go") {
+				t.Errorf("%s is excluded from the second build and declares%sthe other half needs",
+					name, declaration)
+			}
+		}
+	}
+	if constrained == 0 {
+		t.Fatal("nothing was constrained, so this proves nothing")
+	}
+	// The mux is the one excluded declaration, and it is excluded on purpose:
+	// it is typed by one transport, and the second build makes its own.
+	if !strings.Contains(files["handlers/index.go"], "//go:build !fasthttp") {
+		t.Error("the mux wiring is compiled into both builds")
+	}
+	// The request type the starter route reads is not, because the derived
+	// handler reads it too.
+	if strings.Contains(files["handlers/home_types.go"], "//go:build") {
+		t.Errorf("the request type was excluded from the build that binds it:\n%s",
+			files["handlers/home_types.go"])
+	}
+}
+
+func scaffoldNames(files map[string]string) []string {
+	names := make([]string, 0, len(files))
+	for name := range files {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return names
 }
 
 // The written key is one loadProjectConfig accepts and reads back, which the

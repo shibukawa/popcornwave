@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"errors"
+	"github.com/shibukawa/popcornwave/pwbrowser"
 	"iter"
 	"net/http"
 	"net/http/httptest"
@@ -13,6 +14,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/shibukawa/popcornwave/pwconfig"
 	"github.com/shibukawa/tinybind-go/htmlbind"
 )
 
@@ -240,7 +242,7 @@ func TestLiveModeClosesWhenNothingIsLive(t *testing.T) {
 // and deploy rollover, so it must not read as a failure: the client is expected
 // straight back.
 func TestLiveResponseClosesAtItsLifetimeForRetry(t *testing.T) {
-	config := defaultHTMLConfig
+	config := pwconfig.DefaultHTMLConfig()
 	config.LiveMaxDuration = 40 * time.Millisecond
 	config.LiveDurationJitter = 0
 	config.LiveIdleTimeout = 0
@@ -263,7 +265,7 @@ func TestLiveResponseClosesAtItsLifetimeForRetry(t *testing.T) {
 // A response nothing is delivering on is holding a goroutine, a source, and a
 // connection for a screen that is learning nothing.
 func TestLiveResponseClosesWhenIdle(t *testing.T) {
-	config := defaultHTMLConfig
+	config := pwconfig.DefaultHTMLConfig()
 	config.LiveMaxDuration = 0
 	config.LiveIdleTimeout = 40 * time.Millisecond
 	request := liveRequest("/")
@@ -286,7 +288,7 @@ func TestLiveResponseClosesWhenIdle(t *testing.T) {
 // Reaching the boundary bound is reported and closes the response, because a
 // screen quietly missing one panel's updates is worse than one that stops.
 func TestLiveResponseStopsAtItsBoundaryBound(t *testing.T) {
-	config := defaultHTMLConfig
+	config := pwconfig.DefaultHTMLConfig()
 	config.LiveMaxBoundaries = 1
 	request := liveRequest("/")
 	request = request.WithContext(withTestHTMLConfig(request.Context(), config))
@@ -326,7 +328,7 @@ func TestLiveResponseStopsAtItsBoundaryBound(t *testing.T) {
 
 // A bound on one response buys nothing against a client that opens ten.
 func TestLiveResponsesAreBoundedPerClient(t *testing.T) {
-	config := defaultHTMLConfig
+	config := pwconfig.DefaultHTMLConfig()
 	config.LiveMaxResponses = 1
 	config.LiveMaxDuration = 0
 	config.LiveIdleTimeout = 0
@@ -372,7 +374,7 @@ func TestLiveResponsesAreBoundedPerClient(t *testing.T) {
 // so disabling streaming disables it rather than leaving a client connected to
 // a stream whose ids address nothing.
 func TestStreamingDisabledRefusesLiveMode(t *testing.T) {
-	config := defaultHTMLConfig
+	config := pwconfig.DefaultHTMLConfig()
 	config.Streaming = false
 	request := liveRequest("/")
 	request = request.WithContext(withTestHTMLConfig(request.Context(), config))
@@ -860,7 +862,7 @@ func TestBoundaryRuntimeReadsRecordsThroughOneReader(t *testing.T) {
 	}
 	// Two copies of the buffer-split-parse loop is the thing this removes, so a
 	// second one reappearing is what the assertion is really against.
-	if count := strings.Count(mergedRuntimeScript(), "getReader()"); count != 1 {
+	if count := strings.Count(pwbrowser.RuntimeSource(), "getReader()"); count != 1 {
 		t.Errorf("the merged asset calls getReader %d times, want one shared reader", count)
 	}
 }

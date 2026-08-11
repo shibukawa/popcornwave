@@ -84,7 +84,7 @@ globalThis.location = { href: baseHref, origin: "null", reload() {} };
 globalThis.sessionStorage = { getItem: () => null, setItem() {}, removeItem() {} };
 
 const runtime = await import(
-	"file://" + path.join(here, "..", "boundary.js")
+	"file://" + path.join(here, "..", "..", "pwbrowser", "boundary.js")
 );
 
 // --- a stand-in for one <pw-page> element -----------------------------------

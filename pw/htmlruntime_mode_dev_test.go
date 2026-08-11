@@ -3,6 +3,7 @@
 package pw
 
 import (
+	"github.com/shibukawa/popcornwave/pwbrowser"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -16,11 +17,11 @@ func TestDevelopmentModuleIsServedBesideTheCore(t *testing.T) {
 	if developmentConsoleURL() == "" {
 		t.Skip("no console address in the environment; see TestMain")
 	}
-	scripts := frameworkScripts()
+	scripts := pwbrowser.Scripts()
 	if _, ok := scripts[developmentModuleName]; !ok {
 		t.Fatalf("scripts = %v, want the development module", scripts)
 	}
-	core := scripts[boundaryRuntimeName]
+	core := scripts[pwbrowser.RuntimeName]
 	if !strings.Contains(core, `import("./`+developmentModuleName+`")`) {
 		t.Error("the core does not import the development module")
 	}
@@ -36,7 +37,7 @@ func TestDevelopmentModuleIsFetchable(t *testing.T) {
 		t.Skip("no console address in the environment")
 	}
 	recorder := httptest.NewRecorder()
-	path := frameworkScriptURL(developmentModuleName)
+	path := pwbrowser.ScriptURL(developmentModuleName)
 	if !serveFrameworkScript(recorder, httptest.NewRequest(http.MethodGet, path, nil)) {
 		t.Fatalf("%s was not claimed", path)
 	}
@@ -195,7 +196,7 @@ func TestTheMarkIsServedAsAnImage(t *testing.T) {
 		t.Skip("no console address in the environment")
 	}
 	recorder := httptest.NewRecorder()
-	path := frameworkScriptURL(developmentMarkName)
+	path := pwbrowser.ScriptURL(developmentMarkName)
 	if !serveFrameworkScript(recorder, httptest.NewRequest(http.MethodGet, path, nil)) {
 		t.Fatalf("%s was not claimed", path)
 	}

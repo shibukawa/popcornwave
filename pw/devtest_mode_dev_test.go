@@ -3,6 +3,7 @@
 package pw
 
 import (
+	"github.com/shibukawa/popcornwave/pwdatabase"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -32,7 +33,7 @@ func developmentTestFixture(t *testing.T) http.Handler {
 	}
 	t.Chdir(root)
 
-	connection, err := openRuntimeDatabase(RDBConnectionConfig{DSN: "sqlite://:memory:", ConnectTimeout: time.Second, MaxOpenConns: 1, MaxIdleConns: 1}, "test")
+	connection, err := pwdatabase.OpenOne(RDBConnectionConfig{DSN: "sqlite://:memory:", ConnectTimeout: time.Second, MaxOpenConns: 1, MaxIdleConns: 1}, "test")
 	if err != nil {
 		t.Fatal(err)
 	}

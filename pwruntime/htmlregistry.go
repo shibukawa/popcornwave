@@ -65,7 +65,12 @@ func SwapHTMLDocument(chain []htmlbind.Wrapper) []htmlbind.Wrapper {
 
 // HTMLErrorPage renders an application error page from a problem. It names no
 // transport, which is what lets one registration serve both runtimes.
-type HTMLErrorPage func(Problem) htmlbind.Fragment
+type HTMLErrorPage func(Problem) HTMLFragment
+
+// HTMLFragment is a bound component ready to render. It is named here as well
+// as on each runtime because an application file that registers an error page
+// belongs to both builds, and a file naming a runtime does not.
+type HTMLFragment = htmlbind.Fragment
 
 var errorPageState = struct {
 	sync.RWMutex

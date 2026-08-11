@@ -862,3 +862,99 @@ func TestAServerBackendWithoutALoginBringsItsImport(t *testing.T) {
 		t.Errorf("the rdb backend was configured without its import:\n%s", files["cmd/demo/main.go"])
 	}
 }
+
+// A login the scaffold configures and no page offers is a project nobody can
+// sign in to. With no registered router there is no handler page to carry the
+// controls, so the page tree root carries them — and it said so either way,
+// because the landing sections name the login the project took.
+func TestADiscoveredOnlyLoginIsReachableFromItsStarterPage(t *testing.T) {
+	files := scaffoldFiles(initOptions{Name: "demo", Router: routerDiscovered, Auth: authOIDC})
+	page := files["pages/page.pw.html"]
+	for _, want := range []string{"Account", "{if signedIn}", `href="{loginPath}"`, `action="{logoutPath}"`} {
+		if !strings.Contains(page, want) {
+			t.Errorf("the page tree root does not carry %q:\n%s", want, page)
+		}
+	}
+	// The session is on the request context, which the rungs below the handler
+	// one cannot see, so the root takes that rung and composes its own chain.
+	load, ok := files["pages/page.go"]
+	if !ok {
+		t.Fatal("the page tree root has no page.go, so nothing reads the session")
+	}
+	for _, want := range []string{
+		"func Load(w http.ResponseWriter, r *http.Request)",
+		"auth.User(r.Context())",
+		"BindLayout(LayoutParams{})",
+		"pwpage.Render(w, r, wrappers, Page(params))",
+	} {
+		if !strings.Contains(load, want) {
+			t.Errorf("pages/page.go is missing %q:\n%s", want, load)
+		}
+	}
+}
+
+// With a registered router the controls are on its page, so a second copy on
+// the page tree root would be two account sections to tell apart.
+func TestOnlyOneStarterPageCarriesTheAccountSection(t *testing.T) {
+	for _, router := range []string{routerBoth, routerRegistered} {
+		files := scaffoldFiles(initOptions{Name: "demo", Router: router, Auth: authOIDC})
+		if page, ok := files["pages/page.pw.html"]; ok && strings.Contains(page, "Account") {
+			t.Errorf("router %q put the account section on both starter pages:\n%s", router, page)
+		}
+		if _, ok := files["pages/page.go"]; ok {
+			t.Errorf("router %q raised the page tree root a rung it does not need", router)
+		}
+		if !strings.Contains(files["handlers/home.pw.html"], "Account") {
+			t.Errorf("router %q left the handler page without the account section", router)
+		}
+	}
+}
+
+// A login with no browser flow has nothing to offer on a page.
+func TestABearerProjectScaffoldsNoAccountSection(t *testing.T) {
+	files := scaffoldFiles(initOptions{Name: "demo", Router: routerDiscovered, Auth: authJWTOnly})
+	if page := files["pages/page.pw.html"]; strings.Contains(page, "Account") {
+		t.Errorf("a bearer project got sign-in controls:\n%s", page)
+	}
+	if _, ok := files["pages/page.go"]; ok {
+		t.Error("a bearer project raised the page tree root a rung")
+	}
+}
+
+// A DynamoDB project has to compile from the files pw init wrote. The codec is
+// emitted for the directions a package is discovered to use, so a store
+// scaffold has to call something. Both stores declare a type and then read and
+// write it, because a type nothing touches is a type with no codec — and a
+// scaffold whose calls are not the discovered ones ships a project that cannot
+// build, which is what the handle-form entries did before tinybind v0.5.4
+// registered them.
+func TestScaffoldedStoresCallWhatGenerationDiscovers(t *testing.T) {
+	files := scaffoldFiles(initOptions{Name: "demo", Dynamo: true})
+	record, ok := files["records/note.go"]
+	if !ok {
+		t.Fatal("no dynamo record was scaffolded")
+	}
+	for _, want := range []string{`dynamobind.StoreOn(ctx, h, "note", note)`, "dynamobind.LoadOn[Note](ctx, h,", "dynamo.Handle(ctx)"} {
+		if !strings.Contains(record, want) {
+			t.Errorf("records/note.go does not carry %q:\n%s", want, record)
+		}
+	}
+	// The declaration the Firestore scaffold has always had, and this one had
+	// not: it is a use of its result type, so it is what the read side is
+	// emitted for once a project declares an access pattern.
+	if _, ok := files["records/notes.pw.dynamo"]; !ok {
+		t.Error("the dynamo scaffold declares no access pattern, unlike the firestore one")
+	}
+
+	// The Firestore scaffold declared an entity and never touched it, so it had
+	// no codec either — it simply compiled, because nothing called for one.
+	entity, ok := scaffoldFiles(initOptions{Name: "demo", Firestore: true})["entities/note.go"]
+	if !ok {
+		t.Fatal("no firestore entity was scaffolded")
+	}
+	for _, want := range []string{"firestorebind.StoreOn(ctx, h, note)", "firestorebind.LoadOn[Note](ctx, h,", "firestore.Handle(ctx)"} {
+		if !strings.Contains(entity, want) {
+			t.Errorf("entities/note.go does not carry %q:\n%s", want, entity)
+		}
+	}
+}

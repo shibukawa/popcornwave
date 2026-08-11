@@ -1,0 +1,14 @@
+[project]
+name = "serverlessapp"
+main = "./cmd/serverlessapp"
+toolchain = "go"
+fasthttp = true
+
+[generate]
+handlers = []
+templates = []
+queries = []
+config = []
+pages = []
+dynamo = []
+firestore = []

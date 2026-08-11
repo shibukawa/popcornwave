@@ -37,25 +37,81 @@ func TestPrepareIsRegisteredInTheCommandList(t *testing.T) {
 	}
 }
 
-// --debug is the one option either command takes, and it has to be on both.
-// prepare hands its tree to a compiler this project does not run, which is the
-// container path, so a debug artifact built that way would otherwise be
-// unreachable.
-func TestDebugFlagIsTheOnlyOption(t *testing.T) {
+// --backend selects the HTTP implementation for both commands. --target is a
+// deployment destination and therefore belongs to build alone.
+func TestBuildFlagsSeparateBackendAndTarget(t *testing.T) {
 	for _, command := range []string{"build", "prepare"} {
-		debug, err := debugFlag(command, nil)
-		if err != nil || debug {
-			t.Errorf("%s with no argument: debug = %v, err = %v", command, debug, err)
+		options, err := buildFlags(command, nil)
+		if err != nil || options.debug || options.backend != "nethttp" || options.target != "" {
+			t.Errorf("%s with no argument: %+v, err = %v", command, options, err)
 		}
-		debug, err = debugFlag(command, []string{"--debug"})
-		if err != nil || !debug {
-			t.Errorf("%s --debug: debug = %v, err = %v", command, debug, err)
+		options, err = buildFlags(command, []string{"--debug"})
+		if err != nil || !options.debug {
+			t.Errorf("%s --debug: %+v, err = %v", command, options, err)
+		}
+		// Both spellings, because a pipeline writes one and a person the other.
+		for _, spelling := range [][]string{{"--backend", "fasthttp"}, {"--backend=fasthttp"}} {
+			options, err = buildFlags(command, spelling)
+			if err != nil || options.backend != "fasthttp" {
+				t.Errorf("%s %v: %+v, err = %v", command, spelling, options, err)
+			}
+			if tags := options.tags(); len(tags) != 2 || tags[0] != "-tags" || tags[1] != "fasthttp" {
+				t.Errorf("%s %v compiled with %v", command, spelling, tags)
+			}
 		}
 		// A near miss is refused rather than ignored, because a pipeline that
 		// meant to ask for a debug artifact and did not would ship the other one.
-		if _, err := debugFlag(command, []string{"-debug"}); err == nil {
+		if _, err := buildFlags(command, []string{"-debug"}); err == nil {
 			t.Errorf("%s accepted -debug", command)
 		}
+		// An unknown target is refused rather than passed to the compiler as a
+		// build tag nothing sets, which would silently produce the first
+		// transport's binary under another name.
+		if _, err := buildFlags(command, []string{"--backend", "valyala"}); err == nil {
+			t.Errorf("%s accepted an unknown backend", command)
+		}
+		if _, err := buildFlags(command, []string{"--backend"}); err == nil {
+			t.Errorf("%s accepted --backend with no value", command)
+		}
+	}
+	for target := range deploymentTargets {
+		options, err := buildFlags("build", []string{"--target", target, "--backend=fasthttp"})
+		if err != nil || options.target != target || options.backend != "fasthttp" {
+			t.Errorf("build target %s: %+v, err = %v", target, options, err)
+		}
+	}
+	if _, err := buildFlags("prepare", []string{"--target=lambda"}); err == nil {
+		t.Error("prepare accepted a deployment target")
+	}
+	if _, err := buildFlags("build", []string{"--target=fasthttp"}); err == nil {
+		t.Error("fasthttp is still accepted as a target")
+	}
+}
+
+// A net/http build passes no tags at all, so its command line is what it was
+// before the second target existed.
+func TestTheDefaultTargetCompilesWithNoTags(t *testing.T) {
+	if tags := (buildOptions{debug: true}).tags(); len(tags) != 0 {
+		t.Errorf("the default target compiled with %v", tags)
+	}
+}
+
+// The second transport's half is emitted by generation, and generation emits it
+// only for a project that declared it. Building for a target the project never
+// declared would compile the authored source with everything it needs tagged
+// out, which fails as a pile of undefined symbols rather than as the one thing
+// that is wrong.
+func TestTheFastHTTPBackendNeedsTheDeclaration(t *testing.T) {
+	if err := (buildOptions{backend: "fasthttp"}).check(projectConfig{}); err == nil {
+		t.Error("a fasthttp build was accepted without project.fasthttp")
+	} else if !strings.Contains(err.Error(), "project.fasthttp") {
+		t.Errorf("the refusal does not name the declaration: %v", err)
+	}
+	if err := (buildOptions{backend: "fasthttp"}).check(projectConfig{FastHTTP: true}); err != nil {
+		t.Errorf("a declared fasthttp build was refused: %v", err)
+	}
+	if err := (buildOptions{}).check(projectConfig{}); err != nil {
+		t.Errorf("the default target was refused: %v", err)
 	}
 }
 

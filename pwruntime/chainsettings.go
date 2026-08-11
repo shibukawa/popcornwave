@@ -43,6 +43,20 @@ type ChainSettings struct {
 	OpenAPI    string
 	APIDoc     string
 	APIDocPath string
+	// CSRF is the cross-site check's configuration, carried whole because the
+	// check reads most of it: the scope patterns, the token names, the cookie
+	// name and the lifetime.
+	CSRF CSRFConfig
+	// Public is the static asset configuration. The tree itself is not here
+	// because an embed is a fact of the binary rather than of a settings file.
+	Public PublicAssetSettings
+	// RateLimit is the limiter's configuration, carried whole because a chain
+	// builder reads most of it.
+	//
+	// Two frames come out of it, at two slots: the ceiling out where a refusal
+	// costs least, and the identity bucket below whatever establishes
+	// authentication. Neither can be the other's position.
+	RateLimit RateLimitConfig
 }
 
 var chainSettingsState atomic.Pointer[ChainSettings]

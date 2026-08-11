@@ -5,8 +5,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/shibukawa/popcornwave/pw"
 	"github.com/shibukawa/popcornwave/session"
+	"github.com/shibukawa/popcornwave/sessionconfig"
 )
 
 // SignInHint is what the login screen may show about the last person who used
@@ -35,7 +35,7 @@ type SignInHint struct {
 
 // hintJar builds the sealed cookie the hint rides in, or nil when the
 // deployment leaves the hint off.
-func hintJar(config HintConfig, policy pw.SessionCookieConfig) (*session.Jar[SignInHint], error) {
+func hintJar(config HintConfig, policy sessionconfig.SessionCookieConfig) (*session.Jar[SignInHint], error) {
 	if !config.Enabled || config.TTL == 0 {
 		return nil, nil
 	}
@@ -66,11 +66,11 @@ func hintJar(config HintConfig, policy pw.SessionCookieConfig) (*session.Jar[Sig
 
 // rememberSignIn writes the hint after a completed login. A deployment with the
 // hint off has no jar and this does nothing.
-func (rt *runtime) rememberSignIn(w http.ResponseWriter, data SessionData) {
+func (rt *runtime) rememberSignIn(x Exchange, data SessionData) {
 	if rt.hint == nil {
 		return
 	}
-	_ = rt.hint.Save(w, SignInHint{
+	_ = rt.hint.SaveTo(x, SignInHint{
 		DisplayName: data.DisplayName,
 		LoginID:     data.Email,
 		Issuer:      data.Issuer,
@@ -84,17 +84,17 @@ func (rt *runtime) rememberSignIn(w http.ResponseWriter, data SessionData) {
 // A hint past either bound is discarded rather than shown: the browser drops to
 // anonymous, where the login screen offers no account and no issuer, which is
 // the state a deployment that never enabled the hint is always in.
-func (rt *runtime) readSignInHint(w http.ResponseWriter, r *http.Request) (SignInHint, bool) {
+func (rt *runtime) readSignInHint(x Exchange) (SignInHint, bool) {
 	if rt.hint == nil {
 		return SignInHint{}, false
 	}
-	value, err := rt.hint.Load(r)
+	value, err := rt.hint.LoadFrom(x)
 	if err != nil {
 		return SignInHint{}, false
 	}
 	idle := rt.config.Assurance.Hint.IdleTimeout
 	if idle > 0 && (value.LastLoginAt <= 0 || time.Since(time.Unix(value.LastLoginAt, 0)) > idle) {
-		rt.hint.Clear(w)
+		rt.hint.ClearFrom(x)
 		return SignInHint{}, false
 	}
 	return value, true
@@ -103,9 +103,9 @@ func (rt *runtime) readSignInHint(w http.ResponseWriter, r *http.Request) (SignI
 // forgetSignIn clears the hint. It needs no session and no authentication,
 // because it is what the not-me control on a login screen calls and the person
 // pressing it is by definition not signed in.
-func (rt *runtime) forgetSignIn(w http.ResponseWriter) {
+func (rt *runtime) forgetSignIn(x Exchange) {
 	if rt.hint != nil {
-		rt.hint.Clear(w)
+		rt.hint.ClearFrom(x)
 	}
 }
 
@@ -113,11 +113,16 @@ func (rt *runtime) forgetSignIn(w http.ResponseWriter) {
 // The bool is false when the deployment keeps no hint, when this browser has
 // none, or when the one it had has expired.
 func Hint(w http.ResponseWriter, r *http.Request) (SignInHint, bool) {
+	return HintOn(HTTPExchange(w, r))
+}
+
+// HintOn is Hint over the transport seam.
+func HintOn(x Exchange) (SignInHint, bool) {
 	instance := activeRuntime()
 	if instance == nil {
 		return SignInHint{}, false
 	}
-	return instance.readSignInHint(w, r)
+	return instance.readSignInHint(x)
 }
 
 // MaskIdentifier renders an identifier for a login screen without showing the

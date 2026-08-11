@@ -18,13 +18,25 @@
 // backend, so an application links the storage it configured and no more.
 // General server backends need blank imports; cookie and both development
 // intent modes are built into pw.
+//
+// # What it reads through pw and what it no longer does
+//
+// The settings and the environment come from popcornwave/pwconfig, and the
+// request state from popcornwave/pwruntime, so the decisions in this package
+// are reachable from a build serving on either transport — which is what
+// popcornwave/plugin/auth/authfast then does.
+//
+// What is still pw's is what is genuinely the net/http runtime's: the extension
+// registry this registers into, the session manager it drives, and the
+// connection group a session's storage is pinned to. Each is a layer of its
+// own, and each has to move before this package can be linked without pw.
 package auth
 
 import (
 	"context"
 	"errors"
 	"fmt"
-	"net/http"
+	"github.com/shibukawa/popcornwave/pwsession"
 	"sync"
 	"time"
 
@@ -34,8 +46,11 @@ import (
 	"github.com/shibukawa/popcornwave/contrib/passkey"
 	"github.com/shibukawa/popcornwave/internal/pathpattern"
 	"github.com/shibukawa/popcornwave/internal/requestorigin"
-	"github.com/shibukawa/popcornwave/pw"
+	"github.com/shibukawa/popcornwave/pwconfig"
+	"github.com/shibukawa/popcornwave/pwextension"
+	"github.com/shibukawa/popcornwave/pwruntime"
 	"github.com/shibukawa/popcornwave/session"
+	"github.com/shibukawa/popcornwave/sessionconfig"
 )
 
 // Authentication method names recorded on a session and reported by
@@ -60,18 +75,28 @@ func (rt *runtime) admissionFor() admissionRule {
 // auth state table.
 const stateNamespace = "auth-oidc"
 
+// authFastPackage is where this capability is served on the second transport.
+// It is a string rather than an import, because importing it from here would
+// put the fasthttp runtime into every net/http build.
+const authFastPackage = "github.com/shibukawa/popcornwave/plugin/auth/authfast"
+
 func init() {
 	registerSessionSlot()
-	pw.RegisterExtension(pw.Extension{
-		Name:  "auth.endpoints",
-		Slot:  pw.SlotAuthentication,
-		Setup: setupAuthentication,
-		Close: closeRuntime,
+	// Both name the fasthttp half, so a build serving on that transport leaves
+	// them alone: authfast.Setup performs this startup and installs the frames
+	// there, and doing it from here as well would build the runtime twice.
+	pwextension.Register(pwextension.Extension{
+		Name:            "auth.endpoints",
+		Slot:            pwruntime.SlotAuthentication,
+		Setup:           setupAuthentication,
+		Close:           closeRuntime,
+		SecondTransport: authFastPackage,
 	})
-	pw.RegisterExtension(pw.Extension{
-		Name:  "auth.guard",
-		Slot:  pw.SlotGuard,
-		Setup: setupGuard,
+	pwextension.Register(pwextension.Extension{
+		Name:            "auth.guard",
+		Slot:            pwruntime.SlotGuard,
+		Setup:           setupGuard,
+		SecondTransport: authFastPackage,
 	})
 }
 
@@ -92,7 +117,7 @@ type runtime struct {
 	// it on. It carries no authority; see SignInHint.
 	hint         *session.Jar[SignInHint]
 	allowlist    AllowlistStore
-	cookiePolicy pw.SessionCookieConfig
+	cookiePolicy sessionconfig.SessionCookieConfig
 	include      []pathpattern.Pattern
 	exclude      []pathpattern.Pattern
 	// accounts re-reads the account behind a live session, so that suspending
@@ -175,17 +200,61 @@ func activeRuntime() *runtime {
 // deployment that never set APP_ENV lands on "dev" by default, and that is
 // exactly the deployment that should hear this.
 func unrevocableSessionBackend(backend string, development bool) string {
-	if backend != pw.SessionBackendCookie || development {
+	if backend != sessionconfig.SessionBackendCookie || development {
 		return ""
 	}
 	return "session.backend = cookie keeps the login in the browser, so logout and account suspension cannot end a " +
 		"session that was already issued; use rdb, redis, or dynamo where sessions must end on demand"
 }
 
-func setupAuthentication(ctx context.Context) (pw.Middleware, error) {
+// A Step is the transport-free authentication frame.
+//
+// It finalizes the request authentication, serves the login endpoints, and
+// calls next for every request neither of those answered. Each transport wraps
+// one in its own middleware shape, which is the whole of what differs.
+type Step func(x Exchange, next func())
+
+// setupAuthentication is the net/http extension's Setup. It wraps the neutral
+// step in this transport's middleware shape and nothing else.
+func setupAuthentication(ctx context.Context) (pwextension.Middleware, error) {
+	step, err := Setup(ctx)
+	if err != nil || step == nil {
+		return nil, err
+	}
+	return httpFrame(step), nil
+}
+
+// Endpoints returns the authentication step of the runtime this process already
+// installed, or nil when auth is disabled or no setup has run.
+//
+// It is how a second transport serves the same login as the first without a
+// second startup. Calling Setup again would open a second set of stores, start
+// a second expiry sweep, and leave the first runtime's serving closures pointed
+// at storage nothing sweeps; reading what is installed shares one runtime, which
+// is what a deployment serving two transports actually has.
+func Endpoints() Step {
+	instance := activeRuntime()
+	if instance == nil {
+		return nil
+	}
+	if instance.config.usesJWT() {
+		return instance.serveBearer
+	}
+	return instance.serve
+}
+
+// Setup validates the configuration, opens the state this package owns, and
+// returns the authentication step, or nil when auth is disabled.
+//
+// An application normally never calls it: importing this package registers the
+// framework extension that does. It is exported for a transport that assembles
+// its own chain rather than reading the extension registry, which is what the
+// fasthttp half does. Calling it twice replaces the runtime, so one process
+// calls it once.
+func Setup(ctx context.Context) (Step, error) {
 	replaceRuntime(nil)
 
-	config := pw.Config[Config](ctx)
+	config := pwruntime.ResolveConfig[Config](ctx)
 	if !config.Enabled {
 		return nil, nil
 	}
@@ -201,17 +270,17 @@ func setupAuthentication(ctx context.Context) (pw.Middleware, error) {
 		// mode opens. It branches before all of it.
 		return setupBearer(ctx, config)
 	}
-	sessionConfig := pw.Config[pw.SessionConfig](ctx)
+	sessionConfig := pwruntime.ResolveConfig[sessionconfig.SessionConfig](ctx)
 	if !sessionConfig.Enabled {
 		return nil, errors.New("auth requires session.enabled = true")
 	}
-	if warning := unrevocableSessionBackend(sessionConfig.Backend, pw.Development()); warning != "" {
-		pw.Logger(ctx).Log(ctx, pw.LevelWarn, "sessions cannot be ended on demand",
-			pw.String("setting", "session.backend"),
-			pw.String("environment", pw.Env()),
-			pw.String("consequence", warning))
+	if warning := unrevocableSessionBackend(sessionConfig.Backend, pwconfig.Development()); warning != "" {
+		pwruntime.ReadLogger(ctx).Log(ctx, pwruntime.LevelWarn, "sessions cannot be ended on demand",
+			pwruntime.String("setting", "session.backend"),
+			pwruntime.String("environment", pwconfig.Env()),
+			pwruntime.String("consequence", warning))
 	}
-	manager := pw.SessionManager()
+	manager := pwsession.Manager()
 	if manager == nil {
 		return nil, errors.New("auth requires session.enabled = true")
 	}
@@ -239,7 +308,7 @@ func setupAuthentication(ctx context.Context) (pw.Middleware, error) {
 	// The declared origins below stay the strong half of the comparison; this
 	// only resolves what this deployment calls itself, which behind a
 	// TLS-terminating proxy is not what r.TLS says.
-	proxies, err := requestorigin.Compile(pw.Config[pw.ServerConfig](ctx).TrustedProxies)
+	proxies, err := requestorigin.Compile(pwruntime.ResolveConfig[pwconfig.ServerConfig](ctx).TrustedProxies)
 	if err != nil {
 		return nil, fmt.Errorf("server.trusted_proxies %w", err)
 	}
@@ -273,7 +342,7 @@ func setupAuthentication(ctx context.Context) (pw.Middleware, error) {
 	// pruner and the goroutine idles.
 	go instance.prune()
 	replaceRuntime(instance)
-	return instance.authenticate, nil
+	return instance.serve, nil
 }
 
 // replaceRuntime installs instance and releases the runtime it replaces.
@@ -317,12 +386,12 @@ func (rt *runtime) prune() {
 	}
 }
 
-func setupGuard(context.Context) (pw.Middleware, error) {
+func setupGuard(context.Context) (pwextension.Middleware, error) {
 	instance := activeRuntime()
 	if instance == nil || len(instance.include) == 0 {
 		return nil, nil
 	}
-	return instance.guard, nil
+	return httpFrame(instance.guard), nil
 }
 
 // closeRuntime stops the expiry sweep and closes an owned backend client
@@ -331,9 +400,4 @@ func setupGuard(context.Context) (pw.Middleware, error) {
 func closeRuntime(context.Context) error {
 	replaceRuntime(nil)
 	return nil
-}
-
-func writeUnavailable(w http.ResponseWriter, r *http.Request, err error) {
-	pw.Logger(r.Context()).Log(r.Context(), pw.LevelError, "session backend unavailable", pw.Err(err))
-	pw.WriteProblem(w, r, pw.ServiceUnavailable())
 }

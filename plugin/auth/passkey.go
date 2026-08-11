@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	"encoding/base64"
@@ -13,7 +14,7 @@ import (
 	"time"
 
 	"github.com/shibukawa/popcornwave/contrib/passkey"
-	"github.com/shibukawa/popcornwave/pw"
+	"github.com/shibukawa/popcornwave/pwruntime"
 )
 
 // passkeyStateNamespace isolates ceremony records from the OIDC correlation
@@ -109,108 +110,108 @@ func (rt *runtime) setupPasskey(ctx context.Context) error {
 }
 
 // handlePasskey dispatches one ceremony endpoint. suffix names which one.
-func (rt *runtime) handlePasskey(w http.ResponseWriter, r *http.Request, suffix string) {
-	if !allowMethod(w, r, http.MethodPost) {
+func (rt *runtime) handlePasskey(x Exchange, suffix string) {
+	if !allowMethod(x, http.MethodPost) {
 		return
 	}
 	// A ceremony changes state, so it is refused cross-origin. The JSON content
 	// type a browser must send is itself unreachable from a simple form post.
-	if !rt.sameOrigin(r) {
-		pw.WriteProblem(w, r, pw.Forbidden())
+	if !rt.sameOrigin(x) {
+		x.Problem(pwruntime.Forbidden())
 		return
 	}
 	switch suffix {
 	case loginBeginSuffix:
-		rt.handlePasskeyLoginBegin(w, r)
+		rt.handlePasskeyLoginBegin(x)
 	case loginFinishSuffix:
-		rt.handlePasskeyLoginFinish(w, r)
+		rt.handlePasskeyLoginFinish(x)
 	case registerBeginSuffix:
-		rt.handlePasskeyRegisterBegin(w, r)
+		rt.handlePasskeyRegisterBegin(x)
 	case registerFinishSuffix:
-		rt.handlePasskeyRegisterFinish(w, r)
+		rt.handlePasskeyRegisterFinish(x)
 	case bootstrapSuffix:
-		rt.handleBootstrap(w, r)
+		rt.handleBootstrap(x)
 	default:
-		pw.WriteProblem(w, r, pw.NotFound())
+		x.Problem(pwruntime.NotFound())
 	}
 }
 
-func (rt *runtime) handlePasskeyLoginBegin(w http.ResponseWriter, r *http.Request) {
-	options, key, err := rt.passkeyFlow.BeginAuthentication(r.Context(), nil, passkey.AuthenticationOptions{
+func (rt *runtime) handlePasskeyLoginBegin(x Exchange) {
+	options, key, err := rt.passkeyFlow.BeginAuthentication(x.Context(), nil, passkey.AuthenticationOptions{
 		RequireUserVerification: rt.config.Passkey.UserVerification == UserVerificationRequired,
 	})
 	if err != nil {
-		pw.Logger(r.Context()).Log(r.Context(), pw.LevelError, "passkey authentication could not start", pw.Err(err))
-		pw.WriteProblem(w, r, pw.ServiceUnavailable())
+		logger(x).Log(x.Context(), pwruntime.LevelError, "passkey authentication could not start", pwruntime.Err(err))
+		x.Problem(pwruntime.ServiceUnavailable())
 		return
 	}
-	rt.writeCeremonyCookie(w, key)
-	writeCeremonyJSON(w, r, options)
+	rt.writeCeremonyCookie(x, key)
+	writeCeremonyJSON(x, options)
 }
 
-func (rt *runtime) handlePasskeyLoginFinish(w http.ResponseWriter, r *http.Request) {
-	key, ok := rt.takeCeremonyCookie(w, r)
+func (rt *runtime) handlePasskeyLoginFinish(x Exchange) {
+	key, ok := rt.takeCeremonyCookie(x)
 	if !ok {
-		pw.WriteProblem(w, r, pw.BadRequest())
+		x.Problem(pwruntime.BadRequest())
 		return
 	}
 	var response passkey.AuthenticationCredential
-	if !decodeCeremonyJSON(w, r, &response) {
+	if !decodeCeremonyJSON(x, &response) {
 		return
 	}
 	credentialID, err := base64.RawURLEncoding.DecodeString(response.RawID)
 	if err != nil || len(credentialID) == 0 {
-		pw.WriteProblem(w, r, pw.BadRequest())
+		x.Problem(pwruntime.BadRequest())
 		return
 	}
 
 	// One response shape covers an unknown credential, a rejected assertion,
 	// and an unusable account, so a failed login reveals nothing about which.
-	stored, err := rt.credentials.Find(r.Context(), credentialID)
+	stored, err := rt.credentials.Find(x.Context(), credentialID)
 	if err != nil {
-		rt.refuseCeremony(w, r, "passkey credential lookup failed", err, ErrUnknownCredential)
+		rt.refuseCeremony(x, "passkey credential lookup failed", err, ErrUnknownCredential)
 		return
 	}
-	result, err := rt.passkeyFlow.FinishAuthentication(r.Context(), key, response, stored.record())
+	result, err := rt.passkeyFlow.FinishAuthentication(x.Context(), key, response, stored.record())
 	if err != nil {
-		rt.refuseCeremony(w, r, "passkey assertion rejected", err, nil)
+		rt.refuseCeremony(x, "passkey assertion rejected", err, nil)
 		return
 	}
 	if result.CounterRisk {
 		// The counter did not advance, which is what a cloned authenticator
 		// looks like. An authenticator that keeps no counter reports zero on
 		// both sides and never reaches here.
-		pw.Logger(r.Context()).Log(r.Context(), pw.LevelWarn, "passkey signature counter did not advance", pw.String("account", stored.AccountID))
-		pw.WriteProblem(w, r, pw.Forbidden())
+		logger(x).Log(x.Context(), pwruntime.LevelWarn, "passkey signature counter did not advance", pwruntime.String("account", stored.AccountID))
+		x.Problem(pwruntime.Forbidden())
 		return
 	}
 	now := time.Now()
-	if err := rt.credentials.UpdateOnAssertion(r.Context(), credentialID, result.SignCount, result.BackupState, now); err != nil {
-		pw.Logger(r.Context()).Log(r.Context(), pw.LevelError, "passkey counter could not be persisted", pw.Err(err))
-		pw.WriteProblem(w, r, pw.ServiceUnavailable())
+	if err := rt.credentials.UpdateOnAssertion(x.Context(), credentialID, result.SignCount, result.BackupState, now); err != nil {
+		logger(x).Log(x.Context(), pwruntime.LevelError, "passkey counter could not be persisted", pwruntime.Err(err))
+		x.Problem(pwruntime.ServiceUnavailable())
 		return
 	}
 
-	account, err := lookupAccount(r.Context(), stored.AccountID)
+	account, err := lookupAccount(x.Context(), stored.AccountID)
 	if err != nil {
-		rt.refuseCeremony(w, r, "passkey account lookup failed", err, ErrAccessDenied)
+		rt.refuseCeremony(x, "passkey account lookup failed", err, ErrAccessDenied)
 		return
 	}
 	if account.Suspended {
-		pw.WriteProblem(w, r, pw.Forbidden())
+		x.Problem(pwruntime.Forbidden())
 		return
 	}
 	// Rotation revokes whatever the browser held before this authentication.
-	if err := rt.establish(w, r, SessionData{
+	if err := rt.establish(x, SessionData{
 		AccountID:   account.ID,
 		DisplayName: account.DisplayName,
 		Email:       account.Email,
 	}, MethodPasskey); err != nil {
-		pw.Logger(r.Context()).Log(r.Context(), pw.LevelError, "session creation failed", pw.Err(err))
-		pw.WriteProblem(w, r, pw.ServiceUnavailable())
+		logger(x).Log(x.Context(), pwruntime.LevelError, "session creation failed", pwruntime.Err(err))
+		x.Problem(pwruntime.ServiceUnavailable())
 		return
 	}
-	writeCeremonyJSON(w, r, map[string]string{"landing": rt.config.PostLoginPath})
+	writeCeremonyJSON(x, map[string]string{"landing": rt.config.PostLoginPath})
 }
 
 // enroller names who is allowed to finish a registration: an authenticated
@@ -245,15 +246,15 @@ func (e enroller) binding() []byte {
 // resolveEnroller admits an authenticated session with recent proof, and
 // otherwise a restricted enrollment ticket. It never admits both at once: a
 // ticket is the entry point of an account that has no session yet.
-func (rt *runtime) resolveEnroller(w http.ResponseWriter, r *http.Request, consume bool) (enroller, bool) {
-	if view, ok := Session(r.Context()); ok {
+func (rt *runtime) resolveEnroller(x Exchange, consume bool) (enroller, bool) {
+	if view, ok := Session(x.Context()); ok {
 		// Adding a login method is an authentication-strength change, so it
 		// needs proof that is recent rather than merely valid. Going through
 		// the guard rather than comparing timestamps here gives the refusal a
 		// way back: these are JSON endpoints, so the challenge names what was
 		// missing instead of redirecting a fetch into a login page.
-		if !IsRecent(r, Default()) {
-			Challenge(w, r, Default(), true)
+		if !IsRecentOn(x, Default()) {
+			ChallengeOn(x, Default(), true)
 			return enroller{}, false
 		}
 		return enroller{accountID: view.AccountID, label: displayOrAccount(view)}, true
@@ -263,31 +264,31 @@ func (rt *runtime) resolveEnroller(w http.ResponseWriter, r *http.Request, consu
 		if consume {
 			take = rt.takeEnrollmentTicket
 		}
-		if ticket, ok := take(w, r); ok {
+		if ticket, ok := take(x); ok {
 			return enroller{accountID: ticket.AccountID, label: ticket.AccountID, ticket: ticket, first: true}, true
 		}
 	}
-	pw.WriteProblem(w, r, pw.Unauthorized())
+	x.Problem(pwruntime.Unauthorized())
 	return enroller{}, false
 }
 
-func (rt *runtime) handlePasskeyRegisterBegin(w http.ResponseWriter, r *http.Request) {
-	who, ok := rt.resolveEnroller(w, r, false)
+func (rt *runtime) handlePasskeyRegisterBegin(x Exchange) {
+	who, ok := rt.resolveEnroller(x, false)
 	if !ok {
 		return
 	}
-	existing, err := rt.credentials.ListByAccount(r.Context(), who.accountID)
+	existing, err := rt.credentials.ListByAccount(x.Context(), who.accountID)
 	if err != nil {
-		pw.Logger(r.Context()).Log(r.Context(), pw.LevelError, "passkey credential listing failed", pw.Err(err))
-		pw.WriteProblem(w, r, pw.ServiceUnavailable())
+		logger(x).Log(x.Context(), pwruntime.LevelError, "passkey credential listing failed", pwruntime.Err(err))
+		x.Problem(pwruntime.ServiceUnavailable())
 		return
 	}
 	handle, err := accountUserHandle(existing)
 	if err != nil {
-		pw.WriteProblem(w, r, pw.InternalServerError(err))
+		x.Problem(pwruntime.InternalServerError(err))
 		return
 	}
-	options, key, err := rt.passkeyFlow.BeginRegistration(r.Context(), passkey.User{
+	options, key, err := rt.passkeyFlow.BeginRegistration(x.Context(), passkey.User{
 		ID:          handle,
 		Name:        who.label,
 		DisplayName: who.label,
@@ -298,34 +299,34 @@ func (rt *runtime) handlePasskeyRegisterBegin(w http.ResponseWriter, r *http.Req
 		Binding:                 who.binding(),
 	})
 	if err != nil {
-		pw.Logger(r.Context()).Log(r.Context(), pw.LevelError, "passkey registration could not start", pw.Err(err))
-		pw.WriteProblem(w, r, pw.ServiceUnavailable())
+		logger(x).Log(x.Context(), pwruntime.LevelError, "passkey registration could not start", pwruntime.Err(err))
+		x.Problem(pwruntime.ServiceUnavailable())
 		return
 	}
-	rt.writeCeremonyCookie(w, key)
-	writeCeremonyJSON(w, r, options)
+	rt.writeCeremonyCookie(x, key)
+	writeCeremonyJSON(x, options)
 }
 
-func (rt *runtime) handlePasskeyRegisterFinish(w http.ResponseWriter, r *http.Request) {
-	who, ok := rt.resolveEnroller(w, r, true)
+func (rt *runtime) handlePasskeyRegisterFinish(x Exchange) {
+	who, ok := rt.resolveEnroller(x, true)
 	if !ok {
 		return
 	}
-	key, ok := rt.takeCeremonyCookie(w, r)
+	key, ok := rt.takeCeremonyCookie(x)
 	if !ok {
-		pw.WriteProblem(w, r, pw.BadRequest())
+		x.Problem(pwruntime.BadRequest())
 		return
 	}
 	var response passkey.RegistrationCredential
-	if !decodeCeremonyJSON(w, r, &response) {
+	if !decodeCeremonyJSON(x, &response) {
 		return
 	}
 	// The binding is what ties this credential to the account that began the
 	// ceremony rather than the one authenticated now. A mismatch is refused
 	// like any other rejected ceremony.
-	result, err := rt.passkeyFlow.FinishRegistration(r.Context(), key, who.binding(), response)
+	result, err := rt.passkeyFlow.FinishRegistration(x.Context(), key, who.binding(), response)
 	if err != nil {
-		rt.refuseCeremony(w, r, "passkey registration rejected", err, nil)
+		rt.refuseCeremony(x, "passkey registration rejected", err, nil)
 		return
 	}
 	credential := credentialFrom(result.Credential, who.accountID, time.Now())
@@ -333,41 +334,41 @@ func (rt *runtime) handlePasskeyRegisterFinish(w http.ResponseWriter, r *http.Re
 		// The first credential of a passkey_only account persists, activates,
 		// and consumes the bootstrap credential as one unit, then trades the
 		// restricted ticket for a normal session.
-		if !rt.completeBootstrapEnrollment(w, r, who.ticket, credential) {
+		if !rt.completeBootstrapEnrollment(x, who.ticket, credential) {
 			return
 		}
 	} else {
-		if err := rt.credentials.Save(r.Context(), credential, nil); err != nil {
-			pw.Logger(r.Context()).Log(r.Context(), pw.LevelError, "passkey credential could not be persisted", pw.Err(err))
-			pw.WriteProblem(w, r, pw.ServiceUnavailable())
+		if err := rt.credentials.Save(x.Context(), credential, nil); err != nil {
+			logger(x).Log(x.Context(), pwruntime.LevelError, "passkey credential could not be persisted", pwruntime.Err(err))
+			x.Problem(pwruntime.ServiceUnavailable())
 			return
 		}
 		// The account can now authenticate a new way, so the session it did
 		// that from is replaced rather than carried forward.
-		view, _ := Session(r.Context())
-		if err := rt.establish(w, r, view, view.Method); err != nil {
-			pw.Logger(r.Context()).Log(r.Context(), pw.LevelError, "session rotation failed", pw.Err(err))
-			pw.WriteProblem(w, r, pw.ServiceUnavailable())
+		view, _ := Session(x.Context())
+		if err := rt.establish(x, view, view.Method); err != nil {
+			logger(x).Log(x.Context(), pwruntime.LevelError, "session rotation failed", pwruntime.Err(err))
+			x.Problem(pwruntime.ServiceUnavailable())
 			return
 		}
 	}
-	writeCeremonyJSON(w, r, map[string]string{
+	writeCeremonyJSON(x, map[string]string{
 		"credential_id": base64.RawURLEncoding.EncodeToString(credential.CredentialID),
 	})
 }
 
 // refuseCeremony answers every ceremony failure the same way. expected names an
 // error that is an ordinary refusal rather than a fault worth an error log.
-func (rt *runtime) refuseCeremony(w http.ResponseWriter, r *http.Request, message string, err, expected error) {
-	logger := pw.Logger(r.Context())
+func (rt *runtime) refuseCeremony(x Exchange, message string, err, expected error) {
+	logger := logger(x)
 	if expected != nil && errors.Is(err, expected) {
-		logger.Log(r.Context(), pw.LevelWarn, message)
+		logger.Log(x.Context(), pwruntime.LevelWarn, message)
 	} else {
 		// The error itself carries no challenge, credential ID, or handle;
 		// contrib/passkey returns sentinel values only.
-		logger.Log(r.Context(), pw.LevelWarn, message, pw.Err(err))
+		logger.Log(x.Context(), pwruntime.LevelWarn, message, pwruntime.Err(err))
 	}
-	pw.WriteProblem(w, r, pw.Forbidden())
+	x.Problem(pwruntime.Forbidden())
 }
 
 // accountUserHandle reuses the handle the account already has, so every
@@ -448,8 +449,8 @@ func (rt *runtime) ceremonyCookiePath() string {
 	return strings.TrimSuffix(rt.config.Passkey.Path, "/")
 }
 
-func (rt *runtime) writeCeremonyCookie(w http.ResponseWriter, key string) {
-	http.SetCookie(w, &http.Cookie{
+func (rt *runtime) writeCeremonyCookie(x Exchange, key string) {
+	x.SetCookie(&http.Cookie{
 		Name:     rt.ceremonyCookieName(),
 		Value:    key,
 		Path:     rt.ceremonyCookiePath(),
@@ -463,9 +464,9 @@ func (rt *runtime) writeCeremonyCookie(w http.ResponseWriter, key string) {
 
 // takeCeremonyCookie reads and immediately expires the pending ceremony cookie,
 // so one response can consume it only once.
-func (rt *runtime) takeCeremonyCookie(w http.ResponseWriter, r *http.Request) (string, bool) {
-	cookie, err := r.Cookie(rt.ceremonyCookieName())
-	http.SetCookie(w, &http.Cookie{
+func (rt *runtime) takeCeremonyCookie(x Exchange) (string, bool) {
+	value, present := requestCookie(x, rt.ceremonyCookieName())
+	x.SetCookie(&http.Cookie{
 		Name:     rt.ceremonyCookieName(),
 		Value:    "",
 		Path:     rt.ceremonyCookiePath(),
@@ -474,35 +475,36 @@ func (rt *runtime) takeCeremonyCookie(w http.ResponseWriter, r *http.Request) (s
 		HttpOnly: true,
 		SameSite: http.SameSiteStrictMode,
 	})
-	if err != nil || cookie == nil || cookie.Value == "" {
-		return "", false
-	}
-	return cookie.Value, true
+	return value, present
 }
 
-func decodeCeremonyJSON(w http.ResponseWriter, r *http.Request, target any) bool {
-	if contentType := r.Header.Get("Content-Type"); !strings.HasPrefix(contentType, "application/json") {
-		pw.WriteProblem(w, r, pw.BadRequest())
+func decodeCeremonyJSON(x Exchange, target any) bool {
+	if contentType := x.Header("Content-Type"); !strings.HasPrefix(contentType, "application/json") {
+		x.Problem(pwruntime.BadRequest())
 		return false
 	}
-	decoder := json.NewDecoder(io.LimitReader(r.Body, maxCeremonyBody))
+	body, err := x.Body(maxCeremonyBody)
+	if err != nil {
+		x.Problem(pwruntime.BadRequest())
+		return false
+	}
+	decoder := json.NewDecoder(bytes.NewReader(body))
 	decoder.DisallowUnknownFields()
 	if err := decoder.Decode(target); err != nil {
-		pw.WriteProblem(w, r, pw.BadRequest())
+		x.Problem(pwruntime.BadRequest())
 		return false
 	}
 	return true
 }
 
-func writeCeremonyJSON(w http.ResponseWriter, r *http.Request, payload any) {
+func writeCeremonyJSON(x Exchange, payload any) {
 	encoded, err := json.Marshal(payload)
 	if err != nil {
-		pw.WriteProblem(w, r, pw.InternalServerError(err))
+		x.Problem(pwruntime.InternalServerError(err))
 		return
 	}
-	w.Header().Set("Content-Type", "application/json")
+	x.SetHeader("Content-Type", "application/json")
 	// Ceremony options are single use, so nothing may keep a copy.
-	w.Header().Set("Cache-Control", "no-store")
-	w.WriteHeader(http.StatusOK)
-	_, _ = w.Write(encoded)
+	x.SetHeader("Cache-Control", "no-store")
+	x.Write(http.StatusOK, encoded)
 }

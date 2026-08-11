@@ -39,9 +39,8 @@ func boundPort(t *testing.T, listener net.Listener) int {
 // Two projects open at once is an ordinary development day, and the second one
 // used to get a bind failure and nothing served.
 func TestADevelopmentRunMovesOffAPortItCannotBind(t *testing.T) {
-	restoreEnvState(t)
 	recorded := captureProcessLog(t)
-	setEnv(EnvDevelopment, true)
+	swapEnvForTest(t, EnvDevelopment, true)
 	taken := heldPort(t)
 
 	listener, err := listenApplication(ServerConfig{Port: taken})
@@ -72,8 +71,7 @@ func TestADevelopmentRunMovesOffAPortItCannotBind(t *testing.T) {
 func TestEveryOtherEnvironmentBindsWhatItWasTold(t *testing.T) {
 	for _, environment := range []string{EnvStaging, EnvProduction, "live"} {
 		t.Run(environment, func(t *testing.T) {
-			restoreEnvState(t)
-			setEnv(environment, true)
+			swapEnvForTest(t, environment, true)
 			taken := heldPort(t)
 
 			listener, err := listenApplication(ServerConfig{Port: taken})
@@ -89,9 +87,8 @@ func TestEveryOtherEnvironmentBindsWhatItWasTold(t *testing.T) {
 // The shift is a recovery, not a policy: a development run that can have the
 // port it asked for takes it, and says nothing.
 func TestAFreePortIsBoundAsConfiguredAndInSilence(t *testing.T) {
-	restoreEnvState(t)
 	recorded := captureProcessLog(t)
-	setEnv(EnvDevelopment, true)
+	swapEnvForTest(t, EnvDevelopment, true)
 	// A port the operating system handed out and took back is the closest a test
 	// can get to one nothing holds.
 	probe, err := net.Listen("tcp", ":0")

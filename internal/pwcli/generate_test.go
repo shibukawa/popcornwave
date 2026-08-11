@@ -300,9 +300,12 @@ export component Document(children: html?): html {
 	}
 	document := string(changesByBase(changes)["document_pw_gen.go"].source)
 	for _, fragment := range []string{
-		`"github.com/shibukawa/popcornwave/pw"`,
+		// The shared leaf, so the file belongs to both builds: the registry is
+		// one process-wide table, and naming a runtime here would register the
+		// document in the half that is not serving.
+		`"github.com/shibukawa/popcornwave/pwruntime"`,
 		"func init()",
-		"pw.RegisterHTMLDocument(BindDocument(DocumentParams{}))",
+		"pwruntime.RegisterHTMLDocument(BindDocument(DocumentParams{}))",
 	} {
 		if !strings.Contains(document, fragment) {
 			t.Fatalf("document artifact is missing %q:\n%s", fragment, document)
@@ -337,9 +340,9 @@ export component Plain(label: string): html {
 	}
 	card := string(changesByBase(changes)["card_pw_gen.go"].source)
 	for _, fragment := range []string{
-		`"github.com/shibukawa/popcornwave/pw"`,
+		`"github.com/shibukawa/popcornwave/pwruntime"`,
 		"var CardReloadable = htmlupdate.Reloadable{",
-		"pw.RegisterReloadable(CardReloadable)",
+		"pwruntime.RegisterReloadable(CardReloadable)",
 	} {
 		if !strings.Contains(card, fragment) {
 			t.Fatalf("reloadable artifact is missing %q:\n%s", fragment, card)

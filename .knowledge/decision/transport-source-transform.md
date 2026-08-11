@@ -32,7 +32,11 @@ tagging_is_upstream_now:
     what: the generator writes its constraint one line below the generated-code header, where a check for a leading one misses it and adds a second; a file carrying two of them does not compile
     fixed_by: reading the whole header rather than the first line, and deferring to any constraint already present rather than reconciling with it
     second_defect_found: merging artifacts rebuilds a file from its declarations and dropped the header with it, so a constraint the generator emitted was silently lost; the merge now carries it and refuses artifacts that disagree
-    still_the_plan: this framework's application of the tag is deleted when the transform options are wired, and deferring is what makes the interval between the two safe rather than ordered
+    settled_2026_08_11:
+      was_the_plan: delete this framework's application of the tag once the transform options were wired, on the reading that the generator would then own it entirely
+      what_wiring_it_showed: the generator emits the constraint from the entry point that writes files, and this framework generates through the one that returns artifacts, which emits it on neither half
+      so: the derived handlers arrive already carrying the including tag and are left alone, and the excluding tag on the net/http half is still this framework's to apply, per file and by its imports
+      deferring_was_the_right_shape_anyway: it is what lets the two coexist rather than needing to be ordered
 generated_body_is_a_copy:
   fact: the emitted handler carries a rewritten copy of the authored statements
   cost: a panic or a profile points at generated source rather than at the authored file

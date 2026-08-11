@@ -1,9 +1,11 @@
 package pwcli
 
 import (
+	"bytes"
 	"fmt"
 	"go/parser"
 	"go/token"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"sort"
@@ -57,25 +59,7 @@ func planPageTrees(root string, config projectConfig) (map[string][]generator.Ar
 		if err != nil {
 			return nil, err
 		}
-		// GenerateTree rather than Generate: the latter is documented as the
-		// variant that discards the extracted assets, and a page declaring a
-		// script block through it produced a reference to a file that answered
-		// 404. The URL base travels too, or every tree asset would be compiled
-		// against the module default regardless of where this writes them.
-		result, err := routetree.GenerateTree(routetree.GenerateOptions{
-			Config:          pwgen.PageConfig(treeRoot, importBase),
-			Emitter:         emitter,
-			ComponentSuffix: pwgen.PageComponentSuffix,
-			DecoderOutput:   pwgen.PageDecoderOutput,
-			RegistryOutput:  pwgen.PageRegistryOutput,
-			PublicURLBase:   generator.DefaultPublicURLBase,
-			// Threaded rather than left to the default. Both paths happen to use
-			// the module default today, which is why one document has held one
-			// spelling; passing it is what keeps that true if this framework ever
-			// brands the prefix, instead of a page tree quietly taking the
-			// default while a registered-router template took the brand.
-			DataAttributePrefix: pwgen.AttributePrefix(),
-		})
+		result, err := generatePageTree(treeRoot, importBase, emitter)
 		if err != nil {
 			return nil, fmt.Errorf("%s: %w", relative, err)
 		}
@@ -111,6 +95,210 @@ func planPageTrees(root string, config projectConfig) (map[string][]generator.Ar
 	}
 	return planned, nil
 }
+
+// GenerateTree rather than Generate: the latter is documented as the variant
+// that discards the extracted assets, and a page declaring a script block
+// through it produced a reference to a file that answered 404.
+//
+// Two options travel that the tree used to take by omission. The URL base, or
+// every tree asset is compiled against the module default regardless of where
+// this writes them. And the attribute prefix — both paths happen to use the
+// module default today, which is why one document has held one spelling, and
+// passing it is what keeps that true if this framework ever brands the prefix
+// rather than leaving a page tree quietly on the default.
+func generatePageTree(treeRoot, importBase string, emitter *routetree.Emitter) (routetree.Result, error) {
+	return routetree.GenerateTree(routetree.GenerateOptions{
+		Config:              pwgen.PageConfig(treeRoot, importBase),
+		Emitter:             emitter,
+		ComponentSuffix:     pwgen.PageComponentSuffix,
+		DecoderOutput:       pwgen.PageDecoderOutput,
+		RegistryOutput:      pwgen.PageRegistryOutput,
+		PublicURLBase:       generator.DefaultPublicURLBase,
+		DataAttributePrefix: pwgen.AttributePrefix(),
+	})
+}
+
+// planSecondBuildPages is the second transport's page tree step of one run.
+//
+// It exists to hold the three cases apart, because they are decided by facts
+// this step does not otherwise see: whether the project declares the second
+// build, and whether the run is allowed to write.
+func planSecondBuildPages(root string, config projectConfig, check bool, changes []fileChange) ([]fileChange, error) {
+	if !config.FastHTTP {
+		// Sweeping runs whether or not the declaration holds. Turning it off has
+		// to take these files with it, or the tree keeps a half that compiles
+		// under a tag nothing writes for any more.
+		return planFastPageTrees(root, config, false, changes)
+	}
+	if check {
+		// Check mode writes nothing, so it can only judge this step when its
+		// input is already current. With anything still to write, the project is
+		// stale whatever this step would find, and running it against the tree as
+		// it stands would report the absence of a handler this run was about to
+		// generate rather than the staleness that actually holds.
+		if len(changes) > 0 {
+			return changes, nil
+		}
+		return planFastPageTrees(root, config, true, changes)
+	}
+	if len(changes) > 0 {
+		// This step reads the derived handlers the stages above produced, so what
+		// they planned is written before it looks.
+		if err := applyFileChanges(changes); err != nil {
+			return nil, err
+		}
+	}
+	return planFastPageTrees(root, config, true, changes)
+}
+
+// planFastPageTrees plans the second transport's copy of every page tree, and
+// sweeps whatever it no longer produces.
+//
+// It runs after the derived handlers are on disk, and that ordering is the
+// whole reason it is a step of its own rather than part of planPageTrees. A
+// server action is discovered by its signature, so the fasthttp-shaped one this
+// emitter looks for is generated code: run any earlier and a tree declaring an
+// action is refused for want of a handler that this run had not written yet.
+//
+// A page tree is not transport-shaped throughout. A compiled component renders
+// into an io.Writer and names nothing about the request, so both emitters
+// produce it byte for byte; the route decoder and the registry read the request
+// and install on a router, so both are per transport. Emitting the whole tree
+// twice and comparing is what decides which is which, rather than a list of file
+// names kept in agreement with an emitter this framework does not own — and it
+// is why the net/http tree is generated again here rather than carried down from
+// the first pass, which would tie this step to how that one happened to group
+// its output.
+func planFastPageTrees(root string, config projectConfig, derive bool, changes []fileChange) ([]fileChange, error) {
+	if len(config.Generate.Pages) == 0 {
+		return changes, nil
+	}
+	module, moduleDir, err := moduleImportPath(root)
+	if err != nil {
+		return nil, err
+	}
+	for _, relative := range config.Generate.Pages {
+		treeRoot := filepath.Join(root, filepath.FromSlash(relative))
+		expected := map[string]bool{}
+		if derive {
+			importBase, err := treeImportPath(module, moduleDir, treeRoot)
+			if err != nil {
+				return nil, err
+			}
+			derived, err := deriveTreeFor(treeRoot, importBase)
+			if err != nil {
+				return nil, fmt.Errorf("%s: %w", relative, err)
+			}
+			for _, file := range derived {
+				expected[file.Path] = true
+				changes, err = appendIfChanged(changes, file.Path, file.Source)
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
+		changes, err = sweepFastPages(treeRoot, expected, changes)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return changes, nil
+}
+
+// deriveTreeFor emits one tree for both transports and returns the second
+// transport's half: the files the two emitters did not agree on, named apart
+// and constrained to the build that compiles them.
+func deriveTreeFor(treeRoot, importBase string) ([]routetree.Generated, error) {
+	netHTTP, err := pwgen.PageEmitter()
+	if err != nil {
+		return nil, err
+	}
+	fastHTTP, err := pwgen.FastPageEmitter()
+	if err != nil {
+		return nil, err
+	}
+	shared, err := generatePageTree(treeRoot, importBase, netHTTP)
+	if err != nil {
+		return nil, err
+	}
+	files, err := generatePageTree(treeRoot, importBase, fastHTTP)
+	if err != nil {
+		return nil, err
+	}
+	// The Go only. A tree's extracted assets are transport-independent — one
+	// file, one URL, compiled from one template — so the second build reuses
+	// what the first already planned rather than writing them twice.
+	out := make([]routetree.Generated, 0, len(files.Files))
+	for _, file := range files.Files {
+		if same(shared.Files, file) {
+			continue
+		}
+		out = append(out, routetree.Generated{
+			Path:   fastPagePath(file.Path),
+			Source: append([]byte(fastHTTPConstraint), file.Source...),
+		})
+	}
+	return out, nil
+}
+
+// same reports whether the other emitter produced this file identically, which
+// makes it the shared one rather than the second transport's.
+func same(shared []routetree.Generated, file routetree.Generated) bool {
+	for _, candidate := range shared {
+		if candidate.Path == file.Path {
+			return bytes.Equal(candidate.Source, file.Source)
+		}
+	}
+	return false
+}
+
+// sweepFastPages deletes what this step used to produce and no longer does.
+//
+// The per-directory sweep cannot do it: it runs before this step and would
+// delete every one of these files on every run, so it spares them by name and
+// the producer cleans up after itself instead.
+func sweepFastPages(treeRoot string, expected map[string]bool, changes []fileChange) ([]fileChange, error) {
+	err := filepath.WalkDir(treeRoot, func(path string, entry fs.DirEntry, err error) error {
+		switch {
+		case err != nil:
+			return err
+		case entry.IsDir(), !isFastPagePath(path), expected[path]:
+			return nil
+		}
+		changes = append(changes, fileChange{path: path, remove: true})
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return changes, nil
+}
+
+// fastHTTPConstraint admits a generated file into the fasthttp build alone. It
+// is the counterpart of netHTTPConstraint, and is written the same way: above
+// the generated-code header, with the blank line that keeps it a constraint
+// rather than an ordinary comment.
+const fastHTTPConstraint = "//go:build fasthttp\n\n"
+
+// fastPagePath is where the second transport's copy of one page tree file goes.
+//
+// The infix goes before the generated suffix rather than after, so the file
+// still ends the way every generated file in a project does: the .gitignore, the
+// editor rules, and the staleness sweep all key on that suffix and none of them
+// needs to learn a second one.
+func fastPagePath(path string) string {
+	directory, name := filepath.Split(path)
+	return filepath.Join(directory,
+		strings.TrimSuffix(name, pwgen.PageComponentSuffix)+fastPageSuffix)
+}
+
+func isFastPagePath(path string) bool {
+	return strings.HasSuffix(filepath.Base(path), fastPageSuffix)
+}
+
+// fastPageSuffix ends every file the second transport's page tree run writes,
+// and nothing else.
+const fastPageSuffix = "_fast" + pwgen.PageComponentSuffix
 
 // withPageDirectories adds every directory a page tree writes into. A tree root
 // holding only subdirectories has no source the package walk would find, and it

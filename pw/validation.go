@@ -11,6 +11,9 @@ import (
 
 	"github.com/shibukawa/popcornwave/internal/requestorigin"
 	"github.com/shibukawa/popcornwave/middlewares"
+	"github.com/shibukawa/popcornwave/pwconfig"
+	"github.com/shibukawa/popcornwave/pwobservability"
+	"github.com/shibukawa/popcornwave/pwsession"
 )
 
 func validateRuntimeConfig(server ServerConfig, security SecurityConfig, middleware MiddlewareConfig, observability ObservabilityConfig) error {
@@ -91,7 +94,7 @@ func validateSessionConfig(config SessionConfig, env string, development bool) e
 	if config.Cookie.Secure {
 		return nil
 	}
-	sameSite, err := parseSessionSameSite(config.Cookie.SameSite)
+	sameSite, err := pwsession.ParseSameSite(config.Cookie.SameSite)
 	if err != nil {
 		return err
 	}
@@ -132,7 +135,7 @@ func validateQueryLogConfig(config QueryLogConfig) error {
 		"observability.query.level":      config.Level,
 		"observability.query.slow_level": config.SlowLevel,
 	} {
-		if _, err := parseQueryLevel(value); err != nil {
+		if _, err := pwobservability.ParseQueryLevel(value); err != nil {
 			return fmt.Errorf("%s %w", key, err)
 		}
 	}
@@ -163,7 +166,7 @@ func validateRDBConfig(config RDBConfig) error {
 	if !config.Enabled {
 		return nil
 	}
-	connections, err := resolveRDBConnections(config)
+	connections, err := pwconfig.ResolveConnections(config)
 	if err != nil {
 		return err
 	}
@@ -174,7 +177,7 @@ func validateRDBConfig(config RDBConfig) error {
 		if err := validateGroupName(connection.Group, key); err != nil {
 			return err
 		}
-		target, err := databaseTarget(connection.DSN)
+		target, err := pwconfig.Target(connection.DSN)
 		if err != nil {
 			return fmt.Errorf("%s.dsn: %w", key, err)
 		}
@@ -195,13 +198,13 @@ func validateRDBConfig(config RDBConfig) error {
 			return fmt.Errorf("%s: sqlite://:memory: cannot share a group, because each such DSN is a separate database", connectionKey(index))
 		}
 	}
-	if _, err := resolveDefaultGroup(config, connections); err != nil {
+	if _, err := pwconfig.ResolveDefaultGroup(config, connections); err != nil {
 		return err
 	}
-	if _, err := resolveWriteGroup(config, connections); err != nil {
+	if _, err := pwconfig.ResolveWriteGroup(config, connections); err != nil {
 		return err
 	}
-	if _, err := resolveMigrationGroup(config, connections); err != nil {
+	if _, err := pwconfig.ResolveMigrationGroup(config, connections); err != nil {
 		return err
 	}
 	return nil

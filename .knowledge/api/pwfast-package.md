@@ -44,9 +44,35 @@ live_converged_2026_08_10:
   what_moved: the close reasons and media type, the lifetime jitter and watchdog, the per-client admission count, the keyed delivery digest and its per-process fallback, the manifest parse, and the four record writers
   what_each_runtime_keeps: setting response headers, obtaining a writer that flushes, naming the client for admission, and answering a pre-commit failure
   one_real_difference: the fasthttp body writer runs after the handler returned, so the loop reads nothing from the request value and is bounded by the watchdog rather than the request context; a client going away is noticed on the next write, which is the signal the other half falls back to once a record fails
+chain_completed_2026_08_10:
+  bootstrap: Middlewares, Run and Serve; Middlewares assembles the request path only, because framework initialization is transport-free and a deployment runs it once on whichever runtime binds configuration
+  refuses_without_settings: composing from zero values would give a chain with no recovery frame, no request ID and no security headers, which serves requests and looks like a chain
+  routing: ServeMux translating Go 1.22 patterns onto the vendored trie router, per api:serve-mux
+  frames: resources, client address, request ID, access log, recover, security headers, request timeout, max request body, public assets, session, CSRF, operational probes, API documentation, guard, and tracing
+  what_is_shared_rather_than_copied:
+    - the slot numbers and the composition, because a chain running in a different order on one transport is a different application
+    - the session resolution, because two implementations of when a token rotates are two chances to leave one valid that should have ended
+    - the origin comparison, the path canonicalisation, and the include-over-exclude precedence, each of which fails by accepting a request it should have refused
+    - the static asset path check, because two implementations of which names may be served are two chances to serve one that must not be
+    - the span query redaction, because a trace backend is retained longer and read more widely than the application database
+    - the readiness probe, because readiness is a fact about the process rather than about the request that asked
+  value_propagation: RequestCtx.Value answers from the store SetUserValue writes to, so every reader in the shared leaf already worked and only the write side needed anything
+  differences_recorded_rather_than_smoothed:
+    request_timeout: the other half deadlines the request context and everything downstream observes it; here the bound is the transport's, 408 to the client with the handler goroutine running to completion
+    recover: this half recovers more completely, because the response is buffered and a failed handler's partial body is still discardable
+    uri_normalisation: fasthttp normalises the request URI before a handler sees it, so a dot-segment path never reaches the asset check and misses the mount instead
+    header_case: the two canonicalise header names differently, Etag against ETag, which is why the shared test seam reads them case-insensitively
+identity_endpoints_2026_08_11:
+  where: popcornwave/plugin/auth/authfast, not here, because they belong to the plugin that owns the decisions rather than to the transport runtime
+  what_moved_instead: plugin/auth grew auth.Exchange, a transport seam, and every endpoint body was rewritten against it; both transports now drive one implementation of the login
+  this_half_supplies: pwfast.GuardPolicy, which RuntimeOptions already took, plus the Extra frame slot the authentication step is positioned in
+  no_second_login: two implementations of when a transaction cookie is consumed, or of which failures answer 403 rather than 400, would be two chances to leave a hole in one of them
+  covered: authfaste2e drives the OIDC round trip and the passkey ceremonies against a real provider and a real database, and authfastjwte2e drives the bearer mode; an agreement test asks both listeners the same question and compares status, body and headers
+  found_by_the_agreement_test: Redirect wrote no fallback body here, because this transport reports a default content type where net/http reports none, so the check for an unset one was never true
 absent_and_why:
   everything_absent_here: is absent rather than stubbed, per policy:absent-rather-than-stubbed
-  redirect: api:redirect-response has no net/http half yet either, so there is nothing here to mirror
+  extension_registry: none, because pwfast.Middlewares takes what it needs as arguments; a chain assembled from arguments cannot silently gain a frame because something was imported, and the Extra frames of RuntimeOptions are the seam, positioned by the same slot numbers
+  websocket: requirement:contrib-websocket is unstarted because the fork carries no websocket package, so it waits on a dependency decision rather than on work
 dependency_cost:
   added: the fasthttp fork brings a brotli encoder and a byte buffer pool into the module graph
   linking: unaffected for a project that imports neither package

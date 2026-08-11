@@ -52,7 +52,7 @@ func Load(id string) (string, error) { return id, nil }
 	return root
 }
 
-func generateIn(t *testing.T, root string) string {
+func generateIn(t *testing.T, root string, args ...string) string {
 	t.Helper()
 	previous, err := os.Getwd()
 	if err != nil {
@@ -64,8 +64,8 @@ func generateIn(t *testing.T, root string) string {
 	defer os.Chdir(previous)
 
 	var output strings.Builder
-	if err := runGenerate(context.Background(), nil, &output); err != nil {
-		t.Fatalf("generate: %v\n%s", err, output.String())
+	if err := runGenerate(context.Background(), args, &output); err != nil {
+		t.Fatalf("generate %v: %v\n%s", args, err, output.String())
 	}
 	return output.String()
 }
@@ -126,11 +126,13 @@ func TestRunGeneratePageTreeCallsTypedLoad(t *testing.T) {
 		t.Errorf("typed Load is not called with its route input:\n%s", registry)
 	}
 	decoder := readTestFile(t, filepath.Join(root, "pages", "users", "id_", "route_pw_gen.go"))
-	// Through the pw accessor rather than off the request: a method on the
-	// concrete net/http type is a call the fasthttp source transform cannot
-	// rewrite, so a decoder spelled r.PathValue would refuse the handler around
-	// it. Asserting the spelling is what keeps that regression visible here
-	// rather than in a fasthttp build nobody runs by default.
+	// Through the framework accessor rather than off the request value. That
+	// read is one no second transport can follow — fasthttp has no path routing
+	// of its own, so there is no method on its request to call — and routing
+	// both through pw is what lets one decoder template serve either.
+	//
+	// The spelling is asserted because a regression to r.PathValue compiles and
+	// passes everything except a fasthttp build, which nobody runs by default.
 	if !strings.Contains(decoder, `pw.PathValue(r, "id")`) {
 		t.Errorf("decoder does not read the dynamic segment:\n%s", decoder)
 	}

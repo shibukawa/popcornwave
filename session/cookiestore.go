@@ -96,28 +96,23 @@ func NewCookieStore(options CookieStoreOptions) (*CookieStore, error) {
 func (s *CookieStore) CookieName() string { return s.cookie.Name }
 
 // cookieCarrier is the request and response one store call works against.
-type cookieCarrier struct {
-	writer  http.ResponseWriter
-	request *http.Request
-}
-
 // carrierKey identifies one store's carrier, so two stores in one request
 // never read each other's cookie.
 type carrierKey struct{ store any }
 
 // BindRequest implements RequestBinder.
-func (s *CookieStore) BindRequest(ctx context.Context, w http.ResponseWriter, r *http.Request) context.Context {
+func (s *CookieStore) BindRequest(ctx context.Context, carrier Carrier) context.Context {
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	return context.WithValue(ctx, carrierKey{s}, &cookieCarrier{writer: w, request: r})
+	return context.WithValue(ctx, carrierKey{s}, carrier)
 }
 
-func (s *CookieStore) carrier(ctx context.Context) (*cookieCarrier, error) {
+func (s *CookieStore) carrier(ctx context.Context) (Carrier, error) {
 	if ctx == nil {
 		return nil, fmt.Errorf("%w: cookie store outside a request", ErrUnavailable)
 	}
-	carrier, ok := ctx.Value(carrierKey{s}).(*cookieCarrier)
+	carrier, ok := ctx.Value(carrierKey{s}).(Carrier)
 	if !ok || carrier == nil {
 		return nil, fmt.Errorf("%w: cookie store outside a request", ErrUnavailable)
 	}
@@ -133,7 +128,7 @@ func (s *CookieStore) Put(ctx context.Context, keyHash string, record RawRecord)
 	if err != nil {
 		return err
 	}
-	if carrier.writer == nil {
+	if !writable(carrier) {
 		return fmt.Errorf("%w: cookie store without a response", ErrUnavailable)
 	}
 	if len(record.Payload) == 0 {
@@ -152,7 +147,7 @@ func (s *CookieStore) Put(ctx context.Context, keyHash string, record RawRecord)
 		// look like a session that silently never starts.
 		return fmt.Errorf("%w: %d bytes; use a server-side store", ErrCookieTooLarge, len(encoded))
 	}
-	http.SetCookie(carrier.writer, s.newCookie(encoded, deadline))
+	carrier.SetCookie(s.newCookie(encoded, deadline))
 	return nil
 }
 
@@ -168,11 +163,11 @@ func (s *CookieStore) Get(ctx context.Context, keyHash string) (RawRecord, error
 	if err != nil {
 		return zero, err
 	}
-	if carrier.request == nil {
+	if !readable(carrier) {
 		return zero, ErrNotFound
 	}
-	cookie, err := carrier.request.Cookie(s.cookie.Name)
-	if err != nil || cookie == nil || cookie.Value == "" {
+	cookie := lookupCookie(carrier.Cookies(), s.cookie.Name)
+	if cookie == nil || cookie.Value == "" {
 		return zero, ErrNotFound
 	}
 	blob, err := s.value.decode(cookie.Value, keyHash)
@@ -222,12 +217,12 @@ func (s *CookieStore) Delete(ctx context.Context, keyHash string) error {
 	if err != nil {
 		return err
 	}
-	if carrier.writer == nil {
+	if !writable(carrier) {
 		return nil
 	}
 	cookie := s.newCookie("", time.Time{})
 	cookie.MaxAge = -1
-	http.SetCookie(carrier.writer, cookie)
+	carrier.SetCookie(cookie)
 	return nil
 }
 

@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/shibukawa/popcornwave/pw"
+	"github.com/shibukawa/popcornwave/sessionconfig"
 )
 
 func hintSecret() string {
@@ -24,14 +24,14 @@ func enabledHint() HintConfig {
 // The hint carries no authority. It is sealed so its contents never reach the
 // client, which is what lets it hold a login identifier at all.
 func TestTheHintRoundTripsSealed(t *testing.T) {
-	jar, err := hintJar(enabledHint(), pw.SessionCookieConfig{})
+	jar, err := hintJar(enabledHint(), sessionconfig.SessionCookieConfig{})
 	if err != nil {
 		t.Fatal(err)
 	}
 	rt := &runtime{hint: jar, config: Config{Assurance: AssuranceConfig{Hint: enabledHint()}}}
 
 	recorder := httptest.NewRecorder()
-	rt.rememberSignIn(recorder, SessionData{DisplayName: "Ada", Email: "ada@example.com", Issuer: "https://issuer.example"})
+	rt.rememberSignIn(HTTPExchange(recorder, httptest.NewRequest("GET", "/", nil)), SessionData{DisplayName: "Ada", Email: "ada@example.com", Issuer: "https://issuer.example"})
 	cookies := recorder.Result().Cookies()
 	if len(cookies) != 1 {
 		t.Fatalf("cookies = %d, want 1", len(cookies))
@@ -42,7 +42,7 @@ func TestTheHintRoundTripsSealed(t *testing.T) {
 
 	request := httptest.NewRequest("GET", "/", nil)
 	request.AddCookie(cookies[0])
-	got, ok := rt.readSignInHint(httptest.NewRecorder(), request)
+	got, ok := rt.readSignInHint(HTTPExchange(httptest.NewRecorder(), request))
 	if !ok || got.DisplayName != "Ada" || got.Issuer != "https://issuer.example" {
 		t.Fatalf("hint = %+v, %v", got, ok)
 	}
@@ -52,15 +52,15 @@ func TestTheHintRoundTripsSealed(t *testing.T) {
 // the other providers a deployment offers, so a multi-issuer login screen can
 // only skip its picker from local memory.
 func TestTheHintRemembersTheIssuer(t *testing.T) {
-	jar, _ := hintJar(enabledHint(), pw.SessionCookieConfig{})
+	jar, _ := hintJar(enabledHint(), sessionconfig.SessionCookieConfig{})
 	rt := &runtime{hint: jar, config: Config{Assurance: AssuranceConfig{Hint: enabledHint()}}}
 	recorder := httptest.NewRecorder()
-	rt.rememberSignIn(recorder, SessionData{Issuer: "https://accounts.google.com"})
+	rt.rememberSignIn(HTTPExchange(recorder, httptest.NewRequest("GET", "/", nil)), SessionData{Issuer: "https://accounts.google.com"})
 	request := httptest.NewRequest("GET", "/", nil)
 	for _, cookie := range recorder.Result().Cookies() {
 		request.AddCookie(cookie)
 	}
-	got, ok := rt.readSignInHint(httptest.NewRecorder(), request)
+	got, ok := rt.readSignInHint(HTTPExchange(httptest.NewRecorder(), request))
 	if !ok || got.Issuer != "https://accounts.google.com" {
 		t.Fatalf("issuer = %q, %v", got.Issuer, ok)
 	}
@@ -71,11 +71,11 @@ func TestTheHintRemembersTheIssuer(t *testing.T) {
 func TestAnIdleHintIsDiscardedRatherThanShown(t *testing.T) {
 	config := enabledHint()
 	config.IdleTimeout = time.Hour
-	jar, _ := hintJar(config, pw.SessionCookieConfig{})
+	jar, _ := hintJar(config, sessionconfig.SessionCookieConfig{})
 	rt := &runtime{hint: jar, config: Config{Assurance: AssuranceConfig{Hint: config}}}
 
 	recorder := httptest.NewRecorder()
-	rt.rememberSignIn(recorder, SessionData{DisplayName: "Ada"})
+	rt.rememberSignIn(HTTPExchange(recorder, httptest.NewRequest("GET", "/", nil)), SessionData{DisplayName: "Ada"})
 	request := httptest.NewRequest("GET", "/", nil)
 	for _, cookie := range recorder.Result().Cookies() {
 		request.AddCookie(cookie)
@@ -84,7 +84,7 @@ func TestAnIdleHintIsDiscardedRatherThanShown(t *testing.T) {
 	// one the cookie carries, so only the inactivity rule can reject it.
 	rt.config.Assurance.Hint.IdleTimeout = time.Nanosecond
 	clearing := httptest.NewRecorder()
-	if _, ok := rt.readSignInHint(clearing, request); ok {
+	if _, ok := rt.readSignInHint(HTTPExchange(clearing, request)); ok {
 		t.Fatal("an idle hint was shown")
 	}
 	if len(clearing.Result().Cookies()) == 0 {
@@ -95,12 +95,12 @@ func TestAnIdleHintIsDiscardedRatherThanShown(t *testing.T) {
 // Turning the hint off, or giving it no lifetime at all, is a valid answer and
 // produces no jar.
 func TestNoHintIsKeptWhenItIsOffOrHasNoLifetime(t *testing.T) {
-	if jar, err := hintJar(HintConfig{}, pw.SessionCookieConfig{}); err != nil || jar != nil {
+	if jar, err := hintJar(HintConfig{}, sessionconfig.SessionCookieConfig{}); err != nil || jar != nil {
 		t.Fatalf("disabled hint = %v, %v", jar, err)
 	}
 	config := enabledHint()
 	config.TTL = 0
-	if jar, err := hintJar(config, pw.SessionCookieConfig{}); err != nil || jar != nil {
+	if jar, err := hintJar(config, sessionconfig.SessionCookieConfig{}); err != nil || jar != nil {
 		t.Fatalf("zero-lifetime hint = %v, %v", jar, err)
 	}
 }

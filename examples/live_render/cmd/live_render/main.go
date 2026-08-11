@@ -1,3 +1,5 @@
+//go:build !fasthttp
+
 package main
 
 import (

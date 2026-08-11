@@ -356,7 +356,7 @@ func TestBearerCredentialExtraction(t *testing.T) {
 			for _, value := range testCase.headers {
 				request.Header.Add("Authorization", value)
 			}
-			_, err := verifier.bearerCredential(request)
+			_, err := verifier.bearerCredential(HTTPExchange(nil, request))
 			if !errors.Is(err, testCase.want) {
 				t.Fatalf("err = %v, want %v", err, testCase.want)
 			}

@@ -107,6 +107,7 @@ func printUsage(w io.Writer) {
 	fmt.Fprintln(w, "  Actions: "+strings.Join(migrateActions, ", "))
 	fmt.Fprintln(w, seedUsage)
 	fmt.Fprintln(w, buildUsage)
+	fmt.Fprintln(w, "  --backend selects the HTTP implementation; --target selects deployment packaging.")
 	fmt.Fprintln(w, "  --debug keeps the source maps, and pw build also keeps the Go symbols.")
 	fmt.Fprintln(w, "  Without it the artifact carries neither, which is what staging and")
 	fmt.Fprintln(w, "  production want: an artifact that ships its own sources rehearses nothing.")

@@ -7,8 +7,11 @@ import (
 	"io/fs"
 	"net"
 	"net/http"
+	"os"
 	"strconv"
 	"time"
+
+	"github.com/shibukawa/popcornwave/pwconfig"
 )
 
 // Option configures framework lifecycle construction.
@@ -94,8 +97,8 @@ func buildMiddlewares(handler http.Handler, option ...Option) (http.Handler, err
 	// A root span is created when export exists, and also when configuration
 	// asked for framework spans outright: the children below are only a trace if
 	// something roots them.
-	rootSpan := telemetry.tracing || traceForced(observability)
-	resources := runtimeResources(telemetry.backend, telemetry.tracing)
+	rootSpan := telemetry.Tracing() || traceForced(observability)
+	resources := runtimeResources(telemetry.Backend(), telemetry.Tracing())
 	reportEnvironment()
 	reportCompressionCodings(middleware)
 	reportDatabaseConnections(resources.Connections)
@@ -125,11 +128,16 @@ func Run(ctx context.Context, handler http.Handler, option ...Option) error {
 	if handled, err := runFrameworkAction(); handled {
 		return err
 	}
+	serverConfig := Config[ServerConfig](nil)
+	port, err := pwconfig.HostingPort(serverConfig.Port, os.LookupEnv)
+	if err != nil {
+		return err
+	}
+	serverConfig.Port = port
 	wrapped, err := buildMiddlewares(handler, option...)
 	if err != nil {
 		return err
 	}
-	serverConfig := Config[ServerConfig](nil)
 
 	signalContext, cancelSignals := notifyShutdownSignals(ctx)
 	defer cancelSignals()
@@ -150,6 +158,20 @@ func Run(ctx context.Context, handler http.Handler, option ...Option) error {
 	serve := func() error { return server.Serve(listener) }
 	serveErr := serveUntilContext(signalContext, server, serve, serverConfig.ShutdownTimeout)
 	return closeRuntimeResources(serverConfig.ShutdownTimeout, serveErr)
+}
+
+// hostingPort follows the port contract of HTTP-to-process serverless
+// adapters. PORT is already handled by ServerConfig's configuration binding;
+// the two variables here are stronger because their host sends traffic to the
+// assigned port regardless of an application's config file.
+//
+// AWS Lambda Web Adapter uses AWS_LWA_PORT when present and otherwise falls
+// back to PORT or 8080. Azure Functions custom handlers publish their assigned
+// loopback port as FUNCTIONS_CUSTOMHANDLER_PORT. Keeping both translations at
+// the listener boundary lets the same application binary remain an ordinary
+// net/http server everywhere else.
+func hostingPort(configured int, lookup func(string) (string, bool)) (int, error) {
+	return pwconfig.HostingPort(configured, lookup)
 }
 
 // listenURL renders the address an operator can open. A wildcard or loopback
@@ -204,9 +226,9 @@ func newHTTPServer(config ServerConfig, handler http.Handler) *http.Server {
 }
 
 func closeRuntimeResources(timeout time.Duration, err error) error {
-	configState.RLock()
-	cleanups := append([]*runtimeCleanup(nil), configState.cleanups...)
-	configState.RUnlock()
+	runtimeState.RLock()
+	cleanups := append([]*runtimeCleanup(nil), runtimeState.cleanups...)
+	runtimeState.RUnlock()
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 	return errors.Join(err, runRuntimeCleanups(ctx, cleanups))

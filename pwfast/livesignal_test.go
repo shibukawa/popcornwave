@@ -1,6 +1,7 @@
 package pwfast
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"iter"
@@ -77,9 +78,13 @@ func liveSignalScript(ctx context.Context, steps ...any) iter.Seq2[string, error
 
 func runLiveSignalStream(t *testing.T, steps ...any) string {
 	t.Helper()
+	// The loop takes the buffered writer this transport hands it, so the test
+	// wraps one and flushes rather than passing a bare buffer.
 	var body bytes.Buffer
-	runLiveStream(&body, nil, liveSignalPage(steps...),
+	writer := bufio.NewWriter(&body)
+	runLiveStream(writer, nil, liveSignalPage(steps...),
 		pwruntime.UpdateSettings{}, nil, map[string]string{}, 0, nil, nil)
+	_ = writer.Flush()
 	return body.String()
 }
 

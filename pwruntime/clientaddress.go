@@ -28,10 +28,8 @@ func WithClientAddress(ctx context.Context, address string) context.Context {
 // It falls back to the request's peer for a chain that never resolved one,
 // which is what a handler served outside the framework middleware stack sees.
 func ClientAddress(ctx context.Context, r *http.Request) string {
-	if ctx != nil {
-		if address, ok := ctx.Value(clientAddressKey{}).(string); ok && address != "" {
-			return address
-		}
+	if address := ReadClientAddress(ctx); address != "" {
+		return address
 	}
 	if r == nil {
 		return ""
@@ -55,4 +53,19 @@ func StoreClientAddress(store ValueStore, address string) {
 		return
 	}
 	store.SetUserValue(clientAddressKey{}, address)
+}
+
+// ReadClientAddress returns the address the chain resolved, or the empty string
+// where no frame resolved one.
+//
+// It is the portable half of ClientAddress: the fallback that half takes needs
+// a net/http request, and on the second transport the request value answers
+// Value from the same store StoreClientAddress writes to, so there is nothing
+// left to fall back to.
+func ReadClientAddress(ctx context.Context) string {
+	if ctx == nil {
+		return ""
+	}
+	address, _ := ctx.Value(clientAddressKey{}).(string)
+	return address
 }

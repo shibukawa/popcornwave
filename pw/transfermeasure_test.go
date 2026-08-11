@@ -12,12 +12,12 @@ import (
 	"strings"
 	"testing"
 
+	kgzip "github.com/klauspost/compress/gzip"
+	kzstd "github.com/klauspost/compress/zstd"
+	"github.com/shibukawa/popcornwave/pwconfig"
 	"github.com/shibukawa/popcornwave/pwruntime"
 	"github.com/shibukawa/tinybind-go/htmlbind"
 	"github.com/shibukawa/tinybind-go/htmlbind/delta"
-
-	kgzip "github.com/klauspost/compress/gzip"
-	kzstd "github.com/klauspost/compress/zstd"
 )
 
 // What a navigation costs, measured through the entry this framework actually
@@ -179,7 +179,7 @@ func measureChain(section string, results resultsParams) ([]HTMLWrapper, HTMLFra
 
 // measureConfig turns on everything a deployment measuring this would have on.
 func measureConfig() HTMLConfig {
-	config := defaultHTMLConfig
+	config := pwconfig.DefaultHTMLConfig()
 	config.Update = HTMLUpdateConfig{Enabled: true, ValidatorKey: "measure-key", MaxManifestBytes: 8 << 10}
 	return config
 }

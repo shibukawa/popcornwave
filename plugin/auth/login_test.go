@@ -21,13 +21,11 @@ import (
 	"testing"
 	"time"
 
+	_ "github.com/shibukawa/popcornwave/authstate/sqlite"
 	"github.com/shibukawa/popcornwave/internal/pwmigrate"
 	"github.com/shibukawa/popcornwave/pw"
 	"github.com/shibukawa/popcornwave/sessionstore"
-
-	_ "github.com/shibukawa/popcornwave/authstate/sqlite"
 	_ "github.com/shibukawa/popcornwave/sessionstore/sqlite"
-
 	httpbind "github.com/shibukawa/tinybind-go"
 	"github.com/shibukawa/tinybind-go/configbind"
 )
