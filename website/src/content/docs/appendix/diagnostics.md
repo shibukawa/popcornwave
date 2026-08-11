@@ -98,6 +98,27 @@ Whether the project's declared shape, its toolchain, and its generated artifacts
 - **Reads**: merged configuration
 - **Fix**: stop the process holding it, or set server.port
 
+### PW0130: a public file's content does not match its extension
+
+- **Severity**: error
+- **Applies to**: every environment
+- **Reads**: merged configuration, project files
+- **Fix**: rename the file to the type it actually is, or list the path in assets.verify.allow
+
+### PW0131: a public SVG carries executable content
+
+- **Severity**: error
+- **Applies to**: every environment
+- **Reads**: merged configuration, project files
+- **Fix**: remove the script, or list the path in assets.verify.allow when the SVG is interactive on purpose
+
+### PW0132: a large media file is compiled into the binary
+
+- **Severity**: warning
+- **Applies to**: every environment
+- **Reads**: project files
+- **Fix**: move it to public-external/, which ships beside the binary instead of inside it
+
 ### PW0140: a declared package is not in the module graph
 
 - **Severity**: error

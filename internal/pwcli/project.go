@@ -287,6 +287,7 @@ func loadProjectConfig(root string) (projectConfig, error) {
 		"assets.tailwind.output", "assets.tailwind.minify",
 		"assets.css.minify", "assets.images.enabled", "assets.images.quality",
 		"assets.images.avif", "assets.scripts.enabled",
+		"assets.verify.enabled", "assets.verify.svg_scan", "assets.verify.allow",
 	}
 	known = append(known, packageManifestKeys...)
 	for _, key := range document.Keys() {
@@ -524,6 +525,12 @@ func loadProjectConfig(root string) (projectConfig, error) {
 			return projectConfig{}, fmt.Errorf("popcornwave.toml: seed.auto: %w", err)
 		}
 	}
+	// Both verification checks read bytes the asset walk already holds, so
+	// there is no cost to defaulting them on. The switches exist for a project
+	// shipping a file the signature table judges wrongly, and for one serving
+	// an SVG that is interactive on purpose.
+	config.Assets.Verify = true
+	config.Assets.VerifySVG = true
 	for _, binding := range []struct {
 		key    string
 		target *bool
@@ -532,6 +539,8 @@ func loadProjectConfig(root string) (projectConfig, error) {
 		{"assets.images.enabled", &config.Assets.Images},
 		{"assets.images.avif", &config.Assets.AVIF},
 		{"assets.scripts.enabled", &config.Assets.Scripts},
+		{"assets.verify.enabled", &config.Assets.Verify},
+		{"assets.verify.svg_scan", &config.Assets.VerifySVG},
 	} {
 		value, ok := document.Get(binding.key)
 		if !ok {
@@ -555,6 +564,17 @@ func loadProjectConfig(root string) (projectConfig, error) {
 			return projectConfig{}, fmt.Errorf("popcornwave.toml: assets.images.quality must be between 1 and 100")
 		}
 		config.Assets.ImageQuality = int(quality)
+	}
+	config.Assets.VerifyAllow, err = array(document, "assets.verify.allow")
+	if err != nil {
+		return projectConfig{}, fmt.Errorf("popcornwave.toml: assets.verify.allow: %w", err)
+	}
+	for _, glob := range config.Assets.VerifyAllow {
+		// An absolute or escaping glob would silently exempt nothing, since
+		// every path it is matched against is relative to the authored tree.
+		if glob == "" || strings.HasPrefix(glob, "/") || strings.HasPrefix(glob, "../") {
+			return projectConfig{}, fmt.Errorf("popcornwave.toml: assets.verify.allow: %q must be relative to the public directory", glob)
+		}
 	}
 	if value, ok := document.Get("assets.tailwind.enabled"); ok {
 		config.Tailwind.Enabled, err = value.AsBool()

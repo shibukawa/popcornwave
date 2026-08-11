@@ -152,6 +152,145 @@ DOM, and neither of those is visible from here. Writing one yourself works fine
 — its `img src` converts like any other, and its `source` elements are left
 alone.
 
+## When a file should not be in the binary
+
+`public/` is compiled into the executable. That is the right default — one
+artifact, nothing to deploy alongside it, no path to get wrong — and it stops
+being right somewhere around the first video. A 200 MB binary is slow to build,
+slow to push, and on a function host it may simply be refused.
+
+So there is a second authored tree:
+
+```
+public/            → transformed, embedded in the binary
+public-external/   → untouched, shipped beside it
+```
+
+Both answer at the same mount. `public-external/promo.mp4` is served at
+`/public/promo.mp4`, and nothing on the page says which tree answered.
+
+Put a file there when it is large and already compressed — video, audio,
+archives, a big PDF. Leave everything else in `public/`: a stylesheet or an
+icon out here would lose its conversion and its precompressed siblings for no
+gain, and cost you a file to deploy. `pw doctor` reports a media file over 4 MiB
+in the embedded tree
+([PW0132](/appendix/diagnostics/#pw0132-a-large-media-file-is-compiled-into-the-binary))
+rather than moving it, because where a file lives should not change when it
+grows.
+
+### What it costs and what it buys
+
+The build does not copy these files. Nothing transforms them, so a staging copy
+would be identical to the source — and these are the files a project least wants
+copied on every build. It reads their leading bytes to verify them and their
+extension to set a media type, and that is all.
+
+They are served with `http.ServeContent`, so they get `Accept-Ranges`, `206`
+responses, and `If-Range` handling that the embedded tree does not have. That is
+the real reason the split is worth it: a `<video>` element that cannot seek
+downloads the whole file to play from the middle.
+
+What you give up is the strong `ETag`. The tree is deployed as its own artifact,
+so a validator computed at build time could outlive the bytes it describes;
+these URLs revalidate on size and modification time instead. You cannot have
+independent deployment and an immutable URL at once, and this mechanism is that
+trade.
+
+### Deployment
+
+Every artifact `pw` produces carries the directory, and always at the root the
+server resolves against:
+
+- the scaffolded `Dockerfile` copies it into the image, which is why `pw init`
+  writes `public-external/.keep` — a `COPY` of a path that does not exist fails
+  the image build
+- `pw build --target` places it beside `config.prod.toml` in the deployment
+  stage, for Lambda, Azure Functions, Cloud Run functions, and Vercel alike.
+  Both are resolved against the working directory the function runs with, so
+  they belong in the same place
+
+The one deployment that needs a step from you is a bare binary: ship the
+directory next to it and start the process with a working directory where
+`public-external/` resolves.
+
+A target with no filesystem cannot carry it at all. That is Cloudflare Workers,
+which is [not yet a supported target](/guides/deployment/serverless/) in any
+case; every target that is ships as a container or a bundle.
+
+This is also the only place the tree is copied. `pw build` never copies it —
+once per deployment artifact, rather than once per compile.
+
+### If both trees hold the same URL
+
+The external one wins, and the build warns:
+
+```
+asset: warning: public-external/app.css (shadows public/app.css)
+```
+
+It is a warning rather than an error because the precedence is defined — but the
+embedded file is still sitting there looking like the one being served, which is
+exactly the confusion worth one line of build output.
+
+## A file has to be what it says it is
+
+Everything above decides from the extension. `.png` selects the WebP
+conversion, the manifest takes its media type from the same place, and the
+response sends that media type. A file whose bytes disagree with its name is
+therefore labelled by the name, and every response asserts a type the bytes
+never had. The case worth naming is a `.png` that is really an SVG with a
+`<script>` in it: served as `image/png`, and a different thing entirely
+wherever the extension gets trusted again.
+
+`pw build` refuses it:
+
+```
+public assets: logo.png: the extension declares png, and the bytes carry no png signature; rename the file to the type it actually is, or list the path in assets.verify.allow
+```
+
+The check reads the first 64 bytes of each authored file — bytes the build
+already holds to digest them, so it costs nothing measurable. A format that has
+a signature has to carry it. A format that has none, which is CSS, JavaScript,
+JSON, and SVG, has to *not* carry someone else's; that second half is what
+catches a `.css` holding a ZIP, and without it the extensions a browser treats
+as executable would be exactly the ones exempt. An extension the table has never
+heard of is left alone rather than guessed at, so an unusual file does not fail
+a build over a name nobody taught it.
+
+Only the authored tree is checked. What the build produced is labelled by the
+build, and that distinction earns its keep: an AVIF representation deliberately
+lives under a `.webp` URL, so a check reading URLs would refuse the build's own
+output.
+
+Nothing here parses a text format. A `.svg` holding broken XML ships, because a
+parser per format is a large surface for the narrow gain of catching a file that
+is malformed rather than mislabelled.
+
+### SVG is the one image that executes
+
+An SVG is XML, and `image/svg+xml` served from your own origin runs its scripts
+on direct navigation. An `<img>` never did, so the exposure is someone opening
+the asset URL, or an `<object>` pointing at it.
+
+Two things address it, and the load-bearing one is the header. Every
+`image/svg+xml` response carries `Content-Security-Policy: sandbox`, which puts
+the document in a unique origin with no scripting — so an SVG that does execute
+cannot reach your application, whether or not any build ever read it. It is
+added beside the application's own policy rather than replacing it, and a
+browser enforces both, so it can only tighten what you declared.
+
+The build also scans authored SVGs for `<script`, an `on…=` handler, and
+`javascript:`, and refuses what it finds. That scan is literal by design: it
+parses nothing, so a handler hidden behind SMIL, entity encoding, or a namespace
+prefix goes unnoticed. That is a missing warning rather than a missing defence,
+which is exactly why the header is the part to rely on.
+
+Turn the sandbox off only for an SVG that is *meant* to be interactive through
+`<object>` or a link. `server.public.svg_sandbox = false` is the switch, and it
+applies to every SVG the endpoint serves. To keep one deliberate file without
+giving up the header, `assets.verify.allow` is the narrower instrument — it
+exempts that path from both build checks and changes no response.
+
 ## Precompression
 
 The build writes a `.br`, a `.zstd` and a `.gz` sibling next to every
@@ -219,6 +358,12 @@ them would serve pages naming files it never produced. What keeps that
 affordable is the conversion cache under `dist/`: an unchanged asset costs a
 digest instead of an encode. The first build after a clone is the one that pays.
 
+`public-external/` is read straight from the project root, and it is consulted
+*before* the built tree — the same precedence production uses. That ordering
+matters more than it looks: if the loop checked it second, a file you had
+deliberately shadowed would render one way here and the other way after a
+deploy.
+
 Outside that loop, `server.public.read_local = true` gives the same disk-first
 behaviour from an ordinary build, for the deployment that overlays a directory
 onto the embedded tree.
@@ -230,6 +375,7 @@ onto the embedded tree.
 | `server.public.enabled` | `true` | serve the assets at all |
 | `server.public.mount` | `"/public"` | where they are mounted |
 | `server.public.read_local` | `false` | prefer the built tree on disk over the embedded one |
+| `server.public.svg_sandbox` | `true` | add `Content-Security-Policy: sandbox` to every `image/svg+xml` response |
 
 The mount must be an absolute, canonical, non-root path with no wildcards, and
 an application route that collides with it fails startup rather than shadowing

@@ -309,6 +309,7 @@
 {"category": "constraint", "id": "policy:access-token-verification", "path": ".knowledge/policy/access-token-verification.md", "role": "supporting", "title": "Access Token Verification Policy", "type": "policy"}
 {"category": "constraint", "id": "policy:account-linking", "path": ".knowledge/policy/account-linking.md", "role": "supporting", "title": "Account Linking Policy", "type": "policy"}
 {"category": "constraint", "id": "policy:account-recovery", "path": ".knowledge/policy/account-recovery.md", "role": "supporting", "title": "Account Recovery Policy", "type": "policy"}
+{"category": "constraint", "id": "policy:asset-content-signature", "path": ".knowledge/policy/asset-content-signature.md", "role": "supporting", "title": "Asset Content Signature", "type": "policy"}
 {"category": "constraint", "id": "policy:asset-transform-matrix", "path": ".knowledge/policy/asset-transform-matrix.md", "role": "supporting", "title": "Asset Transform Matrix", "type": "policy"}
 {"category": "constraint", "id": "policy:async-render-bounds", "path": ".knowledge/policy/async-render-bounds.md", "role": "supporting", "title": "Async Render Bounds", "type": "policy"}
 {"category": "constraint", "id": "policy:authenticated-path-protection", "path": ".knowledge/policy/authenticated-path-protection.md", "role": "supporting", "title": "Authenticated Path Protection", "type": "policy"}
@@ -358,6 +359,7 @@
 {"category": "constraint", "id": "policy:session-security", "path": ".knowledge/policy/session-security.md", "role": "supporting", "title": "Session Security Policy", "type": "policy"}
 {"category": "constraint", "id": "policy:shared-device-mode", "path": ".knowledge/policy/shared-device-mode.md", "role": "supporting", "title": "Shared Device Mode", "type": "policy"}
 {"category": "constraint", "id": "policy:startup-summary", "path": ".knowledge/policy/startup-summary.md", "role": "supporting", "title": "Startup Summary", "type": "policy"}
+{"category": "constraint", "id": "policy:svg-active-content", "path": ".knowledge/policy/svg-active-content.md", "role": "supporting", "title": "SVG Active Content", "type": "policy"}
 {"category": "constraint", "id": "policy:template-escaping", "path": ".knowledge/policy/template-escaping.md", "role": "supporting", "title": "Template Escaping Policy", "type": "policy"}
 {"category": "constraint", "id": "policy:token-revocation", "path": ".knowledge/policy/token-revocation.md", "role": "supporting", "title": "Bearer Token Revocation Policy", "type": "policy"}
 {"category": "constraint", "id": "policy:ui-state-placement", "path": ".knowledge/policy/ui-state-placement.md", "role": "supporting", "title": "UI State Placement", "type": "policy"}
@@ -370,6 +372,7 @@
 {"category": "objective", "id": "requirement:api-server-scaffold", "path": ".knowledge/requirement/api-server-scaffold.md", "role": "primary", "title": "API Server Preset Scaffold", "type": "requirement"}
 {"category": "objective", "id": "requirement:application-middleware-registration", "path": ".knowledge/requirement/application-middleware-registration.md", "role": "primary", "title": "Numbered Middleware Chain Registration", "type": "requirement"}
 {"category": "objective", "id": "requirement:application-user-experience", "path": ".knowledge/requirement/application-user-experience.md", "role": "primary", "title": "Popcorn Wave Application User Experience", "type": "requirement"}
+{"category": "objective", "id": "requirement:asset-content-verification", "path": ".knowledge/requirement/asset-content-verification.md", "role": "primary", "title": "Asset Content Verification", "type": "requirement"}
 {"category": "objective", "id": "requirement:async-html-rendering", "path": ".knowledge/requirement/async-html-rendering.md", "role": "primary", "title": "Async HTML Rendering", "type": "requirement"}
 {"category": "objective", "id": "requirement:auth-security-remediation", "path": ".knowledge/requirement/auth-security-remediation.md", "role": "primary", "title": "Authentication Security Remediation", "type": "requirement"}
 {"category": "objective", "id": "requirement:bot-synchronous-render", "path": ".knowledge/requirement/bot-synchronous-render.md", "role": "primary", "title": "Bot Synchronous Render", "type": "requirement"}
@@ -448,6 +451,7 @@
 {"category": "objective", "id": "requirement:environment-switching", "path": ".knowledge/requirement/environment-switching.md", "role": "primary", "title": "Environment Switching", "type": "requirement"}
 {"category": "objective", "id": "requirement:extension-distribution", "path": ".knowledge/requirement/extension-distribution.md", "role": "primary", "title": "Extension Distribution", "type": "requirement"}
 {"category": "objective", "id": "requirement:external-boundary-runtime", "path": ".knowledge/requirement/external-boundary-runtime.md", "role": "primary", "title": "External Boundary Runtime Script", "type": "requirement"}
+{"category": "objective", "id": "requirement:external-public-assets", "path": ".knowledge/requirement/external-public-assets.md", "role": "primary", "title": "External Public Assets", "type": "requirement"}
 {"category": "objective", "id": "requirement:firestore-auth-backend", "path": ".knowledge/requirement/firestore-auth-backend.md", "role": "primary", "title": "Firestore Authentication Backend", "type": "requirement"}
 {"category": "objective", "id": "requirement:firestore-auth-stores", "path": ".knowledge/requirement/firestore-auth-stores.md", "role": "primary", "title": "Firestore Account-Side Authentication Stores", "type": "requirement"}
 {"category": "objective", "id": "requirement:firestore-generation", "path": ".knowledge/requirement/firestore-generation.md", "role": "primary", "title": "Firestore Code Generation", "type": "requirement"}

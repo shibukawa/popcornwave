@@ -222,6 +222,36 @@ together. Turning it on without them is not an error: the conversion declines,
 the authored image ships as written, and `pw doctor` reports it — an unconverted
 image is a larger page rather than a broken one.
 
+## `[assets.verify]`
+
+```toml
+[assets.verify]
+enabled = true
+svg_scan = true
+allow = ["vendor/**"]
+```
+
+Both checks read bytes the asset walk already holds to digest them, so unlike
+every conversion above these default to **on**.
+
+| Key | Default | Meaning |
+| --- | --- | --- |
+| `assets.verify.enabled` | `true` | refuse an authored public file whose bytes contradict its extension |
+| `assets.verify.svg_scan` | `true` | refuse an authored `.svg` carrying `<script`, an `on…=` handler, or `javascript:` |
+| `assets.verify.allow` | `[]` | paths exempt from both checks, relative to `public/`; a trailing `/**` exempts a subtree |
+
+A refusal fails `pw build` and names the file, what its extension claimed, and
+what the bytes carry. An exempted path is printed by the build instead, so a
+list added for one bad file and never removed does not go quiet.
+
+[`pw doctor`](/pw/project/doctor/) reports the same two conditions without
+running a build, as
+[PW0130](/appendix/diagnostics/#pw0130-a-public-files-content-does-not-match-its-extension)
+and
+[PW0131](/appendix/diagnostics/#pw0131-a-public-svg-carries-executable-content).
+[Static assets](/guides/frontend/static-assets/) explains what each check can
+decide and why the SVG one is deliberately incomplete.
+
 ## `[[packages]]` — in an application
 
 ```toml

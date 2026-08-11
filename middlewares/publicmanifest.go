@@ -30,6 +30,13 @@ type AssetRepresentation struct {
 	// which encoding is worth serving is a judgment about the bytes and the
 	// client only states what it can read. Lower sorts first.
 	Preference int
+	// External marks bytes that ship as their own file rather than inside the
+	// binary, so Path is read from the external root at request time.
+	//
+	// Length and ETag are empty for one of these, and deliberately so: the tree
+	// is deployed as its own artifact, so a validator the build computed could
+	// outlive the bytes it describes. The file answers for itself instead.
+	External bool
 }
 
 // AssetEntry is everything the middleware answers with for one URL. A build
