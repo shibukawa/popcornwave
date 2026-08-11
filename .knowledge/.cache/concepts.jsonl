@@ -259,6 +259,7 @@
 {"category": "constraint", "id": "decision:tinybind-sql-runtime", "path": ".knowledge/decision/tinybind-sql-runtime.md", "role": "supporting", "title": "TinyBind SQL Plan Runtime", "type": "decision"}
 {"category": "constraint", "id": "decision:tinybind-v03-adoption", "path": ".knowledge/decision/tinybind-v03-adoption.md", "role": "supporting", "title": "Adopting TinyBind v0.3", "type": "decision"}
 {"category": "constraint", "id": "decision:tinygo-042-baseline", "path": ".knowledge/decision/tinygo-042-baseline.md", "role": "supporting", "title": "TinyGo 0.42 Baseline", "type": "decision"}
+{"category": "constraint", "id": "decision:tinygo-fasthttp-needs-nozstd", "path": ".knowledge/decision/tinygo-fasthttp-needs-nozstd.md", "role": "supporting", "title": "TinyGo Builds fasthttp Only With fasthttp_nozstd", "type": "decision"}
 {"category": "constraint", "id": "decision:tinygo-storage-direction", "path": ".knowledge/decision/tinygo-storage-direction.md", "role": "supporting", "title": "TinyGo Storage Direction", "type": "decision"}
 {"category": "constraint", "id": "decision:transport-compatibility-fallback", "path": ".knowledge/decision/transport-compatibility-fallback.md", "role": "supporting", "title": "Superseded — There Is No Compatibility Fallback", "type": "decision"}
 {"category": "constraint", "id": "decision:transport-handle-containment", "path": ".knowledge/decision/transport-handle-containment.md", "role": "supporting", "title": "Transport Handles Stay Inside The Framework Surface", "type": "decision"}
@@ -501,6 +502,7 @@
 {"category": "objective", "id": "requirement:read-write-splitting", "path": ".knowledge/requirement/read-write-splitting.md", "role": "primary", "title": "Read-Write Split Connections", "type": "requirement"}
 {"category": "objective", "id": "requirement:reloadable-component-endpoint", "path": ".knowledge/requirement/reloadable-component-endpoint.md", "role": "primary", "title": "Reloadable Component Endpoint", "type": "requirement"}
 {"category": "objective", "id": "requirement:response-gzip-encoder", "path": ".knowledge/requirement/response-gzip-encoder.md", "role": "primary", "title": "Gzip Response Encoder", "type": "requirement"}
+{"category": "objective", "id": "requirement:second-build-feature-parity", "path": ".knowledge/requirement/second-build-feature-parity.md", "role": "primary", "title": "Feature Parity For The fasthttp Second Build", "type": "requirement"}
 {"category": "objective", "id": "requirement:serverless-http-hosting", "path": ".knowledge/requirement/serverless-http-hosting.md", "role": "primary", "title": "Serverless HTTP Hosting", "type": "requirement"}
 {"category": "objective", "id": "requirement:serverless-source-entrypoints", "path": ".knowledge/requirement/serverless-source-entrypoints.md", "role": "primary", "title": "Serverless Source Entrypoints", "type": "requirement"}
 {"category": "objective", "id": "requirement:session-assurance-levels", "path": ".knowledge/requirement/session-assurance-levels.md", "role": "primary", "title": "Graded Session Assurance", "type": "requirement"}
@@ -518,6 +520,7 @@
 {"category": "objective", "id": "requirement:tinybind-runtime-ownership", "path": ".knowledge/requirement/tinybind-runtime-ownership.md", "role": "primary", "title": "TinyBind Runtime Ownership Seams", "type": "requirement"}
 {"category": "objective", "id": "requirement:tinybind-update-composition-seams", "path": ".knowledge/requirement/tinybind-update-composition-seams.md", "role": "primary", "title": "TinyBind Update Composition Seams", "type": "requirement"}
 {"category": "objective", "id": "requirement:tinygodriver-adoption", "path": ".knowledge/requirement/tinygodriver-adoption.md", "role": "primary", "title": "tinygodriver Adoption", "type": "requirement"}
+{"category": "objective", "id": "requirement:tinygodriver-encode-only-zstd", "path": ".knowledge/requirement/tinygodriver-encode-only-zstd.md", "role": "primary", "title": "What The fasthttp Build Would Ask Of tinygodriver", "type": "requirement"}
 {"category": "objective", "id": "requirement:tutorial-capability-growth", "path": ".knowledge/requirement/tutorial-capability-growth.md", "role": "primary", "title": "Tutorial Capability Growth", "type": "requirement"}
 {"category": "objective", "id": "requirement:tutorial-continuity", "path": ".knowledge/requirement/tutorial-continuity.md", "role": "primary", "title": "Tutorial Continuity", "type": "requirement"}
 {"category": "objective", "id": "requirement:tutorial-page-tree-chapter", "path": ".knowledge/requirement/tutorial-page-tree-chapter.md", "role": "primary", "title": "Tutorial Page Tree Chapter", "type": "requirement"}
@@ -545,6 +548,7 @@
 {"category": "constraint", "id": "rule:rdb-dsn-resolution", "path": ".knowledge/rule/rdb-dsn-resolution.md", "role": "supporting", "title": "RDB DSN Scheme Resolution", "type": "rule"}
 {"category": "constraint", "id": "rule:route-and-template-checks", "path": ".knowledge/rule/route-and-template-checks.md", "role": "supporting", "title": "Route and Template Checks", "type": "rule"}
 {"category": "constraint", "id": "rule:savepoint-dialect-support", "path": ".knowledge/rule/savepoint-dialect-support.md", "role": "supporting", "title": "Savepoint Dialect Support", "type": "rule"}
+{"category": "constraint", "id": "rule:shared-code-names-a-leaf", "path": ".knowledge/rule/shared-code-names-a-leaf.md", "role": "supporting", "title": "Code Compiled Into Both Builds Names A Shared Leaf", "type": "rule"}
 {"category": "constraint", "id": "rule:static-route-discovery", "path": ".knowledge/rule/static-route-discovery.md", "role": "supporting", "title": "Static Route Discovery", "type": "rule"}
 {"category": "constraint", "id": "rule:storage-checks", "path": ".knowledge/rule/storage-checks.md", "role": "supporting", "title": "Storage Checks", "type": "rule"}
 {"category": "constraint", "id": "rule:storage-package-layout", "path": ".knowledge/rule/storage-package-layout.md", "role": "supporting", "title": "Storage Package Layout", "type": "rule"}
