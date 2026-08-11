@@ -35,8 +35,12 @@ Those are [`examples/helloworld`](https://github.com/shibukawa/popcornwave/tree/
 on an Apple M3, and the subject matters: it embeds SQLite, which is most of what
 you see. The transport accounts for about 300 KiB of the difference between the
 two columns, so a smaller binary is not a reason to switch. TinyGo is, at less
-than half the stripped host build — and `-no-debug` changes nothing on this
-target, so do not expect a saving from it.
+than half the stripped host build.
+
+`-no-debug` earns nothing here, and the reason is macOS rather than TinyGo: the
+linked Mach-O carries no DWARF at all — debug information stays in the object
+files — so the flag has nothing to remove. Do not read that as a verdict on the
+flag. See the WASI table below, where it is the largest lever on the page.
 
 Read the bottom row against the one above it rather than across. Under host Go
 fasthttp is marginally the smaller of the two; under TinyGo it is 1.4 MiB
@@ -54,6 +58,30 @@ TinyGo needs `-scheduler=threads` if the binary links a network database driver,
 and until tinygodriver v1.2.4 it also could not link fasthttp at all — a zstd
 decoder reached for arm64 assembly its linker does not resolve. Both are
 [build tags](/reference/build-tags/) rather than anything this page decides.
+
+### WASI, where `-no-debug` is the whole story
+
+`tinygo build -target=wasip1` produces a module the same application runs from,
+and there the flag is not a rounding error:
+
+| `tinygo build -target=wasip1` | net/http | fasthttp |
+| --- | --- | --- |
+| plain | 7.6 MiB | 13.4 MiB |
+| `-no-debug` | 2.9 MiB | 3.8 MiB |
+
+A wasm module embeds its DWARF as custom sections, so dropping it takes 62% off
+the net/http build and 72% off the fasthttp one. `wasip2` lands within 0.1 MiB of
+each of these. `-target=wasm`, the browser one, does not build: `net/http`'s
+JavaScript transport does not compile under TinyGo, and no server target needs it.
+
+Two things follow. **Always pass `-no-debug` for a WASI artifact** — it is worth
+more than every other choice on this page combined, and at 2.9 MiB the module is
+smaller than the native TinyGo binary. And the fasthttp penalty largely
+evaporates: 0.9 MiB rather than the 5.8 MiB the plain column suggests, because
+most of what the fork adds was debug information about it.
+
+For where such a module is deployed, see
+[Serverless](/guides/deployment/serverless/).
 
 ### What it costs at request time
 

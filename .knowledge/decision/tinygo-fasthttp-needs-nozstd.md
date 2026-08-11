@@ -36,7 +36,14 @@ sizes:
   tinygo_net_http: 4.19 MiB
   tinygo_fasthttp_nozstd: 5.55 MiB
   tinygo_fasthttp_noasm: 8.04 MiB
-  no_debug: changes nothing measurable in any of the three
+  no_debug:
+    native_darwin: changes nothing measurable, because the linked Mach-O carries no DWARF at all — debug information stays in the object files, so there is nothing to remove
+    wasi: the opposite; a wasm module embeds .debug_info and .debug_line as custom sections
+    wasip1_net_http: 7.6 MiB plain, 2.9 MiB with -no-debug, 62 percent
+    wasip1_fasthttp: 13.4 MiB plain, 3.8 MiB with -no-debug, 72 percent
+    wasip2: within 0.1 MiB of wasip1 on both
+    consequence: a WASI artifact should always pass it, and the fasthttp penalty falls from 5.8 MiB to 0.9 MiB because most of what the fork added was debug information about itself
+    target_wasm: does not build — net/http's JavaScript transport does not compile under TinyGo, and no server target needs it
   after_v1_2_4:
     tinygo_fasthttp_no_extra_tag: 5.6 MiB, so fasthttp costs 1.4 MiB over net/http under TinyGo
     direction_reverses_by_compiler: under host Go fasthttp is the marginally smaller build; under TinyGo it is the larger one
