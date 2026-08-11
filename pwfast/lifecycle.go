@@ -6,6 +6,7 @@ import (
 	"io/fs"
 	"net"
 	"net/http"
+	"strings"
 	"sync"
 
 	"github.com/shibukawa/popcornwave/internal/apidoc"
@@ -128,6 +129,15 @@ type RuntimeOptions struct {
 	// because deciding which paths are protected belongs to an authentication
 	// plugin, and this half applies what that plugin resolved.
 	Guard GuardPolicy
+	// RateLimitCounter is the storage the limiter counts in, or nil where a
+	// deployment left the limiter off. Like the session manager it is supplied
+	// rather than opened here, because opening it is startup work: a Redis
+	// counter dials a server and refuses to start against one it cannot reach.
+	//
+	// A configuration that enables the limiter and supplies no counter is
+	// refused rather than served without one, per policy:absent-rather-than-stubbed:
+	// a limiter that admits everything is a control that looks installed.
+	RateLimitCounter RateLimitCounter
 	// Extra frames are installed alongside the framework's, positioned by their
 	// own slots.
 	Extra []Frame
@@ -212,6 +222,27 @@ func Middlewares(handler fasthttp.RequestHandler, options RuntimeOptions) (fasth
 	if options.Session != nil {
 		frames = append(frames, Frame{Slot: SlotSession, Name: "session",
 			Middleware: Session(options.Session, nil)})
+	}
+	if settings.RateLimit.Enabled {
+		limits := settings.RateLimit
+		exempt := rateLimitExemptions(settings)
+		deps := RateLimitDeps{Counter: options.RateLimitCounter, Exempt: exempt,
+			Degraded: logRateLimitDegraded}
+		if settings.RateLimit.Process > 0 {
+			// The ceiling belongs in the outer stack where a refusal has cost
+			// least; the identity bucket below authentication where the subject
+			// exists. Neither can be the other's slot.
+			ceiling, err := ProcessRateLimiter(limits, deps)
+			if err != nil {
+				return nil, err
+			}
+			frames = append(frames, Frame{Slot: SlotRateLimitProcess, Name: "ratelimit.process", Middleware: ceiling})
+		}
+		limiter, err := RateLimiter(limits, deps)
+		if err != nil {
+			return nil, err
+		}
+		frames = append(frames, Frame{Slot: SlotRateLimit, Name: "ratelimit", Middleware: limiter})
 	}
 	if settings.CSRF.Enabled {
 		// The check is built even when the session frame is absent, and refuses
@@ -423,4 +454,41 @@ func operationalMethod(r *fasthttp.RequestCtx) bool {
 	r.Response.Header.Set("Allow", "GET, HEAD")
 	r.SetStatusCode(fasthttp.StatusMethodNotAllowed)
 	return false
+}
+
+// rateLimitExemptions are the endpoints the framework itself owns and routes.
+//
+// They are not a deployment setting. A readiness probe arrives from the proxy
+// on the same address as every anonymous caller and would exhaust that bucket
+// by itself, and one page view fetches many assets; counting either turns the
+// limit into an outage on the first deploy.
+//
+// The list is derived from the same settings the frames that serve those
+// endpoints are built from, so a probe moved to another path is exempt at its
+// new one without anything else being told.
+func rateLimitExemptions(settings pwruntime.ChainSettings) []string {
+	exempt := make([]string, 0, 6)
+	for _, path := range []string{settings.Health, settings.Readiness, settings.OpenAPI, settings.APIDoc} {
+		if path = strings.TrimSpace(path); path != "" && strings.HasPrefix(path, "/") {
+			exempt = append(exempt, path)
+		}
+	}
+	if settings.APIDoc != "" && settings.APIDocPath != "" && strings.HasPrefix(settings.APIDocPath, "/") {
+		exempt = append(exempt, settings.APIDocPath, strings.TrimSuffix(settings.APIDocPath, "/")+"/**")
+	}
+	if settings.Public.Enabled && strings.HasPrefix(settings.Public.Mount, "/") {
+		exempt = append(exempt, strings.TrimSuffix(settings.Public.Mount, "/")+"/**")
+	}
+	return exempt
+}
+
+// logRateLimitDegraded records an admission made without a working store.
+//
+// The request was admitted on purpose: the edge still has its own limits, and
+// refusing here would convert a store incident into an outage of every limited
+// route at once. Silently not limiting is the state worth knowing about.
+func logRateLimitDegraded(r *fasthttp.RequestCtx, err error) {
+	pwruntime.ReadLogger(r).Log(r, pwruntime.LevelError,
+		"rate limit admitted a request without counting it",
+		pwruntime.String("error", err.Error()), pwruntime.String("path", string(r.Path())))
 }

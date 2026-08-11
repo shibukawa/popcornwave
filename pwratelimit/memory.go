@@ -1,4 +1,4 @@
-package middlewares
+package pwratelimit
 
 import (
 	"context"
@@ -6,14 +6,14 @@ import (
 	"time"
 )
 
-// MemoryRateLimitCounter counts inside this process.
+// MemoryCounter counts inside this process.
 //
 // It is the default because a limiter that needs a dependency before it starts
 // is one nobody switches on. It is also only correct on one replica: N of them
 // each enforce the configured limit, so the effective limit is N times what the
 // deployment declared. That is a property of the choice rather than a defect,
 // and pw doctor reports it.
-type MemoryRateLimitCounter struct {
+type MemoryCounter struct {
 	mu sync.Mutex
 	// windows holds one counter per key for the window it names. An entry
 	// whose window has passed is replaced on the next arrival rather than
@@ -31,9 +31,9 @@ type memoryWindow struct {
 	expires time.Time
 }
 
-// NewMemoryRateLimitCounter returns an empty in-process counter.
-func NewMemoryRateLimitCounter() *MemoryRateLimitCounter {
-	return &MemoryRateLimitCounter{windows: make(map[string]*memoryWindow), now: time.Now}
+// NewMemoryCounter returns an empty in-process counter.
+func NewMemoryCounter() *MemoryCounter {
+	return &MemoryCounter{windows: make(map[string]*memoryWindow), now: time.Now}
 }
 
 // memorySweepInterval is how often an increment also walks the map. It is a
@@ -45,7 +45,7 @@ const memorySweepInterval = 10 * time.Minute
 // The expiry is set when the window opens and never extended, which is what
 // makes this a fixed window: every key in one window resets together, at the
 // instant X-RateLimit-Reset reported.
-func (c *MemoryRateLimitCounter) Increment(_ context.Context, key string, window time.Duration) (uint64, error) {
+func (c *MemoryCounter) Increment(_ context.Context, key string, window time.Duration) (uint64, error) {
 	now := c.now()
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -55,7 +55,7 @@ func (c *MemoryRateLimitCounter) Increment(_ context.Context, key string, window
 	c.sweepLocked(now)
 	current, ok := c.windows[key]
 	if !ok || !now.Before(current.expires) {
-		current = &memoryWindow{expires: windowReset(now, window)}
+		current = &memoryWindow{expires: WindowReset(now, window)}
 		c.windows[key] = current
 	}
 	current.count++
@@ -63,7 +63,7 @@ func (c *MemoryRateLimitCounter) Increment(_ context.Context, key string, window
 }
 
 // sweepLocked drops keys whose window has passed, at most once per interval.
-func (c *MemoryRateLimitCounter) sweepLocked(now time.Time) {
+func (c *MemoryCounter) sweepLocked(now time.Time) {
 	if !c.sweptAt.IsZero() && now.Sub(c.sweptAt) < memorySweepInterval {
 		return
 	}

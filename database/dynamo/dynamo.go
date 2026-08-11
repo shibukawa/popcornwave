@@ -29,16 +29,18 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/shibukawa/popcornwave/pw"
+	"github.com/shibukawa/popcornwave/pwconfig"
+	"github.com/shibukawa/popcornwave/pwextension"
+	"github.com/shibukawa/popcornwave/pwruntime"
 	"github.com/shibukawa/tinybind-go/dynamobind"
 	"github.com/shibukawa/tinygodriver/cloud/aws"
 	"github.com/shibukawa/tinygodriver/nosql/dynamodb"
 )
 
 func init() {
-	pw.RegisterExtension(pw.Extension{
+	pwextension.Register(pwextension.Extension{
 		Name:  "database.dynamo",
-		Slot:  pw.SlotStorage,
+		Slot:  pwruntime.SlotStorage,
 		Setup: setup,
 		Close: closeRuntime,
 	})
@@ -108,9 +110,9 @@ func Client(ctx context.Context) (*dynamodb.Client, error) {
 // setup opens the client and verifies the schema. It returns no middleware:
 // the request path reads the process handle through Handle, so no context node
 // is installed per request.
-func setup(ctx context.Context) (pw.Middleware, error) {
-	config := pw.Config[Config](ctx)
-	if err := config.validate(pw.Development()); err != nil {
+func setup(ctx context.Context) (pwextension.Middleware, error) {
+	config := pwruntime.ResolveConfig[Config](ctx)
+	if err := config.validate(pwconfig.Development()); err != nil {
 		return nil, err
 	}
 	if !config.Enabled {

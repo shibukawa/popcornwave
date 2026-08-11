@@ -26,6 +26,7 @@ func ChainSettings(server ServerConfig, security SecurityConfig, middleware Midd
 		APIDocPath:      server.APIDocPath,
 		CSRF:            security.CSRF,
 		Public:          server.Public,
+		RateLimit:       Value[RateLimitConfig](),
 	}
 }
 

@@ -35,16 +35,17 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/shibukawa/popcornwave/pw"
+	"github.com/shibukawa/popcornwave/pwextension"
+	"github.com/shibukawa/popcornwave/pwruntime"
 	"github.com/shibukawa/tinybind-go/firestorebind"
 	"github.com/shibukawa/tinygodriver/cloud/google"
 	"github.com/shibukawa/tinygodriver/nosql/datastore"
 )
 
 func init() {
-	pw.RegisterExtension(pw.Extension{
+	pwextension.Register(pwextension.Extension{
 		Name:  "database.firestore",
-		Slot:  pw.SlotStorage,
+		Slot:  pwruntime.SlotStorage,
 		Setup: setup,
 		Close: closeRuntime,
 	})
@@ -146,8 +147,8 @@ func Client(ctx context.Context) (*datastore.Client, error) {
 // setup opens the client and proves the database is reachable and in Datastore
 // mode. It returns no middleware: the request path reads the process handle
 // through Handle, so no context node is installed per request.
-func setup(ctx context.Context) (pw.Middleware, error) {
-	config := pw.Config[Config](ctx)
+func setup(ctx context.Context) (pwextension.Middleware, error) {
+	config := pwruntime.ResolveConfig[Config](ctx)
 	if err := config.validate(); err != nil {
 		return nil, err
 	}

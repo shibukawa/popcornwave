@@ -11,7 +11,7 @@ import (
 	"time"
 
 	goredis "github.com/redis/go-redis/v9"
-	"github.com/shibukawa/popcornwave/pw"
+	"github.com/shibukawa/popcornwave/pwratelimit"
 )
 
 func TestNewCounterValidatesTheKeySpace(t *testing.T) {
@@ -22,7 +22,7 @@ func TestNewCounterValidatesTheKeySpace(t *testing.T) {
 	if err != nil {
 		t.Fatalf("an empty prefix was refused: %v", err)
 	}
-	if counter.KeyPrefix() != pw.DefaultRateLimitKeyPrefix {
+	if counter.KeyPrefix() != pwratelimit.DefaultKeyPrefix {
 		t.Errorf("KeyPrefix = %q, want the framework default", counter.KeyPrefix())
 	}
 	if _, err := NewCounter(nil, Options{}); err == nil {
@@ -37,10 +37,10 @@ func TestNewCounterValidatesTheKeySpace(t *testing.T) {
 }
 
 func TestOpenRefusesAnUnusableDSN(t *testing.T) {
-	for name, config := range map[string]pw.RateLimitConfig{
-		"no dsn":      {Redis: pw.RateLimitRedisConfig{}},
-		"not a url":   {Redis: pw.RateLimitRedisConfig{DSN: "localhost:6379"}},
-		"wrong sche+": {Redis: pw.RateLimitRedisConfig{DSN: "postgres://localhost:5432/db"}},
+	for name, config := range map[string]pwratelimit.Config{
+		"no dsn":      {Redis: pwratelimit.RedisConfig{}},
+		"not a url":   {Redis: pwratelimit.RedisConfig{DSN: "localhost:6379"}},
+		"wrong sche+": {Redis: pwratelimit.RedisConfig{DSN: "postgres://localhost:5432/db"}},
 	} {
 		if _, _, err := open(context.Background(), config); err == nil {
 			t.Errorf("%s: accepted", name)

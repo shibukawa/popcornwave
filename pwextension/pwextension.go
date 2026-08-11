@@ -91,6 +91,50 @@ func Registered() []Extension {
 	return ordered
 }
 
+// SetupProcess runs the startup half of every registered extension, for a
+// runtime that assembles its chain from arguments rather than from this
+// registry. It returns the shutdown that closes them, in reverse.
+//
+// Not every extension is a frame. A storage integration opens a client, checks
+// a schema, and publishes a process handle the request path reads directly — it
+// registers here for the startup and the shutdown, and installs nothing. Those
+// are exactly the ones a second transport can run, and running them is what
+// keeps a blank import meaning the same thing in both builds.
+//
+// An extension that does install a frame is refused by name. Its middleware is
+// net/http's, and there is nowhere on the other transport to put it; dropping
+// it silently would leave a build with the extension linked, its configuration
+// bound, its startup done, and its behaviour absent — which is a security
+// control that looks installed.
+func SetupProcess(ctx context.Context) (func(context.Context) error, error) {
+	var opened []Extension
+	closeOpened := func(ctx context.Context) error {
+		var result error
+		for index := len(opened) - 1; index >= 0; index-- {
+			if opened[index].Close == nil {
+				continue
+			}
+			if err := opened[index].Close(ctx); err != nil {
+				result = errors.Join(result, fmt.Errorf("close %s: %w", opened[index].Name, err))
+			}
+		}
+		return result
+	}
+	for _, extension := range Registered() {
+		middleware, err := extension.Setup(ctx)
+		if err != nil {
+			return closeOpened, fmt.Errorf("setup %s: %w", extension.Name, err)
+		}
+		opened = append(opened, extension)
+		if middleware != nil {
+			return closeOpened, fmt.Errorf(
+				"extension %s installs a net/http middleware, which this transport cannot run; "+
+					"a plugin serving both hands the other transport a frame of its own", extension.Name)
+		}
+	}
+	return closeOpened, nil
+}
+
 // Responders are how this process answers over net/http.
 //
 // They are published rather than reached for, because rendering a problem is

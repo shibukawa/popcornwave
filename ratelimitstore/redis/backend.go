@@ -15,13 +15,13 @@ import (
 	"time"
 
 	goredis "github.com/redis/go-redis/v9"
-	"github.com/shibukawa/popcornwave/pw"
+	"github.com/shibukawa/popcornwave/pwratelimit"
 )
 
 // Importing this package registers the redis counter store. Registration opens
 // no connection; the client is dialed when ratelimit.backend selects it.
 func init() {
-	pw.RegisterRateLimitStore(pw.RateLimitBackendRedis, open)
+	pwratelimit.RegisterStore(pwratelimit.BackendRedis, open)
 }
 
 // defaultConnectTimeout bounds the startup ping and the per-command deadlines
@@ -37,7 +37,7 @@ const maxPrefixBytes = 128
 //
 // Starting anyway would leave a limiter that fails open on every request, which
 // is the degraded state made permanent and invisible.
-func open(ctx context.Context, config pw.RateLimitConfig) (pw.RateLimitCounter, func(context.Context) error, error) {
+func open(ctx context.Context, config pwratelimit.Config) (pwratelimit.Counter, func(context.Context) error, error) {
 	dsn := strings.TrimSpace(config.Redis.DSN)
 	if dsn == "" {
 		return nil, nil, errors.New(`ratelimit.backend = "redis" requires ratelimit.redis.dsn`)
@@ -74,7 +74,7 @@ func open(ctx context.Context, config pw.RateLimitConfig) (pw.RateLimitCounter, 
 // Options configure a Counter.
 type Options struct {
 	// KeyPrefix isolates these keys from every other user of the server. It
-	// defaults to pw.DefaultRateLimitKeyPrefix.
+	// defaults to pwratelimit.DefaultKeyPrefix.
 	KeyPrefix string
 }
 
@@ -91,7 +91,7 @@ func NewCounter(client goredis.UniversalClient, options Options) (*Counter, erro
 	}
 	prefix := options.KeyPrefix
 	if prefix == "" {
-		prefix = pw.DefaultRateLimitKeyPrefix
+		prefix = pwratelimit.DefaultKeyPrefix
 	}
 	if len(prefix) > maxPrefixBytes || strings.ContainsAny(prefix, " \r\n\t") {
 		return nil, fmt.Errorf("ratelimit.redis.key_prefix %q is not a usable key space", prefix)
