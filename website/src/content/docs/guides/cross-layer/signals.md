@@ -173,6 +173,19 @@ an open redirect the moment that URL comes from a row somebody else can write.
 Prefer closing over the answer; where the destination genuinely varies, validate
 it at the call site.
 
+## In a project that also builds for fasthttp
+
+Call `pwruntime.NewSignal` rather than `pw.NewSignal`, and likewise
+`pwruntime.NamedSignal`. They are the same functions — `pw` re-exports them —
+but a source is the one part of a live page that names no transport, so it lives
+in a file no build tag excludes, and `pw` is not in the fasthttp build. A source
+that reaches for `pw` fails that build on the import alone.
+
+Nothing else about a signal changes. Both backends write the same records, both
+reserve the `pw.` prefix, and the page's own script does not know which one it
+is talking to. See [Build targets](/guides/architecture/performance/) for what
+the second build is.
+
 ## When not to use a signal
 
 Not for state. Anything a region displays is a delivery — a signal that carries

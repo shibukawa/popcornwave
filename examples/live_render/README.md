@@ -85,13 +85,16 @@ notion of how much of it is new. So the source also emits a **signal**, in the
 error slot and classified before anything treats it as an error:
 
 ```go
-if !yield(nil, pw.NamedSignal("app.message")) {
+if !yield(nil, pwruntime.NamedSignal("app.message")) {
 	return
 }
 ```
 
 No payload: the handler needs to know that something arrived and nothing else,
 which lets the server say when and never what.
+
+`pwruntime` rather than `pw`, because this example builds for fasthttp too and
+the file holding the source carries no build tag. They are the same function.
 
 `handlers/dashboard.pw.html` opens with a `<script component>` block that
 receives it. The same block registers two names the runtime dispatches itself —

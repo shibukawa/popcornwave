@@ -4,7 +4,7 @@ go 1.26.0
 
 require (
 	github.com/shibukawa/popcornwave v0.0.0
-	github.com/shibukawa/tinybind-go v0.5.5
+	github.com/shibukawa/tinybind-go v0.5.7
 	github.com/shibukawa/tinygodriver v1.2.3
 )
 

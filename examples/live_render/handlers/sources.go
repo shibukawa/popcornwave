@@ -7,7 +7,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/shibukawa/popcornwave/pw"
+	// pwruntime rather than pw, because this file has no build tag: a source
+	// names no transport, so both builds compile it, and only one of them has
+	// pw. pwruntime.NamedSignal is pw.NamedSignal under its other name.
+	"github.com/shibukawa/popcornwave/pwruntime"
 )
 
 // LoadRoomTitle is an ordinary async external: it answers once, and the
@@ -93,7 +96,7 @@ func WatchMessages(ctx context.Context, name string) iter.Seq2[[]Message, error]
 				// message arrived and nothing else, so this lets the server say
 				// when and never what — which is the narrowest thing a
 				// registered name can be given.
-				if !yield(nil, pw.NamedSignal("app.message")) {
+				if !yield(nil, pwruntime.NamedSignal("app.message")) {
 					return
 				}
 			}

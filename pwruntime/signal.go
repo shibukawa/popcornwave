@@ -1,9 +1,7 @@
-package pw
+package pwruntime
 
 import (
-	"errors"
-
-	"github.com/shibukawa/popcornwave/pwruntime"
+	"github.com/shibukawa/tinybind-go/htmlbind"
 )
 
 // A signal is a named instruction a live source sends to client code, travelling
@@ -39,31 +37,25 @@ import (
 // instruction that must be seen exactly once does not belong here, and a screen
 // must still be correct for someone who reloads it.
 //
-// Everything below is pwruntime's, and the constructors are worth knowing by
-// their other name: an application that builds for the second transport as well
-// keeps its sources in files no build tag excludes, and such a file calls
-// pwruntime.NewSignal, which is this one. Only the spelling differs.
+// The construction half lives here rather than in pw, beside the prefix both
+// live loops reserve and the record both of them write. A source is the one
+// piece of a live page that names no transport — it takes no request, writes to
+// no response, and returns a sequence — so an application building for both
+// backends keeps it in a file no build tag excludes. Reaching pw for a
+// constructor is what would put the first transport's runtime into the second
+// build, through a file that has nothing to do with either.
 
 // SignalPayload is what a signal carries. Generated encoders satisfy it, which
 // is what keeps a payload encoded by the same codec as every other typed value
 // this framework sends.
-type SignalPayload = pwruntime.SignalPayload
+type SignalPayload = htmlbind.SignalPayload
 
 // Signal is one named instruction and its encoded payload.
-type Signal = pwruntime.Signal
+type Signal = htmlbind.Signal
 
 // ErrSignal matches any signal under errors.Is, for code that wants the
 // classification without the value.
-var ErrSignal = pwruntime.ErrSignal
-
-// ReservedSignalPrefix is this framework's signal namespace. It and the check
-// below are pwruntime's, so both transport runtimes reserve the same one: a
-// namespace one backend guarded and the other did not would be reachable through
-// the second.
-const ReservedSignalPrefix = pwruntime.ReservedSignalPrefix
-
-// ErrReservedSignalName reports a name inside this framework's namespace.
-var ErrReservedSignalName = errors.New("pw: signal name uses the reserved " + ReservedSignalPrefix + " prefix")
+var ErrSignal = htmlbind.ErrSignal
 
 // NewSignal builds a signal carrying an encoded payload.
 //
@@ -72,11 +64,11 @@ var ErrReservedSignalName = errors.New("pw: signal name uses the reserved " + Re
 // reflect on to write. A nil payload is legal and means an instruction with no
 // arguments.
 func NewSignal[T SignalPayload](name string, payload T) Signal {
-	return pwruntime.NewSignal(name, payload)
+	return htmlbind.NewSignal(name, payload)
 }
 
 // NamedSignal builds a signal with no payload.
-func NamedSignal(name string) Signal { return pwruntime.NamedSignal(name) }
+func NamedSignal(name string) Signal { return htmlbind.NamedSignal(name) }
 
 // NewRawSignal builds a signal from a payload that is already encoded JSON.
 //
@@ -84,15 +76,10 @@ func NamedSignal(name string) Signal { return pwruntime.NamedSignal(name) }
 // value produces a record a client cannot parse, which is why NewSignal is the
 // ordinary path.
 func NewRawSignal(name string, payload []byte) Signal {
-	return pwruntime.NewRawSignal(name, payload)
+	return htmlbind.NewRawSignal(name, payload)
 }
 
-// AsSignal reports whether err is a signal, and returns it. It is what the live
+// AsSignal reports whether err is a signal, and returns it. It is what a live
 // loop classifies with, and it is exported because an application wrapping a
 // source of its own needs the same test.
-func AsSignal(err error) (Signal, bool) { return pwruntime.AsSignal(err) }
-
-// ReservedSignalName reports a name this framework refuses to put on the wire.
-// It is enforced where a signal is written rather than where one is constructed;
-// pwruntime.ReservedSignalName carries why.
-func ReservedSignalName(name string) bool { return pwruntime.ReservedSignalName(name) }
+func AsSignal(err error) (Signal, bool) { return htmlbind.AsSignal(err) }
