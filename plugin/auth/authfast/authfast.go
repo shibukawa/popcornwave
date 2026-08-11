@@ -199,3 +199,20 @@ func IsRecent(r *fasthttp.RequestCtx, requirement auth.Requirement) bool {
 func Challenge(r *fasthttp.RequestCtx, requirement auth.Requirement, api bool) {
 	auth.ChallengeOn(newExchange(r), requirement, api)
 }
+
+// Contribute builds the authentication runtime and returns what it adds to a
+// chain, in the shape pwfast.WithSetup takes:
+//
+//	pwfast.Run(ctx, handler, pwfast.WithSetup(authfast.Contribute))
+//
+// It exists because the other transport gains these frames from a blank import
+// and this one cannot: a chain assembled from arguments does not silently gain
+// a frame, so an application names them. One line rather than three is what
+// keeps that from being a reason to skip it.
+func Contribute(ctx context.Context) (func(pwfast.RuntimeOptions) pwfast.RuntimeOptions, error) {
+	options, err := Setup(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return options.Apply, nil
+}

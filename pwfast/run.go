@@ -27,6 +27,7 @@ type Option func(*startOptions) error
 type startOptions struct {
 	publicFS fs.FS
 	contribs []func(RuntimeOptions) RuntimeOptions
+	setups   []func(context.Context) (func(RuntimeOptions) RuntimeOptions, error)
 }
 
 // WithPublicFS supplies the embedded public tree, rooted at its public
@@ -58,6 +59,29 @@ func WithRuntimeOptions(apply func(RuntimeOptions) RuntimeOptions) Option {
 			return errors.New("popcornwave: nil runtime option contribution")
 		}
 		options.contribs = append(options.contribs, apply)
+		return nil
+	}
+}
+
+// WithSetup folds in a contribution that has to be built from the resolved
+// configuration first.
+//
+// It is the shape a plugin with startup of its own needs. WithRuntimeOptions
+// takes a contribution the caller already has; this takes the thing that makes
+// one, and is handed a context carrying the settings, the logger and the pool —
+// the same capsule a request is served with. An authentication plugin's
+// Contribute is exactly this shape:
+//
+//	pwfast.Run(ctx, handler, pwfast.WithSetup(authfast.Contribute))
+//
+// It runs after the shared layers and before the chain is composed, so a plugin
+// reads a pool that is open and a session manager that exists.
+func WithSetup(setup func(context.Context) (func(RuntimeOptions) RuntimeOptions, error)) Option {
+	return func(options *startOptions) error {
+		if setup == nil {
+			return errors.New("popcornwave: nil runtime setup")
+		}
+		options.setups = append(options.setups, setup)
 		return nil
 	}
 }
@@ -212,6 +236,15 @@ func start(ctx context.Context, handler fasthttp.RequestHandler, options startOp
 		return nil, err
 	}
 
+	for _, setup := range options.setups {
+		apply, err := setup(setupCtx)
+		if err != nil {
+			return nil, err
+		}
+		if apply != nil {
+			runtime = apply(runtime)
+		}
+	}
 	for _, apply := range options.contribs {
 		runtime = apply(runtime)
 	}

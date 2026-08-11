@@ -1051,6 +1051,9 @@ func PublicFS() fs.FS {
 			files[path] = source
 		}
 	}
+	for path, source := range secondBuildFiles(options) {
+		files[path] = source
+	}
 	if options.Devbox {
 		files["devbox.json"] = devboxScaffold(devboxPackages)
 		files["devbox.lock"] = "{}\n"
@@ -1679,20 +1682,13 @@ func homeHandlerScaffold(options initOptions) string {
 	project := strconv.Quote(options.Name)
 	pattern, _ := registeredHomeRoute(options)
 	if !servesBrowserLogin(options) {
-		return `package handlers
+		return firstBuild(options) + `package handlers
 
 import (
 	"net/http"
 
 	"github.com/shibukawa/popcornwave/pw"
 )
-
-// homeInput is what this route reads from the request.
-type homeInput struct {
-	// Name is who the page greets. Anything the request does not carry falls
-	// back to the declared default.
-	Name string ` + "`query:\"name\" default:\"World\"`" + `
-}
 
 func init() { mux.HandleFunc("` + pattern + `", home) }
 
@@ -1719,7 +1715,7 @@ func home(w http.ResponseWriter, r *http.Request) {
 }
 `
 	}
-	return `package handlers
+	return firstBuild(options) + `package handlers
 
 import (
 	"net/http"
@@ -2654,9 +2650,15 @@ func registeredRouterScaffold(options initOptions, directory string) map[string]
 		// error renderer still answers a browser that reaches a failing route,
 		// and requirement:typed-http-contract answers everything else.
 		files[directory+"/me_handler.go"] = bearerHandlerScaffold(options)
+		files[directory+"/me_types.go"] = identityScaffold()
 		return files
 	}
 	files[directory+"/home_handler.go"] = homeHandlerScaffold(options)
+	if !servesBrowserLogin(options) {
+		// The login variant reads the session rather than a query, so it
+		// declares no request type to move out.
+		files[directory+"/home_types.go"] = homeInputScaffold()
+	}
 	files[directory+"/home.pw.html"] = homeTemplateScaffold(options)
 	return files
 }
@@ -2671,7 +2673,7 @@ func registeredRouterScaffold(options initOptions, directory string) map[string]
 // the token, applied the admission rule, and either refused the request or put
 // this here.
 func bearerHandlerScaffold(options initOptions) string {
-	return `package handlers
+	return firstBuild(options) + `package handlers
 
 import (
 	"errors"
@@ -2679,15 +2681,6 @@ import (
 
 	"github.com/shibukawa/popcornwave/pw"
 )
-
-// identity is what this route answers. It is an ordinary struct: pw generate
-// emits the encoder and the OpenAPI schema from it, so nothing here writes
-// JSON by hand.
-type identity struct {
-	Subject string   ` + "`json:\"subject\"`" + `
-	Method  string   ` + "`json:\"method\"`" + `
-	Scope   []string ` + "`json:\"scope,omitempty\"`" + `
-}
 
 func init() { mux.HandleFunc("GET /me", me) }
 
@@ -2793,7 +2786,7 @@ func Load(name string) (string, error) {
 // where composition lives. A handwritten Load therefore assembles the wrappers
 // the registry would have assembled, which for the root is its own layout.
 func discoveredRootLoadScaffold(options initOptions, pkg string) string {
-	return `package ` + pkg + `
+	return firstBuild(options) + `package ` + pkg + `
 
 import (
 	"net/http"
@@ -2832,7 +2825,7 @@ func Load(w http.ResponseWriter, r *http.Request) {
 
 func muxScaffold(options initOptions) string {
 	if options.TinyGo {
-		return `package handlers
+		return firstBuild(options) + `package handlers
 
 import "github.com/shibukawa/popcornwave/pw"
 
@@ -2841,7 +2834,7 @@ var mux = pw.NewServeMux()
 func Handlers() *pw.ServeMux { return mux }
 `
 	}
-	return `package handlers
+	return firstBuild(options) + `package handlers
 
 import "net/http"
 
@@ -3087,4 +3080,129 @@ func frameworkModuleDirective() string {
 	}
 	root := filepath.Clean(filepath.Join(filepath.Dir(filename), "..", ".."))
 	return "require github.com/shibukawa/popcornwave v0.0.0\n\nreplace github.com/shibukawa/popcornwave => " + filepath.ToSlash(root) + "\n"
+}
+
+// firstBuild excludes an authored file from the second build.
+//
+// It is written only for a project that declared one, so a project that did not
+// gets the file it always got. What it marks is the file granularity
+// decision:transport-source-transform requires: a build tag excludes a whole
+// file rather than a declaration, so a file holding a transport handler must
+// hold nothing the other build needs. That is why the request and response
+// types below sit in files of their own rather than beside the handler that
+// reads them — the derived handler reads them too.
+func firstBuild(options initOptions) string {
+	if !options.FastHTTP {
+		return ""
+	}
+	return "//go:build !fasthttp\n\n"
+}
+
+// secondBuildFiles are what a project declaring the fasthttp backend gets
+// beyond the first build's: its entry point.
+//
+// Nothing else is needed. The handlers are derived, their binders are
+// generated, the routes an application registered itself are emitted onto
+// pwfast.RouteInstaller, and a page tree emits its own registry — so what is
+// left is the file that mounts them and starts the runtime, which is the one
+// file an application owns outright.
+func secondBuildFiles(options initOptions) map[string]string {
+	if !options.FastHTTP {
+		return nil
+	}
+	return map[string]string{"cmd/" + options.Name + "/main_fasthttp.go": fastMainScaffold(options)}
+}
+
+// fastMainScaffold is main.go for the second build.
+//
+// It reads as the near-twin of the first, and the differences are the lesson:
+// the runtime is pwfast, the mux is this transport's, and the routes an
+// application registered itself arrive through the generated RegisterRoutes
+// rather than through the init that registered them — because that init names
+// a mux this build does not have and a handler it gets from elsewhere.
+func fastMainScaffold(options initOptions) string {
+	name := options.Name
+	registered, discovered := defaultRegisteredDir, defaultDiscoveredDir
+	registeredPkg, discoveredPkg := goPackageIdentifier(registered), goPackageIdentifier(discovered)
+	imports := "\t\"context\"\n\t\"log\"\n\n"
+	body := "\tmux := pwfast.NewServeMux()\n"
+	switch router := effectiveRouter(options.Router); {
+	case router == routerRegistered:
+		imports += "\t\"" + name + "/" + registered + "\"\n"
+		body += "\t" + registeredPkg + ".RegisterRoutes(pwfast.Routes(mux))\n"
+	case router == routerDiscovered:
+		imports += "\t\"" + name + "/" + discovered + "\"\n"
+		if servesBrowserLogin(options) {
+			imports += "\t\"" + name + "/" + registered + "\"\n"
+		}
+		body += "\t" + discoveredPkg + ".Register(mux)\n"
+	default:
+		imports += "\t\"" + name + "/" + registered + "\"\n\t\"" + name + "/" + discovered + "\"\n"
+		body += "\t" + registeredPkg + ".RegisterRoutes(pwfast.Routes(mux))\n\t" +
+			discoveredPkg + ".Register(mux)\n"
+	}
+	run := "pwfast.Run(context.Background(), mux.Handler)"
+	if options.Auth != authNone {
+		// The other build gains these frames from an import; this one cannot,
+		// because a chain assembled from arguments does not silently gain a
+		// frame. So it names them.
+		imports += "\t\"github.com/shibukawa/popcornwave/plugin/auth/authfast\"\n"
+		run = "pwfast.Run(context.Background(), mux.Handler, pwfast.WithSetup(authfast.Contribute))"
+	}
+	imports += "\t\"github.com/shibukawa/popcornwave/pwfast\""
+	return `//go:build fasthttp
+
+package main
+
+import (
+` + imports + databaseDriverImport(options) + storeMiddlewareImport(options) + sessionBackendImport(options) + `
+)
+
+func main() {
+	// The same generated schemas the other build serves, so both transports
+	// publish one API description.
+	if err := pwfast.SetOpenAPIInfo(pwfast.OpenAPIInfo{Title: "` + name + `", Version: "0.1.0"}); err != nil {
+		log.Fatal(err)
+	}
+` + authBootstrap(options) + `
+` + body + `	if err := ` + run + `; err != nil {
+		log.Fatal(err)
+	}
+}
+`
+}
+
+// homeInputScaffold is the request type the starter route reads.
+//
+// It is a file of its own rather than a declaration beside the handler,
+// because the derived handler reads it too and a build tag excludes a whole
+// file. A project with no second build gets it here anyway: one layout is
+// easier to teach than two, and this is the one the framework's own rule asks
+// for.
+func homeInputScaffold() string {
+	return `package handlers
+
+// homeInput is what this route reads from the request.
+type homeInput struct {
+	// Name is who the page greets. Anything the request does not carry falls
+	// back to the declared default.
+	Name string ` + "`query:\"name\" default:\"World\"`" + `
+}
+`
+}
+
+// identityScaffold is the response type the bearer route answers with, in a
+// file of its own for the same reason homeInput is.
+func identityScaffold() string {
+	return `package handlers
+
+// identity is what this route answers. It is an ordinary struct: pw generate
+// emits the encoder and the OpenAPI schema from it, so nothing here writes
+// JSON by hand.
+type identity struct {
+	Subject string   ` + "`json:\"subject\"`" + `
+	Method  string   ` + "`json:\"method\"`" + `
+	Scope   []string ` + "`json:\"scope,omitempty\"`" + `
+}
+`
 }

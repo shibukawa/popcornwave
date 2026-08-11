@@ -75,18 +75,28 @@ func (rt *runtime) admissionFor() admissionRule {
 // auth state table.
 const stateNamespace = "auth-oidc"
 
+// authFastPackage is where this capability is served on the second transport.
+// It is a string rather than an import, because importing it from here would
+// put the fasthttp runtime into every net/http build.
+const authFastPackage = "github.com/shibukawa/popcornwave/plugin/auth/authfast"
+
 func init() {
 	registerSessionSlot()
+	// Both name the fasthttp half, so a build serving on that transport leaves
+	// them alone: authfast.Setup performs this startup and installs the frames
+	// there, and doing it from here as well would build the runtime twice.
 	pwextension.Register(pwextension.Extension{
-		Name:  "auth.endpoints",
-		Slot:  pwruntime.SlotAuthentication,
-		Setup: setupAuthentication,
-		Close: closeRuntime,
+		Name:            "auth.endpoints",
+		Slot:            pwruntime.SlotAuthentication,
+		Setup:           setupAuthentication,
+		Close:           closeRuntime,
+		SecondTransport: authFastPackage,
 	})
 	pwextension.Register(pwextension.Extension{
-		Name:  "auth.guard",
-		Slot:  pwruntime.SlotGuard,
-		Setup: setupGuard,
+		Name:            "auth.guard",
+		Slot:            pwruntime.SlotGuard,
+		Setup:           setupGuard,
+		SecondTransport: authFastPackage,
 	})
 }
 

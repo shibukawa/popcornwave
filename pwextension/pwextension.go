@@ -54,6 +54,19 @@ type Extension struct {
 	Setup func(context.Context) (Middleware, error)
 	// Close releases resources owned by the extension during shutdown.
 	Close func(context.Context) error
+	// SecondTransport names the package that serves this capability on the
+	// other transport, or is empty when this registration is all there is.
+	//
+	// It is what tells a runtime assembling its chain from arguments to leave
+	// this one alone. An authentication plugin registers here for the net/http
+	// chain and hands the other transport a frame directly, so its startup
+	// belongs to whichever half is actually serving — running it from both
+	// would open the same stores twice and install neither frame correctly.
+	//
+	// The value is the import path rather than a bool, because the useful
+	// message when a build has one half and not the other names the package to
+	// reach for.
+	SecondTransport string
 }
 
 var state = struct {
@@ -121,6 +134,12 @@ func SetupProcess(ctx context.Context) (func(context.Context) error, error) {
 		return result
 	}
 	for _, extension := range Registered() {
+		if extension.SecondTransport != "" {
+			// Served elsewhere on this transport. Its startup is that package's,
+			// and an application names it the way it names every other frame
+			// here.
+			continue
+		}
 		middleware, err := extension.Setup(ctx)
 		if err != nil {
 			return closeOpened, fmt.Errorf("setup %s: %w", extension.Name, err)
@@ -129,7 +148,8 @@ func SetupProcess(ctx context.Context) (func(context.Context) error, error) {
 		if middleware != nil {
 			return closeOpened, fmt.Errorf(
 				"extension %s installs a net/http middleware, which this transport cannot run; "+
-					"a plugin serving both hands the other transport a frame of its own", extension.Name)
+					"a plugin serving both transports declares SecondTransport and hands this one a frame of its own",
+				extension.Name)
 		}
 	}
 	return closeOpened, nil
