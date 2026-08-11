@@ -26,6 +26,17 @@ fields:
   headers.hsts.max_age: duration
   headers.hsts.include_subdomains: bool
   headers.hsts.preload: bool
+  reporting.enabled: bool, whether requirement:browser-report-ingest serves its endpoint and names it in Reporting-Endpoints
+  reporting.path: absolute path inside the reserved framework prefix
+  reporting.max_body: bytes accepted from one delivery, separate from server.max_request_body
+  reporting.max_reports: reports read from one body
+  reporting.rate: records written per second before the remainder is dropped and counted
+  reporting.csp_report_uri: bool, whether the legacy directive is appended beside report-to
+  reporting.nel.enabled: bool, whether requirement:network-error-logging emits an NEL header
+  reporting.nel.max_age: duration the browser keeps the persisted policy
+  reporting.nel.include_subdomains: bool
+  reporting.nel.success_fraction: fraction of successful requests reported
+  reporting.nel.failure_fraction: fraction of failed requests reported
 defaults:
   csrf.enabled: false
   csrf.include: ["/**"]
@@ -38,9 +49,21 @@ defaults:
   headers.frame_options: deny
   headers.referrer_policy: strict-origin-when-cross-origin
   headers.hsts.enabled: false
+  reporting.path: /_pw/report
+  reporting.max_body: 65536
+  reporting.max_reports: 32
+  reporting.rate: 10
+  reporting.csp_report_uri: true
+  reporting.enabled: true, decided 2026-08-10 under requirement:browser-report-ingest
+  reporting.nel.enabled: false, because the policy persists in the browser like HSTS
+  reporting.nel.max_age: 720h
+  reporting.nel.include_subdomains: false
+  reporting.nel.success_fraction: 0
+  reporting.nel.failure_fraction: 1
 rules:
   - policy:csrf-protection defines token and request validation
   - policy:security-response-headers defines header behavior
+  - requirement:browser-report-ingest defines the reporting endpoint, and enabling it with headers.enabled false is a startup error because nothing would emit the header
   - reject malformed paths, origins, header names, control characters, and invalid header values at startup
   - redact token material; configured policies may be logged without secret values
 ```
