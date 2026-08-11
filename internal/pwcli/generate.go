@@ -108,13 +108,13 @@ func generateProject(ctx context.Context, check bool, stdout io.Writer, listPath
 		options.ConversionCacheDir = filepath.Join(root, filepath.FromSlash(conversionCacheDir))
 		options.ConversionWorkers = conversionWorkers()
 	}
-	// The derivation is opt-in and reads the same call patterns the generation
-	// does, so a project that declared no second build runs none of it and a
-	// project that did cannot have the two disagree about what a pw call means.
-	second := secondBuild{warnings: stdout, owed: &bindersOwed{}}
+	// The derivation is opt-in and rides the same options the generation does, so
+	// a project that declared no second build runs none of it, and a project that
+	// did cannot have the two disagree about what a pw call means or about which
+	// files are this run's own output.
 	if config.FastHTTP {
 		transform := pwgen.FastTransform(options.Calls.Set)
-		second.transform = &transform
+		options.Transform = &transform
 	}
 	runner := generator.New(options)
 	var changes []fileChange
@@ -135,7 +135,7 @@ func generateProject(ctx context.Context, check bool, stdout io.Writer, listPath
 			}
 		}
 		for _, directory := range stage {
-			planned, err := planDirectory(ctx, runner, directory, directoryPurposes(root, config.Generate, directory), pageArtifacts[directory], second)
+			planned, err := planDirectory(ctx, runner, directory, directoryPurposes(root, config.Generate, directory), pageArtifacts[directory], config.FastHTTP)
 			if err != nil {
 				return 0, err
 			}
@@ -175,9 +175,6 @@ func generateProject(ctx context.Context, check bool, stdout io.Writer, listPath
 	if err != nil {
 		return 0, err
 	}
-	// Said once, and before the staleness verdict rather than after it, so a
-	// --check run that ends in an error still leaves it on the screen.
-	second.owed.report(stdout)
 	sort.Slice(changes, func(i, j int) bool { return changes[i].path < changes[j].path })
 	if check && len(changes) > 0 {
 		drift := changePaths(root, changes)
@@ -426,15 +423,23 @@ func (p generationPurposes) any() bool {
 // selected here rather than at discovery.
 func (p generationPurposes) keeps(kind generator.ArtifactKind) bool {
 	switch kind {
-	case generator.ArtifactBinding, generator.ArtifactTransport:
+	case generator.ArtifactBinding, generator.ArtifactTransport, generator.ArtifactTransportBinding:
 		// A page tree gets binders so a server action can read a typed request,
 		// but no OpenAPI: a rendered page is not a published contract, and an
 		// action endpoint is one page's implementation detail.
 		//
-		// The derived handlers follow the binders rather than the handlers
-		// purpose alone, because a server action is a transport handler living
-		// in a page tree and the second build needs it for the same reason.
+		// The second build's two halves follow the binders rather than the
+		// handlers purpose alone, because a server action is a transport handler
+		// living in a page tree and needs both for the same reason.
 		return p.handlers || p.pages
+	case generator.ArtifactTransportRoutes:
+		// Declined. The generator offers a route registration for the second
+		// transport, installing on the router its transform target names; the
+		// registration a project here needs is the page tree's own, which
+		// installs on pwfastpage.Router and is emitted beside the tree. Taking
+		// both would mean two registries and a dependency on a router no
+		// application built on this framework imports.
+		return false
 	case generator.ArtifactOpenAPI:
 		return p.handlers
 	case generator.ArtifactHTMLTemplate:
@@ -641,7 +646,7 @@ const disabledTemplatePattern = "*.not-a-generation-source"
 // one directory has one staleness sweep, and so a component and a binder that
 // derive the same base name merge into one file rather than deleting each
 // other.
-func planDirectory(ctx context.Context, runner *generator.Generator, directory string, purposes generationPurposes, extra []generator.Artifact, second secondBuild) ([]fileChange, error) {
+func planDirectory(ctx context.Context, runner *generator.Generator, directory string, purposes generationPurposes, extra []generator.Artifact, fastHTTP bool) ([]fileChange, error) {
 	goSources, err := hasGoSources(directory)
 	if err != nil {
 		return nil, err
@@ -685,23 +690,10 @@ func planDirectory(ctx context.Context, runner *generator.Generator, directory s
 	if err != nil && !errors.Is(err, generator.ErrNothingToGenerate) {
 		// A page tree route package usually holds no request model at all, so
 		// finding nothing is the ordinary outcome rather than a failure.
-		return nil, fmt.Errorf("%s: %w", directory, err)
-	}
-	// The derived handlers are planned beside the artifacts rather than among
-	// them, because the derivation reads the authored source and the run above
-	// reads the whole package; see planTransport for why that difference decides
-	// where it runs.
-	if goSources && purposes.keeps(generator.ArtifactTransport) {
-		derived, ok, err := planTransport(directory, second)
-		if err != nil {
-			return nil, err
-		}
-		if ok {
-			artifacts = append(artifacts, derived)
-			if owesBinders(artifacts) {
-				second.owed.record(directory)
-			}
-		}
+		//
+		// A refusal is the one failure worth rewording, because part of the
+		// remedy is this framework's rather than the application's.
+		return nil, transportRefusal(directory, err)
 	}
 
 	grouped := make(map[string][]generator.Artifact)
@@ -756,7 +748,7 @@ func planDirectory(ctx context.Context, runner *generator.Generator, directory s
 		// Before the comparison below, not after: the file on disk carries the
 		// constraint, so a source without it would read as changed on every run
 		// and --check would call a freshly generated project stale.
-		source, err = constrainNetHTTP(source, second.declared())
+		source, err = constrainNetHTTP(source, fastHTTP)
 		if err != nil {
 			return nil, err
 		}

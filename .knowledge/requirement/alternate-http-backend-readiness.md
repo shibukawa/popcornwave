@@ -111,15 +111,16 @@ prerequisites:
   generator_wired_2026_08_11:
     was: the critical path; every runtime piece existed and nothing produced the second build, so project.fasthttp only added a build constraint and an application could not be built for fasthttp at all
     now: pw generate emits it — the derived handlers, the second transport's page tree, and the constraint on the first transport's half
-    derived_handlers: the upstream analysis and rewrite, run by this framework rather than as part of the artifact run, and filtered to authored source
-    why_filtered: the generator reads every file of the loaded package, and in a project laid out this way that includes the last run's output; a generated page decoder would then be emitted by the fasthttp page emitter and rewritten from the net/http one at the same time, and a generated binder is refused outright for capturing the request in a closure
-    the_rule: generated code is output rather than input, which is what discovery already follows through GeneratedHeaders
+    derived_handlers: the upstream derivation, asked for by setting Options.Transform, arriving as artifacts with the rest
+    derived_binders: the same run's binders and writers over the fasthttp request value, which pwfast.Parse dispatches through; without them the second build compiles and answers 500 on the first request, because that registry is filled by generated init functions
+    the_rule_that_had_to_be_settled_first: generated code is output rather than input; the derivation read the whole loaded package, so a project that had generated once refused on its own previous binder — see requirement:tinybind-alternate-backend-support, fixed upstream in v0.5.5
+    declined_from_the_same_run: the generator's own route registration, which installs on the router its transform target names; a page tree here installs on pwfastpage.Router and brings its own
     page_tree: emitted twice and compared, so what gets a second copy is decided by the bytes rather than by a list of file names kept in agreement with an emitter this framework does not own
     what_differs: the route decoder and the registry, which read the request and install on a router; the compiled components come out identical and are written once for both builds
     ordering: the second tree is a later step than the per-directory stages, because a server action is discovered by its signature and the fasthttp-shaped one is the derived handler this run had not written yet
     refusals: a build error naming the occurrence, its chain and the upstream remedy, plus one sentence upstream cannot say — a refusal naming a pw call is requirement:pw-call-registration rather than an application defect
-    still_missing: the fasthttp binder registry, which is one upstream ordering defect away; see requirement:tinybind-alternate-backend-support, and pw generate names the packages it affects at the end of every run
-    also_still_missing: an entry point and a pw build target for the second binary, rate limiting on pwfast, and the two storage plugins that link pw
+    compiled_rather_than_inspected: internal/fastfixture is one authored package whose generated halves are committed and whose both tag configurations are built; every other test here asserts something about the source that was produced, and this is what would catch two halves that each look right and do not fit
+    still_missing: an entry point and a pw build target for the second binary, rate limiting on pwfast, and the two storage plugins that link pw
   open_here:
     superseded_note: the four entries below were the open list; all four are answered in settled_2026_08_10 above and are kept here for the reasoning rather than as questions
     test_seam:

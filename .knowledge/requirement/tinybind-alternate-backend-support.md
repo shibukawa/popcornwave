@@ -36,9 +36,15 @@ what_is_left:
   here_not_upstream: requirement:pw-call-registration and the pw fasthttp package, which the module cannot supply and explicitly hands to a framework owner
   tinygo: whether the fork and the vendored router build under the target this framework pins, which decision:tinygo-042-baseline makes a real question
   matching_semantics: a route table meaning the same thing on both routers, which no transform can rewrite and which rule:route-and-template-checks is the place for
-asked_upstream_2026_08_11:
+asked_and_answered_2026_08_11:
+  shipped_in: v0.5.5, which closed both halves — the transform skips generated files, and GenerateArtifacts returns the derived binders and route registration beside the derived handlers
+  what_that_removed_here: the whole local workaround; this framework no longer runs AnalyzeTransform and RewriteTransform itself, no longer filters the plan, and no longer has a report for what it could not generate
+  as_taken: Options.Transform is set on the generation options and the artifacts arrive with the rest; Options.GeneratedHeaders is carried into the transform by the generator, so the header this framework brands its output with is the one the derivation skips
+  declined: ArtifactTransportRoutes, because a page tree here installs on pwfastpage.Router and brings its own registry; taking it would mean two registries and a dependency on a router no application built on this framework imports
+  proved_by: internal/fastfixture, one authored package compiled under both tag configurations, with the generated halves committed
+  one_thing_not_carried_over: GenerateArtifacts drops the layout warnings transportArtifacts returns, so an authored file mixing a handler with declarations both builds need is no longer named at generation time; it is a compile error in the second build rather than a silent one, and rule:transport-handle-checks PW0603 puts it with api:cli-doctor anyway
   found_by: wiring the transform into api:cli-generate, which is the first consumer to run the derivation over a package that already holds the last run's generated code
-  the_defect: the derivation is not idempotent over its own output, so a second generation of a package refuses on a file the first one wrote
+  the_defect: the derivation was not idempotent over its own output, so a second generation of a package refused on a file the first one wrote
   measured:
     run_one: a package with a body-reading request type and no generated binder emits its fasthttp binders and its derived handlers, both correct
     run_two: the same package with the first run's binder beside it refuses — "bindAsk is not transformable, captures r in a function literal" — and the run stops there

@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"flag"
-	"io"
 	"path"
 	"path/filepath"
 	"strings"
@@ -80,20 +79,19 @@ func planFixture(t *testing.T, root string, config projectConfig) ([]fileChange,
 	if err != nil {
 		return nil, err
 	}
-	runner := generator.New(options)
 	directories, err = withPageDirectories(directories, pageArtifacts)
 	if err != nil {
 		return nil, err
 	}
-	second := secondBuild{warnings: io.Discard}
 	if config.FastHTTP {
 		transform := pwgen.FastTransform(options.Calls.Set)
-		second.transform = &transform
+		options.Transform = &transform
 	}
+	runner := generator.New(options)
 	var changes []fileChange
 	for _, directory := range directories {
 		planned, err := planDirectory(context.Background(), runner, directory,
-			directoryPurposes(root, config.Generate, directory), pageArtifacts[directory], second)
+			directoryPurposes(root, config.Generate, directory), pageArtifacts[directory], config.FastHTTP)
 		if err != nil {
 			return nil, err
 		}
@@ -138,8 +136,14 @@ func TestFastHTTPBuildConstrainsOnlyTheGeneratedFilesNamingNetHTTP(t *testing.T)
 		if constraint == strings.TrimSpace(fastHTTPConstraint) {
 			// The derived half. It is generated for the second build rather than
 			// constrained out of it, so the rule below does not apply.
-			if bytes.Contains(change.source, []byte(`"net/http"`)) {
-				t.Errorf("%s is generated for the fasthttp build and names net/http", change.path)
+			//
+			// net/http is not the test here: a derived binder names it for the
+			// status constants and is still fasthttp-only code. What must not
+			// survive is the first transport's runtime and its value types.
+			for _, first := range []string{`"github.com/shibukawa/popcornwave/pw"`, "http.ResponseWriter", "*http.Request"} {
+				if bytes.Contains(change.source, []byte(first)) {
+					t.Errorf("%s is generated for the fasthttp build and names %s", change.path, first)
+				}
 			}
 			continue
 		}
@@ -161,7 +165,13 @@ func TestFastHTTPBuildConstrainsOnlyTheGeneratedFilesNamingNetHTTP(t *testing.T)
 	if !planned["route_pw_gen.go"] {
 		t.Errorf("expected the route decoder among the constrained files; got %v", planned)
 	}
-	if !planned["transport_pw_gen.go"] {
-		t.Errorf("the fixture's server action was not derived for the second build; got %v", planned)
+	for _, name := range []string{"tinybind_transport_pw_gen.go", "tinybind_fasthttp_pw_gen.go"} {
+		if !planned[name] {
+			t.Errorf("%s is missing, so the second build has no %s; got %v", name,
+				map[string]string{
+					"tinybind_transport_pw_gen.go": "derived server action",
+					"tinybind_fasthttp_pw_gen.go":  "binders to serve it",
+				}[name], planned)
+		}
 	}
 }

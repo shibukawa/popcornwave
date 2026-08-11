@@ -1,8 +1,9 @@
 package pwcli
 
 import (
-	"bytes"
-	"io"
+	"context"
+	"errors"
+	"fmt"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -12,32 +13,54 @@ import (
 	"github.com/shibukawa/tinybind-go/templates/sqlbind"
 )
 
-// declaredSecondBuild is the value generateProject builds for a project that
-// declared the fasthttp backend, with the warnings routed somewhere a test can
-// read them.
-func declaredSecondBuild(t *testing.T, warnings io.Writer) secondBuild {
+// deriveInto runs one directory through the generation a project declaring the
+// fasthttp backend gets, and returns the artifacts by kind.
+func deriveInto(t *testing.T, directory string) (map[generator.ArtifactKind][]generator.Artifact, error) {
 	t.Helper()
 	options, err := pwgen.Options(sqlbind.DialectSQLite)
 	if err != nil {
 		t.Fatal(err)
 	}
 	transform := pwgen.FastTransform(options.Calls.Set)
-	return secondBuild{transform: &transform, warnings: warnings}
+	options.Transform = &transform
+
+	artifacts, err := generator.New(options).GenerateArtifacts(context.Background(),
+		generator.GenerateRequest{
+			Dir: directory, SQLContextOnlyAPI: true,
+			// These are about the derivation, and a page tree's templates are
+			// compiled by the tree run rather than the flat one — exactly as
+			// planDirectory disables them for a directory with no templates
+			// purpose.
+			HTMLTemplatePattern: disabledTemplatePattern,
+		})
+	if err != nil {
+		return nil, err
+	}
+	byKind := map[generator.ArtifactKind][]generator.Artifact{}
+	for _, artifact := range artifacts {
+		byKind[artifact.Kind] = append(byKind[artifact.Kind], artifact)
+	}
+	return byKind, nil
+}
+
+func onlyArtifact(t *testing.T, byKind map[generator.ArtifactKind][]generator.Artifact, kind generator.ArtifactKind) generator.Artifact {
+	t.Helper()
+	found := byKind[kind]
+	if len(found) != 1 {
+		t.Fatalf("expected one %s artifact, got %d", kind, len(found))
+	}
+	return found[0]
 }
 
 // The point of the whole derivation: handlers an application wrote against
 // net/http come out taking the second transport's request, calling the same
 // names through the sibling package, and constrained to the build that has it.
 func TestTheDerivedHandlersTakeTheSecondTransportsRequest(t *testing.T) {
-	derived, ok, err := planTransport(filepath.Join("..", "transportfixture"),
-		declaredSecondBuild(t, io.Discard))
+	byKind, err := deriveInto(t, filepath.Join("..", "transportfixture"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !ok {
-		t.Fatal("a package full of handlers derived nothing")
-	}
-	source := string(derived.Content)
+	source := string(onlyArtifact(t, byKind, generator.ArtifactTransport).Content)
 	for _, want := range []string{
 		"//go:build fasthttp",
 		`pw "github.com/shibukawa/popcornwave/pwfast"`,
@@ -54,48 +77,49 @@ func TestTheDerivedHandlersTakeTheSecondTransportsRequest(t *testing.T) {
 	if strings.Contains(source, "http.ResponseWriter") {
 		t.Errorf("a net/http writer survived the derivation:\n%s", source)
 	}
-	if derived.Kind != generator.ArtifactTransport {
-		t.Errorf("the derived source arrived as %q", derived.Kind)
-	}
 }
 
-// Generated code is output rather than input, and this is the case that decides
-// it: the last run's binder captures the request in a closure, which the
-// eligibility rule correctly refuses. Without the filter a project laid out this
-// way could not generate at all, and the developer would be sent to fix a file
-// they did not write.
-func TestGeneratedSourceIsNotDerivedASecondTime(t *testing.T) {
-	directory := filepath.Join("..", "pagesfixture", "pages", "users", "id_")
-	second := declaredSecondBuild(t, io.Discard)
-
-	// What the analysis says before the filter, so the filter is shown doing
-	// something rather than asserted to.
-	pkg, err := loadForTransform(directory)
-	if err != nil || pkg == nil {
-		t.Fatalf("the fixture package did not load: %v", err)
-	}
-	plan, err := generator.AnalyzeTransform(pkg, *second.transform)
+// The derived handlers bind and write through a registry of their own, so the
+// binders follow them or the second build compiles and answers 500 on the first
+// request: pwfast.Parse dispatches through generated init functions, and an
+// unregistered type is found when a request arrives rather than at link time.
+func TestTheSecondBuildGetsItsOwnBindersAndWriters(t *testing.T) {
+	byKind, err := deriveInto(t, filepath.Join("..", "transportfixture"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	refusedGenerated := false
-	for _, refusal := range plan.Refusals {
-		if generated(refusal.Position.Filename) {
-			refusedGenerated = true
+	source := string(onlyArtifact(t, byKind, generator.ArtifactTransportBinding).Content)
+	for _, want := range []string{
+		"//go:build fasthttp",
+		`httpbind "github.com/shibukawa/tinybind-go/fasthttpbind"`,
+		"func writeGreeting(r *fasthttp.RequestCtx, v Greeting) error",
+		"httpbind.RegisterWrite[Greeting](writeGreeting)",
+	} {
+		if !strings.Contains(source, want) {
+			t.Errorf("the derived binders do not carry %q:\n%s", want, source)
 		}
 	}
-	if !refusedGenerated {
-		t.Fatal("no generated file was refused, so this fixture no longer proves the filter is needed")
+	// The net/http half is still generated beside it, unconstrained here and
+	// constrained by planDirectory from its imports.
+	if len(byKind[generator.ArtifactBinding]) == 0 {
+		t.Error("the first transport's binders were dropped when the second build was asked for")
 	}
+}
 
-	derived, ok, err := planTransport(directory, second)
+// Generated code is output rather than input. The case that decides it is the
+// last run's binder, which captures the request in a closure to read the body
+// lazily and would be refused as if a developer had written it — on the second
+// run of a package, never the first.
+//
+// system:tinybind v0.5.5 skips generated files during the derivation, reading
+// the header prefix this project registers. This holds that: a package whose
+// generated binder is committed derives its authored handler and nothing else.
+func TestGeneratedSourceIsNotDerivedASecondTime(t *testing.T) {
+	byKind, err := deriveInto(t, filepath.Join("..", "pagesfixture", "pages", "users", "id_"))
 	if err != nil {
-		t.Fatalf("the filtered derivation failed: %v", err)
+		t.Fatalf("a package holding its previous output failed to derive: %v", err)
 	}
-	if !ok {
-		t.Fatal("the authored server action derived nothing")
-	}
-	source := string(derived.Content)
+	source := string(onlyArtifact(t, byKind, generator.ArtifactTransport).Content)
 	if !strings.Contains(source, "func Rename(ctx *fasthttp.RequestCtx)") {
 		t.Errorf("the authored server action was not derived:\n%s", source)
 	}
@@ -109,35 +133,44 @@ func TestGeneratedSourceIsNotDerivedASecondTime(t *testing.T) {
 	}
 }
 
-// A file holding a transport handler beside declarations both builds need
-// cannot be excluded by a tag without taking those with it. The derived source
-// is correct either way, so it is a warning on the way past rather than a
-// refusal — but an unsaid one would leave an author to discover it as a compile
-// error in a build they have not run yet.
-func TestAFileMixingAHandlerWithSharedDeclarationsIsReported(t *testing.T) {
-	var warnings bytes.Buffer
-	if _, _, err := planTransport(filepath.Join("..", "pagesfixture", "pages", "users", "id_"),
-		declaredSecondBuild(t, &warnings)); err != nil {
-		t.Fatal(err)
+// The generator offers a route registration for the second transport too, on
+// the router its transform target names. A page tree here installs on
+// pwfastpage.Router and brings its own registry, so taking both would mean two
+// registries and a dependency on a router no application built on this
+// framework imports.
+func TestTheGeneratorsOwnRouteRegistrationIsDeclined(t *testing.T) {
+	if (generationPurposes{handlers: true, pages: true, templates: true}).keeps(generator.ArtifactTransportRoutes) {
+		t.Error("the second transport's route registration was kept")
 	}
-	reported := warnings.String()
-	if !strings.Contains(reported, "action.go") {
-		t.Errorf("the mixed authored file was not named:\n%s", reported)
-	}
-	if !strings.Contains(reported, "file of their own") {
-		t.Errorf("the report does not say what to do about it:\n%s", reported)
+	for _, kind := range []generator.ArtifactKind{
+		generator.ArtifactTransport, generator.ArtifactTransportBinding,
+	} {
+		if !(generationPurposes{handlers: true}).keeps(kind) {
+			t.Errorf("%s was dropped from a handlers directory", kind)
+		}
+		if (generationPurposes{templates: true}).keeps(kind) {
+			t.Errorf("%s was kept for a directory that holds no handlers", kind)
+		}
 	}
 }
 
 // The option stays free to not take: a project that declared no second build
-// runs none of this, and pays neither the type check nor the output.
+// gets neither half, and its output is what it was before the feature existed.
 func TestNothingIsDerivedWithoutTheDeclaration(t *testing.T) {
-	_, ok, err := planTransport(filepath.Join("..", "transportfixture"), secondBuild{})
+	options, err := pwgen.Options(sqlbind.DialectSQLite)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if ok {
-		t.Error("a project that declared no second build had its handlers derived")
+	artifacts, err := generator.New(options).GenerateArtifacts(context.Background(),
+		generator.GenerateRequest{Dir: filepath.Join("..", "transportfixture"), SQLContextOnlyAPI: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, artifact := range artifacts {
+		switch artifact.Kind {
+		case generator.ArtifactTransport, generator.ArtifactTransportBinding, generator.ArtifactTransportRoutes:
+			t.Errorf("a project that declared no second build produced %s", artifact.Kind)
+		}
 	}
 }
 
@@ -145,119 +178,34 @@ func TestNothingIsDerivedWithoutTheDeclaration(t *testing.T) {
 // than the application's mistake, and the message has to say so: an application
 // author has no edit that supplies one.
 func TestARefusalNamingAFrameworkEntryIsReportedAsAFrameworkDefect(t *testing.T) {
-	message := refusalError("handlers", generator.TransformRefusals{{
-		Function: "Show",
-		Kind:     generator.RefusalUnknownCall,
-		Detail:   "passes r to pw.SomethingUnregistered, whose transport arguments are undeclared",
-	}}).Error()
+	ordinary := transportRefusal("handlers", errors.New("generate templates: no dialect"))
+	if !strings.Contains(ordinary.Error(), "no dialect") {
+		t.Errorf("an ordinary generation failure lost its reason:\n%s", ordinary)
+	}
+	if strings.Contains(ordinary.Error(), "defect in Popcorn Wave") {
+		t.Errorf("an ordinary generation failure was blamed on the framework:\n%s", ordinary)
+	}
+
+	message := transportRefusal("handlers", fmt.Errorf("generate transport: %w",
+		generator.TransformRefusals{{
+			Function: "Show",
+			Kind:     generator.RefusalUnknownCall,
+			Detail:   "passes r to pw.SomethingUnregistered, whose transport arguments are undeclared",
+		}})).Error()
 	if !strings.Contains(message, "defect in Popcorn Wave") {
 		t.Errorf("a refusal on a pw call reads as an application mistake:\n%s", message)
 	}
 
-	application := refusalError("handlers", generator.TransformRefusals{{
-		Function: "Show",
-		Kind:     generator.RefusalUnknownCall,
-		Detail:   "passes r to tracing.Start, whose transport arguments are undeclared",
-	}}).Error()
+	application := transportRefusal("handlers", fmt.Errorf("generate transport: %w",
+		generator.TransformRefusals{{
+			Function: "Show",
+			Kind:     generator.RefusalUnknownCall,
+			Detail:   "passes r to tracing.Start, whose transport arguments are undeclared",
+		}})).Error()
 	if strings.Contains(application, "defect in Popcorn Wave") {
 		t.Errorf("a refusal on a third-party call was blamed on the framework:\n%s", application)
 	}
 	if !strings.Contains(application, "remedy:") {
 		t.Errorf("the upstream remedy did not reach the reader:\n%s", application)
-	}
-}
-
-// The one thing a declared second build still cannot generate is said out loud,
-// because its absence is a 500 on the first request rather than a build error:
-// the fasthttp binder registry is populated from generated init functions, and
-// an unregistered type is discovered when a request arrives.
-func TestTheMissingFastBindersAreReportedRatherThanLeftToRuntime(t *testing.T) {
-	binding := generator.Artifact{Kind: generator.ArtifactBinding}
-	derived := generator.Artifact{Kind: generator.ArtifactTransport}
-	if !owesBinders([]generator.Artifact{binding, derived}) {
-		t.Error("a package with derived handlers and generated binders was reported as owing nothing")
-	}
-	// Handlers that bind nothing need no binder, so naming them would be noise.
-	if owesBinders([]generator.Artifact{derived}) {
-		t.Error("a package deriving handlers that bind nothing was reported as owing binders")
-	}
-	if owesBinders([]generator.Artifact{binding}) {
-		t.Error("a package with no second build at all was reported as owing binders")
-	}
-
-	var report strings.Builder
-	owed := &bindersOwed{}
-	owed.record("handlers")
-	owed.record("api")
-	if !owed.report(&report) {
-		t.Fatal("outstanding work was recorded and nothing was reported")
-	}
-	said := report.String()
-	for _, want := range []string{"api, handlers", "500", "tinybind-alternate-backend-support"} {
-		if !strings.Contains(said, want) {
-			t.Errorf("the report does not carry %q:\n%s", want, said)
-		}
-	}
-
-	// A run with nothing outstanding says nothing, so a project that binds no
-	// typed value never sees it.
-	var quiet strings.Builder
-	if (&bindersOwed{}).report(&quiet) || quiet.Len() > 0 {
-		t.Errorf("a run owing nothing reported:\n%s", quiet.String())
-	}
-	// Nil is the value every directory of a project without the declaration
-	// carries, so recording into it has to be harmless.
-	var absent *bindersOwed
-	absent.record("handlers")
-	if absent.report(io.Discard) {
-		t.Error("a project without the declaration reported outstanding work")
-	}
-}
-
-// A directory with no Go package in it is the ordinary case rather than a
-// failure: a page tree root holds templates and nothing else until this run
-// writes its registry, and the tree fixture is exactly that shape.
-func TestADirectoryWithNoGoPackageDerivesNothing(t *testing.T) {
-	directory := filepath.Join("..", "pagesfixture", "fastpages")
-	pkg, err := loadForTransform(directory)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if pkg != nil {
-		t.Fatalf("a directory of templates loaded as a package named %q", pkg.Name)
-	}
-	if _, ok, err := planTransport(directory, declaredSecondBuild(t, io.Discard)); err != nil || ok {
-		t.Errorf("planTransport over a directory with no Go in it returned (%v, %v)", ok, err)
-	}
-}
-
-// authoredOnly reads the file a declaration came from, so a plan whose
-// candidates carry no position would silently keep everything. This holds the
-// suffix rule itself rather than the behavior above it.
-func TestTheFilterReadsTheGeneratedSuffix(t *testing.T) {
-	for path, want := range map[string]bool{
-		"route_pw_gen.go":                     true,
-		"routes_fast_pw_gen.go":               true,
-		filepath.Join("pages", "a_pw_gen.go"): true,
-		"handlers.go":                         false,
-		"pw_gen.go":                           false,
-		"gen.go":                              false,
-	} {
-		if got := generated(path); got != want {
-			t.Errorf("generated(%q) = %v, want %v", path, got, want)
-		}
-	}
-}
-
-// loadForTransform must give the analysis a package it can answer about, so a
-// mode missing type information would make every refusal disappear rather than
-// be reported.
-func TestTheLoadCarriesWhatTheAnalysisReads(t *testing.T) {
-	pkg, err := loadForTransform(filepath.Join("..", "transportfixture"))
-	if err != nil || pkg == nil {
-		t.Fatalf("the handler fixture did not load: %v", err)
-	}
-	if pkg.TypesInfo == nil || pkg.Fset == nil || len(pkg.Syntax) == 0 {
-		t.Fatal("the load carries no type information, so the analysis would admit nothing and refuse nothing")
 	}
 }
