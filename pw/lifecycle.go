@@ -222,7 +222,21 @@ func serveUntilContext(ctx context.Context, server *http.Server, listener net.Li
 			closeErr = nil
 		}
 		shutdownContext, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
+		// Shutdown closes the listeners the server tracks, and the one above is
+		// among them, so the second close reports a closed listener and Shutdown
+		// hands that back as its own error. Whether it happens at all is a race
+		// against Serve noticing the close and untracking first — which is why a
+		// graceful stop reported this occasionally rather than every time, and
+		// why the test covering it was flaky rather than failing.
+		//
+		// It is dropped for the reason the close above drops it: this process
+		// closed that listener deliberately, one line earlier. A shutdown that
+		// ran out of time still reports the deadline it missed, which is the
+		// error worth keeping.
 		shutdownErr := server.Shutdown(shutdownContext)
+		if errors.Is(shutdownErr, net.ErrClosed) {
+			shutdownErr = nil
+		}
 		cancel()
 		serveErr := endedServing(<-result, true)
 		return errors.Join(closeErr, shutdownErr, serveErr)
