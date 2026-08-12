@@ -7,7 +7,7 @@ system:tinybind v0.5.7 ships a typed WebSocket on both of its transports, with t
 
 ```yaml
 read_2026_08_11: from the module source and its own catalog, not inferred
-baseline: tinybind-go v0.5.7, over system:tinygodriver v1.2.3
+baseline: tinybind-go v0.5.7, over system:tinygodriver v1.2.3 or later, which is where its three websocket packages first exist together
 entries:
   net_http: "httpbind.WebSocket[In, Out](w, r, fn) error and WebSocketWith taking SocketOptions"
   fasthttp: "fasthttpbind.WebSocket[In, Out](ctx, fn) error and WebSocketWith"

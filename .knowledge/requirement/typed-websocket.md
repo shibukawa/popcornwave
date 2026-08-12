@@ -13,7 +13,7 @@ serves: requirement:alternate-http-backend-readiness and decision:transport-hand
 premise_that_changed:
   written_when: 2026-08-08, when no upgrade path existed in any dependency
   assumed: an external github.com/fasthttp/websocket in contrib, a raw *websocket.Conn handed to the callback, a new module dependency, and an unverified TinyGo matrix
-  true_now: system:tinybind v0.5.7 ships the typed socket on both transports over system:tinygodriver v1.2.3, both of which this module already requires
+  true_now: system:tinybind v0.5.7 ships the typed socket on both transports over system:tinygodriver, whose websocket packages first exist together in v1.2.3; this module requires both already, at v1.2.4
   consequences:
     dependency_cost: none; no module is added and the packages are siblings of ones already linked
     tinygo_matrix: no longer at risk, since the driver packages exist to build under TinyGo
