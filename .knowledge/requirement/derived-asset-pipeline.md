@@ -70,8 +70,9 @@ as_built:
   serving: manifest-driven, so a URL the build did not declare is 404 whatever the tree holds; Vary names Accept only where a URL carries more than one media type
   cache_control:
     invented_urls: a file the build produced carries the digest of its own bytes in its name and is answered with a year and immutable, which is honest because different bytes are a different URL
-    authored_urls: a file that kept the name its author wrote revalidates, since nothing rewrites a stylesheet link or an authored script reference and the next build may put different bytes behind it
+    authored_urls: a file that kept the name its author wrote revalidates under that name, since nothing rewrites a stylesheet link or an authored script reference and the next build may put different bytes behind it
     why_not_everything: hashing a name only works where every reference to it is rewritten, and a link href is not
+    answered_by: policy:public-asset-revision serves the same file under a second URL carrying a digest segment, which is cacheable without the file being renamed; the name is untouched, the manifest carries the revision, and a document opts in by naming the asset through pw.PublicAssetURL rather than as a literal
   source_maps: the script build emits a linked map, named from the bundle's digest; the digest is taken over the bundle without its sourceMappingURL comment, and the comment is written back naming the map that digest produced
   conversions: img src png and jpeg to webp, script src typescript to javascript, css minified with its url() references rewritten, and an optional avif sibling of every served image
   encoders: pinned by the api:cli-add images capability, which writes the devbox packages and the switch together; a machine with none declines and reports rather than failing

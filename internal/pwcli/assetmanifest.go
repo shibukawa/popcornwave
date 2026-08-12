@@ -2,6 +2,8 @@ package pwcli
 
 import (
 	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"go/parser"
@@ -10,6 +12,8 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+
+	"github.com/shibukawa/popcornwave/middlewares"
 )
 
 // assetManifestFile is the generated registration the application links. It is
@@ -36,8 +40,13 @@ type manifestRepresentationJSON struct {
 }
 
 type manifestEntryJSON struct {
-	URL             string                       `json:"url"`
-	CacheControl    string                       `json:"cache_control"`
+	URL          string `json:"url"`
+	CacheControl string `json:"cache_control"`
+	// Revision is the segment that makes this URL immutable, empty for a URL
+	// that needs none or may not have one. It is written out for the reason the
+	// rest of this file is: pw doctor and a developer can see which assets a
+	// deployment can actually cache, without reading the generated Go.
+	Revision        string                       `json:"revision,omitempty"`
 	Representations []manifestRepresentationJSON `json:"representations"`
 }
 
@@ -90,7 +99,40 @@ func groupByURL(assets []derivedAsset) []manifestEntryJSON {
 			External:        asset.external,
 		})
 	}
+	// The revision is decided after grouping because it covers the URL rather
+	// than any one of its forms: a page served the webp and a page served the
+	// avif are holding one URL, and a change to either has to move it.
+	for index := range entries {
+		entries[index].Revision = revisionFor(entries[index])
+	}
 	return entries
+}
+
+// revisionFor digests every representation of one URL, so a change to any of
+// them changes the URL and nothing can hold the old bytes under the new name.
+//
+// Three kinds of URL get none, each for its own reason. A name the build
+// invented already carries its digest, so a segment would be a second copy of
+// the same statement, and a longer path saying it. An external file ships as
+// its own artifact, and the build never read its bytes to have an opinion about
+// them. And an entry with no representation has nothing to digest.
+func revisionFor(entry manifestEntryJSON) string {
+	if entry.CacheControl == immutableCacheControl || len(entry.Representations) == 0 {
+		return ""
+	}
+	digest := sha256.New()
+	for _, representation := range entry.Representations {
+		if representation.External {
+			return ""
+		}
+		// The separators keep the digest a function of the set rather than of
+		// the concatenation, so no rename can collide with a content change.
+		digest.Write([]byte(representation.Path))
+		digest.Write([]byte{0})
+		digest.Write([]byte(representation.ETag))
+		digest.Write([]byte{0})
+	}
+	return hex.EncodeToString(digest.Sum(nil))[:middlewares.RevisionLength]
 }
 
 // The two cache policies, one per kind of name.
@@ -120,8 +162,8 @@ func renderAssetManifest(packageName string, entries []manifestEntryJSON) ([]byt
 	out.WriteString("// the request path reads bytes and computes nothing.\n")
 	out.WriteString("func init() {\n\tmiddlewares.RegisterPublicManifest([]middlewares.AssetEntry{\n")
 	for _, entry := range entries {
-		fmt.Fprintf(&out, "\t\t{URL: %s, CacheControl: %s, Representations: []middlewares.AssetRepresentation{\n",
-			strconv.Quote(entry.URL), strconv.Quote(entry.CacheControl))
+		fmt.Fprintf(&out, "\t\t{URL: %s, CacheControl: %s, Revision: %s, Representations: []middlewares.AssetRepresentation{\n",
+			strconv.Quote(entry.URL), strconv.Quote(entry.CacheControl), strconv.Quote(entry.Revision))
 		for _, representation := range entry.Representations {
 			fmt.Fprintf(&out, "\t\t\t{Path: %s, MediaType: %s, ContentEncoding: %s, Length: %d, ETag: %s, Preference: %d, External: %t},\n",
 				strconv.Quote(representation.Path), strconv.Quote(representation.MediaType),
