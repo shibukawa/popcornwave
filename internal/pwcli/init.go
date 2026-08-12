@@ -873,7 +873,12 @@ func scaffoldFiles(options initOptions) map[string]string {
 	// public/app.css is written either way. With Tailwind it carries the error
 	// pages only, because those are framework-shaped and their class names are
 	// not utilities; without it, it carries the starter page as well.
-	homeStylesheet := `<link rel="stylesheet" href="/public/app.css">`
+	// The stylesheet is named through AssetURL rather than as a literal path,
+	// because a literal has no revision segment and revalidates on every load.
+	// The argument is the path inside the served tree: the mount belongs to the
+	// runtime configuration, and a template spelling it out would be a second
+	// place to change when it moves.
+	homeStylesheet := `<link rel="stylesheet" href={AssetURL("app.css")}>`
 	homeClasses := ""
 	if options.Images {
 		// The encoders the image conversion runs. They are declared here so the
@@ -887,7 +892,7 @@ func scaffoldFiles(options initOptions) map[string]string {
 	if options.Tailwind {
 		configTailwind = tailwindProjectConfig()
 		devboxPackages = append(devboxPackages, tailwindDevboxPackage)
-		homeStylesheet += `<link rel="stylesheet" href="/public/generated/app.css">`
+		homeStylesheet += `<link rel="stylesheet" href={AssetURL("generated/app.css")}>`
 		homeClasses = ` class="mx-auto max-w-3xl p-8 text-slate-900"`
 	}
 	files := map[string]string{
@@ -951,6 +956,7 @@ stdout_format = "plaintext"
 		"cmd/" + name + "/main.go": mainScaffold(options),
 		"templates/document.pw.html": `package templates
 
+external AssetURL(name: string): url
 external RuntimeScriptURL(): url
 
 export component Document(children: html?): html {
@@ -979,6 +985,23 @@ import (
 // changes the runtime changes the URL, and a literal would go on pointing at
 // bytes the server no longer serves.
 func RuntimeScriptURL() *url.URL { return &url.URL{Path: pw.RuntimeScriptURL()} }
+
+// AssetURL backs the external declaration in document.pw.html.
+//
+// It takes the path of a file inside the served tree — "app.css", not
+// "/public/app.css" — and returns the URL this build serves it under. That URL
+// carries a revision derived from the file's own bytes, so a deployment can
+// answer it immutably: a browser holding it never asks again, and an edit
+// changes the URL rather than the answer behind it.
+//
+// A literal path still works and still resolves. It just has no revision, so
+// the browser revalidates it on every page load.
+//
+// Use it for the assets nothing else renames: a stylesheet, a plain script. An
+// ` + "`img src`" + ` and a TypeScript ` + "`script src`" + ` are rewritten by the build
+// already, into names that carry their own digest, and writing those through
+// this function would hide them from the conversion that does it.
+func AssetURL(name string) *url.URL { return &url.URL{Path: pw.PublicAssetURL(name)} }
 `,
 		"templates/errors.go":   errorRegistrationScaffold(),
 		"templates/400.pw.html": errorTemplate("templates", "Error400", "Bad Request"),

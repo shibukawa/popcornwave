@@ -78,7 +78,7 @@ func PublicAssets(config PublicAssetConfig, embedded fs.FS) (Middleware, error) 
 
 // serveManifestAsset answers from what the build computed.
 func serveManifestAsset(r *fasthttp.RequestCtx, name string, embedded fs.FS) {
-	entry, found := middlewares.PublicManifestEntry(name)
+	entry, cacheControl, found := middlewares.PublicManifestAnswer(name)
 	if !found {
 		notFound(r)
 		return
@@ -91,7 +91,7 @@ func serveManifestAsset(r *fasthttp.RequestCtx, name string, embedded fs.FS) {
 		return
 	}
 	r.Response.Header.SetContentType(representation.MediaType)
-	r.Response.Header.Set("Cache-Control", entry.CacheControl)
+	r.Response.Header.Set("Cache-Control", cacheControl)
 	r.Response.Header.Set("ETag", representation.ETag)
 	if representation.ContentEncoding != "" {
 		r.Response.Header.Set("Content-Encoding", representation.ContentEncoding)

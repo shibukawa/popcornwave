@@ -104,20 +104,24 @@ minify = true
 ```html
 package templates
 
+external AssetURL(name: string): url
+
 export component Document(children: html?): html {
 <!doctype html>
 <html lang="en"><head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>My App</title>
-  <link rel="stylesheet" href="/public/generated/app.css">
+  <link rel="stylesheet" href={AssetURL("generated/app.css")}>
 </head>
 <body><slot /></body></html>
 }
 ```
 
-URL は `server.public.mount`（既定 `/public`）に、`public/` 内での `output` のパスを
-続けたものです。このディレクトリがどう埋め込まれ、どう配信されるかは
+引数は `public/` 内での `output` のパスです。`server.public.mount`（既定 `/public`）と、
+デプロイ後にこのスタイルシートを毎回再検証させずキャッシュさせるリビジョンセグメントは
+`AssetURL` が付けます。このシェルと宣言の裏の Go は `pw init --tailwind` が書き出します。
+ディレクトリの埋め込みと配信、そしてリビジョンが何を買うのかは
 [静的ファイル配信](/ja/guides/frontend/static-assets/)を参照してください。
 
 あとは開発サーバを起動します。

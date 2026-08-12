@@ -11,6 +11,7 @@ entry:
   url: mount-relative slash path, the value a rewritten reference names
   source: authored path it came from, or absent for a generated artifact
   cache_control: the header to send, per requirement:derived-asset-pipeline caching
+  revision: digest of every representation of this URL, the segment policy:public-asset-revision serves it immutably under; empty for a URL that needs none or may not have one
   representations:
     - path: file under dist/public
       media_type: Content-Type to send
@@ -32,6 +33,7 @@ rules:
   - the middleware computes no digest and reads no file metadata per request, which removes the current per-request sha256 and read
   - the manifest is embedded with the tree it describes and is never fetched or reloaded
   - a media-type set larger than one enables policy:public-asset-media-negotiation for that URL only
+  - the revision covers the URL rather than any one representation, so a change to the avif of an image moves the same segment its webp is served under
 open_questions:
   - whether the local-override path of policy:public-asset-resolution keeps a manifest at all, or drops to today's per-request digest
   - whether an entry records its transform and settings, which would make a stale-output diagnostic possible

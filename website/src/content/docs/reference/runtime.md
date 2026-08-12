@@ -113,6 +113,7 @@ is.
 | `RegisterHTMLDocument(wrapper)` | Installs the application document shell (**generated**) |
 | `RegisterHTMLErrorPage(resolve)` | Installs the error page resolver; without one, a minimal built-in page is used |
 | `RuntimeScriptURL() string` | The absolute path of the boundary runtime module |
+| `PublicAssetURL(name) string` | The URL this build serves one static asset under, revision segment included |
 
 Nothing here asks the handler whether the response should stream. A chain that
 can open an await boundary streams; one that cannot is buffered and committed

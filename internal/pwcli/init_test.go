@@ -788,6 +788,36 @@ func TestScaffoldDocumentLoadsTheBoundaryRuntime(t *testing.T) {
 	}
 }
 
+// TestScaffoldNamesItsStylesheetThroughAssetURL keeps a new project cacheable.
+//
+// A literal path resolves and renders, so nothing here fails visibly when this
+// regresses: the page looks right and every load spends a round trip
+// revalidating a file that did not change. The declaration, the call, and the
+// Go behind it are asserted together because any one of them missing turns the
+// other two into a build error rather than this silence.
+func TestScaffoldNamesItsStylesheetThroughAssetURL(t *testing.T) {
+	files := scaffoldFiles(initOptions{Name: "fixture"})
+
+	document := files["templates/document.pw.html"]
+	if !strings.Contains(document, "external AssetURL(name: string): url") {
+		t.Errorf("document does not declare the asset helper:\n%s", document)
+	}
+	if strings.Contains(document, `href="/public/`) {
+		t.Errorf("document still writes a literal asset path:\n%s", document)
+	}
+	if !strings.Contains(document, `<link rel="stylesheet" href='{AssetURL("app.css")}'>`) {
+		t.Errorf("document does not name its stylesheet through the helper:\n%s", document)
+	}
+
+	helper := files["templates/templates.go"]
+	if !strings.Contains(helper, "func AssetURL(name string) *url.URL") {
+		t.Errorf("templates.go does not implement the declared external:\n%s", helper)
+	}
+	if _, err := parser.ParseFile(token.NewFileSet(), "templates/templates.go", helper, parser.AllErrors); err != nil {
+		t.Fatalf("scaffold is invalid Go: %v\n%s", err, helper)
+	}
+}
+
 // The session backend is opt-in by blank import, so a project that scaffolds a
 // login has to carry the line that registers the storage it configured.
 func TestScaffoldWithLoginImportsItsSessionBackend(t *testing.T) {

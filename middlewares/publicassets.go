@@ -176,7 +176,7 @@ func PublicAssets(config PublicAssetConfig, embedded fs.FS) (Middleware, error) 
 // name is 404 even when bytes for it exist, because serving what a build did
 // not declare is how a stale representation reaches a cache.
 func servePublicManifest(w http.ResponseWriter, r *http.Request, name string, embedded fs.FS, svgSandbox bool) {
-	entry, found := manifestEntry(name)
+	entry, cacheControl, found := publicManifestAnswer(name)
 	if !found {
 		http.NotFound(w, r)
 		return
@@ -190,7 +190,7 @@ func servePublicManifest(w http.ResponseWriter, r *http.Request, name string, em
 	}
 	header.Set("Content-Type", representation.MediaType)
 	addSVGSandbox(header, representation.MediaType, svgSandbox)
-	header.Set("Cache-Control", entry.CacheControl)
+	header.Set("Cache-Control", cacheControl)
 	if representation.External {
 		serveExternalRepresentation(w, r, representation)
 		return
@@ -621,9 +621,15 @@ func PublicRepresentation(acceptEncoding []string, asset PublicAsset) ([]byte, i
 // PublicRepresentation.
 func PublicCodingToken(rank int) string { return staticContentCodings[rank].token }
 
-// PublicManifestEntry returns the manifest entry for a name, when a build
-// produced one.
-func PublicManifestEntry(name string) (AssetEntry, bool) { return manifestEntry(name) }
+// PublicManifestAnswer resolves a request path below the mount to the entry
+// that answers it and the Cache-Control that answer carries.
+//
+// The cache policy comes back beside the entry rather than being read off it,
+// because a revisioned URL and a plain one are the same entry answered under
+// two promises. A transport that read entry.CacheControl directly would serve
+// the revalidating policy for a URL a document promised was immutable, which is
+// the whole point of the segment lost silently.
+func PublicManifestAnswer(name string) (AssetEntry, string, bool) { return publicManifestAnswer(name) }
 
 // PublicManifestRegistered reports whether a build produced a manifest, which
 // is what lets the request path read bytes and nothing else.
