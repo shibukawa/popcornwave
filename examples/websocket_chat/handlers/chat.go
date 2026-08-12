@@ -4,9 +4,10 @@ package handlers
 // discriminator; the library names nothing here, because the protocol is the
 // application's.
 //
-// No field carries omitempty. The generated encoder writes every field of the
-// struct, so the tag would say something the wire does not do — a client reads
-// the discriminator and ignores the fields that variant does not use.
+// No field carries omitempty, which the generated encoder would honour: a
+// tagged field that is empty would stop being sent. Every field is written
+// instead, so a client reads the discriminator and ignores the ones that
+// variant does not use, and never has an absent case to handle.
 type ClientMsg struct {
 	Type string `json:"type"` // "join" | "say"
 	Name string `json:"name"`

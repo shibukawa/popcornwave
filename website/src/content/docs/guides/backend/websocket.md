@@ -76,8 +76,13 @@ and an encoder for the second into `_pw_gen.go`, which is build output nobody
 edits. `Read` returns a `ClientMsg`; `Write` takes a `ServerMsg`; no `[]byte`
 and no `encoding/json` appear anywhere in your handler.
 
-Every field is written on the wire — the generated encoder has no `omitempty` —
-so a client reads the discriminator and ignores what that variant does not use.
+A message type with no `omitempty` on it writes every field, so a client reads
+the discriminator and ignores what that variant does not use. Tag the fields a
+variant leaves empty and they stop being sent, which is the same encoder rule
+[Responses](/guides/frontend/responses/#json) describes. Leaving the tags off is
+the better default for a protocol like this one: a client that can count on the
+field always being present needs no absent case, and the bytes a discriminated
+union saves by omitting three empty strings are not the ones worth saving.
 
 That generation step is not optional. A socket whose types were never discovered
 compiles, opens, accepts the connection, and then fails on its first message —
