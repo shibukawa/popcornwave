@@ -353,6 +353,7 @@
 {"category": "constraint", "id": "policy:public-asset-negotiation", "path": ".knowledge/policy/public-asset-negotiation.md", "role": "supporting", "title": "Public Asset Negotiation", "type": "policy"}
 {"category": "constraint", "id": "policy:public-asset-precompression", "path": ".knowledge/policy/public-asset-precompression.md", "role": "supporting", "title": "Public Asset Precompression", "type": "policy"}
 {"category": "constraint", "id": "policy:public-asset-resolution", "path": ".knowledge/policy/public-asset-resolution.md", "role": "supporting", "title": "Public Asset Resolution", "type": "policy"}
+{"category": "constraint", "id": "policy:public-asset-revision", "path": ".knowledge/policy/public-asset-revision.md", "role": "supporting", "title": "Public Asset Revision Segment", "type": "policy"}
 {"category": "constraint", "id": "policy:query-log-safety", "path": ".knowledge/policy/query-log-safety.md", "role": "supporting", "title": "Query Log Safety", "type": "policy"}
 {"category": "constraint", "id": "policy:reauthentication", "path": ".knowledge/policy/reauthentication.md", "role": "supporting", "title": "Reauthentication Policy", "type": "policy"}
 {"category": "constraint", "id": "policy:release-integrity", "path": ".knowledge/policy/release-integrity.md", "role": "supporting", "title": "Release Integrity", "type": "policy"}

@@ -1267,6 +1267,7 @@
 {"context": "body", "path": ".knowledge/data/public-asset-manifest.md", "source": "data:public-asset-manifest", "target": "api:public-asset-middleware", "target_category": "interface", "target_type": "api"}
 {"context": "body", "path": ".knowledge/data/public-asset-manifest.md", "source": "data:public-asset-manifest", "target": "concept:derived-public-tree", "target_category": "concept", "target_type": "concept"}
 {"context": "body", "path": ".knowledge/data/public-asset-manifest.md", "source": "data:public-asset-manifest", "target": "requirement:derived-asset-pipeline", "target_category": "objective", "target_type": "requirement"}
+{"context": "body", "path": ".knowledge/data/public-asset-manifest.md", "source": "data:public-asset-manifest", "target": "policy:public-asset-revision", "target_category": "constraint", "target_type": "policy"}
 {"context": "body", "path": ".knowledge/data/public-asset-manifest.md", "source": "data:public-asset-manifest", "target": "policy:public-asset-precompression", "target_category": "constraint", "target_type": "policy"}
 {"context": "body", "path": ".knowledge/data/public-asset-manifest.md", "source": "data:public-asset-manifest", "target": "api:cli-doctor", "target_category": "interface", "target_type": "api"}
 {"context": "body", "path": ".knowledge/data/public-asset-manifest.md", "source": "data:public-asset-manifest", "target": "policy:generated-artifacts", "target_category": "constraint", "target_type": "policy"}
@@ -3147,6 +3148,11 @@
 {"context": "body", "path": ".knowledge/policy/public-asset-precompression.md", "source": "policy:public-asset-precompression", "target": "policy:public-asset-negotiation", "target_category": "constraint", "target_type": "policy"}
 {"context": "body", "path": ".knowledge/policy/public-asset-resolution.md", "source": "policy:public-asset-resolution", "target": "decision:development-public-assets", "target_category": "constraint", "target_type": "decision"}
 {"context": "body", "path": ".knowledge/policy/public-asset-resolution.md", "source": "policy:public-asset-resolution", "target": "policy:public-asset-negotiation", "target_category": "constraint", "target_type": "policy"}
+{"context": "body", "path": ".knowledge/policy/public-asset-revision.md", "source": "policy:public-asset-revision", "target": "requirement:derived-asset-pipeline", "target_category": "objective", "target_type": "requirement"}
+{"context": "body", "path": ".knowledge/policy/public-asset-revision.md", "source": "policy:public-asset-revision", "target": "requirement:external-public-tree", "target_category": "objective", "target_type": "requirement"}
+{"context": "body", "path": ".knowledge/policy/public-asset-revision.md", "source": "policy:public-asset-revision", "target": "api:cli-init", "target_category": "interface", "target_type": "api"}
+{"context": "body", "path": ".knowledge/policy/public-asset-revision.md", "source": "policy:public-asset-revision", "target": "policy:asset-transform-matrix", "target_category": "constraint", "target_type": "policy"}
+{"context": "body", "path": ".knowledge/policy/public-asset-revision.md", "source": "policy:public-asset-revision", "target": "api:cli-doctor", "target_category": "interface", "target_type": "api"}
 {"context": "body", "path": ".knowledge/policy/query-log-safety.md", "source": "policy:query-log-safety", "target": "requirement:query-diagnostics", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/policy/query-log-safety.md", "source": "policy:query-log-safety", "target": "data:query-diagnostics-config", "target_category": "structure", "target_type": "data"}
 {"context": "body", "path": ".knowledge/policy/query-log-safety.md", "source": "policy:query-log-safety", "target": "rule:framework-owned-tables", "target_category": "constraint", "target_type": "rule"}
@@ -3868,6 +3874,7 @@
 {"context": "body", "path": ".knowledge/requirement/derived-asset-pipeline.md", "source": "requirement:derived-asset-pipeline", "target": "policy:asset-transform-matrix", "target_category": "constraint", "target_type": "policy"}
 {"context": "body", "path": ".knowledge/requirement/derived-asset-pipeline.md", "source": "requirement:derived-asset-pipeline", "target": "policy:public-asset-resolution", "target_category": "constraint", "target_type": "policy"}
 {"context": "body", "path": ".knowledge/requirement/derived-asset-pipeline.md", "source": "requirement:derived-asset-pipeline", "target": "policy:public-asset-precompression", "target_category": "constraint", "target_type": "policy"}
+{"context": "body", "path": ".knowledge/requirement/derived-asset-pipeline.md", "source": "requirement:derived-asset-pipeline", "target": "policy:public-asset-revision", "target_category": "constraint", "target_type": "policy"}
 {"context": "body", "path": ".knowledge/requirement/derived-asset-pipeline.md", "source": "requirement:derived-asset-pipeline", "target": "api:cli-add", "target_category": "interface", "target_type": "api"}
 {"context": "body", "path": ".knowledge/requirement/derived-asset-pipeline.md", "source": "requirement:derived-asset-pipeline", "target": "api:cli-generate", "target_category": "interface", "target_type": "api"}
 {"context": "body", "path": ".knowledge/requirement/derived-asset-pipeline.md", "source": "requirement:derived-asset-pipeline", "target": "flow:derived-asset-build", "target_category": "behavior", "target_type": "flow"}
