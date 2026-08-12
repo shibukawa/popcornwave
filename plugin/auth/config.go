@@ -145,8 +145,13 @@ type Config struct {
 	// the issued bootstrap credentials. They move together, because they are
 	// one deployment's authentication state and splitting them across two
 	// engines gains nothing.
-	Backend string `default:"rdb" dependon:".enabled" help:"storage backend of the authentication tables: rdb or dynamo"`
-	Mode    string `default:"oidc_only" dependon:".enabled" help:"oidc_only"`
+	Backend string `default:"rdb" enum:"rdb,dynamo" dependon:".enabled" help:"storage backend of the authentication tables: rdb or dynamo"`
+	// Mode selects which login methods this deployment offers, and with them
+	// which of the OIDC, Passkey, and JWT sections below are in force. The enum
+	// is what makes those sections' conditions checkable: a mistyped mode there
+	// would hide a whole subtree from the startup summary silently and forever,
+	// and generation rejects a value that is not listed here.
+	Mode string `default:"oidc_only" enum:"oidc_only,oidc_passkey,passkey_only,jwt_only" dependon:".enabled" help:"oidc_only, oidc_passkey, passkey_only, or jwt_only"`
 	// LoginPath starts the provider flow.
 	LoginPath    string `default:"/auth/login" dependon:".enabled" help:"path that starts the provider flow"`
 	CallbackPath string `default:"/auth/callback" dependon:".enabled"`
@@ -155,7 +160,7 @@ type Config struct {
 	PostLoginPath string `default:"/" dependon:".enabled" help:"path a completed login lands on"`
 	// RecentAuthMaxAge bounds how long a completed authentication still counts
 	// as recent enough to add or remove a login method.
-	RecentAuthMaxAge time.Duration `default:"5m" dependon:".enabled" help:"how recently a request must have authenticated to change a login method"`
+	RecentAuthMaxAge time.Duration `default:"5m" dependon:".enabled" summary:"omit" help:"how recently a request must have authenticated to change a login method"`
 	// SharedDevice declares that the browsers reaching this deployment are
 	// shared, which couples the settings that would otherwise leave one user
 	// visible to the next. It fixes the logout scope to global and withholds
@@ -174,10 +179,16 @@ type Config struct {
 	Protection   ProtectionConfig   `dependon:".enabled"`
 	Registration RegistrationConfig `dependon:".enabled"`
 	Recovery     RecoveryConfig     `dependon:".enabled"`
-	Bootstrap    BootstrapConfig    `dependon:".enabled"`
-	OIDC         OIDCConfig         `dependon:".enabled"`
-	Passkey      PasskeyConfig      `dependon:".enabled"`
-	JWT          JWTConfig          `dependon:".enabled"`
+	Bootstrap    BootstrapConfig    `dependon:".enabled" summary:"omit"`
+	// The three login-method sections name the modes they belong to, so a
+	// summary reports the methods this deployment offers rather than all of
+	// them. The lists restate usesOIDC, usesPasskey, and usesJWT below; those
+	// predicates decide what is built, and these decide what is reported, so
+	// the two have to agree. The enabled switch is not repeated: Mode answers
+	// to it, and a condition on Mode inherits that gate transitively.
+	OIDC    OIDCConfig    `dependon:".mode=oidc_only,oidc_passkey" help:"The three login-method sections name the modes they belong to, so a summary reports the methods this deployment offers rather than all of them. The lists restate usesOIDC, usesPasskey, and usesJWT below; those predicates decide what is built, and these decide what is reported, so the two have to agree. The enabled switch is not repeated: Mode answers to it, and a condition on Mode inherits that gate transitively"`
+	Passkey PasskeyConfig `dependon:".mode=oidc_passkey,passkey_only"`
+	JWT     JWTConfig     `dependon:".mode=jwt_only"`
 }
 
 // JWTConfig is the bearer-token binding of ModeJWTOnly. It describes one
@@ -453,11 +464,11 @@ type PresenceConfig struct {
 	Enabled bool `default:"false" help:"accept presence reports from the browser"`
 	// Interval is how often the browser is expected to report. It bounds the
 	// endpoint's rate and sets the pace the scaffolded script ticks at.
-	Interval time.Duration `default:"1m" help:"how often a browser reports"`
+	Interval time.Duration `default:"1m" dependon:".enabled" help:"how often a browser reports"`
 	// AbsentAfter ends the session once no interaction has been reported for
 	// this long. It measures a person rather than a request, which is the whole
 	// point of the signal.
-	AbsentAfter time.Duration `default:"30m" help:"end the session after this long with no interaction"`
+	AbsentAfter time.Duration `default:"30m" dependon:".enabled" help:"end the session after this long with no interaction"`
 }
 
 // HintConfig controls whether an ended session leaves a non-authoritative note
@@ -471,13 +482,13 @@ type PresenceConfig struct {
 // path guard denies it exactly as it denies any other.
 type HintConfig struct {
 	Enabled bool   `default:"false" help:"remember who last signed in, to shorten the next sign-in"`
-	Name    string `default:"pw_hint" help:"cookie name"`
+	Name    string `default:"pw_hint" dependon:".enabled" help:"cookie name"`
 	// Secret seals the cookie. The contents never reach the client, so the
 	// hint may hold a login identifier; what must not leak is what the login
 	// screen renders, which is masked instead.
-	Secret string `secret:"mask" env:"AUTH_HINT_SECRET" help:"base64 secret of at least 256 bits that seals the hint"`
+	Secret string `secret:"mask" env:"AUTH_HINT_SECRET" dependon:".enabled" help:"base64 secret of at least 256 bits that seals the hint"`
 	// PreviousSecrets keep a rotation readable.
-	PreviousSecrets []string `secret:"mask" help:"retired secrets kept readable during a rotation"`
+	PreviousSecrets []string `secret:"mask" dependon:".enabled" help:"retired secrets kept readable during a rotation"`
 	// TTL is the absolute bound and IdleTimeout the one measured from the last
 	// successful login. The pair is the session's own shape, for the same
 	// reasons, and is deliberately not inherited from it: a hint outlives a
@@ -486,8 +497,8 @@ type HintConfig struct {
 	// Setting TTL to zero is a valid answer. It means this browser may
 	// remember nothing, which is what a shared terminal wants and what
 	// SharedDevice sets for a whole deployment.
-	TTL         time.Duration `default:"720h" help:"how long a hint may live at all"`
-	IdleTimeout time.Duration `default:"336h" help:"how long since the last successful login a hint survives"`
+	TTL         time.Duration `default:"720h" dependon:".enabled" help:"how long a hint may live at all"`
+	IdleTimeout time.Duration `default:"336h" dependon:".enabled" help:"how long since the last successful login a hint survives"`
 }
 
 // AssurancePolicy names one freshness window. A zero MaxAge is meaningful and

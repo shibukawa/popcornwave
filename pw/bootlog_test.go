@@ -249,6 +249,70 @@ func TestBootTreeReadsBackAsItsEntries(t *testing.T) {
 	}
 }
 
+// The summary is the short surface of requirement:startup-summary-brevity, so a
+// key its author rated as detail leaves it while nothing but the default layer
+// set it. The rating is reported rather than applied, which is why the entry is
+// still in the provenance api:cli-doctor renders from.
+func TestBootEntriesSkipRatedDefaults(t *testing.T) {
+	const rated = "observability.query.level"
+	const toml = "[session]\nenabled = true\nbackend = \"redis\"\n"
+	if _, ok := bootKeys(t, toml)[rated]; ok {
+		t.Fatalf("%s reached the summary at its default", rated)
+	}
+	reported := false
+	for _, entry := range loadResult(t, toml).Provenance() {
+		if entry.Key != rated {
+			continue
+		}
+		reported = true
+		if !entry.Omittable {
+			t.Fatalf("%s is not marked omittable, so nothing rated it", rated)
+		}
+	}
+	if !reported {
+		t.Fatalf("%s left provenance entirely; the summary must skip it, not the library", rated)
+	}
+	// An unrated key at its default still prints, which is the opt-in polarity:
+	// a field nobody rated stays visible.
+	if _, ok := bootKeys(t, toml)["session.cookie.same_site"]; !ok {
+		t.Fatal("an unrated default left the summary")
+	}
+}
+
+// The value condition is the other lever, and it removes rather than marks: a
+// store the selected backend did not select is inert, which is true on every
+// surface.
+func TestBootEntriesDropUnselectedBackends(t *testing.T) {
+	printed := bootKeys(t, "[session]\nenabled = true\nbackend = \"redis\"\n[session.redis]\ndsn = \"redis://cache.internal:6379\"\n")
+	for _, key := range []string{"session.rdb.table", "session.dynamo.table", "session.firestore.kind", "session.cookie_store.name"} {
+		if _, ok := printed[key]; ok {
+			t.Fatalf("%s printed under backend=redis", key)
+		}
+	}
+	// The token cookie travels under every backend, and the DSN a deployment
+	// wrote is what it opened the summary to check.
+	for _, key := range []string{"session.cookie.name", "session.redis.dsn"} {
+		if _, ok := printed[key]; !ok {
+			t.Fatalf("%s left the summary under backend=redis", key)
+		}
+	}
+}
+
+// Neither lever may remove a value a source set. The rating says how interesting
+// the key is in general; the winning place says whether this deployment had
+// anything to say about it.
+func TestBootEntriesKeepRatedKeyASourceSet(t *testing.T) {
+	printed := bootKeys(t, "[observability.query]\nlevel = \"debug\"\n")
+	if got, ok := printed["observability.query.level"]; !ok || got != "debug" {
+		t.Fatalf("a rated key set in the file printed as %q (present %v), want debug", got, ok)
+	}
+	// The rest of the rated subtree is still absent, so one set leaf brings back
+	// itself rather than its siblings.
+	if _, ok := printed["observability.query.max_sql_length"]; ok {
+		t.Fatal("a rated sibling came back with the leaf that was set")
+	}
+}
+
 // The developer loop puts the application's stderr behind a pipe, which costs
 // the boot log both halves of its terminal check. It pins the format back
 // through the generated environment binding, so the name it derives has to be
