@@ -221,6 +221,19 @@ func TestScaffoldFilesWithTailwind(t *testing.T) {
 	if !strings.Contains(files[".gitignore"], "\n.log/\n") {
 		t.Fatal(".gitignore does not exclude local JSONL logs")
 	}
+	// The Tailwind stylesheet this preset configures and the component assets the
+	// generator extracts land in one directory, and pw generate rebuilds both from
+	// sources this scaffold also writes. A project that starts without the line
+	// commits a stylesheet that then drifts from the templates it was scanned
+	// from, per decision:generated-public-asset-version-control.
+	if !strings.Contains(files[".gitignore"], "\n"+extractedAssetDir+"/\n") {
+		t.Fatalf(".gitignore does not exclude the generated public assets:\n%s", files[".gitignore"])
+	}
+	// The line has to cover the configured Tailwind output, not merely resemble
+	// it; the two constants are set in different files and nothing else pairs them.
+	if !strings.HasPrefix(defaultTailwindOutput, extractedAssetDir+"/") {
+		t.Fatalf("Tailwind writes %q, which the %q ignore rule does not cover", defaultTailwindOutput, extractedAssetDir)
+	}
 	if !strings.Contains(files["popcornwave.toml"], "[dev.logs]\nenabled = true\ndirectory = \".log\"") {
 		t.Fatal("project scaffold does not state local log defaults")
 	}
@@ -277,6 +290,23 @@ func TestScaffoldsTrackDevboxServiceConfiguration(t *testing.T) {
 		if strings.Contains(ignore, "devbox.d") {
 			t.Errorf("the %s scaffold excludes devbox.d, so a clone cannot start the services devbox.lock pins:\n%s", name, ignore)
 		}
+	}
+}
+
+// The generated public assets invert between the two scaffolds, and the risk runs
+// the opposite way from the devbox one above: an application that keeps them
+// commits a stylesheet that drifts from the templates it was scanned from, while
+// a package that excludes them publishes components whose styles and scripts the
+// consumer links and cannot rebuild. Both directions are asserted here because
+// the package scaffold began as a copy of the application one, which is how it
+// inherited a rule it should not have had once already.
+func TestGeneratedPublicAssetsInvertBetweenScaffolds(t *testing.T) {
+	application := scaffoldFiles(initOptions{Name: "fixture", Devbox: true, Tailwind: true})[".gitignore"]
+	if !strings.Contains(application, "\n"+extractedAssetDir+"/\n") {
+		t.Errorf("the application scaffold tracks %s, which pw generate rebuilds:\n%s", extractedAssetDir, application)
+	}
+	if ignore := packageGitignore(); strings.Contains(ignore, extractedAssetDir) {
+		t.Errorf("the package scaffold excludes %s, so a consumer links component assets nothing ships:\n%s", extractedAssetDir, ignore)
 	}
 }
 

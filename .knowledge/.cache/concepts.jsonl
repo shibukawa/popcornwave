@@ -202,6 +202,7 @@
 {"category": "constraint", "id": "decision:forwarded-header-trust", "path": ".knowledge/decision/forwarded-header-trust.md", "role": "supporting", "title": "A Forwarded Header Is Read Only Behind A Declared Proxy", "type": "decision"}
 {"category": "constraint", "id": "decision:fragment-head-rejection", "path": ".knowledge/decision/fragment-head-rejection.md", "role": "supporting", "title": "Fragment Head Rejection", "type": "decision"}
 {"category": "constraint", "id": "decision:framework-owned-session-extension", "path": ".knowledge/decision/framework-owned-session-extension.md", "role": "supporting", "title": "The Framework Installs the Session", "type": "decision"}
+{"category": "constraint", "id": "decision:generated-public-asset-version-control", "path": ".knowledge/decision/generated-public-asset-version-control.md", "role": "supporting", "title": "Generated Public Asset Version Control", "type": "decision"}
 {"category": "constraint", "id": "decision:goose-migration-engine", "path": ".knowledge/decision/goose-migration-engine.md", "role": "supporting", "title": "Statically Linked goose Engine", "type": "decision"}
 {"category": "constraint", "id": "decision:grouped-database-connections", "path": ".knowledge/decision/grouped-database-connections.md", "role": "supporting", "title": "Grouped Database Connections", "type": "decision"}
 {"category": "constraint", "id": "decision:homebrew-tap-channel", "path": ".knowledge/decision/homebrew-tap-channel.md", "role": "supporting", "title": "Homebrew Own-Tap Channel", "type": "decision"}

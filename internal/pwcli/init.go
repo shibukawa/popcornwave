@@ -1069,6 +1069,19 @@ func PublicFS() fs.FS {
 		// unlike *_pw_gen.go nothing regenerates it, and a commit is the only
 		// thing that can carry it to the next checkout.
 		".gitignore": ".devbox/\n.log/\n.pw/\n/" + name + "\n*_pw_gen.go\n" +
+			// The generated subtree of the authored public tree answers to the
+			// same test as the line above, and fails it the same way: pw generate
+			// rebuilds every file in it from the CSS entry, the templates, and the
+			// scanned Go. Two producers write here — the Tailwind output and the
+			// content-hashed component assets the generator extracts — and both
+			// track their sources, so a committed copy is a copy that drifts. It
+			// costs a stale stylesheet in the best case and, because an extracted
+			// name carries a content hash, an orphan per change in the worst.
+			//
+			// A package inverts this, as it inverts *_pw_gen.go, because its
+			// consumer builds with go build and regenerates nothing. See
+			// decision:generated-public-asset-version-control.
+			extractedAssetDir + "/\n" +
 			// Everything under dist is built, except the sentinel: go:embed
 			// fails on an absent directory, so a fresh clone has to carry one
 			// file that makes the tree exist before the first build.

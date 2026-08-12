@@ -24,7 +24,8 @@ rules:
   - flow:tailwind-css-build runs only when configured
   - CSS failure prevents a production build from using stale output
   - Popcorn Wave does not parse, translate, or own Tailwind CSS configuration
-  - generated CSS is reproducible but is not policy:generated-artifacts generated Go
+  - generated CSS is reproducible but is not policy:generated-artifacts generated Go, so its version-control rule is decision:generated-public-asset-version-control rather than that policy's Go ignore line
+  - the output is excluded from version control in an application and committed in a package, on the same reasoning
 references:
   - https://tailwindcss.com/docs/installation/tailwind-cli
   - https://tailwindcss.com/docs/detecting-classes-in-source-files

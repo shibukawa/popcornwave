@@ -29,6 +29,7 @@ scaffolding:
   editor: the .vscode explorer hide rule is kept, because hiding a file is not excluding it
 public_assets:
   extracted: a component style or script the generator extracts is committed too, on the same reasoning
+  application_half: decision:generated-public-asset-version-control, which excludes the same files in an application and is the rule this one inverts
   precompressed: a public/**/*.zstd sidecar stays excluded, because requirement:package-asset-delivery serves package assets from embedded bytes and the sidecar is a project build product
 rejected_alternatives:
   vendor_the_sources: the consumer copies a dependency's .pw.html and generates it locally, which reintroduces the version skew the module system exists to remove
