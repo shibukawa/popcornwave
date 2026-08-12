@@ -23,7 +23,11 @@ generation:
   bundling: styles of one template file bundle into one stylesheet, while each component script stays its own file so author attributes survive on its tag
   passthrough: a script or link already naming an external URL contributes its tag unchanged and produces no file
   determinism: identical sources produce identical names and bytes, which is what lets rule:project-integrity-checks compare a regeneration
-  generated_artifact: an extracted file is a generated artifact under policy:generated-artifacts, so it is reviewable beside its source and never hand edited
+  generated_artifact: >
+    an extracted file is a generated artifact under policy:generated-artifacts, so
+    it is never hand edited; it is not reviewable beside its source in an
+    application, because decision:generated-public-asset-version-control excludes
+    it there and a package is where it is committed and reviewed
 delivery:
   serving: api:public-asset-middleware, unchanged; an extracted file is an ordinary public asset
   precompression: flow:public-asset-build compresses it like any other, per policy:public-asset-precompression

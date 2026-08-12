@@ -7,6 +7,14 @@ Generated Go files are reproducible application build inputs owned by api:cli-ge
 
 ```yaml
 applies_to: an application project; a concept:component-package inverts the version-control rule below and keeps every other one, per decision:committed-package-artifacts
+scope_of_this_file: >
+  generated Go, which is one artifact class; the ownership rules here are general
+  and the **/*_pw_gen.go ignore line is this class's instance of them
+other_artifact_classes:
+  generated_public_assets: decision:generated-public-asset-version-control, for the Tailwind stylesheet and the extracted component assets under public/generated
+  why_stated_elsewhere: >
+    the ignore line here names a Go file pattern no .css or .js can match, so a
+    second class needs its own line rather than a reading of this one
 pattern:
   ordinary: "{source-base}_pw_gen.go"
 location: beside the owning Go, .pw.html, or .pw.sql source
