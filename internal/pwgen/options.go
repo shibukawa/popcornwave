@@ -71,6 +71,32 @@ func Options(sqlDialect string) (generator.Options, error) {
 			generator.GenericType("config", 0),
 			generator.Argument("prefix", 0),
 		),
+	}
+	// A socket entry is the one call carrying two model types at once, and the
+	// two roles are opposite operations rather than one applied twice: the
+	// inbound type is decoded and never encoded, the outbound one encoded and
+	// never decoded. That is why it takes two patterns against one target, which
+	// the registry admits for these two operations and for no other pair.
+	//
+	// Without them a socket compiles, opens, and fails on its first message with
+	// a missing-codec error, on a connection that has already been accepted.
+	for _, name := range []string{"WebSocket", "WebSocketWith"} {
+		patterns = append(patterns,
+			generator.SocketReceiveCall(
+				generator.Function(pwPackage, name),
+				generator.GenericType("socket-in", 0),
+				generator.WriterArgument(0),
+				generator.RequestArgument(1),
+			),
+			generator.SocketSendCall(
+				generator.Function(pwPackage, name),
+				generator.GenericType("socket-out", 1),
+				generator.WriterArgument(0),
+				generator.RequestArgument(1),
+			),
+		)
+	}
+	patterns = append(patterns, []generator.CallPattern{
 		// The framework's own bindings register through the shared package
 		// rather than through pw, because a settings file is not a transport
 		// concern and the runtime that binds it need not be the one that
@@ -142,7 +168,7 @@ func Options(sqlDialect string) (generator.Options, error) {
 			generator.Constant("status", 500),
 			generator.Constant("error_name", "InternalServerError"),
 		),
-	}
+	}...)
 	// Every remaining pw entry that takes the transport and names no model the
 	// generator binds or encodes. Without a pattern each of these looks to the
 	// rewriter exactly like an untraceable third-party call, and every handler

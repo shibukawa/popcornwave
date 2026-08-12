@@ -99,7 +99,15 @@ sidebar:
 | `LifecycleHeaders(Lifecycle) (Middleware, error)` | RFC 9745 DeprecationとRFC 8594 Sunsetのミドルウェア |
 | `WriteStream[T](w, r, fn)` | `Accept` から SSE、NDJSON、JSON 配列のいずれかを選び、`fn` をストリームに対して実行する |
 | `Stream.Write(value)` | 値を1つ書いて flush する。`fn` が戻るとランタイムが閉じる |
-| `SetStreamErrorHandler(fn)` | ステータス送信後に起きたストリームの失敗を受け取る |
+| `SetStreamErrorHandler(fn)` | ステータス送信後に起きたストリームまたはソケットの失敗を受け取る |
+| `WebSocket[In, Out](w, r, fn) error` | リクエストをアップグレードし、型付きソケットに対して `fn` を走らせる。返すのはハンドシェイクのエラーだけ |
+| `WebSocketWith[In, Out](w, r, opts, fn) error` | 呼び出しごとの `SocketOptions` を取る `WebSocket` |
+| `Socket.Read() (In, error)` | メッセージを1つ読み、`In` にデコードする（**生成**）。呼ぶのは1つの goroutine から |
+| `Socket.Write(Out) error` | `Out` からエンコードしてメッセージを1つ書く（**生成**）。どの goroutine からでも安全 |
+| `Socket.Close() error` | クローズハンドシェイクで終了する。`fn` が戻ったときもランタイムが行う |
+| `Socket.Subprotocol() string` | ハンドシェイクが合意したサブプロトコル。無ければ `""` |
+| `SetSocketDefaults(SocketOptions)` | プロセス全体のソケットの上限・デッドライン・オリジンポリシーを設定する |
+| `SocketDefaults() SocketOptions` | 未設定のフィールドを解決した実効デフォルト |
 | `RegisterHTMLDocument(wrapper)` | アプリケーションのドキュメントシェルを差し込む（**generated**） |
 | `RegisterHTMLErrorPage(resolve)` | エラーページのリゾルバを差し込む。未登録なら最小限の組み込みページ |
 | `RuntimeScriptURL() string` | 境界ランタイムモジュールの絶対パス |

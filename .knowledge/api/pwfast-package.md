@@ -72,7 +72,11 @@ identity_endpoints_2026_08_11:
 absent_and_why:
   everything_absent_here: is absent rather than stubbed, per policy:absent-rather-than-stubbed
   extension_registry: none, because pwfast.Middlewares takes what it needs as arguments; a chain assembled from arguments cannot silently gain a frame because something was imported, and the Extra frames of RuntimeOptions are the seam, positioned by the same slot numbers
-  websocket: requirement:contrib-websocket is unstarted because the fork carries no websocket package, so it waits on a dependency decision rather than on work
+  websocket:
+    was_recorded_here: that it waited on a dependency decision because the fork carried no websocket package
+    corrected_2026_08_11: the fork's sibling does, and system:tinybind-websocket publishes fasthttpbind.WebSocket over it, so nothing waits on a dependency
+    now: implemented 2026-08-11 as WebSocket, WebSocketWith, the Socket and SocketOptions aliases and the socket defaults, under the pw spelling; the origin check is the shared one, per decision:websocket-origin-check-owner
+    verified: a real handshake and a typed round trip over a real listener, and a cross-origin upgrade refused with the same document the other half writes
 dependency_cost:
   added: the fasthttp fork brings a brotli encoder and a byte buffer pool into the module graph
   linking: unaffected for a project that imports neither package

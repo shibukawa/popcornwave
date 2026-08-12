@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/shibukawa/popcornwave/pwconfig"
+	"github.com/shibukawa/tinygodriver/httpserver"
 )
 
 // Option configures framework lifecycle construction.
@@ -155,8 +156,15 @@ func Run(ctx context.Context, handler http.Handler, option ...Option) error {
 	// The development console links the application, and the address it worked
 	// out from the project files is not always the one this process bound.
 	announceDevelopmentListener(address)
-	serve := func() error { return server.Serve(listener) }
-	serveErr := serveUntilContext(signalContext, server, serve, serverConfig.ShutdownTimeout)
+	// Not server.Serve. Under TinyGo, net/http starts a background read before
+	// the handler and cancels it by moving a deadline into the past, which the
+	// network driver cannot apply to a read already in flight — so Hijack blocks
+	// forever and a WebSocket handshake hangs with no error and no log line.
+	// This entry reads the request head itself and hands an upgrade a writer it
+	// can hijack, while everything else still reaches a real http.Server. Under
+	// host Go it is server.Serve and nothing more, so one line covers both.
+	serve := func() error { return httpserver.Serve(listener, server) }
+	serveErr := serveUntilContext(signalContext, server, listener, serve, serverConfig.ShutdownTimeout)
 	return closeRuntimeResources(serverConfig.ShutdownTimeout, serveErr)
 }
 
@@ -192,26 +200,51 @@ func listenURL(listener net.Listener) string {
 	return "http://" + host + ":" + strconv.Itoa(tcp.Port)
 }
 
-func serveUntilContext(ctx context.Context, server *http.Server, serve func() error, shutdownTimeout time.Duration) error {
+func serveUntilContext(ctx context.Context, server *http.Server, listener net.Listener, serve func() error, shutdownTimeout time.Duration) error {
 	result := make(chan error, 1)
-	go func() {
-		err := serve()
-		if errors.Is(err, http.ErrServerClosed) {
-			err = nil
-		}
-		result <- err
-	}()
+	go func() { result <- serve() }()
 
 	select {
 	case err := <-result:
-		return err
+		return endedServing(err, false)
 	case <-ctx.Done():
+		// Closing the listener is what stops new connections arriving, and it
+		// has to happen here rather than inside Shutdown: the upgrade-capable
+		// serving path accepts on this listener itself and gives the server an
+		// internal one, so Shutdown closes what the server owns and leaves the
+		// accept loop running with nothing able to end it. Waiting on a serve
+		// call that can no longer return is how a graceful stop becomes a hang.
+		//
+		// Under host Go the server closes the same listener a moment later,
+		// which is harmless, so one order serves both paths.
+		closeErr := listener.Close()
+		if errors.Is(closeErr, net.ErrClosed) {
+			closeErr = nil
+		}
 		shutdownContext, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
 		shutdownErr := server.Shutdown(shutdownContext)
 		cancel()
-		serveErr := <-result
-		return errors.Join(shutdownErr, serveErr)
+		serveErr := endedServing(<-result, true)
+		return errors.Join(closeErr, shutdownErr, serveErr)
 	}
+}
+
+// endedServing drops the errors that mean serving stopped because it was asked
+// to, and keeps the ones that mean it stopped for some other reason.
+//
+// http.Server reports ErrServerClosed for both a Shutdown and a listener closed
+// while shutting down. The upgrade-capable path runs its own accept loop and
+// reports what Accept reported, which is the closed-listener error once the
+// shutdown above has closed it — a stop this process asked for, so it is only
+// dropped on that branch.
+func endedServing(err error, requested bool) error {
+	if errors.Is(err, http.ErrServerClosed) {
+		return nil
+	}
+	if requested && errors.Is(err, net.ErrClosed) {
+		return nil
+	}
+	return err
 }
 
 func newHTTPServer(config ServerConfig, handler http.Handler) *http.Server {

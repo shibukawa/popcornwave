@@ -45,7 +45,7 @@ required:
   one_resolver:
     owner: internal/requestorigin, extended with the trusted-proxy evaluation the policy:security-response-headers middleware holds today
     answers: effective scheme, self-origin, and client address
-    callers: policy:csrf-protection, api:authentication-endpoints, policy:security-response-headers, policy:live-subscription-bounds, and requirement:contrib-websocket
+    callers: policy:csrf-protection, api:authentication-endpoints, policy:security-response-headers, policy:live-subscription-bounds, and decision:websocket-origin-check-owner
     removes: the ungated read in the logout path, and the second copy of the trusted-proxy evaluation
     trust_rule: decision:forwarded-header-trust
   wiring:

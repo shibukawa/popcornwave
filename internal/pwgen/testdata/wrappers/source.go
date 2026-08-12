@@ -30,6 +30,15 @@ type created struct {
 	ID int `json:"id"`
 }
 
+type inbound struct {
+	Type string `json:"type"`
+	Text string `json:"text"`
+}
+
+type outbound struct {
+	Text string `json:"text"`
+}
+
 var mux = pw.NewServeMux()
 
 func init() {
@@ -37,6 +46,7 @@ func init() {
 	pw.RegisterSubCommand[ImportCommand]("import", "import data")
 	mux.HandleFunc("GET /items/{id}", item)
 	mux.HandleFunc("POST /items", create)
+	mux.HandleFunc("GET /socket", socket)
 }
 
 func item(w http.ResponseWriter, r *http.Request) {
@@ -56,4 +66,16 @@ func create(w http.ResponseWriter, r *http.Request) {
 	}
 	_ = input
 	pw.WriteStatus(w, r, http.StatusCreated, created{ID: 1})
+}
+
+// socket spells neither type argument, so what the generator emits for it comes
+// from the closure parameter alone.
+func socket(w http.ResponseWriter, r *http.Request) {
+	_ = pw.WebSocket(w, r, func(s *pw.Socket[inbound, outbound]) error {
+		in, err := s.Read()
+		if err != nil {
+			return err
+		}
+		return s.Write(outbound{Text: in.Text})
+	})
 }

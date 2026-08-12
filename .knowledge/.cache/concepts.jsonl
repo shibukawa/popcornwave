@@ -70,6 +70,7 @@
 {"category": "interface", "id": "api:transaction-runner", "path": ".knowledge/api/transaction-runner.md", "role": "primary", "title": "Transaction API", "type": "api"}
 {"category": "interface", "id": "api:typed-external-function", "path": ".knowledge/api/typed-external-function.md", "role": "primary", "title": "Typed External Function", "type": "api"}
 {"category": "interface", "id": "api:typed-stream", "path": ".knowledge/api/typed-stream.md", "role": "primary", "title": "Typed Stream API", "type": "api"}
+{"category": "interface", "id": "api:typed-websocket", "path": ".knowledge/api/typed-websocket.md", "role": "primary", "title": "Typed WebSocket API", "type": "api"}
 {"category": "interface", "id": "api:user-preference-accessors", "path": ".knowledge/api/user-preference-accessors.md", "role": "primary", "title": "User Preference Accessors", "type": "api"}
 {"category": "concept", "id": "concept:application-entry-point", "path": ".knowledge/concept/application-entry-point.md", "role": "supporting", "title": "Application Entry Point", "type": "concept"}
 {"category": "concept", "id": "concept:assurance-axes", "path": ".knowledge/concept/assurance-axes.md", "role": "supporting", "title": "Assurance Strength and Freshness", "type": "concept"}
@@ -270,6 +271,8 @@
 {"category": "constraint", "id": "decision:vscode-first-editor-target", "path": ".knowledge/decision/vscode-first-editor-target.md", "role": "supporting", "title": "VS Code as the First Editor Target", "type": "decision"}
 {"category": "constraint", "id": "decision:wasi-http-deferred", "path": ".knowledge/decision/wasi-http-deferred.md", "role": "supporting", "title": "Defer WASI HTTP Adapter", "type": "decision"}
 {"category": "constraint", "id": "decision:web-runtime-delivery-order", "path": ".knowledge/decision/web-runtime-delivery-order.md", "role": "supporting", "title": "Web Runtime Delivery Order", "type": "decision"}
+{"category": "constraint", "id": "decision:websocket-origin-check-owner", "path": ".knowledge/decision/websocket-origin-check-owner.md", "role": "supporting", "title": "This Framework Decides Which Origin May Open A Socket", "type": "decision"}
+{"category": "constraint", "id": "decision:websocket-upgrade-capable-server", "path": ".knowledge/decision/websocket-upgrade-capable-server.md", "role": "supporting", "title": "pw Serves Through The Upgrade-Capable Server Itself", "type": "decision"}
 {"category": "behavior", "id": "flow:bearer-request-authentication", "path": ".knowledge/flow/bearer-request-authentication.md", "role": "primary", "title": "Bearer Request Authentication Flow", "type": "flow"}
 {"category": "behavior", "id": "flow:capability-addition", "path": ".knowledge/flow/capability-addition.md", "role": "primary", "title": "Capability Addition Flow", "type": "flow"}
 {"category": "behavior", "id": "flow:cli-release", "path": ".knowledge/flow/cli-release.md", "role": "primary", "title": "CLI Release Flow", "type": "flow"}
@@ -409,7 +412,7 @@
 {"category": "objective", "id": "requirement:contrib-postgresql", "path": ".knowledge/requirement/contrib-postgresql.md", "role": "primary", "title": "PostgreSQL Driver Consumption", "type": "requirement"}
 {"category": "objective", "id": "requirement:contrib-redis-valkey", "path": ".knowledge/requirement/contrib-redis-valkey.md", "role": "primary", "title": "TinyGo Redis and Valkey Compatibility", "type": "requirement"}
 {"category": "objective", "id": "requirement:contrib-sqlite", "path": ".knowledge/requirement/contrib-sqlite.md", "role": "primary", "title": "Portable SQLite Facade", "type": "requirement"}
-{"category": "objective", "id": "requirement:contrib-websocket", "path": ".knowledge/requirement/contrib-websocket.md", "role": "primary", "title": "WebSocket Upgrade Seam", "type": "requirement"}
+{"category": "objective", "id": "requirement:contrib-websocket", "path": ".knowledge/requirement/contrib-websocket.md", "role": "primary", "title": "WebSocket In contrib, Withdrawn", "type": "requirement"}
 {"category": "objective", "id": "requirement:contrib-zstd", "path": ".knowledge/requirement/contrib-zstd.md", "role": "primary", "title": "Zstandard Response Encoder", "type": "requirement"}
 {"category": "objective", "id": "requirement:cross-package-components", "path": ".knowledge/requirement/cross-package-components.md", "role": "primary", "title": "A Component Must Be Callable From Another Module", "type": "requirement"}
 {"category": "objective", "id": "requirement:csrf-token-lifecycle", "path": ".knowledge/requirement/csrf-token-lifecycle.md", "role": "primary", "title": "CSRF Token Lifecycle And Delivery", "type": "requirement"}
@@ -525,6 +528,7 @@
 {"category": "objective", "id": "requirement:tutorial-continuity", "path": ".knowledge/requirement/tutorial-continuity.md", "role": "primary", "title": "Tutorial Continuity", "type": "requirement"}
 {"category": "objective", "id": "requirement:tutorial-page-tree-chapter", "path": ".knowledge/requirement/tutorial-page-tree-chapter.md", "role": "primary", "title": "Tutorial Page Tree Chapter", "type": "requirement"}
 {"category": "objective", "id": "requirement:typed-http-contract", "path": ".knowledge/requirement/typed-http-contract.md", "role": "primary", "title": "Typed HTTP Contract", "type": "requirement"}
+{"category": "objective", "id": "requirement:typed-websocket", "path": ".knowledge/requirement/typed-websocket.md", "role": "primary", "title": "Typed WebSocket On Both Builds", "type": "requirement"}
 {"category": "objective", "id": "requirement:unhandled-boundary-signal", "path": ".knowledge/requirement/unhandled-boundary-signal.md", "role": "primary", "title": "Unhandled Boundary Signal", "type": "requirement"}
 {"category": "objective", "id": "requirement:unified-update-runtime", "path": ".knowledge/requirement/unified-update-runtime.md", "role": "primary", "title": "Unified Update Runtime", "type": "requirement"}
 {"category": "objective", "id": "requirement:update-navigation-continuity", "path": ".knowledge/requirement/update-navigation-continuity.md", "role": "primary", "title": "Update Navigation Continuity", "type": "requirement"}
@@ -562,6 +566,7 @@
 {"category": "external", "id": "system:localotelviewer", "path": ".knowledge/system/localotelviewer.md", "role": "supporting", "title": "LocalOtelViewer", "type": "system"}
 {"category": "external", "id": "system:oidcld", "path": ".knowledge/system/oidcld.md", "role": "supporting", "title": "OIDCLD", "type": "system"}
 {"category": "external", "id": "system:pw-cli", "path": ".knowledge/system/pw-cli.md", "role": "supporting", "title": "pw CLI", "type": "system"}
+{"category": "external", "id": "system:tinybind-websocket", "path": ".knowledge/system/tinybind-websocket.md", "role": "supporting", "title": "TinyBind Typed WebSocket", "type": "system"}
 {"category": "external", "id": "system:tinybind", "path": ".knowledge/system/tinybind.md", "role": "supporting", "title": "TinyBind", "type": "system"}
 {"category": "external", "id": "system:tinygodriver-dynamodb", "path": ".knowledge/system/tinygodriver-dynamodb.md", "role": "supporting", "title": "tinygodriver DynamoDB Client", "type": "system"}
 {"category": "external", "id": "system:tinygodriver-firestore", "path": ".knowledge/system/tinygodriver-firestore.md", "role": "supporting", "title": "tinygodriver Firestore Datastore Client", "type": "system"}

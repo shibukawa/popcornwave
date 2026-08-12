@@ -26,7 +26,7 @@ func TestServeUntilContextGracefullyStops(t *testing.T) {
 	}
 	result := make(chan error, 1)
 	go func() {
-		result <- serveUntilContext(ctx, server, serve, time.Second)
+		result <- serveUntilContext(ctx, server, listener, serve, time.Second)
 	}()
 	<-started
 	cancel()
