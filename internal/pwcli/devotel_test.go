@@ -242,13 +242,16 @@ func main() {
 	stdout, stderr := &bytes.Buffer{}, &bytes.Buffer{}
 	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 	defer cancel()
-	app, exited, err := startApplication(ctx, root, "./cmd/app", nil, telemetry, nil, nil, consoleConfig{}, "", stdout, stderr)
+	bootLog := newDevBootLog(stderr)
+	app, exited, err := startApplication(ctx, root, "./cmd/app", nil, telemetry, nil, nil, consoleConfig{}, "", bootLog, stdout, stderr)
 	if err != nil {
 		t.Fatalf("start application: %v", err)
 	}
 	defer stopCommand(app, exited)
 	telemetry.monitor(app)
-	if err := <-exited; err != nil {
+	err = <-exited
+	bootLog.Flush()
+	if err != nil {
 		t.Fatalf("application exited: %v\n%s", err, stderr)
 	}
 

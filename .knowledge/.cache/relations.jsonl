@@ -136,6 +136,7 @@
 {"context": "body", "path": ".knowledge/api/cli-dev.md", "source": "api:cli-dev", "target": "policy:cli-progress-reporting", "target_category": "constraint", "target_type": "policy"}
 {"context": "body", "path": ".knowledge/api/cli-dev.md", "source": "api:cli-dev", "target": "requirement:dev-error-overlay", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/api/cli-dev.md", "source": "api:cli-dev", "target": "policy:startup-summary", "target_category": "constraint", "target_type": "policy"}
+{"context": "body", "path": ".knowledge/api/cli-dev.md", "source": "api:cli-dev", "target": "requirement:dev-reload-summary", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/api/cli-dev.md", "source": "api:cli-dev", "target": "policy:log-emission", "target_category": "constraint", "target_type": "policy"}
 {"context": "body", "path": ".knowledge/api/cli-dev.md", "source": "api:cli-dev", "target": "api:cli-init", "target_category": "interface", "target_type": "api"}
 {"context": "body", "path": ".knowledge/api/cli-dev.md", "source": "api:cli-dev", "target": "policy:devidp-safety", "target_category": "constraint", "target_type": "policy"}
@@ -3252,6 +3253,8 @@
 {"context": "body", "path": ".knowledge/policy/startup-summary.md", "source": "policy:startup-summary", "target": "policy:log-emission", "target_category": "constraint", "target_type": "policy"}
 {"context": "body", "path": ".knowledge/policy/startup-summary.md", "source": "policy:startup-summary", "target": "rule:dsn-redaction", "target_category": "constraint", "target_type": "rule"}
 {"context": "body", "path": ".knowledge/policy/startup-summary.md", "source": "policy:startup-summary", "target": "decision:development-port-shift", "target_category": "constraint", "target_type": "decision"}
+{"context": "body", "path": ".knowledge/policy/startup-summary.md", "source": "policy:startup-summary", "target": "api:cli-dev", "target_category": "interface", "target_type": "api"}
+{"context": "body", "path": ".knowledge/policy/startup-summary.md", "source": "policy:startup-summary", "target": "requirement:dev-reload-summary", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/policy/startup-summary.md", "source": "policy:startup-summary", "target": "api:logger", "target_category": "interface", "target_type": "api"}
 {"context": "body", "path": ".knowledge/policy/svg-active-content.md", "source": "policy:svg-active-content", "target": "policy:asset-content-signature", "target_category": "constraint", "target_type": "policy"}
 {"context": "body", "path": ".knowledge/policy/svg-active-content.md", "source": "policy:svg-active-content", "target": "api:public-asset-middleware", "target_category": "interface", "target_type": "api"}
@@ -3992,6 +3995,15 @@
 {"context": "body", "path": ".knowledge/requirement/dev-query-runner.md", "source": "requirement:dev-query-runner", "target": "api:cli-dev", "target_category": "interface", "target_type": "api"}
 {"context": "body", "path": ".knowledge/requirement/dev-query-runner.md", "source": "requirement:dev-query-runner", "target": "api:cli-seed", "target_category": "interface", "target_type": "api"}
 {"context": "body", "path": ".knowledge/requirement/dev-query-runner.md", "source": "requirement:dev-query-runner", "target": "api:cli-build", "target_category": "interface", "target_type": "api"}
+{"context": "body", "path": ".knowledge/requirement/dev-reload-summary.md", "source": "requirement:dev-reload-summary", "target": "api:cli-dev", "target_category": "interface", "target_type": "api"}
+{"context": "body", "path": ".knowledge/requirement/dev-reload-summary.md", "source": "requirement:dev-reload-summary", "target": "actor:application-developer", "target_category": "behavior", "target_type": "actor"}
+{"context": "body", "path": ".knowledge/requirement/dev-reload-summary.md", "source": "requirement:dev-reload-summary", "target": "api:cli-build", "target_category": "interface", "target_type": "api"}
+{"context": "body", "path": ".knowledge/requirement/dev-reload-summary.md", "source": "requirement:dev-reload-summary", "target": "policy:startup-summary", "target_category": "constraint", "target_type": "policy"}
+{"context": "body", "path": ".knowledge/requirement/dev-reload-summary.md", "source": "requirement:dev-reload-summary", "target": "data:runtime-environment", "target_category": "structure", "target_type": "data"}
+{"context": "body", "path": ".knowledge/requirement/dev-reload-summary.md", "source": "requirement:dev-reload-summary", "target": "decision:development-port-shift", "target_category": "constraint", "target_type": "decision"}
+{"context": "body", "path": ".knowledge/requirement/dev-reload-summary.md", "source": "requirement:dev-reload-summary", "target": "policy:log-emission", "target_category": "constraint", "target_type": "policy"}
+{"context": "body", "path": ".knowledge/requirement/dev-reload-summary.md", "source": "requirement:dev-reload-summary", "target": "rule:dsn-redaction", "target_category": "constraint", "target_type": "rule"}
+{"context": "body", "path": ".knowledge/requirement/dev-reload-summary.md", "source": "requirement:dev-reload-summary", "target": "policy:cli-progress-reporting", "target_category": "constraint", "target_type": "policy"}
 {"context": "body", "path": ".knowledge/requirement/dev-request-timing-surface.md", "source": "requirement:dev-request-timing-surface", "target": "requirement:dev-telemetry-viewer", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/requirement/dev-request-timing-surface.md", "source": "requirement:dev-request-timing-surface", "target": "decision:server-timing-transport", "target_category": "constraint", "target_type": "decision"}
 {"context": "body", "path": ".knowledge/requirement/dev-request-timing-surface.md", "source": "requirement:dev-request-timing-surface", "target": "data:framework-span-set", "target_category": "structure", "target_type": "data"}

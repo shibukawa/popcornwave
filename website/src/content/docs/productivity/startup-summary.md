@@ -62,6 +62,39 @@ ships a single event rather than sixty:
 When the application owns the listener — `pw.Middlewares` instead of `pw.Run` —
 the summary is emitted after initialization, without the `listening` line.
 
+## Restarts under `pw dev`
+
+Once per process is once per rebuild in the developer loop, and reprinting forty
+lines because you saved a template pushes whatever you were reading off the
+screen. So [`pw dev`](/pw/project/dev/) reads the summary its application
+printed and reports the next one against it. A restart that resolved to the same
+configuration says so and stops:
+
+```
+reloaded
+```
+
+A restart that resolved to something else shows the rows that moved, in the
+section they came from:
+
+```
+└─ html
+   └─ bot_async_timeout  5s → 10s  ← file
+```
+
+A key that appeared or went away is marked `← added` or `← removed`, which is
+what turning `html.bot_detection` off looks like: the settings it gates leave
+the report entirely. A key whose value survived a change of layer reads
+`← default → env`, because where a value came from is reported for the same
+reason the value is. The listening address, the environment, the config file,
+and the framework version are compared beside the keys, so a run that moved off
+a port it could not bind is one line rather than silence.
+
+The first summary of a session is printed whole — nothing has been read yet, so
+there is no shorter answer that is still true. `record` and `off` are untouched:
+a collector deduplicates, and a developer who turned the summary off did not ask
+for a reload line in its place.
+
 ## Secrets in logs
 
 Sensitive values are masked in both formats. Ordinary values become `*****`;

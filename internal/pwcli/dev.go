@@ -145,7 +145,10 @@ func runDev(ctx context.Context, args []string, stdout, stderr io.Writer) error 
 		return err
 	}
 	report.Phase("building and starting the application")
-	app, exited, err := startApplication(ctx, root, config.Main, idp, telemetry, logs, console, config.Console, attachToken, stdout, stderr)
+	// One reader for the whole run: what it remembers between two application
+	// processes is what makes the second one a reload rather than a startup.
+	bootLog := newDevBootLog(stderr)
+	app, exited, err := startApplication(ctx, root, config.Main, idp, telemetry, logs, console, config.Console, attachToken, bootLog, stdout, stderr)
 	// The region gives way here: everything after this point is the application
 	// and its services talking, which is the scrollback the loop exists to show.
 	report.Done()
@@ -154,7 +157,7 @@ func runDev(ctx context.Context, args []string, stdout, stderr io.Writer) error 
 		return err
 	}
 	report.Healthy()
-	defer func() { stopCommand(app, exited) }()
+	defer func() { stopCommand(app, exited); bootLog.Flush() }()
 	telemetry.monitor(app)
 
 	ticker := time.NewTicker(500 * time.Millisecond)
@@ -167,6 +170,9 @@ func runDev(ctx context.Context, args []string, stdout, stderr io.Writer) error 
 			if ctx.Err() != nil {
 				return nil
 			}
+			// Whatever the process was in the middle of saying reaches the
+			// terminal before the loop says anything about it.
+			bootLog.Flush()
 			// An application that stopped is not a loop that should stop. The
 			// developer loop exists to survive a half-finished edit, and a
 			// project spends most of the time between two working states in a
@@ -205,6 +211,7 @@ func runDev(ctx context.Context, args []string, stdout, stderr io.Writer) error 
 				continue
 			}
 			stopCommand(app, exited)
+			bootLog.Flush()
 			app, exited = nil, nil
 			if config.Tailwind.Enabled && tailwind == nil {
 				development := config.Tailwind
@@ -254,7 +261,7 @@ func runDev(ctx context.Context, args []string, stdout, stderr io.Writer) error 
 			storybook.start(root, storybookStyles(config, readDevelopmentServer(root)), stdout, stderr)
 			state, _ = watchSnapshot(root, config, tailwind == nil)
 			report.Phase("building and starting the application")
-			app, exited, err = startApplication(ctx, root, config.Main, idp, telemetry, logs, console, config.Console, attachToken, stdout, stderr)
+			app, exited, err = startApplication(ctx, root, config.Main, idp, telemetry, logs, console, config.Console, attachToken, bootLog, stdout, stderr)
 			if err != nil {
 				fmt.Fprintln(stderr, "pw dev:", err)
 				report.Failed(err)
@@ -267,14 +274,17 @@ func runDev(ctx context.Context, args []string, stdout, stderr io.Writer) error 
 	}
 }
 
-func startApplication(ctx context.Context, root, mainPackage string, idp *devIdentityProvider, telemetry *devTelemetryViewer, logs *devLogCapture, console *devconsole.Console, settings consoleConfig, attachToken string, stdout, stderr io.Writer) (*exec.Cmd, <-chan error, error) {
+func startApplication(ctx context.Context, root, mainPackage string, idp *devIdentityProvider, telemetry *devTelemetryViewer, logs *devLogCapture, console *devconsole.Console, settings consoleConfig, attachToken string, bootLog *devBootLog, stdout, stderr io.Writer) (*exec.Cmd, <-chan error, error) {
 	// Not CommandContext: its cancellation kills this process the moment the
 	// interrupt arrives, and a kill is the one signal `go run` cannot pass down
 	// to the binary it compiled. The loop stops the application through
 	// stopCommand instead, which addresses the whole group and waits.
 	command := exec.Command("go", "run", "-tags=pwdev", mainPackage)
-	command.Dir, command.Stdout, command.Stderr, command.Stdin = root, stdout, stderr, os.Stdin
-	command.Env = logs.environ(consoleEnviron(console, settings, attachToken, telemetry.environ(idp.environ(developmentEnviron()))))
+	// The application's stderr goes through the reload report rather than
+	// straight to the terminal, which is what makes it a pipe and why the boot
+	// log has to be told what it can no longer see for itself.
+	command.Dir, command.Stdout, command.Stderr, command.Stdin = root, stdout, bootLog, os.Stdin
+	command.Env = bootLogEnviron(root, terminalWriter(stderr), logs.environ(consoleEnviron(console, settings, attachToken, telemetry.environ(idp.environ(developmentEnviron())))))
 	ownProcessGroup(command)
 	if err := command.Start(); err != nil {
 		return nil, nil, err
