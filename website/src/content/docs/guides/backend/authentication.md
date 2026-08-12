@@ -81,8 +81,8 @@ discovering it during a sign-in:
 - The backend's deployment resources exist. Relational storage needs its
   migrations, DynamoDB needs its tables, and Firestore needs a Datastore-mode
   database plus any required TTL policies and indexes.
-- `issuer`, `client_id`, `client_secret`, and `redirect_url` all non-empty.
-  They are placeholders in the scaffolded file, not optional settings.
+- `issuer`, `client_id`, and `client_secret` all non-empty. Outside loopback
+  development, `redirect_url` must also be an absolute URL.
 
 The issuer must be `https`. The one exception is a loopback development
 provider, which needs `auth.oidc.allow_loopback_http = true` and must never
@@ -115,7 +115,7 @@ The `[auth.oidc]` keys describe the relying party and decide who is admitted:
 | `issuer` | *(empty)* | **required**; `https` unless `allow_loopback_http` |
 | `client_id` | *(empty)* | **required** |
 | `client_secret` | *(empty)* | **required**; masked in the startup summary |
-| `redirect_url` | *(empty)* | **required**; must match what the provider has registered |
+| `redirect_url` | *(empty)* | absolute deployed callback; in loopback development, empty derives `callback_path` from the request origin, and a rooted path derives that path from it |
 | `scopes` | `[]` | extra scopes beside `openid` |
 | `identity_claim` | `"sub"` | the verified claim that identifies a local account |
 | `admission` | `"authenticated"` | `authenticated`, `claim`, `registered`, or `existing` |
@@ -400,9 +400,10 @@ completes the entire flow. See [Testing](/productivity/testing/#withidentityprov
 
 ## Deploying
 
-Deployment removes that convenience. `issuer`, `client_id`, `client_secret`,
-and `redirect_url` must all be non-empty or the application refuses to start,
-naming what is missing. Supply the provider values through `AUTH_OIDC_ISSUER`,
+Deployment removes that convenience. `issuer`, `client_id`, and `client_secret`
+must be non-empty. `redirect_url` must be the absolute deployed callback;
+`pw doctor` reports an empty or path-only value as an error outside `dev`.
+Supply the provider values through `AUTH_OIDC_ISSUER`,
 `AUTH_OIDC_CLIENT_ID`, and `AUTH_OIDC_CLIENT_SECRET`, or through `${NAME}`
 references, rather than committing them. A cookie-backed session adds one more
 secret of its own — see [Session storage](/guides/storage/session-storage/#cookie--no-storage-at-all).
@@ -411,6 +412,14 @@ secret of its own — see [Session storage](/guides/storage/session-storage/#coo
 character. It is the value the framework sends as `redirect_uri`, so a callback
 that differs from the registration is refused by the provider before the
 application ever sees it.
+
+There is one development-only exception. With `allow_loopback_http = true`, an
+empty `redirect_url` becomes the current request's scheme and `Host` plus
+`callback_path`; a rooted path uses that path instead. The request `Host` must
+be `localhost`, a `*.localhost` name, or a loopback IP such as `127.0.0.1` or
+`::1`. This lets a login begun on `localhost:8080` return there, while one begun
+on `127.0.0.1:8080` returns to that distinct browser origin. Do not use this
+rule behind a public host or as a substitute for registering a production URL.
 
 Register the post-logout URL too: providers reject a `post_logout_redirect_uri`
 they do not know. The framework sends the root of the request origin, so

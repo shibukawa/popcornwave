@@ -2548,6 +2548,7 @@ issuer = ""
 client_id = ""
 client_secret = ""`
 	loopback := "false"
+	redirect := `redirect_url = "` + authDevelopmentOrigin(options) + `/auth/callback"`
 	if options.AuthEmulator {
 		provider = `
 # pw dev runs the development identity provider and injects AUTH_OIDC_ISSUER,
@@ -2556,10 +2557,11 @@ client_secret = ""`
 		// The development issuer is loopback http, which an https-only client
 		// would refuse.
 		loopback = "true"
+		redirect = `# redirect_url is derived from the loopback request Host.`
 	}
 	return `
 [auth.oidc]` + provider + `
-redirect_url = "` + authDevelopmentOrigin(options) + `/auth/callback"
+` + redirect + `
 scopes = ["profile", "email"]
 identity_claim = "sub"
 admission = "authenticated"

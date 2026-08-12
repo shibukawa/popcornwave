@@ -431,10 +431,11 @@ func (r *checkRun) checkIdentityProvider() {
 	}
 	issuer := r.Config.raw("auth.oidc.issuer")
 	allowLoopback := r.Config.enabled("auth.oidc.allow_loopback_http")
+	redirect := strings.TrimSpace(r.Config.raw("auth.oidc.redirect_url"))
 	// The redirect target is checked in every environment: the provider would
 	// send the browser to a path the application does not serve, and a loopback
 	// redirect that happens to work locally hides it.
-	if redirect := r.Config.raw("auth.oidc.redirect_url"); redirect != "" {
+	if redirect != "" {
 		callback := r.Config.raw("auth.callback_path")
 		if parsed, err := url.Parse(redirect); err == nil && callback != "" && parsed.Path != callback {
 			r.report(pwcheck.RedirectDisagreement,
@@ -447,6 +448,11 @@ func (r *checkRun) checkIdentityProvider() {
 	// below has anything to say about that arrangement working.
 	if r.Env == pwenv.Development {
 		return
+	}
+	if parsed, err := url.Parse(redirect); redirect == "" || err != nil || !parsed.IsAbs() || parsed.Host == "" {
+		r.report(pwcheck.DynamicOIDCRedirect,
+			"auth.oidc.redirect_url is empty or path-only, so its host would come from the request",
+			"auth.oidc.redirect_url")
 	}
 	if issuer != "" {
 		if parsed, err := url.Parse(issuer); err == nil {

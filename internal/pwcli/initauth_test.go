@@ -205,8 +205,7 @@ func TestScaffoldOIDCPasskey(t *testing.T) {
 	for _, want := range []string{
 		`mode = "oidc_passkey"`, "[auth.oidc]", "[auth.passkey]",
 		`recovery.policy = "oidc"`,
-		// The origin has to sit inside the RP ID, and an address cannot be one.
-		`redirect_url = "http://localhost:8080/auth/callback"`,
+		`# redirect_url is derived from the loopback request Host.`,
 	} {
 		if !strings.Contains(config, want) {
 			t.Fatalf("config is missing %q:\n%s", want, config)
@@ -540,22 +539,13 @@ func TestScaffoldTurnsCSRFOnForABrowserLogin(t *testing.T) {
 	}
 }
 
-// A login begun at one origin and returning to another returns to a different
-// cookie jar, so the state the callback verifies is a cookie the browser never
-// sends: the redirect arrives and is refused. pw dev prints localhost, which is
-// therefore what a developer opens and what the callback has to come back to.
-func TestScaffoldedLoginReturnsToTheOriginDevServesFrom(t *testing.T) {
-	for _, mode := range []string{authOIDC, authOIDCPasskey, authPasskey} {
-		config := scaffoldFiles(initOptions{Name: "demo", Auth: mode})[pwenv.FileName(pwenv.Development)]
-		for _, key := range []string{"redirect_url", "issuer"} {
-			for _, line := range strings.Split(config, "\n") {
-				if !strings.HasPrefix(strings.TrimSpace(line), key+" =") {
-					continue
-				}
-				if strings.Contains(line, "127.0.0.1:8080") {
-					t.Errorf("%s returns the browser to an address pw dev does not serve from: %s", mode, line)
-				}
-			}
+// The development provider accepts loopback callbacks, so the scaffold lets
+// the login return to the exact loopback origin the developer opened.
+func TestEmulatorScaffoldDerivesTheRedirectFromTheRequest(t *testing.T) {
+	for _, mode := range []string{authOIDC, authOIDCPasskey} {
+		config := scaffoldFiles(initOptions{Name: "demo", Auth: mode, AuthEmulator: true})[pwenv.FileName(pwenv.Development)]
+		if strings.Contains(config, "redirect_url =") {
+			t.Errorf("%s fixes the development callback to one loopback spelling:\n%s", mode, config)
 		}
 	}
 }

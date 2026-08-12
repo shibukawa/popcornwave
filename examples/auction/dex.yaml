@@ -1,0 +1,31 @@
+# Development-only OIDC provider for the local Compose stack.
+issuer: http://localhost:5556/dex
+
+storage:
+  type: memory
+
+web:
+  http: 0.0.0.0:5556
+
+telemetry:
+  http: 0.0.0.0:5558
+
+oauth2:
+  skipApprovalScreen: true
+
+staticClients:
+  - id: auction
+    name: Auction
+    secretEnv: OIDC_CLIENT_SECRET
+    redirectURIs:
+      - http://127.0.0.1:8080/auth/callback
+
+enablePasswordDB: true
+staticPasswords:
+  - email: admin@example.com
+    # Development password: password
+    hash: "$2a$10$2b2cU8CPhOTaGrs1HRQuAueS7JTT5ZHsHSzYiFPm1leZck7Mc8T4W"
+    username: admin
+    name: Admin User
+    emailVerified: true
+    userID: 08a8684b-db88-4b73-90a9-3cd1661f5466

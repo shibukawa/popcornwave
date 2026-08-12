@@ -1,0 +1,86 @@
+package handlers
+
+export component Home(name: string, project: string, signedIn: bool, email: string, loginPath: url, logoutPath: url, passkey: bool, providerLogin: bool, bootstrap: bool): html {
+  <div class="space-y-10">
+    <header>
+      <p class="text-sm font-semibold uppercase tracking-widest text-indigo-600">Popcorn Wave</p>
+      <h1 class="mt-1 text-4xl font-bold tracking-tight">{project}</h1>
+      <p class="mt-3 text-slate-600">Hello,
+        {name}. This page is yours to delete; nothing in the framework reads it.</p>
+    </header>
+    <section class="rounded-xl border border-slate-200 p-6">
+      <h2 class="text-lg font-semibold">Account</h2>
+      {if signedIn}
+        <p>Signed in as {email}</p>
+        {if passkey} <p><button type="button" id="passkey-register">Add a passkey</button></p> {/if}
+        <form method="post" action="{logoutPath}"> <button type="submit">Sign out</button> </form>
+        <!-- Signing out keeps the session at the identity provider and makes the next
+           sign-in here ask again, which is what auth.oidc.logout_scope defaults to.
+           To offer a sign-out-everywhere control as well, set
+           auth.oidc.allow_global_logout_request and add a second form posting to
+           the same path with <input type="hidden" name="scope" value="global">. -->
+      {else}
+        {if providerLogin}
+          <p><a class="font-medium text-indigo-600 underline underline-offset-2" href="{loginPath}">Sign in</a></p>
+        {/if}
+        {if passkey}
+          <p><button type="button" id="passkey-login">Sign in with a passkey</button></p>
+        {/if}
+        {if bootstrap}
+          <form id="passkey-bootstrap">
+            <p class="text-sm text-slate-500">First sign-in: use the login ID and one-time secret an administrator issued.</p>
+            <input name="login_id" placeholder="login ID">
+            <input name="secret" type="password" placeholder="one-time secret">
+            <button type="submit">Enroll a passkey</button>
+          </form>
+        {/if}
+      {/if}
+      {if passkey}
+        <p id="passkey-status"></p>
+        <script type="module" src="/public/passkey.js"></script>
+      {/if}
+    </section>
+    <section class="rounded-xl border border-slate-200 p-6">
+      <h2 class="text-lg font-semibold">What this project has</h2>
+      <ul class="mt-3 space-y-2 text-slate-700">
+        <li>Routes written in Go on
+          <code>http.ServeMux</code>, registered from
+          <code>handlers/</code></li>
+        <li>A page tree in
+          <code>pages/</code>, where a directory with a page template is a route</li>
+        <li>A SQLite database, with
+          <code>migrations/</code>
+          and typed SQL in
+          <code>queries/</code></li>
+        <li>Authentication, with the sign-in controls below served by the framework</li>
+        <li>Tailwind CSS, compiled from <code>assets/app.css</code></li>
+        <li>A Devbox environment pinning the toolchain and the development services</li>
+      </ul>
+    </section>
+    <section class="rounded-xl border border-slate-200 p-6">
+      <h2 class="text-lg font-semibold">What to do next</h2>
+      <ul class="mt-3 space-y-2 text-slate-700">
+        <li>Edit this page: <code>handlers/home.pw.html</code></li>
+        <li>Add a route: <code>pw new handler</code></li>
+        <li>Add a page: <code>pw new page</code></li>
+        <li>Write a query in
+          <code>queries/</code>
+          and a migration in
+          <code>migrations/</code>; both start out commented</li>
+        <li>Install what this project skipped (dynamo, firestore):
+          <code>pw add &lt;capability&gt;</code></li>
+      </ul>
+    </section>
+    <section class="rounded-xl border border-slate-200 p-6">
+      <h2 class="text-lg font-semibold">Documentation</h2>
+      <ul class="mt-3 space-y-2 text-slate-700">
+        <li><a
+            class="font-medium text-indigo-600 underline underline-offset-2"
+            href="https://shibukawa.github.io/popcornwave/">Guides, tutorial, and reference</a></li>
+        <li><a
+            class="font-medium text-indigo-600 underline underline-offset-2"
+            href="https://github.com/shibukawa/popcornwave">Source and issues</a></li>
+      </ul>
+    </section>
+  </div>
+}

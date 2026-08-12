@@ -417,6 +417,13 @@ sidebar:
 - **読むもの**: マージ済み設定
 - **直し方**: clear auth.oidc.allow_loopback_http and set session.cookie.secure
 
+### PW0437: the OIDC redirect URL is derived from a request outside dev
+
+- **深刻度**: error（`dev` では note）
+- **対象**: `dev` 以外のすべての環境
+- **読むもの**: マージ済み設定
+- **直し方**: set auth.oidc.redirect_url to the absolute URL registered with the deployed provider
+
 ## 本番前チェック (PW05xx)
 
 公開前のチェックリストを、読むものではなく走らせるものにしたもの。診断対象が `dev` のあいだは何も言いません。

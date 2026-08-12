@@ -723,7 +723,10 @@ func (c Config) issuesBootstrapCredentials() bool {
 // suggest that a provider is in the loop.
 func (c Config) validateOIDCUse() error {
 	if c.usesOIDC() {
-		return c.OIDC.validate()
+		if err := c.OIDC.validate(); err != nil {
+			return err
+		}
+		return c.validateOIDCRedirect()
 	}
 	for key, value := range map[string]string{
 		"auth.oidc.issuer":        c.OIDC.Issuer,
@@ -734,6 +737,36 @@ func (c Config) validateOIDCUse() error {
 		if value != "" {
 			return fmt.Errorf("auth.mode %q reads no OIDC setting, but %s is set", c.Mode, key)
 		}
+	}
+	return nil
+}
+
+// validateOIDCRedirect accepts a request-relative redirect only for the
+// explicit loopback development mode. The callback path is mounted separately,
+// so a path-only redirect must name that same endpoint.
+func (c Config) validateOIDCRedirect() error {
+	raw := c.OIDC.RedirectURL
+	if raw == "" {
+		if !c.OIDC.AllowLoopbackHTTP {
+			return errors.New("auth.oidc.redirect_url may be omitted only when auth.oidc.allow_loopback_http is set")
+		}
+		return nil
+	}
+	parsed, err := url.Parse(raw)
+	if err != nil {
+		return fmt.Errorf("auth.oidc.redirect_url is invalid: %w", err)
+	}
+	if parsed.IsAbs() {
+		return nil
+	}
+	if !c.OIDC.AllowLoopbackHTTP {
+		return errors.New("a path-only auth.oidc.redirect_url requires auth.oidc.allow_loopback_http")
+	}
+	if parsed.Path != raw || !strings.HasPrefix(raw, "/") || strings.Contains(raw, "//") {
+		return fmt.Errorf("auth.oidc.redirect_url must be an absolute URL or a rooted local path, got %q", raw)
+	}
+	if raw != c.CallbackPath {
+		return fmt.Errorf("auth.oidc.redirect_url path %q must match auth.callback_path %q", raw, c.CallbackPath)
 	}
 	return nil
 }
@@ -895,8 +928,8 @@ func isLoopbackHost(host string) bool {
 }
 
 func (o OIDCConfig) validate() error {
-	if o.Issuer == "" || o.ClientID == "" || o.ClientSecret == "" || o.RedirectURL == "" {
-		return fmt.Errorf("auth.oidc requires issuer, client_id, client_secret, and redirect_url")
+	if o.Issuer == "" || o.ClientID == "" || o.ClientSecret == "" {
+		return fmt.Errorf("auth.oidc requires issuer, client_id, and client_secret")
 	}
 	if !strings.HasPrefix(o.Issuer, "https://") && !o.AllowLoopbackHTTP {
 		return fmt.Errorf("auth.oidc.issuer must be https unless auth.oidc.allow_loopback_http is set")

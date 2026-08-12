@@ -1,0 +1,193 @@
+package pages
+
+type Room {
+  id: int
+  path: url
+  creatorName: string
+  title: string
+  subject: string
+  subjectDescription: string
+  startingAmount: int
+  createdAt: datetime
+  participantCount: int
+  isCreator: bool
+  isParticipant: bool
+}
+
+type RoomList { rooms: Room[], hasRooms: bool }
+
+external FormatAmount(amount: int): string
+
+external FormatCreatedAt(createdAt: datetime): string
+
+external live WatchRooms(viewerAccountID: string): RoomList
+
+component OpenRooms(viewerAccountID: string): html {
+  <section class="space-y-4" aria-live="polite">
+    {await list = WatchRooms(viewerAccountID)}
+      {if list.hasRooms}
+        {for room in list.rooms}
+          <article class="group overflow-hidden rounded-3xl border border-stone-200 bg-white shadow-sm transition hover:-translate-y-0.5 hover:border-amber-300 hover:shadow-lg">
+            <div class="grid gap-5 p-6 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+              <div class="min-w-0">
+                <div class="mb-3 flex flex-wrap items-center gap-2">
+                  <span class="rounded-full bg-emerald-50 px-2.5 py-1 text-[0.68rem] font-black tracking-wider text-emerald-700 uppercase">開催中</span>
+                  {if room.isCreator}<span class="rounded-full bg-amber-100 px-2.5 py-1 text-[0.68rem] font-black text-amber-800">あなたのルーム</span>{/if}
+                  {if room.isParticipant}<span class="rounded-full bg-stone-100 px-2.5 py-1 text-[0.68rem] font-black text-stone-600">参加済み</span>{/if}
+                </div>
+                <h2 class="truncate text-xl font-black tracking-tight"><a
+                    class="text-inherit no-underline hover:text-amber-700"
+                    href="{room.path}">{room.title}</a></h2>
+                <p class="mt-1 truncate font-semibold text-stone-700">{room.subject}</p>
+                {if room.subjectDescription != ""}<p class="mt-2 line-clamp-2 text-sm leading-6 text-stone-500">{room.subjectDescription}</p>{/if}
+                <div class="mt-4 flex flex-wrap gap-x-5 gap-y-2 text-xs text-stone-500">
+                  <span>主催 <strong class="text-stone-700">{room.creatorName}</strong></span>
+                  <span>参加者
+                    <strong class="tabular-nums text-stone-700">{room.participantCount}</strong></span>
+                  <span>{FormatCreatedAt(room.createdAt)}</span>
+                </div>
+              </div>
+              <div class="flex items-center justify-between gap-5 border-t border-stone-100 pt-5 sm:block sm:min-w-36 sm:border-t-0 sm:border-l sm:pt-0 sm:pl-6 sm:text-right">
+                <div>
+                  <p class="text-[0.65rem] font-bold tracking-wider text-stone-400 uppercase">START</p>
+                  <p class="mt-1 text-xl font-black tabular-nums">{FormatAmount(room.startingAmount)}</p>
+                </div>
+                {if room.isCreator}
+                  <a
+                    class="mt-0 inline-flex rounded-full bg-stone-100 px-5 py-2.5 text-sm font-bold text-stone-700 no-underline sm:mt-5"
+                    href="{room.path}">主催中</a>
+                {else if room.isParticipant}
+                  <a
+                    class="mt-0 inline-flex rounded-full bg-stone-900 px-5 py-2.5 text-sm font-bold text-white no-underline sm:mt-5"
+                    href="{room.path}">参加中</a>
+                {else}
+                  <button
+                    class="mt-0 rounded-full bg-amber-400 px-5 py-2.5 text-sm font-black text-stone-950 shadow-sm transition hover:bg-amber-300 sm:mt-5"
+                    type="submit"
+                    name="room_id"
+                    value="{room.id}">参加する</button>
+                {/if}
+              </div>
+            </div>
+          </article>
+        {/for}
+      {else}
+        <div class="rounded-3xl border border-dashed border-stone-300 bg-white px-6 py-16 text-center">
+          <p class="text-4xl">🏷️</p>
+          <h2 class="mt-4 text-lg font-black">まだルームがありません</h2>
+          <p class="mt-2 text-sm text-stone-500">最初のオークションを右のフォームから始めましょう。</p>
+        </div>
+      {/if}
+    {fallback}
+      <div class="rounded-3xl border border-stone-200 bg-white px-6 py-16 text-center text-sm font-semibold text-stone-400">ロビーに接続しています…</div>
+    {recover err}
+      <div class="rounded-3xl border border-rose-200 bg-rose-50 px-6 py-8 text-sm font-semibold text-rose-700">ルーム一覧を読み込めませんでした（{err.code}）</div>
+    {/await}
+  </section>
+}
+
+export component Page(viewerAccountID: string, displayName: string, email: string, logoutPath: url, live: bool): html {
+  <main class="min-h-screen bg-stone-50 text-stone-950">
+    <div class="mx-auto max-w-6xl px-5 py-8 sm:px-8 lg:px-10">
+      <header class="flex flex-col gap-6 border-b border-stone-200 pb-8 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <a class="inline-flex items-center gap-3 text-stone-950 no-underline" href="/">
+            <span class="grid size-11 place-items-center rounded-2xl bg-amber-400 text-xl font-black shadow-sm">A</span>
+            <span>
+              <span class="block text-lg font-black tracking-tight">AUCTION ROOM</span>
+              <span class="block text-xs font-medium tracking-[0.22em] text-stone-500 uppercase">live bidding lobby</span>
+            </span>
+          </a>
+        </div>
+        <div class="flex items-center gap-4">
+          <div class="text-right">
+            <p class="text-sm font-bold">{displayName}</p>
+            <p class="max-w-52 truncate text-xs text-stone-500">{email}</p>
+          </div>
+          {if not live}
+            <form method="post" action="{logoutPath}">
+              <button
+                class="rounded-full border border-stone-300 bg-white px-4 py-2 text-sm font-semibold shadow-sm transition hover:border-stone-950 hover:bg-stone-950 hover:text-white"
+                type="submit">ログアウト</button>
+            </form>
+          {/if}
+        </div>
+      </header>
+
+      <section class="grid gap-8 py-10 lg:grid-cols-[minmax(0,1fr)_22rem]">
+        <div class="min-w-0">
+          <div class="mb-6 flex items-end justify-between gap-4">
+            <div>
+              <p class="mb-2 text-xs font-bold tracking-[0.2em] text-amber-700 uppercase">Open rooms</p>
+              <h1 class="text-3xl font-black tracking-tight sm:text-4xl">開催中のルーム</h1>
+              <p class="mt-3 text-sm leading-6 text-stone-600">新しいルームは、この画面を開いたままでも自動的に届きます。</p>
+            </div>
+            <span class="hidden items-center gap-2 rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-700 sm:inline-flex">
+              <span class="size-2 rounded-full bg-emerald-500"></span>LIVE
+            </span>
+          </div>
+
+          {if live}
+            <OpenRooms viewerAccountID="{viewerAccountID}"/>
+          {else}
+            <form method="post" action="/rooms/join">
+              <OpenRooms viewerAccountID="{viewerAccountID}"/>
+            </form>
+          {/if}
+        </div>
+
+        {if not live}
+          <aside>
+            <div class="sticky top-8 rounded-3xl bg-stone-950 p-6 text-white shadow-xl shadow-stone-300/40">
+              <p class="text-xs font-bold tracking-[0.2em] text-amber-400 uppercase">Create a room</p>
+              <h2 class="mt-2 text-2xl font-black tracking-tight">新しいルーム</h2>
+              <p class="mt-2 text-sm leading-6 text-stone-400">題材と開始金額を決めたら、すぐにオークションを開始できます。</p>
+              <form class="mt-6 space-y-4" method="post" action="/rooms">
+                <label class="block">
+                  <span class="mb-1.5 block text-xs font-bold text-stone-300">ルーム名</span>
+                  <input
+                    class="w-full rounded-xl border border-stone-700 bg-stone-900 px-4 py-3 text-sm text-white outline-none transition placeholder:text-stone-600 focus:border-amber-400"
+                    name="title"
+                    required
+                    maxlength="80"
+                    placeholder="週末オークション">
+                </label>
+                <label class="block">
+                  <span class="mb-1.5 block text-xs font-bold text-stone-300">出品する題材</span>
+                  <input
+                    class="w-full rounded-xl border border-stone-700 bg-stone-900 px-4 py-3 text-sm text-white outline-none transition placeholder:text-stone-600 focus:border-amber-400"
+                    name="subject"
+                    required
+                    maxlength="120"
+                    placeholder="ヴィンテージ腕時計">
+                </label>
+                <label class="block">
+                  <span class="mb-1.5 block text-xs font-bold text-stone-300">説明</span>
+                  <textarea
+                    class="w-full resize-none rounded-xl border border-stone-700 bg-stone-900 px-4 py-3 text-sm text-white outline-none transition placeholder:text-stone-600 focus:border-amber-400"
+                    name="subject_description"
+                    rows="3"
+                    maxlength="1000"
+                    placeholder="状態や特徴を入力"></textarea>
+                </label>
+                <label class="block">
+                  <span class="mb-1.5 block text-xs font-bold text-stone-300">開始金額（円）</span>
+                  <input
+                    class="w-full rounded-xl border border-stone-700 bg-stone-900 px-4 py-3 text-sm text-white outline-none transition placeholder:text-stone-600 focus:border-amber-400"
+                    name="starting_amount"
+                    type="number"
+                    min="0"
+                    step="1"
+                    value="0">
+                </label>
+                <button
+                  class="w-full rounded-xl bg-amber-400 px-4 py-3.5 text-sm font-black text-stone-950 shadow-sm transition hover:bg-amber-300"
+                  type="submit">ルームを作成</button>
+              </form>
+            </div>
+          </aside>
+        {/if}
+      </section>
+    </div>
+  </main>
+}

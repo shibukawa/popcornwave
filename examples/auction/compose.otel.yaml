@@ -1,0 +1,75 @@
+services:
+  auction:
+    build:
+      context: .
+    # Match the owner of the bind-mounted SQLite file. The defaults are for
+    # macOS; override these two values on a host with different IDs.
+    user: "${AUCTION_UID:-501}:${AUCTION_GID:-20}"
+    environment:
+      APP_ENV: dev
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
+      SESSION_KEYRING_SECRET_FILE: /run/secrets/session_keyring_secret
+      AUTH_OIDC_CLIENT_SECRET_FILE: /run/secrets/oidc_client_secret
+    volumes:
+      - ./auction.db:/data/auction.db
+      - ./config.compose.toml:/app/config.dev.toml:ro
+    # SQLite creates its journal beside the database. The database itself is a
+    # direct bind mount; the surrounding writable directory is ephemeral.
+    tmpfs:
+      - /data:mode=1777
+    secrets:
+      - session_keyring_secret
+      - oidc_client_secret
+    ports:
+      - "127.0.0.1:8080:8080"
+      # Dex shares this service's network namespace so both the browser and
+      # the app can use the exact loopback issuer http://localhost:5556/dex.
+      - "127.0.0.1:5556:5556"
+    depends_on:
+      otel-collector:
+        condition: service_started
+    restart: unless-stopped
+
+  dex:
+    image: ghcr.io/dexidp/dex:v2.45.1-alpine
+    entrypoint: ["/bin/sh", "-ec"]
+    command:
+      - |
+        export OIDC_CLIENT_SECRET="$$(cat /run/secrets/oidc_client_secret)"
+        exec /usr/local/bin/dex serve /etc/dex/config.yaml
+    volumes:
+      - ./dex.yaml:/etc/dex/config.yaml:ro
+    secrets:
+      - oidc_client_secret
+    network_mode: service:auction
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:5556/dex/.well-known/openid-configuration"]
+      interval: 2s
+      timeout: 2s
+      retries: 20
+    restart: unless-stopped
+
+  otel-collector:
+    image: quay.io/signalfx/splunk-otel-collector:0.157.0
+    command: ["--config=/etc/otel-collector.yaml"]
+    volumes:
+      - ./otel-collector.yaml:/etc/otel-collector.yaml:ro
+    secrets:
+      - splunk_realm
+      - splunk_access_token
+    ports:
+      # These host bindings are for local diagnostics and pw dev. The auction
+      # container reaches the receiver over the private Compose network.
+      - "127.0.0.1:4318:4318"
+      - "127.0.0.1:13133:13133"
+    restart: unless-stopped
+
+secrets:
+  splunk_realm:
+    environment: SPLUNK_REALM
+  splunk_access_token:
+    environment: SPLUNK_ACCESS_TOKEN
+  oidc_client_secret:
+    environment: OIDC_CLIENT_SECRET
+  session_keyring_secret:
+    environment: SESSION_KEYRING_SECRET

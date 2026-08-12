@@ -1,0 +1,12 @@
+package templates
+
+export component Error400(status: int, title: string, detail: string, code: string, requestId: string, fields: string[]): html {
+  <main class="error">
+    <p class="error-status">{status}</p>
+    <h1 class="error-title">Bad Request</h1>
+    {if detail != ""}<p class="error-detail">{detail}</p>{/if}
+    <ul class="error-fields"> {for field in fields} <li>{field}</li> {/for} </ul>
+    {if code != ""}<p class="error-code">{code}</p>{/if}
+    {if requestId != ""}<p class="error-request">Request {requestId}</p>{/if}
+  </main>
+}

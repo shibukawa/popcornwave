@@ -1,0 +1,33 @@
+# Development identity provider users, selected on the login screen.
+# pw dev serves these; no password is checked, so this file never ships.
+
+[users.admin]
+display_name = "Administrator"
+extra_scopes = ["admin"]
+[users.admin.claims]
+email = "admin@example.com"
+role = "admin"
+
+[users.dave]
+display_name = "Dave"
+[users.dave.claims]
+email = "dave@example.com"
+role = "member"
+
+[users.alice]
+display_name = "Alice"
+[users.alice.claims]
+email = "alice@example.com"
+role = "member"
+
+[users.bob]
+display_name = "Bob"
+[users.bob.claims]
+email = "bob@example.com"
+role = "member"
+
+[users.carol]
+display_name = "Carol"
+[users.carol.claims]
+email = "carol@example.com"
+role = "member"

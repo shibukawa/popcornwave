@@ -3,6 +3,7 @@ package auth
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -140,7 +141,7 @@ func (rt *runtime) handleLogin(x Exchange) {
 		rt.redirect(x, rt.landingPath(returnPath))
 		return
 	}
-	client, err := rt.oidcClient(x.Context())
+	client, err := rt.oidcClient(x)
 	if err != nil {
 		logger(x).Log(x.Context(), pwruntime.LevelError, "oidc discovery failed", pwruntime.Err(err))
 		x.Problem(pwruntime.ServiceUnavailable())
@@ -228,7 +229,7 @@ func (rt *runtime) handleCallback(x Exchange) {
 		x.Problem(pwruntime.Forbidden())
 		return
 	}
-	client, err := rt.oidcClient(x.Context())
+	client, err := rt.oidcClient(x)
 	if err != nil {
 		x.Problem(pwruntime.ServiceUnavailable())
 		return
@@ -415,7 +416,7 @@ func (rt *runtime) logoutScope(x Exchange) string {
 // client_id with a post_logout_redirect_uri identifies the relying party well
 // enough for a provider that accepts either.
 func (rt *runtime) endSessionURL(x Exchange) string {
-	client, err := rt.oidcClient(x.Context())
+	client, err := rt.oidcClient(x)
 	if err != nil {
 		logger(x).Log(x.Context(), pwruntime.LevelWarn, "provider logout unavailable", pwruntime.Err(err))
 		return ""
@@ -444,37 +445,63 @@ func (rt *runtime) postLogoutRedirectURI(x Exchange) string {
 	return (&url.URL{Scheme: rt.scheme(x), Host: x.Host(), Path: "/"}).String()
 }
 
-// oidcClient discovers the provider on first use and caches the client.
-// Discovery failures are not cached, so a provider that starts later still
-// works without restarting the application.
-func (rt *runtime) oidcClient(ctx context.Context) (*oidc.Client, error) {
-	rt.discovery.Lock()
-	defer rt.discovery.Unlock()
-	if rt.client != nil {
-		return rt.client, nil
-	}
-	discoveryCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
-	defer cancel()
-	provider, err := oidc.Discover(discoveryCtx, rt.config.OIDC.Issuer, oidc.DiscoverOptions{
-		AllowLoopbackHTTP: rt.config.OIDC.AllowLoopbackHTTP,
-		EndpointHosts:     rt.config.OIDC.EndpointHosts,
-	})
+// oidcClient discovers the provider on first use and builds a client bound to
+// this request's redirect URI. Discovery failures are not cached, so a
+// provider that starts later still works without restarting the application.
+func (rt *runtime) oidcClient(x Exchange) (*oidc.Client, error) {
+	redirectURI, err := rt.oidcRedirectURI(x)
 	if err != nil {
 		return nil, err
 	}
-	client, err := oidc.NewClient(provider, oidc.Config{
+	rt.discovery.Lock()
+	defer rt.discovery.Unlock()
+	if rt.provider == nil {
+		discoveryCtx, cancel := context.WithTimeout(x.Context(), 30*time.Second)
+		defer cancel()
+		rt.provider, err = oidc.Discover(discoveryCtx, rt.config.OIDC.Issuer, oidc.DiscoverOptions{
+			AllowLoopbackHTTP: rt.config.OIDC.AllowLoopbackHTTP,
+			EndpointHosts:     rt.config.OIDC.EndpointHosts,
+		})
+		if err != nil {
+			rt.provider = nil
+			return nil, err
+		}
+	}
+	return oidc.NewClient(rt.provider, oidc.Config{
 		ClientID:          rt.config.OIDC.ClientID,
 		ClientSecret:      rt.config.OIDC.ClientSecret,
-		RedirectURI:       rt.config.OIDC.RedirectURL,
+		RedirectURI:       redirectURI,
 		AllowLoopbackHTTP: rt.config.OIDC.AllowLoopbackHTTP,
 	}, oidc.Options{
 		OAuth: oauth.Options{StateStore: rt.stateStore},
 	})
-	if err != nil {
-		return nil, err
+}
+
+// oidcRedirectURI returns the configured absolute URL, or derives one from the
+// request authority in the explicitly enabled loopback development mode.
+func (rt *runtime) oidcRedirectURI(x Exchange) (string, error) {
+	return resolveOIDCRedirectURI(rt.config.OIDC.RedirectURL, rt.config.CallbackPath,
+		rt.config.OIDC.AllowLoopbackHTTP, rt.scheme(x), x.Host())
+}
+
+func resolveOIDCRedirectURI(raw, callbackPath string, allowLoopbackHTTP bool, scheme, host string) (string, error) {
+	if parsed, err := url.Parse(raw); err == nil && parsed.IsAbs() {
+		return raw, nil
 	}
-	rt.client = client
-	return client, nil
+	if !allowLoopbackHTTP {
+		return "", errors.New("request-relative OIDC redirect requires auth.oidc.allow_loopback_http")
+	}
+	authority, err := url.Parse("//" + host)
+	if err != nil || authority.Host == "" || authority.Host != host || authority.User != nil ||
+		authority.Path != "" || authority.RawQuery != "" || authority.Fragment != "" ||
+		!isLoopbackHost(strings.ToLower(authority.Hostname())) {
+		return "", fmt.Errorf("request-relative OIDC redirect requires a loopback Host, got %q", host)
+	}
+	path := raw
+	if path == "" {
+		path = callbackPath
+	}
+	return (&url.URL{Scheme: scheme, Host: authority.Host, Path: path}).String(), nil
 }
 
 func (rt *runtime) writeTransactionCookie(x Exchange, value string) {

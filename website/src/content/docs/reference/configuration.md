@@ -41,7 +41,7 @@ and an application should not have to translate:
 | `observability.service_name` | `OTEL_SERVICE_NAME` |
 | `observability.otel.endpoint` | `OTEL_EXPORTER_OTLP_ENDPOINT` |
 | `observability.otel.headers` | `OTEL_EXPORTER_OTLP_HEADERS` |
-| `auth.oidc.issuer`, `client_id`, `client_secret`, `redirect_url` | `AUTH_OIDC_*` — the rule's own result, fixed rather than derived |
+| `auth.oidc.issuer`, `client_id`, `client_secret`, `redirect_url` | `AUTH_OIDC_*`; deployed redirects are fixed, while loopback development may derive one from the request |
 
 Three keys have no environment binding at all:
 `security.headers.content_security_policy`, its `_report_only` twin, and
@@ -412,7 +412,7 @@ imports nothing authentication-related has no `[auth]` prefix to configure.
 | `issuer` | *(empty)* | `AUTH_OIDC_ISSUER` |
 | `client_id` | *(empty)* | `AUTH_OIDC_CLIENT_ID` |
 | `client_secret` | *(empty)* | `AUTH_OIDC_CLIENT_SECRET` (masked in the startup summary) |
-| `redirect_url` | *(empty)* | `AUTH_OIDC_REDIRECT_URL` |
+| `redirect_url` | *(empty)* | `AUTH_OIDC_REDIRECT_URL`; empty or a rooted path is derived from the request origin only with `allow_loopback_http` and a loopback `Host`; deployments require an absolute URL |
 | `scopes` | `[]` | |
 | `identity_claim` | `"sub"` | the verified claim that identifies a local account |
 | `admission` | `"authenticated"` | `authenticated`, `claim`, `registered`, or `existing` |
@@ -422,7 +422,7 @@ imports nothing authentication-related has no `[auth]` prefix to configure.
 | `claim.match` | `"any"` | `any` or `all` |
 | `registered_claims` | `[]` | claims compared against the allowlist; defaults to `identity_claim` |
 | `provider_logout` | `true` | also end the provider session on logout |
-| `allow_loopback_http` | `false` | permit an `http` loopback issuer during development |
+| `allow_loopback_http` | `false` | permit an `http` loopback issuer and a request-derived loopback redirect during development |
 
 `identity_claim` becomes the account link, so whatever it names must be stable
 for the life of the account and unique within the issuer. A reissued or reused

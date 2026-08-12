@@ -1,0 +1,59 @@
+# Production runtime configuration, selected by APP_ENV=prod.
+#
+# Resolution takes the first readable file and stops, so this is the whole
+# configuration rather than a set of overrides on config.dev.toml. To print
+# every key this project defines, including the ones no scaffold can guess:
+#
+#   APP_ENV=prod ./auction --generate-config=toml
+#
+# A value the deployment owns arrives as ${NAME}, expanded when the file loads;
+# an undefined name is a load error rather than an empty value. No secret
+# belongs in this file: it is copied into the image, and an image layer is
+# readable by anyone who can pull it.
+[server]
+port = 8080
+# The container probe reads these. An unset key makes pw healthcheck exit 1
+# naming the key, rather than reporting anything about the process.
+health = "/healthz"
+readiness = "/readyz"
+# openapi and api_doc are deliberately absent. An unset path serves nothing,
+# which is how the document and its UI stay a development surface.
+
+[observability]
+minimum_level = "info"
+service_name = "auction"
+# One JSON object per line, which is what a log collector reads. The container
+# writes to stdout and nowhere else.
+stdout_format = "json"
+
+# The scaffolded migrations and queries need a database; pw dev and pw migrate
+# read this connection.
+[middleware.rdb]
+enabled = true
+
+# One element is one pool. The group is the name statements address it by, and
+# a single connection answers to every group name, so this one stays "default"
+# until a second database arrives.
+[[middleware.rdb.connections]]
+group = "default"
+# The deployment supplies this. ${NAME} is expanded when the file loads, and
+# an undefined name is a load error rather than an empty DSN.
+dsn = "${DATABASE_URL}"
+connect_timeout = "5s"
+max_open_conns = 1
+max_idle_conns = 1
+
+# STILL TO WRITE: session, auth
+#
+# config.dev.toml has these sections and this file does not, because every
+# value in them is a development endpoint, a development credential, or a
+# secret generated for this machine. Print the full scaffold with the command
+# at the top of this file, then supply the deployment's values — the secrets
+# through the environment, which the keys below accept:
+#
+#   SESSION_KEYRING_SECRET   signs and seals everything the browser carries
+#   SESSION_COOKIE_SECRET    seals the cookie session backend
+#   SESSION_REDIS_DSN        the Redis or Valkey session server
+#
+# The server will not start with a section missing that its code path needs,
+# which is the intended failure: a deployment that half-starts is worse.

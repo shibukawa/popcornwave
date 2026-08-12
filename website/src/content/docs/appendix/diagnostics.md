@@ -418,6 +418,13 @@ Three things go wrong here: wiring the binary does not actually carry, values th
 - **Reads**: merged configuration
 - **Fix**: clear auth.oidc.allow_loopback_http and set session.cookie.secure
 
+### PW0437: the OIDC redirect URL is derived from a request outside dev
+
+- **Severity**: error, and note in `dev`
+- **Applies to**: every environment except `dev`
+- **Reads**: merged configuration
+- **Fix**: set auth.oidc.redirect_url to the absolute URL registered with the deployed provider
+
 ## Production readiness (PW05xx)
 
 The pre-launch checklist as something that runs. Silent while the diagnosed environment is `dev`.

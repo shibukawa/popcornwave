@@ -154,9 +154,12 @@ type runtime struct {
 	stopPruning chan struct{}
 
 	// discovery is deferred to the first login so that application startup
-	// does not depend on the identity provider being reachable.
+	// does not depend on the identity provider being reachable. Clients are
+	// cheap request-specific wrappers around the shared provider: loopback
+	// development can derive a different redirect URI for localhost and
+	// 127.0.0.1 without repeating discovery.
 	discovery sync.Mutex
-	client    *oidc.Client
+	provider  *oidc.Provider
 }
 
 var current struct {
