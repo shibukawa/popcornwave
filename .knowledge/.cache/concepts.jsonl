@@ -155,6 +155,7 @@
 {"category": "constraint", "id": "decision:cli-release-pipeline", "path": ".knowledge/decision/cli-release-pipeline.md", "role": "supporting", "title": "Hand-written CLI Release Pipeline", "type": "decision"}
 {"category": "constraint", "id": "decision:committed-package-artifacts", "path": ".knowledge/decision/committed-package-artifacts.md", "role": "supporting", "title": "Committed Package Artifacts", "type": "decision"}
 {"category": "constraint", "id": "decision:config-driven-database", "path": ".knowledge/decision/config-driven-database.md", "role": "supporting", "title": "Config-driven Database Lifecycle", "type": "decision"}
+{"category": "constraint", "id": "decision:config-verbosity-tag-adoption", "path": ".knowledge/decision/config-verbosity-tag-adoption.md", "role": "supporting", "title": "Config Verbosity Tag Adoption", "type": "decision"}
 {"category": "constraint", "id": "decision:contrib-delivery-order", "path": ".knowledge/decision/contrib-delivery-order.md", "role": "supporting", "title": "Contrib Delivery Order", "type": "decision"}
 {"category": "constraint", "id": "decision:cookie-session-storage", "path": ".knowledge/decision/cookie-session-storage.md", "role": "supporting", "title": "Cookie-Backed Session Storage", "type": "decision"}
 {"category": "constraint", "id": "decision:csrf-secret-as-a-session-slot", "path": ".knowledge/decision/csrf-secret-as-a-session-slot.md", "role": "supporting", "title": "The CSRF Secret Is a Session Slot", "type": "decision"}
@@ -518,6 +519,7 @@
 {"category": "objective", "id": "requirement:session-assurance-levels", "path": ".knowledge/requirement/session-assurance-levels.md", "role": "primary", "title": "Graded Session Assurance", "type": "requirement"}
 {"category": "objective", "id": "requirement:shared-web-runtime", "path": ".knowledge/requirement/shared-web-runtime.md", "role": "primary", "title": "Shared Web Runtime", "type": "requirement"}
 {"category": "objective", "id": "requirement:signal-forwarding-seam", "path": ".knowledge/requirement/signal-forwarding-seam.md", "role": "primary", "title": "Signal Forwarding Seam", "type": "requirement"}
+{"category": "objective", "id": "requirement:startup-summary-brevity", "path": ".knowledge/requirement/startup-summary-brevity.md", "role": "primary", "title": "Startup Summary Brevity", "type": "requirement"}
 {"category": "objective", "id": "requirement:state-storage-tiers", "path": ".knowledge/requirement/state-storage-tiers.md", "role": "primary", "title": "Browser State Storage Tiers", "type": "requirement"}
 {"category": "objective", "id": "requirement:tailwind-css-integration", "path": ".knowledge/requirement/tailwind-css-integration.md", "role": "primary", "title": "Tailwind CSS Integration", "type": "requirement"}
 {"category": "objective", "id": "requirement:tailwind-plugin-integration", "path": ".knowledge/requirement/tailwind-plugin-integration.md", "role": "primary", "title": "Tailwind Plugin Integration", "type": "requirement"}

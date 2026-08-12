@@ -7,13 +7,66 @@ TinyBind is the generated binding, configuration, response, validation, streamin
 
 ```yaml
 module: github.com/shibukawa/tinybind-go
-pin: v0.4.3, moved from v0.4.2 by delta_package_break; v0.4.2 came from v0.4.1 by requirement:pgx-native-execution for the sqlbind Rows cursor, v0.4.1 from v0.4.0 by requirement:context-lookup-performance for the handle resolvers and On entries, and v0.2.10 was left behind by decision:tinybind-v03-adoption
+pin: v0.5.8, moved from v0.5.7 by json_tag_options, which is the same release that carried configbind_verbosity_baseline; v0.5.7 came from v0.5.1 with the live source signal and the component cleanup hook, v0.5.1 from v0.5.0 where the update surface got its second half, v0.5.0 from v0.4.9 where both runtimes took one problem value and one document registry, and v0.4.9 from v0.4.3 where the update response became a value
+pin_before_v0_4_9: v0.4.3 moved from v0.4.2 by delta_package_break; v0.4.2 came from v0.4.1 by requirement:pgx-native-execution for the sqlbind Rows cursor, v0.4.1 from v0.4.0 by requirement:context-lookup-performance for the handle resolvers and On entries, and v0.2.10 was left behind by decision:tinybind-v03-adoption
+pin_staleness_correction:
+  what: this file recorded v0.4.3 as both the pin and the current release until 2026-08-12, five pin moves after it stopped being either
+  found_by: reading go.mod against this line while adopting configbind_verbosity_baseline
+  reconstructed_from: the commits that changed the go.mod line, which is why the moves above name behavior rather than release notes
+  not_reconstructed: what v0.4.4 through v0.4.8 and v0.5.2 through v0.5.6 contained; no pin ever rested on them here
 html_template_baseline: v0.1.15
 html_async_baseline: v0.1.20
 html_live_baseline: v0.2.8, required by requirement:live-html-rendering; v0.2.7 introduced live boundaries and v0.2.8 answered the first of the integration requests raised against them
 html_update_baseline: v0.3.3; v0.3.0 added the htmlupdate package, v0.3.1 handed the asset and every name to the caller per requirement:tinybind-runtime-ownership, v0.3.2 carried head on the action response, and v0.3.3 closed every remaining seam of requirement:tinybind-update-composition-seams and made CSRF module native; adopted by decision:update-runtime-convergence
 route_tree_baseline: v0.2.6
-current: v0.4.3, which is a performance release across the module and pays for it with delta_package_break; v0.4.2 added the sqlbind Rows cursor, v0.4.1 added the NoSQL handle supply modes, and v0.4.0 implemented the URL half of policy:template-escaping and rewrote the JSON decoder the generator emits
+current: v0.5.8, which acts on json tag options for the first time and gives configbind the two levers requirement:startup-summary-brevity needed; the two halves are unrelated and shipped together, per json_tag_options and configbind_verbosity_baseline
+was_current_at_v0_4_3: a performance release across the module that paid for it with delta_package_break; v0.4.2 added the sqlbind Rows cursor, v0.4.1 added the NoSQL handle supply modes, and v0.4.0 implemented the URL half of policy:template-escaping and rewrote the JSON decoder the generator emits
+configbind_verbosity_baseline:
+  shipped: v0.5.8, all three together; read against the module cache tree on 2026-08-12
+  adopted_by: decision:config-verbosity-tag-adoption, for requirement:startup-summary-brevity
+  why_it_matters_here: >
+    before it, an effective-config output could hide a subtree only by a parent's
+    emptiness, so a mode key that holds a value in every mode kept every mode's
+    subtree visible, and a key sitting at its default could not be rated at all
+  value_conditions:
+    spelling: 'dependon:"auth.mode=oidc_only,oidc_passkey" and dependon:".backend!=cookie"'
+    what: a dependon tag may test the parent's value rather than only its emptiness, so a variant-selecting key hides every branch it did not select
+    comma: alternative values of one parent, never a second parent, and only after an operator
+    absent_parent: compares as the empty string, so "=" hides and "!=" shows
+    enabled_gate_free: a condition on a parent that itself carries dependon inherits that gate transitively
+    upstream_design: its dependon-value-condition decision and dependent-key-visibility rule, not restated here
+  summary_rating:
+    spelling: 'summary:"omit"'
+    what: rates a key as detail; ProvenanceEntry.Omittable reports it, and only while the winning place is the default layer
+    reported_not_applied: >
+      the library never drops for this reason, because a dependon condition states
+      a fact about the configuration while a rating is a judgment about one
+      surface, and only the caller knows which surface it is drawing
+    upstream_design: its summary-tag-form decision and summary-key-omission rule, not restated here
+  enum_became_load_bearing:
+    what: generation now reads the enum tag to reject a value condition naming a value the parent does not declare
+    why: a mistyped value hides a whole subtree silently and forever, which is the one failure of this feature a reader cannot diagnose from the output
+    still_not: enforcement at load; this reads the tag to check a sibling tag, and a source-supplied value outside the enum is still accepted
+    upstream_design: the enum_check section of its dependon-value-condition decision
+  wire_form:
+    broke: 'Definition.DependsOn went from map[string][]string to map[string][]Dependency, where Dependency carries Key, Op, and Values'
+    added: 'Definition.Summary map[string]string, keyed and inherited exactly like Secrets'
+    surface: api:runtime-configuration reads both through the generated definitions; no application names either
+  this_framework: >
+    the DependsOn change is why f193f96 regenerated pwconfig and plugin/auth
+    alongside the unrelated JSON work, months before either tag was written
+json_tag_options:
+  shipped: v0.5.8; confirmed against a generated codec rather than release notes
+  was: the generated codec read only the name portion of a json tag, so omitempty was inert and json:"-" excluded nothing
+  now: the options are acted on, and read the encoding/json/v2 way rather than the encoding/json way
+  omitempty: drops a member that would encode as "", [] or {}, and therefore leaves 0 and false on the wire
+  omitzero: the one that reaches 0 and false
+  unknown_option: fails generation, which is what stops a misspelled omitempy from quietly writing a field somebody meant to drop
+  nil_composites: a nil slice encodes as [] and a nil map as {}, because Go draws no line between a nil collection and an empty one
+  decode_asymmetry:
+    what: the JSON decoder skips a dashed member, but the HTTP request binder still fills the field by its wire name
+    consequence: 'a field tagged json:"-" in a pw.Parse struct is still set by a query parameter of that name; nothing in a Parse struct is unbindable'
+    recorded_in: the request-binding reference and the skill pitfall list, which both stated the opposite before this release
 url_scheme_baseline: v0.4.0, which is where policy:template-escaping's "validate scheme" rule stopped being a statement and started being code
   was: Escape handled &<>"' and nothing else, so javascript: — which contains none of them — reached the attribute unchanged and ran; isURLAttribute named five attributes, so xlink:href, data, srcset, ping, and cite took plain strings and were never scheme-checked at all
   now: URLAttr and URLListAttr apply a scheme allowlist before escaping, over every attribute a browser resolves; DefaultURLSchemes is http, https, mailto, and tel, relative forms always pass, and a refusal renders BlockedURL rather than dropping the attribute so a URL rejected in error leaves a trace

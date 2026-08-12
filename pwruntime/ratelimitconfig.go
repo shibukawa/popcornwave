@@ -34,7 +34,7 @@ const DefaultRateLimitKeyPrefix = "pw:ratelimit:"
 // normal deployment already sells.
 type RateLimitConfig struct {
 	Enabled bool   `default:"false"`
-	Backend string `default:"memory" dependon:".enabled" help:"counter storage: memory or redis"`
+	Backend string `default:"memory" enum:"memory,redis" dependon:".enabled" help:"counter storage: memory or redis"`
 	// Window is the period every count below is measured over. It is also the
 	// burst granularity, because the algorithm is a fixed window, and it is
 	// what X-RateLimit-Reset reports.
@@ -53,8 +53,11 @@ type RateLimitConfig struct {
 	// It defaults to zero rather than to a guess: the right value follows from
 	// what a deployment can serve, and one set below real capacity refuses
 	// legitimate traffic globally.
-	Process int                  `default:"0" dependon:".enabled" help:"total arrivals allowed in a window, unkeyed; zero leaves only the identity buckets"`
-	Redis   RateLimitRedisConfig `dependon:".enabled"`
+	Process int `default:"0" dependon:".enabled" help:"total arrivals allowed in a window, unkeyed; zero leaves only the identity buckets"`
+	// Redis names the backend it belongs to, so a memory-counted deployment
+	// reports no counter server. Backend already answers to Enabled, so the
+	// switch is not repeated here.
+	Redis RateLimitRedisConfig `dependon:".backend=redis"`
 }
 
 // RedisConfig addresses the shared counter server.

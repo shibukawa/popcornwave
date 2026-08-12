@@ -69,14 +69,26 @@ func captureBootReport(result *configbind.LoadResult) {
 
 // bootEntries takes the keys configbind considers worth reporting: already in
 // registration then declaration order, already stripped of the settings a
-// disabled parent made irrelevant, and already masked. Redaction is a secret
-// tag or a recognized key name, so it is decided where the field is declared
-// rather than guessed again here. An array of tables arrives expanded, one
-// entry per element key, which is what keeps a connection set from showing up
-// as a single empty line.
+// disabled parent or an unselected variant made irrelevant, and already masked.
+// Redaction is a secret tag or a recognized key name, so it is decided where the
+// field is declared rather than guessed again here. An array of tables arrives
+// expanded, one entry per element key, which is what keeps a connection set from
+// showing up as a single empty line.
 //
-// A DSN is the one exception. Masked whole it answers none of what an operator
-// opens this summary for, so its public half is rendered back in.
+// One filter is left to this side. An entry marked omittable is a key its author
+// rated as detail that nothing but the default layer set, and configbind reports
+// the rating rather than applying it: whether detail is worth printing depends on
+// which surface is being drawn, and the library cannot know that. This is the
+// short surface, so it skips them; api:cli-doctor is the complete one and prints
+// them from the same call. A key any source set is never marked, so nothing a
+// deployment decided is dropped here.
+//
+// The skip happens during capture rather than in a renderer, which is what keeps
+// the tree and the record forms from disagreeing about what the summary contains.
+//
+// A DSN is the one exception to arriving ready to print. Masked whole it answers
+// none of what an operator opens this summary for, so its public half is
+// rendered back in.
 func bootEntries(result *configbind.LoadResult) []bootEntry {
 	if result == nil || result.Overlay == nil {
 		return nil
@@ -84,6 +96,9 @@ func bootEntries(result *configbind.LoadResult) []bootEntry {
 	reported := result.Provenance()
 	entries := make([]bootEntry, 0, len(reported))
 	for _, key := range reported {
+		if key.Omittable {
+			continue
+		}
 		value := key.Value
 		if key.Masked && configview.IsDSNKey(key.Key) {
 			if raw, ok := configview.Raw(result.Overlay, key); ok {
