@@ -27,7 +27,7 @@ func Load(w http.ResponseWriter, r *http.Request) {
 	}
 	roomID, err := strconv.Atoi(route.ID)
 	if err != nil || roomID < 1 {
-		pw.WriteProblem(w, r, pw.BadRequest("ルームIDが不正です"))
+		pw.WriteProblem(w, r, pw.BadRequest("room id must be a positive number"))
 		return
 	}
 	room, err := queries.GetAuctionRoom(r.Context(), roomID, user.AccountID)
@@ -36,7 +36,7 @@ func Load(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if room == nil {
-		pw.WriteProblem(w, r, pw.NotFound("オークションルームが見つかりません"))
+		pw.WriteProblem(w, r, pw.NotFound("no such auction room"))
 		return
 	}
 	params := PageParams{
@@ -64,7 +64,7 @@ func WatchAuction(ctx context.Context, roomID int, viewerAccountID string) iter.
 				return
 			}
 			if room == nil {
-				yield(AuctionSnapshot{}, pw.NotFound("オークションルームが見つかりません"))
+				yield(AuctionSnapshot{}, pw.NotFound("no such auction room"))
 				return
 			}
 			events, err := loadEvents(ctx, roomID)
@@ -135,16 +135,30 @@ func toAuctionRoom(room queries.AuctionRoom) AuctionRoom {
 	}
 }
 
-func FormatAmount(amount int) string {
-	digits := strconv.Itoa(amount)
+func FormatDollars(cents int) string {
+	digits := strconv.Itoa(cents / 100)
 	for index := len(digits) - 3; index > 0; index -= 3 {
 		digits = digits[:index] + "," + digits[index:]
 	}
-	return "¥" + digits
+	return digits
+}
+
+func FormatCents(cents int) string {
+	remainder := cents % 100
+	if remainder < 10 {
+		return "0" + strconv.Itoa(remainder)
+	}
+	return strconv.Itoa(remainder)
+}
+
+// AmountValue renders cents for a number input's value/min attribute: no
+// grouping and no currency sign, so the browser reads it back as a number.
+func AmountValue(cents int) string {
+	return strconv.Itoa(cents/100) + "." + FormatCents(cents)
 }
 
 func FormatCreatedAt(createdAt time.Time) string {
-	return createdAt.Local().Format("1月2日 15:04")
+	return createdAt.Local().Format("Jan 2, 15:04")
 }
 
 func BidPath(roomID int) url.URL {

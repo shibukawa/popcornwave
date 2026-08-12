@@ -86,16 +86,24 @@ func loadRooms(ctx context.Context, viewerAccountID string) ([]Room, error) {
 	return rooms, nil
 }
 
-func FormatAmount(amount int) string {
-	digits := strconv.Itoa(amount)
+func FormatDollars(cents int) string {
+	digits := strconv.Itoa(cents / 100)
 	for index := len(digits) - 3; index > 0; index -= 3 {
 		digits = digits[:index] + "," + digits[index:]
 	}
-	return "¥" + digits
+	return digits
+}
+
+func FormatCents(cents int) string {
+	remainder := cents % 100
+	if remainder < 10 {
+		return "0" + strconv.Itoa(remainder)
+	}
+	return strconv.Itoa(remainder)
 }
 
 func FormatCreatedAt(createdAt time.Time) string {
-	return createdAt.Local().Format("1月2日 15:04")
+	return createdAt.Local().Format("Jan 2, 15:04")
 }
 
 func RoomPath(roomID int) url.URL {

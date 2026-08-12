@@ -11,11 +11,15 @@ import (
 	"github.com/shibukawa/popcornwave/pw"
 )
 
+// maxBidDollars keeps a posted figure clear of the overflow that turning
+// dollars into cents would otherwise reach.
+const maxBidDollars = 1_000_000_000
+
 type createRoomInput struct {
 	Title              string `payload:"title" check:"required,maxlen=80"`
 	Subject            string `payload:"subject" check:"required,maxlen=120"`
 	SubjectDescription string `payload:"subject_description" check:"maxlen=1000"`
-	StartingAmount     int    `payload:"starting_amount" check:"min=0"`
+	StartingAmount     string `payload:"starting_amount" check:"required,pattern=^[0-9]+([.][0-9][0-9]?)?$"`
 }
 
 type joinRoomInput struct {
@@ -27,8 +31,8 @@ type auctionRoomPathInput struct {
 }
 
 type bidInput struct {
-	RoomID int `path:"roomID" check:"min=1"`
-	Amount int `payload:"amount" check:"required,min=1"`
+	RoomID int    `path:"roomID" check:"min=1"`
+	Amount string `payload:"amount" check:"required,pattern=^[0-9]+([.][0-9][0-9]?)?$"`
 }
 
 type hostMessageInput struct {
@@ -55,6 +59,11 @@ func createRoom(w http.ResponseWriter, r *http.Request) {
 		pw.WriteProblem(w, r, err)
 		return
 	}
+	startingAmount, err := parseAmountCents(input.StartingAmount)
+	if err != nil {
+		pw.WriteProblem(w, r, err)
+		return
+	}
 	if _, err := queries.UpsertAccount(r.Context(), user.AccountID, user.DisplayName, user.Email); err != nil {
 		pw.WriteProblem(w, r, err)
 		return
@@ -65,7 +74,7 @@ func createRoom(w http.ResponseWriter, r *http.Request) {
 		input.Title,
 		input.Subject,
 		input.SubjectDescription,
-		input.StartingAmount,
+		startingAmount,
 	)
 	if err != nil {
 		pw.WriteProblem(w, r, err)
@@ -110,30 +119,35 @@ func placeBid(w http.ResponseWriter, r *http.Request) {
 		pw.WriteProblem(w, r, err)
 		return
 	}
+	amount, err := parseAmountCents(input.Amount)
+	if err != nil {
+		pw.WriteProblem(w, r, err)
+		return
+	}
 	room, err := queries.GetAuctionRoom(r.Context(), input.RoomID, user.AccountID)
 	if err != nil {
 		pw.WriteProblem(w, r, err)
 		return
 	}
 	if room == nil {
-		pw.WriteProblem(w, r, pw.NotFound("オークションルームが見つかりません"))
+		pw.WriteProblem(w, r, pw.NotFound("no such auction room"))
 		return
 	}
 	if room.Status != "open" {
-		pw.WriteProblem(w, r, pw.Conflict("終了したルームには入札できません"))
+		pw.WriteProblem(w, r, pw.Conflict("this auction is closed"))
 		return
 	}
 	if !room.ViewerIsParticipant {
-		pw.WriteProblem(w, r, pw.Forbidden("このルームに参加していません"))
+		pw.WriteProblem(w, r, pw.Forbidden("join the room before bidding"))
 		return
 	}
-	if input.Amount <= room.CurrentAmount {
-		pw.WriteProblem(w, r, pw.Conflict("現在の金額より大きい金額を入力してください"))
+	if amount <= room.CurrentAmount {
+		pw.WriteProblem(w, r, pw.Conflict("bid above the current amount"))
 		return
 	}
-	if _, err := queries.PlaceBid(r.Context(), input.RoomID, user.AccountID, input.Amount); err != nil {
+	if _, err := queries.PlaceBid(r.Context(), input.RoomID, user.AccountID, amount); err != nil {
 		if isAuctionConflict(err) {
-			pw.WriteProblem(w, r, pw.Conflict("入札できません。最新の金額を確認してください"))
+			pw.WriteProblem(w, r, pw.Conflict("bid rejected, check the current amount"))
 		} else {
 			pw.WriteProblem(w, r, err)
 		}
@@ -155,7 +169,7 @@ func postHostMessage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if strings.TrimSpace(input.Message) == "" {
-		pw.WriteProblem(w, r, pw.BadRequest("コメントを入力してください"))
+		pw.WriteProblem(w, r, pw.BadRequest("comment must not be empty"))
 		return
 	}
 	room, err := queries.GetAuctionRoom(r.Context(), input.RoomID, user.AccountID)
@@ -164,20 +178,20 @@ func postHostMessage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if room == nil {
-		pw.WriteProblem(w, r, pw.NotFound("オークションルームが見つかりません"))
+		pw.WriteProblem(w, r, pw.NotFound("no such auction room"))
 		return
 	}
 	if !room.ViewerIsCreator {
-		pw.WriteProblem(w, r, pw.Forbidden("主催者だけがコメントできます"))
+		pw.WriteProblem(w, r, pw.Forbidden("only the host can comment"))
 		return
 	}
 	if room.Status != "open" {
-		pw.WriteProblem(w, r, pw.Conflict("終了したルームにはコメントできません"))
+		pw.WriteProblem(w, r, pw.Conflict("this auction is closed"))
 		return
 	}
 	if _, err := queries.PostHostMessage(r.Context(), input.RoomID, user.AccountID, input.Message); err != nil {
 		if isAuctionConflict(err) {
-			pw.WriteProblem(w, r, pw.Conflict("このルームはすでに終了しています"))
+			pw.WriteProblem(w, r, pw.Conflict("this auction is already closed"))
 		} else {
 			pw.WriteProblem(w, r, err)
 		}
@@ -204,15 +218,15 @@ func closeRoom(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if room == nil {
-		pw.WriteProblem(w, r, pw.NotFound("オークションルームが見つかりません"))
+		pw.WriteProblem(w, r, pw.NotFound("no such auction room"))
 		return
 	}
 	if !room.ViewerIsCreator {
-		pw.WriteProblem(w, r, pw.Forbidden("主催者だけが終了を宣言できます"))
+		pw.WriteProblem(w, r, pw.Forbidden("only the host can close the auction"))
 		return
 	}
 	if room.Status != "open" {
-		pw.WriteProblem(w, r, pw.Conflict("このルームはすでに終了しています"))
+		pw.WriteProblem(w, r, pw.Conflict("this auction is already closed"))
 		return
 	}
 	result, err := queries.CloseAuctionRoom(r.Context(), input.RoomID, user.AccountID)
@@ -224,12 +238,35 @@ func closeRoom(w http.ResponseWriter, r *http.Request) {
 		pw.WriteProblem(w, r, err)
 		return
 	} else if affected == 0 {
-		pw.WriteProblem(w, r, pw.Conflict("このルームはすでに終了しています"))
+		pw.WriteProblem(w, r, pw.Conflict("this auction is already closed"))
 		return
 	}
 	lobby.NotifyRoomChanged(input.RoomID)
 	lobby.NotifyRoomsChanged()
 	pw.RedirectSeeOther(w, r, "/rooms/"+strconv.Itoa(input.RoomID))
+}
+
+// parseAmountCents turns the dollar figure a form posted — "10" and "10.01"
+// are both accepted — into the cents the database stores. The pattern check on
+// the field has already settled the shape, so what is left to reject here is a
+// figure too large to survive the multiplication.
+func parseAmountCents(value string) (int, error) {
+	whole, fraction, hasFraction := strings.Cut(value, ".")
+	dollars, err := strconv.Atoi(whole)
+	if err != nil || dollars > maxBidDollars {
+		return 0, pw.BadRequest("amount must be at most " + strconv.Itoa(maxBidDollars) + " dollars")
+	}
+	if !hasFraction {
+		return dollars * 100, nil
+	}
+	if len(fraction) == 1 {
+		fraction += "0"
+	}
+	cents, err := strconv.Atoi(fraction)
+	if err != nil {
+		return 0, pw.BadRequest("amount must be a dollar figure such as 10 or 10.01")
+	}
+	return dollars*100 + cents, nil
 }
 
 func isAuctionConflict(err error) bool {
