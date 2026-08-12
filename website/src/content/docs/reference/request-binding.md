@@ -57,6 +57,14 @@ to be called and one of them is usually a mistake.
 `path`, `header`, `cookie`, and `method` never consume a body key, which is what
 lets a rest map be exhaustive about the body without seeing them.
 
+A `json` tag does not decide any of this. `json:"-"` keeps a field out of the
+JSON document on the response side, and it keeps `pw.WriteAPI` from writing it,
+but the binder still fills that field from a request under its wire name — a
+`Hidden` field tagged `json:"-"` and nothing else is still an `input` field, and
+`?hidden=x` sets it. Nothing in a `Parse` struct is unbindable, so a value the
+caller must not control does not belong in one. Bind what the request may carry,
+and derive the rest in the handler.
+
 ## Field types
 
 | Kind | Types |
@@ -280,3 +288,5 @@ opening `Deprecated:` sets `deprecated: true`. See
 - more than one `payload:"*"` field, or a rest field that is not a
   `map[string]…`
 - a `default` or `enum` value that does not parse as the field's type
+- a `json` tag option that is not `omitempty` or `omitzero`, which catches a
+  misspelling that would otherwise encode a field you meant to drop

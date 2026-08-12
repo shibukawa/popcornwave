@@ -133,12 +133,30 @@ pw.WriteAPI(w, r, user)
 ```
 
 The call site generates an encoder for the response type, removing runtime
-reflection. The encoder uses the name portion of `json` tags, but it does not
-interpret `omitempty` or exclusion directives. The declared type must therefore
-match the shape you intend to send.
+reflection. The encoder reads a `json` tag's name and its options, and it reads
+the options the way `encoding/json/v2` does rather than the way `encoding/json`
+does. `json:"-"` keeps the field out of the document altogether. `omitempty`
+drops a member that would encode as an empty JSON value — `""`, `[]`, or `{}` —
+which leaves `0` and `false` on the wire, because a number and a boolean have no
+empty form to be. `omitzero` is the option that reaches those: it drops whatever
+holds the Go zero value, and a nested struct counts as zero when every one of its
+fields does. Reach for `omitzero` when the case you want gone is an unset count
+or an unset flag, and for `omitempty` when it is an empty string or an empty
+collection. An option that is neither fails generation rather than sitting there
+looking like it works, so a misspelled `omitempy` stops the build instead of
+silently writing a field you meant to drop.
+
+A nil slice arrives as `[]` and a nil map as `{}`, never as `null`. Go draws no
+line between a nil collection and an empty one, so the wire draws none either,
+and a client is spared a null check that could only ever have meant "no items".
+That is worth knowing before you reach for `make([]T, 0)` in a handler: the empty
+result already encodes as an empty array without it.
 
 The status is 200. `pw.WriteAPI` call sites also feed the generated OpenAPI
 document, so a JSON endpoint is described without a separate annotation pass.
+Note that `omitempty` and `omitzero` do not make a field optional in that
+schema — `check:"required"` is what decides the `required` list, so a field you
+sometimes omit should not be marked required.
 
 ## Streams
 

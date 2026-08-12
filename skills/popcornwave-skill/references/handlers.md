@@ -148,7 +148,7 @@ pw.WriteHTML(w, r, Home(HomeParams{Name: input.Name}))
 pw.WriteAPI(w, r, user)
 ```
 
-The call site generates a typed encoder (no reflection). It uses the name portion of `json` tags but does **not** interpret `omitempty` or exclusions — the declared type must match the intended wire shape. Status is 200. `WriteAPI` call sites also feed the OpenAPI document.
+The call site generates a typed encoder (no reflection). It reads a `json` tag's name and its options the `encoding/json/v2` way: `json:"-"` drops the field entirely, `omitempty` drops a member that would encode as `""` / `[]` / `{}` (so `0` and `false` are still written), and `omitzero` drops the Go zero value (which is what reaches `0` and `false`). Any other option is a generation error, not a silently inert tag. A nil slice encodes as `[]` and a nil map as `{}`, never `null`. Status is 200. `WriteAPI` call sites also feed the OpenAPI document, where `required` still comes from `check:"required"` alone — `omitempty` does not make a field optional there.
 
 `pw.WriteStatus(w, r, http.StatusCreated, value)` is `WriteAPI` with the success status explicit — 201, 202, or 204, which writes no body. Keep the status a literal or named constant: the OpenAPI document lists one response per static status, and a computed status is invisible to the scanner.
 
@@ -301,7 +301,8 @@ Serving is configured with `server.openapi` (path, no default) and `server.api_d
 - **Pointer fields in a request struct.** Not bound. Use value fields; use the `default` sentinel ordering when you must distinguish absent from zero.
 - **Expecting `required` to catch an omitted `0` or `false`.** On numeric/bool fields the zero value passes `required`.
 - **Expecting `pw.WriteHTML` to set an error status.** It always answers 200; `pw.WriteProblem` always answers problem JSON. Rendering `404.pw.html` under a 404 status is a path you build.
-- **Relying on `omitempty` with `pw.WriteAPI`.** The generated encoder ignores it; declare the type as the shape you intend to send.
+- **Reaching for `omitempty` to drop a `0` or a `false`.** It only drops what encodes as an empty JSON value (`""`, `[]`, `{}`); `omitzero` is the one that drops a zero number or a false flag.
+- **Expecting `json:"-"` to keep a field out of a `pw.Parse` struct.** It only governs the JSON codec. The request binder still fills that field by its wire name, so `?hidden=x` sets a `Hidden` field tagged `json:"-"`. A value the caller must not control does not belong in a `Parse` struct at all.
 - **Authorizing on cookie presence instead of `auth.User` / `pw.RequestAuthentication`.** Also, omitting the `!ok` branch on guarded routes.
 - **Registering middleware or session stores after the chain is built, or from the wrong place.** Call `pw.RegisterMiddleware` / `pw.RegisterSessionStore` in `main`, before `pw.Run`.
 - **Logout as a link.** `/auth/logout` is POST only; use a form.
