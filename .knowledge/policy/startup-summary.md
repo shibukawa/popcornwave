@@ -14,6 +14,7 @@ emission:
   once: the first of Run or Middlewares to complete initialization emits it
   run: emitted after the listener binds, so the reported address is the accepted one and not the configured one decision:development-port-shift may have moved off
   middlewares: emitted after initialization without a listening address
+  restarted: once per process is once per rebuild under api:cli-dev, so the loop captures the summary and replaces it per requirement:dev-reload-summary; nothing here knows that happened
 selection:
   key: observability.boot_log
   auto: tree when stderr is a character device, otherwise record

@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/shibukawa/popcornwave/internal/bootblock"
 	"github.com/shibukawa/popcornwave/internal/configview"
 	"github.com/shibukawa/popcornwave/internal/pwtree"
 	"github.com/shibukawa/tinybind-go/configbind"
@@ -172,16 +173,11 @@ func renderBootTree(report bootReport, listening string, style bootStyle) string
 	return out.String()
 }
 
-// bootBannerArt is the framework's popcorn mascot. Every row is padded to the
-// same width so the summary text lines up beside it, and every glyph is ASCII
-// so no terminal renders it at an unexpected width.
-var bootBannerArt = []string{
-	"   .-.   .-.   ",
-	" .(   ) (   ). ",
-	"(   o     o   )",
-	"(    \\___/    )",
-	" '-.__.___.__-'",
-}
+// bootBannerArt is the framework's popcorn mascot. It lives in the package that
+// reads a summary back, because api:cli-dev finds one in a stream by looking for
+// its first row, and a mascot the two halves disagreed about would be a summary
+// the developer loop silently stopped recognizing.
+var bootBannerArt = bootblock.Art
 
 func bootBanner(report bootReport, style bootStyle) []string {
 	name := "Popcorn Wave"
@@ -273,7 +269,21 @@ func bootRecordAttrs(report bootReport, listening string) []Attribute {
 type bootStyle struct{ color bool }
 
 func bootStyleFor(file *os.File) bootStyle {
-	return bootStyle{color: isTerminal(file) && os.Getenv("NO_COLOR") == "" && os.Getenv("TERM") != "dumb"}
+	if os.Getenv("NO_COLOR") != "" || os.Getenv("TERM") == "dumb" {
+		return bootStyle{}
+	}
+	return bootStyle{color: isTerminal(file) || forcedColor()}
+}
+
+// forcedColor answers the CLICOLOR_FORCE convention, which is the only way a
+// process whose output is a pipe can be told that a terminal is still on the
+// other end of it. api:cli-dev is that case: it reads the summary back to report
+// requirement:dev-reload-summary, and without this the developer would pay for
+// the feature in color. NO_COLOR still wins, because that one is the developer
+// speaking rather than a caller.
+func forcedColor() bool {
+	value := os.Getenv("CLICOLOR_FORCE")
+	return value != "" && value != "0"
 }
 
 func (style bootStyle) wrap(code, text string) string {

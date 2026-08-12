@@ -6,13 +6,17 @@ import (
 	"encoding/json"
 	"log/slog"
 	"net"
+	"os"
 	"strconv"
 	"strings"
 	"testing"
 	"time"
 	"unicode/utf8"
 
+	"github.com/shibukawa/popcornwave/internal/bootblock"
 	"github.com/shibukawa/popcornwave/pwruntime"
+	"github.com/shibukawa/tinybind-go/cliparser"
+	"github.com/shibukawa/tinybind-go/configbind"
 )
 
 func sampleBootReport() bootReport {
@@ -200,5 +204,87 @@ func TestListenURLPrefersLocalhost(t *testing.T) {
 	port := listener.Addr().(*net.TCPAddr).Port
 	if got, want := listenURL(listener), "http://localhost:"+strconv.Itoa(port); got != want {
 		t.Fatalf("listenURL = %q, want %q", got, want)
+	}
+}
+
+// TestBootTreeReadsBackAsItsEntries locks the two halves of a reload together.
+// api:cli-dev reports requirement:dev-reload-summary by reading this summary
+// back, so a layout change that the reader cannot follow has to fail here rather
+// than in a developer's terminal, where it would look like a loop that quietly
+// stopped reporting reloads.
+func TestBootTreeReadsBackAsItsEntries(t *testing.T) {
+	report := sampleBootReport()
+	rendered := renderBootTree(report, "http://localhost:8080", bootStyle{color: true})
+
+	scanner, complete := bootblock.Scanner{}, false
+	for _, line := range strings.Split(strings.TrimSuffix(rendered, "\n"), "\n") {
+		taken, done := scanner.Feed(line)
+		if !taken {
+			t.Fatalf("scanner refused a line of the summary: %q\n%s", line, rendered)
+		}
+		complete = done
+	}
+	if !complete {
+		t.Fatalf("scanner never completed the summary:\n%s", rendered)
+	}
+	read, ok := bootblock.Parse(scanner.Take())
+	if !ok {
+		t.Fatalf("summary did not parse:\n%s", rendered)
+	}
+	if read.Environment != report.environment || read.ConfigFile != report.configPath {
+		t.Fatalf("read env %q config %q, want %q and %q", read.Environment, read.ConfigFile, report.environment, report.configPath)
+	}
+	if read.Listening != "http://localhost:8080" {
+		t.Fatalf("read listening %q", read.Listening)
+	}
+	if len(read.Entries) != len(report.entries) {
+		t.Fatalf("read %d entries, want %d:\n%v", len(read.Entries), len(report.entries), read.Entries)
+	}
+	for index, want := range report.entries {
+		got := read.Entries[index]
+		if got.Key != want.key || got.Value != bootDisplayValue(want.value) || got.Source != bootSourceTag(want.source) {
+			t.Fatalf("entry %d read as %+v, want key %q value %q source %q",
+				index, got, want.key, bootDisplayValue(want.value), bootSourceTag(want.source))
+		}
+	}
+}
+
+// The developer loop puts the application's stderr behind a pipe, which costs
+// the boot log both halves of its terminal check. It pins the format back
+// through the generated environment binding, so the name it derives has to be
+// the name this binding answers to.
+func TestBootLogFormatIsReachableThroughItsEnvironmentBinding(t *testing.T) {
+	name := configbind.EnvName(cliparser.DefaultLongName("observability", "boot_log"))
+	if got := loadObservability(t, "", name+"="+BootLogTree).BootLog; got != BootLogTree {
+		t.Fatalf("%s=tree loaded as %q", name, got)
+	}
+	if got := resolveBootLogFormat(BootLogTree); got != BootLogTree {
+		t.Fatalf("tree resolved to %q", got)
+	}
+}
+
+// The other half: a process whose stderr is a pipe would render the summary
+// plain, and the developer loop is a terminal reading it.
+func TestBootStyleTakesColorFromCLICOLORForce(t *testing.T) {
+	piped, err := os.CreateTemp(t.TempDir(), "stderr")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer piped.Close()
+	t.Setenv("NO_COLOR", "")
+	t.Setenv("TERM", "xterm")
+
+	t.Setenv("CLICOLOR_FORCE", "")
+	if bootStyleFor(piped).color {
+		t.Fatal("a pipe was styled without being asked")
+	}
+	t.Setenv("CLICOLOR_FORCE", "1")
+	if !bootStyleFor(piped).color {
+		t.Fatal("CLICOLOR_FORCE did not reach a pipe")
+	}
+	// NO_COLOR is the developer speaking, and outranks the caller.
+	t.Setenv("NO_COLOR", "1")
+	if bootStyleFor(piped).color {
+		t.Fatal("NO_COLOR was overridden by CLICOLOR_FORCE")
 	}
 }
