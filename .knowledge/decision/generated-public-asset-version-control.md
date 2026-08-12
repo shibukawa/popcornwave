@@ -69,6 +69,22 @@ observed_before_deciding:
     authored tree is stale forever"; the prediction is now measured rather than
     anticipated
   second_symptom: an extracted asset is content-hashed, so a changed component orphans the previous file rather than replacing it
+  third_symptom:
+    found: after the migration, by regenerating rather than by reading
+    what: the same key has two shapes, because pw build minifies the stylesheet and pw dev does not
+    measured: 1212 lines from the developer loop against one line and 24762 bytes from a production build
+    consequence: >
+      a tracked copy records whichever command ran last, so two developers on the
+      same commit disagree without either having edited anything; this is what the
+      stash named "dev-loop unminified app.css rebuild" was working around
+regeneration_verified:
+  date: 2026-08-12
+  pw_generate: rebuilds the extracted assets, and reproduced the identical content hash
+  pw_build: runs flow:tailwind-css-build and writes the stylesheet; pw dev is the other caller
+  note: >
+    the two halves of this directory are rebuilt by different commands, so a
+    clone needs a build rather than a generate before it serves styles
+  after: a rebuild leaves the tree clean, which is the state this decision exists to produce
 cost_accepted:
   what: a project using Tailwind needs the pinned CLI to build, since decision:tailwind-host-toolchain never installs one implicitly and rejects a missing one
   why_it_is_free: >
