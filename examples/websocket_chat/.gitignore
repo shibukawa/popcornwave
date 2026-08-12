@@ -1,5 +1,4 @@
 .devbox/
-devbox.d/
 /websocket_chat
 *_pw_gen.go
 dist/cache/

@@ -1,5 +1,4 @@
 .devbox/
-devbox.d/
 /partial_update
 *_pw_gen.go
 dist/cache/

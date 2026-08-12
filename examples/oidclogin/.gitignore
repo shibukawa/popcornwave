@@ -1,5 +1,4 @@
 .devbox/
-devbox.d/
 /oidclogin
 /pw
 *_pw_gen.go

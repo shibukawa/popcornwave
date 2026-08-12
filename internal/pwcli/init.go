@@ -1058,9 +1058,17 @@ func PublicFS() fs.FS {
 		// configuration rather than a diff on the development one.
 		pwenv.FileName(pwenv.Production): productionConfigScaffold(options),
 		// The binary pattern is anchored: a bare name would also ignore cmd/<name>/.
-		// devbox.d holds the service configuration devbox writes on first run,
-		// so pw dev leaves no change behind in a fresh checkout.
-		".gitignore": ".devbox/\ndevbox.d/\n.log/\n.pw/\n/" + name + "\n*_pw_gen.go\n" +
+		//
+		// devbox.d is tracked, and no line here excludes it. Devbox writes a
+		// service's configuration exactly once — on the run that first resolves
+		// the package and stamps plugin_version into devbox.lock — and from then
+		// on treats the file as the developer's to edit and refuses to recreate
+		// it. devbox.lock is committed, so ignoring devbox.d leaves the author
+		// with a working service and everyone who clones with a valkey-server
+		// that exits on "can't open config file". It is generated output, but
+		// unlike *_pw_gen.go nothing regenerates it, and a commit is the only
+		// thing that can carry it to the next checkout.
+		".gitignore": ".devbox/\n.log/\n.pw/\n/" + name + "\n*_pw_gen.go\n" +
 			// Everything under dist is built, except the sentinel: go:embed
 			// fails on an absent directory, so a fresh clone has to carry one
 			// file that makes the tree exist before the first build.

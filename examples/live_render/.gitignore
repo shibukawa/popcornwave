@@ -1,5 +1,4 @@
 .devbox/
-devbox.d/
 /live_render
 *_pw_gen.go
 public/**/*.zstd

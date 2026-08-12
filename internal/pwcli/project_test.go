@@ -262,6 +262,24 @@ func TestScaffoldFilesWithTailwind(t *testing.T) {
 	}
 }
 
+// The one generated tree that has to be committed, because nothing regenerates
+// it. Devbox writes a service's configuration on the single run that resolves
+// the package and stamps plugin_version into devbox.lock, and never again — so
+// an ignored devbox.d beside a committed devbox.lock means the author's clone is
+// the only one where the service starts. Both scaffolds are checked, because the
+// package one was written as a copy of the application one and inherited the rule
+// the first time round.
+func TestScaffoldsTrackDevboxServiceConfiguration(t *testing.T) {
+	for name, ignore := range map[string]string{
+		"application": scaffoldFiles(initOptions{Name: "fixture", Devbox: true, Redis: true})[".gitignore"],
+		"package":     packageGitignore(),
+	} {
+		if strings.Contains(ignore, "devbox.d") {
+			t.Errorf("the %s scaffold excludes devbox.d, so a clone cannot start the services devbox.lock pins:\n%s", name, ignore)
+		}
+	}
+}
+
 func TestMainInitUsageMentionsTailwind(t *testing.T) {
 	var output strings.Builder
 	code := Main([]string{"init"}, &output, &output)

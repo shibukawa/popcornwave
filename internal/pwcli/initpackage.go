@@ -109,7 +109,11 @@ export component Greeting(name: string): html {
 // here rather than added and commented, because a commented-out ignore rule is
 // a thing somebody restores.
 func packageGitignore() string {
-	return ".devbox/\ndevbox.d/\n" +
+	return ".devbox/\n" +
+		// No devbox.d line, for the reason the application scaffold states: a
+		// devbox service configuration is written once and never rewritten, so
+		// excluding it ships a lockfile whose services nobody else can start.
+		//
 		// No binary line: this module builds none.
 		//
 		// No *_pw_gen.go line either, per decision:committed-package-artifacts.

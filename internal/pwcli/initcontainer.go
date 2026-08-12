@@ -237,6 +237,9 @@ dist/
 ` + pwenv.FileName(pwenv.Development) + `
 *.db
 .devbox/
+
+# Committed, unlike the rest of this group, but still development-only: it
+# configures the services devbox starts beside pw dev, and the image runs none.
 devbox.d/
 
 .git/
