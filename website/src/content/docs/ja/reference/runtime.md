@@ -111,6 +111,7 @@ sidebar:
 | `RegisterHTMLDocument(wrapper)` | アプリケーションのドキュメントシェルを差し込む（**generated**） |
 | `RegisterHTMLErrorPage(resolve)` | エラーページのリゾルバを差し込む。未登録なら最小限の組み込みページ |
 | `RuntimeScriptURL() string` | 境界ランタイムモジュールの絶対パス |
+| `PublicAssetURL(name) string` | このビルドが静的アセット1つを配信する URL。リビジョンセグメント込み |
 
 ストリーミングするかどうかをハンドラに尋ねるものは、ここにひとつもありません。
 await 境界を開けるチェーンはストリーミングし、開けないチェーンはバッファされて

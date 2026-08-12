@@ -65,7 +65,7 @@ better home for it.
 
 A file that keeps the name you wrote gets `public, no-cache` and a strong
 `ETag`. The browser revalidates and an unchanged asset costs a `304` with no
-body. That is as much as a stable name can honestly promise, because the next
+body. That is as much as a stable *name* can honestly promise, because the next
 build may put different bytes behind it.
 
 A file the build *produced* is named after the digest of its own bytes —
@@ -73,10 +73,64 @@ A file the build *produced* is named after the digest of its own bytes —
 Different bytes are a different URL, so the promise is true rather than hopeful.
 
 Only produced files are named that way, and the reason is worth stating: hashing
-a name works only where every reference to it is rewritten. The build rewrites
+a *name* works only where every reference to it is rewritten. The build rewrites
 the `src` of an `img` and of a built `script`, and the `url()` of a stylesheet.
-It does not rewrite a `link href`, so a stylesheet keeps its name and
-revalidates.
+It does not rewrite a `link href`, so a stylesheet keeps the name you gave it.
+
+## Naming an asset with `AssetURL`
+
+Keeping the name and revalidating are separate problems, and the second one has
+a way out. Every asset is also served under a **revision segment** — a digest of
+that file's own bytes, sitting between the mount and the name:
+
+```
+/public/app.css                        public, no-cache
+/public/9f4c1e2a7b60d381/app.css       public, max-age=31536000, immutable
+```
+
+Same bytes, same `ETag`, two URLs. The second one can promise never to change
+because a file whose contents changed is answered at a different address — and
+the old address `404`s rather than quietly serving something else, which is what
+makes a browser safe to hold it forever.
+
+Which URL a page loads is decided by how the template names it. A literal path
+has no revision and revalidates. `AssetURL` asks the build:
+
+```html
+package templates
+
+external AssetURL(name: string): url
+
+export component Document(children: html?): html {
+  <html><head>
+    <link rel="stylesheet" href={AssetURL("app.css")}>
+  </head><body><slot /></body></html>
+}
+```
+
+```go
+func AssetURL(name string) *url.URL { return &url.URL{Path: pw.PublicAssetURL(name)} }
+```
+
+`pw init` scaffolds both halves, so a new project is already cacheable.
+
+The argument is the path inside the served tree — `"app.css"`, not
+`"/public/app.css"` — because the mount is runtime configuration and a template
+that spells it out is a second place to change when it moves. The full URL is
+accepted too, so migrating an existing template is a mechanical edit.
+
+Two things get no revision, and neither needs one. A produced file already
+carries its digest in its name, so a segment would say the same thing twice. And
+a file in the [external tree](#when-a-file-should-not-be-in-the-binary) ships as
+its own artifact, whose bytes the build never read.
+
+In the development loop there is no manifest, so `AssetURL` returns the plain
+URL and every edit is visible on the next load. Nothing to switch off.
+
+Use it for the assets nothing else renames: a stylesheet, a plain script. Leave
+an `img src` and a TypeScript `script src` as literals — the build already
+rewrites those into names that carry their own digest, and hiding them behind a
+function is how they stop being converted.
 
 ## Conversion
 
@@ -333,6 +387,7 @@ stored one cannot serve it to a client that asked for another.
 | `Vary` | `Accept-Encoding`, plus `Accept` where a URL has more than one media type |
 | `ETag` | strong, from the build, per representation |
 | `If-None-Match` | `304` on a match |
+| Revision segment | stripped and checked against the manifest; a match answers `immutable`, a segment this build does not serve is `404` |
 | Everything refused | `406` |
 
 A directory resolves to its `index.html` when there is one, and to a `404`
@@ -355,7 +410,10 @@ absolute:
 
 [`pw dev`](/pw/project/dev/) runs the same conversions and serves `dist/public`
 from disk. Edit an asset and reload: the tree is rebuilt, and no Go rebuild
-happens for a file the binary does not compile.
+happens for a file the binary does not compile. There is no manifest, so
+`AssetURL` names the plain URL and an edit is visible on the next load — which
+is the one place where revalidating on every request is the behaviour you
+want.
 
 It has to run the same conversions rather than skip them, because a rewritten
 reference is compiled into generated code — a development build that skipped

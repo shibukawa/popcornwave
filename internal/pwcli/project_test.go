@@ -225,9 +225,12 @@ func TestScaffoldFilesWithTailwind(t *testing.T) {
 		t.Fatal("project scaffold does not state local log defaults")
 	}
 	for name, want := range map[string]string{
-		"popcornwave.toml":           "[dev.watch]\nincludes = []\nexcludes = []",
-		"devbox.json":                "tailwindcss_4@4.1.18",
-		"templates/document.pw.html": `href="/public/generated/app.css"`,
+		"popcornwave.toml": "[dev.watch]\nincludes = []\nexcludes = []",
+		"devbox.json":      "tailwindcss_4@4.1.18",
+		// Named through AssetURL rather than as a literal, so the Tailwind
+		// output is served under a revision segment and cached rather than
+		// revalidated on every page load.
+		"templates/document.pw.html": `href='{AssetURL("generated/app.css")}'`,
 	} {
 		if !strings.Contains(files[name], want) {
 			t.Errorf("%s does not contain %q:\n%s", name, want, files[name])
