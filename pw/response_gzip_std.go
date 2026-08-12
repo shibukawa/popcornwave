@@ -1,4 +1,4 @@
-//go:build !tinygo && !force_tinygo_logic && !pw_nogzip
+//go:build !tinygo && !force_tinygo_logic
 
 package pw
 
@@ -10,8 +10,6 @@ import (
 )
 
 const gzipContentEncoding = "gzip"
-
-const gzipResponseSupported = true
 
 // gzipResponseLevel is the fastest level that still compresses.
 //

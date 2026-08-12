@@ -29,6 +29,10 @@ type manifestRepresentationJSON struct {
 	Length          int    `json:"length"`
 	ETag            string `json:"etag"`
 	Preference      int    `json:"preference,omitempty"`
+	// External names bytes read from the second authored tree at request time.
+	// Length and ETag stay zero for one of these, because that tree is deployed
+	// as its own artifact and a validator taken here could outlive its bytes.
+	External bool `json:"external,omitempty"`
 }
 
 type manifestEntryJSON struct {
@@ -83,6 +87,7 @@ func groupByURL(assets []derivedAsset) []manifestEntryJSON {
 			Length:          asset.length,
 			ETag:            asset.etag,
 			Preference:      asset.preference,
+			External:        asset.external,
 		})
 	}
 	return entries
@@ -118,10 +123,10 @@ func renderAssetManifest(packageName string, entries []manifestEntryJSON) ([]byt
 		fmt.Fprintf(&out, "\t\t{URL: %s, CacheControl: %s, Representations: []middlewares.AssetRepresentation{\n",
 			strconv.Quote(entry.URL), strconv.Quote(entry.CacheControl))
 		for _, representation := range entry.Representations {
-			fmt.Fprintf(&out, "\t\t\t{Path: %s, MediaType: %s, ContentEncoding: %s, Length: %d, ETag: %s, Preference: %d},\n",
+			fmt.Fprintf(&out, "\t\t\t{Path: %s, MediaType: %s, ContentEncoding: %s, Length: %d, ETag: %s, Preference: %d, External: %t},\n",
 				strconv.Quote(representation.Path), strconv.Quote(representation.MediaType),
 				strconv.Quote(representation.ContentEncoding), representation.Length,
-				strconv.Quote(representation.ETag), representation.Preference)
+				strconv.Quote(representation.ETag), representation.Preference, representation.External)
 		}
 		out.WriteString("\t\t}},\n")
 	}

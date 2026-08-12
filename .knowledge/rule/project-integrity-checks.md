@@ -39,6 +39,24 @@ generated_artifacts:
     trigger: the project is a git work tree and *_pw_gen.go is neither ignored nor tracked consistently
     severity: note
     reason: policy:generated-artifacts makes them reproducible output, and a project should say once whether it commits them
+public_assets:
+  asset-content-type-mismatch:
+    trigger: an authored public file whose bytes contradict its extension, per policy:asset-content-signature
+    severity: error
+    remedy: rename the file to the type it actually is, or exempt the path in assets.verify.allow
+    reference: requirement:asset-content-verification
+    reason: api:cli-build fails on the same condition, so this is the form that reports without a build and the only one that sees a read_local tree no build validated
+  svg-active-content:
+    trigger: an authored .svg whose bytes carry a literal policy:svg-active-content scans for
+    severity: error
+    remedy: remove the script, or exempt the path in assets.verify.allow when the svg is interactive on purpose
+    reference: requirement:asset-content-verification
+    reason: the sandbox header already neutralises the file at the browser, so this check exists to tell an author what they committed rather than to hold the boundary
+  embedded-large-media:
+    trigger: a file of an already-compact kind above 4 MiB in the embedded public tree
+    severity: warning
+    remedy: move it to the external tree of requirement:external-public-assets, which ships beside the binary
+    reason: public is compiled into the executable, and a threshold that only decides whether to speak is safe where one deciding the location would make the same asset embedded in one build and external in the next
 toolchain:
   go-version-mismatch:
     trigger: the Go version in devbox.json disagrees with the go directive in go.mod

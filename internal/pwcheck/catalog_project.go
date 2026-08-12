@@ -14,6 +14,9 @@ const (
 	DeclaredServiceMissing = "PW0123"
 	TailwindToolchain      = "PW0124"
 	PortUnavailable        = "PW0125"
+	AssetTypeMismatch      = "PW0130"
+	AssetActiveSVG         = "PW0131"
+	AssetEmbeddedLarge     = "PW0132"
 )
 
 func init() {
@@ -97,6 +100,37 @@ func init() {
 			Severity: Warning, DevSeverity: Warning, Scope: Development,
 			Inputs: Config, Phase: Doctor,
 			Remedy: "stop the process holding it, or set server.port",
+		},
+		Check{
+			ID: AssetTypeMismatch, Group: GroupProject,
+			Title:    "a public file's content does not match its extension",
+			Severity: Error, DevSeverity: Error, Scope: Every,
+			Inputs: ProjectFiles | Config, Phase: Doctor,
+			// pw build fails on the same condition. This is the form that
+			// reports without a build, and the only one that sees the tree
+			// server.public.read_local serves, which no build validated.
+			Remedy: "rename the file to the type it actually is, or list the path in assets.verify.allow",
+		},
+		Check{
+			ID: AssetActiveSVG, Group: GroupProject,
+			Title:    "a public SVG carries executable content",
+			Severity: Error, DevSeverity: Error, Scope: Every,
+			Inputs: ProjectFiles | Config, Phase: Doctor,
+			// The sandbox policy on the response already stops the script from
+			// reaching the application origin, so this exists to tell an author
+			// what they committed rather than to hold the boundary.
+			Remedy: "remove the script, or list the path in assets.verify.allow when the SVG is interactive on purpose",
+		},
+		Check{
+			ID: AssetEmbeddedLarge, Group: GroupProject,
+			Title:    "a large media file is compiled into the binary",
+			Severity: Warning, DevSeverity: Warning, Scope: Every,
+			Inputs: ProjectFiles, Phase: Doctor,
+			// A threshold that only decides whether to speak is safe. One that
+			// decided where the bytes live would make the same asset embedded
+			// in one build and external in the next, which is why placement
+			// stays the author's and this only points at it.
+			Remedy: "move it to public-external/, which ships beside the binary instead of inside it",
 		},
 	)
 }

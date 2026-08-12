@@ -1014,6 +1014,11 @@ func PublicFS() fs.FS {
 }
 `,
 		"public/.keep": "",
+		// The tree that ships beside the binary rather than inside it. The
+		// sentinel is here for the container COPY rather than for go:embed:
+		// nothing embeds this directory, and a COPY of a path that does not
+		// exist fails the image build.
+		externalPublicDir + "/.keep": "",
 		// go:embed fails on an absent directory, so a project that has never
 		// run a build still has a tree to embed. The build replaces it.
 		"dist/public/.keep": "",

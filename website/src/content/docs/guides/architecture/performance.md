@@ -28,20 +28,60 @@ all. TinyGo is the third, and it is chosen for size rather than speed.
 | --- | --- | --- |
 | `go build` | 15.8 MiB | 15.5 MiB |
 | `go build -ldflags="-s -w"` | 9.9 MiB | 9.6 MiB |
-| `tinygo build` | 4.2 MiB | does not link |
-| `tinygo build -no-debug` | 4.2 MiB | does not link |
+| `tinygo build` | 4.2 MiB | 5.6 MiB |
+| `tinygo build -no-debug` | 4.2 MiB | 5.6 MiB |
 
 Those are [`examples/helloworld`](https://github.com/shibukawa/popcornwave/tree/main/examples/helloworld)
 on an Apple M3, and the subject matters: it embeds SQLite, which is most of what
 you see. The transport accounts for about 300 KiB of the difference between the
 two columns, so a smaller binary is not a reason to switch. TinyGo is, at less
-than half the stripped host build — and `-no-debug` changes nothing on this
-target, so do not expect a saving from it.
+than half the stripped host build.
 
-The fourth cell is honest rather than pending. TinyGo cannot link the fasthttp
-build because `klauspost/compress` reaches for hand-written arm64 assembly that
-its linker does not resolve, and that combination is a compile check rather than
-a supported configuration.
+`-no-debug` earns nothing here, and the reason is macOS rather than TinyGo: the
+linked Mach-O carries no DWARF at all — debug information stays in the object
+files — so the flag has nothing to remove. Do not read that as a verdict on the
+flag. See the WASI table below, where it is the largest lever on the page.
+
+Read the bottom row against the one above it rather than across. Under host Go
+fasthttp is marginally the smaller of the two; under TinyGo it is 1.4 MiB
+*larger*. The reason is that the fasthttp build is additive rather than a
+substitution: `net/http` is still linked, because the fork imports it, and on
+top of that come brotli, zlib, the router, the websocket upgrader and a SOCKS
+proxy dialer. Host Go's linker discards most of that and TinyGo's keeps more of
+it.
+
+So the two reasons to leave the default point in opposite directions on this
+table, and taking both at once buys the smallest per-request cost at the largest
+TinyGo binary.
+
+TinyGo needs `-scheduler=threads` if the binary links a network database driver,
+and until tinygodriver v1.2.4 it also could not link fasthttp at all — a zstd
+decoder reached for arm64 assembly its linker does not resolve. Both are
+[build tags](/reference/build-tags/) rather than anything this page decides.
+
+### WASI, where `-no-debug` is the whole story
+
+`tinygo build -target=wasip1` produces a module the same application runs from,
+and there the flag is not a rounding error:
+
+| `tinygo build -target=wasip1` | net/http | fasthttp |
+| --- | --- | --- |
+| plain | 7.6 MiB | 13.4 MiB |
+| `-no-debug` | 2.9 MiB | 3.8 MiB |
+
+A wasm module embeds its DWARF as custom sections, so dropping it takes 62% off
+the net/http build and 72% off the fasthttp one. `wasip2` lands within 0.1 MiB of
+each of these. `-target=wasm`, the browser one, does not build: `net/http`'s
+JavaScript transport does not compile under TinyGo, and no server target needs it.
+
+Two things follow. **Always pass `-no-debug` for a WASI artifact** — it is worth
+more than every other choice on this page combined, and at 2.9 MiB the module is
+smaller than the native TinyGo binary. And the fasthttp penalty largely
+evaporates: 0.9 MiB rather than the 5.8 MiB the plain column suggests, because
+most of what the fork adds was debug information about it.
+
+For where such a module is deployed, see
+[Serverless](/guides/deployment/serverless/).
 
 ### What it costs at request time
 
@@ -62,8 +102,9 @@ real difference, and it is what the pooled request value buys.
 Read the last two rows for the decision. A loopback socket costs both sides the
 same and takes the ratio from 2× to about 10%; one database query takes it to
 noise. Serving the whole `helloworld` page — a template render and a SQLite
-write — the three builds land at 335 µs, 344 µs and 369 µs, which is one
-measurement of the same thing three times.
+write — host Go on net/http, host Go on fasthttp and TinyGo on net/http land at
+335 µs, 344 µs and 369 µs, which is one measurement of the same thing three
+times.
 
 So switch for the allocation profile under a load that is genuinely
 transport-bound, or for what TinyGo does to the image. Do not switch expecting a

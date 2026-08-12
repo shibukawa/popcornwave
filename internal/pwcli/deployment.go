@@ -92,6 +92,9 @@ func buildProcessDeployment(ctx context.Context, root, stage string, config proj
 	if err := copyDeploymentFile(productionConfig, filepath.Join(stage, "config.prod.toml"), info.Mode()); err != nil {
 		return deploymentManifest{}, err
 	}
+	if err := copyExternalAssets(root, stage); err != nil {
+		return deploymentManifest{}, fmt.Errorf("copy %s: %w", externalPublicDir, err)
+	}
 
 	manifest := deploymentManifest{Target: options.target, Backend: options.backend, Artifact: binary}
 	switch options.target {
@@ -100,6 +103,10 @@ func buildProcessDeployment(ctx context.Context, root, stage string, config proj
 			"FROM gcr.io/distroless/static-debian12:nonroot\n" +
 			"COPY --from=adapter /lambda-adapter /opt/extensions/lambda-adapter\n" +
 			"COPY --chown=nonroot:nonroot bootstrap config.prod.toml /\n" +
+			// The tree that ships beside the binary. It lands at the root
+			// because that is the working directory /bootstrap runs with, and
+			// the server resolves the directory against that.
+			"COPY --chown=nonroot:nonroot " + externalPublicDir + " /" + externalPublicDir + "\n" +
 			"ENV APP_ENV=prod PORT=8080\nUSER nonroot\nENTRYPOINT [\"/bootstrap\"]\n"
 		if err := os.WriteFile(filepath.Join(stage, "Dockerfile"), []byte(dockerfile), 0o644); err != nil {
 			return deploymentManifest{}, err
@@ -145,6 +152,12 @@ func buildSourceDeployment(ctx context.Context, root, stage string, config proje
 		} else if name == "config.prod.toml" {
 			return deploymentManifest{}, fmt.Errorf("deployment requires config.prod.toml: %w", err)
 		}
+	}
+	// Beside the configuration, for the same reason: both are resolved against
+	// the working directory the function runs with, which is this stage rather
+	// than the application subtree copyProjectForFunction wrote.
+	if err := copyExternalAssets(root, stage); err != nil {
+		return deploymentManifest{}, fmt.Errorf("copy %s: %w", externalPublicDir, err)
 	}
 	packageDir, packageName := stage, "function"
 	entrypoint := "PopcornWave"
@@ -212,7 +225,13 @@ func copyProjectForFunction(root, stage string) error {
 			return err
 		}
 		first := strings.Split(relative, string(filepath.Separator))[0]
-		if entry.IsDir() && (first == ".git" || first == ".pw" || first == ".devbox" || first == ".log" || first == "node_modules" || first == "cmd") {
+		// externalPublicDir is skipped here and placed at the stage root
+		// instead: the server resolves it against the working directory, which
+		// is the stage rather than the application subtree. Copying it here as
+		// well would put the largest files in the project into the bundle
+		// twice, in a place nothing reads.
+		if entry.IsDir() && (first == ".git" || first == ".pw" || first == ".devbox" || first == ".log" ||
+			first == "node_modules" || first == "cmd" || first == externalPublicDir) {
 			return filepath.SkipDir
 		}
 		if entry.IsDir() {
@@ -230,6 +249,45 @@ func copyProjectForFunction(root, stage string) error {
 			return err
 		}
 		return copyDeploymentFile(path, filepath.Join(stage, relative), info.Mode())
+	})
+}
+
+// copyExternalAssets carries the tree that is not in the binary into the stage
+// root, beside the configuration file, because both are resolved against the
+// working directory the function runs with.
+//
+// This is the one place the external tree is copied, and it is a deployment
+// rather than a build: it happens once per artifact instead of once per
+// compile, which is the cost requirement:external-public-assets was avoiding.
+//
+// The destination is created even when the project has no such tree, so an
+// artifact always has the directory a container COPY or a function bundle
+// expects to find.
+func copyExternalAssets(root, stage string) error {
+	destination := filepath.Join(stage, externalPublicDir)
+	if err := os.MkdirAll(destination, 0o755); err != nil {
+		return err
+	}
+	source := filepath.Join(root, externalPublicDir)
+	if info, err := os.Stat(source); err != nil || !info.IsDir() {
+		return nil
+	}
+	return filepath.WalkDir(source, func(path string, entry fs.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		relative, err := filepath.Rel(source, path)
+		if err != nil || relative == "." {
+			return err
+		}
+		if entry.IsDir() {
+			return os.MkdirAll(filepath.Join(destination, relative), 0o755)
+		}
+		info, err := entry.Info()
+		if err != nil {
+			return err
+		}
+		return copyDeploymentFile(path, filepath.Join(destination, relative), info.Mode())
 	})
 }
 

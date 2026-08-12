@@ -148,37 +148,19 @@ If you need the other knobs, the honest answer is that a reverse proxy or CDN in
 front of the application already has them, and it is the better place for this
 job. This switch exists for the deployment that has no such layer.
 
-## Removing an encoder from the binary
+## What the encoders cost when you do not use them
 
 `compression = false` stops the encoders from running. It does not stop them
-from being compiled in: a runtime value cannot unlink code, which is why the
-switch has build-time counterparts. There is one tag per coding.
+from being compiled in — a runtime value cannot unlink code — so a build that
+terminates compression at a CDN still carries them.
 
-```bash
-go build -tags pw_nozstd ./cmd/yourapp
-```
+That is 387 KB for the pair, stripped. It used to be worth a build tag: zstd
+once meant linking a decoder ten times the size of the encoder, and Popcorn Wave
+published `pw_nozstd` and `pw_nogzip` to escape it. The encoder is its own
+package now, the decoder is gone, and the remaining figure is smaller than the
+question. Both tags were removed; a build that still passes one is not refused,
+it simply changes nothing.
 
-zstd is the one worth removing first, at roughly 247 KB against gzip's 148 KB
-beside it. With the tag, that encoder is never compiled and the negotiation
-stops offering the coding — a configuration file still naming `zstd` keeps
-starting, because the build's decision has to win over the file rather than turn
-a working configuration into a startup failure on a smaller target. The startup
-log says which codings the binary could not produce, so this is visible rather
-than silent.
-
-Passing both tags leaves nothing to negotiate:
-
-```bash
-go build -tags pw_nozstd,pw_nogzip ./cmd/yourapp
-```
-
-Every response then leaves unencoded, exactly as with `compression = false`, and
-setting `compression = true` does nothing. Decide at build time and keep the
-configuration consistent with it.
-
-Use the tags when both halves hold: binary size matters for your target — a
-container image pulled on every deploy, an edge runtime with a size budget — and
-compression is terminated at a CDN or reverse proxy anyway, so the encoders were
-dead weight. If the application serves compressed responses to browsers itself,
-keep the default build. A few hundred kilobytes is rarely worth losing the
-capability.
+So there is one switch, and it is the configuration one. Set
+`compression = false` where something in front of the application already
+compresses, and leave the binary alone.

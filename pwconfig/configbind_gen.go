@@ -43,6 +43,7 @@ func registerServerConfigDefinition0() {
 			"server.public.enabled",
 			"server.public.mount",
 			"server.public.read_local",
+			"server.public.svg_sandbox",
 		},
 		Defaults: map[string]string{
 			"server.port":                "8080",
@@ -56,11 +57,13 @@ func registerServerConfigDefinition0() {
 			"server.public.enabled":      "true",
 			"server.public.mount":        "/public",
 			"server.public.read_local":   "false",
+			"server.public.svg_sandbox":  "true",
 		},
 		DependsOn: map[string][]string{
-			"server.api_doc_path":      {"server.api_doc"},
-			"server.public.mount":      {"server.public.enabled"},
-			"server.public.read_local": {"server.public.enabled"},
+			"server.api_doc_path":       {"server.api_doc"},
+			"server.public.mount":       {"server.public.enabled"},
+			"server.public.read_local":  {"server.public.enabled"},
+			"server.public.svg_sandbox": {"server.public.enabled"},
 		},
 		FlagMetas: []cliparser.FieldMeta{
 			{Prefix: "server", Key: "port", Opt: "port", Env: "PORT", Help: "HTTP listen port"},
@@ -79,6 +82,7 @@ func registerServerConfigDefinition0() {
 			{Prefix: "server", Key: "public.enabled", Kind: cliparser.KindBool},
 			{Prefix: "server", Key: "public.mount"},
 			{Prefix: "server", Key: "public.read_local", Kind: cliparser.KindBool},
+			{Prefix: "server", Key: "public.svg_sandbox", Kind: cliparser.KindBool},
 		},
 		Apply: applyServerConfigDefinition0,
 		Scaffold: []configbind.ScaffoldField{
@@ -98,6 +102,7 @@ func registerServerConfigDefinition0() {
 			{Key: "public.enabled", Kind: configbind.ScaffoldBool, Default: "true"},
 			{Key: "public.mount", Kind: configbind.ScaffoldString, Default: "/public"},
 			{Key: "public.read_local", Kind: configbind.ScaffoldBool, Default: "false"},
+			{Key: "public.svg_sandbox", Kind: configbind.ScaffoldBool, Default: "true"},
 		},
 	})
 }
@@ -212,6 +217,15 @@ func applyServerConfigDefinition0(dst any, o *configbind.Overlay) error {
 		p.Public.ReadLocal = bb
 	} else {
 		p.Public.ReadLocal = false
+	}
+	if v, ok := o.GetString("server.public.svg_sandbox"); ok {
+		bb, err := strconv.ParseBool(v)
+		if err != nil {
+			return fmt.Errorf("configbind: server.public.svg_sandbox: %w", err)
+		}
+		p.Public.SVGSandbox = bb
+	} else {
+		p.Public.SVGSandbox = true
 	}
 	return nil
 }

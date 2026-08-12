@@ -114,3 +114,48 @@ func TestFunctionSourceCopyExcludesLocalAndDeploymentState(t *testing.T) {
 		}
 	}
 }
+
+// The external tree is placed at the stage root rather than in the application
+// subtree, because the server resolves it against the working directory the
+// function runs with. Copying it into the subtree as well would put the largest
+// files in the project into the artifact twice, in a place nothing reads.
+func TestFunctionSourceCopyLeavesTheExternalTreeToTheStageRoot(t *testing.T) {
+	root := t.TempDir()
+	writeTestFile(t, filepath.Join(root, "go.mod"), "module example.test/app\n\ngo 1.26.0\n")
+	writeNestedTestFile(t, filepath.Join(root, externalPublicDir, "clip.mp4"), "payload")
+	destination := t.TempDir()
+	if err := copyProjectForFunction(root, destination); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(destination, externalPublicDir)); !os.IsNotExist(err) {
+		t.Errorf("%s entered the application subtree", externalPublicDir)
+	}
+}
+
+// Every deployment target resolves the tree against its working directory, so
+// the stage root is where it has to land — and it has to exist even for a
+// project that has never put anything in it, or a container COPY naming it
+// fails the image build.
+func TestDeploymentStageCarriesTheExternalTree(t *testing.T) {
+	root := t.TempDir()
+	writeNestedTestFile(t, filepath.Join(root, externalPublicDir, "media", "clip.mp4"), "payload")
+	stage := t.TempDir()
+	if err := copyExternalAssets(root, stage); err != nil {
+		t.Fatal(err)
+	}
+	carried, err := os.ReadFile(filepath.Join(stage, externalPublicDir, "media", "clip.mp4"))
+	if err != nil {
+		t.Fatalf("the external tree did not reach the stage: %v", err)
+	}
+	if string(carried) != "payload" {
+		t.Errorf("content = %q, want the source bytes", carried)
+	}
+
+	empty := t.TempDir()
+	if err := copyExternalAssets(t.TempDir(), empty); err != nil {
+		t.Fatal(err)
+	}
+	if info, err := os.Stat(filepath.Join(empty, externalPublicDir)); err != nil || !info.IsDir() {
+		t.Errorf("a project without the tree produced no directory for the artifact to copy: %v", err)
+	}
+}

@@ -40,12 +40,10 @@ pooling:
   tinygo: an encoder is allocated per response; whether pooling helps depends on the target allocator and is not assumed
 shared_shape:
   - one interface covers zstd and gzip, so policy:response-content-encoding holds a coding token and a constructor rather than a type per coding
-  - a build lacking a coding reports it as unsupported instead of failing to compile the negotiation
+  - a coding named in configuration but absent from this framework is reported as unsupported instead of failing to compile the negotiation, which is what catches brotli in the list
 build_tag:
-  name: pw_nogzip
-  removes: the gzip encoder alone, as pw_nozstd removes the zstd one
-  why_a_tag_per_coding: pw_nozstd keeps meaning what it always did, so an existing build line is not silently redefined, and a target wanting neither passes both
-  both_tags: availableResponseCodings is empty, so middleware.compression is a setting with no effect and startup says so
+  retired: pw_nogzip and pw_nozstd were removed once the zstd encoder became its own package; see decision:response-encoders-are-unconditional
+  what_replaced_it: middleware.compression, which is the same saving at run time and does not fork the build
 open_questions:
   - the per-writer memory of the TinyGo encoder, which level 1 settles on speed but not on footprint; a constrained target may still want a smaller window than the standard library's fixed one, and that is a measurement nobody has taken
 references:

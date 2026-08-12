@@ -1,4 +1,4 @@
-//go:build !tinygo && !force_tinygo_logic && !pw_nozstd
+//go:build !tinygo && !force_tinygo_logic
 
 package pw
 
@@ -10,8 +10,6 @@ import (
 )
 
 const zstdContentEncoding = "zstd"
-
-const zstdResponseSupported = true
 
 // The dynamic path encodes at SpeedFastest rather than SpeedDefault. A
 // response body is compressed while a request waits, so the level is a

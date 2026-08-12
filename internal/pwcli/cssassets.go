@@ -35,6 +35,18 @@ type assetsConfig struct {
 	// for a debug artifact, because a map carries the authored TypeScript and a
 	// deployment has no use for shipping its own sources.
 	SourceMaps bool
+	// Verify refuses an authored public file whose bytes contradict the type
+	// its extension declares. It reads bytes the tree walk already holds, so
+	// it is on unless a project turns it off.
+	Verify bool
+	// VerifySVG is the best-effort scan for an SVG that carries something
+	// executable. It is separate from Verify because the two have different
+	// confidence: the first is decidable from bytes, and this one only names
+	// the obvious cases behind a response header that does not need it.
+	VerifySVG bool
+	// VerifyAllow exempts paths from both checks. A file kept on purpose is
+	// kept for reasons neither check can tell apart, so one list covers both.
+	VerifyAllow []string
 }
 
 // transformAuthoredFile is the tree-walk half of the pipeline: work that needs
