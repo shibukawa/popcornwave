@@ -1,0 +1,5 @@
+# Development configuration, selected by APP_ENV=dev (the default).
+
+[observability]
+minimum_level = "debug"
+service_name = "websocket_chat"

@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WebSocket chat · Popcorn Wave</title>
+<style>
+  body { font: 15px/1.6 system-ui, sans-serif; margin: 2rem auto; max-width: 40rem; padding: 0 1rem; }
+  #log { border: 1px solid #ccc; border-radius: 4px; padding: .5rem; height: 20rem; overflow-y: auto; }
+  .presence { color: #666; font-style: italic; }
+  .error { color: #b00; }
+  form { display: flex; gap: .5rem; margin-top: .5rem; }
+  input { flex: 1; padding: .4rem; }
+</style>
+</head>
+<body>
+<h1>chat</h1>
+<div id="log"></div>
+<form id="say"><input id="text" placeholder="message" autocomplete="off"><button>send</button></form>
+
+<script>
+const log = document.getElementById("log");
+const add = (text, cls) => {
+  const line = document.createElement("div");
+  if (cls) line.className = cls;
+  line.textContent = text;
+  log.append(line);
+  log.scrollTop = log.scrollHeight;
+};
+
+const name = prompt("your name") || "anon";
+const scheme = location.protocol === "https:" ? "wss:" : "ws:";
+const socket = new WebSocket(scheme + "//" + location.host + "/ws");
+
+// Every message is one JSON object with a "type" field, which is the same
+// protocol the two Go structs declare. Nothing here knows the field names
+// except by having read them there.
+socket.onopen = () => socket.send(JSON.stringify({ type: "join", name }));
+socket.onclose = () => add("disconnected", "presence");
+socket.onmessage = (event) => {
+  const message = JSON.parse(event.data);
+  switch (message.type) {
+    case "welcome":  add(`joined as ${message.text} (${message.live} online)`, "presence"); break;
+    case "presence": add(`${message.text} (${message.live} online)`, "presence"); break;
+    case "message":  add(`${message.from}: ${message.text}`); break;
+    case "error":    add(`error: ${message.code}`, "error"); break;
+  }
+};
+
+document.getElementById("say").onsubmit = (event) => {
+  event.preventDefault();
+  const input = document.getElementById("text");
+  if (!input.value) return;
+  socket.send(JSON.stringify({ type: "say", text: input.value }));
+  input.value = "";
+};
+</script>
+</body>
+</html>
