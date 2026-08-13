@@ -98,6 +98,27 @@ Whether the project's declared shape, its toolchain, and its generated artifacts
 - **Reads**: merged configuration
 - **Fix**: stop the process holding it, or set server.port
 
+### PW0130: a public file's content does not match its extension
+
+- **Severity**: error
+- **Applies to**: every environment
+- **Reads**: merged configuration, project files
+- **Fix**: rename the file to the type it actually is, or list the path in assets.verify.allow
+
+### PW0131: a public SVG carries executable content
+
+- **Severity**: error
+- **Applies to**: every environment
+- **Reads**: merged configuration, project files
+- **Fix**: remove the script, or list the path in assets.verify.allow when the SVG is interactive on purpose
+
+### PW0132: a large media file is compiled into the binary
+
+- **Severity**: warning
+- **Applies to**: every environment
+- **Reads**: project files
+- **Fix**: move it to public-external/, which ships beside the binary instead of inside it
+
 ### PW0140: a declared package is not in the module graph
 
 - **Severity**: error
@@ -396,6 +417,13 @@ Three things go wrong here: wiring the binary does not actually carry, values th
 - **Applies to**: every environment except `dev`
 - **Reads**: merged configuration
 - **Fix**: clear auth.oidc.allow_loopback_http and set session.cookie.secure
+
+### PW0437: the OIDC redirect URL is derived from a request outside dev
+
+- **Severity**: error, and note in `dev`
+- **Applies to**: every environment except `dev`
+- **Reads**: merged configuration
+- **Fix**: set auth.oidc.redirect_url to the absolute URL registered with the deployed provider
 
 ## Production readiness (PW05xx)
 

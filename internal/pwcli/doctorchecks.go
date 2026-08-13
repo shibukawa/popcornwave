@@ -2,14 +2,18 @@ package pwcli
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"io"
 	"net"
 	"net/url"
 	"os"
+	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
 
+	"github.com/shibukawa/popcornwave/internal/assetverify"
 	"github.com/shibukawa/popcornwave/internal/pwcheck"
 	"github.com/shibukawa/popcornwave/internal/pwenv"
 	"github.com/shibukawa/popcornwave/internal/pwmigrate"
@@ -68,6 +72,7 @@ func (r *checkRun) escalate(id string, severity pwcheck.Severity, message, evide
 func runChecks(ctx context.Context, context checkContext) ([]doctorFinding, []doctorLimit) {
 	run := &checkRun{checkContext: context}
 	run.checkProject()
+	run.checkAssetContent()
 	run.checkPackages(ctx)
 	run.checkWiring()
 	run.checkDependencies()
@@ -426,10 +431,11 @@ func (r *checkRun) checkIdentityProvider() {
 	}
 	issuer := r.Config.raw("auth.oidc.issuer")
 	allowLoopback := r.Config.enabled("auth.oidc.allow_loopback_http")
+	redirect := strings.TrimSpace(r.Config.raw("auth.oidc.redirect_url"))
 	// The redirect target is checked in every environment: the provider would
 	// send the browser to a path the application does not serve, and a loopback
 	// redirect that happens to work locally hides it.
-	if redirect := r.Config.raw("auth.oidc.redirect_url"); redirect != "" {
+	if redirect != "" {
 		callback := r.Config.raw("auth.callback_path")
 		if parsed, err := url.Parse(redirect); err == nil && callback != "" && parsed.Path != callback {
 			r.report(pwcheck.RedirectDisagreement,
@@ -442,6 +448,11 @@ func (r *checkRun) checkIdentityProvider() {
 	// below has anything to say about that arrangement working.
 	if r.Env == pwenv.Development {
 		return
+	}
+	if parsed, err := url.Parse(redirect); redirect == "" || err != nil || !parsed.IsAbs() || parsed.Host == "" {
+		r.report(pwcheck.DynamicOIDCRedirect,
+			"auth.oidc.redirect_url is empty or path-only, so its host would come from the request",
+			"auth.oidc.redirect_url")
 	}
 	if issuer != "" {
 		if parsed, err := url.Parse(issuer); err == nil {
@@ -712,6 +723,116 @@ func (r *checkRun) checkImageTools() {
 			fmt.Sprintf("images will be served unconverted: no encoder for %s", strings.Join(missing, " or ")),
 			"popcornwave.toml assets.images")
 	}
+}
+
+// checkAssetContent reports an authored public file that is not the kind of
+// file its name claims, and an SVG carrying something that executes.
+//
+// pw build fails on both conditions. This is the form that reports without a
+// build, and the only one that sees the tree server.public.read_local serves,
+// which no build ever validated.
+func (r *checkRun) checkAssetContent() {
+	options := verifyOptions(r.State.config.Assets)
+	if !options.Signature && !options.SVGScan {
+		return
+	}
+	authored := filepath.Join(r.Root, "public")
+	if info, err := os.Stat(authored); err != nil || !info.IsDir() {
+		return
+	}
+	_ = filepath.WalkDir(authored, func(name string, entry os.DirEntry, walkErr error) error {
+		if walkErr != nil || entry.IsDir() {
+			return nil
+		}
+		relative, err := filepath.Rel(authored, name)
+		if err != nil {
+			return nil
+		}
+		slashed := filepath.ToSlash(relative)
+		if hasSidecarSuffix(slashed) {
+			// A sidecar here is left over from a previous build. It is the
+			// build's own output wherever it came from, and brotli has no
+			// signature at all, so judging one would only produce noise.
+			return nil
+		}
+		if info, statErr := entry.Info(); statErr == nil {
+			r.reportEmbeddedSize(slashed, info.Size())
+		}
+		content, err := leadingBytes(name, assetverify.IsSVG(slashed))
+		if err != nil {
+			// An unreadable file is a different finding than a mislabelled
+			// one, and not this check's to make.
+			return nil
+		}
+		finding, refused := assetverify.File(slashed, content, options)
+		if !refused {
+			return nil
+		}
+		id := pwcheck.AssetTypeMismatch
+		if finding.Kind == assetverify.ActiveContent {
+			id = pwcheck.AssetActiveSVG
+		}
+		r.report(id, finding.Message(), path.Join("public", slashed))
+		return nil
+	})
+}
+
+// embeddedSizeAdvice is where a file stops being page furniture and starts
+// being a payload. It is a round number rather than a measured one: hero
+// images, fonts, and stylesheets sit far below it, and the media that sits
+// above it is media, so nothing hinges on the exact value.
+const embeddedSizeAdvice = 4 << 20
+
+// alreadyCompactExtensions are the kinds the build already declines to convert
+// or precompress. A file of one of these gains nothing from being embedded, so
+// it is the only kind worth pointing at the second tree.
+//
+// A large .json or .csv is deliberately absent: those compress, so the embedded
+// tree is doing real work for them and moving one there would lose the sidecar.
+var alreadyCompactExtensions = map[string]bool{
+	".mp4": true, ".m4v": true, ".mov": true, ".webm": true,
+	".m4a": true, ".mp3": true, ".ogg": true, ".oga": true, ".ogv": true,
+	".wav": true, ".flac": true, ".avi": true,
+	".zip": true, ".gz": true, ".zst": true, ".zstd": true, ".7z": true, ".tar": true,
+	".pdf": true, ".wasm": true,
+}
+
+// reportEmbeddedSize points a large media file at the tree that would not
+// compile it into the binary.
+//
+// It never moves anything. Placement decides where bytes live, so a threshold
+// here only decides whether to speak; one that decided the location would make
+// the same asset embedded in one build and external in the next, which is the
+// behaviour requirement:external-public-assets exists to avoid.
+func (r *checkRun) reportEmbeddedSize(name string, size int64) {
+	if size < embeddedSizeAdvice || !alreadyCompactExtensions[strings.ToLower(path.Ext(name))] {
+		return
+	}
+	r.report(pwcheck.AssetEmbeddedLarge,
+		fmt.Sprintf("public/%s is %d MiB and is compiled into the binary", name, size>>20),
+		path.Join("public", name))
+}
+
+// leadingBytes reads only what a verdict can depend on.
+//
+// Every signature fits in the window, so a tree of large images costs a few
+// bytes per file here. Only the SVG scan needs the whole file, because a script
+// element can sit anywhere in it.
+func leadingBytes(name string, whole bool) ([]byte, error) {
+	if whole {
+		return os.ReadFile(name)
+	}
+	file, err := os.Open(name)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+	buffer := make([]byte, assetverify.Window)
+	read, err := io.ReadFull(file, buffer)
+	if err != nil && !errors.Is(err, io.ErrUnexpectedEOF) && !errors.Is(err, io.EOF) {
+		return nil, err
+	}
+	return buffer[:read], nil
 }
 
 func (r *checkRun) databaseConfigured() bool {

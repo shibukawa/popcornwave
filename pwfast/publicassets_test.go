@@ -5,8 +5,23 @@ import (
 	"testing"
 	"testing/fstest"
 
+	"github.com/shibukawa/popcornwave/middlewares"
 	"github.com/shibukawa/tinygodriver/fasthttp"
 )
+
+// skipWhenTheTreeIsNotRead leaves out the tests that hand the middleware an
+// embedded filesystem and expect it back.
+//
+// The development mode reads dist/public from disk and never consults the
+// embedded tree, so those tests describe the built binary rather than the loop.
+// It is the skip the shared package already uses for the same tests; this half
+// simply never had it, so a pwdev run failed here and nowhere else.
+func skipWhenTheTreeIsNotRead(t *testing.T) {
+	t.Helper()
+	if middlewares.PublicDevelopment() {
+		t.Skip("development mode intentionally ignores embedded assets")
+	}
+}
 
 func assetHandler(t *testing.T, tree fstest.MapFS) fasthttp.RequestHandler {
 	t.Helper()
@@ -19,6 +34,7 @@ func assetHandler(t *testing.T, tree fstest.MapFS) fasthttp.RequestHandler {
 }
 
 func TestAnEmbeddedAssetIsServedWithItsValidator(t *testing.T) {
+	skipWhenTheTreeIsNotRead(t)
 	handler := assetHandler(t, fstest.MapFS{"site.css": {Data: []byte("body{}")}})
 
 	status, header, body := serve(t, handler, "/static/site.css")
@@ -98,6 +114,7 @@ func TestAnAssetRefusesAMethodItDoesNotAnswer(t *testing.T) {
 }
 
 func TestAHeadRequestSendsTheHeadersWithoutTheBody(t *testing.T) {
+	skipWhenTheTreeIsNotRead(t)
 	handler := assetHandler(t, fstest.MapFS{"site.css": {Data: []byte("body{}")}})
 	status, header, body := serveRequest(t, handler, "HEAD", "/static/site.css", "", "")
 	if status != fasthttp.StatusOK {

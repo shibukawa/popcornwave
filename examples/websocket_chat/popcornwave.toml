@@ -1,0 +1,21 @@
+[project]
+name = "websocket_chat"
+main = "./cmd/websocket_chat"
+
+# Build for fasthttp as well as net/http. The socket handler is one source for
+# both: only the import qualifier moves.
+fasthttp = true
+
+[generate]
+# The socket's two type arguments are discovered here. Generation reads them
+# from the closure parameter and emits a decoder for the inbound type and an
+# encoder for the outbound one — without this line the socket would open and
+# then fail on its first message.
+handlers = ["handlers"]
+templates = []
+queries = []
+config = ["cmd/websocket_chat"]
+
+[dev.watch]
+includes = []
+excludes = []

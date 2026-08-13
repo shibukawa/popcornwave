@@ -43,7 +43,7 @@ configure; it falls out of where the stage is.
 
 ## What is on by default
 
-Four things protect a project that configured nothing.
+Five things protect a project that configured nothing.
 
 **Response headers.** `X-Content-Type-Options`, `X-Frame-Options`, a referrer
 policy, and a narrow `Content-Security-Policy` go out on every response. The
@@ -66,6 +66,13 @@ attributes](/guides/frontend/templates/#attributes).
 **Opaque session tokens.** The browser holds 256 random bits. The store is keyed
 by a SHA-256 hash of that value, so a leaked database dump cannot be replayed as
 a cookie.
+
+**Static assets that are what they claim.** `pw build` refuses a file in
+`public/` whose bytes contradict its extension — a `.png` holding a scripted
+SVG never reaches the binary. Every `image/svg+xml` response also goes out
+sandboxed, because SVG is the one served image that executes and it would
+otherwise execute in your origin. See [Static
+assets](/guides/frontend/static-assets/#a-file-has-to-be-what-it-says-it-is).
 
 ## What waits for a line of configuration
 

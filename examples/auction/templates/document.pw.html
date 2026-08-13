@@ -1,0 +1,17 @@
+package templates
+
+external AssetURL(name: string): url
+external RuntimeScriptURL(): url
+
+export component Document(children: html?): html {
+  <!doctype html>
+  <html lang="ja">
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1">
+      <title>Auction Room</title>
+      <link rel="stylesheet" href='{AssetURL("app.css")}'>
+      <link rel="stylesheet" href='{AssetURL("generated/app.css")}'>
+      <script type="module" src="{RuntimeScriptURL()}"></script></head>
+    <body class="m-0 bg-stone-50 text-stone-950 antialiased"><slot/></body></html>
+}

@@ -29,4 +29,5 @@ boundaries:
   - application authors own CSP sources, nonces, hashes, and Permissions-Policy capabilities
   - CORS remains a separate middleware concern
   - cache policy and Content-Disposition are response-specific application concerns
+  - this is not the only source of a CSP header: policy:svg-active-content adds a sandbox policy beside the configured one on an image/svg+xml response, which the browser intersects with this one and can only tighten
 ```

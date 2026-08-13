@@ -873,7 +873,12 @@ func scaffoldFiles(options initOptions) map[string]string {
 	// public/app.css is written either way. With Tailwind it carries the error
 	// pages only, because those are framework-shaped and their class names are
 	// not utilities; without it, it carries the starter page as well.
-	homeStylesheet := `<link rel="stylesheet" href="/public/app.css">`
+	// The stylesheet is named through AssetURL rather than as a literal path,
+	// because a literal has no revision segment and revalidates on every load.
+	// The argument is the path inside the served tree: the mount belongs to the
+	// runtime configuration, and a template spelling it out would be a second
+	// place to change when it moves.
+	homeStylesheet := `<link rel="stylesheet" href={AssetURL("app.css")}>`
 	homeClasses := ""
 	if options.Images {
 		// The encoders the image conversion runs. They are declared here so the
@@ -887,7 +892,7 @@ func scaffoldFiles(options initOptions) map[string]string {
 	if options.Tailwind {
 		configTailwind = tailwindProjectConfig()
 		devboxPackages = append(devboxPackages, tailwindDevboxPackage)
-		homeStylesheet += `<link rel="stylesheet" href="/public/generated/app.css">`
+		homeStylesheet += `<link rel="stylesheet" href={AssetURL("generated/app.css")}>`
 		homeClasses = ` class="mx-auto max-w-3xl p-8 text-slate-900"`
 	}
 	files := map[string]string{
@@ -951,6 +956,7 @@ stdout_format = "plaintext"
 		"cmd/" + name + "/main.go": mainScaffold(options),
 		"templates/document.pw.html": `package templates
 
+external AssetURL(name: string): url
 external RuntimeScriptURL(): url
 
 export component Document(children: html?): html {
@@ -979,6 +985,23 @@ import (
 // changes the runtime changes the URL, and a literal would go on pointing at
 // bytes the server no longer serves.
 func RuntimeScriptURL() *url.URL { return &url.URL{Path: pw.RuntimeScriptURL()} }
+
+// AssetURL backs the external declaration in document.pw.html.
+//
+// It takes the path of a file inside the served tree — "app.css", not
+// "/public/app.css" — and returns the URL this build serves it under. That URL
+// carries a revision derived from the file's own bytes, so a deployment can
+// answer it immutably: a browser holding it never asks again, and an edit
+// changes the URL rather than the answer behind it.
+//
+// A literal path still works and still resolves. It just has no revision, so
+// the browser revalidates it on every page load.
+//
+// Use it for the assets nothing else renames: a stylesheet, a plain script. An
+// ` + "`img src`" + ` and a TypeScript ` + "`script src`" + ` are rewritten by the build
+// already, into names that carry their own digest, and writing those through
+// this function would hide them from the conversion that does it.
+func AssetURL(name string) *url.URL { return &url.URL{Path: pw.PublicAssetURL(name)} }
 `,
 		"templates/errors.go":   errorRegistrationScaffold(),
 		"templates/400.pw.html": errorTemplate("templates", "Error400", "Bad Request"),
@@ -1014,6 +1037,11 @@ func PublicFS() fs.FS {
 }
 `,
 		"public/.keep": "",
+		// The tree that ships beside the binary rather than inside it. The
+		// sentinel is here for the container COPY rather than for go:embed:
+		// nothing embeds this directory, and a COPY of a path that does not
+		// exist fails the image build.
+		externalPublicDir + "/.keep": "",
 		// go:embed fails on an absent directory, so a project that has never
 		// run a build still has a tree to embed. The build replaces it.
 		"dist/public/.keep": "",
@@ -1030,9 +1058,30 @@ func PublicFS() fs.FS {
 		// configuration rather than a diff on the development one.
 		pwenv.FileName(pwenv.Production): productionConfigScaffold(options),
 		// The binary pattern is anchored: a bare name would also ignore cmd/<name>/.
-		// devbox.d holds the service configuration devbox writes on first run,
-		// so pw dev leaves no change behind in a fresh checkout.
-		".gitignore": ".devbox/\ndevbox.d/\n.log/\n.pw/\n/" + name + "\n*_pw_gen.go\n" +
+		//
+		// devbox.d is tracked, and no line here excludes it. Devbox writes a
+		// service's configuration exactly once — on the run that first resolves
+		// the package and stamps plugin_version into devbox.lock — and from then
+		// on treats the file as the developer's to edit and refuses to recreate
+		// it. devbox.lock is committed, so ignoring devbox.d leaves the author
+		// with a working service and everyone who clones with a valkey-server
+		// that exits on "can't open config file". It is generated output, but
+		// unlike *_pw_gen.go nothing regenerates it, and a commit is the only
+		// thing that can carry it to the next checkout.
+		".gitignore": ".devbox/\n.log/\n.pw/\n/" + name + "\n*_pw_gen.go\n" +
+			// The generated subtree of the authored public tree answers to the
+			// same test as the line above, and fails it the same way: pw generate
+			// rebuilds every file in it from the CSS entry, the templates, and the
+			// scanned Go. Two producers write here — the Tailwind output and the
+			// content-hashed component assets the generator extracts — and both
+			// track their sources, so a committed copy is a copy that drifts. It
+			// costs a stale stylesheet in the best case and, because an extracted
+			// name carries a content hash, an orphan per change in the worst.
+			//
+			// A package inverts this, as it inverts *_pw_gen.go, because its
+			// consumer builds with go build and regenerates nothing. See
+			// decision:generated-public-asset-version-control.
+			extractedAssetDir + "/\n" +
 			// Everything under dist is built, except the sentinel: go:embed
 			// fails on an absent directory, so a fresh clone has to carry one
 			// file that makes the tree exist before the first build.
@@ -2556,6 +2605,7 @@ issuer = ""
 client_id = ""
 client_secret = ""`
 	loopback := "false"
+	redirect := `redirect_url = "` + authDevelopmentOrigin(options) + `/auth/callback"`
 	if options.AuthEmulator {
 		provider = `
 # pw dev runs the development identity provider and injects AUTH_OIDC_ISSUER,
@@ -2564,10 +2614,11 @@ client_secret = ""`
 		// The development issuer is loopback http, which an https-only client
 		// would refuse.
 		loopback = "true"
+		redirect = `# redirect_url is derived from the loopback request Host.`
 	}
 	return `
 [auth.oidc]` + provider + `
-redirect_url = "` + authDevelopmentOrigin(options) + `/auth/callback"
+` + redirect + `
 scopes = ["profile", "email"]
 identity_claim = "sub"
 admission = "authenticated"

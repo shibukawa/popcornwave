@@ -39,7 +39,7 @@ TOML のキーの `.` を `-` に置き換えて `--` を付けます。
 | `observability.service_name` | `OTEL_SERVICE_NAME` |
 | `observability.otel.endpoint` | `OTEL_EXPORTER_OTLP_ENDPOINT` |
 | `observability.otel.headers` | `OTEL_EXPORTER_OTLP_HEADERS` |
-| `auth.oidc.issuer`, `client_id`, `client_secret`, `redirect_url` | `AUTH_OIDC_*`。規則どおりの結果を、導出ではなく固定で指定している |
+| `auth.oidc.issuer`, `client_id`, `client_secret`, `redirect_url` | `AUTH_OIDC_*`。デプロイ時の redirect は固定し、ループバック開発ではリクエストからの導出も可能 |
 
 環境変数を持たないキーも3つあります。
 `security.headers.content_security_policy`、その `_report_only` 版、
@@ -400,7 +400,7 @@ CSRF の秘密もここの鍵ではありません。登録されたセッショ
 | `issuer` | *(空)* | `AUTH_OIDC_ISSUER` |
 | `client_id` | *(空)* | `AUTH_OIDC_CLIENT_ID` |
 | `client_secret` | *(空)* | `AUTH_OIDC_CLIENT_SECRET`（起動サマリではマスクされる） |
-| `redirect_url` | *(空)* | `AUTH_OIDC_REDIRECT_URL` |
+| `redirect_url` | *(空)* | `AUTH_OIDC_REDIRECT_URL`。`allow_loopback_http` とループバック `Host` の組み合わせに限り、空またはルートパスをリクエスト origin から導出。デプロイでは絶対 URL が必要 |
 | `scopes` | `[]` | |
 | `identity_claim` | `"sub"` | ローカルアカウントを識別する検証済みクレーム |
 | `admission` | `"authenticated"` | `authenticated`, `claim`, `registered`, `existing` |
@@ -410,7 +410,7 @@ CSRF の秘密もここの鍵ではありません。登録されたセッショ
 | `claim.match` | `"any"` | `any` または `all` |
 | `registered_claims` | `[]` | 許可リストと突き合わせるクレーム。既定は `identity_claim` |
 | `provider_logout` | `true` | ログアウト時にプロバイダ側のセッションも終了する |
-| `allow_loopback_http` | `false` | 開発時に `http` のループバック issuer を許可する |
+| `allow_loopback_http` | `false` | 開発時に `http` のループバック issuer と、リクエストから導出するループバック redirect を許可する |
 
 `identity_claim` はアカウントとの結びつきそのものになるため、そこに指定する値は
 アカウントの生涯にわたって安定し、かつ issuer の中で一意でなければなりません。

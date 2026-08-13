@@ -51,4 +51,17 @@ func reportDerivedAssets(stdout io.Writer, report derivedReport) {
 	for _, line := range report.unserved {
 		fmt.Fprintf(stdout, "asset: not served %s\n", line)
 	}
+	// An exemption is the one report line about something that did not happen.
+	// It is printed anyway, because a list added for one bad file and never
+	// removed is how a check quietly stops being one.
+	for _, line := range report.exempted {
+		fmt.Fprintf(stdout, "asset: content checks skipped for %s (assets.verify.allow)\n", line)
+	}
+	// The external tree wins the URL, so this is defined rather than ambiguous.
+	// It is still worth a line: the embedded file remains on disk and remains
+	// the one an author is most likely to open when the served bytes surprise
+	// them.
+	for _, line := range report.shadowed {
+		fmt.Fprintf(stdout, "asset: warning: %s\n", line)
+	}
 }

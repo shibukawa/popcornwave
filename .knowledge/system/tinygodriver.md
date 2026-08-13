@@ -13,6 +13,10 @@ packages:
   https: github.com/shibukawa/tinygodriver/https
   httpmux: github.com/shibukawa/tinygodriver/httpmux
   httprevproxy: github.com/shibukawa/tinygodriver/httprevproxy
+  httpserver: github.com/shibukawa/tinygodriver/httpserver
+  websocket: github.com/shibukawa/tinygodriver/websocket
+  fasthttp: github.com/shibukawa/tinygodriver/fasthttp
+  fasthttpwebsocket: github.com/shibukawa/tinygodriver/fasthttpwebsocket
   zstd: github.com/shibukawa/tinygodriver/compress/zstd
   sqlite: github.com/shibukawa/tinygodriver/database/sql/sqlite
   postgresql: github.com/shibukawa/tinygodriver/database/pgx/stdlib, renamed from database/sql/pgxstdlib in v1.1.11, plus database/pgx/pgxpool for the native pool
@@ -26,6 +30,10 @@ roles:
   https: net/http-compatible HTTPS client over the OS TLS stack, exposing the in-band upgrade seam the database drivers use
   httpmux: Go 1.22+ ServeMux-compatible routing for TinyGo
   httprevproxy: TinyGo-compatible net/http/httputil.ReverseProxy subset
+  httpserver: serves net/http handlers on TinyGo when one of them takes over the connection, from v1.2.3; srv.Serve under host Go, and the reason decision:websocket-upgrade-capable-server is one line rather than a port
+  websocket: gorilla/websocket v1.5.3 fork for the net/http transport, from v1.2.3
+  fasthttp: the fasthttp fork api:pwfast-package serves on, so the request type is one type rather than two that agree
+  fasthttpwebsocket: fasthttp/websocket v1.5.12 fork, the callback-shaped upgrade half; both websocket packages are reached through system:tinybind-websocket rather than directly
   zstd: bounded TinyGo encoder with optimized host fallback, streaming-capable from v1.0.4
   sqlite: portable database/sql SQLite facade selecting a host or TinyGo backend
   postgresql: pgx stdlib driver, vendored with TLS rerouted for TinyGo, from v1.0.6

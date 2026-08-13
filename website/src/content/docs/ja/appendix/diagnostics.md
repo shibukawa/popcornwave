@@ -97,6 +97,27 @@ sidebar:
 - **読むもの**: マージ済み設定
 - **直し方**: stop the process holding it, or set server.port
 
+### PW0130: a public file's content does not match its extension
+
+- **深刻度**: error
+- **対象**: すべての環境
+- **読むもの**: マージ済み設定、プロジェクトのファイル
+- **直し方**: rename the file to the type it actually is, or list the path in assets.verify.allow
+
+### PW0131: a public SVG carries executable content
+
+- **深刻度**: error
+- **対象**: すべての環境
+- **読むもの**: マージ済み設定、プロジェクトのファイル
+- **直し方**: remove the script, or list the path in assets.verify.allow when the SVG is interactive on purpose
+
+### PW0132: a large media file is compiled into the binary
+
+- **深刻度**: warning
+- **対象**: すべての環境
+- **読むもの**: プロジェクトのファイル
+- **直し方**: move it to public-external/, which ships beside the binary instead of inside it
+
 ### PW0140: a declared package is not in the module graph
 
 - **深刻度**: error
@@ -395,6 +416,13 @@ sidebar:
 - **対象**: `dev` 以外のすべての環境
 - **読むもの**: マージ済み設定
 - **直し方**: clear auth.oidc.allow_loopback_http and set session.cookie.secure
+
+### PW0437: the OIDC redirect URL is derived from a request outside dev
+
+- **深刻度**: error（`dev` では note）
+- **対象**: `dev` 以外のすべての環境
+- **読むもの**: マージ済み設定
+- **直し方**: set auth.oidc.redirect_url to the absolute URL registered with the deployed provider
 
 ## 本番前チェック (PW05xx)
 

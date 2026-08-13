@@ -1,0 +1,62 @@
+# Local Docker Compose runtime configuration. It is mounted as config.dev.toml
+# so loopback HTTP cookies are permitted; deploy production behind HTTPS with a
+# real identity provider instead of reusing this file.
+[server]
+port = 8080
+health = "/healthz"
+readiness = "/readyz"
+openapi = "/openapi.json"
+api_doc = "scalar"
+
+[observability]
+minimum_level = "debug"
+service_name = "auction"
+stdout_format = "json"
+resource_attributes = ["deployment.environment=compose"]
+
+[middleware.rdb]
+enabled = true
+
+[[middleware.rdb.connections]]
+group = "default"
+dsn = "sqlite:///data/auction.db"
+connect_timeout = "5s"
+max_open_conns = 1
+max_idle_conns = 1
+
+[session]
+enabled = true
+backend = "cookie"
+cookie.name = "pw_session"
+cookie.secure = false
+keyring.secret = "${SESSION_KEYRING_SECRET}"
+
+[auth]
+enabled = true
+backend = "rdb"
+mode = "oidc_only"
+post_login_path = "/"
+session.ttl = "12h"
+session.idle_timeout = "1h"
+protection.include = ["/", "/rooms", "/rooms/**"]
+protection.unauthenticated = "redirect"
+
+[auth.oidc]
+issuer = "http://localhost:5556/dex"
+client_id = "auction"
+client_secret = "${AUTH_OIDC_CLIENT_SECRET}"
+redirect_url = "http://127.0.0.1:8080/auth/callback"
+scopes = ["profile", "email"]
+identity_claim = "sub"
+admission = "authenticated"
+auto_provision = true
+logout_scope = "reconfirm"
+allow_loopback_http = true
+
+[security]
+csrf.enabled = true
+csrf.include = ["/rooms", "/rooms/**", "/auth/logout"]
+csrf.exclude = []
+
+[html.update]
+enabled = false

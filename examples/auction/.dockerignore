@@ -1,0 +1,22 @@
+# The image rebuilds these. A host copy would be carried in and then
+# overwritten, and a stale one that survived would be linked instead.
+**/*_pw_gen.go
+dist/
+
+# This machine's, or this developer's. config.dev.toml carries a local DSN and
+# generated secrets, and an image has no use for either.
+config.dev.toml
+*.db
+.devbox/
+
+# Committed, unlike the rest of this group, but still development-only: it
+# configures the services devbox starts beside pw dev, and the image runs none.
+devbox.d/
+
+.git/
+.github/
+.vscode/
+.knowledge/
+
+# The binary a local pw build left behind.
+/auction

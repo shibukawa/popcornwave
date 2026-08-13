@@ -51,7 +51,9 @@ transport_interfaces:
       correction: an earlier draft of this decision said a WebSocket library is backend-specific either way, and that is false; the post-handshake Conn and all of its methods are identical across the two paths
       shape: the two upgraders differ exactly as net/http and fasthttp differ everywhere else in this design, a returned value against a callback, which is the fourth surface to land that way
     consequence: a portable WebSocket route is available through that library's two upgraders, behind one callback-shaped seam
-    placement: requirement:contrib-websocket, so the seam is an optional package rather than pw surface area
+    placement_2026_08_08: requirement:contrib-websocket, so the seam would be an optional package rather than pw surface area
+    placement_2026_08_11: requirement:typed-websocket, in pw and pwfast, because system:tinybind-websocket now publishes the seam and only a pw spelling survives the rewrite of decision:transport-source-transform
+    seam_moved_up_a_layer: the callback receives a typed socket rather than the library's Conn, so this decision's no-raw-handle rule is satisfied more completely than the contrib plan would have satisfied it
   why_they_are_stricter: the upstream classifier refuses a type assertion on the transport by name, so these have no path through the rewriter at all
 considered:
   - opaque wrapper types replacing http.ResponseWriter and '*http.Request', rejected because decision:root-pw-api keeps standard signatures and independent testability

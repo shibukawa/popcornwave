@@ -64,6 +64,53 @@ func StreamHandler(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// ClientMsg and ServerMsg are the two halves of a socket protocol: what the
+// client sends and what the handler answers with. Each direction carries its
+// variants in a discriminator field, which is how the stream above spells them
+// too.
+type ClientMsg struct {
+	Type string `json:"type"`
+	Text string `json:"text,omitempty"`
+}
+
+type ServerMsg struct {
+	Type string `json:"type"`
+	Room string `json:"room,omitempty"`
+	From string `json:"from,omitempty"`
+	Text string `json:"text,omitempty"`
+}
+
+// SocketHandler upgrades to a WebSocket and runs a protocol loop.
+//
+// Neither type argument is spelled at the call: discovery recovers both from the
+// closure parameter and emits a decoder for the first and an encoder for the
+// second.
+//
+// Everything the callback needs is read before the entry, because on the second
+// transport the callback runs after this handler has returned and the request
+// value belongs to whichever request occupies that slot next.
+func SocketHandler(w http.ResponseWriter, r *http.Request) {
+	room, _ := pw.QueryValue(r, "room")
+	who := pw.RequestAuthentication(r.Context())
+
+	_ = pw.WebSocket(w, r, func(socket *pw.Socket[ClientMsg, ServerMsg]) error {
+		for {
+			in, err := socket.Read()
+			if err != nil {
+				return nil
+			}
+			if err := socket.Write(ServerMsg{
+				Type: "echo",
+				Room: room,
+				From: who.Subject,
+				Text: in.Text,
+			}); err != nil {
+				return err
+			}
+		}
+	})
+}
+
 // SpecHandler serves the generated specification, which is a pw entry an
 // application mounts rather than writes.
 func SpecHandler(w http.ResponseWriter, r *http.Request) {

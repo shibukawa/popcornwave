@@ -221,13 +221,29 @@ func TestScaffoldFilesWithTailwind(t *testing.T) {
 	if !strings.Contains(files[".gitignore"], "\n.log/\n") {
 		t.Fatal(".gitignore does not exclude local JSONL logs")
 	}
+	// The Tailwind stylesheet this preset configures and the component assets the
+	// generator extracts land in one directory, and pw generate rebuilds both from
+	// sources this scaffold also writes. A project that starts without the line
+	// commits a stylesheet that then drifts from the templates it was scanned
+	// from, per decision:generated-public-asset-version-control.
+	if !strings.Contains(files[".gitignore"], "\n"+extractedAssetDir+"/\n") {
+		t.Fatalf(".gitignore does not exclude the generated public assets:\n%s", files[".gitignore"])
+	}
+	// The line has to cover the configured Tailwind output, not merely resemble
+	// it; the two constants are set in different files and nothing else pairs them.
+	if !strings.HasPrefix(defaultTailwindOutput, extractedAssetDir+"/") {
+		t.Fatalf("Tailwind writes %q, which the %q ignore rule does not cover", defaultTailwindOutput, extractedAssetDir)
+	}
 	if !strings.Contains(files["popcornwave.toml"], "[dev.logs]\nenabled = true\ndirectory = \".log\"") {
 		t.Fatal("project scaffold does not state local log defaults")
 	}
 	for name, want := range map[string]string{
-		"popcornwave.toml":           "[dev.watch]\nincludes = []\nexcludes = []",
-		"devbox.json":                "tailwindcss_4@4.1.18",
-		"templates/document.pw.html": `href="/public/generated/app.css"`,
+		"popcornwave.toml": "[dev.watch]\nincludes = []\nexcludes = []",
+		"devbox.json":      "tailwindcss_4@4.1.18",
+		// Named through AssetURL rather than as a literal, so the Tailwind
+		// output is served under a revision segment and cached rather than
+		// revalidated on every page load.
+		"templates/document.pw.html": `href='{AssetURL("generated/app.css")}'`,
 	} {
 		if !strings.Contains(files[name], want) {
 			t.Errorf("%s does not contain %q:\n%s", name, want, files[name])
@@ -256,6 +272,41 @@ func TestScaffoldFilesWithTailwind(t *testing.T) {
 	}
 	if _, err := parser.ParseFile(token.NewFileSet(), "handlers/index.go", plain["handlers/index.go"], parser.AllErrors); err != nil {
 		t.Fatalf("plain handler scaffold is invalid Go: %v\n%s", err, plain["handlers/index.go"])
+	}
+}
+
+// The one generated tree that has to be committed, because nothing regenerates
+// it. Devbox writes a service's configuration on the single run that resolves
+// the package and stamps plugin_version into devbox.lock, and never again — so
+// an ignored devbox.d beside a committed devbox.lock means the author's clone is
+// the only one where the service starts. Both scaffolds are checked, because the
+// package one was written as a copy of the application one and inherited the rule
+// the first time round.
+func TestScaffoldsTrackDevboxServiceConfiguration(t *testing.T) {
+	for name, ignore := range map[string]string{
+		"application": scaffoldFiles(initOptions{Name: "fixture", Devbox: true, Redis: true})[".gitignore"],
+		"package":     packageGitignore(),
+	} {
+		if strings.Contains(ignore, "devbox.d") {
+			t.Errorf("the %s scaffold excludes devbox.d, so a clone cannot start the services devbox.lock pins:\n%s", name, ignore)
+		}
+	}
+}
+
+// The generated public assets invert between the two scaffolds, and the risk runs
+// the opposite way from the devbox one above: an application that keeps them
+// commits a stylesheet that drifts from the templates it was scanned from, while
+// a package that excludes them publishes components whose styles and scripts the
+// consumer links and cannot rebuild. Both directions are asserted here because
+// the package scaffold began as a copy of the application one, which is how it
+// inherited a rule it should not have had once already.
+func TestGeneratedPublicAssetsInvertBetweenScaffolds(t *testing.T) {
+	application := scaffoldFiles(initOptions{Name: "fixture", Devbox: true, Tailwind: true})[".gitignore"]
+	if !strings.Contains(application, "\n"+extractedAssetDir+"/\n") {
+		t.Errorf("the application scaffold tracks %s, which pw generate rebuilds:\n%s", extractedAssetDir, application)
+	}
+	if ignore := packageGitignore(); strings.Contains(ignore, extractedAssetDir) {
+		t.Errorf("the package scaffold excludes %s, so a consumer links component assets nothing ships:\n%s", extractedAssetDir, ignore)
 	}
 }
 

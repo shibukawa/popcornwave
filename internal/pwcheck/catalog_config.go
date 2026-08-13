@@ -50,7 +50,8 @@ const (
 	// PW0435 stated that pw dev injects the provider credentials in dev. That
 	// is the arrangement working, not a finding, so the identifier is retired
 	// alongside PW0428.
-	LoopbackPairing = "PW0436"
+	LoopbackPairing     = "PW0436"
+	DynamicOIDCRedirect = "PW0437"
 )
 
 func init() {
@@ -279,6 +280,13 @@ func init() {
 			Severity: Error, DevSeverity: Note, Scope: Deployed,
 			Inputs: Config, Phase: Doctor,
 			Remedy: "clear auth.oidc.allow_loopback_http and set session.cookie.secure",
+		},
+		Check{
+			ID: DynamicOIDCRedirect, Group: GroupConfig,
+			Title:    "the OIDC redirect URL is derived from a request outside dev",
+			Severity: Error, DevSeverity: Note, Scope: Deployed,
+			Inputs: Config, Phase: Doctor,
+			Remedy: "set auth.oidc.redirect_url to the absolute URL registered with the deployed provider",
 		},
 	)
 }

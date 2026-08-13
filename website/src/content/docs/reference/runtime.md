@@ -101,10 +101,19 @@ is.
 | `LifecycleHeaders(Lifecycle) (Middleware, error)` | RFC 9745 Deprecation and RFC 8594 Sunset middleware |
 | `WriteStream[T](w, r, fn)` | Opens a streamed response, negotiating SSE, NDJSON, or a JSON array from `Accept`, and runs `fn` against it |
 | `Stream.Write(value)` | Writes and flushes one value; the runtime closes the stream when `fn` returns |
-| `SetStreamErrorHandler(fn)` | Receives a stream failure raised after the status was sent |
+| `SetStreamErrorHandler(fn)` | Receives a stream or socket failure raised after the status was sent |
+| `WebSocket[In, Out](w, r, fn) error` | Upgrades the request and runs `fn` against a typed socket; returns the handshake error alone |
+| `WebSocketWith[In, Out](w, r, opts, fn) error` | `WebSocket` with per-call `SocketOptions` |
+| `Socket.Read() (In, error)` | Reads one message, decoded into `In` (**generated**); call from one goroutine |
+| `Socket.Write(Out) error` | Writes one message, encoded from `Out` (**generated**); safe from any goroutine |
+| `Socket.Close() error` | Ends the socket with a close handshake; the runtime also does this when `fn` returns |
+| `Socket.Subprotocol() string` | The subprotocol the handshake negotiated, or `""` |
+| `SetSocketDefaults(SocketOptions)` | Installs the process-wide socket limits, deadlines, and origin policy |
+| `SocketDefaults() SocketOptions` | The effective defaults, with every unset field resolved |
 | `RegisterHTMLDocument(wrapper)` | Installs the application document shell (**generated**) |
 | `RegisterHTMLErrorPage(resolve)` | Installs the error page resolver; without one, a minimal built-in page is used |
 | `RuntimeScriptURL() string` | The absolute path of the boundary runtime module |
+| `PublicAssetURL(name) string` | The URL this build serves one static asset under, revision segment included |
 
 Nothing here asks the handler whether the response should stream. A chain that
 can open an await boundary streams; one that cannot is buffered and committed

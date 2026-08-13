@@ -1,0 +1,254 @@
+package id_
+
+type AuctionRoom {
+  id: int
+  path: url
+  creatorName: string
+  title: string
+  subject: string
+  subjectDescription: string
+  status: string
+  startingAmount: int
+  currentAmount: int
+  hasWinningBid: bool
+  winningBidderName: string
+  createdAt: datetime
+  participantCount: int
+  viewerIsCreator: bool
+  viewerIsParticipant: bool
+}
+
+type AuctionEvent {
+  id: int
+  eventType: string
+  amount: int
+  authorName: string
+  message: string
+  createdAt: datetime
+}
+
+type AuctionSnapshot { room: AuctionRoom, events: AuctionEvent[], hasEvents: bool }
+
+external FormatDollars(cents: int): string
+
+external FormatCents(cents: int): string
+
+external AmountValue(cents: int): string
+
+external FormatCreatedAt(createdAt: datetime): string
+
+external live WatchAuction(roomID: int, viewerAccountID: string): AuctionSnapshot
+
+component AuctionActivity(roomID: int, viewerAccountID: string): html {
+  <section
+    class="overflow-hidden rounded-3xl border border-stone-200 bg-white shadow-sm"
+    aria-live="polite">
+    {await snapshot = WatchAuction(roomID, viewerAccountID)}
+      <div class="border-b border-stone-100 bg-stone-950 p-6 text-white sm:p-8">
+        <div class="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <p class="text-xs font-bold tracking-[0.2em] text-amber-400 uppercase">Current bid</p>
+            <p class="mt-2 text-4xl font-black tabular-nums sm:text-5xl">${FormatDollars(snapshot.room.currentAmount)}<span class="text-2xl sm:text-3xl">.{FormatCents(snapshot.room.currentAmount)}</span></p>
+          </div>
+          {if snapshot.room.status == "open"}
+            <span class="inline-flex items-center gap-2 rounded-full bg-emerald-400/15 px-3 py-1.5 text-xs font-black tracking-wider text-emerald-300 uppercase"><span class="size-2 rounded-full bg-emerald-400"></span>Live</span>
+          {else}
+            <span class="inline-flex items-center gap-2 rounded-full bg-stone-700 px-3 py-1.5 text-xs font-black tracking-wider text-stone-200 uppercase">Closed</span>
+          {/if}
+        </div>
+        <div class="mt-5 flex flex-wrap gap-x-5 gap-y-2 text-xs text-stone-400">
+          <span>Start ${FormatDollars(snapshot.room.startingAmount)}.{FormatCents(snapshot.room.startingAmount)}</span>
+          <span>{snapshot.room.participantCount} participants</span>
+          <span>Opened {FormatCreatedAt(snapshot.room.createdAt)}</span>
+        </div>
+      </div>
+
+      <div class="p-4 sm:p-6">
+        {if snapshot.hasEvents}
+          <div class="space-y-3">
+            {for event in snapshot.events}
+              {if event.eventType == "bid"}
+                <article class="flex items-start gap-3 rounded-2xl border border-amber-100 bg-amber-50/70 p-4">
+                  <div class="grid size-9 shrink-0 place-items-center rounded-xl bg-amber-400 text-sm font-black text-stone-950">$</div>
+                  <div class="min-w-0 flex-1">
+                    <div class="flex flex-wrap items-baseline justify-between gap-2">
+                      <p class="text-sm font-bold text-stone-700">Bid by {event.authorName}</p>
+                      <p class="text-lg font-black tabular-nums text-stone-950">${FormatDollars(event.amount)}<span class="text-sm">.{FormatCents(event.amount)}</span></p>
+                    </div>
+                    <p class="mt-1 text-xs text-stone-500">{FormatCreatedAt(event.createdAt)}</p>
+                  </div>
+                </article>
+              {else}
+                <article class="flex items-start gap-3 rounded-2xl border border-stone-200 bg-stone-50 p-4">
+                  <div class="grid size-9 shrink-0 place-items-center rounded-xl bg-stone-900 text-sm font-black text-amber-400">A</div>
+                  <div class="min-w-0 flex-1">
+                    <p class="text-sm font-bold text-stone-700">{event.authorName} (host)</p>
+                    <p class="mt-1 whitespace-pre-wrap break-words text-sm leading-6 text-stone-800">{event.message}</p>
+                    <p class="mt-1 text-xs text-stone-500">{FormatCreatedAt(event.createdAt)}</p>
+                  </div>
+                </article>
+              {/if}
+            {/for}
+          </div>
+        {else}
+          <div class="rounded-2xl border border-dashed border-stone-200 px-5 py-12 text-center">
+            <p class="text-3xl">🔔</p>
+            <p class="mt-3 text-sm font-semibold text-stone-500">No bids or comments yet</p>
+            <p class="mt-1 text-xs text-stone-400">The first one shows up here.</p>
+          </div>
+        {/if}
+      </div>
+    {fallback}
+      <div class="p-12 text-center text-sm font-semibold text-stone-400">Loading the auction…</div>
+    {recover err}
+      <div class="border border-rose-200 bg-rose-50 p-8 text-sm font-semibold text-rose-700">Could not load the auction ({err.code})</div>
+    {/await}
+  </section>
+}
+
+export component Page(room: AuctionRoom, viewerAccountID: string, displayName: string, email: string, bidPath: url, messagePath: url, closePath: url, live: bool): html {
+  <script component>
+  export function setup(el, scope) {
+    scope.on("auction.closed", () => {
+      // A signal is best effort, so it only prompts a refresh. The closed state
+      // and winning result remain server-rendered from the database.
+      if (el.dataset.roomStatus === "open") window.location.reload();
+    });
+  }
+</script>
+  <main class="min-h-screen bg-stone-50 text-stone-950" data-room-status="{room.status}">
+    <div class="mx-auto max-w-6xl px-5 py-8 sm:px-8 lg:px-10">
+      <header class="flex flex-col gap-5 border-b border-stone-200 pb-8 sm:flex-row sm:items-center sm:justify-between">
+        <div class="flex items-center gap-4">
+          <a
+            class="grid size-11 place-items-center rounded-2xl bg-amber-400 text-xl font-black text-stone-950 no-underline shadow-sm"
+            href="/">A</a>
+          <div>
+            <p class="text-xs font-bold tracking-[0.2em] text-amber-700 uppercase">Auction room</p>
+            <h1 class="mt-1 text-2xl font-black tracking-tight sm:text-3xl">{room.title}</h1>
+          </div>
+        </div>
+        <div class="flex items-center gap-4">
+          <div class="text-right">
+            <p class="text-sm font-bold">{displayName}</p>
+            <p class="max-w-52 truncate text-xs text-stone-500">{email}</p>
+          </div>
+          {if not live}
+            <form method="post" action="/auth/logout">
+              <button
+                class="rounded-full border border-stone-300 bg-white px-4 py-2 text-sm font-semibold shadow-sm transition hover:border-stone-950 hover:bg-stone-950 hover:text-white"
+                type="submit">Log out</button>
+            </form>
+          {/if}
+        </div>
+      </header>
+
+      <div class="grid gap-8 py-8 lg:grid-cols-[minmax(0,1fr)_22rem]">
+        <div class="min-w-0 space-y-5">
+          <div class="rounded-3xl border border-stone-200 bg-white p-6 shadow-sm sm:p-8">
+            <div class="flex flex-wrap items-center gap-2">
+              {if room.viewerIsCreator}<span class="rounded-full bg-amber-100 px-3 py-1 text-xs font-black text-amber-800">You're the host</span>{/if}
+              {if room.viewerIsParticipant}<span class="rounded-full bg-stone-100 px-3 py-1 text-xs font-black text-stone-600">Joined</span>{/if}
+              {if not room.viewerIsCreator and not room.viewerIsParticipant}<span class="rounded-full bg-stone-100 px-3 py-1 text-xs font-black text-stone-600">Watching</span>{/if}
+            </div>
+            <p class="mt-4 text-xs font-bold tracking-[0.2em] text-amber-700 uppercase">Item for sale</p>
+            <h2 class="mt-2 text-2xl font-black tracking-tight">{room.subject}</h2>
+            {if room.subjectDescription != ""}<p class="mt-3 whitespace-pre-wrap text-sm leading-7 text-stone-600">{room.subjectDescription}</p>{/if}
+            <div class="mt-5 flex flex-wrap gap-x-6 gap-y-2 text-xs text-stone-500">
+              <span>Host <strong class="text-stone-700">{room.creatorName}</strong></span>
+              <span>Start ${FormatDollars(room.startingAmount)}.{FormatCents(room.startingAmount)}</span>
+            </div>
+          </div>
+
+          <AuctionActivity roomID="{room.id}" viewerAccountID="{viewerAccountID}"/>
+        </div>
+
+        {if not live}
+          <aside class="space-y-5">
+            {if room.status == "open" and room.viewerIsParticipant}
+              <div class="rounded-3xl bg-amber-400 p-6 shadow-xl shadow-amber-200/50">
+                <p class="text-xs font-black tracking-[0.2em] text-stone-700 uppercase">Place a bid</p>
+                <h2 class="mt-2 text-2xl font-black tracking-tight">Place the next bid</h2>
+                <p class="mt-2 text-sm leading-6 text-stone-700">Enter an amount above the current
+                  ${FormatDollars(room.currentAmount)}.{FormatCents(room.currentAmount)}.</p>
+                <form class="mt-5 space-y-3" method="post" action="{bidPath}">
+                  <label class="block">
+                    <span class="sr-only">Bid amount</span>
+                    <input
+                      class="w-full rounded-xl border-2 border-stone-950/15 bg-white px-4 py-3 text-lg font-black tabular-nums text-stone-950 outline-none transition focus:border-stone-950"
+                      name="amount"
+                      type="number"
+                      min="{AmountValue(room.currentAmount + 1)}"
+                      step="0.01"
+                      required
+                      placeholder="Your bid">
+                  </label>
+                  <button
+                    class="w-full rounded-xl bg-stone-950 px-4 py-3.5 text-sm font-black text-white transition hover:bg-stone-800"
+                    type="submit">Place bid</button>
+                </form>
+              </div>
+            {else if room.status == "open" and room.viewerIsCreator}
+              <div class="rounded-3xl bg-stone-950 p-6 text-white shadow-xl shadow-stone-300/40">
+                <p class="text-xs font-bold tracking-[0.2em] text-amber-400 uppercase">Host controls</p>
+                <h2 class="mt-2 text-2xl font-black tracking-tight">Host menu</h2>
+                <form class="mt-5 space-y-3" method="post" action="{messagePath}">
+                  <label class="block">
+                    <span class="mb-1.5 block text-xs font-bold text-stone-300">Comment to the room</span>
+                    <textarea
+                      class="w-full resize-none rounded-xl border border-stone-700 bg-stone-900 px-4 py-3 text-sm text-white outline-none transition placeholder:text-stone-600 focus:border-amber-400"
+                      name="message"
+                      rows="4"
+                      maxlength="500"
+                      required
+                      placeholder="Bidding is open!"></textarea>
+                  </label>
+                  <button
+                    class="w-full rounded-xl bg-amber-400 px-4 py-3.5 text-sm font-black text-stone-950 transition hover:bg-amber-300"
+                    type="submit">Send comment</button>
+                </form>
+                <form
+                  class="mt-6 border-t border-stone-800 pt-5"
+                  method="post"
+                  action="{closePath}">
+                  <p class="mb-3 text-xs leading-5 text-stone-400">Closing stops every further bid and comment.</p>
+                  <button
+                    class="w-full rounded-xl border border-rose-400/60 px-4 py-3 text-sm font-bold text-rose-300 transition hover:bg-rose-400 hover:text-stone-950"
+                    type="submit">Close the auction</button>
+                </form>
+              </div>
+            {else if room.status == "open" and not room.viewerIsCreator and not room.viewerIsParticipant}
+              <div class="rounded-3xl border border-stone-200 bg-white p-6 shadow-sm">
+                <p class="text-xs font-bold tracking-[0.2em] text-amber-700 uppercase">Join this room</p>
+                <h2 class="mt-2 text-2xl font-black tracking-tight">Join the bidding</h2>
+                <p class="mt-2 text-sm leading-6 text-stone-600">Join and you can bid straight from this page.</p>
+                <form class="mt-5" method="post" action="/rooms/join">
+                  <input type="hidden" name="room_id" value="{room.id}">
+                  <button
+                    class="w-full rounded-xl bg-stone-950 px-4 py-3.5 text-sm font-black text-white transition hover:bg-stone-800"
+                    type="submit">Join</button>
+                </form>
+              </div>
+            {else}
+              <div class="rounded-3xl border border-amber-200 bg-amber-50 p-6 shadow-sm">
+                <p class="text-xs font-black tracking-[0.2em] text-amber-700 uppercase">Auction result</p>
+                {if room.hasWinningBid}
+                  <h2 class="mt-2 text-2xl font-black tracking-tight">{room.winningBidderName}
+                    won the lot</h2>
+                  <p class="mt-4 text-4xl font-black tabular-nums text-stone-950">${FormatDollars(room.currentAmount)}<span class="text-2xl">.{FormatCents(room.currentAmount)}</span></p>
+                  <p class="mt-3 text-sm leading-6 text-stone-600">This auction is closed. Bids and comments are no longer accepted.</p>
+                {else}
+                  <h2 class="mt-2 text-2xl font-black tracking-tight">No winner</h2>
+                  <p class="mt-3 text-sm leading-6 text-stone-600">The auction closed without a single bid.</p>
+                {/if}
+              </div>
+            {/if}
+            <a
+              class="block rounded-3xl border border-stone-200 bg-white p-5 text-center text-sm font-bold text-stone-700 no-underline shadow-sm transition hover:border-amber-300 hover:text-amber-800"
+              href="/">← Back to the lobby</a>
+          </aside>
+        {/if}
+      </div>
+    </div>
+  </main>
+}

@@ -1,0 +1,40 @@
+receivers:
+  otlp:
+    protocols:
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  memory_limiter:
+    check_interval: 1s
+    limit_mib: 384
+    spike_limit_mib: 96
+  batch: {}
+
+exporters:
+  otlp_http/splunk_apm:
+    traces_endpoint: "https://ingest.${file:/run/secrets/splunk_realm}.observability.splunkcloud.com/v2/trace/otlp"
+    headers:
+      X-SF-Token: "${file:/run/secrets/splunk_access_token}"
+
+  splunk_hec/splunk_logs:
+    endpoint: "https://ingest.${file:/run/secrets/splunk_realm}.observability.splunkcloud.com/v1/log"
+    token: "${file:/run/secrets/splunk_access_token}"
+    source: auction
+    sourcetype: otel
+
+extensions:
+  health_check:
+    endpoint: 0.0.0.0:13133
+
+service:
+  extensions: [health_check]
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [otlp_http/splunk_apm]
+    logs:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [splunk_hec/splunk_logs]

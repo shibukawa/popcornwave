@@ -106,21 +106,26 @@ minify = true
 ```html
 package templates
 
+external AssetURL(name: string): url
+
 export component Document(children: html?): html {
 <!doctype html>
 <html lang="en"><head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>My App</title>
-  <link rel="stylesheet" href="/public/generated/app.css">
+  <link rel="stylesheet" href={AssetURL("generated/app.css")}>
 </head>
 <body><slot /></body></html>
 }
 ```
 
-The URL is `server.public.mount` (default `/public`) followed by the path of
-`output` inside `public/`. See [Static Assets](/guides/frontend/static-assets/)
-for how that directory is embedded and served.
+The argument is the path of `output` inside `public/`; `AssetURL` supplies
+`server.public.mount` (default `/public`) and the revision segment that lets a
+deployment cache the stylesheet rather than revalidating it on every page load.
+`pw init --tailwind` writes this shell and the Go behind the declaration. See
+[Static Assets](/guides/frontend/static-assets/) for how that directory is
+embedded and served, and for what the revision buys.
 
 Then start the dev server:
 

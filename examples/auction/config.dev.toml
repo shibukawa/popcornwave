@@ -1,0 +1,111 @@
+# Development runtime configuration.
+# APP_ENV selects this file; add config.stg.toml and config.prod.toml as needed.
+[server]
+port = 8080
+# Operational endpoints answer only at the paths named here; an unset key
+# serves nothing, so this file lists every address the server responds on.
+health = "/healthz"
+readiness = "/readyz"
+openapi = "/openapi.json"
+# Scalar API reference for the document above, served at server.api_doc_path
+# (/docs). Leave this key out of staging and production configs to keep the UI
+# private.
+api_doc = "scalar"
+
+[observability]
+minimum_level = "debug"
+service_name = "auction"
+# The slog text encoding, which is what a terminal reads. An unset key already
+# resolves to this in dev and to "json" everywhere else; it is written out here
+# so the format this file produces is visible rather than inferred.
+stdout_format = "plaintext"
+
+# The scaffolded migrations and queries need a database; pw dev and pw migrate
+# read this connection.
+[middleware.rdb]
+enabled = true
+
+# One element is one pool. The group is the name statements address it by, and
+# a single connection answers to every group name, so this one stays "default"
+# until a second database arrives.
+[[middleware.rdb.connections]]
+group = "default"
+dsn = "sqlite://auction.db"
+connect_timeout = "5s"
+max_open_conns = 1
+max_idle_conns = 1
+
+[session]
+enabled = true
+backend = "redis"
+cookie.name = "pw_session"
+# Loopback development only, because there is no TLS to require here. Every
+# other environment refuses to start with this false, so a deployment file
+# either sets it true or leaves it out.
+cookie.secure = false
+# One secret signs and seals everything the browser carries, whatever the
+# backend is: a session.ReadOnly slot is signed and a session.Private slot is
+# sealed, including while a visitor is still anonymous.
+#
+# This value was generated for this project and belongs to development only.
+# Every other environment reads SESSION_KEYRING_SECRET, and "pw doctor --env"
+# reports a literal here as an error for any environment but dev.
+keyring.secret = "JYETkv6QoCX3YYcTQj/DwRzVPgXbJLcry0+i5DvL2Vs="
+# Redis or Valkey holds each record under its own TTL, so no sweep runs.
+redis.dsn = "redis://127.0.0.1:6379/0"
+redis.key_prefix = "pw:session:"
+
+
+# The framework serves every authentication path itself, so the application
+# registers no authentication route. Logout is POST only.
+[auth]
+enabled = true
+# The four tables plugin/auth owns move together, so one key names their store.
+backend = "rdb"
+mode = "oidc_only"
+post_login_path = "/"
+# Every session lifetime is declared here rather than under [session]: an
+# expiry states how long a proof of identity stays good, and the store holding
+# the bytes has no basis to make that statement.
+session.ttl = "12h"
+session.idle_timeout = "1h"
+# Opt in per path; everything else stays public.
+protection.include = ["/", "/rooms", "/rooms/**"]
+protection.unauthenticated = "redirect"
+
+[auth.oidc]
+# pw dev runs the development identity provider and injects AUTH_OIDC_ISSUER,
+# AUTH_OIDC_CLIENT_ID, and AUTH_OIDC_CLIENT_SECRET, so these stay empty here.
+# Running the application without pw dev requires setting them yourself.
+# redirect_url is derived from the loopback request Host.
+scopes = ["profile", "email"]
+identity_claim = "sub"
+admission = "authenticated"
+auto_provision = true
+# What a logout does to the provider session, which is shared with every other
+# application signed in through it.
+#   reconfirm: keep it, and make the next login here ask again
+#   global:    end it, signing the user out of those applications too
+logout_scope = "reconfirm"
+allow_loopback_http = true
+
+# Partial updates are off until a project wants a page to refresh a region
+# rather than reload. The validator key is required with them: an unkeyed digest
+# of low-entropy content lets a guess be confirmed by comparing digests, so
+# startup refuses the combination rather than serving one.
+[html.update]
+enabled = false
+# validator_key = "${HTML_UPDATE_VALIDATOR_KEY}"
+
+# The lobby creates and joins rooms with the authenticated session cookie, so
+# those mutation paths and logout require a request token.
+[security]
+csrf.enabled = true
+csrf.include = ["/rooms", "/rooms/**", "/auth/logout"]
+# Exclude what a browser never posts: a webhook has no session and carries its
+# own authentication.
+csrf.exclude = []
+# A public page with its own unsafe form needs a token before there is a
+# session. This issues one in a signed cookie and writes no session record.
+# csrf.anonymous.enabled = true
+# csrf.anonymous.secret = "${SECURITY_CSRF_ANONYMOUS_SECRET}"

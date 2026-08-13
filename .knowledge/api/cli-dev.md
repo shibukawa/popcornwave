@@ -53,7 +53,7 @@ reporting:
   phases: services, generation, migration, identity provider, console, CSS build, and the Go build
   browser: a failing phase also reaches an open page through requirement:dev-error-overlay, so the terminal is no longer the only place a diagnostic lands
   collapse: the region gives way to policy:startup-summary and then the application and service log stream
-  rebuild: a watch-triggered regenerate, migrate, and rebuild reuses the same region rather than reprinting the startup sequence
+  rebuild: a watch-triggered regenerate, migrate, and rebuild reuses the same region rather than reprinting the startup sequence, and the restarted process reports per requirement:dev-reload-summary rather than reprinting policy:startup-summary
   logs: the application stream stays plaintext under policy:log-emission, since the developer loop is read in a terminal
   diagnostics: never enter the region, so a generation or migration failure keeps its place in the scrollback
 services:

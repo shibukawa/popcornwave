@@ -14,6 +14,7 @@ import (
 	"github.com/andybalholm/brotli"
 	"github.com/klauspost/compress/gzip"
 	"github.com/klauspost/compress/zstd"
+	"github.com/shibukawa/popcornwave/middlewares"
 )
 
 // writeNestedTestFile writes a file and the directories above it.
@@ -692,5 +693,56 @@ func TestManifestPromisesImmutabilityOnlyForInventedURLs(t *testing.T) {
 	}
 	if got := policies["app.css"]; got != derivedCacheControl {
 		t.Errorf("an authored URL claims immutability: %q", got)
+	}
+}
+
+// TestRevisionsFollowTheBytesOfAuthoredURLs covers the half that makes an
+// authored URL cacheable at all: the build hands it a segment derived from its
+// own bytes, and a rebuild that changed the file hands it a different one.
+//
+// The two negatives matter as much as the positive. A URL whose name already
+// carries a digest needs no segment, and one that got one anyway would be
+// served under a path saying the same thing twice.
+func TestRevisionsFollowTheBytesOfAuthoredURLs(t *testing.T) {
+	revisions := func(t *testing.T, stylesheet string) map[string]string {
+		t.Helper()
+		root := derivedFixture(t)
+		writeTestFile(t, filepath.Join(root, "public", "app.css"), stylesheet)
+		writeNestedTestFile(t, filepath.Join(root, filepath.FromSlash(derivedStageDir), "js", "app.abcdef012345.js"), "console.log(1)")
+		if _, err := buildDerivedAssets(root, assetsConfig{}); err != nil {
+			t.Fatal(err)
+		}
+		manifest, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(assetManifestJSON)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		var entries []struct {
+			URL      string `json:"url"`
+			Revision string `json:"revision"`
+		}
+		if err := json.Unmarshal(manifest, &entries); err != nil {
+			t.Fatal(err)
+		}
+		found := map[string]string{}
+		for _, entry := range entries {
+			found[entry.URL] = entry.Revision
+		}
+		return found
+	}
+
+	first := revisions(t, "body{}\n")
+	if length := len(first["app.css"]); length != middlewares.RevisionLength {
+		t.Fatalf("app.css revision is %d characters, want %d", length, middlewares.RevisionLength)
+	}
+	if got := first["js/app.abcdef012345.js"]; got != "" {
+		t.Errorf("an invented URL carries a second digest: %q", got)
+	}
+
+	second := revisions(t, "body{color:red}\n")
+	if second["app.css"] == first["app.css"] {
+		t.Error("a stylesheet with different bytes kept its URL, which a browser is holding forever")
+	}
+	if again := revisions(t, "body{}\n"); again["app.css"] != first["app.css"] {
+		t.Error("the same bytes produced two URLs, so every rebuild would evict a cache that was still correct")
 	}
 }

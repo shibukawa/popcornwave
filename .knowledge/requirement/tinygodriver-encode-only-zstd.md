@@ -6,7 +6,9 @@ title: What The fasthttp Build Would Ask Of tinygodriver
 A TinyGo build should need no extra tag. tinygodriver's fasthttp fork should select its zstd half on tinygo the way its own convention already says, and the encode-only path that makes that work is one pw already runs.
 
 ```yaml
-status: proposed
+status: delivered
+delivered_by: tinygodriver v1.2.4, which took both asks at once — the fork encodes zstd through compress/zstd under TinyGo, so no tag is needed and the codec is kept rather than dropped
+measured_after: a TinyGo fasthttp helloworld links with -tags fasthttp alone at 5.59 MiB and serves
 serves: decision:tinygo-fasthttp-needs-nozstd
 scope: this concept records what popcornwave would ask of tinygodriver; the work and the decision are tinygodriver's
 already_provided_nothing_to_add:

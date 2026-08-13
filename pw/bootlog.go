@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/shibukawa/popcornwave/internal/bootblock"
 	"github.com/shibukawa/popcornwave/internal/configview"
 	"github.com/shibukawa/popcornwave/internal/pwtree"
 	"github.com/shibukawa/tinybind-go/configbind"
@@ -68,14 +69,26 @@ func captureBootReport(result *configbind.LoadResult) {
 
 // bootEntries takes the keys configbind considers worth reporting: already in
 // registration then declaration order, already stripped of the settings a
-// disabled parent made irrelevant, and already masked. Redaction is a secret
-// tag or a recognized key name, so it is decided where the field is declared
-// rather than guessed again here. An array of tables arrives expanded, one
-// entry per element key, which is what keeps a connection set from showing up
-// as a single empty line.
+// disabled parent or an unselected variant made irrelevant, and already masked.
+// Redaction is a secret tag or a recognized key name, so it is decided where the
+// field is declared rather than guessed again here. An array of tables arrives
+// expanded, one entry per element key, which is what keeps a connection set from
+// showing up as a single empty line.
 //
-// A DSN is the one exception. Masked whole it answers none of what an operator
-// opens this summary for, so its public half is rendered back in.
+// One filter is left to this side. An entry marked omittable is a key its author
+// rated as detail that nothing but the default layer set, and configbind reports
+// the rating rather than applying it: whether detail is worth printing depends on
+// which surface is being drawn, and the library cannot know that. This is the
+// short surface, so it skips them; api:cli-doctor is the complete one and prints
+// them from the same call. A key any source set is never marked, so nothing a
+// deployment decided is dropped here.
+//
+// The skip happens during capture rather than in a renderer, which is what keeps
+// the tree and the record forms from disagreeing about what the summary contains.
+//
+// A DSN is the one exception to arriving ready to print. Masked whole it answers
+// none of what an operator opens this summary for, so its public half is
+// rendered back in.
 func bootEntries(result *configbind.LoadResult) []bootEntry {
 	if result == nil || result.Overlay == nil {
 		return nil
@@ -83,6 +96,9 @@ func bootEntries(result *configbind.LoadResult) []bootEntry {
 	reported := result.Provenance()
 	entries := make([]bootEntry, 0, len(reported))
 	for _, key := range reported {
+		if key.Omittable {
+			continue
+		}
 		value := key.Value
 		if key.Masked && configview.IsDSNKey(key.Key) {
 			if raw, ok := configview.Raw(result.Overlay, key); ok {
@@ -172,16 +188,11 @@ func renderBootTree(report bootReport, listening string, style bootStyle) string
 	return out.String()
 }
 
-// bootBannerArt is the framework's popcorn mascot. Every row is padded to the
-// same width so the summary text lines up beside it, and every glyph is ASCII
-// so no terminal renders it at an unexpected width.
-var bootBannerArt = []string{
-	"   .-.   .-.   ",
-	" .(   ) (   ). ",
-	"(   o     o   )",
-	"(    \\___/    )",
-	" '-.__.___.__-'",
-}
+// bootBannerArt is the framework's popcorn mascot. It lives in the package that
+// reads a summary back, because api:cli-dev finds one in a stream by looking for
+// its first row, and a mascot the two halves disagreed about would be a summary
+// the developer loop silently stopped recognizing.
+var bootBannerArt = bootblock.Art
 
 func bootBanner(report bootReport, style bootStyle) []string {
 	name := "Popcorn Wave"
@@ -273,7 +284,21 @@ func bootRecordAttrs(report bootReport, listening string) []Attribute {
 type bootStyle struct{ color bool }
 
 func bootStyleFor(file *os.File) bootStyle {
-	return bootStyle{color: isTerminal(file) && os.Getenv("NO_COLOR") == "" && os.Getenv("TERM") != "dumb"}
+	if os.Getenv("NO_COLOR") != "" || os.Getenv("TERM") == "dumb" {
+		return bootStyle{}
+	}
+	return bootStyle{color: isTerminal(file) || forcedColor()}
+}
+
+// forcedColor answers the CLICOLOR_FORCE convention, which is the only way a
+// process whose output is a pipe can be told that a terminal is still on the
+// other end of it. api:cli-dev is that case: it reads the summary back to report
+// requirement:dev-reload-summary, and without this the developer would pay for
+// the feature in color. NO_COLOR still wins, because that one is the developer
+// speaking rather than a caller.
+func forcedColor() bool {
+	value := os.Getenv("CLICOLOR_FORCE")
+	return value != "" && value != "0"
 }
 
 func (style bootStyle) wrap(code, text string) string {

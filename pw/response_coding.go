@@ -35,8 +35,8 @@ type responseCoding struct {
 // framework can encode, not the tokens a header may name.
 const maxResponseCodings = 2
 
-// availableResponseCodings is every coding this build can encode, in the
-// framework's default preference order.
+// availableResponseCodings is every coding this framework can encode, in its
+// default preference order.
 //
 // zstd leads because it stays ahead of gzip on ratio at the levels both run,
 // and because a client already receiving zstd should keep receiving it, which
@@ -44,19 +44,16 @@ const maxResponseCodings = 2
 // asset build, where its cost lands on a machine that is not answering a
 // request.
 //
-// A build tag that removes an encoder removes its entry here, which is what
-// makes middleware.compression a silent no-op on such a build rather than a
-// link error.
-var availableResponseCodings = func() []responseCoding {
-	codings := make([]responseCoding, 0, maxResponseCodings)
-	if zstdResponseSupported {
-		codings = append(codings, responseCoding{token: zstdContentEncoding, newEncoder: newResponseZstdEncoder})
-	}
-	if gzipResponseSupported {
-		codings = append(codings, responseCoding{token: gzipContentEncoding, newEncoder: newResponseGzipEncoder})
-	}
-	return codings
-}()
+// Every build carries both. There were once tags that dropped one, back when
+// the zstd encoder meant linking a 2.4 MB decoder nobody called; the encoder is
+// its own package now and the pair costs 387 KB, which is less than the
+// question was worth. A deployment that compresses in front of the application
+// sets middleware.compression to false, which is the same saving at run time
+// and does not fork the build.
+var availableResponseCodings = []responseCoding{
+	{token: zstdContentEncoding, newEncoder: newResponseZstdEncoder},
+	{token: gzipContentEncoding, newEncoder: newResponseGzipEncoder},
+}
 
 // orderedResponseCodings resolves a configured order against what the build can
 // encode, writing into caller-owned scratch so a request allocates nothing.

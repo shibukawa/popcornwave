@@ -16,6 +16,7 @@ import (
 	"github.com/andybalholm/brotli"
 	"github.com/klauspost/compress/gzip"
 	"github.com/klauspost/compress/zstd"
+	"github.com/shibukawa/popcornwave/internal/assetverify"
 )
 
 // The build writes three directories under dist. Only the first is served; the
@@ -42,6 +43,13 @@ const (
 	// decision to decline one. Deleting it costs time and nothing else.
 	conversionCacheDir = "dist/cache"
 )
+
+// externalPublicDir is the second authored tree, and the one exception to the
+// paragraph above: it is not under dist because it is not build output. Nothing
+// transforms what is in it, so a staged copy would be identical to its source,
+// and these are the files a project least wants copied. It is committed like
+// public/ and the container scaffold ships it as it stands.
+const externalPublicDir = "public-external"
 
 // Representation ordering. The build states which media type is worth serving,
 // because that is a judgment about the bytes; the request only says what it can
@@ -151,6 +159,10 @@ type derivedAsset struct {
 	// author wrote serves whatever the next build puts behind it.
 	immutable  bool
 	preference int
+	// external marks a file in the second authored tree, which ships beside the
+	// binary rather than inside it. Such an asset carries no length and no
+	// etag: the build never read it whole and never wants to claim it did.
+	external bool
 }
 
 // derivedReport is what the build tells the developer. A rewrite is invisible
@@ -162,7 +174,24 @@ type derivedReport struct {
 	// unserved names a file the served tree never owed anyone, which is a
 	// different statement from a source some conversion replaced.
 	unserved []string
+	// exempted names a file assets.verify.allow carried past the content
+	// checks. It is reported so the list cannot go quiet: an exemption added
+	// for one bad file and never removed is how a check stops being one.
+	exempted []string
+	// shadowed names an external file that took a URL the embedded tree also
+	// holds. The external one wins, so this is a warning and not an error, but
+	// the embedded file is still there and still looks like the one answering.
+	shadowed []string
 	written  int
+}
+
+// verifyOptions is the project's switches in the form the shared checker takes.
+func verifyOptions(assets assetsConfig) assetverify.Options {
+	return assetverify.Options{
+		Signature: assets.Verify,
+		SVGScan:   assets.VerifySVG,
+		Allow:     assets.VerifyAllow,
+	}
 }
 
 // buildDerivedAssets turns the authored public tree and whatever the generation
@@ -283,6 +312,17 @@ func buildDerivedAssetsWithEncoder(root string, assets assetsConfig, encodeVaria
 		if err != nil {
 			return err
 		}
+		// Verification is here rather than in a pass of its own because the
+		// bytes are already in hand. It runs on the authored file, before any
+		// transform: what the build produced is labelled by the build, and
+		// re-deriving a type from a name it chose would only test it against
+		// itself.
+		if finding, refused := assetverify.File(slashed, source, verifyOptions(assets)); refused {
+			return fmt.Errorf("public assets: %w", finding)
+		}
+		if assetverify.Exempt(slashed, assets.VerifyAllow) {
+			report.exempted = append(report.exempted, slashed)
+		}
 		content, err := transformAuthoredFile(slashed, source, assets, rewrites)
 		if err != nil {
 			return err
@@ -318,6 +358,10 @@ func buildDerivedAssetsWithEncoder(root string, assets assetsConfig, encodeVaria
 		immutable[name] = true
 	}
 	entries, err := collectDerivedAssets(output, immutable)
+	if err != nil {
+		return report, err
+	}
+	entries, err = addExternalAssets(root, entries, assets, &report)
 	if err != nil {
 		return report, err
 	}
@@ -832,6 +876,118 @@ func collectDerivedAssets(output string, immutable map[string]bool) ([]derivedAs
 		return assets[i].encoding < assets[j].encoding
 	})
 	return assets, nil
+}
+
+// addExternalAssets folds the second authored tree into the manifest.
+//
+// It copies nothing, and that is the whole point of the tree existing. A file
+// here is a kind policy:asset-transform-matrix already declines to touch, so a
+// staging copy under dist would be byte-identical to its source — which for the
+// largest files in a project is the most expensive nothing a build can do.
+//
+// It also computes no digest and records no length. The directory is deployed
+// as its own artifact, so a validator taken here could describe bytes the
+// deployment later replaced; the file answers for itself at request time.
+func addExternalAssets(root string, entries []derivedAsset, assets assetsConfig, report *derivedReport) ([]derivedAsset, error) {
+	authored := filepath.Join(root, externalPublicDir)
+	info, err := os.Lstat(authored)
+	if err != nil || !info.IsDir() {
+		// A project without the tree is the ordinary case, not a failure.
+		return entries, nil
+	}
+	if info.Mode()&os.ModeSymlink != 0 {
+		return nil, fmt.Errorf("public assets: %s must be a regular directory", externalPublicDir)
+	}
+	embedded := map[string]int{}
+	for position, entry := range entries {
+		if _, exists := embedded[entry.url]; !exists {
+			embedded[entry.url] = position
+		}
+	}
+	shadowed := map[string]bool{}
+	var external []derivedAsset
+	walkErr := filepath.WalkDir(authored, func(name string, entry fs.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		fileInfo, err := os.Lstat(name)
+		if err != nil {
+			return err
+		}
+		if fileInfo.Mode()&os.ModeSymlink != 0 {
+			return fmt.Errorf("public assets: symbolic links are not allowed: %s", name)
+		}
+		if entry.IsDir() {
+			return nil
+		}
+		if !fileInfo.Mode().IsRegular() {
+			return fmt.Errorf("public assets: irregular file is not allowed: %s", name)
+		}
+		relative, err := filepath.Rel(authored, name)
+		if err != nil {
+			return err
+		}
+		slashed := filepath.ToSlash(relative)
+		if entry.Name() == ".keep" || hasSidecarSuffix(slashed) {
+			return nil
+		}
+		// Only the window, because the whole reason a file is here is that it
+		// may be enormous. requirement:asset-content-verification reads no more
+		// than that for anything but an SVG.
+		prefix, err := leadingBytes(name, assetverify.IsSVG(slashed))
+		if err != nil {
+			return err
+		}
+		if finding, refused := assetverify.File(slashed, prefix, verifyOptions(assets)); refused {
+			return fmt.Errorf("public assets: %w", finding)
+		}
+		if assetverify.Exempt(slashed, assets.VerifyAllow) {
+			report.exempted = append(report.exempted, externalPublicDir+"/"+slashed)
+		}
+		if _, collides := embedded[slashed]; collides {
+			// The external tree wins, so the collision is defined rather than
+			// ambiguous, and a warning is the honest severity. It is worth
+			// saying out loud because the embedded file still exists and still
+			// looks like the one being served.
+			shadowed[slashed] = true
+			report.shadowed = append(report.shadowed,
+				externalPublicDir+"/"+slashed+" (shadows public/"+slashed+")")
+		}
+		external = append(external, derivedAsset{
+			url:        slashed,
+			path:       slashed,
+			mediaType:  derivedMediaType(slashed, prefix),
+			preference: representationPreferenceDefault,
+			external:   true,
+		})
+		return nil
+	})
+	if walkErr != nil {
+		return nil, walkErr
+	}
+	if len(external) == 0 {
+		return entries, nil
+	}
+	kept := entries[:0:0]
+	for _, entry := range entries {
+		// Every representation of a shadowed URL goes, sidecars included: half
+		// an entry from each tree would let one coding answer for bytes the
+		// other holds.
+		if !shadowed[entry.url] {
+			kept = append(kept, entry)
+		}
+	}
+	kept = append(kept, external...)
+	sort.SliceStable(kept, func(i, j int) bool {
+		if kept[i].url != kept[j].url {
+			return kept[i].url < kept[j].url
+		}
+		if kept[i].preference != kept[j].preference {
+			return kept[i].preference < kept[j].preference
+		}
+		return kept[i].encoding < kept[j].encoding
+	})
+	return kept, nil
 }
 
 func derivedMediaType(url string, content []byte) string {

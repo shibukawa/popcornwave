@@ -43,7 +43,19 @@ func TestPWCallsDriveTinyBindGeneration(t *testing.T) {
 		// The write-status response goes through a registered writer too,
 		// which is what pw.WriteStatus serializes with at runtime.
 		"RegisterWrite[created]",
+		// A socket needs one codec per direction, recovered from the two type
+		// arguments of a call that spells neither. Without them the connection
+		// is accepted and then fails on its first message.
+		"jsonbind.RegisterDecode[inbound]", "jsonbind.RegisterEncode[outbound]",
 	)
+	// Each direction gets its own codec and not the other's, so a socket adds no
+	// dead decoder or encoder to a binary that will never run it.
+	if strings.Contains(byKind[generator.ArtifactBinding], "jsonbind.RegisterEncode[inbound]") {
+		t.Fatal("the inbound socket type got an encoder, which nothing writes")
+	}
+	if strings.Contains(byKind[generator.ArtifactBinding], "jsonbind.RegisterDecode[outbound]") {
+		t.Fatal("the outbound socket type got a decoder, which nothing reads")
+	}
 	assertContains(t, "configbind", byKind[generator.ArtifactConfigBind],
 		"Register[AppConfig]",
 		"RegisterSubCommand[ImportCommand]",

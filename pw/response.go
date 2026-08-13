@@ -1003,7 +1003,7 @@ func prepareHTMLResponse(w http.ResponseWriter, r *http.Request) (io.Writer, fun
 // request that asked for a coding.
 func prepareResponseEncoder(w http.ResponseWriter, r *http.Request) (responseEncoder, error) {
 	config := Config[MiddlewareConfig](requestContext(r))
-	if len(availableResponseCodings) == 0 || !config.Compression {
+	if !config.Compression {
 		return nil, nil
 	}
 	addVaryHeader(w.Header(), "Accept-Encoding")

@@ -796,7 +796,11 @@ func planDirectory(ctx context.Context, runner *generator.Generator, directory s
 		// Before the comparison below, not after: the file on disk carries the
 		// constraint, so a source without it would read as changed on every run
 		// and --check would call a freshly generated project stale.
-		source, err = constrainNetHTTP(source, fastHTTP)
+		kinds := make([]generator.ArtifactKind, 0, len(group))
+		for _, artifact := range group {
+			kinds = append(kinds, artifact.Kind)
+		}
+		source, err = constrainNetHTTP(source, fastHTTP, kinds...)
 		if err != nil {
 			return nil, err
 		}
@@ -1296,15 +1300,25 @@ const netHTTPConstraint = "//go:build !fasthttp\n\n"
 // constrainNetHTTP marks a generated file as belonging to the net/http build
 // when the project declares a fasthttp build too.
 //
-// The condition is the file's own imports rather than its kind: a generated
-// file naming net/http is one the other build has to supply for itself, and one
-// that does not is shared by both. Deciding it per file is what keeps the
-// constraint off the binders, config, and SQL that have no transport in them.
+// Two things trigger it. A file naming net/http is one the other build has to
+// supply for itself. So is a binder, whatever it imports: the second build
+// emits the whole binder set for the package into one file of its own, so a
+// per-source binder left unconstrained is the same functions declared twice.
+//
+// The import test alone was the rule until 2026-08-11, and it held for as long
+// as every binder named a transport. A socket's codecs are the first that do
+// not — they decode and encode a message rather than a request — so the file
+// holding them read as shared by both builds and collided with the second
+// build's copy. The failure is a package that does not compile under the
+// fasthttp tag, which no net/http run ever sees.
+//
+// Deciding it per file is what keeps the constraint off the config and SQL that
+// have no transport in them and no second copy either.
 //
 // A project that declared no second build gets its source back untouched, so
 // nothing changes for it, per policy:generated-artifacts making output a
 // function of declared configuration.
-func constrainNetHTTP(source []byte, fastHTTP bool) ([]byte, error) {
+func constrainNetHTTP(source []byte, fastHTTP bool, kinds ...generator.ArtifactKind) ([]byte, error) {
 	if !fastHTTP {
 		return source, nil
 	}
@@ -1322,6 +1336,11 @@ func constrainNetHTTP(source []byte, fastHTTP bool) ([]byte, error) {
 	// net/http side, and is decided per file rather than per run.
 	if _, ok := buildConstraint(source); ok {
 		return source, nil
+	}
+	for _, kind := range kinds {
+		if kind == generator.ArtifactBinding {
+			return append([]byte(netHTTPConstraint), source...), nil
+		}
 	}
 	file, err := parser.ParseFile(token.NewFileSet(), "generated.go", source, parser.ImportsOnly)
 	if err != nil {

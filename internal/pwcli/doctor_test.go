@@ -324,6 +324,50 @@ redirect_url = "https://app.example.com/callback"
 	}
 }
 
+func TestDynamicOIDCRedirectIsDevelopmentOnly(t *testing.T) {
+	for _, redirectLine := range []string{"", "redirect_url = \"/auth/callback\"\n"} {
+		config := `[auth]
+enabled = true
+callback_path = "/auth/callback"
+[auth.oidc]
+issuer = "http://localhost:18080/"
+client_id = "fixture"
+client_secret = "fixture-secret"
+allow_loopback_http = true
+` + redirectLine
+		root := diagnosedProject(t, map[string]string{
+			"config.dev.toml":  config,
+			"config.prod.toml": config,
+		})
+		report := diagnoseFor(t, root, doctorOptions{Envs: []string{"dev", "prod"}})
+		if _, reported := findingsFor(report, "dev")[pwcheck.DynamicOIDCRedirect]; reported {
+			t.Fatal("a request-derived redirect must be accepted in dev")
+		}
+		finding, reported := findingsFor(report, "prod")[pwcheck.DynamicOIDCRedirect]
+		if !reported || finding.Severity != pwcheck.Error {
+			t.Fatalf("a request-derived redirect in prod = %#v, %v; want error", finding, reported)
+		}
+	}
+}
+
+func TestAbsoluteOIDCRedirectIsAcceptedForDeployment(t *testing.T) {
+	root := diagnosedProject(t, map[string]string{
+		"config.prod.toml": `[auth]
+enabled = true
+callback_path = "/auth/callback"
+[auth.oidc]
+issuer = "https://issuer.example.com"
+client_id = "fixture"
+client_secret = "fixture-secret"
+redirect_url = "https://app.example.com/auth/callback"
+`,
+	})
+	report := diagnoseFor(t, root, doctorOptions{Envs: []string{"prod"}})
+	if _, reported := findingsFor(report, "prod")[pwcheck.DynamicOIDCRedirect]; reported {
+		t.Fatal("an absolute deployed redirect must not be reported")
+	}
+}
+
 // An absent provider value is either platform injection or a real gap, and this
 // host cannot tell which, so it is a note naming what must be set.
 func TestUndeclaredProviderIsANoteNamingTheVariables(t *testing.T) {

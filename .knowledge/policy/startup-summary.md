@@ -8,12 +8,20 @@ Resolved configuration is reported once per process, in the shape its reader can
 ```yaml
 capture:
   when: api:runtime-configuration finishes loading data:loaded-configuration
-  content: environment, resolved config path, every key with value and winning place, start time
+  content: environment, resolved config path, every reported key with value and winning place, start time
   secrets: policy:log-emission redaction applies before the value is stored, and a DSN takes the rule:dsn-redaction form rather than the whole mask
+  already_dropped: a key whose variant was not selected never arrives, per decision:config-verbosity-tag-adoption value_conditions
+brevity:
+  requirement: requirement:startup-summary-brevity
+  rule: this is the short surface, so an entry rated as detail is skipped while nothing but the default layer set it
+  where: the capture, so tree and record skip the same entries and cannot disagree
+  rating_is_carried_not_applied: the loader marks the entry and this decides; api:cli-doctor decides the other way
+  state: implemented in bootEntries, which is the capture
 emission:
   once: the first of Run or Middlewares to complete initialization emits it
   run: emitted after the listener binds, so the reported address is the accepted one and not the configured one decision:development-port-shift may have moved off
   middlewares: emitted after initialization without a listening address
+  restarted: once per process is once per rebuild under api:cli-dev, so the loop captures the summary and replaces it per requirement:dev-reload-summary; nothing here knows that happened
 selection:
   key: observability.boot_log
   auto: tree when stderr is a character device, otherwise record

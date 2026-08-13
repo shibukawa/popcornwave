@@ -70,6 +70,7 @@
 {"category": "interface", "id": "api:transaction-runner", "path": ".knowledge/api/transaction-runner.md", "role": "primary", "title": "Transaction API", "type": "api"}
 {"category": "interface", "id": "api:typed-external-function", "path": ".knowledge/api/typed-external-function.md", "role": "primary", "title": "Typed External Function", "type": "api"}
 {"category": "interface", "id": "api:typed-stream", "path": ".knowledge/api/typed-stream.md", "role": "primary", "title": "Typed Stream API", "type": "api"}
+{"category": "interface", "id": "api:typed-websocket", "path": ".knowledge/api/typed-websocket.md", "role": "primary", "title": "Typed WebSocket API", "type": "api"}
 {"category": "interface", "id": "api:user-preference-accessors", "path": ".knowledge/api/user-preference-accessors.md", "role": "primary", "title": "User Preference Accessors", "type": "api"}
 {"category": "concept", "id": "concept:application-entry-point", "path": ".knowledge/concept/application-entry-point.md", "role": "supporting", "title": "Application Entry Point", "type": "concept"}
 {"category": "concept", "id": "concept:assurance-axes", "path": ".knowledge/concept/assurance-axes.md", "role": "supporting", "title": "Assurance Strength and Freshness", "type": "concept"}
@@ -157,6 +158,7 @@
 {"category": "constraint", "id": "decision:component-handler-namespace", "path": ".knowledge/decision/component-handler-namespace.md", "role": "supporting", "title": "Component Handler Namespace", "type": "decision"}
 {"category": "constraint", "id": "decision:component-parameter-disclosure", "path": ".knowledge/decision/component-parameter-disclosure.md", "role": "supporting", "title": "Component Parameter Disclosure", "type": "decision"}
 {"category": "constraint", "id": "decision:config-driven-database", "path": ".knowledge/decision/config-driven-database.md", "role": "supporting", "title": "Config-driven Database Lifecycle", "type": "decision"}
+{"category": "constraint", "id": "decision:config-verbosity-tag-adoption", "path": ".knowledge/decision/config-verbosity-tag-adoption.md", "role": "supporting", "title": "Config Verbosity Tag Adoption", "type": "decision"}
 {"category": "constraint", "id": "decision:contrib-delivery-order", "path": ".knowledge/decision/contrib-delivery-order.md", "role": "supporting", "title": "Contrib Delivery Order", "type": "decision"}
 {"category": "constraint", "id": "decision:cookie-session-storage", "path": ".knowledge/decision/cookie-session-storage.md", "role": "supporting", "title": "Cookie-Backed Session Storage", "type": "decision"}
 {"category": "constraint", "id": "decision:csrf-secret-as-a-session-slot", "path": ".knowledge/decision/csrf-secret-as-a-session-slot.md", "role": "supporting", "title": "The CSRF Secret Is a Session Slot", "type": "decision"}
@@ -204,6 +206,7 @@
 {"category": "constraint", "id": "decision:forwarded-header-trust", "path": ".knowledge/decision/forwarded-header-trust.md", "role": "supporting", "title": "A Forwarded Header Is Read Only Behind A Declared Proxy", "type": "decision"}
 {"category": "constraint", "id": "decision:fragment-head-rejection", "path": ".knowledge/decision/fragment-head-rejection.md", "role": "supporting", "title": "Fragment Head Rejection", "type": "decision"}
 {"category": "constraint", "id": "decision:framework-owned-session-extension", "path": ".knowledge/decision/framework-owned-session-extension.md", "role": "supporting", "title": "The Framework Installs the Session", "type": "decision"}
+{"category": "constraint", "id": "decision:generated-public-asset-version-control", "path": ".knowledge/decision/generated-public-asset-version-control.md", "role": "supporting", "title": "Generated Public Asset Version Control", "type": "decision"}
 {"category": "constraint", "id": "decision:goose-migration-engine", "path": ".knowledge/decision/goose-migration-engine.md", "role": "supporting", "title": "Statically Linked goose Engine", "type": "decision"}
 {"category": "constraint", "id": "decision:grouped-database-connections", "path": ".knowledge/decision/grouped-database-connections.md", "role": "supporting", "title": "Grouped Database Connections", "type": "decision"}
 {"category": "constraint", "id": "decision:homebrew-tap-channel", "path": ".knowledge/decision/homebrew-tap-channel.md", "role": "supporting", "title": "Homebrew Own-Tap Channel", "type": "decision"}
@@ -236,6 +239,7 @@
 {"category": "constraint", "id": "decision:propagation-header-access", "path": ".knowledge/decision/propagation-header-access.md", "role": "supporting", "title": "One Trace Context Validator, Two Header Types", "type": "decision"}
 {"category": "constraint", "id": "decision:report-endpoint-above-the-session", "path": ".knowledge/decision/report-endpoint-above-the-session.md", "role": "supporting", "title": "The Report Endpoint Is Answered Above The Session", "type": "decision"}
 {"category": "constraint", "id": "decision:response-content-codings", "path": ".knowledge/decision/response-content-codings.md", "role": "supporting", "title": "Response Content Codings", "type": "decision"}
+{"category": "constraint", "id": "decision:response-encoders-are-unconditional", "path": ".knowledge/decision/response-encoders-are-unconditional.md", "role": "supporting", "title": "Every Build Carries Both Response Encoders", "type": "decision"}
 {"category": "constraint", "id": "decision:root-pw-api", "path": ".knowledge/decision/root-pw-api.md", "role": "supporting", "title": "Root pw API", "type": "decision"}
 {"category": "constraint", "id": "decision:runtime-tag-injection", "path": ".knowledge/decision/runtime-tag-injection.md", "role": "supporting", "title": "Runtime Tag Injection", "type": "decision"}
 {"category": "constraint", "id": "decision:savepoint-nested-transaction", "path": ".knowledge/decision/savepoint-nested-transaction.md", "role": "supporting", "title": "Savepoint-Backed Nested Transaction", "type": "decision"}
@@ -264,7 +268,7 @@
 {"category": "constraint", "id": "decision:tinybind-sql-runtime", "path": ".knowledge/decision/tinybind-sql-runtime.md", "role": "supporting", "title": "TinyBind SQL Plan Runtime", "type": "decision"}
 {"category": "constraint", "id": "decision:tinybind-v03-adoption", "path": ".knowledge/decision/tinybind-v03-adoption.md", "role": "supporting", "title": "Adopting TinyBind v0.3", "type": "decision"}
 {"category": "constraint", "id": "decision:tinygo-042-baseline", "path": ".knowledge/decision/tinygo-042-baseline.md", "role": "supporting", "title": "TinyGo 0.42 Baseline", "type": "decision"}
-{"category": "constraint", "id": "decision:tinygo-fasthttp-needs-nozstd", "path": ".knowledge/decision/tinygo-fasthttp-needs-nozstd.md", "role": "supporting", "title": "TinyGo Builds fasthttp Only With fasthttp_nozstd", "type": "decision"}
+{"category": "constraint", "id": "decision:tinygo-fasthttp-needs-nozstd", "path": ".knowledge/decision/tinygo-fasthttp-needs-nozstd.md", "role": "supporting", "title": "TinyGo Builds fasthttp, And Briefly Needed fasthttp_nozstd", "type": "decision"}
 {"category": "constraint", "id": "decision:tinygo-storage-direction", "path": ".knowledge/decision/tinygo-storage-direction.md", "role": "supporting", "title": "TinyGo Storage Direction", "type": "decision"}
 {"category": "constraint", "id": "decision:transport-compatibility-fallback", "path": ".knowledge/decision/transport-compatibility-fallback.md", "role": "supporting", "title": "Superseded — There Is No Compatibility Fallback", "type": "decision"}
 {"category": "constraint", "id": "decision:transport-handle-containment", "path": ".knowledge/decision/transport-handle-containment.md", "role": "supporting", "title": "Transport Handles Stay Inside The Framework Surface", "type": "decision"}
@@ -275,6 +279,8 @@
 {"category": "constraint", "id": "decision:vscode-first-editor-target", "path": ".knowledge/decision/vscode-first-editor-target.md", "role": "supporting", "title": "VS Code as the First Editor Target", "type": "decision"}
 {"category": "constraint", "id": "decision:wasi-http-deferred", "path": ".knowledge/decision/wasi-http-deferred.md", "role": "supporting", "title": "Defer WASI HTTP Adapter", "type": "decision"}
 {"category": "constraint", "id": "decision:web-runtime-delivery-order", "path": ".knowledge/decision/web-runtime-delivery-order.md", "role": "supporting", "title": "Web Runtime Delivery Order", "type": "decision"}
+{"category": "constraint", "id": "decision:websocket-origin-check-owner", "path": ".knowledge/decision/websocket-origin-check-owner.md", "role": "supporting", "title": "This Framework Decides Which Origin May Open A Socket", "type": "decision"}
+{"category": "constraint", "id": "decision:websocket-upgrade-capable-server", "path": ".knowledge/decision/websocket-upgrade-capable-server.md", "role": "supporting", "title": "pw Serves Through The Upgrade-Capable Server Itself", "type": "decision"}
 {"category": "behavior", "id": "flow:bearer-request-authentication", "path": ".knowledge/flow/bearer-request-authentication.md", "role": "primary", "title": "Bearer Request Authentication Flow", "type": "flow"}
 {"category": "behavior", "id": "flow:capability-addition", "path": ".knowledge/flow/capability-addition.md", "role": "primary", "title": "Capability Addition Flow", "type": "flow"}
 {"category": "behavior", "id": "flow:cli-release", "path": ".knowledge/flow/cli-release.md", "role": "primary", "title": "CLI Release Flow", "type": "flow"}
@@ -315,6 +321,7 @@
 {"category": "constraint", "id": "policy:access-token-verification", "path": ".knowledge/policy/access-token-verification.md", "role": "supporting", "title": "Access Token Verification Policy", "type": "policy"}
 {"category": "constraint", "id": "policy:account-linking", "path": ".knowledge/policy/account-linking.md", "role": "supporting", "title": "Account Linking Policy", "type": "policy"}
 {"category": "constraint", "id": "policy:account-recovery", "path": ".knowledge/policy/account-recovery.md", "role": "supporting", "title": "Account Recovery Policy", "type": "policy"}
+{"category": "constraint", "id": "policy:asset-content-signature", "path": ".knowledge/policy/asset-content-signature.md", "role": "supporting", "title": "Asset Content Signature", "type": "policy"}
 {"category": "constraint", "id": "policy:asset-transform-matrix", "path": ".knowledge/policy/asset-transform-matrix.md", "role": "supporting", "title": "Asset Transform Matrix", "type": "policy"}
 {"category": "constraint", "id": "policy:async-render-bounds", "path": ".knowledge/policy/async-render-bounds.md", "role": "supporting", "title": "Async Render Bounds", "type": "policy"}
 {"category": "constraint", "id": "policy:authenticated-path-protection", "path": ".knowledge/policy/authenticated-path-protection.md", "role": "supporting", "title": "Authenticated Path Protection", "type": "policy"}
@@ -353,6 +360,7 @@
 {"category": "constraint", "id": "policy:public-asset-negotiation", "path": ".knowledge/policy/public-asset-negotiation.md", "role": "supporting", "title": "Public Asset Negotiation", "type": "policy"}
 {"category": "constraint", "id": "policy:public-asset-precompression", "path": ".knowledge/policy/public-asset-precompression.md", "role": "supporting", "title": "Public Asset Precompression", "type": "policy"}
 {"category": "constraint", "id": "policy:public-asset-resolution", "path": ".knowledge/policy/public-asset-resolution.md", "role": "supporting", "title": "Public Asset Resolution", "type": "policy"}
+{"category": "constraint", "id": "policy:public-asset-revision", "path": ".knowledge/policy/public-asset-revision.md", "role": "supporting", "title": "Public Asset Revision Segment", "type": "policy"}
 {"category": "constraint", "id": "policy:query-log-safety", "path": ".knowledge/policy/query-log-safety.md", "role": "supporting", "title": "Query Log Safety", "type": "policy"}
 {"category": "constraint", "id": "policy:reauthentication", "path": ".knowledge/policy/reauthentication.md", "role": "supporting", "title": "Reauthentication Policy", "type": "policy"}
 {"category": "constraint", "id": "policy:release-integrity", "path": ".knowledge/policy/release-integrity.md", "role": "supporting", "title": "Release Integrity", "type": "policy"}
@@ -364,6 +372,7 @@
 {"category": "constraint", "id": "policy:session-security", "path": ".knowledge/policy/session-security.md", "role": "supporting", "title": "Session Security Policy", "type": "policy"}
 {"category": "constraint", "id": "policy:shared-device-mode", "path": ".knowledge/policy/shared-device-mode.md", "role": "supporting", "title": "Shared Device Mode", "type": "policy"}
 {"category": "constraint", "id": "policy:startup-summary", "path": ".knowledge/policy/startup-summary.md", "role": "supporting", "title": "Startup Summary", "type": "policy"}
+{"category": "constraint", "id": "policy:svg-active-content", "path": ".knowledge/policy/svg-active-content.md", "role": "supporting", "title": "SVG Active Content", "type": "policy"}
 {"category": "constraint", "id": "policy:template-escaping", "path": ".knowledge/policy/template-escaping.md", "role": "supporting", "title": "Template Escaping Policy", "type": "policy"}
 {"category": "constraint", "id": "policy:token-revocation", "path": ".knowledge/policy/token-revocation.md", "role": "supporting", "title": "Bearer Token Revocation Policy", "type": "policy"}
 {"category": "constraint", "id": "policy:ui-state-placement", "path": ".knowledge/policy/ui-state-placement.md", "role": "supporting", "title": "UI State Placement", "type": "policy"}
@@ -377,6 +386,7 @@
 {"category": "objective", "id": "requirement:api-server-scaffold", "path": ".knowledge/requirement/api-server-scaffold.md", "role": "primary", "title": "API Server Preset Scaffold", "type": "requirement"}
 {"category": "objective", "id": "requirement:application-middleware-registration", "path": ".knowledge/requirement/application-middleware-registration.md", "role": "primary", "title": "Numbered Middleware Chain Registration", "type": "requirement"}
 {"category": "objective", "id": "requirement:application-user-experience", "path": ".knowledge/requirement/application-user-experience.md", "role": "primary", "title": "Popcorn Wave Application User Experience", "type": "requirement"}
+{"category": "objective", "id": "requirement:asset-content-verification", "path": ".knowledge/requirement/asset-content-verification.md", "role": "primary", "title": "Asset Content Verification", "type": "requirement"}
 {"category": "objective", "id": "requirement:async-html-rendering", "path": ".knowledge/requirement/async-html-rendering.md", "role": "primary", "title": "Async HTML Rendering", "type": "requirement"}
 {"category": "objective", "id": "requirement:auth-security-remediation", "path": ".knowledge/requirement/auth-security-remediation.md", "role": "primary", "title": "Authentication Security Remediation", "type": "requirement"}
 {"category": "objective", "id": "requirement:bot-synchronous-render", "path": ".knowledge/requirement/bot-synchronous-render.md", "role": "primary", "title": "Bot Synchronous Render", "type": "requirement"}
@@ -417,7 +427,7 @@
 {"category": "objective", "id": "requirement:contrib-postgresql", "path": ".knowledge/requirement/contrib-postgresql.md", "role": "primary", "title": "PostgreSQL Driver Consumption", "type": "requirement"}
 {"category": "objective", "id": "requirement:contrib-redis-valkey", "path": ".knowledge/requirement/contrib-redis-valkey.md", "role": "primary", "title": "TinyGo Redis and Valkey Compatibility", "type": "requirement"}
 {"category": "objective", "id": "requirement:contrib-sqlite", "path": ".knowledge/requirement/contrib-sqlite.md", "role": "primary", "title": "Portable SQLite Facade", "type": "requirement"}
-{"category": "objective", "id": "requirement:contrib-websocket", "path": ".knowledge/requirement/contrib-websocket.md", "role": "primary", "title": "WebSocket Upgrade Seam", "type": "requirement"}
+{"category": "objective", "id": "requirement:contrib-websocket", "path": ".knowledge/requirement/contrib-websocket.md", "role": "primary", "title": "WebSocket In contrib, Withdrawn", "type": "requirement"}
 {"category": "objective", "id": "requirement:contrib-zstd", "path": ".knowledge/requirement/contrib-zstd.md", "role": "primary", "title": "Zstandard Response Encoder", "type": "requirement"}
 {"category": "objective", "id": "requirement:cross-package-components", "path": ".knowledge/requirement/cross-package-components.md", "role": "primary", "title": "A Component Must Be Callable From Another Module", "type": "requirement"}
 {"category": "objective", "id": "requirement:csrf-token-lifecycle", "path": ".knowledge/requirement/csrf-token-lifecycle.md", "role": "primary", "title": "CSRF Token Lifecycle And Delivery", "type": "requirement"}
@@ -434,6 +444,7 @@
 {"category": "objective", "id": "requirement:dev-data-pane", "path": ".knowledge/requirement/dev-data-pane.md", "role": "primary", "title": "Development Data Pane", "type": "requirement"}
 {"category": "objective", "id": "requirement:dev-error-overlay", "path": ".knowledge/requirement/dev-error-overlay.md", "role": "primary", "title": "Development Error Overlay", "type": "requirement"}
 {"category": "objective", "id": "requirement:dev-query-runner", "path": ".knowledge/requirement/dev-query-runner.md", "role": "primary", "title": "Development Query Runner", "type": "requirement"}
+{"category": "objective", "id": "requirement:dev-reload-summary", "path": ".knowledge/requirement/dev-reload-summary.md", "role": "primary", "title": "Development Reload Summary", "type": "requirement"}
 {"category": "objective", "id": "requirement:dev-request-timing-surface", "path": ".knowledge/requirement/dev-request-timing-surface.md", "role": "primary", "title": "Per-Request Timing In The Browser", "type": "requirement"}
 {"category": "objective", "id": "requirement:dev-telemetry-viewer", "path": ".knowledge/requirement/dev-telemetry-viewer.md", "role": "primary", "title": "Development Telemetry Viewer", "type": "requirement"}
 {"category": "objective", "id": "requirement:discovered-page-routing", "path": ".knowledge/requirement/discovered-page-routing.md", "role": "primary", "title": "Discovered Page Routing", "type": "requirement"}
@@ -458,6 +469,7 @@
 {"category": "objective", "id": "requirement:environment-switching", "path": ".knowledge/requirement/environment-switching.md", "role": "primary", "title": "Environment Switching", "type": "requirement"}
 {"category": "objective", "id": "requirement:extension-distribution", "path": ".knowledge/requirement/extension-distribution.md", "role": "primary", "title": "Extension Distribution", "type": "requirement"}
 {"category": "objective", "id": "requirement:external-boundary-runtime", "path": ".knowledge/requirement/external-boundary-runtime.md", "role": "primary", "title": "External Boundary Runtime Script", "type": "requirement"}
+{"category": "objective", "id": "requirement:external-public-assets", "path": ".knowledge/requirement/external-public-assets.md", "role": "primary", "title": "External Public Assets", "type": "requirement"}
 {"category": "objective", "id": "requirement:firestore-auth-backend", "path": ".knowledge/requirement/firestore-auth-backend.md", "role": "primary", "title": "Firestore Authentication Backend", "type": "requirement"}
 {"category": "objective", "id": "requirement:firestore-auth-stores", "path": ".knowledge/requirement/firestore-auth-stores.md", "role": "primary", "title": "Firestore Account-Side Authentication Stores", "type": "requirement"}
 {"category": "objective", "id": "requirement:firestore-generation", "path": ".knowledge/requirement/firestore-generation.md", "role": "primary", "title": "Firestore Code Generation", "type": "requirement"}
@@ -517,6 +529,7 @@
 {"category": "objective", "id": "requirement:session-assurance-levels", "path": ".knowledge/requirement/session-assurance-levels.md", "role": "primary", "title": "Graded Session Assurance", "type": "requirement"}
 {"category": "objective", "id": "requirement:shared-web-runtime", "path": ".knowledge/requirement/shared-web-runtime.md", "role": "primary", "title": "Shared Web Runtime", "type": "requirement"}
 {"category": "objective", "id": "requirement:signal-forwarding-seam", "path": ".knowledge/requirement/signal-forwarding-seam.md", "role": "primary", "title": "Signal Forwarding Seam", "type": "requirement"}
+{"category": "objective", "id": "requirement:startup-summary-brevity", "path": ".knowledge/requirement/startup-summary-brevity.md", "role": "primary", "title": "Startup Summary Brevity", "type": "requirement"}
 {"category": "objective", "id": "requirement:state-storage-tiers", "path": ".knowledge/requirement/state-storage-tiers.md", "role": "primary", "title": "Browser State Storage Tiers", "type": "requirement"}
 {"category": "objective", "id": "requirement:tailwind-css-integration", "path": ".knowledge/requirement/tailwind-css-integration.md", "role": "primary", "title": "Tailwind CSS Integration", "type": "requirement"}
 {"category": "objective", "id": "requirement:tailwind-plugin-integration", "path": ".knowledge/requirement/tailwind-plugin-integration.md", "role": "primary", "title": "Tailwind Plugin Integration", "type": "requirement"}
@@ -534,6 +547,7 @@
 {"category": "objective", "id": "requirement:tutorial-continuity", "path": ".knowledge/requirement/tutorial-continuity.md", "role": "primary", "title": "Tutorial Continuity", "type": "requirement"}
 {"category": "objective", "id": "requirement:tutorial-page-tree-chapter", "path": ".knowledge/requirement/tutorial-page-tree-chapter.md", "role": "primary", "title": "Tutorial Page Tree Chapter", "type": "requirement"}
 {"category": "objective", "id": "requirement:typed-http-contract", "path": ".knowledge/requirement/typed-http-contract.md", "role": "primary", "title": "Typed HTTP Contract", "type": "requirement"}
+{"category": "objective", "id": "requirement:typed-websocket", "path": ".knowledge/requirement/typed-websocket.md", "role": "primary", "title": "Typed WebSocket On Both Builds", "type": "requirement"}
 {"category": "objective", "id": "requirement:unhandled-boundary-signal", "path": ".knowledge/requirement/unhandled-boundary-signal.md", "role": "primary", "title": "Unhandled Boundary Signal", "type": "requirement"}
 {"category": "objective", "id": "requirement:unified-update-runtime", "path": ".knowledge/requirement/unified-update-runtime.md", "role": "primary", "title": "Unified Update Runtime", "type": "requirement"}
 {"category": "objective", "id": "requirement:update-navigation-continuity", "path": ".knowledge/requirement/update-navigation-continuity.md", "role": "primary", "title": "Update Navigation Continuity", "type": "requirement"}
@@ -573,6 +587,7 @@
 {"category": "external", "id": "system:localotelviewer", "path": ".knowledge/system/localotelviewer.md", "role": "supporting", "title": "LocalOtelViewer", "type": "system"}
 {"category": "external", "id": "system:oidcld", "path": ".knowledge/system/oidcld.md", "role": "supporting", "title": "OIDCLD", "type": "system"}
 {"category": "external", "id": "system:pw-cli", "path": ".knowledge/system/pw-cli.md", "role": "supporting", "title": "pw CLI", "type": "system"}
+{"category": "external", "id": "system:tinybind-websocket", "path": ".knowledge/system/tinybind-websocket.md", "role": "supporting", "title": "TinyBind Typed WebSocket", "type": "system"}
 {"category": "external", "id": "system:tinybind", "path": ".knowledge/system/tinybind.md", "role": "supporting", "title": "TinyBind", "type": "system"}
 {"category": "external", "id": "system:tinygodriver-dynamodb", "path": ".knowledge/system/tinygodriver-dynamodb.md", "role": "supporting", "title": "tinygodriver DynamoDB Client", "type": "system"}
 {"category": "external", "id": "system:tinygodriver-firestore", "path": ".knowledge/system/tinygodriver-firestore.md", "role": "supporting", "title": "tinygodriver Firestore Datastore Client", "type": "system"}

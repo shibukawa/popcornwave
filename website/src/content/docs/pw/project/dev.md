@@ -24,7 +24,11 @@ defines the loop.
 8. builds and runs `project.main`.
 
 After startup, it polls watched files twice a second. A change repeats only the
-steps affected by that file rather than rebuilding the entire environment.
+steps affected by that file rather than rebuilding the entire environment. The
+restarted application does not reprint its
+[configuration summary](/productivity/startup-summary/#restarts-under-pw-dev):
+a restart that resolved to the same configuration prints `reloaded`, and one
+that did not prints the rows that moved.
 
 ## What it watches
 

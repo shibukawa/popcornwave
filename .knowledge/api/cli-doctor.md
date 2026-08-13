@@ -38,7 +38,16 @@ sections:
   middleware: the effective chain in order, per data:middleware-runtime-config
   database: the data:database-connection-set connections, their drivers, and the pointers that select them
   registrations: the plugins and database/sql drivers the import graph links
-  configuration: the merged view of defaults, this host's environment, and the selected TOML file
+  configuration:
+    content: the merged view of defaults, this host's environment, and the selected TOML file
+    completeness: >
+      this is the complete surface of requirement:startup-summary-brevity, so an
+      entry rated as detail is rendered rather than skipped; policy:startup-summary
+      is the short one and skips exactly those
+    still_absent: a key whose variant was not selected, which no surface shows, per decision:config-verbosity-tag-adoption
+    why_not_shorter: >
+      a diagnosis is read to find the value a reader could not otherwise see, which
+      is the opposite of what a boot summary is read for
   findings: most severe first, each carrying its data:diagnostic-check identifier and documentation link
   limits: every value, registration, and check this run could not determine or run
   pending:

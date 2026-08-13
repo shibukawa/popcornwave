@@ -56,7 +56,11 @@ type SessionConfig struct {
 	// development intent modes are built in. It names which server backend a
 	// server-placed slot uses, never whether a slot is server-placed, which
 	// RegisterSessionStore states instead.
-	Backend string `default:"rdb" dependon:".enabled" help:"session storage backend: rdb, cookie, dev-volatile, dev-persist, redis, dynamo, or firestore"`
+	// The enum is what makes the per-backend sections below checkable: each of
+	// them names a value of this key, and a mistyped one would hide that
+	// section from the startup summary silently and forever. Generation rejects
+	// a condition naming a value that is not listed here.
+	Backend string `default:"rdb" enum:"rdb,cookie,dev-volatile,dev-persist,redis,dynamo,firestore" dependon:".enabled" help:"session storage backend: rdb, cookie, dev-volatile, dev-persist, redis, dynamo, or firestore"`
 	// Retention bounds how long the store may hold one record.
 	//
 	// It is not the session lifetime, which [auth] declares: an expiry states
@@ -67,14 +71,24 @@ type SessionConfig struct {
 	// A server backend needs it whatever authentication says. A record with no
 	// deadline is one the expiry sweep has no cutoff for, and the sweep is what
 	// keeps a table bounded when sessions are abandoned rather than ended.
-	Retention   time.Duration            `default:"720h" dependon:".enabled" help:"how long the store may hold one record; the session lifetime under [auth] narrows it"`
+	Retention time.Duration `default:"720h" dependon:".enabled" help:"how long the store may hold one record; the session lifetime under [auth] narrows it"`
+	// Each store section below names the backend it belongs to, so a summary
+	// reports the one in force rather than all seven. The enabled switch is not
+	// repeated: Backend answers to it, and a condition on Backend inherits that
+	// gate transitively.
+	//
+	// Cookie is the token cookie every backend travels under, and Keyring signs
+	// and seals whatever the browser carries, which is every backend that keeps
+	// state on the server. Keyring states that as a not-equal so it does not
+	// have to be revisited each time a backend ships; an equal list would hide a
+	// secret that is in force the first time one was forgotten.
 	Cookie      SessionCookieConfig      `dependon:".enabled"`
-	RDB         SessionRDBConfig         `dependon:".enabled"`
-	Redis       SessionRedisConfig       `dependon:".enabled"`
-	CookieStore SessionCookieStoreConfig `dependon:".enabled"`
-	Keyring     SessionKeyringConfig     `dependon:".enabled"`
-	Dynamo      SessionDynamoConfig      `dependon:".enabled"`
-	Firestore   SessionFirestoreConfig   `dependon:".enabled"`
+	RDB         SessionRDBConfig         `dependon:".backend=rdb"`
+	Redis       SessionRedisConfig       `dependon:".backend=redis" summary:"omit"`
+	CookieStore SessionCookieStoreConfig `dependon:".backend=cookie"`
+	Keyring     SessionKeyringConfig     `dependon:".backend!=cookie"`
+	Dynamo      SessionDynamoConfig      `dependon:".backend=dynamo"`
+	Firestore   SessionFirestoreConfig   `dependon:".backend=firestore"`
 }
 
 // SessionFirestoreConfig configures the Firestore session store. It carries no

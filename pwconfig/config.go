@@ -35,14 +35,19 @@ import (
 )
 
 // ServerConfig controls the primary HTTP listener and operational endpoints.
+//
+// The five timeouts and the body cap are rated as detail: each bounds how the
+// listener behaves rather than what it serves, and a deployment that has not
+// touched one has nothing to say about it. The port is not rated, because it is
+// the first thing a reader looks for, and neither are the endpoint paths below.
 type ServerConfig struct {
 	Port              int           `opt:"port" env:"PORT" default:"8080" help:"HTTP listen port"`
-	ReadHeaderTimeout time.Duration `default:"5s" help:"request header read timeout"`
-	ReadTimeout       time.Duration `default:"30s" help:"request read timeout"`
-	WriteTimeout      time.Duration `default:"0s" help:"response write timeout; zero permits long-lived streams"`
-	IdleTimeout       time.Duration `default:"2m" help:"keep-alive idle timeout"`
-	ShutdownTimeout   time.Duration `default:"10s" help:"graceful shutdown timeout"`
-	MaxRequestBody    int64         `default:"10485760" help:"maximum request body in bytes"`
+	ReadHeaderTimeout time.Duration `default:"5s" summary:"omit" help:"request header read timeout"`
+	ReadTimeout       time.Duration `default:"30s" summary:"omit" help:"request read timeout"`
+	WriteTimeout      time.Duration `default:"0s" summary:"omit" help:"response write timeout; zero permits long-lived streams"`
+	IdleTimeout       time.Duration `default:"2m" summary:"omit" help:"keep-alive idle timeout"`
+	ShutdownTimeout   time.Duration `default:"10s" summary:"omit" help:"graceful shutdown timeout"`
+	MaxRequestBody    int64         `default:"10485760" summary:"omit" help:"maximum request body in bytes"`
 	TrustedProxies    []string      `help:"trusted proxy IP or CIDR"`
 	// Health, Readiness, and OpenAPI are the paths their endpoints serve, and
 	// an unset path serves nothing. They carry no default so that the operator
@@ -66,10 +71,10 @@ type HTMLConfig struct {
 	Streaming bool `default:"true" help:"Streaming false forces the buffered branch even when a chain can open a boundary, which is the escape hatch for a proxy that buffers responses"`
 	// AsyncTimeout bounds one await boundary. Zero leaves the request context as
 	// the only deadline.
-	AsyncTimeout time.Duration `default:"3s" help:"AsyncTimeout bounds one await boundary. Zero leaves the request context as the only deadline"`
+	AsyncTimeout time.Duration `default:"3s" summary:"omit" help:"AsyncTimeout bounds one await boundary. Zero leaves the request context as the only deadline"`
 	// AsyncConcurrency bounds simultaneously running boundary work across one
 	// render. Zero or less is unbounded.
-	AsyncConcurrency int `default:"0" help:"AsyncConcurrency bounds simultaneously running boundary work across one render. Zero or less is unbounded"`
+	AsyncConcurrency int `default:"0" summary:"omit" help:"AsyncConcurrency bounds simultaneously running boundary work across one render. Zero or less is unbounded"`
 	// BotDetection forces the buffered branch for a client that will not run
 	// the boundary runtime, so a crawler indexes the page instead of the
 	// fallbacks. False skips classification entirely.
@@ -78,7 +83,7 @@ type HTMLConfig struct {
 	// which waits for every boundary before any byte leaves. Zero falls back to
 	// AsyncTimeout rather than meaning unbounded, so a misread key cannot hold a
 	// crawler connection open for the whole request deadline.
-	BotAsyncTimeout time.Duration `default:"5s" dependon:".bot_detection" help:"await boundary bound for a classified bot request"`
+	BotAsyncTimeout time.Duration `default:"5s" dependon:".bot_detection" summary:"omit" help:"await boundary bound for a classified bot request"`
 	// BotUserAgents extends the built-in catalog. Entries are appended and
 	// matched case-insensitively; they never replace a built-in token.
 	BotUserAgents []string `dependon:".bot_detection" help:"additional bot User-Agent substrings"`
@@ -101,22 +106,22 @@ type HTMLConfig struct {
 	// reconnect. A bounded lifetime is what buys back authorization re-checks,
 	// deploy rollover, and load rebalancing; the price is one page execution per
 	// rollover. Zero leaves the request context as the only bound.
-	LiveMaxDuration time.Duration `default:"10m0s" dependon:".live" help:"maximum lifetime of one live response before it closes and the client reconnects"`
+	LiveMaxDuration time.Duration `default:"10m0s" dependon:".live" summary:"omit" help:"maximum lifetime of one live response before it closes and the client reconnects"`
 	// LiveDurationJitter spreads that lifetime, as a percentage of it. Without
 	// it one restart synchronizes every client and the herd repeats forever,
 	// which no client-side backoff can undo because the server chose the moment.
-	LiveDurationJitter int `default:"20" dependon:".live" help:"percentage the live response lifetime is spread by, so clients do not reconnect in lockstep"`
+	LiveDurationJitter int `default:"20" dependon:".live" summary:"omit" help:"percentage the live response lifetime is spread by, so clients do not reconnect in lockstep"`
 	// LiveIdleTimeout closes a live response no source has delivered on. Zero
 	// disables the bound, which is right only where a quiet source is expected
 	// to stay quiet for hours.
-	LiveIdleTimeout time.Duration `default:"5m0s" dependon:".live" help:"close a live response after this long with no delivery"`
+	LiveIdleTimeout time.Duration `default:"5m0s" dependon:".live" summary:"omit" help:"close a live response after this long with no delivery"`
 	// LiveMaxBoundaries bounds how many distinct boundaries one live response
 	// may serve. Reaching it closes the response rather than dropping deliveries
 	// silently. Zero or less is unbounded.
-	LiveMaxBoundaries int `default:"32" dependon:".live" help:"maximum boundaries one live response may serve"`
+	LiveMaxBoundaries int `default:"32" dependon:".live" summary:"omit" help:"maximum boundaries one live response may serve"`
 	// LiveMaxResponses bounds concurrent live responses per client, so reopening
 	// cannot multiply subscriptions. Zero or less is unbounded.
-	LiveMaxResponses int `default:"4" dependon:".live" help:"maximum concurrent live responses per client"`
+	LiveMaxResponses int `default:"4" dependon:".live" summary:"omit" help:"maximum concurrent live responses per client"`
 	// LiveMaxSignalBytes bounds the signal payloads one live response may write.
 	//
 	// A signal is the one thing on this wire whose size an application chooses
@@ -129,9 +134,11 @@ type HTMLConfig struct {
 	// because a screen missing an instruction it was sent is worse than one that
 	// reconnects: the reconnect re-executes the page and the source produces the
 	// current state again. Zero or less is unbounded.
-	LiveMaxSignalBytes int `default:"262144" dependon:".live" help:"maximum total signal payload bytes one live response may write"`
-	// Cache supplies the store behind the template's cache annotation.
-	Cache HTMLCacheConfig `help:"Cache supplies the store behind the template's cache annotation"`
+	LiveMaxSignalBytes int `default:"262144" dependon:".live" summary:"omit" help:"maximum total signal payload bytes one live response may write"`
+	// Cache supplies the store behind the template's cache annotation. Rated as
+	// detail: it bounds what the process holds, and the annotation rather than
+	// this is what makes caching happen.
+	Cache HTMLCacheConfig `summary:"omit" help:"Cache supplies the store behind the template's cache annotation"`
 }
 
 // defaultHTMLConfig seeds the effective configuration for a runtime that never
@@ -259,7 +266,7 @@ type ObservabilityConfig struct {
 	// MinimumLevel is the severity floor. Records below it cost one comparison.
 	MinimumLevel string `default:"info" help:"severity floor: trace, debug, info, warn, error, or off"`
 	// StdoutFormat selects the terminal encoding.
-	StdoutFormat string `default:"json" help:"terminal record encoding: json or plaintext"`
+	StdoutFormat string `default:"json" enum:"json,plaintext" help:"terminal record encoding: json or plaintext"`
 	ServiceName  string `env:"OTEL_SERVICE_NAME"`
 	// ResourceAttributes are extra key=value identifiers reported to the
 	// collector alongside the service name.
@@ -267,9 +274,14 @@ type ObservabilityConfig struct {
 	// BootLog selects the startup summary format: auto, tree, record, or off.
 	BootLog string `default:"auto" help:"startup summary: auto, tree, record, or off"`
 	// Query configures the development query diagnostics.
-	Query QueryLogConfig `help:"Query configures the development query diagnostics"`
-	// Trace configures the spans the framework creates inside a request.
-	Trace TraceConfig `help:"Trace configures the spans the framework creates inside a request"`
+	//
+	// Rated as detail: every key under it tunes how much a diagnostic record
+	// says, which is a question an operator asks of the diagnostics rather than
+	// of the deployment. Set any one of them and it comes back.
+	Query QueryLogConfig `summary:"omit" help:"Query configures the development query diagnostics"`
+	// Trace configures the spans the framework creates inside a request. Rated
+	// as detail for the same reason Query is.
+	Trace TraceConfig `summary:"omit" help:"Trace configures the spans the framework creates inside a request"`
 	// Otel configures OpenTelemetry export.
 	Otel OtelExportConfig `help:"Otel configures OpenTelemetry trace and log export"`
 }
@@ -387,7 +399,7 @@ type MiddlewareConfig struct {
 	// they answer to a measured throughput cliff that does not move between
 	// deployments.
 	CompressionCodings []string      `default:"zstd,gzip" dependon:".compression" help:"content codings for dynamic responses, best first"`
-	RequestTimeout     time.Duration `default:"0s"`
+	RequestTimeout     time.Duration `default:"0s" summary:"omit"`
 	RDB                RDBConfig
 }
 

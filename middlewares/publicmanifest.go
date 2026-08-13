@@ -30,6 +30,13 @@ type AssetRepresentation struct {
 	// which encoding is worth serving is a judgment about the bytes and the
 	// client only states what it can read. Lower sorts first.
 	Preference int
+	// External marks bytes that ship as their own file rather than inside the
+	// binary, so Path is read from the external root at request time.
+	//
+	// Length and ETag are empty for one of these, and deliberately so: the tree
+	// is deployed as its own artifact, so a validator the build computed could
+	// outlive the bytes it describes. The file answers for itself instead.
+	External bool
 }
 
 // AssetEntry is everything the middleware answers with for one URL. A build
@@ -42,6 +49,13 @@ type AssetEntry struct {
 	// rather than immutable, so the default revalidates and the ETag does the
 	// work.
 	CacheControl string
+	// Revision is the digest of this URL's own representations, which is the
+	// segment PublicAssetURL puts in front of the name to make it immutable.
+	//
+	// It is empty for a URL that needs none or may not have one: a name the
+	// build invented already carries its digest, and an external file ships as
+	// its own artifact with no validator the build may claim.
+	Revision string
 	// Representations is ordered by Preference, then by content coding.
 	Representations []AssetRepresentation
 }
@@ -65,6 +79,14 @@ var publicManifestState = struct {
 // embedded tree would answer with validators for bytes nobody holds.
 func RegisterPublicManifest(entries []AssetEntry) {
 	if len(entries) == 0 {
+		// A build with nothing to declare registers nothing, rather than an
+		// empty table that would answer 404 for every URL the tree holds. The
+		// clear rather than an early return is what lets a caller that
+		// installed a manifest put the process back, which only a test does:
+		// an application registers one table, once, from a generated init.
+		publicManifestState.Lock()
+		defer publicManifestState.Unlock()
+		publicManifestState.entries = nil
 		return
 	}
 	indexed := make(map[string]AssetEntry, len(entries))

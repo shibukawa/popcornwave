@@ -109,12 +109,21 @@ export component Greeting(name: string): html {
 // here rather than added and commented, because a commented-out ignore rule is
 // a thing somebody restores.
 func packageGitignore() string {
-	return ".devbox/\ndevbox.d/\n" +
+	return ".devbox/\n" +
+		// No devbox.d line, for the reason the application scaffold states: a
+		// devbox service configuration is written once and never rewritten, so
+		// excluding it ships a lockfile whose services nobody else can start.
+		//
 		// No binary line: this module builds none.
 		//
 		// No *_pw_gen.go line either, per decision:committed-package-artifacts.
 		// The generated Go is committed, and the .vscode hide rule beside this
 		// file is what keeps it out of the way while staying in the commit.
+		//
+		// No public/generated line, for the same reason and by the same decision:
+		// a component's extracted style and script are what a consumer links, and
+		// its build regenerates them no more than it regenerates the Go. The
+		// application scaffold carries that line; this one must not gain it.
 		"dist/cache/\ndist/derived/\ndist/manifest.json\n*.db\n"
 }
 

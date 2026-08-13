@@ -46,7 +46,9 @@ callback_shape:
 what_it_covers:
   in: server-sent events, newline-delimited records, progressive chunked output, long polling, and anything else that keeps HTTP framing
   out: a protocol that stops speaking HTTP after an upgrade handshake, WebSocket being that case
-  where_that_goes: an upgrader taking the request, not a body writer and not a raw connection, placed in requirement:contrib-websocket
+  where_that_goes: api:typed-websocket, an upgrade entry taking the request rather than a body writer or a raw connection
+  same_callback_argument: that entry takes a callback for the reason this one does, so the two read alike and a reader learns one shape
+  choosing_between_them: the stream unless the client has to talk after the request, which is the one thing it cannot do
 why_the_shape_had_to_change:
   before: an adapter was proposed for what the transform could not take, and it could never have preserved streaming, since a buffering adapter collects the response before writing it
   after: decision:transport-compatibility-fallback records that no adapter was built, so a stream is either written in a rewritable shape or it is a refusal

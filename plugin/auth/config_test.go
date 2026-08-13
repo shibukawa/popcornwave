@@ -51,6 +51,33 @@ func TestEveryModeAcceptsItsOwnValidConfiguration(t *testing.T) {
 	}
 }
 
+func TestOIDCRedirectMayFollowTheLoopbackRequest(t *testing.T) {
+	for _, redirect := range []string{"", "/auth/callback"} {
+		config := baseConfig(ModeOIDCOnly)
+		config.OIDC.RedirectURL = redirect
+		config.OIDC.AllowLoopbackHTTP = true
+		if err := config.validateShape(); err != nil {
+			t.Fatalf("redirect %q: %v", redirect, err)
+		}
+	}
+}
+
+func TestRequestRelativeOIDCRedirectRequiresExplicitLoopbackMode(t *testing.T) {
+	config := baseConfig(ModeOIDCOnly)
+	config.OIDC.RedirectURL = ""
+	assertInvalid(t, config, "allow_loopback_http")
+
+	config.OIDC.RedirectURL = "/auth/callback"
+	assertInvalid(t, config, "allow_loopback_http")
+}
+
+func TestPathOnlyOIDCRedirectMustMatchMountedCallback(t *testing.T) {
+	config := baseConfig(ModeOIDCOnly)
+	config.OIDC.RedirectURL = "/another/callback"
+	config.OIDC.AllowLoopbackHTTP = true
+	assertInvalid(t, config, "must match auth.callback_path")
+}
+
 // A mode reads only its own settings, so a setting it cannot honor is an error
 // rather than a value that is silently ignored.
 func TestModeRefusesSettingsItCannotHonor(t *testing.T) {

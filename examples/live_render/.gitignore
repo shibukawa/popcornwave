@@ -1,7 +1,12 @@
 .devbox/
-devbox.d/
 /live_render
 *_pw_gen.go
+# pw generate rebuilds everything here: the Tailwind output and the
+# content-hashed component assets the generator extracts. A committed copy
+# drifts from the sources it was scanned from, and an extracted name carries
+# a content hash, so a change orphans the previous file rather than replacing
+# it. A package inverts this; see decision:generated-public-asset-version-control.
+public/generated/
 public/**/*.zstd
 # pw prepare and pw build write the derived asset tree here. The directory
 # itself is kept, because public.go embeds it and an embed of a missing

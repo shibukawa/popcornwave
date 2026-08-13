@@ -39,6 +39,12 @@ class_a_reachable_under_another_name:
     pw.StartSpan: contrib/otel/trace.Start
     pw.StartSpanKind: contrib/otel/trace.Start with WithSpanKind
     pw.NewSignal: pwruntime.NewSignal, fixed 2026-08-11
+  found_after_the_measurement:
+    pw_log_attributes:
+      names: Err, String, Int, Int64, Float64, Bool, Duration, WithLogAttributes, and the Level constants
+      state: fixed 2026-08-11 in pwfast/log.go
+      why_the_surface_diff_missed_it: pwfast.Logger existed, so the logging surface looked present; the diff compares names one at a time and nothing asked whether the ones that crossed were usable without the ones that did not
+      lesson_for_the_method: a partially crossed surface passes a name-by-name diff and fails to compile, which is the failure this requirement exists to find
   open_question: whether a leaf spelling is enough or the pw names should also resolve, since an application reads pw docs and finds no note that the name it copied is net/http-only
 class_b_no_implementation_anywhere:
   openapi_document_and_ui:
@@ -59,9 +65,10 @@ class_c_packages_that_block_whole_examples:
     partial: fasttestutil exists but holds only exchange.go
 class_d_absent_by_deferral:
   websocket:
-    state: no seam on either backend yet, deferred to its own session by the author 2026-08-11
-    requirement: requirement:contrib-websocket
-    library_exists: tinygodriver/fasthttpwebsocket, whose server half needed no patches
+    state: done 2026-08-11; examples/websocket_chat declares fasthttp = true, compiles under both tags, and names no pw in the tagged dependency graph
+    requirement: requirement:typed-websocket, which replaced requirement:contrib-websocket once the capability turned out to be upstream already
+    library_exists: system:tinybind-websocket publishes an entry on both transports, so the gap is this framework's surface rather than a dependency
+    parity_is_the_forcing_reason: the entry has to be spelled pw.WebSocket and pwfast.WebSocket for the same rewrite this requirement measures
 class_e_toolchain: decision:tinygo-fasthttp-needs-nozstd
 acceptance:
   - an example declaring fasthttp = true exists for every capability listed above

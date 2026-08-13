@@ -214,6 +214,35 @@ enabled = true
 なりません——変換は見送られ、authored な画像がそのまま出荷され、`pw doctor` がそれを報告
 します。変換されていない画像は、壊れたページではなく重いページだからです。
 
+## `[assets.verify]`
+
+```toml
+[assets.verify]
+enabled = true
+svg_scan = true
+allow = ["vendor/**"]
+```
+
+どちらの検査も、ビルドがダイジェストを取るために既に手元に持っているバイトを読むだけです。
+だから上の変換群とは違い、既定で**有効**です。
+
+| キー | 既定値 | 意味 |
+| --- | --- | --- |
+| `assets.verify.enabled` | `true` | authored な public ファイルのうち、中身が拡張子と食い違うものを拒否する |
+| `assets.verify.svg_scan` | `true` | authored な `.svg` のうち、`<script` / `on…=` ハンドラ / `javascript:` を含むものを拒否する |
+| `assets.verify.allow` | `[]` | 両方の検査を免除するパス。`public/` からの相対で、末尾 `/**` はサブツリー全体を指す |
+
+拒否は `pw build` を失敗させ、ファイル名と、拡張子が主張していた型と、実際のバイトが何である
+かを挙げます。免除されたパスはその代わりにビルドが出力します。一つの困ったファイルのために
+足した行が消されないまま残る、という形で検査が黙り込まないようにするためです。
+
+[`pw doctor`](/ja/pw/project/doctor/) は同じ二つの条件をビルド無しで報告します。
+[PW0130](/ja/appendix/diagnostics/#pw0130-a-public-files-content-does-not-match-its-extension)
+と
+[PW0131](/ja/appendix/diagnostics/#pw0131-a-public-svg-carries-executable-content)
+です。それぞれの検査に何が判定できて、SVG 側がなぜ意図的に不完全なのかは
+[静的アセット](/ja/guides/frontend/static-assets/)にあります。
+
 ## `[[packages]]` — アプリケーション側
 
 ```toml

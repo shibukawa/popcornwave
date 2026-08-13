@@ -1,6 +1,7 @@
 package middlewares
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
@@ -14,6 +15,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/shibukawa/popcornwave/internal/assetverify"
 	"github.com/shibukawa/popcornwave/pwruntime"
 	"sync"
 )
@@ -97,7 +99,21 @@ func PublicAssets(config PublicAssetConfig, embedded fs.FS) (Middleware, error) 
 			// representation, and every validator, so the request path reads
 			// bytes and nothing else.
 			if !publicDevelopment && manifestRegistered() {
-				servePublicManifest(w, r, name, embedded)
+				servePublicManifest(w, r, name, embedded, config.SVGSandbox)
+				return
+			}
+			// No manifest to ask, so the trees are consulted directly. The
+			// external one goes first because it wins the URL, and it has to
+			// win here for the same reason it wins there: an author shadowing
+			// a file must not see one answer in the loop and the other after a
+			// deploy.
+			if external, ok := externalAssetPath(name); ok {
+				mediaType := mime.TypeByExtension(path.Ext(name))
+				if mediaType != "" {
+					w.Header().Set("Content-Type", mediaType)
+				}
+				addSVGSandbox(w.Header(), mediaType, config.SVGSandbox)
+				serveExternalFile(w, r, name, external)
 				return
 			}
 			var resolved *resolvedPublicAsset
@@ -117,6 +133,15 @@ func PublicAssets(config PublicAssetConfig, embedded fs.FS) (Middleware, error) 
 					resolvedAssets.Store(name, resolved)
 				}
 			}
+			// This is the one path serving bytes no build declared: the
+			// development loop, and the local override of a project whose
+			// manifest is absent. A manifest-driven response verifies nothing
+			// per request because the build already refused this file.
+			if resolved.mismatch != "" {
+				reportPublicMismatch(r.Context(), name, resolved.mismatch)
+				http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+				return
+			}
 			if !publicDevelopment {
 				w.Header().Set("Vary", "Accept-Encoding")
 			}
@@ -126,6 +151,7 @@ func PublicAssets(config PublicAssetConfig, embedded fs.FS) (Middleware, error) 
 				return
 			}
 			w.Header().Set("Content-Type", resolved.contentType)
+			addSVGSandbox(w.Header(), resolved.contentType, config.SVGSandbox)
 			w.Header().Set("Content-Length", strconv.Itoa(len(representation)))
 			etag := resolved.identityTag
 			if rank >= 0 {
@@ -149,8 +175,8 @@ func PublicAssets(config PublicAssetConfig, embedded fs.FS) (Middleware, error) 
 // a file, digests a body, or infers a media type: a URL the manifest does not
 // name is 404 even when bytes for it exist, because serving what a build did
 // not declare is how a stale representation reaches a cache.
-func servePublicManifest(w http.ResponseWriter, r *http.Request, name string, embedded fs.FS) {
-	entry, found := manifestEntry(name)
+func servePublicManifest(w http.ResponseWriter, r *http.Request, name string, embedded fs.FS, svgSandbox bool) {
+	entry, cacheControl, found := publicManifestAnswer(name)
 	if !found {
 		http.NotFound(w, r)
 		return
@@ -163,7 +189,12 @@ func servePublicManifest(w http.ResponseWriter, r *http.Request, name string, em
 		return
 	}
 	header.Set("Content-Type", representation.MediaType)
-	header.Set("Cache-Control", entry.CacheControl)
+	addSVGSandbox(header, representation.MediaType, svgSandbox)
+	header.Set("Cache-Control", cacheControl)
+	if representation.External {
+		serveExternalRepresentation(w, r, representation)
+		return
+	}
 	header.Set("ETag", representation.ETag)
 	if representation.ContentEncoding != "" {
 		header.Set("Content-Encoding", representation.ContentEncoding)
@@ -185,6 +216,80 @@ func servePublicManifest(w http.ResponseWriter, r *http.Request, name string, em
 	if r.Method == http.MethodGet {
 		_, _ = io.Copy(w, body)
 	}
+}
+
+// externalPublicRoot is the second authored tree, relative to the working
+// directory, in the same way localPublicRoot is. It holds what should not enter
+// the binary: the bytes ship as their own files and the container scaffold
+// copies the directory as it stands, so nothing here is build output.
+const externalPublicRoot = "public-external"
+
+// serveExternalRepresentation answers from a real file.
+//
+// http.ServeContent is the whole reason the external location is a separate
+// path rather than a flag on the one above: given something that can seek, it
+// supplies Range, If-Range, Last-Modified, and Accept-Ranges without a line of
+// protocol code here. That matters because the kind of asset that belongs in
+// this tree is exactly the kind a browser asks for in pieces — a video element
+// that cannot seek is one that downloads the file to play from the middle.
+//
+// Every header the manifest owns is already set by the caller. ServeContent
+// adds the ones that come from the file itself and writes the status, so
+// nothing may be written before it.
+func serveExternalRepresentation(w http.ResponseWriter, r *http.Request, representation AssetRepresentation) {
+	resolved, _, found, _ := safeLocalPath(filepath.FromSlash(externalPublicRoot), representation.Path)
+	if !found {
+		// The manifest named a file the deployment did not carry, which means
+		// the binary and the tree beside it came from different places. No
+		// response would be honest, so this is the same 500 the embedded path
+		// gives when its own tree disagrees with its manifest.
+		reportMissingExternal(r.Context(), representation.Path)
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		return
+	}
+	serveExternalFile(w, r, representation.Path, resolved)
+}
+
+// serveExternalFile streams one file, having left every header the caller owns
+// already set. ServeContent writes the status, so nothing may be written after
+// this decides to call it.
+func serveExternalFile(w http.ResponseWriter, r *http.Request, name, resolved string) {
+	file, err := os.Open(resolved)
+	if err != nil {
+		reportMissingExternal(r.Context(), name)
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		return
+	}
+	defer file.Close()
+	info, err := file.Stat()
+	if err != nil || !info.Mode().IsRegular() {
+		reportMissingExternal(r.Context(), name)
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		return
+	}
+	// The name reaches ServeContent only as a media type hint, which it will
+	// not use: Content-Type is already set and ServeContent leaves a header
+	// that is present alone.
+	http.ServeContent(w, r, name, info.ModTime(), file)
+}
+
+// externalAssetPath resolves a URL in the second authored tree, for the path
+// that has no manifest to ask.
+func externalAssetPath(name string) (string, bool) {
+	resolved, _, found, _ := safeLocalPath(filepath.FromSlash(externalPublicRoot), name)
+	return resolved, found
+}
+
+// reportedMissingExternal keeps one absent file to one log line, for the reason
+// reportedMismatches does: a crawler asking repeatedly is one problem.
+var reportedMissingExternal sync.Map
+
+func reportMissingExternal(ctx context.Context, name string) {
+	if _, seen := reportedMissingExternal.LoadOrStore(name, struct{}{}); seen {
+		return
+	}
+	pwruntime.ReadLogger(ctx).Error("external public asset named by the manifest is not readable",
+		pwruntime.String("asset", name), pwruntime.String("root", externalPublicRoot))
 }
 
 // varyForEntry names only the headers that can actually change the answer, so a
@@ -243,6 +348,10 @@ type resolvedPublicAsset struct {
 	asset       publicAsset
 	contentType string
 	identityTag string
+	// mismatch holds the reason this file is not servable, empty when it is.
+	// It is decided once beside the media type rather than per request, so a
+	// memoized asset costs no second look at its bytes.
+	mismatch string
 	// encodedTags parallels publicAsset.encoded. Two representations of one URL
 	// never share a validator, because a cache holding one must not answer a
 	// request that asked for another.
@@ -255,6 +364,12 @@ func finishPublicAsset(asset publicAsset) *resolvedPublicAsset {
 		contentType = http.DetectContentType(asset.identity)
 	}
 	resolved := &resolvedPublicAsset{asset: asset, contentType: contentType, identityTag: publicAssetETag(asset.identity)}
+	// Only the signature half runs here. The active-content scan is a build
+	// report to an author, and the sandbox header already covers a serving
+	// process, so re-scanning every SVG per resolution would buy nothing.
+	if finding, refused := assetverify.File(asset.name, asset.identity, signatureOnly); refused {
+		resolved.mismatch = finding.Message()
+	}
 	for rank, body := range asset.encoded {
 		if len(body) > 0 {
 			resolved.encodedTags[rank] = publicAssetETag(body)
@@ -266,6 +381,54 @@ func finishPublicAsset(asset publicAsset) *resolvedPublicAsset {
 func publicAssetETag(body []byte) string {
 	sum := sha256.Sum256(body)
 	return `"` + hex.EncodeToString(sum[:16]) + `"`
+}
+
+// signatureOnly is the request-time half of the verification. A serving process
+// has no project configuration to read and no author to advise, so it runs the
+// check that is decidable from bytes and leaves the rest to the build.
+var signatureOnly = assetverify.Options{Signature: true}
+
+// svgSandboxPolicy is the policy an SVG response carries. The sandbox with no
+// tokens is a unique origin and no scripting, so an SVG that does execute
+// cannot reach the application origin; script-src none would stop the script
+// but leave the origin, and the origin is the part worth taking away.
+const svgSandboxPolicy = "sandbox"
+
+// svgMediaType is matched against the media type rather than the extension,
+// because that is the value the response actually asserts.
+const svgMediaType = "image/svg+xml"
+
+// addSVGSandbox tightens an SVG response.
+//
+// Add rather than Set: the security headers middleware writes the application's
+// own Content-Security-Policy, and Set on this field would drop it from every
+// asset response. Two policies are both enforced and the browser applies their
+// intersection, so this can only tighten what the application declared.
+func addSVGSandbox(header http.Header, contentType string, enabled bool) {
+	if !enabled || !isSVGMediaType(contentType) {
+		return
+	}
+	header.Add("Content-Security-Policy", svgSandboxPolicy)
+}
+
+// isSVGMediaType ignores any parameters, so image/svg+xml; charset=utf-8 is
+// still an SVG.
+func isSVGMediaType(contentType string) bool {
+	base, _, _ := strings.Cut(contentType, ";")
+	return strings.EqualFold(strings.TrimSpace(base), svgMediaType)
+}
+
+// reportedMismatches keeps one refused path to one log line. A crawler asking
+// for the same broken asset a thousand times is one problem, not a thousand,
+// and the set is bounded by the tree because only resolvable names reach here.
+var reportedMismatches sync.Map
+
+func reportPublicMismatch(ctx context.Context, name, reason string) {
+	if _, seen := reportedMismatches.LoadOrStore(name, struct{}{}); seen {
+		return
+	}
+	pwruntime.ReadLogger(ctx).Error("public asset content does not match its extension",
+		pwruntime.String("asset", name), pwruntime.String("reason", reason))
 }
 
 func resolvePublicAsset(name string, config PublicAssetConfig, embedded fs.FS) (publicAsset, bool) {
@@ -281,45 +444,59 @@ func resolvePublicAsset(name string, config PublicAssetConfig, embedded fs.FS) (
 	return readEmbeddedPublicAsset(embedded, name)
 }
 
-func readLocalPublicAsset(name string) (publicAsset, bool, bool) {
-	// The built tree is what is served in every mode. The authored tree is an
-	// input: a development loop that read it would answer 404 for every
-	// reference a conversion moved, since the page names the derived file.
-	root := filepath.FromSlash(localPublicRoot)
+// safeLocalPath walks name under root, refusing a symbolic link at every step,
+// and resolves a directory to its index.html.
+//
+// It reports the file, the URL the answer is actually for, whether one was
+// found, and whether the walk hit something worth refusing outright rather than
+// merely missing. The last two differ: a missing file may fall through to
+// another layer, and a symbolic link may not.
+func safeLocalPath(root, name string) (resolved string, answered string, found bool, rejected bool) {
 	info, err := os.Lstat(root)
 	if err != nil {
-		return publicAsset{}, false, err != nil && !os.IsNotExist(err)
+		return "", "", false, !os.IsNotExist(err)
 	}
 	if info.Mode()&os.ModeSymlink != 0 || !info.IsDir() {
-		return publicAsset{}, false, true
+		return "", "", false, true
 	}
 	current := root
 	for _, segment := range strings.Split(name, "/") {
 		current = filepath.Join(current, filepath.FromSlash(segment))
 		info, err = os.Lstat(current)
 		if err != nil {
-			return publicAsset{}, false, err != nil && !os.IsNotExist(err)
+			return "", "", false, !os.IsNotExist(err)
 		}
 		if info.Mode()&os.ModeSymlink != 0 {
-			return publicAsset{}, false, true
+			return "", "", false, true
 		}
 	}
 	if info.IsDir() {
 		current = filepath.Join(current, "index.html")
 		info, err = os.Lstat(current)
 		if err != nil {
-			return publicAsset{}, false, err != nil && !os.IsNotExist(err)
+			return "", "", false, !os.IsNotExist(err)
 		}
 		name = path.Join(name, "index.html")
 	}
 	if !info.Mode().IsRegular() {
-		return publicAsset{}, false, true
+		return "", "", false, true
+	}
+	return current, name, true, false
+}
+
+func readLocalPublicAsset(name string) (publicAsset, bool, bool) {
+	// The built tree is what is served in every mode. The authored tree is an
+	// input: a development loop that read it would answer 404 for every
+	// reference a conversion moved, since the page names the derived file.
+	current, answered, found, rejected := safeLocalPath(filepath.FromSlash(localPublicRoot), name)
+	if !found {
+		return publicAsset{}, false, rejected
 	}
 	identity, err := os.ReadFile(current)
 	if err != nil {
 		return publicAsset{}, false, true
 	}
-	asset := publicAsset{name: name, identity: identity}
+	asset := publicAsset{name: answered, identity: identity}
 	if !publicDevelopment {
 		for rank := range staticContentCodings {
 			sidecar := current + staticContentCodings[rank].suffix
@@ -444,9 +621,15 @@ func PublicRepresentation(acceptEncoding []string, asset PublicAsset) ([]byte, i
 // PublicRepresentation.
 func PublicCodingToken(rank int) string { return staticContentCodings[rank].token }
 
-// PublicManifestEntry returns the manifest entry for a name, when a build
-// produced one.
-func PublicManifestEntry(name string) (AssetEntry, bool) { return manifestEntry(name) }
+// PublicManifestAnswer resolves a request path below the mount to the entry
+// that answers it and the Cache-Control that answer carries.
+//
+// The cache policy comes back beside the entry rather than being read off it,
+// because a revisioned URL and a plain one are the same entry answered under
+// two promises. A transport that read entry.CacheControl directly would serve
+// the revalidating policy for a URL a document promised was immutable, which is
+// the whole point of the segment lost silently.
+func PublicManifestAnswer(name string) (AssetEntry, string, bool) { return publicManifestAnswer(name) }
 
 // PublicManifestRegistered reports whether a build produced a manifest, which
 // is what lets the request path read bytes and nothing else.

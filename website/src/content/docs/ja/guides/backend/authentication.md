@@ -80,8 +80,8 @@ provider_logout = true   # プロバイダ側もサインアウトする
 - バックエンドのデプロイ用リソースが準備されていること。リレーショナルストレージには
   マイグレーション、DynamoDB にはテーブル、Firestore には Datastore-mode データベースと
   必要な TTL ポリシー・インデックスが要ります。
-- `issuer`、`client_id`、`client_secret`、`redirect_url` がすべて非空。スキャフォールドされた
-  ファイルではプレースホルダであって、省略可能な設定ではありません。
+- `issuer`、`client_id`、`client_secret` がすべて非空。ループバック開発以外では、
+  `redirect_url` も絶対 URL である必要があります。
 
 issuer は `https` である必要があります。例外はループバックの開発用プロバイダだけで、
 `auth.oidc.allow_loopback_http = true` を要求します。それ以外の場所でこのフラグを立てては
@@ -114,7 +114,7 @@ issuer は `https` である必要があります。例外はループバック�
 | `issuer` | *(空)* | **必須**。`allow_loopback_http` でなければ `https` |
 | `client_id` | *(空)* | **必須** |
 | `client_secret` | *(空)* | **必須**。起動サマリではマスクされる |
-| `redirect_url` | *(空)* | **必須**。プロバイダに登録した値と一致すること |
+| `redirect_url` | *(空)* | デプロイではコールバックの絶対 URL。ループバック開発では、空ならリクエストの origin と `callback_path`、ルートパスなら origin とそのパスから導出 |
 | `scopes` | `[]` | `openid` に加えるスコープ |
 | `identity_claim` | `"sub"` | ローカルアカウントを識別する検証済み claim |
 | `admission` | `"authenticated"` | `authenticated` / `claim` / `registered` / `existing` |
@@ -389,9 +389,10 @@ enabled = true
 
 ## デプロイ
 
-デプロイ時には、その利便性は外れます。`issuer`、`client_id`、`client_secret`、
-`redirect_url` はいずれも空であってはならず、不足しているとアプリケーションは起動を
-拒否して不足分を示します。プロバイダの値は `AUTH_OIDC_ISSUER`、`AUTH_OIDC_CLIENT_ID`、
+デプロイ時には、その利便性は外れます。`issuer`、`client_id`、`client_secret` は非空、
+`redirect_url` はデプロイ先コールバックの絶対 URL にします。`dev` 以外で空または
+パスだけの値を使うと、`pw doctor` はエラーとして報告します。プロバイダの値は
+`AUTH_OIDC_ISSUER`、`AUTH_OIDC_CLIENT_ID`、
 `AUTH_OIDC_CLIENT_SECRET`、あるいは `${NAME}` 参照から与え、コミットはしません。
 cookie バックエンドのセッションはもう1つ独自の秘密鍵を要求します
 （[セッションストレージ](/ja/guides/storage/session-storage/#cookie--ストレージなし)）。
@@ -399,6 +400,14 @@ cookie バックエンドのセッションはもう1つ独自の秘密鍵を要
 `redirect_url` はプロバイダに登録した URL と一字一句一致している必要があります。
 フレームワークが `redirect_uri` として送るのがこの値なので、登録と違えばアプリケーションに
 届く前にプロバイダが拒否します。
+
+例外はループバック開発だけです。`allow_loopback_http = true` のとき、空の
+`redirect_url` は現在のリクエストの scheme と `Host` に `callback_path` を足した URL に
+なります。ルートパスを指定した場合は、そのパスを `Host` に足します。リクエストの
+`Host` は `localhost`、`*.localhost`、`127.0.0.1` や `::1` などのループバック IP に
+限られます。したがって `localhost:8080` から始めたログインは同じ origin に戻り、
+`127.0.0.1:8080` から始めたログインも別の origin のまま戻ります。公開ホストや、本番 URL
+のプロバイダ登録を省く用途には使わないでください。
 
 ログアウト後の URL もプロバイダに登録してください。未登録の `post_logout_redirect_uri`
 は拒否されます。フレームワークが送るのはリクエストオリジンのルートなので、

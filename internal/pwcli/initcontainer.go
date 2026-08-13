@@ -80,7 +80,7 @@ WORKDIR /app
 # starts on defaults instead of failing, which is the quieter mistake.
 COPY --from=build /src/` + name + ` /app/` + name + `
 COPY --from=build /src/` + pwenv.FileName(pwenv.Production) + ` /app/` + pwenv.FileName(pwenv.Production) + `
-
+` + containerExternalAssetCopy() + `
 # An unset APP_ENV means dev, which would look for a file this image does not
 # carry and fall back to development defaults.
 ENV APP_ENV=` + pwenv.Production + `
@@ -143,12 +143,23 @@ WORKDIR /app
 
 COPY --from=build /out/` + name + ` /app/` + name + `
 COPY --from=build /src/` + pwenv.FileName(pwenv.Production) + ` /app/` + pwenv.FileName(pwenv.Production) + `
-
+` + containerExternalAssetCopy() + `
 ENV APP_ENV=` + pwenv.Production + `
 EXPOSE 8080
 
 ` + containerHealthcheck(name) + `ENTRYPOINT ["/app/` + name + `"]
 `
+}
+
+// containerExternalAssetCopy carries the tree that is not in the binary.
+//
+// It resolves against the WORKDIR above, which is what makes the relative path
+// the server looks for the same one this writes. The scaffolded sentinel is
+// what keeps this line working in a project that has put nothing here yet: a
+// COPY of a missing path fails the image build, and an empty directory is not
+// something git carries on its own.
+func containerExternalAssetCopy() string {
+	return "COPY --from=build /src/" + externalPublicDir + " /app/" + externalPublicDir + "\n"
 }
 
 // containerPWInstall resolves pw from the framework version the project already
@@ -226,6 +237,9 @@ dist/
 ` + pwenv.FileName(pwenv.Development) + `
 *.db
 .devbox/
+
+# Committed, unlike the rest of this group, but still development-only: it
+# configures the services devbox starts beside pw dev, and the image runs none.
 devbox.d/
 
 .git/
