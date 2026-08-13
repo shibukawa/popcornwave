@@ -2328,22 +2328,39 @@ protection.unauthenticated = "redirect"
 
 // securityRuntimeConfig writes the [security] section.
 //
-// It exists for a browser login and for nothing else: a project with no session
-// has nothing to bind a token to, so the section would only describe a check
-// that could not pass.
+// CSRF stays off until the paths it covers are named — a check installed over
+// nothing reads as protection that is not there — so the section is written for
+// the projects that name some on the way in.
 //
-// Which is also why the check is scaffolded on. CSRF stays off until the paths
-// it covers are named — a check installed over nothing reads as protection that
-// is not there — but a login names one on the way in: the sign-out control is a
-// form, because the endpoint accepts POST only. And a generated form refuses to
-// render without a token rather than emit an unprotected one, so a scaffold
-// shipping that form with no secret behind it is a home page that returns 500
-// the moment somebody signs in.
+// A login names one: the sign-out control is a form, because the endpoint
+// accepts POST only. A page tree names one too, since a template declaring a
+// form action registers POST on the page's own path, and that form carries a
+// token whether or not the project ever wired a check to verify it.
+//
+// The earlier gate was the login alone, on the ground that a project with no
+// session has nothing to bind a token to. That was already untrue when it was
+// written: sessionRuntimeConfig writes session.enabled unconditionally, for the
+// reason it gives, that session storage is not a login. So a page-tree project
+// with no login was scaffolded able to hold a secret and configured not to,
+// which is a form posting unverified rather than a check that could not pass.
 func securityRuntimeConfig(options initOptions) string {
-	if !servesBrowserLogin(options) {
-		// No session, so no token. The section would only describe a check that
-		// could not pass.
+	if !servesBrowserLogin(options) && !hasDiscoveredPages(options) {
+		// Neither an unsafe form on the way in nor a route tree that can grow
+		// one. Naming paths for a check nothing crosses is what this declines.
 		return ""
+	}
+	// Why the check is on names the unsafe route this project already ships,
+	// because a reader deciding whether to keep it needs the one they have
+	// rather than the general case.
+	why := `# A form declaring a server action carries a token from here, and turning this
+# off serves that form with an empty one rather than refusing it. Keep the
+# include list as narrow as the routes that mutate.
+`
+	if servesBrowserLogin(options) {
+		why = `# This login ships an unsafe route already: the sign-out control posts. The
+# token that form carries comes from here, so this stays on for as long as the
+# login does. Keep the include list as narrow as the routes that mutate.
+`
 	}
 	section := `
 # Partial updates are off until a project wants a page to refresh a region
@@ -2354,11 +2371,7 @@ func securityRuntimeConfig(options initOptions) string {
 enabled = false
 # validator_key = "${HTML_UPDATE_VALIDATOR_KEY}"
 
-# This login ships an unsafe route already: the sign-out control posts. The
-# token that form carries comes from here, and a form rendered without one is
-# refused rather than served unprotected — so this stays on for as long as the
-# login does. Keep the include list as narrow as the routes that mutate.
-[security]
+` + why + `[security]
 csrf.enabled = true
 csrf.include = ["/**"]
 `

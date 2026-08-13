@@ -40,8 +40,10 @@ request_binding:
 openapi:
   absent: no document entry, by design, since an action is one page's implementation detail
   not_a_side_effect: once generation reaches the route packages, the generated registry is itself a registration site, so the exclusion is something flow:page-route-generation has to keep rather than something the package boundary provides
-  scriptless_forms: a form server-action still lowers to an attribute and needs a runtime to intercept it, so the post-to-self and 303 shape is a later rung; until it lands, adopting actions costs the no-runtime property requirement:classic-web-acceptance asks for
-  client_runtime: the attribute needs the action capability module of requirement:framework-script-assets, which the boundary runtime does not yet contain
+  scriptless_forms: taken as requirement:scriptless-action-forms; a form server-action lowers to an attribute and nothing else, so with no method written it is a GET form, and adopting actions today costs the no-runtime property requirement:classic-web-acceptance asks for
+  client_runtime: taken as requirement:action-invocation-runtime; the attribute needs an invoking half the merged asset does not contain, verified 2026-08-11 by the absence of the attribute from every served byte
+  which_entry_point_a_gesture_uses: decision:action-entry-point-selection, which is also where the path parameters this address does not carry are settled
+  authoring: rule:server-action-authoring
 outside_a_page_tree:
   possible: system:tinybind v0.2.5 accepts an action resolver, so a framework can answer a name from its own route table
   use: a handlers-tree template could carry server-action once pw supplies a resolver over its rule:static-route-discovery results

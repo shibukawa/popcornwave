@@ -8,10 +8,12 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 
 	"github.com/shibukawa/popcornwave/internal/pwgen"
+	"github.com/shibukawa/popcornwave/internal/pwscript"
 	"github.com/shibukawa/tinybind-go/generator"
 	"github.com/shibukawa/tinybind-go/routetree"
 	templatehtmlbind "github.com/shibukawa/tinybind-go/templates/htmlbind"
@@ -115,7 +117,64 @@ func generatePageTree(treeRoot, importBase string, emitter *routetree.Emitter) (
 		RegistryOutput:      pwgen.PageRegistryOutput,
 		PublicURLBase:       generator.DefaultPublicURLBase,
 		DataAttributePrefix: pwgen.AttributePrefix(),
+		ScriptResolver:      resolveComponentScripts,
 	})
+}
+
+// resolveComponentScripts answers what the module asks about a component's
+// script block, which is the seam that lets it lower a named handler and emit a
+// named parameter without reading any JavaScript itself.
+//
+// The reading is internal/pwscript, and what it declines to read is the point:
+// a component whose block it could not understand is left out of Handlers
+// entirely, which the module documents as unchecked. Reporting every name of
+// such a block as unresolved would fail a build over this scanner's limits
+// rather than over the author's code.
+func resolveComponentScripts(path string, scripts []templatehtmlbind.ComponentScript) (routetree.ScriptAnswers, error) {
+	answers := routetree.ScriptAnswers{
+		Handlers:   map[string]templatehtmlbind.ClientHandlerSet{},
+		Parameters: map[string][]string{},
+	}
+	for _, script := range scripts {
+		block, err := pwscript.Read(script.Script)
+		if err != nil {
+			// A block this scanner cannot walk at all is a different thing from
+			// one it walks and does not understand, and only the first is worth
+			// stopping for: it means the block is not the JavaScript it claims
+			// to be, which the browser will meet next.
+			return routetree.ScriptAnswers{}, fmt.Errorf("%s: component %s: %w", path, script.Component, err)
+		}
+		if block.Unread != "" {
+			continue
+		}
+		set := templatehtmlbind.ClientHandlerSet{Resolved: block.Handlers}
+		// A name the markup referenced and the block does not publish is refused
+		// here rather than left to the module's own comparison, so the reason
+		// travels with it and an author reads what to change.
+		for _, referenced := range script.Handlers {
+			if slices.Contains(block.Handlers, referenced) {
+				continue
+			}
+			if set.Unresolved == nil {
+				set.Unresolved = map[string]string{}
+			}
+			set.Unresolved[referenced] = "the component's script block returns no handler by that name"
+		}
+		answers.Handlers[script.Component] = set
+		// Only parameters the component actually declares. The block asking for
+		// one it does not have is the author's mistake and belongs in a
+		// diagnostic, not in an emitted object naming nothing.
+		var emit []string
+		for _, wanted := range block.Parameters {
+			if slices.Contains(script.Parameters, wanted) {
+				emit = append(emit, wanted)
+			}
+		}
+		if len(emit) > 0 {
+			answers.Parameters[script.Component] = emit
+		}
+	}
+	return answers, nil
 }
 
 // planSecondBuildPages is the second transport's page tree step of one run.

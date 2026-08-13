@@ -138,6 +138,7 @@
 {"category": "structure", "id": "data:transaction-scope", "path": ".knowledge/data/transaction-scope.md", "role": "supporting", "title": "Transaction Scope", "type": "data"}
 {"category": "structure", "id": "data:ui-dependency-graph", "path": ".knowledge/data/ui-dependency-graph.md", "role": "supporting", "title": "UI Dependency Graph", "type": "data"}
 {"category": "structure", "id": "data:user-account", "path": ".knowledge/data/user-account.md", "role": "supporting", "title": "Local User Account", "type": "data"}
+{"category": "constraint", "id": "decision:action-entry-point-selection", "path": ".knowledge/decision/action-entry-point-selection.md", "role": "supporting", "title": "Action Entry Point Selection", "type": "decision"}
 {"category": "constraint", "id": "decision:anonymous-csrf-secret-storage", "path": ".knowledge/decision/anonymous-csrf-secret-storage.md", "role": "supporting", "title": "Anonymous CSRF Secret Storage", "type": "decision"}
 {"category": "constraint", "id": "decision:asset-transform-toolchain", "path": ".knowledge/decision/asset-transform-toolchain.md", "role": "supporting", "title": "Asset Transform Toolchain", "type": "decision"}
 {"category": "constraint", "id": "decision:assurance-scope-oidc-only", "path": ".knowledge/decision/assurance-scope-oidc-only.md", "role": "supporting", "title": "Assurance Scope Under External-Identity-Only Login", "type": "decision"}
@@ -153,6 +154,8 @@
 {"category": "constraint", "id": "decision:canonical-popcornwave-skill-source", "path": ".knowledge/decision/canonical-popcornwave-skill-source.md", "role": "supporting", "title": "Canonical Popcorn Wave Skill Source", "type": "decision"}
 {"category": "constraint", "id": "decision:cli-release-pipeline", "path": ".knowledge/decision/cli-release-pipeline.md", "role": "supporting", "title": "Hand-written CLI Release Pipeline", "type": "decision"}
 {"category": "constraint", "id": "decision:committed-package-artifacts", "path": ".knowledge/decision/committed-package-artifacts.md", "role": "supporting", "title": "Committed Package Artifacts", "type": "decision"}
+{"category": "constraint", "id": "decision:component-handler-namespace", "path": ".knowledge/decision/component-handler-namespace.md", "role": "supporting", "title": "Component Handler Namespace", "type": "decision"}
+{"category": "constraint", "id": "decision:component-parameter-disclosure", "path": ".knowledge/decision/component-parameter-disclosure.md", "role": "supporting", "title": "Component Parameter Disclosure", "type": "decision"}
 {"category": "constraint", "id": "decision:config-driven-database", "path": ".knowledge/decision/config-driven-database.md", "role": "supporting", "title": "Config-driven Database Lifecycle", "type": "decision"}
 {"category": "constraint", "id": "decision:contrib-delivery-order", "path": ".knowledge/decision/contrib-delivery-order.md", "role": "supporting", "title": "Contrib Delivery Order", "type": "decision"}
 {"category": "constraint", "id": "decision:cookie-session-storage", "path": ".knowledge/decision/cookie-session-storage.md", "role": "supporting", "title": "Cookie-Backed Session Storage", "type": "decision"}
@@ -185,6 +188,7 @@
 {"category": "constraint", "id": "decision:dynamodb-session-read-consistency", "path": ".knowledge/decision/dynamodb-session-read-consistency.md", "role": "supporting", "title": "Eventually Consistent Reads, With A Consistent Retry On A Miss", "type": "decision"}
 {"category": "constraint", "id": "decision:dynamodb-table-registry", "path": ".knowledge/decision/dynamodb-table-registry.md", "role": "supporting", "title": "Generated Table List In The Main Package", "type": "decision"}
 {"category": "constraint", "id": "decision:escape-hatch-transaction-scope", "path": ".knowledge/decision/escape-hatch-transaction-scope.md", "role": "supporting", "title": "The Escape Hatch Runs Inside The Open Transaction", "type": "decision"}
+{"category": "constraint", "id": "decision:event-binding-attribute-spelling", "path": ".knowledge/decision/event-binding-attribute-spelling.md", "role": "supporting", "title": "Event Binding Attribute Spelling", "type": "decision"}
 {"category": "constraint", "id": "decision:executor-seam-instrumentation", "path": ".knowledge/decision/executor-seam-instrumentation.md", "role": "supporting", "title": "Executor Seam Instrumentation", "type": "decision"}
 {"category": "constraint", "id": "decision:explicit-generation-sources", "path": ".knowledge/decision/explicit-generation-sources.md", "role": "supporting", "title": "Explicit Generation Sources", "type": "decision"}
 {"category": "constraint", "id": "decision:explicit-tinygo-compile-step", "path": ".knowledge/decision/explicit-tinygo-compile-step.md", "role": "supporting", "title": "Explicit TinyGo Compile Step", "type": "decision"}
@@ -235,6 +239,7 @@
 {"category": "constraint", "id": "decision:root-pw-api", "path": ".knowledge/decision/root-pw-api.md", "role": "supporting", "title": "Root pw API", "type": "decision"}
 {"category": "constraint", "id": "decision:runtime-tag-injection", "path": ".knowledge/decision/runtime-tag-injection.md", "role": "supporting", "title": "Runtime Tag Injection", "type": "decision"}
 {"category": "constraint", "id": "decision:savepoint-nested-transaction", "path": ".knowledge/decision/savepoint-nested-transaction.md", "role": "supporting", "title": "Savepoint-Backed Nested Transaction", "type": "decision"}
+{"category": "constraint", "id": "decision:script-block-parsing-ownership", "path": ".knowledge/decision/script-block-parsing-ownership.md", "role": "supporting", "title": "Script Block Parsing Ownership", "type": "decision"}
 {"category": "constraint", "id": "decision:scriptless-browser-detection", "path": ".knowledge/decision/scriptless-browser-detection.md", "role": "supporting", "title": "Scriptless Browser Detection", "type": "decision"}
 {"category": "constraint", "id": "decision:separate-tinygo-dockerfile", "path": ".knowledge/decision/separate-tinygo-dockerfile.md", "role": "supporting", "title": "Separate TinyGo Dockerfile", "type": "decision"}
 {"category": "constraint", "id": "decision:server-sql-support-tier", "path": ".knowledge/decision/server-sql-support-tier.md", "role": "supporting", "title": "Server SQL Support Tier", "type": "decision"}
@@ -364,6 +369,7 @@
 {"category": "constraint", "id": "policy:ui-state-placement", "path": ".knowledge/policy/ui-state-placement.md", "role": "supporting", "title": "UI State Placement", "type": "policy"}
 {"category": "constraint", "id": "policy:validation-errors", "path": ".knowledge/policy/validation-errors.md", "role": "supporting", "title": "Validation and Error Policy", "type": "policy"}
 {"category": "constraint", "id": "policy:web-middleware", "path": ".knowledge/policy/web-middleware.md", "role": "supporting", "title": "Web Middleware Integration", "type": "policy"}
+{"category": "objective", "id": "requirement:action-invocation-runtime", "path": ".knowledge/requirement/action-invocation-runtime.md", "role": "primary", "title": "Action Invocation Runtime", "type": "requirement"}
 {"category": "objective", "id": "requirement:action-response-update", "path": ".knowledge/requirement/action-response-update.md", "role": "primary", "title": "Action Response Update", "type": "requirement"}
 {"category": "objective", "id": "requirement:agent-log-analysis-skill", "path": ".knowledge/requirement/agent-log-analysis-skill.md", "role": "primary", "title": "Agent Log Analysis Skill", "type": "requirement"}
 {"category": "objective", "id": "requirement:alternate-http-backend-readiness", "path": ".knowledge/requirement/alternate-http-backend-readiness.md", "role": "primary", "title": "Readiness For A Non-net/http Backend", "type": "requirement"}
@@ -379,10 +385,12 @@
 {"category": "objective", "id": "requirement:classic-rendering", "path": ".knowledge/requirement/classic-rendering.md", "role": "primary", "title": "Classic Rendering", "type": "requirement"}
 {"category": "objective", "id": "requirement:classic-web-acceptance", "path": ".knowledge/requirement/classic-web-acceptance.md", "role": "primary", "title": "Classic Web Acceptance", "type": "requirement"}
 {"category": "objective", "id": "requirement:cli-distribution", "path": ".knowledge/requirement/cli-distribution.md", "role": "primary", "title": "pw CLI Distribution", "type": "requirement"}
+{"category": "objective", "id": "requirement:client-behaviour-adoption", "path": ".knowledge/requirement/client-behaviour-adoption.md", "role": "primary", "title": "Client Behaviour Adoption", "type": "requirement"}
 {"category": "objective", "id": "requirement:client-signal-registry", "path": ".knowledge/requirement/client-signal-registry.md", "role": "primary", "title": "Client Signal Registry", "type": "requirement"}
 {"category": "objective", "id": "requirement:cloudflare-workers-hosting", "path": ".knowledge/requirement/cloudflare-workers-hosting.md", "role": "primary", "title": "Cloudflare Workers Hosting", "type": "requirement"}
 {"category": "objective", "id": "requirement:component-asset-extraction", "path": ".knowledge/requirement/component-asset-extraction.md", "role": "primary", "title": "Component Asset Extraction", "type": "requirement"}
 {"category": "objective", "id": "requirement:component-package-distribution", "path": ".knowledge/requirement/component-package-distribution.md", "role": "primary", "title": "Component Package Distribution", "type": "requirement"}
+{"category": "objective", "id": "requirement:component-script-event-binding", "path": ".knowledge/requirement/component-script-event-binding.md", "role": "primary", "title": "Component Script Event Binding", "type": "requirement"}
 {"category": "objective", "id": "requirement:container-deployment-docs", "path": ".knowledge/requirement/container-deployment-docs.md", "role": "primary", "title": "Container Deployment Documentation", "type": "requirement"}
 {"category": "objective", "id": "requirement:container-image-scaffold", "path": ".knowledge/requirement/container-image-scaffold.md", "role": "primary", "title": "Container Image Scaffold", "type": "requirement"}
 {"category": "objective", "id": "requirement:context-lookup-performance", "path": ".knowledge/requirement/context-lookup-performance.md", "role": "primary", "title": "Bounded Context Value Lookup", "type": "requirement"}
@@ -502,6 +510,7 @@
 {"category": "objective", "id": "requirement:read-write-splitting", "path": ".knowledge/requirement/read-write-splitting.md", "role": "primary", "title": "Read-Write Split Connections", "type": "requirement"}
 {"category": "objective", "id": "requirement:reloadable-component-endpoint", "path": ".knowledge/requirement/reloadable-component-endpoint.md", "role": "primary", "title": "Reloadable Component Endpoint", "type": "requirement"}
 {"category": "objective", "id": "requirement:response-gzip-encoder", "path": ".knowledge/requirement/response-gzip-encoder.md", "role": "primary", "title": "Gzip Response Encoder", "type": "requirement"}
+{"category": "objective", "id": "requirement:scriptless-action-forms", "path": ".knowledge/requirement/scriptless-action-forms.md", "role": "primary", "title": "Scriptless Action Forms", "type": "requirement"}
 {"category": "objective", "id": "requirement:second-build-feature-parity", "path": ".knowledge/requirement/second-build-feature-parity.md", "role": "primary", "title": "Feature Parity For The fasthttp Second Build", "type": "requirement"}
 {"category": "objective", "id": "requirement:serverless-http-hosting", "path": ".knowledge/requirement/serverless-http-hosting.md", "role": "primary", "title": "Serverless HTTP Hosting", "type": "requirement"}
 {"category": "objective", "id": "requirement:serverless-source-entrypoints", "path": ".knowledge/requirement/serverless-source-entrypoints.md", "role": "primary", "title": "Serverless Source Entrypoints", "type": "requirement"}
@@ -548,10 +557,12 @@
 {"category": "constraint", "id": "rule:rdb-dsn-resolution", "path": ".knowledge/rule/rdb-dsn-resolution.md", "role": "supporting", "title": "RDB DSN Scheme Resolution", "type": "rule"}
 {"category": "constraint", "id": "rule:route-and-template-checks", "path": ".knowledge/rule/route-and-template-checks.md", "role": "supporting", "title": "Route and Template Checks", "type": "rule"}
 {"category": "constraint", "id": "rule:savepoint-dialect-support", "path": ".knowledge/rule/savepoint-dialect-support.md", "role": "supporting", "title": "Savepoint Dialect Support", "type": "rule"}
+{"category": "constraint", "id": "rule:server-action-authoring", "path": ".knowledge/rule/server-action-authoring.md", "role": "supporting", "title": "Server Action Authoring Rules", "type": "rule"}
 {"category": "constraint", "id": "rule:shared-code-names-a-leaf", "path": ".knowledge/rule/shared-code-names-a-leaf.md", "role": "supporting", "title": "Code Compiled Into Both Builds Names A Shared Leaf", "type": "rule"}
 {"category": "constraint", "id": "rule:static-route-discovery", "path": ".knowledge/rule/static-route-discovery.md", "role": "supporting", "title": "Static Route Discovery", "type": "rule"}
 {"category": "constraint", "id": "rule:storage-checks", "path": ".knowledge/rule/storage-checks.md", "role": "supporting", "title": "Storage Checks", "type": "rule"}
 {"category": "constraint", "id": "rule:storage-package-layout", "path": ".knowledge/rule/storage-package-layout.md", "role": "supporting", "title": "Storage Package Layout", "type": "rule"}
+{"category": "constraint", "id": "rule:template-behavior-attributes", "path": ".knowledge/rule/template-behavior-attributes.md", "role": "supporting", "title": "Template Behavior Attributes", "type": "rule"}
 {"category": "constraint", "id": "rule:template-grammar-scopes", "path": ".knowledge/rule/template-grammar-scopes.md", "role": "supporting", "title": "Template Grammar Scopes", "type": "rule"}
 {"category": "constraint", "id": "rule:template-source-layout", "path": ".knowledge/rule/template-source-layout.md", "role": "supporting", "title": "Template Source Layout", "type": "rule"}
 {"category": "constraint", "id": "rule:tinygo-container-operations", "path": ".knowledge/rule/tinygo-container-operations.md", "role": "supporting", "title": "TinyGo Container Operations", "type": "rule"}

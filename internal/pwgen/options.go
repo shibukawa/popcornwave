@@ -189,6 +189,13 @@ func Options(sqlDialect string) (generator.Options, error) {
 		// can follow.
 		{name: "PathValue", writer: -1, request: 0},
 		{name: "Queries", writer: -1, request: 0},
+		// The two calls a generated page dispatcher makes. They are here for the
+		// same reason as everything above and for one more: a project cannot
+		// avoid them by writing its handlers differently, because generation is
+		// what emits the call. An unregistered pattern here would refuse the
+		// generated registry of every page tree declaring a form action.
+		{name: "ActionSelector", writer: -1, request: 0},
+		{name: "DispatchAction", writer: 0, request: 1},
 	} {
 		options := []generator.CallPatternOption{generator.RequestArgument(transport.request)}
 		if transport.writer >= 0 {

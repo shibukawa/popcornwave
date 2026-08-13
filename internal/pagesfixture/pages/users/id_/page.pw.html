@@ -2,13 +2,21 @@ package id_
 
 export component Page(name: string, page: int): html {
 <script component>
-  export function setup(el) {
-    return () => {};
+  export function setup({ el }) {
+    return {
+      highlight(event) {
+        event.currentTarget.classList.add("hot");
+      },
+    };
   }
 </script>
   <section>
-    <h1>{name}</h1>
+    <h1 on-click="highlight">{name}</h1>
     <p>page {page}</p>
     <button server-action="Rename" data-target="#name">rename</button>
+    <form server-action="Retire">
+      <input type="text" name="reason" />
+      <button type="submit">retire</button>
+    </form>
   </section>
 }

@@ -10,11 +10,13 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
 
 	"github.com/shibukawa/popcornwave/internal/pagesfixture/pages"
 	"github.com/shibukawa/popcornwave/pw"
+	"github.com/shibukawa/popcornwave/pwruntime"
 	"github.com/shibukawa/popcornwave/testutil"
 )
 
@@ -31,6 +33,30 @@ func fixtureMux(t *testing.T) *pw.ServeMux {
 	return mux
 }
 
+// fixtureRequest is a request carrying a CSRF secret, which is what the session
+// middleware supplies in a running application and what this fixture has no
+// middleware stack to install.
+//
+// A page whose template declares a form action renders an unsafe form, and the
+// module fails such a render outright rather than emitting an empty token. So
+// the secret is not decoration here: without it the users page answers 500 and
+// the reason reaches the log only.
+func fixtureRequest(method, path string) *http.Request {
+	request := httptest.NewRequest(method, path, nil)
+	return request.WithContext(pwruntime.WithCSRFSecret(request.Context(), fixtureCSRFSecret))
+}
+
+// A real secret rather than any string: the token derivation decodes it and
+// yields nothing when it cannot, so a placeholder would fail the render exactly
+// as an absent one does, and say the same thing about it.
+var fixtureCSRFSecret = func() string {
+	secret, err := pwruntime.NewCSRFSecret(nil)
+	if err != nil {
+		panic(err)
+	}
+	return secret
+}()
+
 func TestMain(m *testing.M) {
 	pw.RegisterHTMLDocument(pages.BindLayout(pages.LayoutParams{}))
 	m.Run()
@@ -45,13 +71,23 @@ func TestPagesServeDiscoveredRoutes(t *testing.T) {
 		want []string
 	}{
 		{"/", []string{"<h1>home</h1>"}},
-		{"/users/42?page=3", []string{"<h1>user 42</h1>", "<p>page 3</p>"}},
+		{"/users/42?page=3", []string{
+			"<p>page 3</p>",
+			// A client handler is lowered away and named on the element, so the
+			// runtime finds every bound element with one indexed query.
+			`<h1 data-tb-on="click:highlight">user 42</h1>`,
+			// The form lowering: no action attribute, so a native submit goes to
+			// the document URL, which already holds this page's path parameters.
+			`<form data-tb-action="/_action/d71506d06c1e/Retire" method="post">`,
+			`<input type="hidden" name="_action" value="d71506d06c1e/Retire" />`,
+			`name="_csrf"`,
+		}},
 		// An absent optional query value is not a zero one: Load sees nil and
 		// applies its own default.
 		{"/users/42", []string{"<p>page 1</p>"}},
 	} {
 		recorder := httptest.NewRecorder()
-		mux.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, testCase.path, nil))
+		mux.ServeHTTP(recorder, fixtureRequest(http.MethodGet, testCase.path))
 		body := recorder.Body.String()
 		if recorder.Code != http.StatusOK {
 			t.Fatalf("%s: status %d\n%s", testCase.path, recorder.Code, body)
@@ -66,6 +102,44 @@ func TestPagesServeDiscoveredRoutes(t *testing.T) {
 		if strings.Count(body, `<main class="app">`) != 2 {
 			t.Errorf("%s: document did not wrap the layout:\n%s", testCase.path, body)
 		}
+	}
+}
+
+// A form action is reachable by a native submit, which is the half of the
+// feature that needs no browser runtime at all.
+//
+// The form carries no action attribute, so the browser posts to the document
+// URL — this same path, with its parameters already filled in — and the hidden
+// selector is what says which server function ran. Retire writes nothing, so the
+// generated dispatcher answers the post-redirect-get default rather than a body.
+func TestPagesServeFormAction(t *testing.T) {
+	mux := fixtureMux(t)
+	body := strings.NewReader(url.Values{"_action": {"d71506d06c1e/Retire"}, "reason": {"left"}}.Encode())
+	request := httptest.NewRequest(http.MethodPost, "/users/42", body)
+	request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	recorder := httptest.NewRecorder()
+	mux.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusSeeOther {
+		t.Fatalf("status %d, want 303\n%s", recorder.Code, recorder.Body.String())
+	}
+	// Back to the page it was submitted from, so a reload does not resubmit.
+	if location := recorder.Header().Get("Location"); location != "/users/42" {
+		t.Errorf("Location is %q, want the page it came from", location)
+	}
+}
+
+// A selector no server function on this page matches is refused rather than
+// dispatched, because the page POST is one route serving several handlers and
+// the selector is the only thing separating them.
+func TestPagesServeFormActionRejectsUnknownSelector(t *testing.T) {
+	mux := fixtureMux(t)
+	body := strings.NewReader(url.Values{"_action": {"000000000000/Nothing"}}.Encode())
+	request := httptest.NewRequest(http.MethodPost, "/users/42", body)
+	request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	recorder := httptest.NewRecorder()
+	mux.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusBadRequest {
+		t.Errorf("status %d, want 400\n%s", recorder.Code, recorder.Body.String())
 	}
 }
 

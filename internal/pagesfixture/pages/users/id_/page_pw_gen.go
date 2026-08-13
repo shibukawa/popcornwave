@@ -31,18 +31,20 @@ var planPageBoundary = &htmlbind.Boundary[PageParams]{
 }
 
 var planPagePlan = &htmlbind.Plan[PageParams]{
-	Head:        []string{"<script src=\"/public/generated/page.script.2a4fcb1640d1.js\" type=\"module\"></script>"},
+	Head:        []string{"<script src=\"/public/generated/page.script.564ef8d0adbe.js\" type=\"module\"></script>"},
 	HeadSources: []string{""},
-	Assets:      []htmlbind.Asset{{ID: "page.script.2a4fcb1640d1", Type: "text/javascript", URL: "/public/generated/page.script.2a4fcb1640d1.js", Scope: "id_.page.Page"}},
+	Assets:      []htmlbind.Asset{{ID: "page.script.564ef8d0adbe", Type: "text/javascript", URL: "/public/generated/page.script.564ef8d0adbe.js", Scope: "id_.page.Page"}},
 	Boundary:    planPageBoundary,
 	Ops: []htmlbind.Op[PageParams]{
 		planPageOps.Static("  <section"),
 		planPageOps.BoundaryAttr(),
-		planPageOps.Static(" data-tb-component=\"id_.page.Page\"> <h1>"),
+		planPageOps.Static(" data-tb-component=\"id_.page.Page\"> <h1 data-tb-on=\"click:highlight\">"),
 		planPageOps.Text(func(p PageParams) string { return p.Name }),
 		planPageOps.Static("</h1> <p>page "),
 		planPageOps.Raw(func(p PageParams) string { return htmlbind.FormatInt(p.Page) }),
-		planPageOps.Static("</p> <button data-pw-action=\"/_action/00369cf962b6/Rename\" data-target=\"#name\">rename</button> </section> "),
+		planPageOps.Static("</p> <button data-tb-action=\"/_action/00369cf962b6/Rename\" data-target=\"#name\">rename</button> <form data-tb-action=\"/_action/d71506d06c1e/Retire\" method=\"post\"><input type=\"hidden\" name=\"_action\" value=\"d71506d06c1e/Retire\" />"),
+		planPageOps.CSRFField("_csrf"),
+		planPageOps.Static(" <input type=\"text\" name=\"reason\" /> <button type=\"submit\">retire</button> </form> </section> "),
 	},
 }
 

@@ -12,19 +12,19 @@ external live WatchMessages(room: string): Message[]
 
 export component Dashboard(room: string): html {
 <script component>
-  // Runs once per rendered instance of this component, with that instance's own
-  // element. What it returns runs when the instance goes away — which never
-  // happens on this page, because nothing replaces the dashboard. Returning it
-  // anyway is the habit worth having: the same component inside a region a
-  // partial update swaps would be released, and a listener left behind is a
-  // leak nobody notices.
-  export function setup(el, scope) {
+  // Runs once per rendered instance of this component, handed one object it
+  // destructures for what it needs. Anything taken from onSignal is released
+  // when the instance goes away — which never happens on this page, because
+  // nothing replaces the dashboard. Taking it from there anyway is the habit
+  // worth having: the same component inside a region a partial update swaps
+  // would be released, and a listener left behind is a leak nobody notices.
+  export function setup({ el, onSignal }) {
     const room = el.querySelector("[data-room]");
     const status = el.querySelector("[data-status]");
 
     // The server-authored signal. The delivery that arrives with it already
     // repainted the list; this is the arrival, which the list cannot express.
-    scope.on("app.message", () => {
+    onSignal("app.message", () => {
       room.animate(
         [{ backgroundColor: "rgba(16,185,129,0.14)" }, { backgroundColor: "transparent" }],
         { duration: 900, easing: "ease-out" },
@@ -38,11 +38,11 @@ export component Dashboard(room: string): html {
     // what it shows is the connection's actual state rather than a claim the
     // markup makes on its behalf. A reader with no JavaScript keeps the honest
     // one.
-    scope.on("pw.live_opened", (event) => {
+    onSignal("pw.live_opened", (event) => {
       status.textContent = event.reconnect ? "reconnected" : "live";
       status.dataset.state = "live";
     });
-    scope.on("pw.live_closed", (event) => {
+    onSignal("pw.live_closed", (event) => {
       status.textContent = event.reason === "done" ? "finished" : "reconnecting…";
       status.dataset.state = "stale";
     });

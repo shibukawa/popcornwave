@@ -27,3 +27,12 @@ func Rename(w http.ResponseWriter, r *http.Request) {
 	}
 	pw.WriteAPI(w, r, renameResponse{Name: request.Name})
 }
+
+// Retire is the form half of the same surface: a handler a form names rather
+// than a button, so generation registers POST on the page's own pattern beside
+// its GET and the lowered form reaches it with no browser runtime.
+//
+// It writes nothing, which is what makes the generated dispatcher answer 303
+// back to the page. That is the post-redirect-get default, and a handler that
+// wrote a status, a header, or a body would keep exactly that response instead.
+func Retire(w http.ResponseWriter, r *http.Request) {}

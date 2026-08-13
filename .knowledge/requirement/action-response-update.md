@@ -49,7 +49,10 @@ acceptance:
   - a form posted with JavaScript disabled reaches the same handler and redirects
   - a region revealed for the first time by an action arrives styled, with no flash
   - two rewritten regions declaring one stylesheet install it once
+who_issues_the_request:
+  answered: 2026-08-11, as requirement:action-invocation-runtime; the runtime issues it from a gesture on a lowered server action, and api:client-update-api keeps apply and updateHeaders for an application fetch that has no element to hang on
+  supersedes: the open question below asking whether a form submission helper belongs on that surface
+  why_it_had_to_be_the_runtime: the element already carries a generated address, so leaving the fetch to the application meant every project rewriting one interception, and a form left to the browser was submitted as a GET
 open_questions:
-  - whether a form submission helper belongs in api:client-update-api or stays the application's own fetch
   - whether an action may request a navigation-style diff instead of naming regions
 ```

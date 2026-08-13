@@ -25,7 +25,9 @@ tiers:
     cost: application-owned browser JavaScript
     covers: local state and events no server round trip can answer
     boundary: custom elements, matching how requirement:framework-script-assets registers the framework runtime; from system:tinybind v0.3.3 each one must be declared per requirement:custom-element-registration, so reaching this tier now costs a configuration entry as well as the JavaScript
-    mutation_address: api:page-action-endpoint inside concept:page-tree, whose attribute the application still intercepts and protects itself
+    mutation_address: api:page-action-endpoint inside concept:page-tree, whose attribute the application still intercepts today; requirement:action-invocation-runtime is what moves that into the framework and requirement:scriptless-action-forms is what keeps the tier from costing the scriptless path
+    authored_javascript_lives_in_the_component: the script block of system:tinybind v0.5.5 is where it is written and requirement:client-signal-registry is what mounts and releases it per instance, so this tier's cost is the JavaScript and no longer the plumbing around it
+    handlers: requirement:component-script-event-binding lets the markup name an exported function, which is what removes the selector pairing an island otherwise writes for every control
   framework_updates:
     cost: one configuration section and one shell script reference, both already scaffolded
     covers: a region the server re-renders, addressed and applied by the framework rather than by a library the application chose
