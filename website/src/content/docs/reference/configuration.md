@@ -238,6 +238,48 @@ carries the reader's identity as well as the parameters, so the entry count
 multiplies by the number of active readers, and a cap chosen when every key was
 shared will evict entries faster than they are reused.
 
+## `[cache]`
+
+| Key | Default | Meaning |
+| --- | --- | --- |
+| `enabled` | `false` | reuse what a fetch returned for equal keys |
+
+### `[[cache.stores]]`
+
+| Key | Default | Meaning |
+| --- | --- | --- |
+| `name` | *(empty)* | the name a call site addresses this store by |
+| `backend` | `"memory"` | where entries live; memory is the only implemented backend |
+| `ttl` | `"1m"` | how long an entry is fresh |
+| `stale` | `"0s"` | how long a stale entry may still answer while one revalidation runs; zero disables the window |
+| `scope` | `"private"` | `private` keys entries per reader; `public` shares one entry between all of them |
+| `max_entries` | `1024` | entries this store holds; zero or less is unbounded |
+| `fetch_timeout` | `"30s"` | bound on a fetch running detached from its waiters |
+
+This store holds what a handler *fetched*, which is a different question from
+the `html.cache` above: that one holds rendered bytes and this one holds the
+data those bytes were rendered from. They are sized separately because they fill
+at different rates from different sources, and one cap covering both would let
+whichever is busier evict the other.
+
+`enabled` is off where `html.cache.enabled` is on, because the opt-in is not
+symmetrical. A component asks to be cached in its own annotation, so the render
+store can be on and idle. A data cache has no annotation to read: `pw.Memo` is
+an ordinary call in a handler, and turning the section on is the only statement
+that any of them should store anything. With it off, every call runs its fetch
+and returns, which is also how caching is withdrawn from a deployment without
+editing code.
+
+`scope` defaults to `private` for the reason the render cache's does. A
+per-reader result declared `public` is served to whoever asks next, and nothing
+reports it; a shared result left `private` costs hits. See
+[Caching Fetched Data](/guides/backend/data-cache/).
+
+`fetch_timeout` exists because concurrent misses are collapsed onto one fetch
+that runs detached from every waiter, so no caller's cancellation can end it.
+Without a bound of its own, one unresponsive upstream would hold a goroutine per
+cold key for as long as it stayed unresponsive.
+
 ## `[security]`
 
 | Key | Default | Meaning |

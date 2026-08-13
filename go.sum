@@ -193,6 +193,8 @@ github.com/shibukawa/tinybind-go v0.5.7 h1:LR9YPmXLfoctx9EzSc4YJbTjRxl9f16CdTe/i
 github.com/shibukawa/tinybind-go v0.5.7/go.mod h1:G3CDE7n9Z6mcHOED+Pi+m2t5qvDfkwBaNguvDrlvAoc=
 github.com/shibukawa/tinybind-go v0.5.8 h1:3EgU/VORd1iyYQqMeZflv8lbhmdi2fZB4gvPt1TK8Y8=
 github.com/shibukawa/tinybind-go v0.5.8/go.mod h1:G3CDE7n9Z6mcHOED+Pi+m2t5qvDfkwBaNguvDrlvAoc=
+github.com/shibukawa/tinybind-go v0.5.9 h1:irdpn6Mp7n7GVbvwM1tCyDQ4jtSBKrPAKVJ4Ac3tLpY=
+github.com/shibukawa/tinybind-go v0.5.9/go.mod h1:G3CDE7n9Z6mcHOED+Pi+m2t5qvDfkwBaNguvDrlvAoc=
 github.com/shibukawa/tinygodriver v1.2.2 h1:y3n0bqcrQnvUuu3PBLf53tIjFwgcstleqZFq/+uF57c=
 github.com/shibukawa/tinygodriver v1.2.2/go.mod h1:XpgSe1bWT+fCA5xEEsDuTTeqkkMG5tKKPB2PgPfzXM0=
 github.com/shibukawa/tinygodriver v1.2.3 h1:ZtZjn4B3+iBh+KdIwNNKJcTPeXHV63U50zZwsWEMf14=

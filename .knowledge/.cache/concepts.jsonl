@@ -26,6 +26,7 @@
 {"category": "interface", "id": "api:client-classification", "path": ".knowledge/api/client-classification.md", "role": "primary", "title": "Client Classification API", "type": "api"}
 {"category": "interface", "id": "api:client-update-api", "path": ".knowledge/api/client-update-api.md", "role": "primary", "title": "Client Update API", "type": "api"}
 {"category": "interface", "id": "api:cookie-jar", "path": ".knowledge/api/cookie-jar.md", "role": "primary", "title": "Typed Cookie Jar", "type": "api"}
+{"category": "interface", "id": "api:data-cache", "path": ".knowledge/api/data-cache.md", "role": "primary", "title": "Data Cache", "type": "api"}
 {"category": "interface", "id": "api:database-selection", "path": ".knowledge/api/database-selection.md", "role": "primary", "title": "Database Group Selection", "type": "api"}
 {"category": "interface", "id": "api:dev-test-endpoints", "path": ".knowledge/api/dev-test-endpoints.md", "role": "primary", "title": "Development Test Data Endpoints", "type": "api"}
 {"category": "interface", "id": "api:dynamo-package", "path": ".knowledge/api/dynamo-package.md", "role": "primary", "title": "database/dynamo Package", "type": "api"}
@@ -91,6 +92,7 @@
 {"category": "structure", "id": "data:authentication-runtime-config", "path": ".knowledge/data/authentication-runtime-config.md", "role": "supporting", "title": "Authentication Runtime Config", "type": "data"}
 {"category": "structure", "id": "data:bot-user-agent-catalog", "path": ".knowledge/data/bot-user-agent-catalog.md", "role": "supporting", "title": "Bot User Agent Catalog", "type": "data"}
 {"category": "structure", "id": "data:browser-report-record", "path": ".knowledge/data/browser-report-record.md", "role": "supporting", "title": "Browser Report Record", "type": "data"}
+{"category": "structure", "id": "data:cache-store-set", "path": ".knowledge/data/cache-store-set.md", "role": "supporting", "title": "Cache Store Set", "type": "data"}
 {"category": "structure", "id": "data:component-boundary", "path": ".knowledge/data/component-boundary.md", "role": "supporting", "title": "Component Boundary Metadata", "type": "data"}
 {"category": "structure", "id": "data:component-package-manifest", "path": ".knowledge/data/component-package-manifest.md", "role": "supporting", "title": "Component Package Manifest", "type": "data"}
 {"category": "structure", "id": "data:compression-runtime-config", "path": ".knowledge/data/compression-runtime-config.md", "role": "supporting", "title": "Compression Runtime Config", "type": "data"}
@@ -151,6 +153,7 @@
 {"category": "constraint", "id": "decision:bot-client-classification", "path": ".knowledge/decision/bot-client-classification.md", "role": "supporting", "title": "Bot Client Classification", "type": "decision"}
 {"category": "constraint", "id": "decision:browser-suite-seeding", "path": ".knowledge/decision/browser-suite-seeding.md", "role": "supporting", "title": "Browser Suite Seeding Route", "type": "decision"}
 {"category": "constraint", "id": "decision:buffered-fragment-delivery", "path": ".knowledge/decision/buffered-fragment-delivery.md", "role": "supporting", "title": "Buffered Fragment Delivery", "type": "decision"}
+{"category": "constraint", "id": "decision:cache-key-interface", "path": ".knowledge/decision/cache-key-interface.md", "role": "supporting", "title": "A Cache Key Is An Interface, Not A Shape", "type": "decision"}
 {"category": "constraint", "id": "decision:canonical-popcornwave-skill-source", "path": ".knowledge/decision/canonical-popcornwave-skill-source.md", "role": "supporting", "title": "Canonical Popcorn Wave Skill Source", "type": "decision"}
 {"category": "constraint", "id": "decision:cli-release-pipeline", "path": ".knowledge/decision/cli-release-pipeline.md", "role": "supporting", "title": "Hand-written CLI Release Pipeline", "type": "decision"}
 {"category": "constraint", "id": "decision:committed-package-artifacts", "path": ".knowledge/decision/committed-package-artifacts.md", "role": "supporting", "title": "Committed Package Artifacts", "type": "decision"}
@@ -160,6 +163,8 @@
 {"category": "constraint", "id": "decision:cookie-session-storage", "path": ".knowledge/decision/cookie-session-storage.md", "role": "supporting", "title": "Cookie-Backed Session Storage", "type": "decision"}
 {"category": "constraint", "id": "decision:cors-above-the-refusals", "path": ".knowledge/decision/cors-above-the-refusals.md", "role": "supporting", "title": "CORS Marks The Response Above Every Refusal", "type": "decision"}
 {"category": "constraint", "id": "decision:csrf-secret-as-a-session-slot", "path": ".knowledge/decision/csrf-secret-as-a-session-slot.md", "role": "supporting", "title": "The CSRF Secret Is a Session Slot", "type": "decision"}
+{"category": "constraint", "id": "decision:data-cache-entry-identity", "path": ".knowledge/decision/data-cache-entry-identity.md", "role": "supporting", "title": "A Data Entry Is Identified By Its Key Type", "type": "decision"}
+{"category": "constraint", "id": "decision:data-cache-miss-coalescing", "path": ".knowledge/decision/data-cache-miss-coalescing.md", "role": "supporting", "title": "Coalesce Data Misses On A Detached Fetch", "type": "decision"}
 {"category": "constraint", "id": "decision:dbtestify-integration", "path": ".knowledge/decision/dbtestify-integration.md", "role": "supporting", "title": "dbtestify Integration Boundary", "type": "decision"}
 {"category": "constraint", "id": "decision:declared-package-installation", "path": ".knowledge/decision/declared-package-installation.md", "role": "supporting", "title": "Declared Package Installation", "type": "decision"}
 {"category": "constraint", "id": "decision:derived-tree-development", "path": ".knowledge/decision/derived-tree-development.md", "role": "supporting", "title": "Derived Tree in Development", "type": "decision"}
@@ -221,6 +226,7 @@
 {"category": "constraint", "id": "decision:lazy-cookie-session-loading", "path": ".knowledge/decision/lazy-cookie-session-loading.md", "role": "supporting", "title": "Lazy Cookie Session Loading", "type": "decision"}
 {"category": "constraint", "id": "decision:live-delivery-transport", "path": ".knowledge/decision/live-delivery-transport.md", "role": "supporting", "title": "Live Deliveries On The Page Route", "type": "decision"}
 {"category": "constraint", "id": "decision:local-tls-proxy-boundary", "path": ".knowledge/decision/local-tls-proxy-boundary.md", "role": "supporting", "title": "Local TLS Proxy Boundary", "type": "decision"}
+{"category": "constraint", "id": "decision:memo-store-handle", "path": ".knowledge/decision/memo-store-handle.md", "role": "supporting", "title": "Resolve The Memo Store To A Handle Before The Methods Exist", "type": "decision"}
 {"category": "constraint", "id": "decision:migration-execution-split", "path": ".knowledge/decision/migration-execution-split.md", "role": "supporting", "title": "Migration Execution Split", "type": "decision"}
 {"category": "constraint", "id": "decision:navigable-answer-hub", "path": ".knowledge/decision/navigable-answer-hub.md", "role": "supporting", "title": "Manual Bootstrap Edits an Answer Hub", "type": "decision"}
 {"category": "constraint", "id": "decision:nix-flake-packaging", "path": ".knowledge/decision/nix-flake-packaging.md", "role": "supporting", "title": "In-repository Nix Flake Packaging", "type": "decision"}
@@ -324,6 +330,7 @@
 {"category": "constraint", "id": "policy:bearer-admission", "path": ".knowledge/policy/bearer-admission.md", "role": "supporting", "title": "Bearer Admission Policy", "type": "policy"}
 {"category": "constraint", "id": "policy:bootstrap-credential-security", "path": ".knowledge/policy/bootstrap-credential-security.md", "role": "supporting", "title": "Bootstrap Credential Security", "type": "policy"}
 {"category": "constraint", "id": "policy:cli-progress-reporting", "path": ".knowledge/policy/cli-progress-reporting.md", "role": "supporting", "title": "CLI Progress Reporting", "type": "policy"}
+{"category": "constraint", "id": "policy:component-cache-scope", "path": ".knowledge/policy/component-cache-scope.md", "role": "supporting", "title": "Component Cache Scope", "type": "policy"}
 {"category": "constraint", "id": "policy:config-file-resolution", "path": ".knowledge/policy/config-file-resolution.md", "role": "supporting", "title": "Config File Resolution", "type": "policy"}
 {"category": "constraint", "id": "policy:connection-group-selection", "path": ".knowledge/policy/connection-group-selection.md", "role": "supporting", "title": "Connection Group Selection", "type": "policy"}
 {"category": "constraint", "id": "policy:container-runtime-image", "path": ".knowledge/policy/container-runtime-image.md", "role": "supporting", "title": "Container Runtime Image", "type": "policy"}
@@ -393,6 +400,7 @@
 {"category": "objective", "id": "requirement:client-signal-registry", "path": ".knowledge/requirement/client-signal-registry.md", "role": "primary", "title": "Client Signal Registry", "type": "requirement"}
 {"category": "objective", "id": "requirement:cloudflare-workers-hosting", "path": ".knowledge/requirement/cloudflare-workers-hosting.md", "role": "primary", "title": "Cloudflare Workers Hosting", "type": "requirement"}
 {"category": "objective", "id": "requirement:component-asset-extraction", "path": ".knowledge/requirement/component-asset-extraction.md", "role": "primary", "title": "Component Asset Extraction", "type": "requirement"}
+{"category": "objective", "id": "requirement:component-output-cache", "path": ".knowledge/requirement/component-output-cache.md", "role": "primary", "title": "Component Output Cache", "type": "requirement"}
 {"category": "objective", "id": "requirement:component-package-distribution", "path": ".knowledge/requirement/component-package-distribution.md", "role": "primary", "title": "Component Package Distribution", "type": "requirement"}
 {"category": "objective", "id": "requirement:container-deployment-docs", "path": ".knowledge/requirement/container-deployment-docs.md", "role": "primary", "title": "Container Deployment Documentation", "type": "requirement"}
 {"category": "objective", "id": "requirement:container-image-scaffold", "path": ".knowledge/requirement/container-image-scaffold.md", "role": "primary", "title": "Container Image Scaffold", "type": "requirement"}
@@ -427,6 +435,7 @@
 {"category": "objective", "id": "requirement:csrf-token-lifecycle", "path": ".knowledge/requirement/csrf-token-lifecycle.md", "role": "primary", "title": "CSRF Token Lifecycle And Delivery", "type": "requirement"}
 {"category": "objective", "id": "requirement:custom-element-registration", "path": ".knowledge/requirement/custom-element-registration.md", "role": "primary", "title": "Custom Element Registration", "type": "requirement"}
 {"category": "objective", "id": "requirement:daisyui-integration", "path": ".knowledge/requirement/daisyui-integration.md", "role": "primary", "title": "daisyUI Integration", "type": "requirement"}
+{"category": "objective", "id": "requirement:data-result-cache", "path": ".knowledge/requirement/data-result-cache.md", "role": "primary", "title": "Data Result Cache", "type": "requirement"}
 {"category": "objective", "id": "requirement:database-engine-selection", "path": ".knowledge/requirement/database-engine-selection.md", "role": "primary", "title": "Database Engine Selection", "type": "requirement"}
 {"category": "objective", "id": "requirement:database-migration", "path": ".knowledge/requirement/database-migration.md", "role": "primary", "title": "Versioned Database Migration", "type": "requirement"}
 {"category": "objective", "id": "requirement:deployed-debug-information", "path": ".knowledge/requirement/deployed-debug-information.md", "role": "primary", "title": "Debug Information In A Deployed Artifact", "type": "requirement"}
