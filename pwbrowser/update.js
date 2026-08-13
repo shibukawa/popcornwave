@@ -38,6 +38,10 @@ export function createUpdateRuntime(config) {
 	// derived, because the boundary half is loaded before the configuration is.
 	setClientHandlerAttribute("data-" + config.attr + "-on");
 	setScopePropsAttribute("data-" + config.attr + "-props");
+	// Calling a server function is this half's, because issuing the request and
+	// applying what came back are. The boundary half holds the namespace because
+	// it is what hands a setup its bag, and it loads first.
+	setActionCaller(callPageAction);
 	// The capability header says this client can walk a sequence tree; the
 	// address header asks for one. They are two headers rather than one because
 	// a request that walks sequences and a request for a sequence are different
@@ -1035,6 +1039,41 @@ export function createUpdateRuntime(config) {
 		// The status is not a signal to skip applying: a rejected submission
 		// returns 4xx and the regions it carries are the validation errors.
 		return { applied: true };
+	}
+
+	// callPageAction is a server function called by name rather than by gesture.
+	//
+	// The body is JSON because api:request-binding accepts it for the same input
+	// struct a form posts, so one Go handler serves both and the caller passes
+	// the value it already holds rather than assembling fields.
+	//
+	// The address is the direct endpoint, which carries no path parameter: a
+	// handler needing one reads it from what the caller sent. There is no
+	// element to mark and no gesture to guard, so the in-flight state is the
+	// caller's — it started this and knows what it is waiting for.
+	async function callPageAction(url, input) {
+		const target = new URL(url, document.baseURI);
+		if (target.origin !== location.origin) throw new Error("Popcorn Wave: refusing a cross-origin action");
+		markBusy(true);
+		let response;
+		try {
+			response = await fetch(target.href, {
+				method: "POST",
+				body: input === undefined ? null : JSON.stringify(input),
+				headers: Object.assign(updateHeaders(), input === undefined ? {} : { "Content-Type": "application/json" }),
+				credentials: "same-origin",
+				redirect: "error",
+			});
+		} finally {
+			markBusy(false);
+		}
+		// An update response is applied the way a gesture's is. Anything else is
+		// returned to the caller: it asked for this and can read a value, where
+		// a gesture had nobody to hand one to.
+		if (served(response) === "action") return apply(response);
+		if (!response.ok) throw new Error("Popcorn Wave: the action failed with " + response.status);
+		const type = response.headers.get("Content-Type") || "";
+		return type.includes("json") ? response.json() : response.text();
 	}
 
 	// runAction performs the mutation an element names and installs what came

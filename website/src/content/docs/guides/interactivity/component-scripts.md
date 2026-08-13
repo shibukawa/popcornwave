@@ -203,6 +203,50 @@ value.
 run under this framework's default `script-src 'self'`, which is the other reason
 handlers arrive this way.
 
+## Calling a server action
+
+A gesture is not the only reason to mutate. A script that decides for itself —
+after a confirmation dialog, when a drag settles, on a timer — calls the route's
+own [server actions](/guides/interactivity/server-actions/) by name:
+
+```js
+export function setup({ el, actions }) {
+	return {
+		async remove(event) {
+			if (!confirm("Delete this?")) return;
+			await actions.Delete({ id: event.currentTarget.dataset.id });
+		},
+	};
+}
+```
+
+`actions` holds one function per exported handler in the page's own route
+package, so the name you write is the Go function's. Nothing names a URL: the
+address holds a digest of the declaring directory, which is not something a
+script could compute.
+
+The argument is sent as JSON, which `pw.Parse` reads into the same input struct
+a form posts, so one handler serves both. Call with no argument and no body is
+sent at all.
+
+What comes back depends on what the handler wrote. Regions are applied exactly
+as a gesture's are; anything else is returned to you, since you asked for it and
+have somewhere to put it:
+
+```js
+const created = await actions.Draft();   // the handler's JSON body
+```
+
+Two things it does not do. There is no in-flight marking, because no element was
+activated — you started the call and know what it is waiting for. And the direct
+address carries no path parameters, so a handler that needs one reads it from
+what you sent.
+
+This is also the shape to reach for when a mutation has to be **gated**. Put the
+handler on the element and leave `server-action` off it: a template carrying
+both runs the handler and then issues the action regardless, because there is no
+cancellation channel. Deciding in JavaScript is what makes the decision visible.
+
 ## Parameters the block asks for
 
 Destructure a component parameter from `props` and generation emits it onto the

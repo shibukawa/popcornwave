@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"slices"
 	"strings"
 	"testing"
 
@@ -140,6 +141,36 @@ func TestPagesServeFormActionRejectsUnknownSelector(t *testing.T) {
 	mux.ServeHTTP(recorder, request)
 	if recorder.Code != http.StatusBadRequest {
 		t.Errorf("status %d, want 400\n%s", recorder.Code, recorder.Body.String())
+	}
+}
+
+// Generation joins the two tables nothing else holds together: which directory
+// a route serves, and which directory a server function was declared in.
+//
+// Without the join a component script naming an action would find nothing on
+// the page saying where it lives, because the address holds a digest of the
+// declaring directory and cannot be computed from the name.
+func TestPagesPublishTheirOwnActions(t *testing.T) {
+	actions := pwruntime.PageActionsFor("GET /users/{id}")
+	if len(actions) != 2 {
+		t.Fatalf("the route publishes %d actions, want both of its package's", len(actions))
+	}
+	for _, want := range []pwruntime.PageAction{
+		{Name: "Rename", Path: "/_action/00369cf962b6/Rename"},
+		{Name: "Retire", Path: "/_action/d71506d06c1e/Retire"},
+	} {
+		if !slices.Contains(actions, want) {
+			t.Errorf("%s is not published: %v", want.Name, actions)
+		}
+	}
+	// The set is the route's rather than the tree's, because the name is what a
+	// script writes and two route packages may both export one.
+	if published := pwruntime.PageActionsFor("GET /{$}"); len(published) != 0 {
+		t.Errorf("a route whose package exports no handler published %v", published)
+	}
+	// An action endpoint renders no document, so nothing is registered for one.
+	if published := pwruntime.PageActionsFor("POST /_action/00369cf962b6/Rename"); len(published) != 0 {
+		t.Errorf("an action endpoint was registered as though it rendered a page: %v", published)
 	}
 }
 

@@ -3,11 +3,11 @@
 package pages
 
 import (
-	"net/http"
-
 	"github.com/shibukawa/popcornwave/internal/pagesfixture/pages/users/id_"
 	"github.com/shibukawa/popcornwave/pw"
 	"github.com/shibukawa/popcornwave/pwpage"
+	"github.com/shibukawa/popcornwave/pwruntime"
+	"net/http"
 )
 
 // Register installs every discovered route on mux.
@@ -22,7 +22,7 @@ func Register(mux pwpage.Router, options ...pwpage.Option) {
 				pw.WriteProblem(w, r, err)
 				return
 			}
-			_ = route // a route with no dynamic segment and no query input reads nothing
+			_ = route
 			params := PageParams{}
 			wrappers := []pwpage.Wrapper{
 				BindLayout(LayoutParams{}),
@@ -38,7 +38,7 @@ func Register(mux pwpage.Router, options ...pwpage.Option) {
 				pw.WriteProblem(w, r, err)
 				return
 			}
-			_ = route // a route with no dynamic segment and no query input reads nothing
+			_ = route
 			pageName, pagePage, err := id_.Load(route.ID, route.Page)
 			if err != nil {
 				pw.WriteProblem(w, r, err)
@@ -65,8 +65,6 @@ func Register(mux pwpage.Router, options ...pwpage.Option) {
 			}
 		})
 
-	// Server function endpoints. Each handler owns its whole response, so
-	// nothing is generated around it; registration is all there is.
 	mux.HandleFunc("POST /_action/00369cf962b6/Rename", id_.Rename)
 	mux.HandleFunc("POST /_action/d71506d06c1e/Retire", id_.Retire)
 }
@@ -119,4 +117,11 @@ type ActionInfo struct {
 	Handler string
 	// Hash is the stable half of the path.
 	Hash string
+}
+
+func init() {
+	pwruntime.RegisterPageActions("GET /users/{id}",
+		pwruntime.PageAction{Name: "Rename", Path: "/_action/00369cf962b6/Rename"},
+		pwruntime.PageAction{Name: "Retire", Path: "/_action/d71506d06c1e/Retire"},
+	)
 }

@@ -295,6 +295,10 @@ function setScopeMarkerAttribute() {}
 // signal_harness.mjs; here they only have to be reachable.
 function setClientHandlerAttribute() {}
 function setScopePropsAttribute() {}
+// The namespace a setup is handed lives in the boundary half; this half only
+// installs what calling one does. What it installed is recorded so the call can
+// be driven from here without that half being loaded.
+function setActionCaller(caller) { globalThis.__actionCaller = caller; }
 function parseScopeCatalog(value) {
 	const chain = [];
 	if (!value) return chain;
@@ -998,6 +1002,63 @@ for (const target of ["javascript:globalThis.__pwned = true", "data:text/html,<s
 	dispatch("submit", elsewhere);
 	await new Promise((resolve) => setTimeout(resolve, 0));
 	check(requests.length === 1 && requests[0].url.startsWith("https://example.test/search"), "formaction chose the URL");
+}
+
+// Calling a server function by name, with no element and no gesture. It is the
+// case an element cannot serve: a script deciding to mutate has nothing to read
+// an address off.
+{
+	const runtime = fresh();
+	element("panel");
+	nextResponse = response({
+		headers: { "Pw-Render": "action", "Content-Type": "application/json" },
+		json: { ops: [{ kind: "replace", id: "panel", html: "<p>gone</p>" }] },
+	});
+	const result = await globalThis.__actionCaller("/_action/abc/Retire", { reason: "left" });
+	check(requests.length === 1 && requests[0].method === "POST", "the call posted");
+	check(requests[0].url === "https://example.test/_action/abc/Retire", "to the direct endpoint");
+	check(requests[0].body === JSON.stringify({ reason: "left" }), "with the caller's value as JSON");
+	check(requests[0].headers["Content-Type"] === "application/json", "and said so");
+	check(requests[0].headers["Pw-Render"] === "action", "it asked for an action response");
+	check(result.applied === true, "an update response was applied rather than returned");
+	check(swapped.length === 1 && swapped[0].html === "<p>gone</p>", "and the region was rewritten");
+}
+
+// A handler answering with its own value hands it back, because the caller
+// asked for this and has somewhere to put it — which a gesture never did.
+{
+	const runtime = fresh();
+	nextResponse = response({
+		headers: { "Content-Type": "application/json" },
+		json: { name: "renamed" },
+	});
+	const result = await globalThis.__actionCaller("/_action/abc/Rename", { name: "renamed" });
+	check(result && result.name === "renamed", "the JSON body was returned to the caller");
+	check(swapped.length === 0, "and nothing was applied as markup");
+}
+
+// A call with no argument sends no body and claims no content type, so a
+// handler binding nothing is not handed an empty JSON document to reject.
+{
+	const runtime = fresh();
+	nextResponse = response({ headers: { "Pw-Render": "action", "Content-Type": "application/json" }, json: { ops: [] } });
+	await globalThis.__actionCaller("/_action/abc/Rename");
+	check(!requests[0].body, "no body was sent");
+	check(!requests[0].headers["Content-Type"], "and no content type was claimed");
+}
+
+// A cross-origin address is refused before anything is issued. The set comes
+// from the page's own head, so this is a guard against a document that was
+// tampered with rather than against the application.
+{
+	const runtime = fresh();
+	let refused = false;
+	try {
+		await globalThis.__actionCaller("https://elsewhere.test/_action/abc/Rename", {});
+	} catch (error) {
+		refused = true;
+	}
+	check(refused && requests.length === 0, "a cross-origin action was refused with no request");
 }
 
 // --- server actions ---------------------------------------------------------

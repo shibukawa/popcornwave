@@ -112,7 +112,7 @@ as_built_2026_08_12:
     the_recommendation_it_lands: put a server action on a form, because a bare button loses the no-script path and posts to a constant address carrying no path parameters
   what_is_not_done:
     the_post_collision_check: withdrawn rather than blocked; the panic already names both sites, and analysis excludes the generated registry by design
-    calling_an_action_without_a_gesture: the actions namespace requirement:action-invocation-runtime designs is not in the bag, so a component script still writes its own fetch; nothing documents it as available
+    none_of_this_framework_s: the actions namespace landed 2026-08-12, which was the last item that was ours
     a_form_action_needs_csrf_turned_on_and_the_scaffold_does_not_always_turn_it_on:
       chain: generation writes the hidden field because the form is unsafe, the render needs a token to fill it, the token comes from a secret, and the secret is minted by the CSRF middleware alone
       so: with security.csrf.enabled false, which is the shipped default, every render of a page declaring a form action fails

@@ -386,6 +386,13 @@ func WriteHTMLChain(w http.ResponseWriter, r *http.Request, wrappers []HTMLWrapp
 	if nodes := updateHeadNodes(config, token); len(nodes) > 0 {
 		options = append(options, htmlbind.WithHead(nodes...))
 	}
+	// The route's own server functions, for a component script calling one with
+	// no element to read an address off. It rides its own meta rather than the
+	// runtime configuration because that value is the module's struct, and
+	// because this one varies per route where that one is process-static.
+	if nodes := pageActionHeadNodes(r); len(nodes) > 0 {
+		options = append(options, htmlbind.WithHead(nodes...))
+	}
 	// It is also the one response carrying no validator of its own, so its cache
 	// policy is decided here rather than inherited. Every branch above wrote its
 	// own on the way past: a sequence is immutable, a delta and a live stream are

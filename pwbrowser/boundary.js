@@ -703,6 +703,7 @@ function elementBag(element) {
 				if (typeof fn === "function") teardowns.push(fn);
 			},
 			props: readScopeProps(element),
+			actions: pageActions(),
 		},
 		release() {
 			// Signal registrations first and teardowns after, in reverse of
@@ -747,6 +748,60 @@ function readScopeProps(element) {
 		console.error("Popcorn Wave: component parameters are unreadable", error);
 		return {};
 	}
+}
+
+// The server functions this page publishes, as functions a script can call.
+//
+// A component script mutating without a gesture has no element to read an
+// address off, and cannot compute one either: the address holds a digest of the
+// declaring directory. So the document carries the set the route matched, and
+// this turns it into a namespace.
+//
+// Built once per document and shared by every instance, because it is a
+// property of the route rather than of an instance. Frozen so a handler cannot
+// add a name to it and have a later reader believe the page published one.
+let pageActionsCache = null;
+
+export function resetPageActions() {
+	pageActionsCache = null;
+}
+
+function pageActions() {
+	if (pageActionsCache) return pageActionsCache;
+	const meta = document.querySelector('meta[name="pw-actions"]');
+	let addresses = {};
+	if (meta) {
+		try {
+			const parsed = JSON.parse(meta.getAttribute("content") || "");
+			if (parsed && typeof parsed === "object") addresses = parsed;
+		} catch (error) {
+			console.error("Popcorn Wave: the page action set is unreadable", error);
+		}
+	}
+	const namespace = {};
+	for (const name of Object.keys(addresses)) {
+		namespace[name] = (input) => callAction(addresses[name], input);
+	}
+	pageActionsCache = Object.freeze(namespace);
+	return pageActionsCache;
+}
+
+// actionCaller is how a call reaches the network and the apply path.
+//
+// It is installed by the update half rather than imported, because issuing a
+// request and applying what came back are that half's, and this half is the one
+// that loads first.
+let actionCaller = null;
+
+export function setActionCaller(caller) {
+	if (typeof caller === "function") actionCaller = caller;
+}
+
+function callAction(url, input) {
+	if (!actionCaller) {
+		return Promise.reject(new Error("Popcorn Wave: updates are disabled, so an action cannot be called"));
+	}
+	return actionCaller(url, input);
 }
 
 // clientHandlerAttribute lists the events an element binds and the handler each

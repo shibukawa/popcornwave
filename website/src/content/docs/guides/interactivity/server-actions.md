@@ -152,6 +152,12 @@ is named the same way and resolved the same way, and comes from the component's
 own script block instead — see
 [Component scripts](/guides/interactivity/component-scripts/#handlers-the-markup-can-name).
 
+And if the mutation has to be gated — a confirmation, a check only the browser
+can make — put the client handler on the element and leave `server-action` off
+it, then call the action from JavaScript. A template carrying both runs the
+handler and issues the action regardless. See
+[Calling a server action](/guides/interactivity/component-scripts/#calling-a-server-action).
+
 If it changes something and you are not in a page tree, write an ordinary route.
 Server actions are a page's implementation detail: they appear in no OpenAPI
 document and nothing versions them, so a caller outside the page has no contract

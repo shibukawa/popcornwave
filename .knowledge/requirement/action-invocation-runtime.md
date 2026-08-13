@@ -119,6 +119,13 @@ calling_an_action_without_a_gesture:
     diagnostic: the runtime reports the name and what the route does publish, which is what turns undefined is not a function into an answer
     build_time_half: reading actions.Rename means parsing member expressions, which is deeper than the declarations decision:component-handler-namespace already asks for; worth having and not worth blocking on
   grants_nothing_new: every action is a public POST endpoint already, per rule:server-action-authoring, so a stub removes a URL an author would otherwise hand-write and moves no authorization boundary
+  as_built_2026_08_12:
+    the_join_nothing_else_held: the generated registry declares which directory a route serves and which directory a handler was declared in, and joining them is what turns a name into an address; a derived init publishes the join per route pattern, the way the reloadable registration is derived
+    keyed_on_the_matched_pattern: the render reads http.Request.Pattern, so nothing re-resolves a path the router already resolved and a page with no actions costs one map lookup
+    carried_as_its_own_meta: an inert escaped element beside the runtime configuration rather than a field in it, because that value is the module's struct and is process-static where this one varies per route
+    returns_what_the_handler_wrote: an update response is applied as a gesture's is, and anything else is handed back, since the caller asked for it and has somewhere to put it
+    no_in_flight_marking: no element was activated, so the state belongs to the caller that started the call
+    proved: four harness cases over the request, the JSON body, the argument-free call, and the cross-origin refusal, plus the head contribution and the generated join in Go
 open_questions:
   - whether an action may ask for a navigation-style diff instead of naming regions, which requirement:action-response-update also leaves open
 ```

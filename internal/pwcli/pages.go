@@ -8,6 +8,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"sort"
 	"strings"
@@ -93,6 +94,13 @@ func planPageTrees(root string, config projectConfig) (map[string][]generator.Ar
 				return nil, err
 			}
 			planned[directory] = append(planned[directory], artifact)
+			// The registry knows both halves nothing else holds together: which
+			// route a pattern is, and which server functions its package
+			// exports. A component script calling one by name needs the join,
+			// and only a file that has read both can make it.
+			if registration, declares := pageActionRegistrationArtifact(artifact); declares {
+				planned[directory] = append(planned[directory], registration)
+			}
 		}
 	}
 	return planned, nil
@@ -479,4 +487,74 @@ func assetArtifactKind(asset templatehtmlbind.Asset) generator.ArtifactKind {
 		return generator.ArtifactScript
 	}
 	return generator.ArtifactStylesheet
+}
+
+// The generated registry declares the two tables that have to be read together,
+// and nothing reads them together on its own.
+//
+// Routes says which directory a pattern serves. Actions says which directory a
+// server function was declared in. Joining them is what lets a component script
+// on /users/{id} name Rename and reach it, with no element to read an address
+// off and no way to compute one — the address holds a digest of the declaring
+// directory.
+var (
+	// Params is what tells a Routes entry from an Actions one: both carry a
+	// pattern, a path and a directory, and only a route carries the parameters
+	// its path declares. Matching without it registered every action endpoint as
+	// though it rendered a document.
+	pageRouteEntry  = regexp.MustCompile(`\{Pattern: "([^"]+)", Path: "[^"]*", Dir: "([^"]*)", Params:`)
+	pageActionEntry = regexp.MustCompile(`\{Pattern: "[^"]*", Path: "([^"]+)", Dir: "([^"]*)", Handler: "([^"]+)"`)
+)
+
+// pageActionRegistrationArtifact emits the init that publishes each route's own
+// server functions.
+//
+// Without it a project would generate both tables and join them nowhere, so a
+// script naming an action would find nothing on the page that says where it
+// lives. The registration is derived rather than written by an author for the
+// reason the reloadable one is: two lists that must agree should not be two
+// things to remember.
+func pageActionRegistrationArtifact(artifact generator.Artifact) (generator.Artifact, bool) {
+	if artifact.OutputBase+"_pw_gen.go" != pwgen.PageRegistryOutput {
+		return generator.Artifact{}, false
+	}
+	content := string(artifact.Content)
+	byDirectory := map[string][][2]string{}
+	for _, match := range pageActionEntry.FindAllStringSubmatch(content, -1) {
+		byDirectory[match[2]] = append(byDirectory[match[2]], [2]string{match[3], match[1]})
+	}
+	if len(byDirectory) == 0 {
+		return generator.Artifact{}, false
+	}
+	var body strings.Builder
+	// The shared leaf rather than either runtime, for the reason the document
+	// and reloadable registrations name it: one registry, read by both.
+	body.WriteString("package " + artifact.PackageName + "\n\nimport \"github.com/shibukawa/popcornwave/pwruntime\"\n\nfunc init() {\n")
+	registered := 0
+	for _, route := range pageRouteEntry.FindAllStringSubmatch(content, -1) {
+		actions := byDirectory[route[2]]
+		if len(actions) == 0 {
+			continue
+		}
+		fmt.Fprintf(&body, "\tpwruntime.RegisterPageActions(%q,\n", route[1])
+		for _, action := range actions {
+			fmt.Fprintf(&body, "\t\tpwruntime.PageAction{Name: %q, Path: %q},\n", action[0], action[1])
+		}
+		body.WriteString("\t)\n")
+		registered++
+	}
+	body.WriteString("}\n")
+	if registered == 0 {
+		// Every action belongs to a directory no route serves, which a layout
+		// exporting a handler produces. Nothing can call one by name from a page
+		// it does not serve, so the file would register nothing.
+		return generator.Artifact{}, false
+	}
+	return generator.Artifact{
+		Kind:        artifact.Kind,
+		SourcePath:  artifact.SourcePath,
+		OutputBase:  artifact.OutputBase,
+		PackageName: artifact.PackageName,
+		Content:     []byte(body.String()),
+	}, true
 }
