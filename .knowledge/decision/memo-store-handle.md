@@ -9,6 +9,7 @@ A caller resolves a named store of data:cache-store-set to a handle and passes t
 status: accepted and built 2026-08-13; the handle and the package-level operations both ship, and the methods wait on the language
 owner: api:data-cache
 language_constraint: a Go method may not declare its own type parameters, so the typed operation cannot be a method on the store today whatever the design prefers
+same_constraint_elsewhere: requirement:typed-api-method-convergence collects every site this shapes, and this is the only one where the eventual move can be prepared for rather than merely waited on
 now:
   acquire: a package-level function taking the context and the store name, returning the handle and an error
   operate: package-level generic functions taking that handle

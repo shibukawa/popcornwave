@@ -422,6 +422,7 @@
 {"context": "body", "path": ".knowledge/api/dynamo-package.md", "source": "api:dynamo-package", "target": "rule:dynamodb-table-naming", "target_category": "constraint", "target_type": "rule"}
 {"context": "body", "path": ".knowledge/api/dynamo-package.md", "source": "api:dynamo-package", "target": "requirement:context-lookup-performance", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/api/dynamo-package.md", "source": "api:dynamo-package", "target": "decision:dynamodb-no-runtime-abstraction", "target_category": "constraint", "target_type": "decision"}
+{"context": "body", "path": ".knowledge/api/dynamo-package.md", "source": "api:dynamo-package", "target": "requirement:typed-api-method-convergence", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/api/dynamo-package.md", "source": "api:dynamo-package", "target": "flow:sql-generation", "target_category": "behavior", "target_type": "flow"}
 {"context": "body", "path": ".knowledge/api/dynamo-package.md", "source": "api:dynamo-package", "target": "api:application-lifecycle", "target_category": "interface", "target_type": "api"}
 {"context": "body", "path": ".knowledge/api/dynamo-package.md", "source": "api:dynamo-package", "target": "decision:dynamodb-observability-seam", "target_category": "constraint", "target_type": "decision"}
@@ -442,6 +443,7 @@
 {"context": "body", "path": ".knowledge/api/firestore-package.md", "source": "api:firestore-package", "target": "decision:firestore-no-schema-application", "target_category": "constraint", "target_type": "decision"}
 {"context": "body", "path": ".knowledge/api/firestore-package.md", "source": "api:firestore-package", "target": "decision:dynamodb-table-registry", "target_category": "constraint", "target_type": "decision"}
 {"context": "body", "path": ".knowledge/api/firestore-package.md", "source": "api:firestore-package", "target": "decision:dynamodb-no-runtime-abstraction", "target_category": "constraint", "target_type": "decision"}
+{"context": "body", "path": ".knowledge/api/firestore-package.md", "source": "api:firestore-package", "target": "requirement:typed-api-method-convergence", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/api/firestore-package.md", "source": "api:firestore-package", "target": "requirement:dynamodb-auth-backend", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/api/firestore-package.md", "source": "api:firestore-package", "target": "decision:firestore-datastore-mode-only", "target_category": "constraint", "target_type": "decision"}
 {"context": "body", "path": ".knowledge/api/firestore-package.md", "source": "api:firestore-package", "target": "api:application-lifecycle", "target_category": "interface", "target_type": "api"}
@@ -2231,6 +2233,7 @@
 {"context": "body", "path": ".knowledge/decision/local-tls-proxy-boundary.md", "source": "decision:local-tls-proxy-boundary", "target": "decision:server-sql-support-tier", "target_category": "constraint", "target_type": "decision"}
 {"context": "body", "path": ".knowledge/decision/memo-store-handle.md", "source": "decision:memo-store-handle", "target": "data:cache-store-set", "target_category": "structure", "target_type": "data"}
 {"context": "body", "path": ".knowledge/decision/memo-store-handle.md", "source": "decision:memo-store-handle", "target": "api:data-cache", "target_category": "interface", "target_type": "api"}
+{"context": "body", "path": ".knowledge/decision/memo-store-handle.md", "source": "decision:memo-store-handle", "target": "requirement:typed-api-method-convergence", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/decision/migration-execution-split.md", "source": "decision:migration-execution-split", "target": "system:goose", "target_category": "external", "target_type": "system"}
 {"context": "body", "path": ".knowledge/decision/migration-execution-split.md", "source": "decision:migration-execution-split", "target": "decision:force-tinygo-logic", "target_category": "constraint", "target_type": "decision"}
 {"context": "body", "path": ".knowledge/decision/migration-execution-split.md", "source": "decision:migration-execution-split", "target": "api:migration-runner", "target_category": "interface", "target_type": "api"}
@@ -5331,6 +5334,11 @@
 {"context": "body", "path": ".knowledge/requirement/tutorial-page-tree-chapter.md", "source": "requirement:tutorial-page-tree-chapter", "target": "api:page-action-endpoint", "target_category": "interface", "target_type": "api"}
 {"context": "body", "path": ".knowledge/requirement/tutorial-page-tree-chapter.md", "source": "requirement:tutorial-page-tree-chapter", "target": "requirement:html-fragment-rendering", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/requirement/tutorial-page-tree-chapter.md", "source": "requirement:tutorial-page-tree-chapter", "target": "concept:interaction-cost-ladder", "target_category": "concept", "target_type": "concept"}
+{"context": "body", "path": ".knowledge/requirement/typed-api-method-convergence.md", "source": "requirement:typed-api-method-convergence", "target": "api:dynamo-package", "target_category": "interface", "target_type": "api"}
+{"context": "body", "path": ".knowledge/requirement/typed-api-method-convergence.md", "source": "requirement:typed-api-method-convergence", "target": "api:firestore-package", "target_category": "interface", "target_type": "api"}
+{"context": "body", "path": ".knowledge/requirement/typed-api-method-convergence.md", "source": "requirement:typed-api-method-convergence", "target": "decision:dynamodb-no-runtime-abstraction", "target_category": "constraint", "target_type": "decision"}
+{"context": "body", "path": ".knowledge/requirement/typed-api-method-convergence.md", "source": "requirement:typed-api-method-convergence", "target": "system:tinybind", "target_category": "external", "target_type": "system"}
+{"context": "body", "path": ".knowledge/requirement/typed-api-method-convergence.md", "source": "requirement:typed-api-method-convergence", "target": "decision:memo-store-handle", "target_category": "constraint", "target_type": "decision"}
 {"context": "body", "path": ".knowledge/requirement/typed-http-contract.md", "source": "requirement:typed-http-contract", "target": "api:html-response", "target_category": "interface", "target_type": "api"}
 {"context": "body", "path": ".knowledge/requirement/typed-http-contract.md", "source": "requirement:typed-http-contract", "target": "api:api-response", "target_category": "interface", "target_type": "api"}
 {"context": "body", "path": ".knowledge/requirement/typed-http-contract.md", "source": "requirement:typed-http-contract", "target": "api:problem-response", "target_category": "interface", "target_type": "api"}
@@ -5785,6 +5793,7 @@
 {"context": "body", "path": ".knowledge/system/tinybind.md", "source": "system:tinybind", "target": "requirement:template-formatting", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/system/tinybind.md", "source": "system:tinybind", "target": "requirement:editor-formatting", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/system/tinybind.md", "source": "system:tinybind", "target": "requirement:data-result-cache", "target_category": "objective", "target_type": "requirement"}
+{"context": "body", "path": ".knowledge/system/tinybind.md", "source": "system:tinybind", "target": "requirement:typed-api-method-convergence", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/system/tinybind.md", "source": "system:tinybind", "target": "rule:page-directory-naming", "target_category": "constraint", "target_type": "rule"}
 {"context": "body", "path": ".knowledge/system/tinybind.md", "source": "system:tinybind", "target": "system:tinygodriver", "target_category": "external", "target_type": "system"}
 {"context": "body", "path": ".knowledge/system/tinybind.md", "source": "system:tinybind", "target": "decision:dynamodb-framework-scope", "target_category": "constraint", "target_type": "decision"}

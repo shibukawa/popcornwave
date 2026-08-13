@@ -548,6 +548,7 @@
 {"category": "objective", "id": "requirement:tutorial-capability-growth", "path": ".knowledge/requirement/tutorial-capability-growth.md", "role": "primary", "title": "Tutorial Capability Growth", "type": "requirement"}
 {"category": "objective", "id": "requirement:tutorial-continuity", "path": ".knowledge/requirement/tutorial-continuity.md", "role": "primary", "title": "Tutorial Continuity", "type": "requirement"}
 {"category": "objective", "id": "requirement:tutorial-page-tree-chapter", "path": ".knowledge/requirement/tutorial-page-tree-chapter.md", "role": "primary", "title": "Tutorial Page Tree Chapter", "type": "requirement"}
+{"category": "objective", "id": "requirement:typed-api-method-convergence", "path": ".knowledge/requirement/typed-api-method-convergence.md", "role": "primary", "title": "Typed API Method Convergence", "type": "requirement"}
 {"category": "objective", "id": "requirement:typed-http-contract", "path": ".knowledge/requirement/typed-http-contract.md", "role": "primary", "title": "Typed HTTP Contract", "type": "requirement"}
 {"category": "objective", "id": "requirement:typed-websocket", "path": ".knowledge/requirement/typed-websocket.md", "role": "primary", "title": "Typed WebSocket On Both Builds", "type": "requirement"}
 {"category": "objective", "id": "requirement:unhandled-boundary-signal", "path": ".knowledge/requirement/unhandled-boundary-signal.md", "role": "primary", "title": "Unhandled Boundary Signal", "type": "requirement"}

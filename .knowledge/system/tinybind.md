@@ -244,6 +244,11 @@ generic_methods_available_today:
   shipped: v0.5.9, the second ask of the same round
   what: Require on Builder, Bind and BindWrapper on Plan, each introducing no type parameter beyond its receiver's own
   old_forms: kept as deprecated wrappers, so nothing here had to move; this framework's remaining call sites are in tests
+blocked_on_generic_methods:
+  what: five surfaces are package functions only because a Go method cannot take type parameters — the firestorebind transactional reads, the dynamobind and firestorebind On entries, the htmlbind builder operations carrying an extra type parameter, the jsonbind parser's ParseSlice and ParseMap, and sqlbind AppendValues
+  why_it_is_this_framework_s_concern: none of them is wrapped here, so each is what an application author writes; requirement:typed-api-method-convergence holds the intent, the priority, and the migration shape
+  request: filed unacted upstream 2026-08-13 and deliberately not started; the trigger is a Go release carrying methods with type parameters and a TinyGo release carrying that Go, since this framework targets both
+  reason_already_in_the_source: the transactional read's comment names the constraint, and separately refuses a context-carried handle because one call site would then mean two things depending on which context reached it
 constraints:
   - a route tree directory name must be a legal Go import path element, per rule:page-directory-naming
   - generator executes with host Go
