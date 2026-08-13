@@ -124,6 +124,15 @@ calling_an_action_without_a_gesture:
     keyed_on_the_matched_pattern: the render reads http.Request.Pattern, so nothing re-resolves a path the router already resolved and a page with no actions costs one map lookup
     carried_as_its_own_meta: an inert escaped element beside the runtime configuration rather than a field in it, because that value is the module's struct and is process-static where this one varies per route
     returns_what_the_handler_wrote: an update response is applied as a gesture's is, and anything else is handed back, since the caller asked for it and has somewhere to put it
+    the_handler_can_tell_the_two_apart:
+      asked_for: 2026-08-13, so a form-invoked action and a script-invoked one may answer differently
+      what_was_already_true: a script call already received JSON, because a response that is not an update mode is returned to the caller; what was missing was the Go side, where one handler served both callers and had to pick one behaviour
+      channel: a second header of this framework's own, sent by a call and by nothing else
+      not_a_second_mode: the mode still says action, so an update response applies to a call exactly as it does to a gesture; what this adds is who is holding the answer
+      not_the_mode_parameter: system:tinybind documents the field after the semicolon as the caller's wire version, and a second meaning there would collide the day a caller versions its wire
+      surface: pw.WantsValue beside pw.WantsUpdate, so an action handler has three branches and a handler asking neither is unchanged
+      the_guards_ran_again: the call-pattern test refused the predicate until a pattern was registered and a pwfast counterpart existed, which is the third time that pair has caught an addition in this feature
+      found_by_the_fixture: making Rename branch produced a redirect reading r.URL, which the transport analysis refuses; the direct endpoint carries no path parameter, so a handler there cannot reconstruct the page it came from and a fixed destination is the honest one
     no_in_flight_marking: no element was activated, so the state belongs to the caller that started the call
     proved: four harness cases over the request, the JSON body, the argument-free call, and the cross-origin refusal, plus the head contribution and the generated join in Go
 open_questions:

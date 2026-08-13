@@ -24,6 +24,37 @@ func RegisterPageActions(pattern string, actions ...PageAction) {
 	pwruntime.RegisterPageActions(pattern, actions...)
 }
 
+// ActionCallHeader says a server function was called by name from a script
+// rather than reached by a gesture on an element.
+//
+// It is a second axis rather than a second mode, because the mode already says
+// what it says: this is an action request, and an update response applies to it
+// exactly as it does to a submitted form. What this adds is who is holding the
+// answer. A gesture has a document to update and nowhere to put a value; a
+// script called this and can read one.
+//
+// A header of this framework's own rather than the mode's parameter field: the
+// module documents that field as the caller's wire version, and giving it a
+// second meaning would collide the day a caller versions its wire.
+const ActionCallHeader = "Pw-Call"
+
+// WantsValue reports a server function called from a script.
+//
+// It is the third branch of an action handler, beside WantsUpdate and the
+// ordinary response:
+//
+//	switch {
+//	case pw.WantsValue(r):   // a script called it, so answer with a value
+//	case pw.WantsUpdate(r):  // an intercepted gesture, so answer with regions
+//	default:                 // a native submit, so redirect
+//	}
+//
+// A handler that never asks is unchanged: it writes one response and every
+// caller gets it, which is what a handler answering only regions already does.
+func WantsValue(r *http.Request) bool {
+	return r != nil && r.Header.Get(ActionCallHeader) != ""
+}
+
 // pageActionHeadNodes carries this route's actions into the document.
 //
 // The route is read from the pattern the router reports having matched, so

@@ -28,6 +28,8 @@ export function createUpdateRuntime(config) {
 	// that renamed the prefix and a client that did not is impossible rather
 	// than silent.
 	const scopeChainHeader = config.header + "-Scopes";
+	// Sent by a call made from a script, and by nothing else.
+	const callHeader = config.header + "-Call";
 	// The marker the render writes on a scoped component's root element. Built
 	// from the same configured prefix as every other attribute here, and handed
 	// to the boundary half, which owns the scan but is loaded before any
@@ -1057,10 +1059,16 @@ export function createUpdateRuntime(config) {
 		markBusy(true);
 		let response;
 		try {
+			// The call header says who is holding the answer. The mode still
+			// says action, so a handler answering with regions is applied here
+			// exactly as it is for a gesture; this is what lets one that has a
+			// value to return know there is somewhere to put it.
+			const headers = Object.assign(updateHeaders(), { [callHeader]: "1" });
+			if (input !== undefined) headers["Content-Type"] = "application/json";
 			response = await fetch(target.href, {
 				method: "POST",
 				body: input === undefined ? null : JSON.stringify(input),
-				headers: Object.assign(updateHeaders(), input === undefined ? {} : { "Content-Type": "application/json" }),
+				headers: headers,
 				credentials: "same-origin",
 				redirect: "error",
 			});

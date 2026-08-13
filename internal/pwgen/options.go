@@ -222,6 +222,9 @@ func Options(sqlDialect string) (generator.Options, error) {
 		// generated registry of every page tree declaring a form action.
 		{name: "ActionSelector", writer: -1, request: 0},
 		{name: "DispatchAction", writer: 0, request: 1},
+		// The third branch of an action handler, beside WantsUpdate. A handler
+		// asking which caller it has is a handler either transport can serve.
+		{name: "WantsValue", writer: -1, request: 0},
 	} {
 		options := []generator.CallPatternOption{generator.RequestArgument(transport.request)}
 		if transport.writer >= 0 {

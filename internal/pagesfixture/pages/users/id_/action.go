@@ -19,13 +19,28 @@ type renameResponse struct {
 //
 // It reads a typed request, which only works because generation runs over the
 // packages of a page tree. The binder it calls is generated from this file.
+//
+// It answers by caller, which is what owning the whole response is for. A script
+// called this and is holding the answer, so it gets a value; anyone else gets
+// the page again, because a gesture has a document to update and nowhere to put
+// one. A handler with nothing to return asks neither question and writes one
+// response for everybody.
 func Rename(w http.ResponseWriter, r *http.Request) {
 	request, err := pw.Parse[renameRequest](r)
 	if err != nil {
 		pw.WriteProblem(w, r, err)
 		return
 	}
-	pw.WriteAPI(w, r, renameResponse{Name: request.Name})
+	if pw.WantsValue(r) {
+		pw.WriteAPI(w, r, renameResponse{Name: request.Name})
+		return
+	}
+	// A fixed destination rather than the page this came from, because it cannot
+	// be reconstructed here: a bare button posts to the direct endpoint, whose
+	// address is a constant carrying none of the route's path parameters. A
+	// handler that needs to send somebody back to their own page belongs on a
+	// form, which posts to the page URL.
+	pw.RedirectSeeOther(w, r, "/")
 }
 
 // Retire is the form half of the same surface: a handler a form names rather

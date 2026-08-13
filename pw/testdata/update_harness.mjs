@@ -1020,6 +1020,10 @@ for (const target of ["javascript:globalThis.__pwned = true", "data:text/html,<s
 	check(requests[0].body === JSON.stringify({ reason: "left" }), "with the caller's value as JSON");
 	check(requests[0].headers["Content-Type"] === "application/json", "and said so");
 	check(requests[0].headers["Pw-Render"] === "action", "it asked for an action response");
+	// The mode still says action, so a handler answering with regions is applied
+	// here as it is for a gesture. What the call header adds is that somebody is
+	// holding the answer.
+	check(requests[0].headers["Pw-Call"] === "1", "and said a script is holding the answer");
 	check(result.applied === true, "an update response was applied rather than returned");
 	check(swapped.length === 1 && swapped[0].html === "<p>gone</p>", "and the region was rewritten");
 }
@@ -1087,6 +1091,7 @@ for (const target of ["javascript:globalThis.__pwned = true", "data:text/html,<s
 	check(requests[0].method === "POST", "a mutation is a POST");
 	check(requests[0].url === "https://example.test/orders", "it posted to the document URL");
 	check(requests[0].headers["Pw-Render"] === "action", "it asked for an action response");
+	check(!requests[0].headers["Pw-Call"], "a gesture does not claim to be holding an answer");
 	check(swapped.length === 1 && swapped[0].html === "<p>done</p>", "the response was applied");
 }
 

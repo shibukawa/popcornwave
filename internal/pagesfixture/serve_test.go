@@ -174,6 +174,37 @@ func TestPagesPublishTheirOwnActions(t *testing.T) {
 	}
 }
 
+// A server action answers by caller, which is what owning the whole response is
+// for: a script called it and is holding the answer, and a gesture has a
+// document to update instead.
+func TestActionAnswersByCaller(t *testing.T) {
+	mux := fixtureMux(t)
+
+	called := httptest.NewRequest(http.MethodPost, "/_action/00369cf962b6/Rename",
+		strings.NewReader(`{"name":"renamed"}`))
+	called.Header.Set("Content-Type", "application/json")
+	called.Header.Set(pw.ActionCallHeader, "1")
+	value := httptest.NewRecorder()
+	mux.ServeHTTP(value, called)
+	if value.Code != http.StatusOK {
+		t.Fatalf("a call answered %d\n%s", value.Code, value.Body.String())
+	}
+	if !strings.Contains(value.Body.String(), `"name":"renamed"`) {
+		t.Errorf("a call did not receive a value:\n%s", value.Body.String())
+	}
+
+	// The same handler, reached without that header, sends the browser back to
+	// a page rather than showing it a JSON document.
+	gesture := httptest.NewRequest(http.MethodPost, "/_action/00369cf962b6/Rename",
+		strings.NewReader(`{"name":"renamed"}`))
+	gesture.Header.Set("Content-Type", "application/json")
+	redirected := httptest.NewRecorder()
+	mux.ServeHTTP(redirected, gesture)
+	if redirected.Code != http.StatusSeeOther {
+		t.Errorf("a gesture answered %d, want a redirect\n%s", redirected.Code, redirected.Body.String())
+	}
+}
+
 // A route with no page is not a route, and a page is GET only.
 func TestPagesServeRejectsWhatIsNotAPage(t *testing.T) {
 	mux := fixtureMux(t)
@@ -219,9 +250,13 @@ func TestPagesServeServerAction(t *testing.T) {
 		t.Fatalf("the action table does not list Rename: %+v", pages.Actions)
 	}
 
+	// Called the way a script calls one, since this handler answers a caller
+	// holding the answer with a value. TestActionAnswersByCaller covers what the
+	// same endpoint does for anyone else.
 	recorder := httptest.NewRecorder()
 	request := httptest.NewRequest(http.MethodPost, endpoint, strings.NewReader(`{"name":"new"}`))
 	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set(pw.ActionCallHeader, "1")
 	mux.ServeHTTP(recorder, request)
 	if recorder.Code != http.StatusOK || !strings.Contains(recorder.Body.String(), `"new"`) {
 		t.Errorf("action: status %d\n%s", recorder.Code, recorder.Body.String())
@@ -229,6 +264,7 @@ func TestPagesServeServerAction(t *testing.T) {
 
 	// The check tag is only enforced if the generated binder is the one reading
 	// the body, which is what makes this the proof rather than the status above.
+	// It is refused before the caller question is asked, so no header is needed.
 	recorder = httptest.NewRecorder()
 	request = httptest.NewRequest(http.MethodPost, endpoint, strings.NewReader(`{}`))
 	request.Header.Set("Content-Type", "application/json")

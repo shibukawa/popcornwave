@@ -54,3 +54,14 @@ func DispatchAction(r *fasthttp.RequestCtx, handler func(*fasthttp.RequestCtx)) 
 	}
 	RedirectSeeOther(r, string(r.RequestURI()))
 }
+
+// ActionCallHeader says a server function was called by name from a script
+// rather than reached by a gesture, matching the net/http half so one document
+// drives either backend.
+const ActionCallHeader = "Pw-Call"
+
+// WantsValue reports a server function called from a script, which is the third
+// branch of an action handler beside WantsUpdate and the ordinary response.
+func WantsValue(r *fasthttp.RequestCtx) bool {
+	return r != nil && len(r.Request.Header.Peek(ActionCallHeader)) > 0
+}

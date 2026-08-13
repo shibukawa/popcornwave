@@ -109,6 +109,44 @@ handler authenticates and authorizes its own caller exactly as any route does.
 Every exported handler-shaped function in a route package gets an endpoint
 whether or not a template mentions it; lower-case the ones that should not.
 
+### Answering by caller
+
+Owning the whole response means the handler can answer each caller with what
+that caller can use:
+
+```go
+func Rename(w http.ResponseWriter, r *http.Request) {
+	// …mutate…
+	switch {
+	case pw.WantsValue(r):
+		// A script called this by name and is holding the answer.
+		pw.WriteAPI(w, r, renamed{Name: request.Name})
+	case pw.WantsUpdate(r):
+		// The runtime intercepted a gesture, so answer with the regions that
+		// changed and it applies them in place.
+		pw.WriteUpdate(w, r, pw.Replace("name", BindName(request.Name)))
+	default:
+		// A native submit, with a document waiting for a page.
+		pw.RedirectSeeOther(w, r, "/users/"+id)
+	}
+}
+```
+
+Ask neither question and one response goes to everybody, which is right for a
+handler with nothing to return. Ask the first and a form submit will not be shown
+a JSON document.
+
+### Why it is not typed like `Load`
+
+A page's `Load` takes its route's inputs and returns the page component's
+parameters, and the framework renders — so both ends can be typed.
+
+An action owns its response instead, and that is what a typed signature cannot
+express: redirects, conditional statuses, downloads and streaming are all
+legitimate answers, and no fixed return covers them. The input is still typed —
+`pw.Parse` recovers the struct, and generation checks form field names against
+its fields. What stays untyped is the signature and the return.
+
 ## Errors that come back
 
 A rejected submission returns `4xx` and the regions it carries are the
