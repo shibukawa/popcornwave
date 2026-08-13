@@ -19,6 +19,7 @@ func init() {
 	registerObservabilityConfigDefinition4()
 	registerMiddlewareConfigDefinition5()
 	registerHTMLConfigDefinition6()
+	registerCacheConfigDefinition7()
 }
 
 func registerServerConfigDefinition0() {
@@ -1816,6 +1817,114 @@ func applyHTMLConfigDefinition6(dst any, o *configbind.Overlay) error {
 		p.Cache.MaxEntries = int(n)
 	} else {
 		p.Cache.MaxEntries = 1024
+	}
+	return nil
+}
+
+func registerCacheConfigDefinition7() {
+	configbind.Register[CacheConfig](configbind.Definition{
+		TypeName: "github.com/shibukawa/popcornwave/pwconfig.CacheConfig",
+		Prefix:   "cache",
+		Doc:      "CacheConfig is the named data cache store set, configured as [[cache.stores]]. It is separate from html.cache: that store holds rendered bytes sized for one entry per parameter set, and this one holds what a fetch returned",
+		KnownKeys: []string{
+			"cache.enabled",
+			"cache.stores",
+		},
+		Defaults: map[string]string{
+			"cache.enabled": "false",
+		},
+		DependsOn: map[string][]configbind.Dependency{
+			"cache.stores": {{Key: "cache.enabled"}},
+		},
+		FlagMetas: []cliparser.FieldMeta{
+			{Prefix: "cache", Key: "enabled", Help: "reuse what a fetch returned for equal keys", Kind: cliparser.KindBool},
+		},
+		Apply: applyCacheConfigDefinition7,
+		Scaffold: []configbind.ScaffoldField{
+			{Key: "enabled", Kind: configbind.ScaffoldBool, Default: "false", Help: "reuse what a fetch returned for equal keys"},
+			{Key: "stores", Kind: configbind.ScaffoldTableArray, Help: "cache store set, one element per store", Nested: []configbind.ScaffoldField{
+				{Key: "name", Kind: configbind.ScaffoldString, Help: "name this store is addressed by"},
+				{Key: "backend", Kind: configbind.ScaffoldString, Default: "memory", Help: "where entries live; memory is the only implemented backend"},
+				{Key: "ttl", Kind: configbind.ScaffoldDuration, Default: "1m", Help: "how long an entry is fresh"},
+				{Key: "stale", Kind: configbind.ScaffoldDuration, Default: "0s", Help: "how long a stale entry may answer while it revalidates"},
+				{Key: "scope", Kind: configbind.ScaffoldString, Default: "private", Help: "private keys entries per reader; public shares them"},
+				{Key: "max_entries", Kind: configbind.ScaffoldInt, Default: "1024", Help: "maximum entries this store holds"},
+				{Key: "fetch_timeout", Kind: configbind.ScaffoldDuration, Default: "30s", Help: "bound on a fetch running detached from its waiters"},
+			}},
+		},
+	})
+}
+
+func applyCacheConfigDefinition7(dst any, o *configbind.Overlay) error {
+	p, ok := dst.(*CacheConfig)
+	if !ok || p == nil {
+		return fmt.Errorf("configbind: apply CacheConfig: bad destination")
+	}
+	if v, ok := o.GetString("cache.enabled"); ok {
+		bb, err := strconv.ParseBool(v)
+		if err != nil {
+			return fmt.Errorf("configbind: cache.enabled: %w", err)
+		}
+		p.Enabled = bb
+	} else {
+		p.Enabled = false
+	}
+	if ta1, ok := o.Get("cache.stores"); ok {
+		if !ta1.IsTables {
+			return fmt.Errorf("configbind: cache.stores: expected an array of tables ([[cache.stores]])")
+		}
+		p.Stores = make([]CacheStoreConfig, len(ta1.Tables))
+		for i1 := range ta1.Tables {
+			if v, ok := ta1.Tables[i1].GetString("name"); ok {
+				p.Stores[i1].Name = v
+			}
+			if v, ok := ta1.Tables[i1].GetString("backend"); ok {
+				p.Stores[i1].Backend = v
+			} else {
+				p.Stores[i1].Backend = "memory"
+			}
+			if v, ok := ta1.Tables[i1].GetString("ttl"); ok {
+				d, err := time.ParseDuration(v)
+				if err != nil {
+					return fmt.Errorf("configbind: cache.stores[%d].ttl: %w", i1, err)
+				}
+				p.Stores[i1].TTL = d
+			} else {
+				p.Stores[i1].TTL = 60000000000 // 1m0s
+			}
+			if v, ok := ta1.Tables[i1].GetString("stale"); ok {
+				d, err := time.ParseDuration(v)
+				if err != nil {
+					return fmt.Errorf("configbind: cache.stores[%d].stale: %w", i1, err)
+				}
+				p.Stores[i1].Stale = d
+			} else {
+				p.Stores[i1].Stale = 0 // 0s
+			}
+			if v, ok := ta1.Tables[i1].GetString("scope"); ok {
+				p.Stores[i1].Scope = v
+			} else {
+				p.Stores[i1].Scope = "private"
+			}
+			if v, ok := ta1.Tables[i1].GetString("max_entries"); ok {
+				n, err := strconv.ParseInt(v, 10, 0)
+				if err != nil {
+					return fmt.Errorf("configbind: cache.stores[%d].max_entries: %w", i1, err)
+				}
+				p.Stores[i1].MaxEntries = int(n)
+			} else {
+				p.Stores[i1].MaxEntries = 1024
+			}
+			if v, ok := ta1.Tables[i1].GetString("fetch_timeout"); ok {
+				d, err := time.ParseDuration(v)
+				if err != nil {
+					return fmt.Errorf("configbind: cache.stores[%d].fetch_timeout: %w", i1, err)
+				}
+				p.Stores[i1].FetchTimeout = d
+			} else {
+				p.Stores[i1].FetchTimeout = 30000000000 // 30s
+			}
+		}
 	}
 	return nil
 }

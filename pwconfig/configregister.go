@@ -13,5 +13,6 @@ func init() {
 	Register[ObservabilityConfig]("observability")
 	Register[MiddlewareConfig]("middleware")
 	Register[HTMLConfig]("html")
+	Register[CacheConfig]("cache")
 	Seed(defaultHTMLConfig)
 }

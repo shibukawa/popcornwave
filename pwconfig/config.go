@@ -31,6 +31,7 @@ import (
 	"time"
 
 	"github.com/shibukawa/popcornwave/middlewares"
+	"github.com/shibukawa/popcornwave/pwruntime"
 	"github.com/shibukawa/popcornwave/sessionconfig"
 )
 
@@ -203,6 +204,15 @@ type HTMLCacheConfig struct {
 	// string has as many entries as it has callers.
 	MaxEntries int `default:"1024" dependon:".enabled" help:"maximum entries the in-process render cache holds"`
 }
+
+// CacheConfig is the named data cache store set, configured as
+// [[cache.stores]]. It is separate from html.cache: that store holds rendered
+// bytes sized for one entry per parameter set, and this one holds what a fetch
+// returned.
+type CacheConfig = pwruntime.CacheConfig
+
+// CacheStoreConfig is one store of the data cache set.
+type CacheStoreConfig = pwruntime.CacheStoreConfig
 
 // PublicConfig controls the framework-owned static asset endpoint.
 type PublicConfig = middlewares.PublicAssetConfig

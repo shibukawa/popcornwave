@@ -7,7 +7,7 @@ TinyBind is the generated binding, configuration, response, validation, streamin
 
 ```yaml
 module: github.com/shibukawa/tinybind-go
-pin: v0.5.8, moved from v0.5.7 by json_tag_options, which is the same release that carried configbind_verbosity_baseline; v0.5.7 came from v0.5.1 with the live source signal and the component cleanup hook, v0.5.1 from v0.5.0 where the update surface got its second half, v0.5.0 from v0.4.9 where both runtimes took one problem value and one document registry, and v0.4.9 from v0.4.3 where the update response became a value
+pin: v0.5.9, moved from v0.5.8 by cachekeybind below; v0.5.8 came from v0.5.7 by json_tag_options, which is the same release that carried configbind_verbosity_baseline; v0.5.7 came from v0.5.1 with the live source signal and the component cleanup hook, v0.5.1 from v0.5.0 where the update surface got its second half, v0.5.0 from v0.4.9 where both runtimes took one problem value and one document registry, and v0.4.9 from v0.4.3 where the update response became a value
 pin_before_v0_4_9: v0.4.3 moved from v0.4.2 by delta_package_break; v0.4.2 came from v0.4.1 by requirement:pgx-native-execution for the sqlbind Rows cursor, v0.4.1 from v0.4.0 by requirement:context-lookup-performance for the handle resolvers and On entries, and v0.2.10 was left behind by decision:tinybind-v03-adoption
 pin_staleness_correction:
   what: this file recorded v0.4.3 as both the pin and the current release until 2026-08-12, five pin moves after it stopped being either
@@ -19,7 +19,7 @@ html_async_baseline: v0.1.20
 html_live_baseline: v0.2.8, required by requirement:live-html-rendering; v0.2.7 introduced live boundaries and v0.2.8 answered the first of the integration requests raised against them
 html_update_baseline: v0.3.3; v0.3.0 added the htmlupdate package, v0.3.1 handed the asset and every name to the caller per requirement:tinybind-runtime-ownership, v0.3.2 carried head on the action response, and v0.3.3 closed every remaining seam of requirement:tinybind-update-composition-seams and made CSRF module native; adopted by decision:update-runtime-convergence
 route_tree_baseline: v0.2.6
-current: v0.5.8, which acts on json tag options for the first time and gives configbind the two levers requirement:startup-summary-brevity needed; the two halves are unrelated and shipped together, per json_tag_options and configbind_verbosity_baseline
+current: v0.5.9, which adds cachekeybind and moves three htmlbind entries onto methods; v0.5.8 acted on json tag options for the first time and gave configbind the two levers requirement:startup-summary-brevity needed
 was_current_at_v0_4_3: a performance release across the module that paid for it with delta_package_break; v0.4.2 added the sqlbind Rows cursor, v0.4.1 added the NoSQL handle supply modes, and v0.4.0 implemented the URL half of policy:template-escaping and rewrote the JSON decoder the generator emits
 configbind_verbosity_baseline:
   shipped: v0.5.8, all three together; read against the module cache tree on 2026-08-12
@@ -229,6 +229,26 @@ generator:
     what: Source and SourceAs format twice and return an error rather than a result that differs between the passes
     where_it_belongs: upstream, which has the AST; it replaces the equivalent check requirement:editor-formatting carried in the extension
     version_floor: an embedder relying on it rather than repeating it must pin v0.3.2 or later
+cachekeybind:
+  shipped: v0.5.9, answering the blocking ask of requirement:data-result-cache in one round
+  package: stdlib-only, holding the CacheKey interface and its own framing helpers, so an application caching a JSON call links no render runtime
+  tag: `cache:"key"` marks a field and is the only value the tag takes
+  emitted: one CacheKey method per type plus a per-type interface assertion, with the identity derived as package path and type name
+  two_changes_against_the_ask:
+    opt_in_rather_than_default_include: refused with a reason this framework had not carried — the owner passes a storage entity as-is, whose fields are mostly the result, so default-include would build the key from the value the lookup exists to avoid fetching
+    no_version_at_all: refused because a version is a number an author must remember to raise, and because the module states its cache runtime never invalidates, so a version is a deployment lever declared in a library
+  correction_taken: the ask cited the dynamo tag as precedent for default-include; the module carries both polarities and firestorebind is opt-in, so the precedent decided nothing and the half named lost
+  discovery: usage-directed, so a key type is emitted for the types a registered call actually receives; this framework registers Memo, MemoHas, MemoSet, and MemoInvalidate with the key as argument index 2
+  helper_home_resolved: cachekeybind frames its own rather than forwarding htmlbind's, which would have added a dependency to a shipped render runtime; the split also made its helper set wider on integer and float widths
+generic_methods_available_today:
+  shipped: v0.5.9, the second ask of the same round
+  what: Require on Builder, Bind and BindWrapper on Plan, each introducing no type parameter beyond its receiver's own
+  old_forms: kept as deprecated wrappers, so nothing here had to move; this framework's remaining call sites are in tests
+blocked_on_generic_methods:
+  what: five surfaces are package functions only because a Go method cannot take type parameters — the firestorebind transactional reads, the dynamobind and firestorebind On entries, the htmlbind builder operations carrying an extra type parameter, the jsonbind parser's ParseSlice and ParseMap, and sqlbind AppendValues
+  why_it_is_this_framework_s_concern: none of them is wrapped here, so each is what an application author writes; requirement:typed-api-method-convergence holds the intent, the priority, and the migration shape
+  request: filed unacted upstream 2026-08-13 and deliberately not started; the trigger is a Go release carrying methods with type parameters and a TinyGo release carrying that Go, since this framework targets both
+  reason_already_in_the_source: the transactional read's comment names the constraint, and separately refuses a context-carried handle because one call site would then mean two things depending on which context reached it
 constraints:
   - a route tree directory name must be a legal Go import path element, per rule:page-directory-naming
   - generator executes with host Go
