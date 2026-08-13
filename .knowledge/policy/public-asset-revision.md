@@ -19,7 +19,7 @@ shape:
 who_gets_one:
   authored_urls: yes, this is what the policy exists for
   invented_urls: no, the name already carries the digest and a segment would say it twice under a longer path
-  external_tree: no, per requirement:external-public-tree the build never read those bytes and claims no validator over them
+  external_tree: no, because requirement:external-public-assets leaves Length and ETag zero on those manifest entries, so no validator outlives the bytes and a revision segment would promise one
   development: no manifest exists under the pwdev build mode, so every asset is named plainly and revalidates, which is what a loop wants
 naming:
   runtime: pw.PublicAssetURL, over middlewares.PublicAssetURL, which reads the manifest and the configured mount

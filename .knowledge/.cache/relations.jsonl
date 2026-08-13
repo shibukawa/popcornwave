@@ -3193,7 +3193,7 @@
 {"context": "body", "path": ".knowledge/policy/public-asset-resolution.md", "source": "policy:public-asset-resolution", "target": "decision:development-public-assets", "target_category": "constraint", "target_type": "decision"}
 {"context": "body", "path": ".knowledge/policy/public-asset-resolution.md", "source": "policy:public-asset-resolution", "target": "policy:public-asset-negotiation", "target_category": "constraint", "target_type": "policy"}
 {"context": "body", "path": ".knowledge/policy/public-asset-revision.md", "source": "policy:public-asset-revision", "target": "requirement:derived-asset-pipeline", "target_category": "objective", "target_type": "requirement"}
-{"context": "body", "path": ".knowledge/policy/public-asset-revision.md", "source": "policy:public-asset-revision", "target": "requirement:external-public-tree", "target_category": "objective", "target_type": "requirement"}
+{"context": "body", "path": ".knowledge/policy/public-asset-revision.md", "source": "policy:public-asset-revision", "target": "requirement:external-public-assets", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/policy/public-asset-revision.md", "source": "policy:public-asset-revision", "target": "api:cli-init", "target_category": "interface", "target_type": "api"}
 {"context": "body", "path": ".knowledge/policy/public-asset-revision.md", "source": "policy:public-asset-revision", "target": "policy:asset-transform-matrix", "target_category": "constraint", "target_type": "policy"}
 {"context": "body", "path": ".knowledge/policy/public-asset-revision.md", "source": "policy:public-asset-revision", "target": "api:cli-doctor", "target_category": "interface", "target_type": "api"}
