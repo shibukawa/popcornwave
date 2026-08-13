@@ -327,6 +327,20 @@ Three things go wrong here: wiring the binary does not actually carry, values th
 - **Reads**: project files
 - **Fix**: chmod 600 the file
 
+### PW0417: a credentialed cross-origin caller is not trusted by the CSRF check
+
+- **Severity**: warning
+- **Applies to**: every environment
+- **Reads**: merged configuration
+- **Fix**: add each security.cors.allowed_origins entry to security.csrf.trusted_origins while allow_credentials is on
+
+### PW0418: a plain-http origin is admitted
+
+- **Severity**: warning, and note in `dev`
+- **Applies to**: every environment except `dev`
+- **Reads**: merged configuration
+- **Fix**: name https origins in security.cors.allowed_origins outside development
+
 ### PW0420: query diagnostics are enabled outside dev
 
 - **Severity**: warning, and note in `dev`

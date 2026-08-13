@@ -21,6 +21,8 @@ openapi:
   methods: GET and HEAD
   response: generated OpenAPI document
   requirement: build-time artifact enabled in data:project-config
+  cross_origin: Access-Control-Allow-Origin star with credentials off, always, whether or not requirement:cors-middleware is enabled; the document publishes a contract, holds nothing per visitor, and is read by tools whose origins a deployment cannot enumerate
+  cross_origin_when_protected: the wildcard forbids credentials, so a cross-origin reader of a document behind policy:authenticated-path-protection receives the unauthenticated answer
 access:
   - health and readiness bypass session and authentication and reveal only status
   - OpenAPI follows policy:authenticated-path-protection like an application route

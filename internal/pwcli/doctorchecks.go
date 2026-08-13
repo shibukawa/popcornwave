@@ -10,6 +10,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -386,6 +387,7 @@ func (r *checkRun) checkEnvironmentValues() {
 	if enabled, resolved := r.Config.boolValue("security.headers.enabled"); resolved && !enabled {
 		r.report(pwcheck.ResponseHeadersWeak, "security.headers.enabled is false", "security.headers.enabled")
 	}
+	r.checkCrossOrigin()
 	if r.Config.raw("observability.query.enabled") == "on" {
 		r.report(pwcheck.QueryDiagnosticsOn,
 			"observability.query.enabled is on, with slow_threshold "+r.Config.raw("observability.query.slow_threshold"),
@@ -918,4 +920,54 @@ func sortInts(values []int) {
 			values[position], values[position-1] = values[position-1], values[position]
 		}
 	}
+}
+
+// checkCrossOrigin reports the two cross-origin arrangements that start fine
+// and fail in a browser.
+//
+// Neither can be a startup refusal: both are legal configurations somebody may
+// have meant, and both produce a failure whose only account is a console
+// message in a visitor's browser. That is what a diagnostic is for.
+func (r *checkRun) checkCrossOrigin() {
+	if !r.Config.enabled("security.cors.enabled") {
+		return
+	}
+	origins := configList(r.Config.raw("security.cors.allowed_origins"))
+	// The two lists answer different questions — who may read a response, and
+	// whose unsafe request the origin comparison accepts — and a credentialed
+	// deployment needs both. With only the first, every write from that origin
+	// is refused, and the browser reports the 403 as a cross-origin failure, so
+	// the deployment goes looking in the wrong policy.
+	if r.Config.enabled("security.cors.allow_credentials") && r.Config.enabled("security.csrf.enabled") {
+		trusted := configList(r.Config.raw("security.csrf.trusted_origins"))
+		for _, origin := range origins {
+			if !slices.Contains(trusted, origin) {
+				r.report(pwcheck.CORSCredentialedOrigin,
+					origin+" may read this deployment with credentials and is not in security.csrf.trusted_origins, so its unsafe requests are refused",
+					"security.cors.allowed_origins")
+				break
+			}
+		}
+	}
+	for _, origin := range origins {
+		if strings.HasPrefix(origin, "http://") {
+			r.report(pwcheck.CORSPlaintextOrigin,
+				origin+" is admitted over plain http",
+				"security.cors.allowed_origins")
+			break
+		}
+	}
+}
+
+// configList splits a rendered list value into its entries. The doctor reads
+// configuration as text, so a list arrives in whatever shape the source wrote
+// it, and only the entries matter here.
+func configList(raw string) []string {
+	entries := strings.FieldsFunc(raw, func(r rune) bool {
+		return r == '[' || r == ']' || r == ',' || r == '"' || r == '\'' || r == ' '
+	})
+	for index, entry := range entries {
+		entries[index] = strings.TrimSpace(entry)
+	}
+	return entries
 }

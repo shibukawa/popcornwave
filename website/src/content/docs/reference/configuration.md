@@ -257,6 +257,31 @@ shared will evict entries faster than they are reused.
 HSTS is applied only on a verified HTTPS request. Sending it over plaintext
 would ask a browser to remember a policy the connection could not vouch for.
 
+### `[security.cors]`
+
+| Key | Default | Meaning |
+| --- | --- | --- |
+| `cors.enabled` | `false` | the switch every key below answers to |
+| `cors.include` | `["/**"]` | paths the policy covers, in the segment grammar |
+| `cors.exclude` | `[]` | paths it does not, taking precedence over `include` |
+| `cors.allowed_origins` | `[]` | exact `scheme://host[:port]` values, or the single `"*"` |
+| `cors.allow_credentials` | `false` | whether a listed origin may read a response sent with cookies |
+| `cors.allowed_methods` | `["GET", "HEAD", "POST"]` | methods a preflight admits |
+| `cors.allowed_headers` | `["Content-Type", "Authorization"]` | request headers a preflight admits |
+| `cors.exposed_headers` | `["X-Request-ID", "Retry-After", "X-RateLimit-Limit", "X-RateLimit-Remaining", "X-RateLimit-Reset"]` | response headers script may read |
+| `cors.max_age` | `"10m"` | how long a browser may cache one preflight |
+
+Four combinations fail startup rather than serving: an enabled policy with no
+origin, `allow_credentials` with `"*"`, `allow_credentials` with `"*"` in
+`allowed_headers`, and `allow_credentials` with an `include` of `"/**"`. The
+first three are configurations a browser drops the response for; the last is a
+grant wider than any deployment means. See [Cross-Origin
+Requests](/guides/backend/cors/).
+
+Browsers cap `max_age` themselves — Safari at ten minutes, Chrome at two hours —
+so a larger value is reduced rather than honoured. The generated OpenAPI
+document is readable cross-origin whether or not this section exists.
+
 ## `[observability]`
 
 | Key | Default | Meaning |

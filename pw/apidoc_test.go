@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/shibukawa/popcornwave/pwruntime"
+	tinybind "github.com/shibukawa/tinybind-go"
 )
 
 func apiDocConfigs(ui string) (ServerConfig, SecurityConfig, MiddlewareConfig) {
@@ -187,5 +188,48 @@ func TestAPIDocSpecURLCannotEscapeInlineScript(t *testing.T) {
 	ScalarUI(`/openapi.json"</script><script>alert(1)</script>`).ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/docs", nil))
 	if strings.Contains(response.Body.String(), "</script><script>") {
 		t.Fatalf("body = %s", response.Body.String())
+	}
+}
+
+// The generated document is readable from anywhere, whatever the configured
+// CORS policy is and whether or not one is enabled at all. It describes a
+// contract the deployment already chose to publish, holds nothing per visitor,
+// and is read by tools — a documentation UI hosted elsewhere, a client
+// generator — whose origins nobody can enumerate in advance.
+func TestOpenAPIDocumentIsReadableFromAnywhere(t *testing.T) {
+	// A binary that registered no document has none to serve; the marking is
+	// the point here, so the document has to exist for the response carrying it
+	// to be the real one.
+	if err := tinybind.SetOpenAPIInfo(tinybind.OpenAPIInfo{Title: "test", Version: "1"}); err != nil {
+		t.Fatal(err)
+	}
+	tinybind.RegisterOpenAPIFragmentString("pw-cors-test",
+		`{"paths":{"/ping":{"get":{"responses":{"200":{"description":"ok"}}}}}}`)
+	t.Cleanup(tinybind.ResetOpenAPIFragments)
+
+	server, security, middleware := apiDocConfigs(APIDocScalar)
+	if security.CORS.Enabled {
+		t.Fatal("this test is about a deployment with no CORS policy")
+	}
+	handler, err := buildRuntimeHandler(http.NotFoundHandler(), server, security, middleware, pwruntime.Resources{}, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	request := httptest.NewRequest(http.MethodGet, "/openapi.json", nil)
+	request.Header.Set("Origin", "https://docs.example.com")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("status = %d", response.Code)
+	}
+	if got := response.Header().Get("Access-Control-Allow-Origin"); got != "*" {
+		t.Fatalf("allow-origin = %q", got)
+	}
+	// A wildcard forbids credentials, which is what makes it safe on a
+	// document the deployment put behind the authenticated-path check.
+	if got := response.Header().Get("Access-Control-Allow-Credentials"); got != "" {
+		t.Fatalf("the document offered credentials: %q", got)
 	}
 }

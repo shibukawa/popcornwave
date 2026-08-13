@@ -199,8 +199,11 @@ func Middlewares(handler fasthttp.RequestHandler, options RuntimeOptions) (fasth
 	if settings.Recovery {
 		frames = append(frames, Frame{Slot: SlotRecover, Name: "recover", Middleware: Recover(writePanicProblem)})
 	}
-	if settings.SecurityHeaders.Enabled {
-		headers, err := SecurityHeaders(settings.SecurityHeaders, WithTrustedProxies(trusted))
+	// One frame for both halves, installed by either, at the position both
+	// wanted: above every frame below that can refuse.
+	if settings.SecurityHeaders.Enabled || settings.CORS.Enabled {
+		headers, err := SecurityHeaders(settings.SecurityHeaders,
+			WithTrustedProxies(trusted), WithCORS(settings.CORS, settings.CSRF.Header))
 		if err != nil {
 			return nil, err
 		}
@@ -411,6 +414,10 @@ func DocumentationEndpoints(openAPIPath, docKind, docPath string) Middleware {
 				if !operationalMethod(r) {
 					return
 				}
+				// Readable from anywhere, for the reason
+				// pwruntime.OpenAPIDocumentOrigin gives, and identically on
+				// both transports because the value is declared once there.
+				r.Response.Header.Set(pwruntime.OpenAPIDocumentOrigin.Name, pwruntime.OpenAPIDocumentOrigin.Value)
 				if string(r.Method()) == fasthttp.MethodHead {
 					// The document is assembled either way, because its length
 					// is the answer a HEAD is asking for.

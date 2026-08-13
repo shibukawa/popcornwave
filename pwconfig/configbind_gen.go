@@ -255,6 +255,15 @@ func registerSecurityConfigDefinition1() {
 			"security.headers.hsts.max_age",
 			"security.headers.hsts.include_subdomains",
 			"security.headers.hsts.preload",
+			"security.cors.enabled",
+			"security.cors.include",
+			"security.cors.exclude",
+			"security.cors.allowed_origins",
+			"security.cors.allow_credentials",
+			"security.cors.allowed_methods",
+			"security.cors.allowed_headers",
+			"security.cors.exposed_headers",
+			"security.cors.max_age",
 			"security.csrf.enabled",
 			"security.csrf.include",
 			"security.csrf.exclude",
@@ -274,6 +283,13 @@ func registerSecurityConfigDefinition1() {
 			"security.headers.hsts.max_age":            "0s",
 			"security.headers.hsts.include_subdomains": "false",
 			"security.headers.hsts.preload":            "false",
+			"security.cors.enabled":                    "false",
+			"security.cors.include":                    "[\"/**\"]",
+			"security.cors.allow_credentials":          "false",
+			"security.cors.allowed_methods":            "[\"GET\",\"HEAD\",\"POST\"]",
+			"security.cors.allowed_headers":            "[\"Content-Type\",\"Authorization\"]",
+			"security.cors.exposed_headers":            "[\"X-Request-ID\",\"Retry-After\",\"X-RateLimit-Limit\",\"X-RateLimit-Remaining\",\"X-RateLimit-Reset\"]",
+			"security.cors.max_age":                    "10m",
 			"security.csrf.enabled":                    "false",
 			"security.csrf.include":                    "[\"/**\"]",
 			"security.csrf.form_field":                 "_csrf",
@@ -292,6 +308,14 @@ func registerSecurityConfigDefinition1() {
 			"security.headers.hsts.max_age":                        {{Key: "security.headers.enabled"}, {Key: "security.headers.hsts.enabled"}},
 			"security.headers.hsts.include_subdomains":             {{Key: "security.headers.enabled"}, {Key: "security.headers.hsts.enabled"}},
 			"security.headers.hsts.preload":                        {{Key: "security.headers.enabled"}, {Key: "security.headers.hsts.enabled"}},
+			"security.cors.include":                                {{Key: "security.cors.enabled"}},
+			"security.cors.exclude":                                {{Key: "security.cors.enabled"}},
+			"security.cors.allowed_origins":                        {{Key: "security.cors.enabled"}},
+			"security.cors.allow_credentials":                      {{Key: "security.cors.enabled"}},
+			"security.cors.allowed_methods":                        {{Key: "security.cors.enabled"}},
+			"security.cors.allowed_headers":                        {{Key: "security.cors.enabled"}},
+			"security.cors.exposed_headers":                        {{Key: "security.cors.enabled"}},
+			"security.cors.max_age":                                {{Key: "security.cors.enabled"}},
 			"security.csrf.include":                                {{Key: "security.csrf.enabled"}},
 			"security.csrf.exclude":                                {{Key: "security.csrf.enabled"}},
 			"security.csrf.form_field":                             {{Key: "security.csrf.enabled"}},
@@ -312,6 +336,15 @@ func registerSecurityConfigDefinition1() {
 			{Prefix: "security", Key: "headers.hsts.max_age"},
 			{Prefix: "security", Key: "headers.hsts.include_subdomains", Kind: cliparser.KindBool},
 			{Prefix: "security", Key: "headers.hsts.preload", Kind: cliparser.KindBool},
+			{Prefix: "security", Key: "cors.enabled", Kind: cliparser.KindBool},
+			{Prefix: "security", Key: "cors.include", Kind: cliparser.KindArray},
+			{Prefix: "security", Key: "cors.exclude", Env: "-", Kind: cliparser.KindArray},
+			{Prefix: "security", Key: "cors.allowed_origins", Env: "-", Kind: cliparser.KindArray},
+			{Prefix: "security", Key: "cors.allow_credentials", Kind: cliparser.KindBool},
+			{Prefix: "security", Key: "cors.allowed_methods", Kind: cliparser.KindArray},
+			{Prefix: "security", Key: "cors.allowed_headers", Kind: cliparser.KindArray},
+			{Prefix: "security", Key: "cors.exposed_headers", Kind: cliparser.KindArray},
+			{Prefix: "security", Key: "cors.max_age", Help: "how long a browser may cache one preflight"},
 			{Prefix: "security", Key: "csrf.enabled", Kind: cliparser.KindBool},
 			{Prefix: "security", Key: "csrf.include", Kind: cliparser.KindArray},
 			{Prefix: "security", Key: "csrf.exclude", Env: "-", Kind: cliparser.KindArray},
@@ -334,6 +367,15 @@ func registerSecurityConfigDefinition1() {
 			{Key: "headers.hsts.max_age", Kind: configbind.ScaffoldDuration, Default: "0s"},
 			{Key: "headers.hsts.include_subdomains", Kind: configbind.ScaffoldBool, Default: "false"},
 			{Key: "headers.hsts.preload", Kind: configbind.ScaffoldBool, Default: "false"},
+			{Key: "cors.enabled", Kind: configbind.ScaffoldBool, Default: "false"},
+			{Key: "cors.include", Kind: configbind.ScaffoldStringSlice, Default: "[\"/**\"]"},
+			{Key: "cors.exclude", Kind: configbind.ScaffoldStringSlice, Env: "-"},
+			{Key: "cors.allowed_origins", Kind: configbind.ScaffoldStringSlice, Env: "-"},
+			{Key: "cors.allow_credentials", Kind: configbind.ScaffoldBool, Default: "false"},
+			{Key: "cors.allowed_methods", Kind: configbind.ScaffoldStringSlice, Default: "[\"GET\",\"HEAD\",\"POST\"]"},
+			{Key: "cors.allowed_headers", Kind: configbind.ScaffoldStringSlice, Default: "[\"Content-Type\",\"Authorization\"]"},
+			{Key: "cors.exposed_headers", Kind: configbind.ScaffoldStringSlice, Default: "[\"X-Request-ID\",\"Retry-After\",\"X-RateLimit-Limit\",\"X-RateLimit-Remaining\",\"X-RateLimit-Reset\"]"},
+			{Key: "cors.max_age", Kind: configbind.ScaffoldDuration, Default: "10m", Help: "how long a browser may cache one preflight"},
 			{Key: "csrf.enabled", Kind: configbind.ScaffoldBool, Default: "false"},
 			{Key: "csrf.include", Kind: configbind.ScaffoldStringSlice, Default: "[\"/**\"]"},
 			{Key: "csrf.exclude", Kind: configbind.ScaffoldStringSlice, Env: "-"},
@@ -425,6 +467,51 @@ func applySecurityConfigDefinition1(dst any, o *configbind.Overlay) error {
 		p.Headers.HSTS.Preload = bb
 	} else {
 		p.Headers.HSTS.Preload = false
+	}
+	if v, ok := o.GetString("security.cors.enabled"); ok {
+		bb, err := strconv.ParseBool(v)
+		if err != nil {
+			return fmt.Errorf("configbind: security.cors.enabled: %w", err)
+		}
+		p.CORS.Enabled = bb
+	} else {
+		p.CORS.Enabled = false
+	}
+	if v, ok := o.GetMulti("security.cors.include"); ok {
+		p.CORS.Include = v
+	}
+	if v, ok := o.GetMulti("security.cors.exclude"); ok {
+		p.CORS.Exclude = v
+	}
+	if v, ok := o.GetMulti("security.cors.allowed_origins"); ok {
+		p.CORS.AllowedOrigins = v
+	}
+	if v, ok := o.GetString("security.cors.allow_credentials"); ok {
+		bb, err := strconv.ParseBool(v)
+		if err != nil {
+			return fmt.Errorf("configbind: security.cors.allow_credentials: %w", err)
+		}
+		p.CORS.AllowCredentials = bb
+	} else {
+		p.CORS.AllowCredentials = false
+	}
+	if v, ok := o.GetMulti("security.cors.allowed_methods"); ok {
+		p.CORS.AllowedMethods = v
+	}
+	if v, ok := o.GetMulti("security.cors.allowed_headers"); ok {
+		p.CORS.AllowedHeaders = v
+	}
+	if v, ok := o.GetMulti("security.cors.exposed_headers"); ok {
+		p.CORS.ExposedHeaders = v
+	}
+	if v, ok := o.GetString("security.cors.max_age"); ok {
+		d, err := time.ParseDuration(v)
+		if err != nil {
+			return fmt.Errorf("configbind: security.cors.max_age: %w", err)
+		}
+		p.CORS.MaxAge = d
+	} else {
+		p.CORS.MaxAge = 600000000000 // 10m0s
 	}
 	if v, ok := o.GetString("security.csrf.enabled"); ok {
 		bb, err := strconv.ParseBool(v)

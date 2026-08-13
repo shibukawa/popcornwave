@@ -210,8 +210,15 @@ type PublicConfig = middlewares.PublicAssetConfig
 // SecurityConfig controls framework request and response security policy.
 type SecurityConfig struct {
 	Headers SecurityHeadersConfig
-	CSRF    CSRFConfig
+	// CORS is here rather than under middleware because it is browser policy
+	// resolved and validated at startup, like the two beside it, and because it
+	// is answered by the same frame the headers are.
+	CORS CORSConfig `help:"CORS is here rather than under middleware because it is browser policy resolved and validated at startup, like the two beside it, and because it is answered by the same frame the headers are"`
+	CSRF CSRFConfig
 }
+
+// CORSConfig controls which other origins may read this deployment.
+type CORSConfig = middlewares.CORSConfig
 
 // CSRFConfig controls the synchronizer-token check on unsafe browser requests.
 type CSRFConfig = middlewares.CSRFConfig
