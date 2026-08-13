@@ -23,6 +23,7 @@ scope:
     action_response: requirement:action-response-update mutates and carries ambient credentials, so it is protected like any other unsafe request; the transport is the header, because the runtime issues the fetch
     navigation_and_redraw: requirement:navigation-delta-rendering and requirement:reloadable-component-endpoint are GETs that must stay side-effect free, so no token gates them; origin defence still applies to a credentialed read
     live: the delivery stream of api:live-delivery-protocol is a GET carrying a custom header, which a cross-origin form or link cannot set
+  cross_origin_grant: requirement:cors-middleware with allow_credentials on admits that header in preflight and permits a credentialed cross-origin read, so the live line above and every side-effect-free GET beside it hold only while the calling origin is outside the CORS allowlist; the write path stays closed because the token cookie is readable by same-origin script alone
 token:
   secret: random value in data:session-record for a session, or in a signed cookie for an anonymous visitor per decision:anonymous-csrf-secret-storage; minted and destroyed with the session per requirement:csrf-token-lifecycle
   request_value: a per-response value derived from the secret with a fresh pad, so a compression oracle sees different bytes every time

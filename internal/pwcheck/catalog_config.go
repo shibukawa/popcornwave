@@ -29,6 +29,11 @@ const (
 	// Environment-appropriate values.
 	InsecureSessionCookie = "PW0410"
 	ResponseHeadersWeak   = "PW0411"
+	// Cross-origin admission. Every one of these fails in a browser and
+	// nowhere else, which is what makes them worth reporting from here: the
+	// deployment sees a network error somebody else's console recorded.
+	CORSCredentialedOrigin = "PW0417"
+	CORSPlaintextOrigin    = "PW0418"
 	QueryDiagnosticsOn    = "PW0420"
 	BindValuesOn          = "PW0421"
 	VerboseLogLevel       = "PW0422"
@@ -138,6 +143,25 @@ func init() {
 			Severity: Warning, DevSeverity: Note, Scope: Deployed,
 			Inputs: Config, Phase: Doctor,
 			Remedy: "enable security.headers",
+		},
+		Check{
+			ID: CORSCredentialedOrigin, Group: GroupConfig,
+			Title:    "a credentialed cross-origin caller is not trusted by the CSRF check",
+			Severity: Warning, DevSeverity: Warning, Scope: Every,
+			Inputs: Config, Phase: Doctor,
+			// The two lists answer different questions and a credentialed
+			// deployment needs both. Without the second one every unsafe
+			// request from that origin is refused by the origin comparison, and
+			// the browser reports the 403 as a cross-origin failure — so the
+			// deployment looks for the mistake in the wrong policy.
+			Remedy: "add each security.cors.allowed_origins entry to security.csrf.trusted_origins while allow_credentials is on",
+		},
+		Check{
+			ID: CORSPlaintextOrigin, Group: GroupConfig,
+			Title:    "a plain-http origin is admitted",
+			Severity: Warning, DevSeverity: Note, Scope: Deployed,
+			Inputs: Config, Phase: Doctor,
+			Remedy: "name https origins in security.cors.allowed_origins outside development",
 		},
 		// Where a secret is kept — in the file, in version control, in a file
 		// anyone on the host can read — is diagnosed for a deployment only.

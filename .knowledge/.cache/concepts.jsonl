@@ -158,6 +158,7 @@
 {"category": "constraint", "id": "decision:config-verbosity-tag-adoption", "path": ".knowledge/decision/config-verbosity-tag-adoption.md", "role": "supporting", "title": "Config Verbosity Tag Adoption", "type": "decision"}
 {"category": "constraint", "id": "decision:contrib-delivery-order", "path": ".knowledge/decision/contrib-delivery-order.md", "role": "supporting", "title": "Contrib Delivery Order", "type": "decision"}
 {"category": "constraint", "id": "decision:cookie-session-storage", "path": ".knowledge/decision/cookie-session-storage.md", "role": "supporting", "title": "Cookie-Backed Session Storage", "type": "decision"}
+{"category": "constraint", "id": "decision:cors-above-the-refusals", "path": ".knowledge/decision/cors-above-the-refusals.md", "role": "supporting", "title": "CORS Marks The Response Above Every Refusal", "type": "decision"}
 {"category": "constraint", "id": "decision:csrf-secret-as-a-session-slot", "path": ".knowledge/decision/csrf-secret-as-a-session-slot.md", "role": "supporting", "title": "The CSRF Secret Is a Session Slot", "type": "decision"}
 {"category": "constraint", "id": "decision:dbtestify-integration", "path": ".knowledge/decision/dbtestify-integration.md", "role": "supporting", "title": "dbtestify Integration Boundary", "type": "decision"}
 {"category": "constraint", "id": "decision:declared-package-installation", "path": ".knowledge/decision/declared-package-installation.md", "role": "supporting", "title": "Declared Package Installation", "type": "decision"}
@@ -421,6 +422,7 @@
 {"category": "objective", "id": "requirement:contrib-sqlite", "path": ".knowledge/requirement/contrib-sqlite.md", "role": "primary", "title": "Portable SQLite Facade", "type": "requirement"}
 {"category": "objective", "id": "requirement:contrib-websocket", "path": ".knowledge/requirement/contrib-websocket.md", "role": "primary", "title": "WebSocket In contrib, Withdrawn", "type": "requirement"}
 {"category": "objective", "id": "requirement:contrib-zstd", "path": ".knowledge/requirement/contrib-zstd.md", "role": "primary", "title": "Zstandard Response Encoder", "type": "requirement"}
+{"category": "objective", "id": "requirement:cors-middleware", "path": ".knowledge/requirement/cors-middleware.md", "role": "primary", "title": "CORS Middleware", "type": "requirement"}
 {"category": "objective", "id": "requirement:cross-package-components", "path": ".knowledge/requirement/cross-package-components.md", "role": "primary", "title": "A Component Must Be Callable From Another Module", "type": "requirement"}
 {"category": "objective", "id": "requirement:csrf-token-lifecycle", "path": ".knowledge/requirement/csrf-token-lifecycle.md", "role": "primary", "title": "CSRF Token Lifecycle And Delivery", "type": "requirement"}
 {"category": "objective", "id": "requirement:custom-element-registration", "path": ".knowledge/requirement/custom-element-registration.md", "role": "primary", "title": "Custom Element Registration", "type": "requirement"}

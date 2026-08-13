@@ -272,6 +272,12 @@ func TestTheDocumentationEndpointsAnswerWhereConfigured(t *testing.T) {
 	if !strings.Contains(header, "application/json") {
 		t.Errorf("the document was not JSON:\n%s", header)
 	}
+	// Readable from anywhere on a deployment with no CORS policy at all, for
+	// the reason pwruntime.OpenAPIDocumentOrigin gives, and by the same
+	// declaration the other transport writes.
+	if !strings.Contains(header, "Access-Control-Allow-Origin: *") {
+		t.Errorf("the document was not readable cross-origin:\n%s", header)
+	}
 
 	status, header, body = serve(t, handler, "/docs")
 	if status != fasthttp.StatusOK || !strings.Contains(body, "<!DOCTYPE html>") {

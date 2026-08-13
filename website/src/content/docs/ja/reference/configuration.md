@@ -247,6 +247,29 @@ live な境界をその場で確定させ、配信が置き換えるプレース
 HSTS が付くのは検証済みの HTTPS リクエストだけです。平文で送るのは、その接続では
 保証できないポリシーの記憶をブラウザに頼むことになります。
 
+### `[security.cors]`
+
+| キー | 既定 | 意味 |
+| --- | --- | --- |
+| `cors.enabled` | `false` | 以下のキーすべてが従うスイッチ |
+| `cors.include` | `["/**"]` | ポリシーが覆うパス。セグメント文法 |
+| `cors.exclude` | `[]` | 覆わないパス。`include` より優先 |
+| `cors.allowed_origins` | `[]` | 完全一致の `scheme://host[:port]`、または単独の `"*"` |
+| `cors.allow_credentials` | `false` | Cookie 付きで送られたレスポンスをリストのオリジンに読ませるか |
+| `cors.allowed_methods` | `["GET", "HEAD", "POST"]` | preflight が許可するメソッド |
+| `cors.allowed_headers` | `["Content-Type", "Authorization"]` | preflight が許可するリクエストヘッダ |
+| `cors.exposed_headers` | `["X-Request-ID", "Retry-After", "X-RateLimit-Limit", "X-RateLimit-Remaining", "X-RateLimit-Reset"]` | スクリプトが読めるレスポンスヘッダ |
+| `cors.max_age` | `"10m"` | ブラウザが1回の preflight をキャッシュしてよい時間 |
+
+起動に失敗する組み合わせが4つあります。有効なのにオリジンが無い、`allow_credentials`
+と `"*"`、`allow_credentials` と `allowed_headers` の `"*"`、`allow_credentials` と
+`include` の `"/**"`。最初の3つはブラウザがレスポンスを捨てる設定で、最後はどのデプロイも
+意図しないほど広い付与です。[クロスオリジンリクエスト](/ja/guides/backend/cors/)を参照。
+
+`max_age` はブラウザ自身が上限を持つので — Safari は10分、Chrome は2時間 — それより
+大きい値は尊重されず切り詰められます。生成された OpenAPI ドキュメントは、このセクションの
+有無にかかわらずクロスオリジンで読めます。
+
 ## `[observability]`
 
 | キー | 既定値 | 意味 |

@@ -29,7 +29,7 @@ relative to a name rather than as a bare integer.
 | 30 | request ID | validates or mints the ID every log line carries | `middleware.request_id` |
 | 40 | access log | one structured line per request, with timing | `middleware.access_log` |
 | 50 | recover | converts a panic into a negotiated error response | `middleware.recovery` |
-| 60 | security headers | CSP, HSTS, and friends, before anything writes | `security.headers.enabled` |
+| 52 | response policy | CSP, HSTS, and the cross-origin marking, before anything writes | `security.headers.enabled`, `security.cors.enabled` |
 | 70 | request timeout | bounds the whole request | `middleware.request_timeout` |
 | 80 | body limit | caps downstream reads of the request body | `server.max_request_body` |
 | 90 | public assets | serves the static tree before dynamic work | `server.public.enabled` |
@@ -37,6 +37,16 @@ relative to a name rather than as a bare integer.
 | 110–150 | extensions | storage, session, authentication, CSRF, guard | per extension |
 | 160 | API documentation | the OpenAPI document and its UI, behind the guard | `server.openapi`, `server.apidoc` |
 | — | your handler | the mux you passed to `pw.Run` | — |
+
+One frame is not on a multiple of ten. The response-policy frame sits at 52
+because of what it writes rather than what it sets: a cross-origin response
+carrying no `Access-Control-Allow-Origin` is one the browser hands to nobody,
+status included, so the frame that marks it has to run before every frame that
+can refuse a request — including the process-wide rate limit at 55, which is not
+in the table above because it appears only when `ratelimit` is configured. Sixty
+sat below it, which meant a `429` reached a cross-origin caller unreadable.
+Moving the frame also gave that `429` the security headers, which it never
+carried. See [Cross-Origin Requests](/guides/backend/cors/).
 
 Request tracking stays off the line, outermost, because its shutdown
 accounting must observe every numbered step; the handler is the innermost end

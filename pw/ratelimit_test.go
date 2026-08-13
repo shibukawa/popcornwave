@@ -63,9 +63,16 @@ func enabledPwRateLimit() RateLimitConfig {
 // whether a caller has a subject until authentication resolved one, and the
 // ceiling is worth less the further in it sits.
 func TestRateLimitSlotsStraddleAuthentication(t *testing.T) {
-	if !(SlotRecover < SlotRateLimitProcess && SlotRateLimitProcess < SlotSecurityHeaders) {
-		t.Errorf("the process ceiling at %d is not between recover (%d) and security headers (%d)",
-			SlotRateLimitProcess, SlotRecover, SlotSecurityHeaders)
+	if !(SlotRecover < SlotRateLimitProcess && SlotRateLimitProcess < SlotRequestTimeout) {
+		t.Errorf("the process ceiling at %d is not between recover (%d) and the request timeout (%d)",
+			SlotRateLimitProcess, SlotRecover, SlotRequestTimeout)
+	}
+	// The response-policy frame moved above the ceiling rather than below it,
+	// so the 429 this frame writes carries the security headers and, for a
+	// cross-origin caller, the marking without which the status is unreadable.
+	if !(SlotSecurityHeaders < SlotRateLimitProcess) {
+		t.Errorf("the response policy at %d runs after the ceiling at %d, so a 429 carries neither the headers nor the cross-origin marking",
+			SlotSecurityHeaders, SlotRateLimitProcess)
 	}
 	if !(SlotAuthentication < SlotRateLimit && SlotRateLimit < SlotCSRF) {
 		t.Errorf("the identity bucket at %d is not between authentication (%d) and CSRF (%d)",
