@@ -449,6 +449,34 @@ therefore required unless every registered slot is `session.Shared` or
 anonymous. `pw init` generates one into `config.dev.toml`; every other
 environment reads `SESSION_KEYRING_SECRET`.
 
+## `[ratelimit]`
+
+| Key | Default | Meaning |
+| --- | --- | --- |
+| `enabled` | `false` | |
+| `backend` | `"memory"` | counter storage: `memory` or `redis` |
+| `window` | `"1m"` | period every count below is measured over; also what `X-RateLimit-Reset` reports |
+| `per_subject` | `600` | requests one authenticated subject may make in a window; `0` disables this bucket |
+| `per_address` | `300` | requests one caller with no session may make in a window; must be positive |
+| `process` | `0` | total arrivals allowed in a window, unkeyed; `0` leaves only the identity buckets |
+| `redis.dsn` | *(empty)* | `redis://` or `rediss://` counter server; only its credential is masked where it is reported |
+| `redis.key_prefix` | `"pw:ratelimit:"` | key space this limiter owns |
+| `redis.connect_timeout` | `"5s"` | startup ping and per-command deadline |
+
+The `redis.*` keys are read only under `backend = "redis"`, which reaches the
+binary through a blank import of `ratelimitstore/redis` — the startup error
+quotes the line to add. Setting `redis.dsn` under the `memory` backend is
+refused rather than ignored, and `backend = "redis"` without a DSN is refused
+too. A positive `process` must be at least `per_address` and `per_subject`,
+since one caller allowed more than the total describes a limit that can never
+bind.
+
+The counts have no per-route form; one budget covers the whole application,
+and the framework's operational endpoints and the public asset mount are
+exempt without a key to change it. [Rate
+Limiting](/guides/backend/rate-limiting/) explains how the three counts
+compose and what happens when the store is unreachable.
+
 ## `[auth]`
 
 These keys exist only when `plugin/auth` is linked into the binary, which
