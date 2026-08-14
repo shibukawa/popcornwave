@@ -50,6 +50,7 @@
 {"category": "interface", "id": "api:problem-response", "path": ".knowledge/api/problem-response.md", "role": "primary", "title": "Problem Response API", "type": "api"}
 {"category": "interface", "id": "api:public-asset-middleware", "path": ".knowledge/api/public-asset-middleware.md", "role": "primary", "title": "Public Asset Middleware", "type": "api"}
 {"category": "interface", "id": "api:pwfast-package", "path": ".knowledge/api/pwfast-package.md", "role": "primary", "title": "pwfast Runtime Package", "type": "api"}
+{"category": "interface", "id": "api:rate-limit-limiter", "path": ".knowledge/api/rate-limit-limiter.md", "role": "primary", "title": "Rate Limit Limiter Surface", "type": "api"}
 {"category": "interface", "id": "api:rdb-middleware", "path": ".knowledge/api/rdb-middleware.md", "role": "primary", "title": "RDB Middleware", "type": "api"}
 {"category": "interface", "id": "api:redirect-response", "path": ".knowledge/api/redirect-response.md", "role": "primary", "title": "Redirect Response", "type": "api"}
 {"category": "interface", "id": "api:render-html-chain", "path": ".knowledge/api/render-html-chain.md", "role": "primary", "title": "TinyBind HTML Render Chain", "type": "api"}
@@ -230,6 +231,7 @@
 {"category": "constraint", "id": "decision:migration-execution-split", "path": ".knowledge/decision/migration-execution-split.md", "role": "supporting", "title": "Migration Execution Split", "type": "decision"}
 {"category": "constraint", "id": "decision:navigable-answer-hub", "path": ".knowledge/decision/navigable-answer-hub.md", "role": "supporting", "title": "Manual Bootstrap Edits an Answer Hub", "type": "decision"}
 {"category": "constraint", "id": "decision:nix-flake-packaging", "path": ".knowledge/decision/nix-flake-packaging.md", "role": "supporting", "title": "In-repository Nix Flake Packaging", "type": "decision"}
+{"category": "constraint", "id": "decision:otlp-config-through-configbind", "path": ".knowledge/decision/otlp-config-through-configbind.md", "role": "supporting", "title": "OTLP Exporter Configuration Has One Route, Through configbind", "type": "decision"}
 {"category": "constraint", "id": "decision:outbound-trace-propagation", "path": ".knowledge/decision/outbound-trace-propagation.md", "role": "supporting", "title": "traceparent Is Injected By Whatever Opened The Client Span", "type": "decision"}
 {"category": "constraint", "id": "decision:package-contract-split", "path": ".knowledge/decision/package-contract-split.md", "role": "supporting", "title": "Package Contract Split", "type": "decision"}
 {"category": "constraint", "id": "decision:page-render-binding", "path": ".knowledge/decision/page-render-binding.md", "role": "supporting", "title": "Page Render Binding", "type": "decision"}

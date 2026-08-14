@@ -6,20 +6,22 @@ title: Rate Limit Enforcement
 The decision half of a request limit: who is counted, over what scope, in which store, by which algorithm, and what happens when the store is unreachable.
 
 ```yaml
-status: proposed
+status: implemented 2026-08-14 for the arrival limiter on both transports; the failure-outcome counter policy:reauthentication asks for is the one piece not built
 completes: requirement:rate-limit-problem-responses, whose closing rule defers client identity, counting scope, storage, and limiting algorithm; this concept answers those four and adds nothing to the wire
 already_built:
-  verified: 2026-08-10, by reading the tree
-  shipped: the 429 problem, RateLimit carrying limit, remaining, reset, and retryAfter, Retry-After and X-RateLimit-* serialization, Cache-Control no-store, the header carry-through in the error renderer, and the scaffolded 429 template
-  consequence: the remaining work is a counter and a placement, which is far smaller than the rate limits concern of policy:web-middleware reads
+  verified: 2026-08-14, by reading the tree
+  wire: the 429 problem, RateLimit carrying limit, remaining, reset, and retryAfter, Retry-After and X-RateLimit-* serialization, Cache-Control no-store, the header carry-through in the error renderer, and the scaffolded 429 template
+  limiter: api:rate-limit-limiter, the shared decision half in pwratelimit driven by a frame pair in each transport, with the memory counter built in and the redis counter behind a blank import
+  tested: pwratelimit/pwratelimit_test.go, pw/ratelimit_test.go, pwfast/ratelimit_test.go, and ratelimitstore/redis/backend_test.go behind scripts/test-ratelimit-redis.sh
+  not_built: the failure-outcome counter of placement.failure_counting; plugin/auth counts nothing into the limiter's store today, so the reauthentication acceptance below is the open one
 waiting_consumers:
-  reauthentication: policy:reauthentication requires repeated failures rate-limited per session and per account, and no limiter exists to do it
+  reauthentication: policy:reauthentication requires repeated failures rate-limited per session and per account; the store it would count in now exists, and the counting call from api:authentication-endpoints is the missing half
   presence:
     asks_for: requirement:presence-signal requires its endpoint bounded and rate-limited
     gets: the identity bucket, since no per-route rule exists to give it its own
     consequence: a presence tick spends the caller's budget like any other request, so the configured limit is sized with the tick interval in mind rather than against page views alone; an endpoint-specific bound is an API gateway rule if a deployment wants one
   live: the process-wide admission control open question of policy:live-subscription-bounds
-  finding: three concepts already depend on a limiter this framework does not have, which is why this is a requirement rather than an idea
+  finding: three concepts depended on a limiter this framework did not have, which is why this became a requirement; the arrival consumers are served now and reauthentication still waits on failure counting
 division_of_labor:
   premise: decision:local-tls-proxy-boundary and decision:ingress-tls-termination put a proxy in front of the normal deployment, and that proxy already limits by address
   edge_owns:
@@ -31,7 +33,7 @@ division_of_labor:
     - a process ceiling, which is the only layer here that sees a distributed flood, since such a flood keeps every source under any per-address value by construction
     - failure-outcome limits, where what is counted is a result and not an arrival
   consequence: per-operation quotas are not this framework's job at all, and volumetric defence is the edge's first line with two bounded backstops here, which is what keeps this a simple implementation
-  what_remains_is_small: one bucket keyed on identity, one unkeyed ceiling, and a counter the authentication endpoints call
+  what_this_bought: one bucket keyed on identity, one unkeyed ceiling, and a counter the authentication endpoints will call for failure counting; the first two are api:rate-limit-limiter and the third is the not_built remainder
 identity:
   key: the authenticated subject where there is one, and the resolved client address otherwise
   address_source: requirement:proxied-request-identity, which is a hard dependency; an unresolved address behind a proxy collapses every anonymous caller into one bucket, which turns a limit into an outage
