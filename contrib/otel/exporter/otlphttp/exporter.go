@@ -10,7 +10,6 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"os"
 	"slices"
 	"strconv"
 	"strings"
@@ -77,34 +76,6 @@ func New(config Config) (*Exporter, error) {
 		config.MaxRetries = 0
 	}
 	return &Exporter{tracesURL: config.TracesEndpoint, logsURL: config.LogsEndpoint, headers: config.Headers.Clone(), client: config.Client, timeout: config.Timeout, retries: config.MaxRetries}, nil
-}
-
-// NewFromEnv reads the minimal standard OTLP environment configuration.
-func NewFromEnv() (*Exporter, error) {
-	timeout := 10 * time.Second
-	if raw := os.Getenv("OTEL_EXPORTER_OTLP_TIMEOUT"); raw != "" {
-		milliseconds, err := strconv.ParseInt(raw, 10, 64)
-		if err != nil || milliseconds <= 0 {
-			return nil, fmt.Errorf("otel otlphttp: invalid OTEL_EXPORTER_OTLP_TIMEOUT %q", raw)
-		}
-		timeout = time.Duration(milliseconds) * time.Millisecond
-	}
-	headers, err := parseHeaders(os.Getenv("OTEL_EXPORTER_OTLP_HEADERS"))
-	if err != nil {
-		return nil, err
-	}
-	return New(Config{
-		Endpoint: os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT"), TracesEndpoint: os.Getenv("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT"),
-		LogsEndpoint: os.Getenv("OTEL_EXPORTER_OTLP_LOGS_ENDPOINT"), Headers: headers, Timeout: timeout, MaxRetries: 2,
-	})
-}
-
-// ResourceFromEnv returns the minimal standard service resource configuration.
-func ResourceFromEnv() []otel.Attribute {
-	if service := os.Getenv("OTEL_SERVICE_NAME"); service != "" {
-		return []otel.Attribute{otel.String("service.name", service)}
-	}
-	return nil
 }
 
 func (e *Exporter) ExportSpans(ctx context.Context, spans []trace.SpanData) error {
@@ -229,39 +200,6 @@ func validEndpoint(raw string) error {
 func transient(status int) bool {
 	return status == http.StatusTooManyRequests || status == http.StatusBadGateway || status == http.StatusServiceUnavailable || status == http.StatusGatewayTimeout
 }
-func parseHeaders(raw string) (http.Header, error) {
-	headers := make(http.Header)
-	if raw == "" {
-		return headers, nil
-	}
-	for _, item := range strings.Split(raw, ",") {
-		key, value, ok := strings.Cut(item, "=")
-		key = strings.TrimSpace(key)
-		if !ok || !validHeaderKey(key) {
-			return nil, errors.New("otel otlphttp: invalid OTEL_EXPORTER_OTLP_HEADERS")
-		}
-		decoded, err := url.QueryUnescape(strings.TrimSpace(value))
-		if err != nil || strings.ContainsAny(decoded, "\r\n") {
-			return nil, errors.New("otel otlphttp: invalid OTEL_EXPORTER_OTLP_HEADERS")
-		}
-		headers.Add(key, decoded)
-	}
-	return headers, nil
-}
-
-func validHeaderKey(key string) bool {
-	if key == "" {
-		return false
-	}
-	for i := 0; i < len(key); i++ {
-		b := key[i]
-		if !((b >= 'a' && b <= 'z') || (b >= 'A' && b <= 'Z') || (b >= '0' && b <= '9') || strings.ContainsRune("!#$%&'*+-.^_`|~", rune(b))) {
-			return false
-		}
-	}
-	return true
-}
-
 func unixNano(value time.Time) string {
 	if value.IsZero() {
 		return "0"
