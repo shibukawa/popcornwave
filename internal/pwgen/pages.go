@@ -78,6 +78,22 @@ const pageRenderBlock = `{{ .Symbols.RuntimeAlias }}.Render({{ .Writer }}, {{ .R
 // of them off one element is the failure this prevents. Both emitters call it,
 // so the net/http and fasthttp trees cannot drift apart on what the runtime
 // reads.
+// setActionDeclaration points the typed-action annotation at this framework's
+// own spelling.
+//
+// The identifier is declared rather than derived because a path's last element
+// is not always the package name: the module's path ends in tinybind-go and its
+// package is httpbind, which is what made the module state this at all. Ours
+// agree, and saying so is what keeps a project from importing a second module
+// to declare an action.
+func setActionDeclaration(shape *routetree.HandlerShape, importPath, pkg string) {
+	shape.Declaration = routetree.ActionDeclaration{
+		Import:  importPath,
+		Package: pkg,
+		Name:    "ServerAction",
+	}
+}
+
 func setBehaviourAttrs(emitter *routetree.Emitter) {
 	emitter.ActionAttr = PageActionAttr
 	emitter.ClientHandlerAttr = PageClientHandlerAttr
@@ -107,6 +123,13 @@ func PageEmitter() (*routetree.Emitter, error) {
 	emitter.Symbols.ErrorImport = pwPackage
 	emitter.Symbols.ErrorAlias = "pw"
 	emitter.Symbols.WriteError = "WriteProblem"
+
+	// The two admission rules travel together: a function is an action by
+	// having the handler shape or by being declared, and this is where both are
+	// stated for one transport.
+	shape := routetree.DefaultHandlerShape()
+	setActionDeclaration(&shape, pwPackage, "pw")
+	emitter.HandlerShape = shape
 
 	emitter.GeneratedHeader = PageGeneratedHeader
 	emitter.RenderWriterType = "http.ResponseWriter"
@@ -192,7 +215,9 @@ func FastPageEmitter() (*routetree.Emitter, error) {
 	// A page function written against this transport takes one parameter, and a
 	// recognizer keyed on net/http would read it as a malformed typed page and
 	// report a signature error for a declaration that is correct.
-	emitter.HandlerShape = routetree.FastHTTPHandlerShape(fastHTTPPackage)
+	fastShape := routetree.FastHTTPHandlerShape(fastHTTPPackage)
+	setActionDeclaration(&fastShape, pwFastPackage, "pwfast")
+	emitter.HandlerShape = fastShape
 
 	emitter.GeneratedHeader = PageGeneratedHeader
 	emitter.RenderWriterType = "io.Writer"

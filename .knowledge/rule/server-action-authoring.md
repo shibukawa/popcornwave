@@ -20,7 +20,13 @@ choose_the_element_for_the_client_you_owe:
   rule: a mutation a project's own acceptance requires without script goes on a form
   applies_to: every project claiming requirement:classic-web-acceptance, which is the criteria list saying pages work without the Popcorn Wave browser runtime
   portability_is_one_way: moving a form to a bare button loses the scriptless path silently, and moving a bare button to a form loses nothing
+two_shapes_chosen_by_who_calls:
+  raw: an ordinary func(http.ResponseWriter, *http.Request), reachable from a form, a gesture and a script alike, admitted by its shape and published by existing
+  typed: any signature, declared per decision:typed-action-declaration and reachable only from a script calling it by name per decision:typed-action-is-call-only
+  how_an_author_chooses: by asking who calls this rather than what it should return, which is the question that has an answer
+  a_form_needs_the_raw_one: a template naming a typed action is a generation error, since a native submit would be shown a value it cannot render
 the_handler_owns_its_whole_response:
+  applies_to: the raw shape; a typed action's response is decided by generation, which is what narrowing its caller bought
   shape: an ordinary func(http.ResponseWriter, *http.Request), testable with httptest and registered by nothing the author writes
   three_answers: the regions requirement:action-response-update carries, a redirect, or an ordinary response
   branch_point: one predicate, so the update path and the ordinary path cannot drift apart

@@ -49,7 +49,7 @@ SELECT id, name FROM users WHERE id = {id}
 		t.Fatal(err)
 	}
 	runner := generator.New(options)
-	changes, err := planDirectory(context.Background(), runner, directory, allPurposes, nil, false)
+	changes, err := planDirectory(context.Background(), runner, directory, allPurposes, nil, nil, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -77,7 +77,7 @@ SELECT id, name FROM users WHERE id = {id}
 	if err := applyFileChanges(changes); err != nil {
 		t.Fatal(err)
 	}
-	changes, err = planDirectory(context.Background(), runner, directory, allPurposes, nil, false)
+	changes, err = planDirectory(context.Background(), runner, directory, allPurposes, nil, nil, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -87,7 +87,7 @@ SELECT id, name FROM users WHERE id = {id}
 
 	stale := filepath.Join(directory, "obsolete_pw_gen.go")
 	writeTestFile(t, stale, "package fixture\n")
-	changes, err = planDirectory(context.Background(), runner, directory, allPurposes, nil, false)
+	changes, err = planDirectory(context.Background(), runner, directory, allPurposes, nil, nil, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -142,7 +142,7 @@ export component Home(): html {
 	options.ConversionCacheDir = filepath.Join(root, "dist", "cache")
 	runner := generator.New(options)
 
-	changes, err := planDirectory(context.Background(), runner, root, allPurposes, nil, false)
+	changes, err := planDirectory(context.Background(), runner, root, allPurposes, nil, nil, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -188,7 +188,7 @@ export component Home(): html {
 	if err := applyFileChanges(changes); err != nil {
 		t.Fatal(err)
 	}
-	changes, err = planDirectory(context.Background(), runner, root, allPurposes, nil, false)
+	changes, err = planDirectory(context.Background(), runner, root, allPurposes, nil, nil, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -224,7 +224,7 @@ export component Gauge(id: string): html {
 	if err != nil {
 		t.Fatal(err)
 	}
-	changes, err := planDirectory(context.Background(), generator.New(options), directory, allPurposes, nil, false)
+	changes, err := planDirectory(context.Background(), generator.New(options), directory, allPurposes, nil, nil, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -294,7 +294,7 @@ export component Document(children: html?): html {
 	if err != nil {
 		t.Fatal(err)
 	}
-	changes, err := planDirectory(context.Background(), generator.New(options), directory, allPurposes, nil, false)
+	changes, err := planDirectory(context.Background(), generator.New(options), directory, allPurposes, nil, nil, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -334,7 +334,7 @@ export component Plain(label: string): html {
 	if err != nil {
 		t.Fatal(err)
 	}
-	changes, err := planDirectory(context.Background(), generator.New(options), directory, allPurposes, nil, false)
+	changes, err := planDirectory(context.Background(), generator.New(options), directory, allPurposes, nil, nil, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -384,7 +384,7 @@ export component Plain(label: string): html {
 	if err != nil {
 		t.Fatal(err)
 	}
-	changes, err := planDirectory(context.Background(), generator.New(options), directory, allPurposes, nil, false)
+	changes, err := planDirectory(context.Background(), generator.New(options), directory, allPurposes, nil, nil, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -426,7 +426,7 @@ export component Plain(label: string): html {
 	if err != nil {
 		t.Fatal(err)
 	}
-	changes, err := planDirectory(context.Background(), generator.New(options), directory, allPurposes, nil, false)
+	changes, err := planDirectory(context.Background(), generator.New(options), directory, allPurposes, nil, nil, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -842,7 +842,7 @@ func TestPlanDirectoryGeneratesDynamoArtifacts(t *testing.T) {
 		t.Fatal(err)
 	}
 	purposes := generationPurposes{handlers: true, dynamo: true}
-	changes, err := planDirectory(context.Background(), generator.New(options), directory, purposes, nil, false)
+	changes, err := planDirectory(context.Background(), generator.New(options), directory, purposes, nil, nil, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -879,7 +879,7 @@ func TestPlanDirectoryLeavesDynamoSourcesUnreadWithoutThePurpose(t *testing.T) {
 		t.Fatal(err)
 	}
 	changes, err := planDirectory(context.Background(), generator.New(options), directory,
-		generationPurposes{handlers: true}, nil, false)
+		generationPurposes{handlers: true}, nil, nil, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -899,7 +899,7 @@ func TestPlanDirectoryRegistersTheGeneratedTable(t *testing.T) {
 		t.Fatal(err)
 	}
 	changes, err := planDirectory(context.Background(), generator.New(options), directory,
-		generationPurposes{handlers: true, dynamo: true}, nil, false)
+		generationPurposes{handlers: true, dynamo: true}, nil, nil, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1040,7 +1040,7 @@ func TestPlanDirectoryGeneratesFirestoreArtifacts(t *testing.T) {
 	// A records directory is a Firestore directory and nothing else, which is
 	// what the scaffold writes and what lets the whole codec be emitted.
 	purposes := generationPurposes{firestore: true}
-	changes, err := planDirectory(context.Background(), generator.New(options), directory, purposes, nil, false)
+	changes, err := planDirectory(context.Background(), generator.New(options), directory, purposes, nil, nil, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1084,7 +1084,7 @@ func TestGeneratedFirestoreKindsRegisterThemselves(t *testing.T) {
 		t.Fatal(err)
 	}
 	changes, err := planDirectory(context.Background(), generator.New(options), directory,
-		generationPurposes{firestore: true}, nil, false)
+		generationPurposes{firestore: true}, nil, nil, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1117,7 +1117,7 @@ func TestPlanDirectoryLeavesFirestoreSourcesUnreadWithoutThePurpose(t *testing.T
 		t.Fatal(err)
 	}
 	changes, err := planDirectory(context.Background(), generator.New(options), directory,
-		generationPurposes{handlers: true, dynamo: true}, nil, false)
+		generationPurposes{handlers: true, dynamo: true}, nil, nil, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1312,7 +1312,7 @@ export function setup(el) {
 		t.Fatal(err)
 	}
 	runner := generator.New(withExtractedAssetDirs(options, directory))
-	changes, err := planDirectory(context.Background(), runner, directory, allPurposes, nil, false)
+	changes, err := planDirectory(context.Background(), runner, directory, allPurposes, nil, nil, false)
 	if err != nil {
 		t.Fatal(err)
 	}

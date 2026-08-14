@@ -39,7 +39,7 @@ func Register(mux pwpage.Router, options ...pwpage.Option) {
 				return
 			}
 			_ = route
-			pageName, pagePage, err := id_.Load(route.ID, route.Page)
+			pageName, pagePage, err := id_.Load(r.Context(), route.ID, route.Page)
 			if err != nil {
 				pw.WriteProblem(w, r, err)
 				return
@@ -101,8 +101,8 @@ type RouteInfo struct {
 // An endpoint grants nothing: the path hides structure but is not a capability
 // token, so each handler still authenticates and authorizes its own caller.
 var Actions = []ActionInfo{
-	{Pattern: "POST /_action/00369cf962b6/Rename", Path: "/_action/00369cf962b6/Rename", Dir: "users/id_", Handler: "Rename", Hash: "00369cf962b6"},
-	{Pattern: "POST /_action/d71506d06c1e/Retire", Path: "/_action/d71506d06c1e/Retire", Dir: "users/id_", Handler: "Retire", Hash: "d71506d06c1e"},
+	{Pattern: "POST /_action/00369cf962b6/Rename", Path: "/_action/00369cf962b6/Rename", Dir: "users/id_", Handler: "Rename", Hash: "00369cf962b6", Published: "rename", Typed: false},
+	{Pattern: "POST /_action/d71506d06c1e/Retire", Path: "/_action/d71506d06c1e/Retire", Dir: "users/id_", Handler: "Retire", Hash: "d71506d06c1e", Published: "retire", Typed: false},
 }
 
 // ActionInfo is one entry of Actions.
@@ -117,11 +117,16 @@ type ActionInfo struct {
 	Handler string
 	// Hash is the stable half of the path.
 	Hash string
+	// Published is the identifier client script calls this action through, and
+	// Typed reports that a declaration admitted it rather than its signature.
+	// A typed action is reached only by a call; no template can name one.
+	Published string
+	Typed     bool
 }
 
 func init() {
 	pwruntime.RegisterPageActions("GET /users/{id}",
-		pwruntime.PageAction{Name: "Rename", Path: "/_action/00369cf962b6/Rename"},
-		pwruntime.PageAction{Name: "Retire", Path: "/_action/d71506d06c1e/Retire"},
+		pwruntime.PageAction{Name: "rename", Path: "/_action/00369cf962b6/Rename"},
+		pwruntime.PageAction{Name: "retire", Path: "/_action/d71506d06c1e/Retire"},
 	)
 }

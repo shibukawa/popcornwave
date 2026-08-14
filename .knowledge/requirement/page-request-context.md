@@ -7,7 +7,8 @@ A route under concept:page-tree must be able to read the context of the request 
 
 ```yaml
 owner: system:tinybind
-status: not raised upstream as of 2026-08-05
+status: the typed Load half shipped in v0.5.8 and is verified here; the other halves are unverified rather than known open
+what_is_unverified: the context externals gap looks closed too, since routetree now threads ContextExternals into the tree compile, and the fourth gap's error import is still written unconditionally; neither was exercised, so neither is reported as an answer
 request: docs/tinybind-go-page-context-request.md
 priority: should
 evidence:
@@ -22,9 +23,11 @@ three_gaps:
     inconsistent_with: the same declaration in a templates directory, which does receive one; generator templateArtifacts computes the set and routetree compileTemplate does not
     smallest: this is the one gap that is an oversight rather than a design question, and closing it alone would give a page a way to reach the context with no new concept
   typed_load:
-    fact: routetree validates every Load parameter as a URL-bindable scalar, so a leading context.Context is rejected
-    diagnostic: correct about URL inputs, and a context is not one; it arrives from the request rather than from the address
-    shape_asked_for: recognize a leading context.Context syntactically, trim it from the input list, and pass the request's context as the first argument
+    closed: v0.5.8, verified 2026-08-13 by declaring one in the page tree fixture and reading what generation emitted
+    as_shipped: exactly the shape asked for — takesLeadingContext recognizes it syntactically, trims it from the input list, and the registration calls Load with the request's context first
+    proved_by: the fixture's Load, whose generated call site reads id_.Load(r.Context(), route.ID, route.Page)
+    was: routetree validated every Load parameter as a URL-bindable scalar, so a leading context.Context was rejected
+    diagnostic_unchanged: a context anywhere but the first position still gets the ordinary not-a-URL-value error, which is the right answer there
   async_external:
     fact: an external async is excluded from context injection, and unlike live it receives no context through its own call shape either
     upstream_reason: stated as covering async and live together; verified true for live and not reproduced for async
@@ -34,10 +37,11 @@ fourth_gap:
   where: routetree writes the configured error import unconditionally, and the block using it belongs to the decoders of the other two rungs
   why_it_bites_here: the handler rung is the workaround for the three gaps above, so a project that took it for every page meets this
   masked_by: the scaffolded tree, whose template-only root uses the import; the shape appears once somebody deletes that page, which is what a project with an older handler package does
-what_this_framework_does_meanwhile:
-  rung: a page needing the request context takes the handler rung, func Load(w, r), which generates the registration and owns the response
-  cost: the typed rung checks the function's result list against the component's parameter list and the handler rung checks nothing, so the page most needing that check is the one that cannot have it
-  documented: requirement:tutorial-page-tree-chapter says why its page takes that rung, rather than presenting it as the ordinary shape
+what_this_framework_did_meanwhile:
+  rung: a page needing the request context took the handler rung, func Load(w, r), which generates the registration and owns the response
+  cost: the typed rung checks the function's result list against the component's parameter list and the handler rung checks nothing, so the page most needing that check was the one that could not have it
+  no_longer_forced: with the typed half shipped, a page reading the pool or the session keeps the checked rung; the handler rung stays the escape for a page that owns its response rather than the workaround for this
+  documentation_follows: requirement:tutorial-page-tree-chapter explains why its page takes the handler rung, and the reason it gives is this gap
 acceptance:
   - a typed Load declaring a leading context.Context generates and receives the request's context
   - a synchronous external in a route package receives a context on the same terms as one in a templates package

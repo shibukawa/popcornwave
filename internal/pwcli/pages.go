@@ -44,31 +44,45 @@ var reservedPageTemplates = map[string]bool{
 // place, not one per page. The tree root is what they are grouped under,
 // because that is a directory whose purposes admit them.
 func planPageTrees(root string, config projectConfig) (map[string][]generator.Artifact, error) {
+	planned, _, err := planPageTreeFiles(root, config)
+	return planned, err
+}
+
+// planPageTreeFiles is planPageTrees plus the typed server actions each route
+// package declared, keyed by the absolute directory holding them.
+//
+// The two halves of a typed action are built by different phases: routetree
+// reads the declaration, because it parses a route package before that package
+// can compile, and the binding phase builds the argument struct and the codecs,
+// because it type-checks. So the list has to travel from the first to the
+// second, and this is where it is picked up.
+func planPageTreeFiles(root string, config projectConfig) (map[string][]generator.Artifact, map[string][]routetree.Action, error) {
 	if len(config.Generate.Pages) == 0 {
-		return nil, nil
+		return nil, nil, nil
 	}
 	module, moduleDir, err := moduleImportPath(root)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	emitter, err := pwgen.PageEmitter()
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	planned := map[string][]generator.Artifact{}
+	actions := map[string][]routetree.Action{}
 	for _, relative := range config.Generate.Pages {
 		treeRoot := filepath.Join(root, filepath.FromSlash(relative))
 		importBase, err := treeImportPath(module, moduleDir, treeRoot)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		result, err := generatePageTree(treeRoot, importBase, emitter)
 		if err != nil {
-			return nil, fmt.Errorf("%s: %w", relative, err)
+			return nil, nil, fmt.Errorf("%s: %w", relative, err)
 		}
 		treeRootAbs, err := filepath.Abs(treeRoot)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		for _, asset := range result.Assets {
 			// Under the tree root rather than the project root: an artifact is
@@ -87,13 +101,19 @@ func planPageTrees(root string, config projectConfig) (map[string][]generator.Ar
 		for _, file := range result.Files {
 			artifact, err := pageArtifact(file)
 			if err != nil {
-				return nil, err
+				return nil, nil, err
 			}
 			directory, err := filepath.Abs(filepath.Dir(file.Path))
 			if err != nil {
-				return nil, err
+				return nil, nil, err
 			}
 			planned[directory] = append(planned[directory], artifact)
+			// The typed actions of this package travel to the phase that emits
+			// their wrappers. It is keyed by directory because that is what the
+			// binding phase is handed, and RelDir is what selects them.
+			if declared := typedActionsIn(result.Actions, treeRootAbs, directory); len(declared) > 0 {
+				actions[directory] = declared
+			}
 			// The registry knows both halves nothing else holds together: which
 			// route a pattern is, and which server functions its package
 			// exports. A component script calling one by name needs the join,
@@ -103,7 +123,28 @@ func planPageTrees(root string, config projectConfig) (map[string][]generator.Ar
 			}
 		}
 	}
-	return planned, nil
+	return planned, actions, nil
+}
+
+// typedActionsIn selects the actions a route package declared, by matching the
+// directory the binding phase will type-check against the relative directory
+// routetree reported.
+func typedActionsIn(all []routetree.Action, treeRoot, directory string) []routetree.Action {
+	relative, err := filepath.Rel(treeRoot, directory)
+	if err != nil {
+		return nil
+	}
+	if relative == "." {
+		relative = ""
+	}
+	relative = filepath.ToSlash(relative)
+	var out []routetree.Action
+	for _, action := range all {
+		if action.Typed && action.RelDir == relative {
+			out = append(out, action)
+		}
+	}
+	return out
 }
 
 // GenerateTree rather than Generate: the latter is documented as the variant
@@ -502,8 +543,12 @@ var (
 	// pattern, a path and a directory, and only a route carries the parameters
 	// its path declares. Matching without it registered every action endpoint as
 	// though it rendered a document.
-	pageRouteEntry  = regexp.MustCompile(`\{Pattern: "([^"]+)", Path: "[^"]*", Dir: "([^"]*)", Params:`)
-	pageActionEntry = regexp.MustCompile(`\{Pattern: "[^"]*", Path: "([^"]+)", Dir: "([^"]*)", Handler: "([^"]+)"`)
+	pageRouteEntry = regexp.MustCompile(`\{Pattern: "([^"]+)", Path: "[^"]*", Dir: "([^"]*)", Params:`)
+	// Published rather than Handler: the identifier a script writes is the
+	// wire name, which is the Go name in lowerCamelCase unless a declaration
+	// overrode it. Reading the Go name here would publish Rename where every
+	// caller writes rename.
+	pageActionEntry = regexp.MustCompile(`\{Pattern: "[^"]*", Path: "([^"]+)", Dir: "([^"]*)", Handler: "[^"]+", Hash: "[^"]*", Published: "([^"]+)"`)
 )
 
 // pageActionRegistrationArtifact emits the init that publishes each route's own

@@ -51,3 +51,10 @@ func Rename(w http.ResponseWriter, r *http.Request) {
 // back to the page. That is the post-redirect-get default, and a handler that
 // wrote a status, a header, or a body would keep exactly that response instead.
 func Retire(w http.ResponseWriter, r *http.Request) {}
+
+// A typed server action belongs here, and one is not declared yet: v0.5.10
+// emits its wrapper into every per-source artifact of the package while
+// planning its argument struct under an empty source path, so the wrapper and
+// the decoder it names land in different files. docs/tinybind-go-typed-action-
+// wiring-report.md carries what was measured; the wiring on this side is done
+// and this fixture is where the declaration goes when that is answered.

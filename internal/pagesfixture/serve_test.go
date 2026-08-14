@@ -155,9 +155,11 @@ func TestPagesPublishTheirOwnActions(t *testing.T) {
 	if len(actions) != 2 {
 		t.Fatalf("the route publishes %d actions, want both of its package's", len(actions))
 	}
+	// The published name rather than the Go one: a script writes rename, and the
+	// address still carries Rename, because the two are different facts.
 	for _, want := range []pwruntime.PageAction{
-		{Name: "Rename", Path: "/_action/00369cf962b6/Rename"},
-		{Name: "Retire", Path: "/_action/d71506d06c1e/Retire"},
+		{Name: "rename", Path: "/_action/00369cf962b6/Rename"},
+		{Name: "retire", Path: "/_action/d71506d06c1e/Retire"},
 	} {
 		if !slices.Contains(actions, want) {
 			t.Errorf("%s is not published: %v", want.Name, actions)

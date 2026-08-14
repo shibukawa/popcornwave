@@ -118,6 +118,7 @@ calling_an_action_without_a_gesture:
     cheap_half: the namespace is generated per route, so only actions that exist are in it and a typo is undefined at the call site rather than a request to a wrong address
     diagnostic: the runtime reports the name and what the route does publish, which is what turns undefined is not a function into an answer
     build_time_half: reading actions.Rename means parsing member expressions, which is deeper than the declarations decision:component-handler-namespace already asks for; worth having and not worth blocking on
+  what_a_typed_action_needs_from_here: nothing, which is the finding that made requirement:typed-server-action a generation question alone; this posts JSON and returns a non-update response to its caller, and a typed action is exactly that pair with the glue generated on the Go side
   grants_nothing_new: every action is a public POST endpoint already, per rule:server-action-authoring, so a stub removes a URL an author would otherwise hand-write and moves no authorization boundary
   as_built_2026_08_12:
     the_join_nothing_else_held: the generated registry declares which directory a route serves and which directory a handler was declared in, and joining them is what turns a name into an address; a derived init publishes the join per route pattern, the way the reloadable registration is derived

@@ -20,6 +20,7 @@ import (
 
 	"github.com/shibukawa/popcornwave/internal/pwgen"
 	"github.com/shibukawa/tinybind-go/generator"
+	"github.com/shibukawa/tinybind-go/routetree"
 	"golang.org/x/mod/modfile"
 )
 
@@ -64,7 +65,7 @@ func generateProject(ctx context.Context, check bool, stdout io.Writer, listPath
 	// The page trees are generated first because their output is planned as part
 	// of the directory it lands in, and a tree root may hold no source the walk
 	// above would have found.
-	pageArtifacts, err := planPageTrees(root, config)
+	pageArtifacts, pageActions, err := planPageTreeFiles(root, config)
 	if err != nil {
 		return 0, err
 	}
@@ -136,7 +137,7 @@ func generateProject(ctx context.Context, check bool, stdout io.Writer, listPath
 			}
 		}
 		for _, directory := range stage {
-			planned, err := planDirectory(ctx, runner, directory, directoryPurposes(root, config.Generate, directory), pageArtifacts[directory], config.FastHTTP)
+			planned, err := planDirectory(ctx, runner, directory, directoryPurposes(root, config.Generate, directory), pageArtifacts[directory], pageActions[directory], config.FastHTTP)
 			if err != nil {
 				return 0, err
 			}
@@ -683,10 +684,22 @@ const disabledTemplatePattern = "*.not-a-generation-source"
 // one directory has one staleness sweep, and so a component and a binder that
 // derive the same base name merge into one file rather than deleting each
 // other.
-func planDirectory(ctx context.Context, runner *generator.Generator, directory string, purposes generationPurposes, extra []generator.Artifact, fastHTTP bool) ([]fileChange, error) {
+func planDirectory(ctx context.Context, runner *generator.Generator, directory string, purposes generationPurposes, extra []generator.Artifact, typed []routetree.Action, fastHTTP bool) ([]fileChange, error) {
 	goSources, err := hasGoSources(directory)
 	if err != nil {
 		return nil, err
+	}
+	if len(typed) > 0 {
+		// A typed action's wrapper is emitted by this phase, because it names
+		// the encoder this phase generates and the function it wraps. What
+		// routetree read travels here rather than being read twice, so the
+		// registration and the emitted entry point cannot name two symbols.
+		local := *runner
+		// The selection already happened, by directory; this one is by the
+		// relative directory routetree reported, and they have to be the same
+		// answer. Taking it from the actions themselves is what makes it one.
+		local.Options = local.Options.WithServerActionsFor(typed, typed[0].RelDir)
+		runner = &local
 	}
 	request := generator.GenerateRequest{
 		Dir:                 directory,

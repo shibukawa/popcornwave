@@ -90,3 +90,33 @@ func (a *actionResponse) Write(p []byte) (int, error) {
 func (a *actionResponse) wrote() bool {
 	return a.status || a.body || len(a.Header()) > a.headers
 }
+
+// ActionDeclaration is what ServerAction returns. It carries nothing: the value
+// exists only so the annotation can be written as a package-level declaration,
+// which is where generation reads it.
+type ActionDeclaration = tinybind.Declaration
+
+// ServerAction declares that fn is a server action reachable from a component
+// script, whatever its signature.
+//
+// A handler-shaped function is an action by existing, because that shape is
+// unambiguous. An arbitrary signature distinguishes nothing, since every
+// function has one, so something outside the signature has to say which
+// functions are actions. That is the whole of what this does.
+//
+// Write it at package level, beside the function:
+//
+//	var _ = pw.ServerAction(GetUser)
+//
+//	func GetUser(ctx context.Context, id string) (User, error) { … }
+//
+// A script reaches it as actions.getUser, the Go name in initialism-aware
+// lowerCamelCase. Pass a name to override that: it is a wire name rather than a
+// second identity, so a Go rename moves the address and leaves it where it is.
+//
+// It is spelled here rather than left at the module's own because a page tree's
+// templates, reserved paths and generated files are all this framework's, and a
+// project should not import a second module to declare one.
+func ServerAction(fn any, name ...string) ActionDeclaration {
+	return tinybind.ServerAction(fn, name...)
+}

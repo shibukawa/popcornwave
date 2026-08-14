@@ -274,6 +274,8 @@
 {"category": "constraint", "id": "decision:transport-handle-containment", "path": ".knowledge/decision/transport-handle-containment.md", "role": "supporting", "title": "Transport Handles Stay Inside The Framework Surface", "type": "decision"}
 {"category": "constraint", "id": "decision:transport-source-transform", "path": ".knowledge/decision/transport-source-transform.md", "role": "supporting", "title": "Adopting The Upstream Source Transform", "type": "decision"}
 {"category": "constraint", "id": "decision:type-keyed-session-storage", "path": ".knowledge/decision/type-keyed-session-storage.md", "role": "supporting", "title": "Type-Keyed Session Storage Registry", "type": "decision"}
+{"category": "constraint", "id": "decision:typed-action-declaration", "path": ".knowledge/decision/typed-action-declaration.md", "role": "supporting", "title": "A Typed Action Is Declared", "type": "decision"}
+{"category": "constraint", "id": "decision:typed-action-is-call-only", "path": ".knowledge/decision/typed-action-is-call-only.md", "role": "supporting", "title": "A Typed Action Is Reached By A Call And Nothing Else", "type": "decision"}
 {"category": "constraint", "id": "decision:unhandled-boundary-escalation", "path": ".knowledge/decision/unhandled-boundary-escalation.md", "role": "supporting", "title": "Unhandled Boundary Escalation", "type": "decision"}
 {"category": "constraint", "id": "decision:update-runtime-convergence", "path": ".knowledge/decision/update-runtime-convergence.md", "role": "supporting", "title": "Update Runtime Convergence", "type": "decision"}
 {"category": "constraint", "id": "decision:vscode-first-editor-target", "path": ".knowledge/decision/vscode-first-editor-target.md", "role": "supporting", "title": "VS Code as the First Editor Target", "type": "decision"}
@@ -547,6 +549,7 @@
 {"category": "objective", "id": "requirement:tutorial-continuity", "path": ".knowledge/requirement/tutorial-continuity.md", "role": "primary", "title": "Tutorial Continuity", "type": "requirement"}
 {"category": "objective", "id": "requirement:tutorial-page-tree-chapter", "path": ".knowledge/requirement/tutorial-page-tree-chapter.md", "role": "primary", "title": "Tutorial Page Tree Chapter", "type": "requirement"}
 {"category": "objective", "id": "requirement:typed-http-contract", "path": ".knowledge/requirement/typed-http-contract.md", "role": "primary", "title": "Typed HTTP Contract", "type": "requirement"}
+{"category": "objective", "id": "requirement:typed-server-action", "path": ".knowledge/requirement/typed-server-action.md", "role": "primary", "title": "Typed Server Action", "type": "requirement"}
 {"category": "objective", "id": "requirement:typed-websocket", "path": ".knowledge/requirement/typed-websocket.md", "role": "primary", "title": "Typed WebSocket On Both Builds", "type": "requirement"}
 {"category": "objective", "id": "requirement:unhandled-boundary-signal", "path": ".knowledge/requirement/unhandled-boundary-signal.md", "role": "primary", "title": "Unhandled Boundary Signal", "type": "requirement"}
 {"category": "objective", "id": "requirement:unified-update-runtime", "path": ".knowledge/requirement/unified-update-runtime.md", "role": "primary", "title": "Unified Update Runtime", "type": "requirement"}
