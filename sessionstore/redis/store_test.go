@@ -12,10 +12,6 @@ import (
 	"github.com/shibukawa/popcornwave/session"
 )
 
-type payload struct {
-	AccountID string `json:"account_id"`
-}
-
 const testKey = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
 
 // fakeClient is an in-process stand-in for a server: it applies TTLs against a

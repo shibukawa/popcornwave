@@ -139,17 +139,3 @@ func quoteAll(values []string) []string {
 	return quoted
 }
 
-// definitions builds every registered table under its deployed name, in the
-// stable order of registeredTables.
-func definitions(ctx context.Context, resolver TableResolver) []dynamodb.TableDefinition {
-	declaredNames := registeredTables()
-	built := make([]dynamodb.TableDefinition, 0, len(declaredNames))
-	for _, declared := range declaredNames {
-		factory, ok := tableFactory(declared)
-		if !ok {
-			continue
-		}
-		built = append(built, factory(resolve(ctx, resolver, declared)))
-	}
-	return built
-}

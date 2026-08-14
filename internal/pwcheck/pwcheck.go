@@ -180,12 +180,6 @@ func register(checks ...Check) {
 	}
 }
 
-// Lookup returns the check with the given identifier.
-func Lookup(id string) (Check, bool) {
-	check, ok := catalog[id]
-	return check, ok
-}
-
 // MustLookup returns the check, and panics when the identifier is unknown. A
 // caller reporting a finding names a compile-time constant, so an unknown
 // identifier is a programming error rather than a runtime condition.

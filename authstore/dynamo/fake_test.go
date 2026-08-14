@@ -16,9 +16,6 @@ import (
 	"github.com/shibukawa/tinygodriver/nosql/dynamodb"
 )
 
-// attribute is one wire-encoded DynamoDB value: {"S": "..."} and friends.
-type attribute map[string]any
-
 // fakeTables is the smallest server that exercises these stores: the item
 // operations they issue over in-memory tables.
 //

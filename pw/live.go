@@ -417,7 +417,6 @@ var (
 	writeLiveDelivery = pwruntime.WriteLiveDelivery
 	writeLiveSignal   = pwruntime.WriteLiveSignal
 	writeLiveClose    = pwruntime.WriteLiveClose
-	writeLiveRecord   = pwruntime.WriteLiveRecord
 	startLiveWatchdog = pwruntime.StartLiveWatchdog
 	parseLiveManifest = pwruntime.ParseLiveManifest
 	liveDigest        = pwruntime.LiveDigest
