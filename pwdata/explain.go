@@ -3,8 +3,6 @@ package pwdata
 import (
 	"context"
 	"strings"
-
-	"github.com/shibukawa/tinybind-go/sqlbind"
 )
 
 // Explain runs the plan-only form of a statement.
@@ -70,12 +68,3 @@ func explainPrefix(engine string) (string, bool) {
 	return prefix, ok
 }
 
-// buildStatement is what a declared query would run, for a page that shows the
-// SQL before anything is executed.
-func buildStatement(pkg, name string, args []string) (sqlbind.Statement, error) {
-	query, ok := lookupQuery(pkg, name)
-	if !ok {
-		return sqlbind.Statement{}, ErrUnsupportedParams
-	}
-	return query.Build(args)
-}

@@ -1,7 +1,6 @@
 package oidc
 
 import (
-	"encoding/json"
 	"errors"
 	"io"
 	"net/http"
@@ -251,5 +250,3 @@ type EndSessionOptions struct {
 	// State is returned unchanged to the post-logout URI.
 	State string
 }
-
-type userInfoResult map[string]json.RawMessage

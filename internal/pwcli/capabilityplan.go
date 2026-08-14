@@ -565,18 +565,6 @@ func goPackageIdentifier(directory string) string {
 	return strings.NewReplacer("-", "", ".", "").Replace(base)
 }
 
-func starterMigration() string {
-	return `-- +goose Up
-CREATE TABLE users (
-    id INTEGER PRIMARY KEY,
-    name TEXT NOT NULL
-);
-
--- +goose Down
-DROP TABLE users;
-`
-}
-
 func starterQuery() string {
 	// Commented out with the migration it reads. A live statement against a
 	// table the starter migration no longer creates would generate a function

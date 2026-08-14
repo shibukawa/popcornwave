@@ -12,7 +12,6 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
-	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -393,23 +392,6 @@ func nextVersion(dir string) (int64, error) {
 		}
 	}
 	return highest + 1, nil
-}
-
-// SourceFiles lists migration file names in version order.
-func SourceFiles(sources fs.FS) ([]string, error) {
-	entries, err := fs.ReadDir(sources, ".")
-	if err != nil {
-		return nil, fmt.Errorf("read migrations: %w", err)
-	}
-	var names []string
-	for _, entry := range entries {
-		if entry.IsDir() || !strings.EqualFold(filepath.Ext(entry.Name()), ".sql") {
-			continue
-		}
-		names = append(names, entry.Name())
-	}
-	sort.Strings(names)
-	return names, nil
 }
 
 // Stream is one component package's migrations, kept separate from the
