@@ -64,7 +64,7 @@ submission when updates are disabled:
 ```html
 export component RenameForm(orderID: string): html {
 <script component>
-  export function setup({ el: form }) {
+  export function setup({ el: form, teardown }) {
     if (!window.popcornwave) return;
 
     async function submit(event) {
@@ -79,7 +79,7 @@ export component RenameForm(orderID: string): html {
     }
 
     form.addEventListener("submit", submit);
-    return () => form.removeEventListener("submit", submit);
+    teardown(() => form.removeEventListener("submit", submit));
   }
 </script>
 <form method="post" action="/orders/rename">
@@ -92,9 +92,12 @@ export component RenameForm(orderID: string): html {
 
 `updateHeaders()` marks the request as an action update and includes the current
 CSRF header when configured. `apply()` accepts the regions returned by the
-handler, including validation regions carried by a 4xx response. The lifecycle
-belongs to the [component script](/guides/interactivity/component-scripts/), so
-replacing the form does not leave a duplicate submit listener behind.
+handler, including validation regions carried by a 4xx response. The listener is
+released through `teardown` rather than by returning a cleanup function, because
+what a `setup` returns is the set of handlers the component publishes — see
+[Component scripts](/guides/interactivity/component-scripts/#release-happens-before-the-replacement-lands).
+That is the whole reason to write this in a component script: replacing the form
+does not leave a duplicate submit listener behind.
 
 JavaScript can also initiate each path directly:
 
