@@ -7,10 +7,22 @@ import (
 	"github.com/shibukawa/tinybind-go/htmlbind/delta"
 )
 
-type PageParams struct {
+type View struct {
 	Name string
 	Page int
 }
+
+type PageParams struct {
+	Id   string
+	Page *int
+}
+
+type planPageOpsVal1 struct {
+	Outer PageParams
+	View  View
+}
+
+var planPageOpsVal1Ops = htmlbind.Builder[planPageOpsVal1]{}
 
 var planPageOps = htmlbind.Builder[PageParams]{}
 
@@ -19,8 +31,8 @@ var planPageOps = htmlbind.Builder[PageParams]{}
 // so a frame stays comparable when only its child changed.
 func planPageInput(p PageParams) string {
 	return delta.CanonJoin(
-		delta.CanonString[string](p.Name),
-		delta.CanonInt(p.Page),
+		delta.CanonString[string](p.Id),
+		delta.CanonOptional(p.Page, delta.CanonInt),
 	)
 }
 
@@ -36,13 +48,18 @@ var planPagePlan = &htmlbind.Plan[PageParams]{
 	Assets:      []htmlbind.Asset{{ID: "page.script.2a4fcb1640d1", Type: "text/javascript", URL: "/public/generated/page.script.2a4fcb1640d1.js", Scope: "id_.page.Page"}},
 	Boundary:    planPageBoundary,
 	Ops: []htmlbind.Op[PageParams]{
-		planPageOps.Static("  <section"),
-		planPageOps.BoundaryAttr(),
-		planPageOps.Static(" data-tb-component=\"id_.page.Page\"> <h1>"),
-		planPageOps.Text(func(p PageParams) string { return p.Name }),
-		planPageOps.Static("</h1> <p>page "),
-		planPageOps.Raw(func(p PageParams) string { return htmlbind.FormatInt(p.Page) }),
-		planPageOps.Static("</p> <button data-pw-action=\"/_action/00369cf962b6/Rename\" data-target=\"#name\">rename</button> </section> "),
+		htmlbind.ValErr(
+			func(p PageParams) (View, error) { return LoadUser(p.Id, p.Page) },
+			func(p PageParams, value View) planPageOpsVal1 { return planPageOpsVal1{Outer: p, View: value} },
+			[]htmlbind.Op[planPageOpsVal1]{
+				planPageOpsVal1Ops.Static("  <section"),
+				planPageOpsVal1Ops.BoundaryAttr(),
+				planPageOpsVal1Ops.Static(" data-tb-component=\"id_.page.Page\">  <h1>"),
+				planPageOpsVal1Ops.Text(func(p planPageOpsVal1) string { return p.View.Name }),
+				planPageOpsVal1Ops.Static("</h1> <p>page "),
+				planPageOpsVal1Ops.Raw(func(p planPageOpsVal1) string { return htmlbind.FormatInt(p.View.Page) }),
+				planPageOpsVal1Ops.Static("</p> <button data-pw-action=\"/_action/00369cf962b6/Rename\" data-target=\"#name\">rename</button> </section> "),
+			}),
 	},
 }
 

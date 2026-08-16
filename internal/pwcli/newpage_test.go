@@ -94,23 +94,32 @@ func TestPlanPageWritesTheRouteDirectory(t *testing.T) {
 	}
 }
 
-// The typed rung puts Go between the request and the render, and the two lists
-// generation checks against each other are written to agree from the start.
-func TestPlanPageTypedRungWritesLoad(t *testing.T) {
+// The loader rung scaffolds a page that fetches its own data: the loader is
+// declared in the template, bound there, and takes the route's input. Nothing
+// generated calls it, which is what requirement:explicit-page-loading moved.
+func TestPlanPageLoaderRungWritesADeclaredLoader(t *testing.T) {
 	state := pageProjectState(t)
 	plan, err := planPage(state, newOptions{
-		Kind: newKindPage, Package: "pages", Path: "/tasks/{id}", Rung: pageRungTyped,
+		Kind: newKindPage, Package: "pages", Path: "/tasks/{id}", Rung: pageRungLoader,
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
 	load := plan.creates["pages/tasks/id_/page.go"]
-	if !strings.Contains(load, "func Load(id string) (string, error)") {
-		t.Errorf("Load does not take the route input:\n%s", load)
+	// The trailing error is the half that lets a loader answer 404 before the
+	// response commits, so a scaffold without it teaches the wrong shape.
+	if !strings.Contains(load, "func LoadGreeting(id string) (string, error)") {
+		t.Errorf("the loader does not take the route input and an error:\n%s", load)
 	}
 	page := plan.creates["pages/tasks/id_/page.pw.html"]
-	if !strings.Contains(page, "export component Page(greeting: string): html") {
-		t.Errorf("the page parameters do not match Load's results:\n%s", page)
+	for _, want := range []string{
+		"external LoadGreeting(id: string): string",
+		"export component Page(id: string): html",
+		"{val greeting = LoadGreeting(id)}",
+	} {
+		if !strings.Contains(page, want) {
+			t.Errorf("the page does not contain %q:\n%s", want, page)
+		}
 	}
 }
 

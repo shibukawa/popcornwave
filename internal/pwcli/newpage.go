@@ -16,9 +16,9 @@ const (
 	// pageRungTemplate is the page template alone. The handler is generated
 	// whole, and the data comes from the template's own external calls.
 	pageRungTemplate = "template"
-	// pageRungTyped adds a Load whose parameters are the route's inputs and
+	// pageRungLoader adds the page's own loader, declared as an external and
 	// whose results are the page component's parameters.
-	pageRungTyped = "typed"
+	pageRungLoader = "loader"
 	// pageRungHandler adds a Load that takes the writer and the request, so the
 	// response is the application's from that point on.
 	pageRungHandler = "handler"
@@ -183,9 +183,25 @@ func indentTemplateBody(body string) string {
 func pageTemplateSource(pkg, rung string, segments []pageSegment) string {
 	var params, body string
 	switch rung {
-	case pageRungTyped:
-		params = "greeting: string"
-		body = "<h1>{greeting}</h1>"
+	case pageRungLoader:
+		inputs := pageInputs(segments)
+		declared := make([]string, 0, len(inputs))
+		for _, input := range inputs {
+			declared = append(declared, input+": string")
+		}
+		params = strings.Join(declared, ", ")
+		// The loader is declared here and bound here, so the page's own source
+		// says where its data comes from. The binding is evaluated before the
+		// first byte, which is what lets a failing loader choose the status.
+		return "package " + pkg + `
+
+external LoadGreeting(` + params + `): string
+
+export component Page(` + params + `): html {
+{val greeting = LoadGreeting(` + strings.Join(inputs, ", ") + `)}
+  <h1>{greeting}</h1>
+}
+`
 	default:
 		declared := make([]string, 0, len(segments))
 		shown := make([]string, 0, len(segments))
@@ -209,7 +225,7 @@ export component Page(` + params + `): html {
 
 func pageLogicSource(pkg, rung string, segments []pageSegment) string {
 	switch rung {
-	case pageRungTyped:
+	case pageRungLoader:
 		inputs := pageInputs(segments)
 		parameters := make([]string, 0, len(inputs))
 		for _, input := range inputs {
@@ -221,10 +237,14 @@ func pageLogicSource(pkg, rung string, segments []pageSegment) string {
 		}
 		return "package " + pkg + `
 
-// Load runs between the request and the render. Its parameters are the route's
-// dynamic segments in order, and its results are the page component's
-// parameters: generation checks both lists against each other.
-func Load(` + strings.Join(parameters, ", ") + `) (string, error) {
+// LoadGreeting is the page's own loader. The template declares it as an
+// external and binds it with {val}, so the call site is in the page rather than
+// in generated code.
+//
+// The trailing error is what lets it choose the response: the binding runs
+// before the first byte, so returning an error carrying HTTP intent still
+// selects the status while the rest of the page streams.
+func LoadGreeting(` + strings.Join(parameters, ", ") + `) (string, error) {
 	return ` + value + `, nil
 }
 `
