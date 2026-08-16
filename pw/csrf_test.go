@@ -3,6 +3,7 @@ package pw
 import (
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"regexp"
 	"strings"
 	"testing"
@@ -28,10 +29,25 @@ var hiddenValue = regexp.MustCompile(`name="_csrf" value="([^"]*)"`)
 
 func sessionRequest(secret string) *http.Request {
 	r := httptest.NewRequest(http.MethodGet, "/orders/new", nil)
+	r = protectedRequest(r)
 	if secret == "" {
 		return r
 	}
 	return r.WithContext(pwruntime.WithCSRFSecret(r.Context(), secret))
+}
+
+// protectedRequest is a request in a project that turned the check on, which is
+// what makes an absent secret a misconfiguration rather than a decision.
+//
+// The two are different renders and they were not always distinguishable here:
+// a bare context reads the zero SecurityConfig, where the check is off, so a
+// test meaning "no session" was also saying "no protection wanted".
+func protectedRequest(r *http.Request) *http.Request {
+	security := SecurityConfig{}
+	security.CSRF.Enabled = true
+	return r.WithContext(pwruntime.WithResources(r.Context(), pwruntime.Resources{
+		Configs: map[reflect.Type]any{reflect.TypeFor[SecurityConfig](): security},
+	}))
 }
 
 // The render path supplies the token, so a page carrying a form gets one
@@ -92,6 +108,28 @@ func TestUnsafeFormWithoutASessionFailsInsteadOfRenderingEmpty(t *testing.T) {
 	}
 }
 
+// A deployment that turned the check off gets the form it asked for.
+//
+// The render cannot fail there: generation writes the hidden field whatever the
+// setting says, because the mode is not threaded into a page tree's compile, so
+// refusing would mean a project with no CSRF cannot use a form action at all.
+func TestUnsafeFormRendersWhenTheCheckIsOff(t *testing.T) {
+	recorder := httptest.NewRecorder()
+	// No SecurityConfig on the request, which is a project that turned nothing
+	// on — the state a scaffold without a browser login is left in.
+	WriteHTMLChain(recorder, httptest.NewRequest(http.MethodGet, "/orders/new", nil), nil, formFragment())
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("status = %d, want the form to render\n%s", recorder.Code, recorder.Body.String())
+	}
+	// The field is present and empty, because the compiler wrote it. Removing it
+	// needs the generation-time mode, which the route tree does not forward.
+	if match := hiddenValue.FindStringSubmatch(recorder.Body.String()); match == nil {
+		t.Error("the hidden field vanished, which this path does not control")
+	} else if match[1] != "" {
+		t.Errorf("a token was rendered with the check off: %q", match[1])
+	}
+}
+
 // A page with no unsafe form renders the same with or without a session, so
 // adopting this costs nothing to a project that has none.
 func TestPageWithNoFormIsUnaffected(t *testing.T) {
@@ -136,5 +174,27 @@ func TestCSRFCookieNameIsOneValueOnBothSides(t *testing.T) {
 	}
 	if !strings.Contains(boundaryRuntimeScript, `"`+CSRFCookieName+`"`) {
 		t.Errorf("the script does not name %q", CSRFCookieName)
+	}
+}
+
+// A configured field name generated forms will not carry is refused at startup.
+//
+// The failure it replaces is a 403 on every form submission with the reason in
+// the log only, which reads as a broken request rather than as a setting.
+func TestCSRFFieldNameMustMatchWhatGenerationEmits(t *testing.T) {
+	if err := checkCSRFFieldName(""); err != nil {
+		t.Errorf("an unset field name was refused: %v", err)
+	}
+	if err := checkCSRFFieldName(generatedCSRFField); err != nil {
+		t.Errorf("the default was refused: %v", err)
+	}
+	err := checkCSRFFieldName("authenticity_token")
+	if err == nil {
+		t.Fatal("a field name no generated form carries was accepted")
+	}
+	// The message has to name both halves, or it says a setting is wrong without
+	// saying what it disagrees with.
+	if !strings.Contains(err.Error(), "authenticity_token") || !strings.Contains(err.Error(), generatedCSRFField) {
+		t.Errorf("the message names only one side: %v", err)
 	}
 }

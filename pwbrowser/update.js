@@ -28,11 +28,22 @@ export function createUpdateRuntime(config) {
 	// that renamed the prefix and a client that did not is impossible rather
 	// than silent.
 	const scopeChainHeader = config.header + "-Scopes";
+	// Sent by a call made from a script, and by nothing else.
+	const callHeader = config.header + "-Call";
 	// The marker the render writes on a scoped component's root element. Built
 	// from the same configured prefix as every other attribute here, and handed
 	// to the boundary half, which owns the scan but is loaded before any
 	// configuration exists.
 	setScopeMarkerAttribute("data-" + config.attr + "-component");
+	// The behaviour attributes come from the same prefix as everything else, so
+	// one document holds one spelling and this half is where every name is
+	// derived, because the boundary half is loaded before the configuration is.
+	setClientHandlerAttribute("data-" + config.attr + "-on");
+	setScopePropsAttribute("data-" + config.attr + "-props");
+	// Calling a server function is this half's, because issuing the request and
+	// applying what came back are. The boundary half holds the namespace because
+	// it is what hands a setup its bag, and it loads first.
+	setActionCaller(callPageAction);
 	// The capability header says this client can walk a sequence tree; the
 	// address header asks for one. They are two headers rather than one because
 	// a request that walks sequences and a request for a sequence are different
@@ -61,6 +72,11 @@ export function createUpdateRuntime(config) {
 	// same prefix as every other element this framework emits.
 	const manifestElement = config.attr + "-manifest";
 	const busyAttr = "data-" + config.attr + "-updating";
+	// Where a lowered server-action wrote its endpoint. It comes from the same
+	// prefix as the boundary attributes because it is written by the same
+	// generation into the same document, and a second spelling here would be a
+	// second constant to keep in step with the emitter.
+	const actionAttr = "data-" + config.attr + "-action";
 	setPreserveAttribute("data-" + config.attr + "-preserve");
 
 	// The browser's own scroll restoration runs at popstate, against the document
@@ -1027,6 +1043,125 @@ export function createUpdateRuntime(config) {
 		return { applied: true };
 	}
 
+	// callPageAction is a server function called by name rather than by gesture.
+	//
+	// The body is JSON because api:request-binding accepts it for the same input
+	// struct a form posts, so one Go handler serves both and the caller passes
+	// the value it already holds rather than assembling fields.
+	//
+	// The address is the direct endpoint, which carries no path parameter: a
+	// handler needing one reads it from what the caller sent. There is no
+	// element to mark and no gesture to guard, so the in-flight state is the
+	// caller's — it started this and knows what it is waiting for.
+	async function callPageAction(url, input) {
+		const target = new URL(url, document.baseURI);
+		if (target.origin !== location.origin) throw new Error("Popcorn Wave: refusing a cross-origin action");
+		markBusy(true);
+		let response;
+		try {
+			// The call header says who is holding the answer. The mode still
+			// says action, so a handler answering with regions is applied here
+			// exactly as it is for a gesture; this is what lets one that has a
+			// value to return know there is somewhere to put it.
+			const headers = Object.assign(updateHeaders(), { [callHeader]: "1" });
+			if (input !== undefined) headers["Content-Type"] = "application/json";
+			response = await fetch(target.href, {
+				method: "POST",
+				body: input === undefined ? null : JSON.stringify(input),
+				headers: headers,
+				credentials: "same-origin",
+				redirect: "error",
+			});
+		} finally {
+			markBusy(false);
+		}
+		// An update response is applied the way a gesture's is. Anything else is
+		// returned to the caller: it asked for this and can read a value, where
+		// a gesture had nobody to hand one to.
+		if (served(response) === "action") return apply(response);
+		if (!response.ok) throw new Error("Popcorn Wave: the action failed with " + response.status);
+		const type = response.headers.get("Content-Type") || "";
+		return type.includes("json") ? response.json() : response.text();
+	}
+
+	// runAction performs the mutation an element names and installs what came
+	// back, which is what makes a lowered server-action a working gesture rather
+	// than an address the application still has to call.
+	//
+	// The element is marked for the duration and a second activation of it is
+	// ignored rather than queued. A redraw supersedes an older request for the
+	// same id because rendering twice costs only the render; a mutation is not
+	// idempotent, so the same rule inverted is the right one here.
+	const running = new WeakSet();
+	async function runAction(element, url, body) {
+		if (running.has(element)) return { applied: false, reason: "in flight" };
+		running.add(element);
+		// aria-disabled rather than the disabled property: disabling the focused
+		// control moves focus to the body and loses the user's place, where this
+		// says the same thing to assistive technology and moves nothing. What
+		// actually blocks a second activation is the guard above, which works on
+		// any element rather than only on a form control.
+		element.setAttribute("aria-busy", "true");
+		markBusy(true);
+		try {
+			let response;
+			try {
+				response = await fetch(url, {
+					method: "POST",
+					body: body,
+					headers: updateHeaders(),
+					credentials: "same-origin",
+					// A handler redirecting outside the update protocol is not
+					// something a fetch can follow usefully: the target would be
+					// read as this page's regions. pw.Redirect answers an update
+					// request with the navigate directive instead, which apply
+					// below performs, so this only trips on a handler that chose
+					// the raw redirect.
+					redirect: "error",
+				});
+			} catch (error) {
+				// The request may or may not have reached the handler, and
+				// nothing here can tell. Reloading shows whichever it was, where
+				// resubmitting would perform the mutation a second time if the
+				// first one landed.
+				return fall(location.href, "unreachable");
+			}
+			return await apply(response);
+		} finally {
+			markBusy(false);
+			element.removeAttribute("aria-busy");
+			running.delete(element);
+		}
+	}
+
+	// actionTarget is the URL a gesture on this element posts to, or nothing when
+	// the element names no server function.
+	//
+	// A submitter's own formaction wins, which is the native per-button override
+	// and the channel the lowering uses when one form dispatches to several
+	// handlers. A form's own action is absent by construction — the lowering
+	// writes none, so the browser posts to the document URL, which already holds
+	// this page's path parameters.
+	function actionTarget(element, submitter) {
+		const named = attributeOf(submitter, actionAttr) || attributeOf(element, actionAttr);
+		if (!named) return "";
+		let target = named;
+		if (element.tagName === "FORM") {
+			target = attributeOf(submitter, "formaction") || element.getAttribute("action") || location.href;
+		}
+		// Resolved rather than passed through, because every other request this
+		// client issues names an absolute URL and because the origin is worth
+		// checking even for an address generation wrote: a page is markup, and
+		// markup is what an injection reaches.
+		let url;
+		try {
+			url = new URL(target, document.baseURI);
+		} catch (error) {
+			return "";
+		}
+		return url.origin === location.origin ? url.href : "";
+	}
+
 	// The headers an application fetch must carry to ask for an action response.
 	function updateHeaders() {
 		return withCSRF(headers("action"));
@@ -1040,6 +1175,22 @@ export function createUpdateRuntime(config) {
 		document.addEventListener("click", (event) => {
 			if (event.defaultPrevented || event.button !== 0) return;
 			if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+			// An element naming a server function, where activating it fires no
+			// submit event for the hook below to take: a button outside a form,
+			// or one declaring type=button inside one. A submit control is left
+			// alone here precisely because that hook is the better place — it
+			// sees the fields.
+			const acting = event.target && event.target.closest ? event.target.closest("[" + actionAttr + "]") : null;
+			if (acting && acting.tagName !== "FORM" && !(acting.form && acting.type === "submit")) {
+				if (acting.closest("[" + ignoreAttr + "]")) return;
+				event.preventDefault();
+				// Nothing in the markup says what else to send, and assembling a
+				// payload from attributes would be an addressing mechanism this
+				// framework does not publish. The handler reads what the URL and
+				// the session already carry.
+				runAction(acting, actionTarget(acting), null);
+				return;
+			}
 			const link = event.target && event.target.closest ? event.target.closest("a[href]") : null;
 			if (!link || link.target || link.hasAttribute("download")) return;
 			if (link.closest("[" + ignoreAttr + "]")) return;
@@ -1059,11 +1210,26 @@ export function createUpdateRuntime(config) {
 			const form = event.target;
 			if (!form || !form.getAttribute) return;
 			if (form.closest && form.closest("[" + ignoreAttr + "]")) return;
+			// A server action is decided before the navigation rules below,
+			// because those are about a GET that refines the page it is on and
+			// this is a mutation. Leaving it to them would read the lowered
+			// form's method and hand it back to the browser.
+			const submitter = event.submitter;
+			const actionURL = actionTarget(form, submitter);
+			if (actionURL) {
+				event.preventDefault();
+				const fields = new FormData(form);
+				// Which button was pressed is not a property of the form, so
+				// FormData leaves every submit button out and the submitter's own
+				// pair is added by hand, exactly as the query path below does.
+				if (submitter && submitter.name) fields.append(submitter.name, submitter.value);
+				runAction(submitter || form, actionURL, fields);
+				return;
+			}
 			// The submitter's own overrides decide the method, the action and the
 			// target before this runtime decides whether it owns the submission at
 			// all. Reading only the form is how a button declaring formmethod=post
 			// inside a GET form used to be intercepted and re-sent as a GET.
-			const submitter = event.submitter;
 			if ((attributeOf(submitter, "formmethod") || form.method || "get").toLowerCase() !== "get") return;
 			if (attributeOf(submitter, "formtarget") || form.target) return;
 			const action = attributeOf(submitter, "formaction") || form.getAttribute("action") || location.href;

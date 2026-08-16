@@ -16,8 +16,10 @@ const (
 	// pageRungTemplate is the page template alone. The handler is generated
 	// whole, and the data comes from the template's own external calls.
 	pageRungTemplate = "template"
-	// pageRungLoader adds the page's own loader, declared as an external and
-	// whose results are the page component's parameters.
+	// pageRungLoader adds an external the template declares and binds, whose
+	// parameters are the route's inputs and whose result the component renders.
+	// It is a shape rather than a level: the handler is still generated whole,
+	// and what the page gains is Go of its own to load with.
 	pageRungLoader = "loader"
 	// pageRungHandler adds a Load that takes the writer and the request, so the
 	// response is the application's from that point on.
@@ -193,13 +195,13 @@ func pageTemplateSource(pkg, rung string, segments []pageSegment) string {
 		// The loader is declared here and bound here, so the page's own source
 		// says where its data comes from. The binding is evaluated before the
 		// first byte, which is what lets a failing loader choose the status.
+		binding := "{val greeting = LoadGreeting(" + strings.Join(inputs, ", ") + ")}"
 		return "package " + pkg + `
 
 external LoadGreeting(` + params + `): string
 
 export component Page(` + params + `): html {
-{val greeting = LoadGreeting(` + strings.Join(inputs, ", ") + `)}
-  <h1>{greeting}</h1>
+` + indentTemplateBody(binding+"\n<h1>{greeting}</h1>") + `
 }
 `
 	default:
@@ -244,6 +246,9 @@ func pageLogicSource(pkg, rung string, segments []pageSegment) string {
 // The trailing error is what lets it choose the response: the binding runs
 // before the first byte, so returning an error carrying HTTP intent still
 // selects the status while the rest of the page streams.
+//
+// Declare a leading context.Context to receive the request's, which is where
+// the database handle and the signed-in reader live.
 func LoadGreeting(` + strings.Join(parameters, ", ") + `) (string, error) {
 	return ` + value + `, nil
 }

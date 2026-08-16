@@ -61,7 +61,7 @@ validator_key = "${HTML_UPDATE_VALIDATOR_KEY}"
 ```html
 export component RenameForm(orderID: string): html {
 <script component>
-  export function setup(form) {
+  export function setup({ el: form }) {
     if (!window.popcornwave) return;
 
     async function submit(event) {

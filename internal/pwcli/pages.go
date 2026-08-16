@@ -8,10 +8,13 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"regexp"
+	"slices"
 	"sort"
 	"strings"
 
 	"github.com/shibukawa/popcornwave/internal/pwgen"
+	"github.com/shibukawa/popcornwave/internal/pwscript"
 	"github.com/shibukawa/tinybind-go/generator"
 	"github.com/shibukawa/tinybind-go/routetree"
 	templatehtmlbind "github.com/shibukawa/tinybind-go/templates/htmlbind"
@@ -41,31 +44,45 @@ var reservedPageTemplates = map[string]bool{
 // place, not one per page. The tree root is what they are grouped under,
 // because that is a directory whose purposes admit them.
 func planPageTrees(root string, config projectConfig, messages messagePlan) (map[string][]generator.Artifact, error) {
+	planned, _, err := planPageTreeFiles(root, config, messages)
+	return planned, err
+}
+
+// planPageTreeFiles is planPageTrees plus the typed server actions each route
+// package declared, keyed by the absolute directory holding them.
+//
+// The two halves of a typed action are built by different phases: routetree
+// reads the declaration, because it parses a route package before that package
+// can compile, and the binding phase builds the argument struct and the codecs,
+// because it type-checks. So the list has to travel from the first to the
+// second, and this is where it is picked up.
+func planPageTreeFiles(root string, config projectConfig, messages messagePlan) (map[string][]generator.Artifact, map[string][]routetree.Action, error) {
 	if len(config.Generate.Pages) == 0 {
-		return nil, nil
+		return nil, nil, nil
 	}
 	module, moduleDir, err := moduleImportPath(root)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	emitter, err := pwgen.PageEmitter()
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	planned := map[string][]generator.Artifact{}
+	actions := map[string][]routetree.Action{}
 	for _, relative := range config.Generate.Pages {
 		treeRoot := filepath.Join(root, filepath.FromSlash(relative))
 		importBase, err := treeImportPath(module, moduleDir, treeRoot)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		result, err := generatePageTree(treeRoot, importBase, emitter, messages)
 		if err != nil {
-			return nil, fmt.Errorf("%s: %w", relative, err)
+			return nil, nil, fmt.Errorf("%s: %w", relative, err)
 		}
 		treeRootAbs, err := filepath.Abs(treeRoot)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		for _, asset := range result.Assets {
 			// Under the tree root rather than the project root: an artifact is
@@ -84,16 +101,50 @@ func planPageTrees(root string, config projectConfig, messages messagePlan) (map
 		for _, file := range result.Files {
 			artifact, err := pageArtifact(file)
 			if err != nil {
-				return nil, err
+				return nil, nil, err
 			}
 			directory, err := filepath.Abs(filepath.Dir(file.Path))
 			if err != nil {
-				return nil, err
+				return nil, nil, err
 			}
 			planned[directory] = append(planned[directory], artifact)
+			// The typed actions of this package travel to the phase that emits
+			// their wrappers. It is keyed by directory because that is what the
+			// binding phase is handed, and RelDir is what selects them.
+			if declared := typedActionsIn(result.Actions, treeRootAbs, directory); len(declared) > 0 {
+				actions[directory] = declared
+			}
+			// The registry knows both halves nothing else holds together: which
+			// route a pattern is, and which server functions its package
+			// exports. A component script calling one by name needs the join,
+			// and only a file that has read both can make it.
+			if registration, declares := pageActionRegistrationArtifact(artifact); declares {
+				planned[directory] = append(planned[directory], registration)
+			}
 		}
 	}
-	return planned, nil
+	return planned, actions, nil
+}
+
+// typedActionsIn selects the actions a route package declared, by matching the
+// directory the binding phase will type-check against the relative directory
+// routetree reported.
+func typedActionsIn(all []routetree.Action, treeRoot, directory string) []routetree.Action {
+	relative, err := filepath.Rel(treeRoot, directory)
+	if err != nil {
+		return nil
+	}
+	if relative == "." {
+		relative = ""
+	}
+	relative = filepath.ToSlash(relative)
+	var out []routetree.Action
+	for _, action := range all {
+		if action.Typed && action.RelDir == relative {
+			out = append(out, action)
+		}
+	}
+	return out
 }
 
 // GenerateTree rather than Generate: the latter is documented as the variant
@@ -125,7 +176,64 @@ func generatePageTree(treeRoot, importBase string, emitter *routetree.Emitter, m
 		RegistryOutput:      pwgen.PageRegistryOutput,
 		PublicURLBase:       generator.DefaultPublicURLBase,
 		DataAttributePrefix: pwgen.AttributePrefix(),
+		ScriptResolver:      resolveComponentScripts,
 	})
+}
+
+// resolveComponentScripts answers what the module asks about a component's
+// script block, which is the seam that lets it lower a named handler and emit a
+// named parameter without reading any JavaScript itself.
+//
+// The reading is internal/pwscript, and what it declines to read is the point:
+// a component whose block it could not understand is left out of Handlers
+// entirely, which the module documents as unchecked. Reporting every name of
+// such a block as unresolved would fail a build over this scanner's limits
+// rather than over the author's code.
+func resolveComponentScripts(path string, scripts []templatehtmlbind.ComponentScript) (routetree.ScriptAnswers, error) {
+	answers := routetree.ScriptAnswers{
+		Handlers:   map[string]templatehtmlbind.ClientHandlerSet{},
+		Parameters: map[string][]string{},
+	}
+	for _, script := range scripts {
+		block, err := pwscript.Read(script.Script)
+		if err != nil {
+			// A block this scanner cannot walk at all is a different thing from
+			// one it walks and does not understand, and only the first is worth
+			// stopping for: it means the block is not the JavaScript it claims
+			// to be, which the browser will meet next.
+			return routetree.ScriptAnswers{}, fmt.Errorf("%s: component %s: %w", path, script.Component, err)
+		}
+		if block.Unread != "" {
+			continue
+		}
+		set := templatehtmlbind.ClientHandlerSet{Resolved: block.Handlers}
+		// A name the markup referenced and the block does not publish is refused
+		// here rather than left to the module's own comparison, so the reason
+		// travels with it and an author reads what to change.
+		for _, referenced := range script.Handlers {
+			if slices.Contains(block.Handlers, referenced) {
+				continue
+			}
+			if set.Unresolved == nil {
+				set.Unresolved = map[string]string{}
+			}
+			set.Unresolved[referenced] = "the component's script block returns no handler by that name"
+		}
+		answers.Handlers[script.Component] = set
+		// Only parameters the component actually declares. The block asking for
+		// one it does not have is the author's mistake and belongs in a
+		// diagnostic, not in an emitted object naming nothing.
+		var emit []string
+		for _, wanted := range block.Parameters {
+			if slices.Contains(script.Parameters, wanted) {
+				emit = append(emit, wanted)
+			}
+		}
+		if len(emit) > 0 {
+			answers.Parameters[script.Component] = emit
+		}
+	}
+	return answers, nil
 }
 
 // planSecondBuildPages is the second transport's page tree step of one run.
@@ -430,4 +538,78 @@ func assetArtifactKind(asset templatehtmlbind.Asset) generator.ArtifactKind {
 		return generator.ArtifactScript
 	}
 	return generator.ArtifactStylesheet
+}
+
+// The generated registry declares the two tables that have to be read together,
+// and nothing reads them together on its own.
+//
+// Routes says which directory a pattern serves. Actions says which directory a
+// server function was declared in. Joining them is what lets a component script
+// on /users/{id} name Rename and reach it, with no element to read an address
+// off and no way to compute one — the address holds a digest of the declaring
+// directory.
+var (
+	// Params is what tells a Routes entry from an Actions one: both carry a
+	// pattern, a path and a directory, and only a route carries the parameters
+	// its path declares. Matching without it registered every action endpoint as
+	// though it rendered a document.
+	pageRouteEntry = regexp.MustCompile(`\{Pattern: "([^"]+)", Path: "[^"]*", Dir: "([^"]*)", Params:`)
+	// Published rather than Handler: the identifier a script writes is the
+	// wire name, which is the Go name in lowerCamelCase unless a declaration
+	// overrode it. Reading the Go name here would publish Rename where every
+	// caller writes rename.
+	pageActionEntry = regexp.MustCompile(`\{Pattern: "[^"]*", Path: "([^"]+)", Dir: "([^"]*)", Handler: "[^"]+", Hash: "[^"]*", Published: "([^"]+)"`)
+)
+
+// pageActionRegistrationArtifact emits the init that publishes each route's own
+// server functions.
+//
+// Without it a project would generate both tables and join them nowhere, so a
+// script naming an action would find nothing on the page that says where it
+// lives. The registration is derived rather than written by an author for the
+// reason the reloadable one is: two lists that must agree should not be two
+// things to remember.
+func pageActionRegistrationArtifact(artifact generator.Artifact) (generator.Artifact, bool) {
+	if artifact.OutputBase+"_pw_gen.go" != pwgen.PageRegistryOutput {
+		return generator.Artifact{}, false
+	}
+	content := string(artifact.Content)
+	byDirectory := map[string][][2]string{}
+	for _, match := range pageActionEntry.FindAllStringSubmatch(content, -1) {
+		byDirectory[match[2]] = append(byDirectory[match[2]], [2]string{match[3], match[1]})
+	}
+	if len(byDirectory) == 0 {
+		return generator.Artifact{}, false
+	}
+	var body strings.Builder
+	// The shared leaf rather than either runtime, for the reason the document
+	// and reloadable registrations name it: one registry, read by both.
+	body.WriteString("package " + artifact.PackageName + "\n\nimport \"github.com/shibukawa/popcornwave/pwruntime\"\n\nfunc init() {\n")
+	registered := 0
+	for _, route := range pageRouteEntry.FindAllStringSubmatch(content, -1) {
+		actions := byDirectory[route[2]]
+		if len(actions) == 0 {
+			continue
+		}
+		fmt.Fprintf(&body, "\tpwruntime.RegisterPageActions(%q,\n", route[1])
+		for _, action := range actions {
+			fmt.Fprintf(&body, "\t\tpwruntime.PageAction{Name: %q, Path: %q},\n", action[0], action[1])
+		}
+		body.WriteString("\t)\n")
+		registered++
+	}
+	body.WriteString("}\n")
+	if registered == 0 {
+		// Every action belongs to a directory no route serves, which a layout
+		// exporting a handler produces. Nothing can call one by name from a page
+		// it does not serve, so the file would register nothing.
+		return generator.Artifact{}, false
+	}
+	return generator.Artifact{
+		Kind:        artifact.Kind,
+		SourcePath:  artifact.SourcePath,
+		OutputBase:  artifact.OutputBase,
+		PackageName: artifact.PackageName,
+		Content:     []byte(body.String()),
+	}, true
 }

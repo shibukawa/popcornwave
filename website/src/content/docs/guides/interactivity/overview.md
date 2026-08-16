@@ -120,7 +120,7 @@ tier and the CSS tier be used at the same time rather than as alternatives.
 
 ## What the framework does contribute
 
-Four things, all of which the pages that follow lean on:
+Five things, all of which the pages that follow lean on:
 
 - **`pw.WriteHTMLFragment`** renders one template and nothing else, so a region
   can be re-rendered by the same component that first drew it. See
@@ -132,11 +132,19 @@ Four things, all of which the pages that follow lean on:
 - **Live rendering** keeps re-rendering one region for as long as the reader
   holds the page open, which removes the polling that would otherwise stand in
   for it. See [Live rendering](/guides/cross-layer/live-rendering/).
+- **A checked name for a browser handler**: a component's script block returns
+  the functions its markup may call, and `on-click="increment"` names one on the
+  element that triggers it, so a rename fails generation instead of a click
+  doing nothing. See
+  [Component scripts](/guides/interactivity/component-scripts/#handlers-the-markup-can-name).
 - **A checked address for a mutation**, inside a page tree: `server-action`
   resolves the name of a Go handler to a generated endpoint, so a renamed
-  function fails generation instead of a click failing in production.
-  Intercepting that click is still yours. See
-  [Discovered routing](/guides/cross-layer/discovered-routing/).
+  function fails generation instead of a click failing in production. On a form
+  it also submits without any runtime at all. A script wanting an answer rather
+  than a response declares an ordinary Go function instead and calls it as
+  `await actions.getUser({ id })`, typed at both ends, which removes the
+  hand-written `fetch` and the decoding around it. See
+  [Server actions](/guides/interactivity/server-actions/).
 
 Everything else on this ladder is standard web platform work. The framework
 does not name a swap library, does not wrap a CSS plugin, and no route knows

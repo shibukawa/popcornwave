@@ -115,8 +115,20 @@ func TestPageTreeScaffoldFollowsTheTreeRules(t *testing.T) {
 	if _, wrote := files["pages/greet/name_/page.pw.html"]; !wrote {
 		t.Error("the dynamic route is not spelled with a trailing underscore")
 	}
-	if load := files["pages/greet/name_/page.go"]; !strings.Contains(load, "func Load(name string) (string, error)") {
-		t.Errorf("the typed entry point changed shape:\n%s", load)
+	if load := files["pages/greet/name_/page.go"]; !strings.Contains(load, "func LoadGreeting(name string) (string, error)") {
+		t.Errorf("the loader changed shape:\n%s", load)
+	}
+	// The template is what names the loader and binds its result, since a page
+	// has no entry point of its own any more.
+	page := files["pages/greet/name_/page.pw.html"]
+	for _, want := range []string{
+		"external LoadGreeting(name: string): string",
+		"export component Page(name: string): html",
+		"{val greeting = LoadGreeting(name)}",
+	} {
+		if !strings.Contains(page, want) {
+			t.Errorf("the scaffolded page is missing %q:\n%s", want, page)
+		}
 	}
 }
 

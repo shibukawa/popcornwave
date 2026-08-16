@@ -616,9 +616,30 @@ export function mountScopesIn(root) {
 		if (!url) continue;
 		// Claimed before the import resolves, so a second scan during the await
 		// does not start the same element twice.
-		mounted.set(element, null);
-		loadScopeModule(url, element);
+		const record = { release: null, handlers: null, settled: null };
+		mounted.set(element, record);
+		// A descendant waits for its ancestors and not for its siblings. What the
+		// guide promises is that an ancestor's setup runs first, which stays true
+		// of a promise chain and would not of a free-for-all; what it does not
+		// promise is any order between two components in unrelated parts of a
+		// page, and one queue for the whole document would let an await that
+		// never settles stall every remaining component on it.
+		const ancestor = enclosingScope(element);
+		const waitFor = ancestor && ancestor.settled ? ancestor.settled : Promise.resolve();
+		record.settled = waitFor.then(
+			() => loadScopeModule(url, element, record),
+			() => loadScopeModule(url, element, record),
+		);
 	}
+}
+
+// enclosingScope is the record of the nearest marked ancestor, or nothing when
+// this element is the outermost one.
+function enclosingScope(element) {
+	const parent = element.parentElement;
+	if (!parent || !parent.closest) return null;
+	const ancestor = parent.closest("[" + scopeMarkerAttribute + "]");
+	return ancestor ? mounted.get(ancestor) || null : null;
 }
 
 // releaseScopesIn tears down every scoped script inside root.
@@ -630,11 +651,11 @@ export function mountScopesIn(root) {
 export function releaseScopesIn(root) {
 	for (const element of scopeMarkers(root)) {
 		if (!mounted.has(element)) continue;
-		const teardown = mounted.get(element);
+		const record = mounted.get(element);
 		mounted.delete(element);
-		if (typeof teardown !== "function") continue;
+		if (!record || typeof record.release !== "function") continue;
 		try {
-			teardown();
+			record.release();
 		} catch (error) {
 			// A failing teardown must not stop the swap it is making room for.
 			console.error("Popcorn Wave: scope teardown failed", error);
@@ -653,22 +674,189 @@ export function releaseScopesInRange(range) {
 	}
 }
 
-// elementScope is what a scoped setup registers through. Everything taken from
-// it is released when its instance is, so the ordinary case needs no cleanup and
-// an author who wants one still writes it in the returned teardown.
-function elementScope() {
+// elementBag is the one argument a scoped setup receives, destructured.
+//
+// A bag rather than positional arguments because an author then names only what
+// they use, and because a capability added later is one more key rather than a
+// third argument nobody passed. Everything taken from it is released with the
+// instance, so the ordinary case needs no cleanup at all.
+//
+// teardown is handed in rather than returned, which is what frees the return
+// value to mean one thing: the handlers this component publishes. A registration
+// is also the better shape on its own — it can be called more than once, and
+// from inside a helper, where a returned value has to be threaded back out.
+function elementBag(element) {
 	const releases = [];
+	const teardowns = [];
 	return {
-		on(name, handler) {
-			const release = registerEvent(name, handler);
-			releases.push(release);
-			return release;
+		bag: {
+			el: element,
+			// onSignal rather than on: this framework's own attribute vocabulary
+			// spells a DOM event on-click, and a bare on() beside it would read as
+			// binding one when it registers a server-authored signal instead.
+			onSignal(name, handler) {
+				const release = registerEvent(name, handler);
+				releases.push(release);
+				return release;
+			},
+			teardown(fn) {
+				if (typeof fn === "function") teardowns.push(fn);
+			},
+			props: readScopeProps(element),
+			actions: pageActions(),
 		},
-		releaseAll() {
+		release() {
+			// Signal registrations first and teardowns after, in reverse of
+			// registration, which is the order the guide already documents for
+			// the scope running before the returned teardown.
 			for (const release of releases) release();
 			releases.length = 0;
+			for (let i = teardowns.length - 1; i >= 0; i--) {
+				try {
+					teardowns[i]();
+				} catch (error) {
+					// One failing teardown must not keep the others from running.
+					console.error("Popcorn Wave: scope teardown failed", error);
+				}
+			}
+			teardowns.length = 0;
 		},
 	};
+}
+
+// scopePropsAttribute is where a component's emitted parameters ride. It is set
+// from the configured prefix by the update half, like every other attribute.
+let scopePropsAttribute = "data-tb-props";
+
+export function setScopePropsAttribute(name) {
+	if (typeof name === "string" && name) scopePropsAttribute = name;
+}
+
+// readScopeProps parses what generation emitted for this instance.
+//
+// Absent, empty, or unreadable all yield an empty object rather than nothing, so
+// a setup destructuring a parameter reads undefined instead of throwing on the
+// destructuring itself. An absent optional omits its key, which is the rule the
+// attribute context already applies and why "in" is the test for one.
+function readScopeProps(element) {
+	const raw = element.getAttribute ? element.getAttribute(scopePropsAttribute) : null;
+	if (!raw) return {};
+	try {
+		const parsed = JSON.parse(raw);
+		return parsed && typeof parsed === "object" ? parsed : {};
+	} catch (error) {
+		console.error("Popcorn Wave: component parameters are unreadable", error);
+		return {};
+	}
+}
+
+// The server functions this page publishes, as functions a script can call.
+//
+// A component script mutating without a gesture has no element to read an
+// address off, and cannot compute one either: the address holds a digest of the
+// declaring directory. So the document carries the set the route matched, and
+// this turns it into a namespace.
+//
+// Built once per document and shared by every instance, because it is a
+// property of the route rather than of an instance. Frozen so a handler cannot
+// add a name to it and have a later reader believe the page published one.
+let pageActionsCache = null;
+
+export function resetPageActions() {
+	pageActionsCache = null;
+}
+
+function pageActions() {
+	if (pageActionsCache) return pageActionsCache;
+	const meta = document.querySelector('meta[name="pw-actions"]');
+	let addresses = {};
+	if (meta) {
+		try {
+			const parsed = JSON.parse(meta.getAttribute("content") || "");
+			if (parsed && typeof parsed === "object") addresses = parsed;
+		} catch (error) {
+			console.error("Popcorn Wave: the page action set is unreadable", error);
+		}
+	}
+	const namespace = {};
+	for (const name of Object.keys(addresses)) {
+		namespace[name] = (input) => callAction(addresses[name], input);
+	}
+	pageActionsCache = Object.freeze(namespace);
+	return pageActionsCache;
+}
+
+// actionCaller is how a call reaches the network and the apply path.
+//
+// It is installed by the update half rather than imported, because issuing a
+// request and applying what came back are that half's, and this half is the one
+// that loads first.
+let actionCaller = null;
+
+export function setActionCaller(caller) {
+	if (typeof caller === "function") actionCaller = caller;
+}
+
+function callAction(url, input) {
+	if (!actionCaller) {
+		return Promise.reject(new Error("Popcorn Wave: updates are disabled, so an action cannot be called"));
+	}
+	return actionCaller(url, input);
+}
+
+// clientHandlerAttribute lists the events an element binds and the handler each
+// names, as one comma-separated list of colon-separated pairs.
+let clientHandlerAttribute = "data-tb-on";
+
+export function setClientHandlerAttribute(name) {
+	if (typeof name === "string" && name) clientHandlerAttribute = name;
+}
+
+// bindHandlers attaches every handler declared under one mounted component.
+//
+// It runs after setup returned, because the namespace is what setup produced.
+// Nothing is recorded for release: a listener added directly to a node dies with
+// the node, and the nodes these sit on are exactly the ones a swap destroys.
+function bindHandlers(root, handlers) {
+	if (!handlers || typeof handlers !== "object") return;
+	for (const element of handlerElements(root)) {
+		// The nearest marked ancestor owns this element. A descendant component
+		// with its own block binds its own, and a nested one's handlers are not
+		// this namespace's to answer for.
+		if (owningScope(element, root) !== root) continue;
+		for (const pair of (element.getAttribute(clientHandlerAttribute) || "").split(",")) {
+			const separator = pair.indexOf(":");
+			if (separator <= 0) continue;
+			const event = pair.slice(0, separator);
+			const handler = handlers[pair.slice(separator + 1)];
+			if (typeof handler !== "function") {
+				console.error("Popcorn Wave: no handler named", pair.slice(separator + 1));
+				continue;
+			}
+			element.addEventListener(event, handler);
+		}
+	}
+}
+
+// handlerElements is every element under root declaring a handler, root itself
+// included, which is the same shape scopeMarkers takes for the same reason.
+function handlerElements(root) {
+	const found = [];
+	if (!root) return found;
+	if (root.getAttribute && root.getAttribute(clientHandlerAttribute)) found.push(root);
+	if (root.querySelectorAll) {
+		for (const element of root.querySelectorAll("[" + clientHandlerAttribute + "]")) {
+			found.push(element);
+		}
+	}
+	return found;
+}
+
+// owningScope is the marked component an element's handlers resolve against.
+function owningScope(element, fallback) {
+	if (element.getAttribute && element.getAttribute(scopeMarkerAttribute)) return element;
+	if (!element.closest) return fallback;
+	return element.closest("[" + scopeMarkerAttribute + "]") || fallback;
 }
 
 const scopeModules = new Map();
@@ -678,7 +866,7 @@ const scopeModules = new Map();
 //
 // The module is evaluated once per URL, as an ES module always is; what runs per
 // instance is the function it exported. That distinction is the feature.
-function loadScopeModule(source, element) {
+function loadScopeModule(source, element, record) {
 	let url;
 	try {
 		url = new URL(source, document.baseURI);
@@ -700,7 +888,7 @@ function loadScopeModule(source, element) {
 		pending = import(url.href);
 		scopeModules.set(url.href, pending);
 	}
-	pending.then((module) => {
+	return pending.then(async (module) => {
 		const setup = module && module.setup;
 		if (typeof setup !== "function") {
 			console.error("Popcorn Wave: scope module exports no setup function", url.href);
@@ -709,24 +897,22 @@ function loadScopeModule(source, element) {
 		}
 		// The element may have been released while the import was in flight, in
 		// which case it is no longer claimed and must not be started.
-		if (!mounted.has(element)) return;
-		// The element first, because that is what a setup is almost always for
-		// and what upstream's own example shows. The scope second, so a handler
-		// registered through it is released with the instance rather than left
-		// for the author to remember — a forgotten cleanup now leaks once per
-		// destroyed instance, which is worse than the per-visit leak the page
-		// handle was guarding against.
-		const scope = elementScope();
+		if (mounted.get(element) !== record) return;
+		const scope = elementBag(element);
+		record.release = scope.release;
 		try {
-			const teardown = setup(element, scope);
-			mounted.set(element, () => {
-				scope.releaseAll();
-				if (typeof teardown === "function") teardown();
-			});
+			// Awaited, because refusing a promise is the harder position to hold
+			// now. What it costs is a wider window in which the element is inert,
+			// which is the same window the dynamic import already opened.
+			const handlers = await setup(scope.bag);
+			// Released while its setup was running: nothing is bound, and the
+			// release already ran against whatever the setup registered.
+			if (mounted.get(element) !== record) return;
+			record.handlers = handlers;
+			bindHandlers(element, handlers);
 		} catch (error) {
-			scope.releaseAll();
+			scope.release();
 			console.error("Popcorn Wave: scope setup failed", url.href, error);
-			mounted.set(element, null);
 		}
 	}, (error) => {
 		console.error("Popcorn Wave: scope module failed to load", url.href, error);

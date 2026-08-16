@@ -25,7 +25,7 @@ scope:
     live: the delivery stream of api:live-delivery-protocol is a GET carrying a custom header, which a cross-origin form or link cannot set
   cross_origin_grant: requirement:cors-middleware with allow_credentials on admits that header in preflight and permits a credentialed cross-origin read, so the live line above and every side-effect-free GET beside it hold only while the calling origin is outside the CORS allowlist; the write path stays closed because the token cookie is readable by same-origin script alone
 token:
-  secret: random value in data:session-record for a session, or in a signed cookie for an anonymous visitor per decision:anonymous-csrf-secret-storage; minted and destroyed with the session per requirement:csrf-token-lifecycle
+  secret: one registered session.Private slot for every visitor signed in or not, per decision:csrf-secret-as-a-session-slot, riding a sealed cookie while the session is anonymous and moving onto the configured backend at login; minted and destroyed with the session per requirement:csrf-token-lifecycle
   request_value: a per-response value derived from the secret with a fresh pad, so a compression oracle sees different bytes every time
   masking_retained: an earlier revision dropped it, reasoning that the module compares by equality with no unmasking step; that was wrong, because the compared value is this framework's to compute and is recomputed from the incoming token's own pad, per requirement:csrf-token-lifecycle
   sources:
@@ -42,7 +42,7 @@ token:
     - error details
     - Web Storage, since a token there outlives the session that bound it
 validation:
-  - require a validated session on a protected unsafe request, unless decision:anonymous-csrf-secret-storage is enabled for a deployment serving its own unsafe form to visitors without one
+  - require a secret on a protected unsafe request; it is issued to an anonymous visitor as readily as to a signed-in one, so this is a requirement on the session mechanism being enabled rather than on the visitor having authenticated
   - require constant-time token validation against a value recomputed from the incoming token, never against the stored secret directly
   - require same-origin Origin or trusted exact origin; use strict Referer fallback only when Origin is absent
   - compare a whole origin, scheme included, through the one implementation named under origin_check
@@ -62,7 +62,9 @@ lifecycle:
   - rotate with session creation, login rotation, and privilege changes, writing the new cookie on the same response
   - remove with session revocation, clearing the cookie on the same response
   - detail: requirement:csrf-token-lifecycle
-  - unresolved: a visitor with no session has no token, so an application's unsafe form on a public page has nothing to carry; issuing a session on demand is the recommended answer and is a capability this framework does not have
+  - anonymous_is_covered: decision:csrf-secret-as-a-session-slot issues the secret to every visitor through one session.Private slot, which rides a sealed cookie while the session is anonymous, so a public page's unsafe form carries a token and no server row is written for a crawler that merely loaded it
+  - corrected: 2026-08-12; an earlier line here called this unresolved and said issuing a session on demand was a capability this framework did not have, which the slot model had already answered
+  - what_is_actually_required: the session mechanism being enabled, not a visitor being signed in; pwsession.Setup returns no manager when session.enabled is false, and without one there is no slot to hold a secret
 rules:
   - SameSite cookies supplement but do not replace token validation
   - login, OIDC callback, bootstrap, webhook, and non-browser API exclusions are explicit configuration decisions

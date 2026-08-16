@@ -3,6 +3,8 @@
 package id_
 
 import (
+	"context"
+
 	"github.com/shibukawa/tinybind-go/htmlbind"
 	"github.com/shibukawa/tinybind-go/htmlbind/delta"
 )
@@ -43,22 +45,24 @@ var planPageBoundary = &htmlbind.Boundary[PageParams]{
 }
 
 var planPagePlan = &htmlbind.Plan[PageParams]{
-	Head:        []string{"<script src=\"/public/generated/page.script.2a4fcb1640d1.js\" type=\"module\"></script>"},
+	Head:        []string{"<script src=\"/public/generated/page.script.564ef8d0adbe.js\" type=\"module\"></script>"},
 	HeadSources: []string{""},
-	Assets:      []htmlbind.Asset{{ID: "page.script.2a4fcb1640d1", Type: "text/javascript", URL: "/public/generated/page.script.2a4fcb1640d1.js", Scope: "id_.page.Page"}},
+	Assets:      []htmlbind.Asset{{ID: "page.script.564ef8d0adbe", Type: "text/javascript", URL: "/public/generated/page.script.564ef8d0adbe.js", Scope: "id_.page.Page"}},
 	Boundary:    planPageBoundary,
 	Ops: []htmlbind.Op[PageParams]{
-		htmlbind.ValErr(
-			func(p PageParams) (View, error) { return LoadUser(p.Id, p.Page) },
+		htmlbind.ValErrCtx(
+			func(ctx context.Context, p PageParams) (View, error) { return LoadUser(ctx, p.Id, p.Page) },
 			func(p PageParams, value View) planPageOpsVal1 { return planPageOpsVal1{Outer: p, View: value} },
 			[]htmlbind.Op[planPageOpsVal1]{
 				planPageOpsVal1Ops.Static("  <section"),
 				planPageOpsVal1Ops.BoundaryAttr(),
-				planPageOpsVal1Ops.Static(" data-tb-component=\"id_.page.Page\">  <h1>"),
+				planPageOpsVal1Ops.Static(" data-tb-component=\"id_.page.Page\">  <h1 data-tb-on=\"click:highlight\">"),
 				planPageOpsVal1Ops.Text(func(p planPageOpsVal1) string { return p.View.Name }),
 				planPageOpsVal1Ops.Static("</h1> <p>page "),
 				planPageOpsVal1Ops.Raw(func(p planPageOpsVal1) string { return htmlbind.FormatInt(p.View.Page) }),
-				planPageOpsVal1Ops.Static("</p> <button data-pw-action=\"/_action/00369cf962b6/Rename\" data-target=\"#name\">rename</button> </section> "),
+				planPageOpsVal1Ops.Static("</p> <button data-tb-action=\"/_action/00369cf962b6/Rename\" data-target=\"#name\">rename</button> <form data-tb-action=\"/_action/d71506d06c1e/Retire\" method=\"post\"><input type=\"hidden\" name=\"_action\" value=\"d71506d06c1e/Retire\" />"),
+				planPageOpsVal1Ops.CSRFField("_csrf"),
+				planPageOpsVal1Ops.Static(" <input type=\"text\" name=\"reason\" /> <button type=\"submit\">retire</button> </form> </section> "),
 			}),
 	},
 }

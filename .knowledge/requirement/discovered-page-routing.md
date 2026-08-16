@@ -28,7 +28,7 @@ acceptance:
   - a directory holding page.pw.html serves its route with no registration written by the application
   - a page renders inside the registered document shell and the project error pages answer a decode failure
   - an ancestor layout wraps every page below it, outermost first
-  - a typed Load supplies the page component parameters and a handler-rung Load owns its whole response
+  - a page binds its own loader in the template and a handler-rung Load owns its whole response, per decision:page-rung-ladder
   - a page tree and a handlers tree serve from one mux in the same project
   - a page route appears in neither the generated OpenAPI document nor the rule:static-route-discovery diagnostics, verified with a project whose page tree has been through the binder run
   - an action handler reads a typed request through pw.Parse

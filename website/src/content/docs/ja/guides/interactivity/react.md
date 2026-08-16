@@ -82,7 +82,7 @@ CI では `tsc --noEmit` を別に実行してください。
 ```html
 export component CounterIsland(initial: int): html {
 <script component>
-export function setup(el) {
+export function setup({ el, teardown }) {
   return window.mountCounter(el, Number(el.dataset.initial ?? "0"));
 }
 </script>

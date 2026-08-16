@@ -137,15 +137,18 @@ from covering the fetch and the render together.
 
 ### Inputs
 
-A page declares its inputs as ordinary Go parameters — no struct, no binding
-tags. The leading ones are the route's dynamic segments, in route order; the
-rest are query parameters keyed by parameter name.
+A page declares its inputs on the component — no struct, no binding tags. The
+leading ones are the route's dynamic segments, in route order; the rest are
+query parameters keyed by parameter name.
 
 ```html
 package id_
 
-export component Page(name: string, page: int): html {
-<h1>{name}</h1>
+external LoadUser(id: string): User
+
+export component Page(id: string, page: int?): html {
+{val user = LoadUser(id)}
+<h1>{user.Name}</h1>
 <p>page {page}</p>
 }
 ```
@@ -453,27 +456,21 @@ template that makes it one.
 
 ## What is not here yet
 
-- **Script-free forms.** A `<form server-action>` lowers to an attribute like
-  everything else, so it needs a runtime to intercept it. Posting to the page
-  itself and answering `303` is the next rung, and it is what a form submitted
-  with JavaScript disabled needs.
-- **The client runtime for actions.** The attribute is written; the framework
-  module that acts on it is not.
-- **CSRF client wiring.** The middleware exists, but it is disabled until the
-  application configures it. Custom action code must also copy the current
-  `pw_csrf` cookie into the `X-CSRF-Token` request header.
 - **Route groups without a URL segment.** The bracket spelling other frameworks
   use is not a legal import path element.
 - **Richer catch-all typing.** A catch-all binds as a string.
 
-The last two are the same collision twice: where Go's rules and routing
-convention disagree, Go's rules win.
+These are the same collision twice: where Go's rules and routing convention
+disagree, Go's rules win.
 
-The first three are worth reading as one condition. A page renders and a link
-navigates with no JavaScript at all, so a site built entirely from pages that
-render and load their own data works today. Reach for a `server-action` and that stops being
-true: the attribute is written, and until the action runtime lands, the click
-that fires it is yours to intercept. Enable the existing CSRF middleware over
-the action paths and send its token from that client code. That is the
-boundary of the shape as it stands — not where pages end, but where they stop
-being self-sufficient.
+Actions used to be on this list — the attribute was written and nothing acted on
+it. They are not any more. A `<form server-action>` posts to the page's own path
+and answers `303` with no JavaScript at all; with the runtime loaded the submit
+is intercepted and the response applied in place; and the token is in the form
+and on every request the runtime issues, so nothing is left to wire by hand. See
+[Server actions](/guides/interactivity/server-actions/).
+
+What that leaves is not a gap so much as a rule: a page renders and a link
+navigates with no JavaScript, and a form action keeps that true. A bare
+`server-action` on a button does not, because nothing in HTML invokes a button
+outside a form — which is a choice the page makes rather than a limit it meets.

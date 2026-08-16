@@ -146,6 +146,7 @@
 {"category": "structure", "id": "data:transaction-scope", "path": ".knowledge/data/transaction-scope.md", "role": "supporting", "title": "Transaction Scope", "type": "data"}
 {"category": "structure", "id": "data:ui-dependency-graph", "path": ".knowledge/data/ui-dependency-graph.md", "role": "supporting", "title": "UI Dependency Graph", "type": "data"}
 {"category": "structure", "id": "data:user-account", "path": ".knowledge/data/user-account.md", "role": "supporting", "title": "Local User Account", "type": "data"}
+{"category": "constraint", "id": "decision:action-entry-point-selection", "path": ".knowledge/decision/action-entry-point-selection.md", "role": "supporting", "title": "Action Entry Point Selection", "type": "decision"}
 {"category": "constraint", "id": "decision:anonymous-csrf-secret-storage", "path": ".knowledge/decision/anonymous-csrf-secret-storage.md", "role": "supporting", "title": "Anonymous CSRF Secret Storage", "type": "decision"}
 {"category": "constraint", "id": "decision:asset-transform-toolchain", "path": ".knowledge/decision/asset-transform-toolchain.md", "role": "supporting", "title": "Asset Transform Toolchain", "type": "decision"}
 {"category": "constraint", "id": "decision:assurance-scope-oidc-only", "path": ".knowledge/decision/assurance-scope-oidc-only.md", "role": "supporting", "title": "Assurance Scope Under External-Identity-Only Login", "type": "decision"}
@@ -162,6 +163,8 @@
 {"category": "constraint", "id": "decision:canonical-popcornwave-skill-source", "path": ".knowledge/decision/canonical-popcornwave-skill-source.md", "role": "supporting", "title": "Canonical Popcorn Wave Skill Source", "type": "decision"}
 {"category": "constraint", "id": "decision:cli-release-pipeline", "path": ".knowledge/decision/cli-release-pipeline.md", "role": "supporting", "title": "Hand-written CLI Release Pipeline", "type": "decision"}
 {"category": "constraint", "id": "decision:committed-package-artifacts", "path": ".knowledge/decision/committed-package-artifacts.md", "role": "supporting", "title": "Committed Package Artifacts", "type": "decision"}
+{"category": "constraint", "id": "decision:component-handler-namespace", "path": ".knowledge/decision/component-handler-namespace.md", "role": "supporting", "title": "Component Handler Namespace", "type": "decision"}
+{"category": "constraint", "id": "decision:component-parameter-disclosure", "path": ".knowledge/decision/component-parameter-disclosure.md", "role": "supporting", "title": "Component Parameter Disclosure", "type": "decision"}
 {"category": "constraint", "id": "decision:config-driven-database", "path": ".knowledge/decision/config-driven-database.md", "role": "supporting", "title": "Config-driven Database Lifecycle", "type": "decision"}
 {"category": "constraint", "id": "decision:config-verbosity-tag-adoption", "path": ".knowledge/decision/config-verbosity-tag-adoption.md", "role": "supporting", "title": "Config Verbosity Tag Adoption", "type": "decision"}
 {"category": "constraint", "id": "decision:contrib-delivery-order", "path": ".knowledge/decision/contrib-delivery-order.md", "role": "supporting", "title": "Contrib Delivery Order", "type": "decision"}
@@ -198,6 +201,7 @@
 {"category": "constraint", "id": "decision:dynamodb-session-read-consistency", "path": ".knowledge/decision/dynamodb-session-read-consistency.md", "role": "supporting", "title": "Eventually Consistent Reads, With A Consistent Retry On A Miss", "type": "decision"}
 {"category": "constraint", "id": "decision:dynamodb-table-registry", "path": ".knowledge/decision/dynamodb-table-registry.md", "role": "supporting", "title": "Generated Table List In The Main Package", "type": "decision"}
 {"category": "constraint", "id": "decision:escape-hatch-transaction-scope", "path": ".knowledge/decision/escape-hatch-transaction-scope.md", "role": "supporting", "title": "The Escape Hatch Runs Inside The Open Transaction", "type": "decision"}
+{"category": "constraint", "id": "decision:event-binding-attribute-spelling", "path": ".knowledge/decision/event-binding-attribute-spelling.md", "role": "supporting", "title": "Event Binding Attribute Spelling", "type": "decision"}
 {"category": "constraint", "id": "decision:executor-seam-instrumentation", "path": ".knowledge/decision/executor-seam-instrumentation.md", "role": "supporting", "title": "Executor Seam Instrumentation", "type": "decision"}
 {"category": "constraint", "id": "decision:explicit-generation-sources", "path": ".knowledge/decision/explicit-generation-sources.md", "role": "supporting", "title": "Explicit Generation Sources", "type": "decision"}
 {"category": "constraint", "id": "decision:explicit-locale-in-links", "path": ".knowledge/decision/explicit-locale-in-links.md", "role": "supporting", "title": "The Locale Is Written Into Links", "type": "decision"}
@@ -246,6 +250,7 @@
 {"category": "constraint", "id": "decision:package-contract-split", "path": ".knowledge/decision/package-contract-split.md", "role": "supporting", "title": "Package Contract Split", "type": "decision"}
 {"category": "constraint", "id": "decision:page-render-binding", "path": ".knowledge/decision/page-render-binding.md", "role": "supporting", "title": "Page Render Binding", "type": "decision"}
 {"category": "constraint", "id": "decision:page-router-scaffold-choice", "path": ".knowledge/decision/page-router-scaffold-choice.md", "role": "supporting", "title": "Page Router Scaffold Choice", "type": "decision"}
+{"category": "constraint", "id": "decision:page-rung-ladder", "path": ".knowledge/decision/page-rung-ladder.md", "role": "supporting", "title": "The Page Ladder Is Two Rungs", "type": "decision"}
 {"category": "constraint", "id": "decision:passkey-first-authentication", "path": ".knowledge/decision/passkey-first-authentication.md", "role": "supporting", "title": "Passkey-First Authentication Priority", "type": "decision"}
 {"category": "constraint", "id": "decision:passkey-test-authenticator", "path": ".knowledge/decision/passkey-test-authenticator.md", "role": "supporting", "title": "Passkey Test Authenticator Strategy", "type": "decision"}
 {"category": "constraint", "id": "decision:post-init-scaffold-wizard", "path": ".knowledge/decision/post-init-scaffold-wizard.md", "role": "supporting", "title": "Post-init Scaffold Wizard", "type": "decision"}
@@ -258,6 +263,7 @@
 {"category": "constraint", "id": "decision:root-pw-api", "path": ".knowledge/decision/root-pw-api.md", "role": "supporting", "title": "Root pw API", "type": "decision"}
 {"category": "constraint", "id": "decision:runtime-tag-injection", "path": ".knowledge/decision/runtime-tag-injection.md", "role": "supporting", "title": "Runtime Tag Injection", "type": "decision"}
 {"category": "constraint", "id": "decision:savepoint-nested-transaction", "path": ".knowledge/decision/savepoint-nested-transaction.md", "role": "supporting", "title": "Savepoint-Backed Nested Transaction", "type": "decision"}
+{"category": "constraint", "id": "decision:script-block-parsing-ownership", "path": ".knowledge/decision/script-block-parsing-ownership.md", "role": "supporting", "title": "Script Block Parsing Ownership", "type": "decision"}
 {"category": "constraint", "id": "decision:scriptless-browser-detection", "path": ".knowledge/decision/scriptless-browser-detection.md", "role": "supporting", "title": "Scriptless Browser Detection", "type": "decision"}
 {"category": "constraint", "id": "decision:separate-tinygo-dockerfile", "path": ".knowledge/decision/separate-tinygo-dockerfile.md", "role": "supporting", "title": "Separate TinyGo Dockerfile", "type": "decision"}
 {"category": "constraint", "id": "decision:server-sql-support-tier", "path": ".knowledge/decision/server-sql-support-tier.md", "role": "supporting", "title": "Server SQL Support Tier", "type": "decision"}
@@ -288,6 +294,8 @@
 {"category": "constraint", "id": "decision:transport-handle-containment", "path": ".knowledge/decision/transport-handle-containment.md", "role": "supporting", "title": "Transport Handles Stay Inside The Framework Surface", "type": "decision"}
 {"category": "constraint", "id": "decision:transport-source-transform", "path": ".knowledge/decision/transport-source-transform.md", "role": "supporting", "title": "Adopting The Upstream Source Transform", "type": "decision"}
 {"category": "constraint", "id": "decision:type-keyed-session-storage", "path": ".knowledge/decision/type-keyed-session-storage.md", "role": "supporting", "title": "Type-Keyed Session Storage Registry", "type": "decision"}
+{"category": "constraint", "id": "decision:typed-action-declaration", "path": ".knowledge/decision/typed-action-declaration.md", "role": "supporting", "title": "A Typed Action Is Declared", "type": "decision"}
+{"category": "constraint", "id": "decision:typed-action-is-call-only", "path": ".knowledge/decision/typed-action-is-call-only.md", "role": "supporting", "title": "A Typed Action Is Reached By A Call And Nothing Else", "type": "decision"}
 {"category": "constraint", "id": "decision:unhandled-boundary-escalation", "path": ".knowledge/decision/unhandled-boundary-escalation.md", "role": "supporting", "title": "Unhandled Boundary Escalation", "type": "decision"}
 {"category": "constraint", "id": "decision:update-runtime-convergence", "path": ".knowledge/decision/update-runtime-convergence.md", "role": "supporting", "title": "Update Runtime Convergence", "type": "decision"}
 {"category": "constraint", "id": "decision:upstream-message-surface", "path": ".knowledge/decision/upstream-message-surface.md", "role": "supporting", "title": "Upstream Message Surface", "type": "decision"}
@@ -396,6 +404,7 @@
 {"category": "constraint", "id": "policy:ui-state-placement", "path": ".knowledge/policy/ui-state-placement.md", "role": "supporting", "title": "UI State Placement", "type": "policy"}
 {"category": "constraint", "id": "policy:validation-errors", "path": ".knowledge/policy/validation-errors.md", "role": "supporting", "title": "Validation and Error Policy", "type": "policy"}
 {"category": "constraint", "id": "policy:web-middleware", "path": ".knowledge/policy/web-middleware.md", "role": "supporting", "title": "Web Middleware Integration", "type": "policy"}
+{"category": "objective", "id": "requirement:action-invocation-runtime", "path": ".knowledge/requirement/action-invocation-runtime.md", "role": "primary", "title": "Action Invocation Runtime", "type": "requirement"}
 {"category": "objective", "id": "requirement:action-response-update", "path": ".knowledge/requirement/action-response-update.md", "role": "primary", "title": "Action Response Update", "type": "requirement"}
 {"category": "objective", "id": "requirement:agent-log-analysis-skill", "path": ".knowledge/requirement/agent-log-analysis-skill.md", "role": "primary", "title": "Agent Log Analysis Skill", "type": "requirement"}
 {"category": "objective", "id": "requirement:alternate-http-backend-readiness", "path": ".knowledge/requirement/alternate-http-backend-readiness.md", "role": "primary", "title": "Readiness For A Non-net/http Backend", "type": "requirement"}
@@ -414,11 +423,13 @@
 {"category": "objective", "id": "requirement:classic-rendering", "path": ".knowledge/requirement/classic-rendering.md", "role": "primary", "title": "Classic Rendering", "type": "requirement"}
 {"category": "objective", "id": "requirement:classic-web-acceptance", "path": ".knowledge/requirement/classic-web-acceptance.md", "role": "primary", "title": "Classic Web Acceptance", "type": "requirement"}
 {"category": "objective", "id": "requirement:cli-distribution", "path": ".knowledge/requirement/cli-distribution.md", "role": "primary", "title": "pw CLI Distribution", "type": "requirement"}
+{"category": "objective", "id": "requirement:client-behaviour-adoption", "path": ".knowledge/requirement/client-behaviour-adoption.md", "role": "primary", "title": "Client Behaviour Adoption", "type": "requirement"}
 {"category": "objective", "id": "requirement:client-signal-registry", "path": ".knowledge/requirement/client-signal-registry.md", "role": "primary", "title": "Client Signal Registry", "type": "requirement"}
 {"category": "objective", "id": "requirement:cloudflare-workers-hosting", "path": ".knowledge/requirement/cloudflare-workers-hosting.md", "role": "primary", "title": "Cloudflare Workers Hosting", "type": "requirement"}
 {"category": "objective", "id": "requirement:component-asset-extraction", "path": ".knowledge/requirement/component-asset-extraction.md", "role": "primary", "title": "Component Asset Extraction", "type": "requirement"}
 {"category": "objective", "id": "requirement:component-output-cache", "path": ".knowledge/requirement/component-output-cache.md", "role": "primary", "title": "Component Output Cache", "type": "requirement"}
 {"category": "objective", "id": "requirement:component-package-distribution", "path": ".knowledge/requirement/component-package-distribution.md", "role": "primary", "title": "Component Package Distribution", "type": "requirement"}
+{"category": "objective", "id": "requirement:component-script-event-binding", "path": ".knowledge/requirement/component-script-event-binding.md", "role": "primary", "title": "Component Script Event Binding", "type": "requirement"}
 {"category": "objective", "id": "requirement:container-deployment-docs", "path": ".knowledge/requirement/container-deployment-docs.md", "role": "primary", "title": "Container Deployment Documentation", "type": "requirement"}
 {"category": "objective", "id": "requirement:container-image-scaffold", "path": ".knowledge/requirement/container-image-scaffold.md", "role": "primary", "title": "Container Image Scaffold", "type": "requirement"}
 {"category": "objective", "id": "requirement:context-lookup-performance", "path": ".knowledge/requirement/context-lookup-performance.md", "role": "primary", "title": "Bounded Context Value Lookup", "type": "requirement"}
@@ -545,6 +556,7 @@
 {"category": "objective", "id": "requirement:read-write-splitting", "path": ".knowledge/requirement/read-write-splitting.md", "role": "primary", "title": "Read-Write Split Connections", "type": "requirement"}
 {"category": "objective", "id": "requirement:reloadable-component-endpoint", "path": ".knowledge/requirement/reloadable-component-endpoint.md", "role": "primary", "title": "Reloadable Component Endpoint", "type": "requirement"}
 {"category": "objective", "id": "requirement:response-gzip-encoder", "path": ".knowledge/requirement/response-gzip-encoder.md", "role": "primary", "title": "Gzip Response Encoder", "type": "requirement"}
+{"category": "objective", "id": "requirement:scriptless-action-forms", "path": ".knowledge/requirement/scriptless-action-forms.md", "role": "primary", "title": "Scriptless Action Forms", "type": "requirement"}
 {"category": "objective", "id": "requirement:second-build-feature-parity", "path": ".knowledge/requirement/second-build-feature-parity.md", "role": "primary", "title": "Feature Parity For The fasthttp Second Build", "type": "requirement"}
 {"category": "objective", "id": "requirement:serverless-http-hosting", "path": ".knowledge/requirement/serverless-http-hosting.md", "role": "primary", "title": "Serverless HTTP Hosting", "type": "requirement"}
 {"category": "objective", "id": "requirement:serverless-source-entrypoints", "path": ".knowledge/requirement/serverless-source-entrypoints.md", "role": "primary", "title": "Serverless Source Entrypoints", "type": "requirement"}
@@ -556,6 +568,7 @@
 {"category": "objective", "id": "requirement:tailwind-css-integration", "path": ".knowledge/requirement/tailwind-css-integration.md", "role": "primary", "title": "Tailwind CSS Integration", "type": "requirement"}
 {"category": "objective", "id": "requirement:tailwind-plugin-integration", "path": ".knowledge/requirement/tailwind-plugin-integration.md", "role": "primary", "title": "Tailwind Plugin Integration", "type": "requirement"}
 {"category": "objective", "id": "requirement:telemetry-architecture-guide", "path": ".knowledge/requirement/telemetry-architecture-guide.md", "role": "primary", "title": "Telemetry Architecture Guide", "type": "requirement"}
+{"category": "objective", "id": "requirement:template-bound-page-loader", "path": ".knowledge/requirement/template-bound-page-loader.md", "role": "primary", "title": "Template Bound Page Loader", "type": "requirement"}
 {"category": "objective", "id": "requirement:template-formatting", "path": ".knowledge/requirement/template-formatting.md", "role": "primary", "title": "Canonical Template Source Formatting", "type": "requirement"}
 {"category": "objective", "id": "requirement:template-storybook", "path": ".knowledge/requirement/template-storybook.md", "role": "primary", "title": "Template Storybook", "type": "requirement"}
 {"category": "objective", "id": "requirement:template-syntax-highlighting", "path": ".knowledge/requirement/template-syntax-highlighting.md", "role": "primary", "title": "Template Syntax Highlighting", "type": "requirement"}
@@ -570,6 +583,7 @@
 {"category": "objective", "id": "requirement:tutorial-page-tree-chapter", "path": ".knowledge/requirement/tutorial-page-tree-chapter.md", "role": "primary", "title": "Tutorial Page Tree Chapter", "type": "requirement"}
 {"category": "objective", "id": "requirement:typed-api-method-convergence", "path": ".knowledge/requirement/typed-api-method-convergence.md", "role": "primary", "title": "Typed API Method Convergence", "type": "requirement"}
 {"category": "objective", "id": "requirement:typed-http-contract", "path": ".knowledge/requirement/typed-http-contract.md", "role": "primary", "title": "Typed HTTP Contract", "type": "requirement"}
+{"category": "objective", "id": "requirement:typed-server-action", "path": ".knowledge/requirement/typed-server-action.md", "role": "primary", "title": "Typed Server Action", "type": "requirement"}
 {"category": "objective", "id": "requirement:typed-websocket", "path": ".knowledge/requirement/typed-websocket.md", "role": "primary", "title": "Typed WebSocket On Both Builds", "type": "requirement"}
 {"category": "objective", "id": "requirement:unhandled-boundary-signal", "path": ".knowledge/requirement/unhandled-boundary-signal.md", "role": "primary", "title": "Unhandled Boundary Signal", "type": "requirement"}
 {"category": "objective", "id": "requirement:unified-update-runtime", "path": ".knowledge/requirement/unified-update-runtime.md", "role": "primary", "title": "Unified Update Runtime", "type": "requirement"}
@@ -595,10 +609,12 @@
 {"category": "constraint", "id": "rule:rdb-dsn-resolution", "path": ".knowledge/rule/rdb-dsn-resolution.md", "role": "supporting", "title": "RDB DSN Scheme Resolution", "type": "rule"}
 {"category": "constraint", "id": "rule:route-and-template-checks", "path": ".knowledge/rule/route-and-template-checks.md", "role": "supporting", "title": "Route and Template Checks", "type": "rule"}
 {"category": "constraint", "id": "rule:savepoint-dialect-support", "path": ".knowledge/rule/savepoint-dialect-support.md", "role": "supporting", "title": "Savepoint Dialect Support", "type": "rule"}
+{"category": "constraint", "id": "rule:server-action-authoring", "path": ".knowledge/rule/server-action-authoring.md", "role": "supporting", "title": "Server Action Authoring Rules", "type": "rule"}
 {"category": "constraint", "id": "rule:shared-code-names-a-leaf", "path": ".knowledge/rule/shared-code-names-a-leaf.md", "role": "supporting", "title": "Code Compiled Into Both Builds Names A Shared Leaf", "type": "rule"}
 {"category": "constraint", "id": "rule:static-route-discovery", "path": ".knowledge/rule/static-route-discovery.md", "role": "supporting", "title": "Static Route Discovery", "type": "rule"}
 {"category": "constraint", "id": "rule:storage-checks", "path": ".knowledge/rule/storage-checks.md", "role": "supporting", "title": "Storage Checks", "type": "rule"}
 {"category": "constraint", "id": "rule:storage-package-layout", "path": ".knowledge/rule/storage-package-layout.md", "role": "supporting", "title": "Storage Package Layout", "type": "rule"}
+{"category": "constraint", "id": "rule:template-behavior-attributes", "path": ".knowledge/rule/template-behavior-attributes.md", "role": "supporting", "title": "Template Behavior Attributes", "type": "rule"}
 {"category": "constraint", "id": "rule:template-grammar-scopes", "path": ".knowledge/rule/template-grammar-scopes.md", "role": "supporting", "title": "Template Grammar Scopes", "type": "rule"}
 {"category": "constraint", "id": "rule:template-source-layout", "path": ".knowledge/rule/template-source-layout.md", "role": "supporting", "title": "Template Source Layout", "type": "rule"}
 {"category": "constraint", "id": "rule:tinygo-container-operations", "path": ".knowledge/rule/tinygo-container-operations.md", "role": "supporting", "title": "TinyGo Container Operations", "type": "rule"}

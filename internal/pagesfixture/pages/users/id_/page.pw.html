@@ -9,14 +9,22 @@ external LoadUser(id: string, page: int?): View
 
 export component Page(id: string, page: int?): html {
 <script component>
-  export function setup(el) {
-    return () => {};
+  export function setup({ el }) {
+    return {
+      highlight(event) {
+        event.currentTarget.classList.add("hot");
+      },
+    };
   }
 </script>
   <section>
     {val view = LoadUser(id, page)}
-    <h1>{view.name}</h1>
+    <h1 on-click="highlight">{view.name}</h1>
     <p>page {view.page}</p>
     <button server-action="Rename" data-target="#name">rename</button>
+    <form server-action="Retire">
+      <input type="text" name="reason" />
+      <button type="submit">retire</button>
+    </form>
   </section>
 }

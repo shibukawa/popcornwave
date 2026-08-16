@@ -733,6 +733,49 @@ an application registers a passthrough entry for each Web Component it uses
 ストリーミングされたページが運ぶ `<tb-boundary>` と `<tb-apply>` はランタイムが書くもので
 あってテンプレートが書くものではないので、この規則の影響を受けません。
 
+## コンポーネントスクリプト内の `on-<event>`
+
+[スクリプトブロック](/ja/guides/interactivity/component-scripts/)を宣言している
+コンポーネントは、そのブロックが返すハンドラを束縛できます。
+
+```html
+<button on-click="increment" on-blur="settle">+1</button>
+```
+
+生成は各名前をブロックの `setup` の返り値に対して解決し、すべてのペアを属性1つへ
+降ろします。
+
+```html
+<button data-tb-on="click:increment,blur:settle">+1</button>
+```
+
+ランタイムはコンポーネントの mount 時にこれらを束縛するので、ハンドラはその
+インスタンス自身の状態をクロージャで掴みます。ブロックが返していない名前は、それを
+参照した属性の位置で生成エラーになります。
+
+属性そのものに関する規則が4つあります。
+
+- 予約されるのは**スクリプトブロックを宣言しているコンポーネントの中だけ**です。
+  それ以外の場所では、`on-` で始まるハイフン付き属性は読まれずに出力されます。
+- 2つめのハイフンはマッチしません。`on-my-event` は普通のカスタム要素属性のままです。
+- 値は名前であって呼び出しではありません。`on-click="increment()"` は生成エラーです。
+  引数の並びは、何も解決できない式だからです。
+- 同じイベントを1要素に2つ書くとエラーです。2つめが失われるので。
+
+`onclick` は手つかずで、インラインの JavaScript のままです。
+
+## DOM に出るコンポーネントパラメータ
+
+`setup` が `props` を分割代入すると、生成はそのパラメータをコンポーネントのルート
+要素へ JSON で出力します。
+
+```html
+<div data-tb-component="shop.card.Card" data-tb-props="{&#34;label&#34;:&#34;hi&#34;}">
+```
+
+出力されるのはブロックが分割代入した名前だけです。だからその分割代入が、その
+コンポーネントがブラウザへ何を公開するかの宣言になります。
+
 ## ページツリーの `server-action`
 
 [ページツリー](/ja/guides/cross-layer/discovered-routing/)の中では、要素が URL の代わりに
@@ -742,15 +785,36 @@ Go のハンドラを名指せます。
 <button server-action="Rename" data-target="#name">rename</button>
 ```
 
-生成はその名前をツリーのハンドラに対して解決し、属性1つへ降ろします。
+生成はその名前をツリーのハンドラに対して解決します。何へ降ろされるかは要素によって違います。
+フォームは自力で送信できて、ボタンはできないからです。
+
+フォーム以外では、ランタイムが読む属性1つ。
 
 ```html
-<button data-pw-action="/_action/00369cf962b6/Rename" data-target="#name">rename</button>
+<button data-tb-action="/_action/00369cf962b6/Rename" data-target="#name">rename</button>
 ```
+
+フォームでは、その属性に加えてブラウザが単体で必要とするマークアップ。`action` は書かれない
+ので、ネイティブな送信はドキュメント自身の URL — このページのパスパラメータが既に入っている
+URL — へ行きます。
+
+```html
+<form data-tb-action="/_action/d71506d06c1e/Retire" method="post">
+  <input type="hidden" name="_action" value="d71506d06c1e/Retire" />
+  <input type="hidden" name="_csrf" value="…" />
+```
+
+フォームがあると、生成はそのページ自身のパターンに `POST` も登録し、生成されたディスパッチャ
+が hidden のセレクタで分岐します。
+
+どの要素を選ぶか、ハンドラが何を負うかは
+[サーバーアクション](/ja/guides/interactivity/server-actions/)にあります。
 
 その要素の他の属性はすべて読まれずに残ります。だからクリックがそこへ POST する以外に何を
 するかは、自分のマークアップのままです。どのハンドラにも解決しない名前は、死んだ要素では
-なく生成エラーになります。
+なく生成エラーになります。[型付きアクション](/ja/guides/interactivity/server-actions/#スクリプトが呼ぶ関数)
+に解決する名前も同じです。返すのはフォームに置き場所のない値なので、エラーがそう言い、
+スクリプトから呼ぶときの名前を示します。
 
 ## よくある生成エラー
 

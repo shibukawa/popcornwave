@@ -37,8 +37,8 @@ func WatchJob(ctx context.Context, id string) iter.Seq2[Job, error] {
 
 ```js
 // This lives in the component's <script component> block.
-export function setup(el, scope) {
-	scope.on("app.finished", (event) => {
+export function setup({ el, onSignal }) {
+	onSignal("app.finished", (event) => {
 		window.popcornwave.navigate(event.url);
 	});
 }
@@ -170,8 +170,8 @@ name is checked; what a handler does with an arbitrary payload is not. These two
 publish the same name and grant very different things:
 
 ```js
-scope.on("app.finished", () => window.popcornwave.navigate("/exports/latest"));
-scope.on("app.finished", (event) => window.popcornwave.navigate(event.url));
+onSignal("app.finished", () => window.popcornwave.navigate("/exports/latest"));
+onSignal("app.finished", (event) => window.popcornwave.navigate(event.url));
 ```
 
 The first lets the server say *when*. The second lets it say *where*, which is

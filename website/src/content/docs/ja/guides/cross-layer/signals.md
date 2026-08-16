@@ -36,8 +36,8 @@ func WatchJob(ctx context.Context, id string) iter.Seq2[Job, error] {
 
 ```js
 // コンポーネントの <script component> ブロックに置く。
-export function setup(el, scope) {
-	scope.on("app.finished", (event) => {
+export function setup({ el, onSignal }) {
+	onSignal("app.finished", (event) => {
 		window.popcornwave.navigate(event.url);
 	});
 }
@@ -159,8 +159,8 @@ type finished struct {
 公開していて、与えている権限がまるで違います。
 
 ```js
-scope.on("app.finished", () => window.popcornwave.navigate("/exports/latest"));
-scope.on("app.finished", (event) => window.popcornwave.navigate(event.url));
+onSignal("app.finished", () => window.popcornwave.navigate("/exports/latest"));
+onSignal("app.finished", (event) => window.popcornwave.navigate(event.url));
 ```
 
 前者はサーバに「いつ」だけを言わせます。後者は「どこへ」を言わせるので、その URL が

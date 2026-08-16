@@ -3,11 +3,13 @@ package pw
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 
 	"github.com/shibukawa/popcornwave/middlewares"
 	"github.com/shibukawa/popcornwave/pwruntime"
 	"github.com/shibukawa/popcornwave/session"
+	"github.com/shibukawa/tinybind-go/templates/htmlbind"
 )
 
 func init() {
@@ -28,6 +30,9 @@ func setupCSRF(ctx context.Context) (Middleware, error) {
 	if !config.CSRF.Enabled {
 		return nil, nil
 	}
+	if err := checkCSRFFieldName(config.CSRF.FormField); err != nil {
+		return nil, err
+	}
 	sessionConfig := Config[SessionConfig](ctx)
 	sameSite, err := session.ParseSameSite(sessionConfig.Cookie.SameSite)
 	if err != nil {
@@ -47,6 +52,35 @@ func setupCSRF(ctx context.Context) (Middleware, error) {
 		Domain: sessionConfig.Cookie.Domain,
 		Secure: sessionConfig.Cookie.Secure,
 	}, sameSite, writeCSRFProblem, trusted)
+}
+
+// generatedCSRFField is the hidden field every generated form carries.
+//
+// It is the template compiler's own default, and generation never overrides it:
+// the option lives on the compiler and the route tree forwards neither it nor
+// the mode, so a page tree emits this name whatever a project configured.
+const generatedCSRFField = htmlbind.DefaultCSRFFieldName
+
+// checkCSRFFieldName refuses a configured field name generated forms will not
+// carry.
+//
+// Without this the failure is a 403 on every form submission, with the reason in
+// the log only and nothing pointing at the setting that caused it — the check
+// compares against a field the markup never wrote, so it is the request that
+// looks wrong rather than the configuration. Refusing at startup names the
+// setting instead.
+//
+// A project hand-writing every form and wanting another name has to write this
+// one, which is the cost of the middleware reading one field for the whole
+// application.
+func checkCSRFFieldName(configured string) error {
+	if configured == "" || configured == generatedCSRFField {
+		return nil
+	}
+	return fmt.Errorf(
+		"security.csrf.form_field is %q, and every generated form carries %q: "+
+			"template generation does not take this setting, so the check would refuse every submission",
+		configured, generatedCSRFField)
 }
 
 // writeCSRFProblem answers a refused request through the framework error path,

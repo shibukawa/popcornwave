@@ -257,7 +257,7 @@ globalThis.location = {
 // answer queued. The single slot stays for every case that issues one request.
 const responseQueue = [];
 globalThis.fetch = async (url, init) => {
-	requests.push({ url: url, headers: init.headers, signal: init.signal });
+	requests.push({ url: url, headers: init.headers, signal: init.signal, method: init.method || "GET", body: init.body || null });
 	const answer = responseQueue.length ? responseQueue.shift() : nextResponse;
 	if (!answer) throw new Error("network");
 	if (answer === nextResponse) nextResponse = null;
@@ -290,6 +290,15 @@ const signalDirectiveReceived = "pw.directive_received";
 // only has to be able to hand it what the response carried.
 function applyScopeCatalog(entries) { globalThis.__scopeChains.push(entries); }
 function setScopeMarkerAttribute() {}
+// The two behaviour attribute names the update half derives and the boundary
+// half reads. Binding a handler is that half's own work, covered by
+// signal_harness.mjs; here they only have to be reachable.
+function setClientHandlerAttribute() {}
+function setScopePropsAttribute() {}
+// The namespace a setup is handed lives in the boundary half; this half only
+// installs what calling one does. What it installed is recorded so the call can
+// be driven from here without that half being loaded.
+function setActionCaller(caller) { globalThis.__actionCaller = caller; }
 function parseScopeCatalog(value) {
 	const chain = [];
 	if (!value) return chain;
@@ -431,6 +440,21 @@ function node(tag, attributes, ancestorMatches) {
 		},
 		hasAttribute(name) {
 			return name in this.attributes;
+		},
+		setAttribute(name, value) {
+			this.attributes[name] = value;
+		},
+		removeAttribute(name) {
+			delete this.attributes[name];
+		},
+		// A form control reports the form it belongs to and what pressing it
+		// does. A plain node reports neither, which is what a button outside a
+		// form looks like.
+		get form() {
+			return this.attributes.form || null;
+		},
+		get type() {
+			return this.attributes.type || "";
 		},
 		closest(selector) {
 			if (selector === "a[href]" && tag === "A") return this;
@@ -978,6 +1002,164 @@ for (const target of ["javascript:globalThis.__pwned = true", "data:text/html,<s
 	dispatch("submit", elsewhere);
 	await new Promise((resolve) => setTimeout(resolve, 0));
 	check(requests.length === 1 && requests[0].url.startsWith("https://example.test/search"), "formaction chose the URL");
+}
+
+// Calling a server function by name, with no element and no gesture. It is the
+// case an element cannot serve: a script deciding to mutate has nothing to read
+// an address off.
+{
+	const runtime = fresh();
+	element("panel");
+	nextResponse = response({
+		headers: { "Pw-Render": "action", "Content-Type": "application/json" },
+		json: { ops: [{ kind: "replace", id: "panel", html: "<p>gone</p>" }] },
+	});
+	const result = await globalThis.__actionCaller("/_action/abc/Retire", { reason: "left" });
+	check(requests.length === 1 && requests[0].method === "POST", "the call posted");
+	check(requests[0].url === "https://example.test/_action/abc/Retire", "to the direct endpoint");
+	check(requests[0].body === JSON.stringify({ reason: "left" }), "with the caller's value as JSON");
+	check(requests[0].headers["Content-Type"] === "application/json", "and said so");
+	check(requests[0].headers["Pw-Render"] === "action", "it asked for an action response");
+	// The mode still says action, so a handler answering with regions is applied
+	// here as it is for a gesture. What the call header adds is that somebody is
+	// holding the answer.
+	check(requests[0].headers["Pw-Call"] === "1", "and said a script is holding the answer");
+	check(result.applied === true, "an update response was applied rather than returned");
+	check(swapped.length === 1 && swapped[0].html === "<p>gone</p>", "and the region was rewritten");
+}
+
+// A handler answering with its own value hands it back, because the caller
+// asked for this and has somewhere to put it — which a gesture never did.
+{
+	const runtime = fresh();
+	nextResponse = response({
+		headers: { "Content-Type": "application/json" },
+		json: { name: "renamed" },
+	});
+	const result = await globalThis.__actionCaller("/_action/abc/Rename", { name: "renamed" });
+	check(result && result.name === "renamed", "the JSON body was returned to the caller");
+	check(swapped.length === 0, "and nothing was applied as markup");
+}
+
+// A call with no argument sends no body and claims no content type, so a
+// handler binding nothing is not handed an empty JSON document to reject.
+{
+	const runtime = fresh();
+	nextResponse = response({ headers: { "Pw-Render": "action", "Content-Type": "application/json" }, json: { ops: [] } });
+	await globalThis.__actionCaller("/_action/abc/Rename");
+	check(!requests[0].body, "no body was sent");
+	check(!requests[0].headers["Content-Type"], "and no content type was claimed");
+}
+
+// A cross-origin address is refused before anything is issued. The set comes
+// from the page's own head, so this is a guard against a document that was
+// tampered with rather than against the application.
+{
+	const runtime = fresh();
+	let refused = false;
+	try {
+		await globalThis.__actionCaller("https://elsewhere.test/_action/abc/Rename", {});
+	} catch (error) {
+		refused = true;
+	}
+	check(refused && requests.length === 0, "a cross-origin action was refused with no request");
+}
+
+// --- server actions ---------------------------------------------------------
+//
+// A lowered server-action is an address in the markup, and until this runtime
+// reads it the gesture does nothing at all. What each element kind turns into is
+// protocol for the same reason every case above is.
+
+// A form naming a server function posts its fields to the document URL. The
+// lowering writes no action attribute, so that URL is where the browser would
+// have posted too — this runtime only changes how the answer comes back.
+{
+	const runtime = fresh();
+	element("panel");
+	nextResponse = response({
+		headers: { "Pw-Render": "action", "Content-Type": "application/json" },
+		json: { ops: [{ kind: "replace", id: "panel", html: "<p>done</p>" }] },
+	});
+	const form = node("FORM", { "data-tb-action": "/_action/abc/Retire" });
+	form.fields = [["reason", "left"]];
+	const event = submitEvent(form);
+	dispatch("submit", event);
+	await new Promise((resolve) => setTimeout(resolve, 0));
+	check(event.prevented, "the action form submission was intercepted");
+	check(requests.length === 1, "the form issued one request");
+	check(requests[0].method === "POST", "a mutation is a POST");
+	check(requests[0].url === "https://example.test/orders", "it posted to the document URL");
+	check(requests[0].headers["Pw-Render"] === "action", "it asked for an action response");
+	check(!requests[0].headers["Pw-Call"], "a gesture does not claim to be holding an answer");
+	check(swapped.length === 1 && swapped[0].html === "<p>done</p>", "the response was applied");
+}
+
+// A submit button's own formaction wins, which is the native per-button override
+// and how one form dispatches to several handlers with no runtime at all.
+{
+	const runtime = fresh();
+	nextResponse = response({
+		headers: { "Pw-Render": "action", "Content-Type": "application/json" },
+		json: { ops: [] },
+	});
+	const form = node("FORM", { "data-tb-action": "/_action/abc/Retire" });
+	form.fields = [];
+	const event = submitEvent(form, node("BUTTON", { formaction: "/users/7?_action=def%2FDelete", name: "go", value: "1" }));
+	dispatch("submit", event);
+	await new Promise((resolve) => setTimeout(resolve, 0));
+	check(requests[0].url === "https://example.test/users/7?_action=def%2FDelete", "formaction chose the URL");
+	check(requests[0].body.entries.some((pair) => pair[0] === "go"), "the pressed button's own pair was sent");
+}
+
+// A button outside a form has no submit event to carry it, so the click is where
+// it is taken. Nothing in the markup says what else to send, so nothing is.
+{
+	const runtime = fresh();
+	nextResponse = response({
+		headers: { "Pw-Render": "action", "Content-Type": "application/json" },
+		json: { ops: [] },
+	});
+	const button = node("BUTTON", { "data-tb-action": "/_action/abc/Rename" }, ["[data-tb-action]"]);
+	const event = clickEvent(button);
+	dispatch("click", event);
+	await new Promise((resolve) => setTimeout(resolve, 0));
+	check(event.prevented, "the bare button was intercepted");
+	check(requests.length === 1 && requests[0].method === "POST", "it posted");
+	check(requests[0].url === "https://example.test/_action/abc/Rename", "it posted to its own endpoint");
+	check(!requests[0].body, "no payload was assembled from the markup");
+}
+
+// A second activation while the first is in flight performs no second mutation.
+// A redraw supersedes an older request for the same id because rendering twice
+// costs only the render; this is that rule inverted, because a mutation is not
+// idempotent.
+{
+	const runtime = fresh();
+	nextResponse = response({
+		headers: { "Pw-Render": "action", "Content-Type": "application/json" },
+		json: { ops: [] },
+	});
+	const button = node("BUTTON", { "data-tb-action": "/_action/abc/Rename" }, ["[data-tb-action]"]);
+	dispatch("click", clickEvent(button));
+	dispatch("click", clickEvent(button));
+	await new Promise((resolve) => setTimeout(resolve, 0));
+	check(requests.length === 1, "the second activation was ignored rather than queued");
+}
+
+// A form that names no server function is still the search form of the case
+// above. The action check runs first and must not take a submission that was
+// never one.
+{
+	const runtime = fresh();
+	element("results");
+	nextResponse = deltaResponse("results");
+	const form = node("FORM", { action: "/orders" });
+	form.fields = [["q", "boots"]];
+	dispatch("submit", submitEvent(form));
+	await new Promise((resolve) => setTimeout(resolve, 0));
+	check(requests[0].method !== "POST", "a plain GET form was left to the navigation path");
+	check(requests[0].headers["Pw-Render"] === "navigation", "and it asked for a navigation delta");
 }
 
 // The pressed button's own pair is part of the submission. The FormData

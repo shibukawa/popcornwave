@@ -3,11 +3,11 @@
 package pages
 
 import (
-	"net/http"
-
 	"github.com/shibukawa/popcornwave/internal/pagesfixture/pages/users/id_"
 	"github.com/shibukawa/popcornwave/pw"
 	"github.com/shibukawa/popcornwave/pwpage"
+	"github.com/shibukawa/popcornwave/pwruntime"
+	"net/http"
 )
 
 // Register installs every discovered route on mux.
@@ -22,7 +22,7 @@ func Register(mux pwpage.Router, options ...pwpage.Option) {
 				pw.WriteProblem(w, r, err)
 				return
 			}
-			_ = route // a route with no dynamic segment and no query input reads nothing
+			_ = route
 			params := PageParams{}
 			wrappers := []pwpage.Wrapper{
 				BindLayout(LayoutParams{}),
@@ -38,7 +38,7 @@ func Register(mux pwpage.Router, options ...pwpage.Option) {
 				pw.WriteProblem(w, r, err)
 				return
 			}
-			_ = route // a route with no dynamic segment and no query input reads nothing
+			_ = route
 			params := id_.PageParams{
 				Id:   route.ID,
 				Page: route.Page,
@@ -50,12 +50,19 @@ func Register(mux pwpage.Router, options ...pwpage.Option) {
 				pw.WriteProblem(w, r, err)
 			}
 		})
+	mux.HandleFunc("POST /users/{id}",
+		func(w http.ResponseWriter, r *http.Request) {
+			switch pw.ActionSelector(r, "_action") {
+			case "d71506d06c1e/Retire":
+				pw.DispatchAction(w, r, id_.Retire)
+			default:
+				pw.WriteProblem(w, r, pw.BadRequest(pw.Problem{Code: "unknown_action", Message: "no server function on this page matches the submitted selector"}))
+			}
+		})
 
-	// Server function endpoints. A raw handler owns its whole response, so
-	// nothing is generated around it and registration is all there is. A typed
-	// one is registered as the entry point generated beside it, which decodes
-	// the call, invokes the function and encodes what it returned.
 	mux.HandleFunc("POST /_action/00369cf962b6/Rename", id_.Rename)
+	mux.HandleFunc("POST /_action/d71506d06c1e/Retire", id_.Retire)
+	mux.HandleFunc("POST /_action/d0775f011114/profile", id_.ActionProfile)
 }
 
 // Routes lists what the filesystem knows about each route, so a
@@ -91,6 +98,8 @@ type RouteInfo struct {
 // token, so each handler still authenticates and authorizes its own caller.
 var Actions = []ActionInfo{
 	{Pattern: "POST /_action/00369cf962b6/Rename", Path: "/_action/00369cf962b6/Rename", Dir: "users/id_", Handler: "Rename", Hash: "00369cf962b6", Published: "rename", Typed: false},
+	{Pattern: "POST /_action/d71506d06c1e/Retire", Path: "/_action/d71506d06c1e/Retire", Dir: "users/id_", Handler: "Retire", Hash: "d71506d06c1e", Published: "retire", Typed: false},
+	{Pattern: "POST /_action/d0775f011114/profile", Path: "/_action/d0775f011114/profile", Dir: "users/id_", Handler: "profile", Hash: "d0775f011114", Published: "profile", Typed: true},
 }
 
 // ActionInfo is one entry of Actions.
@@ -110,4 +119,12 @@ type ActionInfo struct {
 	// A typed action is reached only by a call; no template can name one.
 	Published string
 	Typed     bool
+}
+
+func init() {
+	pwruntime.RegisterPageActions("GET /users/{id}",
+		pwruntime.PageAction{Name: "rename", Path: "/_action/00369cf962b6/Rename"},
+		pwruntime.PageAction{Name: "retire", Path: "/_action/d71506d06c1e/Retire"},
+		pwruntime.PageAction{Name: "profile", Path: "/_action/d0775f011114/profile"},
+	)
 }

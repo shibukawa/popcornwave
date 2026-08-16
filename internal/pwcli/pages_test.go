@@ -125,6 +125,10 @@ func TestRunGeneratePageTreePassesRouteInputsToThePage(t *testing.T) {
 	root := writePageTreeFixture(t)
 	generateIn(t, root)
 
+	component := readTestFile(t, filepath.Join(root, "pages", "users", "id_", "page_pw_gen.go"))
+	if !strings.Contains(component, "LoadName(") {
+		t.Errorf("the bound loader is not called by the component:\n%s", component)
+	}
 	registry := readTestFile(t, filepath.Join(root, "pages", "routes_pw_gen.go"))
 	if !strings.Contains(registry, "Id: route.ID") {
 		t.Errorf("the route input does not reach the page component:\n%s", registry)

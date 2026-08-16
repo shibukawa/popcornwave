@@ -26,12 +26,12 @@ package shop
 
 export component Countdown(deadline: string): html {
 <script component>
-  export function setup(el) {
+  export function setup({ el, teardown }) {
     const label = el.querySelector("[data-remaining]");
     const timer = setInterval(() => {
       label.textContent = remaining(el.dataset.deadline);
     }, 1000);
-    return () => clearInterval(timer);
+    teardown(() => clearInterval(timer));
   }
 
   function remaining(iso) {
@@ -86,16 +86,21 @@ back. So module scope is the wrong place for anything belonging to one instance
 or one visit:
 
 ```js
-let count = 0;              // shared by every instance, forever
-export function setup(el) {
-	let ownCount = 0;         // this instance's
+let count = 0;                       // shared by every instance, forever
+export function setup({ el }) {
+	let ownCount = 0;                  // this instance's
 }
 ```
 
-What runs per instance is the exported function. That is why the teardown is
-what `setup` returns rather than a second export: it almost always needs
-`setup`'s own locals, and two exports would have to talk through module scope,
-which is exactly the scope that outlives the instance.
+What runs per instance is the exported function, and everything it needs arrives
+in the one object it is handed. Destructure what you use and ignore the rest:
+
+```js
+export function setup({ el, teardown, onSignal, props }) { }
+```
+
+Taking one object rather than a list of arguments is what lets a later capability
+be one more key instead of a fourth parameter nobody passed.
 
 ## Release happens before the replacement lands
 
@@ -110,33 +115,160 @@ nodes that are already detached — `el.querySelector` returning `null`, a
 It also means you can rely on the element still being there:
 
 ```js
-export function setup(el) {
+export function setup({ el, teardown }) {
 	const observer = new ResizeObserver(() => reflow(el));
 	observer.observe(el);
-	return () => observer.disconnect();   // el is still in the document here
+	teardown(() => observer.disconnect());   // el is still in the document here
 }
 ```
+
+`teardown` registers rather than returns, so you can call it more than once, and
+from inside a helper. Registrations run in reverse, last one first.
 
 An operation that moves a region without replacing it — reordering a list —
 releases nothing, because nothing was destroyed. The instances travel with their
 nodes.
 
-## The second argument, for signals
+## `onSignal`, for what the server pushes
 
-A `setup` receives a scope alongside its element. Anything registered through it
-is released with the instance:
+Anything registered through `onSignal` is released with the instance:
 
 ```js
-export function setup(el, scope) {
-	scope.on("app.finished", (event) => el.classList.add("done"));
+export function setup({ el, onSignal }) {
+	onSignal("app.finished", (event) => el.classList.add("done"));
 }
 ```
 
-`scope.on` registers the handler in the [signal](/guides/cross-layer/signals/)
-table for this instance. The runtime releases every registration made through
-the scope before it runs the teardown returned by `setup`. Keep component
-handlers on this scoped surface: it prevents a destroyed instance from leaving
-behind a callback that fires twice, then eventually twenty times.
+It registers the handler in the [signal](/guides/cross-layer/signals/) table for
+this instance, and the runtime releases every such registration before it runs
+your teardowns. Keep component handlers on this surface: it prevents a destroyed
+instance from leaving behind a callback that fires twice, then eventually twenty
+times.
+
+It is called `onSignal` and not `on` because `on-click` in a template binds a DOM
+event, and a bare `on()` beside it would read as doing the same thing when it
+does something else entirely.
+
+## Handlers the markup can name
+
+What `setup` returns is the set of handlers this component publishes, and a
+template names one on the element that triggers it:
+
+```html
+export component Counter(label: string): html {
+<script component>
+  export function setup({ el }) {
+    let count = 0;
+    const output = el.querySelector("output");
+    return {
+      increment() {
+        count += 1;
+        output.textContent = count;
+      },
+    };
+  }
+</script>
+  <div>
+    <output>0</output>
+    <button on-click="increment">{label}</button>
+  </div>
+}
+```
+
+Generation resolves `increment` against what the block returns, so a rename that
+misses one of the two fails the build at the attribute rather than in a browser.
+The handler closes over that instance's own state, which is the reason it comes
+from the return value rather than from a module-level export: twenty rows in a
+loop each get their own.
+
+Write the name and nothing else. `on-click="increment()"` is not a call site —
+an argument list would be an expression, and what varies per element is read from
+the DOM instead:
+
+```html
+<button on-click="remove" data-id={row.ID}>delete</button>
+```
+
+```js
+remove(event) {
+	const id = event.currentTarget.dataset.id;
+}
+```
+
+Read it at event time rather than at mount. The markup is the source of truth,
+so an update that re-rendered the row leaves the next event reading the new
+value.
+
+`onclick` is untouched and still means inline JavaScript. It also still does not
+run under this framework's default `script-src 'self'`, which is the other reason
+handlers arrive this way.
+
+## Calling a server action
+
+A gesture is not the only reason to mutate. A script that decides for itself —
+after a confirmation dialog, when a drag settles, on a timer — calls the route's
+own [server actions](/guides/interactivity/server-actions/) by name:
+
+```js
+export function setup({ el, actions }) {
+	return {
+		async remove(event) {
+			if (!confirm("Delete this?")) return;
+			await actions.delete({ id: event.currentTarget.dataset.id });
+		},
+	};
+}
+```
+
+`actions` holds one function per server action of the page's own route package —
+the exported handlers, and anything declared with `pw.ServerAction`. The name
+you write is the Go function's in lowerCamelCase, so `Delete` is `actions.delete`
+unless the declaration published a different one. Nothing names a URL: the
+address holds a digest of the declaring directory, which is not something a
+script could compute.
+
+The argument is sent as JSON, which `pw.Parse` reads into the same input struct
+a form posts, so one handler serves both. Call with no argument and no body is
+sent at all.
+
+What comes back depends on what the handler wrote. Regions are applied exactly
+as a gesture's are; anything else is returned to you, since you asked for it and
+have somewhere to put it:
+
+```js
+const created = await actions.draft();   // the handler's JSON body
+```
+
+Two things it does not do. There is no in-flight marking, because no element was
+activated — you started the call and know what it is waiting for. And the direct
+address carries no path parameters, so a handler that needs one reads it from
+what you sent.
+
+This is also the shape to reach for when a mutation has to be **gated**. Put the
+handler on the element and leave `server-action` off it: a template carrying
+both runs the handler and then issues the action regardless, because there is no
+cancellation channel. Deciding in JavaScript is what makes the decision visible.
+
+## Parameters the block asks for
+
+Destructure a component parameter from `props` and generation emits it onto the
+element for the runtime to hand back:
+
+```js
+export function setup({ props: { deadline } }) { }
+```
+
+Only what you name crosses, which makes destructuring the declaration of what
+this component publishes to the browser — so read `{price}` there as putting the
+price in the DOM, where anyone can read and edit it. Treat anything that comes
+back as untrusted, and sign what must not change.
+
+An absent optional omits its key rather than arriving as `null`, so `"deadline"
+in props` is the test for one. Values keep their JSON types, which a `dataset`
+read cannot: a number stays a number.
+
+They are the values at mount, not a live binding. A value that changes belongs in
+an attribute the handler reads when it fires.
 
 ## What it costs
 

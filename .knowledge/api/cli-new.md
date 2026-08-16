@@ -57,7 +57,7 @@ page_questions:
     validated: every segment must be a legal Go import path element, and a catch-all must end the path; both are reported before anything is written
   rung:
     none: page.pw.html alone, whose data comes from its own external calls
-    typed_load: page.pw.html and a page.go carrying a Load whose results are the page parameters, written to agree from the start
+    loader: page.pw.html declaring an external and binding it, and a page.go implementing that external, written to agree from the start; the handler is still generated whole, so this is a shape rather than a rung, per decision:page-rung-ladder
     handler_load: page.pw.html and a page.go carrying a Load that owns the response and composes its own chain through the generated Render
   layout:
     asked_when: the target tree has no layout.pw.html

@@ -75,7 +75,7 @@ func TestUpdatesOffLeaveEveryRequestOnTheDocumentPath(t *testing.T) {
 	if config.Update.Enabled {
 		t.Fatal("updates default to on")
 	}
-	if len(chainRenderOptions(config, "")) != 0 {
+	if len(chainRenderOptions(config, "", false)) != 0 {
 		t.Error("a project with updates off pays for the update render options")
 	}
 }
@@ -651,7 +651,7 @@ func TestAClientThatRunsNoScriptSubmitsTheSameMarkupEitherWay(t *testing.T) {
 	// Updates really are on for this render, so the comparison above was between
 	// a page that has them and a page that does not, rather than between two
 	// pages that both have nothing.
-	if len(chainRenderOptions(updateConfig(), "token")) == 0 {
+	if len(chainRenderOptions(updateConfig(), "token", false)) == 0 {
 		t.Error("updates contributed no render options, so this compared the wrong two things")
 	}
 }

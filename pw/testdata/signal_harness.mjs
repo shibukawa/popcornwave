@@ -386,6 +386,91 @@ function page(hash, moduleSource) {
 	check(calls === 0, "an explicitly unregistered handler stops receiving");
 }
 
+// --- what setup is handed, and what it hands back ---------------------------
+//
+// The bag and the returned namespace are this framework's own conventions: the
+// module reports the block and takes an answer back, and what a setup looks like
+// is entirely ours. Nothing in Go can assert any of it.
+
+{
+	// An element carrying a handler declaration and one carrying parameters,
+	// both read off the same node the marker sits on.
+	function component(owner, attributes, children) {
+		const listeners = [];
+		const node = {
+			children: children || [],
+			listeners: listeners,
+			getAttribute: (name) => {
+				if (name === "data-tb-component") return owner;
+				return name in attributes ? attributes[name] : null;
+			},
+			hasAttribute: (name) => name === "data-tb-component" || name in attributes,
+			querySelectorAll: (selector) =>
+				selector === "[data-tb-on]" ? node.children.filter((c) => c.getAttribute("data-tb-on")) : node.children,
+			addEventListener: (event, handler) => listeners.push({ event: event, handler: handler }),
+			closest: () => node,
+		};
+		return node;
+	}
+
+	runtime.applyScopeCatalog(runtime.parseScopeCatalog(
+		"Bagged:./testdata/pagemodule_fixture.mjs"));
+	globalThis.__pageModuleEnters = 0;
+	globalThis.__pageModuleLeaves = 0;
+	globalThis.__pageModuleProps = null;
+	globalThis.__pageModuleHandled = 0;
+
+	const instance = component("Bagged", {
+		"data-tb-on": "click:announce",
+		"data-tb-props": '{"label":"hi","count":3}',
+	});
+	runtime.mountScopesIn(instance);
+	await new Promise((resolve) => setTimeout(resolve, 60));
+
+	check(globalThis.__pageModuleEnters === 1, "the bagged setup ran");
+	// Parameters keep their JSON types, which is the thing reading an attribute
+	// back as text cannot do.
+	check(globalThis.__pageModuleProps && globalThis.__pageModuleProps.count === 3,
+		"a component parameter arrived as a number rather than as text");
+
+	// The returned namespace is bound to the element that named it.
+	check(instance.listeners.length === 1 && instance.listeners[0].event === "click",
+		"the declared handler was bound for its event");
+	instance.listeners[0].handler({});
+	check(globalThis.__pageModuleHandled === 1, "and calling it reaches what setup returned");
+
+	// A teardown registered rather than returned still runs, which is the whole
+	// point of freeing the return value for the handlers above.
+	runtime.releaseScopesIn(instance);
+	check(globalThis.__pageModuleLeaves === 1, "a registered teardown ran on release");
+}
+
+{
+	// Unreadable parameters yield an empty object rather than throwing, so a
+	// setup destructuring one reads undefined instead of failing to start at all.
+	runtime.applyScopeCatalog(runtime.parseScopeCatalog(
+		"Broken:./testdata/pagemodule_fixture.mjs"));
+	globalThis.__pageModuleEnters = 0;
+	globalThis.__pageModuleProps = null;
+	const node = {
+		children: [],
+		getAttribute: (name) => {
+			if (name === "data-tb-component") return "Broken";
+			return name === "data-tb-props" ? "{not json" : null;
+		},
+		hasAttribute: () => false,
+		querySelectorAll: () => [],
+		addEventListener: () => {},
+		closest: () => node,
+	};
+	runtime.mountScopesIn(node);
+	await new Promise((resolve) => setTimeout(resolve, 60));
+	check(globalThis.__pageModuleEnters === 1, "an unreadable parameter object did not stop the setup");
+	check(globalThis.__pageModuleProps && typeof globalThis.__pageModuleProps === "object",
+		"and it read as an empty object rather than as nothing");
+	runtime.releaseScopesIn(node);
+}
+
 // --- scoped scripts start per element, not per declaration -----------------
 
 {

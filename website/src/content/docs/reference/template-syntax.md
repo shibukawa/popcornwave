@@ -782,6 +782,50 @@ elements and stay outside the whitelist entirely.
 The `<tb-boundary>` and `<tb-apply>` elements a streamed page carries are
 written by the runtime, not by a template, so they are unaffected.
 
+## `on-<event>` inside a component script
+
+A component declaring a [script block](/guides/interactivity/component-scripts/)
+may bind one of the handlers that block returns:
+
+```html
+<button on-click="increment" on-blur="settle">+1</button>
+```
+
+Generation resolves each name against what the block's `setup` returns and
+lowers every pair into one attribute:
+
+```html
+<button data-tb-on="click:increment,blur:settle">+1</button>
+```
+
+The runtime binds them when the component mounts, so the handler closes over
+that instance's own state. A name the block does not return is a generation
+error at the attribute that referenced it.
+
+Four rules on the attribute itself:
+
+- It is reserved **only inside a component declaring a script block**. Anywhere
+  else an `on-`prefixed hyphenated attribute is emitted unread.
+- A second hyphen is not matched, so `on-my-event` stays an ordinary
+  custom-element attribute.
+- The value is a name, not a call. `on-click="increment()"` is a generation
+  error, because an argument list is an expression nothing could resolve.
+- Two of the same event on one element is an error; the second would be lost.
+
+`onclick` is untouched and still means inline JavaScript.
+
+## Component parameters in the DOM
+
+A `setup` destructuring `props` makes generation emit those parameters onto the
+component's root element as JSON:
+
+```html
+<div data-tb-component="shop.card.Card" data-tb-props="{&#34;label&#34;:&#34;hi&#34;}">
+```
+
+Only the names the block destructured are emitted, which makes that
+destructuring the declaration of what the component publishes to the browser.
+
 ## `server-action` in a page tree
 
 Inside a [page tree](/guides/cross-layer/discovered-routing/), an element may
@@ -791,16 +835,37 @@ name a Go handler instead of a URL:
 <button server-action="Rename" data-target="#name">rename</button>
 ```
 
-Generation resolves the name against the tree's handlers and lowers it to one
-attribute:
+Generation resolves the name against the tree's handlers. What it lowers to
+depends on the element, because a form can submit by itself and a button cannot.
+
+On anything that is not a form, one attribute the runtime reads:
 
 ```html
-<button data-pw-action="/_action/00369cf962b6/Rename" data-target="#name">rename</button>
+<button data-tb-action="/_action/00369cf962b6/Rename" data-target="#name">rename</button>
 ```
+
+On a form, that attribute plus the markup a browser needs on its own — and no
+`action`, so a native submit goes to the document's own URL with this page's
+path parameters already in it:
+
+```html
+<form data-tb-action="/_action/d71506d06c1e/Retire" method="post">
+  <input type="hidden" name="_action" value="d71506d06c1e/Retire" />
+  <input type="hidden" name="_csrf" value="…" />
+```
+
+A form also makes generation register `POST` on the page's own pattern, and the
+generated dispatcher branches on the hidden selector.
 
 Every other attribute on that element survives unread, so what a click does
 beyond posting there stays your markup. A name that resolves to no handler is a
-generation error rather than a dead element.
+generation error rather than a dead element, and so is a name that resolves to a
+[typed action](/guides/interactivity/server-actions/#a-function-a-script-calls):
+that one returns a value a form has nowhere to put, and the error says so and
+names what a script would call it instead.
+
+See [Server actions](/guides/interactivity/server-actions/) for which element to
+choose and what the handler owes.
 
 ## Common generation errors
 
