@@ -386,11 +386,44 @@ export component UserCard(id: string): html {
 call, so the three fields above would be three loads — which is why a component
 could not honestly fetch anything until the binding existed.
 
-The binding has no closer. It runs where it is written and its name is readable
-to the end of the enclosing block, and it is evaluated before that block writes
-anything. That last part is what lets a loader decide the response: give the Go
-function a trailing `error` and return `pw.NotFound(…)` from it, and the page
+The binding has no closer. Its name is readable to the end of the enclosing
+block, and its value is computed at the top of that block however much markup
+comes first. That last part is what lets a loader decide the response: give the
+Go function a trailing `error` and return `pw.NotFound(…)` from it, and the page
 answers 404 with nothing committed.
+
+Sometimes the call answers nothing except whether the page may render at all —
+an authorization, a precondition. Declare it with no result type and write
+`{check …}`, which is the same directive minus the binding:
+
+```html
+external Authorize(id: string)
+external LoadUser(id: string): User
+
+export component UserCard(id: string): html {
+{check Authorize(id)}
+{val user = LoadUser(id)}
+<article>
+  <h2>{user.name}</h2>
+</article>
+}
+```
+
+```go
+func Authorize(ctx context.Context, id string) error {
+	if pw.RequestAuthentication(ctx).Subject != id {
+		return pw.Forbidden("not yours")
+	}
+	return nil
+}
+```
+
+The trailing error picks the response exactly as the loader's does, and nothing
+had to invent a result type or a reader for a value the guard never had. The
+leading `context.Context` is optional here as everywhere; generation reads the
+Go source to see whether you took one. Keep a guard out of a **storing**
+`@cache`, though: a cache hit skips everything inside the component, the check
+included.
 
 Two consequences worth having in mind from the start.
 

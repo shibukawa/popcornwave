@@ -202,7 +202,11 @@ naming it in the response tells a caller which half to work on.
 The framework does not decide these.
 
 **Authorization.** A validated session says who is asking, not what they may
-do. Path protection covers whole routes; anything finer is your handler's.
+do. Path protection covers whole routes; anything finer is yours to write — in
+the handler, or in the page itself with
+[`{check …}`](/reference/template-syntax/#check--refusing-a-render), which calls
+a Go function for its error alone and lets a refusal choose the response before
+a byte is written.
 
 **Which paths are unsafe.** `csrf.include` is yours to narrow. So is
 `csrf.exclude`, and a webhook belongs there: it has no session and carries its
@@ -211,7 +215,8 @@ own authentication.
 **Registered component inputs.** Publishing a component as redrawable makes its
 parameters attacker-controlled. A component that formats values handed to it is
 safe; one that loads a record by identifier must check ownership itself, exactly
-as a handler would. Registration is the review point.
+as a handler would — which is what `{check …}` is for. Registration is the
+review point.
 
 **Secrets in configuration.** Values marked secret are redacted from logs and
 the startup summary, and `pw doctor` reports a literal secret in a committed

@@ -377,10 +377,42 @@ export component UserCard(id: string): html {
 ので、上の3フィールドは3回のロードになります。束縛ができるまでコンポーネントが正直に
 データを取れなかったのは、これが理由です。
 
-束縛に閉じタグはありません。書かれた位置で走り、名前は囲みブロックの終わりまで読めて、その
-ブロックが何かを書き出す前に評価されます。最後の性質がローダにレスポンスを決めさせます。
-Go 側の関数に末尾の `error` を持たせて `pw.NotFound(…)` を返せば、何もコミットされないまま
-ページが 404 を返します。
+束縛に閉じタグはありません。名前は囲みブロックの終わりまで読めて、値が計算されるのは前に
+どれだけマークアップがあってもそのブロックの先頭です。最後の性質がローダにレスポンスを
+決めさせます。Go 側の関数に末尾の `error` を持たせて `pw.NotFound(…)` を返せば、何も
+コミットされないままページが 404 を返します。
+
+呼び出しが、ページを描画してよいかどうか以外に何も答えないこともあります。認可、あるいは
+前提条件の確認です。その場合は結果型を宣言せず、`{check …}` と書きます。束縛を引いただけの
+同じディレクティブです。
+
+```html
+external Authorize(id: string)
+external LoadUser(id: string): User
+
+export component UserCard(id: string): html {
+{check Authorize(id)}
+{val user = LoadUser(id)}
+<article>
+  <h2>{user.name}</h2>
+</article>
+}
+```
+
+```go
+func Authorize(ctx context.Context, id string) error {
+	if pw.RequestAuthentication(ctx).Subject != id {
+		return pw.Forbidden("not yours")
+	}
+	return nil
+}
+```
+
+末尾のエラーがレスポンスを選ぶところはローダと変わらず、そのうえ門番が持っていない値のために
+結果型と読み手をでっち上げずに済みます。先頭の `context.Context` はここでも他と同じで任意
+です。取ったかどうかは生成が Go のソースを読んで見ます。ただし**保存する** `@cache` の中に
+門番を置いてはいけません。キャッシュにヒットすればコンポーネントの中身は丸ごと飛ばされ、
+`check` もそこに含まれます。
 
 最初から頭に置いておく価値のある帰結が2つあります。
 
