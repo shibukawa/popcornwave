@@ -242,8 +242,18 @@ func Options(sqlDialect string) (generator.Options, error) {
 		// The third branch of an action handler, beside WantsUpdate. A handler
 		// asking which caller it has is a handler either transport can serve.
 		{name: "WantsValue", writer: -1, request: 0},
+		// The locale switching surface. LocaleChoices reads the request because
+		// a choice names this same page in another language, and SetLocale
+		// writes the cookie a reader's explicit choice is stored in. Neither
+		// reaches into the request or the writer itself, which is what lets one
+		// switcher template serve either transport.
+		{name: "LocaleChoices", writer: -1, request: 0},
+		{name: "SetLocale", writer: 0, request: -1},
 	} {
-		options := []generator.CallPatternOption{generator.RequestArgument(transport.request)}
+		var options []generator.CallPatternOption
+		if transport.request >= 0 {
+			options = append(options, generator.RequestArgument(transport.request))
+		}
 		if transport.writer >= 0 {
 			options = append(options, generator.WriterArgument(transport.writer))
 		}

@@ -9,6 +9,7 @@ require (
 	github.com/charmbracelet/lipgloss v1.1.0
 	github.com/charmbracelet/x/term v0.2.2
 	github.com/evanw/esbuild v0.28.1
+	github.com/goccy/go-yaml v1.18.0
 	github.com/klauspost/compress v1.19.1
 	github.com/pressly/goose/v3 v3.27.3
 	github.com/redis/go-redis/v9 v9.17.3
@@ -16,6 +17,7 @@ require (
 	github.com/shibukawa/localotelviewer v1.0.2
 	github.com/shibukawa/tinybind-go v0.5.14
 	github.com/shibukawa/tinygodriver v1.2.4
+	github.com/valyala/fasthttp v1.73.0
 	golang.org/x/mod v0.38.0
 	golang.org/x/tools v0.48.0
 )
@@ -38,7 +40,6 @@ require (
 	github.com/fatih/color v1.18.0 // indirect
 	github.com/go-ole/go-ole v1.2.6 // indirect
 	github.com/go-sql-driver/mysql v1.10.0 // indirect
-	github.com/goccy/go-yaml v1.18.0 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.27.1 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect

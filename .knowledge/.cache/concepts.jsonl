@@ -14,6 +14,7 @@
 {"category": "interface", "id": "api:cli-doctor", "path": ".knowledge/api/cli-doctor.md", "role": "primary", "title": "pw doctor", "type": "api"}
 {"category": "interface", "id": "api:cli-fmt", "path": ".knowledge/api/cli-fmt.md", "role": "primary", "title": "pw fmt", "type": "api"}
 {"category": "interface", "id": "api:cli-generate", "path": ".knowledge/api/cli-generate.md", "role": "primary", "title": "pw generate", "type": "api"}
+{"category": "interface", "id": "api:cli-i18n", "path": ".knowledge/api/cli-i18n.md", "role": "primary", "title": "pw i18n", "type": "api"}
 {"category": "interface", "id": "api:cli-init", "path": ".knowledge/api/cli-init.md", "role": "primary", "title": "pw init", "type": "api"}
 {"category": "interface", "id": "api:cli-lsp", "path": ".knowledge/api/cli-lsp.md", "role": "primary", "title": "pw lsp", "type": "api"}
 {"category": "interface", "id": "api:cli-migrate", "path": ".knowledge/api/cli-migrate.md", "role": "primary", "title": "pw migrate", "type": "api"}
@@ -39,6 +40,7 @@
 {"category": "interface", "id": "api:html-update-options", "path": ".knowledge/api/html-update-options.md", "role": "primary", "title": "HTML Update Options", "type": "api"}
 {"category": "interface", "id": "api:instrumented-sql-executor", "path": ".knowledge/api/instrumented-sql-executor.md", "role": "primary", "title": "Instrumented SQL Executor", "type": "api"}
 {"category": "interface", "id": "api:live-delivery-protocol", "path": ".knowledge/api/live-delivery-protocol.md", "role": "primary", "title": "Live Delivery Wire Protocol", "type": "api"}
+{"category": "interface", "id": "api:locale-accessors", "path": ".knowledge/api/locale-accessors.md", "role": "primary", "title": "Locale Accessors", "type": "api"}
 {"category": "interface", "id": "api:logger", "path": ".knowledge/api/logger.md", "role": "primary", "title": "Context-Bound Logger API", "type": "api"}
 {"category": "interface", "id": "api:migration-runner", "path": ".knowledge/api/migration-runner.md", "role": "primary", "title": "Migration Runner", "type": "api"}
 {"category": "interface", "id": "api:native-connection-access", "path": ".knowledge/api/native-connection-access.md", "role": "primary", "title": "Native Connection Access", "type": "api"}
@@ -111,8 +113,10 @@
 {"category": "structure", "id": "data:firestore-runtime-config", "path": ".knowledge/data/firestore-runtime-config.md", "role": "supporting", "title": "Firestore Runtime Configuration", "type": "data"}
 {"category": "structure", "id": "data:framework-span-set", "path": ".knowledge/data/framework-span-set.md", "role": "supporting", "title": "Framework Span Set", "type": "data"}
 {"category": "structure", "id": "data:html-render-config", "path": ".knowledge/data/html-render-config.md", "role": "supporting", "title": "HTML Render Runtime Config", "type": "data"}
+{"category": "structure", "id": "data:i18n-config", "path": ".knowledge/data/i18n-config.md", "role": "supporting", "title": "Internationalization Configuration", "type": "data"}
 {"category": "structure", "id": "data:loaded-configuration", "path": ".knowledge/data/loaded-configuration.md", "role": "supporting", "title": "Loaded Configuration", "type": "data"}
 {"category": "structure", "id": "data:local-jsonl-log-record", "path": ".knowledge/data/local-jsonl-log-record.md", "role": "supporting", "title": "Local JSONL Log Record", "type": "data"}
+{"category": "structure", "id": "data:locale-bindings", "path": ".knowledge/data/locale-bindings.md", "role": "supporting", "title": "Locale Implicit Bindings", "type": "data"}
 {"category": "structure", "id": "data:log-attribute", "path": ".knowledge/data/log-attribute.md", "role": "supporting", "title": "Log Attribute", "type": "data"}
 {"category": "structure", "id": "data:middleware-runtime-config", "path": ".knowledge/data/middleware-runtime-config.md", "role": "supporting", "title": "Middleware Runtime Config", "type": "data"}
 {"category": "structure", "id": "data:migration-snapshot", "path": ".knowledge/data/migration-snapshot.md", "role": "supporting", "title": "Migration Snapshot", "type": "data"}
@@ -200,6 +204,7 @@
 {"category": "constraint", "id": "decision:event-binding-attribute-spelling", "path": ".knowledge/decision/event-binding-attribute-spelling.md", "role": "supporting", "title": "Event Binding Attribute Spelling", "type": "decision"}
 {"category": "constraint", "id": "decision:executor-seam-instrumentation", "path": ".knowledge/decision/executor-seam-instrumentation.md", "role": "supporting", "title": "Executor Seam Instrumentation", "type": "decision"}
 {"category": "constraint", "id": "decision:explicit-generation-sources", "path": ".knowledge/decision/explicit-generation-sources.md", "role": "supporting", "title": "Explicit Generation Sources", "type": "decision"}
+{"category": "constraint", "id": "decision:explicit-locale-in-links", "path": ".knowledge/decision/explicit-locale-in-links.md", "role": "supporting", "title": "The Locale Is Written Into Links", "type": "decision"}
 {"category": "constraint", "id": "decision:explicit-tinygo-compile-step", "path": ".knowledge/decision/explicit-tinygo-compile-step.md", "role": "supporting", "title": "Explicit TinyGo Compile Step", "type": "decision"}
 {"category": "constraint", "id": "decision:explicit-transaction-boundary", "path": ".knowledge/decision/explicit-transaction-boundary.md", "role": "supporting", "title": "Explicit Transaction Boundary", "type": "decision"}
 {"category": "constraint", "id": "decision:extension-in-repository", "path": ".knowledge/decision/extension-in-repository.md", "role": "supporting", "title": "Extension Lives in the Framework Repository", "type": "decision"}
@@ -231,7 +236,12 @@
 {"category": "constraint", "id": "decision:lazy-cookie-session-loading", "path": ".knowledge/decision/lazy-cookie-session-loading.md", "role": "supporting", "title": "Lazy Cookie Session Loading", "type": "decision"}
 {"category": "constraint", "id": "decision:live-delivery-transport", "path": ".knowledge/decision/live-delivery-transport.md", "role": "supporting", "title": "Live Deliveries On The Page Route", "type": "decision"}
 {"category": "constraint", "id": "decision:local-tls-proxy-boundary", "path": ".knowledge/decision/local-tls-proxy-boundary.md", "role": "supporting", "title": "Local TLS Proxy Boundary", "type": "decision"}
+{"category": "constraint", "id": "decision:locale-url-modes", "path": ".knowledge/decision/locale-url-modes.md", "role": "supporting", "title": "Locale URL Modes", "type": "decision"}
 {"category": "constraint", "id": "decision:memo-store-handle", "path": ".knowledge/decision/memo-store-handle.md", "role": "supporting", "title": "Resolve The Memo Store To A Handle Before The Methods Exist", "type": "decision"}
+{"category": "constraint", "id": "decision:message-code-shape", "path": ".knowledge/decision/message-code-shape.md", "role": "supporting", "title": "Generated Message Shape", "type": "decision"}
+{"category": "constraint", "id": "decision:message-id-assignment", "path": ".knowledge/decision/message-id-assignment.md", "role": "supporting", "title": "Message IDs Are Proposed, Not Derived", "type": "decision"}
+{"category": "constraint", "id": "decision:message-scope-declaration", "path": ".knowledge/decision/message-scope-declaration.md", "role": "supporting", "title": "Message Scope Is Declared in the File", "type": "decision"}
+{"category": "constraint", "id": "decision:message-source-of-truth", "path": ".knowledge/decision/message-source-of-truth.md", "role": "supporting", "title": "Message Source Text Lives in the Catalog", "type": "decision"}
 {"category": "constraint", "id": "decision:migration-execution-split", "path": ".knowledge/decision/migration-execution-split.md", "role": "supporting", "title": "Migration Execution Split", "type": "decision"}
 {"category": "constraint", "id": "decision:navigable-answer-hub", "path": ".knowledge/decision/navigable-answer-hub.md", "role": "supporting", "title": "Manual Bootstrap Edits an Answer Hub", "type": "decision"}
 {"category": "constraint", "id": "decision:nix-flake-packaging", "path": ".knowledge/decision/nix-flake-packaging.md", "role": "supporting", "title": "In-repository Nix Flake Packaging", "type": "decision"}
@@ -288,6 +298,7 @@
 {"category": "constraint", "id": "decision:typed-action-is-call-only", "path": ".knowledge/decision/typed-action-is-call-only.md", "role": "supporting", "title": "A Typed Action Is Reached By A Call And Nothing Else", "type": "decision"}
 {"category": "constraint", "id": "decision:unhandled-boundary-escalation", "path": ".knowledge/decision/unhandled-boundary-escalation.md", "role": "supporting", "title": "Unhandled Boundary Escalation", "type": "decision"}
 {"category": "constraint", "id": "decision:update-runtime-convergence", "path": ".knowledge/decision/update-runtime-convergence.md", "role": "supporting", "title": "Update Runtime Convergence", "type": "decision"}
+{"category": "constraint", "id": "decision:upstream-message-surface", "path": ".knowledge/decision/upstream-message-surface.md", "role": "supporting", "title": "Upstream Message Surface", "type": "decision"}
 {"category": "constraint", "id": "decision:vscode-first-editor-target", "path": ".knowledge/decision/vscode-first-editor-target.md", "role": "supporting", "title": "VS Code as the First Editor Target", "type": "decision"}
 {"category": "constraint", "id": "decision:wasi-http-deferred", "path": ".knowledge/decision/wasi-http-deferred.md", "role": "supporting", "title": "Defer WASI HTTP Adapter", "type": "decision"}
 {"category": "constraint", "id": "decision:web-runtime-delivery-order", "path": ".knowledge/decision/web-runtime-delivery-order.md", "role": "supporting", "title": "Web Runtime Delivery Order", "type": "decision"}
@@ -358,7 +369,9 @@
 {"category": "constraint", "id": "policy:jwt-security", "path": ".knowledge/policy/jwt-security.md", "role": "supporting", "title": "JWT Security Policy", "type": "policy"}
 {"category": "constraint", "id": "policy:layered-cache", "path": ".knowledge/policy/layered-cache.md", "role": "supporting", "title": "Layered Web Cache", "type": "policy"}
 {"category": "constraint", "id": "policy:live-subscription-bounds", "path": ".knowledge/policy/live-subscription-bounds.md", "role": "supporting", "title": "Live Subscription Bounds", "type": "policy"}
+{"category": "constraint", "id": "policy:locale-vary-correctness", "path": ".knowledge/policy/locale-vary-correctness.md", "role": "supporting", "title": "Locale Vary Correctness", "type": "policy"}
 {"category": "constraint", "id": "policy:log-emission", "path": ".knowledge/policy/log-emission.md", "role": "supporting", "title": "Log Emission Policy", "type": "policy"}
+{"category": "constraint", "id": "policy:message-rich-text", "path": ".knowledge/policy/message-rich-text.md", "role": "supporting", "title": "Rich Text in Messages", "type": "policy"}
 {"category": "constraint", "id": "policy:migration-safety", "path": ".knowledge/policy/migration-safety.md", "role": "supporting", "title": "Migration Safety", "type": "policy"}
 {"category": "constraint", "id": "policy:oauth-security", "path": ".knowledge/policy/oauth-security.md", "role": "supporting", "title": "OAuth Client Security Policy", "type": "policy"}
 {"category": "constraint", "id": "policy:oidc-admission", "path": ".knowledge/policy/oidc-admission.md", "role": "supporting", "title": "OIDC Admission Policy", "type": "policy"}
@@ -397,6 +410,7 @@
 {"category": "objective", "id": "requirement:alternate-http-backend-readiness", "path": ".knowledge/requirement/alternate-http-backend-readiness.md", "role": "primary", "title": "Readiness For A Non-net/http Backend", "type": "requirement"}
 {"category": "objective", "id": "requirement:api-lifecycle-response-headers", "path": ".knowledge/requirement/api-lifecycle-response-headers.md", "role": "primary", "title": "API Lifecycle Response Headers", "type": "requirement"}
 {"category": "objective", "id": "requirement:api-server-scaffold", "path": ".knowledge/requirement/api-server-scaffold.md", "role": "primary", "title": "API Server Preset Scaffold", "type": "requirement"}
+{"category": "objective", "id": "requirement:application-i18n", "path": ".knowledge/requirement/application-i18n.md", "role": "primary", "title": "Application Internationalization", "type": "requirement"}
 {"category": "objective", "id": "requirement:application-middleware-registration", "path": ".knowledge/requirement/application-middleware-registration.md", "role": "primary", "title": "Numbered Middleware Chain Registration", "type": "requirement"}
 {"category": "objective", "id": "requirement:application-user-experience", "path": ".knowledge/requirement/application-user-experience.md", "role": "primary", "title": "Popcorn Wave Application User Experience", "type": "requirement"}
 {"category": "objective", "id": "requirement:asset-content-verification", "path": ".knowledge/requirement/asset-content-verification.md", "role": "primary", "title": "Asset Content Verification", "type": "requirement"}
@@ -405,6 +419,7 @@
 {"category": "objective", "id": "requirement:bot-synchronous-render", "path": ".knowledge/requirement/bot-synchronous-render.md", "role": "primary", "title": "Bot Synchronous Render", "type": "requirement"}
 {"category": "objective", "id": "requirement:browser-report-ingest", "path": ".knowledge/requirement/browser-report-ingest.md", "role": "primary", "title": "Browser Report Ingest", "type": "requirement"}
 {"category": "objective", "id": "requirement:built-in-config-generation", "path": ".knowledge/requirement/built-in-config-generation.md", "role": "primary", "title": "Built-in Config Generation", "type": "requirement"}
+{"category": "objective", "id": "requirement:catalog-composition", "path": ".knowledge/requirement/catalog-composition.md", "role": "primary", "title": "Catalog Composition", "type": "requirement"}
 {"category": "objective", "id": "requirement:classic-rendering", "path": ".knowledge/requirement/classic-rendering.md", "role": "primary", "title": "Classic Rendering", "type": "requirement"}
 {"category": "objective", "id": "requirement:classic-web-acceptance", "path": ".knowledge/requirement/classic-web-acceptance.md", "role": "primary", "title": "Classic Web Acceptance", "type": "requirement"}
 {"category": "objective", "id": "requirement:cli-distribution", "path": ".knowledge/requirement/cli-distribution.md", "role": "primary", "title": "pw CLI Distribution", "type": "requirement"}
@@ -507,6 +522,8 @@
 {"category": "objective", "id": "requirement:live-html-rendering", "path": ".knowledge/requirement/live-html-rendering.md", "role": "primary", "title": "Live HTML Rendering", "type": "requirement"}
 {"category": "objective", "id": "requirement:live-mode-plan-slice", "path": ".knowledge/requirement/live-mode-plan-slice.md", "role": "primary", "title": "Execute Only What A Live Response Transfers", "type": "requirement"}
 {"category": "objective", "id": "requirement:local-jsonl-log-capture", "path": ".knowledge/requirement/local-jsonl-log-capture.md", "role": "primary", "title": "Local JSONL Log Capture", "type": "requirement"}
+{"category": "objective", "id": "requirement:locale-switching-surface", "path": ".knowledge/requirement/locale-switching-surface.md", "role": "primary", "title": "Locale Switching Surface", "type": "requirement"}
+{"category": "objective", "id": "requirement:localized-assets", "path": ".knowledge/requirement/localized-assets.md", "role": "primary", "title": "Localized Assets", "type": "requirement"}
 {"category": "objective", "id": "requirement:modern-observability", "path": ".knowledge/requirement/modern-observability.md", "role": "primary", "title": "Modern UI Observability", "type": "requirement"}
 {"category": "objective", "id": "requirement:modern-web-acceptance", "path": ".knowledge/requirement/modern-web-acceptance.md", "role": "primary", "title": "Modern Web Acceptance", "type": "requirement"}
 {"category": "objective", "id": "requirement:module-native-csrf", "path": ".knowledge/requirement/module-native-csrf.md", "role": "primary", "title": "Module Native CSRF", "type": "requirement"}
@@ -583,6 +600,7 @@
 {"category": "constraint", "id": "rule:explain-dialect-support", "path": ".knowledge/rule/explain-dialect-support.md", "role": "supporting", "title": "EXPLAIN Dialect Support", "type": "rule"}
 {"category": "constraint", "id": "rule:framework-owned-tables", "path": ".knowledge/rule/framework-owned-tables.md", "role": "supporting", "title": "Framework Owned Tables", "type": "rule"}
 {"category": "constraint", "id": "rule:live-boundary-authoring", "path": ".knowledge/rule/live-boundary-authoring.md", "role": "supporting", "title": "Live Boundary Authoring Rules", "type": "rule"}
+{"category": "constraint", "id": "rule:locale-prefix-checks", "path": ".knowledge/rule/locale-prefix-checks.md", "role": "supporting", "title": "Locale Prefix and Link Checks", "type": "rule"}
 {"category": "constraint", "id": "rule:multi-statement-sql-execution", "path": ".knowledge/rule/multi-statement-sql-execution.md", "role": "supporting", "title": "Multi-statement SQL Execution", "type": "rule"}
 {"category": "constraint", "id": "rule:page-directory-naming", "path": ".knowledge/rule/page-directory-naming.md", "role": "supporting", "title": "Page Directory Naming", "type": "rule"}
 {"category": "constraint", "id": "rule:production-readiness-checks", "path": ".knowledge/rule/production-readiness-checks.md", "role": "supporting", "title": "Production Readiness Checks", "type": "rule"}

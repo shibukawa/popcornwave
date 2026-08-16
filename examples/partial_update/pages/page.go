@@ -5,18 +5,16 @@ import (
 	"strings"
 )
 
-// Load runs between the request and the render. Its parameters are the route's
-// own inputs — here one optional query value — and its results are the page
-// component's parameters.
+// Query resolves the route's one optional input.
 //
 // q is declared optional so an absent query arrives as nil rather than as the
 // empty string. Nothing here needs to tell the two apart, but declaring it
-// honestly is what keeps a default in the handler rather than in the decoder.
-func Load(q *string) (string, error) {
+// honestly is what keeps the default here rather than in the decoder.
+func Query(q *string) string {
 	if q == nil {
-		return "", nil
+		return ""
 	}
-	return *q, nil
+	return *q
 }
 
 // The data is a fixed table so the example needs no database and every response

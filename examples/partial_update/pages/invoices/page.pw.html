@@ -2,9 +2,12 @@ package invoices
 
 type Invoice { number: string, customer: string, total: string }
 
+external LoadInvoices(): Invoice[]
+
 // The second route, under the same layout. Following the link to it transfers
 // this section and nothing else.
-export component Page(invoices: Invoice[]): html {
+export component Page(): html {
+  {val invoices = LoadInvoices()}
   <section class="panel">
     <h2 class="panel__title">Invoices</h2>
     <table class="panel__table">

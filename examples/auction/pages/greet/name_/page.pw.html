@@ -1,5 +1,8 @@
 package name_
 
-export component Page(greeting: string): html {
+external Greet(name: string): string
+
+export component Page(name: string): html {
+  {val greeting = Greet(name)}
   <h1 class="text-3xl font-bold">{greeting}</h1>
 }
