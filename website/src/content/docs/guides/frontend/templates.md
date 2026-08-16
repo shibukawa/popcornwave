@@ -352,7 +352,7 @@ scripts](/guides/interactivity/component-scripts/).
 
 ## External functions
 
-Display-specific conversions are declared in the template and implemented in Go:
+Go a template may call is declared in the template and implemented beside it:
 
 ```html
 external Decorate(value: string, tone: Tone): string
@@ -366,6 +366,44 @@ func Decorate(value string, tone Tone) string {
 	return value
 }
 ```
+
+A display helper like that is the small case. The same declaration is how a
+component **fetches**, which is the one worth learning:
+
+```html
+external LoadUser(id: string): User
+
+export component UserCard(id: string): html {
+{val user = LoadUser(id)}
+<article>
+  <h2>{user.name}</h2>
+  <p>{user.email}</p>
+</article>
+}
+```
+
+`{val …}` names the result. Without it each mention of `LoadUser(id)` is another
+call, so the three fields above would be three loads — which is why a component
+could not honestly fetch anything until the binding existed.
+
+The binding has no closer. It runs where it is written and its name is readable
+to the end of the enclosing block, and it is evaluated before that block writes
+anything. That last part is what lets a loader decide the response: give the Go
+function a trailing `error` and return `pw.NotFound(…)` from it, and the page
+answers 404 with nothing committed.
+
+Two consequences worth having in mind from the start.
+
+**The component's parameter is the identifier, not the record.** That is what
+makes it cacheable: [`@cache`](/guides/frontend/rendering-cache/#caching-a-components-own-load)
+keys on declared parameters, so one annotation here covers the load and the
+render together. A component taking the loaded `User` instead could not be
+cached usefully, because computing its key would need the load.
+
+**A loading external is synchronous, so it blocks the render.** Reach for
+[`await`](/guides/cross-layer/async-rendering/) instead when you want a fallback
+on screen while the work runs — and note that the two are exclusive: a storing
+`@cache` is refused on a component that awaits.
 
 ## Multiple files in one package
 
