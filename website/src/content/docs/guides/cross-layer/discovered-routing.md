@@ -178,6 +178,9 @@ func LoadUser(id string, page *int) (View, error) {
 }
 ```
 
+The default for an absent `?page` lives in the loader, where a reader looking
+for it will find it, rather than inside a decoder nobody wrote.
+
 The trailing `error` is what lets that loader decide the response. A binding at
 the top of a page's body is evaluated before the first byte, so a failure still
 picks the status while the rest of the page streams:
@@ -224,9 +227,6 @@ mattering wherever a POST can reach the same code.
 A returned redirect takes the same path as a written one: the target is refused
 if a browser could only follow it by running script, and an update request gets
 a navigate directive instead of a 303.
-
-The default then lives in `Load`, where a reader looking for it will find it,
-instead of inside a decoder nobody wrote.
 
 ## Layouts
 
