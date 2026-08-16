@@ -308,16 +308,18 @@ Three properties make this the right shape for a server-rendered application:
 An island that changes something needs an address, and hardcoding
 `/users/42/rename` in a template puts a string where a symbol belongs. Inside a
 page tree, `server-action="Rename"` names the exported Go handler instead, and
-generation lowers it to `data-pw-action="/_action/…/Rename"`. Rename the
+generation lowers it to `data-tb-action="/_action/…/Rename"`. Rename the
 function and generation fails at the template that referenced it, rather than
 the click failing at runtime.
 
-What acts on that attribute is yours today: the framework module that would
-intercept it does not exist yet. The CSRF middleware does exist, but it is off
-until the application enables it, and a custom client still has to copy the
-current `pw_csrf` cookie into the `X-CSRF-Token` request header. An island that
-fires the action owns that client-side job. See
-[Discovered routing](/guides/cross-layer/discovered-routing/) and
+The framework runtime is what acts on that attribute. It intercepts the click,
+posts to the address, applies whatever regions come back, and puts the current
+`pw_csrf` cookie into the `X-CSRF-Token` header on the way — so an island that
+fires an action wires none of that up itself. Where the island has to decide
+before the mutation, leave `server-action` off the element and issue the request
+yourself with `window.popcornwave.updateHeaders()` and
+`window.popcornwave.apply()`, which carry the same token and apply the same
+regions. See [Server actions](/guides/interactivity/server-actions/) and
 [Integrating React](/guides/interactivity/react/#writing-back-to-the-server).
 
 Prefer light DOM. A shadow root buys encapsulation you rarely need here and

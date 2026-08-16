@@ -15,6 +15,7 @@ Sits at the project root, belongs to `pw`, and locates the project (commands wal
 | `main` | *(required for an application)* | the package `pw build` compiles, e.g. `"./cmd/myapp"` |
 | `toolchain` | `"tinygo"` | the compiler the sources were scaffolded for: `tinygo` or `go` |
 | `database` | `"sqlite"` | the SQL dialect `.pw.sql` generates for: `sqlite`, `postgres`, or `mysql` |
+| `fasthttp` | `false` | also generate and build the fasthttp transport half; `pw build --backend fasthttp` refuses without it |
 
 `database` is a *generation* input: the engine actually connected to comes from the `[[middleware.rdb.connections]]` DSN scheme in the runtime file. Keeping the two in agreement is on you. `kind = "package"` carries no `main` and adds a `[package]` section; an application with a `[package]` section is an error.
 
@@ -43,7 +44,7 @@ excludes = []
 
 Both optional — `pw dev` already walks the module for rebuild inputs. `includes` adds relative files or glob patterns the walk misses (`["config.dev.toml", "assets/**/*.svg"]`); `excludes` skips a subtree that only slows the walk. Absolute paths are rejected.
 
-### `[dev.idp]` and `[dev.otel]`
+### `[dev.idp]`, `[dev.otel]`, `[dev.logs]`, `[dev.console]`
 
 Development-only companions `pw dev` runs beside the application; they affect nothing else.
 
@@ -57,7 +58,60 @@ port = 0                 # 0 reserves a free loopback port; pw dev injects the i
 enabled = true           # the telemetry viewer, on by default
 port = 0
 max = 0                  # records retained per signal; 0 keeps the viewer default
+
+[dev.logs]
+enabled = true           # write application records to .log/*.jsonl as well as the terminal
+directory = ".log"
+
+[dev.console]
+enabled = true
+port = 18081
+assets.enabled = true
+data.enabled = true
+storybook.enabled = true
+overlay.enabled = true       # failure overlay on the application's own pages
+overlay.reload = true        # reload a page whose application was replaced
+launcher.enabled = true      # floating link to the console on those pages
+launcher.corner = "bottom-left"   # bottom-left | bottom-right | top-left | top-right
 ```
+
+Turning the overlay **and** the launcher off is what makes a development page byte-identical to a production one; turning one off leaves the other working, which is why they are two settings.
+
+### `[seed]` and `[assets.verify]`
+
+```toml
+[seed]
+auto = false             # apply seed datasets in the pw dev loop
+
+[assets.verify]
+enabled = true           # refuse an authored public file whose bytes contradict its extension
+svg_scan = true          # refuse an authored .svg carrying <script, an on…= handler, or javascript:
+allow = ["vendor/**"]    # exempt paths, relative to public/; a trailing /** exempts a subtree
+```
+
+Unlike every conversion below, both verification checks default to **on** — they read bytes the asset walk already holds. A refusal fails `pw build` and names the file, what its extension claimed, and what the bytes carry; an exempted path is printed by the build so a stale `allow` entry does not go quiet. `pw doctor` reports the same as PW0130 and PW0131.
+
+### `[i18n]`
+
+Absent in a single-language project, and the catalog is a generation input rather than a runtime setting, which is why it lives here.
+
+```toml
+[i18n]
+locales = ["ja", "en"]      # empty (or absent) disables everything below
+default_locale = "ja"       # must be one of locales
+catalog = "messages"        # directory of YAML catalogs, inside the project
+missing = "error"           # or "warn"
+prefix_default = true       # false drops the prefix from the default language's URLs
+path_routes = ["/"]
+cookie_routes = ["/admin/"]
+header_routes = ["/api/"]
+
+[i18n.label]
+ja = "日本語"
+en = "English"
+```
+
+Any other `i18n.*` key set with an empty `locales` is a load error, as is a `label` naming an undeclared tag. The longest matching route prefix wins. See references/i18n.md.
 
 ### `[migration]`
 
@@ -152,10 +206,13 @@ An application route colliding with an enabled operational endpoint fails startu
 | Key | Default | Meaning |
 | --- | --- | --- |
 | `recovery` / `request_id` / `access_log` | `true` | standard stack |
-| `compression` | `false` | zstd for HTML |
+| `compression` | `false` | encode rendered HTML and JSON for clients that accept it |
+| `compression_codings` | `["zstd", "gzip"]` | codings to offer, best first; one left out is not offered at all |
 | `request_timeout` | `"0s"` | per-request deadline |
 | `rdb.enabled` | `false` | open the framework-owned database pool |
 | `rdb.default_group` / `rdb.write_group` / `rdb.migration_group` | *(empty)* | connection group selection |
+
+`compression_codings` is the server's preference order, not the client's `q`-values. An unknown name is a startup error; a known one whose encoder a build tag removed is skipped and named in the startup log. Turn compression off with `compression = false` rather than an empty list; encoder levels are deliberately not configurable. `Vary: Accept-Encoding` is set either way. (`pw_nozstd` and `pw_nogzip` were removed in favour of this key.)
 
 Every database pool is one `[[middleware.rdb.connections]]` table; a reader-writer topology is several. The old `rdb.dsn` key is gone — an enabled database with no connections table fails at startup and names the replacement.
 
@@ -176,6 +233,79 @@ Exists only when `github.com/shibukawa/popcornwave/database/dynamo` is imported.
 
 Exists only when `database/firestore` is imported; Datastore mode required. Keys: `enabled` (`false`), `project_id` (falls back to `GOOGLE_CLOUD_PROJECT`, then `DATASTORE_PROJECT_ID`), `database`, `namespace`, `endpoint` (falls back to `DATASTORE_EMULATOR_HOST`), `credentials` (`"service_account"` | `metadata` | `oauth2` | `static`), `credentials_file` (falls back to `GOOGLE_APPLICATION_CREDENTIALS`), `timeout` (`"10s"`), `max_idle_conns` (`4`). `metadata`/`static` plus a `credentials_file` is an error.
 
+### `[html]`
+
+| Key | Default | Meaning |
+| --- | --- | --- |
+| `streaming` | `true` | `false` forces the buffered branch even where a chain could stream |
+| `async_timeout` | `"3s"` | bound on one await boundary; zero leaves the request context |
+| `async_concurrency` | `0` | simultaneous boundary work per render; zero or less is unbounded |
+| `bot_detection` | `true` | render the settled document for crawlers and CLI clients |
+| `bot_async_timeout` | `"5s"` | boundary bound on a classified bot request; zero falls back to `async_timeout` |
+| `bot_user_agents` | `[]` | extra `User-Agent` substrings, appended to the built-in catalog |
+| `scriptless_detection` | `true` | serve the settled document to a scripting-disabled browser, via a noscript redirect |
+| `live` | `true` | answer the live connection that keeps a page updating |
+| `live_max_duration` / `live_duration_jitter` | `"10m"` / `20` | lifetime of one live connection, spread per connection |
+| `live_idle_timeout` | `"5m"` | close a connection nothing has delivered on |
+| `live_max_boundaries` / `live_max_responses` | `32` / `4` | boundaries per connection; concurrent connections per client |
+| `live_max_signal_bytes` | `262144` | signal payload one live response may write |
+| `update.enabled` | `false` | answer navigation deltas, redraws, and action responses |
+| `update.validator_key` | — | secret keying the boundary digests; **required** when updates are on |
+| `update.max_manifest_bytes` | `8192` | cap on the digest hint a request may carry |
+| `cache.enabled` | `true` | reuse the rendered output of `@cache` components |
+| `cache.max_entries` | `1024` | entries the in-process render cache holds |
+
+Every `live_` key depends on `streaming`. `cache.enabled` is on where everything else here is off, because the opt-in is the `@cache` annotation — a project writing none never reaches the store. Raise `cache.max_entries` once anything is cached at `scope: "private"`: a private key carries the reader's identity, so entries multiply by the number of active readers. See references/caching.md.
+
+### `[cache]` and `[[cache.stores]]`
+
+The data cache `pw.Memo` reads, sized separately from the render cache above because the two fill at different rates from different sources.
+
+```toml
+[cache]
+enabled = false        # off by design: pw.Memo has no annotation to opt in with
+
+[[cache.stores]]
+name = "rates"         # the name a call site addresses this store by
+backend = "memory"     # the only implemented backend
+ttl = "1m"
+stale = "0s"           # window a stale entry may answer in while one revalidation runs
+scope = "private"      # or "public"
+max_entries = 1024
+fetch_timeout = "30s"  # bound on a fetch running detached from its waiters
+```
+
+With `enabled = false` every call site falls straight through to its own fetch, which is how caching is withdrawn from a deployment without editing code. `scope` defaults to `private` for the same reason `@cache`'s does.
+
+### `[ratelimit]`
+
+| Key | Default | Meaning |
+| --- | --- | --- |
+| `enabled` | `false` | |
+| `backend` | `"memory"` | `memory` or `redis` (blank-import `ratelimitstore/redis`) |
+| `window` | `"1m"` | period every count is measured over; also what `X-RateLimit-Reset` reports |
+| `per_subject` | `600` | requests one authenticated subject may make; `0` disables this bucket |
+| `per_address` | `300` | requests one caller with no session may make; **must be positive** |
+| `process` | `0` | total unkeyed arrivals per window; `0` leaves only the identity buckets |
+| `redis.dsn` / `redis.key_prefix` / `redis.connect_timeout` | — / `"pw:ratelimit:"` / `"5s"` | read only under the redis backend |
+
+There is no per-route form; one budget covers the whole application. A positive `process` must be at least `per_address` and `per_subject`. Redis keys under the `memory` backend are refused rather than ignored, and an unreachable Redis refuses startup — while an unreachable store *at request time* admits the request and logs at error level.
+
+### `[security.cors]`
+
+| Key | Default |
+| --- | --- |
+| `enabled` | `false` |
+| `include` / `exclude` | `["/**"]` / `[]` |
+| `allowed_origins` | `[]` — exact `scheme://host[:port]`, or the single `"*"` |
+| `allow_credentials` | `false` |
+| `allowed_methods` | `["GET", "HEAD", "POST"]` |
+| `allowed_headers` | `["Content-Type", "Authorization"]` |
+| `exposed_headers` | `X-Request-ID`, `Retry-After`, the three `X-RateLimit-*` |
+| `max_age` | `"10m"` — browsers cap it themselves |
+
+Four combinations fail startup: enabled with no origin, `allow_credentials` with `"*"` origins, `allow_credentials` with `"*"` in `allowed_headers`, and `allow_credentials` with `include = ["/**"]`. The generated OpenAPI document is readable cross-origin whether or not this section exists.
+
 ### `[observability]`
 
 Top level: `minimum_level` (`"info"`; `trace`…`off`), `stdout_format` (`"json"` or `plaintext`), `service_name`, `resource_attributes`, `boot_log` (`"auto"` | `tree` | `record` | `off`). Subsections:
@@ -194,7 +324,7 @@ Response headers are on by default: `headers.enabled = true`, `headers.content_t
 
 ### `[auth]` (brief)
 
-Exists only when `plugin/auth` is linked (registering an account resolver does that). `enabled = false`; `backend = "rdb"`; `mode = "oidc_only"` (plus `jwt_only` for bearer-token APIs); `login_path`/`callback_path`/`logout_path`; `session.ttl = "24h"`; `protection.include`/`exclude`/`unauthenticated`. `[auth.oidc]`: `issuer`, `client_id`, `client_secret` (all `AUTH_OIDC_*`), `identity_claim = "sub"`, `admission = "authenticated"`. An enabled OIDC mode with empty issuer/client keys fails at startup naming both keys and variables — dev scaffolds carry no provider values because `pw dev` injects the emulator's. `[auth.jwt]` configures `jwt_only` (issuer, audience, algorithms, admission, revocation all required or bounded).
+Exists only when `plugin/auth` is linked (registering an account resolver does that). `enabled = false`; `backend = "rdb"`; `mode = "oidc_only"` (plus `jwt_only` for bearer-token APIs); `login_path`/`callback_path`/`logout_path`; `session.ttl = "24h"`; `protection.include`/`exclude`/`unauthenticated`. `[auth.oidc]`: `issuer`, `client_id`, `client_secret` (all `AUTH_OIDC_*`), `identity_claim = "sub"`, `admission = "authenticated"`. An enabled OIDC mode with empty issuer/client keys fails at startup naming both keys and variables — dev scaffolds carry no provider values because `pw dev` injects the emulator's. `[auth.jwt]` configures `jwt_only`: `issuer`, `audience`, `algorithms`, `admission`, `identity_claim`, `max_token_lifetime`, and `revocation.mode` — which has **no default**, so startup refuses a missing value (`off`, `token`, `subject`, or `both`). Anything but `off` needs `middleware.rdb`, `auth.backend = "rdb"`, and the framework migration. `revocation.on_unavailable` defaults to `refuse` (a `503`, not a `401`); `revocation.max_propagation_delay` permits a per-process cache and its value is the honest answer to how fast a revocation takes effect.
 
 ## Configuration declarations (application code)
 

@@ -315,12 +315,13 @@ func Rename(w http.ResponseWriter, r *http.Request) { /* レスポンスを全�
 属性はエンドポイントを運ぶ属性に下がり、それ以外の属性は手を付けられずに残ります。
 
 ```html
-<button data-pw-action="/_action/00369cf962b6/Rename" data-target="#name">rename</button>
+<button data-tb-action="/_action/00369cf962b6/Rename" data-target="#name">rename</button>
 ```
 
-契約はこれで全部です。`server-action` は名前を URL に解決して書き下すだけで、
-クライアントのプロトコルを一切モデル化しません。だから `data-target` の意味は
-自分のランタイムが決められます。
+`data-tb-action` を読むのはフレームワークのランタイムです。その隣のものには手が
+入りません。だから `data-target` の意味は自分のコードが決められます。この下げ方が
+決めるのは名前からアドレスへの解決までで、クリックがページに何をするかは何も
+モデル化しません。
 
 手書きの `action="/users/42/rename"` に対してこれが買うものはコンパイラです。URL は、
 それが指すハンドラと照合されることのない文字列にすぎません。名前は解決を要求される

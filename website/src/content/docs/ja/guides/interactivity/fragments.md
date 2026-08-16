@@ -298,14 +298,16 @@ customElements.define('copy-button', CopyButton);
 何かを変更する島には宛先が要ります。テンプレートに `/users/42/rename` と直書きする
 のは、シンボルであるべき場所に文字列を置くことです。ページツリーの中なら
 `server-action="Rename"` でエクスポートされた Go のハンドラを名指しでき、生成が
-`data-pw-action="/_action/…/Rename"` へ落とします。関数名を変えれば、クリックが
+`data-tb-action="/_action/…/Rename"` へ落とします。関数名を変えれば、クリックが
 実行時に失敗するのではなく、参照しているテンプレートで生成が失敗します。
 
-その属性に対して何をするかは、今日のところ自分の仕事です。それを横取りする
-フレームワークのモジュールはまだありません。CSRF ミドルウェアはすでにありますが、
-アプリケーションが有効にするまでは動かず、自作のクライアントは現在の `pw_csrf`
-クッキーを `X-CSRF-Token` ヘッダへ移す必要があります。アクションを撃つ島が引き受ける
-のは、このクライアント側の仕事です。[探索型ルーティング](/ja/guides/cross-layer/discovered-routing/)と
+その属性に対して動くのはフレームワークのランタイムです。クリックを横取りし、その
+アドレスへ POST し、返ってきた領域を適用します。現在の `pw_csrf` クッキーを
+`X-CSRF-Token` ヘッダへ移すのも、その途中で済みます。アクションを撃つ島が自分で
+配線するものは何もありません。変更の前に島が判断を挟む場合は、要素から
+`server-action` を外し、`window.popcornwave.updateHeaders()` と
+`window.popcornwave.apply()` を使って自分でリクエストを出してください。同じトークンを
+運び、同じように領域を適用します。[サーバーアクション](/ja/guides/interactivity/server-actions/)と
 [React の統合](/ja/guides/interactivity/react/#サーバーへ書き込む場合)を参照してください。
 
 light DOM を勧めます。shadow root はここではめったに要らないカプセル化を買う代わりに、

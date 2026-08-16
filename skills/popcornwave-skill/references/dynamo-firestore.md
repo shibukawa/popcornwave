@@ -269,6 +269,9 @@ Sessions and auth can use this store via `sessionstore/firestore`, `authstore/fi
 | Table named inside the SQL text | Dynamo: `table` clause in the declaration; Firestore: the entity type supplies the kind |
 | Seed data via `pw seed` | Not part of these stores |
 | Query diagnostics under `[observability.query]` | SQL-only |
+| Batching via `pgx.Batch` / `CopyFrom` (references/sql.md) | Dynamo: `StoreAll`/`LoadAll` chunked to service limits; Firestore: none |
+
+Both stores are reachable from `pw.Memo` like any other upstream — see references/caching.md. `pw fmt --stdin=dynamo` formats a `.pw.dynamo` declaration read from standard input.
 
 ## Common mistakes
 

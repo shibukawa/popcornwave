@@ -37,6 +37,8 @@ auto = false
 
 **Telemetry viewer.** `pw dev` also runs a loopback OpenTelemetry receiver with a browser UI (`pw dev: telemetry viewer http://127.0.0.1:54321`) and points the application at it through the standard OTLP environment variables, so traces and correlated logs are readable without a collector. It starts nothing when `OTEL_EXPORTER_OTLP_ENDPOINT` is already set.
 
+**Local log capture.** The same application records are also written as newline-delimited JSON under `.log/` (`[dev.logs]`), one file per `pw dev` invocation. That is the file to query when a user asks what happened during a run — see references/telemetry.md.
+
 ## Development console
 
 `pw dev` serves a browser console on a fixed loopback port, printed at startup:
@@ -56,9 +58,9 @@ Panes:
 - **Telemetry** — the dev telemetry viewer, traces named by method and path.
 - **Static assets** — what is served, from where, as what.
 
-An **overlay** puts loop failures (generation, migration, build) over the application's own pages, and reloads a page whose application was replaced.
+Two things sit on the application's own pages rather than on the console. An **overlay** puts loop failures (generation, migration, build) over them and reloads a page whose application was replaced. A **launcher** — a small floating button, `bottom-left` by default — opens the console index in a tab of its own and reuses that tab afterwards; it carries a ring while the loop is between two working applications, which is the only thing on a stale page that says it is stale. Hovering it reveals a control that hides it until the tab closes.
 
-The console is compiled under the `pwdev` build tag: `pw build` does not link any of it, and there is no production switch. Configuration keys: `dev.console.enabled`, `dev.console.port` (default 18081), `dev.console.assets.enabled`, `dev.console.data.enabled`, `dev.console.storybook.enabled`, `dev.console.overlay.enabled`, `dev.console.overlay.reload`, `dev.otel.enabled`. There is no schema editing — the schema moves only by migration.
+The console is compiled under the `pwdev` build tag: `pw build` does not link any of it, and there is no production switch. Configuration keys: `dev.console.enabled`, `dev.console.port` (default 18081), `dev.console.assets.enabled`, `dev.console.data.enabled`, `dev.console.storybook.enabled`, `dev.console.overlay.enabled`, `dev.console.overlay.reload`, `dev.console.launcher.enabled`, `dev.console.launcher.corner`, `dev.otel.enabled`. Turning the overlay **and** the launcher off is what makes a development page byte-identical to a production one. There is no schema editing — the schema moves only by migration.
 
 ## Unit testing with testutil
 
@@ -231,9 +233,23 @@ api_doc_path = "/docs"
 
 Resolved configuration is reported once per start. On a terminal it is a tree ending with `listening on http://localhost:8080`; values that came from other than built-in defaults are marked `← file`, `← env`, or `← flag`. Elsewhere (pipe, container) the same facts become one structured slog record. `observability.boot_log` overrides: `auto` (default), `tree`, `record`, `off`. Secrets are masked; DSNs keep their public location but lose credentials. With `pw.Middlewares` instead of `pw.Run`, the summary is emitted after initialization without the `listening` line. Note the configured `server.port` and the `listening` address can differ in dev (port shift).
 
+## Message catalogs
+
+In a project declaring `[i18n]`, a misspelled message ID, a missing argument, or a language that never supplied a translation already fails `pw generate`. `pw i18n` answers what a build cannot:
+
+```bash
+pw i18n check                    # messages nothing references; translations that drifted from their source text
+pw i18n extract                  # convert i18n-marked template text into catalog entries and references
+pw i18n rename <from> <to>
+pw i18n export <locale> [file]   # hand work to a translator
+pw i18n import <locale> <file>
+```
+
+`extract` prints every ID it chose, and declines a sentence carrying markup — that shape is the rich block form, and a hole name invented by a tool is one no translator can check. See references/i18n.md.
+
 ## Doctor diagnostics
 
-`pw doctor` reports one finding per condition with a stable, never-reused identifier (`PW0412`), each with severity, scope, and a fix. Severity depends on the diagnosed environment: `pw doctor --env=prod` judges the same file more strictly than `--env=dev`. `pw doctor --online` also checks the live database against migration sources. The same checks run in the console's doctor pane.
+`pw doctor` reports one finding per condition with a stable, never-reused identifier (`PW0412`), each with severity, scope, and a fix. Severity depends on the diagnosed environment: `pw doctor --env=prod` judges the same file more strictly than `--env=dev`, and `--env=all` walks every configuration the project holds. `--format=json` is the machine-readable form, `--strict` turns warnings into a failing exit, and `--online` also checks the live database against migration sources. The same checks run in the console's doctor pane.
 
 Categories: PW01xx project/toolchain (stale `_pw_gen.go` files, devbox/go.mod drift, port already bound), PW02xx routes/templates, PW03xx storage/migrations (duplicate versions, database behind sources → `pw migrate up`), PW04xx configuration/secrets/identity (unlinked backends, secrets in files, dev-only relaxations left on), PW05xx production readiness (exposed api_doc, unminified Tailwind, unrevocable session backend). The full catalog is `website/src/content/docs/appendix/diagnostics.md` on the docs site (Appendix → Diagnostics); look findings up by their PW-code.
 

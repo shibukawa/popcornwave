@@ -9,6 +9,8 @@ A file opens with the Go package its generated code joins, followed by declarati
 ```html
 package handlers
 
+messages shop
+
 type User { name: string, active: bool }
 
 enum Tone { Primary, Secondary }
@@ -23,11 +25,13 @@ export component Card(user: User): html { … }
 | Declaration | What it introduces |
 | --- | --- |
 | `package name` | the Go package the generated file joins |
+| `messages scope` | the message catalog `{t …}` references resolve against (see [i18n.md](i18n.md)) |
 | `type Name { field: T, … }` | a record; becomes a Go struct of the same name |
 | `enum Name { A, B }` | a string enum; becomes a Go named type and one constant per member |
 | `component Name(…): html { … }` | a component callable only from other templates |
 | `export component Name(…): html { … }` | the same, plus a Go function |
 | `external Name(…): T` | a Go function in the same package, called from markup |
+| `external Name(…)` | *(no result)* a Go function returning only `error`, callable only from `check` |
 | `external async Name(…): T` | the same, run concurrently and awaited |
 | `external live Name(…): T` | a Go function returning a sequence the boundary re-renders on |
 
@@ -246,6 +250,68 @@ func Decorate(value string, tone Tone) string { … }
 
 Implement the function in the same Go package with the mapped signature. A leading `context.Context` parameter is optional and detected by generation — the template declaration is unchanged either way. That is how request-scoped values (request id, nonce, locale) reach markup without traveling through every params struct. A function called this way must not write the response. An external declared `: html` returns a fragment and renders as a subtree.
 
+A **trailing `error`** on the Go side is also detected from the source, with the template declaration unchanged. Such a function may be called **only as the whole value of a `val` binding** — never in an interpolation, an attribute, a condition, or as an argument to another call, since none of those has anywhere to put a failure. An external declared with **no result type** says an error is its whole answer and may be called only in a `check`.
+
+## `val` — naming a value
+
+Every mention of an expression evaluates it, so an external named in four places is called four times. `val` binds the result to a name:
+
+```html
+{val record = LoadRecord(id)}
+<h1>{record.title}</h1>
+<p>{record.summary}</p>
+```
+
+There is no closer. The name is readable from the directive to the end of the enclosing block — an `if` branch, a `for` body, an `await` subtree, or the declaration body. Markup nesting is not a block, so a binding written inside a `<div>` is still readable after it closes.
+
+**The value is computed at the top of that block**, however much markup comes before it. A page's own top-level binding therefore runs during chain assembly, before the document shell has written a byte, which is what lets a loader choose the response: give the Go function a trailing `error`, return `pw.NotFound(…)`, and the page answers 404 with nothing committed. A binding inside an `if`, `for`, or `await` body runs when that body runs, and so does a layout's — both land after the shell is on the wire, so they end the render without choosing a status. The render path wraps nothing, so an error carrying HTTP intent reaches the caller as returned.
+
+One directive may bind several names, comma separated, and **they cannot read each other** (the rule matches `await`, whose bindings start together). A binding that depends on another is two directives. `val` is immutable; names are lowerCamelCase. Both `.pw.html` and `.pw.sql` accept it — in a query it normalises a value once for several parameter positions and contributes no bytes to the statement.
+
+Generation refuses: an unread binding (the value is computed before anything reads it, and an external is only ever a query); a name already visible where the binding is written — a parameter, an enclosing binding, a `for` variable, an `await` binding, a `recover` name, or a sibling in the same block, because `val` cannot shadow at all when it hoists; an `external async` or `external live` (those bind in an `await` clause); an external returning `html`; and a binding written inside an attribute value.
+
+## `check` — refusing a render
+
+`check` is `val` minus the binding, for a call whose only answer is whether the page may render:
+
+```html
+external Authorize(user: User)
+
+export component Page(user: User): html {
+{check Authorize(user)}
+<h1>{user.name}</h1>
+}
+```
+
+```go
+func Authorize(user User) error {
+	if !user.MayRead() {
+		return pw.Forbidden("not yours")
+	}
+	return nil
+}
+```
+
+No closer, no name enters scope, no bytes contributed. It hoists exactly as `val` does, and its failure goes the same place: the render ends, none of the block is written, and the error reaches the caller unwrapped — so a check at a page's top level chooses the response. An external that *does* declare a result may also be checked, and the result is discarded.
+
+One call per directive; the expression must be a call. There is no async `check`: declaring an `external async` or `external live` with no result fails generation, because a boundary's failure lands after the shell is committed and a `recover` clause could swallow it.
+
+**Pitfall:** a check sits inside a cached subtree, and a `@cache` hit skips it along with everything else. A component whose guard reads anything the key does not carry must not be given a storing `@cache`.
+
+## Messages
+
+With `[i18n]` declared and a `messages <scope>` line at the top of the file:
+
+```html
+<h1>{t title}</h1>
+<p>{t greeting, name: name}</p>
+<a href="/{lang}/about">{t title}</a>
+<html lang="{langtag}">
+{t agree}<a href="/{lang}/start"></a>{/t}
+```
+
+`{t}` alone still interpolates a parameter named `t`; only an identifier followed by another identifier is a message reference. `{lang}` is the URL segment (empty where the locale is not in the path, and an empty value removes the slash before it); `{langtag}` is the tag itself, never empty. The block form `{t id}…{/t}` is for a sentence carrying markup; it is legal where children are legal, never inside an attribute value. Everything else — the catalog format, plurals, routing modes, the switcher — is in [i18n.md](i18n.md).
+
 ## Async, await, and live sources
 
 ```html
@@ -283,16 +349,34 @@ A form with method `post`, `put`, `patch`, or `delete` gets a hidden CSRF field 
 ## `@cache`
 
 ```html
-@cache(ttl: "5m")
+@cache(ttl: "5m", scope: "public")
 export component Sidebar(userId: string, tone: Tone): html { … }
 ```
 
-`ttl` is required and parsed at generation time. The cache key covers the package/file, the generated plan, and every declared parameter — nothing else, so identity, authorization, and locale must arrive as parameters or the component must not be cached. Generation rejects `@cache` on a component that declares an `html` or `async` parameter (or a record reaching one), reaches an `await` boundary, owns the document head, or reaches an unsafe form.
+Two arguments, and which you write decides what it does; writing neither is a generation error.
+
+- **`ttl`** asks for storage, and is parsed at generation time. The key covers the package/file, a fingerprint of the generated plan, and every declared parameter — nothing else, so identity, authorization, and locale must arrive as parameters or the component must not be stored. A `ttl` on a layout or the document shell is an error: the expiry could not happen.
+- **`scope`** takes `"private"` or `"public"` and defaults to `"private"`. A private key is prefixed with `pw.RequestAuthentication(ctx).Subject`. Without a `ttl` the annotation stores nothing and computes no key, so that form may sit on a layout, the document shell, or a page that awaits — which is how a site declares its pages shared, and how an author states a privateness the call graph cannot see. `scope: "public"` on a component whose call graph reaches a declared private one is a generation error.
+
+A **storing** `@cache` is rejected on a component declaring an `html` or `async` parameter (or a record reaching one), reaching an `await` boundary, owning the document head, reaching an unsafe form, or reaching a provider-backed builtin element. See [caching.md](caching.md) for what to declare and why the default is what it is.
+
+## Component scripts and client handlers
+
+A component may declare one `<script component>` block, whose exported `setup` runs per rendered instance and whose return value is the set of handlers markup can name:
+
+```html
+<script component>
+  export function setup({ el, teardown, onSignal, props, actions }) { … }
+</script>
+<button on-click="increment">+1</button>
+```
+
+`on-<event>` is reserved only inside such a component, resolves against what `setup` returns, and lowers every pair on one element into `data-tb-on="click:increment"`. The value is a name, not a call. A `setup` destructuring `props` makes generation emit those parameters onto the root element as `data-tb-props` JSON. The block requires exactly one root element and absolute imports, and its content is read verbatim (a brace is JavaScript). Full rules in [interactivity.md](interactivity.md).
 
 ## Restrictions to know
 
 - Every hyphenated element (`<my-widget>`) is a generation error — nothing is declared in the custom-element whitelist today. Hyphenated names inside `<svg>`/`<math>` are exempt; runtime-written `<tb-boundary>`/`<tb-apply>` are unaffected.
-- Inside a page tree, `<button server-action="Rename">` names an exported Go handler and lowers to `data-pw-action="/_action/<hash>/Rename"`; an unresolved name is a generation error. See references/rendering.md.
+- Inside a page tree, `server-action="Rename"` names an exported Go handler and lowers to `data-tb-action="/_action/<hash>/Rename"` — plus, on a `<form>`, `method="post"`, a hidden `_action` selector, a hidden `_csrf` field, and no `action` attribute. An unresolved name is a generation error, and so is a name resolving to a typed `pw.ServerAction` function. See [interactivity.md](interactivity.md).
 
 ## Error templates
 
@@ -315,6 +399,8 @@ It receives the mapped problem, never the original error.
 - A slot inside `for` or `await`, or a `required` marker disagreeing with the parameter type (`required` ↔ `html`, absent ↔ `html?`).
 - A bare element selector in a scoped style block.
 - Calling `external async` outside an `await` binding, or an `await` block with no `fallback`.
+- Calling a failing external anywhere but the whole value of a `val`, or a result-less one anywhere but a `check`; a `val` reusing a visible name; two calls in one `check`.
 - A form control inside a live boundary's primary subtree.
-- `@cache` on a component with `html`/`async` params, a boundary, an unsafe form, or the document head.
+- `@cache` carrying neither `ttl` nor `scope`; a storing `@cache` on a component with `html`/`async` params, a boundary, an unsafe form, or the document head; a `ttl` on a layout or shell; `scope: "public"` over a declared private component.
+- `on-click="increment()"` instead of `on-click="increment"`, or a handler name the script block does not return.
 - Editing `_pw_gen.go` by hand, or forgetting `pw generate` after a template change — the Go build sees the previous plan until you run it.

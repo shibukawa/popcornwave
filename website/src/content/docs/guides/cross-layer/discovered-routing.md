@@ -336,12 +336,13 @@ The attribute lowers to one carrying the endpoint, and every other attribute is
 left alone:
 
 ```html
-<button data-pw-action="/_action/00369cf962b6/Rename" data-target="#name">rename</button>
+<button data-tb-action="/_action/00369cf962b6/Rename" data-target="#name">rename</button>
 ```
 
-That is the entire contract. `server-action` resolves a name to a URL and writes
-it down; it models no client protocol, so what `data-target` means is your
-runtime's decision.
+`data-tb-action` is what the framework runtime reads. Everything beside it is
+untouched, so what `data-target` means is still your own code's decision — the
+lowering resolves a name to an address and models nothing about what a click
+should then do to the page.
 
 What this buys over a handwritten `action="/users/42/rename"` is the compiler. A
 URL is a string that is never checked against the handler it names. A name is a

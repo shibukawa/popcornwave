@@ -3,20 +3,23 @@ name: popcornwave
 description: >
   Guidelines for working in a Popcorn Wave (pw) Go web project. Load this when
   creating or editing .pw.html templates, .pw.sql / .pw.dynamo / .pw.firestore
-  queries, handlers, pages, popcornwave.toml, or config.*.toml; when adding
-  routes, database access, sessions, or auth; or when running, building,
+  queries, handlers, page trees, message catalogs, popcornwave.toml, or
+  config.*.toml; when adding routes, server actions, component scripts,
+  database access, caching, sessions, auth, WebSockets, or another language;
+  when building for fasthttp, TinyGo, or a serverless host; or when running,
   checking, or debugging a project with the pw command (pw dev, pw generate,
-  pw build, pw doctor, pw migrate, pw fmt); or when investigating structured
-  development logs in .log with DuckDB.
+  pw build, pw doctor, pw migrate, pw fmt, pw i18n); or when investigating
+  structured development logs in .log with DuckDB.
 ---
 
 # Popcorn Wave
 
 Popcorn Wave is a Go web framework built around code generation: you author
 typed template sources (`.pw.html`), typed query sources (`.pw.sql`,
-`.pw.dynamo`, `.pw.firestore`), Go handlers, and TOML configuration; the `pw`
-command generates the Go that glues them together. Routing stays on
-`pw.ServeMux`, a type alias compatible with `net/http.ServeMux`.
+`.pw.dynamo`, `.pw.firestore`), Go handlers, message catalogs, and TOML
+configuration; the `pw` command generates the Go that glues them together.
+Routing stays on `pw.ServeMux`, a type alias compatible with
+`net/http.ServeMux`, and handlers stay `http.HandlerFunc`.
 
 ## Hard rules
 
@@ -34,10 +37,16 @@ command generates the Go that glues them together. Routing stays on
    guess syntax — read [references/templates.md](references/templates.md) and
    [references/sql.md](references/sql.md) before writing either.
 4. **Prefer `pw new` over hand-scaffolding** a handler or page: it writes the
-   route, the template, and the registration in the shape generation expects.
+   route, the template, the loader, and the registration in the shape
+   generation expects.
 5. **Configuration is per-environment.** `config.dev.toml` is development;
    deployed environments read `config.prod.toml` (selected by `APP_ENV`) and
-   pass secrets as `${ENV_VAR}` references, never literals.
+   pass secrets as `${ENV_VAR}` references, never literals. `popcornwave.toml`
+   is build configuration and holds no runtime setting at all.
+6. **A cache scope defaults to private, and that default is a security
+   boundary.** `@cache` and `pw.Memo` both key per reader unless you write
+   `scope: "public"`. Promote only output that is a function of its declared
+   parameters and nothing else — see [references/caching.md](references/caching.md).
 
 ## Check loop — run after every change
 
@@ -55,11 +64,17 @@ pw doctor          # configuration and project health report
 
 - `pw fmt --check` and `pw generate --check` verify without writing (CI, and
   package projects whose artifacts are committed).
+- `pw i18n check` additionally reports messages nothing references and
+  translations that drifted from the source text they were translated from.
+  Run it in a project that declares `[i18n]`; a missing or misspelled message
+  already fails `pw generate`.
 - `pw build` is the full pipeline: generate, build assets, compile the binary.
-  Use it as the final gate for asset-touching changes.
-- `pw doctor --env=prod` (or any config token) reports what that environment
-  will actually run — use it after editing `config.<env>.toml`. `--online`
-  additionally contacts the database and reads migration state.
+  Use it as the final gate for asset-touching changes, and for anything that
+  must also compile on the fasthttp half (`pw build --backend fasthttp`).
+- `pw doctor --env=prod` (or any config token, or `--env=all`) reports what that
+  environment will actually run — use it after editing `config.<env>.toml`.
+  `--online` additionally contacts the database and reads migration state;
+  `--format=json` is the machine-readable form.
 - Template/query type errors surface in `pw generate`; route conflicts and
   config mistakes surface in `pw doctor` and at startup.
 
@@ -72,8 +87,9 @@ already pass.
 
 `pw dev` watches sources, regenerates, rebuilds, restarts, and starts the
 development services the project declares (database server, Valkey,
-dynamodb-local, dev identity provider). The startup summary prints the port
-and every mounted route. Development conveniences (dev console, relaxed auth,
+dynamodb-local, dev identity provider, telemetry viewer). The startup summary
+prints the port and every mounted route, and a floating launcher on every served
+page opens the dev console. Development conveniences (dev console, relaxed auth,
 seeded logins) exist only under `pw dev` — never replicate them in handlers.
 
 For database schema changes: write a new `migrations/NNNNN_name.sql` (never
@@ -84,13 +100,17 @@ development. `pw migrate status` shows where you are.
 
 | Task | Reference |
 | --- | --- |
-| Project layout, generation model, routers, build pipeline | [references/architecture.md](references/architecture.md) |
-| Writing `.pw.html` templates (syntax, components, slots, types) | [references/templates.md](references/templates.md) |
+| Project layout, generation model, routers, request path, build pipeline | [references/architecture.md](references/architecture.md) |
+| Writing `.pw.html` templates (syntax, `val`, `check`, components, slots, types) | [references/templates.md](references/templates.md) |
 | Page trees (discovered routing), async/partial/live rendering, forms | [references/rendering.md](references/rendering.md) |
-| Handlers, request binding, responses, middlewares, sessions, auth | [references/handlers.md](references/handlers.md) |
-| `.pw.sql` queries, migrations, seed data | [references/sql.md](references/sql.md) |
+| Server actions, component scripts, `on-<event>` handlers, signals | [references/interactivity.md](references/interactivity.md) |
+| Handlers, request binding, responses, streams, WebSockets, middleware, sessions, auth | [references/handlers.md](references/handlers.md) |
+| `@cache` on components, `pw.Memo` on fetched data, cache scope | [references/caching.md](references/caching.md) |
+| Message catalogs, `{t}`, locale routing, the language switcher | [references/i18n.md](references/i18n.md) |
+| `.pw.sql` queries, migrations, seed data, batching, the pgx escape hatch | [references/sql.md](references/sql.md) |
 | DynamoDB and Firestore stores | [references/dynamo-firestore.md](references/dynamo-firestore.md) |
 | `popcornwave.toml`, `config.<env>.toml`, config declarations | [references/config.md](references/config.md) |
+| Build targets (net/http, fasthttp, TinyGo, WASI), build tags, serverless hosts | [references/deployment.md](references/deployment.md) |
 | Local JSONL logs, trace correlation, and DuckDB analysis | [references/telemetry.md](references/telemetry.md) |
 | pw dev, testing, e2e, API docs, diagnostics | [references/workflow.md](references/workflow.md) |
 
@@ -99,15 +119,17 @@ development. `pw migrate status` shows where you are.
 | Command | Purpose |
 | --- | --- |
 | `pw init` | create a project in a new directory (wizard, or `--yes` + flags) |
-| `pw add <capability>` | enable a declined capability (database, auth, tailwind, …) later |
-| `pw new [handler\|page]` | scaffold a handler or page beside the ones you have |
+| `pw add <capability>` | enable a capability declined at init (database, auth, tailwind, …) |
+| `pw new [handler\|page]` | scaffold a handler or a page beside the ones you have |
 | `pw generate [--check]` | regenerate everything derived from your sources |
-| `pw fmt [--check] [<path>…]` | format template sources into canonical form |
+| `pw fmt [--check] [--stdin=html\|sql\|dynamo] [<path>…]` | format template sources into canonical form |
+| `pw i18n check\|extract\|rename\|export\|import` | reconcile message catalogs against the templates that use them |
 | `pw migrate <action>` | inspect and apply database migrations |
 | `pw seed [<name>…]` | load seed datasets into the database |
-| `pw prepare` | generate and build assets, stopping before the compiler |
-| `pw build` | generate, build assets, and compile the project |
+| `pw prepare [--backend …]` | generate and build assets, stopping before the compiler |
+| `pw build [--backend …] [--target …] [--debug]` | generate, build assets, and compile the project |
 | `pw dev` | watch, regenerate, rebuild, restart, and run dev services |
-| `pw doctor [--env=…] [--strict]` | report what an environment will actually run |
+| `pw doctor [--env=…] [--format=json] [--strict] [--online]` | report what an environment will actually run |
+| `pw version` | print the version, revision, and toolchain |
 
 Documentation: https://shibukawa.github.io/popcornwave/

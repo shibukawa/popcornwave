@@ -61,7 +61,7 @@ validator_key = "${HTML_UPDATE_VALIDATOR_KEY}"
 ```html
 export component RenameForm(orderID: string): html {
 <script component>
-  export function setup({ el: form }) {
+  export function setup({ el: form, teardown }) {
     if (!window.popcornwave) return;
 
     async function submit(event) {
@@ -76,7 +76,7 @@ export component RenameForm(orderID: string): html {
     }
 
     form.addEventListener("submit", submit);
-    return () => form.removeEventListener("submit", submit);
+    teardown(() => form.removeEventListener("submit", submit));
   }
 </script>
 <form method="post" action="/orders/rename">
@@ -89,8 +89,11 @@ export component RenameForm(orderID: string): html {
 
 `updateHeaders()` はアクション更新であることを伝え、設定済みなら現在のCSRFヘッダーも
 加えます。`apply()` はハンドラが返した領域を適用します。4xx応答に載せた入力エラーも
-対象です。送信リスナーの寿命は[コンポーネントスクリプト](/ja/guides/interactivity/component-scripts/)
-がフォームの寿命に揃えるので、フォームを差し替えてもリスナーが二重に残りません。
+対象です。リスナーの解除は後始末の関数を返すのではなく `teardown` に登録します。`setup`
+の戻り値は、そのコンポーネントが公開するハンドラの集合という一つの意味だけを持つからです
+（[コンポーネントスクリプト](/ja/guides/interactivity/component-scripts/#解放は差し替えの前に走る)を
+参照）。そこまでしてコンポーネントスクリプトに書く意味は、フォームを差し替えても送信
+リスナーが二重に残らないことにあります。
 
 JavaScriptから各経路を直接始めることもできます。
 

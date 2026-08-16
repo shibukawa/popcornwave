@@ -20,7 +20,7 @@ myapp/
 │   ├── page.pw.html        # GET /
 │   └── greet/name_/        # GET /greet/{name}
 │       ├── page.pw.html
-│       └── page.go         # optional Load() between request and render
+│       └── page.go         # optional: loaders the template binds, server actions, or Load(w, r)
 ├── templates/              # the one document shell + error pages, shared by both routers
 │   ├── document.pw.html
 │   ├── templates.go
@@ -30,14 +30,19 @@ myapp/
 │   └── users.pw.sql
 ├── migrations/             # one ordered migration stream for the whole application
 │   └── 00001_init.sql
+├── messages/               # message catalogs, one YAML file per scope (present with [i18n])
+│   └── shop.yaml
 ├── public/                 # static assets as you author them
 │   └── app.css
 ├── public.go               # package publicassets; go:embed all:dist/public (hand-owned, not generated)
 ├── dist/                   # build output: dist/public is the built asset tree that ships
 │   └── public/.keep        # sentinel so go:embed works before the first build
+├── .pw/build/              # build output for --target artifacts (serverless packaging)
+├── .log/                   # pw dev's JSONL application log, one file per invocation
+├── skills/ or .claude/skills/  # the framework skill pw init copied, if it was asked to
 ├── devbox.json             # pinned toolchain + dev services (optional)
 ├── .vscode/settings.json   # hides *_pw_gen.go from the editor
-└── .gitignore              # ignores *_pw_gen.go, dist/*, the binary
+└── .gitignore              # ignores *_pw_gen.go, dist/*, .pw/, .log/, the binary
 ```
 
 Notes on ownership:
@@ -55,7 +60,9 @@ Notes on ownership:
 | A registered route + handler | `handlers/*.go`, register on the package mux in `init()` | nothing else — `pw dev` regenerates |
 | A page template used by a handler | same directory as the handler (`handlers/`) | directory must be listed under `generate.templates` |
 | A discovered-routing page | `pages/<segment>/page.pw.html` | directory name is the route; `name_/` = `{name}`, `rest__/` = `{rest...}` |
-| Go logic for a page | `page.go` beside `page.pw.html`, `func Load(...)` | signature decides the rung (typed vs raw handler) |
+| Data for a page | an `external` in `page.pw.html` bound with `{val …}`, implemented in `page.go` | the loader chooses the status by returning an error |
+| A page that owns its whole response | `page.go` beside `page.pw.html`, `func Load(w, r)` | it composes its own wrapper chain |
+| A server action for a page | an exported handler in the route package, named by `server-action` | see references/interactivity.md |
 | A typed SQL query | `queries/*.pw.sql` | directory must be listed under `generate.queries` |
 | A schema change | `migrations/NNNNN_name.sql` | `pw dev` applies it (unless `migration.auto = false`) |
 | A static file | `public/…` | served at `/public/…` after a build copies it to `dist/public` |
@@ -99,7 +106,9 @@ Rules that matter in practice:
 - Exactly one `generate.templates` entry holds the document shell; a second `document.pw.html` anywhere fails generation.
 - A `generate.pages` entry is a whole tree and must not be listed under (or nested with) `templates` or `handlers`.
 
-Besides declaration files, generation reads Go source for call sites: `pw.Parse[T]`, `pw.WriteAPI[T]`, `pw.NewStream[T]`, `pw.RegisterConfig[T]`, `pw.RegisterSubCommand[T]`, and the error constructors (`pw.BadRequest` etc.). The same evidence feeds one OpenAPI 3.1 fragment per package, merged deterministically at build time.
+Besides declaration files, generation reads Go source for call sites: `pw.Parse[T]`, `pw.WriteAPI[T]`, `pw.WriteStatus[T]`, `pw.WriteStream[T]`, `pw.WebSocket[In, Out]`, `pw.Memo` (its key type), `pw.ServerAction`, `pw.RegisterConfig[T]`, `pw.RegisterSubCommand[T]`, and the error constructors (`pw.BadRequest` etc.). It also reads the Go implementations of declared `external`s, to see which take a leading `context.Context` and which return a trailing `error`. Most of the same evidence feeds one OpenAPI 3.1 fragment per package, merged deterministically at build time.
+
+Two purposes not listed in `[generate]`: message catalogs are read from `i18n.catalog` (default `messages/`) and compiled into a typed Go package, and the page tree is a single purpose covering both its templates and its route registrations.
 
 ## `_pw_gen.go` files
 
@@ -144,7 +153,7 @@ func init() { mux.HandleFunc("GET /dashboard", dashboard) }
 
 `pw.ServeMux` is a **type alias**: `pw.NewServeMux` returns `*http.ServeMux` on ordinary Go builds. Patterns, wildcards, and precedence are exactly the standard library's. A separate implementation with the same semantics is compiled in only for TinyGo. Non-TinyGo scaffolds may use `http.NewServeMux()` directly — the two are the same type there.
 
-Discovered routing: `pw generate` walks the `pages` tree and writes the registrations. One trailing underscore in a directory name is a dynamic segment, two are a catch-all (`pages/users/id_/` → `GET /users/{id}`, `pages/files/rest__/` → `GET /files/{rest...}`). Bracket spellings like `[id]` are impossible because the directory is also a Go package. The root page registers `GET /{$}`, not `GET /`. A page alone is a generated handler; adding `page.go` with `func Load(id string) (User, error)` puts typed Go between decode and render; a `Load(w http.ResponseWriter, r *http.Request)` takes over the response entirely.
+Discovered routing: `pw generate` walks the `pages` tree and writes the registrations. One trailing underscore in a directory name is a dynamic segment, two are a catch-all (`pages/users/id_/` → `GET /users/{id}`, `pages/files/rest__/` → `GET /files/{rest...}`). Bracket spellings like `[id]` are impossible because the directory is also a Go package. The root page registers `GET /{$}`, not `GET /`. A page alone is a generated handler, and it loads its own data through an `external` the template binds with `{val …}`; adding `page.go` with `func Load(w http.ResponseWriter, r *http.Request)` takes over the response entirely. There is no rung in between — the typed `Load` that used to sit there was retired.
 
 Both share one mux without negotiating:
 
@@ -177,24 +186,34 @@ The generated layers come from `tinybind-go`, wrapped behind the single stable `
 | `sqlbind` | typed SQL statements and result scanning |
 | `configbind` | configuration binding, scaffolds, subcommands |
 
+`pw` is the surface to reach for, with one exception. In a project that declares
+`project.fasthttp`, `pw` is absent from the second build, so any file that is not
+excluded by a build tag must reach for the transport-neutral package instead:
+`pwruntime`, `pwconfig`, `pwsession`, `pwdatabase`, `pwobservability`,
+`pwextension`, `pwratelimit`, `pwbrowser`. Each publishes what `pw` re-exports.
+See references/deployment.md.
+
 ### The request path
 
 A request passes a fixed chain before your handler; each stage depends on the one above:
 
 | Stage | What it decides |
 | --- | --- |
-| Operational endpoints | health, readiness, framework assets answer above everything |
-| Public assets | a static file is served without touching a route |
-| Body limit | an oversized body is refused before it is read |
-| Security headers | the response policy the browser will apply |
+| Tracing, resources, client address, request id, access log | what every later frame and log record can see |
 | Recovery | a panic becomes a response instead of a dropped connection |
+| Security headers and CORS | the response policy the browser will apply; a preflight is answered here |
+| Process rate-limit ceiling | an unkeyed flood is refused before anything is resolved |
+| Request timeout, body limit | an oversized or endless request is refused before it is read |
+| Public assets | a static file is served without touching a route |
+| Operational endpoints | health, readiness, framework assets answer above every route |
 | Session | the cookie becomes a validated record, or the request is anonymous |
 | Authentication | the login endpoints answer their own paths |
+| Keyed rate limit | this subject or address has budget left |
 | CSRF | an unsafe request proves it came from your page |
 | Guard | an unauthenticated request to a protected path is redirected |
 | Your handler | — |
 
-Login endpoints sit above CSRF, so a login POST and an OIDC callback never need a token.
+Login endpoints sit above CSRF, so a login POST and an OIDC callback never need a token. The keyed limiter sits below authentication because a per-subject budget needs a resolved identity; the unkeyed ceiling sits near the top because that is the only layer a distributed flood meets. Slot numbers and how to register your own are in references/handlers.md.
 
 ## The pw command
 
@@ -203,10 +222,12 @@ Login endpoints sit above CSRF, so a login POST and an OIDC callback never need 
 | `pw init` | create a runnable project in a new directory |
 | `pw add` | install a capability the project declined at init (database, dynamo, firestore, images, …) |
 | `pw new` | scaffold one more handler, route, and template |
-| `pw generate` | compile `.pw.html`, `.pw.sql`, page trees, and call sites into Go |
+| `pw generate` | compile `.pw.html`, `.pw.sql`, page trees, catalogs, and call sites into Go |
+| `pw fmt` | rewrite template and query sources into canonical form |
+| `pw i18n` | reconcile message catalogs against the templates that use them |
 | `pw dev` | watch, regenerate, migrate, rebuild, restart |
 | `pw prepare` | everything a build needs, stopping before the compiler |
-| `pw build` | produce a release binary |
+| `pw build` | produce a release binary, or a provider-targeted artifact |
 | `pw migrate` / `pw seed` | inspect/apply migrations; load seed datasets |
 | `pw doctor` | resolve a named environment (`--env=prod`) and report findings with stable `PW0xxx` identifiers |
 
@@ -218,8 +239,10 @@ Generation runs before compilation, always:
 
 - **`pw generate [--check]`** — compiles templates, SQL, page trees, and call sites into `_pw_gen.go` files beside their sources. `--check` writes nothing and exits non-zero listing stale files; use it in CI, since gitignored output can't show staleness in a diff.
 - **`pw dev`** — the everyday loop. On startup: starts Devbox services, runs `pw generate`, applies pending migrations (unless `migration.auto = false`), builds Tailwind CSS unminified and starts its watcher, starts the dev identity provider and telemetry viewer if configured, then builds and runs `project.main`. It then polls watched files twice a second and repeats only the affected steps. It watches the whole module (any Go source is a rebuild input), wider than the `[generate]` purposes; trim with `dev.watch.excludes`, extend with `dev.watch.includes`. In dev, a taken `server.port` shifts to the next free one (up to ten) with a warning; every other `APP_ENV` binds strictly.
-- **`pw build`** — release binary: runs `pw generate`, builds Tailwind **minified** (overriding `assets.tailwind.minify`), builds the asset tree into `dist/public` (conversions, `.zstd` sidecars, cache manifest), rejects the build if `project.main` depends on a development-only package (`contrib/devidp`), then runs `go build` on `project.main`. Cross-compile with the usual `GOOS`/`GOARCH` env vars.
-- **`pw prepare`** — `pw build` without the final compile step. Use it before invoking a different compiler yourself.
+- **`pw build`** — release binary: runs `pw generate`, builds Tailwind **minified** (overriding `assets.tailwind.minify`), builds the asset tree into `dist/public` (conversions, `.br`/`.zstd`/`.gz` sidecars, cache manifest), rejects the build if `project.main` depends on a development-only package (`contrib/devidp`), then runs `go build` on `project.main`. Cross-compile with the usual `GOOS`/`GOARCH` env vars. `--backend fasthttp` compiles the rewritten transport half instead; `--target` packages the result for a serverless host under `.pw/build/<target>/<backend>/`; `--debug` keeps the source map and Go symbols. See references/deployment.md.
+- **`pw prepare`** — `pw build` without the final compile step. Use it before invoking a different compiler yourself (TinyGo).
+
+The asset build also **verifies** what it embeds (`[assets.verify]`, on by default): a public file whose bytes contradict its extension, or an `.svg` carrying `<script`, an `on…=` handler, or `javascript:`, fails the build and is named. `pw doctor` reports the same two conditions without a build (PW0130, PW0131).
 
 Both `pw dev` and `pw build` generate first, so direct `pw generate` invocation is mostly for CI and for diagnosing generation errors. Every `pw` command except `init` and `version` locates the project by walking up to `popcornwave.toml`, so it works from any subdirectory.
 
@@ -241,16 +264,17 @@ func init() {
 
 The `init` registration is why `main` never mentions assets: the framework mounts the filesystem at `server.public.mount` (default `/public`) during startup. `pw build` copies or transforms `public/` into `dist/public` (byte-for-byte when no conversions are enabled) and writes a generated manifest (`public_manifest_pw_gen.go`) that decides every cache header ahead of time. A URL the build did not declare is a 404 regardless of what the tree holds. Files keeping their authored name get `public, no-cache` + strong `ETag`; files the build produced are digest-named and get `immutable`. `dist/public/.keep` exists only so `go:embed` does not fail before the first build; the build replaces the tree.
 
-## TinyGo
+## Other build targets
 
-The generated path uses no runtime reflection, which is what makes TinyGo a first-class target. `pw build` always links with host `go`; a TinyGo build runs the preparation and then the compiler itself:
+The generated path uses no runtime reflection, which is what makes TinyGo a first-class target and what lets one source tree also compile against fasthttp. Three ways to ship, selected outside the source:
 
 ```sh
-pw prepare
-tinygo build -scheduler=threads -o myapp ./cmd/myapp
+pw build                                # host Go on net/http — the default
+pw build --backend fasthttp             # the rewritten transport half
+pw prepare && tinygo build -scheduler=threads -o myapp ./cmd/myapp
 ```
 
-Use `pw prepare`, not bare `pw generate` — generation alone does not build `dist/public`, and `go:embed` fails on a tree that was never built. `-scheduler=threads` is required for network-protocol database engines; `database/postgres` and `database/mysql` refuse to compile without it. TinyGo scaffolds include a root `tinygohelper.go` (`//go:build tinygo`) that blank-imports `github.com/shibukawa/tinygodriver/netdev`; without it a TinyGo binary exits at startup with `Netdev not set`. Projects created `--no-tinygo` lack the file — add it before switching. On TinyGo, `pw.NewServeMux` compiles in the framework's own ServeMux implementation with Go 1.22 pattern semantics, since TinyGo's does not support them.
+Each has constraints worth reading before adopting it — file layout for the fasthttp rewrite, `-scheduler=threads` and `tinygohelper.go` for TinyGo, `-no-debug` for WASI. They are all in [references/deployment.md](deployment.md), with the build-tag table and the serverless host matrix.
 
 ## Common mistakes
 
