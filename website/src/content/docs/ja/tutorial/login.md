@@ -174,6 +174,49 @@ port = 18080
 pw migrate up
 ```
 
+### コードを書く前にログインする
+
+`handlers/` は1文字も変えていません。それでも、もう試せることがあります。ループを
+起動してください。
+
+```sh
+pw dev
+```
+
+いつもの出力に混じって、起動したプロバイダが報告されます。
+
+```
+devidp: development identity provider on http://127.0.0.1:18080; no password is checked
+pw dev: identity provider http://127.0.0.1:18080
+pw dev:   login screen http://127.0.0.1:18080/login
+pw dev:   client pw-dev-xCD4SA98_as (secret injected as AUTH_OIDC_CLIENT_SECRET)
+pw dev:   users admin, member
+```
+
+issuer とクライアント資格情報は環境変数としてアプリケーションのプロセスに渡ります。
+プロバイダに関する何も、コミットされる設定ファイルには書かれません。
+
+<http://localhost:8080/> を開いてください。`pw dev` が出したホストであり、雛形の
+`auth.oidc.redirect_url` が指しているホストでもあります。両方が同じ事実の裏表です。
+ある origin で始めたログインが別の origin の cookie に戻ってきたら、コールバックは
+照合するものを持たないまま届き、拒否されます。
+
+メモのページには着きません。リクエストはプロバイダのログイン画面へリダイレクトされ、
+そこに2人のユーザーが待っています。**Member** を選んでください。
+
+![パスワードを検証しないと警告しつつ Administrator と Member を提示する開発用 ID プロバイダ](../../../../assets/screenshots/tutorial-login.png)
+
+ブラウザが戻る先は、3章のままのメモページです。見出しは **Memos** のままで、誰が書いた
+ものも全部並んでいます。それが正直な状態です。セッションはもうあり、アプリケーションは
+まだ、それが誰のものかを尋ねていません。
+
+その間に起きたことを、このプロジェクトは実装していません。プロバイダへのリダイレクト、
+コールバック、検証、アカウントの照合、セッションレコード、cookie。3つのルート
+`/auth/login`、`/auth/callback`、`/auth/logout` は機能と一緒に来たもので、ここのどの
+ハンドラもそれらに言及しません。ここまでで編集したのは、すべて設定です。
+
+この章の残りは、フレームワークが代わりにやれない部分です。メモが誰のものかを決めること。
+
 ## 3. メモに持ち主を持たせる
 
 テーブルは持ち主という概念より前に作られています。適用済みのマイグレーションを編集するのではなく、
@@ -205,6 +248,25 @@ INSERT INTO memos (author, body) VALUES ({author}, {body})
 
 ステートメントのパラメータを変えると生成される関数のシグネチャが変わるので、新しい引数を
 渡すまで呼び出し側はコンパイルできません。1章がテンプレートで見せたのと同じ境界です。
+
+両方保存して、それを見てください。`pw dev` は再生成し、そこで止まります。
+
+```
+# memoapp/handlers
+handlers/home_handler.go:26:35: not enough arguments in call to queries.ListMemos
+	have (context.Context)
+	want (context.Context, string)
+handlers/home_handler.go:45:38: not enough arguments in call to queries.CreateMemo
+	have (context.Context, string)
+	want (context.Context, string, string)
+```
+
+エラーは2つ。この2つが、この章に残った仕事のすべてです。テーブルに列を足すのは
+どのコンパイラにも見えないスキーマの変更ですが、*ステートメント*に列を足すのは、
+すべての呼び出し側が答えなければならないシグネチャの変更です。同じテーブルに向けた
+作業でも、マイグレーションとクエリーの編集は種類が違う、と気づくならここです。
+
+4節は2つとも答えます。答えはどちらも同じ3行、これは誰かと尋ねることです。
 
 ## 4. ユーザーを読む
 
@@ -309,41 +371,22 @@ export component Home(displayName: string, memos: Memo[]): html {
 セッションを終わらせるリンクは、ブラウザの先読みや他人のページの画像タグから叩けてしまいます。
 `GET /auth/logout` は `405` を返します。
 
-## 5. ログインする
+## 5. 片方のアカウント、そしてもう片方
 
-```sh
-pw dev
-```
+保存します。ビルドが通り、アプリケーションが再起動し、2節から **Member** のまま
+開いていたページの見出しが **Member's memos** に変わります。3章のメモはそこから
+消えています。テーブルには残っていて、持ち主が空文字列で、`Member` は空文字列では
+ないというだけです。
 
-いつもの出力に加えて、ループが起動したプロバイダを報告します。
+メモを1件書いてください。**Sign out** して **Administrator** で入り直すと、一覧は
+空です。このアプリケーションが一度も見たことのないアカウントが、同じテーブルを
+見ている状態です。こちらでも1件書いてください。**Member** に戻ると、Member のメモが
+あって、Administrator のメモはありません。
 
-```
-devidp: development identity provider on http://127.0.0.1:18080; no password is checked
-pw dev: identity provider http://127.0.0.1:18080
-pw dev:   login screen http://127.0.0.1:18080/login
-pw dev:   client pw-dev-xCD4SA98_as (secret injected as AUTH_OIDC_CLIENT_SECRET)
-pw dev:   users admin, member
-```
-
-issuer とクライアント認証情報は環境変数としてアプリケーションのプロセスに注入されます。
-プロバイダに関する値は、コミットされる設定ファイルには何も書かれません。
-
-<http://localhost:8080/> を開いてください。`pw dev` が表示したホストであり、雛形の
-`auth.oidc.redirect_url` が指しているホストでもあります。どちらも同じ一つの事情です。
-あるオリジンで始めたログインは、別のオリジンの Cookie へ戻ってきます。検証すべきものを
-何も持たないコールバックが届き、拒否されて終わります。リクエストはプロバイダの
-ログイン画面へリダイレクトされ、そこに2人のユーザーが待っています。**Member** を選ぶと、
-ブラウザは **Member's memos** という見出しのメモページに戻ってきます。
-
-![Administrator と Member のアカウントが並び、パスワードを検証しないことを示す開発用 IdP のログイン画面](../../../../assets/screenshots/tutorial-login.png)
-
-メモを1件書いてください。サインアウトして **Administrator** で入り直すと、一覧は空です。
-**Member** で入り直せば、さっきのメモがあります。
-
-その間に起きたことのうち、アプリケーションが実装したものは1つもありません。プロバイダへの
-リダイレクト、コールバック、検証、アカウントの照合、セッションレコード、Cookie。
-`/auth/login`、`/auth/callback`、`/auth/logout` の3つのルートは機能と一緒に来たもので、
-このプロジェクトのどのハンドラもそれらに言及していません。
+同じ事実を平らに見せるのが **data** ペインです。`memos` テーブルは1つ、`author` 列に
+異なる値が2つ、そしてどの行も、コンソールを開ける人には全部見えています。アカウント間の
+分離は WHERE 句であって、保存先の性質ではありません。到達しないはずの `!ok` 分岐を
+それでも書いておく3行に、意味があるのはそのためです。
 
 ## あえて足りていないもの
 

@@ -187,6 +187,52 @@ Then apply the migrations:
 pw migrate up
 ```
 
+### Sign in before writing any code
+
+Nothing in `handlers/` has changed, and there is already something to try. Start
+the loop:
+
+```sh
+pw dev
+```
+
+Alongside the usual output, it reports the provider it started:
+
+```
+devidp: development identity provider on http://127.0.0.1:18080; no password is checked
+pw dev: identity provider http://127.0.0.1:18080
+pw dev:   login screen http://127.0.0.1:18080/login
+pw dev:   client pw-dev-xCD4SA98_as (secret injected as AUTH_OIDC_CLIENT_SECRET)
+pw dev:   users admin, member
+```
+
+The issuer and the client credentials reach the application process as
+environment variables, so nothing about the provider is written into a committed
+configuration file.
+
+Open <http://localhost:8080/> — the host `pw dev` printed, and the one the
+scaffolded `auth.oidc.redirect_url` names. Both matter and they are the same
+fact: a login begun at one origin returns to another origin's cookies, so the
+callback would arrive holding nothing to check and be refused.
+
+You do not reach the memo page. The request is redirected to the provider's
+login screen, where two users are waiting. Pick **Member**.
+
+![the development identity provider offering Administrator and Member accounts and warning that no password is checked](../../../assets/screenshots/tutorial-login.png)
+
+The browser comes back to the memo page from chapter 3, unchanged. It still says
+**Memos**, and it still lists everything anyone wrote. That is the honest state:
+there is a session now, and the application has not yet asked whose it is.
+
+What happened in between, this project did not implement — the redirect to the
+provider, the callback, the verification, the account lookup, the session record,
+and the cookie. Three routes came with the capability, `/auth/login`,
+`/auth/callback`, and `/auth/logout`, and no handler here mentions any of them.
+Everything you edited to get this far was configuration.
+
+The rest of the chapter is the part a framework cannot do for you: deciding that
+a memo belongs to somebody.
+
 ## 3. Give a memo an owner
 
 The table predates the notion of an owner, so add the column in its own
@@ -221,6 +267,27 @@ INSERT INTO memos (author, body) VALUES ({author}, {body})
 Changing a statement's parameter list changes the generated function's
 signature, so every caller stops compiling until it passes the new argument —
 the same boundary chapter 1 demonstrated with a template.
+
+Save both files and watch it happen. `pw dev` regenerates, then stops:
+
+```
+# memoapp/handlers
+handlers/home_handler.go:26:35: not enough arguments in call to queries.ListMemos
+	have (context.Context)
+	want (context.Context, string)
+handlers/home_handler.go:45:38: not enough arguments in call to queries.CreateMemo
+	have (context.Context, string)
+	want (context.Context, string, string)
+```
+
+Two errors, and between them they are the work remaining in this chapter. A
+column added to a table is a schema change that no compiler can see; a column
+added to a *statement* is a signature change that every caller has to answer.
+This is the moment to notice that the migration and the query edit were two
+different kinds of act, even though they went into the same table.
+
+Section 4 answers both errors, and the answer to each is the same three lines:
+ask who this is.
 
 ## 4. Read the user
 
@@ -327,44 +394,23 @@ Sign-out is a form rather than a link because the endpoint accepts `POST` only.
 A link that ends a session can be triggered by a browser prefetch or an image
 tag on someone else's page; a `GET /auth/logout` therefore answers `405`.
 
-## 5. Log in
+## 5. One account, then the other
 
-```sh
-pw dev
-```
+Save. The build succeeds, the application restarts, and the page you were
+holding — still signed in as **Member** from section 2 — now says **Member's
+memos**. The memos from chapter 3 are gone from it. They are still in the table;
+they are owned by the empty string, and `Member` is not the empty string.
 
-Alongside the usual output, the loop reports the provider it started:
+Write a memo. Then **Sign out**, sign in as **Administrator**, and the list is
+empty — an account this application has never seen before, looking at the same
+table. Write one of its own. Sign back in as **Member**, and Member's memo is
+there and Administrator's is not.
 
-```
-devidp: development identity provider on http://127.0.0.1:18080; no password is checked
-pw dev: identity provider http://127.0.0.1:18080
-pw dev:   login screen http://127.0.0.1:18080/login
-pw dev:   client pw-dev-xCD4SA98_as (secret injected as AUTH_OIDC_CLIENT_SECRET)
-pw dev:   users admin, member
-```
-
-The issuer and the client credentials are injected into the application process
-as environment variables, so nothing about the provider is written into a
-committed configuration file.
-
-Open <http://localhost:8080/> — the host `pw dev` printed, and the one the
-scaffolded `auth.oidc.redirect_url` names. Both matter and they are the same
-fact: a login begun at one origin returns to another origin's cookies, so the
-callback would arrive holding nothing to check and be refused. The request is
-redirected to the
-provider's login screen, where two users are waiting. Pick **Member**, and the
-browser lands back on the memo page with the heading **Member's memos**.
-
-![the development identity provider offering Administrator and Member accounts and warning that no password is checked](../../../assets/screenshots/tutorial-login.png)
-
-Write a memo. Then sign out, sign in as **Administrator**, and the list is
-empty. Sign back in as **Member** and the memo is there.
-
-What happened in between, the application did not implement: the redirect to the
-provider, the callback, the verification, the account lookup, the session
-record, and the cookie. Three routes came with the capability —
-`/auth/login`, `/auth/callback`, `/auth/logout` — and no handler in this project
-mentions any of them.
+The **data** pane is the flat version of the same fact. One `memos` table, an
+`author` column with two distinct values in it, and every row still visible to
+anyone who can open the console. Separation between accounts is a WHERE clause,
+not a property of the storage — which is precisely why the `!ok` branch you were
+told to write anyway is worth its three lines.
 
 ## What is deliberately missing
 

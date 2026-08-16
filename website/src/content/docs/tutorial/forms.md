@@ -10,8 +10,9 @@ query parameter is one thing; accepting something a person typed is another,
 because a person can type nothing at all, or two hundred lines of it.
 
 This chapter adds a form. The memos live in memory for now — chapter 3 moves
-them into a table — so the whole change is three files and about twenty
-minutes.
+them into a table — so the whole change is three files and about half an hour,
+with a stop halfway to look at what the first of them does before the other two
+exist.
 
 :::note[Where this starts]
 From chapter 1: `pw init memoapp`, and `handlers/home.pw.html` back at the
@@ -76,9 +77,57 @@ than two hundred characters, and no request leaves.
 
 That does not replace the validation on the server. **The form is a
 convenience; the handler is the boundary.** Writing both is not duplication:
-they stop different things, and section 4 is where the difference shows.
+they stop different things, and section 5 is where the difference shows.
 
-## 2. Somewhere to put them
+## 2. Make it compile, then look at it
+
+Save the template and the build stops:
+
+```
+handlers/home_handler.go:21:37: unknown field Name in struct literal of type HomeParams
+```
+
+Chapter 1 produced that error on purpose. This time it is incidental: the
+component takes memos now and nothing takes a name, so the handler is calling a
+function that no longer exists in that shape. Give it the argument it can supply
+today, which is none:
+
+```go
+// handlers/home_handler.go — home, until section 3 gives it something to list
+func home(w http.ResponseWriter, r *http.Request) {
+	pw.WriteHTML(w, r, Home(HomeParams{}))
+}
+```
+
+Delete `homeInput` and the `pw.Parse` call with it. Nothing reads the query
+string any more.
+
+The page is now half a feature — a form that posts to a route that does not
+exist — and it is worth stopping here anyway, because two of the three things
+you just wrote can already be checked.
+
+**The template, on its own.** Open the console at
+<http://127.0.0.1:18081>, take the **storybook** pane, and select `Home`. It
+renders with no application involved: two list items, both reading `Body`,
+because the harness makes parameters up from their type and a string field is
+worth its own name. Edit the parameters under the story and render again to ask
+it a different question. That is the answer to "does this template do what I
+think" without a handler, a route, or a row anywhere.
+
+![a template rendered on its own, with tabs for rendered and HTML output and an editable parameter block below](../../../assets/screenshots/dev-console-story.png)
+
+**The page, in the browser.** Reload <http://localhost:8080/>. The form is there
+and the list below it is empty, which is what an empty slice renders as. Type
+something and press **Add**:
+
+```
+404 page not found
+```
+
+Nothing is broken. `POST /memos` is a route no one has registered, so the mux
+has nothing to match and says so. Section 4 registers it.
+
+## 3. Somewhere to put them
 
 Memos need to survive from one request to the next. A slice behind a mutex is
 enough for one chapter:
@@ -116,7 +165,7 @@ func (s *store) add(body string) {
 presentation type and a storage type, because at this size there is only one
 type. Chapter 3 introduces the second one, and the conversion that goes with it.
 
-## 3. Two routes
+## 4. Two routes
 
 ```go
 // handlers/home_handler.go
@@ -133,10 +182,12 @@ func init() {
 	mux.HandleFunc("POST /memos", createMemo) // new
 }
 
-// changed: the scaffolded home read a homeInput through pw.Parse.
-// There is nothing left to read, so that type goes with it.
+// homeInput and its pw.Parse call went in section 2: nothing on this page
+// reads the query string any more.
 
 // home lists every memo that has been written.
+//
+// changed: the empty HomeParams of section 2 now carries the store's list.
 func home(w http.ResponseWriter, r *http.Request) {
 	pw.WriteHTML(w, r, Home(HomeParams{Memos: memos.list()}))
 }
@@ -180,11 +231,15 @@ reload, and the memo is added twice. Answering with a redirect to `GET /` means
 the reload re-reads the list instead.
 
 Save the files. `pw dev` regenerates, rebuilds, and restarts; type something
-into the box and press **Add**, and it appears in the list.
+into the box and press **Add**. The 404 is gone, the browser follows the
+redirect back to `/`, and the memo is at the top of the list. Add a second one
+and reload the page: both survive, because they are in a process that has not
+restarted. Save any file to make it restart, and they are gone — which is
+chapter 3's whole subject.
 
 ![the memo form after two submissions, with a textarea, an Add button, and the two newest memos listed below](../../../assets/screenshots/tutorial-forms.png)
 
-## 4. When it is rejected
+## 5. When it is rejected
 
 Press **Add** with the box empty. **Nothing happens.** The browser refuses to
 submit and puts its own message under the box, because the textarea says

@@ -18,7 +18,7 @@ That makes the first experiment unusually small. Enable the feature, then click
 a same-origin link or submit a GET form:
 
 ```toml
-# popcornwave.toml
+# config.dev.toml
 [html]
 [html.update]
 enabled = true

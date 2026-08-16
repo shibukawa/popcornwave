@@ -142,6 +142,34 @@ handler also reads a query parameter, so
 
 ![the generated memoapp landing page greeting Popcorn and listing the project's installed capabilities and next steps](../../../assets/screenshots/tutorial-getting-started.png)
 
+### The second address
+
+The loop printed one more line before the application said anything:
+
+```
+pw dev: console http://127.0.0.1:18081
+```
+
+That is the [development console](/productivity/dev-console/), and the rest of
+this tutorial checks its work there. Each chapter writes something — a template,
+a migration, a SQL statement — and each of those has a pane that runs it on its
+own, before any other code exists to call it. The storybook renders one template
+with parameters made up from its type. The data pane browses the tables the
+application opened. The queries pane runs a declared statement and shows what it
+returned.
+
+Opening it now is worth the ten seconds: the overview names the phase the loop
+is in, and a failed build says so here rather than only in the terminal you have
+since scrolled. The small button in the corner of every page the application
+serves opens the same console, so the address above is one you never have to
+remember.
+
+![the console overview: project name, environment, the developer loop's current phase, a reseed button, and the list of panes](../../../assets/screenshots/dev-console-overview.png)
+
+The console is not part of the application. Every pane is compiled under the
+`pwdev` build tag, which [`pw build`](/pw/project/build/) does not set — there is
+nothing in a release binary to switch on.
+
 ## The files you will actually edit
 
 `pw init` wrote a couple of dozen files. Three of them matter today:
@@ -327,6 +355,16 @@ the disagreement surfaced as a compile error on the line that has to change —
 not as a blank spot in a page some time later. (`pw dev` prints one further
 error below this one: it also failed to read the configuration out of a binary
 it could not build. One cause, two messages.)
+
+Look at the browser tab you left open, without touching it. The same failure is
+now over the page. Every page the application serves carries a small script that
+watches the loop's state on the console, so a build that broke is reported where
+you were already looking rather than only in the terminal behind it.
+
+Do not reload that tab. `pw dev` stops the running application before it
+rebuilds, so until the build succeeds there is nothing listening to answer —
+which is exactly why the overlay had to arrive without a reload. Fix the build
+and the page comes back on its own.
 
 Fix the handler:
 

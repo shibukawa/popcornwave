@@ -17,7 +17,7 @@ sidebar:
 押すか、GETフォームを送信します。
 
 ```toml
-# popcornwave.toml
+# config.dev.toml
 [html]
 [html.update]
 enabled = true

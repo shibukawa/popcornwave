@@ -211,6 +211,23 @@ The same URL still answers a complete document to anything that asks for one —
 a first visit, a refresh, a crawler, `curl`. To a page that already holds the
 layout, it answers only the boundaries whose markup actually changed.
 
+Watch it, because there is nothing on the page to see. Open the browser's
+network panel, then click the Archive link. The request for `/archive` now
+carries `Pw-Render` and `Pw-Manifest` — the second of those is what the page
+already holds — and what comes back is a set of replacement instructions
+measured in hundreds of bytes rather than a document. Reload the same URL with
+`F5` and the full document is back, because a reload has no page to describe.
+
+The other half of the claim takes one command:
+
+```sh
+curl -s http://localhost:8080/about | head -5
+```
+
+Doctype, `<head>`, layout, page. Nothing negotiated it away. A client that sends
+no update headers is not a degraded client; it is the path every response takes
+until a browser says otherwise.
+
 Nothing in `Load` changed. Nothing in the template changed. Every layout and
 page of a rendered chain is a boundary already, so the layout chain you wrote
 for reuse turned out to be the shape a partial update wanted.
@@ -289,6 +306,24 @@ streams is a property of the templates, not a decision every handler repeats.
 The `fallback` is required, and that is the honest part of the design: a
 boundary has to render something before the value exists, and the framework will
 not invent it.
+
+Reload `/archive` and you will almost certainly not see the fallback. Four rows
+out of SQLite settle faster than the browser paints. Make the slow case real for
+a moment — `time.Sleep(2 * time.Second)` as the first line inside the `pw.Go`
+closure, with `"time"` imported — and reload:
+
+The heading appears immediately. Under it, **Loading memos…**. Two seconds later
+the list replaces it, and the network panel shows no second request: the first
+one was still open. One response delivered in pieces, and the first piece was
+useful.
+
+Two seconds is under `html.async_timeout`, which defaults to three. A boundary
+that outlasts it does not hang the response — see
+[Async rendering](/guides/cross-layer/async-rendering/) for what it does
+instead.
+
+Take the sleep out again. It was a way to see the mechanism, and leaving it in
+would make every later reload of this page a demonstration of nothing.
 
 ## 6. Live: a region that keeps arriving
 

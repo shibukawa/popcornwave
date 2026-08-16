@@ -12,7 +12,10 @@ slice, and the slice lives in a process.
 
 Moving it into the database means three new pieces: a migration that creates the
 table, a `.pw.sql` file that compiles into typed Go functions, and a handler
-that calls them. Twenty minutes or so.
+that calls them. Half an hour or so, and the handler is the last of the three
+rather than the thing that has to exist before you can see whether the other two
+work — the console runs a migration's table and a declared statement on their
+own.
 
 :::note[Where this starts]
 From chapter 2: `handlers/home.pw.html` with `Memo`, `handlers/memos.go` holding
@@ -132,6 +135,19 @@ Outside the loop, `pw migrate up` does the same thing, and `pw migrate status`
 answers what has been applied. See
 [Migrations](/productivity/migrations/).
 
+That line says the file ran. What it produced is one pane away: open the console
+at [http://127.0.0.1:18081](http://127.0.0.1:18081) and take **data**. The
+header names the connection,
+the engine, and the schema version — 2, the number the loop just printed — and
+`memos` is in the table list, empty. Its **schema** tab is the one worth reading,
+because it shows the table as the database understands it rather than as your
+migration described it.
+
+The tables the framework owns are listed too, marked as such. `goose_db_version`
+is where that version number came from, and it is why renumbering an applied
+migration costs an afternoon: the row in that table is the only record that the
+file already ran.
+
 ## 2. SQL that compiles
 
 Create `queries/memos.pw.sql`:
@@ -176,7 +192,39 @@ is what makes `Memo` an accurate description of every row the statement can
 return. [Queries](/guides/storage/queries/) covers conditional SQL, slice
 expansion, and reusable predicates.
 
-## 3. The handler talks to the table
+## 3. Run them before anything calls them
+
+Save the file and `pw dev` regenerates. There are two new Go functions in the
+project now and not one caller: nothing imports `queries` yet. Compiling them was
+worth something on its own — a typo in a column name is a build error rather than
+a request that fails in production — but a statement that compiles can still
+return the wrong rows, and that is not a question a compiler answers.
+
+Take the **data** pane again and follow **declared queries**. Both statements are
+listed with their parameters. Open `CreateMemo`, type `eggs` into `body`, and run
+it: one row affected, and above the result, the SQL that ran.
+
+```
+INSERT INTO memos (body) VALUES (?)
+```
+
+That is not the pane echoing your source back. It called the same generated
+builder the application will call, so a statement whose SQL is assembled
+conditionally is assembled here exactly as it will be at request time. Run
+`ListMemos` — no parameters, so there is only the button — and the row comes
+back.
+
+The link that makes this possible is one generated file. Package initialisation
+is what registers a statement with the pane, and initialisation only runs if
+something links the package; a statement written before its caller links from
+nowhere. So generation writes a file whose only job is to pull every `queries`
+package into the development binary. It carries the `pwdev` build tag, which is
+why `pw build` links none of it.
+
+Insert a second memo if you like. They are real rows in the real table — the
+**data** pane shows them, and section 5 finds them there.
+
+## 4. The handler talks to the table
 
 ```go
 // handlers/home_handler.go
@@ -253,14 +301,18 @@ Merging them would be less code today and a worse boundary tomorrow, because the
 first column a page stops showing — or the first field it needs that no column
 supplies — would have to be resolved in whichever type was carrying both jobs.
 
-## 4. Run it
+## 5. Run it
 
 Save everything. `pw dev` regenerates `queries/memos_pw_gen.go`, rebuilds, and
-restarts. Add a memo, then stop `pw dev` with `Ctrl-C` and start it again: the
-memo is still there.
+restarts. Reload the page: `eggs` is already there, because the row you inserted
+from the console in section 3 is the same row this handler reads. Nothing about
+that was a simulation.
 
-Open the **data** pane in the `pw dev` console and select `memos` to inspect the
-same persisted rows directly:
+Add a memo through the form. Then stop `pw dev` with `Ctrl-C` and start it
+again — the list is intact, which is the sentence chapter 2 could not write.
+
+Open the **data** pane and select `memos` to see the same rows from the other
+side:
 
 ![the pw dev data pane showing the memos table with its id and body columns and two persisted rows](../../../assets/screenshots/tutorial-database.png)
 
