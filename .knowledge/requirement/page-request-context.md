@@ -7,7 +7,14 @@ A route under concept:page-tree must be able to read the context of the request 
 
 ```yaml
 owner: system:tinybind
-status: the typed Load half shipped in v0.5.8 and is verified here; the other halves are unverified rather than known open
+status: answered 2026-08-14, by a different declaration than the one this asked about
+answered_rather_than_delivered:
+  what_this_asked_for: a leading context.Context on a typed Load, which shipped in v0.5.8 and was verified here
+  what_happened_next: system:tinybind v0.5.13 removed the typed Load itself, and the context parameter with it
+  why_the_requirement_is_still_met: a page's data now comes from an external declared in its template, and a route-package external declaring a leading context receives the request's
+  so: the subject moved from the page entry point to the loader, and the thing this existed to make possible — a page reading the database pool or the signed-in reader — is expressible again
+  taken_as: requirement:template-bound-page-loader, which carries the shape and the migration
+  what_is_not_recovered: nothing this requirement asked for; the typed check it valued moved to the component's own parameter list rather than disappearing
 what_is_unverified: the context externals gap looks closed too, since routetree now threads ContextExternals into the tree compile, and the fourth gap's error import is still written unconditionally; neither was exercised, so neither is reported as an answer
 request: docs/tinybind-go-page-context-request.md
 priority: should

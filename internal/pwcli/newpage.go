@@ -16,9 +16,11 @@ const (
 	// pageRungTemplate is the page template alone. The handler is generated
 	// whole, and the data comes from the template's own external calls.
 	pageRungTemplate = "template"
-	// pageRungTyped adds a Load whose parameters are the route's inputs and
-	// whose results are the page component's parameters.
-	pageRungTyped = "typed"
+	// pageRungLoader adds an external the template declares and binds, whose
+	// parameters are the route's inputs and whose result the component renders.
+	// It is a shape rather than a level: the handler is still generated whole,
+	// and what the page gains is Go of its own to load with.
+	pageRungLoader = "loader"
 	// pageRungHandler adds a Load that takes the writer and the request, so the
 	// response is the application's from that point on.
 	pageRungHandler = "handler"
@@ -183,9 +185,26 @@ func indentTemplateBody(body string) string {
 func pageTemplateSource(pkg, rung string, segments []pageSegment) string {
 	var params, body string
 	switch rung {
-	case pageRungTyped:
-		params = "greeting: string"
-		body = "<h1>{greeting}</h1>"
+	case pageRungLoader:
+		declared := make([]string, 0, len(segments))
+		inputs := pageInputs(segments)
+		for _, input := range inputs {
+			declared = append(declared, input+": string")
+		}
+		params = strings.Join(declared, ", ")
+		// The loader is declared here and implemented beside this file. A page
+		// that loads its own data has no entry point of its own: the template
+		// names what it needs and binds the result once.
+		external := "external LoadGreeting(" + params + "): string"
+		binding := "{val greeting = LoadGreeting(" + strings.Join(inputs, ", ") + ")}"
+		return "package " + pkg + `
+
+` + external + `
+
+export component Page(` + params + `): html {
+` + indentTemplateBody(binding+"\n<h1>{greeting}</h1>") + `
+}
+`
 	default:
 		declared := make([]string, 0, len(segments))
 		shown := make([]string, 0, len(segments))
@@ -209,7 +228,7 @@ export component Page(` + params + `): html {
 
 func pageLogicSource(pkg, rung string, segments []pageSegment) string {
 	switch rung {
-	case pageRungTyped:
+	case pageRungLoader:
 		inputs := pageInputs(segments)
 		parameters := make([]string, 0, len(inputs))
 		for _, input := range inputs {
@@ -221,10 +240,13 @@ func pageLogicSource(pkg, rung string, segments []pageSegment) string {
 		}
 		return "package " + pkg + `
 
-// Load runs between the request and the render. Its parameters are the route's
-// dynamic segments in order, and its results are the page component's
-// parameters: generation checks both lists against each other.
-func Load(` + strings.Join(parameters, ", ") + `) (string, error) {
+// LoadGreeting is what the template declares as an external and binds with
+// {val}. It is ordinary Go: no entry point, no registration, and nothing
+// generated around it.
+//
+// Declare a leading context.Context to receive the request's, which is where the
+// database handle and the signed-in reader live.
+func LoadGreeting(` + strings.Join(parameters, ", ") + `) (string, error) {
 	return ` + value + `, nil
 }
 `

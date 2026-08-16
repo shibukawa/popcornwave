@@ -39,14 +39,9 @@ func Register(mux pwpage.Router, options ...pwpage.Option) {
 				return
 			}
 			_ = route
-			pageName, pagePage, err := id_.Load(r.Context(), route.ID, route.Page)
-			if err != nil {
-				pw.WriteProblem(w, r, err)
-				return
-			}
 			params := id_.PageParams{
-				Name: pageName,
-				Page: pagePage,
+				Id:   route.ID,
+				Page: route.Page,
 			}
 			wrappers := []pwpage.Wrapper{
 				BindLayout(LayoutParams{}),

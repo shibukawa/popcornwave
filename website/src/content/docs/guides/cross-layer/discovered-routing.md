@@ -102,59 +102,68 @@ site with one page would answer 200 everywhere.
 One file is a page. What you put beside it decides how much Go runs between the
 request and the render.
 
-| Files | Rung | What you get |
-| --- | --- | --- |
-| `page.pw.html` | template only | the whole handler is generated; the template's own `external` calls fetch the data |
-| `+ page.go` with `func Load(id string) (User, error)` | typed | the generated handler decodes the URL, calls `Load`, and renders its results |
-| `+ page.go` with `func Load(w http.ResponseWriter, r *http.Request)` | handler | only the registration is generated; the response is yours |
+| Files | What you get |
+| --- | --- |
+| `page.pw.html` | the whole handler is generated; the template's own `external` calls fetch the data |
+| `+ page.go` implementing an external the template declares | still generated whole; the page has Go of its own to load with |
+| `+ page.go` with `func Load(w http.ResponseWriter, r *http.Request)` | only the registration is generated; the response is yours |
 
-The signature decides the rung, so a `Load` matching neither shape fails
-generation naming the one it has and the two it could have.
+The middle row is not a rung of its own. The handler is generated either way,
+and what changes is that the template names a loader instead of fetching from
+somewhere shared. The one real choice is the last row: does this page write its
+own response?
 
-`Load` is an odd name for a page's entry point, and the first choice was `Page`.
-That one does not survive contact with the compiler: the template compiler
-already emits `func Page(params PageParams) htmlbind.Fragment` into the same
-package, so a second `Page` beside it is a redeclaration. The file is still
-`page.go` and the component is still `Page`; only the entry point moved aside.
+A `Load` that is neither the handler shape nor absent fails generation, naming
+the shape it must have and telling you to bind an external instead.
 
 ### Inputs
 
-A page declares its inputs as ordinary Go parameters — no struct, no binding
-tags. The leading ones are the route's dynamic segments, in route order; the
-rest are query parameters keyed by parameter name.
+A page declares its inputs on the component — no struct, no binding tags. The
+leading ones are the route's dynamic segments, in route order; the rest are
+query parameters keyed by parameter name.
 
 ```html
 package id_
 
-export component Page(name: string, page: int): html {
-<h1>{name}</h1>
+external LoadUser(id: string): User
+
+export component Page(id: string, page: int?): html {
+{val user = LoadUser(id)}
+<h1>{user.Name}</h1>
 <p>page {page}</p>
 }
 ```
 
-Without `page.go` that list is read from the component. With it, it is read from
-`Load` — so raising a page a rung does not change how its inputs are written.
+Generation checks the leading parameters against the route and fails naming both
+if one is missing, reordered, or extra. There is one list, so there is nothing
+for it to disagree with.
+
+`{val}` binds the result to a name. Without it every mention is another call: a
+component rendering four fields of a record would load it four times. The
+binding is evaluated at the top of its block, which is what lets a loader that
+fails choose the status before a byte is written — including on a streaming
+render.
+
+The loader is ordinary Go beside the template:
 
 ```go
-func Load(id string, page *int) (string, int, error) { ... }
+func LoadUser(ctx context.Context, id string) (User, error) { ... }
 ```
 
-One thing does change: on the typed rung the component's parameter list becomes
-`Load`'s result list. Generation checks them against each other and fails naming
-both lists if the count, the order, or a type disagrees.
+Declare a leading `context.Context` and you receive the request's, which is where
+the database handle and the signed-in reader live.
 
 A URL carries no objects, so inputs are scalars. That leaves one thing a plain
 scalar cannot express: an absent `?page` and an explicit `?page=0` would arrive
 as the same zero. A trailing question mark keeps them apart by binding a
-pointer:
+pointer, and the default belongs in Go rather than in the decoder:
 
 ```go
-func Load(id string, page *int) (string, int, error) {
-	number := 1
-	if page != nil {
-		number = *page
+func PageNumber(page *int) int {
+	if page == nil {
+		return 1
 	}
-	return "user " + id, number, nil
+	return *page
 }
 ```
 
@@ -404,7 +413,7 @@ convention disagree, Go's rules win.
 
 The first three are worth reading as one condition. A page renders and a link
 navigates with no JavaScript at all, so a site built entirely from the template
-and typed rungs works today. Reach for a `server-action` and that stops being
+and loader shapes works today. Reach for a `server-action` and that stops being
 true: the attribute is written, and until the action runtime lands, the click
 that fires it is yours to intercept. Enable the existing CSRF middleware over
 the action paths and send its token from that client code. That is the

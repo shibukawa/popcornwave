@@ -41,13 +41,16 @@ export component Page(): html {
 `)
 	writeTestFile(t, filepath.Join(root, "pages", "users", "id_", "page.pw.html"), `package id_
 
-export component Page(name: string): html {
+external LoadName(id: string): string
+
+export component Page(id: string): html {
+{val name = LoadName(id)}
 <h1>{name}</h1>
 }
 `)
 	writeTestFile(t, filepath.Join(root, "pages", "users", "id_", "page.go"), `package id_
 
-func Load(id string) (string, error) { return id, nil }
+func LoadName(id string) (string, error) { return id, nil }
 `)
 	return root
 }
@@ -115,15 +118,20 @@ func TestRunGenerateWritesPageTree(t *testing.T) {
 	}
 }
 
-// The typed rung binds the route's own segments to Load and its results to the
-// page component, so the generated handler carries the call.
-func TestRunGeneratePageTreeCallsTypedLoad(t *testing.T) {
+// A page's own loader is called by the compiled component rather than by the
+// registry, because the template is what names it and binds its result. The
+// registry carries the route's inputs to the component, and nothing else.
+func TestRunGeneratePageTreeCallsItsLoader(t *testing.T) {
 	root := writePageTreeFixture(t)
 	generateIn(t, root)
 
+	component := readTestFile(t, filepath.Join(root, "pages", "users", "id_", "page_pw_gen.go"))
+	if !strings.Contains(component, "LoadName(") {
+		t.Errorf("the bound loader is not called by the component:\n%s", component)
+	}
 	registry := readTestFile(t, filepath.Join(root, "pages", "routes_pw_gen.go"))
-	if !strings.Contains(registry, "Load(route.ID)") {
-		t.Errorf("typed Load is not called with its route input:\n%s", registry)
+	if strings.Contains(registry, "LoadName(") {
+		t.Errorf("the registry calls the loader, which is the retired shape:\n%s", registry)
 	}
 	decoder := readTestFile(t, filepath.Join(root, "pages", "users", "id_", "route_pw_gen.go"))
 	// Through the framework accessor rather than off the request value. That

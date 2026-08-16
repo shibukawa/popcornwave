@@ -134,19 +134,28 @@ single file and one of them a file plus a handler, and neither registered by you
 
 ### Why this `Load` takes a request
 
-A page can declare its inputs as ordinary parameters and let the framework
-decode them — `func Load(id string, page *int) (string, int, error)` is the
-common shape, and generation checks that result list against the component's
-parameter list.
+A page that only needs to *load* something does not write a `Load` at all. It
+declares an external in its template, binds the result, and implements it beside
+the file:
 
-That shape has no request in it, and no context either. A URL carries scalars,
-so the typed entry point receives scalars. This page needs `auth.User` and a
-database pool, and both arrive on the request context, so it takes the rung
-above: `func Load(w, r)` generates the registration and leaves the response to
-you.
+```html
+external ListMemos(): Memo[]
 
-The rung is chosen by the signature, and a `Load` matching neither shape fails
-generation naming the one it has and the two it could have.
+export component Page(): html {
+{val memos = ListMemos()}
+```
+
+That loader can take a leading `context.Context` and receive the request's, so
+needing `auth.User` or a database pool is not a reason to reach for a handler —
+both arrive on that context.
+
+This page reaches for one anyway, because it does not just load: it decides the
+whole response. `func Load(w, r)` generates the registration and leaves
+everything after it to you, which is what streaming, downloads, and a
+conditional status need.
+
+A `Load` that is neither that shape nor absent fails generation, naming the
+shape it must have and telling you to bind an external instead.
 
 ### One layout for everything below
 

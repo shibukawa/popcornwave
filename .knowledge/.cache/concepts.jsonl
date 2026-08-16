@@ -231,6 +231,7 @@
 {"category": "constraint", "id": "decision:package-contract-split", "path": ".knowledge/decision/package-contract-split.md", "role": "supporting", "title": "Package Contract Split", "type": "decision"}
 {"category": "constraint", "id": "decision:page-render-binding", "path": ".knowledge/decision/page-render-binding.md", "role": "supporting", "title": "Page Render Binding", "type": "decision"}
 {"category": "constraint", "id": "decision:page-router-scaffold-choice", "path": ".knowledge/decision/page-router-scaffold-choice.md", "role": "supporting", "title": "Page Router Scaffold Choice", "type": "decision"}
+{"category": "constraint", "id": "decision:page-rung-ladder", "path": ".knowledge/decision/page-rung-ladder.md", "role": "supporting", "title": "The Page Ladder Is Two Rungs", "type": "decision"}
 {"category": "constraint", "id": "decision:passkey-first-authentication", "path": ".knowledge/decision/passkey-first-authentication.md", "role": "supporting", "title": "Passkey-First Authentication Priority", "type": "decision"}
 {"category": "constraint", "id": "decision:passkey-test-authenticator", "path": ".knowledge/decision/passkey-test-authenticator.md", "role": "supporting", "title": "Passkey Test Authenticator Strategy", "type": "decision"}
 {"category": "constraint", "id": "decision:post-init-scaffold-wizard", "path": ".knowledge/decision/post-init-scaffold-wizard.md", "role": "supporting", "title": "Post-init Scaffold Wizard", "type": "decision"}
@@ -536,6 +537,7 @@
 {"category": "objective", "id": "requirement:tailwind-css-integration", "path": ".knowledge/requirement/tailwind-css-integration.md", "role": "primary", "title": "Tailwind CSS Integration", "type": "requirement"}
 {"category": "objective", "id": "requirement:tailwind-plugin-integration", "path": ".knowledge/requirement/tailwind-plugin-integration.md", "role": "primary", "title": "Tailwind Plugin Integration", "type": "requirement"}
 {"category": "objective", "id": "requirement:telemetry-architecture-guide", "path": ".knowledge/requirement/telemetry-architecture-guide.md", "role": "primary", "title": "Telemetry Architecture Guide", "type": "requirement"}
+{"category": "objective", "id": "requirement:template-bound-page-loader", "path": ".knowledge/requirement/template-bound-page-loader.md", "role": "primary", "title": "Template Bound Page Loader", "type": "requirement"}
 {"category": "objective", "id": "requirement:template-formatting", "path": ".knowledge/requirement/template-formatting.md", "role": "primary", "title": "Canonical Template Source Formatting", "type": "requirement"}
 {"category": "objective", "id": "requirement:template-storybook", "path": ".knowledge/requirement/template-storybook.md", "role": "primary", "title": "Template Storybook", "type": "requirement"}
 {"category": "objective", "id": "requirement:template-syntax-highlighting", "path": ".knowledge/requirement/template-syntax-highlighting.md", "role": "primary", "title": "Template Syntax Highlighting", "type": "requirement"}

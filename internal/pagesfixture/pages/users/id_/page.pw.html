@@ -1,6 +1,12 @@
 package id_
 
-export component Page(name: string, page: int): html {
+// The loader is declared here and implemented beside this file. Its leading
+// context is the request's, which is what a page reading a database pool or the
+// signed-in reader needs — both live on it.
+external LoadName(id: string, page: int?): string
+external PageNumber(page: int?): int
+
+export component Page(id: string, page: int?): html {
 <script component>
   export function setup({ el }) {
     return {
@@ -10,9 +16,10 @@ export component Page(name: string, page: int): html {
     };
   }
 </script>
+  {val name = LoadName(id, page), number = PageNumber(page)}
   <section>
     <h1 on-click="highlight">{name}</h1>
-    <p>page {page}</p>
+    <p>page {number}</p>
     <button server-action="Rename" data-target="#name">rename</button>
     <form server-action="Retire">
       <input type="text" name="reason" />

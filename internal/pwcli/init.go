@@ -2865,16 +2865,22 @@ export component Page(` + discoveredRootParams(options) + `): html {
 		// element before it evaluates anything else.
 		root + "/greet/name_/" + pwgen.PageFile: `package name_
 
-export component Page(greeting: string): html {
+external LoadGreeting(name: string): string
+
+export component Page(name: string): html {
+  {val greeting = LoadGreeting(name)}
   <h1 class="text-3xl font-bold">{greeting}</h1>
 }
 `,
-		// page.go is optional. Adding it puts Go between the request and the
-		// render: these parameters are the route's dynamic segments in order,
-		// and these results are the page component's parameters.
+		// page.go is optional. Adding it gives the page Go of its own to load
+		// with: the template declares what it needs and binds the result once,
+		// and this implements it. The component's own parameters are the route's
+		// dynamic segments in order, then its query parameters.
 		root + "/greet/name_/page.go": `package name_
 
-func Load(name string) (string, error) {
+// Declare a leading context.Context to receive the request's, which is where
+// the database handle and the signed-in reader live.
+func LoadGreeting(name string) (string, error) {
 	return "Hello, " + name, nil
 }
 `,
@@ -2913,9 +2919,10 @@ import (
 
 // Load renders the starter landing page, signed in or not.
 //
-// A page with no page.go beside it is generated whole, and one with a typed
-// Load is handed its route inputs. This one is handed the request, because the
-// session is on its context and neither of those rungs can see it.
+// A page whose data comes from a loader the template binds is generated whole.
+// This one takes the request instead, because it decides the whole response:
+// what it renders depends on whether there is a session, and a signed-out
+// visitor is answered differently rather than with different values.
 func Load(w http.ResponseWriter, r *http.Request) {
 	// The framework resolved the session before this handler ran.
 	user, signedIn := auth.User(r.Context())
