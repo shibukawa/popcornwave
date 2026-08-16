@@ -136,16 +136,60 @@ Ask neither question and one response goes to everybody, which is right for a
 handler with nothing to return. Ask the first and a form submit will not be shown
 a JSON document.
 
-### Why it is not typed like `Load`
+### Why the signature is not typed
 
-A page's `Load` takes its route's inputs and returns the page component's
-parameters, and the framework renders — so both ends can be typed.
+Owning the response is exactly what a typed signature cannot express: redirects,
+conditional statuses, downloads and streaming are all legitimate answers, and no
+fixed return covers them.
 
-An action owns its response instead, and that is what a typed signature cannot
-express: redirects, conditional statuses, downloads and streaming are all
-legitimate answers, and no fixed return covers them. The input is still typed —
-`pw.Parse` recovers the struct, and generation checks form field names against
-its fields. What stays untyped is the signature and the return.
+The input is still typed — `pw.Parse` recovers the struct, and generation checks
+form field names against its fields. What stays untyped is the signature and the
+return, and that is the price of answering a form.
+
+A function that answers only a script pays nothing for it. That is the shape
+below.
+
+## A function a script calls
+
+A form has to be answered with a response. A script asking a question does not —
+it wants a value back. Declare an ordinary Go function and it becomes one:
+
+```go
+package users
+
+// The declaration is what publishes it. Put it above the function, so a reader
+// meeting the function learns it is reachable.
+var _ = pw.ServerAction(profile)
+
+func profile(ctx context.Context, id string) (Profile, error) {
+	return load(ctx, id)
+}
+```
+
+```js
+const p = await actions.profile({ id: "42" });   // a Profile, decoded
+```
+
+Both ends are typed. Arguments arrive from the call's payload by name, the
+result comes back encoded, and an error becomes a
+[problem response](/guides/frontend/responses/#errors) with the status the
+framework already maps.
+
+Four things follow from the declaration being what admits it:
+
+- **The function can be unexported.** Nothing is published by merely existing
+  here, which is the opposite of the handler shape above.
+- **Any signature works.** A leading `context.Context` is optional and receives
+  the request's, so the database handle and the signed-in reader are both in
+  reach.
+- **It is called by its published name.** `GetUser` is `actions.getUser`; pass a
+  string to `pw.ServerAction` to publish a different one, which is what a rename
+  must not move.
+- **A template cannot name it.** `server-action="profile"` fails generation,
+  because a form reaching it would be shown a value it cannot render.
+
+Reach for this when a script wants an answer, and for the handler shape when a
+form wants a response. A page may have both.
 
 ## Errors that come back
 

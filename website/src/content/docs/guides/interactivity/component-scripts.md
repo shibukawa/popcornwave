@@ -220,8 +220,10 @@ export function setup({ el, actions }) {
 }
 ```
 
-`actions` holds one function per exported handler in the page's own route
-package, so the name you write is the Go function's. Nothing names a URL: the
+`actions` holds one function per server action of the page's own route package —
+the exported handlers, and anything declared with `pw.ServerAction`. The name
+you write is the Go function's in lowerCamelCase, so `Delete` is `actions.delete`
+unless the declaration published a different one. Nothing names a URL: the
 address holds a digest of the declaring directory, which is not something a
 script could compute.
 

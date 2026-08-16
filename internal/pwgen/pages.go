@@ -71,6 +71,30 @@ const (
 // so the call is reshaped rather than renamed.
 const pageRenderBlock = `{{ .Symbols.RuntimeAlias }}.Render({{ .Writer }}, {{ .Request }}, {{ .Chain }}, {{ .Leaf }}{{ with .Options }}, {{ . }}...{{ end }})`
 
+// setActionAdmission says which functions of a route package are server
+// actions: this framework's annotation admits one, and nothing this framework
+// generated is looked at.
+//
+// The annotation's identifier is declared rather than derived because a path's
+// last element is not always the package name: the module's path ends in
+// tinybind-go and its package is httpbind, which is what made the module state
+// this at all. Ours agree, and saying so is what keeps a project from importing
+// a second module to declare an action.
+//
+// The header is registered for the reason options.GeneratedHeaders is: a file
+// this framework wrote is output rather than input. TinyBind recognizes its own
+// prefix unprompted, so what is listed here is only ever this framework's own —
+// which is what keeps the arrangement from going stale when the module renames
+// its header.
+func setActionAdmission(shape *routetree.HandlerShape, importPath, pkg string) {
+	shape.Declaration = routetree.ActionDeclaration{
+		Import:  importPath,
+		Package: pkg,
+		Name:    "ServerAction",
+	}
+	shape.GeneratedHeaders = []string{GeneratedHeaderPrefix}
+}
+
 // setBehaviourAttrs points every lowered behaviour attribute at this framework's
 // namespace.
 //
@@ -78,22 +102,6 @@ const pageRenderBlock = `{{ .Symbols.RuntimeAlias }}.Render({{ .Writer }}, {{ .R
 // of them off one element is the failure this prevents. Both emitters call it,
 // so the net/http and fasthttp trees cannot drift apart on what the runtime
 // reads.
-// setActionDeclaration points the typed-action annotation at this framework's
-// own spelling.
-//
-// The identifier is declared rather than derived because a path's last element
-// is not always the package name: the module's path ends in tinybind-go and its
-// package is httpbind, which is what made the module state this at all. Ours
-// agree, and saying so is what keeps a project from importing a second module
-// to declare an action.
-func setActionDeclaration(shape *routetree.HandlerShape, importPath, pkg string) {
-	shape.Declaration = routetree.ActionDeclaration{
-		Import:  importPath,
-		Package: pkg,
-		Name:    "ServerAction",
-	}
-}
-
 func setBehaviourAttrs(emitter *routetree.Emitter) {
 	emitter.ActionAttr = PageActionAttr
 	emitter.ClientHandlerAttr = PageClientHandlerAttr
@@ -128,7 +136,7 @@ func PageEmitter() (*routetree.Emitter, error) {
 	// having the handler shape or by being declared, and this is where both are
 	// stated for one transport.
 	shape := routetree.DefaultHandlerShape()
-	setActionDeclaration(&shape, pwPackage, "pw")
+	setActionAdmission(&shape, pwPackage, "pw")
 	emitter.HandlerShape = shape
 
 	emitter.GeneratedHeader = PageGeneratedHeader
@@ -216,7 +224,7 @@ func FastPageEmitter() (*routetree.Emitter, error) {
 	// recognizer keyed on net/http would read it as a malformed typed page and
 	// report a signature error for a declaration that is correct.
 	fastShape := routetree.FastHTTPHandlerShape(fastHTTPPackage)
-	setActionDeclaration(&fastShape, pwFastPackage, "pwfast")
+	setActionAdmission(&fastShape, pwFastPackage, "pwfast")
 	emitter.HandlerShape = fastShape
 
 	emitter.GeneratedHeader = PageGeneratedHeader

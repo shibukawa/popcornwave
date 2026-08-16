@@ -62,6 +62,7 @@ func Register(mux pwpage.Router, options ...pwpage.Option) {
 
 	mux.HandleFunc("POST /_action/00369cf962b6/Rename", id_.Rename)
 	mux.HandleFunc("POST /_action/d71506d06c1e/Retire", id_.Retire)
+	mux.HandleFunc("POST /_action/d0775f011114/profile", id_.ActionProfile)
 }
 
 // Routes lists what the filesystem knows about each route, so a
@@ -98,6 +99,7 @@ type RouteInfo struct {
 var Actions = []ActionInfo{
 	{Pattern: "POST /_action/00369cf962b6/Rename", Path: "/_action/00369cf962b6/Rename", Dir: "users/id_", Handler: "Rename", Hash: "00369cf962b6", Published: "rename", Typed: false},
 	{Pattern: "POST /_action/d71506d06c1e/Retire", Path: "/_action/d71506d06c1e/Retire", Dir: "users/id_", Handler: "Retire", Hash: "d71506d06c1e", Published: "retire", Typed: false},
+	{Pattern: "POST /_action/d0775f011114/profile", Path: "/_action/d0775f011114/profile", Dir: "users/id_", Handler: "profile", Hash: "d0775f011114", Published: "profile", Typed: true},
 }
 
 // ActionInfo is one entry of Actions.
@@ -123,5 +125,6 @@ func init() {
 	pwruntime.RegisterPageActions("GET /users/{id}",
 		pwruntime.PageAction{Name: "rename", Path: "/_action/00369cf962b6/Rename"},
 		pwruntime.PageAction{Name: "retire", Path: "/_action/d71506d06c1e/Retire"},
+		pwruntime.PageAction{Name: "profile", Path: "/_action/d0775f011114/profile"},
 	)
 }

@@ -152,14 +152,19 @@ func TestPagesServeFormActionRejectsUnknownSelector(t *testing.T) {
 // declaring directory and cannot be computed from the name.
 func TestPagesPublishTheirOwnActions(t *testing.T) {
 	actions := pwruntime.PageActionsFor("GET /users/{id}")
-	if len(actions) != 2 {
-		t.Fatalf("the route publishes %d actions, want both of its package's", len(actions))
+	if len(actions) != 3 {
+		t.Fatalf("the route publishes %d actions, want all of its package's", len(actions))
 	}
 	// The published name rather than the Go one: a script writes rename, and the
 	// address still carries Rename, because the two are different facts.
+	//
+	// The third is admitted by its declaration rather than by its shape, and it
+	// is published exactly like the other two — which is what makes the two
+	// admission rules one namespace to a script rather than two.
 	for _, want := range []pwruntime.PageAction{
 		{Name: "rename", Path: "/_action/00369cf962b6/Rename"},
 		{Name: "retire", Path: "/_action/d71506d06c1e/Retire"},
+		{Name: "profile", Path: "/_action/d0775f011114/profile"},
 	} {
 		if !slices.Contains(actions, want) {
 			t.Errorf("%s is not published: %v", want.Name, actions)
@@ -204,6 +209,33 @@ func TestActionAnswersByCaller(t *testing.T) {
 	mux.ServeHTTP(redirected, gesture)
 	if redirected.Code != http.StatusSeeOther {
 		t.Errorf("a gesture answered %d, want a redirect\n%s", redirected.Code, redirected.Body.String())
+	}
+}
+
+// A typed action is an ordinary Go function reached at its own address: its
+// argument arrives from the call's payload by name, and its result comes back
+// encoded rather than as markup.
+//
+// The raw shape above answers by caller because it owns its whole response.
+// This one has no such question to ask — it returns a value, so a value is the
+// only thing it can answer with, which is why it needs no call header.
+func TestTypedActionReturnsItsValue(t *testing.T) {
+	mux := fixtureMux(t)
+
+	request := httptest.NewRequest(http.MethodPost, "/_action/d0775f011114/profile",
+		strings.NewReader(`{"id":"42"}`))
+	request.Header.Set("Content-Type", "application/json")
+	recorder := httptest.NewRecorder()
+	mux.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("status %d, want 200\n%s", recorder.Code, recorder.Body.String())
+	}
+	// Both fields, because the argument reaching the function is what the payload
+	// naming it is for: an id that never arrived would leave the first empty and
+	// the second saying so.
+	if body := recorder.Body.String(); !strings.Contains(body, `"id":"42"`) ||
+		!strings.Contains(body, `"name":"user 42"`) {
+		t.Errorf("the typed action did not answer with its value:\n%s", body)
 	}
 }
 

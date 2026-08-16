@@ -1,5 +1,11 @@
 # Report: wiring the typed server action, and two things it meets
 
+> **Answered in v0.5.14** on 2026-08-16. Both defects below are fixed, neither
+> by a workaround, and re-adding the declaration to our fixture now compiles,
+> serves, and regenerates to a no-op. What each fix took is at the end, under
+> [What v0.5.14 did](#what-v0514-did). The rest of this document is left as it
+> was written, because it is what was measured.
+
 Measured against **tinybind-go v0.5.10** on 2026-08-14, by wiring every caller
 side of `requirement:typed-server-action` and declaring one in a real page tree.
 
@@ -125,6 +131,30 @@ Backed the declaration out, so the tree compiles. Everything else stands: the
 annotation, the declaration wiring, the per-package hand-off and the published
 name are committed and covered. The fixture carries a comment saying where the
 declaration goes when these two are answered — re-adding it is one paragraph.
+
+---
+
+## What v0.5.14 did
+
+Both fixes are the preferred one of each pair above.
+
+**1.** The action now carries the file it was declared in, the argument struct
+takes that source path, and the artifact loop scopes which actions each artifact
+writes — rather than the emitter filtering a list it has no way to place. Two
+cases came with it: an action declaring no parameter contributes no type, so the
+loop seeds a source from the action list, and the two sides need not spell the
+path alike, so the match is on the base name.
+
+**2.** Action discovery implements `rule:generated-source-not-discovered`, which
+it had never implemented — the third pass to meet that rule. tinybind recognizes
+its own header unprompted, so no caller names another module's prefix, which is
+the coupling we said we would rather not take. A framework's own brand is
+registered through `HandlerShape.GeneratedHeaders`, and we now register ours
+there beside the annotation.
+
+Re-adding the declaration to the fixture: it compiles, the decoder and the entry
+point are in one artifact, the second generation run is a no-op, and a `POST`
+carrying `{"id":"42"}` answers `200` with the encoded value.
 
 ---
 

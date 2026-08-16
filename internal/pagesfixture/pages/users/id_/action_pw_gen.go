@@ -13,6 +13,8 @@ import (
 func init() {
 	httpbind.RegisterBind[renameRequest](bindrenameRequest)
 	httpbind.RegisterWrite[renameResponse](writerenameResponse)
+	jsonbind.RegisterEncode[Profile](encodeProfile)
+	jsonbind.RegisterDecode[actionProfileInput](decodeactionProfileInputBytes)
 }
 
 func decoderenameRequestBytes(data []byte) (renameRequest, error) {
@@ -130,4 +132,99 @@ func writerenameResponse(w http.ResponseWriter, r *http.Request, v renameRespons
 	err := httpbind.WriteJSONBytes(w, http.StatusOK, *buf)
 	jsonbind.PutBuffer(buf)
 	return err
+}
+
+func appendProfileJSON(dst []byte, v Profile) []byte {
+	dst = append(dst, '{')
+	dst = append(dst, "\"id\":"...)
+	dst = jsonbind.AppendString(dst, v.Id)
+	dst = append(dst, ",\"name\":"...)
+	dst = jsonbind.AppendString(dst, v.Name)
+	return append(dst, '}')
+}
+
+func encodeProfile(w io.Writer, v Profile) error {
+	buf := jsonbind.GetBuffer()
+	*buf = appendProfileJSON((*buf)[:0], v)
+	*buf = append(*buf, '\n')
+	_, err := w.Write(*buf)
+	jsonbind.PutBuffer(buf)
+	return err
+}
+
+func decodeactionProfileInputBytes(data []byte) (actionProfileInput, error) {
+	if jsonbind.IsBlank(data) {
+		var out actionProfileInput
+		return out, nil
+	}
+	p := jsonbind.NewParser(data)
+	out, err := decodeactionProfileInputJSON(p)
+	if err != nil {
+		return out, err
+	}
+	if err := p.End(); err != nil {
+		return out, err
+	}
+	return out, nil
+}
+
+func decodeactionProfileInputJSON(p *jsonbind.Parser) (actionProfileInput, error) {
+	var out actionProfileInput
+	null, err := p.ObjectStart()
+	if err != nil || null {
+		return out, err
+	}
+	for n := 0; ; n++ {
+		key, ok, err := p.ObjectKey(n)
+		if err != nil {
+			return out, err
+		}
+		if !ok {
+			return out, nil
+		}
+		switch string(key) {
+		case "id":
+			v, err := p.String()
+			if err != nil {
+				return out, jsonbind.FieldError("id", "invalid string", err)
+			}
+			out.Id = v
+		default:
+			if err := p.SkipValue(); err != nil {
+				return out, err
+			}
+		}
+	}
+}
+
+// actionProfileInput is the decoded argument list of the profile server action.
+type actionProfileInput struct {
+	Id string `json:"id"`
+}
+
+// ActionProfile is the generated entry point of the profile server action.
+func ActionProfile(w http.ResponseWriter, r *http.Request) {
+	body, err := httpbind.ReadActionBody(r)
+	if err != nil {
+		httpbind.WriteError(w, r, err)
+		return
+	}
+	input, err := decodeactionProfileInputBytes(body)
+	if err != nil {
+		httpbind.WriteError(w, r, err)
+		return
+	}
+	out, err := profile(r.Context(), input.Id)
+	if err != nil {
+		httpbind.WriteError(w, r, err)
+		return
+	}
+	buf := jsonbind.GetBuffer()
+	*buf = appendProfileJSON((*buf)[:0], out)
+	err = httpbind.WriteJSONBytes(w, http.StatusOK, *buf)
+	jsonbind.PutBuffer(buf)
+	if err != nil {
+		httpbind.WriteError(w, r, err)
+		return
+	}
 }

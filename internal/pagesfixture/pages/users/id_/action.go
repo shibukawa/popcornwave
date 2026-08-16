@@ -1,6 +1,7 @@
 package id_
 
 import (
+	"context"
 	"net/http"
 
 	"github.com/shibukawa/popcornwave/pw"
@@ -52,9 +53,25 @@ func Rename(w http.ResponseWriter, r *http.Request) {
 // wrote a status, a header, or a body would keep exactly that response instead.
 func Retire(w http.ResponseWriter, r *http.Request) {}
 
-// A typed server action belongs here, and one is not declared yet: v0.5.10
-// emits its wrapper into every per-source artifact of the package while
-// planning its argument struct under an empty source path, so the wrapper and
-// the decoder it names land in different files. docs/tinybind-go-typed-action-
-// wiring-report.md carries what was measured; the wiring on this side is done
-// and this fixture is where the declaration goes when that is answered.
+// Profile is the typed shape of the same surface: an ordinary Go function of
+// its own signature, admitted by the declaration above it rather than by
+// looking like a handler.
+//
+// It is unexported, which the raw shape could not be — a declaration is what
+// publishes it, so the export rule stops meaning anything here. A script calls
+// it as actions.profile, its argument arrives from the call's payload by name,
+// and its value comes back encoded rather than as markup.
+//
+// The leading context is the request's, which is what a function reading the
+// database handle or the signed-in reader needs. Both live there.
+var _ = pw.ServerAction(profile)
+
+type Profile struct {
+	Id   string `json:"id"`
+	Name string `json:"name"`
+}
+
+func profile(ctx context.Context, id string) (Profile, error) {
+	_ = ctx
+	return Profile{Id: id, Name: "user " + id}, nil
+}

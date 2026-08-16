@@ -64,13 +64,34 @@ shipped_upstream_2026_08_14:
   wrapper_rather_than_the_function: the registration names the generated entry point, so a declared function may stay unexported and the lower-case opt-out stops meaning anything under a declaration
   wired_here: pw.ServerAction, the declaration on both transports' handler shapes, and the per-package hand-off from routetree Result.Actions to the binding phase
   the_identifier_had_to_be_stated: a path's last element is not the package name for either module — tinybind-go is httpbind and popcornwave is pw — which is why the module made it a declared field
-  two_defects_stop_it_compiling:
+  two_defects_stopped_it_compiling:
     where: docs/tinybind-go-typed-action-wiring-report.md, measured by declaring one in the page tree fixture
     split_artifact: the argument struct is analysed with an empty source path while the wrapper is emitted into every per-source artifact, so the decoder the wrapper names lands in a different file; the encode half reaches the right one, so only decoding is missing
     rediscovery: the wrapper is an exported handler-shaped function in a route package, and the generated-source filter names this framework's own header while the wrapper carries the module's, so the next run publishes the wrapper as a raw action with its own hash and published name
     neither_is_reachable_from_the_module_s_tests: both need a package emitting more than one artifact, and its own test emits with no selection
     not_worked_around: naming another module's header string to avoid rediscovering its output goes stale silently and would exclude a hand-written file headed the same way
-  fixture_state: the declaration is backed out so the tree compiles, and the route package carries a comment saying where it goes when these are answered
+    answered_in: v0.5.14, below
+answered_upstream_2026_08_16:
+  version: system:tinybind v0.5.14, which fixed both defects on the terms the report asked for and neither by a workaround
+  split_artifact: the action carries the file it was declared in, the argument struct takes that source path, and the artifact loop scopes which actions each artifact writes rather than the emitter filtering a list it cannot place
+  two_cases_the_fix_had_to_carry:
+    no_parameter: an action declaring none contributes no type, so the artifact loop seeds a source from the action list or its entry point would be written nowhere
+    path_spellings: routetree reports the file as it walked it and the plan carries what the loader reported, so the match is on the base name, which is unambiguous because a package is one directory
+  rediscovery: action discovery now skips a file it recognizes as generated, which the rule system:tinybind states for route discovery and the call-site analysis and which this pass had never implemented; the module's own header is recognized unprompted, so no caller names another module's prefix to skip that module's output
+  a_parse_mode_hid_it: the skip was added and did nothing, because ParseFile was called without ParseComments and the header is a comment
+  the_third_pass_to_meet_that_rule: after route discovery and the transform, which is the same lesson each time — a pass reading the package reads its own output back
+  what_stayed_this_framework_s: HandlerShape.GeneratedHeaders, where a framework registers the header it brands its own output with; the module's test names this framework's prefix, which is what says the registration was left here deliberately
+as_built_2026_08_16:
+  admission_is_one_function_now: setActionAdmission states both rules for one transport — the annotation that admits a declared function, and the header whose files are not read — and both emitters call it, so the two trees cannot drift on either
+  registered_defensively: no file this framework generates declares a handler-shaped exported function today, so nothing was being rediscovered; the registration is for the same reason options.GeneratedHeaders exists, and costs one line
+  fixture: the route package declares profile, unexported, taking a leading context and returning a value and an error, beside the two raw handlers it already had
+  what_the_fixture_proves:
+    it_compiles: the decoder and the entry point are in one artifact, which is defect one
+    the_second_run_is_a_no_op: regenerating publishes no wrapper of its own, which is defect two, and the committed-artifact test is what asserts it
+    the_value_comes_back: a POST carrying {"id":"42"} answers 200 with both fields, so the argument bound by name and the result encoded are both real
+    one_namespace: the typed action is published beside the two raw ones on the same route, so a script sees three names and not two surfaces
+  unexported_is_the_visible_difference: the declaration publishes it, so the export rule that admits a raw handler means nothing here, and the fixture spells that out by declaring a lower-case function
+  documentation: the server actions guide gained the typed shape as its own section, both locales, and lost a paragraph explaining the absence against a Load that no longer exists
 acceptance:
   - a declared function of any signature is reachable at its own endpoint and callable by name from a component script
   - its arguments arrive from the caller's payload by name, and its value comes back as a value rather than as markup
