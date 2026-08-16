@@ -139,6 +139,8 @@ pw.WriteHTML(w, r, Home(HomeParams{Name: input.Name}))
 
 `Home` / `HomeParams` are generated from `handlers/home.pw.html`. The handler passes a leaf fragment; `WriteHTML` renders it inside the registered document shell (`templates/document.pw.html`) — the handler never names or imports the document. The chain is rendered into a buffer and validated before commit, so a template failure becomes a clean 500. `WriteHTML` accepts no status code — it answers 200.
 
+Every HTML response also says whether a shared cache may hold it, and the answer defaults to `private, no-store`. It is read from the template chain before anything renders, not from the request — see [caching.md](caching.md).
+
 - `pw.WriteHTMLChain(w, r, []pw.HTMLWrapper{...}, leaf)` — explicit wrapper chain (e.g. a print shell).
 - `pw.WriteHTMLFragment(w, r, Row(RowParams{Item: item}))` — one template as the whole response: no shell, no merged head. For htmx-style swaps. Never streams; a fragment contributing to the document head is rejected with a 500; failures answer `application/problem+json` with their real status (htmx does not swap non-2xx responses).
 
@@ -152,21 +154,94 @@ The call site generates a typed encoder (no reflection). It reads a `json` tag's
 
 `pw.WriteStatus(w, r, http.StatusCreated, value)` is `WriteAPI` with the success status explicit — 201, 202, or 204, which writes no body. Keep the status a literal or named constant: the OpenAPI document lists one response per static status, and a computed status is invisible to the scanner.
 
+### Redirects
+
+`pw.Redirect(w, r, url, status)` and `pw.RedirectSeeOther(w, r, url)` write one.
+The framework refuses a target a browser could only follow by running script, and
+answers an update request with a navigate directive instead of a 303.
+
+Code that holds no writer — a template loader, a service function — **returns** a
+redirect instead: `pw.SeeOther(url)` (303), `pw.TemporaryRedirect` (307),
+`pw.MovedPermanently` (301), `pw.PermanentRedirect` (308) are `error` values, and
+`pw.WriteProblem` turns them into the redirect response.
+
 ### Streams
 
 ```go
 func events(w http.ResponseWriter, r *http.Request) {
-	stream := pw.NewStream[ChatEvent](w, r)
-	defer stream.Close()
-	for event := range source {
-		if err := stream.Send(event); err != nil {
-			return
+	pw.WriteStream(w, r, func(stream *pw.Stream[ChatEvent]) error {
+		for event := range source {
+			if err := stream.Write(event); err != nil {
+				return err
+			}
 		}
+		return nil
+	})
+}
+```
+
+The client negotiates SSE, NDJSON, or a JSON array via `Accept`; the handler
+serves all three unchanged. Closing is the runtime's, not the caller's: it runs
+whichever way the callback ends. An error the callback returns reaches the
+handler installed with `pw.SetStreamErrorHandler` — there is no status left to
+carry it, so install one or a mid-stream failure says nothing in production.
+
+### WebSockets
+
+Reach for a socket only when the client has to keep talking (a chat room, a
+collaborative document, a control channel). A one-way stream keeps HTTP framing,
+survives proxies that know nothing about upgrades, and answers a failure with an
+ordinary problem response — take it first.
+
+```go
+func Chat(w http.ResponseWriter, r *http.Request) {
+	room, _ := pw.QueryValue(r, "room")   // read the request *here*, before the entry
+
+	if err := pw.WebSocket(w, r, func(s *pw.Socket[ClientMsg, ServerMsg]) error {
+		for {
+			in, err := s.Read()
+			if err != nil {
+				return nil // the peer went away, or went quiet past the timeout
+			}
+			if err := s.Write(ServerMsg{Type: "message", From: room, Text: in.Text}); err != nil {
+				return err
+			}
+		}
+	}); err != nil {
+		pw.Logger(r.Context()).Warn("upgrade refused", pw.Err(err))
 	}
 }
 ```
 
-The client negotiates SSE, NDJSON, or a JSON array via `Accept`; the handler serves all three unchanged.
+Neither type argument is spelled at the call: generation recovers them from the
+closure parameter and writes a decoder and an encoder into `_pw_gen.go`. **If a
+socket connects and immediately closes, run `pw generate` before looking anywhere
+else** — a socket whose types were never discovered compiles, opens, and fails on
+its first message.
+
+- `Read` must be called from one goroutine; `Write` may be called from any (it
+  shares the runtime's control-frame lock), which is what makes a broadcast
+  goroutine safe.
+- **Something must keep reading**, even in a push-only handler: ping and close
+  frames are handled inside the read call.
+- Returning from the callback is how you close.
+- **The callback must not read `w` or `r`.** On the fasthttp build it runs after
+  the handler returned. Capture what you need first. `r.Context()` and what it
+  carries are fine; `r.RemoteAddr` is not.
+- A non-nil return from `pw.WebSocket` means the upgrade was refused and the
+  problem response is already written — log it, do not answer.
+
+The framework checks `Origin` before the handshake (an upgrade never reaches CSRF,
+which guards unsafe methods), using the same comparison the CSRF frame uses: the
+request's origin must be this deployment's own or one in
+`security.csrf.trusted_origins`. **Behind a TLS-terminating proxy, declare
+`server.trusted_proxies`** or every upgrade is refused on the scheme. A request
+with no `Origin` is admitted (only browsers must send one); a literal `null` is
+refused. `pw.WebSocketWith(w, r, opts, fn)` takes a per-endpoint policy.
+
+Every connection carries a read limit (1 MiB), an idle deadline (60s), a ping
+cadence (54s), and a write deadline (10s), none of which can be turned off.
+`pw.SetSocketDefaults` changes them process-wide.
 
 ### Errors
 
@@ -188,13 +263,28 @@ Scaffolded projects carry status templates including `templates/400.pw.html`, `4
 
 | Call | Returns |
 | --- | --- |
-| `pw.Logger(ctx)` | request-scoped logger; never nil |
+| `pw.Logger(ctx)` | request-scoped logger; never nil. `pw.WithLogAttributes(ctx, …)` adds attributes |
 | `pw.Config[T](ctx)` | a registered configuration struct; never fails (zero value if unregistered) |
-| `pw.DB(ctx)` | `(*sql.DB, bool)` — `false` on PostgreSQL (native pgx pool) |
+| `pw.DB(ctx)` | `(*sql.DB, bool)` — `false` on PostgreSQL (native pgx pool; use `postgres.WithConn`) |
 | `pw.Transaction(ctx, fn)` | runs `fn` in a transaction; generated queries recover it from the context |
-| `pw.RequestAuthentication(ctx)` | the verified authentication result |
+| `pw.RequestAuthentication(ctx)` | the verified authentication result; `.Subject` is what a private cache key uses |
 | `pw.Authenticated(ctx)` | whether the request carries a verified identity |
+| `pw.LocaleContext(ctx)` | the resolved locale (see [i18n.md](i18n.md)) |
+| `pw.MemoStore(ctx, name)` | a configured data cache (see [caching.md](caching.md)) |
+| `pw.TraceID(ctx)` / `pw.SpanID(ctx)` | correlation ids, empty outside a trace |
 | `pw.IsBot(r)` | User-Agent heuristic; use only for render-branch choice, never access decisions |
+
+Reading one value off the request goes through the framework rather than the
+request object, because those reads are the ones a second transport cannot
+follow: `pw.PathValue(r, "id")`, `pw.QueryValue(r, "sort") (string, bool)`,
+`pw.Queries(r)`, `pw.FormValue(r, "body")`. Prefer them to `r.PathValue` and
+`r.URL.Query()` — a project that ever builds for fasthttp needs them, and they
+cost nothing where it does not.
+
+Three questions about what the caller wants, for a handler that answers more than
+one kind of client: `pw.WantsValue(r)` (a script called this by name and holds
+the answer), `pw.WantsUpdate(r)` (the runtime intercepted a gesture and expects
+regions), `pw.WantsLive(r)` (a live subscription).
 
 ```go
 err = pw.Transaction(r.Context(), func(ctx context.Context) error {
@@ -255,22 +345,30 @@ Write the `!ok` branch even on guarded routes — a later edit to `protection.in
 
 ## Middlewares
 
-The framework stack occupies multiples of ten, outside in — the gaps are yours. Each number has a constant (`pw.SlotRequestID`, `pw.SlotAccessLog`, ...):
+The framework stack runs outside in on a numbered ladder — the gaps are yours. Each number has a constant (`pw.SlotRequestID`, `pw.SlotAccessLog`, ...):
 
 | Slot | Frame | Switch |
 | --- | --- | --- |
 | 10 | OpenTelemetry root span | only when tracing exports |
 | 20 | resource injection (logger, DB, config) | always on |
+| 25 | client address resolution | `server.trusted_proxies` |
 | 30 | request ID | `middleware.request_id` |
 | 40 | access log | `middleware.access_log` |
 | 50 | recover (panic → error response) | `middleware.recovery` |
-| 60 | security headers | `security.headers.enabled` |
+| 52 | security headers, and CORS | `security.headers.enabled`, `security.cors.enabled` |
+| 55 | process rate-limit ceiling (unkeyed) | `ratelimit.process` |
 | 70 | request timeout | `middleware.request_timeout` |
 | 80 | body limit | `server.max_request_body` |
 | 90 | public assets | `server.public.enabled` |
 | 100 | health/readiness probes | `server.health`, `server.readiness` |
-| 110–150 | extensions: storage (110), session (120), authentication (130), CSRF (140), guard (150) | per extension |
-| 160 | OpenAPI document and UI | `server.openapi`, `server.apidoc` |
+| 110–150 | extensions: storage (110), session (120), authentication (130), rate limit (135), CSRF (140), guard (150) | per extension |
+| 160 | OpenAPI document and UI | `server.openapi`, `server.api_doc` |
+
+The keyed rate limiter sits at 135, after authentication, because a per-subject
+budget needs a resolved identity; the unkeyed process ceiling sits at 55, above
+almost everything, because a distributed flood is exactly what no keyed bucket
+sees. Framework operational endpoints and the public asset mount are exempt from
+counting, and the carve-out is not configurable.
 
 Add your own with `pw.RegisterMiddleware(slot, name, func(http.Handler) http.Handler)`, called from `main` before the chain is built:
 
@@ -280,6 +378,45 @@ pw.RegisterMiddleware(pw.SlotSession+5, "request_time", withRequestTime)
 ```
 
 Pick the number by what the middleware must observe: below 20 no resources are in context; below 50 a panic is answered by recover; below 120 the session is not yet resolved; after 150 only guard-admitted requests arrive. Slots 100 and 160 refuse registration (they are handlers). Reusable capabilities register with `pw.RegisterExtension(pw.Extension{Name, Slot, Setup, Close})` from a package `init`; `Setup` runs once at startup and returning a nil middleware installs nothing.
+
+## Response policy you configure rather than write
+
+Four frames answer above your handler and need no code, only configuration
+(keys and defaults in [config.md](config.md)):
+
+- **Compression** (`middleware.compression`, off by default) encodes rendered
+  HTML and JSON for clients that accept it, offering `compression_codings`
+  (`["zstd", "gzip"]`) in server preference order and setting `Vary:
+  Accept-Encoding` either way. Encoder levels are deliberately not configurable.
+  Leave it off where a CDN or reverse proxy already does the work. Precompressed
+  static assets are a different thing — the build writes `.br`/`.zstd`/`.gz`
+  sidecars regardless.
+- **CORS** (`security.cors`, off by default) rides in the security-headers frame,
+  so a preflight is answered above every refusal your application could produce.
+  Four combinations fail startup rather than serving: enabled with no origin,
+  `allow_credentials` with `"*"` origins, `allow_credentials` with `"*"` in
+  `allowed_headers`, and `allow_credentials` with `include = ["/**"]`.
+- **Rate limiting** (`ratelimit`, off by default) gives each caller one budget
+  across the whole application: `per_subject` for a verified identity,
+  `per_address` otherwise, plus the unkeyed `process` ceiling. There are no
+  per-route rules — that vocabulary belongs to the gateway in front. Behind a
+  proxy, set `server.trusted_proxies` or every anonymous caller shares one
+  bucket. The `memory` backend counts inside one process, so N replicas enforce
+  N times the limit; more than one replica wants `backend = "redis"` and a blank
+  import of `ratelimitstore/redis`. An unreachable store **admits** the request
+  and logs at error level — watch for that line, since a limiter silently not
+  limiting is the worst state.
+- **Token revocation** (`auth.jwt.revocation.mode`, no default — startup refuses
+  a missing value) is the `jwt_only` counterpart to logout. `token` revokes one
+  credential by `jti`; `subject` refuses every token an identity was issued
+  before now, by comparing a stored stamp against `iat`. There is no HTTP
+  endpoint: `auth.RevokeToken` / `auth.RevokeSubject` (and
+  `auth.ReinstateToken` / `auth.ReinstateSubject`,
+  `auth.TokenRevoked` / `auth.SubjectRevoked`) are Go calls your application
+  authorizes. An unavailable store answers `503`, not `401`.
+
+Handlers still write a 429 themselves where the quota is the application's own:
+`pw.WriteProblem(w, r, pw.RateLimited(pw.RateLimit{Limit:, Remaining:, Reset:, RetryAfter:}, "quota exceeded"))`.
 
 ## OpenAPI from registered handlers
 
@@ -307,3 +444,7 @@ Serving is configured with `server.openapi` (path, no default) and `server.api_d
 - **Registering middleware or session stores after the chain is built, or from the wrong place.** Call `pw.RegisterMiddleware` / `pw.RegisterSessionStore` in `main`, before `pw.Run`.
 - **Logout as a link.** `/auth/logout` is POST only; use a form.
 - **Handler mounted through a variable the generator cannot follow.** It works at runtime but disappears from OpenAPI; register with a literal pattern string.
+- **Reading `w` or `r` inside a WebSocket or stream callback.** On the fasthttp build the callback outlives the handler. Capture what you need before the entry.
+- **Shipping a stream or socket with no `pw.SetStreamErrorHandler`.** A failure after the status is committed has nowhere else to go.
+- **Reaching for `r.PathValue` / `r.URL.Query()` in a project that also builds for fasthttp.** Use `pw.PathValue` / `pw.QueryValue`.
+- **Enabling rate limiting behind a proxy without `server.trusted_proxies`.** Every anonymous caller resolves to the proxy and shares one bucket, which turns the limit into an outage.

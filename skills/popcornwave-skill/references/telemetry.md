@@ -48,6 +48,13 @@ Stable fields are `timestamp`, `severity`, `message`, and `service_name`.
 Correlated records may add `trace_id`, `span_id`, and numeric `trace_flags`.
 Custom attributes remain typed top-level JSON values, so inspect before casting.
 
+Some questions belong to spans rather than records, and those live in the `pw dev`
+telemetry viewer instead: render timing, per-boundary work, database statements,
+and the render cache counters `pw.render.cache_hits` / `pw.render.cache_misses`.
+If a question is about how long something took or how often a cache was hit, say
+that the viewer holds it rather than searching the JSONL for a field that is not
+there.
+
 Useful starting points:
 
 ```sql

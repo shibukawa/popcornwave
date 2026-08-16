@@ -127,6 +127,8 @@ ORDER BY id
 
 `{else}` is available; the condition must be `bool`. Only surviving branches consume placeholders, so numbering and `Args` stay aligned.
 
+`{val name = expr}` and `{check Call(…)}` work here as they do in `.pw.html` (see references/templates.md). In a query a binding normalises a value once for several parameter positions and contributes no bytes to the statement itself.
+
 ## Predicates and relations
 
 A private `sql.predicate` is a reusable condition; a private `sql.relation<T>` is a typed subquery used via `FROM subquery` / `JOIN subquery`. Neither can be exported and neither generates a function.
@@ -210,7 +212,43 @@ err := pw.Transaction(pw.SelectDB(ctx, "writer"), func(ctx context.Context) erro
 })
 ```
 
-One transaction never spans two groups (`ErrCrossGroupTransaction`). A single-connection configuration (including every `testutil` run) answers every group name with that one database. Raw access when a query does not fit the generated layer: `db, ok := pw.DB(r.Context())` — on PostgreSQL `ok` is `false` (native pgx pool, no `*sql.DB`).
+One transaction never spans two groups (`ErrCrossGroupTransaction`). A single-connection configuration (including every `testutil` run) answers every group name with that one database.
+
+## Escape hatches when a query does not fit
+
+`db, ok := pw.DB(r.Context())` returns the pool — but on **PostgreSQL `ok` is `false`**: requests run on a native pgx pool with no `*sql.DB` behind them. The way to that connection is `postgres.WithConn`:
+
+```go
+err := postgres.WithConn(ctx, func(conn *pgx.Conn) error {
+	batch := &pgx.Batch{}
+	for _, name := range names {
+		batch.Queue("INSERT INTO items (name) VALUES ($1)", name)
+	}
+	results := conn.SendBatch(ctx, batch)
+	for range names {
+		if _, err := results.Exec(); err != nil {
+			_ = results.Close()
+			return err
+		}
+	}
+	return results.Close()
+})
+```
+
+Called inside `pw.Transaction`, the callback receives the connection that transaction is already executing on, so the work joins it and rolls back with it; called outside one, a pooled connection is leased for the call. **Nothing derived from the connection may outlive the callback.** A group that is not PostgreSQL returns an error naming the engine it found. `WithConn` is also how `LISTEN`/`NOTIFY` and `errors.As` against `*pgx.PgError` are reached.
+
+Work done through `WithConn` **does not reach the query log** — it bypasses the executor those diagnostics attach to. Open a span (`pw.StartSpanKind(ctx, "import-items", pw.SpanKindClient)`) and log the shape yourself: how many statements went, and how long the exchange took.
+
+### Batching
+
+Where the cost is round trips rather than query time, the fix depends on the engine.
+
+- **Start with a transaction.** Every statement outside one is its own transaction, which SQLite pays for with an fsync each time — two hundred inserts go from ~50 ms to ~1 ms. **On SQLite that is the whole answer**; there is no network to amortise.
+- **PostgreSQL: `pgx.Batch`** through `WithConn`, as above — one round trip, run as one implicit transaction. Keep DDL out of a batch (the server may parse every queued statement before running any), and `VACUUM`, `CREATE DATABASE`, and `CREATE INDEX CONCURRENTLY` are rejected in a batch of more than one statement. Reads inside a batch do not necessarily share a snapshot; queue it inside `pw.Transaction` when you need a stronger isolation level.
+- **PostgreSQL: `conn.CopyFrom`** when the rows share one table and column shape — the bulk-ingest path, with no per-row `RETURNING` and no `ON CONFLICT`. For upserts, COPY into a staging table and follow with `INSERT … ON CONFLICT` in the same transaction. Never point `COPY FROM` at a file path: that reads the *database server's* filesystem.
+- **MySQL** has no pipelining, so its batch package joins statements into one multi-statement command, which needs `multiStatements=true` and `interpolateParams=true` in the DSN — the first widens what an injection can do on every connection, and the second renders arguments into the SQL instead of binding them. Only writes, one error for the whole command, and no joining an open transaction. Take it only for a write-heavy import whose operator agreed to both settings.
+
+**When not to batch:** inserts into one table are a multi-row `INSERT`, which parses once, works on every engine, and is what `.pw.sql` slice expansion already writes. Reach for a batch when the statements genuinely differ.
 
 For JOINs that repeat the parent row per child, `sqlbind.ScanRows[T]` regroups rows into nested structs using `groupkey:""` and `db:"alias"` tags on plain Go structs (host Go only — excluded from TinyGo builds; holds the whole result in memory). Prefer `sql.one`/`sql.optional`/`sql.many` for ordinary queries.
 
@@ -291,3 +329,6 @@ In `dev`, every generated statement is logged with its SQL, args, and duration (
 - Expecting dialect translation — SQL text is emitted verbatim; a package generated for SQLite is not the one you ship on PostgreSQL.
 - Renumbering or editing an applied migration, or seeding/migrating with the wrong `APP_ENV` selected.
 - Using a migration for test rows (runs in production) or a seed for schema (never versioned, inserts again on rerun).
+- Reaching for `pw.DB` on PostgreSQL and treating `ok == false` as a misconfiguration — it is the native pgx pool; use `postgres.WithConn`.
+- Letting rows, a `pgx.Rows`, or a batch result escape a `WithConn` callback — the connection returns to the pool the moment it returns.
+- Caching a read taken inside a transaction (see references/caching.md).
