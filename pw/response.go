@@ -65,10 +65,6 @@ func registeredHTMLDocument() []HTMLWrapper { return pwruntime.RegisteredHTMLDoc
 // The constructors are pwruntime's, re-exported so an application keeps
 // naming them through pw and a rewritten call finds the same names on the
 // other runtime.
-func problem(status int, title string, value any) Problem {
-	return pwruntime.NewProblem(status, title, value)
-}
-
 func BadRequest(values ...any) Problem      { return pwruntime.BadRequest(values...) }
 func Unauthorized(values ...any) Problem    { return pwruntime.Unauthorized(values...) }
 func Forbidden(values ...any) Problem       { return pwruntime.Forbidden(values...) }

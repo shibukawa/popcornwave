@@ -224,7 +224,9 @@ authentication := pw.RequestAuthentication(r.Context())
 verified-claim rule and also stays stateless. `registered` reads the relational
 allowlist, and any revocation mode other than `off` reads the relational
 revocation table; those choices require `middleware.rdb` and the framework
-migration. JWT-only never needs session storage. CSRF protection must be off
+migration. Ending a token before it expires — and undoing that during an
+incident — is its own surface, covered in [Token
+Revocation](/guides/backend/token-revocation/). JWT-only never needs session storage. CSRF protection must be off
 for this mode because authority arrives in an explicit header that a browser
 does not attach automatically, and there is no session secret to validate.
 

@@ -54,4 +54,9 @@ rules:
   - the surface a handler calls is data:request-authentication and auth.User, which is what every other mode gives it, so application code does not branch on the mode
   - a revocation call is an application or operator action; the framework never revokes on its own
   - errors reaching a client are api:problem-response with the stable categories of policy:access-token-verification
+implementation_state:
+  verified: 2026-08-14, every call above present in plugin/auth and wired through setupBearer
+  storage_narrowed: relational only; see the shipped storage of policy:token-revocation
+  tested: the store and the refusal path directly, and RevokeToken end to end; the RevokeSubject, reinstate, and administrative-read wrappers have no test of their own and no example calls them
+  documented: 2026-08-14, guides/backend/token-revocation in both locales covers the revoke, reinstate, and administrative-read calls, the two forms, on_unavailable, and the propagation-delay cache, linked from the jwt_only section of the authentication guide
 ```
