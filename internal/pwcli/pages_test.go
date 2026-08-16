@@ -9,12 +9,7 @@ import (
 )
 
 // writePageTreeFixture creates a project whose only router is a page tree: a
-// root page under a layout, and a dynamic route whose loader is an external the
-// template binds with {val}.
-//
-// The dynamic route used to declare a typed Load. system:tinybind v0.5.13
-// withdrew that rung, so the loader is now an ordinary Go function the
-// component names.
+// root page under a layout, and a dynamic route with a typed Load beside it.
 func writePageTreeFixture(t *testing.T) string {
 	t.Helper()
 	root := t.TempDir()
@@ -46,16 +41,16 @@ export component Page(): html {
 `)
 	writeTestFile(t, filepath.Join(root, "pages", "users", "id_", "page.pw.html"), `package id_
 
-external LoadUser(id: string): string
+external LoadName(id: string): string
 
 export component Page(id: string): html {
-{val name = LoadUser(id)}
+{val name = LoadName(id)}
 <h1>{name}</h1>
 }
 `)
 	writeTestFile(t, filepath.Join(root, "pages", "users", "id_", "page.go"), `package id_
 
-func LoadUser(id string) string { return id }
+func LoadName(id string) (string, error) { return id, nil }
 `)
 	return root
 }
@@ -123,25 +118,22 @@ func TestRunGenerateWritesPageTree(t *testing.T) {
 	}
 }
 
-// A route input reaches the page component itself, which then binds its own
-// loader with {val}.
-//
-// This replaced the typed rung, where the route bound its segments to Load and
-// Load's results to the component positionally. system:tinybind v0.5.13
-// withdrew that shape; what is asserted here is the contract that took its
-// place, so the route decodes the segment and the component decides what to do
-// with it.
-func TestRunGeneratePageTreeBindsRouteInputToTheComponent(t *testing.T) {
+// A page's route inputs reach its component directly, and its loader does not
+// appear in the generated handler at all: the template calls it through a val
+// binding, which is what requirement:explicit-page-loading moved.
+func TestRunGeneratePageTreePassesRouteInputsToThePage(t *testing.T) {
 	root := writePageTreeFixture(t)
 	generateIn(t, root)
 
 	registry := readTestFile(t, filepath.Join(root, "pages", "routes_pw_gen.go"))
-	if strings.Contains(registry, "Load(") {
-		t.Errorf("the withdrawn typed rung is still being emitted:\n%s", registry)
+	if !strings.Contains(registry, "Id: route.ID") {
+		t.Errorf("the route input does not reach the page component:\n%s", registry)
 	}
-	component := readTestFile(t, filepath.Join(root, "pages", "users", "id_", "page_pw_gen.go"))
-	if !strings.Contains(component, "LoadUser(") {
-		t.Errorf("the component does not call the external it binds:\n%s", component)
+	// The generated handler used to call a typed Load between decoding and
+	// rendering. It must not any more: the call belongs to the template, and a
+	// handler still making one would run the loader twice.
+	if strings.Contains(registry, "LoadName(") {
+		t.Errorf("the generated handler still calls the page's loader:\n%s", registry)
 	}
 	decoder := readTestFile(t, filepath.Join(root, "pages", "users", "id_", "route_pw_gen.go"))
 	// Through the framework accessor rather than off the request value. That
@@ -381,5 +373,39 @@ func TestNewPageOffersTheConfiguredTree(t *testing.T) {
 	}
 	if _, wrote := plan.creates["site/about/page.pw.html"]; !wrote {
 		t.Errorf("the page was not planned inside the configured tree: %v", plan.creates)
+	}
+}
+
+// The loader scaffold has to generate, not merely read well. The rung it
+// replaced passed every text assertion while emitting a project that failed
+// generation, because nothing here ran the generator over what it wrote.
+func TestScaffoldedLoaderPageGenerates(t *testing.T) {
+	root := writePageTreeFixture(t)
+	writeTestFile(t, filepath.Join(root, "config.dev.toml"), "[server]\naddr = \":8080\"\n")
+	state, err := loadProjectState(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	plan, err := planPage(state, newOptions{
+		Kind: newKindPage, Package: "pages", Path: "/tasks/{id}", Rung: pageRungLoader,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for path, source := range plan.creates {
+		target := filepath.Join(root, filepath.FromSlash(path))
+		if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		writeTestFile(t, target, source)
+	}
+	generateIn(t, root)
+
+	registry := readTestFile(t, filepath.Join(root, "pages", "routes_pw_gen.go"))
+	if !strings.Contains(registry, "/tasks/{id}") {
+		t.Errorf("the scaffolded page was not routed:\n%s", registry)
+	}
+	if strings.Contains(registry, "LoadGreeting(") {
+		t.Errorf("the generated handler calls the page's loader:\n%s", registry)
 	}
 }

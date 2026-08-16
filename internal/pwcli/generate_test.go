@@ -1346,3 +1346,85 @@ export function setup(el) {
 		t.Errorf("the component references no file named %s:\n%s", filepath.Base(script), generated.source)
 	}
 }
+
+// cacheKeyFixtureDirectory holds a handler that passes a marked struct to the
+// data cache. It lives in the main module rather than in a temporary one,
+// because discovery needs every import of the call site to resolve and a
+// standalone fixture module would have to carry the framework's whole
+// dependency closure to offer that.
+const cacheKeyFixtureDirectory = "../pwgen/testdata/wrappers"
+
+// A pw.Memo call is what makes a marked struct a key type, so pw generate has
+// to emit its method. Until this was wired the type compiled only after
+// somebody wrote the method by hand, which is the work generation removes.
+func TestAMemoCallGeneratesItsKeyMethod(t *testing.T) {
+	options, err := pwgen.Options(sqlbind.DialectPostgreSQL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	changes, err := planDirectory(context.Background(), generator.New(options), cacheKeyFixtureDirectory,
+		generationPurposes{handlers: true}, nil, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var emitted string
+	for _, change := range changes {
+		if filepath.Base(change.path) == cacheKeyFileName {
+			emitted = string(change.source)
+		}
+	}
+	if emitted == "" {
+		t.Fatalf("no %s was planned; a key type reached the cache and got no method", cacheKeyFileName)
+	}
+	for _, want := range []string{
+		"func (v itemSummary) CacheKey() string",
+		"var _ cachekeybind.CacheKey = itemSummary{}",
+		"cachekeybind.KeyString(v.ItemID)",
+		"cachekeybind.KeyInt(v.Page)",
+	} {
+		if !strings.Contains(emitted, want) {
+			t.Errorf("emitted method does not contain %q:\n%s", want, emitted)
+		}
+	}
+	// Marking is opt-in, so an unmarked field is the result rather than the
+	// query and stays out of the key.
+	for _, payload := range []string{"v.Title", "v.Total"} {
+		if strings.Contains(emitted, payload) {
+			t.Errorf("unmarked field %s reached the key:\n%s", payload, emitted)
+		}
+	}
+}
+
+// Planning must not write. A --check run reports staleness and leaves the tree
+// alone, and cache keys are the one pass whose generator generates by writing a
+// file, so it is planned through a temporary directory it discards.
+func TestPlanningCacheKeysWritesNothing(t *testing.T) {
+	options, err := pwgen.Options(sqlbind.DialectPostgreSQL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	target := filepath.Join(cacheKeyFixtureDirectory, cacheKeyFileName)
+	if _, err := planDirectory(context.Background(), generator.New(options), cacheKeyFixtureDirectory,
+		generationPurposes{handlers: true}, nil, false); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(target); !os.IsNotExist(err) {
+		os.Remove(target)
+		t.Fatalf("planning wrote %s into the source tree", target)
+	}
+}
+
+// A directory whose sources never name an entry point must not pay for the
+// second package load the analysis costs.
+func TestADirectoryWithNoMemoCallPlansNoCacheKeys(t *testing.T) {
+	directory := t.TempDir()
+	writeFirestoreFixture(t, directory)
+
+	mentions, err := mentionsCacheEntryPoint(directory)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if mentions {
+		t.Fatal("a directory with no cache call was reported as having one")
+	}
+}

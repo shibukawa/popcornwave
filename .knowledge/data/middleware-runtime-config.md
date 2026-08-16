@@ -14,7 +14,7 @@ switches:
   - access log
   - request size and timeout limits
   - session and authentication
-  - CORS
+  - CORS, whose values live in data:security-runtime-config security.cors and whose frame is the response-header one, per requirement:cors-middleware
   - response compression
 rdb_fields:
   rdb.enabled: bool
@@ -37,6 +37,7 @@ rdb_removed_fields:
 toml_layout: every scalar rdb key must precede the first [[middleware.rdb.connections]] header
 recommended_order:
   - recovery
+  - browser response policy, which is security.headers and security.cors in one frame, placed here by decision:cors-above-the-refusals rather than beside security.csrf, so its marking is on every refusal below it
   - trusted proxy
   - request ID
   - root span
@@ -44,7 +45,7 @@ recommended_order:
   - limits and timeout
   - database pool
   - session and authentication
-  - security.csrf and CORS
+  - security.csrf
   - compression
   - application handler
 rules:
@@ -54,7 +55,7 @@ rules:
   - enabled middleware validates its required config binding and linked implementation at startup
   - access logging and root-span middleware share data:observability-runtime-config
   - session middleware uses data:session-runtime-config and flow:session-lifecycle
-  - CSRF and response-header middleware use data:security-runtime-config
+  - CSRF, CORS, and response-header middleware use data:security-runtime-config
   - enabled rdb middleware uses api:rdb-middleware
   - each rdb DSN scheme resolves an opener and a dialect through rule:rdb-dsn-resolution, not a database/sql driver name
   - apply pool fields through database/sql without driver-specific assumptions

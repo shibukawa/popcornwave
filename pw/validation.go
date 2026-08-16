@@ -430,7 +430,10 @@ func validateSecurityConfig(config SecurityConfig) error {
 	if headers.HSTS.Preload && !headers.HSTS.IncludeSubdomains {
 		return fmt.Errorf("security.headers.hsts.preload requires include_subdomains")
 	}
-	return nil
+	// The cross-origin half is validated by the shared leaf, so this reports
+	// the same refusal the frame would raise later and the two cannot disagree
+	// about what a policy means.
+	return config.CORS.Validate()
 }
 
 func hasControl(value string) bool {

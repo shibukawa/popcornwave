@@ -2391,8 +2391,10 @@ protection.unauthenticated = "redirect"
 func securityRuntimeConfig(options initOptions) string {
 	if !servesBrowserLogin(options) {
 		// No session, so no token. The section would only describe a check that
-		// could not pass.
-		return ""
+		// could not pass — but an API this preset scaffolds is the one project
+		// whose caller is likely to be a page served from somewhere else, so
+		// the cross-origin block goes out even though the CSRF one cannot.
+		return corsRuntimeConfig(options)
 	}
 	section := `
 # Partial updates are off until a project wants a page to refresh a region
@@ -2429,6 +2431,50 @@ csrf.exclude = []
 # csrf.anonymous.secret = "${SECURITY_CSRF_ANONYMOUS_SECRET}"
 `
 	return section
+}
+
+// corsRuntimeConfig writes the commented cross-origin block, for an API project
+// only.
+//
+// It is commented rather than configured off, because the two values a
+// deployment has to supply — which origins, and which methods beyond the three
+// a browser sends without asking — are the whole content of the decision, and a
+// key set to a default nobody chose reads as one somebody did. Uncommenting it
+// with an origin filled in is the entire setup.
+//
+// Nothing here mentions the OpenAPI document: it answers a wildcard origin on
+// its own, whatever this section says, so a documentation UI hosted elsewhere
+// already works.
+func corsRuntimeConfig(options initOptions) string {
+	if !servesAPI(options) {
+		return ""
+	}
+	return `
+# Which other origins may read this API from a browser.
+#
+# A page served from somewhere else cannot read this application's responses
+# without it, whatever status they carry: the browser withholds the body and the
+# status alike, so a 401 and a 429 arrive as the same network error. Turning
+# this on is what makes the typed answers this API already writes readable.
+#
+# Nothing is needed for a caller that is not a browser, and nothing is needed
+# for the generated OpenAPI document, which is readable from anywhere already.
+# [security.cors]
+# enabled = true
+# allowed_origins = ["https://app.example.com"]
+# Beyond GET, HEAD and POST, which a browser sends without asking first.
+# allowed_methods = ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE"]
+# A bearer API wants no cookies, so this stays off. Turning it on grants the
+# origins above a read of this deployment as the logged-in visitor, and it
+# refuses an include of "/**" for exactly that reason.
+# allow_credentials = false
+`
+}
+
+// servesAPI reports whether the project is the machine-facing preset, whose
+// caller may well be a browser page on another origin.
+func servesAPI(options initOptions) bool {
+	return options.Auth == authJWTOnly
 }
 
 // hasDiscoveredPages reports whether the project starts with a page tree, whose

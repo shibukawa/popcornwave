@@ -19,6 +19,7 @@ func init() {
 	registerObservabilityConfigDefinition4()
 	registerMiddlewareConfigDefinition5()
 	registerHTMLConfigDefinition6()
+	registerCacheConfigDefinition7()
 }
 
 func registerServerConfigDefinition0() {
@@ -255,6 +256,15 @@ func registerSecurityConfigDefinition1() {
 			"security.headers.hsts.max_age",
 			"security.headers.hsts.include_subdomains",
 			"security.headers.hsts.preload",
+			"security.cors.enabled",
+			"security.cors.include",
+			"security.cors.exclude",
+			"security.cors.allowed_origins",
+			"security.cors.allow_credentials",
+			"security.cors.allowed_methods",
+			"security.cors.allowed_headers",
+			"security.cors.exposed_headers",
+			"security.cors.max_age",
 			"security.csrf.enabled",
 			"security.csrf.include",
 			"security.csrf.exclude",
@@ -274,6 +284,13 @@ func registerSecurityConfigDefinition1() {
 			"security.headers.hsts.max_age":            "0s",
 			"security.headers.hsts.include_subdomains": "false",
 			"security.headers.hsts.preload":            "false",
+			"security.cors.enabled":                    "false",
+			"security.cors.include":                    "[\"/**\"]",
+			"security.cors.allow_credentials":          "false",
+			"security.cors.allowed_methods":            "[\"GET\",\"HEAD\",\"POST\"]",
+			"security.cors.allowed_headers":            "[\"Content-Type\",\"Authorization\"]",
+			"security.cors.exposed_headers":            "[\"X-Request-ID\",\"Retry-After\",\"X-RateLimit-Limit\",\"X-RateLimit-Remaining\",\"X-RateLimit-Reset\"]",
+			"security.cors.max_age":                    "10m",
 			"security.csrf.enabled":                    "false",
 			"security.csrf.include":                    "[\"/**\"]",
 			"security.csrf.form_field":                 "_csrf",
@@ -292,6 +309,14 @@ func registerSecurityConfigDefinition1() {
 			"security.headers.hsts.max_age":                        {{Key: "security.headers.enabled"}, {Key: "security.headers.hsts.enabled"}},
 			"security.headers.hsts.include_subdomains":             {{Key: "security.headers.enabled"}, {Key: "security.headers.hsts.enabled"}},
 			"security.headers.hsts.preload":                        {{Key: "security.headers.enabled"}, {Key: "security.headers.hsts.enabled"}},
+			"security.cors.include":                                {{Key: "security.cors.enabled"}},
+			"security.cors.exclude":                                {{Key: "security.cors.enabled"}},
+			"security.cors.allowed_origins":                        {{Key: "security.cors.enabled"}},
+			"security.cors.allow_credentials":                      {{Key: "security.cors.enabled"}},
+			"security.cors.allowed_methods":                        {{Key: "security.cors.enabled"}},
+			"security.cors.allowed_headers":                        {{Key: "security.cors.enabled"}},
+			"security.cors.exposed_headers":                        {{Key: "security.cors.enabled"}},
+			"security.cors.max_age":                                {{Key: "security.cors.enabled"}},
 			"security.csrf.include":                                {{Key: "security.csrf.enabled"}},
 			"security.csrf.exclude":                                {{Key: "security.csrf.enabled"}},
 			"security.csrf.form_field":                             {{Key: "security.csrf.enabled"}},
@@ -312,6 +337,15 @@ func registerSecurityConfigDefinition1() {
 			{Prefix: "security", Key: "headers.hsts.max_age"},
 			{Prefix: "security", Key: "headers.hsts.include_subdomains", Kind: cliparser.KindBool},
 			{Prefix: "security", Key: "headers.hsts.preload", Kind: cliparser.KindBool},
+			{Prefix: "security", Key: "cors.enabled", Kind: cliparser.KindBool},
+			{Prefix: "security", Key: "cors.include", Kind: cliparser.KindArray},
+			{Prefix: "security", Key: "cors.exclude", Env: "-", Kind: cliparser.KindArray},
+			{Prefix: "security", Key: "cors.allowed_origins", Env: "-", Kind: cliparser.KindArray},
+			{Prefix: "security", Key: "cors.allow_credentials", Kind: cliparser.KindBool},
+			{Prefix: "security", Key: "cors.allowed_methods", Kind: cliparser.KindArray},
+			{Prefix: "security", Key: "cors.allowed_headers", Kind: cliparser.KindArray},
+			{Prefix: "security", Key: "cors.exposed_headers", Kind: cliparser.KindArray},
+			{Prefix: "security", Key: "cors.max_age", Help: "how long a browser may cache one preflight"},
 			{Prefix: "security", Key: "csrf.enabled", Kind: cliparser.KindBool},
 			{Prefix: "security", Key: "csrf.include", Kind: cliparser.KindArray},
 			{Prefix: "security", Key: "csrf.exclude", Env: "-", Kind: cliparser.KindArray},
@@ -334,6 +368,15 @@ func registerSecurityConfigDefinition1() {
 			{Key: "headers.hsts.max_age", Kind: configbind.ScaffoldDuration, Default: "0s"},
 			{Key: "headers.hsts.include_subdomains", Kind: configbind.ScaffoldBool, Default: "false"},
 			{Key: "headers.hsts.preload", Kind: configbind.ScaffoldBool, Default: "false"},
+			{Key: "cors.enabled", Kind: configbind.ScaffoldBool, Default: "false"},
+			{Key: "cors.include", Kind: configbind.ScaffoldStringSlice, Default: "[\"/**\"]"},
+			{Key: "cors.exclude", Kind: configbind.ScaffoldStringSlice, Env: "-"},
+			{Key: "cors.allowed_origins", Kind: configbind.ScaffoldStringSlice, Env: "-"},
+			{Key: "cors.allow_credentials", Kind: configbind.ScaffoldBool, Default: "false"},
+			{Key: "cors.allowed_methods", Kind: configbind.ScaffoldStringSlice, Default: "[\"GET\",\"HEAD\",\"POST\"]"},
+			{Key: "cors.allowed_headers", Kind: configbind.ScaffoldStringSlice, Default: "[\"Content-Type\",\"Authorization\"]"},
+			{Key: "cors.exposed_headers", Kind: configbind.ScaffoldStringSlice, Default: "[\"X-Request-ID\",\"Retry-After\",\"X-RateLimit-Limit\",\"X-RateLimit-Remaining\",\"X-RateLimit-Reset\"]"},
+			{Key: "cors.max_age", Kind: configbind.ScaffoldDuration, Default: "10m", Help: "how long a browser may cache one preflight"},
 			{Key: "csrf.enabled", Kind: configbind.ScaffoldBool, Default: "false"},
 			{Key: "csrf.include", Kind: configbind.ScaffoldStringSlice, Default: "[\"/**\"]"},
 			{Key: "csrf.exclude", Kind: configbind.ScaffoldStringSlice, Env: "-"},
@@ -425,6 +468,51 @@ func applySecurityConfigDefinition1(dst any, o *configbind.Overlay) error {
 		p.Headers.HSTS.Preload = bb
 	} else {
 		p.Headers.HSTS.Preload = false
+	}
+	if v, ok := o.GetString("security.cors.enabled"); ok {
+		bb, err := strconv.ParseBool(v)
+		if err != nil {
+			return fmt.Errorf("configbind: security.cors.enabled: %w", err)
+		}
+		p.CORS.Enabled = bb
+	} else {
+		p.CORS.Enabled = false
+	}
+	if v, ok := o.GetMulti("security.cors.include"); ok {
+		p.CORS.Include = v
+	}
+	if v, ok := o.GetMulti("security.cors.exclude"); ok {
+		p.CORS.Exclude = v
+	}
+	if v, ok := o.GetMulti("security.cors.allowed_origins"); ok {
+		p.CORS.AllowedOrigins = v
+	}
+	if v, ok := o.GetString("security.cors.allow_credentials"); ok {
+		bb, err := strconv.ParseBool(v)
+		if err != nil {
+			return fmt.Errorf("configbind: security.cors.allow_credentials: %w", err)
+		}
+		p.CORS.AllowCredentials = bb
+	} else {
+		p.CORS.AllowCredentials = false
+	}
+	if v, ok := o.GetMulti("security.cors.allowed_methods"); ok {
+		p.CORS.AllowedMethods = v
+	}
+	if v, ok := o.GetMulti("security.cors.allowed_headers"); ok {
+		p.CORS.AllowedHeaders = v
+	}
+	if v, ok := o.GetMulti("security.cors.exposed_headers"); ok {
+		p.CORS.ExposedHeaders = v
+	}
+	if v, ok := o.GetString("security.cors.max_age"); ok {
+		d, err := time.ParseDuration(v)
+		if err != nil {
+			return fmt.Errorf("configbind: security.cors.max_age: %w", err)
+		}
+		p.CORS.MaxAge = d
+	} else {
+		p.CORS.MaxAge = 600000000000 // 10m0s
 	}
 	if v, ok := o.GetString("security.csrf.enabled"); ok {
 		bb, err := strconv.ParseBool(v)
@@ -1729,6 +1817,114 @@ func applyHTMLConfigDefinition6(dst any, o *configbind.Overlay) error {
 		p.Cache.MaxEntries = int(n)
 	} else {
 		p.Cache.MaxEntries = 1024
+	}
+	return nil
+}
+
+func registerCacheConfigDefinition7() {
+	configbind.Register[CacheConfig](configbind.Definition{
+		TypeName: "github.com/shibukawa/popcornwave/pwconfig.CacheConfig",
+		Prefix:   "cache",
+		Doc:      "CacheConfig is the named data cache store set, configured as [[cache.stores]]. It is separate from html.cache: that store holds rendered bytes sized for one entry per parameter set, and this one holds what a fetch returned",
+		KnownKeys: []string{
+			"cache.enabled",
+			"cache.stores",
+		},
+		Defaults: map[string]string{
+			"cache.enabled": "false",
+		},
+		DependsOn: map[string][]configbind.Dependency{
+			"cache.stores": {{Key: "cache.enabled"}},
+		},
+		FlagMetas: []cliparser.FieldMeta{
+			{Prefix: "cache", Key: "enabled", Help: "reuse what a fetch returned for equal keys", Kind: cliparser.KindBool},
+		},
+		Apply: applyCacheConfigDefinition7,
+		Scaffold: []configbind.ScaffoldField{
+			{Key: "enabled", Kind: configbind.ScaffoldBool, Default: "false", Help: "reuse what a fetch returned for equal keys"},
+			{Key: "stores", Kind: configbind.ScaffoldTableArray, Help: "cache store set, one element per store", Nested: []configbind.ScaffoldField{
+				{Key: "name", Kind: configbind.ScaffoldString, Help: "name this store is addressed by"},
+				{Key: "backend", Kind: configbind.ScaffoldString, Default: "memory", Help: "where entries live; memory is the only implemented backend"},
+				{Key: "ttl", Kind: configbind.ScaffoldDuration, Default: "1m", Help: "how long an entry is fresh"},
+				{Key: "stale", Kind: configbind.ScaffoldDuration, Default: "0s", Help: "how long a stale entry may answer while it revalidates"},
+				{Key: "scope", Kind: configbind.ScaffoldString, Default: "private", Help: "private keys entries per reader; public shares them"},
+				{Key: "max_entries", Kind: configbind.ScaffoldInt, Default: "1024", Help: "maximum entries this store holds"},
+				{Key: "fetch_timeout", Kind: configbind.ScaffoldDuration, Default: "30s", Help: "bound on a fetch running detached from its waiters"},
+			}},
+		},
+	})
+}
+
+func applyCacheConfigDefinition7(dst any, o *configbind.Overlay) error {
+	p, ok := dst.(*CacheConfig)
+	if !ok || p == nil {
+		return fmt.Errorf("configbind: apply CacheConfig: bad destination")
+	}
+	if v, ok := o.GetString("cache.enabled"); ok {
+		bb, err := strconv.ParseBool(v)
+		if err != nil {
+			return fmt.Errorf("configbind: cache.enabled: %w", err)
+		}
+		p.Enabled = bb
+	} else {
+		p.Enabled = false
+	}
+	if ta1, ok := o.Get("cache.stores"); ok {
+		if !ta1.IsTables {
+			return fmt.Errorf("configbind: cache.stores: expected an array of tables ([[cache.stores]])")
+		}
+		p.Stores = make([]CacheStoreConfig, len(ta1.Tables))
+		for i1 := range ta1.Tables {
+			if v, ok := ta1.Tables[i1].GetString("name"); ok {
+				p.Stores[i1].Name = v
+			}
+			if v, ok := ta1.Tables[i1].GetString("backend"); ok {
+				p.Stores[i1].Backend = v
+			} else {
+				p.Stores[i1].Backend = "memory"
+			}
+			if v, ok := ta1.Tables[i1].GetString("ttl"); ok {
+				d, err := time.ParseDuration(v)
+				if err != nil {
+					return fmt.Errorf("configbind: cache.stores[%d].ttl: %w", i1, err)
+				}
+				p.Stores[i1].TTL = d
+			} else {
+				p.Stores[i1].TTL = 60000000000 // 1m0s
+			}
+			if v, ok := ta1.Tables[i1].GetString("stale"); ok {
+				d, err := time.ParseDuration(v)
+				if err != nil {
+					return fmt.Errorf("configbind: cache.stores[%d].stale: %w", i1, err)
+				}
+				p.Stores[i1].Stale = d
+			} else {
+				p.Stores[i1].Stale = 0 // 0s
+			}
+			if v, ok := ta1.Tables[i1].GetString("scope"); ok {
+				p.Stores[i1].Scope = v
+			} else {
+				p.Stores[i1].Scope = "private"
+			}
+			if v, ok := ta1.Tables[i1].GetString("max_entries"); ok {
+				n, err := strconv.ParseInt(v, 10, 0)
+				if err != nil {
+					return fmt.Errorf("configbind: cache.stores[%d].max_entries: %w", i1, err)
+				}
+				p.Stores[i1].MaxEntries = int(n)
+			} else {
+				p.Stores[i1].MaxEntries = 1024
+			}
+			if v, ok := ta1.Tables[i1].GetString("fetch_timeout"); ok {
+				d, err := time.ParseDuration(v)
+				if err != nil {
+					return fmt.Errorf("configbind: cache.stores[%d].fetch_timeout: %w", i1, err)
+				}
+				p.Stores[i1].FetchTimeout = d
+			} else {
+				p.Stores[i1].FetchTimeout = 30000000000 // 30s
+			}
+		}
 	}
 	return nil
 }

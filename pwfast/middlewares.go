@@ -15,16 +15,33 @@ import (
 type (
 	SecurityHeadersConfig = pwruntime.SecurityHeadersConfig
 	HSTSConfig            = pwruntime.HSTSConfig
+	CORSConfig            = pwruntime.CORSConfig
 )
 
 // DefaultSecurityHeaders returns the classic mode defaults.
 func DefaultSecurityHeaders() SecurityHeadersConfig { return pwruntime.DefaultSecurityHeaders() }
+
+// DefaultCORS returns the shipped cross-origin defaults.
+func DefaultCORS() CORSConfig { return pwruntime.DefaultCORS() }
 
 // SecurityHeadersOption configures SecurityHeaders.
 type SecurityHeadersOption func(*securityHeadersOptions)
 
 type securityHeadersOptions struct {
 	trustedProxies []*net.IPNet
+	cors           pwruntime.CORSConfig
+	csrfHeader     string
+}
+
+// WithCORS gives the frame the cross-origin policy to answer as well. It is one
+// frame on this transport for the reason it is one on the other: both halves
+// are browser policy written before commitment, and the marking has to precede
+// every refusal written below.
+func WithCORS(config CORSConfig, csrfHeader string) SecurityHeadersOption {
+	return func(o *securityHeadersOptions) {
+		o.cors = config
+		o.csrfHeader = csrfHeader
+	}
 }
 
 // WithTrustedProxies accepts X-Forwarded-Proto from the listed networks when
@@ -49,6 +66,15 @@ func SecurityHeaders(config SecurityHeadersConfig, option ...SecurityHeadersOpti
 	for _, apply := range option {
 		apply(&options)
 	}
+	// Off means it sends nothing, which matters now that the cross-origin half
+	// can install this frame on its own.
+	if !config.Enabled {
+		resolved = pwruntime.ResolvedSecurityHeaders{}
+	}
+	cors, err := pwruntime.ResolveCORS(options.cors, options.csrfHeader)
+	if err != nil {
+		return nil, err
+	}
 	proxies := requestorigin.FromNetworks(options.trustedProxies)
 	return func(next fasthttp.RequestHandler) fasthttp.RequestHandler {
 		return func(r *fasthttp.RequestCtx) {
@@ -58,9 +84,38 @@ func SecurityHeaders(config SecurityHeadersConfig, option ...SecurityHeadersOpti
 			if resolved.HSTS != "" && requestIsHTTPS(r, proxies) {
 				r.Response.Header.Set("Strict-Transport-Security", resolved.HSTS)
 			}
+			if cors.Enabled() {
+				// This transport keeps the raw target only, so the decoded
+				// path is what Path() returns and the raw form is what the URI
+				// still holds. Both go in, because the two refusals need both:
+				// an encoded separator is invisible once decoded, and a dot
+				// segment is what the decoded form shows.
+				path := string(r.URI().Path())
+				decision := cors.Decide(path, string(r.URI().PathOriginal()), string(r.Method()),
+					string(r.Request.Header.Peek("Origin")),
+					string(r.Request.Header.Peek("Access-Control-Request-Method")),
+					string(r.Request.Header.Peek("Access-Control-Request-Headers")))
+				applyCORS(r, decision)
+				cors.RecordCORSDecline(r, decision, path)
+				if decision.Preflight {
+					r.Response.SetStatusCode(fasthttp.StatusNoContent)
+					return
+				}
+			}
 			next(r)
 		}
 	}, nil
+}
+
+// applyCORS writes a decision onto a response. Vary is added rather than set,
+// because the negotiation and the compression put their own values there.
+func applyCORS(r *fasthttp.RequestCtx, decision pwruntime.CORSDecision) {
+	for _, entry := range decision.Headers {
+		r.Response.Header.Set(entry.Name, entry.Value)
+	}
+	for _, value := range decision.Vary {
+		r.Response.Header.Add("Vary", value)
+	}
 }
 
 // requestIsHTTPS reports whether the client's own hop was HTTPS.

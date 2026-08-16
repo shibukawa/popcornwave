@@ -26,7 +26,7 @@ surface:
   - WithTableResolver(fn) as a startup option, for a deployment rule:dynamodb-table-naming configuration cannot express
 deliberately_absent:
   table_accessor: the resolver runs inside the runtime entry via the handle, so no call site resolves a name
-  operation_wrappers: none, per decision:dynamodb-no-runtime-abstraction
+  operation_wrappers: none, per decision:dynamodb-no-runtime-abstraction, which is why the On entries an application calls are covered by requirement:typed-api-method-convergence rather than by anything reshapeable here
 usage:
   item: "h, err := dynamo.Handle(ctx); dynamobind.LoadOn[Reading](ctx, h, \"reading\", r.ItemKey())"
   query: "records.ReadingsSince(ctx, sensor, from), whose generated body resolves Handle through the DynamoHandleResolver generation option"

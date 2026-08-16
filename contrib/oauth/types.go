@@ -186,8 +186,3 @@ type Client struct {
 	transactionValidator func(Transaction) error
 }
 
-type callbackError struct {
-	Code        string `json:"error"`
-	Description string `json:"error_description"`
-	URI         string `json:"error_uri"`
-}

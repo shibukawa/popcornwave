@@ -18,6 +18,7 @@ func ChainSettings(server ServerConfig, security SecurityConfig, middleware Midd
 		RequestTimeout:  middleware.RequestTimeout,
 		MaxRequestBody:  server.MaxRequestBody,
 		SecurityHeaders: security.Headers,
+		CORS:            security.CORS,
 		TrustedProxies:  server.TrustedProxies,
 		Health:          server.Health,
 		Readiness:       server.Readiness,

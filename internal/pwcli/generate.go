@@ -833,6 +833,25 @@ func planDirectory(ctx context.Context, runner *generator.Generator, directory s
 		}
 		changes = append(changes, fileChange{path: target, source: source})
 	}
+	// Cache key methods are planned here rather than merged above, because they
+	// arrive as finished source instead of as an artifact. Registering the
+	// target in expected is what keeps the sweep below from deleting it, and
+	// what makes it delete the file once the last key type is gone.
+	cacheKeys, err := planCacheKeys(runner, directory)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", directory, err)
+	}
+	if len(cacheKeys) > 0 {
+		target := filepath.Join(directory, cacheKeyFileName)
+		expected[target] = true
+		current, readErr := os.ReadFile(target)
+		if readErr != nil && !os.IsNotExist(readErr) {
+			return nil, readErr
+		}
+		if readErr != nil || !bytes.Equal(current, cacheKeys) {
+			changes = append(changes, fileChange{path: target, source: cacheKeys})
+		}
+	}
 	entries, err := os.ReadDir(directory)
 	if err != nil {
 		return nil, err
@@ -913,6 +932,68 @@ func planProducedAssets(derivedDir, publicDir string, purposes generationPurpose
 		changes = append(changes, fileChange{path: target, source: artifact.Content})
 	}
 	return changes, nil
+}
+
+// cacheKeyFileName carries the cache key methods of one package. It takes this
+// framework's generated suffix rather than the module's own default, so the
+// doctor scan, the staleness sweep, and the stray report all recognize it the
+// way they recognize every other generated file.
+const cacheKeyFileName = "cachekey_pw_gen.go"
+
+// planCacheKeys returns the cache key methods for directory, or nothing when no
+// type in it is passed to the cache.
+//
+// The generator writes its output while this package plans it, and the
+// difference matters: a --check run reports staleness and must leave the tree
+// alone. So the run is pointed at a temporary directory and the bytes are read
+// back out of it. That costs one file write nobody reads, and it buys the file
+// the same comparison, change report, and staleness sweep every other generated
+// file gets.
+//
+// The text pre-check is not an optimization detail. Cache key analysis loads
+// the package a second time, which the develop loop would otherwise pay on
+// every keystroke in every directory; a call site has to name one of the entry
+// points, and every one of them contains "Memo", so a directory whose sources
+// never spell it cannot hold one.
+func planCacheKeys(runner *generator.Generator, directory string) ([]byte, error) {
+	mentions, err := mentionsCacheEntryPoint(directory)
+	if err != nil || !mentions {
+		return nil, err
+	}
+	out, err := os.MkdirTemp("", "pw-cachekey")
+	if err != nil {
+		return nil, err
+	}
+	defer os.RemoveAll(out)
+	path, err := runner.GenerateCacheKeys(directory, out, cacheKeyFileName)
+	if err != nil || path == "" {
+		return nil, err
+	}
+	return os.ReadFile(path)
+}
+
+// mentionsCacheEntryPoint reports whether any Go source in directory spells a
+// cache entry point. An import alias renames the package and never the
+// function, so the name itself is always present at the call site.
+func mentionsCacheEntryPoint(directory string) (bool, error) {
+	entries, err := os.ReadDir(directory)
+	if err != nil {
+		return false, err
+	}
+	for _, entry := range entries {
+		name := entry.Name()
+		if entry.IsDir() || !strings.HasSuffix(name, ".go") || strings.HasSuffix(name, "_pw_gen.go") {
+			continue
+		}
+		source, err := os.ReadFile(filepath.Join(directory, name))
+		if err != nil {
+			return false, err
+		}
+		if bytes.Contains(source, []byte("Memo")) {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 // firstUnparsableSource names the first Go file in directory that does not

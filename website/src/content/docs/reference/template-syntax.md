@@ -427,6 +427,139 @@ struct of every page. A function called this way must not write the response.
 
 An external declared `: html` returns a fragment and renders as a subtree.
 
+## `val` — naming a value
+
+Every mention of an expression evaluates it, so an external named in four
+places is called four times. `val` binds the result to a name and the rest of
+the block reads that name:
+
+```html
+{val record = LoadRecord(id)}
+<h1>{record.title}</h1>
+<p>{record.summary}</p>
+```
+
+There is no closer. The name is readable from the directive to the end of the
+enclosing block, and a block is an `if` branch, a `for` body, an `await`
+subtree, or the declaration body. Markup nesting is not one, so a binding
+written inside a `<div>` is still readable after that `<div>` closes.
+
+The value is computed at the top of that block rather than where the directive
+stands, however much markup comes before it. A page's own top-level binding
+therefore runs during chain assembly, before the document shell has written a
+byte, and that is what lets a loader choose the response: give the Go function a
+trailing `error`, return `pw.NotFound(…)` from it, and the page answers 404 with
+nothing committed. A binding inside an `if`, `for`, or `await` body runs when
+that body runs, and so does a layout's, because a wrapper's parameters are not
+complete until the chain installs the child fragment. Both of those fail after
+the shell is on the wire, so they end the render without choosing a status.
+
+An external whose Go implementation returns a trailing `error` may be called
+**only** as the whole value of a binding — never in an interpolation, an
+attribute, a condition, or as an argument to another call, since none of those
+positions has anywhere to put a failure. The template declaration is the same
+either way; generation reads the Go source to see which functions can fail. The
+render path wraps nothing, so an error carrying HTTP intent arrives at the
+caller as the value the function returned.
+
+The name is an ordinary typed value wherever the expression could have gone:
+interpolation, an attribute value, a boolean attribute, an `if` condition, a
+`for` iterable, a component argument, and an argument to another external. The
+right side need not be a call at all; a field path binds the same way.
+
+One directive may bind several names, comma separated, and **they cannot read
+each other**:
+
+```html
+{val user = LoadUser(id), settings = LoadSettings(id)}
+```
+
+A binding that depends on another is two directives, which is also how it reads
+in source order. The rule matches `await`, whose bindings start together for
+the same reason.
+
+`val` is immutable, and the keyword says so: the language has no mutable
+binding, and `val` is the immutable half of the `val`/`var` pair rather than
+JavaScript's reassignable `let`. Names are lowerCamelCase.
+
+Both `.pw.html` and `.pw.sql` accept it. In a query it normalises a value once
+for use in several parameter positions, and contributes no bytes to the
+statement itself.
+
+### What generation refuses
+
+- **An unread binding.** The value is computed before anything reads it, so an
+  unread binding calls its external and throws the result away — and an
+  external is only ever a query, so there is no reading under which the call
+  was wanted.
+- **A name already visible where the binding is written** — a parameter, an
+  enclosing binding, a `for` variable, an `await` binding, a `recover` error
+  name, or another binding in the same block. A `val` cannot shadow at all,
+  because hoisting would carry it above a read of the outer name and change what
+  that read renders. `for` and `await` still shadow, since neither hoists.
+- **An `external async` or `external live`.** Those bind in an `await` clause
+  and nowhere else.
+- **An external returning `html`.** `html` is not a value; it renders as a
+  subtree at its call site.
+- **A binding written inside an attribute value.**
+
+## `check` — refusing a render
+
+A binding is the only position a failing external may be called from, which is
+an awkward home for a call that answers nothing except whether the page may
+render at all. `check` is `val` minus the binding:
+
+```html
+external Authorize(user: User)
+
+export component Page(user: User): html {
+{check Authorize(user)}
+<h1>{user.name}</h1>
+}
+```
+
+```go
+func Authorize(user User) error {
+	if !user.MayRead() {
+		return pw.Forbidden("not yours")
+	}
+	return nil
+}
+```
+
+An external declared with **no result type** says the call yields no value and
+an error is its whole answer. Such a function may be called only in a `check`;
+every other position is a generation error naming it. An external that does
+declare a result may also be checked, and the result is discarded — so a loader
+you call for its data on one page can guard another without a second
+declaration.
+
+There is no closer, no name enters scope, and the directive contributes no
+bytes. It hoists exactly as `val` does — a check written after markup runs
+before that markup — and its failure goes to the same place: the render ends,
+none of the block is written, and the error reaches the caller unwrapped. A
+check at a page's top level therefore chooses the response, which is the point
+of the construct. Inside an `if`, `for`, or `await` body, or in a layout, it
+runs where it runs and can only end the render.
+
+One call per directive. There is no name to share, so two guards are two
+directives, and generation says so. The expression must be a call: a field path
+or a literal has no error to check. A leading `context.Context` on the Go side
+works as it does for any external, and both `.pw.html` and `.pw.sql` accept the
+directive.
+
+There is no async `check`. Declaring an `external async` or `external live` with
+no result fails generation, because a boundary's failure lands after the shell
+is committed and a `recover` clause could swallow it — the opposite of refusing
+a render.
+
+The pitfall is [`@cache`](#cache). A check sits inside the cached subtree and
+the key is derived from declared parameters, so a hit skips the check along with
+everything else the component would have done. That is the same rule that
+already makes output depending on the reader ineligible for reuse: a component
+whose guard reads anything the key does not carry must not be given a storing
+`@cache`.
+
 ## Async and await
 
 An `external async` function runs concurrently while the page renders. The Go
@@ -683,6 +816,9 @@ generation error rather than a dead element.
 - a bare element selector in a scoped style block
 - calling an `external async` outside an `await` binding, or reading an `async`
   value anywhere else
+- calling a failing external anywhere but the whole value of a `val`, or a
+  result-less one anywhere but a `check`
+- a `val` reusing a name already visible, or two calls in one `check`
 - an `await` block with no `fallback`
 - a form control inside a live boundary's primary subtree
 - a storing `@cache` on a component declaring `html` or `async`, reaching a

@@ -1,23 +1,20 @@
 package id_
 
-type UserView {
+type View {
   name: string
   page: int
 }
 
-// LoadUser is what the typed Load rung became. The component names the route
-// inputs it needs, binds the loader with {val}, and the loader is an ordinary
-// Go function this package declares.
-external LoadUser(id: string, page: int?): UserView
+external LoadUser(id: string, page: int?): View
 
 export component Page(id: string, page: int?): html {
-  {val view = LoadUser(id, page)}
 <script component>
   export function setup(el) {
     return () => {};
   }
 </script>
   <section>
+    {val view = LoadUser(id, page)}
     <h1>{view.name}</h1>
     <p>page {view.page}</p>
     <button server-action="Rename" data-target="#name">rename</button>

@@ -2,7 +2,6 @@ package pwdata
 
 import (
 	"context"
-	"sort"
 
 	"github.com/shibukawa/tinybind-go/sqlbind"
 )
@@ -160,17 +159,3 @@ func (c *Connection) migrationState(ctx context.Context, tables []Table) (Migrat
 	return state, nil
 }
 
-// sortedGroups lists the distinct group names in declaration order, for a page
-// that groups the connection list by them.
-func (s *Server) sortedGroups() []string {
-	seen := map[string]bool{}
-	var groups []string
-	for _, connection := range s.connections {
-		if !seen[connection.Group] {
-			seen[connection.Group] = true
-			groups = append(groups, connection.Group)
-		}
-	}
-	sort.SliceStable(groups, func(i, j int) bool { return false })
-	return groups
-}

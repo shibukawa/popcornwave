@@ -24,18 +24,16 @@ rungs:
     files: page.pw.html
     handler: fully generated
     data: the template's own external calls, per api:typed-external-function
-  loader:
-    replaces: a typed rung, withdrawn upstream in system:tinybind v0.5.13, where page.go declared func Load(id string, page int) (User, error) and the generated handler matched its results to the component's parameters by count, order, and type
-    files: page.pw.html declaring an external, and page.go declaring that function
-    shape: the component takes the route inputs, binds the loader with a val binding, and reads the result by field
-    why_it_is_better: the component names what it needs instead of a positional contract between two files, and a loader that fails chooses the response before anything is written
-    migrated: 2026-08-16, with the fixtures of this repository and one test that asserted the withdrawn call
-    found_by: nine internal/pwcli tests failing on the v0.5.13 bump taken for requirement:application-i18n, which is an unrelated feature arriving in the same release
+  retired_typed:
+    was: page.pw.html and page.go with func Load(id string, page int) (User, error), whose results became the page component's parameter list
+    removed: system:tinybind v0.5.11, and adopted here at v0.5.12 per requirement:explicit-page-loading
+    replaced_by: the template declaring its loader as an external and binding it with val, which puts the call in the page's own source and the URL inputs in its parameter list
+    diagnostic: the module refuses the old signature and names the val shape, so a project that has not migrated fails generation rather than routing differently
   handler:
     files: page.pw.html and page.go with func Load(w http.ResponseWriter, r *http.Request)
     handler: registration only; the response is the application's
     chain: a handler-rung Load cannot call an ancestor composer, so it builds the chain itself with api:render-html-chain
-  mismatch: a Load matching neither shape fails generation, naming the signature it has and the two it could have
+  mismatch: a Load that is not the handler signature fails generation, naming what it is and what it must be
 inputs:
   order: leading parameters are the dynamic segments in route order; the rest are query parameters keyed by parameter name
   read_from: the page component's parameter list without page.go, and Load's parameter list with it

@@ -55,8 +55,6 @@ func buildObservability(config ObservabilityConfig, env string) (*observability,
 // back to the same stderr logger an unconfigured context gets.
 func processLogger() Log { return pwobservability.ProcessLogger() }
 
-func setProcessBackend(backend *pwruntime.LogBackend) { pwobservability.SetProcessBackend(backend) }
-
 // resolveQueryDiagnostics turns configuration into the runtime setting, or nil
 // when query diagnostics are off.
 func resolveQueryDiagnostics(config ObservabilityConfig, development bool) *pwruntime.QueryDiagnostics {
@@ -79,8 +77,4 @@ func traceForced(config ObservabilityConfig) bool { return pwobservability.Trace
 
 func resolveToggle(value string, auto bool) (bool, error) {
 	return pwobservability.ResolveToggle(value, auto)
-}
-
-func parseLevel(value string, fallback Level) (Level, error) {
-	return pwobservability.ParseLevel(value, fallback)
 }

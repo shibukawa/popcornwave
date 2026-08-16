@@ -2,6 +2,7 @@ package pwgen
 
 import (
 	"context"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -67,6 +68,46 @@ func TestPWCallsDriveTinyBindGeneration(t *testing.T) {
 	assertContains(t, "openapi", byKind[generator.ArtifactOpenAPI], `/items/{id}`, `\"get\"`, `\"post\"`, `\"201\"`)
 	if strings.Contains(byKind[generator.ArtifactOpenAPI], `\"200\":{\"content\":{\"application/json\":{\"schema\":{\"$ref\":\"#/components/schemas/created\"`) {
 		t.Fatal("the write-status operation also documents a 200 for its response schema")
+	}
+}
+
+// TestAMemoCallDrivesCacheKeyGeneration proves the registration in Options
+// reaches a key type: nothing in the fixture spells itemSummary as a type
+// argument, so the only way its method can be emitted is through the key role
+// reading the argument beside the cached result.
+func TestAMemoCallDrivesCacheKeyGeneration(t *testing.T) {
+	options, err := Options(sqlbind.DialectPostgreSQL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	dir := t.TempDir()
+	path, err := generator.New(options).GenerateCacheKeys(filepath.Join("testdata", "wrappers"), dir, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	emitted, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	content := string(emitted)
+	assertContains(t, "cachekeybind", content,
+		"func (v itemSummary) CacheKey() string",
+		// The identity is derived from the package path and type name, so two
+		// key types holding equal field values cannot reach one entry and no
+		// author restates a name.
+		"/internal/pwgen/testdata/wrappers.itemSummary",
+		"cachekeybind.KeyString(v.ItemID)",
+		"cachekeybind.KeyInt(v.Page)",
+		// The per-type assertion, so a drifting interface breaks the build
+		// rather than the cache.
+		"var _ cachekeybind.CacheKey = itemSummary{}",
+	)
+	// Marking is opt-in: the fields that are the result rather than the query
+	// stay out, which is what lets an entity be passed to the cache as-is.
+	for _, payload := range []string{"v.Title", "v.Total"} {
+		if strings.Contains(content, payload) {
+			t.Errorf("%s reached the key; only marked fields belong in it:\n%s", payload, content)
+		}
 	}
 }
 

@@ -105,17 +105,35 @@ request and the render.
 | Files | Rung | What you get |
 | --- | --- | --- |
 | `page.pw.html` | template only | the whole handler is generated; the template's own `external` calls fetch the data |
-| `+ page.go` with `func Load(id string) (User, error)` | typed | the generated handler decodes the URL, calls `Load`, and renders its results |
 | `+ page.go` with `func Load(w http.ResponseWriter, r *http.Request)` | handler | only the registration is generated; the response is yours |
 
-The signature decides the rung, so a `Load` matching neither shape fails
-generation naming the one it has and the two it could have.
+Two rungs, and the question is only whether `page.go` exists. A `Load` that is
+not the handler signature fails generation naming what it is and what it must
+be.
 
-`Load` is an odd name for a page's entry point, and the first choice was `Page`.
-That one does not survive contact with the compiler: the template compiler
-already emits `func Page(params PageParams) htmlbind.Fragment` into the same
-package, so a second `Page` beside it is a redeclaration. The file is still
-`page.go` and the component is still `Page`; only the entry point moved aside.
+A page that fetches does not need a rung of its own. It declares its loader as
+an `external` and binds it with
+[`val`](/reference/template-syntax/#val--naming-a-value), so the call sits in
+the page's own source:
+
+```html
+package id_
+
+external LoadUser(id: string): User
+
+export component Page(id: string): html {
+{val user = LoadUser(id)}
+<h1>{user.name}</h1>
+}
+```
+
+There used to be a third rung between these two, where `page.go` declared
+`func Load(id string) (User, error)` and the generated handler called it. It is
+gone, and losing it is a gain: its parameters were the *result* of the load, and
+a page keyed on its result cannot be cached — computing the key would need the
+load. Keyed on the `id` above, the page is one
+[`@cache`](/guides/frontend/rendering-cache/#caching-a-components-own-load) away
+from covering the fetch and the render together.
 
 ### Inputs
 
@@ -132,34 +150,83 @@ export component Page(name: string, page: int): html {
 }
 ```
 
-Without `page.go` that list is read from the component. With it, it is read from
-`Load` — so raising a page a rung does not change how its inputs are written.
-
-```go
-func Load(id string, page *int) (string, int, error) { ... }
-```
-
-One thing does change: on the typed rung the component's parameter list becomes
-`Load`'s result list. Generation checks them against each other and fails naming
-both lists if the count, the order, or a type disagrees.
+That list is the component's, whether or not `page.go` exists — a page's inputs
+are what the URL carries, and nothing else reads them.
 
 A URL carries no objects, so inputs are scalars. That leaves one thing a plain
 scalar cannot express: an absent `?page` and an explicit `?page=0` would arrive
 as the same zero. A trailing question mark keeps them apart by binding a
-pointer:
+pointer, which the loader then reads:
+
+```html
+external LoadUser(id: string, page: int?): View
+
+export component Page(id: string, page: int?): html {
+{val view = LoadUser(id, page)}
+<h1>{view.name}</h1>
+<p>page {view.page}</p>
+}
+```
 
 ```go
-func Load(id string, page *int) (string, int, error) {
+func LoadUser(id string, page *int) (View, error) {
 	number := 1
 	if page != nil {
 		number = *page
 	}
-	return "user " + id, number, nil
+	return View{Name: "user " + id, Page: number}, nil
 }
 ```
 
-The default then lives in `Load`, where a reader looking for it will find it,
-instead of inside a decoder nobody wrote.
+The default for an absent `?page` lives in the loader, where a reader looking
+for it will find it, rather than inside a decoder nobody wrote.
+
+The trailing `error` is what lets that loader decide the response. A binding at
+the top of a page's body is evaluated before the first byte, so a failure still
+picks the status while the rest of the page streams:
+
+```go
+func LoadUser(id string, page *int) (View, error) {
+	row, ok := store.User(id)
+	if !ok {
+		return View{}, pw.NotFound("no user " + id)
+	}
+	…
+}
+```
+
+Any [problem constructor](/guides/frontend/responses/#constructors) works
+there — `pw.NotFound`, `pw.Forbidden`, `pw.BadRequest` — because the generated
+handler passes what the render returned to `pw.WriteProblem`, which reads the
+status off the error.
+
+A redirect is returned rather than written, for the same reason:
+
+```go
+if _, ok := auth.User(ctx); !ok {
+	return View{}, pw.SeeOther("/auth/login")
+}
+```
+
+These are named for their status and returned the same way `pw.NotFound` is —
+both are values a function hands back rather than writes. A redirect has two
+axes, so there are four:
+
+| | method may become GET | method preserved |
+| --- | --- | --- |
+| temporary | `pw.SeeOther` — 303 | `pw.TemporaryRedirect` — 307 |
+| permanent | `pw.MovedPermanently` — 301 | `pw.PermanentRedirect` — 308 |
+
+`pw.SeeOther` is the one a page reaches for: the target is fetched with GET
+whatever the request was, so a reload repeats nothing.
+
+The method axis rarely decides anything in a loader, because the render
+answering it is a GET and 303 and 307 are indistinguishable there. It starts
+mattering wherever a POST can reach the same code.
+
+A returned redirect takes the same path as a written one: the target is refused
+if a browser could only follow it by running script, and an update request gets
+a navigate directive instead of a 303.
 
 ## Layouts
 
@@ -403,8 +470,8 @@ The last two are the same collision twice: where Go's rules and routing
 convention disagree, Go's rules win.
 
 The first three are worth reading as one condition. A page renders and a link
-navigates with no JavaScript at all, so a site built entirely from the template
-and typed rungs works today. Reach for a `server-action` and that stops being
+navigates with no JavaScript at all, so a site built entirely from pages that
+render and load their own data works today. Reach for a `server-action` and that stops being
 true: the attribute is written, and until the action runtime lands, the click
 that fires it is yours to intercept. Enable the existing CSRF middleware over
 the action paths and send its token from that client code. That is the

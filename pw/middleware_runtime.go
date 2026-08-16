@@ -50,8 +50,14 @@ func buildRuntimeHandler(handler http.Handler, server ServerConfig, security Sec
 	if middleware.Recovery {
 		frames = append(frames, chainFrame{slot: SlotRecover, name: "recover", middleware: middlewares.Recover(writePanicProblem)})
 	}
-	if security.Headers.Enabled {
-		headers, err := middlewares.SecurityHeaders(security.Headers, middlewares.WithTrustedProxies(trusted))
+	// One frame for both halves of the browser response policy. Either being
+	// enabled installs it: a deployment can send no policy headers and still
+	// admit another origin, or the reverse, and the position is the same
+	// either way because both are written before anything below commits.
+	if security.Headers.Enabled || security.CORS.Enabled {
+		headers, err := middlewares.SecurityHeaders(security.Headers,
+			middlewares.WithTrustedProxies(trusted),
+			middlewares.WithCORS(security.CORS, security.CSRF.Header))
 		if err != nil {
 			return nil, err
 		}
@@ -162,6 +168,11 @@ func documentationEndpoints(next http.Handler, config ServerConfig) http.Handler
 			if !operationalMethod(w, r) {
 				return
 			}
+			// Readable from anywhere, whatever the configured CORS policy is.
+			// The reason is in pwruntime.OpenAPIDocumentOrigin: this is a
+			// property of the document rather than a decision a deployment
+			// should have to make about a description it already published.
+			w.Header().Set(pwruntime.OpenAPIDocumentOrigin.Name, pwruntime.OpenAPIDocumentOrigin.Value)
 			if r.Method == http.MethodHead {
 				OpenAPIJSON(headResponseWriter{ResponseWriter: w}, r)
 			} else {

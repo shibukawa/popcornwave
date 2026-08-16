@@ -5,6 +5,7 @@ import (
 	"net/url"
 
 	"github.com/shibukawa/popcornwave/internal/safeurl"
+	"github.com/shibukawa/popcornwave/pwruntime"
 	tinybind "github.com/shibukawa/tinybind-go"
 )
 
@@ -90,4 +91,50 @@ func QueryLookup(query url.Values, key string) (string, bool) {
 		return "", false
 	}
 	return values[0], true
+}
+
+// The returned forms, for code that decides a response without holding a
+// writer — a loader a template binds with {val}, or any function whose only
+// way out is (T, error).
+//
+// They are named for their status, like the problem constructors beside them,
+// and they are returned the same way: NotFound and SeeOther are both values a
+// function hands back rather than writes, and the response path reads the
+// intent off whichever it gets.
+//
+// A redirect has two axes, so there are four:
+//
+//	                     | method may become GET | method preserved
+//	 temporary           | SeeOther              | TemporaryRedirect
+//	 permanent           | MovedPermanently      | PermanentRedirect
+//
+// Both axes matter wherever a POST can reach the code. In a page loader neither
+// does much: the render answering it is a GET, and SeeOther and
+// TemporaryRedirect are indistinguishable on one. SeeOther is the answer to
+// reach for there.
+//
+// The location is checked and the update branch is taken where the value is
+// written rather than here, so a returned redirect and a written one are the
+// same redirect.
+
+// SeeOther sends the browser to url with 303, which fetches the target with GET
+// whatever the request was, so a reload repeats nothing.
+func SeeOther(url string) error { return pwruntime.NewRedirect(url, http.StatusSeeOther) }
+
+// TemporaryRedirect sends the browser to url with 307, keeping the method.
+func TemporaryRedirect(url string) error {
+	return pwruntime.NewRedirect(url, http.StatusTemporaryRedirect)
+}
+
+// MovedPermanently sends the browser to url with 301. Prefer PermanentRedirect
+// unless a client you must serve predates it: 301 is ambiguous about the method
+// in practice, where 308 is not.
+func MovedPermanently(url string) error {
+	return pwruntime.NewRedirect(url, http.StatusMovedPermanently)
+}
+
+// PermanentRedirect sends the browser to url with 308, keeping the method. It
+// is the one to reach for when an address is retired.
+func PermanentRedirect(url string) error {
+	return pwruntime.NewRedirect(url, http.StatusPermanentRedirect)
 }

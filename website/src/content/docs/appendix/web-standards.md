@@ -38,7 +38,26 @@ and the server executes functions compiled by Go. No runtime template
 interpreter, browser-side template compiler, or `eval` enters the rendering
 path. Generated Go provides the fast path while the narrow CSP remains intact.
 
+Cross-origin access is the same frame's other half. CORS belongs to the WHATWG
+Fetch Standard rather than to an RFC, and the framework implements the server
+side of it: the preflight is answered before the session, the authentication,
+and the guard, because a preflight carries none of the credentials those frames
+look for, and the response is marked before every frame that can refuse one. The
+second half is what makes it worth having. A browser withholds the status of an
+unmarked cross-origin response along with its body, so without the marking every
+typed refusal this framework writes — `401`, `403`, `429` with its retry
+metadata — arrives at the caller as one indistinguishable network error.
+
+Three things are deliberately outside it. There is no origin pattern language:
+an allowed origin is an exact `scheme://host[:port]` or the single wildcard,
+because a pattern evaluated per request is a second thing to get wrong and its
+mistakes are silent. Private Network Access is not implemented, being a
+Chromium-only negotiation. And a WebSocket upgrade is not subject to CORS at
+all — it carries cookies across origins with no preflight — so its defence is an
+origin check rather than anything configured here.
+
 - [Security response headers](/guides/frontend/security-headers/)
+- [Cross-origin requests](/guides/backend/cors/)
 - [Template syntax and extracted files](/reference/template-syntax/#extracted-files)
 - [CSRF and deployment security](/guides/architecture/security/)
 - [Session state and direct cookies](/guides/backend/sessions/#using-cookies-directly)
@@ -164,6 +183,13 @@ turns the route off.
 binding, response writers, streams, and problem constructors. The generated
 document and optional Scalar or Swagger UI are served as operational endpoints,
 behind the same path guard as application routes.
+
+The document itself answers `Access-Control-Allow-Origin: *` whether or not a
+cross-origin policy is configured. It describes a contract already chosen for
+publication, and the tools that read it — a documentation UI hosted elsewhere, a
+client generator, a linter in CI — have origins nobody can enumerate in advance.
+A wildcard forbids credentials, so a document kept behind the path guard still
+answers a cross-origin reader with the unauthenticated response.
 
 - [API documentation](/productivity/api-documentation/)
 - [Handlers and generated contracts](/guides/frontend/handlers/)
