@@ -7,7 +7,7 @@ TinyBind is the generated binding, configuration, response, validation, streamin
 
 ```yaml
 module: github.com/shibukawa/tinybind-go
-pin: v0.5.9, moved from v0.5.8 by cachekeybind below; v0.5.8 came from v0.5.7 by json_tag_options, which is the same release that carried configbind_verbosity_baseline; v0.5.7 came from v0.5.1 with the live source signal and the component cleanup hook, v0.5.1 from v0.5.0 where the update surface got its second half, v0.5.0 from v0.4.9 where both runtimes took one problem value and one document registry, and v0.4.9 from v0.4.3 where the update response became a value
+pin: v0.5.12, moved from v0.5.10 by value_binding_error_and_hoisting below, skipping v0.5.11 which carried the same work with the boundary defect recorded there; v0.5.10 came from v0.5.9 by value_binding below; v0.5.9 came from v0.5.8 by cachekeybind below; v0.5.8 came from v0.5.7 by json_tag_options, which is the same release that carried configbind_verbosity_baseline; v0.5.7 came from v0.5.1 with the live source signal and the component cleanup hook, v0.5.1 from v0.5.0 where the update surface got its second half, v0.5.0 from v0.4.9 where both runtimes took one problem value and one document registry, and v0.4.9 from v0.4.3 where the update response became a value
 pin_before_v0_4_9: v0.4.3 moved from v0.4.2 by delta_package_break; v0.4.2 came from v0.4.1 by requirement:pgx-native-execution for the sqlbind Rows cursor, v0.4.1 from v0.4.0 by requirement:context-lookup-performance for the handle resolvers and On entries, and v0.2.10 was left behind by decision:tinybind-v03-adoption
 pin_staleness_correction:
   what: this file recorded v0.4.3 as both the pin and the current release until 2026-08-12, five pin moves after it stopped being either
@@ -19,7 +19,7 @@ html_async_baseline: v0.1.20
 html_live_baseline: v0.2.8, required by requirement:live-html-rendering; v0.2.7 introduced live boundaries and v0.2.8 answered the first of the integration requests raised against them
 html_update_baseline: v0.3.3; v0.3.0 added the htmlupdate package, v0.3.1 handed the asset and every name to the caller per requirement:tinybind-runtime-ownership, v0.3.2 carried head on the action response, and v0.3.3 closed every remaining seam of requirement:tinybind-update-composition-seams and made CSRF module native; adopted by decision:update-runtime-convergence
 route_tree_baseline: v0.2.6
-current: v0.5.9, which adds cachekeybind and moves three htmlbind entries onto methods; v0.5.8 acted on json tag options for the first time and gave configbind the two levers requirement:startup-summary-brevity needed
+current: v0.5.12, which fixes the boundary-root defect v0.5.11 introduced; v0.5.11 gave a failing external an error result, hoisted a binding to before the first byte, removed the typed page rung, and made a settled async boundary cacheable; v0.5.10 added the val binding both formats needed and typed server actions this framework has not adopted; v0.5.9 added cachekeybind and moved three htmlbind entries onto methods; v0.5.8 acted on json tag options for the first time and gave configbind the two levers requirement:startup-summary-brevity needed
 was_current_at_v0_4_3: a performance release across the module that paid for it with delta_package_break; v0.4.2 added the sqlbind Rows cursor, v0.4.1 added the NoSQL handle supply modes, and v0.4.0 implemented the URL half of policy:template-escaping and rewrote the JSON decoder the generator emits
 configbind_verbosity_baseline:
   shipped: v0.5.8, all three together; read against the module cache tree on 2026-08-12
@@ -244,6 +244,35 @@ generic_methods_available_today:
   shipped: v0.5.9, the second ask of the same round
   what: Require on Builder, Bind and BindWrapper on Plan, each introducing no type parameter beyond its receiver's own
   old_forms: kept as deprecated wrappers, so nothing here had to move; this framework's remaining call sites are in tests
+value_binding:
+  shipped: v0.5.10, answering the change request this framework filed 2026-08-14
+  what: '{val name = expr}, a closerless directive scoped to the end of its enclosing block, in both .pw.html and .pw.sql'
+  keyword: val rather than the let or var the request spelled, because the binding is immutable and let is JavaScript's reassignable half
+  shape_chosen_against_the_request: the statement over the block, on the owner's ground that a bound subtree would indent for a reason the markup does not have; the desugaring that gives analysis its subtree is a normalization pass rather than a parser change
+  bindings_are_independent: the comma form binds several names that cannot read each other, matching await; a dependency is two directives
+  unread_is_an_error: in both formats, because the value is computed before anything reads it and an external may only answer a query
+  widened_by_the_owner: SQL, which the request did not ask for; a normalization named in a WHERE and again in an ORDER BY ran twice there for the same reason
+  what_it_changes_here: requirement:component-output-cache stops being a markup-only cache — a component may take an identifier, load inside itself, and cache the load and the render as one unit
+  what_it_does_not_change: a synchronous external still has no error result, which is what bounds the shape above; upstream tracks that as an open question
+  multi_value_withdrawn: the request's own `a, b = f()` was dropped before implementation, so nothing here destructures
+value_binding_error_and_hoisting:
+  shipped: v0.5.11, adopted at v0.5.12
+  failing_external: a synchronous external whose Go implementation returns a trailing error may be called only as the whole value of a val binding; the template declaration is unchanged and the error is read from the Go source, exactly as a leading context is
+  hoisting: a binding is evaluated at the top of its block, and a chain leaf's top-level bindings run during assembly, so a failing loader still chooses the status while the rest of the page streams
+  error_reaches_us_unwrapped: nothing in the render path wraps it, so an error carrying HTTP intent is recognised by this framework's existing problem path with no change
+  not_for_a_cached_leaf: a plan carrying a storing cache policy is not hoisted, since the prologue runs during assembly and the store is consulted during the render; a cached page gives up the status choice on a miss and nothing on a hit
+  typed_page_rung_removed: v0.5.11 refuses the loader signature the discovered router used to call, which requirement:explicit-page-loading adopts here
+  settled_boundary_cache: a storing annotation now accepts a component reaching an await boundary and refuses only a live one, which is the line this framework asked for
+boundary_root_defect:
+  in: v0.5.11 only, fixed in v0.5.12
+  what: hoisting nested a component's root element inside the binding node, and the single-root walk refused an unrecognised node, so a component with a script block failed generation and a page or layout silently stopped being an update boundary
+  why_it_mattered: the silent half landed on the shape v0.5.11 made mandatory, since every loading page now uses a binding
+  found_by: migrating the page-tree fixture here and reading the generated output rather than the release notes
+  reported: docs/tinybind-go-v0.5.11-boundary-root-defect.md, with the cause located and a fix suggested; the fix shipped in that shape
+  adoption_held: this framework stayed on v0.5.10 until v0.5.12 rather than take either a broken build or a silent degradation
+typed_server_actions:
+  shipped: v0.5.10, unadopted
+  effect_here: the generated page tree route entry gained Published and Typed fields, so internal/pagesfixture regenerated with Typed false throughout; no behavior moved
 blocked_on_generic_methods:
   what: five surfaces are package functions only because a Go method cannot take type parameters — the firestorebind transactional reads, the dynamobind and firestorebind On entries, the htmlbind builder operations carrying an extra type parameter, the jsonbind parser's ParseSlice and ParseMap, and sqlbind AppendValues
   why_it_is_this_framework_s_concern: none of them is wrapped here, so each is what an application author writes; requirement:typed-api-method-convergence holds the intent, the priority, and the migration shape

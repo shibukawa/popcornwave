@@ -427,6 +427,61 @@ struct of every page. A function called this way must not write the response.
 
 An external declared `: html` returns a fragment and renders as a subtree.
 
+## `val` — naming a value
+
+Every mention of an expression evaluates it, so an external named in four
+places is called four times. `val` binds the result to a name and the rest of
+the block reads that name:
+
+```html
+{val record = LoadRecord(id)}
+<h1>{record.title}</h1>
+<p>{record.summary}</p>
+```
+
+There is no closer. The binding runs where it is written and its name is
+readable from there to the end of the enclosing block — the enclosing element,
+a control body, or the component body. After that block it is unresolved.
+
+The name is an ordinary typed value wherever the expression could have gone:
+interpolation, an attribute value, a boolean attribute, an `if` condition, a
+`for` iterable, a component argument, and an argument to another external. The
+right side need not be a call at all; a field path binds the same way.
+
+One directive may bind several names, comma separated, and **they cannot read
+each other**:
+
+```html
+{val user = LoadUser(id), settings = LoadSettings(id)}
+```
+
+A binding that depends on another is two directives, which is also how it reads
+in source order. The rule matches `await`, whose bindings start together for
+the same reason.
+
+`val` is immutable, and the keyword says so: the language has no mutable
+binding, and `val` is the immutable half of the `val`/`var` pair rather than
+JavaScript's reassignable `let`. Names are lowerCamelCase.
+
+Both `.pw.html` and `.pw.sql` accept it. In a query it normalises a value once
+for use in several parameter positions, and contributes no bytes to the
+statement itself.
+
+### What generation refuses
+
+- **An unread binding.** The value is computed before anything reads it, so an
+  unread binding calls its external and throws the result away — and an
+  external is only ever a query, so there is no reading under which the call
+  was wanted.
+- **Two bindings of one name in the same block.** Shadowing a name from further
+  out is fine and silent, the way `for` and `await` already shadow; two in one
+  block is a redeclaration with no closer to read the first one's extent from.
+- **An `external async` or `external live`.** Those bind in an `await` clause
+  and nowhere else.
+- **An external returning `html`.** `html` is not a value; it renders as a
+  subtree at its call site.
+- **A binding written inside an attribute value.**
+
 ## Async and await
 
 An `external async` function runs concurrently while the page renders. The Go

@@ -441,9 +441,9 @@ func newPageWizardSteps(state projectState, destinations []string, defaults newO
 				apply:       func(target *newOptions) { target.Rung = pageRungTemplate },
 			},
 			wizardChoice[newOptions]{
-				name:        "Typed Load",
-				description: "page.go returns the page's parameters; the handler is still generated",
-				apply:       func(target *newOptions) { target.Rung = pageRungTyped },
+				name:        "Own loader",
+				description: "page.go holds a loader the template declares and binds; the handler is still generated",
+				apply:       func(target *newOptions) { target.Rung = pageRungLoader },
 			},
 			wizardChoice[newOptions]{
 				name:        "Handler Load",

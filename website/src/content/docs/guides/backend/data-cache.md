@@ -16,11 +16,19 @@ quote, err := pw.Memo(r.Context(), store, QuoteKey{Pair: pair},
     func(ctx context.Context) (Quote, error) { return fetchQuote(ctx, pair) })
 ```
 
-This is the half that [Rendering Cache](/guides/frontend/rendering-cache/) does
-not cover. That one stores a component's rendered bytes and explicitly does not
-undo the query that produced its parameters — it saves the *rendering*. This
-saves the *fetching*, and a page that is expensive on both counts wants both.
-They share a key-framing scheme and a security default and nothing else.
+There are two places to put a cache like this, and the other one is
+[Rendering Cache](/guides/frontend/rendering-cache/#caching-a-components-own-load).
+A component that takes an identifier and loads its own record covers the load
+and the markup under one `@cache`, with no store to configure — reach for that
+first when it fits, because one annotation replaces everything on this page.
+
+It fits less often than it looks. A component's loader is a synchronous
+external, so it cannot report a failure; the component cache has a TTL and no
+stale window and no invalidation; and its entries live in the render store,
+sized for markup. Use `pw.Memo` when the load can fail and the reader must know,
+when a write has to drop an entry before it expires, when an upstream outage
+should be survived rather than propagated, or when the value is wanted somewhere
+no component reaches.
 
 Know what it is not for before reaching for it. **The entry is a round trip
 through JSON.** A value your handler computes locally in a microsecond pays a

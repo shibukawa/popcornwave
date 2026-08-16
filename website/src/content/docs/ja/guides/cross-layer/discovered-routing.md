@@ -101,17 +101,32 @@ pages/files/rest__/page.pw.html   → GET /files/{rest...}
 | ファイル | 段 | 得られるもの |
 | --- | --- | --- |
 | `page.pw.html` | テンプレートのみ | ハンドラは全部生成される。データはテンプレート自身の `external` 呼び出しが取る |
-| `+ page.go` の `func Load(id string) (User, error)` | 型付き | 生成ハンドラが URL を復号し、`Load` を呼び、その戻り値を描画する |
 | `+ page.go` の `func Load(w http.ResponseWriter, r *http.Request)` | ハンドラ | 登録だけが生成される。レスポンスは自分のもの |
 
-段はシグネチャで決まるので、どちらにも一致しない `Load` は生成エラーになり、いま
-どうなっていて取り得た2つの契約が何かを名指しします。
+段は2つで、問いは `page.go` があるかどうかだけです。ハンドラのシグネチャでない
+`Load` は生成エラーになり、いまどうなっていて何でなければならないかを名指しします。
 
-`Load` はページのエントリポイントの名前としては妙で、最初の案は `Page` でした。
-それはコンパイラとの接触に耐えません。テンプレートコンパイラが同じパッケージに
-`func Page(params PageParams) htmlbind.Fragment` を既に出力するので、その隣の2つ目の
-`Page` は再宣言になります。ファイル名は `page.go` のまま、コンポーネント名も `Page`
-のままで、横にずれたのはエントリポイントだけです。
+データを取るページに専用の段は要りません。ローダを `external` として宣言し、
+[`val`](/ja/reference/template-syntax/#val--値に名前を付ける) で束縛すれば、呼び出しは
+ページ自身のソースに現れます。
+
+```html
+package id_
+
+external LoadUser(id: string): User
+
+export component Page(id: string): html {
+{val user = LoadUser(id)}
+<h1>{user.name}</h1>
+}
+```
+
+かつてはこの2つの間に3つ目の段があり、`page.go` が `func Load(id string) (User, error)`
+を宣言して生成ハンドラがそれを呼んでいました。無くなりましたが、失ったというより得た
+方が大きい。あの段の引数はロードの**結果**で、結果でキーが決まるページはキャッシュ
+できません——キーを計算するのにロードが要るからです。上のように `id` でキーが決まれば、
+ページは[`@cache`](/ja/guides/frontend/rendering-cache/#コンポーネント自身のロードをキャッシュする)
+1つで取得と描画をまとめて覆えるところまで来ます。
 
 ### 入力
 
@@ -127,29 +142,74 @@ export component Page(name: string, page: int): html {
 }
 ```
 
-`page.go` がなければこのリストはコンポーネントから読まれ、あれば `Load` から読まれ
-ます。ページを1段上げても入力の書き方が変わらないのはそのためです。
-
-```go
-func Load(id string, page *int) (string, int, error) { ... }
-```
-
-変わるものが1つあります。型付きの段では、コンポーネントの引数リストが `Load` の
-戻り値リストになります。生成は両者を突き合わせ、個数・順序・型のいずれかが食い違えば
-両方のリストを名指しして失敗します。
+このリストは `page.go` の有無にかかわらずコンポーネントのものです。ページの入力とは
+URL が運ぶものであって、それ以外に読む者はいません。
 
 URL はオブジェクトを運ばないので、入力はスカラーです。末尾に疑問符を付けて宣言した
-クエリパラメータはポインタにバインドされます。
+クエリパラメータはポインタにバインドされ、それをローダが読みます。
+
+```html
+external LoadUser(id: string, page: int?): View
+
+export component Page(id: string, page: int?): html {
+{val view = LoadUser(id, page)}
+<h1>{view.name}</h1>
+<p>page {view.page}</p>
+}
+```
 
 ```go
-func Load(id string, page *int) (string, int, error) {
+func LoadUser(id string, page *int) (View, error) {
 	number := 1
 	if page != nil {
 		number = *page
 	}
-	return "user " + id, number, nil
+	return View{Name: "user " + id, Page: number}, nil
 }
 ```
+
+末尾の `error` が、このローダにレスポンスを決めさせます。ページ本体の最上位にある束縛は
+最初の1バイトより前に評価されるので、失敗しても残りがストリームされたままステータスを
+選べます。
+
+```go
+func LoadUser(id string, page *int) (View, error) {
+	row, ok := store.User(id)
+	if !ok {
+		return View{}, pw.NotFound("no user " + id)
+	}
+	…
+}
+```
+
+[problem コンストラクタ](/ja/guides/frontend/responses/#コンストラクタ)ならどれでも
+使えます——`pw.NotFound`、`pw.Forbidden`、`pw.BadRequest`。生成ハンドラが描画の戻り値を
+`pw.WriteProblem` に渡し、そこがエラーからステータスを読むからです。
+
+リダイレクトも同じ理由で、書くのではなく返します。
+
+```go
+if _, ok := auth.User(ctx); !ok {
+	return View{}, pw.SeeOther("/auth/login")
+}
+```
+
+名前はステータス名で、返し方は `pw.NotFound` と同じです。どちらも書くのではなく関数が
+返す値だからです。リダイレクトには軸が2本あるので4つあります。
+
+| | メソッドが GET になりうる | メソッドを保つ |
+| --- | --- | --- |
+| 一時的 | `pw.SeeOther` — 303 | `pw.TemporaryRedirect` — 307 |
+| 恒久的 | `pw.MovedPermanently` — 301 | `pw.PermanentRedirect` — 308 |
+
+ページが手を伸ばすのは `pw.SeeOther` です。元のリクエストが何であれ遷移先が GET で取られる
+ので、再読み込みが何も繰り返しません。
+
+ローダの中でメソッドの軸が効くことはあまりありません。応答している描画は GET で、そこでは
+303 と 307 を区別できないからです。同じコードに POST が届きうる場所から効き始めます。
+
+返したリダイレクトは書いたリダイレクトと同じ経路を通ります。スクリプトを走らせないと辿れ
+ない遷移先は拒否され、更新リクエストには 303 ではなく navigate 指示が返ります。
 
 省略可能な形はこのためにあります。これがないと `?page` の未指定と明示的な `?page=0`
 が同じ値になり、既定値は誰にも見えないデコーダの中に置くしかありません。あれば、
@@ -385,7 +445,7 @@ pages = ["pages"]
 とき、勝つのは Go の規則のほうです。
 
 最初の3つは1つの条件としてまとめて読む価値があります。ページの描画もリンクによる遷移も
-JavaScript を一切必要としないので、テンプレートの段と型付きの段だけで作ったサイトは
+JavaScript を一切必要としないので、描画して自分のデータをロードするページだけで作ったサイトは
 今日そのまま動きます。`server-action` に手を伸ばした瞬間にそれが成り立たなくなります。
 属性は書かれますが、アクション用ランタイムが入るまで、それを発火させるクリックを
 横取りするのは自分の仕事です。既存の CSRF ミドルウェアをアクションのパスに対して有効にし、

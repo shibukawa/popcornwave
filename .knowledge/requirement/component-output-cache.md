@@ -7,9 +7,20 @@ Replay a component's rendered bytes for equal declared parameters until its TTL 
 
 ```yaml
 status: shipped; the annotation is system:tinybind's and everything it consults here is this framework's
-saves: the rendering, and never the fetching — the handler computed the parameters before it called the component, and a hit does not undo the query that produced them
-other_half: requirement:data-result-cache, which caches what the handler fetched and shares only key framing with this
-worth_it_when: the markup is the expense — a long table, a rendered article, a tree walked into nested lists — and worth nothing when the database call is
+saves: exactly what the component does and nothing above it; a hit replays stored bytes, so whatever the component would have executed is skipped and whatever its caller already executed is not
+self_loading_component:
+  since: system:tinybind v0.5.10, whose val binding names a synchronous external's result so a component reads one value instead of calling once per mention
+  shape: the component declares the identifier as its parameter, binds the load in its body, and carries one annotation over the load and the render together
+  why_it_needs_no_cache_work: the key is derived from the declared parameters, and a hit executes nothing, so the loader is skipped by the same mechanism that skips the markup; there is no second store and no key routing
+  what_it_changes: this stops being a markup cache and becomes a fetch-and-render cache wherever an author writes it that way, which is the reading the owner intended from the start
+  what_bounds_it:
+    total_loader: a synchronous external has no error result, so the loader cannot report a failure; upstream tracks allowing one as an open question
+    async_is_not_available: an async external needs an await boundary and a storing annotation is refused on any component reaching one, so the load blocks the render
+    no_stale_policy: this cache has a TTL and neither a stale window nor invalidation, which is what requirement:data-result-cache carries and this does not
+other_half: requirement:data-result-cache, which caches what a handler fetched; the two are alternatives for one page's data rather than layers, and the choice is stated on both guides
+worth_it_when:
+  markup_only: the markup is the expense — a long table, a rendered article, a tree walked into nested lists — and worth little when the database call is
+  load_included: any time the component can load its own record, since the hit then saves the round trip rather than an escape pass; the same annotation one layer down is worth an order of magnitude more
 division:
   upstream:
     - the annotation, its parsing, and every generation refusal below

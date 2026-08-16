@@ -39,14 +39,9 @@ func Register(mux pwpage.Router, options ...pwpage.Option) {
 				return
 			}
 			_ = route // a route with no dynamic segment and no query input reads nothing
-			pageName, pagePage, err := id_.Load(route.ID, route.Page)
-			if err != nil {
-				pw.WriteProblem(w, r, err)
-				return
-			}
 			params := id_.PageParams{
-				Name: pageName,
-				Page: pagePage,
+				Id:   route.ID,
+				Page: route.Page,
 			}
 			wrappers := []pwpage.Wrapper{
 				BindLayout(LayoutParams{}),
@@ -56,8 +51,10 @@ func Register(mux pwpage.Router, options ...pwpage.Option) {
 			}
 		})
 
-	// Server function endpoints. Each handler owns its whole response, so
-	// nothing is generated around it; registration is all there is.
+	// Server function endpoints. A raw handler owns its whole response, so
+	// nothing is generated around it and registration is all there is. A typed
+	// one is registered as the entry point generated beside it, which decodes
+	// the call, invokes the function and encodes what it returned.
 	mux.HandleFunc("POST /_action/00369cf962b6/Rename", id_.Rename)
 }
 
@@ -93,7 +90,7 @@ type RouteInfo struct {
 // An endpoint grants nothing: the path hides structure but is not a capability
 // token, so each handler still authenticates and authorizes its own caller.
 var Actions = []ActionInfo{
-	{Pattern: "POST /_action/00369cf962b6/Rename", Path: "/_action/00369cf962b6/Rename", Dir: "users/id_", Handler: "Rename", Hash: "00369cf962b6"},
+	{Pattern: "POST /_action/00369cf962b6/Rename", Path: "/_action/00369cf962b6/Rename", Dir: "users/id_", Handler: "Rename", Hash: "00369cf962b6", Published: "rename", Typed: false},
 }
 
 // ActionInfo is one entry of Actions.
@@ -108,4 +105,9 @@ type ActionInfo struct {
 	Handler string
 	// Hash is the stable half of the path.
 	Hash string
+	// Published is the identifier client script calls this action through, and
+	// Typed reports that a declaration admitted it rather than its signature.
+	// A typed action is reached only by a call; no template can name one.
+	Published string
+	Typed     bool
 }

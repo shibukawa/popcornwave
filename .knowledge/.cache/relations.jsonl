@@ -669,6 +669,7 @@
 {"context": "body", "path": ".knowledge/api/rdb-middleware.md", "source": "api:rdb-middleware", "target": "decision:grouped-database-connections", "target_category": "constraint", "target_type": "decision"}
 {"context": "body", "path": ".knowledge/api/rdb-middleware.md", "source": "api:rdb-middleware", "target": "api:application-lifecycle", "target_category": "interface", "target_type": "api"}
 {"context": "body", "path": ".knowledge/api/redirect-response.md", "source": "api:redirect-response", "target": "api:html-update-options", "target_category": "interface", "target_type": "api"}
+{"context": "body", "path": ".knowledge/api/redirect-response.md", "source": "api:redirect-response", "target": "requirement:explicit-page-loading", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/api/redirect-response.md", "source": "api:redirect-response", "target": "decision:transport-handle-containment", "target_category": "constraint", "target_type": "decision"}
 {"context": "body", "path": ".knowledge/api/redirect-response.md", "source": "api:redirect-response", "target": "requirement:action-response-update", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/api/redirect-response.md", "source": "api:redirect-response", "target": "api:html-response", "target_category": "interface", "target_type": "api"}
@@ -950,6 +951,7 @@
 {"context": "body", "path": ".knowledge/concept/page-tree.md", "source": "concept:page-tree", "target": "decision:implicit-document-shell", "target_category": "constraint", "target_type": "decision"}
 {"context": "body", "path": ".knowledge/concept/page-tree.md", "source": "concept:page-tree", "target": "rule:page-directory-naming", "target_category": "constraint", "target_type": "rule"}
 {"context": "body", "path": ".knowledge/concept/page-tree.md", "source": "concept:page-tree", "target": "api:typed-external-function", "target_category": "interface", "target_type": "api"}
+{"context": "body", "path": ".knowledge/concept/page-tree.md", "source": "concept:page-tree", "target": "requirement:explicit-page-loading", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/concept/page-tree.md", "source": "concept:page-tree", "target": "api:render-html-chain", "target_category": "interface", "target_type": "api"}
 {"context": "body", "path": ".knowledge/concept/project-layout.md", "source": "concept:project-layout", "target": "data:project-config", "target_category": "structure", "target_type": "data"}
 {"context": "body", "path": ".knowledge/concept/project-layout.md", "source": "concept:project-layout", "target": "policy:config-file-resolution", "target_category": "constraint", "target_type": "policy"}
@@ -4461,6 +4463,10 @@
 {"context": "body", "path": ".knowledge/requirement/environment-switching.md", "source": "requirement:environment-switching", "target": "policy:container-runtime-image", "target_category": "constraint", "target_type": "policy"}
 {"context": "body", "path": ".knowledge/requirement/environment-switching.md", "source": "requirement:environment-switching", "target": "requirement:healthcheck-subcommand", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/requirement/environment-switching.md", "source": "requirement:environment-switching", "target": "requirement:built-in-config-generation", "target_category": "objective", "target_type": "requirement"}
+{"context": "body", "path": ".knowledge/requirement/explicit-page-loading.md", "source": "requirement:explicit-page-loading", "target": "concept:page-tree", "target_category": "concept", "target_type": "concept"}
+{"context": "body", "path": ".knowledge/requirement/explicit-page-loading.md", "source": "requirement:explicit-page-loading", "target": "system:tinybind", "target_category": "external", "target_type": "system"}
+{"context": "body", "path": ".knowledge/requirement/explicit-page-loading.md", "source": "requirement:explicit-page-loading", "target": "requirement:component-output-cache", "target_category": "objective", "target_type": "requirement"}
+{"context": "body", "path": ".knowledge/requirement/explicit-page-loading.md", "source": "requirement:explicit-page-loading", "target": "api:error-renderer", "target_category": "interface", "target_type": "api"}
 {"context": "body", "path": ".knowledge/requirement/extension-distribution.md", "source": "requirement:extension-distribution", "target": "system:vscode", "target_category": "external", "target_type": "system"}
 {"context": "body", "path": ".knowledge/requirement/extension-distribution.md", "source": "requirement:extension-distribution", "target": "decision:extension-in-repository", "target_category": "constraint", "target_type": "decision"}
 {"context": "body", "path": ".knowledge/requirement/extension-distribution.md", "source": "requirement:extension-distribution", "target": "vision:editor-support", "target_category": "objective", "target_type": "vision"}
@@ -5801,6 +5807,8 @@
 {"context": "body", "path": ".knowledge/system/tinybind.md", "source": "system:tinybind", "target": "requirement:template-formatting", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/system/tinybind.md", "source": "system:tinybind", "target": "requirement:editor-formatting", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/system/tinybind.md", "source": "system:tinybind", "target": "requirement:data-result-cache", "target_category": "objective", "target_type": "requirement"}
+{"context": "body", "path": ".knowledge/system/tinybind.md", "source": "system:tinybind", "target": "requirement:component-output-cache", "target_category": "objective", "target_type": "requirement"}
+{"context": "body", "path": ".knowledge/system/tinybind.md", "source": "system:tinybind", "target": "requirement:explicit-page-loading", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/system/tinybind.md", "source": "system:tinybind", "target": "requirement:typed-api-method-convergence", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/system/tinybind.md", "source": "system:tinybind", "target": "rule:page-directory-naming", "target_category": "constraint", "target_type": "rule"}
 {"context": "body", "path": ".knowledge/system/tinybind.md", "source": "system:tinybind", "target": "system:tinygodriver", "target_category": "external", "target_type": "system"}
