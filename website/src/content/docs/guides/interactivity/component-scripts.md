@@ -214,7 +214,7 @@ export function setup({ el, actions }) {
 	return {
 		async remove(event) {
 			if (!confirm("Delete this?")) return;
-			await actions.Delete({ id: event.currentTarget.dataset.id });
+			await actions.delete({ id: event.currentTarget.dataset.id });
 		},
 	};
 }
@@ -234,7 +234,7 @@ as a gesture's are; anything else is returned to you, since you asked for it and
 have somewhere to put it:
 
 ```js
-const created = await actions.Draft();   // the handler's JSON body
+const created = await actions.draft();   // the handler's JSON body
 ```
 
 Two things it does not do. There is no in-flight marking, because no element was

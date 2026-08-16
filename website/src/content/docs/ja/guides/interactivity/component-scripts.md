@@ -206,7 +206,7 @@ export function setup({ el, actions }) {
 	return {
 		async remove(event) {
 			if (!confirm("削除しますか？")) return;
-			await actions.Delete({ id: event.currentTarget.dataset.id });
+			await actions.delete({ id: event.currentTarget.dataset.id });
 		},
 	};
 }
@@ -225,7 +225,7 @@ export function setup({ el, actions }) {
 あるからです。
 
 ```js
-const created = await actions.Draft();   // ハンドラの JSON ボディ
+const created = await actions.draft();   // ハンドラの JSON ボディ
 ```
 
 やらないことが2つあります。**実行中のマーキングはしません** — 起動された要素が無く、
