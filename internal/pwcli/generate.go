@@ -61,10 +61,17 @@ func generateProject(ctx context.Context, check bool, stdout io.Writer, listPath
 	if err := reportSourcesOutsideScope(root, config, stdout); err != nil {
 		return 0, err
 	}
+	// The message package is generated before anything compiles a template,
+	// because a reference is type-checked against its symbols and the
+	// diagnostic degrades to an unresolved name if they are not there yet.
+	messageChanges, messages, err := planMessages(root, config, nil, stdout)
+	if err != nil {
+		return 0, err
+	}
 	// The page trees are generated first because their output is planned as part
 	// of the directory it lands in, and a tree root may hold no source the walk
 	// above would have found.
-	pageArtifacts, err := planPageTrees(root, config)
+	pageArtifacts, err := planPageTrees(root, config, messages)
 	if err != nil {
 		return 0, err
 	}
@@ -76,6 +83,11 @@ func generateProject(ctx context.Context, check bool, stdout io.Writer, listPath
 	if err != nil {
 		return 0, err
 	}
+	// The implicit bindings are declared whether or not the project has a
+	// catalog, because a binding no template reads generates byte-identical Go
+	// and making the list conditional would make output differ by whether i18n
+	// had been adopted yet.
+	pwgen.ApplyMessages(&options, messages.Symbols, messages.ImportPath)
 	// A conversion produces files and rewrites the reference that names them,
 	// so it belongs to generation rather than to the asset build that runs
 	// after it. The produced files are staged outside the served tree, which is
@@ -118,7 +130,7 @@ func generateProject(ctx context.Context, check bool, stdout io.Writer, listPath
 		options.Transform = &transform
 	}
 	runner := generator.New(options)
-	var changes []fileChange
+	changes := messageChanges
 	for index, stage := range splitByAnalysis(root, config.Generate, directories) {
 		if len(stage) == 0 {
 			continue
@@ -145,7 +157,7 @@ func generateProject(ctx context.Context, check bool, stdout io.Writer, listPath
 	}
 	// The second transport's page tree reads the derived handlers the stages
 	// above produced, so it is planned after them and against the tree on disk.
-	changes, err = planSecondBuildPages(root, config, check, changes)
+	changes, err = planSecondBuildPages(root, config, check, changes, messages)
 	if err != nil {
 		return 0, err
 	}
@@ -633,6 +645,14 @@ func reportSourcesOutsideScope(root string, config projectConfig, stdout io.Writ
 			// public.go declares there. Reporting it made every rebuild print
 			// a warning about a file the build had just written on purpose.
 			if relative == assetManifestFile {
+				return nil
+			}
+			// The message package belongs to no purpose for the same reason:
+			// i18n.catalog addresses its directory directly rather than being
+			// discovered by a walk, so there is no purpose to list it under and
+			// no way for it to become stale without the catalog changing.
+			if config.I18n.Enabled() &&
+				filepath.ToSlash(relative) == config.I18n.Catalog+"/"+messagesGeneratedName {
 				return nil
 			}
 			stray = append(stray, strayReport{relative, fmt.Sprintf(

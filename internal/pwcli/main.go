@@ -30,6 +30,8 @@ func Main(args []string, stdout, stderr io.Writer) int {
 		err = runGenerate(ctx, args[1:], stdout)
 	case "fmt":
 		err = runFmt(ctx, args[1:], stdout, stderr)
+	case "i18n":
+		err = runI18n(args[1:], stdout)
 	case "migrate":
 		err = runMigrate(ctx, args[1:], stdout, stderr)
 	case "seed":
@@ -75,6 +77,7 @@ var commandSummaries = []struct{ name, summary string }{
 	{"new", "scaffold a handler or a page beside the ones you have"},
 	{"generate", "regenerate everything derived from your sources"},
 	{"fmt", "format template sources into their canonical form"},
+	{"i18n", "reconcile message catalogs against the templates that use them"},
 	{"migrate", "inspect and apply database migrations"},
 	{"seed", "load seed datasets into the database"},
 	{"prepare", "generate and build assets, stopping before the compiler"},

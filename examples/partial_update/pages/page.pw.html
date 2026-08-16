@@ -7,10 +7,15 @@ type Order { id: string, title: string, owner: string, at: string }
 // the table redrawable on its own.
 external SearchOrders(query: string): Order[]
 
+// Query turns the route's optional query value into the string the page shows
+// and searches with.
+external Query(q: string?): string
+
 // The orders page. Its search form is a GET, so submitting it is a navigation
 // to this same route with a different query — the in-page update case — and it
 // works with the runtime disabled because it is an ordinary form.
-export component Page(query: string): html {
+export component Page(q: string?): html {
+  {val query = Query(q)}
   <section class="panel">
     <form class="panel__search" method="get" action="/">
       <label class="panel__label" for="q">Search orders</label>

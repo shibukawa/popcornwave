@@ -69,7 +69,7 @@ func TestPagesFixtureGeneratedFilesAreCurrent(t *testing.T) {
 
 func planFixture(t *testing.T, root string, config projectConfig) ([]fileChange, error) {
 	t.Helper()
-	pageArtifacts, err := planPageTrees(root, config)
+	pageArtifacts, err := planPageTrees(root, config, messagePlan{})
 	if err != nil {
 		return nil, err
 	}
@@ -100,7 +100,7 @@ func planFixture(t *testing.T, root string, config projectConfig) ([]fileChange,
 		changes = append(changes, planned...)
 	}
 	// Plan-only, which is check mode.
-	return planSecondBuildPages(root, config, true, changes)
+	return planSecondBuildPages(root, config, true, changes, messagePlan{})
 }
 
 // A project declaring the fasthttp build gets two things and nothing else: its

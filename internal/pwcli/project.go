@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"sort"
 	"strings"
 
 	"github.com/shibukawa/tinybind-go/minitoml"
@@ -255,7 +256,71 @@ type projectConfig struct {
 	// Package is the manifest a package project publishes. It is empty for an
 	// application, and an application carrying the section is an error.
 	Package packageManifest
+	// I18n is the message catalog and locale routing declaration. An absent
+	// block means the project is single-locale, which is the shape every
+	// project written before requirement:application-i18n has.
+	I18n i18nConfig
 }
+
+// i18nConfig declares the locales a project ships and how each route decides
+// which one it is serving.
+//
+// Almost every key is build time, because it changes generated output: the
+// declared locales decide which table columns and which plural rules are
+// emitted, and the default decides what the fallback chain is flattened into.
+// See .knowledge data:i18n-config.
+type i18nConfig struct {
+	// Locales are the declared tags in declaration order. The index of each is
+	// the subscript of every generated message table.
+	Locales []string
+	// DefaultLocale is the terminal of the fallback chain and the locale a
+	// route with no declared mode serves.
+	DefaultLocale string
+	// Catalog is the project-relative directory holding the message files.
+	Catalog string
+	// Missing is the severity of a locale supplying no translation for a
+	// message: "error" or "warn". A build that must ship complete fails; one
+	// still being translated reports and falls back.
+	Missing string
+	// PrefixDefault decides whether the default locale carries a path prefix.
+	//
+	// It defaults to true because changing which locale is default under false
+	// moves every URL on the site, which is a migration; under true it changes
+	// only where the root redirects.
+	PrefixDefault bool
+	// Labels is the display name of each locale, written in that locale. It is
+	// declared rather than derived because shipping CLDR display-name tables is
+	// weight for a value an application often wants to word itself.
+	Labels map[string]string
+	// Routes are the locale modes by path prefix, longest prefix first.
+	Routes []localeRoute
+}
+
+// Enabled reports whether the project declared any locale.
+func (c i18nConfig) Enabled() bool { return len(c.Locales) > 0 }
+
+// localeRoute binds one path prefix to the way its locale is decided.
+type localeRoute struct {
+	Prefix string
+	Mode   string
+}
+
+// localeModes are the declared modes and the configuration key each is listed
+// under. The mode is the key name rather than a field of a table, so the block
+// needs no array of tables.
+var localeModes = []struct {
+	key  string
+	mode string
+}{
+	{key: "i18n.path_routes", mode: "path"},
+	{key: "i18n.cookie_routes", mode: "cookie"},
+	{key: "i18n.header_routes", mode: "header"},
+}
+
+const (
+	defaultCatalogDir  = "messages"
+	i18nLabelKeyPrefix = "i18n.label."
+)
 
 func loadProjectConfig(root string) (projectConfig, error) {
 	path := filepath.Join(root, "popcornwave.toml")
@@ -289,8 +354,18 @@ func loadProjectConfig(root string) (projectConfig, error) {
 		"assets.images.avif", "assets.scripts.enabled",
 		"assets.verify.enabled", "assets.verify.svg_scan", "assets.verify.allow",
 	}
+	known = append(known,
+		"i18n.locales", "i18n.default_locale", "i18n.catalog", "i18n.missing", "i18n.prefix_default",
+		"i18n.path_routes", "i18n.cookie_routes", "i18n.header_routes")
 	known = append(known, packageManifestKeys...)
 	for _, key := range document.Keys() {
+		// A label key names a locale, so the set cannot be enumerated the way
+		// every other key can. The prefix is checked instead, and the tag it
+		// names is checked against the declared list below, which is the check
+		// that actually catches a typo.
+		if strings.HasPrefix(key, i18nLabelKeyPrefix) {
+			continue
+		}
 		if !slices.Contains(known, key) {
 			return projectConfig{}, fmt.Errorf("popcornwave.toml: unknown key %s", key)
 		}
@@ -612,6 +687,121 @@ func loadProjectConfig(root string) (projectConfig, error) {
 			return projectConfig{}, fmt.Errorf("popcornwave.toml: Tailwind input and output must be different files")
 		}
 	}
+	config.I18n, err = readI18n(document)
+	if err != nil {
+		return projectConfig{}, err
+	}
+	return config, nil
+}
+
+// readI18n reads the locale declaration.
+//
+// An absent block is a single-locale project rather than a default set: nothing
+// is inferred from a catalog directory existing, because a project keeping
+// translations it has not adopted yet would then start generating against them.
+func readI18n(document minitoml.Document) (i18nConfig, error) {
+	config := i18nConfig{Catalog: defaultCatalogDir, Missing: "error", PrefixDefault: true}
+
+	locales, err := array(document, "i18n.locales")
+	if err != nil {
+		return i18nConfig{}, err
+	}
+	if len(locales) == 0 {
+		for _, key := range document.Keys() {
+			if strings.HasPrefix(key, "i18n.") {
+				return i18nConfig{}, fmt.Errorf("popcornwave.toml: %s is set but i18n.locales is empty, so nothing declares which languages exist", key)
+			}
+		}
+		return i18nConfig{}, nil
+	}
+	seen := map[string]bool{}
+	for _, tag := range locales {
+		if tag == "" {
+			return i18nConfig{}, fmt.Errorf("popcornwave.toml: i18n.locales holds an empty tag")
+		}
+		if seen[tag] {
+			return i18nConfig{}, fmt.Errorf("popcornwave.toml: i18n.locales lists %q twice", tag)
+		}
+		seen[tag] = true
+	}
+	config.Locales = locales
+
+	config.DefaultLocale, err = optionalScalar(document, "i18n.default_locale")
+	if err != nil {
+		return i18nConfig{}, err
+	}
+	if config.DefaultLocale == "" {
+		// The first declared locale rather than an error: a list has an order,
+		// and reading the first one as primary is what a reader assumes anyway.
+		config.DefaultLocale = locales[0]
+	}
+	if !seen[config.DefaultLocale] {
+		return i18nConfig{}, fmt.Errorf("popcornwave.toml: i18n.default_locale %q is not in i18n.locales", config.DefaultLocale)
+	}
+
+	if catalog, err := optionalScalar(document, "i18n.catalog"); err != nil {
+		return i18nConfig{}, err
+	} else if catalog != "" {
+		if filepath.IsAbs(catalog) || strings.HasPrefix(catalog, "../") {
+			return i18nConfig{}, fmt.Errorf("popcornwave.toml: i18n.catalog %q must be inside the project", catalog)
+		}
+		config.Catalog = catalog
+	}
+
+	if missing, err := optionalScalar(document, "i18n.missing"); err != nil {
+		return i18nConfig{}, err
+	} else if missing != "" {
+		if missing != "error" && missing != "warn" {
+			return i18nConfig{}, fmt.Errorf("popcornwave.toml: i18n.missing is %q, want error or warn", missing)
+		}
+		config.Missing = missing
+	}
+
+	if value, ok := document.Get("i18n.prefix_default"); ok {
+		config.PrefixDefault, err = value.AsBool()
+		if err != nil {
+			return i18nConfig{}, fmt.Errorf("popcornwave.toml: i18n.prefix_default: %w", err)
+		}
+	}
+
+	config.Labels = map[string]string{}
+	for _, key := range document.Keys() {
+		if !strings.HasPrefix(key, i18nLabelKeyPrefix) {
+			continue
+		}
+		tag := strings.TrimPrefix(key, i18nLabelKeyPrefix)
+		if !seen[tag] {
+			return i18nConfig{}, fmt.Errorf("popcornwave.toml: %s names %q, which is not in i18n.locales", key, tag)
+		}
+		label, err := scalar(document, key)
+		if err != nil {
+			return i18nConfig{}, err
+		}
+		config.Labels[tag] = label
+	}
+
+	prefixes := map[string]string{}
+	for _, mode := range localeModes {
+		entries, err := array(document, mode.key)
+		if err != nil {
+			return i18nConfig{}, err
+		}
+		for _, prefix := range entries {
+			if !strings.HasPrefix(prefix, "/") {
+				return i18nConfig{}, fmt.Errorf("popcornwave.toml: %s %q must start with a slash", mode.key, prefix)
+			}
+			if previous, clash := prefixes[prefix]; clash {
+				return i18nConfig{}, fmt.Errorf("popcornwave.toml: prefix %q is declared as both %s and %s", prefix, previous, mode.mode)
+			}
+			prefixes[prefix] = mode.mode
+			config.Routes = append(config.Routes, localeRoute{Prefix: prefix, Mode: mode.mode})
+		}
+	}
+	// Longest first, so a lookup takes the first match and a nested prefix wins
+	// over the root the way every other prefix policy resolves.
+	sort.SliceStable(config.Routes, func(i, j int) bool {
+		return len(config.Routes[i].Prefix) > len(config.Routes[j].Prefix)
+	})
 	return config, nil
 }
 

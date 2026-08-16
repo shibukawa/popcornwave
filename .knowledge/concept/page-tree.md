@@ -24,10 +24,13 @@ rungs:
     files: page.pw.html
     handler: fully generated
     data: the template's own external calls, per api:typed-external-function
-  typed:
-    files: page.pw.html and page.go with func Load(id string, page int) (User, error)
-    handler: generated; it decodes the URL, calls Load, and renders the results
-    contract: the page component's parameter list is Load's result list, checked by count, order, and type
+  loader:
+    replaces: a typed rung, withdrawn upstream in system:tinybind v0.5.13, where page.go declared func Load(id string, page int) (User, error) and the generated handler matched its results to the component's parameters by count, order, and type
+    files: page.pw.html declaring an external, and page.go declaring that function
+    shape: the component takes the route inputs, binds the loader with a val binding, and reads the result by field
+    why_it_is_better: the component names what it needs instead of a positional contract between two files, and a loader that fails chooses the response before anything is written
+    migrated: 2026-08-16, with the fixtures of this repository and one test that asserted the withdrawn call
+    found_by: nine internal/pwcli tests failing on the v0.5.13 bump taken for requirement:application-i18n, which is an unrelated feature arriving in the same release
   handler:
     files: page.pw.html and page.go with func Load(w http.ResponseWriter, r *http.Request)
     handler: registration only; the response is the application's

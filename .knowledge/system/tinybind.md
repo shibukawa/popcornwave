@@ -7,7 +7,7 @@ TinyBind is the generated binding, configuration, response, validation, streamin
 
 ```yaml
 module: github.com/shibukawa/tinybind-go
-pin: v0.5.8, moved from v0.5.7 by json_tag_options, which is the same release that carried configbind_verbosity_baseline; v0.5.7 came from v0.5.1 with the live source signal and the component cleanup hook, v0.5.1 from v0.5.0 where the update surface got its second half, v0.5.0 from v0.4.9 where both runtimes took one problem value and one document registry, and v0.4.9 from v0.4.3 where the update response became a value
+pin: v0.5.13, moved from v0.5.8 by html_i18n_baseline, the message surface decision:upstream-message-surface asked for; v0.5.8 came from v0.5.7 by json_tag_options, which is the same release that carried configbind_verbosity_baseline; v0.5.7 came from v0.5.1 with the live source signal and the component cleanup hook, v0.5.1 from v0.5.0 where the update surface got its second half, v0.5.0 from v0.4.9 where both runtimes took one problem value and one document registry, and v0.4.9 from v0.4.3 where the update response became a value
 pin_before_v0_4_9: v0.4.3 moved from v0.4.2 by delta_package_break; v0.4.2 came from v0.4.1 by requirement:pgx-native-execution for the sqlbind Rows cursor, v0.4.1 from v0.4.0 by requirement:context-lookup-performance for the handle resolvers and On entries, and v0.2.10 was left behind by decision:tinybind-v03-adoption
 pin_staleness_correction:
   what: this file recorded v0.4.3 as both the pin and the current release until 2026-08-12, five pin moves after it stopped being either
@@ -17,6 +17,7 @@ pin_staleness_correction:
 html_template_baseline: v0.1.15
 html_async_baseline: v0.1.20
 html_live_baseline: v0.2.8, required by requirement:live-html-rendering; v0.2.7 introduced live boundaries and v0.2.8 answered the first of the integration requests raised against them
+html_i18n_baseline: v0.5.13, required by requirement:application-i18n; a template carrying a messages declaration or a message reference fails to parse on any earlier release, and the implicit bindings of data:locale-bindings arrived in the same release
 html_update_baseline: v0.3.3; v0.3.0 added the htmlupdate package, v0.3.1 handed the asset and every name to the caller per requirement:tinybind-runtime-ownership, v0.3.2 carried head on the action response, and v0.3.3 closed every remaining seam of requirement:tinybind-update-composition-seams and made CSRF module native; adopted by decision:update-runtime-convergence
 route_tree_baseline: v0.2.6
 current: v0.5.8, which acts on json tag options for the first time and gives configbind the two levers requirement:startup-summary-brevity needed; the two halves are unrelated and shipped together, per json_tag_options and configbind_verbosity_baseline

@@ -9,7 +9,12 @@ import (
 )
 
 // writePageTreeFixture creates a project whose only router is a page tree: a
-// root page under a layout, and a dynamic route with a typed Load beside it.
+// root page under a layout, and a dynamic route whose loader is an external the
+// template binds with {val}.
+//
+// The dynamic route used to declare a typed Load. system:tinybind v0.5.13
+// withdrew that rung, so the loader is now an ordinary Go function the
+// component names.
 func writePageTreeFixture(t *testing.T) string {
 	t.Helper()
 	root := t.TempDir()
@@ -41,13 +46,16 @@ export component Page(): html {
 `)
 	writeTestFile(t, filepath.Join(root, "pages", "users", "id_", "page.pw.html"), `package id_
 
-export component Page(name: string): html {
+external LoadUser(id: string): string
+
+export component Page(id: string): html {
+{val name = LoadUser(id)}
 <h1>{name}</h1>
 }
 `)
 	writeTestFile(t, filepath.Join(root, "pages", "users", "id_", "page.go"), `package id_
 
-func Load(id string) (string, error) { return id, nil }
+func LoadUser(id string) string { return id }
 `)
 	return root
 }
@@ -115,15 +123,25 @@ func TestRunGenerateWritesPageTree(t *testing.T) {
 	}
 }
 
-// The typed rung binds the route's own segments to Load and its results to the
-// page component, so the generated handler carries the call.
-func TestRunGeneratePageTreeCallsTypedLoad(t *testing.T) {
+// A route input reaches the page component itself, which then binds its own
+// loader with {val}.
+//
+// This replaced the typed rung, where the route bound its segments to Load and
+// Load's results to the component positionally. system:tinybind v0.5.13
+// withdrew that shape; what is asserted here is the contract that took its
+// place, so the route decodes the segment and the component decides what to do
+// with it.
+func TestRunGeneratePageTreeBindsRouteInputToTheComponent(t *testing.T) {
 	root := writePageTreeFixture(t)
 	generateIn(t, root)
 
 	registry := readTestFile(t, filepath.Join(root, "pages", "routes_pw_gen.go"))
-	if !strings.Contains(registry, "Load(route.ID)") {
-		t.Errorf("typed Load is not called with its route input:\n%s", registry)
+	if strings.Contains(registry, "Load(") {
+		t.Errorf("the withdrawn typed rung is still being emitted:\n%s", registry)
+	}
+	component := readTestFile(t, filepath.Join(root, "pages", "users", "id_", "page_pw_gen.go"))
+	if !strings.Contains(component, "LoadUser(") {
+		t.Errorf("the component does not call the external it binds:\n%s", component)
 	}
 	decoder := readTestFile(t, filepath.Join(root, "pages", "users", "id_", "route_pw_gen.go"))
 	// Through the framework accessor rather than off the request value. That

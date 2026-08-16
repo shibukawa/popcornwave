@@ -148,7 +148,7 @@ func TestBothEmittersProduceATreeFromOneFixture(t *testing.T) {
 func TestTheSecondTransportsPageTreeIsOnlyTheFilesThatDiffer(t *testing.T) {
 	root, _ := fixtureConfig(t)
 	config := projectConfig{Generate: generationScope{Pages: []string{"fastpages"}}, FastHTTP: true}
-	changes, err := planFastPageTrees(root, config, config.FastHTTP, nil)
+	changes, err := planFastPageTrees(root, config, config.FastHTTP, nil, messagePlan{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -187,7 +187,7 @@ func TestTheSecondTransportsPageTreeIsOnlyTheFilesThatDiffer(t *testing.T) {
 func TestNoSecondPageTreeWithoutTheDeclaration(t *testing.T) {
 	root, _ := fixtureConfig(t)
 	config := projectConfig{Generate: generationScope{Pages: []string{"fastpages"}}}
-	changes, err := planFastPageTrees(root, config, config.FastHTTP, nil)
+	changes, err := planFastPageTrees(root, config, config.FastHTTP, nil, messagePlan{})
 	if err != nil {
 		t.Fatal(err)
 	}

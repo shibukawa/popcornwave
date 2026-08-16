@@ -40,7 +40,7 @@ var reservedPageTemplates = map[string]bool{
 // directory for the same reason — the URL they were compiled against is one
 // place, not one per page. The tree root is what they are grouped under,
 // because that is a directory whose purposes admit them.
-func planPageTrees(root string, config projectConfig) (map[string][]generator.Artifact, error) {
+func planPageTrees(root string, config projectConfig, messages messagePlan) (map[string][]generator.Artifact, error) {
 	if len(config.Generate.Pages) == 0 {
 		return nil, nil
 	}
@@ -59,7 +59,7 @@ func planPageTrees(root string, config projectConfig) (map[string][]generator.Ar
 		if err != nil {
 			return nil, err
 		}
-		result, err := generatePageTree(treeRoot, importBase, emitter)
+		result, err := generatePageTree(treeRoot, importBase, emitter, messages)
 		if err != nil {
 			return nil, fmt.Errorf("%s: %w", relative, err)
 		}
@@ -106,8 +106,18 @@ func planPageTrees(root string, config projectConfig) (map[string][]generator.Ar
 // module default today, which is why one document has held one spelling, and
 // passing it is what keeps that true if this framework ever brands the prefix
 // rather than leaving a page tree quietly on the default.
-func generatePageTree(treeRoot, importBase string, emitter *routetree.Emitter) (routetree.Result, error) {
+func generatePageTree(treeRoot, importBase string, emitter *routetree.Emitter, messages messagePlan) (routetree.Result, error) {
+	// A page template reads the same bindings and resolves against the same
+	// symbol table a flat template does. The two compile paths taking different
+	// options is exactly the failure requirement:route-package-context-externals
+	// records upstream, where a seam reached one path and not the other and
+	// shipped a feature that was simply absent on filesystem routes.
+	bindings := pwgen.MessageBindings()
+	symbols := pwgen.MessageSymbolTable(messages.Symbols, messages.ImportPath)
 	return routetree.GenerateTree(routetree.GenerateOptions{
+		ImplicitBindings:      bindings,
+		Messages:              symbols,
+		MessageContextBinding: pwgen.MessageLocaleBinding,
 		Config:              pwgen.PageConfig(treeRoot, importBase),
 		Emitter:             emitter,
 		ComponentSuffix:     pwgen.PageComponentSuffix,
@@ -123,12 +133,12 @@ func generatePageTree(treeRoot, importBase string, emitter *routetree.Emitter) (
 // It exists to hold the three cases apart, because they are decided by facts
 // this step does not otherwise see: whether the project declares the second
 // build, and whether the run is allowed to write.
-func planSecondBuildPages(root string, config projectConfig, check bool, changes []fileChange) ([]fileChange, error) {
+func planSecondBuildPages(root string, config projectConfig, check bool, changes []fileChange, messages messagePlan) ([]fileChange, error) {
 	if !config.FastHTTP {
 		// Sweeping runs whether or not the declaration holds. Turning it off has
 		// to take these files with it, or the tree keeps a half that compiles
 		// under a tag nothing writes for any more.
-		return planFastPageTrees(root, config, false, changes)
+		return planFastPageTrees(root, config, false, changes, messages)
 	}
 	if check {
 		// Check mode writes nothing, so it can only judge this step when its
@@ -139,7 +149,7 @@ func planSecondBuildPages(root string, config projectConfig, check bool, changes
 		if len(changes) > 0 {
 			return changes, nil
 		}
-		return planFastPageTrees(root, config, true, changes)
+		return planFastPageTrees(root, config, true, changes, messages)
 	}
 	if len(changes) > 0 {
 		// This step reads the derived handlers the stages above produced, so what
@@ -148,7 +158,7 @@ func planSecondBuildPages(root string, config projectConfig, check bool, changes
 			return nil, err
 		}
 	}
-	return planFastPageTrees(root, config, true, changes)
+	return planFastPageTrees(root, config, true, changes, messages)
 }
 
 // planFastPageTrees plans the second transport's copy of every page tree, and
@@ -169,7 +179,7 @@ func planSecondBuildPages(root string, config projectConfig, check bool, changes
 // is why the net/http tree is generated again here rather than carried down from
 // the first pass, which would tie this step to how that one happened to group
 // its output.
-func planFastPageTrees(root string, config projectConfig, derive bool, changes []fileChange) ([]fileChange, error) {
+func planFastPageTrees(root string, config projectConfig, derive bool, changes []fileChange, messages messagePlan) ([]fileChange, error) {
 	if len(config.Generate.Pages) == 0 {
 		return changes, nil
 	}
@@ -185,7 +195,7 @@ func planFastPageTrees(root string, config projectConfig, derive bool, changes [
 			if err != nil {
 				return nil, err
 			}
-			derived, err := deriveTreeFor(treeRoot, importBase)
+			derived, err := deriveTreeFor(treeRoot, importBase, messages)
 			if err != nil {
 				return nil, fmt.Errorf("%s: %w", relative, err)
 			}
@@ -208,7 +218,7 @@ func planFastPageTrees(root string, config projectConfig, derive bool, changes [
 // deriveTreeFor emits one tree for both transports and returns the second
 // transport's half: the files the two emitters did not agree on, named apart
 // and constrained to the build that compiles them.
-func deriveTreeFor(treeRoot, importBase string) ([]routetree.Generated, error) {
+func deriveTreeFor(treeRoot, importBase string, messages messagePlan) ([]routetree.Generated, error) {
 	netHTTP, err := pwgen.PageEmitter()
 	if err != nil {
 		return nil, err
@@ -217,11 +227,11 @@ func deriveTreeFor(treeRoot, importBase string) ([]routetree.Generated, error) {
 	if err != nil {
 		return nil, err
 	}
-	shared, err := generatePageTree(treeRoot, importBase, netHTTP)
+	shared, err := generatePageTree(treeRoot, importBase, netHTTP, messages)
 	if err != nil {
 		return nil, err
 	}
-	files, err := generatePageTree(treeRoot, importBase, fastHTTP)
+	files, err := generatePageTree(treeRoot, importBase, fastHTTP, messages)
 	if err != nil {
 		return nil, err
 	}
