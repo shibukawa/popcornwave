@@ -140,7 +140,10 @@ Five things, all of which the pages that follow lean on:
 - **A checked address for a mutation**, inside a page tree: `server-action`
   resolves the name of a Go handler to a generated endpoint, so a renamed
   function fails generation instead of a click failing in production. On a form
-  it also submits without any runtime at all. See
+  it also submits without any runtime at all. A script wanting an answer rather
+  than a response declares an ordinary Go function instead and calls it as
+  `await actions.getUser({ id })`, typed at both ends, which removes the
+  hand-written `fetch` and the decoding around it. See
   [Server actions](/guides/interactivity/server-actions/).
 
 Everything else on this ladder is standard web platform work. The framework

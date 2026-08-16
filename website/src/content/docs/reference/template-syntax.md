@@ -859,7 +859,10 @@ generated dispatcher branches on the hidden selector.
 
 Every other attribute on that element survives unread, so what a click does
 beyond posting there stays your markup. A name that resolves to no handler is a
-generation error rather than a dead element.
+generation error rather than a dead element, and so is a name that resolves to a
+[typed action](/guides/interactivity/server-actions/#a-function-a-script-calls):
+that one returns a value a form has nowhere to put, and the error says so and
+names what a script would call it instead.
 
 See [Server actions](/guides/interactivity/server-actions/) for which element to
 choose and what the handler owes.

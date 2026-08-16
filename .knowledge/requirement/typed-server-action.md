@@ -92,6 +92,11 @@ as_built_2026_08_16:
     one_namespace: the typed action is published beside the two raw ones on the same route, so a script sees three names and not two surfaces
   unexported_is_the_visible_difference: the declaration publishes it, so the export rule that admits a raw handler means nothing here, and the fixture spells that out by declaring a lower-case function
   documentation: the server actions guide gained the typed shape as its own section, both locales, and lost a paragraph explaining the absence against a Load that no longer exists
+  the_template_refusal_was_measured_rather_than_assumed:
+    why_it_needed_measuring: naming the fixture's unexported action from a template fails on the case of the identifier, which is the raw shape's rule and says nothing about this one
+    what_an_exported_one_does: 'server action "GetProfile" cannot be reached from a template: it is a typed server action, which is called from script as getProfile and has no form to submit'
+    so: the check is real and the message names the call a script would write instead, which is what the reference now says
+    the_near_miss: documenting the first failure would have recorded a rule about capitalisation as though it were a rule about typed actions
 acceptance:
   - a declared function of any signature is reachable at its own endpoint and callable by name from a component script
   - its arguments arrive from the caller's payload by name, and its value comes back as a value rather than as markup
