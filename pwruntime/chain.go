@@ -32,10 +32,22 @@ const (
 	SlotAccessLog Slot = 40
 	// SlotRecover converts a panic into a response.
 	SlotRecover Slot = 50
+	// SlotSecurityHeaders sets the browser policy headers, answers a CORS
+	// preflight, and marks a cross-origin response.
+	//
+	// It sits above every frame that can refuse because of the marking rather
+	// than because of the headers. A response a browser will not hand to script
+	// is a status nobody can read, so the frame that marks it has to have run
+	// before the 429, the 413, the 401, the 403 and the 500 that frames below
+	// write — and w.Header() is one map for the whole chain, so setting the
+	// headers here puts them on every one of those.
+	//
+	// It was at 60 while it only set headers. The move gained the refusals
+	// written between the two numbers, which is the process rate limit's 429
+	// and the 503 beside it.
+	SlotSecurityHeaders Slot = 52
 	// SlotRateLimitProcess bounds work this process is already doing.
 	SlotRateLimitProcess Slot = 55
-	// SlotSecurityHeaders sets the browser policy headers.
-	SlotSecurityHeaders Slot = 60
 	// SlotRequestTimeout bounds how long a request may take.
 	SlotRequestTimeout Slot = 70
 	// SlotMaxRequestBody refuses an oversized body.

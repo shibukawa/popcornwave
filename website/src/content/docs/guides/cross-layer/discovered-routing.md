@@ -102,19 +102,38 @@ site with one page would answer 200 everywhere.
 One file is a page. What you put beside it decides how much Go runs between the
 request and the render.
 
-| Files | What you get |
-| --- | --- |
-| `page.pw.html` | the whole handler is generated; the template's own `external` calls fetch the data |
-| `+ page.go` implementing an external the template declares | still generated whole; the page has Go of its own to load with |
-| `+ page.go` with `func Load(w http.ResponseWriter, r *http.Request)` | only the registration is generated; the response is yours |
+| Files | Rung | What you get |
+| --- | --- | --- |
+| `page.pw.html` | template only | the whole handler is generated; the template's own `external` calls fetch the data |
+| `+ page.go` with `func Load(w http.ResponseWriter, r *http.Request)` | handler | only the registration is generated; the response is yours |
 
-The middle row is not a rung of its own. The handler is generated either way,
-and what changes is that the template names a loader instead of fetching from
-somewhere shared. The one real choice is the last row: does this page write its
-own response?
+Two rungs, and the question is only whether `page.go` exists. A `Load` that is
+not the handler signature fails generation naming what it is and what it must
+be.
 
-A `Load` that is neither the handler shape nor absent fails generation, naming
-the shape it must have and telling you to bind an external instead.
+A page that fetches does not need a rung of its own. It declares its loader as
+an `external` and binds it with
+[`val`](/reference/template-syntax/#val--naming-a-value), so the call sits in
+the page's own source:
+
+```html
+package id_
+
+external LoadUser(id: string): User
+
+export component Page(id: string): html {
+{val user = LoadUser(id)}
+<h1>{user.name}</h1>
+}
+```
+
+There used to be a third rung between these two, where `page.go` declared
+`func Load(id string) (User, error)` and the generated handler called it. It is
+gone, and losing it is a gain: its parameters were the *result* of the load, and
+a page keyed on its result cannot be cached — computing the key would need the
+load. Keyed on the `id` above, the page is one
+[`@cache`](/guides/frontend/rendering-cache/#caching-a-components-own-load) away
+from covering the fetch and the render together.
 
 ### Inputs
 
@@ -134,41 +153,83 @@ export component Page(id: string, page: int?): html {
 }
 ```
 
-Generation checks the leading parameters against the route and fails naming both
-if one is missing, reordered, or extra. There is one list, so there is nothing
-for it to disagree with.
-
-`{val}` binds the result to a name. Without it every mention is another call: a
-component rendering four fields of a record would load it four times. The
-binding is evaluated at the top of its block, which is what lets a loader that
-fails choose the status before a byte is written — including on a streaming
-render.
-
-The loader is ordinary Go beside the template:
-
-```go
-func LoadUser(ctx context.Context, id string) (User, error) { ... }
-```
-
-Declare a leading `context.Context` and you receive the request's, which is where
-the database handle and the signed-in reader live.
+That list is the component's, whether or not `page.go` exists — a page's inputs
+are what the URL carries, and nothing else reads them.
 
 A URL carries no objects, so inputs are scalars. That leaves one thing a plain
 scalar cannot express: an absent `?page` and an explicit `?page=0` would arrive
 as the same zero. A trailing question mark keeps them apart by binding a
-pointer, and the default belongs in Go rather than in the decoder:
+pointer, which the loader then reads:
 
-```go
-func PageNumber(page *int) int {
-	if page == nil {
-		return 1
-	}
-	return *page
+```html
+external LoadUser(id: string, page: int?): View
+
+export component Page(id: string, page: int?): html {
+{val view = LoadUser(id, page)}
+<h1>{view.name}</h1>
+<p>page {view.page}</p>
 }
 ```
 
-The default then lives in `Load`, where a reader looking for it will find it,
-instead of inside a decoder nobody wrote.
+```go
+func LoadUser(id string, page *int) (View, error) {
+	number := 1
+	if page != nil {
+		number = *page
+	}
+	return View{Name: "user " + id, Page: number}, nil
+}
+```
+
+The default for an absent `?page` lives in the loader, where a reader looking
+for it will find it, rather than inside a decoder nobody wrote.
+
+The trailing `error` is what lets that loader decide the response. A binding at
+the top of a page's body is evaluated before the first byte, so a failure still
+picks the status while the rest of the page streams:
+
+```go
+func LoadUser(id string, page *int) (View, error) {
+	row, ok := store.User(id)
+	if !ok {
+		return View{}, pw.NotFound("no user " + id)
+	}
+	…
+}
+```
+
+Any [problem constructor](/guides/frontend/responses/#constructors) works
+there — `pw.NotFound`, `pw.Forbidden`, `pw.BadRequest` — because the generated
+handler passes what the render returned to `pw.WriteProblem`, which reads the
+status off the error.
+
+A redirect is returned rather than written, for the same reason:
+
+```go
+if _, ok := auth.User(ctx); !ok {
+	return View{}, pw.SeeOther("/auth/login")
+}
+```
+
+These are named for their status and returned the same way `pw.NotFound` is —
+both are values a function hands back rather than writes. A redirect has two
+axes, so there are four:
+
+| | method may become GET | method preserved |
+| --- | --- | --- |
+| temporary | `pw.SeeOther` — 303 | `pw.TemporaryRedirect` — 307 |
+| permanent | `pw.MovedPermanently` — 301 | `pw.PermanentRedirect` — 308 |
+
+`pw.SeeOther` is the one a page reaches for: the target is fetched with GET
+whatever the request was, so a reload repeats nothing.
+
+The method axis rarely decides anything in a loader, because the render
+answering it is a GET and 303 and 307 are indistinguishable there. It starts
+mattering wherever a POST can reach the same code.
+
+A returned redirect takes the same path as a written one: the target is refused
+if a browser could only follow it by running script, and an update request gets
+a navigate directive instead of a 303.
 
 ## Layouts
 
@@ -412,8 +473,8 @@ The last two are the same collision twice: where Go's rules and routing
 convention disagree, Go's rules win.
 
 The first three are worth reading as one condition. A page renders and a link
-navigates with no JavaScript at all, so a site built entirely from the template
-and loader shapes works today. Reach for a `server-action` and that stops being
+navigates with no JavaScript at all, so a site built entirely from pages that
+render and load their own data works today. Reach for a `server-action` and that stops being
 true: the attribute is written, and until the action runtime lands, the click
 that fires it is yours to intercept. Enable the existing CSRF middleware over
 the action paths and send its token from that client code. That is the

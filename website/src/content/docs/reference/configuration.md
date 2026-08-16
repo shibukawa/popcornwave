@@ -238,6 +238,48 @@ carries the reader's identity as well as the parameters, so the entry count
 multiplies by the number of active readers, and a cap chosen when every key was
 shared will evict entries faster than they are reused.
 
+## `[cache]`
+
+| Key | Default | Meaning |
+| --- | --- | --- |
+| `enabled` | `false` | reuse what a fetch returned for equal keys |
+
+### `[[cache.stores]]`
+
+| Key | Default | Meaning |
+| --- | --- | --- |
+| `name` | *(empty)* | the name a call site addresses this store by |
+| `backend` | `"memory"` | where entries live; memory is the only implemented backend |
+| `ttl` | `"1m"` | how long an entry is fresh |
+| `stale` | `"0s"` | how long a stale entry may still answer while one revalidation runs; zero disables the window |
+| `scope` | `"private"` | `private` keys entries per reader; `public` shares one entry between all of them |
+| `max_entries` | `1024` | entries this store holds; zero or less is unbounded |
+| `fetch_timeout` | `"30s"` | bound on a fetch running detached from its waiters |
+
+This store holds what a handler *fetched*, which is a different question from
+the `html.cache` above: that one holds rendered bytes and this one holds the
+data those bytes were rendered from. They are sized separately because they fill
+at different rates from different sources, and one cap covering both would let
+whichever is busier evict the other.
+
+`enabled` is off where `html.cache.enabled` is on, because the opt-in is not
+symmetrical. A component asks to be cached in its own annotation, so the render
+store can be on and idle. A data cache has no annotation to read: `pw.Memo` is
+an ordinary call in a handler, and turning the section on is the only statement
+that any of them should store anything. With it off, every call runs its fetch
+and returns, which is also how caching is withdrawn from a deployment without
+editing code.
+
+`scope` defaults to `private` for the reason the render cache's does. A
+per-reader result declared `public` is served to whoever asks next, and nothing
+reports it; a shared result left `private` costs hits. See
+[Caching Fetched Data](/guides/backend/data-cache/).
+
+`fetch_timeout` exists because concurrent misses are collapsed onto one fetch
+that runs detached from every waiter, so no caller's cancellation can end it.
+Without a bound of its own, one unresponsive upstream would hold a goroutine per
+cold key for as long as it stayed unresponsive.
+
 ## `[security]`
 
 | Key | Default | Meaning |
@@ -256,6 +298,31 @@ shared will evict entries faster than they are reused.
 
 HSTS is applied only on a verified HTTPS request. Sending it over plaintext
 would ask a browser to remember a policy the connection could not vouch for.
+
+### `[security.cors]`
+
+| Key | Default | Meaning |
+| --- | --- | --- |
+| `cors.enabled` | `false` | the switch every key below answers to |
+| `cors.include` | `["/**"]` | paths the policy covers, in the segment grammar |
+| `cors.exclude` | `[]` | paths it does not, taking precedence over `include` |
+| `cors.allowed_origins` | `[]` | exact `scheme://host[:port]` values, or the single `"*"` |
+| `cors.allow_credentials` | `false` | whether a listed origin may read a response sent with cookies |
+| `cors.allowed_methods` | `["GET", "HEAD", "POST"]` | methods a preflight admits |
+| `cors.allowed_headers` | `["Content-Type", "Authorization"]` | request headers a preflight admits |
+| `cors.exposed_headers` | `["X-Request-ID", "Retry-After", "X-RateLimit-Limit", "X-RateLimit-Remaining", "X-RateLimit-Reset"]` | response headers script may read |
+| `cors.max_age` | `"10m"` | how long a browser may cache one preflight |
+
+Four combinations fail startup rather than serving: an enabled policy with no
+origin, `allow_credentials` with `"*"`, `allow_credentials` with `"*"` in
+`allowed_headers`, and `allow_credentials` with an `include` of `"/**"`. The
+first three are configurations a browser drops the response for; the last is a
+grant wider than any deployment means. See [Cross-Origin
+Requests](/guides/backend/cors/).
+
+Browsers cap `max_age` themselves — Safari at ten minutes, Chrome at two hours —
+so a larger value is reduced rather than honoured. The generated OpenAPI
+document is readable cross-origin whether or not this section exists.
 
 ## `[observability]`
 
@@ -381,6 +448,34 @@ therefore required unless every registered slot is `session.Shared` or
 `backend` names — a private slot rides a sealed cookie while a visitor is still
 anonymous. `pw init` generates one into `config.dev.toml`; every other
 environment reads `SESSION_KEYRING_SECRET`.
+
+## `[ratelimit]`
+
+| Key | Default | Meaning |
+| --- | --- | --- |
+| `enabled` | `false` | |
+| `backend` | `"memory"` | counter storage: `memory` or `redis` |
+| `window` | `"1m"` | period every count below is measured over; also what `X-RateLimit-Reset` reports |
+| `per_subject` | `600` | requests one authenticated subject may make in a window; `0` disables this bucket |
+| `per_address` | `300` | requests one caller with no session may make in a window; must be positive |
+| `process` | `0` | total arrivals allowed in a window, unkeyed; `0` leaves only the identity buckets |
+| `redis.dsn` | *(empty)* | `redis://` or `rediss://` counter server; only its credential is masked where it is reported |
+| `redis.key_prefix` | `"pw:ratelimit:"` | key space this limiter owns |
+| `redis.connect_timeout` | `"5s"` | startup ping and per-command deadline |
+
+The `redis.*` keys are read only under `backend = "redis"`, which reaches the
+binary through a blank import of `ratelimitstore/redis` — the startup error
+quotes the line to add. Setting `redis.dsn` under the `memory` backend is
+refused rather than ignored, and `backend = "redis"` without a DSN is refused
+too. A positive `process` must be at least `per_address` and `per_subject`,
+since one caller allowed more than the total describes a limit that can never
+bind.
+
+The counts have no per-route form; one budget covers the whole application,
+and the framework's operational endpoints and the public asset mount are
+exempt without a key to change it. [Rate
+Limiting](/guides/backend/rate-limiting/) explains how the three counts
+compose and what happens when the store is unreachable.
 
 ## `[auth]`
 

@@ -9,6 +9,11 @@ import (
 	"github.com/shibukawa/tinybind-go/htmlbind/delta"
 )
 
+type View struct {
+	Name string
+	Page int
+}
+
 type PageParams struct {
 	Id   string
 	Page *int
@@ -16,17 +21,10 @@ type PageParams struct {
 
 type planPageOpsVal1 struct {
 	Outer PageParams
-	Name  string
+	View  View
 }
 
 var planPageOpsVal1Ops = htmlbind.Builder[planPageOpsVal1]{}
-
-type planPageOpsVal1OpsVal2 struct {
-	Outer  planPageOpsVal1
-	Number int
-}
-
-var planPageOpsVal1OpsVal2Ops = htmlbind.Builder[planPageOpsVal1OpsVal2]{}
 
 var planPageOps = htmlbind.Builder[PageParams]{}
 
@@ -53,25 +51,18 @@ var planPagePlan = &htmlbind.Plan[PageParams]{
 	Boundary:    planPageBoundary,
 	Ops: []htmlbind.Op[PageParams]{
 		htmlbind.ValErrCtx(
-			func(ctx context.Context, p PageParams) (string, error) { return LoadName(ctx, p.Id, p.Page) },
-			func(p PageParams, value string) planPageOpsVal1 { return planPageOpsVal1{Outer: p, Name: value} },
+			func(ctx context.Context, p PageParams) (View, error) { return LoadUser(ctx, p.Id, p.Page) },
+			func(p PageParams, value View) planPageOpsVal1 { return planPageOpsVal1{Outer: p, View: value} },
 			[]htmlbind.Op[planPageOpsVal1]{
-				htmlbind.Val(
-					func(p planPageOpsVal1) int { return PageNumber(p.Outer.Page) },
-					func(p planPageOpsVal1, value int) planPageOpsVal1OpsVal2 {
-						return planPageOpsVal1OpsVal2{Outer: p, Number: value}
-					},
-					[]htmlbind.Op[planPageOpsVal1OpsVal2]{
-						planPageOpsVal1OpsVal2Ops.Static("   <section"),
-						planPageOpsVal1OpsVal2Ops.BoundaryAttr(),
-						planPageOpsVal1OpsVal2Ops.Static(" data-tb-component=\"id_.page.Page\"> <h1 data-tb-on=\"click:highlight\">"),
-						planPageOpsVal1OpsVal2Ops.Text(func(p planPageOpsVal1OpsVal2) string { return p.Outer.Name }),
-						planPageOpsVal1OpsVal2Ops.Static("</h1> <p>page "),
-						planPageOpsVal1OpsVal2Ops.Raw(func(p planPageOpsVal1OpsVal2) string { return htmlbind.FormatInt(p.Number) }),
-						planPageOpsVal1OpsVal2Ops.Static("</p> <button data-tb-action=\"/_action/00369cf962b6/Rename\" data-target=\"#name\">rename</button> <form data-tb-action=\"/_action/d71506d06c1e/Retire\" method=\"post\"><input type=\"hidden\" name=\"_action\" value=\"d71506d06c1e/Retire\" />"),
-						planPageOpsVal1OpsVal2Ops.CSRFField("_csrf"),
-						planPageOpsVal1OpsVal2Ops.Static(" <input type=\"text\" name=\"reason\" /> <button type=\"submit\">retire</button> </form> </section> "),
-					}),
+				planPageOpsVal1Ops.Static("  <section"),
+				planPageOpsVal1Ops.BoundaryAttr(),
+				planPageOpsVal1Ops.Static(" data-tb-component=\"id_.page.Page\">  <h1 data-tb-on=\"click:highlight\">"),
+				planPageOpsVal1Ops.Text(func(p planPageOpsVal1) string { return p.View.Name }),
+				planPageOpsVal1Ops.Static("</h1> <p>page "),
+				planPageOpsVal1Ops.Raw(func(p planPageOpsVal1) string { return htmlbind.FormatInt(p.View.Page) }),
+				planPageOpsVal1Ops.Static("</p> <button data-tb-action=\"/_action/00369cf962b6/Rename\" data-target=\"#name\">rename</button> <form data-tb-action=\"/_action/d71506d06c1e/Retire\" method=\"post\"><input type=\"hidden\" name=\"_action\" value=\"d71506d06c1e/Retire\" />"),
+				planPageOpsVal1Ops.CSRFField("_csrf"),
+				planPageOpsVal1Ops.Static(" <input type=\"text\" name=\"reason\" /> <button type=\"submit\">retire</button> </form> </section> "),
 			}),
 	},
 }

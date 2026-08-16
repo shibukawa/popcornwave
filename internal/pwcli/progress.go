@@ -9,11 +9,6 @@ import (
 	"github.com/charmbracelet/x/term"
 )
 
-// progressLines bounds the region a long phase paints in. Three is enough to
-// show the phase and the last thing it said, and small enough that the region
-// never becomes the scrollback it is meant to keep clear.
-const progressLines = 3
-
 // progressRegion reports the work an operator is waiting on, in a fixed number
 // of lines that are rewritten in place and then cleared. A phase that can outlast
 // a second gets one, because a slow run and a hung run are otherwise the same
@@ -29,7 +24,6 @@ type progressRegion struct {
 	// readable.
 	live    bool
 	phase   string
-	details []string
 	painted int
 }
 
@@ -52,24 +46,10 @@ func (r *progressRegion) Phase(name string) {
 	if r == nil {
 		return
 	}
-	r.phase, r.details = name, nil
+	r.phase = name
 	if !r.live {
 		fmt.Fprintf(r.out, "pw: %s\n", name)
 		return
-	}
-	r.paint()
-}
-
-// Detail adds a line under the phase, keeping only the most recent ones. It is
-// for progress a phase produces as it goes, never for something the operator
-// has to act on.
-func (r *progressRegion) Detail(line string) {
-	if r == nil || !r.live || strings.TrimSpace(line) == "" {
-		return
-	}
-	r.details = append(r.details, line)
-	if len(r.details) > progressLines-1 {
-		r.details = r.details[len(r.details)-(progressLines-1):]
 	}
 	r.paint()
 }
@@ -81,17 +61,14 @@ func (r *progressRegion) Done() {
 		return
 	}
 	r.clear()
-	r.phase, r.details, r.painted = "", nil, 0
+	r.phase, r.painted = "", 0
 }
 
 // paint rewrites the region in place.
 func (r *progressRegion) paint() {
 	r.clear()
-	lines := append([]string{"⋯ " + r.phase}, r.details...)
-	for _, line := range lines {
-		fmt.Fprintf(r.out, "\033[2K%s\n", truncateLine(line))
-	}
-	r.painted = len(lines)
+	fmt.Fprintf(r.out, "\033[2K%s\n", truncateLine("⋯ "+r.phase))
+	r.painted = 1
 }
 
 // clear moves back over the painted lines and erases them, so the next paint

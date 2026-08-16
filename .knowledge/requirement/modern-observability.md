@@ -16,7 +16,9 @@ operations:
   live delivery: one span per delivery, spanning the previous delivery of that boundary
   external function and database call: a client span per executed statement, on the same seam data:query-record uses
   partial refresh and patch size: the navigate and redraw render modes, with pw.render.bytes
-  cache hit, stale hit, miss, and revalidation: not instrumented; policy:layered-cache has no framework-owned store to observe yet
+  component cache hit and miss: both on the render span, as pw.render.cache_hits and pw.render.cache_misses of data:framework-span-set, reported together and only by a response that consulted the store of requirement:component-output-cache
+  data cache hit, stale hit, miss, coalesced wait, and revalidation: not instrumented; requirement:data-result-cache designs the store and nothing implements it yet
+  http cache hit and revalidation: not instrumented, and not the framework's to observe — policy:layered-cache puts that layer in front of the process
   action execution and invalidation: the handler's own work, which opens its own spans through the requirement:contrib-otel trace API
 safe_dimensions:
   - component type ID

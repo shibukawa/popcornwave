@@ -27,6 +27,8 @@ render:
     pw.render.bot: decision:bot-client-classification forced the buffered branch
     pw.render.bytes: bytes that reached the client, uncompressed; a live response counts its deliveries and not the document it discarded
     pw.render.boundaries: settled boundaries or deliveries, whatever observability.trace.boundary says
+    pw.render.cache_hits: entries of requirement:component-output-cache this response reused, present only when the response consulted the cache at all
+    pw.render.cache_misses: the other half, reported with the hits because a hit count alone cannot distinguish a working cache from one nothing is eligible for; a response consulting the cache not at all reports neither rather than two zeros a dashboard would average over
     pw.live.close_reason: done or retry, live only
   status: error when the render failed, including a stream that broke after commit and still answered 200
 initial_build:

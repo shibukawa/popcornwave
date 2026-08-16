@@ -9,7 +9,9 @@ An API server already exists. It is written in another language, or it is a
 service someone else maintains, and the browser needs to reach it from the same
 pages this application renders. Serving it from a second hostname works, and
 costs a CORS preflight on every unsafe request plus a second answer to the
-question of who is logged in. Putting both behind nginx solves the origin and
+question of who is logged in. That path is available — [Cross-Origin
+Requests](/guides/backend/cors/) configures it — and the second answer is the
+part it leaves you maintaining. Putting both behind nginx solves the origin and
 not the login: the proxy hands the request straight to the API, which now needs
 its own idea of a session.
 

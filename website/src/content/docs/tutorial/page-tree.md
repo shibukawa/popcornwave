@@ -134,28 +134,26 @@ single file and one of them a file plus a handler, and neither registered by you
 
 ### Why this `Load` takes a request
 
-A page that only needs to *load* something does not write a `Load` at all. It
-declares an external in its template, binds the result, and implements it beside
-the file:
+Most pages that fetch never write a `Load` at all. They declare the loader as an
+`external` and bind it in the template, so the call sits in the page's own
+source and the generated handler stays generated:
 
 ```html
-external ListMemos(): Memo[]
+external LoadMemos(): Memo[]
 
 export component Page(): html {
-{val memos = ListMemos()}
+{val memos = LoadMemos()}
+…
+}
 ```
 
-That loader can take a leading `context.Context` and receive the request's, so
-needing `auth.User` or a database pool is not a reason to reach for a handler —
-both arrive on that context.
+That shape has no request in it, and no context either. This page needs
+`auth.User` and a database pool, and both arrive on the request context — so it
+takes the other rung instead: `func Load(w, r)` generates the registration and
+leaves the response to you.
 
-This page reaches for one anyway, because it does not just load: it decides the
-whole response. `func Load(w, r)` generates the registration and leaves
-everything after it to you, which is what streaming, downloads, and a
-conditional status need.
-
-A `Load` that is neither that shape nor absent fails generation, naming the
-shape it must have and telling you to bind an external instead.
+Two rungs, then, and the signature picks. A `Load` that is not `func(w, r)`
+fails generation naming what it is and what it must be.
 
 ### One layout for everything below
 

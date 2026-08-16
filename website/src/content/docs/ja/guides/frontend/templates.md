@@ -343,7 +343,7 @@ export component Card(label: string): html {
 
 ## 外部関数
 
-表示専用の変換はテンプレートで宣言し、Go で実装します。
+テンプレートから呼ぶ Go は、テンプレートで宣言してその隣で実装します。
 
 ```html
 external Decorate(value: string, tone: Tone): string
@@ -357,6 +357,74 @@ func Decorate(value string, tone Tone) string {
 	return value
 }
 ```
+
+こういう表示用のヘルパは小さい方の用途です。同じ宣言が、コンポーネントが**データを取る**
+手段でもあり、覚える価値があるのはそちらです。
+
+```html
+external LoadUser(id: string): User
+
+export component UserCard(id: string): html {
+{val user = LoadUser(id)}
+<article>
+  <h2>{user.name}</h2>
+  <p>{user.email}</p>
+</article>
+}
+```
+
+`{val …}` が結果に名前を付けます。これが無いと `LoadUser(id)` は書かれた場所ごとに呼ばれる
+ので、上の3フィールドは3回のロードになります。束縛ができるまでコンポーネントが正直に
+データを取れなかったのは、これが理由です。
+
+束縛に閉じタグはありません。名前は囲みブロックの終わりまで読めて、値が計算されるのは前に
+どれだけマークアップがあってもそのブロックの先頭です。最後の性質がローダにレスポンスを
+決めさせます。Go 側の関数に末尾の `error` を持たせて `pw.NotFound(…)` を返せば、何も
+コミットされないままページが 404 を返します。
+
+呼び出しが、ページを描画してよいかどうか以外に何も答えないこともあります。認可、あるいは
+前提条件の確認です。その場合は結果型を宣言せず、`{check …}` と書きます。束縛を引いただけの
+同じディレクティブです。
+
+```html
+external Authorize(id: string)
+external LoadUser(id: string): User
+
+export component UserCard(id: string): html {
+{check Authorize(id)}
+{val user = LoadUser(id)}
+<article>
+  <h2>{user.name}</h2>
+</article>
+}
+```
+
+```go
+func Authorize(ctx context.Context, id string) error {
+	if pw.RequestAuthentication(ctx).Subject != id {
+		return pw.Forbidden("not yours")
+	}
+	return nil
+}
+```
+
+末尾のエラーがレスポンスを選ぶところはローダと変わらず、そのうえ門番が持っていない値のために
+結果型と読み手をでっち上げずに済みます。先頭の `context.Context` はここでも他と同じで任意
+です。取ったかどうかは生成が Go のソースを読んで見ます。ただし**保存する** `@cache` の中に
+門番を置いてはいけません。キャッシュにヒットすればコンポーネントの中身は丸ごと飛ばされ、
+`check` もそこに含まれます。
+
+最初から頭に置いておく価値のある帰結が2つあります。
+
+**コンポーネントの引数はレコードではなく識別子です。** これがキャッシュを可能にします。
+[`@cache`](/ja/guides/frontend/rendering-cache/#コンポーネント自身のロードをキャッシュする)
+は宣言された引数でキーを決めるので、ここのアノテーション1つがロードと描画をまとめて覆い
+ます。ロード済みの `User` を受け取るコンポーネントは、キーの計算にロードが要るので有用な
+キャッシュになりません。
+
+**ロード用の external は同期なので描画をブロックします。** 仕事の裏でフォールバックを画面に
+出したいなら [`await`](/ja/guides/cross-layer/async-rendering/) を使ってください。そして
+この2つは排他です。保存する `@cache` は await するコンポーネントを拒否します。
 
 ## 1 パッケージ内の複数ファイル
 

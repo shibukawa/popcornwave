@@ -186,20 +186,19 @@ func pageTemplateSource(pkg, rung string, segments []pageSegment) string {
 	var params, body string
 	switch rung {
 	case pageRungLoader:
-		declared := make([]string, 0, len(segments))
 		inputs := pageInputs(segments)
+		declared := make([]string, 0, len(inputs))
 		for _, input := range inputs {
 			declared = append(declared, input+": string")
 		}
 		params = strings.Join(declared, ", ")
-		// The loader is declared here and implemented beside this file. A page
-		// that loads its own data has no entry point of its own: the template
-		// names what it needs and binds the result once.
-		external := "external LoadGreeting(" + params + "): string"
+		// The loader is declared here and bound here, so the page's own source
+		// says where its data comes from. The binding is evaluated before the
+		// first byte, which is what lets a failing loader choose the status.
 		binding := "{val greeting = LoadGreeting(" + strings.Join(inputs, ", ") + ")}"
 		return "package " + pkg + `
 
-` + external + `
+external LoadGreeting(` + params + `): string
 
 export component Page(` + params + `): html {
 ` + indentTemplateBody(binding+"\n<h1>{greeting}</h1>") + `
@@ -240,12 +239,16 @@ func pageLogicSource(pkg, rung string, segments []pageSegment) string {
 		}
 		return "package " + pkg + `
 
-// LoadGreeting is what the template declares as an external and binds with
-// {val}. It is ordinary Go: no entry point, no registration, and nothing
-// generated around it.
+// LoadGreeting is the page's own loader. The template declares it as an
+// external and binds it with {val}, so the call site is in the page rather than
+// in generated code.
 //
-// Declare a leading context.Context to receive the request's, which is where the
-// database handle and the signed-in reader live.
+// The trailing error is what lets it choose the response: the binding runs
+// before the first byte, so returning an error carrying HTTP intent still
+// selects the status while the rest of the page streams.
+//
+// Declare a leading context.Context to receive the request's, which is where
+// the database handle and the signed-in reader live.
 func LoadGreeting(` + strings.Join(parameters, ", ") + `) (string, error) {
 	return ` + value + `, nil
 }

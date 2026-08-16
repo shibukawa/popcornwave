@@ -169,6 +169,23 @@ func Options(sqlDialect string) (generator.Options, error) {
 			generator.Constant("error_name", "InternalServerError"),
 		),
 	}...)
+	// Every data cache entry that takes a key, so the key method is emitted for
+	// the types an application actually passes.
+	//
+	// The key role reads the argument type rather than a type parameter: these
+	// calls are generic over the result being cached, and the key is the value
+	// beside it. Every one of them takes the context, the store handle, and then
+	// the key, so the index is the same for all four.
+	//
+	// Registering the reads alone would leave a key type discovered by Memo and
+	// missed by the invalidation that has to produce the identical key, so all
+	// four are named.
+	for _, name := range []string{"Memo", "MemoHas", "MemoSet", "MemoInvalidate"} {
+		patterns = append(patterns, generator.CacheKeyCall(
+			generator.Function(pwPackage, name),
+			generator.ArgumentType("key", 2),
+		))
+	}
 	// Every remaining pw entry that takes the transport and names no model the
 	// generator binds or encodes. Without a pattern each of these looks to the
 	// rewriter exactly like an untraceable third-party call, and every handler

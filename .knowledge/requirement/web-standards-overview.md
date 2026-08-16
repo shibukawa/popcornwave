@@ -14,11 +14,17 @@ page_rule:
   - claim adopted support only when shipped; label planned support explicitly or omit it
 sections:
   security_headers:
-    headline: browser response hardening, CSRF, cookie protection, and origin handling
+    headline: browser response hardening, CSRF, cookie protection, cross-origin admission, and origin handling
     links:
       - policy:security-response-headers
       - policy:csrf-protection
       - policy:cookie-value-protection
+      - requirement:cors-middleware
+    cors_entry:
+      added: 2026-08-13, once shipped, per the page rule against claiming unshipped support
+      names: the WHATWG Fetch Standard rather than an RFC, since the opening of this page rests on that distinction
+      carries: where the preflight is answered and why, that an unmarked response withholds the status as well as the body, and the three exclusions -- no origin pattern language, no Private Network Access, and the WebSocket upgrade
+    openapi_entry: the OpenAPI section states the wildcard the document answers on its own, because a reader deciding whether a hosted UI can read it looks there rather than in the security section
   authentication:
     headline: OIDC Authorization Code and Device Authorization, WebAuthn passkeys, Bearer JWT verification, sessions, and assurance challenges
     links:

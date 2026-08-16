@@ -25,15 +25,16 @@ forms:
   both: the ordinary answer; the token form ends one leaked credential and the subject form ends a compromised identity, and neither substitutes for the other
 record: data:revoked-token-record
 storage:
-  backend: the server backends of requirement:state-storage-tiers, selected through api:session-backend-plugin, in a keyspace of its own
-  reason: a deployment running this framework has already chosen and configured one of rdb, redis, or dynamo, and a revocation list is the same shape of keyed record with an expiry
-  not_a_session: the entries are not data:session-record values and carry no token, so concept:session-storage-boundary is not crossed; only the backend contract is shared
+  shipped: the relational database alone, read directly rather than through the session backend contract; auth.backend must answer rdb once jwt_only reads any store, and Config.validateShape refuses redis and dynamo by name rather than silently ignoring the revocation keys
+  designed_wider: the first draft placed this on the server backends of requirement:state-storage-tiers through api:session-backend-plugin; the implementation narrowed to SQL because the allowlist beside it is relational and neither list has a non-relational implementation today
+  not_a_session: the entries are not data:session-record values and carry no token, so concept:session-storage-boundary is not crossed
   refused_backend: cookie, which has no server storage and no revocation, per decision:cookie-session-storage
   why_not_authstate: requirement:contrib-auth-state Take is destructive by contract, and a revocation entry is read many times and consumed never
-  owned_table: popcornwave_revoked_token for the rdb backend, under rule:framework-owned-tables
+  owned_table: popcornwave_auth_revocation, under rule:framework-owned-tables, published by auth.MigrationSQL beside the allowlist table
 key_handling:
-  stored: a hash of the issuer and the identifier, matching the key-hash discipline api:session-store already applies
-  reason: a jti is a token identifier, and a leaked list should not be a list of live token names
+  designed: a hash of the issuer and the identifier, matching the key-hash discipline api:session-store already applies, because a leaked list should not be a list of live token names
+  shipped: the raw identifier in the key_value column, keyed (issuer, kind, key_value); the hash discipline is not implemented as of 2026-08-14 and stands as the one open divergence from this policy
+  mitigating: a token row's jti names a credential only together with the rest of the token, and a subject row's value is an identity key the allowlist table beside it already stores in the clear
 expiry:
   token_form: the exp of the revoked token, plus the verification leeway
   subject_form: the stamp plus auth.jwt.max_token_lifetime

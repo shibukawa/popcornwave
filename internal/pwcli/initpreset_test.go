@@ -439,3 +439,43 @@ func TestAddUsageNamesEveryCapability(t *testing.T) {
 
 // presetArgument spells the flag for a preset name.
 func presetArgument(name string) string { return "--preset=" + name }
+
+// The API preset is the one whose caller is likely to be a browser page on
+// another origin, so it carries the block that admits one — commented, because
+// which origins may call is the whole content of the decision and a key set to
+// a default nobody chose reads as one somebody did.
+func TestAPIServerPresetCarriesACommentedCORSBlock(t *testing.T) {
+	options, err := parseInitArgs([]string{"--preset=api-server", "demo"})
+	if err != nil {
+		t.Fatalf("err = %v", err)
+	}
+	config := scaffoldFiles(options)[pwenv.FileName(pwenv.Development)]
+	for _, want := range []string{
+		"# [security.cors]",
+		"# enabled = true",
+		`# allowed_origins = ["https://app.example.com"]`,
+	} {
+		if !strings.Contains(config, want) {
+			t.Errorf("config is missing %q:\n%s", want, config)
+		}
+	}
+	// Commented means off. A live section here would be a policy nobody chose,
+	// and its empty origin list would fail startup rather than serve.
+	if strings.Contains(config, "\n[security.cors]") || strings.Contains(config, "\nallowed_origins") {
+		t.Errorf("the cross-origin block is live rather than commented:\n%s", config)
+	}
+}
+
+// A browser project scaffolds the CSRF section and no cross-origin one: its
+// pages are served from the origin that reads them, so admitting another origin
+// is a decision it has no reason to be shown.
+func TestBrowserPresetCarriesNoCORSBlock(t *testing.T) {
+	options, err := parseInitArgs([]string{"demo"})
+	if err != nil {
+		t.Fatalf("err = %v", err)
+	}
+	config := scaffoldFiles(options)[pwenv.FileName(pwenv.Development)]
+	if strings.Contains(config, "security.cors") {
+		t.Errorf("a browser project was offered a cross-origin policy:\n%s", config)
+	}
+}

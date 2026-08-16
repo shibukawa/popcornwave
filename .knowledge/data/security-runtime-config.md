@@ -3,7 +3,7 @@ id: data:security-runtime-config
 type: data
 title: Security Runtime Config
 ---
-The `security` binding groups request-forgery protection and browser response-header policy.
+The `security` binding groups request-forgery protection, cross-origin admission, and browser response-header policy.
 
 ```yaml
 registration: automatically registered by pw
@@ -15,6 +15,15 @@ fields:
   csrf.header: HTTP header name
   csrf.trusted_origins: exact origin list
   csrf.anonymous.enabled: bool, whether a visitor with no session is issued a secret at all, per decision:anonymous-csrf-secret-storage; the cookie is signed with the policy:cookie-value-protection keyring rather than a key of its own
+  cors.enabled: bool, whether requirement:cors-middleware installs its frame
+  cors.include: path pattern list, the grammar of policy:authenticated-path-protection
+  cors.exclude: path pattern list
+  cors.allowed_origins: exact origin list, or the single literal *
+  cors.allow_credentials: bool, which grants a cross-origin read as the logged-in visitor
+  cors.allowed_methods: methods admitted in preflight
+  cors.allowed_headers: request headers admitted in preflight
+  cors.exposed_headers: response headers script may read
+  cors.max_age: duration a browser may cache one preflight
   headers.enabled: bool
   headers.content_type_options: bool
   headers.frame_options: deny, sameorigin, or off
@@ -44,6 +53,15 @@ defaults:
   csrf.form_field: _csrf
   csrf.header: X-CSRF-Token
   csrf.anonymous.enabled: false, and turning it on without a configured cookie keyring is a startup failure rather than an unsigned cookie
+  cors.enabled: false
+  cors.include: ["/**"]
+  cors.exclude: []
+  cors.allowed_origins: empty, and enabling the frame without one is a startup failure rather than a frame that marks nothing
+  cors.allow_credentials: false
+  cors.allowed_methods: GET, HEAD and POST, so admitting a write is a stated widening
+  cors.allowed_headers: Content-Type and Authorization, the pair the bearer case of requirement:jwt-only-api-authentication needs
+  cors.exposed_headers: X-Request-ID, Retry-After and the three X-RateLimit fields, none of them safelisted and all of them written by framework frames
+  cors.max_age: 600s, the value Safari caps at
   headers.enabled: true
   headers.content_type_options: true
   headers.frame_options: deny
@@ -62,6 +80,9 @@ defaults:
   reporting.nel.failure_fraction: 1
 rules:
   - policy:csrf-protection defines token and request validation
+  - requirement:cors-middleware defines cross-origin admission, its preflight answer, and the Vary it owes; an enabled frame with no origin, allow_credentials with *, and allow_credentials with an include of /** are all startup errors
+  - the cors and headers keys configure one frame, per decision:cors-above-the-refusals, so neither can be ordered against the other
+  - the OpenAPI document answers a wildcard origin regardless of this binding, per the openapi_document block of requirement:cors-middleware
   - policy:security-response-headers defines header behavior
   - requirement:browser-report-ingest defines the reporting endpoint, and enabling it with headers.enabled false is a startup error because nothing would emit the header
   - reject malformed paths, origins, header names, control characters, and invalid header values at startup

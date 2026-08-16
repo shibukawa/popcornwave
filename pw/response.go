@@ -65,10 +65,6 @@ func registeredHTMLDocument() []HTMLWrapper { return pwruntime.RegisteredHTMLDoc
 // The constructors are pwruntime's, re-exported so an application keeps
 // naming them through pw and a rewritten call finds the same names on the
 // other runtime.
-func problem(status int, title string, value any) Problem {
-	return pwruntime.NewProblem(status, title, value)
-}
-
 func BadRequest(values ...any) Problem      { return pwruntime.BadRequest(values...) }
 func Unauthorized(values ...any) Problem    { return pwruntime.Unauthorized(values...) }
 func Forbidden(values ...any) Problem       { return pwruntime.Forbidden(values...) }
@@ -86,6 +82,15 @@ func InternalServerError(values ...any) Problem { return pwruntime.InternalServe
 func Validation(fields ...FieldError) Problem { return pwruntime.Validation(fields...) }
 
 func WriteProblem(w http.ResponseWriter, r *http.Request, err error) {
+	// A redirect returned rather than written arrives here, because the one
+	// path a render's error takes is this one. Redirect applies the safety
+	// check and the update branch, so a returned redirect and a written one
+	// cannot differ.
+	var redirect pwruntime.RedirectError
+	if errors.As(err, &redirect) && !responseCommitted(w) {
+		Redirect(w, r, redirect.Location, redirect.Status)
+		return
+	}
 	if responseCommitted(w) {
 		Logger(requestContext(r)).Log(requestContext(r), LevelError, "problem after response commit", Err(err))
 		return

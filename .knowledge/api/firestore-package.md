@@ -38,7 +38,7 @@ escape_hatch_hazard:
 deliberately_absent:
   migrate_and_plan: there is nothing to apply, per decision:firestore-no-schema-application
   register_kind: nothing has to be enumerated for a migrator to find, so decision:dynamodb-table-registry has no counterpart; Kinds reports what is linked for the guide and the CLI to print, and no code reads it back
-  operation_wrappers: none, on the reasoning of decision:dynamodb-no-runtime-abstraction
+  operation_wrappers: none, on the reasoning of decision:dynamodb-no-runtime-abstraction, which is why the On entries and the transactional reads an application calls are covered by requirement:typed-api-method-convergence rather than by anything reshapeable here
   transaction_surface: none of its own; the firestorebind wrapper of system:tinybind binds the driver's
 why_ensure_client_is_here_and_was_added_late_for_dynamo:
   fact: requirement:dynamodb-auth-backend found that a store reading its client from the setup context never gets one, because setup carries no request

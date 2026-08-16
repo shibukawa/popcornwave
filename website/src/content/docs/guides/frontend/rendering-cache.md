@@ -17,13 +17,18 @@ load, repeated per request, it stops being small.
 component ProductGrid(rows: Product[]): html { … }
 ```
 
-Know what that does not buy before you reach for it. **The annotation saves the
-rendering, never the fetching.** The handler computed `rows` before it called
-the component, and a cache hit does not undo the query that produced them. This
-is worth having when the markup is the expense — a long table, a rendered
-article, a tree walked into nested lists — and worth nothing when the database
-call is. A component that renders four fields into a heading gains a key
-computation and a buffer in exchange for work it never did.
+Know what that does not buy before you reach for it. **A hit skips exactly what
+the component does, and nothing above it.** The handler computed `rows` before
+it called `ProductGrid`, so the query still runs on every request and only the
+markup is replayed. Written this way the annotation is worth having when the
+markup is the expense — a long table, a rendered article, a tree walked into
+nested lists — and worth nothing when the database call is. A component that
+renders four fields into a heading gains a key computation and a buffer in
+exchange for work it never did.
+
+That boundary is a property of where the work sits, not of the annotation. Move
+the load inside the component and the same hit skips the load too, which is
+[Caching a component's own load](#caching-a-components-own-load) below.
 
 The second half of the annotation is the half that decides how safe any of this
 is, and it is on by default whether you write it or not.
@@ -86,6 +91,62 @@ What the page tells caches in front of it has not moved, though. `scope:
 "public"` here says the *entry* is shared, and the response still reports
 `private` because nothing declared otherwise — the two travel together only when
 the declaration sits on the document shell, which the next section explains.
+
+## Caching a component's own load
+
+Give the component the identifier instead of the rows, and let it load them:
+
+```html
+package handlers
+
+external LoadProduct(id: string): Product
+
+@cache(ttl: "5m", scope: "public")
+component ProductCard(id: string): html {
+{val product = LoadProduct(id)}
+<article>
+  <h2>{product.name}</h2>
+  <p>{product.description}</p>
+  <p>{product.price}</p>
+</article>
+}
+```
+
+`{val …}` names the result once; without it each of the three fields would be
+its own call. [`val`](/reference/template-syntax/#val--naming-a-value) covers
+the binding itself.
+
+The key is computed from `id`, and the stored bytes are the whole rendered
+subtree. **A hit therefore skips `LoadProduct` as well as the markup** — not
+because the annotation learned to cache data, but because the load is now part
+of what the component does, and a replayed component does nothing. Nothing else
+is configured; there is no second cache here.
+
+This is the shape worth reaching for. Caching markup alone saves an escape and
+a buffer, which is real but small; caching a subtree that loads saves the round
+trip that dominated the request. The same annotation, moved one layer, is worth
+an order of magnitude more.
+
+Two conditions decide whether a component can be written this way.
+
+**The loader must be a synchronous `external`, and a synchronous external has
+no error result.** It returns a value or it returns a zero one; it cannot tell
+the page that the lookup failed. That suits a read with a sensible empty answer
+and does not suit one whose failure the reader must see. Making it `external
+async` does not rescue it: an async call needs an `await` boundary, and a
+storing `@cache` is refused on any component that reaches one.
+
+**The load blocks the render.** An `await` boundary would have streamed a
+fallback while the work ran, and this does not — the component renders when the
+data arrives. On a miss you have traded first-paint latency for the hits that
+follow, which is the right trade for a card on a listing page and the wrong one
+for the primary content of a page nobody revisits.
+
+When either condition fails, leave the fetch in the handler and cache it there
+with [`pw.Memo`](/guides/backend/data-cache/). That store also has what this one
+does not: a stale window that keeps answering through an upstream outage, and
+explicit invalidation for a write that you know made an entry wrong. `@cache`
+has a TTL and nothing else, so an entry is wrong until it expires.
 
 ## Who the output belongs to
 

@@ -28,6 +28,10 @@ type ChainSettings struct {
 	// SecurityHeaders is installed when Enabled says so, which is the switch
 	// the configuration keeps beside the values rather than a separate one.
 	SecurityHeaders SecurityHeadersConfig
+	// CORS is answered by the frame SecurityHeaders installs rather than by one
+	// of its own, so either half being enabled is what puts that frame in the
+	// chain. They are separate settings and one position.
+	CORS CORSConfig
 	// TrustedProxies are the networks whose forwarding headers this deployment
 	// reads, as configured. They are strings rather than parsed networks
 	// because that is what the configuration carries and parsing them is the

@@ -18,11 +18,12 @@ scope:
   pattern_grammar: one shared implementation with policy:authenticated-path-protection rather than a second one that can drift
   patterns: same segment grammar and exclude precedence as policy:authenticated-path-protection
   form_insertion: system:tinybind writes the hidden field into every unsafe form itself from v0.3.3, so coverage no longer depends on an author remembering one; requirement:module-native-csrf carries what that changed
-  cache_exclusion: a component holding an unsafe form cannot be output-cached, enforced at generation, because a stored body would hand one session's token to the next visitor
+  cache_exclusion: a component holding an unsafe form cannot be output-cached, enforced at generation, because a stored body would hand one session's token to the next visitor; requirement:component-output-cache lists it beside the other refusals
   update_endpoints:
     action_response: requirement:action-response-update mutates and carries ambient credentials, so it is protected like any other unsafe request; the transport is the header, because the runtime issues the fetch
     navigation_and_redraw: requirement:navigation-delta-rendering and requirement:reloadable-component-endpoint are GETs that must stay side-effect free, so no token gates them; origin defence still applies to a credentialed read
     live: the delivery stream of api:live-delivery-protocol is a GET carrying a custom header, which a cross-origin form or link cannot set
+  cross_origin_grant: requirement:cors-middleware with allow_credentials on admits that header in preflight and permits a credentialed cross-origin read, so the live line above and every side-effect-free GET beside it hold only while the calling origin is outside the CORS allowlist; the write path stays closed because the token cookie is readable by same-origin script alone
 token:
   secret: one registered session.Private slot for every visitor signed in or not, per decision:csrf-secret-as-a-session-slot, riding a sealed cookie while the session is anonymous and moving onto the configured backend at login; minted and destroyed with the session per requirement:csrf-token-lifecycle
   request_value: a per-response value derived from the secret with a fresh pad, so a compression oracle sees different bytes every time

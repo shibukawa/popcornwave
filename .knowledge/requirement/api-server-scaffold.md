@@ -25,6 +25,11 @@ configuration:
     max_token_lifetime: a stated value, because requirement:jwt-only-api-authentication refuses to start without one
     revocation: disabled, which is a stated decision rather than an omission
     algorithms: RS256 only, because the verification key is a published JWKS entry and a symmetric algorithm would let anyone holding it mint tokens
+  cross_origin:
+    written: a commented security.cors block in the base configuration, naming enabled, allowed_origins and allowed_methods
+    inert: enabled defaults false, so an uncommented block is the only way to turn it on
+    why_this_preset: requirement:cors-middleware names this scaffold's reader as its driving case, a browser page on another origin calling this API with a bearer token, and the block is where that reader looks
+    not_the_openapi_document: the generated document answers a wildcard origin on its own, per policy:operational-endpoints, so nothing about it belongs in the block
   development_placeholders:
     fields: auth.jwt.issuer, auth.jwt.audience, and auth.jwt.allow_loopback_http
     values: a loopback issuer on a port nothing runs on, the project name as the audience, and loopback http allowed for the first of those

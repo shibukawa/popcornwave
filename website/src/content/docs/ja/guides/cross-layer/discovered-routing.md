@@ -98,18 +98,35 @@ pages/files/rest__/page.pw.html   → GET /files/{rest...}
 1つのファイルがページです。その隣に何を置くかで、リクエストと描画の間で走る Go の
 量が決まります。
 
-| ファイル | 得られるもの |
-| --- | --- |
-| `page.pw.html` | ハンドラは全部生成される。データはテンプレート自身の `external` 呼び出しが取る |
-| `+ page.go` がテンプレートの宣言した external を実装 | やはり全部生成される。ページが自分の Go を持って読み込む |
-| `+ page.go` の `func Load(w http.ResponseWriter, r *http.Request)` | 登録だけが生成される。レスポンスは自分のもの |
+| ファイル | 段 | 得られるもの |
+| --- | --- | --- |
+| `page.pw.html` | テンプレートのみ | ハンドラは全部生成される。データはテンプレート自身の `external` 呼び出しが取る |
+| `+ page.go` の `func Load(w http.ResponseWriter, r *http.Request)` | ハンドラ | 登録だけが生成される。レスポンスは自分のもの |
 
-真ん中は独立した段ではありません。ハンドラはどちらでも生成され、違うのは
-テンプレートがローダーを名指すかどうかだけです。本当の選択は最後の行 —
-**このページは自分でレスポンスを書くか**。
+段は2つで、問いは `page.go` があるかどうかだけです。ハンドラのシグネチャでない
+`Load` は生成エラーになり、いまどうなっていて何でなければならないかを名指しします。
 
-ハンドラ形でもなく不在でもない `Load` は生成エラーになり、取るべき形と、代わりに
-external をバインドせよということを名指します。
+データを取るページに専用の段は要りません。ローダを `external` として宣言し、
+[`val`](/ja/reference/template-syntax/#val--値に名前を付ける) で束縛すれば、呼び出しは
+ページ自身のソースに現れます。
+
+```html
+package id_
+
+external LoadUser(id: string): User
+
+export component Page(id: string): html {
+{val user = LoadUser(id)}
+<h1>{user.name}</h1>
+}
+```
+
+かつてはこの2つの間に3つ目の段があり、`page.go` が `func Load(id string) (User, error)`
+を宣言して生成ハンドラがそれを呼んでいました。無くなりましたが、失ったというより得た
+方が大きい。あの段の引数はロードの**結果**で、結果でキーが決まるページはキャッシュ
+できません——キーを計算するのにロードが要るからです。上のように `id` でキーが決まれば、
+ページは[`@cache`](/ja/guides/frontend/rendering-cache/#コンポーネント自身のロードをキャッシュする)
+1つで取得と描画をまとめて覆えるところまで来ます。
 
 ### 入力
 
@@ -128,38 +145,78 @@ export component Page(id: string, page: int?): html {
 }
 ```
 
-生成は先頭の引数をルートと突き合わせ、欠落・順序違い・余分があれば両方を名指して
-失敗します。リストは1つなので、食い違う相手がもういません。
-
-`{val}` は結果を名前に束縛します。これがないと言及するたびに呼び出しです。レコードの
-4フィールドを描画するコンポーネントは4回読み込むことになる。束縛はブロックの先頭で
-評価されるので、**失敗したローダーは1バイトも書かれる前にステータスを選べます** —
-streaming レンダーでも。
-
-ローダーはテンプレートの隣にある普通の Go です。
-
-```go
-func LoadUser(ctx context.Context, id string) (User, error) { ... }
-```
-
-先頭に `context.Context` を宣言すればリクエストのものが届きます。データベース
-ハンドルとサインイン済みの読者が乗っているのがそれです。
+このリストは `page.go` の有無にかかわらずコンポーネントのものです。ページの入力とは
+URL が運ぶものであって、それ以外に読む者はいません。
 
 URL はオブジェクトを運ばないので、入力はスカラーです。末尾に疑問符を付けて宣言した
-クエリパラメータはポインタにバインドされ、既定値はデコーダではなく Go に置きます。
+クエリパラメータはポインタにバインドされ、それをローダが読みます。
 
-```go
-func PageNumber(page *int) int {
-	if page == nil {
-		return 1
-	}
-	return *page
+```html
+external LoadUser(id: string, page: int?): View
+
+export component Page(id: string, page: int?): html {
+{val view = LoadUser(id, page)}
+<h1>{view.name}</h1>
+<p>page {view.page}</p>
 }
 ```
 
-省略可能な形はこのためにあります。これがないと `?page` の未指定と明示的な `?page=0`
-が同じ値になり、既定値は誰にも見えないデコーダの中に置くしかありません。あれば、
-既定値は `Load` に置けます。
+```go
+func LoadUser(id string, page *int) (View, error) {
+	number := 1
+	if page != nil {
+		number = *page
+	}
+	return View{Name: "user " + id, Page: number}, nil
+}
+```
+
+省略可能な形はこのためにあります。これがないと `?page` の未指定と明示的な `?page=0` が
+同じ値になり、既定値は誰にも見えないデコーダの中に置くしかありません。あれば、`?page` の
+既定値は探す人の目に入るローダの中に置けます。
+
+末尾の `error` が、このローダにレスポンスを決めさせます。ページ本体の最上位にある束縛は
+最初の1バイトより前に評価されるので、失敗しても残りがストリームされたままステータスを
+選べます。
+
+```go
+func LoadUser(id string, page *int) (View, error) {
+	row, ok := store.User(id)
+	if !ok {
+		return View{}, pw.NotFound("no user " + id)
+	}
+	…
+}
+```
+
+[problem コンストラクタ](/ja/guides/frontend/responses/#コンストラクタ)ならどれでも
+使えます——`pw.NotFound`、`pw.Forbidden`、`pw.BadRequest`。生成ハンドラが描画の戻り値を
+`pw.WriteProblem` に渡し、そこがエラーからステータスを読むからです。
+
+リダイレクトも同じ理由で、書くのではなく返します。
+
+```go
+if _, ok := auth.User(ctx); !ok {
+	return View{}, pw.SeeOther("/auth/login")
+}
+```
+
+名前はステータス名で、返し方は `pw.NotFound` と同じです。どちらも書くのではなく関数が
+返す値だからです。リダイレクトには軸が2本あるので4つあります。
+
+| | メソッドが GET になりうる | メソッドを保つ |
+| --- | --- | --- |
+| 一時的 | `pw.SeeOther` — 303 | `pw.TemporaryRedirect` — 307 |
+| 恒久的 | `pw.MovedPermanently` — 301 | `pw.PermanentRedirect` — 308 |
+
+ページが手を伸ばすのは `pw.SeeOther` です。元のリクエストが何であれ遷移先が GET で取られる
+ので、再読み込みが何も繰り返しません。
+
+ローダの中でメソッドの軸が効くことはあまりありません。応答している描画は GET で、そこでは
+303 と 307 を区別できないからです。同じコードに POST が届きうる場所から効き始めます。
+
+返したリダイレクトは書いたリダイレクトと同じ経路を通ります。スクリプトを走らせないと辿れ
+ない遷移先は拒否され、更新リクエストには 303 ではなく navigate 指示が返ります。
 
 ## レイアウト
 
@@ -391,7 +448,7 @@ pages = ["pages"]
 とき、勝つのは Go の規則のほうです。
 
 最初の3つは1つの条件としてまとめて読む価値があります。ページの描画もリンクによる遷移も
-JavaScript を一切必要としないので、テンプレートとローダーだけで作ったサイトは
+JavaScript を一切必要としないので、描画して自分のデータをロードするページだけで作ったサイトは
 今日そのまま動きます。`server-action` に手を伸ばした瞬間にそれが成り立たなくなります。
 属性は書かれますが、アクション用ランタイムが入るまで、それを発火させるクリックを
 横取りするのは自分の仕事です。既存の CSRF ミドルウェアをアクションのパスに対して有効にし、

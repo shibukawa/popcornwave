@@ -24,15 +24,16 @@ rungs:
     files: page.pw.html
     handler: fully generated
     data: the template's own external calls, per api:typed-external-function
-  typed:
-    files: page.pw.html and page.go with func Load(id string, page int) (User, error)
-    handler: generated; it decodes the URL, calls Load, and renders the results
-    contract: the page component's parameter list is Load's result list, checked by count, order, and type
+  retired_typed:
+    was: page.pw.html and page.go with func Load(id string, page int) (User, error), whose results became the page component's parameter list
+    removed: system:tinybind v0.5.11, and adopted here at v0.5.12 per requirement:explicit-page-loading
+    replaced_by: the template declaring its loader as an external and binding it with val, which puts the call in the page's own source and the URL inputs in its parameter list
+    diagnostic: the module refuses the old signature and names the val shape, so a project that has not migrated fails generation rather than routing differently
   handler:
     files: page.pw.html and page.go with func Load(w http.ResponseWriter, r *http.Request)
     handler: registration only; the response is the application's
     chain: a handler-rung Load cannot call an ancestor composer, so it builds the chain itself with api:render-html-chain
-  mismatch: a Load matching neither shape fails generation, naming the signature it has and the two it could have
+  mismatch: a Load that is not the handler signature fails generation, naming what it is and what it must be
 inputs:
   order: leading parameters are the dynamic segments in route order; the rest are query parameters keyed by parameter name
   read_from: the page component's parameter list without page.go, and Load's parameter list with it
