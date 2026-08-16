@@ -6,6 +6,17 @@ title: Redirect Response
 pw.Redirect sends a browser to another location, choosing between a Location response and the api:html-update-options navigate directive so an action handler stops writing that branch by hand.
 
 ```yaml
+returned_form:
+  what: SeeOther, TemporaryRedirect, MovedPermanently, and PermanentRedirect return an error carrying a location and a status
+  why: requirement:explicit-page-loading moved a page's load into its template, and a loader returns (T, error) with no writer to write to; the render hands its error to the response path unwrapped
+  recognized_by: WriteProblem on both transports, before the problem mapping, since that is the one path a render's error takes
+  delegates_to: the writing Redirect, so the navigability check and the update-request branch cover the returned form without a second implementation
+  naming: by status, like the problem constructors beside them, since both are values a function returns rather than writes; no name says Error, because the value signals an outcome rather than a failure
+  four_codes:
+    axes: permanent or not, and whether the method survives
+    one_constructor_each: so a status no browser follows cannot be spelled, and nothing has to validate one
+    which_a_page_wants: SeeOther, because the target is fetched with GET whatever the request was
+    why_the_method_axis_is_quiet_here: a loader answers a render, the render answers a GET, and 303 and 307 are indistinguishable on one
 status: implemented 2026-08-10
 as_built:
   surface: pw.Redirect and pw.RedirectSeeOther, plus pw.QueryValue and pw.FormValue for the one-value reads a handler would otherwise take from the request itself

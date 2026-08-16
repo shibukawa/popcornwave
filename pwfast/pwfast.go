@@ -1,6 +1,7 @@
 package pwfast
 
 import (
+	"errors"
 	"net/http"
 	"strconv"
 	"strings"
@@ -125,6 +126,14 @@ func OpenAPIJSON(r *fasthttp.RequestCtx) {
 // is the one registered in the shared registry — so an application registers
 // its error pages once and both builds serve them.
 func WriteProblem(r *fasthttp.RequestCtx, err error) {
+	// A redirect returned rather than written arrives here, on the same terms
+	// as on the other transport: the one path a render's error takes is this
+	// one, and Redirect applies the safety check and the update branch.
+	var redirect pwruntime.RedirectError
+	if errors.As(err, &redirect) {
+		Redirect(r, redirect.Location, redirect.Status)
+		return
+	}
 	// Every error becomes a problem, through the shared mapping, so a failure
 	// this package cannot classify still reaches the negotiation below rather
 	// than falling out of it into the binding layer's own writer — which is

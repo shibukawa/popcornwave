@@ -470,6 +470,7 @@
 {"category": "objective", "id": "requirement:editor-tasks", "path": ".knowledge/requirement/editor-tasks.md", "role": "primary", "title": "Editor Commands and Tasks", "type": "requirement"}
 {"category": "objective", "id": "requirement:engine-parameterized-docs", "path": ".knowledge/requirement/engine-parameterized-docs.md", "role": "primary", "title": "Engine-Parameterized Documentation", "type": "requirement"}
 {"category": "objective", "id": "requirement:environment-switching", "path": ".knowledge/requirement/environment-switching.md", "role": "primary", "title": "Environment Switching", "type": "requirement"}
+{"category": "objective", "id": "requirement:explicit-page-loading", "path": ".knowledge/requirement/explicit-page-loading.md", "role": "primary", "title": "Explicit Page Loading", "type": "requirement"}
 {"category": "objective", "id": "requirement:extension-distribution", "path": ".knowledge/requirement/extension-distribution.md", "role": "primary", "title": "Extension Distribution", "type": "requirement"}
 {"category": "objective", "id": "requirement:external-boundary-runtime", "path": ".knowledge/requirement/external-boundary-runtime.md", "role": "primary", "title": "External Boundary Runtime Script", "type": "requirement"}
 {"category": "objective", "id": "requirement:external-public-assets", "path": ".knowledge/requirement/external-public-assets.md", "role": "primary", "title": "External Public Assets", "type": "requirement"}
