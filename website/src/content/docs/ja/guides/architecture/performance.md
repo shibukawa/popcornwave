@@ -58,7 +58,7 @@ TinyGo のリンカはもっと多く残します。
 `-scheduler=threads` が必要です。また tinygodriver は v1.2.4 より前だと fasthttp を
 そもそもリンクできませんでした。zstd のデコーダが arm64 のアセンブリを呼んでいて、
 TinyGo のリンカが解決できなかったためです。どちらも
-[ビルドタグ](/ja/reference/build-tags/)の話で、このページで決めることではありません。
+[ビルドタグ一覧](/ja/reference/build-tags/)の話で、このページで決めることではありません。
 
 ### WASI では `-no-debug` がすべて
 

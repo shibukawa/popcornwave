@@ -1,8 +1,8 @@
 ---
-title: DynamoDB Templates
+title: DynamoDB Query Format
 description: The dynamo struct tag, the .pw.dynamo declaration grammar, and every check generation runs against them.
 sidebar:
-  order: 5
+  order: 4
 ---
 
 DynamoDB access has two declarations, and both are checked against each other.

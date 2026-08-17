@@ -2,7 +2,7 @@
 title: Request Binding
 description: Every struct tag pw.Parse reads, the field types it can fill, and the rules that decide which part of a request each field comes from.
 sidebar:
-  order: 2
+  order: 1
 ---
 
 `pw.Parse[T](r)` fills one struct from one request. Nothing about that is
@@ -115,7 +115,7 @@ httpbind.SetMaxMultipartBodyBytes(8 << 20) // 8 MiB
 
 Raising the multipart limit past `server.max_request_body` does nothing until
 that key moves too. See
-[Configuration Keys](/reference/configuration/#server).
+[Application Configuration Keys](/reference/configuration/#server).
 
 ### The rest map
 

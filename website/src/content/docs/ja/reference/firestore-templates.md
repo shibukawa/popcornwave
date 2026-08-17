@@ -1,8 +1,8 @@
 ---
-title: Firestore 宣言
+title: Firestore クエリフォーマット
 description: 型付き Go 操作へ生成される firestore 構造体タグと .pw.firestore クエリの全仕様。
 sidebar:
-  order: 6
+  order: 5
 ---
 
 Firestore の宣言元は 2 つです。`firestore` タグを付けた Go 構造体がエンティティ、キー、

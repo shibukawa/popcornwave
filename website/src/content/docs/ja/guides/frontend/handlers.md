@@ -278,4 +278,4 @@ func main() {
 
 上に挙げたタグには、よくある使い方より先がまだあります。各ルールがどのフィールド種別を
 受け付けるか、`input` が種別ごとにどう解決するか、rest マップが何を除外するか、何が
-OpenAPI に載るか——それは[リクエストバインディング](/ja/reference/request-binding/)です。
+OpenAPI に載るか——それは[リクエストバインディング定義](/ja/reference/request-binding/)です。

@@ -1,8 +1,8 @@
 ---
-title: リクエストバインディング
+title: リクエストバインディング定義
 description: pw.Parse が読む構造体タグ、埋められるフィールド型、そして各フィールドがリクエストのどこから来るかを決める規則の全一覧。
 sidebar:
-  order: 2
+  order: 1
 ---
 
 `pw.Parse[T](r)` は1つのリクエストから1つの構造体を埋めます。そのどこにも実行時の
@@ -108,7 +108,7 @@ httpbind.SetMaxMultipartBodyBytes(8 << 20) // 8 MiB
 ```
 
 マルチパートの上限を `server.max_request_body` より上げても、そちらが動くまで何も変わり
-ません。[設定キー](/ja/reference/configuration/)を参照してください。
+ません。[アプリケーション設定一覧](/ja/reference/configuration/)を参照してください。
 
 ### rest マップ
 

@@ -479,4 +479,4 @@ profile.pw.html:12:8: html:url requires url, got string
 裸の要素セレクタがあります。
 
 宣言、演算子、スロットの規則、空白の規則、そして生成が拒むものの全一覧——言語の全体は
-[テンプレート構文](/ja/reference/template-syntax/)にあります。
+[HTML テンプレートフォーマット](/ja/reference/template-syntax/)にあります。

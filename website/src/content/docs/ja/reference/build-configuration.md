@@ -1,8 +1,8 @@
 ---
-title: ビルドツール設定
+title: ビルドツール設定一覧
 description: popcornwave.toml の全キー。pw が何を生成し、pw dev が何を並走させ、マイグレーションとスタイルシートがどこにあるか。
 sidebar:
-  order: 8
+  order: 2
 ---
 
 `popcornwave.toml` はプロジェクトルートに置かれ、`pw` コマンドのものです。書いてあるのは
@@ -11,7 +11,7 @@ sidebar:
 
 ランタイムの設定は一切ありません。ポート、コネクションプール、クッキー、ログレベルは
 `config.{APP_ENV}.toml` にあり、
-[設定キー](/ja/reference/configuration/)に一覧があります。この分離は
+[アプリケーション設定一覧](/ja/reference/configuration/)に一覧があります。この分離は
 慣習ではなく強制です。ここに `server` や `session` テーブルを書けばエラーですし、
 データベースの接続文字列も同様です。2 つのファイルは、別のプログラムが別のタイミングで
 読みます。
@@ -80,11 +80,11 @@ firestore = []
 書かれます。
 
 `dynamo` がテンプレート言語ではなく Go の型宣言を読むので、`queries` の一部ではなく独立した
-purpose になっています。[DynamoDB テンプレート](/ja/reference/dynamo-templates/)を参照して
+purpose になっています。[DynamoDB クエリフォーマット](/ja/reference/dynamo-templates/)を参照して
 ください。
 
 `firestore` も同じ理由で独立しており、`dynamo` とは別の purpose です。どちらか一方だけでも、
-両方でも使えます。[Firestore 宣言](/ja/reference/firestore-templates/)を参照してください。
+両方でも使えます。[Firestore クエリフォーマット](/ja/reference/firestore-templates/)を参照してください。
 
 エントリ自体の規則は次のとおりです。
 

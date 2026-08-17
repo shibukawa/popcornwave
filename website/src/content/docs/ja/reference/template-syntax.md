@@ -1,8 +1,8 @@
 ---
-title: テンプレート構文
+title: HTML テンプレートフォーマット
 description: .pw.html 言語の全体。宣言、型、式、制御構造、スロット、head への寄与、await 境界、そしてテンプレートが拒否される規則。
 sidebar:
-  order: 3
+  order: 2
 ---
 
 `.pw.html` は `pw generate` が Go にコンパイルする型付きテンプレート言語です。値の型と
@@ -37,7 +37,7 @@ export component Card(user: User): html { … }
 生成が読むのは `popcornwave.toml` の `generate.templates` と `generate.pages` が挙げる
 ディレクトリだけで、子パッケージへは降りていきません。どのディレクトリにも属さない
 `.pw.html` は黙って飛ばされるのではなく報告されます。
-[ビルドツール設定](/ja/reference/build-configuration/)を参照してください。
+[ビルドツール設定一覧](/ja/reference/build-configuration/)を参照してください。
 
 | 宣言 | 導入するもの |
 | --- | --- |
@@ -709,7 +709,7 @@ public なコンポーネントはパラメータだけでキーを作ります�
   次に尋ねた者へ渡すことになります。
 
 裏側のストアはプロセス内にあり、既定でオンです。`html.cache.enabled` で切り、
-`html.cache.max_entries` で上限を決めます。どちらも[設定キー](/ja/reference/configuration/#html)
+`html.cache.max_entries` で上限を決めます。どちらも[アプリケーション設定一覧](/ja/reference/configuration/#html)
 にあります。private なキーは1プロセスが持つエントリ数を読み手の数だけ倍にするので、public な
 キーを前提に決めた上限は、何かをスコープした時点で見直す価値があります。再描画はページ自身の
 オプションで描画して同じストアに届くので、ページ上でキャッシュされたコンポーネントは、それを

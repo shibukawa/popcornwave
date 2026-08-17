@@ -492,4 +492,4 @@ context, incompatible slot markers, or a bare element selector in scoped CSS.
 
 The complete language — every declaration, operator, slot rule, whitespace rule,
 and the full list of what generation rejects — is
-[Template Syntax](/reference/template-syntax/).
+[HTML Template Format](/reference/template-syntax/).

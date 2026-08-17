@@ -3,7 +3,13 @@ export default {
   sidebar: [
     { label: 'Tutorial', items: [{ autogenerate: { directory: 'tutorial' } }] },
     { label: 'Guides', items: [{ autogenerate: { directory: 'guides/frontend' } }] },
-    { label: 'Reference', items: ['reference/missing-page'] },
+    // Two slugs, so the parser has to read past the first: templates exists and
+    // must stay quiet, missing-page does not and must be reported.
+    {
+      label: 'Reference',
+      translations: { ja: 'リファレンス' },
+      items: ['guides/frontend/templates', 'reference/missing-page'],
+    },
     { label: 'Gone', items: [{ autogenerate: { directory: 'guides/vanished' } }] },
   ],
 };

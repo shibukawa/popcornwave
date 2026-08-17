@@ -1,8 +1,8 @@
 ---
-title: SQL テンプレート
+title: SQL クエリフォーマット
 description: .pw.sql 言語の全体。ステートメントの種類、パラメータの型、条件付き SQL、predicate と relation、そしてステートメントが拒否される検査。
 sidebar:
-  order: 4
+  order: 3
 ---
 
 `.pw.sql` は `pw generate` が Go にコンパイルする型付きクエリ言語です。中に書いた SQL は

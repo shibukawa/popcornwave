@@ -163,7 +163,7 @@ filter、projection、condition、update の各式は宣言できません。セ
 検査のない文字列のキー条件が引き続き使えます。
 
 タグのオプション、属性の型、キー述語、生成時の検査はすべて
-[DynamoDB テンプレート](/ja/reference/dynamo-templates/)にあります。
+[DynamoDB クエリフォーマット](/ja/reference/dynamo-templates/)にあります。
 
 ## 宣言上の名前と、実際の名前
 

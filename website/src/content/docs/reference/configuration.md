@@ -1,8 +1,8 @@
 ---
-title: Configuration Keys
+title: Application Configuration Keys
 description: Every runtime configuration key of a running application, its default, and the TOML, environment, and command-line names it answers to.
 sidebar:
-  order: 7
+  order: 1
 ---
 
 These are the keys a *running application* reads: ports, pools, cookies,

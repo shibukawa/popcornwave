@@ -28,7 +28,7 @@ enabled = true
 | `redis.key_prefix` | `"pw:ratelimit:"` | このリミッターが占めるキー空間 |
 | `redis.connect_timeout` | `"5s"` | 起動時の ping と、コマンドごとの期限 |
 
-環境変数とコマンドラインでの名前は規則で導かれるもので、[設定キー](/ja/reference/configuration/#ratelimit)に一覧があります。このページの残りは、これらの数字が何を意味し、どう決めるかです。
+環境変数とコマンドラインでの名前は規則で導かれるもので、[アプリケーション設定一覧](/ja/reference/configuration/#ratelimit)に一覧があります。このページの残りは、これらの数字が何を意味し、どう決めるかです。
 
 ## バケットは 2 つ、ルールエンジンではない
 

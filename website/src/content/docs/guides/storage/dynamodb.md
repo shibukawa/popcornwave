@@ -179,7 +179,7 @@ keys. The unchecked string key-condition form stays available for what the
 declaration cannot express.
 
 Every tag option, attribute type, key predicate, and generation check is in
-[DynamoDB Templates](/reference/dynamo-templates/).
+[DynamoDB Query Format](/reference/dynamo-templates/).
 
 ## Declared names and deployed names
 

@@ -14,10 +14,10 @@ sidebar:
 であり、以下の規則がリフレクション方式より少し厳しいのも同じ理由です。
 
 扱うのは、動いているアプリケーションが読む設定です。`pw` 自身が読む `popcornwave.toml`
-はここには出てきません。そちらは[ビルドツール設定](/ja/reference/build-configuration/)です。
+はここには出てきません。そちらは[ビルドツール設定一覧](/ja/reference/build-configuration/)です。
 
 フレームワーク自身のキーと既定値は
-[設定キー](/ja/reference/configuration/)にあります。このページが扱うのは、
+[アプリケーション設定一覧](/ja/reference/configuration/)にあります。このページが扱うのは、
 その下で動いている仕組みのほうです。
 
 ## 実行環境
@@ -120,7 +120,7 @@ float、map、ポインタ、それ以外の要素型のスライスは**バイ�
 :::
 
 タグの全一覧、duration の記法、テーブル配列の規則、ローダーが読む TOML のサブセット——
-宣言の全面は[設定の書き方](/ja/reference/configuration-declaration/)にあります。
+宣言の全面は[アプリケーション設定定義](/ja/reference/configuration-declaration/)にあります。
 
 ## 独自の設定を追加する
 

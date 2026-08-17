@@ -266,4 +266,4 @@ max_entries = 1024
 コンポーネントは、それを置き換えるレスポンスでもキャッシュされたままです。
 
 アノテーションの完全な仕様は [`@cache`](/ja/reference/template-syntax/#cache)、上の設定鍵と
-既定値は[設定キー](/ja/reference/configuration/#html)にあります。
+既定値は[アプリケーション設定一覧](/ja/reference/configuration/#html)にあります。

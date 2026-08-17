@@ -77,7 +77,7 @@ pw migrate down
 `pw` は設定の優先順位を再実装せず、アプリケーション自身に解決済みの DSN を尋ねます。
 つまりマイグレーションは `APP_ENV` の選択に従います。開発用でないデータベースへ
 向けるときは、環境を確認してください。接続グループは[リレーショナルデータベース](/ja/guides/storage/rdb/)、
-キーそのものは[設定キー](/ja/reference/configuration/)にあります。
+キーそのものは[アプリケーション設定一覧](/ja/reference/configuration/)にあります。
 
 ## テストでの扱い
 

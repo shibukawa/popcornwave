@@ -1,8 +1,8 @@
 ---
-title: SQL Templates
+title: SQL Query Format
 description: The complete .pw.sql language — statement kinds, parameter types, conditional SQL, predicates and relations, and the checks that reject a statement.
 sidebar:
-  order: 4
+  order: 3
 ---
 
 A `.pw.sql` file is a typed query language compiled to Go by `pw generate`. The

@@ -1,14 +1,14 @@
 ---
-title: 設定キー
+title: アプリケーション設定一覧
 description: 動作中のアプリケーションが読むランタイム設定キーの全一覧と既定値、そして TOML・環境変数・コマンドラインでの名前。
 sidebar:
-  order: 7
+  order: 1
 ---
 
 ここに並ぶのは*動作中のアプリケーション*が読むキーです。ポート、コネクションプール、
 クッキー、ログレベル。そのアプリケーションをビルドするために `pw` 自身が読むファイルは
 別物で、スキーマも別です。そちらは
-[ビルドツール設定](/ja/reference/build-configuration/)を参照してください。
+[ビルドツール設定一覧](/ja/reference/build-configuration/)を参照してください。
 
 構造体のフィールド1つが、3つの入力になります。`ServerConfig.ReadHeaderTimeout` は
 TOML では `server.read_header_timeout`、環境変数では `SERVER_READ_HEADER_TIMEOUT`、

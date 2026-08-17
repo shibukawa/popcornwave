@@ -106,7 +106,7 @@ for note, err := range entities.NotesByAuthor(r.Context(), accountID) {
 受け取り、`firestorebind.StoreOn`、`InsertOn`、`LoadOn`、`UpdateOn`、`RemoveOn` に
 渡します。クライアントはリクエストの context の値ではなくプロセス状態なので、呼び出し
 ごとに context を探索するコストはありません。タグ、クエリの戻り値、生成されるシグネチャは
-[Firestore 宣言リファレンス](/ja/reference/firestore-templates/)にまとめています。
+[Firestore クエリフォーマット](/ja/reference/firestore-templates/)にまとめています。
 
 ## サービス側のポリシーをデプロイする
 

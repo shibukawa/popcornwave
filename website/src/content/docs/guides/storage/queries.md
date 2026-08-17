@@ -345,7 +345,7 @@ See [Slow Query Diagnostics](/productivity/query-diagnostics/).
 
 The complete language — every statement kind, the generated signatures, the
 `export` casing rule, and `ScanRows` for grouping JOIN rows — is
-[SQL Templates](/reference/sql-templates/).
+[SQL Query Format](/reference/sql-templates/).
 
 Schema and starting rows are a separate concern from the statements above, and
 they live with the rest of the development tooling: [Database

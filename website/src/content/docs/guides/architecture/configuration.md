@@ -20,7 +20,7 @@ What this covers is the configuration a running application reads.
 [Build Tool Configuration](/reference/build-configuration/).
 
 For the framework's own keys and their defaults, see
-[Configuration Keys](/reference/configuration/). This page is the machinery
+[Application Configuration Keys](/reference/configuration/). This page is the machinery
 underneath them.
 
 ## Environments
@@ -127,7 +127,7 @@ bindable — declare them as `string` or `int` and convert after parsing.
 
 The full declaration surface — every tag, the duration syntax, the array-of-tables
 rules, and the TOML subset the loader reads — is
-[Configuration Declaration](/reference/configuration-declaration/).
+[Application Configuration Declaration](/reference/configuration-declaration/).
 
 ## Adding your own settings
 

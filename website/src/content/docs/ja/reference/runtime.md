@@ -1,5 +1,5 @@
 ---
-title: ランタイム API
+title: ランタイム API 一覧
 description: pw パッケージがランタイムに公開しているものを役割ごとにまとめ、型ごとにそれを取り出す呼び出しとメソッドを並べた一覧。
 sidebar:
   order: 1
@@ -86,7 +86,7 @@ sidebar:
 フレームワークの設定構造体もすべて公開されています。`ServerConfig`、
 `MiddlewareConfig`、`SecurityConfig`、`SessionConfig`、`ObservabilityConfig`、
 `HTMLConfig`、`RDBConfig` と、その下にネストする型です。フィールドと既定値は
-[設定キー](/ja/reference/configuration/)に、解説は
+[アプリケーション設定一覧](/ja/reference/configuration/)に、解説は
 [アプリケーション設定](/ja/guides/architecture/configuration/)にあります。
 
 ## リクエストを読む

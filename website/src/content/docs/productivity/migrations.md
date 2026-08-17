@@ -80,7 +80,7 @@ rather than at the first `ALTER TABLE`.
 configuration precedence — which means migrations follow whatever `APP_ENV`
 selects. Confirm the environment before pointing the command at anything that is
 not a development database. See [Relational databases](/guides/storage/rdb/) for
-connection groups, and [Configuration Keys](/reference/configuration/) for the
+connection groups, and [Application Configuration Keys](/reference/configuration/) for the
 keys themselves.
 
 ## In tests

@@ -471,7 +471,15 @@ if (wants('tutorial')) {
 if (wants('sidebar')) {
   const config = existsSync(ASTRO_CONFIG) ? readFileSync(ASTRO_CONFIG, 'utf8') : '';
   const autoDirs = [...config.matchAll(/autogenerate:\s*{\s*directory:\s*['"]([^'"]+)['"]/g)].map((m) => m[1]);
-  const explicit = [...config.matchAll(/items:\s*\[\s*'([^']+)'/g)].map((m) => m[1]);
+  // Every bare string in an array position, which is what an explicit sidebar
+  // entry looks like. The lookbehind is what separates a slug from a value with
+  // a key in front of it — `label:`, `directory:`, `translations:` — and the
+  // leading-slash filter drops the redirect map's keys, which sit in an object
+  // and are also preceded by a comma. Matching only the first string of each
+  // array would report every later page of a hand-listed group as unreachable.
+  const explicit = [...config.matchAll(/(?<=[[,]\s*)'([^']+)'/g)]
+    .map((m) => m[1])
+    .filter((s) => !s.startsWith('/'));
   const anchor = pages[0] ?? { rel: 'website/astro.config.mjs' };
   const cfgPage = { rel: relative(ROOT, ASTRO_CONFIG).replace(/\\/g, '/') };
 

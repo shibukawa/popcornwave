@@ -72,6 +72,10 @@ const MUST_STAY_QUIET = [
   ['guides/frontend/prose.md', 'links'],
   ['guides/frontend/templates.md', 'links'],
   ['guides/frontend/templates.md', 'terms'],
+  // It is the first of two explicit sidebar slugs. A parser that stopped at the
+  // first entry would still pass; one that stopped at the second would report
+  // this page as belonging to no group.
+  ['guides/frontend/templates.md', 'sidebar'],
 ];
 
 let failed = 0;

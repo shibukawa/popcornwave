@@ -2,7 +2,7 @@
 title: Build Tool Configuration
 description: Every key of popcornwave.toml — what pw generates, what pw dev runs beside your application, and where the migrations and stylesheet live.
 sidebar:
-  order: 8
+  order: 2
 ---
 
 `popcornwave.toml` sits at the project root and belongs to the `pw` command. It
@@ -11,7 +11,7 @@ sources were written for, what runs beside the application during development.
 
 It holds no runtime setting at all. Ports, pools, cookies, and log levels live
 in `config.{APP_ENV}.toml` and are listed in
-[Configuration Keys](/reference/configuration/). The split is enforced
+[Application Configuration Keys](/reference/configuration/). The split is enforced
 rather than conventional — a `server` or `session` table here is an error, and
 so is a database connection string. The two files are read by two different
 programs at two different times.
@@ -84,11 +84,11 @@ neither the key nor a tree. Store-specific keys appear when `pw add dynamo` or
 
 `dynamo` reads Go type declarations rather than a template language, which is
 why it is a purpose of its own instead of part of `queries`. See
-[DynamoDB Templates](/reference/dynamo-templates/).
+[DynamoDB Query Format](/reference/dynamo-templates/).
 
 `firestore` follows the same separation and is independent of `dynamo`; a
 project may use either or both. See
-[Firestore Declarations](/reference/firestore-templates/).
+[Firestore Query Format](/reference/firestore-templates/).
 
 The rules on the entries themselves:
 

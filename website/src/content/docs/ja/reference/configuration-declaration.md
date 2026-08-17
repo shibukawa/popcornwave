@@ -1,5 +1,5 @@
 ---
-title: 設定の書き方
+title: アプリケーション設定定義
 description: 設定構造体をどう書くか。タグの全一覧、バインドできるフィールド型、1つのフィールドが答える3つの名前、そしてソースの解決順。
 sidebar:
   order: 6
@@ -11,7 +11,7 @@ sidebar:
 理由で、以下の規則のいくつかがリフレクション方式のバインダより厳しいのも同じ理由です。
 
 このページは宣言の面です。フレームワーク自身のキーと既定値は
-[設定キー](/ja/reference/configuration/)に、例を追った説明は
+[アプリケーション設定一覧](/ja/reference/configuration/)に、例を追った説明は
 [アプリケーション設定](/ja/guides/architecture/configuration/)にあります。
 
 ## 構造体を登録する

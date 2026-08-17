@@ -1,8 +1,8 @@
 ---
-title: DynamoDB テンプレート
+title: DynamoDB クエリフォーマット
 description: dynamo 構造体タグ、.pw.dynamo の宣言文法、そして生成がその両方に対して走らせる検査の全一覧。
 sidebar:
-  order: 5
+  order: 4
 ---
 
 DynamoDB のアクセスには宣言が2つあり、互いに突き合わされます。`dynamo` タグを持つ Go の
