@@ -78,7 +78,7 @@ as_built:
   encoders: pinned by the api:cli-add images capability, which writes the devbox packages and the switch together; a machine with none declines and reports rather than failing
   head_contribution: a css companion of a typescript build declares its own link, through the upstream field v0.3.5 added
   read_set_is_inputs_only: the build tool reports its outputs beside its inputs, and recording an output as a dependency makes it unverifiable, which regenerates every run while appearing to cache
-  module_tag_check: the script build emits a module and generation refuses a built entry under a classic tag, naming the template file and line; it runs in api:cli-generate rather than in the asset build, so a generate on its own reports it and a --check run sees it, and it is the one place that does
+  module_tag_check: the script build emits a module and generation refuses a built entry under a classic tag, naming the template file and line; it runs in concept:code-generation rather than in the asset build, so api:cli-generate --code-only reports it and api:cli-check sees it, and it is the one place that does
   variant_cache: a media variant is produced by the tree walk, which the upstream conversion cache never sees, so it has one of its own under the same directory, keyed by the source digest with the format, the axis, the quality, and the tool identity
   staging_is_cleared: generation clears the staging directory before writing, because everything found there reaches the served tree and a file produced for a deleted source would otherwise ship forever
   retention: a converted source is dropped only when the literal-occurrence scan finds no reference the build could not rewrite, and a retention is reported
@@ -135,7 +135,7 @@ caching:
   immutable_options:
     hashed_name:
       form: the digest enters the file name, so the URL is genuinely immutable
-      cost: the rewritten reference is compiled into generated Go, so any byte difference between a development and a production encode changes generated output and policy:generated-artifacts --check compares against one profile only
+      cost: the rewritten reference is compiled into generated Go, so any byte difference between a development and a production encode changes generated output and api:cli-check compares against one profile only
     runtime_resolution:
       form: the template names a logical URL and the render reads the manifest, as requirement:framework-script-assets already does for its own script
       cost: a lookup per reference at render time and a manifest the runtime must hold, against a URL that no longer depends on when it was built

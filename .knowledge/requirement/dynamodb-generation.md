@@ -24,7 +24,7 @@ generated_per_type:
   - the compile-time assertions that make a stale generated file a build failure
 usage_direction:
   owner: system:tinybind
-  consequence: adding the first dynamobind read call to an existing project changes generated output, and api:cli-generate --check reports it
+  consequence: adding the first dynamobind read call to an existing project changes generated output, and api:cli-check reports it
   first_run: a clean checkout finds every call, because the argument type resolves before the codec exists
 validation_surfaced_by_pw:
   - an unknown dynamo tag option is a generation error naming the field and the option

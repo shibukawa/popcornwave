@@ -53,8 +53,8 @@ acceptance:
   - no file is written into the project tree by the install
   - the same application builds with go build alone after api:cli-generate has run for its own sources, and the dependency is not regenerated
   - a package published with a stale generated artifact fails to compile in the consumer, naming the package
-  - api:cli-generate --check in the consumer passes without reading any dependency
-  - a package's own CI runs api:cli-generate --check over the package and fails on a stale commit
+  - api:cli-check in the consumer passes without reading any dependency
+  - a package's own CI runs api:cli-check over the package and fails on a stale commit
   - two packages contributing an asset with identical bytes serve one URL
   - a TinyGo application links a package and stays inside rule:tinygo-runtime-compatibility
   - a package the application imports but does not enable adds no route, no configuration key, and no table

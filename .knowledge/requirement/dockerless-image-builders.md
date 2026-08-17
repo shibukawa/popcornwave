@@ -3,7 +3,7 @@ id: requirement:dockerless-image-builders
 type: requirement
 title: Dockerless Image Builders
 ---
-ko and Cloud Native Buildpacks get one note on the container images page rather than a page of their own, because everything a Popcorn Wave project needs to know about them is that they own the compile step and therefore run after api:cli-prepare.
+ko and Cloud Native Buildpacks get one note on the container images page rather than a page of their own, because everything a Popcorn Wave project needs to know about them is that they own the compile step and therefore run after api:cli-generate.
 
 ```yaml
 support_tier:
@@ -13,7 +13,7 @@ support_tier:
   why_it_stays_small: the interesting content would be each builder's own configuration surface, which is that builder's documentation and goes stale here
 the_note:
   says:
-    - both builders replace the Dockerfile, not the rule:container-build-inputs host phase, so pw prepare runs first in the working tree and the builder is invoked over what it left behind
+    - both builders replace the Dockerfile, not the rule:container-build-inputs host phase, so api:cli-generate runs first in the working tree and the builder is invoked over what it left behind
     - it works because both read the working directory rather than the git index, so the generated Go and dist/public that .gitignore excludes are present and are used
     - a CI job that checks out and invokes the builder directly gets the rule:container-build-inputs failure, reported as missing symbols rather than as a missing step
     - neither invokes any compiler but go, so rule:tinygo-container-operations has no dockerless path

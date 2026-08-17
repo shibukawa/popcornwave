@@ -154,7 +154,7 @@ So a package repository carries no `**/*_pw_gen.go` ignore rule, and its release
 gate is:
 
 ```sh
-pw generate --check
+pw check
 ```
 
 A tag that ships a stale artifact fails to compile in every project that

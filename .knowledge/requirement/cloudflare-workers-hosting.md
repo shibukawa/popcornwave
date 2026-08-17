@@ -30,7 +30,7 @@ unblock_probe:
 delivery_after_unblock:
   - a generated Cloudflare entry point that application code does not edit
   - pinned and diagnosed compiler, adapter, wasm_exec, and Wrangler versions
-  - pw prepare before the Wasm compile, per rule:container-build-inputs
+  - api:cli-generate before the Wasm compile, per rule:container-build-inputs
   - wrangler configuration and JavaScript loader generated as deployment artifacts
   - a local conformance test before any remote deploy action
   - documentation for unsupported filesystem, socket, database, streaming, and instance-lifetime behavior

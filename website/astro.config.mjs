@@ -23,6 +23,11 @@ export default defineConfig({
     '/ja/guides/cross-layer/tracing': `${base}/ja/guides/architecture/telemetry/#リクエストトレースを読む`,
     '/guides/backend/token-revocation': `${base}/guides/backend/authentication/#revoking-a-bearer-token`,
     '/ja/guides/backend/token-revocation': `${base}/ja/guides/backend/authentication/#bearer-トークンを失効させる`,
+    // pw prepare was renamed to pw generate, which now names the command that
+    // leaves a compilable tree; the narrower generation it displaced is the
+    // --code-only flag on the same page.
+    '/pw/project/prepare': `${base}/pw/project/generate/`,
+    '/ja/pw/project/prepare': `${base}/ja/pw/project/generate/`,
   },
   markdown: {
     // Lets content link with plain `/guides/testing/` instead of repeating `base`.

@@ -41,9 +41,10 @@ edits_to_existing_pages:
   package:
     change: sidebar order 2 becomes 3, since the one new page sits between it and Health and Readiness
   pw_build:
-    change: the cross-compiling section names api:cli-prepare instead of api:cli-generate, which never produced a compilable tree, and links to the container images page
+    change: the cross-compiling section names the command that leaves a compilable tree rather than the narrower generation that never did, and links to the container images page
+    now: both are api:cli-generate, per requirement:cli-generate-check-rename, so the section names one command and the distinction it used to draw is gone
   pw_overview:
-    change: api:cli-prepare added to the project command table
+    change: the command that stops before the compiler was added to the project command table, and is api:cli-generate
 localization: an English page and its Japanese counterpart for every page above, per the parity rule the documentation site already enforces
 acceptance:
   - a reader who has never seen a Popcorn Wave project can say why COPY . . and go build fails, after the first section

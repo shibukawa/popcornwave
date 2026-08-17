@@ -7,40 +7,71 @@ import (
 	"testing"
 )
 
-// pw prepare exists so a build the framework does not drive can still get the
+// pw generate exists so a build the framework does not drive can still get the
 // tree a compiler needs. That only holds if it is reachable: the dispatcher and
 // the help table are the two places a command is registered, and a command
-// missing from the second is one nobody discovers.
-func TestPrepareIsRegisteredInTheCommandList(t *testing.T) {
-	var found bool
-	for _, command := range commandSummaries {
-		if command.name == "prepare" {
-			found = true
-			if command.summary == "" {
-				t.Fatal("prepare has no summary line")
-			}
-		}
-	}
-	if !found {
-		t.Fatal("prepare is missing from commandSummaries, so pw help omits it")
-	}
-
+// missing from the second is one nobody discovers. pw check is the same command
+// pair's other half and was invisible for exactly that reason, as a flag.
+func TestGenerateAndCheckAreRegisteredInTheCommandList(t *testing.T) {
 	var usage bytes.Buffer
 	printUsage(&usage)
-	if !strings.Contains(usage.String(), "prepare") {
-		t.Fatal("pw help does not name prepare")
+	for _, name := range []string{"generate", "check"} {
+		var found bool
+		for _, command := range commandSummaries {
+			if command.name == name {
+				found = true
+				if command.summary == "" {
+					t.Fatalf("%s has no summary line", name)
+				}
+			}
+		}
+		if !found {
+			t.Fatalf("%s is missing from commandSummaries, so pw help omits it", name)
+		}
+		if !strings.Contains(usage.String(), name) {
+			t.Fatalf("pw help does not name %s", name)
+		}
+
+		var out, errOut bytes.Buffer
+		if status := Main([]string{name, "--nonsense"}, &out, &errOut); status == 0 {
+			t.Fatalf("the dispatcher did not reach %s: a bad argument exited 0", name)
+		}
+	}
+}
+
+// The two retired names are gone with no trace, which is the point of removing
+// them rather than aliasing them: nothing in the dispatch, the flag parsing, or
+// the help text remembers a command that no longer exists. They fail the way
+// any name the CLI never had fails.
+func TestTheRetiredNamesAreGone(t *testing.T) {
+	var usage bytes.Buffer
+	printUsage(&usage)
+	if strings.Contains(usage.String(), "prepare") {
+		t.Error("pw help still names prepare")
+	}
+	// pw fmt keeps its own --check, so the help text still contains the word.
+	// What must be gone is generate's, and the usage line is where a reader
+	// would find it offered.
+	if strings.Contains(generateUsage, "--check") {
+		t.Errorf("pw generate still offers --check: %s", generateUsage)
 	}
 
 	var out, errOut bytes.Buffer
-	if status := Main([]string{"prepare", "--nonsense"}, &out, &errOut); status == 0 {
-		t.Fatal("the dispatcher did not reach prepare: a bad argument exited 0")
+	if status := Main([]string{"prepare"}, &out, &errOut); status == 0 {
+		t.Fatal("pw prepare still runs")
+	}
+	if got := errOut.String(); !strings.Contains(got, "unknown command") {
+		t.Errorf("pw prepare did not fail as an unknown command: %q", got)
+	}
+	if _, err := buildFlags("generate", []string{"--check"}); err == nil {
+		t.Error("pw generate still accepts --check")
 	}
 }
 
 // --backend selects the HTTP implementation for both commands. --target is a
 // deployment destination and therefore belongs to build alone.
 func TestBuildFlagsSeparateBackendAndTarget(t *testing.T) {
-	for _, command := range []string{"build", "prepare"} {
+	for _, command := range []string{"build", "generate"} {
 		options, err := buildFlags(command, nil)
 		if err != nil || options.debug || options.backend != "nethttp" || options.target != "" {
 			t.Errorf("%s with no argument: %+v, err = %v", command, options, err)
@@ -80,11 +111,32 @@ func TestBuildFlagsSeparateBackendAndTarget(t *testing.T) {
 			t.Errorf("build target %s: %+v, err = %v", target, options, err)
 		}
 	}
-	if _, err := buildFlags("prepare", []string{"--target=lambda"}); err == nil {
-		t.Error("prepare accepted a deployment target")
+	if _, err := buildFlags("generate", []string{"--target=lambda"}); err == nil {
+		t.Error("generate accepted a deployment target")
 	}
 	if _, err := buildFlags("build", []string{"--target=fasthttp"}); err == nil {
 		t.Error("fasthttp is still accepted as a target")
+	}
+}
+
+// --code-only is the narrow generation the old pw generate performed, and it is
+// generate's alone: a build needs every input, and a flag that quietly removed
+// one would leave the compiler to report the absence as an embed error.
+func TestCodeOnlyBelongsToGenerate(t *testing.T) {
+	options, err := buildFlags("generate", []string{"--code-only"})
+	if err != nil || !options.codeOnly {
+		t.Errorf("generate --code-only: %+v, err = %v", options, err)
+	}
+	if options, err := buildFlags("generate", nil); err != nil || options.codeOnly {
+		t.Errorf("generate defaulted to code-only: %+v, err = %v", options, err)
+	}
+	if _, err := buildFlags("build", []string{"--code-only"}); err == nil {
+		t.Error("build accepted --code-only")
+	}
+	// --debug survives only as source maps in a tree --code-only never builds,
+	// so the combination is refused rather than half-honoured.
+	if _, err := buildFlags("generate", []string{"--code-only", "--debug"}); err == nil {
+		t.Error("--code-only --debug was accepted, so --debug was silently dropped")
 	}
 }
 
@@ -115,14 +167,19 @@ func TestTheFastHTTPBackendNeedsTheDeclaration(t *testing.T) {
 	}
 }
 
-// Neither command takes a positional argument. Accepting one silently would let
-// a caller believe a package or an output path was honoured.
-func TestBuildAndPrepareRejectArguments(t *testing.T) {
+// None of the three takes a positional argument. Accepting one silently would
+// let a caller believe a package or an output path was honoured.
+func TestGenerateCheckAndBuildRejectArguments(t *testing.T) {
 	ctx := context.Background()
 	var out, errOut bytes.Buffer
-	if err := runPrepare(ctx, []string{"./cmd/app"}, &out, &errOut); err == nil {
-		t.Error("prepare accepted an argument")
-	} else if !strings.Contains(err.Error(), "prepare") {
+	if err := runGenerate(ctx, []string{"./cmd/app"}, &out, &errOut); err == nil {
+		t.Error("generate accepted an argument")
+	} else if !strings.Contains(err.Error(), "generate") {
+		t.Errorf("the error does not name the command: %v", err)
+	}
+	if err := runCheck(ctx, []string{"./cmd/app"}, &out); err == nil {
+		t.Error("check accepted an argument")
+	} else if !strings.Contains(err.Error(), "check") {
 		t.Errorf("the error does not name the command: %v", err)
 	}
 	if err := runBuild(ctx, []string{"./cmd/app"}, &out, &errOut); err == nil {
@@ -132,14 +189,20 @@ func TestBuildAndPrepareRejectArguments(t *testing.T) {
 	}
 }
 
-// buildProject is what makes the two commands refuse the same projects for the
-// same reasons. A prepare that got further than build in a package would report
-// the missing entry point instead of the kind.
-func TestBuildProjectRefusesAPackageForEitherCommand(t *testing.T) {
+// buildProject reads the kind before anything runs, and the two commands part
+// company there. A build in a package would generate and then fail its link
+// step on an entry point that does not exist, which is a late error about the
+// wrong thing; generation is the one thing a package project does want, and it
+// is how a component package rebuilds its committed artifacts.
+func TestBuildProjectRefusesAPackageForBuildOnly(t *testing.T) {
 	t.Chdir(t.TempDir())
-	for _, command := range []string{"build", "prepare"} {
-		if _, _, err := buildProject(command); err == nil {
-			t.Fatalf("%s: a directory with no project was accepted", command)
-		}
+	if _, _, err := buildProject("build", true); err == nil {
+		t.Fatal("build: a directory with no project was accepted")
+	}
+	if _, _, err := buildProject("generate", false); err == nil {
+		t.Fatal("generate: a directory with no project was accepted")
+	}
+	if err := refuseInPackage(projectConfig{Kind: kindPackage}, "build"); err == nil {
+		t.Fatal("build accepted a package project")
 	}
 }

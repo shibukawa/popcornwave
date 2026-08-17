@@ -227,7 +227,7 @@ RUN GOBIN=/usr/local/bin go install \
 
 COPY . .
 
-RUN pw prepare
+RUN pw generate
 RUN tinygo build -scheduler=threads -o /out/myapp ./cmd/myapp
 ```
 
@@ -235,8 +235,8 @@ RUN tinygo build -scheduler=threads -o /out/myapp ./cmd/myapp
 docker build -f Dockerfile.tinygo -t myapp .
 ```
 
-[`pw prepare`](/ja/pw/project/prepare/) は `pw build` からコンパイラを引いたもの
-です。生成、スタイルシート、アセット、開発用インポートの検査まで同じ手順を踏み、
+[`pw generate`](/ja/pw/project/generate/) は `pw build` からコンパイラを引いた
+ものです。生成、スタイルシート、アセット、開発用インポートの検査まで同じ手順を踏み、
 リンクの手前で止まります。その次の一行が二つのファイルの差のすべてで、コンパイラを
 フラグの裏に隠さず書き下しているのもそのためです。出力パス、ターゲット、最適化
 レベル — 変えたくなるのはこの行です。
@@ -274,8 +274,8 @@ TinyGo は `GOOS` と `GOARCH` を読まず、ビルドを走らせているマ�
 [ko](https://ko.build/) と
 [Cloud Native Buildpacks](https://buildpacks.io/) はどちらも Dockerfile 無しで
 Go のイメージを作ります。ただし置き換えているのは Dockerfile であって、ホスト
-フェーズではありません。`go build` の手順を握るのはこれらの側で、`pw generate` は
-走らせてくれません。先に作業ツリーで `pw prepare` を実行し、そのあとでビルダーを
+フェーズではありません。`go build` の手順を握るのはこれらの側で、生成は
+走らせてくれません。先に作業ツリーで `pw generate` を実行し、そのあとでビルダーを
 呼びます。どちらも git のインデックスではなく作業ディレクトリを読むので、
 `.gitignore` が除外している生成物がそこにあれば、そのまま使われます。チェック
 アウト直後にビルダーを呼ぶ CI ジョブは、このページ冒頭の未定義シンボルに行き
@@ -292,7 +292,7 @@ Buildpacks で回しているチームなら、このファイルより一貫性
 でしょう。ホスト Go のプロジェクトで、ホストフェーズが先に走るなら。
 
 変わらないのはそのホストフェーズだけです。何がイメージを作るにせよ、コンパイラの
-前に `pw prepare` か `pw build` が走ります。走らなければ、コンパイラには読むものが
+前に `pw generate` か `pw build` が走ります。走らなければ、コンパイラには読むものが
 ありません。
 
 ここで触れた設定キーの全体は[設定リファレンス](/ja/reference/configuration/)に

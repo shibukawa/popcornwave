@@ -15,7 +15,7 @@ shared_application_boundary:
   failure: cache the error, log it without secret values, and return a generic 500 on every request from that instance
   parity: routes, middleware order, config loading, embedded assets, operational endpoints, and security checks match the normal application
 generation:
-  source: api:cli-prepare outputs plus data:project-config routing and main settings
+  source: api:cli-generate outputs plus data:project-config routing and main settings
   destination: .pw/build/<target>/<backend>/; generated provider files do not enter application source directories
   dependencies: the staged module pins every provider runtime library needed by its target
   configuration: config.prod.toml and required generated or embedded inputs are included; secrets remain environment variables

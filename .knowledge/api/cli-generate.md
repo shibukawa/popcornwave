@@ -3,81 +3,56 @@ id: api:cli-generate
 type: api
 title: pw generate
 ---
-pw generate scans Go, .pw.html, and .pw.sql sources and emits all required application mapping and codec code beside its source.
+pw generate runs every rule:container-build-inputs host step and stops before the compiler, so a build the framework does not drive has one command to call instead of a sequence to reproduce.
 
 ```yaml
-usage: pw generate [--check]
-inputs:
-  - pw.Parse[T] call sites
-  - route registrations
-  - .pw.html files
-  - .pw.sql files
-  - reachable JSON types
-  - concept:page-tree roots, their reserved files, and their optional page.go
-  - dynamo-tagged struct declarations and their dynamobind call sites
-  - .pw.dynamo query declarations
-flow: flow:generation-pipeline
-discovery_scope:
-  per_purpose: the data:project-config generate.handlers, generate.templates, generate.queries, generate.config, generate.pages, and generate.dynamo lists, per decision:explicit-generation-sources
-  effect: a directory contributes only the artifact kinds whose purpose lists it, so a query directory is never analyzed for routes
-  pages_unit: a generate.pages entry is walked as one concept:page-tree per flow:page-route-generation, not as a directory of independent sources
-  fixed: the project.main directory and the project-root public.go
-  required: the keys have no default, so a project without them fails to load
-sql_dialect:
-  source: data:project-config project.database
-  effect: .pw.sql sources compile to the placeholder syntax of that engine, per flow:sql-generation
-  no_default: the value is passed through rather than assumed, because a wrong dialect fails at the first query rather than at generation
-  outside: warn and ignore a .pw.html, .pw.sql, or stale generated file found outside its purpose; Go sources are not reported
-  consumers: api:cli-new derives its default destination from this scope, and api:cli-dev regenerates from it
-artifacts:
-  from_generate_handlers:
-    - request binding
-    - optimized JSON codecs
-    - OpenAPI fragments
-  from_generate_templates: typed HTML renderers
-  from_generate_queries: context-based SQL functions
-  from_generate_config: configuration and subcommand binding
-  from_generate_pages:
-    - compiled page and layout components
-    - the route decoder of each page
-    - the api:page-registry and data:page-route-table of each tree root
-    - api:page-action-endpoint registrations
-    - request binders for the route packages, so an action can call pw.Parse
-    - no OpenAPI, per decision:dual-router-coexistence
-  from_generate_dynamo:
-    - item codecs, key builders, and table definitions, per requirement:dynamodb-generation
-    - the decision:dynamodb-table-registry list in the project.main package
-    - no SQL dialect input, because there is no engine variant to compile for
-  from_every_purpose: data:route-table, the exported view of the same route analysis
-  optional: generated tests
-unparsable_source:
-  rule: a Go file that does not parse is reported by name, line, and column, and its directory is skipped for that run
-  reason: api:cli-dev regenerates the moment a file appears, so it routinely reads one an editor has created and not yet written into
-  upstream_defect: system:tinybind walks such a file to a nil position and panics, found by generating over a zero-byte source on 2026-08-02
-  containment: a panic anywhere in a generation request becomes an error, because one escaping would take the developer loop, the application it supervises, and the services it started down with it
-  transient: the next watched change regenerates, so a file caught mid-save costs a message rather than a restart
-check_mode:
-  writes: none
-  failure: generated content differs or is missing
-  both_halves_together: check mode plans the analysing half against the tree as it stands rather than against what this run would write, because it may write nothing; a tree missing its generated files is stale, which is the answer check mode exists to give
-two_pass_ordering:
-  halves: the directories whose generation only writes Go, then the ones whose generation also type-checks it — the generate.handlers, generate.pages, and generate.config purposes
-  between_them: the first half's output is written to disk before the second half is planned
-  why: analysing a handler package loads the query package the same run produces, and a plan nobody has written is invisible to packages.Load
-  what_it_fixes: a clean checkout, where generated Go is absent because it is not committed; in one lexical pass handlers preceded queries, failed to load them, and stopped the run before anything was written, so running it again changed nothing
-  survived_because: a working tree that had generated once already held the output, so only a fresh clone hit it
-behavior:
-  - read a source only where the purpose that owns its kind lists its directory
-  - walk each generate.pages root once, reporting every discovery problem in that walk rather than only the first
-  - use the pw emitter of decision:page-render-binding for every page tree artifact, so generated pages call api:page-render-runtime rather than system:tinybind
-  - run request binding over the packages a discovered tree reports, skipping the ones the generator reports nothing to generate for
-  - register the Popcorn Wave generated header prefix with every discovery pass, so nothing this command wrote is analyzed as a source on the next run
-  - keep, per directory, only the artifacts whose purpose lists that directory
-  - warn once per .pw.html, .pw.sql, or stale generated file found outside its purpose, naming the path and the key
-  - use system:tinybind route and call analysis behind the pw API
-  - process sources and packages in stable lexical order within each half of two_pass_ordering
-  - stop on parse or generation error
-  - format generated Go source
-  - replace destination files atomically after all generation succeeds, except the first half of two_pass_ordering, which lands before the second is planned because that half reads it from disk
-  - emit {source-base}_pw_gen.go beside each source
+usage: pw generate [--code-only] [--debug] [--backend nethttp|fasthttp]
+definition: api:cli-build without its final compiler invocation, which is the whole contract
+steps:
+  - concept:code-generation
+  - flow:tailwind-css-build in production mode, only when Tailwind is enabled
+  - flow:public-asset-build
+  - the development-only import rejection over data:project-config project.main, which refuses requirement:contrib-devidp and the other packages api:cli-build already refuses
+relationship:
+  pw_build: api:cli-generate followed by the compiler, so the two commands cannot drift in content or in order
+  pw_check: the first step planned and not written, per api:cli-check; it verifies less than this command writes
+code_only:
+  runs: concept:code-generation alone
+  writes_no: asset tree, stylesheet
+  keeps: the development-only import rejection, because the steps this flag skips are the ones that write files and a flag must not also be the way past a security gate; its cost is a dependency-graph listing rather than a compile
+  for: the requirement:editor-tasks generate command, and a developer who wants generated Go without waiting for a minified stylesheet
+  not_for: a tree handed to a compiler, which is the unflagged command
+  refuses_debug: --debug survives only as source maps in an asset tree this flag does not build, so the combination is rejected rather than half-honoured
+project_kind:
+  application: every step
+  package: concept:code-generation and nothing after it, because a concept:component-package has no entry point whose imports could be rejected, no public.go to embed a tree for, and no document shell to style; the same result --code-only gives, selected by data:project-config project.kind rather than by a flag the author has to know to pass
+  contrast: api:cli-build and api:cli-dev are refused in a package project, and this command is not — it is how a package rebuilds the artifacts decision:committed-package-artifacts commits
+flags:
+  debug: keeps the source maps in the built tree, exactly as api:cli-build --debug does; the linker half belongs to the compiler line the caller writes, per requirement:deployed-debug-information
+  backend: selects the build tags the dependency safety check lists the graph under
+  no_target: provider packaging belongs to api:cli-build, so --target is refused here
+callers:
+  - Dockerfile.tinygo, per decision:explicit-tinygo-compile-step
+  - a cross-compiled or otherwise custom go build the operator drives with their own flags
+  - requirement:dockerless-image-builders, whose builders own the compile step and would otherwise each need the sequence written out
+  - api:cli-build, which is this command plus the compiler
+scope:
+  compiles_nothing: the command produces no binary and reports no compiler diagnostic
+  toolchain_agnostic: every step is host Go per decision:host-tools-target-runtime, so the output serves either compiler and the command takes no toolchain argument
+  leaves_dist: flow:public-asset-build creates dist/public even for a project with no public asset, because public.go names it in a go:embed directive
+naming:
+  chosen: generate, per requirement:cli-generate-check-rename — the name every caller guesses for "make a tree the compiler can read", given to the command that actually leaves one
+  was: prepare, while the narrower generation held the name generate; a tree prepared with that one failed to compile on a go:embed over a directory nothing built, and the documentation carried a section per page warning about it
+  prepare_rejected: nothing in the word names any of the four steps, so a caller who had not read the page could not tell it from generate
+  flag_rejected: pw build --no-compile reads as a build that was asked not to build, and the caller here is not building at all
+reporting:
+  policy: policy:cli-progress-reporting
+  phases: the api:cli-build phases up to the compiler, so a reader who has seen one recognizes the other
+documentation:
+  page: its own pw command page, since every other command has one and the callers above are three different situations rather than a footnote to api:cli-build
+  carries: what --code-only leaves out, which is the one way left to get a tree that does not compile
+  cited_by: requirement:container-deployment-docs for Dockerfile.tinygo, and the api:cli-build page for the TinyGo and cross-compiling cases it no longer explains itself
+exit:
+  success: 0
+  any_step_failed: nonzero, with that step's diagnostic unchanged
 ```

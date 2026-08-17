@@ -23,7 +23,7 @@ shapes:
     carries: source maps and Go debug information, and nothing developmental
     for: a shared test or CD deployment being debugged by more than one person
   release:
-    produced_by: api:cli-build or api:cli-prepare with no flag
+    produced_by: api:cli-build or api:cli-generate with no flag
     exists: yes
     carries: neither, and this is the shape staging and prod share
 gates:
@@ -39,7 +39,7 @@ gates:
       application except through this tag
   development_import_refusal:
     decides: what may be in a built application's dependency graph at all
-    enforced_by: api:cli-build and api:cli-prepare, before the compiler runs
+    enforced_by: api:cli-build and api:cli-generate, before the compiler runs
     refuses: the development identity provider, the passkey test authenticator,
       and the authentication test seam, each of which authenticates nobody or
       mints credentials a relying party accepts

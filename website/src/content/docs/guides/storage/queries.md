@@ -18,9 +18,9 @@ recreates it.
 
 Three commands run it. `pw dev` watches the project's sources and regenerates
 whenever one changes, then rebuilds and restarts. `pw build` generates before it
-compiles, and [`pw prepare`](/pw/project/prepare/) is that same work stopping
-short of the compiler, for a build that TinyGo or your own `go build` drives.
-`pw generate` runs it once by hand.
+compiles, and [`pw generate`](/pw/project/generate/) is that same work stopping
+short of the compiler, for a build that TinyGo or your own `go build` drives — or
+for running it once by hand.
 
 The scan is not the whole module. `popcornwave.toml` names directories per
 purpose, and `.pw.sql` belongs to the `queries` purpose:

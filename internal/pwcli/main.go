@@ -27,7 +27,9 @@ func Main(args []string, stdout, stderr io.Writer) int {
 	case "new":
 		err = runNew(ctx, args[1:], stdout)
 	case "generate":
-		err = runGenerate(ctx, args[1:], stdout)
+		err = runGenerate(ctx, args[1:], stdout, stderr)
+	case "check":
+		err = runCheck(ctx, args[1:], stdout)
 	case "fmt":
 		err = runFmt(ctx, args[1:], stdout, stderr)
 	case "i18n":
@@ -36,8 +38,6 @@ func Main(args []string, stdout, stderr io.Writer) int {
 		err = runMigrate(ctx, args[1:], stdout, stderr)
 	case "seed":
 		err = runSeed(ctx, args[1:], stdout, stderr)
-	case "prepare":
-		err = runPrepare(ctx, args[1:], stdout, stderr)
 	case "build":
 		err = runBuild(ctx, args[1:], stdout, stderr)
 	case "dev":
@@ -71,17 +71,21 @@ func Main(args []string, stdout, stderr io.Writer) int {
 // dispatch switch above and this table are the two places a new command is
 // added, and help that omits a command is how the documented list went stale
 // before.
+//
+// check sits beside generate rather than with the diagnostics at the end,
+// because it answers a question about generate's output and a reader scanning
+// this list for the CI gate looks for it there.
 var commandSummaries = []struct{ name, summary string }{
 	{"init", "create a project in a new directory"},
 	{"add", "enable a capability in a project that declined it"},
 	{"new", "scaffold a handler or a page beside the ones you have"},
-	{"generate", "regenerate everything derived from your sources"},
+	{"generate", "write everything a compiler needs, stopping before the compiler"},
+	{"check", "report generated files that are stale or missing"},
 	{"fmt", "format template sources into their canonical form"},
 	{"i18n", "reconcile message catalogs against the templates that use them"},
 	{"migrate", "inspect and apply database migrations"},
 	{"seed", "load seed datasets into the database"},
-	{"prepare", "generate and build assets, stopping before the compiler"},
-	{"build", "generate, build assets, and compile the project"},
+	{"build", "run generate and then compile the project"},
 	{"dev", "watch, regenerate, rebuild, and restart"},
 	{"doctor", "report what a named environment will actually run"},
 	{"version", "print the version, revision, and toolchain"},
@@ -104,6 +108,10 @@ func printUsage(w io.Writer) {
 	fmt.Fprintln(w, newUsage)
 	fmt.Fprintln(w, "  Omit the kind to pick one, then answer for the route and the package.")
 	fmt.Fprintln(w, generateUsage)
+	fmt.Fprintln(w, "  --code-only writes the generated Go and stops, for the editor and the")
+	fmt.Fprintln(w, "  inner loop. What it leaves out is what a compiler needs: without the")
+	fmt.Fprintln(w, "  asset tree, the embed directive in public.go has no directory to read.")
+	fmt.Fprintln(w, checkUsage)
 	fmt.Fprintln(w, fmtUsage)
 	fmt.Fprintln(w, "  Omit every path to format the sources your generate purposes list.")
 	fmt.Fprintln(w, migrateUsage)

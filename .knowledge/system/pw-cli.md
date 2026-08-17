@@ -10,9 +10,9 @@ binary: pw
 commands:
   - api:cli-init
   - api:cli-generate
+  - api:cli-check
   - api:cli-dev
   - api:cli-build
-  - api:cli-prepare
   - api:cli-migrate
   - api:cli-seed
   - api:cli-doctor
@@ -26,5 +26,5 @@ distribution: requirement:cli-distribution
 initial_exclusions:
   - no pw schema-init command; requirement:database-migration replaced it
   - no pw test command; use go test ./...
-  - no standalone pw check command; pw generate --check answers generated drift and api:cli-doctor answers configuration and wiring
+  - no standalone pw check command; pw generate --check answers generated drift and api:cli-doctor answers configuration and wiring, reversed by requirement:cli-generate-check-rename once --check stopped being a flag on a command that writes
 ```
