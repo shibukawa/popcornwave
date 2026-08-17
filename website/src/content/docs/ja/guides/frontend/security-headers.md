@@ -1,6 +1,6 @@
 ---
 title: セキュリティヘッダー
-description: 既定のブラウザポリシー、安全な置き換え方、そして HSTS が HTTPS の確認を待つ理由。
+description: 既定のブラウザ向けセキュリティポリシー、安全に変更する方法、HTTPS を確認してから HSTS を有効にする理由。
 sidebar:
   order: 9
 ---

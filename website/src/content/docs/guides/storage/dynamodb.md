@@ -173,13 +173,13 @@ Parameter types are checked against how the tag stores the attribute. And every
 attribute is aliased unconditionally, so none of DynamoDB's 573 reserved words
 can reach an expression literally.
 
-Filter, projection, condition, and update expressions are not declarable yet.
+Filter, projection, condition, and update expressions are not declarable.
 Neither are secondary indexes, so a declared query runs against the table's own
 keys. The unchecked string key-condition form stays available for what the
 declaration cannot express.
 
 Every tag option, attribute type, key predicate, and generation check is in
-[DynamoDB Templates](/reference/dynamo-templates/).
+[DynamoDB Query Format](/reference/dynamo-templates/).
 
 ## Declared names and deployed names
 

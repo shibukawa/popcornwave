@@ -102,7 +102,7 @@ scaffold_obligation:
 migration:
   projects: the examples tracking the files today, which are auction, helloworld, and live_render
   action: add the ignore line and git rm --cached the tracked files
-  regenerate_check: api:cli-generate --check still compares a working tree, so excluding the files does not weaken rule:project-integrity-checks
+  regenerate_check: api:cli-check still compares a working tree, so excluding the files does not weaken rule:project-integrity-checks
 rejected_alternatives:
   commit_and_regenerate_in_ci:
     why_not: it makes every unrelated branch carry a CSS diff, which is the noise decision:committed-package-artifacts accepts only because a package consumer has no other option
@@ -130,6 +130,6 @@ acceptance:
   - a project api:cli-init scaffolds carries public/generated/ in its .gitignore
   - no example tracks a file under public/generated
   - a component package still commits its extracted assets, unchanged
-  - api:cli-generate --check passes on a fresh clone after one generate run
+  - api:cli-check passes on a fresh clone after one generate run
   - public-external and the authored files of public stay committed
 ```

@@ -1,8 +1,8 @@
 ---
-title: Build tags
+title: Build Tags
 description: Every build tag defined across Popcorn Wave, tinygodriver and tinybind-go — what each one selects, who passes it, and which ones the toolchain sets for you.
 sidebar:
-  order: 9
+  order: 3
 ---
 
 Popcorn Wave leans on build tags harder than most Go projects, because one source

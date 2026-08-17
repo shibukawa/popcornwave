@@ -222,11 +222,11 @@ Login endpoints sit above CSRF, so a login POST and an OIDC callback never need 
 | `pw init` | create a runnable project in a new directory |
 | `pw add` | install a capability the project declined at init (database, dynamo, firestore, images, …) |
 | `pw new` | scaffold one more handler, route, and template |
-| `pw generate` | compile `.pw.html`, `.pw.sql`, page trees, catalogs, and call sites into Go |
+| `pw generate` | write every build input: generated Go, the stylesheet, and `dist/public` |
+| `pw check` | report generated Go that is stale or missing, writing nothing |
 | `pw fmt` | rewrite template and query sources into canonical form |
 | `pw i18n` | reconcile message catalogs against the templates that use them |
 | `pw dev` | watch, regenerate, migrate, rebuild, restart |
-| `pw prepare` | everything a build needs, stopping before the compiler |
 | `pw build` | produce a release binary, or a provider-targeted artifact |
 | `pw migrate` / `pw seed` | inspect/apply migrations; load seed datasets |
 | `pw doctor` | resolve a named environment (`--env=prod`) and report findings with stable `PW0xxx` identifiers |
@@ -237,14 +237,14 @@ Do not confuse `pw` with the deployed binary's own command line, which carries c
 
 Generation runs before compilation, always:
 
-- **`pw generate [--check]`** — compiles templates, SQL, page trees, and call sites into `_pw_gen.go` files beside their sources. `--check` writes nothing and exits non-zero listing stale files; use it in CI, since gitignored output can't show staleness in a diff.
+- **`pw generate`** — everything `pw build` does except the compiler: compiles templates, SQL, page trees, and call sites into `_pw_gen.go` files beside their sources, builds the stylesheet minified, builds the asset tree into `dist/public`, and rejects a `project.main` that depends on a development-only package. This is what you run before a compiler you drive yourself (TinyGo, a cross-compile, an image builder that owns `go build`). `--code-only` stops after the generated Go, for an inner loop or an editor task — its output does not compile, because `public.go` embeds a `dist/public` it did not build.
+- **`pw check`** — writes nothing and exits non-zero listing stale or missing generated files; use it in CI, since gitignored output can't show staleness in a diff. It compares generated Go only, so passing does not mean the tree compiles.
 - **`pw dev`** — the everyday loop. On startup: starts Devbox services, runs `pw generate`, applies pending migrations (unless `migration.auto = false`), builds Tailwind CSS unminified and starts its watcher, starts the dev identity provider and telemetry viewer if configured, then builds and runs `project.main`. It then polls watched files twice a second and repeats only the affected steps. It watches the whole module (any Go source is a rebuild input), wider than the `[generate]` purposes; trim with `dev.watch.excludes`, extend with `dev.watch.includes`. In dev, a taken `server.port` shifts to the next free one (up to ten) with a warning; every other `APP_ENV` binds strictly.
 - **`pw build`** — release binary: runs `pw generate`, builds Tailwind **minified** (overriding `assets.tailwind.minify`), builds the asset tree into `dist/public` (conversions, `.br`/`.zstd`/`.gz` sidecars, cache manifest), rejects the build if `project.main` depends on a development-only package (`contrib/devidp`), then runs `go build` on `project.main`. Cross-compile with the usual `GOOS`/`GOARCH` env vars. `--backend fasthttp` compiles the rewritten transport half instead; `--target` packages the result for a serverless host under `.pw/build/<target>/<backend>/`; `--debug` keeps the source map and Go symbols. See references/deployment.md.
-- **`pw prepare`** — `pw build` without the final compile step. Use it before invoking a different compiler yourself (TinyGo).
 
 The asset build also **verifies** what it embeds (`[assets.verify]`, on by default): a public file whose bytes contradict its extension, or an `.svg` carrying `<script`, an `on…=` handler, or `javascript:`, fails the build and is named. `pw doctor` reports the same two conditions without a build (PW0130, PW0131).
 
-Both `pw dev` and `pw build` generate first, so direct `pw generate` invocation is mostly for CI and for diagnosing generation errors. Every `pw` command except `init` and `version` locates the project by walking up to `popcornwave.toml`, so it works from any subdirectory.
+Both `pw dev` and `pw build` generate first, so a direct `pw generate` is for a compile you drive yourself, and `pw check` is for CI and for diagnosing generation errors. Every `pw` command except `init` and `version` locates the project by walking up to `popcornwave.toml`, so it works from any subdirectory.
 
 ## Embedded public assets
 
@@ -271,7 +271,7 @@ The generated path uses no runtime reflection, which is what makes TinyGo a firs
 ```sh
 pw build                                # host Go on net/http — the default
 pw build --backend fasthttp             # the rewritten transport half
-pw prepare && tinygo build -scheduler=threads -o myapp ./cmd/myapp
+pw generate && tinygo build -scheduler=threads -o myapp ./cmd/myapp
 ```
 
 Each has constraints worth reading before adopting it — file layout for the fasthttp rewrite, `-scheduler=threads` and `tinygohelper.go` for TinyGo, `-no-debug` for WASI. They are all in [references/deployment.md](deployment.md), with the build-tag table and the serverless host matrix.
@@ -283,5 +283,5 @@ Each has constraints worth reading before adopting it — file layout for the fa
 - Adding a second `document.pw.html` for an area. Generation fails; use an exported component with an unnamed slot plus `pw.WriteHTMLChain`.
 - Spelling a dynamic page directory `[id]` instead of `id_` — it breaks `go build ./...` for the whole module.
 - Mounting a registered area at `/public/`, colliding with the embedded asset mount.
-- Running `pw generate` then `tinygo build` directly — use `pw prepare` so `dist/public` exists for `go:embed`.
+- Running `pw generate --code-only` then `tinygo build` — drop the flag, so `dist/public` exists for `go:embed`.
 - Putting runtime settings (ports, DSNs, cookies) into `popcornwave.toml` — the loader rejects them; they belong in `config.{APP_ENV}.toml` (see references/config.md).

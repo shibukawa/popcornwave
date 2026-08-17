@@ -1,6 +1,6 @@
 ---
 title: バックエンドサービスへのプロキシ
-description: リバースプロキシのハンドラを自分の mux に載せ、既存の API サーバーを同じオリジンで、フレームワークのセッションと認証の後ろに置く。
+description: リバースプロキシを mux に組み込み、既存の API サーバーを同一オリジンから、フレームワークのセッションと認証を通して公開します。
 sidebar:
   order: 5
 ---
@@ -26,7 +26,7 @@ preflight が付き、「今ログインしているのは誰か」という問�
 `tinygodriver/httprevproxy` から取ります。公開 API は標準パッケージのリバースプロキシ
 部分をそのまま写したものです。Popcorn Wave のプロジェクトは `tinygodriver` を既に
 require しています——`pw.ServeMux` がそこの型です——ので、追加する依存はありません。
-`httputil` という別名で import しておけば、将来標準パッケージへ移るときの変更は 1 行です。
+`httputil` という別名で import しておけば、呼び出し側は標準パッケージを使うときとまったく同じに読めます。
 
 ```go
 package handlers

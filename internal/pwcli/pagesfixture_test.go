@@ -41,7 +41,7 @@ func fixtureConfig(t *testing.T) (string, projectConfig) {
 // The generated files of the fixture are committed, so a change to the emitter
 // or to an upstream template shows up as a diff a reviewer reads rather than as
 // behavior nobody looked at. Generating them again must produce what is already
-// there, which is also what makes pw generate --check meaningful.
+// there, which is also what makes pw check meaningful.
 //
 // This drives the production path: the same tree run and the same per-directory
 // plan pw generate uses, including the merge that puts a compiled component and

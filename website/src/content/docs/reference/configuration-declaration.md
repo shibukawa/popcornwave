@@ -1,5 +1,5 @@
 ---
-title: Configuration Declaration
+title: Application Configuration Declaration
 description: How a configuration struct is written — every tag, the field types that bind, the three names one field answers to, and how the sources resolve.
 sidebar:
   order: 6
@@ -13,7 +13,7 @@ makes several rules below stricter than a reflection-based binder would need.
 
 This page is the declaration surface. The framework's own keys and their
 defaults are in
-[Configuration Keys](/reference/configuration/); the narrative version, with a
+[Application Configuration Keys](/reference/configuration/); the narrative version, with a
 worked example, is
 [Application Configuration](/guides/architecture/configuration/).
 

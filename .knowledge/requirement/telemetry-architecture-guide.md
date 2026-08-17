@@ -39,6 +39,9 @@ sections:
     note: use name-based schema union because custom log attributes differ between records and runs
   production:
     covers: JSON stdout for a collector, OTLP routing, queue and shutdown behavior, and why local files are pw dev only
+    routes: the relayed and direct routes of flow:telemetry-export as two named choices, with what each costs and the fact that tail sampling exists only on the first
+    sampling: requirement:trace-head-sampling and the environment-selected default of decision:sampling-default-follows-the-environment, stated as a number a reader will find in their startup summary rather than as a key they may set
+    counting_is_unaffected: requirement:framework-metrics survives any ratio, per decision:metrics-are-not-sampled, which is the paragraph that keeps a reader from raising the ratio to fix a dashboard
   safety:
     covers: secrets, personal data, query bind values, local file permissions, retention, and deletion
 navigation: files are discovered automatically under Architecture; no manual sidebar entry
@@ -53,4 +56,6 @@ acceptance:
   - DuckDB examples use newline-delimited JSON input and schema union by name
   - the page does not imply that pw bundles, installs, or runs DuckDB
   - the page does not claim traces or arbitrary process output are present in .log
+  - a reader can tell, from this page alone, whether their deployment is on the relayed or the direct route and what its trace sampling therefore is
+  - the page states that a low sampling ratio changes no metric
 ```

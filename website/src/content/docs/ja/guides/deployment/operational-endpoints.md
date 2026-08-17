@@ -1,6 +1,6 @@
 ---
 title: ヘルスチェックと readiness
-description: プライマリリスナが公開できる liveness、readiness、OpenAPI のエンドポイント。そして、どれにも既定のパスが無い理由。
+description: メインのリスナーで公開できる liveness、readiness、OpenAPI の各エンドポイントと、既定のパスを設けていない理由。
 sidebar:
   order: 1
 ---
@@ -53,7 +53,7 @@ readiness = "/readyz"
 
 ## シェルの無いコンテナからのプローブ
 
-Docker の `HEALTHCHECK` はコンテナ内でコマンドを実行します。そして誰もが手を伸ばす
+Docker の `HEALTHCHECK` はコンテナ内でコマンドを実行します。よく使われる
 コマンドは `curl` です。ところが distroless や scratch のイメージ——Go バイナリの
 正しい配布形——には curl も、それを起動するシェルもありません。命令に呼ぶものが
 無いのです。その役はアプリケーションのバイナリ自身が務めます。
@@ -79,7 +79,7 @@ HEALTHCHECK CMD ["/myapp", "healthcheck"]
 プローブには、その環境の設定に `server.health`(`--ready` なら `server.readiness`)と
 固定の `server.port` が必要です。パスが未設定、あるいはポートが `0` なら、キーの名前を
 挙げたメッセージとともに失敗します。サブコマンド名は予約されています。アプリケーションが
-`healthcheck` を自分のものにしようとすると、
+`healthcheck` という名前を独自コマンドに使おうとすると、
 [`pw.RegisterSubCommand`](/ja/guides/architecture/custom-commands/) は起動時に
 パニックします。
 
@@ -223,5 +223,5 @@ shutdown_timeout = "10s"
 停止によって終了させられ、クライアント側が再接続する前提です。
 
 readiness エンドポイントは、停止が始まっても失敗し始めるわけではありません。ドレインは
-オーケストレータの仕事です——トラフィックを止めてから、シグナルを送る——そしてシグナルが
+オーケストレーターが、トラフィックを止めてからシグナルを送ります。シグナルが
 届く頃には、リスナはすでに閉じ始めています。

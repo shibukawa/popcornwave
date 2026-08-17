@@ -1,8 +1,8 @@
 ---
-title: Template Syntax
+title: HTML Template Format
 description: The complete .pw.html language — declarations, types, expressions, control flow, slots, head contributions, await boundaries, and the rules that reject a template.
 sidebar:
-  order: 3
+  order: 2
 ---
 
 A `.pw.html` file is a typed template language compiled to Go by `pw generate`.
@@ -758,7 +758,7 @@ output could not be replayed from stored bytes:
 
 The store behind it is in-process and is on by default; `html.cache.enabled`
 turns it off and `html.cache.max_entries` bounds it, both in
-[Configuration Keys](/reference/configuration/#html). Private keys multiply what one
+[Application Configuration Keys](/reference/configuration/#html). Private keys multiply what one
 process holds by the number of active readers, so an entry cap chosen for public
 keys is worth revisiting once anything is scoped. A redraw renders through the
 page's own options and reaches the same store, so a component cached on the page

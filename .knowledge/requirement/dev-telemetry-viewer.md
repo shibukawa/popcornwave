@@ -19,7 +19,7 @@ responsibility:
 signals:
   traces: requirement:contrib-otel spans delivered by flow:telemetry-export, which for a pw application is data:framework-span-set — the injected endpoint turns observability.trace auto on, so the render tree and the statements are there with no configuration
   logs: api:logger records routed by policy:log-emission
-  metrics: the receiver accepts /v1/metrics, but requirement:contrib-otel emits none, so the view stays empty unless the application exports its own
+  metrics: the receiver accepts /v1/metrics and the pane charts gauges, sums, histograms, and summaries already; nothing fills it until requirement:framework-metrics lands, and until then the view stays empty unless the application exports its own
   process: the viewer samples cpu, memory, threads, open files, and io of the process api:cli-dev started
 listener:
   split: the OTLP receiver keeps a listener of its own; the UI moves onto the requirement:dev-console listener per decision:dev-console-consolidation
@@ -88,8 +88,9 @@ acceptance:
 non_goals:
   - persistence of the viewer snapshot, traces, metrics, or process samples across pw dev runs; requirement:local-jsonl-log-capture persists logs separately
   - any viewer surface in api:cli-build, api:test-run, or a deployed environment
-  - metric instrumentation, which requirement:contrib-otel excludes
+  - metric instrumentation, which is requirement:framework-metrics rather than this pane's; what lands here is a filled view and no viewer change
   - search, sampling, or filtering beyond what system:localotelviewer provides
+  - sampling the developer loop, which requirement:trace-head-sampling keeps at always_on here because the request being looked at must be the one that was kept
   - opening a browser, because the loop prints one stable URL and restarts must not reopen it
   - receiving telemetry from a process api:cli-dev did not start
 ```

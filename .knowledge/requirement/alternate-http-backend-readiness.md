@@ -128,7 +128,7 @@ prerequisites:
     where_it_lives: pwfast rather than beside it, because pwfast.Run is what pw.Run rewrites to and an import rewrite maps one package onto one package
     what_that_cost: pwfast reaches pwconfig, which the layering test used to forbid; the property that clause protected is intact and still proven, since Middlewares composes from published settings alone and a test seam, an end-to-end fixture and internal/fastonly all build a chain with nothing parsed
     plugins: WithRuntimeOptions, which is the shape an authentication plugin's Apply already has; there is still no frame registry on this transport, and pwextension.SetupProcess runs the startup half of every registered extension so a storage plugin's blank import means the same thing in both builds
-    build_target: pw build and pw prepare take --target fasthttp, which adds the tag to the compile and to the development-import check; a target the project never declared is refused rather than compiled into undefined symbols
+    build_target: api:cli-build and api:cli-generate take --target fasthttp, which adds the tag to the compile and to the development-import check; a target the project never declared is refused rather than compiled into undefined symbols
   rate_limiting_2026_08_11:
     was: pw installs two frames and pwfast installed neither, so a fasthttp deployment ran with ratelimit.enabled = true and no limiter — a control that looks installed
     moved: pwratelimit holds the counter, the store registry, and the Limiter that decides the bucket, the count, the exemption and the admission; both transports drive that one Limiter and supply only the canonical path, the caller's address and how a 429 is written

@@ -198,7 +198,7 @@ func generateExpectingFailure(t *testing.T, root string) (string, error) {
 	defer os.Chdir(previous)
 
 	var output strings.Builder
-	err = runGenerate(context.Background(), nil, &output)
+	err = generateCode(context.Background(), &output)
 	return output.String(), err
 }
 
@@ -320,7 +320,7 @@ export component Card(): html {
 	// The whole point of rewriting rather than reporting: the result compiles.
 	inProject(t, root, func() {
 		var second strings.Builder
-		if err := runGenerate(context.Background(), nil, &second); err != nil {
+		if err := generateCode(context.Background(), &second); err != nil {
 			t.Fatalf("the extracted template does not generate: %v\n%s", err, second.String())
 		}
 	})
@@ -453,7 +453,7 @@ item-count:
 
 	inProject(t, root, func() {
 		var second strings.Builder
-		if err := runGenerate(context.Background(), nil, &second); err != nil {
+		if err := generateCode(context.Background(), &second); err != nil {
 			t.Fatalf("the imported catalog does not generate: %v\n%s", err, second.String())
 		}
 	})

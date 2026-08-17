@@ -26,7 +26,7 @@ generation:
     - no document shell lookup, so a generate.templates entry holding one is an error instead of the project's shell
     - no generate.queries entry may be non-empty, per the requirement:component-package-distribution non-goal
     - the emitted artifacts are the same in every other respect, which is what makes a package's output linkable
-  check: api:cli-generate --check is the package's release gate, per decision:committed-package-artifacts
+  check: api:cli-check is the package's release gate, per decision:committed-package-artifacts
 consuming:
   command: "pw add <module-path>"
   writes: the go.mod requirement and one entry in the data:project-config packages array, and nothing else

@@ -1,6 +1,10 @@
 package pwobservability
 
 import (
+	"fmt"
+	"strings"
+
+	"github.com/shibukawa/popcornwave/contrib/otel/trace"
 	"github.com/shibukawa/popcornwave/pwconfig"
 	"github.com/shibukawa/popcornwave/pwruntime"
 )
@@ -37,6 +41,27 @@ func TracingPolicy(config pwconfig.ObservabilityConfig, exporting bool) *pwrunti
 		Statement:    config.Trace.Database && config.Trace.Statement,
 		MaxSQLLength: positiveOr(config.Query.MaxSQLLength, defaultQueryMaxSQLLength),
 	}
+}
+
+// ResolveSampler builds the head sampler for this process.
+//
+// An empty configured name takes the environment's default rather than one value
+// everywhere: development records every trace because the loop's only view of a
+// request is the trace it kept, and every other environment samples because the
+// process may be exporting straight to a backend that bills per span. Parse
+// normally fills the key before this runs, so that the startup summary can name
+// the provenance; the resolution is repeated here for the path that never parses
+// a configuration at all.
+func ResolveSampler(config pwconfig.ObservabilityConfig, env string) (trace.Sampler, error) {
+	name, argument := strings.TrimSpace(config.Trace.Sampler), strings.TrimSpace(config.Trace.SamplerArg)
+	if name == "" {
+		name, argument = pwconfig.DefaultTraceSampler(env)
+	}
+	sampler, err := trace.ParseSampler(name, argument)
+	if err != nil {
+		return nil, fmt.Errorf("observability.trace.sampler: %w", err)
+	}
+	return sampler, nil
 }
 
 // TraceForced reports whether configuration asked for framework spans outright

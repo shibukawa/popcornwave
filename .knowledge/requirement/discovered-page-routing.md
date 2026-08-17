@@ -34,7 +34,7 @@ acceptance:
   - an action handler reads a typed request through pw.Parse
   - an absent query parameter is distinguishable from an explicit zero
   - api:cli-init writes a page tree for the answers that ask for one and an empty generate.pages list for the ones that do not
-  - api:cli-generate --check fails on a stale page tree artifact
+  - api:cli-check fails on a stale page tree artifact
   - api:cli-dev regenerates when a page directory is created, not only when a watched file changes
   - a rejected directory name reports the reason rather than breaking the module build
   - a page tree with no page.pw.html anywhere generates an empty registry rather than failing

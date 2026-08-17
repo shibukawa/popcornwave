@@ -1,6 +1,6 @@
 ---
 title: クロスオリジンリクエスト
-description: 別オリジンから配信されたブラウザページにこのアプリケーションを読ませる方法と、Bearer API と Cookie セッションで答えが変わる理由。
+description: 別オリジンのブラウザページからこのアプリケーションへアクセスする方法と、Bearer API と Cookie セッションで設定が異なる理由。
 sidebar:
   order: 7
 ---

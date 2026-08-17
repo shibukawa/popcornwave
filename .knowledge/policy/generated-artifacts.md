@@ -31,7 +31,7 @@ rules:
   - never begin generated filenames with an underscore
   - exclude from version control with the init-scaffolded **/*_pw_gen.go ignore rule, in an application project only
   - recreate during application builds before Go compilation
-  - api:cli-generate --check must pass in CI
+  - api:cli-check must pass in CI
   - replace atomically
   - delete stale package-local SQL runtime files removed by decision:tinybind-sql-runtime
 authority:

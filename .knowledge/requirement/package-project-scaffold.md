@@ -21,7 +21,7 @@ version_control:
   first_commit: the scaffold runs api:cli-generate, so the initial commit already carries the artifacts rather than teaching the author that an empty tree is the normal state
 staleness_guard:
   problem: the whole distribution model rests on the committed artifact matching the source, and nothing in the consumer can detect that it does not beyond a compile error naming the package
-  scaffolded: a CI workflow running api:cli-generate --check over the package, which decision:committed-package-artifacts already names as the package's release gate and which nothing wrote until now
+  scaffolded: a CI workflow running api:cli-check over the package, which decision:committed-package-artifacts already names as the package's release gate and which nothing wrote until now
   why_scaffolded_rather_than_documented: an author who forgets it publishes a package that fails to compile in somebody else's project, and the failure is discovered by that somebody
   release: the same check is the tag gate, so a published version never carries an artifact its source does not produce
 what_is_not_written:

@@ -19,9 +19,9 @@ sidebar:
 走らせ方は 3 つあります。`pw dev` はプロジェクトのソースを監視していて、変わるたびに
 生成し直し、リビルドして再起動します。だからテンプレートのエラーは、保存した数秒後に
 ビルドの失敗として届きます。`pw build` はコンパイルの前に生成します。
-[`pw prepare`](/ja/pw/project/prepare/) はその同じ作業をコンパイラの手前で止めたもので、
-TinyGo や自分で書いた `go build` がコンパイルを持つ場合に使います。手で 1 回走らせる
-なら `pw generate` です。
+[`pw generate`](/ja/pw/project/generate/) はその同じ作業をコンパイラの手前で止めた
+もので、TinyGo や自分で書いた `go build` がコンパイルを持つ場合に使います。手で 1 回
+走らせるときも同じコマンドです。
 
 走査の対象はモジュール全体ではありません。`popcornwave.toml` が目的ごとに
 ディレクトリを挙げていて、`.pw.html` は `templates` の目的に属します。
@@ -479,4 +479,4 @@ profile.pw.html:12:8: html:url requires url, got string
 裸の要素セレクタがあります。
 
 宣言、演算子、スロットの規則、空白の規則、そして生成が拒むものの全一覧——言語の全体は
-[テンプレート構文](/ja/reference/template-syntax/)にあります。
+[HTML テンプレートフォーマット](/ja/reference/template-syntax/)にあります。

@@ -210,3 +210,87 @@ That position trades away everything the stack provides — no request ID, no
 recover, no resources in the context — so reach for it only when observing the
 raw request is the point. For everything else, a number on the line says what
 you mean and the chain enforces it.
+
+## On the fasthttp build
+
+The number line is the same one. `pwfast.RegisterMiddleware` takes a slot, a
+name, and a `func(fasthttp.RequestHandler) fasthttp.RequestHandler`, the slot
+constants are the same constants, and the chain that `pwfast.Run`,
+`pwfast.Start` and `pwfast.Middlewares` build places your frame at that number
+with the same three refusals — nil middleware, duplicate name, and the two fixed
+frames at 100 and 160.
+
+What does change is the wrapper, and it could not have been otherwise. A
+middleware wraps everything below it, so an adapter around one would pull the
+entire downstream chain onto the other transport's handler type — the cost a
+per-route escape hatch is designed to avoid. Registration was the one part with
+no reason to differ, so your `main.go` and `main_fasthttp.go` differ in the
+wrapper and in nothing else:
+
+```go
+// cmd/myapp/main_fasthttp.go
+//go:build fasthttp
+
+package main
+
+import (
+	"context"
+	"log"
+	"time"
+
+	"github.com/shibukawa/popcornwave/pwfast"
+	"github.com/shibukawa/popcornwave/pwsession"
+	"github.com/shibukawa/popcornwave/session"
+	"github.com/shibukawa/tinygodriver/fasthttp"
+
+	"myapp/handlers"
+)
+
+type RequestTime struct {
+	At time.Time `json:"at"`
+}
+
+func withRequestTime(next fasthttp.RequestHandler) fasthttp.RequestHandler {
+	return func(r *fasthttp.RequestCtx) {
+		if handle, ok := session.Value[RequestTime](r); ok {
+			handle.Set(RequestTime{At: time.Now()})
+		}
+		next(r)
+	}
+}
+
+func main() {
+	// The session store registration is transport-free, so it is
+	// pwsession rather than pwfast — pw.RegisterSessionStore is a
+	// re-export of it.
+	pwsession.RegisterStore[RequestTime]("request_time", session.RequestScope)
+	pwfast.RegisterMiddleware(pwfast.SlotSession+5, "request_time", withRequestTime)
+
+	mux := pwfast.NewServeMux()
+	handlers.RegisterRoutes(pwfast.Routes(mux))
+	if err := pwfast.Run(context.Background(), mux.Handler); err != nil {
+		log.Fatal(err)
+	}
+}
+```
+
+The request value *is* the context on this transport, so `session.Value` takes
+`r` where the net/http version takes `r.Context()` — that one substitution is
+most of what porting a middleware body involves. Everything that is neither the
+wrapper nor a header read is transport-free: keep the deciding half in a plain
+function both files call, and each build supplies only the four lines that reach
+into its own request.
+
+Two seams sit beside the registration. An imported capability — an
+authentication plugin, a storage integration — does *not* register here; it
+hands this transport its frames through `pwfast.RuntimeOptions.Extra`, which the
+application names in the `pwfast.Run` call, so nothing joins this chain because a
+package was imported. And the outermost position, outside everything the
+framework installs, is `pwfast.Start`: it returns the composed chain and the
+shutdown that releases what startup opened, so you can wrap the chain and serve
+it yourself.
+
+A serverless target needs nothing extra. `pw build --target` rewrites the entry
+point's `Run` into `Start`, and `main` has already registered by the time that
+call is reached, so the frame is in the chain the function handler serves. See
+[Serverless](/guides/deployment/serverless/).

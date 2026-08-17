@@ -1,8 +1,8 @@
 ---
-title: ビルドタグ
-description: Popcorn Wave、tinygodriver、tinybind-go の3リポジトリが定義するビルドタグの一覧。何を選ぶか、誰が渡すか、どれをツールチェインが勝手に立てるか。
+title: ビルドタグ一覧
+description: Popcorn Wave、tinygodriver、tinybind-go が定義するビルドタグと、その指定元やツールチェーンによる自動設定の一覧。
 sidebar:
-  order: 9
+  order: 3
 ---
 
 Popcorn Wave は Go のプロジェクトとしてはビルドタグをかなり重く使っています。1つのソースツリーから、ランタイムをほとんど共有しないバイナリが出てくるからです。net/http と fasthttp、ホスト Go と TinyGo、開発ビルドと出荷ビルド。あるファイルがそのどれに属してどれに属さないかを決めるのがタグです。

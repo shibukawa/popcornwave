@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/shibukawa/popcornwave/contrib/otel"
+	"github.com/shibukawa/popcornwave/contrib/otel/metric"
 	"github.com/shibukawa/popcornwave/contrib/otel/trace"
 	"github.com/shibukawa/tinybind-go/sqlbind"
 )
@@ -109,7 +110,14 @@ func instrument(current *Resources, connection *Connection, executor sqlbind.SQL
 	if tracing != nil && !tracing.Database {
 		tracing = nil
 	}
-	if executor == nil || (config == nil && tracing == nil) {
+	// The duration histogram is a third consumer of this one seam, and it is
+	// independent of the other two: a deployment that samples almost no traces
+	// and writes no per-statement record still counts every statement.
+	var duration *metric.Histogram
+	if current.Metrics != nil {
+		duration = current.Metrics.QueryDuration
+	}
+	if executor == nil || (config == nil && tracing == nil && duration == nil) {
 		return executor
 	}
 	driver, label := current.DBDriver, ""
@@ -131,6 +139,7 @@ func instrument(current *Resources, connection *Connection, executor sqlbind.SQL
 	scope := current.TxScope
 	if cached := current.instrumented.load(); cached != nil &&
 		cached.config == config && cached.tracing == tracing &&
+		cached.duration == duration &&
 		cached.driver == driver && cached.connection == label &&
 		cached.scope == scope &&
 		sameExecutor(cached.inner, executor) && cached.logger.equivalent(logger) {
@@ -140,6 +149,7 @@ func instrument(current *Resources, connection *Connection, executor sqlbind.SQL
 		inner:      executor,
 		config:     config,
 		tracing:    tracing,
+		duration:   duration,
 		logger:     logger,
 		driver:     driver,
 		connection: label,
@@ -158,8 +168,11 @@ type instrumentedExecutor struct {
 	config *QueryDiagnostics
 	// tracing is the span setting, nil when only the record is wanted.
 	tracing *Tracing
-	logger  Logger
-	driver  string
+	// duration is db.client.operation.duration, nil when metrics are off. It is
+	// recorded whatever the other two are, and whatever the sampler decided.
+	duration *metric.Histogram
+	logger   Logger
+	driver   string
 	// connection labels which pool ran the statement. Empty when only one is
 	// configured.
 	connection string
@@ -183,6 +196,7 @@ func (executor *instrumentedExecutor) ExecContext(ctx context.Context, query str
 		}
 	}
 	executor.endSpan(span, elapsed, affected, err)
+	executor.measure("exec", query, elapsed, err)
 	executor.record(spanCtx, "exec", query, args, elapsed, affected, err)
 	return result, err
 }
@@ -196,6 +210,7 @@ func (executor *instrumentedExecutor) QueryContext(ctx context.Context, query st
 	// are deliberately outside this measurement.
 	elapsed := time.Since(start)
 	executor.endSpan(span, elapsed, -1, err)
+	executor.measure("query", query, elapsed, err)
 	executor.record(spanCtx, "query", query, args, elapsed, -1, err)
 	return rows, err
 }
@@ -211,6 +226,7 @@ func (executor *instrumentedExecutor) QueryRows(ctx context.Context, query strin
 	rows, err := sqlbind.Query(ctx, executor.inner, query, args...)
 	elapsed := time.Since(start)
 	executor.endSpan(span, elapsed, -1, err)
+	executor.measure("query", query, elapsed, err)
 	executor.record(spanCtx, "query", query, args, elapsed, -1, err)
 	return rows, err
 }
@@ -255,6 +271,39 @@ func (executor *instrumentedExecutor) startSpan(ctx context.Context, operation, 
 		name = operation
 	}
 	return trace.Start(ctx, name, trace.WithSpanKind(trace.SpanKindClient), trace.WithAttributes(attributes...))
+}
+
+// measure records db.client.operation.duration for one statement.
+//
+// It reads the same values the span does and starts no timer of its own, so a
+// metric that disagrees with the trace beside it is a bug rather than a
+// difference of method. What it deliberately does not carry is the statement
+// text, which is unbounded, and the transaction depth, which would split every
+// series by how deeply nested the caller happened to be.
+//
+// The returned-row count is absent because it cannot be had here: the executor
+// contract returns a concrete *sql.Rows that nothing may decorate, so the count
+// belongs to the caller's loop.
+func (executor *instrumentedExecutor) measure(operation, query string, elapsed time.Duration, callErr error) {
+	if executor.duration == nil {
+		return
+	}
+	attributes := make([]otel.Attribute, 0, 4)
+	if executor.driver != "" {
+		attributes = append(attributes, otel.String("db.system.name", executor.driver))
+	}
+	name := sqlOperation(query)
+	if name == "" {
+		name = operation
+	}
+	attributes = append(attributes, otel.String("db.operation.name", name))
+	if executor.connection != "" {
+		attributes = append(attributes, otel.String("pw.db.connection", executor.connection))
+	}
+	if callErr != nil {
+		attributes = append(attributes, otel.String("error.type", ErrorType(callErr)))
+	}
+	executor.duration.Record(context.Background(), elapsed.Seconds(), attributes...)
 }
 
 // endSpan closes the statement span with its outcome.

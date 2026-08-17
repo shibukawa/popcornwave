@@ -1,6 +1,6 @@
 ---
-title: ランタイム API
-description: pw パッケージがランタイムに公開しているものを、役割ごとにまとめた一覧。
+title: ランタイム API 一覧
+description: pw パッケージが公開するランタイム API を役割別にまとめた、関数とメソッドの一覧。
 sidebar:
   order: 1
 ---
@@ -8,8 +8,12 @@ sidebar:
 ランタイムを構成するパッケージは2つありますが、アプリケーションコードが使うのは
 片方だけです。`pw` が安定した公開 API であり、このページに並ぶシンボルはすべて
 そこにあります。`pwruntime` は生成コードがコンパイル対象とする狭い契約です。
-ハンドラがそちらへ手を伸ばしたくなったときは、たいてい `pw` がより短い名前で
-再公開しているものを探しています。
+ハンドラから `pwruntime` を直接使いたくなった場合も、まずは `pw` に同じ機能が
+より簡潔な名前で公開されていないか確認してください。
+
+節は役割で分けてあります。節の中の並びは godoc と同じで、まず型、次にその型を
+手に入れる呼び出し、続いてその型が持つメソッド、そしてどの型にも属さない関数が
+最後です。
 
 もうひとつの区分が一覧の中を走っています。ここにあるものすべてを手で書くわけでは
 ありません。設定構造体の登録、ドキュメントシェルの登録、ページツリーの描画は
@@ -18,13 +22,25 @@ sidebar:
 
 ## 起動と停止
 
-| シンボル | 役割 |
+**`ServeMux`** —— 通常の Go ビルドでは `net/http` の `ServeMux` そのもの。ラッパでは
+なく型エイリアスです。
+
+| | |
+| --- | --- |
+| `NewServeMux() *ServeMux` | ルータを生成する |
+
+**`Option`** —— `Run` と `Middlewares` がどちらも受け取る設定。
+
+| | |
+| --- | --- |
+| `WithPublicFS(fs.FS) Option` | 埋め込み済みの public ツリーを `public` ディレクトリ基点で渡す |
+
+**関数**
+
+| 関数 | 役割 |
 | --- | --- |
 | `Run(ctx, handler, ...Option) error` | 設定の解析、フレームワークの初期化、待ち受け、グレースフルシャットダウン、資源の解放 |
 | `Middlewares(handler, ...Option) (http.Handler, error)` | 同じ初期化を行い、待ち受けずにラップ済みのスタックを返す |
-| `WithPublicFS(fs.FS) Option` | 埋め込み済みの public ツリーを `public` ディレクトリ基点で渡す |
-| `NewServeMux() *ServeMux` | ルータを生成する |
-| `ServeMux` | 通常の Go ビルドでは `net/http` の `ServeMux` そのもの。ラッパではなく型エイリアス |
 | `ParseConfig() error` | 待ち受けずに設定ソースだけを解析する |
 | `SetConfigLoadOptions(configbind.LoadOptions)` | `ParseConfig` の前に、設定の読み込み先と方法を調整する |
 
@@ -41,17 +57,24 @@ sidebar:
 
 ## 設定と実行環境
 
-| シンボル | 役割 |
+**関数**
+
+| 関数 | 役割 |
 | --- | --- |
 | `RegisterConfig[T](prefix)` | 設定構造体を1つ、TOML の prefix に登録する（**generated**） |
 | `Config[T](ctx) T` | 解析済みの構造体を返す。リクエスト外では `nil` を渡してよい |
 | `Env() string` | 解決済みの実行環境トークン |
-| `EnvVar`, `DefaultEnv` | `APP_ENV` と、未設定時に使われるトークン |
-| `EnvDevelopment`, `EnvStaging`, `EnvProduction` | よく使うトークン。他の小文字トークンも有効 |
 | `RegisterSubCommand[T](name, help)` | CLI 専用の型付き入力を登録する |
 | `Command[T]() (T, bool)` | `ParseConfig` 後の、選択・解析済みサブコマンド |
 | `ScaffoldTOML()`, `ScaffoldEnv()` | 登録済みの全 prefix から設定のひな形を生成する |
 | `WriteScaffoldTOML(w)`, `WriteScaffoldEnv(w)` | 同じひな形を writer へ書き出す |
+
+**定数**
+
+| 定数 | 中身 |
+| --- | --- |
+| `EnvVar`, `DefaultEnv` | `APP_ENV` と、未設定時に使われるトークン |
+| `EnvDevelopment`, `EnvStaging`, `EnvProduction` | よく使うトークン。他の小文字トークンも有効 |
 
 `Config` は失敗せず、エラーも返しません。登録済みだが未解析の prefix は宣言された
 既定値を、未登録の型はゼロ値を返します。設定を読むハンドラはレスポンスの経路上に
@@ -63,16 +86,24 @@ sidebar:
 フレームワークの設定構造体もすべて公開されています。`ServerConfig`、
 `MiddlewareConfig`、`SecurityConfig`、`SessionConfig`、`ObservabilityConfig`、
 `HTMLConfig`、`RDBConfig` と、その下にネストする型です。フィールドと既定値は
-[設定キー](/ja/reference/configuration/)に、解説は
+[アプリケーション設定一覧](/ja/reference/configuration/)に、解説は
 [アプリケーション設定](/ja/guides/architecture/configuration/)にあります。
 
 ## リクエストを読む
 
-| シンボル | 役割 |
+**`Authentication`** —— 認証ミドルウェアが出した検証済みの結果。ミドルウェアが
+無ければゼロ値です。
+
+| | |
 | --- | --- |
-| `Parse[T](r) (T, error)` | パス、クエリ、ボディ、ヘッダ、Cookie、メソッドをひとつの構造体へバインドする |
 | `RequestAuthentication(ctx) Authentication` | 検証済みの認証結果 |
 | `Authenticated(ctx) bool` | 検証済みの identity を持つリクエストかどうか |
+
+**関数**
+
+| 関数 | 役割 |
+| --- | --- |
+| `Parse[T](r) (T, error)` | パス、クエリ、ボディ、ヘッダ、Cookie、メソッドをひとつの構造体へバインドする |
 | `IsBot(r) bool` | クライアントが境界ランタイムを実行するかどうか |
 
 認可が消費すべきなのは `RequestAuthentication` であって、Cookie の有無ではありません。
@@ -88,53 +119,120 @@ sidebar:
 
 ## レスポンスを書く
 
-| シンボル | 役割 |
-| --- | --- |
-| `WriteHTML(w, r, leaf)` | 生成済みフラグメント1つを、登録済みのドキュメントシェルの中に描画する |
-| `WriteHTMLPage(w, r, wrappers, leaf, ...HTMLOption)` | ページをレイアウトとドキュメントシェルの中に描画する（**generated**） |
-| `WriteHTMLChain(w, r, wrappers, leaf, ...HTMLOption)` | 明示的なラッパチェーンを描画する |
-| `WriteHTMLFragment(w, r, fragment)` | テンプレート1つをレスポンス全体として描画する。シェルなし、head のマージなし |
-| `WriteAPI[T](w, r, value)` | ネゴシエートした形式で型付きレスポンスを書く |
-| `WriteProblem(w, r, err)` | エラーを RFC の problem レスポンスへ写す |
-| `LifecycleHeaders(Lifecycle) (Middleware, error)` | RFC 9745 DeprecationとRFC 8594 Sunsetのミドルウェア |
-| `WriteStream[T](w, r, fn)` | `Accept` から SSE、NDJSON、JSON 配列のいずれかを選び、`fn` をストリームに対して実行する |
-| `Stream.Write(value)` | 値を1つ書いて flush する。`fn` が戻るとランタイムが閉じる |
-| `SetStreamErrorHandler(fn)` | ステータス送信後に起きたストリームまたはソケットの失敗を受け取る |
-| `WebSocket[In, Out](w, r, fn) error` | リクエストをアップグレードし、型付きソケットに対して `fn` を走らせる。返すのはハンドシェイクのエラーだけ |
-| `WebSocketWith[In, Out](w, r, opts, fn) error` | 呼び出しごとの `SocketOptions` を取る `WebSocket` |
-| `Socket.Read() (In, error)` | メッセージを1つ読み、`In` にデコードする（**生成**）。呼ぶのは1つの goroutine から |
-| `Socket.Write(Out) error` | `Out` からエンコードしてメッセージを1つ書く（**生成**）。どの goroutine からでも安全 |
-| `Socket.Close() error` | クローズハンドシェイクで終了する。`fn` が戻ったときもランタイムが行う |
-| `Socket.Subprotocol() string` | ハンドシェイクが合意したサブプロトコル。無ければ `""` |
-| `SetSocketDefaults(SocketOptions)` | プロセス全体のソケットの上限・デッドライン・オリジンポリシーを設定する |
-| `SocketDefaults() SocketOptions` | 未設定のフィールドを解決した実効デフォルト |
-| `RegisterHTMLDocument(wrapper)` | アプリケーションのドキュメントシェルを差し込む（**generated**） |
-| `RegisterHTMLErrorPage(resolve)` | エラーページのリゾルバを差し込む。未登録なら最小限の組み込みページ |
-| `RuntimeScriptURL() string` | 境界ランタイムモジュールの絶対パス |
-| `PublicAssetURL(name) string` | このビルドが静的アセット1つを配信する URL。リビジョンセグメント込み |
-
 ストリーミングするかどうかをハンドラに尋ねるものは、ここにひとつもありません。
 await 境界を開けるチェーンはストリーミングし、開けないチェーンはバッファされて
 まとめてコミットされます。その判断は合成されたテンプレートの性質であって、合成した
 ハンドラの決定ではありません。だからこそ、非同期レンダリングの導入で変わるのは
 ハンドラの引数であって、`Write` の呼び出しではないのです。
 
-`WriteHTMLFragment` は意図的な例外で、常にバッファします。これが答えるのは htmx
-系ライブラリによる差し替えで、対象のドキュメントはすでに存在し、ブラウザのパーサは
-レスポンスの到着を見ません。ボディはライブラリが受け取って挿入するため、
-フレームワークが書いたマーカーでは、確定した境界を元のプレースホルダへ結びつけ
-られないのです。head への寄与を持つフラグメントは黙って捨てられるのではなく
-エラーになります。ここには受け取る head が存在しません。
+### HTML
+
+**`HTMLFragment`** —— パラメータをバインド済みの生成テンプレート。作るのは生成
+コードで、以下はそれを受け取る側です。
+
+| | |
+| --- | --- |
+| `WriteHTML(w, r, leaf)` | フラグメント1つを、登録済みのドキュメントシェルの中に描画する |
+| `WriteHTMLFragment(w, r, fragment)` | テンプレート1つをレスポンス全体として描画する。シェルなし、head のマージなし |
+
+**`HTMLWrapper`** —— 生成テンプレートのラッパ。レイアウトか、ドキュメントシェルです。
+
+| | |
+| --- | --- |
+| `WriteHTMLPage(w, r, wrappers, leaf, ...HTMLOption)` | ページをレイアウトとドキュメントシェルの中に描画する（**generated**） |
+| `WriteHTMLChain(w, r, wrappers, leaf, ...HTMLOption)` | 明示的なラッパチェーンを描画する |
+| `RegisterHTMLDocument(wrapper)` | アプリケーションのドキュメントシェルを差し込む（**generated**） |
+
+**`HTMLOption`** —— 1回の描画を調整する。`HTMLConfig` が渡すオプションへの追加に
+なります。
+
+**関数**
+
+| 関数 | 役割 |
+| --- | --- |
+| `RegisterHTMLErrorPage(resolve)` | エラーページのリゾルバを差し込む。未登録なら最小限の組み込みページ |
+
+`WriteHTMLFragment` は上のストリーミング規則に対する意図的な例外で、常にバッファ
+します。これが答えるのは htmx 系ライブラリによる差し替えで、対象のドキュメントは
+すでに存在し、ブラウザのパーサはレスポンスの到着を見ません。ボディはライブラリが
+受け取って挿入するため、フレームワークが書いたマーカーでは、確定した境界を元の
+プレースホルダへ結びつけられないのです。head への寄与を持つフラグメントは黙って
+捨てられるのではなくエラーになります。ここには受け取る head が存在しません。
+
+### 型付きレスポンスと problem
+
+| 関数 | 役割 |
+| --- | --- |
+| `WriteAPI[T](w, r, value)` | ネゴシエートした形式で型付きレスポンスを書く |
+| `WriteProblem(w, r, err)` | エラーを RFC の problem レスポンスへ写す |
+| `LifecycleHeaders(Lifecycle) (Middleware, error)` | RFC 9745 DeprecationとRFC 8594 Sunsetのミドルウェア |
+
+`WriteProblem` が受け取る problem 値は[エラー](#エラー)にあります。
+
+### ストリーム
+
+**`Stream[T]`** —— コールバックが書き込む、開いたままのレスポンス。
+
+| | |
+| --- | --- |
+| `WriteStream[T](w, r, fn)` | `Accept` から SSE、NDJSON、JSON 配列のいずれかを選んで開き、`fn` をそれに対して実行する |
+| `Stream.Write(value) error` | 値を1つ書いて flush する。`fn` が戻るとランタイムが閉じる |
+
+**関数**
+
+| 関数 | 役割 |
+| --- | --- |
+| `SetStreamErrorHandler(fn)` | ステータス送信後に起きたストリームまたはソケットの失敗を受け取る |
+
+### WebSocket
+
+**`Socket[In, Out]`** —— コールバックが相手にする、アップグレード済みの接続。
+
+| | |
+| --- | --- |
+| `WebSocket[In, Out](w, r, fn) error` | リクエストをアップグレードし、`fn` をそれに対して走らせる。返すのはハンドシェイクのエラーだけ |
+| `WebSocketWith[In, Out](w, r, opts, fn) error` | 呼び出しごとの `SocketOptions` を取る同等物 |
+| `Socket.Read() (In, error)` | メッセージを1つ読み、`In` にデコードする（**generated**）。呼ぶのは1つの goroutine から |
+| `Socket.Write(Out) error` | `Out` からエンコードしてメッセージを1つ書く（**generated**）。どの goroutine からでも安全 |
+| `Socket.Close() error` | クローズハンドシェイクで終了する。`fn` が戻ったときもランタイムが行う |
+| `Socket.Subprotocol() string` | ハンドシェイクが合意したサブプロトコル。無ければ `""` |
+
+**`SocketOptions`** —— ソケット1本が従う上限・デッドライン・オリジンポリシー。
+
+| | |
+| --- | --- |
+| `SocketDefaults() SocketOptions` | 未設定のフィールドを解決した実効デフォルト |
+| `SetSocketDefaults(SocketOptions)` | プロセス全体の上限・デッドライン・オリジンポリシーを設定する |
+
+### アセットの URL
+
+| 関数 | 役割 |
+| --- | --- |
+| `RuntimeScriptURL() string` | 境界ランタイムモジュールの絶対パス |
+| `PublicAssetURL(name) string` | このビルドが静的アセット1つを配信する URL。リビジョンセグメント込み |
 
 ## エラー
 
-| シンボル | 役割 |
+**`Problem`** —— アプリケーション向けの problem 値。`Status`, `Title`, `Code`,
+`Message`, `Fields`, `Cause`, `RateLimit` を持ちます。
+
+| | |
 | --- | --- |
-| `Problem` | アプリケーション向けの problem 値。`Status`, `Title`, `Code`, `Message`, `Fields`, `Cause`, `RateLimit` |
 | `BadRequest`, `Unauthorized`, `Forbidden`, `NotFound`, `Conflict`, `PayloadTooLarge`, `TooManyRequests`, `InternalServerError`, `ServiceUnavailable` | よく使うステータスのコンストラクタ |
 | `RateLimited(RateLimit, ...any) Problem` | `Retry-After`と`X-RateLimit-*`メタデータを持つ429 |
 | `Validation(...FieldError) Problem` | 検出したフィールド失敗をすべて載せた 400 |
-| `Field(field, location, message) FieldError` | フィールド単位の失敗1件 |
+
+**`FieldError`** —— `Problem` の中に入る、フィールド単位の失敗1件。
+
+| | |
+| --- | --- |
+| `Field(field, location, message) FieldError` | フィールド単位の失敗を1件作る |
+
+**型**
+
+| 型 | 中身 |
+| --- | --- |
+| `RateLimit` | 429 が運ぶ再試行のメタデータ |
 | `HTMLErrorPage` | `func(Problem) HTMLFragment`。`RegisterHTMLErrorPage` が受け取る形 |
 | `PublicError` | 安全な射影を自前で提供するエラーが実装する |
 | `AsyncError` | `recover` 節が描画する、表示して安全な失敗 |
@@ -151,15 +249,13 @@ await 境界を開けるチェーンはストリーミングし、開けない�
 
 ## 非同期レンダリング
 
-| シンボル | 役割 |
+**`Pending[T]`** —— ハンドラが描画前に開始し、テンプレートが await する値。
+
+| | |
 | --- | --- |
-| `Pending[T]` | ハンドラが描画前に開始し、テンプレートが await する値 |
 | `Go[T](ctx, work) Pending[T]` | 専用の goroutine で処理を開始し、ハンドルを返す |
 | `Resolved[T](value) Pending[T]` | すでに値で確定しているハンドル |
 | `Failed[T](err) Pending[T]` | すでにエラーで確定しているハンドル |
-| `HTMLFragment` | パラメータをバインド済みの生成テンプレート |
-| `HTMLWrapper` | 生成テンプレートのラッパ |
-| `HTMLOption` | 1回の描画を調整する。`HTMLConfig` が渡すオプションへの追加になる |
 
 `async T` と宣言したテンプレートパラメータは、生成される `Params` 構造体では
 `Pending[T]` フィールドになります。`Go` に渡したコンテキストは処理の寿命を縛り、
@@ -172,7 +268,7 @@ panic はハンドルのエラーになり、プロセスを落とさずに境�
 
 ## データベース
 
-| シンボル | 役割 |
+| 関数 | 役割 |
 | --- | --- |
 | `DB(ctx) (*sql.DB, bool)` | 有効な接続グループのプール |
 | `DBDriver(ctx) (string, bool)` | そのプールのドライバスキーム |
@@ -194,13 +290,23 @@ panic はハンドルのエラーになり、プロセスを落とさずに境�
 
 ## ロギング
 
-| シンボル | 役割 |
+**`Log`** —— コンテキストに結びついたロガー。
+
+| | |
 | --- | --- |
 | `Logger(ctx) Log` | リクエスト、その固定属性、有効なスパンに結びついたロガー |
-| `Log` | コンテキストに結びついたロガーの型 |
-| `WithLogAttributes(ctx, ...Attribute) context.Context` | 返したコンテキストから取るすべてのレコードに属性を足す |
+
+**`Attribute`** —— スカラーのキーと値の組。スパン属性と同じ型です。
+
+| | |
+| --- | --- |
 | `String`, `Int`, `Int64`, `Float64`, `Bool`, `Duration`, `Err` | 属性のコンストラクタ |
-| `Attribute` | スカラーのキーと値の組。スパン属性と同じ型 |
+| `WithLogAttributes(ctx, ...Attribute) context.Context` | 返したコンテキストから取るすべてのレコードに属性を足す |
+
+**定数**
+
+| 定数 | 中身 |
+| --- | --- |
 | `Level`, `LevelTrace`〜`LevelOff` | 重要度。`slog` が名前を持たない trace が debug の1段下にある |
 
 `Logger` が呼び出せないものを返すことはないので、ハンドラ側に nil チェックは要り
@@ -220,12 +326,24 @@ pw.Logger(ctx).Info("loaded", pw.Int("rows", n))
 
 ## トレーシング
 
-| シンボル | 役割 |
+**`Span`** —— 開始済みのスパン。`End` で閉じます。
+
+| | |
 | --- | --- |
 | `StartSpan(ctx, name, ...Attribute) (context.Context, *Span)` | 有効なスパンの子を開く |
 | `StartSpanKind(ctx, name, kind, ...Attribute)` | internal でない処理向けの同等物 |
-| `Span`, `SpanKind`, `SpanKindInternal`〜`SpanKindConsumer` | スパンの型と種別 |
+
+**定数**
+
+| 定数 | 中身 |
+| --- | --- |
+| `SpanKind`, `SpanKindInternal`〜`SpanKindConsumer` | そのスパンがどんな処理を表すか |
 | `StatusUnset`, `StatusOK`, `StatusError` | スパンのステータスコード |
+
+**関数**
+
+| 関数 | 役割 |
+| --- | --- |
 | `TraceID(ctx) string`, `SpanID(ctx) string` | 現在の識別子。トレース外では空文字列 |
 | `Traced(ctx) bool` | 有効なスパンコンテキストを持つかどうか |
 
@@ -238,9 +356,16 @@ pw.Logger(ctx).Info("loaded", pw.Int("rows", n))
 
 ## OpenAPI と API ドキュメント
 
-| シンボル | 役割 |
+**`OpenAPIInfo`** —— ドキュメントのタイトル、バージョン、説明。
+
+| | |
 | --- | --- |
-| `SetOpenAPIInfo(OpenAPIInfo) error` | ドキュメントのタイトル、バージョン、説明を設定する |
+| `SetOpenAPIInfo(OpenAPIInfo) error` | それらをドキュメントに設定する |
+
+**関数**
+
+| 関数 | 役割 |
+| --- | --- |
 | `AssembleOpenAPI() ([]byte, error)` | 登録済みの全オペレーションからドキュメントを組み立てる |
 | `OpenAPIJSON(w, r)` | そのドキュメントをハンドラとして配信する |
 | `ScalarUI(specURL) http.Handler` | `specURL` のドキュメントに対する Scalar のリファレンスページ |
@@ -253,12 +378,23 @@ pw.Logger(ctx).Info("loaded", pw.Int("rows", n))
 
 ## 拡張
 
-| シンボル | 役割 |
+**`Extension`** —— `Name`, `Slot`, `Setup`, `Close` を持ちます。
+
+| | |
 | --- | --- |
 | `RegisterExtension(Extension)` | フレームワークのチェーンに機能を1つ追加する |
-| `Extension` | `Name`, `Slot`, `Setup`, `Close` |
+
+**`Middleware`** —— `func(http.Handler) http.Handler`。
+
+| | |
+| --- | --- |
+| `RegisterMiddleware(slot, name, Middleware)` | アプリケーションのミドルウェアをそのスロットに1つ足す。チェーンが組まれる前に `main` から呼ぶ |
+
+**型**
+
+| 型 | 中身 |
+| --- | --- |
 | `Slot`, `SlotSession`, `SlotAuthentication`, `SlotGuard` | リクエストチェーン上の位置。小さいほど先に走る |
-| `Middleware` | `func(http.Handler) http.Handler` |
 
 インポートされたパッケージが `init` から `RegisterExtension` を呼ぶため、設定と
 コードに寄与するのはリンクされた機能だけです。`Setup` はフレームワーク初期化の中で

@@ -18,9 +18,9 @@ recreates it.
 
 Three commands run it. `pw dev` watches the project's sources and regenerates
 whenever one changes, then rebuilds and restarts. `pw build` generates before it
-compiles, and [`pw prepare`](/pw/project/prepare/) is that same work stopping
-short of the compiler, for a build that TinyGo or your own `go build` drives.
-`pw generate` runs it once by hand.
+compiles, and [`pw generate`](/pw/project/generate/) is that same work stopping
+short of the compiler, for a build that TinyGo or your own `go build` drives — or
+for running it once by hand.
 
 The scan is not the whole module. `popcornwave.toml` names directories per
 purpose, and `.pw.sql` belongs to the `queries` purpose:
@@ -172,10 +172,19 @@ and `city` is `$1` rather than `$2`. With nothing set the `WHERE` disappears too
 An operator that is not dangling is written exactly where you put it, so nothing
 changes about the statements you already have.
 
-Put the operator between the two conditions rather than inside one of them. Both
-work, but `{if hasCity}AND city = {city}{/if}` reads as part of that one condition
-when it really joins two, and the whole point is a template that reads as its own
-output.
+### Where to put the operator
+
+Put it between the two conditions, as above, rather than inside one of them. Both
+work identically — `{if hasCity}AND city = {city}{/if}` is what older templates
+look like and it still renders correctly — but an operator inside a branch reads
+as part of that one condition when it really joins two, and a template that reads
+as its own output is the whole point.
+
+If you have been anchoring a clause with `WHERE 1 = 1` so that every predicate
+could carry its own `AND`, you no longer need to. Worth removing, too: an anchored
+clause is never empty, so its `WHERE` can never drop out.
+
+### Commas, and partial writes
 
 The same withholding manages commas, so a partial UPDATE and a partial INSERT are
 ordinary:
@@ -187,22 +196,25 @@ VALUES ({id}, {name}{if withCity}, {city}{/if})
 }
 ```
 
-Guard the column and its value with the same condition, as above. If they can
+Guard the column and its value with the same condition, as above. If the two can
 disagree on any branch, generation says so rather than letting the database reject
 the statement in production.
 
-`{else}` is available, and conditions must be `bool`. Two limits are worth knowing
-before you plan around this. **The result shape cannot vary** — a conditional SELECT
-or RETURNING column is rejected, because no single generated type could describe
-every branch. And a `CASE` arm cannot hold a fragment that might emit nothing,
-because there is no keyword or separator to withhold along with it; give the
-condition an `{else}`, or put the whole `CASE` inside it.
+### The result shape cannot vary
 
-Reach for something else when the *structure* varies rather than the conditions — a
-different set of joins, a different result shape. Two statements with honest names
-beat one with six flags, and nothing here can vary a column list anyway. The
-[reference](/reference/sql-templates/#conditional-sql) has the exhaustive list of
-which clauses are managed.
+Conditional SELECT or RETURNING columns are rejected because no single generated
+type could describe every branch.
+
+One other limit is worth knowing before you plan around this: a `CASE` arm cannot
+hold a fragment that might emit nothing, because there is no keyword or separator
+to withhold along with it. Give the condition an `{else}`, or put the whole `CASE`
+inside it.
+
+Reach for something else when the *structure* varies rather than the conditions —
+a different set of joins, a different result shape. Two statements with honest
+names beat one with six flags, and nothing here can vary a column list anyway. The
+[reference](/reference/sql-templates/#operators-and-commas-between-conditions) has
+the exhaustive list of which clauses are managed.
 
 ## Predicates and relations
 
@@ -249,8 +261,15 @@ is a property of the template rather than of runtime data, so the whole proof ru
 at generation time. `pw generate` rejects a statement whose WHERE could be empty
 on any branch, and nothing is emitted into the generated code to check it again at
 run time. A conditional WHERE is therefore fine when every branch fills it — an
-`{if}`/`{else}` pair does — and rejected when one branch leaves it empty. There is
-no opt-in for a deliberate full-table modification; write it as a
+`{if}`/`{else}` pair does — and rejected when one branch leaves it empty:
+
+```
+queries/todos.pw.sql:41:1: UPDATE and DELETE statements require a WHERE clause that is non-empty on every branch
+```
+
+The clause elision above does not reach a mutation, because the failure there is
+not a syntax error the database reports but a full-table write it accepts. There is
+no opt-in for a deliberate one; write it as a
 [migration](/productivity/migrations/).
 
 **SELECT columns must match the result type**, in order and by name or alias.
@@ -268,11 +287,25 @@ err := pw.Transaction(r.Context(), func(ctx context.Context) error {
 })
 ```
 
-The transaction boundary remains explicit; the framework never wraps a request
-in one automatically. Nesting still works. An inner `pw.Transaction` opens a
-savepoint, so its failure rolls back only the inner work while the outer
-transaction remains usable. A driver without known savepoint support returns
-`ErrSavepointUnsupported` instead of silently flattening the nesting.
+The transaction boundary remains explicit, and no request is wrapped in one
+automatically. Frameworks that open a transaction when the request starts and
+commit when it ends make the common case pay for the rare one: a page that reads
+one row, or a handler that writes exactly one, buys a `BEGIN` and a `COMMIT` it
+had no use for, plus a connection held for the whole request rather than for the
+statement. Here that cost is charged only where the boundary is asked for.
+
+The other half of the reason outlives the benchmark. A transaction is where a
+database exposes what it is actually good at — isolation levels, a read-only
+transaction that a replica can serve, savepoints, the choice of committing
+before a slow call rather than after it. A layer that opens and closes the
+boundary for you has to pick one behaviour for all of that, and what it picks is
+the conservative default. Leaving the boundary in the application keeps those
+choices reachable.
+
+Nesting still works. An inner `pw.Transaction` opens a savepoint, so its failure
+rolls back only the inner work while the outer transaction remains usable. A
+driver without known savepoint support returns `ErrSavepointUnsupported` instead
+of silently flattening the nesting.
 
 Raw access is there when a query does not fit the generated layer:
 
@@ -317,7 +350,7 @@ See [Slow Query Diagnostics](/productivity/query-diagnostics/).
 
 The complete language — every statement kind, the generated signatures, the
 `export` casing rule, and `ScanRows` for grouping JOIN rows — is
-[SQL Templates](/reference/sql-templates/).
+[SQL Query Format](/reference/sql-templates/).
 
 Schema and starting rows are a separate concern from the statements above, and
 they live with the rest of the development tooling: [Database

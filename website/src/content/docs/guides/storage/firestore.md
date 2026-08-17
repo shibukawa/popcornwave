@@ -108,7 +108,7 @@ For direct entity operations, take the process handle once with
 `firestore.Handle(ctx)` and use `firestorebind.StoreOn`, `InsertOn`, `LoadOn`,
 `UpdateOn`, and `RemoveOn`. The client is held as process state rather than a
 request context value, so nothing pays a context lookup per call. The
-[Firestore declarations reference](/reference/firestore-templates/) lists the
+[Firestore query format](/reference/firestore-templates/) lists the
 tags, query shapes, and generated signatures.
 
 ## Deploy the policies the service owns

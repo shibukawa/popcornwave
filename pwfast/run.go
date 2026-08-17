@@ -47,10 +47,11 @@ func WithPublicFS(publicFS fs.FS) Option {
 // WithRuntimeOptions folds one contribution into what the chain is built from.
 //
 // It is how a plugin that installs frames reaches this transport. There is no
-// extension registry here — a chain assembled from arguments cannot silently
-// gain a frame because something was imported — so a plugin serving both
-// transports registers on the other one and is named here. An authentication
-// plugin's Apply is exactly this shape:
+// extension registry here — an imported capability cannot install a frame this
+// chain would gain without the application saying so — which is why a plugin
+// serving both transports registers on the other one and is named here. An
+// application's own middleware has RegisterMiddleware instead. An
+// authentication plugin's Apply is exactly this shape:
 //
 //	auth, err := authfast.Setup(ctx)
 //	pwfast.Run(ctx, handler, pwfast.WithRuntimeOptions(auth.Apply))
@@ -271,6 +272,11 @@ func runtimeResources(observability *pwobservability.Resolved) pwruntime.Resourc
 		Connections: pwdatabase.Connections(),
 		Query:       pwobservability.QueryDiagnostics(config, pwconfig.Development()),
 		Trace:       pwobservability.TracingPolicy(config, observability.Tracing()),
+		// One configuration enforces one policy on either transport, so the
+		// instrument set is resolved here exactly as pw resolves it. What differs
+		// is only what this build renders: it commits after a buffered render, so
+		// its render metrics carry the buffered mode and no boundary series.
+		Metrics: pwobservability.MetricsPolicy(config, observability.MetricProvider(), observability.Tracing()),
 	}
 }
 

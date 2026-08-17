@@ -35,7 +35,7 @@ to move the things Go modules alone cannot carry, and a package section on a
 module that has none of them is a manifest nobody needs.
 
 The other boundary is firmer: **a component in one module is not callable from
-another module's template yet.** `.pw.html` can only reach components declared in
+another module's template.** `.pw.html` can only reach components declared in
 its own generation unit, so a package that exists to export components is not
 something you can build today. Packages that ship handlers, a `pages/` tree, a
 middleware, a schema, or browser assets work now.
@@ -154,7 +154,7 @@ So a package repository carries no `**/*_pw_gen.go` ignore rule, and its release
 gate is:
 
 ```sh
-pw generate --check
+pw check
 ```
 
 A tag that ships a stale artifact fails to compile in every project that

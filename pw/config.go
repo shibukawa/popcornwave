@@ -4,9 +4,11 @@ import (
 	"context"
 	"sync"
 
+	"github.com/shibukawa/popcornwave/contrib/otel/metric"
 	"github.com/shibukawa/popcornwave/middlewares"
 	"github.com/shibukawa/popcornwave/pwconfig"
 	"github.com/shibukawa/popcornwave/pwdatabase"
+	"github.com/shibukawa/popcornwave/pwobservability"
 	"github.com/shibukawa/popcornwave/pwruntime"
 	"github.com/shibukawa/popcornwave/sessionconfig"
 	"github.com/shibukawa/tinybind-go/configbind"
@@ -40,6 +42,8 @@ type (
 	ObservabilityConfig = pwconfig.ObservabilityConfig
 	// TraceConfig selects the spans the framework opens inside a request.
 	TraceConfig = pwconfig.TraceConfig
+	// MetricsConfig selects the instruments the framework records.
+	MetricsConfig = pwconfig.MetricsConfig
 	// OtelExportConfig configures OTLP/HTTP export of traces and logs.
 	OtelExportConfig = pwconfig.OtelExportConfig
 	// QueryLogConfig controls per-statement query logging.
@@ -145,12 +149,14 @@ var runtimeState = struct {
 }{}
 
 // runtimeResources builds the capsule every request is served with. exporting
-// says whether a span this process opens has anywhere to go, which is what the
-// automatic tracing setting reads.
-func runtimeResources(backend *pwruntime.LogBackend, exporting bool) pwruntime.Resources {
+// says whether telemetry this process produces has anywhere to go, which is what
+// the automatic tracing and metrics settings read.
+func runtimeResources(backend *pwruntime.LogBackend, meters *metric.Provider, exporting bool) pwruntime.Resources {
 	observability := Config[ObservabilityConfig](nil)
 	query := resolveQueryDiagnostics(observability, Development())
 	tracing := resolveTracing(observability, exporting)
+	metrics := pwobservability.MetricsPolicy(observability, meters, exporting)
+	registerObservedMetrics(observability, meters, metrics)
 	db, driver := pwdatabase.Default()
 	return pwruntime.Resources{
 		Configs:     pwconfig.Snapshot(),
@@ -160,5 +166,6 @@ func runtimeResources(backend *pwruntime.LogBackend, exporting bool) pwruntime.R
 		Connections: pwdatabase.Connections(),
 		Query:       query,
 		Trace:       tracing,
+		Metrics:     metrics,
 	}
 }

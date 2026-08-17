@@ -41,7 +41,7 @@ build_modes_today:
     and passes no tag
   no_debug_build: api:cli-build accepts no arguments at all and refuses any, so
     the shared-test artifact cannot be asked for today
-  who_produces_the_tree: api:cli-dev, api:cli-build, and api:cli-prepare, all
+  who_produces_the_tree: api:cli-dev, api:cli-build, and api:cli-generate, all
     through one function reading assets of data:project-config. The asset build
     takes no environment and no mode input of any kind
 shapes: concept:build-artifact-shapes holds what each artifact carries and which
@@ -59,9 +59,9 @@ where_the_switch_cannot_live:
     wants symbols, not the development identity provider
 decided_shape:
   form: an explicit debug flag on the build invocation, off by default
-  on: api:cli-build and api:cli-prepare both, not just the first
-  why_prepare_too: >
-    api:cli-prepare is api:cli-build without the compile, and it exists for
+  on: api:cli-build and api:cli-generate both, not just the first
+  why_the_generate_command_too: >
+    api:cli-generate is api:cli-build without the compile, and it exists for
     builds this project does not drive: the TinyGo Dockerfile, a cross-compiled
     go build with the operator's own flags, an image builder owning the compile
     step. Those are the container deployment paths, so a flag only api:cli-build
@@ -160,7 +160,7 @@ acceptance:
     byte-identical, which is the user's stated reason for the requirement
   - the same commit built with the flag serves a map and resolves a browser stack
     trace to the authored TypeScript
-  - api:cli-prepare honors the flag, so the container path can produce either
+  - api:cli-generate honors the flag, so the container path can produce either
     shape
   - pw dev still resolves a stack trace to the authored TypeScript line
   - flipping the flag rebuilds the bundle rather than replaying the cached one

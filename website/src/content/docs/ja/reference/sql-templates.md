@@ -1,16 +1,16 @@
 ---
-title: SQL テンプレート
-description: .pw.sql 言語の全体。ステートメントの種類、パラメータの型、条件付き SQL、predicate と relation、そしてステートメントが拒否される検査。
+title: SQL クエリフォーマット
+description: .pw.sql の全仕様。ステートメントの種類、パラメータ型、条件付き SQL、predicate と relation、生成時の検査について説明します。
 sidebar:
-  order: 4
+  order: 3
 ---
 
 `.pw.sql` は `pw generate` が Go にコンパイルする型付きクエリ言語です。中に書いた SQL は
 SQL のままで、翻訳も書き換えも移植もされません。一方で Go との境界は検査されます。
 パラメータの型、結果のカラム、`WHERE` 句の有無は、どれもビルド時に決まります。
 
-このページは言語の全体です。生成された層と生の接続のどちらを使うか、ステートメントが
-どうやって接続を見つけるかは[クエリー](/ja/guides/storage/queries/)と
+ここでは `.pw.sql` の言語仕様をまとめます。生成された API と生の接続の使い分けや、
+ステートメントが接続を解決する仕組みについては[クエリー](/ja/guides/storage/queries/)と
 [リレーショナルデータベース](/ja/guides/storage/rdb/)にあります。
 
 ## ファイルの構成

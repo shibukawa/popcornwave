@@ -56,14 +56,19 @@ Run these from the project root (inside `devbox shell` if the project has
 
 ```bash
 pw fmt             # rewrite template/query sources into canonical form
-pw generate        # rebuild *_pw_gen.go from sources; fails on syntax/type errors
+pw generate        # write every build input: *_pw_gen.go, the stylesheet, dist/public
 go build ./...     # the generated code and your Go compile together
 go test ./...      # unit tests
 pw doctor          # configuration and project health report
 ```
 
-- `pw fmt --check` and `pw generate --check` verify without writing (CI, and
-  package projects whose artifacts are committed).
+- `pw fmt --check` and `pw check` verify without writing (CI, and package
+  projects whose artifacts are committed). `pw check` compares generated Go
+  only: the asset tree and the stylesheet are gitignored, so there is nothing
+  committed to compare them against.
+- `pw generate --code-only` stops after the generated Go. Use it in an inner
+  loop; do not hand its output to a compiler, since `public.go` embeds a
+  `dist/public` it did not build.
 - `pw i18n check` additionally reports messages nothing references and
   translations that drifted from the source text they were translated from.
   Run it in a project that declares `[i18n]`; a missing or misspelled message
@@ -121,13 +126,13 @@ development. `pw migrate status` shows where you are.
 | `pw init` | create a project in a new directory (wizard, or `--yes` + flags) |
 | `pw add <capability>` | enable a capability declined at init (database, auth, tailwind, …) |
 | `pw new [handler\|page]` | scaffold a handler or a page beside the ones you have |
-| `pw generate [--check]` | regenerate everything derived from your sources |
+| `pw generate [--code-only] [--backend …]` | write everything a compiler needs, stopping before the compiler |
+| `pw check` | report generated files that are stale or missing |
 | `pw fmt [--check] [--stdin=html\|sql\|dynamo] [<path>…]` | format template sources into canonical form |
 | `pw i18n check\|extract\|rename\|export\|import` | reconcile message catalogs against the templates that use them |
 | `pw migrate <action>` | inspect and apply database migrations |
 | `pw seed [<name>…]` | load seed datasets into the database |
-| `pw prepare [--backend …]` | generate and build assets, stopping before the compiler |
-| `pw build [--backend …] [--target …] [--debug]` | generate, build assets, and compile the project |
+| `pw build [--backend …] [--target …] [--debug]` | run `pw generate` and then compile the project |
 | `pw dev` | watch, regenerate, rebuild, restart, and run dev services |
 | `pw doctor [--env=…] [--format=json] [--strict] [--online]` | report what an environment will actually run |
 | `pw version` | print the version, revision, and toolchain |

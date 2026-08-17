@@ -1,6 +1,6 @@
 ---
 title: DynamoDB
-description: TinyGo でも動く型付きの DynamoDB ストア。タグ付きレコード、宣言型クエリ、そしてマイグレーションファイルではなく比較で適用されるスキーマ。
+description: TinyGo でも使える型付き DynamoDB ストア。タグ付きレコード、宣言型クエリ、現在の状態との差分から適用するスキーマを説明します。
 sidebar:
   order: 2
 ---
@@ -158,12 +158,12 @@ for reading, err := range records.ReadingsSince(ctx, sensor, from) {
 なります。パラメータの型は、そのタグが属性をどう保存するかと突き合わされます。そして属性は
 無条件にエイリアスされるので、DynamoDB の 573 個の予約語のどれも式にそのまま現れません。
 
-filter、projection、condition、update の各式はまだ宣言できません。セカンダリインデックスも
+filter、projection、condition、update の各式は宣言できません。セカンダリインデックスも
 同様なので、宣言型クエリはテーブル自身のキーに対して走ります。宣言で表せないものには、
 検査のない文字列のキー条件が引き続き使えます。
 
 タグのオプション、属性の型、キー述語、生成時の検査はすべて
-[DynamoDB テンプレート](/ja/reference/dynamo-templates/)にあります。
+[DynamoDB クエリフォーマット](/ja/reference/dynamo-templates/)にあります。
 
 ## 宣言上の名前と、実際の名前
 

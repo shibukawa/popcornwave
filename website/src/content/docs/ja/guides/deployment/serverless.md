@@ -1,6 +1,6 @@
 ---
 title: サーバーレスホスティング
-description: Popcorn Wave が対応する scale-to-zero / Functions ランタイムと、HTTP アダプターが必要になる境界。
+description: Popcorn Wave が対応する scale-to-zero / Functions ランタイムと、HTTP アダプターが必要になる条件。
 sidebar:
   order: 3
 ---
@@ -16,9 +16,9 @@ HTTP プロセスを起動するのか、export されたハンドラーを要�
 | invocation を HTTP に変換するアダプター | AWS Lambda Web Adapter | 対応済み。デプロイ物にアダプターを追加 |
 | HTTP forwarding custom handler | Azure Functions | HTTP-only function に対応済み |
 | リモートビルドされる export 済み Go handler | Vercel Go、Cloud Run functions | source staging 生成で対応済み |
-| プロバイダー固有イベント | DigitalOcean Functions、非 HTTP trigger | 保留 |
-| Fetch-event Wasm | Cloudflare Workers | 対応対象。現在は adapter の build 互換性で停止中 |
-| Component-model Wasm | Fastly Compute などの WASI HTTP host | WASI HTTP 対応まで保留 |
+| プロバイダー固有イベント | DigitalOcean Functions、非 HTTP trigger | 非対応 |
+| Fetch-event Wasm | Cloudflare Workers | 非対応 |
+| Component-model Wasm | Fastly Compute などの WASI HTTP host | 非対応 |
 
 コンテナサービスは別ランタイムではありません。生成済みイメージを起動して `PORT` を
 設定するだけで、[`pw.Run`](/ja/reference/runtime/) がそのポートを listen します。
@@ -96,23 +96,6 @@ bridge を使うため、どちらも provider が要求する `http.HandlerFunc
 format、module tidy、vendor 作成、vendor tree からの provider package compile まで成功してから
 ready と報告されます。
 application checkout ではなく生成ディレクトリを deploy してください。
-
-## Cloudflare Workers
-
-Cloudflare 対応は対象から外しません。想定する境界は fetch event を
-`pw.Middlewares` が返す同じ `net/http` handler へ渡す adapter です。`pw.Run` は使わず、
-listener も開きません。
-
-現在の候補は [`github.com/syumai/workers`](https://github.com/syumai/workers) ですが、
-upstream 自身が experimental としており、現状の Popcorn Wave の dependency graph では
-build が通っていません。そのため、今は Wrangler project を生成せず、runtime 対応済みとも
-表示しません。これは Cloudflare を諦める判断ではなく、追跡する compatibility blocker です。
-
-解除テストは小さく固定します。一つの handler を upstream の標準 Go template と TinyGo
-template の両方で build し、`wrangler dev` 上で request body、重複 header、cookie、redirect、
-streaming を検証します。少なくとも一方の compiler path が通ってから、Wasm、JavaScript loader、
-Wrangler configuration の生成を `pw` に追加します。この JavaScript-hosted Wasm 経路は、他の
-edge host 向けに保留している component-model WASI HTTP とは別物です。
 
 ## ランタイム制限は残る
 

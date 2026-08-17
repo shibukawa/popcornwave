@@ -1,8 +1,8 @@
 ---
-title: Firestore Declarations
+title: Firestore Query Format
 description: The complete firestore struct tag and .pw.firestore query surface generated into typed Go operations.
 sidebar:
-  order: 6
+  order: 5
 ---
 
 Firestore declarations have two sources. A Go struct with `firestore` tags

@@ -16,7 +16,8 @@ provider packaging を選びます。
 
 ## 実行内容
 
-1. [`pw generate`](/ja/pw/project/generate/) を実行する
+1. テンプレート、SQL、ページツリー、カタログ、バインディングの呼び出し箇所を
+   ソースの隣の `_pw_gen.go` にコンパイルする
 2. Tailwind が有効なら、スタイルシートを **minify して**ビルドする。これは
    `assets.tailwind.minify` を上書きするので、リリースが誤って非 minify になることは
    ない
@@ -25,6 +26,10 @@ provider packaging を選びます。
    キャッシュヘッダを決めるマニフェストを出力する
 4. `project.main` が開発専用パッケージに依存していればビルドを拒否する
 5. `popcornwave.toml` の `project.main` に対して `go build` を実行する
+
+手順 1 から 4 はそのまま [`pw generate`](/ja/pw/project/generate/) です。この
+コマンドは「それ＋コンパイラ」として定義されているので、内容も順序もずれることが
+ありません。
 
 バイナリは main パッケージ名でプロジェクトルートに置かれます。スキャフォールドされた
 `.gitignore` はこれと、`dist/` 配下すべてを除外済みです。ビルド済みツリーも変換キャッシュも
@@ -82,17 +87,18 @@ GOOS=linux GOARCH=amd64 pw build
 
 生成コードの経路は実行時リフレクションを使わないため、同じソースで TinyGo も
 ターゲットにできます。`pw build` は必ずホストの `go` でリンクするので、TinyGo の
-ビルドは準備手順を走らせてからそのコンパイラを自分で呼びます。
+ビルドは生成を走らせてからそのコンパイラを自分で呼びます。
 
 ```sh
-pw prepare
+pw generate
 tinygo build -scheduler=threads -o myapp ./cmd/myapp
 ```
 
-[`pw prepare`](/ja/pw/project/prepare/) はこのコマンドから最後の手順を引いた
-ものです。`pw generate` ではなくこちらを使ってください。生成 Go は書かれますが
-`dist/public` は作られず、`public.go` が `go:embed` で名指ししているため、
-一度も作られなかったツリーでコンパイラが失敗します。
+[`pw generate`](/ja/pw/project/generate/) はこのコマンドから最後の手順を引いた
+ものです。コンパイラが必要とするツリーを一式残し、`public.go` が `go:embed` で
+名指ししている `dist/public` もそこに含まれます。ここで `--code-only` を付けて
+狭めないでください。そのフラグが書くのは生成 Go だけで、一度も作られなかった
+ディレクトリでコンパイラが失敗します。
 
 `-scheduler=threads` はネットワークプロトコルを話すエンジンには必須です。協調型
 スケジューラの下ではブロッキングなソケット呼び出しがランタイム全体を掴み、ドライバの
@@ -131,6 +137,6 @@ import _ "github.com/shibukawa/tinygodriver/netdev"
 ビルド前に、生成コードが最新であることを検証します。
 
 ```sh
-pw generate --check
+pw check
 pw build
 ```

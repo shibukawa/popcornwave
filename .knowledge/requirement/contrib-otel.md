@@ -3,7 +3,7 @@ id: requirement:contrib-otel
 type: requirement
 title: Minimal OpenTelemetry Trace and Log
 ---
-contrib/otel provides interoperable trace propagation, manual spans, correlated structured logs, and bounded export without metrics or runtime instrumentation magic.
+contrib/otel provides interoperable trace propagation, manual spans, correlated structured logs, and bounded export without runtime instrumentation magic.
 
 ```yaml
 packages:
@@ -32,6 +32,10 @@ attributes:
     - bool
     - int64
     - float64
+planned:
+  metric_api: requirement:framework-metrics, which adds counter, up_down_counter, histogram, and observable instruments plus a /v1/metrics path, and whose inventory is data:framework-metric-set
+  sampler: requirement:trace-head-sampling, which moves the record-everything rule of the trace package into a configured decision at the root span
+  separation: decision:metrics-are-not-sampled, which keeps the two additions from being one
 propagation:
   required: W3C traceparent and tracestate HTTP extract and inject
   extract: the server middleware, on every transport, sharing one validator per decision:propagation-header-access
@@ -51,11 +55,11 @@ otlp_http:
     - copied static headers
     - request timeout
 non_goals:
-  - metrics
   - baggage
   - gRPC exporter
   - stdout exporter or failure fallback
   - auto-instrumentation
+  - tail sampling, which requirement:trace-head-sampling leaves to a collector and which is therefore unavailable on the direct route of flow:telemetry-export
   - full API compatibility with go.opentelemetry.io/otel
 standards:
   trace_context: https://www.w3.org/TR/trace-context/

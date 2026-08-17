@@ -285,5 +285,5 @@ A redraw renders through the page's own options and reaches the same store, so a
 component cached on the page stays cached in the response that replaces it.
 
 [`@cache`](/reference/template-syntax/#cache) is the complete annotation
-reference, and [Configuration Keys](/reference/configuration/#html) lists the keys
+reference, and [Application Configuration Keys](/reference/configuration/#html) lists the keys
 above with their defaults.

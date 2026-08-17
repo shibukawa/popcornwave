@@ -77,6 +77,28 @@ type renderTrace struct {
 	// consulted deep inside a generated plan and the only thing that reaches
 	// there is the render context.
 	cache *renderCacheCounts
+	// metrics is the instrument set, nil when metrics are off. It is why this
+	// type exists for a response with no span at all: a deployment sampling one
+	// trace in ten still measures every render, so span and instrument are
+	// installed independently and every method below tolerates either being
+	// absent.
+	metrics *pwruntime.Metrics
+	// mode is the render mode, kept because it is the metric's one attribute and
+	// the span carries it where a metric cannot read it.
+	mode string
+	// started is when the render began, which is what the duration histogram
+	// measures. The span keeps its own start, and both come from one call.
+	started time.Time
+}
+
+// renderInstruments returns the instrument set of ctx when the render group is
+// recorded, or nil.
+func renderInstruments(ctx context.Context) *pwruntime.Metrics {
+	metrics := pwruntime.MetricPolicy(ctx)
+	if metrics == nil || metrics.RenderDuration == nil {
+		return nil
+	}
+	return metrics
 }
 
 // renderTraced reports whether this request opens render spans.
@@ -99,14 +121,17 @@ func renderPolicy(ctx context.Context) *pwruntime.Tracing {
 // parents everything below it. It returns ctx unchanged and a nil trace when
 // framework render spans are off, which is one nil comparison per response.
 func startRenderTrace(ctx context.Context, mode string, attributes ...Attribute) (context.Context, *renderTrace) {
-	policy := renderPolicy(ctx)
-	if policy == nil {
+	policy, metrics := renderPolicy(ctx), renderInstruments(ctx)
+	if policy == nil && metrics == nil {
 		return ctx, nil
+	}
+	if policy == nil {
+		return newRenderTrace(ctx, nil, metrics, mode, nil)
 	}
 	merged := make([]Attribute, 0, len(attributes)+1)
 	merged = append(merged, attributes...)
 	merged = append(merged, String("pw.render.mode", mode))
-	return newRenderTrace(ctx, policy, mode, merged)
+	return newRenderTrace(ctx, policy, metrics, mode, merged)
 }
 
 // startChainRenderTrace is startRenderTrace for a composed chain, whose four
@@ -118,11 +143,14 @@ func startRenderTrace(ctx context.Context, mode string, attributes ...Attribute)
 // none of it can carry an instance key, a component input, or anything a user
 // supplied, which is what requirement:modern-observability asks of a dimension.
 func startChainRenderTrace(ctx context.Context, mode string, layers int, async, live, bot bool) (context.Context, *renderTrace) {
-	policy := renderPolicy(ctx)
-	if policy == nil {
+	policy, metrics := renderPolicy(ctx), renderInstruments(ctx)
+	if policy == nil && metrics == nil {
 		return ctx, nil
 	}
-	return newRenderTrace(ctx, policy, mode, []Attribute{
+	if policy == nil {
+		return newRenderTrace(ctx, nil, metrics, mode, nil)
+	}
+	return newRenderTrace(ctx, policy, metrics, mode, []Attribute{
 		Int("pw.render.layers", layers),
 		Bool("pw.render.async", async),
 		Bool("pw.render.live", live),
@@ -131,8 +159,13 @@ func startChainRenderTrace(ctx context.Context, mode string, layers int, async, 
 	})
 }
 
-func newRenderTrace(ctx context.Context, policy *pwruntime.Tracing, mode string, attributes []Attribute) (context.Context, *renderTrace) {
-	spanCtx, span := trace.Start(ctx, renderSpanPrefix+mode, trace.WithAttributes(attributes...))
+func newRenderTrace(ctx context.Context, policy *pwruntime.Tracing, metrics *pwruntime.Metrics, mode string, attributes []Attribute) (context.Context, *renderTrace) {
+	spanCtx, boundary := ctx, false
+	var span *trace.Span
+	if policy != nil {
+		spanCtx, span = trace.Start(ctx, renderSpanPrefix+mode, trace.WithAttributes(attributes...))
+		boundary = policy.Boundary
+	}
 	now := time.Now()
 	counts := &renderCacheCounts{}
 	spanCtx = withRenderCacheCounts(spanCtx, counts)
@@ -140,8 +173,11 @@ func newRenderTrace(ctx context.Context, policy *pwruntime.Tracing, mode string,
 		ctx:       spanCtx,
 		span:      span,
 		committed: now,
-		boundary:  policy.Boundary,
+		started:   now,
+		boundary:  boundary,
 		cache:     counts,
+		metrics:   metrics,
+		mode:      mode,
 	}
 }
 
@@ -190,6 +226,12 @@ func (render *renderTrace) boundarySettled(id string, size int) {
 		return
 	}
 	render.boundaries++
+	// The metric carries no boundary id: positional is safe on a span, where one
+	// page is being read, and unbounded across pages, where every placeholder of
+	// every route would be its own series.
+	if render.metrics != nil && render.metrics.BoundarySettle != nil {
+		render.metrics.BoundarySettle.Record(render.ctx, time.Since(render.committed).Seconds())
+	}
 	if !render.boundary {
 		return
 	}
@@ -211,22 +253,52 @@ func (render *renderTrace) deliveredContent(id string, size int) {
 		return
 	}
 	render.boundaries++
-	if !render.boundary {
-		return
-	}
 	since := render.committed
 	if previous, ok := render.delivered[id]; ok {
 		since = previous
 	}
 	now := time.Now()
+	// The interval is recorded whether or not a boundary span is opened, because
+	// the metric answers how often a live region changes and the span answers
+	// which one changed. The map is kept for both, since the metric needs the
+	// same previous-delivery time the span does.
+	if render.metrics != nil && render.metrics.LiveDelivery != nil {
+		render.metrics.LiveDelivery.Record(render.ctx, now.Sub(since).Seconds())
+	}
 	if render.delivered == nil {
 		render.delivered = make(map[string]time.Time)
 	}
 	render.delivered[id] = now
+	if !render.boundary {
+		return
+	}
 	_, span := trace.Start(render.ctx, deliverySpanName,
 		trace.WithStartTime(since),
 		trace.WithAttributes(String("pw.boundary.id", id), Int("pw.boundary.bytes", size)))
 	span.End()
+}
+
+// liveOpened counts this live response as one open subscription.
+func (render *renderTrace) liveOpened() {
+	if render == nil || render.metrics == nil || render.metrics.LiveActive == nil {
+		return
+	}
+	render.metrics.LiveActive.Add(render.ctx, 1)
+}
+
+// liveClosed releases that count and records why the response ended.
+//
+// The reason is a closed set of two, and it is the trade policy:live-subscription-bounds
+// makes: a bounded lifetime buys back authorization re-checks and deploy
+// rollover, and the rate of retry closes is how that trade is watched.
+func (render *renderTrace) liveClosed(reason string) {
+	if render == nil || render.metrics == nil || render.metrics.LiveActive == nil {
+		return
+	}
+	render.metrics.LiveActive.Add(render.ctx, -1)
+	if render.metrics.LiveClosed != nil {
+		render.metrics.LiveClosed.Add(render.ctx, 1, String("pw.live.close_reason", reason))
+	}
 }
 
 // suppressedContent records one delivery this response did not send, because
@@ -313,8 +385,42 @@ func (render *renderTrace) end(attributes ...Attribute) {
 			Int("pw.live.signals", render.signals),
 			Int64("pw.live.signal_bytes", render.signalBytes))
 	}
+	render.measure()
 	render.span.SetAttributes(attributes...)
 	render.span.End()
+}
+
+// measure records what this response cost, keyed by the render mode.
+//
+// The mode is the whole attribute set: it is a closed set of six, it is the
+// branch decision:automatic-async-render-selection took, and nothing outside
+// this process can attribute a response time to it. Everything else the span
+// carries — the layer count, the boundary ids, the byte totals per boundary —
+// stays on the span, where one response is being read rather than all of them.
+func (render *renderTrace) measure() {
+	if render.metrics == nil {
+		return
+	}
+	mode := String("pw.render.mode", render.mode)
+	render.metrics.RenderDuration.Record(render.ctx, time.Since(render.started).Seconds(), mode)
+	render.metrics.RenderBytes.Record(render.ctx, float64(render.bytes), mode)
+	if render.metrics.RenderCache == nil {
+		return
+	}
+	// Both halves or neither, for the reason the span attributes give: a hit
+	// count with no denominator cannot tell a working cache from one nothing is
+	// eligible for. A response that consulted no cache produces no series rather
+	// than two zeros.
+	hits, misses := render.cache.hits.Load(), render.cache.misses.Load()
+	if hits+misses == 0 {
+		return
+	}
+	if hits > 0 {
+		render.metrics.RenderCache.Add(render.ctx, hits, String("pw.cache.result", pwruntime.CacheResultHit))
+	}
+	if misses > 0 {
+		render.metrics.RenderCache.Add(render.ctx, misses, String("pw.cache.result", pwruntime.CacheResultMiss))
+	}
 }
 
 // request binds r to the render span, for the one caller whose work reaches

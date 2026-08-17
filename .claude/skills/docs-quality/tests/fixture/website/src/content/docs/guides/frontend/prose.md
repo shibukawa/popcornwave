@@ -13,3 +13,7 @@ already does the same work.
 
 One paragraph is enough here, because the point is that no bullet list replaced
 a sentence.
+
+A link into a heading named for an underscore-prefixed key, which resolves only
+while the slugger keeps the underscore github-slugger keeps:
+[the operation key](/guides/frontend/templates/#_operation-a-heading-named-for-a-key).

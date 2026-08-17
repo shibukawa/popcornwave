@@ -14,14 +14,33 @@ With that, each caller gets a budget of requests per minute — 600 for an
 authenticated user, 300 for an anonymous address — and a request over budget is
 refused with `429`, `Retry-After`, and the `X-RateLimit-*` headers. A browser
 sees your application's 429 page; an API client gets a problem document. The
-counters live in process, which is the right default for one replica and the
-wrong one for more; [the Redis backend](#counting-across-replicas) fixes that.
+counting happens in the process itself, on the `memory` backend that needs
+nothing installed.
 
 It is off by default because the proxy or API gateway in front of a normal
 deployment already limits by address, and a second limiter that nobody sized is
 noise. Turn it on for the budget the edge cannot compute: a limit per
 *authenticated user*, which requires resolving the session — something only the
 application can do.
+
+Here is everything the section takes:
+
+| Key | Default | What it sets |
+| --- | --- | --- |
+| `enabled` | `false` | whether any of this runs |
+| `backend` | `"memory"` | where the counts live: `memory` or `redis` |
+| `window` | `"1m"` | the period every count below is measured over, and what `X-RateLimit-Reset` reports |
+| `per_subject` | `600` | requests one authenticated subject may make in a window; `0` disables this bucket |
+| `per_address` | `300` | requests one caller with no session may make in a window; must be positive |
+| `process` | `0` | total arrivals allowed in a window, unkeyed; `0` leaves only the two buckets |
+| `redis.dsn` | *(empty)* | `redis://` or `rediss://` counter server |
+| `redis.key_prefix` | `"pw:ratelimit:"` | the key space this limiter owns |
+| `redis.connect_timeout` | `"5s"` | startup ping and per-command deadline |
+
+The environment-variable and command-line forms of each are derived by rule and
+listed in the [configuration
+reference](/reference/configuration/#ratelimit). The rest of this page is what
+the numbers mean and how to size them.
 
 ## Two buckets, not a rule engine
 
@@ -80,11 +99,23 @@ refuses legitimate traffic globally. Startup refuses a `per_address` or
 `per_subject` larger than a positive `process` — a caller allowed more than
 the total describes a limit that can never bind.
 
-## Counting across replicas
+## Choosing a backend
 
-The default `memory` backend counts inside one process, so N replicas enforce
-N times the configured limit. That is stated here rather than discovered in
-production. For more than one replica, count in Redis or Valkey:
+Every number above is a count, and `backend` decides where the counts are kept.
+There are two answers, and replica count picks between them.
+
+**`memory`, the default, counts inside one process.** Nothing to install, no
+network hop on the counting path, and no store that can be down. On one replica
+it is exactly right.
+
+On N replicas it is exactly N times wrong. Each process holds its own counters
+and cannot see the others, so a caller balanced across four replicas gets four
+times the budget the file names. Nothing reports this — every process is
+enforcing the number it was configured with. That is why it is stated here
+rather than discovered in production.
+
+**`redis` keeps one count for the whole deployment.** Redis or Valkey; the
+configuration is two keys and one import:
 
 ```toml
 [ratelimit]
@@ -98,11 +129,26 @@ import _ "github.com/shibukawa/popcornwave/ratelimitstore/redis"
 ```
 
 The blank import links the backend; registration opens no connection, and the
-client dials when `backend = "redis"` selects it. An unreachable server
-refuses startup — shipping a limiter that silently fails open on every request
-would be worse than not starting. Redis keys under a `memory` backend are
-refused rather than ignored, so a half-switched configuration is caught at
-startup too.
+client dials when `backend = "redis"` selects it. What you take on is a
+dependency on the counting path — one round trip per counted request — and a
+store that has to be reachable at startup. An unreachable server refuses to
+start, because shipping a limiter that silently fails open on every request
+would be worse than not starting at all. Once running, an unreachable store
+behaves differently; that is [the next section but
+one](#when-the-store-fails).
+
+Two half-switched shapes are refused at startup rather than ignored: a
+`redis.dsn` under the `memory` backend, and `backend = "redis"` with no DSN.
+Neither can be what somebody meant.
+
+One consequence is easy to miss. `process` counts under a single fixed key, so
+the backend changes what that ceiling means: on `memory` it bounds arrivals at
+one process, and on `redis` it bounds arrivals at the whole deployment. Size it
+for whichever you are on, and resize it when you switch.
+
+So: stay on `memory` while there is one replica, and move to `redis` when you
+scale out. The move is a configuration change and one import line, which is the
+reason this page can recommend starting on the simpler one.
 
 ## What is never counted
 
@@ -123,8 +169,3 @@ failing closed would convert a Redis blip into an outage of every limited
 route at once — including login. There is no switch for this. What deserves
 your attention is the log line, because a limiter that is silently not
 limiting is the worst of the three states.
-
-## Every key
-
-The full key list, defaults, and the environment-variable forms are in the
-[configuration reference](/reference/configuration/#ratelimit).

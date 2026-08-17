@@ -24,7 +24,7 @@ not_in_the_generation_path:
   dev_loop: api:cli-dev does not format either; a rewrite under a running watch would restart the loop from the loop's own write
 ci:
   gate: pw fmt -l reports unformatted sources and writes nothing, so a pull request can require a formatted tree
-  placement: alongside api:cli-generate --check, which answers the adjacent question about generated drift
+  placement: alongside api:cli-check, which answers the adjacent question about generated drift and stays a separate command, per requirement:cli-generate-check-rename
 adoption:
   one_time_cost: all 33 .pw sources in this repository change on first run, almost all of it the declaration body indent
   unblocked: system:tinybind v0.3.2 fixed the escape defect that made a repeated run unsafe, and every source now formats and settles

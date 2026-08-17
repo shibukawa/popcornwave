@@ -52,6 +52,10 @@ type Resources struct {
 	Query *QueryDiagnostics
 	// Trace enables the framework's own spans. A nil value creates none.
 	Trace *Tracing
+	// Metrics is the framework instrument set. A nil value records nothing, and
+	// it is independent of Trace: a deployment sampling one trace in ten still
+	// counts every request.
+	Metrics *Metrics
 	// Authentication is the verified request authentication result, finalized
 	// by authentication middleware before handler dispatch.
 	Authentication Authentication

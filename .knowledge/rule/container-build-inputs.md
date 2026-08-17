@@ -19,7 +19,7 @@ required_order:
   - the compiler for data:project-config project.toolchain
 single_command:
   host_go: api:cli-build performs all four
-  any_other_compiler: api:cli-prepare performs the first three and stops, per decision:explicit-tinygo-compile-step, so the caller supplies only the last one
+  any_other_compiler: api:cli-generate performs the first three and stops, per decision:explicit-tinygo-compile-step, so the caller supplies only the last one
 tools_the_builder_stage_needs:
   pw: system:pw-cli, installed with go install because requirement:cli-distribution publishes no container image
   pinned: the pw version is written by api:cli-init and must track the framework version in go.mod, since api:cli-generate output is read by the framework it was generated against

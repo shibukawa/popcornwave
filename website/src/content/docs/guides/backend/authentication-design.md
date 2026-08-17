@@ -61,7 +61,7 @@ That is why the three questions above go quiet here. The account was created whe
 
 **What you get.** No credential storage, no session storage, and no state to carry between requests. A deployment that keeps nothing can scale to nothing and back.
 
-**What you take on.** A token stays valid until it expires, so ending access early needs a revocation strategy you choose deliberately — `revocation.mode` has no permissive default, and startup refuses until you name one. See [Token revocation](/guides/backend/token-revocation/).
+**What you take on.** A token stays valid until it expires, so ending access early needs a revocation strategy you choose deliberately — `revocation.mode` has no permissive default, and startup refuses until you name one. See [Revoking a bearer token](/guides/backend/authentication/#revoking-a-bearer-token).
 
 A browser flow and a bearer API are different trust models, so this mode does not combine them. An application that needs both serves the API from a separate deployment. `pw init --auth` does not offer `jwt_only` for that reason; the API-server preset scaffolds it instead. [Authentication](/guides/backend/authentication/#jwt-only-api-servers) has the configuration.
 

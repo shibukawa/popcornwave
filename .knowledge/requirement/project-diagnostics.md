@@ -73,5 +73,5 @@ non_goals:
   - a runtime health surface, which stays with policy:operational-endpoints
   - continuous monitoring, drift alerting, or history between runs
   - auditing application code, dependencies, or infrastructure
-  - checking generated-source freshness itself, which api:cli-generate check mode already owns and doctor delegates to
+  - checking generated-source freshness itself, which api:cli-check already owns and doctor delegates to
 ```

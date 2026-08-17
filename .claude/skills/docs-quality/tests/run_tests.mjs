@@ -66,8 +66,16 @@ const EXPECTED = [
 // Pages the fixture keeps clean, to catch a check that fires on everything.
 const MUST_STAY_QUIET = [
   ['guides/frontend/prose.md', 'shape'],
+  // Its one link points at a heading spelled `_operation`. Dropping the
+  // underscore — which github-slugger keeps — would report that anchor as
+  // missing, and that false positive is what this entry guards.
+  ['guides/frontend/prose.md', 'links'],
   ['guides/frontend/templates.md', 'links'],
   ['guides/frontend/templates.md', 'terms'],
+  // It is the first of two explicit sidebar slugs. A parser that stopped at the
+  // first entry would still pass; one that stopped at the second would report
+  // this page as belonging to no group.
+  ['guides/frontend/templates.md', 'sidebar'],
 ];
 
 let failed = 0;

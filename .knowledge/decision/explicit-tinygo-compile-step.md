@@ -3,7 +3,7 @@ id: decision:explicit-tinygo-compile-step
 type: decision
 title: Explicit TinyGo Compile Step
 ---
-api:cli-build keeps building with host go, and a TinyGo build is api:cli-prepare followed by a tinygo build invocation the caller writes, rather than a compiler api:cli-build selects from data:project-config project.toolchain.
+api:cli-build keeps building with host go, and a TinyGo build is api:cli-generate followed by a tinygo build invocation the caller writes, rather than a compiler api:cli-build selects from data:project-config project.toolchain.
 
 ```yaml
 status: accepted 2026-08-07, implemented
@@ -19,7 +19,7 @@ why_not_a_toolchain_driven_compiler:
     - api:cli-build would own a flag mapping for a compiler it does not otherwise know, and every new TinyGo flag becomes a framework decision
     - the compiler invocation is the one line a container build most often needs to change, for an output path, a target, or an optimization level, and burying it removes the reason to open the file
     - api:cli-dev builds with go run -tags=pwdev on the host whatever the toolchain answer was, so this would be the only command in the CLI that reads project.toolchain as a compiler selector
-  not_a_reason: a second host link, which the api:cli-prepare split already removes from both shapes
+  not_a_reason: a second host link, which stopping api:cli-generate before the compiler already removes from both shapes
 residual_risk:
   what: -scheduler=threads lives in Dockerfile.tinygo, so switching requirement:database-engine-selection to a network engine later leaves the file silently wrong
   why_it_matters: rule:tinygo-runtime-compatibility measured the symptom as a query outliving its context deadline and returning a nil error, with nothing logged

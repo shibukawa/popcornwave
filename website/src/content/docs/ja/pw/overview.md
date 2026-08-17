@@ -40,9 +40,9 @@ Commands:
 | [`pw init`](/ja/pw/project/init/) | 動くプロジェクトを作る |
 | [`pw add`](/ja/pw/project/add/) | init で断った機能をあとから追加する |
 | [`pw new`](/ja/pw/project/new/) | ハンドラ・ルート・テンプレートをまとめて追加する |
-| [`pw generate`](/ja/pw/project/generate/) | `.pw.html` と `.pw.sql` を Go にコンパイルする |
+| [`pw generate`](/ja/pw/project/generate/) | ビルドに必要な入力を一式書き出し、コンパイラの手前で止まる |
+| [`pw check`](/ja/pw/project/check/) | 生成された Go が古いか欠けているかを報告する |
 | [`pw dev`](/ja/pw/project/dev/) | 監視、再生成、マイグレーション、再起動 |
-| [`pw prepare`](/ja/pw/project/prepare/) | ビルドに必要な一式を作り、コンパイラの手前で止まる |
 | [`pw build`](/ja/pw/project/build/) | リリース用バイナリを作る |
 | [`pw doctor`](/ja/pw/project/doctor/) | その環境で何が動き、どこが間違っているかを報告する |
 

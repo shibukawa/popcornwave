@@ -36,6 +36,7 @@ type Stream[T any] = tinybind.Stream[T]
 // runs either way, which is what keeps the trailing bracket of the JSON array
 // framing from depending on a caller remembering to write it.
 func WriteStream[T any](w http.ResponseWriter, r *http.Request, fn func(*Stream[T]) error) {
+	SetRoute(w, r)
 	// Checked here rather than left to the module, so an unacceptable Accept
 	// reaches this framework's problem path and a browser gets the registered
 	// error page instead of a bare problem document.

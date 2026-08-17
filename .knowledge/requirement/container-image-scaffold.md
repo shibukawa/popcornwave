@@ -27,7 +27,7 @@ files:
     written_when: the TinyGo answer is yes
     toolchain: TinyGo, under rule:tinygo-container-operations
     builder: the published TinyGo image at decision:tinygo-042-baseline or later
-    builder_runs: api:cli-prepare and then an explicit tinygo build, per decision:explicit-tinygo-compile-step
+    builder_runs: api:cli-generate and then an explicit tinygo build, per decision:explicit-tinygo-compile-step
     scheduler_flag: -scheduler=threads written into that invocation when the selected engine speaks a network protocol; omitting it later is a compile error, per the scheduler enforcement of rule:tinygo-runtime-compatibility, so the scaffold writes a correct default rather than the only defence
     same_runtime_stage: policy:container-runtime-image, so the two files differ in the builder stage only
   .dockerignore:

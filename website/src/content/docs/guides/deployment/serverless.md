@@ -16,9 +16,9 @@ HTTP adapters to it without changing application code.
 | Invocation-to-HTTP adapter | AWS Lambda Web Adapter | supported; add the adapter to the deployment |
 | HTTP-forwarding custom handler | Azure Functions | supported for HTTP-only functions |
 | Exported Go handler, remotely built | Vercel Go, Cloud Run functions | supported by generated source staging |
-| Provider event function | DigitalOcean Functions and non-HTTP triggers | deferred |
-| Fetch-event Wasm | Cloudflare Workers | targeted, currently blocked on adapter build compatibility |
-| Component-model Wasm | Fastly Compute and WASI HTTP hosts | deferred with WASI HTTP support |
+| Provider event function | DigitalOcean Functions and non-HTTP triggers | not supported |
+| Fetch-event Wasm | Cloudflare Workers | not supported |
+| Component-model Wasm | Fastly Compute and WASI HTTP hosts | not supported |
 
 Container services are not a separate runtime. They start the scaffolded image
 and set `PORT`; [`pw.Run`](/reference/runtime/) already binds it. This includes
@@ -101,26 +101,6 @@ still receives the required `http.HandlerFunc`. The staged source is formatted,
 its module is tidied and vendored, and its provider package is compiled from
 that vendor tree before the build is reported ready. Deploy the generated
 directory, not the application checkout.
-
-## Cloudflare Workers
-
-Cloudflare support remains a target. The intended bridge is a fetch-event
-adapter that invokes the same `net/http` handler returned by `pw.Middlewares`;
-it does not use `pw.Run` or open a listener.
-
-The current candidate is [`github.com/syumai/workers`](https://github.com/syumai/workers),
-which is explicitly experimental and currently does not build with the Popcorn
-Wave application dependency graph. We therefore do not generate a Wrangler
-project or claim runtime support yet. This is a tracked compatibility blocker,
-not a decision to drop Cloudflare.
-
-The unblock test is deliberately small: build one handler with both the
-upstream standard-Go and TinyGo templates, run it under `wrangler dev`, then
-verify request bodies, duplicate headers, cookies, redirects, and streaming.
-Only after one compiler path passes that test will `pw` generate the Wasm,
-JavaScript loader, and Wrangler configuration. Cloudflare's JavaScript-hosted
-Wasm path is separate from the component-model WASI HTTP work deferred for
-other edge hosts.
 
 ## Runtime limits still apply
 

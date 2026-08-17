@@ -17,7 +17,8 @@ packaging.
 
 ## What it does
 
-1. runs [`pw generate`](/pw/project/generate/);
+1. compiles templates, SQL, page trees, catalogs, and binding call sites into
+   `_pw_gen.go` files beside their sources;
 2. builds the Tailwind stylesheet **minified**, if Tailwind is enabled — this
    overrides `assets.tailwind.minify`, so a release is never accidentally
    unminified;
@@ -26,6 +27,10 @@ packaging.
    and `*.gz` sidecars, and emits the manifest that decides every cache header;
 4. rejects the build if `project.main` depends on a development-only package;
 5. runs `go build` on `project.main` from `popcornwave.toml`.
+
+Steps 1 through 4 are exactly [`pw generate`](/pw/project/generate/). This
+command is defined as that one plus the compiler, so the two cannot drift apart
+in content or in order.
 
 The binary lands in the project root, named after the main package. The
 scaffolded `.gitignore` already excludes it, along with everything under
@@ -88,18 +93,19 @@ GOOS=linux GOARCH=amd64 pw build
 ```
 
 The generated path uses no runtime reflection, so the same sources can target
-TinyGo. `pw build` always links with host `go`, so a TinyGo build runs the
-preparation steps and then invokes that compiler itself:
+TinyGo. `pw build` always links with host `go`, so a TinyGo build generates and
+then invokes that compiler itself:
 
 ```sh
-pw prepare
+pw generate
 tinygo build -scheduler=threads -o myapp ./cmd/myapp
 ```
 
-[`pw prepare`](/pw/project/prepare/) is this command without its final step. Use
-it rather than `pw generate`, which writes the generated Go but not
-`dist/public` — a directory `public.go` names in a `go:embed` directive, so the
-compiler fails on a tree that was never built.
+[`pw generate`](/pw/project/generate/) is this command without its final step —
+it leaves the whole tree a compiler needs, including the `dist/public` that
+`public.go` names in a `go:embed` directive. Do not narrow it with
+`--code-only` here; that flag writes the generated Go alone, and the compiler
+then fails on a directory nothing built.
 
 `-scheduler=threads` is required for any engine that speaks a network protocol.
 Under the cooperative scheduler a blocking socket call holds the whole runtime,
@@ -139,6 +145,6 @@ TinyGo.
 Verify that generated code is current before building:
 
 ```sh
-pw generate --check
+pw check
 pw build
 ```

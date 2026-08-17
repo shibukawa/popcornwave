@@ -1,8 +1,8 @@
 ---
-title: ビルドツール設定
-description: popcornwave.toml の全キー。pw が何を生成し、pw dev が何を並走させ、マイグレーションとスタイルシートがどこにあるか。
+title: ビルドツール設定一覧
+description: popcornwave.toml の全設定項目。コード生成、pw dev と同時に起動するサービス、マイグレーションやスタイルシートの配置を指定します。
 sidebar:
-  order: 8
+  order: 2
 ---
 
 `popcornwave.toml` はプロジェクトルートに置かれ、`pw` コマンドのものです。書いてあるのは
@@ -11,7 +11,7 @@ sidebar:
 
 ランタイムの設定は一切ありません。ポート、コネクションプール、クッキー、ログレベルは
 `config.{APP_ENV}.toml` にあり、
-[設定キー](/ja/reference/configuration/)に一覧があります。この分離は
+[アプリケーション設定一覧](/ja/reference/configuration/)に一覧があります。この分離は
 慣習ではなく強制です。ここに `server` や `session` テーブルを書けばエラーですし、
 データベースの接続文字列も同様です。2 つのファイルは、別のプログラムが別のタイミングで
 読みます。
@@ -35,13 +35,13 @@ sidebar:
 ありえず、アプリケーションでしかありえませんでした。
 
 `kind` は、後述の 2 つのセクションのどちらが正当かを決めます。パッケージは `main` を
-持ちません — エントリポイントを所有するのは、それを import するアプリケーションです。
+持ちません。エントリポイントを定義するのは、それを import するアプリケーションです。
 そしてアプリケーションが `[package]` セクションを持っているのは、無視されるブロックでは
 なくエラーです。[コンポーネントパッケージ](/ja/guides/deployment/package/)を参照してください。
 
 `database` は*生成*への入力です。生成された Go があなたの SQL をどの方言として読むかを
 決めます。アプリケーションが実際に接続するエンジンは、いまも
-`[[middleware.rdb.connections]]` の DSN のスキームから決まります。この 2 つを一致させるのはあなたの仕事です。保持を禁じられている
+`[[middleware.rdb.connections]]` の DSN のスキームから決まります。この2つはアプリケーション側で一致させてください。保持を禁じられている
 DSN を、このファイルが検査できるはずもありません。
 
 ## `[generate]`
@@ -59,7 +59,7 @@ firestore = []
 
 各 purpose は、[`pw generate`](/ja/pw/project/generate/) が*その purpose のために*読んで
 よいディレクトリを列挙します。それ以外は読みません。`queries` が挙げていないディレクトリの
-`.pw.sql` は、生成から見えません。だからこそ生成は、所有する purpose の外に置かれた
+`.pw.sql` は、生成処理から見えません。そのため、設定された用途のディレクトリ外に置かれた
 `.pw.html` や `.pw.sql` を黙って拾うのではなく、警告します。
 
 | キー | 読む対象 | 必須 |
@@ -80,11 +80,11 @@ firestore = []
 書かれます。
 
 `dynamo` がテンプレート言語ではなく Go の型宣言を読むので、`queries` の一部ではなく独立した
-purpose になっています。[DynamoDB テンプレート](/ja/reference/dynamo-templates/)を参照して
+purpose になっています。[DynamoDB クエリフォーマット](/ja/reference/dynamo-templates/)を参照して
 ください。
 
 `firestore` も同じ理由で独立しており、`dynamo` とは別の purpose です。どちらか一方だけでも、
-両方でも使えます。[Firestore 宣言](/ja/reference/firestore-templates/)を参照してください。
+両方でも使えます。[Firestore クエリフォーマット](/ja/reference/firestore-templates/)を参照してください。
 
 エントリ自体の規則は次のとおりです。
 

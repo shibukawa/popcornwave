@@ -27,7 +27,7 @@ supported in an untrusted workspace.
 
 There is still **no language server, no diagnostics, and no completion**.
 Those are planned for a later version through a `pw lsp` server. Until then,
-run `pw generate --check` or `pw doctor` for the errors an editor would
+run `pw check` or `pw doctor` for the errors an editor would
 otherwise report.
 
 ## Formatting

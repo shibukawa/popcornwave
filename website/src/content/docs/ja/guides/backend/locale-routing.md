@@ -1,6 +1,6 @@
 ---
 title: ロケールルーティング
-description: どの URL が言語を決めるか、方式ごとの Vary、リクエストのない場所からのメッセージ呼び出し。
+description: URL から表示言語を決める方法、方式ごとの Vary ヘッダー、リクエスト外から翻訳メッセージを取得する方法。
 sidebar:
   order: 7
 ---

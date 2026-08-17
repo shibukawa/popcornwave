@@ -1,6 +1,6 @@
 ---
 title: ナビゲーション
-description: 普通のページ遷移を連続的に、そして一瞬にする —— ビュートランジション、Speculation Rules、そして遷移しないという判断。
+description: 通常のページ遷移を滑らかで高速にする View Transitions と Speculation Rules、適用しない場合の判断基準。
 sidebar:
   order: 3
 ---

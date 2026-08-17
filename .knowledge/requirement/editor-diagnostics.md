@@ -34,7 +34,7 @@ staleness:
   rule: a diagnostic from a save-time source is cleared when its document changes and republished after the next analysis, so a fixed error does not linger
 non_goals:
   - a diagnostic the CLI cannot also produce
-  - running api:cli-generate to obtain a diagnostic, which would write output; the fallback shell-out of decision:language-server-in-pw-cli uses --check and is opt-in
+  - running api:cli-generate to obtain a diagnostic, which would write output; the fallback shell-out of decision:language-server-in-pw-cli uses api:cli-check and is opt-in
   - Go diagnostics, which gopls owns, including those in a generated *_pw_gen.go
 acceptance:
   - an unterminated component body is reported before the file is saved
