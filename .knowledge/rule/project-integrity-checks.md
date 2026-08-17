@@ -30,7 +30,7 @@ generated_artifacts:
     trigger: a generated file older than the source it was generated from
     severity: warning
     remedy: pw generate
-    relation: api:cli-generate check mode is the authority on content drift; this check is the cheap timestamp form that also fires when the check cannot run
+    relation: api:cli-check is the authority on content drift; this check is the cheap timestamp form that also fires when the check cannot run
   generated-outside-purpose:
     trigger: a generated file, .pw.html, or .pw.sql outside every generate purpose
     severity: warning

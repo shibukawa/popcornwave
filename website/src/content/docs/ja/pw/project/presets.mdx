@@ -156,7 +156,7 @@ pw init --yes --db=postgres --auth=oidc --session=redis --router=discovered /tmp
 cp /tmp/probe/migrations/*_init_popcornwave_*.sql migrations/
 ```
 
-バージョン番号が違う場合は自分のものを保ってください。置き換えるのは中身だけです。
+バージョン番号が異なる場合は、現在の番号を維持してください。置き換えるのは中身だけです。
 
 **認証状態のストアはエンジンごとに別パッケージです。** `main.go` は
 `authstate/sqlite` をリンクしていて、あるエンジンの DDL を別のエンジンは読めません。

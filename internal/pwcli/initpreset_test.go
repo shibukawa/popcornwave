@@ -252,7 +252,7 @@ func TestPackagePresetCommitsItsGeneratedCode(t *testing.T) {
 	if !ok {
 		t.Fatal("no staleness guard was scaffolded")
 	}
-	if !strings.Contains(workflow, "pw generate --check") {
+	if !strings.Contains(workflow, "pw check") {
 		t.Errorf("the workflow does not run the check:\n%s", workflow)
 	}
 }
@@ -409,7 +409,10 @@ func TestAPageTreeWithALoginImportsTheHandlerPackage(t *testing.T) {
 // package is wrong twice over.
 func TestDevAndBuildDoNotApplyToAPackage(t *testing.T) {
 	pkg := projectConfig{Kind: kindPackage}
-	for _, command := range []string{"dev", "build", "prepare"} {
+	// pw generate is absent from this list on purpose: it is the command a
+	// package regenerates its committed artifacts with, so it runs there and
+	// reaches only the generated Go.
+	for _, command := range []string{"dev", "build"} {
 		err := refuseInPackage(pkg, command)
 		if err == nil {
 			t.Fatalf("%s: a package accepted a command that builds a binary", command)

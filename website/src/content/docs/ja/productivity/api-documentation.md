@@ -1,6 +1,6 @@
 ---
 title: API ドキュメント
-description: すでに書いたコードから組み立てられる OpenAPI 3.1 ドキュメントと、それを読む閲覧 UI。
+description: 既存のコードから生成される OpenAPI 3.1 ドキュメントと、その閲覧 UI。
 sidebar:
   order: 4
 ---

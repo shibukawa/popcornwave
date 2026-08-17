@@ -27,7 +27,7 @@ The binary lands in the project root. With `--target` the result lands under
 `.pw/build/<target>/<backend>/` with a `deployment.json` manifest, and
 `config.prod.toml` is required.
 
-`pw prepare` is the same pipeline without step 5 — use it before invoking a
+`pw generate` is the same pipeline without step 5 — use it before invoking a
 different compiler yourself. `--debug` keeps the script source map and the Go
 symbol table that `-ldflags=-s -w` otherwise removes; take it for a shared test
 deployment, never for staging, which exists to rehearse production.
@@ -79,14 +79,14 @@ from `init` reaches whichever runtime is linked.
 
 The generated path uses no runtime reflection, which is what makes TinyGo a
 first-class target — chosen for **size**, not speed. `pw build` always links with
-host `go`, so a TinyGo build runs the preparation and then the compiler:
+host `go`, so a TinyGo build runs the generation and then the compiler:
 
 ```sh
-pw prepare
+pw generate
 tinygo build -scheduler=threads -o myapp ./cmd/myapp
 ```
 
-Use `pw prepare`, not bare `pw generate`: generation writes the Go but not
+Leave `--code-only` off: with it, generation writes the Go but not
 `dist/public`, and `go:embed` fails on a tree that was never built.
 
 `-scheduler=threads` is **required for every database engine that speaks a
@@ -212,19 +212,19 @@ session and rate-limit backend whenever requests may land on different instances
 
 ```sh
 pw fmt --check
-pw generate --check
+pw check
 pw build
 ```
 
-`--check` writes nothing and exits non-zero listing stale files — necessary
+`pw check` writes nothing and exits non-zero listing stale files — necessary
 because gitignored generated output cannot show staleness in a diff. Add
 `pw build --backend fasthttp` for a project that declares the second build;
 nothing else proves the rewritten half still compiles.
 
 ## Common mistakes
 
-- Running `pw generate` and then `tinygo build` directly — `dist/public` does not
-  exist and `go:embed` fails. Use `pw prepare`.
+- Running `pw generate --code-only` and then `tinygo build` — `dist/public` does
+  not exist and `go:embed` fails. Drop the flag.
 - Dropping `-scheduler=threads` from a TinyGo build that links a network database
   driver.
 - Importing `pw` from an untagged file in a project that declares

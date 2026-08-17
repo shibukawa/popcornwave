@@ -11,5 +11,5 @@ responsibilities:
   - register literal net/http routes
   - implement business validation and handlers
   - run api:cli-generate before committing generated artifacts
-  - verify generated drift with api:cli-generate --check and run go test ./...
+  - verify generated drift with api:cli-check and run go test ./...
 ```

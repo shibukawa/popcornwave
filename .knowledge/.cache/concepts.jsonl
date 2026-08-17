@@ -10,6 +10,7 @@
 {"category": "interface", "id": "api:bearer-authentication", "path": ".knowledge/api/bearer-authentication.md", "role": "primary", "title": "Bearer Authentication Surface", "type": "api"}
 {"category": "interface", "id": "api:cli-add", "path": ".knowledge/api/cli-add.md", "role": "primary", "title": "pw add", "type": "api"}
 {"category": "interface", "id": "api:cli-build", "path": ".knowledge/api/cli-build.md", "role": "primary", "title": "pw build", "type": "api"}
+{"category": "interface", "id": "api:cli-check", "path": ".knowledge/api/cli-check.md", "role": "primary", "title": "pw check", "type": "api"}
 {"category": "interface", "id": "api:cli-dev", "path": ".knowledge/api/cli-dev.md", "role": "primary", "title": "pw dev", "type": "api"}
 {"category": "interface", "id": "api:cli-doctor", "path": ".knowledge/api/cli-doctor.md", "role": "primary", "title": "pw doctor", "type": "api"}
 {"category": "interface", "id": "api:cli-fmt", "path": ".knowledge/api/cli-fmt.md", "role": "primary", "title": "pw fmt", "type": "api"}
@@ -20,7 +21,6 @@
 {"category": "interface", "id": "api:cli-migrate", "path": ".knowledge/api/cli-migrate.md", "role": "primary", "title": "pw migrate", "type": "api"}
 {"category": "interface", "id": "api:cli-new", "path": ".knowledge/api/cli-new.md", "role": "primary", "title": "pw new", "type": "api"}
 {"category": "interface", "id": "api:cli-package", "path": ".knowledge/api/cli-package.md", "role": "primary", "title": "Package Authoring Commands", "type": "api"}
-{"category": "interface", "id": "api:cli-prepare", "path": ".knowledge/api/cli-prepare.md", "role": "primary", "title": "pw prepare", "type": "api"}
 {"category": "interface", "id": "api:cli-seed", "path": ".knowledge/api/cli-seed.md", "role": "primary", "title": "pw seed", "type": "api"}
 {"category": "interface", "id": "api:cli-session-schema", "path": ".knowledge/api/cli-session-schema.md", "role": "primary", "title": "pw session schema", "type": "api"}
 {"category": "interface", "id": "api:cli-version", "path": ".knowledge/api/cli-version.md", "role": "primary", "title": "pw version", "type": "api"}
@@ -81,6 +81,7 @@
 {"category": "concept", "id": "concept:build-artifact-shapes", "path": ".knowledge/concept/build-artifact-shapes.md", "role": "supporting", "title": "Build Artifact Shapes", "type": "concept"}
 {"category": "concept", "id": "concept:classic-web-style", "path": ".knowledge/concept/classic-web-style.md", "role": "supporting", "title": "Classic Web Style", "type": "concept"}
 {"category": "concept", "id": "concept:client-component", "path": ".knowledge/concept/client-component.md", "role": "supporting", "title": "Client Component", "type": "concept"}
+{"category": "concept", "id": "concept:code-generation", "path": ".knowledge/concept/code-generation.md", "role": "supporting", "title": "Code Generation", "type": "concept"}
 {"category": "concept", "id": "concept:component-package", "path": ".knowledge/concept/component-package.md", "role": "supporting", "title": "Component Package", "type": "concept"}
 {"category": "concept", "id": "concept:derived-public-tree", "path": ".knowledge/concept/derived-public-tree.md", "role": "supporting", "title": "Derived Public Tree", "type": "concept"}
 {"category": "concept", "id": "concept:interaction-cost-ladder", "path": ".knowledge/concept/interaction-cost-ladder.md", "role": "supporting", "title": "Interaction Cost Ladder", "type": "concept"}
@@ -427,6 +428,7 @@
 {"category": "objective", "id": "requirement:classic-rendering", "path": ".knowledge/requirement/classic-rendering.md", "role": "primary", "title": "Classic Rendering", "type": "requirement"}
 {"category": "objective", "id": "requirement:classic-web-acceptance", "path": ".knowledge/requirement/classic-web-acceptance.md", "role": "primary", "title": "Classic Web Acceptance", "type": "requirement"}
 {"category": "objective", "id": "requirement:cli-distribution", "path": ".knowledge/requirement/cli-distribution.md", "role": "primary", "title": "pw CLI Distribution", "type": "requirement"}
+{"category": "objective", "id": "requirement:cli-generate-check-rename", "path": ".knowledge/requirement/cli-generate-check-rename.md", "role": "primary", "title": "pw generate And pw check Renaming", "type": "requirement"}
 {"category": "objective", "id": "requirement:client-behaviour-adoption", "path": ".knowledge/requirement/client-behaviour-adoption.md", "role": "primary", "title": "Client Behaviour Adoption", "type": "requirement"}
 {"category": "objective", "id": "requirement:client-signal-registry", "path": ".knowledge/requirement/client-signal-registry.md", "role": "primary", "title": "Client Signal Registry", "type": "requirement"}
 {"category": "objective", "id": "requirement:cloudflare-workers-hosting", "path": ".knowledge/requirement/cloudflare-workers-hosting.md", "role": "primary", "title": "Cloudflare Workers Hosting", "type": "requirement"}

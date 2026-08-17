@@ -528,7 +528,7 @@ export component Home(name: string): html {
 	defer os.Chdir(previous)
 
 	var output strings.Builder
-	if err := runGenerate(context.Background(), nil, &output); err != nil {
+	if err := generateCode(context.Background(), &output); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(filepath.Join(root, "handlers", "home_pw_gen.go")); err != nil {
@@ -571,7 +571,7 @@ func TestRunGenerateReportsStaleArtifactsOutsideSources(t *testing.T) {
 	defer os.Chdir(previous)
 
 	var output strings.Builder
-	if err := runGenerate(context.Background(), nil, &output); err != nil {
+	if err := generateCode(context.Background(), &output); err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(output.String(), "tinybind_openapi_pw_gen.go was generated outside every generate purpose") {
@@ -641,7 +641,7 @@ export component Note(): html {
 	defer os.Chdir(previous)
 
 	var output strings.Builder
-	if err := runGenerate(context.Background(), nil, &output); err != nil {
+	if err := generateCode(context.Background(), &output); err != nil {
 		t.Fatal(err)
 	}
 	for _, generated := range []string{
@@ -666,7 +666,7 @@ export component Note(): html {
 func TestRunGenerateLinksQueryPackagesForDevelopment(t *testing.T) {
 	root := queryFixtureProject(t)
 	t.Chdir(root)
-	if err := runGenerate(context.Background(), nil, &strings.Builder{}); err != nil {
+	if err := generateCode(context.Background(), &strings.Builder{}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -690,11 +690,11 @@ func TestRunGenerateLinksQueryPackagesForDevelopment(t *testing.T) {
 func TestRunGenerateIsIdempotent(t *testing.T) {
 	root := queryFixtureProject(t)
 	t.Chdir(root)
-	if err := runGenerate(context.Background(), nil, &strings.Builder{}); err != nil {
+	if err := generateCode(context.Background(), &strings.Builder{}); err != nil {
 		t.Fatal(err)
 	}
 	var second strings.Builder
-	if err := runGenerate(context.Background(), []string{"--check"}, &second); err != nil {
+	if err := runCheck(context.Background(), nil, &second); err != nil {
 		t.Fatalf("a freshly generated project was reported stale: %v\n%s", err, second.String())
 	}
 }
@@ -718,7 +718,7 @@ import "example.test/fixture/queries"
 var _ = queries.FindUser
 `)
 	t.Chdir(root)
-	if err := runGenerate(context.Background(), nil, &strings.Builder{}); err != nil {
+	if err := generateCode(context.Background(), &strings.Builder{}); err != nil {
 		t.Fatalf("a project with nothing generated could not be generated: %v", err)
 	}
 	if _, err := os.Stat(filepath.Join(root, "queries", "users_pw_gen.go")); err != nil {
@@ -1156,7 +1156,7 @@ func TestConstrainNetHTTPMarksOnlyTransportFilesAndOnlyOnce(t *testing.T) {
 	if !bytes.HasPrefix(marked, []byte(netHTTPConstraint)) {
 		t.Fatalf("net/http file was not constrained:\n%s", marked)
 	}
-	// Idempotence is what makes pw generate --check meaningful: the file on disk
+	// Idempotence is what makes pw check meaningful: the file on disk
 	// already carries the constraint, and planning must produce those same bytes
 	// rather than stacking a second one onto them.
 	again, err := constrainNetHTTP(marked, true)

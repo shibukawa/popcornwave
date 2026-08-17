@@ -104,7 +104,7 @@ reports the connection's actual state rather than a claim, and a reader with no
 JavaScript keeps the honest one.
 
 The block is extracted to `public/generated/dashboard.script.<hash>.js` at
-generation time, so `pw prepare` (or `pw dev`, or `pw build`) has to have run
+generation time, so `pw generate` (or `pw dev`, or `pw build`) has to have run
 before the page can load it — the served tree is `dist/public`, derived from the
 authored one.
 

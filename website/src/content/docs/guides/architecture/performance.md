@@ -277,6 +277,7 @@ Use production-equivalent settings and compare the same features, response, and
 data. Match the instrument to the decision: latency for user wait time, throughput
 for capacity, and a CPU profile for work performed in code.
 
-Once a profile identifies a candidate, replace that layer and measure again. If the
-HTTP stack itself proves to be the limit, [Why Popcorn Wave?](/start/why-popcorn-wave/#when-the-http-stack-is-the-measured-bottleneck)
-describes the boundary and the alternatives.
+Once a profile identifies a candidate, replace that layer and measure again. If
+the HTTP stack itself proves to be the limit, the second transport is a build
+flag away — [build targets](#build-targets) above has what it costs and what it
+does not buy.

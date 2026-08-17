@@ -124,10 +124,10 @@ RUN go mod download
 
 ` + containerPWInstall() + containerTailwindInstall(options) + `COPY . .
 
-# pw prepare is pw build without the compiler: generate, CSS, assets, and the
+# pw generate is pw build without the compiler: generation, CSS, assets, and the
 # development-only import check. The line after it is the whole difference
 # between this file and Dockerfile.
-RUN pw prepare
+RUN pw generate
 
 # -scheduler=threads is required for any engine that speaks a network protocol:
 # under the cooperative scheduler a blocking socket call holds the whole

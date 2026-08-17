@@ -1,6 +1,6 @@
 ---
 title: レスポンス圧縮
-description: レンダリングした HTML と JSON を符号化するスイッチひとつ。提供するコーディングと、ストリーミング時に払う代償。
+description: 描画した HTML と JSON の圧縮を有効にする方法、対応する圧縮方式、ストリーミングへの影響。
 sidebar:
   order: 6
 ---

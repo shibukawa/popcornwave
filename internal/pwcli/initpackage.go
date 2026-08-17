@@ -154,7 +154,7 @@ jobs:
       # consumer builds them with the Go compiler alone and regenerates
       # nothing, so a stale commit is discovered in their project rather than
       # in this one unless this step catches it first.
-      - run: pw generate --check
+      - run: pw check
       - run: go build ./...
       - run: go test ./...
 `

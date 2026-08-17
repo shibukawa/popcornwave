@@ -39,7 +39,7 @@ func writeSecondBuildProject(t *testing.T) string {
 // Idempotence is the property worth a whole-run test. The second transport's
 // tree is planned after the per-directory sweep and cleans up after itself, and
 // the two steps getting that wrong would not fail anything else: they would
-// delete and rewrite the same files forever, and pw generate --check would call
+// delete and rewrite the same files forever, and pw check would call
 // a freshly generated project stale.
 func TestASecondBuildIsGeneratedAndStaysGenerated(t *testing.T) {
 	root := writeSecondBuildProject(t)

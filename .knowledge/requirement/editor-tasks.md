@@ -11,11 +11,12 @@ stage: 2 of vision:editor-support
 safety: policy:editor-tool-execution
 commands:
   generate:
-    runs: api:cli-generate
+    runs: api:cli-generate --code-only
     trigger: explicit only, because it writes files
     output: parsed by a problem matcher into file, line, and message
-  generate_check:
-    runs: api:cli-generate --check
+    why_the_flag: an editor command writes the generated Go a diagnostic points into; the asset tree and the minified stylesheet the unflagged command also builds are a build's concern, not a keystroke's
+  check:
+    runs: api:cli-check
     use: a drift check that writes nothing, safe to bind to a save-time task
   dev:
     runs: api:cli-dev

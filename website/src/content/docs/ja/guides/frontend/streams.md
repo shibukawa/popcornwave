@@ -1,6 +1,6 @@
 ---
 title: ストリーム
-description: レスポンスを型付きイベントの並びとして送る。SSE、NDJSON、JSON 配列のどれになるかを決めるのはハンドラではなくクライアント。
+description: レスポンスを型付きイベントの列として送信します。SSE、NDJSON、JSON 配列のいずれを使うかは、クライアントが決めます。
 sidebar:
   order: 3
 ---

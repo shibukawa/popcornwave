@@ -1,77 +1,56 @@
 ---
 title: Why Popcorn Wave
-description: Make secure, fast, operable services the natural result of a productive Go workflow, without giving up the conventions Go developers already share.
+description: Two aims — make the naive Go implementation the fast and safe one, and make the web frontend a first-class thing to build in Go.
 sidebar:
   order: 0
 ---
 
-Popcorn Wave exists to raise productivity and build fast services while keeping
-the conventions Go developers already share. An application still looks like
-Go: `net/http` handlers, `context.Context`, ordinary middleware, and
-`database/sql` remain the boundaries a team reads, tests, and operates.
+Two things this project is trying to do.
 
-That familiarity matters after the first week. A handler written for Popcorn
-Wave can be wrapped by standard middleware, mounted beside another
-`http.Handler`, or tested with `httptest`. Adopting the framework does not also
-mean teaching the codebase a private request model.
+The first is to make **the naive implementation the fast and safe one**. Write
+the obvious `net/http` handler, and get performance and security you would
+otherwise have to go back and add.
 
-## Productivity comes from removing repetition
+The second is to **raise the standing of frontend work in Go**. Go is currently
+where you write the API while the frontend belongs to the JavaScript ecosystem.
+That division is not a law of nature, and this framework is an argument against
+it.
 
-Keeping ordinary Go does not mean writing every mechanical layer by hand.
+## The naive implementation, and what it gets for free
+
+An application still looks like Go. `net/http` handlers, `context.Context`,
+ordinary middleware, and `database/sql` remain the boundaries a team reads,
+tests, and operates — so a handler can be wrapped by standard middleware,
+mounted beside another `http.Handler`, or tested with `httptest`. Adopting the
+framework does not also mean teaching the codebase a private request model.
+
+### Built on the interfaces Go already has
+
+A handler is an `http.HandlerFunc`, and what wraps it is the
+`func(http.Handler) http.Handler` every Go codebase already writes. Queries
+return through `database/sql`. Request-scoped values travel on the
+`context.Context` Go has carried since 1.7. Routing is the `http.ServeMux` that
+Go 1.22 taught to match methods and path parameters, so `GET /users/{id}` is the
+standard library's pattern rather than a syntax this framework invented.
+
+That is what keeps the profiling tools, the middleware conventions, and the
+libraries already in your `go.mod` working, and it is why a handler can leave
+this framework as easily as it entered.
+
+A few things do take a different shape, for one reason: the second transport.
+fasthttp has no `http.ResponseWriter` and no routing of its own, so a read or a
+control that would go through one — `r.PathValue`, `http.NewResponseController`
+— is a `pw` call instead: `pw.PathValue`, `pw.QueryValue`, and the flush
+`Stream.Write` performs for you. Routing those through the framework is what
+lets one handler source compile for either build.
+
+### Generated code, no reflection, and TinyGo
+
 `pw generate` turns templates, SQL, request binding, response types, and
 configuration declarations into typed Go. A changed query result or a missing
-template argument therefore fails during generation or compilation, before a
-request reaches production.
-
-The command-line tools remove a different kind of repetition. `pw init` creates
-a runnable project, `pw dev` watches its inputs, and the generated project
-already has startup validation, operational endpoints, graceful shutdown,
-and structured errors. These features stay visible as Go and configuration
-rather than disappearing behind a separate application model.
-
-## A simple implementation should not be a bare one
-
-A short handler is attractive. A service that is short only because
-authentication, response policy, compression, observability, and configuration
-checks were left for later is not. Popcorn Wave keeps those concerns on the
-supported path, so a small application can gain them without growing a second
-framework around itself:
-
-- [Federated login and passkeys](/guides/backend/authentication/) provide both
-  external identity and phishing-resistant repeat login.
-- [Security response headers](/guides/frontend/security-headers/) establish
-  browser policy by default, while one switch enables negotiated
-  [response compression](/guides/backend/compression/) when the application
-  rather than a proxy owns compression.
-- Static analysis turns the handlers, bindings, response calls, and comments
-  already in the code into [OpenAPI 3.1 documentation](/productivity/api-documentation/).
-- [OpenTelemetry integration](/guides/architecture/telemetry/#reading-a-request-trace) exports structured
-  logs and traces, while framework spans make requests, renders, and database
-  statements visible without application-specific timers.
-- Typed [configuration](/guides/architecture/configuration/) accepts environment
-  variables, and [`pw doctor`](/pw/project/doctor/) resolves each named
-  environment and reports missing, conflicting, or unsafe settings before
-  deployment.
-
-Some of these mechanisms remain deliberate choices: compression is off when a
-proxy should own it, and federated login still needs a provider. What changes is
-the starting point. The straightforward implementation becomes naturally more
-secure, faster over the wire, observable, and easier to develop and operate.
-
-The JavaScript ecosystem has been relentless in its pursuit of productivity;
-the Go ecosystem has favored stability. Popcorn Wave is not trying to split the
-difference. Its aim is to keep Go's stable interfaces and predictable
-operations, close the gap, and eventually move beyond the productivity bar the
-JavaScript ecosystem has set. Generated checks, secure defaults, and integrated
-tooling make that the more productive way to build.
-
-## The productive path is also a fast path
-
-Code generation moves work out of the request path. Templates call typed
-functions, generated binders decode into known fields, and generated queries
-scan known columns; the runtime does not rediscover those shapes with
-reflection on every request. Optional browser features are separate imports, so
-a service that does not use them does not carry their runtime.
+template argument fails during generation or compilation rather than in
+production, and the runtime does not rediscover those shapes with reflection on
+every request.
 
 Rendering is where that shows up most plainly. The same inventory table written
 twice — once as an `html/template` parsed at startup, once as a typed component
@@ -85,18 +64,7 @@ twice — once as an `html/template` parsed at startup, once as a typed componen
 
 The memory column is the one that compounds. A fifty-row page costs 611 bytes
 instead of 26 KiB, and what is never allocated is never collected later — a cost
-the collector otherwise charges to whichever request happens to be running. The
-generated JSON codec has the same shape at a smaller scale, decoding a six-field
-request in 184 ns against 998 and encoding it in 74 against 160, though inside a
-whole HTTP request that difference largely disappears into the request itself.
-
-Popcorn Wave is built on `net/http`, whose server, tooling, middleware
-conventions, and profiling support are already part of the Go ecosystem. That
-is the intended default: enough performance for a broad range of services,
-without exchanging interoperability for a benchmark result the application may
-never need.
-
-## TinyGo is a first-class target
+the collector otherwise charges to whichever request happens to be running.
 
 Removing reflection has a second consequence, and it is the one the project is
 betting on. If WebAssembly becomes an ordinary place to deploy server code,
@@ -114,15 +82,97 @@ drivers for SQLite, PostgreSQL and MySQL, and clients for S3, DynamoDB and
 Datastore. That is more infrastructure than one person would sensibly take on,
 and it exists because AI assistance made it tractable.
 
-## When the HTTP stack is the measured bottleneck
+### Standards rather than house conventions
 
-Some services need more performance than `net/http` provides. If profiling
-shows that the HTTP stack itself is the limiting factor, `fasthttp` is a
-reasonable tool designed for that requirement. It uses a different request API
-and ecosystem boundary, so Popcorn Wave does not put it underneath a
-`net/http`-shaped compatibility layer.
+What goes on the wire is what the specifications say, so the people and
+machines on the other side already know how to read it. Errors are
+[RFC 9457 problem documents](/guides/frontend/responses/#errors); rate limits
+carry `Retry-After`; deprecation uses RFC 9745 and RFC 8594; login is OpenID
+Connect and WebAuthn; traces are W3C Trace Context; the API describes itself as
+OpenAPI 3.1. [Web Standards](/appendix/web-standards/) lists each one — and,
+just as usefully, the ones deliberately left out and why.
 
-This is not a judgment against `fasthttp`; it is a boundary. Popcorn Wave
-optimizes the path where standard Go compatibility, development speed, and
-strong generated checks must coexist. A service whose measurements justify a
-different boundary should choose the boundary it needs.
+### A simple implementation should not be a bare one
+
+A short handler is attractive. A service that is short only because
+authentication, response policy, compression, observability, and configuration
+checks were left for later is not. Those concerns stay on the supported path, so
+a small application can gain them without growing a second framework around
+itself:
+
+- [Federated login and passkeys](/guides/backend/authentication/) provide both
+  external identity and phishing-resistant repeat login.
+- [Security response headers](/guides/frontend/security-headers/) establish
+  browser policy by default, while one switch enables negotiated
+  [response compression](/guides/backend/compression/) when the application
+  rather than a proxy owns compression.
+- Static analysis turns the handlers, bindings, response calls, and comments
+  already in the code into [OpenAPI 3.1 documentation](/productivity/api-documentation/).
+- [OpenTelemetry integration](/guides/architecture/telemetry/#reading-a-request-trace) exports structured
+  logs and traces, while framework spans make requests, renders, and database
+  statements visible without application-specific timers.
+- Typed [configuration](/guides/architecture/configuration/) accepts environment
+  variables, and [`pw doctor`](/pw/project/doctor/) resolves each named
+  environment and reports missing, conflicting, or unsafe settings before
+  deployment.
+
+Some of these remain deliberate choices: compression is off when a proxy should
+own it, and federated login still needs a provider. What changes is the starting
+point. The straightforward implementation becomes naturally more secure, faster
+over the wire, observable, and easier to operate.
+
+## Frontend work belongs in Go too
+
+Ask where a Go web application ends today and the answer is usually "at the JSON
+boundary". The templates, the styling, the interactivity, and the routing that
+describes the site all moved to the JavaScript ecosystem, and Go kept the part
+that has no user interface.
+
+That split is worth challenging, because the reasons for it are historical
+rather than technical. `html/template` fails at render time instead of build
+time, has no component model, and cannot see a typo in a field name. A team that
+wants a typed, composable frontend has not had one in Go — so it reached for the
+ecosystem that did.
+
+What is here instead:
+
+- **Components with typed parameters.** A [`.pw.html`](/guides/frontend/templates/)
+  file compiles to Go. Rename a parameter and the handler stops compiling;
+  misspell a field and generation says so, with a position.
+- **Styles that belong to a component.** A scoped `<style>` block in a component
+  is compiled and namespaced, and [Tailwind CSS](/guides/frontend/styling/) is
+  one `pw add tailwind` away — including after the fact.
+- **Rendering that does not wait for the slowest query.**
+  [Async rendering](/guides/cross-layer/async-rendering/) streams a page around
+  the boundary that is still loading, and
+  [live rendering](/guides/cross-layer/live-rendering/) keeps updating a region
+  while the reader is still on the page.
+- **A route is a directory.** [Discovered routing](/guides/cross-layer/discovered-routing/)
+  reads the filesystem rather than a registration you keep in sync with it.
+- **Navigation that replaces what changed.**
+  [Partial updates](/guides/cross-layer/partial-updates/) answer a same-origin
+  link with the regions whose markup differs, and the layout chain you already
+  wrote is what makes the delta possible.
+
+Several of these are ideas the JavaScript ecosystem worked out first, and the
+debt is acknowledged. A few go further than their inspiration: async and live
+rendering are the same `await` clause in the template, distinguished by the
+declaration rather than by a second syntax, and partial updates need no client
+state because the boundaries are the layouts the server already renders.
+
+None of it is a client-side framework. The reader receives server-rendered HTML
+from the first byte to the last, and the only browser code involved is one small
+module that moves finished markup into place.
+
+The JavaScript ecosystem has been relentless in its pursuit of productivity; the
+Go ecosystem has favored stability. Popcorn Wave is not trying to split the
+difference. The aim is to keep Go's stable interfaces and predictable operations,
+close the gap, and eventually move past the productivity bar the JavaScript
+ecosystem has set.
+
+## Where to go next
+
+[Getting started](/tutorial/getting-started/) builds a running project in the
+first chapter. [Performance](/guides/architecture/performance/) has the numbers
+for each build target, including the `fasthttp` one, and what actually changes
+when you switch.

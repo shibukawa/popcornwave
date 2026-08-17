@@ -1,6 +1,6 @@
 ---
 title: サーバーレスホスティング
-description: Popcorn Wave が対応する scale-to-zero / Functions ランタイムと、HTTP アダプターが必要になる境界。
+description: Popcorn Wave が対応する scale-to-zero / Functions ランタイムと、HTTP アダプターが必要になる条件。
 sidebar:
   order: 3
 ---

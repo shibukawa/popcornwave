@@ -2,6 +2,7 @@ package pwcli
 
 import (
 	"context"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -55,6 +56,17 @@ func LoadName(id string) (string, error) { return id, nil }
 	return root
 }
 
+// generateCode writes the generated Go and nothing else, which is the half of
+// pw generate these tests are about. The asset tree and the stylesheet the
+// command also builds have their own tests, and the dependency-graph listing
+// --code-only performs has nothing to say about a fixture.
+func generateCode(ctx context.Context, stdout io.Writer) error {
+	_, err := generateProject(ctx, false, stdout, true)
+	return err
+}
+
+// generateIn runs generation in root. "--check" selects pw check; no argument
+// selects the writing half above.
 func generateIn(t *testing.T, root string, args ...string) string {
 	t.Helper()
 	previous, err := os.Getwd()
@@ -67,7 +79,15 @@ func generateIn(t *testing.T, root string, args ...string) string {
 	defer os.Chdir(previous)
 
 	var output strings.Builder
-	if err := runGenerate(context.Background(), args, &output); err != nil {
+	switch {
+	case len(args) == 0:
+		err = generateCode(context.Background(), &output)
+	case len(args) == 1 && args[0] == "--check":
+		err = runCheck(context.Background(), nil, &output)
+	default:
+		t.Fatalf("generateIn: %v is not a generation this helper runs", args)
+	}
+	if err != nil {
 		t.Fatalf("generate %v: %v\n%s", args, err, output.String())
 	}
 	return output.String()

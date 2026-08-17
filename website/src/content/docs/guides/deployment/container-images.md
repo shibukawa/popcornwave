@@ -227,7 +227,7 @@ RUN GOBIN=/usr/local/bin go install \
 
 COPY . .
 
-RUN pw prepare
+RUN pw generate
 RUN tinygo build -scheduler=threads -o /out/myapp ./cmd/myapp
 ```
 
@@ -235,9 +235,9 @@ RUN tinygo build -scheduler=threads -o /out/myapp ./cmd/myapp
 docker build -f Dockerfile.tinygo -t myapp .
 ```
 
-[`pw prepare`](/pw/project/prepare/) is `pw build` without the compiler: the same
-generation, stylesheet, asset, and development-import steps, stopping before the
-link. The line after it is the entire difference between the two files, which is
+[`pw generate`](/pw/project/generate/) is `pw build` without the compiler: the
+same generation, stylesheet, asset, and development-import steps, stopping before
+the link. The line after it is the entire difference between the two files, which is
 also why the compiler is written out rather than hidden behind a flag — it is
 the line you change for an output path, a target, or an optimization level.
 
@@ -274,8 +274,8 @@ TinyGo also compiles for the machine running the build rather than reading
 :::note[Images without a Dockerfile]
 [ko](https://ko.build/) and [Cloud Native Buildpacks](https://buildpacks.io/)
 both build a Go image without a Dockerfile, and both replace the Dockerfile
-rather than the host phase — they own the `go build` step and will not run
-`pw generate` for you. Run `pw prepare` in the working tree first and then
+rather than the host phase — they own the `go build` step and will not generate
+for you. Run `pw generate` in the working tree first and then
 invoke the builder; it works because both read the working directory rather
 than the git index, so the generated files `.gitignore` excludes are present and
 are used. A CI job that checks out and calls the builder directly gets the
@@ -293,8 +293,8 @@ way: a team running Buildpacks for a dozen services gains more from consistency
 than from this file, provided the project is host Go and the host phase runs
 first.
 
-What does not vary is the host phase. Whatever builds the image, `pw prepare` or
-`pw build` runs before the compiler, or the compiler has nothing to read.
+What does not vary is the host phase. Whatever builds the image, `pw generate`
+or `pw build` runs before the compiler, or the compiler has nothing to read.
 
 For every configuration key mentioned here, see the
 [configuration reference](/reference/configuration/).

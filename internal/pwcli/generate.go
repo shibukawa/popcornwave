@@ -24,20 +24,23 @@ import (
 	"golang.org/x/mod/modfile"
 )
 
-const generateUsage = "usage: pw generate [--check]"
+const checkUsage = "usage: pw check"
 
-func runGenerate(ctx context.Context, args []string, stdout io.Writer) error {
-	check := false
-	for _, arg := range args {
-		switch arg {
-		case "--check":
-			check = true
-		default:
-			return fmt.Errorf("generate: unknown argument %q; %s", arg, generateUsage)
-		}
+// runCheck reports generated Go that is stale or missing and writes nothing.
+//
+// It verifies less than pw generate writes, and deliberately: the asset tree
+// and the stylesheet are excluded from version control, so there is no
+// committed content to compare them against. Passing here means the generated
+// Go matches its sources, not that the tree compiles.
+//
+// It takes no flags. A project kind is not one either — a package project is
+// where this command is the release gate, so it runs there like anywhere else.
+func runCheck(ctx context.Context, args []string, stdout io.Writer) error {
+	if len(args) > 0 {
+		return fmt.Errorf("check: unexpected argument %q; %s", args[0], checkUsage)
 	}
 	// Invoked directly, the path list is the whole answer, so it is printed.
-	_, err := generateProject(ctx, check, stdout, true)
+	_, err := generateProject(ctx, true, stdout, true)
 	return err
 }
 

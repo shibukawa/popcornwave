@@ -1,6 +1,6 @@
 ---
 title: Firestore クエリフォーマット
-description: 型付き Go 操作へ生成される firestore 構造体タグと .pw.firestore クエリの全仕様。
+description: 型付きの Go API に変換される firestore 構造体タグと .pw.firestore クエリの全仕様。
 sidebar:
   order: 5
 ---

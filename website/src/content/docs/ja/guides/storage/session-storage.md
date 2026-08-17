@@ -1,6 +1,6 @@
 ---
 title: セッションストレージ
-description: 宣言した状態がどこに置かれ、何がそれを縛り、バックエンドごとに何を要求されるか。
+description: 宣言したセッション状態の保存先、状態を識別するキー、バックエンドごとに必要な設定。
 sidebar:
   order: 4
 ---
@@ -148,7 +148,7 @@ Redis と Valkey のどちらでも動き、使うのは `GET`、`SET`、`SET XX
 | キー | 既定値 | 意味 |
 | --- | --- | --- |
 | `redis.dsn` | *(空)* | **必須**。`redis://` か `rediss://` |
-| `redis.key_prefix` | `"pw:session:"` | このストアが所有する鍵空間 |
+| `redis.key_prefix` | `"pw:session:"` | このストアが使用するキーの名前空間 |
 | `redis.connect_timeout` | `"5s"` | 起動時の ping と各コマンドの期限 |
 
 起動時にサーバへ接続して ping を打つので、応答しないサーバは最初のログインではなく

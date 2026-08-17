@@ -10,14 +10,18 @@ import (
 )
 
 // buildUsage shows the shared backend axis and build's deployment axis.
-var buildUsage = "usage: pw build [--debug] [--backend nethttp|fasthttp] [--target lambda|azure-functions|google-cloud-run-functions|vercel-go]  |  pw prepare [--debug] [--backend nethttp|fasthttp]"
+var buildUsage = "usage: pw build [--debug] [--backend nethttp|fasthttp] [--target lambda|azure-functions|google-cloud-run-functions|vercel-go]"
+
+// generateUsage is the other half of the same option set. The two commands share
+// it because pw build is defined as pw generate plus the compiler.
+var generateUsage = "usage: pw generate [--code-only] [--debug] [--backend nethttp|fasthttp]"
 
 func runBuild(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 	options, err := buildFlags("build", args)
 	if err != nil {
 		return err
 	}
-	root, config, err := buildProject("build")
+	root, config, err := buildProject("build", true)
 	if err != nil {
 		return err
 	}
@@ -26,7 +30,7 @@ func runBuild(ctx context.Context, args []string, stdout, stderr io.Writer) erro
 	}
 	debug := options.debug
 	progress := newProgressRegion(stdout)
-	if err := prepareBuildInputs(ctx, root, config, options, progress, stdout, stderr); err != nil {
+	if err := generateBuildInputs(ctx, root, config, options, progress, stdout, stderr); err != nil {
 		progress.Done()
 		return err
 	}
@@ -56,17 +60,25 @@ func runBuild(ctx context.Context, args []string, stdout, stderr io.Writer) erro
 	return nil
 }
 
-// runPrepare is runBuild without its final compile step. A build the framework
-// does not drive — the tinygo invocation in Dockerfile.tinygo, a cross-compiled
-// go build with the operator's own flags, an image builder that owns the
-// compile step — needs the same tree and has no way to produce it, because
-// pw generate reaches only the first of the steps below.
-func runPrepare(ctx context.Context, args []string, stdout, stderr io.Writer) error {
-	options, err := buildFlags("prepare", args)
+// runGenerate is runBuild without its final compile step: it writes everything
+// the compiler needs and stops. A build the framework does not drive — the
+// tinygo invocation in Dockerfile.tinygo, a cross-compiled go build with the
+// operator's own flags, an image builder that owns the compile step — needs the
+// same tree and has nothing else to produce it with.
+//
+// This is the name a caller guesses for that job, which is why it has it. The
+// narrower command that only wrote the generated Go used to hold it, and a tree
+// prepared with that one fails to compile on a go:embed over a directory
+// nothing built. It is --code-only now.
+//
+// Unlike runBuild it runs in a package project, because that is where a
+// concept:component-package regenerates its committed artifacts.
+func runGenerate(ctx context.Context, args []string, stdout, stderr io.Writer) error {
+	options, err := buildFlags("generate", args)
 	if err != nil {
 		return err
 	}
-	root, config, err := buildProject("prepare")
+	root, config, err := buildProject("generate", false)
 	if err != nil {
 		return err
 	}
@@ -74,7 +86,7 @@ func runPrepare(ctx context.Context, args []string, stdout, stderr io.Writer) er
 		return err
 	}
 	progress := newProgressRegion(stdout)
-	err = prepareBuildInputs(ctx, root, config, options, progress, stdout, stderr)
+	err = generateBuildInputs(ctx, root, config, options, progress, stdout, stderr)
 	progress.Done()
 	return err
 }
@@ -97,11 +109,13 @@ var deploymentTargets = map[string]bool{
 }
 
 // buildOptions are how a build was invoked. Backend selects the HTTP
-// implementation; target selects provider packaging and is build-only.
+// implementation; target selects provider packaging and is build-only; codeOnly
+// narrows generation to the Go it writes and is generate-only.
 type buildOptions struct {
-	debug   bool
-	backend string
-	target  string
+	debug    bool
+	backend  string
+	target   string
+	codeOnly bool
 }
 
 // tags is what the compiler is told. A net/http build passes none, so its
@@ -127,20 +141,26 @@ func (o buildOptions) check(config projectConfig) error {
 	return nil
 }
 
-// buildFlags reads the build and prepare option set.
+// buildFlags reads the build and generate option set.
 //
-// It is on prepare as well as on build, and that is the point rather than a
-// convenience: prepare exists for a compile this project does not run — the
+// It is on generate as well as on build, and that is the point rather than a
+// convenience: generate exists for a compile this project does not run — the
 // TinyGo Dockerfile, a cross-compiled go build, an image builder owning the
 // final step — so those are deployments, and a flag only build understood would
-// miss the path most likely to become production. What prepare cannot carry is
+// miss the path most likely to become production. What generate cannot carry is
 // the linker half, which belongs to the compile its caller owns.
 func buildFlags(command string, args []string) (buildOptions, error) {
 	options := buildOptions{backend: backendNetHTTP}
+	usage := buildUsage
+	if command == "generate" {
+		usage = generateUsage
+	}
 	for index := 0; index < len(args); index++ {
 		switch arg := args[index]; {
 		case arg == "--debug":
 			options.debug = true
+		case arg == "--code-only":
+			options.codeOnly = true
 		case arg == "--backend":
 			index++
 			if index >= len(args) {
@@ -158,7 +178,7 @@ func buildFlags(command string, args []string) (buildOptions, error) {
 		case strings.HasPrefix(arg, "--target="):
 			options.target = strings.TrimPrefix(arg, "--target=")
 		default:
-			return buildOptions{}, fmt.Errorf("%s: unexpected argument %q; %s", command, arg, buildUsage)
+			return buildOptions{}, fmt.Errorf("%s: unexpected argument %q; %s", command, arg, usage)
 		}
 		if options.backend != backendNetHTTP && options.backend != backendFastHTTP {
 			return buildOptions{}, fmt.Errorf("%s: --backend %q is not a backend", command, options.backend)
@@ -167,17 +187,29 @@ func buildFlags(command string, args []string) (buildOptions, error) {
 			return buildOptions{}, fmt.Errorf("%s: --target %q is not a target", command, options.target)
 		}
 	}
-	if command == "prepare" && options.target != "" {
-		return buildOptions{}, fmt.Errorf("prepare: --target is available only on pw build")
+	if command == "generate" && options.target != "" {
+		return buildOptions{}, fmt.Errorf("generate: --target is available only on pw build")
+	}
+	if command == "build" && options.codeOnly {
+		return buildOptions{}, fmt.Errorf("build: --code-only is available only on pw generate, and a build needs every input")
+	}
+	// A flag with nothing to act on is worse than a rejected one, because the
+	// caller reads the artifact as debuggable and it is not: --debug survives
+	// only as source maps in the asset tree, which --code-only does not build.
+	if options.codeOnly && options.debug {
+		return buildOptions{}, fmt.Errorf("generate: --debug has nothing to keep with --code-only, which builds no asset tree")
 	}
 	return options, nil
 }
 
-// buildProject resolves the project the two commands above run in. The kind is
-// read before anything runs. Generation would succeed in a package and the
-// link step would then fail on a missing entry point, which is a late error
-// about the wrong thing.
-func buildProject(command string) (string, projectConfig, error) {
+// buildProject resolves the project the two commands above run in.
+//
+// refusePackage is what separates them. The kind is read before anything runs,
+// because a build would generate successfully in a package and then fail its
+// link step on a missing entry point, which is a late error about the wrong
+// thing. Generation itself is the one thing a package project does want, so it
+// passes false and degenerates instead, in generateBuildInputs.
+func buildProject(command string, refusePackage bool) (string, projectConfig, error) {
 	root, err := projectRoot(".")
 	if err != nil {
 		return "", projectConfig{}, err
@@ -186,27 +218,44 @@ func buildProject(command string) (string, projectConfig, error) {
 	if err != nil {
 		return "", projectConfig{}, err
 	}
-	if err := refuseInPackage(config, command); err != nil {
-		return "", projectConfig{}, err
+	if refusePackage {
+		if err := refuseInPackage(config, command); err != nil {
+			return "", projectConfig{}, err
+		}
 	}
 	return root, config, nil
 }
 
-// prepareBuildInputs writes everything a compiler needs that is not in version
+// generateBuildInputs writes everything a compiler needs that is not in version
 // control: the generated Go, the production stylesheet, and the derived asset
 // tree public.go embeds. It ends with the development-only import check, which
-// belongs here rather than beside the compiler because prepare hands the tree
-// to a compiler it does not run.
+// belongs here rather than beside the compiler because pw generate hands the
+// tree to a compiler it does not run.
 //
 // config is taken by value: the Tailwind minify override below is this
 // sequence's, not the project's, and the source map decision is the same shape.
 // It is a property of how the build was invoked, so it is written onto the
 // config here rather than read from a file that has no way to say which
 // invocation it meant.
-func prepareBuildInputs(ctx context.Context, root string, config projectConfig, options buildOptions, progress *progressRegion, stdout, stderr io.Writer) error {
+func generateBuildInputs(ctx context.Context, root string, config projectConfig, options buildOptions, progress *progressRegion, stdout, stderr io.Writer) error {
 	progress.Phase("generating")
 	if _, err := generateProject(ctx, false, stdout, false); err != nil {
 		return err
+	}
+	// A package project ends here whatever was asked for. It has no entry point
+	// whose imports could be rejected, no public.go to embed a tree for, and no
+	// document shell to style — so the generated Go is the whole of what a
+	// compiler downstream will read, and --code-only is the shape rather than a
+	// flag the author has to know to pass.
+	if config.Kind == kindPackage {
+		return nil
+	}
+	// --code-only keeps the import rejection. The steps it skips are the ones
+	// that write files; a flag must not also be the way past a check that keeps
+	// an identity provider signing users in without a password out of a
+	// deployable binary. Its cost is a dependency-graph listing, not a compile.
+	if options.codeOnly {
+		return rejectDevelopmentImports(ctx, root, config.Main, options)
 	}
 	if config.Tailwind.Enabled {
 		progress.Phase("building CSS")
@@ -254,7 +303,9 @@ func rejectDevelopmentImports(ctx context.Context, root, mainPackage string, opt
 		imported := strings.TrimSpace(line)
 		for _, forbidden := range developmentOnlyPackages {
 			if imported == forbidden {
-				return fmt.Errorf("pw build: %s imports %s, which is development-only and must not ship in an application", mainPackage, forbidden)
+				// The command is not named: this check runs for pw build and for
+			// pw generate, and the sentence is about the import either way.
+			return fmt.Errorf("%s imports %s, which is development-only and must not ship in an application", mainPackage, forbidden)
 			}
 		}
 	}

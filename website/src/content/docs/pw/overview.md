@@ -40,9 +40,9 @@ Install it with Homebrew, Nix, a release archive, or the Go toolchain — see
 | [`pw init`](/pw/project/init/) | create a runnable project |
 | [`pw add`](/pw/project/add/) | install a capability the project declined at init |
 | [`pw new`](/pw/project/new/) | scaffold one more handler, route, and template |
-| [`pw generate`](/pw/project/generate/) | compile `.pw.html` and `.pw.sql` into Go |
+| [`pw generate`](/pw/project/generate/) | write every build input, stopping before the compiler |
+| [`pw check`](/pw/project/check/) | report generated Go that is stale or missing |
 | [`pw dev`](/pw/project/dev/) | watch, regenerate, migrate, and restart |
-| [`pw prepare`](/pw/project/prepare/) | run everything a build needs, stopping before the compiler |
 | [`pw build`](/pw/project/build/) | produce a release binary |
 | [`pw doctor`](/pw/project/doctor/) | report what an environment would run, and what is wrong |
 

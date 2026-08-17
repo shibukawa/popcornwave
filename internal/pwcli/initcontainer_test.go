@@ -62,13 +62,15 @@ func TestBothRecipesRunTheHostPhaseBeforeAnyCompiler(t *testing.T) {
 	}
 
 	tiny := files["Dockerfile.tinygo"]
-	prepare := strings.Index(tiny, "RUN pw prepare")
+	// Unflagged: pw generate --code-only would write the generated Go and no
+	// dist/public, and the compiler below reads a go:embed over that directory.
+	generate := strings.Index(tiny, "RUN pw generate\n")
 	compile := strings.Index(tiny, "tinygo build")
-	if prepare < 0 || compile < 0 {
-		t.Fatalf("the TinyGo recipe is missing a step: prepare=%d compile=%d", prepare, compile)
+	if generate < 0 || compile < 0 {
+		t.Fatalf("the TinyGo recipe is missing a step: generate=%d compile=%d", generate, compile)
 	}
-	if prepare > compile {
-		t.Error("the TinyGo recipe compiles before it prepares the tree")
+	if generate > compile {
+		t.Error("the TinyGo recipe compiles before it writes the tree")
 	}
 	// Under the cooperative scheduler a blocking socket call holds the runtime,
 	// so a driver's cancellation watcher never runs. It is harmless for an

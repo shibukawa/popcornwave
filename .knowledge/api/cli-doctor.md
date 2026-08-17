@@ -74,5 +74,5 @@ relations:
   report: data:diagnostic-report
   check: data:diagnostic-check
   flow: flow:project-diagnosis
-  sibling: api:cli-generate check mode answers content drift of generated files, and doctor answers everything around them
+  sibling: api:cli-check answers content drift of generated files, and doctor answers everything around them
 ```

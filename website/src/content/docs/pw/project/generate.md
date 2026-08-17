@@ -1,23 +1,98 @@
 ---
 title: pw generate
-description: Compile templates, SQL, and binding call sites into Go.
+description: Write every build input — generated Go, the stylesheet, and the asset tree — and stop before the compiler.
 sidebar:
   order: 4
 ---
 
 ```sh
-pw generate [--check]
+pw generate [--code-only] [--debug] [--backend nethttp|fasthttp]
 ```
 
-Generation turns templates, SQL, page trees, and typed store declarations into
-`_pw_gen.go` files **beside their sources**, then links the packages the
-application needs. It prints only the paths that changed.
+`pw generate` is [`pw build`](/pw/project/build/) without its final step. It
+produces no binary — it leaves a tree that a compiler can read, and stops.
+
+## What it does
+
+1. compiles templates, SQL, page trees, catalogs, and binding call sites into
+   `_pw_gen.go` files **beside their sources**;
+2. builds the Tailwind stylesheet **minified**, if Tailwind is enabled;
+3. builds the [asset tree](/guides/frontend/static-assets/) into `dist/public`,
+   with its compressed sidecars and its manifest;
+4. rejects the run if `project.main` depends on a development-only package.
+
+That is the same list `pw build` performs before it links, in the same order,
+because `pw build` is defined as this command plus the compiler. The two cannot
+drift apart.
+
+Step 4 belongs here rather than beside the compiler for a reason worth saying
+out loud: this command hands the tree to a compiler it does not run, so the
+check that keeps `contrib/devidp` — an identity provider that signs users in
+without checking a password — out of a deployable binary has to happen before
+the handoff, not after it.
 
 ## Options
 
 | Option | Effect |
 | --- | --- |
-| `--check` | write nothing; exit non-zero listing any stale file |
+| `--code-only` | stop after step 1; write no stylesheet and no asset tree |
+| `--debug` | keep the source maps in the built tree |
+| `--backend` | select the build tags the dependency check lists the graph under |
+
+`--target` selects deployment packaging and belongs to
+[`pw build`](/pw/project/build/); it is not accepted here.
+
+`--debug` keeps the source maps exactly as
+[`pw build --debug`](/pw/project/build/#debug-artifacts) does. The other half of
+that flag is not this command's to give: `-ldflags` belongs to the compiler line
+you write, so a debug artifact from here is `pw generate --debug` followed by a
+`go build` you did not ask to strip.
+
+### `--code-only`
+
+`--code-only` writes the `_pw_gen.go` files and nothing else. It is for an inner
+loop and for an editor task — the generated Go is what a diagnostic points into,
+and waiting for a minified stylesheet to see a template error is time nobody
+wants to spend.
+
+Do not hand its output to a compiler. `public.go` names `dist/public` in a
+`go:embed` directive, so a tree generated with this flag fails to compile on a
+directory that was never built, and a project with Tailwind is also missing its
+stylesheet — which fails later and more quietly: the pages render unstyled.
+
+Step 4 still runs. The steps the flag skips are the ones that write files, and a
+flag is not a way past a check that keeps an identity provider out of a binary.
+`--debug` is refused alongside it, because source maps live in a tree this flag
+does not build.
+
+## When something else owns the compile step
+
+Reach for `pw build` unless something else owns the compile step. Three cases do.
+
+**A TinyGo build.** `pw build` always links with host `go`, so a TinyGo project
+generates and then invokes its own compiler:
+
+```sh
+pw generate
+tinygo build -scheduler=threads -o myapp ./cmd/myapp
+```
+
+**A `go build` you want to control.** Cross-compiling to an unusual target,
+passing `-ldflags`, or building several binaries out of one tree are all reasons
+to write the compiler line yourself:
+
+```sh
+pw generate
+GOOS=linux GOARCH=arm64 go build -ldflags="-s -w" -o dist/myapp ./cmd/myapp
+```
+
+**An image builder that owns `go build`.** ko and Cloud Native Buildpacks both
+compile the project themselves and will not run generation for you. Run this
+first, in the working tree, and invoke the builder second.
+
+[Container Images](/guides/deployment/container-images/) uses this command in
+`Dockerfile.tinygo`, and explains why a Popcorn Wave build has a host phase at
+all.
 
 ## What it reads
 
@@ -105,6 +180,10 @@ than in rule: it is a generated file of blank imports that links the document
 shell and the embedded public assets into the binary, so no handler has to
 reference them. It is removed automatically when neither exists.
 
+`dist/public` is created even when a project has no public asset at all, because
+`public.go` names the directory in a `go:embed` directive and the compiler reads
+the directive rather than the tree.
+
 ## The single-document rule
 
 A project has exactly one `document.pw.html`. If generation finds more anywhere
@@ -118,20 +197,30 @@ Alternative shells are ordinary exported components with an unnamed slot,
 selected per handler with `pw.WriteHTMLChain`. See
 [Templates](/guides/frontend/templates/).
 
+## In a package project
+
+A [component package](/guides/deployment/package/) has no entry
+point, no `public.go`, and no document shell, so steps 2 through 4 have nothing
+to act on and the command stops after the generated Go. That is the same result
+`--code-only` gives, chosen by `project.kind` rather than by a flag the author
+has to remember.
+
+This is the one command in the build group a package project accepts.
+[`pw build`](/pw/project/build/) and [`pw dev`](/pw/project/dev/) both refuse it,
+because there is nothing to run.
+
 ## In CI
 
+Verify that generated code is current, then generate and compile:
+
 ```sh
-pw generate --check
+pw check
+pw generate
+go build ./cmd/myapp
 ```
 
-Because Git ignores generated Go, a repository diff cannot reveal stale output
-in CI. `--check` regenerates in memory and fails if any file would change:
-
-```
-pw: generated files are stale:
-  handlers/home_pw_gen.go
-```
+[`pw check`](/pw/project/check/) writes nothing and fails on stale output.
+Because Git ignores generated Go, a repository diff cannot reveal it.
 
 Both [`pw dev`](/pw/project/dev/) and [`pw build`](/pw/project/build/) generate
-first. Direct invocation is therefore mostly useful for CI and for diagnosing
-generation errors.
+first, so a direct `pw generate` is for a compile you drive yourself.
