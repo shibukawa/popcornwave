@@ -158,9 +158,15 @@ type RuntimeOptions struct {
 // They are not here, and their absence is now a choice rather than a gap.
 // popcornwave/plugin/auth/authfast supplies them, as frames positioned by their
 // own slots and a guard policy this takes as an argument, because there is no
-// extension registry on this transport: a chain assembled from arguments cannot
-// silently gain a frame because something was imported, and every frame it does
-// gain is one the application named.
+// extension registry on this transport: an imported capability cannot install a
+// frame here, and every frame this chain gains from a plugin is one the
+// application named.
+//
+// What the application registers for itself is the exception, and a deliberate
+// one: RegisterMiddleware writes into a process list this reads, so the
+// registration reads the same on both builds. The frame is still one the
+// application's own source names — its main called the function — which is the
+// property the argument-assembled chain was protecting.
 //
 // What is still absent is absent rather than stubbed, so a build that needs one
 // fails to name it rather than serving requests with a frame that silently does
@@ -277,6 +283,12 @@ func Middlewares(handler fasthttp.RequestHandler, options RuntimeOptions) (fasth
 		frames = append(frames, Frame{Slot: SlotTracing, Name: "otel", Middleware: Otel()})
 	}
 	frames = append(frames, options.Extra...)
+	// The application's own middleware last, so a frame sharing a number with a
+	// framework frame or a plugin's runs inside it. This is read here rather
+	// than by Run alone, so the chain a test assembles through this call is the
+	// chain Run serves; a registry only the entry point consulted would let the
+	// two differ with nothing to say so.
+	frames = append(frames, registeredMiddleware()...)
 	return Compose(handler, frames...), nil
 }
 

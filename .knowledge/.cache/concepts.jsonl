@@ -502,6 +502,7 @@
 {"category": "objective", "id": "requirement:extension-distribution", "path": ".knowledge/requirement/extension-distribution.md", "role": "primary", "title": "Extension Distribution", "type": "requirement"}
 {"category": "objective", "id": "requirement:external-boundary-runtime", "path": ".knowledge/requirement/external-boundary-runtime.md", "role": "primary", "title": "External Boundary Runtime Script", "type": "requirement"}
 {"category": "objective", "id": "requirement:external-public-assets", "path": ".knowledge/requirement/external-public-assets.md", "role": "primary", "title": "External Public Assets", "type": "requirement"}
+{"category": "objective", "id": "requirement:fasthttp-middleware-registration", "path": ".knowledge/requirement/fasthttp-middleware-registration.md", "role": "primary", "title": "Application Middleware Registration On The fasthttp Build", "type": "requirement"}
 {"category": "objective", "id": "requirement:firestore-auth-backend", "path": ".knowledge/requirement/firestore-auth-backend.md", "role": "primary", "title": "Firestore Authentication Backend", "type": "requirement"}
 {"category": "objective", "id": "requirement:firestore-auth-stores", "path": ".knowledge/requirement/firestore-auth-stores.md", "role": "primary", "title": "Firestore Account-Side Authentication Stores", "type": "requirement"}
 {"category": "objective", "id": "requirement:firestore-generation", "path": ".knowledge/requirement/firestore-generation.md", "role": "primary", "title": "Firestore Code Generation", "type": "requirement"}

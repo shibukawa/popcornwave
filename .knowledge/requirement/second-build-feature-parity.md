@@ -16,7 +16,10 @@ method:
 already_holds:
   call_registry: all 23 transport-taking pw funcs are registered, so no application call shape is refused for want of a pattern
   page_runtime: pwpage has pwfastpage
-  middleware: decision:backend-specific-middleware already records that pw.RegisterMiddleware is per backend by design, not a gap
+  middleware:
+    was_recorded_here: that decision:backend-specific-middleware makes pw.RegisterMiddleware per backend by design and therefore not a gap
+    corrected_2026_08_17: that decision settles the middleware body, not the registration surface, and pwfast had no registration function at all; the only seam was the plugin's RuntimeOptions.Extra, reachable from Run through a closure and documented nowhere
+    now: requirement:fasthttp-middleware-registration, implemented as pwfast.RegisterMiddleware
 class_a_reachable_under_another_name:
   defect: not missing capability; the only spelling published is the pw one, so app code shared by both builds names a package the second build does not link
   rule: rule:shared-code-names-a-leaf

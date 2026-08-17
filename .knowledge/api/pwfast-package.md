@@ -71,7 +71,16 @@ identity_endpoints_2026_08_11:
   found_by_the_agreement_test: Redirect wrote no fallback body here, because this transport reports a default content type where net/http reports none, so the check for an unset one was never true
 absent_and_why:
   everything_absent_here: is absent rather than stubbed, per policy:absent-rather-than-stubbed
-  extension_registry: none, because pwfast.Middlewares takes what it needs as arguments; a chain assembled from arguments cannot silently gain a frame because something was imported, and the Extra frames of RuntimeOptions are the seam, positioned by the same slot numbers
+  extension_registry:
+    none: an imported capability installs no frame here; the Extra frames of RuntimeOptions are the plugin seam, positioned by the same slot numbers, and the application names them
+    still_the_reason: a plugin's frame reaching the chain because a package was imported is a frame nothing in the application's source mentions
+    application_middleware_excepted_2026_08_17:
+      what: RegisterMiddleware writes into a process list Middlewares reads, per requirement:fasthttp-middleware-registration
+      why: the call is now pw.RegisterMiddleware with one word changed, so the two build-tagged mains differ only in the middleware body, which decision:backend-specific-middleware already requires them to
+      why_it_is_not_the_thing_refused: the frame is named by the application's own main rather than gained from an import
+      cost_accepted: a list cannot tell a main from a third-party init, so a package could register a frame the application never named; the same cost is already paid on the net/http side
+      read_by_middlewares_rather_than_run: the chain a test assembles is then the chain Run serves, where a list only the entry point consulted would let the two differ with nothing to say so
+      refusals: nil middleware, duplicate name, and the two fixed frames, each a panic with the pw wording
   websocket:
     was_recorded_here: that it waited on a dependency decision because the fork carried no websocket package
     corrected_2026_08_11: the fork's sibling does, and system:tinybind-websocket publishes fasthttpbind.WebSocket over it, so nothing waits on a dependency

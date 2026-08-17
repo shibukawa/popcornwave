@@ -47,10 +47,11 @@ func WithPublicFS(publicFS fs.FS) Option {
 // WithRuntimeOptions folds one contribution into what the chain is built from.
 //
 // It is how a plugin that installs frames reaches this transport. There is no
-// extension registry here — a chain assembled from arguments cannot silently
-// gain a frame because something was imported — so a plugin serving both
-// transports registers on the other one and is named here. An authentication
-// plugin's Apply is exactly this shape:
+// extension registry here — an imported capability cannot install a frame this
+// chain would gain without the application saying so — which is why a plugin
+// serving both transports registers on the other one and is named here. An
+// application's own middleware has RegisterMiddleware instead. An
+// authentication plugin's Apply is exactly this shape:
 //
 //	auth, err := authfast.Setup(ctx)
 //	pwfast.Run(ctx, handler, pwfast.WithRuntimeOptions(auth.Apply))

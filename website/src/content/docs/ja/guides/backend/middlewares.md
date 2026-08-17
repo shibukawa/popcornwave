@@ -198,3 +198,80 @@ err = http.ListenAndServe(":8080", myOutermost(handler))
 この位置はスタックが提供するものを全部手放します。リクエスト ID も recover も、
 コンテキストのリソースも無い。生のリクエストを観測すること自体が目的のときだけ選んで
 ください。それ以外は、線の上の番号が意図を語り、チェーンがそれを守ります。
+
+## fasthttp ビルドでは
+
+番号線は同じものです。`pwfast.RegisterMiddleware` はスロット・名前・
+`func(fasthttp.RequestHandler) fasthttp.RequestHandler` を受け取り、スロット定数も同じ
+定数で、`pwfast.Run`・`pwfast.Start`・`pwfast.Middlewares` が組むチェーンの同じ位置に
+収まります。拒否も3つとも同じです。nil、名前の重複、100 と 160 の固定フレーム。
+
+違うのは包み方だけで、これはそうならざるを得ませんでした。ミドルウェアは自分より下の
+全部を包むので、1つをアダプタで挟むと、その下のチェーンごと反対側のトランスポートの
+ハンドラ型に引きずり込まれます。ルート単位の逃げ道が避けているコストが、チェーン全体に
+一度でかかる。登録のほうには違える理由が無かった。だから `main.go` と
+`main_fasthttp.go` の差は、包み方だけです。
+
+```go
+// cmd/myapp/main_fasthttp.go
+//go:build fasthttp
+
+package main
+
+import (
+	"context"
+	"log"
+	"time"
+
+	"github.com/shibukawa/popcornwave/pwfast"
+	"github.com/shibukawa/popcornwave/pwsession"
+	"github.com/shibukawa/popcornwave/session"
+	"github.com/shibukawa/tinygodriver/fasthttp"
+
+	"myapp/handlers"
+)
+
+type RequestTime struct {
+	At time.Time `json:"at"`
+}
+
+func withRequestTime(next fasthttp.RequestHandler) fasthttp.RequestHandler {
+	return func(r *fasthttp.RequestCtx) {
+		if handle, ok := session.Value[RequestTime](r); ok {
+			handle.Set(RequestTime{At: time.Now()})
+		}
+		next(r)
+	}
+}
+
+func main() {
+	// セッションストアの登録はトランスポートに依らないので pwfast ではなく
+	// pwsession。pw.RegisterSessionStore はこれの re-export。
+	pwsession.RegisterStore[RequestTime]("request_time", session.RequestScope)
+	pwfast.RegisterMiddleware(pwfast.SlotSession+5, "request_time", withRequestTime)
+
+	mux := pwfast.NewServeMux()
+	handlers.RegisterRoutes(pwfast.Routes(mux))
+	if err := pwfast.Run(context.Background(), mux.Handler); err != nil {
+		log.Fatal(err)
+	}
+}
+```
+
+このトランスポートではリクエスト値そのものがコンテキストです。だから net/http 版が
+`r.Context()` を渡すところで `session.Value` は `r` を受け取る。ミドルウェア本体の移植は、
+ほぼこの置き換えで終わります。包み方でもヘッダの読み書きでもない部分は
+トランスポートに依らないので、判断する側を素の関数に切り出して両方から呼べば、
+ビルドごとに書くのは自分のリクエストに手を入れる数行だけになります。
+
+登録の隣に継ぎ目が2つあります。import した機能 — 認証プラグイン、ストレージ連携 — は
+ここには登録しません。`pwfast.RuntimeOptions.Extra` でフレームを渡し、それを
+`pwfast.Run` の呼び出しでアプリが名指しする。パッケージを import しただけで
+このチェーンに何かが加わることはない、というわけです。もう1つはフレームワークが
+設置する全部の外側で、それは `pwfast.Start` です。組み上がったチェーンと、起動が
+開いたものを閉じる shutdown を返すので、包んでから自分で serve できます。
+
+serverless ターゲットに追加の作業はありません。`pw build --target` はエントリポイントの
+`Run` を `Start` へ書き換えますが、その呼び出しに達する時点で `main` は登録を済ませて
+いるので、フレームは関数ハンドラが serve するチェーンに入っています。
+[サーバーレス](/ja/guides/deployment/serverless/)を参照。

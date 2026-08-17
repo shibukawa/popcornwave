@@ -17,11 +17,15 @@
 //
 // # Why the second transport has no counterpart
 //
-// pwfast.Middlewares takes its frames as arguments and reads no registry. That
-// is deliberate rather than missing: a chain assembled from arguments cannot
-// silently gain a frame because something was imported. So this registry is the
-// net/http chain's, and a plugin serving both transports registers here and
-// hands the other transport a frame directly.
+// pwfast.Middlewares takes a plugin's frames as arguments and reads no
+// extension registry. That is deliberate rather than missing: an imported
+// capability cannot install a frame there without the application naming it. So
+// this registry is the net/http chain's, and a plugin serving both transports
+// registers here and hands the other transport a frame directly.
+//
+// An application's own middleware is not this: pwfast.RegisterMiddleware is a
+// list that transport keeps for the application, so the registration reads the
+// same on both builds while a plugin's frame still has to be named.
 package pwextension
 
 import (
