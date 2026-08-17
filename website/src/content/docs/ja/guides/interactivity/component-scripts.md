@@ -1,12 +1,12 @@
 ---
 title: コンポーネントスクリプト
-description: コンポーネント自身の JavaScript を、インスタンスごとに走る setup で書く。ハンドラはマークアップから名前で呼べ、領域が消えれば登録した後始末が走る。
+description: コンポーネントごとの JavaScript を、インスタンス単位で実行される setup に記述します。マークアップからのハンドラ呼び出しと、要素を削除したときの後処理にも対応します。
 sidebar:
   order: 6
 ---
 
-[Authored islands](/ja/guides/interactivity/overview/) の段は、JavaScript は
-あなたのものだと言います。これまでそれは、ドキュメントシェルに置いたサイト全体の
+[Authored islands](/ja/guides/interactivity/overview/) では、JavaScript を
+アプリケーション側で記述します。これまでは、ドキュメントシェルに置いたサイト全体の
 モジュールがセレクタで要素を探す、という意味でした。ページ内の script タグは
 ドキュメントの寿命のあいだ URL ごとに一度しか評価されないからです。そして部分更新が
 見張っていた領域を差し替えても、そのモジュールには知る手立てがありませんでした。

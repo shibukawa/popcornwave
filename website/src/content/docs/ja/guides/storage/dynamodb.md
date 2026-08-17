@@ -1,6 +1,6 @@
 ---
 title: DynamoDB
-description: TinyGo でも動く型付きの DynamoDB ストア。タグ付きレコード、宣言型クエリ、そしてマイグレーションファイルではなく比較で適用されるスキーマ。
+description: TinyGo でも使える型付き DynamoDB ストア。タグ付きレコード、宣言型クエリ、現在の状態との差分から適用するスキーマを説明します。
 sidebar:
   order: 2
 ---

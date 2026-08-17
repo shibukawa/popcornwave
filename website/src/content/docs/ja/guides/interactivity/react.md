@@ -122,11 +122,11 @@ window.mountCounter = (el: HTMLElement, initial: number) => {
 };
 ```
 
-`mountCounter` はPopcorn WaveのAPIではなく、asset buildがURLを所有するbundleを
+`mountCounter` は Popcorn Wave の API ではありません。アセットビルドが生成した bundle を、
 生成済みコンポーネントモジュールから呼ぶためだけのアプリケーション側の橋です。
 
-`<section>` 自体は Popcorn Wave が所有します。その内側は、`setup` の起動後に React が
-所有します。周囲の見出し、フォーム、一覧まで React のルートへ入れる必要はありません。
+`<section>` 自体は Popcorn Wave が管理し、`setup` の起動後はその内側を React が
+管理します。周囲の見出し、フォーム、一覧まで React のルートへ入れる必要はありません。
 
 ランタイムは最初のページでも、部分更新や live 更新で挿入されたインスタンスでも
 `setup` を呼びます。祖先を差し替える前には戻り値を呼び、React ツリーを unmount して
@@ -135,7 +135,7 @@ effect、購読、イベントを解放します。この
 が、サーバー側の DOM ライフサイクルと一致します。
 
 複数の島で React コンポーネントを共有するなら、別の TypeScript ファイルへ分けて
-`counter.tsx` から import します。mount 点と teardown を所有するのはテンプレート宣言
+`counter.tsx` から import します。mount 先と teardown を管理するのはテンプレート宣言
 なので、`setup` はそこに残します。
 
 light DOM を使っていることにも意味があります。React が作るボタンはページの
