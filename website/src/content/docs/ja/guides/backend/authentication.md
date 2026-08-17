@@ -1,5 +1,5 @@
 ---
-title: 認証
+title: 認証の組み込み
 description: ブラウザのログインを構成するか、API サーバーで Bearer アクセストークンを検証する。
 sidebar:
   order: 1

@@ -22,7 +22,7 @@ sidebar:
 :::caution[この章の範囲]
 扱うのは**セッションとログイン**です。ログイン状態を保つことと、あるパスにそれを
 要求すること。認証方式の選択、パスワードの保管、パスキーは扱いません。それらは
-[認証](/ja/guides/backend/authentication/)の担当です。
+[認証の組み込み](/ja/guides/backend/authentication/)の担当です。
 :::
 
 ## 1. 機能を追加する
@@ -397,7 +397,7 @@ export component Home(displayName: string, memos: Memo[]): html {
 
 初期のリゾルバは、アカウントを保存せずに検証済みの身元から導出します。実際のアプリケーションは
 アカウントのテーブルを持ち、issuer と識別クレームに紐づけ、見たことのない身元をどう扱うかを
-決めます。それは[認証](/ja/guides/backend/authentication/)の担当で、リポジトリの
+決めます。それは[認証の組み込み](/ja/guides/backend/authentication/)の担当で、リポジトリの
 `examples/oidclogin` がその動く実装です。
 
 そして `auth.User` が答えるのは*誰か*であって、*何をしてよいか*ではありません。認可は

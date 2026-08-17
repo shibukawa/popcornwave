@@ -251,7 +251,7 @@ Django も Laravel も Spring の SPA 構成も同じ形です。代償は JavaS
 ループバックにしかバインドしません（opt-out はありません）。`pw build` も、対象の
 アプリケーションがこれを import していると失敗するので、事故でリリース成果物に
 混ざることはありません。`pw dev` がどう繋いでいるかは
-[認証](/ja/guides/backend/authentication/#開発中)にあります。
+[認証の組み込み](/ja/guides/backend/authentication/#開発中)にあります。
 
 ### 開発以外でも通るが、警告が出る
 

@@ -115,7 +115,7 @@ JWTには、ローカルから手書きのトークンでAPIを試すための�
 構文とサイズ上限は省略されず、緩和を使ったレスポンスには`X-Pw-Auth-Unverified: true`が
 付きます。本番用バイナリは、この緩和設定を黙って無視するのではなく起動時に拒否します。
 
-- [認証](/ja/guides/backend/authentication/)
+- [認証の組み込み](/ja/guides/backend/authentication/)
 - [認証設計](/ja/guides/backend/authentication-design/)
 - [セッション](/ja/guides/backend/sessions/)
 - [開発用の認証プロバイダ](/ja/productivity/dev-identity-provider/)

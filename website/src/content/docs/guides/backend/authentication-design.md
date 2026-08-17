@@ -1,31 +1,33 @@
 ---
 title: Authentication design
-description: What the three modes actually separate, how to choose one, and the assurance a session carries once the login is over.
+description: What the four modes actually separate, how to choose one, and the assurance a session carries once the login is over.
 sidebar:
   order: 0
 ---
 
-`auth.mode` has three values, but they do not merely select OpenID Connect,
-passkeys, or a combination of the two. In `oidc_passkey` mode, for example,
-people normally sign in with a passkey; the OIDC provider returns only for
-recovery.
+`auth.mode` has four values. Three of them describe a person signing in with a
+browser, and they do not merely select OpenID Connect, passkeys, or a
+combination of the two. In `oidc_passkey` mode, for example, people normally
+sign in with a passkey; the OIDC provider returns only for recovery.
 
-Choose a mode by looking at account creation and recovery authority, not only
-at the daily sign-in screen.
+Choose among those three by looking at account creation and recovery authority,
+not only at the daily sign-in screen. The fourth, `jwt_only`, is not on that
+axis at all — it serves an API where nobody signs in.
 
 ## What the modes separate
 
 A passkey cannot create an account. The reason is plain: there is nothing for the first credential to attach to. A public key arrives, and unless something else can say whose it is, the service has nothing to do with it.
 
-Every mode therefore has to answer one question before anybody signs in at all: what brought this account into existence? The three modes are three answers.
+Every mode therefore has to answer one question before anybody signs in at all: what brought this account into existence? The modes are four answers.
 
 | `auth.mode` | Where an account comes from | Daily sign-in | Recovery authority |
 | --- | --- | --- | --- |
 | `oidc_only` | The provider | The provider | The provider |
 | `oidc_passkey` | The provider | A passkey | The provider |
 | `passkey_only` | A login ID and one-time secret an administrator issues | A passkey | An administrator, or another passkey |
+| `jwt_only` | The authorization server that mints the tokens | None — a bearer token on every request | Not this application's, and not a question it can be asked |
 
-That last column carries the most operational weight.
+That last column carries the most operational weight, and the last row is where it stops applying.
 
 ### `oidc_only`
 
@@ -51,9 +53,23 @@ No provider exists. An administrator creates the account and hands the person a 
 
 **What you take on.** Recovery, entirely. Knowing an email address is not grounds for recovery — anyone can know one, which is why it is forbidden by default. What remains is another enrolled passkey, an administrator reissuing a credential, or a verified mechanism the application provides itself.
 
+### `jwt_only`
+
+Nobody signs in. Every request carries an access token in `Authorization: Bearer …`, the application verifies it, and that is the whole ceremony. There is no login endpoint, no callback, no session record, and no cookie — the caller was already holding a credential an authorization server issued, and this application is the resource server that checks it.
+
+That is why the three questions above go quiet here. The account was created wherever the authorization server says; the daily sign-in belongs to whatever obtained the token; and recovery is a conversation the caller has with the authorization server, not with you.
+
+**What you get.** No credential storage, no session storage, and no state to carry between requests. A deployment that keeps nothing can scale to nothing and back.
+
+**What you take on.** A token stays valid until it expires, so ending access early needs a revocation strategy you choose deliberately — `revocation.mode` has no permissive default, and startup refuses until you name one. See [Token revocation](/guides/backend/token-revocation/).
+
+A browser flow and a bearer API are different trust models, so this mode does not combine them. An application that needs both serves the API from a separate deployment. `pw init --auth` does not offer `jwt_only` for that reason; the API-server preset scaffolds it instead. [Authentication](/guides/backend/authentication/#jwt-only-api-servers) has the configuration.
+
 ## Choosing one
 
 The mode alone does not settle it. Admission — who may enter — settles the rest.
+
+One question comes before all of them: is there a browser? If callers are other services, scripts, or a mobile client holding a token, take `jwt_only` and the cases below do not apply — there is no account creation to place and no recovery route to design, only an admission rule and a revocation strategy. Everything else here assumes a person at a browser.
 
 ### Consumer products
 
