@@ -1,6 +1,6 @@
 ---
 title: DynamoDB クエリフォーマット
-description: dynamo 構造体タグ、.pw.dynamo の宣言文法、そして生成がその両方に対して走らせる検査の全一覧。
+description: dynamo 構造体タグ、.pw.dynamo の宣言構文、コード生成時に行われる検査の一覧。
 sidebar:
   order: 4
 ---
@@ -10,8 +10,9 @@ DynamoDB のアクセスには宣言が2つあり、互いに突き合わされ�
 読むアクセスパターンを宣言します。`pw generate` は前者からアイテムのコーデックとテーブル
 定義を、後者からパターン1つにつき1つの名前付き関数を作ります。
 
-このページはその両面です。ストアを有効にする方法、`[middleware.dynamo]` のキー、スキーマの
-適用の仕方は[DynamoDB](/ja/guides/storage/dynamodb/)にあります。
+ここでは、Go 構造体と `.pw.dynamo` ファイルの両方を説明します。ストアを有効にする方法、
+`[middleware.dynamo]` のキー、スキーマの適用方法については
+[DynamoDB](/ja/guides/storage/dynamodb/)を参照してください。
 
 ## 生成が見る場所
 
@@ -227,7 +228,7 @@ LoadAllOn[T](ctx, h, table, keys, opts...) (items []T, unprocessed []dynamodb.Ke
 `StoreAll` と `LoadAll` は入力を DynamoDB が受け付けるリクエストへ分割します。`MaxBatchWrite`
 は 25、`MaxBatchGet` は 100 で、どちらも公開されているので、入力量を調整する呼び出し側は
 分割が使うのと同じ数値を読めます。サービスが受け付けなかった分は `unprocessed` として返り、
-再試行の方針は自分のものです。ドライバはすでにトランスポートを再試行しているので、ここで
+未処理分を再試行するかどうかは、アプリケーション側で決めます。ドライバはすでにトランスポートを再試行しているので、ここで
 ループを回すとそれを黙って掛け算することになります。`LoadAll` は DynamoDB が返す順のまま
 アイテムを返し、何にも一致しなかったキーは単に含まれません。
 

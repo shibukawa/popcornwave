@@ -1,6 +1,6 @@
 ---
 title: 部分更新
-description: リンク、フォーム、JavaScriptのリクエストから、サーバー描画したページの変わった領域だけを更新する。
+description: リンク、フォーム、JavaScript のリクエストに応じて、サーバーで描画したページの変更部分だけを更新します。
 sidebar:
   order: 4
 ---

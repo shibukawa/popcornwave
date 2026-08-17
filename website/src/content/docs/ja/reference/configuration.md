@@ -1,6 +1,6 @@
 ---
 title: アプリケーション設定一覧
-description: 動作中のアプリケーションが読むランタイム設定キーの全一覧と既定値、そして TOML・環境変数・コマンドラインでの名前。
+description: 実行中のアプリケーションが使うランタイム設定キー、既定値、TOML・環境変数・コマンドラインでの名前の一覧。
 sidebar:
   order: 1
 ---
@@ -405,7 +405,7 @@ HSTS が付くのは検証済みの HTTPS リクエストだけです。平文�
 | `rdb.dsn` | *(空)* | 専用セッションデータベース。表示されるときにマスクされるのは資格情報だけ |
 | `rdb.table` | `"popcornwave_session"` | |
 | `redis.dsn` | *(空)* | `redis://` または `rediss://` のサーバー。表示されるときにマスクされるのは資格情報だけ |
-| `redis.key_prefix` | `"pw:session:"` | セッションストアが所有する鍵空間 |
+| `redis.key_prefix` | `"pw:session:"` | セッションストアが使用するキーの名前空間 |
 | `redis.connect_timeout` | `"5s"` | 起動時の ping と各コマンドの期限 |
 | `cookie_store.name` | `"pw_session_data"` | 封をしたレコードを運ぶクッキー |
 | `keyring.secret` | *(空)* | ブラウザが運ぶもの全部に署名し封をする base64 の秘密鍵（マスクされる） |
@@ -444,7 +444,7 @@ CSRF の秘密もここの鍵ではありません。登録されたセッショ
 | `per_address` | `300` | セッションのない呼び出し元 1 つがウィンドウ内に送れるリクエスト数。正の値が必須 |
 | `process` | `0` | ウィンドウあたりの総到着数の上限、キーなし。`0` なら身元バケットだけが残る |
 | `redis.dsn` | *(空)* | `redis://` または `rediss://` のカウンターサーバー。報告時は資格情報部分だけマスクされる |
-| `redis.key_prefix` | `"pw:ratelimit:"` | このリミッターが所有するキー空間 |
+| `redis.key_prefix` | `"pw:ratelimit:"` | このリミッターが使用するキーの名前空間 |
 | `redis.connect_timeout` | `"5s"` | 起動時 ping とコマンドごとのデッドライン |
 
 `redis.*` のキーが読まれるのは `backend = "redis"` のときだけで、このバックエンドは
