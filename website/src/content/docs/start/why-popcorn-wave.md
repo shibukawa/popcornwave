@@ -26,12 +26,23 @@ framework does not also mean teaching the codebase a private request model.
 
 ### Built on the interfaces Go already has
 
-`pw.ServeMux` is a type alias for `net/http.ServeMux` on host Go rather than a
-wrapper around it. A query returns through `database/sql`. A request-scoped
-value travels on `context.Context`.
-This is what keeps the profiling tools, the middleware conventions, and the
+A handler is an `http.HandlerFunc`, and what wraps it is the
+`func(http.Handler) http.Handler` every Go codebase already writes. Queries
+return through `database/sql`. Request-scoped values travel on the
+`context.Context` Go has carried since 1.7. Routing is the `http.ServeMux` that
+Go 1.22 taught to match methods and path parameters, so `GET /users/{id}` is the
+standard library's pattern rather than a syntax this framework invented.
+
+That is what keeps the profiling tools, the middleware conventions, and the
 libraries already in your `go.mod` working, and it is why a handler can leave
 this framework as easily as it entered.
+
+A few things do take a different shape, for one reason: the second transport.
+fasthttp has no `http.ResponseWriter` and no routing of its own, so a read or a
+control that would go through one — `r.PathValue`, `http.NewResponseController`
+— is a `pw` call instead: `pw.PathValue`, `pw.QueryValue`, and the flush
+`Stream.Write` performs for you. Routing those through the framework is what
+lets one handler source compile for either build.
 
 ### Generated code, no reflection, and TinyGo
 
