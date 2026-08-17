@@ -571,6 +571,7 @@
 {"category": "objective", "id": "requirement:session-assurance-levels", "path": ".knowledge/requirement/session-assurance-levels.md", "role": "primary", "title": "Graded Session Assurance", "type": "requirement"}
 {"category": "objective", "id": "requirement:shared-web-runtime", "path": ".knowledge/requirement/shared-web-runtime.md", "role": "primary", "title": "Shared Web Runtime", "type": "requirement"}
 {"category": "objective", "id": "requirement:signal-forwarding-seam", "path": ".knowledge/requirement/signal-forwarding-seam.md", "role": "primary", "title": "Signal Forwarding Seam", "type": "requirement"}
+{"category": "objective", "id": "requirement:sql-conditional-predicate-composition", "path": ".knowledge/requirement/sql-conditional-predicate-composition.md", "role": "primary", "title": "Conditional Predicate Composition", "type": "requirement"}
 {"category": "objective", "id": "requirement:startup-summary-brevity", "path": ".knowledge/requirement/startup-summary-brevity.md", "role": "primary", "title": "Startup Summary Brevity", "type": "requirement"}
 {"category": "objective", "id": "requirement:state-storage-tiers", "path": ".knowledge/requirement/state-storage-tiers.md", "role": "primary", "title": "Browser State Storage Tiers", "type": "requirement"}
 {"category": "objective", "id": "requirement:tailwind-css-integration", "path": ".knowledge/requirement/tailwind-css-integration.md", "role": "primary", "title": "Tailwind CSS Integration", "type": "requirement"}

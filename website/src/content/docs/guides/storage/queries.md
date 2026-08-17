@@ -147,80 +147,74 @@ conditional SQL to restructure the query.
 
 ## Conditional SQL
 
+A search form where every field is optional is the case this is for. Write the
+statement you want when every condition holds, and punch the conditions out of it:
+
 ```sql
-export statement SearchUsers(name: string, onlyActive: bool): sql.many<User> {
-SELECT id, name, active
+export statement SearchUsers(
+  name: string, city: string, minAge: int,
+  hasName: bool, hasCity: bool, hasAge: bool
+): sql.many<User> {
+SELECT id, name, city, age
 FROM users
-WHERE name LIKE {name}
-{if onlyActive}
-  AND active = TRUE
-{/if}
+WHERE
+  {if hasName}name LIKE {name}{/if}
+  AND {if hasCity}city = {city}{/if}
+  AND {if hasAge}age >= {minAge}{/if}
 ORDER BY id
 }
 ```
 
-`{else}` is available too. Conditions must be `bool`. Only the branches that are
-included consume placeholders, so numbering stays aligned.
+You do not manage the `AND`. Delete the `{if}` wrappers as you read and what is
+left is the SQL it renders — that is the shape to aim for. With only `hasCity` set
+it renders `WHERE city = $1`: the operators that would have dangled are withheld,
+and `city` is `$1` rather than `$2`. With nothing set the `WHERE` disappears too.
+An operator that is not dangling is written exactly where you put it, so nothing
+changes about the statements you already have.
 
-### The connective is yours
+### Where to put the operator
 
-A false branch drops its text and nothing else. Notice where the `AND` sits in
-that example: inside the block, so it leaves with the predicate it joins. Put it
-outside — or make the *first* predicate conditional — and a false condition
-leaves the connective behind:
+Put it between the two conditions, as above, rather than inside one of them. Both
+work identically — `{if hasCity}AND city = {city}{/if}` is what older templates
+look like and it still renders correctly — but an operator inside a branch reads
+as part of that one condition when it really joins two, and a template that reads
+as its own output is the whole point.
 
-```sql
-WHERE
-{if byTitle}
-  title = {title}
-{/if}
-{if onlyDone}
-  AND done = TRUE
-{/if}
-```
+If you have been anchoring a clause with `WHERE 1 = 1` so that every predicate
+could carry its own `AND`, you no longer need to. Worth removing, too: an anchored
+clause is never empty, so its `WHERE` can never drop out.
 
-With `byTitle` false, that builds `WHERE AND done = TRUE`. With both false, it
-builds a `WHERE` followed by `ORDER BY`. Neither is caught: generation succeeds,
-the build succeeds, and the statement is sent as written, so what you get is the
-database's syntax error at request time. There is no pass that trims a leading
-`AND`, and adding one would mean guessing which operator a half-written
-condition wanted.
+### Commas, and partial writes
 
-The habit that avoids it is the one the first example uses: **write each
-connective inside the block that owns its predicate.** That leaves the question
-of the first predicate, and there are two answers. If one condition is always
-present — the owning account, the tenant, a soft-delete flag — put it first
-unconditionally and let every optional predicate carry its own `AND`. If every
-predicate is genuinely optional, anchor the clause instead:
+The same withholding manages commas, so a partial UPDATE and a partial INSERT are
+ordinary:
 
 ```sql
-WHERE 1 = 1
-{if byTitle}
-  AND title = {title}
-{/if}
-{if onlyDone}
-  AND done = TRUE
-{/if}
+export statement AddUser(id: int, name: string, city: string, withCity: bool): sql.exec {
+INSERT INTO users (id, name{if withCity}, city{/if})
+VALUES ({id}, {name}{if withCity}, {city}{/if})
+}
 ```
 
-`1 = 1` costs nothing at the planner and makes every branch uniform, which is
-also what makes the statement readable when a third condition arrives.
-
-UPDATE and DELETE are the exception, and they are stricter. A mutation whose
-WHERE could empty out is refused while generating, because the failure there is
-not a syntax error but a full-table write:
-
-```
-queries/todos.pw.sql:41:1: UPDATE and DELETE statements require a WHERE clause that is non-empty on every branch
-```
-
-So the rule is worth remembering by its asymmetry: on a SELECT a dangling
-connective reaches the database, and on a mutation it never reaches the compiler.
+Guard the column and its value with the same condition, as above. If the two can
+disagree on any branch, generation says so rather than letting the database reject
+the statement in production.
 
 ### The result shape cannot vary
 
 Conditional SELECT or RETURNING columns are rejected because no single generated
 type could describe every branch.
+
+One other limit is worth knowing before you plan around this: a `CASE` arm cannot
+hold a fragment that might emit nothing, because there is no keyword or separator
+to withhold along with it. Give the condition an `{else}`, or put the whole `CASE`
+inside it.
+
+Reach for something else when the *structure* varies rather than the conditions —
+a different set of joins, a different result shape. Two statements with honest
+names beat one with six flags, and nothing here can vary a column list anyway. The
+[reference](/reference/sql-templates/#operators-and-commas-between-conditions) has
+the exhaustive list of which clauses are managed.
 
 ## Predicates and relations
 
@@ -262,10 +256,21 @@ rejected.
 
 ## Two safety rules
 
-**UPDATE and DELETE require a WHERE clause.** Generation fails if one is missing
-outright, and if the WHERE is conditional and could disappear at run time, the
-builder refuses to execute. There is no opt-in for a deliberate full-table
-modification — write it as a migration.
+**UPDATE and DELETE require a WHERE clause.** Whether a clause can come out empty
+is a property of the template rather than of runtime data, so the whole proof runs
+at generation time. `pw generate` rejects a statement whose WHERE could be empty
+on any branch, and nothing is emitted into the generated code to check it again at
+run time. A conditional WHERE is therefore fine when every branch fills it — an
+`{if}`/`{else}` pair does — and rejected when one branch leaves it empty:
+
+```
+queries/todos.pw.sql:41:1: UPDATE and DELETE statements require a WHERE clause that is non-empty on every branch
+```
+
+The clause elision above does not reach a mutation, because the failure there is
+not a syntax error the database reports but a full-table write it accepts. There is
+no opt-in for a deliberate one; write it as a
+[migration](/productivity/migrations/).
 
 **SELECT columns must match the result type**, in order and by name or alias.
 Combined with the rule against conditional SELECT columns, this keeps the
