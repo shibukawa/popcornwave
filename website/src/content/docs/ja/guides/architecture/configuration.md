@@ -1,6 +1,6 @@
 ---
-title: 設定
-description: TOML、環境変数、オプションがひとつの型付き構造体に解決されるまでの仕組みと、独自設定の追加方法。
+title: アプリケーション設定
+description: アプリケーションのランタイム設定が TOML・環境変数・オプションからひとつの型付き構造体に解決されるまでの仕組みと、独自設定の追加方法。
 sidebar:
   order: 3
 ---
@@ -13,8 +13,12 @@ sidebar:
 バインディングコードを事前に書き出します。仕組み全体が TinyGo でも使えるのはそのため
 であり、以下の規則がリフレクション方式より少し厳しいのも同じ理由です。
 
-フレームワーク自身のキーと既定値は[アプリケーション設定](/ja/reference/configuration/)にあります。
-このページが扱うのは、その下で動いている仕組みのほうです。
+扱うのは、動いているアプリケーションが読む設定です。`pw` 自身が読む `popcornwave.toml`
+はここには出てきません。そちらは[ビルドツール設定](/ja/reference/build-configuration/)です。
+
+フレームワーク自身のキーと既定値は
+[設定キー](/ja/reference/configuration/)にあります。このページが扱うのは、
+その下で動いている仕組みのほうです。
 
 ## 実行環境
 
@@ -57,7 +61,8 @@ APP_ENV=prod ./myapp
 ```
 
 3 つの名前はひとつの構造体フィールドから導かれます。フィールド名は snake_case に
-なり、登録した prefix の下にネストします。prefix が `app` で
+なり、prefix の下にネストします。その prefix はどこからも導出されません。登録が
+渡すリテラルそのものです。
 
 ```go
 type AppConfig struct {
@@ -67,9 +72,15 @@ type AppConfig struct {
 type MailerConfig struct {
 	FromAddress string `default:"noreply@example.com"`
 }
+
+// 以下のキーの先頭セグメントは、この "app" です。型名を変えても何も動きませんが、
+// この文字列を変えると3つの名前がまとめて動きます。
+func RegisterConfig() { pw.RegisterConfig[AppConfig]("app") }
 ```
 
-の場合、キーは `app.mailer.from_address`、TOML は `[app.mailer]` の
+この呼び出しをどこに置くか、なぜ位置が問題になるかは後述の
+[独自の設定を追加する](#独自の設定を追加する)にあります。これがある状態で、
+キーは `app.mailer.from_address`、TOML は `[app.mailer]` の
 `from_address = …`、オプションは `--app-mailer-from_address`、環境変数は
 `APP_MAILER_FROM_ADDRESS` になります。階層を区切るドットはオプションでは
 ダッシュ、環境変数ではアンダースコアになりますが、キーの中のアンダースコアは

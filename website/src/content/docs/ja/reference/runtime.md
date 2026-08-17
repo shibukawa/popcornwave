@@ -63,8 +63,8 @@ sidebar:
 フレームワークの設定構造体もすべて公開されています。`ServerConfig`、
 `MiddlewareConfig`、`SecurityConfig`、`SessionConfig`、`ObservabilityConfig`、
 `HTMLConfig`、`RDBConfig` と、その下にネストする型です。フィールドと既定値は
-[アプリケーション設定](/ja/reference/configuration/)に、解説は[設定](/ja/guides/architecture/configuration/)に
-あります。
+[設定キー](/ja/reference/configuration/)に、解説は
+[アプリケーション設定](/ja/guides/architecture/configuration/)にあります。
 
 ## リクエストを読む
 

@@ -29,7 +29,7 @@ go get github.com/shibukawa/tinygodriver/storage/s3@latest
 ## 設定
 
 エンドポイント、リージョン、バケットはデプロイ時の設定なので、ほかの設定と同じく
-登録した構造体に置きます。[設定](/ja/guides/architecture/configuration/)を参照してください。
+登録した構造体に置きます。[アプリケーション設定](/ja/guides/architecture/configuration/)を参照してください。
 
 ```go
 package storage

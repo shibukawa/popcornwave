@@ -1,14 +1,15 @@
 ---
 title: Responses
-description: Returning HTML, JSON, streams, and RFC 9457 errors.
+description: Returning HTML, JSON, streams, redirects, and RFC 9457 errors.
 sidebar:
   order: 2
 ---
 
-A handler may produce HTML, JSON, a stream, or an error, but the same constraint
-applies to all four: status and headers must be settled before the body begins.
-The response helpers enforce that boundary while preserving the wire format each
-case needs.
+A handler may produce HTML, JSON, a stream, a redirect, or an error. HTTP puts
+the status line and the headers ahead of the body on the wire, so whichever it
+is, both are fixed the moment the first byte of a body goes out. That is the
+protocol, not a rule this framework adds. The response helpers keep each case on
+the right side of that line while preserving the wire format it needs.
 
 ## HTML
 
@@ -180,6 +181,73 @@ The client chooses between Server-Sent Events, NDJSON, and a JSON array, and the
 handler above serves all three unchanged. [Streams](/guides/frontend/streams/)
 covers the negotiation, the framing, and what a long-lived response needs from
 the rest of the configuration.
+
+## Redirects
+
+A redirect is a response like any other here, and it has two forms because
+handlers and loaders end differently. A handler holds the writer:
+
+```go
+pw.RedirectSeeOther(w, r, "/users/"+id)
+```
+
+A function that has no writer — a page loader a template binds with `{val}`, or
+any code whose only way out is `(T, error)` — returns one instead:
+
+```go
+if _, ok := auth.User(ctx); !ok {
+	return View{}, pw.SeeOther("/auth/login")
+}
+```
+
+Those constructors return an `error`, and that is not a trick played on the
+type: a redirect is one of the ways a function can fail to produce a value, and
+the response path already carries every such answer. `pw.WriteProblem` reads the
+intent off what it is handed, so a redirect returned into it becomes a redirect
+rather than a 500:
+
+```go
+if err := service.Load(r.Context(), id); err != nil {
+	// A pw.NotFound in err answers 404; a pw.SeeOther in it answers 303.
+	pw.WriteProblem(w, r, err)
+	return
+}
+```
+
+The status is chosen by the constructor, along two axes:
+
+| | method may become GET | method preserved |
+| --- | --- | --- |
+| temporary | `pw.SeeOther` — 303 | `pw.TemporaryRedirect` — 307 |
+| permanent | `pw.MovedPermanently` — 301 | `pw.PermanentRedirect` — 308 |
+
+`pw.SeeOther` is the one to reach for. After a POST it is what keeps a reload
+from reposting, and in a loader the axes decide nothing anyway — the render
+answering it is a GET, where 303 and 307 are indistinguishable. Take
+`pw.PermanentRedirect` when an address is retired; prefer it over
+`pw.MovedPermanently`, whose treatment of the method is ambiguous in practice.
+`pw.Redirect(w, r, url, status)` takes the status directly for the rare case
+none of the four names.
+
+### Why not `http.Redirect`
+
+Two things happen on the way out that a handler should not have to repeat.
+
+**The target is checked.** A redirect location is often a return path read from
+the request, and the update runtime hands it to `location.assign`, which
+*executes* a `javascript:` URL rather than navigating to it. Only relative URLs
+and the `http`, `https`, `mailto`, and `tel` schemes are handed to a browser;
+anything else is refused with a 500 rather than followed. So forwarding an
+unchecked parameter cannot turn an application's own redirect into script
+execution.
+
+**An update request gets a directive instead.** A request the update runtime
+started is a `fetch`, and a `fetch` follows a 303 itself — the target would come
+back and be applied as a region set for the wrong page. On that branch the
+response is a navigate directive, which the runtime acts on as a navigation.
+Both forms take this path, so a returned redirect and a written one cannot
+disagree, and no action handler has to ask which kind of request it is
+answering. See [Partial updates](/guides/cross-layer/partial-updates/).
 
 ## Errors
 

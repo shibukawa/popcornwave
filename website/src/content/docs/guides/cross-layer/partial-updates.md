@@ -362,4 +362,4 @@ still behave normally. The network response now contains the results boundary,
 not another copy of the page that was already on screen.
 
 Every configuration key and default is listed in
-[Configuration](/reference/configuration/).
+[Configuration Keys](/reference/configuration/).

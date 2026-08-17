@@ -145,4 +145,4 @@ max_value_length = 256
 [リクエストトレーシング](/ja/guides/architecture/telemetry/#リクエストトレースを読む)を参照してください。
 
 ステートメント自体については[クエリ](/ja/guides/storage/queries/)を、
-これらのキーの解決順序については[設定](/ja/guides/architecture/configuration/)を参照してください。
+これらのキーの解決順序については[アプリケーション設定](/ja/guides/architecture/configuration/)を参照してください。

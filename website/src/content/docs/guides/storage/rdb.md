@@ -111,7 +111,7 @@ per-connection password stays out of the committed TOML. It is expanded while
 the file is read, in string values only, and an undefined name fails the load
 rather than expanding to nothing. Write `$$` for a literal `$`. Expanded or
 not, `dsn` stays redacted. See
-[Configuration](/guides/architecture/configuration/).
+[Application Configuration](/guides/architecture/configuration/).
 
 ## Readers and writers
 

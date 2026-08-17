@@ -10,6 +10,36 @@ input by hand. The stable application-facing API,
 `github.com/shibukawa/popcornwave/pw`, adds routing-compatible generation and
 typed request binding without changing the handler signature.
 
+## Code generation
+
+None of the binding below is reflection at request time. `pw generate` reads
+this package's Go source, finds the route registrations and the `pw.Parse` and
+response calls in it, and writes the binder, the JSON codecs, and the OpenAPI
+fragment into a `_pw_gen.go` file beside the source. Those files are build
+output: Git ignores them, and regenerating recreates them.
+
+Three commands run it. `pw dev` watches the project's sources and regenerates
+whenever one changes, then rebuilds and restarts. `pw build` generates before it
+compiles, and [`pw prepare`](/pw/project/prepare/) is that same work stopping
+short of the compiler, for a build that TinyGo or your own `go build` drives.
+`pw generate` runs it once by hand.
+
+The scan is not the whole module. `popcornwave.toml` names directories per
+purpose, and handlers are the `handlers` purpose:
+
+```toml
+[generate]
+handlers = ["handlers"]
+```
+
+Each listed directory is walked recursively, so a nested package needs no entry
+of its own. A handler in a directory no purpose lists is not reported, because
+ordinary Go lives throughout a project and generation cannot tell which files
+were meant for it — the package compiles, no binder is written for its input
+type, and `pw.Parse` fails at request time saying so. Add the directory here
+rather than looking for the bug in the handler.
+[`pw generate`](/pw/project/generate/) lists every purpose.
+
 ## Routing
 
 ```go
@@ -122,7 +152,7 @@ body limit defaults to 1 MiB and is changed with
 `httpbind.SetMaxMultipartBodyBytes`. The framework's own
 `server.max_request_body` applies first, so a multipart limit raised past its
 10 MiB default does nothing until that one moves too — see
-[Configuration](/guides/architecture/configuration/).
+[Application Configuration](/guides/architecture/configuration/).
 
 ### Undeclared fields
 

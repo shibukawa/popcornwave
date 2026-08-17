@@ -709,7 +709,7 @@ public なコンポーネントはパラメータだけでキーを作ります�
   次に尋ねた者へ渡すことになります。
 
 裏側のストアはプロセス内にあり、既定でオンです。`html.cache.enabled` で切り、
-`html.cache.max_entries` で上限を決めます。どちらも[設定](/ja/reference/configuration/#html)
+`html.cache.max_entries` で上限を決めます。どちらも[設定キー](/ja/reference/configuration/#html)
 にあります。private なキーは1プロセスが持つエントリ数を読み手の数だけ倍にするので、public な
 キーを前提に決めた上限は、何かをスコープした時点で見直す価値があります。再描画はページ自身の
 オプションで描画して同じストアに届くので、ページ上でキャッシュされたコンポーネントは、それを

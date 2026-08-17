@@ -9,6 +9,38 @@ SQL は SQL のまま見えますが、Go との境界には型が付きます�
 `.pw.sql` ファイルに書くと、`pw generate` が `context.Context` を取り、宣言した
 結果型を返す関数へコンパイルします。
 
+## コード生成
+
+`.pw.sql` の中の SQL が、リクエストのたびにパースされることはありません。
+`pw generate` がファイルごとに隣の `_pw_gen.go` へコンパイルし、アプリケーションが
+呼ぶのは生成された関数です。そのファイルはビルド出力で、Git は無視し、生成し直せば
+作り直されます。
+
+走らせ方は 3 つあります。`pw dev` はプロジェクトのソースを監視していて、変わるたびに
+生成し直し、リビルドして再起動します。`pw build` はコンパイルの前に生成します。
+[`pw prepare`](/ja/pw/project/prepare/) はその同じ作業をコンパイラの手前で止めたもので、
+TinyGo や自分で書いた `go build` がコンパイルを持つ場合に使います。手で 1 回走らせる
+なら `pw generate` です。
+
+走査の対象はモジュール全体ではありません。`popcornwave.toml` が目的ごとに
+ディレクトリを挙げていて、`.pw.sql` は `queries` の目的に属します。
+
+```toml
+[generate]
+queries = ["queries"]
+```
+
+このディレクトリは再帰的に歩きます。外に置いた `.pw.sql` は、実行を失敗させるのでは
+なく報告して飛ばすので、フィクスチャをコードの隣に置いておけます。
+
+```
+pw: samples/report.pw.sql is outside generate.queries and is not generated from; list its directory to include it
+```
+
+SQL を 1 つも持たないプロジェクトも、`queries = []` としてキー自体は書きます。空の
+リストは次に読む人にも見える判断ですが、キーの書き忘れはエラーです。目的の一覧は
+[`pw generate`](/ja/pw/project/generate/)にあります。
+
 ## ステートメント
 
 ```sql

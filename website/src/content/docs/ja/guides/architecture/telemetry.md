@@ -266,7 +266,7 @@ ORDER BY timestamp;
 
 レベル、`stdout_format`、サービス識別子、リソース属性、OTLPのendpoint/headersは、TOML
 または対応する `OTEL_*` 環境変数から
-[アプリケーション設定](/ja/reference/configuration/#observability)で設定します。ローカル保存の
+[設定キー](/ja/reference/configuration/#observability)で設定します。ローカル保存の
 スイッチは、デプロイ済みアプリケーションではなく開発プロセスを制御するため、
 `popcornwave.toml` に属します。
 

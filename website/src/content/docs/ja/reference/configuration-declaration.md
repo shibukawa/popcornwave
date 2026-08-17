@@ -11,8 +11,8 @@ sidebar:
 理由で、以下の規則のいくつかがリフレクション方式のバインダより厳しいのも同じ理由です。
 
 このページは宣言の面です。フレームワーク自身のキーと既定値は
-[アプリケーション設定](/ja/reference/configuration/)に、例を追った説明は
-[設定](/ja/guides/architecture/configuration/)にあります。
+[設定キー](/ja/reference/configuration/)に、例を追った説明は
+[アプリケーション設定](/ja/guides/architecture/configuration/)にあります。
 
 ## 構造体を登録する
 

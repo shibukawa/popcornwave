@@ -29,7 +29,7 @@ two targets.
 
 Endpoint, region, and bucket are deployment settings, so they belong in a
 registered configuration struct like any other — see
-[Configuration](/guides/architecture/configuration/):
+[Application Configuration](/guides/architecture/configuration/):
 
 ```go
 package storage

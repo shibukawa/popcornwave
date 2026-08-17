@@ -123,7 +123,7 @@ notice.
 `ENV APP_ENV=prod` is equally load-bearing. An unset `APP_ENV` resolves to
 `dev`, so an image without this line looks for `config.dev.toml`, does not find
 it, and comes up on defaults. See
-[Configuration](/guides/architecture/configuration/) for the full resolution
+[Application Configuration](/guides/architecture/configuration/) for the full resolution
 order.
 
 ### The binary is its own probe

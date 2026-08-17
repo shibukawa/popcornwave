@@ -108,7 +108,7 @@ httpbind.SetMaxMultipartBodyBytes(8 << 20) // 8 MiB
 ```
 
 マルチパートの上限を `server.max_request_body` より上げても、そちらが動くまで何も変わり
-ません。[アプリケーション設定](/ja/reference/configuration/)を参照してください。
+ません。[設定キー](/ja/reference/configuration/)を参照してください。
 
 ### rest マップ
 

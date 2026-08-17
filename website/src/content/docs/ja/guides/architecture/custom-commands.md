@@ -12,7 +12,7 @@ Web ハンドラと同じアプリケーション内で動くため、生成済�
 
 開発ツール自体については [pw コマンド](/ja/pw/overview/)を参照してください。
 設定ファイル、環境変数、設定スキャフォールド、値の優先順位については
-[設定](/ja/guides/architecture/configuration/)にまとめています。
+[アプリケーション設定](/ja/guides/architecture/configuration/)にまとめています。
 
 ## 独自のサブコマンド
 

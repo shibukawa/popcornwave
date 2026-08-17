@@ -70,7 +70,7 @@ APP_ENV=prod ./myapp
 ```
 
 `APP_ENV` がどのプロジェクトローカル設定ファイルを読むかを選びます。
-[設定](/ja/guides/architecture/configuration/)を参照。
+[アプリケーション設定](/ja/guides/architecture/configuration/)を参照。
 
 ## クロスコンパイルと TinyGo
 

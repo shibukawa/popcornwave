@@ -24,6 +24,34 @@ pages/
 Nothing registers those. `pw generate` walks the tree and writes the
 registrations, so the filesystem is the source of truth rather than a copy of it.
 
+## Code generation
+
+That walk is the same generation step the rest of the project uses. It writes
+`routes_pw_gen.go` at the tree root, plus the page renderers and parameter
+structs beside their templates, and all of it is build output that Git ignores
+and regeneration recreates.
+
+Three commands run it. `pw dev` watches the project's sources and regenerates
+whenever one changes, then rebuilds and restarts — which is why creating a
+directory is enough to make a route appear. `pw build` generates before it
+compiles, and [`pw prepare`](/pw/project/prepare/) is that same work stopping
+short of the compiler, for a build that TinyGo or your own `go build` drives.
+`pw generate` runs it once by hand.
+
+`popcornwave.toml` names the tree under the `pages` purpose:
+
+```toml
+[generate]
+pages = ["pages"]
+```
+
+A tree root is listed there and nowhere else. It is one generation run over a
+whole directory structure rather than a folder of independent sources, which is
+why `pw init` leaves it out of `generate.templates` even though the pages in it
+are `.pw.html`. In a project carrying both routers, `generate.templates` names
+the handler and template directories and `generate.pages` names the tree.
+[`pw generate`](/pw/project/generate/) lists every purpose.
+
 ## Two routers, one mux
 
 This does not replace the handler package. The two coexist, and a project can

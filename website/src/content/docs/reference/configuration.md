@@ -1,5 +1,5 @@
 ---
-title: Application Configuration
+title: Configuration Keys
 description: Every runtime configuration key of a running application, its default, and the TOML, environment, and command-line names it answers to.
 sidebar:
   order: 7
@@ -20,7 +20,7 @@ forms yourself.
 Rules have exceptions, and this one has a handful worth knowing before the
 tables. For how configuration is *used* — declaring your own settings, reading
 them in a handler, generating a scaffold — see
-[Configuration](/guides/architecture/configuration/).
+[Application Configuration](/guides/architecture/configuration/).
 
 ## Deriving the other two names
 

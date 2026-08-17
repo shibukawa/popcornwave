@@ -77,7 +77,7 @@ APP_ENV=prod ./myapp
 ```
 
 `APP_ENV` selects which project-local configuration file is read; see
-[Configuration](/guides/architecture/configuration/).
+[Application Configuration](/guides/architecture/configuration/).
 
 ## Cross-compiling and TinyGo
 

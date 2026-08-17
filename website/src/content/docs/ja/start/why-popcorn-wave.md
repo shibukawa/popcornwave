@@ -45,7 +45,7 @@ Go の書き方を保つことと、機械的なコードをすべて手で書�
 - [OpenTelemetry 連携](/ja/guides/architecture/telemetry/#リクエストトレースを読む)が構造化ログとトレースを送出し、
   フレームワークのスパンが、アプリケーション固有のタイマーを書かずに、リクエスト、
   レンダリング、データベース処理を見えるようにします。
-- 型付きの[設定](/ja/guides/architecture/configuration/)は環境変数を受け取り、
+- 型付きの[アプリケーション設定](/ja/guides/architecture/configuration/)は環境変数を受け取り、
   [`pw doctor`](/ja/pw/project/doctor/)は指定した環境での最終的な設定を解決して、欠落、
   矛盾、危険な値をデプロイ前に報告します。
 

@@ -97,6 +97,6 @@ off にした人が代わりに reloaded の 1 行を求めたわけでもあり
 `secret` の上書きは[起動サマリに出るもの](/ja/reference/configuration-declaration/#起動サマリに出るもの)
 にあります。
 
-値の取得元については[設定](/ja/guides/architecture/configuration/)を、同じ考え方を SQL に
+値の取得元については[アプリケーション設定](/ja/guides/architecture/configuration/)を、同じ考え方を SQL に
 適用したものについては[スロークエリー診断](/ja/productivity/query-diagnostics/)を
 参照してください。

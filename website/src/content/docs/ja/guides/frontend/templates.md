@@ -9,6 +9,40 @@ sidebar:
 その失敗を前倒しします。`pw generate` がソースを隣の `_pw_gen.go` にコンパイルし、
 アプリケーションを実行する前に値の型と HTML の挿入コンテキストを検査します。
 
+## コード生成
+
+`.pw.html` は実行時には一度も読まれません。`pw generate` が 1 つずつ隣の
+`_pw_gen.go` にコンパイルし、アプリケーションがリンクするのはテンプレートではなく
+その Go です。生成されたファイルはビルド出力で、Git は無視し、VS Code は隠し、
+生成し直せば作り直されます。編集するのは `.pw.html` のほうです。
+
+走らせ方は 3 つあります。`pw dev` はプロジェクトのソースを監視していて、変わるたびに
+生成し直し、リビルドして再起動します。だからテンプレートのエラーは、保存した数秒後に
+ビルドの失敗として届きます。`pw build` はコンパイルの前に生成します。
+[`pw prepare`](/ja/pw/project/prepare/) はその同じ作業をコンパイラの手前で止めたもので、
+TinyGo や自分で書いた `go build` がコンパイルを持つ場合に使います。手で 1 回走らせる
+なら `pw generate` です。
+
+走査の対象はモジュール全体ではありません。`popcornwave.toml` が目的ごとに
+ディレクトリを挙げていて、`.pw.html` は `templates` の目的に属します。
+
+```toml
+[generate]
+templates = ["handlers", "templates"]
+```
+
+2 つ挙がっているのは、ページテンプレートがそれを描画するハンドラの隣に置かれる一方で、
+ドキュメントシェルとエラーページは `templates/` にあるからです。どちらも再帰的に
+歩きます。そのどれにも入っていない `.pw.html` は、実行を失敗させるのではなく報告して
+飛ばします。サンプルやフィクスチャをコードの隣に置いてもビルドが壊れないのは、
+このためです。
+
+```
+pw: samples/home.pw.html is outside generate.templates and is not generated from; list its directory to include it
+```
+
+目的の一覧は[`pw generate`](/ja/pw/project/generate/)にあります。
+
 ## コンポーネント
 
 ```html

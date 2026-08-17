@@ -240,6 +240,6 @@ pw.MemoInvalidate(ctx, store, QuoteKey{Pair: pair})
 ロードバランサの後ろに3インスタンスあれば、独立したキャッシュが3つあり、それぞれがキーごと
 に1回ずつ上流を呼びます。`max_entries` は台数分ではなく1プロセス分で見積もってください。
 
-[設定](/ja/reference/configuration/#cache) に全キーと既定値が、
+[設定キー](/ja/reference/configuration/#cache) に全キーと既定値が、
 [レンダリングキャッシュ](/ja/guides/frontend/rendering-cache/) に遅いページのもう半分が
 あります。

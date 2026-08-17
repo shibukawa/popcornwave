@@ -13,7 +13,7 @@ building a second CLI project.
 
 For the development tool itself, see [pw command](/pw/overview/).
 Configuration files, environment variables, generated scaffolds, and their
-precedence are covered in [Configuration](/guides/architecture/configuration/).
+precedence are covered in [Application Configuration](/guides/architecture/configuration/).
 
 ## Your own subcommands
 

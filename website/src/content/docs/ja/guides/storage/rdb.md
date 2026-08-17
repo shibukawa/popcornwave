@@ -104,7 +104,7 @@ PostgreSQL だけは、リクエストを `database/sql` ではなく pgx のネ
 です。展開はファイル読み込み時に、文字列の値に対してのみ行われます。未定義の名前は空文字に
 展開されるのではなく読み込みエラーになります。リテラルの `$` は `$$` と書きます。展開の
 有無にかかわらず、`dsn` はマスクされたままです。
-[設定](/ja/guides/architecture/configuration/)を参照してください。
+[アプリケーション設定](/ja/guides/architecture/configuration/)を参照してください。
 
 ## リーダーとライター
 

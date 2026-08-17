@@ -115,7 +115,7 @@ httpbind.SetMaxMultipartBodyBytes(8 << 20) // 8 MiB
 
 Raising the multipart limit past `server.max_request_body` does nothing until
 that key moves too. See
-[Application Configuration](/reference/configuration/#server).
+[Configuration Keys](/reference/configuration/#server).
 
 ### The rest map
 

@@ -9,6 +9,38 @@ SQL remains visible as SQL, but its boundary with Go becomes typed. You write
 statements in `.pw.sql` files; `pw generate` compiles them into functions that
 take a `context.Context` and return declared result types.
 
+## Code generation
+
+No SQL in a `.pw.sql` file is parsed at request time. `pw generate` compiles each
+file into a `_pw_gen.go` beside it, and what the application calls is the
+generated function. That file is build output: Git ignores it, and regenerating
+recreates it.
+
+Three commands run it. `pw dev` watches the project's sources and regenerates
+whenever one changes, then rebuilds and restarts. `pw build` generates before it
+compiles, and [`pw prepare`](/pw/project/prepare/) is that same work stopping
+short of the compiler, for a build that TinyGo or your own `go build` drives.
+`pw generate` runs it once by hand.
+
+The scan is not the whole module. `popcornwave.toml` names directories per
+purpose, and `.pw.sql` belongs to the `queries` purpose:
+
+```toml
+[generate]
+queries = ["queries"]
+```
+
+The directory is walked recursively. A `.pw.sql` outside it is reported and
+skipped rather than failing the run, so a fixture can sit beside your code:
+
+```
+pw: samples/report.pw.sql is outside generate.queries and is not generated from; list its directory to include it
+```
+
+A project with no SQL at all still declares the key as `queries = []`. The empty
+list is a decision the next reader can see; a missing key is an error.
+[`pw generate`](/pw/project/generate/) lists every purpose.
+
 ## A statement
 
 ```sql

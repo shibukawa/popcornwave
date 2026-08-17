@@ -280,7 +280,7 @@ rather than an application container.
 Configure levels, `stdout_format`, service identity, resource attributes, and
 OTLP endpoint/headers through TOML or the corresponding `OTEL_*` environment
 variables in
-[Application Configuration](/reference/configuration/#observability). The local
+[Configuration Keys](/reference/configuration/#observability). The local
 capture switch belongs to `popcornwave.toml`, because it controls the developer
 process rather than the deployed application configuration.
 

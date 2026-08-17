@@ -102,6 +102,6 @@ a DSN retains its public location while its credentials and query string are
 removed. The exact name-matching rule and the explicit `secret` overrides are
 documented under [what the startup summary shows](/reference/configuration-declaration/#what-the-startup-summary-shows).
 
-See [Configuration](/guides/architecture/configuration/) for where these values come from,
+See [Application Configuration](/guides/architecture/configuration/) for where these values come from,
 and [Slow Query Diagnostics](/productivity/query-diagnostics/) for the same idea
 applied to SQL.

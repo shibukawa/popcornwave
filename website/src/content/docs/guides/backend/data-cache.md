@@ -260,6 +260,6 @@ is in-process. Three instances behind a load balancer hold three independent
 caches and will each call the upstream once per key. Size `max_entries` for one
 process, not for the fleet.
 
-[Configuration](/reference/configuration/#cache) lists every key with its
+[Configuration Keys](/reference/configuration/#cache) lists every key with its
 default, and [Rendering Cache](/guides/frontend/rendering-cache/) covers the
 other half of a slow page.

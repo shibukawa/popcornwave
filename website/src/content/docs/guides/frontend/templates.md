@@ -10,6 +10,40 @@ moves that failure earlier: `pw generate` compiles it into a `_pw_gen.go` file
 beside the source, checking value types and HTML insertion contexts before the
 application runs.
 
+## Code generation
+
+A `.pw.html` file is never read at runtime. `pw generate` compiles each one into
+a `_pw_gen.go` file beside it, and the application links that Go rather than the
+template. The generated file is build output: Git ignores it, VS Code hides it,
+and regenerating recreates it. Edit the `.pw.html`.
+
+Three commands run it. `pw dev` watches the project's sources and regenerates
+whenever one changes, then rebuilds and restarts, so a template error arrives as
+a build failure moments after the save. `pw build` generates before it compiles,
+and [`pw prepare`](/pw/project/prepare/) is that same work stopping short of the
+compiler, for a build that TinyGo or your own `go build` drives. `pw generate`
+runs it once by hand.
+
+The scan is not the whole module. `popcornwave.toml` names directories per
+purpose, and `.pw.html` belongs to the `templates` purpose:
+
+```toml
+[generate]
+templates = ["handlers", "templates"]
+```
+
+Two directories, because a page template sits beside the handler that renders
+it while the document shell and the error pages live in `templates/`. Each is
+walked recursively. A `.pw.html` outside all of them is reported and skipped
+rather than failing the run, which is what keeps a sample or a fixture beside
+your code from breaking the build:
+
+```
+pw: samples/home.pw.html is outside generate.templates and is not generated from; list its directory to include it
+```
+
+[`pw generate`](/pw/project/generate/) lists every purpose.
+
 ## A component
 
 ```html

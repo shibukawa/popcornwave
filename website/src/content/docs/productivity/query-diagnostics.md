@@ -154,4 +154,4 @@ log line per statement, with your users' values in it, is a different decision.
 See [Request Tracing](/guides/architecture/telemetry/#reading-a-request-trace).
 
 See [Queries](/guides/storage/queries/) for the statements themselves and
-[Configuration](/guides/architecture/configuration/) for how these keys are resolved.
+[Application Configuration](/guides/architecture/configuration/) for how these keys are resolved.

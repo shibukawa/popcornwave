@@ -13,8 +13,9 @@ makes several rules below stricter than a reflection-based binder would need.
 
 This page is the declaration surface. The framework's own keys and their
 defaults are in
-[Application Configuration](/reference/configuration/); the narrative version,
-with a worked example, is [Configuration](/guides/architecture/configuration/).
+[Configuration Keys](/reference/configuration/); the narrative version, with a
+worked example, is
+[Application Configuration](/guides/architecture/configuration/).
 
 ## Registering a struct
 

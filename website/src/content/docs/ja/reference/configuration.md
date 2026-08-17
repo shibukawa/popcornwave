@@ -1,5 +1,5 @@
 ---
-title: アプリケーション設定
+title: 設定キー
 description: 動作中のアプリケーションが読むランタイム設定キーの全一覧と既定値、そして TOML・環境変数・コマンドラインでの名前。
 sidebar:
   order: 7
@@ -18,7 +18,7 @@ TOML では `server.read_header_timeout`、環境変数では `SERVER_READ_HEADE
 
 規則には例外があり、この規則の例外は表を見る前に知っておく価値がある程度の数です。
 設定を*どう使うか* —— 自分の設定を宣言し、ハンドラで読み、ひな形を生成する —— は
-[設定](/ja/guides/architecture/configuration/)にあります。
+[アプリケーション設定](/ja/guides/architecture/configuration/)にあります。
 
 ## 残り2つの名前の導き方
 

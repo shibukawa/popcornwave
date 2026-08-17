@@ -64,8 +64,9 @@ a nil check would only postpone the same missing value to a later line.
 Every framework configuration struct is exported too — `ServerConfig`,
 `MiddlewareConfig`, `SecurityConfig`, `SessionConfig`, `ObservabilityConfig`,
 `HTMLConfig`, `RDBConfig`, and the nested types under them. Their fields and
-defaults are listed in [Application Configuration](/reference/configuration/); the
-narrative version is [Configuration](/guides/architecture/configuration/).
+defaults are listed in [Configuration Keys](/reference/configuration/); the
+narrative version is
+[Application Configuration](/guides/architecture/configuration/).
 
 ## Reading a request
 

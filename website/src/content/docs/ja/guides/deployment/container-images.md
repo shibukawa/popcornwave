@@ -122,7 +122,7 @@ TLS ハンドシェイクで落ち、しかもエラーは足りないファイ�
 
 `ENV APP_ENV=prod` も同じです。`APP_ENV` が未設定だと `dev` に解決されるので、
 この行が無いイメージは `config.dev.toml` を探し、見つけられず、デフォルトで
-立ち上がります。解決順の全体は[設定](/ja/guides/architecture/configuration/)に
+立ち上がります。解決順の全体は[アプリケーション設定](/ja/guides/architecture/configuration/)に
 あります。
 
 ### プローブはバイナリ自身

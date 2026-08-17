@@ -1,6 +1,6 @@
 ---
-title: Configuration
-description: How TOML, environment variables, and flags resolve into one typed struct — and how to add your own.
+title: Application Configuration
+description: How an application's runtime settings resolve from TOML, environment variables, and flags into one typed struct, and how to add your own.
 sidebar:
   order: 3
 ---
@@ -15,8 +15,12 @@ writes the binding code ahead of time, which is what keeps the whole mechanism
 available under TinyGo — and what makes a few of the rules below stricter than
 a reflection-based binder would need.
 
+What this covers is the configuration a running application reads.
+`popcornwave.toml`, which `pw` itself reads, does not appear here — that is
+[Build Tool Configuration](/reference/build-configuration/).
+
 For the framework's own keys and their defaults, see
-[Application Configuration](/reference/configuration/). This page is the machinery
+[Configuration Keys](/reference/configuration/). This page is the machinery
 underneath them.
 
 ## Environments
@@ -61,7 +65,8 @@ default  <  TOML file  <  environment variable  <  command-line option
 ```
 
 The three names come from one struct field. Field names become snake_case and
-nest under the registered prefix, so with prefix `app`:
+nest under the prefix, and the prefix is not derived from anything — it is the
+literal the registration passes:
 
 ```go
 type AppConfig struct {
@@ -71,8 +76,14 @@ type AppConfig struct {
 type MailerConfig struct {
 	FromAddress string `default:"noreply@example.com"`
 }
+
+// "app" is the first segment of every key below. Rename the type and nothing
+// moves; change this string and all three names move together.
+func RegisterConfig() { pw.RegisterConfig[AppConfig]("app") }
 ```
 
+Where that call goes and why its position matters is
+[Adding your own settings](#adding-your-own-settings) below. With it in place
 the key is `app.mailer.from_address`, the TOML is `[app.mailer]` with
 `from_address = …`, the option is `--app-mailer-from_address`, and the
 environment variable is `APP_MAILER_FROM_ADDRESS`. Dots separating nesting

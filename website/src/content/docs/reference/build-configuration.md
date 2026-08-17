@@ -11,7 +11,7 @@ sources were written for, what runs beside the application during development.
 
 It holds no runtime setting at all. Ports, pools, cookies, and log levels live
 in `config.{APP_ENV}.toml` and are listed in
-[Application Configuration](/reference/configuration/). The split is enforced
+[Configuration Keys](/reference/configuration/). The split is enforced
 rather than conventional — a `server` or `session` table here is an error, and
 so is a database connection string. The two files are read by two different
 programs at two different times.
