@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	otetrace "github.com/shibukawa/popcornwave/contrib/otel/trace"
 	"github.com/shibukawa/popcornwave/internal/requestorigin"
 	"github.com/shibukawa/popcornwave/middlewares"
 	"github.com/shibukawa/popcornwave/pwconfig"
@@ -45,7 +46,25 @@ func validateRuntimeConfig(server ServerConfig, security SecurityConfig, middlew
 	if err := validateQueryLogConfig(observability.Query); err != nil {
 		return err
 	}
-	return validateTraceConfig(observability.Trace)
+	if err := validateTraceConfig(observability.Trace); err != nil {
+		return err
+	}
+	return validateMetricsConfig(observability.Metrics)
+}
+
+// validateMetricsConfig rejects a toggle and a temporality nobody can act on,
+// before any request is served rather than at the first collection.
+func validateMetricsConfig(config MetricsConfig) error {
+	if _, err := resolveToggle(config.Enabled, false); err != nil {
+		return fmt.Errorf("observability.metrics.enabled %w", err)
+	}
+	if _, err := pwobservability.ParseTemporality(config.Temporality); err != nil {
+		return fmt.Errorf("observability.metrics.temporality: %w", err)
+	}
+	if config.Interval < 0 {
+		return fmt.Errorf("observability.metrics.interval cannot be negative")
+	}
+	return nil
 }
 
 // validateCompressionCodings refuses a coding this framework does not know.
@@ -155,9 +174,20 @@ func validateQueryLogConfig(config QueryLogConfig) error {
 
 // validateTraceConfig rejects a toggle nobody can act on. The keys below it are
 // plain booleans the binding already checks.
+//
+// The sampler is checked here rather than where the provider is built, because a
+// process that exports nothing builds no provider and a mistyped sampler would
+// then be reported only once an endpoint was added. An empty name is not
+// checked: it is the environment's default, and pwobservability resolves it to a
+// name this same parser accepts.
 func validateTraceConfig(config TraceConfig) error {
 	if _, err := resolveToggle(config.Enabled, false); err != nil {
 		return fmt.Errorf("observability.trace.enabled %w", err)
+	}
+	if name := strings.TrimSpace(config.Sampler); name != "" {
+		if _, err := otetrace.ParseSampler(name, strings.TrimSpace(config.SamplerArg)); err != nil {
+			return fmt.Errorf("observability.trace.sampler: %w", err)
+		}
 	}
 	return nil
 }

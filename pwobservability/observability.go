@@ -13,6 +13,7 @@ import (
 	"github.com/shibukawa/popcornwave/contrib/otel"
 	"github.com/shibukawa/popcornwave/contrib/otel/exporter/otlphttp"
 	otellog "github.com/shibukawa/popcornwave/contrib/otel/log"
+	"github.com/shibukawa/popcornwave/contrib/otel/metric"
 	"github.com/shibukawa/popcornwave/contrib/otel/trace"
 	"github.com/shibukawa/popcornwave/pwconfig"
 	"github.com/shibukawa/popcornwave/pwruntime"
@@ -31,7 +32,15 @@ type Resolved struct {
 	logs    *otellog.Provider
 	// tracing reports whether a request root span should be created. It is
 	// false when nothing exports, because an unexported span is pure cost.
-	tracing  bool
+	tracing bool
+	// sampler is what the trace provider was built with, kept so a diagnostic
+	// can say what this process keeps rather than inferring it from the keys.
+	sampler trace.Sampler
+	// metrics aggregates and reader exports it. The provider exists whenever
+	// export does; the reader exists only when instruments are enabled, which is
+	// what makes the feature off cost no goroutine.
+	metrics  *metric.Provider
+	reader   *metric.Reader
 	cleanups []Cleanup
 }
 
@@ -56,7 +65,7 @@ func Build(config pwconfig.ObservabilityConfig, env string) (*Resolved, error) {
 	resolved := &Resolved{}
 	endpoint := otlpEndpoint(config)
 	if config.Otel.Enabled || endpoint != "" {
-		if err := resolved.startOtel(config, endpoint); err != nil {
+		if err := resolved.startOtel(config, endpoint, env); err != nil {
 			return nil, err
 		}
 	}
@@ -131,10 +140,14 @@ func ProcessLogger() pwruntime.Logger {
 // startOtel builds the exporter and both providers. Failure is returned rather
 // than absorbed: an endpoint that was configured and cannot be used is a
 // misconfiguration the operator has to see at startup.
-func (resolved *Resolved) startOtel(config pwconfig.ObservabilityConfig, endpoint string) error {
+func (resolved *Resolved) startOtel(config pwconfig.ObservabilityConfig, endpoint, env string) error {
 	headers, err := otlpHeaders(config.Otel.Headers)
 	if err != nil {
 		return fmt.Errorf("observability.otel.headers: %w", err)
+	}
+	sampler, err := ResolveSampler(config, env)
+	if err != nil {
+		return err
 	}
 	exporter, err := otlphttp.New(otlphttp.Config{
 		Endpoint: endpoint,
@@ -152,7 +165,9 @@ func (resolved *Resolved) startOtel(config pwconfig.ObservabilityConfig, endpoin
 			FlushInterval: config.Otel.FlushInterval,
 		}),
 		trace.WithResourceAttributes(resource...),
+		trace.WithSampler(sampler),
 	)
+	resolved.sampler = sampler
 	resolved.logs = otellog.NewProvider(
 		otellog.NewBatchProcessor(exporter, otellog.BatchConfig{
 			QueueSize:     config.Otel.QueueSize,
@@ -161,6 +176,9 @@ func (resolved *Resolved) startOtel(config pwconfig.ObservabilityConfig, endpoin
 		}),
 		otellog.WithResourceAttributes(resource...),
 	)
+	if err := resolved.startMetrics(config, exporter, resource); err != nil {
+		return err
+	}
 	resolved.tracing = true
 	// The middleware and any handler calling pw.StartSpan resolve their tracer
 	// through the default provider, so installing it is what makes spans real.
@@ -170,13 +188,54 @@ func (resolved *Resolved) startOtel(config pwconfig.ObservabilityConfig, endpoin
 	return nil
 }
 
-// Shutdown flushes both providers within the caller's deadline. Records still
+// startMetrics builds the metric provider and its reader.
+//
+// The reader is started only when the configuration asks for instruments, so a
+// deployment that declines them runs no goroutine and no ticker. The provider is
+// built either way and installed as the default, because a package may take its
+// meter at init and an aggregation nobody collects is discarded rather than
+// leaked.
+func (resolved *Resolved) startMetrics(config pwconfig.ObservabilityConfig, exporter metric.Exporter, resource []otel.Attribute) error {
+	temporality, err := ParseTemporality(config.Metrics.Temporality)
+	if err != nil {
+		return fmt.Errorf("observability.metrics.temporality: %w", err)
+	}
+	enabled, err := ResolveToggle(config.Metrics.Enabled, true)
+	if err != nil {
+		return fmt.Errorf("observability.metrics.enabled %w", err)
+	}
+	resolved.metrics = metric.NewProvider(
+		metric.WithResourceAttributes(resource...),
+		metric.WithTemporality(temporality),
+	)
+	metric.SetDefaultProvider(resolved.metrics)
+	if !enabled {
+		return nil
+	}
+	resolved.reader = metric.NewReader(resolved.metrics, exporter, metric.ReaderConfig{
+		Interval: config.Metrics.Interval,
+		Timeout:  config.Otel.RequestTimeout,
+	})
+	if config.Metrics.Runtime {
+		RegisterRuntimeMetrics(resolved.metrics.Meter(runtimeMetricScope))
+	}
+	return nil
+}
+
+// Shutdown flushes every provider within the caller's deadline. Records still
 // queued at that point are lost by design: shutdown is bounded.
+//
+// The metric reader is shut down first, because its final collection is a
+// complete interval that would otherwise be the one discarded, and it is the only
+// one of the three whose loss cannot be repaired by a later export.
 func (resolved *Resolved) Shutdown(ctx context.Context) error {
 	if resolved == nil {
 		return nil
 	}
 	var result error
+	if resolved.reader != nil {
+		result = errors.Join(result, resolved.reader.Shutdown(ctx))
+	}
 	if resolved.traces != nil {
 		result = errors.Join(result, resolved.traces.Shutdown(ctx))
 	}
@@ -184,6 +243,15 @@ func (resolved *Resolved) Shutdown(ctx context.Context) error {
 		result = errors.Join(result, resolved.logs.Shutdown(ctx))
 	}
 	return result
+}
+
+// MetricProvider is what the runtime instrument set is created from, or nil when
+// this process exports nothing.
+func (resolved *Resolved) MetricProvider() *metric.Provider {
+	if resolved == nil {
+		return nil
+	}
+	return resolved.metrics
 }
 
 // SinkCount reports how many destinations a record reaches.
@@ -194,6 +262,15 @@ func (resolved *Resolved) Backend() *pwruntime.LogBackend { return resolved.back
 
 // Tracing reports whether a request root span should be created.
 func (resolved *Resolved) Tracing() bool { return resolved.tracing }
+
+// Sampler describes which traces this process records, or an empty string when
+// it builds no provider and therefore samples nothing at all.
+func (resolved *Resolved) Sampler() string {
+	if resolved == nil || resolved.sampler == nil {
+		return ""
+	}
+	return resolved.sampler.Description()
+}
 
 // Cleanups are what this process opened and must release, in the order they
 // were opened. They are returned rather than registered because the shutdown

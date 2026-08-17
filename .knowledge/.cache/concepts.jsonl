@@ -111,6 +111,7 @@
 {"category": "structure", "id": "data:dynamodb-runtime-config", "path": ".knowledge/data/dynamodb-runtime-config.md", "role": "supporting", "title": "DynamoDB Runtime Configuration", "type": "data"}
 {"category": "structure", "id": "data:external-identity", "path": ".knowledge/data/external-identity.md", "role": "supporting", "title": "External OIDC Identity", "type": "data"}
 {"category": "structure", "id": "data:firestore-runtime-config", "path": ".knowledge/data/firestore-runtime-config.md", "role": "supporting", "title": "Firestore Runtime Configuration", "type": "data"}
+{"category": "structure", "id": "data:framework-metric-set", "path": ".knowledge/data/framework-metric-set.md", "role": "supporting", "title": "Framework Metric Set", "type": "data"}
 {"category": "structure", "id": "data:framework-span-set", "path": ".knowledge/data/framework-span-set.md", "role": "supporting", "title": "Framework Span Set", "type": "data"}
 {"category": "structure", "id": "data:html-render-config", "path": ".knowledge/data/html-render-config.md", "role": "supporting", "title": "HTML Render Runtime Config", "type": "data"}
 {"category": "structure", "id": "data:i18n-config", "path": ".knowledge/data/i18n-config.md", "role": "supporting", "title": "Internationalization Configuration", "type": "data"}
@@ -242,6 +243,7 @@
 {"category": "constraint", "id": "decision:message-id-assignment", "path": ".knowledge/decision/message-id-assignment.md", "role": "supporting", "title": "Message IDs Are Proposed, Not Derived", "type": "decision"}
 {"category": "constraint", "id": "decision:message-scope-declaration", "path": ".knowledge/decision/message-scope-declaration.md", "role": "supporting", "title": "Message Scope Is Declared in the File", "type": "decision"}
 {"category": "constraint", "id": "decision:message-source-of-truth", "path": ".knowledge/decision/message-source-of-truth.md", "role": "supporting", "title": "Message Source Text Lives in the Catalog", "type": "decision"}
+{"category": "constraint", "id": "decision:metrics-are-not-sampled", "path": ".knowledge/decision/metrics-are-not-sampled.md", "role": "supporting", "title": "A Metric Counts Every Request, A Trace Does Not", "type": "decision"}
 {"category": "constraint", "id": "decision:migration-execution-split", "path": ".knowledge/decision/migration-execution-split.md", "role": "supporting", "title": "Migration Execution Split", "type": "decision"}
 {"category": "constraint", "id": "decision:navigable-answer-hub", "path": ".knowledge/decision/navigable-answer-hub.md", "role": "supporting", "title": "Manual Bootstrap Edits an Answer Hub", "type": "decision"}
 {"category": "constraint", "id": "decision:nix-flake-packaging", "path": ".knowledge/decision/nix-flake-packaging.md", "role": "supporting", "title": "In-repository Nix Flake Packaging", "type": "decision"}
@@ -262,6 +264,7 @@
 {"category": "constraint", "id": "decision:response-encoders-are-unconditional", "path": ".knowledge/decision/response-encoders-are-unconditional.md", "role": "supporting", "title": "Every Build Carries Both Response Encoders", "type": "decision"}
 {"category": "constraint", "id": "decision:root-pw-api", "path": ".knowledge/decision/root-pw-api.md", "role": "supporting", "title": "Root pw API", "type": "decision"}
 {"category": "constraint", "id": "decision:runtime-tag-injection", "path": ".knowledge/decision/runtime-tag-injection.md", "role": "supporting", "title": "Runtime Tag Injection", "type": "decision"}
+{"category": "constraint", "id": "decision:sampling-default-follows-the-environment", "path": ".knowledge/decision/sampling-default-follows-the-environment.md", "role": "supporting", "title": "The Sampling Default Follows The Environment Token, Not The Endpoint", "type": "decision"}
 {"category": "constraint", "id": "decision:savepoint-nested-transaction", "path": ".knowledge/decision/savepoint-nested-transaction.md", "role": "supporting", "title": "Savepoint-Backed Nested Transaction", "type": "decision"}
 {"category": "constraint", "id": "decision:script-block-parsing-ownership", "path": ".knowledge/decision/script-block-parsing-ownership.md", "role": "supporting", "title": "Script Block Parsing Ownership", "type": "decision"}
 {"category": "constraint", "id": "decision:scriptless-browser-detection", "path": ".knowledge/decision/scriptless-browser-detection.md", "role": "supporting", "title": "Scriptless Browser Detection", "type": "decision"}
@@ -320,6 +323,7 @@
 {"category": "behavior", "id": "flow:handler-scaffolding", "path": ".knowledge/flow/handler-scaffolding.md", "role": "primary", "title": "Handler Scaffolding Flow", "type": "flow"}
 {"category": "behavior", "id": "flow:initial-streaming-render", "path": ".knowledge/flow/initial-streaming-render.md", "role": "primary", "title": "Initial Streaming Render", "type": "flow"}
 {"category": "behavior", "id": "flow:live-boundary-delivery", "path": ".knowledge/flow/live-boundary-delivery.md", "role": "primary", "title": "Live Boundary Delivery", "type": "flow"}
+{"category": "behavior", "id": "flow:metric-collection", "path": ".knowledge/flow/metric-collection.md", "role": "primary", "title": "Metric Collection Flow", "type": "flow"}
 {"category": "behavior", "id": "flow:oidc-account-login", "path": ".knowledge/flow/oidc-account-login.md", "role": "primary", "title": "OIDC Account Login", "type": "flow"}
 {"category": "behavior", "id": "flow:oidc-auth-code", "path": ".knowledge/flow/oidc-auth-code.md", "role": "primary", "title": "OIDC Authorization Code Flow", "type": "flow"}
 {"category": "behavior", "id": "flow:oidc-device-authorization", "path": ".knowledge/flow/oidc-device-authorization.md", "role": "primary", "title": "OIDC Device Authorization Flow", "type": "flow"}
@@ -509,6 +513,7 @@
 {"category": "objective", "id": "requirement:firestore-session-store", "path": ".knowledge/requirement/firestore-session-store.md", "role": "primary", "title": "Firestore Session Backend", "type": "requirement"}
 {"category": "objective", "id": "requirement:firestore-store", "path": ".knowledge/requirement/firestore-store.md", "role": "primary", "title": "Firestore Store", "type": "requirement"}
 {"category": "objective", "id": "requirement:firestore-test-isolation", "path": ".knowledge/requirement/firestore-test-isolation.md", "role": "primary", "title": "Isolated Firestore Tests", "type": "requirement"}
+{"category": "objective", "id": "requirement:framework-metrics", "path": ".knowledge/requirement/framework-metrics.md", "role": "primary", "title": "Framework Metrics", "type": "requirement"}
 {"category": "objective", "id": "requirement:framework-script-assets", "path": ".knowledge/requirement/framework-script-assets.md", "role": "primary", "title": "Framework Script Assets", "type": "requirement"}
 {"category": "objective", "id": "requirement:generated-code-version-tolerance", "path": ".knowledge/requirement/generated-code-version-tolerance.md", "role": "primary", "title": "Generated Code Must State What Runtime It Links Against", "type": "requirement"}
 {"category": "objective", "id": "requirement:healthcheck-subcommand", "path": ".knowledge/requirement/healthcheck-subcommand.md", "role": "primary", "title": "Health Check Subcommand", "type": "requirement"}
@@ -579,6 +584,7 @@
 {"category": "objective", "id": "requirement:tinybind-update-composition-seams", "path": ".knowledge/requirement/tinybind-update-composition-seams.md", "role": "primary", "title": "TinyBind Update Composition Seams", "type": "requirement"}
 {"category": "objective", "id": "requirement:tinygodriver-adoption", "path": ".knowledge/requirement/tinygodriver-adoption.md", "role": "primary", "title": "tinygodriver Adoption", "type": "requirement"}
 {"category": "objective", "id": "requirement:tinygodriver-encode-only-zstd", "path": ".knowledge/requirement/tinygodriver-encode-only-zstd.md", "role": "primary", "title": "What The fasthttp Build Would Ask Of tinygodriver", "type": "requirement"}
+{"category": "objective", "id": "requirement:trace-head-sampling", "path": ".knowledge/requirement/trace-head-sampling.md", "role": "primary", "title": "Trace Head Sampling", "type": "requirement"}
 {"category": "objective", "id": "requirement:tutorial-capability-growth", "path": ".knowledge/requirement/tutorial-capability-growth.md", "role": "primary", "title": "Tutorial Capability Growth", "type": "requirement"}
 {"category": "objective", "id": "requirement:tutorial-continuity", "path": ".knowledge/requirement/tutorial-continuity.md", "role": "primary", "title": "Tutorial Continuity", "type": "requirement"}
 {"category": "objective", "id": "requirement:tutorial-page-tree-chapter", "path": ".knowledge/requirement/tutorial-page-tree-chapter.md", "role": "primary", "title": "Tutorial Page Tree Chapter", "type": "requirement"}

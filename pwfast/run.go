@@ -272,6 +272,11 @@ func runtimeResources(observability *pwobservability.Resolved) pwruntime.Resourc
 		Connections: pwdatabase.Connections(),
 		Query:       pwobservability.QueryDiagnostics(config, pwconfig.Development()),
 		Trace:       pwobservability.TracingPolicy(config, observability.Tracing()),
+		// One configuration enforces one policy on either transport, so the
+		// instrument set is resolved here exactly as pw resolves it. What differs
+		// is only what this build renders: it commits after a buffered render, so
+		// its render metrics carry the buffered mode and no boundary series.
+		Metrics: pwobservability.MetricsPolicy(config, observability.MetricProvider(), observability.Tracing()),
 	}
 }
 

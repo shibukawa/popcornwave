@@ -799,6 +799,7 @@ func Replace(targetID string, fragment HTMLFragment) UpdateRegion {
 // are the validation errors — showing them is the point. That is the opposite
 // of a redraw, where a non-2xx means the render failed.
 func WriteUpdate(w http.ResponseWriter, r *http.Request, status int, regions ...UpdateRegion) {
+	SetRoute(w, r)
 	ctx := requestContext(r)
 	config := Config[HTMLConfig](ctx)
 	// The options are the ones every other render path gets. Until system:tinybind

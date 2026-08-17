@@ -32,7 +32,7 @@ the dots that separate nesting levels change.
 Take that option name, drop the dashes, and upcase:
 `OBSERVABILITY_QUERY_SLOW_THRESHOLD`.
 
-Five keys break the rule on purpose, because a conventional name already exists
+Seven keys break the rule on purpose, because a conventional name already exists
 and an application should not have to translate:
 
 | Key | Environment variable |
@@ -41,6 +41,8 @@ and an application should not have to translate:
 | `observability.service_name` | `OTEL_SERVICE_NAME` |
 | `observability.otel.endpoint` | `OTEL_EXPORTER_OTLP_ENDPOINT` |
 | `observability.otel.headers` | `OTEL_EXPORTER_OTLP_HEADERS` |
+| `observability.trace.sampler` | `OTEL_TRACES_SAMPLER` |
+| `observability.trace.sampler_arg` | `OTEL_TRACES_SAMPLER_ARG` |
 | `auth.oidc.issuer`, `client_id`, `client_secret`, `redirect_url` | `AUTH_OIDC_*`; deployed redirects are fixed, while loopback development may derive one from the request |
 
 Three keys have no environment binding at all:
@@ -366,6 +368,8 @@ opts in. `explain` and `reproduction` depend on `slow_threshold`, not on
 | `boundary` | `true` | a span per settled async boundary and per live delivery |
 | `database` | `true` | a client span per executed statement |
 | `statement` | `true` | the statement text on that span |
+| `sampler` | *(by environment)* | which traces are recorded: `always_on`, `always_off`, `traceidratio`, or a `parentbased_` form |
+| `sampler_arg` | *(by environment)* | the sampler argument; for either ratio form, the fraction of traces kept |
 
 `auto` reads the export switch rather than the environment, because a span
 nothing exports is pure cost. `on` also installs the request root span, so a
@@ -381,12 +385,43 @@ Bind values never reach a span, whatever `statement` says. They stay on the
 query record, which names the statement span rather than the request root. See
 [Request Tracing](/guides/architecture/telemetry/#reading-a-request-trace).
 
+`sampler` is the only key here with no fixed default. It resolves to
+`parentbased_always_on` when `APP_ENV` is `dev` and to `parentbased_traceidratio`
+at `0.1` in every other environment, including one whose name this framework
+does not know. Setting the key replaces both, and the startup summary reports
+which applied. An argument that cannot be parsed stops the process rather than
+falling back to recording everything — see
+[Sampling](/guides/architecture/telemetry/#sampling-which-traces-are-kept).
+
+### `[observability.metrics]`
+
+| Key | Default | Meaning |
+| --- | --- | --- |
+| `enabled` | `"auto"` | record framework metrics: `auto`, `on`, `off` — `auto` follows whether metrics are exported |
+| `interval` | `"60s"` | how often a collection is exported |
+| `temporality` | `"delta"` | `delta` reports each interval; `cumulative` reports the total since process start |
+| `http` | `true` | `http.server` request duration, concurrency, and body sizes |
+| `db` | `true` | `db.client` operation duration and connection pool state |
+| `runtime` | `true` | the `go.*` memory, goroutine, and GC instruments |
+| `render` | `true` | `pw.render` duration and bytes, boundary settle, and live delivery |
+| `cache` | `true` | component output and data result cache hits and misses |
+
+`enabled` reads the export switch the way `trace.enabled` does, and it is
+independent of it: metrics on with tracing off is the configuration a heavily
+sampled deployment ends up in, and a sampling ratio changes no count here.
+
+`interval` is the resolution of every chart of these instruments, and it is a
+different number from `otel.flush_interval`, which is how often a batch of spans
+leaves. Turn off `runtime` when the platform already collects those values from
+its own agent; the rest of the groups have no second source. See
+[Metrics](/guides/architecture/telemetry/#metrics).
+
 ### `[observability.otel]`
 
 | Key | Default | Meaning |
 | --- | --- | --- |
 | `enabled` | `false` | export traces and logs |
-| `endpoint` | *(empty)* | OTLP/HTTP base URL; `/v1/traces` and `/v1/logs` are appended |
+| `endpoint` | *(empty)* | OTLP/HTTP base URL; `/v1/traces`, `/v1/logs`, and `/v1/metrics` are appended |
 | `headers` | *(empty)* | comma-separated `key=value` list; values are never logged |
 | `request_timeout` | `"10s"` | bound on one export request |
 | `queue_size` | `2048` | records held in memory; a full queue drops rather than blocking the request |

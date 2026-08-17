@@ -208,6 +208,11 @@ func Options(sqlDialect string) (generator.Options, error) {
 		{name: "WriteHTMLPage", writer: 0, request: 1},
 		{name: "WriteHTMLChain", writer: 0, request: 1},
 		{name: "WriteHTMLFragment", writer: 0, request: 1},
+		// The route a metric is keyed by. It takes both arguments for the same
+		// reason the writers above do: the pattern is read from the request and
+		// recorded on the writer, because those are the two values a handler and
+		// the frame that records the metric both hold.
+		{name: "SetRoute", writer: 0, request: 1},
 		// The update surface, whose entries answer with records rather than a
 		// value of a declared type.
 		{name: "WriteUpdate", writer: 0, request: 1},

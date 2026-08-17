@@ -23,23 +23,25 @@ import (
 const maxResponseBody = 4096
 
 type Config struct {
-	Endpoint       string
-	TracesEndpoint string
-	LogsEndpoint   string
-	Headers        http.Header
-	Client         *http.Client
-	Timeout        time.Duration
+	Endpoint        string
+	TracesEndpoint  string
+	LogsEndpoint    string
+	MetricsEndpoint string
+	Headers         http.Header
+	Client          *http.Client
+	Timeout         time.Duration
 	// MaxRetries defaults to two. A negative value disables retries.
 	MaxRetries int
 }
 
 type Exporter struct {
-	tracesURL string
-	logsURL   string
-	headers   http.Header
-	client    *http.Client
-	timeout   time.Duration
-	retries   int
+	tracesURL  string
+	logsURL    string
+	metricsURL string
+	headers    http.Header
+	client     *http.Client
+	timeout    time.Duration
+	retries    int
 }
 
 // New creates an exporter. Endpoint is a base URL; signal-specific endpoints
@@ -54,11 +56,17 @@ func New(config Config) (*Exporter, error) {
 	if config.LogsEndpoint == "" {
 		config.LogsEndpoint = strings.TrimRight(config.Endpoint, "/") + "/v1/logs"
 	}
+	if config.MetricsEndpoint == "" {
+		config.MetricsEndpoint = strings.TrimRight(config.Endpoint, "/") + "/v1/metrics"
+	}
 	if err := validEndpoint(config.TracesEndpoint); err != nil {
 		return nil, fmt.Errorf("otel otlphttp traces endpoint: %w", err)
 	}
 	if err := validEndpoint(config.LogsEndpoint); err != nil {
 		return nil, fmt.Errorf("otel otlphttp logs endpoint: %w", err)
+	}
+	if err := validEndpoint(config.MetricsEndpoint); err != nil {
+		return nil, fmt.Errorf("otel otlphttp metrics endpoint: %w", err)
 	}
 	if config.Client == nil {
 		config.Client = http.DefaultClient
@@ -75,7 +83,7 @@ func New(config Config) (*Exporter, error) {
 	} else if config.MaxRetries < 0 {
 		config.MaxRetries = 0
 	}
-	return &Exporter{tracesURL: config.TracesEndpoint, logsURL: config.LogsEndpoint, headers: config.Headers.Clone(), client: config.Client, timeout: config.Timeout, retries: config.MaxRetries}, nil
+	return &Exporter{tracesURL: config.TracesEndpoint, logsURL: config.LogsEndpoint, metricsURL: config.MetricsEndpoint, headers: config.Headers.Clone(), client: config.Client, timeout: config.Timeout, retries: config.MaxRetries}, nil
 }
 
 func (e *Exporter) ExportSpans(ctx context.Context, spans []trace.SpanData) error {

@@ -1,6 +1,7 @@
 package pw
 
 import (
+	"github.com/shibukawa/popcornwave/contrib/otel/metric"
 	"github.com/shibukawa/popcornwave/pwobservability"
 	"github.com/shibukawa/popcornwave/pwruntime"
 )
@@ -69,6 +70,13 @@ func reportQueryDiagnostics(diagnostics *pwruntime.QueryDiagnostics, env string,
 // the framework should open no span of its own.
 func resolveTracing(config ObservabilityConfig, exporting bool) *pwruntime.Tracing {
 	return pwobservability.TracingPolicy(config, exporting)
+}
+
+// resolveMetrics turns configuration into the runtime instrument set. exporting
+// is the automatic answer, the same one tracing reads, and the only thing the two
+// share: a sampler that keeps almost nothing changes no count here.
+func resolveMetrics(config ObservabilityConfig, provider *metric.Provider, exporting bool) *pwruntime.Metrics {
+	return pwobservability.MetricsPolicy(config, provider, exporting)
 }
 
 // traceForced reports whether configuration asked for framework spans outright

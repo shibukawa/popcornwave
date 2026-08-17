@@ -82,6 +82,7 @@ func InternalServerError(values ...any) Problem { return pwruntime.InternalServe
 func Validation(fields ...FieldError) Problem { return pwruntime.Validation(fields...) }
 
 func WriteProblem(w http.ResponseWriter, r *http.Request, err error) {
+	SetRoute(w, r)
 	// A redirect returned rather than written arrives here, because the one
 	// path a render's error takes is this one. Redirect applies the safety
 	// check and the update branch, so a returned redirect and a written one
@@ -195,6 +196,7 @@ func putHTMLBody(body *bytes.Buffer) {
 func mapProblem(err error) Problem { return pwruntime.MapProblem(err) }
 
 func WriteAPI[T any](w http.ResponseWriter, r *http.Request, value T) {
+	SetRoute(w, r)
 	target, finish := encodedBodyWriter(w, r)
 	if err := tinybind.Write(target, r, value); err != nil {
 		finish(false)
@@ -319,6 +321,7 @@ func WriteHTMLPage(w http.ResponseWriter, r *http.Request, wrappers []HTMLWrappe
 // boundary settles, so classifying the client is enough to hand a crawler the
 // finished document instead of the fallbacks it can never replace.
 func WriteHTMLChain(w http.ResponseWriter, r *http.Request, wrappers []HTMLWrapper, leaf HTMLFragment, options ...HTMLOption) {
+	SetRoute(w, r)
 	config := Config[HTMLConfig](requestContext(r))
 	// Every unsafe form in this chain carries the session's token, and the
 	// document path is where that is supplied: WriteHTMLFragment renders no
@@ -583,6 +586,7 @@ func csrfRenderToken(ctx context.Context) string {
 // no head here to receive it, and inlining the tags would re-emit them on every
 // swap with nothing owning or deduplicating them.
 func WriteHTMLFragment(w http.ResponseWriter, r *http.Request, fragment HTMLFragment) {
+	SetRoute(w, r)
 	ctx := requestContext(r)
 	config := Config[HTMLConfig](ctx)
 	// Contributions fold upward at generation time, so this covers the leaf's own

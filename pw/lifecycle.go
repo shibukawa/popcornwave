@@ -99,7 +99,7 @@ func buildMiddlewares(handler http.Handler, option ...Option) (http.Handler, err
 	// asked for framework spans outright: the children below are only a trace if
 	// something roots them.
 	rootSpan := telemetry.Tracing() || traceForced(observability)
-	resources := runtimeResources(telemetry.Backend(), telemetry.Tracing())
+	resources := runtimeResources(telemetry.Backend(), telemetry.MetricProvider(), telemetry.Tracing())
 	reportEnvironment()
 	reportCompressionCodings(middleware)
 	reportDatabaseConnections(resources.Connections)

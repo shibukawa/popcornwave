@@ -22,6 +22,7 @@ type Middleware = pwextension.Middleware
 type Slot = pwruntime.Slot
 
 const (
+	SlotMetrics          = pwruntime.SlotMetrics
 	SlotTracing          = pwruntime.SlotTracing
 	SlotResources        = pwruntime.SlotResources
 	SlotClientAddress    = pwruntime.SlotClientAddress

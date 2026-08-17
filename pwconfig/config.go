@@ -299,8 +299,48 @@ type ObservabilityConfig struct {
 	// Trace configures the spans the framework creates inside a request. Rated
 	// as detail for the same reason Query is.
 	Trace TraceConfig `summary:"omit" help:"Trace configures the spans the framework creates inside a request"`
+	// Metrics configures the instruments the framework records. Rated as detail
+	// for the same reason Trace is.
+	Metrics MetricsConfig `summary:"omit" help:"Metrics configures the instruments the framework records"`
 	// Otel configures OpenTelemetry export.
 	Otel OtelExportConfig `help:"Otel configures OpenTelemetry trace and log export"`
+}
+
+// MetricsConfig selects the instruments the framework records.
+//
+// It is a separate section from Trace, and its enabled key is independent of
+// that one, because the two signals answer different questions: a trace records
+// one request and may be sampled away, while an instrument counts every request.
+// A deployment running a low sampling ratio is expected to end up with metrics on
+// and tracing mostly off, which is the configuration this split exists for.
+type MetricsConfig struct {
+	// Enabled is auto, on, or off. Auto resolves to on when export is
+	// configured and off otherwise, for the reason the trace toggle gives: an
+	// aggregation nothing exports is pure cost.
+	Enabled string `default:"auto" falsy:"off" help:"record framework metrics: auto, on, or off; auto follows metric export"`
+	// Interval is how often a collection is exported, and so how coarse every
+	// chart of these instruments becomes. It is separate from
+	// otel.flush_interval, which is how often a batch of spans leaves.
+	Interval time.Duration `default:"60s" dependon:".enabled" help:"how often metrics are collected and exported"`
+	// Temporality is delta or cumulative. Delta reports each interval, which is
+	// what the development viewer charts without differencing and what a
+	// short-lived instance can report at all; a failed export loses those
+	// counts. Cumulative reports the total since process start, so a failed
+	// export is repaired by the next one at the cost of a reader that has to
+	// notice a restart.
+	Temporality string `default:"delta" enum:"delta,cumulative" dependon:".enabled" help:"metric temporality: delta or cumulative"`
+	// HTTP records the semantic-convention http.server instruments.
+	HTTP bool `default:"true" dependon:".enabled" help:"record http.server request duration, concurrency, and body sizes"`
+	// DB records db.client.operation.duration on the statement seam.
+	DB bool `default:"true" dependon:".enabled" help:"record db.client operation duration per driver and statement keyword"`
+	// Runtime records the go.* runtime instruments. It is the one group with no
+	// framework seam, and a deployment already collecting it from its own agent
+	// turns it off here.
+	Runtime bool `default:"true" dependon:".enabled" help:"record go.* runtime memory, goroutine, and gc instruments"`
+	// Render records the pw.render, pw.boundary, and pw.live instruments.
+	Render bool `default:"true" dependon:".enabled" help:"record pw.render duration and bytes, boundary settle, and live delivery"`
+	// Cache records the component output and data result cache counters.
+	Cache bool `default:"true" dependon:".enabled" help:"record component output and data result cache hits and misses"`
 }
 
 // TraceConfig selects the spans the framework opens inside a request.
@@ -332,6 +372,19 @@ type TraceConfig struct {
 	// it whatever this says: they stay on the query record, which the span id
 	// correlates.
 	Statement bool `default:"true" dependon:".database" help:"put the statement text on the database span; bind values never reach a span"`
+	// Sampler decides which traces are recorded, once, at the root span.
+	//
+	// It carries no default tag because the default is selected by the
+	// environment rather than being one value everywhere: development records
+	// every trace, because the developer loop's only view of a request is the
+	// trace it kept, and every other environment samples, because a process may
+	// be exporting straight to a collection backend that bills per span and one
+	// request is a dozen of them. Setting this replaces both.
+	Sampler string `env:"OTEL_TRACES_SAMPLER" dependon:".enabled" help:"which traces are recorded: always_on, always_off, traceidratio, or a parentbased_ form; defaults by environment"`
+	// SamplerArg is the sampler's argument, which for either ratio form is the
+	// fraction of traces kept. An unparseable value fails startup rather than
+	// falling back to recording everything.
+	SamplerArg string `env:"OTEL_TRACES_SAMPLER_ARG" dependon:".enabled" help:"sampler argument; the kept fraction for a traceidratio sampler"`
 }
 
 // OtelExportConfig configures OTLP/HTTP export of traces and logs.

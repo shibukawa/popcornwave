@@ -19,6 +19,13 @@ import "sort"
 type Slot int
 
 const (
+	// SlotMetrics records the http.server instruments of one request.
+	//
+	// It is outside the tracing frame rather than inside it, so that a duration
+	// counted here covers everything a client waited for including the span the
+	// next frame opens, and so that the two are installed independently: a
+	// deployment sampling almost no traces still counts every request.
+	SlotMetrics Slot = 5
 	// SlotTracing opens the request root span. The frame is installed only
 	// when tracing has somewhere to export.
 	SlotTracing Slot = 10

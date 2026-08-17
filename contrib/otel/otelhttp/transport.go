@@ -4,13 +4,16 @@ package otelhttp
 
 import (
 	"errors"
+	"fmt"
 	"net"
 	"net/http"
 	"net/url"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/shibukawa/popcornwave/contrib/otel"
+	"github.com/shibukawa/popcornwave/contrib/otel/metric"
 	"github.com/shibukawa/popcornwave/contrib/otel/propagation"
 	"github.com/shibukawa/popcornwave/contrib/otel/trace"
 )
@@ -19,6 +22,7 @@ const scopeName = "github.com/shibukawa/popcornwave/contrib/otel/otelhttp"
 
 type config struct {
 	provider *trace.Provider
+	meters   *metric.Provider
 	spanName func(*http.Request) string
 }
 
@@ -28,6 +32,17 @@ type Option func(*config)
 // WithTracerProvider selects the provider the client spans are created by.
 func WithTracerProvider(provider *trace.Provider) Option {
 	return func(c *config) { c.provider = provider }
+}
+
+// WithMeterProvider records the http.client instruments on the given provider.
+//
+// It is opt-in rather than defaulted to the process provider, because a client
+// this framework did not build is one whose call sites it cannot vouch for: a
+// path-per-object API reached through it would produce one series per object if
+// the caller also replaced the span name. A caller that knows its endpoints are
+// bounded passes this.
+func WithMeterProvider(provider *metric.Provider) Option {
+	return func(c *config) { c.meters = provider }
 }
 
 // WithSpanName replaces the default span name.
@@ -75,6 +90,11 @@ type Transport struct {
 	base     http.RoundTripper
 	tracer   *trace.Tracer
 	spanName func(*http.Request) string
+	// duration and active are the http.client instruments. They are recorded
+	// whatever the sampler decided about the span above them, which is the whole
+	// reason a metric exists beside a trace.
+	duration *metric.Histogram
+	active   *metric.UpDownCounter
 }
 
 // NewTransport wraps base, or http.DefaultTransport when base is nil.
@@ -89,7 +109,15 @@ func NewTransport(base http.RoundTripper, options ...Option) *Transport {
 	if base == nil {
 		base = http.DefaultTransport
 	}
-	return &Transport{base: base, tracer: cfg.provider.Tracer(scopeName), spanName: cfg.spanName}
+	transport := &Transport{base: base, tracer: cfg.provider.Tracer(scopeName), spanName: cfg.spanName}
+	if cfg.meters != nil {
+		meter := cfg.meters.Meter(scopeName)
+		transport.duration = meter.Histogram("http.client.request.duration", "s",
+			"Duration of outbound HTTP requests.", metric.DurationBounds)
+		transport.active = meter.UpDownCounter("http.client.active_requests", "{request}",
+			"Outbound HTTP requests in flight.")
+	}
+	return transport
 }
 
 // NewClient returns an http.Client whose transport is instrumented.
@@ -113,6 +141,7 @@ func (t *Transport) RoundTrip(r *http.Request) (*http.Response, error) {
 	ctx, span := t.tracer.Start(r.Context(), t.spanName(r),
 		trace.WithSpanKind(trace.SpanKindClient), trace.WithAttributes(requestAttributes(r)...))
 	defer span.End()
+	finish := t.measure(r)
 	// A RoundTripper may not modify the request it is given, and the header is
 	// exactly what this one has to write, so the clone is the contract rather
 	// than caution. It also carries ctx, so the span is the one the callee sees.
@@ -121,10 +150,12 @@ func (t *Transport) RoundTrip(r *http.Request) (*http.Response, error) {
 	response, err := t.base.RoundTrip(outgoing)
 	if err != nil {
 		message := transportErrorMessage(err)
+		finish(0, err)
 		span.RecordError(errors.New(message))
 		span.SetStatus(trace.StatusError, message)
 		return nil, err
 	}
+	finish(response.StatusCode, nil)
 	span.SetAttributes(otel.Int64("http.response.status_code", int64(response.StatusCode)))
 	// A 4xx is the caller's own failure here, unlike on the server side where it
 	// is the client's, so both error classes fail the client span.
@@ -151,6 +182,55 @@ func transportErrorMessage(err error) string {
 		return wrapped.Err.Error()
 	}
 	return err.Error()
+}
+
+// measure counts one outbound request and returns the call that closes it.
+//
+// The attribute set names the callee and never the path: a client talks to
+// addresses a caller chose, and a path-per-object API would otherwise be one
+// series per object. The span beside it carries the path, where one call is
+// being read rather than all of them.
+func (t *Transport) measure(r *http.Request) func(status int, err error) {
+	if t.duration == nil {
+		return func(int, error) {}
+	}
+	started := time.Now()
+	host, port := "", ""
+	if r.URL != nil {
+		host = r.URL.Hostname()
+		port = r.URL.Port()
+	}
+	base := []otel.Attribute{
+		otel.String("http.request.method", r.Method),
+		otel.String("server.address", host),
+	}
+	if port != "" {
+		if number, convErr := strconv.ParseInt(port, 10, 64); convErr == nil {
+			base = append(base, otel.Int64("server.port", number))
+		}
+	}
+	t.active.Add(r.Context(), 1, base...)
+	return func(status int, err error) {
+		t.active.Add(r.Context(), -1, base...)
+		attributes := append([]otel.Attribute(nil), base...)
+		if status > 0 {
+			attributes = append(attributes, otel.Int64("http.response.status_code", int64(status)))
+		}
+		if err != nil {
+			attributes = append(attributes, otel.String("error.type", errorType(err)))
+		}
+		t.duration.Record(r.Context(), time.Since(started).Seconds(), attributes...)
+	}
+}
+
+// errorType is the closed-set error.type value: the type name, never the
+// message, which carries an address and a path a series must not be split by.
+func errorType(err error) string {
+	name := strings.TrimPrefix(fmt.Sprintf("%T", err), "*")
+	if name == "" {
+		return "_OTHER"
+	}
+	return name
 }
 
 func requestAttributes(r *http.Request) []otel.Attribute {

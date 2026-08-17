@@ -138,6 +138,7 @@ func Parse() error {
 		return err
 	}
 	DeriveExportEnabled(result, boundConfig[ObservabilityConfig]())
+	DeriveTraceSampler(result, boundConfig[ObservabilityConfig](), env)
 	if loaded := configState.hooks.Loaded; loaded != nil {
 		loaded(result)
 	}
@@ -258,6 +259,79 @@ func DeriveExportEnabled(result *configbind.LoadResult, bound *ObservabilityConf
 	result.Overlay.Set("observability.otel.enabled", "true", endpoint.Place)
 	if bound != nil {
 		bound.Otel.Enabled = true
+	}
+}
+
+// Trace sampling defaults, selected by environment rather than fixed.
+const (
+	// DefaultDevSampler records every trace in development. requirement:
+	// dev-request-timing-surface reads its values from the spans the tracer
+	// opened, and the telemetry viewer is the developer's only view of a
+	// request, so a sampled dev loop is one where the page just looked at is
+	// missing.
+	DefaultDevSampler = "parentbased_always_on"
+	// DefaultDeployedSampler samples every other environment, because the
+	// process may be the last stage that can decline a span.
+	DefaultDeployedSampler = "parentbased_traceidratio"
+	// DefaultDeployedSamplerArg is the fraction kept under that sampler. It is
+	// a number the framework had to choose rather than a measured one: one in
+	// ten keeps a low-traffic deployment visible in a trace list and removes an
+	// order of magnitude from a busy one.
+	DefaultDeployedSamplerArg = "0.1"
+)
+
+// PlaceEnvironmentDefault marks a value the environment token selected, so the
+// startup summary says which default applied rather than implying a file or a
+// variable set it.
+const PlaceEnvironmentDefault configbind.Place = "default_env"
+
+// DefaultTraceSampler returns the sampler an environment gets when nothing
+// configures one.
+//
+// Development is the only exception, and it is stated as the exception rather
+// than as "staging and production sample": the environment token permits
+// extension values, and an unfamiliar environment is one somebody added for
+// traffic. Spelling it the other way would leave every extension token
+// recording everything, which is the expensive branch reached by not thinking
+// about it.
+func DefaultTraceSampler(env string) (name, argument string) {
+	if env == EnvDevelopment {
+		return DefaultDevSampler, ""
+	}
+	return DefaultDeployedSampler, DefaultDeployedSamplerArg
+}
+
+// DeriveTraceSampler fills the sampler keys the environment decides, when
+// nothing else set them.
+//
+// It writes into the overlay as well as the bound struct for the reason
+// DeriveExportEnabled does: the startup summary reads provenance rather than the
+// struct, and a process keeping one trace in ten looks exactly like a broken
+// tracer from outside. Naming the place default_env is what tells the operator
+// which of the two it is.
+func DeriveTraceSampler(result *configbind.LoadResult, bound *ObservabilityConfig, env string) {
+	if result == nil || result.Overlay == nil {
+		return
+	}
+	if entry, ok := result.Overlay.Get("observability.trace.sampler"); ok && strings.TrimSpace(entry.Raw) != "" {
+		return
+	}
+	name, argument := DefaultTraceSampler(env)
+	result.Overlay.Set("observability.trace.sampler", name, PlaceEnvironmentDefault)
+	if bound != nil {
+		bound.Trace.Sampler = name
+	}
+	// The argument is written only when the default carries one, so a dev
+	// summary does not report an empty key beside a sampler that takes none.
+	if argument == "" {
+		return
+	}
+	if entry, ok := result.Overlay.Get("observability.trace.sampler_arg"); ok && strings.TrimSpace(entry.Raw) != "" {
+		return
+	}
+	result.Overlay.Set("observability.trace.sampler_arg", argument, PlaceEnvironmentDefault)
+	if bound != nil {
+		bound.Trace.SamplerArg = argument
 	}
 }
 

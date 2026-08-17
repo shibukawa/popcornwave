@@ -7,7 +7,7 @@ LocalOtelViewer is a local OpenTelemetry receiver whose public package requireme
 
 ```yaml
 repository: https://github.com/shibukawa/localotelviewer
-version: v1.0.1
+version: v1.0.2, the version go.mod requires
 license:
   spdx: AGPL-3.0-only OR Apache-2.0
   used_by_pw: Apache-2.0, which matches this repository
@@ -23,6 +23,7 @@ go_api:
   routes: /v1/traces, /v1/logs, /v1/metrics, and /api/snapshot
   encodings: OTLP/HTTP protobuf and JSON
   storage: bounded in-memory only, discarded at exit
+  metric_support: complete on the receiving side — gauge, sum, histogram, exponential histogram, and summary are stored with their temporality, and the UI charts each shape; requirement:framework-metrics is the missing producer and needs nothing added here
   assets: none; the public package deliberately ships no UI so an embedding tool brings its own
 ui_source:
   component: OtelViewer React component with apiEndpoint, theme, onThemeChange, initialView, and pollIntervalMs

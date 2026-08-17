@@ -28,6 +28,12 @@ func buildRuntimeHandler(handler http.Handler, server ServerConfig, security Sec
 	// Only the track frame stays outside the line, because its metrics must
 	// observe every positioned step.
 	frames := []chainFrame{}
+	// Above tracing, and installed on its own switch: an instrument counts every
+	// request whatever the sampler kept, which is the whole reason the framework
+	// has two signals rather than one.
+	if resources.Metrics != nil {
+		frames = append(frames, chainFrame{slot: SlotMetrics, name: "metrics", middleware: middlewares.Metrics(resources.Metrics)})
+	}
 	if tracing {
 		// Tracing wraps every positioned frame, so the request root span
 		// covers the whole chain and every record taken inside it correlates.

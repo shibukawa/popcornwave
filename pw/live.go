@@ -171,7 +171,15 @@ func serveLive(w http.ResponseWriter, r *http.Request, wrappers []HTMLWrapper, l
 	var scratch []byte
 	// The close reason is read at return rather than captured here, because
 	// every branch below decides it and only the last one is true.
-	defer func() { render.end(String("pw.live.close_reason", reason)) }()
+	// One subscription is open for as long as this response is, which is the
+	// bound policy:live-subscription-bounds sets and the number an operator
+	// currently cannot see approaching. The decrement is deferred with the close,
+	// so a panic cannot leak a count.
+	render.liveOpened()
+	defer func() {
+		render.liveClosed(reason)
+		render.end(String("pw.live.close_reason", reason))
+	}()
 	// The chain renders into io.Discard, so the wrapper is here for the flush
 	// alone: it marks the same moment a document response commits, which is
 	// where every delivery interval below is measured from.

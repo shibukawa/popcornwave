@@ -28,6 +28,7 @@ import (
 type Slot = pwruntime.Slot
 
 const (
+	SlotMetrics          = pwruntime.SlotMetrics
 	SlotTracing          = pwruntime.SlotTracing
 	SlotResources        = pwruntime.SlotResources
 	SlotClientAddress    = pwruntime.SlotClientAddress
@@ -279,8 +280,13 @@ func Middlewares(handler fasthttp.RequestHandler, options RuntimeOptions) (fasth
 	if options.Tracing {
 		// Outermost of everything positioned, so the request root span covers
 		// the whole chain and every record taken inside it correlates. It is
-		// opt-in because an unsampled span with nowhere to export is pure cost.
+		// opt-in because a span with nowhere to export is pure cost.
 		frames = append(frames, Frame{Slot: SlotTracing, Name: "otel", Middleware: Otel()})
+	}
+	// Above tracing, and on its own switch: an instrument counts every request
+	// whatever the sampler kept, which is why the two are never one frame.
+	if options.Resources.Metrics != nil {
+		frames = append(frames, Frame{Slot: SlotMetrics, Name: "metrics", Middleware: Metrics(options.Resources.Metrics)})
 	}
 	frames = append(frames, options.Extra...)
 	// The application's own middleware last, so a frame sharing a number with a

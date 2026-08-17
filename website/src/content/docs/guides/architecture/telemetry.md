@@ -81,8 +81,10 @@ database = true
 statement = true
 ```
 
-Use `enabled = "on"` with an application-owned tracer provider, or `"off"` when
-you have measured the span cost on a hot route. `boundary = false` is the first
+`enabled` says whether these spans are opened at all; how many of them survive is
+a separate question that [Sampling](#sampling-which-traces-are-kept) below
+answers. Use `enabled = "on"` with an application-owned tracer provider, or
+`"off"` when you have measured the span cost on a hot route. `boundary = false` is the first
 detail to remove from a page with many small or frequently delivered regions.
 `statement = false` keeps database timing but omits SQL text; bind values are
 never added to spans.
@@ -160,6 +162,136 @@ Framework spans stop at framework work. Open custom spans around cache calls or
 other handler work with [`pw.StartSpan`](/reference/runtime/#tracing). Session,
 authentication, and migration statements issued internally do not produce
 database spans, matching their exclusion from query diagnostics.
+
+## Sampling: which traces are kept
+
+One request is not one span. The tree above opens a request root, a render span,
+an initial build, a span per settled boundary, and a span per statement, so a
+page that awaits three regions and runs six queries produces a dozen. At that
+multiple the question stops being whether tracing is worth having and becomes
+which traces are worth keeping.
+
+The answer depends on what sits between the process and the backend. With a
+collector in front, this process can record everything and let the collector
+decide with a finished trace in hand — which is the only place a rule like "keep
+the traces that failed" can be applied at all, because only a finished trace
+knows whether it failed. Exporting straight to the backend removes that stage.
+The process becomes the last thing that can decline a span, and every span it
+does not decline is one the backend bills for.
+
+So the default follows the environment rather than being one value everywhere.
+`APP_ENV=dev` records every trace; every other value, including a name this
+framework does not know, keeps one trace in ten:
+
+```toml
+[observability.trace]
+sampler = "parentbased_traceidratio"
+sampler_arg = "0.05"
+```
+
+Development is the exception because the telemetry viewer is the only view of the
+request you just made, and a sampled development loop is one where that request
+is missing. The direction matters: an unfamiliar environment name is one somebody
+added to carry traffic, so it takes the sampled branch rather than the recording
+one.
+
+The decision is taken once, at the root, and then travels in the `traceparent`
+of the previous section. A child span never decides again — it inherits, which is
+what makes a trace whole rather than a set of spans that each rolled dice. The
+`parentbased_` prefix extends that across services: a caller that chose to record
+is never truncated by a downstream ratio, and a caller that chose not to is not
+overridden by a downstream service that would have.
+
+Two changes are worth making. If a collector sits in front, set `always_on` here
+and sample there, where the whole trace is visible. If the process exports
+directly and the ratio is costing more than it is worth, lower `sampler_arg`
+rather than switching tracing off: a trace you keep one in fifty of still shows
+the shape of a request, and no traces at all show nothing.
+
+An unsampled request is not an untraced one. Its span identifiers are real, so
+`trace_id` still lands on every log record, the `traceparent` it sends still
+tells the callee what was decided, and [query
+diagnostics](/productivity/query-diagnostics/) still writes its statement
+records. What the request does not produce is spans, which is the cost the ratio
+was chosen to avoid.
+
+A sampler argument that cannot be parsed stops the process at startup instead of
+falling back to recording everything, and the [startup
+summary](/productivity/startup-summary/) reports the sampler that resolved and
+where it came from. Both exist for the same reason: a process keeping one trace
+in a thousand and a process whose tracer is broken look identical from outside.
+
+Reach for the sampler when the cost of traces is the problem. When the question
+is a rate, a percentile, or a hit rate, no ratio is the right answer.
+
+## Metrics
+
+Sampling makes some questions unanswerable from traces. A percentile computed
+over the traces that survived a ratio is a percentile of the survivors, and "how
+many requests were served" cannot be recovered from a sample at all. Metrics
+answer those instead, and nothing here is sampled: an instrument counts every
+request whatever the sampler kept, which is why the two signals exist side by
+side rather than one being a cheaper version of the other.
+
+They start with the same endpoint traces use — `/v1/metrics` is appended beside
+`/v1/traces` — so a deployment that already exports needs no further
+configuration. What arrives is two layers.
+
+The first is the set a zero-code OpenTelemetry agent would install:
+`http.server.request.duration` keyed by method, status, and route;
+`http.client.request.duration` for outbound calls;
+`db.client.operation.duration` per driver and statement keyword; connection pool
+state; and the `go.*` memory, goroutine, and GC instruments. These keep the
+specification's names, units, and attributes exactly, because a dashboard, an
+alert, and an operator's previous job already know them.
+
+The second layer is the half no external agent can see. `pw.render.duration` and
+`pw.render.bytes` carry the render mode, so the branch [async
+rendering](/guides/cross-layer/async-rendering/) picked per request is visible as
+a distribution rather than as one response at a time. `pw.boundary.settle.duration`
+is how long fallbacks held the screen, `pw.live.delivery.duration` is how often a
+live region actually changed, and `pw.live.subscriptions.active` is the
+concurrency that no per-request record shows. Cache operations arrive as counters
+with a result attribute:
+
+```sql
+-- hit rate, computed by whatever reads the metric
+sum(pw_render_cache_operations{pw_cache_result="hit"})
+  / sum(pw_render_cache_operations)
+```
+
+The framework emits the terms and never the quotient, because a hit rate with no
+denominator cannot distinguish a cache that is working from one that nothing was
+eligible for. The same rule removes several instruments you might expect. There
+is no request counter: the count of the duration histogram is that number, and a
+second name for it would eventually disagree. There is no average-duration gauge
+— the histogram's sum over its count — and no requests-per-second series, because
+a rate over an interval is what the reader computes and a pre-windowed count is
+one this process would have to guess the window for.
+
+Route rather than path is the rule that keeps this affordable. `http.route`
+carries the registered pattern, so `/orders/{id}` is one series rather than one
+per order, and a request that matched no route reports no route attribute at all
+rather than the raw path. Generated pages and API handlers report their route
+without being asked; a hand-written handler that writes its own response calls
+`pw.SetRoute(w, r)` once.
+
+Groups are switched independently, which matters for exactly one of them:
+
+```toml
+[observability.metrics]
+runtime = false   # the platform's agent already collects go.* from this process
+```
+
+The `runtime` group is the only one with a plausible second source. The rest have
+none — nothing outside this process can count a render mode or a component cache
+hit — so switching them off buys back a callback per interval and loses the
+questions.
+
+Metrics are collected on an interval, 60 seconds by default. That makes them the
+wrong tool for one slow request, which is what the trace and the query diagnostic
+are for, and the right tool for everything that only becomes visible across many
+of them.
 
 ## Development destinations
 
@@ -272,10 +404,24 @@ scan is in progress; retry if the newest record is temporarily incomplete.
 ## Production destinations
 
 Outside `pw dev`, Popcorn Wave does not create local log files. Production logs
-are structured JSON on standard output for the platform's log collector, and
-OTLP export goes to the configured collector. This keeps file ownership,
-rotation, retention, access control, and deletion with the deployment platform
-rather than an application container.
+are structured JSON on standard output for the platform's log collector, and OTLP
+export goes to the configured endpoint. This keeps file ownership, rotation,
+retention, access control, and deletion with the deployment platform rather than
+an application container.
+
+That endpoint can be either of two things, and the choice decides more than an
+address. A collector in front — a sidecar, a node agent, or a gateway — keeps
+retries and buffering outside the process lifetime, adds resource attributes
+downstream, holds the backend credential in one place, and keeps tail sampling
+available. Exporting straight to the collection backend removes a component to
+run and makes the development loop and the deployment differ only in the URL, at
+the price of every one of those: a retry exhausted in the process is a record
+lost rather than deferred, the credential lives in `otel.headers` of every
+instance, and head sampling becomes the only stage there is.
+
+Prefer the collector where you already run one or expect to. Choose the direct
+route for a small deployment, and when you do, set the sampler deliberately
+rather than leaving it at a default chosen without knowing your traffic.
 
 Configure levels, `stdout_format`, service identity, resource attributes, and
 OTLP endpoint/headers through TOML or the corresponding `OTEL_*` environment

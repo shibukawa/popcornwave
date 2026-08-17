@@ -48,6 +48,10 @@ func TestObservabilityExportsSpansAndCorrelatedLogs(t *testing.T) {
 	received := newCollector(t)
 	resolved, err := buildObservability(ObservabilityConfig{
 		ServiceName: "export-test",
+		// The sampler is named because this test is about export rather than
+		// about sampling: a production environment samples by default, and one
+		// span at that ratio is a coin toss.
+		Trace: TraceConfig{Sampler: "always_on"},
 		Otel: OtelExportConfig{
 			Endpoint:      received.server.URL,
 			FlushInterval: 10 * time.Millisecond,

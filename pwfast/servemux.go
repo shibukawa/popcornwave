@@ -50,11 +50,31 @@ func NewServeMux() *ServeMux {
 // Handle registers a handler for one Go 1.22 pattern.
 func (m *ServeMux) Handle(pattern string, handler fasthttp.RequestHandler) {
 	method, path := translatePattern(pattern)
+	handler = recordingRoute(pattern, handler)
 	if method == "" {
 		m.router.ANY(path, handler)
 		return
 	}
 	m.router.Handle(method, path, handler)
+}
+
+// recordingRoute writes the matched pattern onto the request value, so a metric
+// is keyed by the route rather than by the path.
+//
+// This transport can do at registration what the other half cannot: the mux is
+// this framework's own type, so every handler it dispatches to reports its
+// pattern without the handler being asked. On net/http the mux is the standard
+// library's and the pattern has to travel back up on the response writer.
+//
+// The cost is one closure per registration and one user value per request.
+func recordingRoute(pattern string, handler fasthttp.RequestHandler) fasthttp.RequestHandler {
+	if pattern == "" || handler == nil {
+		return handler
+	}
+	return func(r *fasthttp.RequestCtx) {
+		r.SetUserValue(routeUserValueKey{}, pattern)
+		handler(r)
+	}
 }
 
 // HandleFunc is Handle for a bare function, and is the method generated route

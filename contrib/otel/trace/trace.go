@@ -1,5 +1,9 @@
 // Package trace provides a small, explicit OpenTelemetry tracing subset.
-// It records every span; sampling belongs at the receiving relay or collector.
+//
+// A Sampler decides at the root whether a trace is recorded, so a process
+// exporting straight to a collection backend can decline a span before it costs
+// anything. Tail sampling still belongs to a collector: only something holding
+// the finished trace can keep it for what happened in it.
 package trace
 
 import (
@@ -144,10 +148,12 @@ type Processor interface {
 	Shutdown(context.Context) error
 }
 
-// Provider owns tracers and their processor.
+// Provider owns tracers, their processor, and the sampler every tracer under it
+// consults.
 type Provider struct {
 	processor Processor
 	resource  []otel.Attribute
+	sampler   Sampler
 }
 
 type ProviderOption func(*Provider)
@@ -158,12 +164,32 @@ func WithResourceAttributes(attributes ...otel.Attribute) ProviderOption {
 	return func(p *Provider) { p.resource = copyOf }
 }
 
+// WithSampler selects which traces are recorded. The default is
+// ParentBased(AlwaysOn), which records everything a caller has not already
+// declined.
+func WithSampler(sampler Sampler) ProviderOption {
+	return func(p *Provider) {
+		if sampler != nil {
+			p.sampler = sampler
+		}
+	}
+}
+
 func NewProvider(processor Processor, options ...ProviderOption) *Provider {
-	p := &Provider{processor: processor}
+	p := &Provider{processor: processor, sampler: ParentBased(AlwaysOn())}
 	for _, option := range options {
 		option(p)
 	}
 	return p
+}
+
+// Sampler reports the sampler in force, for a diagnostic that has to say what
+// this process will keep.
+func (p *Provider) Sampler() Sampler {
+	if p == nil || p.sampler == nil {
+		return ParentBased(AlwaysOn())
+	}
+	return p.sampler
 }
 
 func (p *Provider) Tracer(name string) *Tracer {
@@ -230,10 +256,9 @@ func (t *Tracer) Start(ctx context.Context, name string, options ...StartOption)
 	}
 	parentValue, _ := ctx.Value(contextKey{}).(contextValue)
 	parent := parentValue.spanContext
-	sc := SpanContext{traceFlags: 1}
+	sc := SpanContext{}
 	if parent.IsValid() {
 		sc.traceID = parent.traceID
-		sc.traceFlags = parent.traceFlags
 		sc.traceState = parent.traceState
 	} else {
 		fillID(sc.traceID[:])
@@ -245,15 +270,36 @@ func (t *Tracer) Start(ctx context.Context, name string, options ...StartOption)
 	if allZero(sc.spanID[:]) {
 		sc.spanID[7] = 1
 	}
-	// cfg.attributes is built fresh for this call (WithAttributes copies its
-	// input), so the span owns it without another copy.
-	span := &Span{tracer: t, parent: parentValue.span, data: SpanData{
-		Name: name, SpanContext: sc, Kind: cfg.kind, StartTime: cfg.start,
-		Attributes: cfg.attributes, ScopeName: t.name,
-		ResourceAttributes: t.provider.resource,
-	}}
-	if parent.IsValid() {
-		span.data.ParentSpanID = parent.SpanID()
+	// Every trace flag but the sampled bit belongs to the parent; that one bit is
+	// this decision's, and a root has no parent flags to carry.
+	sc.traceFlags = parent.traceFlags &^ flagSampled
+	recording := t.provider.Sampler().ShouldSample(SamplingParameters{
+		Parent: parent, TraceID: sc.traceID, Name: name, Kind: cfg.kind,
+	})
+	if recording {
+		sc.traceFlags |= flagSampled
+	}
+	span := &Span{tracer: t, parent: parentValue.span, recording: recording}
+	if recording {
+		// cfg.attributes is built fresh for this call (WithAttributes copies its
+		// input), so the span owns it without another copy.
+		span.data = SpanData{
+			Name: name, SpanContext: sc, Kind: cfg.kind, StartTime: cfg.start,
+			Attributes: cfg.attributes, ScopeName: t.name,
+			ResourceAttributes: t.provider.resource,
+		}
+		if parent.IsValid() {
+			span.data.ParentSpanID = parent.SpanID()
+		}
+	} else {
+		// An unsampled span keeps only what is read outside the exporter: the
+		// span context, for the traceparent it injects and the trace_id a log
+		// record correlates on. The name, the attributes, the start time, and
+		// the resource are all dropped here rather than at export, so they cost
+		// nothing to hold. The value is still per call because Parent and Root
+		// are pointer chases that requirement:context-lookup-performance keeps
+		// free, and a shared instance would have no parent to point at.
+		span.data = SpanData{SpanContext: sc}
 	}
 	ctx = context.WithValue(ctx, contextKey{}, contextValue{spanContext: sc, tracer: t, span: span})
 	return ctx, span
@@ -279,6 +325,22 @@ type Span struct {
 	parent *Span
 	data   SpanData
 	ended  bool
+	// recording is the sampler's decision, fixed at Start. A false value makes
+	// every mutation a no-op and keeps End from reaching the processor, so an
+	// unsampled span never occupies a queue slot.
+	recording bool
+}
+
+// IsRecording reports whether this span will be exported. A caller that would
+// have to compute a value only to attach it can skip the work when this is
+// false; a caller that already has the value need not ask.
+func (s *Span) IsRecording() bool {
+	if s == nil {
+		return false
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.recording && !s.ended
 }
 
 // Parent returns the local parent span, or nil for a root or a span whose
@@ -310,7 +372,7 @@ func (s *Span) SetAttributes(attributes ...otel.Attribute) {
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if !s.ended {
+	if s.recording && !s.ended {
 		s.data.Attributes = append(s.data.Attributes, attributes...)
 	}
 }
@@ -320,7 +382,7 @@ func (s *Span) AddEvent(name string, attributes ...otel.Attribute) {
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if !s.ended {
+	if s.recording && !s.ended {
 		s.data.Events = append(s.data.Events, Event{Name: name, Time: time.Now(), Attributes: append([]otel.Attribute(nil), attributes...)})
 	}
 }
@@ -336,7 +398,7 @@ func (s *Span) SetStatus(code StatusCode, description string) {
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if !s.ended {
+	if s.recording && !s.ended {
 		s.data.Status, s.data.StatusDescription = code, description
 	}
 }
@@ -350,6 +412,13 @@ func (s *Span) End() {
 		return
 	}
 	s.ended = true
+	if !s.recording {
+		// The drop is here rather than in the exporter, so an unsampled trace
+		// never takes a queue slot and never moves the dropped-record count that
+		// a full queue is supposed to mean.
+		s.mu.Unlock()
+		return
+	}
 	s.data.EndTime = time.Now()
 	// ended is set, so SetAttributes and AddEvent can no longer append: the
 	// slices leave the lock without a defensive copy.

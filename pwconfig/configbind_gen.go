@@ -987,6 +987,16 @@ func registerObservabilityConfigDefinition4() {
 			"observability.trace.boundary",
 			"observability.trace.database",
 			"observability.trace.statement",
+			"observability.trace.sampler",
+			"observability.trace.sampler_arg",
+			"observability.metrics.enabled",
+			"observability.metrics.interval",
+			"observability.metrics.temporality",
+			"observability.metrics.http",
+			"observability.metrics.db",
+			"observability.metrics.runtime",
+			"observability.metrics.render",
+			"observability.metrics.cache",
 			"observability.otel.enabled",
 			"observability.otel.endpoint",
 			"observability.otel.headers",
@@ -1013,6 +1023,14 @@ func registerObservabilityConfigDefinition4() {
 			"observability.trace.boundary":         "true",
 			"observability.trace.database":         "true",
 			"observability.trace.statement":        "true",
+			"observability.metrics.enabled":        "auto",
+			"observability.metrics.interval":       "60s",
+			"observability.metrics.temporality":    "delta",
+			"observability.metrics.http":           "true",
+			"observability.metrics.db":             "true",
+			"observability.metrics.runtime":        "true",
+			"observability.metrics.render":         "true",
+			"observability.metrics.cache":          "true",
 			"observability.otel.enabled":           "false",
 			"observability.otel.request_timeout":   "10s",
 			"observability.otel.queue_size":        "2048",
@@ -1032,6 +1050,15 @@ func registerObservabilityConfigDefinition4() {
 			"observability.trace.boundary":         {{Key: "observability.trace.render"}},
 			"observability.trace.database":         {{Key: "observability.trace.enabled"}},
 			"observability.trace.statement":        {{Key: "observability.trace.database"}},
+			"observability.trace.sampler":          {{Key: "observability.trace.enabled"}},
+			"observability.trace.sampler_arg":      {{Key: "observability.trace.enabled"}},
+			"observability.metrics.interval":       {{Key: "observability.metrics.enabled"}},
+			"observability.metrics.temporality":    {{Key: "observability.metrics.enabled"}},
+			"observability.metrics.http":           {{Key: "observability.metrics.enabled"}},
+			"observability.metrics.db":             {{Key: "observability.metrics.enabled"}},
+			"observability.metrics.runtime":        {{Key: "observability.metrics.enabled"}},
+			"observability.metrics.render":         {{Key: "observability.metrics.enabled"}},
+			"observability.metrics.cache":          {{Key: "observability.metrics.enabled"}},
 			"observability.otel.endpoint":          {{Key: "observability.otel.enabled"}},
 			"observability.otel.headers":           {{Key: "observability.otel.enabled"}},
 			"observability.otel.request_timeout":   {{Key: "observability.otel.enabled"}},
@@ -1044,6 +1071,7 @@ func registerObservabilityConfigDefinition4() {
 			"observability.query.slow_threshold": "0s",
 			"observability.query.bind_values":    "off",
 			"observability.trace.enabled":        "off",
+			"observability.metrics.enabled":      "off",
 		},
 		Secrets: map[string]string{
 			"observability.otel.headers": "mask",
@@ -1065,6 +1093,17 @@ func registerObservabilityConfigDefinition4() {
 			"observability.trace.boundary":         "omit",
 			"observability.trace.database":         "omit",
 			"observability.trace.statement":        "omit",
+			"observability.trace.sampler":          "omit",
+			"observability.trace.sampler_arg":      "omit",
+			"observability.metrics":                "omit",
+			"observability.metrics.enabled":        "omit",
+			"observability.metrics.interval":       "omit",
+			"observability.metrics.temporality":    "omit",
+			"observability.metrics.http":           "omit",
+			"observability.metrics.db":             "omit",
+			"observability.metrics.runtime":        "omit",
+			"observability.metrics.render":         "omit",
+			"observability.metrics.cache":          "omit",
 		},
 		FlagMetas: []cliparser.FieldMeta{
 			{Prefix: "observability", Key: "minimum_level", Help: "severity floor: trace, debug, info, warn, error, or off"},
@@ -1086,6 +1125,16 @@ func registerObservabilityConfigDefinition4() {
 			{Prefix: "observability", Key: "trace.boundary", Help: "open a span per settled async boundary and per live delivery", Kind: cliparser.KindBool},
 			{Prefix: "observability", Key: "trace.database", Help: "open a client span per executed statement", Kind: cliparser.KindBool},
 			{Prefix: "observability", Key: "trace.statement", Help: "put the statement text on the database span; bind values never reach a span", Kind: cliparser.KindBool},
+			{Prefix: "observability", Key: "trace.sampler", Env: "OTEL_TRACES_SAMPLER", Help: "which traces are recorded: always_on, always_off, traceidratio, or a parentbased_ form; defaults by environment"},
+			{Prefix: "observability", Key: "trace.sampler_arg", Env: "OTEL_TRACES_SAMPLER_ARG", Help: "sampler argument; the kept fraction for a traceidratio sampler"},
+			{Prefix: "observability", Key: "metrics.enabled", Help: "record framework metrics: auto, on, or off; auto follows metric export"},
+			{Prefix: "observability", Key: "metrics.interval", Help: "how often metrics are collected and exported"},
+			{Prefix: "observability", Key: "metrics.temporality", Help: "metric temporality: delta or cumulative"},
+			{Prefix: "observability", Key: "metrics.http", Help: "record http.server request duration, concurrency, and body sizes", Kind: cliparser.KindBool},
+			{Prefix: "observability", Key: "metrics.db", Help: "record db.client operation duration per driver and statement keyword", Kind: cliparser.KindBool},
+			{Prefix: "observability", Key: "metrics.runtime", Help: "record go.* runtime memory, goroutine, and gc instruments", Kind: cliparser.KindBool},
+			{Prefix: "observability", Key: "metrics.render", Help: "record pw.render duration and bytes, boundary settle, and live delivery", Kind: cliparser.KindBool},
+			{Prefix: "observability", Key: "metrics.cache", Help: "record component output and data result cache hits and misses", Kind: cliparser.KindBool},
 			{Prefix: "observability", Key: "otel.enabled", Help: "export traces and logs", Kind: cliparser.KindBool},
 			{Prefix: "observability", Key: "otel.endpoint", Env: "OTEL_EXPORTER_OTLP_ENDPOINT", Help: "OTLP/HTTP base URL; /v1/traces and /v1/logs are appended"},
 			{Prefix: "observability", Key: "otel.headers", Env: "OTEL_EXPORTER_OTLP_HEADERS", Help: "comma-separated key=value list; values are never logged"},
@@ -1115,6 +1164,16 @@ func registerObservabilityConfigDefinition4() {
 			{Key: "trace.boundary", Kind: configbind.ScaffoldBool, Default: "true", Help: "open a span per settled async boundary and per live delivery"},
 			{Key: "trace.database", Kind: configbind.ScaffoldBool, Default: "true", Help: "open a client span per executed statement"},
 			{Key: "trace.statement", Kind: configbind.ScaffoldBool, Default: "true", Help: "put the statement text on the database span; bind values never reach a span"},
+			{Key: "trace.sampler", Kind: configbind.ScaffoldString, Env: "OTEL_TRACES_SAMPLER", Help: "which traces are recorded: always_on, always_off, traceidratio, or a parentbased_ form; defaults by environment"},
+			{Key: "trace.sampler_arg", Kind: configbind.ScaffoldString, Env: "OTEL_TRACES_SAMPLER_ARG", Help: "sampler argument; the kept fraction for a traceidratio sampler"},
+			{Key: "metrics.enabled", Kind: configbind.ScaffoldString, Default: "auto", Help: "record framework metrics: auto, on, or off; auto follows metric export"},
+			{Key: "metrics.interval", Kind: configbind.ScaffoldDuration, Default: "60s", Help: "how often metrics are collected and exported"},
+			{Key: "metrics.temporality", Kind: configbind.ScaffoldString, Default: "delta", Help: "metric temporality: delta or cumulative"},
+			{Key: "metrics.http", Kind: configbind.ScaffoldBool, Default: "true", Help: "record http.server request duration, concurrency, and body sizes"},
+			{Key: "metrics.db", Kind: configbind.ScaffoldBool, Default: "true", Help: "record db.client operation duration per driver and statement keyword"},
+			{Key: "metrics.runtime", Kind: configbind.ScaffoldBool, Default: "true", Help: "record go.* runtime memory, goroutine, and gc instruments"},
+			{Key: "metrics.render", Kind: configbind.ScaffoldBool, Default: "true", Help: "record pw.render duration and bytes, boundary settle, and live delivery"},
+			{Key: "metrics.cache", Kind: configbind.ScaffoldBool, Default: "true", Help: "record component output and data result cache hits and misses"},
 			{Key: "otel.enabled", Kind: configbind.ScaffoldBool, Default: "false", Help: "export traces and logs"},
 			{Key: "otel.endpoint", Kind: configbind.ScaffoldString, Env: "OTEL_EXPORTER_OTLP_ENDPOINT", Help: "OTLP/HTTP base URL; /v1/traces and /v1/logs are appended"},
 			{Key: "otel.headers", Kind: configbind.ScaffoldString, Env: "OTEL_EXPORTER_OTLP_HEADERS", Help: "comma-separated key=value list; values are never logged"},
@@ -1257,6 +1316,76 @@ func applyObservabilityConfigDefinition4(dst any, o *configbind.Overlay) error {
 		p.Trace.Statement = bb
 	} else {
 		p.Trace.Statement = true
+	}
+	if v, ok := o.GetString("observability.trace.sampler"); ok {
+		p.Trace.Sampler = v
+	}
+	if v, ok := o.GetString("observability.trace.sampler_arg"); ok {
+		p.Trace.SamplerArg = v
+	}
+	if v, ok := o.GetString("observability.metrics.enabled"); ok {
+		p.Metrics.Enabled = v
+	} else {
+		p.Metrics.Enabled = "auto"
+	}
+	if v, ok := o.GetString("observability.metrics.interval"); ok {
+		d, err := time.ParseDuration(v)
+		if err != nil {
+			return fmt.Errorf("configbind: observability.metrics.interval: %w", err)
+		}
+		p.Metrics.Interval = d
+	} else {
+		p.Metrics.Interval = 60000000000 // 1m0s
+	}
+	if v, ok := o.GetString("observability.metrics.temporality"); ok {
+		p.Metrics.Temporality = v
+	} else {
+		p.Metrics.Temporality = "delta"
+	}
+	if v, ok := o.GetString("observability.metrics.http"); ok {
+		bb, err := strconv.ParseBool(v)
+		if err != nil {
+			return fmt.Errorf("configbind: observability.metrics.http: %w", err)
+		}
+		p.Metrics.HTTP = bb
+	} else {
+		p.Metrics.HTTP = true
+	}
+	if v, ok := o.GetString("observability.metrics.db"); ok {
+		bb, err := strconv.ParseBool(v)
+		if err != nil {
+			return fmt.Errorf("configbind: observability.metrics.db: %w", err)
+		}
+		p.Metrics.DB = bb
+	} else {
+		p.Metrics.DB = true
+	}
+	if v, ok := o.GetString("observability.metrics.runtime"); ok {
+		bb, err := strconv.ParseBool(v)
+		if err != nil {
+			return fmt.Errorf("configbind: observability.metrics.runtime: %w", err)
+		}
+		p.Metrics.Runtime = bb
+	} else {
+		p.Metrics.Runtime = true
+	}
+	if v, ok := o.GetString("observability.metrics.render"); ok {
+		bb, err := strconv.ParseBool(v)
+		if err != nil {
+			return fmt.Errorf("configbind: observability.metrics.render: %w", err)
+		}
+		p.Metrics.Render = bb
+	} else {
+		p.Metrics.Render = true
+	}
+	if v, ok := o.GetString("observability.metrics.cache"); ok {
+		bb, err := strconv.ParseBool(v)
+		if err != nil {
+			return fmt.Errorf("configbind: observability.metrics.cache: %w", err)
+		}
+		p.Metrics.Cache = bb
+	} else {
+		p.Metrics.Cache = true
 	}
 	if v, ok := o.GetString("observability.otel.enabled"); ok {
 		bb, err := strconv.ParseBool(v)

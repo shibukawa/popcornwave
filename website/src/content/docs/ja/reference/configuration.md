@@ -30,7 +30,7 @@ TOML のキーの `.` を `-` に置き換えて `--` を付けます。
 そのオプション名からダッシュを外して大文字にすれば
 `OBSERVABILITY_QUERY_SLOW_THRESHOLD` になります。
 
-5つのキーは意図的に規則を外れています。慣例的な名前がすでに存在していて、
+7つのキーは意図的に規則を外れています。慣例的な名前がすでに存在していて、
 アプリケーション側に読み替えを強いる理由がないからです。
 
 | キー | 環境変数 |
@@ -39,6 +39,8 @@ TOML のキーの `.` を `-` に置き換えて `--` を付けます。
 | `observability.service_name` | `OTEL_SERVICE_NAME` |
 | `observability.otel.endpoint` | `OTEL_EXPORTER_OTLP_ENDPOINT` |
 | `observability.otel.headers` | `OTEL_EXPORTER_OTLP_HEADERS` |
+| `observability.trace.sampler` | `OTEL_TRACES_SAMPLER` |
+| `observability.trace.sampler_arg` | `OTEL_TRACES_SAMPLER_ARG` |
 | `auth.oidc.issuer`, `client_id`, `client_secret`, `redirect_url` | `AUTH_OIDC_*`。デプロイ時の redirect は固定し、ループバック開発ではリクエストからの導出も可能 |
 
 環境変数を持たないキーも3つあります。
@@ -351,6 +353,8 @@ HSTS が付くのは検証済みの HTTPS リクエストだけです。平文�
 | `boundary` | `true` | 確定した非同期境界ごと、ライブ配信ごとのスパン |
 | `database` | `true` | 実行された文ごとのクライアントスパン |
 | `statement` | `true` | そのスパンに載る文のテキスト |
+| `sampler` | *(環境で決まる)* | どのトレースを記録するか: `always_on`, `always_off`, `traceidratio`, または `parentbased_` 形 |
+| `sampler_arg` | *(環境で決まる)* | sampler の引数。比率形なら残すトレースの割合 |
 
 `auto` が読むのは環境ではなく送出のスイッチです。誰も送出しないスパンは、
 コストだけを払うことになるからです。`on` はリクエストのルートスパンも設置する
@@ -367,12 +371,42 @@ HSTS が付くのは検証済みの HTTPS リクエストだけです。平文�
 名指します。[リクエストトレーシング](/ja/guides/architecture/telemetry/#リクエストトレースを読む)を参照して
 ください。
 
+`sampler` はこの節で唯一、固定の既定値を持ちません。`APP_ENV` が `dev` なら
+`parentbased_always_on`、それ以外の環境なら——このフレームワークが知らない名前も
+含めて——`parentbased_traceidratio` の `0.1` に解決されます。キーを設定すれば
+どちらも置き換わり、どちらが効いたかは起動サマリが報告します。解釈できない引数は、
+全記録へ戻るのではなくプロセスを停止します。
+[どのトレースを残すか](/ja/guides/architecture/telemetry/#どのトレースを残すか)を参照してください。
+
+### `[observability.metrics]`
+
+| キー | 既定値 | 意味 |
+| --- | --- | --- |
+| `enabled` | `"auto"` | フレームワークのメトリクスを記録する: `auto`, `on`, `off`。`auto` はメトリクスを送出しているかどうかに従う |
+| `interval` | `"60s"` | 収集して送出する間隔 |
+| `temporality` | `"delta"` | `delta` は区間ごと、`cumulative` はプロセス起動からの累計 |
+| `http` | `true` | `http.server` のリクエスト所要時間、同時実行数、ボディサイズ |
+| `db` | `true` | `db.client` の操作所要時間とコネクションプールの状態 |
+| `runtime` | `true` | `go.*` のメモリ、goroutine、GC |
+| `render` | `true` | `pw.render` の所要時間とバイト数、境界の確定、live配信 |
+| `cache` | `true` | コンポーネント出力キャッシュとデータ結果キャッシュのヒットとミス |
+
+`enabled` は `trace.enabled` と同じく送出のスイッチを読みますが、`trace.enabled`
+とは独立です。メトリクスを on にしてトレースを off にする構成は、サンプリング比率を
+下げたデプロイが行き着く先であり、ここの数はサンプリング比率で変わりません。
+
+`interval` はこれらの計器のグラフの分解能そのものです。スパンのバッチが出ていく
+間隔である `otel.flush_interval` とは別の数字になります。プラットフォームの
+エージェントが `go.*` をすでに集めているなら `runtime` を切ってください。ほかの
+グループに二重取得はありません。
+[メトリクス](/ja/guides/architecture/telemetry/#メトリクス)を参照してください。
+
 ### `[observability.otel]`
 
 | キー | 既定値 | 意味 |
 | --- | --- | --- |
 | `enabled` | `false` | トレースとログをエクスポートする |
-| `endpoint` | *(空)* | OTLP/HTTP のベース URL。`/v1/traces` と `/v1/logs` が付加される |
+| `endpoint` | *(空)* | OTLP/HTTP のベース URL。`/v1/traces`、`/v1/logs`、`/v1/metrics` が付加される |
 | `headers` | *(空)* | カンマ区切りの `key=value`。値がログに出ることはない |
 | `request_timeout` | `"10s"` | エクスポート1回の上限 |
 | `queue_size` | `2048` | メモリに保持するレコード数。満杯ならリクエストを止めずに捨てる |
