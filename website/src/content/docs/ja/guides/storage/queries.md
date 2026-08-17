@@ -145,24 +145,57 @@ SQL でクエリ自体を組み替えてください。
 
 ## 条件付き SQL
 
+どの入力欄も任意な検索フォームが、これの出番です。条件がすべて成立したときに欲しい
+ステートメントを書き、そこから条件を抜き出します。
+
 ```sql
-export statement SearchUsers(name: string, onlyActive: bool): sql.many<User> {
-SELECT id, name, active
+export statement SearchUsers(
+  name: string, city: string, minAge: int,
+  hasName: bool, hasCity: bool, hasAge: bool
+): sql.many<User> {
+SELECT id, name, city, age
 FROM users
-WHERE name LIKE {name}
-{if onlyActive}
-  AND active = TRUE
-{/if}
+WHERE
+  {if hasName}name LIKE {name}{/if}
+  AND {if hasCity}city = {city}{/if}
+  AND {if hasAge}age >= {minAge}{/if}
 ORDER BY id
 }
 ```
 
-`{else}` も使えます。条件は `bool` でなければなりません。含まれた分岐だけがプレース
-ホルダを消費するので、番号のずれは起きません。
+`AND` を管理する必要はありません。読みながら `{if}` の囲みを消していけば、残るのが
+レンダされる SQL です。それが目指す形です。`hasCity` だけを立てると `WHERE city = $1`
+になります。余る演算子は出力されず、`city` は `$2` ではなく `$1` です。どれも立てなければ
+`WHERE` も消えます。余らない演算子は書いた位置にそのまま出るので、いまあるステートメントの
+挙動は変わりません。
 
-型付きの結果から 1 つの制約が生まれます。**結果の形は変えられません。** 条件付きの
-SELECT や RETURNING の列は、すべての分岐を記述できる単一の生成型がなくなるため
-拒否されます。
+演算子は条件の内側ではなく、2 つの条件の間に置いてください。どちらも動きますが、
+`{if hasCity}AND city = {city}{/if}` は 2 つを繋ぐものがその 1 つの条件の一部として
+読めてしまいます。テンプレートがその出力として読めること自体が目的なので、そこは効きます。
+
+同じ仕組みがコンマも管理するので、部分的な UPDATE と部分的な INSERT が普通に書けます。
+
+```sql
+export statement AddUser(id: int, name: string, city: string, withCity: bool): sql.exec {
+INSERT INTO users (id, name{if withCity}, city{/if})
+VALUES ({id}, {name}{if withCity}, {city}{/if})
+}
+```
+
+上のように、カラムとその値は同じ条件で囲んでください。どこかの分岐で食い違いうるなら、
+本番でデータベースに拒否させるのではなく生成が指摘します。
+
+`{else}` も使えて、条件は `bool` でなければなりません。これを前提に設計する前に知っておく
+価値のある限界が 2 つあります。**結果の形は変えられません** — 条件付きの SELECT や
+RETURNING の列は、すべての分岐を記述できる単一の生成型がなくなるので拒否されます。そして
+`CASE` のアームには、何も出力しえない断片を置けません。一緒に出力を控えられるキーワードも
+セパレータも無いからです。条件に `{else}` を与えるか、`CASE` 全体を条件の内側に入れて
+ください。
+
+条件ではなく**構造**が変わるとき——JOIN の組み合わせが違う、結果の形が違う——は別の手を
+使ってください。正直な名前を持つ 2 つのステートメントの方が、フラグ 6 個の 1 つより優れて
+いますし、そもそもここでカラムリストを変えることはできません。どの句が管理されるかの網羅的な
+一覧は[リファレンス](/ja/reference/sql-templates/#条件の間の演算子とコンマ)にあります。
 
 ## predicate と relation
 
@@ -203,9 +236,13 @@ ORDER BY active_users.id
 
 ## 2 つの安全規則
 
-**UPDATE と DELETE には WHERE が必須です。** まったく書かれていなければ生成が失敗し、
-WHERE が条件付きで実行時に消えうる場合はビルダーが実行を拒否します。意図的な全行更新の
-ためのオプトインはありません。それはマイグレーションとして書いてください。
+**UPDATE と DELETE には WHERE が必須です。** 句が空になりうるかどうかはテンプレートの
+性質で、実行時のデータの性質ではありません。だから証明はすべて生成時に走ります。どれか
+一つでも WHERE が空になる分岐があるステートメントは `pw generate` が拒否し、実行時に
+もう一度確かめるコードは生成物に何も入りません。条件付きの WHERE そのものは問題なく、
+すべての分岐がそれを埋めるなら通ります。`{if}`/`{else}` の対がそれです。片方の分岐が
+空のままにするなら拒否されます。意図的な全行更新のためのオプトインはありません。それは
+[マイグレーション](/ja/productivity/migrations/) として書いてください。
 
 **SELECT の列は結果型と一致しなければなりません。** 順序も、名前またはエイリアスも
 一致が必要です。条件付き SELECT 列の禁止と組み合わさることで、生成された構造体は

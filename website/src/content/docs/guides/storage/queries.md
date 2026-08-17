@@ -147,24 +147,62 @@ conditional SQL to restructure the query.
 
 ## Conditional SQL
 
+A search form where every field is optional is the case this is for. Write the
+statement you want when every condition holds, and punch the conditions out of it:
+
 ```sql
-export statement SearchUsers(name: string, onlyActive: bool): sql.many<User> {
-SELECT id, name, active
+export statement SearchUsers(
+  name: string, city: string, minAge: int,
+  hasName: bool, hasCity: bool, hasAge: bool
+): sql.many<User> {
+SELECT id, name, city, age
 FROM users
-WHERE name LIKE {name}
-{if onlyActive}
-  AND active = TRUE
-{/if}
+WHERE
+  {if hasName}name LIKE {name}{/if}
+  AND {if hasCity}city = {city}{/if}
+  AND {if hasAge}age >= {minAge}{/if}
 ORDER BY id
 }
 ```
 
-`{else}` is available too. Conditions must be `bool`. Only the branches that are
-included consume placeholders, so numbering stays aligned.
+You do not manage the `AND`. Delete the `{if}` wrappers as you read and what is
+left is the SQL it renders — that is the shape to aim for. With only `hasCity` set
+it renders `WHERE city = $1`: the operators that would have dangled are withheld,
+and `city` is `$1` rather than `$2`. With nothing set the `WHERE` disappears too.
+An operator that is not dangling is written exactly where you put it, so nothing
+changes about the statements you already have.
 
-One restriction follows from typed results: **the result shape cannot vary.**
-Conditional SELECT or RETURNING columns are rejected because no single generated
-type could describe every branch.
+Put the operator between the two conditions rather than inside one of them. Both
+work, but `{if hasCity}AND city = {city}{/if}` reads as part of that one condition
+when it really joins two, and the whole point is a template that reads as its own
+output.
+
+The same withholding manages commas, so a partial UPDATE and a partial INSERT are
+ordinary:
+
+```sql
+export statement AddUser(id: int, name: string, city: string, withCity: bool): sql.exec {
+INSERT INTO users (id, name{if withCity}, city{/if})
+VALUES ({id}, {name}{if withCity}, {city}{/if})
+}
+```
+
+Guard the column and its value with the same condition, as above. If they can
+disagree on any branch, generation says so rather than letting the database reject
+the statement in production.
+
+`{else}` is available, and conditions must be `bool`. Two limits are worth knowing
+before you plan around this. **The result shape cannot vary** — a conditional SELECT
+or RETURNING column is rejected, because no single generated type could describe
+every branch. And a `CASE` arm cannot hold a fragment that might emit nothing,
+because there is no keyword or separator to withhold along with it; give the
+condition an `{else}`, or put the whole `CASE` inside it.
+
+Reach for something else when the *structure* varies rather than the conditions — a
+different set of joins, a different result shape. Two statements with honest names
+beat one with six flags, and nothing here can vary a column list anyway. The
+[reference](/reference/sql-templates/#conditional-sql) has the exhaustive list of
+which clauses are managed.
 
 ## Predicates and relations
 
@@ -206,10 +244,14 @@ rejected.
 
 ## Two safety rules
 
-**UPDATE and DELETE require a WHERE clause.** Generation fails if one is missing
-outright, and if the WHERE is conditional and could disappear at run time, the
-builder refuses to execute. There is no opt-in for a deliberate full-table
-modification — write it as a migration.
+**UPDATE and DELETE require a WHERE clause.** Whether a clause can come out empty
+is a property of the template rather than of runtime data, so the whole proof runs
+at generation time. `pw generate` rejects a statement whose WHERE could be empty
+on any branch, and nothing is emitted into the generated code to check it again at
+run time. A conditional WHERE is therefore fine when every branch fills it — an
+`{if}`/`{else}` pair does — and rejected when one branch leaves it empty. There is
+no opt-in for a deliberate full-table modification; write it as a
+[migration](/productivity/migrations/).
 
 **SELECT columns must match the result type**, in order and by name or alias.
 Combined with the rule against conditional SELECT columns, this keeps the

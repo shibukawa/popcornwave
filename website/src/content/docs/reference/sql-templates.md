@@ -147,6 +147,11 @@ The guarantee is absolute and it costs something. A handwritten `$1` or `?` is a
 generation error, and a value parameter can never stand in for a structural
 element — a table name, a column name, an operator, a sort direction.
 
+Two parameter names are refused: `ctx` and `db`, which are the context and the
+executor in the public signature of every generated function. Everything else is
+available, `err` and `result` included, because generated code prefixes the
+variables it introduces with an underscore.
+
 ### Slice expansion
 
 A slice parameter expands into a value list:
@@ -205,6 +210,99 @@ ORDER BY id
 `{else}` is available, and the condition must be `bool`. Only the branches that
 survive consume placeholders, so numbering and `Args` stay aligned however the
 branches fall.
+
+### Operators and commas between conditions
+
+You do not manage the `AND`, the `OR`, the commas, or the parentheses. Write the
+statement you want when every condition holds, and punch the conditions out of it:
+
+```sql
+export statement SearchUsers(
+  name: string, city: string, minAge: int,
+  hasName: bool, hasCity: bool, hasAge: bool, staffOnly: bool
+): sql.many<User> {
+SELECT id, name, city, age
+FROM users
+WHERE
+  {if hasName}name LIKE {name}{/if}
+  AND {if hasCity}city = {city}{/if}
+  AND ({if hasAge}age >= {minAge}{/if} OR {if staffOnly}role = 'staff'{/if})
+ORDER BY id
+}
+```
+
+Read that with the `{if}` wrappers deleted and it is the SQL it renders. With only
+`hasCity` set it renders `WHERE city = $1` — the operator that would have dangled
+is withheld, the empty parenthesised group takes its own parentheses and the `AND`
+that attached it, and `city` becomes `$1` rather than `$2`. With nothing set the
+`WHERE` itself never appears. An operator that is *not* dangling is written exactly
+where you put it, including the newline and indent you wrote, so a predicate that
+worked before renders the same bytes.
+
+Put the operator between the two conditions, in the enclosing text. That is where
+it sits in the finished statement, which is what lets the source read as the SQL.
+An operator inside the branch — `{if hasCity}AND city = {city}{/if}` — works
+identically and older templates are written that way, but it reads as part of that
+one condition when it really joins two.
+
+This covers `WHERE`, `HAVING`, `QUALIFY`, and a join's `ON`, plus the parenthesised
+groups inside them. Commas are managed in `SET`, `VALUES`, an `INSERT` column list,
+`ORDER BY`, `GROUP BY`, `FROM`, `WITH`, `WINDOW`, `USING`, and `PARTITION BY`; an
+`ORDER BY` or `GROUP BY` whose every item is conditional drops its own keyword the
+way `WHERE` does.
+
+```sql
+export statement AddUser(id: int, name: string, city: string, withCity: bool): sql.exec {
+INSERT INTO users (id, name{if withCity}, city{/if})
+VALUES ({id}, {name}{if withCity}, {city}{/if})
+}
+```
+
+Guard a column and its value with the **same** condition. Generation follows each
+branch path and requires the two counts to end equal, so two independent conditions
+each guarding a matched pair are fine, and so is one `{if}/{else}` choosing a column
+and the same `{if}/{else}` choosing its value. A multi-row `VALUES`, an
+`INSERT … SELECT`, an `INSERT` with no column list, and a `sql.predicate` inside a
+list are left undecided rather than guessed.
+
+`SELECT` and `RETURNING` keep their commas as written, because a conditional result
+column is forbidden outright — that refusal answers the question before a comma is
+reached. An `OVER (…)` in the select list is a result context for the same reason,
+so a conditional `PARTITION BY` item belongs in a `WINDOW` clause.
+
+### Where it deliberately does not reach
+
+A parenthesis that follows a word is data rather than a group, so an `IN ({ids})`
+list and a function argument list keep their parentheses and their commas in every
+branch — eliding an argument would change the call's arity. `USING (…)` keeps its
+own for the same reason, since that parenthesis carries a derived table in
+`DELETE FROM t USING (SELECT …) s`.
+
+The `AND` that closes a `BETWEEN` belongs to that form rather than to the clause, so
+splitting one across a condition is a generation error. Put the whole `BETWEEN`
+inside the condition:
+
+```sql
+-- rejected
+WHERE n BETWEEN {lo} {if hasHi}AND {hi}{/if}
+```
+
+A `CASE` arm is neither a clause nor a list, so there is no keyword to withhold and
+no separator to drop — an empty fragment would leave `CASE WHEN THEN`. A fragment
+inside `CASE` that can emit nothing is therefore a generation error:
+
+```sql
+-- rejected
+WHERE CASE WHEN {if flagA}a{/if} THEN 1 ELSE 0 END = 1
+```
+
+Giving the condition an `{else}` that also emits makes it legal, because it can no
+longer be empty. Branches that leave different parenthesis nesting are an error too,
+rather than a paired guess.
+
+None of this loosens the mutation rule below. An `UPDATE` or `DELETE` still needs a
+`WHERE` that is provably non-empty on every branch, and an `UPDATE` whose `SET` items
+are all conditional is still refused, because a withheld comma fills nothing.
 
 ## Predicates and relations
 
@@ -418,8 +516,13 @@ Generation:
 - a handwritten `$1` or `?` placeholder
 - a SELECT column count or name that disagrees with the result type
 - a SELECT or RETURNING column added or removed by a condition
-- an UPDATE or DELETE with no proven `WHERE`
+- an UPDATE or DELETE with no proven `WHERE`, or an UPDATE whose `SET` items are all conditional
 - a non-`bool` condition in `{if …}`
+- an INSERT whose column count and value count can disagree on some branch
+- a `BETWEEN` whose closing `AND` is split across a condition
+- a conditional fragment inside `CASE` that can emit nothing
+- branches that leave different parenthesis nesting
+- a parameter named `ctx` or `db`, which are the context and executor of every generated function
 - a recursive `sql.relation`
 - an `export` that disagrees with the statement name's casing
 - a `.pw.sql` in a component package

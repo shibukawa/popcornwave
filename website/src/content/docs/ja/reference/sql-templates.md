@@ -140,6 +140,10 @@ statement, err := queries.BuildRenameUser(42, "Ada")
 パラメータは構造的な要素——テーブル名、カラム名、演算子、ソート方向——の代わりには決して
 なれません。
 
+パラメータ名として拒否されるのは 2 つ、`ctx` と `db` です。生成される全関数の公開シグネチャ
+でコンテキストと実行体が使う名前だからです。それ以外は `err` も `result` も使えます。生成
+コードが自分で導入する変数にはアンダースコアを前置しているためです。
+
 ### スライスの展開
 
 スライスのパラメータは値のリストへ展開されます。
@@ -194,6 +198,90 @@ ORDER BY id
 
 `{else}` も使えます。条件は `bool` である必要があります。プレースホルダを消費するのは
 残った分岐だけなので、どの分岐が生き残っても番号と `Args` は揃ったままです。
+
+### 条件の間の演算子とコンマ
+
+`AND` も `OR` も、コンマも括弧も、書き手が管理する必要はありません。条件がすべて成立した
+ときに欲しいステートメントを書き、そこから条件を抜き出す形にします。
+
+```sql
+export statement SearchUsers(
+  name: string, city: string, minAge: int,
+  hasName: bool, hasCity: bool, hasAge: bool, staffOnly: bool
+): sql.many<User> {
+SELECT id, name, city, age
+FROM users
+WHERE
+  {if hasName}name LIKE {name}{/if}
+  AND {if hasCity}city = {city}{/if}
+  AND ({if hasAge}age >= {minAge}{/if} OR {if staffOnly}role = 'staff'{/if})
+ORDER BY id
+}
+```
+
+`{if}` の囲みを消しながら読めば、それがレンダされる SQL です。`hasCity` だけを立てると
+`WHERE city = $1` になります。余る演算子は出力されず、空になった括弧のグループは自分の括弧と
+それを繋いでいた `AND` を連れて消え、`city` は `$2` ではなく `$1` になります。どの条件も
+立てなければ `WHERE` 自体が現れません。余らない演算子は書いた位置にそのまま出ます。改行と
+インデントも保たれるので、いま動いている述語は同じバイト列をレンダします。
+
+演算子は 2 つの条件の間、つまり外側のテキストに置いてください。完成したステートメントで
+演算子が座る位置がそこであり、だからこそソースが SQL として読めます。分岐の内側に置いた
+`{if hasCity}AND city = {city}{/if}` も同じように動き、古いテンプレートはそう書かれて
+いますが、2 つを繋ぐものがその 1 つの条件の一部として読めてしまいます。
+
+対象は `WHERE`、`HAVING`、`QUALIFY`、JOIN の `ON`、およびその内側の括弧グループです。
+コンマは `SET`、`VALUES`、`INSERT` のカラムリスト、`ORDER BY`、`GROUP BY`、`FROM`、
+`WITH`、`WINDOW`、`USING`、`PARTITION BY` で管理されます。`ORDER BY` や `GROUP BY` は
+全項目が条件付きなら、`WHERE` と同じように自分のキーワードを落とします。
+
+```sql
+export statement AddUser(id: int, name: string, city: string, withCity: bool): sql.exec {
+INSERT INTO users (id, name{if withCity}, city{/if})
+VALUES ({id}, {name}{if withCity}, {city}{/if})
+}
+```
+
+カラムとその値は**同じ条件**で囲んでください。生成は各分岐の経路を追って両者の個数が
+一致して終わることを要求するので、独立した 2 つの条件がそれぞれ対応する組を囲むのは通り、
+1 つの `{if}/{else}` がカラムを選び同じ `{if}/{else}` がその値を選ぶのも通ります。複数行の
+`VALUES`、`INSERT … SELECT`、カラムリストのない `INSERT`、リスト内の `sql.predicate` は、
+推測せず未決のまま残されています。
+
+`SELECT` と `RETURNING` のコンマは書いたままです。条件付きの結果カラムがそもそも禁止
+されていて、その拒否が先に答えを出すからです。SELECT リストの `OVER (…)` も同じ理由で
+結果コンテキストなので、条件付きの `PARTITION BY` 項目は `WINDOW` 句に置いてください。
+
+### 意図的に手を出さない範囲
+
+単語が直前にある括弧はグループではなくデータなので、`IN ({ids})` のリストや関数の引数
+リストは、どの分岐でも括弧とコンマを保ちます。引数を 1 つ落とせば呼び出しの引数個数が
+変わってしまうからです。`USING (…)` も同様で、同じ括弧が
+`DELETE FROM t USING (SELECT …) s` では派生テーブルを運びます。
+
+`BETWEEN` を閉じる `AND` は句ではなくその形式に属するので、条件をまたいで分割すると生成
+エラーになります。`BETWEEN` 全体を条件の内側に入れてください。
+
+```sql
+-- 拒否される
+WHERE n BETWEEN {lo} {if hasHi}AND {hi}{/if}
+```
+
+`CASE` のアームは句でもリストでもないので、一緒に出力を控えられるキーワードもセパレータも
+ありません。空の断片は `CASE WHEN THEN` を残してしまいます。だから `CASE` の内側で何も
+出力しえない断片は生成エラーです。
+
+```sql
+-- 拒否される
+WHERE CASE WHEN {if flagA}a{/if} THEN 1 ELSE 0 END = 1
+```
+
+その条件に出力する `{else}` を与えれば、空になりえなくなるので通ります。分岐ごとに括弧の
+ネストが揃わない場合も、対応を推測せずエラーになります。
+
+以上はどれも後述の更新規則を緩めません。`UPDATE` と `DELETE` の `WHERE` は依然として
+全分岐で非空であることの証明が必要で、`SET` の項目がすべて条件付きの `UPDATE` も拒否
+されます。出力を控えられたコンマは何も埋めないからです。
 
 ## predicate と relation
 
@@ -398,8 +486,13 @@ return sqlbind.ScanRows[Organization](rows)
 - 手書きの `$1` や `?` のプレースホルダ
 - 結果の型と食い違う SELECT のカラム数や名前
 - 条件で増減する SELECT や RETURNING のカラム
-- 証明できる `WHERE` を持たない UPDATE や DELETE
+- 証明できる `WHERE` を持たない UPDATE や DELETE、`SET` の項目がすべて条件付きの UPDATE
 - `{if …}` の `bool` でない条件
+- 分岐によってカラム数と値の数が食い違いうる INSERT
+- 閉じる `AND` が条件をまたいで分割された `BETWEEN`
+- `CASE` の内側で何も出力しえない条件付きの断片
+- 分岐ごとに括弧のネストが揃わない本文
+- `ctx` または `db` という名前のパラメータ（生成される全関数のコンテキストと実行体）
 - 再帰する `sql.relation`
 - ステートメント名の大小と食い違う `export`
 - コンポーネントパッケージの中の `.pw.sql`
