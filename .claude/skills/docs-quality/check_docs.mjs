@@ -186,14 +186,19 @@ function fencedBlocks(body) {
 // Two details matter and are easy to get wrong: punctuation is deleted rather
 // than replaced, and each remaining space becomes its own dash — so a heading
 // written `cookie — no storage at all` anchors as `cookie--no-storage-at-all`.
+// A third detail decides the two emphasis markers, and they part company: `*` is
+// removed and `_` is kept, everywhere and regardless of code spans. The library
+// removes a punctuation set rather than parsing emphasis, and `_` is a word
+// character that never made that set. So `**b** _i_` anchors as `b-_i_`, and a
+// heading named for a key — `### \`_operation\`: what it does` — anchors as
+// `_operation-what-it-does` with the underscore intact.
 function slugify(text) {
   return text
     .replace(/`([^`]*)`/g, '$1')
     .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
-    .replace(/[*_]/g, '')
     .trim()
     .toLowerCase()
-    .replace(/[^\p{L}\p{N}\p{M} -]/gu, '')
+    .replace(/[^\p{L}\p{N}\p{M}_ -]/gu, '')
     .replace(/ /g, '-');
 }
 

@@ -253,7 +253,7 @@ public-external/   → 何もされず、バイナリの隣に配られる
 置き、`public-external/` が解決できる作業ディレクトリでプロセスを起動してください。
 
 ファイルシステムを持たないターゲットはそもそも運べません。Cloudflare Workers がそれですが、
-いずれにせよ[まだ対応ターゲットではありません](/ja/guides/deployment/serverless/)。対応済みの
+いずれにせよ[対応ターゲットではありません](/ja/guides/deployment/serverless/)。対応済みの
 ターゲットはすべてコンテナかバンドルとして出ます。
 
 そしてここがこのツリーをコピーする唯一の場所です。`pw build` はコピーしません。コンパイルの

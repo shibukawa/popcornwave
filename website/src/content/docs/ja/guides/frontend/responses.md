@@ -269,9 +269,9 @@ pw.WriteProblem(w, r, pw.NotFound("no such user"))
 | `pw.InternalServerError` | 500 |
 
 いずれも`error`、`string`、別の`pw.Problem`、あるいは引数なしを受け付けます。生成器が
-対応するコンストラクタの呼び出しは、エンドポイントのOpenAPI記述にも現れます。ただし、
-TinyBind v0.5.0は新しい429ヘルパーをまだ推論しないため、実行時レスポンスは完成していても、
-生成されたOpenAPIには429が入りません。
+認識するコンストラクタの呼び出しは、エンドポイントのOpenAPI記述にも現れます。
+`pw.TooManyRequests` と `pw.RateLimited` はそこに入らないので、それで応答するルートは
+完全な429を返す一方、生成されたOpenAPIにはその429が載りません。
 
 割り当て済みのリクエスト量を超えた場合は、`pw.RateLimited`で同じ429 Problemに再試行情報を
 付けられます。

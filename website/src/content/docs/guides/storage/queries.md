@@ -162,7 +162,63 @@ ORDER BY id
 `{else}` is available too. Conditions must be `bool`. Only the branches that are
 included consume placeholders, so numbering stays aligned.
 
-One restriction follows from typed results: **the result shape cannot vary.**
+### The connective is yours
+
+A false branch drops its text and nothing else. Notice where the `AND` sits in
+that example: inside the block, so it leaves with the predicate it joins. Put it
+outside — or make the *first* predicate conditional — and a false condition
+leaves the connective behind:
+
+```sql
+WHERE
+{if byTitle}
+  title = {title}
+{/if}
+{if onlyDone}
+  AND done = TRUE
+{/if}
+```
+
+With `byTitle` false, that builds `WHERE AND done = TRUE`. With both false, it
+builds a `WHERE` followed by `ORDER BY`. Neither is caught: generation succeeds,
+the build succeeds, and the statement is sent as written, so what you get is the
+database's syntax error at request time. There is no pass that trims a leading
+`AND`, and adding one would mean guessing which operator a half-written
+condition wanted.
+
+The habit that avoids it is the one the first example uses: **write each
+connective inside the block that owns its predicate.** That leaves the question
+of the first predicate, and there are two answers. If one condition is always
+present — the owning account, the tenant, a soft-delete flag — put it first
+unconditionally and let every optional predicate carry its own `AND`. If every
+predicate is genuinely optional, anchor the clause instead:
+
+```sql
+WHERE 1 = 1
+{if byTitle}
+  AND title = {title}
+{/if}
+{if onlyDone}
+  AND done = TRUE
+{/if}
+```
+
+`1 = 1` costs nothing at the planner and makes every branch uniform, which is
+also what makes the statement readable when a third condition arrives.
+
+UPDATE and DELETE are the exception, and they are stricter. A mutation whose
+WHERE could empty out is refused while generating, because the failure there is
+not a syntax error but a full-table write:
+
+```
+queries/todos.pw.sql:41:1: UPDATE and DELETE statements require a WHERE clause that is non-empty on every branch
+```
+
+So the rule is worth remembering by its asymmetry: on a SELECT a dangling
+connective reaches the database, and on a mutation it never reaches the compiler.
+
+### The result shape cannot vary
+
 Conditional SELECT or RETURNING columns are rejected because no single generated
 type could describe every branch.
 
@@ -226,11 +282,25 @@ err := pw.Transaction(r.Context(), func(ctx context.Context) error {
 })
 ```
 
-The transaction boundary remains explicit; the framework never wraps a request
-in one automatically. Nesting still works. An inner `pw.Transaction` opens a
-savepoint, so its failure rolls back only the inner work while the outer
-transaction remains usable. A driver without known savepoint support returns
-`ErrSavepointUnsupported` instead of silently flattening the nesting.
+The transaction boundary remains explicit, and no request is wrapped in one
+automatically. Frameworks that open a transaction when the request starts and
+commit when it ends make the common case pay for the rare one: a page that reads
+one row, or a handler that writes exactly one, buys a `BEGIN` and a `COMMIT` it
+had no use for, plus a connection held for the whole request rather than for the
+statement. Here that cost is charged only where the boundary is asked for.
+
+The other half of the reason outlives the benchmark. A transaction is where a
+database exposes what it is actually good at — isolation levels, a read-only
+transaction that a replica can serve, savepoints, the choice of committing
+before a slow call rather than after it. A layer that opens and closes the
+boundary for you has to pick one behaviour for all of that, and what it picks is
+the conservative default. Leaving the boundary in the application keeps those
+choices reachable.
+
+Nesting still works. An inner `pw.Transaction` opens a savepoint, so its failure
+rolls back only the inner work while the outer transaction remains usable. A
+driver without known savepoint support returns `ErrSavepointUnsupported` instead
+of silently flattening the nesting.
 
 Raw access is there when a query does not fit the generated layer:
 

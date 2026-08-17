@@ -273,8 +273,8 @@ directory next to it and start the process with a working directory where
 `public-external/` resolves.
 
 A target with no filesystem cannot carry it at all. That is Cloudflare Workers,
-which is [not yet a supported target](/guides/deployment/serverless/) in any
-case; every target that is ships as a container or a bundle.
+which is [not a supported target](/guides/deployment/serverless/) in any case;
+every target that is ships as a container or a bundle.
 
 This is also the only place the tree is copied. `pw build` never copies it —
 once per deployment artifact, rather than once per compile.

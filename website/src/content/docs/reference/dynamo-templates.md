@@ -325,15 +325,15 @@ Query checks:
 - a placeholder naming no declared parameter, or a parameter never used
 - two statements with one name
 
-## Not declarable yet
+## Outside the declarable surface
 
 | Absent | Consequence |
 | --- | --- |
 | Filter, projection, condition, and update expressions | a `filter` clause is rejected with a message saying so; pass those expressions yourself |
 | Secondary indexes | there is no `gsi` tag, so a declared query runs against the table's own keys; `dynamodb.WithIndex` still reaches the driver, but nothing checks the condition against that index |
 | Single-table design | one struct owns one table, since `<Type>Table` describes one type and a typed read decodes every item as one type |
-| Optimistic locking and TTL | a `version` tag and a `ttl` tag are designed but not built |
+| Optimistic locking and TTL | there is no `version` tag and no `ttl` tag; both are the caller's to manage |
 | Transactions, PartiQL, Streams, DAX | the driver excludes them |
 
 None of these is a Popcorn Wave choice. They are the edge of what the layer
-below currently does, and they move when it does.
+below does.

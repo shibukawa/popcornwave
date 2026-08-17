@@ -35,7 +35,7 @@ to move the things Go modules alone cannot carry, and a package section on a
 module that has none of them is a manifest nobody needs.
 
 The other boundary is firmer: **a component in one module is not callable from
-another module's template yet.** `.pw.html` can only reach components declared in
+another module's template.** `.pw.html` can only reach components declared in
 its own generation unit, so a package that exists to export components is not
 something you can build today. Packages that ship handlers, a `pages/` tree, a
 middleware, a schema, or browser assets work now.

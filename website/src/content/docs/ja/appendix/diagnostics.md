@@ -148,7 +148,7 @@ sidebar:
 
 ## ルートとテンプレート (PW02xx)
 
-衝突するパスと、誰も応答しないパスについてルート表が語ること。これらには `pw generate` がまだ出力しないルート表が必要なので、`pw doctor` は「検査していない」と報告します。
+衝突するパスと、誰も応答しないパスについてルート表が語ること。これらには `pw generate` が出力しないルート表が必要なので、`pw doctor` は「検査していない」と報告します。
 
 ### PW0201: two registrations share one route pattern
 

@@ -21,6 +21,8 @@ export default defineConfig({
     '/ja/guides/frontend/compression': `${base}/ja/guides/backend/compression/`,
     '/guides/cross-layer/tracing': `${base}/guides/architecture/telemetry/#reading-a-request-trace`,
     '/ja/guides/cross-layer/tracing': `${base}/ja/guides/architecture/telemetry/#リクエストトレースを読む`,
+    '/guides/backend/token-revocation': `${base}/guides/backend/authentication/#revoking-a-bearer-token`,
+    '/ja/guides/backend/token-revocation': `${base}/ja/guides/backend/authentication/#bearer-トークンを失効させる`,
   },
   markdown: {
     // Lets content link with plain `/guides/testing/` instead of repeating `base`.
@@ -36,6 +38,11 @@ export default defineConfig({
         alt: 'Popcorn Wave',
         replacesTitle: true,
       },
+      // The same mark pw dev puts on its console launcher button, so the tab
+      // and the button in the corner of a development page read as one thing.
+      // It is a copy of pw/devmark.webp as PNG, because Starlight's favicon
+      // option takes .ico, .gif, .jpg, .png, or .svg and not WebP.
+      favicon: '/favicon.png',
       defaultLocale: 'root',
       locales: {
         root: { label: 'English', lang: 'en' },

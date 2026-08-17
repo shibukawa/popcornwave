@@ -114,7 +114,7 @@ the migration that creates its table, and the import of the engine it runs on.
 
 | Key | Default | Meaning |
 | --- | --- | --- |
-| `rdb.source` | `"middleware"` | reuse the `middleware.rdb` pool; `dedicated` is not implemented yet |
+| `rdb.source` | `"middleware"` | reuse the `middleware.rdb` pool; it is the only accepted value, and any other is refused at startup |
 | `rdb.group` | *(empty)* | connection group holding the table; empty resolves to the write group |
 | `rdb.table` | `"popcornwave_session"` | |
 

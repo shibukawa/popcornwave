@@ -158,7 +158,7 @@ for reading, err := range records.ReadingsSince(ctx, sensor, from) {
 なります。パラメータの型は、そのタグが属性をどう保存するかと突き合わされます。そして属性は
 無条件にエイリアスされるので、DynamoDB の 573 個の予約語のどれも式にそのまま現れません。
 
-filter、projection、condition、update の各式はまだ宣言できません。セカンダリインデックスも
+filter、projection、condition、update の各式は宣言できません。セカンダリインデックスも
 同様なので、宣言型クエリはテーブル自身のキーに対して走ります。宣言で表せないものには、
 検査のない文字列のキー条件が引き続き使えます。
 

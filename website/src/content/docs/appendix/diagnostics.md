@@ -149,7 +149,7 @@ Whether the project's declared shape, its toolchain, and its generated artifacts
 
 ## Routes and templates (PW02xx)
 
-What the route table says about paths that collide and paths nothing serves. These need a route table `pw generate` does not export yet, so `pw doctor` reports them as not examined.
+What the route table says about paths that collide and paths nothing serves. These need a route table `pw generate` does not export, so `pw doctor` reports them as not examined.
 
 ### PW0201: two registrations share one route pattern
 

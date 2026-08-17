@@ -279,9 +279,10 @@ pw.WriteProblem(w, r, pw.NotFound("no such user"))
 | `pw.InternalServerError` | 500 |
 
 Each accepts an `error`, a `string`, another `pw.Problem`, or nothing at all.
-Constructor call sites supported by the generator appear in the endpoint's
-OpenAPI description. TinyBind v0.5.0 does not yet infer the new 429 helpers, so
-their runtime response is complete while generated OpenAPI omits that status.
+Constructor call sites the generator recognises appear in the endpoint's
+OpenAPI description. `pw.TooManyRequests` and `pw.RateLimited` are not among
+them, so a route that answers with one sends a complete 429 while the generated
+OpenAPI document lists no 429 for it.
 
 For an enforced quota, `pw.RateLimited` attaches retry metadata to the same 429
 problem:

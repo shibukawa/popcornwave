@@ -225,8 +225,8 @@ verified-claim rule and also stays stateless. `registered` reads the relational
 allowlist, and any revocation mode other than `off` reads the relational
 revocation table; those choices require `middleware.rdb` and the framework
 migration. Ending a token before it expires — and undoing that during an
-incident — is its own surface, covered in [Token
-Revocation](/guides/backend/token-revocation/). JWT-only never needs session storage. CSRF protection must be off
+incident — is [Revoking a bearer token](#revoking-a-bearer-token) below.
+JWT-only never needs session storage. CSRF protection must be off
 for this mode because authority arrives in an explicit header that a browser
 does not attach automatically, and there is no session secret to validate.
 
@@ -377,6 +377,195 @@ backend, which cannot revoke a copy the client already took.
 
 The stored payload holds the account summary and no token body, so a provider
 access or ID token never sits in the session.
+
+## Ending a browser session early
+
+Every credential this page issues has an expiry, and the expiry is never the
+interesting case. What matters during an incident is ending one *before* it —
+and the two kinds of credential end differently, because one of them is a record
+this application owns and the other is a token somebody else minted. This
+section is the session; the next is the token.
+
+A browser session ends early in three ways, and only the first is a request the
+person makes themselves.
+
+**Logout.** `POST` to `auth.logout_path` destroys the session record and expires
+every cookie the session owns. [Sessions](/guides/backend/sessions/#logging-out-ends-everything)
+covers what survives it and why.
+
+**A new login.** Signing in rotates the token, so whatever the browser held
+before stops being accepted. That is what makes a shared terminal safe to hand
+over, and it is also why a session fixation attempt gains nothing.
+
+**Suspending or deleting the account.** This is the one an operator reaches for,
+and it works on sessions nobody is going to log out of. An authenticated request
+re-reads the account behind its session through the `AccountLookup` the
+application installed, and a session whose account is suspended or gone is
+destroyed there rather than at its own expiry. The re-read is bounded: at most
+once every 30 seconds per account, because doing it on every request would put a
+database round trip in front of every authenticated page.
+
+That interval is the honest answer to "how fast does a suspension take effect".
+Call `auth.ForgetAccount(accountID)` from whatever performs the suspension and
+the next request reads the account again immediately — but the call is
+process-local, so a deployment running several instances still waits out the
+interval on the others. Promise the interval, not the call.
+
+An account store that cannot answer at all refuses the request with `503`. The
+credential was not judged, retrying may succeed, and admitting during an outage
+would make every suspension conditional on that store being up.
+
+One backend cannot participate in the first of these. Under
+`session.backend = "cookie"` the session record is in the browser, so logout can
+only expire the copy it can reach; a copy taken earlier keeps working until the
+seal expires. Suspension still lands, because that check happens on the request
+rather than on the record — but if ending sessions on demand matters, the record
+belongs somewhere the server can delete it. See
+[Session storage](/guides/storage/session-storage/#cookie--no-storage-at-all).
+
+## Revoking a bearer token
+
+A verified access token is valid until it expires, and that is the one property
+a resource server cannot change on its own: this application did not mint the
+token and cannot withdraw it at the issuer. So when a token leaks, or an account
+turns out to be compromised, every copy of that credential keeps working until
+`exp` — unless the application keeps its own list of tokens it will no longer
+honor. Revocation is that list, and it applies to
+[`jwt_only`](#jwt-only-api-servers) alone.
+
+:::note[What it requires]
+The list is a relational table, so revocation needs `middleware.rdb`,
+`auth.backend = "rdb"`, and the framework migration that creates
+`popcornwave_auth_revocation`. A deployment on `admission = "authenticated"`
+with `revocation.mode = "off"` needs no database at all; turning revocation on
+is what creates the requirement.
+:::
+
+### Turning it on
+
+`revocation.mode` has no default. Startup refuses a missing value, because
+running without a revocation path should be a decision on the page, not an
+omission:
+
+```toml
+[auth.jwt]
+issuer = "https://issuer.example"
+audience = ["orders-api"]
+algorithms = ["RS256"]
+admission = "authenticated"
+identity_claim = "sub"
+max_token_lifetime = "1h"
+revocation.mode = "both"      # off, token, subject, or both
+```
+
+`off` is a legitimate answer, not a stub: a deployment whose tokens live for
+five minutes may decide the exposure window is acceptable and skip the database
+requirement entirely. Do not use revocation as a substitute for short lifetimes
+— the list bounds the damage of a leak, it does not shrink the window in which
+every ordinary token is trusted.
+
+With any mode other than `off`, every admitted request is checked against the
+list after signature and claim verification pass. A revoked token is refused
+with the same `401` as an expired one — a caller probing the API cannot tell
+which refusal it got, and that is intentional.
+
+### The two forms
+
+`token` revokes one credential; `subject` revokes an identity. They answer
+different incidents, and `both` is the ordinary choice because neither
+substitutes for the other.
+
+Revoking a **token** is the narrow act, for a leaked credential whose owner is
+otherwise fine. The entry is keyed on the token's `jti` claim, which is why
+selecting this form makes `jti` mandatory — a token nobody can name is a token
+nobody can revoke.
+
+Revoking a **subject** is the broad act, for a compromised account: it refuses
+every token issued to that identity *before now*. Enumerating the outstanding
+`jti` values of a stolen account is exactly what nobody can do, so the entry
+stores a timestamp instead, and the check compares it against each token's
+`iat`. The account is not banned — once the person re-authenticates at the
+issuer, the fresh token postdates the stamp and is admitted. Banning an account
+is an [admission](#who-gets-in) decision, not a revocation.
+
+Both calls name the issuer explicitly. The entry is scoped by it, and a call
+that inferred the issuer from configuration would silently write to the wrong
+scope if the deployment ever gained a second one.
+
+### Revoking from your own code
+
+There is no HTTP endpoint for any of this. An endpoint that revokes tokens needs
+an authorization rule the framework has no basis to write, so the surface is a
+set of Go calls, and your application decides who may reach them:
+
+```go
+// internal/admin/revoke.go
+package admin
+
+import (
+	"net/http"
+
+	"github.com/shibukawa/popcornwave/plugin/auth"
+	"github.com/shibukawa/popcornwave/pw"
+)
+
+const issuer = "https://issuer.example" // the auth.jwt.issuer this server verifies
+
+// RevokeAccount withdraws every outstanding token of one identity.
+// Route it however your operators reach admin actions; the framework
+// deliberately mounts nothing here.
+func RevokeAccount(w http.ResponseWriter, r *http.Request) {
+	identityKey := r.PathValue("identity")
+	err := auth.RevokeSubject(r.Context(), issuer, identityKey,
+		"compromised account, support ticket 4211")
+	if err != nil {
+		pw.WriteProblem(w, r, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+```
+
+`auth.RevokeToken(ctx, issuer, tokenID, note)` is the single-token counterpart.
+The note is for your future self reading the table during an incident; the
+framework never shows it to a caller.
+
+Revoking an identifier that was never presented **succeeds**. The caller cannot
+know whether a stolen token was ever used here, and an error would make the safe
+reflex — revoke first, investigate second — needlessly noisy.
+
+A revocation entry needs no expiry from you. It lives for `max_token_lifetime`
+past its stamp, which by construction outlives every token it must refuse, and
+the store sweeps it afterwards.
+
+### Undoing a mistake
+
+`auth.ReinstateToken` and `auth.ReinstateSubject` delete an entry. This is
+removal, not an undo with history: every unexpired token the entry was refusing
+works again at the next request. For an administrative view that must not guess,
+`auth.TokenRevoked` and `auth.SubjectRevoked` report the stored stamp and
+presence, reading the store directly rather than any per-request cache.
+
+### When the store cannot answer
+
+`revocation.on_unavailable` defaults to `refuse`, and the refusal is a `503`,
+not a `401` — the credential was not judged, and retrying may succeed. Admitting
+on an outage would turn the revocation table into an optimization and make every
+revocation conditional on infrastructure being up. It is the same reasoning the
+account store follows one section above, for the same reason.
+
+The `admit` override exists as an incident lever, not a deployment posture: with
+it set, every revoked token works again for the duration of the outage, and the
+configuration advisories report it at error level so it does not quietly outlive
+the incident.
+
+By default every admitted request reads the store.
+`revocation.max_propagation_delay` permits a small per-process cache instead,
+and its value is the honest answer to "how fast does a revocation take effect" —
+a token revoked now may be admitted for up to that long. Leave it at zero unless
+the extra read shows up in your latency budget. The three keys are listed with
+the rest of `[auth.jwt]` in the [configuration
+reference](/reference/configuration/#authjwt).
 
 ## Development
 

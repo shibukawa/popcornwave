@@ -242,6 +242,17 @@ Pool limits apply to each connection. Before increasing `max_open_conns`, add th
 limits across all configured connections, multiply that sum by the number of
 application instances, and verify that the database can accept the resulting total.
 
+One cost this framework does not charge is worth knowing while you size that
+pool. No transaction is opened when a request arrives. A handler that reads one
+row or writes one row runs one statement, holds a connection for that statement,
+and never pays a `BEGIN` and `COMMIT` around it — which is also why a pool sized
+for statements rather than for whole requests is enough. The boundary appears
+where `pw.Transaction` is written, and nowhere else, so the choices a
+transaction carries — the isolation level, whether it is read-only and therefore
+servable by a replica, where the commit falls relative to a slow external call —
+stay with the code that knows which ones matter. See
+[Queries](/guides/storage/queries/#transactions).
+
 ### Compression and CSRF
 
 Response compression is off by default. Enable it only when a CDN or reverse proxy

@@ -51,24 +51,99 @@ Names are relative to the seed directory and the `.yaml` extension may be
 omitted, so `pw seed users` and `pw seed users.yaml` are one request. See
 [pw seed](/pw/database/seed/).
 
-### If you know DBUnit
+## The dataset format
 
-The model is DBUnit's: one file describes a set of tables, and the same file
-serves both as the state you load and as the state you compare against. The keys
-that shape either direction come from that lineage and work as described under
-[Fixtures](/productivity/testing/#fixtures) — `_operation` for the per-table
-operations DBUnit spells `CLEAN_INSERT`, `INSERT`, `TRUNCATE_TABLE`, and
-`DELETE`; `_match` for whether unlisted rows are tolerated; matcher values like
-`[notnull]` or `[currentdate, 2m]` for columns whose value cannot be written
-down in advance.
-
-What does not carry over is the file format. Datasets are YAML only. A DBUnit
-XML dataset is not converted and not read: `Resolve` accepts the name because it
-has an extension, and the YAML parser then rejects the first line with a message
-about a string where a mapping was expected. Nothing in Popcorn Wave or in
+Datasets are YAML and nothing else. The model is DBUnit's and the key names come
+from it, but no XML, CSV, or Excel dataset is read — neither Popcorn Wave nor
 [dbtestify](https://github.com/shibukawa/dbtestify), the library underneath,
-parses XML, CSV, or Excel — porting an existing DBUnit suite means converting
-the datasets.
+parses one.
+
+### Tables, rows, and NULL
+
+Every top-level key is a table name, except the ones beginning with an
+underscore, which are directives. Each table holds a list of rows, and each row
+maps column names to values.
+
+A NULL is written `null`. What an *omitted* column means depends on whether its
+neighbours mention it, because rows are inserted in batches and the column list
+of one statement is the union of the keys its rows used:
+
+```yaml
+member:
+- { id: 1, name: Frank, nickname: Frankie }
+- { id: 2, name: Grace }          # nickname is inserted as NULL
+```
+
+A column no row in the table mentions is left out of the insert entirely, so the
+schema default applies to it. That is how a `created_at` with a default, or a
+serial `id`, stays out of a dataset. But a column one row supplies is part of
+that statement for every row beside it, and the rows that left it out get NULL
+rather than the default — which is a NOT NULL constraint violation if the column
+has one, and a silently blank column if it does not.
+
+A row may also carry a `_tag` list. Popcorn Wave parses it and never acts on it;
+see [Row tags](/productivity/testing/#row-tags-are-parsed-but-never-filter).
+
+### `_operation`: what happens to the table first
+
+Each table is truncated and refilled unless the file says otherwise, so applying
+a dataset twice leaves the same rows rather than twice as many.
+
+```yaml
+_operation:
+  member: insert
+  access_log: truncate
+
+member:
+- { id: 3, name: Heidi }
+```
+
+| Operation | Effect |
+| --- | --- |
+| `clear-insert` (default) | truncate the table, then insert the listed rows |
+| `insert` | insert the listed rows, leaving what is already there |
+| `upsert` | insert each listed row, updating it if the primary key exists |
+| `truncate` | empty the table and insert nothing |
+| `delete` | remove the rows whose primary keys the file lists |
+
+Tables the file does not name are untouched by any of these.
+
+`upsert` and `delete` are the two that need the table's primary keys, and
+looking those up costs a second connection —
+[a constraint worth reading before choosing one](/productivity/testing/#adding-to-a-table-instead-of-replacing-it).
+
+The key is singular, and so is `_tag`. A plural is read as a table name instead,
+so `_operations:` produces an error about a table that does not exist rather
+than one about a misspelled directive.
+
+### Values that only make sense as an expectation
+
+The same file can be compared against a database instead of loaded into one, and
+two parts of the format exist only for that direction.
+
+A bracketed value is a matcher rather than a value:
+
+| Value | Matches |
+| --- | --- |
+| `[null]` | a NULL, the same as writing `null` |
+| `[notnull]` | anything other than NULL |
+| `[any]` | any value |
+| `[currentdate, 2m]` | a timestamp within the given duration of now, defaulting to `1m` |
+| `[regexp, ^User .+ logged in$]` | a value whose text form matches the pattern |
+
+```yaml
+audit_log:
+- { id: 1, created_at: [currentdate, 2m], message: [regexp, "^User .+ logged in$"] }
+```
+
+They cover the columns that cannot be written down in advance: a generated
+timestamp, a message with an identifier embedded in it. Do not put one in a file
+you seed with — a matcher reaches the driver as a value it cannot bind, and the
+seed fails there.
+
+`_match` is the other expectation-only key. It decides per table whether rows the
+file does not list are tolerated, and which to choose is
+[a judgement covered with the assertion side](/productivity/testing/#comparing-part-of-a-table).
 
 ## One file, two consumers
 

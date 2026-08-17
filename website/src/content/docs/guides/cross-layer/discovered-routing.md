@@ -483,7 +483,7 @@ templates, and the flat run would claim the same output with different content.
 files rather than subscribing to events, and a route always arrives with the
 template that makes it one.
 
-## What is not here yet
+## Two conventions this router does not follow
 
 - **Route groups without a URL segment.** The bracket spelling other frameworks
   use is not a legal import path element.
@@ -492,12 +492,11 @@ template that makes it one.
 These are the same collision twice: where Go's rules and routing convention
 disagree, Go's rules win.
 
-Actions used to be on this list — the attribute was written and nothing acted on
-it. They are not any more. A `<form server-action>` posts to the page's own path
-and answers `303` with no JavaScript at all; with the runtime loaded the submit
-is intercepted and the response applied in place; and the token is in the form
-and on every request the runtime issues, so nothing is left to wire by hand. See
-[Server actions](/guides/interactivity/server-actions/).
+Actions are not on that list. A `<form server-action>` posts to the page's own
+path and answers `303` with no JavaScript at all; with the runtime loaded the
+submit is intercepted and the response applied in place; and the token is in the
+form and on every request the runtime issues, so nothing is left to wire by
+hand. See [Server actions](/guides/interactivity/server-actions/).
 
 What that leaves is not a gap so much as a rule: a page renders and a link
 navigates with no JavaScript, and a form action keeps that true. A bare

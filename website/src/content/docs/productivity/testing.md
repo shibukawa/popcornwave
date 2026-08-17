@@ -246,23 +246,12 @@ in the same package also writes. `sub` on an ordinary table quietly stops
 catching the row you did not expect, which was the reason to compare tables in
 the first place.
 
-Values that cannot be written down literally have their own forms:
-
-| Value | Matches |
-| --- | --- |
-| `[null]` | a NULL, the same as writing `null` |
-| `[notnull]` | anything other than NULL |
-| `[any]` | any value |
-| `[currentdate, 2m]` | a timestamp within the given duration of now, defaulting to `1m` |
-| `[regexp, ^User .+ logged in$]` | a value whose text form matches the pattern |
-
-```yaml
-audit_log:
-- { id: 1, created_at: [currentdate, 2m], message: [regexp, "^User .+ logged in$"] }
-```
-
-That covers the columns which would otherwise force the assertion out of the
-file and into Go: a generated timestamp, a message with an embedded identifier.
+A column whose value cannot be written down in advance — a generated timestamp,
+a message with an identifier embedded in it — is written as a matcher instead:
+`[notnull]`, `[currentdate, 2m]`, `[regexp, …]`. The full set is in
+[the dataset format](/productivity/seed-data/#values-that-only-make-sense-as-an-expectation).
+Without them the assertion for those columns would have to leave the file and
+move into Go.
 
 ### Reseeding mid-test
 
@@ -285,29 +274,12 @@ still open has not been compared at all.
 
 ### Adding to a table instead of replacing it
 
-Truncate-then-insert is the default, not the only option. `_operation` selects
-something else per table:
+Truncate-then-insert is the default, not the only option: `_operation` selects
+`insert`, `upsert`, `truncate`, or `delete` per table, and
+[the dataset format](/productivity/seed-data/#_operation-what-happens-to-the-table-first)
+spells all five out.
 
-| Operation | Effect |
-| --- | --- |
-| `clear-insert` (default) | truncate the table, then insert the listed rows |
-| `insert` | insert the listed rows, leaving what is already there |
-| `upsert` | insert each listed row, updating it if the primary key exists |
-| `truncate` | empty the table and insert nothing |
-| `delete` | remove the rows whose primary keys the file lists |
-
-```yaml
-_operation:
-  member: insert
-  access_log: truncate
-
-member:
-- { id: 3, name: Heidi }
-```
-
-Both keys are singular — `_operation` here, and `_tag` on a row. A plural is
-read as a table name instead, so the parse error names neither.
-
+Two of them carry a constraint a test meets before anything else does.
 `upsert` and `delete` need the table's primary keys, and that lookup runs on the
 pool rather than on the transaction doing the seeding. A pool capped at one
 connection is therefore already empty when the lookup runs, and the seed stops

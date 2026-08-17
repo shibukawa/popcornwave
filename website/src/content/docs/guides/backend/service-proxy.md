@@ -27,8 +27,8 @@ all, because nothing reaches it that has not already been through yours.
 `tinygodriver/httprevproxy`, whose public API mirrors the reverse-proxy portion
 of the standard package. Every Popcorn Wave project already requires
 `tinygodriver` — `pw.ServeMux` is one of its types — so there is no dependency
-to add. Import it under the `httputil` alias and a future migration to the
-standard package is one line.
+to add. Import it under the `httputil` alias and the call sites read exactly as they
+would against the standard package.
 
 ```go
 package handlers

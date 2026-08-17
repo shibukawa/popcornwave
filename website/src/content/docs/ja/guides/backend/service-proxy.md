@@ -26,7 +26,7 @@ preflight が付き、「今ログインしているのは誰か」という問�
 `tinygodriver/httprevproxy` から取ります。公開 API は標準パッケージのリバースプロキシ
 部分をそのまま写したものです。Popcorn Wave のプロジェクトは `tinygodriver` を既に
 require しています——`pw.ServeMux` がそこの型です——ので、追加する依存はありません。
-`httputil` という別名で import しておけば、将来標準パッケージへ移るときの変更は 1 行です。
+`httputil` という別名で import しておけば、呼び出し側は標準パッケージを使うときとまったく同じに読めます。
 
 ```go
 package handlers

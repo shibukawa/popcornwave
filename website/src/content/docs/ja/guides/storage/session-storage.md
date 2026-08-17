@@ -106,7 +106,7 @@ session.ttl = "12h"     # 身元の証明がどれだけ有効か
 
 | キー | 既定値 | 意味 |
 | --- | --- | --- |
-| `rdb.source` | `"middleware"` | `middleware.rdb` のプールを再利用。`dedicated` は未実装 |
+| `rdb.source` | `"middleware"` | `middleware.rdb` のプールを再利用。受け付ける値はこれだけで、他は起動時に拒否される |
 | `rdb.group` | *(空)* | テーブルを持つ接続グループ。空なら write グループ |
 | `rdb.table` | `"popcornwave_session"` | |
 
