@@ -25,11 +25,18 @@ hero:
 
 import { Card, CardGrid } from '@astrojs/starlight/components';
 
-Start with the unit Go already gives you: one `http.Handler`. It binds a
+Two aims hold this framework together. The first is to make **the naive
+implementation the fast and safe one**: write the obvious `net/http` handler and
+get the performance and the security posture you would otherwise have to go back
+and add. The second is to **make the web frontend a first-class thing to build
+in Go**, rather than the half of an application that leaves for the JavaScript
+ecosystem at the JSON boundary.
+
+Both rest on the unit Go already gives you — one `http.Handler` that binds a
 request, runs application logic, and writes a complete response through ordinary
-navigation and form semantics. The result remains a small, practical TinyGo
-target — without a component graph, patch protocol, hydration step, or browser
-runtime.
+navigation and form semantics. No component graph, patch protocol, hydration
+step, or browser runtime, which is also what keeps the result a small, practical
+TinyGo target.
 
 <CardGrid>
   <Card title="Go's ecosystem, respected" icon="seti:go">
@@ -37,15 +44,21 @@ runtime.
     precedence — and handlers stay plain `http.HandlerFunc`, so the middleware,
     `httptest` tests, and `http.Handler`s you already have keep working.
   </Card>
-  <Card title="Generated, not reflected" icon="setting">
-    `pw generate` compiles templates, SQL, request binding, and OpenAPI into
-    typed Go ahead of time, so a renamed template argument or a SELECT that no
-    longer matches its result type is a build error. With no runtime
-    reflection, the same code runs on **TinyGo**.
-  </Card>
-  <Card title="One command to a running app" icon="rocket">
+  <Card title="One command, then typed Go" icon="rocket">
     `pw init` scaffolds a complete project — handler, typed page, document
-    shell, SQL, migration, error pages, Devbox — and `pw dev` watches it.
+    shell, SQL, migration, error pages, Devbox — and `pw dev` watches it. Behind
+    both, `pw generate` compiles templates, SQL, request binding, and OpenAPI
+    into typed Go, so a renamed template argument or a SELECT that no longer
+    matches its result type is a build error. Nothing is rediscovered by
+    reflection at request time, which is what lets the same code run on
+    **TinyGo**.
+  </Card>
+  <Card title="The frontend, written in Go" icon="window">
+    A [`.pw.html`](/guides/frontend/templates/) file compiles to a component
+    with typed parameters and scoped styles, Tailwind is one `pw add tailwind`
+    away, and a route can be a directory. Async and live rendering stream a page
+    around the query still running, and a same-origin link is answered with only
+    the regions whose markup differs — all of it server-rendered HTML.
   </Card>
   <Card title="Modern web standards, preset" icon="approve-check">
     Validated security headers and CSRF, WebAuthn passkeys, negotiated
@@ -67,29 +80,7 @@ holds one todo list written twice against one PostgreSQL table — once with
 Same five routes, same rows, and the harness refuses to measure them if their
 JSON bodies disagree.
 
-Binary size, Go 1.26.5 and TinyGo 0.41.1 on darwin/arm64:
-
-| Build | `net/http` + pgx | Popcorn Wave |
-| --- | --- | --- |
-| host `go build` | 18.98 MB | 19.66 MB |
-| host `-ldflags="-s -w"` | 13.06 MB | 13.57 MB |
-| TinyGo native | does not build | 6.13 MB |
-| TinyGo native `-no-debug` | does not build | 6.13 MB |
-| TinyGo `wasip1` | does not build | does not build |
-
-The TinyGo rows are the point. `pgx` does not compile there at all — it reaches
-for `tls.Conn`, `tls.X509KeyPair` and `net.Resolver`, none of which TinyGo has —
-so the framework's rebuilt driver stack is what makes the column exist, and it
-more than halves the binary against a stripped host build.
-
-Neither service reaches `wasip1`, and for the framework that is a platform
-limit rather than missing work: the PostgreSQL engine requires TinyGo's threaded
-scheduler, because under the cooperative one a blocking socket call holds the
-runtime and a query outlives its context deadline in silence. WASI preview 1 has
-no threads, so the engine refuses to build there — by way of a deliberate
-compile error whose identifier names the fix.
-
-Throughput, k6 at 20 VUs against the same seeded 50 rows, medians of five
+Throughput first, k6 at 20 VUs against the same seeded 50 rows, medians of five
 alternating passes. The framework result depends almost entirely on where the
 session lives:
 
@@ -111,5 +102,36 @@ against **37 µs** for one loopback query.
 [Performance](/guides/architecture/performance/) has the full breakdown and the
 four other settings worth tuning.
 
-[Why Popcorn Wave](/start/why-popcorn-wave/) explains how that choice connects
-productivity, performance, and interoperability.
+All of that has to be linked in, and the binary is where you would expect to pay
+for it. Go 1.26.5 and TinyGo 0.41.1 on darwin/arm64:
+
+| Build | `net/http` + pgx | Popcorn Wave |
+| --- | --- | --- |
+| host `go build` | 18.98 MB | 19.66 MB |
+| host `-ldflags="-s -w"` | 13.06 MB | 13.57 MB |
+| TinyGo native | does not build | 6.13 MB |
+| TinyGo native `-no-debug` | does not build | 6.13 MB |
+| TinyGo `wasip1` | does not build | does not build |
+
+Read the stripped row as the price list. Sessions, CSRF, security headers,
+negotiated compression, OpenTelemetry spans down to each SQL statement, the
+generated templates and the generated queries together come to **0.51 MB** over
+a service that has none of them — 3.9%, for everything the throughput table
+above was already running.
+
+The TinyGo rows are where the table stops being a comparison. `pgx` does not
+compile there at all — it reaches for `tls.Conn`, `tls.X509KeyPair` and
+`net.Resolver`, none of which TinyGo has — so the framework's rebuilt driver
+stack is what makes the column exist, and it more than halves the binary against
+a stripped host build.
+
+Neither service reaches `wasip1`, and for the framework that is a platform
+limit rather than missing work: the PostgreSQL engine requires TinyGo's threaded
+scheduler, because under the cooperative one a blocking socket call holds the
+runtime and a query outlives its context deadline in silence. WASI preview 1 has
+no threads, so the engine refuses to build there — by way of a deliberate
+compile error whose identifier names the fix.
+
+[Why Popcorn Wave](/start/why-popcorn-wave/) takes both aims in full: what the
+naive implementation gets for free, and what it takes for frontend work to
+belong in Go.
